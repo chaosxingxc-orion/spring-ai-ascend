@@ -1,1 +1,1 @@
-ascend.springai.runtime.graphmemory.GraphMemoryAutoConfiguration
+ascend.springai.service.runtime.graphmemory.GraphMemoryAutoConfiguration
