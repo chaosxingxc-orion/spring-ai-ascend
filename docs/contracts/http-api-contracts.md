@@ -138,4 +138,4 @@ These routes are exempt from tenant and idempotency header requirements. They sh
 
 - [openapi-v1.yaml](openapi-v1.yaml) for the full machine-readable OpenAPI specification
 - [contract-catalog.md](contract-catalog.md) for the full contract inventory
-- [agent-platform/ARCHITECTURE.md](../../agent-platform/ARCHITECTURE.md) for filter chain and controller design
+- [agent-service/ARCHITECTURE.md](../../agent-service/ARCHITECTURE.md) for filter chain and controller design
