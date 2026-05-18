@@ -9,7 +9,7 @@ enforcer_refs: [E86, E87]
 status: active
 kernel_cap: 8
 kernel: |
-  **Every emitted `RunEvent` (when the variant ships in W2 per ADR-0022) MUST declare its `EvolutionExport` value per `docs/governance/evolution-scope.v1.yaml` (`IN_SCOPE | OUT_OF_SCOPE | OPT_IN`). Out-of-scope events MUST NOT be persisted by the evolution plane. Opt-in export requires the future `telemetry-export.v1.yaml` contract (W3 placeholder declared in `evolution-scope.v1.yaml#opt_in_export.contract_required`).**
+  **Every emitted `RunEvent` (when the variant ships in W2 per ADR-0022) MUST declare its `EvolutionExport` value (Java enum constants `IN_SCOPE | OUT_OF_SCOPE | OPT_IN`, mirrored by the yaml section names `in_scope | out_of_scope_default | opt_in_export` in `docs/governance/evolution-scope.v1.yaml`). Out-of-scope events MUST NOT be persisted by the evolution plane. Opt-in export requires the future `telemetry-export.v1.yaml` contract (W3 placeholder declared in `evolution-scope.v1.yaml#opt_in_export.contract_required`).**
 ---
 
 ## Motivation

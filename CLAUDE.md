@@ -236,7 +236,7 @@ Enforced by [`rule-41.md`](docs/governance/rules/rule-41.md).
 ---
 #### Rule 42 — Sandbox Permission Subsumption
 
-**`docs/governance/sandbox-policies.yaml` MUST exist with a `default_policy:` block (six required keys: `outbound_network`, `filesystem_read`, `filesystem_write`, `cpu_cap_millicores`, `memory_cap_megabytes`, `wall_clock_cap_seconds`). Per-skill rows MUST NOT widen the default policy beyond what the physical sandbox can enforce. The runtime `SandboxExecutor` MUST refuse a logical permission grant whose scope exceeds the declared physical limits.**
+**`docs/governance/sandbox-policies.yaml` MUST exist with a `default_policy:` block declaring at least six required keys: `outbound_network`, `filesystem_read`, `filesystem_write`, `cpu_cap_millicores`, `memory_cap_megabytes`, `wall_clock_cap_seconds`. Enforcement-mode keys (e.g. `syscalls`) MAY be added beyond the required six. Per-skill rows MUST NOT widen the default policy beyond what the physical sandbox can enforce. The runtime `SandboxExecutor` MUST refuse a logical permission grant whose scope exceeds the declared physical limits.**
 
 Enforced by [`rule-42.md`](docs/governance/rules/rule-42.md).
 
@@ -273,7 +273,7 @@ Enforced by [`rule-46.md`](docs/governance/rules/rule-46.md).
 ---
 #### Rule 47 — Evolution Scope Default Boundary
 
-**Every emitted `RunEvent` (when the variant ships in W2 per ADR-0022) MUST declare its `EvolutionExport` value per `docs/governance/evolution-scope.v1.yaml` (`IN_SCOPE | OUT_OF_SCOPE | OPT_IN`). Out-of-scope events MUST NOT be persisted by the evolution plane. Opt-in export requires the future `telemetry-export.v1.yaml` contract (W3 placeholder declared in `evolution-scope.v1.yaml#opt_in_export.contract_required`).**
+**Every emitted `RunEvent` (when the variant ships in W2 per ADR-0022) MUST declare its `EvolutionExport` value (Java enum constants `IN_SCOPE | OUT_OF_SCOPE | OPT_IN`, mirrored by the yaml section names `in_scope | out_of_scope_default | opt_in_export` in `docs/governance/evolution-scope.v1.yaml`). Out-of-scope events MUST NOT be persisted by the evolution plane. Opt-in export requires the future `telemetry-export.v1.yaml` contract (W3 placeholder declared in `evolution-scope.v1.yaml#opt_in_export.contract_required`).**
 
 Enforced by [`rule-47.md`](docs/governance/rules/rule-47.md).
 
@@ -345,6 +345,36 @@ Enforced by [`rule-73.md`](docs/governance/rules/rule-73.md).
 **All shell-driven operations (gates, builds, tests, generated artefacts, `git push`) MUST be verified on Linux — native, WSL2 (preferred), or WSL1 (fallback) — before merging to `main`. Git Bash for Windows is a debugging shim, not a verification environment. `docs/governance/dev-environment.md` is the canonical setup + verification guide. Measured 2026-05-18: WSL is 6–20× faster than Git Bash, AND surfaces platform-portability bugs that Win-only verification hides.**
 
 Enforced by [`rule-74.md`](docs/governance/rules/rule-74.md).
+
+---
+
+### SPI metadata integrity wave (2026-05-18)
+#### Rule 75 — SPI Packages Populated
+
+**Every `<module>/module-metadata.yaml#spi_packages` entry MUST resolve to a real directory under `<module>/src/main/java/...` containing at least one `.java` file beyond `package-info.java`. Entries whose inline comment includes BOTH `placeholder` AND an `ADR-NNNN` reference are exempt (deferred SPI work waived by an ADR).**
+
+Enforced by [`rule-75.md`](docs/governance/rules/rule-75.md).
+
+---
+#### Rule 76 — No Split SPI Packages
+
+**A given Java SPI package MUST be declared by exactly one Maven module's `module-metadata.yaml#spi_packages`. Two modules co-declaring the same package is a Maven split-package and fails Rule 76 — Maven test classpath, IDE ownership, and JPMS cannot reason about split-package SPI cleanly.**
+
+Enforced by [`rule-76.md`](docs/governance/rules/rule-76.md).
+
+---
+#### Rule 77 — SPI Packages Dot-Spi Convention
+
+**Every `spi_packages` entry MUST end in `.spi` OR contain `.spi.` (sub-packages). Operationalises Rule 32's `*.spi.*` literal convention — domain packages without a `.spi` token MUST NOT be declared as SPI.**
+
+Enforced by [`rule-77.md`](docs/governance/rules/rule-77.md).
+
+---
+#### Rule 78 — DFX SPI Packages Match Module Metadata
+
+**For every module with `kind ∈ {platform, domain}`, `docs/dfx/<module>.yaml` MUST declare a top-level `spi_packages:` block whose entries are an order-insensitive set match with the non-placeholder entries of `module-metadata.yaml#spi_packages`. Mis-nested (under `observability:` or other sub-keys) or omitted dfx blocks fail.**
+
+Enforced by [`rule-78.md`](docs/governance/rules/rule-78.md).
 
 ---
 

@@ -6,7 +6,10 @@
 module: agent-middleware
 kind: domain
 version: 1
-generated_at: 2026-05-17
+generated_at: 2026-05-18
+
+spi_packages:
+  - ascend.springai.middleware.spi
 
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-middleware"

@@ -1,7 +1,7 @@
 package ascend.springai.service.platform.web.runs;
 
 import ascend.springai.service.runtime.orchestration.inmemory.InMemoryRunRegistry;
-import ascend.springai.service.runtime.runs.RunRepository;
+import ascend.springai.service.runtime.runs.spi.RunRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;

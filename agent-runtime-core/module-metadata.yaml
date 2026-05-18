@@ -11,8 +11,8 @@ description: "Shared cognitive-runtime kernel: Run entity, RunContext, SuspendSi
 architecture_doc: agent-runtime-core/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-runtime-core.yaml
 spi_packages:
-  - ascend.springai.service.runtime.runs
   - ascend.springai.service.runtime.orchestration.spi
+  - ascend.springai.service.runtime.runs.spi
   - ascend.springai.service.runtime.s2c.spi
 allowed_dependencies: []
 forbidden_dependencies: []

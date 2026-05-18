@@ -3249,8 +3249,8 @@ _re2_t1_file="$_re2_log_dir/per-rule.ndjson"
 _re2_t1_lines=0
 [[ -f "$_re2_t1_file" ]] && _re2_t1_lines=$(wc -l < "$_re2_t1_file" 2>/dev/null || echo 0)
 _re2_t1_valid=0
-if [[ "$_re2_t1_lines" -ge 1 ]] && command -v python >/dev/null 2>&1; then
-  if cat "$_re2_t1_file" | python -c "
+if [[ "$_re2_t1_lines" -ge 1 ]] && command -v python3 >/dev/null 2>&1; then
+  if cat "$_re2_t1_file" | python3 -c "
 import json,sys
 for ln in sys.stdin:
     ln=ln.strip()
@@ -3272,7 +3272,7 @@ fi
 _re2_t2_file="$_re2_log_dir/summary.json"
 _re2_t2_rt=""
 if [[ -f "$_re2_t2_file" ]]; then
-  _re2_t2_rt=$(cat "$_re2_t2_file" | python -c "
+  _re2_t2_rt=$(cat "$_re2_t2_file" | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
 print(d.get('record_type',''))
@@ -3300,7 +3300,7 @@ fi
 
 # -------- Test 4: NDJSON sorted ascending by rule_number ------------------
 # Pipe through python (avoids MSYS path mapping); python emits 'OK' on success.
-_re2_t4_check=$(cat "$_re2_log_dir/per-rule.ndjson" | python -c "
+_re2_t4_check=$(cat "$_re2_log_dir/per-rule.ndjson" | python3 -c "
 import json,sys
 prev=-1
 for ln in sys.stdin:

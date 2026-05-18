@@ -177,7 +177,7 @@ else
   _r69_active=$(grep -oE '^#### Rule [0-9]+' "$_r69_claude" 2>/dev/null | grep -oE '[0-9]+' | sort -un)
   # Extract card numbers from filenames.
   _r69_cards=$(find "$_r69_cards_dir" -maxdepth 1 -name 'rule-*.md' -type f 2>/dev/null \
-                 | sed -E 's|.*/rule-0*([0-9]+)\.md|\1|' | sort -un)
+                 | sed -E 's|.*/rule-0*([0-9]+)[a-z]?\.md|\1|' | sort -un)
   # Missing cards: active rule with no card.
   _r69_missing=""
   while IFS= read -r _n; do

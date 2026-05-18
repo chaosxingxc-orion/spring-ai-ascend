@@ -3435,6 +3435,188 @@ else
   fi
 fi
 
+# ===========================================================================
+# SPI metadata integrity wave (2026-05-18)
+# Authority: docs/governance/rules/rule-{75..78}.md
+#            + D:\.claude\plans\spi-smooth-llama.md
+# Rules 75-78 with enforcer rows E108-E111. Prevents the SPI declaration vs
+# physical layout drift surfaced by the 2026-05-18 SPI integrity audit
+# (T2.B2 extraction left engine.spi empty + orchestration.spi double-claimed
+# across two Maven modules + dfx yaml omitting/mis-nesting spi_packages).
+# ===========================================================================
+
+# Rule 75 — spi_packages_populated (enforcer E108)
+#
+# Every <module>/module-metadata.yaml#spi_packages entry MUST resolve to a
+# real directory under <module>/src/main/java/... AND that directory MUST
+# contain at least one .java file beyond package-info.java. Catches the
+# 2026-05-18 root cause (ascend.springai.engine.spi declared but empty).
+#
+# Placeholder marker: an spi_packages line that includes BOTH "placeholder"
+# AND an "ADR-NNNN" reference in its inline comment is allowed to be empty
+# (or absent on disk). This honors deferred SPI work explicitly waived via
+# an ADR — e.g. agent-bus / agent-client / agent-evolve W2/W3+ scaffolds.
+# ---------------------------------------------------------------------------
+_r75_fail=0
+while IFS= read -r _r75_meta; do
+  [[ -z "$_r75_meta" ]] && continue
+  _r75_mod_dir="$(dirname "$_r75_meta")"
+  _r75_src="${_r75_mod_dir}/src/main/java"
+  _r75_in_block=0
+  while IFS= read -r _r75_line; do
+    if [[ "$_r75_line" =~ ^spi_packages: ]]; then
+      _r75_in_block=1
+      continue
+    fi
+    if [[ $_r75_in_block -eq 1 ]]; then
+      if [[ "$_r75_line" =~ ^[a-zA-Z_] ]]; then
+        _r75_in_block=0
+        continue
+      fi
+      if [[ "$_r75_line" =~ ^[[:space:]]*-[[:space:]] ]]; then
+        # Honor placeholder marker — skip if line comment contains both
+        # "placeholder" and an ADR-NNNN reference (deferred SPI work).
+        if [[ "$_r75_line" == *"#"* ]] && \
+           echo "$_r75_line" | grep -qE 'placeholder' && \
+           echo "$_r75_line" | grep -qE 'ADR-[0-9]{4}'; then
+          continue
+        fi
+        _r75_pkg=$(echo "$_r75_line" | sed -E 's/^[[:space:]]*-[[:space:]]*//' | sed -E 's/[[:space:]#].*$//' | tr -d "\"'")
+        [[ -z "$_r75_pkg" ]] && continue
+        _r75_dir="${_r75_src}/${_r75_pkg//./\/}"
+        if [[ ! -d "$_r75_dir" ]]; then
+          fail_rule "spi_packages_populated" "$_r75_meta declares spi package '$_r75_pkg' which resolves to '$_r75_dir' — directory does not exist on disk (Rule 75 / E108)"
+          _r75_fail=1
+          continue
+        fi
+        _r75_java_count=$(find "$_r75_dir" -maxdepth 1 -name '*.java' -not -name 'package-info.java' 2>/dev/null | wc -l)
+        if [[ "${_r75_java_count:-0}" -lt 1 ]]; then
+          fail_rule "spi_packages_populated" "$_r75_meta declares spi package '$_r75_pkg' at '$_r75_dir' which contains only package-info.java (no real SPI classes). Mark as deferred with '# placeholder; ADR-NNNN ...' comment to waive, or populate the SPI. Rule 75 / E108"
+          _r75_fail=1
+        fi
+      fi
+    fi
+  done < "$_r75_meta"
+done <<< "${_SCAN_MODULE_METADATA:-$(find . -maxdepth 3 -name module-metadata.yaml -not -path './target/*' -not -path './.claude/*' 2>/dev/null)}"
+if [[ $_r75_fail -eq 0 ]]; then pass_rule "spi_packages_populated"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 76 — no_split_spi_packages (enforcer E109)
+#
+# A given Java spi package MUST be declared by exactly one Maven module's
+# module-metadata.yaml#spi_packages. Two modules co-declaring the same
+# package is a split-package — Maven and JPMS cannot reason about ownership.
+# Catches the 2026-05-18 root cause (orchestration.spi double-declared by
+# agent-runtime-core AND agent-execution-engine).
+# ---------------------------------------------------------------------------
+_r76_fail=0
+_r76_tmp="$(mktemp 2>/dev/null || echo /tmp/r76.$$)"
+: > "$_r76_tmp"
+while IFS= read -r _r76_meta; do
+  [[ -z "$_r76_meta" ]] && continue
+  _r76_mod="$(grep -E '^[[:space:]]*module:' "$_r76_meta" 2>/dev/null | head -1 | sed -E 's/^[[:space:]]*module:[[:space:]]*([A-Za-z0-9_-]+).*/\1/')"
+  _r76_pkgs=$(awk '/^spi_packages:/{flag=1; next} /^[a-zA-Z_]/{flag=0} flag && /^[[:space:]]*-[[:space:]]+/{gsub(/^[[:space:]]*-[[:space:]]+/,""); gsub(/["\047]/,""); gsub(/[[:space:]#].*$/,""); print}' "$_r76_meta")
+  while IFS= read -r _r76_pkg; do
+    [[ -z "$_r76_pkg" ]] && continue
+    printf '%s|%s\n' "$_r76_pkg" "$_r76_mod" >> "$_r76_tmp"
+  done <<< "$_r76_pkgs"
+done <<< "${_SCAN_MODULE_METADATA:-$(find . -maxdepth 3 -name module-metadata.yaml -not -path './target/*' -not -path './.claude/*' 2>/dev/null)}"
+_r76_dupes=$(sort "$_r76_tmp" | awk -F'|' '{ owners[$1]=owners[$1]" "$2; counts[$1]++ } END { for (k in counts) if (counts[k] > 1) print k "|" owners[k] }')
+rm -f "$_r76_tmp"
+if [[ -n "$_r76_dupes" ]]; then
+  while IFS= read -r _r76_d; do
+    fail_rule "no_split_spi_packages" "spi package '${_r76_d%%|*}' declared by multiple modules:${_r76_d#*|} (Rule 76 / E109)"
+    _r76_fail=1
+  done <<< "$_r76_dupes"
+fi
+if [[ $_r76_fail -eq 0 ]]; then pass_rule "no_split_spi_packages"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 77 — spi_packages_dot_spi_convention (enforcer E110)
+#
+# Every <module>/module-metadata.yaml#spi_packages entry MUST end in `.spi`
+# OR contain `.spi.` (sub-packages). Operationalises Rule 32's `*.spi.*`
+# wording — a package called e.g. `service.runtime.runs` (no `.spi`) is a
+# domain package, not an SPI package, and must not be declared as one.
+# ---------------------------------------------------------------------------
+_r77_fail=0
+while IFS= read -r _r77_meta; do
+  [[ -z "$_r77_meta" ]] && continue
+  _r77_declared=$(awk '/^spi_packages:/{flag=1; next} /^[a-zA-Z_]/{flag=0} flag && /^[[:space:]]*-[[:space:]]+/{gsub(/^[[:space:]]*-[[:space:]]+/,""); gsub(/["\047]/,""); gsub(/[[:space:]#].*$/,""); print}' "$_r77_meta")
+  while IFS= read -r _r77_pkg; do
+    [[ -z "$_r77_pkg" ]] && continue
+    if [[ ! "$_r77_pkg" =~ \.spi$ ]] && [[ ! "$_r77_pkg" =~ \.spi\. ]]; then
+      fail_rule "spi_packages_dot_spi_convention" "$_r77_meta declares spi package '$_r77_pkg' which does not end in '.spi' or contain '.spi.' (Rule 77 / E110 — Rule 32 *.spi.* convention)"
+      _r77_fail=1
+    fi
+  done <<< "$_r77_declared"
+done <<< "${_SCAN_MODULE_METADATA:-$(find . -maxdepth 3 -name module-metadata.yaml -not -path './target/*' -not -path './.claude/*' 2>/dev/null)}"
+if [[ $_r77_fail -eq 0 ]]; then pass_rule "spi_packages_dot_spi_convention"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 78 — dfx_spi_packages_match_module_metadata (enforcer E111)
+#
+# For every module with kind ∈ {platform, domain}, the dfx yaml at
+# docs/dfx/<module>.yaml MUST declare a top-level `spi_packages:` block
+# whose entries are an order-insensitive set match with the module's
+# module-metadata.yaml#spi_packages (placeholder entries excluded — see
+# Rule 75). Catches the 2026-05-18 root cause where dfx yamls omitted,
+# mis-nested (under observability), or under-declared spi packages
+# relative to module-metadata.yaml.
+#
+# Placeholder filter: lines whose inline comment contains BOTH "placeholder"
+# AND "ADR-NNNN" are excluded from both sides of the comparison so deferred
+# SPI work declared symmetrically (or asymmetrically) in metadata only does
+# not force a noisy dfx declaration before the real SPI lands.
+# ---------------------------------------------------------------------------
+_r78_fail=0
+_r78_dfx_required_kinds_re='^(platform|domain)$'
+_r78_extract_real_spi() {
+  # Reads a yaml file from stdin/arg, prints non-placeholder spi_packages entries
+  # one per line, sorted-unique.
+  local _f="$1"
+  local _in_block=0
+  local _line
+  while IFS= read -r _line; do
+    if [[ "$_line" =~ ^spi_packages: ]]; then _in_block=1; continue; fi
+    if [[ $_in_block -eq 1 ]]; then
+      if [[ "$_line" =~ ^[a-zA-Z_] ]]; then _in_block=0; continue; fi
+      if [[ "$_line" =~ ^[[:space:]]*-[[:space:]] ]]; then
+        if [[ "$_line" == *"#"* ]] && \
+           echo "$_line" | grep -qE 'placeholder' && \
+           echo "$_line" | grep -qE 'ADR-[0-9]{4}'; then
+          continue
+        fi
+        echo "$_line" | sed -E 's/^[[:space:]]*-[[:space:]]*//' | sed -E 's/[[:space:]#].*$//' | tr -d "\"'"
+      fi
+    fi
+  done < "$_f" | sort -u
+}
+while IFS= read -r _r78_meta; do
+  [[ -z "$_r78_meta" ]] && continue
+  _r78_kind="$(grep -E '^[[:space:]]*kind:' "$_r78_meta" 2>/dev/null | head -1 | sed -E 's/^[[:space:]]*kind:[[:space:]]*([A-Za-z_]+).*/\1/')"
+  [[ ! "$_r78_kind" =~ $_r78_dfx_required_kinds_re ]] && continue
+  _r78_mod="$(grep -E '^[[:space:]]*module:' "$_r78_meta" 2>/dev/null | head -1 | sed -E 's/^[[:space:]]*module:[[:space:]]*([A-Za-z0-9_-]+).*/\1/')"
+  _r78_dfx="docs/dfx/${_r78_mod}.yaml"
+  [[ ! -f "$_r78_dfx" ]] && continue   # Rule 35 reports the missing-dfx case
+  _r78_meta_spi=$(_r78_extract_real_spi "$_r78_meta")
+  _r78_dfx_spi=$(_r78_extract_real_spi "$_r78_dfx")
+  # If metadata has zero real (non-placeholder) SPI, dfx not required.
+  [[ -z "$_r78_meta_spi" ]] && continue
+  if [[ -z "$_r78_dfx_spi" ]]; then
+    fail_rule "dfx_spi_packages_match_module_metadata" "$_r78_dfx missing top-level 'spi_packages:' block (must mirror non-placeholder entries of $_r78_meta) — Rule 78 / E111"
+    _r78_fail=1
+    continue
+  fi
+  if [[ "$_r78_meta_spi" != "$_r78_dfx_spi" ]]; then
+    _r78_meta_one=$(echo "$_r78_meta_spi" | tr '\n' ',' | sed 's/,$//')
+    _r78_dfx_one=$(echo "$_r78_dfx_spi" | tr '\n' ',' | sed 's/,$//')
+    fail_rule "dfx_spi_packages_match_module_metadata" "$_r78_meta non-placeholder spi_packages={${_r78_meta_one}} but $_r78_dfx declares {${_r78_dfx_one}} — Rule 78 / E111"
+    _r78_fail=1
+  fi
+done <<< "${_SCAN_MODULE_METADATA:-$(find . -maxdepth 3 -name module-metadata.yaml -not -path './target/*' -not -path './.claude/*' 2>/dev/null)}"
+if [[ $_r78_fail -eq 0 ]]; then pass_rule "dfx_spi_packages_match_module_metadata"; fi
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------

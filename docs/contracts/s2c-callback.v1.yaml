@@ -6,9 +6,11 @@
 # Cross-rule audit: docs/reviews/2026-05-16-engine-contract-structural-response.en.md §5 (Phase 3a audit matrix).
 #
 # This file is the SINGLE SOURCE OF TRUTH for the S2C callback envelope +
-# response shape. The Java records ascend.springai.runtime.s2c.S2cCallbackEnvelope
-# and S2cCallbackResponse mirror this schema and validate required fields on
-# construction.
+# response shape. The Java records under ascend.springai.service.runtime.s2c.spi
+# (S2cCallbackEnvelope, S2cCallbackResponse, S2cCallbackTransport) mirror this
+# schema and validate required fields on construction. Package path migrated
+# from ascend.springai.runtime.s2c in v2.0.0-rc3 per cross-constraint audit
+# alpha-4 / beta-2 — schema unchanged, only the Java home moved.
 #
 # Self-enforced by gate Rule 58 (s2c_callback_yaml_present_and_wellformed).
 
@@ -33,9 +35,15 @@ request:
     - trace_id               # W3C 32-char lowercase hex -- MUST equal suspending Run.traceId (ADR-0061)
     - idempotency_key        # UUID -- client may retry; runtime dedupes within window
   optional_fields:
-    - timeout_seconds        # int -- capped by s2c.client.callback skill capacity entry
-    - deadline               # ISO-8601 timestamp -- absolute deadline, overrides timeout_seconds
+    - timeout_seconds        # int -- capped by s2c.client.callback skill capacity entry (DEPRECATED: prefer deadline; retained for legacy callers)
+    - deadline               # ISO-8601 timestamp -- absolute deadline; when absent and timeout_seconds is supplied, callers MUST resolve (now + timeout_seconds) into an absolute deadline before constructing the envelope
     - request_attributes     # map<string, any> -- capability-specific extras
+
+  # Java representation note: S2cCallbackEnvelope fuses both optional fields
+  # into a single `Instant deadline` member resolved at construction time.
+  # Callers may pass EITHER an explicit deadline OR a timeout_seconds + clock-now
+  # resolution before construction; the wire schema accepts both for migration
+  # compatibility, but the in-process record stores only the absolute deadline.
 
 # RESPONSE envelope -- client to server.
 response:

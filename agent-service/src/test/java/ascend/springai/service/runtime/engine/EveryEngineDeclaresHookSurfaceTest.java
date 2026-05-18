@@ -1,9 +1,9 @@
 package ascend.springai.service.runtime.engine;
 
-import ascend.springai.service.runtime.orchestration.spi.AgentLoopExecutor;
-import ascend.springai.service.runtime.orchestration.spi.EngineHookSurface;
-import ascend.springai.service.runtime.orchestration.spi.ExecutorAdapter;
-import ascend.springai.service.runtime.orchestration.spi.GraphExecutor;
+import ascend.springai.engine.spi.AgentLoopExecutor;
+import ascend.springai.engine.spi.EngineHookSurface;
+import ascend.springai.engine.spi.ExecutorAdapter;
+import ascend.springai.engine.spi.GraphExecutor;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;

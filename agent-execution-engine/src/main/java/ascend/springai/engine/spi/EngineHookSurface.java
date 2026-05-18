@@ -1,4 +1,4 @@
-package ascend.springai.service.runtime.orchestration.spi;
+package ascend.springai.engine.spi;
 
 import ascend.springai.middleware.spi.HookPoint;
 
@@ -8,7 +8,7 @@ import java.util.Set;
  * An engine's declaration of which {@link HookPoint} events it fires.
  *
  * <p>The Runtime uses this declaration to determine whether a registered
- * {@link RuntimeMiddleware} will ever observe its subscribed hook on this
+ * {@code RuntimeMiddleware} will ever observe its subscribed hook on this
  * engine — useful for hot-path optimisation (a middleware that subscribes to
  * {@code BEFORE_LLM_INVOCATION} can be skipped entirely if no registered
  * engine declares that hook).
@@ -19,8 +19,8 @@ import java.util.Set;
  * {@link HookPoint#BEFORE_RESUME}) regardless of the engine's surface
  * declaration — those are runtime-level hooks, not engine-level.
  *
- * <p>Pure Java — no Spring imports per architecture §4.7
- * (orchestration.spi imports only java.*).
+ * <p>SPI-pure per CLAUDE.md Rule 32: imports {@code java.*} + agent-middleware
+ * SPI only.
  *
  * <p>Authority: ADR-0073; CLAUDE.md Rule 45.
  */

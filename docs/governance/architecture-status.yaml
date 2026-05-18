@@ -311,7 +311,7 @@ capabilities:
       - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
       - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunMode.java
       - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunRepository.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/spi/RunRepository.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunTest.java
     allowed_claim: "L1: Run record with mandatory tenantId, runId, mode (GRAPH|AGENT_LOOP); RunStatus PENDING/RUNNING/SUSPENDED/SUCCEEDED/FAILED/CANCELLED; nullable parentNodeKey+suspendedAt for interrupt-driven nesting; RunRepository SPI adds findByParentRunId + findByTenantAndStatus + findRootRuns(tenantId). Rule 11 target. findRootRuns shipped W0 per ADR-0032."
@@ -333,8 +333,11 @@ capabilities:
     implementation:
       - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/Orchestrator.java
       - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
-      - agent-execution-engine/src/main/java/ascend/springai/service/runtime/orchestration/spi/GraphExecutor.java
-      - agent-execution-engine/src/main/java/ascend/springai/service/runtime/orchestration/spi/AgentLoopExecutor.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/spi/GraphExecutor.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/spi/AgentLoopExecutor.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/spi/ExecutorAdapter.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/spi/EngineHookSurface.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/spi/EngineMatchingException.java
       - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/ExecutorDefinition.java
       - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignal.java
       - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/Checkpointer.java
@@ -825,7 +828,7 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0032-scope-based-run-hierarchy-and-planner-contract-minimal.md
     implementation:
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunRepository.java
+      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/spi/RunRepository.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistryFindRootRunsTest.java

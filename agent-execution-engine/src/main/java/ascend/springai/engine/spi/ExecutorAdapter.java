@@ -1,4 +1,8 @@
-package ascend.springai.service.runtime.orchestration.spi;
+package ascend.springai.engine.spi;
+
+import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
+import ascend.springai.service.runtime.orchestration.spi.RunContext;
+import ascend.springai.service.runtime.orchestration.spi.SuspendSignal;
 
 /**
  * Uniform dispatch surface for every execution engine known to the runtime.
@@ -17,8 +21,10 @@ package ascend.springai.service.runtime.orchestration.spi;
  * {@link AgentLoopExecutor} — extend this interface so that every existing
  * implementation is automatically an {@code ExecutorAdapter}.
  *
- * <p>Pure Java — no Spring imports per architecture §4.7 (orchestration.spi
- * imports only java.*).
+ * <p>SPI-pure per CLAUDE.md Rule 32: imports restricted to {@code java.*}
+ * + same-package siblings + cross-module SPI surfaces
+ * ({@code service.runtime.orchestration.spi}, {@code middleware.spi}).
+ * Spring / platform / impl / metrics imports are forbidden (E48).
  *
  * <p>Authority: ADR-0072; CLAUDE.md Rules 43, 44.
  */
@@ -47,14 +53,15 @@ public interface ExecutorAdapter {
     Object execute(RunContext ctx, ExecutorDefinition def, Object payload) throws SuspendSignal;
 
     /**
-     * Declaration of which {@link HookPoint} events this engine fires from
-     * its own code. Default is {@link EngineHookSurface#empty()} — appropriate
-     * for adapters whose hook firing happens at the orchestrator layer
-     * ({@code ON_ERROR}, {@code BEFORE_SUSPENSION}, {@code BEFORE_RESUME}) and
-     * who do not yet fire LLM/tool/memory hooks themselves. W2 engines that
-     * fire engine-side hooks override this to advertise their hook surface
-     * so the runtime can hot-path-skip middlewares whose subscribed hook is
-     * unsupported. ADR-0073 §Decision Phase 2.
+     * Declaration of which {@link ascend.springai.middleware.spi.HookPoint}
+     * events this engine fires from its own code. Default is
+     * {@link EngineHookSurface#empty()} — appropriate for adapters whose hook
+     * firing happens at the orchestrator layer ({@code ON_ERROR},
+     * {@code BEFORE_SUSPENSION}, {@code BEFORE_RESUME}) and who do not yet
+     * fire LLM/tool/memory hooks themselves. W2 engines that fire engine-side
+     * hooks override this to advertise their hook surface so the runtime can
+     * hot-path-skip middlewares whose subscribed hook is unsupported.
+     * ADR-0073 §Decision Phase 2.
      */
     default EngineHookSurface hookSurface() {
         return EngineHookSurface.empty();

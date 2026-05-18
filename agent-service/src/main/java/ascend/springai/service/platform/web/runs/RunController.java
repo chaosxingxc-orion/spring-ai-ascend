@@ -5,7 +5,7 @@ import ascend.springai.service.platform.tenant.TenantContextHolder;
 import ascend.springai.service.platform.web.ErrorEnvelope;
 import ascend.springai.service.runtime.runs.Run;
 import ascend.springai.service.runtime.runs.RunMode;
-import ascend.springai.service.runtime.runs.RunRepository;
+import ascend.springai.service.runtime.runs.spi.RunRepository;
 import ascend.springai.service.runtime.runs.RunStatus;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;

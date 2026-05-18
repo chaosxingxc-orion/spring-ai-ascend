@@ -4,13 +4,13 @@ import ascend.springai.service.runtime.orchestration.inmemory.InMemoryCheckpoint
 import ascend.springai.service.runtime.orchestration.inmemory.InMemoryRunRegistry;
 import ascend.springai.service.runtime.orchestration.inmemory.SequentialGraphExecutor;
 import ascend.springai.service.runtime.orchestration.inmemory.SyncOrchestrator;
-import ascend.springai.service.runtime.orchestration.spi.EngineMatchingException;
+import ascend.springai.engine.spi.EngineMatchingException;
 import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
 import ascend.springai.middleware.spi.HookOutcome;
 import ascend.springai.middleware.spi.HookPoint;
 import ascend.springai.middleware.spi.RuntimeMiddleware;
 import ascend.springai.service.runtime.runs.Run;
-import ascend.springai.service.runtime.runs.RunRepository;
+import ascend.springai.service.runtime.runs.spi.RunRepository;
 import ascend.springai.service.runtime.runs.RunStatus;
 import org.junit.jupiter.api.Test;
 

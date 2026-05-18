@@ -1,7 +1,7 @@
 package ascend.springai.service.runtime.engine;
 
-import ascend.springai.service.runtime.orchestration.spi.EngineMatchingException;
-import ascend.springai.service.runtime.orchestration.spi.ExecutorAdapter;
+import ascend.springai.engine.spi.EngineMatchingException;
+import ascend.springai.engine.spi.ExecutorAdapter;
 import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
 import ascend.springai.middleware.HookDispatcher;
 import ascend.springai.middleware.spi.RuntimeMiddleware;

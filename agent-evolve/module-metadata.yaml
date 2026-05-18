@@ -11,7 +11,7 @@ description: "Evolution plane — Java-side adapter skeleton for the Python ML p
 architecture_doc: agent-evolve/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-evolve.yaml
 spi_packages:
-  - ascend.springai.evolve.spi   # placeholder; populated when Java adapter activates
+  - ascend.springai.evolve.spi   # placeholder; populated when Java adapter activates per ADR-0075
 allowed_dependencies: []
 forbidden_dependencies:
   - agent-platform

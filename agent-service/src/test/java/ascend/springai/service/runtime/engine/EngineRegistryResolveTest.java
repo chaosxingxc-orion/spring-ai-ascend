@@ -1,10 +1,10 @@
 package ascend.springai.service.runtime.engine;
 
-import ascend.springai.service.runtime.orchestration.spi.AgentLoopExecutor;
-import ascend.springai.service.runtime.orchestration.spi.EngineMatchingException;
-import ascend.springai.service.runtime.orchestration.spi.ExecutorAdapter;
+import ascend.springai.engine.spi.AgentLoopExecutor;
+import ascend.springai.engine.spi.EngineMatchingException;
+import ascend.springai.engine.spi.ExecutorAdapter;
 import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
-import ascend.springai.service.runtime.orchestration.spi.GraphExecutor;
+import ascend.springai.engine.spi.GraphExecutor;
 import ascend.springai.service.runtime.orchestration.spi.RunContext;
 import ascend.springai.service.runtime.orchestration.spi.SuspendSignal;
 import org.junit.jupiter.api.Test;

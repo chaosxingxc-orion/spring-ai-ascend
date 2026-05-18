@@ -973,3 +973,35 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#quickstart_smoke_job_present
   asserts: ".github/workflows/ci.yml declares a job named 'quickstart-smoke' that boots agent-service and polls /v1/health."
+
+- id: E108
+  constraint_ref: "CLAUDE.md Rule 75 (spi_packages_populated); SPI metadata integrity wave 2026-05-18"
+  kind: gate-script
+  level: L1
+  view: development
+  artifact: gate/check_architecture_sync.sh#spi_packages_populated
+  asserts: "Every module-metadata.yaml#spi_packages entry resolves to a directory with at least one .java file beyond package-info.java. Entries marked '# placeholder; ADR-NNNN ...' are exempt as deferred SPI work."
+
+- id: E109
+  constraint_ref: "CLAUDE.md Rule 76 (no_split_spi_packages); SPI metadata integrity wave 2026-05-18"
+  kind: gate-script
+  level: L1
+  view: development
+  artifact: gate/check_architecture_sync.sh#no_split_spi_packages
+  asserts: "No Java SPI package may be declared by more than one Maven module's spi_packages: list. Prevents Maven split-packages (CLAUDE.md Rule 76)."
+
+- id: E110
+  constraint_ref: "CLAUDE.md Rule 77 (spi_packages_dot_spi_convention); SPI metadata integrity wave 2026-05-18"
+  kind: gate-script
+  level: L1
+  view: development
+  artifact: gate/check_architecture_sync.sh#spi_packages_dot_spi_convention
+  asserts: "Every spi_packages entry ends in '.spi' or contains '.spi.' — operationalises the *.spi.* literal convention of Rule 32."
+
+- id: E111
+  constraint_ref: "CLAUDE.md Rule 78 (dfx_spi_packages_match_module_metadata); SPI metadata integrity wave 2026-05-18"
+  kind: gate-script
+  level: L1
+  view: development
+  artifact: gate/check_architecture_sync.sh#dfx_spi_packages_match_module_metadata
+  asserts: "For every kind={platform,domain} module, docs/dfx/<module>.yaml declares a top-level spi_packages: matching the non-placeholder entries of module-metadata.yaml#spi_packages."

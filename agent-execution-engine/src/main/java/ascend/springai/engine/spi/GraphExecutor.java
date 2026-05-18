@@ -1,4 +1,8 @@
-package ascend.springai.service.runtime.orchestration.spi;
+package ascend.springai.engine.spi;
+
+import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
+import ascend.springai.service.runtime.orchestration.spi.RunContext;
+import ascend.springai.service.runtime.orchestration.spi.SuspendSignal;
 
 /**
  * SPI for deterministic graph execution. Pure Java — no Spring imports.

@@ -19,7 +19,11 @@
 # PR1 (token-optimization wave): CLAUDE.md shrunk from 43.6K to ~21.5K bytes (51% reduction)
 # via per-rule + per-principle cards under docs/governance/{rules,principles}/. CLAUDE-deferred.md
 # demoted to on-demand (ceiling 0). Future PRs tighten the YAML / ARCH.md ceilings.
-CLAUDE.md=25000
+# 2026-05-18 SPI metadata integrity wave: +4 rules (75-78, ~1.5K) plus Rule
+# 42/47 kernel clarifications (~0.3K) raised CLAUDE.md from 24,699 to ~26,600.
+# Ceiling raised from 25,000 to 28,000 — future PR2 still targets 8,000 via
+# kernel-shrink. Headroom of ~1,400 bytes admits one more small rule wave.
+CLAUDE.md=28000
 ARCHITECTURE.md=80000
 AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000

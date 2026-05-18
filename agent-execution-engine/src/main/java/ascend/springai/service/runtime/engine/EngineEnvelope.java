@@ -15,7 +15,7 @@ import java.util.Objects;
  * <p>The envelope is intentionally SHALLOW (proposal §3.2 of 2026-05-15):
  * it carries metadata for routing / governance / observability, NOT a
  * universal DSL. The {@code payload} is opaque to the envelope and validated
- * by the matching {@link ascend.springai.service.runtime.orchestration.spi.ExecutorAdapter}
+ * by the matching {@link ascend.springai.engine.spi.ExecutorAdapter}
  * resolved by {@link EngineRegistry}.
  *
  * <p>W2.x Phase 1: only {@code name}, {@code engineType}, and {@code payload}

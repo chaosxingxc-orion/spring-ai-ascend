@@ -6,6 +6,11 @@ kind: domain
 version: 1
 generated_at: 2026-05-18
 
+spi_packages:
+  - ascend.springai.service.runtime.orchestration.spi
+  - ascend.springai.service.runtime.runs.spi
+  - ascend.springai.service.runtime.s2c.spi
+
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-runtime-core"
   semver_policy: "0.x — SPI is contract-frozen at L1; non-SPI may change without major bump"

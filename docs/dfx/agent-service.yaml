@@ -11,6 +11,9 @@ kind: domain
 version: 1
 generated_at: 2026-05-18
 
+spi_packages:
+  - ascend.springai.service.runtime.memory.spi
+
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-service"
   semver_policy: "0.x — SPI under ascend.springai.service.runtime.*.spi.* is contract-frozen at L1; non-SPI (incl. service.platform.*) may change without major bump"
@@ -50,6 +53,3 @@ observability:
   hook_emission_path: "every LLM call, tool call, lifecycle boundary MUST flow through HookChain (Rule 19, deferred W2; ArchUnit LlmGatewayHookChainOnlyTest active and vacuous today per E43)"
   audit_trail: "run_state_change audit row deferred to W2 (Rule 24); Rule 24.c log-only at W1 — Wave 4 Track C will ship the logging path"
   api_contract_surface: "OpenAPI snapshot pinned at docs/contracts/openapi-v1.yaml (E25); live-vs-snapshot drift detected by E36"
-  spi_packages:
-    - "ascend.springai.service.runtime.orchestration.spi"
-    - "ascend.springai.service.runtime.memory.spi"

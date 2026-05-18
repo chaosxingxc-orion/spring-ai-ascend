@@ -1,4 +1,4 @@
-package ascend.springai.service.runtime.orchestration.spi;
+package ascend.springai.engine.spi;
 
 /**
  * Raised when a Run's envelope declares {@code engineType=X} but the runtime
@@ -11,8 +11,7 @@ package ascend.springai.service.runtime.orchestration.spi;
  * configuration. The owning Run transitions to {@code RunStatus.FAILED} with
  * reason {@code engine_mismatch}.
  *
- * <p>Pure Java — no Spring imports per architecture §4.7 (orchestration.spi
- * imports only java.*).
+ * <p>SPI-pure per CLAUDE.md Rule 32: imports only {@code java.*}.
  *
  * <p>Authority: ADR-0072; CLAUDE.md Rule 44 (Strict Engine Matching).
  */

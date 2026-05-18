@@ -11,8 +11,12 @@ description: "Heterogeneous execution engine surface — EngineRegistry, EngineE
 architecture_doc: agent-execution-engine/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-execution-engine.yaml
 spi_packages:
+  # Sole owner of the engine-adapter SPI (ExecutorAdapter + GraphExecutor +
+  # AgentLoopExecutor + EngineHookSurface + EngineMatchingException). The
+  # kernel-side SPI (RunContext / ExecutorDefinition / SuspendSignal) lives
+  # in agent-runtime-core under service.runtime.orchestration.spi — adapter
+  # signatures reference it via cross-module SPI import (allowed under Rule 32 + E48).
   - ascend.springai.engine.spi
-  - ascend.springai.service.runtime.orchestration.spi
 allowed_dependencies:
   - agent-runtime-core     # shared kernel types (Run, RunContext, SuspendSignal) per ADR-0079
   - agent-middleware       # engine references HookPoint enum + RuntimeMiddleware listener

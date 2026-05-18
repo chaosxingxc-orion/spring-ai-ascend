@@ -1,9 +1,9 @@
 package ascend.springai.service.runtime.orchestration.inmemory;
 
 import ascend.springai.service.runtime.engine.EngineRegistry;
-import ascend.springai.service.runtime.orchestration.spi.AgentLoopExecutor;
+import ascend.springai.engine.spi.AgentLoopExecutor;
 import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
-import ascend.springai.service.runtime.orchestration.spi.GraphExecutor;
+import ascend.springai.engine.spi.GraphExecutor;
 import ascend.springai.service.runtime.orchestration.spi.RunContext;
 import ascend.springai.service.runtime.orchestration.spi.SuspendSignal;
 import org.junit.jupiter.api.Test;

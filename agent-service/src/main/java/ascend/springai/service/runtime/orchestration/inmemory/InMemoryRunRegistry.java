@@ -2,7 +2,7 @@ package ascend.springai.service.runtime.orchestration.inmemory;
 
 import ascend.springai.service.runtime.posture.AppPostureGate;
 import ascend.springai.service.runtime.runs.Run;
-import ascend.springai.service.runtime.runs.RunRepository;
+import ascend.springai.service.runtime.runs.spi.RunRepository;
 import ascend.springai.service.runtime.runs.RunStatus;
 
 import java.util.List;

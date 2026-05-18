@@ -12,7 +12,7 @@ import ascend.springai.middleware.spi.HookPoint;
 import ascend.springai.middleware.spi.RuntimeMiddleware;
 import ascend.springai.service.runtime.orchestration.spi.SuspendSignal;
 import ascend.springai.service.runtime.runs.Run;
-import ascend.springai.service.runtime.runs.RunRepository;
+import ascend.springai.service.runtime.runs.spi.RunRepository;
 import ascend.springai.service.runtime.runs.RunStatus;
 import ascend.springai.service.runtime.s2c.spi.S2cCallbackEnvelope;
 import ascend.springai.service.runtime.s2c.spi.S2cCallbackResponse;

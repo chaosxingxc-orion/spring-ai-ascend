@@ -41,15 +41,20 @@ decision: |
   - Move the following from agent-service into agent-runtime-core
     (packages preserved as ascend.springai.service.runtime.*):
       runs/Run.java, RunMode.java, RunStatus.java, RunStateMachine.java,
-      runs/RunRepository.java (SPI),
+      runs/spi/RunRepository.java (SPI — relocated to runs.spi sub-package by the 2026-05-18 SPI integrity remediation),
       orchestration/spi/Orchestrator.java, RunContext.java, SuspendSignal.java,
       orchestration/spi/Checkpointer.java, TraceContext.java, ExecutorDefinition.java,
       idempotency/IdempotencyRecord.java,
       s2c/spi/S2cCallbackTransport.java, S2cCallbackEnvelope.java, S2cCallbackResponse.java.
-  - Move the following from agent-service into agent-execution-engine
-    (packages preserved):
+  - Move the following from agent-service into agent-execution-engine.
+    NOTE: the engine-adapter SPI files were initially landed in
+    ascend.springai.service.runtime.orchestration.spi (split-package with
+    agent-runtime-core); the 2026-05-18 SPI integrity remediation relocated
+    them to their final home ascend.springai.engine.spi to eliminate the
+    cross-module split. EngineRegistry + EngineEnvelope remain in
+    ascend.springai.service.runtime.engine (engine implementation, not SPI):
       engine/EngineRegistry.java, EngineEnvelope.java,
-      orchestration/spi/ExecutorAdapter.java, GraphExecutor.java, AgentLoopExecutor.java,
+      engine.spi/ExecutorAdapter.java, GraphExecutor.java, AgentLoopExecutor.java,
       EngineMatchingException.java, EngineHookSurface.java.
   - Dependency graph:
       agent-runtime-core: depends on nothing (java.* only)

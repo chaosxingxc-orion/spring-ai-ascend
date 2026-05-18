@@ -207,13 +207,13 @@ full analysis.
 
 ### Active SPI surface (W0 shipped)
 
-- `ascend.springai.service.runtime.runs.RunRepository` — dev-posture: `InMemoryRunRegistry`; W2: Spring Data JDBC + Postgres.
+- `ascend.springai.service.runtime.runs.spi.RunRepository` — dev-posture: `InMemoryRunRegistry`; W2: Spring Data JDBC + Postgres.
 - `ascend.springai.service.runtime.orchestration.spi.Checkpointer` — dev-posture: `InMemoryCheckpointer`; W2: Postgres-backed.
 - `ascend.springai.service.runtime.memory.spi.GraphMemoryRepository` — sidecar: Graphiti (W1 reference example, ADR-0034). No production impl at W0.
 - `ascend.springai.service.runtime.resilience.ResilienceContract` — W0: Resilience4j impl.
 - `ascend.springai.service.runtime.orchestration.spi.Orchestrator` — W0: `SyncOrchestrator` reference impl.
-- `ascend.springai.service.runtime.orchestration.spi.GraphExecutor` — W0: `SequentialGraphExecutor` reference impl.
-- `ascend.springai.service.runtime.orchestration.spi.AgentLoopExecutor` — W0: `IterativeAgentLoopExecutor` reference impl.
+- `ascend.springai.engine.spi.GraphExecutor` — W0: `SequentialGraphExecutor` reference impl.
+- `ascend.springai.engine.spi.AgentLoopExecutor` — W0: `IterativeAgentLoopExecutor` reference impl.
 
 ### Active probes (W0 shipped)
 
