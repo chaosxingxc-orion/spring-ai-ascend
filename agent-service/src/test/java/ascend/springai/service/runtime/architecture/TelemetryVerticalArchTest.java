@@ -44,7 +44,7 @@ class TelemetryVerticalArchTest {
                 .count();
         assertThat(count)
                 .as("Only orchestration-package classes may implement TraceContext at L1.x (§4 #53). "
-                  + "W2 may permit agent-runtime/observability emitter classes; that boundary will be opened explicitly.")
+                  + "W2 may permit observability emitter classes under the runtime sub-tree (post-Phase-C: agent-service.runtime.observability; pre-Phase-C: agent-runtime/observability per ADR-0078); that boundary will be opened explicitly.")
                 .isZero();
     }
 }

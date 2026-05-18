@@ -15,10 +15,12 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  *
  * <p>Strict generalisation of {@link TenantPropagationPurityTest} (which guards the
  * single {@code TenantContextHolder} class for Rule 21). At L1 we permit
- * {@code agent-platform -> agent-runtime} for the HTTP run handoff, but the reverse
- * direction stays forbidden at both pom and source levels.
+ * {@code agent-platform -> agent-runtime} (pre-Phase-C module-pair names; per
+ * ADR-0078 both are now sub-packages of agent-service: platform.* -> runtime.*)
+ * for the HTTP run handoff, but the reverse direction stays forbidden at both
+ * pom and source levels.
  *
- * <p>Rationale: agent-platform owns request-scoped concerns (HTTP, JWT, ThreadLocal
+ * <p>Rationale: agent-platform (pre-Phase-C; post-ADR-0078: agent-service.platform.*) owns request-scoped concerns (HTTP, JWT, ThreadLocal
  * tenant binding, idempotency entry behaviour). Runtime code runs in non-request
  * contexts (timer-driven resumes, async orchestration) where those concerns are
  * undefined; importing them would silently produce null-tenant / no-request bugs.

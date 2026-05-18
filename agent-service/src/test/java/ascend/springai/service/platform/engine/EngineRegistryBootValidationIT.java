@@ -53,7 +53,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class EngineRegistryBootValidationIT {
 
     /**
-     * Surefire runs the test forked from the module dir (agent-platform/), but
+     * Surefire runs the test forked from the module dir (post-Phase-C:
+     * agent-service/; pre-Phase-C: agent-platform/ per ADR-0078), but
      * the default schema path docs/contracts/engine-envelope.v1.yaml lives at
      * the repo root. Resolve the absolute path here so the test is invariant
      * to module-vs-root cwd.

@@ -18,6 +18,7 @@ class OssApiProbeTest {
         // proves all referenced Class<?> literals resolve at the pinned versions.
         String result = OssApiProbe.probe();
         assertThat(result).isNotNull();
+        // Probe label retained pre-Phase-C verbatim for back-compat (ADR-0078 consolidation kept the string).
         assertThat(result).startsWith("agent-runtime W0-U2 probe:");
     }
 

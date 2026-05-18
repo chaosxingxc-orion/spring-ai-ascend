@@ -243,7 +243,7 @@ Enforced by [`rule-41.md`](docs/governance/rules/rule-41.md).
 ---
 #### Rule 42 — Sandbox Permission Subsumption
 
-**`docs/governance/sandbox-policies.yaml` MUST exist with a `default_policy:` block declaring at least six required keys: `outbound_network`, `filesystem_read`, `filesystem_write`, `cpu_cap_millicores`, `memory_cap_megabytes`, `wall_clock_cap_seconds`. Enforcement-mode keys (e.g. `syscalls`) MAY be added beyond the required six. Per-skill rows MUST NOT widen the default policy beyond what the physical sandbox can enforce. The runtime `SandboxExecutor` MUST refuse a logical permission grant whose scope exceeds the declared physical limits.**
+**`docs/governance/sandbox-policies.yaml` MUST exist with a `default_policy:` block declaring at least six required keys: `outbound_network`, `filesystem_read`, `filesystem_write`, `cpu_cap_millicores`, `memory_cap_megabytes`, `wall_clock_cap_seconds`. Enforcement-mode keys (e.g. `syscalls`) MAY be added beyond the required six. Per-skill rows MUST NOT widen the default policy beyond what the physical sandbox can enforce. Runtime refusal of over-wide logical grants by `SandboxExecutor` is deferred to Rule 42.b (W2) per `docs/CLAUDE-deferred.md`.**
 
 Enforced by [`rule-42.md`](docs/governance/rules/rule-42.md).
 
@@ -273,7 +273,7 @@ Enforced by [`rule-45.md`](docs/governance/rules/rule-45.md).
 ---
 #### Rule 46 — S2C Callback Envelope + Lifecycle Bound
 
-**Server-to-Client capability invocation MUST go through `S2cCallbackEnvelope` + `S2cCallbackTransport` SPI (both under `ascend.springai.service.runtime.s2c.spi` after the v2.0.0-rc3 package move per cross-constraint audit α-4 / β-2). The waiting Run MUST suspend via `SuspendSignal.forClientCallback(...)` — a checked-suspension variant introduced in v2.0.0-rc3 per cross-constraint audit α-2 / β-5 to preserve ADR-0019's compile-time-visible-suspension doctrine; the prior parallel unchecked `S2cCallbackSignal` was deleted. The orchestrator MUST mark the parent Run SUSPENDED with `SuspendReason.AwaitClientCallback`. Callbacks consume the `s2c.client.callback` skill capacity declared in `docs/governance/skill-capacity.yaml`. Client responses MUST be validated against `docs/contracts/s2c-callback.v1.yaml` (callback_id match, outcome enum membership) BEFORE resume; invalid response transitions Run to FAILED with reason `s2c_response_invalid`. Non-blocking lifecycle for the W2.x synchronous bridge is deferred to Rule 46.c (W2 async orchestrator).**
+**Server-to-Client capability invocation MUST go through `S2cCallbackEnvelope` + `S2cCallbackTransport` SPI (both under `ascend.springai.service.runtime.s2c.spi` after the v2.0.0-rc3 package move per cross-constraint audit α-4 / β-2). The waiting Run MUST suspend via `SuspendSignal.forClientCallback(...)` — a checked-suspension variant introduced in v2.0.0-rc3 per cross-constraint audit α-2 / β-5 to preserve ADR-0019's compile-time-visible-suspension doctrine; the prior parallel unchecked `S2cCallbackSignal` was deleted. The orchestrator MUST mark the parent Run SUSPENDED with `SuspendReason.AwaitClientCallback`. An `s2c.client.callback` skill capacity row MUST be declared in `docs/governance/skill-capacity.yaml`; runtime admission against that row (`ResilienceContract.resolve(tenant, "s2c.client.callback")`) is deferred to Rule 46.b (W2). Client responses MUST be validated against `docs/contracts/s2c-callback.v1.yaml` (callback_id match, outcome enum membership) BEFORE resume; invalid response transitions Run to FAILED with reason `s2c_response_invalid`. Non-blocking lifecycle for the W2.x synchronous bridge is deferred to Rule 46.c (W2 async orchestrator).**
 
 Enforced by [`rule-46.md`](docs/governance/rules/rule-46.md).
 
@@ -460,6 +460,50 @@ Enforced by [`rule-88.md`](docs/governance/rules/rule-88.md).
 **`gate/test_architecture_sync_gate.sh` MUST (a) fail closed (exit non-zero) when `passed != TOTAL`; (b) derive `TOTAL` at runtime (`TOTAL=$((passed + failed))` or equivalent), NOT a bare literal outside heredoc fixtures; (c) every prevention-wave Rule (`N >= 80`) MUST have a `test_rule_<N>_*` function (pre-rc4 rules 1-79 grandfathered — covered by ArchUnit / IT at design time). Closes rc7 P1-1.**
 
 Enforced by [`rule-89.md`](docs/governance/rules/rule-89.md).
+
+---
+
+### rc8 post-corrective review response prevention wave (2026-05-19)
+#### Rule 91 — Baseline Metric Matches Executable Manifest
+
+**`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics.active_gate_checks` MUST equal the literal count of `# Rule N — slug` headers in `gate/check_architecture_sync.sh` before the `# === END OF RULES ===` terminator (== the value that `gate/check_parallel.sh` reports as `parallel_summary: executed N rules`). Closes rc8 post-corrective review P0-1: the published baseline declared 74 active gate rules while both serial and parallel gates executed 102; ADR-0083 reconciles by adopting the executable-section count as the canonical meaning of `active_gate_checks`.**
+
+Enforced by [`rule-91.md`](docs/governance/rules/rule-91.md).
+
+---
+#### Rule 92 — Gate Rules Corpus Freshness
+
+**Every `# Rule N — slug` header in `gate/check_architecture_sync.sh` (before the END marker) MUST have a matching `gate/rules/rule-NNN[a-z]?.sh` file (zero-padded to 3 digits, optional lowercase letter suffix). `gate/rules/` is an IDE-only generated artifact (refreshed by `gate/lib/extract_rules.sh`) — the production parallel gate consumes the canonical monolith directly. Closes rc8 post-corrective review P2-1: an incomplete shadow rule corpus drifting stale relative to canonical.**
+
+Enforced by [`rule-92.md`](docs/governance/rules/rule-92.md).
+
+---
+#### Rule 93 — DFX Stem Matches Module
+
+**Every `docs/dfx/*.yaml` file (excluding `docs/archive/`) MUST have a basename stem matching a `<module>` entry in root `pom.xml`. Closes rc8 post-corrective review P0-3: `docs/dfx/agent-platform.yaml` remained on disk after ADR-0078 deleted the agent-platform module; ADR-0082 had mandated removal but the gate did not enforce orphan-detection.**
+
+Enforced by [`rule-93.md`](docs/governance/rules/rule-93.md).
+
+---
+#### Rule 94 — Active Corpus Deleted-Module Name Truth
+
+**Every active `.md`, `.yaml`, and `*.java` file (excluding `docs/archive/`, `docs/reviews/`, `docs/releases/2026-05-1[0-7]-*.md`, fenced code blocks, and yaml comment lines) MUST NOT contain a current-tense word-boundary reference to the pre-Phase-C module names `agent-platform` or `agent-runtime` (the latter negative-filtered against `agent-runtime-core`) outside an explicit historical marker (`historical`, `pre-ADR-NNNN`, `pre-Phase-C`, `consolidated into`, `merged into`, `was rooted`, `formerly`, `superseded`, `deprecated`, `archived`, `moved`, `extracted per ADR-NNNN`, `post-ADR-NNNN`) within ±3 lines. Closes rc8 post-corrective review P1-3: ARCHITECTURE.md #59, McpReplaySurfaceArchTest Javadoc, and rule-37.md still used deleted module names; Rule 87 only covered `architecture-status.yaml#allowed_claim` — Rule 94 widens the same discipline to the broader corpus.**
+
+Enforced by [`rule-94.md`](docs/governance/rules/rule-94.md).
+
+---
+#### Rule 95 — SPI Catalog Exhaustiveness
+
+**Every `public interface ...` declaration in a Java source file under any `*/spi/*` path (excluding `target/`) MUST appear in `docs/contracts/contract-catalog.md` either as an Active SPI table row OR be explicitly marked `(internal)`. Closes rc8 post-corrective review P1-2: `SkillCapacityRegistry` was a public extension point under a declared `.spi` package but absent from the catalog's "Active SPI interfaces (N total)" table; Rule 85 enforced "catalog rows must be backed by metadata" (one direction) but not "every public SPI must be cataloged" (the other direction).**
+
+Enforced by [`rule-95.md`](docs/governance/rules/rule-95.md).
+
+---
+#### Rule 96 — Kernel-Deferred Clause Coherence
+
+**For every `## Rule N.<letter>` sub-clause heading in `docs/CLAUDE-deferred.md`, the matching `#### Rule N` kernel block in `CLAUDE.md` (between the heading and the next `---`) MUST contain the literal string `Rule N.<letter>` to acknowledge the deferred runtime obligation. Closes rc8 post-corrective review P1-1: Rule 42 and Rule 46 active kernels stated current-tense `MUST` for behavior CLAUDE-deferred.md correctly assigns to W2 sub-clauses; downstream readers couldn't reconcile the two authoritative sources. Rule 96 enforces the bidirectional link.**
+
+Enforced by [`rule-96.md`](docs/governance/rules/rule-96.md).
 
 ---
 

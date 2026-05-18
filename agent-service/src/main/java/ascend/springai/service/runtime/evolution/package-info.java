@@ -10,7 +10,10 @@
  *
  * <p>The {@code RunEvent} sealed interface that will carry the
  * {@code EvolutionExport evolutionExport()} per-variant declaration does
- * NOT exist in {@code agent-runtime/src/main} today. ADR-0022 declared the
+ * NOT exist yet in the post-Phase-C runtime kernel
+ * ({@code agent-runtime-core/src/main} or {@code agent-service/src/main/.../runtime},
+ * consolidated from the pre-Phase-C {@code agent-runtime/src/main} tree).
+ * ADR-0022 declared the
  * type but deferred implementation to W2 alongside the typed payload codec
  * + streaming Flux contract. When RunEvent variants ship, each MUST declare
  * its export value at the record level; the W2.x ArchUnit test

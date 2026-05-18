@@ -4257,6 +4257,362 @@ fi
 }
 
 # ---------------------------------------------------------------------------
+# Rule 91 positive: status YAML active_gate_checks matches canonical manifest count
+# ---------------------------------------------------------------------------
+test_rule_91_baseline_matches_pos() {
+_r91_pos_root="$scratch/r91_pos"
+mkdir -p "$_r91_pos_root/gate" "$_r91_pos_root/docs/governance"
+cat > "$_r91_pos_root/gate/check_architecture_sync.sh" <<'SHEOF'
+# Rule 1 — slug_a
+# Rule 2 — slug_b
+# Rule 3 — slug_c
+# === END OF RULES ===
+SHEOF
+cat > "$_r91_pos_root/docs/governance/architecture-status.yaml" <<'SHEOF'
+baseline_metrics:
+  active_gate_checks: 3
+SHEOF
+_r91_pos_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{c++} END{print c+0}' "$_r91_pos_root/gate/check_architecture_sync.sh")
+_r91_pos_decl=$(grep -E '^[[:space:]]*active_gate_checks:[[:space:]]*[0-9]+' "$_r91_pos_root/docs/governance/architecture-status.yaml" | head -1 | sed -E 's/.*active_gate_checks:[[:space:]]*([0-9]+).*/\1/')
+if [[ "$_r91_pos_count" == "$_r91_pos_decl" ]]; then
+  ok "rule_91_baseline_matches_pos" "active_gate_checks=$_r91_pos_decl == canonical count $_r91_pos_count"
+else
+  fail "rule_91_baseline_matches_pos" "expected match: count=$_r91_pos_count decl=$_r91_pos_decl"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 91 negative: status YAML claims 74 but canonical manifest has 3 headers
+# ---------------------------------------------------------------------------
+test_rule_91_baseline_drift_neg() {
+_r91_neg_root="$scratch/r91_neg"
+mkdir -p "$_r91_neg_root/gate" "$_r91_neg_root/docs/governance"
+cat > "$_r91_neg_root/gate/check_architecture_sync.sh" <<'SHEOF'
+# Rule 1 — slug_a
+# Rule 2 — slug_b
+# Rule 3 — slug_c
+# === END OF RULES ===
+SHEOF
+cat > "$_r91_neg_root/docs/governance/architecture-status.yaml" <<'SHEOF'
+baseline_metrics:
+  active_gate_checks: 74
+SHEOF
+_r91_neg_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{c++} END{print c+0}' "$_r91_neg_root/gate/check_architecture_sync.sh")
+_r91_neg_decl=$(grep -E '^[[:space:]]*active_gate_checks:[[:space:]]*[0-9]+' "$_r91_neg_root/docs/governance/architecture-status.yaml" | head -1 | sed -E 's/.*active_gate_checks:[[:space:]]*([0-9]+).*/\1/')
+if [[ "$_r91_neg_count" != "$_r91_neg_decl" ]]; then
+  ok "rule_91_baseline_drift_neg" "Rule 91 correctly flags drift: decl=$_r91_neg_decl != count=$_r91_neg_count"
+else
+  fail "rule_91_baseline_drift_neg" "expected drift detection: count=$_r91_neg_count decl=$_r91_neg_decl"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 92 positive: every canonical header has a matching gate/rules file
+# ---------------------------------------------------------------------------
+test_rule_92_freshness_pos() {
+_r92_pos_root="$scratch/r92_pos"
+mkdir -p "$_r92_pos_root/gate/rules"
+cat > "$_r92_pos_root/gate/check_architecture_sync.sh" <<'SHEOF'
+# Rule 1 — slug_a
+# Rule 28a — slug_b
+# === END OF RULES ===
+SHEOF
+touch "$_r92_pos_root/gate/rules/rule-001.sh" "$_r92_pos_root/gate/rules/rule-028a.sh"
+_r92_pos_missing=""
+while IFS= read -r _r92_rid; do
+  [[ -z "$_r92_rid" ]] && continue
+  _r92_num=$(echo "$_r92_rid" | grep -oE '^[0-9]+')
+  _r92_letter=$(echo "$_r92_rid" | grep -oE '[a-z]$' || true)
+  _r92_padded=$(printf "%03d" "$_r92_num")
+  [[ -f "$_r92_pos_root/gate/rules/rule-${_r92_padded}${_r92_letter}.sh" ]] || _r92_pos_missing="${_r92_pos_missing}${_r92_rid} "
+done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{match($0, /^# Rule ([0-9]+[a-z]?) — /, a); print a[1]}' "$_r92_pos_root/gate/check_architecture_sync.sh")
+if [[ -z "$_r92_pos_missing" ]]; then
+  ok "rule_92_freshness_pos" "all canonical headers have matching gate/rules files"
+else
+  fail "rule_92_freshness_pos" "unexpected missing: $_r92_pos_missing"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 92 negative: canonical has a header without a matching file
+# ---------------------------------------------------------------------------
+test_rule_92_freshness_drift_neg() {
+_r92_neg_root="$scratch/r92_neg"
+mkdir -p "$_r92_neg_root/gate/rules"
+cat > "$_r92_neg_root/gate/check_architecture_sync.sh" <<'SHEOF'
+# Rule 1 — slug_a
+# Rule 99 — slug_orphan
+# === END OF RULES ===
+SHEOF
+touch "$_r92_neg_root/gate/rules/rule-001.sh"   # NOTE: rule-099.sh deliberately missing
+_r92_neg_missing=""
+while IFS= read -r _r92_rid; do
+  [[ -z "$_r92_rid" ]] && continue
+  _r92_num=$(echo "$_r92_rid" | grep -oE '^[0-9]+')
+  _r92_letter=$(echo "$_r92_rid" | grep -oE '[a-z]$' || true)
+  _r92_padded=$(printf "%03d" "$_r92_num")
+  [[ -f "$_r92_neg_root/gate/rules/rule-${_r92_padded}${_r92_letter}.sh" ]] || _r92_neg_missing="${_r92_neg_missing}${_r92_rid} "
+done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{match($0, /^# Rule ([0-9]+[a-z]?) — /, a); print a[1]}' "$_r92_neg_root/gate/check_architecture_sync.sh")
+if [[ -n "$_r92_neg_missing" ]]; then
+  ok "rule_92_freshness_drift_neg" "Rule 92 correctly flags missing: $_r92_neg_missing"
+else
+  fail "rule_92_freshness_drift_neg" "expected drift detection"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 93 positive: every dfx stem matches a module in pom.xml
+# ---------------------------------------------------------------------------
+test_rule_93_dfx_stem_pos() {
+_r93_pos_root="$scratch/r93_pos"
+mkdir -p "$_r93_pos_root/docs/dfx"
+cat > "$_r93_pos_root/pom.xml" <<'SHEOF'
+<modules>
+  <module>agent-service</module>
+  <module>agent-runtime-core</module>
+</modules>
+SHEOF
+touch "$_r93_pos_root/docs/dfx/agent-service.yaml" "$_r93_pos_root/docs/dfx/agent-runtime-core.yaml"
+_r93_pos_modules=$(grep -oE '<module>[^<]+</module>' "$_r93_pos_root/pom.xml" | sed -E 's|</?module>||g' | sort -u)
+_r93_pos_orphans=""
+for _r93_dfx in "$_r93_pos_root"/docs/dfx/*.yaml; do
+  [[ -e "$_r93_dfx" ]] || continue
+  _r93_stem=$(basename "$_r93_dfx" .yaml)
+  echo "$_r93_pos_modules" | grep -qxF "$_r93_stem" || _r93_pos_orphans="${_r93_pos_orphans}${_r93_stem} "
+done
+if [[ -z "$_r93_pos_orphans" ]]; then
+  ok "rule_93_dfx_stem_pos" "all dfx stems map to modules"
+else
+  fail "rule_93_dfx_stem_pos" "unexpected orphans: $_r93_pos_orphans"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 93 negative: dfx file for non-existent module
+# ---------------------------------------------------------------------------
+test_rule_93_dfx_orphan_neg() {
+_r93_neg_root="$scratch/r93_neg"
+mkdir -p "$_r93_neg_root/docs/dfx"
+cat > "$_r93_neg_root/pom.xml" <<'SHEOF'
+<modules>
+  <module>agent-service</module>
+</modules>
+SHEOF
+touch "$_r93_neg_root/docs/dfx/agent-platform.yaml"   # orphan — module deleted
+_r93_neg_modules=$(grep -oE '<module>[^<]+</module>' "$_r93_neg_root/pom.xml" | sed -E 's|</?module>||g' | sort -u)
+_r93_neg_orphans=""
+for _r93_dfx in "$_r93_neg_root"/docs/dfx/*.yaml; do
+  [[ -e "$_r93_dfx" ]] || continue
+  _r93_stem=$(basename "$_r93_dfx" .yaml)
+  echo "$_r93_neg_modules" | grep -qxF "$_r93_stem" || _r93_neg_orphans="${_r93_neg_orphans}${_r93_stem} "
+done
+if [[ "$_r93_neg_orphans" == "agent-platform " ]]; then
+  ok "rule_93_dfx_orphan_neg" "Rule 93 correctly flags orphan: $_r93_neg_orphans"
+else
+  fail "rule_93_dfx_orphan_neg" "expected orphan=agent-platform, got: $_r93_neg_orphans"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 94 positive: file mentions agent-platform with `pre-Phase-C` marker within ±3 lines
+# ---------------------------------------------------------------------------
+test_rule_94_corpus_with_marker_pos() {
+_r94_pos_root="$scratch/r94_pos"
+mkdir -p "$_r94_pos_root"
+cat > "$_r94_pos_root/some-doc.md" <<'SHEOF'
+This is pre-Phase-C context:
+the old agent-platform/web/foo path is documented.
+SHEOF
+_r94_pos_hits=$(awk -v markers='historical|pre-ADR-[0-9]+|pre-Phase-C' '
+  BEGIN { in_code = 0; ap_re = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)" }
+  /^[[:space:]]*```/ { in_code = 1 - in_code; next }
+  { lines[NR] = $0 }
+  END {
+    in_code = 0
+    for (i = 1; i <= NR; i++) {
+      line = lines[i]
+      if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
+      if (in_code) continue
+      if (line ~ /^[[:space:]]*#/) continue
+      if (line ~ ap_re) {
+        lo = i - 3; if (lo < 1) lo = 1
+        hi = i + 3; if (hi > NR) hi = NR
+        window = ""
+        for (j = lo; j <= hi; j++) window = window " " lines[j]
+        if (window !~ markers) print i ":" line
+      }
+    }
+  }
+' "$_r94_pos_root/some-doc.md")
+if [[ -z "$_r94_pos_hits" ]]; then
+  ok "rule_94_corpus_with_marker_pos" "Rule 94 correctly accepts agent-platform reference WITH pre-Phase-C marker"
+else
+  fail "rule_94_corpus_with_marker_pos" "false positive: $_r94_pos_hits"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 94 negative: file mentions agent-platform with NO marker → violation
+# ---------------------------------------------------------------------------
+test_rule_94_corpus_bare_neg() {
+_r94_neg_root="$scratch/r94_neg"
+mkdir -p "$_r94_neg_root"
+cat > "$_r94_neg_root/some-doc.md" <<'SHEOF'
+Look at agent-platform/web/foo for the live path.
+SHEOF
+_r94_neg_hits=$(awk -v markers='historical|pre-ADR-[0-9]+|pre-Phase-C' '
+  BEGIN { in_code = 0; ap_re = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)" }
+  /^[[:space:]]*```/ { in_code = 1 - in_code; next }
+  { lines[NR] = $0 }
+  END {
+    in_code = 0
+    for (i = 1; i <= NR; i++) {
+      line = lines[i]
+      if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
+      if (in_code) continue
+      if (line ~ /^[[:space:]]*#/) continue
+      if (line ~ ap_re) {
+        lo = i - 3; if (lo < 1) lo = 1
+        hi = i + 3; if (hi > NR) hi = NR
+        window = ""
+        for (j = lo; j <= hi; j++) window = window " " lines[j]
+        if (window !~ markers) print i ":" line
+      }
+    }
+  }
+' "$_r94_neg_root/some-doc.md")
+if [[ -n "$_r94_neg_hits" ]]; then
+  ok "rule_94_corpus_bare_neg" "Rule 94 correctly flags bare agent-platform reference"
+else
+  fail "rule_94_corpus_bare_neg" "expected violation, got none"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 95 positive: every public SPI interface appears in catalog
+# ---------------------------------------------------------------------------
+test_rule_95_spi_catalog_pos() {
+_r95_pos_root="$scratch/r95_pos"
+mkdir -p "$_r95_pos_root/a/spi" "$_r95_pos_root/docs/contracts"
+cat > "$_r95_pos_root/a/spi/RunRepository.java" <<'SHEOF'
+public interface RunRepository {
+}
+SHEOF
+cat > "$_r95_pos_root/docs/contracts/contract-catalog.md" <<'SHEOF'
+| `RunRepository` | active SPI row |
+SHEOF
+_r95_pos_missing=""
+while IFS= read -r _r95_spi_file; do
+  _r95_iface=$(grep -E '^public[[:space:]]+interface[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' "$_r95_spi_file" 2>/dev/null | head -1 | sed -E 's/^public[[:space:]]+interface[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\1/')
+  [[ -z "$_r95_iface" ]] && continue
+  grep -qE "\`${_r95_iface}\`" "$_r95_pos_root/docs/contracts/contract-catalog.md" || _r95_pos_missing="${_r95_pos_missing}${_r95_iface} "
+done < <(find "$_r95_pos_root" -type f -name '*.java' -path '*/spi/*')
+if [[ -z "$_r95_pos_missing" ]]; then
+  ok "rule_95_spi_catalog_pos" "every public SPI in fixture appears in catalog"
+else
+  fail "rule_95_spi_catalog_pos" "unexpected missing: $_r95_pos_missing"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 95 negative: public SPI interface missing from catalog
+# ---------------------------------------------------------------------------
+test_rule_95_spi_missing_neg() {
+_r95_neg_root="$scratch/r95_neg"
+mkdir -p "$_r95_neg_root/b/spi" "$_r95_neg_root/docs/contracts"
+cat > "$_r95_neg_root/b/spi/SkillCapacityRegistry.java" <<'SHEOF'
+public interface SkillCapacityRegistry {
+}
+SHEOF
+cat > "$_r95_neg_root/docs/contracts/contract-catalog.md" <<'SHEOF'
+| `RunRepository` | active SPI row |
+SHEOF
+_r95_neg_missing=""
+while IFS= read -r _r95_spi_file; do
+  _r95_iface=$(grep -E '^public[[:space:]]+interface[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' "$_r95_spi_file" 2>/dev/null | head -1 | sed -E 's/^public[[:space:]]+interface[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\1/')
+  [[ -z "$_r95_iface" ]] && continue
+  grep -qE "\`${_r95_iface}\`" "$_r95_neg_root/docs/contracts/contract-catalog.md" || _r95_neg_missing="${_r95_neg_missing}${_r95_iface} "
+done < <(find "$_r95_neg_root" -type f -name '*.java' -path '*/spi/*')
+if [[ "$_r95_neg_missing" == "SkillCapacityRegistry " ]]; then
+  ok "rule_95_spi_missing_neg" "Rule 95 correctly flags SkillCapacityRegistry missing from catalog"
+else
+  fail "rule_95_spi_missing_neg" "expected SkillCapacityRegistry missing, got: $_r95_neg_missing"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 96 positive: CLAUDE.md Rule N kernel cites the Rule N.b deferred sub-clause
+# ---------------------------------------------------------------------------
+test_rule_96_kernel_cites_pos() {
+_r96_pos_root="$scratch/r96_pos"
+mkdir -p "$_r96_pos_root/docs"
+cat > "$_r96_pos_root/CLAUDE.md" <<'SHEOF'
+#### Rule 42 — Sandbox
+
+**Schema obligation only. Runtime refusal is deferred to Rule 42.b (W2).**
+
+---
+SHEOF
+cat > "$_r96_pos_root/docs/CLAUDE-deferred.md" <<'SHEOF'
+## Rule 42.b — SandboxExecutor Subsumption Runtime Check [Deferred to W2]
+SHEOF
+_r96_pos_missing=""
+while IFS= read -r _r96_sub; do
+  _r96_num=$(echo "$_r96_sub" | grep -oE '^[0-9]+')
+  _r96_letter=$(echo "$_r96_sub" | grep -oE '\.[a-z]$' | sed 's/^\.//')
+  [[ -z "$_r96_num" ]] || [[ -z "$_r96_letter" ]] && continue
+  _r96_block=$(awk -v rn="$_r96_num" '
+    $0 ~ "^#### Rule "rn" " { in_block = 1; print; next }
+    in_block && /^---$/ { exit }
+    in_block { print }
+  ' "$_r96_pos_root/CLAUDE.md")
+  [[ -z "$_r96_block" ]] && continue
+  echo "$_r96_block" | grep -qF "Rule ${_r96_num}.${_r96_letter}" || _r96_pos_missing="${_r96_pos_missing}Rule${_r96_num}.${_r96_letter} "
+done < <(grep -oE '^## Rule [0-9]+\.[a-z]' "$_r96_pos_root/docs/CLAUDE-deferred.md" | sed -E 's/^## Rule //')
+if [[ -z "$_r96_pos_missing" ]]; then
+  ok "rule_96_kernel_cites_pos" "Rule 96 correctly accepts kernel that cites Rule 42.b"
+else
+  fail "rule_96_kernel_cites_pos" "unexpected missing: $_r96_pos_missing"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 96 negative: CLAUDE.md Rule N kernel does NOT cite Rule N.b deferred sub-clause
+# ---------------------------------------------------------------------------
+test_rule_96_kernel_no_cite_neg() {
+_r96_neg_root="$scratch/r96_neg"
+mkdir -p "$_r96_neg_root/docs"
+cat > "$_r96_neg_root/CLAUDE.md" <<'SHEOF'
+#### Rule 42 — Sandbox
+
+**The runtime SandboxExecutor MUST refuse over-wide grants.**
+
+---
+SHEOF
+cat > "$_r96_neg_root/docs/CLAUDE-deferred.md" <<'SHEOF'
+## Rule 42.b — SandboxExecutor Subsumption Runtime Check [Deferred to W2]
+SHEOF
+_r96_neg_missing=""
+while IFS= read -r _r96_sub; do
+  _r96_num=$(echo "$_r96_sub" | grep -oE '^[0-9]+')
+  _r96_letter=$(echo "$_r96_sub" | grep -oE '\.[a-z]$' | sed 's/^\.//')
+  [[ -z "$_r96_num" ]] || [[ -z "$_r96_letter" ]] && continue
+  _r96_block=$(awk -v rn="$_r96_num" '
+    $0 ~ "^#### Rule "rn" " { in_block = 1; print; next }
+    in_block && /^---$/ { exit }
+    in_block { print }
+  ' "$_r96_neg_root/CLAUDE.md")
+  [[ -z "$_r96_block" ]] && continue
+  echo "$_r96_block" | grep -qF "Rule ${_r96_num}.${_r96_letter}" || _r96_neg_missing="${_r96_neg_missing}Rule${_r96_num}.${_r96_letter} "
+done < <(grep -oE '^## Rule [0-9]+\.[a-z]' "$_r96_neg_root/docs/CLAUDE-deferred.md" | sed -E 's/^## Rule //')
+if [[ "$_r96_neg_missing" == "Rule42.b " ]]; then
+  ok "rule_96_kernel_no_cite_neg" "Rule 96 correctly flags kernel that doesn't cite Rule 42.b"
+else
+  fail "rule_96_kernel_no_cite_neg" "expected Rule42.b missing, got: $_r96_neg_missing"
+fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

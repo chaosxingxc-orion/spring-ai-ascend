@@ -20,7 +20,10 @@ shared between `agent-service` (which implements the runtime adapters) and
 `agent-execution-engine` (which owns the engine envelope + executor SPIs).
 
 It exists to break the back-dep cycle that T2.B2 surfaced: a naive engine
-extraction would create `agent-execution-engine → agent-runtime → agent-execution-engine`.
+extraction would create the pre-Phase-C / historical `agent-execution-engine
+→ agent-runtime → agent-execution-engine` loop (the `agent-runtime` module
+has since been consolidated into `agent-service` per ADR-0078, with shared
+kernel SPI types extracted here to `agent-runtime-core` per ADR-0079).
 By hoisting `Run`, `RunContext`, `SuspendSignal`, `IdempotencyRecord`, and
 the `Orchestrator`/`Checkpointer`/`RunRepository` SPI interfaces into a
 shared core module, both sides depend downward only.

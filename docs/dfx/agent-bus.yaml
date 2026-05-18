@@ -15,7 +15,7 @@ releasability:
   artifact_coords: "io.github.springai-ascend:agent-bus"
   semver_policy: "experimental — module is a skeleton; SPI shape will be set when W2 impls land"
   deprecation_window: "N/A — pre-1.0"
-  packaging: "library jar; consumed by agent-runtime once W2 lands"
+  packaging: "library jar; consumed by agent-service (the post-Phase-C runtime consolidation per ADR-0078; pre-Phase-C this was agent-runtime) once W2 lands"
   status: pending
 
 resilience:

@@ -1,0 +1,232 @@
+id: ADR-0083
+title: "rc8 post-corrective response: baseline taxonomy + orphan-authority retirement + SPI catalog exhaustiveness + kernel-deferred coherence + CI as release-acceptance gate"
+status: accepted
+date: 2026-05-19
+level: L0
+view: process
+freeze_id: null
+
+supersedes: []
+extends:
+  - ADR-0047
+  - ADR-0078
+  - ADR-0079
+  - ADR-0080
+  - ADR-0081
+  - ADR-0082
+relates_to:
+  - ADR-0067
+  - ADR-0064
+
+decision_one_liner: |
+  Accept all 7 findings of the rc8 post-corrective architecture review (Codex,
+  2026-05-18). Reconcile the baseline count taxonomy by adopting the executable
+  rule-section count as the canonical meaning of `active_gate_checks` (Rule 91),
+  retire orphan authority surfaces (`docs/STATE.md` archived, `docs/dfx/agent-
+  platform.yaml` deleted; Rules 92-94 prevent recurrence), narrow Rule 42 +
+  Rule 46 active kernels to shipped scope (Rule 96 enforces bidirectional
+  kernel-vs-deferred links), add SkillCapacityRegistry to the SPI catalog
+  (Rule 95 enforces public-`.spi` exhaustiveness), narrow Rule 89 scope text
+  across the corpus to the prevention-wave (`N >= 80`) coverage the
+  implementation actually enforces, and bundle the in-flight CI repair
+  (NoOpAsyncRunDispatcher + IdempotencyStoreAutoConfiguration + WebSecurityConfig
+  + PostureBindingIT + Spring AI eager-credential autoconfig + RunResponse
+  schema) into the same release wave so that the rc9 release note can cite a
+  green CI run as evidence.
+
+context: |
+  The rc8 post-corrective architecture review (Codex, 2026-05-18; see
+  docs/reviews/2026-05-18-l0-rc8-post-corrective-architecture-review.en.md)
+  observed that rc8 fixed the previous memory + gate defects locally, but the
+  prevention gates were mostly one-directional ("declared rows must be valid")
+  rather than exhaustive ("all public / current surfaces must be declared").
+  This left:
+
+    P0-1  baseline metric `active_gate_checks: 74` while both serial and
+          parallel gates executed 102 sections (parallel_summary trailer);
+    P0-2  `docs/STATE.md` still active + ARCHITECTURE.md:861 pointing readers
+          at it with pre-Phase-C module paths;
+    P0-3  `docs/dfx/agent-platform.yaml` orphan after ADR-0078 module deletion;
+    P1-1  Rule 42 + Rule 46 kernels overclaiming runtime enforcement that
+          `docs/CLAUDE-deferred.md` correctly deferred to W2;
+    P1-2  SkillCapacityRegistry (public `.spi` interface, registry SPI per
+          ADR-0080 / ADR-0081) absent from `contract-catalog.md` §2
+          "Active SPI interfaces (11 total)" table;
+    P1-3  deleted-module names (`agent-platform`, `agent-runtime`) still in
+          ARCHITECTURE.md #59, McpReplaySurfaceArchTest Javadoc, rule-37.md
+          card — Rule 87 only covered architecture-status.yaml;
+    P1-4  Rule 89 kernel said `N >= 80`, but enforcers.yaml + gate/README.md
+          claimed "every Rule" coverage;
+    P2-1  `gate/rules/` shadow corpus: 83 files vs 102 canonical headers.
+
+  Independently, every GitHub Actions CI run on `main` had failed since the
+  repository was pushed (48 / 50 = 96% red). The local Windows `mvn verify`
+  baseline silently skipped 30+ `@Testcontainers(disabledWithoutDocker = true)`
+  integration tests, masking five distinct latent production defects:
+  NoOpAsyncRunDispatcher's `@ConditionalOnMissingBean` on `@Component` (broken
+  on Spring Boot 4 / Linux classloader ordering), Spring AI 2.0.0-M5 eager
+  credential validation in OpenAi/Anthropic audio model autoconfig (failed on
+  CI without API keys), WebSecurityConfig's `HttpSecurity` autowire under
+  `spring.main.web-application-type=none` tests, PostureBindingIT lacking a
+  durable IdempotencyStore fixture under research posture, and RunResponse
+  springdoc emitting Java record components as optional (drift vs pinned
+  OpenAPI snapshot). Rule 74 (Linux-first dev environment, rc6) scoped only
+  shell gates — not Maven verify — leaving the gap.
+
+  Both workstreams converge: rc9 must close all 7 corpus findings AND restore
+  CI green, with the release note citing a green CI run on the rc9 SHA as
+  evidence (a pattern ADR-0083 institutionalises but does NOT yet enforce via
+  gate — that's a future Rule 90 once a stable evidence cache directory
+  exists).
+
+decision: |
+  Accept all 7 findings. Family taxonomy for the wave:
+
+    H-α  Manifest-truth / count-derivation drift (P0-1, P1-4)
+         → reconcile `active_gate_checks` to the executable-section count
+         (102 pre-Phase-8, 108 after Rules 91-96 are added). Update README,
+         gate/README, architecture-status.yaml#allowed_claim. Narrow E122
+         + gate/README.md Rule 89 scope text to "prevention-wave (N >= 80)"
+         matching the kernel + implementation. Introduce Rule 91
+         (`baseline_metric_matches_executable_manifest`) so the manifest-vs-
+         ledger axis is enforced at gate time alongside Rule 82 (prose-vs-
+         ledger) and Rule 88 (canonical-vs-parallel).
+
+    H-β  Orphan / deleted-name authority surfaces (P0-2, P0-3, P1-3)
+         → delete `docs/dfx/agent-platform.yaml`; archive `docs/STATE.md`
+         to `docs/archive/2026-05-19-STATE-md-archived/STATE.md` with non-
+         authoritative front-matter banner; rewrite `ARCHITECTURE.md:861`
+         + `ARCHITECTURE.md:#59` + `McpReplaySurfaceArchTest` Javadoc +
+         `rule-37.md` to use post-Phase-C module names (`agent-service`,
+         `agent-runtime-core`) with historical markers where needed.
+         Introduce Rule 92 (`gate_rules_corpus_freshness`) so the IDE-only
+         `gate/rules/` corpus cannot drift stale, Rule 93
+         (`dfx_stem_matches_module`) so orphan DFX files are rejected, and
+         Rule 94 (`active_corpus_deleted_module_name_truth`) so the deleted-
+         module-name discipline that Rule 87 applied to one yaml field is
+         widened across the active corpus.
+
+    H-γ  SPI catalog completeness (P1-2)
+         → add `SkillCapacityRegistry` row to `contract-catalog.md` §2
+         (bumping "(11 total)" → "(12 total)"); add tenant-scope row in
+         §"Per-SPI tenant scope". Introduce Rule 95
+         (`spi_catalog_exhaustiveness`) so every public non-sealed
+         `interface` under a `*/spi/*` path must be cataloged or marked
+         `(internal)` — the missing direction Rule 85 didn't cover.
+
+    H-δ  Active/deferred kernel-truth boundary (P1-1)
+         → narrow Rule 42 kernel (CLAUDE.md + rule-42.md card): drop the
+         "runtime SandboxExecutor MUST refuse" sentence; the deferred
+         sub-clause Rule 42.b in CLAUDE-deferred.md remains the authority.
+         Narrow Rule 46 kernel: capacity is `declared in` the YAML, runtime
+         admission is deferred to Rule 46.b. Correct rule-46.md sub-clause
+         naming (46.b = capacity wiring per CLAUDE-deferred.md, 46.c =
+         non-blocking lifecycle; invalid-response handling is shipped, not
+         deferred). Introduce Rule 96 (`kernel_deferred_clause_coherence`)
+         so every `## Rule N.<letter>` sub-clause in CLAUDE-deferred.md has
+         a `Rule N.<letter>` literal-string reference in either the active
+         CLAUDE.md kernel OR the matching rule card.
+
+    H-ε  Shadow-corpus freshness (P2-1)
+         → regenerate `gate/rules/` via `gate/lib/extract_rules.sh`. Update
+         `gate/lib/orchestrator.sh` comments to clearly state the directory
+         is IDE-only (production parallel gate consumes the canonical
+         monolith directly). Closes via Rule 92 above.
+
+  CI production defects bundled into the same release wave (separate commit,
+  same authority record): drop `@ConditionalOnMissingBean(AsyncRunDispatcher.class)`
+  from `NoOpAsyncRunDispatcher` (annotation is unreliable on `@Component`);
+  drop `@ConditionalOnBean(DataSource.class)` from `IdempotencyStoreAutoConfiguration#jdbcIdempotencyStore`
+  (Spring Boot 4 ordering hazard on non-autoconfig `@Configuration`); add
+  `@ConditionalOnWebApplication(type = SERVLET)` to `WebSecurityConfig` (no-web
+  tests cannot satisfy `HttpSecurity` autowire); add `IdempotencyStore` fixture
+  to `PostureBindingIT.RunRepositoryFixture` (research posture has no auto-wired
+  JdbcIdempotencyStore at L1.x); declare `spring.ai.openai.api-key` +
+  `spring.ai.anthropic.api-key` as `${OPENAI_API_KEY:dummy-no-call-expected}`
+  in `application.yml` (Spring AI 2.0.0-M5 eager credential validation); annotate
+  `RunResponse` record components with `@Schema(requiredMode = REQUIRED)` so
+  springdoc emits the OpenAPI `required:` list matching the pinned snapshot.
+
+alternatives_considered: |
+  - "Update active_gate_checks to 102 vs introduce separate
+    executable_gate_sections field." We chose the first option — the existing
+    field name preserves its slot in Rule 82's phrase mapping; redefining its
+    canonical meaning to "executable sections" matches the public-facing
+    truth (what users see in `parallel_summary` and what CI runs). The
+    historical "rule families" interpretation is preserved by
+    `active_engineering_rules_post_rcN` which already tracks CLAUDE.md
+    kernel-head count.
+
+  - "Expand Rule 89 fixture coverage to all rules (the broader 'every Rule'
+    interpretation)." Rejected for rc9 scope: retroactively writing
+    `test_rule_N_*` functions for rules 1-79 is a W2.x hardening item, not
+    rc9 corpus-truth work. Narrowing the enforcer + gate/README to match the
+    implementation is cheaper and matches the kernel.
+
+  - "Convert IdempotencyStoreAutoConfiguration to a true Spring Boot
+    auto-configuration via META-INF/spring/.../AutoConfiguration.imports +
+    `@AutoConfigureAfter(DataSourceAutoConfiguration.class)`." Rejected as
+    out-of-scope refactor — dropping `@ConditionalOnBean(DataSource.class)`
+    is the minimum fix that makes CI green; the deeper autoconfig refactor
+    is W2 work tracked in a follow-up plan if it bites production.
+
+  - "Reject P1-1 and keep Rule 42 / Rule 46 kernels as written." Rejected:
+    Rule 9 (self-audit ship gate) + Rule 28 (Code-as-Contract) cannot both
+    be satisfied when active prose overclaims a deferred runtime behavior;
+    the narrowing is required for the corpus to remain internally
+    consistent.
+
+  - "Introduce Rule 90 (release-note CI evidence) in this wave." Deferred:
+    the directory `gate/release-ci-evidence/` doesn't yet have a single
+    cached run, and the chicken-and-egg (first rc9 push must be green
+    before Rule 90 can have evidence to cite) is best avoided by adding
+    Rule 90 in the *next* wave once the rc9 green run lands.
+
+consequences: |
+  Positive:
+    - The baseline ledger field `active_gate_checks` now matches the live
+      `parallel_summary` trailer; the 8-release credibility gap closes.
+    - Three orphan-authority families (P0-2, P0-3, P1-3) close together
+      with three prevention rules (Rules 92, 93, 94) so the same regression
+      cannot return through any of those surfaces.
+    - The CLAUDE.md kernel-vs-CLAUDE-deferred.md authority pair is now
+      bidirectionally linked (Rule 96), preventing future kernel-overclaim
+      regressions of the Rule 42 / Rule 46 shape.
+    - The SPI contract catalog is exhaustive (Rule 95); no public extension
+      surface can hide outside the catalog without explicit `(internal)`
+      classification.
+    - CI on Linux is green on the rc9 SHA — first green run since rc1.
+      Release notes can now (per ADR-0083 spirit) cite a green CI run as
+      release acceptance evidence.
+
+  Negative:
+    - 6 new rule files + 12 new enforcer rows + 12 new self-test fixtures
+      add bulk to the gate's audit surface. The Rule 89 scope narrowing
+      keeps the self-test fixture count manageable.
+    - `gate/rules/` regeneration must happen on every rule addition; the
+      Rule 92 freshness check makes this mechanical but a forgotten run
+      will fail the gate (the right failure shape — surfaces drift).
+    - CLAUDE.md kernel byte count grew by 6 new rule rows. Verified within
+      the always-loaded budget; if future waves push it over, the kernel-cap
+      mechanism (Rule 67) will surface the overage.
+
+related_constraints:
+  - "CLAUDE.md Rule 91 — baseline_metric_matches_executable_manifest"
+  - "CLAUDE.md Rule 92 — gate_rules_corpus_freshness"
+  - "CLAUDE.md Rule 93 — dfx_stem_matches_module"
+  - "CLAUDE.md Rule 94 — active_corpus_deleted_module_name_truth"
+  - "CLAUDE.md Rule 95 — spi_catalog_exhaustiveness"
+  - "CLAUDE.md Rule 96 — kernel_deferred_clause_coherence"
+  - "CLAUDE.md Rule 89 — Self-Test Harness Fail-Closed Coverage (narrowed scope text)"
+  - "CLAUDE.md Rule 42 — Sandbox Permission Subsumption (kernel narrowed)"
+  - "CLAUDE.md Rule 46 — S2C Callback Envelope + Lifecycle Bound (kernel narrowed)"
+
+verification:
+  - "bash gate/check_parallel.sh emits `parallel_summary: executed N rules; serial source defined N rules` with N matching baseline_metrics.active_gate_checks (Rule 91)"
+  - "bash gate/test_architecture_sync_gate.sh prints `Tests passed: X/X` with X matching baseline_metrics.gate_executable_test_cases"
+  - "python gate/build_architecture_graph.py exits 0 with regenerated node/edge counts"
+  - "GitHub Actions CI run on the rc9 SHA reports conclusion=success across all jobs"
+  - "Release note docs/releases/2026-05-19-l0-rc9-corrective.en.md cites the green CI run URL"
+
+review_proposal: docs/reviews/2026-05-19-l0-rc8-post-corrective-architecture-review-response.en.md
+authority: ADR-0083 — accepts the 7 findings of docs/reviews/2026-05-18-l0-rc8-post-corrective-architecture-review.en.md (Codex)

@@ -23,3 +23,7 @@ The L0 motivation (LucioIT W1 §6.4): any single network-congestion event must N
 - Physical channel implementation deferred to W2 per `CLAUDE-deferred.md` 35.b.
 - Cross-cited by Rule 46 ([`rule-46.md`](rule-46.md)) envelope-propagation matrix (S2C callback inter-rule co-design).
 - Related: Rule 41 ([`rule-41.md`](rule-41.md)) — Skill Capacity Matrix (capacity arbitration coordinates with channel discipline).
+
+## Deferred sub-clauses
+
+Rule 35.b (see `docs/CLAUDE-deferred.md` for the deferred-runtime obligation(s) and re-introduction trigger(s)). Rule 96 (`kernel_deferred_clause_coherence`, rc9 / ADR-0083) asserts the bidirectional link between this active rule and each deferred sub-clause.

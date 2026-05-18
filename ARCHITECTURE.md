@@ -33,7 +33,7 @@ Per-module `agent-*/ARCHITECTURE.md` files are **L1**; deep technical designs un
 
 ## 1. System boundary
 
-`spring-ai-ascend` is a self-hostable agent-runtime architecture for financial-services operators. The system boundary below is split into the **target architecture** (the W1–W4 product contract) and the **W0 shipped subset** (what runs today). All target-architecture sentences are written in target tense; W0 shipped behavior is enumerated separately below and in `§5`.
+`spring-ai-ascend` is a self-hostable agent runtime architecture for financial-services operators (the term "agent runtime" used here is the generic system class; the pre-Phase-C `agent-runtime` Maven module has since been consolidated into `agent-service` + the shared kernel module `agent-runtime-core` per ADR-0078 / ADR-0079). The system boundary below is split into the **target architecture** (the W1–W4 product contract) and the **W0 shipped subset** (what runs today). All target-architecture sentences are written in target tense; W0 shipped behavior is enumerated separately below and in `§5`.
 
 **Target architecture (W1–W4).** The W1–W4 product accepts authenticated tenant HTTP requests, drives LLMs through a tool-calling loop with audit-grade evidence, and persists durable side effects through an idempotent outbox. Built on Spring Boot 4.0.5 + Java 21.
 
@@ -808,7 +808,7 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
 
 58. **No PII in span attributes.** Raw prompt, completion, tool-input, and tool-output content MUST NOT appear in Span attributes in posture=research/prod. Payloads MUST be stored in `PayloadStore` and referenced via `payload_ref://<id>`. `PiiRedactionHook` MUST be registered at boot in posture=research/prod (verified by `AppPostureGate`); startup MUST fail closed if the hook is absent. Enforced by integration `PostureBootPiiHookPresenceContractIT` (L1.x — asserts the boot-gate contract; the negative emission test `PiiSpanAttributeIT` lands at W2 alongside Hook SPI implementation; class FQN locked here per Rule 28). See ADR-0061 §5.
 
-59. **MCP-only telemetry replay surface.** Trace replay and run/session listing MUST be exposed exclusively via MCP tools (`get_run_trace`, `list_runs`, `get_llm_call`, `list_sessions`). No HTTP endpoint, no UI, no direct DB read endpoint, no Tempo/Jaeger redirect proxy. Preserves §1 exclusion (no Admin UI). Enforced by ArchUnit `McpReplaySurfaceArchTest` (negative: no `@RestController` resides in `agent-platform/web/replay/`, `agent-platform/web/trace/`, or `agent-platform/web/session/`) + ADR-0017 freeze.
+59. **MCP-only telemetry replay surface.** Trace replay and run/session listing MUST be exposed exclusively via MCP tools (`get_run_trace`, `list_runs`, `get_llm_call`, `list_sessions`). No HTTP endpoint, no UI, no direct DB read endpoint, no Tempo/Jaeger redirect proxy. Preserves §1 exclusion (no Admin UI). Enforced by ArchUnit `McpReplaySurfaceArchTest` (negative: no `@RestController` resides under `ascend.springai.service.platform.web.replay`, `…web.trace`, or `…web.session` in `agent-service/src/main/java/…`; consolidated post-ADR-0078 from the pre-Phase-C `agent-platform/web/...` paths) + ADR-0017 freeze.
 
 60. **Business/Platform decoupling enforcement.** Platform code MUST NOT contain business-specific customizations. Business and example modules MUST extend the platform via SPI (`ascend.springai..spi..`) and `@ConfigurationProperties` only — never by patching `*.impl.*` or `ascend.springai.service.platform..`. The platform MUST ship a runnable quickstart at `docs/quickstart.md` referenced from `README.md` so developers reach first-agent execution without platform-team intervention. Enforced by ArchUnit `SpiPurityGeneralizedArchTest` (any `..spi..` package free of Spring/platform/inmemory/Micrometer/OTel deps) + Gate Rule 31 `quickstart_present`. CLAUDE.md Rule 29. See ADR-0064.
 
@@ -858,7 +858,7 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
 ## 6. Roadmap pointers
 
 - Deferred capabilities and re-introduction triggers: `docs/CLAUDE-deferred.md`
-- Current per-capability state and maturity levels: `docs/STATE.md`
+- Current per-capability state and maturity levels: `docs/governance/architecture-status.yaml` (canonical machine-readable ledger; supersedes the pre-Phase-C `docs/STATE.md` archived at `docs/archive/2026-05-19-STATE-md-archived/` per ADR-0083)
 - Per-capability shipped/deferred status: `docs/governance/architecture-status.yaml`
 - Design rationale for pre-C26 decisions: `docs/v6-rationale/`
 - Wave delivery plan (archived): `docs/archive/2026-05-13-plans-archived/` (see ADR-0037)

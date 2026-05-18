@@ -18,7 +18,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 /**
  * Enforces Rule 45 (Runtime-Owned Middleware via Engine Hooks): every
  * concrete {@link ExecutorAdapter} implementation under
- * {@code agent-runtime/src/main} MUST be assignable to
+ * the runtime main sources (post-Phase-C: {@code agent-service/src/main/.../runtime}; pre-Phase-C: {@code agent-runtime/src/main} per ADR-0078) MUST be assignable to
  * {@link EngineHookSurface} (which it is by default — both are functional
  * interfaces and {@code ExecutorAdapter} carries a default
  * {@link EngineHookSurface#empty()} surface inherited via the SPI bridge).

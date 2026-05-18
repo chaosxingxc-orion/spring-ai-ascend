@@ -15,7 +15,7 @@ releasability:
   artifact_coords: "io.github.springai-ascend:agent-execution-engine"
   semver_policy: "0.x — engine SPI contract-frozen at L1 under .spi.*; envelope schema versioned via docs/contracts/engine-envelope.v1.yaml"
   deprecation_window: "two minor versions on SPI; one on non-SPI"
-  packaging: "library jar consumed by agent-runtime + agent-platform"
+  packaging: "library jar consumed by agent-service (post-Phase-C consolidation of pre-Phase-C agent-runtime + agent-platform per ADR-0078)"
 
 resilience:
   fallback_paths: []   # Rule 44 forbids fallback — engine mismatch fails closed

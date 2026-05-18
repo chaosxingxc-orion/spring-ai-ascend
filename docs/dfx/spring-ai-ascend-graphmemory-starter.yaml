@@ -13,7 +13,7 @@ generated_at: 2026-05-14
 releasability:
   artifact_coords: "io.github.springai-ascend:spring-ai-ascend-graphmemory-starter"
   semver_policy: "0.x — auto-configuration is disabled by default at W0"
-  deprecation_window: "starter-level — one minor version with @Deprecated; underlying GraphMemoryRepository SPI follows agent-runtime semver"
+  deprecation_window: "starter-level — one minor version with @Deprecated; underlying GraphMemoryRepository SPI follows agent-service semver (post-Phase-C; pre-Phase-C this was agent-runtime per ADR-0078)"
   packaging: "spring-boot-starter; conditional auto-config gated on property + classpath checks"
 
 resilience:

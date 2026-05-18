@@ -1,4 +1,12 @@
-# Current State (W0)
+# Current State (W0) — ARCHIVED 2026-05-19, NON-AUTHORITATIVE
+
+> **Historical artifact frozen at SHA d4ee319 (pre-rc9, 2026-05-18).** This file
+> was the pre-Phase-C per-capability state ledger. It is superseded by
+> `docs/governance/architecture-status.yaml` per ADR-0083 (2026-05-19, rc9 wave
+> corpus-truth response). All paths in this file use the pre-ADR-0078 module
+> names (`agent-platform/...`, `agent-runtime/...`); current paths live under
+> `agent-service/...` and `agent-runtime-core/...`. Do not cite this file as
+> a current authority; consult `docs/governance/architecture-status.yaml`.
 
 <!-- columns: capability | shipped | code-path | test-path | posture-coverage | claim -->
 

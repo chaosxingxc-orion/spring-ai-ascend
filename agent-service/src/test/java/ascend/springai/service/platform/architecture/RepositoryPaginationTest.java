@@ -36,8 +36,10 @@ class RepositoryPaginationTest {
     @Test
     void repository_methods_returning_collection_must_declare_pageable() {
         // allowEmptyShould(true): at L1 there are no Spring Data Repository
-        // beans in agent-platform.persistence yet; the rule activates when
-        // one is added.
+        // beans in the platform-side persistence package (post-Phase-C:
+        // ascend.springai.service.platform.persistence; pre-Phase-C:
+        // agent-platform.persistence per ADR-0078) yet; the rule activates
+        // when one is added.
         methods()
                 .that().areDeclaredInClassesThat().areAssignableTo(Repository.class)
                 .and().haveRawReturnType(Collection.class)

@@ -29,3 +29,7 @@ At W2.x the dispatcher fires hooks and middlewares may return `HookOutcome.Fail`
 - Run-state consumption of outcomes deferred per `CLAUDE-deferred.md` 45.b.
 - Schema source: `docs/contracts/engine-hooks.v1.yaml`.
 - Companion rule: Rule 48 ([`rule-48.md`](rule-48.md)) — Schema-First Domain Contracts (HookPoint enum is one of the first taxonomies to follow the schema-first shape).
+
+## Deferred sub-clauses
+
+Rule 45.b (see `docs/CLAUDE-deferred.md` for the deferred-runtime obligation(s) and re-introduction trigger(s)). Rule 96 (`kernel_deferred_clause_coherence`, rc9 / ADR-0083) asserts the bidirectional link between this active rule and each deferred sub-clause.

@@ -22,4 +22,4 @@ Authority: ADR-0072 / P-M. Part of the W2.x Engine Contract Structural Wave that
 - Additional enforcer E88 (W2.x post-release closure work) tightens registry-boot validation.
 - Companion rule: Rule 43 ([`rule-43.md`](rule-43.md)) — Engine Envelope Single Authority.
 - Companion rule: Rule 20 ([`rule-20.md`](rule-20.md)) — Run State Transition Validity (`engine_mismatch` is a legal RUNNING → FAILED transition).
-- Deferred sub-clauses: 44.b, 44.c (see `CLAUDE-deferred.md`).
+- Deferred sub-clauses: Rule 44.b (Run.engineType field persistence), Rule 44.c (parent-run propagation on child failure) — see `docs/CLAUDE-deferred.md`. Rule 96 (`kernel_deferred_clause_coherence`, rc9 / ADR-0083) asserts the bidirectional link between this active rule and each deferred sub-clause.

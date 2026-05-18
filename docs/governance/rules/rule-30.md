@@ -27,3 +27,7 @@ Enforced by Gate Rule 32 (`competitive_baselines_present_and_wellformed`) and Ga
 - Architecture reference: §4 #61.
 - Deferred sub-clauses 30.b (git-diff regression-ADR pairing) and 30.d (measurement automation, W2/W3 trigger).
 - [`docs/governance/competitive-baselines.yaml`](../competitive-baselines.yaml) — the artefact this rule polices.
+
+## Deferred sub-clauses
+
+Rule 30.b, Rule 30.d (see `docs/CLAUDE-deferred.md` for the deferred-runtime obligation(s) and re-introduction trigger(s)). Rule 96 (`kernel_deferred_clause_coherence`, rc9 / ADR-0083) asserts the bidirectional link between this active rule and each deferred sub-clause.

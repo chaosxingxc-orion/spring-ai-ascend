@@ -24,7 +24,8 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  *   <li>{@code ascend.springai.service.runtime.runs..} — Run entity + state machine</li>
  *   <li>{@code ascend.springai.service.runtime.orchestration.spi..} — pure-Java SPIs</li>
  *   <li>{@code ascend.springai.service.runtime.orchestration.inmemory.InMemoryRunRegistry}
- *       — the only dev-posture impl agent-platform legitimately wires
+ *       — the only dev-posture impl the platform edge (post-Phase-C / ADR-0078:
+ *       agent-service; pre-Phase-C: agent-platform) legitimately wires
  *       (RunControllerAutoConfiguration). Other inmemory.* classes stay
  *       internal.</li>
  *   <li>{@code ascend.springai.service.runtime.posture..} — AppPostureGate / AppPosture</li>
@@ -48,8 +49,10 @@ class PlatformImportsOnlyRuntimePublicApiTest {
         // types (ResilienceContract, ResiliencePolicy, SkillResolution, SuspendReason,
         // SkillCapacityRegistry) under the .spi sub-package; implementations stay in
         // runtime.resilience.* (Default*, Yaml*). The two-arg resolve is consumed by
-        // agent-platform.resilience.ResilienceAutoConfiguration. Internal-only packages
-        // stay: idempotency.. and probe..
+        // the platform-side ResilienceAutoConfiguration (post-Phase-C lives under
+        // ascend.springai.service.platform.resilience; pre-Phase-C was
+        // agent-platform.resilience.ResilienceAutoConfiguration per ADR-0078).
+        // Internal-only packages stay: idempotency.. and probe..
         ArchRule rule = noClasses()
                 .that().resideInAPackage("ascend.springai.service.platform..")
                 .should().dependOnClassesThat()
@@ -80,8 +83,9 @@ class PlatformImportsOnlyRuntimePublicApiTest {
         // can wire them into EngineRegistry. This is NOT HTTP-edge coupling —
         // it is the explicit, single, authorized wiring location. The original
         // rule intent (prevent ad-hoc HTTP-edge access) is preserved by excluding
-        // ONLY the engine package; everything else under agent-platform.. still
-        // cannot reach these classes.
+        // ONLY the engine package; everything else under the platform sub-tree
+        // (post-Phase-C: ascend.springai.service.platform..; pre-Phase-C:
+        // agent-platform.. per ADR-0078) still cannot reach these classes.
         ArchRule rule = noClasses()
                 .that().resideInAPackage("ascend.springai.service.platform..")
                 .and().resideOutsideOfPackage("ascend.springai.service.platform.engine..")

@@ -43,8 +43,9 @@ class ApiCompatibilityTest {
     // which forbids only INTERNAL runtime packages (idempotency.., probe..) per
     // ADR-0070 / W1.x Phase 9.
 
-    // spi_packages_* rules relocated to agent-runtime/MemorySpiArchTest after
+    // spi_packages_* rules relocated to the runtime-side MemorySpiArchTest after
     // all legacy ascend.springai.service.runtime.spi.** starters were deleted in C2-C8.
     // The surviving SPI (GraphMemoryRepository at ascend.springai.service.runtime.memory.spi)
-    // lives in agent-runtime; its contract rules live there too.
+    // lives in agent-service post-Phase-C (consolidated from pre-Phase-C agent-runtime
+    // per ADR-0078); its contract rules live there too.
 }

@@ -24,7 +24,9 @@ package ascend.springai.service.runtime.evolution;
  *
  * <p>Phase 4 ships only the enum. The {@code RunEvent} sealed interface that
  * will require {@code evolutionExport()} per variant lands in W2 (no
- * RunEvent type exists in agent-runtime/src/main yet -- ADR-0022 declares
+ * RunEvent type exists yet in the post-Phase-C runtime kernel
+ * {@code agent-runtime-core/src/main} or {@code agent-service/src/main/.../runtime}
+ * — formerly the pre-Phase-C {@code agent-runtime/src/main} tree; ADR-0022 declares
  * the type but defers implementation to W2). When RunEvent ships, every
  * variant MUST declare its export value at the type level; the W2.x
  * {@code EveryRunEventDeclaresEvolutionExportTest} ArchUnit test is armed

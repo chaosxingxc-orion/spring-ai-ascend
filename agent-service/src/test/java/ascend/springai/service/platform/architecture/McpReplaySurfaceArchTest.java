@@ -16,8 +16,11 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * direct DB read endpoints are forbidden — they would re-introduce the Admin UI
  * surface that §1 explicitly excludes.
  *
- * <p>The rule lives in agent-platform because that is where {@code @RestController}
- * classes reside in this monorepo. agent-runtime hosts no HTTP endpoints.
+ * <p>The rule lives in {@code agent-service} (consolidated from the pre-Phase-C
+ * {@code agent-platform} module per ADR-0078) because that is where
+ * {@code @RestController} classes reside in this monorepo. The runtime kernel
+ * (consolidated from pre-Phase-C {@code agent-runtime}; shared types now live in
+ * {@code agent-runtime-core} per ADR-0079) hosts no HTTP endpoints.
  *
  * <p>Vacuous at L1.x (no class lives under {@code web.replay}, {@code web.trace},
  * or {@code web.session}); arms automatically if a future PR adds one.

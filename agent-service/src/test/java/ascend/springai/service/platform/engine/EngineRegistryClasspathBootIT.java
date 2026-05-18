@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code /docs/contracts/engine-envelope.v1.yaml}. The repo-relative path
  * does not exist in a packaged-jar deployment outside the working tree, so
  * the classpath fallback MUST resolve. This IT proves the YAML is on the
- * agent-platform jar classpath by booting EngineAutoConfiguration with a
+ * agent-service jar classpath (post-Phase-C; pre-Phase-C was agent-platform per ADR-0078) by booting EngineAutoConfiguration with a
  * non-existent filesystem schema path — boot succeeds iff the classpath
  * fallback finds the resource.
  *
@@ -27,7 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * a property value that does NOT resolve on the filesystem but DOES match
  * a classpath resource path, we exercise the fallback branch in isolation.
  *
- * <p>The {@code <resources>} rule in {@code agent-platform/pom.xml} copies
+ * <p>The {@code <resources>} rule in {@code agent-service/pom.xml} (formerly
+ * {@code agent-platform/pom.xml} pre-Phase-C per ADR-0078) copies
  * {@code docs/contracts/engine-envelope.v1.yaml} into
  * {@code target/classes/docs/contracts/} at package time so this IT can
  * find the resource without changing the path semantics.
@@ -44,7 +45,7 @@ class EngineRegistryClasspathBootIT {
         // test's cwd. The exact spelling matches the classpath layout in
         // target/classes after the <resources> copy runs.
         String classpathOnlyPath = "docs/contracts/engine-envelope.v1.yaml";
-        // Sanity: when the test runs from agent-platform/ as cwd, this path
+        // Sanity: when the test runs from the module dir (post-Phase-C: agent-service/; pre-Phase-C: agent-platform/ per ADR-0078) as cwd, this path
         // does NOT exist on disk (the YAML lives at <repo-root>/docs/contracts).
         java.nio.file.Path cwdResolved = java.nio.file.Paths.get("").toAbsolutePath()
                 .resolve(classpathOnlyPath);

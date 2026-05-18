@@ -19,7 +19,7 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). SPI packages import only `java.*` plus same-spi-package siblings (ArchUnit `SpiPurityGeneralizedArchTest`). japicmp binary-compat from W1.
 
-**Active SPI interfaces (11 total):**
+**Active SPI interfaces (12 total):**
 
 | Interface | Module | Package | Status |
 |---|---|---|---|
@@ -29,6 +29,7 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `S2cCallbackTransport` | `agent-runtime-core` | `ascend.springai.service.runtime.s2c.spi` | shipped — W2.x; `InMemoryS2cCallbackTransport` reference (ADR-0074) |
 | `GraphMemoryRepository` | `agent-service` | `ascend.springai.service.runtime.memory.spi` | shipped — interface only; Graphiti W1 reference (ADR-0034) |
 | `ResilienceContract` | `agent-service` | `ascend.springai.service.runtime.resilience.spi` | shipped — W0 Resilience4j-backed impl (`DefaultSkillResilienceContract`); per-skill capacity via `YamlResilienceContract`; package home moved to `.spi` per ADR-0080 (v2.0.0-rc6) to align with Rules 32/77/78 — implementations stay in `runtime.resilience.*` |
+| `SkillCapacityRegistry` | `agent-service` | `ascend.springai.service.runtime.resilience.spi` | shipped — W0 YAML-backed impl (`YamlSkillCapacityRegistry`, in `agent-service`); `ResilienceAutoConfiguration` exposes it as an `@ConditionalOnMissingBean` extension point. Consumed by `ResilienceContract.resolve(tenant, skill)` per ADR-0070 / ADR-0080 / ADR-0081; added to the active SPI surface in v2.0.0-rc9 per rc8-post-corrective review P1-2 |
 | `ExecutorAdapter` | `agent-execution-engine` | `ascend.springai.engine.spi` | shipped — W2.x; reference adapters in `agent-service` (ADR-0072 / ADR-0079) |
 | `GraphExecutor` | `agent-execution-engine` | `ascend.springai.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`SequentialGraphExecutor`, in `agent-service`) |
 | `AgentLoopExecutor` | `agent-execution-engine` | `ascend.springai.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`IterativeAgentLoopExecutor`, in `agent-service`) |
@@ -40,7 +41,7 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | Module | SPI interfaces |
 |---|---|
 | `agent-runtime-core` | 4 (`RunRepository`, `Checkpointer`, `Orchestrator`, `S2cCallbackTransport`) |
-| `agent-service` | 2 (`GraphMemoryRepository`, `ResilienceContract`) |
+| `agent-service` | 3 (`GraphMemoryRepository`, `ResilienceContract`, `SkillCapacityRegistry`) |
 | `agent-execution-engine` | 4 (`ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`) |
 | `agent-middleware` | 1 (`RuntimeMiddleware`) |
 | `agent-bus` / `agent-client` / `agent-evolve` | 0 — skeleton `spi/package-info.java` only |
@@ -56,6 +57,7 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `S2cCallbackTransport` | tenant-scoped | `S2cCallbackEnvelope.tenantId` field (Rule 11) | unchanged |
 | `GraphMemoryRepository` | tenant-scoped | explicit `tenantId` first arg on every method (Rule 11) | unchanged |
 | `ResilienceContract` | dual-surface: operation-policy + skill-capacity | W0+ `resolve(operationId)` (operation-policy routing; legacy axis) **and** W1.x Phase 9+ `resolve(tenant, skill)` (skill-capacity arbitration per ADR-0070, Rule 41.b) | Operation-policy axis only; the pre-ADR-0070 plan to extend the *operation* surface to `(tenantId, operationId)` is **superseded** by ADR-0070 / ADR-0081 — the skill axis is `(tenant, skill)`, NOT `(tenantId, operationId)`. The two axes MUST NOT be conflated. |
+| `SkillCapacityRegistry` | tenant-scoped | explicit `tenantId` arg on `tryAcquire(tenantId, skillKey)` / `release(tenantId, skillKey)` (Rule 11 compliant) | unchanged |
 | `ExecutorAdapter` / `GraphExecutor` / `AgentLoopExecutor` | tenant-scoped | via injected `RunContext.tenantId()` | unchanged |
 | `EngineHookSurface` | tenant-scoped | dispatches through `HookContext.tenantId()` | unchanged |
 | `RuntimeMiddleware` | tenant-scoped | `HookContext.tenantId()` on every callback | unchanged |

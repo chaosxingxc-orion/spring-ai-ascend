@@ -16,8 +16,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Enforcer for plan §11 row E18: every Micrometer
- * {@code Counter/Timer/Gauge.builder("...")} call in agent-platform main
- * sources must name a metric beginning with {@code springai_ascend_}.
+ * {@code Counter/Timer/Gauge.builder("...")} call in the platform-side main
+ * sources (post-Phase-C: {@code agent-service/src/main/...platform}; pre-Phase-C
+ * was {@code agent-platform} per ADR-0078) must name a metric beginning with
+ * {@code springai_ascend_}.
  *
  * <p>Source-level static scan; complements {@link
  * ascend.springai.service.platform.observability.TenantTagMeterFilter} which strips
@@ -36,7 +38,7 @@ class MetricNamingTest {
     void all_metric_builder_calls_in_main_sources_use_the_namespace_prefix() throws IOException {
         Path main = Path.of("src/main/java");
         if (!Files.isDirectory(main)) {
-            return; // running outside the agent-platform module
+            return; // running outside the platform module (pre-Phase-C: agent-platform)
         }
         List<String> violations = new ArrayList<>();
         try (Stream<Path> stream = Files.walk(main)) {

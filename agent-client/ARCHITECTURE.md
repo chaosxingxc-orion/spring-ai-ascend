@@ -45,14 +45,19 @@ result checkpoints via Webhook.
 - **In scope (target):** authenticated submission of `RunRequest`,
   Task Cursor handling, SSE subscriber, Webhook receiver, replay /
   idempotency helpers, posture-aware backoff.
-- **Out of scope:** server-side orchestration (lives in `agent-service`
-  / `agent-runtime`), heterogeneous engine selection (lives in
-  `agent-execution-engine`), bus channels (live in `agent-bus`).
+- **Out of scope:** server-side orchestration (post-ADR-0078 / ADR-0079
+  lives in `agent-service` plus `agent-runtime-core` for kernel SPI types;
+  pre-Phase-C this was split between `agent-platform` and `agent-runtime`),
+  heterogeneous engine selection (lives in `agent-execution-engine`), bus
+  channels (live in `agent-bus`).
 - **Forbidden imports:** none of the server-plane modules
-  (`agent-runtime`, `agent-platform`, `agent-middleware`,
+  (pre-Phase-C: `agent-runtime`, `agent-platform`; post-ADR-0078:
+  `agent-service`, `agent-runtime-core`; plus `agent-middleware`,
   `agent-execution-engine`, `agent-bus`, `agent-evolve`). Enforced by
   `module-metadata.yaml#forbidden_dependencies` + the planned ArchUnit
-  test once code lands.
+  test once code lands. The pre-Phase-C names remain in the forbidden list
+  as sentinels — a future PR attempting to depend on them by name (mis-
+  reference) is rejected.
 
 ## 3. SPI surface
 

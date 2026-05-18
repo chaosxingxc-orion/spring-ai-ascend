@@ -28,3 +28,7 @@ Enforced by Gate Rule 34 (`module_metadata_present_and_complete`) and existing G
 - Deferred sub-clause 31.b — runtime semver compatibility enforcement (W2 trigger).
 - Rule 39 (Five-Plane Manifest) — `deployment_plane` is declared in the same `module-metadata.yaml`.
 - Rule 32 (SPI + DFX + TCK Co-Design) — `kind: domain` modules carry additional SPI/DFX obligations.
+
+## Deferred sub-clauses
+
+Rule 31.b (see `docs/CLAUDE-deferred.md` for the deferred-runtime obligation(s) and re-introduction trigger(s)). Rule 96 (`kernel_deferred_clause_coherence`, rc9 / ADR-0083) asserts the bidirectional link between this active rule and each deferred sub-clause.

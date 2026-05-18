@@ -8,11 +8,13 @@ import org.junit.jupiter.api.Test;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 /**
- * Enforces Rule 21 (Tenant Propagation Purity): production code in agent-runtime MUST NOT
- * import TenantContextHolder (a request-scoped HTTP-edge ThreadLocal in agent-platform).
+ * Enforces Rule 21 (Tenant Propagation Purity): production code in the runtime sub-tree
+ * (post-Phase-C: agent-service.runtime.*; pre-Phase-C: agent-runtime per ADR-0078) MUST NOT
+ * import TenantContextHolder (a request-scoped HTTP-edge ThreadLocal in the platform sub-tree;
+ * post-Phase-C: agent-service.platform.*; pre-Phase-C: agent-platform per ADR-0078).
  *
  * <p>Rationale (§4 #22, ADR-0023): RunContext.tenantId() is the canonical tenant carrier
- * inside agent-runtime. TenantContextHolder is valid only for the duration of an HTTP
+ * inside the runtime sub-tree (pre-Phase-C: agent-runtime). TenantContextHolder is valid only for the duration of an HTTP
  * request and is unavailable during timer-driven resumes or async orchestration.
  * Runtime code that reads the ThreadLocal would silently receive null in those contexts.
  *

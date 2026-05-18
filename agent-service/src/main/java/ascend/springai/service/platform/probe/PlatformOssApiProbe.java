@@ -1,7 +1,8 @@
 package ascend.springai.service.platform.probe;
 
 /*
- * W0 U2 promotion probe for agent-platform critical-path deps.
+ * W0 U2 promotion probe for critical-path deps (pre-Phase-C this lived in the
+ * agent-platform module; post-ADR-0078 consolidated into agent-service).
  *
  * Imports the cited APIs from each pinned dep so a successful `mvn compile`
  * proves the API exists at the version pinned by the parent POM. Per
@@ -61,6 +62,7 @@ public final class PlatformOssApiProbe {
                 MeterRegistry.class,
                 LogstashEncoder.class
         };
+        // Probe label retained pre-Phase-C verbatim for back-compat (was "agent-platform U2 probe: ").
         StringBuilder sb = new StringBuilder("agent-platform U2 probe: ");
         for (Class<?> c : cites) {
             sb.append(c.getSimpleName()).append(' ');

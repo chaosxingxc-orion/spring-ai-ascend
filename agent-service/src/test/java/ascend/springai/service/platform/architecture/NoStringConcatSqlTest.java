@@ -16,7 +16,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Enforcer for plan §11 row E17: no source under
- * {@code agent-platform/persistence/..} (or any package using
+ * the platform-side persistence packages (post-Phase-C:
+ * {@code agent-service/src/main/.../platform/persistence/..}; pre-Phase-C was
+ * {@code agent-platform/persistence/..} per ADR-0078) (or any package using
  * {@code JdbcClient}/{@code JdbcTemplate}) may construct SQL via String
  * concatenation. JPQL / SQL must live in {@code @Query} annotations or in
  * static text blocks; parameter substitution flows through named/positional
@@ -39,7 +41,7 @@ class NoStringConcatSqlTest {
     void no_source_in_persistence_or_idempotency_concatenates_sql_strings() throws IOException {
         Path main = Path.of("src/main/java");
         if (!Files.isDirectory(main)) {
-            return; // running outside agent-platform
+            return; // running outside the platform module (pre-Phase-C: agent-platform)
         }
         List<String> violations = new ArrayList<>();
         try (Stream<Path> stream = Files.walk(main)) {

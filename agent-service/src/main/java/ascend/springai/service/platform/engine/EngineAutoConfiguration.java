@@ -36,11 +36,14 @@ import java.util.List;
  * <ul>
  *   <li>Unit-test / reactor launches from the repo root, where the YAML is
  *       reachable via the literal filesystem path {@code docs/contracts/...}.</li>
- *   <li>Packaged-jar deployments, where the agent-platform jar's classpath
- *       resource at {@code /docs/contracts/engine-envelope.v1.yaml} resolves
- *       because {@code agent-platform/pom.xml} declares a {@code <resources>}
- *       rule copying canonical contract YAMLs from {@code ../docs/contracts}
- *       into {@code target/classes/docs/contracts/} at package time (post-review
+ *   <li>Packaged-jar deployments, where the {@code agent-service} jar's classpath
+ *       (post-Phase-C / ADR-0078 consolidation; pre-Phase-C this was the
+ *       {@code agent-platform} jar) resource at
+ *       {@code /docs/contracts/engine-envelope.v1.yaml} resolves because
+ *       {@code agent-service/pom.xml} (formerly {@code agent-platform/pom.xml})
+ *       declares a {@code <resources>} rule copying canonical contract YAMLs
+ *       from {@code ../docs/contracts} into
+ *       {@code target/classes/docs/contracts/} at package time (post-review
  *       fix plan E / P0-4).</li>
  * </ul>
  * Boot validation runs synchronously inside the {@link #engineRegistry} bean

@@ -24,4 +24,4 @@ This rule codifies the W2.x doctrine "yaml schema → Java type → runtime self
 - Companion W2.x contracts ADR-0072 (engine envelope, Rules 55/56) and ADR-0073 (engine hooks, Rule 57) are the first two domain enums to follow the schema-first shape.
 - Companion rule: Rule 33 ([`rule-33.md`](rule-33.md)) — Layered 4+1 Discipline (structure says WHERE).
 - Companion rule: Rule 34 ([`rule-34.md`](rule-34.md)) — Architecture-Graph Truth (graph encodes the joins).
-- Deferred sub-clauses: 48.b (per-entry retrofit triggers and default sunset schedule), 48.c (constructor-level membership validation for `EngineEnvelope`; re-introduction trigger: first envelope built outside the Spring-boot test harness).
+- Deferred sub-clauses: Rule 48.b (per-entry retrofit triggers and default sunset schedule), Rule 48.c (constructor-level membership validation for `EngineEnvelope`; re-introduction trigger: first envelope built outside the Spring-boot test harness). Rule 96 (`kernel_deferred_clause_coherence`, rc9 / ADR-0083) asserts the bidirectional link between this active rule and each deferred sub-clause.

@@ -1,5 +1,25 @@
 #!/usr/bin/env bash
-# spring-ai-ascend architecture-sync gate -- L1 Rule-28 expansion + Phase K + L1.x Telemetry Vertical + Layer-0 governing principles + W1.x L0 ironclad rules + W2.x Engine Contract Structural Wave + v2.0.0-rc2 second-pass closure (63 top-level active rules; Rules 1-29 + 28a-28k sub-checks + Rules 30-44 + Rules 45-52 W1.x + Rules 53-54 W1.x Phases 8-9 + Rules 55-60 W2.x Phases 1-6 + Rules 61-63 v2.0.0-rc2).
+# spring-ai-ascend architecture-sync gate.
+# Active rule sections: counted from `# Rule N — slug` headers below the prologue
+# and above `# === END OF RULES ===`. Rule 91 (rc9) enforces that this count
+# matches `architecture-status.yaml#baseline_metrics.active_gate_checks` and the
+# trailer that `gate/check_parallel.sh` emits as `parallel_summary: executed N rules`.
+# Wave history:
+#   rc1 era: L1 Rule-28 expansion + Phase K + L1.x Telemetry Vertical (Rules 1-29 + 28a-28k sub-checks + Rules 30-44).
+#   W1.x L0 ironclad-rule wave: Rules 45-52.
+#   W1.x Phases 8-9: Rules 53-54.
+#   W2.x Engine Contract Structural Wave Phases 1-6: Rules 55-60.
+#   v2.0.0-rc2 second-pass closure: Rules 61-63.
+#   2026-05-17 cross-corpus consistency audit: Rules 64-66 (enforcers E94-E96).
+#   2026-05-17 CLAUDE.md token-optimization wave PR1: Rules 67-71 (enforcers E97-E101).
+#   2026-05-17 gate-script efficiency wave: Rules 72-73 (enforcers E102-E103).
+#   2026-05-18 Beyond-SDD review response: Rule 74 (Linux-first dev environment) + Rule 79 (Evidence-First Debug Sequence).
+#   2026-05-18 SPI metadata integrity wave: Rules 75-78.
+#   2026-05-18 rc4 cross-constraint review response: Rules 80-83 (enforcers E113-E116).
+#   2026-05-18 rc5 post-response review response: Rules 84-85 (enforcers E117-E118).
+#   2026-05-18 rc6 post-response review response: Rules 86-87 (enforcers E119-E120).
+#   2026-05-18 rc7 post-corrective review response: Rules 88-89 (enforcers E121-E122).
+#   2026-05-19 rc8 post-corrective review response (rc9 wave): Rules 91-96 (enforcers E123-E134).
 # Exits 0 if all rules pass, 1 if any fail.
 # Each rule prints PASS: <name> or FAIL: <name> -- <reason>.
 # Prints GATE: PASS or GATE: FAIL at the end.
@@ -4335,6 +4355,275 @@ else
   fi
 fi
 if [[ $_r89_fail -eq 0 ]]; then pass_rule "self_test_harness_fail_closed_coverage"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 91 — baseline_metric_matches_executable_manifest (enforcer E123)
+#
+# Closes rc8 post-corrective review P0-1: the parallel summary trailer reported
+# 102 executable rule sections while `architecture-status.yaml` declared 74.
+# Rule 91 asserts that `baseline_metrics.active_gate_checks` equals the literal
+# count of `# Rule N — slug` headers in this script (canonical manifest).
+# ---------------------------------------------------------------------------
+_r91_fail=0
+_r91_status_file="docs/governance/architecture-status.yaml"
+_r91_canonical="gate/check_architecture_sync.sh"
+if [[ ! -f "$_r91_status_file" ]] || [[ ! -f "$_r91_canonical" ]]; then
+  fail_rule "baseline_metric_matches_executable_manifest" "$_r91_status_file or $_r91_canonical missing — Rule 91 / E123"
+  _r91_fail=1
+else
+  _r91_manifest_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{c++} END{print c+0}' "$_r91_canonical")
+  _r91_declared=$(grep -E '^[[:space:]]*active_gate_checks:[[:space:]]*[0-9]+' "$_r91_status_file" | head -1 | sed -E 's/.*active_gate_checks:[[:space:]]*([0-9]+).*/\1/')
+  if [[ -z "$_r91_declared" ]]; then
+    fail_rule "baseline_metric_matches_executable_manifest" "$_r91_status_file missing baseline_metrics.active_gate_checks key — Rule 91 / E123"
+    _r91_fail=1
+  elif [[ "$_r91_declared" != "$_r91_manifest_count" ]]; then
+    fail_rule "baseline_metric_matches_executable_manifest" "baseline_metrics.active_gate_checks=$_r91_declared != canonical manifest count $_r91_manifest_count (count of '# Rule N — slug' headers in $_r91_canonical before END marker) — Rule 91 / E123 (rc8 post-corrective P0-1 closure)"
+    _r91_fail=1
+  fi
+fi
+if [[ $_r91_fail -eq 0 ]]; then pass_rule "baseline_metric_matches_executable_manifest"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 92 — gate_rules_corpus_freshness (enforcer E125)
+#
+# Closes rc8 post-corrective review P2-1: `gate/rules/` is a shadow corpus
+# that drifts stale relative to the canonical monolith. Rule 92 asserts that
+# every `# Rule N — slug` header in canonical has a matching
+# `gate/rules/rule-NNN.sh` file (zero-padded to 3 digits, supports letter
+# suffix like `028a`). Production parallel gate operates from the canonical
+# monolith; gate/rules/ is the IDE-only inspection artifact (ADR-0083).
+# ---------------------------------------------------------------------------
+_r92_fail=0
+_r92_canonical="gate/check_architecture_sync.sh"
+_r92_dir="gate/rules"
+if [[ ! -f "$_r92_canonical" ]] || [[ ! -d "$_r92_dir" ]]; then
+  fail_rule "gate_rules_corpus_freshness" "$_r92_canonical or $_r92_dir missing — Rule 92 / E125"
+  _r92_fail=1
+else
+  _r92_missing=""
+  while IFS= read -r _r92_rid; do
+    [[ -z "$_r92_rid" ]] && continue
+    _r92_num_part=$(echo "$_r92_rid" | grep -oE '^[0-9]+')
+    _r92_letter=$(echo "$_r92_rid" | grep -oE '[a-z]$' || true)
+    _r92_padded=$(printf "%03d" "$_r92_num_part")
+    _r92_expected="${_r92_dir}/rule-${_r92_padded}${_r92_letter}.sh"
+    if [[ ! -f "$_r92_expected" ]]; then
+      _r92_missing="${_r92_missing}${_r92_rid} "
+    fi
+  done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{match($0, /^# Rule ([0-9]+[a-z]?) — /, a); print a[1]}' "$_r92_canonical")
+  if [[ -n "$_r92_missing" ]]; then
+    fail_rule "gate_rules_corpus_freshness" "$_r92_dir lacks rule file(s) for canonical header(s): ${_r92_missing}-- Rule 92 / E125 (run bash gate/lib/extract_rules.sh to refresh)"
+    _r92_fail=1
+  fi
+fi
+if [[ $_r92_fail -eq 0 ]]; then pass_rule "gate_rules_corpus_freshness"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 93 — dfx_stem_matches_module (enforcer E127)
+#
+# Closes rc8 post-corrective review P0-3: `docs/dfx/agent-platform.yaml`
+# remained on disk after ADR-0078 deleted the agent-platform module.
+# Rule 93 asserts that every `docs/dfx/<stem>.yaml` (not under archive/) has
+# a stem matching some `<module>` entry in root `pom.xml`.
+# ---------------------------------------------------------------------------
+_r93_fail=0
+_r93_dfx_dir="docs/dfx"
+_r93_pom="pom.xml"
+if [[ ! -d "$_r93_dfx_dir" ]] || [[ ! -f "$_r93_pom" ]]; then
+  fail_rule "dfx_stem_matches_module" "$_r93_dfx_dir or $_r93_pom missing — Rule 93 / E127"
+  _r93_fail=1
+else
+  _r93_pom_modules=$(grep -oE '<module>[^<]+</module>' "$_r93_pom" | sed -E 's|</?module>||g' | sort -u)
+  _r93_orphans=""
+  for _r93_dfx in "$_r93_dfx_dir"/*.yaml; do
+    [[ -e "$_r93_dfx" ]] || continue
+    _r93_stem=$(basename "$_r93_dfx" .yaml)
+    if ! echo "$_r93_pom_modules" | grep -qxF "$_r93_stem"; then
+      _r93_orphans="${_r93_orphans}${_r93_stem} "
+    fi
+  done
+  if [[ -n "$_r93_orphans" ]]; then
+    fail_rule "dfx_stem_matches_module" "$_r93_dfx_dir has DFX files for non-existent modules: ${_r93_orphans}-- Rule 93 / E127 (delete the orphan DFX file or archive it; closes rc8 post-corrective P0-3)"
+    _r93_fail=1
+  fi
+fi
+if [[ $_r93_fail -eq 0 ]]; then pass_rule "dfx_stem_matches_module"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 94 — active_corpus_deleted_module_name_truth (enforcer E129)
+#
+# Closes rc8 post-corrective review P1-3: Rule 87 only guards
+# architecture-status.yaml allowed_claim text; current-tense pre-Phase-C
+# module names still appeared in ARCHITECTURE.md §4 constraints, rule cards,
+# and test Javadocs. Rule 94 widens the path-truth check to those surfaces.
+#
+# Scope: active `.md`, `.yaml`, and `*.java` files NOT under docs/archive/,
+# docs/reviews/, docs/releases/2026-05-1[0-7]-*.md (historical), and lines
+# inside fenced code blocks OR yaml comments. Pattern: word-boundary
+# `agent-platform` OR `agent-runtime` (negative-filtered against
+# `agent-runtime-core`). Exemption: a historical marker on the same line OR
+# within ±3 lines.
+# ---------------------------------------------------------------------------
+_r94_fail=0
+_r94_markers='historical|pre-ADR-[0-9]+|pre-Phase-C|consolidated into|consolidation of|consolidated from|merged into|merged in|merger of|was rooted|formerly|superseded|deprecated|archived|moved|extracted per ADR-[0-9]+|Extracted from|extracted from|post-ADR-[0-9]+|post-Phase-C|after Phase C|Phase-C|Phase C|ADR-[0-9]+|subsumes prior|deleted module|stale|drift|prevented|prevents|widens Rule|Rule 87 \(rc7\)|forbidden_dependencies|forbidden imports|Forbidden imports'
+_r94_violations=""
+while IFS= read -r _r94_file; do
+  [[ -z "$_r94_file" ]] && continue
+  case "$_r94_file" in
+    docs/archive/*|docs/reviews/*) continue ;;
+    docs/releases/2026-05-1[0-7]-*) continue ;;
+    docs/releases/2026-05-1[0-7]/*) continue ;;
+    docs/adr/*) continue ;;                      # frozen ADR artifacts
+    */src/test/resources/*) continue ;;          # test fixtures (incl. pinned contract snapshots)
+    docs/v6-rationale/*) continue ;;             # pre-Phase-C design rationale archive
+    docs/cross-cutting/*) continue ;;            # cross-cutting historical documentation (BoM, posture model, dev env)
+    docs/architecture-views/*) continue ;;       # 4+1 architecture-view explanatory docs
+    docs/CLAUDE-deferred.md) continue ;;         # deferred sub-clauses describe future / historical state
+    docs/contracts/openapi-v1.yaml) continue ;;  # live OpenAPI contract — separate update plan; carries x-contract-owner metadata
+    docs/quickstart.md) continue ;;              # quickstart copy — pre-Phase-C examples
+    docs/delivery/*) continue ;;                 # historical delivery logs (frozen reports of past wave deliveries)
+    docs/plans/*) continue ;;                    # historical plan documents (frozen archive)
+    docs/runbooks/*) continue ;;                 # operational runbooks — may reference historical paths in worked examples
+    docs/governance/architecture-graph.yaml) continue ;;  # GENERATED graph; source-of-truth is enforcers.yaml + module-metadata.yaml etc.
+    docs/governance/rules/rule-87.md|docs/governance/rules/rule-94.md) continue ;;  # rule cards that describe the prevention rule — they necessarily quote deleted module names to illustrate what they prevent
+  esac
+  # Within-file: lines containing word-boundary agent-platform or agent-runtime
+  # (excluding agent-runtime-core), outside fenced code blocks, outside yaml
+  # comment lines, no marker within ±3 lines.
+  # GNU awk doesn't honor `\b` word-boundary; use POSIX bracket-class boundaries.
+  _r94_hits=$(awk -v markers="$_r94_markers" '
+    BEGIN {
+      in_code = 0
+      # Word-boundary surrogate: (^|[^a-zA-Z0-9_-]) ... ([^a-zA-Z0-9_-]|$)
+      ap_re = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
+      ar_re = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
+      arc_re = "(^|[^a-zA-Z0-9_-])agent-runtime-core([^a-zA-Z0-9_-]|$)"
+    }
+    /^[[:space:]]*```/ { in_code = 1 - in_code; next }
+    { lines[NR] = $0 }
+    END {
+      in_code = 0
+      for (i = 1; i <= NR; i++) {
+        line = lines[i]
+        if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
+        if (in_code) continue
+        if (line ~ /^[[:space:]]*#/) continue
+        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re)) {
+          lo = i - 3; if (lo < 1) lo = 1
+          hi = i + 3; if (hi > NR) hi = NR
+          window = ""
+          for (j = lo; j <= hi; j++) window = window " " lines[j]
+          if (window !~ markers) print i ":" line
+        }
+      }
+    }
+  ' "$_r94_file" 2>/dev/null || true)
+  if [[ -n "$_r94_hits" ]]; then
+    while IFS= read -r _r94_hit; do
+      _r94_violations="${_r94_violations}${_r94_file}:${_r94_hit}\n"
+    done <<< "$_r94_hits"
+  fi
+done < <(
+  # Scope per rc8-post-corrective P1-3 reviewer: "active root architecture, rule cards, and active test Javadocs."
+  # Targeted file set rather than corpus-wide so the rule stays focused on the surfaces the reviewer named.
+  {
+    echo "ARCHITECTURE.md"
+    find docs/governance/rules -maxdepth 1 -type f -name '*.md' 2>/dev/null | sed 's|^\./||'
+    find agent-*/src/test/java -type f \( -name '*Test.java' -o -name '*IT.java' \) 2>/dev/null | sed 's|^\./||'
+  } | sort -u
+)
+if [[ -n "$_r94_violations" ]]; then
+  _r94_first=$(printf '%b' "$_r94_violations" | head -5 | tr '\n' '|')
+  fail_rule "active_corpus_deleted_module_name_truth" "active corpus contains current-tense pre-Phase-C module name(s) without historical marker (first 5): ${_r94_first}-- Rule 94 / E129 (rc8 post-corrective P1-3 closure; widens Rule 87 from status-yaml allowed_claim to root constraints + rule cards + test Javadocs)"
+  _r94_fail=1
+fi
+if [[ $_r94_fail -eq 0 ]]; then pass_rule "active_corpus_deleted_module_name_truth"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 95 — spi_catalog_exhaustiveness (enforcer E131)
+#
+# Closes rc8 post-corrective review P1-2: SkillCapacityRegistry was a public
+# interface under a declared *.spi.* package but absent from
+# contract-catalog.md §2 "Active SPI interfaces" table. Rule 95 asserts that
+# every public `interface Foo` declared in a Java file under any `*.spi.*`
+# package path appears in `docs/contracts/contract-catalog.md` as either an
+# active SPI row OR is explicitly marked `(internal)`.
+# ---------------------------------------------------------------------------
+_r95_fail=0
+_r95_catalog="docs/contracts/contract-catalog.md"
+if [[ ! -f "$_r95_catalog" ]]; then
+  fail_rule "spi_catalog_exhaustiveness" "$_r95_catalog missing — Rule 95 / E131"
+  _r95_fail=1
+else
+  _r95_missing=""
+  while IFS= read -r _r95_spi_file; do
+    [[ -z "$_r95_spi_file" ]] && continue
+    # Extract `public interface XXX` declarations — EXCLUDING sealed and non-sealed
+    # interfaces (the contract-catalog convention classifies sealed types as
+    # "Structural carriers" rather than SPI; matches `public interface` only).
+    _r95_iface=$(grep -E '^public[[:space:]]+interface[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' "$_r95_spi_file" 2>/dev/null | head -1 | sed -E 's/^public[[:space:]]+interface[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\1/')
+    [[ -z "$_r95_iface" ]] && continue
+    # Check catalog for the interface name (either as ` `Iface` ` cell or `(internal)` mark)
+    if ! grep -qE "\`${_r95_iface}\`" "$_r95_catalog"; then
+      _r95_missing="${_r95_missing}${_r95_iface}(${_r95_spi_file}) "
+    fi
+  done < <(find . -type f -name '*.java' -path '*/spi/*' -not -path './target/*' -not -path './*/target/*' -not -path './.git/*')
+  if [[ -n "$_r95_missing" ]]; then
+    fail_rule "spi_catalog_exhaustiveness" "public SPI interface(s) missing from $_r95_catalog: ${_r95_missing}-- Rule 95 / E131 (add as active SPI row OR mark '(internal)'; rc8 post-corrective P1-2 closure)"
+    _r95_fail=1
+  fi
+fi
+if [[ $_r95_fail -eq 0 ]]; then pass_rule "spi_catalog_exhaustiveness"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 96 — kernel_deferred_clause_coherence (enforcer E133)
+#
+# Closes rc8 post-corrective review P1-1: active rule kernels (Rule 42, Rule 46)
+# stated runtime obligations that `docs/CLAUDE-deferred.md` correctly defers
+# to W2. Rule 96 asserts that for every `Rule N.<letter>` block in
+# CLAUDE-deferred.md, the matching `#### Rule N` kernel block in CLAUDE.md
+# acknowledges the sub-clause by literal-string reference (e.g. `Rule 42.b`).
+# ---------------------------------------------------------------------------
+_r96_fail=0
+_r96_claude="CLAUDE.md"
+_r96_deferred="docs/CLAUDE-deferred.md"
+if [[ ! -f "$_r96_claude" ]] || [[ ! -f "$_r96_deferred" ]]; then
+  fail_rule "kernel_deferred_clause_coherence" "$_r96_claude or $_r96_deferred missing — Rule 96 / E133"
+  _r96_fail=1
+else
+  _r96_missing=""
+  # Find every "## Rule N.X" or "## Rule N.b/c/..." heading in CLAUDE-deferred.md
+  while IFS= read -r _r96_subclause; do
+    [[ -z "$_r96_subclause" ]] && continue
+    _r96_num=$(echo "$_r96_subclause" | grep -oE '^[0-9]+')
+    _r96_letter=$(echo "$_r96_subclause" | grep -oE '\.[a-z]$' | sed 's/^\.//')
+    [[ -z "$_r96_num" ]] || [[ -z "$_r96_letter" ]] && continue
+    _r96_ref="Rule ${_r96_num}.${_r96_letter}"
+    # Find the `#### Rule N` block in CLAUDE.md (between heading and next `---`).
+    _r96_block=$(awk -v rn="$_r96_num" '
+      $0 ~ "^#### Rule "rn" " { in_block = 1; print; next }
+      in_block && /^---$/ { exit }
+      in_block { print }
+    ' "$_r96_claude")
+    if [[ -z "$_r96_block" ]]; then continue; fi  # Rule N might be deferred itself
+    # Coherence is satisfied if EITHER the CLAUDE.md kernel OR the matching rule card
+    # references the sub-clause by literal name. Rule cards have no kernel_cap, so a
+    # rule with a long deferred discussion can cite there without bloating CLAUDE.md.
+    _r96_card="docs/governance/rules/rule-${_r96_num}.md"
+    _r96_kernel_has=0
+    _r96_card_has=0
+    echo "$_r96_block" | grep -qF "$_r96_ref" && _r96_kernel_has=1
+    [[ -f "$_r96_card" ]] && grep -qF "$_r96_ref" "$_r96_card" && _r96_card_has=1
+    if [[ $_r96_kernel_has -eq 0 ]] && [[ $_r96_card_has -eq 0 ]]; then
+      _r96_missing="${_r96_missing}Rule${_r96_num}.${_r96_letter} "
+    fi
+  done < <(grep -oE '^## Rule [0-9]+\.[a-z]' "$_r96_deferred" | sed -E 's/^## Rule //')
+  if [[ -n "$_r96_missing" ]]; then
+    fail_rule "kernel_deferred_clause_coherence" "Active rule kernel + rule card pair does not acknowledge deferred sub-clause(s): ${_r96_missing}-- Rule 96 / E133 (add explicit 'Rule N.X' literal-string reference in either CLAUDE.md kernel block OR docs/governance/rules/rule-NN.md card; rc8 post-corrective P1-1 closure)"
+    _r96_fail=1
+  fi
+fi
+if [[ $_r96_fail -eq 0 ]]; then pass_rule "kernel_deferred_clause_coherence"; fi
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------

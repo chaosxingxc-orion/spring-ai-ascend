@@ -19,7 +19,7 @@ The L0 motivation (LucioIT W1 §6.3): a single blocking external call holds an O
 ## Cross-references
 
 - Enforced by Gate Rule 47 (`no_blocking_io_in_runtime_main`) — source scan for the forbidden imports.
-- Scope is intentionally narrow to `agent-runtime` (the cognitive kernel); existing `agent-platform` `JdbcTemplate` uses (`HealthCheckRepository`, `PlatformOssApiProbe`) are out of scope and migrate to R2DBC in W2 per `CLAUDE-deferred.md` 37.c.
+- Scope is intentionally narrow to the runtime kernel — post-Phase-C this is `agent-service/src/main/java/ascend/springai/service/runtime/...` (consolidated from pre-Phase-C `agent-runtime` per ADR-0078). Existing JdbcTemplate uses on the platform side (`HealthCheckRepository`, `PlatformOssApiProbe` — `agent-service/src/main/java/ascend/springai/service/platform/...`, consolidated from pre-Phase-C `agent-platform`) are out of scope and migrate to R2DBC in W2 per Rule 37.c (`docs/CLAUDE-deferred.md` 37.c).
 - Architecture reference: ADR-0069 / LucioIT W1 §6.3.
 - Honesty note (P-G in Layer 0): the W2.x synchronous S2C bridge in `SyncOrchestrator.handleClientCallback` blocks on `.toCompletableFuture().join()` — a deliberately deferred exception tracked under Rule 46.c (W2 async orchestrator).
 - Companion rule: Rule 38 ([`rule-38.md`](rule-38.md)) — No Thread.sleep in Business Code.

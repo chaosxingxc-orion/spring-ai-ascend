@@ -3,10 +3,13 @@ release_tag: v2.0.0-rc8
 release_date: 2026-05-18
 release_type: corrective_uplift
 supersedes_tag: v2.0.0-rc7
+superseded_by_tag: v2.0.0-rc9
 retracts_tag: null
 authority: docs/reviews/2026-05-18-l0-rc7-post-corrective-architecture-review.en.md
 response_doc: docs/reviews/2026-05-18-l0-rc7-post-corrective-architecture-review-response.en.md
 ---
+
+> **Historical artifact frozen at SHA d4ee319 (2026-05-18). Superseded by `docs/releases/2026-05-19-l0-rc9-corrective.en.md` per ADR-0083.** Counts and claims in this file reflect the rc8 baseline at publication time; current baseline lives in `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics` and in the rc9 release note.
 
 # v2.0.0-rc8 — rc7 post-corrective review response (2026-05-18)
 

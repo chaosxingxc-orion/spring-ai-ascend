@@ -11,7 +11,9 @@ import java.util.Objects;
  * OTel-backed implementation via Spring autoconfiguration.
  *
  * <p>This class is the runtime-side counterpart of the HTTP-edge
- * {@code TraceExtractFilter} (agent-platform). Both originate ids using the same
+ * {@code TraceExtractFilter} (post-Phase-C in
+ * {@code agent-service/src/main/.../platform/observability/}; pre-Phase-C this
+ * lived in the {@code agent-platform} module). Both originate ids using the same
  * W3C-compatible hex shapes so cross-module logs correlate.
  *
  * <p>Architecture reference: ADR-0061 §2, ARCHITECTURE.md §4 #53–#54.

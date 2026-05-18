@@ -27,3 +27,7 @@ Enforced by E48 (`SpiPurityGeneralizedArchTest`) and Gate Rule 31 (`quickstart_p
 - Architecture reference: §4 #60.
 - Deferred sub-clause 29.c — quickstart smoke-run in CI (W1 trigger).
 - Rule 32 (SPI + DFX + TCK Co-Design) — co-enforced by E48 on the SPI purity side.
+
+## Deferred sub-clauses
+
+Rule 29.c (see `docs/CLAUDE-deferred.md` for the deferred-runtime obligation(s) and re-introduction trigger(s)). Rule 96 (`kernel_deferred_clause_coherence`, rc9 / ADR-0083) asserts the bidirectional link between this active rule and each deferred sub-clause.

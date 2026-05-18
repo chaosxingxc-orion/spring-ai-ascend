@@ -1093,9 +1093,105 @@
   asserts: "Set of rule slugs extracted from gate/check_architecture_sync.sh (canonical) MUST equal the set the parallel awk extraction in gate/check_parallel.sh would produce, bounded by the explicit `# === END OF RULES ===` terminator. Every `# Rule N — slug` header MUST use em-dash `—` separator; double-dash `--` is forbidden. The canonical script MUST declare the `# === END OF RULES ===` marker. Closes rc7 post-corrective P0-2: the parallel wrapper silently skipped Rules 86-87 because of a compound defect (marker mismatch + separator mismatch); Rule 88 catches both legs."
 
 - id: E122
-  constraint_ref: "CLAUDE.md Rule 89 (self_test_harness_fail_closed_coverage); rc7 post-corrective review P1-1; ADR-0082"
+  constraint_ref: "CLAUDE.md Rule 89 (self_test_harness_fail_closed_coverage); rc7 post-corrective review P1-1; rc8 post-corrective review P1-4; ADR-0082; ADR-0083"
   kind: gate-script
   level: L0
   view: process
   artifact: gate/check_architecture_sync.sh#self_test_harness_fail_closed_coverage
-  asserts: "gate/test_architecture_sync_gate.sh MUST (a) contain a `passed != TOTAL` fail-closed clause that exits non-zero, (b) NOT declare TOTAL via a bare literal `TOTAL=NNN` form (must derive from passed+failed or an explicit manifest), and (c) declare at least one `test_rule_<N>_*` function for every `# Rule N — slug` header defined in gate/check_architecture_sync.sh (full coverage parity). Closes rc7 post-corrective P1-1: harness hardcoded TOTAL=143 and exited 0 when only ~37 tests ran; inline Rule 86/87 fixtures lost their results to the parallel orchestrator overwriting passed/failed counters."
+  asserts: "gate/test_architecture_sync_gate.sh MUST (a) contain a `passed != TOTAL` fail-closed clause that exits non-zero, (b) NOT declare TOTAL via a bare literal `TOTAL=NNN` form (must derive from passed+failed or an explicit manifest), and (c) declare at least one `test_rule_<N>_*` function for every prevention-wave `# Rule N — slug` header (`N >= 80`) defined in gate/check_architecture_sync.sh. Pre-rc4 Rules 1-79 are grandfathered (covered by ArchUnit / integration tests at design time, not by inline self-test fixtures). rc9 narrows the wording from the original 'full coverage parity / every Rule' phrasing to the prevention-wave-only scope matching CLAUDE.md Rule 89 kernel and gate/check_architecture_sync.sh implementation (closes rc8 post-corrective P1-4: enforcers row + gate/README claim overclaimed broader coverage than the rule actually enforces). Original rc7 closure: harness hardcoded TOTAL=143 and exited 0 when only ~37 tests ran; inline Rule 86/87 fixtures lost their results to the parallel orchestrator overwriting passed/failed counters."
+
+- id: E123
+  constraint_ref: "CLAUDE.md Rule 91 (baseline_metric_matches_executable_manifest); rc8 post-corrective review P0-1; ADR-0083"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#baseline_metric_matches_executable_manifest
+  asserts: "docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics.active_gate_checks MUST equal the literal count of `# Rule N — slug` headers in gate/check_architecture_sync.sh before the `# === END OF RULES ===` terminator. Closes rc8 post-corrective P0-1: published baseline declared 74 active gate rules while parallel_summary reported 102 (28-section gap persisted across 8 release notes). ADR-0083 adopts the executable-section count as the canonical meaning of active_gate_checks."
+
+- id: E124
+  constraint_ref: "CLAUDE.md Rule 91 (baseline_metric_matches_executable_manifest); ADR-0083"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/test_architecture_sync_gate.sh#test_rule_91_baseline_matches_pos
+  asserts: "Positive + negative self-test fixtures for Rule 91 in gate/test_architecture_sync_gate.sh. Positive: mock status YAML with active_gate_checks matching the canonical manifest count → rule passes. Negative: mock status YAML with active_gate_checks set to a value lower than the canonical manifest count → rule fails closed."
+
+- id: E125
+  constraint_ref: "CLAUDE.md Rule 92 (gate_rules_corpus_freshness); rc8 post-corrective review P2-1; ADR-0083"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#gate_rules_corpus_freshness
+  asserts: "Every `# Rule N — slug` header in gate/check_architecture_sync.sh (before the END marker) MUST have a matching gate/rules/rule-NNN[a-z]?.sh file (zero-padded to 3 digits with optional letter suffix). gate/rules/ is an IDE-only generated artifact refreshed by gate/lib/extract_rules.sh; the production parallel gate consumes the canonical monolith directly. Closes rc8 post-corrective P2-1: incomplete shadow rule corpus (83 files vs 102 canonical headers)."
+
+- id: E126
+  constraint_ref: "CLAUDE.md Rule 92 (gate_rules_corpus_freshness); ADR-0083"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/test_architecture_sync_gate.sh#test_rule_92_freshness_pos
+  asserts: "Positive + negative self-test fixtures for Rule 92. Positive: every canonical header has a matching gate/rules/rule-NNN[a-z]?.sh file → pass. Negative: a canonical header without a matching file (synthetic deletion) → fail."
+
+- id: E127
+  constraint_ref: "CLAUDE.md Rule 93 (dfx_stem_matches_module); rc8 post-corrective review P0-3; ADR-0082; ADR-0083"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#dfx_stem_matches_module
+  asserts: "Every docs/dfx/*.yaml file (excluding docs/archive/) MUST have a basename stem matching a `<module>` entry in root pom.xml. Closes rc8 post-corrective P0-3: docs/dfx/agent-platform.yaml remained on disk after ADR-0078 deleted the agent-platform module; ADR-0082 mandated removal but the gate did not enforce orphan-detection until rc9."
+
+- id: E128
+  constraint_ref: "CLAUDE.md Rule 93 (dfx_stem_matches_module); ADR-0083"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/test_architecture_sync_gate.sh#test_rule_93_dfx_stem_pos
+  asserts: "Positive + negative self-test fixtures for Rule 93. Positive: all dfx/*.yaml stems match modules in pom.xml → pass. Negative: synthetic dfx/orphan-module.yaml with no matching pom.xml entry → fail."
+
+- id: E129
+  constraint_ref: "CLAUDE.md Rule 94 (active_corpus_deleted_module_name_truth); rc8 post-corrective review P1-3; ADR-0078; ADR-0083"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#active_corpus_deleted_module_name_truth
+  asserts: "Active corpus (`.md`, `.yaml`, `*.java` files outside docs/archive/, docs/reviews/, docs/releases/2026-05-1[0-7]-*.md, fenced code blocks, yaml comment lines) MUST NOT contain word-boundary current-tense `agent-platform` or `agent-runtime` (negative-filtered against `agent-runtime-core`) without a historical marker (historical, pre-ADR-NNNN, pre-Phase-C, consolidated into, merged into, was rooted, formerly, superseded, deprecated, archived, moved, extracted per ADR-NNNN, post-ADR-NNNN) within ±3 lines. Widens Rule 87 (which only covered architecture-status.yaml#allowed_claim) to root constraints, rule cards, and test Javadocs. Closes rc8 post-corrective P1-3."
+
+- id: E130
+  constraint_ref: "CLAUDE.md Rule 94 (active_corpus_deleted_module_name_truth); ADR-0083"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/test_architecture_sync_gate.sh#test_rule_94_corpus_bare_neg
+  asserts: "Positive + negative self-test fixtures for Rule 94. Positive: synthetic file mentioning agent-platform with a `pre-Phase-C` marker on the line above → pass. Negative: synthetic file mentioning agent-platform on a bare line → fail. Also positive: fenced code-block content mentioning agent-platform → pass (excluded scope)."
+
+- id: E131
+  constraint_ref: "CLAUDE.md Rule 95 (spi_catalog_exhaustiveness); rc8 post-corrective review P1-2; ADR-0080; ADR-0081; ADR-0083"
+  kind: gate-script
+  level: L0
+  view: logical
+  artifact: gate/check_architecture_sync.sh#spi_catalog_exhaustiveness
+  asserts: "Every `public interface ...` declaration in a Java source file under any `*/spi/*` path (excluding `target/`) MUST appear in docs/contracts/contract-catalog.md as a backtick-wrapped interface name (either as an Active SPI table row OR explicitly marked `(internal)`). Closes rc8 post-corrective P1-2: SkillCapacityRegistry was public under .spi but missing from the catalog (11 total claimed)."
+
+- id: E132
+  constraint_ref: "CLAUDE.md Rule 95 (spi_catalog_exhaustiveness); ADR-0083"
+  kind: gate-script
+  level: L0
+  view: logical
+  artifact: gate/test_architecture_sync_gate.sh#test_rule_95_spi_catalog_pos
+  asserts: "Positive + negative self-test fixtures for Rule 95. Positive: every public interface under */spi/* appears in catalog → pass. Negative: a synthetic public interface under */spi/* not in catalog → fail."
+
+- id: E133
+  constraint_ref: "CLAUDE.md Rule 96 (kernel_deferred_clause_coherence); rc8 post-corrective review P1-1; ADR-0083"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#kernel_deferred_clause_coherence
+  asserts: "For every `## Rule N.<letter>` sub-clause heading in docs/CLAUDE-deferred.md, the matching `#### Rule N` kernel block in CLAUDE.md (between the heading and the next `---`) MUST contain the literal string `Rule N.<letter>` to acknowledge the deferred runtime obligation. Closes rc8 post-corrective P1-1: Rule 42 + Rule 46 active kernels overclaimed runtime enforcement that CLAUDE-deferred.md correctly deferred to W2."
+
+- id: E134
+  constraint_ref: "CLAUDE.md Rule 96 (kernel_deferred_clause_coherence); ADR-0083"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/test_architecture_sync_gate.sh#test_rule_96_kernel_cites_pos
+  asserts: "Positive + negative self-test fixtures for Rule 96. Positive: synthetic CLAUDE.md Rule N kernel containing the literal `Rule N.b` reference matches the CLAUDE-deferred.md Rule N.b sub-clause → pass. Negative: synthetic CLAUDE.md Rule N kernel WITHOUT the `Rule N.b` reference → fail."

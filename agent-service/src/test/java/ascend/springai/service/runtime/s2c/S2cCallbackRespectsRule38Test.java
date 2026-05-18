@@ -19,7 +19,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * (S2C Callback Envelope + Lifecycle Bound).
  * Enforcer row: docs/governance/enforcers.yaml#E83 (post-review fix plan F /
  * P1-2: prior Javadoc cited #E84 which is the engine-envelope boot-validation
- * IT in agent-platform, not this no-Thread.sleep ArchUnit).
+ * IT in the platform sub-tree (post-Phase-C: agent-service.platform; pre-Phase-C: agent-platform per ADR-0078), not this no-Thread.sleep ArchUnit).
  */
 class S2cCallbackRespectsRule38Test {
 

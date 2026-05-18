@@ -23,3 +23,7 @@ The L0 motivation (LucioIT W1 §7.2): application-layer tenant isolation is "ins
 - Grandfather list: `gate/rls-baseline-grandfathered.txt` (V1/V2 migrations grandfathered).
 - Grandfather retrofit deferred to W2 per `CLAUDE-deferred.md` 40.b.
 - Companion rule: Rule 21 ([`rule-21.md`](rule-21.md)) — Tenant Propagation Purity (application-layer tenant identity discipline; RLS is the storage-layer defence-in-depth).
+
+## Deferred sub-clauses
+
+Rule 40.b (see `docs/CLAUDE-deferred.md` for the deferred-runtime obligation(s) and re-introduction trigger(s)). Rule 96 (`kernel_deferred_clause_coherence`, rc9 / ADR-0083) asserts the bidirectional link between this active rule and each deferred sub-clause.

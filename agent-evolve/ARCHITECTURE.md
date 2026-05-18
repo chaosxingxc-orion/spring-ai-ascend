@@ -25,9 +25,10 @@ shell. Bulk implementation is deferred indefinitely per
 What *is* shipped today: the `EvolutionExport` discriminator
 (`IN_SCOPE | OUT_OF_SCOPE | OPT_IN`) declared in
 `docs/governance/evolution-scope.v1.yaml` (Rule 47 / P-M, gate Rule 59).
-Currently lives in `agent-runtime/evolution/` and stays there until the
-Java adapter is fleshed out — Phase C of the module-materialization
-roadmap may relocate it.
+Pre-Phase-C this lived in `agent-runtime/evolution/`; post-ADR-0078 / ADR-0079
+the EvolutionExport discriminator is consumed by `agent-service` (the
+consolidated runtime module) and the eventual Java adapter for the evolution
+plane will land here in `agent-evolve` once the W3 evolution scope ships.
 
 ## 0.4 Layered 4+1 view map
 

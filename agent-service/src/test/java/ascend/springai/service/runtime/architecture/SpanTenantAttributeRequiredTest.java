@@ -16,7 +16,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  *
  * <p>At L1.x there is no concrete span emitter class (W2 trigger), so the rule is
  * structurally vacuous via {@code allowEmptyShould(true)}. It arms the moment a
- * class lands under {@code agent-runtime/observability/emit/} or names containing
+ * class lands under {@code agent-service/src/main/.../runtime/observability/emit/} (post-Phase-C; pre-Phase-C: {@code agent-runtime/observability/emit/} per ADR-0078) or names containing
  * {@code SpanEmitter}/{@code SpanBuilder}. The negative invariant: no such class
  * may exist without depending on {@code RunContext} (the canonical tenant carrier
  * per Rule 21 + ADR-0023).

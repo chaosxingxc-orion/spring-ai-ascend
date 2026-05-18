@@ -28,3 +28,7 @@ Enforced by E48 (`SpiPurityGeneralizedArchTest`), Gate Rule 35 (`dfx_yaml_presen
 - Deferred sub-clauses 32.b (TCK module scaffolding), 32.c (TCK conformance content), 32.d (vulnerability-scanner integration).
 - Rule 29 (Business/Platform Decoupling Enforcement) — co-enforced by E48 on the SPI purity side.
 - Rule 31 (Independent Module Evolution) — the `module-metadata.yaml` that declares `kind: domain` is the same artefact Rule 32 reads.
+
+## Deferred sub-clauses
+
+Rule 32.b, Rule 32.c, Rule 32.d (see `docs/CLAUDE-deferred.md` for the deferred-runtime obligation(s) and re-introduction trigger(s)). Rule 96 (`kernel_deferred_clause_coherence`, rc9 / ADR-0083) asserts the bidirectional link between this active rule and each deferred sub-clause.

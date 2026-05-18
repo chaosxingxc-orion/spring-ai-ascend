@@ -1,7 +1,8 @@
 package ascend.springai.service.runtime.probe;
 
 /*
- * W0 U2 promotion probe for agent-runtime critical-path deps.
+ * W0 U2 promotion probe for runtime-side critical-path deps (pre-Phase-C this
+ * lived in the agent-runtime module; post-ADR-0078 consolidated into agent-service).
  *
  * Imports cited APIs from each pinned dep so a successful `mvn compile`
  * proves the API exists at the version pinned by the parent POM. Per
@@ -56,6 +57,7 @@ public final class OssApiProbe {
                 AutoDetectParser.class,
                 Metadata.class
         };
+        // Probe label retained pre-Phase-C verbatim for back-compat (was "agent-runtime W0-U2 probe: ").
         StringBuilder sb = new StringBuilder("agent-runtime W0-U2 probe: ");
         for (Class<?> c : cites) {
             sb.append(c.getSimpleName()).append(' ');
@@ -64,7 +66,7 @@ public final class OssApiProbe {
     }
 
     public static int temporalGetVersionShape() {
-        // ADR-03 + agent-runtime/temporal/ARCHITECTURE.md sec-10.1 cite the
+        // ADR-03 + the pre-Phase-C `agent-runtime/temporal/ARCHITECTURE.md` sec-10.1 (post-ADR-0078 the content moved into agent-service docs) cite the
         // Workflow.getVersion(String, int, int) signature for workflow versioning.
         // Compile-time reference proves the method exists at SDK 1.35.0.
         // Runtime invocation is illegal outside a workflow context.

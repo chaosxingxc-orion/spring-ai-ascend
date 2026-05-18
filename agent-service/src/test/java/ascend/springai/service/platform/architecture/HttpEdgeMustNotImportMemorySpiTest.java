@@ -9,8 +9,10 @@ import org.junit.jupiter.api.Test;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 /**
- * Enforces L1 layering (ADR-0055, plan §5.2): the HTTP edge module
- * {@code agent-platform} MUST NOT import the memory SPI under
+ * Enforces L1 layering (ADR-0055, plan §5.2): the HTTP edge layer
+ * (post-Phase-C lives under {@code agent-service/src/main/.../platform/...};
+ * pre-Phase-C was the {@code agent-platform} module per ADR-0078)
+ * MUST NOT import the memory SPI under
  * {@code ascend.springai.service.runtime.memory.spi..}.
  *
  * <p>Rationale: the HTTP edge owns request validation, auth, tenant binding,
