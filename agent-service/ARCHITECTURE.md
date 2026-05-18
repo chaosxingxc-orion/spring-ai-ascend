@@ -404,9 +404,9 @@ Green `OssApiProbeTest` is a required gate for every wave.
 
 #### runtime / idempotency -- Contract-spine entity (W0)
 
-`IdempotencyRecord` under
-`agent-service/src/main/java/ascend/springai/service/runtime/idempotency/`
-is the runtime-side contract-spine entity. It mirrors the persistence
+`IdempotencyRecord` (post-ADR-0079: extracted to `agent-runtime-core`) lives at
+`agent-runtime-core/src/main/java/ascend/springai/service/runtime/idempotency/`
+and is the runtime-side contract-spine entity. It mirrors the persistence
 shape (`tenantId`, `idempotencyKey`, `requestHash`, `status`,
 `createdAt`, `expiresAt`) consumed by the platform-side
 `IdempotencyStore` SPI. Mandatory `tenantId` field is the trigger

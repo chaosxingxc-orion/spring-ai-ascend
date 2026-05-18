@@ -23,6 +23,18 @@ jobs:
       - name: Maven verify (compile + unit + integration tests)
         run: ./mvnw -T 1C -B -ntp --strict-checksums verify
 
+      - name: Install Python deps for architecture-graph generation
+        # Required by Rule 34 (architecture_graph_well_formed) — the gate
+        # checks gate/build_architecture_graph.py output exists. The graph
+        # file (docs/governance/architecture-graph.yaml) is gitignored per
+        # gate/README.md; regenerate on each CI run.
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install -r gate/requirements.txt
+
+      - name: Regenerate architecture graph
+        run: python3 gate/build_architecture_graph.py
+
       - name: Architecture-sync gate (parallel)
         # The parallel wrapper runs the same 63+ rules across 8 workers,
         # cutting wall-clock from ~24min to ~7min on Windows/git-bash and
