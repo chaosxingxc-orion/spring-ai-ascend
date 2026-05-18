@@ -1083,4 +1083,19 @@
   view: development
   artifact: gate/check_architecture_sync.sh#status_yaml_allowed_claim_module_name_truth
   asserts: "Every line in docs/governance/architecture-status.yaml matching ^[[:space:]]+allowed_claim:[[:space:]]* whose extracted value contains a word-boundary match for agent-platform or agent-runtime (negative-filtered against agent-runtime-core) MUST have one of the markers (historical, pre-ADR-NNNN, pre-Phase-C, consolidated into, consolidated from, merged into, merged in, was rooted, formerly, superseded, deprecated, archived, moved, post-ADR-NNNN) present within +/-3 lines of the same yaml file. Closes rc6 post-response P1-2: ledger allowed_claim text cannot drift to deleted module names while structured repository_counts correctly declares the post-ADR-0078 9-module topology."
-  asserts: "Every row in the docs/contracts/contract-catalog.md '**Active SPI interfaces (N total):**' table whose 'Status' column does NOT contain the literal substring '(internal)' MUST: (a) point at a module whose <module>/module-metadata.yaml contains a spi_packages: entry that exactly matches the row's Package column OR contains the package as a .spi-prefixed sub-package, AND (b) the same module's docs/dfx/<module>.yaml#spi_packages list MUST contain the same package. The header count (N total) MUST equal the number of non-(internal) rows. Closes rc5 post-response P1-2: catalog SPI commitments must be backed by SPI metadata declarations on both sides of the Rule 78 set."
+
+- id: E121
+  constraint_ref: "CLAUDE.md Rule 88 (serial_parallel_gate_slug_parity); rc7 post-corrective review P0-2; ADR-0082"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#serial_parallel_gate_slug_parity
+  asserts: "Set of rule slugs extracted from gate/check_architecture_sync.sh (canonical) MUST equal the set the parallel awk extraction in gate/check_parallel.sh would produce, bounded by the explicit `# === END OF RULES ===` terminator. Every `# Rule N — slug` header MUST use em-dash `—` separator; double-dash `--` is forbidden. The canonical script MUST declare the `# === END OF RULES ===` marker. Closes rc7 post-corrective P0-2: the parallel wrapper silently skipped Rules 86-87 because of a compound defect (marker mismatch + separator mismatch); Rule 88 catches both legs."
+
+- id: E122
+  constraint_ref: "CLAUDE.md Rule 89 (self_test_harness_fail_closed_coverage); rc7 post-corrective review P1-1; ADR-0082"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#self_test_harness_fail_closed_coverage
+  asserts: "gate/test_architecture_sync_gate.sh MUST (a) contain a `passed != TOTAL` fail-closed clause that exits non-zero, (b) NOT declare TOTAL via a bare literal `TOTAL=NNN` form (must derive from passed+failed or an explicit manifest), and (c) declare at least one `test_rule_<N>_*` function for every `# Rule N — slug` header defined in gate/check_architecture_sync.sh (full coverage parity). Closes rc7 post-corrective P1-1: harness hardcoded TOTAL=143 and exited 0 when only ~37 tests ran; inline Rule 86/87 fixtures lost their results to the parallel orchestrator overwriting passed/failed counters."

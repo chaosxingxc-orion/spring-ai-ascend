@@ -434,7 +434,7 @@ Enforced by [`rule-85.md`](docs/governance/rules/rule-85.md).
 ### rc6 post-response review response prevention wave (2026-05-18)
 #### Rule 86 — Root ARCHITECTURE Count + Path Truth
 
-**Every numeric module-count claim in root `ARCHITECTURE.md` matching `\b[0-9]+-module\b`, `\b[0-9]+ modules\b`, or `\b[0-9]+ reactor modules\b` (outside fenced code blocks and YAML frontmatter) MUST equal the count of `<module>` entries in root `pom.xml` AND `docs/governance/architecture-status.yaml#repository_counts.reactor_modules`. Every `<module>/src/main/java/...` path claim in root `ARCHITECTURE.md` (outside fenced code blocks) MUST resolve to a real path on disk OR carry a historical marker (`historical`, `pre-ADR-NNNN`, `pre-Phase-C`, `consolidated into`, `merged into`, `was rooted`, `formerly`, `superseded`, `deferred`, `moved`, `extracted per ADR-NNNN`) within ±3 lines. Operationalises rc6 post-response review P0-2 closure (Rule 84 covers `agent-*/ARCHITECTURE.md`; Rule 86 covers root).**
+**Every numeric module-count claim in root `ARCHITECTURE.md` matching `\b[0-9]+-module\b`, `\b[0-9]+ modules\b`, or `\b[0-9]+ reactor modules\b` (outside fenced code blocks and YAML frontmatter) MUST equal the count of `<module>` entries in root `pom.xml` AND `docs/governance/architecture-status.yaml#repository_counts.reactor_modules`. Every `<module>/src/main/java/...` path claim in root `ARCHITECTURE.md` (outside fenced code blocks) MUST resolve to a real path on disk OR carry a historical marker (`historical`, `pre-ADR-NNNN`, `pre-Phase-C`, `consolidated into`, `merged into`, `was rooted`, `formerly`, `superseded`, `deferred`, `moved`, `extracted per ADR-NNNN`) within ±3 lines. **rc8 amendment (2026-05-18, ADR-0082)**: a second pass also validates SPI-ownership claims INSIDE fenced tree-diagram code blocks — every indented `<pkg>/spi/` leaf under a module-header `<module>/` line MUST have an `<module>/module-metadata.yaml#spi_packages` entry containing `.<pkg>.spi`. Closes rc7 post-corrective review P0-1 (GraphMemoryRepository ownership drift hid inside a fenced tree block that the original pass excluded). Operationalises rc6 P0-2 + rc7 P0-1 closure (Rule 84 covers `agent-*/ARCHITECTURE.md`; Rule 86 covers root; rc8 extension covers fenced trees).**
 
 Enforced by [`rule-86.md`](docs/governance/rules/rule-86.md).
 
@@ -444,6 +444,22 @@ Enforced by [`rule-86.md`](docs/governance/rules/rule-86.md).
 **Every `allowed_claim:` text value in `docs/governance/architecture-status.yaml` MUST NOT contain a current-tense reference to the pre-Phase-C module names `agent-platform` or `agent-runtime` (the latter NOT matching `agent-runtime-core`) outside an explicit historical marker (`historical`, `pre-ADR-NNNN`, `pre-Phase-C`, `consolidated into`, `merged into`, `was rooted`, `formerly`, `superseded`, `deprecated`, `archived`) within ±3 lines of the same claim. Operationalises rc6 post-response review P1-2 closure: ledger `allowed_claim:` text cannot drift to deleted module names while structured `repository_counts` correctly declares the post-ADR-0078 9-module topology.**
 
 Enforced by [`rule-87.md`](docs/governance/rules/rule-87.md).
+
+---
+
+### rc7 post-corrective review response prevention wave (2026-05-18)
+#### Rule 88 — Serial/Parallel Gate Slug Parity
+
+**Canonical gate (`gate/check_architecture_sync.sh`) and parallel wrapper (`gate/check_parallel.sh`) MUST execute the same rule slug set. The canonical script MUST declare a `# === END OF RULES ===` terminator; the parallel awk MUST terminate on that marker. Every rule header MUST use em-dash `—` (`# Rule N — slug`); double-dash `--` is forbidden. Rule 88 fails closed on (a) parallel-manifest gap vs canonical, (b) double-dash separator, or (c) missing END marker. Closes rc7 P0-2 (parallel wrapper silently skipped Rules 86-87 via compound defect: marker + separator mismatch).**
+
+Enforced by [`rule-88.md`](docs/governance/rules/rule-88.md).
+
+---
+#### Rule 89 — Self-Test Harness Fail-Closed Coverage
+
+**`gate/test_architecture_sync_gate.sh` MUST (a) fail closed (exit non-zero) when `passed != TOTAL`; (b) derive `TOTAL` at runtime (`TOTAL=$((passed + failed))` or equivalent), NOT a bare literal outside heredoc fixtures; (c) every prevention-wave Rule (`N >= 80`) MUST have a `test_rule_<N>_*` function (pre-rc4 rules 1-79 grandfathered — covered by ArchUnit / IT at design time). Closes rc7 P1-1.**
+
+Enforced by [`rule-89.md`](docs/governance/rules/rule-89.md).
 
 ---
 

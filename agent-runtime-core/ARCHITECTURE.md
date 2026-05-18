@@ -27,10 +27,15 @@ shared core module, both sides depend downward only.
 
 ## 2. Contents
 
-- `runs/Run.java`, `RunMode.java`, `RunStatus.java`, `RunStateMachine.java` — Run lifecycle DFA.
-- `runs/RunRepository.java` — SPI interface.
-- `orchestration/spi/Orchestrator.java`, `RunContext.java`, `SuspendSignal.java`, `Checkpointer.java` — orchestration SPI.
-- `idempotency/IdempotencyRecord.java` — contract-spine entity.
+Authoritative enumeration of every Java surface owned by `agent-runtime-core` (post-ADR-0079, verified 2026-05-18). Memory SPI is **not** owned by this module — per ADR-0079/ADR-0082 it remains on `agent-service`.
+
+- `runs/Run.java`, `RunMode.java`, `RunStatus.java`, `RunStateMachine.java` — Run lifecycle DFA + entity (Rule 11 + Rule 20).
+- `runs/spi/RunRepository.java` — SPI interface (relocated to `runs.spi/` by the 2026-05-18 SPI integrity remediation; declared in `module-metadata.yaml#spi_packages` as `ascend.springai.service.runtime.runs.spi`).
+- `orchestration/spi/Orchestrator.java`, `RunContext.java`, `SuspendSignal.java`, `Checkpointer.java`, `TraceContext.java`, `ExecutorDefinition.java` — orchestration SPI (the 6 canonical surfaces extracted per ADR-0079; declared as `ascend.springai.service.runtime.orchestration.spi`).
+- `s2c/spi/S2cCallbackEnvelope.java`, `S2cCallbackTransport.java`, `S2cCallbackResponse.java` — S2C callback SPI (3 surfaces moved here in rc3 + ADR-0079; declared as `ascend.springai.service.runtime.s2c.spi`; SuspendSignal.forClientCallback(...) variant per ADR-0074 carries the checked-suspension bridge).
+- `idempotency/IdempotencyRecord.java` — contract-spine entity (Rule 11 tenantId enforcement).
+
+Total: 4 runs entities + 1 runs SPI + 6 orchestration SPI + 3 s2c SPI + 1 idempotency entity = 15 Java sources (excluding `package-info.java`). Out of scope (kept on `agent-service` deliberately): memory SPI, resilience SPI, reference adapters, HTTP edge.
 
 ## 3. Forbidden imports
 
@@ -39,6 +44,6 @@ ArchUnit `SpiPurityGeneralizedArchTest` (E48) in agent-service test scope.
 
 ## 4. Consumers
 
-- `agent-service` (full runtime adapter + HTTP edge).
+- `agent-service` (full runtime adapter + HTTP edge + memory.spi + resilience.spi).
 - `agent-execution-engine` (engine envelope + executor SPI).
 - `spring-ai-ascend-graphmemory-starter` (transitively via agent-service).

@@ -159,14 +159,14 @@ spring-ai-ascend/
         resilience/                            # impls: DefaultSkillResilienceContract, YamlResilienceContract, YamlSkillCapacityRegistry — SPI types moved to .spi/ per ADR-0080
           spi/                                 # ResilienceContract, ResiliencePolicy, SkillResolution, SuspendReason, SkillCapacityRegistry (extracted per ADR-0080, 2026-05-18)
         orchestration/inmemory/                # Reference adapters (posture-gated dev defaults): InMemoryCheckpointer, InMemoryRunRegistry, SyncOrchestrator, SequentialGraphExecutor, IterativeAgentLoopExecutor
+        memory/spi/                            # GraphMemoryRepository — interface only (W1+; ADR-0034/0082).
 
-  agent-runtime-core/                          # NEW 2026-05-18 per ADR-0079: shared kernel SPI types + entities (resolves the prior back-dep cycle)
+  agent-runtime-core/                          # NEW 2026-05-18 per ADR-0079: shared kernel SPI types + entities (resolves the back-dep cycle).
     src/main/java/ascend/springai/service/runtime/
       runs/                                    # Run, RunMode, RunStatus, RunStateMachine — entity + DFA validator (moved here per ADR-0079; formerly at `agent-runtime/` pre-Phase-C)
         spi/                                   # RunRepository — pure-Java SPI interface
       orchestration/spi/                       # Orchestrator, RunContext, SuspendSignal (checked, with forClientCallback variant per ADR-0074 rc3 unification), Checkpointer, TraceContext, ExecutorDefinition sealed hierarchy (moved here per ADR-0079)
-      s2c/spi/                                 # S2cCallbackEnvelope, S2cCallbackTransport, S2cCallbackResponse, S2cCallbackOutcome (moved here in rc3 + ADR-0079)
-      memory/spi/                              # GraphMemoryRepository — interface only (W1+ adapter via graphmemory starter; ADR-0034)
+      s2c/spi/                                 # S2cCallbackEnvelope, S2cCallbackTransport, S2cCallbackResponse (moved here in rc3 + ADR-0079; outcome enum inlined into S2cCallbackResponse)
       idempotency/                             # IdempotencyRecord — Rule 11 contract spine
 
   spring-ai-ascend-graphmemory-starter/        # E2 adapter shell (Graphiti W1 ref per ADR-0034; auto-config disabled; full code W2)

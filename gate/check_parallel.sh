@@ -104,7 +104,12 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 
 # ---------------------------------------------------------------------------
 # Extract rule ranges from the source script.
-# Boundary: `# Rule N — slug` header. End of last rule: `# Summary` marker.
+# Boundary: `# Rule N — slug` header (em-dash; double-dash `--` also accepted
+# as defence-in-depth for legacy headers — Rule 88 enforces em-dash going
+# forward, but the awk stays tolerant so a future drift on separator alone
+# does not silently skip rules). End of rules: explicit `# === END OF RULES ===`
+# marker, NOT `^# Summary$` (the rc7-post-corrective wave removed the
+# `# Summary` documentation-header collision per Rule 88 / E121).
 # TSV: rule_order_index<TAB>rule_slug<TAB>start_line<TAB>end_line
 # ---------------------------------------------------------------------------
 awk '
@@ -115,14 +120,14 @@ awk '
     }
   }
   BEGIN { prev_slug = ""; prev_start = 0; idx = 0 }
-  /^# Rule [0-9]+[a-z]? — / {
+  /^# Rule [0-9]+[a-z]? (—|--) / {
     emit_prev(NR - 1)
-    match($0, /^# Rule ([0-9]+[a-z]?) — ([a-z_]+)/, arr)
-    prev_slug = arr[1] "_" arr[2]
+    match($0, /^# Rule ([0-9]+[a-z]?) (—|--) ([a-z0-9_]+)/, arr)
+    prev_slug = arr[1] "_" arr[3]
     prev_start = NR
     next
   }
-  /^# Summary$/ {
+  /^# === END OF RULES ===$/ {
     emit_prev(NR - 1)
     prev_slug = ""
     exit
@@ -307,6 +312,17 @@ if [[ -n "$GATE_LOG_DIR" ]]; then
     fi
   )
   bash "$repo_root/gate/lib/prune_old_runs.sh" || true
+fi
+
+# rc8: emit a parallel_summary trailer so reviewers and Rule 88 can audit
+# coverage without re-deriving counts. The serial-source count is taken from
+# the canonical script's rule-header set (em-dash or double-dash separator
+# tolerant); the parallel count is the size of manifest.tsv built above.
+_serial_rule_count=$(grep -cE '^# Rule [0-9]+[a-z]? (—|--) ' "$SOURCE_SCRIPT" 2>/dev/null || echo 0)
+echo "parallel_summary: executed ${total_rules} rules; serial source defined ${_serial_rule_count} rules"
+if [[ "${total_rules}" != "${_serial_rule_count}" ]]; then
+  echo "GATE: FAIL (parallel/serial parity: executed ${total_rules} != serial ${_serial_rule_count}; Rule 88 / E121 would catch this in the serial canonical gate)"
+  exit 1
 fi
 
 if [[ "$failed_rules" -eq 0 ]]; then

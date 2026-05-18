@@ -4,11 +4,15 @@ release_date: 2026-05-18
 release_type: additive_uplift
 supersedes_tag: v2.0.0-rc6
 retracts_tag: null
+superseded_by: docs/releases/2026-05-18-l0-rc8-corrective.en.md
+historical_marker: "superseded by v2.0.0-rc8 corrective release — the P0-2 closure on line 49 overstated the post-rc7 tree placement of memory.spi (it remained on agent-service per ADR-0079/ADR-0082, not extracted to agent-runtime-core as the line-49 prose implied). See rc8 release note + rc7 post-corrective response doc for the full reconciliation."
 authority: docs/reviews/2026-05-18-l0-rc6-post-response-architecture-review.en.md
 response_doc: docs/reviews/2026-05-18-l0-rc6-post-response-architecture-review-response.en.md
 ---
 
 # v2.0.0-rc7 — rc6 post-response review response (2026-05-18)
+
+> **Historical artifact frozen at SHA 8fb6b21** — superseded by v2.0.0-rc8 corrective release (2026-05-18). The P0-2 closure on line 49 below overstated the post-rc7 tree placement of `memory.spi` (it remained on `agent-service` per ADR-0079/ADR-0082, not extracted to `agent-runtime-core` as the line-49 prose implied). See [`docs/releases/2026-05-18-l0-rc8-corrective.en.md`](2026-05-18-l0-rc8-corrective.en.md) + [`docs/reviews/2026-05-18-l0-rc7-post-corrective-architecture-review-response.en.md`](../reviews/2026-05-18-l0-rc7-post-corrective-architecture-review-response.en.md) for the full reconciliation. All baseline counts (81 ADRs / 72 gate rules / 143 self-tests / 341 graph nodes / 474 graph edges) are frozen at the rc7 snapshot; current canonical values live in `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics` and the rc8 release note.
 
 ## Baseline counts (post-rc7)
 

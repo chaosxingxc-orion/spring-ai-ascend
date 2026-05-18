@@ -3034,7 +3034,7 @@ if [[ $_r66_fail -eq 0 ]]; then pass_rule "spi_package_exhaustiveness"; fi
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
-# Rule 67 -- claude_md_kernel_size_bounded (enforcer E97)
+# Rule 67 — claude_md_kernel_size_bounded (enforcer E97)
 #
 # For each "#### Rule NN" heading in CLAUDE.md, count the lines between the
 # heading and the next "---" separator (inclusive of the heading). Look up
@@ -3094,7 +3094,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Rule 68 -- claude_md_kernel_matches_card (enforcer E98)
+# Rule 68 — claude_md_kernel_matches_card (enforcer E98)
 #
 # For every docs/governance/rules/rule-NN.md card, extract the kernel: scalar
 # from the YAML front-matter, normalise whitespace, and assert the same text
@@ -3151,7 +3151,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Rule 69 -- every_active_rule_has_card (enforcer E99)
+# Rule 69 — every_active_rule_has_card (enforcer E99)
 #
 # Every "#### Rule NN" heading in CLAUDE.md MUST have a sibling
 # docs/governance/rules/rule-NN.md (zero-padded). Every card MUST either
@@ -3209,7 +3209,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Rule 70 -- always_loaded_budget_enforced (enforcer E100)
+# Rule 70 — always_loaded_budget_enforced (enforcer E100)
 #
 # Invokes gate/measure_always_loaded_tokens.sh which walks every file listed
 # in gate/always-loaded-budget.txt and fails if any file exceeds its ceiling.
@@ -3234,7 +3234,7 @@ fi
 if [[ $_r70_fail -eq 0 ]]; then pass_rule "always_loaded_budget_enforced"; fi
 
 # ---------------------------------------------------------------------------
-# Rule 71 -- deferred_doc_not_in_always_loaded (enforcer E101)
+# Rule 71 — deferred_doc_not_in_always_loaded (enforcer E101)
 #
 # Once docs/CLAUDE-deferred.md is demoted from the always-loaded set, the
 # demote must stay durable. Fails if:
@@ -3267,7 +3267,7 @@ if [[ $_r71_fail -eq 0 ]]; then pass_rule "deferred_doc_not_in_always_loaded"; f
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
-# Rule 73 -- gate_config_well_formed (enforcer E103)
+# Rule 73 — gate_config_well_formed (enforcer E103)
 #
 # Sources gate/lib/load_config.sh and runs the validator. Fails if:
 #   - gate/config.yaml or gate/config.schema.yaml missing
@@ -3317,7 +3317,7 @@ fi
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
-# Rule 74 -- linux_first_dev_doc_present (enforcer E104)
+# Rule 74 — linux_first_dev_doc_present (enforcer E104)
 #
 # docs/governance/dev-environment.md MUST exist and MUST mention all three
 # of: WSL2 (preferred), WSL1 (fallback), and Linux (native). The doc is the
@@ -4036,18 +4036,24 @@ fi
 if [[ $_r85_fail -eq 0 ]]; then pass_rule "catalog_spi_row_matches_module_spi_metadata"; fi
 
 # ---------------------------------------------------------------------------
-# Summary
+# Wave history (rc6 -> rc7 -> rc8 prevention waves)
 # ===========================================================================
-# 2026-05-18 rc6 post-response review response prevention wave -- Rules 86-87
-# Authority: docs/governance/rules/rule-86.md + rule-87.md
-#            + docs/reviews/2026-05-18-l0-rc6-post-response-architecture-review.en.md
-#            + docs/reviews/2026-05-18-l0-rc6-post-response-architecture-review-response.en.md
+# 2026-05-18 rc6 post-response wave -- Rules 86-87 (E119, E120)
+# 2026-05-18 rc8 post-corrective wave -- Rules 88-89 (E121, E122) + Rule 86 fenced-tree-block extension
+# Authority cards: docs/governance/rules/rule-86.md, rule-87.md, rule-88.md, rule-89.md
+# Reviews:    docs/reviews/2026-05-18-l0-rc6-post-response-architecture-review.en.md
+#             docs/reviews/2026-05-18-l0-rc7-post-corrective-architecture-review.en.md
+# Responses:  docs/reviews/2026-05-18-l0-rc6-post-response-architecture-review-response.en.md
+#             docs/reviews/2026-05-18-l0-rc7-post-corrective-architecture-review-response.en.md
 # Closes finding families:
-#   P0-2 root ARCHITECTURE.md 8-module + stale path claims after ADR-0078/0079 -> Rule 86
-#   P1-2 architecture-status.yaml allowed_claim stale module names              -> Rule 87
+#   rc6 P0-2 root ARCHITECTURE.md 8-module + stale path claims  -> Rule 86 (rc7)
+#   rc6 P1-2 status_yaml allowed_claim stale module names        -> Rule 87 (rc7)
+#   rc7 P0-1 GraphMemoryRepository ownership corpus drift        -> Rule 86 fenced-tree-block extension (rc8)
+#   rc7 P0-2 check_parallel.sh skips Rules 86/87                 -> Rule 88 (rc8)
+#   rc7 P1-1 test harness fail-open + hardcoded TOTAL            -> Rule 89 (rc8)
 # ===========================================================================
 
-# Rule 86 -- root_architecture_count_and_path_truth (enforcer E119)
+# Rule 86 — root_architecture_count_and_path_truth (enforcer E119)
 #
 # Every "N-module" / "N modules" / "N reactor modules" claim in root
 # ARCHITECTURE.md (outside fenced code blocks and frontmatter) MUST equal the
@@ -4125,10 +4131,61 @@ else
       done <<< "$_r86_paths"
     fi
   done < "$_r86_arch"
+
+  # rc8 extension: 2nd pass — validate SPI-ownership claims inside fenced
+  # tree-diagram code blocks. The 1st pass above intentionally skips fenced
+  # blocks (to avoid false positives on prose examples), but the rc7
+  # GraphMemoryRepository drift hid inside the root tree block precisely
+  # because of that exclusion. This pass scans only fenced blocks, identifies
+  # module-header lines (`  agent-foo/    #...`) plus their indent level, and
+  # for each indented `<pkg>/spi/` leaf checks that the module's
+  # module-metadata.yaml#spi_packages declares an entry containing
+  # `.<pkg>.spi`. Historical markers within +/-3 lines still exempt.
+  _r86_tb_in=0
+  _r86_tb_mod=""
+  _r86_tb_mod_indent=0
+  _r86_tb_lineno=0
+  while IFS= read -r _r86_tbline || [[ -n "$_r86_tbline" ]]; do
+    _r86_tb_lineno=$((_r86_tb_lineno + 1))
+    if [[ "$_r86_tbline" =~ ^\`\`\` ]]; then
+      _r86_tb_in=$((1 - _r86_tb_in))
+      _r86_tb_mod=""
+      continue
+    fi
+    [[ "$_r86_tb_in" -eq 0 ]] && continue
+    # Module-header line: indented `<modulename>/    #...` or `<modulename>/`
+    if echo "$_r86_tbline" | grep -qE '^[[:space:]]+(agent-[a-z-]+|spring-ai-ascend-[a-z-]+)/[[:space:]]*(#.*)?$'; then
+      _r86_tb_mod=$(echo "$_r86_tbline" | grep -oE '(agent-[a-z-]+|spring-ai-ascend-[a-z-]+)/' | head -1 | tr -d '/')
+      _r86_tb_mod_indent=$(echo "$_r86_tbline" | awk '{ match($0, /[^ ]/); print RSTART - 1 }')
+      continue
+    fi
+    # SPI leaf line: indented `<pkg>/spi/  # ...` -- look up parent module's metadata
+    if [[ -n "$_r86_tb_mod" ]] && echo "$_r86_tbline" | grep -qE '^[[:space:]]+[a-z][a-z_]*/spi/[[:space:]]*(#.*)?$'; then
+      _r86_tb_leaf_indent=$(echo "$_r86_tbline" | awk '{ match($0, /[^ ]/); print RSTART - 1 }')
+      if [[ $_r86_tb_leaf_indent -le $_r86_tb_mod_indent ]]; then
+        _r86_tb_mod=""
+        continue
+      fi
+      _r86_tb_pkg=$(echo "$_r86_tbline" | grep -oE '[a-z_]+/spi/' | head -1 | sed 's|/spi/||')
+      _r86_tb_meta="${_r86_tb_mod}/module-metadata.yaml"
+      _r86_tb_lo=$((_r86_tb_lineno > 3 ? _r86_tb_lineno - 3 : 1))
+      _r86_tb_hi=$((_r86_tb_lineno + 3))
+      if sed -n "${_r86_tb_lo},${_r86_tb_hi}p" "$_r86_arch" 2>/dev/null | grep -qiE "$_r86_marker_re"; then continue; fi
+      if [[ ! -f "$_r86_tb_meta" ]]; then
+        fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_tb_lineno tree-block leaf '${_r86_tb_pkg}/spi/' under module '${_r86_tb_mod}' but ${_r86_tb_meta} does not exist -- Rule 86 / E119 (tree-block ownership drift, fenced-block extension)"
+        _r86_fail=1
+        continue
+      fi
+      if ! grep -E '^[[:space:]]*-[[:space:]]+' "$_r86_tb_meta" 2>/dev/null | grep -qE "\.${_r86_tb_pkg}\.spi([^a-zA-Z0-9]|$)"; then
+        fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_tb_lineno tree-block claims '${_r86_tb_pkg}/spi/' under module '${_r86_tb_mod}' but ${_r86_tb_meta}#spi_packages declares no entry containing '.${_r86_tb_pkg}.spi' -- Rule 86 / E119 (tree-block ownership drift, fenced-block extension)"
+        _r86_fail=1
+      fi
+    fi
+  done < "$_r86_arch"
 fi
 if [[ $_r86_fail -eq 0 ]]; then pass_rule "root_architecture_count_and_path_truth"; fi
 
-# Rule 87 -- status_yaml_allowed_claim_module_name_truth (enforcer E120)
+# Rule 87 — status_yaml_allowed_claim_module_name_truth (enforcer E120)
 #
 # Every allowed_claim: text value in docs/governance/architecture-status.yaml
 # MUST NOT contain current-tense agent-platform or agent-runtime (NOT
@@ -4160,6 +4217,126 @@ else
 fi
 if [[ $_r87_fail -eq 0 ]]; then pass_rule "status_yaml_allowed_claim_module_name_truth"; fi
 
+# Rule 88 — serial_parallel_gate_slug_parity (enforcer E121)
+#
+# Closes rc7 post-corrective review P0-2: check_parallel.sh silently skipped
+# Rules 86-87 because (a) its awk exit pattern was `^# Summary$` (a comment
+# header that happened to live between Rule 85 and Rule 86), and (b) its
+# header regex required em-dash `—` while Rules 86-87 originally used
+# double-dash `--`. Both defects compound: even fixing one would leave the
+# other. Rule 88 asserts at gate time that the set of rule headers the
+# canonical script defines equals the set the parallel wrapper would extract.
+# ---------------------------------------------------------------------------
+_r88_fail=0
+_r88_canonical="gate/check_architecture_sync.sh"
+_r88_parallel="gate/check_parallel.sh"
+if [[ ! -f "$_r88_canonical" ]] || [[ ! -f "$_r88_parallel" ]]; then
+  fail_rule "serial_parallel_gate_slug_parity" "canonical or parallel script missing -- Rule 88 / E121"
+  _r88_fail=1
+else
+  _r88_canonical_set=$(grep -E '^# Rule [0-9]+[a-z]? (—|--) ' "$_r88_canonical" \
+    | sed -E 's/^# Rule [0-9]+[a-z]? (—|--) //' \
+    | awk '{print $1}' \
+    | sort -u)
+  _r88_parallel_set=$(awk '
+    /^# Rule [0-9]+[a-z]? (—|--) / {
+      match($0, /^# Rule [0-9]+[a-z]? (—|--) ([a-z0-9_]+)/, arr)
+      print arr[2]
+    }
+    /^# === END OF RULES ===$/ { exit }
+  ' "$_r88_canonical" | sort -u)
+  _r88_missing=$(comm -23 <(echo "$_r88_canonical_set") <(echo "$_r88_parallel_set") | grep -v '^$' || true)
+  _r88_extra=$(comm -13 <(echo "$_r88_canonical_set") <(echo "$_r88_parallel_set") | grep -v '^$' || true)
+  if [[ -n "$_r88_missing" ]]; then
+    fail_rule "serial_parallel_gate_slug_parity" "parallel wrapper would skip rule(s): $(echo "$_r88_missing" | tr '\n' ' ')-- Rule 88 / E121 (serial-canonical defines rules the parallel awk extraction misses)"
+    _r88_fail=1
+  fi
+  if [[ -n "$_r88_extra" ]]; then
+    fail_rule "serial_parallel_gate_slug_parity" "parallel awk would extract rule(s) not defined as canonical pass_rule blocks: $(echo "$_r88_extra" | tr '\n' ' ')-- Rule 88 / E121"
+    _r88_fail=1
+  fi
+  # Sub-check: canonical separator consistency — every rule header MUST use em-dash `—`.
+  _r88_bad_sep=$(grep -nE '^# Rule [0-9]+[a-z]? -- ' "$_r88_canonical" | head -3 || true)
+  if [[ -n "$_r88_bad_sep" ]]; then
+    fail_rule "serial_parallel_gate_slug_parity" "rule header(s) use double-dash separator instead of em-dash: $(echo "$_r88_bad_sep" | tr '\n' '|') -- Rule 88 / E121 (separator consistency)"
+    _r88_fail=1
+  fi
+  # Sub-check: parallel wrapper MUST declare END marker awk-extraction terminator
+  if ! grep -qE '^# === END OF RULES ===$' "$_r88_canonical"; then
+    fail_rule "serial_parallel_gate_slug_parity" "$_r88_canonical missing '# === END OF RULES ===' terminator marker that check_parallel.sh awk uses to bound rule extraction -- Rule 88 / E121"
+    _r88_fail=1
+  fi
+fi
+if [[ $_r88_fail -eq 0 ]]; then pass_rule "serial_parallel_gate_slug_parity"; fi
+
+# Rule 89 — self_test_harness_fail_closed_coverage (enforcer E122)
+#
+# Closes rc7 post-corrective review P1-1: gate/test_architecture_sync_gate.sh
+# hardcoded TOTAL=143 + exited 0 when failed=0 regardless of whether
+# passed<TOTAL. Rule 89 asserts that the harness (a) fails closed when
+# passed != TOTAL, (b) computes TOTAL from a manifest rather than from a
+# bare literal, and (c) every rule defined in check_architecture_sync.sh
+# has at least one test_rule_<N>_* fixture in the harness.
+# ---------------------------------------------------------------------------
+_r89_fail=0
+_r89_harness="gate/test_architecture_sync_gate.sh"
+_r89_canonical="gate/check_architecture_sync.sh"
+if [[ ! -f "$_r89_harness" ]]; then
+  fail_rule "self_test_harness_fail_closed_coverage" "$_r89_harness missing -- Rule 89 / E122"
+  _r89_fail=1
+else
+  # Sub-check (a): harness MUST contain a fail-closed clause comparing passed vs TOTAL
+  if ! grep -qE 'passed[^=]*!=[^=]*\$\{?TOTAL\}?|\$\{?passed\}?[[:space:]]+-ne[[:space:]]+\$\{?TOTAL\}?|"\$passed"[[:space:]]+-ne[[:space:]]+"\$TOTAL"' "$_r89_harness"; then
+    fail_rule "self_test_harness_fail_closed_coverage" "$_r89_harness missing 'passed != TOTAL' fail-closed clause -- Rule 89 / E122 sub-check (a) (harness exits 0 when passed<TOTAL — must fail closed)"
+    _r89_fail=1
+  fi
+  # Sub-check (b): TOTAL MUST NOT be a bare literal — must derive from a manifest.
+  # Skip lines inside `<<'SHEOF' ... SHEOF` heredoc blocks (synthetic test fixtures
+  # legitimately contain `TOTAL=NNN` to test the rule's own detection — see
+  # test_rule89_bare_literal_neg).
+  _r89_literal_lines=$(awk '
+    /^[[:space:]]*cat[[:space:]]+>[[:space:]]+.*<<.SHEOF.$/ { hd=1; next }
+    /^SHEOF$/ { hd=0; next }
+    !hd && /^[[:space:]]*TOTAL=[0-9]+[[:space:]]*$/ { printf "%d:%s\n", NR, $0 }
+  ' "$_r89_harness" || true)
+  if [[ -n "$_r89_literal_lines" ]]; then
+    fail_rule "self_test_harness_fail_closed_coverage" "$_r89_harness has bare-literal TOTAL declaration(s) at top level (not inside heredoc fixtures): $(echo "$_r89_literal_lines" | tr '\n' '|') -- Rule 89 / E122 sub-check (b) (TOTAL must derive from a manifest, not a literal)"
+    _r89_fail=1
+  fi
+  # Sub-check (c): every PREVENTION-WAVE canonical rule (Rules >= 80; rc4-rc8 waves)
+  # has at least one test fixture. Pre-rc4 rules (1-79) are grandfathered — many
+  # were covered by ArchUnit or integration tests at design time rather than
+  # by inline self-test fixtures, and retrofitting fixtures for ~40 legacy rules
+  # is out of rc8 scope. Rule 89's purpose is to prevent NEWLY-ADDED rules from
+  # shipping without coverage; the prevention waves established the convention,
+  # so the scope tracks that convention.
+  if [[ -f "$_r89_canonical" ]]; then
+    _r89_canonical_ids=$(grep -E '^# Rule [0-9]+[a-z]? (—|--) ' "$_r89_canonical" \
+      | sed -E 's/^# Rule ([0-9]+[a-z]?) (—|--) .*/\1/' \
+      | sort -u)
+    _r89_missing_fixtures=""
+    for _r89_rid in $_r89_canonical_ids; do
+      # Scope: only enforce coverage for prevention-wave rules (Rules >= 80,
+      # main numeric IDs only — sub-rules like 28a are grandfathered).
+      _r89_rid_num=$(echo "$_r89_rid" | grep -oE '^[0-9]+')
+      [[ -z "$_r89_rid_num" ]] && continue
+      [[ "$_r89_rid_num" -lt 80 ]] && continue
+      # Look for test_rule_<N>_ or test_rule_<N>(  pattern in any form.
+      if ! grep -qE "(^test_rule_${_r89_rid}_|^test_rule_${_r89_rid}\(|^test_rule${_r89_rid}_|^test_rule${_r89_rid}\()" "$_r89_harness"; then
+        if ! grep -qE "\"rule_${_r89_rid}_|'rule_${_r89_rid}_" "$_r89_harness"; then
+          _r89_missing_fixtures="${_r89_missing_fixtures}${_r89_rid} "
+        fi
+      fi
+    done
+    if [[ -n "$_r89_missing_fixtures" ]]; then
+      fail_rule "self_test_harness_fail_closed_coverage" "$_r89_harness lacks test fixture(s) for prevention-wave Rule(s) >=80: ${_r89_missing_fixtures}-- Rule 89 / E122 sub-check (c) (every prevention-wave Rule MUST have >=1 test_rule_<N>_* fixture; pre-rc4 rules 1-79 grandfathered)"
+      _r89_fail=1
+    fi
+  fi
+fi
+if [[ $_r89_fail -eq 0 ]]; then pass_rule "self_test_harness_fail_closed_coverage"; fi
+
+# === END OF RULES ===
 # ---------------------------------------------------------------------------
 if [[ $fail_count -eq 0 ]]; then
   echo "GATE: PASS"

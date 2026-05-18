@@ -4,12 +4,12 @@ title: "Root ARCHITECTURE Count + Path Truth"
 level: L0
 view: development
 principle_ref: P-C
-authority_refs: [ADR-0078, ADR-0079, ADR-0081, "v2.0.0-rc6 post-response review P0-2"]
+authority_refs: [ADR-0078, ADR-0079, ADR-0081, ADR-0082, "v2.0.0-rc6 post-response review P0-2", "v2.0.0-rc7 post-corrective review P0-1"]
 enforcer_refs: [E119]
 status: active
-kernel_cap: 8
+kernel_cap: 12
 kernel: |
-  **Every numeric module-count claim in root `ARCHITECTURE.md` matching `\b[0-9]+-module\b`, `\b[0-9]+ modules\b`, or `\b[0-9]+ reactor modules\b` (outside fenced code blocks and YAML frontmatter) MUST equal the count of `<module>` entries in root `pom.xml` AND `docs/governance/architecture-status.yaml#repository_counts.reactor_modules`. Every `<module>/src/main/java/...` path claim in root `ARCHITECTURE.md` (outside fenced code blocks) MUST resolve to a real path on disk OR carry a historical marker (`historical`, `pre-ADR-NNNN`, `pre-Phase-C`, `consolidated into`, `merged into`, `was rooted`, `formerly`, `superseded`, `deferred`, `moved`, `extracted per ADR-NNNN`) within ±3 lines. Operationalises rc6 post-response review P0-2 closure (Rule 84 covers `agent-*/ARCHITECTURE.md`; Rule 86 covers root).**
+  **Every numeric module-count claim in root `ARCHITECTURE.md` matching `\b[0-9]+-module\b`, `\b[0-9]+ modules\b`, or `\b[0-9]+ reactor modules\b` (outside fenced code blocks and YAML frontmatter) MUST equal the count of `<module>` entries in root `pom.xml` AND `docs/governance/architecture-status.yaml#repository_counts.reactor_modules`. Every `<module>/src/main/java/...` path claim in root `ARCHITECTURE.md` (outside fenced code blocks) MUST resolve to a real path on disk OR carry a historical marker (`historical`, `pre-ADR-NNNN`, `pre-Phase-C`, `consolidated into`, `merged into`, `was rooted`, `formerly`, `superseded`, `deferred`, `moved`, `extracted per ADR-NNNN`) within ±3 lines. **rc8 amendment (2026-05-18, ADR-0082)**: a second pass also validates SPI-ownership claims INSIDE fenced tree-diagram code blocks — every indented `<pkg>/spi/` leaf under a module-header `<module>/` line MUST have an `<module>/module-metadata.yaml#spi_packages` entry containing `.<pkg>.spi`. Closes rc7 post-corrective review P0-1 (GraphMemoryRepository ownership drift hid inside a fenced tree block that the original pass excluded). Operationalises rc6 P0-2 + rc7 P0-1 closure (Rule 84 covers `agent-*/ARCHITECTURE.md`; Rule 86 covers root; rc8 extension covers fenced trees).**
 ---
 
 # Rule 86 — Root ARCHITECTURE Count + Path Truth
@@ -50,9 +50,20 @@ Markers extend Rule 84's set with two additions specific to ADR-0078 Phase C: `p
 
 L2 documents under `docs/L2/` are technical deep-dives — they may legitimately freeze a snapshot architecture at the time of writing without continuous re-validation. Their drift risk is bounded by Rule 33's freeze-id discipline. Root `ARCHITECTURE.md` and `agent-*/ARCHITECTURE.md` are canonical living entrypoints — those are what Rule 84 + Rule 86 protect.
 
+### Fenced-tree-block extension (rc8 amendment, 2026-05-18, ADR-0082)
+
+Beyond the prose pass above, a second sweep scans ONLY lines inside fenced code blocks (the inverse of the first pass). It tracks two pieces of state:
+
+1. The current module context — the most recent indented line matching `<modulename>/   # comment` where `<modulename>` starts with `agent-` or `spring-ai-ascend-`. Its indent level is recorded.
+2. For each subsequent indented line matching `<pkg>/spi/   # comment` whose indent is strictly greater than the module's indent, the rule looks up `<module>/module-metadata.yaml#spi_packages`. The list MUST contain at least one entry containing the substring `.<pkg>.spi`. If not, fail (subject to the same ±3-line historical-marker exemption).
+
+This closes the **rc7 post-corrective review P0-1** finding: GraphMemoryRepository ownership drift hid inside the root ARCHITECTURE.md tree (a fenced code block) where the original Rule 86 pass intentionally skipped all lines. Rule 86's fenced-block exclusion was a deliberate decision to avoid false positives on prose example code; the rc8 amendment narrowly re-enters fenced blocks ONLY when they have the tree-diagram shape (module-header + SPI leaf) and the leaf is verifiable against module-metadata.yaml (the canonical SSOT per ADR-0082).
+
 ## Activation
 
 Activated 2026-05-18 by the v2.0.0-rc6 post-response architecture review response wave (v2.0.0-rc7). Enforcer E119. Closes P0-2 of `docs/reviews/2026-05-18-l0-rc6-post-response-architecture-review.en.md`.
+
+**rc8 amendment 2026-05-18** (v2.0.0-rc8 corrective wave) extended Rule 86 with the fenced-tree-block second pass per ADR-0082. Closes P0-1 of `docs/reviews/2026-05-18-l0-rc7-post-corrective-architecture-review.en.md`.
 
 ## Cross-references
 

@@ -1,0 +1,198 @@
+id: ADR-0082
+title: "GraphMemoryRepository canonical ownership + module-metadata.yaml is single source of truth for SPI ownership topology"
+status: accepted
+date: 2026-05-18
+level: L0
+view: development
+freeze_id: null
+
+supersedes: []
+extends:
+  - ADR-0034
+  - ADR-0051
+  - ADR-0078
+  - ADR-0079
+relates_to:
+  - ADR-0080
+  - ADR-0081
+
+decision_one_liner: |
+  GraphMemoryRepository SPI stays on agent-service (post-ADR-0079; not extracted
+  to agent-runtime-core). Across every authoritative surface — root
+  ARCHITECTURE.md, per-module ARCHITECTURE.md, docs/governance/architecture-status.yaml
+  allowed_claim, docs/contracts/contract-catalog.md, docs/dfx/*.yaml, and
+  release notes — the canonical source of truth for "which module owns which
+  SPI package" is `<module>/module-metadata.yaml#spi_packages` ∩ the actual
+  Java file path. No surface may make a current-tense ownership claim that
+  contradicts the canonical pair.
+
+context: |
+  The rc7-post-corrective architecture review (Codex, 2026-05-18; see
+  docs/reviews/2026-05-18-l0-rc7-post-corrective-architecture-review.en.md
+  P0-1) observed that four authoritative surfaces — root ARCHITECTURE.md line
+  169 (tree), docs/governance/architecture-status.yaml line 1410
+  (allowed_claim for spi_dfx_tck_codesign), docs/releases/2026-05-18-l0-rc7-
+  corrective.en.md line 49 (rc7 P0-2 closure claim), and
+  docs/dfx/spring-ai-ascend-graphmemory-starter.yaml line 32 (vulnerability
+  spi_purity prose) — claimed GraphMemoryRepository SPI was owned by
+  agent-runtime-core, while three OTHER authoritative surfaces correctly
+  placed it on agent-service: agent-service/module-metadata.yaml line 14
+  (spi_packages list), docs/contracts/contract-catalog.md §2 row, and the
+  actual Java source file at agent-service/src/main/java/ascend/springai/
+  service/runtime/memory/spi/GraphMemoryRepository.java. The
+  agent-runtime-core/module-metadata.yaml does NOT declare memory.spi (only
+  orchestration.spi + runs.spi + s2c.spi).
+
+  ADR-0079 (T2.B2 engine extraction) deliberately enumerated the surfaces
+  moved into agent-runtime-core: Run + RunMode + RunStatus + RunStateMachine
+  + RunRepository + Orchestrator + RunContext + SuspendSignal + Checkpointer
+  + TraceContext + ExecutorDefinition + IdempotencyRecord + S2cCallbackEnvelope
+  + S2cCallbackTransport + S2cCallbackResponse. GraphMemoryRepository was
+  NOT in that list — its absence was intentional. ADR-0051 (memory ownership
+  boundary) keeps the memory SPI on the adapter-hosting module so platform
+  policy stays close to the persistence implementation; ADR-0034 (memory +
+  knowledge taxonomy) gives the graphmemory starter its W1 reference
+  adapter contract anchored on the agent-service-owned SPI.
+
+  Two paths were available to close the drift:
+    1. Documentation-only correction (cheap, low risk): fix the 4 drifting
+       surfaces to match the 3 correct surfaces + the Java source.
+    2. Architectural move (expensive, high risk): physically relocate the
+       Java SPI file into agent-runtime-core, update agent-runtime-core/
+       module-metadata.yaml to declare memory.spi, update
+       agent-service/module-metadata.yaml to remove it, update graphmemory
+       starter dependencies, update contract-catalog.md, update DFX files,
+       and reflow all imports.
+
+  Per Rule 2 (simplicity + surgical changes), path (1) wins. The
+  architectural intent in ADR-0079 was to keep memory SPI on the
+  adapter-hosting module; the drift was prose error in the rc7 corrective
+  wave, not a missed refactor. The same prose error pattern was the
+  underlying cause of two of the four drifting surfaces (the rc7 release
+  note line 49 directly claimed the tree placement, and root ARCHITECTURE.md
+  line 169 mirrored that claim — a documentation-cascade defect).
+
+  Beyond the GraphMemoryRepository instance, the rc7-post-corrective family
+  sweep (rc8 wave) found additional G-α (Authority-Surface Topology Truth
+  Drift) instances:
+    - agent-service/module-metadata.yaml line 10 description carried pre-
+      ADR-0079 ownership prose ("service.runtime owns orchestration SPI +
+      Run lifecycle").
+    - agent-runtime-core/ARCHITECTURE.md §2 Contents block under-enumerated
+      its actual surfaces (omitted TraceContext, ExecutorDefinition, S2C
+      SPI trio; mis-pathed RunRepository).
+    - docs/dfx/agent-runtime.yaml (pre-Phase-C historical) was still on disk
+      referencing dead module name agent-runtime + dead package
+      ascend.springai.runtime.memory.spi.
+    - Root ARCHITECTURE.md tree comment mentioned a ghost type
+      S2cCallbackOutcome that has no Java file.
+
+  All instances share one root cause: multi-document authority surfaces
+  describing SPI ownership had no single canonical source they were
+  required to agree with. This ADR pins that source.
+
+decision: |
+  Architectural decision:
+    - GraphMemoryRepository SPI remains on agent-service at
+      ascend.springai.service.runtime.memory.spi.GraphMemoryRepository.
+      The Java source file stays at agent-service/src/main/java/ascend/
+      springai/service/runtime/memory/spi/GraphMemoryRepository.java.
+    - agent-service/module-metadata.yaml#spi_packages continues to declare
+      ascend.springai.service.runtime.memory.spi (unchanged).
+    - agent-runtime-core/module-metadata.yaml#spi_packages does NOT declare
+      memory.spi (unchanged).
+    - docs/contracts/contract-catalog.md §2 row for GraphMemoryRepository
+      continues to name agent-service as the owner (unchanged).
+
+  Authority decision:
+    - For every SPI surface in this repository, the canonical source of
+      ownership truth is `<module>/module-metadata.yaml#spi_packages`
+      ∩ the actual Java file path under `<module>/src/main/java/...`. No
+      other surface (root ARCHITECTURE.md, per-module ARCHITECTURE.md,
+      docs/governance/architecture-status.yaml allowed_claim,
+      docs/contracts/contract-catalog.md, docs/dfx/*.yaml, release notes,
+      response docs) may make a current-tense ownership claim that
+      contradicts the canonical pair. Historical claims are permitted only
+      when the surrounding paragraph carries a historical marker
+      (`historical`, `pre-ADR-NNNN`, `pre-Phase-C`, `superseded`,
+      `deprecated`, `moved`, `was rooted`, `formerly`) within ±3 lines.
+    - DFX files for deleted modules (e.g. pre-Phase-C agent-runtime.yaml,
+      agent-platform.yaml) MUST NOT remain on disk — orphan DFX files
+      describing modules that no longer exist are anti-pattern per Rule 32
+      (DFX is per active module). Delete or move to a `historical/` subdir
+      with an explicit `status: historical` frontmatter.
+
+  Prevention surface (deferred to the rc8 prevention wave, not in this ADR):
+    - Rule 86 (root_architecture_count_and_path_truth) is extended to
+      validate path claims inside fenced tree-diagram code blocks in root
+      ARCHITECTURE.md (the rc7 drift hid in a fenced block where Rule 86's
+      _r86_in_code toggle was excluding lines from path-existence check).
+    - The check_parallel.sh awk wrapper is fixed so it executes every rule
+      defined in check_architecture_sync.sh (rc7 prevention rules were
+      silently skipped — see ADR-relates rc8 prevention wave).
+
+  Corpus reconciliation (this ADR's mechanical work, batched in the rc8
+  wave):
+    - Root ARCHITECTURE.md tree: memory/spi row moved from
+      agent-runtime-core block to agent-service/runtime/ block; S2cCallbackOutcome
+      ghost reference dropped from s2c/spi/ comment; agent-runtime-core
+      block annotated "Memory SPI is OUT OF SCOPE per ADR-0079/ADR-0082".
+    - docs/governance/architecture-status.yaml#spi_dfx_tck_codesign
+      allowed_claim: rewritten to enumerate memory.spi under agent-service,
+      not agent-runtime-core.
+    - docs/dfx/spring-ai-ascend-graphmemory-starter.yaml line 32:
+      pre-Phase-C path `agent-runtime/memory/spi/` rewritten to current
+      `agent-service/.../memory/spi/`; ADR-0082 pointer added.
+    - docs/dfx/agent-runtime.yaml: deleted (pre-Phase-C historical;
+      module no longer exists per ADR-0078).
+    - docs/releases/2026-05-18-l0-rc7-corrective.en.md: superseded_by
+      frontmatter pointing at rc8 release note + inline historical marker
+      noting the line-49 P0-2 closure overstated the tree placement.
+    - agent-runtime-core/ARCHITECTURE.md §2 Contents: rewritten to
+      authoritatively enumerate the 15 Java surfaces actually owned.
+      Memory SPI explicitly called out as out-of-scope per ADR-0082.
+    - agent-service/module-metadata.yaml description: rewritten to
+      post-ADR-0079 reality (service.runtime owns memory.spi + resilience.spi
+      + reference adapters; orchestration/runs/s2c SPI extracted to
+      agent-runtime-core).
+
+consequences:
+  positive:
+    - "Closes rc7-post-corrective review finding P0-1 (memory SPI ownership inconsistency)."
+    - "Closes 5 family-sweep hidden defects: agent-service/module-metadata description prose, agent-runtime-core/ARCHITECTURE.md §2 enumeration gap, pre-Phase-C DFX file orphan, S2cCallbackOutcome ghost reference, ADR-0079 corpus prose."
+    - "Establishes a single canonical source for SPI ownership topology — module-metadata.yaml + Java source — that future authority surfaces must respect."
+    - "Architectural intent in ADR-0079 (memory SPI deliberately not extracted) is now defended by an explicit ADR."
+    - "Zero Java source change. No starter dependency rewire. No semver impact. Documentation-only correction per Rule 2."
+  negative:
+    - "Adds a small invariant footprint: every future SPI claim across 7+ document classes must point back to module-metadata.yaml. Mitigated by the rc8 prevention wave (Rules 86 extension, Rules 88-89)."
+    - "agent-runtime-core's apparent surface area is slightly smaller than rc7 prose implied (memory SPI is not part of it). This is the correct architecture, but it may surprise readers who arrived via the rc7 release note's overstated tree claim."
+
+alternatives_considered:
+  - alternative: "Move GraphMemoryRepository.java into agent-runtime-core (the reviewer's path 2)."
+    why_rejected: "Path 2 requires rewiring graphmemory starter dependencies (currently transitive via agent-service), updating agent-service imports (currently same-module), reflowing contract-catalog.md, all DFX files, plus the same documentation surfaces this ADR fixes — purely to satisfy a documentation cascade error introduced in the rc7 corrective wave. ADR-0079 deliberately left memory SPI on agent-service per ADR-0051's memory ownership boundary. The smaller change wins per Rule 2."
+  - alternative: "Promote module-metadata.yaml + DFX into the same single yaml so they can't drift apart from each other."
+    why_rejected: "module-metadata.yaml (Rule 31) and docs/dfx/<module>.yaml (Rule 32) serve different purposes — identity/topology vs five-DFX-dimensions — and the existing Rules 78 + 85 already guarantee set-match between their spi_packages: blocks. Merging them would conflate Rule 31's reactor-shape concerns with Rule 32's design-for-X concerns and break the deferred TCK module work (CLAUDE-deferred.md 32.b/32.c)."
+
+verification:
+  cli:
+    - "./mvnw clean verify -> BUILD SUCCESS (no Java change in rc8)"
+    - "bash gate/check_architecture_sync.sh -> GATE: PASS (rc8 baseline with Rule 86 fenced-tree-block extension active)"
+    - "bash gate/check_parallel.sh -> GATE: PASS; output includes root_architecture_count_and_path_truth + status_yaml_allowed_claim_module_name_truth + parallel_summary trailer (rc8 baseline)"
+    - "bash gate/test_architecture_sync_gate.sh -> Tests passed: NEW_TOTAL/NEW_TOTAL (rc8 baseline; fail-closed when passed != TOTAL per Rule 89)"
+    - "python gate/build_architecture_graph.py -> NEW_NODES nodes / NEW_EDGES edges; graph validation OK"
+  corpus:
+    - "Root ARCHITECTURE.md line ~161 tree: memory/spi/ row sits under agent-service/runtime/ block; agent-runtime-core/ block carries 'Memory SPI is OUT OF SCOPE per ADR-0079/ADR-0082' annotation."
+    - "docs/governance/architecture-status.yaml#spi_dfx_tck_codesign allowed_claim: memory.spi enumerated under agent-service, not agent-runtime-core."
+    - "docs/dfx/spring-ai-ascend-graphmemory-starter.yaml line 32 spi_purity: cites agent-service/src/main/java/.../memory/spi/ path with ADR-0082 pointer."
+    - "docs/dfx/agent-runtime.yaml: absent (deleted as pre-Phase-C historical)."
+    - "agent-runtime-core/ARCHITECTURE.md §2 Contents: enumerates all 15 Java surfaces; memory SPI explicitly called out as out-of-scope."
+    - "agent-service/module-metadata.yaml line 10 description: declares service.runtime ownership of memory.spi + resilience.spi + reference adapters; orchestration/runs/s2c extracted per ADR-0079."
+    - "grep -rn 'agent-runtime-core/.*memory.spi' returns ZERO matches outside historical markers."
+    - "grep -rn 'agent-runtime/memory/spi' returns ZERO matches outside historical markers."
+
+enforcer_rows: []
+gate_rules:
+  - rule-86
+  - rule-87
+  - rule-88
+  - rule-89

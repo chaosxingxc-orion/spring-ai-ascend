@@ -127,9 +127,10 @@ alternatives_considered:
 
 verification:
   cli:
-    - "./mvnw clean verify -> BUILD SUCCESS (no Java change in rc7)"
-    - "bash gate/check_architecture_sync.sh -> GATE: PASS (rc7 baseline)"
-    - "bash gate/test_architecture_sync_gate.sh -> Tests passed: ≥142/142 (rc7 baseline)"
+    - "./mvnw clean verify -> BUILD SUCCESS (no Java change in rc7 or rc8)"
+    - "bash gate/check_architecture_sync.sh -> GATE: PASS (74 active gate rules; rc8 baseline)"
+    - "bash gate/check_parallel.sh -> GATE: PASS; parallel_summary trailer shows 74/74 rule parity per Rule 88 (rc8 baseline)"
+    - "bash gate/test_architecture_sync_gate.sh -> Tests passed: 149/149 (rc8 baseline; TOTAL derived at runtime per Rule 89)"
   corpus:
     - "docs/contracts/contract-catalog.md ResilienceContract row carries 'dual-surface' language with ADR-0070 + ADR-0081 pointers"
     - "docs/adr/0030-skill-spi-lifecycle-resource-matrix.md:223 paragraph amended with supersession marker pointing to ADR-0070 + ADR-0081"

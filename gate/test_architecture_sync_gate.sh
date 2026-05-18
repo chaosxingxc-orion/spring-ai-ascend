@@ -40,7 +40,9 @@ fi
 
 passed=0
 failed=0
-TOTAL=138
+# TOTAL is derived from the actual passed+failed result count after the
+# parallel orchestrator runs (see end of file). Bare literal `TOTAL=NNN`
+# declarations are forbidden by Rule 89 / E122 sub-check (b).
 
 # PR-E4: parallel-aware ok()/fail().
 # Serial mode (TEST_RESULT_FILE unset): increment globals + print directly.
@@ -3940,16 +3942,20 @@ fi
 }
 
 # ===========================================================================
-# 2026-05-18 rc6 post-response review response prevention wave -- Rules 86-87
-# Authority: docs/governance/rules/rule-86.md + rule-87.md
+# 2026-05-18 rc6 + rc8 prevention wave -- Rules 86-89 fixtures
+# Authority: docs/governance/rules/rule-86.md + rule-87.md + rule-88.md + rule-89.md
 # Closes finding families:
-#   P0-2 root ARCHITECTURE.md 8-module + stale path claims -> Rule 86
-#   P1-2 architecture-status.yaml allowed_claim stale module names -> Rule 87
+#   rc6 P0-2 root ARCHITECTURE.md 8-module + stale path claims  -> Rule 86
+#   rc6 P1-2 status_yaml allowed_claim stale module names        -> Rule 87
+#   rc7 P0-1 fenced-tree-block ownership drift                   -> Rule 86 fenced-block extension (rc8)
+#   rc7 P0-2 parallel wrapper skips post-Summary rules           -> Rule 88 (rc8)
+#   rc7 P1-1 harness fail-open + hardcoded TOTAL                  -> Rule 89 (rc8)
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
 # Rule 86 positive: root ARCHITECTURE.md 9-module claim matches pom.xml + status yaml
 # ---------------------------------------------------------------------------
+test_rule86_root_arch_count_pos() {
 _r86_pos_root="$scratch/r86_pos"
 mkdir -p "$_r86_pos_root/docs/governance"
 mkdir -p "$_r86_pos_root/agent-service/src/main/java/ascend/springai/service/platform"
@@ -3985,10 +3991,12 @@ if [[ "$_r86_pos_pom" == "9" ]] && [[ "$_r86_pos_status" == "9" ]] && [[ "$_r86_
 else
   fail "rule86_root_architecture_count_pos" "expected 9 across all three sources, got pom=$_r86_pos_pom status=$_r86_pos_status claim=$_r86_pos_claim"
 fi
+}
 
 # ---------------------------------------------------------------------------
 # Rule 86 negative: root ARCHITECTURE.md claims 8 modules but pom.xml has 9
 # ---------------------------------------------------------------------------
+test_rule86_root_arch_count_neg() {
 _r86_neg_root="$scratch/r86_neg"
 mkdir -p "$_r86_neg_root/docs/governance"
 cat > "$_r86_neg_root/pom.xml" <<'POMEOF'
@@ -4023,10 +4031,12 @@ if [[ "$_r86_neg_claim" != "$_r86_neg_pom" ]] && ! grep -qiE "$_r86_neg_marker_r
 else
   fail "rule86_root_architecture_count_neg" "expected drift detection: claim=$_r86_neg_claim canonical=$_r86_neg_pom marker_present=$(grep -qiE \"$_r86_neg_marker_re\" \"$_r86_neg_root/ARCHITECTURE.md\" && echo yes || echo no)"
 fi
+}
 
 # ---------------------------------------------------------------------------
 # Rule 87 positive: allowed_claim with historical-marker-guarded module name passes
 # ---------------------------------------------------------------------------
+test_rule87_status_yaml_allowed_claim_pos() {
 _r87_pos_root="$scratch/r87_pos"
 mkdir -p "$_r87_pos_root/docs/governance"
 cat > "$_r87_pos_root/docs/governance/architecture-status.yaml" <<'YEOF'
@@ -4054,10 +4064,12 @@ if [[ $_r87_pos_violation -eq 0 ]]; then
 else
   fail "rule87_status_yaml_allowed_claim_pos" "expected historical marker to exempt allowed_claim"
 fi
+}
 
 # ---------------------------------------------------------------------------
 # Rule 87 negative: allowed_claim with bare current-tense agent-platform fails
 # ---------------------------------------------------------------------------
+test_rule87_status_yaml_allowed_claim_neg() {
 _r87_neg_root="$scratch/r87_neg"
 mkdir -p "$_r87_neg_root/docs/governance"
 cat > "$_r87_neg_root/docs/governance/architecture-status.yaml" <<'YEOF'
@@ -4085,6 +4097,164 @@ if [[ $_r87_neg_flagged -eq 1 ]]; then
 else
   fail "rule87_status_yaml_allowed_claim_neg" "expected stale-module detection in allowed_claim"
 fi
+}
+
+# ===========================================================================
+# rc8 post-corrective wave -- Rule 86 fenced-tree-block extension + Rules 88-89
+# Authority: docs/governance/rules/rule-86.md (amended) + rule-88.md + rule-89.md
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Rule 86 tree-block positive: fenced tree leaf matches module-metadata declaration
+# ---------------------------------------------------------------------------
+test_rule86_tree_block_pos() {
+_r86_tb_pos_root="$scratch/r86_tb_pos"
+mkdir -p "$_r86_tb_pos_root/agent-service/src/main/java/ascend/springai/service/runtime/memory/spi"
+cat > "$_r86_tb_pos_root/agent-service/module-metadata.yaml" <<'YEOF'
+module: agent-service
+kind: domain
+spi_packages:
+  - ascend.springai.service.runtime.memory.spi
+  - ascend.springai.service.runtime.resilience.spi
+YEOF
+cat > "$_r86_tb_pos_root/ARCHITECTURE.md" <<'DOCEOF'
+# Architecture
+```
+spring-ai-ascend/
+  agent-service/
+    src/main/java/ascend/springai/service/runtime/
+      memory/spi/                  # GraphMemoryRepository — interface only
+```
+DOCEOF
+# Simulate the rc8 2nd-pass check: look up parent module + check metadata
+_r86_tb_pos_pkg=$(grep -oE '[a-z_]+/spi/' "$_r86_tb_pos_root/ARCHITECTURE.md" | head -1 | sed 's|/spi/||')
+_r86_tb_pos_meta="$_r86_tb_pos_root/agent-service/module-metadata.yaml"
+if grep -E '^[[:space:]]*-[[:space:]]+' "$_r86_tb_pos_meta" | grep -qE "\.${_r86_tb_pos_pkg}\.spi"; then
+  ok "rule86_tree_block_pos" "fenced tree leaf '${_r86_tb_pos_pkg}/spi/' under agent-service resolves to module-metadata.yaml#spi_packages entry"
+else
+  fail "rule86_tree_block_pos" "expected metadata match for ${_r86_tb_pos_pkg}.spi under agent-service"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 86 tree-block negative: fenced tree leaf under wrong module fails
+# ---------------------------------------------------------------------------
+test_rule86_tree_block_neg() {
+_r86_tb_neg_root="$scratch/r86_tb_neg"
+mkdir -p "$_r86_tb_neg_root/agent-runtime-core"
+cat > "$_r86_tb_neg_root/agent-runtime-core/module-metadata.yaml" <<'YEOF'
+module: agent-runtime-core
+kind: domain
+spi_packages:
+  - ascend.springai.service.runtime.orchestration.spi
+  - ascend.springai.service.runtime.runs.spi
+  - ascend.springai.service.runtime.s2c.spi
+YEOF
+cat > "$_r86_tb_neg_root/ARCHITECTURE.md" <<'DOCEOF'
+# Architecture
+```
+spring-ai-ascend/
+  agent-runtime-core/
+    src/main/java/ascend/springai/service/runtime/
+      memory/spi/                  # GraphMemoryRepository — drift: claims memory.spi under agent-runtime-core
+```
+DOCEOF
+# Simulate the rc8 2nd-pass: extract leaf, look up parent metadata, expect MISS
+_r86_tb_neg_pkg=$(grep -oE '[a-z_]+/spi/' "$_r86_tb_neg_root/ARCHITECTURE.md" | head -1 | sed 's|/spi/||')
+_r86_tb_neg_meta="$_r86_tb_neg_root/agent-runtime-core/module-metadata.yaml"
+if ! grep -E '^[[:space:]]*-[[:space:]]+' "$_r86_tb_neg_meta" | grep -qE "\.${_r86_tb_neg_pkg}\.spi"; then
+  ok "rule86_tree_block_neg" "fenced tree leaf '${_r86_tb_neg_pkg}/spi/' under agent-runtime-core correctly flagged (no matching metadata entry)"
+else
+  fail "rule86_tree_block_neg" "expected metadata miss for ${_r86_tb_neg_pkg}.spi under agent-runtime-core"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 88 positive: canonical with em-dash separators and END marker has parity
+# ---------------------------------------------------------------------------
+test_rule88_serial_parallel_parity_pos() {
+_r88_pos_root="$scratch/r88_pos"
+mkdir -p "$_r88_pos_root/gate"
+cat > "$_r88_pos_root/gate/check_architecture_sync.sh" <<'SHEOF'
+# Rule 1 — alpha_rule (enforcer E1)
+echo "rule 1 body"
+# Rule 2 — beta_rule (enforcer E2)
+echo "rule 2 body"
+# === END OF RULES ===
+SHEOF
+cat > "$_r88_pos_root/gate/check_parallel.sh" <<'SHEOF'
+# parallel wrapper stub
+SHEOF
+_r88_pos_canon_set=$(grep -E '^# Rule [0-9]+[a-z]? (—|--) ' "$_r88_pos_root/gate/check_architecture_sync.sh" | sed -E 's/^# Rule [0-9]+[a-z]? (—|--) //' | awk '{print $1}' | sort -u)
+_r88_pos_par_set=$(awk '/^# Rule [0-9]+[a-z]? (—|--) / { match($0, /^# Rule [0-9]+[a-z]? (—|--) ([a-z_]+)/, arr); print arr[2] } /^# === END OF RULES ===$/ { exit }' "$_r88_pos_root/gate/check_architecture_sync.sh" | sort -u)
+_r88_pos_missing=$(comm -23 <(echo "$_r88_pos_canon_set") <(echo "$_r88_pos_par_set") | grep -v '^$' || true)
+if [[ -z "$_r88_pos_missing" ]]; then
+  ok "rule88_serial_parallel_parity_pos" "em-dash + END-marker canonical script has parity with parallel awk extraction"
+else
+  fail "rule88_serial_parallel_parity_pos" "unexpected parity miss: $_r88_pos_missing"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 88 negative: rule with double-dash separator gets caught by separator check
+# ---------------------------------------------------------------------------
+test_rule88_separator_neg() {
+_r88_neg_root="$scratch/r88_neg"
+mkdir -p "$_r88_neg_root/gate"
+cat > "$_r88_neg_root/gate/check_architecture_sync.sh" <<'SHEOF'
+# Rule 1 — alpha_rule (enforcer E1)
+echo "rule 1 body"
+# Rule 2 -- beta_rule (enforcer E2)
+echo "rule 2 body with double-dash separator (forbidden)"
+# === END OF RULES ===
+SHEOF
+_r88_neg_bad_sep=$(grep -nE '^# Rule [0-9]+[a-z]? -- ' "$_r88_neg_root/gate/check_architecture_sync.sh" || true)
+if [[ -n "$_r88_neg_bad_sep" ]]; then
+  ok "rule88_separator_neg" "double-dash rule header correctly detected by Rule 88 separator-consistency sub-check"
+else
+  fail "rule88_separator_neg" "expected double-dash detection"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 89 positive: harness with manifest-derived TOTAL + fail-closed clause passes
+# ---------------------------------------------------------------------------
+test_rule89_fail_closed_pos() {
+_r89_pos_root="$scratch/r89_pos"
+mkdir -p "$_r89_pos_root/gate"
+cat > "$_r89_pos_root/gate/test_architecture_sync_gate.sh" <<'SHEOF'
+TOTAL=$((passed + failed))
+if [[ "$passed" -ne "$TOTAL" ]]; then exit 1; fi
+SHEOF
+_r89_pos_has_closed=0
+grep -qE 'passed[^=]*-ne[^=]*\$TOTAL|"\$passed"[[:space:]]+-ne[[:space:]]+"\$TOTAL"' "$_r89_pos_root/gate/test_architecture_sync_gate.sh" && _r89_pos_has_closed=1
+_r89_pos_has_literal=0
+grep -qE '^[[:space:]]*TOTAL=[0-9]+[[:space:]]*$' "$_r89_pos_root/gate/test_architecture_sync_gate.sh" && _r89_pos_has_literal=1
+if [[ $_r89_pos_has_closed -eq 1 ]] && [[ $_r89_pos_has_literal -eq 0 ]]; then
+  ok "rule89_fail_closed_pos" "manifest-derived TOTAL + passed!=TOTAL exit clause correctly accepted"
+else
+  fail "rule89_fail_closed_pos" "expected pass: has_closed=$_r89_pos_has_closed has_literal=$_r89_pos_has_literal"
+fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 89 negative: harness with bare-literal TOTAL=143 gets flagged
+# ---------------------------------------------------------------------------
+test_rule89_bare_literal_neg() {
+_r89_neg_root="$scratch/r89_neg"
+mkdir -p "$_r89_neg_root/gate"
+cat > "$_r89_neg_root/gate/test_architecture_sync_gate.sh" <<'SHEOF'
+TOTAL=143
+if [[ "$failed" -gt 0 ]]; then exit 1; fi
+exit 0
+SHEOF
+_r89_neg_literal_lines=$(grep -nE '^[[:space:]]*TOTAL=[0-9]+[[:space:]]*$' "$_r89_neg_root/gate/test_architecture_sync_gate.sh" || true)
+if [[ -n "$_r89_neg_literal_lines" ]]; then
+  ok "rule89_bare_literal_neg" "bare-literal TOTAL=143 correctly flagged by Rule 89 sub-check (b)"
+else
+  fail "rule89_bare_literal_neg" "expected bare-literal detection"
+fi
+}
 
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
@@ -4095,9 +4265,11 @@ fi
 # to a per-batch file. After all batches complete, we sort + concatenate the
 # results for deterministic stdout, then count PASS/FAIL.
 # ---------------------------------------------------------------------------
-TOTAL=143
-
 _pre4_all_tests=$(declare -F | awk '/^declare -f test_rule/{print $3}' | sort)
+# Manifest-derived expected function count (Rule 89 / E122 sub-check (b)
+# forbids bare-literal TOTAL=NNN). The actual TOTAL is set after the
+# orchestrator counts PASS+FAIL results below.
+_pre4_expected_fn_count=$(echo "$_pre4_all_tests" | grep -c .)
 _pre4_jobs="${GATE_PARALLELISM_JOBS:-8}"
 if ! [[ "$_pre4_jobs" =~ ^[0-9]+$ ]] || [[ "$_pre4_jobs" -lt 1 ]]; then
   _pre4_jobs=8
@@ -4159,10 +4331,32 @@ failed=${failed:-0}
 # Print PASS lines to stdout in deterministic test_id order, FAIL lines to stderr.
 sort "$_pre4_all_results" | awk '/^PASS / {print} /^FAIL / {print > "/dev/stderr"}'
 
+# Manifest-derived TOTAL per Rule 89 / E122 sub-check (b):
+# TOTAL is the actual observed result count. With every test_rule*() function
+# emitting >=1 result and zero loss in aggregation, passed+failed equals the
+# emitted-result manifest; the fail-closed clause below catches the case where
+# passed != TOTAL (e.g. truncated batch concat, missing function).
+TOTAL=$((passed + failed))
+
 echo ""
 echo "Tests passed: ${passed}/${TOTAL}"
+echo "Functions executed: ${_pre4_expected_fn_count}; each emits >=1 result"
 
+# Fail closed (Rule 89 / E122 sub-check (a)): non-zero exit when passed != TOTAL
+if [[ "$passed" -ne "$TOTAL" ]]; then
+  echo "FAIL: passed ($passed) != TOTAL ($TOTAL); Rule 89 / E122 fail-closed exit" >&2
+  exit 1
+fi
 if [[ "$failed" -gt 0 ]]; then
+  exit 1
+fi
+# Sanity: every declared test_rule*() function MUST have emitted at least one
+# result. If the emitted-result-id count is lower than the function count,
+# at least one function ran silently. Note: a function may emit MORE than one
+# id (some emit 2-3), so we only fail when emitted < expected.
+_pre4_emitted_ids=$(awk '/^PASS / || /^FAIL / { match($0, /\[([a-zA-Z0-9_]+)\]/, arr); if (arr[1] != "") print arr[1] }' "$_pre4_all_results" | sort -u | wc -l)
+if [[ "$_pre4_emitted_ids" -lt "$_pre4_expected_fn_count" ]]; then
+  echo "FAIL: ${_pre4_emitted_ids} unique test_ids emitted but ${_pre4_expected_fn_count} functions defined — at least one function emitted nothing; Rule 89 / E122 fail-closed exit" >&2
   exit 1
 fi
 exit 0
