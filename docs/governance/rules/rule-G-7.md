@@ -1,5 +1,5 @@
 ---
-rule_id: 74
+rule_id: G-7
 title: "Linux-First Dev Environment"
 level: L0
 view: scenarios

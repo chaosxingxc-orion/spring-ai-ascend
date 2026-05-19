@@ -14,9 +14,9 @@ spi_packages:
   - ascend.springai.bus.spi      # placeholder; populated in W2 per ADR-0050
 allowed_dependencies: []
 forbidden_dependencies:
-  - agent-platform
-  - agent-runtime         # bus is upstream of runtime; runtime depends on bus, not vice versa
-  - agent-execution-engine
+  - agent-service           # post-Phase-C (consolidated from agent-platform per ADR-0078); bus is upstream of service
+  - agent-runtime-core      # post-Phase-C (extracted from agent-runtime per ADR-0079); bus is upstream of runtime
+  - agent-execution-engine  # post-Phase-C (extracted from agent-runtime per ADR-0079)
   - agent-middleware
   - agent-client
   - agent-evolve

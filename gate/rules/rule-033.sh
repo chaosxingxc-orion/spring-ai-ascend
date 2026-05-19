@@ -9,7 +9,7 @@
 # pillar names by name so reviewers see the dimensions tracked per release.
 # ---------------------------------------------------------------------------
 _r33_fail=0
-_latest_release="$(find docs/logs/releases -maxdepth 1 -name '*.md' -type f 2>/dev/null | sort | tail -1 || true)"
+_latest_release="$(latest_release_path docs/logs/releases || true)"
 if [[ -z "$_latest_release" ]]; then
   pass_rule "release_note_references_four_pillars"   # no release notes yet — vacuous pass
 else

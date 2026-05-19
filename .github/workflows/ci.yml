@@ -50,7 +50,8 @@ jobs:
       # exits 1 with FAIL_NEEDS_BUILD until 'mvn package' produces a JAR. Keeping it out of
       # CI (rather than masking with || true) makes CI status honest.
       # Reintroduce as a blocking step (no || true, no continue-on-error) once
-      # agent-platform/target/agent-platform-*.jar is produced by mvn verify on CI.
+      # agent-service/target/agent-service-*.jar is produced by mvn verify on CI
+      # (post-Phase-C / ADR-0078; pre-Phase-C this was agent-platform/target/agent-platform-*.jar).
 
       - name: Upload test results
         if: always()

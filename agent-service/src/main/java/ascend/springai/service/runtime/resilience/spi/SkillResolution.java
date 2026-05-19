@@ -6,12 +6,13 @@ package ascend.springai.service.runtime.resilience.spi;
  * is rejected ({@code admitted = false} and {@code reasonIfRejected} non-null carrying
  * the {@link SuspendReason} the scheduler should map to a suspension transition).
  *
- * <p>Per Rule 41 / Layer-0 principle P-K (Skill-Dimensional Resource Arbitration),
- * a rejection means "park the agent process on the skill's wait-queue and free the
- * OS thread" — NOT "fail the run". The caller is responsible for the actual
- * {@code Run.withSuspension(...)} transition (W2 orchestrator wiring).
+ * <p>Per Rule R-K / Layer-0 principle P-K (Skill-Dimensional Resource Arbitration),
+ * a rejection returns a decision envelope only — NOT "fail the run". The W2
+ * scheduler admission (Rule R-K.c, deferred per CLAUDE-deferred.md) maps the
+ * decision envelope to {@code Run.withSuspension(...)} and frees the OS thread.
+ * At W1 the caller is responsible for the transition by reading this envelope.
  *
- * <p>Authority: ADR-0070; CLAUDE.md Rule 41.b.
+ * <p>Authority: ADR-0070; CLAUDE.md Rule R-K (legacy 41.b).
  */
 public record SkillResolution(boolean admitted, SuspendReason reasonIfRejected) {
 

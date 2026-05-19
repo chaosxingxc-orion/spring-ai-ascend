@@ -2,6 +2,21 @@
 
 Archive partition for historical material. **Not loaded by AI agents reading the normative authority surface.** Read on-demand for forensics, audit, or migration archaeology.
 
+## Authority boundary (rc12 K-ε clarification)
+
+`docs/logs/releases/` and `docs/logs/reviews/` are simultaneously (a) **audit / review workflow artefacts** AND (b) **live gate inputs** — but they are NOT normative design authority.
+
+- Live-gate roles: Rule R-B (latest release note must mention all four competitive-baseline pillars), Rule G-2.g (latest release note absolute graph counts vs live graph header), Rule 102 (release recency resolver), change-proposal flow per Rule G-1.
+- NOT normative: a claim that appears only in `docs/logs/releases/*.md` or `docs/logs/reviews/*.md` is NOT canonical design truth. Normative outcomes derived from a release or review MUST be copied into one of the canonical authority surfaces before being treated as design truth:
+  - `CLAUDE.md` (engineering rule kernels)
+  - `docs/adr/*.yaml` (architectural decisions)
+  - `docs/contracts/**` (contract definitions + catalog)
+  - `docs/governance/architecture-status.yaml` (per-capability ledger + baseline_metrics)
+  - `docs/governance/rules/rule-<ns>.md` (rule cards)
+  - per-module `ARCHITECTURE.md`
+
+This split closes rc11 review P1-6 (logs were both archived-and-active simultaneously without a stated rule). Closure authority: ADR-0087 K-ε family decision.
+
 ## Layout
 
 | Path | Contents | Source |

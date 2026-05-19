@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * launched from the repo root and for the packaged jar (the file is shipped under
  * the same path).
  *
- * <p>Authority: ADR-0070; CLAUDE.md Rule 41 + 41.b.
+ * <p>Authority: ADR-0070; CLAUDE.md Rule R-K + 41.b.
  */
 public class YamlSkillCapacityRegistry implements SkillCapacityRegistry {
 

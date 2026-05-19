@@ -1,5 +1,5 @@
 ---
-rule_id: 2
+rule_id: D-2
 title: "Simplicity & Surgical Changes"
 level: L1
 view: process

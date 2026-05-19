@@ -27,7 +27,7 @@ elif [[ ! -d "$_r97_releases_dir" ]]; then
 else
   _r97_nodes=$(grep -E '^node_count:' "$_r97_graph" | head -1 | awk '{print $2}')
   _r97_edges=$(grep -E '^edge_count:' "$_r97_graph" | head -1 | awk '{print $2}')
-  _r97_latest=$(find "$_r97_releases_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort | tail -1)
+  _r97_latest=$(latest_release_path "$_r97_releases_dir")
   if [[ -z "$_r97_latest" ]]; then
     : # no release notes yet — vacuously pass
   else

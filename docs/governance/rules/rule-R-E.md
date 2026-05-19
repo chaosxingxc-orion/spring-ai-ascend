@@ -1,5 +1,5 @@
 ---
-rule_id: 35
+rule_id: R-E
 title: "Three-Track Channel Isolation"
 level: L1
 view: physical

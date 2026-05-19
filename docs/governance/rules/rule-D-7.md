@@ -1,5 +1,5 @@
 ---
-rule_id: 5
+rule_id: D-7
 title: "Concurrency / Async Resource Lifetime"
 level: L1
 view: development

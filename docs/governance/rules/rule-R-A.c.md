@@ -1,5 +1,5 @@
 ---
-rule_id: 29c
+rule_id: R-A.c
 title: "Quickstart CI Smoke Run"
 level: L1
 view: scenarios

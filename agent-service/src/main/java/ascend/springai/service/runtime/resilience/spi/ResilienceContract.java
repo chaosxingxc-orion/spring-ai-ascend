@@ -9,7 +9,7 @@ package ascend.springai.service.runtime.resilience.spi;
  *   ({@code @CircuitBreaker}, {@code @Retry}, {@code @TimeLimiter}) using the resolved policy names.
  *   Spring {@code @ConfigurationProperties} wiring is deferred to W2.</li>
  *   <li><b>Skill-capacity axis</b> ({@link #resolve(String, String)}, W1.x Phase 9+): tenant + skill
- *   admission per ADR-0070 + Rule 41.b. Consults
+ *   admission per ADR-0070 + Rule R-K (legacy 41.b). Consults
  *   {@code docs/governance/skill-capacity.yaml} via {@link SkillCapacityRegistry}.</li>
  * </ul>
  *
@@ -36,7 +36,7 @@ public interface ResilienceContract {
 
     /**
      * Two-arg resolve for the {@code (tenant, skill)} surface introduced in W1.x Phase 9
-     * (ADR-0070, Rule 41.b). Consults {@code docs/governance/skill-capacity.yaml} via the
+     * (ADR-0070, Rule R-K (legacy 41.b)). Consults {@code docs/governance/skill-capacity.yaml} via the
      * injected {@link SkillCapacityRegistry}; over-cap callers receive a
      * {@link SkillResolution} with {@code admitted = false} carrying a
      * {@link SuspendReason.RateLimited} so the scheduler maps the rejection to
@@ -50,6 +50,6 @@ public interface ResilienceContract {
     default SkillResolution resolve(String tenant, String skill) {
         throw new UnsupportedOperationException(
                 "Two-arg resolve(tenant, skill) requires DefaultSkillResilienceContract "
-                        + "(Rule 41.b activation per ADR-0070).");
+                        + "(Rule R-K (legacy 41.b) activation per ADR-0070).");
     }
 }

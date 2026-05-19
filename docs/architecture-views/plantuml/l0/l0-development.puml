@@ -5,43 +5,47 @@
 
 title L0 Development View - Repository Modules Supporting the Six Capabilities
 
+' rc12 K-δ: rewritten to current 9-module reactor (post-Phase-C; agent-platform was
+' consolidated into agent-service per ADR-0078; agent-runtime was split into
+' agent-runtime-core + agent-execution-engine per ADR-0079). Closes rc11 review P1-5.
+
 System_Boundary(repo, "Current repository modules") {
-  Container(agent_platform, "agent-platform", "Maven module", "Northbound HTTP facade, health endpoint, tenant filter, idempotency filter, and posture-aware edge concerns.", $tags="S-Side")
-  Container(agent_runtime_module, "agent-runtime", "Maven module", "Repository module name. Supports the Agent Service capability and execution-related kernel baseline: orchestration contracts, run lifecycle model, execution abstraction baseline, and in-memory reference execution.", $tags="S-Side")
-  Container(dependencies, "spring-ai-ascend-dependencies", "Maven BOM", "Dependency pinning and build alignment.", $tags="Governance")
+  Container(agent_service, "agent-service", "Maven module", "Northbound HTTP facade + Spring Boot bootstrap + tenant filter + idempotency + posture gate + reference orchestrator wiring; consolidates the prior agent-platform module.", $tags="S-Side")
+  Container(agent_runtime_core, "agent-runtime-core", "Maven module", "Kernel SPI types (Run / RunStatus / RunRepository / Orchestrator / SuspendSignal / S2cCallback) extracted from the prior agent-runtime per ADR-0079. java.* dependencies only.", $tags="S-Side")
+  Container(agent_execution_engine, "agent-execution-engine", "Maven module", "Execution adapter SPI (ExecutorAdapter / EngineEnvelope / EngineRegistry) extracted from the prior agent-runtime per ADR-0079.", $tags="S-Side")
+  Container(agent_middleware_module, "agent-middleware", "Maven module", "Runtime-owned cross-cutting middleware SPI (HookPoint / RuntimeMiddleware / HookContext / HookOutcome / HookDispatcher) per ADR-0073.", $tags="S-Side")
+  Container(agent_bus_module, "agent-bus", "Maven module", "Bus & State Hub plane skeleton (three-track channel isolation). W2 implementation per ADR-0050.", $tags="S-Side")
+  Container(agent_client_module, "agent-client", "Maven module", "Edge Access plane skeleton (AgentClient SDK + Task Cursor consumer + SSE/Webhook receiver). W3+ per ADR-0049.", $tags="C-Side")
+  Container(agent_evolve_module, "agent-evolve", "Maven module", "Evolution plane Java-side adapter skeleton. Bulk implementation deferred per ADR-0075.", $tags="S-Side")
+  Container(dependencies_bom, "spring-ai-ascend-dependencies", "Maven BOM", "Dependency pinning and build alignment across the nine reactor modules.", $tags="Governance")
   Container(graphmemory, "spring-ai-ascend-graphmemory-starter", "Spring starter", "Graph memory starter and adapter shell.", $tags="S-Side")
 }
 
 System_Boundary(l0_caps, "L0 capability labels") {
   Container(agent_client, $AGENT_CLIENT_NAME, "Capability", $AGENT_CLIENT_DESC, $tags="C-Side", $link=$L1_AGENT_CLIENT)
-  Container(agent_service, $AGENT_SERVICE_NAME, "Capability", $AGENT_SERVICE_DESC, $tags="S-Side", $link=$L1_AGENT_SERVICE)
+  Container(agent_service_cap, $AGENT_SERVICE_NAME, "Capability", $AGENT_SERVICE_DESC, $tags="S-Side", $link=$L1_AGENT_SERVICE)
   Container(exec_engine, $EXECUTION_ENGINE_NAME, "Capability", $EXECUTION_ENGINE_DESC, $tags="S-Side", $link=$L1_EXECUTION_ENGINE)
   Container(agent_bus, $AGENT_BUS_NAME, "Capability", $AGENT_BUS_DESC, $tags="S-Side", $link=$L1_AGENT_BUS)
   Container(agent_middleware, $AGENT_MIDDLEWARE_NAME, "Capability", $AGENT_MIDDLEWARE_DESC, $tags="S-Side", $link=$L1_AGENT_MIDDLEWARE)
   Container(evolution, $EVOLUTION_NAME, "Capability", $EVOLUTION_DESC, $tags="S-Side", $link=$L1_EVOLUTION)
 }
 
-System_Boundary(future, "Future / deferred module split candidates") {
-  Container(future_client, "agent-client-sdk-java", "Future module", "Client SDK packaging for C-Side adoption.", $tags="Future")
-  Container(future_bus, "agent-bus-java", "Future module", "Dedicated bus implementation package.", $tags="Future")
-  Container(future_evolution, "agent-evolution-python", "Future module", "Isolated evolution analysis and optimization runtime.", $tags="Future")
-  Container(future_middleware, "richer middleware adapters", "Future packages", "Additional memory, knowledge, sandbox, model, trace, and governance adapters.", $tags="Future")
-  Container(future_contracts, "contract governance package", "Future artifact", "Executable conformance checks for public contracts; not an L0 core capability.", $tags="Future")
-}
-
-Rel(agent_platform, agent_service, "exposes service boundary and edge concerns")
-Rel(agent_runtime_module, agent_service, "implements current service/runtime kernel baseline")
-Rel(agent_runtime_module, exec_engine, "implements execution abstraction baseline")
+Rel(agent_service, agent_service_cap, "implements the northbound HTTP edge + runtime wiring")
+Rel(agent_runtime_core, agent_service_cap, "provides kernel SPI types used by agent-service")
+Rel(agent_execution_engine, exec_engine, "implements execution adapter SPI")
+Rel(agent_middleware_module, agent_middleware, "implements runtime-owned cross-cutting middleware SPI")
+Rel(agent_bus_module, agent_bus, "skeleton for Bus & State Hub plane")
+Rel(agent_client_module, agent_client, "skeleton for Edge Access SDK")
+Rel(agent_evolve_module, evolution, "Java adapter shell for evolution plane")
 Rel(graphmemory, agent_middleware, "contributes memory adapter shell")
-Rel(dependencies, agent_platform, "pins dependency versions")
-Rel(dependencies, agent_runtime_module, "pins dependency versions")
-Rel(dependencies, graphmemory, "pins dependency versions")
-
-Rel(future_client, agent_client, "future packaging", $tags="future")
-Rel(future_bus, agent_bus, "future dedicated bus package", $tags="future")
-Rel(future_evolution, evolution, "future isolated evolution runtime", $tags="future")
-Rel(future_middleware, agent_middleware, "future adapter expansion", $tags="future")
-Rel(future_contracts, agent_service, "future code-as-contract evidence for service-facing contracts", $tags="future")
+Rel(dependencies_bom, agent_service, "pins dependency versions")
+Rel(dependencies_bom, agent_runtime_core, "pins dependency versions")
+Rel(dependencies_bom, agent_execution_engine, "pins dependency versions")
+Rel(dependencies_bom, agent_middleware_module, "pins dependency versions")
+Rel(dependencies_bom, agent_bus_module, "pins dependency versions")
+Rel(dependencies_bom, agent_client_module, "pins dependency versions")
+Rel(dependencies_bom, agent_evolve_module, "pins dependency versions")
+Rel(dependencies_bom, graphmemory, "pins dependency versions")
 
 note bottom of repo
 Development red lines:
@@ -50,12 +54,12 @@ Development red lines:
 - Middleware implementations are injected through service/runtime adapters.
 - The evolution layer is isolated from the Java service/execution path through bus or serialized contracts.
 - This view stays at module direction, not class or interface internals.
+- The pre-Phase-C modules agent-platform and agent-runtime were consolidated/split per ADR-0078 and ADR-0079.
 end note
 
 legend right
 |= Tag |= Meaning |
-| Current repository modules | Code that exists today. |
+| Current repository modules | Code that exists today (9-module reactor post-ADR-0078/0079). |
 | L0 capability labels | Architectural names used by the top-level diagrams. |
-| Future | Deferred packaging or governance support, not a current L0 core block. |
 endlegend
 @enduml

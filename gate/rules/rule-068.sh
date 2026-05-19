@@ -54,6 +54,13 @@ else
       flag && NF { print }
     ' "$_r68_claude" | tr -s ' \t' ' ' | tr -d '\r' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | tr '\n' ' ' | tr -s ' ' | sed -E 's/^ //; s/ $//')
     if [[ -z "$_r68_body" ]]; then
+      # Deferred-only sub-clause cards (e.g. R-A.c, R-K.c) have no CLAUDE.md body —
+      # they live in docs/CLAUDE-deferred.md. Check that the deferred doc
+      # references the rule before failing.
+      _r68_deferred_doc='docs/CLAUDE-deferred.md'
+      if [[ -f "$_r68_deferred_doc" ]] && grep -qE "(^|[^a-zA-Z0-9])Rule[[:space:]]+${_r68_id_match}([^a-zA-Z0-9]|$)" "$_r68_deferred_doc"; then
+        continue  # deferred-only card; not a drift
+      fi
       _r68_drift+="Rule $_r68_id_match: card exists but no body in CLAUDE.md; "
       _r68_fail=1
     elif [[ "$_r68_kernel" != "$_r68_body" ]]; then

@@ -1,5 +1,5 @@
 ---
-rule_id: 30
+rule_id: R-B
 title: "Competitive Baselines Required"
 level: L0
 view: scenarios

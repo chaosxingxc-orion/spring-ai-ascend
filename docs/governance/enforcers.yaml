@@ -145,7 +145,7 @@
   asserts: "same key + different request_hash returns 409 idempotency_body_drift"
 
 - id: E15
-  constraint_ref: "L1 plan §11 row E15; Rule 28a"
+  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28a — tenant_id column schema spine); L1 plan §11 row E15"
   kind: gate-script
   level: L1
   view: logical
@@ -177,7 +177,7 @@
   asserts: "every Counter/Timer/Gauge name starts with springai_ascend_"
 
 - id: E19
-  constraint_ref: "L1 plan §10; Rule 28b"
+  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28b); L1 plan §10"
   kind: gate-script
   level: L1
   view: development
@@ -185,7 +185,7 @@
   asserts: "no source registers Tag.of(\"run_id\"|\"idempotency_key\"|\"jwt_sub\"|\"body\", …) on a springai_ascend_* metric"
 
 - id: E20
-  constraint_ref: "architect guidance §9.3; Rule 28c"
+  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28c); architect guidance §9.3"
   kind: gate-script
   level: L1
   view: development
@@ -233,7 +233,7 @@
   asserts: "live /v3/api-docs response matches the committed snapshot byte-for-byte"
 
 - id: E26
-  constraint_ref: "L1 plan §13 out-of-scope; Rule 28d"
+  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28d); L1 plan §13 out-of-scope"
   kind: gate-script
   level: L1
   view: development
@@ -241,7 +241,7 @@
   asserts: "names LLMGateway/PostgresCheckpointer/SkillRegistry/HookChain/SpawnEnvelope/LogicalCallHandle/ConnectionLease/AdmissionDecision/BackpressureSignal/ChronosHydration/SandboxExecutor do not appear in agent-*/src/main/java"
 
 - id: E27
-  constraint_ref: "L1 plan decision D3; Rule 28e"
+  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28e); L1 plan decision D3"
   kind: gate-script
   level: L1
   view: development
@@ -257,7 +257,7 @@
   asserts: "every must/must not/forbidden/required sentence in the architecture corpus maps to at least one row in this file"
 
 - id: E29
-  constraint_ref: "ADR-0059 §1; Rule 28f"
+  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28f); ADR-0059 §1"
   kind: gate-script
   level: L0
   view: scenarios
@@ -265,7 +265,7 @@
   asserts: "every row in this file has id+constraint_ref+kind+level+view+artifact+asserts; kind is one of the five legal values; level is L0|L1|L2; view is one of the five legal values"
 
 - id: E30
-  constraint_ref: "ADR-0059 §3; Rule 28g"
+  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28g); ADR-0059 §3"
   kind: gate-script
   level: L0
   view: scenarios
@@ -273,7 +273,7 @@
   asserts: "no TODO:enforce / FIXME:enforcer / XXX:test / deferred:gate markers in CLAUDE.md, ARCHITECTURE.md, or any */ARCHITECTURE.md"
 
 - id: E31
-  constraint_ref: "architect guidance §16; Rule 28h"
+  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28h); architect guidance §16"
   kind: gate-script
   level: L0
   view: scenarios
@@ -281,7 +281,7 @@
   asserts: "every ADR 0055-0059 contains the §16 review checklist as a sub-section"
 
 - id: E32
-  constraint_ref: "L1 plan §11; Rule 28i"
+  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28i); L1 plan §11"
   kind: gate-script
   level: L0
   view: scenarios

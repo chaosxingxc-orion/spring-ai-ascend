@@ -1,5 +1,5 @@
 ---
-rule_id: 1
+rule_id: D-1
 title: "Root-Cause + Strongest-Interpretation Before Plan"
 level: L1
 view: process

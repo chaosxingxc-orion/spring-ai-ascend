@@ -5096,6 +5096,174 @@ else
 fi
 }
 
+# ===========================================================================
+# rc12 K-α / K-β / K-δ / K-ζ — Self-test fixtures for Rules 101 / 102 / 103 / 104
+# (Rule 89 / E122 sub-check (c): every prevention-wave Rule N>=80 MUST have
+# at least one test_rule_<N>_* function in this harness.)
+# ===========================================================================
+
+test_rule_101_authority_completeness_pos() {
+_r101_pos_root="$scratch/r101_pos"
+mkdir -p "$_r101_pos_root/docs/governance/rules" "$_r101_pos_root/docs/governance"
+printf '#### Rule D-1 — Sample\n' > "$_r101_pos_root/CLAUDE.md"
+printf -- '---\nrule_id: D-1\ntitle: "sample"\n---\n' > "$_r101_pos_root/docs/governance/rules/rule-D-1.md"
+printf '    baseline_metrics:\n      active_engineering_rules: 1\n' > "$_r101_pos_root/docs/governance/architecture-status.yaml"
+printf -- '- id: E1\n  constraint_ref: "CLAUDE.md Rule D-1"\n' > "$_r101_pos_root/docs/governance/enforcers.yaml"
+_r101_pos_kernel_count=$(grep -cE '^#### Rule [A-Z]-' "$_r101_pos_root/CLAUDE.md")
+_r101_pos_declared=$(awk '/^[[:space:]]+active_engineering_rules:/{print $2; exit}' "$_r101_pos_root/docs/governance/architecture-status.yaml")
+_r101_pos_card_ok=0
+if grep -qE "^rule_id: D-1[[:space:]]*\r?$" "$_r101_pos_root/docs/governance/rules/rule-D-1.md"; then
+  _r101_pos_card_ok=1
+fi
+_r101_pos_bad_refs=$(grep -nE 'constraint_ref:[[:space:]]*"[^"]*\bRule [0-9]+[a-z]?\b' "$_r101_pos_root/docs/governance/enforcers.yaml" \
+                    | grep -vE 'legacy Rule [0-9]+[a-z]?|Rule [DRGM]-|historical' || true)
+if [[ "$_r101_pos_declared" == "$_r101_pos_kernel_count" ]] && [[ $_r101_pos_card_ok -eq 1 ]] && [[ -z "$_r101_pos_bad_refs" ]]; then
+  ok "rule_101_authority_completeness_pos" "Rule 101 accepts kernel + matching card + matching baseline + namespaced enforcer"
+else
+  fail "rule_101_authority_completeness_pos" "unexpected violation: count=$_r101_pos_declared/$_r101_pos_kernel_count card_ok=$_r101_pos_card_ok bad_refs=$_r101_pos_bad_refs"
+fi
+}
+
+test_rule_101_authority_completeness_neg() {
+_r101_neg_root="$scratch/r101_neg"
+mkdir -p "$_r101_neg_root/docs/governance/rules" "$_r101_neg_root/docs/governance"
+printf '#### Rule D-1 — Sample\n' > "$_r101_neg_root/CLAUDE.md"
+printf -- '---\nrule_id: 1\ntitle: "stale numeric"\n---\n' > "$_r101_neg_root/docs/governance/rules/rule-D-1.md"
+printf '    baseline_metrics:\n      active_engineering_rules: 1\n' > "$_r101_neg_root/docs/governance/architecture-status.yaml"
+_r101_neg_card_ok=0
+if grep -qE "^rule_id: D-1[[:space:]]*\r?$" "$_r101_neg_root/docs/governance/rules/rule-D-1.md"; then
+  _r101_neg_card_ok=1
+fi
+if [[ $_r101_neg_card_ok -eq 0 ]]; then
+  ok "rule_101_authority_completeness_neg" "Rule 101 rejects card with numeric rule_id when kernel is namespaced"
+else
+  fail "rule_101_authority_completeness_neg" "expected card frontmatter mismatch but matched"
+fi
+}
+
+test_rule_102_release_recency_resolver_pos() {
+_r102_pos_root="$scratch/r102_pos"
+mkdir -p "$_r102_pos_root/docs/logs/releases"
+touch "$_r102_pos_root/docs/logs/releases/2026-05-19-l0-rc9-corrective.en.md"
+touch "$_r102_pos_root/docs/logs/releases/2026-05-19-l0-rc10-corrective.en.md"
+touch "$_r102_pos_root/docs/logs/releases/2026-05-19-l0-rc11-corrective.en.md"
+if [[ -z "${LATEST_RELEASE_HELPER_LOADED:-}" ]] && [[ -f "$(pwd)/gate/lib/latest_release.sh" ]]; then
+  # shellcheck source=../gate/lib/latest_release.sh
+  source "$(pwd)/gate/lib/latest_release.sh"
+fi
+_r102_pos_latest=$(latest_release_path "$_r102_pos_root/docs/logs/releases")
+case "$_r102_pos_latest" in
+  *rc11*) ok "rule_102_release_recency_resolver_pos" "latest_release_path picks rc11 over rc9/rc10 (numeric rc sort)" ;;
+  *)      fail "rule_102_release_recency_resolver_pos" "expected rc11 winner, got: $_r102_pos_latest" ;;
+esac
+}
+
+test_rule_102_release_recency_resolver_neg() {
+_r102_neg_root="$scratch/r102_neg"
+mkdir -p "$_r102_neg_root/docs/logs/releases"
+touch "$_r102_neg_root/docs/logs/releases/2026-05-19-l0-rc9-corrective.en.md"
+touch "$_r102_neg_root/docs/logs/releases/2026-05-19-l0-rc11-corrective.en.md"
+# Demonstrate the BUG that rc12 K-β fixes: lex-sort picks rc9 because '9' > '1'
+_r102_neg_lex=$(find "$_r102_neg_root/docs/logs/releases" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort | tail -1)
+case "$_r102_neg_lex" in
+  *rc9*) ok "rule_102_release_recency_resolver_neg" "Rule 102 negative fixture confirms lex-sort anti-pattern picks rc9 over rc11 (this is the bug Rule 102 prevents)" ;;
+  *)     fail "rule_102_release_recency_resolver_neg" "expected lex-sort to pick rc9 as the anti-pattern demonstration, got: $_r102_neg_lex" ;;
+esac
+}
+
+test_rule_103_deploy_entrypoint_pos() {
+_r103_pos_root="$scratch/r103_pos"
+mkdir -p "$_r103_pos_root"
+cat > "$_r103_pos_root/Dockerfile" <<'SHEOF'
+# spring-ai-ascend agent-service Dockerfile.
+# rc12 K-δ: rewritten from the pre-Phase-C agent-platform Dockerfile (post-ADR-0078).
+FROM maven:3.9-eclipse-temurin-21 AS build
+COPY agent-service/ ./agent-service/
+RUN mvn -B -ntp -pl agent-service -am package -DskipTests
+SHEOF
+_r103_pos_markers='historical|pre-Phase-C|post-Phase-C|consolidated into|formerly|superseded|deprecated|ADR-[0-9]+'
+_r103_pos_hits=$(awk -v markers="$_r103_pos_markers" '
+  { lines[NR] = $0 }
+  END {
+    for (i = 1; i <= NR; i++) {
+      line = lines[i]
+      if ((line ~ /\<agent-platform\>/) || (line ~ /agent-runtime[^-]/) || (line ~ /agent-runtime$/)) {
+        lo = i - 3; if (lo < 1) lo = 1
+        hi = i + 3; if (hi > NR) hi = NR
+        window = ""
+        for (j = lo; j <= hi; j++) window = window " " lines[j]
+        if (window !~ markers) print i ":" line
+      }
+    }
+  }
+' "$_r103_pos_root/Dockerfile")
+if [[ -z "$_r103_pos_hits" ]]; then
+  ok "rule_103_deploy_entrypoint_pos" "Rule 103 accepts Dockerfile referencing agent-platform inside historical-marker window"
+else
+  fail "rule_103_deploy_entrypoint_pos" "expected pass with markers, got: $_r103_pos_hits"
+fi
+}
+
+test_rule_103_deploy_entrypoint_neg() {
+_r103_neg_root="$scratch/r103_neg"
+mkdir -p "$_r103_neg_root"
+cat > "$_r103_neg_root/Dockerfile" <<'SHEOF'
+FROM maven:3.9-eclipse-temurin-21 AS build
+COPY agent-platform/pom.xml ./agent-platform/
+RUN mvn -B -ntp -pl agent-platform -am package
+SHEOF
+_r103_neg_markers='historical|pre-Phase-C|post-Phase-C|consolidated into|formerly|superseded|deprecated|ADR-[0-9]+'
+_r103_neg_hits=$(awk -v markers="$_r103_neg_markers" '
+  { lines[NR] = $0 }
+  END {
+    for (i = 1; i <= NR; i++) {
+      line = lines[i]
+      if ((line ~ /\<agent-platform\>/) || (line ~ /agent-runtime[^-]/) || (line ~ /agent-runtime$/)) {
+        lo = i - 3; if (lo < 1) lo = 1
+        hi = i + 3; if (hi > NR) hi = NR
+        window = ""
+        for (j = lo; j <= hi; j++) window = window " " lines[j]
+        if (window !~ markers) print i ":" line
+      }
+    }
+  }
+' "$_r103_neg_root/Dockerfile")
+if [[ -n "$_r103_neg_hits" ]]; then
+  ok "rule_103_deploy_entrypoint_neg" "Rule 103 catches Dockerfile referencing agent-platform without historical marker: $_r103_neg_hits"
+else
+  fail "rule_103_deploy_entrypoint_neg" "expected violation, got none"
+fi
+}
+
+test_rule_104_openapi_catalog_pos() {
+_r104_pos_root="$scratch/r104_pos"
+mkdir -p "$_r104_pos_root/docs/contracts"
+cat > "$_r104_pos_root/docs/contracts/http-api-contracts.md" <<'SHEOF'
+### POST /v1/runs (shipped; W1)
+Stability: shipped
+Implementation: RunController.java#createRun
+SHEOF
+if ! grep -qE 'POST /v1/runs.*\(planned' "$_r104_pos_root/docs/contracts/http-api-contracts.md"; then
+  ok "rule_104_openapi_catalog_pos" "Rule 104 accepts catalog row marking shipped route as shipped (not planned)"
+else
+  fail "rule_104_openapi_catalog_pos" "expected pass with shipped marker, but found planned"
+fi
+}
+
+test_rule_104_openapi_catalog_neg() {
+_r104_neg_root="$scratch/r104_neg"
+mkdir -p "$_r104_neg_root/docs/contracts"
+cat > "$_r104_neg_root/docs/contracts/http-api-contracts.md" <<'SHEOF'
+### POST /v1/runs (planned; W1)
+Stability: planned
+SHEOF
+if grep -qE 'POST /v1/runs.*\(planned' "$_r104_neg_root/docs/contracts/http-api-contracts.md"; then
+  ok "rule_104_openapi_catalog_neg" "Rule 104 catches catalog row marking shipped route as planned"
+else
+  fail "rule_104_openapi_catalog_neg" "expected planned marker, got none"
+fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #

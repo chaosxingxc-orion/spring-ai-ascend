@@ -14,9 +14,9 @@ spi_packages:
   - ascend.springai.client.spi   # placeholder; populated in W3+ per ADR-0049
 allowed_dependencies: []  # standalone SDK; no runtime/platform deps
 forbidden_dependencies:
-  - agent-platform
-  - agent-runtime
-  - agent-execution-engine
+  - agent-service           # post-Phase-C (consolidated from agent-platform per ADR-0078)
+  - agent-runtime-core      # post-Phase-C (extracted from agent-runtime per ADR-0079)
+  - agent-execution-engine  # post-Phase-C (extracted from agent-runtime per ADR-0079)
   - agent-middleware
   - agent-bus
   - agent-evolve

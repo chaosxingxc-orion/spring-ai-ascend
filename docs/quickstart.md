@@ -67,7 +67,7 @@ public class MyFirstAgent {
     return args -> {
       // Orchestrator.run(runId, tenantId, executorDefinition, initialPayload)
       // is the canonical entry point (see
-      // ascend.springai.runtime.orchestration.spi.Orchestrator#run).
+      // ascend.springai.service.runtime.orchestration.spi.Orchestrator#run).
       // It synchronously creates the Run if absent, marks it RUNNING, and
       // recursively drives the suspend/resume loop until SUCCEEDED / FAILED.
       UUID runId = UUID.randomUUID();

@@ -1,5 +1,5 @@
 ---
-rule_id: 38
+rule_id: R-H
 title: "No Thread.sleep in Business Code"
 level: L1
 view: process

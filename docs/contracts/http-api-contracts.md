@@ -79,45 +79,50 @@ This route is the W0 operator probe. Kubernetes-native liveness and readiness sp
 
 ---
 
-### POST /v1/runs (planned; W1)
+### POST /v1/runs (shipped; W1)
 
 | Attribute | Value |
 |-----------|-------|
-| Stability | planned |
+| Stability | shipped |
 | Wave | W1 |
 | Required headers | X-Tenant-Id (UUID), Idempotency-Key (UUID) |
 | Auth | JWT required in research/prod (W1) |
-| Response schema | RunResponse (to be defined in W1 OpenAPI update) |
+| Response schema | 202 + TaskCursor (Cursor Flow per Rule R-F; see `openapi-v1.yaml`) |
+| Implementation | `agent-service/src/main/java/.../web/runs/RunController.java#createRun` (line 66) |
 
-Creates a new agent run for the authenticated tenant. The run is assigned a UUID run id and starts in PENDING status. The Idempotency-Key is scoped per tenant; the same key submitted twice returns the first response.
+Creates a new agent run for the authenticated tenant. The endpoint returns immediately with `202 Accepted` + a TaskCursor; the client polls the cursor or subscribes via SSE/Webhook (Rule R-F Cursor Flow Mandate). The run is assigned a UUID run id and starts in PENDING status. The Idempotency-Key is scoped per tenant; the same key submitted twice returns the first response. rc12 K-ζ marked this route shipped (previously stale `planned;W1` per rc11 review P2-1).
 
 ---
 
-### GET /v1/runs/{id} (planned; W1)
+### GET /v1/runs/{id} (shipped; W1)
 
 | Attribute | Value |
 |-----------|-------|
-| Stability | planned |
+| Stability | shipped |
 | Wave | W1 |
 | Required headers | X-Tenant-Id (UUID) |
 | Auth | JWT required in research/prod (W1) |
 | Response schema | RunResponse |
+| Implementation | `agent-service/src/main/java/.../web/runs/RunController.java#getRun` (line 123) |
 
-Returns the current state of a run. Returns 404 if the run does not exist or belongs to a different tenant.
+Returns the current state of a run. Returns 404 if the run does not exist or belongs to a different tenant. rc12 K-ζ marked this route shipped (previously stale `planned;W1`).
 
 ---
 
-### POST /v1/runs/{id}/cancel (planned; W1)
+### POST /v1/runs/{id}/cancel (shipped; W1)
 
 | Attribute | Value |
 |-----------|-------|
-| Stability | planned |
+| Stability | shipped |
 | Wave | W1 |
 | Required headers | X-Tenant-Id (UUID), Idempotency-Key (UUID) |
 | Auth | JWT required in research/prod (W1) |
 | Response schema | RunResponse |
+| Implementation | `agent-service/src/main/java/.../web/runs/RunController.java#cancelRun` (line 141); enforced by Rule R-J.b tenant re-authorization |
 
-Cancels a live run. Returns 200 + terminal RunResponse if successful. Returns 404 if the run does not exist or belongs to a different tenant. Returns 409 if the run is already in a terminal stage.
+Cancels a live run. Returns 200 + terminal RunResponse if successful. Returns 403 `tenant_mismatch` if the request tenant differs from `Run.tenantId` (Rule R-J.b re-authorization). Returns 404 if the run does not exist. Returns 409 `illegal_state_transition` if the run is already in a terminal stage. Idempotent terminal→terminal same-status returns 200 (per Rule R-J.b kernel). rc12 K-ζ marked this route shipped (previously stale `planned;W1`).
+
+Note: this shipped HTTP cancel edge is separate from the `RunLifecycle` SPI design-only contract — that SPI remains deferred to W2 for resume/retry/cancel orchestration; the shipped W1 HTTP cancel is independently re-authorized by Rule R-J.b at the edge. See `architecture-status.yaml#run_lifecycle_spi.allowed_claim` for the boundary.
 
 ---
 

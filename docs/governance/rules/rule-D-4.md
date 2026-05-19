@@ -1,5 +1,5 @@
 ---
-rule_id: 4
+rule_id: D-4
 title: "Three-Layer Testing, With Honest Assertions"
 level: L1
 view: process

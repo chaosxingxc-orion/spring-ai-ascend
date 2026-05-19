@@ -1,5 +1,5 @@
 ---
-rule_id: 81
+rule_id: M-1
 title: "Skeleton Module Has No Production Java"
 level: L1
 view: development

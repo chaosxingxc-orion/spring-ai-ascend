@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Wires the W1.x Phase 9 ResilienceContract surface (Rule 41.b / ADR-0070):
+ * Wires the W1.x Phase 9 ResilienceContract surface (Rule R-K (legacy 41.b) / ADR-0070):
  * {@link YamlSkillCapacityRegistry} loads {@code docs/governance/skill-capacity.yaml},
  * and {@link DefaultSkillResilienceContract} returns {@code SkillResolution} via the
  * registry.

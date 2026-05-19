@@ -1,5 +1,5 @@
 ---
-rule_id: 9
+rule_id: D-5
 title: "Self-Audit is a Ship Gate, Not a Disclosure"
 level: L0
 view: scenarios

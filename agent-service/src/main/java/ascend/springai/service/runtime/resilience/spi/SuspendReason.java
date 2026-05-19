@@ -17,8 +17,8 @@ import java.util.UUID;
  * </ul>
  *
  * <p>Authority: ADR-0070 (Cursor Flow + Skill Capacity Runtime); ADR-0074 (S2C
- * Capability Callback Protocol); CLAUDE.md Rule 41 (Skill Capacity Matrix);
- * CLAUDE.md Rule 41.b (ResilienceContract runtime enforcement); CLAUDE.md
+ * Capability Callback Protocol); CLAUDE.md Rule R-K (Skill Capacity Matrix);
+ * CLAUDE.md Rule R-K (legacy 41.b) (ResilienceContract runtime enforcement); CLAUDE.md
  * Rule 46 (S2C Callback Envelope + Lifecycle Bound).
  */
 public sealed interface SuspendReason

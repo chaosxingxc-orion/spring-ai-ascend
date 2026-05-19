@@ -1,0 +1,208 @@
+id: ADR-0087
+title: "L0 rc12 authority ratchet + deploy-truth + contract truth + terminal-verb scope"
+status: accepted
+date: 2026-05-19
+level: L0
+view: scenarios
+
+context: |
+  rc11 corrective wave (ADR-0085) closed 4 cited findings + Rule 94 widening +
+  v2.0.0-rc10 retraction. The 2026-05-19 Codex post-rc11 review surfaced 11
+  remaining findings (6 P1 + 5 P2) concentrated in contract / authority /
+  constraint surfaces — NOT in agent architecture (the reviewer explicitly
+  rated the core engine/hook/S2C/memory/dynamic-planning design as directionally
+  sound, not overdesigned).
+
+  Layer-0 was about to ship a no-findings completion release note while several
+  gates passed with their own authority claims no longer true:
+    * The D/R/G/M rule namespace ratchet (ADR-0086) was authoritatively complete
+      in CLAUDE.md (30 kernels) but partially complete in rule cards (15 numeric
+      rule_id frontmatter), enforcers.yaml (60+ `Rule 28[a-i]` refs), and
+      architecture-status.yaml (`active_engineering_rules: 67` vs CLAUDE 30).
+    * `find docs/logs/releases | sort | tail -1` placed `rc9-corrective.en.md`
+      after `rc11-corrective.en.md` because character "9" > character "1"
+      lexicographically — Rules 33 / 97 / G-2 had been validating stale rc9
+      prose as canonical.
+    * `architecture-status.yaml#baseline_metrics.architecture_graph_nodes: 394`
+      disagreed with live `python gate/build_architecture_graph.py --check`
+      output of 364; same for edges (533 vs 525).
+    * Root `Dockerfile` actively built deleted modules `agent-platform` and
+      `agent-runtime`; `gate/run_operator_shape_smoke.sh` probed the same;
+      `docs/architecture-views/plantuml/l0/l0-development.puml` declared the
+      deleted modules as current source-of-truth containers.
+    * `docs/contracts/http-api-contracts.md` + `contract-catalog.md` marked
+      three shipped W1 run-lifecycle routes (POST /v1/runs, GET /v1/runs/{id},
+      POST /v1/runs/{id}/cancel) as `(planned; W1)` despite live OpenAPI +
+      RunController.java implementing them.
+    * `docs/governance/skill-capacity.yaml` plus 7 Java SPI Javadocs carried
+      legacy `Rule 41` and overclaim wording `CHRONOS_HYDRATED, not rejected`
+      / `park the agent process` — the exact semantic overclaim rc11 closed
+      at the CLAUDE.md kernel level, leaking outside the kernel.
+
+decision: |
+  Adopt a categorize→sweep→batch-fix→prevention discipline (per rc8/rc9/rc10/rc11
+  memory) and bind 11 findings into seven families K-α..K-η:
+
+    * K-α — Authority-surface namespace ratchet incompleteness (closes P1-1)
+    * K-β — Latest-release recency resolver correctness (closes P1-2)
+    * K-γ — Baseline metric drift vs generated reality (closes P1-3 + P2-4)
+    * K-δ — Active operational artefact carrying deleted module names + stale paths
+              (closes P1-4 + P1-5 + P2-3)
+    * K-ε — `docs/logs` dual semantics ambiguity (closes P1-6)
+    * K-ζ — Contract-catalog vs runtime/OpenAPI truth split (closes P2-1 + P2-5)
+    * K-η — Terminal-verb / Rule 41 overclaim outside CLAUDE kernel (closes P2-2)
+
+  K-α scope choice (user decision 2026-05-19 via AskUserQuestion): authority
+  surfaces only. The D/R/G/M namespace is canonical for CLAUDE kernels,
+  rule cards, enforcers, status baseline, migration map, and architecture
+  graph rule-node ids. Gate implementation-layer identifiers (gate section
+  headers, `gate/rules/rule-NNN.sh` filenames, `test_rule_<N>_*` function
+  names, per-rule ndjson `rule_id: N` integer keys) retain numeric form
+  by design. Bi-directional addressability via `docs/logs/rule-migration-map.yaml`
+  is preserved; gate parser accepts both forms. ADR-0086 amended with
+  `gate_layer_boundary:` section.
+
+  P1-5 PlantUML scope choice (user decision): rewrite `l0-development.puml`
+  to the current 9-module reactor (agent-service / agent-runtime-core /
+  agent-execution-engine / agent-middleware / agent-bus / agent-client /
+  agent-evolve / spring-ai-ascend-dependencies BoM / spring-ai-ascend-graphmemory-starter).
+
+  Release id: v2.0.0-rc12.
+
+  Methodology (load-bearing): categorize cited findings into families →
+  per-family corpus-wide hidden-defect sweep → batch-fix cited + hidden in
+  ONE wave → write or widen one prevention rule per family → verify all
+  family-audits return zero residual hits before publishing. Hidden defects
+  go into the SAME wave; we do not ship until each category audit is clean.
+
+prevention_rules_added:
+  - "Rule 101 — rule_namespace_authority_completeness (E143): three sub-checks (a) every CLAUDE kernel `#### Rule <ns>` has a matching `docs/governance/rules/rule-<ns>.md` with `rule_id: <ns>`; (b) baseline_metrics.active_engineering_rules equals live CLAUDE kernel header count; (c) every enforcers.yaml constraint_ref is namespaced or carries `legacy` marker."
+  - "Rule 102 — release_recency_resolver_correctness (E144): no production gate rule may use lex-sort `find docs/logs/releases | sort | tail -1`; must call gate/lib/latest_release.sh::latest_release_path which numeric-sorts by parsed rc-number."
+  - "Rule 103 — deploy_entrypoint_deleted_module_truth (E145): root Dockerfile + ops/Dockerfile* + ops/compose*.yml + .github/workflows/*.yml + gate/run_operator_shape_smoke.sh + docs/architecture-views/**/*.puml MUST NOT reference deleted modules `agent-platform` or `agent-runtime` (excluding `agent-runtime-core`) outside historical-marker ±3-line windows."
+  - "Rule 104 — openapi_implemented_route_catalog_truth (E146): for every live RunController @-Mapping handler (POST /v1/runs, GET /v1/runs/{id}, POST /v1/runs/{id}/cancel), the catalog rows in http-api-contracts.md + contract-catalog.md MUST NOT carry stability marker `planned`."
+
+prevention_rules_widened:
+  - "Rule 82.b (baseline_metrics_single_source): unchanged scope at rc12; K-γ enforced via Rule 101.b (active_engineering_rules) and Rule 97 (latest release-note numeric truth) which now resolves rc12 release note correctly post-K-β. Future widening: gate architecture_graph_nodes/edges against live graph header (deferred to W2 follow-up if needed)."
+  - "Rule 99 (kernel_terminal_verb_vs_shipped_decision_check): K-η scope widening deferred to a follow-up — the rc12 batch fixes all current leaks across skill-capacity.yaml + 7 Java SPI Javadocs; the future widening would scan docs/governance/*.yaml comments + **/spi/**/*.java Javadoc for the same terminal-verb tokens."
+
+new_helpers:
+  - "gate/lib/latest_release.sh — `latest_release_path <dir> [suffix]` function. Extracts `rc(\\d+)` from each basename, two-key numeric+lex sort, tails the maximum. Sourced by check_architecture_sync.sh + gate/lib/run_rule.sh so per-rule subshells have access."
+
+cited_fix_inventory:
+  K-α:
+    surface_count: 33
+    files:
+      - "19 rule cards: rule_id frontmatter namespaced (D-1, D-2, D-4..D-8, G-7, M-1, R-A, R-A.c, R-B, R-E..R-L)"
+      - "9 enforcers.yaml rows: Rule 28[a-i] → Rule R-C.a (legacy Rule 28X)"
+      - "docs/governance/architecture-status.yaml#baseline_metrics.active_engineering_rules: 67 → 30; allowed_claim refreshed for rc12 wave"
+      - "docs/logs/migration-coverage-report.md: graph counts 394/533 → live 364/525; new gate-layer-boundary section"
+      - "docs/adr/0086-rule-namespace-ratchet.yaml: gate_layer_boundary section added; execution_status updated for Wave-6 Stream A/C completion; ratchet_scope split into authority_surface_canonical vs implementation-layer retained-numeric"
+      - "docs/CLAUDE-deferred.md: numeric Rule N retained intentionally (deferred slots awaiting activation; per migration map)"
+  K-β:
+    surface_count: 7
+    files:
+      - "new gate/lib/latest_release.sh helper"
+      - "gate/check_architecture_sync.sh:1762, 4710 — lex-sort calls replaced with latest_release_path"
+      - "gate/rules/rule-033.sh, rule-097.sh — regenerated via extract_rules.sh after canonical update"
+      - "gate/lib/run_rule.sh — sources latest_release.sh so per-rule subshells get the helper"
+      - "docs/governance/rules/rule-G-2.md:384 — prose updated"
+  K-γ:
+    surface_count: 4
+    files:
+      - "docs/governance/architecture-status.yaml#baseline_metrics: architecture_graph_nodes 394→364, architecture_graph_edges 533→525"
+      - "docs/logs/migration-coverage-report.md: graph counts updated; gate-pass count updated to rc12 baseline 116"
+      - "gate/README.md: header + body + wave narrative refreshed for rc12; counts 112→116, 161/172→172+"
+      - "Rule 97 (release_note_numeric_truth) automatically picks up live graph values now that Rule 102 fixes the latest-release resolver to point at rc11 (and at rc12 once this wave ships)"
+  K-δ:
+    surface_count: 11
+    files:
+      - "Dockerfile (root): full rewrite to build agent-service (was building deleted agent-platform module)"
+      - ".github/workflows/ci.yml:53: comment updated agent-platform → agent-service with historical marker"
+      - "gate/run_operator_shape_smoke.sh: probe paths agent-platform/agent-runtime → agent-service/agent-runtime-core"
+      - "docs/architecture-views/plantuml/l0/l0-development.puml: full rewrite to current 9-module reactor"
+      - "docs/quickstart.md:70: ascend.springai.runtime.orchestration.spi → ascend.springai.service.runtime.orchestration.spi"
+      - "agent-bus/agent-client/agent-evolve/agent-middleware module-metadata.yaml: forbidden_dependencies agent-platform/agent-runtime → agent-service/agent-runtime-core with post-Phase-C historical markers"
+      - "K-δ corpus sweep confirmed all remaining `agent-platform`/`agent-runtime` hits in active corpus (.md, .yaml, .java, application.yml metric tag) carry proper historical markers (post-Phase-C, pre-Phase-C, ADR-0078, ADR-0079, extracted from, consolidated from, formerly)"
+  K-ε:
+    surface_count: 1
+    files:
+      - "docs/logs/README.md: authority-boundary clause added — logs are review-workflow + gate-input (Rule R-B, Rule G-2.g, Rule 102) but NOT normative design authority"
+  K-ζ:
+    surface_count: 3
+    files:
+      - "docs/contracts/http-api-contracts.md: 3 routes planned;W1 → shipped (W1) with TaskCursor + cancel re-authz semantics + Implementation pointer"
+      - "docs/contracts/contract-catalog.md: 3 routes same update"
+      - "docs/governance/architecture-status.yaml#run_lifecycle_spi.allowed_claim: SPI design-only vs HTTP cancel shipped clarified (rc11 review P2-5)"
+  K-η:
+    surface_count: 8
+    files:
+      - "docs/governance/skill-capacity.yaml: 3 Rule 41 → Rule R-K; CHRONOS_HYDRATED → SkillResolution.reject decision envelope"
+      - "DefaultSkillResilienceContract.java: 2 substitutions; rewording clarifies W1 envelope vs W2 SUSPENDED"
+      - "ResilienceAutoConfiguration.java: 1 sub"
+      - "YamlSkillCapacityRegistry.java: 1 sub"
+      - "SkillResolution.java: 2 subs + manual rewording"
+      - "SkillCapacityRegistry.java: 1 sub"
+      - "SuspendReason.java: 2 subs"
+      - "ResilienceContract.java: 3 subs"
+
+hidden_defect_inventory:
+  K-α:
+    - "architecture-status.yaml line 101 allowed_claim contained a truncation artefact `pre**, docs/contracts/*.yaml, **/module-metadata.yaml**/*.md` — fragment of a prior partial edit; rewritten cleanly for rc12 baseline"
+  K-δ:
+    - "agent-middleware/module-metadata.yaml carried both deleted-module forbidden_dependencies AND a description line 'Extracted from agent-runtime/orchestration/spi per T2.B1' — historical marker present, but the forbidden_dependencies list was also stale and got updated for K-δ"
+  K-η:
+    - "DefaultSkillResilienceContract.java had a 'Per Rule 41, callers translate this into RunStatus.SUSPENDED — never FAILED' Javadoc which still claimed shipped behavior — rewritten to W1 envelope vs W2 SUSPENDED boundary"
+
+closure_criteria_met:
+  - "rc11 review Required Closure Criterion 1 — Resolve 30-vs-67 rule authority conflict: CLOSED (K-α)"
+  - "rc11 review Required Closure Criterion 2 — Fix latest-release resolution rc11>rc9: CLOSED (K-β)"
+  - "rc11 review Required Closure Criterion 3 — Align graph counts: CLOSED (K-γ)"
+  - "rc11 review Required Closure Criterion 4 — Dockerfile/compose/operator-shape paths current: CLOSED (K-δ)"
+  - "rc11 review Required Closure Criterion 5 — Regenerate or downgrade L0 architecture views: CLOSED (K-δ; rewrote l0-development.puml to current 9-module reactor)"
+  - "rc11 review Required Closure Criterion 6 — Clarify docs/logs active gate input vs normative authority: CLOSED (K-ε)"
+  - "rc11 review Required Closure Criterion 7 — HTTP contracts catalog matches shipped runtime: CLOSED (K-ζ)"
+  - "rc11 review Required Closure Criterion 8 — Skill-capacity rule identifiers + decision-envelope wording: CLOSED (K-η)"
+  - "rc11 review Required Closure Criterion 9 — Quickstart package paths + gate README drift: CLOSED (K-δ + K-γ)"
+  - "rc11 review Required Closure Criterion 10 — Regression tests for rc9/rc10/rc11 release sorting + graph baseline truth + rule namespace ratchet completeness + deploy entrypoint deleted-module references: PARTIAL (Rule 101/102/103/104 added; self-test fixtures added in test_architecture_sync_gate.sh follow-on; deferred to immediate rc12-followup if pattern of more hidden defects appears)"
+
+supersedes: []
+extends:
+  - ADR-0086  # Rule namespace ratchet — extends with gate_layer_boundary section + completes Wave 6 Stream A authority-surface scope
+  - ADR-0078  # Phase C consolidation (agent-platform → agent-service) — extends with deploy-entrypoint truth gate
+  - ADR-0079  # Phase C engine extraction (agent-runtime → agent-runtime-core + agent-execution-engine) — extends with PlantUML + module-metadata cleanup
+
+authority_inputs:
+  - "Codex 2026-05-19 review: docs/logs/reviews/2026-05-19-l0-rc11-contract-authority-constraint-systematic-review.en.md"
+  - "User decisions 2026-05-19 via AskUserQuestion: K-α scope = authority surfaces only; P1-5 = rewrite PlantUML to current 9-module reactor; release id = v2.0.0-rc12"
+  - "Explore agents 2026-05-19 (Phase 1): ratchet completeness audit + deleted-module corpus sweep + contract authority drift sweep — all evidence points confirmed"
+
+consequences:
+  positive:
+    - "30-vs-67 authority conflict closed; rule cards + enforcers + status baseline + CLAUDE kernel now agree at 30 active engineering rules"
+    - "Latest-release resolver picks rc11 over rc9 (currently); will pick rc12 once this wave ships"
+    - "Graph baseline truth restored to 364/525 across status.yaml, migration report, gate/README"
+    - "Active deploy entrypoints (Dockerfile, compose, operator-shape smoke, L0 PlantUML, quickstart, 4 module-metadata) no longer reference deleted modules"
+    - "Catalog matches runtime: 3 W1 run-lifecycle routes marked shipped with cursor-flow + cancel-reauthz semantics + Implementation pointers"
+    - "Terminal-verb overclaim purged from skill-capacity.yaml + 7 Java SPI Javadocs; W1 decision-envelope vs W2 SUSPENDED boundary clarified everywhere"
+    - "docs/logs dual semantics (archive + gate input + workflow) now explicit"
+    - "4 new prevention gates (Rules 101-104) gate the 4 categories most prone to recurrence"
+    - "Methodology codified: categorize→sweep→batch-fix→prevention, mirrored in release note"
+  negative:
+    - "Active gate rule count increases from 112 to 116 (+4); active_engineering_rules count drops from 67 to 30 (Wave 6 Stream C consolidation)"
+    - "ADR-0086 ratchet_scope structure changed — readers expecting the previous shape need to read the new authority_surface_canonical + gate_layer_boundary sections"
+    - "Self-test fixtures for Rules 101-104 are deferred to immediate follow-up (in flight at this commit); gate is exercised by the live corpus in the same wave"
+
+verification:
+  - "bash gate/check_architecture_sync.sh — expected GATE: PASS 116/0 (rc11 baseline 112 + Rules 101-104)"
+  - "bash gate/check_parallel.sh — expected parity"
+  - "bash gate/test_architecture_sync_gate.sh — expected Tests passed: 172/172 (rc11 baseline) — fixtures for Rules 101-104 added in follow-up"
+  - "python gate/build_architecture_graph.py --check --no-write — expected 364 nodes / 525 edges (or whatever live regen returns after this wave's ADR-0087 supersedes/extends edges add)"
+  - "./mvnw verify — expected green (Javadoc edits only on Java side)"
+  - "bash gate/lib/latest_release.sh docs/logs/releases — picks rc11 today; will pick rc12 after rc12 release note ships"
+
+cross_references:
+  - "docs/logs/releases/2026-05-19-l0-rc12-corrective.en.md — release note"
+  - "docs/logs/reviews/2026-05-19-l0-rc11-contract-authority-constraint-systematic-review.en.md — input review"
+  - "docs/logs/reviews/2026-05-19-l0-rc11-contract-authority-constraint-systematic-review-response.en.md — reply doc"
+  - "docs/adr/0086-rule-namespace-ratchet.yaml — extended with gate_layer_boundary"
+  - "docs/logs/rule-migration-map.yaml — bi-directional numeric↔namespaced map"

@@ -1,5 +1,5 @@
 ---
-rule_id: 37
+rule_id: R-G
 title: "Reactive External I/O"
 level: L1
 view: process

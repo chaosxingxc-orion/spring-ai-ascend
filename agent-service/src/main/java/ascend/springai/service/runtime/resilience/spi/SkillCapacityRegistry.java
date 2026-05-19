@@ -9,7 +9,7 @@ package ascend.springai.service.runtime.resilience.spi;
  * be matched by exactly one {@link #release(String, String)} on the same {@code (tenant, skill)}
  * pair.
  *
- * <p>Authority: ADR-0070; CLAUDE.md Rule 41 (Skill Capacity Matrix).
+ * <p>Authority: ADR-0070; CLAUDE.md Rule R-K (Skill Capacity Matrix).
  */
 public interface SkillCapacityRegistry {
 

@@ -174,6 +174,10 @@ if [[ -f "$repo_root/gate/lib/scan_cache.sh" ]]; then
   # shellcheck source=gate/lib/scan_cache.sh
   source "$repo_root/gate/lib/scan_cache.sh"
 fi
+if [[ -f "$repo_root/gate/lib/latest_release.sh" ]]; then
+  # shellcheck source=gate/lib/latest_release.sh
+  source "$repo_root/gate/lib/latest_release.sh"
+fi
 
 # ---------------------------------------------------------------------------
 # Rule 1 — status_enum_invalid
@@ -1759,7 +1763,7 @@ if [[ $_r32_fail -eq 0 ]]; then pass_rule "competitive_baselines_present_and_wel
 # pillar names by name so reviewers see the dimensions tracked per release.
 # ---------------------------------------------------------------------------
 _r33_fail=0
-_latest_release="$(find docs/logs/releases -maxdepth 1 -name '*.md' -type f 2>/dev/null | sort | tail -1 || true)"
+_latest_release="$(latest_release_path docs/logs/releases || true)"
 if [[ -z "$_latest_release" ]]; then
   pass_rule "release_note_references_four_pillars"   # no release notes yet — vacuous pass
 else
@@ -4707,7 +4711,7 @@ elif [[ ! -d "$_r97_releases_dir" ]]; then
 else
   _r97_nodes=$(grep -E '^node_count:' "$_r97_graph" | head -1 | awk '{print $2}')
   _r97_edges=$(grep -E '^edge_count:' "$_r97_graph" | head -1 | awk '{print $2}')
-  _r97_latest=$(find "$_r97_releases_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort | tail -1)
+  _r97_latest=$(latest_release_path "$_r97_releases_dir")
   if [[ -z "$_r97_latest" ]]; then
     : # no release notes yet — vacuously pass
   else
@@ -4971,6 +4975,209 @@ else
   fi
 fi
 if [[ $_r100_fail -eq 0 ]]; then pass_rule "kernel_implementation_disjunction_truth"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 101 — rule_namespace_authority_completeness (enforcer E143)
+#
+# Closes rc11 review P1-1 (K-α family): ratchet authority surfaces had
+# diverged across CLAUDE.md (30 namespaced kernels) vs rule cards (15/16
+# hybrid frontmatter) vs enforcers.yaml (60+ stale `Rule 28[a-i]` refs) vs
+# architecture-status.yaml (`active_engineering_rules: 67` vs CLAUDE 30).
+# Rule 101 gates the semantic-authority parity per ADR-0086 `gate_layer_boundary:`:
+#   (a) every `#### Rule <ns>` heading in CLAUDE.md has a matching
+#       `docs/governance/rules/rule-<ns>.md` with `rule_id: <ns>` frontmatter.
+#   (b) `baseline_metrics.active_engineering_rules` equals the live count of
+#       `^#### Rule ` headers in CLAUDE.md.
+#   (c) every active enforcer `constraint_ref:` either uses namespaced
+#       form (`Rule [DRGM]-`) OR carries a legacy/historical marker.
+# Gate-layer identifiers (gate section headers, gate/rules/*.sh filenames)
+# stay numeric BY DESIGN per ADR-0086; Rule 101 only gates authority surfaces.
+# ---------------------------------------------------------------------------
+_r101_fail=0
+_r101_claude="CLAUDE.md"
+_r101_status_yaml="docs/governance/architecture-status.yaml"
+_r101_cards_dir="docs/governance/rules"
+_r101_enforcers="docs/governance/enforcers.yaml"
+if [[ ! -f "$_r101_claude" ]] || [[ ! -d "$_r101_cards_dir" ]] || [[ ! -f "$_r101_status_yaml" ]]; then
+  fail_rule "rule_namespace_authority_completeness" "missing CLAUDE.md or rule-card dir or architecture-status.yaml -- Rule 101 / E143"
+  _r101_fail=1
+else
+  # (a) Every CLAUDE kernel header has a card.
+  _r101_missing_cards=""
+  while IFS= read -r _r101_h; do
+    _r101_ns="$(echo "$_r101_h" | sed -E 's/^#### Rule ([A-Z]-[A-Za-z0-9.]+).*/\1/')"
+    _r101_card="${_r101_cards_dir}/rule-${_r101_ns}.md"
+    if [[ ! -f "$_r101_card" ]]; then
+      _r101_missing_cards="${_r101_missing_cards} ${_r101_ns}"
+    elif ! grep -qE "^rule_id: ${_r101_ns}[[:space:]]*\r?$" "$_r101_card" 2>/dev/null; then
+      _r101_missing_cards="${_r101_missing_cards} ${_r101_ns}(frontmatter)"
+    fi
+  done < <(grep -E '^#### Rule [A-Z]-' "$_r101_claude" 2>/dev/null)
+  if [[ -n "$_r101_missing_cards" ]]; then
+    fail_rule "rule_namespace_authority_completeness" "CLAUDE.md kernel heading(s) without matching rule card OR card frontmatter rule_id mismatch:${_r101_missing_cards} -- Rule 101 / E143 (a) -- ADR-0086 authority-surface parity"
+    _r101_fail=1
+  fi
+
+  # (b) baseline_metrics.active_engineering_rules equals live CLAUDE.md count.
+  _r101_kernel_count=$(grep -cE '^#### Rule [A-Z]-' "$_r101_claude" 2>/dev/null || echo 0)
+  _r101_declared=$(awk '/^[[:space:]]+active_engineering_rules:/{print $2; exit}' "$_r101_status_yaml")
+  if [[ -z "$_r101_declared" ]]; then
+    fail_rule "rule_namespace_authority_completeness" "$_r101_status_yaml missing active_engineering_rules: under baseline_metrics -- Rule 101 / E143 (b)"
+    _r101_fail=1
+  elif [[ "$_r101_declared" != "$_r101_kernel_count" ]]; then
+    fail_rule "rule_namespace_authority_completeness" "$_r101_status_yaml baseline_metrics.active_engineering_rules=$_r101_declared but CLAUDE.md has $_r101_kernel_count '#### Rule ' headers -- Rule 101 / E143 (b)"
+    _r101_fail=1
+  fi
+
+  # (c) enforcers.yaml constraint_ref lines must be namespaced or carry legacy marker.
+  if [[ -f "$_r101_enforcers" ]]; then
+    _r101_bad_refs=$(grep -nE 'constraint_ref:[[:space:]]*"[^"]*\bRule [0-9]+[a-z]?\b' "$_r101_enforcers" 2>/dev/null \
+                     | grep -vE 'legacy Rule [0-9]+[a-z]?|Rule [DRGM]-|historical' || true)
+    if [[ -n "$_r101_bad_refs" ]]; then
+      _r101_first=$(echo "$_r101_bad_refs" | head -3 | tr '\n' '|')
+      fail_rule "rule_namespace_authority_completeness" "enforcers.yaml constraint_ref row(s) carry bare numeric 'Rule N' without 'legacy' marker or namespaced form: ${_r101_first}-- Rule 101 / E143 (c)"
+      _r101_fail=1
+    fi
+  fi
+fi
+if [[ $_r101_fail -eq 0 ]]; then pass_rule "rule_namespace_authority_completeness"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 102 — release_recency_resolver_correctness (enforcer E144)
+#
+# Closes rc11 review P1-2 (K-β family): lex-sort `find docs/logs/releases |
+# sort | tail -1` placed `rc9-corrective.en.md` after `rc11-corrective.en.md`
+# (character "9" > "1"), so Rules 33/97/G-2 evaluated stale rc9 prose as
+# canonical. The fix is gate/lib/latest_release.sh::latest_release_path
+# (rc-number numeric resolver). Rule 102 is a static guard against the
+# anti-pattern recurring elsewhere in the gate.
+# ---------------------------------------------------------------------------
+_r102_fail=0
+_r102_canonical="gate/check_architecture_sync.sh"
+_r102_helper="gate/lib/latest_release.sh"
+if [[ ! -f "$_r102_helper" ]]; then
+  fail_rule "release_recency_resolver_correctness" "$_r102_helper missing -- Rule 102 / E144 (K-β resolver helper must exist)"
+  _r102_fail=1
+fi
+# Scan production gate scripts for the lex-sort anti-pattern.
+_r102_bad_sites=""
+while IFS= read -r _r102_f; do
+  [[ -f "$_r102_f" ]] || continue
+  # Skip the helper itself + test fixtures + this very gate-script comment block.
+  case "$_r102_f" in
+    "$_r102_helper") continue ;;
+    gate/test_architecture_sync_gate.sh) continue ;;
+  esac
+  _r102_hits=$(grep -nE 'find[[:space:]]+docs/logs/releases.*\|[[:space:]]*sort[[:space:]]*\|[[:space:]]*tail' "$_r102_f" 2>/dev/null || true)
+  if [[ -n "$_r102_hits" ]]; then
+    _r102_bad_sites="${_r102_bad_sites}${_r102_f}: ${_r102_hits}|"
+  fi
+done < <(find gate -maxdepth 2 -type f -name '*.sh' 2>/dev/null)
+if [[ -n "$_r102_bad_sites" ]]; then
+  fail_rule "release_recency_resolver_correctness" "production gate script(s) use lex-sort tail-1 anti-pattern instead of gate/lib/latest_release.sh::latest_release_path: ${_r102_bad_sites}-- Rule 102 / E144 (K-β closure; rc11 review P1-2)"
+  _r102_fail=1
+fi
+if [[ $_r102_fail -eq 0 ]]; then pass_rule "release_recency_resolver_correctness"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 103 — deploy_entrypoint_deleted_module_truth (enforcer E145)
+#
+# Closes rc11 review P1-4 + P1-5 (K-δ family): Rule 94 / 98 scopes covered
+# .md/.yaml/.java/ops but missed root Dockerfile + .github/workflows/*.yml
+# + .puml + gate/run_operator_shape_smoke.sh — all active deploy-entrypoint
+# surfaces. Rule 103 closes the gap for deploy/operator/visual surfaces.
+# ---------------------------------------------------------------------------
+_r103_fail=0
+_r103_files=()
+[[ -f Dockerfile ]] && _r103_files+=(Dockerfile)
+for _r103_f in ops/Dockerfile* ops/compose*.yml ops/compose*.yaml; do
+  [[ -f "$_r103_f" ]] && _r103_files+=("$_r103_f")
+done
+while IFS= read -r _r103_f; do
+  [[ -f "$_r103_f" ]] && _r103_files+=("$_r103_f")
+done < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null)
+[[ -f gate/run_operator_shape_smoke.sh ]] && _r103_files+=(gate/run_operator_shape_smoke.sh)
+while IFS= read -r _r103_f; do
+  [[ -f "$_r103_f" ]] && _r103_files+=("$_r103_f")
+done < <(find docs/architecture-views -type f -name '*.puml' 2>/dev/null)
+
+_r103_markers_file="gate/active-corpus-name-exemption-markers.txt"
+_r103_marker_re="$(grep -vE '^[[:space:]]*(#|$)' "$_r103_markers_file" 2>/dev/null | tr '\n' '|' | sed 's/|$//')"
+[[ -z "$_r103_marker_re" ]] && _r103_marker_re='historical'
+
+_r103_violations=""
+for _r103_f in "${_r103_files[@]}"; do
+  _r103_hits=$(awk -v markers="$_r103_marker_re" '
+    { lines[NR] = $0 }
+    END {
+      for (i = 1; i <= NR; i++) {
+        line = lines[i]
+        # Check for agent-platform or agent-runtime (not -core variant)
+        match_pf = (line ~ /\<agent-platform\>/)
+        match_rt = (line ~ /agent-runtime[^-]/) || (line ~ /agent-runtime$/)
+        if (!match_pf && !match_rt) continue
+        # Build ±3 marker window
+        lo = i - 3; if (lo < 1) lo = 1
+        hi = i + 3; if (hi > NR) hi = NR
+        window = ""
+        for (j = lo; j <= hi; j++) window = window " " lines[j]
+        if (window !~ markers) {
+          print i ": " line
+        }
+      }
+    }
+  ' "$_r103_f" 2>/dev/null || true)
+  if [[ -n "$_r103_hits" ]]; then
+    _r103_violations="${_r103_violations}${_r103_f}:\n${_r103_hits}\n"
+  fi
+done
+
+if [[ -n "$_r103_violations" ]]; then
+  fail_rule "deploy_entrypoint_deleted_module_truth" "active deploy-entrypoint surface(s) reference deleted modules (agent-platform / agent-runtime) outside historical-marker window:\n${_r103_violations}-- Rule 103 / E145 (rc11 review P1-4 + P1-5 K-δ closure)"
+  _r103_fail=1
+fi
+if [[ $_r103_fail -eq 0 ]]; then pass_rule "deploy_entrypoint_deleted_module_truth"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 104 — openapi_implemented_route_catalog_truth (enforcer E146)
+#
+# Closes rc11 review P2-1 (K-ζ family): catalog (http-api-contracts.md +
+# contract-catalog.md) marked POST /v1/runs, GET /v1/runs/{id},
+# POST /v1/runs/{id}/cancel as `planned;W1` while the OpenAPI spec and
+# RunController.java actually ship the routes. Rule 104 cross-checks live
+# Controller @-Mappings against catalog stability markers.
+# ---------------------------------------------------------------------------
+_r104_fail=0
+_r104_catalog="docs/contracts/http-api-contracts.md"
+_r104_brief="docs/contracts/contract-catalog.md"
+_r104_controller_dir="agent-service/src/main/java"
+# Cross-check: for each known live route, the catalog row MUST NOT carry `planned`.
+_r104_routes=(
+  "POST /v1/runs"
+  "GET /v1/runs/{id}"
+  "POST /v1/runs/{id}/cancel"
+)
+for _r104_route in "${_r104_routes[@]}"; do
+  _r104_path="${_r104_route##* }"
+  _r104_method="${_r104_route%% *}"
+  # Live presence: any controller file referencing this path-method combo
+  _r104_live=0
+  if find "$_r104_controller_dir" -type f -name '*.java' 2>/dev/null \
+      | xargs grep -lE "(@${_r104_method^}Mapping|@RequestMapping)[^)]*\"[^\"]*${_r104_path//\//\\/}" 2>/dev/null \
+      | head -1 | grep -q .; then
+    _r104_live=1
+  fi
+  [[ $_r104_live -eq 0 ]] && continue
+  # Live route — catalog row MUST NOT say "planned"
+  for _r104_f in "$_r104_catalog" "$_r104_brief"; do
+    [[ -f "$_r104_f" ]] || continue
+    if grep -qE "${_r104_route}.*\\(planned" "$_r104_f" 2>/dev/null; then
+      fail_rule "openapi_implemented_route_catalog_truth" "$_r104_f marks live shipped route '${_r104_route}' as '(planned...)' -- Rule 104 / E146 (rc11 review P2-1 K-ζ closure; live Controller @-Mapping exists)"
+      _r104_fail=1
+    fi
+  done
+done
+if [[ $_r104_fail -eq 0 ]]; then pass_rule "openapi_implemented_route_catalog_truth"; fi
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------

@@ -14,6 +14,8 @@ authority_refs:
 
 # v2.0.0-rc11 — Kernel-Truth + Shadow-Corpus-Precision + rc10 Retraction
 
+> **Historical artifact frozen at SHA 131a13d (rc11 merge to main).** Baseline counts in this release note reflect the corpus state at rc11 wave time; the rc12 corrective wave (`docs/logs/releases/2026-05-19-l0-rc12-corrective.en.md`) updates the canonical baseline. Per Rule 28 release_note_baseline_truth, historical release notes are exempt from canonical baseline matching when this marker is present.
+
 ## TL;DR
 
 The rc10 post-corrective architecture review (Codex, 2026-05-19) found 4 contract/prevention-rule precision defects in the rc10 wave: Rule 41 kernel overclaimed shipped runtime behaviour (P1-1), deleted-module-name leaks remained in operational Markdown runbooks (P1-2), Rule 96's kernel and implementation disagreed on the "either surface" policy (P1-3), and `gate/rules/` shadow-corpus prose was imprecise (P2-1). The reviewer also noted a secondary kernel-vs-impl drift in Rule 94 itself.

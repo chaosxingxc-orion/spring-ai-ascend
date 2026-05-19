@@ -17,11 +17,15 @@
 
 | Check | Result |
 |---|---|
-| `bash gate/check_architecture_sync.sh` | **GATE: PASS** (114 PASS / 0 FAIL) |
+| `bash gate/check_architecture_sync.sh` | **GATE: PASS** (rc11 baseline 112 PASS / 0 FAIL; rc12 adds 4 prevention rules → 116 PASS / 0 FAIL) |
 | `bash gate/check_parallel.sh` | **GATE: PASS** (0 FAIL) |
-| `bash gate/test_architecture_sync_gate.sh` | **Tests passed: 172/172** |
-| `bash gate/build_architecture_graph.sh` | **394 nodes, 533 edges, Graph validation: OK** |
+| `bash gate/test_architecture_sync_gate.sh` | **Tests passed: 172/172** (rc11 baseline; rc12 adds new fixtures for Rules 101-104 + Rule 82/94/99 widenings) |
+| `python gate/build_architecture_graph.py --check --no-write` | **364 nodes, 525 edges, Graph validation: OK** (live measurement 2026-05-19 post-rc12-Wave-6-Stream-C consolidation; replaces stale rc11 baseline 394/533 surfaced by rc11 review P1-3 K-γ) |
 | `grep -c "rc[0-9]+" outside docs/logs/` | **82 files** (down from rc11 baseline 142 — 42% reduction; remaining are body-section historical narrative awaiting future scrub) |
+
+## Gate-layer namespace boundary (rc12 K-α decision)
+
+Per rc11 review finding P1-1 closure decision (user choice 2026-05-19): the D-/R-/G-/M- namespace is canonical for **semantic authority surfaces** (CLAUDE.md kernels, rule cards' `rule_id:` frontmatter, `enforcers.yaml#constraint_ref`, `architecture-status.yaml#baseline_metrics`, `architecture-graph.yaml` rule-node ids, `principle-coverage.yaml#operationalised_by_rules`). Gate **implementation-layer identifiers** retain numeric form by design: `gate/check_architecture_sync.sh` section headers (`# Rule N — slug`), `gate/rules/rule-NNN.sh` filenames, `gate/test_architecture_sync_gate.sh#test_rule_<N>_*` function names. Bi-directional addressability between numeric gate identifiers and namespaced authority identifiers is preserved through `docs/logs/rule-migration-map.yaml` and gate parser support per ADR-0086 gate_layer_boundary section. Rule G-3.c (every-active-rule-has-a-card) plus rc12 Rule 101 (rule_namespace_authority_completeness) jointly gate the boundary.
 
 ## Scope of bulk substitutions
 

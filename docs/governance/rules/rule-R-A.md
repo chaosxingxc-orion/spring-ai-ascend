@@ -1,5 +1,5 @@
 ---
-rule_id: 29
+rule_id: R-A
 title: "Business/Platform Decoupling Enforcement"
 level: L0
 view: development

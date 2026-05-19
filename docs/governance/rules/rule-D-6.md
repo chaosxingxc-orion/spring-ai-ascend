@@ -1,5 +1,5 @@
 ---
-rule_id: 10
+rule_id: D-6
 title: "Posture-Aware Defaults"
 level: L1
 view: process

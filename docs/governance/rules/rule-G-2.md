@@ -381,7 +381,7 @@ Rule G-2 sub-clause .g closes this gap for the most likely future-recurrence sur
 
 ## Algorithm
 
-The gate identifies the LATEST release note (lex-sort `find docs/releases -maxdepth 1 -name '*.md' | sort | tail -1`). Older release notes are historical snapshots and exempt by construction — each captured the count at its wave time.
+The gate identifies the LATEST release note via `gate/lib/latest_release.sh::latest_release_path` — an rc-number-numeric resolver that extracts `rc(\d+)` from the basename and numeric-sorts. Older release notes are historical snapshots and exempt by construction — each captured the count at its wave time. (rc12 K-β replaced the prior lex-sort resolver — `find ... | sort | tail -1` — which placed `rc9` after `rc11` because character `9` > `1`; closure per Rule 102 release_recency_resolver_correctness.)
 
 For the latest release note, the gate scans for the pattern `<N> nodes` and `<M> edges` (absolute claims, NOT preceded by `+` — delta-formatted claims like `+21 nodes / +34 edges` are exempt by syntax). For each absolute claim:
 

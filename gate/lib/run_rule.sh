@@ -31,6 +31,11 @@ if [[ -z "${GATE_PARALLELISM_JOBS:-}" ]]; then
   gate_load_config 2>/dev/null || true
 fi
 source "$GATE_REPO_ROOT/gate/lib/scan_cache.sh"
+# rc12 K-β: latest_release_path resolver (used by Rules 33/97 + Rule G-2.g).
+if [[ -f "$GATE_REPO_ROOT/gate/lib/latest_release.sh" ]]; then
+  # shellcheck source=latest_release.sh
+  source "$GATE_REPO_ROOT/gate/lib/latest_release.sh"
+fi
 
 # Parse argv: either a rule file path, or --slug/--start/--end (legacy mode).
 mode="file"

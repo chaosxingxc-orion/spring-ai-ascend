@@ -1,4 +1,4 @@
-# Skill-dimensional capacity matrix (Rule 41).
+# Skill-dimensional capacity matrix (Rule R-K).
 #
 # The L0 ironclad rule (LucioIT W1 §7.3) requires a 2D defence net:
 #     Tenant Quota × Global Skill Capacity
@@ -18,7 +18,7 @@ generated_at: 2026-05-15
 # Post-rc2 status label (gate Rule 62 `contract_yaml_declares_status`): this
 # file ships the capacity SCHEMA + per-skill capacity declarations. The
 # `model-call` + `memory-write` rows are runtime_enforced today via
-# DefaultSkillResilienceContract.resolve (Rule 41.b, gate Rule 54, enforcer
+# DefaultSkillResilienceContract.resolve (Rule R-K (legacy 41.b), gate Rule 54, enforcer
 # E73). The `s2c.client.callback` row is schema_only at v2.0.0-rc2 —
 # SyncOrchestrator.handleClientCallback does not yet consult capacity
 # (see ResilienceContract integration deferred per CLAUDE-deferred.md 46.b).
@@ -32,7 +32,7 @@ skills:
     description: "OpenAI / Anthropic / Ascend-Pangu model invocation"
     capacity_per_tenant: 8                            # max concurrent in-flight calls per tenant
     global_capacity: 256                              # max concurrent in-flight calls across cluster
-    queue_strategy: suspend                           # suspend > fail; over-cap callers are CHRONOS_HYDRATED, not rejected
+    queue_strategy: suspend                           # suspend > fail; over-cap callers receive SkillResolution.reject(SuspendReason.RateLimited); W2 scheduler admission (Rule R-K.c, deferred per CLAUDE-deferred.md) maps that decision to Run.SUSPENDED. rc12 K-η rewording (rc11 review P2-2 closure; replaced prior "CHRONOS_HYDRATED, not rejected" overclaim).
     timeout_ms: 60000                                 # 60s upper bound; longer waits MUST go through resume mechanism
     realised_by:
       module_l0: agent-middleware

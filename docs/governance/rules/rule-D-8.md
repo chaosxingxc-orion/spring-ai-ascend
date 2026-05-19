@@ -1,5 +1,5 @@
 ---
-rule_id: 6
+rule_id: D-8
 title: "Single Construction Path Per Resource Class"
 level: L1
 view: development

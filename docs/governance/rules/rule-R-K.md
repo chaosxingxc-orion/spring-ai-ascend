@@ -1,5 +1,5 @@
 ---
-rule_id: 41
+rule_id: R-K
 title: "Skill Capacity Matrix"
 level: L1
 view: physical

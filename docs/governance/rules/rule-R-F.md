@@ -1,5 +1,5 @@
 ---
-rule_id: 36
+rule_id: R-F
 title: "Cursor Flow Mandate"
 level: L1
 view: logical
