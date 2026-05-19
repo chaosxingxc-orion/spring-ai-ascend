@@ -1,5 +1,5 @@
 # Module metadata for agent-middleware.
-# Required by CLAUDE.md Rule 31 (Independent Module Evolution).
+# Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
 # Authority: ADR-0066 + ADR-0073 (Engine Hooks + Runtime Middleware SPI).
 # Enforced by gate rule module_metadata_present_and_complete.
 
@@ -12,12 +12,11 @@ architecture_doc: agent-middleware/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-middleware.yaml
 spi_packages:
   - ascend.springai.middleware.spi
-allowed_dependencies: []  # SPI-pure: java.* only, per Rule 32 / E48
+allowed_dependencies: []  # SPI-pure: java.* only, per Rule R-D sub-clause .d
 forbidden_dependencies:
   - agent-service            # post-Phase-C (consolidated from agent-platform per ADR-0078); middleware is upstream of service
-  - agent-runtime-core       # post-Phase-C (extracted from agent-runtime per ADR-0079); middleware is upstream of runtime
   - agent-execution-engine   # engine references middleware (HookPoint), not the other way
   - agent-bus
   - agent-client
   - agent-evolve
-deployment_plane: compute_control   # Rule 39 / P-I — middleware runs in-process with the runtime kernel
+deployment_plane: compute_control   # Rule R-I / P-I — middleware runs in-process with the runtime kernel

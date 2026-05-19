@@ -55,10 +55,16 @@
 # 2 rule cards + ADR-0085 + Rule 41.c sub-clause; ceiling raised from
 # 140,000 to 145,000. architecture-status.yaml allowed_claim rewrite raised
 # it to ~108K; ceiling held at 110,000.
+# 2026-05-20 rc13 wave (ADR-0088 + ADR-0089): ARCHITECTURE.md grew from ~83K to
+# ~84K with rc13 module-layout rewrite (9-module narrative → 8-module + dissolution
+# arc) + L0 tree-diagram updates + new dependency-direction block including
+# IngressGateway. Ceiling raised from 82,000 to 84,000.
+# CLAUDE.md grew ~1K with Rule R-C.c path rewrite + new Rule R-I sub-clause .b
+# kernel — held under 45,000.
 CLAUDE.md=45000
-ARCHITECTURE.md=82000
+ARCHITECTURE.md=84000
 AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000
-docs/governance/architecture-graph.yaml=145000
+docs/governance/architecture-graph.yaml=148000
 docs/governance/architecture-status.yaml=110000
 docs/CLAUDE-deferred.md=0

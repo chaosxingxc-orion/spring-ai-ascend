@@ -1,23 +1,25 @@
 # Module metadata for agent-client.
-# Required by CLAUDE.md Rule 31 (Independent Module Evolution).
-# Authority: ADR-0066 + ADR-0049 (Edge Access plane / Client SDK).
+# Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
+# Authority: ADR-0066 + ADR-0049 (Edge Access plane / Client SDK) + ADR-0089 (Edge-Plane Ingress Gateway Mandate).
 # Enforced by gate rule module_metadata_present_and_complete.
 
 module: agent-client
 kind: domain             # platform | domain | starter | bom | sample
 version: 0.0.1-SNAPSHOT
 semver_compatibility: experimental
-description: "Edge Access plane — AgentClient SDK skeleton. HTTP client + Task Cursor consumer + SSE/Webhook receiver. Implementation deferred to W3+ per ADR-0049."
+description: "Edge Access plane — AgentClient SDK skeleton. HTTP client + Task Cursor consumer + SSE/Webhook receiver. Implementation deferred to W3+ per ADR-0049. All cross-plane traffic MUST route through agent-bus.spi.ingress.IngressGateway per ADR-0089 / Rule R-I sub-clause .b — direct imports of agent-service / agent-execution-engine / agent-middleware are forbidden (negative invariant in forbidden_dependencies below; positive routing locked in ingress-envelope.v1.yaml + EdgeToComputeDirectLinkArchTest E143)."
 architecture_doc: agent-client/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-client.yaml
 spi_packages:
   - ascend.springai.client.spi   # placeholder; populated in W3+ per ADR-0049
-allowed_dependencies: []  # standalone SDK; no runtime/platform deps
+allowed_dependencies: []  # standalone SDK; cross-plane traffic flows via agent-bus IngressGateway SPI consumption only
 forbidden_dependencies:
-  - agent-service           # post-Phase-C (consolidated from agent-platform per ADR-0078)
-  - agent-runtime-core      # post-Phase-C (extracted from agent-runtime per ADR-0079)
-  - agent-execution-engine  # post-Phase-C (extracted from agent-runtime per ADR-0079)
-  - agent-middleware
-  - agent-bus
+  - agent-service           # compute_control plane — direct edge↔compute_control imports forbidden (Rule R-I sub-clause .b)
+  - agent-execution-engine  # compute_control plane — same as above
+  - agent-middleware        # compute_control plane — same as above
   - agent-evolve
-deployment_plane: edge    # Rule 39 / P-I — Edge Access plane
+  # NOTE: agent-bus is intentionally NOT forbidden — agent-client legitimately
+  # *consumes* the bus.spi.ingress.IngressGateway interface as its sole cross-plane
+  # entry point. Per ADR-0089 + Rule R-I.b this is the one allowed cross-module
+  # link from the edge plane. Implementation binding lands W3+ with the SDK.
+deployment_plane: edge    # Rule R-I / P-I — Edge Access plane

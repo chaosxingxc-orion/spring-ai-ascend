@@ -3964,7 +3964,6 @@ cat > "$_r86_pos_root/pom.xml" <<'POMEOF'
   <modules>
     <module>agent-client</module>
     <module>agent-service</module>
-    <module>agent-runtime-core</module>
     <module>agent-middleware</module>
     <module>agent-execution-engine</module>
     <module>agent-bus</module>
@@ -3976,20 +3975,20 @@ cat > "$_r86_pos_root/pom.xml" <<'POMEOF'
 POMEOF
 cat > "$_r86_pos_root/docs/governance/architecture-status.yaml" <<'YEOF'
 repository_counts:
-  reactor_modules: 9
+  reactor_modules: 8
 YEOF
 cat > "$_r86_pos_root/ARCHITECTURE.md" <<'DOCEOF'
 # Architecture
-The reactor declares **9 modules** today.
+The reactor declares **8 modules** today.
 Path claim: `agent-service/src/main/java/ascend/springai/service/platform`
 DOCEOF
 _r86_pos_pom=$(awk '/<modules>/,/<\/modules>/' "$_r86_pos_root/pom.xml" | grep -cE '^[[:space:]]*<module>')
 _r86_pos_status=$(awk '/^repository_counts:/{flag=1; next} flag && /^[a-z]/{flag=0} flag' "$_r86_pos_root/docs/governance/architecture-status.yaml" | grep -oE 'reactor_modules:[[:space:]]+[0-9]+' | head -1 | grep -oE '[0-9]+$')
 _r86_pos_claim=$(grep -oE '\*\*[0-9]+ modules\*\*' "$_r86_pos_root/ARCHITECTURE.md" | grep -oE '[0-9]+' | head -1)
-if [[ "$_r86_pos_pom" == "9" ]] && [[ "$_r86_pos_status" == "9" ]] && [[ "$_r86_pos_claim" == "9" ]]; then
-  ok "rule86_root_architecture_count_pos" "root ARCHITECTURE.md count 9 matches pom.xml + status_yaml canonical 9"
+if [[ "$_r86_pos_pom" == "8" ]] && [[ "$_r86_pos_status" == "8" ]] && [[ "$_r86_pos_claim" == "8" ]]; then
+  ok "rule86_root_architecture_count_pos" "root ARCHITECTURE.md count 8 matches pom.xml + status_yaml canonical 8"
 else
-  fail "rule86_root_architecture_count_pos" "expected 9 across all three sources, got pom=$_r86_pos_pom status=$_r86_pos_status claim=$_r86_pos_claim"
+  fail "rule86_root_architecture_count_pos" "expected 8 across all three sources, got pom=$_r86_pos_pom status=$_r86_pos_status claim=$_r86_pos_claim"
 fi
 }
 
@@ -4004,7 +4003,7 @@ cat > "$_r86_neg_root/pom.xml" <<'POMEOF'
   <modules>
     <module>agent-client</module>
     <module>agent-service</module>
-    <module>agent-runtime-core</module>
+    <module>agent-decoy-rc12-extra</module>
     <module>agent-middleware</module>
     <module>agent-execution-engine</module>
     <module>agent-bus</module>
@@ -4052,7 +4051,7 @@ while IFS= read -r _r87_pos_line || [[ -n "$_r87_pos_line" ]]; do
   _r87_pos_lineno=$((_r87_pos_lineno + 1))
   echo "$_r87_pos_line" | grep -qE '^[[:space:]]+allowed_claim:[[:space:]]*' || continue
   _r87_pos_value=$(echo "$_r87_pos_line" | sed -E 's/^[[:space:]]+allowed_claim:[[:space:]]*//')
-  _r87_pos_stale=$(echo "$_r87_pos_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b' | grep -v 'agent-runtime-core' | head -1)
+  _r87_pos_stale=$(echo "$_r87_pos_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b|\bagent-runtime-core\b' | head -1)
   [[ -z "$_r87_pos_stale" ]] && continue
   _r87_pos_lo=$((_r87_pos_lineno > 3 ? _r87_pos_lineno - 3 : 1))
   _r87_pos_hi=$((_r87_pos_lineno + 3))
@@ -4085,7 +4084,7 @@ while IFS= read -r _r87_neg_line || [[ -n "$_r87_neg_line" ]]; do
   _r87_neg_lineno=$((_r87_neg_lineno + 1))
   echo "$_r87_neg_line" | grep -qE '^[[:space:]]+allowed_claim:[[:space:]]*' || continue
   _r87_neg_value=$(echo "$_r87_neg_line" | sed -E 's/^[[:space:]]+allowed_claim:[[:space:]]*//')
-  _r87_neg_stale=$(echo "$_r87_neg_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b' | grep -v 'agent-runtime-core' | head -1)
+  _r87_neg_stale=$(echo "$_r87_neg_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b|\bagent-runtime-core\b' | head -1)
   [[ -z "$_r87_neg_stale" ]] && continue
   _r87_neg_lo=$((_r87_neg_lineno > 3 ? _r87_neg_lineno - 3 : 1))
   _r87_neg_hi=$((_r87_neg_lineno + 3))
@@ -4726,7 +4725,7 @@ while IFS= read -r _r98_file; do
       for (i = 1; i <= NR; i++) {
         line = lines[i]
         if (line ~ /^[[:space:]]*#/) continue
-        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re)) print i
+        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re) || line ~ arc_re) print i
       }
     }' "$_r98_file" 2>/dev/null)
   [[ -n "$_r98_hits" ]] && _r98_violations="${_r98_violations}${_r98_file}:${_r98_hits} "
@@ -4764,7 +4763,7 @@ while IFS= read -r _r98_file; do
       for (i = 1; i <= NR; i++) {
         line = lines[i]
         if (line ~ /^[[:space:]]*#/) continue
-        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re)) {
+        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re) || line ~ arc_re) {
           lo = i - 3; if (lo < 1) lo = 1
           hi = i + 3; if (hi > NR) hi = NR
           window = ""
@@ -5261,6 +5260,50 @@ if grep -qE 'POST /v1/runs.*\(planned' "$_r104_neg_root/docs/contracts/http-api-
   ok "rule_104_openapi_catalog_neg" "Rule 104 catches catalog row marking shipped route as planned"
 else
   fail "rule_104_openapi_catalog_neg" "expected planned marker, got none"
+fi
+}
+
+test_rule_105_edge_direct_link_pos() {
+# Rule 105 positive fixture: edge plane module with no compute_control imports
+# (skeleton — current agent-client shape).
+_r105_pos_root="$scratch/r105_pos"
+mkdir -p "$_r105_pos_root/agent-client/src/main/java/ascend/springai/client"
+cat > "$_r105_pos_root/agent-client/module-metadata.yaml" <<'SHEOF'
+module: agent-client
+deployment_plane: edge
+SHEOF
+# Empty package-info only — no production code
+cat > "$_r105_pos_root/agent-client/src/main/java/ascend/springai/client/package-info.java" <<'SHEOF'
+package ascend.springai.client;
+SHEOF
+# Verify: the grep yields zero violations
+_r105_pos_violations=$(grep -rnE '^import ascend\.springai\.(service|engine|middleware)\.' "$_r105_pos_root/agent-client/src/main/java" 2>/dev/null | wc -l)
+if [[ "$_r105_pos_violations" -eq 0 ]]; then
+  ok "rule_105_edge_direct_link_pos" "Rule 105 accepts skeleton agent-client with no compute_control imports"
+else
+  fail "rule_105_edge_direct_link_pos" "expected zero violations, got $_r105_pos_violations"
+fi
+}
+
+test_rule_105_edge_direct_link_neg() {
+# Rule 105 negative fixture: edge plane module with a forbidden import of
+# ascend.springai.service.* — must be flagged.
+_r105_neg_root="$scratch/r105_neg"
+mkdir -p "$_r105_neg_root/agent-client/src/main/java/ascend/springai/client/tmp"
+cat > "$_r105_neg_root/agent-client/module-metadata.yaml" <<'SHEOF'
+module: agent-client
+deployment_plane: edge
+SHEOF
+cat > "$_r105_neg_root/agent-client/src/main/java/ascend/springai/client/tmp/Bad.java" <<'SHEOF'
+package ascend.springai.client.tmp;
+import ascend.springai.service.runtime.runs.Run;
+public class Bad {}
+SHEOF
+_r105_neg_violations=$(grep -rnE '^import ascend\.springai\.(service|engine|middleware)\.' "$_r105_neg_root/agent-client/src/main/java" 2>/dev/null | wc -l)
+if [[ "$_r105_neg_violations" -ge 1 ]]; then
+  ok "rule_105_edge_direct_link_neg" "Rule 105 catches forbidden compute_control import in edge plane module"
+else
+  fail "rule_105_edge_direct_link_neg" "expected at least 1 violation, got $_r105_neg_violations"
 fi
 }
 

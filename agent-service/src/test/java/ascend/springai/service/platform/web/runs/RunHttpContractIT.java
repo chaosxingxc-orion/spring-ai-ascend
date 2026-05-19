@@ -1,7 +1,7 @@
 package ascend.springai.service.platform.web.runs;
 
 import ascend.springai.service.runtime.runs.Run;
-import ascend.springai.service.runtime.runs.RunMode;
+import ascend.springai.engine.orchestration.spi.RunMode;
 import ascend.springai.service.runtime.runs.spi.RunRepository;
 import ascend.springai.service.runtime.runs.RunStatus;
 import com.fasterxml.jackson.databind.JsonNode;

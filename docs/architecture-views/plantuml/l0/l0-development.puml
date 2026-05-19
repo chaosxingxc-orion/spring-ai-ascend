@@ -5,19 +5,22 @@
 
 title L0 Development View - Repository Modules Supporting the Six Capabilities
 
-' rc12 K-δ: rewritten to current 9-module reactor (post-Phase-C; agent-platform was
-' consolidated into agent-service per ADR-0078; agent-runtime was split into
-' agent-runtime-core + agent-execution-engine per ADR-0079). Closes rc11 review P1-5.
+' rc13 (ADR-0088): rewritten to current 8-module reactor — Phase C consolidated
+' agent-platform + agent-runtime into agent-service per ADR-0078; ADR-0079
+' transiently extracted agent-runtime-core; rc13 dissolved agent-runtime-core
+' per ADR-0088 and redistributed its sources back to agent-service (runs +
+' idempotency) + agent-execution-engine (engine.orchestration.spi + RunMode)
+' + agent-bus (bus.spi.s2c). Paired with ADR-0089 which adds agent-bus
+' bus.spi.ingress.IngressGateway as the C2S cross-plane control surface.
 
 System_Boundary(repo, "Current repository modules") {
-  Container(agent_service, "agent-service", "Maven module", "Northbound HTTP facade + Spring Boot bootstrap + tenant filter + idempotency + posture gate + reference orchestrator wiring; consolidates the prior agent-platform module.", $tags="S-Side")
-  Container(agent_runtime_core, "agent-runtime-core", "Maven module", "Kernel SPI types (Run / RunStatus / RunRepository / Orchestrator / SuspendSignal / S2cCallback) extracted from the prior agent-runtime per ADR-0079. java.* dependencies only.", $tags="S-Side")
-  Container(agent_execution_engine, "agent-execution-engine", "Maven module", "Execution adapter SPI (ExecutorAdapter / EngineEnvelope / EngineRegistry) extracted from the prior agent-runtime per ADR-0079.", $tags="S-Side")
+  Container(agent_service, "agent-service", "Maven module", "Northbound HTTP facade + Spring Boot bootstrap + tenant filter + idempotency + posture gate + reference orchestrator wiring + Run/RunStateMachine/IdempotencyRecord entities + memory/resilience/runs SPIs (rc13 re-consolidation per ADR-0088).", $tags="S-Side")
+  Container(agent_execution_engine, "agent-execution-engine", "Maven module", "Execution adapter SPI (engine.spi: ExecutorAdapter / EngineRegistry / EngineEnvelope) + orchestration SPI (engine.orchestration.spi: RunMode / Checkpointer / Orchestrator / RunContext / SuspendSignal / TraceContext / ExecutorDefinition — relocated per ADR-0088).", $tags="S-Side")
   Container(agent_middleware_module, "agent-middleware", "Maven module", "Runtime-owned cross-cutting middleware SPI (HookPoint / RuntimeMiddleware / HookContext / HookOutcome / HookDispatcher) per ADR-0073.", $tags="S-Side")
-  Container(agent_bus_module, "agent-bus", "Maven module", "Bus & State Hub plane skeleton (three-track channel isolation). W2 implementation per ADR-0050.", $tags="S-Side")
-  Container(agent_client_module, "agent-client", "Maven module", "Edge Access plane skeleton (AgentClient SDK + Task Cursor consumer + SSE/Webhook receiver). W3+ per ADR-0049.", $tags="C-Side")
+  Container(agent_bus_module, "agent-bus", "Maven module", "Bus & State Hub plane — cross-plane control surfaces in BOTH directions: bus.spi.ingress.IngressGateway (ADR-0089) + bus.spi.s2c.S2cCallbackTransport (ADR-0074 + ADR-0088). Workflow primitives W2 per ADR-0050.", $tags="S-Side")
+  Container(agent_client_module, "agent-client", "Maven module", "Edge Access plane skeleton (AgentClient SDK + Task Cursor consumer + SSE/Webhook receiver). W3+ per ADR-0049. Cross-plane traffic locked to bus.spi.ingress.IngressGateway per ADR-0089 / Rule R-I.b.", $tags="C-Side")
   Container(agent_evolve_module, "agent-evolve", "Maven module", "Evolution plane Java-side adapter skeleton. Bulk implementation deferred per ADR-0075.", $tags="S-Side")
-  Container(dependencies_bom, "spring-ai-ascend-dependencies", "Maven BOM", "Dependency pinning and build alignment across the nine reactor modules.", $tags="Governance")
+  Container(dependencies_bom, "spring-ai-ascend-dependencies", "Maven BOM", "Dependency pinning and build alignment across the eight reactor modules.", $tags="Governance")
   Container(graphmemory, "spring-ai-ascend-graphmemory-starter", "Spring starter", "Graph memory starter and adapter shell.", $tags="S-Side")
 }
 
@@ -30,16 +33,14 @@ System_Boundary(l0_caps, "L0 capability labels") {
   Container(evolution, $EVOLUTION_NAME, "Capability", $EVOLUTION_DESC, $tags="S-Side", $link=$L1_EVOLUTION)
 }
 
-Rel(agent_service, agent_service_cap, "implements the northbound HTTP edge + runtime wiring")
-Rel(agent_runtime_core, agent_service_cap, "provides kernel SPI types used by agent-service")
-Rel(agent_execution_engine, exec_engine, "implements execution adapter SPI")
+Rel(agent_service, agent_service_cap, "implements the northbound HTTP edge + runtime wiring + runs/idempotency entities")
+Rel(agent_execution_engine, exec_engine, "implements execution adapter SPI + orchestration SPI")
 Rel(agent_middleware_module, agent_middleware, "implements runtime-owned cross-cutting middleware SPI")
-Rel(agent_bus_module, agent_bus, "skeleton for Bus & State Hub plane")
-Rel(agent_client_module, agent_client, "skeleton for Edge Access SDK")
+Rel(agent_bus_module, agent_bus, "owns ingress (C2S) + s2c (S2C) cross-plane control surfaces")
+Rel(agent_client_module, agent_client, "skeleton for Edge Access SDK; consumes bus.spi.ingress.IngressGateway")
 Rel(agent_evolve_module, evolution, "Java adapter shell for evolution plane")
 Rel(graphmemory, agent_middleware, "contributes memory adapter shell")
 Rel(dependencies_bom, agent_service, "pins dependency versions")
-Rel(dependencies_bom, agent_runtime_core, "pins dependency versions")
 Rel(dependencies_bom, agent_execution_engine, "pins dependency versions")
 Rel(dependencies_bom, agent_middleware_module, "pins dependency versions")
 Rel(dependencies_bom, agent_bus_module, "pins dependency versions")
@@ -53,13 +54,14 @@ Development red lines:
 - Core/runtime contracts do not directly bind to concrete middleware implementations.
 - Middleware implementations are injected through service/runtime adapters.
 - The evolution layer is isolated from the Java service/execution path through bus or serialized contracts.
+- Edge plane (agent-client) MUST NOT directly import compute_control plane production code; cross-plane traffic flows through agent-bus.spi.ingress.IngressGateway (Rule R-I.b / ADR-0089).
 - This view stays at module direction, not class or interface internals.
-- The pre-Phase-C modules agent-platform and agent-runtime were consolidated/split per ADR-0078 and ADR-0079.
+- Pre-Phase-C modules agent-platform/agent-runtime consolidated per ADR-0078; transient agent-runtime-core dissolved per rc13 ADR-0088.
 end note
 
 legend right
 |= Tag |= Meaning |
-| Current repository modules | Code that exists today (9-module reactor post-ADR-0078/0079). |
+| Current repository modules | Code that exists today (8-module reactor post-ADR-0088). |
 | L0 capability labels | Architectural names used by the top-level diagrams. |
 endlegend
 @enduml

@@ -1,6 +1,6 @@
 package ascend.springai.service.runtime.architecture;
 
-import ascend.springai.service.runtime.orchestration.spi.TraceContext;
+import ascend.springai.engine.orchestration.spi.TraceContext;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.Test;
@@ -32,14 +32,14 @@ class TelemetryVerticalArchTest {
     void trace_context_spi_resides_in_orchestration_spi_package() {
         assertThat(TraceContext.class.getPackageName())
                 .as("TraceContext SPI MUST live alongside RunContext in orchestration.spi (§4 #53, ADR-0061 §2)")
-                .isEqualTo("ascend.springai.service.runtime.orchestration.spi");
+                .isEqualTo("ascend.springai.engine.orchestration.spi");
     }
 
     @Test
     void trace_context_implementations_live_only_in_orchestration_package() {
         long count = RUNTIME_MAIN_CLASSES.stream()
-                .filter(c -> c.isAssignableTo("ascend.springai.service.runtime.orchestration.spi.TraceContext"))
-                .filter(c -> !c.getName().equals("ascend.springai.service.runtime.orchestration.spi.TraceContext"))
+                .filter(c -> c.isAssignableTo("ascend.springai.engine.orchestration.spi.TraceContext"))
+                .filter(c -> !c.getName().equals("ascend.springai.engine.orchestration.spi.TraceContext"))
                 .filter(c -> !c.getPackageName().startsWith("ascend.springai.service.runtime.orchestration"))
                 .count();
         assertThat(count)

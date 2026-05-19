@@ -45,11 +45,11 @@ sha_candidate="$(git rev-parse --short HEAD 2>/dev/null || echo no-git)"
 declare -a manifest_probes=(
   "pom.xml|no Maven build manifest at repo root"
   "agent-service/pom.xml|no Maven build manifest under agent-service/"
-  "agent-runtime-core/pom.xml|no Maven build manifest under agent-runtime-core/"
+  "agent-execution-engine/pom.xml|no Maven build manifest under agent-execution-engine/"
 )
 declare -a source_probes=(
   "agent-service/src/main/java|no source tree under agent-service/"
-  "agent-runtime-core/src/main/java|no source tree under agent-runtime-core/"
+  "agent-execution-engine/src/main/java|no source tree under agent-execution-engine/"
 )
 missing_json=""
 missing_count=0

@@ -13,6 +13,8 @@
 # Historical-by-location partitions — never scanned for current-tense name leaks.
 docs/archive/
 docs/logs/
+# rc13 widening: peer-review docs may name pre-rc13 modules in historical/proposal context
+docs/reviews/
 docs/adr/
 docs/v6-rationale/
 docs/delivery/
@@ -39,6 +41,12 @@ docs/governance/rules/rule-M-2.c.md
 docs/governance/rules/rule-G-2.md
 docs/governance/rules/rule-G-2.f.md
 docs/governance/rules/rule-G-2.h.md
+# rc13 widening (ADR-0088): rule cards that narrate the agent-runtime-core dissolution
+# arc carry deleted-module-name references by design — exempt at the file granularity.
+docs/governance/rules/rule-R-C.md
+docs/governance/rules/rule-R-D.md
+docs/governance/rules/rule-M-1.md
+docs/governance/rules/rule-R-I.md
 
 # Deferred doc + quickstart copy.
 docs/CLAUDE-deferred.md
@@ -58,8 +66,9 @@ agent-service/target/classes/
 # BoM module-metadata description.
 spring-ai-ascend-dependencies/module-metadata.yaml
 
-# Kernel module ARCHITECTURE.md that names the legacy loop it broke.
-agent-runtime-core/ARCHITECTURE.md
+# Kernel module ARCHITECTURE.md (DELETED per rc13 ADR-0088 — exemption obsolete).
+# (Line retained as comment so historians can trace why rc12 listed it.)
+# agent-runtime-core/ARCHITECTURE.md  # REMOVED rc13 — module dissolved per ADR-0088
 
 # Rule-98 domain — avoid duplicate-fail by skipping ops/ and docs/contracts/ in Rule 94.
 ops/

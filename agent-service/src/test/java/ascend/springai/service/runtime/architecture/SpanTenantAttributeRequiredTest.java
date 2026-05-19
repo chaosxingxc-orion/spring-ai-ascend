@@ -48,7 +48,7 @@ class SpanTenantAttributeRequiredTest {
                 .that().haveSimpleNameEndingWith("SpanEmitter")
                 .or().haveSimpleNameEndingWith("SpanBuilder")
                 .should().dependOnClassesThat()
-                .haveFullyQualifiedName("ascend.springai.service.runtime.orchestration.spi.RunContext")
+                .haveFullyQualifiedName("ascend.springai.engine.orchestration.spi.RunContext")
                 .allowEmptyShould(true);
         rule.check(RUNTIME_MAIN_CLASSES);
     }

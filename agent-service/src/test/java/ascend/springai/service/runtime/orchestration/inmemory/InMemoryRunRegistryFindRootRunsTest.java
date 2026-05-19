@@ -1,7 +1,7 @@
 package ascend.springai.service.runtime.orchestration.inmemory;
 
 import ascend.springai.service.runtime.runs.Run;
-import ascend.springai.service.runtime.runs.RunMode;
+import ascend.springai.engine.orchestration.spi.RunMode;
 import ascend.springai.service.runtime.runs.RunStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

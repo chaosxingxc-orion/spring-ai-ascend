@@ -1,5 +1,7 @@
 package ascend.springai.service.runtime.runs;
 
+import ascend.springai.engine.orchestration.spi.RunMode;
+
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

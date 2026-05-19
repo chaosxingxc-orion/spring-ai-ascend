@@ -41,7 +41,7 @@ P1-4 follow-up (L1-expert-review 2026-05-14, carried through Phase C): legacy §
 
 ## 2. Shipped components
 
-> Path convention: every Java path below is rooted at `agent-service/src/main/java/ascend/springai/service/{platform,runtime}/...` **except where explicitly noted as living in `agent-runtime-core` or `agent-execution-engine` post-ADR-0078 / ADR-0079**. The engine SPI surface and the S2C SPI types were extracted to their own modules at the rc5 wave (2026-05-18) — see §2.B `runtime / engine` and `runtime / s2c` below. Test paths mirror the layout under `src/test/java/`.
+> Path convention: every Java path below is rooted at `agent-service/src/main/java/ascend/springai/service/{platform,runtime}/...` **except where explicitly noted as living in `agent-execution-engine` (orchestration SPI: `engine.orchestration.spi`, relocated from the dissolved agent-runtime-core per ADR-0088) or `agent-bus` (S2C transport SPI: `bus.spi.s2c`, relocated from the dissolved agent-runtime-core per ADR-0088)**. The engine SPI surface and the S2C SPI types were extracted to their own modules at the rc5 wave (2026-05-18) per ADR-0079; the transient kernel-shim module `agent-runtime-core` was dissolved in rc13 (2026-05-20) per ADR-0088 and its sources redistributed back to semantic-home modules — see §2.B `runtime / engine` and `runtime / s2c` below. Test paths mirror the layout under `src/test/java/`.
 
 ### 2.A Platform-side concerns (subpackage `service.platform.*`)
 
@@ -256,12 +256,12 @@ ArchUnit tests under
 
 ### 2.B Runtime-side concerns (subpackage `service.runtime.*`)
 
-#### runtime / orchestration -- Cognitive runtime SPI + reference impls (W0; SPI **owned by `agent-runtime-core` + `agent-execution-engine` post-ADR-0079**)
+#### runtime / orchestration -- Cognitive runtime SPI + reference impls (W0; SPI **owned by `agent-execution-engine` (rc13 - orchestration SPI relocated from dissolved agent-runtime-core per ADR-0088)**)
 
 The cognitive runtime kernel's SPI contracts live in **two** modules after the
 ADR-0079 (T2.B2) engine-extraction wave (2026-05-18):
 
-- **`agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/`**
+- **`agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/`**
   (extracted per ADR-0079) — kernel SPI types `Orchestrator`, `RunContext`,
   `SuspendSignal`, `Checkpointer`, `TraceContext`, and the sealed
   `ExecutorDefinition` hierarchy (`GraphDefinition` | `AgentLoopDefinition`).
@@ -283,21 +283,21 @@ implementations that fail-closed in research/prod via
 default `TraceContext` impl when no OpenTelemetry SDK is on the
 classpath.
 
-#### runtime / runs -- Run entity + state machine (W0; **owned by `agent-runtime-core` post-ADR-0079**)
+#### runtime / runs -- Run entity + state machine (W0; **owned by `agent-service` post-ADR-0088 dissolution**)
 
-After the ADR-0079 engine-extraction wave (2026-05-18), the Run entity, state
-machine, and `RunRepository` SPI live in the shared kernel module
-`agent-runtime-core`, not in `agent-service`:
+After the rc13 ADR-0088 dissolution (2026-05-20), the Run entity, state machine,
+and `RunRepository` SPI live directly in `agent-service` (relocated from the
+transient agent-runtime-core module that ADR-0079 had briefly hosted them):
 
-- **`agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/`** —
+- **`agent-service/src/main/java/ascend/springai/service/runtime/runs/`** —
   `Run` (immutable record), `RunStatus` (formal DFA, 7 values: PENDING,
   RUNNING, SUSPENDED, CANCELLED, SUCCEEDED, FAILED, EXPIRED), `RunMode`
   discriminator, `RunStateMachine` (validates every `withStatus(newStatus)`
   transition; illegal transitions throw `IllegalStateException` per Rule 20).
-- **`agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/spi/`** —
+- **`agent-service/src/main/java/ascend/springai/service/runtime/runs/spi/`** —
   `RunRepository` SPI (interface only; pure Java per Rule 32).
 
-`agent-service` owns no `runs/` kernel types post-ADR-0079; its only contribution
+After rc13 / ADR-0088 dissolution, `agent-service` is the canonical owner of `runs/` kernel types. Its only orchestration-adapter contribution
 on the runs axis is the posture-gated `InMemoryRunRegistry` reference adapter
 under `agent-service/.../runtime/orchestration/inmemory/` listed above.
 
@@ -362,17 +362,17 @@ documented in `agent-execution-engine/ARCHITECTURE.md` Status section
 and protected by Rule 76 (no split SPI packages — `engine.spi.*` is
 owned by exactly one module).
 
-#### runtime / s2c -- Server-to-Client callback envelope (W2.x, ADR-0040 rc3, **SPI in `agent-runtime-core` post-ADR-0079**)
+#### runtime / s2c -- Server-to-Client callback envelope (W2.x, ADR-0040 rc3, **SPI in `agent-bus.spi.s2c` (rc13 - relocated from dissolved agent-runtime-core per ADR-0088)**)
 
-`agent-service` **consumes** the S2C SPI surface from `agent-runtime-core` —
-the SPI records and transport interface no longer live here. After the
-rc5 wave (2026-05-18) ADR-0079 extraction:
+`agent-service` **consumes** the S2C SPI surface from `agent-bus` —
+the SPI records and transport interface no longer live in this module. After
+the rc13 wave (2026-05-20) ADR-0088 dissolution (which moved S2C ownership
+from the dissolved agent-runtime-core to agent-bus):
 
 - **S2C SPI surface** (package
-  `ascend.springai.service.runtime.s2c.spi.*`, module
-  `agent-runtime-core`): `S2cCallbackEnvelope`, `S2cCallbackResponse`,
-  `S2cCallbackTransport` — sources at
-  `agent-runtime-core/src/main/java/ascend/springai/service/runtime/s2c/spi/`.
+  `ascend.springai.bus.spi.s2c.*`, module `agent-bus`):
+  `S2cCallbackEnvelope`, `S2cCallbackResponse`, `S2cCallbackTransport` —
+  sources at `agent-bus/src/main/java/ascend/springai/bus/spi/s2c/`.
 - **Reference transport impl** stays in `agent-service` at
   `agent-service/src/main/java/ascend/springai/service/runtime/s2c/InMemoryS2cCallbackTransport.java`
   (package `ascend.springai.service.runtime.s2c`, non-`.spi` —
@@ -404,8 +404,8 @@ Green `OssApiProbeTest` is a required gate for every wave.
 
 #### runtime / idempotency -- Contract-spine entity (W0)
 
-`IdempotencyRecord` (post-ADR-0079: extracted to `agent-runtime-core`) lives at
-`agent-runtime-core/src/main/java/ascend/springai/service/runtime/idempotency/`
+`IdempotencyRecord` (post-rc13: relocated to `agent-service` per ADR-0088 dissolution) lives at
+`agent-service/src/main/java/ascend/springai/service/runtime/idempotency/`
 and is the runtime-side contract-spine entity. It mirrors the persistence
 shape (`tenantId`, `idempotencyKey`, `requestHash`, `status`,
 `createdAt`, `expiresAt`) consumed by the platform-side
@@ -647,7 +647,7 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
   callers unchanged). The intentional split-package arrangement is
   documented in `agent-execution-engine/ARCHITECTURE.md` Status section.
   `EngineRegistry.resolve` boundary remains asserted by Rule 43
-  enforcer E84; consumed cross-module via the `agent-runtime-core` →
+  enforcer E84; consumed cross-module via the `agent-execution-engine` (rc13 dissolution per ADR-0088) →
   `agent-execution-engine` → `agent-service` dependency chain.
 
 ## 10. Roadmap

@@ -1349,15 +1349,15 @@ if [[ $_r28d_fail -eq 0 ]]; then pass_rule "out_of_scope_name_guard"; fi
 
 # ---------------------------------------------------------------------------
 # Rule 28e — module_count_invariant (enforcer E27)
-# Root pom.xml MUST declare exactly 9 <module> entries after the 2026-05-18
-# T2.B2 wave (ADR-0079): BoM + agent-runtime-core + 6 substantive modules
-# (agent-client, agent-bus, agent-middleware, agent-execution-engine,
+# Root pom.xml MUST declare exactly 8 <module> entries after the 2026-05-20
+# rc13 wave (ADR-0088 dissolved agent-runtime-core): BoM + 6 substantive
+# modules (agent-client, agent-bus, agent-middleware, agent-execution-engine,
 # agent-evolve, agent-service) + graphmemory starter. Any other count is
-# rejected; L1 plan decision D3 amended per ADR-0078 + ADR-0079.
+# rejected; L1 plan decision D3 amended per ADR-0078 + ADR-0088.
 # ---------------------------------------------------------------------------
 _r28e_fail=0
 _root_pom='pom.xml'
-_r28e_expected=9
+_r28e_expected=8
 if [[ -f "$_root_pom" ]]; then
   _module_count=$(grep -c '<module>' "$_root_pom" 2>/dev/null || echo 0)
   if [[ "$_module_count" -ne "$_r28e_expected" ]]; then
@@ -3399,16 +3399,21 @@ if [[ $_r74_fail -eq 0 ]]; then pass_rule "linux_first_dev_doc_present"; fi
 
 # ---------------------------------------------------------------------------
 # Rule 11 — contract_spine_tenant_id_required (enforcer E105)
-# Every persistent record under agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
-# OR agent-runtime-core/src/main/java/ascend/springai/service/runtime/idempotency/IdempotencyRecord.java
-# MUST declare a String tenantId component. Process-internal opt-out via
-# "// scope: process-internal" same-line comment.
+# Every persistent record under
+#   agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
+# OR
+#   agent-service/src/main/java/ascend/springai/service/runtime/idempotency/IdempotencyRecord.java
+# MUST declare a String tenantId component. Scope path relocated from
+# agent-runtime-core to agent-service per ADR-0088 (rc13 dissolution).
+# Process-internal opt-out via "// scope: process-internal" same-line comment.
 # ---------------------------------------------------------------------------
 _r11_fail=0
-_r11_root='agent-runtime-core/src/main/java/ascend/springai/service/runtime'
-if [[ -d "$_r11_root" ]]; then
-  # Scan record declarations missing String tenantId — heuristic: a record header line
-  # NOT containing "tenantId" or "// scope: process-internal" is a violation.
+_r11_roots=(
+  'agent-service/src/main/java/ascend/springai/service/runtime/runs'
+  'agent-service/src/main/java/ascend/springai/service/runtime/idempotency'
+)
+for _r11_root in "${_r11_roots[@]}"; do
+  [[ -d "$_r11_root" ]] || continue
   _r11_hits="$(grep -rEln 'public[[:space:]]+record[[:space:]]' "$_r11_root" 2>/dev/null || true)"
   while IFS= read -r _r11_f; do
     [[ -z "$_r11_f" ]] && continue
@@ -3416,11 +3421,11 @@ if [[ -d "$_r11_root" ]]; then
       continue
     fi
     if ! grep -qE 'String[[:space:]]+tenantId' "$_r11_f" 2>/dev/null; then
-      fail_rule "contract_spine_tenant_id_required" "$_r11_f declares a record without a String tenantId component (Rule 11 / E105)"
+      fail_rule "contract_spine_tenant_id_required" "$_r11_f declares a record without a String tenantId component (Rule R-C.c / E105)"
       _r11_fail=1
     fi
   done <<< "$_r11_hits"
-fi
+done
 if [[ $_r11_fail -eq 0 ]]; then pass_rule "contract_spine_tenant_id_required"; fi
 
 # ---------------------------------------------------------------------------
@@ -3565,8 +3570,9 @@ if [[ $_r75_fail -eq 0 ]]; then pass_rule "spi_packages_populated"; fi
 # A given Java spi package MUST be declared by exactly one Maven module's
 # module-metadata.yaml#spi_packages. Two modules co-declaring the same
 # package is a split-package — Maven and JPMS cannot reason about ownership.
-# Catches the 2026-05-18 root cause (orchestration.spi double-declared by
-# agent-runtime-core AND agent-execution-engine).
+# Catches the 2026-05-18 root cause (orchestration.spi historical double-
+# declaration by agent-runtime-core AND agent-execution-engine — both modules
+# resolved by rc13 ADR-0088 dissolution).
 # ---------------------------------------------------------------------------
 _r76_fail=0
 _r76_tmp="$(mktemp 2>/dev/null || echo /tmp/r76.$$)"
@@ -4246,9 +4252,10 @@ if [[ $_r86_fail -eq 0 ]]; then pass_rule "root_architecture_count_and_path_trut
 # Rule 87 — status_yaml_allowed_claim_module_name_truth (enforcer E120)
 #
 # Every allowed_claim: text value in docs/governance/architecture-status.yaml
-# MUST NOT contain current-tense agent-platform or agent-runtime (NOT
-# agent-runtime-core) outside a historical marker within +/-3 lines.
-# Operationalises rc6 post-response review P1-2 closure.
+# MUST NOT contain current-tense agent-platform, agent-runtime, or
+# agent-runtime-core (all three are now deleted-module names after rc13
+# ADR-0088 dissolution) outside a historical marker within +/-3 lines.
+# Operationalises rc6 post-response review P1-2 + rc13 dissolution closure.
 # ---------------------------------------------------------------------------
 _r87_fail=0
 _r87_yaml="docs/governance/architecture-status.yaml"
@@ -4256,7 +4263,7 @@ if [[ ! -f "$_r87_yaml" ]]; then
   fail_rule "status_yaml_allowed_claim_module_name_truth" "$_r87_yaml missing -- Rule 87 / E120"
   _r87_fail=1
 else
-  _r87_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|consolidated into|consolidated from|merged into|merged in|was rooted|formerly|superseded|deprecated|archived|moved|post-ADR-[0-9]{4}'
+  _r87_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|pre-rc[0-9]+|consolidated into|consolidated from|merged into|merged in|was rooted|formerly|superseded|deprecated|archived|moved|post-ADR-[0-9]{4}|dissolution|dissolved|relocated|relocate'
   _r87_lineno=0
   while IFS= read -r _r87_line || [[ -n "$_r87_line" ]]; do
     _r87_lineno=$((_r87_lineno + 1))
@@ -4264,7 +4271,7 @@ else
     _r87_value=$(echo "$_r87_line" | sed -E 's/^[[:space:]]+allowed_claim:[[:space:]]*//')
     _r87_value="${_r87_value#\"}"
     _r87_value="${_r87_value%\"}"
-    _r87_stale=$(echo "$_r87_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b' | grep -v 'agent-runtime-core' | head -1)
+    _r87_stale=$(echo "$_r87_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b|\bagent-runtime-core\b' | head -1)
     if [[ -z "$_r87_stale" ]]; then continue; fi
     _r87_lo=$((_r87_lineno > 3 ? _r87_lineno - 3 : 1))
     _r87_hi=$((_r87_lineno + 3))
@@ -4545,16 +4552,16 @@ while IFS= read -r _r94_file; do
     if [[ "$_r94_file" == "$_r94_prefix"* ]]; then _r94_skip=1; break; fi
   done
   [[ $_r94_skip -eq 1 ]] && continue
-  # Within-file: lines containing word-boundary agent-platform or agent-runtime
-  # (excluding agent-runtime-core), outside fenced code blocks, outside yaml
-  # comment lines, no marker within ±3 lines.
+  # Within-file: lines containing word-boundary agent-platform, agent-runtime,
+  # or agent-runtime-core (all three deleted-module names post-rc13 / ADR-0088),
+  # outside fenced code blocks, outside yaml comment lines, no marker within ±3 lines.
   # GNU awk doesn't honor `\b` word-boundary; use POSIX bracket-class boundaries.
   _r94_hits=$(awk -v markers="$_r94_markers" '
     BEGIN {
       in_code = 0
       # Word-boundary surrogate: (^|[^a-zA-Z0-9_-]) ... ([^a-zA-Z0-9_-]|$)
-      ap_re = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
-      ar_re = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
+      ap_re  = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
+      ar_re  = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
       arc_re = "(^|[^a-zA-Z0-9_-])agent-runtime-core([^a-zA-Z0-9_-]|$)"
     }
     /^[[:space:]]*```/ { in_code = 1 - in_code; next }
@@ -4566,7 +4573,12 @@ while IFS= read -r _r94_file; do
         if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
         if (in_code) continue
         if (line ~ /^[[:space:]]*#/) continue
-        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re)) {
+        # Three deleted-module surfaces:
+        #   ap_re                 → agent-platform
+        #   ar_re && !arc_re      → agent-runtime (but NOT the agent-runtime-core substring)
+        #   arc_re                → agent-runtime-core (rc13 addition per ADR-0088)
+        # Marker window (±3 lines) excuses historical/dissolution narrative.
+        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re) || line ~ arc_re) {
           lo = i - 3; if (lo < 1) lo = 1
           hi = i + 3; if (hi > NR) hi = NR
           window = ""
@@ -4796,8 +4808,8 @@ while IFS= read -r _r98_file; do
   esac
   _r98_hits=$(awk -v markers="$_r98_markers" '
     BEGIN {
-      ap_re = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
-      ar_re = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
+      ap_re  = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
+      ar_re  = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
       arc_re = "(^|[^a-zA-Z0-9_-])agent-runtime-core([^a-zA-Z0-9_-]|$)"
     }
     { lines[NR] = $0 }
@@ -4811,7 +4823,8 @@ while IFS= read -r _r98_file; do
         # carried "(port 8001 avoids collision with agent-platform on 8080 / ...)" in a
         # comment that rc10 missed. The marker check below still allows historical-marked
         # comments to pass.
-        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re)) {
+        # rc13 widening (ADR-0088): agent-runtime-core joins the deleted-module set.
+        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re) || line ~ arc_re) {
           lo = i - 3; if (lo < 1) lo = 1
           hi = i + 3; if (hi > NR) hi = NR
           window = ""
@@ -5178,6 +5191,49 @@ for _r104_route in "${_r104_routes[@]}"; do
   done
 done
 if [[ $_r104_fail -eq 0 ]]; then pass_rule "openapi_implemented_route_catalog_truth"; fi
+
+# Rule 105 — edge_no_direct_compute_link (enforcer E144)
+#
+# Closes ADR-0089 (Edge-Plane Ingress Gateway Mandate) / Rule R-I sub-clause .b
+# at the source-grep level. The bytecode complement (E143
+# EdgeToComputeDirectLinkArchTest) catches violations at compile/test time;
+# this rule catches them at the corpus level so a stray .java file shows up
+# in gate output even before the ArchUnit test runs.
+#
+# Scope:
+#   For every <module>/module-metadata.yaml whose `deployment_plane:` is `edge`,
+#   scan that module's src/main/java tree for:
+#     (a) `^import ascend\.springai\.(service|engine|middleware)\.` lines, OR
+#     (b) `new RestTemplate` or `WebClient\.builder` construction targeting a
+#         host that isn't the bus ingress endpoint (heuristic: any bare base-URL
+#         literal that doesn't contain `bus` is forbidden at W1).
+#
+# At W1 agent-client is skeleton (no production java) so this rule is
+# vacuous-but-armed. When the W3+ SDK lands, the rule starts gating PRs.
+# ---------------------------------------------------------------------------
+_r105_fail=0
+while IFS= read -r _r105_meta; do
+  _r105_module_dir="$(dirname "$_r105_meta")"
+  _r105_main_java="$_r105_module_dir/src/main/java"
+  [[ -d "$_r105_main_java" ]] || continue
+  # (a) forbidden compute_control imports
+  _r105_violations=$(grep -rnE '^import ascend\.springai\.(service|engine|middleware)\.' "$_r105_main_java" 2>/dev/null || true)
+  if [[ -n "$_r105_violations" ]]; then
+    while IFS= read -r _r105_line; do
+      fail_rule "edge_no_direct_compute_link" "$_r105_line — edge plane module must not import compute_control plane production class; route via ascend.springai.bus.spi.ingress.IngressGateway per Rule R-I sub-clause .b / ADR-0089"
+      _r105_fail=1
+    done <<< "$_r105_violations"
+  fi
+  # (b) RestTemplate / WebClient direct construction
+  _r105_rest=$(grep -rnE 'new[[:space:]]+RestTemplate\(|WebClient\.builder\(' "$_r105_main_java" 2>/dev/null || true)
+  if [[ -n "$_r105_rest" ]]; then
+    while IFS= read -r _r105_line; do
+      fail_rule "edge_no_direct_compute_link" "$_r105_line — edge plane module must not construct direct HTTP clients; route via ascend.springai.bus.spi.ingress.IngressGateway per Rule R-I sub-clause .b / ADR-0089"
+      _r105_fail=1
+    done <<< "$_r105_rest"
+  fi
+done < <(grep -lE '^deployment_plane:[[:space:]]*edge' */module-metadata.yaml 2>/dev/null)
+if [[ $_r105_fail -eq 0 ]]; then pass_rule "edge_no_direct_compute_link"; fi
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------

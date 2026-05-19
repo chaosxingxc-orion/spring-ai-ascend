@@ -1,12 +1,12 @@
 package ascend.springai.service.runtime.orchestration.inmemory;
 
 import ascend.springai.service.runtime.orchestration.NoopTraceContext;
-import ascend.springai.service.runtime.orchestration.spi.Checkpointer;
-import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
-import ascend.springai.service.runtime.orchestration.spi.RunContext;
-import ascend.springai.service.runtime.orchestration.spi.SuspendSignal;
-import ascend.springai.service.runtime.orchestration.spi.TraceContext;
-import ascend.springai.service.runtime.runs.RunMode;
+import ascend.springai.engine.orchestration.spi.Checkpointer;
+import ascend.springai.engine.orchestration.spi.ExecutorDefinition;
+import ascend.springai.engine.orchestration.spi.RunContext;
+import ascend.springai.engine.orchestration.spi.SuspendSignal;
+import ascend.springai.engine.orchestration.spi.TraceContext;
+import ascend.springai.engine.orchestration.spi.RunMode;
 
 import java.util.Objects;
 import java.util.UUID;

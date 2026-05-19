@@ -7,15 +7,16 @@
 # Build stage uses the official Maven image (Java 21 + Maven 3.9). Runtime
 # stage is distroless Java 21.
 #
-# rc12 K-δ: rewritten from the pre-Phase-C agent-platform Dockerfile (post-ADR-0078
-# consolidation; agent-platform was consolidated into agent-service and agent-runtime
-# was split into agent-runtime-core + agent-execution-engine).
+# rc12 K-δ + rc13 ADR-0088: rewritten from the pre-Phase-C agent-platform Dockerfile
+# (Phase C consolidated agent-platform into agent-service per ADR-0078; ADR-0079
+# briefly added agent-runtime-core for shared kernel SPI; rc13 dissolved
+# agent-runtime-core per ADR-0088 and redistributed its sources to agent-service /
+# agent-execution-engine / agent-bus).
 
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml ./
 COPY spring-ai-ascend-dependencies/pom.xml ./spring-ai-ascend-dependencies/
-COPY agent-runtime-core/pom.xml ./agent-runtime-core/
 COPY agent-execution-engine/pom.xml ./agent-execution-engine/
 COPY agent-middleware/pom.xml ./agent-middleware/
 COPY agent-bus/pom.xml ./agent-bus/
@@ -26,7 +27,6 @@ COPY spring-ai-ascend-graphmemory-starter/pom.xml ./spring-ai-ascend-graphmemory
 # Pre-fetch deps to leverage Docker layer cache.
 RUN mvn -B -ntp -pl agent-service -am dependency:go-offline -DskipTests
 COPY spring-ai-ascend-dependencies/ ./spring-ai-ascend-dependencies/
-COPY agent-runtime-core/src ./agent-runtime-core/src
 COPY agent-execution-engine/src ./agent-execution-engine/src
 COPY agent-middleware/src ./agent-middleware/src
 COPY agent-bus/src ./agent-bus/src

@@ -1,6 +1,6 @@
 package ascend.springai.service.runtime.engine;
 
-import ascend.springai.service.runtime.orchestration.spi.Orchestrator;
+import ascend.springai.engine.orchestration.spi.Orchestrator;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;

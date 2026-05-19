@@ -6,7 +6,7 @@ import ascend.springai.service.runtime.orchestration.inmemory.IterativeAgentLoop
 import ascend.springai.service.runtime.orchestration.inmemory.SequentialGraphExecutor;
 import ascend.springai.service.runtime.orchestration.inmemory.SyncOrchestrator;
 import ascend.springai.engine.spi.EngineMatchingException;
-import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
+import ascend.springai.engine.orchestration.spi.ExecutorDefinition;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

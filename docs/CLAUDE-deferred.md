@@ -421,3 +421,53 @@ container and assert that `GET /v1/health` returns 200 within 60 s of `spring-bo
 Failure of this job is a ship-blocking finding under Rule D-5.
 
 Composes with: ARCHITECTURE.md §4 #60; ADR-0064; Rule R-A.
+
+---
+
+## Rule R-I sub-clause .c — IngressGateway Runtime Implementation [Deferred to W3+]
+
+**Re-introduction trigger**: first agent-client SDK release shipping production Java code
+under `agent-client/src/main/java/` (W3+ per ADR-0049).
+
+**Rule (draft)**: The bus-side implementation of `ascend.springai.bus.spi.ingress.IngressGateway`
+MUST be wired to the agent-service `/v1/runs` HTTP routes via a bounded queue on the data
+channel (`bus-channels.yaml#channels[id=data]`). Implementation MUST honour the Task Cursor
+shape from Rule R-F: long-running requests (`request_type=RUN_CREATE`) return
+`IngressResponse.accepted(requestId, cursor)`; non-cursor request types return inline.
+The contract status in `docs/contracts/ingress-envelope.v1.yaml` MUST be promoted from
+`design_only` to `runtime_enforced` in the same wave.
+
+Composes with: Rule R-I sub-clause .a (Five-Plane Manifest); Rule R-E (Three-Track Channel
+Isolation — selects the data channel); Rule R-F (Cursor Flow Mandate); ADR-0089; ADR-0050.
+
+---
+
+## Rule R-I sub-clause .d — Edge HTTP-Route Direct-Call Prohibition [Deferred to W3+]
+
+**Re-introduction trigger**: same as R-I.c (first agent-client SDK release).
+
+**Rule (draft)**: Once the W3+ SDK ships, an integration test MUST assert that an
+agent-client request to a compute_control HTTP route (e.g., direct call to
+`agent-service /v1/runs`) fails by network-level rejection (e.g., service mesh policy,
+authn config) — not just by ArchUnit/static analysis. Until then, the W1 ArchUnit + gate
+guards (E143 + Rule 105) cover the import surface; HTTP-level enforcement is the W3+
+promotion gate.
+
+Composes with: Rule R-I sub-clause .b (W1 invariant this strengthens); ADR-0089;
+deployment-time mesh / load-balancer config.
+
+---
+
+## Rule R-I sub-clause .e — Bus Backpressure Mapping for Ingress [Deferred to W2]
+
+**Re-introduction trigger**: first non-stub `BackpressureSignal` SPI implementation lands
+in agent-bus (W2 per ADR-0050).
+
+**Rule (draft)**: The IngressGateway MUST surface ingress-channel backpressure as
+`IngressResponse.deferred(requestId)` (status DEFERRED) when the bus reports a non-zero
+admit-rate hold. Clients MUST treat DEFERRED as a retry-with-backoff hint, not a
+terminal failure. The retry policy itself is in scope for the SDK companion deferred
+sub-clause (out of scope for the bus implementation).
+
+Composes with: Rule R-K (Skill Capacity Matrix — the in-process analogue);
+ADR-0089; ADR-0050.

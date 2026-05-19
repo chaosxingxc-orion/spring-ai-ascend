@@ -1,7 +1,7 @@
 package ascend.springai.service.runtime.architecture;
 
-import ascend.springai.service.runtime.orchestration.spi.RunContext;
-import ascend.springai.service.runtime.orchestration.spi.TraceContext;
+import ascend.springai.engine.orchestration.spi.RunContext;
+import ascend.springai.engine.orchestration.spi.TraceContext;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -60,7 +60,8 @@ class RunContextIdentityAccessorsTest {
                     .as("TraceContext SPI MUST import only java.* and project types (§4 #7)")
                     .satisfiesAnyOf(
                             p -> assertThat(p).startsWith("java"),
-                            p -> assertThat(p).startsWith("ascend.springai.service.runtime")
+                            p -> assertThat(p).startsWith("ascend.springai.service.runtime"),
+                            p -> assertThat(p).startsWith("ascend.springai.engine.orchestration.spi")
                     );
         }
     }

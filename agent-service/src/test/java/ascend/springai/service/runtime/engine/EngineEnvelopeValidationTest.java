@@ -1,6 +1,6 @@
 package ascend.springai.service.runtime.engine;
 
-import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
+import ascend.springai.engine.orchestration.spi.ExecutorDefinition;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

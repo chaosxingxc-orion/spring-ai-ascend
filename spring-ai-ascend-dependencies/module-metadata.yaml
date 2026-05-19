@@ -1,15 +1,15 @@
 # Module metadata for spring-ai-ascend-dependencies (BoM).
-# Required by CLAUDE.md Rule 31 (Independent Module Evolution).
+# Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
 # Authority: ADR-0066. Enforced by gate rule module_metadata_present_and_complete.
 
 module: spring-ai-ascend-dependencies
 kind: bom                # platform | domain | starter | bom | sample
 version: 0.1.0-SNAPSHOT
 semver_compatibility: 0.x
-description: "Bill of Materials — pins the post-Phase-C reactor (agent-service, agent-runtime-core, agent-execution-engine, agent-middleware, agent-bus, agent-client, agent-evolve), the graphmemory starter, and OSS transitive dependency versions. (Pre-Phase-C / ADR-0078 the BoM pinned agent-platform + agent-runtime; those modules were merged into agent-service.)"
+description: "Bill of Materials — pins the post-rc13 reactor (agent-service, agent-execution-engine, agent-middleware, agent-bus, agent-client, agent-evolve), the graphmemory starter, and OSS transitive dependency versions. Module history: pre-Phase-C / ADR-0078 the BoM pinned agent-platform + agent-runtime (merged into agent-service); rc12 added agent-runtime-core per ADR-0079 (dissolved per ADR-0088 in rc13)."
 architecture_doc: null   # BoM has no architecture surface; pom.xml is authoritative
-dfx_doc: null            # DFX is optional for kind:bom per Rule 32
+dfx_doc: null            # DFX is optional for kind:bom per Rule R-D sub-clause .a
 spi_packages: []
 allowed_dependencies: []
 forbidden_dependencies: []
-deployment_plane: none   # Rule 39 / P-I — BoM is build-time only; no runtime deployment surface
+deployment_plane: none   # Rule R-I / P-I — BoM is build-time only; no runtime deployment surface

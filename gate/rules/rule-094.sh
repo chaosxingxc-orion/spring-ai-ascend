@@ -49,16 +49,16 @@ while IFS= read -r _r94_file; do
     if [[ "$_r94_file" == "$_r94_prefix"* ]]; then _r94_skip=1; break; fi
   done
   [[ $_r94_skip -eq 1 ]] && continue
-  # Within-file: lines containing word-boundary agent-platform or agent-runtime
-  # (excluding agent-runtime-core), outside fenced code blocks, outside yaml
-  # comment lines, no marker within ±3 lines.
+  # Within-file: lines containing word-boundary agent-platform, agent-runtime,
+  # or agent-runtime-core (all three deleted-module names post-rc13 / ADR-0088),
+  # outside fenced code blocks, outside yaml comment lines, no marker within ±3 lines.
   # GNU awk doesn't honor `\b` word-boundary; use POSIX bracket-class boundaries.
   _r94_hits=$(awk -v markers="$_r94_markers" '
     BEGIN {
       in_code = 0
       # Word-boundary surrogate: (^|[^a-zA-Z0-9_-]) ... ([^a-zA-Z0-9_-]|$)
-      ap_re = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
-      ar_re = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
+      ap_re  = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
+      ar_re  = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
       arc_re = "(^|[^a-zA-Z0-9_-])agent-runtime-core([^a-zA-Z0-9_-]|$)"
     }
     /^[[:space:]]*```/ { in_code = 1 - in_code; next }
@@ -70,7 +70,12 @@ while IFS= read -r _r94_file; do
         if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
         if (in_code) continue
         if (line ~ /^[[:space:]]*#/) continue
-        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re)) {
+        # Three deleted-module surfaces:
+        #   ap_re                 → agent-platform
+        #   ar_re && !arc_re      → agent-runtime (but NOT the agent-runtime-core substring)
+        #   arc_re                → agent-runtime-core (rc13 addition per ADR-0088)
+        # Marker window (±3 lines) excuses historical/dissolution narrative.
+        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re) || line ~ arc_re) {
           lo = i - 3; if (lo < 1) lo = 1
           hi = i + 3; if (hi > NR) hi = NR
           window = ""

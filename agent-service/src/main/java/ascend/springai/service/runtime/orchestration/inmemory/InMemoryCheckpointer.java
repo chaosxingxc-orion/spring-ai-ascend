@@ -1,6 +1,6 @@
 package ascend.springai.service.runtime.orchestration.inmemory;
 
-import ascend.springai.service.runtime.orchestration.spi.Checkpointer;
+import ascend.springai.engine.orchestration.spi.Checkpointer;
 import ascend.springai.service.runtime.posture.AppPostureGate;
 
 import java.util.Arrays;

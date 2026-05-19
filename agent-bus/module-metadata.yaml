@@ -1,23 +1,24 @@
 # Module metadata for agent-bus.
-# Required by CLAUDE.md Rule 31 (Independent Module Evolution).
-# Authority: ADR-0066 + ADR-0050 (Bus & State Hub plane).
+# Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
+# Authority: ADR-0066 + ADR-0050 (Bus & State Hub plane) + ADR-0074 (S2C Callback) + ADR-0088 (s2c ownership move) + ADR-0089 (Edge-Plane Ingress Gateway Mandate).
 # Enforced by gate rule module_metadata_present_and_complete.
 
 module: agent-bus
 kind: domain             # platform | domain | starter | bom | sample
 version: 0.0.1-SNAPSHOT
 semver_compatibility: experimental
-description: "Bus & State Hub plane — three-track channel isolation (control / data / rhythm per Rule 35); WorkflowIntermediary, Mailbox, AdmissionDecision, BackpressureSignal, SleepDeclaration, WakeupPulse, TickEngine. Skeleton; W2 implementation per ADR-0050."
+description: "Bus & State Hub plane — owns cross-plane control surfaces in BOTH directions: ingress (C2S, IngressGateway per ADR-0089 / Rule R-I sub-clause .b) and s2c (S2C, S2cCallbackTransport per ADR-0074 + ADR-0088). Three-track channel isolation (control / data / rhythm per Rule R-E) declared in docs/governance/bus-channels.yaml. Workflow primitives (Mailbox, AdmissionDecision, BackpressureSignal, SleepDeclaration, WakeupPulse, TickEngine) deferred to W2 per ADR-0050."
 architecture_doc: agent-bus/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-bus.yaml
 spi_packages:
-  - ascend.springai.bus.spi      # placeholder; populated in W2 per ADR-0050
+  - ascend.springai.bus.spi            # placeholder; W2 workflow primitives (WorkflowIntermediary, Mailbox, AdmissionDecision, BackpressureSignal, SleepDeclaration, WakeupPulse, TickEngine) land here per ADR-0050 — roll-up parent of ingress + s2c sub-packages
+  - ascend.springai.bus.spi.ingress    # IngressGateway + IngressEnvelope + IngressResponse per ADR-0089
+  - ascend.springai.bus.spi.s2c        # S2cCallbackTransport + S2cCallbackEnvelope + S2cCallbackResponse per ADR-0088 (relocated from agent-runtime-core)
 allowed_dependencies: []
 forbidden_dependencies:
-  - agent-service           # post-Phase-C (consolidated from agent-platform per ADR-0078); bus is upstream of service
-  - agent-runtime-core      # post-Phase-C (extracted from agent-runtime per ADR-0079); bus is upstream of runtime
-  - agent-execution-engine  # post-Phase-C (extracted from agent-runtime per ADR-0079)
+  - agent-service           # bus is upstream of compute_control plane
+  - agent-execution-engine
   - agent-middleware
   - agent-client
   - agent-evolve
-deployment_plane: bus_state   # Rule 39 / P-I — Bus & State Hub plane
+deployment_plane: bus_state   # Rule R-I / P-I — Bus & State Hub plane

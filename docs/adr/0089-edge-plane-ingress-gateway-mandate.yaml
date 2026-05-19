@@ -1,0 +1,143 @@
+id: ADR-0089
+title: "Edge-Plane Ingress Gateway Mandate — client → bus → server is the only allowed C2S topology"
+status: accepted
+date: 2026-05-20
+level: L0
+view: physical
+freeze_id: null
+
+supersedes: []
+extends:
+  - ADR-0049
+  - ADR-0050
+  - ADR-0069
+relates_to:
+  - ADR-0070
+  - ADR-0074
+  - ADR-0088
+
+decision_one_liner: |
+  Modules whose deployment_plane is `edge` (today: agent-client) MUST NOT
+  directly import production classes from `compute_control`-plane modules
+  (agent-service, agent-execution-engine, agent-middleware) and MUST NOT
+  invoke compute_control HTTP routes directly. Cross-plane traffic flows
+  exclusively through agent-bus.spi.ingress.IngressGateway, whose wire
+  schema lives at docs/contracts/ingress-envelope.v1.yaml. Initial status
+  is `design_only`; runtime-enforced promotion is triggered by the W3+
+  agent-client SDK landing.
+
+context: |
+  Principle P-I (Five-Plane Distributed Topology) declares five physically
+  isolated planes: edge (Client SDK), compute_control (Runtime + Engine),
+  bus_state (Bus + persistence), sandbox (untrusted code), evolution
+  (Python ML). The motivation is interference isolation at the deployment
+  layer — a single GPU job MUST NOT starve a low-latency HTTP path.
+
+  Today the only enforcement that agent-client (edge) won't talk directly
+  to agent-service (compute_control) is a negative `forbidden_dependencies`
+  list in agent-client/module-metadata.yaml. This stops Maven-level imports
+  but says nothing about HTTP, and it doesn't say *which* path IS allowed.
+
+  Agent-client is currently skeleton (0 java files). The W3+ SDK
+  implementation is deferred per ADR-0049. This means we have a clean
+  window to lock the positive topology contract BEFORE any SDK code
+  lands — if we wait, the SDK will probably take the most-convenient HTTP
+  path (direct to agent-service /v1/runs) and the lock will have to fight
+  existing code instead of preventing it.
+
+  Two adjacent design surfaces shape this decision:
+
+    1. Rule R-E (Three-Track Channel Isolation) declares control / data /
+       rhythm channels in bus-channels.yaml. The ingress flow naturally
+       maps to the data channel (in-band heavy-load payloads). A new
+       fourth channel for ingress was considered and rejected — see
+       alternatives_considered.
+
+    2. Rule R-F (Cursor Flow Mandate) declares that long-horizon endpoints
+       MUST return a Task Cursor immediately. The IngressGateway response
+       envelope (IngressResponse.cursor) carries the cursor for the
+       RUN_CREATE request_type. This is the same cursor pattern the
+       direct /v1/runs HTTP endpoint returns today.
+
+  The symmetric pairing with ADR-0088 is the architectural payoff: ADR-0088
+  moves S2cCallbackTransport (server → client callback) into agent-bus,
+  matching this ADR's placement of IngressGateway (client → server). After
+  both ADRs land, agent-bus owns the entirety of cross-plane traffic in
+  both directions. The Bus & State Hub plane is no longer just intra-service
+  routing — it is the cross-plane fabric.
+
+decision: |
+  Wave 1 — contract + rule (W1, design_only):
+    - Create docs/contracts/ingress-envelope.v1.yaml with status `design_only`,
+      runtime_enforced `false`, authority ADR-0089. 6 required request fields
+      (request_id, tenant_id, idempotency_key, request_type, payload, trace_id)
+      + 1 optional (deadline_millis_epoch) + 1 optional attributes map. Response
+      shape: 4 fields (request_id, status, cursor, rejection_reason).
+    - Add Rule R-I sub-clause .b kernel to CLAUDE.md + docs/governance/rules/rule-R-I.md
+      naming the topology invariant.
+    - Add docs/CLAUDE-deferred.md entries Rule R-I.c-z for W2+ runtime-impl
+      follow-ups (channel mapping, retry behaviour, etc.) so Rule G-3
+      sub-clause .d (Kernel-Deferred Coherence) is satisfied.
+
+  Wave 2 — SPI stubs + enforcement (W1):
+    - Create agent-bus/src/main/java/ascend/springai/bus/spi/ingress/
+      IngressGateway.java + IngressEnvelope.java + IngressResponse.java
+      + package-info.java. Pure Java; no runtime binding.
+    - Create agent-client/src/test/java/.../EdgeToComputeDirectLinkArchTest.java
+      asserting no class under ascend.springai.client.. imports any class
+      under ascend.springai.{service,engine,middleware}.. — passes vacuously
+      today (agent-client is skeleton).
+    - Register enforcer row E143 in docs/governance/enforcers.yaml.
+    - Add gate Rule 105 `edge_no_direct_compute_link` scanning agent-client/
+      java sources for forbidden imports + WebClient/RestTemplate construction
+      against non-bus hosts.
+    - Create gate/rules/rule-105.sh wrapper (Rule G-5.d compliance).
+
+  Wave 3 — runtime-enforced promotion (deferred, W3+):
+    - When the agent-client SDK lands (W3+ per ADR-0049), promote
+      ingress-envelope.v1.yaml status from `design_only` to `runtime_enforced`.
+    - Implement IngressGateway in agent-bus (W2 SPI impl per ADR-0050) +
+      wire the agent-service HTTP routes behind it.
+
+consequences:
+  positive:
+    - "Topology invariant captured at contract + ArchUnit + gate-rule level BEFORE SDK code lands, eliminating the W3+ rework that would otherwise be required."
+    - "Cross-plane traffic centralised in agent-bus in both directions (paired with ADR-0088): one module owns the cross-plane fabric."
+    - "Negative invariant in agent-client/module-metadata.yaml.forbidden_dependencies and the positive routing path through bus.spi.ingress.IngressGateway are mutually reinforcing."
+    - "Contract status `design_only` at W1 keeps the contract honest: we declare the schema and lock the topology, but don't pretend the runtime binding is shipped."
+    - "Future Web/gRPC/QUIC ingress experiments can land as IngressGateway implementations without touching agent-client or agent-service."
+  negative:
+    - "The cursor return path is one extra hop versus a direct edge -> agent-service HTTP call. P-I motivation (interference isolation) justifies the latency cost; W2 backpressure SPIs (BackpressureSignal, AdmissionDecision) provide the levers if latency budgets get tight."
+    - "Until the W3+ runtime binding ships, agent-service /v1/runs/* HTTP routes remain reachable without bus mediation. The ArchUnit + gate rule defend against agent-client code violations; HTTP-level enforcement is the W3+ promotion gate."
+
+alternatives_considered:
+  - alternative: "Add a fourth track (`ingress`) to bus-channels.yaml extending Rule R-E from three-track to four-track."
+    why_rejected: "Semantically loose. Rule R-E + Principle P-E describe `cross-service INTERNAL communication`. Client-to-server ingress is not internal — it is the platform boundary. Stretching R-E to cover it would muddy the principle. Cleaner to anchor on Rule R-I (the plane-topology principle) and have ingress traffic forward onto the existing data channel internally."
+  - alternative: "Add a new top-level Rule R-N — Bus-Mediated Client Ingress."
+    why_rejected: "Adds rule count without deepening any existing principle. The constraint is fundamentally about Five-Plane topology (P-I / R-I); making it a sub-clause of R-I keeps the principle ↔ rule mapping clean and discoverable in the kernel index."
+  - alternative: "Mark ingress-envelope.v1.yaml runtime_enforced from W1; build the IngressGateway runtime impl immediately."
+    why_rejected: "Premature — there is no SDK to call the gateway. Runtime_enforced is a meaningful promise only when there is a wire path that can be checked. W3+ promotion is the right trigger."
+
+verification:
+  cli:
+    - "./mvnw clean verify -pl agent-client -am -> BUILD SUCCESS; EdgeToComputeDirectLinkArchTest passes vacuously"
+    - "./mvnw clean verify -pl agent-bus -am -> BUILD SUCCESS; IngressGateway / IngressEnvelope / IngressResponse compile + SPI purity ArchUnit passes"
+    - "bash gate/check_architecture_sync.sh -> Rule 105 PASS (no forbidden imports in empty agent-client tree)"
+    - "Negative fixture: inject a forbidden import in agent-client/src/main/java/.../tmp/Bad.java -> Rule 105 FAILS closed -> remove fixture"
+  gate:
+    - "Rule 105 (edge_no_direct_compute_link) -> active"
+    - "E143 (EdgeToComputeDirectLinkArchTest) -> registered in enforcers.yaml"
+    - "Rule R-D sub-clause .b (every spi_packages entry resolves to a real dir with ≥1 .java) -> agent-bus.spi.ingress passes"
+    - "Rule R-D sub-clause .d (spi packages end in .spi OR contain .spi.) -> ascend.springai.bus.spi.ingress contains .spi., passes"
+    - "Rule R-D sub-clause .e (DFX↔spi_packages parity) -> agent-bus.dfx.yaml.spi_packages updated to include bus.spi.ingress + bus.spi.s2c"
+
+enforcer_rows:
+  - id: E143
+    kind: archunit
+    artifact: agent-client/src/test/java/ascend/springai/client/architecture/EdgeToComputeDirectLinkArchTest.java
+    asserts: "no class under ascend.springai.client.. imports any class under ascend.springai.{service,engine,middleware}.."
+
+gate_rules:
+  - id: 105
+    slug: edge_no_direct_compute_link
+    artifact: gate/check_architecture_sync.sh

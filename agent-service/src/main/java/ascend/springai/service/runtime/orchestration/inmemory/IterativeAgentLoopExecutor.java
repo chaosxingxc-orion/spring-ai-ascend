@@ -1,9 +1,9 @@
 package ascend.springai.service.runtime.orchestration.inmemory;
 
 import ascend.springai.engine.spi.AgentLoopExecutor;
-import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
-import ascend.springai.service.runtime.orchestration.spi.RunContext;
-import ascend.springai.service.runtime.orchestration.spi.SuspendSignal;
+import ascend.springai.engine.orchestration.spi.ExecutorDefinition;
+import ascend.springai.engine.orchestration.spi.RunContext;
+import ascend.springai.engine.orchestration.spi.SuspendSignal;
 
 import java.nio.charset.StandardCharsets;
 

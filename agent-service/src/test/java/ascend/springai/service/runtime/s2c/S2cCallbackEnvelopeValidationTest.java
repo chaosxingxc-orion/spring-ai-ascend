@@ -1,7 +1,7 @@
 package ascend.springai.service.runtime.s2c;
 
-import ascend.springai.service.runtime.s2c.spi.S2cCallbackEnvelope;
-import ascend.springai.service.runtime.s2c.spi.S2cCallbackResponse;
+import ascend.springai.bus.spi.s2c.S2cCallbackEnvelope;
+import ascend.springai.bus.spi.s2c.S2cCallbackResponse;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

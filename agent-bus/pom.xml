@@ -25,12 +25,17 @@
 
   <artifactId>agent-bus</artifactId>
   <name>agent-bus</name>
-  <description>Bus and State Hub plane — three-track channel isolation (control / data / rhythm). Skeleton; W2 implementation per ADR-0050.</description>
+  <description>Bus and State Hub plane — three-track channel isolation (control / data / rhythm per Rule R-E). Owns cross-plane control surfaces in both directions: ingress (C2S, IngressGateway per ADR-0089) and s2c (S2C, S2cCallbackTransport per ADR-0074 + ADR-0088). Workflow primitives deferred to W2 per ADR-0050.</description>
 
   <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

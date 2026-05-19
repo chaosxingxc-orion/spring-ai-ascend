@@ -74,33 +74,44 @@ References: §4 #53–#59, ADR-0061/0062/0063, `docs/telemetry/policy.md`.
 
 ## 2. Module layout
 
-### Nine-module post-ADR-0078 + ADR-0079 state (2026-05-18)
+### Eight-module post-ADR-0088 state (2026-05-20 — rc13 wave)
 
-The reactor declares **9 modules** today: the six L0 team-facing concepts
-(AgentClient, AgentService, AgentMiddleware, AgentExecutionEngine, AgentBus,
-AgentEvolve) + the shared kernel module `agent-runtime-core` introduced by
-ADR-0079 + the BoM + the graphmemory starter. Phase C (ADR-0078, 2026-05-18)
-consolidated the prior `agent-platform` + `agent-runtime` (which existed as
-separate modules pre-Phase-C, formerly the original 8-module shape) into a
-single `agent-service` module with sub-package layering
-(`ascend.springai.service.platform.*` for the HTTP edge,
-`ascend.springai.service.runtime.*` for the cognitive runtime kernel). Rule R-C.e
-generalised to forbid `service.runtime -> service.platform` imports at the
-sub-package level (ArchUnit `RuntimeMustNotDependOnPlatformTest`). Engine
-extraction T2.B2 (ADR-0079, 2026-05-18) then introduced the shared kernel
-module `agent-runtime-core` (hosting `Run`, `RunContext`, `SuspendSignal`,
-`ExecutorDefinition`, `Checkpointer` SPI, `TraceContext`, S2C SPI) and moved
-engine SPI + `EngineRegistry` + `EngineEnvelope` into `agent-execution-engine`
-— this resolved the prior back-dependency cycle.
+The reactor declares **8 modules** today: six L0 team-facing substantive
+modules (AgentClient, AgentService, AgentMiddleware, AgentExecutionEngine,
+AgentBus, AgentEvolve) + the BoM + the graphmemory starter. The arc that
+brought us here: pre-Phase-C `agent-platform` + `agent-runtime` were
+**consolidated** into `agent-service` per **ADR-0078** (2026-05-18). T2.B2
+extraction (**ADR-0079**, 2026-05-18) then **introduced** a transient shared
+kernel module `agent-runtime-core` to host `Run` / `RunContext` /
+`SuspendSignal` / S2C SPI — resolving an engine ↔ service back-dependency
+that surfaced when engine code moved to `agent-execution-engine`. Rc13
+(**ADR-0088**, 2026-05-20) **dissolved** `agent-runtime-core` and redistributed
+its 16 sources to the modules that semantically own them:
+
+- `Run` / `RunStatus` / `RunStateMachine` / `RunRepository` / `IdempotencyRecord`
+  back to **agent-service** (same `ascend.springai.service.runtime.{runs,idempotency}`
+  packages they had pre-T2.B2).
+- `RunMode` + the 6 orchestration SPI types
+  (`Checkpointer` / `Orchestrator` / `RunContext` / `SuspendSignal` / `TraceContext` /
+  `ExecutorDefinition`) into **agent-execution-engine** under
+  `ascend.springai.engine.orchestration.spi` — co-locating the orchestration
+  vocabulary with the engine that discriminates on it (semantically natural
+  AND removes the back-dep that motivated agent-runtime-core in the first place).
+- The 3 S2C transport types into **agent-bus** under `ascend.springai.bus.spi.s2c` —
+  pairing with the **new** `IngressGateway` SPI in `ascend.springai.bus.spi.ingress`
+  (**ADR-0089**, 2026-05-20) so the Bus & State Hub plane owns the entirety of
+  cross-plane traffic in both directions (C2S and S2C).
+
+Rule R-C.e remains in force: `service.runtime -> service.platform` imports are
+forbidden at the sub-package level (ArchUnit `RuntimeMustNotDependOnPlatformTest`).
 
 | Module | Plane (P-I) | Owner team | Maturity today |
 |--------|-------------|-----------|----------------|
-| `agent-client` | edge | AgentClient | skeleton (SDK; W3+ per ADR-0049) |
-| `agent-service` | compute_control | AgentService | shipped — HTTP edge (`service.platform.*`) + cognitive runtime kernel (`service.runtime.*`); post-Phase-C consolidation per ADR-0078 |
-| `agent-runtime-core` | compute_control | AgentService | shipped — shared kernel SPI types (`Run`, `RunContext`, `SuspendSignal`, `Checkpointer`, `TraceContext`, `ExecutorDefinition`, S2C SPI) extracted per ADR-0079 (2026-05-18) |
+| `agent-client` | edge | AgentClient | skeleton (SDK; W3+ per ADR-0049). Cross-plane traffic locked to `ascend.springai.bus.spi.ingress.IngressGateway` per ADR-0089 / Rule R-I.b. |
+| `agent-service` | compute_control | AgentService | shipped — HTTP edge (`service.platform.*`) + cognitive runtime kernel (`service.runtime.*`) + Run/RunStateMachine/IdempotencyRecord entities + memory.spi + resilience.spi + runs.spi (rc13 re-consolidation per ADR-0088) |
 | `agent-middleware` | compute_control | Middleware | SPI extracted from `agent-service.runtime` (T2.B1, 2026-05-17) |
-| `agent-execution-engine` | compute_control | AgentExecutionEngine | engine SPI + EngineRegistry/EngineEnvelope extracted per ADR-0079; reference adapters remain in agent-service.runtime |
-| `agent-bus` | bus_state | AgentBus | skeleton (contracts only; W2 impl per ADR-0050) |
+| `agent-execution-engine` | compute_control | AgentExecutionEngine | engine SPI (`engine.spi`) + orchestration SPI (`engine.orchestration.spi`, owns RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition per ADR-0088) + EngineRegistry/EngineEnvelope; reference adapters remain in agent-service.runtime |
+| `agent-bus` | bus_state | AgentBus | active SPI surfaces — `bus.spi.ingress` (IngressGateway per ADR-0089) + `bus.spi.s2c` (S2cCallbackTransport per ADR-0088). Workflow primitives + W2 channel impls per ADR-0050 |
 | `agent-evolve` | evolution | AgentEvolve | skeleton (Python ML; Java adapter deferred) |
 | `spring-ai-ascend-dependencies` | none | platform | shipped (BoM) |
 | `spring-ai-ascend-graphmemory-starter` | bus_state | AgentBus | shipped (graphmemory SPI scaffold; ADR-0034) |
@@ -122,9 +133,17 @@ spring-ai-ascend/
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-client.yaml
     src/main/java/ascend/springai/client/spi/  # placeholder SPI
 
-  agent-bus/                                   # NEW 2026-05-17: Bus & State Hub skeleton (bus_state plane; W2 impl per ADR-0050)
+  agent-bus/                                   # Bus & State Hub plane — cross-plane control surfaces in BOTH directions (bus_state plane; ADR-0050 + ADR-0088 + ADR-0089)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-bus.yaml
-    src/main/java/ascend/springai/bus/spi/     # placeholder SPI
+    src/main/java/ascend/springai/bus/spi/
+      ingress/                                 # NEW 2026-05-20 per ADR-0089: client-to-server ingress SPI
+        IngressGateway.java                    # the cross-plane C2S control surface; consumed by edge plane (agent-client) at W3+
+        IngressEnvelope.java                   # 6-required-field request shape (Rule R-C.c tenant scope)
+        IngressResponse.java                   # 4-field response carrying Task Cursor (Rule R-F) on ACCEPTED RUN_CREATE
+      s2c/                                     # NEW 2026-05-20 per ADR-0088 (relocated from agent-runtime-core): server-to-client S2C SPI
+        S2cCallbackTransport.java              # transport interface (ADR-0074)
+        S2cCallbackEnvelope.java               # 6-required-field S2C request shape
+        S2cCallbackResponse.java               # outcome enum + correlation fields
 
   agent-middleware/                            # NEW 2026-05-17: cross-cutting middleware (compute_control plane; ADR-0073)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-middleware.yaml
@@ -136,16 +155,24 @@ spring-ai-ascend/
         HookOutcome.java                       # sealed: Proceed | ShortCircuit | Fail
         RuntimeMiddleware.java                 # @FunctionalInterface
 
-  agent-execution-engine/                      # heterogeneous engine surface (compute_control plane; ADR-0072 / ADR-0079)
+  agent-execution-engine/                      # heterogeneous engine surface + orchestration SPI host (compute_control plane; ADR-0072 + ADR-0088)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-execution-engine.yaml
-    src/main/java/ascend/springai/engine/spi/  # ExecutorAdapter, GraphExecutor, AgentLoopExecutor, EngineHookSurface, EngineMatchingException (engine SPI extracted from agent-service per ADR-0079)
-    src/main/java/ascend/springai/service/runtime/engine/  # EngineRegistry, EngineEnvelope (engine implementation; package preserved per ADR-0079 §Consequences)
+    src/main/java/ascend/springai/engine/spi/  # ExecutorAdapter, GraphExecutor, AgentLoopExecutor, EngineHookSurface, EngineMatchingException (engine adapter SPI per ADR-0072)
+    src/main/java/ascend/springai/engine/orchestration/spi/   # NEW 2026-05-20 per ADR-0088 (relocated + renamed from agent-runtime-core/.../service.runtime.orchestration.spi):
+      RunMode.java                             # engine type discriminator (GRAPH | AGENT_LOOP); co-located with its orchestration SPI
+      Checkpointer.java                        # suspend-point persistence SPI
+      Orchestrator.java                        # top-level orchestration entry-point SPI
+      RunContext.java                          # per-run context interface
+      SuspendSignal.java                       # checked-suspension primitive with forClientCallback variant (ADR-0074 rc3 unification)
+      TraceContext.java                        # trace correlation carrier
+      ExecutorDefinition.java                  # sealed: GraphDefinition | AgentLoopDefinition
+    src/main/java/ascend/springai/service/runtime/engine/  # EngineRegistry, EngineEnvelope (engine implementation; package kept for rc4 cosmetic; rename to ascend.springai.engine.* deferred to W3+)
 
   agent-evolve/                                # NEW 2026-05-17: Java adapter skeleton for Python ML pipeline (evolution plane; ADR-0075)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-evolve.yaml
     src/main/java/ascend/springai/evolve/spi/  # placeholder SPI
 
-  agent-service/                               # Northbound facade (L1: HTTP, JWT, tenant, idempotency) + cognitive runtime impl (consolidated post-ADR-0078)
+  agent-service/                               # Northbound facade (L1: HTTP, JWT, tenant, idempotency) + cognitive runtime impl + runs/idempotency entities (rc13 re-consolidation per ADR-0088)
     src/main/java/ascend/springai/service/
       platform/                                # was `agent-platform/` pre-ADR-0078 (consolidated into agent-service per Phase C, 2026-05-18)
         PlatformApplication.java
@@ -154,20 +181,16 @@ spring-ai-ascend/
         idempotency/                           # IdempotencyHeaderFilter / Store / AutoConfiguration / Key / Constants
         persistence/                           # HealthCheckRepository
         probe/                                 # OssApiProbe
-      runtime/                                 # was `agent-runtime/` pre-ADR-0078 (consolidated) + post-ADR-0079 (kernel extracted to agent-runtime-core; engine SPI extracted to agent-execution-engine)
+      runtime/                                 # was `agent-runtime/` pre-Phase-C (consolidated per ADR-0078); rc13 re-consolidated the runs/idempotency kernel here from the dissolved agent-runtime-core per ADR-0088
         probe/                                 # OssApiProbe
+        runs/                                  # Run, RunStatus, RunStateMachine (relocated from agent-runtime-core per ADR-0088 dissolution)
+          spi/                                 # RunRepository — pure-Java SPI interface
+        idempotency/                           # IdempotencyRecord — Rule R-C.c contract spine (relocated from agent-runtime-core per ADR-0088)
         resilience/                            # impls: DefaultSkillResilienceContract, YamlResilienceContract, YamlSkillCapacityRegistry — SPI types moved to .spi/ per ADR-0080
           spi/                                 # ResilienceContract, ResiliencePolicy, SkillResolution, SuspendReason, SkillCapacityRegistry (extracted per ADR-0080, 2026-05-18)
         orchestration/inmemory/                # Reference adapters (posture-gated dev defaults): InMemoryCheckpointer, InMemoryRunRegistry, SyncOrchestrator, SequentialGraphExecutor, IterativeAgentLoopExecutor
+        s2c/                                   # InMemoryS2cCallbackTransport — reference impl consuming the S2C SPI relocated to agent-bus per ADR-0088
         memory/spi/                            # GraphMemoryRepository — interface only (W1+; ADR-0034/0082).
-
-  agent-runtime-core/                          # NEW 2026-05-18 per ADR-0079: shared kernel SPI types + entities (resolves the back-dep cycle).
-    src/main/java/ascend/springai/service/runtime/
-      runs/                                    # Run, RunMode, RunStatus, RunStateMachine — entity + DFA validator (moved here per ADR-0079; formerly at `agent-runtime/` pre-Phase-C)
-        spi/                                   # RunRepository — pure-Java SPI interface
-      orchestration/spi/                       # Orchestrator, RunContext, SuspendSignal (checked, with forClientCallback variant per ADR-0074 rc3 unification), Checkpointer, TraceContext, ExecutorDefinition sealed hierarchy (moved here per ADR-0079)
-      s2c/spi/                                 # S2cCallbackEnvelope, S2cCallbackTransport, S2cCallbackResponse (moved here in rc3 + ADR-0079; outcome enum inlined into S2cCallbackResponse)
-      idempotency/                             # IdempotencyRecord — Rule R-C.c contract spine
 
   spring-ai-ascend-graphmemory-starter/        # E2 adapter shell (Graphiti W1 ref per ADR-0034; auto-config disabled; full code W2)
     src/main/java/ascend/springai/runtime/graphmemory/
@@ -184,19 +207,24 @@ the shared kernel SPI types out of `agent-service.service.runtime.*` into the
 new `agent-runtime-core/` module so the back-dependency between engine and
 runtime kernel could be resolved without circular Maven references.
 
-Module dependency direction (enforced by `ApiCompatibilityTest`, `RuntimeMustNotDependOnPlatformTest`, `OrchestrationSpiArchTest`, `MemorySpiArchTest`, `SpiPurityGeneralizedArchTest` ArchUnit rules — post-ADR-0078/0079):
+Module dependency direction (enforced by `ApiCompatibilityTest`, `RuntimeMustNotDependOnPlatformTest`, `OrchestrationSpiArchTest`, `MemorySpiArchTest`, `SpiPurityGeneralizedArchTest`, and `EdgeToComputeDirectLinkArchTest` ArchUnit rules — post-ADR-0078 + ADR-0088 + ADR-0089):
 
 ```
-agent-service  ────────────►  agent-runtime-core, agent-execution-engine, agent-middleware,
+agent-service  ────────────►  agent-execution-engine, agent-bus, agent-middleware,
                               [Postgres / LLMs / sidecars]
 
-agent-execution-engine ───►  agent-runtime-core, [externals]
+agent-execution-engine ───►  agent-middleware, [externals only — self-contains
+                              engine.spi + engine.orchestration.spi]
 
-agent-middleware  ────────►  agent-runtime-core, [externals]
+agent-middleware  ────────►  [externals only — pure-Java SPI]
 
-agent-runtime-core  ──────►  [externals only — back-edge to runtime impl is forbidden]
+agent-bus  ──────────────►  [externals only — pure-Java SPI;
+                              owns ingress + s2c cross-plane surfaces]
 
-spring-ai-ascend-graphmemory-starter  ──►  agent-runtime-core SPI surfaces
+agent-client  ────────────►  agent-bus.spi.ingress (sole cross-plane consumption per Rule R-I.b);
+                              forbidden direct edges to compute_control plane (E143 + Rule 105)
+
+spring-ai-ascend-graphmemory-starter  ──►  agent-service SPI surfaces
 ```
 
 The original pre-Phase-C `agent-runtime → agent-platform` Maven dependency was

@@ -10,6 +10,7 @@ generated_at: 2026-05-18
 
 spi_packages:
   - ascend.springai.engine.spi
+  - ascend.springai.engine.orchestration.spi   # rc13: orchestration SPI relocated from dissolved agent-runtime-core per ADR-0088
 
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-execution-engine"
@@ -44,3 +45,4 @@ observability:
   audit_trail: "engine_dispatched / engine_mismatch span events emitted at registry resolve"
   spi_packages:
     - "ascend.springai.engine.spi"
+    - "ascend.springai.engine.orchestration.spi"

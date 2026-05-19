@@ -1,8 +1,8 @@
 package ascend.springai.engine.spi;
 
-import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
-import ascend.springai.service.runtime.orchestration.spi.RunContext;
-import ascend.springai.service.runtime.orchestration.spi.SuspendSignal;
+import ascend.springai.engine.orchestration.spi.ExecutorDefinition;
+import ascend.springai.engine.orchestration.spi.RunContext;
+import ascend.springai.engine.orchestration.spi.SuspendSignal;
 
 /**
  * SPI for ReAct-style iterative agent-loop execution. Pure Java — no Spring imports.

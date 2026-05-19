@@ -1,0 +1,177 @@
+id: ADR-0088
+title: "Dissolve agent-runtime-core; redistribute kernel SPI to semantic-home modules; align L0 reactor with 6-module narrative"
+status: accepted
+date: 2026-05-20
+level: L0
+view: development
+freeze_id: null
+
+supersedes:
+  - ADR-0079
+extends:
+  - ADR-0078
+relates_to:
+  - ADR-0072
+  - ADR-0073
+  - ADR-0074
+  - ADR-0089
+
+decision_one_liner: |
+  Dissolve agent-runtime-core. Redistribute its 16 production sources to the
+  modules that semantically own them: Run / RunStatus / RunStateMachine /
+  RunRepository / IdempotencyRecord -> agent-service; RunMode + 6
+  orchestration.spi types (renamed to engine.orchestration.spi) ->
+  agent-execution-engine; 3 s2c.spi types (renamed to bus.spi.s2c) ->
+  agent-bus. Reactor count returns from 9 to 8 modules, aligning with
+  the L0 six-substantive-module mental model (client/service/bus/engine/
+  middleware/evolve + BoM + GraphMemory starter).
+
+context: |
+  ADR-0079 (2026-05-18) introduced agent-runtime-core to break a back-dep
+  cycle that surfaced when ADR-0072 / T2.B2 extracted EngineRegistry +
+  ExecutorAdapter SPI into agent-execution-engine. The naive extraction
+  produced engine -> service (for Run / RunContext / SuspendSignal) AND
+  service -> engine (for EngineRegistry) — a cycle. agent-runtime-core
+  resolved it by hoisting the shared kernel types into a third module both
+  sides depend on.
+
+  By 2026-05-20 the cost of that resolution became visible:
+
+    1. Rule G-2.e / Rule 94 widening surfaced ~30 active-corpus surfaces
+       that all had to mention `agent-runtime-core` — a module the L0
+       mental model never acknowledged. The 6-module narrative in
+       ARCHITECTURE.md and developer onboarding diverged from the 9-module
+       physical reactor; every rc-wave kept rediscovering the gap.
+
+    2. Rule R-C sub-clause .c (Contract Spine Completeness) named
+       `agent-runtime-core/src/main/java/...` as its path scope; Rules
+       R-G and R-H still named `agent-service/...` as the runtime-kernel
+       scope. The asymmetry was a documentation smell traceable to
+       ADR-0079's mid-state.
+
+    3. The back-dep that motivated ADR-0079 has a cleaner fix: RunMode
+       is *the engine type discriminator* (GRAPH | AGENT_LOOP). Locating
+       it next to the orchestration SPI it discriminates over (in
+       agent-execution-engine) removes the cross-module reference from
+       orchestration.spi types entirely. With RunMode in engine, the
+       remaining edges are agent-service -> agent-execution-engine
+       (for orchestration SPI consumption) and agent-service -> agent-bus
+       (for S2C transport) — both already allowed.
+
+    4. Symmetric bus payoff (interlocks with ADR-0089): client -> server
+       ingress flows through bus.spi.ingress.IngressGateway. Server ->
+       client callback (S2C) historically lived in agent-runtime-core's
+       s2c.spi package. Co-locating s2c.spi in agent-bus alongside the
+       new ingress SPI makes the Bus & State Hub plane the single
+       cross-plane control surface in both directions — semantically
+       cleaner than scattering S2C ownership across kernel modules.
+
+decision: |
+  Wave 1 — file moves (single atomic PR):
+
+    From agent-runtime-core/src/main/java/ascend/springai/service/runtime/...
+    to agent-service/src/main/java/ascend/springai/service/runtime/...:
+      runs/Run.java
+      runs/RunStatus.java
+      runs/RunStateMachine.java
+      runs/spi/RunRepository.java
+      runs/spi/package-info.java
+      idempotency/IdempotencyRecord.java
+    (test):
+      runs/RunRecordTenantLibraryTest.java
+      runs/RunStateMachineLibraryTest.java
+
+    From agent-runtime-core/src/main/java/ascend/springai/service/runtime/...
+    to agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/...
+    (package renamed from service.runtime.orchestration.spi to engine.orchestration.spi):
+      runs/RunMode.java                       (relocated from runs/ into orchestration.spi sibling)
+      orchestration/spi/Checkpointer.java
+      orchestration/spi/Orchestrator.java
+      orchestration/spi/RunContext.java
+      orchestration/spi/SuspendSignal.java
+      orchestration/spi/TraceContext.java
+      orchestration/spi/ExecutorDefinition.java
+    (test):
+      orchestration/spi/SuspendSignalLibraryTest.java
+
+    From agent-runtime-core/src/main/java/ascend/springai/service/runtime/s2c/spi/...
+    to agent-bus/src/main/java/ascend/springai/bus/spi/s2c/...
+    (package renamed from service.runtime.s2c.spi to bus.spi.s2c):
+      S2cCallbackTransport.java
+      S2cCallbackEnvelope.java
+      S2cCallbackResponse.java
+    (test):
+      S2cCallbackEnvelopeLibraryTest.java
+
+  Wave 2 — Maven topology updates:
+    - Drop <module>agent-runtime-core</module> from root pom.xml.
+    - Drop <artifactId>agent-runtime-core</artifactId> dep-management rows
+      from root pom.xml and spring-ai-ascend-dependencies/pom.xml.
+    - agent-service/pom.xml: drop agent-runtime-core dep; add agent-bus dep
+      (for S2cCallbackTransport SPI imports).
+    - agent-execution-engine/pom.xml: drop agent-runtime-core dep (no
+      replacement — module self-contains its SPI now).
+    - Delete agent-runtime-core/ directory entirely (pom.xml, module-metadata.yaml,
+      ARCHITECTURE.md, src/, target/).
+
+  Wave 3 — module-metadata.yaml updates: see plan §1D.
+
+  Wave 4 — governance documentation updates:
+    - CLAUDE.md Rule R-C sub-clause .c: change scope path from
+      `agent-runtime-core/src/main/java/ascend/springai/service/runtime/**/*.java`
+      to `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java`.
+    - ARCHITECTURE.md root: module-layout table 9 rows -> 8 rows.
+    - docs/governance/architecture-status.yaml: repository_counts.reactor_modules
+      9 -> 8; internal_modules 7 -> 6; all `agent-runtime-core/...` paths in
+      capabilities.agent_runtime_kernel.implementation rewritten to
+      `agent-service/...`.
+    - docs/contracts/contract-catalog.md: SPI table relocates 4 rows;
+      Maven BoM 9-row -> 8-row; module-history bullet appended.
+    - docs/governance/enforcers.yaml: rows citing agent-runtime-core paths swept.
+    - gate/active-corpus-name-exemption-markers.txt: ADR-0088 token added so
+      historical references in release notes / reviews are legitimately marked.
+    - gate/active-corpus-name-exemption-paths.txt: drop the agent-runtime-core
+      exemption line (module deleted; no exemption needed).
+    - Rule 94 / Rule 98 self-extending deleted-module-name truth gates pick up
+      `agent-runtime-core` as a deleted-module name from the next rc-wave.
+
+  Wave 5 — supersede ADR-0079:
+    - ADR-0079.status: accepted -> superseded
+    - ADR-0079.superseded_by: [ADR-0088]
+
+consequences:
+  positive:
+    - "L0 six-module narrative regains alignment with the physical reactor (8 reactor modules = 6 substantive domain modules + BoM + GraphMemory starter)."
+    - "Cross-plane symmetry: agent-bus owns BOTH ingress (C2S, ADR-0089) and s2c (S2C, this ADR) transport SPIs — Bus & State Hub plane is now the single cross-plane control surface."
+    - "Rule R-C sub-clause .c scope path returns to a kernel-runtime module that ships HTTP routes (agent-service) — symmetric with R-G/R-H."
+    - "Rule G-2.e / Rule 94 sweep surface shrinks: agent-runtime-core moves from active-corpus-name (with exemption markers) to fully-deleted-module-name (Rule 94 / Rule 98 catch any reappearance)."
+    - "agent-execution-engine is fully self-contained: declares all its orchestration vocabulary in engine.orchestration.spi instead of pulling it from a sibling kernel module."
+    - "Future SDK release wave (W3+) lands against a clean 6-module L0 diagram; no extra kernel-module to explain in onboarding."
+  negative:
+    - "Migration touches ~50 files (15 java moves + ~37 import rewrites + ~10 metadata/governance docs). Single atomic PR is the right shape but review surface is large."
+    - "Package rename from service.runtime.orchestration.spi -> engine.orchestration.spi and service.runtime.s2c.spi -> bus.spi.s2c is a source-incompatible change for any external consumer pinning prior snapshots. Binary BoM was 0.1.0-SNAPSHOT so no SemVer guarantee was in flight; documented in release note."
+    - "Java types under ascend.springai.service.runtime.* are now distributed across two modules (agent-service owns runs/idempotency; agent-execution-engine owns engine/EngineRegistry impl, plus engine.orchestration.spi). Split-package risk neutralised by the rename (engine.orchestration.spi is its own namespace), but the convention is no longer 'package prefix = module prefix' for legacy paths. Out-of-scope future cleanup: rename agent-service.service.runtime.* to plain ascend.springai.runs / .idempotency."
+  net:
+    - "Net break-even on reactor count vs T2.A scaffolding (was 6 substantive modules before T2.B2 = 9 reactor modules pre-rc13 = 8 reactor modules post-rc13). The rc13 wave is structural cleanup, not a feature change."
+
+alternatives_considered:
+  - alternative: "Keep agent-runtime-core; widen Rule R-G + R-H scope to also name agent-runtime-core; update ARCHITECTURE.md to declare 7 substantive modules."
+    why_rejected: "Locks the 7-module narrative into the L0 docs forever. Forces every future rc-wave to maintain dual numerics (6 conceptual / 7 physical / 9 total). Adds long-term doc tax for a module that ships zero unique architectural intent — every type agent-runtime-core hosts has a clean semantic home in one of the 6 substantive modules. Cited 30+ active-corpus surfaces that already drift on this gap as evidence the lock-in cost is real."
+  - alternative: "Refactor SuspendSignal + RunContext to drop their RunMode dependency, then keep RunMode in agent-service's runs/ package."
+    why_rejected: "Either degrades type safety (typing childMode as Object) or pushes complexity into every executor adapter (mapping String<->RunMode). Co-locating RunMode with the orchestration SPI it discriminates over is the semantically natural answer."
+
+verification:
+  cli:
+    - "./mvnw clean verify -T1C -> BUILD SUCCESS across 8 reactor modules"
+    - "bash gate/check_parallel.sh -> all rules PASS (incl. new Rule 105 edge_no_direct_compute_link)"
+    - "bash gate/test_architecture_sync_gate.sh -> all fixtures PASS"
+    - "python gate/build_architecture_graph.py --check -> idempotent regeneration"
+  gate:
+    - "module_count_invariant -> reactor_modules now 8 (was 9)"
+    - "module_metadata_present_and_complete -> 8 modules pass; agent-runtime-core/module-metadata.yaml gone"
+    - "dfx_yaml_present_and_wellformed -> docs/dfx/agent-runtime-core.yaml deleted"
+    - "Rule 92 (gate/rules/ file-keyed-by-unique-rule-id) -> rule-105.sh added"
+    - "Rule R-D sub-clause .e (DFX↔SPI parity) -> agent-execution-engine.dfx.yaml spi_packages updated (+ engine.orchestration.spi); agent-bus.dfx.yaml updated (+ bus.spi.ingress + bus.spi.s2c)"
+
+enforcer_rows: []
+gate_rules: []

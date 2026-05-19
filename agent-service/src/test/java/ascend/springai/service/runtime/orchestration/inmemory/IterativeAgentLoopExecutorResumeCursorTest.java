@@ -1,11 +1,11 @@
 package ascend.springai.service.runtime.orchestration.inmemory;
 
 import ascend.springai.service.runtime.orchestration.NoopTraceContext;
-import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
-import ascend.springai.service.runtime.orchestration.spi.RunContext;
-import ascend.springai.service.runtime.orchestration.spi.SuspendSignal;
-import ascend.springai.service.runtime.orchestration.spi.TraceContext;
-import ascend.springai.service.runtime.runs.RunMode;
+import ascend.springai.engine.orchestration.spi.ExecutorDefinition;
+import ascend.springai.engine.orchestration.spi.RunContext;
+import ascend.springai.engine.orchestration.spi.SuspendSignal;
+import ascend.springai.engine.orchestration.spi.TraceContext;
+import ascend.springai.engine.orchestration.spi.RunMode;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -35,7 +35,7 @@ class IterativeAgentLoopExecutorResumeCursorTest {
         return new RunContext() {
             @Override public UUID runId() { return runId; }
             @Override public String tenantId() { return "test-tenant"; }
-            @Override public ascend.springai.service.runtime.orchestration.spi.Checkpointer checkpointer() { return checkpointer; }
+            @Override public ascend.springai.engine.orchestration.spi.Checkpointer checkpointer() { return checkpointer; }
             @Override public String traceId() { return trace.traceId(); }
             @Override public String spanId() { return trace.spanId(); }
             @Override public String sessionId() { return trace.sessionId(); }

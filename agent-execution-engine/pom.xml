@@ -1,24 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  agent-execution-engine — heterogeneous engine surface (per ADR-0072).
+  agent-execution-engine — heterogeneous engine surface + orchestration SPI host (per ADR-0072 + ADR-0088).
 
-  Status (post-2026-05-18): Engine SPI + EngineRegistry + EngineEnvelope
-  extracted from agent-service per ADR-0079. Code lives under:
-    - ascend.springai.engine.spi.*  (ExecutorAdapter, GraphExecutor,
-                                     AgentLoopExecutor, EngineHookSurface,
-                                     EngineMatchingException)
-    - ascend.springai.service.runtime.engine.*  (EngineRegistry,
-                                                 EngineEnvelope)
-  Reference adapters (SequentialGraphExecutor, IterativeAgentLoopExecutor)
-  stay in agent-service.runtime because they wire Run/RunContext from the
-  runtime kernel. The back-dep cycle was resolved by introducing the
-  shared agent-runtime-core module (ADR-0079).
+  Status (post-rc13, 2026-05-20): Engine SPI + EngineRegistry + EngineEnvelope
+  + orchestration SPI all live here. Code lives under:
+    - ascend.springai.engine.spi.*                (ExecutorAdapter, GraphExecutor,
+                                                   AgentLoopExecutor, EngineHookSurface,
+                                                   EngineMatchingException)
+    - ascend.springai.engine.orchestration.spi.*  (RunMode, RunContext, SuspendSignal,
+                                                   Checkpointer, Orchestrator, TraceContext,
+                                                   ExecutorDefinition — moved here from
+                                                   the dissolved agent-runtime-core module
+                                                   per ADR-0088)
+    - ascend.springai.service.runtime.engine.*    (EngineRegistry, EngineEnvelope —
+                                                   implementations; will be renamed in W3+)
+  Reference adapters (SequentialGraphExecutor, IterativeAgentLoopExecutor) stay in
+  agent-service.runtime because they wire Run/RunStateMachine (which live in agent-service).
 
-  Why this module exists separately: ADR-0072 / Rule 43 declare the engine
+  Why this module exists separately: ADR-0072 / Rule R-M.a declare the engine
   contract as an independent surface (Graph / AgentLoop today, room for
-  Multi-Agent / Temporal-driven engines in W3+). Pulling it into its own
-  module lets the AgentExecutionEngine team own engine evolution without
-  conflicting with AgentService / Middleware work.
+  Multi-Agent / Temporal-driven engines in W3+).
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -36,15 +37,16 @@
   <description>Heterogeneous execution engine surface — EngineRegistry / EngineEnvelope / ExecutorAdapter / ExecutorDefinition + Graph/AgentLoop adapters (ADR-0072).</description>
 
   <dependencies>
-    <!-- Engine references Run/RunContext/SuspendSignal from shared core (per ADR-0079). -->
-    <dependency>
-      <groupId>ascend.springai</groupId>
-      <artifactId>agent-runtime-core</artifactId>
-    </dependency>
+    <!-- Engine self-contains its orchestration SPI (RunMode/RunContext/SuspendSignal) per ADR-0088. -->
     <!-- Engine references the HookPoint enum + RuntimeMiddleware listener -->
     <dependency>
       <groupId>ascend.springai</groupId>
       <artifactId>agent-middleware</artifactId>
+    </dependency>
+    <!-- Engine registry consumes S2cCallbackTransport SPI from bus.spi.s2c per ADR-0088. -->
+    <dependency>
+      <groupId>ascend.springai</groupId>
+      <artifactId>agent-bus</artifactId>
     </dependency>
     <!-- snakeyaml for envelope-schema parsing in EngineRegistry. -->
     <dependency>

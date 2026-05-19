@@ -13,6 +13,8 @@ related_adrs:
 
 # v2.0.0-rc12 Corrective Release — L0 authority ratchet + deploy-truth + contract truth + terminal-verb scope
 
+> **Historical artifact frozen at SHA ede4f69** (rc12 release sha; superseded by v2.0.0-rc13 on 2026-05-20 per `docs/logs/releases/2026-05-20-l0-rc13-runtime-core-dissolution-and-ingress-mandate.en.md`). Baseline counts in the table below reflect the rc12 baseline (86 ADRs / 116 gate rules / 142 enforcer rows / 180 self-tests); the live canonical baseline post-rc13 is 88 ADRs / 117 gate rules / 144 enforcer rows / 182 self-tests per `docs/governance/architecture-status.yaml#baseline_metrics`.
+
 ## Summary
 
 rc12 closes 11 cited findings (6 P1 + 5 P2) from the 2026-05-19 Codex post-rc11 contract / authority / constraint systematic review (`docs/logs/reviews/2026-05-19-l0-rc11-contract-authority-constraint-systematic-review.en.md`). The reviewer's overdesign assessment was favorable — the core agent architecture (engine envelope / hook / S2C / memory ownership / dynamic-planning-as-design-only) is directionally sound and is left untouched. The corrective wave is concentrated in governance / contract / ops surfaces where the rc11 ratchet partially landed plus active operational artefacts that the existing prevention rules did not yet cover.

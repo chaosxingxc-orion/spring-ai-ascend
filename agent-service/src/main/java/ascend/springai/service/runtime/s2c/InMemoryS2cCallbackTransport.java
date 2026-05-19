@@ -1,8 +1,8 @@
 package ascend.springai.service.runtime.s2c;
 
-import ascend.springai.service.runtime.s2c.spi.S2cCallbackEnvelope;
-import ascend.springai.service.runtime.s2c.spi.S2cCallbackResponse;
-import ascend.springai.service.runtime.s2c.spi.S2cCallbackTransport;
+import ascend.springai.bus.spi.s2c.S2cCallbackEnvelope;
+import ascend.springai.bus.spi.s2c.S2cCallbackResponse;
+import ascend.springai.bus.spi.s2c.S2cCallbackTransport;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;

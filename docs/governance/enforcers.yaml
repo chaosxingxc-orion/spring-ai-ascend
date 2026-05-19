@@ -1082,7 +1082,7 @@
   level: L0
   view: development
   artifact: gate/check_architecture_sync.sh#status_yaml_allowed_claim_module_name_truth
-  asserts: "Every line in docs/governance/architecture-status.yaml matching ^[[:space:]]+allowed_claim:[[:space:]]* whose extracted value contains a word-boundary match for agent-platform or agent-runtime (negative-filtered against agent-runtime-core) MUST have one of the markers (historical, pre-ADR-NNNN, pre-Phase-C, consolidated into, consolidated from, merged into, merged in, was rooted, formerly, superseded, deprecated, archived, moved, post-ADR-NNNN) present within +/-3 lines of the same yaml file. Closes rc6 post-response P1-2: ledger allowed_claim text cannot drift to deleted module names while structured repository_counts correctly declares the post-ADR-0078 9-module topology."
+  asserts: "Every line in docs/governance/architecture-status.yaml matching ^[[:space:]]+allowed_claim:[[:space:]]* whose extracted value contains a word-boundary match for agent-platform, agent-runtime, or agent-runtime-core (all three deleted-module names post-rc13 / ADR-0088) MUST have one of the markers (historical, pre-ADR-NNNN, pre-Phase-C, consolidated into, consolidated from, merged into, merged in, was rooted, formerly, superseded, deprecated, archived, moved, post-ADR-NNNN, dissolution, dissolved, relocated, rc13) present within +/-3 lines of the same yaml file. Closes rc6 post-response P1-2 + rc13 dissolution widening."
 
 - id: E121
   constraint_ref: "CLAUDE.md Rule G-5 sub-clause .a (serial_parallel_gate_slug_parity); rc7 post-corrective review P0-2; ADR-0082"
@@ -1154,7 +1154,7 @@
   level: L0
   view: development
   artifact: gate/check_architecture_sync.sh#active_corpus_deleted_module_name_truth
-  asserts: "Active corpus (`.md`, `.yaml`, `*.java` files outside docs/archive/, docs/logs/reviews/, docs/logs/releases/2026-05-1[0-7]-*.md, fenced code blocks, yaml comment lines) MUST NOT contain word-boundary current-tense `agent-platform` or `agent-runtime` (negative-filtered against `agent-runtime-core`) without a historical marker (historical, pre-ADR-NNNN, pre-Phase-C, consolidated into, merged into, was rooted, formerly, superseded, deprecated, archived, moved, extracted per ADR-NNNN, post-ADR-NNNN) within ±3 lines. Widens Rule G-2 sub-clause .e (which only covered architecture-status.yaml#allowed_claim) to root constraints, rule cards, and test Javadocs. Closes rc8 post-corrective P1-3."
+  asserts: "Active corpus (`.md`, `.yaml`, `*.java` files outside docs/archive/, docs/logs/reviews/, docs/logs/releases/2026-05-1[0-7]-*.md, fenced code blocks, yaml comment lines) MUST NOT contain word-boundary current-tense `agent-platform`, `agent-runtime`, or `agent-runtime-core` (all three deleted-module names post-rc13 / ADR-0088) without a historical marker (historical, pre-ADR-NNNN, pre-Phase-C, consolidated into, merged into, was rooted, formerly, superseded, deprecated, archived, moved, extracted per ADR-NNNN, post-ADR-NNNN, dissolution, dissolved, relocated, rc13) within ±3 lines. Widens Rule G-2 sub-clause .e (which only covered architecture-status.yaml#allowed_claim) to root constraints, rule cards, and test Javadocs. Closes rc8 post-corrective P1-3 + rc13 dissolution widening."
 
 - id: E130
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .f (active_corpus_deleted_module_name_truth); ADR-0083"
@@ -1259,3 +1259,19 @@
   view: process
   artifact: gate/test_architecture_sync_gate.sh#test_rule_100_disjunction_pos
   asserts: "Positive + negative self-test fixtures for Rule G-3 sub-clause .f. Positive: synthetic Rule G-3 sub-clause .d kernel + card both saying `EITHER the kernel block OR the rule card` → pass. Negative: synthetic Rule G-3 sub-clause .d kernel saying only `the kernel block MUST contain` with `96` in the allow-list → fail (kernel=0)."
+
+- id: E143
+  constraint_ref: "CLAUDE.md Rule R-I sub-clause .b (Edge↔Compute Ingress Routing); ADR-0089"
+  kind: archunit
+  level: L0
+  view: physical
+  artifact: agent-client/src/test/java/ascend/springai/client/architecture/EdgeToComputeDirectLinkArchTest.java
+  asserts: "no class under ascend.springai.client.. imports any class under ascend.springai.{service,engine,middleware}.. — enforces Rule R-I.b at the bytecode level. Vacuous-but-armed at W1 (agent-client is skeleton). When the W3+ SDK lands, this test starts gating PRs that try direct compute_control plane access."
+
+- id: E144
+  constraint_ref: "CLAUDE.md Rule R-I sub-clause .b (Edge↔Compute Ingress Routing); ADR-0089"
+  kind: gate-script
+  level: L0
+  view: physical
+  artifact: gate/check_architecture_sync.sh#edge_no_direct_compute_link
+  asserts: "Rule 105 — for every agent-*/module-metadata.yaml whose deployment_plane is `edge`, NO .java file under <module>/src/main/java/**/*.java may carry an `import ascend.springai.{service,engine,middleware}.*` line, AND NO file may construct a RestTemplate or WebClient targeting a host other than the bus ingress endpoint. Source-level guard complementing E143 (bytecode-level)."

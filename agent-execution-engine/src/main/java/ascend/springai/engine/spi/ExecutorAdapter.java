@@ -1,8 +1,8 @@
 package ascend.springai.engine.spi;
 
-import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
-import ascend.springai.service.runtime.orchestration.spi.RunContext;
-import ascend.springai.service.runtime.orchestration.spi.SuspendSignal;
+import ascend.springai.engine.orchestration.spi.ExecutorDefinition;
+import ascend.springai.engine.orchestration.spi.RunContext;
+import ascend.springai.engine.orchestration.spi.SuspendSignal;
 
 /**
  * Uniform dispatch surface for every execution engine known to the runtime.

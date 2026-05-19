@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  agent-service: consolidated HTTP edge + cognitive runtime kernel.
+  agent-service: consolidated HTTP edge + cognitive runtime kernel + Run/RunStateMachine/IdempotencyRecord owner.
 
-  Authority: ADR-0078 (agent-service consolidation, supersedes ADR-0055,
-  extends ADR-0066). This POM merges the prior agent-platform + agent-runtime
-  POMs. The cross-module dependency (agent-platform -> agent-runtime) becomes
-  intra-module and is removed. All other deps are union-merged with deduplication.
+  Authority: ADR-0078 (agent-service consolidation), ADR-0088 (agent-runtime-core dissolution).
+  Post-rc13 (2026-05-20): Run / RunStatus / RunStateMachine / RunRepository / IdempotencyRecord
+  re-consolidated here after agent-runtime-core dissolved per ADR-0088. Orchestration SPI now
+  lives in agent-execution-engine (engine.orchestration.spi); s2c SPI in agent-bus (bus.spi.s2c).
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -23,15 +23,15 @@
   <description>Combined HTTP edge + cognitive runtime kernel. Sub-package layering: service.platform owns HTTP/JWT/idempotency/tenant; service.runtime owns orchestration SPI + Run lifecycle + reference executors.</description>
 
   <dependencies>
-    <!-- Sibling module: agent-runtime-core (shared kernel types per ADR-0079). -->
-    <dependency>
-      <groupId>ascend.springai</groupId>
-      <artifactId>agent-runtime-core</artifactId>
-    </dependency>
-    <!-- Sibling module: agent-execution-engine (EngineRegistry + executor SPIs per ADR-0072 + T2.B2). -->
+    <!-- Sibling module: agent-execution-engine (EngineRegistry + ExecutorAdapter SPI + orchestration SPI per ADR-0072 + ADR-0088). -->
     <dependency>
       <groupId>ascend.springai</groupId>
       <artifactId>agent-execution-engine</artifactId>
+    </dependency>
+    <!-- Sibling module: agent-bus (S2cCallbackTransport SPI + IngressGateway SPI per ADR-0088 + ADR-0089). -->
+    <dependency>
+      <groupId>ascend.springai</groupId>
+      <artifactId>agent-bus</artifactId>
     </dependency>
     <!-- Sibling module: middleware (HookPoint/RuntimeMiddleware/HookDispatcher per ADR-0073). -->
     <dependency>

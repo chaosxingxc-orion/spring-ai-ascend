@@ -41,3 +41,17 @@ Rule 87 \(rc7\)
 forbidden_dependencies
 forbidden imports
 Forbidden imports
+
+# rc13 (2026-05-20) — ADR-0088 dissolved agent-runtime-core. All three module names
+# (agent-platform, agent-runtime, agent-runtime-core) are deleted-module names from
+# rc13 forward; references on active surfaces require a historical marker. The
+# markers below are accepted as legitimising dissolution context windows.
+ADR-0088
+ADR-0089
+dissolution
+dissolved
+relocated
+relocate
+re-consolidated
+re-consolidation
+rc13

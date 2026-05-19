@@ -1,21 +1,22 @@
 # Module metadata for agent-service.
-# Required by CLAUDE.md Rule 31 (Independent Module Evolution).
-# Authority: ADR-0078 (agent-service consolidation), ADR-0066 (Independent Module Evolution).
+# Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
+# Authority: ADR-0078 (agent-service consolidation), ADR-0088 (agent-runtime-core dissolution).
 # Enforced by gate rule module_metadata_present_and_complete.
 
 module: agent-service
 kind: domain
 version: 0.1.0-SNAPSHOT
 semver_compatibility: 0.x
-description: "Combined HTTP edge + reference adapter host. Sub-package layering: service.platform owns HTTP/JWT/idempotency/tenant + persistence + probes; service.runtime owns memory.spi + resilience.spi + posture-gated reference (inmemory) executors and adapters (SyncOrchestrator, SequentialGraphExecutor, IterativeAgentLoopExecutor, InMemoryRunRegistry, InMemoryCheckpointer, DefaultSkillResilienceContract, YamlResilienceContract, YamlSkillCapacityRegistry). Orchestration/runs/s2c SPI extracted to agent-runtime-core per ADR-0079; module shape consolidated from agent-platform + agent-runtime per ADR-0078; canonical SPI ownership pinned by ADR-0082."
+description: "Combined HTTP edge + reference adapter host + runtime entity owner. Sub-package layering: service.platform owns HTTP/JWT/idempotency-filter/tenant + persistence + probes; service.runtime owns Run/RunStateMachine/IdempotencyRecord entities + runs.spi RunRepository SPI + memory.spi + resilience.spi + posture-gated reference (inmemory) executors and adapters (SyncOrchestrator, SequentialGraphExecutor, IterativeAgentLoopExecutor, InMemoryRunRegistry, InMemoryCheckpointer, DefaultSkillResilienceContract, YamlResilienceContract, YamlSkillCapacityRegistry, InMemoryS2cCallbackTransport, NoopTraceContext). Orchestration SPI canonical owner: agent-execution-engine (engine.orchestration.spi per ADR-0088). S2C SPI canonical owner: agent-bus (bus.spi.s2c per ADR-0088). Module shape consolidated from agent-platform + agent-runtime per ADR-0078; runtime kernel entities re-consolidated from agent-runtime-core per ADR-0088."
 architecture_doc: agent-service/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-service.yaml
 spi_packages:
   - ascend.springai.service.runtime.memory.spi
-  - ascend.springai.service.runtime.resilience.spi   # ResilienceContract + value types promoted to .spi per ADR-0080
+  - ascend.springai.service.runtime.resilience.spi
+  - ascend.springai.service.runtime.runs.spi   # RunRepository ownership consolidated here per ADR-0088
 allowed_dependencies:
-  - agent-runtime-core
-  - agent-execution-engine
+  - agent-execution-engine    # engine SPI + orchestration SPI (RunMode, RunContext, SuspendSignal, ...) per ADR-0088
+  - agent-bus                 # S2cCallbackTransport SPI + IngressGateway SPI per ADR-0088 + ADR-0089
   - agent-middleware
 forbidden_dependencies: []
 deployment_plane: compute_control

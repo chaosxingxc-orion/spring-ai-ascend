@@ -1,28 +1,29 @@
 # Module metadata for agent-execution-engine.
-# Required by CLAUDE.md Rule 31 (Independent Module Evolution).
-# Authority: ADR-0066 + ADR-0072 (Engine Envelope + Strict Matching).
+# Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
+# Authority: ADR-0066 + ADR-0072 (Engine Envelope + Strict Matching) + ADR-0088 (agent-runtime-core dissolution).
 # Enforced by gate rule module_metadata_present_and_complete.
 
 module: agent-execution-engine
 kind: domain             # platform | domain | starter | bom | sample
 version: 0.0.1-SNAPSHOT
 semver_compatibility: experimental
-description: "Heterogeneous execution engine surface — EngineRegistry, EngineEnvelope, ExecutorAdapter/Definition, Graph/AgentLoop reference adapters. Extracted from agent-runtime/engine + orchestration.spi per T2.B2."
+description: "Heterogeneous execution engine module + orchestration SPI host. Owns: EngineRegistry, EngineEnvelope, ExecutorAdapter / GraphExecutor / AgentLoopExecutor / EngineHookSurface / EngineMatchingException (engine.spi); RunMode + Checkpointer / Orchestrator / RunContext / SuspendSignal / TraceContext / ExecutorDefinition (engine.orchestration.spi — relocated here from agent-runtime-core per ADR-0088 dissolution). Reference adapters live in agent-service."
 architecture_doc: agent-execution-engine/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-execution-engine.yaml
 spi_packages:
-  # Sole owner of the engine-adapter SPI (ExecutorAdapter + GraphExecutor +
-  # AgentLoopExecutor + EngineHookSurface + EngineMatchingException). The
-  # kernel-side SPI (RunContext / ExecutorDefinition / SuspendSignal) lives
-  # in agent-runtime-core under service.runtime.orchestration.spi — adapter
-  # signatures reference it via cross-module SPI import (allowed under Rule 32 + E48).
+  # Engine-adapter SPI (ExecutorAdapter + GraphExecutor + AgentLoopExecutor +
+  # EngineHookSurface + EngineMatchingException). Self-contained: orchestration
+  # SPI now lives in the sibling package below.
   - ascend.springai.engine.spi
+  # Orchestration SPI (RunMode + RunContext + SuspendSignal + Checkpointer +
+  # Orchestrator + TraceContext + ExecutorDefinition) — moved here per ADR-0088
+  # to break the back-dep that originally motivated agent-runtime-core's existence.
+  - ascend.springai.engine.orchestration.spi
 allowed_dependencies:
-  - agent-runtime-core     # shared kernel types (Run, RunContext, SuspendSignal) per ADR-0079
   - agent-middleware       # engine references HookPoint enum + RuntimeMiddleware listener
+  - agent-bus              # engine registry consumes S2cCallbackTransport SPI from bus.spi.s2c per ADR-0088 (relocated from dissolved agent-runtime-core)
 forbidden_dependencies:
   - agent-service          # engine is upstream of agent-service; reverse direction forbidden
-  - agent-bus
   - agent-client
   - agent-evolve
-deployment_plane: compute_control   # Rule 39 / P-I — engine runs in-process with the runtime kernel
+deployment_plane: compute_control   # Rule R-I / P-I — engine runs in-process with the runtime kernel

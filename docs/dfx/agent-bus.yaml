@@ -9,7 +9,11 @@
 module: agent-bus
 kind: domain
 version: 1
-generated_at: 2026-05-17
+generated_at: 2026-05-20
+
+spi_packages:
+  - ascend.springai.bus.spi.ingress       # IngressGateway + IngressEnvelope + IngressResponse (ADR-0089 rc13)
+  - ascend.springai.bus.spi.s2c           # S2cCallbackTransport + S2cCallbackEnvelope + S2cCallbackResponse (relocated from dissolved agent-runtime-core per ADR-0088 rc13)
 
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-bus"

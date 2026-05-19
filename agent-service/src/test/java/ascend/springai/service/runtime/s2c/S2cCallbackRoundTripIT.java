@@ -6,12 +6,12 @@ import ascend.springai.service.runtime.orchestration.inmemory.InMemoryRunRegistr
 import ascend.springai.service.runtime.orchestration.inmemory.IterativeAgentLoopExecutor;
 import ascend.springai.service.runtime.orchestration.inmemory.SequentialGraphExecutor;
 import ascend.springai.service.runtime.orchestration.inmemory.SyncOrchestrator;
-import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
-import ascend.springai.service.runtime.orchestration.spi.SuspendSignal;
+import ascend.springai.engine.orchestration.spi.ExecutorDefinition;
+import ascend.springai.engine.orchestration.spi.SuspendSignal;
 import ascend.springai.service.runtime.resilience.spi.SuspendReason;
 import ascend.springai.service.runtime.runs.RunStatus;
-import ascend.springai.service.runtime.s2c.spi.S2cCallbackEnvelope;
-import ascend.springai.service.runtime.s2c.spi.S2cCallbackResponse;
+import ascend.springai.bus.spi.s2c.S2cCallbackEnvelope;
+import ascend.springai.bus.spi.s2c.S2cCallbackResponse;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

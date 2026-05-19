@@ -24,12 +24,17 @@
 
   <artifactId>agent-client</artifactId>
   <name>agent-client</name>
-  <description>Edge Access plane — Client SDK skeleton (W3+ implementation per ADR-0049). Currently empty by design.</description>
+  <description>Edge Access plane — Client SDK skeleton (W3+ implementation per ADR-0049). All cross-plane traffic MUST route through agent-bus.spi.ingress.IngressGateway per ADR-0089 / Rule R-I.b.</description>
 
   <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

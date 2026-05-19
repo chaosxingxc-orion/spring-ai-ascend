@@ -1,6 +1,8 @@
 id: ADR-0079
 title: "T2.B2 engine extraction with shared agent-runtime-core (resolves the Run/RunContext back-dep)"
-status: accepted
+status: superseded
+superseded_by:
+  - ADR-0088
 date: 2026-05-18
 level: L1
 view: development

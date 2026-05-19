@@ -166,3 +166,67 @@ The following content moved out of `CLAUDE.md` into this file:
 - **ADR-0083** "rc8 post-corrective response: baseline taxonomy + orphan-authority retirement + SPI catalog exhaustiveness + kernel-deferred coherence + CI as release-acceptance gate" — authoritative record of the rc9 wave; accepts all 7 findings of `docs/logs/reviews/2026-05-18-l0-rc8-post-corrective-architecture-review.en.md` (Codex, 2026-05-18); H-α/H-β/H-γ/H-δ/H-ε family taxonomy. Records the alternative considered for Rule 90 (release-note CI evidence) and its deferral to the next wave.
 - **CI-green restoration** — bundled into the same wave: dropped `@ConditionalOnMissingBean(AsyncRunDispatcher.class)` from `NoOpAsyncRunDispatcher` (annotation unreliable on `@Component`); dropped `@ConditionalOnBean(DataSource.class)` from `IdempotencyStoreAutoConfiguration#jdbcIdempotencyStore` (Spring Boot 4 ordering hazard); added `@ConditionalOnWebApplication(type = SERVLET)` to `WebSecurityConfig`; added JdbcIdempotencyStore fixture to `PostureBindingIT.RunRepositoryFixture`; declared dummy `spring.ai.openai.api-key` + `spring.ai.anthropic.api-key` in `application.yml` for Spring AI 2.0.0-M5 eager autoconfig; annotated `RunResponse` record components with `@Schema(requiredMode = REQUIRED)`. First green CI run on `main` since rc1 (previously 48/50 runs failed).
 - **Orphan-authority retirement** — `docs/STATE.md` archived to `docs/archive/2026-05-19-STATE-md-archived/STATE.md` with non-authoritative front-matter banner; `docs/dfx/agent-platform.yaml` deleted (orphan after ADR-0078).
+
+---
+
+## 2026-05-20 — rc13 wave: dissolve agent-runtime-core + lock client→bus→server ingress
+
+Authority: ADR-0088 (agent-runtime-core dissolution) + ADR-0089 (Edge-Plane Ingress Gateway Mandate). Plan: D:/.claude/plans/l0-agent-runtime-core-agent-client-agen-staged-kay.md.
+
+### Structural changes
+
+- **Reactor 9 → 8 modules.** ADR-0088 dissolved `agent-runtime-core`. Its 16 production Java sources (+ 4 tests) were redistributed:
+  - `Run / RunStatus / RunStateMachine / RunRepository (+ package-info) / IdempotencyRecord` → `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**` (same package paths).
+  - `RunMode + 6 orchestration SPI types (Checkpointer / Orchestrator / RunContext / SuspendSignal / TraceContext / ExecutorDefinition)` → `agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/**` (renamed from `service.runtime.orchestration.spi`).
+  - `S2cCallbackTransport / S2cCallbackEnvelope / S2cCallbackResponse` → `agent-bus/src/main/java/ascend/springai/bus/spi/s2c/**` (renamed from `service.runtime.s2c.spi`).
+- **ADR-0079 superseded** by ADR-0088. `superseded_by: [ADR-0088]` added.
+- **New cross-plane control surface**: ADR-0089 adds `ascend.springai.bus.spi.ingress.IngressGateway` SPI + `IngressEnvelope` + `IngressResponse` + `docs/contracts/ingress-envelope.v1.yaml` (status `design_only`; runtime binding W3+ with agent-client SDK). Symmetric with ADR-0088's `bus.spi.s2c` placement: bus plane owns the entirety of cross-plane traffic in both directions (C2S + S2C).
+
+### Rule changes
+
+- **Rule R-C sub-clause .c** (Contract Spine Completeness): path scope updated from `agent-runtime-core/src/main/java/ascend/springai/service/runtime/**/*.java` to `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java`. Authority refs: `ADR-0079` dropped, `ADR-0088` added.
+- **Rule R-I** (Five-Plane Manifest): sub-clause `.b` ADDED — "Edge↔Compute Ingress Routing" per ADR-0089. Modules whose `deployment_plane` is `edge` MUST NOT import any production class under `ascend.springai.{service,engine,middleware}..` and MUST NOT invoke compute_control HTTP routes directly; cross-plane traffic flows through `bus.spi.ingress.IngressGateway`. Enforcer E143 (ArchUnit `EdgeToComputeDirectLinkArchTest`) + gate Rule 105 (`edge_no_direct_compute_link`, enforcer E144).
+- **Rule 11** (`contract_spine_tenant_id_required`): path scope updated alongside Rule R-C.c — now scans `agent-service/.../runs/` and `agent-service/.../idempotency/` (was `agent-runtime-core/.../service/runtime/`).
+- **Rule 28e** (`module_count_invariant`): expected count 9 → 8 (BoM + 6 substantive domain modules + GraphMemory starter).
+- **Rule 87** (`status_yaml_allowed_claim_module_name_truth`): deleted-module-name set widened to include `agent-runtime-core`. Marker vocabulary extended with `dissolution|dissolved|relocated|rc13|ADR-0088|ADR-0089`.
+- **Rule 94** (`active_corpus_deleted_module_name_truth`): awk pattern widened — now scans for `agent-platform | agent-runtime | agent-runtime-core` (all three deleted-module names post-rc13). Marker vocabulary externalised file (`gate/active-corpus-name-exemption-markers.txt`) extended.
+- **Rule 98** (`broad_corpus_deleted_module_name_truth`): same widening as Rule 94 in the awk pattern.
+
+### New gate rules
+
+- **Rule 105** (`edge_no_direct_compute_link`, enforcer E144): source-grep complement to E143 ArchUnit. Scans `<module>/src/main/java/**/*.java` for every `deployment_plane: edge` module — fails closed on forbidden `import ascend.springai.{service,engine,middleware}.*` lines OR `new RestTemplate(...)` / `WebClient.builder(...)` construction.
+
+### New enforcer rows
+
+- **E143** — ArchUnit test `EdgeToComputeDirectLinkArchTest` in `agent-client/src/test/java/`.
+- **E144** — gate-script Rule 105 source-grep complement.
+
+### Contract changes
+
+- New `docs/contracts/ingress-envelope.v1.yaml` (status `design_only`; authority ADR-0089).
+- `s2c-callback.v1.yaml` java type ownership moved to `agent-bus` per ADR-0088 (schema unchanged).
+- `docs/contracts/contract-catalog.md` §2 / §3 / §7 rewritten to reflect new module ownership + 8-row Maven BoM table + IngressGateway row.
+
+### Module-metadata changes
+
+- `agent-service/module-metadata.yaml`: `+spi_packages: runs.spi`; `allowed_dependencies` swapped `agent-runtime-core` for `agent-execution-engine` + `agent-bus`.
+- `agent-execution-engine/module-metadata.yaml`: `+spi_packages: engine.orchestration.spi`; `allowed_dependencies` dropped `agent-runtime-core` (engine self-contains its SPI).
+- `agent-bus/module-metadata.yaml`: `spi_packages: [bus.spi.ingress, bus.spi.s2c]` (was `[bus.spi]` placeholder).
+- `agent-client/module-metadata.yaml`: `forbidden_dependencies` dropped `agent-runtime-core`; description amended to declare IngressGateway as the sole cross-plane consumption surface.
+
+### Files deleted
+
+- `agent-runtime-core/` directory entirely (pom.xml, module-metadata.yaml, ARCHITECTURE.md, src/, target/).
+- `docs/dfx/agent-runtime-core.yaml`.
+
+### Baseline_metrics updates
+
+- `repository_counts.reactor_modules`: 9 → 8.
+- `repository_counts.internal_modules`: 7 → 6.
+- `repository_counts.total_reactor_modules`: 9 → 8.
+- `repository_counts.skeleton_modules`: 3 → 2 (agent-bus is no longer skeleton — owns active ingress + s2c SPIs).
+- `baseline_metrics.adr_count`: 86 → 88.
+- `baseline_metrics.active_gate_checks`: 116 → 117.
+- `baseline_metrics.enforcer_rows`: 142 → 144.
+- `baseline_metrics.gate_executable_test_cases`: 180 → 182.
+- `baseline_metrics.architecture_graph_{nodes,edges}`: regenerated post-merge.

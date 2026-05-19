@@ -43,12 +43,3 @@ for _r104_route in "${_r104_routes[@]}"; do
 done
 if [[ $_r104_fail -eq 0 ]]; then pass_rule "openapi_implemented_route_catalog_truth"; fi
 
-# === END OF RULES ===
-# ---------------------------------------------------------------------------
-if [[ $fail_count -eq 0 ]]; then
-  echo "GATE: PASS"
-  exit 0
-else
-  echo "GATE: FAIL"
-  exit 1
-fi

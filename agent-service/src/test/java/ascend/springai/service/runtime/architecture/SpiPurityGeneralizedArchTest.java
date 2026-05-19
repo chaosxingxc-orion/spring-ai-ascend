@@ -1,5 +1,7 @@
 package ascend.springai.service.runtime.architecture;
 
+import ascend.springai.engine.orchestration.spi.RunMode;
+
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchRule;
@@ -76,9 +78,9 @@ class SpiPurityGeneralizedArchTest {
     @Test
     void s2c_spi_imports_only_java_and_same_package_siblings() {
         ArchRule rule = classes()
-                .that().resideInAPackage("ascend.springai.service.runtime.s2c.spi..")
+                .that().resideInAPackage("ascend.springai.bus.spi.s2c..")
                 .should().onlyDependOnClassesThat()
-                .resideInAnyPackage("java..", "ascend.springai.service.runtime.s2c.spi..");
+                .resideInAnyPackage("java..", "ascend.springai.bus.spi.s2c..");
         rule.check(ALL_RUNTIME_CLASSES);
     }
 }

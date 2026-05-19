@@ -8,8 +8,9 @@
 # A given Java spi package MUST be declared by exactly one Maven module's
 # module-metadata.yaml#spi_packages. Two modules co-declaring the same
 # package is a split-package — Maven and JPMS cannot reason about ownership.
-# Catches the 2026-05-18 root cause (orchestration.spi double-declared by
-# agent-runtime-core AND agent-execution-engine).
+# Catches the 2026-05-18 root cause (orchestration.spi historical double-
+# declaration by agent-runtime-core AND agent-execution-engine — both modules
+# resolved by rc13 ADR-0088 dissolution).
 # ---------------------------------------------------------------------------
 _r76_fail=0
 _r76_tmp="$(mktemp 2>/dev/null || echo /tmp/r76.$$)"

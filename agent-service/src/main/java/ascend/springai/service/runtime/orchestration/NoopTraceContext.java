@@ -1,6 +1,6 @@
 package ascend.springai.service.runtime.orchestration;
 
-import ascend.springai.service.runtime.orchestration.spi.TraceContext;
+import ascend.springai.engine.orchestration.spi.TraceContext;
 
 import java.security.SecureRandom;
 import java.util.Objects;

@@ -4,15 +4,15 @@
 # Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
 
 # Rule 28e — module_count_invariant (enforcer E27)
-# Root pom.xml MUST declare exactly 9 <module> entries after the 2026-05-18
-# T2.B2 wave (ADR-0079): BoM + agent-runtime-core + 6 substantive modules
-# (agent-client, agent-bus, agent-middleware, agent-execution-engine,
+# Root pom.xml MUST declare exactly 8 <module> entries after the 2026-05-20
+# rc13 wave (ADR-0088 dissolved agent-runtime-core): BoM + 6 substantive
+# modules (agent-client, agent-bus, agent-middleware, agent-execution-engine,
 # agent-evolve, agent-service) + graphmemory starter. Any other count is
-# rejected; L1 plan decision D3 amended per ADR-0078 + ADR-0079.
+# rejected; L1 plan decision D3 amended per ADR-0078 + ADR-0088.
 # ---------------------------------------------------------------------------
 _r28e_fail=0
 _root_pom='pom.xml'
-_r28e_expected=9
+_r28e_expected=8
 if [[ -f "$_root_pom" ]]; then
   _module_count=$(grep -c '<module>' "$_root_pom" 2>/dev/null || echo 0)
   if [[ "$_module_count" -ne "$_r28e_expected" ]]; then

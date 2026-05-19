@@ -34,8 +34,8 @@ while IFS= read -r _r98_file; do
   esac
   _r98_hits=$(awk -v markers="$_r98_markers" '
     BEGIN {
-      ap_re = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
-      ar_re = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
+      ap_re  = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
+      ar_re  = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
       arc_re = "(^|[^a-zA-Z0-9_-])agent-runtime-core([^a-zA-Z0-9_-]|$)"
     }
     { lines[NR] = $0 }
@@ -49,7 +49,8 @@ while IFS= read -r _r98_file; do
         # carried "(port 8001 avoids collision with agent-platform on 8080 / ...)" in a
         # comment that rc10 missed. The marker check below still allows historical-marked
         # comments to pass.
-        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re)) {
+        # rc13 widening (ADR-0088): agent-runtime-core joins the deleted-module set.
+        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re) || line ~ arc_re) {
           lo = i - 3; if (lo < 1) lo = 1
           hi = i + 3; if (hi > NR) hi = NR
           window = ""

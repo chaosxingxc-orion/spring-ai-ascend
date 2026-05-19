@@ -4,12 +4,12 @@ title: "Code-as-Contract + Independent Module Evolution + Run Contract Spine"
 level: L1
 view: development
 principle_ref: P-C
-authority_refs: [ADR-0064, ADR-0066, ADR-0068, ADR-0078, ADR-0079]
+authority_refs: [ADR-0064, ADR-0066, ADR-0068, ADR-0078, ADR-0088]
 enforcer_refs: [E2, E4, E11, E15, E16, E17, E18, E19, E27, E28, E29, E30, E31]
 status: active
 kernel_cap: 8
 kernel: |
-  **Every active normative constraint in the platform corpus MUST be enforced by code, registered in `docs/governance/enforcers.yaml`, and reach ≥1 of: an ArchUnit test, a `gate/check_architecture_sync.sh` rule, an integration test, a storage-layer schema constraint (NOT NULL / UNIQUE / CHECK / PRIMARY KEY), or a compile-time check (`@ConfigurationProperties + @Valid`, sealed types, package-info enforcement) (sub-clause .a — Code-as-Contract). Every Maven module declares a sibling `module-metadata.yaml` with `module`, `kind ∈ {platform|domain|starter|bom|sample}`, `version`, `semver_compatibility`, `architecture_doc`, `dfx_doc`, `spi_packages`, `allowed/forbidden_dependencies`; each builds + tests in isolation (sub-clause .b — Independent Module Evolution). Every persistent record under `agent-runtime-core/src/main/java/ascend/springai/service/runtime/**/*.java` MUST declare a `String tenantId` validated by `Objects.requireNonNull` (sub-clause .c — Contract Spine). Every `Run.withStatus(newStatus)` MUST call `RunStateMachine.validate(this.status, newStatus)` (sub-clause .d — Run State Transition Validity). No production class under `service.runtime..` may import `service.platform..`; the original narrow `TenantContextHolder` ban is asserted independently as defence-in-depth (sub-clause .e — Tenant Propagation Purity).**
+  **Every active normative constraint in the platform corpus MUST be enforced by code, registered in `docs/governance/enforcers.yaml`, and reach ≥1 of: an ArchUnit test, a `gate/check_architecture_sync.sh` rule, an integration test, a storage-layer schema constraint (NOT NULL / UNIQUE / CHECK / PRIMARY KEY), or a compile-time check (`@ConfigurationProperties + @Valid`, sealed types, package-info enforcement) (sub-clause .a — Code-as-Contract). Every Maven module declares a sibling `module-metadata.yaml` with `module`, `kind ∈ {platform|domain|starter|bom|sample}`, `version`, `semver_compatibility`, `architecture_doc`, `dfx_doc`, `spi_packages`, `allowed/forbidden_dependencies`; each builds + tests in isolation (sub-clause .b — Independent Module Evolution). Every persistent record under `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java` MUST declare a `String tenantId` validated by `Objects.requireNonNull` (sub-clause .c — Contract Spine; relocated from agent-runtime-core per ADR-0088). Every `Run.withStatus(newStatus)` MUST call `RunStateMachine.validate(this.status, newStatus)` (sub-clause .d — Run State Transition Validity). No production class under `service.runtime..` may import `service.platform..`; the original narrow `TenantContextHolder` ban is asserted independently as defence-in-depth (sub-clause .e — Tenant Propagation Purity).**
 ---
 
 # Rule R-C — Code-as-Contract + Independent Module Evolution + Run Contract Spine
@@ -40,7 +40,7 @@ Every reactor module under `<module>/pom.xml` MUST own a sibling `<module>/modul
 
 **Enforcers**: E2, E11.
 
-Every persistent record class committed under `agent-runtime-core/src/main/java/ascend/springai/service/runtime/**/*.java` (or its successor module) MUST declare a `String tenantId` component validated by `Objects.requireNonNull(tenantId, "tenantId is required")` in its compact constructor. Process-internal value objects exempt themselves with a `// scope: process-internal` reason comment. Activated 2026-05-18 (Wave 4 Track B) — trigger met by `Run` and `IdempotencyRecord` carrying tenantId.
+Every persistent record class committed under `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java` (relocated from `agent-runtime-core/src/main/java/ascend/springai/service/runtime/**/*.java` per ADR-0088 rc13 dissolution) MUST declare a `String tenantId` component validated by `Objects.requireNonNull(tenantId, "tenantId is required")` in its compact constructor. Process-internal value objects exempt themselves with a `// scope: process-internal` reason comment. Activated 2026-05-18 (Wave 4 Track B) — trigger met by `Run` and `IdempotencyRecord` carrying tenantId.
 
 ### .d — Run State Transition Validity (was Rule 20)
 
@@ -59,5 +59,6 @@ No production class under `ascend.springai.service.runtime..` (main sources) may
 - ADR-0064 — Layer-0 Governing Principles authority.
 - ADR-0066 — Independent Module Evolution authority.
 - ADR-0078 — Phase C consolidation (resolves which "successor module" sub-clause .c refers to).
-- ADR-0079 — Engine extraction to agent-runtime-core.
+- ADR-0079 — Engine extraction to agent-runtime-core (superseded by ADR-0088).
+- ADR-0088 — agent-runtime-core dissolution; runs / idempotency relocated back to agent-service (rc13).
 - Companion: Rule R-J.a (Storage-Engine Tenant Isolation — sub-clause .e is the application-layer dual).

@@ -28,7 +28,7 @@ The build runs unit + ArchUnit tests for every reactor module. `-T 1C` builds
 independent modules in parallel; surefire runs JUnit classes concurrently within
 each fork. Add `-DjunitParallel=false` to debug intermittent test failures.
 
-Sub-second incremental builds: `./mvnw -pl agent-runtime-core -am test -q` (post-Phase-C / ADR-0078; pre-Phase-C this command targeted `agent-runtime`, which was consolidated into `agent-service` with the kernel SPI types extracted to `agent-runtime-core`).
+Sub-second incremental builds: `./mvnw -pl agent-execution-engine -am test -q` (post-rc13 / ADR-0088; the kernel orchestration SPI was relocated here from the dissolved agent-runtime-core module — pre-rc13 this command targeted `agent-runtime-core`).
 
 ## 3. Boot `agent-service`
 
@@ -119,9 +119,12 @@ Authority: CLAUDE.md Rule 79. The runbook tells you what to capture (failing
 FQN → trace ID → MDC slice → raw error → transition history) BEFORE you open
 `ARCHITECTURE.md`. Spec reading is allowed in step 6, after evidence is recorded.
 
-For library-mode pure-JUnit tests (`./mvnw -pl agent-runtime-core test`), the
-full module runs in under 2 seconds. Use this loop when you want sub-second
-feedback on the SPI value-type algebra.
+For library-mode pure-JUnit tests (`./mvnw -pl agent-execution-engine test`),
+the orchestration SPI module runs in under 2 seconds. Use this loop when you
+want sub-second feedback on the SPI value-type algebra. Post-rc13 dissolution
+(ADR-0088), the orchestration SPI lives in `agent-execution-engine`; runs
++ idempotency entities live in `agent-service`; s2c transport SPI lives in
+`agent-bus`.
 
 If anything in this quickstart requires modifying platform source to make it
 work — file an issue tagged `decoupling-defect`. Rule 29 says: developers

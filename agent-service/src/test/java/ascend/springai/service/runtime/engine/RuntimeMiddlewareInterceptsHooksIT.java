@@ -5,11 +5,11 @@ import ascend.springai.service.runtime.orchestration.inmemory.InMemoryRunRegistr
 import ascend.springai.service.runtime.orchestration.inmemory.IterativeAgentLoopExecutor;
 import ascend.springai.service.runtime.orchestration.inmemory.SequentialGraphExecutor;
 import ascend.springai.service.runtime.orchestration.inmemory.SyncOrchestrator;
-import ascend.springai.service.runtime.orchestration.spi.ExecutorDefinition;
+import ascend.springai.engine.orchestration.spi.ExecutorDefinition;
 import ascend.springai.middleware.spi.HookOutcome;
 import ascend.springai.middleware.spi.HookPoint;
 import ascend.springai.middleware.spi.RuntimeMiddleware;
-import ascend.springai.service.runtime.runs.RunMode;
+import ascend.springai.engine.orchestration.spi.RunMode;
 import org.junit.jupiter.api.Test;
 
 import java.util.EnumSet;

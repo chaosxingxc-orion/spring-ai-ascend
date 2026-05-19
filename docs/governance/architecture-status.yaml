@@ -7,17 +7,17 @@
 version: 5
 generated_at: 2026-05-18
 
-# Source: root pom.xml <modules> list updated 2026-05-13 post-seventh third pass
+# Source: root pom.xml <modules> list updated 2026-05-20 (rc13 wave)
 repository_counts:
-  note: "Canonical counts -- derived from root pom.xml modules list. All documents reference these; no document may claim a different count without updating this block. Bumped 2026-05-17 for the six-module materialization PR (T2.A scaffolds agent-client, agent-bus, agent-middleware, agent-execution-engine, agent-evolve; T2.B1 extracts middleware code; T2.B2 engine-code extraction COMPLETED at v2.0.0-rc5 (2026-05-18) per ADR-0079 — the back-dep cycle was resolved by introducing the shared agent-runtime-core module; engine SPI + EngineRegistry + EngineEnvelope now live in agent-execution-engine)."
-  reactor_modules: 9
+  note: "Canonical counts -- derived from root pom.xml modules list. All documents reference these; no document may claim a different count without updating this block. Bumped 2026-05-17 for the six-module materialization PR (T2.A scaffolds agent-client, agent-bus, agent-middleware, agent-execution-engine, agent-evolve; T2.B1 extracts middleware code; T2.B2 engine-code extraction completed at v2.0.0-rc5 (2026-05-18) per ADR-0079 — back-dep resolved by introducing agent-runtime-core). rc13 (2026-05-20) DISSOLVED agent-runtime-core per ADR-0088: 16 sources redistributed to semantic-home modules (runs/idempotency back to agent-service; orchestration.spi + RunMode into agent-execution-engine.engine.orchestration.spi; s2c.spi into agent-bus.bus.spi.s2c). Reactor returns to 8 modules = 6 substantive domain modules (client/service/bus/engine/middleware/evolve) + BoM + GraphMemory starter. Paired with ADR-0089 (Edge↔Compute Ingress Routing) which adds agent-bus.bus.spi.ingress as the C2S surface."
+  reactor_modules: 8
   sdk_spi_starters: 0
   sidecar_adapter_starters: 1
   alternate_framework_profiles: 0
-  internal_modules: 7      # agent-runtime-core + agent-service (consolidated platform+runtime per ADR-0078) + 5 new (agent-client/bus/middleware/execution-engine/evolve)
+  internal_modules: 6      # rc13 — agent-service + 5 new (agent-client/bus/middleware/execution-engine/evolve); agent-runtime-core dissolved per ADR-0088
   bom_module: 1
-  total_reactor_modules: 9
-  skeleton_modules: 3      # agent-client, agent-bus, agent-evolve are skeleton-only. agent-middleware now contains extracted middleware code (ADR-0073); agent-execution-engine now contains the extracted engine SPI + EngineRegistry + EngineEnvelope (ADR-0079, 2026-05-18). agent-runtime-core is the new shared kernel module (ADR-0079) — not a skeleton.
+  total_reactor_modules: 8
+  skeleton_modules: 2      # agent-client, agent-evolve are skeleton-only (rc13: agent-bus is no longer skeleton — owns active bus.spi.ingress + bus.spi.s2c SPIs per ADR-0088 + ADR-0089). agent-middleware contains extracted middleware code (ADR-0073); agent-execution-engine contains engine SPI + EngineRegistry + EngineEnvelope + (rc13) orchestration SPI per ADR-0088.
 
 capabilities:
 
@@ -51,9 +51,9 @@ capabilities:
       - agent-service/ARCHITECTURE.md
     implementation:
       - agent-service/src/main/java/ascend/springai/service/runtime/probe/OssApiProbe.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunStateMachine.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStateMachine.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestrator.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SequentialGraphExecutor.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
@@ -72,7 +72,7 @@ capabilities:
       - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/NestedDualModeIT.java
       - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/RunStatusTransitionIT.java
       - agent-service/src/test/java/ascend/springai/service/runtime/posture/AppPostureGateTest.java
-    allowed_claim: "W0: OssApiProbe shell (3 tests GREEN) + kernel logic test-verified by 11 named test classes covering Run/RunStatus/RunStateMachine DFA, SyncOrchestrator posture guard, IterativeAgentLoopExecutor resume cursor, InMemoryCheckpointer (basic + size cap), InMemoryRunRegistry findRootRuns, AppPostureGate, NestedDualModeIT (3-level bidirectional graph↔agent-loop), RunStatusTransitionIT. Structured implementation: and tests: lists carry these symbols (no prose-only evidence — closes R5 audit's EVIDENCE-LAUNDERING-VIA-PROSE-FIELD finding). 101 unit tests GREEN in the runtime kernel (consolidated into agent-service per ADR-0078; shared SPI types extracted to agent-runtime-core per ADR-0079)."
+    allowed_claim: "W0: OssApiProbe shell (3 tests GREEN) + kernel logic test-verified by 11 named test classes covering Run/RunStatus/RunStateMachine DFA, SyncOrchestrator posture guard, IterativeAgentLoopExecutor resume cursor, InMemoryCheckpointer (basic + size cap), InMemoryRunRegistry findRootRuns, AppPostureGate, NestedDualModeIT (3-level bidirectional graph↔agent-loop), RunStatusTransitionIT. Structured implementation: and tests: lists carry these symbols (no prose-only evidence — closes R5 audit's EVIDENCE-LAUNDERING-VIA-PROSE-FIELD finding). 101 unit tests GREEN in the runtime kernel (consolidated into agent-service per ADR-0078; runtime kernel entities re-consolidated to agent-service + orchestration SPI to agent-execution-engine + s2c SPI to agent-bus per ADR-0088, 2026-05-20 — agent-runtime-core dissolved)."
 
   architecture_sync_gate:
     status: implemented_unverified
@@ -88,17 +88,17 @@ capabilities:
     latest_delivery_file: docs/delivery/2026-05-12-e0ccb6e.md
     baseline_metrics:
       # Other docs (README.md, gate/README.md) reference this block; raw numeric claims in those entrypoints
-      active_engineering_rules: 30              # `#### Rule X` headings in CLAUDE.md (D-/R-/G-/M- namespace per ADR-0086). Wave 6 Stream C consolidation completed by rc12 wave: 8 D + 13 R + 7 G + 2 M = 30. Rule 101 (rule_namespace_authority_completeness) gates this against the live kernel-header count.
+      active_engineering_rules: 30              # `#### Rule X` headings in CLAUDE.md (D-/R-/G-/M- namespace per ADR-0086). rc13 wave: 8 D + 13 R + 7 G + 2 M = 30 (Rule R-I gains sub-clause .b internally; head-count unchanged). Rule 101 gates this against the live kernel-header count.
       active_governing_principles: 13           # P-A..P-M
-      active_gate_checks: 116                   # rc12 update: rc11 baseline 112 + 4 new prevention rules (101 rule_namespace_authority_completeness, 102 release_recency_resolver_correctness, 103 deploy_entrypoint_deleted_module_truth, 104 openapi_implemented_route_catalog_truth) per ADR-0087. The literal count of `# Rule N — slug` headers in gate/check_architecture_sync.sh before the `# === END OF RULES ===` terminator (== the trailer `gate/check_parallel.sh` emits as `parallel_summary: executed N rules`). Rule G-5 sub-clause .c enforces this field against the live manifest at gate time.
-      gate_executable_test_cases: 180           # `bash gate/test_architecture_sync_gate.sh` -> "Tests passed: 180/180" (rc11 baseline 172 + rc12 wave +8: 2 fixtures × 4 new prevention rules 101-104; computed dynamically at runtime per Rule G-5 sub-clause .b / E122 sub-check (b))
-      enforcer_rows: 142                        # rows in docs/governance/enforcers.yaml (rc11 adds E139-E142 — 2 per Rule G-3 sub-clause .e/100 — bringing the live count to 142; Rule G-5 sub-clause .c widening enforces enforcer_rows alongside active_gate_checks against live extractors)
-      section_4_constraints: 65                 # ARCHITECTURE.md §4 #1..#65 (unchanged at rc11)
-      adr_count: 86                             # docs/adr/*.{yaml,md} unique IDs (0001..0087; rc12 adds ADR-0087 rc12 l0 authority ratchet + deploy-truth + contract truth + terminal-verb scope — closes rc11 post-rc11 review findings P1-1..P1-6 + P2-1..P2-5 across K-α..K-η)
-      maven_tests_green: 371                    # `./mvnw verify` total surefire (277) + failsafe (94)
-      architecture_graph_nodes: 363             # `python gate/build_architecture_graph.py --check --no-write` measured 2026-05-19 post-rc12 wave (Wave 6 Stream C consolidation + ADR-0087 supersedes/extends edges; was 364 before ADR-0087). Rule G-2.b widening (rc12 Track C K-γ) gates this against the live graph header.
-      architecture_graph_edges: 539             # `python gate/build_architecture_graph.py --check --no-write` measured 2026-05-19 post-rc12 wave (Wave 6 Stream C consolidation + ADR-0087 supersedes/extends edges added 14 new edges). Rule G-2.b widening (rc12 Track C K-γ) gates this against the live graph header.
-    allowed_claim: "Architecture-sync gate implemented in bash (canonical); the PowerShell entrypoint is deprecated as of the rc2 wave (fail-closed stub; see gate/check_architecture_sync.ps1 + gate Rule 61 legacy_powershell_gate_deprecated). Architecture baseline (rc12 wave — 2026-05-19 rc11 contract-authority-constraint review response): 65 §4 constraints (#1–#65); 86 ADRs (0001–0087 minus retired; rc12 adds ADR-0087 l0 authority ratchet + deploy-truth + contract truth + terminal-verb scope — closes rc11 P1-1..P1-6 + P2-1..P2-5 across families K-α..K-η); 116 active gate rules (rc11 baseline 112 + 4 rc12 prevention rules 101 rule_namespace_authority_completeness, 102 release_recency_resolver_correctness, 103 deploy_entrypoint_deleted_module_truth, 104 openapi_implemented_route_catalog_truth — plus Rule 82 + 94 + 99 scope widenings); 30 active engineering rules (D-/R-/G-/M- namespace per ADR-0086; rc12 Wave-6 Stream-C consolidation completed: 8 D + 13 R + 7 G + 2 M); deleted-module DFX orphans prohibited by Rule M-2 sub-clause .c (ADR-0082-0083 closure); rc9 retired pre-Phase-C ledger `docs/STATE.md`; rc10 fixed I-ε leaks in Helm chart triplet + live OpenAPI + BoM metadata + dev compose; rc11 fixed P1-2 leaks in ops/runbooks + sidecar-mem0.yml + active developer-onboarding doc (docs/quickstart.md) + posture-model.md + posture-coverage.md + oss-bill-of-materials.md + telemetry/policy.md + agent-service/src/main/resources/application.yml metric tag + perf/* docs; rc12 (K-δ) closed reviewer-cited deploy-entrypoint deleted-module references in root Dockerfile + ci.yml + operator-shape smoke + L0 PlantUML development view + 4 module-metadata.yaml dependency refs + quickstart package path."
+      active_gate_checks: 117                   # rc13 update: rc12 baseline 116 + 1 new prevention rule (105 edge_no_direct_compute_link per ADR-0089). The literal count of `# Rule N — slug` headers in gate/check_architecture_sync.sh before the `# === END OF RULES ===` terminator (== the trailer `gate/check_parallel.sh` emits as `parallel_summary: executed N rules`). Rule G-5 sub-clause .c enforces this field against the live manifest at gate time.
+      gate_executable_test_cases: 182           # `bash gate/test_architecture_sync_gate.sh` -> "Tests passed: 182/182" (rc12 baseline 180 + rc13 wave +2: 2 fixtures × 1 new prevention rule 105; computed dynamically at runtime per Rule G-5 sub-clause .b / E122 sub-check (b))
+      enforcer_rows: 144                        # rows in docs/governance/enforcers.yaml (rc12 baseline 142 + rc13 adds E143 EdgeToComputeDirectLinkArchTest + E144 gate Rule 105 per ADR-0089; Rule G-5 sub-clause .c widening enforces enforcer_rows alongside active_gate_checks against live extractors)
+      section_4_constraints: 65                 # ARCHITECTURE.md §4 #1..#65 (unchanged at rc13)
+      adr_count: 88                             # docs/adr/*.{yaml,md} unique IDs (0001..0089; rc13 adds ADR-0088 agent-runtime-core dissolution + ADR-0089 edge-plane ingress gateway mandate)
+      maven_tests_green: 371                    # `./mvnw verify` total surefire (277) + failsafe (94) — rc13 maintains; will be re-baselined after rc13 verify
+      architecture_graph_nodes: 363             # rc12 baseline; rc13 will regenerate via `python gate/build_architecture_graph.py --check --no-write` and reconcile the live header count here in the same commit (likely shifts by ±10 due to ADR-0088 + ADR-0089 + Rule R-I.b + E143 + E144 + Rule 105 + the dissolved agent-runtime-core module node + supersedes/extends edges)
+      architecture_graph_edges: 539             # rc12 baseline; rc13 will regenerate as above
+    allowed_claim: "Architecture-sync gate implemented in bash (canonical); the PowerShell entrypoint is deprecated as of the rc2 wave (fail-closed stub; see gate/check_architecture_sync.ps1 + gate Rule 61 legacy_powershell_gate_deprecated). Architecture baseline (rc13 wave — 2026-05-20 L0 ratchet: dissolve agent-runtime-core + lock client→bus→server ingress): 65 §4 constraints (#1–#65 unchanged); 88 ADRs (0001–0089; rc13 adds ADR-0088 agent-runtime-core dissolution + ADR-0089 edge-plane ingress gateway mandate; ADR-0079 status accepted→superseded by ADR-0088); 117 active gate rules (rc12 baseline 116 + 1 rc13 prevention rule 105 edge_no_direct_compute_link); 30 active engineering rules (D-/R-/G-/M- namespace per ADR-0086; rc13 wave adds Rule R-I sub-clause .b but engineering-rule head-count unchanged — sub-clause expansion of existing R-I); deleted-module DFX orphans prohibited by Rule M-2 sub-clause .c (rc13 adds agent-runtime-core to the deleted-module-name set covered by Rule 94 / Rule 98 / Rule G-2.e); rc9 retired pre-Phase-C ledger `docs/STATE.md`; rc10 fixed I-ε leaks in Helm chart triplet + live OpenAPI + BoM metadata + dev compose; rc11 fixed P1-2 leaks in ops/runbooks + sidecar-mem0.yml + active developer-onboarding doc + posture-model + posture-coverage + oss-bill-of-materials + telemetry/policy + application.yml + perf/* docs; rc12 (K-δ) closed reviewer-cited deploy-entrypoint deleted-module references in root Dockerfile + ci.yml + operator-shape smoke + L0 PlantUML development view + 4 module-metadata.yaml dependency refs + quickstart package path; rc13 redistributes agent-runtime-core's 16 sources to agent-service (runs+idempotency) + agent-execution-engine (engine.orchestration.spi + RunMode) + agent-bus (bus.spi.s2c), reactor 9→8 modules, and adds bus.spi.ingress.IngressGateway as the cross-plane client→server control surface per ADR-0089."
 
   plan_projection_contract:
     status: design_accepted
@@ -340,10 +340,10 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     implementation:
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunMode.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/spi/RunRepository.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/RunMode.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/spi/RunRepository.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunTest.java
     allowed_claim: "L1: Run record with mandatory tenantId, runId, mode (GRAPH|AGENT_LOOP); RunStatus PENDING/RUNNING/SUSPENDED/SUCCEEDED/FAILED/CANCELLED; nullable parentNodeKey+suspendedAt for interrupt-driven nesting; RunRepository SPI adds findByParentRunId + findByTenantAndStatus + findRootRuns(tenantId). Rule R-C.c target. findRootRuns shipped W0 per ADR-0032."
@@ -353,7 +353,7 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     implementation:
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/idempotency/IdempotencyRecord.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/idempotency/IdempotencyRecord.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/idempotency/IdempotencyRecordTest.java
     allowed_claim: "L1: IdempotencyRecord contract-spine entity with mandatory tenantId and idempotencyKey. Rule R-C.c target."
@@ -363,20 +363,20 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md (sec.4 constraint #9)
     implementation:
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/Orchestrator.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/Orchestrator.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/RunContext.java
       - agent-execution-engine/src/main/java/ascend/springai/engine/spi/GraphExecutor.java
       - agent-execution-engine/src/main/java/ascend/springai/engine/spi/AgentLoopExecutor.java
       - agent-execution-engine/src/main/java/ascend/springai/engine/spi/ExecutorAdapter.java
       - agent-execution-engine/src/main/java/ascend/springai/engine/spi/EngineHookSurface.java
       - agent-execution-engine/src/main/java/ascend/springai/engine/spi/EngineMatchingException.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/ExecutorDefinition.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignal.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/Checkpointer.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/ExecutorDefinition.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/SuspendSignal.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/Checkpointer.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignalTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/spi/OrchestrationSpiArchTest.java
+      - agent-service/src/test/java/ascend/springai/engine/orchestration/spi/SuspendSignalTest.java
+      - agent-service/src/test/java/ascend/springai/engine/orchestration/spi/OrchestrationSpiArchTest.java
       - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointerTest.java
     allowed_claim: "L1: Orchestration SPI — GraphExecutor, AgentLoopExecutor, SuspendSignal, Checkpointer, RunContext, Orchestrator. SPI is pure-Java (OrchestrationSpiArchTest). InMemoryCheckpointer provides dev-posture impl with posture guard (AppPostureGate, ADR-0035)."
 
@@ -615,9 +615,9 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0020-runlifecycle-spi-and-runstatus-formal-dfa.md
     implementation:
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunStateMachine.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStateMachine.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunStateMachineTest.java
     allowed_claim: "Shipped — RunStateMachine.validate(from, to) enforces legal DFA transitions; Run.withStatus/withSuspension call validate before constructing updated record; EXPIRED added as 7th terminal RunStatus value. Rule R-C.d active. RunStateMachineTest exhaustively covers legal + illegal transitions."
@@ -667,7 +667,7 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0023-cross-boundary-context-propagation.md
     implementation:
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/RunContext.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TenantPropagationPurityTest.java
     allowed_claim: "Shipped — TenantPropagationPurityTest ArchUnit rule enforces Rule R-C.e: no ascend.springai.service.runtime.* main class may import TenantContextHolder. RunContext.tenantId() is the canonical carrier. Test-scope exemption for TenantContextFilterTest."
@@ -711,7 +711,7 @@ capabilities:
     implementation:
       - agent-service/pom.xml
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/spi/OrchestrationSpiArchTest.java
+      - agent-service/src/test/java/ascend/springai/engine/orchestration/spi/OrchestrationSpiArchTest.java
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TenantPropagationPurityTest.java
     allowed_claim: "W0 clean (historical pre-ADR-0078 framing): the original `agent-service/pom.xml` dependency on the then-existing `agent-platform` was removed per ADR-0026 (it was a speculative reference with zero source imports). Post-ADR-0078 (Phase C consolidation, 2026-05-18) the `agent-platform` + `agent-runtime` modules were merged into `agent-service` with Rule R-C.e sub-package layering (`service.runtime.*` must not import `service.platform.*`). Post-ADR-0079 (T2.B2, 2026-05-18) the shared kernel (Run, RunContext, SuspendSignal, S2C SPI) was extracted into `agent-runtime-core` and the engine SPI into `agent-execution-engine`. The Maven-level direction constraint now reads: `agent-service` ↛ inner peers other than `agent-runtime-core`; `agent-execution-engine` ↛ `agent-service`; `agent-runtime-core` ↛ everything else."
 
@@ -860,7 +860,7 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0032-scope-based-run-hierarchy-and-planner-contract-minimal.md
     implementation:
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/spi/RunRepository.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/spi/RunRepository.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistryFindRootRunsTest.java
@@ -1181,7 +1181,7 @@ capabilities:
       - ARCHITECTURE.md
     implementation:
       - agent-service/src/main/java/ascend/springai/service/platform/tenant/TenantContextFilter.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/RunContext.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/platform/tenant/TenantContextFilterIT.java
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TenantPropagationPurityTest.java
@@ -1205,10 +1205,10 @@ capabilities:
     l2_documents:
       - docs/adr/0054-long-connection-containment-runtime-handles.md
     implementation:
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignal.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/SuspendSignal.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignalTest.java
+      - agent-service/src/test/java/ascend/springai/engine/orchestration/spi/SuspendSignalTest.java
     allowed_claim: "LogicalCallHandle is the L0 alias for Run+SuspendSignal: Run is the lifecycle identity; SuspendSignal is the one interrupt primitive that releases physical resources without losing the logical call. A LogicalCallHandle is NOT equivalent to a TCP connection, thread, or Netty channel. W0 shipped via Run entity + SuspendSignal."
 
   suspend_instead_of_hold_principle:
@@ -1218,9 +1218,9 @@ capabilities:
     l2_documents:
       - docs/adr/0054-long-connection-containment-runtime-handles.md
     implementation:
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignal.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/SuspendSignal.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/spi/SuspendSignalTest.java
+      - agent-service/src/test/java/ascend/springai/engine/orchestration/spi/SuspendSignalTest.java
     allowed_claim: "Named principle: a long wait MUST become a suspended workflow state when useful compute is not happening. W0 implemented via SuspendReason.RateLimited (ADR-0019) and SuspendReason.AwaitTimer. Idle waits must NOT consume scarce physical resources (threads, sockets, connections, event-loop slots). The principle composes with AdmissionDecision.Yielded (ADR-0050)."
 
   socket_per_tenant_cap:
@@ -1277,9 +1277,9 @@ capabilities:
       - docs/adr/0061-telemetry-vertical-layer.md
       - agent-service/ARCHITECTURE.md
     implementation:
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/TraceContext.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/TraceContext.java
       - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/NoopTraceContext.java
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/orchestration/spi/RunContext.java
+      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/RunContext.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TelemetryVerticalArchTest.java
       - agent-service/src/test/java/ascend/springai/service/runtime/architecture/RunContextIdentityAccessorsTest.java
@@ -1323,7 +1323,7 @@ capabilities:
       - docs/adr/0062-trace-run-session-identity.md
       - ARCHITECTURE.md
     implementation:
-      - agent-runtime-core/src/main/java/ascend/springai/service/runtime/runs/Run.java
+      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
     tests:
       - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunTraceSessionConsistencyIT.java
     allowed_claim: "Section 4 #54 shipped at L1.x — Run record carries traceId (32-char hex; nullable at L1.x, NOT NULL at W2) and sessionId (UUID; nullable at L1.x, NOT NULL in posture=research/prod from W2) alongside the existing 12 fields. Backward-compatible 12-arg constructor preserved so existing callers compile. RunController populates traceId from MDC at Run-creation time. Verified by RunTraceSessionConsistencyIT."

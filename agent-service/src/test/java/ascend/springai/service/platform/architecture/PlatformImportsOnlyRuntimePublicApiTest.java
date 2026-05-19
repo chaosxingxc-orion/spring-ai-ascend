@@ -22,7 +22,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * <p>Permitted import roots from {@code ascend.springai.service.platform..}:
  * <ul>
  *   <li>{@code ascend.springai.service.runtime.runs..} — Run entity + state machine</li>
- *   <li>{@code ascend.springai.service.runtime.orchestration.spi..} — pure-Java SPIs</li>
+ *   <li>{@code ascend.springai.engine.orchestration.spi..} — pure-Java SPIs</li>
  *   <li>{@code ascend.springai.service.runtime.orchestration.inmemory.InMemoryRunRegistry}
  *       — the only dev-posture impl the platform edge (post-Phase-C / ADR-0078:
  *       agent-service; pre-Phase-C: agent-platform) legitimately wires
