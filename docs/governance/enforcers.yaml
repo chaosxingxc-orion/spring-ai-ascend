@@ -41,7 +41,7 @@
   asserts: "agent-runtime pom does not depend on agent-platform"
 
 - id: E2
-  constraint_ref: "CLAUDE.md Rule R-C.e generalised at L1; ADR-0055"
+  constraint_ref: "CLAUDE.md Rule R-C.2.c generalised at L1; ADR-0055"
   kind: archunit
   level: L1
   view: development
@@ -57,7 +57,7 @@
   asserts: "runtime.memory.spi.. and runtime.orchestration.spi.. import only java.*"
 
 - id: E4
-  constraint_ref: "CLAUDE.md Rule R-C.e; L1 plan §5.2; ADR-0055"
+  constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §5.2; ADR-0055"
   kind: archunit
   level: L1
   view: development
@@ -65,7 +65,7 @@
   asserts: "agent-platform does not import ascend.springai.service.runtime.memory.spi.."
 
 - id: E5
-  constraint_ref: "CLAUDE.md Rule R-C.d; L1 plan §6.5; architecture-status.yaml line 892; W1.x Phase 8 — ADR-0070 (cursor flow)"
+  constraint_ref: "CLAUDE.md Rule R-C.2.b; L1 plan §6.5; architecture-status.yaml line 892; W1.x Phase 8 — ADR-0070 (cursor flow)"
   kind: integration
   level: L1
   view: logical
@@ -73,7 +73,7 @@
   asserts: "POST /v1/runs returns 202 with TaskCursor envelope (status=PENDING, cursor_url present); RunStatus enum contains no CREATED — Phase 8 migrated this contract from 201+RunResponse to 202+TaskCursor."
 
 - id: E6
-  constraint_ref: "CLAUDE.md Rule R-C.e; L1 plan §6.5; architecture-status.yaml line 892"
+  constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §6.5; architecture-status.yaml line 892"
   kind: integration
   level: L1
   view: logical
@@ -89,7 +89,7 @@
   asserts: "each row of §6.3 returns the documented status code + ErrorEnvelope.code"
 
 - id: E8
-  constraint_ref: "CLAUDE.md Rule R-C.d; L1 plan §6.4 error envelope"
+  constraint_ref: "CLAUDE.md Rule R-C.2.b; L1 plan §6.4 error envelope"
   kind: integration
   level: L1
   view: logical
@@ -105,7 +105,7 @@
   asserts: "JWT validation enforces RS256, iss, aud, exp, nbf, clock-skew; failures return 401 with metric"
 
 - id: E10
-  constraint_ref: "CLAUDE.md Rule R-C.e; L1 plan §7.2; ADR-0056"
+  constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §7.2; ADR-0056"
   kind: integration
   level: L1
   view: process
@@ -113,7 +113,7 @@
   asserts: "JWT tenant_id claim mismatched with X-Tenant-Id header returns 403 tenant_mismatch + counter increment"
 
 - id: E11
-  constraint_ref: "CLAUDE.md Rule R-C.e; L1 plan §7.3; ADR-0056; ADR-0058"
+  constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §7.3; ADR-0056; ADR-0058"
   kind: integration
   level: L1
   view: process
@@ -121,7 +121,7 @@
   asserts: "app.auth.dev-local-mode=true causes startup failure when app.posture != dev"
 
 - id: E12
-  constraint_ref: "CLAUDE.md Rule R-C.e; L1 plan §8.3; ADR-0057"
+  constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §8.3; ADR-0057"
   kind: integration
   level: L1
   view: process
@@ -129,7 +129,7 @@
   asserts: "claim row durable before Orchestrator.submit; submit failure marks row FAILED; key cannot be re-claimed before expires_at"
 
 - id: E13
-  constraint_ref: "CLAUDE.md Rule R-C.e; L1 plan §8.1; ADR-0057"
+  constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §8.1; ADR-0057"
   kind: schema
   level: L1
   view: logical
@@ -137,7 +137,7 @@
   asserts: "PRIMARY KEY (tenant_id, idempotency_key) prevents duplicate inserts at storage layer"
 
 - id: E14
-  constraint_ref: "CLAUDE.md Rule R-C.e; L1 plan §8.2; ADR-0057"
+  constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §8.2; ADR-0057"
   kind: integration
   level: L1
   view: logical
@@ -145,7 +145,7 @@
   asserts: "same key + different request_hash returns 409 idempotency_body_drift"
 
 - id: E15
-  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28a — tenant_id column schema spine); L1 plan §11 row E15"
+  constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §11 row E15"
   kind: gate-script
   level: L1
   view: logical
@@ -177,7 +177,7 @@
   asserts: "every Counter/Timer/Gauge name starts with springai_ascend_"
 
 - id: E19
-  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28b); L1 plan §10"
+  constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §10"
   kind: gate-script
   level: L1
   view: development
@@ -185,7 +185,7 @@
   asserts: "no source registers Tag.of(\"run_id\"|\"idempotency_key\"|\"jwt_sub\"|\"body\", …) on a springai_ascend_* metric"
 
 - id: E20
-  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28c); architect guidance §9.3"
+  constraint_ref: "CLAUDE.md Rule R-C.a; architect guidance §9.3"
   kind: gate-script
   level: L1
   view: development
@@ -209,7 +209,7 @@
   asserts: "InMemoryIdempotencyStore bean registered only when posture=dev AND app.idempotency.allow-in-memory=true"
 
 - id: E23
-  constraint_ref: "CLAUDE.md Rule R-C.d; ADR-0020"
+  constraint_ref: "CLAUDE.md Rule R-C.2.b; ADR-0020"
   kind: integration
   level: L1
   view: process
@@ -217,7 +217,7 @@
   asserts: "Run.withStatus and Run.withSuspension call RunStateMachine.validate; illegal transitions throw IllegalStateException"
 
 - id: E24
-  constraint_ref: "CLAUDE.md Rule R-C.d; L1 plan §6.5 cancel semantics"
+  constraint_ref: "CLAUDE.md Rule R-C.2.b; L1 plan §6.5 cancel semantics"
   kind: integration
   level: L1
   view: logical
@@ -225,7 +225,7 @@
   asserts: "cancel of SUCCEEDED/FAILED/EXPIRED run returns 409 illegal_state_transition"
 
 - id: E25
-  constraint_ref: "CLAUDE.md Rule R-C.e; architect guidance §15.6; pre-existing"
+  constraint_ref: "CLAUDE.md Rule R-C.2.c; architect guidance §15.6; pre-existing"
   kind: integration
   level: L1
   view: logical
@@ -233,7 +233,7 @@
   asserts: "live /v3/api-docs response matches the committed snapshot byte-for-byte"
 
 - id: E26
-  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28d); L1 plan §13 out-of-scope"
+  constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §13 out-of-scope"
   kind: gate-script
   level: L1
   view: development
@@ -241,7 +241,7 @@
   asserts: "names LLMGateway/PostgresCheckpointer/SkillRegistry/HookChain/SpawnEnvelope/LogicalCallHandle/ConnectionLease/AdmissionDecision/BackpressureSignal/ChronosHydration/SandboxExecutor do not appear in agent-*/src/main/java"
 
 - id: E27
-  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28e); L1 plan decision D3"
+  constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan decision D3"
   kind: gate-script
   level: L1
   view: development
@@ -257,7 +257,7 @@
   asserts: "every must/must not/forbidden/required sentence in the architecture corpus maps to at least one row in this file"
 
 - id: E29
-  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28f); ADR-0059 §1"
+  constraint_ref: "CLAUDE.md Rule R-C.a; ADR-0059 §1"
   kind: gate-script
   level: L0
   view: scenarios
@@ -265,7 +265,7 @@
   asserts: "every row in this file has id+constraint_ref+kind+level+view+artifact+asserts; kind is one of the five legal values; level is L0|L1|L2; view is one of the five legal values"
 
 - id: E30
-  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28g); ADR-0059 §3"
+  constraint_ref: "CLAUDE.md Rule R-C.a; ADR-0059 §3"
   kind: gate-script
   level: L0
   view: scenarios
@@ -273,7 +273,7 @@
   asserts: "no TODO:enforce / FIXME:enforcer / XXX:test / deferred:gate markers in CLAUDE.md, ARCHITECTURE.md, or any */ARCHITECTURE.md"
 
 - id: E31
-  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28h); architect guidance §16"
+  constraint_ref: "CLAUDE.md Rule R-C.a; architect guidance §16"
   kind: gate-script
   level: L0
   view: scenarios
@@ -281,7 +281,7 @@
   asserts: "every ADR 0055-0059 contains the §16 review checklist as a sub-section"
 
 - id: E32
-  constraint_ref: "CLAUDE.md Rule R-C.a (legacy Rule 28i); L1 plan §11"
+  constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §11"
   kind: gate-script
   level: L0
   view: scenarios
@@ -321,7 +321,7 @@
   asserts: "live spec at /v3/api-docs MUST NOT expose any /v1/** operation that is absent from the pinned snapshot, unless tagged x-experimental: true; closes the gap where /v1/runs shipped while openapi-v1.yaml still said W0."
 
 - id: E37
-  constraint_ref: "CLAUDE.md Rule R-C.e; ADR-0060 §2; Phase L"
+  constraint_ref: "CLAUDE.md Rule R-C.2.c; ADR-0060 §2; Phase L"
   kind: integration
   level: L1
   view: development
@@ -445,7 +445,7 @@
   asserts: "The most recent docs/logs/releases/*.md release note mentions all four pillar names (performance, cost, developer_onboarding, governance)."
 
 - id: E52
-  constraint_ref: "CLAUDE.md Rule R-C.b; ARCHITECTURE.md §4 #62; ADR-0066"
+  constraint_ref: "CLAUDE.md Rule R-C.1; ARCHITECTURE.md §4 #62; ADR-0066"
   kind: gate-script
   level: L0
   view: development
@@ -850,7 +850,7 @@
   asserts: "Root pom.xml <module> count equals the canonical total_reactor_modules in docs/governance/architecture-status.yaml#repository_counts. Module-count changes update one file (the YAML), not four (gate + 3 ADRs). Drift surfaced by 2026-05-17 audit when six-module materialization PR landed and the count was hard-coded in 4 places."
 
 - id: E95
-  constraint_ref: "CLAUDE.md Rule R-C.b (Independent Module Evolution); cross-corpus consistency audit 2026-05-17 / G2 (metadata-vs-pom drift)"
+  constraint_ref: "CLAUDE.md Rule R-C.1 (Independent Module Evolution); cross-corpus consistency audit 2026-05-17 / G2 (metadata-vs-pom drift)"
   kind: gate-script
   level: L0
   view: development
@@ -951,7 +951,7 @@
   asserts: "After 5+ successful runs are recorded under gate/log/runs/, every subsequent gate run compares per-rule durations against the rolling median in gate/log/benchmarks/median.json. A rule whose current duration exceeds 2x its baseline AND exceeds 200ms absolute fails Rule G-6 sub-clause .a."
 
 - id: E105
-  constraint_ref: "CLAUDE.md Rule R-C.c (contract_spine_tenant_id_required); Wave 4 Track B"
+  constraint_ref: "CLAUDE.md Rule R-C.2.a (contract_spine_tenant_id_required); Wave 4 Track B"
   kind: gate-script
   level: L1
   view: development
