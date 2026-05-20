@@ -1,0 +1,176 @@
+id: ADR-0094
+title: "rc17 Recurring-Defect Family Truth + Rule Consolidation"
+status: accepted
+date: 2026-05-21
+level: L0
+view: process
+freeze_id: null
+
+supersedes: []
+extends:
+  - ADR-0086   # gate_layer_boundary — rc17 rule splits stay within the semantic-authority namespace; numeric gate Rule numbers preserved
+  - ADR-0093   # rc16 recurring-family comprehensive closure — rc17 institutionalises the family ledger Rule 110 META implied was needed
+relates_to:
+  - ADR-0049   # agent-client SDK roadmap (W3+) — R-I.1 ingress routing deferred sub-clauses cite this
+  - ADR-0064   # Layer-0 governing principles — R-C narrowing preserves operationalisation
+  - ADR-0066   # independent module evolution — now operationalised by Rule R-C.1
+  - ADR-0068   # Layered 4+1 + Graph — R-C.2 inherits run-spine context
+  - ADR-0078   # agent-service consolidation
+  - ADR-0079   # engine SPI extraction
+  - ADR-0080   # rc6 corpus-truth wave — origin of G-2.e (now G-2.1.a)
+  - ADR-0082   # rc8 fenced-tree-block extension — origin of G-2.d (unchanged in this split)
+  - ADR-0083   # rc9 corpus-truth wave — origin of G-2.f (now G-2.1.b)
+  - ADR-0084   # rc10 corpus-truth + prevention-widening — origin of G-2.h (now G-2.1.c) + Rule 97
+  - ADR-0085   # rc11 kernel-truth — origin of G-3.f (now G-3.1)
+  - ADR-0088   # agent-runtime-core dissolution — R-C.2.a relocation
+  - ADR-0089   # edge-plane IngressGateway mandate — R-I.1 origin
+
+decision_one_liner: |
+  Institutionalise the recurring-defect-family pattern via a structured
+  archive (yaml SSOT + md human view) and gate it for freshness on every
+  architecture refresh (new Rule G-9 / Gate Rule 111). Simultaneously
+  consolidate 4 rule kernels that grew across rc6 → rc16 into focused
+  sub-rules: G-3 → G-3 + G-3.1 (disjunction grammar split), R-I → R-I +
+  R-I.1 (shipped manifest vs W3+ ingress routing), G-2 → G-2 + G-2.1
+  (authority truth vs deleted-module scope prevention), R-C → R-C + R-C.1
+  + R-C.2 (code-as-contract vs module evolution vs run spine). Net:
+  31 → 37 active engineering rules; 122 → 123 active gate checks;
+  154 → 157 enforcer rows; 202 → 205 self-test cases; 0 → 8 recurring
+  families catalogued.
+
+context: |
+  The user (chao) read the rc4 → rc16 release notes and asked the question
+  the META Rule 110 (rc16) implied but did not directly answer: "已经
+  发现的错误类别已经做到完全清理了吗？" (Are the already-discovered error
+  classes fully cleaned up?). A family-recurrence audit confirmed the
+  user's intuition — 4 root-cause classes had recurred 6-9 times each
+  across waves while prevention rules were widened reactively:
+
+  | Family | Occurrences | Cleanup Status |
+  |---|---|---|
+  | F-numeric-drift | rc5, 6, 7, 8, 9, 10, 12, 14, 15 (9) | partial |
+  | F-deleted-module-name-leakage | rc9, 10, 11, 12, 13, 16 (6) | not closed pre-rc17 |
+  | F-authority-surface-path-drift | rc4, 6, 7, 11, 12, 13, 14, 15 (8) | partial |
+  | F-shadow-corpus-prose-staleness | rc7, 8, 9, 10, 14, 15 (6) | partial |
+  | F-kernel-vs-implementation-drift | rc6, 7, 11, 15 (4) | partial |
+  | F-terminal-verb-overclaim | rc11, 12, 15 (3) | closed rc16 |
+  | F-cross-authority-agreement | rc14, 15, 16 (3) | structurally addressed rc16 |
+  | F-deferred-clause-orphan | rc12, 15, 16 (3) | partial |
+
+  The recurrence pattern was the actual defect. Each wave found a new
+  surface partition the previous rule didn't scan. The fix is two-pronged:
+
+  1. **Make families first-class corpus citizens.** Add a
+     yaml SSOT + md human view that catalogues every root-cause class,
+     its surfaces, its prevention chronology, and its open residual. A
+     reviewer can now ask "has this class been seen before?" by reading
+     one file instead of 16 release notes. Gate Rule 111 / Rule G-9
+     enforces that the ledger stays fresh after every architecture
+     refresh.
+
+  2. **Consolidate rule kernels that bundled orthogonal invariants.**
+     Across rc6 → rc16 four rules accumulated 5-8 sub-clauses each,
+     mixing concerns from different domains (governance / build /
+     persistence / structural / grammar). Splitting them improves
+     reviewer auditability and unblocks W1-shipped vs W3+-deferred
+     status tracking. The splits are taxonomic only — every gate Rule
+     number and enforcer ID is preserved; only kernel attribution
+     shifts.
+
+  The user explicitly chose the most aggressive consolidation option
+  (C4 in the rc17 plan) including the R-C → R-C + R-C.1 + R-C.2 split
+  that the planning agent recommended deferring to W3. Rationale: the
+  Run-entity invariants (R-C.2) are persistence-system concerns that
+  deserve their own card; bundling them with code-as-contract (R-C) and
+  module evolution (R-C.1) under "Rule R-C" forced reviewers to mentally
+  partition a 5-sub-clause rule that didn't actually share semantic
+  territory.
+
+decision: |
+  ADR-0094 declares the following:
+
+  1. **F-numeric-drift through F-terminal-verb-overclaim catalogued as
+     first-class families in `docs/governance/recurring-defect-families.yaml`.**
+     8 families with schema_version=1, last_updated=2026-05-21, 9 required
+     per-family fields. Companion human view in
+     `docs/governance/recurring-defect-families.md` with summary table,
+     per-family detail, META-lessons section.
+
+  2. **Rule G-9 — Recurring-Defect Family Truth — added as new L0 rule.**
+     Three sub-clauses: .a yaml well-formedness, .b mtime/last_updated
+     freshness vs refresh-signal commits, .c yaml↔md family-id parity.
+     Enforced by Gate Rule 111 + enforcers E156/E157/E158 + 3 self-test
+     fixtures (test_rule_111_yaml_wellformed_pos +
+     test_rule_111_yaml_wellformed_neg + test_rule_111_md_yaml_parity_neg).
+     Card `scope_surfaces:` declares 6 surfaces; Rule 110 META validates
+     the fixture count.
+
+  3. **`/refresh-defect-archive` skill added** as the developer-facing
+     companion at `.claude/skills/refresh-defect-archive.md`. Skill
+     re-runs the family-derivation pipeline and bumps `last_updated`
+     before push, so Gate Rule 111.b passes. Skill is opt-in; gate is
+     authoritative.
+
+  4. **Rule G-3 split → Rule G-3 + Rule G-3.1.** G-3 retains sub-clauses
+     .a-.e (kernel-card structural coherence). G-3.1 takes former
+     sub-clause .f (disjunction-truth grammar) and gets its own card.
+     Gate Rule 100 number unchanged; enforcers E141/E142 retained.
+
+  5. **Rule R-I split → Rule R-I + Rule R-I.1.** R-I retains sub-clause .a
+     (five-plane manifest, shipped W1). R-I.1 takes former sub-clause .b
+     (edge↔compute ingress routing, design_only/W3+). Gate Rule 105 number
+     unchanged; enforcer E143 retained. Deferred sub-clauses R-I.c/.d/.e
+     in CLAUDE-deferred.md unchanged.
+
+  6. **Rule G-2 split → Rule G-2 + Rule G-2.1.** G-2 retains sub-clauses
+     .a/.b/.c/.d/.g (authority-text per-surface truth). G-2.1 takes former
+     sub-clauses .e/.f/.h plus integrates Rule 94/98/109 deleted-module
+     coverage under one "Deleted-Module Scope Prevention" card. Existing
+     gate Rule 94/98/103/109 numbers retained; enforcers
+     E120/E129/E130/E137/E138/E154 retained (now attributed to G-2.1).
+
+  7. **Rule R-C split → Rule R-C + Rule R-C.1 + Rule R-C.2.** R-C retains
+     sub-clause .a (code-as-contract). R-C.1 takes former .b (independent
+     module evolution). R-C.2 takes former .c+.d+.e (run contract spine
+     = tenantId + RunStateMachine + tenant-propagation purity). Enforcers
+     E2/E4/E9/E11/E15-E19/E27-E31 retained, redistributed across the
+     three cards per their sub-clause origin.
+
+  8. **`docs/governance/rules/README.md` added** documenting the D-/R-/G-/M-
+     prefix taxonomy and the `.1`/`.2` sub-rule naming convention. This
+     codifies what rc17 introduces so future waves have a written
+     reference.
+
+  9. **`principle-coverage.yaml` updated** to point P-C → {R-C, R-C.1,
+     R-C.2}, P-I → {R-I, R-I.1}, P-B → {... R-C.2, G-3, G-3.1}, P-D →
+     {... G-2.1, G-9}. Legacy P2 / P-B `Rule-R-C.d`/`Rule-R-C.e`
+     references migrated to `Rule-R-C.2`.
+
+  10. **baseline_metrics block updated.** active_engineering_rules: 31 →
+      37; active_gate_checks: 122 → 123; gate_executable_test_cases:
+      202 → 205; enforcer_rows: 154 → 157; adr_count: 92 → 93;
+      recurring_defect_families: NEW 8. Graph nodes/edges to be
+      reconciled post-edit via python3 gate/build_architecture_graph.py.
+
+consequences:
+  positive:
+    - "Reviewers can answer 'has this class been seen before?' by reading one yaml/md pair instead of 16 release notes."
+    - "Rule 110 META's discipline (declare scope_surfaces + ≥2 fixtures) is reinforced by Rule G-9 (declare a family ledger entry per recurrence pattern)."
+    - "Sub-rule splits reduce reviewer cognitive load: each card now covers ONE coherent invariant rather than 5-8 orthogonal ones."
+    - "W1-shipped vs W3+-deferred status assessment becomes mechanical: R-I.1 is design_only; R-I is shipped."
+    - "Rule G-2.1 unifies 4 fragmented prevention rules (94/98/103/109) under one kernel that covers all known deleted-module-leakage surfaces."
+  negative:
+    - "Rule count grew 31 → 37, which can be misread as 'more rules to learn'. The README.md taxonomy section is the antidote — reviewers learn the prefix taxonomy and read each card on demand."
+    - "Sub-rule numeric suffixes (.1, .2) are a new convention; until the README is internalised, contributors may not know that R-C.1 is a sibling of R-C, not a deeper sub-clause."
+    - "The family ledger introduces a new freshness obligation — every architecture refresh requires a yaml bump. The /refresh-defect-archive skill is the antidote."
+  open_questions:
+    - "Should the family-derivation pipeline be auto-runnable (a python script that scans release notes and emits the yaml)? Manual maintenance is fine at 8 families but may not scale."
+    - "Does the `cleanup_status` enum need a 5th value `monitoring`? Today rc16-closed families could regress; `closed` may be too strong if a future refactor reintroduces the surface."
+
+verification:
+  - "`bash gate/check_architecture_sync.sh` — full gate run includes Rule 111 (sub-checks .a/.b/.c). Pass with 8 families in yaml + matching md + recent last_updated."
+  - "`bash gate/test_architecture_sync_gate.sh` — passes 205 cases including 3 new test_rule_111_*."
+  - "`python3 gate/build_architecture_graph.py --check --no-write` — graph idempotent + node/edge count reconciled to baseline_metrics."
+  - "Manual: temporarily delete one family row from yaml → Rule 111.a FAILS with 'family open_residual: 7/8 families'."
+  - "Manual: temporarily delete one F-... reference from md → Rule 111.c FAILS with 'Family ids in yaml but missing from md: <id>'."
+  - "Manual: touch docs/adr/0000-fake.yaml and commit without updating recurring-defect-families.yaml → Rule 111.b FAILS with mtime comparison."

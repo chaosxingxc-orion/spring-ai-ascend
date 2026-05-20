@@ -1,15 +1,15 @@
 ---
 rule_id: R-I
-title: "Five-Plane Manifest + Edge↔Compute Ingress Routing"
+title: "Five-Plane Manifest"
 level: L0
 view: physical
 principle_ref: P-I
-authority_refs: [ADR-0069, ADR-0089]
-enforcer_refs: [E68, E143]
+authority_refs: [ADR-0069, ADR-0094]
+enforcer_refs: [E68]
 status: active
 kernel_cap: 8
 kernel: |
-  **Every `<module>/module-metadata.yaml` MUST declare `deployment_plane:` whose value is one of `edge | compute_control | bus_state | sandbox | evolution | none`. The plane assignment MUST match the L0 §7.1 topology — Edge Access (Agent Client SDK), Compute & Control (Runtime + Execution Engine), Bus & State Hub (Bus + Middleware persistence), Sandbox Execution (untrusted code), Evolution (Python ML). BoMs and build-time-only modules use `none` (sub-clause .a — Five-Plane Manifest). Modules whose `deployment_plane` is `edge` MUST NOT import any production class under `ascend.springai.{service,engine,middleware}..` AND MUST NOT invoke compute_control HTTP routes directly; edge→compute_control traffic flows exclusively through `ascend.springai.bus.spi.ingress.IngressGateway` whose wire schema is `docs/contracts/ingress-envelope.v1.yaml`; W1 enforcement is ArchUnit (`EdgeToComputeDirectLinkArchTest`) + gate rule `edge_no_direct_compute_link`; contract status `design_only` at W1, promoted to `runtime_enforced` when the agent-client SDK lands per ADR-0049 / W3+ (sub-clause .b — Edge↔Compute Ingress Routing, per ADR-0089).**
+  **Every `<module>/module-metadata.yaml` MUST declare `deployment_plane:` whose value is one of `edge | compute_control | bus_state | sandbox | evolution | none`. The plane assignment MUST match the L0 §7.1 topology — Edge Access (Agent Client SDK), Compute & Control (Runtime + Execution Engine), Bus & State Hub (Bus + Middleware persistence), Sandbox Execution (untrusted code), Evolution (Python ML). BoMs and build-time-only modules use `none`. Edge↔Compute ingress routing invariants split to Rule R-I.1 per ADR-0094.**
 ---
 
 ## Motivation

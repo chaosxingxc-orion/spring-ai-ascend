@@ -230,3 +230,48 @@ Authority: ADR-0088 (agent-runtime-core dissolution) + ADR-0089 (Edge-Plane Ingr
 - `baseline_metrics.enforcer_rows`: 142 → 144.
 - `baseline_metrics.gate_executable_test_cases`: 180 → 182.
 - `baseline_metrics.architecture_graph_{nodes,edges}`: regenerated post-merge.
+
+## 2026-05-21 — rc17 wave: recurring-defect-family truth + rule consolidation (ADR-0094)
+
+### Strategic shift
+
+User-initiated reflection ("已经发现的错误类别已经做到完全清理了吗？"). Family-recurrence audit found 4 root-cause classes had recurred 6-9 times across rc4 → rc16 while prevention rules were widened reactively. Two prongs: (1) institutionalise the recurring-family pattern as a first-class corpus artefact; (2) consolidate 4 rule kernels whose sub-clauses spanned orthogonal domains.
+
+### New rules
+
+- **Rule G-9 — Recurring-Defect Family Truth** (NEW L0). Gates `docs/governance/recurring-defect-families.{yaml,md}` freshness on every architecture refresh. Three sub-clauses: .a yaml well-formedness, .b mtime/last_updated freshness vs refresh-signal commits, .c yaml↔md family-id parity. Implemented by Gate Rule 111 + enforcers E156/E157/E158 + 3 self-test fixtures. Card declares `scope_surfaces:` (6 surfaces) per Rule 110 META.
+
+### Rule splits (taxonomic only; gate Rule numbers + enforcer IDs preserved)
+
+- **Rule G-3 → Rule G-3 + Rule G-3.1.** G-3 retains .a-.e (kernel-card structural coherence). G-3.1 takes .f (disjunction-truth grammar). Gate Rule 100 + E141/E142 retained.
+- **Rule R-I → Rule R-I + Rule R-I.1.** R-I retains .a (five-plane manifest, shipped W1). R-I.1 takes .b (edge↔compute ingress routing, design_only/W3+). Gate Rule 105 + E143 retained.
+- **Rule G-2 → Rule G-2 + Rule G-2.1.** G-2 retains .a/.b/.c/.d/.g (authority-text per-surface truth). G-2.1 takes .e/.f/.h + integrates Rule 94/98/103/109 deleted-module coverage. Existing gate Rule 94/98/103/109 + E120/E129/E130/E137/E138 retained (attribution shifts).
+- **Rule R-C → Rule R-C + Rule R-C.1 + Rule R-C.2.** R-C retains .a (code-as-contract). R-C.1 takes .b (independent module evolution). R-C.2 takes .c+.d+.e (run contract spine: tenantId + RunStateMachine + tenant-propagation purity). Enforcers E2/E4/E9/E11/E15-E19/E27-E31 retained, redistributed across cards.
+
+### New enforcer rows
+
+- **E156 — recurring_defect_family_yaml_wellformed** (Rule 111.a / Rule G-9.a).
+- **E157 — recurring_defect_family_yaml_freshness** (Rule 111.b / Rule G-9.b).
+- **E158 — recurring_defect_family_yaml_md_parity** (Rule 111.c / Rule G-9.c).
+
+### New files
+
+- `docs/governance/recurring-defect-families.yaml` — 8 families, schema_version=1.
+- `docs/governance/recurring-defect-families.md` — human view with §1 summary + §2 detail + §3 META-lessons.
+- `docs/governance/rules/rule-G-9.md` — new rule card.
+- `docs/governance/rules/rule-G-3-1.md`, `rule-R-I-1.md`, `rule-G-2-1.md`, `rule-R-C-1.md`, `rule-R-C-2.md` — split rule cards.
+- `docs/governance/rules/README.md` — D-/R-/G-/M- prefix taxonomy + `.1`/`.2` sub-rule convention documentation.
+- `.claude/skills/refresh-defect-archive.md` — project-scoped Claude skill (developer-facing companion to Rule G-9).
+- `docs/adr/0094-rc17-recurring-defect-family-truth-and-rule-consolidation.yaml`.
+- `docs/logs/releases/2026-05-21-l0-rc17-recurring-defect-family-truth-and-rule-consolidation.en.md`.
+
+### Baseline_metrics updates
+
+- `baseline_metrics.active_engineering_rules`: 31 → 37.
+- `baseline_metrics.active_gate_checks`: 122 → 123.
+- `baseline_metrics.gate_executable_test_cases`: 202 → 205.
+- `baseline_metrics.enforcer_rows`: 154 → 157.
+- `baseline_metrics.adr_count`: 92 → 93.
+- `baseline_metrics.architecture_graph_nodes`: 396 → 407 (live reconciled 2026-05-21).
+- `baseline_metrics.architecture_graph_edges`: 615 → 643 (live reconciled 2026-05-21).
+- NEW `baseline_metrics.recurring_defect_families: 8`.

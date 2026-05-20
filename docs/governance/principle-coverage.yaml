@@ -32,8 +32,10 @@ principles:
       baseline that future releases can be measured against.
     operationalised_by_rules:
       - Rule-D-5
-      - Rule-R-C.e
+      - Rule-R-C.2     # tenant-propagation-purity (formerly R-C.e, relocated rc17 ADR-0094)
       - Rule-R-B
+      - Rule-G-3       # kernel-card-implementation coherence
+      - Rule-G-3.1     # kernel-implementation disjunction truth (split rc17 ADR-0094)
     deferred_operationalisers:
       - Rule-18   # eval — deferred W4
 
@@ -47,10 +49,11 @@ principles:
     operationalised_by_rules:
       - Rule-D-6
       - Rule-G-2
-      - Rule-R-C.a
-      - Rule-R-C.b
+      - Rule-R-C       # code-as-contract (narrowed to just .a per rc17 ADR-0094)
+      - Rule-R-C.1     # independent module evolution (split rc17 ADR-0094, was R-C.b)
+      - Rule-R-C.2     # run contract spine (split rc17 ADR-0094, was R-C.c+.d+.e)
       - Rule-G-1
-      - Rule-M-1   # NEW (rc4 review P0-2 — skeleton-module identity)
+      - Rule-M-1   # rc4 review P0-2 — skeleton-module identity
 
   - id: P-D
     name: "SPI-Aligned, DFX-Explicit, Spec-Driven, TCK-Tested"
@@ -67,6 +70,8 @@ principles:
       - Rule-R-D
       - Rule-D-3.b
       - Rule-M-2
+      - Rule-G-2.1     # deleted-module scope prevention (split rc17 ADR-0094)
+      - Rule-G-9       # recurring-defect family truth (new rc17 ADR-0094)
     deferred_operationalisers:
       - Rule-22   # PayloadCodec — deferred
 
@@ -125,7 +130,8 @@ principles:
       code), and Evolution (Python ML). Workloads with different
       characteristics MUST NOT share infrastructure. (LucioIT W1 §7.1.)
     operationalised_by_rules:
-      - Rule-R-I
+      - Rule-R-I       # five-plane manifest (narrowed to .a per rc17 ADR-0094)
+      - Rule-R-I.1     # edge↔compute ingress routing (split rc17 ADR-0094, was R-I.b, design_only W3+)
 
   - id: P-J
     name: "Storage-Engine Tenant Isolation"
@@ -205,8 +211,7 @@ legacy_principles:
     composes_with: P-A
     operationalised_by_rules:
       - Rule-D-8
-      - Rule-R-C.d
-      - Rule-R-C.e
+      - Rule-R-C.2     # run-spine (formerly R-C.d + R-C.e, relocated rc17 ADR-0094)
       - Rule-R-A
     operationalised_by_arch_sections:
       - "ARCHITECTURE.md §4.7"

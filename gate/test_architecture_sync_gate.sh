@@ -5705,6 +5705,89 @@ SHEOF
   fi
 }
 
+test_rule_111_yaml_wellformed_pos() {
+  _r111_pos_root="$scratch/r111_pos_a"
+  mkdir -p "$_r111_pos_root"
+  cat > "$_r111_pos_root/recurring-defect-families.yaml" <<'YEOF'
+schema_version: 1
+last_updated: 2026-05-21
+families:
+  - id: F-test-family
+    title: Test
+    first_observed_rc: rc1
+    last_observed_rc: rc2
+    occurrences: [rc1, rc2]
+    root_cause: synthetic
+    surfaces:
+      - x
+    prevention_rules: [Rule X]
+    cleanup_status: closed
+    open_residual: ""
+YEOF
+  _fam_count=$(grep -cE '^  - id:' "$_r111_pos_root/recurring-defect-families.yaml")
+  _missing=0
+  for f in title first_observed_rc last_observed_rc occurrences root_cause surfaces prevention_rules cleanup_status open_residual; do
+    _c=$(grep -cE "^    ${f}:" "$_r111_pos_root/recurring-defect-families.yaml")
+    [[ "$_c" -lt "$_fam_count" ]] && _missing=1
+  done
+  if [[ "$_missing" -eq 0 && "$_fam_count" -ge 1 ]]; then
+    ok "rule_111_yaml_wellformed_pos" "Rule 111.a accepts well-formed yaml with all 9 required per-family fields"
+  else
+    fail "rule_111_yaml_wellformed_pos" "expected well-formed yaml to pass, got fam_count=$_fam_count missing=$_missing"
+  fi
+}
+
+test_rule_111_yaml_wellformed_neg() {
+  _r111_neg_root="$scratch/r111_neg_a"
+  mkdir -p "$_r111_neg_root"
+  # Family missing the `open_residual` field
+  cat > "$_r111_neg_root/recurring-defect-families.yaml" <<'YEOF'
+schema_version: 1
+last_updated: 2026-05-21
+families:
+  - id: F-broken-family
+    title: Broken
+    first_observed_rc: rc1
+    last_observed_rc: rc2
+    occurrences: [rc1, rc2]
+    root_cause: synthetic
+    surfaces:
+      - x
+    prevention_rules: [Rule X]
+    cleanup_status: closed
+YEOF
+  _fam_count=$(grep -cE '^  - id:' "$_r111_neg_root/recurring-defect-families.yaml")
+  _residual_count=$(grep -cE "^    open_residual:" "$_r111_neg_root/recurring-defect-families.yaml")
+  if [[ "$_residual_count" -lt "$_fam_count" ]]; then
+    ok "rule_111_yaml_wellformed_neg" "Rule 111.a catches missing open_residual ($_residual_count/$_fam_count)"
+  else
+    fail "rule_111_yaml_wellformed_neg" "expected missing field caught, got count=$_residual_count fam=$_fam_count"
+  fi
+}
+
+test_rule_111_md_yaml_parity_neg() {
+  _r111_parity_root="$scratch/r111_neg_c"
+  mkdir -p "$_r111_parity_root"
+  cat > "$_r111_parity_root/families.yaml" <<'YEOF'
+families:
+  - id: F-only-in-yaml
+  - id: F-shared
+YEOF
+  cat > "$_r111_parity_root/families.md" <<'MEOF'
+### F-only-in-md
+### F-shared
+MEOF
+  _yaml_ids=$(awk '/^  - id:[[:space:]]+/ {print $3}' "$_r111_parity_root/families.yaml" | sort -u)
+  _md_ids=$(grep -oE 'F-[a-z][a-z0-9-]*' "$_r111_parity_root/families.md" | sort -u)
+  _only_yaml=$(comm -23 <(echo "$_yaml_ids") <(echo "$_md_ids"))
+  _only_md=$(comm -13 <(echo "$_yaml_ids") <(echo "$_md_ids"))
+  if [[ -n "$_only_yaml" || -n "$_only_md" ]]; then
+    ok "rule_111_md_yaml_parity_neg" "Rule 111.c catches yaml-only=$(echo $_only_yaml) md-only=$(echo $_only_md)"
+  else
+    fail "rule_111_md_yaml_parity_neg" "expected parity break to be caught, got equal sets"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #

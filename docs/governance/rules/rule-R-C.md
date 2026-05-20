@@ -1,15 +1,15 @@
 ---
 rule_id: R-C
-title: "Code-as-Contract + Independent Module Evolution + Run Contract Spine"
+title: "Code-as-Contract"
 level: L1
 view: development
 principle_ref: P-C
-authority_refs: [ADR-0064, ADR-0066, ADR-0068, ADR-0078, ADR-0088]
-enforcer_refs: [E2, E4, E11, E15, E16, E17, E18, E19, E27, E28, E29, E30, E31]
+authority_refs: [ADR-0064, ADR-0068, ADR-0094]
+enforcer_refs: [E15, E16, E17, E18, E19, E27, E28, E29, E30]
 status: active
 kernel_cap: 8
 kernel: |
-  **Every active normative constraint in the platform corpus MUST be enforced by code, registered in `docs/governance/enforcers.yaml`, and reach ≥1 of: an ArchUnit test, a `gate/check_architecture_sync.sh` rule, an integration test, a storage-layer schema constraint (NOT NULL / UNIQUE / CHECK / PRIMARY KEY), or a compile-time check (`@ConfigurationProperties + @Valid`, sealed types, package-info enforcement) (sub-clause .a — Code-as-Contract). Every Maven module declares a sibling `module-metadata.yaml` with `module`, `kind ∈ {platform|domain|starter|bom|sample}`, `version`, `semver_compatibility`, `architecture_doc`, `dfx_doc`, `spi_packages`, `allowed/forbidden_dependencies`; each builds + tests in isolation (sub-clause .b — Independent Module Evolution). Every persistent record under `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java` MUST declare a `String tenantId` validated by `Objects.requireNonNull` (sub-clause .c — Contract Spine; relocated from agent-runtime-core per ADR-0088). Every `Run.withStatus(newStatus)` MUST call `RunStateMachine.validate(this.status, newStatus)` (sub-clause .d — Run State Transition Validity). No production class under `service.runtime..` may import `service.platform..`; the original narrow `TenantContextHolder` ban is asserted independently as defence-in-depth (sub-clause .e — Tenant Propagation Purity).**
+  **Every active normative constraint in the platform corpus MUST be enforced by code, registered in `docs/governance/enforcers.yaml`, and reach ≥1 of: an ArchUnit test, a `gate/check_architecture_sync.sh` rule, an integration test, a storage-layer schema constraint (NOT NULL / UNIQUE / CHECK / PRIMARY KEY), or a compile-time check (`@ConfigurationProperties + @Valid`, sealed types, package-info enforcement). Module-evolution invariants split to Rule R-C.1; run-spine invariants split to Rule R-C.2 per ADR-0094.**
 ---
 
 # Rule R-C — Code-as-Contract + Independent Module Evolution + Run Contract Spine

@@ -1,15 +1,15 @@
 ---
 rule_id: G-2
-title: "Authority-Text Reality (doc / status / path / numeric / name truth)"
+title: "Authority-Text Reality (doc / status / path / numeric truth)"
 level: L0
 view: scenarios
 principle_ref: P-D
-authority_refs: [ADR-0043, ADR-0047, ADR-0078, ADR-0082, ADR-0083, ADR-0084, ADR-0085]
-enforcer_refs: [E16, E25, E115, E116, E119, E120, E129, E130, E135, E136, E137, E138]
+authority_refs: [ADR-0043, ADR-0047, ADR-0078, ADR-0082, ADR-0083, ADR-0085, ADR-0094]
+enforcer_refs: [E16, E25, E115, E116, E119, E135, E136]
 status: active
 kernel_cap: 8
 kernel: |
-  **Authority-text reality across the active corpus: `shipped: true` rows in `architecture-status.yaml` MUST have real `tests:` + `implementation:` paths and enforcer-backed prose (sub-clause .a — Architecture-Text Truth). `architecture-status.yaml#baseline_metrics` is the single source for entrypoint counts; `README.md` + `gate/README.md` numeric claims MUST point to it AND match parsed values (sub-clause .b — Baseline Metrics Single Source). Active `agent-*/ARCHITECTURE.md` path claims MUST resolve or carry historical markers (sub-clause .c). Root `ARCHITECTURE.md` module-count + path claims MUST match `pom.xml` and `architecture-status.yaml#repository_counts`; fenced tree-diagram SPI leaves MUST match `module-metadata.yaml#spi_packages` (sub-clause .d). `architecture-status.yaml#allowed_claim` text, every active `.md/.yaml/.yml/.java`, AND files under `ops/**/*.{yaml,yml,tpl,md}` / `docs/contracts/*.yaml` / `**/module-metadata.yaml` MUST NOT contain current-tense pre-Phase-C module names (`agent-platform`, `agent-runtime`) outside marker windows listed in `gate/active-corpus-name-exemption-markers.txt`; file-path exemptions in `gate/active-corpus-name-exemption-paths.txt` (sub-clauses .e + .f + .h). The latest release note under `docs/logs/releases/*.md` MUST NOT contain absolute graph node/edge counts disagreeing with live values unless marked historical (sub-clause .g).**
+  **Authority-text reality across the active corpus: `shipped: true` rows in `architecture-status.yaml` MUST have real `tests:` + `implementation:` paths and enforcer-backed prose (sub-clause .a — Architecture-Text Truth). `architecture-status.yaml#baseline_metrics` is the single source for entrypoint counts; `README.md` + `gate/README.md` numeric claims MUST point to it AND match parsed values (sub-clause .b — Baseline Metrics Single Source). Active `agent-*/ARCHITECTURE.md` path claims MUST resolve or carry historical markers (sub-clause .c). Root `ARCHITECTURE.md` module-count + path claims MUST match `pom.xml` and `architecture-status.yaml#repository_counts`; fenced tree-diagram SPI leaves MUST match `module-metadata.yaml#spi_packages` (sub-clause .d). The latest release note under `docs/logs/releases/*.md` MUST NOT contain absolute graph node/edge counts disagreeing with live values unless marked historical (sub-clause .g). Deleted-module-name leakage prevention (former sub-clauses .e/.f/.h) split to Rule G-2.1 per ADR-0094.**
 ---
 
 # Rule G-2 — Authority-Text Reality (doc / status / path / numeric / name truth)

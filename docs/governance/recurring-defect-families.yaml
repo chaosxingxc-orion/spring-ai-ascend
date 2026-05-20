@@ -1,0 +1,284 @@
+# Recurring Defect Families — machine-readable SSOT
+#
+# This file is the canonical ledger of defect FAMILIES (root-cause classes)
+# that have recurred across multiple rc cycles. It is NOT a release log
+# (those live under `docs/logs/releases/`). It is a DERIVED view: a family
+# is added here only after the same root-cause class has been observed in
+# ≥2 rc cycles and a prevention rule has been authored (or recognised as
+# insufficient and rewritten).
+#
+# Purpose:
+#   1. Make recurring-family knowledge first-class so a fresh reviewer can
+#      ask "has this class been seen before?" without re-reading 16 release
+#      notes.
+#   2. Drive the rc17 Rule G-9 / Gate Rule 111 freshness gate — any
+#      architecture refresh (new ADR, baseline change, release note) MUST
+#      sync this file within 24h of the refresh-signal commit.
+#   3. Surface OPEN RESIDUALS — families whose cleanup_status is `partial`
+#      or `incomplete` so the next prevention wave can target them.
+#
+# Schema:
+#   schema_version           - integer, bumped when fields are added
+#   last_updated             - ISO date of the most recent family-row edit
+#   families[]
+#     id                     - kebab-case unique slug, prefix F-
+#     title                  - one-line human title
+#     first_observed_rc      - rcN string, oldest observation
+#     last_observed_rc       - rcN string, newest observation
+#     occurrences            - list of rcN strings where the family was hit
+#     root_cause             - one-paragraph mechanism
+#     surfaces               - list of paths/globs where the family manifests
+#     prevention_rules       - list of Rule IDs (D-/R-/G-/M-/Rule-N) authored
+#                              as prevention; in order of introduction
+#     cleanup_status         - enum: closed | structurally_addressed | partial | incomplete
+#     open_residual          - one-paragraph remaining risk (empty if closed)
+#
+# Authority: ADR-0094 (rc17 recurring-defect-family-truth + rule-consolidation).
+# Self-enforced by Gate Rule 111 (E156 yaml well-formed + E157 mtime
+# freshness + E158 yaml/md family-id parity).
+
+schema_version: 1
+last_updated: 2026-05-21
+
+families:
+  - id: F-numeric-drift
+    title: Numeric Drift Across Authority Surfaces
+    first_observed_rc: rc5
+    last_observed_rc: rc15
+    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15]
+    root_cause: |
+      Numeric claims (rule counts, gate counts, enforcer counts, graph
+      nodes/edges, self-tests) are estimated when a release note is written
+      and then never re-aligned against live state. The first estimate
+      becomes a de-facto baseline; subsequent drift compounds until a
+      reviewer catches it. The structural fix landed in rc6 (Rule 82 single
+      source) and was widened in rc9 (Rule 91 baseline-match-manifest),
+      rc10 (Rule 97 release-note numeric truth), rc12 (Rule 101 namespace
+      authority parity), and rc14 (Rule G-8.a graph baseline parity). A
+      re-baseline ritual at release time would close the family.
+    surfaces:
+      - docs/governance/architecture-status.yaml#baseline_metrics
+      - README.md
+      - gate/README.md
+      - docs/logs/releases/*.md (latest only)
+      - CLAUDE.md kernel numeric claims
+      - docs/governance/architecture-graph.yaml header
+    prevention_rules:
+      - Rule 82
+      - Rule 91
+      - Rule 97
+      - Rule 101
+      - Rule G-8.a
+    cleanup_status: partial
+    open_residual: |
+      rc16 P2-1 surfaced lingering drift. First-cut estimates still happen
+      without a structured re-baseline ritual; the next missed surface
+      will appear in the first authority doc not yet covered by Rules
+      82/91/97/101/G-8.a.
+
+  - id: F-deleted-module-name-leakage
+    title: Deleted-Module-Name Leakage After Refactor
+    first_observed_rc: rc9
+    last_observed_rc: rc16
+    occurrences: [rc9, rc10, rc11, rc12, rc13, rc16]
+    root_cause: |
+      Major structural refactors (Phase C consolidation per ADR-0078;
+      engine SPI extraction per ADR-0079; agent-runtime-core dissolution
+      per ADR-0088) delete modules whose names persist in 7-10 surfaces
+      across the corpus — ARCHITECTURE prose, contract catalogs, ops
+      manifests, Dockerfiles, CI workflows, .puml diagrams, BoM
+      descriptions, telemetry tags. Each subsequent rc cycle finds another
+      partition the previous prevention rule did not scan, because
+      reviewer scope was narrower than defect scope (rc10 meta-lesson;
+      operationalised by Rule 110 META in rc16).
+    surfaces:
+      - agent-*/ARCHITECTURE.md
+      - docs/contracts/*.yaml
+      - ops/**/*.{yaml,yml,tpl,md}
+      - docs/quickstart.md
+      - .github/workflows/*.yml
+      - Dockerfile
+      - docs/**/*.puml
+      - "**/module-metadata.yaml"
+      - docs/telemetry/policy.md
+      - spring-ai-ascend-dependencies/module-metadata.yaml
+    prevention_rules:
+      - Rule 93
+      - Rule 94
+      - Rule 98
+      - Rule 103
+      - Rule 109
+      - Rule G-2.1
+    cleanup_status: structurally_addressed
+    open_residual: |
+      Rule G-2.1 (rc17) consolidates Rule 94/98/109 under one
+      "deleted-module scope" gate. Future refactors will still leak into
+      new surfaces; Rule 110 META + Rule G-9 freshness gate are the
+      structural backstops that catch the next family member before
+      reviewers do.
+
+  - id: F-authority-surface-path-drift
+    title: Authority-Surface Path Drift After Code Refactor
+    first_observed_rc: rc4
+    last_observed_rc: rc15
+    occurrences: [rc4, rc6, rc7, rc11, rc12, rc13, rc14, rc15]
+    root_cause: |
+      Code refactors (file moves, package renames, SPI relocations) land
+      first; authority surfaces (`docs/contracts/contract-catalog.md`,
+      `agent-*/ARCHITECTURE.md` path claims, `module-metadata.yaml#spi_packages`)
+      lag 2-6 waves. Each lag window is detected by the next reviewer.
+      Family is adjacent to F-deleted-module-name-leakage — both spring
+      from "refactor first, authority second" but this family covers path
+      truth (correct module but wrong path) while the other covers name
+      truth (deleted module mentioned at all).
+    surfaces:
+      - docs/contracts/contract-catalog.md
+      - docs/contracts/*.v1.yaml
+      - agent-*/ARCHITECTURE.md path claims
+      - module-metadata.yaml#spi_packages
+    prevention_rules:
+      - Rule 84
+      - Rule 94
+      - Rule 98
+      - Rule 103
+      - Rule G-8.b
+      - Rule G-8.d
+    cleanup_status: partial
+    open_residual: |
+      Crosses with F-deleted-module-name-leakage; closed surfaces in one
+      family often re-emerge in the other when scope is narrowly
+      reviewer-driven. Rule G-8.e (rc15 structural-carrier parity)
+      addresses the most recent occurrence.
+
+  - id: F-kernel-vs-implementation-drift
+    title: Prevention Rule Kernel vs Implementation Drift
+    first_observed_rc: rc6
+    last_observed_rc: rc15
+    occurrences: [rc6, rc7, rc11, rc15]
+    root_cause: |
+      A prevention rule's kernel paragraph documents intent X while its
+      gate-script implementation checks only Y (Y ⊂ X). This is the
+      worst class of Code-as-Contract drift because the rule whose JOB is
+      preventing drift itself drifts. rc11 P1-3 documented "kernel-narrow
+      impl-broad" (Rule 96 said "kernel only" but checked "either
+      surface"). rc15 found analogous drift in Rule G-8 sub-checks.
+    surfaces:
+      - gate/check_architecture_sync.sh
+      - docs/governance/rules/*.md kernel scalars
+      - CLAUDE.md kernel paragraphs
+    prevention_rules:
+      - Rule 82
+      - Rule 99
+      - Rule 100
+      - Rule 106
+      - Rule 107
+    cleanup_status: partial
+    open_residual: |
+      Every newly-added rule carries the same risk. Rule G-9 (rc17)
+      requires every new rule declare `scope_surfaces:` frontmatter so
+      kernel-vs-impl drift becomes detectable at gate time.
+
+  - id: F-cross-authority-agreement
+    title: Cross-Authority Surface Disagreement
+    first_observed_rc: rc14
+    last_observed_rc: rc16
+    occurrences: [rc14, rc15, rc16]
+    root_cause: |
+      117+ single-surface prevention rules can all pass while the
+      surfaces themselves contradict each other — e.g.
+      architecture-status.yaml#baseline_metrics.architecture_graph_nodes
+      ≠ architecture-graph.yaml#node_count. rc14 identified this as a
+      structurally-new defect family (L-δ META): per-surface
+      self-consistency is necessary but not sufficient. Closed
+      structurally by Rule G-8 (rc14 mega-rule, 4 sub-checks) +
+      Rule G-8.e (rc15 widening) + Rule 107/108/109 (rc16 namespace
+      parity).
+    surfaces:
+      - architecture-status.yaml ↔ architecture-graph.yaml
+      - CLAUDE.md kernel ↔ rule-*.md cards
+      - module-metadata.yaml ↔ contract-catalog.md
+      - pom.xml modules ↔ architecture-status.yaml#repository_counts
+    prevention_rules:
+      - Rule 106
+      - Rule G-8
+      - Rule G-8.e
+      - Rule 107
+      - Rule 108
+      - Rule 109
+    cleanup_status: structurally_addressed
+    open_residual: |
+      Every new rule MUST explicitly enumerate its authority surfaces
+      (Rule G-8.b/.c/.e + Rule 109 + Rule G-9 frontmatter). Drift will
+      reappear only if a rule introduces a new surface without declaring
+      it.
+
+  - id: F-deferred-clause-orphan
+    title: CLAUDE-deferred.md Orphan
+    first_observed_rc: rc12
+    last_observed_rc: rc16
+    occurrences: [rc12, rc15, rc16]
+    root_cause: |
+      Rule kernel changes in CLAUDE.md, or sub-clause changes in rule
+      cards, are not synced to docs/CLAUDE-deferred.md (and vice versa).
+      Rule 99 + Rule 107 enforce the bidirectional acknowledgement, but
+      three-way sync (kernel ↔ card ↔ deferred-doc) still relies on
+      author discipline at edit time.
+    surfaces:
+      - CLAUDE.md kernel
+      - docs/governance/rules/*.md cards
+      - docs/CLAUDE-deferred.md
+    prevention_rules:
+      - Rule 99
+      - Rule 107
+    cleanup_status: partial
+    open_residual: |
+      Rule 107 (rc16) ratchets clause-name parity but the underlying
+      three-way sync is still author-driven. Next residual is likely a
+      sub-clause cited in one surface but not the other two.
+
+  - id: F-shadow-corpus-prose-staleness
+    title: Shadow Corpus Prose Staleness (gate/rules/)
+    first_observed_rc: rc7
+    last_observed_rc: rc15
+    occurrences: [rc7, rc8, rc9, rc10, rc14, rc15]
+    root_cause: |
+      `gate/rules/*.sh` is described as "IDE-only generated" from the
+      monolithic `gate/check_architecture_sync.sh`, but prose comment
+      blocks (header notes, slug names, ADR refs) drift as the monolith
+      evolves. The generated artefacts are not actually regenerated on
+      every change — they accumulate stale prose.
+    surfaces:
+      - gate/rules/*.sh
+      - gate/check_architecture_sync.sh comment headers
+    prevention_rules:
+      - Rule 92
+      - Rule 97
+      - Rule 109
+    cleanup_status: partial
+    open_residual: |
+      Genuine fix is to make `gate/rules/*` truly auto-generated (or
+      delete the directory). Until then prose drift remains the most
+      frequent low-severity finding.
+
+  - id: F-terminal-verb-overclaim
+    title: Active Kernel Terminal Verb vs Deferred Decision
+    first_observed_rc: rc11
+    last_observed_rc: rc15
+    occurrences: [rc11, rc12, rc15]
+    root_cause: |
+      Active rule kernels use end-state verbs ("are SUSPENDED",
+      "transitions to FAILED", "consumes the * capacity") for behaviour
+      whose Run-state transition is W2-deferred. The shipped Java surface
+      only returns a decision envelope (e.g.
+      `SkillResolution.reject(SuspendReason.RateLimited)`); the
+      transition itself is deferred. Closed structurally by Rule 99 (rc11)
+      + Rule 108 (rc16).
+    surfaces:
+      - CLAUDE.md kernel paragraphs
+      - docs/governance/rules/*.md card kernels
+      - agent-*/ARCHITECTURE.md body text
+    prevention_rules:
+      - Rule 99
+      - Rule 108
+    cleanup_status: closed
+    open_residual: ""

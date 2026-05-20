@@ -10,13 +10,13 @@ Bodies of every principle and rule below live under `docs/governance/{principles
 |---|---|---|---|
 | **P-A** | Business / Platform Decoupling + Developer Self-Service | Rule R-A | [card](docs/governance/principles/P-A.md) |
 | **P-B** | Four Competitive Pillars | Rule R-B | [card](docs/governance/principles/P-B.md) |
-| **P-C** | Code-as-Everything, Rapid Evolution, Independent Modules | Rule R-C.a, Rule R-C.b | [card](docs/governance/principles/P-C.md) |
+| **P-C** | Code-as-Everything, Rapid Evolution, Independent Modules | Rule R-C, Rule R-C.1, Rule R-C.2 | [card](docs/governance/principles/P-C.md) |
 | **P-D** | SPI-Aligned, DFX-Explicit, Spec-Driven, TCK-Tested | Rule R-D sub-clause .a | [card](docs/governance/principles/P-D.md) |
 | **P-E** | Multi-Track Bus Physical Channel Isolation | Rule R-E | [card](docs/governance/principles/P-E.md) |
 | **P-F** | Cursor Flow & Asynchronous Client Boundary | Rule R-F | [card](docs/governance/principles/P-F.md) |
 | **P-G** | Absolute Non-Blocking I/O | Rule R-G | [card](docs/governance/principles/P-G.md) |
 | **P-H** | Chronos Hydration | Rule R-H | [card](docs/governance/principles/P-H.md) |
-| **P-I** | Five-Plane Distributed Topology | Rule R-I | [card](docs/governance/principles/P-I.md) |
+| **P-I** | Five-Plane Distributed Topology | Rule R-I, Rule R-I.1 | [card](docs/governance/principles/P-I.md) |
 | **P-J** | Storage-Engine Tenant Isolation | Rule R-J.a | [card](docs/governance/principles/P-J.md) |
 | **P-K** | Skill-Dimensional Resource Arbitration | Rule R-K | [card](docs/governance/principles/P-K.md) |
 | **P-L** | Sandbox Permission Subsumption | Rule R-L | [card](docs/governance/principles/P-L.md) |
@@ -89,18 +89,39 @@ Enforced by [`rule-D-6.md`](docs/governance/rules/rule-D-6.md).
 ---
 
 ### Architectural enforcement
-#### Rule G-2 — Authority-Text Reality (doc / status / path / numeric / name truth)
+#### Rule G-2 — Authority-Text Reality (doc / status / path / numeric truth)
 
-**Authority-text reality across the active corpus: `shipped: true` rows in `architecture-status.yaml` MUST have real `tests:` + `implementation:` paths and enforcer-backed prose (sub-clause .a — Architecture-Text Truth). `architecture-status.yaml#baseline_metrics` is the single source for entrypoint counts; `README.md` + `gate/README.md` numeric claims MUST point to it AND match parsed values (sub-clause .b — Baseline Metrics Single Source). Active `agent-*/ARCHITECTURE.md` path claims MUST resolve or carry historical markers (sub-clause .c). Root `ARCHITECTURE.md` module-count + path claims MUST match `pom.xml` and `architecture-status.yaml#repository_counts`; fenced tree-diagram SPI leaves MUST match `module-metadata.yaml#spi_packages` (sub-clause .d). `architecture-status.yaml#allowed_claim` text, every active `.md/.yaml/.yml/.java`, AND files under `ops/**/*.{yaml,yml,tpl,md}` / `docs/contracts/*.yaml` / `**/module-metadata.yaml` MUST NOT contain current-tense pre-Phase-C module names (`agent-platform`, `agent-runtime`) outside marker windows listed in `gate/active-corpus-name-exemption-markers.txt`; file-path exemptions in `gate/active-corpus-name-exemption-paths.txt` (sub-clauses .e + .f + .h). The latest release note under `docs/logs/releases/*.md` MUST NOT contain absolute graph node/edge counts disagreeing with live values unless marked historical (sub-clause .g).**
+**Authority-text reality across the active corpus: `shipped: true` rows in `architecture-status.yaml` MUST have real `tests:` + `implementation:` paths and enforcer-backed prose (sub-clause .a — Architecture-Text Truth). `architecture-status.yaml#baseline_metrics` is the single source for entrypoint counts; `README.md` + `gate/README.md` numeric claims MUST point to it AND match parsed values (sub-clause .b — Baseline Metrics Single Source). Active `agent-*/ARCHITECTURE.md` path claims MUST resolve or carry historical markers (sub-clause .c). Root `ARCHITECTURE.md` module-count + path claims MUST match `pom.xml` and `architecture-status.yaml#repository_counts`; fenced tree-diagram SPI leaves MUST match `module-metadata.yaml#spi_packages` (sub-clause .d). The latest release note under `docs/logs/releases/*.md` MUST NOT contain absolute graph node/edge counts disagreeing with live values unless marked historical (sub-clause .g). Deleted-module-name leakage prevention (former sub-clauses .e/.f/.h) split to Rule G-2.1 per ADR-0094.**
 
 Enforced by [`rule-G-2.md`](docs/governance/rules/rule-G-2.md).
 
 ---
-#### Rule R-C — Code-as-Contract + Independent Module Evolution + Run Contract Spine
+#### Rule G-2.1 — Deleted-Module Scope Prevention
 
-**Every active normative constraint in the platform corpus MUST be enforced by code, registered in `docs/governance/enforcers.yaml`, and reach ≥1 of: an ArchUnit test, a `gate/check_architecture_sync.sh` rule, an integration test, a storage-layer schema constraint (NOT NULL / UNIQUE / CHECK / PRIMARY KEY), or a compile-time check (`@ConfigurationProperties + @Valid`, sealed types, package-info enforcement) (sub-clause .a — Code-as-Contract). Every Maven module declares a sibling `module-metadata.yaml` with `module`, `kind ∈ {platform|domain|starter|bom|sample}`, `version`, `semver_compatibility`, `architecture_doc`, `dfx_doc`, `spi_packages`, `allowed/forbidden_dependencies`; each builds + tests in isolation (sub-clause .b — Independent Module Evolution). Every persistent record under `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java` MUST declare a `String tenantId` validated by `Objects.requireNonNull` (sub-clause .c — Contract Spine; relocated from agent-runtime-core per ADR-0088). Every `Run.withStatus(newStatus)` MUST call `RunStateMachine.validate(this.status, newStatus)` (sub-clause .d — Run State Transition Validity). No production class under `service.runtime..` may import `service.platform..`; the original narrow `TenantContextHolder` ban is asserted independently as defence-in-depth (sub-clause .e — Tenant Propagation Purity).**
+**Deleted-module-name leakage across the active corpus: `architecture-status.yaml#allowed_claim` text (sub-clause .a, from former G-2.e), every active `.md/.yaml/.yml/.java` outside historical-by-location exemptions (sub-clause .b, from former G-2.f), AND files under `ops/**/*.{yaml,yml,tpl,md}` / `docs/contracts/*.yaml` / `**/module-metadata.yaml` / Dockerfile / `.github/workflows/*.yml` / `docs/**/*.puml` (sub-clause .c, from former G-2.h + Rule 103) MUST NOT contain current-tense pre-Phase-C module names (`agent-platform`, `agent-runtime` with negative lookahead on `agent-runtime-core`) outside marker windows listed in `gate/active-corpus-name-exemption-markers.txt`; file-path exemptions in `gate/active-corpus-name-exemption-paths.txt`. Detection uses the word-boundary regex `\bagent-platform\b` OR (`\bagent-runtime\b` AND NOT `\bagent-runtime-core\b`) with ±3-line historical-marker scan.**
+
+Enforced by [`rule-G-2-1.md`](docs/governance/rules/rule-G-2-1.md).
+
+---
+#### Rule R-C — Code-as-Contract
+
+**Every active normative constraint in the platform corpus MUST be enforced by code, registered in `docs/governance/enforcers.yaml`, and reach ≥1 of: an ArchUnit test, a `gate/check_architecture_sync.sh` rule, an integration test, a storage-layer schema constraint (NOT NULL / UNIQUE / CHECK / PRIMARY KEY), or a compile-time check (`@ConfigurationProperties + @Valid`, sealed types, package-info enforcement). Module-evolution invariants split to Rule R-C.1; run-spine invariants split to Rule R-C.2 per ADR-0094.**
 
 Enforced by [`rule-R-C.md`](docs/governance/rules/rule-R-C.md).
+
+---
+#### Rule R-C.1 — Independent Module Evolution
+
+**Every Maven module declares a sibling `module-metadata.yaml` with `module`, `kind ∈ {platform|domain|starter|bom|sample}`, `version`, `semver_compatibility`, `architecture_doc`, `dfx_doc`, `spi_packages`, `allowed/forbidden_dependencies`; each builds and tests in isolation via `mvn -pl <module> -am test`. Inter-module dependency direction is governed by the dependency-allowlist enforcer (E1).**
+
+Enforced by [`rule-R-C-1.md`](docs/governance/rules/rule-R-C-1.md).
+
+---
+#### Rule R-C.2 — Run Contract Spine
+
+**Every persistent record under `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java` MUST declare a `String tenantId` validated by `Objects.requireNonNull` (sub-clause .a — Contract Spine Completeness; relocated from agent-runtime-core per ADR-0088). Every `Run.withStatus(newStatus)` MUST call `RunStateMachine.validate(this.status, newStatus)` (sub-clause .b — Run State Transition Validity). No production class under `service.runtime..` may import `service.platform..`; the original narrow `TenantContextHolder` ban is asserted independently as defence-in-depth (sub-clause .c — Tenant Propagation Purity).**
+
+Enforced by [`rule-R-C-2.md`](docs/governance/rules/rule-R-C-2.md).
 
 ---
 
@@ -167,9 +188,16 @@ Enforced by [`rule-R-H.md`](docs/governance/rules/rule-R-H.md).
 ---
 #### Rule R-I — Five-Plane Manifest
 
-**Every `<module>/module-metadata.yaml` MUST declare `deployment_plane:` whose value is one of `edge | compute_control | bus_state | sandbox | evolution | none`. The plane assignment MUST match the L0 §7.1 topology — Edge Access (Agent Client SDK), Compute & Control (Runtime + Execution Engine), Bus & State Hub (Bus + Middleware persistence), Sandbox Execution (untrusted code), Evolution (Python ML). BoMs and build-time-only modules use `none` (sub-clause .a — Five-Plane Manifest). Modules whose `deployment_plane` is `edge` MUST NOT import any production class under `ascend.springai.{service,engine,middleware}..` AND MUST NOT invoke compute_control HTTP routes directly; edge→compute_control traffic flows exclusively through `ascend.springai.bus.spi.ingress.IngressGateway` whose wire schema is `docs/contracts/ingress-envelope.v1.yaml`; W1 enforcement is ArchUnit (`EdgeToComputeDirectLinkArchTest`) + gate rule `edge_no_direct_compute_link`; contract status `design_only` at W1, promoted to `runtime_enforced` when the agent-client SDK lands per ADR-0049 / W3+ (sub-clause .b — Edge↔Compute Ingress Routing, per ADR-0089).**
+**Every `<module>/module-metadata.yaml` MUST declare `deployment_plane:` whose value is one of `edge | compute_control | bus_state | sandbox | evolution | none`. The plane assignment MUST match the L0 §7.1 topology — Edge Access (Agent Client SDK), Compute & Control (Runtime + Execution Engine), Bus & State Hub (Bus + Middleware persistence), Sandbox Execution (untrusted code), Evolution (Python ML). BoMs and build-time-only modules use `none`. Edge↔Compute ingress routing invariants split to Rule R-I.1 per ADR-0094.**
 
 Enforced by [`rule-R-I.md`](docs/governance/rules/rule-R-I.md).
+
+---
+#### Rule R-I.1 — Edge↔Compute Ingress Routing
+
+**Modules whose `deployment_plane` is `edge` MUST NOT import any production class under `ascend.springai.{service,engine,middleware}..` AND MUST NOT invoke compute_control HTTP routes directly; edge→compute_control traffic flows exclusively through `ascend.springai.bus.spi.ingress.IngressGateway` whose wire schema is `docs/contracts/ingress-envelope.v1.yaml`; W1 enforcement is ArchUnit (`EdgeToComputeDirectLinkArchTest`) + gate rule `edge_no_direct_compute_link`; contract status `design_only` at W1, promoted to `runtime_enforced` when the agent-client SDK lands per ADR-0049 / W3+.**
+
+Enforced by [`rule-R-I-1.md`](docs/governance/rules/rule-R-I-1.md).
 
 ---
 #### Rule R-J — Storage-Engine Tenant Isolation + Cancel Re-Authorization
@@ -213,9 +241,16 @@ Enforced by [`rule-M-2.md`](docs/governance/rules/rule-M-2.md).
 ### Token-optimization wave (2026-05-17)
 #### Rule G-3 — Kernel-Card-Implementation Coherence
 
-**Kernel-Card-Implementation coherence is enforced across the CLAUDE.md / rule-card / CLAUDE-deferred triangle: each `#### Rule X` kernel paragraph in CLAUDE.md fits the per-card `kernel_cap` (sub-clause .a — Kernel Size Bounded); the kernel text byte-matches the card's `kernel:` scalar (sub-clause .b — Kernel-Card Match); every `#### Rule X` heading has a sibling `docs/governance/rules/rule-X.md`, every card has either a CLAUDE.md heading OR a `## Rule X.<letter>` reference in `docs/CLAUDE-deferred.md` (sub-clause .c — Every Active Rule Has a Card). Every `## Rule X.<letter>` sub-clause in CLAUDE-deferred.md MUST be acknowledged by a literal `Rule X.<letter>` in EITHER the CLAUDE.md kernel OR the rule card (sub-clause .d — Kernel-Deferred Coherence). Active kernel verbs implying shipped Run-state transition (`are SUSPENDED`, `transitions to FAILED`, `consumes the * capacity`, `is rejected, not failed`, `admits the caller`) MUST NOT appear when the matching obligation is explicitly deferred — neither in `CLAUDE.md` kernels nor in any active `agent-*/ARCHITECTURE.md` body text (sub-clause .e — Terminal-Verb vs Shipped-Decision; scope widened to module ARCHITECTURE.md in rc15 per ADR-0091). Rules listed in `gate/rule-100-disjunction-allowlist.txt` MUST carry explicit EITHER/OR connective wording in BOTH kernel AND card (sub-clause .f — Disjunction Truth).**
+**Kernel-Card-Implementation coherence is enforced across the CLAUDE.md / rule-card / CLAUDE-deferred triangle: each `#### Rule X` kernel paragraph in CLAUDE.md fits the per-card `kernel_cap` (sub-clause .a — Kernel Size Bounded); the kernel text byte-matches the card's `kernel:` scalar (sub-clause .b — Kernel-Card Match); every `#### Rule X` heading has a sibling `docs/governance/rules/rule-X.md`, every card has either a CLAUDE.md heading OR a `## Rule X.<letter>` reference in `docs/CLAUDE-deferred.md` (sub-clause .c — Every Active Rule Has a Card). Every `## Rule X.<letter>` sub-clause in CLAUDE-deferred.md MUST be acknowledged by a literal `Rule X.<letter>` in EITHER the CLAUDE.md kernel OR the rule card (sub-clause .d — Kernel-Deferred Coherence). Active kernel verbs implying shipped Run-state transition (`are SUSPENDED`, `transitions to FAILED`, `consumes the * capacity`, `is rejected, not failed`, `admits the caller`) MUST NOT appear when the matching obligation is explicitly deferred — neither in `CLAUDE.md` kernels nor in any active `agent-*/ARCHITECTURE.md` body text (sub-clause .e — Terminal-Verb vs Shipped-Decision; scope widened to module ARCHITECTURE.md in rc15 per ADR-0091). Disjunction-truth invariant (former sub-clause .f) split to Rule G-3.1 per ADR-0094.**
 
 Enforced by [`rule-G-3.md`](docs/governance/rules/rule-G-3.md).
+
+---
+#### Rule G-3.1 — Kernel-Implementation Disjunction Truth
+
+**Rules listed in `gate/rule-100-disjunction-allowlist.txt` MUST carry explicit EITHER/OR connective wording in BOTH the CLAUDE.md kernel AND the matching `docs/governance/rules/rule-*.md` card. The allow-list captures only rules whose `||`-style disjunction is structurally load-bearing — meaning the difference between AND-implementation and OR-implementation would change which corpus inputs pass.**
+
+Enforced by [`rule-G-3-1.md`](docs/governance/rules/rule-G-3-1.md).
 
 ---
 #### Rule G-4 — Always-Loaded Context Budget
@@ -271,6 +306,15 @@ Enforced by [`rule-G-5.md`](docs/governance/rules/rule-G-5.md).
 ### Corpus-truth category-sweep prevention wave (2026-05-19)
 
 ### Kernel-implementation coherence prevention wave (2026-05-19)
+
+### Recurring-defect-family discipline wave (2026-05-21 rc17)
+#### Rule G-9 — Recurring-Defect Family Truth
+
+**Architecture-refresh signals — new `docs/adr/*.yaml`, change in `architecture-status.yaml#baseline_metrics`, new `docs/logs/releases/*.md`, or change in the `#### Rule X` heading set in `CLAUDE.md` — MUST be accompanied by a sync of `docs/governance/recurring-defect-families.yaml` whose mtime/last_updated timestamp is no older than 24h before the most-recent refresh-signal commit. The yaml MUST be well-formed (every family has `id`, `title`, `first_observed_rc`, `last_observed_rc`, `occurrences`, `root_cause`, `surfaces`, `prevention_rules`, `cleanup_status`, `open_residual` — 9 required fields, sub-clause .a). The companion `recurring-defect-families.md` MUST list the SAME set of family ids as the yaml (sub-clause .c — yaml↔md parity). The mtime/last_updated freshness check is sub-clause .b.**
+
+Enforced by [`rule-G-9.md`](docs/governance/rules/rule-G-9.md).
+
+---
 
 ### Cross-authority parity prevention wave (2026-05-20 rc14)
 #### Rule G-8 — Cross-Authority Parity

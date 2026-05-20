@@ -210,13 +210,15 @@ Composes with: ARCHITECTURE.md §4 #61; ADR-0065; Rule 13 (P1 cost-of-use, defer
 
 ---
 
-## Rule R-C.b.b — Runtime Semver Compatibility Enforcement [Deferred to W2]
+## Rule R-C.1.a — Runtime Semver Compatibility Enforcement [Deferred to W2]
+
+**Renamed 2026-05-21 (rc17 per ADR-0094)** — was `Rule R-C.b.b` (sub-clause .b of original R-C.b "Independent Module Evolution"). After the rc17 R-C split, the parent sub-clause `R-C.b` became standalone `Rule R-C.1`; this deferred clause renumbers from `R-C.b.b` → `R-C.1.a` accordingly.
 
 **Re-introduction trigger**: first BoM release that drops a previously-published artifact, OR first starter that introduces a breaking config change without a major-version bump (target: W2).
 
 **Rule (draft)**: A gate rule MUST cross-check `<module>/module-metadata.yaml`'s `semver_compatibility` against the artifact's actual API delta. A starter that introduces a breaking config change without a major-version bump → gate failure. A BoM revision that removes a coordinate without a deprecation window declared in `module-metadata.yaml` → gate failure.
 
-Composes with: ARCHITECTURE.md §4 #62; ADR-0066; Rule R-C.b (Independent Module Evolution).
+Composes with: ARCHITECTURE.md §4 #62; ADR-0066; Rule R-C.1 (Independent Module Evolution); ADR-0094 (rc17 split authority).
 
 ---
 

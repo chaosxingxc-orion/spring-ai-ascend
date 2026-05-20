@@ -1369,3 +1369,27 @@
   view: process
   artifact: gate/check_architecture_sync.sh#prevention_rule_scope_completeness
   asserts: "Rule 110 (META) — every rule card in `docs/governance/rules/rule-*.md` whose frontmatter declares `scope_surfaces:` MUST have ≥2 self-test fixture functions named `test_rule_<rule_id>_*` in `gate/test_architecture_sync_gate.sh`. Operationalises the rc10/rc11/rc12 documented meta-lesson 'Reviewer scope can be narrower than defect scope' that prior waves recorded but never gated. Pre-rc16 rules without `scope_surfaces:` are grandfathered (no retrofit). The rule dogfoods itself: rule cards 107/108/109/110 each declare `scope_surfaces:` AND carry ≥2 fixtures."
+
+- id: E156
+  constraint_ref: "CLAUDE.md Rule G-9 sub-clause .a (recurring_defect_family_yaml_wellformed); ADR-0094"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#architecture_refresh_defect_family_re_eval_required
+  asserts: "Rule 111 sub-check .a — `docs/governance/recurring-defect-families.yaml` MUST exist, declare top-level `schema_version`, `last_updated`, `families`, and every family entry MUST have all 9 required per-family fields (`title`, `first_observed_rc`, `last_observed_rc`, `occurrences`, `root_cause`, `surfaces`, `prevention_rules`, `cleanup_status`, `open_residual`) at the count = number of `^  - id:` family entries. Operationalises Rule G-9 sub-clause .a (Recurring-Defect Family Truth — yaml well-formedness) per ADR-0094 rc17 wave."
+
+- id: E157
+  constraint_ref: "CLAUDE.md Rule G-9 sub-clause .b (recurring_defect_family_yaml_freshness); ADR-0094"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#architecture_refresh_defect_family_re_eval_required
+  asserts: "Rule 111 sub-check .b — `docs/governance/recurring-defect-families.yaml` `last_updated:` ISO date MUST be ≥ the commit date of the most recent refresh-signal change. Refresh signals: any change under `docs/adr/`, `docs/governance/architecture-status.yaml`, `docs/logs/releases/`, or `CLAUDE.md` (the latter detected by heading-set change). Operationalises Rule G-9 sub-clause .b per ADR-0094 rc17 wave. Companion skill `/refresh-defect-archive` (`.claude/skills/refresh-defect-archive.md`) updates `last_updated` after a refresh."
+
+- id: E158
+  constraint_ref: "CLAUDE.md Rule G-9 sub-clause .c (recurring_defect_family_yaml_md_parity); ADR-0094"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#architecture_refresh_defect_family_re_eval_required
+  asserts: "Rule 111 sub-check .c — the set of `^  - id:` family slugs in `docs/governance/recurring-defect-families.yaml` MUST equal the set of `F-...` family-id references in `docs/governance/recurring-defect-families.md`. A family in yaml but not md is an incomplete human view; a family in md but not yaml is a stale human view. Both directions fail closed. Operationalises Rule G-9 sub-clause .c per ADR-0094 rc17 wave."
