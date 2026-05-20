@@ -1,6 +1,6 @@
 package ascend.springai.service.platform.engine;
 
-import ascend.springai.service.runtime.engine.EngineRegistry;
+import ascend.springai.engine.runtime.EngineRegistry;
 import ascend.springai.service.runtime.orchestration.inmemory.SequentialGraphExecutor;
 import ascend.springai.engine.spi.ExecutorAdapter;
 import ascend.springai.engine.orchestration.spi.ExecutorDefinition;

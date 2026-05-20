@@ -7,7 +7,7 @@ module: agent-execution-engine
 kind: domain             # platform | domain | starter | bom | sample
 version: 0.0.1-SNAPSHOT
 semver_compatibility: experimental
-description: "Heterogeneous execution engine module + orchestration SPI host. Owns: EngineRegistry, EngineEnvelope, ExecutorAdapter / GraphExecutor / AgentLoopExecutor / EngineHookSurface / EngineMatchingException (engine.spi); RunMode + Checkpointer / Orchestrator / RunContext / SuspendSignal / TraceContext / ExecutorDefinition (engine.orchestration.spi — relocated here from agent-runtime-core per ADR-0088 dissolution). Reference adapters live in agent-service."
+description: "Heterogeneous execution engine module + orchestration SPI host. Owns: ExecutorAdapter / GraphExecutor / AgentLoopExecutor / EngineHookSurface / EngineMatchingException (engine.spi — team-facing SPI surface); EngineRegistry + EngineEnvelope (engine.runtime — implementation home for dispatch + envelope plumbing; relocated from service.runtime.engine in rc14 per ADR-0090 to align with semantic-home model and retire the ADR-0079 source-compat exception); RunMode + Checkpointer / Orchestrator / RunContext / SuspendSignal / TraceContext / ExecutorDefinition (engine.orchestration.spi — relocated here from agent-runtime-core per ADR-0088 dissolution). Reference adapters live in agent-service."
 architecture_doc: agent-execution-engine/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-execution-engine.yaml
 spi_packages:

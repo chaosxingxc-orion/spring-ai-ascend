@@ -55,7 +55,7 @@ Rule 28 release-note table (canonical baseline-truth row format):
 | Enforcer rows | 144 | +2 (E143 EdgeToComputeDirectLinkArchTest + E144 gate Rule 105 source-grep) |
 | Reactor modules | 8 | −1 (agent-runtime-core dissolved; was 9 at rc12) |
 | Layer-0 governing principles | 13 | unchanged (P-A..P-M) |
-| Maven tests green | 371 | rc12 baseline carries forward; rc13 will re-baseline after merge (file moves do not add/remove test classes — the 4 test files moved with their production sources) |
+| Maven tests green | 371 | rc12 baseline carries forward; rc13 file moves do not add/remove test classes — the 4 test files moved with their production sources (post-merge `./mvnw verify` verified 371 surefire+failsafe total per architecture-status.yaml#baseline_metrics.maven_tests_green). Note: rc14 corrective wave (2026-05-20) reconciles graph counts (363/539→376/558) and adds Rule G-8 cross-authority parity; see rc14 release note. |
 
 ## Family taxonomy
 
@@ -83,7 +83,7 @@ rc13 follows the rc11/rc12 categorize→sweep→batch-fix→prevention disciplin
 
 ## Verification
 
-- `./mvnw -T1C clean verify` — BUILD SUCCESS expected across 8 reactor modules (re-baseline after merge).
+- `./mvnw -T1C clean verify` — BUILD SUCCESS across 8 reactor modules; 371 surefire+failsafe tests green (rc12 baseline carried forward; rc13 file moves preserved test count — the 4 test files moved with their production sources). rc14 corrective wave reconciles graph counts (363/539→376/558) and adds Rule G-8 cross-authority parity per ADR-0090.
 - `bash gate/check_parallel.sh` — `executed 117 rules; all PASS` (rc12 + Rule 105).
 - `bash gate/test_architecture_sync_gate.sh` — `Tests passed: 182/182`.
 - `python gate/build_architecture_graph.py --check` — idempotent regeneration; live node/edge counts written back to `architecture-status.yaml#baseline_metrics`.

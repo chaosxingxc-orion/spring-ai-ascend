@@ -1,6 +1,6 @@
 package ascend.springai.service.runtime.orchestration;
 
-import ascend.springai.service.runtime.engine.EngineRegistry;
+import ascend.springai.engine.runtime.EngineRegistry;
 import ascend.springai.service.runtime.orchestration.inmemory.InMemoryCheckpointer;
 import ascend.springai.service.runtime.orchestration.inmemory.InMemoryRunRegistry;
 import ascend.springai.service.runtime.orchestration.inmemory.IterativeAgentLoopExecutor;

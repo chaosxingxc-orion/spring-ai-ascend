@@ -61,10 +61,18 @@
 # IngressGateway. Ceiling raised from 82,000 to 84,000.
 # CLAUDE.md grew ~1K with Rule R-C.c path rewrite + new Rule R-I sub-clause .b
 # kernel — held under 45,000.
+# 2026-05-20 rc14 wave (ADR-0090): ARCHITECTURE.md grew ~500 bytes with expanded
+# dependency-direction constraint paragraph (post-ADR-0088 4+1 clause structure
+# vs former 3 clauses) — ceiling raised from 84,000 to 85,000. CLAUDE.md grew
+# ~1.3K with Rule G-8 cross-authority parity kernel — held under 45,000 (now
+# ~27,800). architecture-graph.yaml grew ~1K with ADR-0090 + Rule G-8 + E146..E149
+# nodes/edges (post-rc14 regen: 381 nodes / 566 edges) — held under 148,000.
+# architecture-status.yaml grew ~3.5K with rc14 allowed_claim rewrites (Tracks C+G
+# baseline-bump + topology updates) — ceiling held at 110,000.
 CLAUDE.md=45000
-ARCHITECTURE.md=84000
+ARCHITECTURE.md=85000
 AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000
-docs/governance/architecture-graph.yaml=148000
+docs/governance/architecture-graph.yaml=150500
 docs/governance/architecture-status.yaml=110000
 docs/CLAUDE-deferred.md=0

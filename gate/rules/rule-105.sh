@@ -46,12 +46,4 @@ while IFS= read -r _r105_meta; do
 done < <(grep -lE '^deployment_plane:[[:space:]]*edge' */module-metadata.yaml 2>/dev/null)
 if [[ $_r105_fail -eq 0 ]]; then pass_rule "edge_no_direct_compute_link"; fi
 
-# === END OF RULES ===
 # ---------------------------------------------------------------------------
-if [[ $fail_count -eq 0 ]]; then
-  echo "GATE: PASS"
-  exit 0
-else
-  echo "GATE: FAIL"
-  exit 1
-fi

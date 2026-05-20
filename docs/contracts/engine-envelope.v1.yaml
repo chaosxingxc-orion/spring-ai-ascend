@@ -5,8 +5,11 @@
 # Driver review: docs/logs/reviews/2026-05-15-l0architecture-lucio It-wave-1-supplement-runtime-engine-contract.en.md (proposal §3 + §4).
 #
 # This file is the SINGLE SOURCE OF TRUTH for what an EngineEnvelope is. The
-# Java record ascend.springai.runtime.engine.EngineEnvelope mirrors this
-# schema and validates REQUIRED FIELDS (nullability, blanks) on construction.
+# Java record ascend.springai.engine.runtime.EngineEnvelope (owned by
+# agent-execution-engine; relocated from ascend.springai.service.runtime.engine
+# in rc14 per ADR-0090 — retires the ADR-0079 source-compat exception)
+# mirrors this schema and validates REQUIRED FIELDS (nullability, blanks) on
+# construction.
 # `known_engines` membership is enforced by EngineRegistry.resolve(...) and
 # registry boot validation (Phase 5 R2 pilot — runtime self-validation;
 # enforcer E84). Constructor-level membership validation is deferred to

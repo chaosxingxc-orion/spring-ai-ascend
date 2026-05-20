@@ -1,6 +1,6 @@
 package ascend.springai.service.runtime.orchestration.inmemory;
 
-import ascend.springai.service.runtime.engine.EngineRegistry;
+import ascend.springai.engine.runtime.EngineRegistry;
 import ascend.springai.middleware.HookDispatcher;
 import ascend.springai.engine.orchestration.spi.Checkpointer;
 import ascend.springai.engine.spi.EngineMatchingException;

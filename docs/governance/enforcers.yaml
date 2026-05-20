@@ -646,15 +646,15 @@
   kind: archunit
   level: L1
   view: development
-  artifact: agent-service/src/test/java/ascend/springai/service/runtime/engine/EnginePayloadDispatchOnlyViaRegistryTest.java#every_orchestrator_implementation_depends_on_engine_registry
-  asserts: "every concrete Orchestrator implementation in agent-service/src/main depends on ascend.springai.service.runtime.engine.EngineRegistry -- dispatch authority is centralised; pattern-matching on ExecutorDefinition subtypes outside the registry is the prohibited shape (the source-level instanceof scan is gate Rule 56's responsibility)."
+  artifact: agent-service/src/test/java/ascend/springai/engine/runtime/EnginePayloadDispatchOnlyViaRegistryTest.java#every_orchestrator_implementation_depends_on_engine_registry
+  asserts: "every concrete Orchestrator implementation in agent-service/src/main depends on ascend.springai.engine.runtime.EngineRegistry -- dispatch authority is centralised; pattern-matching on ExecutorDefinition subtypes outside the registry is the prohibited shape (the source-level instanceof scan is gate Rule 56's responsibility). Test path relocated rc14 per ADR-0090 (engine package semantic-home alignment); previously at agent-service/src/test/java/ascend/springai/service/runtime/engine/."
 
 - id: E75
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .b (Strict Engine Matching); ADR-0072; P-M"
   kind: integration
   level: L1
   view: logical
-  artifact: agent-service/src/test/java/ascend/springai/service/runtime/engine/EngineMatchingStrictnessIT.java#payload_with_no_registered_adapter_raises_engine_mismatch
+  artifact: agent-service/src/test/java/ascend/springai/engine/runtime/EngineMatchingStrictnessIT.java#payload_with_no_registered_adapter_raises_engine_mismatch
   asserts: "SyncOrchestrator.run with a payload class for which no ExecutorAdapter is registered raises EngineMatchingException carrying engine_mismatch -- proves no silent reinterpretation, no fallback policy (Rule R-M sub-clause .b strongest reading)."
 
 - id: E76
@@ -690,7 +690,7 @@
   kind: archunit
   level: L1
   view: development
-  artifact: agent-service/src/test/java/ascend/springai/service/runtime/engine/EveryEngineDeclaresHookSurfaceTest.java#every_executor_adapter_exposes_hook_surface
+  artifact: agent-service/src/test/java/ascend/springai/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java#every_executor_adapter_exposes_hook_surface
   asserts: "every concrete GraphExecutor / AgentLoopExecutor implementation under agent-service/src/main exposes a hookSurface() method (default empty allowed) -- structural pre-condition for the EngineHookSurface contract; allowEmptyShould(true) is intentional at W2.x while Phase 2 ships SPI surface only."
 
 - id: E80
@@ -698,7 +698,7 @@
   kind: integration
   level: L1
   view: process
-  artifact: agent-service/src/test/java/ascend/springai/service/runtime/engine/RuntimeMiddlewareInterceptsHooksIT.java#suspend_resume_cycle_fires_before_suspension_then_before_resume
+  artifact: agent-service/src/test/java/ascend/springai/engine/runtime/RuntimeMiddlewareInterceptsHooksIT.java#suspend_resume_cycle_fires_before_suspension_then_before_resume
   asserts: "SyncOrchestrator fires HookPoint.BEFORE_SUSPENSION + HookPoint.BEFORE_RESUME on a suspend/resume cycle and HookPoint.ON_ERROR on a propagated RuntimeException -- proves the three Phase 2 mandatory hooks reach registered RuntimeMiddleware end-to-end through EngineRegistry.hookDispatcher()."
 
 # ---------------------------------------------------------------------------
@@ -727,7 +727,7 @@
   level: L1
   view: process
   artifact: agent-service/src/test/java/ascend/springai/service/runtime/s2c/S2cCallbackRespectsRule38Test.java#s2c_package_must_not_call_thread_sleep
-  asserts: "No class under ascend.springai.service.runtime.s2c.. calls Thread.sleep(long) or Thread.sleep(long, int) -- the S2C wait MUST route through SuspendSignal/checkpoint (Chronos Hydration), never busy-wait."
+  asserts: "No class under ascend.springai.bus.spi.s2c.. (SPI, owned by agent-bus per ADR-0088) or ascend.springai.service.runtime.s2c.. (reference impl InMemoryS2cCallbackTransport on agent-service) calls Thread.sleep(long) or Thread.sleep(long, int) -- the S2C wait MUST route through SuspendSignal/checkpoint (Chronos Hydration), never busy-wait. Package path lineage: rc3 unified s2c types under service.runtime.s2c.spi; rc13 ADR-0088 relocated the SPI to bus.spi.s2c while the reference impl stayed on service.runtime.s2c."
 
 # ---------------------------------------------------------------------------
 # W2.x Phase 5 — R2 Pilot: runtime self-validate Engine Envelope (ADR-0076 / P-M)
@@ -783,7 +783,7 @@
   kind: integration
   level: L1
   view: process
-  artifact: agent-service/src/test/java/ascend/springai/service/runtime/engine/EngineMismatchTransitionsRunToFailedIT.java#engine_mismatch_transitions_run_to_failed_and_fires_on_error_with_reason
+  artifact: agent-service/src/test/java/ascend/springai/engine/runtime/EngineMismatchTransitionsRunToFailedIT.java#engine_mismatch_transitions_run_to_failed_and_fires_on_error_with_reason
   asserts: "SyncOrchestrator catches EngineMatchingException, transitions the Run to RunStatus.FAILED with finishedAt set, and fires HookPoint.ON_ERROR carrying reason=engine_mismatch + requestedEngineType + actualPayloadType. Closes the Rule R-M sub-clause .b prose-vs-code gap surfaced by the Phase 7 self-audit -- E75 only asserted the exception-raising half, E88 asserts the Run-state-transition half."
 
 - id: E89
@@ -834,7 +834,7 @@
   level: L0
   view: development
   artifact: agent-service/src/test/java/ascend/springai/service/runtime/architecture/SpiPurityGeneralizedArchTest.java#s2c_spi_imports_only_java_and_same_package_siblings
-  asserts: "Every class under ascend.springai.service.runtime.s2c.spi MUST depend only on java.* + same-spi-package siblings. Strengthened in v2.0.0-rc3 once S2cCallbackEnvelope and S2cCallbackResponse were moved here from runtime.s2c per cross-constraint audit α-4 / β-2. orchestration.spi is intentionally excluded (its long-standing dependency on runs.* kernel domain types is a known exception)."
+  asserts: "Every class under ascend.springai.bus.spi.s2c MUST depend only on java.* + same-spi-package siblings. Package path lineage: rc3 cross-constraint audit α-4 / β-2 moved S2cCallbackEnvelope + S2cCallbackResponse under service.runtime.s2c.spi; rc13 ADR-0088 relocated the SPI to bus.spi.s2c on agent-bus to co-locate cross-plane control surfaces with bus.spi.ingress. orchestration.spi is intentionally excluded (its long-standing dependency on runs.* kernel domain types is a known exception)."
 
 # ---------------------------------------------------------------------------
 # 2026-05-17 cross-corpus consistency audit prevention rules.
@@ -1275,3 +1275,41 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#edge_no_direct_compute_link
   asserts: "Rule 105 — for every agent-*/module-metadata.yaml whose deployment_plane is `edge`, NO .java file under <module>/src/main/java/**/*.java may carry an `import ascend.springai.{service,engine,middleware}.*` line, AND NO file may construct a RestTemplate or WebClient targeting a host other than the bus ingress endpoint. Source-level guard complementing E143 (bytecode-level)."
+
+# ---------------------------------------------------------------------------
+# rc14 (2026-05-20) — Cross-Authority Parity wave (Rule G-8 / Rule 106).
+# Authority: docs/logs/reviews/2026-05-20-l0-rc13-post-ratchet-architecture-review.en.md
+# (L-δ family) + ADR-0090 + docs/governance/rules/rule-G-8.md.
+# ---------------------------------------------------------------------------
+
+- id: E146
+  constraint_ref: "CLAUDE.md Rule G-8 sub-clause .a (Graph baseline parity); ADR-0090"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#cross_authority_parity
+  asserts: "Rule 106 sub-check (a) — `docs/governance/architecture-status.yaml#baseline_metrics.architecture_graph_nodes` MUST equal the `node_count:` value declared in the header of `docs/governance/architecture-graph.yaml`. Same parity for `architecture_graph_edges` vs `edge_count:`. Closes rc13 P1-1: rc12 baseline 363/539 drifted from live graph 376/558 while all single-surface gates passed."
+
+- id: E147
+  constraint_ref: "CLAUDE.md Rule G-8 sub-clause .b (SPI path parity); ADR-0090"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#cross_authority_parity
+  asserts: "Rule 106 sub-check (b) — every SPI package literal (`ascend\\.springai\\.<seg>(\\.<seg>)*\\.spi(\\.<seg>)*`) named in `CLAUDE.md` kernel blocks MUST appear in exactly one `<module>/module-metadata.yaml#spi_packages:` entry AND a directory matching the package path MUST exist on disk under `<module>/src/main/java/`. Rule cards under docs/governance/rules/ are intentionally excluded — they may quote historical-defect literals when documenting prevented patterns. Closes rc13 P1-2: CLAUDE.md Rule R-M kernel named `service.runtime.s2c.spi` while module-metadata + catalog + disk named `bus.spi.s2c`."
+
+- id: E148
+  constraint_ref: "CLAUDE.md Rule G-8 sub-clause .c (Module topology parity); ADR-0090"
+  kind: gate-script
+  level: L0
+  view: physical
+  artifact: gate/check_architecture_sync.sh#cross_authority_parity
+  asserts: "Rule 106 sub-check (c) — the set of `<module>` entries in root `pom.xml` MUST match (a) `architecture-status.yaml#repository_counts.reactor_modules` integer, (b) the count of `*/module-metadata.yaml` files on disk, and (c) every `each of the N (reactor )?modules` present-tense numeric claim across active authority surfaces (root + per-module ARCHITECTURE.md + architecture-status.yaml + contract-catalog.md). Closes rc13 P1-3: architecture-status.yaml allowed_claim said `each of the 9 reactor modules` listing `agent-runtime-core` while pom.xml had 8 modules post-rc13."
+
+- id: E149
+  constraint_ref: "CLAUDE.md Rule G-8 sub-clause .d (Current-claim grammar); ADR-0090"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#cross_authority_parity
+  asserts: "Rule 106 sub-check (d) — a line in an active `.md`/`.yaml` authority surface (root + module ARCHITECTURE.md + architecture-status.yaml + contract-catalog.md + s2c-callback.v1.yaml) that contains BOTH (1) a deleted-module token (`agent-platform`, `agent-runtime`, `agent-runtime-core`) AND (2) one of the present-tense verbs `now reads`, `lives in`, `declares`, or the pattern `each of the [0-9]+ (reactor )?modules` MUST be marked by an *explicitly historical* token (`formerly`, `until dissolved`, `pre-rc13`, `pre-rc12`, `pre-Phase-C`, `historical`, `narration`, `was consolidated`, `was extracted`, `was dissolved`). The bare marker `post-ADR-[0-9]+` does NOT count as historical — it only attests provenance, not tense. Rule cards are intentionally excluded — they document patterns. Closes rc13 P1-4: ARCHITECTURE.md + architecture-status.yaml constraint sections carried post-ADR-0079 markers while sentences still asserted `agent-runtime-core declares its SPI packages` in present tense post-ADR-0088 dissolution."

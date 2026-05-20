@@ -5308,6 +5308,119 @@ fi
 }
 
 # ---------------------------------------------------------------------------
+# Rule 106 — cross_authority_parity (Rule G-8 / E146-E149).
+# Eight fixtures: one positive + one negative per sub-clause .a/.b/.c/.d.
+# Each fixture is self-contained — it inlines the sub-check logic against a
+# synthetic scratch root rather than invoking the real gate (which requires
+# the full repo layout). Closes rc13 P1-5 L-δ family.
+# ---------------------------------------------------------------------------
+
+test_rule_106_a_graph_baseline_parity_pos() {
+  _r106a_pos_root="$scratch/r106a_pos"; mkdir -p "$_r106a_pos_root"
+  printf 'node_count: 381\nedge_count: 566\n' > "$_r106a_pos_root/architecture-graph.yaml"
+  printf 'baseline_metrics:\n  architecture_graph_nodes: 381\n  architecture_graph_edges: 566\n' > "$_r106a_pos_root/architecture-status.yaml"
+  _n_live=$(awk '/^node_count:/{print $2}' "$_r106a_pos_root/architecture-graph.yaml")
+  _n_baseline=$(awk '/^[[:space:]]+architecture_graph_nodes:/{print $2}' "$_r106a_pos_root/architecture-status.yaml")
+  if [[ "$_n_live" == "$_n_baseline" ]]; then
+    ok "rule_106_a_graph_baseline_parity_pos" "Rule G-8.a accepts matching live + baseline graph counts"
+  else
+    fail "rule_106_a_graph_baseline_parity_pos" "expected match, got live=$_n_live baseline=$_n_baseline"
+  fi
+}
+
+test_rule_106_a_graph_baseline_parity_neg() {
+  _r106a_neg_root="$scratch/r106a_neg"; mkdir -p "$_r106a_neg_root"
+  printf 'node_count: 200\nedge_count: 300\n' > "$_r106a_neg_root/architecture-graph.yaml"
+  printf 'baseline_metrics:\n  architecture_graph_nodes: 100\n  architecture_graph_edges: 150\n' > "$_r106a_neg_root/architecture-status.yaml"
+  _n_live=$(awk '/^node_count:/{print $2}' "$_r106a_neg_root/architecture-graph.yaml")
+  _n_baseline=$(awk '/^[[:space:]]+architecture_graph_nodes:/{print $2}' "$_r106a_neg_root/architecture-status.yaml")
+  if [[ "$_n_live" != "$_n_baseline" ]]; then
+    ok "rule_106_a_graph_baseline_parity_neg" "Rule G-8.a catches mismatch live=$_n_live baseline=$_n_baseline"
+  else
+    fail "rule_106_a_graph_baseline_parity_neg" "expected mismatch, got match"
+  fi
+}
+
+test_rule_106_b_spi_path_parity_pos() {
+  _r106b_pos_root="$scratch/r106b_pos"; mkdir -p "$_r106b_pos_root/agent-bus/src/main/java/ascend/springai/bus/spi/ingress"
+  printf 'spi_packages:\n  - ascend.springai.bus.spi.ingress\n' > "$_r106b_pos_root/agent-bus/module-metadata.yaml"
+  printf 'kernel rule names ascend.springai.bus.spi.ingress.IngressGateway as the SPI.\n' > "$_r106b_pos_root/CLAUDE.md"
+  _pkg=$(grep -oE 'ascend\.springai(\.[a-z][a-z0-9_]*)+\.spi((\.[a-z][a-z0-9_]*)+)?' "$_r106b_pos_root/CLAUDE.md" | head -1)
+  _meta=$(grep -hE '^\s*-\s*ascend\.springai\.' "$_r106b_pos_root/agent-bus/module-metadata.yaml" | sed -E 's/^\s*-\s*//' | awk '{print $1}')
+  _path=$(echo "$_pkg" | tr '.' '/')
+  if [[ "$_pkg" == "$_meta" ]] && [[ -d "$_r106b_pos_root/agent-bus/src/main/java/$_path" ]]; then
+    ok "rule_106_b_spi_path_parity_pos" "Rule G-8.b accepts kernel-mentioned SPI $_pkg backed by metadata + disk"
+  else
+    fail "rule_106_b_spi_path_parity_pos" "expected match + disk, got pkg=$_pkg meta=$_meta path-exists=$([[ -d $_r106b_pos_root/agent-bus/src/main/java/$_path ]] && echo y || echo n)"
+  fi
+}
+
+test_rule_106_b_spi_path_parity_neg() {
+  _r106b_neg_root="$scratch/r106b_neg"; mkdir -p "$_r106b_neg_root/agent-bus"
+  printf 'spi_packages:\n  - ascend.springai.bus.spi.other\n' > "$_r106b_neg_root/agent-bus/module-metadata.yaml"
+  printf 'kernel rule names ascend.springai.bus.spi.ghost.GhostSpi as the SPI.\n' > "$_r106b_neg_root/CLAUDE.md"
+  _pkg=$(grep -oE 'ascend\.springai(\.[a-z][a-z0-9_]*)+\.spi((\.[a-z][a-z0-9_]*)+)?' "$_r106b_neg_root/CLAUDE.md" | head -1)
+  _meta=$(grep -hE '^\s*-\s*ascend\.springai\.' "$_r106b_neg_root/agent-bus/module-metadata.yaml" | sed -E 's/^\s*-\s*//' | awk '{print $1}')
+  if [[ "$_pkg" != "$_meta" ]]; then
+    ok "rule_106_b_spi_path_parity_neg" "Rule G-8.b catches kernel-mentioned SPI $_pkg with no metadata entry"
+  else
+    fail "rule_106_b_spi_path_parity_neg" "expected mismatch, got pkg=$_pkg meta=$_meta"
+  fi
+}
+
+test_rule_106_c_module_topology_parity_pos() {
+  _r106c_pos_root="$scratch/r106c_pos"; mkdir -p "$_r106c_pos_root"
+  printf '<modules>\n  <module>agent-bus</module>\n  <module>agent-service</module>\n</modules>\n' > "$_r106c_pos_root/pom.xml"
+  printf 'repository_counts:\n  reactor_modules: 2\n' > "$_r106c_pos_root/architecture-status.yaml"
+  _pom_count=$(awk '/<modules>/,/<\/modules>/' "$_r106c_pos_root/pom.xml" | grep -oE '<module>[^<]+</module>' | wc -l | tr -d ' ')
+  _declared=$(awk '/^\s+reactor_modules:/{print $2}' "$_r106c_pos_root/architecture-status.yaml")
+  if [[ "$_pom_count" == "$_declared" ]]; then
+    ok "rule_106_c_module_topology_parity_pos" "Rule G-8.c accepts matching pom + repository_counts (count=$_pom_count)"
+  else
+    fail "rule_106_c_module_topology_parity_pos" "expected match, got pom=$_pom_count declared=$_declared"
+  fi
+}
+
+test_rule_106_c_module_topology_parity_neg() {
+  _r106c_neg_root="$scratch/r106c_neg"; mkdir -p "$_r106c_neg_root"
+  printf '<modules>\n  <module>agent-bus</module>\n  <module>agent-service</module>\n</modules>\n' > "$_r106c_neg_root/pom.xml"
+  printf 'each of the 9 reactor modules carries module-metadata.yaml\n' > "$_r106c_neg_root/ARCHITECTURE.md"
+  _pom_count=$(awk '/<modules>/,/<\/modules>/' "$_r106c_neg_root/pom.xml" | grep -oE '<module>[^<]+</module>' | wc -l | tr -d ' ')
+  _prose_n=$(grep -oE 'each of the [0-9]+' "$_r106c_neg_root/ARCHITECTURE.md" | grep -oE '[0-9]+' | head -1)
+  if [[ "$_pom_count" != "$_prose_n" ]]; then
+    ok "rule_106_c_module_topology_parity_neg" "Rule G-8.c catches prose 'each of the $_prose_n' vs pom $_pom_count"
+  else
+    fail "rule_106_c_module_topology_parity_neg" "expected mismatch, got pom=$_pom_count prose=$_prose_n"
+  fi
+}
+
+test_rule_106_d_current_claim_grammar_pos() {
+  _r106d_pos_root="$scratch/r106d_pos"; mkdir -p "$_r106d_pos_root"
+  printf 'agent-runtime-core was dissolved per ADR-0088 (rc13, 2026-05-20) — formerly the kernel-shim module.\n' > "$_r106d_pos_root/ARCHITECTURE.md"
+  _hit=$(grep -nE '(agent-platform|agent-runtime-core|agent-runtime[^-])' "$_r106d_pos_root/ARCHITECTURE.md" | \
+         grep -E '(now reads|lives in|^[^#]*\bdeclares\b|each of the [0-9]+ (reactor )?modules)' | \
+         grep -vE '(formerly|historical|until dissolved|pre-rc13|pre-rc12|pre-Phase-C|narration|dissolved|relocated|was consolidated|was extracted|was dissolved)' || true)
+  if [[ -z "$_hit" ]]; then
+    ok "rule_106_d_current_claim_grammar_pos" "Rule G-8.d accepts past-tense + historical-marker line about dissolved module"
+  else
+    fail "rule_106_d_current_claim_grammar_pos" "expected no hit, got: $_hit"
+  fi
+}
+
+test_rule_106_d_current_claim_grammar_neg() {
+  _r106d_neg_root="$scratch/r106d_neg"; mkdir -p "$_r106d_neg_root"
+  printf 'agent-runtime-core declares its SPI packages for orchestration / runs / s2c (post-ADR-0079).\n' > "$_r106d_neg_root/ARCHITECTURE.md"
+  _hit=$(grep -nE '(agent-platform|agent-runtime-core|agent-runtime[^-])' "$_r106d_neg_root/ARCHITECTURE.md" | \
+         grep -E '(now reads|lives in|^[^#]*\bdeclares\b|each of the [0-9]+ (reactor )?modules)' | \
+         grep -vE '(formerly|historical|until dissolved|pre-rc13|pre-rc12|pre-Phase-C|narration|dissolved|relocated|was consolidated|was extracted|was dissolved)' || true)
+  if [[ -n "$_hit" ]]; then
+    ok "rule_106_d_current_claim_grammar_neg" "Rule G-8.d catches present-tense 'declares' with only post-ADR-NNNN marker"
+  else
+    fail "rule_106_d_current_claim_grammar_neg" "expected hit (post-ADR-NNNN alone is not historical), got none"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

@@ -9,6 +9,20 @@
 # .md/.yaml/.java/ops but missed root Dockerfile + .github/workflows/*.yml
 # + .puml + gate/run_operator_shape_smoke.sh — all active deploy-entrypoint
 # surfaces. Rule 103 closes the gap for deploy/operator/visual surfaces.
+#
+# SCOPE NOTE (rc14 — L-η closure): Rule 103 intentionally scans deploy entry-
+# points only for `agent-platform` and `agent-runtime` (the pre-Phase-C /
+# pre-W2 dissolved modules). `agent-runtime-core` (dissolved rc13 per
+# ADR-0088) is owned by the broader corpus scanners:
+#   - Rule 94 covers active `.md/.yaml/.yml/.java` files corpus-wide.
+#   - Rule 98 covers `ops/**/*.{yaml,yml,tpl,md}` + `docs/contracts/*.yaml`
+#     + `**/module-metadata.yaml`.
+# Deploy artefacts (Dockerfile / compose / .github/workflows / .puml /
+# operator scripts) referencing `agent-runtime-core` are therefore caught by
+# Rule 94 / Rule 98 when they live under those path partitions. Rule 103 is
+# the legacy deploy-entrypoint closure rule; rc14 deliberately did NOT widen
+# its name-set to keep the L-η scope decision auditable (see rc14 release
+# note + ADR-0090).
 # ---------------------------------------------------------------------------
 _r103_fail=0
 _r103_files=()

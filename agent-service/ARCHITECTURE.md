@@ -344,7 +344,8 @@ the rc5 wave (2026-05-18) ADR-0079 extraction:
   module move so that `agent-service` callers do not see an import
   rename): `EngineRegistry`, `EngineEnvelope` record (mirrors
   `docs/contracts/engine-envelope.v1.yaml`) — sources at
-  `agent-execution-engine/src/main/java/ascend/springai/service/runtime/engine/`.
+  `agent-execution-engine/src/main/java/ascend/springai/engine/runtime/`
+  (relocated from `service/runtime/engine/` in rc14 per ADR-0090).
 - **Reference engine adapters** stay in `agent-service` at
   `agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/`:
   `SequentialGraphExecutor` (`extends GraphExecutor`),

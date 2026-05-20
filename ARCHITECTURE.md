@@ -273,12 +273,23 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
 
 ## 4. Architecture constraints
 
-1. **Dependency direction** (post-ADR-0078 / ADR-0079): the Maven-level direction is now
-   (a) `agent-service` depends only on inner peers when the SPI is hosted there
-   (`agent-runtime-core`, `agent-execution-engine`, `agent-middleware`);
-   (b) `agent-execution-engine` depends on `agent-runtime-core` (for the kernel SPI it
-   bridges), never on `agent-service`;
-   (c) `agent-runtime-core` depends on no inner peer — only `java.*` + minimal externals.
+1. **Dependency direction** (post-ADR-0088 — rc13 agent-runtime-core dissolution; supersedes
+   the post-ADR-0079 intermediate state): the Maven-level direction in the 8-module reactor
+   is
+   (a) `agent-service` depends on `agent-execution-engine` (for engine + orchestration SPI),
+   `agent-bus` (for s2c + ingress SPI), and `agent-middleware` (for hook surfaces); the runs +
+   idempotency kernel was re-consolidated into `agent-service.service.runtime.runs.*` per
+   ADR-0088;
+   (b) `agent-execution-engine` depends on `agent-bus` (for `bus.spi.s2c` consumed by the
+   engine registry) and `agent-middleware` (for `HookPoint`), never on `agent-service`;
+   orchestration SPI (RunMode + Checkpointer + RunContext + SuspendSignal + ExecutorDefinition)
+   is co-located here in `engine.orchestration.spi` per ADR-0088 — this was the back-dep that
+   originally motivated `agent-runtime-core` and is now resolved by semantic co-location;
+   (c) `agent-bus` depends on no inner peer — only `java.*` + minimal externals;
+   (d) `agent-runtime-core` was dissolved per ADR-0088 (rc13, 2026-05-20); ADR-0079 is
+   superseded. The 16 production sources + 4 tests were redistributed to semantic-home
+   modules: runs/idempotency → `agent-service`, orchestration SPI + RunMode →
+   `agent-execution-engine`, s2c SPI → `agent-bus`.
    The original pre-Phase-C `agent-platform ↛ agent-runtime` Maven-module-level invariant
    was retargeted to a sub-package layering invariant inside the consolidated `agent-service`
    module: `service.runtime` MUST NOT import `service.platform` (Rule R-C.e, enforced by
@@ -868,7 +879,7 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
 - `IdempotencyRecord` entity — contract-spine entity with mandatory `tenantId` (Rule R-C.c target).
 - `OssApiProbeTest` — compile-time probe verifying Spring AI + Spring Boot API surface.
 - `ApiCompatibilityTest` — ArchUnit rules enforcing SPI purity and dependency direction.
-- `RuntimeMustNotDependOnPlatformTest` — ArchUnit Rule R-C.e (L1 generalisation per ADR-0055): no class under `ascend.springai.service.runtime..` (across `agent-service` + `agent-runtime-core` post-ADR-0079) may import any class under `ascend.springai.service.platform..` (HTTP-edge sub-package of `agent-service`, formerly the `agent-platform` module pre-Phase-C).
+- `RuntimeMustNotDependOnPlatformTest` — ArchUnit Rule R-C.e (L1 generalisation per ADR-0055): no class under `ascend.springai.service.runtime..` (re-consolidated into `agent-service` per ADR-0088, rc13 — the intermediate post-ADR-0079 split into `agent-runtime-core` was dissolved) may import any class under `ascend.springai.service.platform..` (HTTP-edge sub-package of `agent-service`, formerly the `agent-platform` module pre-Phase-C).
 - `TenantPropagationPurityTest` — ArchUnit Rule R-C.e (original narrow case per ADR-0023, preserved as defence-in-depth): no class under `ascend.springai.service.runtime..` may import `TenantContextHolder` (located at `agent-service.service.platform.tenant.TenantContextHolder` post-ADR-0078).
 - `Orchestrator` SPI + `GraphExecutor` + `AgentLoopExecutor` + `SuspendSignal` + `Checkpointer` — dual-mode runtime SPIs (§4 constraint #9).
 - `RunStateMachine` — DFA validator enforcing §4 #20 legal transitions; `validate/allowedTransitions/isTerminal` (Rule R-C.d). `RunStatus.EXPIRED` added as 7th terminal value.

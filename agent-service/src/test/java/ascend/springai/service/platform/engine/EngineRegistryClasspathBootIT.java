@@ -1,6 +1,6 @@
 package ascend.springai.service.platform.engine;
 
-import ascend.springai.service.runtime.engine.EngineRegistry;
+import ascend.springai.engine.runtime.EngineRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.WebApplicationType;

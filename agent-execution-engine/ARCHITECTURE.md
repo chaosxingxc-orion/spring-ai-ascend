@@ -16,14 +16,15 @@ authority: "ADR-0072 (Engine Envelope + Strict Matching); Layer-0 principle P-M 
 
 ## Status
 
-**Engine SPI + EngineRegistry + EngineEnvelope extracted per ADR-0079 (2026-05-18).**
+**Engine SPI + EngineRegistry + EngineEnvelope extracted per ADR-0079 (2026-05-18); package layout updated per ADR-0088 (rc13, 2026-05-20) and ADR-0090 (rc14, 2026-05-20 — engine semantic-home alignment).**
 
 Code now lives under this module:
 
 - `agent-execution-engine/src/main/java/ascend/springai/engine/spi/` — `ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException` (engine contract surface; package root `ascend.springai.engine.spi.*` to keep SPI purity per Rule 77 / OrchestrationSpiArchTest).
-- `agent-execution-engine/src/main/java/ascend/springai/service/runtime/engine/` — `EngineRegistry`, `EngineEnvelope` (engine implementation; package preserved at `ascend.springai.service.runtime.engine.*` for backwards source compatibility per ADR-0079 §Consequences).
+- `agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/` — `RunMode`, `RunContext`, `SuspendSignal`, `Checkpointer`, `Orchestrator`, `TraceContext`, `ExecutorDefinition` (orchestration SPI; relocated from the dissolved `agent-runtime-core` per ADR-0088).
+- `agent-execution-engine/src/main/java/ascend/springai/engine/runtime/` — `EngineRegistry`, `EngineEnvelope` (engine implementation home; relocated from `ascend.springai.service.runtime.engine.*` in rc14 per ADR-0090 — the ADR-0079 source-compat exception is retired since rc13 redistribution already broke any consumer that bound to the old kernel-shim module).
 
-The back-dep cycle that previously blocked extraction (engine → service → engine) was resolved by creating a transient `agent-execution-engine` (rc13 dissolution per ADR-0088) module that hosted (later dissolved per ADR-0088 - kernel types relocated to this module under engine.orchestration.spi) `Run` / `RunContext` / `SuspendSignal` / `ExecutorDefinition` / S2C SPI types. Both `agent-service` and `agent-execution-engine` depend on `agent-execution-engine` (rc13 dissolution per ADR-0088); the build graph is now a strict DAG.
+The back-dep cycle that previously blocked extraction (engine → service → engine) was resolved by creating a transient `agent-runtime-core` module (per ADR-0079, 2026-05-18) that hosted `Run` / `RunContext` / `SuspendSignal` / `ExecutorDefinition` / S2C SPI types. Per ADR-0088 (rc13, 2026-05-20) `agent-runtime-core` was DISSOLVED and the kernel types relocated to semantic-home modules: orchestration SPI to this module under `engine.orchestration.spi`, runs/idempotency kernel re-consolidated into `agent-service`, S2C SPI to `agent-bus.bus.spi.s2c`. The build graph is now a strict DAG without the intermediate kernel-shim node.
 
 **Reference adapters stay in `agent-service.runtime`.** `SequentialGraphExecutor` and `IterativeAgentLoopExecutor` implement the engine SPI but wire `Run` / `RunContext` from the runtime kernel and therefore live on the runtime side, not in this module. The engine contract surface (SPI + registry + envelope) is the team-facing artefact this module owns; reference implementations are intentionally where the kernel state is.
 

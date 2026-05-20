@@ -1,6 +1,6 @@
 package ascend.springai.service.runtime.orchestration.inmemory;
 
-import ascend.springai.service.runtime.engine.EngineRegistry;
+import ascend.springai.engine.runtime.EngineRegistry;
 import ascend.springai.engine.spi.AgentLoopExecutor;
 import ascend.springai.engine.orchestration.spi.ExecutorDefinition;
 import ascend.springai.engine.spi.GraphExecutor;

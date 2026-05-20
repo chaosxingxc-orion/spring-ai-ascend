@@ -6,11 +6,14 @@
 # Cross-rule audit: docs/logs/reviews/2026-05-16-engine-contract-structural-response.en.md §5 (Phase 3a audit matrix).
 #
 # This file is the SINGLE SOURCE OF TRUTH for the S2C callback envelope +
-# response shape. The Java records under ascend.springai.service.runtime.s2c.spi
+# response shape. The Java records under ascend.springai.bus.spi.s2c
 # (S2cCallbackEnvelope, S2cCallbackResponse, S2cCallbackTransport) mirror this
-# schema and validate required fields on construction. Package path migrated
-# from ascend.springai.runtime.s2c in v2.0.0-rc3 per cross-constraint audit
-# alpha-4 / beta-2 — schema unchanged, only the Java home moved.
+# schema and validate required fields on construction. Package path lineage:
+# ascend.springai.runtime.s2c (pre-rc3) → ascend.springai.service.runtime.s2c.spi
+# (rc3 cross-constraint audit alpha-4 / beta-2) → ascend.springai.bus.spi.s2c
+# (rc13 ADR-0088 — relocated to agent-bus to co-locate cross-plane control
+# surfaces with bus.spi.ingress). Schema unchanged across all three moves;
+# only the Java home moved.
 #
 # Self-enforced by gate Rule 58 (s2c_callback_yaml_present_and_wellformed).
 
@@ -84,9 +87,9 @@ cross_rule_resolutions:
     Concurrent S2C callbacks consume the s2c.client.callback skill capacity declared
     in docs/governance/skill-capacity.yaml. Over-cap callers receive
     SuspendReason.RateLimited(s2c.client.callback, SKILL_CAPACITY_EXCEEDED) via
-    the Rule 41.b ResilienceContract.resolve path. Runtime enforcement at
-    SyncOrchestrator is deferred to W2 (see ADR-0074 §Consequences). At W2.x the
-    skill is declared in yaml; integration test E84 lands as armed-for-W2.
+    the Rule R-K.b (formerly Rule 41.b) ResilienceContract.resolve path. Runtime
+    enforcement at SyncOrchestrator is deferred to W2 (see ADR-0074 §Consequences).
+    At W2.x the skill is declared in yaml; integration test E84 lands as armed-for-W2.
   rule_42_sandbox_subsumption: |
     Client response is untrusted external input. Runtime MUST validate response
     against this schema before resume. Invalid response (missing callback_id,

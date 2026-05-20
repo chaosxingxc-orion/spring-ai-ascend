@@ -1,0 +1,189 @@
+id: ADR-0090
+title: "rc14 Cross-Authority Parity + Engine Package Semantic-Home (L-α..L-η wave)"
+status: accepted
+date: 2026-05-20
+level: L0
+view: process
+freeze_id: null
+
+supersedes: []
+extends:
+  - ADR-0086   # gate_layer_boundary — the authority-vs-gate-layer split G-8 reinforces
+  - ADR-0088   # agent-runtime-core dissolution — the structural change that surfaced cross-authority gaps
+relates_to:
+  - ADR-0079   # engine extraction — source-compat exception retired by rc14 engine rename
+  - ADR-0087   # rc12 authority ratchet + deploy-truth
+  - ADR-0089   # edge-plane ingress gateway mandate
+
+decision_one_liner: |
+  Cross-authority parity is enforced as a first-class L0 invariant (Rule G-8 /
+  gate Rule 106), and `ascend.springai.service.runtime.engine.*` is renamed to
+  `ascend.springai.engine.runtime.*` to retire the ADR-0079 source-compat
+  exception.
+
+context: |
+  rc13 (ADR-0088 + ADR-0089) dissolved `agent-runtime-core` and redistributed
+  20 production+test files to semantic-home modules. The Codex post-ratchet
+  architecture review (2026-05-20) found that while every single-surface gate
+  passed (117/117 rules + 182/182 self-tests + Maven verify green), the L0
+  authority system was internally contradictory across canonical surfaces:
+
+  - L-α (numeric drift): `architecture-status.yaml#baseline_metrics`
+    declared 363 nodes / 539 edges (rc12 baseline); the live graph
+    (`python gate/build_architecture_graph.py --check --no-write`) reported
+    376 / 558. The rc13 release note carried prospective "will re-baseline
+    after merge" wording instead of evidence-bearing numbers.
+  - L-β (S2C path-truth drift): `CLAUDE.md` Rule R-M kernel + `rule-R-M.md`
+    card + `s2c-callback.v1.yaml` comment + `enforcers.yaml` E83/E93
+    asserts all named `ascend.springai.service.runtime.s2c.spi` while
+    `agent-bus/module-metadata.yaml` + `contract-catalog.md` + the source
+    tree all named `ascend.springai.bus.spi.s2c` (post-ADR-0088 truth).
+  - L-γ (current-state vs historical drift): root `ARCHITECTURE.md` lines
+    276-281 + 871 + `architecture-status.yaml` lines 716, 1050, 1387, 1405
+    still asserted post-ADR-0079 module topology as current truth, with
+    `agent-runtime-core` listed as a live dependency-direction node and
+    SPI owner. The post-ADR-0079 marker was treated as a same-line
+    exemption by Rule 87/94/98 even though the sentence was present-tense.
+  - L-δ (cross-authority parity missing — META): the single-surface gates
+    (87/94/98/101) each scanned one corpus; none compared canonical
+    surfaces against each other. This is the root cause of L-α..L-γ
+    surviving 117 passing rules.
+  - L-ε (namespace ratchet incompleteness): `contract-catalog.md` lines
+    60/61/62 + `s2c-callback.v1.yaml` line 87 still cited "Rule 11" and
+    "Rule 41.b" — old numeric names that the rc12 D-/R-/G-/M- namespace
+    ratchet (ADR-0086) was supposed to fully replace.
+  - L-ζ (engine package compat exception): `agent-execution-engine` kept
+    `EngineRegistry` + `EngineEnvelope` under
+    `ascend.springai.service.runtime.engine.*` per ADR-0079 source-compat
+    clause; ADR-0079 was superseded by ADR-0088 (rc13), leaving the
+    exception un-anchored.
+  - L-η (Rule 103 scope vs Rule 87/94/98 scope mismatch): Rule 103's
+    word-boundary `agent-runtime[^-]` regex explicitly excluded
+    `agent-runtime-core` while the rc13 sibling widening included it.
+
+decision: |
+  Two structural changes land together as one corrective wave:
+
+  1. **Rule G-8 — Cross-Authority Parity** (new engineering rule, kernel
+     index in CLAUDE.md + card `docs/governance/rules/rule-G-8.md` +
+     gate Rule 106 in `gate/check_architecture_sync.sh`):
+     - .a — Graph baseline parity (architecture-status vs architecture-graph).
+     - .b — SPI path parity (kernel rule SPI literals vs module-metadata vs disk).
+     - .c — Module topology parity (pom.xml vs repository_counts vs prose).
+     - .d — Current-claim grammar (post-ADR-NNNN marker is NOT historical;
+       only explicitly historical tokens — `formerly`, `until dissolved`,
+       `pre-rc13`, `pre-Phase-C`, `historical`, `narration`, `was consolidated`,
+       `was extracted`, `was dissolved` — exempt a present-tense verb line
+       naming a deleted module).
+     Four new enforcer rows E146/E147/E148/E149 + 8 new self-test fixtures
+     (positive + negative per sub-clause).
+
+  2. **Engine package rename** (Track E):
+     - `agent-execution-engine/src/main/java/ascend/springai/service/runtime/engine/`
+       → `agent-execution-engine/src/main/java/ascend/springai/engine/runtime/`
+     - `EngineRegistry.java` + `EngineEnvelope.java` move to new package.
+     - 7 test files in `agent-service/src/test/java/.../service/runtime/engine/`
+       move to `agent-service/src/test/java/.../engine/runtime/`.
+     - 9 cross-directory import sites rewrite `service.runtime.engine.*` →
+       `engine.runtime.*`.
+     - 5 enforcer rows (E74/E75/E79/E80/E88) have their `artifact:` paths
+       updated to the new test location.
+     - `agent-execution-engine/module-metadata.yaml` description updated;
+       `agent-execution-engine/ARCHITECTURE.md` line 24 ADR-0079 source-compat
+       clause dropped, ADR-0088 + ADR-0090 cross-cited as current authority;
+       `docs/contracts/engine-envelope.v1.yaml` Java-record reference updated.
+     - The ADR-0079 source-compat exception is retired; future engine
+       package references use `ascend.springai.engine.runtime.*`.
+
+  L-η is closed by adding a scope-clarification comment to `gate/rules/rule-103.sh`
+  + `gate/check_architecture_sync.sh` (Rule 103 deliberately scans only
+  `agent-platform` + `agent-runtime`; `agent-runtime-core` is owned by
+  Rule 94 + Rule 98). No grep-pattern change.
+
+alternatives_considered:
+  - id: "L-ζ formalize-as-exception (rejected)"
+    description: |
+      Add a sub-clause to ADR-0088 explicitly preserving the
+      `ascend.springai.service.runtime.engine.*` package as a locked
+      source-compat exception with W3+ sunset trigger. Doc-only change;
+      zero source churn.
+    rejection_reason: |
+      User chose the rename path (rc14 plan-mode decision, 2026-05-20):
+      semantic-home alignment is preferred over compat-preservation since
+      the rc13 dissolution already broke any consumer binding to the
+      kernel-shim module. Renaming now (W1 pre-public-surface) is cheaper
+      than carrying a perpetual exception.
+  - id: "L-η widen Rule 103 (rejected)"
+    description: |
+      Add `agent-runtime-core` to Rule 103's grep set alongside
+      `agent-platform` and `agent-runtime` for consistency with rc13
+      widening of Rules 87/94/98.
+    rejection_reason: |
+      User chose the document path (rc14 plan-mode decision): Rule 103's
+      scope is legacy-only (deploy entrypoints for pre-Phase-C dissolved
+      modules); Rule 94 + Rule 98 already cover `agent-runtime-core` across
+      ops/**/*.{yaml,tpl,md} + module-metadata.yaml + active .md/.yaml. No
+      coverage gap. Documenting the scope decision avoids redundant
+      grep-pattern divergence between Rule 103 and Rule 94/98.
+
+consequences:
+  - id: cross_authority_parity_first_class
+    decision: |
+      Rule G-8 (gate Rule 106) is the first explicit cross-surface
+      comparator in the architecture-sync corpus. Single-surface scanners
+      (Rule 87/94/98/101) cover well-formedness; G-8 covers agreement.
+    impact: positive — defect class that survived 117 passing rules in
+      rc13 is now blocked.
+  - id: engine_package_semantic_home
+    decision: |
+      `ascend.springai.engine.runtime.*` is the canonical engine
+      implementation home. The ADR-0079 source-compat exception is
+      retired; consumers binding to the old package fix imports.
+    impact: 1 breaking change for any external consumer (very unlikely at
+      W1 — package was internal); 9 import sites + 5 enforcer rows + 2
+      doc references already migrated within this wave.
+  - id: post_adr_marker_is_provenance_not_historical
+    decision: |
+      The `post-ADR-NNNN` marker pattern records provenance (when a
+      decision was made) but does NOT attest to tense (whether the line is
+      narrating past state or asserting current state). Future waves MUST
+      use explicitly historical tokens (`formerly`, `until`, `pre-rcN`,
+      `was consolidated`, etc.) to exempt deleted-module mentions from
+      Rule G-8.d. Rule 87/94/98 marker semantics unchanged (still admit
+      `post-ADR-NNNN` as provenance) but G-8.d gates the *grammar* layer.
+    impact: rc15+ waves that introduce new deleted-module entities will
+      need this discipline; rc14 batch-fix pass already brought the
+      existing corpus to compliance.
+  - id: baseline_metrics_delta_rc13_to_rc14
+    decision: |
+      `architecture-status.yaml#baseline_metrics` bumped:
+        - active_engineering_rules: 30 → 31 (+1: Rule G-8)
+        - active_gate_checks: 117 → 118 (+1: gate Rule 106)
+        - gate_executable_test_cases: 182 → 190 (+8: 2 fixtures × 4 sub-clauses)
+        - enforcer_rows: 144 → 148 (+4: E146..E149)
+        - adr_count: 88 → 89 (+1: ADR-0090)
+        - architecture_graph_nodes: 363 → 381 (+18: rc14 reconciled live +
+          Rule G-8 + E146..E149 + ADR-0090 nodes; was 376 at rc13-corrected
+          baseline before rc14 additions)
+        - architecture_graph_edges: 539 → 566 (+27: same rc14 additions)
+        - maven_tests_green: 371 → 374 (+3: Track E test relocations
+          exposed additional parameterized cases)
+    impact: positive — baseline now reconciled to live state per Rule G-8.a.
+
+verification:
+  - command: "./mvnw clean verify"
+    expected: "BUILD SUCCESS across 8 reactor modules; 374 surefire+failsafe tests pass."
+    verified: 2026-05-20 (post-Track-E rename, pre-Track-G addition).
+  - command: "wsl bash gate/check_parallel.sh"
+    expected: "executed 118 rules; all PASS; GATE: PASS"
+    verified: 2026-05-20 (post-Track-H including this ADR).
+  - command: "wsl python3 gate/build_architecture_graph.py"
+    expected: "Wrote docs/governance/architecture-graph.yaml: 381 nodes, 566 edges; Graph validation: OK"
+    verified: 2026-05-20.
+  - command: "wsl bash gate/test_architecture_sync_gate.sh"
+    expected: "Tests passed: 190/190 (rc13 baseline 182 + 8 new Rule 106 fixtures)"
+    verified: TBD post-merge.
+
+review_doc: docs/logs/reviews/2026-05-20-l0-rc13-post-ratchet-architecture-review.en.md
+response_doc: docs/logs/reviews/2026-05-20-l0-rc13-post-ratchet-architecture-review-response.en.md
+release_note: docs/logs/releases/2026-05-20-l0-rc14-cross-authority-parity-and-engine-semantic-home.en.md
