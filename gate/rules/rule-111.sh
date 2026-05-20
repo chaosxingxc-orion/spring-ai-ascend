@@ -5,84 +5,77 @@
 
 # Rule 111 — architecture_refresh_defect_family_re_eval_required (enforcers E156 E157 E158)
 #
-# Operationalises Rule G-9 (Recurring-Defect Family Truth). Enforces three
-# invariants on the recurring-defect-family ledger:
-#   .a (E156) — yaml well-formedness: docs/governance/recurring-defect-families.yaml
-#               exists, has top-level schema_version + last_updated + families,
-#               and every family entry has 9 required per-family fields.
-#   .b (E157) — freshness: yaml `last_updated:` ISO date is no older than the
-#               commit date of the most recent refresh-signal change. Signals:
-#               docs/adr/*.yaml, docs/governance/architecture-status.yaml,
-#               docs/logs/releases/*.md, CLAUDE.md.
-#   .c (E158) — yaml/md family-id parity: the set of `^  - id:` slugs in the
-#               yaml equals the set of `F-...` ids referenced in
-#               docs/governance/recurring-defect-families.md.
-# Per ADR-0094 (rc17 recurring-defect-family-truth + rule-consolidation).
+# Operationalises Rule G-9 (Recurring-Defect Family Truth). Per ADR-0095
+# rc18 Wave 1, the 3 sub-checks delegate to shared helpers in
+# gate/lib/check_recurring_families.sh — closes F-kernel-vs-implementation-
+# drift on Rule 111 itself (Wave 1 finding: fixtures and gate both invoke
+# the same code, no inline re-implementation).
 #
-# scope_surfaces: docs/governance/recurring-defect-families.yaml, docs/governance/recurring-defect-families.md, docs/adr/, docs/logs/releases/, CLAUDE.md, docs/governance/architecture-status.yaml
+# Hardening fixes (per ADR-0095):
+#   1a — yaml's own git commit date drives freshness (not hand-edited last_updated)
+#   1b — families: [] is rejected (hard non-empty assertion)
+#   1c — cleanup_status enum value validated against {closed | structurally_addressed |
+#        partial | incomplete | monitoring}
+#   1d — per-family block-bucket: each family has every required field exactly once
+#        (closes duplicate-field compensation blind spot)
+#   1e — last_updated must be ISO YYYY-MM-DD format
+#   1f — md parity anchored to ^### F- H3 headings (mirrors yaml ^  - id: anchoring,
+#        closes prose false-positives)
+#   1g — refresh-signal path filter INCLUDES docs/governance/rules/
+#   1h — shallow-clone fail-closed (was silent pass)
+#
+# Sub-checks:
+#   .a (E156) — yaml well-formedness (file + top-level keys + ISO date +
+#               non-empty + per-family field count + enum validation)
+#   .b (E157) — freshness via yaml file's own git commit date vs latest
+#               refresh-signal commit date
+#   .c (E158) — yaml/md family-id parity, both sides H3/structural-anchored
+#
+# Per ADR-0094 (rc17 introduction) + ADR-0095 (rc18 Wave 1 hardening).
+#
+# scope_surfaces: docs/governance/recurring-defect-families.yaml, docs/governance/recurring-defect-families.md, docs/adr/, docs/logs/releases/, CLAUDE.md, docs/governance/architecture-status.yaml, docs/governance/rules/, gate/lib/check_recurring_families.sh
 # ---------------------------------------------------------------------------
 _r111_yaml="docs/governance/recurring-defect-families.yaml"
 _r111_md="docs/governance/recurring-defect-families.md"
+_r111_helper="gate/lib/check_recurring_families.sh"
 _r111_fail=0
 
-# Sub-check .a — yaml well-formedness
-if [[ ! -f "$_r111_yaml" ]]; then
-  fail_rule "architecture_refresh_defect_family_re_eval_required" "$_r111_yaml missing -- Rule G-9.a / E156 (ADR-0094)"
-  _r111_fail=1
+if [[ ! -f "$_r111_helper" ]]; then
+  fail_rule "architecture_refresh_defect_family_re_eval_required" "$_r111_helper missing -- Rule G-9 / ADR-0095 Wave 1 helper file required"
 else
-  for _r111_topkey in schema_version last_updated families; do
-    if ! grep -qE "^${_r111_topkey}:" "$_r111_yaml" 2>/dev/null; then
-      fail_rule "architecture_refresh_defect_family_re_eval_required" "$_r111_yaml missing top-level key '$_r111_topkey' -- Rule G-9.a / E156"
-      _r111_fail=1
-    fi
-  done
-  _r111_fam_count=$(grep -cE '^  - id:' "$_r111_yaml" 2>/dev/null)
-  _r111_fam_count=${_r111_fam_count:-0}
-  if [[ "$_r111_fam_count" -gt 0 ]]; then
-    for _r111_field in title first_observed_rc last_observed_rc occurrences root_cause surfaces prevention_rules cleanup_status open_residual; do
-      _r111_count=$(grep -cE "^    ${_r111_field}:" "$_r111_yaml" 2>/dev/null)
-      _r111_count=${_r111_count:-0}
-      if [[ "$_r111_count" -lt "$_r111_fam_count" ]]; then
-        fail_rule "architecture_refresh_defect_family_re_eval_required" "$_r111_yaml field '$_r111_field' appears $_r111_count times but $_r111_fam_count families declared -- Rule G-9.a / E156"
-        _r111_fail=1
-      fi
-    done
-  fi
-fi
+  # Source helpers once; capture each sub-check's stdout for fail_rule emission.
+  # shellcheck disable=SC1090
+  source "$_r111_helper"
 
-# Sub-check .b — freshness: yaml last_updated >= latest refresh-signal commit date
-if [[ -f "$_r111_yaml" ]] && command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
-  _r111_yaml_date=$(awk '/^last_updated:/ { gsub(/[\"'\'']/,""); print $2; exit }' "$_r111_yaml" 2>/dev/null)
-  if [[ -n "$_r111_yaml_date" ]]; then
-    _r111_signal_date=$(git log -1 --format=%cI -- \
-      'docs/adr/' \
-      'docs/governance/architecture-status.yaml' \
-      'docs/logs/releases/' \
-      'CLAUDE.md' 2>/dev/null | cut -dT -f1)
-    if [[ -n "$_r111_signal_date" && "$_r111_signal_date" > "$_r111_yaml_date" ]]; then
-      fail_rule "architecture_refresh_defect_family_re_eval_required" "$_r111_yaml last_updated=$_r111_yaml_date is older than refresh-signal commit date $_r111_signal_date -- Rule G-9.b / E157 (run /refresh-defect-archive)"
+  # Sub-check .a — yaml well-formedness (covers fixes 1b, 1c, 1d, 1e)
+  _r111_a_output=$(_check_recurring_families_yaml_wellformed "$_r111_yaml")
+  if [[ -n "$_r111_a_output" ]]; then
+    while IFS= read -r _r111_line; do
+      [[ -z "$_r111_line" ]] && continue
+      fail_rule "architecture_refresh_defect_family_re_eval_required" "$_r111_line"
       _r111_fail=1
-    fi
+    done <<< "$_r111_a_output"
   fi
-fi
 
-# Sub-check .c — yaml/md family-id parity
-if [[ -f "$_r111_yaml" && -f "$_r111_md" ]]; then
-  _r111_yaml_ids_file="$(mktemp)"
-  _r111_md_ids_file="$(mktemp)"
-  awk '/^  - id:[[:space:]]+/ {print $3}' "$_r111_yaml" 2>/dev/null | sort -u > "$_r111_yaml_ids_file"
-  grep -oE 'F-[a-z][a-z0-9-]*' "$_r111_md" 2>/dev/null | sort -u > "$_r111_md_ids_file"
-  _r111_only_yaml=$(comm -23 "$_r111_yaml_ids_file" "$_r111_md_ids_file")
-  _r111_only_md=$(comm -13 "$_r111_yaml_ids_file" "$_r111_md_ids_file")
-  if [[ -n "$_r111_only_yaml" ]]; then
-    fail_rule "architecture_refresh_defect_family_re_eval_required" "Family ids in yaml but missing from md: $(echo $_r111_only_yaml) -- Rule G-9.c / E158"
-    _r111_fail=1
+  # Sub-check .b — freshness (covers fixes 1a, 1g, 1h)
+  _r111_b_output=$(_check_recurring_families_freshness "$_r111_yaml" ".")
+  if [[ -n "$_r111_b_output" ]]; then
+    while IFS= read -r _r111_line; do
+      [[ -z "$_r111_line" ]] && continue
+      fail_rule "architecture_refresh_defect_family_re_eval_required" "$_r111_line"
+      _r111_fail=1
+    done <<< "$_r111_b_output"
   fi
-  if [[ -n "$_r111_only_md" ]]; then
-    fail_rule "architecture_refresh_defect_family_re_eval_required" "Family ids in md but missing from yaml: $(echo $_r111_only_md) -- Rule G-9.c / E158"
-    _r111_fail=1
+
+  # Sub-check .c — md/yaml parity (covers fix 1f)
+  _r111_c_output=$(_check_recurring_families_md_yaml_parity "$_r111_yaml" "$_r111_md")
+  if [[ -n "$_r111_c_output" ]]; then
+    while IFS= read -r _r111_line; do
+      [[ -z "$_r111_line" ]] && continue
+      fail_rule "architecture_refresh_defect_family_re_eval_required" "$_r111_line"
+      _r111_fail=1
+    done <<< "$_r111_c_output"
   fi
-  rm -f "$_r111_yaml_ids_file" "$_r111_md_ids_file"
 fi
 
 if [[ $_r111_fail -eq 0 ]]; then pass_rule "architecture_refresh_defect_family_re_eval_required"; fi
