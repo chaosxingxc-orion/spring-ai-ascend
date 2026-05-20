@@ -45,7 +45,7 @@ authority_refs: [ADR-0094]
 
 ---
 
-## §1 — Family Summary (8 families as of rc17)
+## §1 — Family Summary (9 families as of rc18)
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
@@ -57,6 +57,7 @@ authority_refs: [ADR-0094]
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 3 | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
+| 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 1 (rc17) | ✅ structurally addressed (rc18 Wave 1) |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces.
@@ -244,6 +245,35 @@ prose; rc16 closure was the last known instance.
 
 ---
 
+### F-recursive-prevention-irony — META Prevention Rule Exhibits the Defect Class It Prevents
+
+**Pattern.** A META rule whose job is preventing defect class X is
+itself vulnerable to class X. rc17 introduced Rule G-9 / Rule 111 to
+prevent F-kernel-vs-implementation-drift on recurring-defect-family
+ledgers — but reviewers found Rule 111 itself exhibited 6/8 defect
+patterns: hand-edited mtime, empty-array vacuous pass, duplicate-field
+compensation, scope-vs-impl gap, prose regex false-positive,
+shallow-clone silent pass.
+
+**Surfaces.**
+- Newly-introduced META gate rules (rc16 Rule 110, rc17 Rule 111)
+- Newly-introduced helper functions in `gate/lib/`
+- Self-test fixtures that re-implement gate logic inline
+
+**Prevention chronology.** Rule 111 (rc17 introduction, then hardened
+in rc18 Wave 1 per ADR-0095 via helper extraction
++ 8 hardening fixes); Rule G-9 (rc17, strengthened by helper
+extraction in rc18).
+
+**Open residual.** Wave 1 rc18 closed all 6 self-vulnerabilities on
+Rule 111. Future META rules should follow the same pattern: extract
+logic into `gate/lib/check_*.sh`, have fixtures call the helper,
+validate the helper itself with 6+ negative scenarios before merge.
+"Structurally addressed" not "closed" because the discipline depends
+on author vigilance for each new META rule.
+
+---
+
 ## §3 — META-Lessons Codified Into Rules
 
 The recurring-family pattern itself is a defect class. The following
@@ -261,6 +291,7 @@ G-9 + this document as the structural backstop.
 | rc15 | "Sub-clause widening > sibling rule for cross-surface families" | Rule G-8 establishes the pattern (rc15); ADR-0091 records the decision |
 | rc16 | "Recurrence pattern is itself gateable" | Rule 110 META — every prevention rule MUST declare `scope_surfaces:` + ≥2 self-test fixtures across distinct surfaces |
 | **rc17** | **"Recurring families deserve a first-class derived view"** — reviewer should be able to ask "has this class been seen before?" without re-reading 16 release notes | **This document + `recurring-defect-families.yaml` + Rule G-9 + Gate Rule 111 freshness check** |
+| **rc18** | **"Recursive irony — a META prevention rule must first prove it doesn't itself exhibit the defect class it prevents"** — rc17 Rule 111 had 6/8 of its own defect patterns | **F-recursive-prevention-irony added as permanent family; helper-extraction template (`gate/lib/check_recurring_families.sh`) is the structural fix; all future META rules follow this template + validate with 6+ negative scenarios** |
 
 ---
 

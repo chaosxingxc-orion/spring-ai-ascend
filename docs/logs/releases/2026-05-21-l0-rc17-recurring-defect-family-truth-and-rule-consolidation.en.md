@@ -12,6 +12,16 @@ supersedes_release_notes:
 
 # L0 v2.0.0-rc17 — Recurring-Defect Family Truth + Rule Consolidation
 
+> **Historical artifact frozen at SHA 9eb3045.** This release note captures
+> rc17 wave-final baselines (93 ADRs / 123 active gate rules / 37 active
+> engineering rules / 205 self-tests / 407 graph nodes / 643 edges / 8
+> recurring defect families). For current canonical baselines see
+> `docs/governance/architecture-status.yaml#architecture_sync_gate.allowed_claim`.
+> rc18 (per ADR-0095) superseded these counts: 94 ADRs / 123 gate rules
+> (unchanged — rc18 is pure hardening of rc17) / 37 engineering rules
+> (unchanged) / 210 self-tests / 394 graph nodes / 634 edges / 9 families.
+> Rule 28 exempts this file via the frozen-SHA marker convention.
+
 ## Verdict
 
 rc17 closes the user-initiated reflection wave: chao read the rc4 → rc16 release notes and asked "已经发现的错误类别已经做到完全清理了吗？" (Are the already-discovered error classes fully cleaned up?). A family-recurrence audit confirmed the user's intuition — 4 root-cause classes had recurred 6-9 times each. The pattern was the defect.

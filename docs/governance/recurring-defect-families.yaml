@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21
+last_updated: 2026-05-22
 
 families:
   - id: F-numeric-drift
@@ -282,3 +282,36 @@ families:
       - Rule 108
     cleanup_status: closed
     open_residual: ""
+
+  - id: F-recursive-prevention-irony
+    title: META Prevention Rule Exhibits the Defect Class It Prevents
+    first_observed_rc: rc17
+    last_observed_rc: rc17
+    occurrences: [rc17]
+    root_cause: |
+      A META rule whose job is preventing defect class X is itself
+      vulnerable to class X. rc17 introduced Rule G-9 / Rule 111 to
+      prevent F-kernel-vs-implementation-drift on recurring-defect-
+      family ledgers — but reviewers found Rule 111 itself exhibited
+      6/8 defect patterns (hand-edited mtime, empty-array vacuous pass,
+      duplicate-field compensation, scope-vs-impl gap, prose regex
+      false-positive, shallow-clone silent pass). The pattern: when
+      authoring a META prevention rule, the author thinks "this rule
+      catches X" without applying the rule's own discipline to the
+      rule itself.
+    surfaces:
+      - Newly-introduced META gate rules (rc16 Rule 110, rc17 Rule 111)
+      - Newly-introduced helper functions in gate/lib/
+      - Self-test fixtures that re-implement gate logic inline
+    prevention_rules:
+      - Rule 111 (rc17, then hardened in rc18 Wave 1 per ADR-0095)
+      - Rule G-9 (rc17, then strengthened by helper extraction in rc18)
+    cleanup_status: structurally_addressed
+    open_residual: |
+      Wave 1 rc18 closed all 6 self-vulnerabilities on Rule 111 via
+      helper extraction + 8 hardening fixes. Future META rules should
+      follow the same pattern: extract logic into gate/lib/check_*.sh,
+      have fixtures call the helper, validate the helper itself with
+      6+ negative scenarios before merge. The family is "structurally
+      addressed" not "closed" because the discipline depends on author
+      vigilance for each new META rule.

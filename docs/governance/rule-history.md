@@ -275,3 +275,55 @@ User-initiated reflection ("已经发现的错误类别已经做到完全清理�
 - `baseline_metrics.architecture_graph_nodes`: 396 → 407 (live reconciled 2026-05-21).
 - `baseline_metrics.architecture_graph_edges`: 615 → 643 (live reconciled 2026-05-21).
 - NEW `baseline_metrics.recurring_defect_families: 8`.
+
+## 2026-05-22 — rc18 wave: comprehensive hardening of rc17 deliverables (ADR-0095)
+
+### Strategic shift
+
+PR #15 (rc17) merged with 3 corrective commits. Post-merge 4-reviewer pass + 3-agent deep scan surfaced 50+ defects across 4 surfaces. Most concerning: Rule G-9 / Rule 111 (the rc17 META rule whose job is preventing recurring-defect-family recurrence) was itself vulnerable to 6/8 defect patterns. User directive: fix all bugs under fixed version `rc18` (no version creep), multi-wave OK.
+
+### 5-wave decomposition (single ADR-0095 covering all)
+
+| Wave | Branch | Commit | Scope |
+|---|---|---|---|
+| 1 | rc18/wave-1-rule-111-hardening | 47497d5 | Rule 111 self-hardening + helper extraction (closes recursive-irony) |
+| 2 | rc18/wave-2-pattern-sweep | f5c32fe | Rule 44 shallow-clone safeguard |
+| 3 | rc18/wave-3-naming-cleanup | 835d341 | 43 naming/structural drift fixes |
+| 4 | rc18/wave-4-enforcer-normalize | 952db74 | enforcers.yaml namespace cleanup + migration doc |
+| 5 | rc18/wave-5-finalize | (this commit) | ADR-0095 + release note + baseline lockstep + freeze rc17 |
+
+### New artefacts
+
+- **gate/lib/check_recurring_families.sh** (Wave 1) — 3 sub-check helpers + wrapper, sourced by both Rule 111 and its 8 fixtures.
+- **gate/rule-number-migration.md** (Wave 4) — legacy-to-semantic mapping table; replaces inline `(legacy Rule NN — ...)` parentheticals.
+- **docs/adr/0095-rc18-comprehensive-hardening.yaml** (Wave 5) — single ADR covering all 5 waves.
+- **docs/logs/releases/2026-05-21-l0-rc18-comprehensive-hardening.en.md** (Wave 5) — single release note with 5-chapter structure.
+
+### Rule changes (hardening only; no new rules)
+
+- **Rule 111** (Wave 1) — 8 hardening fixes 1a-1h applied via helper extraction. Old 3 inline fixtures replaced with 8 helper-call fixtures.
+- **Rule 44** (Wave 2) — shallow-clone fail-closed safeguard added.
+- **Rule G-2 + Rule G-2.1** (Wave 3) — card cross-references cleaned post-rc17 split.
+- **Rule R-C + R-C.1 + R-C.2** (Wave 3) — parent card dead sub-clauses replaced with pointer table.
+- **17 enforcer constraint_refs** (Wave 4) — bulk renamed R-C.{b,c,d,e} → R-C.{1,2.a,2.b,2.c}.
+- **9 enforcer constraint_refs** (Wave 4) — removed `(legacy Rule NN — ...)` parentheticals.
+
+### New family
+
+- **F-recursive-prevention-irony** (Wave 5) — operationalises the rc18 META lesson permanently.
+
+### Baseline_metrics changes
+
+- `gate_executable_test_cases`: 205 → 210 (+5 from Wave 1 fixture changes)
+- `adr_count`: 93 → 94 (ADR-0095)
+- `recurring_defect_families`: 8 → 9 (F-recursive-prevention-irony)
+- `architecture_graph_nodes`: 407 → 394 (-13 phantom legacy nodes auto-removed by Wave 4)
+- `architecture_graph_edges`: 643 → 634 (-9 follow-on)
+- All other metrics unchanged
+
+### CI
+
+- Wave 1 first push failed: Rule 111 shallow-clone fail-closed (fix 1h) tripped on GitHub Actions default fetch-depth=1. Fix: added `fetch-depth: 0` to ci.yml (commit c0b619c on wave-1 branch).
+- Waves 3, 4 needed rebase after Wave 1 merged (ordering effect; no conflicts).
+- Wave 2 needed rebase after Waves 3+4 merged.
+- Wave 5: zero corrective commits (all surfaces updated in single lockstep commit per rc17 lesson `feedback_lockstep_baseline_surfaces.md`).

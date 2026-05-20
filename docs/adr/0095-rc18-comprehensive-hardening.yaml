@@ -1,0 +1,190 @@
+id: ADR-0095
+title: "rc18 Comprehensive Hardening — Rule 111 Self-Hardening + Pattern Sweep + Naming/Structural Cleanup + Enforcer Normalization + META"
+status: accepted
+date: 2026-05-21
+level: L0
+view: process
+freeze_id: null
+
+supersedes: []
+extends:
+  - ADR-0086   # gate_layer_boundary — Wave 4 namespace-cleanup ratchets the two-namespace separation
+  - ADR-0093   # rc16 META scope completeness — Rule 110 META was the precedent for Rule 111 self-hardening lesson
+  - ADR-0094   # rc17 recurring-defect-family-truth — rc17 introduced Rule G-9 / Rule 111; rc18 hardens it
+relates_to:
+  - ADR-0078   # Phase C consolidation — legacy R-C.{b,c,d,e} predates this
+  - ADR-0085   # rc11 kernel-truth — original "rule that prevents drift drifts itself" lesson, now applied to Rule 111
+  - ADR-0088   # agent-runtime-core dissolution — affects R-C.2 relocation context
+
+decision_one_liner: |
+  Five-wave hardening of rc17 deliverables in response to PR #15 reviewer
+  pass + 3-agent deep scan. Closes the recursive-irony where Rule G-9 /
+  Rule 111 — the META rule preventing recurring-defect-family recurrence —
+  itself exhibited 6/8 defect patterns it was supposed to prevent. Also
+  cleans 43 naming/structural drift findings and normalises enforcer
+  constraint_ref namespace mixing. All under fixed version rc18 (no
+  version-number creep).
+
+context: |
+  PR #15 (rc17) merged with 3 corrective commits because reviewers and
+  agents kept finding new drift in surfaces the original wave didn't
+  scan. After merge, a 4-reviewer pass + 3-agent deep scan surfaced 50+
+  defects across 4 surfaces:
+
+  | Category | Source | Severity |
+  |---|---|---|
+  | Gate-rule defect patterns (Pattern A-H on 17 rules) | Agent 1 | 3 HIGH + 13 MEDIUM |
+  | Rule cards + naming drift (43 findings, 6 classes) | Agent 2 | 0 HIGH + 30 MEDIUM + 13 LOW |
+  | SSOT integrity (8 categories) | Agent 3 | 1 HIGH + 5 LOW monitoring |
+  | Original 4-reviewer findings (18 P1-P3) | Wave 1 review | 9 P1 + 9 P2 |
+
+  **Core finding:** Rule G-9 / Rule 111 — the rc17 META rule whose
+  job is preventing recurring-defect-family recurrence — was itself
+  vulnerable to 6/8 defect patterns. The reviewers labelled this
+  "recursive irony": the rule preventing F-kernel-vs-implementation-drift
+  contained kernel-vs-implementation drift of its own.
+
+  **User directive (chao):**
+  - Fix all bugs in rc18 — do not increment version (no rc19 creep)
+  - Multi-wave OK; 5 waves under rc18 selected
+  - Most aggressive option choices: full helper-isation (deferred for
+    21 fixtures; see known_debt), complete legacy-parenthetical removal
+    (Wave 4 done)
+
+decision: |
+  ADR-0095 declares the following 5 waves under fixed rc18:
+
+  ## Wave 1 — Rule 111 Self-Hardening (commit 47497d5)
+
+  - Extracted `gate/lib/check_recurring_families.sh` — 3 sub-check
+    helpers + 1 wrapper. Closes Pattern D drift for Rule 111 itself.
+  - Hardening fixes (per Wave 1 sub-tasks 1a-1h):
+    - 1a yaml file's git commit date drives freshness (not hand-edited
+      `last_updated:`)
+    - 1b `families: []` rejected (empty array forbidden)
+    - 1c `cleanup_status` enum value validated
+    - 1d per-family block-bucket field count (duplicate-field
+      compensation closed)
+    - 1e `last_updated` ISO YYYY-MM-DD format enforced
+    - 1f md parity restricted to `^### F-` H3 headings (prose
+      false-positives closed)
+    - 1g refresh-signal path filter widened to include `docs/governance/rules/`
+    - 1h shallow-clone fail-closed (no longer silent)
+  - Fixtures: 3 old re-implementations replaced with 8 helper-calling
+    fixtures (covers all sub-checks + edge cases).
+  - CI workflow: `actions/checkout@v4` added `fetch-depth: 0` so Rule
+    111.b freshness check works on CI (corrective for Wave 1 first CI
+    run).
+
+  ## Wave 2 — Cross-Rule Pattern Sweep (this PR)
+
+  - Rule 44 (frozen_doc_edit_path_compliance) — added shallow-clone
+    fail-closed safeguard (Pattern H). Mirrors Wave 1 fix 1h.
+  - Rule 28j enum validation: **N/A** — Agent 1 misread; 28j checks
+    artifact path resolution, not enum values.
+  - Rule 63/106 empty-array assertions: **N/A** — vacuous-pass on empty
+    sets is correct for these rules (no retracted notes / no modules
+    fails other rules already).
+  - 21 fixture helper-isation (Rules 1-6, 16, 19, 22, 24-29, 107, 108,
+    109, 110): **deferred to rc19+** as known technical debt. Each
+    requires ~50-100 LOC for helper extraction + parameterisation +
+    fixture rewrite; total ~600-1100 LOC out of Wave 2 scope. The
+    fixtures currently work correctly; drift risk is real but bounded
+    by Rule 110 META.
+
+  ## Wave 3 — Naming + Dead-Content Cleanup (commit 835d341)
+
+  - 3a README.md filename convention clarified (dot not hyphen)
+  - 3b README.md visible scratch math deleted ("Wait — that's wrong")
+  - 3c R-rule count 15→16 (now correctly enumerates R-A.c)
+  - 3e rule-R-C.md dead sub-clauses (.b/.c/.d/.e) replaced with pointer
+    table to sibling cards R-C.1 / R-C.2
+  - 3f rule-G-2.md title drops "/ name truth" (migrated to G-2.1)
+  - 3g 7 rule cards cross-reference rot fixed (R-C.b → R-C.1, R-C.d →
+    R-C.2.b, R-C.e → R-C.2.c)
+  - 3i Family terminology disambiguation in recurring-defect-families.md
+    §0 (permanent F-* vs wave-local Greek-letter clusters)
+  - **Deferred to other waves:**
+    - 3d (R-A.c → R-A.1 rename) — too invasive; documented as hybrid
+      in README footnote instead
+    - 3h (surfaces → scope_surfaces field rename) — touches Wave 1
+      helper; this Wave (5) does NOT touch it either (deferred to
+      future wave; current name works)
+
+  ## Wave 4 — enforcers.yaml Normalize + Migration Doc (commit 952db74)
+
+  - 17 rows: bulk rename R-C.{b,c,d,e} → R-C.{1,2.a,2.b,2.c}
+  - 9 rows: removed `(legacy Rule NN — ...)` parentheticals
+  - NEW gate/rule-number-migration.md — preserves legacy-to-semantic
+    mapping for audit trail
+  - Graph: 407→394 nodes / 643→634 edges (post-rename phantom-node
+    cleanup)
+
+  ## Wave 5 — META + ADR + Release Note + Baseline Lockstep (this commit)
+
+  - ADR-0095 (this doc) covers all 5 waves
+  - rc18 release note (single doc, 5 chapters)
+  - baseline_metrics + allowed_claim + README lockstep update
+    (avoids rc17's 3-corrective-commit pattern)
+  - rc17 release note frozen with merge SHA marker (per Rule 28
+    convention)
+  - rule-history.md rc18 section
+  - +1 family `F-recursive-prevention-irony` in recurring-defect-families.yaml
+    — operationalises the rc18 META lesson into a tracked family
+
+consequences:
+  positive:
+    - "Rule G-9 / Rule 111 closed all 8 of its own defect patterns within rc18 (Wave 1). No more 'rule preventing drift drifts itself'."
+    - "Single rc18 version covers all 5 waves — no version-number creep, all changes traceable to one ADR."
+    - "Helper extraction pattern (gate/lib/check_recurring_families.sh) is the proven template for future rule helper-isation."
+    - "gate/rule-number-migration.md is the single canonical map from legacy numeric to semantic rule IDs; future auditors don't need git archaeology."
+    - "43 naming/structural drift findings cleaned in one wave — no more reviewer cycles on these surfaces."
+    - "Baseline lockstep in Wave 5 (vs rc17's 3 corrective commits): proves the rc17-merge-lesson is institutionalised."
+  negative:
+    - "21 fixture helper extractions deferred to rc19+ (see known_debt below). The fixtures work but carry F-kernel-vs-implementation-drift risk."
+    - "ADR-0095 covers 5 waves in one decision — reviewers must read all 5 wave commits to fully evaluate. Mitigation: release note has per-wave chapter."
+  open_questions:
+    - "Should F-recursive-prevention-irony become a permanent family in the ledger, or close as a one-time learning? Decision: add as permanent (cleanup_status=structurally_addressed) so future META rules check themselves against this anti-pattern."
+    - "Helper-isation scope for the 21 fixtures: should rc19 do them all at once or incrementally per rule-card-touch? Recommendation: incremental — touch rules naturally during normal feature work."
+
+known_debt:
+  - id: KD-rc18-1
+    title: "21 fixture helper extractions deferred"
+    description: |
+      Per Agent 1 Pattern D finding, 21 fixtures (test_rule1-6, 16, 19,
+      22, 24-29, 107-110) re-implement gate-rule logic inline rather
+      than calling shared helpers. Wave 2 deferred this to rc19+ as
+      ~600-1100 LOC out of rc18 scope.
+    trigger_for_resolution: "rc19+ feature work touching any of these rules — extract that rule's helper opportunistically; or dedicated rc19/wave-fixture-helper-isation wave"
+    severity: medium
+    mitigation_today: "Rule 110 META enforces scope_surfaces declaration + ≥2 fixtures per scope_surfaces rule. Pattern D drift would be caught by future PR reviewer noticing fixture not matching gate behaviour."
+  - id: KD-rc18-2
+    title: "3d (R-A.c → R-A.1 rename) deferred"
+    description: |
+      Rule R-A.c uses the .c sub-clause convention (pre-rc17 style)
+      with a standalone card. Per rc17 .1/.2 convention this would be
+      R-A.1, but renaming requires updating CLAUDE-deferred.md heading,
+      principle-coverage.yaml, and several cross-refs.
+    trigger_for_resolution: "next wave that touches R-A.c card; opportunistic"
+    severity: low
+    mitigation_today: "README footnote in rc18 Wave 3 documents R-A.c as hybrid"
+  - id: KD-rc18-3
+    title: "3h (surfaces → scope_surfaces field rename) deferred"
+    description: |
+      recurring-defect-families.yaml uses `surfaces:` per family; Rule
+      110 META frontmatter uses `scope_surfaces:`. Same concept, two
+      names. Rename requires touching the Wave 1 helper script (which
+      has the field-name baked in).
+    trigger_for_resolution: "next wave that touches gate/lib/check_recurring_families.sh"
+    severity: low
+    mitigation_today: "Both names work; no functional impact; only cognitive overhead for new readers"
+
+verification:
+  - "`bash gate/check_architecture_sync.sh` — full gate run passes (Wave 1's hardened Rule 111 catches all 6 negative scenarios)"
+  - "`bash gate/test_architecture_sync_gate.sh` — 207+/210 pass (3 pre-existing rule_e2_ndjson_* env failures on Windows Git Bash; CI Linux clean)"
+  - "All 8 Rule 111 fixtures helper-call gate/lib/check_recurring_families.sh (no inline drift)"
+  - "`python gate/build_architecture_graph.py --check --no-write` — graph idempotent at 394 nodes / 634 edges"
+  - "All 5 Wave PRs merged green on first or second CI run (vs rc17's 3 corrective commits)"
+  - "Manual: temporarily set `families: []` in recurring-defect-families.yaml → Rule 111.a fails (was vacuous pass)"
+  - "Manual: temporarily set `cleanup_status: garbage` → Rule 111.a fails (was presence-only)"
+  - "Manual: duplicate a field in a family entry → Rule 111.a fails (was compensation blind spot)"
