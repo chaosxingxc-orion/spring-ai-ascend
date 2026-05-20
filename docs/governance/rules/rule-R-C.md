@@ -12,13 +12,20 @@ kernel: |
   **Every active normative constraint in the platform corpus MUST be enforced by code, registered in `docs/governance/enforcers.yaml`, and reach ≥1 of: an ArchUnit test, a `gate/check_architecture_sync.sh` rule, an integration test, a storage-layer schema constraint (NOT NULL / UNIQUE / CHECK / PRIMARY KEY), or a compile-time check (`@ConfigurationProperties + @Valid`, sealed types, package-info enforcement). Module-evolution invariants split to Rule R-C.1; run-spine invariants split to Rule R-C.2 per ADR-0094.**
 ---
 
-# Rule R-C — Code-as-Contract + Independent Module Evolution + Run Contract Spine
+# Rule R-C — Code-as-Contract
 
-Operationalises principle **P-C** (Code-as-Everything, Rapid Evolution, Independent Modules) across five sub-clauses.
+Operationalises principle **P-C** (Code-as-Everything, Rapid Evolution, Independent Modules) on its single remaining sub-clause `.a` — every active normative constraint must be enforced by code AND registered in `docs/governance/enforcers.yaml`. Per ADR-0094 (rc17), the original sub-clauses .b/.c/.d/.e were extracted to sibling sub-rules:
 
-## Sub-clauses
+| Was (in R-C, pre-rc17) | Now (post-rc17 ADR-0094) | Card |
+|---|---|---|
+| .b — Independent Module Evolution | **Rule R-C.1** | [`rule-R-C.1.md`](rule-R-C.1.md) |
+| .c — Contract Spine Completeness | **Rule R-C.2** sub-clause .a | [`rule-R-C.2.md`](rule-R-C.2.md) |
+| .d — Run State Transition Validity | **Rule R-C.2** sub-clause .b | [`rule-R-C.2.md`](rule-R-C.2.md) |
+| .e — Tenant Propagation Purity | **Rule R-C.2** sub-clause .c | [`rule-R-C.2.md`](rule-R-C.2.md) |
 
-### .a — Code-as-Contract (was Rule 28)
+Readers seeking those invariants should consult the sibling cards above; this card is now bounded to the Code-as-Contract obligation only.
+
+## Sub-clause .a — Code-as-Contract (was legacy Rule 28)
 
 **Enforcers**: E15, E16, E17, E18, E19, E27, E28, E29, E30.
 
@@ -30,35 +37,10 @@ Every active normative constraint MUST be enforced by code, registered in `docs/
 4. A schema constraint (NOT NULL / UNIQUE / CHECK / PRIMARY KEY) at the storage layer.
 5. A compile-time check (`@ConfigurationProperties` + `@Valid`, sealed types, package-info enforcement).
 
-### .b — Independent Module Evolution (was Rule 31)
-
-**Enforcer**: E31.
-
-Every reactor module under `<module>/pom.xml` MUST own a sibling `<module>/module-metadata.yaml` declaring `module`, `kind ∈ {platform | domain | starter | bom | sample}`, `version`, and `semver_compatibility`. Each module MUST build and test in isolation via `mvn -pl <module> -am test`. Inter-module dependency direction is governed by Rule D-6 (`module_dep_direction`).
-
-### .c — Contract Spine Completeness (was Rule 11)
-
-**Enforcers**: E2, E11.
-
-Every persistent record class committed under `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java` (relocated from `agent-runtime-core/src/main/java/ascend/springai/service/runtime/**/*.java` per ADR-0088 rc13 dissolution) MUST declare a `String tenantId` component validated by `Objects.requireNonNull(tenantId, "tenantId is required")` in its compact constructor. Process-internal value objects exempt themselves with a `// scope: process-internal` reason comment. Activated 2026-05-18 (Wave 4 Track B) — trigger met by `Run` and `IdempotencyRecord` carrying tenantId.
-
-### .d — Run State Transition Validity (was Rule 20)
-
-**Enforcer**: E9 (RunStatusTransitionIT).
-
-Every `Run.withStatus(newStatus)` mutation MUST call `RunStateMachine.validate(this.status, newStatus)` before constructing the updated record. Illegal transitions MUST throw `IllegalStateException`.
-
-### .e — Tenant Propagation Purity (was Rule 21)
-
-**Enforcers**: E2, E4.
-
-No production class under `ascend.springai.service.runtime..` (main sources) may import any class under `ascend.springai.service.platform..`. The original narrow case — no import of `TenantContextHolder` — remains the specific instance most likely to be violated and is asserted independently as defence-in-depth.
-
 ## Cross-references
 
 - ADR-0064 — Layer-0 Governing Principles authority.
-- ADR-0066 — Independent Module Evolution authority.
-- ADR-0078 — Phase C consolidation (resolves which "successor module" sub-clause .c refers to).
-- ADR-0079 — Engine extraction to agent-runtime-core (superseded by ADR-0088).
-- ADR-0088 — agent-runtime-core dissolution; runs / idempotency relocated back to agent-service (rc13).
-- Companion: Rule R-J.a (Storage-Engine Tenant Isolation — sub-clause .e is the application-layer dual).
+- ADR-0094 — rc17 rule-consolidation authority (R-C three-way split).
+- **Rule R-C.1** — Independent Module Evolution (sibling extracted).
+- **Rule R-C.2** — Run Contract Spine: tenantId + RunStateMachine + tenant-purity (sibling extracted).
+- Companion: Rule R-J.a (Storage-Engine Tenant Isolation — R-C.2.c is the application-layer dual).

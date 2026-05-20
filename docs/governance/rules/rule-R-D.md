@@ -35,7 +35,7 @@ Enforced by E48 (`SpiPurityGeneralizedArchTest`), Gate Rule R-E (`dfx_yaml_prese
 - Architecture reference: §4 #63.
 - Deferred sub-clauses 32.b (TCK module scaffolding), 32.c (TCK conformance content), 32.d (vulnerability-scanner integration).
 - Rule R-A (Business/Platform Decoupling Enforcement) — co-enforced by E48 on the SPI purity side.
-- Rule R-C.b (Independent Module Evolution) — the `module-metadata.yaml` that declares `kind: domain` is the same artefact Rule R-D sub-clause .a reads.
+- Rule R-C.1 (Independent Module Evolution; was Rule R-C.b pre-rc17 per ADR-0094) — the `module-metadata.yaml` that declares `kind: domain` is the same artefact Rule R-D sub-clause .a reads.
 
 ## Deferred sub-clauses
 

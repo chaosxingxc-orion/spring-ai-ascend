@@ -31,7 +31,7 @@ Every Flyway migration that creates a table with a `tenant_id` column MUST enabl
 - Architecture reference: ADR-0069 / LucioIT W1 §7.2.
 - Grandfather list: `gate/rls-baseline-grandfathered.txt` (V1/V2 migrations grandfathered).
 - Grandfather retrofit deferred to W2 per `CLAUDE-deferred.md` 40.b.
-- Companion clause: Rule R-C.e (Tenant Propagation Purity — application-layer tenant identity discipline; RLS is the storage-layer defence-in-depth).
+- Companion clause: Rule R-C.2 sub-clause .c (Tenant Propagation Purity; was Rule R-C.e pre-rc17 per ADR-0094 — application-layer tenant identity discipline; RLS is the storage-layer defence-in-depth).
 
 ### .b — RunLifecycle Re-Authorization (cancel-only at W1) (was Rule 24)
 

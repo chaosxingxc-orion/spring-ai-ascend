@@ -32,9 +32,11 @@ Each R-rule bridges from a P-principle to a concrete enforcer. R-rules
 are the "ironclad" layer — most have ArchUnit / integration-test
 backing in addition to gate-script enforcement.
 
-Current: R-A, R-B, R-C, R-C.1, R-C.2, R-D, R-E, R-F, R-G, R-H, R-I,
-R-I.1, R-J, R-K, R-L, R-M (16 rules including .1/.2 sub-rules per rc17
-ADR-0094).
+Current (16 rules including `.1`/`.2` sub-rules per rc17 ADR-0094):
+R-A, R-A.c, R-B, R-C, R-C.1, R-C.2, R-D, R-E, R-F, R-G, R-H, R-I,
+R-I.1, R-J, R-K, R-L, R-M. (Rule R-A.c is a sub-clause activated post-deferral
+that retains the `.a/.b/.c` convention rather than `.1`/`.2`; see the
+Sub-Rule vs Sub-Clause table below for the rationale.)
 
 ### G-* — Gate / Meta-Governance Rules
 
@@ -65,8 +67,13 @@ wave introduces a structured split convention:
 
 - **Parent rule keeps its identifier** and retains its core sub-clauses.
 - **Extracted sub-rules get a numeric suffix** (`.1`, `.2`, ...).
-- **Filename convention**: `rule-PREFIX-NAME-N.md` (e.g.,
-  `rule-G-3-1.md` for Rule G-3.1).
+- **Filename convention**: `rule-PREFIX-NAME.N.md` with a **dot** before
+  the numeric suffix (e.g., `rule-G-3.1.md` for Rule G-3.1, matching the
+  pre-existing `rule-R-A.c.md` dotted style). Hyphenated filenames like
+  `rule-G-3-1.md` are NOT accepted by Gate Rule 99 / E143
+  (rule_namespace_authority_completeness) because the gate maps the
+  `#### Rule G-3.1` heading to a `rule-G-3.1.md` filename via dotted
+  conversion.
 - **Card frontmatter `rule_id`**: matches the dotted form (e.g.,
   `rule_id: G-3.1`).
 
@@ -100,22 +107,13 @@ The repository runs two parallel rule namespaces by design:
 
 - **Semantic namespace** (D-/R-/G-/M-): used in `CLAUDE.md` kernel,
   `docs/governance/rules/rule-*.md` card filenames, and `rule_id`
-  frontmatter. This is the **engineering rule** namespace — 31 active
-  rules counted by `architecture-status.yaml#baseline_metrics.active_engineering_rules`
-  (33 after rc17 ADR-0094 splits = 31 original + 2 net additions for
-  R-C.1 + R-C.2 + R-I.1 + G-3.1 + G-2.1 + G-9 = 37; the prior 31 minus
-  the 4 "split-from" rules R-C/R-I/G-3/G-2 are NOT removed, only refined,
-  so the count goes 31 → 37).
-
-Wait — that's wrong. Let me recompute:
-
-- R-C splits to R-C + R-C.1 + R-C.2 → net +2
-- R-I splits to R-I + R-I.1 → net +1
-- G-3 splits to G-3 + G-3.1 → net +1
-- G-2 splits to G-2 + G-2.1 → net +1
-- New: G-9 → net +1
-
-Total: 31 + 2 + 1 + 1 + 1 + 1 = **37**.
+  frontmatter. This is the **engineering rule** namespace — **37 active
+  rules** counted by `architecture-status.yaml#baseline_metrics.active_engineering_rules`.
+  The rc17 ADR-0094 split count: rc16 baseline 31 + R-C → R-C+R-C.1+R-C.2 (+2)
+  + R-I → R-I+R-I.1 (+1) + G-3 → G-3+G-3.1 (+1) + G-2 → G-2+G-2.1 (+1)
+  + new Rule G-9 (+1) = **37**. The 4 "split-from" parent rules (R-C, R-I,
+  G-3, G-2) are NOT removed — only narrowed — so the count goes up by the
+  net additions, not net replacements.
 
 - **Numeric namespace** (Gate Rule 1 ... Gate Rule 111): used in
   `gate/check_architecture_sync.sh` rule headers and self-test fixture

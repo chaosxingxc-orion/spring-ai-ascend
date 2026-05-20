@@ -28,6 +28,20 @@ authority_refs: [ADR-0094]
 > the same root cause re-fires for 4-8 rc waves before someone realises
 > it's a class, not a one-off. Rule 110 META gates the prevention-rule
 > taxonomy; this document is the human-readable mirror.
+>
+> **Vocabulary note ("Family" disambiguation, rc18 Wave 3).** The word
+> *family* is used at TWO scopes in this corpus; do not confuse them:
+> 1. **Permanent root-cause classes** — `F-<slug>` (e.g.,
+>    `F-numeric-drift`). Catalogued here; cross-wave. Eight of them.
+> 2. **Wave-local finding clusters** — Greek-letter suffix on the rc
+>    review letter (e.g., "Family A" or "L-α", "M-η" in rc14/rc15
+>    release notes). Ephemeral; specific to one review pass. Reset each
+>    wave.
+> When a release note says "Family A closed", it means the wave-local
+> cluster. When this document says "F-numeric-drift partial", it means
+> the permanent root-cause class. The two namespaces never overlap by
+> regex (Greek letters / capital letters in release notes ≠ `F-` prefix
+> here).
 
 ---
 

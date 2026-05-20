@@ -43,7 +43,7 @@ Authority: ADR-0072 / P-M. Part of the W2.x Engine Contract Structural Wave that
 - Enforced by Gate Rule 56 (`engine_registry_covers_all_known_engines` — bidirectional yaml↔ENGINE_TYPE consistency, enforcer E77) and integration test E75 (`EngineMatchingStrictnessIT`).
 - Additional enforcer E88 (W2.x post-release closure work) tightens registry-boot validation.
 - Companion rule: Rule R-M sub-clause .a ([`rule-R-M.md`](rule-R-M.md)) — Engine Envelope Single Authority.
-- Companion rule: Rule R-C.d ([`rule-R-C.md`](rule-R-C.md)) — Run State Transition Validity (`engine_mismatch` is a legal RUNNING → FAILED transition).
+- Companion rule: Rule R-C.2 sub-clause .b ([`rule-R-C.2.md`](rule-R-C.2.md)) — Run State Transition Validity (was Rule R-C.d pre-rc17 per ADR-0094; `engine_mismatch` is a legal RUNNING → FAILED transition).
 - Deferred sub-clauses: Rule R-M sub-clause .b.b (Run.engineType field persistence), Rule R-M sub-clause .b.c (parent-run propagation on child failure) — see `docs/CLAUDE-deferred.md`. Rule G-3 sub-clause .d (`kernel_deferred_clause_coherence`, rc9 / ADR-0083) asserts the bidirectional link between this active rule and each deferred sub-clause.
 
 ### .c — (was sub-clause .c)
@@ -89,7 +89,7 @@ The Phase 3a cross-rule co-design audit matrix in [`docs/logs/reviews/2026-05-16
 - Runtime ResilienceContract integration for `s2c.client.callback` skill capacity deferred to Rule R-M sub-clause .d.b (W2) per ADR-0074 §Consequences and `docs/CLAUDE-deferred.md` 46.b.
 - Deferred sub-clauses (canonical names — aligned with `docs/CLAUDE-deferred.md` 2026-05-19 rc9 wave): 46.b (`ResilienceContract s2c.client.callback` runtime admission wiring — W2), 46.c (non-blocking lifecycle for the W2.x synchronous bridge — W2 async orchestrator). Invalid-response handling itself is **already shipped at L1.x** through the kernel's `BEFORE-resume` validation clause and is enforced by `S2cCallbackEnvelopeValidationTest` (enforcer E89) — it is not a deferred sub-clause.
 - Schema source: `docs/contracts/s2c-callback.v1.yaml`.
-- Inter-rule cross-citations: Rule R-C.d (`SuspendReason.AwaitClientCallback` as a legal RUNNING → SUSPENDED transition), Rule R-E (S2C traffic rides the `data` channel by default with control intents on `control`), Rule R-H (no Thread.sleep — checked-suspension variant), Rule R-K (`s2c.client.callback` skill capacity), Rule R-L (logical-to-physical authority discipline at the callback boundary).
+- Inter-rule cross-citations: Rule R-C.2 sub-clause .b (was Rule R-C.d pre-rc17 per ADR-0094; `SuspendReason.AwaitClientCallback` as a legal RUNNING → SUSPENDED transition), Rule R-E (S2C traffic rides the `data` channel by default with control intents on `control`), Rule R-H (no Thread.sleep — checked-suspension variant), Rule R-K (`s2c.client.callback` skill capacity), Rule R-L (logical-to-physical authority discipline at the callback boundary).
 
 ### .e — (was sub-clause .e)
 

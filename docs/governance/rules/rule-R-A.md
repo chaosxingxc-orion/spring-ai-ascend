@@ -18,7 +18,7 @@ Rule R-A is the in-repo enforceable expression of governing principle P-A (Busin
 
 ## Details
 
-Enforced by E48 (`SpiPurityGeneralizedArchTest`) and Gate Rule R-C.b (`quickstart_present`).
+Enforced by E48 (`SpiPurityGeneralizedArchTest`) and Rule R-A.c (`quickstart_present`; CI quickstart smoke job per ADR-0064 + W4 activation).
 
 ## Cross-references
 
