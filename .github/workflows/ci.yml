@@ -12,6 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # rc18 Wave 1 / ADR-0095: full history required for Gate Rule 111
+          # (architecture_refresh_defect_family_re_eval_required) freshness
+          # check — yaml file's own git commit date vs latest refresh-signal
+          # commit date. Shallow clone (default fetch-depth=1) fails the
+          # rule per fix 1h (shallow-clone fail-closed, was silent pass).
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -89,6 +96,10 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          # rc18 Wave 1 / ADR-0095: full history required for Gate Rule 111
+          # freshness check (see ci.yml comment above).
+          fetch-depth: 0
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:

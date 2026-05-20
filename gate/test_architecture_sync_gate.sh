@@ -5705,14 +5705,21 @@ SHEOF
   fi
 }
 
-test_rule_111_yaml_wellformed_pos() {
-  _r111_pos_root="$scratch/r111_pos_a"
-  mkdir -p "$_r111_pos_root"
-  cat > "$_r111_pos_root/recurring-defect-families.yaml" <<'YEOF'
-schema_version: 1
-last_updated: 2026-05-21
-families:
-  - id: F-test-family
+# -----------------------------------------------------------------------------
+# Rule 111 fixtures — rc18 Wave 1 (ADR-0095) helper-ised
+#
+# Fixtures invoke the REAL gate logic via gate/lib/check_recurring_families.sh
+# helpers; no inline re-implementation. Closes F-kernel-vs-implementation-drift
+# on Rule 111 itself (Wave 1 finding from PR #15 reviewer pass).
+# -----------------------------------------------------------------------------
+
+_r111_helper_path="$repo_root/gate/lib/check_recurring_families.sh"
+
+_r111_make_yaml() {
+  local out="$1"
+  local body="${2:-}"
+  if [[ -z "$body" ]]; then
+    body='  - id: F-test-family
     title: Test
     first_observed_rc: rc1
     last_observed_rc: rc2
@@ -5722,30 +5729,27 @@ families:
       - x
     prevention_rules: [Rule X]
     cleanup_status: closed
-    open_residual: ""
-YEOF
-  _fam_count=$(grep -cE '^  - id:' "$_r111_pos_root/recurring-defect-families.yaml")
-  _missing=0
-  for f in title first_observed_rc last_observed_rc occurrences root_cause surfaces prevention_rules cleanup_status open_residual; do
-    _c=$(grep -cE "^    ${f}:" "$_r111_pos_root/recurring-defect-families.yaml")
-    [[ "$_c" -lt "$_fam_count" ]] && _missing=1
-  done
-  if [[ "$_missing" -eq 0 && "$_fam_count" -ge 1 ]]; then
-    ok "rule_111_yaml_wellformed_pos" "Rule 111.a accepts well-formed yaml with all 9 required per-family fields"
+    open_residual: ""'
+  fi
+  printf 'schema_version: 1\nlast_updated: 2026-05-21\nfamilies:\n%s\n' "$body" > "$out"
+}
+
+test_rule_111_a_wellformed_pos() {
+  local root="$scratch/r111_a_pos"
+  mkdir -p "$root"
+  _r111_make_yaml "$root/families.yaml"
+  ( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" >/dev/null )
+  if [[ $? -eq 0 ]]; then
+    ok "rule_111_a_wellformed_pos" "Rule 111.a accepts well-formed yaml (1 valid family)"
   else
-    fail "rule_111_yaml_wellformed_pos" "expected well-formed yaml to pass, got fam_count=$_fam_count missing=$_missing"
+    fail "rule_111_a_wellformed_pos" "helper failed on well-formed yaml"
   fi
 }
 
-test_rule_111_yaml_wellformed_neg() {
-  _r111_neg_root="$scratch/r111_neg_a"
-  mkdir -p "$_r111_neg_root"
-  # Family missing the `open_residual` field
-  cat > "$_r111_neg_root/recurring-defect-families.yaml" <<'YEOF'
-schema_version: 1
-last_updated: 2026-05-21
-families:
-  - id: F-broken-family
+test_rule_111_a_wellformed_neg_missing_field() {
+  local root="$scratch/r111_a_neg_missing"
+  mkdir -p "$root"
+  _r111_make_yaml "$root/families.yaml" '  - id: F-broken
     title: Broken
     first_observed_rc: rc1
     last_observed_rc: rc2
@@ -5754,37 +5758,151 @@ families:
     surfaces:
       - x
     prevention_rules: [Rule X]
-    cleanup_status: closed
-YEOF
-  _fam_count=$(grep -cE '^  - id:' "$_r111_neg_root/recurring-defect-families.yaml")
-  _residual_count=$(grep -cE "^    open_residual:" "$_r111_neg_root/recurring-defect-families.yaml")
-  if [[ "$_residual_count" -lt "$_fam_count" ]]; then
-    ok "rule_111_yaml_wellformed_neg" "Rule 111.a catches missing open_residual ($_residual_count/$_fam_count)"
+    cleanup_status: partial'
+  local out
+  out=$( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" )
+  if echo "$out" | grep -q "F-broken missing required field open_residual"; then
+    ok "rule_111_a_wellformed_neg_missing_field" "Rule 111.a catches missing open_residual"
   else
-    fail "rule_111_yaml_wellformed_neg" "expected missing field caught, got count=$_residual_count fam=$_fam_count"
+    fail "rule_111_a_wellformed_neg_missing_field" "expected missing-open_residual fail, got: $out"
   fi
 }
 
-test_rule_111_md_yaml_parity_neg() {
-  _r111_parity_root="$scratch/r111_neg_c"
-  mkdir -p "$_r111_parity_root"
-  cat > "$_r111_parity_root/families.yaml" <<'YEOF'
+test_rule_111_a_wellformed_neg_empty_families() {
+  # Fix 1b: families: [] is forbidden
+  local root="$scratch/r111_a_neg_empty"
+  mkdir -p "$root"
+  cat > "$root/families.yaml" <<'YEOF'
+schema_version: 1
+last_updated: 2026-05-21
+families: []
+YEOF
+  local out
+  out=$( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" )
+  if echo "$out" | grep -q "families array is empty"; then
+    ok "rule_111_a_wellformed_neg_empty_families" "Rule 111.a (fix 1b) catches families: [] empty array"
+  else
+    fail "rule_111_a_wellformed_neg_empty_families" "expected empty-families fail, got: $out"
+  fi
+}
+
+test_rule_111_a_wellformed_neg_garbage_enum() {
+  # Fix 1c: cleanup_status enum value validated
+  local root="$scratch/r111_a_neg_enum"
+  mkdir -p "$root"
+  _r111_make_yaml "$root/families.yaml" '  - id: F-pizza
+    title: Pizza
+    first_observed_rc: rc1
+    last_observed_rc: rc2
+    occurrences: [rc1, rc2]
+    root_cause: synthetic
+    surfaces:
+      - x
+    prevention_rules: [Rule X]
+    cleanup_status: pizza
+    open_residual: ""'
+  local out
+  out=$( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" )
+  if echo "$out" | grep -q "cleanup_status value pizza not in enum"; then
+    ok "rule_111_a_wellformed_neg_garbage_enum" "Rule 111.a (fix 1c) rejects cleanup_status value not in enum"
+  else
+    fail "rule_111_a_wellformed_neg_garbage_enum" "expected enum-violation fail, got: $out"
+  fi
+}
+
+test_rule_111_a_wellformed_neg_duplicate_field() {
+  # Fix 1d: per-family block-bucket catches duplicate fields (closes compensation blind spot)
+  local root="$scratch/r111_a_neg_dup"
+  mkdir -p "$root"
+  _r111_make_yaml "$root/families.yaml" '  - id: F-dup
+    title: First
+    title: Duplicate
+    first_observed_rc: rc1
+    last_observed_rc: rc2
+    occurrences: [rc1, rc2]
+    root_cause: synthetic
+    surfaces:
+      - x
+    prevention_rules: [Rule X]
+    cleanup_status: partial
+    open_residual: ""'
+  local out
+  out=$( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" )
+  if echo "$out" | grep -q "declares field title 2 times"; then
+    ok "rule_111_a_wellformed_neg_duplicate_field" "Rule 111.a (fix 1d) catches duplicate field (closes compensation blind spot)"
+  else
+    fail "rule_111_a_wellformed_neg_duplicate_field" "expected duplicate-field fail, got: $out"
+  fi
+}
+
+test_rule_111_a_wellformed_neg_nonisodate() {
+  # Fix 1e: last_updated must be ISO YYYY-MM-DD
+  local root="$scratch/r111_a_neg_date"
+  mkdir -p "$root"
+  cat > "$root/families.yaml" <<'YEOF'
+schema_version: 1
+last_updated: two weeks ago
+families:
+  - id: F-x
+    title: X
+    first_observed_rc: rc1
+    last_observed_rc: rc2
+    occurrences: [rc1, rc2]
+    root_cause: synthetic
+    surfaces:
+      - x
+    prevention_rules: [Rule X]
+    cleanup_status: partial
+    open_residual: ""
+YEOF
+  local out
+  out=$( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" )
+  if echo "$out" | grep -q "is not ISO YYYY-MM-DD format"; then
+    ok "rule_111_a_wellformed_neg_nonisodate" "Rule 111.a (fix 1e) rejects non-ISO last_updated"
+  else
+    fail "rule_111_a_wellformed_neg_nonisodate" "expected ISO-format fail, got: $out"
+  fi
+}
+
+test_rule_111_c_md_yaml_parity_pos_ignores_prose() {
+  # Fix 1f: md parity uses ^### F- H3 headings only; prose F- mentions ignored
+  local root="$scratch/r111_c_pos_prose"
+  mkdir -p "$root"
+  cat > "$root/families.yaml" <<'YEOF'
+families:
+  - id: F-real
+YEOF
+  cat > "$root/families.md" <<'MEOF'
+### F-real — Real Family
+prose mentioning F-fake-family-in-text should be ignored.
+also F-another-one cited inline doesn't trigger parity break.
+MEOF
+  ( source "$_r111_helper_path"; _check_recurring_families_md_yaml_parity "$root/families.yaml" "$root/families.md" >/dev/null )
+  if [[ $? -eq 0 ]]; then
+    ok "rule_111_c_md_yaml_parity_pos_ignores_prose" "Rule 111.c (fix 1f) ignores prose F-, only ### F- H3 counts"
+  else
+    fail "rule_111_c_md_yaml_parity_pos_ignores_prose" "helper falsely flagged prose F- as parity break"
+  fi
+}
+
+test_rule_111_c_md_yaml_parity_neg() {
+  local root="$scratch/r111_c_neg"
+  mkdir -p "$root"
+  cat > "$root/families.yaml" <<'YEOF'
 families:
   - id: F-only-in-yaml
   - id: F-shared
 YEOF
-  cat > "$_r111_parity_root/families.md" <<'MEOF'
-### F-only-in-md
-### F-shared
+  cat > "$root/families.md" <<'MEOF'
+### F-only-in-md — One
+### F-shared — Two
 MEOF
-  _yaml_ids=$(awk '/^  - id:[[:space:]]+/ {print $3}' "$_r111_parity_root/families.yaml" | sort -u)
-  _md_ids=$(grep -oE 'F-[a-z][a-z0-9-]*' "$_r111_parity_root/families.md" | sort -u)
-  _only_yaml=$(comm -23 <(echo "$_yaml_ids") <(echo "$_md_ids"))
-  _only_md=$(comm -13 <(echo "$_yaml_ids") <(echo "$_md_ids"))
-  if [[ -n "$_only_yaml" || -n "$_only_md" ]]; then
-    ok "rule_111_md_yaml_parity_neg" "Rule 111.c catches yaml-only=$(echo $_only_yaml) md-only=$(echo $_only_md)"
+  local out
+  out=$( source "$_r111_helper_path"; _check_recurring_families_md_yaml_parity "$root/families.yaml" "$root/families.md" )
+  if echo "$out" | grep -q "F-only-in-yaml" && echo "$out" | grep -q "F-only-in-md"; then
+    ok "rule_111_c_md_yaml_parity_neg" "Rule 111.c flags both yaml-only and md-only parity breaks"
   else
-    fail "rule_111_md_yaml_parity_neg" "expected parity break to be caught, got equal sets"
+    fail "rule_111_c_md_yaml_parity_neg" "expected both directions caught, got: $out"
   fi
 }
 
