@@ -14,6 +14,8 @@ related_adrs:
 
 # rc14 — L0 Cross-Authority Parity + Engine Package Semantic-Home
 
+> **Historical artifact frozen at SHA 9a20436 (v2.0.0-rc14 merge).** Baseline counts in this document (65 §4 constraints / 89 ADRs / 118 active gate rules / 190 gate self-tests / 31 active engineering rules / 148 enforcer rows / 382 graph nodes / 573 graph edges / 374 Maven tests) reflect the corpus state at rc14 merge time and are NOT retroactively updated. The current canonical baseline (post-rc15: 91 ADRs / 118 gate rules / 194 self-tests / 31 engineering rules / 150 enforcer rows / 386 graph nodes / 594 graph edges) is tracked in `docs/governance/architecture-status.yaml#architecture_sync_gate.allowed_claim` and the rc15 release note (`docs/logs/releases/2026-05-20-l0-rc15-structural-carrier-parity-and-terminal-state-scope.en.md`).
+
 **Closes:** 9 reviewer findings (5 P1 + 4 P2) + 1 hidden defect from the Codex post-ratchet architecture review (`docs/logs/reviews/2026-05-20-l0-rc13-post-ratchet-architecture-review.en.md`).
 
 ## Baseline metrics (rc13 → rc14 delta)
@@ -59,7 +61,7 @@ rc14 follows the rc1–rc12 codified `reviewer-feedback-self-check` skill discip
 
 **Authority-surface fixes (Tracks A-D, F):**
 
-- **Track A (L-α):** `architecture-status.yaml#baseline_metrics.architecture_graph_nodes/edges` reconciled (363/539 → 381/566 via live regen); rc13 release note "will re-baseline after merge" rewritten to evidence-bearing post-merge numbers (374 tests).
+- **Track A (L-α):** `architecture-status.yaml#baseline_metrics.architecture_graph_nodes/edges` reconciled (363/539 → 382/573 via live regen); rc13 release note "will re-baseline after merge" rewritten to evidence-bearing post-merge numbers (374 tests).
 - **Track B (L-β):** `CLAUDE.md` Rule R-M kernel + `rule-R-M.md` + `s2c-callback.v1.yaml` comment + `enforcers.yaml` E83/E93 asserts all rewritten to name `ascend.springai.bus.spi.s2c`.
 - **Track C (L-γ):** `ARCHITECTURE.md` dependency-direction constraint + ArchUnit rule scope rewritten to post-ADR-0088 8-module DAG. `architecture-status.yaml` allowed_claims for module_dependency_direction_w0 / service_layer_microservice_architecture_commitment / spi_package_metadata_codesign / spi_dfx_tck_codesign rewritten — `agent-runtime-core` removed from present-tense module-direction + SPI-owner clauses; 9 → 8 reactor count corrected.
 - **Track D (L-ε):** `contract-catalog.md` + `s2c-callback.v1.yaml` rewrote "Rule 11" → "Rule R-C" and "Rule 41.b" → "Rule R-K.b" (with historical aliases preserved as parentheticals).
@@ -109,7 +111,7 @@ wsl bash gate/test_architecture_sync_gate.sh
 
 # 4. Live graph parity
 wsl python3 gate/build_architecture_graph.py
-# Expect: Wrote docs/governance/architecture-graph.yaml: 381 nodes, 566 edges; Graph validation: OK
+# Expect: Wrote docs/governance/architecture-graph.yaml: 382 nodes, 573 edges; Graph validation: OK
 
 # 5. Cross-authority sweep zero hits
 grep -rE 'ascend\.springai\.service\.runtime\.s2c\.spi' CLAUDE.md docs/governance/ docs/contracts/ \

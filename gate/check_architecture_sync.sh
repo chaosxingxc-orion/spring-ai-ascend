@@ -4925,6 +4925,27 @@ else
     _r99_fail=1
   fi
 fi
+# rc15 widening (Rule G-3.e scope to module ARCHITECTURE.md — sub-check (b),
+# enforcer E151 per ADR-0091): scan agent-*/ARCHITECTURE.md for the
+# specific over-claim phrasing pattern (`over-cap[acity]? callers are
+# SUSPENDED` and close variants). The rc14 M-γ defect surfaced when
+# `agent-service/ARCHITECTURE.md:315-317` said "over-cap callers are
+# SUSPENDED, not rejected" while shipped code + Rule R-K kernel both say
+# the W1 surface returns a SkillResolution.reject(SuspendReason.RateLimited)
+# decision envelope (Run suspension transition deferred to R-K.c / W2).
+# This sub-check catches that exact defect class in module architecture
+# docs without conflating with shipped end-state verbs like
+# `transitions to FAILED on engine_mismatch` which IS shipped behavior.
+# Admissible if the line carries decision-envelope wording or an explicit
+# defer marker.
+_r99b_hits=$(grep -rnE '(over-cap|over-capacity)( callers| requests)?[^.]*(are SUSPENDED|is SUSPENDED|transitions to SUSPENDED)' \
+             agent-*/ARCHITECTURE.md 2>/dev/null \
+             | grep -vE '(decision envelope|SkillResolution\.reject|deferred to R-K|deferred to Rule R-K|deferred per Rule R-K|W2 scheduler admission)' || true)
+if [[ -n "$_r99b_hits" ]]; then
+  _r99b_first=$(echo "$_r99b_hits" | head -3 | tr '\n' '|')
+  fail_rule "kernel_terminal_verb_vs_shipped_decision_check" "module ARCHITECTURE.md claims shipped over-capacity SUSPENSION while Rule R-K shipped surface returns a decision envelope (suspension deferred to R-K.c / W2). Either rewrite to decision-envelope wording OR add 'deferred to Rule R-K.c' / 'W2 scheduler admission' marker: ${_r99b_first}-- Rule 99 / E151 (Rule G-3.e module-arch scope widening per ADR-0091)"
+  _r99_fail=1
+fi
 if [[ $_r99_fail -eq 0 ]]; then pass_rule "kernel_terminal_verb_vs_shipped_decision_check"; fi
 
 # ---------------------------------------------------------------------------
@@ -5357,16 +5378,56 @@ done <<< "$_r106_prose_hits"
 # + architecture-status.yaml + contract-catalog.md). docs/governance/rules/*.md
 # is intentionally excluded — rule cards document patterns, including the
 # patterns they prevent (so they legitimately quote old prose).
+# rc15 widening (per ADR-0091): noun-phrase additions (`shared kernel in`,
+# `extracted to`, `is deployed`) close the rc14 M-β gap.
 _r106_grammar_hits=$(grep -rnE '(agent-platform|agent-runtime-core|agent-runtime[^-])' \
                      --include='*.md' --include='*.yaml' \
                      docs/governance/architecture-status.yaml ARCHITECTURE.md agent-*/ARCHITECTURE.md docs/contracts/contract-catalog.md docs/contracts/s2c-callback.v1.yaml 2>/dev/null \
                      | grep -v 'docs/archive/' | grep -v 'docs/logs/' \
-                     | grep -E '(now reads|lives in|^[^#]*\bdeclares\b|each of the [0-9]+ (reactor )?modules)' \
+                     | grep -E '(now reads|lives in|^[^#]*\bdeclares\b|each of the [0-9]+ (reactor )?modules|shared kernel in|extracted to|is deployed)' \
                      | grep -vE '(formerly|historical|until dissolved|pre-rc13|pre-rc12|pre-Phase-C|narration|dissolved|relocated|was consolidated|was extracted|was dissolved|<!--)' || true)
 if [[ -n "$_r106_grammar_hits" ]]; then
   _r106_first=$(echo "$_r106_grammar_hits" | head -3 | tr '\n' '|')
-  fail_rule "cross_authority_parity" "present-tense verb naming deleted module without explicitly-historical marker (post-ADR-NNNN alone is NOT historical per Rule G-8.d): ${_r106_first}-- Rule 106 / E149 (Rule G-8.d)"
+  fail_rule "cross_authority_parity" "present-tense verb/noun-phrase naming deleted module without explicitly-historical marker (post-ADR-NNNN alone is NOT historical per Rule G-8.d): ${_r106_first}-- Rule 106 / E149 (Rule G-8.d)"
   _r106_fail=1
+fi
+
+# --- (e) Structural-carrier parity (rc15 — Rule G-8.e / E150 per ADR-0091) ---
+# Scope: every NON-SPI structural-carrier row in docs/contracts/contract-catalog.md
+# that follows the syntax: `| <ClassName> | <module> (`<...package>`) | <desc> |`
+# For each row, the package path + class file MUST resolve on disk under
+# <module>/src/main/java/<package-path>/<ClassName>.java.
+# Carrier class list is the union of:
+#   - Sealed/structural records in the catalog (EngineRegistry, EngineEnvelope,
+#     Run, RunContext, SuspendSignal, S2cCallbackEnvelope, S2cCallbackResponse,
+#     IngressEnvelope, IngressResponse, IdempotencyRecord, etc.)
+# The scan extracts these directly from the catalog table rows by syntax
+# rather than a hardcoded list, so new carriers added to the catalog are
+# automatically covered.
+_r106_catalog="docs/contracts/contract-catalog.md"
+if [[ -f "$_r106_catalog" ]]; then
+  # Extract structural-carrier rows: pattern `| `<ClassName>` | `<module>` (`<...package>`) |`
+  # Capture: class name, module name, package suffix (after the `...`)
+  while IFS=$'\t' read -r _r106_class _r106_module _r106_pkg_suffix; do
+    [[ -z "$_r106_class" || -z "$_r106_module" || -z "$_r106_pkg_suffix" ]] && continue
+    # Reconstruct full package path (ascend.springai.<suffix>) — convert "..." prefix to "ascend.springai."
+    _r106_full_pkg="ascend.springai.${_r106_pkg_suffix#...}"
+    _r106_path="$(echo "$_r106_full_pkg" | tr '.' '/')"
+    _r106_java_file="${_r106_module}/src/main/java/${_r106_path}/${_r106_class}.java"
+    if [[ ! -f "$_r106_java_file" ]]; then
+      fail_rule "cross_authority_parity" "contract-catalog.md structural-carrier row '${_r106_class}' claims package '${_r106_full_pkg}' under module '${_r106_module}' but file '${_r106_java_file}' does not exist on disk -- Rule 106 / E150 (Rule G-8.e per ADR-0091)"
+      _r106_fail=1
+    fi
+  done < <(awk -F'`' '
+    # Match catalog rows like: | `EngineRegistry` | `agent-execution-engine` (`...engine.runtime`) | ...
+    /^\| `[A-Z][A-Za-z]+` \| `agent-[a-z-]+` \(`\.\.\.[a-z._]+`\)/ {
+      cls = $2
+      mod = $4
+      # Package suffix is between the parens — capture from field 6 ($6)
+      pkg = $6
+      print cls "\t" mod "\t" pkg
+    }
+  ' "$_r106_catalog")
 fi
 
 if [[ $_r106_fail -eq 0 ]]; then pass_rule "cross_authority_parity"; fi

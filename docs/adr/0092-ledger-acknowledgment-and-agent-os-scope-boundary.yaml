@@ -1,0 +1,233 @@
+id: ADR-0092
+title: "Ultimate Architecture Ledger Acknowledgment + Agent-OS Scope Boundary"
+status: accepted
+date: 2026-05-20
+level: L0
+view: scenarios
+freeze_id: null
+
+supersedes: []
+extends:
+  - ADR-0070   # Heterogeneous-engine stateless-shell isolation — bounds what the ledger calls "cognitive disablement"
+  - ADR-0078   # Engine-contract consolidation — names the SPI surface for framework isolation
+relates_to:
+  - ADR-0049   # C/S Dynamic Hydration Protocol + Task Cursor — ledger Dim 1 Phase 1 baseline
+  - ADR-0088   # agent-runtime-core dissolution — ledger Dim 1 Phase 2 "pure control plane" precondition
+  - ADR-0089   # Edge-plane IngressGateway mandate — ledger Dim 1 Phase 1 routing precondition
+  - ADR-0090   # rc14 cross-authority parity + engine semantic-home
+  - ADR-0091   # rc15 structural-carrier parity + terminal-state scope
+
+decision_one_liner: |
+  Accept `docs/logs/reviews/2026-05-20-spring-ai-ascend-ultimate-architecture-ledger.md`
+  as an L0 `view: scenarios` vision artefact. Declare the explicit authority
+  boundary: `spring-ai-ascend` L0 covers Phase-1 and the JVM-reachable subset of
+  Phase-2. Phase-3 OS-kernel + hardware-direct items (eBPF, DMA, RDMA,
+  NPU-Direct Storage, Kunpeng KAE offload, Semantic GC over HBM, async RL
+  pipeline) are **out of `spring-ai-ascend` L0 authority** and require a
+  sibling Agent-OS / openEuler / NPU-driver epic owned by a different team.
+
+context: |
+  On 2026-05-20 the architecture vision team published a 4-dimensional ×
+  3-phase Ultimate Architecture Ledger that frames spring-ai-ascend's
+  long-arc evolution as an "Agent OS" co-design with openEuler / Kunpeng /
+  NPU hardware. The frontmatter carries `proposal_status: ledger` (not
+  `review`), so the document does not raise actionable findings; it sketches
+  the architectural trajectory.
+
+  The four dimensions are:
+
+  - **Dim 1 — Business-System Separation:** Task Cursor → pure control
+    plane → OS-level southbound co-design (eBPF / DMA / KAE).
+  - **Dim 2 — Multi-Track Bus + Data Plane:** A2A async envelope → data-
+    locality routing + Serverless NPU prewarm → RDMA + NPU-Direct Storage.
+  - **Dim 3 — Transactional Rollback:** SuspendSignal exception ejection
+    → distributed 2PC pre-commit fingerprint → Semantic GC over HBM.
+  - **Dim 4 — Swarm Evolution:** stateless heterogeneous-shell isolation
+    → middleware decoupling + dynamic Hook injection → async shadow
+    evaluation + pre-integrated RL pipeline.
+
+  Phase-1 in every dimension is the platform already shipped or
+  architected at L0 (W0/W1 + ADR-0049/0070/0078/0088/0089/0090/0091).
+  Phase-2 mixes shipped (`EngineEnvelope`, `BEFORE_LLM_CALL` HookPoint,
+  `ResilienceContract`, multi-track bus channel schema) with deferred
+  (data-locality routing, distributed 2PC pre-commit fingerprint, dynamic
+  Hook parameter injection, causal subscription).
+
+  Phase-3 reaches into OS-kernel + hardware-direct co-design. These items
+  are valuable architectural targets but they are NOT JVM-reachable from
+  `spring-ai-ascend`'s authority surfaces (engine SPI, hook contract,
+  resilience contract, ingress gateway, bus channels). They require a
+  separate authority — an Agent-OS / openEuler / Kunpeng-driver epic
+  owned by a different team.
+
+  Without an explicit scope boundary, future reviewers may treat Phase-3
+  items as `spring-ai-ascend` L0 obligations and either (a) open ADRs
+  in this repo for kernel-level work, or (b) measure rc15+ release notes
+  as "incomplete" because they do not ship eBPF probes. Both outcomes
+  are scope confusion. This ADR closes that ambiguity.
+
+  The ledger also uses adversarial framing in two places:
+
+  - Dim 4 Phase 1 says heterogeneous-framework isolation is achieved by
+    "强制关闭其原生记忆系统" ("forcibly disable the framework's native
+    memory system"). Our shipped mechanism is not "disablement" — it is
+    *SPI boundary immutability* per Rule R-M / ADR-0070 / ADR-0078:
+    engines execute as stateless shells injected with read-only
+    `RunContext` per `engine-envelope.v1.yaml`; they observe lifecycle
+    events through the canonical `HookPoint` enum + `HookDispatcher` per
+    `engine-hooks.v1.yaml`. The framework is *bounded by contract*, not
+    forcibly disabled. The shipped vocabulary is more precise; ADR-0092
+    asks the ledger to rephrase along that vocabulary.
+
+  - The introduction frames the work as "后软件贬值时代的生存法则"
+    (the survival law of the post-software-depreciation era). This is
+    motivational language that reads as reactive market positioning;
+    `docs/governance/competitive-baselines.yaml` uses neutral language
+    around the four R-B pillars (performance / cost / developer
+    onboarding / governance). No code conflict — this is a stylistic
+    note for the ledger response document.
+
+decision: |
+  ADR-0092 declares the following:
+
+  1. **Accept the ledger as L0 `view: scenarios`.** The 4+1 architectural
+     view-name `scenarios` is the correct home for vision artefacts that
+     describe end-to-end use cases and architectural trajectories. The
+     ledger document remains in `docs/logs/reviews/` as the source of
+     truth for the vision; this ADR + the response document
+     (`docs/logs/reviews/2026-05-20-spring-ai-ascend-ultimate-architecture-ledger-response.en.md`)
+     are the alignment artefacts.
+
+  2. **Per-phase scope classification:**
+
+     | Phase | In-Scope Authority | Out-of-Scope Authority |
+     |---|---|---|
+     | **Phase 1 (baseline)** | All 4 dimensions — JVM-reachable, shipped or architected today. | None. |
+     | **Phase 2 (capability)** | JVM-reachable subset: data-locality routing on top of bus envelope, dynamic Hook injection (write returns explicit `HookOutcome` per ADR-0070 / engine-hooks.v1.yaml), distributed 2PC envelope as evolution of `SuspendSignal` + S2C callback. | Serverless NPU weight prewarm (hardware-driver authority). |
+     | **Phase 3 (terminal)** | None — all items below are out-of-scope for spring-ai-ascend L0. | eBPF kernel probes (openEuler / kernel authority); DMA zero-copy bus (hardware-driver authority); Kunpeng KAE offload (Huawei accelerator authority); RDMA + NPU-Direct Storage (network + accelerator authority); Semantic GC over HBM (NPU memory-manager authority); async RL pipeline on NPU (training-stack authority). |
+
+  3. **Heterogeneous-framework isolation vocabulary.** Future architecture
+     prose MUST describe the mechanism as *SPI boundary immutability* or
+     *stateless execution shell*, not "cognitive disablement". The shipped
+     vocabulary lives in Rule R-M kernel + `rule-R-M.md` card + ADR-0070
+     + ADR-0078. The ledger's framing is acknowledged as motivational;
+     architecture authority text uses the SPI vocabulary.
+
+  4. **No new rule, no new enforcer.** ADR-0092 does not ratchet the
+     prevention layer. It is a scope-boundary declaration, not a
+     correctness constraint. Future Phase-3 prose that misclaims
+     spring-ai-ascend ownership is caught by Rule G-8.d (deleted/foreign-
+     module current-claim grammar) and Rule G-3.e (terminal-state
+     overclaim) — both already in place after rc15.
+
+  5. **Whitepaper Alignment Matrix refresh.** Add 4 rows (one per ledger
+     dimension) to `docs/governance/whitepaper-alignment-matrix.md` so
+     readers can navigate from each ledger dimension to either the
+     shipped ADRs or the explicit Phase-3 out-of-scope declaration.
+
+alternatives_considered:
+  - id: "Reject the ledger as out-of-scope vision (rejected)"
+    description: |
+      Decline to acknowledge the ledger at all; treat it as orthogonal
+      product positioning. Do not write a response document, do not
+      cite it in any architecture artefact.
+    rejection_reason: |
+      The ledger correctly describes the Phase-1 baseline that is
+      already shipped, and Phase-2 sub-items that are already deferred
+      in `docs/CLAUDE-deferred.md`. Refusing to acknowledge it would
+      leave readers with two unconnected narratives about the same
+      trajectory. The right move is to acknowledge what aligns + scope
+      out what does not.
+
+  - id: "Open per-Phase-3-item ADRs to formally reject each (rejected)"
+    description: |
+      Open ADR-0093..ADR-0099 each formally rejecting one Phase-3 item
+      (eBPF / DMA / KAE / RDMA / NPU-Direct / Semantic GC / async RL).
+    rejection_reason: |
+      ADRs are decision records for in-scope work. Authoring 7 ADRs to
+      reject items that were never in scope creates spurious authority
+      records and inflates `adr_count` without architectural value.
+      A single boundary-declaration ADR (this one) is the proportionate
+      response.
+
+  - id: "Adopt the ledger as the new L0 north star and add Phase-3 to roadmap (rejected)"
+    description: |
+      Treat the ledger as the canonical L0 vision; commit
+      spring-ai-ascend to ship eBPF / DMA / KAE / RDMA / NPU-Direct /
+      Semantic GC / async RL by W4 or W5.
+    rejection_reason: |
+      OS-kernel and hardware-driver items require authority surfaces
+      this project does not own (Linux kernel modules, NPU firmware,
+      RDMA NIC drivers, Kunpeng KAE library). They are valuable as a
+      collaboration target, not as in-repo deliverables. Committing
+      them as roadmap items inside spring-ai-ascend would mislead
+      contributors about the project's actual scope.
+
+consequences:
+  - id: ledger_accepted_as_l0_scenarios
+    decision: |
+      The ledger document is accepted at L0 `view: scenarios`. Future
+      releases MAY cite it as a vision reference; release notes claiming
+      "ledger alignment" MUST reference the response document
+      (`...-ultimate-architecture-ledger-response.en.md`) and the
+      Whitepaper Alignment Matrix rows added in Track 3.
+    impact: positive — gives the ledger a stable architectural home
+      without converting it into a constraints surface.
+  - id: phase_3_scope_boundary_declared
+    decision: |
+      All Phase-3 OS/hardware items are declared out-of-scope for
+      spring-ai-ascend L0 authority. Future prose in this repo that
+      claims spring-ai-ascend will ship eBPF / DMA / RDMA / NPU-Direct
+      / KAE / Semantic GC / async RL pipeline is incorrect on its face.
+    impact: closes the scope-ambiguity gap; protects rc15+ release
+      notes from being measured against deliverables the project does
+      not own.
+  - id: heterogeneous_isolation_vocabulary_aligned
+    decision: |
+      The "cognitive disablement" framing is replaced (in
+      spring-ai-ascend authority text) by SPI boundary immutability +
+      stateless execution shell vocabulary. The ledger document itself
+      is not edited (it's a `proposal_status: ledger` artefact); the
+      response document carries the rephrasing recommendation.
+    impact: aligns prose with the shipped contract surface; future
+      contributors reading authority text see one vocabulary.
+  - id: whitepaper_matrix_extended
+    decision: |
+      `docs/governance/whitepaper-alignment-matrix.md` adds 4 rows
+      (one per ledger dimension) with Status / Wave / Owner side /
+      Gate coverage columns. Phase-3 items appear as `archived`
+      status with explicit out-of-scope-authority note in the Notes
+      column.
+    impact: gives readers a single landing page for ledger ↔ shipped-
+      ADR navigation.
+  - id: baseline_metrics_delta_adr0091_to_adr0092
+    decision: |
+      `architecture-status.yaml#baseline_metrics` bumped:
+        - adr_count: 90 → 91 (+1: ADR-0092)
+        - architecture_graph_nodes: 384 → live post-regen (post-ADR-0092
+          + new response doc + whitepaper-matrix row deltas)
+        - architecture_graph_edges: 577 → live post-regen
+      All other baseline metrics unchanged (no new rule, no new enforcer,
+      no new self-test fixture).
+    impact: positive — baseline reconciled to live state per Rule G-8.a.
+
+verification:
+  - command: "wsl python3 gate/build_architecture_graph.py"
+    expected: "Wrote docs/governance/architecture-graph.yaml: <N> nodes, <M> edges; Graph validation: OK"
+    verified: |
+      2026-05-20 (post-ADR-0092 + ledger response doc + whitepaper matrix
+      rows landed). N/M values captured in rc15 release note baseline
+      table.
+  - command: "wsl bash gate/check_parallel.sh"
+    expected: "executed 118 rules; all PASS; GATE: PASS"
+    verified: 2026-05-20 (post-ADR-0092 landed).
+  - command: "wsl bash gate/test_architecture_sync_gate.sh"
+    expected: "Tests passed: 194/194 (rc15 baseline)"
+    verified: 2026-05-20 (no test fixture deltas in ADR-0092; rc15 count holds).
+  - command: "./mvnw clean verify"
+    expected: "BUILD SUCCESS; 374 surefire+failsafe tests pass."
+    verified: 2026-05-20 (no Java deltas in ADR-0092).
+
+review_doc: docs/logs/reviews/2026-05-20-spring-ai-ascend-ultimate-architecture-ledger.md
+response_doc: docs/logs/reviews/2026-05-20-spring-ai-ascend-ultimate-architecture-ledger-response.en.md
+release_note: docs/logs/releases/2026-05-20-l0-rc15-structural-carrier-parity-and-terminal-state-scope.en.md

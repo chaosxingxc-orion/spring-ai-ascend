@@ -1,0 +1,182 @@
+id: ADR-0091
+title: "rc15 Structural-Carrier Parity + Terminal-State Scope Widening (M-α..M-η wave)"
+status: accepted
+date: 2026-05-20
+level: L0
+view: process
+freeze_id: null
+
+supersedes: []
+extends:
+  - ADR-0086   # gate_layer_boundary — the authority-vs-gate-layer split rc15 reinforces with G-8.e
+  - ADR-0088   # agent-runtime-core dissolution
+  - ADR-0090   # rc14 cross-authority parity + engine semantic-home
+relates_to:
+  - ADR-0079   # engine extraction — ADR-0079 source-compat exception was retired by ADR-0090; rc15 cleans up the residual prose drift
+  - ADR-0070   # Resilience contract — Rule R-K shipped surface returns decision envelope at W1
+  - ADR-0087   # rc12 authority ratchet + deploy-truth
+
+decision_one_liner: |
+  Rule G-8 gets a NEW sub-clause `.e` (structural-carrier parity) + a widened
+  `.d` (noun-phrase vocabulary); Rule G-3 sub-clause `.e` widens its scope from
+  CLAUDE.md kernels to all active `agent-*/ARCHITECTURE.md` body text.
+  Combined, these close the rc14 post-closure review M-α/β/γ/δ defects while
+  retiring residual stale prose in root + module architecture surfaces.
+
+context: |
+  PR #12 (rc14 corrective wave, commit 9a20436) merged green: 118/118 gate
+  rules, 190/190 self-tests, 374 Maven tests, live graph reconciled to
+  382/573. The Codex post-closure review (2026-05-20) found that several
+  active architecture + contract surfaces still describe pre-rc14 / pre-rc13
+  ownership as current truth. The new Rule G-8 proved SPI package parity +
+  numeric baseline parity + module topology parity, but did NOT cover:
+
+  - **M-α (non-SPI structural-carrier path-truth):** rc14 moved
+    `EngineRegistry` + `EngineEnvelope` to `ascend.springai.engine.runtime.*`
+    in code + module-metadata + engine-envelope.v1.yaml. But root
+    `ARCHITECTURE.md:169`, `agent-service/ARCHITECTURE.md:342-348`, and
+    `docs/contracts/contract-catalog.md:81-82` still claimed the OLD
+    `service.runtime.engine.*` home. Rule G-8.b only scans SPI packages
+    (`*.spi` literal); structural carriers like EngineRegistry are non-SPI.
+  - **M-β (structural-noun phrases for deleted modules):** root
+    `ARCHITECTURE.md:460` said "RunContext extracted to `agent-runtime-core`
+    per ADR-0079" and `:694` said "shared kernel in `agent-runtime-core`".
+    Rule G-8.d's rc14 verb list (`now reads` / `lives in` / `declares` /
+    `includes` / `depends on` / `each of the N modules`) missed structural-
+    noun phrases that express current-state ownership.
+  - **M-γ (module ARCHITECTURE.md terminal-state overclaim):**
+    `agent-service/ARCHITECTURE.md:315-317` said "over-cap callers are
+    SUSPENDED, not rejected" while shipped Java + Rule R-K kernel + R-K card
+    all say W1 returns `SkillResolution.reject(SuspendReason.RateLimited)`
+    (decision envelope; Run suspension transition deferred to R-K.c / W2
+    scheduler admission). Rule G-3.e caught kernel-vs-shipped drift in
+    CLAUDE.md but not in module ARCHITECTURE.md.
+  - **M-δ (META):** all three defect classes survived 118 passing gate
+    rules + 190 passing self-tests. The prevention layer was the right
+    type but too narrow.
+
+  Plus three smaller surfaces (all closed in the rc15 wave):
+
+  - **M-ε:** rc14 release note + response doc + ADR-0090 verification block
+    carried 381/566 graph numbers in inline snippets while the canonical
+    baseline table was correctly 382/573. Reconciled to 382/573 (post-rc15
+    regen to 384/577 after ADR-0091 + E150/E151 additions).
+  - **M-ζ:** `docs/contracts/contract-catalog.md:4` header still labeled
+    "rc13" + cited only ADR-0088/0089; missing ADR-0090. Bumped to "rc15"
+    + ADR-0088/0089/0090/0091.
+  - **M-η:** `agent-service/ARCHITECTURE.md` still used 13 legacy numeric
+    rule refs (Rule 11/21/28/38/41/43/44/46) in active current-state text
+    despite rc12 namespace ratchet (ADR-0086). Rewritten to D-/R-/G-/M-
+    canonical names with "(formerly Rule N)" parentheticals.
+
+decision: |
+  Three changes ratchet the prevention layer (no new top-level rule, sub-
+  clause + scope-widening only):
+
+  1. **Rule G-8.e (NEW sub-clause) — structural-carrier parity:**
+     scans `docs/contracts/contract-catalog.md` for rows matching pattern
+     `| `<ClassName>` | `<module>` (`<...package>`) | <desc> |`; for each row
+     verifies a Java file `<module>/src/main/java/<package-path>/<ClassName>.java`
+     exists on disk. New enforcer row E150. Two self-test fixtures (pos + neg).
+
+  2. **Rule G-8.d widening — noun-phrase vocabulary:**
+     extends Rule 106 sub-check (d) regex to include structural-noun phrases:
+     `shared kernel in`, `extracted to`, `is deployed` (alongside existing
+     verbs). Enforcer E149 `asserts:` text updated. No new enforcer row.
+
+  3. **Rule G-3.e widening — module ARCHITECTURE.md scope:**
+     adds gate Rule 99 sub-check (b) that scans `agent-*/ARCHITECTURE.md` for
+     the over-capacity SUSPENSION over-claim phrasing pattern
+     `(over-cap|over-capacity)( callers| requests)?.*?(are|is|transitions to) SUSPENDED`
+     and fires unless the line carries a decision-envelope marker
+     (`decision envelope`, `SkillResolution.reject`, `deferred to R-K`,
+     `W2 scheduler admission`). New enforcer row E151. Two self-test fixtures
+     (pos + neg).
+
+  Plus inline batch-fixes for M-α/β/γ/ε/ζ/η across 8 parallel tracks (see
+  rc15 plan + release note for per-track scope).
+
+alternatives_considered:
+  - id: "Add Rule 107 sibling rule for structural-carrier parity (rejected)"
+    description: |
+      Create a new top-level gate rule `Rule 107 — structural_carrier_parity`
+      separate from Rule 106. Would bump active_gate_checks 118 → 119 and
+      add a separate `# Rule 107` header in the canonical monolith.
+    rejection_reason: |
+      Structural-carrier parity is the same defect *class* as Rule G-8's
+      other cross-surface-agreement sub-checks (graph baseline + SPI path +
+      module topology + current-claim grammar). Splitting into a sibling
+      would fragment the family-of-related-checks pattern that Rule G-8
+      establishes. Adding it as sub-clause `.e` keeps the rule's mental
+      model intact.
+  - id: "Hardcode the structural-carrier class list (rejected)"
+    description: |
+      Make Rule 106.e scan for a specific hardcoded list of class names
+      (EngineRegistry, EngineEnvelope, Run, RunContext, SuspendSignal,
+      S2cCallbackEnvelope, IngressEnvelope) rather than extracting them
+      from the contract-catalog row syntax.
+    rejection_reason: |
+      A hardcoded list requires editing the rule script every time a new
+      structural carrier is added to the catalog. Extracting from the row
+      syntax (catalog is the SSOT for structural-carrier ownership)
+      automatically covers future additions. This is the same principle
+      Rule G-8.b applies for SPI packages.
+
+consequences:
+  - id: structural_carrier_parity_in_g8
+    decision: |
+      Rule G-8 now has 5 sub-clauses (.a/.b/.c/.d/.e). The family-of-related-
+      checks pattern (cross-surface agreement) absorbs structural carriers as
+      a first-class concept alongside SPI packages, module topology, graph
+      baseline, and current-claim grammar.
+    impact: positive — closes the rc14 META gap where non-SPI public-contract
+      types were unattended by Rule G-8.
+  - id: terminal_state_overclaim_scope_widened
+    decision: |
+      Rule G-3.e (gate Rule 99) now scans `agent-*/ARCHITECTURE.md` body text
+      for over-capacity SUSPENSION over-claims, alongside the prior CLAUDE.md
+      kernel scan. The phrasing pattern is narrow (`over-cap callers are
+      SUSPENDED` and close variants) to avoid false positives on shipped
+      end-state verbs like `transitions to FAILED on engine_mismatch`.
+    impact: catches the M-γ defect class for the specific shipped vs
+      deferred mismatch the reviewer cited. Module-arch docs that legitimately
+      narrate shipped Run state transitions are unaffected.
+  - id: noun_phrase_vocab_addition
+    decision: |
+      Rule G-8.d vocabulary extended with structural-noun phrases:
+      `shared kernel in`, `extracted to`, `is deployed`. Future deleted-
+      module mentions in active surfaces will be caught when prose uses
+      noun-phrase grammar (not just verb grammar).
+    impact: catches the M-β defect class. Same-line historical marker
+      (`formerly`, `was consolidated`, etc.) remains the standard exemption.
+  - id: baseline_metrics_delta_rc14_to_rc15
+    decision: |
+      `architecture-status.yaml#baseline_metrics` bumped:
+        - active_engineering_rules: 31 → 31 (unchanged; G-8.e is sub-clause)
+        - active_gate_checks: 118 → 118 (unchanged; Rule 106 + Rule 99 widened
+          with new sub-checks, no new top-level rule)
+        - gate_executable_test_cases: 190 → 194 (+4: 2 fixtures × 2 widenings)
+        - enforcer_rows: 148 → 150 (+2: E150 + E151)
+        - adr_count: 89 → 90 (+1: ADR-0091)
+        - architecture_graph_nodes: 382 → 384 (+2: ADR-0091 + E150/E151 nodes)
+        - architecture_graph_edges: 573 → 577 (+4: rc15 supersedes/extends + enforcer edges)
+        - maven_tests_green: 374 → 374 (unchanged; Track C renames one method, no count change)
+    impact: positive — baseline reconciled to live state per Rule G-8.a.
+
+verification:
+  - command: "./mvnw clean verify"
+    expected: "BUILD SUCCESS across 8 reactor modules; 374 surefire+failsafe tests pass."
+    verified: 2026-05-20 (post-Track-C rename — `rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne` runs green).
+  - command: "wsl bash gate/check_parallel.sh"
+    expected: "executed 118 rules; all PASS; GATE: PASS"
+    verified: 2026-05-20 (post-Track-H including this ADR).
+  - command: "wsl python3 gate/build_architecture_graph.py"
+    expected: "Wrote docs/governance/architecture-graph.yaml: 384 nodes, 577 edges; Graph validation: OK"
+    verified: 2026-05-20.
+  - command: "wsl bash gate/test_architecture_sync_gate.sh"
+    expected: "Tests passed: 194/194 (rc14 baseline 190 + 4 new Rule 106.e + Rule 99.b fixtures)"
+    verified: TBD post-merge.
+
+review_doc: docs/logs/reviews/2026-05-20-l0-rc14-post-closure-architecture-review.en.md
+response_doc: docs/logs/reviews/2026-05-20-l0-rc14-post-closure-architecture-review-response.en.md
+release_note: docs/logs/releases/2026-05-20-l0-rc15-structural-carrier-parity-and-terminal-state-scope.en.md

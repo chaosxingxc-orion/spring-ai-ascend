@@ -166,7 +166,7 @@ spring-ai-ascend/
       SuspendSignal.java                       # checked-suspension primitive with forClientCallback variant (ADR-0074 rc3 unification)
       TraceContext.java                        # trace correlation carrier
       ExecutorDefinition.java                  # sealed: GraphDefinition | AgentLoopDefinition
-    src/main/java/ascend/springai/service/runtime/engine/  # EngineRegistry, EngineEnvelope (engine implementation; package kept for rc4 cosmetic; rename to ascend.springai.engine.* deferred to W3+)
+    src/main/java/ascend/springai/engine/runtime/        # EngineRegistry, EngineEnvelope (engine implementation home; relocated from service/runtime/engine/ in rc14 per ADR-0090 — ADR-0079 source-compat exception retired)
 
   agent-evolve/                                # NEW 2026-05-17: Java adapter skeleton for Python ML pipeline (evolution plane; ADR-0075)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-evolve.yaml
@@ -457,8 +457,11 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
     per type. All implementation deferred to W2 (Rule 22). See ADR-0022.
 
 22. **Canonical run context propagation.** `RunContext.tenantId()` is the sole carrier of tenant
-    identity inside the runtime kernel (extracted to `agent-runtime-core` per ADR-0079) and its
-    impl host (`agent-service.service.runtime`). No production class under
+    identity inside the runtime kernel. The kernel SPI types (`RunContext`, `SuspendSignal`,
+    `Checkpointer`, `Orchestrator`, `ExecutorDefinition`) live under
+    `agent-execution-engine.engine.orchestration.spi` per ADR-0088 (rc13 dissolution of
+    `agent-runtime-core`, which had transiently hosted them per ADR-0079); their runtime
+    impl host (`agent-service.service.runtime`) consumes the SPI. No production class under
     `ascend.springai.service.runtime..` may import any class under
     `ascend.springai.service.platform..` — including (but not limited to) `TenantContextHolder`
     (HTTP-edge ThreadLocal in `agent-service.service.platform`; was rooted in `agent-platform`
@@ -691,8 +694,11 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
 
 46. **Service-Layer Microservice-Architecture Commitment.** The Service Layer
     (HTTP edge in `agent-service.service.platform` + cognitive runtime in
-    `agent-service.service.runtime` + shared kernel in `agent-runtime-core` +
-    engine SPI in `agent-execution-engine`, post-ADR-0078/0079) is deployed and
+    `agent-service.service.runtime` + engine + orchestration SPI in
+    `agent-execution-engine` + cross-plane control surfaces in `agent-bus`,
+    post-ADR-0088 rc13; the `agent-runtime-core` kernel-shim module was
+    dissolved per ADR-0088 and its types were relocated to semantic-home
+    modules — see ADR-0088 for the historical narration) is deployed and
     scaled as **long-running microservices** — long-lived JVM processes, multiple replicas,
     horizontal scaling. Multiple Agent Service instances coordinate via the **Agent Bus**
     (cross-docker, cross-service); the bus is platform-owned, not middleware. **Agent Bus

@@ -12,9 +12,9 @@ authority: "ADR-0078 (agent-service consolidation) + ADR-0068 (Layered 4+1) + AD
 # agent-service — L1 architecture (2026-05-18 Phase C consolidation)
 
 > Owner: AgentService team | Wave: W0..W3 | Maturity: shipped (post-Phase-C consolidation of agent-platform + agent-runtime)
-> Last refreshed: 2026-05-18 (Phase C — single-deployable consolidation)
-> Governing rule: Rule 28 — Code-as-Contract (ADR-0059). Every constraint
-> below maps to at least one row in `docs/governance/enforcers.yaml`.
+> Last refreshed: 2026-05-20 (rc15 — structural-carrier parity + terminal-state scope per ADR-0090 + ADR-0091)
+> Governing rule: Rule R-C — Code-as-Contract (formerly Rule 28; ADR-0059 + ADR-0086 namespace ratchet).
+> Every constraint below maps to at least one row in `docs/governance/enforcers.yaml`.
 
 ## 0.4 Layered 4+1 view map (W1 — ADR-0068)
 
@@ -29,7 +29,7 @@ This document is the **L1 root** for the `agent-service` module. Until the full 
 | §2.B runtime / orchestration, resilience, memory, engine | logical | Orchestrator / GraphExecutor / AgentLoopExecutor / ResilienceContract / GraphMemoryRepository / EngineRegistry SPI |
 | §2.B runtime / runs, s2c, idempotency | process | Run entity + RunStatus DFA, S2cCallbackEnvelope + suspend semantics, IdempotencyRecord spine |
 | §2.B runtime / probe | development | OssApiProbe (Spring AI + Temporal classpath shape) |
-| §3 Sub-package layering invariant | logical | `service.runtime` ↛ `service.platform` (Rule 21) |
+| §3 Sub-package layering invariant | logical | `service.runtime` ↛ `service.platform` (Rule R-C.e, formerly Rule 21) |
 | §4 OSS dependencies | development | dependency direction + BoM authority |
 | §5–§9 Wave plan / risks | scenarios | rollout + audit hooks + Phase C landing note |
 
@@ -313,11 +313,15 @@ Implementations stay in the parent package
 `YamlSkillCapacityRegistry`.
 
 The runtime `ResilienceContract.resolve(tenant, skill)` consults
-`docs/governance/skill-capacity.yaml` (Rule 41); over-cap callers are
-SUSPENDED, not rejected (Chronos Hydration interlock with Rule 38). The
-`.spi` package home was added at the rc6 wave (ADR-0080, 2026-05-18) to align
-the published-SPI surface with Rules 32 / 77 / 78 — the same split pattern
-used by `agent-execution-engine` (`engine.spi.*` vs `service.runtime.engine.*`).
+`docs/governance/skill-capacity.yaml` (Rule R-K.b, formerly Rule 41.b);
+over-cap callers receive a rejected decision envelope
+`SkillResolution.reject(SuspendReason.RateLimited)` per Rule R-K shipped
+surface. Translating that decision into `RunStatus.SUSPENDED` is deferred
+to Rule R-K.c (W2 scheduler admission). Chronos Hydration interlock per
+Rule R-H (formerly Rule 38). The `.spi` package home was added at the rc6
+wave (ADR-0080, 2026-05-18) to align the published-SPI surface with Rules
+R-D / 77 / 78 — the same split pattern used by `agent-execution-engine`
+(`engine.spi.*` vs `engine.runtime.*`).
 
 #### runtime / memory -- Memory SPI shell (W0 shell)
 
@@ -339,13 +343,13 @@ the rc5 wave (2026-05-18) ADR-0079 extraction:
   — sources live at
   `agent-execution-engine/src/main/java/ascend/springai/engine/spi/`.
 - **Engine registry + envelope home** (package
-  `ascend.springai.service.runtime.engine.*`, module
-  `agent-execution-engine` — the package root is preserved across the
-  module move so that `agent-service` callers do not see an import
-  rename): `EngineRegistry`, `EngineEnvelope` record (mirrors
+  `ascend.springai.engine.runtime.*`, module `agent-execution-engine`):
+  `EngineRegistry`, `EngineEnvelope` record (mirrors
   `docs/contracts/engine-envelope.v1.yaml`) — sources at
   `agent-execution-engine/src/main/java/ascend/springai/engine/runtime/`
-  (relocated from `service/runtime/engine/` in rc14 per ADR-0090).
+  (relocated from the legacy `service/runtime/engine/` path in rc14 per
+  ADR-0090; ADR-0079's source-compat exception was retired since rc13
+  ADR-0088 already broke any consumer binding to the kernel-shim module).
 - **Reference engine adapters** stay in `agent-service` at
   `agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/`:
   `SequentialGraphExecutor` (`extends GraphExecutor`),
@@ -353,15 +357,17 @@ the rc5 wave (2026-05-18) ADR-0079 extraction:
   `SyncOrchestrator`, `InMemoryCheckpointer`, `InMemoryRunRegistry`.
 
 Every Run dispatch goes through `EngineRegistry.resolve(envelope)`
-(Rule 43); pattern-matching on `ExecutorDefinition` subtypes outside
-the registry is forbidden. Mismatch raises `EngineMatchingException`
-and transitions the Run to FAILED with reason `engine_mismatch`
-(Rule 44, no fallback policy). The intentional split-package
-arrangement (SPI under `engine.spi.*`, registry/envelope under
-`service.runtime.engine.*` — both inside `agent-execution-engine`) is
-documented in `agent-execution-engine/ARCHITECTURE.md` Status section
-and protected by Rule 76 (no split SPI packages — `engine.spi.*` is
-owned by exactly one module).
+(Rule R-M.a, formerly Rule 43); pattern-matching on
+`ExecutorDefinition` subtypes outside the registry is forbidden.
+Mismatch raises `EngineMatchingException` and transitions the Run to
+FAILED with reason `engine_mismatch` (Rule R-M.b, formerly Rule 44; no
+fallback policy). The intentional split-package arrangement (SPI under
+`engine.spi.*`, registry/envelope under `engine.runtime.*` — both
+inside `agent-execution-engine`; the registry/envelope home was
+relocated from the legacy `service.runtime.engine.*` package in rc14
+per ADR-0090) is documented in `agent-execution-engine/ARCHITECTURE.md`
+Status section and protected by Rule 76 (no split SPI packages —
+`engine.spi.*` is owned by exactly one module).
 
 #### runtime / s2c -- Server-to-Client callback envelope (W2.x, ADR-0040 rc3, **SPI in `agent-bus.spi.s2c` (rc13 - relocated from dissolved agent-runtime-core per ADR-0088)**)
 
@@ -385,7 +391,7 @@ the checked-suspension variant introduced in the rc3 wave per ADR-0074
 The orchestrator marks the parent Run SUSPENDED with
 `SuspendReason.AwaitClientCallback`. Callbacks consume the
 `s2c.client.callback` skill capacity declared in
-`docs/governance/skill-capacity.yaml` (Rule 46).
+`docs/governance/skill-capacity.yaml` (Rule R-M.d, formerly Rule 46).
 
 #### runtime / probe -- OSS classpath shape probe (W0)
 
@@ -432,7 +438,7 @@ implementation ships at W0:
 **`service.runtime` MUST NOT import `service.platform`.** This invariant
 preserves the original cross-module purity (formerly
 `agent-runtime ↛ agent-platform`) as a within-module sub-package
-purity post-Phase-C. It is enforced by **Rule 21** (retargeted from the
+purity post-Phase-C. It is enforced by **Rule R-C.e** (formerly Rule 21; retargeted from the
 original "no `TenantContextHolder` import" invariant) via the ArchUnit
 class **`ServiceRuntimeMustNotDependOnServicePlatformTest`** under
 `agent-service/src/test/java/ascend/springai/service/runtime/architecture/`,
@@ -523,7 +529,7 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
 | `ErrorEnvelopeContractTest` | Unit | every 4xx/5xx response has `{error:{code,message,details}}` shape (enforcer E8) | platform |
 | `TenantTagMeterFilterTest` | Unit | forbidden high-cardinality tags stripped from `springai_ascend_*` (enforcer E19) | platform |
 | `ServicePlatformImportsOnlyServiceRuntimePublicApiTest` | ArchUnit | platform sub-package may only import the runtime sub-package public-API packages (enforcer E34) | platform |
-| `ServiceRuntimeMustNotDependOnServicePlatformTest` | ArchUnit | runtime sub-package MUST NOT import any platform sub-package (Rule 21, enforcer E2) | runtime |
+| `ServiceRuntimeMustNotDependOnServicePlatformTest` | ArchUnit | runtime sub-package MUST NOT import any platform sub-package (Rule R-C.e, formerly Rule 21, enforcer E2) | runtime |
 | `HttpEdgeMustNotImportMemorySpiTest` | ArchUnit | HTTP edge cannot reach the memory SPI (enforcer E4) | platform |
 | `ApiCompatibilityTest` | ArchUnit | module-dep direction + SPI purity (W0 baseline) | both |
 | `JwtTestFixture` | Test fixture | shared RSA keypair + JWT mint helper for L1 authenticated tests (enforcer E37) | platform |
@@ -539,7 +545,7 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
 | `RunTest` | Unit | Run record construction, withStatus(), withSuspension() | runtime |
 | `InMemoryCheckpointerTest` | Unit | save/load/clear round-trip | runtime |
 | `OrchestrationSpiArchTest` | ArchUnit | SPI packages import only java.* | runtime |
-| `TenantPropagationPurityTest` | ArchUnit | Rule 21: runtime sub-package never imports TenantContextHolder | runtime |
+| `TenantPropagationPurityTest` | ArchUnit | Rule R-C.e (formerly Rule 21): runtime sub-package never imports TenantContextHolder | runtime |
 | `NestedDualModeIT` | Integration | 3-level graph→agent-loop→graph nesting via SuspendSignal | runtime |
 | `RunStatusTransitionIT` | Integration | SUSPENDED→RUNNING→SUCCEEDED state transitions | runtime |
 | `SuspendSignalTest` | Unit | SuspendSignal construction + childRunId accessor | runtime |
@@ -566,7 +572,7 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
 > a single deployable `agent-service`. The original cross-module
 > purity rule (`agent-runtime ↛ agent-platform`) is preserved as a
 > sub-package purity rule (`service.runtime ↛ service.platform`) under
-> Rule 21, enforced by `ServiceRuntimeMustNotDependOnServicePlatformTest`.
+> Rule R-C.e (formerly Rule 21), enforced by `ServiceRuntimeMustNotDependOnServicePlatformTest`.
 
 ### 9.1 Wave landing
 
@@ -627,7 +633,7 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
   (replays return the original 201); W2 will add an orchestrator-side
   completion hook per ADR-0057 §4.
 - **Tenant-id confusion in multi-step requests**: every async handoff
-  sources tenant from `RunContext.tenantId()` (Rule 21, enforced by
+  sources tenant from `RunContext.tenantId()` (Rule R-C.e, formerly Rule 21, enforced by
   `TenantPropagationPurityTest` ArchUnit +
   `ServiceRuntimeMustNotDependOnServicePlatformTest`), not from
   `TenantContextHolder`. Phase C retargeting preserves this exact
@@ -640,14 +646,18 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
   `gate/test_architecture_sync_gate.sh` injects a synthetic
   `service.runtime → service.platform` import to assert the gate
   catches it.
-- **Engine extraction landed** (T2.B2, ADR-0079, 2026-05-18): the engine
-  SPI surface moved to `agent-execution-engine` at
-  `ascend.springai.engine.spi.*` (`ExecutorAdapter` and friends), and
-  `EngineRegistry` + `EngineEnvelope` moved to the same module under
-  `ascend.springai.service.runtime.engine.*` (package preserved to keep
-  callers unchanged). The intentional split-package arrangement is
-  documented in `agent-execution-engine/ARCHITECTURE.md` Status section.
-  `EngineRegistry.resolve` boundary remains asserted by Rule 43
+- **Engine extraction landed** (T2.B2, ADR-0079, 2026-05-18; package
+  rename completed rc14 per ADR-0090): the engine SPI surface moved to
+  `agent-execution-engine` at `ascend.springai.engine.spi.*`
+  (`ExecutorAdapter` and friends), and `EngineRegistry` + `EngineEnvelope`
+  moved to the same module under `ascend.springai.engine.runtime.*`
+  (relocated from the legacy `service.runtime.engine.*` package in rc14
+  per ADR-0090; ADR-0079's source-compat exception was retired since
+  rc13 ADR-0088 already broke any consumer binding to the kernel-shim
+  module). The intentional split-package arrangement is documented in
+  `agent-execution-engine/ARCHITECTURE.md` Status section.
+  `EngineRegistry.resolve` boundary remains asserted by Rule R-M.a
+  (formerly Rule 43)
   enforcer E84; consumed cross-module via the `agent-execution-engine` (rc13 dissolution per ADR-0088) →
   `agent-execution-engine` → `agent-service` dependency chain.
 

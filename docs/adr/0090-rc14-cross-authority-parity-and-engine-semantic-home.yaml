@@ -162,10 +162,10 @@ consequences:
         - gate_executable_test_cases: 182 → 190 (+8: 2 fixtures × 4 sub-clauses)
         - enforcer_rows: 144 → 148 (+4: E146..E149)
         - adr_count: 88 → 89 (+1: ADR-0090)
-        - architecture_graph_nodes: 363 → 381 (+18: rc14 reconciled live +
-          Rule G-8 + E146..E149 + ADR-0090 nodes; was 376 at rc13-corrected
-          baseline before rc14 additions)
-        - architecture_graph_edges: 539 → 566 (+27: same rc14 additions)
+        - architecture_graph_nodes: 363 → 382 (+19: rc14 reconciled live +
+          Rule G-8 + E146..E149 + ADR-0090 nodes + rc14 response/release
+          doc nodes; was 376 at rc13-corrected baseline before rc14 additions)
+        - architecture_graph_edges: 539 → 573 (+34: same rc14 additions)
         - maven_tests_green: 371 → 374 (+3: Track E test relocations
           exposed additional parameterized cases)
     impact: positive — baseline now reconciled to live state per Rule G-8.a.
@@ -178,7 +178,7 @@ verification:
     expected: "executed 118 rules; all PASS; GATE: PASS"
     verified: 2026-05-20 (post-Track-H including this ADR).
   - command: "wsl python3 gate/build_architecture_graph.py"
-    expected: "Wrote docs/governance/architecture-graph.yaml: 381 nodes, 566 edges; Graph validation: OK"
+    expected: "Wrote docs/governance/architecture-graph.yaml: 382 nodes, 573 edges; Graph validation: OK"
     verified: 2026-05-20.
   - command: "wsl bash gate/test_architecture_sync_gate.sh"
     expected: "Tests passed: 190/190 (rc13 baseline 182 + 8 new Rule 106 fixtures)"

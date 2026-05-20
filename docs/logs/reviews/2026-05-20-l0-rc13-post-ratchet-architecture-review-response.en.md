@@ -23,7 +23,7 @@ affects_artefact: [ARCHITECTURE.md, CLAUDE.md, docs/governance/architecture-stat
 
 | Finding | Family | Decision | Closure evidence |
 |---|---|---|---|
-| P1-1 — Canonical graph baseline disagrees with generated graph | L-α | accept | `architecture-status.yaml#baseline_metrics.architecture_graph_nodes: 381` / `architecture_graph_edges: 566` reconciled to post-rc14-regen live graph header (was 363/539 rc12 baseline → 376/558 rc13-live → 381/566 rc14-live with ADR-0090 + Rule G-8 + E146..E149 added). Rule G-8.a (gate Rule 106 sub-check a) now enforces parity. |
+| P1-1 — Canonical graph baseline disagrees with generated graph | L-α | accept | `architecture-status.yaml#baseline_metrics.architecture_graph_nodes: 382` / `architecture_graph_edges: 573` reconciled to post-rc14-regen live graph header (was 363/539 rc12 baseline → 376/558 rc13-live → 382/573 rc14-live with ADR-0090 + Rule G-8 + E146..E149 + rc14 response/release nodes added). Rule G-8.a (gate Rule 106 sub-check a) now enforces parity. |
 | P1-2 — Rule R-M points S2C to pre-rc13 package | L-β | accept | `CLAUDE.md:200`, `docs/governance/rules/rule-R-M.md:12`, `docs/contracts/s2c-callback.v1.yaml:9`, `docs/governance/enforcers.yaml:730+837` (E83 + E93) all rewritten to name `ascend.springai.bus.spi.s2c`. Rule G-8.b (gate Rule 106 sub-check b) now enforces SPI path parity across kernel + metadata + disk. |
 | P1-3 — Root ARCHITECTURE.md has active current-state constraints for dissolved module | L-γ | accept | `ARCHITECTURE.md:276-288` dependency-direction constraint rewritten to post-ADR-0088 4+1 clause structure; `:871` ArchUnit scope rewritten. Rule G-8.d (gate Rule 106 sub-check d) now catches present-tense verbs naming deleted modules even when the line carries a `post-ADR-NNNN` marker. |
 | P1-4 — architecture-status.yaml has current allowed_claims for pre-rc13 topology | L-γ | accept | `architecture-status.yaml` lines 716 (module_dependency_direction_w0), 1050 (service_layer_microservice_architecture_commitment), 1387 (spi_package_metadata_codesign — "9 modules" → "8 modules"), 1405 (spi_dfx_tck_codesign — `agent-runtime-core declares` → relocation narrative) all rewritten. Rule G-8.c (gate Rule 106 sub-check c) enforces module topology parity. |
@@ -79,7 +79,7 @@ wsl bash gate/check_parallel.sh             # PASS — 118 rules, 0 failures
 wsl bash gate/test_architecture_sync_gate.sh   # PASS — 190/190 fixtures (182 + 8 new Rule 106)
 
 # Live graph regen + parity check
-wsl python3 gate/build_architecture_graph.py   # Wrote: 381 nodes, 566 edges; validation OK
+wsl python3 gate/build_architecture_graph.py   # Wrote: 382 nodes, 573 edges; validation OK
 # Then Rule G-8.a checks architecture-status.yaml baseline matches live header
 ```
 

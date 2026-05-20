@@ -5421,6 +5421,90 @@ test_rule_106_d_current_claim_grammar_neg() {
 }
 
 # ---------------------------------------------------------------------------
+# rc15 — Rule 106 sub-check .e (structural-carrier parity) + Rule 99 sub-check (b)
+# (module ARCHITECTURE.md scope). Four fixtures per ADR-0091.
+# ---------------------------------------------------------------------------
+
+test_rule_106_e_structural_carrier_parity_pos() {
+  _r106e_pos_root="$scratch/r106e_pos"
+  mkdir -p "$_r106e_pos_root/agent-execution-engine/src/main/java/ascend/springai/engine/runtime"
+  cat > "$_r106e_pos_root/agent-execution-engine/src/main/java/ascend/springai/engine/runtime/EngineRegistry.java" <<'SHEOF'
+package ascend.springai.engine.runtime;
+public class EngineRegistry {}
+SHEOF
+  printf '| `EngineRegistry` | `agent-execution-engine` (`...engine.runtime`) | dispatch authority |\n' > "$_r106e_pos_root/contract-catalog.md"
+  # Apply the sub-check logic inline against the scratch root
+  _r106e_pass=1
+  while IFS=$'\t' read -r _cls _mod _suffix; do
+    [[ -z "$_cls" ]] && continue
+    _full_pkg="ascend.springai.${_suffix#...}"
+    _path="$(echo "$_full_pkg" | tr '.' '/')"
+    _java_file="${_r106e_pos_root}/${_mod}/src/main/java/${_path}/${_cls}.java"
+    [[ ! -f "$_java_file" ]] && _r106e_pass=0
+  done < <(awk -F'`' '/^\| `[A-Z][A-Za-z]+` \| `agent-[a-z-]+` \(`\.\.\.[a-z._]+`\)/ {print $2 "\t" $4 "\t" $6}' "$_r106e_pos_root/contract-catalog.md")
+  if [[ $_r106e_pass -eq 1 ]]; then
+    ok "rule_106_e_structural_carrier_parity_pos" "Rule G-8.e accepts catalog row with package + class file resolving on disk"
+  else
+    fail "rule_106_e_structural_carrier_parity_pos" "expected disk resolve, got missing file"
+  fi
+}
+
+test_rule_106_e_structural_carrier_parity_neg() {
+  _r106e_neg_root="$scratch/r106e_neg"
+  mkdir -p "$_r106e_neg_root/agent-execution-engine/src/main/java/ascend/springai/engine/runtime"
+  # NOTE: do NOT create EngineRegistry.java — catalog claims the carrier exists but it does not
+  printf '| `EngineRegistry` | `agent-execution-engine` (`...service.runtime.engine`) | stale package home |\n' > "$_r106e_neg_root/contract-catalog.md"
+  _r106e_miss=0
+  while IFS=$'\t' read -r _cls _mod _suffix; do
+    [[ -z "$_cls" ]] && continue
+    _full_pkg="ascend.springai.${_suffix#...}"
+    _path="$(echo "$_full_pkg" | tr '.' '/')"
+    _java_file="${_r106e_neg_root}/${_mod}/src/main/java/${_path}/${_cls}.java"
+    [[ ! -f "$_java_file" ]] && _r106e_miss=1
+  done < <(awk -F'`' '/^\| `[A-Z][A-Za-z]+` \| `agent-[a-z-]+` \(`\.\.\.[a-z._]+`\)/ {print $2 "\t" $4 "\t" $6}' "$_r106e_neg_root/contract-catalog.md")
+  if [[ $_r106e_miss -eq 1 ]]; then
+    ok "rule_106_e_structural_carrier_parity_neg" "Rule G-8.e catches catalog row with package not resolving on disk"
+  else
+    fail "rule_106_e_structural_carrier_parity_neg" "expected miss, got file resolved"
+  fi
+}
+
+test_rule_99_module_arch_terminal_verb_pos() {
+  _r99b_pos_root="$scratch/r99b_pos"
+  mkdir -p "$_r99b_pos_root"
+  # Decision-envelope phrasing with deferred marker — admissible
+  cat > "$_r99b_pos_root/ARCHITECTURE.md" <<'SHEOF'
+The runtime ResilienceContract.resolve(tenant, skill) returns a rejected
+decision envelope SkillResolution.reject(SuspendReason.RateLimited) at W1;
+over-cap callers are SUSPENDED at W2 (W2 scheduler admission deferred to Rule R-K.c per ADR-0070).
+SHEOF
+  _hit=$(grep -nE '(over-cap|over-capacity)( callers| requests)?[^.]*(are SUSPENDED|is SUSPENDED|transitions to SUSPENDED)' "$_r99b_pos_root/ARCHITECTURE.md" \
+         | grep -vE '(decision envelope|SkillResolution\.reject|deferred to R-K|deferred to Rule R-K|deferred per Rule R-K|W2 scheduler admission)' || true)
+  if [[ -z "$_hit" ]]; then
+    ok "rule_99_module_arch_terminal_verb_pos" "Rule G-3.e (module-arch scope) accepts decision-envelope + deferred-marker phrasing"
+  else
+    fail "rule_99_module_arch_terminal_verb_pos" "expected no hit (decision-envelope marker present), got: $_hit"
+  fi
+}
+
+test_rule_99_module_arch_terminal_verb_neg() {
+  _r99b_neg_root="$scratch/r99b_neg"
+  mkdir -p "$_r99b_neg_root"
+  # Bare over-cap SUSPENSION claim WITHOUT decision-envelope marker — should fail
+  cat > "$_r99b_neg_root/ARCHITECTURE.md" <<'SHEOF'
+The runtime ResilienceContract.resolve(tenant, skill) consults
+skill-capacity.yaml; over-cap callers are SUSPENDED, not rejected.
+SHEOF
+  _hit=$(grep -nE '(over-cap|over-capacity)( callers| requests)?[^.]*(are SUSPENDED|is SUSPENDED|transitions to SUSPENDED)' "$_r99b_neg_root/ARCHITECTURE.md" \
+         | grep -vE '(decision envelope|SkillResolution\.reject|deferred to R-K|deferred to Rule R-K|deferred per Rule R-K|W2 scheduler admission)' || true)
+  if [[ -n "$_hit" ]]; then
+    ok "rule_99_module_arch_terminal_verb_neg" "Rule G-3.e (module-arch scope) catches bare over-cap SUSPENSION over-claim"
+  else
+    fail "rule_99_module_arch_terminal_verb_neg" "expected hit, got none"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

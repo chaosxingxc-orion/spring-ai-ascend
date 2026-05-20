@@ -24,6 +24,8 @@ affects_artefact:
 
 # v2.0.0-rc13 — L0 Architecture Ratchet: Dissolve `agent-runtime-core` + Lock `client → bus → server` Ingress
 
+> **Historical artifact frozen at SHA 001aecc (v2.0.0-rc13 merge).** Baseline counts in this document (65 §4 constraints / 88 ADRs / 117 active gate rules / 182 gate self-tests / 30 active engineering rules / 144 enforcer rows) reflect the corpus state at rc13 merge time and are NOT retroactively updated. The current canonical baseline (post-rc15: 65 §4 / 91 ADRs / 118 gate rules / 194 self-tests / 31 engineering rules / 150 enforcer rows) is tracked in `docs/governance/architecture-status.yaml#architecture_sync_gate.allowed_claim` and the rc15 release note (`docs/logs/releases/2026-05-20-l0-rc15-structural-carrier-parity-and-terminal-state-scope.en.md`).
+
 ## Summary
 
 rc13 is a **structural ratchet wave**, not a corrective response. The user surfaced two L0 architectural defects in plan-mode dialogue (2026-05-20):

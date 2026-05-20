@@ -1,6 +1,6 @@
 # Whitepaper Alignment Matrix
 
-> Last updated: 2026-05-13 (initial population per `docs/logs/reviews/2026-05-13-whitepaper-alignment-remediation-proposal.en.md` finding P2-1)
+> Last updated: 2026-05-20 (rc15 — added Ledger Dim 1-4 rows per ADR-0092)
 >
 > **Purpose**: concept-level traceability from `docs/spring-ai-ascend-architecture-whitepaper-en.md` to active architecture artifacts. Per ADR-0049 + Gate Rule 29, every major whitepaper concept MUST appear here with an explicit status, wave, owner side, and gate-coverage marker. Any release note claiming "whitepaper alignment" MUST reference this matrix.
 >
@@ -35,6 +35,17 @@
 | **Permission issuance** | §5.3 (`:206`) | ADR-0052 `PermissionEnvelope` (subsumption boundary, short expiry, signature) | active-design | L0 contract / W2-W3 impl | S-side issuer; delegate consumer | Yes — Gate Rule 29 | Cascading issuance bounded by Skill Subsumption Principle |
 | **Chronos Hydration** | §5.4 (`:217`-`:218`) | ADR-0050 `SleepDeclaration` + `WakeupPulse` + `TickEngine` + `ChronosHydration` flow | active-design | L0 contract / W4 impl | S-side | Yes — Gate Rule 29 | End-to-end flow: sleep → self-destruct → wakeup → rehydrate; long-horizon dimensionally reduced to instantaneous pull-ups |
 | **Service Layer microservice commitment** | (whitepaper §1.3 rejects per-agent microservice; ADR-0048 commits Service-Layer microservice) | ADR-0048 + ARCHITECTURE.md §4 #46 | shipped (commitment at L0; deployment topology) | L0 / ongoing | S-side | Yes — Gate Rule 26 (release-note shipped-surface truth); Gate Rule 27 (README baseline); Gate Rule 28 (release-note baseline); Gate Rule 29 (matrix presence) | Long-running JVM microservices; bus traffic split data-P2P / control-event-bus; amended by ADR-0050 to add Rhythm track |
+
+## Ledger dimensions (per `docs/logs/reviews/2026-05-20-spring-ai-ascend-ultimate-architecture-ledger.md` + ADR-0092)
+
+The Ultimate Architecture Ledger introduces a 4-dimensional × 3-phase trajectory. Each dimension is anchored below. **Phase-3 OS/hardware items are declared out-of-scope for `spring-ai-ascend` L0 authority per ADR-0092 and belong to a sibling Agent-OS / openEuler / Kunpeng / NPU-driver epic.**
+
+| Concept | Ledger section | Current artifact | Status | Wave | Owner side | Gate coverage | Notes |
+|---|---|---|---|---|---|---|---|
+| **Ledger Dim 1 — Business-System Separation** | Dim 1 (Phase 1-3) | ADR-0049 (C/S Cursor); ADR-0070 (ResilienceContract); ADR-0088 (post-runtime-core tenant propagation); ADR-0092 (scope boundary) | architected (Phase 1) / partial (Phase 2) / **archived: out-of-scope (Phase 3)** | L0 / W2 / **out-of-scope** | shared (C/S); platform (resilience); **Agent-OS (eBPF/DMA/KAE)** | Yes — Gate Rule 29 anchors existing rows (`C/S separation`, `Task Cursor`, `Dynamic Hydration`); ADR-0092 scope boundary | Phase 3 (eBPF probe, DMA zero-copy, Kunpeng KAE) is sibling-epic authority, not spring-ai-ascend L0. |
+| **Ledger Dim 2 — Multi-Track Bus + Data Plane** | Dim 2 (Phase 1-3) | ADR-0050 (three-track bus schema); ADR-0090 + ADR-0091 (EngineEnvelope structural carrier); ADR-0092 (scope boundary) | shipped schema (Phase 1) / deferred (Phase 2) / **archived: out-of-scope (Phase 3)** | L0 / W2-W3 / **out-of-scope** | platform (envelope + routing); **Agent-OS (RDMA/NPU-Direct/DAG-aware prefetch)** | Yes — Gate Rule 29 anchors `Three-track bus`; structural-carrier parity per Rule G-8.e | Data-locality routing is JVM-reachable W2/W3; serverless NPU weight prewarm + RDMA + NPU-Direct Storage are hardware-driver authority. |
+| **Ledger Dim 3 — Transactional Rollback (SuspendSignal + 2PC + Semantic GC)** | Dim 3 (Phase 1-3) | ADR-0020 (RunStateMachine); ADR-0070 (sealed SuspendSignal); ADR-0091 (S2C callback envelope); ADR-0092 (scope boundary) | shipped (Phase 1) / partial (Phase 2) / **archived: out-of-scope (Phase 3)** | W0 / W2-W3 / **out-of-scope** | platform (SuspendSignal + Checkpointer); **Agent-OS (Semantic GC over HBM)** | Yes — Rule R-M.d sealed-checked-variant; Rule G-3.e terminal-state scope; ADR-0092 boundary | Pre-commit fingerprint + causal subscription = W2/W3 JVM-reachable; Semantic GC over NPU HBM = NPU memory-manager authority. |
+| **Ledger Dim 4 — Swarm Evolution (Heterogeneous Integration)** | Dim 4 (Phase 1-3) | ADR-0070 (stateless shell + read-only Context); ADR-0078 (engine-contract consolidation); engine-envelope.v1.yaml + engine-hooks.v1.yaml; ADR-0092 (scope boundary) | shipped (Phase 1) / shipped W2.x (Phase 2 dynamic Hook injection) / **archived: out-of-scope (Phase 3)** | W1 / W2.x / **out-of-scope** | platform (SPI boundary); **Agent-OS (async RL pipeline on NPU)** | Yes — Rule R-M.c (HookPoint contract); ADR-0070 read-only Context; ADR-0092 framing alignment | Heterogeneous-framework isolation mechanism is *SPI boundary immutability* (not "cognitive disablement") per ADR-0092 §3.1; async RL pipeline on NPU = training-platform authority. |
 
 ## Maintenance
 

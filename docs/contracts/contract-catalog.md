@@ -1,7 +1,7 @@
 # Contract Catalog
 
 > Single source of truth for all public contracts in the spring-ai-ascend platform.
-> Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-05-20 (rc13 — agent-runtime-core dissolution + ingress gateway mandate per ADR-0088 + ADR-0089)
+> Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-05-20 (rc15 — structural-carrier parity + terminal-state scope per ADR-0088 + ADR-0089 + ADR-0090 + ADR-0091)
 
 ---
 
@@ -78,8 +78,8 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `IdempotencyRecord` | `agent-service` (`...service.runtime.idempotency`) | Idempotency-Key persistence record (Rule R-C.c contract spine); relocated per ADR-0088 |
 | `S2cCallbackEnvelope` / `S2cCallbackResponse` | `agent-bus` (`...bus.spi.s2c`) | Six mandatory request fields per ADR-0074; relocated per ADR-0088 |
 | `IngressEnvelope` / `IngressResponse` / `IngressStatus` / `IngressRequestType` | `agent-bus` (`...bus.spi.ingress`) | C2S ingress envelope (6 required fields per ADR-0089); response carries Task Cursor (Rule R-F) on ACCEPTED RUN_CREATE |
-| `EngineRegistry` | `agent-execution-engine` (`...service.runtime.engine`) | Single authority for `resolve(envelope)` / `resolveByPayload(...)` (Rule 43) |
-| `EngineEnvelope` | `agent-execution-engine` (`...service.runtime.engine`) | Request shape mirroring `engine-envelope.v1.yaml` |
+| `EngineRegistry` | `agent-execution-engine` (`...engine.runtime`) | Single authority for `resolve(envelope)` / `resolveByPayload(...)` (Rule R-M.a, formerly Rule 43); relocated from `service.runtime.engine` in rc14 per ADR-0090 |
+| `EngineEnvelope` | `agent-execution-engine` (`...engine.runtime`) | Request shape mirroring `engine-envelope.v1.yaml`; relocated from `service.runtime.engine` in rc14 per ADR-0090 |
 | `EngineMatchingException` | `agent-execution-engine` (`...engine.spi`) | Thrown by `EngineRegistry.resolve(...)` on engine-type mismatch (Rule 44) |
 | `HookPoint` | `agent-middleware` (`...middleware.spi`) | 9-value enum (before/after LLM/tool/memory + before_suspension + before_resume + on_error); mirrors `engine-hooks.v1.yaml` |
 | `HookContext` | `agent-middleware` (`...middleware.spi`) | Hook invocation carrier record |

@@ -110,16 +110,56 @@ done <<< "$_r106_prose_hits"
 # + architecture-status.yaml + contract-catalog.md). docs/governance/rules/*.md
 # is intentionally excluded — rule cards document patterns, including the
 # patterns they prevent (so they legitimately quote old prose).
+# rc15 widening (per ADR-0091): noun-phrase additions (`shared kernel in`,
+# `extracted to`, `is deployed`) close the rc14 M-β gap.
 _r106_grammar_hits=$(grep -rnE '(agent-platform|agent-runtime-core|agent-runtime[^-])' \
                      --include='*.md' --include='*.yaml' \
                      docs/governance/architecture-status.yaml ARCHITECTURE.md agent-*/ARCHITECTURE.md docs/contracts/contract-catalog.md docs/contracts/s2c-callback.v1.yaml 2>/dev/null \
                      | grep -v 'docs/archive/' | grep -v 'docs/logs/' \
-                     | grep -E '(now reads|lives in|^[^#]*\bdeclares\b|each of the [0-9]+ (reactor )?modules)' \
+                     | grep -E '(now reads|lives in|^[^#]*\bdeclares\b|each of the [0-9]+ (reactor )?modules|shared kernel in|extracted to|is deployed)' \
                      | grep -vE '(formerly|historical|until dissolved|pre-rc13|pre-rc12|pre-Phase-C|narration|dissolved|relocated|was consolidated|was extracted|was dissolved|<!--)' || true)
 if [[ -n "$_r106_grammar_hits" ]]; then
   _r106_first=$(echo "$_r106_grammar_hits" | head -3 | tr '\n' '|')
-  fail_rule "cross_authority_parity" "present-tense verb naming deleted module without explicitly-historical marker (post-ADR-NNNN alone is NOT historical per Rule G-8.d): ${_r106_first}-- Rule 106 / E149 (Rule G-8.d)"
+  fail_rule "cross_authority_parity" "present-tense verb/noun-phrase naming deleted module without explicitly-historical marker (post-ADR-NNNN alone is NOT historical per Rule G-8.d): ${_r106_first}-- Rule 106 / E149 (Rule G-8.d)"
   _r106_fail=1
+fi
+
+# --- (e) Structural-carrier parity (rc15 — Rule G-8.e / E150 per ADR-0091) ---
+# Scope: every NON-SPI structural-carrier row in docs/contracts/contract-catalog.md
+# that follows the syntax: `| <ClassName> | <module> (`<...package>`) | <desc> |`
+# For each row, the package path + class file MUST resolve on disk under
+# <module>/src/main/java/<package-path>/<ClassName>.java.
+# Carrier class list is the union of:
+#   - Sealed/structural records in the catalog (EngineRegistry, EngineEnvelope,
+#     Run, RunContext, SuspendSignal, S2cCallbackEnvelope, S2cCallbackResponse,
+#     IngressEnvelope, IngressResponse, IdempotencyRecord, etc.)
+# The scan extracts these directly from the catalog table rows by syntax
+# rather than a hardcoded list, so new carriers added to the catalog are
+# automatically covered.
+_r106_catalog="docs/contracts/contract-catalog.md"
+if [[ -f "$_r106_catalog" ]]; then
+  # Extract structural-carrier rows: pattern `| `<ClassName>` | `<module>` (`<...package>`) |`
+  # Capture: class name, module name, package suffix (after the `...`)
+  while IFS=$'\t' read -r _r106_class _r106_module _r106_pkg_suffix; do
+    [[ -z "$_r106_class" || -z "$_r106_module" || -z "$_r106_pkg_suffix" ]] && continue
+    # Reconstruct full package path (ascend.springai.<suffix>) — convert "..." prefix to "ascend.springai."
+    _r106_full_pkg="ascend.springai.${_r106_pkg_suffix#...}"
+    _r106_path="$(echo "$_r106_full_pkg" | tr '.' '/')"
+    _r106_java_file="${_r106_module}/src/main/java/${_r106_path}/${_r106_class}.java"
+    if [[ ! -f "$_r106_java_file" ]]; then
+      fail_rule "cross_authority_parity" "contract-catalog.md structural-carrier row '${_r106_class}' claims package '${_r106_full_pkg}' under module '${_r106_module}' but file '${_r106_java_file}' does not exist on disk -- Rule 106 / E150 (Rule G-8.e per ADR-0091)"
+      _r106_fail=1
+    fi
+  done < <(awk -F'`' '
+    # Match catalog rows like: | `EngineRegistry` | `agent-execution-engine` (`...engine.runtime`) | ...
+    /^\| `[A-Z][A-Za-z]+` \| `agent-[a-z-]+` \(`\.\.\.[a-z._]+`\)/ {
+      cls = $2
+      mod = $4
+      # Package suffix is between the parens — capture from field 6 ($6)
+      pkg = $6
+      print cls "\t" mod "\t" pkg
+    }
+  ' "$_r106_catalog")
 fi
 
 if [[ $_r106_fail -eq 0 ]]; then pass_rule "cross_authority_parity"; fi

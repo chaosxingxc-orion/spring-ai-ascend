@@ -18,9 +18,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>Asserts that {@link ResilienceContract#resolve(String, String)} consults
  * {@code skill-capacity.yaml} at runtime and that a second concurrent caller for a
- * 1-capacity skill is rejected via {@code SkillResolution.admitted = false} with
- * a {@link SuspendReason.RateLimited} reason — proving the contract maps capacity
- * exhaustion to "would-suspend", NOT to "would-fail".
+ * 1-capacity skill receives a rejected decision envelope: {@code SkillResolution.admitted = false}
+ * carrying a {@link SuspendReason.RateLimited} reason. The W1 shipped surface returns this
+ * decision envelope; translating the decision into an actual {@code RunStatus.SUSPENDED}
+ * transition is deferred to Rule R-K.c (W2 scheduler admission). The contract here proves
+ * the W1 envelope shape (would-suspend intent carrier), NOT a Run state transition.
  *
  * <p>Enforcer row: docs/governance/enforcers.yaml#E73.
  */
@@ -37,7 +39,7 @@ class SkillCapacityResolutionIT {
             """;
 
     @Test
-    void suspendsSecondCallerWhenCapacityIsOne(@TempDir Path tmp) throws IOException {
+    void rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne(@TempDir Path tmp) throws IOException {
         Path yaml = tmp.resolve("skill-capacity-test.yaml");
         Files.writeString(yaml, BOTTLENECK_YAML);
 
@@ -54,7 +56,7 @@ class SkillCapacityResolutionIT {
                 .as("second concurrent caller must be rejected, not admitted")
                 .isFalse();
         assertThat(second.reasonIfRejected())
-                .as("rejection carries a SuspendReason — Rule R-K.b maps capacity to SUSPENDED, not FAILED")
+                .as("rejection carries a SuspendReason — Rule R-K.b returns a decision envelope at W1; actual RunStatus.SUSPENDED transition deferred to Rule R-K.c (W2 scheduler admission)")
                 .isInstanceOf(SuspendReason.RateLimited.class);
 
         SuspendReason.RateLimited reason = (SuspendReason.RateLimited) second.reasonIfRejected();

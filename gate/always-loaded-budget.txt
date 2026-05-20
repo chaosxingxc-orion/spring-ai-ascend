@@ -66,13 +66,27 @@
 # vs former 3 clauses) — ceiling raised from 84,000 to 85,000. CLAUDE.md grew
 # ~1.3K with Rule G-8 cross-authority parity kernel — held under 45,000 (now
 # ~27,800). architecture-graph.yaml grew ~1K with ADR-0090 + Rule G-8 + E146..E149
-# nodes/edges (post-rc14 regen: 381 nodes / 566 edges) — held under 148,000.
+# nodes/edges (post-rc14 regen: 382 nodes / 573 edges) — held under 148,000.
 # architecture-status.yaml grew ~3.5K with rc14 allowed_claim rewrites (Tracks C+G
 # baseline-bump + topology updates) — ceiling held at 110,000.
+# 2026-05-20 rc15 wave (ADR-0091): ARCHITECTURE.md grew ~200 bytes with rc15
+# Service-Layer Commitment rewrite + RunContext propagation rewrite (post-ADR-0088
+# noun-phrase corrections per M-β family) — held under 85,000. CLAUDE.md grew
+# ~700 bytes with Rule G-8.e kernel addition + Rule G-3.e widening + Rule G-8.d
+# noun-phrase additions — held under 45,000 (now ~28,500). architecture-graph.yaml
+# grew ~2K with ADR-0091 + E150 + E151 nodes/edges (post-rc15 regen: 384 nodes /
+# 577 edges) — ceiling raised from 150,500 to 152,500. architecture-status.yaml
+# grew ~1.5K with rc15 baseline rewrites (Track H baseline-bump + Rule G-8.e/G-3.e
+# narrations) — held under 110,000.
+# 2026-05-20 rc15 wave (ADR-0092 follow-up): architecture-graph.yaml grew ~1.3K
+# with ADR-0092 + ledger response doc + whitepaper-matrix Dim-1..Dim-4 nodes/edges
+# (post-regen: 386 nodes / 594 edges) — ceiling raised from 152,500 to 156,000.
+# architecture-status.yaml baseline_metrics bumped (adr_count 90→91; nodes 384→386;
+# edges 577→594) — held under 110,000.
 CLAUDE.md=45000
 ARCHITECTURE.md=85000
 AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000
-docs/governance/architecture-graph.yaml=150500
+docs/governance/architecture-graph.yaml=156000
 docs/governance/architecture-status.yaml=110000
 docs/CLAUDE-deferred.md=0

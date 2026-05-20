@@ -72,6 +72,27 @@ else
     _r99_fail=1
   fi
 fi
+# rc15 widening (Rule G-3.e scope to module ARCHITECTURE.md — sub-check (b),
+# enforcer E151 per ADR-0091): scan agent-*/ARCHITECTURE.md for the
+# specific over-claim phrasing pattern (`over-cap[acity]? callers are
+# SUSPENDED` and close variants). The rc14 M-γ defect surfaced when
+# `agent-service/ARCHITECTURE.md:315-317` said "over-cap callers are
+# SUSPENDED, not rejected" while shipped code + Rule R-K kernel both say
+# the W1 surface returns a SkillResolution.reject(SuspendReason.RateLimited)
+# decision envelope (Run suspension transition deferred to R-K.c / W2).
+# This sub-check catches that exact defect class in module architecture
+# docs without conflating with shipped end-state verbs like
+# `transitions to FAILED on engine_mismatch` which IS shipped behavior.
+# Admissible if the line carries decision-envelope wording or an explicit
+# defer marker.
+_r99b_hits=$(grep -rnE '(over-cap|over-capacity)( callers| requests)?[^.]*(are SUSPENDED|is SUSPENDED|transitions to SUSPENDED)' \
+             agent-*/ARCHITECTURE.md 2>/dev/null \
+             | grep -vE '(decision envelope|SkillResolution\.reject|deferred to R-K|deferred to Rule R-K|deferred per Rule R-K|W2 scheduler admission)' || true)
+if [[ -n "$_r99b_hits" ]]; then
+  _r99b_first=$(echo "$_r99b_hits" | head -3 | tr '\n' '|')
+  fail_rule "kernel_terminal_verb_vs_shipped_decision_check" "module ARCHITECTURE.md claims shipped over-capacity SUSPENSION while Rule R-K shipped surface returns a decision envelope (suspension deferred to R-K.c / W2). Either rewrite to decision-envelope wording OR add 'deferred to Rule R-K.c' / 'W2 scheduler admission' marker: ${_r99b_first}-- Rule 99 / E151 (Rule G-3.e module-arch scope widening per ADR-0091)"
+  _r99_fail=1
+fi
 if [[ $_r99_fail -eq 0 ]]; then pass_rule "kernel_terminal_verb_vs_shipped_decision_check"; fi
 
 # ---------------------------------------------------------------------------
