@@ -10,11 +10,7 @@
 # rc12 Rule 101 was scoped narrowly per ADR-0086 gate_layer_boundary;
 # this rule widens to ALL semantic-authority surfaces. Per ADR-0093.
 #
-# Scope dimensions (declared in rule card frontmatter):
-#   - docs/governance/principles/P-*.md (frontmatter + body)
-#   - docs/governance/rules/*.md (body cross-refs)
-#   - agent-*/ARCHITECTURE.md (all modules)
-#   - docs/contracts/*.{yaml,md}
+# scope_surfaces: docs/governance/principles/P-*.md, docs/governance/rules/*.md, agent-*/ARCHITECTURE.md, docs/contracts/*.yaml, docs/contracts/*.md
 #
 # Numeric Rule references MUST carry a legacy marker (formerly|legacy|
 # historical|Gate Rule|gate Rule|was Rule|ex-Rule) within the SAME line.

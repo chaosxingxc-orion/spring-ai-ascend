@@ -10,11 +10,7 @@
 # card; R-K.b orphaned in principle-coverage.yaml + CLAUDE-deferred.md).
 # Per ADR-0093 (rc16 cross-authority parity + meta scope completeness wave).
 #
-# Scope dimensions (declared in rule card frontmatter):
-#   - docs/governance/principle-coverage.yaml (deferred_operationalisers)
-#   - docs/CLAUDE-deferred.md (## Rule X.<letter> headings + prose cross-refs)
-#   - CLAUDE.md (#### Rule X headings)
-#   - docs/governance/rules/*.md (kernel + body cross-refs)
+# scope_surfaces: docs/governance/principle-coverage.yaml, docs/CLAUDE-deferred.md, CLAUDE.md, docs/governance/rules/*.md
 #
 # The rule asserts pairwise parity: every clause name (Rule-X.<letter>)
 # named in principle-coverage.yaml#deferred_operationalisers MUST have a

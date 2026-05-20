@@ -99,9 +99,9 @@ belongs to and which test layer covers it.
 
 ## Activation history
 
-- 2026-05-18 (Wave 4 per ADR-0068) — original Rule 11 / Rule R-C.c.
-- 2026-05-XX (W1) — original Rule 20 / Rule R-C.d.
-- 2026-05-XX (W1) — original Rule 21 / Rule R-C.e.
+- 2026-05-18 (Wave 4 per ADR-0068) — original legacy Rule 11 / Rule R-C.c.
+- 2026-05-XX (W1) — original legacy Rule 20 / Rule R-C.d.
+- 2026-05-XX (W1) — original legacy Rule 21 / Rule R-C.e.
 - 2026-05-20 (rc13 per ADR-0088) — Rule R-C.c relocated from
   agent-runtime-core to agent-service.
 - 2026-05-21 (rc17 per ADR-0094) — grouped under standalone rule R-C.2.

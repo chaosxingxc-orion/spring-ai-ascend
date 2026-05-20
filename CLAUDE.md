@@ -100,7 +100,7 @@ Enforced by [`rule-G-2.md`](docs/governance/rules/rule-G-2.md).
 
 **Deleted-module-name leakage across the active corpus: `architecture-status.yaml#allowed_claim` text (sub-clause .a, from former G-2.e), every active `.md/.yaml/.yml/.java` outside historical-by-location exemptions (sub-clause .b, from former G-2.f), AND files under `ops/**/*.{yaml,yml,tpl,md}` / `docs/contracts/*.yaml` / `**/module-metadata.yaml` / Dockerfile / `.github/workflows/*.yml` / `docs/**/*.puml` (sub-clause .c, from former G-2.h + Rule 103) MUST NOT contain current-tense pre-Phase-C module names (`agent-platform`, `agent-runtime` with negative lookahead on `agent-runtime-core`) outside marker windows listed in `gate/active-corpus-name-exemption-markers.txt`; file-path exemptions in `gate/active-corpus-name-exemption-paths.txt`. Detection uses the word-boundary regex `\bagent-platform\b` OR (`\bagent-runtime\b` AND NOT `\bagent-runtime-core\b`) with ±3-line historical-marker scan.**
 
-Enforced by [`rule-G-2-1.md`](docs/governance/rules/rule-G-2-1.md).
+Enforced by [`rule-G-2.1.md`](docs/governance/rules/rule-G-2.1.md).
 
 ---
 #### Rule R-C — Code-as-Contract
@@ -114,14 +114,14 @@ Enforced by [`rule-R-C.md`](docs/governance/rules/rule-R-C.md).
 
 **Every Maven module declares a sibling `module-metadata.yaml` with `module`, `kind ∈ {platform|domain|starter|bom|sample}`, `version`, `semver_compatibility`, `architecture_doc`, `dfx_doc`, `spi_packages`, `allowed/forbidden_dependencies`; each builds and tests in isolation via `mvn -pl <module> -am test`. Inter-module dependency direction is governed by the dependency-allowlist enforcer (E1).**
 
-Enforced by [`rule-R-C-1.md`](docs/governance/rules/rule-R-C-1.md).
+Enforced by [`rule-R-C.1.md`](docs/governance/rules/rule-R-C.1.md).
 
 ---
 #### Rule R-C.2 — Run Contract Spine
 
 **Every persistent record under `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java` MUST declare a `String tenantId` validated by `Objects.requireNonNull` (sub-clause .a — Contract Spine Completeness; relocated from agent-runtime-core per ADR-0088). Every `Run.withStatus(newStatus)` MUST call `RunStateMachine.validate(this.status, newStatus)` (sub-clause .b — Run State Transition Validity). No production class under `service.runtime..` may import `service.platform..`; the original narrow `TenantContextHolder` ban is asserted independently as defence-in-depth (sub-clause .c — Tenant Propagation Purity).**
 
-Enforced by [`rule-R-C-2.md`](docs/governance/rules/rule-R-C-2.md).
+Enforced by [`rule-R-C.2.md`](docs/governance/rules/rule-R-C.2.md).
 
 ---
 
@@ -197,7 +197,7 @@ Enforced by [`rule-R-I.md`](docs/governance/rules/rule-R-I.md).
 
 **Modules whose `deployment_plane` is `edge` MUST NOT import any production class under `ascend.springai.{service,engine,middleware}..` AND MUST NOT invoke compute_control HTTP routes directly; edge→compute_control traffic flows exclusively through `ascend.springai.bus.spi.ingress.IngressGateway` whose wire schema is `docs/contracts/ingress-envelope.v1.yaml`; W1 enforcement is ArchUnit (`EdgeToComputeDirectLinkArchTest`) + gate rule `edge_no_direct_compute_link`; contract status `design_only` at W1, promoted to `runtime_enforced` when the agent-client SDK lands per ADR-0049 / W3+.**
 
-Enforced by [`rule-R-I-1.md`](docs/governance/rules/rule-R-I-1.md).
+Enforced by [`rule-R-I.1.md`](docs/governance/rules/rule-R-I.1.md).
 
 ---
 #### Rule R-J — Storage-Engine Tenant Isolation + Cancel Re-Authorization
@@ -250,7 +250,7 @@ Enforced by [`rule-G-3.md`](docs/governance/rules/rule-G-3.md).
 
 **Rules listed in `gate/rule-100-disjunction-allowlist.txt` MUST carry explicit EITHER/OR connective wording in BOTH the CLAUDE.md kernel AND the matching `docs/governance/rules/rule-*.md` card. The allow-list captures only rules whose `||`-style disjunction is structurally load-bearing — meaning the difference between AND-implementation and OR-implementation would change which corpus inputs pass.**
 
-Enforced by [`rule-G-3-1.md`](docs/governance/rules/rule-G-3-1.md).
+Enforced by [`rule-G-3.1.md`](docs/governance/rules/rule-G-3.1.md).
 
 ---
 #### Rule G-4 — Always-Loaded Context Budget

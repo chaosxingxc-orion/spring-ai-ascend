@@ -21,7 +21,7 @@ kernel: |
 Split out from Rule R-C.b in the rc17 wave (per ADR-0094) to separate the
 **module-evolution invariant** (this rule) from the **code-as-contract
 invariant** (Rule R-C) and the **run-spine invariant** (Rule R-C.2).
-Originally added as Rule 31 / Rule R-C.b.
+Originally added as legacy Rule 31 / Rule R-C.b.
 
 ## Motivation
 
@@ -71,7 +71,7 @@ care.
 
 ## Activation history
 
-- 2026-05-XX (early W1) — original Rule 31 / Rule R-C.b activation.
+- 2026-05-XX (early W1) — original legacy Rule 31 / Rule R-C.b activation.
 - 2026-05-21 (rc17 per ADR-0094) — extracted to standalone rule R-C.1.
   Enforcer E31 unchanged; no behaviour delta.
 

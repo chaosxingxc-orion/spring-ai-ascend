@@ -117,7 +117,7 @@ Wait — that's wrong. Let me recompute:
 
 Total: 31 + 2 + 1 + 1 + 1 + 1 = **37**.
 
-- **Numeric namespace** (Rule 1 ... Rule 111): used in
+- **Numeric namespace** (Gate Rule 1 ... Gate Rule 111): used in
   `gate/check_architecture_sync.sh` rule headers and self-test fixture
   names. This is the **gate-implementation** namespace — 122-128 active
   gate checks counted by `architecture-status.yaml#baseline_metrics.active_gate_checks`.

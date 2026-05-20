@@ -90,10 +90,15 @@
 # CLAUDE.md grew ~1K with 4 brief gate-layer rule kernels (107-110) — held under
 # 45,000 (now ~29,500). architecture-status.yaml allowed_claim rewrite + baseline
 # bump — held under 110,000.
+# 2026-05-21 rc17 (ADR-0094): architecture-graph.yaml grew to ~162.8K with +11
+# nodes / +28 edges from 6 new rule cards (G-3.1/R-I.1/G-2.1/R-C.1/R-C.2/G-9)
+# + 3 new enforcer rows (E156-E158) + family ledger artefacts + ADR-0094
+# supersedes/extends/relates_to chains. Ceiling raised 160000 → 175000 to
+# admit the rc17 wave plus ~10K headroom for the next 1-2 waves.
 CLAUDE.md=45000
 ARCHITECTURE.md=85000
 AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000
-docs/governance/architecture-graph.yaml=160000
+docs/governance/architecture-graph.yaml=175000
 docs/governance/architecture-status.yaml=110000
 docs/CLAUDE-deferred.md=0

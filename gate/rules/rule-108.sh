@@ -9,9 +9,7 @@
 # SkillCapacityResolutionIT.suspendsSecondCallerWhenCapacityIsOne in
 # rule-R-K.md + P-K.md after rc15 rename). Per ADR-0093.
 #
-# Scope dimensions (declared in rule card frontmatter):
-#   - docs/governance/rules/*.md (rule card body prose)
-#   - docs/governance/principles/P-*.md (principle card body prose)
+# scope_surfaces: docs/governance/rules/*.md, docs/governance/principles/P-*.md
 #
 # The rule scans for ClassName.methodName tokens that look like Java
 # evidence anchors. For each, it requires either (a) the method to exist
