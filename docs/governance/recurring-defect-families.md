@@ -252,7 +252,7 @@ G-9 + this document as the structural backstop.
 
 ## §4 — Cross-references
 
-- Authority: [ADR-0094](../adr/ADR-0094.yaml) — rc17 recurring-defect-family-truth + rule-consolidation.
+- Authority: [ADR-0094](../adr/0094-rc17-recurring-defect-family-truth-and-rule-consolidation.yaml) — rc17 recurring-defect-family-truth + rule-consolidation.
 - Machine form: [`recurring-defect-families.yaml`](recurring-defect-families.yaml).
 - Freshness gate: Rule G-9 (Gate Rule 111) — enforces yaml well-formedness, mtime ≥ refresh-signal commit, and yaml↔md family-id parity.
 - Refresh skill: [`/refresh-defect-archive`](../../.claude/skills/refresh-defect-archive.md) — project-scoped Claude skill that re-runs the family-derivation pipeline and bumps `last_updated`.
