@@ -269,5 +269,5 @@ Activated 2026-05-19 by the v2.0.0-rc9 wave (rc8 post-corrective review response
 - ADR-0081 — describes ResilienceContract.resolve consuming SkillCapacityRegistry.
 - ADR-0083
 - Rule R-D sub-clause .f — sibling direction: catalog row → metadata.
-- Rule 66 — SPI package exhaustiveness against module-metadata.
+- Gate Rule 66 (`spi_package_exhaustiveness`) — SPI package exhaustiveness against module-metadata (gate-layer rule per ADR-0086 gate_layer_boundary).
 - `docs/logs/reviews/2026-05-18-l0-rc8-post-corrective-architecture-review.en.md` finding P1-2 — origin.

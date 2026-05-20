@@ -1,0 +1,292 @@
+id: ADR-0093
+title: "rc16 Recurring-Family Comprehensive Closure + META Scope Completeness"
+status: accepted
+date: 2026-05-20
+level: L0
+view: process
+freeze_id: null
+
+supersedes: []
+extends:
+  - ADR-0086   # gate_layer_boundary — Rule 109 widens namespace coverage to surfaces ADR-0086 explicitly excluded
+  - ADR-0090   # rc14 cross-authority parity — Rule 107 adds the clause-name dimension to Rule G-8's parity family
+  - ADR-0091   # rc15 structural-carrier parity + terminal-state scope — Rule 108 widens text-anchor truth from rc15 G-3.e module-arch scope
+relates_to:
+  - ADR-0070   # heterogeneous engine stateless-shell isolation — Rule R-K kernel reconciliation context (P1-1)
+  - ADR-0078   # agent-service consolidation
+  - ADR-0084   # rc10 corpus-truth + prevention-widening (Rule 97 + Rule 98) — pattern reused here
+  - ADR-0085   # rc11 kernel-truth + shadow-corpus-precision — Rule 94 widening pattern
+  - ADR-0087   # rc12 contract-authority-constraint — Rules 101-104 family precedent
+  - ADR-0088   # agent-runtime-core dissolution — affects R-K.c re-introduction trigger conditioning
+  - ADR-0089   # edge-plane IngressGateway mandate
+  - ADR-0092   # ledger acknowledgment + Agent-OS scope boundary — rc15 P2-2 logs/ policy companion
+
+decision_one_liner: |
+  Close rc15 post-closure review findings (P1-1 / P1-2 / P2-1 / P2-2) by
+  recognising every cited finding as a recurrence of a family that prior
+  waves declared "closed". Add 4 new gate rules (107/108/109/110) whose
+  scope spans EVERY manifestation surface of each family (not just the
+  reviewer-cited surface). Rule 110 META operationalises the documented-
+  but-never-gated meta-lesson "Reviewer scope can be narrower than defect
+  scope" by requiring every NEW prevention rule to declare
+  `scope_surfaces:` in card frontmatter + carry ≥2 self-test fixtures.
+  Push back on rc15 P2-2 second recommendation: log-folder interaction
+  records (docs/logs/reviews/*.md and non-latest docs/logs/releases/*.md)
+  remain exempt from architecture-graph numeric-truth gates per the user's
+  stated policy and the new docs/governance/logs-folder-policy.md.
+
+context: |
+  The rc15 post-closure review (Codex, docs/logs/reviews/2026-05-20-l0-rc15-post-closure-architecture-review.en.md)
+  found 4 findings: P1-1 (R-K active/deferred drift across YAML / cards /
+  CLAUDE-deferred / kernel), P1-2 (stale `SkillCapacityResolutionIT.
+  suspendsSecondCallerWhenCapacityIsOne` in rule-R-K.md + P-K.md),
+  P2-1 (numeric-only Rule references in principle frontmatter + engine
+  contract docs + module ARCHITECTURE.md), P2-2 (rc14 closure response
+  shows 384/577 vs current 386/594 baseline).
+
+  Family-recurrence audit (the rc16 "systematic reflection" step):
+
+  | Family | Class | Prior closure waves + rule | Why prior rule missed rc16 defect |
+  |---|---|---|---|
+  | A — Cross-authority parity | clause-name truth across active/deferred declarations | I-γ (rc10, no dedicated rule); K-α (rc12 Rule 101 narrow); L-α (rc14 G-8.a graph-baseline-only); M-α (rc15 G-8.e structural-carrier-only) | Each wave added a SURFACE dimension; the clause-name axis (machine YAML ↔ CLAUDE-deferred headings) was never targeted. |
+  | B — Text-vs-code anchor truth | free-text references to Java entities that no longer resolve | G-α (rc8 Rule 88 on architecture-status.yaml `shipped:true`); H-α (rc9 Rule 91 on enforcers / `active_gate_checks`) | Both prior rules scoped to YAML structured fields, NOT free-text prose in rule/principle cards. |
+  | C — Namespace migration completeness | numeric Rule N refs surviving post-ADR-0086 in semantic-authority surfaces | K-α (rc12 Rule 101 authority-surfaces-only per ADR-0086); M-η (rc15 agent-service/ARCHITECTURE.md only) | Rule 101 EXPLICITLY excluded principle-card frontmatter + engine contract docs + module ARCHITECTURE.md other than agent-service; the migration shipped piecemeal. |
+  | D — Log-folder snapshot evidence | numeric values in docs/logs/* drift from current graph | I-α (rc10 Rule 97 LATEST release note only); M-ε (rc15 inline reconciliation) | User policy: docs/logs/ are interaction records by design and ARE NOT gated against the live graph. |
+
+  The meta-pattern across rc8 → rc15: every wave's prevention rule was
+  scoped to the reviewer-cited surface, not to every surface where the
+  family could manifest. rc10/rc11/rc12 release notes documented the
+  meta-lesson ("Reviewer scope can be narrower than defect scope") but
+  the lesson was never operationalized as a gate. As a result the same
+  families kept recurring under different letter labels.
+
+  rc16's strategic move: design prevention rules to scope by mechanism,
+  not by surface. The new rules each list `scope_surfaces:` explicitly
+  and carry ≥2 self-test fixtures across distinct surfaces. The META
+  Rule 110 gates this discipline so future waves cannot ship scope-narrow
+  rules undetected.
+
+decision: |
+  ADR-0093 declares the following:
+
+  1. **Family A closed via Rule 107 (`cross_authority_clause_parity`).**
+     Every deferred clause name `Rule-X.<letter>` listed in
+     `docs/governance/principle-coverage.yaml#deferred_operationalisers`
+     MUST have a matching `## Rule X.<letter>` heading in
+     `docs/CLAUDE-deferred.md`. Enforcer E152. Scope dimensions declared:
+     principle-coverage.yaml + CLAUDE-deferred.md + CLAUDE.md + rule
+     cards. Closes rc15 P1-1 (R-K.b orphaned) AND 3 hidden defects (R-J.b.d
+     orphaned in principle-coverage.yaml + rule-R-J.md kernel + rule-R-J.md
+     card; R-K.b orphaned in CLAUDE-deferred.md cross-ref).
+
+  2. **Family B closed via Rule 108 (`governance_text_java_anchor_truth`).**
+     Every `<ClassName>.<methodName>` token in active rule cards
+     (`docs/governance/rules/*.md`) and principle cards
+     (`docs/governance/principles/P-*.md`) MUST resolve to a real Java
+     method in `agent-*/src/{main,test}/java/`. Exemption tokens within
+     ±2 lines: `formerly|renamed from|pre-rc[0-9]+|superseded|removed|
+     historical|deleted|deprecated`. Enforcer E153. Scope dimensions
+     declared: rule cards + principle cards. Closes rc15 P1-2 (3 stale
+     `suspendsSecondCallerWhenCapacityIsOne` references after rc15
+     rename per ADR-0091).
+
+  3. **Family C closed via Rule 109 (`namespaced_rule_reference_
+     completeness`).** Every `Rule <digits>` reference in active
+     semantic-authority surfaces (principle cards + rule cards + module
+     ARCHITECTURE.md + contract YAML/MD) MUST carry a SAME-LINE legacy
+     marker (`formerly|legacy|historical|Gate Rule|gate Rule|was Rule|
+     ex-Rule|pre-rc[0-9]+|superseded|deprecated`). Enforcer E154. Scope
+     dimensions declared: principle cards + rule cards + module
+     ARCHITECTURE.md + contract YAML + contract MD. Closes rc15 P2-1 by
+     widening rc12 Rule 101's authority-surfaces-only scope per ADR-0086
+     to every manifestation surface of the namespace migration.
+
+  4. **META scope discipline closed via Rule 110
+     (`prevention_rule_scope_completeness`).** Every rule card in
+     `docs/governance/rules/rule-*.md` whose frontmatter declares
+     `scope_surfaces:` MUST have ≥2 self-test fixture functions named
+     `test_rule_<rule_id>_*` in `gate/test_architecture_sync_gate.sh`.
+     Enforcer E155. Pre-rc16 rules without `scope_surfaces:` are
+     grandfathered. The rule dogfoods itself: rule cards 107/108/109/110
+     each declare `scope_surfaces:` AND carry ≥2 fixtures (positive +
+     negative).
+
+  5. **rc15 P2-2 disagreement formalised: docs/logs/ ≠ graph-locked.**
+     The reviewer's second recommendation (extend Rule 97 release-note
+     numeric-truth to closure-response verification blocks under
+     `docs/logs/reviews/`) is REJECTED. User policy (translated):
+     "interaction records in logs/ shouldn't be locked by the
+     architecture graph, otherwise other architecture teams will spend
+     their energy on format adjustments." Codified in
+     `docs/governance/logs-folder-policy.md` (active per this ADR).
+     The rc15 P2-2 first recommendation (mark rc14 closure response as
+     historical snapshot) is ACCEPTED — historical-snapshot marker
+     added matching the rc7/rc9/rc10/rc11 convention.
+
+  6. **Family-recurrence inventory archived in the response document.**
+     `docs/logs/reviews/2026-05-20-l0-rc15-post-closure-architecture-
+     review-response.en.md` carries the recurrence table + per-finding
+     closure + per-family defect register so future reviewers can see
+     the meta-pattern at-a-glance.
+
+alternatives_considered:
+  - id: "Widen existing G-3 / G-8 sub-clauses instead of adding new rules (rejected)"
+    description: |
+      Add Family A as G-8 sub-clause .f (clause-name parity); Family B as
+      G-3 sub-clause .g (evidence-anchor truth in cards); Family C by
+      widening Rule 101 in-place; META by widening G-3 sub-clause .c
+      (Every Active Rule Has a Card).
+    rejection_reason: |
+      User chose "Add new top-level rules" in the rc16 plan-mode question.
+      Top-level rules have their own enforcer rows (E152-E155) and self-
+      test fixtures, making the family attribution explicit in the
+      release-note audit trail. Widening in place would have made the
+      scope-completeness story harder to verify from later reviewer
+      passes.
+
+  - id: "Extend Rule 97 to docs/logs/reviews/ (rejected)"
+    description: |
+      Apply the rc15 P2-2 second recommendation: scan closure-response
+      verification blocks under docs/logs/reviews/ for architecture-graph
+      numeric parity against architecture-status.yaml.
+    rejection_reason: |
+      User policy stated explicitly: logs/ interaction records should
+      NOT be graph-locked. Extending the gate would (a) force retroactive
+      edits on 4+ existing closure responses, (b) impose perpetual
+      marker-maintenance overhead on every future review/response, and
+      (c) shift architecture-team energy from current-corpus correctness
+      to log-folder format chasing. The historical-snapshot marker
+      convention (already in use for rc7/rc9/rc10/rc11) handles this
+      class of drift without gate enforcement.
+
+  - id: "Retrofit `scope_surfaces:` to all 30 existing namespaced rules (rejected)"
+    description: |
+      Apply Rule 110 retroactively to every existing rule card under
+      `docs/governance/rules/rule-D-*.md`, `rule-R-*.md`, `rule-G-*.md`,
+      `rule-M-*.md` (~30 cards).
+    rejection_reason: |
+      The retrofit would be a separate large wave. Pre-rc16 rules
+      shipped under different scope-completeness norms; grandfathering
+      them respects the prior contract. Over time as existing rules
+      are touched they can opt in. Forcing the retrofit now would inflate
+      rc16 scope substantially without proportionate audit-trail value.
+
+consequences:
+  - id: family_recurrence_meta_lesson_now_gated
+    decision: |
+      The rc10/rc11/rc12 documented meta-lesson is now enforced by Rule 110.
+      Future waves cannot ship a prevention rule without declaring its
+      manifestation surfaces + ≥2 fixtures. Scope-narrowing becomes
+      visible at PR time.
+    impact: positive — closes the documented-but-never-gated meta-loop
+      that allowed the same families to recur across rc8 → rc15.
+
+  - id: rules_107_108_109_110_added
+    decision: |
+      Four new gate rules ship in rc16. CLAUDE.md kernel section unchanged
+      (these are gate-layer rules per ADR-0086 gate_layer_boundary).
+      Rule cards (`rule-107.md` through `rule-110.md`) are first-class
+      governance documents with `scope_surfaces:` frontmatter — the first
+      cards in `docs/governance/rules/` to use this field.
+    impact: gate count grows by 4 (118 → 122). Self-test count grows by
+      8 (194 → 202). Enforcer rows grow by 4 (150 → 154).
+
+  - id: logs_folder_policy_codified
+    decision: |
+      `docs/governance/logs-folder-policy.md` declares the canonical
+      policy: `docs/logs/reviews/*.md` and non-latest `docs/logs/releases/
+      *.md` are point-in-time interaction records exempt from
+      architecture-graph numeric-truth gates. Codifies user's rc16
+      directive into a discoverable doc.
+    impact: future reviewers can see the policy at-a-glance; future
+      teams know their review/response documents won't be marker-locked.
+
+  - id: rc14_closure_response_marked_historical
+    decision: |
+      `docs/logs/reviews/2026-05-20-l0-rc14-post-closure-architecture-
+      review-response.en.md` carries the
+      `> **Historical artifact frozen at SHA 8a733ca**` marker
+      immediately after its top-level heading. Matches the convention
+      already in use for rc7/rc9/rc10/rc11 closure responses.
+    impact: future readers know the 384/577 numerics are an intermediate
+      pre-ADR-0092 snapshot, not stale truth claims.
+
+  - id: 13_principle_frontmatters_namespaced
+    decision: |
+      All 13 `docs/governance/principles/P-*.md` cards bump
+      `enforced_by_rules:` frontmatter from numeric `[N]` (e.g. `[41]`)
+      to namespaced `[R-K]` form with same-line `# formerly Rule N`
+      comment. Body prose in P-M.md kernel `Rules 43–47` → `Rules
+      R-M.a–R-M.e (formerly Rules 43–47)`.
+    impact: machine `principle-coverage.yaml` namespace + human
+      principle-card namespace now agree (closes rc15 P2-1).
+
+  - id: r_k_authority_chain_reconciled
+    decision: |
+      principle-coverage.yaml line 153: `Rule-R-K.b` → `Rule-R-K.c`.
+      rule-R-K.md lines 23 + 31: method name updated to
+      `rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne`
+      (rc15 rename per ADR-0091) and "original 41.b deferral closed"
+      reworded to acknowledge R-K.b is closed and R-K.c is the
+      surviving deferred clause. P-K.md line 30 mirrored. CLAUDE-
+      deferred.md line 366 cross-reference: `Rule R-K.b runtime
+      integration` → `Rule R-K.c (W2 scheduler admission)`.
+      rule-R-H.md line 24 companion-rule prose rewritten to reflect
+      W1 decision envelope + W2 deferred SUSPENDED transition.
+    impact: closes rc15 P1-1; eliminates the orphan clause name from
+      every authority surface.
+
+  - id: r_j_b_d_heading_added
+    decision: |
+      New section `## Rule R-J.b.d — RunLifecycle Resume + Retry
+      Re-Authorization [Deferred to W2]` added to CLAUDE-deferred.md
+      after the existing R-J.a.b section. Resolves the 3 hidden
+      orphans surfaced by Family A sweep (principle-coverage.yaml
+      line 141 + rule-R-J.md kernel + rule-R-J.md card list).
+    impact: principle-coverage.yaml + rule-R-J.md kernel + rule-R-J.md
+      card list now all resolve against a backing heading.
+
+  - id: contract_engine_module_arch_namespaced
+    decision: |
+      `agent-execution-engine/ARCHITECTURE.md` + `agent-evolve/
+      ARCHITECTURE.md` + `agent-middleware/ARCHITECTURE.md` +
+      `agent-bus/ARCHITECTURE.md` + `agent-service/ARCHITECTURE.md`
+      (residual numeric refs) all converted to namespaced form with
+      `(formerly Rule N)` parentheticals. Same for `docs/contracts/
+      engine-envelope.v1.yaml`, `docs/contracts/engine-hooks.v1.yaml`,
+      `docs/contracts/openapi-v1.yaml`, `docs/contracts/contract-
+      catalog.md`.
+    impact: closes rc15 P2-1 corpus-wide (not just the cited surfaces).
+
+  - id: baseline_metrics_delta_adr0092_to_adr0093
+    decision: |
+      `architecture-status.yaml#baseline_metrics` bumped:
+        - adr_count: 91 → 92 (+1: ADR-0093)
+        - active_gate_checks: 118 → 122 (+4: Rules 107/108/109/110)
+        - gate_executable_test_cases: 194 → 202 (+8: 2 fixtures × 4 new rules)
+        - enforcer_rows: 150 → 154 (+4: E152/E153/E154/E155)
+        - architecture_graph_nodes: 386 → live post-regen
+        - architecture_graph_edges: 594 → live post-regen
+      Other baselines unchanged.
+    impact: baseline reconciles to live state per Rule G-8.a after
+      ADR-0093 graph rebuild.
+
+verification:
+  - command: "wsl python3 gate/build_architecture_graph.py"
+    expected: "Wrote docs/governance/architecture-graph.yaml: <N> nodes, <M> edges; Graph validation: OK"
+    verified: |
+      2026-05-20 (rc16 wave post-batch-fix + new rules + new ADR landed).
+      N/M captured in rc16 release note baseline table.
+  - command: "wsl bash gate/check_parallel.sh"
+    expected: "executed 122 rules; all PASS; GATE: PASS"
+    verified: 2026-05-20 (rc16 wave).
+  - command: "wsl bash gate/test_architecture_sync_gate.sh"
+    expected: "Tests passed: 202/202 (rc15 baseline 194 + rc16 +8 from Rules 107-110 fixtures)"
+    verified: 2026-05-20 (rc16 wave).
+  - command: "./mvnw.cmd clean verify"
+    expected: "BUILD SUCCESS; 374 tests green across 8 reactor modules."
+    verified: 2026-05-20 (rc16 wave; no Java code deltas).
+
+review_doc: docs/logs/reviews/2026-05-20-l0-rc15-post-closure-architecture-review.en.md
+response_doc: docs/logs/reviews/2026-05-20-l0-rc15-post-closure-architecture-review-response.en.md
+release_note: docs/logs/releases/2026-05-20-l0-rc16-recurring-family-comprehensive-closure-and-meta-scope.en.md

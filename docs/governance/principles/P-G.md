@@ -4,7 +4,7 @@ title: "Absolute Non-Blocking I/O"
 level: L0
 view: process
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
-enforced_by_rules: [37]
+enforced_by_rules: [R-G]   # formerly Rule 37 (numeric pre-ADR-0086)
 kernel: |
   P-G — Absolute Non-Blocking I/O.
   External I/O calls (model gateway, vector DB, sandbox dispatch) MUST use

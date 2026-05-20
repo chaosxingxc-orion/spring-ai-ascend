@@ -6,7 +6,7 @@ status: extracted-spi-and-registry
 freeze_id: null
 covers_views: [logical]
 spans_levels: [L1]
-authority: "ADR-0072 (Engine Envelope + Strict Matching); Layer-0 principle P-M (Heterogeneous Engine Contract); Rule 43 (Engine Envelope Single Authority), Rule 44 (Strict Engine Matching)"
+authority: "ADR-0072 (Engine Envelope + Strict Matching); Layer-0 principle P-M (Heterogeneous Engine Contract); Rule R-M.a (Engine Envelope Single Authority, formerly Rule 43), Rule R-M.b (Strict Engine Matching, formerly Rule 44)"
 ---
 
 # agent-execution-engine — L1 architecture (SPI + registry + envelope extracted)
@@ -34,7 +34,7 @@ The back-dep cycle that previously blocked extraction (engine → service → en
 |---|---|---|
 | §1 Role | logical | heterogeneous engine contract surface |
 | §2 Envelope schema | logical | `docs/contracts/engine-envelope.v1.yaml` |
-| §3 Matching strictness | process | Rule 44 — `engine_type=X` MUST be executed only by adapter X |
+| §3 Matching strictness | process | Rule R-M.b (formerly Rule 44) — `engine_type=X` MUST be executed only by adapter X |
 
 ## 1. Role
 
@@ -44,7 +44,7 @@ The back-dep cycle that previously blocked extraction (engine → service → en
   engine_type, payload_class_ref, schema_ref).
 - `EngineRegistry` — single authority for `resolve(envelope)` /
   `resolveByPayload(def)`; pattern-matching on `ExecutorDefinition`
-  subtypes OUTSIDE this module is forbidden (Rule 43).
+  subtypes OUTSIDE this module is forbidden (Rule R-M.a, formerly Rule 43).
 - `ExecutorAdapter` + `ExecutorDefinition` SPIs.
 - Engine-type-specific executor interfaces (`GraphExecutor`,
   `AgentLoopExecutor`).
@@ -58,9 +58,9 @@ The back-dep cycle that previously blocked extraction (engine → service → en
 The `EngineEnvelope` Java record mirrors the schema (required fields
 validated on construction). `known_engines` membership is enforced by
 `EngineRegistry.resolve(...)` + registry boot validation; constructor-
-level membership validation is deferred per Rule 48.c.
+level membership validation is deferred per Rule M-2.a.c (formerly Rule 48.c).
 
-## 3. Strict matching (Rule 44)
+## 3. Strict matching (Rule R-M.b, formerly Rule 44)
 
 A Run with `engine_type=X` executes only on the adapter registered
 under `X`. Mismatch → `EngineMatchingException` → `Run.FAILED` with

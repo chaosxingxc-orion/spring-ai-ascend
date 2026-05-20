@@ -164,12 +164,4 @@ fi
 
 if [[ $_r106_fail -eq 0 ]]; then pass_rule "cross_authority_parity"; fi
 
-# === END OF RULES ===
 # ---------------------------------------------------------------------------
-if [[ $fail_count -eq 0 ]]; then
-  echo "GATE: PASS"
-  exit 0
-else
-  echo "GATE: FAIL"
-  exit 1
-fi

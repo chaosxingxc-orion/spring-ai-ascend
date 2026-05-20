@@ -6,7 +6,7 @@ status: extracted-spi
 freeze_id: null
 covers_views: [logical]
 spans_levels: [L1]
-authority: "ADR-0073 (Engine Hooks + Runtime Middleware SPI); Layer-0 principle P-M (Heterogeneous Engine Contract); Rule 45 (Runtime-Owned Middleware via Engine Hooks)"
+authority: "ADR-0073 (Engine Hooks + Runtime Middleware SPI); Layer-0 principle P-M (Heterogeneous Engine Contract); Rule R-M.c (Runtime-Owned Middleware via Engine Hooks, formerly Rule 45)"
 ---
 
 # agent-middleware — L1 architecture (SPI extracted)
@@ -37,7 +37,7 @@ the W2 observability work, not in this module today.
 ## 1. Role
 
 `agent-middleware` is the **runtime-owned middleware module**. It
-implements Rule 45 / P-M: cross-cutting policies (model gateway, tool
+implements Rule R-M.c (formerly Rule 45) / P-M: cross-cutting policies (model gateway, tool
 authz, memory governance, tenant policy, quota, observability, sandbox
 routing, checkpoint, failure handling) are expressed as
 `RuntimeMiddleware` listeners attached at canonical `HookPoint` events.
@@ -70,7 +70,7 @@ yaml↔enum consistency). Nine canonical hook points:
   per `CLAUDE-deferred.md` 45.b.
 - `on_error` is best-effort across the chain.
 
-## 4. Forbidden imports (SPI purity per Rule 32)
+## 4. Forbidden imports (SPI purity per Rule R-D, formerly Rule 32)
 
 The `ascend.springai.middleware.spi.*` packages import only from `java.*`
 and own spi siblings. Enforced by `SpiPurityGeneralizedArchTest` (E48).

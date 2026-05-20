@@ -1329,3 +1329,43 @@
   view: process
   artifact: gate/check_architecture_sync.sh#kernel_terminal_verb_vs_shipped_decision_check
   asserts: "Rule 99 sub-check (b) — scan `agent-*/ARCHITECTURE.md` for the over-capacity SUSPENSION over-claim pattern `(over-cap|over-capacity)( callers| requests)?.*? (are|is|transitions to) SUSPENDED`. Hit must be admissible only when the same line carries `decision envelope`, `SkillResolution.reject`, `deferred to R-K`, `deferred to Rule R-K`, `deferred per Rule R-K`, or `W2 scheduler admission` (the Rule R-K shipped-surface wording). Closes rc14 post-closure review P1-3: `agent-service/ARCHITECTURE.md:315-317` said `over-cap callers are SUSPENDED, not rejected` while shipped Java + Rule R-K kernel both say the W1 surface returns a decision envelope and Run suspension transitions are deferred to Rule R-K.c (W2 scheduler admission). Module ARCHITECTURE.md is added to Rule 99's scope (previously CLAUDE.md kernels only)."
+
+# ---------------------------------------------------------------------------
+# rc16 — Family A/B/C + META prevention wave (ADR-0093).
+# Closes rc15 post-closure review P1-1 / P1-2 / P2-1 / P2-2 by operationalising
+# the recurring-family meta-lesson: every new prevention rule scopes to ALL
+# manifestation surfaces of its family, not just the reviewer-cited surface.
+# E152-E155 = Rule 107/108/109/110.
+# ---------------------------------------------------------------------------
+
+- id: E152
+  constraint_ref: "CLAUDE.md Rule 107 (cross_authority_clause_parity); ADR-0093"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#cross_authority_clause_parity
+  asserts: "Rule 107 — every clause name `Rule-X.<letter>` (where X is the namespaced rule, <letter> is the sub-clause suffix) listed under `docs/governance/principle-coverage.yaml#deferred_operationalisers` MUST have a matching `## Rule X.<letter>` heading in `docs/CLAUDE-deferred.md`. Closes rc15 post-closure review P1-1 (Family A) AND the 3 hidden defects surfaced by Family A sweep (R-J.b.d orphaned in principle-coverage.yaml + rule-R-J.md kernel + rule-R-J.md card; R-K.b orphaned in principle-coverage.yaml + CLAUDE-deferred.md cross-ref). Scope dimensions: principle-coverage.yaml + CLAUDE-deferred.md + CLAUDE.md + docs/governance/rules/*.md."
+
+- id: E153
+  constraint_ref: "CLAUDE.md Rule 108 (governance_text_java_anchor_truth); ADR-0093"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#governance_text_java_anchor_truth
+  asserts: "Rule 108 — every ClassName.methodName token in active rule cards (`docs/governance/rules/*.md`) + principle cards (`docs/governance/principles/P-*.md`) MUST resolve to a real Java method in `agent-*/src/{main,test}/java/`. Exemption tokens within ±2 lines: `formerly|renamed from|pre-rc[0-9]+|superseded|removed|historical|deleted|deprecated`. Load-bearing class suffixes (IT|Test|Repository|Service|Controller|Component|Configuration|Properties|Filter|Listener|Hook|Executor|Registry|Envelope|Signal|Context|Response|Resolver) are flagged when class itself is missing; for other classes only missing methods are flagged. Closes rc15 post-closure review P1-2 (Family B): `SkillCapacityResolutionIT.suspendsSecondCallerWhenCapacityIsOne` cited in rule-R-K.md + P-K.md after rc15 rename to `rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne` per ADR-0091."
+
+- id: E154
+  constraint_ref: "CLAUDE.md Rule 109 (namespaced_rule_reference_completeness); ADR-0093"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#namespaced_rule_reference_completeness
+  asserts: "Rule 109 — every `Rule <digits>` reference in active semantic-authority surfaces (principle cards + rule cards + module ARCHITECTURE.md + contract YAML/MD) MUST carry a SAME-LINE legacy marker: `formerly|legacy|historical|Gate Rule|gate Rule|was Rule|ex-Rule|pre-rc[0-9]+|superseded|deprecated`. Gate-layer numeric refs (`Gate Rule N`) are exempt by syntax (gate-layer rules per ADR-0086 stay numeric by design). Closes rc15 post-closure review P2-1 (Family C): rc12 Rule 101 was scoped narrowly to authority-surfaces-per-ADR-0086 and explicitly excluded principle-card frontmatter + engine contract docs + module ARCHITECTURE.md (other than agent-service); rc15 M-η rewrote agent-service but left agent-execution-engine + agent-bus + agent-middleware untouched. Rule 109 widens to ALL manifestation surfaces."
+
+- id: E155
+  constraint_ref: "CLAUDE.md Rule 110 (prevention_rule_scope_completeness — META); ADR-0093"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#prevention_rule_scope_completeness
+  asserts: "Rule 110 (META) — every rule card in `docs/governance/rules/rule-*.md` whose frontmatter declares `scope_surfaces:` MUST have ≥2 self-test fixture functions named `test_rule_<rule_id>_*` in `gate/test_architecture_sync_gate.sh`. Operationalises the rc10/rc11/rc12 documented meta-lesson 'Reviewer scope can be narrower than defect scope' that prior waves recorded but never gated. Pre-rc16 rules without `scope_surfaces:` are grandfathered (no retrofit). The rule dogfoods itself: rule cards 107/108/109/110 each declare `scope_surfaces:` AND carry ≥2 fixtures."

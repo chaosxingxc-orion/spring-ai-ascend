@@ -83,10 +83,17 @@
 # (post-regen: 386 nodes / 594 edges) — ceiling raised from 152,500 to 156,000.
 # architecture-status.yaml baseline_metrics bumped (adr_count 90→91; nodes 384→386;
 # edges 577→594) — held under 110,000.
+# 2026-05-20 rc16 wave (ADR-0093): architecture-graph.yaml grew ~5K with 4 new
+# rule cards (rule-107..rule-110.md) + 4 enforcer rows (E152-E155) + ADR-0093
+# + logs-folder-policy.md + rc16 release note + rc15-response review doc
+# (post-regen: 396 nodes / 615 edges) — ceiling raised from 156,000 to 160,000.
+# CLAUDE.md grew ~1K with 4 brief gate-layer rule kernels (107-110) — held under
+# 45,000 (now ~29,500). architecture-status.yaml allowed_claim rewrite + baseline
+# bump — held under 110,000.
 CLAUDE.md=45000
 ARCHITECTURE.md=85000
 AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000
-docs/governance/architecture-graph.yaml=156000
+docs/governance/architecture-graph.yaml=160000
 docs/governance/architecture-status.yaml=110000
 docs/CLAUDE-deferred.md=0

@@ -48,7 +48,7 @@ ordering: declared
 #
 # IMPORTANT (rc2 truth alignment, P0-2):
 #   The block below describes the TARGET behavior that activates when
-#   HookOutcome consumption lands in W2 Telemetry Vertical per Rule 45.b.
+#   HookOutcome consumption lands in W2 Telemetry Vertical per Rule R-M.c.b (formerly Rule 45.b).
 #   At W2.x Phase 2 / v2.0.0-rc2 the dispatcher fires hooks and returns
 #   outcomes, BUT the SyncOrchestrator DISCARDS the returned HookOutcome at
 #   every call-site (see SyncOrchestrator class Javadoc). Run-state effects
@@ -60,13 +60,13 @@ ordering: declared
 #   same HookPoint in the same fire() call). The Run lifecycle is unaffected.
 # ---------------------------------------------------------------------------
 failure_propagation:
-  # TARGET (Rule 45.b, W2 Telemetry Vertical): a middleware that returns
+  # TARGET (Rule R-M.c.b, formerly Rule 45.b; W2 Telemetry Vertical): a middleware that returns
   # HookOutcome.Fail aborts the dispatch chain; subsequent hooks at the same
   # point are not fired; the Run transitions to FAILED with the middleware-
   # declared reason. TODAY: only the chain-abort half is wired;
   # Run.FAILED transition is deferred.
   default: fail_fast
-  # TARGET (Rule 45.b): on_error never fail-fasts (failing inside an error
+  # TARGET (Rule R-M.c.b, formerly Rule 45.b): on_error never fail-fasts (failing inside an error
   # handler would mask the original error). It always fires the full chain
   # and aggregates outcomes via "first non-Proceed wins". TODAY: outcomes
   # from on_error are likewise discarded by the orchestrator.
@@ -93,7 +93,7 @@ phase_2_mandatory_hooks_fired_by_orchestrator:
 #   HookContext + HookOutcome. The bridge is EngineRegistry's accessor to
 #   HookDispatcher; engines never reach for middleware classes directly.
 
-# Hook ownership map (Phase 7 audit clarification — Rule 45 / L-5 in
+# Hook ownership map (Phase 7 audit clarification — Rule R-M.c (formerly Rule 45) / L-5 in
 # `D:/.claude/plans/spi-atomic-willow.md`).
 #
 # The nine canonical HookPoints split into two ownership classes:

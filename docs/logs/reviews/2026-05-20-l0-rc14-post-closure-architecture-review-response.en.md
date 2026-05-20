@@ -17,6 +17,8 @@ affects_artefact: [ARCHITECTURE.md, CLAUDE.md, docs/governance/architecture-stat
 
 # rc15 Closure Response — L0 rc14 Post-Closure Architecture Review
 
+> **Historical artifact frozen at SHA 8a733ca (rc15 wave merge commit; PR #13).** Baseline counts in this document (e.g. `384 nodes / 577 edges` on line 74) reflect the live graph state at rc15 mid-wave verification — BEFORE the rc15 wave subsequently added ADR-0092 (Ultimate Architecture Ledger acknowledgment + Agent-OS scope boundary) and the ledger response document, which advanced the live graph to `386 nodes / 594 edges`. The canonical baseline lives in `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`; this document is NOT retroactively updated per the logs-folder snapshot-evidence policy (`docs/governance/logs-folder-policy.md` — interaction records in `docs/logs/reviews/` and non-latest `docs/logs/releases/` are point-in-time snapshots, exempt from architecture-graph numeric-truth gates so that other architecture teams' workflow energy stays focused on the live corpus rather than retroactive log edits). Marker added in rc16 (P2-2 closure per ADR-0093).
+
 **Verdict:** all 7 cited findings closed (4 P1 + 3 P2); 0 rejected; live gate green; Maven + tests green.
 
 ## Per-finding response

@@ -4,7 +4,7 @@ title: "SPI-Aligned, DFX-Explicit, Spec-Driven, TCK-Tested"
 level: L0
 view: development
 authority: "Layer 0 governing principle (CLAUDE.md)"
-enforced_by_rules: [32]
+enforced_by_rules: [R-D]   # formerly Rule 32 (numeric pre-ADR-0086)
 kernel: |
   P-D — SPI-Aligned, DFX-Explicit, Spec-Driven, TCK-Tested.
   Every domain module ships an SPI;

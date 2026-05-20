@@ -13,7 +13,7 @@
 # `known_engines` membership is enforced by EngineRegistry.resolve(...) and
 # registry boot validation (Phase 5 R2 pilot — runtime self-validation;
 # enforcer E84). Constructor-level membership validation is deferred to
-# Rule 48.c (see docs/CLAUDE-deferred.md — re-introduction trigger: first
+# Rule M-2.a.c (formerly Rule 48.c; see docs/CLAUDE-deferred.md — re-introduction trigger: first
 # envelope built outside the Spring-boot test harness). The runtime
 # EngineRegistry loads this file at boot and asserts:
 #   (a) every known_engines[].id has a registered ExecutorAdapter
@@ -31,7 +31,7 @@ schema: engine-envelope/v1
 # Post-review status label (plan G / §5 overdesign labels): the envelope
 # contract is runtime_enforced -- EngineRegistry validates known_engines
 # at boot (ADR-0076 R2 pilot, enforcer E84) and every dispatch goes through
-# EngineRegistry.resolve(envelope) (Rule 43, enforcer E74).
+# EngineRegistry.resolve(envelope) (Rule R-M.a, formerly Rule 43; enforcer E74).
 status: runtime_enforced
 authority: ADR-0072
 

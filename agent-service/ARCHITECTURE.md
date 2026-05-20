@@ -33,11 +33,11 @@ This document is the **L1 root** for the `agent-service` module. Until the full 
 | §4 OSS dependencies | development | dependency direction + BoM authority |
 | §5–§9 Wave plan / risks | scenarios | rollout + audit hooks + Phase C landing note |
 
-P1-4 follow-up (L1-expert-review 2026-05-14, carried through Phase C): legacy §§4–9 boundary contradictions resolved by Phase C; cross-module-as-cross-package narrative replaces former cross-module narrative under Rule 33.
+P1-4 follow-up (L1-expert-review 2026-05-14, carried through Phase C): legacy §§4–9 boundary contradictions resolved by Phase C; cross-module-as-cross-package narrative replaces former cross-module narrative under Rule G-1.a (formerly Rule 33).
 
 ## 1. Purpose
 
-`agent-service` is the **consolidated edge + kernel module**. It owns the HTTP edge — accepting requests, binding them to a tenant, validating idempotency keys, validating JWT, and serving `/v1/runs` (subpackage `ascend.springai.service.platform.*`, formerly `ascend.springai.platform.*`) — AND it owns the **cognitive runtime kernel** that drives LLMs through tool-calling loops, runs the Run state machine, and dispatches engine envelopes (subpackage `ascend.springai.service.runtime.*`, formerly `ascend.springai.runtime.*`), all within a single deployable. The HTTP edge **trusts the kernel only via the kernel's published SPI surface** (Run repository, Orchestrator, RunRepository), preserving the original platform↛runtime layering as a sub-package invariant enforced by Rule 21 (ADR-0078). See `docs/adr/0078-agent-service-consolidation.yaml` for the merger rationale (supersedes ADR-0055, extends ADR-0066, relates_to ADR-0026).
+`agent-service` is the **consolidated edge + kernel module**. It owns the HTTP edge — accepting requests, binding them to a tenant, validating idempotency keys, validating JWT, and serving `/v1/runs` (subpackage `ascend.springai.service.platform.*`, formerly `ascend.springai.platform.*`) — AND it owns the **cognitive runtime kernel** that drives LLMs through tool-calling loops, runs the Run state machine, and dispatches engine envelopes (subpackage `ascend.springai.service.runtime.*`, formerly `ascend.springai.runtime.*`), all within a single deployable. The HTTP edge **trusts the kernel only via the kernel's published SPI surface** (Run repository, Orchestrator, RunRepository), preserving the original platform↛runtime layering as a sub-package invariant enforced by Rule R-C.e (formerly Rule 21, ADR-0078). See `docs/adr/0078-agent-service-consolidation.yaml` for the merger rationale (supersedes ADR-0055, extends ADR-0066, relates_to ADR-0026).
 
 ## 2. Shipped components
 
@@ -106,7 +106,7 @@ jwks-uri, audience, clock-skew (default PT60S), jwks-cache-ttl
 `@AssertTrue` rejects `dev-local-mode=true` together with a configured
 `jwks-uri`.
 
-`JwtDecoderConfig` wires exactly one `JwtDecoder` (Rule 6): JWKS-backed
+`JwtDecoderConfig` wires exactly one `JwtDecoder` (Rule D-8, formerly Rule 6): JWKS-backed
 when `app.auth.issuer` is set, dev-local-mode-backed when the flag is
 set and posture is dev (`PostureBootGuard` rejects the combo
 elsewhere). Validator chain: RS256 signature + `JwtTimestampValidator`
@@ -137,7 +137,7 @@ Mismatch → 403 `tenant_mismatch`; claim missing with header present →
 `springai_ascend_tenant_mismatch_total`,
 `springai_ascend_jwt_missing_tenant_claim_total`.
 
-Rule 21 retargeted at Phase C (ADR-0078): runtime sub-package main
+Rule R-C.e (formerly Rule 21) retargeted at Phase C (ADR-0078): runtime sub-package main
 sources MUST NOT import any class under
 `ascend.springai.service.platform..` (`ServiceRuntimeMustNotDependOnServicePlatformTest`,
 enforcer E2). This is the same invariant that previously sat across
@@ -293,9 +293,9 @@ transient agent-runtime-core module that ADR-0079 had briefly hosted them):
   `Run` (immutable record), `RunStatus` (formal DFA, 7 values: PENDING,
   RUNNING, SUSPENDED, CANCELLED, SUCCEEDED, FAILED, EXPIRED), `RunMode`
   discriminator, `RunStateMachine` (validates every `withStatus(newStatus)`
-  transition; illegal transitions throw `IllegalStateException` per Rule 20).
+  transition; illegal transitions throw `IllegalStateException` per Rule R-C.d, formerly Rule 20).
 - **`agent-service/src/main/java/ascend/springai/service/runtime/runs/spi/`** —
-  `RunRepository` SPI (interface only; pure Java per Rule 32).
+  `RunRepository` SPI (interface only; pure Java per Rule R-D, formerly Rule 32).
 
 After rc13 / ADR-0088 dissolution, `agent-service` is the canonical owner of `runs/` kernel types. Its only orchestration-adapter contribution
 on the runs axis is the posture-gated `InMemoryRunRegistry` reference adapter
@@ -417,7 +417,7 @@ and is the runtime-side contract-spine entity. It mirrors the persistence
 shape (`tenantId`, `idempotencyKey`, `requestHash`, `status`,
 `createdAt`, `expiresAt`) consumed by the platform-side
 `IdempotencyStore` SPI. Mandatory `tenantId` field is the trigger
-condition for Rule 11 activation (Wave 4 Track B in the Phase C re-plan).
+condition for Rule R-C.c (formerly Rule 11) activation (Wave 4 Track B in the Phase C re-plan).
 
 #### runtime / wave-staged placeholders (W2–W4)
 
@@ -602,7 +602,7 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
   `observability/TenantTagMeterFilter` (strips forbidden
   high-cardinality tags from `springai_ascend_*` metrics). Runtime
   side — Telemetry Vertical TraceContext SPI (ADR-0061).
-- **Phase C (delivered 2026-05-18, ADR-0078)**: merger of `agent-platform` + `agent-runtime` → `agent-service`. Package rename `ascend.springai.platform.*` → `ascend.springai.service.platform.*` and `ascend.springai.runtime.*` → `ascend.springai.service.runtime.*`. Rule 21 retargeted; ArchUnit class renamed `RuntimeMustNotDependOnPlatformTest` → `ServiceRuntimeMustNotDependOnServicePlatformTest`. Old modules deleted; reactor count decremented by 1.
+- **Phase C (delivered 2026-05-18, ADR-0078)**: merger of `agent-platform` + `agent-runtime` → `agent-service`. Package rename `ascend.springai.platform.*` → `ascend.springai.service.platform.*` and `ascend.springai.runtime.*` → `ascend.springai.service.runtime.*`. Rule R-C.e (formerly Rule 21) retargeted; ArchUnit class renamed `RuntimeMustNotDependOnPlatformTest` → `ServiceRuntimeMustNotDependOnServicePlatformTest`. Old modules deleted; reactor count decremented by 1.
 - **W2**: `config/`, tenant GUC + RLS, Spring Cloud Gateway routing,
   OTel auto-instrumentation, durable `RunRepository` (Postgres-backed
   beyond the L1 in-memory dev-posture wiring), streaming run event

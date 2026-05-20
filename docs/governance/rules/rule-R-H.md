@@ -21,4 +21,4 @@ The L0 motivation (LucioIT W1 §6.4): physical sleep holds a thread for the wait
 - Enforced by Gate Rule M-2 sub-clause .a (`no_thread_sleep_in_business_code`) — source scan for `Thread.sleep` and `TimeUnit.<x>.sleep`. Test code (`src/test/java`), gate scripts, and Awaitility usage are excluded.
 - Architecture reference: ADR-0069 / LucioIT W1 §6.4.
 - Cross-cited by Rule R-M sub-clause .d ([`rule-R-M.md`](rule-R-M.md)) envelope-propagation matrix and asserted independently for the S2C surface by E83 (`S2cCallbackRespectsRule38Test` — no Thread.sleep in s2c..).
-- Companion rule: Rule R-K ([`rule-R-K.md`](rule-R-K.md)) — Skill Capacity Matrix (over-cap callers are SUSPENDED via the same Chronos Hydration interlock).
+- Companion rule: Rule R-K ([`rule-R-K.md`](rule-R-K.md)) — Skill Capacity Matrix (at W1 over-cap callers receive a `SkillResolution.reject(SuspendReason.RateLimited)` decision envelope; actual `Run`/dependent-step `SUSPENDED` transition is deferred to Rule R-K.c via the same Chronos Hydration interlock at W2 scheduler admission per ADR-0070/ADR-0091).

@@ -4,7 +4,7 @@ title: "Heterogeneous Engine Contract & Server-Sovereign Boundary"
 level: L0
 view: logical
 authority: "Layer 0 governing principle (CLAUDE.md); W2.x engine contract structural wave"
-enforced_by_rules: [43, 44, 45, 46, 47, 48]
+enforced_by_rules: [R-M.a, R-M.b, R-M.c, R-M.d, R-M.e, M-2.a]   # formerly Rules 43, 44, 45, 46, 47, 48 (numeric pre-ADR-0086)
 kernel: |
   P-M — Heterogeneous Engine Contract & Server-Sovereign Boundary.
   The platform supports heterogeneous execution engines through a structured
@@ -15,8 +15,8 @@ kernel: |
   an explicit asynchronous protocol bound to the suspend/resume loop, and the
   evolution mechanism manages only server-controlled execution scope by
   default.
-  Enforced by Rules 43–47; cross-cutting structural invariant operationalised
-  by Rule M-2 sub-clause .a (Schema-First Domain Contracts).
+  Enforced by Rules R-M.a–R-M.e (formerly Rules 43–47); cross-cutting structural invariant operationalised
+  by Rule M-2 sub-clause .a (formerly Rule 48; Schema-First Domain Contracts).
 ---
 
 ## Motivation

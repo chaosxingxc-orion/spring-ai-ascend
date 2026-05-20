@@ -105,7 +105,7 @@ Activated 2026-05-18 by the v2.0.0-rc4 cross-constraint architecture review resp
 ## Cross-references
 
 - Rule G-2 sub-clause .a (Architecture-Text Truth) — Rule G-2 sub-clause .b is the count-vocabulary specialisation of Rule G-2 sub-clause .a; Rule G-2 sub-clause .a protects every prose claim that names an enforcer, Rule G-2 sub-clause .b protects every prose claim that names a baseline count.
-- Rule 27 (Active Entrypoint Baseline Truth, deferred but referenced) — gate-rule complement that asserts README baseline counts match `allowed_claim`. Rule G-2 sub-clause .b strengthens that surface by enforcing the structured-source form: Rule 27 says "the number is right", Rule G-2 sub-clause .b says "the number must be pulled from one block".
+- Gate Rule 27 (`active_entrypoint_baseline_truth`, deferred but referenced — gate-layer rule per ADR-0086 gate_layer_boundary) — gate-rule complement that asserts README baseline counts match `allowed_claim`. Rule G-2 sub-clause .b strengthens that surface by enforcing the structured-source form: Gate Rule 27 says "the number is right", Rule G-2 sub-clause .b says "the number must be pulled from one block".
 - ADR-0047 (Active Entrypoint Truth and System Boundary Prose Convention) — origin of the entrypoint-baseline-truth invariant that Rule G-2 sub-clause .b operationalises.
 - `docs/logs/reviews/2026-05-18-l0-rc4-cross-constraint-architecture-review.en.md` finding P1-1 — origin.
 - `docs/logs/reviews/2026-05-18-l0-rc4-cross-constraint-architecture-review.en.md` finding P1-1 — origin.

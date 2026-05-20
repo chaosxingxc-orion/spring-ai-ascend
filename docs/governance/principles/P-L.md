@@ -4,7 +4,7 @@ title: "Sandbox Permission Subsumption"
 level: L0
 view: physical
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
-enforced_by_rules: [42]
+enforced_by_rules: [R-L]   # formerly Rule 42 (numeric pre-ADR-0086)
 kernel: |
   P-L — Sandbox Permission Subsumption.
   Logical authorizations issued by the bus MUST 1:1 map to physical sandbox

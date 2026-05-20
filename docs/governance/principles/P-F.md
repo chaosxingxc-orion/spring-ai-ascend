@@ -4,7 +4,7 @@ title: "Cursor Flow & Asynchronous Client Boundary"
 level: L0
 view: logical
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
-enforced_by_rules: [36]
+enforced_by_rules: [R-F]   # formerly Rule 36 (numeric pre-ADR-0086)
 kernel: |
   P-F — Cursor Flow & Asynchronous Client Boundary.
   The Client → Runtime boundary is non-blocking by ironclad rule.

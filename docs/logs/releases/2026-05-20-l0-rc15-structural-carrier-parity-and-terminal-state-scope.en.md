@@ -17,6 +17,8 @@ related_adrs:
 
 # rc15 — Structural-Carrier Parity + Terminal-State Scope + Ledger Acknowledgment
 
+> **Historical artifact frozen at SHA 8a733ca (rc15 wave merge commit; PR #13).** Baseline counts in this document (91 ADRs / 118 gate rules / 194 self-tests / 150 enforcers / 386 nodes / 594 edges) reflect state at rc15 publication time and are NOT retroactively updated per the logs-folder snapshot-evidence policy (`docs/governance/logs-folder-policy.md`). Canonical baseline lives in `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`. Subsequent waves (rc16+) advanced this baseline; see the rc16 release note for the post-ADR-0093 numerics. Marker added in rc16 per ADR-0093 / Rule 28.
+
 **Closes:** 7 reviewer findings (4 P1 + 3 P2) from the Codex post-closure architecture review (`docs/logs/reviews/2026-05-20-l0-rc14-post-closure-architecture-review.en.md`) + 0 hidden defects. Accepts the Ultimate Architecture Ledger as L0 `view: scenarios` vision artefact and declares the Agent-OS scope boundary (ADR-0092).
 
 ## Baseline metrics

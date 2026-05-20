@@ -20,7 +20,7 @@ The L0 motivation (LucioIT W1 §7.3): a single high-frequency skill (slow extern
 
 The kernel was narrowed in v2.0.0**decision envelope** (`SkillResolution.reject(SuspendReason.RateLimited)`), not a `Run` state transition. The rc11 narrowing separates two obligations:
 
-- **Active (Rule R-K kernel)** — schema presence + runtime resolver consults matrix + over-capacity returns the right decision envelope. Asserted today by `SkillCapacityResolutionIT.suspendsSecondCallerWhenCapacityIsOne` (W1.x Phase 9, enforcer E73, gate Rule 54).
+- **Active (Rule R-K kernel)** — schema presence + runtime resolver consults matrix + over-capacity returns the right decision envelope. Asserted today by `SkillCapacityResolutionIT.rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne` (W1.x Phase 9, enforcer E73, gate Rule 54; method renamed in rc15 per ADR-0091 to remove terminal-state overclaim).
 - **Deferred (Rule R-K.c — W2 scheduler admission)** — translating the rejected `SkillResolution` into an actual `Run`/dependent-step `SUSPENDED` transition. Re-introduction trigger: first W2 async orchestrator that consumes `SkillResolution.reject(...)` and emits a `Run.withSuspension(...)` transition.
 
 ## Cross-references
@@ -28,7 +28,7 @@ The kernel was narrowed in v2.0.0**decision envelope** (`SkillResolution.reject(
 - Enforced by Gate Rule 51 (`skill_capacity_yaml_present_and_wellformed`) — schema check.
 - Enforced by Gate Rule 54 (`skill_capacity_runtime_resolver_present`) — runtime envelope behaviour (`SkillResolution.reject(SuspendReason.RateLimited)` on over-capacity).
 - Architecture reference: ADR-0069 / LucioIT W1 §7.3.
-- Runtime enforcement activated in W1.x Phase 9 (`SkillCapacityResolutionIT.suspendsSecondCallerWhenCapacityIsOne`, enforcer E73, gate Rule 54 per ADR-0070); the original 41.b deferral closed.
+- Runtime enforcement activated in W1.x Phase 9 (`SkillCapacityResolutionIT.rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne`, enforcer E73, gate Rule 54 per ADR-0070; method renamed in rc15 per ADR-0091); the original 41.b/R-K.b deferral closed — R-K.c is the surviving deferred clause (W2 scheduler admission).
 - **Rule R-K.c** (deferred to W2 per `docs/CLAUDE-deferred.md`) — Run/Step Suspension Transition: maps the rejected `SkillResolution` to a `Run.SUSPENDED` transition in the W2 orchestrator.
 - Cross-cited by Rule R-M sub-clause .d ([`rule-R-M.md`](rule-R-M.md)) envelope-propagation matrix — S2C callbacks consume the `s2c.client.callback` skill capacity.
 - Companion rule: Rule R-H ([`rule-R-H.md`](rule-R-H.md)) — No Thread.sleep in Business Code (Chronos Hydration interlock).

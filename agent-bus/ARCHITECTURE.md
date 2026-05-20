@@ -56,7 +56,7 @@ Logical view populated; process + physical views join when the W2 runtime impls 
 - **Workflow state durability** (work-state events, sleep declarations,
   wakeup pulses) that survive process restarts (planned W2).
 - **Tick engine** that re-hydrates suspended Runs on wake-pulse, per
-  Chronos Hydration (Rule 38 / P-H) (planned W2).
+  Chronos Hydration (Rule R-H (formerly Rule 38) / P-H) (planned W2).
 - **Backpressure & admission control** at the bus boundary (planned W2).
 
 ## 2. Three-track channel isolation (Rule R-E / P-E)

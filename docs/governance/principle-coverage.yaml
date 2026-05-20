@@ -150,7 +150,7 @@ principles:
     operationalised_by_rules:
       - Rule-R-K
     deferred_operationalisers:
-      - Rule-R-K.b   # ResilienceContract.resolve runtime enforcement — W1.x Phase 6
+      - Rule-R-K.c   # Run/Step Suspension Transition — W2 scheduler admission (rc11 narrowed kernel; the original 41.b/R-K.b deferral CLOSED — runtime envelope active; rc16 P1-1 reconciliation per ADR-0093)
 
   - id: P-L
     name: "Sandbox Permission Subsumption"

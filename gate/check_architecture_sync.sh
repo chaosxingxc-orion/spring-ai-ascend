@@ -5065,7 +5065,9 @@ else
 
   # (c) enforcers.yaml constraint_ref lines must be namespaced or carry legacy marker.
   if [[ -f "$_r101_enforcers" ]]; then
-    _r101_bad_refs=$(grep -nE 'constraint_ref:[[:space:]]*"[^"]*\bRule [0-9]+[a-z]?\b' "$_r101_enforcers" 2>/dev/null \
+    # Engineering-rule range (1-48) per ADR-0086 gate_layer_boundary requires legacy/namespaced markers.
+    # Gate-layer rules (numeric ≥49) are intentional numeric per ADR-0086 and are exempt.
+    _r101_bad_refs=$(grep -nE 'constraint_ref:[[:space:]]*"[^"]*\bRule ([1-9]|[1-3][0-9]|4[0-8])[a-z]?\b' "$_r101_enforcers" 2>/dev/null \
                      | grep -vE 'legacy Rule [0-9]+[a-z]?|Rule [DRGM]-|historical' || true)
     if [[ -n "$_r101_bad_refs" ]]; then
       _r101_first=$(echo "$_r101_bad_refs" | head -3 | tr '\n' '|')
@@ -5431,6 +5433,197 @@ if [[ -f "$_r106_catalog" ]]; then
 fi
 
 if [[ $_r106_fail -eq 0 ]]; then pass_rule "cross_authority_parity"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 107 — cross_authority_clause_parity (enforcer E152)
+#
+# Family A prevention — closes rc16 P1-1 + the 3 hidden defects (R-J.b.d
+# orphaned in principle-coverage.yaml + rule-R-J.md kernel + rule-R-J.md
+# card; R-K.b orphaned in principle-coverage.yaml + CLAUDE-deferred.md).
+# Per ADR-0093 (rc16 cross-authority parity + meta scope completeness wave).
+#
+# scope_surfaces: docs/governance/principle-coverage.yaml, docs/CLAUDE-deferred.md, CLAUDE.md, docs/governance/rules/*.md
+#
+# The rule asserts pairwise parity: every clause name (Rule-X.<letter>)
+# named in principle-coverage.yaml#deferred_operationalisers MUST have a
+# matching `## Rule X.<letter>` heading in CLAUDE-deferred.md. Active
+# clause names (Rule-X without sub-letter) are checked against CLAUDE.md
+# `#### Rule X` headings.
+# ---------------------------------------------------------------------------
+_r107_fail=0
+_r107_coverage="docs/governance/principle-coverage.yaml"
+_r107_deferred="docs/CLAUDE-deferred.md"
+_r107_claude="CLAUDE.md"
+if [[ -f "$_r107_coverage" && -f "$_r107_deferred" && -f "$_r107_claude" ]]; then
+  # Collect deferred-section headings as `Rule-X.<letter>` tokens.
+  _r107_deferred_headings=$(grep -oE '^## Rule [A-Z](-[A-Z])?(\.[a-z](\.[a-z])?)?' "$_r107_deferred" \
+                            | sed -E 's/^## Rule /Rule-/' | sed 's/ /-/g' | sort -u || true)
+  # Collect deferred-clause names listed in principle-coverage.yaml.
+  _r107_listed_clauses=$(awk '
+      /deferred_operationalisers:/{flag=1; next}
+      flag && /^[[:space:]]*-[[:space:]]+Rule-/{
+        sub(/^[[:space:]]*-[[:space:]]+/, "");
+        sub(/[[:space:]]+#.*$/, "");
+        print
+        next
+      }
+      flag && !/^[[:space:]]*-/{flag=0}
+    ' "$_r107_coverage" | sort -u || true)
+  while IFS= read -r _r107_clause; do
+    [[ -z "$_r107_clause" ]] && continue
+    # Only sub-letter clauses are expected as deferred headings.
+    if echo "$_r107_clause" | grep -qE '\.[a-z]'; then
+      if ! echo "$_r107_deferred_headings" | grep -qFx "$_r107_clause"; then
+        fail_rule "cross_authority_clause_parity" "principle-coverage.yaml lists deferred operationaliser $_r107_clause but no matching ## heading exists in CLAUDE-deferred.md -- Rule 107 / E152 (Family A per ADR-0093)"
+        _r107_fail=1
+      fi
+    fi
+  done <<< "$_r107_listed_clauses"
+fi
+if [[ $_r107_fail -eq 0 ]]; then pass_rule "cross_authority_clause_parity"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 108 — governance_text_java_anchor_truth (enforcer E153)
+#
+# Family B prevention — closes rc16 P1-2 (stale
+# SkillCapacityResolutionIT.suspendsSecondCallerWhenCapacityIsOne in
+# rule-R-K.md + P-K.md after rc15 rename). Per ADR-0093.
+#
+# scope_surfaces: docs/governance/rules/*.md, docs/governance/principles/P-*.md
+#
+# The rule scans for ClassName.methodName tokens that look like Java
+# evidence anchors. For each, it requires either (a) the method to exist
+# in agent-*/src/{main,test}/java/, OR (b) a nearby historical marker.
+# Marker tokens (within ±2 lines): formerly|renamed from|pre-rc[0-9]+|
+# superseded|removed|historical. Filters out non-Java patterns (URLs,
+# config keys with dot-notation, etc.) via shape constraints.
+# ---------------------------------------------------------------------------
+_r108_fail=0
+# Class.method tokens with PascalCase class + camelCase method, length-bounded.
+_r108_pattern='\b([A-Z][A-Za-z0-9_]{2,40})\.([a-z][A-Za-z0-9_]{2,40})\b'
+for _r108_dir in docs/governance/rules docs/governance/principles; do
+  [[ -d "$_r108_dir" ]] || continue
+  for _r108_file in "$_r108_dir"/*.md; do
+    [[ -f "$_r108_file" ]] || continue
+    # Find lines with potential anchors
+    grep -nE "$_r108_pattern" "$_r108_file" 2>/dev/null | while IFS= read -r _r108_line; do
+      _r108_lineno=$(echo "$_r108_line" | cut -d: -f1)
+      _r108_content=$(echo "$_r108_line" | cut -d: -f2-)
+      # Filter out non-Java tokens: URLs, hyphenated names, etc.
+      # Pull each class.method token
+      echo "$_r108_content" | grep -oE "$_r108_pattern" | sort -u | while IFS= read -r _r108_token; do
+        [[ -z "$_r108_token" ]] && continue
+        _r108_cls=$(echo "$_r108_token" | cut -d. -f1)
+        _r108_mth=$(echo "$_r108_token" | cut -d. -f2)
+        # Skip obvious false positives: classes ending in xyz that aren't real Java types
+        # Allow only PascalCase class with length 4+
+        [[ ${#_r108_cls} -lt 4 ]] && continue
+        # Skip common method names + file extensions that are not real Java methods
+        case "$_r108_mth" in
+          equals|hashCode|toString|getName|getValue|getId) continue;;
+          java|yaml|md|properties|txt|json|xml|sh|sql|bash|py|tpl|spec|sample|class|impl|yml) continue;;
+        esac
+        # Require method length ≥ 5 to filter out short tokens that look like extensions
+        [[ ${#_r108_mth} -lt 5 ]] && continue
+        # Check for historical marker within ±2 lines
+        _r108_start=$((_r108_lineno - 2))
+        [[ $_r108_start -lt 1 ]] && _r108_start=1
+        _r108_end=$((_r108_lineno + 2))
+        _r108_context=$(sed -n "${_r108_start},${_r108_end}p" "$_r108_file" 2>/dev/null || true)
+        if echo "$_r108_context" | grep -qE '(formerly|renamed from|pre-rc[0-9]+|superseded|removed|historical|deleted|deprecated)'; then
+          continue
+        fi
+        # Look for the class file
+        _r108_class_file=$(find agent-*/src -name "${_r108_cls}.java" -type f 2>/dev/null | head -1)
+        if [[ -z "$_r108_class_file" ]]; then
+          # Class doesn't exist anywhere — could be deleted or never existed
+          # Only flag if the class looks load-bearing (has uppercase + a recognizable suffix)
+          case "$_r108_cls" in
+            *IT|*Test|*Repository|*Service|*Controller|*Component|*Configuration|*Properties|*Filter|*Listener|*Hook|*Executor|*Registry|*Envelope|*Signal|*Context|*Response|*Resolver)
+              fail_rule "governance_text_java_anchor_truth" "$_r108_file:$_r108_lineno references $_r108_token but class $_r108_cls not found in agent-*/src/ -- Rule 108 / E153 (Family B per ADR-0093)"
+              _r108_fail=1
+              ;;
+          esac
+          continue
+        fi
+        # Class exists — check for the identifier (method call, record component, field, or accessor).
+        # Allow `name(`, `name,`, `name)` patterns to cover methods + record components + auto-generated accessors.
+        if ! grep -qE "\\b${_r108_mth}\\s*[(,)]" "$_r108_class_file" 2>/dev/null; then
+          fail_rule "governance_text_java_anchor_truth" "$_r108_file:$_r108_lineno references $_r108_token but identifier $_r108_mth not found in $_r108_class_file -- Rule 108 / E153 (Family B per ADR-0093)"
+          _r108_fail=1
+        fi
+      done
+    done
+  done
+done
+if [[ $_r108_fail -eq 0 ]]; then pass_rule "governance_text_java_anchor_truth"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 109 — namespaced_rule_reference_completeness (enforcer E154)
+#
+# Family C prevention — closes rc16 P2-1 (numeric Rule references in 13
+# principle frontmatters + 4 module ARCHITECTURE.md + 3 contract docs).
+# rc12 Rule 101 was scoped narrowly per ADR-0086 gate_layer_boundary;
+# this rule widens to ALL semantic-authority surfaces. Per ADR-0093.
+#
+# scope_surfaces: docs/governance/principles/P-*.md, docs/governance/rules/*.md, agent-*/ARCHITECTURE.md, docs/contracts/*.yaml, docs/contracts/*.md
+#
+# Numeric Rule references MUST carry a legacy marker (formerly|legacy|
+# historical|Gate Rule|gate Rule|was Rule|ex-Rule) within the SAME line.
+# Gate-layer numeric refs (`Gate Rule N`) are exempt by syntax.
+# ---------------------------------------------------------------------------
+_r109_fail=0
+_r109_surfaces=$(find docs/governance/principles docs/governance/rules \
+                   agent-*/ARCHITECTURE.md docs/contracts \
+                   -type f \( -name '*.md' -o -name '*.yaml' \) 2>/dev/null \
+                 | grep -v 'docs/archive/' | grep -v 'docs/logs/' || true)
+while IFS= read -r _r109_file; do
+  [[ -z "$_r109_file" || ! -f "$_r109_file" ]] && continue
+  # Find lines with `Rule <digits>` in the engineering-rule range (1-48) without same-line legacy marker.
+  # Gate-layer rules (≥49) per ADR-0086 gate_layer_boundary are intentionally numeric and not subject to this check.
+  _r109_hits=$(grep -nE '\bRule ([1-9]|[1-3][0-9]|4[0-8])(\.[a-z])?\b' "$_r109_file" 2>/dev/null \
+               | grep -viE '(formerly|legacy|historical|gate rule|was rule|ex-rule|pre-rc[0-9]+|superseded|deprecated)' || true)
+  while IFS= read -r _r109_line; do
+    [[ -z "$_r109_line" ]] && continue
+    # Skip lines that are URL/section headers/code blocks
+    echo "$_r109_line" | grep -qE '^[0-9]+:[[:space:]]*```' && continue
+    fail_rule "namespaced_rule_reference_completeness" "$_r109_file:$_r109_line -- Rule 109 / E154 (Family C per ADR-0093)"
+    _r109_fail=1
+  done <<< "$_r109_hits"
+done <<< "$_r109_surfaces"
+if [[ $_r109_fail -eq 0 ]]; then pass_rule "namespaced_rule_reference_completeness"; fi
+
+# ---------------------------------------------------------------------------
+# Rule 110 — prevention_rule_scope_completeness (enforcer E155) [META]
+#
+# Operationalises the rc10/rc11/rc12 meta-lesson "Reviewer scope can be
+# narrower than defect scope": every gate-script rule that declares
+# `# scope_surfaces:` in its leading comment block MUST have ≥2 self-test
+# fixture functions in gate/test_architecture_sync_gate.sh matching
+# test_rule_<N>_*. This prevents future waves from shipping scope-narrow
+# rules that only cover the reviewer-cited surface.
+# Per ADR-0093 (rc16 meta scope completeness wave).
+#
+# scope_surfaces: gate/check_architecture_sync.sh, gate/test_architecture_sync_gate.sh
+#
+# Pre-rc16 rules without scope_surfaces: are grandfathered (no retrofit).
+# ---------------------------------------------------------------------------
+_r110_fail=0
+_r110_test_file="gate/test_architecture_sync_gate.sh"
+_r110_gate_file="gate/check_architecture_sync.sh"
+if [[ -f "$_r110_test_file" && -f "$_r110_gate_file" ]]; then
+  # For every gate rule whose header is followed (within 20 lines) by a
+  # `# scope_surfaces:` comment, require ≥2 test_rule_<N>_* fixtures.
+  while IFS= read -r _r110_rid; do
+    [[ -z "$_r110_rid" ]] && continue
+    _r110_fixture_count=$(grep -cE "^test_rule_${_r110_rid}_" "$_r110_test_file" 2>/dev/null || echo 0)
+    if [[ "$_r110_fixture_count" -lt 2 ]]; then
+      fail_rule "prevention_rule_scope_completeness" "Rule $_r110_rid declares scope_surfaces in $_r110_gate_file but has only $_r110_fixture_count test_rule_${_r110_rid}_* fixtures (need ≥2) -- Rule 110 / E155 (META per ADR-0093)"
+      _r110_fail=1
+    fi
+  done < <(awk '/^# Rule [0-9]+ — /{match($0,/^# Rule ([0-9]+)/,m); cr=m[1]; ls=0; next} cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_gate_file" 2>/dev/null)
+fi
+if [[ $_r110_fail -eq 0 ]]; then pass_rule "prevention_rule_scope_completeness"; fi
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------

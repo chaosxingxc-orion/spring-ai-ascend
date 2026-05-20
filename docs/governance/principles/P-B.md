@@ -4,7 +4,7 @@ title: "Four Competitive Pillars"
 level: L0
 view: scenarios
 authority: "Layer 0 governing principle (CLAUDE.md)"
-enforced_by_rules: [30]
+enforced_by_rules: [R-B]   # formerly Rule 30 (numeric pre-ADR-0086)
 kernel: |
   P-B — Four Competitive Pillars.
   Platform competitiveness rests on four continuously-improvable dimensions —

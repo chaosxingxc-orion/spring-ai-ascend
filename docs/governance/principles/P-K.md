@@ -4,7 +4,7 @@ title: "Skill-Dimensional Resource Arbitration"
 level: L0
 view: physical
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
-enforced_by_rules: [41]
+enforced_by_rules: [R-K]   # formerly Rule 41 (numeric pre-ADR-0086)
 kernel: |
   P-K — Skill-Dimensional Resource Arbitration.
   A 2D defence net — Tenant Quota × Global Skill Capacity — protects the
@@ -27,6 +27,6 @@ This principle exists because **a single high-frequency skill (a slow external A
 
 - ADR-0069 (origin of Rules 35–42 and the LucioIT W1 §7.3 skill-capacity doctrine)
 - Matrix source of truth: [`docs/governance/skill-capacity.yaml`](../skill-capacity.yaml)
-- Rule R-K.b activated in W1.x Phase 9 (`SkillCapacityResolutionIT.suspendsSecondCallerWhenCapacityIsOne`, enforcer E73, gate Rule 54) per ADR-0070
+- Rule R-K kernel activated in W1.x Phase 9 (`SkillCapacityResolutionIT.rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne`, enforcer E73, gate Rule 54) per ADR-0070; method renamed in rc15 per ADR-0091 to remove terminal-state overclaim; the original 41.b/R-K.b deferral closed — R-K.c (Run/Step Suspension Transition) is the surviving deferred clause (W2 scheduler admission)
 - Related: P-H (Chronos Hydration) — suspension is the mechanism by which capacity overflow becomes non-blocking
 - Related: Rule R-M sub-clause .d (S2C Callback) — `s2c.client.callback` skill capacity is declared in this matrix

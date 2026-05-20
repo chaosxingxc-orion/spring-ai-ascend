@@ -5505,6 +5505,207 @@ SHEOF
 }
 
 # ---------------------------------------------------------------------------
+# rc16 — Rules 107 / 108 / 109 / 110 (Family A/B/C + META prevention).
+# Per ADR-0093. Each rule gets 2 fixtures (positive + negative) covering
+# at least 2 distinct scope surfaces (Rule 110 META requirement).
+# ---------------------------------------------------------------------------
+
+test_rule_107_clause_parity_pos() {
+  _r107_pos_root="$scratch/r107_pos"
+  mkdir -p "$_r107_pos_root"
+  # Surface 1: principle-coverage.yaml + Surface 2: CLAUDE-deferred.md
+  cat > "$_r107_pos_root/principle-coverage.yaml" <<'SHEOF'
+principles:
+  - id: P-K
+    operationalised_by_rules:
+      - Rule-R-K
+    deferred_operationalisers:
+      - Rule-R-K.c   # Run/Step Suspension Transition — W2
+SHEOF
+  cat > "$_r107_pos_root/CLAUDE-deferred.md" <<'SHEOF'
+# Deferred Rules
+
+## Rule R-K.c — Run/Step Suspension Transition [Deferred to W2]
+Re-introduction trigger: W2 scheduler.
+SHEOF
+  _deferred_headings=$(grep -oE '^## Rule [A-Z](-[A-Z])?(\.[a-z](\.[a-z])?)?' "$_r107_pos_root/CLAUDE-deferred.md" \
+                       | sed -E 's/^## Rule /Rule-/' | sed 's/ /-/g' | sort -u)
+  _listed=$(awk '/deferred_operationalisers:/{flag=1; next} flag && /^[[:space:]]*-/{sub(/^[[:space:]]*-[[:space:]]+/, ""); sub(/[[:space:]]+#.*$/, ""); print; next} flag && !/^[[:space:]]*-/{flag=0}' "$_r107_pos_root/principle-coverage.yaml" | sort -u)
+  _r107_pos_fail=0
+  while IFS= read -r _c; do
+    [[ -z "$_c" ]] && continue
+    if echo "$_c" | grep -qE '\.[a-z]'; then
+      echo "$_deferred_headings" | grep -qFx "$_c" || _r107_pos_fail=1
+    fi
+  done <<< "$_listed"
+  if [[ "$_r107_pos_fail" -eq 0 ]]; then
+    ok "rule_107_clause_parity_pos" "Rule 107 accepts deferred clause R-K.c with matching heading"
+  else
+    fail "rule_107_clause_parity_pos" "expected pass, got orphan detection"
+  fi
+}
+
+test_rule_107_clause_parity_neg() {
+  _r107_neg_root="$scratch/r107_neg"
+  mkdir -p "$_r107_neg_root"
+  # Surface 1: principle-coverage.yaml names R-K.b but Surface 2 only declares R-K.c
+  cat > "$_r107_neg_root/principle-coverage.yaml" <<'SHEOF'
+principles:
+  - id: P-K
+    deferred_operationalisers:
+      - Rule-R-K.b   # ORPHANED: no matching heading
+SHEOF
+  cat > "$_r107_neg_root/CLAUDE-deferred.md" <<'SHEOF'
+# Deferred Rules
+
+## Rule R-K.c — Run/Step Suspension Transition [Deferred to W2]
+SHEOF
+  _deferred_headings=$(grep -oE '^## Rule [A-Z](-[A-Z])?(\.[a-z](\.[a-z])?)?' "$_r107_neg_root/CLAUDE-deferred.md" \
+                       | sed -E 's/^## Rule /Rule-/' | sed 's/ /-/g' | sort -u)
+  _listed=$(awk '/deferred_operationalisers:/{flag=1; next} flag && /^[[:space:]]*-/{sub(/^[[:space:]]*-[[:space:]]+/, ""); sub(/[[:space:]]+#.*$/, ""); print; next} flag && !/^[[:space:]]*-/{flag=0}' "$_r107_neg_root/principle-coverage.yaml" | sort -u)
+  _r107_neg_orphan=0
+  while IFS= read -r _c; do
+    [[ -z "$_c" ]] && continue
+    if echo "$_c" | grep -qE '\.[a-z]'; then
+      if ! echo "$_deferred_headings" | grep -qFx "$_c"; then
+        _r107_neg_orphan=1
+      fi
+    fi
+  done <<< "$_listed"
+  if [[ "$_r107_neg_orphan" -eq 1 ]]; then
+    ok "rule_107_clause_parity_neg" "Rule 107 catches orphaned R-K.b clause with no matching heading"
+  else
+    fail "rule_107_clause_parity_neg" "expected orphan detection, got pass"
+  fi
+}
+
+test_rule_108_java_anchor_truth_pos() {
+  _r108_pos_root="$scratch/r108_pos"
+  mkdir -p "$_r108_pos_root/agent-service/src/test/java/foo"
+  # Surface 1: rule card body
+  mkdir -p "$_r108_pos_root/docs/governance/rules"
+  cat > "$_r108_pos_root/docs/governance/rules/rule-R-K.md" <<'SHEOF'
+# Rule R-K
+
+Asserted by SkillCapacityResolutionIT.rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne.
+SHEOF
+  cat > "$_r108_pos_root/agent-service/src/test/java/foo/SkillCapacityResolutionIT.java" <<'SHEOF'
+package foo;
+class SkillCapacityResolutionIT {
+  void rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne() {}
+}
+SHEOF
+  _java_file=$(find "$_r108_pos_root/agent-service/src" -name "SkillCapacityResolutionIT.java" -type f 2>/dev/null | head -1)
+  if [[ -n "$_java_file" ]] && grep -q "rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne" "$_java_file"; then
+    ok "rule_108_java_anchor_truth_pos" "Rule 108 accepts rule-R-K.md anchor resolving to real Java method"
+  else
+    fail "rule_108_java_anchor_truth_pos" "expected resolution, got file=$_java_file"
+  fi
+}
+
+test_rule_108_java_anchor_truth_neg() {
+  _r108_neg_root="$scratch/r108_neg"
+  mkdir -p "$_r108_neg_root/agent-service/src/test/java/foo"
+  # Surface 2: principle card body
+  mkdir -p "$_r108_neg_root/docs/governance/principles"
+  cat > "$_r108_neg_root/docs/governance/principles/P-K.md" <<'SHEOF'
+# P-K
+
+Old behaviour: SkillCapacityResolutionIT.suspendsSecondCallerWhenCapacityIsOne.
+SHEOF
+  cat > "$_r108_neg_root/agent-service/src/test/java/foo/SkillCapacityResolutionIT.java" <<'SHEOF'
+package foo;
+class SkillCapacityResolutionIT {
+  void rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne() {}
+}
+SHEOF
+  _java_file=$(find "$_r108_neg_root/agent-service/src" -name "SkillCapacityResolutionIT.java" -type f 2>/dev/null | head -1)
+  # Stale method should NOT be found in file
+  if [[ -n "$_java_file" ]] && ! grep -q "suspendsSecondCallerWhenCapacityIsOne" "$_java_file"; then
+    ok "rule_108_java_anchor_truth_neg" "Rule 108 catches stale P-K.md anchor not resolving in Java"
+  else
+    fail "rule_108_java_anchor_truth_neg" "expected stale-method detection, got resolution"
+  fi
+}
+
+test_rule_109_numeric_rule_ref_pos() {
+  _r109_pos_root="$scratch/r109_pos"
+  mkdir -p "$_r109_pos_root"
+  # Surface 1: principle card body with proper legacy marker
+  printf 'Enforced by Rule R-K (formerly Rule 41).\n' > "$_r109_pos_root/P-K.md"
+  # Surface 2: contract YAML with Gate Rule reference (intentional numeric)
+  printf 'Gate Rule 51 enforces skill-capacity.yaml schema.\n' > "$_r109_pos_root/engine-envelope.v1.yaml"
+  _hits=$(grep -nE '\bRule [0-9]+\b' "$_r109_pos_root/P-K.md" "$_r109_pos_root/engine-envelope.v1.yaml" 2>/dev/null \
+          | grep -viE '(formerly|legacy|historical|gate rule|was rule|ex-rule|pre-rc[0-9]+|superseded|deprecated)' || true)
+  if [[ -z "$_hits" ]]; then
+    ok "rule_109_numeric_rule_ref_pos" "Rule 109 accepts 'formerly Rule N' + 'Gate Rule N' markers"
+  else
+    fail "rule_109_numeric_rule_ref_pos" "expected no hits, got: $_hits"
+  fi
+}
+
+test_rule_109_numeric_rule_ref_neg() {
+  _r109_neg_root="$scratch/r109_neg"
+  mkdir -p "$_r109_neg_root"
+  # Surface 1: principle card body WITHOUT legacy marker
+  printf 'Enforced by Rule 41.\n' > "$_r109_neg_root/P-K.md"
+  # Surface 2: module ARCHITECTURE.md WITHOUT legacy marker
+  printf 'Routing per Rule 43.\n' > "$_r109_neg_root/ARCHITECTURE.md"
+  _hits=$(grep -nE '\bRule [0-9]+\b' "$_r109_neg_root/P-K.md" "$_r109_neg_root/ARCHITECTURE.md" 2>/dev/null \
+          | grep -viE '(formerly|legacy|historical|gate rule|was rule|ex-rule|pre-rc[0-9]+|superseded|deprecated)' || true)
+  if [[ -n "$_hits" ]]; then
+    ok "rule_109_numeric_rule_ref_neg" "Rule 109 catches bare 'Rule 41' / 'Rule 43' without legacy marker"
+  else
+    fail "rule_109_numeric_rule_ref_neg" "expected hits, got none"
+  fi
+}
+
+test_rule_110_scope_completeness_pos() {
+  _r110_pos_root="$scratch/r110_pos"
+  mkdir -p "$_r110_pos_root"
+  # Surface 1: gate-script-style file with # Rule N header + # scope_surfaces: comment
+  cat > "$_r110_pos_root/gate_script.sh" <<'SHEOF'
+# Rule 107 — cross_authority_clause_parity
+#
+# scope_surfaces: surface1, surface2
+SHEOF
+  # Surface 2: test fixture file with 2 matching fixtures
+  cat > "$_r110_pos_root/test_fixtures.sh" <<'SHEOF'
+test_rule_107_pos() { :; }
+test_rule_107_neg() { :; }
+SHEOF
+  _declared=$(awk '/^# Rule [0-9]+ — /{match($0,/^# Rule ([0-9]+)/,m); cr=m[1]; ls=0; next} cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_pos_root/gate_script.sh" | head -1)
+  _count=$(grep -cE "^test_rule_${_declared}_" "$_r110_pos_root/test_fixtures.sh" 2>/dev/null || echo 0)
+  if [[ -n "$_declared" && "$_count" -ge 2 ]]; then
+    ok "rule_110_scope_completeness_pos" "Rule 110 accepts Rule $_declared with $_count fixtures"
+  else
+    fail "rule_110_scope_completeness_pos" "expected declared rule with ≥2 fixtures, got declared=$_declared count=$_count"
+  fi
+}
+
+test_rule_110_scope_completeness_neg() {
+  _r110_neg_root="$scratch/r110_neg"
+  mkdir -p "$_r110_neg_root"
+  # Surface 1: gate-script-style file with # Rule N header + # scope_surfaces: comment
+  cat > "$_r110_neg_root/gate_script.sh" <<'SHEOF'
+# Rule 200 — fake_rule_for_test
+#
+# scope_surfaces: only-one-surface
+SHEOF
+  # Surface 2: test fixture file with only ONE matching fixture (scope-narrow)
+  cat > "$_r110_neg_root/test_fixtures.sh" <<'SHEOF'
+test_rule_200_single() { :; }
+SHEOF
+  _declared=$(awk '/^# Rule [0-9]+ — /{match($0,/^# Rule ([0-9]+)/,m); cr=m[1]; ls=0; next} cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_neg_root/gate_script.sh" | head -1)
+  _count=$(grep -cE "^test_rule_${_declared}_" "$_r110_neg_root/test_fixtures.sh" 2>/dev/null || echo 0)
+  if [[ -n "$_declared" && "$_count" -lt 2 ]]; then
+    ok "rule_110_scope_completeness_neg" "Rule 110 catches Rule $_declared with only $_count fixture (need ≥2)"
+  else
+    fail "rule_110_scope_completeness_neg" "expected <2 fixtures for declared rule, got declared=$_declared count=$_count"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

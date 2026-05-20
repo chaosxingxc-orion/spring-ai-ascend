@@ -6,7 +6,7 @@ status: skeleton
 freeze_id: null
 covers_views: [logical]
 spans_levels: [L1]
-authority: "ADR-0075 (Evolution scope default boundary); Layer-0 principle P-I (Five-Plane Distributed Topology); Rule 47 (Evolution Scope Default Boundary)"
+authority: "ADR-0075 (Evolution scope default boundary); Layer-0 principle P-I (Five-Plane Distributed Topology); Rule R-M.e (Evolution Scope Default Boundary, formerly Rule 47)"
 ---
 
 # agent-evolve — L1 architecture (skeleton)
@@ -24,7 +24,7 @@ shell. Bulk implementation is deferred indefinitely per
 
 What *is* shipped today: the `EvolutionExport` discriminator
 (`IN_SCOPE | OUT_OF_SCOPE | OPT_IN`) declared in
-`docs/governance/evolution-scope.v1.yaml` (Rule 47 / P-M, gate Rule 59).
+`docs/governance/evolution-scope.v1.yaml` (Rule R-M.e (formerly Rule 47) / P-M, gate Rule 59).
 Pre-Phase-C this lived in `agent-runtime/evolution/`; post-ADR-0078 / ADR-0079
 the EvolutionExport discriminator is consumed by `agent-service` (the
 consolidated runtime module) and the eventual Java adapter for the evolution

@@ -287,6 +287,18 @@ Composes with: ARCHITECTURE.md §7.2; ADR-0069; Rule R-J.a; LucioIT W1 §7.2.
 
 ---
 
+## Rule R-J.b.d — RunLifecycle Resume + Retry Re-Authorization [Deferred to W2]
+
+**Re-introduction trigger**: first W2 async orchestrator implementation that introduces a non-cancel resume or retry transition on the RunLifecycle HTTP edge (target: W2 async orchestrator wave; conditioned on the same trigger as Rule R-M sub-clause .d.c).
+
+**Rule (draft)**: For every `POST /v1/runs/{runId}/resume` and `POST /v1/runs/{runId}/retry` operation that ships post-W1, the controller MUST re-validate `(request.tenantId == Run.tenantId)` with HTTP 403 `tenant_mismatch` on miss, exactly as Rule R-J.b enforces today on `cancel`. Resume / retry MUST refuse to advance a Run whose `Run.tenantId` no longer resolves to a live tenant (HTTP 410 `tenant_revoked`). The orchestrator-side resume path MUST consult `RunStateMachine.validate(currentStatus, RUNNING)` before any state transition; illegal transitions return HTTP 409 `illegal_state_transition`. Structured `WARN+` audit logs MUST carry `(runId, fromStatus, toStatus, actor, occurredAt)` MDC fields, matching the cancel surface. Re-introduction trigger composes with the durable `run_state_change` audit table deferred per ADR-0020 (lands together).
+
+**Background**: At W1.x scope only `cancel` exists as a Run-lifecycle HTTP verb; `resume` and `retry` are W2 async-orchestrator features. The Rule R-J kernel + sub-clause .b deferred-list explicitly defers the matching re-authorization surface to R-J.b.d. The rc16 corpus-truth wave (P1-1 / Family A reconciliation per ADR-0093) added this heading after a Family A sweep surfaced the orphaned reference in `principle-coverage.yaml#deferred_operationalisers` (R-J.b.d had been listed as deferred but lacked a backing heading here).
+
+Composes with: Rule R-J.b (cancel re-authorization, W1 active surface); Rule R-C.d (Run State Transition Validity); Rule R-M sub-clause .d.c (W2 async orchestrator landing — shared trigger); ADR-0020 (RunLifecycle durable audit table); ADR-0069 / LucioIT W1 §7.2; ADR-0093 (rc16 cross-authority parity wave authority).
+
+---
+
 ## Rule R-K.c — Run/Step Suspension Transition [Deferred to W2]
 
 **Re-introduction trigger**: first W2 async orchestrator implementation that consumes a `SkillResolution.reject(SuspendReason.RateLimited)` and emits a corresponding `Run.withSuspension(...)` (or dependent-step suspension) transition. Conditioned on the same trigger as Rule R-M sub-clause .d.c (W2 async orchestrator landing).
@@ -363,7 +375,7 @@ Composes with: Rule R-M sub-clause .d (S2C Callback Envelope + Lifecycle Bound);
 
 **Background**: ADR-0074 §Consequences accepted a synchronous W2.x bridge for the SPI. The v2.0.0-rc1 cross-constraint audit (P0-1) noted this directly contradicts Rule R-M sub-clause .d's "MUST suspend, must not block a thread" and Principles P-F/P-G/P-H. The rc3 response: narrow Rule R-M sub-clause .d's prose to acknowledge the W2.x bridge as a deferred exception (this sub-clause); the structural fix lands when the async orchestrator ships.
 
-**Why deferral, not immediate fix**: A non-blocking S2C resume requires the bus-level wake-pulse machinery that lands in W2 alongside `SuspendSignal` Chronos Hydration (Rule R-H / Rule R-K.b runtime integration). Retrofitting `SyncOrchestrator` alone would require either (a) reimplementing the wake-pulse in-memory (massive scope creep into W1) or (b) a half-measure that still blocks on a different primitive. Better to land the whole non-blocking story together when the W2 async orchestrator ships.
+**Why deferral, not immediate fix**: A non-blocking S2C resume requires the bus-level wake-pulse machinery that lands in W2 alongside `SuspendSignal` Chronos Hydration (Rule R-H / Rule R-K.c W2 scheduler admission — the rc11-narrowed R-K kernel + rc16 reconciliation per ADR-0093 leave R-K.c as the surviving deferred companion). Retrofitting `SyncOrchestrator` alone would require either (a) reimplementing the wake-pulse in-memory (massive scope creep into W1) or (b) a half-measure that still blocks on a different primitive. Better to land the whole non-blocking story together when the W2 async orchestrator ships.
 
 Composes with: Rule R-M sub-clause .d (S2C Callback Envelope + Lifecycle Bound); Rule R-H (No Thread.sleep in Business Code); Principle P-F (Cursor Flow); Principle P-G (Absolute Non-Blocking I/O); Principle P-H (Chronos Hydration); ADR-0074 §Consequences.
 

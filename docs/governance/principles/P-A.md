@@ -4,7 +4,7 @@ title: "Business / Platform Decoupling + Developer Self-Service"
 level: L0
 view: development
 authority: "Layer 0 governing principle (CLAUDE.md)"
-enforced_by_rules: [29]
+enforced_by_rules: [R-A]   # formerly Rule 29 (numeric pre-ADR-0086)
 kernel: |
   P-A — Business / Platform Decoupling + Developer Self-Service.
   Business code and Platform code are decoupled.
