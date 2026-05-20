@@ -27,7 +27,7 @@ The 2026-05-18 rc4 cross-constraint architecture review (finding P0-2 in `docs/l
 - `docs/governance/architecture-status.yaml:12,20` said T2.B2 was deferred.
 - `agent-execution-engine/pom.xml:5–7` carried a "code is still to be extracted" comment alongside dependencies on `agent-runtime-core` and `agent-middleware` for the extracted engine implementation.
 
-A contributor following the root L0 architecture would treat `agent-execution-engine` as an empty workspace while the reactor already built it as the owner of the engine surface. This undermined Rule R-C.b (Independent Module Evolution) and Rule G-1 sub-clause .a (Layered 4+1 Discipline) because module identity, module architecture, and physical code stopped agreeing.
+A contributor following the root L0 architecture would treat `agent-execution-engine` as an empty workspace while the reactor already built it as the owner of the engine surface. This undermined Rule R-C.1 (Independent Module Evolution; was Rule R-C.b pre-rc17 per ADR-0094) and Rule G-1 sub-clause .a (Layered 4+1 Discipline) because module identity, module architecture, and physical code stopped agreeing.
 
 Rule M-1 prevents the re-occurrence: a module can carry a `skeleton` status in its L1 ARCHITECTURE.md only when its production Java tree literally contains no production types beyond `package-info.java` (or ADR-waived placeholder stubs).
 
@@ -64,7 +64,7 @@ Activated 2026-05-18 by the v2.0.0-rc4 cross-constraint architecture review resp
 
 ## Cross-references
 
-- Rule R-C.b (Independent Module Evolution) — Rule M-1 protects Rule R-C.b's invariant that every module has a coherent identity (metadata + ARCHITECTURE.md + actual Java tree).
+- Rule R-C.1 (Independent Module Evolution; was Rule R-C.b pre-rc17 per ADR-0094) — Rule M-1 protects Rule R-C.1's invariant that every module has a coherent identity (metadata + ARCHITECTURE.md + actual Java tree).
 - Rule R-D sub-clause .a (SPI + DFX + TCK Co-Design) — placeholder SPI stubs survive Rule R-D sub-clause .a only via the ADR waiver Rule M-1 enforces.
 - Rule G-1 sub-clause .a (Layered 4+1 Discipline) — module-level L1 architecture status is one of the artefacts Rule G-1 sub-clause .a freezes; Rule M-1 guards the truthfulness of the status token.
 - Rule R-D sub-clause .b (SPI Packages Populated) — companion rule for the metadata side; placeholder-with-ADR shape is shared.

@@ -25,4 +25,4 @@ When a class needs tenant scoping, scope is a **required constructor argument**.
 ## Cross-references
 
 - Rule D-7 (Concurrency / Async Resource Lifetime) — single construction is the prerequisite for an enforceable lifetime.
-- Rule R-C.e (Tenant Propagation Purity) — tenant scope as a required constructor argument is the structural enforcement that prevents request-scoped ThreadLocal leakage into runtime code.
+- Rule R-C.2 sub-clause .c (Tenant Propagation Purity; was Rule R-C.e pre-rc17 per ADR-0094) — tenant scope as a required constructor argument is the structural enforcement that prevents request-scoped ThreadLocal leakage into runtime code.
