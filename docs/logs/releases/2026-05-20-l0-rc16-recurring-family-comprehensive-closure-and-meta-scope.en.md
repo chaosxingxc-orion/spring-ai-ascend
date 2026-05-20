@@ -12,6 +12,15 @@ supersedes_release_notes:
 
 # L0 v2.0.0-rc16 — Recurring-Family Comprehensive Closure + META Scope Completeness
 
+> **Historical artifact frozen at SHA 84527ee.** This release note captures rc16
+> wave-final baselines (92 ADRs / 122 active gate rules / 31 active engineering
+> rules / 202 self-tests / 396 graph nodes / 615 edges). For current canonical
+> baselines see `docs/governance/architecture-status.yaml#architecture_sync_gate.allowed_claim`
+> (rc17 superseded these counts per ADR-0094: 93 ADRs / 123 gate rules / 37
+> engineering rules / 205 self-tests / 407 nodes / 643 edges). Rule 28
+> release_note_baseline_truth exempts this file via the `Historical artifact
+> frozen at SHA` marker convention (Rule 28 release-note baseline truth lesson).
+
 ## Verdict
 
 rc16 closes the rc15 post-closure architecture review (Codex; 4 cited findings: P1-1 / P1-2 / P2-1 / P2-2) by recognising every cited finding as a recurrence of a family that prior waves declared closed. Each prior wave's prevention rule scoped to the reviewer-cited surface, not to every surface where the family could manifest. The rc10/rc11/rc12 documented meta-lesson "Reviewer scope can be narrower than defect scope" was never operationalized — rc16 fixes that.
