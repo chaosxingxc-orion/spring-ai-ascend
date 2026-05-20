@@ -30,7 +30,15 @@ for _f44 in ARCHITECTURE.md $(find . -maxdepth 2 -type f -name 'ARCHITECTURE.md'
 done
 # If git is available and a base ref is reachable, check each frozen doc for
 # modifications without an accompanying review proposal.
+# rc18 Wave 2 (ADR-0095): shallow-clone fail-closed safeguard — if running on
+# a shallow clone (CI without fetch-depth: 0), git diff against base ref may
+# silently return empty even when the file changed. Fail loudly instead.
 if [[ -n "$_r44_frozen" ]] && command -v git >/dev/null 2>&1 && git rev-parse --verify "$_r44_base" >/dev/null 2>&1; then
+  _r44_is_shallow=$(git rev-parse --is-shallow-repository 2>/dev/null)
+  if [[ "$_r44_is_shallow" == "true" ]]; then
+    fail_rule "frozen_doc_edit_path_compliance" "cannot evaluate frozen-doc edit compliance on shallow clone (run git fetch --unshallow in CI; CI workflows must set actions/checkout fetch-depth: 0) -- Rule 44 / E63 (rc18 Wave 2 fix per ADR-0095)"
+    _r44_fail=1
+  fi
   _r44_changed_reviews="$(git diff --name-only --diff-filter=A "$_r44_base" -- 'docs/logs/reviews/*.md' 2>/dev/null || true)"
   while IFS= read -r _f44; do
     [[ -z "$_f44" ]] && continue
