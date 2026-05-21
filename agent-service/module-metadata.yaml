@@ -14,9 +14,15 @@ spi_packages:
   - com.huawei.ascend.service.runtime.memory.spi
   - com.huawei.ascend.service.runtime.resilience.spi
   - com.huawei.ascend.service.runtime.runs.spi   # RunRepository ownership consolidated here per ADR-0088
+  - com.huawei.ascend.service.engine.spi          # rc23 — StatelessEngine SPI per ADR-0100
+  - com.huawei.ascend.service.session.spi         # rc23 — ContextProjector SPI per ADR-0100
+  - com.huawei.ascend.service.task.spi            # rc23 — TaskStateStore SPI per ADR-0100
 allowed_dependencies:
   - agent-execution-engine    # engine SPI + orchestration SPI (RunMode, RunContext, SuspendSignal, ...) per ADR-0088
   - agent-bus                 # S2cCallbackTransport SPI + IngressGateway SPI per ADR-0088 + ADR-0089
   - agent-middleware
 forbidden_dependencies: []
 deployment_plane: compute_control
+deployment_loci:
+  - platform_centric    # mode_a default per ADR-0101
+  - business_centric    # mode_b — agent-service co-deploys with agent-execution-engine on business side per ADR-0101
