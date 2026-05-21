@@ -6066,6 +6066,31 @@ SHEOF
   fi
 }
 
+test_rule_113_legacy_paren_reintroduction_neg() {
+  # Rule 113.a: synthetic enforcers.yaml WITH (legacy Rule NN ...) paren → fail
+  local root="$scratch/r113_neg"
+  mkdir -p "$root"
+  cat > "$root/enforcers.yaml" <<'YEOF'
+- id: E999
+  constraint_ref: "CLAUDE.md Rule X.y (legacy Rule 99 — fake legacy paren reintroduction); test"
+YEOF
+  if grep -nE '\(legacy Rule [0-9]+' "$root/enforcers.yaml" > /dev/null; then
+    ok "rule_113_legacy_paren_reintroduction_neg" "Rule 113.a catches (legacy Rule NN ...) paren reintroduction"
+  else
+    fail "rule_113_legacy_paren_reintroduction_neg" "expected paren to be detected"
+  fi
+}
+
+test_rule_113_migration_doc_complete_pos() {
+  # Rule 113.b: real migration.md MUST contain expected sections
+  if grep -qF 'Legacy numeric' "$repo_root/gate/rule-number-migration.md" && \
+     grep -qF 'rc17 sub-rule splits' "$repo_root/gate/rule-number-migration.md"; then
+    ok "rule_113_migration_doc_complete_pos" "Rule 113.b accepts real migration.md with both required section headings"
+  else
+    fail "rule_113_migration_doc_complete_pos" "real migration.md missing expected headings"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
