@@ -88,7 +88,7 @@ capabilities:
     latest_delivery_file: docs/delivery/2026-05-12-e0ccb6e.md
     baseline_metrics:
       # Other docs (README.md, gate/README.md) reference this block; raw numeric claims in those entrypoints
-      active_engineering_rules: 37              # `#### Rule X` headings in CLAUDE.md (D-/R-/G-/M- namespace per ADR-0086). rc17 wave (ADR-0094): rc16 baseline 31 + 6 new = 37 (R-C split into R-C + R-C.1 + R-C.2 = +2; R-I split into R-I + R-I.1 = +1; G-3 split into G-3 + G-3.1 = +1; G-2 split into G-2 + G-2.1 = +1; new Rule G-9 Recurring-Defect Family Truth = +1). Composition: 8 D + 15 R + 11 G + 2 M = 36. Plus Rule R-A.c (active per ADR-0087) gives 37. Rule 101 gates this against the live kernel-header count.
+      active_engineering_rules: 38              # rc20 Wave 4: rc19 baseline 37 + Rule D-9 (no_version_log_metadata_in_code) added per ADR-0097. Composition: 9 D + 15 R + 11 G + 2 M = 37. Plus Rule R-A.c (active per ADR-0087) gives 38. Rule 101 gates this against the live kernel-header count.
       active_governing_principles: 13           # P-A..P-M
       active_gate_checks: 127                   # rc20 Wave 4 (post-Wave-1 rebase): post-Wave-1 baseline 126 + Rule 115 (Rule D-9 enforcement) = 127.
       gate_executable_test_cases: 226           # rc20 Wave 4 (post-Wave-1 rebase): post-Wave-1 baseline 224 (220 + W2 +1 + W1 +3) + 2 Wave 4 fixtures = 226.
