@@ -178,6 +178,12 @@ if [[ -f "$repo_root/gate/lib/latest_release.sh" ]]; then
   # shellcheck source=gate/lib/latest_release.sh
   source "$repo_root/gate/lib/latest_release.sh"
 fi
+# PR-Opt-rc22: fast-grep helpers (rg/git-grep/grep auto-fallback + parallel).
+# Auto-selects ripgrep when available for 3-10x grep speedup. See file header.
+if [[ -f "$repo_root/gate/lib/fast_grep.sh" ]]; then
+  # shellcheck source=gate/lib/fast_grep.sh
+  source "$repo_root/gate/lib/fast_grep.sh"
+fi
 
 # ---------------------------------------------------------------------------
 # Rule 1 — status_enum_invalid
