@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc19 Wave 5 finalize
+last_updated: 2026-05-21  # rc20 Wave 3 defensive hardening
 
 families:
   - id: F-numeric-drift
@@ -325,3 +325,9 @@ families:
       (402 nodes / 656 edges) and bumped the documentation triangle
       (status.yaml + README.md baseline line + rc18 release note frozen-
       SHA marker) in one commit per feedback_lockstep_baseline_surfaces.md.
+      rc20 Wave 3 defensive hardening: derive_signal_paths now sanitises
+      surface tokens (rejects absolute paths + colon-bearing tokens, warns
+      on unresolvable paths); Rule 112 body window widened from hard +80
+      to next # Rule|# === boundary; helper regex widened to accept
+      .bash/.py; bash -n added as CI step; Rule 114 negative fixture
+      parameterised. Dead SURFACE_PREFIX_BASES removed.
