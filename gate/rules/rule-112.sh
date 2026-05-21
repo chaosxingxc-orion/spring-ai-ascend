@@ -33,7 +33,16 @@
 source "gate/lib/check_recurring_families.sh"  # Rule 112 self-application
 _r112_fail=0
 _r112_canonical="gate/check_architecture_sync.sh"
+# Hardening:
+#   (a) Body window extends until the NEXT `^# Rule` header (or EOF) instead
+#       of a hard-coded +80 line cap; a long META rule's source statement
+#       must still be inside its own block, not the next rule's.
+#   (b) Helper regex accepts `gate/lib/(check|validate)_*.(sh|bash|py)` so a
+#       META rule sourcing a .py validator directly (or a future .bash helper)
+#       still satisfies the helper-extraction discipline.
 if [[ -f "$_r112_canonical" ]]; then
+  # Pre-compute header line numbers for window-end resolution
+  mapfile -t _r112_all_headers < <(grep -nE '^# Rule [0-9]+[a-z]? — ' "$_r112_canonical" 2>/dev/null | cut -d: -f1)
   while IFS= read -r _r112_meta_line; do
     [[ -z "$_r112_meta_line" ]] && continue
     _r112_lineno=$(printf '%s' "$_r112_meta_line" | cut -d: -f1)
@@ -41,9 +50,23 @@ if [[ -f "$_r112_canonical" ]]; then
     [[ -z "$_r112_slug" ]] && continue
     _r112_rule_num=$(printf '%s' "$_r112_slug" | cut -d: -f1)
     _r112_rule_slug=$(printf '%s' "$_r112_slug" | cut -d: -f2)
-    _r112_body=$(awk -v start="$_r112_lineno" 'NR > start && NR <= start + 80' "$_r112_canonical")
-    if ! printf '%s' "$_r112_body" | grep -qE '(source|\. )[[:space:]]+["'\''[:space:]]*[^"'\''[:space:]]*gate/lib/check_[a-zA-Z_]+\.sh'; then
-      fail_rule "meta_rule_self_application_check" "Rule $_r112_rule_num ($_r112_rule_slug) is marked [META] but body does not source a gate/lib/check_*.sh helper within 80 lines of header. F-recursive-prevention-irony pattern — every META rule MUST use the helper-extraction template per ADR-0096. Rule 112 / E159"
+    # Find next-header line strictly greater than _r112_lineno
+    _r112_end=0
+    for _r112_h in "${_r112_all_headers[@]}"; do
+      if [[ "$_r112_h" -gt "$_r112_lineno" ]]; then
+        _r112_end="$_r112_h"
+        break
+      fi
+    done
+    if [[ "$_r112_end" -eq 0 ]]; then
+      # Last header — scan to EOF
+      _r112_body=$(awk -v start="$_r112_lineno" 'NR > start' "$_r112_canonical")
+    else
+      _r112_body=$(awk -v start="$_r112_lineno" -v end="$_r112_end" 'NR > start && NR < end' "$_r112_canonical")
+    fi
+    # Helper regex widened to (check|validate)_*.(sh|bash|py)
+    if ! printf '%s' "$_r112_body" | grep -qE '(source|\. )[[:space:]]+["'\''[:space:]]*[^"'\''[:space:]]*gate/lib/(check|validate)_[a-zA-Z_]+\.(sh|bash|py)'; then
+      fail_rule "meta_rule_self_application_check" "Rule $_r112_rule_num ($_r112_rule_slug) is marked [META] but body does not source a gate/lib/(check|validate)_*.(sh|bash|py) helper within its block (until next # Rule header or EOF). Every [META] rule MUST use the helper-extraction template. Rule 112 / E159"
       _r112_fail=1
     fi
   done < <(grep -nE '^# Rule [0-9]+[a-z]? — .*\[META\]' "$_r112_canonical" 2>/dev/null)

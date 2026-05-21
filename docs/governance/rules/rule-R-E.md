@@ -7,6 +7,7 @@ principle_ref: P-E
 authority_refs: [ADR-0069]
 enforcer_refs: [E64]
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **Cross-service internal communication MUST be sliced into three physically isolated channels declared in `docs/governance/bus-channels.yaml`: `control` (out-of-band, highest priority), `data` (in-band, heavy-load), and `rhythm` (heartbeat/liveness). No two channels may share a `physical_channel:` identifier. The `data` channel inherits the 16 KiB inline-payload cap from §4 #13.**

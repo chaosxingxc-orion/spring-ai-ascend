@@ -13,6 +13,7 @@ kernel: |
   contracts precede implementation;
   alternative implementations must pass a TCK to be conformant.
   Enforced by Rule R-D sub-clause .a (TCK content deferred per `CLAUDE-deferred.md` 32.b/32.c).
+scope_phase: design
 ---
 
 ## Motivation

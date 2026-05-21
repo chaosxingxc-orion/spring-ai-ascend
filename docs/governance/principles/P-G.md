@@ -17,6 +17,7 @@ kernel: |
   `.toCompletableFuture().join()` — this is a deliberately deferred exception
   tracked under Rule R-M sub-clause .d.c. Production deployments that need non-blocking S2C
   must wait for the W2 async orchestrator.)*
+scope_phase: design
 ---
 
 ## Motivation

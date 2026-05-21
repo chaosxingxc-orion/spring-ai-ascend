@@ -12,6 +12,7 @@ kernel: |
   A logical grant cannot exceed what the physical sandbox enforces;
   otherwise the runtime authority is fictional.
   Enforced by Rule R-L.
+scope_phase: design
 ---
 
 ## Motivation

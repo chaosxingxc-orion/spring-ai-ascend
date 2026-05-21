@@ -7,6 +7,7 @@ principle_ref: P-K
 authority_refs: [ADR-0069, ADR-0070, ADR-0085]
 enforcer_refs: [E70, E73]
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **`docs/governance/skill-capacity.yaml` MUST exist and declare, per skill, both `capacity_per_tenant` and `global_capacity` fields plus a `queue_strategy` (`suspend` or `fail`). The runtime `ResilienceContract.resolve(tenant, skill)` MUST consult this matrix; over-capacity resolution MUST return `SkillResolution.reject(SuspendReason.RateLimited)` rather than admit-or-fail. The actual `Run`/dependent-step suspension transition is deferred to Rule R-K.c (W2 scheduler admission). Chronos Hydration interlock with Rule R-H.**

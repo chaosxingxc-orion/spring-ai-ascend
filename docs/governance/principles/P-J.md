@@ -13,6 +13,7 @@ kernel: |
   Enforced by Rule R-J.a (V1/V2 grandfathered per
   `gate/rls-baseline-grandfathered.txt`; W2 retrofit per
   `CLAUDE-deferred.md` 40.b).
+scope_phase: design
 ---
 
 ## Motivation

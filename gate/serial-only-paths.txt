@@ -1,0 +1,25 @@
+# Gate scripts exempted from Rule G-10 (Parallel-Linux-Scripts Mandate /
+# gate Rule 116 / enforcer E164). Per ADR-0098 (rc21).
+#
+# These scripts are exempted because they are EITHER:
+#   - One-shot bootstrap utilities (run once per commit / per release)
+#   - Diagnostic tools (not part of the recurring validation pipeline)
+#   - Generators (architecture graph, kernel index)
+#   - Measurement helpers (token counters)
+#
+# The recurring-validation gate `check_parallel.sh` + `check_architecture_sync.sh`
+# are NOT listed here — they ARE the parallel orchestrator + canonical source.
+#
+# Format: one path per line, relative to repo root. Comments start with `#`.
+
+gate/build_architecture_graph.sh
+gate/build_claude_md_from_cards.sh
+gate/check_architecture_views.sh
+gate/check_spring_ai_milestone.sh
+gate/doctor.sh
+gate/doctor.ps1
+gate/measure_always_loaded_tokens.sh
+gate/migrate_adrs_to_yaml.py
+gate/check_architecture_sync.ps1
+gate/run_operator_shape_smoke.sh
+gate/test_architecture_sync_gate.sh

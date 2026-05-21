@@ -11,6 +11,7 @@ kernel: |
   (`SuspendSignal`), not physical thread sleep.
   The sleeping process self-destructs and re-hydrates on the bus wake-pulse.
   Enforced by Rule R-H.
+scope_phase: design
 ---
 
 ## Motivation

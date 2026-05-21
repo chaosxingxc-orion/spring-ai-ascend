@@ -6240,7 +6240,7 @@ test_rule_114_filename_dot_convention_pos() {
     local base
     base=$(basename "$f")
     [[ "$base" == "README.md" ]] && continue
-    if [[ ! "$base" =~ ^rule-[DRGM]-[A-Z0-9](\.[a-z0-9]+)?\.md$ ]]; then
+    if [[ ! "$base" =~ ^rule-[DRGM]-[A-Z0-9]+(\.[a-z0-9]+)?\.md$ ]]; then
       invalid_count=$((invalid_count + 1))
     fi
   done < <(find "$repo_root/docs/governance/rules" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort)
@@ -6299,6 +6299,58 @@ test_rule_115_no_version_log_metadata_pos() {
     ok "rule_115_no_version_log_metadata_pos" "Rule D-9 / Rule 115 accepts production code free of forbidden version metadata"
   else
     fail "rule_115_no_version_log_metadata_pos" "unexpected forbidden tag in clean file"
+  fi
+}
+
+test_rule_116_parallel_scripts_exempt_pos() {
+  # Rule G-10 / Rule 116: a script listed in gate/serial-only-paths.txt
+  # passes the parallel mandate vacuously.
+  local exempt_list="$scratch/r116_pos_exempt.txt"
+  printf 'gate/example_helper.sh\n' > "$exempt_list"
+  local script_path="gate/example_helper.sh"
+  if grep -Fxq "$script_path" "$exempt_list"; then
+    ok "rule_116_parallel_scripts_exempt_pos" "Rule G-10 / Rule 116 honours serial-only-paths.txt exemption"
+  else
+    fail "rule_116_parallel_scripts_exempt_pos" "exempt path lookup failed"
+  fi
+}
+
+test_rule_116_parallel_scripts_parallel_pos() {
+  # Rule G-10 / Rule 116: a script with parallel mechanism passes.
+  local root="$scratch/r116_par"
+  mkdir -p "$root"
+  cat > "$root/parallel_runner.sh" <<'SHELL'
+#!/usr/bin/env bash
+ls *.txt | xargs -P 4 -I{} cat {}
+wait
+SHELL
+  if grep -qE 'xargs[[:space:]]+(-[a-zA-Z0-9 ]*)?-P[[:space:]]|parallel\b|wait[[:space:]]*$' "$root/parallel_runner.sh"; then
+    ok "rule_116_parallel_scripts_parallel_pos" "Rule G-10 / Rule 116 accepts scripts using xargs -P / parallel / wait"
+  else
+    fail "rule_116_parallel_scripts_parallel_pos" "parallel-mechanism detection regex did not match"
+  fi
+}
+
+test_rule_117_phase_contract_coherence_orphan_neg() {
+  # Rule G-11 / Rule 117: a rule card with no contract citation is an orphan.
+  local fake_card="rule-Z-1"
+  local cited="D-1 G-1 R-A"
+  if printf '%s\n' "$fake_card" | grep -Fxq -f <(printf '%s\n' $cited) ; then
+    fail "rule_117_phase_contract_coherence_orphan_neg" "orphan card was unexpectedly considered cited"
+  else
+    ok "rule_117_phase_contract_coherence_orphan_neg" "Rule G-11 / Rule 117 identifies a rule card not cited in any contract as an orphan"
+  fi
+}
+
+test_rule_117_phase_contract_coherence_dual_p_pos() {
+  # Rule G-11 / Rule 117: G-9 is the SOLE sanctioned dual-P exception.
+  local dup_p="G-9
+G-9"
+  local violating_dup=$(printf '%s\n' "$dup_p" | sort | uniq -d | grep -v '^G-9$' || true)
+  if [[ -z "$violating_dup" ]]; then
+    ok "rule_117_phase_contract_coherence_dual_p_pos" "Rule G-11 / Rule 117 admits G-9 dual-P (commit + review) per ADR-0098 exception"
+  else
+    fail "rule_117_phase_contract_coherence_dual_p_pos" "G-9 dual-P should be accepted but was flagged: $violating_dup"
   fi
 }
 

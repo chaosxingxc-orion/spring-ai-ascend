@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc20 Wave 5 second corrective: switch release note to 2-column Count+Delta format per feedback_release_note_baseline_truth.md
+last_updated: 2026-05-21  # rc21 Wave 6 (5th PR commit, post-CI Rule 117 SIGPIPE corrective): F-progressive-loading-weak-enforcement open_residual extended with the CI-vs-local divergence finding (set -o pipefail + grep -Fxq pipe-race on fast CI runners produced false-orphan; fixed by materialising lookup sets to temp files via mktemp -d).
 
 families:
   - id: F-numeric-drift
@@ -346,3 +346,71 @@ families:
       to next # Rule|# === boundary; helper regex widened to accept
       .bash/.py; bash -n added as CI step; Rule 114 negative fixture
       parameterised. Dead SURFACE_PREFIX_BASES removed.
+
+  - id: F-progressive-loading-weak-enforcement
+    title: CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time
+    first_observed_rc: rc21
+    last_observed_rc: rc21
+    occurrences: [rc21]
+    root_cause: |
+      Progressive on-demand rule loading: CLAUDE.md kernel paragraphs are
+      auto-loaded into every session, but full rule bodies in
+      `docs/governance/rules/rule-*.md` are only fetched when Claude
+      actively reads them. In practice the active read doesn't happen
+      often enough during work-time — the kernel paragraph is "available"
+      in context but not "attended to" when the model is reasoning about
+      a specific edit. Gate-time META defences (Rule 68 kernel-card
+      byte-match, Rule 110 META scope_surfaces, Rule G-9 family ledger)
+      catch the symptom AT GATE TIME but cannot enforce attention AT WORK
+      TIME. The user observation 2026-05-21: "现在的 claude.md 太臃肿了 ...
+      渐进式加载之后，很多契约并没有严格执行" (CLAUDE.md is bloated;
+      after progressive loading, many contracts aren't strictly enforced).
+    surfaces:
+      - CLAUDE.md kernel paragraphs (37 rule kernels + 13 principle pointers)
+      - docs/governance/rules/*.md (on-demand reads)
+      - docs/governance/principles/*.md (on-demand reads)
+    prevention_rules:
+      - ADR-0098 (rc21 — 6-phase scenario-loaded contracts)
+      - Rule G-10 (parallel-Linux-scripts mandate; ensures gate runs stay fast enough for the new contract-validation overhead)
+      - Rule G-11 (phase-contract rule-allocation coherence; the contract layer is self-policing)
+      - .claude/skills/{design,impl,verify,commit,review}-mode.md (5 phase-entry skills)
+      - docs/governance/contracts/*.md (5 phase contracts with Active Rules tables)
+      - CLAUDE.md Phase Entry directive table (Track 2 dual-track loading mechanism)
+    cleanup_status: closed
+    open_residual: |
+      rc21 ships the structural fix: phase contracts + skills + dual-track
+      loading. Empirical verification of work-time enforcement requires
+      observing the next several work sessions — does Claude actually
+      invoke /design-mode when starting architecture work? Does the
+      contract get cited during the work? rc21 release note codifies the
+      hypothesis; rc22+ may re-open this family if the work-time
+      behavioural change isn't observed.
+      Deferred work (per ADR-0098): deep CLAUDE.md kernel shrink (move
+      phase-scoped rule kernels into phase contracts; requires Rule 68
+      extension to accept contract-hosted kernels), Rule 110 META
+      fixtures for G-10 and G-11, marketplace plugin packaging.
+      Self-review iteration on rc21 (correctness-reviewer agent against
+      the diff before merge) surfaced 4 logic bugs + 2 accidental-pass
+      smells in the very rules introduced this wave (Rule 114 fixture
+      stale vs widened canonical regex; ADR-0098 allocation map cited
+      D-3.a/D-3.b as separate rows while disk has unified D-3 card;
+      README + status.yaml composition arithmetic off-by-one on R
+      count; allowed_claim arithmetic stale; Rule 116 wait regex too
+      permissive; test_architecture_sync_gate.sh accidental fixture
+      string match). All closed in the same wave via fixture sync,
+      allocation-map collapse, prose update, regex tightening, and
+      exempt-list addition. Meta-lesson: structural fixes still need
+      adversarial self-review before merge — the F-recursive-prevention-
+      irony pattern can hide in helper logic the rule's author didn't
+      themselves write.
+      Post-merge-attempt CI corrective: rc21 PR #31 CI surfaced one
+      more bug the local gate could not reproduce — Rule 117's
+      printf-pipe-grep lookup pipeline raced with `set -o pipefail`
+      on fast GitHub Actions runners; the resulting SIGPIPE truncated
+      the cited-set capture, producing false-orphan FAIL on R-C.1.
+      Fix in commit d297b1d: materialise cited / cards / principles
+      sets to temp files via `mktemp -d`, eliminating the SIGPIPE-race.
+      Meta-lesson: gate rules using shell pipelines for set lookup
+      under `set -o pipefail` are timing-fragile across CI vs local
+      runners — prefer materialised temp files OR associative arrays
+      OR `case` pattern matching for deterministic behaviour.

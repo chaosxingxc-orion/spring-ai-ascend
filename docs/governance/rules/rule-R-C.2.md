@@ -7,6 +7,7 @@ principle_ref: P-C
 authority_refs: [ADR-0068, ADR-0078, ADR-0088, ADR-0094]
 enforcer_refs: [E2, E4, E9, E11]
 status: active
+scope_phase: impl
 kernel_cap: 8
 scope_surfaces:
   - "agent-service/src/main/java/ascend/springai/service/runtime/runs/**/*.java"

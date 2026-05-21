@@ -13,6 +13,7 @@ kernel: |
   Production-environment upgrades are lightweight
   (BoM + starter pattern + semver compatibility).
   Enforced by Rule R-C.a + Rule R-C.1.
+scope_phase: design
 ---
 
 ## Motivation

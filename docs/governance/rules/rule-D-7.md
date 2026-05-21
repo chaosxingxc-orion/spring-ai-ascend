@@ -7,6 +7,7 @@ principle_ref: P-A
 authority_refs: []
 enforcer_refs: []
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **Every async or reactive resource has a lifetime bound to exactly one execution context.**
