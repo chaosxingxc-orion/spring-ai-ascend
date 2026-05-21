@@ -92,7 +92,7 @@ capabilities:
       active_governing_principles: 13           # P-A..P-M
       active_gate_checks: 127                   # rc20 Wave 4 (post-Wave-1 rebase): post-Wave-1 baseline 126 + Rule 115 (Rule D-9 enforcement) = 127.
       gate_executable_test_cases: 226           # rc20 Wave 4 (post-Wave-1 rebase): post-Wave-1 baseline 224 (220 + W2 +1 + W1 +3) + 2 Wave 4 fixtures = 226.
-      enforcer_rows: 163                        # rc20 Wave 4 (post-Wave-1 rebase): post-Wave-1 baseline 161 + E163 = 162. (post-Wave-3+Wave-2 wave1 sequence introduced E162; Wave-4 adds E163; cumulative 160 + 2 = 162. NOTE: rebase ordering raised this to 163 if Wave-1 helper landed; re-derive at gate time.)
+      enforcer_rows: 162                        # rc20 Wave 4 (post-Wave-1 rebase): post-Wave-1 baseline 161 (rc19 160 + E162 from Wave 1) + E163 (this Wave 4) = 162.
       section_4_constraints: 65                 # ARCHITECTURE.md §4 #1..#65 (unchanged at rc17)
       adr_count: 95                             # rc19 baseline (Wave 5 adds ADR-0097 = 96).
       maven_tests_green: 374                    # `./mvnw.cmd clean verify` total surefire + failsafe (rc15 baseline 374).

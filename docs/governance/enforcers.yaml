@@ -1416,6 +1416,13 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#rule_card_filename_dot_convention
   asserts: "Rule 114 (rc19 Wave 4) — every file under docs/governance/rules/rule-*.md MUST match the regex `rule-[DRGM]-[A-Z0-9](\\.[a-z0-9]+)?\\.md` (dot-suffix only, no hyphenated `rule-G-3-1.md` form). Prevents the rc17 corrective-loop where 5 cards needed renames due to hyphen-vs-dot ambiguity. README.md is allowed."
+- id: E162
+  constraint_ref: "Rule 113.a (legacy_paren helper extraction); ADR-0097"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/lib/check_legacy_paren.sh
+  asserts: "Rule 113.a + .b helper extracted to gate/lib/check_legacy_paren.sh per rc20 Wave 1 / ADR-0097. Both the production gate (Rule 113 body) AND the test_rule_113_* fixtures source this helper, closing Pattern D recurrence on Rule 113 (fixture inlining production grep was the rc19 review finding). Helper exports _check_legacy_paren_no_reintroduction and _check_migration_doc_complete."
 - id: E163
   constraint_ref: "Rule D-9 (no_version_log_metadata_in_code); ADR-0097"
   kind: gate-script
