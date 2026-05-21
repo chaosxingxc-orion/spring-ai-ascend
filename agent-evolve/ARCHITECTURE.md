@@ -102,7 +102,7 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-evolve/
 └── src/main/java/
-    └── ascend/springai/evolve/    <!-- root-migration-target: com.huawei.ascend.agent.evolve -->
+    └── ascend/springai/evolve/
         ├── package-info.java                # placeholder; W3 implementation
         └── (W3+: SlowTrackJudge, ReflectionPatchHandler, OfflineExportAdapter; see ADR-0102 timeline)
 ```
@@ -118,9 +118,9 @@ Future SPI surface (rc26 per ADR-0102 timeline):
 
 | Future FQN | SPI package | Purpose |
 |---|---|---|
-| `ascend.springai.evolve.online.spi.SlowTrackJudge` | `evolve.online.spi` | LLM-as-Judge contract; fires on AFTER_LLM_INVOCATION hook |
-| `ascend.springai.evolve.online.spi.ReflectionEnvelopeRouter` | `evolve.online.spi` | S2C delivery of ReflectionEnvelope to active Session |
-| `ascend.springai.evolve.offline.spi.OfflineExportAdapter` | `evolve.offline.spi` | PII-filtered trace log emission (T+1 batch) |
+| `com.huawei.ascend.evolve.online.spi.SlowTrackJudge` | `evolve.online.spi` | LLM-as-Judge contract; fires on AFTER_LLM_INVOCATION hook |
+| `com.huawei.ascend.evolve.online.spi.ReflectionEnvelopeRouter` | `evolve.online.spi` | S2C delivery of ReflectionEnvelope to active Session |
+| `com.huawei.ascend.evolve.offline.spi.OfflineExportAdapter` | `evolve.offline.spi` | PII-filtered trace log emission (T+1 batch) |
 
 ## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
 

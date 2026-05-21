@@ -1,6 +1,6 @@
-package ascend.springai.service.runtime.graphmemory;
+package com.huawei.ascend.service.runtime.graphmemory;
 
-import ascend.springai.service.runtime.memory.spi.GraphMemoryRepository;
+import com.huawei.ascend.service.runtime.memory.spi.GraphMemoryRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;

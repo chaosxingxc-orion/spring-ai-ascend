@@ -42,7 +42,7 @@ fi
 # kernel authority — rule cards under docs/governance/rules/ may quote
 # historical-defect literals as documentation, so they are intentionally
 # excluded from this scan).
-# Pattern: ascend.springai.<seg>(.<seg>)*.spi(.<seg>)* — anchored so a trailing
+# Pattern: com.huawei.ascend.<seg>(.<seg>)*.spi(.<seg>)* — anchored so a trailing
 # dot followed by an UpperCase Java identifier (e.g. .IngressGateway) does not
 # leak into the captured token. Verify each appears in some
 # module-metadata.yaml spi_packages entry AND a directory exists on disk.
@@ -142,8 +142,8 @@ if [[ -f "$_r106_catalog" ]]; then
   # Capture: class name, module name, package suffix (after the `...`)
   while IFS=$'\t' read -r _r106_class _r106_module _r106_pkg_suffix; do
     [[ -z "$_r106_class" || -z "$_r106_module" || -z "$_r106_pkg_suffix" ]] && continue
-    # Reconstruct full package path (ascend.springai.<suffix>) — convert "..." prefix to "ascend.springai."
-    _r106_full_pkg="ascend.springai.${_r106_pkg_suffix#...}"
+    # Reconstruct full package path (com.huawei.ascend.<suffix>) — convert "..." prefix to "com.huawei.ascend."
+    _r106_full_pkg="com.huawei.ascend.${_r106_pkg_suffix#...}"
     _r106_path="$(echo "$_r106_full_pkg" | tr '.' '/')"
     _r106_java_file="${_r106_module}/src/main/java/${_r106_path}/${_r106_class}.java"
     if [[ ! -f "$_r106_java_file" ]]; then

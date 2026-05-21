@@ -25,7 +25,7 @@ Every module with `kind: domain` in its `module-metadata.yaml` MUST:
 - Each declared package MUST exist as a directory under `<module>/src/main/java/`.
 - Each SPI package MUST remain free of Spring, platform, inmemory-impl, Micrometer, and OpenTelemetry imports (extension of existing §4.7 — generalised by E48 ArchUnit `SpiPurityGeneralizedArchTest`).
 
-Today: `agent-runtime` is the sole `kind: domain` module; its declared SPI packages are `ascend.springai.service.runtime.orchestration.spi` and `ascend.springai.service.runtime.memory.spi`.
+Today: `agent-runtime` is the sole `kind: domain` module; its declared SPI packages are `com.huawei.ascend.service.runtime.orchestration.spi` and `com.huawei.ascend.service.runtime.memory.spi`.
 
 ### 2. DFX yaml for `kind: platform` and `kind: domain` modules
 

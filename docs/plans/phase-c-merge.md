@@ -23,7 +23,7 @@ The five Phase C open questions were resolved by user input on 2026-05-18. Recom
 
 | Q | Decision | Option | Justification |
 |---|---|---|---|
-| **Q1 — Java package layout** | `ascend.springai.service.platform.*` + `ascend.springai.service.runtime.*` (two siblings under `service`) | **A** | Preserves the platform/runtime sub-layering invariant under one module root; smallest blast radius; Rule 21 generalises to "`service.runtime` MUST NOT import `service.platform`" without weakening defence-in-depth. |
+| **Q1 — Java package layout** | `com.huawei.ascend.service.platform.*` + `com.huawei.ascend.service.runtime.*` (two siblings under `service`) | **A** | Preserves the platform/runtime sub-layering invariant under one module root; smallest blast radius; Rule 21 generalises to "`service.runtime` MUST NOT import `service.platform`" without weakening defence-in-depth. |
 | **Q2 — Flyway migrations** | Move `V1__init.sql` + `V2__idempotency_dedup.sql` as-is to `agent-service/src/main/resources/db/migration/`; update `gate/rls-baseline-grandfathered.txt` path. | **A** | Flyway tracks by migration name + checksum, not source path — zero production risk. Renumbering/squashing is out of scope for a topology move. |
 | **Q3 — ADR strategy** | One new **ADR-0078** declares the merger; `supersedes: [ADR-0055]`, `extends: [ADR-0066]`, `relates_to: [ADR-0026]`. ADR-0055/0066 receive `superseded_by` / `extended_by` frontmatter back-references. | **A** | Honours Rule 25 (Architecture-Text Truth — accepted ADRs are immutable, so we add a new one rather than rewrite history) and Rule 34 (`supersedes`/`extends` sub-graphs must remain DAGs). |
 | **Q4 — Wave alignment** | Land after PR-E2; PR-E2 shipped 2026-05-17 (commit `f8c8e95`). | **A** | No outstanding gate-script conflicts; clean base verified — gate run logs in `gate/log/runs/` confirm a clean PR-E2 baseline. |
@@ -38,7 +38,7 @@ Verified counts as of 2026-05-18 baseline (prior to any move):
 | Surface | Count | Notes |
 |---|---|---|
 | Java files **inside** `agent-platform/` + `agent-runtime/` | **164** | 41 main + 41 test (platform); 43 main + 39 test (runtime). |
-| Java files **referencing** `ascend.springai.platform.*` / `ascend.springai.runtime.*` (import sites) | **167** | 164 in-module + 3 in `spring-ai-ascend-graphmemory-starter` (`GraphMemoryAutoConfiguration`, `GraphMemoryProperties`, one starter test). |
+| Java files **referencing** `com.huawei.ascend.platform.*` / `com.huawei.ascend.runtime.*` (import sites) | **167** | 164 in-module + 3 in `spring-ai-ascend-graphmemory-starter` (`GraphMemoryAutoConfiguration`, `GraphMemoryProperties`, one starter test). |
 | Total corpus occurrences across `*.java`, `*.yaml`, `*.md`, `*.sh`, `*.sql` | **590** across **213 files** | Spans governance, ADRs, gate, reviews, releases. |
 | `ARCHITECTURE.md` mentions | **42** | §2 module-layout table, §4 capability rows, prose paragraphs, code-fence paths. |
 | Per-module `ARCHITECTURE.md` files folded | 2 | `agent-platform/ARCHITECTURE.md` + `agent-runtime/ARCHITECTURE.md` merge into one new file. |
@@ -58,42 +58,42 @@ This is **module-topology consolidation**, not a rename — it touches every arc
 
 Source layout walked from `agent-platform/src/main/java/ascend/springai/platform/` and `agent-runtime/src/main/java/ascend/springai/runtime/`. Every sub-directory becomes one row; the test tree mirrors the main tree identically (each `src/main/java/...` row implies the parallel `src/test/java/...` move).
 
-### `ascend.springai.platform.*` → `ascend.springai.service.platform.*`
+### `com.huawei.ascend.platform.*` → `com.huawei.ascend.service.platform.*`
 
 | Old package | New package |
 |---|---|
-| `ascend.springai.platform` | `ascend.springai.service.platform` |
-| `ascend.springai.platform.auth` | `ascend.springai.service.platform.auth` |
-| `ascend.springai.platform.engine` | `ascend.springai.service.platform.engine` |
-| `ascend.springai.platform.idempotency` | `ascend.springai.service.platform.idempotency` |
-| `ascend.springai.platform.observability` | `ascend.springai.service.platform.observability` |
-| `ascend.springai.platform.persistence` | `ascend.springai.service.platform.persistence` |
-| `ascend.springai.platform.posture` | `ascend.springai.service.platform.posture` |
-| `ascend.springai.platform.probe` | `ascend.springai.service.platform.probe` |
-| `ascend.springai.platform.resilience` | `ascend.springai.service.platform.resilience` |
-| `ascend.springai.platform.tenant` | `ascend.springai.service.platform.tenant` |
-| `ascend.springai.platform.web` | `ascend.springai.service.platform.web` |
-| `ascend.springai.platform.web.runs` | `ascend.springai.service.platform.web.runs` |
+| `com.huawei.ascend.platform` | `com.huawei.ascend.service.platform` |
+| `com.huawei.ascend.platform.auth` | `com.huawei.ascend.service.platform.auth` |
+| `com.huawei.ascend.platform.engine` | `com.huawei.ascend.service.platform.engine` |
+| `com.huawei.ascend.platform.idempotency` | `com.huawei.ascend.service.platform.idempotency` |
+| `com.huawei.ascend.platform.observability` | `com.huawei.ascend.service.platform.observability` |
+| `com.huawei.ascend.platform.persistence` | `com.huawei.ascend.service.platform.persistence` |
+| `com.huawei.ascend.platform.posture` | `com.huawei.ascend.service.platform.posture` |
+| `com.huawei.ascend.platform.probe` | `com.huawei.ascend.service.platform.probe` |
+| `com.huawei.ascend.platform.resilience` | `com.huawei.ascend.service.platform.resilience` |
+| `com.huawei.ascend.platform.tenant` | `com.huawei.ascend.service.platform.tenant` |
+| `com.huawei.ascend.platform.web` | `com.huawei.ascend.service.platform.web` |
+| `com.huawei.ascend.platform.web.runs` | `com.huawei.ascend.service.platform.web.runs` |
 
-### `ascend.springai.runtime.*` → `ascend.springai.service.runtime.*`
+### `com.huawei.ascend.runtime.*` → `com.huawei.ascend.service.runtime.*`
 
 | Old package | New package |
 |---|---|
-| `ascend.springai.runtime` | `ascend.springai.service.runtime` |
-| `ascend.springai.runtime.engine` | `ascend.springai.service.runtime.engine` |
-| `ascend.springai.runtime.evolution` | `ascend.springai.service.runtime.evolution` |
-| `ascend.springai.runtime.idempotency` | `ascend.springai.service.runtime.idempotency` |
-| `ascend.springai.runtime.memory` | `ascend.springai.service.runtime.memory` |
-| `ascend.springai.runtime.memory.spi` | `ascend.springai.service.runtime.memory.spi` |
-| `ascend.springai.runtime.orchestration` | `ascend.springai.service.runtime.orchestration` |
-| `ascend.springai.runtime.orchestration.inmemory` | `ascend.springai.service.runtime.orchestration.inmemory` |
-| `ascend.springai.runtime.orchestration.spi` | `ascend.springai.service.runtime.orchestration.spi` |
-| `ascend.springai.runtime.posture` | `ascend.springai.service.runtime.posture` |
-| `ascend.springai.runtime.probe` | `ascend.springai.service.runtime.probe` |
-| `ascend.springai.runtime.resilience` | `ascend.springai.service.runtime.resilience` |
-| `ascend.springai.runtime.runs` | `ascend.springai.service.runtime.runs` |
-| `ascend.springai.runtime.s2c` | `ascend.springai.service.runtime.s2c` |
-| `ascend.springai.runtime.s2c.spi` | `ascend.springai.service.runtime.s2c.spi` |
+| `com.huawei.ascend.runtime` | `com.huawei.ascend.service.runtime` |
+| `com.huawei.ascend.runtime.engine` | `com.huawei.ascend.service.runtime.engine` |
+| `com.huawei.ascend.runtime.evolution` | `com.huawei.ascend.service.runtime.evolution` |
+| `com.huawei.ascend.runtime.idempotency` | `com.huawei.ascend.service.runtime.idempotency` |
+| `com.huawei.ascend.runtime.memory` | `com.huawei.ascend.service.runtime.memory` |
+| `com.huawei.ascend.runtime.memory.spi` | `com.huawei.ascend.service.runtime.memory.spi` |
+| `com.huawei.ascend.runtime.orchestration` | `com.huawei.ascend.service.runtime.orchestration` |
+| `com.huawei.ascend.runtime.orchestration.inmemory` | `com.huawei.ascend.service.runtime.orchestration.inmemory` |
+| `com.huawei.ascend.runtime.orchestration.spi` | `com.huawei.ascend.service.runtime.orchestration.spi` |
+| `com.huawei.ascend.runtime.posture` | `com.huawei.ascend.service.runtime.posture` |
+| `com.huawei.ascend.runtime.probe` | `com.huawei.ascend.service.runtime.probe` |
+| `com.huawei.ascend.runtime.resilience` | `com.huawei.ascend.service.runtime.resilience` |
+| `com.huawei.ascend.runtime.runs` | `com.huawei.ascend.service.runtime.runs` |
+| `com.huawei.ascend.runtime.s2c` | `com.huawei.ascend.service.runtime.s2c` |
+| `com.huawei.ascend.runtime.s2c.spi` | `com.huawei.ascend.service.runtime.s2c.spi` |
 
 ### `spring-ai-ascend-graphmemory-starter` (3 files)
 
@@ -104,7 +104,7 @@ Starter is a **sibling reactor module** — stays separate, but the 3 in-starter
 | `spring-ai-ascend-graphmemory-starter/src/main/java/.../GraphMemoryAutoConfiguration.java` | package + imports rename |
 | `spring-ai-ascend-graphmemory-starter/src/main/java/.../GraphMemoryProperties.java` | package + imports rename |
 | `spring-ai-ascend-graphmemory-starter/src/test/java/.../GraphMemoryStarterTest.java` (or similar) | imports rename |
-| `spring-ai-ascend-graphmemory-starter/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` | `ascend.springai.runtime.graphmemory.GraphMemoryAutoConfiguration` → `ascend.springai.service.runtime.graphmemory.GraphMemoryAutoConfiguration` |
+| `spring-ai-ascend-graphmemory-starter/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` | `com.huawei.ascend.runtime.graphmemory.GraphMemoryAutoConfiguration` → `com.huawei.ascend.service.runtime.graphmemory.GraphMemoryAutoConfiguration` |
 
 ---
 
@@ -114,8 +114,8 @@ Every gate rule whose path patterns hard-code the old module roots. Source: `gat
 
 | Rule | Concern | OLD pattern | NEW pattern |
 |---|---|---|---|
-| **Rule 10** (`module_dep_direction`) | Cross-module forbidden imports | `agent-runtime → agent-platform` forbidden | Intra-module sub-package check: `ascend.springai.service.runtime..` MUST NOT import `ascend.springai.service.platform..` |
-| **Rule 21** (Tenant Propagation Purity) | `service.runtime` MUST NOT import `service.platform` (e.g. `TenantContextHolder`) | `agent-runtime/src/main/java/ascend/springai/runtime/**` ↛ `ascend.springai.platform.**` | `agent-service/src/main/java/ascend/springai/service/runtime/**` ↛ `ascend.springai.service.platform.**` |
+| **Rule 10** (`module_dep_direction`) | Cross-module forbidden imports | `agent-runtime → agent-platform` forbidden | Intra-module sub-package check: `com.huawei.ascend.service.runtime..` MUST NOT import `com.huawei.ascend.service.platform..` |
+| **Rule 21** (Tenant Propagation Purity) | `service.runtime` MUST NOT import `service.platform` (e.g. `TenantContextHolder`) | `agent-runtime/src/main/java/ascend/springai/runtime/**` ↛ `com.huawei.ascend.platform.**` | `agent-service/src/main/java/ascend/springai/service/runtime/**` ↛ `com.huawei.ascend.service.platform.**` |
 | **Rule 28j** (no zombie code in modules) | Path scan | `agent-platform/src/main/java/**`, `agent-runtime/src/main/java/**` | `agent-service/src/main/java/ascend/springai/service/{platform,runtime}/**` |
 | **Rule 37** (`no_blocking_io_in_runtime_main`) | No `RestTemplate` / `JdbcTemplate` in runtime production | `agent-runtime/src/main/java/**` | `agent-service/src/main/java/ascend/springai/service/runtime/**` |
 | **Rule 38** (`no_thread_sleep_in_business_code`) | No `Thread.sleep` in platform/runtime production | `agent-platform/src/main/java/**` + `agent-runtime/src/main/java/**` | `agent-service/src/main/java/ascend/springai/service/{platform,runtime}/**` |
@@ -139,15 +139,15 @@ Create empty `agent-service/` directory with `pom.xml`, `module-metadata.yaml`, 
 
 ### Commit 2 — Move sources verbatim (no package rename)
 
-`git mv` Java sources + tests + resources (`db/migration/*.sql`, `META-INF/`, `application*.properties`) from `agent-platform/` and `agent-runtime/` into `agent-service/` keeping the old `ascend.springai.platform/` and `ascend.springai.runtime/` package directories. Delete now-empty `agent-platform/` and `agent-runtime/`. Update `gate/rls-baseline-grandfathered.txt` paths. Build-green gate: `mvn -pl agent-service verify` passes — code unchanged, just relocated.
+`git mv` Java sources + tests + resources (`db/migration/*.sql`, `META-INF/`, `application*.properties`) from `agent-platform/` and `agent-runtime/` into `agent-service/` keeping the old `com.huawei.ascend.platform/` and `com.huawei.ascend.runtime/` package directories. Delete now-empty `agent-platform/` and `agent-runtime/`. Update `gate/rls-baseline-grandfathered.txt` paths. Build-green gate: `mvn -pl agent-service verify` passes — code unchanged, just relocated.
 
 ### Commit 3 — Package rename to `service.{platform,runtime}`
 
-Mechanical bulk swap: 164 in-module `package ascend.springai.platform.*` → `package ascend.springai.service.platform.*` (same for runtime); 167 import-site files (164 in-module + 3 in graphmemory-starter); the starter's `AutoConfiguration.imports` resource line. Move source directories. Retarget ArchUnit tests in place: `RuntimeMustNotDependOnPlatformTest` → `ServiceRuntimeMustNotDependOnServicePlatformTest`; `TenantPropagationPurityTest` (Rule 21) → patterns updated; `PlatformImportsOnlyRuntimePublicApiTest` → equivalent. Build-green gate: `mvn verify` passes.
+Mechanical bulk swap: 164 in-module `package com.huawei.ascend.platform.*` → `package com.huawei.ascend.service.platform.*` (same for runtime); 167 import-site files (164 in-module + 3 in graphmemory-starter); the starter's `AutoConfiguration.imports` resource line. Move source directories. Retarget ArchUnit tests in place: `RuntimeMustNotDependOnPlatformTest` → `ServiceRuntimeMustNotDependOnServicePlatformTest`; `TenantPropagationPurityTest` (Rule 21) → patterns updated; `PlatformImportsOnlyRuntimePublicApiTest` → equivalent. Build-green gate: `mvn verify` passes.
 
 ### Commit 4 — Governance + gate-script retargeting
 
-Bulk replace in the 4 governance YAMLs (`architecture-graph.yaml`, `architecture-status.yaml`, `enforcers.yaml`, `principle-coverage.yaml`): `agent-platform`/`agent-runtime` → `agent-service`; `ascend.springai.platform.*`/`ascend.springai.runtime.*` → `ascend.springai.service.*`; then de-duplicate merged rows. Apply the §5 retargeting table to `gate/check_architecture_sync.sh` (51 lines) + `gate/test_architecture_sync_gate.sh` (12 lines). Update `gate/schema-first-grandfathered.txt`. Bump `architecture-status.yaml#repository_counts.reactor_modules` 9 → 8 and `internal_modules` 7 → 6 (Phase C alone; T2.B2 adds the runtime-core module back in Wave 2). Build-green gate: `bash gate/check_architecture_sync.sh` passes all rules.
+Bulk replace in the 4 governance YAMLs (`architecture-graph.yaml`, `architecture-status.yaml`, `enforcers.yaml`, `principle-coverage.yaml`): `agent-platform`/`agent-runtime` → `agent-service`; `com.huawei.ascend.platform.*`/`com.huawei.ascend.runtime.*` → `com.huawei.ascend.service.*`; then de-duplicate merged rows. Apply the §5 retargeting table to `gate/check_architecture_sync.sh` (51 lines) + `gate/test_architecture_sync_gate.sh` (12 lines). Update `gate/schema-first-grandfathered.txt`. Bump `architecture-status.yaml#repository_counts.reactor_modules` 9 → 8 and `internal_modules` 7 → 6 (Phase C alone; T2.B2 adds the runtime-core module back in Wave 2). Build-green gate: `bash gate/check_architecture_sync.sh` passes all rules.
 
 ### Commit 5 — Documentation corpus retarget
 

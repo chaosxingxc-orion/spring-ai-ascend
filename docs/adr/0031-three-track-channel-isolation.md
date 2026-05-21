@@ -100,7 +100,7 @@ Track 3 — Heartbeat Channel (Flux<Instant>)
 ### RunDispatcher SPI (HD-D.6 + push-pull buffer)
 
 ```java
-// ascend.springai.runtime.orchestration.spi — pure java.*
+// com.huawei.ascend.runtime.orchestration.spi — pure java.*
 
 /**
  * Mediates between the Orchestrator (intent producer) and the Executor (intent consumer).

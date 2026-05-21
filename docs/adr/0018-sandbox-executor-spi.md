@@ -52,7 +52,7 @@ sandbox entirely to `agentscope-runtime-java` (K8s pod + Alibaba FC serverless).
 The SPI shape:
 
 ```java
-// in ascend.springai.runtime.action.spi
+// in com.huawei.ascend.runtime.action.spi
 public interface SandboxExecutor {
     // Returns the tool result or throws SandboxViolationException.
     Object execute(ActionRequest request, SandboxPolicy policy) throws SandboxViolationException;
@@ -98,7 +98,7 @@ The Bound stage calls `sandboxExecutor.execute(request, resolvedPolicy)` and map
 
 ### Reversal cost
 
-Low — SPI is an interface in `ascend.springai.runtime.action.spi` (SPI purity enforced by
+Low — SPI is an interface in `com.huawei.ascend.runtime.action.spi` (SPI purity enforced by
 ArchUnit). Removing or replacing it is a clean cut.
 
 ## Pros and Cons of Options

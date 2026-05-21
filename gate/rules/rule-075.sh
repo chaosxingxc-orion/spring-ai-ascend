@@ -8,7 +8,7 @@
 # Every <module>/module-metadata.yaml#spi_packages entry MUST resolve to a
 # real directory under <module>/src/main/java/... AND that directory MUST
 # contain at least one .java file beyond package-info.java. Catches the
-# 2026-05-18 root cause (ascend.springai.engine.spi declared but empty).
+# 2026-05-18 root cause (com.huawei.ascend.engine.spi declared but empty).
 #
 # Placeholder marker: an spi_packages line that includes BOTH "placeholder"
 # AND an "ADR-NNNN" reference in its inline comment is allowed to be empty

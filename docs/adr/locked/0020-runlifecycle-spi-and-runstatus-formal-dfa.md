@@ -43,7 +43,7 @@ specifies which transitions are legal. Without a formal DFA, the three planned o
 ### Part 1 — RunLifecycle SPI (Issues 4 + 8)
 
 ```java
-// ascend.springai.runtime.orchestration.spi — pure java.*
+// com.huawei.ascend.runtime.orchestration.spi — pure java.*
 public interface RunLifecycle {
     /**
      * Requests cancellation of a live Run. Idempotent if already CANCELLED.

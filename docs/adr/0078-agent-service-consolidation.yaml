@@ -16,7 +16,7 @@ relates_to:
 decision_one_liner: |
   Merge the two reactor modules agent-platform and agent-runtime into
   a single new agent-service module. Java packages collapse under one
-  parent namespace ascend.springai.service.* with two siblings
+  parent namespace com.huawei.ascend.service.* with two siblings
   service.platform.* and service.runtime.*. Rule R-C.e retargets from
   cross-module to intra-module sub-package layering. Reactor goes from
   9 modules to 8.
@@ -38,7 +38,7 @@ triggering_inputs:
         User instructed the session to reorganise the repo to merge
         AgentPlatform and AgentRuntime into AgentService strictly per
         the architecture design. User confirmed Option A for the
-        package layout (siblings under ascend.springai.service.*).
+        package layout (siblings under com.huawei.ascend.service.*).
 
 context: |
   The two-module split was introduced by ADR-0026 (2026-02) to make
@@ -72,7 +72,7 @@ context: |
   request-scoped from context. Option C (rename Maven module only,
   leave packages alone) was rejected because a single agent-service
   module with two unrelated top-level Java packages
-  (ascend.springai.service.platform.* + ascend.springai.service.runtime.*) becomes a
+  (com.huawei.ascend.service.platform.* + com.huawei.ascend.service.runtime.*) becomes a
   permanent namespace fossil that future readers will misread as
   evidence of two modules.
 
@@ -91,8 +91,8 @@ decision: |
     relationship.
 
   - Java package rename, mechanical bulk operation:
-      ascend.springai.service.platform.*  →  ascend.springai.service.platform.*
-      ascend.springai.service.runtime.*   →  ascend.springai.service.runtime.*
+      com.huawei.ascend.service.platform.*  →  com.huawei.ascend.service.platform.*
+      com.huawei.ascend.service.runtime.*   →  com.huawei.ascend.service.runtime.*
     Applied to 164 in-module Java files plus 3 import-site files in
     spring-ai-ascend-graphmemory-starter (including its
     AutoConfiguration.imports manifest).
@@ -155,9 +155,9 @@ consequences:
     - "Permanent ADR coupling: ADR-0055 and ADR-0026 are now historically interesting but no longer normative. Future readers may wonder why the corpus ever distinguished the two modules. Mitigation: ADR-0078's context section records the rationale and the empirical signal that motivated the consolidation."
 
 alternatives_considered:
-  - alternative: "Option B — Flat ascend.springai.service.* namespace, fold both platform and runtime packages up one level (e.g. service.web, service.runs, service.tenant, service.idempotency, service.orchestration, ...)."
+  - alternative: "Option B — Flat com.huawei.ascend.service.* namespace, fold both platform and runtime packages up one level (e.g. service.web, service.runs, service.tenant, service.idempotency, service.orchestration, ...)."
     why_rejected: "Erases the platform/runtime sub-layering signal at the package-name level. Every future contributor would have to re-derive from context which symbols are request-scoped (formerly platform) versus non-request (formerly runtime). Rule R-C.e's negative invariant would have to encode an ad-hoc package list instead of a clean ..service.runtime.. ↛ ..service.platform.. pattern. The flat layout is appropriate when the sub-layering is genuinely gone; here the sub-layering is the same, only the Maven boundary changes."
-  - alternative: "Option C — Rename the Maven module only (agent-platform + agent-runtime → agent-service), leave Java packages untouched (ascend.springai.service.platform.* and ascend.springai.service.runtime.* remain as two top-level namespaces inside one module)."
+  - alternative: "Option C — Rename the Maven module only (agent-platform + agent-runtime → agent-service), leave Java packages untouched (com.huawei.ascend.service.platform.* and com.huawei.ascend.service.runtime.* remain as two top-level namespaces inside one module)."
     why_rejected: "Permanent namespace fossil: a single Maven module agent-service containing two unrelated top-level Java packages will read to every future reviewer as evidence of an incomplete merge. The cost is ~10x smaller (no Java import rewrites, no ArchUnit retargeting), but it defers the package decision indefinitely and produces an architecturally incoherent module. Option C is appropriate only if the user wants a minimum-risk experimental merge; the user explicitly confirmed Option A."
   - alternative: "Defer Phase C indefinitely — keep the 9-module reactor, leave the ARCHITECTURE.md §2 'follow-up' language in place, accept that the two modules always ship together."
     why_rejected: "Violates Rule G-2 sub-clause .a (Architecture-Text Truth) over time. ARCHITECTURE.md §2 has declared the merger as future work since 2026-05-17; the longer the corpus declares an intent without executing it, the more downstream artefacts (release notes, plans, reviews) hedge against the eventual move. The empirical signal (every cross-cutting wave edits both modules together; no operator has split them) is unambiguous; deferring further accumulates dead optionality."
@@ -186,7 +186,7 @@ verification:
   manual:
     - "Verify agent-platform/ and agent-runtime/ directories no longer exist on disk after Commit 2 of the phase-c-merge branch."
     - "Verify agent-service/src/main/java/ascend/springai/service/platform/ and .../service/runtime/ both exist and contain the relocated sources."
-    - "Verify spring-ai-ascend-graphmemory-starter/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports references ascend.springai.service.runtime.graphmemory.GraphMemoryAutoConfiguration (not the old ascend.springai.service.runtime.graphmemory path)."
+    - "Verify spring-ai-ascend-graphmemory-starter/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports references com.huawei.ascend.service.runtime.graphmemory.GraphMemoryAutoConfiguration (not the old com.huawei.ascend.service.runtime.graphmemory path)."
     - "Verify ADR-0055 frontmatter carries superseded_by: ADR-0078 and ADR-0066 carries extended_by: ADR-0078."
     - "Verify ARCHITECTURE.md §2 module-layout table lists 8 substantive modules (BoM + agent-client + agent-bus + agent-service + agent-middleware + agent-execution-engine + agent-evolve + graphmemory-starter)."
 
@@ -197,7 +197,7 @@ enforcer_rows:
   - E37  # rule_37_no_blocking_io_in_runtime_main — scan path repointed to agent-service/src/main/java/ascend/springai/service/runtime
   - E38  # rule_38_no_thread_sleep_in_business_code — scan path repointed to agent-service/src/main/java/ascend/springai/service/{platform,runtime}
   - E40  # rule_40_storage_engine_tenant_isolation — RLS baseline path repointed to agent-service/src/main/resources/db/migration
-  - E48  # rule_29_business_platform_decoupling — SPI-purity package-set updated to ascend.springai.service.*
+  - E48  # rule_29_business_platform_decoupling — SPI-purity package-set updated to com.huawei.ascend.service.*
   - E65  # rule_65_module_metadata_pom_dep_parity — re-runs against agent-service/{pom.xml,module-metadata.yaml}
   - E66  # rule_66_spi_package_exhaustiveness — spi_packages in agent-service/module-metadata.yaml matches on-disk packages
 

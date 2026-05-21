@@ -17,7 +17,7 @@ authority: "ADR-0050 (Bus & State Hub plane); ADR-0074 (S2C Capability Callback 
 ## Status
 
 **rc13 (2026-05-20) elevates agent-bus from skeleton to active.** Two active
-cross-plane control surfaces now ship under `ascend.springai.bus.spi.*`:
+cross-plane control surfaces now ship under `com.huawei.ascend.bus.spi.*`:
 
 - `bus.spi.ingress` — client-to-server entry gate (ADR-0089). Contract
   `docs/contracts/ingress-envelope.v1.yaml` status `design_only`; runtime
@@ -73,7 +73,7 @@ and uniqueness.
 
 ## 3a. Ingress SPI (`bus.spi.ingress` — NEW rc13, ADR-0089)
 
-Three Java types under `ascend.springai.bus.spi.ingress`:
+Three Java types under `com.huawei.ascend.bus.spi.ingress`:
 
 - `IngressGateway` — single-method SPI interface; `routeClientRequest(IngressEnvelope) → IngressResponse`.
 - `IngressEnvelope` — immutable record with 6 mandatory fields (request_id, tenant_id, idempotency_key, request_type, payload, trace_id) + optional deadline + attributes. Tenant scope validated per Rule R-C sub-clause .c.
@@ -88,7 +88,7 @@ Promotion trigger: first agent-client SDK release (W3+ per ADR-0049).
 
 ## 3b. S2C transport SPI (`bus.spi.s2c` — relocated rc13, ADR-0088)
 
-Three Java types under `ascend.springai.bus.spi.s2c` (relocated here from
+Three Java types under `com.huawei.ascend.bus.spi.s2c` (relocated here from
 the dissolved `agent-runtime-core.service.runtime.s2c.spi` package per
 ADR-0088):
 
@@ -106,7 +106,7 @@ transport).
 
 ## 3c. Workflow primitives (planned, W2 — ADR-0050)
 
-W2 will introduce under `ascend.springai.bus.spi` siblings:
+W2 will introduce under `com.huawei.ascend.bus.spi` siblings:
 
 - `WorkflowIntermediary` — interface for sending work-state events.
 - `Mailbox` — per-Run inbox for control intents.
@@ -137,7 +137,7 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-bus/
 └── src/main/java/
-    └── ascend/springai/bus/    <!-- root-migration-target: com.huawei.ascend.agent.bus -->
+    └── ascend/springai/bus/
         ├── spi/
         │   ├── ingress/                # C2S ingress SPI (rc13 / ADR-0089)
         │   │   ├── IngressGateway.java
@@ -160,12 +160,12 @@ Mode-B (Business-Centric per ADR-0101): `agent-bus` lives on the platform AS A F
 
 | Interface / Record FQN | SPI package | Purpose | Wire contract |
 |---|---|---|---|
-| `ascend.springai.bus.spi.ingress.IngressGateway` | `bus.spi.ingress` | Single-method C2S entry: `routeClientRequest(IngressEnvelope) → IngressResponse` | `ingress-envelope.v1.yaml` |
-| `ascend.springai.bus.spi.ingress.IngressEnvelope` | `bus.spi.ingress` | Immutable record: 6 mandatory + optional deadline + attributes | same |
-| `ascend.springai.bus.spi.ingress.IngressResponse` | `bus.spi.ingress` | Immutable record: 4 fields + `IngressStatus` sealed enum (ACCEPTED \| REJECTED \| DEFERRED) | same |
-| `ascend.springai.bus.spi.s2c.S2cCallbackTransport` | `bus.spi.s2c` | Server-to-client capability invocation SPI (ADR-0074) | `s2c-callback.v1.yaml` |
-| `ascend.springai.bus.spi.s2c.S2cCallbackEnvelope` | `bus.spi.s2c` | 6-required-field request envelope | same |
-| `ascend.springai.bus.spi.s2c.S2cCallbackResponse` | `bus.spi.s2c` | Outcome enum (OK \| ERROR \| TIMEOUT) + correlation fields | same |
+| `com.huawei.ascend.bus.spi.ingress.IngressGateway` | `bus.spi.ingress` | Single-method C2S entry: `routeClientRequest(IngressEnvelope) → IngressResponse` | `ingress-envelope.v1.yaml` |
+| `com.huawei.ascend.bus.spi.ingress.IngressEnvelope` | `bus.spi.ingress` | Immutable record: 6 mandatory + optional deadline + attributes | same |
+| `com.huawei.ascend.bus.spi.ingress.IngressResponse` | `bus.spi.ingress` | Immutable record: 4 fields + `IngressStatus` sealed enum (ACCEPTED \| REJECTED \| DEFERRED) | same |
+| `com.huawei.ascend.bus.spi.s2c.S2cCallbackTransport` | `bus.spi.s2c` | Server-to-client capability invocation SPI (ADR-0074) | `s2c-callback.v1.yaml` |
+| `com.huawei.ascend.bus.spi.s2c.S2cCallbackEnvelope` | `bus.spi.s2c` | 6-required-field request envelope | same |
+| `com.huawei.ascend.bus.spi.s2c.S2cCallbackResponse` | `bus.spi.s2c` | Outcome enum (OK \| ERROR \| TIMEOUT) + correlation fields | same |
 
 ## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
 

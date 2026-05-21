@@ -55,7 +55,7 @@ via a posture-aware precommit check (shipped, see `architecture-status.yaml: pay
 ### SPI shapes (design-only at W0; shipped at W2)
 
 ```java
-// ascend.springai.runtime.orchestration.spi — pure java.*
+// com.huawei.ascend.runtime.orchestration.spi — pure java.*
 
 /** Epistemic classification of data entering the agent context or checkpoint. */
 public enum SemanticOntology {

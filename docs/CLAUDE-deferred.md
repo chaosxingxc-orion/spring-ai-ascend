@@ -443,7 +443,7 @@ Composes with: ARCHITECTURE.md §4 #60; ADR-0064; Rule R-A.
 **Re-introduction trigger**: first agent-client SDK release shipping production Java code
 under `agent-client/src/main/java/` (W3+ per ADR-0049).
 
-**Rule (draft)**: The bus-side implementation of `ascend.springai.bus.spi.ingress.IngressGateway`
+**Rule (draft)**: The bus-side implementation of `com.huawei.ascend.bus.spi.ingress.IngressGateway`
 MUST be wired to the agent-service `/v1/runs` HTTP routes via a bounded queue on the data
 channel (`bus-channels.yaml#channels[id=data]`). Implementation MUST honour the Task Cursor
 shape from Rule R-F: long-running requests (`request_type=RUN_CREATE`) return

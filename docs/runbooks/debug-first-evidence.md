@@ -17,7 +17,7 @@ find . -name "TEST-*.xml" -newer pom.xml | xargs grep -l "<failure" | head
 
 Open the file. Record verbatim:
 
-- The fully-qualified test class + method: `ascend.springai.service.runtime.runs.RunStateMachineLibraryTest#illegal_transition_throws`.
+- The fully-qualified test class + method: `com.huawei.ascend.service.runtime.runs.RunStateMachineLibraryTest#illegal_transition_throws`.
 - The first 5 stack frames (the ones that name your source code, not framework internals).
 
 If the failure is from a gate self-test, the FQN form is `bash:test_rule79_runbook_present`. Capture the corresponding `FAIL [...]` line from `bash gate/test_architecture_sync_gate.sh`.

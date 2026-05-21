@@ -48,7 +48,7 @@ Rule R-D sub-clause .a.b, Rule R-D sub-clause .a.c, Rule R-D sub-clause .a.d (se
 
 ## Motivation
 
-The 2026-05-18 SPI integrity audit found that `agent-execution-engine/module-metadata.yaml` declared `ascend.springai.engine.spi` as an SPI package, but the physical directory contained only `package-info.java` — every real engine SPI class had landed in the parallel `service.runtime.orchestration.spi` namespace. The declaration was aspirational; reality differed. No gate rule caught this drift.
+The 2026-05-18 SPI integrity audit found that `agent-execution-engine/module-metadata.yaml` declared `com.huawei.ascend.engine.spi` as an SPI package, but the physical directory contained only `package-info.java` — every real engine SPI class had landed in the parallel `service.runtime.orchestration.spi` namespace. The declaration was aspirational; reality differed. No gate rule caught this drift.
 
 Rule R-D sub-clause .b operationalises the implicit invariant of Rule R-D sub-clause .a ("Every module MUST expose at least one SPI package containing ≥ 1 public interface"): declared SPI must be backed by code.
 
@@ -67,7 +67,7 @@ A module's metadata may legitimately declare future SPI before the implementatio
 
 ```yaml
 spi_packages:
-  - ascend.springai.bus.spi      # placeholder; populated in W2 per ADR-0050
+  - com.huawei.ascend.bus.spi      # placeholder; populated in W2 per ADR-0050
 ```
 
 ## Activation
@@ -80,7 +80,7 @@ Activated 2026-05-18 by the SPI metadata integrity wave per `D:\.claude\plans\sp
 
 ## Motivation
 
-The 2026-05-18 SPI integrity audit found that `ascend.springai.service.runtime.orchestration.spi` was declared simultaneously by `agent-runtime-core/module-metadata.yaml` AND `agent-execution-engine/module-metadata.yaml`. Both modules physically contributed `.java` files to the same Java package — a Maven split-package.
+The 2026-05-18 SPI integrity audit found that `com.huawei.ascend.service.runtime.orchestration.spi` was declared simultaneously by `agent-runtime-core/module-metadata.yaml` AND `agent-execution-engine/module-metadata.yaml`. Both modules physically contributed `.java` files to the same Java package — a Maven split-package.
 
 Split-packages compile but degrade quietly: Maven test classpaths can collide, IDE refactor-rename traverses only one module, and JPMS (Java Platform Module System) refuses to start because two modules cannot both own a package.
 
@@ -110,7 +110,7 @@ Activated 2026-05-18 by the SPI metadata integrity wave per `D:\.claude\plans\sp
 
 ## Motivation
 
-The 2026-05-18 SPI integrity audit found that `agent-runtime-core/module-metadata.yaml` declared `ascend.springai.service.runtime.runs` as an SPI package — but the directory contained domain value types (`Run`, `RunMode`, `RunStatus`, `RunStateMachine`) plus one contract (`RunRepository`). Only the latter is truly SPI-grade; the rest are domain types.
+The 2026-05-18 SPI integrity audit found that `agent-runtime-core/module-metadata.yaml` declared `com.huawei.ascend.service.runtime.runs` as an SPI package — but the directory contained domain value types (`Run`, `RunMode`, `RunStatus`, `RunStateMachine`) plus one contract (`RunRepository`). Only the latter is truly SPI-grade; the rest are domain types.
 
 Rule R-D sub-clause .a specifies the `*.spi.*` literal convention. Without machine enforcement, that convention drifts: developers conflate "interesting package" with "SPI package", and the SPI surface bloats to include non-contracts.
 
@@ -122,11 +122,11 @@ For each `spi_packages:` entry, fail unless the package ends in `.spi` OR contai
 
 ## Examples
 
-- `ascend.springai.engine.spi` — passes (ends in `.spi`).
-- `ascend.springai.service.runtime.runs.spi` — passes (ends in `.spi`).
-- `ascend.springai.engine.spi.kernel` — passes (contains `.spi.`).
-- `ascend.springai.service.runtime.runs` — fails (no `.spi` token).
-- `ascend.springai.engine.SPI` (uppercase) — fails (Java packages are lowercase by convention).
+- `com.huawei.ascend.engine.spi` — passes (ends in `.spi`).
+- `com.huawei.ascend.service.runtime.runs.spi` — passes (ends in `.spi`).
+- `com.huawei.ascend.engine.spi.kernel` — passes (contains `.spi.`).
+- `com.huawei.ascend.service.runtime.runs` — fails (no `.spi` token).
+- `com.huawei.ascend.engine.SPI` (uppercase) — fails (Java packages are lowercase by convention).
 
 ## Activation
 
@@ -172,11 +172,11 @@ Activated 2026-05-18 by the SPI metadata integrity wave per `D:\.claude\plans\sp
 
 The 2026-05-18 rc5 post-response architecture review (finding P1-2 in `docs/logs/reviews/2026-05-18-l0-rc5-post-response-architecture-review.en.md`) found `ResilienceContract` simultaneously treated as a shipped SPI and excluded from SPI governance:
 
-- `docs/contracts/contract-catalog.md:22-31` listed `ResilienceContract` in "Active SPI interfaces (11 total)" with package `ascend.springai.service.runtime.resilience` — a package with no `.spi` token.
+- `docs/contracts/contract-catalog.md:22-31` listed `ResilienceContract` in "Active SPI interfaces (11 total)" with package `com.huawei.ascend.service.runtime.resilience` — a package with no `.spi` token.
 - `docs/contracts/contract-catalog.md:43` counted `agent-service` as having two SPI interfaces (`GraphMemoryRepository`, `ResilienceContract`).
 - `docs/governance/architecture-status.yaml#resilience_contract.allowed_claim` called it an "L1: ResilienceContract SPI".
 - `agent-service/ARCHITECTURE.md` resilience section called it an "Operation-routing SPI (W0)".
-- `agent-service/module-metadata.yaml:13-14` declared only `ascend.springai.service.runtime.memory.spi` under `spi_packages` — `resilience` was missing.
+- `agent-service/module-metadata.yaml:13-14` declared only `com.huawei.ascend.service.runtime.memory.spi` under `spi_packages` — `resilience` was missing.
 - `docs/dfx/agent-service.yaml:14-15` mirrored only `memory.spi`.
 
 Rule R-D sub-clause .d (every `spi_packages:` entry must end in `.spi` or contain `.spi.`) therefore passed vacuously — `ResilienceContract` was *called* SPI in the catalog but its package was never declared as SPI in the metadata, so the package convention check had no rows to test. The corpus advertised one classification while metadata declared another, and no gate caught the divergence.
@@ -197,7 +197,7 @@ For each row in the SPI table of `docs/contracts/contract-catalog.md` §2 (betwe
 4. Otherwise, the row is a shipped-SPI commitment. Resolve `<module>/module-metadata.yaml`:
    - Fail if the metadata file does not exist.
    - Fail if `spi_packages:` is absent.
-   - Fail if `Package` is not listed in `spi_packages:` as either an exact match OR a parent package (the catalog row's package contains the metadata entry as a sub-package — e.g., row package `ascend.springai.service.runtime.resilience.spi` matches metadata entry `ascend.springai.service.runtime.resilience.spi`).
+   - Fail if `Package` is not listed in `spi_packages:` as either an exact match OR a parent package (the catalog row's package contains the metadata entry as a sub-package — e.g., row package `com.huawei.ascend.service.runtime.resilience.spi` matches metadata entry `com.huawei.ascend.service.runtime.resilience.spi`).
 5. Resolve `docs/dfx/<module>.yaml`:
    - Fail if the DFX file does not exist or has no top-level `spi_packages:` block.
    - Fail if the same package is not listed there. (Rule R-D sub-clause .e set-match already enforces metadata ↔ DFX agreement; Rule R-D sub-clause .f inherits that property by requiring the package in both files.)
@@ -238,7 +238,7 @@ Activated 2026-05-18 by the v2.0.0-rc5 post-response architecture review respons
 
 ## Motivation
 
-The rc8 post-corrective review (P1-2) found that `SkillCapacityRegistry` — a public interface under `ascend.springai.service.runtime.resilience.spi`, called out by ADR-0080 as the "registry SPI" and exposed by `ResilienceAutoConfiguration` as an `@ConditionalOnMissingBean` overrideable bean — was absent from `docs/contracts/contract-catalog.md` §2 "Active SPI interfaces (11 total)" table.
+The rc8 post-corrective review (P1-2) found that `SkillCapacityRegistry` — a public interface under `com.huawei.ascend.service.runtime.resilience.spi`, called out by ADR-0080 as the "registry SPI" and exposed by `ResilienceAutoConfiguration` as an `@ConditionalOnMissingBean` overrideable bean — was absent from `docs/contracts/contract-catalog.md` §2 "Active SPI interfaces (11 total)" table.
 
 Rule R-D sub-clause .f (rc6) enforced the other direction: every catalog row whose status doesn't say `(internal)` must have its `Module` and `Package` columns resolve to real `module-metadata.yaml#spi_packages` entries. That's "declared rows must be valid" — important, but one-directional. The opposite direction — "all public surfaces must be declared" — was never enforced.
 

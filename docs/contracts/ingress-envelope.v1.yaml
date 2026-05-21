@@ -7,7 +7,7 @@
 #   before the W3+ agent-client SDK lands.
 #
 # This file is the SINGLE SOURCE OF TRUTH for the client → bus → server
-# ingress envelope. The Java records under ascend.springai.bus.spi.ingress
+# ingress envelope. The Java records under com.huawei.ascend.bus.spi.ingress
 # (IngressEnvelope, IngressResponse, IngressGateway) mirror this schema and
 # validate required fields on construction. The negative dependency invariant
 # (agent-client MUST NOT import compute_control plane production code) is
@@ -15,7 +15,7 @@
 #
 # Symmetry note: this is the C2S (client → server) cross-plane envelope.
 # The S2C (server → client) counterpart is docs/contracts/s2c-callback.v1.yaml,
-# whose Java surface lives at ascend.springai.bus.spi.s2c (relocated from
+# whose Java surface lives at com.huawei.ascend.bus.spi.s2c (relocated from
 # agent-runtime-core per ADR-0088). After both ADRs land, agent-bus owns the
 # entirety of cross-plane traffic in both directions.
 #
@@ -83,7 +83,7 @@ response_statuses:
 # envelope onto the data channel (bus-channels.yaml#channels[id=data]).
 # Implementation details are W2+; this block is documentation only at W1.
 internal_routing:
-  ingress_gateway_spi: ascend.springai.bus.spi.ingress.IngressGateway
+  ingress_gateway_spi: com.huawei.ascend.bus.spi.ingress.IngressGateway
   forwarded_channel: data           # per Rule R-E
   authority: ADR-0089
 

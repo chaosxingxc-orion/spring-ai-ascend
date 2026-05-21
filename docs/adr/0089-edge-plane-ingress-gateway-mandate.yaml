@@ -84,8 +84,8 @@ decision: |
       IngressGateway.java + IngressEnvelope.java + IngressResponse.java
       + package-info.java. Pure Java; no runtime binding.
     - Create agent-client/src/test/java/.../EdgeToComputeDirectLinkArchTest.java
-      asserting no class under ascend.springai.client.. imports any class
-      under ascend.springai.{service,engine,middleware}.. — passes vacuously
+      asserting no class under com.huawei.ascend.client.. imports any class
+      under com.huawei.ascend.{service,engine,middleware}.. — passes vacuously
       today (agent-client is skeleton).
     - Register enforcer row E143 in docs/governance/enforcers.yaml.
     - Add gate Rule 105 `edge_no_direct_compute_link` scanning agent-client/
@@ -128,14 +128,14 @@ verification:
     - "Rule 105 (edge_no_direct_compute_link) -> active"
     - "E143 (EdgeToComputeDirectLinkArchTest) -> registered in enforcers.yaml"
     - "Rule R-D sub-clause .b (every spi_packages entry resolves to a real dir with ≥1 .java) -> agent-bus.spi.ingress passes"
-    - "Rule R-D sub-clause .d (spi packages end in .spi OR contain .spi.) -> ascend.springai.bus.spi.ingress contains .spi., passes"
+    - "Rule R-D sub-clause .d (spi packages end in .spi OR contain .spi.) -> com.huawei.ascend.bus.spi.ingress contains .spi., passes"
     - "Rule R-D sub-clause .e (DFX↔spi_packages parity) -> agent-bus.dfx.yaml.spi_packages updated to include bus.spi.ingress + bus.spi.s2c"
 
 enforcer_rows:
   - id: E143
     kind: archunit
     artifact: agent-client/src/test/java/ascend/springai/client/architecture/EdgeToComputeDirectLinkArchTest.java
-    asserts: "no class under ascend.springai.client.. imports any class under ascend.springai.{service,engine,middleware}.."
+    asserts: "no class under com.huawei.ascend.client.. imports any class under com.huawei.ascend.{service,engine,middleware}.."
 
 gate_rules:
   - id: 105

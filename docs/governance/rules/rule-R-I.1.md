@@ -14,7 +14,7 @@ scope_surfaces:
   - docs/contracts/ingress-envelope.v1.yaml
   - "**/module-metadata.yaml (deployment_plane == edge)"
 kernel: |
-  **Modules whose `deployment_plane` is `edge` MUST NOT import any production class under `ascend.springai.{service,engine,middleware}..` AND MUST NOT invoke compute_control HTTP routes directly; edge→compute_control traffic flows exclusively through `ascend.springai.bus.spi.ingress.IngressGateway` whose wire schema is `docs/contracts/ingress-envelope.v1.yaml`; W1 enforcement is ArchUnit (`EdgeToComputeDirectLinkArchTest`) + gate rule `edge_no_direct_compute_link`; contract status `design_only` at W1, promoted to `runtime_enforced` when the agent-client SDK lands per ADR-0049 / W3+.**
+  **Modules whose `deployment_plane` is `edge` MUST NOT import any production class under `com.huawei.ascend.{service,engine,middleware}..` AND MUST NOT invoke compute_control HTTP routes directly; edge→compute_control traffic flows exclusively through `com.huawei.ascend.bus.spi.ingress.IngressGateway` whose wire schema is `docs/contracts/ingress-envelope.v1.yaml`; W1 enforcement is ArchUnit (`EdgeToComputeDirectLinkArchTest`) + gate rule `edge_no_direct_compute_link`; contract status `design_only` at W1, promoted to `runtime_enforced` when the agent-client SDK lands per ADR-0049 / W3+.**
 ---
 
 # Rule R-I.1 — Edge↔Compute Ingress Routing
@@ -49,12 +49,12 @@ Rule 105 (`edge_no_direct_compute_link`).
 For every module whose `deployment_plane` is `edge`:
 
 1. No production source under `<module>/src/main/java/**/*.java` may
-   `import` any class under `ascend.springai.service..`,
-   `ascend.springai.engine..`, or `ascend.springai.middleware..`.
+   `import` any class under `com.huawei.ascend.service..`,
+   `com.huawei.ascend.engine..`, or `com.huawei.ascend.middleware..`.
 2. No production source may construct a `RestTemplate` or `WebClient`
    targeting a host other than the bus ingress endpoint.
 3. The positive contract — what traffic IS allowed — is the
-   `ascend.springai.bus.spi.ingress.IngressGateway` SPI, whose wire
+   `com.huawei.ascend.bus.spi.ingress.IngressGateway` SPI, whose wire
    schema is `docs/contracts/ingress-envelope.v1.yaml`.
 
 Contract status today is `design_only` (no runtime binding); W3+ SDK

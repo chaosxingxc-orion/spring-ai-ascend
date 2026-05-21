@@ -41,7 +41,7 @@ decision: |
   - Create new module agent-runtime-core. Kind: domain. Plane: compute_control.
     Pure-Java; no Spring; no middleware.
   - Move the following from agent-service into agent-runtime-core
-    (packages preserved as ascend.springai.service.runtime.*):
+    (packages preserved as com.huawei.ascend.service.runtime.*):
       runs/Run.java, RunMode.java, RunStatus.java, RunStateMachine.java,
       runs/spi/RunRepository.java (SPI — relocated to runs.spi sub-package by the 2026-05-18 SPI integrity remediation),
       orchestration/spi/Orchestrator.java, RunContext.java, SuspendSignal.java,
@@ -50,11 +50,11 @@ decision: |
       s2c/spi/S2cCallbackTransport.java, S2cCallbackEnvelope.java, S2cCallbackResponse.java.
   - Move the following from agent-service into agent-execution-engine.
     NOTE: the engine-adapter SPI files were initially landed in
-    ascend.springai.service.runtime.orchestration.spi (split-package with
+    com.huawei.ascend.service.runtime.orchestration.spi (split-package with
     agent-runtime-core); the 2026-05-18 SPI integrity remediation relocated
-    them to their final home ascend.springai.engine.spi to eliminate the
+    them to their final home com.huawei.ascend.engine.spi to eliminate the
     cross-module split. EngineRegistry + EngineEnvelope remain in
-    ascend.springai.service.runtime.engine (engine implementation, not SPI):
+    com.huawei.ascend.service.runtime.engine (engine implementation, not SPI):
       engine/EngineRegistry.java, EngineEnvelope.java,
       engine.spi/ExecutorAdapter.java, GraphExecutor.java, AgentLoopExecutor.java,
       EngineMatchingException.java, EngineHookSurface.java.
@@ -73,8 +73,8 @@ consequences:
     - "AgentExecutionEngine team can evolve engine semantics independently of AgentService."
   negative:
     - "Reactor count bumps 8 -> 9 (still 1 fewer than pre-Phase-C 9; net break-even with prior six-module materialization)."
-    - "Packages are temporarily SHARED across modules (agent-runtime-core hosts ascend.springai.service.runtime.runs while agent-service still has classes in ascend.springai.service.runtime.runs.* — but the package is non-overlapping at class level since each file lives in exactly one module). Treated as acceptable since JPMS module-info is not in use; classpath mode tolerates."
-    - "Future W3 refactor may rename packages to ascend.springai.runtimecore.* / ascend.springai.engine.* to align with Java module boundary best practice. Out of scope for T2.B2."
+    - "Packages are temporarily SHARED across modules (agent-runtime-core hosts com.huawei.ascend.service.runtime.runs while agent-service still has classes in com.huawei.ascend.service.runtime.runs.* — but the package is non-overlapping at class level since each file lives in exactly one module). Treated as acceptable since JPMS module-info is not in use; classpath mode tolerates."
+    - "Future W3 refactor may rename packages to com.huawei.ascend.runtimecore.* / com.huawei.ascend.engine.* to align with Java module boundary best practice. Out of scope for T2.B2."
 
 alternatives_considered:
   - alternative: "Engine SPI carries primitives only (option b from agent-execution-engine ARCHITECTURE.md). RunContext gets reconstructed inside the engine adapters via runId/tenantId."

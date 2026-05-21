@@ -83,7 +83,7 @@ context: |
       SPI trio; mis-pathed RunRepository).
     - docs/dfx/agent-runtime.yaml (pre-Phase-C historical) was still on disk
       referencing dead module name agent-runtime + dead package
-      ascend.springai.runtime.memory.spi.
+      com.huawei.ascend.runtime.memory.spi.
     - Root ARCHITECTURE.md tree comment mentioned a ghost type
       S2cCallbackOutcome that has no Java file.
 
@@ -94,11 +94,11 @@ context: |
 decision: |
   Architectural decision:
     - GraphMemoryRepository SPI remains on agent-service at
-      ascend.springai.service.runtime.memory.spi.GraphMemoryRepository.
+      com.huawei.ascend.service.runtime.memory.spi.GraphMemoryRepository.
       The Java source file stays at agent-service/src/main/java/ascend/
       springai/service/runtime/memory/spi/GraphMemoryRepository.java.
     - agent-service/module-metadata.yaml#spi_packages continues to declare
-      ascend.springai.service.runtime.memory.spi (unchanged).
+      com.huawei.ascend.service.runtime.memory.spi (unchanged).
     - agent-runtime-core/module-metadata.yaml#spi_packages does NOT declare
       memory.spi (unchanged).
     - docs/contracts/contract-catalog.md §2 row for GraphMemoryRepository

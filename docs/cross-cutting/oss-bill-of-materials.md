@@ -207,17 +207,17 @@ full analysis.
 
 ### Active SPI surface (W0 shipped)
 
-- `ascend.springai.service.runtime.runs.spi.RunRepository` — dev-posture: `InMemoryRunRegistry`; W2: Spring Data JDBC + Postgres.
-- `ascend.springai.service.runtime.orchestration.spi.Checkpointer` — dev-posture: `InMemoryCheckpointer`; W2: Postgres-backed.
-- `ascend.springai.service.runtime.memory.spi.GraphMemoryRepository` — sidecar: Graphiti (W1 reference example, ADR-0034). No production impl at W0.
-- `ascend.springai.service.runtime.resilience.spi.ResilienceContract` — W0: Resilience4j impl (package home aligned per ADR-0080).
-- `ascend.springai.service.runtime.orchestration.spi.Orchestrator` — W0: `SyncOrchestrator` reference impl.
-- `ascend.springai.engine.spi.GraphExecutor` — W0: `SequentialGraphExecutor` reference impl.
-- `ascend.springai.engine.spi.AgentLoopExecutor` — W0: `IterativeAgentLoopExecutor` reference impl.
+- `com.huawei.ascend.service.runtime.runs.spi.RunRepository` — dev-posture: `InMemoryRunRegistry`; W2: Spring Data JDBC + Postgres.
+- `com.huawei.ascend.service.runtime.orchestration.spi.Checkpointer` — dev-posture: `InMemoryCheckpointer`; W2: Postgres-backed.
+- `com.huawei.ascend.service.runtime.memory.spi.GraphMemoryRepository` — sidecar: Graphiti (W1 reference example, ADR-0034). No production impl at W0.
+- `com.huawei.ascend.service.runtime.resilience.spi.ResilienceContract` — W0: Resilience4j impl (package home aligned per ADR-0080).
+- `com.huawei.ascend.service.runtime.orchestration.spi.Orchestrator` — W0: `SyncOrchestrator` reference impl.
+- `com.huawei.ascend.engine.spi.GraphExecutor` — W0: `SequentialGraphExecutor` reference impl.
+- `com.huawei.ascend.engine.spi.AgentLoopExecutor` — W0: `IterativeAgentLoopExecutor` reference impl.
 
 ### Active probes (W0 shipped)
 
-- `ascend.springai.service.runtime.probe.OssApiProbe` — W0: classpath shape probe; verifies Spring AI + Temporal + MCP + Tika on classpath.
+- `com.huawei.ascend.service.runtime.probe.OssApiProbe` — W0: classpath shape probe; verifies Spring AI + Temporal + MCP + Tika on classpath.
 
 Seven SPIs (long-term memory, tool provider, layout parser, document source connector, policy evaluator, idempotency repository, artifact repository) were removed in the 2026-05-12 Occam pass. See `architecture-status.yaml` row `sdk_spi_starters`. Do not reference these names in active documentation.
 
@@ -264,7 +264,7 @@ code does not enter our build.
 
 **ArchUnit enforcement (Step 10):**
 ```java
-noClasses().that().resideInAPackage("ascend.springai..")
+noClasses().that().resideInAPackage("com.huawei.ascend..")
            .should().dependOnClassesThat()
            .resideInAPackage("com.alibaba.cloud.ai..");
 ```
@@ -279,7 +279,7 @@ The remaining reference projects (langchain4j, agentscope-java) are NOT on this 
 
 1. **Strict version pinning.** Every dep pinned to exact patch in `pom.xml` `<properties>`. No ranges, no `LATEST`.
 2. **BoM module.** `spring-ai-ascend-dependencies` (packaging=pom) is the SDK's published version contract.
-3. **SPI freeze via ArchUnit.** `ApiCompatibilityTest` enforces public-package boundary on `ascend.springai.service.runtime.spi.**`. Any change requires editing the test.
+3. **SPI freeze via ArchUnit.** `ApiCompatibilityTest` enforces public-package boundary on `com.huawei.ascend.service.runtime.spi.**`. Any change requires editing the test.
 4. **Spring AI milestone gate.** `gate/check_spring_ai_milestone.sh` fails CI past 2026-08-01 if `spring-ai.version` still contains `-M`.
 5. **Sidecar adapter independence.** Sidecar adapter starters live in their own modules; the Python service can break compatibility without affecting the SDK's SPI surface.
 6. **Deprecation policy**: SemVer; minor for additive; major for breaking; downstream gets one minor of deprecation overlap. Documented in `docs/cross-cutting/sdk-versioning.md`.

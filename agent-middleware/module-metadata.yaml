@@ -11,7 +11,7 @@ description: "Runtime-owned cross-cutting middleware SPI — HookPoint enum + Ru
 architecture_doc: agent-middleware/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-middleware.yaml
 spi_packages:
-  - ascend.springai.middleware.spi
+  - com.huawei.ascend.middleware.spi
 allowed_dependencies: []  # SPI-pure: java.* only, per Rule R-D sub-clause .d
 forbidden_dependencies:
   - agent-service            # post-Phase-C (consolidated from agent-platform per ADR-0078); middleware is upstream of service

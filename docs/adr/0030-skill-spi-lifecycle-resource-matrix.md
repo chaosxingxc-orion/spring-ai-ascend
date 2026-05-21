@@ -60,7 +60,7 @@ from `ToolCallback` → `Skill` is the W2 composition pattern.
 ### SPI shapes (design-only at W0; shipped at W2)
 
 ```java
-// ascend.springai.runtime.skill.spi — pure java.*
+// com.huawei.ascend.runtime.skill.spi — pure java.*
 
 /** Epistemic classification of a Skill's provenance and isolation requirements. */
 public enum SkillTrustTier {

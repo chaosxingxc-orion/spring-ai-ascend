@@ -6,7 +6,7 @@
 # Docling-serve exposes REST API on port 5001.
 #
 # spring-ai-ascend-docling-starter connects via:
-#   ascend.springai.docling.base-url=http://localhost:5001
+#   com.huawei.ascend.docling.base-url=http://localhost:5001
 
 services:
   docling:

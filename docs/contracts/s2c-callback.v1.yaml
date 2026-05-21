@@ -6,11 +6,11 @@
 # Cross-rule audit: docs/logs/reviews/2026-05-16-engine-contract-structural-response.en.md §5 (Phase 3a audit matrix).
 #
 # This file is the SINGLE SOURCE OF TRUTH for the S2C callback envelope +
-# response shape. The Java records under ascend.springai.bus.spi.s2c
+# response shape. The Java records under com.huawei.ascend.bus.spi.s2c
 # (S2cCallbackEnvelope, S2cCallbackResponse, S2cCallbackTransport) mirror this
 # schema and validate required fields on construction. Package path lineage:
-# ascend.springai.runtime.s2c (pre-rc3) → ascend.springai.service.runtime.s2c.spi
-# (rc3 cross-constraint audit alpha-4 / beta-2) → ascend.springai.bus.spi.s2c
+# com.huawei.ascend.runtime.s2c (pre-rc3) → com.huawei.ascend.service.runtime.s2c.spi
+# (rc3 cross-constraint audit alpha-4 / beta-2) → com.huawei.ascend.bus.spi.s2c
 # (rc13 ADR-0088 — relocated to agent-bus to co-locate cross-plane control
 # surfaces with bus.spi.ingress). Schema unchanged across all three moves;
 # only the Java home moved.

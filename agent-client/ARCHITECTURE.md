@@ -59,8 +59,8 @@ result checkpoints via Webhook.
   bus channels (live in `agent-bus`).
 - **No-direct-link clause (rc13 — ADR-0089 / Rule R-I sub-clause .b):**
   The SDK MUST NOT import any class under
-  `ascend.springai.{service,engine,middleware}..`. Cross-plane traffic
-  flows exclusively through `ascend.springai.bus.spi.ingress.IngressGateway`,
+  `com.huawei.ascend.{service,engine,middleware}..`. Cross-plane traffic
+  flows exclusively through `com.huawei.ascend.bus.spi.ingress.IngressGateway`,
   whose wire schema is `docs/contracts/ingress-envelope.v1.yaml`. Enforced
   by ArchUnit `EdgeToComputeDirectLinkArchTest` (E143) + gate Rule 105
   (`edge_no_direct_compute_link`) + module-metadata
@@ -113,7 +113,7 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-client/
 └── src/main/java/
-    └── ascend/springai/client/    <!-- root-migration-target: com.huawei.ascend.agent.client -->
+    └── ascend/springai/client/
         ├── package-info.java                   # placeholder + Rule R-I.1 sentinel anchor
         └── (W3+ SDK code lands here)
 └── src/test/java/
@@ -131,9 +131,9 @@ Mode-B (Business-Centric per ADR-0101): this module continues to live on the bus
 
 | Consumed FQN | Owner module | Wire contract | Catalog row |
 |---|---|---|---|
-| `ascend.springai.bus.spi.ingress.IngressGateway` | `agent-bus` | `docs/contracts/ingress-envelope.v1.yaml` | contract-catalog §2 |
-| `ascend.springai.bus.spi.ingress.IngressEnvelope` (record) | `agent-bus` | same | same |
-| `ascend.springai.bus.spi.ingress.IngressResponse` (record) | `agent-bus` | same | same |
+| `com.huawei.ascend.bus.spi.ingress.IngressGateway` | `agent-bus` | `docs/contracts/ingress-envelope.v1.yaml` | contract-catalog §2 |
+| `com.huawei.ascend.bus.spi.ingress.IngressEnvelope` (record) | `agent-bus` | same | same |
+| `com.huawei.ascend.bus.spi.ingress.IngressResponse` (record) | `agent-bus` | same | same |
 
 (Producer-side parity is verified by `agent-bus/ARCHITECTURE.md` per Rule G-1.1.b; the consumer-side appendix above documents the integration surface without claiming ownership.)
 

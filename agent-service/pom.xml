@@ -13,7 +13,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>ascend.springai</groupId>
+    <groupId>com.huawei.ascend</groupId>
     <artifactId>spring-ai-ascend-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
   </parent>
@@ -25,17 +25,17 @@
   <dependencies>
     <!-- Sibling module: agent-execution-engine (EngineRegistry + ExecutorAdapter SPI + orchestration SPI per ADR-0072 + ADR-0088). -->
     <dependency>
-      <groupId>ascend.springai</groupId>
+      <groupId>com.huawei.ascend</groupId>
       <artifactId>agent-execution-engine</artifactId>
     </dependency>
     <!-- Sibling module: agent-bus (S2cCallbackTransport SPI + IngressGateway SPI per ADR-0088 + ADR-0089). -->
     <dependency>
-      <groupId>ascend.springai</groupId>
+      <groupId>com.huawei.ascend</groupId>
       <artifactId>agent-bus</artifactId>
     </dependency>
     <!-- Sibling module: middleware (HookPoint/RuntimeMiddleware/HookDispatcher per ADR-0073). -->
     <dependency>
-      <groupId>ascend.springai</groupId>
+      <groupId>com.huawei.ascend</groupId>
       <artifactId>agent-middleware</artifactId>
     </dependency>
 

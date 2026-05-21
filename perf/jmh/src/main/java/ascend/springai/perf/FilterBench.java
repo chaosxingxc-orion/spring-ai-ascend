@@ -1,4 +1,4 @@
-package ascend.springai.perf;
+package com.huawei.ascend.perf;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;

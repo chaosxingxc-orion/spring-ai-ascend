@@ -131,7 +131,7 @@ Recommended style:
 
 ### 6.4 Runtime SPIs Remain Framework-Clean
 
-SPI packages under `ascend.springai.runtime.*.spi.*` should continue to import only `java.*` unless a future ADR changes the rule. Spring, Micrometer, Reactor, persistence, and platform types belong in adapters, not SPIs.
+SPI packages under `com.huawei.ascend.runtime.*.spi.*` should continue to import only `java.*` unless a future ADR changes the rule. Spring, Micrometer, Reactor, persistence, and platform types belong in adapters, not SPIs.
 
 ## 7. Module Boundary Recommendations
 
