@@ -4700,6 +4700,45 @@ else
 fi
 }
 
+test_rule_97_release_note_self_tests_denom_neg() {
+  # rc20 Wave 2 / ADR-0097: Rule 97 must catch `N/M self-tests pass` ratio whose
+  # denominator diverges from baseline_metrics.gate_executable_test_cases.
+  # Closes rc19 release-note 215/218-vs-220 drift (Finding F5).
+  local root="$scratch/r97_tests_neg"
+  mkdir -p "$root"
+  cat > "$root/release.md" <<'MEOF'
+## Verification
+- [x] 215/218 self-tests pass on Windows Git Bash
+- [x] 220 nodes / 656 edges
+MEOF
+  local live=220
+  local markers='historical|rc[0-9]+ snapshot|rc[0-9]+ correction|rc[0-9]+ first cut|rc[0-9]+ baseline|superseded|previous|pre-rc[0-9]+'
+  local violations
+  violations=$(awk -v live="$live" -v markers="$markers" '
+    { lines[NR] = $0 }
+    END {
+      in_code = 0
+      for (i = 1; i <= NR; i++) {
+        line = lines[i]
+        if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
+        if (in_code) continue
+        lo = i - 3; if (lo < 1) lo = 1
+        hi = i + 3; if (hi > NR) hi = NR
+        window = ""
+        for (j = lo; j <= hi; j++) window = window " " lines[j]
+        if (match(line, /([0-9]+)\/([0-9]+)[[:space:]]+(self-tests|tests passed|tests pass|gate self-tests)/, arr)) {
+          denom = arr[2]
+          if (denom != live && window !~ markers) print i ":denom:" denom
+        }
+      }
+    }' "$root/release.md" 2>/dev/null)
+  if [[ -n "$violations" ]]; then
+    ok "rule_97_release_note_self_tests_denom_neg" "Rule 97 (rc20 Wave 2 extension) catches N/M self-tests denominator drift"
+  else
+    fail "rule_97_release_note_self_tests_denom_neg" "expected denominator-drift detection; got nothing"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # Rule 98 positive: ops/* yaml uses only agent-service (post-Phase-C name)
 # ---------------------------------------------------------------------------

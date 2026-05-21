@@ -148,7 +148,7 @@ codifies the pattern.
   retrofit non-META legacy fixtures. Opportunistic per-rule-touch.
 - Pre-rc16 grandfathered rules without `scope_surfaces:` frontmatter.
 
-## In-branch corrective commits (3 total, all squashed on main)
+## In-branch corrective commits (5 total, all squashed on main)
 
 | Wave | Correctives | Cause |
 |---|---|---|
@@ -162,7 +162,7 @@ held at the merge boundary.
 
 ## Verification
 
-- [x] 215/218 self-tests pass on Windows Git Bash (3 pre-existing python3 env failures)
+- [x] 217/220 self-tests pass on Windows Git Bash (3 pre-existing python3-env failures; canonical Linux/WSL run passes 220/220 per gate's TOTAL=passed+failed manifest, see baseline_metrics.gate_executable_test_cases). rc20 Wave 2 / ADR-0097 corrects the rc19 release-note overclaim from `215/218`.
 - [x] All Rule 111 fixtures (14 total) PASS with new python validator
 - [x] All Rule 112 fixtures (2) PASS
 - [x] All Rule 113 fixtures (2) PASS

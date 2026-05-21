@@ -4,7 +4,7 @@ title: "Code-as-Everything, Rapid Evolution, Independent Modules"
 level: L0
 view: development
 authority: "Layer 0 governing principle (CLAUDE.md)"
-enforced_by_rules: [R-C.a, R-C.b]   # formerly Rules 28 + 31 (numeric pre-ADR-0086)
+enforced_by_rules: [R-C.a, R-C.1]   # rc20 Wave 2 fix per ADR-0097: R-C.b renamed to R-C.1 in rc17 (ADR-0094); frontmatter sync was missed by rc19 Wave 2 sweep. Numeric: formerly Rules 28 + 31 pre-ADR-0086.
 kernel: |
   P-C — Code-as-Everything, Rapid Evolution, Independent Modules.
   Every architectural constraint is code.
