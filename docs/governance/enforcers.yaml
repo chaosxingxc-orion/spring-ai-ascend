@@ -1393,3 +1393,11 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#architecture_refresh_defect_family_re_eval_required
   asserts: "Rule 111 sub-check .c — the set of `^  - id:` family slugs in `docs/governance/recurring-defect-families.yaml` MUST equal the set of `F-...` family-id references in `docs/governance/recurring-defect-families.md`. A family in yaml but not md is an incomplete human view; a family in md but not yaml is a stale human view. Both directions fail closed. Operationalises Rule G-9 sub-clause .c per ADR-0094 rc17 wave."
+
+- id: E159
+  constraint_ref: "Rule 112 (meta_rule_self_application_check); ADR-0096"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#meta_rule_self_application_check
+  asserts: "Rule 112 (META) — every gate rule whose `# Rule N — slug` header carries the `[META]` marker MUST source a helper from `gate/lib/check_*.sh` within 80 lines of the header. Closes F-recursive-prevention-irony permanently by structurally enforcing the helper-extraction discipline introduced by Rule 111 (rc18 Wave 1, ADR-0095) on every future META rule. Rule 112 dogfoods itself by sourcing gate/lib/check_recurring_families.sh."

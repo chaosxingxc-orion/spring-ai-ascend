@@ -5761,7 +5761,7 @@ test_rule_111_a_wellformed_neg_missing_field() {
     cleanup_status: partial'
   local out
   out=$( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" )
-  if echo "$out" | grep -q "F-broken missing required field open_residual"; then
+  if echo "$out" | grep -qE "F-broken missing required field 'open_residual'"; then
     ok "rule_111_a_wellformed_neg_missing_field" "Rule 111.a catches missing open_residual"
   else
     fail "rule_111_a_wellformed_neg_missing_field" "expected missing-open_residual fail, got: $out"
@@ -5779,7 +5779,7 @@ families: []
 YEOF
   local out
   out=$( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" )
-  if echo "$out" | grep -q "families array is empty"; then
+  if echo "$out" | grep -qE "families must be a non-empty list|families array is empty"; then
     ok "rule_111_a_wellformed_neg_empty_families" "Rule 111.a (fix 1b) catches families: [] empty array"
   else
     fail "rule_111_a_wellformed_neg_empty_families" "expected empty-families fail, got: $out"
@@ -5803,7 +5803,7 @@ test_rule_111_a_wellformed_neg_garbage_enum() {
     open_residual: ""'
   local out
   out=$( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" )
-  if echo "$out" | grep -q "cleanup_status value pizza not in enum"; then
+  if echo "$out" | grep -qE "cleanup_status value 'pizza' not in enum"; then
     ok "rule_111_a_wellformed_neg_garbage_enum" "Rule 111.a (fix 1c) rejects cleanup_status value not in enum"
   else
     fail "rule_111_a_wellformed_neg_garbage_enum" "expected enum-violation fail, got: $out"
@@ -5828,7 +5828,7 @@ test_rule_111_a_wellformed_neg_duplicate_field() {
     open_residual: ""'
   local out
   out=$( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" )
-  if echo "$out" | grep -q "declares field title 2 times"; then
+  if echo "$out" | grep -qE "duplicate key found: 'title'|declares field title"; then
     ok "rule_111_a_wellformed_neg_duplicate_field" "Rule 111.a (fix 1d) catches duplicate field (closes compensation blind spot)"
   else
     fail "rule_111_a_wellformed_neg_duplicate_field" "expected duplicate-field fail, got: $out"
@@ -5903,6 +5903,166 @@ MEOF
     ok "rule_111_c_md_yaml_parity_neg" "Rule 111.c flags both yaml-only and md-only parity breaks"
   else
     fail "rule_111_c_md_yaml_parity_neg" "expected both directions caught, got: $out"
+  fi
+}
+
+# -----------------------------------------------------------------------------
+# rc19 Wave 1 (ADR-0096) fixtures — close adversarial findings ADV-RC18-*
+# -----------------------------------------------------------------------------
+
+test_rule_111_a_wellformed_neg_future_date() {
+  # ADV-RC18-2 + future-date defense: last_updated > today should fail
+  local root="$scratch/r111_a_neg_future"
+  mkdir -p "$root"
+  _r111_make_yaml "$root/families.yaml" '  - id: F-x
+    title: X
+    first_observed_rc: rc1
+    last_observed_rc: rc2
+    occurrences: [rc1, rc2]
+    root_cause: synthetic
+    surfaces:
+      - x
+    prevention_rules: [Rule X]
+    cleanup_status: partial
+    open_residual: ""'
+  # Overwrite last_updated to a future date
+  sed -i 's/^last_updated: .*/last_updated: 9999-12-31/' "$root/families.yaml"
+  local out
+  out=$( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" )
+  if echo "$out" | grep -q "is future-dated"; then
+    ok "rule_111_a_wellformed_neg_future_date" "Rule 111.a (rc19 ADV-RC18-2) rejects future-dated last_updated"
+  else
+    fail "rule_111_a_wellformed_neg_future_date" "expected future-date fail, got: $out"
+  fi
+}
+
+test_rule_111_a_wellformed_neg_invalid_date() {
+  # ADV-RC18-2: format-valid but semantically invalid date (2026-13-32)
+  local root="$scratch/r111_a_neg_invaliddate"
+  mkdir -p "$root"
+  _r111_make_yaml "$root/families.yaml" '  - id: F-x
+    title: X
+    first_observed_rc: rc1
+    last_observed_rc: rc2
+    occurrences: [rc1, rc2]
+    root_cause: synthetic
+    surfaces:
+      - x
+    prevention_rules: [Rule X]
+    cleanup_status: partial
+    open_residual: ""'
+  sed -i 's/^last_updated: .*/last_updated: 2026-13-32/' "$root/families.yaml"
+  local out
+  out=$( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" )
+  if echo "$out" | grep -qE "(not a real date|is future-dated|month must be|day is out of range|yaml parse error)"; then
+    ok "rule_111_a_wellformed_neg_invalid_date" "Rule 111.a (rc19 ADV-RC18-2) rejects semantically invalid date"
+  else
+    fail "rule_111_a_wellformed_neg_invalid_date" "expected invalid-date fail, got: $out"
+  fi
+}
+
+test_rule_111_a_wellformed_neg_literal_block_injection() {
+  # ADV-RC18-4: `- id: F-fake` inside root_cause literal block should NOT
+  # be misparsed as a real family by the python yaml parser.
+  local root="$scratch/r111_a_neg_injection"
+  mkdir -p "$root"
+  cat > "$root/families.yaml" <<'YEOF'
+schema_version: 1
+last_updated: 2026-05-21
+families:
+  - id: F-real
+    title: Real
+    first_observed_rc: rc1
+    last_observed_rc: rc2
+    occurrences: [rc1, rc2]
+    root_cause: |
+      A literal block with embedded text like:
+        - id: F-fake-injection
+          title: This is prose, not a family.
+      The python yaml parser correctly treats this as a string literal,
+      not as another family. The old awk parser would have been fooled.
+    surfaces:
+      - x
+    prevention_rules: [Rule X]
+    cleanup_status: partial
+    open_residual: ""
+YEOF
+  ( source "$_r111_helper_path"; _check_recurring_families_yaml_wellformed "$root/families.yaml" >/dev/null )
+  if [[ $? -eq 0 ]]; then
+    ok "rule_111_a_wellformed_neg_literal_block_injection" "Rule 111.a (rc19 ADV-RC18-4) python parser correctly treats literal block as string, not phantom family"
+  else
+    fail "rule_111_a_wellformed_neg_literal_block_injection" "literal-block injection caused unexpected fail"
+  fi
+}
+
+test_rule_111_c_md_yaml_parity_pos_uppercase_id() {
+  # Correctness Finding 2: md regex should accept uppercase + underscore
+  # to mirror the yaml-side acceptance (rc18 had asymmetric anchoring).
+  local root="$scratch/r111_c_pos_uppercase"
+  mkdir -p "$root"
+  cat > "$root/families.yaml" <<'YEOF'
+families:
+  - id: F-MixedCase_Family
+YEOF
+  cat > "$root/families.md" <<'MEOF'
+### F-MixedCase_Family — Uppercase + underscore test
+MEOF
+  ( source "$_r111_helper_path"; _check_recurring_families_md_yaml_parity "$root/families.yaml" "$root/families.md" >/dev/null )
+  if [[ $? -eq 0 ]]; then
+    ok "rule_111_c_md_yaml_parity_pos_uppercase_id" "Rule 111.c (rc19 Correctness Finding 2) accepts uppercase + underscore in family ids on both sides"
+  else
+    fail "rule_111_c_md_yaml_parity_pos_uppercase_id" "uppercase id mismatched between yaml + md sides"
+  fi
+}
+
+test_rule_112_meta_self_application_pos() {
+  # Rule 112: synthetic META rule that DOES source a helper should pass.
+  local root="$scratch/r112_pos"
+  mkdir -p "$root"
+  cat > "$root/gate_script.sh" <<'SHEOF'
+# Rule 999 — fake_meta_rule_with_helper (enforcer E999) [META]
+#
+# scope_surfaces: x
+source "gate/lib/check_recurring_families.sh"
+some_body_code() { :; }
+SHEOF
+  local meta_line
+  meta_line=$(grep -nE '^# Rule [0-9]+[a-z]? — .*\[META\]' "$root/gate_script.sh" | head -1)
+  local lineno
+  lineno=$(printf '%s' "$meta_line" | cut -d: -f1)
+  local body
+  body=$(awk -v start="$lineno" 'NR > start && NR <= start + 80' "$root/gate_script.sh")
+  if printf '%s' "$body" | grep -qE '(source|\. )[[:space:]]+["'"'"'[:space:]]*[^"'"'"'[:space:]]*gate/lib/check_[a-zA-Z_]+\.sh'; then
+    ok "rule_112_meta_self_application_pos" "Rule 112 accepts META rule that sources gate/lib/check_*.sh helper"
+  else
+    fail "rule_112_meta_self_application_pos" "expected pass on META rule with helper source"
+  fi
+}
+
+test_rule_112_meta_self_application_neg() {
+  # Rule 112: synthetic META rule that does NOT source a helper should fail.
+  local root="$scratch/r112_neg"
+  mkdir -p "$root"
+  cat > "$root/gate_script.sh" <<'SHEOF'
+# Rule 998 — fake_meta_rule_without_helper (enforcer E998) [META]
+#
+# scope_surfaces: x
+# Body has NO `source gate/lib/check_*.sh` — Pattern D anti-pattern.
+some_inline_code() {
+  grep -c something file
+  awk '/regex/' file
+}
+SHEOF
+  local meta_line
+  meta_line=$(grep -nE '^# Rule [0-9]+[a-z]? — .*\[META\]' "$root/gate_script.sh" | head -1)
+  local lineno
+  lineno=$(printf '%s' "$meta_line" | cut -d: -f1)
+  local body
+  body=$(awk -v start="$lineno" 'NR > start && NR <= start + 80' "$root/gate_script.sh")
+  if ! printf '%s' "$body" | grep -qE '(source|\. )[[:space:]]+["'"'"'[:space:]]*[^"'"'"'[:space:]]*gate/lib/check_[a-zA-Z_]+\.sh'; then
+    ok "rule_112_meta_self_application_neg" "Rule 112 catches META rule that fails to source gate/lib/check_*.sh (F-recursive-prevention-irony anti-pattern)"
+  else
+    fail "rule_112_meta_self_application_neg" "expected fail on META rule without helper source"
   fi
 }
 
