@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc20 Wave 4 (post-Wave-1 rebase): D-9 + G-7 invocation extension
+last_updated: 2026-05-21  # rc20 Wave 4 (post-Wave-1 rebase): D-9 + G-7 invocation extension + baseline align
 
 families:
   - id: F-numeric-drift
