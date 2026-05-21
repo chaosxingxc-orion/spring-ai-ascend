@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc20 Wave 5 corrective: release-note baseline-truth + denom-drift markers + content-diff freshness bump
+last_updated: 2026-05-21  # rc20 Wave 5 second corrective: switch release note to 2-column Count+Delta format per feedback_release_note_baseline_truth.md
 
 families:
   - id: F-numeric-drift

@@ -61,22 +61,22 @@ user-directed kernel rules:
 
 ## Baseline metrics
 
-<!-- rc20 correction: the left column below is historical rc19 baseline; the right column is the current rc20 canonical baseline (matches architecture-status.yaml#baseline_metrics). -->
+Per `feedback_release_note_baseline_truth.md` (canonical = first numeric column), this table uses the rc15+ 2-column (Count + Delta) format. The Count column is the current rc20 canonical baseline (matches `architecture-status.yaml#baseline_metrics`); the Delta column documents the rc19 → rc20 change.
 
-| Metric | rc19 | rc20 | Delta |
-|---|---|---|---|
-| §4 constraints | 65 | 65 | unchanged |
-| Active ADRs | 95 | 96 | +1 (ADR-0097) |
-| Active gate rules | 126 | 127 | +1 (Rule 115; rc20 Waves 1/2/3 hardened existing rules without adding top-level rules) |
-| Active engineering rules | 37 | 38 | +1 (Rule D-9) |
-| Gate self-test cases | 220 | 226 | +6 (3 Wave 1 + 1 Wave 2 + 2 Wave 4) |
-| Enforcer rows | 160 | 162 | +2 (E162 + E163) |
-| Layer-0 governing principles | 13 | 13 | unchanged |
-| Reactor modules | 8 | 8 | unchanged |
-| Architecture graph nodes | 402 | 407 | +5 (Wave 1 + Wave 4 + ADR-0097 node) |
-| Architecture graph edges | 656 | 667 | +11 (Wave 1 + Wave 4 + ADR-0097 supersedes/extends/relates_to edges) |
-| Recurring defect families | 9 | 9 | unchanged (F-recursive-prevention-irony reopened to `cleanup_status: monitoring`) |
-| Maven tests green | 374 | 374 | unchanged (no Java code changes) |
+| Metric | Count | Delta |
+|---|---|---|
+| §4 constraints | 65 | unchanged from rc19 |
+| Active ADRs | 96 | +1 from rc19 (ADR-0097) |
+| Active gate rules | 127 | +1 from rc19 (Rule 115; rc20 Waves 1/2/3 hardened existing rules without adding top-level rules) |
+| Active engineering rules | 38 | +1 from rc19 (Rule D-9) |
+| Gate self-test cases | 226 | +6 from rc19 (3 Wave 1 + 1 Wave 2 + 2 Wave 4) |
+| Enforcer rows | 162 | +2 from rc19 (E162 + E163) |
+| Layer-0 governing principles | 13 | unchanged |
+| Reactor modules | 8 | unchanged |
+| Architecture graph nodes | 407 | +5 from rc19 (Wave 1 + Wave 4 + ADR-0097 node) |
+| Architecture graph edges | 667 | +11 from rc19 (Wave 1 + Wave 4 + ADR-0097 supersedes/extends/relates_to edges) |
+| Recurring defect families | 9 | unchanged (F-recursive-prevention-irony reopened to `cleanup_status: monitoring`) |
+| Maven tests green | 374 | unchanged (no Java code changes) |
 
 ## Pillar coverage (per Rule R-B / ADR-0065)
 
