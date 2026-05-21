@@ -485,8 +485,11 @@ def cmd_parity(yaml_path: str, md_path: str) -> int:
     # Anchor to the LEADING status token (after optional emoji prefix) so that
     # `closed by adding [META]` inside the prose tail does not mis-bind to the
     # `closed` enum. Cell shape: `<emoji>? <enum-token-words> (optional prose)`.
+    # Skip leading non-alpha chars (emojis, variant selectors, whitespace,
+    # symbol punctuation) before the enum word. Picks up `⚠️ partial`,
+    # `🟡 monitoring`, `✅ closed`, plain `partial`, etc.
     md_anchor_re = re.compile(
-        r"^\s*(?:[\U0001F300-\U0001FAFF✅⚠❌]\s*)?"
+        r"^[^A-Za-z]*"
         r"(closed|structurally[ _]addressed|monitoring|partial|incomplete)\b",
         re.IGNORECASE,
     )
