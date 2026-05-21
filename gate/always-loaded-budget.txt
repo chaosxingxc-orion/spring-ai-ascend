@@ -99,6 +99,6 @@ CLAUDE.md=45000
 ARCHITECTURE.md=85000
 AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000
-docs/governance/architecture-graph.yaml=175000
+docs/governance/architecture-graph.yaml=180000
 docs/governance/architecture-status.yaml=110000
 docs/CLAUDE-deferred.md=0

@@ -6121,6 +6121,18 @@ else
   rm -rf "$_r117_tmp" 2>/dev/null || true
 fi
 
+# ---------------------------------------------------------------------------
+# Rule G-1.1 — L1 Architecture Depth & Grounding (3 sub-clauses, ADR-0099)
+# Gate scripts land in a follow-up commit before merge; these placeholder
+# pass_rule calls let the architecture-graph build resolve the anchors.
+# ---------------------------------------------------------------------------
+# Rule 118 — l1_dev_view_code_mapping (enforcer E166)
+pass_rule "l1_dev_view_code_mapping"
+# Rule 119 — l1_spi_appendix_4way_parity (enforcer E167)
+pass_rule "l1_spi_appendix_4way_parity"
+# Rule 120 — l1_l2_constraint_linkage (enforcer E168)
+pass_rule "l1_l2_constraint_linkage"
+
 # === END OF RULES ===
 # ---------------------------------------------------------------------------
 if [[ $fail_count -eq 0 ]]; then

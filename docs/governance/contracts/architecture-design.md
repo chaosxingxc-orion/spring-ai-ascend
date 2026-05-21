@@ -38,6 +38,7 @@ declares allocation.
 | D-8 | Single Construction Path Per Resource Class | **P** | [`rule-D-8.md`](../rules/rule-D-8.md) |
 | D-9 | No Version / Log Metadata in Code | **X** | [`rule-D-9.md`](../rules/rule-D-9.md) |
 | G-1 | Layered 4+1 Discipline + Architecture-Graph Truth | **P** | [`rule-G-1.md`](../rules/rule-G-1.md) |
+| G-1.1 | L1 Architecture Depth & Grounding | **P** | [`rule-G-1.1.md`](../rules/rule-G-1.1.md) |
 | G-2 | Authority-Text Reality (doc / status / path / numeric truth) | **X** | [`rule-G-2.md`](../rules/rule-G-2.md) |
 | G-3 | Kernel-Card-Implementation Coherence | **X** | [`rule-G-3.md`](../rules/rule-G-3.md) |
 | G-3.1 | Kernel-Implementation Disjunction Truth | **X** | [`rule-G-3.1.md`](../rules/rule-G-3.1.md) |

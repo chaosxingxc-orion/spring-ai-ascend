@@ -1,7 +1,7 @@
 # Contract Catalog
 
 > Single source of truth for all public contracts in the spring-ai-ascend platform.
-> Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-05-20 (rc15 — structural-carrier parity + terminal-state scope per ADR-0088 + ADR-0089 + ADR-0090 + ADR-0091)
+> Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-05-21 (rc22 — L1 grounding + 6 ADRs + agent-invoke-request.v1.yaml + reflection-envelope.v1.yaml per ADR-0099 / ADR-0100 / ADR-0101 / ADR-0102 / ADR-0103 / ADR-0104)
 
 ---
 
@@ -109,6 +109,8 @@ Schema-first domain contracts (Rule M-2.a, formerly Rule 48). Each YAML file is 
 | `s2c-callback.v1.yaml` | `docs/contracts/` | `runtime_enforced` | ADR-0074 (Rule R-M.d); java types in `agent-bus.bus.spi.s2c` per ADR-0088 |
 | `ingress-envelope.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0089 (Rule R-I.b); runtime binding W3+ with agent-client SDK |
 | `plan-projection.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0032 (planner contract minimal); ADR-0052 (`SkillResourceMatrix`); rc4 review P1-3 amendment |
+| `agent-invoke-request.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0100 (rc22 — agent-service decomp); Service↔Engine SPI carrier; runtime impl rc24 |
+| `reflection-envelope.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0102 (rc22 — online evolution duality); S2C envelope for hot-patch; runtime impl rc26 |
 | `evolution-scope.v1.yaml` | `docs/governance/` | `schema_shipped` | ADR-0077 (Rule R-M.e) |
 
 Note: `evolution-scope.v1.yaml` lives under `docs/governance/`, not `docs/contracts/`, because it indexes governance-plane export rules rather than a wire/Java contract.

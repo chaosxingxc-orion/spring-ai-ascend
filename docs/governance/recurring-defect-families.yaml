@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-22  # rc22 (ADR-0099): added F-l1-architecture-grounding-gap (Rule G-1.1 ratification + 6 ARCHITECTURE.md rewrites + 3 enforcers E166/E167/E168 + 6 self-test fixtures). Wave also lands ADR-0100 (agent-service decomp) + ADR-0101 (polymorphic deployment) + ADR-0102 (online/offline evolution) + ADR-0103 (middleware naming resolution) + ADR-0104 (package-root migration decision; rc22.5 executes).
+last_updated: 2026-05-21  # rc22 (ADR-0099): added F-l1-architecture-grounding-gap (Rule G-1.1 ratification + 6 ARCHITECTURE.md rewrites + 3 enforcers E166/E167/E168 + 6 self-test fixtures). Wave also lands ADR-0100 (agent-service decomp) + ADR-0101 (polymorphic deployment) + ADR-0102 (online/offline evolution) + ADR-0103 (middleware naming resolution) + ADR-0104 (package-root migration decision; rc22.5 executes).
 
 families:
   - id: F-numeric-drift
