@@ -1,0 +1,91 @@
+# A2A Protocol Envelope schema, version 1.
+#
+# Authority: ADR-0100 (rc22) + future ADR-0105 (rc25 — A2A contract adoption).
+# Wave: design_only at rc25; runtime impl follows.
+#
+# Purpose: contract-layer adoption of the A2A (Agent-to-Agent) protocol
+# envelope shape + Task state vocabulary. Contract-ONLY adoption per
+# ADR-0100 Rejection 3 — NO SDK runtime dep added in agent-service.
+#
+# The mapping below allows internal RunState ↔ A2A state vocabulary
+# translation at the contract boundary; A2A interoperability is
+# achieved via mapping, not by importing an A2A SDK.
+
+schema: a2a-envelope/v1
+authority: ADR-0100
+adoption_policy: contract_only  # NO SDK dep per Rejection 3
+status: design_only
+runtime_enforced: false
+promotion_trigger: First A2A interop test lands (future rc25+ wave with separate ADR).
+
+# Task state vocabulary (A2A specification subset)
+task_states:
+  submitted:
+    description: Task accepted but not yet started.
+    internal_run_state_hint: PENDING
+  working:
+    description: Task actively executing.
+    internal_run_state_hint: RUNNING
+  input_required:
+    description: Task suspended awaiting client input.
+    internal_run_state_hint: SUSPENDED
+    suspend_reason_hint: AwaitClientCallback
+  completed:
+    description: Task finished successfully.
+    internal_run_state_hint: SUCCEEDED
+  failed:
+    description: Task finished with error.
+    internal_run_state_hint: FAILED
+
+# Envelope shape
+envelope_fields:
+  a2a_request_id:
+    type: string
+    required: true
+    description: Unique A2A request identifier (separate from internal runId).
+  a2a_protocol_version:
+    type: string
+    required: true
+    description: A2A protocol version (e.g., "1.0"), validated at boundary.
+  agent_id:
+    type: string
+    required: true
+    description: A2A agent identifier (separate from internal AgentSubject if/when introduced).
+  task_state:
+    type: enum
+    values: [submitted, working, input_required, completed, failed]
+    required: true
+  payload:
+    type: object
+    required: true
+    description: A2A-specific message payload. Opaque to internal RunContext.
+  metadata:
+    type: object
+    required: false
+
+# Mapping strategy
+mapping:
+  inbound: |
+    A2A request → internal CreateRunRequest mapping:
+    - a2a_request_id → idempotency_key (with prefix `a2a:`)
+    - agent_id → run.spec.agent_id (consumed by future AgentSubject layer)
+    - task_state initial → PENDING (always; the A2A submitted state)
+    - payload → run.spec.payload (opaque pass-through)
+  outbound: |
+    Internal RunState → A2A task_state for response:
+    - PENDING → submitted
+    - RUNNING → working
+    - SUSPENDED (any reason) → input_required (if AwaitClientCallback) | working (otherwise)
+    - SUCCEEDED → completed
+    - FAILED | EXPIRED | CANCELLED → failed
+
+# Non-goals
+non_goals: |
+  - Importing the a2a-java SDK as a Maven dependency (rejected per ADR-0100 Rejection 3).
+  - Replacing internal RunState with A2A task_state (the internal DFA stays canonical).
+  - Cross-tenant A2A federation (separate ADR if pursued).
+
+# Schema evolution
+schema_evolution:
+  policy: additive_only
+  version_in_envelope: true  # a2a_protocol_version field

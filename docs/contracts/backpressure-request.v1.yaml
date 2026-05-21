@@ -1,0 +1,72 @@
+# BackpressureRequest schema, version 1.
+#
+# Authority: ADR-0100 + future ADR-0105 (rc25 — BackpressureRequest channel).
+# Wave: design_only at rc25; runtime impl follows.
+#
+# Purpose: explicit backpressure request channel on the agent-bus
+# control track (Rule R-E). Converts local-push backpressure signals
+# from the Reactive Orchestrator (per ADR-0100 §2.2) into distributed-
+# pull signals across the federation bus.
+
+schema: backpressure-request/v1
+authority: ADR-0100
+status: design_only
+runtime_enforced: false
+promotion_trigger: First BackpressureRequestEmitter implementation lands in agent-bus.
+
+# Routing semantics
+routing:
+  source_plane: compute_control   # agent-service Reactive Orchestrator
+  carrier_plane: bus_state         # agent-bus control track
+  destination_plane: compute_control # routed to peer Reactive Orchestrators
+  delivery_track: control          # highest priority per Rule R-E
+
+# Field definitions
+fields:
+  request_id:
+    type: string
+    format: uuid
+    required: true
+  tenant_id:
+    type: string
+    format: uuid
+    required: true
+    description: Per Rule R-C.c.
+  skill_id:
+    type: string
+    required: true
+    description: The skill experiencing backpressure (resolved via ResilienceContract).
+  pressure_level:
+    type: enum
+    values: [normal, elevated, critical, saturated]
+    required: true
+  requested_rate_limit:
+    type: integer
+    minimum: 0
+    required: true
+    description: Suggested requests-per-second cap; 0 means full stop.
+  ttl_seconds:
+    type: integer
+    minimum: 1
+    maximum: 3600
+    required: true
+    description: How long the backpressure request applies.
+  trace_id:
+    type: string
+    format: hex_32
+    required: true
+  emitted_at:
+    type: string
+    format: iso_datetime
+    required: true
+
+# Backward / forward compatibility
+schema_evolution:
+  policy: additive_only
+  version_in_envelope: false  # version in schema name
+
+# Cross-references
+cross_references:
+  - docs/governance/bus-channels.yaml  # control track allocation
+  - docs/governance/skill-capacity.yaml  # interlocks with ResilienceContract per Rule R-K
+  - docs/contracts/agent-invoke-request.v1.yaml  # consumed in yield_budget_ms field
