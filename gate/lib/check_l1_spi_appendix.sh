@@ -29,8 +29,12 @@ if [[ -z "${GATE_REPO_ROOT:-}" ]]; then
 fi
 
 # Extract every FQN that appears in any line under a "SPI Interface
-# Appendix" heading. Captures `com.huawei.ascend.X.Y.ClassName` patterns
-# inside backticks or table cells.
+# Appendix" heading, but ONLY from Markdown table rows (lines starting
+# with `|`). rc29 fix (ADV3-2 follow-up): out-of-table prose like
+# "Implementation home (NOT SPI):" + bullet lists is explicitly excluded
+# from the SPI surface set. This lets ARCHITECTURE.md document structural
+# carriers / implementation classes without triggering Rule G-1.1.b
+# false-positives.
 _l1_extract_spi_fqns() {
   local _file="$1"
   awk '
@@ -42,8 +46,8 @@ _l1_extract_spi_fqns() {
       # Any other ## section ends the SPI appendix
       if (in_spi) in_spi=0
     }
-    in_spi {
-      # Extract com.huawei.ascend.XYZ.ClassName patterns
+    # Only consider table-row lines (start with `|`) per rc29 fix.
+    in_spi && /^[[:space:]]*\|/ {
       while (match($0, /com\.huawei\.ascend\.[a-zA-Z0-9_.]+/)) {
         print substr($0, RSTART, RLENGTH)
         $0 = substr($0, RSTART + RLENGTH)

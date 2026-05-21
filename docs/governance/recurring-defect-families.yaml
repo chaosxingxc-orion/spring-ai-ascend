@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc27 corrective: F-l1-architecture-grounding-gap closed (real gate helpers shipped per ADR-0099). occurrences extended through rc22+rc27.
+last_updated: 2026-05-21  # rc29 corrective — table-row-only extractor + LCP prefix + Rule 44 fixed-string: F-l1-architecture-grounding-gap closed (real gate helpers shipped per ADR-0099). occurrences extended through rc22+rc27.
 
 families:
   - id: F-numeric-drift
