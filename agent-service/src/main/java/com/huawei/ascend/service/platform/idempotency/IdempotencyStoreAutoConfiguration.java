@@ -57,7 +57,7 @@ public class IdempotencyStoreAutoConfiguration {
      * behaviour: the registration is skipped and downstream
      * {@code @ConditionalOnMissingBean} consumers see the absence.
      *
-     * <p>Note (rc9 / ADR-0083): the proper W2 fix is to convert this class to
+     * <p>Note: the proper W2 fix is to convert this class to
      * a true Spring Boot auto-configuration via
      * {@code META-INF/spring/.../AutoConfiguration.imports} plus
      * {@code @AutoConfigureAfter(DataSourceAutoConfiguration.class)}. That

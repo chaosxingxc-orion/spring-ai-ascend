@@ -18,7 +18,7 @@ import java.util.UUID;
  * snapshot in
  * {@code agent-service/src/test/resources/contracts/openapi-v1-pinned.yaml}.
  * Without it, Spring Boot 4 + springdoc 3.0.3 emits Java record components as
- * optional in the live spec, drifting from the pinned contract (closed in rc9
+ * optional in the live spec, drifting from the pinned contract (closed
  * per CI-2). Class-level {@code requiredProperties} is more reliable than
  * per-component {@code @Schema(requiredMode = REQUIRED)} on this springdoc
  * version with Java records.

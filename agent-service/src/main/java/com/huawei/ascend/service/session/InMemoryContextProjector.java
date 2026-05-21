@@ -8,13 +8,13 @@ import java.util.Map;
 
 /**
  * Reference in-memory implementation of {@link ContextProjector} per
- * ADR-0100 (rc24).
+ * ADR-0100.
  *
  * <p>Implements a simple "last_n" projection strategy: keeps the last N
  * messages where N defaults to 10. Variables are projected unchanged.
  *
  * <p>Posture-gated for dev/research; production projectors (summary_v1,
- * hybrid_v1) land alongside the Session JDBC persistence in rc25.
+ * hybrid_v1) land alongside the Session JDBC persistence.
  */
 public class InMemoryContextProjector implements ContextProjector {
 
@@ -23,7 +23,7 @@ public class InMemoryContextProjector implements ContextProjector {
     @Override
     public Map<String, Object> project(String sessionId, String tenantId, String projectionPolicy) {
         // Reference impl: stub session-context projection. Real
-        // projectors will pull from SessionRepository (rc25).
+        // projectors will pull from SessionRepository.
         Map<String, Object> ctx = new HashMap<>();
         ctx.put("messages", List.of());
         ctx.put("variables", Map.of());

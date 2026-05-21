@@ -1,5 +1,5 @@
 /**
- * Online Evolution package per ADR-0102 (rc26).
+ * Online Evolution package.
  *
  * <p>Hosts the Slow Track judge interface for online (dual-track)
  * evolution modality. The Heaven-Earth Coordination cell of the

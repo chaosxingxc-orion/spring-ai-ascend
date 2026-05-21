@@ -1,5 +1,5 @@
 /**
- * Online Evolution SPI per ADR-0102 (rc26; rc27-fix: moved under .spi per Rule R-D.d).
+ * Online Evolution SPI.
  *
  * <p>Hosts the Slow Track judge SPI for online (dual-track) evolution
  * modality. The Heaven-Earth Coordination cell of the Mode × Modality

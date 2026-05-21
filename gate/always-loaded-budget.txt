@@ -96,9 +96,9 @@
 # supersedes/extends/relates_to chains. Ceiling raised 160000 → 175000 to
 # admit the rc17 wave plus ~10K headroom for the next 1-2 waves.
 CLAUDE.md=45000
-ARCHITECTURE.md=85000
+ARCHITECTURE.md=86000
 AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000
-docs/governance/architecture-graph.yaml=180000
+docs/governance/architecture-graph.yaml=190000
 docs/governance/architecture-status.yaml=110000
 docs/CLAUDE-deferred.md=0

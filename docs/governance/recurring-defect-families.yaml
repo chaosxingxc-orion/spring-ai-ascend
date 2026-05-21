@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc22 (ADR-0099): added F-l1-architecture-grounding-gap (Rule G-1.1 ratification + 6 ARCHITECTURE.md rewrites + 3 enforcers E166/E167/E168 + 6 self-test fixtures). Wave also lands ADR-0100 (agent-service decomp) + ADR-0101 (polymorphic deployment) + ADR-0102 (online/offline evolution) + ADR-0103 (middleware naming resolution) + ADR-0104 (package-root migration decision; rc22.5 executes).
+last_updated: 2026-05-22  # rc22 (ADR-0099): added F-l1-architecture-grounding-gap (Rule G-1.1 ratification + 6 ARCHITECTURE.md rewrites + 3 enforcers E166/E167/E168 + 6 self-test fixtures). Wave also lands ADR-0100 (agent-service decomp) + ADR-0101 (polymorphic deployment) + ADR-0102 (online/offline evolution) + ADR-0103 (middleware naming resolution) + ADR-0104 (package-root migration decision; rc22.5 executes).
 
 families:
   - id: F-numeric-drift
@@ -418,8 +418,8 @@ families:
   - id: F-l1-architecture-grounding-gap
     title: L1 Architecture Document Lacks Code-Mapping or SPI Enumeration
     first_observed_rc: rc17
-    last_observed_rc: rc21
-    occurrences: [rc17, rc18, rc19, rc20, rc21]
+    last_observed_rc: rc27
+    occurrences: [rc17, rc18, rc19, rc20, rc21, rc22, rc27]
     root_cause: |
       Rule G-1.a (Layered 4+1 Discipline) mandates that every
       architecture artefact declares level/view frontmatter, but does
@@ -437,14 +437,12 @@ families:
       - docs/governance/rules/rule-G-1.md (parent rule lacked depth clauses)
     prevention_rules:
       - Rule G-1.1 (rc22 / ADR-0099) — 3 sub-clauses + 3 enforcers + 6 fixtures
-    cleanup_status: structurally_addressed
+      - rc27 corrective — real helpers shipped (gate/lib/check_l1_dev_view_tree.sh + check_l1_spi_appendix.sh); placeholder pass_rule stubs replaced
+    cleanup_status: closed
     open_residual: |
-      Rule G-1.1 ratifies the depth/grounding discipline AND rewrites
-      all 6 agent-* ARCHITECTURE.md files to satisfy the new rule.
-      Sub-clause .c (L2 Constraint Linkage) is vacuously green at
-      rc22 because no L2 documents exist yet; the rule arms for W3+
-      when L2 docs land. The SPI Appendix scanner adds the L1
-      architecture-doc as the fourth parity point to Rule R-D's
-      three-way check — full corpus parity now requires 4 surfaces
-      to agree. Rc22.5 (package-root migration) strips forward-
-      compatibility markers; the rule will revalidate post-rename.
+      Rule G-1.1 ratifies the depth/grounding discipline. rc22 rewrote
+      all 6 agent-* ARCHITECTURE.md files. rc27 shipped the real gate
+      helpers (gate/lib/check_l1_dev_view_tree.sh + check_l1_spi_appendix.sh
+      + 6 fixtures test_rule_118/119/120). Sub-clause .c (L2 Constraint
+      Linkage) is vacuously green because no L2 documents exist yet; the
+      rule arms for W3+ when L2 docs land. Closed in rc27.

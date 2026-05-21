@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /**
  * Reason envelope for a run-suspension, paired with {@code RunStatus.SUSPENDED}.
- * Sealed per ADR-0019 / ADR-0070 / ADR-0074 - only the runtime owns the closed taxonomy.
+ * Sealed.
  *
  * <p>Variant maturity at W2.x Phase 3:
  * <ul>

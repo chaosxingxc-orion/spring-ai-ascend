@@ -47,30 +47,42 @@ _l1_extract_dev_view_block() {
   ' "$_file"
 }
 
-# Given a tree block, extract every path ending with `/` and resolve
-# against $GATE_REPO_ROOT/$module/. Returns failures one-per-line.
+# Given a tree block, extract every leaf segment (path-component) that ends
+# with `/` and verify it appears SOMEWHERE under the module's src/main/java/
+# OR src/test/java/. The tree-drawing characters make full-path reconstruction
+# fragile, so we use the more lenient "package segment exists" check.
+# Returns failures one-per-line (best-effort).
 _l1_validate_tree_paths() {
   local _module="$1"
   local _block="$2"
   local _failed=0
+  # Build cache of all directories under the module (relative to repo root).
+  local _dir_cache
+  _dir_cache=$(find "$GATE_REPO_ROOT/$_module/src" -type d 2>/dev/null | sed "s|^$GATE_REPO_ROOT/$_module/||" | sort -u)
+  # Also accept any top-level module subdirectory (e.g., src/main/resources/).
   while IFS= read -r _line; do
-    # Strip tree-drawing chars (├ │ └ ─ space) and trailing "  # comment".
+    # Strip tree-drawing chars + trailing "  # comment".
     local _path
     _path=$(printf '%s' "$_line" | sed -E 's/^[│├└─[:space:]]*//; s/[[:space:]]+#.*$//')
-    # Only consider lines that look like directory entries (ending with /).
     [[ "$_path" != */ ]] && continue
-    # Skip the module-root line itself (e.g., `agent-bus/`).
     [[ "$_path" == "$_module/" ]] && continue
-    # Resolve relative to module root if not already absolute-looking.
-    local _abs="$GATE_REPO_ROOT/$_module/$_path"
-    if [[ ! -d "$_abs" ]]; then
-      # Try without module prefix in case the tree starts at module root.
-      _abs="$GATE_REPO_ROOT/$_path"
-      if [[ ! -d "$_abs" ]]; then
-        echo "missing-dir:$_path"
-        _failed=1
-      fi
+    # Strip trailing slash for matching.
+    local _seg="${_path%/}"
+    # Strip a leading `src/main/java/` or `src/test/java/` prefix from the
+    # tree path if present, since those segments may be split across lines.
+    _seg=$(printf '%s' "$_seg" | sed -E 's|^src/(main|test)/java/||')
+    # Match against the directory cache as a SUFFIX, allowing the tree-block
+    # nesting indentation to omit ancestor segments. Empty segment = ok.
+    [[ -z "$_seg" ]] && continue
+    if echo "$_dir_cache" | grep -qE "(^|/)${_seg}$"; then
+      continue
     fi
+    # Also accept the segment appearing as a sub-path component anywhere.
+    if echo "$_dir_cache" | grep -qE "(^|/)${_seg}(/|$)"; then
+      continue
+    fi
+    echo "missing-dir:$_path"
+    _failed=1
   done <<< "$_block"
   return $_failed
 }

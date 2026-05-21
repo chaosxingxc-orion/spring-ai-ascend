@@ -4,9 +4,9 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Task control-state persistence SPI per ADR-0100 (rc22).
+ * Task control-state persistence SPI.
  *
- * <p>The Task Center component (per ADR-0100 5-component decomposition
+ * <p>The Task Center component ( 5-component decomposition
  * of agent-service) is responsible for TaskControlState persistence.
  * {@code Task} is the control-state layer in the Run ≤ Task ≤ Session ≤
  * Memory lifecycle hierarchy.
@@ -15,7 +15,7 @@ import java.util.Optional;
  * concurrently execute multiple Tasks; one Task may drift across
  * multiple Sessions. See ADR-0100 §decision.
  *
- * <p>Reference impl ({@code InMemoryTaskStateStore}) lands in rc24;
+ * <p>Reference impl ({@code InMemoryTaskStateStore}) lands;
  * JDBC impl ({@code JdbcTaskStateStore}) + Flyway migration land in
  * rc25 with RLS per Rule R-J.a.
  *

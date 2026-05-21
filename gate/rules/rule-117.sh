@@ -96,12 +96,7 @@ else
   rm -rf "$_r117_tmp" 2>/dev/null || true
 fi
 
-# === END OF RULES ===
 # ---------------------------------------------------------------------------
-if [[ $fail_count -eq 0 ]]; then
-  echo "GATE: PASS"
-  exit 0
-else
-  echo "GATE: FAIL"
-  exit 1
-fi
+# Rule G-1.1 — L1 Architecture Depth & Grounding (3 sub-clauses, ADR-0099)
+# rc27 fix (rc22-2): real helpers replace prior placeholder pass_rule stubs.
+# ---------------------------------------------------------------------------

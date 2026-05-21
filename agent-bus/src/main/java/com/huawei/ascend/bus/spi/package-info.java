@@ -12,7 +12,7 @@
  *
  * <p>Intra-service workflow primitives (WorkflowIntermediary, Mailbox,
  * AdmissionDecision, BackpressureSignal, SleepDeclaration, WakeupPulse,
- * TickEngine) land in W2 per ADR-0050 directly under this root package.
+ * TickEngine) land in W2.
  *
  * <p>This roll-up package-info is itself the SPI declaration for
  * {@code com.huawei.ascend.bus.spi} — Rule 66 (spi_package_exhaustiveness)

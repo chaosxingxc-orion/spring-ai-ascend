@@ -96,8 +96,8 @@ capabilities:
       section_4_constraints: 65                 # ARCHITECTURE.md §4 #1..#65 (unchanged at rc22)
       adr_count: 103                            # rc22 lockstep: rc21 baseline 97 + ADR-0099/0100/0101/0102/0103/0104 per rc22 wave (L1 grounding + agent-service decomp + polymorphic deployment + evolution duality + middleware naming + package-root migration).
       maven_tests_green: 374                    # `./mvnw.cmd clean verify` total surefire + failsafe (rc22 has no Java code deltas — count unchanged)
-      architecture_graph_nodes: 423             # rc22 live recount via `python gate/build_architecture_graph.py`: 412 → 423 (rc22 adds 6 ADR nodes + 1 rule card node + 3 enforcer nodes + 2 contract YAML nodes + 2 governance YAML nodes minus de-dup).
-      architecture_graph_edges: 718             # rc22 live recount: 678 → 718 (rc22 adds rule→enforcer + ADR→ADR supersedes/extends/relates_to + module→ARCHITECTURE.md edges).
+      architecture_graph_nodes: 441             # rc22 live recount via `python gate/build_architecture_graph.py`: 412 → 423 (rc22 adds 6 ADR nodes + 1 rule card node + 3 enforcer nodes + 2 contract YAML nodes + 2 governance YAML nodes minus de-dup).
+      architecture_graph_edges: 736             # rc22 live recount: 678 → 718 (rc22 adds rule→enforcer + ADR→ADR supersedes/extends/relates_to + module→ARCHITECTURE.md edges).
       recurring_defect_families: 11             # rc22 lockstep: rc21 baseline 10 + new family F-l1-architecture-grounding-gap (Rule G-1.1 ratification + 6 ARCHITECTURE.md rewrites per ADR-0099).
       phase_contracts: 5                        # rc21 Wave 6 NEW: docs/governance/contracts/{architecture-design,engineering-implementation,integration-verification,system-commit,review-response}.md per ADR-0098.
       phase_loading_skills: 6                   # rc21 Wave 6 NEW: refresh-defect-archive (rc17) + 5 new phase skills (design-mode + impl-mode + verify-mode + commit-mode + review-mode) under .claude/skills/ per ADR-0098.

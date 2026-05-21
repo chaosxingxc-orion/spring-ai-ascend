@@ -10,11 +10,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Reference in-memory implementation of {@link TaskStateStore} per
- * ADR-0100 (rc24).
+ * ADR-0100.
  *
  * <p>Posture-gated for dev/research; production JDBC impl
  * ({@code JdbcTaskStateStore}) + Flyway migration with RLS per
- * Rule R-J.a land in rc25.
+ * Rule R-J.a land.
  *
  * <p>Tenant scope is enforced: {@link #load(String, String)} returns
  * empty when the caller's tenantId does not match the stored
@@ -32,7 +32,7 @@ public class InMemoryTaskStateStore implements TaskStateStore {
         Objects.requireNonNull(taskId, "taskId");
         Objects.requireNonNull(tenantId, "tenantId");
         Objects.requireNonNull(state, "state");
-        // rc27 fix (ADV-3): enforce tenant scope on save — reject cross-tenant
+        // enforce tenant scope on save — reject cross-tenant
         // overwrite. Without this guard, Tenant B could silently clobber Tenant
         // A's task state for the same taskId. Per Rule R-C.c tenant
         // propagation purity.

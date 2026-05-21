@@ -2,7 +2,7 @@
  * agent-client SPI — placeholder (skeleton).
  *
  * <p>Reserved for the client-side SDK SPI surface once content lands in W3+
- * per ADR-0049. Today the package exists only so {@code module-metadata.yaml}
+ *. Today the package exists only so {@code module-metadata.yaml}
  * can declare {@code spi_packages: [com.huawei.ascend.client.spi]} and pass
  * gate Rule 36 ({@code domain_module_has_spi_package}).
  *

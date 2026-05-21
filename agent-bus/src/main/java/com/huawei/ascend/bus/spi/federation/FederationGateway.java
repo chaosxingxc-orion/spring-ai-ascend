@@ -4,7 +4,7 @@ import com.huawei.ascend.bus.spi.ingress.IngressEnvelope;
 import com.huawei.ascend.bus.spi.ingress.IngressResponse;
 
 /**
- * Federation Gateway SPI per ADR-0101 (rc26) Mode B Business-Centric
+ * Federation Gateway SPI Mode B Business-Centric
  * deployment.
  *
  * <p>Distinguishes in-process (Mode A) vs networked (Mode B) ingress
@@ -14,7 +14,7 @@ import com.huawei.ascend.bus.spi.ingress.IngressResponse;
  * Federation Hub.
  *
  * <p>Federation broker technology choice (Kafka / NATS / in-house) is
- * deferred to a separate future ADR per ADR-0101 §non_goals. This SPI
+ * deferred to a separate future ADR. This SPI
  * is broker-agnostic.
  *
  * <p>The in-process bus shim on the business side (Mode B) implements

@@ -5,21 +5,21 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Service-to-Engine invocation request per ADR-0100 (rc22).
+ * Service-to-Engine invocation request.
  *
  * <p>Wire contract:
  * {@code docs/contracts/agent-invoke-request.v1.yaml} (status:
- * design_only at rc22; runtime impl in rc24).
+ * design_only; runtime impl in rc24).
  *
  * <p>Service is the Read-Modify-Write closure boundary; Engine is the
  * Pure-Function compute boundary. See ADR-0100 §decision.
  *
  * <p>This is an SPI surface placeholder. Fields are documented to mirror
- * the YAML contract; concrete record fields land in rc24 alongside the
+ * the YAML contract; concrete record fields land alongside the
  * reference impl.
  *
  * @param runId           the Run this invocation belongs to.
- * @param taskId          the Task this Run materializes (decoupled from sessionId per ADR-0100).
+ * @param taskId          the Task this Run materializes (decoupled from sessionId.
  * @param sessionId       the Session whose context this invocation reads.
  * @param tenantId        mandatory per Rule R-C.c.
  * @param sessionContext  projected SessionContext from ContextProjector SPI.
@@ -37,7 +37,7 @@ public record AgentInvokeRequest(
         Map<String, Object> taskMetadata,
         String traceId) {
 
-    // rc27 fix (ADV-5): enforce non-null invariant matching the
+    // enforce non-null invariant matching the
     // agent-invoke-request.v1.yaml#fields[].required: true contract.
     // Without these guards, downstream Map.of(...) calls explode with NPE
     // and the engine cannot produce a well-formed StateDelta.

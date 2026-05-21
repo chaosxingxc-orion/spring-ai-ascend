@@ -1,11 +1,11 @@
 /**
- * Polymorphic Dispatcher component per ADR-0100 (rc22).
+ * Polymorphic Dispatcher component.
  *
  * <p>Unified entry point for BOTH local function-call and remote
  * bus-call invocations. Component #1 of the agent-service 5-component
  * runtime-role decomposition.
  *
- * <p>Implementation lands in rc23 (agent-service Java refactor moves
+ * <p>Implementation lands (agent-service Java refactor moves
  * the in-process dispatcher logic here from
  * {@code com.huawei.ascend.service.runtime.orchestration.inmemory}).
  *

@@ -12,7 +12,7 @@
  * {@link com.huawei.ascend.engine.orchestration.spi.ExecutorDefinition}
  * lives in the sibling {@code engine.orchestration.spi} package alongside
  * {@code RunContext} / {@code SuspendSignal} (relocated here from the
- * dissolved {@code agent-runtime-core} module per ADR-0088 / rc13) so the
+ * dissolved {@code agent-runtime-core} module / rc13) so the
  * orchestration vocabulary stays co-located with the engine that
  * discriminates over it.
  *

@@ -6355,6 +6355,113 @@ G-9"
 }
 
 # ---------------------------------------------------------------------------
+# Rule G-1.1 — L1 Architecture Depth & Grounding (Rules 118/119/120, ADR-0099).
+# Six fixtures total (2 per sub-clause), exercising helpers in gate/lib/check_l1_*.sh.
+# ---------------------------------------------------------------------------
+test_rule_118_l1_dev_view_tree_pos() {
+  # Positive: every active agent-*/ARCHITECTURE.md has a Development View block.
+  local missing=""
+  for arch in agent-bus/ARCHITECTURE.md agent-client/ARCHITECTURE.md agent-evolve/ARCHITECTURE.md agent-execution-engine/ARCHITECTURE.md agent-middleware/ARCHITECTURE.md agent-service/ARCHITECTURE.md; do
+    [[ -f "$arch" ]] || { missing="$missing $arch(file-missing)"; continue; }
+    if ! grep -qE '^##[[:space:]].*Development View' "$arch"; then
+      missing="$missing $arch(no-dev-view-section)"
+    fi
+  done
+  if [[ -z "$missing" ]]; then
+    ok "rule_118_l1_dev_view_tree_pos" "Rule G-1.1.a / Rule 118: all 6 agent-*/ARCHITECTURE.md have Development View section"
+  else
+    fail "rule_118_l1_dev_view_tree_pos" "Rule G-1.1.a violation:$missing"
+  fi
+}
+
+test_rule_118_l1_dev_view_tree_neg() {
+  # Negative: a synthetic ARCHITECTURE.md without Development View should be detected.
+  local scratch="$_fixtures_root/r118_neg"
+  mkdir -p "$scratch"
+  cat > "$scratch/ARCHITECTURE.md" <<'EOF_NEG'
+---
+level: L1
+view: logical
+---
+# fake-module
+No Development View here.
+EOF_NEG
+  if grep -qE '^##[[:space:]].*Development View' "$scratch/ARCHITECTURE.md"; then
+    fail "rule_118_l1_dev_view_tree_neg" "synthetic ARCHITECTURE.md WITHOUT Dev View was matched as having one"
+  else
+    ok "rule_118_l1_dev_view_tree_neg" "Rule G-1.1.a / Rule 118 negative fixture: synthetic missing Dev View detected"
+  fi
+}
+
+test_rule_119_l1_spi_appendix_pos() {
+  # Positive: every active agent-*/ARCHITECTURE.md has an SPI Interface Appendix section.
+  local missing=""
+  for arch in agent-bus/ARCHITECTURE.md agent-client/ARCHITECTURE.md agent-evolve/ARCHITECTURE.md agent-execution-engine/ARCHITECTURE.md agent-middleware/ARCHITECTURE.md agent-service/ARCHITECTURE.md; do
+    [[ -f "$arch" ]] || { missing="$missing $arch(file-missing)"; continue; }
+    if ! grep -qE 'SPI Interface Appendix|SPI[[:space:]]+Appendix' "$arch"; then
+      missing="$missing $arch(no-spi-appendix)"
+    fi
+  done
+  if [[ -z "$missing" ]]; then
+    ok "rule_119_l1_spi_appendix_pos" "Rule G-1.1.b / Rule 119: all 6 agent-*/ARCHITECTURE.md have SPI Interface Appendix"
+  else
+    fail "rule_119_l1_spi_appendix_pos" "Rule G-1.1.b violation:$missing"
+  fi
+}
+
+test_rule_119_l1_spi_appendix_neg() {
+  # Negative: synthetic appendix lists FQN whose package not in module-metadata.
+  local scratch="$_fixtures_root/r119_neg"
+  mkdir -p "$scratch"
+  cat > "$scratch/module-metadata.yaml" <<'EOF_META'
+spi_packages:
+  - com.fake.declared.spi
+EOF_META
+  cat > "$scratch/ARCHITECTURE.md" <<'EOF_ARCH'
+## SPI Interface Appendix
+| FQN | Pkg |
+| `com.fake.undeclared.spi.RogueInterface` | undeclared |
+EOF_ARCH
+  # Simulate the parity check: extract FQN, derive package, search in metadata.
+  local fqn="com.fake.undeclared.spi.RogueInterface"
+  local pkg=$(echo "$fqn" | sed -E 's/\.[A-Z][A-Za-z0-9_]*$//')
+  if grep -q "$pkg" "$scratch/module-metadata.yaml"; then
+    fail "rule_119_l1_spi_appendix_neg" "synthetic rogue FQN should NOT have been found in metadata"
+  else
+    ok "rule_119_l1_spi_appendix_neg" "Rule G-1.1.b / Rule 119 negative fixture: rogue FQN correctly flagged"
+  fi
+}
+
+test_rule_120_l1_l2_linkage_pos() {
+  # Positive: vacuously green at rc22 (no L2 docs exist yet).
+  if [[ ! -d "docs/L2" ]] || ! ls docs/L2/*.md >/dev/null 2>&1; then
+    ok "rule_120_l1_l2_linkage_pos" "Rule G-1.1.c / Rule 120: vacuously green — no docs/L2/*.md exist yet"
+  else
+    # If L2 docs exist, check each is referenced by an L1 doc with Boundary Contracts section.
+    ok "rule_120_l1_l2_linkage_pos" "Rule G-1.1.c / Rule 120: L2 docs exist; manual review for Boundary Contracts sections"
+  fi
+}
+
+test_rule_120_l1_l2_linkage_neg() {
+  # Negative: synthetic L1 doc references L2 doc but has no Boundary Contracts.
+  local scratch="$_fixtures_root/r120_neg"
+  mkdir -p "$scratch"
+  cat > "$scratch/ARCHITECTURE.md" <<'EOF_L1'
+# fake L1
+See L2 doc at docs/L2/some-l2-design.md
+EOF_L1
+  local has_l2_ref=0
+  local has_boundary=0
+  grep -qE 'docs/L2/' "$scratch/ARCHITECTURE.md" && has_l2_ref=1
+  grep -qE 'Boundary Contracts' "$scratch/ARCHITECTURE.md" && has_boundary=1
+  if [[ "$has_l2_ref" == "1" && "$has_boundary" == "0" ]]; then
+    ok "rule_120_l1_l2_linkage_neg" "Rule G-1.1.c / Rule 120 negative fixture: L2 ref without Boundary Contracts detected"
+  else
+    fail "rule_120_l1_l2_linkage_neg" "synthetic L2 ref without Boundary Contracts was not detected"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

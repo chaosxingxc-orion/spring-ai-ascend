@@ -3,7 +3,7 @@ package com.huawei.ascend.service.session;
 import java.util.Map;
 
 /**
- * Reflection patch handler per ADR-0102 (rc26) Online Evolution.
+ * Reflection patch handler.
  *
  * <p>Edge-side consumer of {@link com.huawei.ascend.bus.s2c.ReflectionEnvelopeRouter}
  * S2C deliveries. Applies the hot-patch to the active SessionContext

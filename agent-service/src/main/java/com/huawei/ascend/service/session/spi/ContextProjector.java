@@ -3,7 +3,7 @@ package com.huawei.ascend.service.session.spi;
 import java.util.Map;
 
 /**
- * Session context projection SPI per ADR-0100 (rc22).
+ * Session context projection SPI.
  *
  * <p>Projects a {@code SessionContext} view from full Session history
  * via a configurable truncation / summarization policy. The Engine
@@ -11,7 +11,7 @@ import java.util.Map;
  * history directly.
  *
  * <p>Authority: ADR-0100 (Session Manager component). Reference impl
- * ({@code InMemoryContextProjector}) lands in rc24 per ADR-0100
+ * ({@code InMemoryContextProjector}) lands
  * implementation timeline.
  *
  * <p>SPI purity per Rule R-D: imports only {@code java.*} + own

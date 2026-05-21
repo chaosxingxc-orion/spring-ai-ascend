@@ -8,7 +8,7 @@ import java.util.List;
  * business ontology — see ADR-0051 for the memory ownership boundary).
  *
  * <p>No default in-JVM impl (graph structure requires an external store).
- * W1 reference sidecar (per ADR-0034): spring-ai-ascend-graphmemory-starter
+ * W1 reference sidecar (): spring-ai-ascend-graphmemory-starter
  * wires a Graphiti REST client at W1; no adapter implementation ships at W0.
  *
  * <p>Ownership semantics: the {@code GraphMetadata} record below is a
@@ -35,7 +35,7 @@ public interface GraphMemoryRepository {
 
     /**
      * Pre-W2 minimal graph-edge metadata subset. Full {@code MemoryMetadata} (including
-     * {@code embeddingModelVersion}) lands with the W2 memory implementation per ADR-0034.
+     * {@code embeddingModelVersion}) lands with the W2 memory implementation.
      */
     record GraphMetadata(String tenantId, String sessionId, String runId, java.time.Instant createdAt) {}
 }

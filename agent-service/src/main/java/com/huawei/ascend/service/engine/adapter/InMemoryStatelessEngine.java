@@ -10,7 +10,7 @@ import java.util.Map;
 
 /**
  * Reference in-memory implementation of {@link StatelessEngine} per
- * ADR-0100 (rc24).
+ * ADR-0100.
  *
  * <p>Posture-gated for dev/research; production wiring lands when the
  * actual Workflow / ReAct engine adapters land via
@@ -37,9 +37,9 @@ public class InMemoryStatelessEngine implements StatelessEngine {
         // service.engine.adapter sub-package as adapters over
         // ExecutorAdapter (from agent-execution-engine).
         //
-        // rc27 fix (ADV-5): use HashMap instead of Map.of(...). The runId is
+        // use HashMap instead of Map.of(...). The runId is
         // already non-null per the AgentInvokeRequest canonical constructor
-        // (rc27), but defence-in-depth: Map.of's null-value rejection would
+        //, but defence-in-depth: Map.of's null-value rejection would
         // throw NPE if any future field added here is nullable.
         Map<String, Object> metrics = new HashMap<>();
         metrics.put("engine", "InMemoryStatelessEngine");

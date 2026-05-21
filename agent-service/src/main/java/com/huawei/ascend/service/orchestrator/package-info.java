@@ -1,5 +1,5 @@
 /**
- * Reactive Orchestrator component per ADR-0100 (rc22).
+ * Reactive Orchestrator component.
  *
  * <p>Task tempo control, backpressure request handling, A2A protocol
  * envelope packaging. Component #2 of the agent-service 5-component
@@ -10,11 +10,11 @@
  * and merges the returned {@link com.huawei.ascend.service.engine.spi.StateDelta}
  * back into Run + Task + Session state.
  *
- * <p>Implementation lands in rc23 + rc24:
+ * <p>Implementation lands + 
  * <ul>
- *   <li>rc23: Java refactor moves orchestrator logic here from
+ *   <li>Java refactor moves orchestrator logic here from
  *       {@code com.huawei.ascend.service.runtime.orchestration.inmemory}.</li>
- *   <li>rc24: {@code Orchestrator.invoke(AgentInvokeRequest) → Mono<StateDelta>}
+ *   <li>{@code Orchestrator.invoke(AgentInvokeRequest) → Mono<StateDelta>}
  *       reactive wiring + BackpressureRequest channel consumer.</li>
  * </ul>
  *
@@ -23,7 +23,7 @@
  * orchestrator → may call engine.adapter, task, session.
  * Reverse direction forbidden.
  *
- * <p>Yield + SuspendSignal coexistence (per ADR-0100):
+ * <p>Yield + SuspendSignal coexistence ():
  * <ul>
  *   <li>{@link com.huawei.ascend.engine.orchestration.spi.SuspendSignal}
  *       checked-exception flow → state-machine suspension.</li>

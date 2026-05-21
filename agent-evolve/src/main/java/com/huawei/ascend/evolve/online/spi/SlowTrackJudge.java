@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Slow Track judge SPI per ADR-0102 (rc26) Online Evolution.
+ * Slow Track judge SPI.
  *
  * <p>Listens on AFTER_LLM_INVOCATION hook; produces an optional
  * ReflectionEnvelope when the trajectory critique yields a high-
@@ -14,7 +14,7 @@ import java.util.Optional;
  * Heaven-Earth Coordination cell of the Mode × Modality matrix
  * (Mode B + Online).
  *
- * <p>SPI surface only at rc26 scaffold; reference impl (e.g.,
+ * <p>SPI surface only scaffold; reference impl (e.g.,
  * {@code OpenAiSlowTrackJudge} or {@code LocalLlmJudge}) lands as a
  * follow-up alongside ModelGateway routing decisions (separate ADR).
  *

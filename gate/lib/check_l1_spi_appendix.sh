@@ -87,10 +87,19 @@ check_l1_spi_appendix_for_file() {
     echo "PASS	$_file	no-spi-appendix-found-tolerated-rc27"
     return 0
   fi
+  # rc27 corrective: allow cross-module SPI references in the appendix
+  # (e.g., agent-client's appendix lists agent-bus's IngressGateway as a
+  # CONSUMED SPI; agent-evolve's appendix lists agent-bus.ReflectionEnvelopeRouter
+  # as a cross-module reference). The rule is satisfied when each FQN
+  # whose package starts with the CURRENT module's prefix resolves to that
+  # module's spi_packages; cross-module references are documentation only.
+  local _module_prefix="com.huawei.ascend.${_module#agent-}"
   local _fail=0
   local _drift=""
   while IFS= read -r _fqn; do
     [[ -z "$_fqn" ]] && continue
+    # Only enforce on FQNs belonging to THIS module's namespace.
+    [[ "$_fqn" != "$_module_prefix"* ]] && continue
     local _pkg
     _pkg=$(_l1_fqn_to_package "$_fqn")
     # Match _pkg against declared_pkgs (exact match OR fqn starts with declared).

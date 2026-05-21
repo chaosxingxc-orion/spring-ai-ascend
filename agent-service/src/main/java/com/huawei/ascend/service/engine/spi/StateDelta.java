@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Engine-produced compute result per ADR-0100 (rc22).
+ * Engine-produced compute result.
  *
  * <p>Returned by {@link StatelessEngine#execute(AgentInvokeRequest)}.
  * The orchestrator merges the delta into Run + Task + Session state.

@@ -5,16 +5,16 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Task control-state entity per ADR-0100 (rc25).
+ * Task control-state entity.
  *
  * <p>The Task is the control-state layer in the Run ≤ Task ≤ Session ≤
  * Memory lifecycle hierarchy. Decoupled from SessionID: one Session
  * may concurrently execute multiple Tasks; one Task may drift across
- * multiple Sessions (per ADR-0100 §decision).
+ * multiple Sessions (.
  *
  * <p>A2A protocol state vocabulary alignment per
  * {@code docs/contracts/a2a-envelope.v1.yaml} (contract-only adoption;
- * NO SDK runtime dep per ADR-0100 Rejection 3).
+ * NO SDK runtime dep.
  *
  * @param taskId     unique task identifier.
  * @param tenantId   mandatory per Rule R-C.c.

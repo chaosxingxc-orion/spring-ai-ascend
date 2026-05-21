@@ -20,6 +20,17 @@
 # path. Mis-citation is a Rule 25 truth violation.
 # ---------------------------------------------------------------------------
 _r28k_fail=0
+# PR-Opt-rc22: load pre-parsed enforcers TSV into an associative array.
+# Replaces the per-citation `awk` pass over the full enforcers.yaml (which
+# was ~9-20s per gate run). The TSV is built once by gate/lib/scan_cache.sh
+# as _SCAN_ENFORCERS_TSV with fields: e_id \t artifact_path \t kind.
+declare -A _r28k_art_by_eid
+if [[ -n "${_SCAN_ENFORCERS_TSV:-}" ]]; then
+  while IFS=$'\t' read -r _r28k_eid_k _r28k_art_v _r28k_kind_v; do
+    [[ -n "$_r28k_eid_k" ]] && _r28k_art_by_eid["$_r28k_eid_k"]="$_r28k_art_v"
+  done <<< "$_SCAN_ENFORCERS_TSV"
+fi
+
 if [[ -f "$_efile" ]]; then
   while IFS= read -r _r28k_src; do
     [[ -z "$_r28k_src" ]] && continue
@@ -49,18 +60,24 @@ if [[ -f "$_efile" ]]; then
     _r28k_collected_arts=""
     while IFS= read -r _r28k_eid; do
       [[ -z "$_r28k_eid" ]] && continue
-      _r28k_art=$(awk -v id="$_r28k_eid" '
-        $0 ~ "^- id: " id "$" { found=1; next }
-        found && /^[[:space:]]+artifact:/ {
-          line=$0
-          sub(/^[[:space:]]+artifact:[[:space:]]*/, "", line)
-          sub(/#.*$/, "", line)
-          gsub(/[[:space:]]+$/, "", line)
-          print line
-          exit
-        }
-        found && /^- id:/ { exit }
-      ' "$_efile")
+      # PR-Opt-rc22: array lookup replaces per-iteration awk. Fallback to
+      # the old awk pass if cache is empty (cache disabled / not populated).
+      if [[ ${#_r28k_art_by_eid[@]} -gt 0 ]]; then
+        _r28k_art="${_r28k_art_by_eid[$_r28k_eid]:-}"
+      else
+        _r28k_art=$(awk -v id="$_r28k_eid" '
+          $0 ~ "^- id: " id "$" { found=1; next }
+          found && /^[[:space:]]+artifact:/ {
+            line=$0
+            sub(/^[[:space:]]+artifact:[[:space:]]*/, "", line)
+            sub(/#.*$/, "", line)
+            gsub(/[[:space:]]+$/, "", line)
+            print line
+            exit
+          }
+          found && /^- id:/ { exit }
+        ' "$_efile")
+      fi
       if [[ -z "$_r28k_art" ]]; then
         # Cited E-id has no row at all -- structural break, always fail.
         fail_rule "javadoc_enforcer_citation_semantic_check" "$_r28k_src cites enforcers.yaml#$_r28k_eid but no such row in $_efile (Rule 28k / post-review plan F)"

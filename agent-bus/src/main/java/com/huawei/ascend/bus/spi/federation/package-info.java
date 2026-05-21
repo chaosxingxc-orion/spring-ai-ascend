@@ -1,12 +1,12 @@
 /**
- * Federation Hub SPI per ADR-0101 (rc26; rc27-fix: moved under .spi per Rule R-D.d).
+ * Federation Hub SPI.
  *
  * <p>Hosts {@link com.huawei.ascend.bus.spi.federation.FederationGateway}
  * — the Mode B Business-Centric deployment topology SPI for cross-network
  * ingress forwarding.
  *
  * <p>Federation broker technology choice (Kafka / NATS / in-house) is
- * deferred to a separate future ADR per ADR-0101 §non_goals.
+ * deferred to a separate future ADR.
  *
  * <p>SPI purity (Rule R-D): imports only {@code java.*} + own siblings
  * + {@code bus.spi.ingress} carrier types.
