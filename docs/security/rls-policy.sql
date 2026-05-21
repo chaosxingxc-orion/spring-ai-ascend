@@ -37,4 +37,4 @@ $$;
 --     FOR EACH ROW EXECUTE FUNCTION assert_tenant_guc_set();
 
 -- Cross-tenant escape test: verify that a query under tenant A cannot see tenant B data.
--- Tested in TenantIsolationIT (see agent-platform/src/test/java/ascend/springai/platform/security/).
+-- Tested in TenantIsolationIT (see agent-platform/src/test/java/com/huawei/ascend/platform/security/).

@@ -18,7 +18,7 @@ authority: "ADR-0073 (Engine Hooks + Runtime Middleware SPI); Layer-0 principle 
 
 **Cross-cutting middleware SPI extracted per ADR-0073.** The five SPI types
 (`HookPoint`, `RuntimeMiddleware`, `HookContext`, `HookOutcome`,
-`HookDispatcher`) live under `agent-middleware/src/main/java/ascend/springai/middleware/`
+`HookDispatcher`) live under `agent-middleware/src/main/java/com/huawei/ascend/middleware/`
 (SPI in the `.spi` sub-package; `HookDispatcher` at the package root as the
 runtime dispatcher implementation).
 
@@ -115,7 +115,7 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-middleware/
 └── src/main/java/
-    └── ascend/springai/middleware/
+    └── com/huawei/ascend/middleware/
         ├── spi/                            # 5 SPI types (Rule R-D purity)
         │   ├── HookPoint.java              # enum mirroring engine-hooks.v1.yaml (10 entries incl. ON_YIELD rc22)
         │   ├── RuntimeMiddleware.java      # listener interface

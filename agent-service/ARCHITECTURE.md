@@ -41,7 +41,7 @@ P1-4 follow-up (L1-expert-review 2026-05-14, carried through Phase C): legacy §
 
 ## 2. Shipped components
 
-> Path convention: every Java path below is rooted at `agent-service/src/main/java/ascend/springai/service/{platform,runtime}/...` **except where explicitly noted as living in `agent-execution-engine` (orchestration SPI: `engine.orchestration.spi`, relocated from the dissolved agent-runtime-core per ADR-0088) or `agent-bus` (S2C transport SPI: `bus.spi.s2c`, relocated from the dissolved agent-runtime-core per ADR-0088)**. The engine SPI surface and the S2C SPI types were extracted to their own modules at the rc5 wave (2026-05-18) per ADR-0079; the transient kernel-shim module `agent-runtime-core` was dissolved in rc13 (2026-05-20) per ADR-0088 and its sources redistributed back to semantic-home modules — see §2.B `runtime / engine` and `runtime / s2c` below. Test paths mirror the layout under `src/test/java/`.
+> Path convention: every Java path below is rooted at `agent-service/src/main/java/com/huawei/ascend/service/{platform,runtime}/...` **except where explicitly noted as living in `agent-execution-engine` (orchestration SPI: `engine.orchestration.spi`, relocated from the dissolved agent-runtime-core per ADR-0088) or `agent-bus` (S2C transport SPI: `bus.spi.s2c`, relocated from the dissolved agent-runtime-core per ADR-0088)**. The engine SPI surface and the S2C SPI types were extracted to their own modules at the rc5 wave (2026-05-18) per ADR-0079; the transient kernel-shim module `agent-runtime-core` was dissolved in rc13 (2026-05-20) per ADR-0088 and its sources redistributed back to semantic-home modules — see §2.B `runtime / engine` and `runtime / s2c` below. Test paths mirror the layout under `src/test/java/`.
 
 ### 2.A Platform-side concerns (subpackage `service.platform.*`)
 
@@ -234,7 +234,7 @@ E41 (MDC field-shape).
 #### platform / architecture -- Layering enforcers (L1, ADR-0055 → ADR-0078)
 
 ArchUnit tests under
-`agent-service/src/test/java/ascend/springai/service/platform/architecture/`:
+`agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/`:
 
 - `HttpEdgeMustNotImportMemorySpiTest` (E4) — HTTP edge cannot reach
   the runtime memory SPI.
@@ -261,18 +261,18 @@ ArchUnit tests under
 The cognitive runtime kernel's SPI contracts live in **two** modules after the
 ADR-0079 (T2.B2) engine-extraction wave (2026-05-18):
 
-- **`agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/`**
+- **`agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/`**
   (extracted per ADR-0079) — kernel SPI types `Orchestrator`, `RunContext`,
   `SuspendSignal`, `Checkpointer`, `TraceContext`, and the sealed
   `ExecutorDefinition` hierarchy (`GraphDefinition` | `AgentLoopDefinition`).
-- **`agent-execution-engine/src/main/java/ascend/springai/engine/spi/`**
+- **`agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/`**
   (extracted per ADR-0079) — executor adapters `GraphExecutor`,
   `AgentLoopExecutor`, the unified `ExecutorAdapter`, `EngineHookSurface`, and
   `EngineMatchingException`.
 
 `agent-service` owns the **posture-gated reference adapters** (not the SPI roots),
 under
-`agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/`:
+`agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/`:
 `SyncOrchestrator`, `SequentialGraphExecutor`,
 `IterativeAgentLoopExecutor`, `InMemoryCheckpointer`,
 `InMemoryRunRegistry`. These are **posture-gated** in-memory reference
@@ -289,12 +289,12 @@ After the rc13 ADR-0088 dissolution (2026-05-20), the Run entity, state machine,
 and `RunRepository` SPI live directly in `agent-service` (relocated from the
 transient agent-runtime-core module that ADR-0079 had briefly hosted them):
 
-- **`agent-service/src/main/java/ascend/springai/service/runtime/runs/`** —
+- **`agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/`** —
   `Run` (immutable record), `RunStatus` (formal DFA, 7 values: PENDING,
   RUNNING, SUSPENDED, CANCELLED, SUCCEEDED, FAILED, EXPIRED), `RunMode`
   discriminator, `RunStateMachine` (validates every `withStatus(newStatus)`
   transition; illegal transitions throw `IllegalStateException` per Rule R-C.d, formerly Rule 20).
-- **`agent-service/src/main/java/ascend/springai/service/runtime/runs/spi/`** —
+- **`agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/spi/`** —
   `RunRepository` SPI (interface only; pure Java per Rule R-D, formerly Rule 32).
 
 After rc13 / ADR-0088 dissolution, `agent-service` is the canonical owner of `runs/` kernel types. Its only orchestration-adapter contribution
@@ -304,11 +304,11 @@ under `agent-service/.../runtime/orchestration/inmemory/` listed above.
 #### runtime / resilience -- Operation-routing SPI (W0, **`.spi` package home per ADR-0080**)
 
 The `ResilienceContract` published SPI surface lives at
-`agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/`
+`agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi/`
 (package `com.huawei.ascend.service.runtime.resilience.spi`): `ResilienceContract`,
 `ResiliencePolicy`, `SkillResolution`, `SuspendReason`, `SkillCapacityRegistry`.
 Implementations stay in the parent package
-`agent-service/src/main/java/ascend/springai/service/runtime/resilience/`:
+`agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/`:
 `DefaultSkillResilienceContract`, `YamlResilienceContract`,
 `YamlSkillCapacityRegistry`.
 
@@ -325,7 +325,7 @@ R-D / 77 / 78 — the same split pattern used by `agent-execution-engine`
 
 #### runtime / memory -- Memory SPI shell (W0 shell)
 
-`agent-service/src/main/java/ascend/springai/service/runtime/memory/spi/GraphMemoryRepository.java`:
+`agent-service/src/main/java/com/huawei/ascend/service/runtime/memory/spi/GraphMemoryRepository.java`:
 interface-only SPI. No adapter ships at W0; concrete impl arrives via
 the `spring-ai-ascend-graphmemory-starter` autoconfiguration, which
 points at `com.huawei.ascend.service.runtime.graphmemory.GraphMemoryAutoConfiguration`
@@ -341,17 +341,17 @@ the rc5 wave (2026-05-18) ADR-0079 extraction:
   module `agent-execution-engine`): `ExecutorAdapter`, `GraphExecutor`,
   `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException`
   — sources live at
-  `agent-execution-engine/src/main/java/ascend/springai/engine/spi/`.
+  `agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/`.
 - **Engine registry + envelope home** (package
   `com.huawei.ascend.engine.runtime.*`, module `agent-execution-engine`):
   `EngineRegistry`, `EngineEnvelope` record (mirrors
   `docs/contracts/engine-envelope.v1.yaml`) — sources at
-  `agent-execution-engine/src/main/java/ascend/springai/engine/runtime/`
+  `agent-execution-engine/src/main/java/com/huawei/ascend/engine/runtime/`
   (relocated from the legacy `service/runtime/engine/` path in rc14 per
   ADR-0090; ADR-0079's source-compat exception was retired since rc13
   ADR-0088 already broke any consumer binding to the kernel-shim module).
 - **Reference engine adapters** stay in `agent-service` at
-  `agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/`:
+  `agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/`:
   `SequentialGraphExecutor` (`extends GraphExecutor`),
   `IterativeAgentLoopExecutor` (`extends AgentLoopExecutor`),
   `SyncOrchestrator`, `InMemoryCheckpointer`, `InMemoryRunRegistry`.
@@ -379,9 +379,9 @@ from the dissolved agent-runtime-core to agent-bus):
 - **S2C SPI surface** (package
   `com.huawei.ascend.bus.spi.s2c.*`, module `agent-bus`):
   `S2cCallbackEnvelope`, `S2cCallbackResponse`, `S2cCallbackTransport` —
-  sources at `agent-bus/src/main/java/ascend/springai/bus/spi/s2c/`.
+  sources at `agent-bus/src/main/java/com/huawei/ascend/bus/spi/s2c/`.
 - **Reference transport impl** stays in `agent-service` at
-  `agent-service/src/main/java/ascend/springai/service/runtime/s2c/InMemoryS2cCallbackTransport.java`
+  `agent-service/src/main/java/com/huawei/ascend/service/runtime/s2c/InMemoryS2cCallbackTransport.java`
   (package `com.huawei.ascend.service.runtime.s2c`, non-`.spi` —
   implementation home).
 
@@ -396,7 +396,7 @@ The orchestrator marks the parent Run SUSPENDED with
 #### runtime / probe -- OSS classpath shape probe (W0)
 
 `OssApiProbe` under
-`agent-service/src/main/java/ascend/springai/service/runtime/probe/`
+`agent-service/src/main/java/com/huawei/ascend/service/runtime/probe/`
 is a plain class (not a Spring context test). `OssApiProbeTest` runs
 three tests:
 
@@ -412,7 +412,7 @@ Green `OssApiProbeTest` is a required gate for every wave.
 #### runtime / idempotency -- Contract-spine entity (W0)
 
 `IdempotencyRecord` (post-rc13: relocated to `agent-service` per ADR-0088 dissolution) lives at
-`agent-service/src/main/java/ascend/springai/service/runtime/idempotency/`
+`agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency/`
 and is the runtime-side contract-spine entity. It mirrors the persistence
 shape (`tenantId`, `idempotencyKey`, `requestHash`, `status`,
 `createdAt`, `expiresAt`) consumed by the platform-side
@@ -441,7 +441,7 @@ preserves the original cross-module purity (formerly
 purity post-Phase-C. It is enforced by **Rule R-C.e** (formerly Rule 21; retargeted from the
 original "no `TenantContextHolder` import" invariant) via the ArchUnit
 class **`ServiceRuntimeMustNotDependOnServicePlatformTest`** under
-`agent-service/src/test/java/ascend/springai/service/runtime/architecture/`,
+`agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/`,
 registered as enforcer **E2** in `docs/governance/enforcers.yaml`. The
 narrow original case — no import of `TenantContextHolder` (which now
 lives at `service.platform.tenant.TenantContextHolder`) — remains
@@ -726,7 +726,7 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-service/
 └── src/main/java/
-    └── ascend/springai/service/
+    └── com/huawei/ascend/service/
         ├── platform/                          # HTTP edge (current; §2.A)
         │   ├── auth/                          # JwtDecoderConfig, AuthProperties, JwtTenantClaimCrossCheck
         │   ├── tenant/                        # TenantContextFilter, TenantContextHolder, MDC binding

@@ -56,7 +56,7 @@ This is **module-topology consolidation**, not a rename — it touches every arc
 
 ## §4 Package map
 
-Source layout walked from `agent-platform/src/main/java/ascend/springai/platform/` and `agent-runtime/src/main/java/ascend/springai/runtime/`. Every sub-directory becomes one row; the test tree mirrors the main tree identically (each `src/main/java/...` row implies the parallel `src/test/java/...` move).
+Source layout walked from `agent-platform/src/main/java/com/huawei/ascend/platform/` and `agent-runtime/src/main/java/com/huawei/ascend/runtime/`. Every sub-directory becomes one row; the test tree mirrors the main tree identically (each `src/main/java/...` row implies the parallel `src/test/java/...` move).
 
 ### `com.huawei.ascend.platform.*` → `com.huawei.ascend.service.platform.*`
 
@@ -115,10 +115,10 @@ Every gate rule whose path patterns hard-code the old module roots. Source: `gat
 | Rule | Concern | OLD pattern | NEW pattern |
 |---|---|---|---|
 | **Rule 10** (`module_dep_direction`) | Cross-module forbidden imports | `agent-runtime → agent-platform` forbidden | Intra-module sub-package check: `com.huawei.ascend.service.runtime..` MUST NOT import `com.huawei.ascend.service.platform..` |
-| **Rule 21** (Tenant Propagation Purity) | `service.runtime` MUST NOT import `service.platform` (e.g. `TenantContextHolder`) | `agent-runtime/src/main/java/ascend/springai/runtime/**` ↛ `com.huawei.ascend.platform.**` | `agent-service/src/main/java/ascend/springai/service/runtime/**` ↛ `com.huawei.ascend.service.platform.**` |
-| **Rule 28j** (no zombie code in modules) | Path scan | `agent-platform/src/main/java/**`, `agent-runtime/src/main/java/**` | `agent-service/src/main/java/ascend/springai/service/{platform,runtime}/**` |
-| **Rule 37** (`no_blocking_io_in_runtime_main`) | No `RestTemplate` / `JdbcTemplate` in runtime production | `agent-runtime/src/main/java/**` | `agent-service/src/main/java/ascend/springai/service/runtime/**` |
-| **Rule 38** (`no_thread_sleep_in_business_code`) | No `Thread.sleep` in platform/runtime production | `agent-platform/src/main/java/**` + `agent-runtime/src/main/java/**` | `agent-service/src/main/java/ascend/springai/service/{platform,runtime}/**` |
+| **Rule 21** (Tenant Propagation Purity) | `service.runtime` MUST NOT import `service.platform` (e.g. `TenantContextHolder`) | `agent-runtime/src/main/java/com/huawei/ascend/runtime/**` ↛ `com.huawei.ascend.platform.**` | `agent-service/src/main/java/com/huawei/ascend/service/runtime/**` ↛ `com.huawei.ascend.service.platform.**` |
+| **Rule 28j** (no zombie code in modules) | Path scan | `agent-platform/src/main/java/**`, `agent-runtime/src/main/java/**` | `agent-service/src/main/java/com/huawei/ascend/service/{platform,runtime}/**` |
+| **Rule 37** (`no_blocking_io_in_runtime_main`) | No `RestTemplate` / `JdbcTemplate` in runtime production | `agent-runtime/src/main/java/**` | `agent-service/src/main/java/com/huawei/ascend/service/runtime/**` |
+| **Rule 38** (`no_thread_sleep_in_business_code`) | No `Thread.sleep` in platform/runtime production | `agent-platform/src/main/java/**` + `agent-runtime/src/main/java/**` | `agent-service/src/main/java/com/huawei/ascend/service/{platform,runtime}/**` |
 | **Rule 40** (RLS baseline) | Flyway migration scan + grandfather list | `agent-platform/src/main/resources/db/migration` | `agent-service/src/main/resources/db/migration` (and same path swap in `gate/rls-baseline-grandfathered.txt`) |
 | **Rule 65** (`module_metadata_pom_dep_parity`) | Reconcile `module-metadata.yaml` vs `pom.xml` deps | Two rows: `agent-platform`, `agent-runtime` | One row: `agent-service` |
 | **Rule 66** (`spi_package_exhaustiveness`) | `spi_packages:` matches on-disk SPI packages | Two manifests scanned | One manifest scanned; `spi_packages` = union of old two |
@@ -178,8 +178,8 @@ grep "reactor_modules:" docs/governance/architecture-status.yaml
 test ! -d agent-platform && test ! -d agent-runtime && echo "Phase C structural OK"
 
 # 3. New package layout present on disk
-test -d agent-service/src/main/java/ascend/springai/service/platform \
-  && test -d agent-service/src/main/java/ascend/springai/service/runtime \
+test -d agent-service/src/main/java/com/huawei/ascend/service/platform \
+  && test -d agent-service/src/main/java/com/huawei/ascend/service/runtime \
   && echo "Phase C package layout OK"
 
 # 4. No corpus references to the dead package roots

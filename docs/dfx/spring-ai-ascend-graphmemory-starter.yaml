@@ -29,7 +29,7 @@ availability:
 vulnerability:
   scan_tooling: "starter dependencies pinned via BoM; CVE scan deferred per CLAUDE-deferred.md 32.d"
   tenant_isolation: "MemoryMetadata schema (§4 #31) carries tenantId on every persisted memory record"
-  spi_purity: "GraphMemoryRepository SPI at agent-service/src/main/java/ascend/springai/service/runtime/memory/spi/ imports only java.* (E3); canonical owner pinned by ADR-0082."
+  spi_purity: "GraphMemoryRepository SPI at agent-service/src/main/java/com/huawei/ascend/service/runtime/memory/spi/ imports only java.* (E3); canonical owner pinned by ADR-0082."
 
 observability:
   metric_namespace: "springai_ascend_graphmemory_*"

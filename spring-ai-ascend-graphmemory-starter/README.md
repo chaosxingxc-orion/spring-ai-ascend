@@ -35,7 +35,7 @@ springai:
       base-url: ${SPRINGAI_ASCEND_GRAPHITI_BASE_URL:http://localhost:8001}
 ```
 
-The SPI contract lives at [`agent-service/src/main/java/ascend/springai/service/runtime/memory/spi/GraphMemoryRepository.java`](../agent-service/src/main/java/ascend/springai/service/runtime/memory/spi/GraphMemoryRepository.java).
+The SPI contract lives at [`agent-service/src/main/java/com/huawei/ascend/service/runtime/memory/spi/GraphMemoryRepository.java`](../agent-service/src/main/java/com/huawei/ascend/service/runtime/memory/spi/GraphMemoryRepository.java).
 
 ## Configuration
 
@@ -51,4 +51,4 @@ Auto-discovery uses the Spring Boot 2.7+ contract: `META-INF/spring/org.springfr
 
 - [ARCHITECTURE.md](../ARCHITECTURE.md) — system boundary and SPI contracts.
 - [docs/adr/0034-memory-and-knowledge-taxonomy-at-l0.md](../docs/adr/0034-memory-and-knowledge-taxonomy-at-l0.md) — memory taxonomy + Graphiti selection rationale.
-- [agent-service/src/main/java/ascend/springai/service/runtime/memory/spi/GraphMemoryRepository.java](../agent-service/src/main/java/ascend/springai/service/runtime/memory/spi/GraphMemoryRepository.java) — the SPI interface.
+- [agent-service/src/main/java/com/huawei/ascend/service/runtime/memory/spi/GraphMemoryRepository.java](../agent-service/src/main/java/com/huawei/ascend/service/runtime/memory/spi/GraphMemoryRepository.java) — the SPI interface.

@@ -79,8 +79,8 @@ decision: |
      (positive + negative per sub-clause).
 
   2. **Engine package rename** (Track E):
-     - `agent-execution-engine/src/main/java/ascend/springai/service/runtime/engine/`
-       → `agent-execution-engine/src/main/java/ascend/springai/engine/runtime/`
+     - `agent-execution-engine/src/main/java/com/huawei/ascend/service/runtime/engine/`
+       → `agent-execution-engine/src/main/java/com/huawei/ascend/engine/runtime/`
      - `EngineRegistry.java` + `EngineEnvelope.java` move to new package.
      - 7 test files in `agent-service/src/test/java/.../service/runtime/engine/`
        move to `agent-service/src/test/java/.../engine/runtime/`.

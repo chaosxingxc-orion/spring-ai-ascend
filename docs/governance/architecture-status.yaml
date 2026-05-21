@@ -36,11 +36,11 @@ capabilities:
     l2_documents:
       - agent-service/ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/PlatformApplication.java
-      - agent-service/src/main/java/ascend/springai/service/platform/web/HealthController.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/PlatformApplication.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/web/HealthController.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/HealthEndpointIT.java
-      - agent-service/src/test/java/ascend/springai/service/platform/api/ApiCompatibilityTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/HealthEndpointIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/api/ApiCompatibilityTest.java
     allowed_claim: "W0: /v1/health GREEN; ArchUnit rules GREEN. SPI contracts frozen; rc21 ratchets work-time enforcement via 6-phase scenario-loaded contracts per ADR-0098 (5 phase contracts under docs/governance/contracts/ + 5 phase-entry skills under .claude/skills/ + CLAUDE.md Phase Entry directive table) + 2 new engineering rules (G-10 parallel-Linux-scripts mandate + G-11 phase-contract rule-allocation coherence) + 2 new gate rules (Rule 116 + Rule 117) + 2 new enforcers (E164 + E165) + dist/skills/ minimal distribution layer (manifest.yaml + README.md) for downstream platform consumers per Principle P-A + new family F-progressive-loading-weak-enforcement (the root cause this wave closes: rules ghost during work-time even when CLAUDE.md auto-loads kernels because the model doesn't refocus on rule paragraphs at phase entry — fix is phase-scoped contract loading via skills; closed structural fix, behavioural verification deferred to rc22+ observation)."
 
   agent_runtime_kernel:
@@ -50,28 +50,28 @@ capabilities:
     l2_documents:
       - agent-service/ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/probe/OssApiProbe.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStateMachine.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestrator.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SequentialGraphExecutor.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/posture/AppPostureGate.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/probe/OssApiProbe.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/RunStatus.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/RunStateMachine.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SyncOrchestrator.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SequentialGraphExecutor.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/posture/AppPostureGate.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/probe/OssApiProbeTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunStateMachineTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestratorPostureGuardTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutorResumeCursorTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointerTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointerSizeCapTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistryFindRootRunsTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/NestedDualModeIT.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/RunStatusTransitionIT.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/posture/AppPostureGateTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/probe/OssApiProbeTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/runs/RunTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/runs/RunStateMachineTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SyncOrchestratorPostureGuardTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutorResumeCursorTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointerTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointerSizeCapTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryRunRegistryFindRootRunsTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/NestedDualModeIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/RunStatusTransitionIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/posture/AppPostureGateTest.java
     allowed_claim: "W0: OssApiProbe shell (3 tests GREEN) + kernel logic test-verified by 11 named test classes covering Run/RunStatus/RunStateMachine DFA, SyncOrchestrator posture guard, IterativeAgentLoopExecutor resume cursor, InMemoryCheckpointer (basic + size cap), InMemoryRunRegistry findRootRuns, AppPostureGate, NestedDualModeIT (3-level bidirectional graph↔agent-loop), RunStatusTransitionIT. Structured implementation: and tests: lists carry these symbols (no prose-only evidence — closes R5 audit's EVIDENCE-LAUNDERING-VIA-PROSE-FIELD finding). 101 unit tests GREEN in the runtime kernel (consolidated into agent-service per ADR-0078; runtime kernel entities re-consolidated to agent-service + orchestration SPI to agent-execution-engine + s2c SPI to agent-bus per ADR-0088, 2026-05-20 — agent-runtime-core dissolved)."
 
   architecture_sync_gate:
@@ -134,9 +134,9 @@ capabilities:
     shipped: false
     l0_decision: ARCHITECTURE.md
     implementation:
-      - spring-ai-ascend-graphmemory-starter/src/main/java/ascend/springai/runtime/graphmemory/GraphMemoryAutoConfiguration.java
+      - spring-ai-ascend-graphmemory-starter/src/main/java/com/huawei/ascend/runtime/graphmemory/GraphMemoryAutoConfiguration.java
     tests:
-      - spring-ai-ascend-graphmemory-starter/src/test/java/ascend/springai/runtime/graphmemory/GraphMemoryAutoConfigurationTest.java
+      - spring-ai-ascend-graphmemory-starter/src/test/java/com/huawei/ascend/runtime/graphmemory/GraphMemoryAutoConfigurationTest.java
     allowed_claim: "Sidecar adapter scaffold; disabled by default; W1 wires real Graphiti REST client."
 
   spi_compatibility_freeze:
@@ -144,9 +144,9 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md (sec.3.2)
     implementation:
-      - agent-service/src/test/java/ascend/springai/service/platform/api/ApiCompatibilityTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/api/ApiCompatibilityTest.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/api/ApiCompatibilityTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/api/ApiCompatibilityTest.java
     allowed_claim: "L1: ArchUnit 4 rules GREEN; rules 3+4 now non-vacuous (SPI starters on test-classpath); japicmp baseline configured (skip=true; enforcement W1+)."
 
   idempotency_header_filter:
@@ -154,11 +154,11 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/idempotency/IdempotencyHeaderFilter.java
-      - agent-service/src/main/java/ascend/springai/service/platform/idempotency/IdempotencyFilterAutoConfiguration.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/idempotency/IdempotencyHeaderFilter.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/idempotency/IdempotencyFilterAutoConfiguration.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/idempotency/IdempotencyHeaderFilterTest.java
-      - agent-service/src/test/java/ascend/springai/service/platform/idempotency/IdempotencyHeaderFilterIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/idempotency/IdempotencyHeaderFilterTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/idempotency/IdempotencyHeaderFilterIT.java
     allowed_claim: "L1: OncePerRequestFilter order 30; dev tolerates missing; research/prod returns 400; counters emitted."
 
   tenant_context_filter:
@@ -166,11 +166,11 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/tenant/TenantContextFilter.java
-      - agent-service/src/main/java/ascend/springai/service/platform/tenant/TenantFilterAutoConfiguration.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/tenant/TenantContextFilter.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/tenant/TenantFilterAutoConfiguration.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/tenant/TenantContextFilterTest.java
-      - agent-service/src/test/java/ascend/springai/service/platform/tenant/TenantContextFilterIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/tenant/TenantContextFilterTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/tenant/TenantContextFilterIT.java
     allowed_claim: "L1: OncePerRequestFilter order 20; ThreadLocal cleared in finally; dev uses DEV_DEFAULT on missing; research/prod returns 400."
 
   openapi_v1_snapshot:
@@ -180,7 +180,7 @@ capabilities:
     implementation:
       - docs/contracts/openapi-v1.yaml
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/contracts/OpenApiContractIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/contracts/OpenApiContractIT.java
     allowed_claim: "L2: OpenAPI 3.0.1 snapshot pinning /v1/health surface; OpenApiContractIT runs actual snapshot diff via OpenApiSnapshotComparator."
 
   openapi_response_schema_check:
@@ -188,10 +188,10 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     implementation:
-      - agent-service/src/test/java/ascend/springai/service/platform/contracts/OpenApiSnapshotComparator.java
-      - agent-service/src/test/java/ascend/springai/service/platform/contracts/OpenApiContractIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/contracts/OpenApiSnapshotComparator.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/contracts/OpenApiContractIT.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/contracts/OpenApiContractIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/contracts/OpenApiContractIT.java
     allowed_claim: "L1: OpenApiSnapshotComparator.compareResponseSchemas() walks required fields and types in all 200 response schemas in the pinned spec."
 
   japicmp_configured:
@@ -201,7 +201,7 @@ capabilities:
     implementation:
       - spring-ai-ascend-dependencies/pom.xml
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/api/ApiCompatibilityTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/api/ApiCompatibilityTest.java
     allowed_claim: "L1: japicmp-maven-plugin 0.23.0 wired in BoM pluginManagement; skip=true for W0 baseline; enforcement activates W1+."
 
   rls_policy_sql:
@@ -270,7 +270,7 @@ capabilities:
       - perf/README.md
       - perf/baseline-2026-05-10.md
       - perf/jmh/pom.xml
-      - perf/jmh/src/main/java/ascend/springai/perf/FilterBench.java
+      - perf/jmh/src/main/java/com/huawei/ascend/perf/FilterBench.java
     tests: []
     allowed_claim: "L0: JMH skeleton + baseline doc present; no captured numbers (W4 cadence). Strategy and regression policy documented."
 
@@ -279,9 +279,9 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/probe/OssApiProbe.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/probe/OssApiProbe.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/probe/OssApiProbeTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/probe/OssApiProbeTest.java
     allowed_claim: "L1: OssApiProbeTest 3 tests (classIsLoadable, probeReturnsNonNullString, temporalGetVersionShapeReturnsMinusOne) GREEN."
 
   posture_module_bootstrap:
@@ -292,12 +292,12 @@ capabilities:
       - docs/cross-cutting/posture-model.md
       - agent-service/ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/posture/PostureBootGuard.java
-      - agent-service/src/main/java/ascend/springai/service/platform/posture/RequiredConfig.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/posture/PostureBootGuard.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/posture/RequiredConfig.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/posture/PostureBindingIT.java
-      - agent-service/src/test/java/ascend/springai/service/platform/posture/PostureBootGuardIT.java
-      - agent-service/src/test/java/ascend/springai/service/platform/auth/JwtDevLocalModeGuardIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/posture/PostureBindingIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/posture/PostureBootGuardIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/auth/JwtDevLocalModeGuardIT.java
     allowed_claim: "L1 (ADR-0058): PostureBootGuard listens on ApplicationReadyEvent and aborts startup in research/prod when any of {AuthProperties.hasJwksConfig(), DataSource bean, JdbcIdempotencyStore bean, MeterRegistry bean} is absent OR when InMemoryIdempotencyStore is present OR when app.auth.dev-local-mode=true. Silent in dev. RequiredConfig annotation lands as documentation for future-wave scanner use. Enforcer rows E11, E21, E22."
 
   idempotency_store:
@@ -305,16 +305,16 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/idempotency/IdempotencyStore.java
-      - agent-service/src/main/java/ascend/springai/service/platform/idempotency/JdbcIdempotencyStore.java
-      - agent-service/src/main/java/ascend/springai/service/platform/idempotency/InMemoryIdempotencyStore.java
-      - agent-service/src/main/java/ascend/springai/service/platform/idempotency/IdempotencyStoreAutoConfiguration.java
-      - agent-service/src/main/java/ascend/springai/service/platform/idempotency/IdempotencyProperties.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/idempotency/IdempotencyStore.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/idempotency/JdbcIdempotencyStore.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/idempotency/InMemoryIdempotencyStore.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/idempotency/IdempotencyStoreAutoConfiguration.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/idempotency/IdempotencyProperties.java
       - agent-service/src/main/resources/db/migration/V2__idempotency_dedup.sql
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/idempotency/IdempotencyStoreTest.java
-      - agent-service/src/test/java/ascend/springai/service/platform/idempotency/IdempotencyStorePostgresIT.java
-      - agent-service/src/test/java/ascend/springai/service/platform/idempotency/InMemoryIdempotencyAllowFlagIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/idempotency/IdempotencyStoreTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/idempotency/IdempotencyStorePostgresIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/idempotency/InMemoryIdempotencyAllowFlagIT.java
     allowed_claim: "L1 (ADR-0057): IdempotencyStore SPI with JdbcIdempotencyStore (Postgres-backed, INSERT ... ON CONFLICT, PRIMARY KEY (tenant_id, idempotency_key)) and InMemoryIdempotencyStore (posture=dev + allow-in-memory=true required, both gated). IdempotencyHeaderFilter calls claimOrFind with SHA-256-of-method+path+body request_hash; collisions return 409 idempotency_conflict or 409 idempotency_body_drift. Response replay deferred to W2. Enforcer rows E12, E13, E14, E22."
 
   resilience_contract:
@@ -323,19 +323,19 @@ capabilities:
     l0_decision: ARCHITECTURE.md
     implementation:
       # SPI surface (post-ADR-0080, v2.0.0-rc6 — moved to .spi sub-package to align with Rules 32/77/78)
-      - agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/ResilienceContract.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/ResiliencePolicy.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/SkillResolution.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/SuspendReason.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/SkillCapacityRegistry.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi/ResilienceContract.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi/ResiliencePolicy.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi/SkillResolution.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi/SuspendReason.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi/SkillCapacityRegistry.java
       # Implementations (stay in parent package — same split pattern as engine.spi vs service.runtime.engine)
-      - agent-service/src/main/java/ascend/springai/service/runtime/resilience/DefaultSkillResilienceContract.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/resilience/YamlResilienceContract.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/resilience/YamlSkillCapacityRegistry.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/DefaultSkillResilienceContract.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/YamlResilienceContract.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/YamlSkillCapacityRegistry.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/resilience/ResilienceContractTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/resilience/ResilienceContractIT.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/resilience/SkillCapacityResolutionIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/resilience/ResilienceContractTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/resilience/ResilienceContractIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/resilience/SkillCapacityResolutionIT.java
     allowed_claim: "L1: ResilienceContract SPI (package home `.spi` per ADR-0080 v2.0.0-rc6 — closes rc5 review P1-2; Rule R-D sub-clause .f prevention) + YamlResilienceContract routing layer; dev posture returns DEFAULT_POLICY on unknown op; research/prod throws; ResilienceContractIT verifies resolved cbName against real Resilience4j CircuitBreakerRegistry; SkillCapacityResolutionIT exercises two-arg resolve(tenant, skill) per ADR-0070 / Rule R-K.b."
 
   run_entity:
@@ -343,12 +343,12 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/RunMode.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/spi/RunRepository.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/RunMode.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/RunStatus.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/spi/RunRepository.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/runs/RunTest.java
     allowed_claim: "L1: Run record with mandatory tenantId, runId, mode (GRAPH|AGENT_LOOP); RunStatus PENDING/RUNNING/SUSPENDED/SUCCEEDED/FAILED/CANCELLED; nullable parentNodeKey+suspendedAt for interrupt-driven nesting; RunRepository SPI adds findByParentRunId + findByTenantAndStatus + findRootRuns(tenantId). Rule R-C.2.a target. findRootRuns shipped W0 per ADR-0032."
 
   idempotency_record_entity:
@@ -356,9 +356,9 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/idempotency/IdempotencyRecord.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency/IdempotencyRecord.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/idempotency/IdempotencyRecordTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/idempotency/IdempotencyRecordTest.java
     allowed_claim: "L1: IdempotencyRecord contract-spine entity with mandatory tenantId and idempotencyKey. Rule R-C.2.a target."
 
   orchestration_spi:
@@ -366,21 +366,21 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md (sec.4 constraint #9)
     implementation:
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/Orchestrator.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/RunContext.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/spi/GraphExecutor.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/spi/AgentLoopExecutor.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/spi/ExecutorAdapter.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/spi/EngineHookSurface.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/spi/EngineMatchingException.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/ExecutorDefinition.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/SuspendSignal.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/Checkpointer.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/Orchestrator.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/RunContext.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/GraphExecutor.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/AgentLoopExecutor.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/ExecutorAdapter.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/EngineHookSurface.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/EngineMatchingException.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/ExecutorDefinition.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/SuspendSignal.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/Checkpointer.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java
     tests:
-      - agent-service/src/test/java/ascend/springai/engine/orchestration/spi/SuspendSignalTest.java
-      - agent-service/src/test/java/ascend/springai/engine/orchestration/spi/OrchestrationSpiArchTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointerTest.java
+      - agent-service/src/test/java/com/huawei/ascend/engine/orchestration/spi/SuspendSignalTest.java
+      - agent-service/src/test/java/com/huawei/ascend/engine/orchestration/spi/OrchestrationSpiArchTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointerTest.java
     allowed_claim: "L1: Orchestration SPI — GraphExecutor, AgentLoopExecutor, SuspendSignal, Checkpointer, RunContext, Orchestrator. SPI is pure-Java (OrchestrationSpiArchTest). InMemoryCheckpointer provides dev-posture impl with posture guard (AppPostureGate, ADR-0035)."
 
   inmemory_orchestrator:
@@ -388,12 +388,12 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md (sec.4 constraint #9)
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestrator.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SequentialGraphExecutor.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SyncOrchestrator.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SequentialGraphExecutor.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/RunStatusTransitionIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/RunStatusTransitionIT.java
     allowed_claim: "L1: Reference executors — SyncOrchestrator (catches SuspendSignal, dispatches child, resumes parent), SequentialGraphExecutor, IterativeAgentLoopExecutor, InMemoryRunRegistry. Dev-posture only; W2 replaces with Postgres-backed impls behind same SPI."
 
   nested_dual_mode_reference:
@@ -401,12 +401,12 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md (sec.4 constraint #9)
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestrator.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SequentialGraphExecutor.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SyncOrchestrator.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SequentialGraphExecutor.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/NestedDualModeIT.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/RunStatusTransitionIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/NestedDualModeIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/RunStatusTransitionIT.java
     allowed_claim: "L1: 3-level graph→agent-loop→graph nesting proved in NestedDualModeIT. SuspendSignal/checkpoint/resume chain verified. parentRunId chain correct across all 3 Run rows. RunStatusTransitionIT verifies SUSPENDED→RUNNING→SUCCEEDED status transitions."
 
   # --- C1. Lifecycle & Identity (§4 #10) ---
@@ -618,11 +618,11 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0020-runlifecycle-spi-and-runstatus-formal-dfa.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStateMachine.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/RunStatus.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/RunStateMachine.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/RunStatus.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunStateMachineTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/runs/RunStateMachineTest.java
     allowed_claim: "Shipped — RunStateMachine.validate(from, to) enforces legal DFA transitions; Run.withStatus/withSuspension call validate before constructing updated record; EXPIRED added as 7th terminal RunStatus value. Rule R-C.2.b active. RunStateMachineTest exhaustively covers legal + illegal transitions."
 
   run_lifecycle_spi:
@@ -670,9 +670,9 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0023-cross-boundary-context-propagation.md
     implementation:
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/RunContext.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/RunContext.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TenantPropagationPurityTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/TenantPropagationPurityTest.java
     allowed_claim: "Shipped — TenantPropagationPurityTest ArchUnit rule enforces Rule R-C.2.c: no com.huawei.ascend.service.runtime.* main class may import TenantContextHolder. RunContext.tenantId() is the canonical carrier. Test-scope exemption for TenantContextFilterTest."
 
   logbook_mdc_tenant_id:
@@ -680,9 +680,9 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0023-cross-boundary-context-propagation.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/tenant/TenantContextFilter.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/tenant/TenantContextFilter.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/tenant/TenantContextFilterTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/tenant/TenantContextFilterTest.java
     allowed_claim: "Shipped — TenantContextFilter.doFilterInternal populates MDC('tenant_id') in both the dev-default and UUID paths; clears in finally. JSON log lines now carry tenant_id for correlation."
 
   suspension_write_atomicity_contract:
@@ -700,11 +700,11 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0025-checkpoint-ownership-boundary.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SequentialGraphExecutor.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestrator.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SequentialGraphExecutor.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SyncOrchestrator.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/NestedDualModeIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/NestedDualModeIT.java
     allowed_claim: "W0: executors persist executor-local resume cursors (keys _graph_next_node, _loop_resume_iter, _loop_resume_state) via Checkpointer.save(); Orchestrator persists Run row via RunRepository.save(). Both writes in single call stack (sequential atomicity per ADR-0024). ADR-0025."
 
   module_dependency_direction_w0:
@@ -714,8 +714,8 @@ capabilities:
     implementation:
       - agent-service/pom.xml
     tests:
-      - agent-service/src/test/java/ascend/springai/engine/orchestration/spi/OrchestrationSpiArchTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TenantPropagationPurityTest.java
+      - agent-service/src/test/java/com/huawei/ascend/engine/orchestration/spi/OrchestrationSpiArchTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/TenantPropagationPurityTest.java
     allowed_claim: "W0 clean (historical pre-ADR-0078 framing): the original `agent-service/pom.xml` dependency on the then-existing `agent-platform` was removed per ADR-0026 (it was a speculative reference with zero source imports). Post-ADR-0078 (Phase C consolidation, 2026-05-18) the `agent-platform` + `agent-runtime` modules were merged into `agent-service` with Rule R-C.2.c sub-package layering (`service.runtime.*` must not import `service.platform.*`). Post-ADR-0079 (T2.B2, 2026-05-18) the shared kernel (Run, RunContext, SuspendSignal, S2C SPI) was extracted into `agent-runtime-core` and the engine SPI into `agent-execution-engine` — superseded by ADR-0088. Post-ADR-0088 (rc13, 2026-05-20) `agent-runtime-core` was DISSOLVED; runs + idempotency consolidated into `agent-service`, orchestration SPI (RunMode + RunContext + SuspendSignal + Checkpointer + ExecutorDefinition) co-located with `agent-execution-engine.engine.orchestration.spi`, and S2C SPI relocated to `agent-bus.bus.spi.s2c`. The Maven-level direction constraint now reads: `agent-service` ↛ `agent-execution-engine` + `agent-bus` + `agent-middleware`; `agent-execution-engine` ↛ `agent-bus` + `agent-middleware`, never `agent-service`; `agent-bus` ↛ no inner peer. The 8-module reactor (`agent-client`, `agent-service`, `agent-middleware`, `agent-execution-engine`, `agent-bus`, `agent-evolve`, `spring-ai-ascend-dependencies`, `spring-ai-ascend-graphmemory-starter`) is the post-ADR-0088 truth — 9 → 8 modules."
 
   idempotency_scope_w0:
@@ -723,10 +723,10 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0027-idempotency-scope-w0-header-validation.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/idempotency/IdempotencyHeaderFilter.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/idempotency/IdempotencyHeaderFilter.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/idempotency/IdempotencyHeaderFilterTest.java
-      - agent-service/src/test/java/ascend/springai/service/platform/idempotency/IdempotencyHeaderFilterIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/idempotency/IdempotencyHeaderFilterTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/idempotency/IdempotencyHeaderFilterIT.java
     allowed_claim: "W0: IdempotencyHeaderFilter validates UUID shape on POST/PUT/PATCH only. No dedup, no caching, no IdempotencyStore interaction. ADR-0027."
 
   idempotency_store_promotion_to_interface:
@@ -742,9 +742,9 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0023-cross-boundary-context-propagation.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/observability/TenantTagMeterFilter.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/observability/TenantTagMeterFilter.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/observability/TenantTagMeterFilterTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/observability/TenantTagMeterFilterTest.java
     allowed_claim: "Shipped 2026-05-18 (Wave 4 Track D): TenantTagMeterFilter MeterFilter bean tags every springai_ascend_* metric with tenant_id (low-cardinality bucket). Promoted from deferred_w1 to test_verified. ADR-0023."
 
   otel_trace_propagation_across_suspend:
@@ -786,9 +786,9 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0028-causal-payload-envelope-and-semantic-ontology.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointerSizeCapTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointerSizeCapTest.java
     allowed_claim: "W0: InMemoryCheckpointer enforces §4 #13 16-KiB cap (dev: WARN; research/prod: ISE). Full SHA-256 fingerprint on CausalPayloadEnvelope deferred to W2."
 
   cognition_action_separation:
@@ -836,9 +836,9 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0022-payload-codec-spi.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutor.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutorResumeCursorTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/inmemory/IterativeAgentLoopExecutorResumeCursorTest.java
     allowed_claim: "W0: IterativeAgentLoopExecutor throws IllegalStateException (ADR-0022 reference) when non-String payload would be silently corrupted by Object.toString() concat (HD-A.8 fix). String-cursor invariant enforced explicitly."
 
   # --- Sixth + Seventh reviewer combined response additions (2026-05-13) ---
@@ -848,14 +848,14 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0035-posture-enforcement-single-construction-path.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/posture/AppPostureGate.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestrator.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/posture/AppPostureGate.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SyncOrchestrator.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/posture/AppPostureGateTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestratorPostureGuardTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointerSizeCapTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/posture/AppPostureGateTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SyncOrchestratorPostureGuardTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointerSizeCapTest.java
     allowed_claim: "W0: AppPostureGate.requireDevForInMemoryComponent centralizes all posture reads (Rule D-8 single-construction-path). SyncOrchestrator, InMemoryRunRegistry, InMemoryCheckpointer each call it in constructor. Gate Rule 12 verifies literal presence. ADR-0035."
 
   run_find_root_runs:
@@ -863,10 +863,10 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0032-scope-based-run-hierarchy-and-planner-contract-minimal.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/spi/RunRepository.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/spi/RunRepository.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistryFindRootRunsTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryRunRegistryFindRootRunsTest.java
     allowed_claim: "W0: RunRepository.findRootRuns(tenantId) SPI method added; InMemoryRunRegistry.findRootRuns filters parentRunId == null with tenant scoping. ADR-0032 Cluster 1."
 
   scope_based_run_hierarchy:
@@ -943,20 +943,20 @@ capabilities:
     shipped: true
     l0_decision: docs/adr/0040-w1-http-contract-reconciliation.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/web/runs/RunController.java
-      - agent-service/src/main/java/ascend/springai/service/platform/web/runs/RunHttpExceptionMapper.java
-      - agent-service/src/main/java/ascend/springai/service/platform/web/runs/CreateRunRequest.java
-      - agent-service/src/main/java/ascend/springai/service/platform/web/runs/RunResponse.java
-      - agent-service/src/main/java/ascend/springai/service/platform/auth/AuthProperties.java
-      - agent-service/src/main/java/ascend/springai/service/platform/auth/JwtDecoderConfig.java
-      - agent-service/src/main/java/ascend/springai/service/platform/tenant/JwtTenantClaimCrossCheck.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunHttpExceptionMapper.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/CreateRunRequest.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunResponse.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/auth/AuthProperties.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/auth/JwtDecoderConfig.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/tenant/JwtTenantClaimCrossCheck.java
       - docs/contracts/openapi-v1.yaml
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/web/runs/RunHttpContractIT.java
-      - agent-service/src/test/java/ascend/springai/service/platform/architecture/RunStatusEnumTest.java
-      - agent-service/src/test/java/ascend/springai/service/platform/tenant/JwtTenantClaimCrossCheckTest.java
-      - agent-service/src/test/java/ascend/springai/service/platform/auth/JwtValidationIT.java
-      - agent-service/src/test/java/ascend/springai/service/platform/contracts/OpenApiContractIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/web/runs/RunHttpContractIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/RunStatusEnumTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/tenant/JwtTenantClaimCrossCheckTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/auth/JwtValidationIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/contracts/OpenApiContractIT.java
     allowed_claim: "Shipped at L1 (Phase G/J/L) — W1 HTTP contract reconciliation: (a) X-Tenant-Id required; JWT tenant_id claim cross-check via JwtTenantClaimCrossCheck (ADR-0040, ADR-0056); (b) initial Run status = PENDING (RunStatus enum has no CREATED — RunStatusEnumTest pins this); (c) cancel = POST /v1/runs/{runId}/cancel (RunHttpContractIT.cancel_route_is_post_not_delete); (d) authenticated matrix asserted by RunHttpContractIT.createReturnsPending / tenantMismatchReturns403 / cancelTerminalReturns409 / duplicateIdempotencyKeyReturns409 (Phase L, closes reviewer P0-2 + P1-1); (e) OpenAPI snapshot pinned at openapi-v1.yaml with /v1/runs lifecycle endpoints + bearerAuth + ErrorEnvelope schema (Phase L, closes reviewer P0-3). Gate Rule 16 + OpenApiContractIT.noUndocumentedV1OperationsExposedByLive enforce. §4 #37."
 
   active_corpus_truth_sweep:
@@ -996,7 +996,7 @@ capabilities:
     l0_decision: docs/adr/0044-spi-contract-precision-and-memory-metadata-reconciliation.md
     implementation:
       - docs/contracts/contract-catalog.md
-      - agent-service/src/main/java/ascend/springai/service/runtime/memory/spi/GraphMemoryRepository.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/memory/spi/GraphMemoryRepository.java
     tests: []
     allowed_claim: "RunContext classified as interface in contract-catalog.md; per-SPI scope table added; embeddingModelVersion canonical name normalized across ARCHITECTURE.md and architecture-status.yaml; GraphMetadata documented as pre-W2 minimal subset. Gate Rule 17 extended. §4 #41."
 
@@ -1183,11 +1183,11 @@ capabilities:
       - docs/adr/0053-cohesive-agent-swarm-execution.md
       - ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/tenant/TenantContextFilter.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/RunContext.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/tenant/TenantContextFilter.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/RunContext.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/tenant/TenantContextFilterIT.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TenantPropagationPurityTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/tenant/TenantContextFilterIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/TenantPropagationPurityTest.java
     allowed_claim: "Five named authority-transfer boundaries: (1) HTTP edge to Runtime via TenantContextFilter+RunContext.tenantId (W0 shipped); (2) C-Side to S-Side via HydrationRequest/ResumeEnvelope (L0 contract, ADR-0049); (3) Parent Run to Child Run via SpawnEnvelope (L0 contract, ADR-0053); (4) Run to External Skill via PermissionEnvelope (L0 contract, ADR-0052); (5) Cross-Workflow via CrossWorkflowHandoff (L0 contract, ADR-0053). Each boundary has a named carrier; implicit transfer is forbidden. The Envelope pattern is codified across boundaries."
 
   long_connection_containment_invariant:
@@ -1208,10 +1208,10 @@ capabilities:
     l2_documents:
       - docs/adr/0054-long-connection-containment-runtime-handles.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/SuspendSignal.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/SuspendSignal.java
     tests:
-      - agent-service/src/test/java/ascend/springai/engine/orchestration/spi/SuspendSignalTest.java
+      - agent-service/src/test/java/com/huawei/ascend/engine/orchestration/spi/SuspendSignalTest.java
     allowed_claim: "LogicalCallHandle is the L0 alias for Run+SuspendSignal: Run is the lifecycle identity; SuspendSignal is the one interrupt primitive that releases physical resources without losing the logical call. A LogicalCallHandle is NOT equivalent to a TCP connection, thread, or Netty channel. W0 shipped via Run entity + SuspendSignal."
 
   suspend_instead_of_hold_principle:
@@ -1221,9 +1221,9 @@ capabilities:
     l2_documents:
       - docs/adr/0054-long-connection-containment-runtime-handles.md
     implementation:
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/SuspendSignal.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/SuspendSignal.java
     tests:
-      - agent-service/src/test/java/ascend/springai/engine/orchestration/spi/SuspendSignalTest.java
+      - agent-service/src/test/java/com/huawei/ascend/engine/orchestration/spi/SuspendSignalTest.java
     allowed_claim: "Named principle: a long wait MUST become a suspended workflow state when useful compute is not happening. W0 implemented via SuspendReason.RateLimited (ADR-0019) and SuspendReason.AwaitTimer. Idle waits must NOT consume scarce physical resources (threads, sockets, connections, event-loop slots). The principle composes with AdmissionDecision.Yielded (ADR-0050)."
 
   socket_per_tenant_cap:
@@ -1280,12 +1280,12 @@ capabilities:
       - docs/adr/0061-telemetry-vertical-layer.md
       - agent-service/ARCHITECTURE.md
     implementation:
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/TraceContext.java
-      - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/NoopTraceContext.java
-      - agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/RunContext.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/TraceContext.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/NoopTraceContext.java
+      - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/RunContext.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/architecture/TelemetryVerticalArchTest.java
-      - agent-service/src/test/java/ascend/springai/service/runtime/architecture/RunContextIdentityAccessorsTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/TelemetryVerticalArchTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/RunContextIdentityAccessorsTest.java
     allowed_claim: "Section 4 #53 + §4 #54 contract surface shipped at L1.x — TraceContext SPI is pure Java (no Spring, no OTel); NoopTraceContext is the L1.x default impl that propagates ids without emitting; RunContext exposes traceId/spanId/sessionId/traceContext alongside tenantId. Verified by TelemetryVerticalArchTest (no direct TraceWriter access outside hook/observability) and RunContextIdentityAccessorsTest (accessor signatures present)."
 
   mdc_correlation_carriers:
@@ -1297,12 +1297,12 @@ capabilities:
       - docs/telemetry/policy.md
       - agent-service/ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/observability/TraceExtractFilter.java
-      - agent-service/src/main/java/ascend/springai/service/platform/observability/TraceFilterAutoConfiguration.java
-      - agent-service/src/main/java/ascend/springai/service/platform/web/runs/RunController.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/observability/TraceExtractFilter.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/observability/TraceFilterAutoConfiguration.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/observability/TraceExtractFilterIT.java
-      - agent-service/src/test/java/ascend/springai/service/platform/observability/LogFieldShapeIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/observability/TraceExtractFilterIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/observability/LogFieldShapeIT.java
     allowed_claim: "Section 4 #55 shipped at L1.x — Logback MDC carries tenant_id (TenantContextFilter, W0) + trace_id + span_id + parent_span_id (TraceExtractFilter at order 10, L1.x) + run_id (RunController inline, after Run materialised at L1.x). Verified by TraceExtractFilterIT (filter behaviour) and LogFieldShapeIT (MDC presence during request scope)."
 
   traceparent_propagation:
@@ -1313,9 +1313,9 @@ capabilities:
       - docs/adr/0061-telemetry-vertical-layer.md
       - docs/telemetry/policy.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/platform/observability/TraceExtractFilter.java
+      - agent-service/src/main/java/com/huawei/ascend/service/platform/observability/TraceExtractFilter.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/platform/observability/TraceExtractFilterIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/platform/observability/TraceExtractFilterIT.java
     allowed_claim: "Section 4 #55 shipped at L1.x — W3C version-00 traceparent parsing + origination at HTTP edge; traceresponse emitted on every outbound response (200/4xx/5xx) for W3 client SDK correlation per ADR-0063 §1. Counters: springai_ascend_trace_originated_total{posture,source=client|server} and springai_ascend_traceparent_invalid_total{posture}. Verified by TraceExtractFilterIT."
 
   run_trace_session_columns:
@@ -1326,9 +1326,9 @@ capabilities:
       - docs/adr/0062-trace-run-session-identity.md
       - ARCHITECTURE.md
     implementation:
-      - agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
+      - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/runs/RunTraceSessionConsistencyIT.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/runs/RunTraceSessionConsistencyIT.java
     allowed_claim: "Section 4 #54 shipped at L1.x — Run record carries traceId (32-char hex; nullable at L1.x, NOT NULL at W2) and sessionId (UUID; nullable at L1.x, NOT NULL in posture=research/prod from W2) alongside the existing 12 fields. Backward-compatible 12-arg constructor preserved so existing callers compile. RunController populates traceId from MDC at Run-creation time. Verified by RunTraceSessionConsistencyIT."
 
   client_sdk_observability_contract:
@@ -1357,7 +1357,7 @@ capabilities:
       - docs/quickstart.md
       - CLAUDE.md
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/architecture/SpiPurityGeneralizedArchTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/SpiPurityGeneralizedArchTest.java
       - gate/check_architecture_sync.sh
     allowed_claim: "Section 4 #60 / Rule R-A shipped at L1.x — platform/business decoupling enforced by E48 SpiPurityGeneralizedArchTest (no Spring/platform/inmemory/Micrometer/OTel in any *.spi.* package) and Rule R-A.c quickstart_present (CI quickstart smoke job per ADR-0064 / W4). docs/quickstart.md ships referenced from README.md so developers reach first-agent execution without source patches. CLAUDE.md restructured to Layer-0 / Layer-1; review-cycle scaffolding sunk to docs/governance/rule-history.md."
 
@@ -1403,7 +1403,7 @@ capabilities:
       - docs/dfx/agent-service.yaml
       - agent-service/module-metadata.yaml
     tests:
-      - agent-service/src/test/java/ascend/springai/service/runtime/architecture/SpiPurityGeneralizedArchTest.java
+      - agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/SpiPurityGeneralizedArchTest.java
       - gate/check_architecture_sync.sh
     allowed_claim: "Section 4 #63 / Rule R-D sub-clause .a shipped at L1.x — post-ADR-0088 (rc13, 2026-05-20) the orchestration / runs / s2c SPI packages live on semantic-home modules: orchestration SPI on `agent-execution-engine` (kind:domain) at `com.huawei.ascend.engine.orchestration.spi.*` (RunMode + RunContext + SuspendSignal + Checkpointer + Orchestrator + TraceContext + ExecutorDefinition, relocated from the dissolved `agent-runtime-core` per ADR-0088); runs/idempotency kernel on `agent-service` (kind:domain) at `com.huawei.ascend.service.runtime.runs.*` (Run + RunStatus + RunStateMachine + IdempotencyRecord, re-consolidated from `agent-runtime-core` per ADR-0088); S2C SPI on `agent-bus` (kind:domain) at `com.huawei.ascend.bus.spi.s2c` (S2cCallbackTransport + S2cCallbackEnvelope + S2cCallbackResponse, relocated from `agent-runtime-core` per ADR-0088 to pair with `bus.spi.ingress`); the memory SPI was deliberately NOT extracted — it remains on agent-service per ADR-0082; memory SPI + resilience SPI declared on `agent-service` (kind:domain) at `com.huawei.ascend.service.runtime.memory.spi` + `com.huawei.ascend.service.runtime.resilience.spi` per ADR-0078/0080/0082; engine SPI lives on `agent-execution-engine` (kind:domain) at `com.huawei.ascend.engine.spi.*` per ADR-0079 (the engine SPI extraction was preserved by ADR-0088); middleware SPI lives on `agent-middleware` (kind:domain) at `com.huawei.ascend.middleware.spi.*` per ADR-0073. `agent-runtime-core` (kind:domain, ADR-0079) was DISSOLVED by ADR-0088 (rc13). Each kind:platform / kind:domain module publishes a `docs/dfx/<module>.yaml` covering 5 DFX dimensions (releasability, resilience, availability, vulnerability, observability). Enforced by Gate Rule R-E dfx_yaml_present_and_wellformed, Gate Rule R-F domain_module_has_spi_package, ArchUnit E48 SpiPurityGeneralizedArchTest, plus Rules 75-78 + 85 SPI metadata integrity wave + Rule G-8.b SPI path parity (rc14). TCK module scaffolding + conformance content deferred per CLAUDE-deferred.md 32.b/32.c (W2 trigger)."
 

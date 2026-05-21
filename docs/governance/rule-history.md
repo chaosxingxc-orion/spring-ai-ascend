@@ -76,7 +76,7 @@ The following are gate-script rules in `gate/check_architecture_sync.sh` introdu
 | 44 | Phase M (2026-05-14) | Active | frozen_doc_edit_path_compliance — modifications to freeze_id-tagged files require an accompanying docs/logs/reviews/*.md proposal. Enforcer E63. |
 | 45 | W1.x L0 ironclad-rules wave (2026-05-15) | Active | bus_channels_three_track_present — bus-channels.yaml schema check (Rule 35). Enforcer E64. |
 | 46 | W1.x L0 ironclad-rules wave (2026-05-15) | Active | cursor_flow_documented — openapi-v1.yaml declares 202 + cursor for long-horizon endpoint (Rule 36). Enforcer E65. |
-| 47 | W1.x L0 ironclad-rules wave (2026-05-15) | Active | no_blocking_io_in_runtime_main — historical wording for the deleted agent-runtime module; post-Phase-C / ADR-0078 the rule scope is `agent-service/src/main/java/ascend/springai/service/runtime/**` which excludes RestTemplate / JdbcTemplate (Rule 37). Enforcer E66. |
+| 47 | W1.x L0 ironclad-rules wave (2026-05-15) | Active | no_blocking_io_in_runtime_main — historical wording for the deleted agent-runtime module; post-Phase-C / ADR-0078 the rule scope is `agent-service/src/main/java/com/huawei/ascend/service/runtime/**` which excludes RestTemplate / JdbcTemplate (Rule 37). Enforcer E66. |
 | 48 | W1.x L0 ironclad-rules wave (2026-05-15) | Active | no_thread_sleep_in_business_code — main java sources exclude Thread.sleep / TimeUnit.sleep (Rule 38). Enforcer E67. |
 | 49 | W1.x L0 ironclad-rules wave (2026-05-15) | Active | deployment_plane_in_module_metadata — every module-metadata.yaml declares deployment_plane (Rule 39). Enforcer E68. |
 | 50 | W1.x L0 ironclad-rules wave (2026-05-15) | Active | rls_for_new_tenant_tables — Flyway migrations with tenant_id enable RLS or are grandfathered (Rule 40). Enforcer E69. |
@@ -176,15 +176,15 @@ Authority: ADR-0088 (agent-runtime-core dissolution) + ADR-0089 (Edge-Plane Ingr
 ### Structural changes
 
 - **Reactor 9 → 8 modules.** ADR-0088 dissolved `agent-runtime-core`. Its 16 production Java sources (+ 4 tests) were redistributed:
-  - `Run / RunStatus / RunStateMachine / RunRepository (+ package-info) / IdempotencyRecord` → `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**` (same package paths).
-  - `RunMode + 6 orchestration SPI types (Checkpointer / Orchestrator / RunContext / SuspendSignal / TraceContext / ExecutorDefinition)` → `agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/**` (renamed from `service.runtime.orchestration.spi`).
-  - `S2cCallbackTransport / S2cCallbackEnvelope / S2cCallbackResponse` → `agent-bus/src/main/java/ascend/springai/bus/spi/s2c/**` (renamed from `service.runtime.s2c.spi`).
+  - `Run / RunStatus / RunStateMachine / RunRepository (+ package-info) / IdempotencyRecord` → `agent-service/src/main/java/com/huawei/ascend/service/runtime/{runs,idempotency}/**` (same package paths).
+  - `RunMode + 6 orchestration SPI types (Checkpointer / Orchestrator / RunContext / SuspendSignal / TraceContext / ExecutorDefinition)` → `agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/**` (renamed from `service.runtime.orchestration.spi`).
+  - `S2cCallbackTransport / S2cCallbackEnvelope / S2cCallbackResponse` → `agent-bus/src/main/java/com/huawei/ascend/bus/spi/s2c/**` (renamed from `service.runtime.s2c.spi`).
 - **ADR-0079 superseded** by ADR-0088. `superseded_by: [ADR-0088]` added.
 - **New cross-plane control surface**: ADR-0089 adds `com.huawei.ascend.bus.spi.ingress.IngressGateway` SPI + `IngressEnvelope` + `IngressResponse` + `docs/contracts/ingress-envelope.v1.yaml` (status `design_only`; runtime binding W3+ with agent-client SDK). Symmetric with ADR-0088's `bus.spi.s2c` placement: bus plane owns the entirety of cross-plane traffic in both directions (C2S + S2C).
 
 ### Rule changes
 
-- **Rule R-C sub-clause .c** (Contract Spine Completeness): path scope updated from `agent-runtime-core/src/main/java/ascend/springai/service/runtime/**/*.java` to `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java`. Authority refs: `ADR-0079` dropped, `ADR-0088` added.
+- **Rule R-C sub-clause .c** (Contract Spine Completeness): path scope updated from `agent-runtime-core/src/main/java/com/huawei/ascend/service/runtime/**/*.java` to `agent-service/src/main/java/com/huawei/ascend/service/runtime/{runs,idempotency}/**/*.java`. Authority refs: `ADR-0079` dropped, `ADR-0088` added.
 - **Rule R-I** (Five-Plane Manifest): sub-clause `.b` ADDED — "Edge↔Compute Ingress Routing" per ADR-0089. Modules whose `deployment_plane` is `edge` MUST NOT import any production class under `com.huawei.ascend.{service,engine,middleware}..` and MUST NOT invoke compute_control HTTP routes directly; cross-plane traffic flows through `bus.spi.ingress.IngressGateway`. Enforcer E143 (ArchUnit `EdgeToComputeDirectLinkArchTest`) + gate Rule 105 (`edge_no_direct_compute_link`, enforcer E144).
 - **Rule 11** (`contract_spine_tenant_id_required`): path scope updated alongside Rule R-C.c — now scans `agent-service/.../runs/` and `agent-service/.../idempotency/` (was `agent-runtime-core/.../service/runtime/`).
 - **Rule 28e** (`module_count_invariant`): expected count 9 → 8 (BoM + 6 substantive domain modules + GraphMemory starter).

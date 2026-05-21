@@ -16,11 +16,11 @@ related_rules:
   - Rule 36
   - Rule 44
 affects_artefact:
-  - agent-service/src/main/java/ascend/springai/service/platform/web/runs/RunController.java
-  - agent-service/src/main/java/ascend/springai/service/platform/web/runs/NoOpAsyncRunDispatcher.java
-  - agent-service/src/main/java/ascend/springai/service/platform/idempotency/IdempotencyHeaderFilter.java
-  - agent-service/src/main/java/ascend/springai/service/platform/tenant/TenantContextHolder.java
-  - agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestrator.java
+  - agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java
+  - agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/NoOpAsyncRunDispatcher.java
+  - agent-service/src/main/java/com/huawei/ascend/service/platform/idempotency/IdempotencyHeaderFilter.java
+  - agent-service/src/main/java/com/huawei/ascend/service/platform/tenant/TenantContextHolder.java
+  - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SyncOrchestrator.java
   - docs/contracts/openapi-v1.yaml
 ---
 

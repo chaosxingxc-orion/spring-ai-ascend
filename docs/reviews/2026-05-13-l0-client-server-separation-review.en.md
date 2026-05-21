@@ -203,7 +203,7 @@ These three types have fundamentally different security, latency, and audit requ
 ```
 spring-ai-ascend-client/                    # New module
   pom.xml                                   # Dependencies: java.net.http only (JDK 11+)
-  src/main/java/ascend/springai/client/
+  src/main/java/com/huawei/ascend/client/
     AgentClient.java                        # Core interface
     AgentClientBuilder.java                 # Fluent builder
     impl/

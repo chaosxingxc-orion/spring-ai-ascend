@@ -80,7 +80,7 @@ decision: |
       sub-clause .d (Kernel-Deferred Coherence) is satisfied.
 
   Wave 2 — SPI stubs + enforcement (W1):
-    - Create agent-bus/src/main/java/ascend/springai/bus/spi/ingress/
+    - Create agent-bus/src/main/java/com/huawei/ascend/bus/spi/ingress/
       IngressGateway.java + IngressEnvelope.java + IngressResponse.java
       + package-info.java. Pure Java; no runtime binding.
     - Create agent-client/src/test/java/.../EdgeToComputeDirectLinkArchTest.java
@@ -134,7 +134,7 @@ verification:
 enforcer_rows:
   - id: E143
     kind: archunit
-    artifact: agent-client/src/test/java/ascend/springai/client/architecture/EdgeToComputeDirectLinkArchTest.java
+    artifact: agent-client/src/test/java/com/huawei/ascend/client/architecture/EdgeToComputeDirectLinkArchTest.java
     asserts: "no class under com.huawei.ascend.client.. imports any class under com.huawei.ascend.{service,engine,middleware}.."
 
 gate_rules:

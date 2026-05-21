@@ -185,7 +185,7 @@ verification:
     - "rule_66_spi_package_exhaustiveness PASS — spi_packages list matches on-disk packages."
   manual:
     - "Verify agent-platform/ and agent-runtime/ directories no longer exist on disk after Commit 2 of the phase-c-merge branch."
-    - "Verify agent-service/src/main/java/ascend/springai/service/platform/ and .../service/runtime/ both exist and contain the relocated sources."
+    - "Verify agent-service/src/main/java/com/huawei/ascend/service/platform/ and .../service/runtime/ both exist and contain the relocated sources."
     - "Verify spring-ai-ascend-graphmemory-starter/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports references com.huawei.ascend.service.runtime.graphmemory.GraphMemoryAutoConfiguration (not the old com.huawei.ascend.service.runtime.graphmemory path)."
     - "Verify ADR-0055 frontmatter carries superseded_by: ADR-0078 and ADR-0066 carries extended_by: ADR-0078."
     - "Verify ARCHITECTURE.md §2 module-layout table lists 8 substantive modules (BoM + agent-client + agent-bus + agent-service + agent-middleware + agent-execution-engine + agent-evolve + graphmemory-starter)."
@@ -194,8 +194,8 @@ enforcer_rows:
   - E1   # rule_10_module_dep_direction — retargeted to intra-module sub-package check (service.runtime ↛ service.platform)
   - E2   # rule_21_tenant_propagation_purity — ArchUnit pattern retargeted to ..service.runtime.. ↛ ..service.platform..
   - E27  # module_count_invariant — repository_counts.reactor_modules: 9 → 8
-  - E37  # rule_37_no_blocking_io_in_runtime_main — scan path repointed to agent-service/src/main/java/ascend/springai/service/runtime
-  - E38  # rule_38_no_thread_sleep_in_business_code — scan path repointed to agent-service/src/main/java/ascend/springai/service/{platform,runtime}
+  - E37  # rule_37_no_blocking_io_in_runtime_main — scan path repointed to agent-service/src/main/java/com/huawei/ascend/service/runtime
+  - E38  # rule_38_no_thread_sleep_in_business_code — scan path repointed to agent-service/src/main/java/com/huawei/ascend/service/{platform,runtime}
   - E40  # rule_40_storage_engine_tenant_isolation — RLS baseline path repointed to agent-service/src/main/resources/db/migration
   - E48  # rule_29_business_platform_decoupling — SPI-purity package-set updated to com.huawei.ascend.service.*
   - E65  # rule_65_module_metadata_pom_dep_parity — re-runs against agent-service/{pom.xml,module-metadata.yaml}

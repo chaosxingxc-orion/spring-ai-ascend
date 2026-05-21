@@ -135,7 +135,7 @@ verification:
     - "docs/contracts/contract-catalog.md ResilienceContract row carries 'dual-surface' language with ADR-0070 + ADR-0081 pointers"
     - "docs/adr/0030-skill-spi-lifecycle-resource-matrix.md:223 paragraph amended with supersession marker pointing to ADR-0070 + ADR-0081"
     - "docs/adr/0044-spi-contract-precision-and-memory-metadata-reconciliation.md:77 row rewritten to dual-surface form"
-    - "agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/ResilienceContract.java Javadoc carries @see cross-references to ADR-0030 / ADR-0070 / ADR-0080 / ADR-0081"
+    - "agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi/ResilienceContract.java Javadoc carries @see cross-references to ADR-0030 / ADR-0070 / ADR-0080 / ADR-0081"
 
 enforcer_rows: []
 gate_rules: []

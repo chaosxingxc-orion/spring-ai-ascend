@@ -131,11 +131,11 @@ spring-ai-ascend/
 
   agent-client/                                # NEW 2026-05-17: SDK skeleton (edge plane; W3+)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-client.yaml
-    src/main/java/ascend/springai/client/spi/  # placeholder SPI
+    src/main/java/com/huawei/ascend/client/spi/  # placeholder SPI
 
   agent-bus/                                   # Bus & State Hub plane — cross-plane control surfaces in BOTH directions (bus_state plane; ADR-0050 + ADR-0088 + ADR-0089)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-bus.yaml
-    src/main/java/ascend/springai/bus/spi/
+    src/main/java/com/huawei/ascend/bus/spi/
       ingress/                                 # NEW 2026-05-20 per ADR-0089: client-to-server ingress SPI
         IngressGateway.java                    # the cross-plane C2S control surface; consumed by edge plane (agent-client) at W3+
         IngressEnvelope.java                   # 6-required-field request shape (Rule R-C.c tenant scope)
@@ -147,7 +147,7 @@ spring-ai-ascend/
 
   agent-middleware/                            # NEW 2026-05-17: cross-cutting middleware (compute_control plane; ADR-0073)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-middleware.yaml
-    src/main/java/ascend/springai/middleware/
+    src/main/java/com/huawei/ascend/middleware/
       HookDispatcher.java                      # moved here from agent-runtime/engine/ (T2.B1)
       spi/                                     # moved here from agent-runtime/orchestration/spi/ (T2.B1)
         HookPoint.java                         # 9-value enum mirroring docs/contracts/engine-hooks.v1.yaml
@@ -157,8 +157,8 @@ spring-ai-ascend/
 
   agent-execution-engine/                      # heterogeneous engine surface + orchestration SPI host (compute_control plane; ADR-0072 + ADR-0088)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-execution-engine.yaml
-    src/main/java/ascend/springai/engine/spi/  # ExecutorAdapter, GraphExecutor, AgentLoopExecutor, EngineHookSurface, EngineMatchingException (engine adapter SPI per ADR-0072)
-    src/main/java/ascend/springai/engine/orchestration/spi/   # NEW 2026-05-20 per ADR-0088 (relocated + renamed from agent-runtime-core/.../service.runtime.orchestration.spi):
+    src/main/java/com/huawei/ascend/engine/spi/  # ExecutorAdapter, GraphExecutor, AgentLoopExecutor, EngineHookSurface, EngineMatchingException (engine adapter SPI per ADR-0072)
+    src/main/java/com/huawei/ascend/engine/orchestration/spi/   # NEW 2026-05-20 per ADR-0088 (relocated + renamed from agent-runtime-core/.../service.runtime.orchestration.spi):
       RunMode.java                             # engine type discriminator (GRAPH | AGENT_LOOP); co-located with its orchestration SPI
       Checkpointer.java                        # suspend-point persistence SPI
       Orchestrator.java                        # top-level orchestration entry-point SPI
@@ -166,14 +166,14 @@ spring-ai-ascend/
       SuspendSignal.java                       # checked-suspension primitive with forClientCallback variant (ADR-0074 rc3 unification)
       TraceContext.java                        # trace correlation carrier
       ExecutorDefinition.java                  # sealed: GraphDefinition | AgentLoopDefinition
-    src/main/java/ascend/springai/engine/runtime/        # EngineRegistry, EngineEnvelope (engine implementation home; relocated from service/runtime/engine/ in rc14 per ADR-0090 — ADR-0079 source-compat exception retired)
+    src/main/java/com/huawei/ascend/engine/runtime/        # EngineRegistry, EngineEnvelope (engine implementation home; relocated from service/runtime/engine/ in rc14 per ADR-0090 — ADR-0079 source-compat exception retired)
 
   agent-evolve/                                # NEW 2026-05-17: Java adapter skeleton for Python ML pipeline (evolution plane; ADR-0075)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-evolve.yaml
-    src/main/java/ascend/springai/evolve/spi/  # placeholder SPI
+    src/main/java/com/huawei/ascend/evolve/spi/  # placeholder SPI
 
   agent-service/                               # Northbound facade (L1: HTTP, JWT, tenant, idempotency) + cognitive runtime impl + runs/idempotency entities (rc13 re-consolidation per ADR-0088)
-    src/main/java/ascend/springai/service/
+    src/main/java/com/huawei/ascend/service/
       platform/                                # was `agent-platform/` pre-ADR-0078 (consolidated into agent-service per Phase C, 2026-05-18)
         PlatformApplication.java
         web/                                   # HealthController, WebSecurityConfig
@@ -193,7 +193,7 @@ spring-ai-ascend/
         memory/spi/                            # GraphMemoryRepository — interface only (W1+; ADR-0034/0082).
 
   spring-ai-ascend-graphmemory-starter/        # E2 adapter shell (Graphiti W1 ref per ADR-0034; auto-config disabled; full code W2)
-    src/main/java/ascend/springai/runtime/graphmemory/
+    src/main/java/com/huawei/ascend/runtime/graphmemory/
       GraphMemoryAutoConfiguration.java
       GraphMemoryProperties.java
 
@@ -841,7 +841,7 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
     channel pools, event-loop schedulers) are W2+ implementation guidance and MUST NOT
     appear as L0 contract. See ADR-0054.
 
-53. **Telemetry Vertical first-class.** The Telemetry Vertical (Trace + Span + LlmCall) is a named cross-cutting concept declared in `ARCHITECTURE.md §0.5.3`. Every horizontal layer (HTTP edge, orchestration, executor, adapter, MCP) MUST emit into it via the `TraceContext` SPI or the Hook SPI — never directly. Direct telemetry emission from adapter code (LlmGateway, ToolInvoker, DB/Redis bridges) is forbidden. Enforced by ArchUnit `TelemetryVerticalArchTest` (no class outside `agent-service/src/main/java/ascend/springai/service/runtime/observability` or `agent-service/src/main/java/ascend/springai/service/platform/observability` may write to a `TraceWriter`-shaped sink — paths reflect the post-ADR-0078 sub-package layout; was rooted in `agent-runtime/observability` / `agent-platform/observability` pre-Phase-C). See ADR-0061.
+53. **Telemetry Vertical first-class.** The Telemetry Vertical (Trace + Span + LlmCall) is a named cross-cutting concept declared in `ARCHITECTURE.md §0.5.3`. Every horizontal layer (HTTP edge, orchestration, executor, adapter, MCP) MUST emit into it via the `TraceContext` SPI or the Hook SPI — never directly. Direct telemetry emission from adapter code (LlmGateway, ToolInvoker, DB/Redis bridges) is forbidden. Enforced by ArchUnit `TelemetryVerticalArchTest` (no class outside `agent-service/src/main/java/com/huawei/ascend/service/runtime/observability` or `agent-service/src/main/java/com/huawei/ascend/service/platform/observability` may write to a `TraceWriter`-shaped sink — paths reflect the post-ADR-0078 sub-package layout; was rooted in `agent-runtime/observability` / `agent-platform/observability` pre-Phase-C). See ADR-0061.
 
 54. **Trace ↔ Run ↔ Session identity (N:M).** Every persisted `Run` row MUST carry a non-null `trace_id` (32-char lowercase W3C hex; the column is nullable at L1.x and NOT NULL from W2 via `V2__run_trace_id_notnull.sql`). `Run.sessionId` MAY be null at L1.x; in posture=research/prod from W2 it MUST be non-null. Multiple Runs MAY share a Trace or a Session. `RunContext` MUST expose `traceId()`, `spanId()`, `sessionId()`, and `traceContext()` alongside `tenantId()`. Child Runs spawned via `SuspendForChild` inherit `sessionId` from the parent and start a new Trace whose root span attribute `parent_trace_id` points to the parent's `traceId` (ADR-0062 default policy). Enforced by ArchUnit `RunContextIdentityAccessorsTest` + integration `RunTraceSessionConsistencyIT` + (W2) Flyway schema constraint. See ADR-0062.
 

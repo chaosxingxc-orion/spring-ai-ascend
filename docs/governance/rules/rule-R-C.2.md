@@ -10,11 +10,11 @@ status: active
 scope_phase: impl
 kernel_cap: 8
 scope_surfaces:
-  - "agent-service/src/main/java/ascend/springai/service/runtime/runs/**/*.java"
-  - "agent-service/src/main/java/ascend/springai/service/runtime/idempotency/**/*.java"
-  - "agent-service/src/main/java/ascend/springai/service/runtime/**/*.java (import scan)"
+  - "agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/**/*.java"
+  - "agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency/**/*.java"
+  - "agent-service/src/main/java/com/huawei/ascend/service/runtime/**/*.java (import scan)"
 kernel: |
-  **Every persistent record under `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java` MUST declare a `String tenantId` validated by `Objects.requireNonNull` (sub-clause .a — Contract Spine Completeness; relocated from agent-runtime-core per ADR-0088). Every `Run.withStatus(newStatus)` MUST call `RunStateMachine.validate(this.status, newStatus)` (sub-clause .b — Run State Transition Validity). No production class under `service.runtime..` may import `service.platform..`; the original narrow `TenantContextHolder` ban is asserted independently as defence-in-depth (sub-clause .c — Tenant Propagation Purity).**
+  **Every persistent record under `agent-service/src/main/java/com/huawei/ascend/service/runtime/{runs,idempotency}/**/*.java` MUST declare a `String tenantId` validated by `Objects.requireNonNull` (sub-clause .a — Contract Spine Completeness; relocated from agent-runtime-core per ADR-0088). Every `Run.withStatus(newStatus)` MUST call `RunStateMachine.validate(this.status, newStatus)` (sub-clause .b — Run State Transition Validity). No production class under `service.runtime..` may import `service.platform..`; the original narrow `TenantContextHolder` ban is asserted independently as defence-in-depth (sub-clause .c — Tenant Propagation Purity).**
 ---
 
 # Rule R-C.2 — Run Contract Spine
@@ -51,8 +51,8 @@ coherent contract about Run-entity discipline.
 **Enforcers**: E2, E11.
 
 Every persistent record class committed under
-`agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java`
-(relocated from `agent-runtime-core/src/main/java/ascend/springai/service/runtime/**/*.java`
+`agent-service/src/main/java/com/huawei/ascend/service/runtime/{runs,idempotency}/**/*.java`
+(relocated from `agent-runtime-core/src/main/java/com/huawei/ascend/service/runtime/**/*.java`
 per ADR-0088 rc13 dissolution) MUST declare a `String tenantId` component
 validated by `Objects.requireNonNull(tenantId, "tenantId is required")`
 in its compact constructor.

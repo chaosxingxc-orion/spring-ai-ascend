@@ -38,7 +38,7 @@ context: |
   agent-runtime-core, while three OTHER authoritative surfaces correctly
   placed it on agent-service: agent-service/module-metadata.yaml line 14
   (spi_packages list), docs/contracts/contract-catalog.md §2 row, and the
-  actual Java source file at agent-service/src/main/java/ascend/springai/
+  actual Java source file at agent-service/src/main/java/com/huawei/ascend/
   service/runtime/memory/spi/GraphMemoryRepository.java. The
   agent-runtime-core/module-metadata.yaml does NOT declare memory.spi (only
   orchestration.spi + runs.spi + s2c.spi).

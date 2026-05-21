@@ -25,7 +25,7 @@
 
 schema: ingress-envelope/v1
 # Status: design_only at W1 — no runtime binding ships yet. The IngressGateway
-# SPI interface ships under agent-bus/src/main/java/ascend/springai/bus/spi/ingress/
+# SPI interface ships under agent-bus/src/main/java/com/huawei/ascend/bus/spi/ingress/
 # but there is no implementation; the agent-service /v1/runs HTTP routes
 # continue to serve traffic directly until the W3+ SDK lands. Promotion to
 # `runtime_enforced` is triggered by the first agent-client SDK release per

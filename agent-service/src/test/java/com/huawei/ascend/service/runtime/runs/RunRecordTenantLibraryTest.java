@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Library-mode SPI conformance test for the Rule R-C.c contract-spine — every
  * persistent record under
- * {@code agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**}
+ * {@code agent-service/src/main/java/com/huawei/ascend/service/runtime/{runs,idempotency}/**}
  * MUST require a non-null tenantId via Objects.requireNonNull in its compact
  * constructor. Path scope relocated from the dissolved agent-runtime-core
  * module per ADR-0088 (rc13).

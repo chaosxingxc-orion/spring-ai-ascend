@@ -49,7 +49,7 @@ context: |
   IllegalStateException so the process never reaches request-serving state.
 
 decision: |
-  - Create agent-service/src/main/java/ascend/springai/service/platform/engine/EngineAutoConfiguration.java
+  - Create agent-service/src/main/java/com/huawei/ascend/service/platform/engine/EngineAutoConfiguration.java
     that:
       1. Registers SequentialGraphExecutor as a GraphExecutor bean (default,
          @ConditionalOnMissingBean).
@@ -65,7 +65,7 @@ decision: |
     (same pattern as ResilienceAutoConfiguration). No
     AutoConfiguration.imports file is required at this wave.
 
-  - Integration test agent-service/src/test/java/ascend/springai/service/platform/engine/
+  - Integration test agent-service/src/test/java/com/huawei/ascend/service/platform/engine/
     EngineRegistryBootValidationIT.java drives three cases:
       boot_succeeds_when_registered_adapters_match_known_engines
       boot_fails_when_known_engine_has_no_adapter
@@ -111,7 +111,7 @@ verification:
     - "bash gate/check_architecture_sync.sh - PASS, no new gate rule required"
     - "bash gate/test_architecture_sync_gate.sh - all self-tests GREEN, no new self-tests required"
   manual:
-    - "grep -n 'validateAgainstSchema' agent-service/src/main/java/ascend/springai/service/platform/engine/EngineAutoConfiguration.java returns exactly one call site inside the @Bean factory"
+    - "grep -n 'validateAgainstSchema' agent-service/src/main/java/com/huawei/ascend/service/platform/engine/EngineAutoConfiguration.java returns exactly one call site inside the @Bean factory"
     - "Boot PlatformApplication with -Dapp.engine.envelope-schema-path=/nonexistent.yaml -> startup fails with IllegalStateException"
 
 enforcer_rows:

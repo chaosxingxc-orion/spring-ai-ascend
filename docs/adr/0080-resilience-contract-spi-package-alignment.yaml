@@ -58,14 +58,14 @@ context: |
 
 decision: |
   - SPI surface (moved to `.spi` sub-package, semantics identical):
-      agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/
+      agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi/
         - ResilienceContract.java          (interface)
         - ResiliencePolicy.java            (value record)
         - SkillResolution.java             (outcome record)
         - SuspendReason.java               (sealed taxonomy)
         - SkillCapacityRegistry.java       (registry SPI)
   - Implementations remain in the parent package
-    agent-service/src/main/java/ascend/springai/service/runtime/resilience/:
+    agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/:
         - DefaultSkillResilienceContract.java
         - YamlResilienceContract.java
         - YamlSkillCapacityRegistry.java

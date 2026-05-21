@@ -137,7 +137,7 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-bus/
 └── src/main/java/
-    └── ascend/springai/bus/
+    └── com/huawei/ascend/bus/
         ├── spi/
         │   ├── ingress/                # C2S ingress SPI (rc13 / ADR-0089)
         │   │   ├── IngressGateway.java

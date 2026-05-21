@@ -9,18 +9,20 @@ spans_levels: [L1]
 authority: "ADR-0075 (Evolution scope default boundary); Layer-0 principle P-I (Five-Plane Distributed Topology); Rule R-M.e (Evolution Scope Default Boundary, formerly Rule 47)"
 ---
 
-# agent-evolve — L1 architecture (skeleton)
+# agent-evolve — L1 architecture (active; SPI extracted rc26)
 
-> Owner: AgentEvolve team | Wave: W3+ | Maturity: skeleton (deferred)
-> Created: 2026-05-17 (six-module materialization PR)
+> Owner: AgentEvolve team | Wave: W3+ | Maturity: active (SlowTrackJudge SPI shipped rc26; bulk impl deferred to W3)
+> Created: 2026-05-17 (six-module materialization PR); rc26 added online-evolution SPI per ADR-0102; rc27 moved SPI under `.spi` per Rule R-D.d.
 
 ## Status
 
-**This module is a deferred skeleton.** The Evolution plane hosts
-Python ML / offline improvement loops; the Java side is just an adapter
-shell. Bulk implementation is deferred indefinitely per
-`CLAUDE-deferred.md` and the archived design under
-`docs/v6-rationale/agent-runtime/evolve/`.
+**rc26 (2026-05-21) introduced the SlowTrackJudge SPI** per ADR-0102.
+Module status flipped from `skeleton` to `active` in rc27 per Rule M-1
+(modules with extracted production code MUST NOT carry `skeleton` status).
+The Evolution plane still hosts Python ML / offline improvement loops
+externally; the Java side now ships an interface for online evolution.
+Bulk Java implementation deferred indefinitely per `CLAUDE-deferred.md`
+and the archived design under `docs/v6-rationale/agent-runtime/evolve/`.
 
 What *is* shipped today: the `EvolutionExport` discriminator
 (`IN_SCOPE | OUT_OF_SCOPE | OPT_IN`) declared in
@@ -102,7 +104,7 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-evolve/
 └── src/main/java/
-    └── ascend/springai/evolve/
+    └── com/huawei/ascend/evolve/
         ├── package-info.java                # placeholder; W3 implementation
         └── (W3+: SlowTrackJudge, ReflectionPatchHandler, OfflineExportAdapter; see ADR-0102 timeline)
 ```

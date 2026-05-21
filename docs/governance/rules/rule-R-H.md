@@ -10,7 +10,7 @@ status: active
 scope_phase: impl
 kernel_cap: 8
 kernel: |
-  **No production class under `agent-service/src/main/java/ascend/springai/service/platform/**` or `agent-service/src/main/java/ascend/springai/service/runtime/**` may invoke `Thread.sleep(...)` or `TimeUnit.<unit>.sleep(...)`. Long-horizon waits MUST be expressed as declarative suspension (`SuspendSignal`) and resumed by the bus-level Tick Engine.**
+  **No production class under `agent-service/src/main/java/com/huawei/ascend/service/platform/**` or `agent-service/src/main/java/com/huawei/ascend/service/runtime/**` may invoke `Thread.sleep(...)` or `TimeUnit.<unit>.sleep(...)`. Long-horizon waits MUST be expressed as declarative suspension (`SuspendSignal`) and resumed by the bus-level Tick Engine.**
 ---
 
 ## Motivation

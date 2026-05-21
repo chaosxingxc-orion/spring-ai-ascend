@@ -20,9 +20,9 @@ authority: "ADR-0072 (Engine Envelope + Strict Matching); Layer-0 principle P-M 
 
 Code now lives under this module:
 
-- `agent-execution-engine/src/main/java/ascend/springai/engine/spi/` — `ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException` (engine contract surface; package root `com.huawei.ascend.engine.spi.*` to keep SPI purity per Rule 77 / OrchestrationSpiArchTest).
-- `agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/` — `RunMode`, `RunContext`, `SuspendSignal`, `Checkpointer`, `Orchestrator`, `TraceContext`, `ExecutorDefinition` (orchestration SPI; relocated from the dissolved `agent-runtime-core` per ADR-0088).
-- `agent-execution-engine/src/main/java/ascend/springai/engine/runtime/` — `EngineRegistry`, `EngineEnvelope` (engine implementation home; relocated from `com.huawei.ascend.service.runtime.engine.*` in rc14 per ADR-0090 — the ADR-0079 source-compat exception is retired since rc13 redistribution already broke any consumer that bound to the old kernel-shim module).
+- `agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/` — `ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException` (engine contract surface; package root `com.huawei.ascend.engine.spi.*` to keep SPI purity per Rule 77 / OrchestrationSpiArchTest).
+- `agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/` — `RunMode`, `RunContext`, `SuspendSignal`, `Checkpointer`, `Orchestrator`, `TraceContext`, `ExecutorDefinition` (orchestration SPI; relocated from the dissolved `agent-runtime-core` per ADR-0088).
+- `agent-execution-engine/src/main/java/com/huawei/ascend/engine/runtime/` — `EngineRegistry`, `EngineEnvelope` (engine implementation home; relocated from `com.huawei.ascend.service.runtime.engine.*` in rc14 per ADR-0090 — the ADR-0079 source-compat exception is retired since rc13 redistribution already broke any consumer that bound to the old kernel-shim module).
 
 The back-dep cycle that previously blocked extraction (engine → service → engine) was resolved by creating a transient `agent-runtime-core` module (per ADR-0079, 2026-05-18) that hosted `Run` / `RunContext` / `SuspendSignal` / `ExecutorDefinition` / S2C SPI types. Per ADR-0088 (rc13, 2026-05-20) `agent-runtime-core` was DISSOLVED and the kernel types relocated to semantic-home modules: orchestration SPI to this module under `engine.orchestration.spi`, runs/idempotency kernel re-consolidated into `agent-service`, S2C SPI to `agent-bus.bus.spi.s2c`. The build graph is now a strict DAG without the intermediate kernel-shim node.
 
@@ -91,7 +91,7 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-execution-engine/
 └── src/main/java/
-    └── ascend/springai/engine/
+    └── com/huawei/ascend/engine/
         ├── spi/                                # engine contract SPI (purity per Rule R-D)
         │   ├── ExecutorAdapter.java
         │   ├── GraphExecutor.java

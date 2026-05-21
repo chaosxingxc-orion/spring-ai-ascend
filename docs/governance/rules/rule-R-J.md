@@ -40,7 +40,7 @@ Every Flyway migration that creates a table with a `tenant_id` column MUST enabl
 
 Every `POST /v1/runs/{runId}/cancel` operation MUST re-validate `(request.tenantId == Run.tenantId)`; mismatch returns HTTP 403 `tenant_mismatch`. Idempotent terminal→terminal same-status calls return 200; illegal transitions return 409 `illegal_state_transition`. The cancel surface emits a structured `WARN+` audit log line carrying `(runId, fromStatus, toStatus, actor, occurredAt)` MDC fields. Resume and retry sub-clauses (24.d) remain deferred to the W2 async orchestrator.
 
-**Active surface (W1)**: `RunController.cancel(runId, tenantHeader)` in `agent-service/src/main/java/ascend/springai/service/platform/web/runs/RunController.java`:
+**Active surface (W1)**: `RunController.cancel(runId, tenantHeader)` in `agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java`:
 - Reads `Run` from `RunRepository.findById(runId)`; returns 404 if missing.
 - Compares `request.tenantId` with `Run.tenantId`; returns 403 on mismatch.
 - Returns 200 if the Run is already terminal in CANCELLED state (idempotent).

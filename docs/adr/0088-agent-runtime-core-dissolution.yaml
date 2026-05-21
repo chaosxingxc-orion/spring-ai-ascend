@@ -69,8 +69,8 @@ context: |
 decision: |
   Wave 1 — file moves (single atomic PR):
 
-    From agent-runtime-core/src/main/java/ascend/springai/service/runtime/...
-    to agent-service/src/main/java/ascend/springai/service/runtime/...:
+    From agent-runtime-core/src/main/java/com/huawei/ascend/service/runtime/...
+    to agent-service/src/main/java/com/huawei/ascend/service/runtime/...:
       runs/Run.java
       runs/RunStatus.java
       runs/RunStateMachine.java
@@ -81,8 +81,8 @@ decision: |
       runs/RunRecordTenantLibraryTest.java
       runs/RunStateMachineLibraryTest.java
 
-    From agent-runtime-core/src/main/java/ascend/springai/service/runtime/...
-    to agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/...
+    From agent-runtime-core/src/main/java/com/huawei/ascend/service/runtime/...
+    to agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/...
     (package renamed from service.runtime.orchestration.spi to engine.orchestration.spi):
       runs/RunMode.java                       (relocated from runs/ into orchestration.spi sibling)
       orchestration/spi/Checkpointer.java
@@ -94,8 +94,8 @@ decision: |
     (test):
       orchestration/spi/SuspendSignalLibraryTest.java
 
-    From agent-runtime-core/src/main/java/ascend/springai/service/runtime/s2c/spi/...
-    to agent-bus/src/main/java/ascend/springai/bus/spi/s2c/...
+    From agent-runtime-core/src/main/java/com/huawei/ascend/service/runtime/s2c/spi/...
+    to agent-bus/src/main/java/com/huawei/ascend/bus/spi/s2c/...
     (package renamed from service.runtime.s2c.spi to bus.spi.s2c):
       S2cCallbackTransport.java
       S2cCallbackEnvelope.java
@@ -118,8 +118,8 @@ decision: |
 
   Wave 4 — governance documentation updates:
     - CLAUDE.md Rule R-C sub-clause .c: change scope path from
-      `agent-runtime-core/src/main/java/ascend/springai/service/runtime/**/*.java`
-      to `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java`.
+      `agent-runtime-core/src/main/java/com/huawei/ascend/service/runtime/**/*.java`
+      to `agent-service/src/main/java/com/huawei/ascend/service/runtime/{runs,idempotency}/**/*.java`.
     - ARCHITECTURE.md root: module-layout table 9 rows -> 8 rows.
     - docs/governance/architecture-status.yaml: repository_counts.reactor_modules
       9 -> 8; internal_modules 7 -> 6; all `agent-runtime-core/...` paths in

@@ -143,7 +143,7 @@ Enforced by [`rule-R-C.1.md`](docs/governance/rules/rule-R-C.1.md).
 ---
 #### Rule R-C.2 — Run Contract Spine
 
-**Every persistent record under `agent-service/src/main/java/ascend/springai/service/runtime/{runs,idempotency}/**/*.java` MUST declare a `String tenantId` validated by `Objects.requireNonNull` (sub-clause .a — Contract Spine Completeness; relocated from agent-runtime-core per ADR-0088). Every `Run.withStatus(newStatus)` MUST call `RunStateMachine.validate(this.status, newStatus)` (sub-clause .b — Run State Transition Validity). No production class under `service.runtime..` may import `service.platform..`; the original narrow `TenantContextHolder` ban is asserted independently as defence-in-depth (sub-clause .c — Tenant Propagation Purity).**
+**Every persistent record under `agent-service/src/main/java/com/huawei/ascend/service/runtime/{runs,idempotency}/**/*.java` MUST declare a `String tenantId` validated by `Objects.requireNonNull` (sub-clause .a — Contract Spine Completeness; relocated from agent-runtime-core per ADR-0088). Every `Run.withStatus(newStatus)` MUST call `RunStateMachine.validate(this.status, newStatus)` (sub-clause .b — Run State Transition Validity). No production class under `service.runtime..` may import `service.platform..`; the original narrow `TenantContextHolder` ban is asserted independently as defence-in-depth (sub-clause .c — Tenant Propagation Purity).**
 
 Enforced by [`rule-R-C.2.md`](docs/governance/rules/rule-R-C.2.md).
 
@@ -205,14 +205,14 @@ Enforced by [`rule-R-F.md`](docs/governance/rules/rule-R-F.md).
 ---
 #### Rule R-G — Reactive External I/O
 
-**No production class under `agent-service/src/main/java/ascend/springai/service/runtime/**` may import `org.springframework.web.client.RestTemplate` or `org.springframework.jdbc.core.JdbcTemplate`. External I/O in runtime code MUST go through Reactive (`WebClient` / `R2dbcEntityTemplate`) or Virtual-Thread-backed clients.**
+**No production class under `agent-service/src/main/java/com/huawei/ascend/service/runtime/**` may import `org.springframework.web.client.RestTemplate` or `org.springframework.jdbc.core.JdbcTemplate`. External I/O in runtime code MUST go through Reactive (`WebClient` / `R2dbcEntityTemplate`) or Virtual-Thread-backed clients.**
 
 Enforced by [`rule-R-G.md`](docs/governance/rules/rule-R-G.md).
 
 ---
 #### Rule R-H — No Thread.sleep in Business Code
 
-**No production class under `agent-service/src/main/java/ascend/springai/service/platform/**` or `agent-service/src/main/java/ascend/springai/service/runtime/**` may invoke `Thread.sleep(...)` or `TimeUnit.<unit>.sleep(...)`. Long-horizon waits MUST be expressed as declarative suspension (`SuspendSignal`) and resumed by the bus-level Tick Engine.**
+**No production class under `agent-service/src/main/java/com/huawei/ascend/service/platform/**` or `agent-service/src/main/java/com/huawei/ascend/service/runtime/**` may invoke `Thread.sleep(...)` or `TimeUnit.<unit>.sleep(...)`. Long-horizon waits MUST be expressed as declarative suspension (`SuspendSignal`) and resumed by the bus-level Tick Engine.**
 
 Enforced by [`rule-R-H.md`](docs/governance/rules/rule-R-H.md).
 

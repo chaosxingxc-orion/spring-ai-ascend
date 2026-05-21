@@ -113,11 +113,11 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-client/
 └── src/main/java/
-    └── ascend/springai/client/
+    └── com/huawei/ascend/client/
         ├── package-info.java                   # placeholder + Rule R-I.1 sentinel anchor
         └── (W3+ SDK code lands here)
 └── src/test/java/
-    └── ascend/springai/client/
+    └── com/huawei/ascend/client/
         └── architecture/
             └── EdgeToComputeDirectLinkArchTest.java   # E143 / gate Rule 105 — vacuous-but-armed
 ```
