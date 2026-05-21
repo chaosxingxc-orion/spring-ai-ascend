@@ -1,39 +1,41 @@
 #!/usr/bin/env bash
-# gate/lib/fast_grep.sh — performance-optimized regex search helpers.
+# gate/lib/fast_grep.sh — awk-based regex search helpers (POSIX, single-pass).
 #
-# Wraps `ripgrep` (rg) when available; falls back to `grep -r` / `git grep`.
-# Auto-selects the fastest backend based on PATH availability:
-#
-#   1. ripgrep (rg)     — multi-threaded, mmap, gitignore-aware, 3-10x faster.
-#   2. git grep         — packfile-aware, internally parallelized, 2-5x faster.
-#   3. grep -r / find   — POSIX baseline (single-threaded).
+# Design philosophy (per PR-Opt-rc22 user feedback): prefer awk over external
+# tools like ripgrep. awk is POSIX (always available, no install dep), and a
+# single awk invocation can match N patterns against a file in ONE pass
+# instead of N grep invocations each re-reading the file.
 #
 # Authority: docs/governance/rules/rule-72.md (gate-machinery integrity) +
-#            PR-Opt-rc22 user-driven gate optimization (target: gate < 5min).
-#
-# Exports backend-detection results:
-#   _FAST_GREP_BACKEND       one of: rg | git-grep | grep
-#   _FAST_GREP_JOBS          number of worker threads (defaults to nproc or 4)
+#            PR-Opt-rc22 (target: gate < 5min).
 #
 # Helper functions exposed to gate rules:
 #
-#   fast_grep_files <pattern> [<path>...]
-#       Returns matching file paths (one per line). Backend-agnostic.
-#       Equivalent to `grep -rln <pattern> <path>...`.
+#   awk_multi_match <file_list_var> <slug1>=<pat1> [<slug2>=<pat2>...]
+#       Scan every file in $file_list_var ONCE, match multiple regex patterns
+#       in a single awk pass. Emits TSV: slug \t file \t line_num \t content.
+#       Caller can group results via `awk -F'\t' -v s=slug1 '$1==s {...}'`.
 #
-#   fast_grep_content <pattern> [<path>...]
-#       Returns matching lines with file:line:content. Backend-agnostic.
-#       Equivalent to `grep -rEn <pattern> <path>...`.
+#   awk_count_matches <file_list_var> <pattern>
+#       Scan every file ONCE; return aggregate match count. Integer output.
 #
-#   fast_grep_count <pattern> [<path>...]
-#       Returns match count (integer). Backend-agnostic.
+#   awk_files_with_match <file_list_var> <pattern>
+#       Scan every file ONCE; return sorted unique paths containing >=1 match.
+#       Equivalent to `grep -lE pattern` but single-pass over the file list.
 #
-#   fast_grep_parallel_files <pattern> <file_list>
-#       Given a newline-separated file list (e.g., $_SCAN_AGENT_JAVA_MAIN),
-#       parallelize the grep across $_FAST_GREP_JOBS workers via xargs -P.
-#       Returns matching file paths.
+# All helpers respect the caller's file list (no implicit `find`); pair with
+# the scan_cache.sh pre-scanned _SCAN_* file lists for max benefit.
 #
-# Caller MUST set GATE_REPO_ROOT before sourcing.
+# Why awk over grep/ripgrep:
+#   - One file open per file, regardless of pattern count (vs N greps).
+#   - Pure POSIX — works in Git Bash, WSL, Linux, BSD identically.
+#   - Programmable (full language) — caller can extend with awk action blocks.
+#   - Deterministic ordering (file list order preserved).
+#
+# When to NOT use this (still call grep/find):
+#   - File scope unknown ahead of time (no pre-built file list).
+#   - Single regex query (the awk-loop overhead doesn't pay off).
+#   - Need ripgrep's binary-detection / gitignore-skip semantics.
 
 set -uo pipefail
 export LC_ALL=C
@@ -43,143 +45,90 @@ if [[ -z "${GATE_REPO_ROOT:-}" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Backend detection (once per gate run).
+# awk_multi_match — single-pass, multi-pattern match against a file list.
+#
+# Usage:
+#   awk_multi_match _SCAN_AGENT_JAVA_MAIN \
+#     'forbidden_import=^import com\.example\.' \
+#     'spi_only=class .+Spi'
+#
+# Output (stdout): one TSV line per match
+#   <slug>\t<file>\t<line_num>\t<matched_content>
+#
+# Filter results in the calling rule:
+#   awk_multi_match _SCAN_AGENT_JAVA_MAIN 'a=p1' 'b=p2' \
+#     | awk -F'\t' '$1=="a" { ... }'
 # ---------------------------------------------------------------------------
-_fast_grep_detect_backend() {
-  if [[ -n "${_FAST_GREP_BACKEND:-}" ]]; then
-    return 0  # already detected
-  fi
+awk_multi_match() {
+  local _list_var="$1"; shift
+  local _list="${!_list_var:-}"
+  [[ -z "$_list" ]] && return 0
+  [[ $# -eq 0 ]] && return 0
 
-  # Honor explicit override (for testing / disabling).
-  if [[ -n "${GATE_GREP_BACKEND:-}" ]]; then
-    _FAST_GREP_BACKEND="$GATE_GREP_BACKEND"
-  elif command -v rg >/dev/null 2>&1; then
-    _FAST_GREP_BACKEND="rg"
-  elif command -v git >/dev/null 2>&1 && git -C "$GATE_REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
-    _FAST_GREP_BACKEND="git-grep"
-  else
-    _FAST_GREP_BACKEND="grep"
-  fi
+  # Build the awk pattern program: PATTERNS["slug"] = "pattern".
+  # Use a temp script to avoid quoting nightmares for complex patterns.
+  local _tmp_script
+  _tmp_script="$(mktemp)" || return 1
+  {
+    echo 'BEGIN {'
+    local _i=0
+    while [[ $# -gt 0 ]]; do
+      local _spec="$1"; shift
+      local _slug="${_spec%%=*}"
+      local _pat="${_spec#*=}"
+      # Escape backslashes + double-quotes for awk literal.
+      _pat="${_pat//\\/\\\\}"
+      _pat="${_pat//\"/\\\"}"
+      echo "  slugs[$_i] = \"$_slug\"; pats[$_i] = \"$_pat\";"
+      _i=$((_i + 1))
+    done
+    echo "  n_pats = $_i;"
+    echo '}'
+    cat <<'AWK'
+{
+  for (i = 0; i < n_pats; i++) {
+    if ($0 ~ pats[i]) {
+      printf "%s\t%s\t%d\t%s\n", slugs[i], FILENAME, FNR, $0
+    }
+  }
+}
+AWK
+  } > "$_tmp_script"
 
-  # Worker count (used by parallel helpers).
-  if [[ -z "${_FAST_GREP_JOBS:-}" ]]; then
-    if [[ -n "${GATE_GREP_JOBS:-}" ]]; then
-      _FAST_GREP_JOBS="$GATE_GREP_JOBS"
-    elif command -v nproc >/dev/null 2>&1; then
-      _FAST_GREP_JOBS="$(nproc 2>/dev/null || echo 4)"
-    else
-      _FAST_GREP_JOBS=4
-    fi
-  fi
-
-  export _FAST_GREP_BACKEND _FAST_GREP_JOBS
+  # Feed file list as positional args. xargs -d '\n' handles spaces in names.
+  printf '%s\n' "$_list" | xargs -d '\n' -r awk -f "$_tmp_script" 2>/dev/null
+  local _rc=$?
+  rm -f "$_tmp_script"
+  return $_rc
 }
 
 # ---------------------------------------------------------------------------
-# Public API.
+# awk_count_matches — aggregate match count across a file list.
 # ---------------------------------------------------------------------------
+awk_count_matches() {
+  local _list_var="$1"
+  local _pat="$2"
+  local _list="${!_list_var:-}"
+  [[ -z "$_list" ]] && { echo 0; return 0; }
 
-# fast_grep_files <pattern> [<path>...]
-#   Returns file paths containing matches (one per line, sorted, unique).
-#   Empty stdout on no matches; non-zero exit code from underlying tool is
-#   suppressed (gate rules typically want to enumerate, not fail).
-fast_grep_files() {
-  _fast_grep_detect_backend
-  local _pat="$1"; shift
-  local _paths=("$@")
-  [[ ${#_paths[@]} -eq 0 ]] && _paths=(".")
-
-  case "$_FAST_GREP_BACKEND" in
-    rg)
-      rg -l --no-messages -e "$_pat" "${_paths[@]}" 2>/dev/null | sort -u
-      ;;
-    git-grep)
-      ( cd "$GATE_REPO_ROOT" && git grep -lE "$_pat" -- "${_paths[@]}" 2>/dev/null | sort -u )
-      ;;
-    *)
-      grep -rlE "$_pat" "${_paths[@]}" 2>/dev/null | sort -u
-      ;;
-  esac
+  printf '%s\n' "$_list" \
+    | xargs -d '\n' -r awk -v pat="$_pat" '$0 ~ pat { n++ } END { print n+0 }' 2>/dev/null \
+    | awk '{ s += $1 } END { print s+0 }'
   return 0
 }
 
-# fast_grep_content <pattern> [<path>...]
-#   Returns matching lines as file:line:content.
-fast_grep_content() {
-  _fast_grep_detect_backend
-  local _pat="$1"; shift
-  local _paths=("$@")
-  [[ ${#_paths[@]} -eq 0 ]] && _paths=(".")
+# ---------------------------------------------------------------------------
+# awk_files_with_match — sorted unique file paths containing >=1 match.
+# Equivalent to `grep -lE pattern file...` but single-pass per file.
+# ---------------------------------------------------------------------------
+awk_files_with_match() {
+  local _list_var="$1"
+  local _pat="$2"
+  local _list="${!_list_var:-}"
+  [[ -z "$_list" ]] && return 0
 
-  case "$_FAST_GREP_BACKEND" in
-    rg)
-      rg -nH --no-messages -e "$_pat" "${_paths[@]}" 2>/dev/null
-      ;;
-    git-grep)
-      ( cd "$GATE_REPO_ROOT" && git grep -nE "$_pat" -- "${_paths[@]}" 2>/dev/null )
-      ;;
-    *)
-      grep -rnE "$_pat" "${_paths[@]}" 2>/dev/null
-      ;;
-  esac
+  printf '%s\n' "$_list" \
+    | xargs -d '\n' -r awk -v pat="$_pat" '$0 ~ pat { print FILENAME; nextfile }' 2>/dev/null \
+    | sort -u
   return 0
 }
-
-# fast_grep_count <pattern> [<path>...]
-#   Returns total match count across all files. Always echoes a non-negative
-#   integer (zero on no matches).
-fast_grep_count() {
-  _fast_grep_detect_backend
-  local _pat="$1"; shift
-  local _paths=("$@")
-  [[ ${#_paths[@]} -eq 0 ]] && _paths=(".")
-
-  case "$_FAST_GREP_BACKEND" in
-    rg)
-      rg -c --no-messages -e "$_pat" "${_paths[@]}" 2>/dev/null \
-        | awk -F: '{ s += $NF } END { print (s ? s : 0) }'
-      ;;
-    git-grep)
-      ( cd "$GATE_REPO_ROOT" && git grep -cE "$_pat" -- "${_paths[@]}" 2>/dev/null \
-          | awk -F: '{ s += $NF } END { print (s ? s : 0) }' )
-      ;;
-    *)
-      grep -rcE "$_pat" "${_paths[@]}" 2>/dev/null \
-        | awk -F: '{ s += $NF } END { print (s ? s : 0) }'
-      ;;
-  esac
-  return 0
-}
-
-# fast_grep_parallel_files <pattern> <file_list_var>
-#   Parallelize grep across $_FAST_GREP_JOBS workers via xargs -P.
-#   Caller passes the NAME of a variable containing newline-separated paths
-#   (e.g., '_SCAN_AGENT_JAVA_MAIN'); we look it up by indirection.
-#   Returns matching file paths (one per line, sorted).
-#   For very large file lists this beats `grep -r` because grep is internally
-#   serial; xargs -P spreads N grep processes across cores.
-fast_grep_parallel_files() {
-  _fast_grep_detect_backend
-  local _pat="$1"
-  local _var_name="$2"
-  local _file_list="${!_var_name:-}"
-  [[ -z "$_file_list" ]] && return 0
-
-  case "$_FAST_GREP_BACKEND" in
-    rg)
-      # rg is already multi-threaded internally; just feed the file list.
-      echo "$_file_list" \
-        | rg -l --no-messages -e "$_pat" -F "-" 2>/dev/null | sort -u || true
-      ;;
-    *)
-      # xargs -P fans grep across workers; each grep handles a batch of files.
-      printf '%s\n' "$_file_list" \
-        | xargs -P "$_FAST_GREP_JOBS" -n 50 grep -lE "$_pat" 2>/dev/null \
-        | sort -u || true
-      ;;
-  esac
-  return 0
-}
-
-# Auto-detect on source.
-_fast_grep_detect_backend
