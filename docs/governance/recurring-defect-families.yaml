@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc21 Wave 6 (5th PR commit, post-CI Rule 117 SIGPIPE corrective): F-progressive-loading-weak-enforcement open_residual extended with the CI-vs-local divergence finding (set -o pipefail + grep -Fxq pipe-race on fast CI runners produced false-orphan; fixed by materialising lookup sets to temp files via mktemp -d).
+last_updated: 2026-05-22  # rc22 (ADR-0099): added F-l1-architecture-grounding-gap (Rule G-1.1 ratification + 6 ARCHITECTURE.md rewrites + 3 enforcers E166/E167/E168 + 6 self-test fixtures). Wave also lands ADR-0100 (agent-service decomp) + ADR-0101 (polymorphic deployment) + ADR-0102 (online/offline evolution) + ADR-0103 (middleware naming resolution) + ADR-0104 (package-root migration decision; rc22.5 executes).
 
 families:
   - id: F-numeric-drift
@@ -414,3 +414,37 @@ families:
       under `set -o pipefail` are timing-fragile across CI vs local
       runners — prefer materialised temp files OR associative arrays
       OR `case` pattern matching for deterministic behaviour.
+
+  - id: F-l1-architecture-grounding-gap
+    title: L1 Architecture Document Lacks Code-Mapping or SPI Enumeration
+    first_observed_rc: rc17
+    last_observed_rc: rc21
+    occurrences: [rc17, rc18, rc19, rc20, rc21]
+    root_cause: |
+      Rule G-1.a (Layered 4+1 Discipline) mandates that every
+      architecture artefact declares level/view frontmatter, but does
+      NOT enforce DEPTH or GROUNDING of the content. An L1
+      ARCHITECTURE.md can be 4+1-shaped yet still fail to map
+      logical components to specific package paths or enumerate the
+      actual SPI surface the module ships. As of rc21 HEAD, the 6
+      agent-* ARCHITECTURE.md files showed uneven grounding:
+      agent-middleware lacked a Development View tree; agent-client
+      and agent-evolve were skeleton-only with no SPI appendix; the
+      L1 ARCHITECTURE.md SPI section was not enforced as a parity
+      surface against module-metadata/catalog/DFX.
+    surfaces:
+      - agent-*/ARCHITECTURE.md
+      - docs/governance/rules/rule-G-1.md (parent rule lacked depth clauses)
+    prevention_rules:
+      - Rule G-1.1 (rc22 / ADR-0099) — 3 sub-clauses + 3 enforcers + 6 fixtures
+    cleanup_status: structurally_addressed
+    open_residual: |
+      Rule G-1.1 ratifies the depth/grounding discipline AND rewrites
+      all 6 agent-* ARCHITECTURE.md files to satisfy the new rule.
+      Sub-clause .c (L2 Constraint Linkage) is vacuously green at
+      rc22 because no L2 documents exist yet; the rule arms for W3+
+      when L2 docs land. The SPI Appendix scanner adds the L1
+      architecture-doc as the fourth parity point to Rule R-D's
+      three-way check — full corpus parity now requires 4 surfaces
+      to agree. Rc22.5 (package-root migration) strips forward-
+      compatibility markers; the rule will revalidate post-rename.

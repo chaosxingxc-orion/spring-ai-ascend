@@ -127,3 +127,54 @@ W2 without changing the Run state-machine DFA (Rule R-C.d).
 4. `docs/governance/bus-channels.yaml` — three-track schema.
 5. `docs/dfx/agent-bus.yaml` — Design-for-X declarations.
 6. ADR-0050, ADR-0069, ADR-0074, ADR-0088, ADR-0089 — bus + ironclad-rule + S2C + dissolution + ingress wave authority.
+
+---
+
+## 3d. Development View (Rule G-1.1.a — rc22 / ADR-0099)
+
+Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.*` per ADR-0104):
+
+```text
+agent-bus/
+└── src/main/java/
+    └── ascend/springai/bus/    <!-- root-migration-target: com.huawei.ascend.agent.bus -->
+        ├── spi/
+        │   ├── ingress/                # C2S ingress SPI (rc13 / ADR-0089)
+        │   │   ├── IngressGateway.java
+        │   │   ├── IngressEnvelope.java
+        │   │   └── IngressResponse.java
+        │   ├── s2c/                    # S2C transport SPI (rc13 / ADR-0088)
+        │   │   ├── S2cCallbackTransport.java
+        │   │   ├── S2cCallbackEnvelope.java
+        │   │   └── S2cCallbackResponse.java
+        │   └── (W2 sibling: WorkflowIntermediary, Mailbox, AdmissionDecision, BackpressureSignal, SleepDeclaration, WakeupPulse, TickEngine)
+        └── (W2+ implementation classes — broker bindings; today no impl ships)
+```
+
+Mode-A (Platform-Centric per ADR-0101): `agent-bus` lives on the platform.
+Mode-B (Business-Centric per ADR-0101): `agent-bus` lives on the platform AS A FEDERATION HUB. An in-process bus shim implementing the same `IngressGateway` SPI continues to live on the business side; cross-network requests forward to the platform Federation Hub. Federation broker choice (Kafka / NATS / in-house) deferred to a separate future ADR.
+
+## *SPI Interface Appendix* (Rule G-1.1.b — rc22 / ADR-0099)
+
+`agent-bus` produces 2 SPI packages (cross-validates against `module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`, `docs/dfx/agent-bus.yaml`):
+
+| Interface / Record FQN | SPI package | Purpose | Wire contract |
+|---|---|---|---|
+| `ascend.springai.bus.spi.ingress.IngressGateway` | `bus.spi.ingress` | Single-method C2S entry: `routeClientRequest(IngressEnvelope) → IngressResponse` | `ingress-envelope.v1.yaml` |
+| `ascend.springai.bus.spi.ingress.IngressEnvelope` | `bus.spi.ingress` | Immutable record: 6 mandatory + optional deadline + attributes | same |
+| `ascend.springai.bus.spi.ingress.IngressResponse` | `bus.spi.ingress` | Immutable record: 4 fields + `IngressStatus` sealed enum (ACCEPTED \| REJECTED \| DEFERRED) | same |
+| `ascend.springai.bus.spi.s2c.S2cCallbackTransport` | `bus.spi.s2c` | Server-to-client capability invocation SPI (ADR-0074) | `s2c-callback.v1.yaml` |
+| `ascend.springai.bus.spi.s2c.S2cCallbackEnvelope` | `bus.spi.s2c` | 6-required-field request envelope | same |
+| `ascend.springai.bus.spi.s2c.S2cCallbackResponse` | `bus.spi.s2c` | Outcome enum (OK \| ERROR \| TIMEOUT) + correlation fields | same |
+
+## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
+
+Vacuously green at rc22. The W2 Workflow primitives (`§3c`) and the W3+ Federation Hub broker integration will likely each warrant an L2 design document; each MUST carry a Boundary Contracts sub-section under §3d when authored.
+
+## Deployment loci (rc22 / ADR-0101)
+
+`deployment_loci: [platform_centric, business_centric_hub]` — `agent-bus` always lives on the platform (acts as Federation Hub in business-centric deployments). The in-process bus shim on the business side (Mode-B) is NOT a separate module; it is a local stand-in that forwards eligible requests to the platform hub.
+
+## *Cross-reference to ADR-0102 Online Evolution* (rc22)
+
+`agent-bus` carries the `ReflectionEnvelope` S2C contract (`docs/contracts/reflection-envelope.v1.yaml`, status `design_only` at rc22) for online evolution updates. Runtime impl in rc26 (`ReflectionEnvelopeRouter` per ADR-0102 timeline).

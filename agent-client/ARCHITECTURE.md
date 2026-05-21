@@ -103,3 +103,44 @@ When the W3+ SDK PR lands it MUST include:
 3. `docs/contracts/ingress-envelope.v1.yaml` — the cross-plane wire shape this SDK consumes.
 4. `agent-bus/ARCHITECTURE.md` §3a — the IngressGateway SPI surface the SDK calls.
 5. ADR-0049 (Edge Access plane), ADR-0089 (Edge-Plane Ingress Gateway Mandate).
+
+---
+
+## 3. Development View (Rule G-1.1.a — rc22 / ADR-0099)
+
+Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.*` per ADR-0104):
+
+```text
+agent-client/
+└── src/main/java/
+    └── ascend/springai/client/    <!-- root-migration-target: com.huawei.ascend.agent.client -->
+        ├── package-info.java                   # placeholder + Rule R-I.1 sentinel anchor
+        └── (W3+ SDK code lands here)
+└── src/test/java/
+    └── ascend/springai/client/
+        └── architecture/
+            └── EdgeToComputeDirectLinkArchTest.java   # E143 / gate Rule 105 — vacuous-but-armed
+```
+
+Mode-A (Platform-Centric per ADR-0101): this module deploys on the business side only; everything else lives on platform.
+Mode-B (Business-Centric per ADR-0101): this module continues to live on the business side; agent-service + agent-execution-engine join it.
+
+## *SPI Interface Appendix* (Rule G-1.1.b — rc22 / ADR-0099)
+
+`agent-client` produces NO SPI of its own. It is a pure consumer module. Consumed SPI surface (cross-references for the 4-way parity check in Rule G-1.1.b):
+
+| Consumed FQN | Owner module | Wire contract | Catalog row |
+|---|---|---|---|
+| `ascend.springai.bus.spi.ingress.IngressGateway` | `agent-bus` | `docs/contracts/ingress-envelope.v1.yaml` | contract-catalog §2 |
+| `ascend.springai.bus.spi.ingress.IngressEnvelope` (record) | `agent-bus` | same | same |
+| `ascend.springai.bus.spi.ingress.IngressResponse` (record) | `agent-bus` | same | same |
+
+(Producer-side parity is verified by `agent-bus/ARCHITECTURE.md` per Rule G-1.1.b; the consumer-side appendix above documents the integration surface without claiming ownership.)
+
+## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
+
+Vacuously green: this module delegates no subsystem to an L2 design. When the W3+ SDK implementation lands, any L2 design (e.g., session checkpoint protocol) MUST carry a Boundary Contracts sub-section here.
+
+## Deployment loci (rc22 / ADR-0101)
+
+`deployment_loci: [platform_centric, business_centric]` — agent-client always lives on the business side regardless of mode.

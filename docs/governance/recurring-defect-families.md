@@ -45,7 +45,7 @@ authority_refs: [ADR-0094]
 
 ---
 
-## §1 — Family Summary (9 families as of rc18)
+## §1 — Family Summary (11 families as of rc22)
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
@@ -59,6 +59,7 @@ authority_refs: [ADR-0094]
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 1 (rc21) | ✅ closed — phase contracts + skills + dual-track loading per ADR-0098 |
+| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 5 (rc17-rc21) | ✅ structurally addressed (rc22) — Rule G-1.1 + 3 enforcers + 6 fixtures + 6 ARCHITECTURE.md rewrites |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -353,6 +354,62 @@ shell pipelines for set lookup under `set -o pipefail` are
 timing-fragile across CI vs local runners — prefer materialised temp
 files OR associative arrays OR `case` pattern matching for
 deterministic behaviour.
+
+---
+
+### F-l1-architecture-grounding-gap — L1 Architecture Document Lacks Code-Mapping or SPI Enumeration
+
+**Pattern.** Rule G-1.a (Layered 4+1 Discipline) mandates that every
+architecture artefact declares `level:`/`view:` frontmatter, but does
+NOT enforce DEPTH or GROUNDING of the content. An L1 ARCHITECTURE.md
+can be 4+1-shaped yet still fail to map logical components to specific
+package paths or enumerate the actual SPI surface the module ships.
+
+**Observed.** At rc21 HEAD, the 6 `agent-*/ARCHITECTURE.md` files
+showed uneven grounding: `agent-middleware/ARCHITECTURE.md` lacked a
+Development View tree entirely; `agent-client/ARCHITECTURE.md` and
+`agent-evolve/ARCHITECTURE.md` were explicitly skeleton-status with
+no SPI appendix; the L1 ARCHITECTURE.md SPI section was not enforced
+as a parity surface against `module-metadata.yaml#spi_packages` /
+`docs/contracts/contract-catalog.md` / `docs/dfx/<module>.yaml`.
+Rule R-D enforces three-way parity (catalog ↔ metadata ↔ DFX) but
+not against the human-readable L1 architecture document.
+
+**Surfaces.**
+
+- `agent-*/ARCHITECTURE.md` — all 6 modules.
+- `docs/governance/rules/rule-G-1.md` — parent rule lacked depth
+  sub-clauses; the 2026-05-21 reviewer proposal flagged this gap
+  ("hollow L1 architecture documents").
+
+**Prevention.**
+
+- Rule G-1.1 (rc22 / ADR-0099) — 3 sub-clauses:
+  - .a Development View Code-Mapping (gate/lib/check_l1_dev_view_tree.sh, E166).
+  - .b SPI Interface Appendix 4-way parity (gate/lib/check_l1_spi_appendix.sh, E167).
+  - .c L2 Constraint Linkage prose (E168; vacuous until L2 docs land).
+- 6 self-test fixtures (positive + negative per sub-clause) under
+  `gate/test_architecture_sync_gate.sh` — `test_rule_G_1_1_a_pos`,
+  `test_rule_G_1_1_a_neg`, etc.
+- rc22 wave dogfoods: all 6 `agent-*/ARCHITECTURE.md` files were
+  rewritten to satisfy Rule G-1.1 BEFORE the rule's enforcer went
+  live (L3 live-corpus self-check per `/reviewer-feedback-self-check`
+  methodology).
+
+**Cleanup status.** `structurally_addressed` — Rule G-1.1 ratifies
+the depth/grounding discipline AND the rc22 wave brings every existing
+L1 ARCHITECTURE.md into compliance. Sub-clause .c arms for W3+ when L2
+docs land. Rc22.5 (package-root migration per ADR-0104) strips the
+forward-compatibility `<!-- root-migration-target -->` markers and
+revalidates the rule under the new namespace.
+
+**Open residual.** The SPI Appendix scanner now requires 4 surfaces
+to agree (catalog + metadata + DFX + ARCHITECTURE.md appendix). A
+maintainer who adds a new SPI must remember to update ALL four. The
+4-way scanner is the structural backstop, but it does not auto-write
+the appendix — that remains author discipline. Future improvement
+could generate the appendix from the other three surfaces (machine-
+derived L1 SPI section).
 
 ---
 

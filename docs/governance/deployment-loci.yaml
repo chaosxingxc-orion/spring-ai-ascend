@@ -1,0 +1,83 @@
+# Polymorphic Deployment Loci — Single Source of Truth
+#
+# Authority: ADR-0101 (rc22 — Polymorphic Deployment Topology).
+# Scope: L0 scenarios-view canonical reference. Every
+# agent-*/module-metadata.yaml declares a `deployment_loci:` field
+# listing which loci it supports. The deployment_locus_truth gate
+# rule (rc24) cross-checks module declarations against this SSOT.
+#
+# A "locus" is a NAMED deployment topology that maps modules to
+# physical placement (platform vs business side). The five-plane
+# topology (Rule R-I) names PLANES; this file names LOCI — the
+# orthogonal axis of "where in the physical deployment does each
+# plane's modules run".
+
+schema_version: 1
+last_updated: 2026-05-22
+authority: ADR-0101
+
+loci:
+  - id: platform_centric
+    aka: [saas, s_cloud, mode_a]
+    status: shipped
+    description: |
+      Reference deployment. agent-client lives on the business side
+      (lightweight SDK embed); every other module lives on the
+      platform / cloud. Absolute governance sovereignty. Best for
+      centralized control and lightweight clients.
+    components_on_platform:
+      - agent-service
+      - agent-execution-engine
+      - agent-bus
+      - agent-middleware
+      - agent-evolve
+    components_on_business:
+      - agent-client
+    matches_principle: P-A
+    matches_rule: R-I.1
+
+  - id: business_centric
+    aka: [federated, s_edge, mode_b]
+    status: design_only
+    description: |
+      Federated deployment. agent-client + agent-service +
+      agent-execution-engine deploy on the business department's
+      servers or client devices. agent-bus + agent-middleware remain
+      on the platform. Local direct-connect C/S interaction bypasses
+      network for zero-latency execution loops. The platform agent-bus
+      evolves into a Federation Hub for cross-network capability RPCs
+      and state synchronization.
+    components_on_platform:
+      - agent-bus
+      - agent-middleware
+    components_on_business:
+      - agent-client
+      - agent-service
+      - agent-execution-engine
+    components_either:
+      - agent-evolve  # platform-resident in 2×2 matrix Mode B / Online; PII-filtered data flow from business → platform
+    matches_principle: P-A
+    requires_design:
+      - local_direct_connect    # in-process / IPC bypass of network when service+engine local
+      - middleware_proxy        # local cache for partition tolerance
+      - federation_bus          # cross-network capability RPC + state sync
+    implementation_wave: W2_W3
+
+# Cross-cutting notes
+notes: |
+  - In Mode B, agent-bus on the BUSINESS side is an in-process shim
+    that still implements the IngressGateway SPI (per Rule R-I.1).
+    The in-process bus shim is NOT counted as a separate platform-
+    side deployment; it is a local stand-in that forwards eligible
+    requests to the platform Federation Hub.
+
+  - Knowledge capability service is deferred to W3+ (per ADR-0103).
+    No locus declares Knowledge today.
+
+  - Federation Hub broker technology choice (Kafka / NATS / in-
+    house) is explicitly deferred to a separate future ADR per
+    ADR-0101 §non_goals.
+
+  - Per the 2×2 Mode × Modality matrix in ADR-0102, the locus axis
+    here orthogonally combines with the evolution modality axis
+    (offline / online). See `docs/governance/evolution-modalities.yaml`.

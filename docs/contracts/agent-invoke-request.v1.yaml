@@ -1,0 +1,172 @@
+# AgentInvokeRequest schema, version 1.
+#
+# Authority: ADR-0100 (rc22 — agent-service L1 runtime-role decomposition).
+# Wave: design_only at rc22; runtime impl in rc24 (per ADR-0100 timeline).
+#
+# Purpose: contract between agent-service Reactive Orchestrator and
+# the Execution Engine. Service is the Read-Modify-Write closure
+# boundary; Engine is the Pure-Function compute boundary.
+#
+# This contract operationalizes the Run ≤ Task ≤ Session ≤ Memory
+# lifecycle (per ADR-0100 §decision).
+
+schema: agent-invoke-request/v1
+authority: ADR-0100
+status: design_only
+runtime_enforced: false
+promotion_trigger: First InMemoryStatelessEngine implementation lands in agent-service (rc24 per ADR-0100 timeline).
+relates_to:
+  - docs/contracts/engine-envelope.v1.yaml  # adapter-level envelope; AgentInvokeRequest sits one layer above
+  - docs/contracts/engine-hooks.v1.yaml      # ON_YIELD hook added in rc22 for Yield coexistence
+  - docs/governance/evolution-modalities.yaml  # online evolution patches arrive via reflection-envelope; orchestrator merges into next AgentInvokeRequest
+
+# Field definitions
+fields:
+  run_id:
+    type: string
+    format: uuid
+    required: true
+    description: The Run this invocation belongs to. Per ADR-0100 lifecycle, Run is the transient compute snapshot.
+
+  task_id:
+    type: string
+    format: uuid
+    required: true
+    description: The Task this Run materializes. Per ADR-0100, Task is the control state (done-or-not, why-stopped). Decoupled from session_id.
+
+  session_id:
+    type: string
+    format: uuid
+    required: true
+    description: The Session whose context this invocation reads. Per ADR-0100, session_id and task_id are logically decoupled — one session may host many tasks; one task may drift across many sessions.
+
+  tenant_id:
+    type: string
+    format: uuid
+    required: true
+    description: Mandatory per Rule R-C sub-clause .c (tenant propagation purity) + Rule R-J.a (Postgres RLS).
+
+  session_context:
+    type: object
+    required: true
+    description: |
+      The projected SessionContext for this invocation. Produced by
+      ContextProjector SPI (truncation or summarization policy).
+      Engine sees only what the projector exposed; it never reads
+      full Session history directly.
+    fields:
+      messages:
+        type: array
+        items: { type: object }
+        description: Projected message slice.
+      variables:
+        type: object
+        description: Variable bag projected from full Session.
+      projection_policy:
+        type: string
+        description: ContextProjector strategy name (e.g., "last_n", "summary_v1", "hybrid_v1").
+
+  injected_skills:
+    type: array
+    items: { type: string }
+    required: true
+    description: |
+      Skill IDs available to the engine for this invocation. Resolved
+      by ResilienceContract.resolve(tenant, skill) per Rule R-K BEFORE
+      the AgentInvokeRequest is constructed. Engine never resolves
+      capacity itself; it only consumes the pre-approved list.
+
+  injected_memory_view:
+    type: object
+    required: false
+    description: |
+      Pre-projected memory snapshot (consumed via GraphMemoryRepository
+      SPI per ADR-0082). Optional — for invocations that do not need
+      memory access.
+    max_size_bytes: 16384
+
+  task_metadata:
+    type: object
+    required: true
+    description: |
+      Task control state at the moment of invocation. Used by the
+      engine to know what step it is performing within the Task.
+    fields:
+      step_number:
+        type: integer
+        minimum: 0
+      task_kind:
+        type: enum
+        values: [interactive, batch, periodic, drift]
+      a2a_state:
+        type: enum
+        values: [submitted, working, input_required, completed, failed]
+        description: A2A protocol envelope state (per future A2A ADR; design_only).
+
+  trace_id:
+    type: string
+    format: hex_32
+    required: true
+    description: W3C trace-id propagated from the inbound request (per Telemetry Vertical ADR-0061).
+
+  yield_budget_ms:
+    type: integer
+    minimum: 0
+    required: false
+    description: |
+      Cooperative-scheduling budget. If engine work exceeds this, the
+      engine should fire HookPoint.ON_YIELD to signal the orchestrator
+      it wants to be rescheduled. Distinct from SuspendSignal (which
+      remains the canonical state-machine suspension mechanism per
+      ADR-0100 Yield/SuspendSignal coexistence).
+
+# Return type
+returns:
+  type: StateDelta
+  description: |
+    Pure-function compute result. Engine produces a state DELTA, never
+    holds state. The orchestrator (Reactive Orchestrator per ADR-0100)
+    is responsible for merging the delta back into Run + Task + Session
+    state (Read-Modify-Write closure).
+  fields:
+    run_status_transition:
+      type: enum
+      values: [no_change, succeeded, failed, suspended, yielded]
+      description: Requested Run state transition. SUSPENDED occurs only via SuspendSignal (checked-exception flow); YIELDED uses the ON_YIELD hook + this hint.
+    task_state_delta:
+      type: object
+      description: Patches to Task control state (step_number, why_stopped, etc.).
+    session_state_delta:
+      type: object
+      description: Patches to Session context (new messages, variable mutations).
+    memory_write_intents:
+      type: array
+      description: Memory write operations the engine wants to perform. Orchestrator routes through GraphMemoryRepository SPI + BEFORE_MEMORY_WRITE hook.
+    metrics:
+      type: object
+      description: Engine-reported metrics for this invocation (tokens, tool calls, etc.).
+
+# Routing semantics
+routing:
+  caller_module: agent-service
+  caller_component: orchestrator
+  callee_module: agent-execution-engine  # via StatelessEngine SPI in agent-service/engine/spi/
+  delivery_track: data
+
+# Authorization
+authorization:
+  required_capability: agent.invoke
+  tenant_isolation: strict
+  audit: required  # every invocation emits audit event (Audit Vertical, W2+)
+
+# Backward / forward compatibility
+schema_evolution:
+  policy: additive_only
+  version_in_envelope: false  # version is in schema name (v1)
+
+# Non-goals
+non_goals: |
+  - Carrying full Session history (use session_context.messages projected slice).
+  - Carrying full Memory state (use injected_memory_view if needed).
+  - Acting as engine-envelope replacement (engine-envelope.v1.yaml is the adapter-routing layer; AgentInvokeRequest sits one layer above).
+  - Embedding A2A SDK types (a2a_state is a string enum; SDK adoption deferred per ADR-0100 Rejection 3).

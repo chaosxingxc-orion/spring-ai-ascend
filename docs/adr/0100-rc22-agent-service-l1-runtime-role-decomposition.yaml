@@ -1,0 +1,165 @@
+id: ADR-0100
+title: "rc22 — agent-service L1 runtime-role decomposition (5-component model + Run≤Task≤Session lifecycle + 3 new SPIs + Yield/SuspendSignal coexistence)"
+status: accepted
+date: 2026-05-22
+level: L1
+view: scenarios
+affects_level: L1
+affects_view: logical, process, development, scenarios
+authors:
+  - chao
+  - LucioIT (proposer)
+  - 急急 (proposer)
+relates_to:
+  - ADR-0078
+  - ADR-0073
+  - ADR-0074
+  - ADR-0079
+  - ADR-0088
+  - ADR-0099
+  - ADR-0104
+context: |
+  The 2026-05-21 proposal `docs/logs/reviews/2026-05-21-agent-service-l1-expansion-proposal.en.md`
+  addresses agent-service concentration risk: today's module owns HTTP
+  edge + tenant/idempotency filters + Run state machine + reference
+  adapters + S2C reference impl + resilience + memory SPI + observability +
+  controller autoconfiguration. The financial-readiness review's
+  L1-P0-1 finding flagged the same concentration.
+
+  The proposal decomposes agent-service into 5 logical components plus
+  an engine sub-namespace, and introduces a new Run ≤ Task ≤ Session ≤
+  Memory lifecycle model. Three new SPIs (`StatelessEngine`,
+  `ContextProjector`, `TaskStateStore`) extract concerns currently
+  tangled in the runtime sub-package.
+
+  Two proposal framings are explicitly rejected by this ADR:
+
+  1. §5.1 "fully embed `a2a-java` SDK" — rejected because tight SDK
+     coupling violates Rule R-D SPI purity and Rule R-A platform/
+     business decoupling. A2A protocol alignment proceeds at the
+     contract layer (`docs/contracts/`) without an SDK runtime
+     dependency. A separate future ADR ratifies A2A contract envelope
+     adoption.
+
+  2. §2.3 / §5.3 "abandon exception-based suspension, switch to
+     explicit Yield event" — rejected because `SuspendSignal` (checked
+     exception) is a Tier-A competitive differentiator: (a) the Java
+     compiler enforces caller-side handling, (b) Rule R-G ArchUnit
+     tests rest on the checked-exception shape, (c) rc8/rc9
+     cancellation paths use exception-flow semantics for cross-thread
+     propagation. Counter-decision: coexistence — `Yield` becomes a
+     new `HookPoint.ON_YIELD` cooperative-scheduling hint (engine asks
+     to be rescheduled WITHOUT a state-machine transition), while
+     `SuspendSignal` remains canonical for state-machine suspension.
+
+  The proposal §3 development view declared Java packages under
+  `com.huawei.ascend.agent.service…`. The current canonical corpus
+  root is `ascend.springai.service…`. This ADR documents the package-
+  root migration decision (ADR-0104, executed in rc22.5) and uses the
+  current root for rc22 itself, with forward-compatibility HTML
+  comments (`<!-- root-migration-target: com.huawei.ascend -->`) on
+  every documented package path.
+
+decision: |
+  Adopt the 5-component logical decomposition of agent-service:
+
+    1. Polymorphic Dispatcher (sub-package `dispatcher/`) — unified
+       entry point for both local function-call and remote bus-call
+       invocations.
+    2. Reactive Orchestrator (sub-package `orchestrator/`) — task tempo
+       control, backpressure request handling, A2A protocol envelope
+       packaging.
+    3. Task Center (sub-package `task/`) — TaskControlState persistence
+       (`Task` entity + `TaskRepository` SPI).
+    4. Session Manager (sub-package `session/`) — middle/long-context
+       data management; "context projection" toward compute nodes
+       (`Session` entity + `ContextProjector` SPI).
+    5. Execution Engine Adapter (sub-package `engine/adapter/`) — masks
+       Workflow vs ReAct engine differences; pure-function compute
+       injection. SPIs live in `engine/spi/`.
+
+  Lifecycle hierarchy (W2 implementation, ADR-level ratification only
+  in rc22):
+
+    Run     — transient compute snapshot (compute pointer + delta).
+    Task    — control state (done-or-not, why-stopped).
+    Session — data context (what was discussed, variables).
+    Memory  — knowledge state (who am I, rules) — consumed via
+              `GraphMemoryRepository` SPI per ADR-0082.
+
+  TaskID and SessionID are logically decoupled: one Session may
+  concurrently execute multiple Tasks; one Task may drift across
+  multiple Sessions (e.g., group-chat collaboration).
+
+  Three new SPIs added to `module-metadata.yaml#spi_packages`:
+
+    - `ascend.springai.service.engine.spi.StatelessEngine` —
+      pure-function `Execute(TaskMetadata, InjectedContext) →
+      StateDelta`. Engine holds no state; returns only state increment.
+    - `ascend.springai.service.session.spi.ContextProjector` —
+      projects a `SessionContext` view from full Session history
+      (truncation or summarization policy).
+    - `ascend.springai.service.task.spi.TaskStateStore` —
+      TaskControlState persistence interface.
+
+  AgentInvokeRequest contract: `Service` is the Read-Modify-Write
+  closure boundary; Engine is the Pure-Function compute boundary.
+  Wire shape: `docs/contracts/agent-invoke-request.v1.yaml` (status
+  `design_only` at rc22; W2 implementation in rc24).
+
+  Yield + SuspendSignal coexistence:
+
+    - `SuspendSignal` (checked exception) remains canonical for
+      state-machine suspension. Rule R-G + ArchUnit + cancellation
+      flow intact.
+    - `Yield` becomes a new `HookPoint.ON_YIELD` cooperative-
+      scheduling hint. Engine asks orchestrator to be rescheduled
+      without persistence transition. Added to
+      `docs/contracts/engine-hooks.v1.yaml` in rc22.
+
+  Implementation timeline:
+
+    - rc22 (this ADR): ratification + ARCHITECTURE.md rewrite + SPI
+      registration + 2 new contract YAMLs (agent-invoke-request,
+      reflection-envelope) + engine-hooks ON_YIELD addition. No Java
+      refactor.
+    - rc22.5: package-root migration per ADR-0104.
+    - rc23: Java sub-package split (move-only commit + ArchUnit
+      boundary tests).
+    - rc24: StatelessEngine / ContextProjector / TaskStateStore
+      reference impls + AgentInvokeRequest runtime path.
+    - rc25: Run≤Task≤Session Java entity types + Flyway migrations
+      with RLS per Rule R-J.a.
+
+non_goals: |
+  - A2A SDK embedding (rejected at contract layer; separate ADR if
+    ever reconsidered).
+  - Replacement of SuspendSignal by Yield (rejected; coexistence
+    locked).
+  - Knowledge capability service implementation (deferred to W3+ per
+    ADR-0103).
+  - Re-introduction of `agent-runtime-core` (dissolved per ADR-0088;
+    decomposition stays inside `agent-service`).
+
+verification_protocol: |
+  rc22:
+    1. bash gate/check_parallel.sh — Rule G-1.1 + Rule R-D PASS.
+    2. agent-service/ARCHITECTURE.md Development View tree resolves on
+       filesystem.
+    3. 3 new SPI rows appear in docs/contracts/contract-catalog.md.
+    4. docs/dfx/agent-service.yaml#spi_packages set-matches
+       module-metadata.yaml#spi_packages.
+    5. engine-hooks.v1.yaml ON_YIELD present; Rule 57 catches drift.
+
+  rc24 (post-impl):
+    6. ./mvnw -pl agent-service test (new ArchUnit boundary tests PASS).
+    7. AgentInvokeRequest runtime contract IT.
+
+family_taxonomy:
+  wave: rc22
+  family: N-β
+  defect_class: agent-service concentration risk; no runtime-role separation
+  hidden_defects_swept:
+    - StatelessEngine vs ExecutorAdapter relationship (resolved: sibling SPIs)
+    - package-root inconsistency (resolved via ADR-0104 separate wave)
+    - Yield/SuspendSignal naming ambiguity (resolved: coexistence)

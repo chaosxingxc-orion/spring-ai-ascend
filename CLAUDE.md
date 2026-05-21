@@ -180,6 +180,13 @@ Enforced by [`rule-R-D.md`](docs/governance/rules/rule-R-D.md).
 Enforced by [`rule-G-1.md`](docs/governance/rules/rule-G-1.md).
 
 ---
+#### Rule G-1.1 — L1 Architecture Depth & Grounding
+
+**Every L1 architecture artefact (`agent-*/ARCHITECTURE.md`) MUST satisfy three depth/grounding constraints: (sub-clause .a — Development View Code-Mapping) include a Markdown fenced text block under `## *Development View*` (or numbered `## 3.`) declaring the target directory tree at least to the package level; every major logical component named in the Logical View MUST map to a specific code path in the tree; tree paths cross-checked against actual filesystem. (sub-clause .b — SPI Interface Appendix) contain a section or appendix enumerating the module's full SPI/API design; every interface FQN listed MUST correspond to an entry in the module's `module-metadata.yaml#spi_packages` AND appear in `docs/contracts/contract-catalog.md` AND exist as a `public interface` `.java` file (adds the L1 architecture-doc appendix as the FOURTH parity point to Rule R-D sub-clauses .e/.f/.g — catalog ↔ metadata ↔ DFX; G-1.1 explicitly does NOT duplicate Rule R-D). (sub-clause .c — L2 Constraint Linkage) for any complex subsystem delegated to an L2 design, the L1 document MUST define the "Boundary Contracts" (inputs, outputs, DFX expectations) that the L2 design MUST adhere to.**
+
+Enforced by [`rule-G-1.1.md`](docs/governance/rules/rule-G-1.1.md).
+
+---
 
 ### L0 ironclad rules (W1.x absorption of LucioIT L0 §6/§7)
 #### Rule R-E — Three-Track Channel Isolation

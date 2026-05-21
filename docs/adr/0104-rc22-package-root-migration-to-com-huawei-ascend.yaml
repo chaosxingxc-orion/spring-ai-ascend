@@ -1,0 +1,107 @@
+id: ADR-0104
+title: "rc22 — Package-root migration ascend.springai.* → com.huawei.ascend.* (decision; rc22.5 executes)"
+status: accepted
+date: 2026-05-22
+level: L0
+view: development
+affects_level: L0, L1
+affects_view: development
+authors:
+  - chao
+relates_to:
+  - ADR-0100
+context: |
+  The 2026-05-21 proposal `docs/logs/reviews/2026-05-21-agent-service-l1-expansion-proposal.en.md`
+  §3 declares Java packages under `com.huawei.ascend.agent.service…`.
+  The current canonical corpus root is `ascend.springai.service…`
+  (every active `module-metadata.yaml#spi_packages`, every ArchUnit
+  `@AnalyzeClasses`, every contract-catalog row, every gate exemption
+  list).
+
+  The user has authorized a project-wide migration to
+  `com.huawei.ascend.*` as a SEPARATE cross-cutting wave (the
+  package-rename impact is too large to bundle into rc22's L1-
+  grounding work — estimated 200+ files touched).
+
+  This ADR records the decision. Execution is rc22.5.
+
+decision: |
+  Migrate the Java package root from `ascend.springai.*` to
+  `com.huawei.ascend.*` across the entire project. Maven `<groupId>`
+  also migrates from `ascend.springai` to `com.huawei.ascend` for
+  consistency.
+
+  Migration scope (rc22.5):
+
+  - Every `.java` file under `agent-*/src/{main,test}/java/`.
+  - Every `module-metadata.yaml#spi_packages` entry.
+  - Every `docs/governance/enforcers.yaml#asserts` text mentioning
+    `ascend.springai.*`.
+  - Every `docs/contracts/contract-catalog.md` row package reference.
+  - Every `docs/dfx/*.yaml#spi_packages` block.
+  - Every ArchUnit test's `@AnalyzeClasses(packages = ...)`.
+  - Every `gate/` script asserting `ascend.springai.*` substring.
+  - `pom.xml` `<groupId>` (every module).
+  - Every `gate/active-corpus-name-exemption-paths.txt` etc.
+  - Every `<!-- root-migration-target: com.huawei.ascend -->` HTML
+    marker dropped from rc22's ARCHITECTURE.md files (rc22 added
+    them as forward-compatibility markers).
+
+  rc22 itself uses the CURRENT root for grounding. Every documented
+  package path in rc22's ARCHITECTURE.md rewrites carries the
+  forward-compatibility marker. rc22.5 strips them as part of the
+  rename.
+
+  Mechanical execution path (rc22.5):
+    1. Tag `pre-package-root-migration` immediately before the
+       rename to preserve clean git-history boundary.
+    2. Run `gate/lib/migrate_package_root.py` (created in rc22.5) —
+       opens every target file with `'rb'`, replaces
+       `ascend.springai` → `com.huawei.ascend`, writes with `'wb'`
+       after CRLF normalization. Per `feedback_bulk_regex_dry_run_first`
+       memory: pilot on ONE file first; diff; then cascade.
+    3. `./mvnw clean compile` on Linux/WSL.
+    4. `./mvnw test -Dtest=*ArchTest` — all ArchUnit tests pass under
+       new root.
+    5. `bash gate/check_parallel.sh` — no `ascend.springai` literal
+       remains outside historical-marker exemption windows.
+    6. `git grep -l "ascend\.springai" -- ':!docs/logs/'` returns 0
+       files.
+
+  IDE-refactor alternative (safer): use IntelliJ "Rename package" on
+  every `ascend.springai.*` namespace; commit after each module's
+  rename + green test suite; bulk-rewrite is the scripted-fallback.
+
+  Historical surfaces (`docs/logs/**`, `docs/v6-rationale/**`, frozen
+  release notes) RETAIN the old `ascend.springai.*` references —
+  these are historical-marker surfaces and are exempt from the
+  migration sweep.
+
+non_goals: |
+  - Renaming the GitHub org / repo URL.
+  - Maven `<artifactId>` rename (stays as-is — agent-client,
+    agent-bus, etc.).
+  - Re-issuing pre-rc22 release tags (existing tags stay frozen).
+  - Semantic changes (this is a pure rename; zero behavior change).
+
+verification_protocol: |
+  rc22 (this wave, decision only):
+    1. This ADR exists; ADR-0100 cross-references it.
+    2. Every rc22 ARCHITECTURE.md rewrite carries the
+       `<!-- root-migration-target: com.huawei.ascend -->` marker on
+       every documented package path.
+
+  rc22.5 (execution):
+    3. `git tag pre-package-root-migration` created.
+    4. `./mvnw clean verify` on Linux/WSL passes under new root.
+    5. `bash gate/check_parallel.sh` PASS.
+    6. `git grep -l "ascend\.springai" -- ':!docs/logs/' ':!docs/v6-rationale/'`
+       returns 0 files.
+    7. Recurring-defect-families.yaml updated (Rule G-9 freshness
+       signal: new ADR added in rc22).
+
+family_taxonomy:
+  wave: rc22
+  family: N-ε (companion to ADR-0103)
+  defect_class: Package-root inconsistency between proposal #1 §3 and current corpus
+  hidden_defects_swept: []  # mechanical rename; no semantic defects

@@ -1,0 +1,116 @@
+id: ADR-0102
+title: "rc22 — Evolution Plane Online/Offline Duality (Offline T+1 + Online Dual-Track Fast/Slow) + 2×2 Mode×Modality matrix"
+status: accepted
+date: 2026-05-22
+level: L0
+view: scenarios
+affects_level: L0
+affects_view: logical, scenarios
+authors:
+  - chao
+  - 正秋总 (proposer)
+  - 急急 (proposer)
+relates_to:
+  - ADR-0075
+  - ADR-0101
+extends:
+  - ADR-0075
+context: |
+  The 2026-05-21 proposal `docs/logs/reviews/2026-05-21-polymorphic-deployment-and-evolution-proposal.en.md`
+  §4 observes that the Evolution Plane (`agent-evolve`) currently
+  supports only an Offline (T+1) modality model. Production-grade
+  agent systems need both Offline and Online modalities, with explicit
+  pairing against the Polymorphic Deployment Topology (ADR-0101).
+
+  Offline Mode: telemetry and traces collected, stored, analyzed
+  asynchronously (e.g., nightly batch). Model weights, prompts, and
+  routing rules updated via explicit version releases.
+
+  Online Mode (Dual-Track):
+    - Fast Track (System 1): rapid user-facing execution.
+    - Slow Track (System 2 / LLM-as-Judge): real-time trajectory
+      critique.
+    Optimizations injected back into the active agent's short/long-
+    term memory dynamically via `ReflectionEnvelope` S2C updates.
+
+  This ADR ratifies the duality + 2×2 matrix as L0 scenarios-view
+  reference. Java implementation is W3 scope (rc25/rc26).
+
+  Split from ADR-0101 (Polymorphic Deployment) per user's explicit
+  ADR-splitting decision: independent amendability of evolution-
+  modality concerns vs deployment-locus concerns.
+
+decision: |
+  Adopt the Offline / Online evolution modality duality:
+
+  Single source of truth: `docs/governance/evolution-modalities.yaml`
+  (new in rc22).
+
+  Mode × Modality 2×2 matrix:
+
+  | Modality           | Platform-Centric (Mode A)                       | Business-Centric (Mode B)                                |
+  |--------------------|--------------------------------------------------|-----------------------------------------------------------|
+  | Offline (T+1)      | Fully Centralized — local capture on platform; | Edge Collect / Cloud Optimize — business emits PII-      |
+  |                    | batch + optimizer in same datacenter.            | filtered traces; cloud optimizes; pushes static rule/    |
+  |                    |                                                  | model updates.                                            |
+  | Online (Dual-Track)| In-Cluster Async — Fast + Slow in same cluster; | Heaven-Earth Coordination — Fast on Business Edge for    |
+  |                    | local Redis/DB updates.                          | zero-latency; Cloud Cognitive Coprocessor runs Slow;     |
+  |                    |                                                  | real-time ReflectionEnvelope S2C updates hot-patch local |
+  |                    |                                                  | Edge strategies.                                          |
+
+  Contract:
+    - `docs/contracts/reflection-envelope.v1.yaml` (new in rc22, status
+      `design_only`) — S2C envelope shape for online evolution updates.
+    - Carried by agent-bus S2C transport (per ADR-0074).
+    - Consumed by agent-service Session Manager (`ReflectionPatchHandler`
+      lands rc26).
+
+  Implementation timeline:
+    - rc22 (this ADR): ratification + evolution-modalities.yaml SSOT +
+      reflection-envelope.v1.yaml contract + agent-evolve/ARCHITECTURE.md
+      rewrite documenting both modalities.
+    - rc24: PII-filtered trace-log emission for Mode B → cloud.
+    - rc25: Slow-track LLM-as-Judge runtime.
+    - rc26: ReflectionEnvelope hot-patch runtime (full Heaven-Earth
+      Coordination loop).
+
+  Cross-references:
+    - Rule R-M.e (Evolution Scope Default Boundary) governs which
+      RunEvents are eligible for evolution export (`IN_SCOPE |
+      OUT_OF_SCOPE | OPT_IN`).
+    - ADR-0101 (Polymorphic Deployment) provides the locus side of
+      the 2×2 matrix.
+    - Future Audit Vertical (2026-05-20 financial-readiness backlog)
+      will gate which evolution-export events require immutable audit
+      receipt.
+
+non_goals: |
+  - Java implementation of Slow Track or ReflectionEnvelope routing
+    (W3 work; rc25/rc26).
+  - LLM-as-Judge model selection (separate decision; evolves with
+    ModelGateway routing ADR — future wave).
+  - Cross-tenant evolution data leak prevention beyond what Rule R-M.e
+    already governs (placeholder for future Audit Vertical work).
+
+verification_protocol: |
+  rc22:
+    1. cat docs/governance/evolution-modalities.yaml — well-formed YAML
+       with offline + online entries.
+    2. cat docs/contracts/reflection-envelope.v1.yaml — status:
+       design_only; cites ADR-0102.
+    3. agent-evolve/ARCHITECTURE.md mentions both Offline + Online
+       modalities and the 2×2 matrix.
+    4. Rule G-9 freshness — recurring-defect-families.yaml updated
+       within this wave (per ADR-NNNN signal rule).
+
+  rc26 (post-impl):
+    5. Integration test: Mode B + Online — Slow-track judge fires,
+       ReflectionEnvelope round-trips, Session hot-patch applies.
+
+family_taxonomy:
+  wave: rc22
+  family: N-δ
+  defect_class: agent-evolve has no online-evolution model; 2×2 matrix unmapped
+  hidden_defects_swept:
+    - agent-evolve/ARCHITECTURE.md skeleton silent on online modality
+    - No ReflectionEnvelope contract exists today

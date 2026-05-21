@@ -1,0 +1,99 @@
+# Evolution Plane Modality — Single Source of Truth
+#
+# Authority: ADR-0102 (rc22 — Evolution Plane Online/Offline Duality).
+# Scope: L0 scenarios-view canonical reference for agent-evolve.
+#
+# Two modalities coexist; ADR-0102 §decision pairs them against the
+# polymorphic deployment loci (ADR-0101) via the 2×2 Mode × Modality
+# matrix.
+
+schema_version: 1
+last_updated: 2026-05-22
+authority: ADR-0102
+
+modalities:
+  - id: offline
+    aka: [t_plus_1, batch]
+    status: design_only
+    description: |
+      Telemetry and traces collected, stored, and analyzed
+      asynchronously (e.g., nightly batch jobs). Model weights,
+      prompts, and routing rules updated via explicit version
+      releases.
+    triggers: [run_completion, scheduled_batch]
+    update_mechanism: explicit_version_release
+    matches_locus_pair:
+      platform_centric: fully_centralized
+      business_centric: edge_collect_cloud_optimize
+    implementation_wave: W2
+
+  - id: online
+    aka: [dual_track, real_time]
+    status: design_only
+    description: |
+      Dual-track real-time evolution. Fast Track (System 1) executes
+      user-facing work. Slow Track (System 2 / LLM-as-Judge) critiques
+      trajectories in real time. Optimizations injected back into the
+      active agent's short/long-term memory dynamically via
+      ReflectionEnvelope S2C updates.
+    tracks:
+      - id: fast_track
+        aka: system_1
+        purpose: rapid user-facing execution
+      - id: slow_track
+        aka: system_2
+        purpose: real-time trajectory critique (LLM-as-Judge)
+    update_mechanism: reflection_envelope_s2c
+    contract: docs/contracts/reflection-envelope.v1.yaml
+    matches_locus_pair:
+      platform_centric: in_cluster_async
+      business_centric: heaven_earth_coordination
+    implementation_wave: W3
+
+# 2×2 Mode × Modality matrix (canonical reference; mirrors ADR-0102 §decision)
+matrix:
+  platform_centric:
+    offline: fully_centralized
+    online: in_cluster_async
+  business_centric:
+    offline: edge_collect_cloud_optimize
+    online: heaven_earth_coordination
+
+# Per-cell semantics
+cell_semantics:
+  fully_centralized: |
+    Data is captured locally on the platform. Batch processing and
+    optimizer run in the same datacenter. Lowest-latency loop;
+    highest centralization.
+
+  edge_collect_cloud_optimize: |
+    Business side emits scrubbed/PII-filtered trace logs to the
+    platform. Platform optimizes and pushes static rule/model
+    updates back. Cross-tenant isolation enforced before emission.
+
+  in_cluster_async: |
+    Fast and Slow tracks run in the same cluster. Cache/Memory
+    updates executed via local Redis/DB. Lowest-latency online
+    feedback.
+
+  heaven_earth_coordination: |
+    Fast track runs on the Business Edge for zero-latency. Cloud
+    acts as a Cognitive Coprocessor, running the Slow track. Cloud
+    pushes real-time ReflectionEnvelope updates via S2C Bus to
+    hot-patch local Edge strategies. Highest sophistication;
+    requires Federation Hub (ADR-0101 §requires_design).
+
+# Cross-cutting notes
+notes: |
+  - Rule R-M.e (Evolution Scope Default Boundary) governs which
+    RunEvents are eligible for evolution export. Modality choice
+    here does NOT widen the IN_SCOPE | OUT_OF_SCOPE | OPT_IN
+    boundary.
+
+  - The Slow Track judge's model choice (LLM-as-Judge) is a separate
+    decision; evolves with ModelGateway routing ADR (future wave;
+    not in rc22 scope).
+
+  - Future Audit Vertical (2026-05-20 financial-readiness backlog)
+    may gate which evolution-export events require immutable audit
+    receipt before write-back.

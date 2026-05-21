@@ -1,0 +1,122 @@
+id: ADR-0101
+title: "rc22 — Polymorphic Deployment Topology (Mode A Platform-Centric + Mode B Business-Centric) + deployment-loci SSOT"
+status: accepted
+date: 2026-05-22
+level: L0
+view: scenarios
+affects_level: L0
+affects_view: logical, physical, scenarios
+authors:
+  - chao
+  - 正秋总 (proposer)
+  - 急急 (proposer)
+relates_to:
+  - ADR-0033
+  - ADR-0048
+  - ADR-0049
+  - ADR-0089
+  - ADR-0102
+context: |
+  The 2026-05-21 proposal `docs/logs/reviews/2026-05-21-polymorphic-deployment-and-evolution-proposal.en.md`
+  observes that the L0 §7 five-plane topology defines logical planes
+  but does not declare deployment loci. Two distinct deployment loci
+  are needed in practice:
+
+  - Mode A (Platform-Centric / SaaS / S-Cloud): the agent-client lives
+    on the business side; agent-service + agent-execution-engine +
+    agent-bus + agent-middleware + agent-evolve all live on the
+    platform/cloud. Absolute governance sovereignty; best for
+    light-weight clients and centralized control.
+
+  - Mode B (Business-Centric / Federated / S-Edge): agent-client +
+    agent-service + agent-execution-engine deploy on the business
+    department's servers or client devices. agent-bus + agent-middleware
+    remain on the platform. Local direct-connect C/S interaction
+    bypasses network for zero-latency execution loops. The platform
+    agent-bus evolves into a Federation Hub for cross-network capability
+    RPCs and state synchronization.
+
+  Without an explicit locus declaration, modules silently assume
+  Platform-Centric topology, and Mode B-specific design extensions
+  (local direct-connect, middleware proxies, federation bus) have no
+  authoritative home.
+
+  This ADR is split from ADR-0102 (Evolution Plane Online/Offline
+  Duality) per the user's explicit ADR-splitting decision: each L0
+  scenarios-view concern gets its own ADR for independent amendability.
+
+decision: |
+  Adopt two named deployment loci as L0 scenarios-view canonical
+  references:
+
+  - `platform_centric` (aliases: `saas`, `s_cloud`, `mode_a`)
+    - components_on_platform: [service, engine, bus, middleware, evolve]
+    - components_on_business: [client]
+    - status: shipped (matches today's reference deployment)
+    - matches_principle: P-A (Business/Platform Decoupling)
+
+  - `business_centric` (aliases: `federated`, `s_edge`, `mode_b`)
+    - components_on_platform: [bus, middleware]
+    - components_on_business: [client, service, engine]
+    - status: design_only (W2/W3 implementation)
+    - requires_design:
+        - local_direct_connect (in-process / IPC bypass of network)
+        - middleware_proxy (local cache for partition tolerance)
+        - federation_bus (cross-network capability RPC + state sync)
+
+  Single source of truth: `docs/governance/deployment-loci.yaml`
+  (new in rc22). Every `agent-*/module-metadata.yaml` gains a
+  `deployment_loci:` field listing the loci the module supports.
+
+  Rule R-I.1 (Edge↔Compute Ingress Routing) interlocks naturally:
+  in Mode B, the in-process bus shim is still an `IngressGateway`
+  implementation; the ingress envelope wire shape is unchanged
+  whether the bus is in-process or remote.
+
+  Federation Hub broker choice (Kafka? NATS? in-house?) is
+  explicitly deferred to a separate future ADR — the polymorphic
+  deployment ratification here is locus-shape only, not broker-
+  technology.
+
+  Local fallback for Mode B (per Rule D-6 posture-aware defaults):
+  - local memory caching (graphmemory-starter consumer-side cache)
+  - local process-level sandbox degradation
+  - middleware-proxy heartbeat to platform bus
+
+  Enforcement:
+
+  - rc22: `deployment-loci.yaml` SSOT + ARCHITECTURE.md rewrites
+    declaring `deployment_loci:` per module + `module-metadata.yaml`
+    field population.
+  - rc24: new gate rule `deployment_locus_truth` — every module's
+    declared `deployment_loci` MUST match the SSOT's per-locus
+    `components_on_*` lists (cross-check); ArchUnit
+    `DeploymentLocusManifestArchTest` enforces.
+
+non_goals: |
+  - Federation broker technology choice (separate ADR).
+  - Mode B runtime Java implementation (W2/W3 work; rc24+).
+  - New seventh module for capability services (rejected per ADR-0103;
+    capability services distribute across the existing six).
+
+verification_protocol: |
+  rc22:
+    1. cat docs/governance/deployment-loci.yaml — well-formed YAML with
+       2 loci entries.
+    2. for each of 6 agent-*: grep "deployment_loci:" module-metadata.yaml.
+    3. Every locus alias in deployment-loci.yaml resolves to no
+       conflicting module declarations.
+
+  rc24 (post-impl):
+    4. bash gate/check_parallel.sh — deployment_locus_truth gate rule
+       PASS.
+    5. ./mvnw -pl agent-service test — DeploymentLocusManifestArchTest
+       PASS.
+
+family_taxonomy:
+  wave: rc22
+  family: N-γ
+  defect_class: L0 has logical planes but no Platform-Centric vs Business-Centric deployment-locus declaration
+  hidden_defects_swept:
+    - module-metadata.yaml#deployment_loci field absent across all 6 modules
+    - L0 ARCHITECTURE.md§7 topology only covers Mode A implicitly

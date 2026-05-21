@@ -1,0 +1,126 @@
+id: ADR-0103
+title: "rc22 — agent-middleware naming resolution (REJECT rename + REJECT 7th module) + Capability-Services distribution across the six modules"
+status: accepted
+date: 2026-05-22
+level: L0
+view: development
+affects_level: L0, L1
+affects_view: logical, development
+authors:
+  - chao
+  - 正秋总 (proposer)
+  - 急急 (proposer)
+relates_to:
+  - ADR-0073
+  - ADR-0082
+  - ADR-0088
+context: |
+  The 2026-05-21 proposal `docs/logs/reviews/2026-05-21-polymorphic-deployment-and-evolution-proposal.en.md`
+  §2 claims the current `agent-middleware/ARCHITECTURE.md` (and
+  ADR-0073) represents "a severe semantic hallucination/deviation by
+  previous implementers". The proposer's substantive position is:
+  "Agent Middleware" should mean Cloudified Agentic Capability
+  Services (Memory Systems, Skill Registry, Sandbox Execution,
+  Knowledge Index), analogous to traditional microservice middlewares
+  (Redis, MQ) but elevated for agents.
+
+  The proposer's proposed action is twofold:
+    1. Rename current `agent-middleware` → `agent-runtime-hooks`
+       (or merge into `agent-execution-engine`).
+    2. Reuse `agent-middleware` for a NEW module hosting Cloudified
+       Capability Services.
+
+  The user has pinned the six L1 reactor modules as the grounding
+  architecture and explicitly directed: do NOT add a seventh module
+  for Capability Services. Distribute the capability concepts across
+  the existing six.
+
+  This ADR resolves the naming controversy and documents the
+  distribution.
+
+decision: |
+  REJECT both proposed actions:
+
+  1. REJECT the rename. The current `agent-middleware` module is
+     consistent with ADR-0073 (Runtime Middleware via Engine Hooks),
+     Rule R-M.c (Hook-based cross-cutting policy), and principle P-M
+     (Heterogeneous Engine Contract). It is the same "middleware"
+     pattern that traditional Java stacks use (servlet filters,
+     Spring HandlerInterceptor). The "severe semantic hallucination"
+     framing is rejected as accusatory.
+
+  2. REJECT the proposed 7th-module addition. Per user directive, the
+     six L1 reactor modules are pinned. Capability-services concepts
+     distribute across the existing six rather than concentrate in a
+     new module.
+
+  ACCEPT the conceptual gap: there really is a "capability services"
+  abstraction the reviewer is naming. The term carries two distinct
+  meanings in the wider agent-platform community:
+    (a) in-process runtime hooks (this codebase's current scope, kept).
+    (b) cloudified capability services (Memory/Skills/Sandbox/Knowledge).
+
+  Distribution of the four capability concepts across the six modules:
+
+  - **Memory** → `spring-ai-ascend-graphmemory-starter` (SPI consumer
+    impl, per ADR-0082) + `agent-service` (`GraphMemoryRepository` SPI
+    surface). Tenant-scoped read/write filters land via existing
+    `agent-middleware` hooks `BEFORE_MEMORY_READ` / `AFTER_MEMORY_WRITE`.
+    No new module.
+
+  - **Skills** → `agent-execution-engine` (skill registry +
+    `ResilienceContract.resolve(tenant, skill)` per Rule R-K) +
+    `agent-service` (capacity governance via `SkillCapacityRegistry`).
+    Authz lands via existing `agent-middleware` hook
+    `BEFORE_TOOL_INVOCATION`. No new module.
+
+  - **Sandbox** → `agent-execution-engine` (`SandboxExecutor` SPI) +
+    `docs/governance/sandbox-policies.yaml` (SSOT per Rule R-L).
+    Default policy already declares 6 required keys; W2 runtime
+    refusal of over-wide grants deferred per Rule R-L.b. No new
+    module.
+
+  - **Knowledge** → DEFER to W3+. No active module owns Knowledge
+    capability service today; nothing ships. ADR-0102's online
+    evolution modality may eventually anchor Knowledge as a side-
+    effect of evolution work, or a follow-up ADR may decide
+    Knowledge gets its own consumer SPI under one of the six.
+
+  Documentation:
+
+  - `agent-middleware/ARCHITECTURE.md` rewrite (rc22) includes a new
+    section "What this module is NOT" that names the capability-
+    services concept and points to the per-capability distribution
+    above. This is the artefact future reviewers MUST consult before
+    re-opening the naming question.
+
+  - `agent-middleware/ARCHITECTURE.md` opening paragraph adds an
+    explicit pointer to this ADR-0103 so the resolution is findable
+    from the module's primary documentation.
+
+non_goals: |
+  - Adding a seventh module called `agent-capability-services` or
+    similar (rejected per user directive).
+  - Renaming current `agent-middleware` (rejected).
+  - Shipping Knowledge capability service (deferred to W3+).
+  - Cross-cutting capability-services SPI consolidation ADR
+    (future-wave work; rc24+ if at all).
+
+verification_protocol: |
+  rc22:
+    1. agent-middleware/ARCHITECTURE.md contains "What this module is
+       NOT" section.
+    2. agent-middleware/ARCHITECTURE.md opening paragraph cites
+       ADR-0103.
+    3. No new module appears in root pom.xml.
+    4. The capability-services distribution table is mirrored in
+       agent-middleware/ARCHITECTURE.md so it stays linked from the
+       module's L1 doc.
+    5. ADR-0103 is referenced from the rc22 response doc as the
+       canonical resolution.
+
+family_taxonomy:
+  wave: rc22
+  family: N-ε
+  defect_class: Module-naming vs platform-community semantics; reviewer requested rename + new module
+  hidden_defects_swept: []  # no hidden defects; pure naming/structural decision

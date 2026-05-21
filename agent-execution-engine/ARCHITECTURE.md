@@ -81,3 +81,70 @@ SPI (for `HookPoint` reference). Enforced by `SpiPurityGeneralizedArchTest`
    fires (consumed via `agent-middleware`).
 4. ADR-0072 — module authority.
 5. `docs/dfx/agent-execution-engine.yaml` — Design-for-X declarations.
+
+---
+
+## 5. Development View (Rule G-1.1.a — rc22 / ADR-0099)
+
+Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.*` per ADR-0104):
+
+```text
+agent-execution-engine/
+└── src/main/java/
+    └── ascend/springai/engine/    <!-- root-migration-target: com.huawei.ascend.agent.engine -->
+        ├── spi/                                # engine contract SPI (purity per Rule R-D)
+        │   ├── ExecutorAdapter.java
+        │   ├── GraphExecutor.java
+        │   ├── AgentLoopExecutor.java
+        │   ├── EngineHookSurface.java
+        │   └── EngineMatchingException.java
+        ├── orchestration/spi/                  # orchestration SPI (relocated from dissolved agent-runtime-core per ADR-0088)
+        │   ├── Orchestrator.java
+        │   ├── RunContext.java
+        │   ├── SuspendSignal.java              # CHECKED EXCEPTION — canonical state-machine suspension per ADR-0100
+        │   ├── Checkpointer.java
+        │   ├── TraceContext.java
+        │   ├── RunMode.java
+        │   └── ExecutorDefinition.java         # sealed; GraphDefinition | AgentLoopDefinition
+        └── runtime/                             # engine implementation home (relocated rc14 / ADR-0090)
+            ├── EngineRegistry.java
+            └── EngineEnvelope.java              # mirrors engine-envelope.v1.yaml
+```
+
+Mode-A (Platform-Centric per ADR-0101): `agent-execution-engine` lives on the platform.
+Mode-B (Business-Centric per ADR-0101): `agent-execution-engine` joins `agent-service` on the business side for zero-latency local-direct-connect C/S loops. Same SPI, same engine envelope — location-agnostic.
+
+## *SPI Interface Appendix* (Rule G-1.1.b — rc22 / ADR-0099)
+
+`agent-execution-engine` produces 2 SPI packages (cross-validates against `module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`, `docs/dfx/agent-execution-engine.yaml`):
+
+| Interface FQN | SPI package | Purpose |
+|---|---|---|
+| `ascend.springai.engine.spi.ExecutorAdapter` | `engine.spi` | Unified engine adapter contract |
+| `ascend.springai.engine.spi.GraphExecutor` | `engine.spi` | Workflow-graph execution |
+| `ascend.springai.engine.spi.AgentLoopExecutor` | `engine.spi` | ReAct-loop execution |
+| `ascend.springai.engine.spi.EngineHookSurface` | `engine.spi` | Engine-side hook declaration (cooperates with `agent-middleware` HookPoint) |
+| `ascend.springai.engine.spi.EngineMatchingException` | `engine.spi` | Throw on `engine_type` mismatch (Rule R-M.b) |
+| `ascend.springai.engine.orchestration.spi.Orchestrator` | `engine.orchestration.spi` | Run-level orchestration coordinator |
+| `ascend.springai.engine.orchestration.spi.RunContext` | `engine.orchestration.spi` | Per-Run context (tenantId, traceId, sessionId) |
+| `ascend.springai.engine.orchestration.spi.SuspendSignal` | `engine.orchestration.spi` | **Checked exception** for state-machine suspension (canonical per ADR-0100) |
+| `ascend.springai.engine.orchestration.spi.Checkpointer` | `engine.orchestration.spi` | Run state snapshot SPI |
+| `ascend.springai.engine.orchestration.spi.TraceContext` | `engine.orchestration.spi` | OTel-bridge contract |
+| `ascend.springai.engine.orchestration.spi.RunMode` | `engine.orchestration.spi` | Mode discriminator (GRAPH \| AGENT_LOOP \| ...) |
+| `ascend.springai.engine.orchestration.spi.ExecutorDefinition` | `engine.orchestration.spi` | Sealed: GraphDefinition \| AgentLoopDefinition |
+
+Implementation home (NOT SPI):
+- `ascend.springai.engine.runtime.EngineRegistry` — the only authority for `resolve(envelope)`; pattern-matching on `ExecutorDefinition` outside this class forbidden (Rule R-M.a).
+- `ascend.springai.engine.runtime.EngineEnvelope` (record) — mirrors `engine-envelope.v1.yaml`.
+
+## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
+
+Vacuously green. The W2 Telemetry Vertical (hook outcome consumption per Rule R-M.c.b) will likely produce an L2 design; when authored MUST include Boundary Contracts.
+
+## Deployment loci (rc22 / ADR-0101)
+
+`deployment_loci: [platform_centric, business_centric]` — engine is location-agnostic; supports both loci.
+
+## *Cross-reference to ADR-0100 StatelessEngine SPI* (rc22)
+
+ADR-0100 records the addition of a new SPI `ascend.springai.service.engine.spi.StatelessEngine` (homed in `agent-service`, NOT here). Relationship: `StatelessEngine` may be expressed as a `ExecutorAdapter` extension or sibling — the decision lands in rc23 alongside the Java refactor. Until then `StatelessEngine` is declared in `agent-service` and consumed via the cross-module dependency direction `agent-service` → `agent-execution-engine`.

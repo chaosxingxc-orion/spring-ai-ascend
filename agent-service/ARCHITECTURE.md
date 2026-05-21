@@ -666,3 +666,122 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
 - Deferred capabilities and design decisions: `docs/CLAUDE-deferred.md`; current delivery state per wave (W0..W4): `docs/governance/architecture-status.yaml` (structured capability ledger; the prior `docs/STATE.md` pointer was removed at the rc6 wave — never landed on disk).
 - Wave engineering plan: `ARCHITECTURE.md §1 + docs/governance/architecture-status.yaml + docs/CLAUDE-deferred.md` (per ADR-0037; engineering-plan-W0-W4.md archived).
 - Phase C consolidation specification: `docs/adr/0078-agent-service-consolidation.yaml`; execution plan: `docs/plans/phase-c-merge.md`.
+
+---
+
+## 11. L1 Runtime-Role Decomposition (rc22 / ADR-0100)
+
+The 2026-05-21 proposal `docs/logs/reviews/2026-05-21-agent-service-l1-expansion-proposal.en.md` addresses `agent-service` concentration risk. Ratified by ADR-0100, the module decomposes into **5 logical runtime-role components**:
+
+| # | Component (sub-package) | Role |
+|---|---|---|
+| 1 | `dispatcher/` — Polymorphic Dispatcher | Unified entry point for BOTH local function-call and remote bus-call invocations |
+| 2 | `orchestrator/` — Reactive Orchestrator | Task tempo control, backpressure request handling, A2A protocol envelope packaging |
+| 3 | `task/` — Task Center | TaskControlState persistence (`Task` entity + `TaskRepository` SPI; lifecycle: Run ≤ Task) |
+| 4 | `session/` — Session Manager | Middle/long-context data management; "context projection" toward compute nodes (`Session` entity + `ContextProjector` SPI) |
+| 5 | `engine/adapter/` + `engine/spi/` — Execution Engine Adapter | Masks Workflow vs ReAct engine differences; pure-function compute injection (`StatelessEngine` SPI) |
+
+Existing `runtime/` package (Run / RunContext / RunStateMachine) stays unchanged.
+
+### 11.1 Lifecycle hierarchy (rc22 ratifies; rc25 implements)
+
+```
+Run     — transient compute snapshot (compute pointer + delta)
+Task    — control state (done-or-not, why-stopped)
+Session — data context (what was discussed, variables)
+Memory  — knowledge state (consumed via GraphMemoryRepository SPI per ADR-0082)
+```
+
+TaskID and SessionID are logically decoupled: one Session may concurrently execute multiple Tasks; one Task may drift across multiple Sessions (e.g., group-chat collaboration). The join semantics + audit trail are documented in ADR-0100 §non_goals.
+
+### 11.2 New SPI surface (3 interfaces — rc22 declares; rc24 ships impls)
+
+| Interface FQN | SPI package | Purpose |
+|---|---|---|
+| `ascend.springai.service.engine.spi.StatelessEngine` | `service.engine.spi` | Pure-function `Execute(TaskMetadata, InjectedContext) → StateDelta`; engine holds no state |
+| `ascend.springai.service.session.spi.ContextProjector` | `service.session.spi` | Projects a `SessionContext` view from full Session history (truncation / summarization policy) |
+| `ascend.springai.service.task.spi.TaskStateStore` | `service.task.spi` | TaskControlState persistence interface |
+
+### 11.3 AgentInvokeRequest contract (rc22 declares; rc24 wires runtime)
+
+Wire shape: `docs/contracts/agent-invoke-request.v1.yaml` (status `design_only` at rc22). Service is the Read-Modify-Write closure boundary; Engine is the Pure-Function compute boundary.
+
+### 11.4 Yield + SuspendSignal coexistence (rc22 — ADR-0100 Rejection 4 counter-decision)
+
+- `SuspendSignal` (CHECKED EXCEPTION) remains canonical for state-machine suspension. Rule R-G + ArchUnit tests + rc8/rc9 cancellation paths intact.
+- `Yield` becomes a new `HookPoint.ON_YIELD` cooperative-scheduling hint (added to `engine-hooks.v1.yaml` in rc22). Engine asks orchestrator to be rescheduled without persistence transition.
+
+Counter to the 2026-05-21 proposal's §2.3 / §5.3 "abandon exception-based suspension" framing: the two mechanisms coexist, they do not replace each other. ADR-0100 §decision documents the full rationale.
+
+### 11.5 A2A protocol adoption — CONTRACT ONLY (rc22 — ADR-0100 Rejection 3)
+
+The 2026-05-21 proposal's §5.1 calls for "fully embedding the a2a-java SDK". REJECTED at the SDK level: A2A protocol alignment proceeds at the contract layer (`docs/contracts/a2a-envelope.v1.yaml` in a future ADR) without an SDK runtime dependency. ADR-0100 §non_goals records the policy.
+
+---
+
+## 12. Development View (Rule G-1.1.a — rc22 / ADR-0099)
+
+Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.*` per ADR-0104):
+
+```text
+agent-service/
+└── src/main/java/
+    └── ascend/springai/service/    <!-- root-migration-target: com.huawei.ascend.agent.service -->
+        ├── platform/                          # HTTP edge (current; §2.A)
+        │   ├── auth/                          # JwtDecoderConfig, AuthProperties, JwtTenantClaimCrossCheck
+        │   ├── tenant/                        # TenantContextFilter, TenantContextHolder, MDC binding
+        │   ├── idempotency/                   # IdempotencyHeaderFilter, IdempotencyStore SPI, jdbc/, inmemory/
+        │   ├── observability/                 # TenantTagMeterFilter, TraceExtractFilter
+        │   ├── posture/                       # PostureBootGuard
+        │   ├── web/                           # HealthController, runs/RunController, runs/RunHttpExceptionMapper
+        │   ├── architecture/                  # ArchUnit tests
+        │   └── bootstrap/                     # AppPosture, PlatformApplication
+        ├── runtime/                           # Run kernel (current; §2.B)
+        │   ├── runs/                          # Run, RunStatus, RunStateMachine, RunMode, spi/RunRepository
+        │   ├── orchestration/                 # inmemory/ (SyncOrchestrator, SequentialGraphExecutor, IterativeAgentLoopExecutor, InMemoryCheckpointer, InMemoryRunRegistry)
+        │   ├── resilience/                    # DefaultSkillResilienceContract, YamlResilienceContract, YamlSkillCapacityRegistry, spi/ (ResilienceContract, ResiliencePolicy, SkillResolution, SuspendReason, SkillCapacityRegistry)
+        │   ├── memory/                        # spi/GraphMemoryRepository
+        │   ├── s2c/                           # InMemoryS2cCallbackTransport (consumes bus.spi.s2c)
+        │   ├── idempotency/                   # IdempotencyRecord contract-spine entity
+        │   └── probe/                         # OssApiProbe
+        ├── dispatcher/                        # rc22 — Polymorphic Dispatcher (sub-package declared; impl rc23)
+        ├── orchestrator/                      # rc22 — Reactive Orchestrator (sub-package declared; impl rc23)
+        ├── task/                              # rc22 — Task Center (sub-package declared; impl rc23-25)
+        │   └── spi/                           # rc22 — TaskStateStore SPI
+        ├── session/                           # rc22 — Session Manager (sub-package declared; impl rc23-25)
+        │   └── spi/                           # rc22 — ContextProjector SPI
+        └── engine/
+            ├── adapter/                       # rc23 — ExecutionEngineAdapter (StatelessEngine consumer impls)
+            └── spi/                           # rc22 — StatelessEngine SPI
+```
+
+NOTE: The new sub-packages (`dispatcher/`, `orchestrator/`, `task/`, `session/`, `engine/{adapter,spi}/`) are DECLARED in rc22 (package-info.java + SPI interfaces only) — bulk Java refactor is rc23 scope per ADR-0100 timeline. The existing `platform/` + `runtime/` sub-packages remain unchanged at rc22.
+
+Mode-A (Platform-Centric per ADR-0101): `agent-service` on platform.
+Mode-B (Business-Centric per ADR-0101): `agent-service` deploys on the business department's servers / client devices alongside `agent-execution-engine` for zero-latency local execution loops.
+
+## *SPI Interface Appendix* (Rule G-1.1.b — rc22 / ADR-0099)
+
+`agent-service` produces 9 SPI surfaces (cross-validates against `module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`, `docs/dfx/agent-service.yaml`):
+
+| Interface FQN | SPI package | Purpose | Status |
+|---|---|---|---|
+| `ascend.springai.service.runtime.runs.spi.RunRepository` | `service.runtime.runs.spi` | Run persistence (in-memory ref impl ships; durable W2) | shipped |
+| `ascend.springai.service.runtime.memory.spi.GraphMemoryRepository` | `service.runtime.memory.spi` | Memory SPI (consumer impl in spring-ai-ascend-graphmemory-starter) | shipped |
+| `ascend.springai.service.runtime.resilience.spi.ResilienceContract` | `service.runtime.resilience.spi` | Operation-routing SPI (`resolve(tenant, skill)`) | shipped |
+| `ascend.springai.service.runtime.resilience.spi.ResiliencePolicy` | `service.runtime.resilience.spi` | Per-operation policy carrier | shipped |
+| `ascend.springai.service.runtime.resilience.spi.SkillResolution` | `service.runtime.resilience.spi` | Sealed decision envelope (accept / reject) | shipped |
+| `ascend.springai.service.runtime.resilience.spi.SuspendReason` | `service.runtime.resilience.spi` | Reason enum for SUSPENDED transitions | shipped |
+| `ascend.springai.service.runtime.resilience.spi.SkillCapacityRegistry` | `service.runtime.resilience.spi` | Tenant × skill capacity lookup | shipped |
+| `ascend.springai.platform.idempotency.IdempotencyStore` | `service.platform.idempotency` (interface in package root, not under .spi by historical placement) | Durable claim/replay (JDBC + in-memory) | shipped |
+| `ascend.springai.service.engine.spi.StatelessEngine` | `service.engine.spi` | NEW rc22 — pure-function engine SPI per ADR-0100 | declared (impl rc24) |
+| `ascend.springai.service.session.spi.ContextProjector` | `service.session.spi` | NEW rc22 — projects SessionContext | declared (impl rc24) |
+| `ascend.springai.service.task.spi.TaskStateStore` | `service.task.spi` | NEW rc22 — TaskControlState persistence | declared (impl rc24) |
+
+## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
+
+Vacuously green at rc22. Future L2 designs likely include: (a) Run lifecycle state-machine extended for Run ≤ Task ≤ Session decoupling (rc25); (b) Reactive Orchestrator backpressure protocol (rc23-25); (c) Postgres RLS migration sequence (rc25). Each L2 doc MUST carry a Boundary Contracts sub-section when authored.
+
+## Deployment loci (rc22 / ADR-0101)
+
+`deployment_loci: [platform_centric, business_centric]` — supports both modes. In Mode-B the module deploys on the business side alongside `agent-execution-engine`.

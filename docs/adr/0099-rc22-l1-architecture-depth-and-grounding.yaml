@@ -1,0 +1,120 @@
+id: ADR-0099
+title: "rc22 — L1 Architecture Depth & Grounding (Rule G-1.1) + Tree-Parser + SPI-Appendix-Scanner"
+status: accepted
+date: 2026-05-22
+level: L0
+view: development
+affects_level: L0
+affects_view: development
+authors:
+  - chao
+  - LucioIT (proposer)
+  - 急急 (proposer)
+relates_to:
+  - ADR-0068
+  - ADR-0094
+extends:
+  - ADR-0068
+context: |
+  The 2026-05-21 proposal `docs/logs/reviews/2026-05-21-l1-architecture-depth-and-grounding-proposal.en.md`
+  identifies the risk of "hollow" L1 architecture documents: Rule G-1
+  (formerly Rule 33) mandates the 4+1 structure but does not enforce the
+  *depth* or *grounding* of the content. An L1 ARCHITECTURE.md can be 4+1-
+  shaped yet still fail to map components to packages or enumerate the
+  actual SPI surface.
+
+  Today (HEAD = edc3bd4, rc21) the 6 agent-* ARCHITECTURE.md files show
+  uneven grounding. agent-middleware/ARCHITECTURE.md lacks a Development
+  View tree entirely; agent-client and agent-evolve are explicitly
+  "skeleton" status. Rule R-D enforces SPI parity across catalog ↔
+  module-metadata ↔ DFX (sub-clauses .e/.f/.g) but does not require the
+  L1 ARCHITECTURE.md document itself to enumerate the SPI surface.
+
+  The reviewer named the new rule "Rule G-1.c". This conflicts with the
+  `.a/.b/.c` sub-clause convention used inside CLAUDE.md kernels (e.g.
+  R-M.a, R-M.b, R-M.c are sub-clauses of R-M, not standalone rules).
+  Per rc17 sub-rule convention (extracted standalone child rules use
+  `.1/.2` suffixes — e.g., R-C → R-C.1 + R-C.2), this ADR ratifies the
+  rule as **Rule G-1.1**.
+
+decision: |
+  Adopt **Rule G-1.1 — L1 Architecture Depth & Grounding** with three
+  sub-clauses:
+
+    .a — Development View Code-Mapping. Every L1 ARCHITECTURE.md MUST
+         include a Markdown fenced text block under a `## *Development
+         View*` section (or numbered `## 3.`) declaring the target
+         directory tree at least to the package level. Every major
+         logical component named in the Logical View MUST map to a
+         specific code path in the tree. Cross-checked against the
+         actual filesystem.
+
+    .b — SPI Interface Appendix. Every L1 ARCHITECTURE.md MUST contain
+         a section or appendix enumerating the module's full SPI/API
+         design. Every interface FQN listed MUST correspond to an entry
+         in the module's `module-metadata.yaml#spi_packages` AND
+         appear in `docs/contracts/contract-catalog.md` AND exist as a
+         `public interface` `.java` file. (Adds the L1 architecture-doc
+         appendix as the **fourth parity point** to Rule R-D's three-way
+         catalog↔metadata↔DFX cross-check; the new rule explicitly does
+         NOT duplicate Rule R-D.)
+
+    .c — L2 Constraint Linkage. For any complex subsystem delegated to
+         an L2 design, the L1 document MUST define the "Boundary
+         Contracts" (inputs, outputs, DFX expectations) that the L2
+         design MUST adhere to.
+
+  Enforcement:
+
+  - Rule card: `docs/governance/rules/rule-G-1.1.md` (scope_surfaces:
+    `agent-*/ARCHITECTURE.md`).
+  - CLAUDE.md kernel: insert `#### Rule G-1.1 — L1 Architecture Depth &
+    Grounding` under the existing Rule G-1 kernel paragraph; byte-match
+    per Rule G-3.b.
+  - Enforcers: E166 (Tree-Parser), E167 (SPI-Appendix-Scanner), E168
+    (L2 Constraint Linkage prose check).
+  - Gate scripts:
+      - `gate/lib/check_l1_dev_view_tree.sh` — parses Development View
+        fenced text blocks; cross-checks against filesystem.
+      - `gate/lib/check_l1_spi_appendix.sh` — 4-way cross-check (catalog
+        + metadata + DFX + ARCHITECTURE.md appendix).
+  - Self-tests: 6 fixtures (positive + negative per sub-clause) under
+    `gate/test_architecture_sync_gate.sh`.
+
+  Rule G-1.1 dogfooded by this same wave: all 6 agent-*/ARCHITECTURE.md
+  files are rewritten to satisfy the rule before the rule's enforcer
+  goes live.
+
+  Reconciliation with Rule R-D: this ADR explicitly differentiates.
+  R-D enforces parity across three machine-readable surfaces (catalog,
+  metadata, DFX). G-1.1 adds the human-readable L1 architecture
+  document as the fourth surface. The two rules are complementary, not
+  duplicate; the rule card MUST cite this reconciliation note.
+
+  Reconciliation with Rule G-3.b (kernel-card byte match): the rule
+  card kernel field MUST byte-match the CLAUDE.md kernel paragraph for
+  Rule G-1.1.
+
+rule_allocation_map:
+  primary_phase: design
+  applies_at: L1 ARCHITECTURE.md authoring time
+  reviewed_in: review-mode
+
+verification_protocol: |
+  Pre-merge:
+    1. bash gate/check_parallel.sh (Rule G-1.1 must PASS for all 6 modules)
+    2. bash gate/test_architecture_sync_gate.sh (6 new fixtures PASS)
+    3. python gate/build_architecture_graph.py --check --no-write
+    4. ./mvnw.cmd clean verify (no Java changes; confirm baseline)
+  Post-merge:
+    5. Architecture graph regenerated; baseline_metrics lockstep
+       updated (4 surfaces per `feedback_lockstep_baseline_surfaces`).
+
+family_taxonomy:
+  wave: rc22
+  family: N-α
+  defect_class: Hollow L1 architecture documents — no enforced depth/grounding
+  hidden_defects_swept:
+    - agent-middleware/ARCHITECTURE.md missing Development View tree
+    - agent-client/ARCHITECTURE.md skeleton-only (no SPI appendix)
+    - agent-evolve/ARCHITECTURE.md skeleton-only (no Development View)

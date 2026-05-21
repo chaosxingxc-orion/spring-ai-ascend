@@ -1446,3 +1446,27 @@
   view: process
   artifact: gate/check_architecture_sync.sh#phase_contract_rule_allocation_coherence
   asserts: "Rule G-11 / Rule 117 — phase contract <-> rule card coherence on the post-ADR-0098 contract layer: (a) every Active Rules row in `docs/governance/contracts/*.md` MUST cite a rule whose card exists under `docs/governance/rules/rule-*.md` OR a principle whose card exists under `docs/governance/principles/P-*.md`; (b) every active rule card MUST be cited in at least one phase contract as P or X; (c) dual-P (same rule cited as P in multiple contracts) is forbidden except for the enumerated G-9 exception (commit + review). Vacuously passes if `docs/governance/contracts/` is absent."
+
+- id: E166
+  constraint_ref: "Rule G-1.1 sub-clause .a (l1_dev_view_code_mapping); ADR-0099"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#l1_dev_view_code_mapping
+  asserts: "Rule G-1.1 sub-check .a (rc22 / ADR-0099) — every agent-*/ARCHITECTURE.md MUST include a Markdown fenced text block under `## *Development View*` (or numbered `## 3.`) declaring the target directory tree at least to the package level. Every line ending with `/` is parsed as a package-path declaration relative to the module's `src/main/java/`. The rule FAILS when any documented package directory does NOT exist on the filesystem OR when any major production package (excluding `*.impl.*`) is NOT documented. Forward-compatibility marker `<!-- root-migration-target: com.huawei.ascend -->` is honored (path resolution allows pre-rename namespace at rc22; rc22.5 strips the markers). Helper: gate/lib/check_l1_dev_view_tree.sh."
+
+- id: E167
+  constraint_ref: "Rule G-1.1 sub-clause .b (l1_spi_appendix_4way_parity); ADR-0099"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#l1_spi_appendix_4way_parity
+  asserts: "Rule G-1.1 sub-check .b (rc22 / ADR-0099) — every agent-*/ARCHITECTURE.md MUST contain a section titled `SPI Interface Appendix` (or `## *Appendix*` containing `SPI`) listing every public interface FQN the module ships. Four-way parity: (1) FQN appears in module's module-metadata.yaml#spi_packages; (2) FQN appears as a row in docs/contracts/contract-catalog.md §2 (or its package appears in the SPI table); (3) FQN appears in docs/dfx/<module>.yaml#spi_packages; (4) FQN exists as a `public interface` `.java` file on disk. Adds the L1 architecture-doc appendix as the FOURTH parity point to Rule R-D sub-clauses .e/.f/.g (catalog↔metadata↔DFX). Helper: gate/lib/check_l1_spi_appendix.sh."
+
+- id: E168
+  constraint_ref: "Rule G-1.1 sub-clause .c (l1_l2_constraint_linkage); ADR-0099"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#l1_l2_constraint_linkage
+  asserts: "Rule G-1.1 sub-check .c (rc22 / ADR-0099) — for any complex subsystem the L1 document delegates to an L2 design (any line of the form `… see [L2 doc](path/to/L2.md)` or `… delegated to L2`), the L1 document MUST contain a `Boundary Contracts` sub-section enumerating input types, output types, DFX expectations. Vacuously green when no L2 delegation prose exists in any agent-*/ARCHITECTURE.md (arms for W3+ when L2 docs land)."
