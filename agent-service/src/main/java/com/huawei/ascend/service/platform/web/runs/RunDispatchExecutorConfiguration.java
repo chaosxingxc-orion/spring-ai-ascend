@@ -28,10 +28,6 @@ public class RunDispatchExecutorConfiguration {
 
     private static final Logger LOG = LoggerFactory.getLogger(RunDispatchExecutorConfiguration.class);
 
-    private static final int CORE_THREADS = 4;
-    private static final int MAX_THREADS = 16;
-    private static final int QUEUE_CAPACITY = 256;
-
     private final MeterRegistry meterRegistry;
     private final RunDispatchProperties properties;
 
@@ -44,16 +40,19 @@ public class RunDispatchExecutorConfiguration {
     @Bean(name = RunController.RUN_DISPATCH_EXECUTOR_BEAN, destroyMethod = "shutdown")
     public Executor runDispatchExecutor() {
         RunDispatchProperties.RejectionPolicy policy = properties.getRejectionPolicy();
+        int coreThreads = Math.max(1, properties.getCoreThreads());
+        int maxThreads = Math.max(coreThreads, properties.getMaxThreads());
+        int queueCapacity = Math.max(1, properties.getQueueCapacity());
         Counter rejectedCounter = Counter.builder("springai_ascend_run_dispatch_rejected_total")
                 .description("Total run-dispatch tasks rejected by the dedicated executor")
                 .tag("policy", policy.name())
                 .register(meterRegistry);
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
-                CORE_THREADS,
-                MAX_THREADS,
+                coreThreads,
+                maxThreads,
                 60L,
                 TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(QUEUE_CAPACITY),
+                new ArrayBlockingQueue<>(queueCapacity),
                 runnable -> {
                     Thread t = new Thread(runnable);
                     t.setName("run-dispatch-" + t.threadId());
@@ -72,7 +71,7 @@ public class RunDispatchExecutorConfiguration {
                 .tag("policy", policy.name())
                 .register(meterRegistry);
         LOG.info("Run dispatch executor initialized: coreThreads={} maxThreads={} queueCapacity={} rejectionPolicy={}",
-                CORE_THREADS, MAX_THREADS, QUEUE_CAPACITY, policy);
+                coreThreads, maxThreads, queueCapacity, policy);
         return executor;
     }
 

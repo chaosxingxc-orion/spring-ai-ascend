@@ -52,4 +52,21 @@ class RunDispatchExecutorConfigurationTest {
                 .tag("policy", "ABORT").counter()).isNotNull();
         executor.shutdownNow();
     }
+
+    @Test
+    void threadPoolSizesRespectConfiguredBounds() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        RunDispatchProperties properties = new RunDispatchProperties();
+        properties.setCoreThreads(8);
+        properties.setMaxThreads(4);
+        properties.setQueueCapacity(0);
+
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) new RunDispatchExecutorConfiguration(registry, properties)
+                .runDispatchExecutor();
+
+        assertThat(executor.getCorePoolSize()).isEqualTo(8);
+        assertThat(executor.getMaximumPoolSize()).isEqualTo(8);
+        assertThat(executor.getQueue().remainingCapacity() + executor.getQueue().size()).isEqualTo(1);
+        executor.shutdownNow();
+    }
 }

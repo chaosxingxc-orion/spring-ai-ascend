@@ -112,6 +112,9 @@ app:
     allow-in-memory: false
   runs:
     dispatch:
+      core-threads: 4
+      max-threads: 16
+      queue-capacity: 256
       # Overload fallback for dedicated run-dispatch executor.
       # CALLER_RUNS keeps current behavior; ABORT fails fast on saturation.
       rejection-policy: CALLER_RUNS
