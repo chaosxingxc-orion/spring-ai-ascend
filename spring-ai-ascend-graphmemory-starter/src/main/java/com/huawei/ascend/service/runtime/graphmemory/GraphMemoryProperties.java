@@ -8,12 +8,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * <p>Posture matrix:
  * <ul>
  *   <li>{@code enabled=false} (default) — auto-configuration contributes no bean.</li>
- *   <li>{@code enabled=true} at W0 — auto-configuration still contributes no
- *       bean (the Graphiti REST adapter lands at W1 per ADR-0034). The
+ *   <li>{@code enabled=true} — auto-configuration still contributes no
+ *       bean (the Graphiti REST adapter lands). The
  *       remaining fields below are RESERVED for W1 wiring and are not
- *       consumed at W0; the orphan-config Rule 3 exemption is documented
+ *       consumed; the orphan-config Rule 3 exemption is documented
  *       inline via {@link Deprecated} on each unused field.</li>
- *   <li>{@code enabled=true} at W1+ — the adapter bean is contributed and the
+ *   <li>{@code enabled=true}+ — the adapter bean is contributed and the
  *       reserved fields become live.</li>
  * </ul>
  *
@@ -27,8 +27,8 @@ public class GraphMemoryProperties {
 
     /**
      * @deprecated reserved for the W1 Graphiti REST adapter (see ADR-0034).
-     *     NOT consumed at W0 — the auto-config contributes no bean even when
-     *     {@code enabled=true}. Setting this property at W0 has no effect.
+     *     NOT consumed — the auto-config contributes no bean even when
+     *     {@code enabled=true}. Setting this property has no effect.
      *     Documented as orphan-config exemption in v2.0.0-rc3 per
      *     cross-constraint audit α-8 / P1-7.
      */
@@ -37,7 +37,7 @@ public class GraphMemoryProperties {
 
     /**
      * @deprecated reserved for the W1 Graphiti REST adapter (see ADR-0034).
-     *     NOT consumed at W0. Same orphan-config exemption note as
+     *     NOT consumed. Same orphan-config exemption note as
      *     {@link #baseUrl}.
      */
     @Deprecated(since = "0.1.0", forRemoval = false)
@@ -46,19 +46,19 @@ public class GraphMemoryProperties {
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
-    /** @deprecated reserved for W1; ignored at W0. */
+    /** @deprecated reserved for W1; ignored. */
     @Deprecated(since = "0.1.0", forRemoval = false)
     public String getBaseUrl() { return baseUrl; }
 
-    /** @deprecated reserved for W1; ignored at W0. */
+    /** @deprecated reserved for W1; ignored. */
     @Deprecated(since = "0.1.0", forRemoval = false)
     public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
 
-    /** @deprecated reserved for W1; ignored at W0. */
+    /** @deprecated reserved for W1; ignored. */
     @Deprecated(since = "0.1.0", forRemoval = false)
     public String getApiKey() { return apiKey; }
 
-    /** @deprecated reserved for W1; ignored at W0. */
+    /** @deprecated reserved for W1; ignored. */
     @Deprecated(since = "0.1.0", forRemoval = false)
     public void setApiKey(String apiKey) { this.apiKey = apiKey; }
 }

@@ -19,9 +19,9 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). SPI packages import only `java.*` plus same-spi-package siblings (ArchUnit `SpiPurityGeneralizedArchTest`). japicmp binary-compat from W1.
 
-**Active SPI interfaces (17 total):**
+**Active SPI interfaces (19 total):**
 
-(rc27 baseline post-corrective.)
+(rc27 baseline post-corrective: 13 pre-rc23 + 3 rc23 SPI surfaces + 3 rc26 SPI surfaces post-rc27 .spi move.)
 
 | Interface | Module | Package | Status |
 |---|---|---|---|

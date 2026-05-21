@@ -125,7 +125,7 @@ Current SPI surface:
 |---|---|---|
 | `com.huawei.ascend.evolve.online.spi.SlowTrackJudge` | `evolve.online.spi` | LLM-as-Judge contract; fires on AFTER_LLM_INVOCATION hook (rc26; rc27 moved under .spi per Rule R-D.d) |
 
-Note: ReflectionEnvelopeRouter is owned by **agent-bus** (package `com.huawei.ascend.bus.spi.s2c`) — it is the S2C transport surface, not an evolution-plane SPI. Future OfflineExportAdapter SPI (rc26 design intent, W2 implementation) will live under `com.huawei.ascend.evolve.offline.spi` when shipped.
+Note: ReflectionEnvelopeRouter is owned by **agent-bus** (package `com.huawei.ascend.bus.spi.s2c`) — it is the S2C transport surface, not an evolution-plane SPI. A future OfflineExportAdapter SPI is contemplated but not declared in `module-metadata.yaml#spi_packages` yet; when shipped it will register first, then appear here.
 
 ## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
 
