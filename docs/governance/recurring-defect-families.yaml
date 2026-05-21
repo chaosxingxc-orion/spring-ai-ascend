@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21
+last_updated: 2026-05-21  # rc19 Wave 5 finalize
 
 families:
   - id: F-numeric-drift
@@ -320,4 +320,8 @@ families:
       hardening: python yaml parser (closes ADV-RC18-4 awk injection),
       content-diff freshness (closes ADV-RC18-1 no-op commit), semantic
       date validation (closes ADV-RC18-2), refresh-signal path filter
-      derived from families[].surfaces[] (closes ADV-RC18-3).
+      derived from families[].surfaces[] (closes ADV-RC18-3). rc19 Wave 5
+      finalize lockstep commit reconciled baseline_metrics to live graph
+      (402 nodes / 656 edges) and bumped the documentation triangle
+      (status.yaml + README.md baseline line + rc18 release note frozen-
+      SHA marker) in one commit per feedback_lockstep_baseline_surfaces.md.

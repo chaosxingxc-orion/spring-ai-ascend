@@ -327,3 +327,57 @@ PR #15 (rc17) merged with 3 corrective commits. Post-merge 4-reviewer pass + 3-a
 - Waves 3, 4 needed rebase after Wave 1 merged (ordering effect; no conflicts).
 - Wave 2 needed rebase after Waves 3+4 merged.
 - Wave 5: zero corrective commits (all surfaces updated in single lockstep commit per rc17 lesson `feedback_lockstep_baseline_surfaces.md`).
+
+---
+
+## 2026-05-21 — rc19 wave: meta-recursion permanent close + stragglers + runbook (ADR-0096)
+
+### Trigger
+
+rc18 PR #16-#20 review found the rc18 Wave 1 helper extraction closed the surface bypasses, BUT 4 deeper structural assumptions in the helper itself remained: (1) awk parser fragility (literal-block injection / silent skips), (2) `last_updated:` hand-edited timestamp proxy still gameable, (3) freshness path filter still hard-coded narrow set instead of deriving from `families[].surfaces[]`, (4) no META-of-META gate enforcing helper-extraction discipline. User directive: continue under fixed `rc19` version (no version creep), multi-wave OK, complete all bugs.
+
+### Waves
+
+| # | Branch | Merged SHA | Scope |
+|---|---|---|---|
+| 1 | rc19/wave-1-meta-recursion-permanent-close | b1cd29a | python yaml parser (pyyaml StrictSafeLoader) + content-diff freshness via `git show {sha}^:{yaml}` + auto-derived signal paths + Rule 112 META-of-META + 5 ADV-RC18 closure fixtures + 2 Rule 112 fixtures |
+| 3 | rc19/wave-3-doc-cleanup | cc13298 | README R-rule count 16→17 + family yaml schema `monitoring` enum + rc18 release note disclosure softening |
+| 4 | rc19/wave-4-runbook-filename-gate | 3d12c88 | NEW docs/runbooks/multi-wave-release.md + NEW Rule 114 rule_card_filename_dot_convention + 2 fixtures |
+| 2 | rc19/wave-2-stragglers-rule-113 | (Wave 2 PR) | Sweep 11 stale Rule R-C.{b,c,d,e} refs in status.yaml + P-C.md + P-J.md + NEW Rule 113 legacy_paren_no_reintroduction + migration.md heading completeness check + 2 fixtures |
+| 5 | rc19/wave-5-finalize | (this commit) | ADR-0096 + release note + baseline lockstep + freeze rc18 |
+
+### New / consolidated artefacts
+
+- **gate/lib/validate_recurring_families.py** (Wave 1) — python pyyaml-based validator replacing awk parser. 3 subcommands (wellformed, freshness, parity). StrictSafeLoader subclass rejects duplicate keys structurally. datetime.date.fromisoformat catches semantically-invalid dates (2026-13-32) the format regex missed. `_git_run()` uses `encoding="utf-8", errors="replace"` for Windows compat.
+- **docs/adr/0096-rc19-meta-recursion-permanent-close.yaml** (Wave 5).
+- **docs/logs/releases/2026-05-21-l0-rc19-meta-recursion-permanent-close.en.md** (Wave 5).
+- **docs/runbooks/multi-wave-release.md** (Wave 4) — codifies the 5-wave pattern; ends tribal-knowledge phase.
+
+### Rule deltas
+
+- **Rule 112 meta_rule_self_application_check [META]** (Wave 1) — structurally enforces that META-marked rules ship a `gate/lib/check_*.sh` helper sourced from both the rule body and from ≥2 fixtures. Dogfoods itself (the rule itself is marked META and sources its own helper from Rule 110 and Rule 112).
+- **Rule 113 legacy_paren_no_reintroduction_and_migration_doc_complete** (Wave 2) — sub-check .a: `grep "(legacy Rule [0-9]+" enforcers.yaml` count must be 0 (prevents Wave 4 cleanup regression); sub-check .b: `gate/rule-number-migration.md` must contain `Legacy numeric` + `rc17 sub-rule splits` headings (prevents the migration doc from being deleted/renamed without notice).
+- **Rule 114 rule_card_filename_dot_convention** (Wave 4) — regex `^rule-[DRGM]-[A-Z0-9](\.[a-z0-9]+)?\.md$` against `docs/governance/rules/*.md` (pre-rc16 grandfathered); prevents the rc17 hyphen-vs-dot filename trap recurrence (`rule-G-3-1.md` vs `rule-G-3.1.md`).
+
+### Family deltas
+
+- **F-recursive-prevention-irony** — promoted from `cleanup_status: structurally_addressed` (rc18) → `closed` (rc19 per ADR-0096). Rule 112 closes the META-of-META gap; the python yaml validator closes the 4 deeper structural assumptions reviewers found in the rc18 helper.
+
+### Baseline impact
+
+- `active_gate_checks`: 123 → 126 (+3)
+- `gate_executable_test_cases`: 210 → 220 (+10)
+- `enforcer_rows`: 157 → 160 (+3: E159 + E160 + E161)
+- `adr_count`: 94 → 95 (+1: ADR-0096)
+- `architecture_graph_nodes`: 395 → 402 (+7: 3 rules + 3 enforcers + ADR-0096 node)
+- `architecture_graph_edges`: 642 → 656 (+14)
+- `recurring_defect_families`: 9 → 9 (unchanged; F-recursive-prevention-irony promoted to closed)
+- All other metrics unchanged
+
+### CI / corrective ledger
+
+- Wave 1: 3 in-branch correctives (ci.yml fetch-depth + Rule 110 dogfooding; baseline lockstep + Rule 87 marker fix; family yaml content bump for Rule 111.b firing on Wave 1's own commit).
+- Wave 2: 1 in-branch corrective (Rule 113 fixtures + family yaml content bump).
+- Wave 4: 1 in-branch corrective (Rule 114 fixtures + family yaml content bump).
+- Wave 5: lockstep finalize commit (no correctives at merge boundary).
+- Total: 5 in-branch correctives; 0 post-merge correctives on `main`.

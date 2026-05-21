@@ -1,0 +1,166 @@
+id: ADR-0096
+title: "rc19 META-Recursion Permanent Close — Python YAML Parser + Rule 112/113/114 + Multi-Wave Runbook"
+status: accepted
+date: 2026-05-21
+level: L0
+view: process
+freeze_id: null
+
+supersedes: []
+extends:
+  - ADR-0086   # gate_layer_boundary
+  - ADR-0093   # rc16 Rule 110 META (precedent for Rule 112)
+  - ADR-0094   # rc17 introduced Rule G-9 / Rule 111
+  - ADR-0095   # rc18 helper extraction + 8 hardening fixes
+relates_to:
+  - ADR-0078   # Phase C consolidation
+  - ADR-0085   # rc11 kernel-truth (origin of "rule preventing drift drifts itself")
+
+decision_one_liner: |
+  Permanently close the recursive-irony pattern surfaced by the rc18
+  reviewer review. rc18 helper extraction closed the surface bypasses;
+  rc19 closes the 4 deeper structural assumptions reviewers found
+  (awk parser, hand-edited last_updated proxy, narrow signal path
+  filter, no META-of-META gate) by replacing awk with python yaml,
+  comparing yaml CONTENT not mtime, deriving signal paths from
+  families[].surfaces[], and adding Rule 112 META-of-META gate that
+  structurally enforces the helper-extraction discipline on every
+  future META rule. Also closes Wave 3+4 stragglers from rc18 (11 stale
+  R-C refs), adds Rule 113 paren-reintroduction guard + migration doc
+  audit, adds Rule 114 filename convention gate, and codifies the
+  multi-wave-release pattern as a contributor-facing runbook. All
+  under fixed rc19 (no version creep).
+
+context: |
+  PR #16-#20 (rc18) merged with 5 waves closing the rc17 reviewer's
+  "recursive irony" finding (Rule G-9 / Rule 111 itself had 6/8 of its
+  own defect patterns). Post-rc18 review pass found the recursive
+  irony moved one layer deeper:
+
+  - ADV-RC18-1: yaml git-mtime as content proxy — a no-op commit
+    (`git commit --allow-empty --only <yaml>`) defeats freshness.
+  - ADV-RC18-2: ISO date regex accepts `9999-12-31`, `0000-00-00`,
+    `2026-13-32` (format-only, no semantic check).
+  - ADV-RC18-3: refresh-signal path filter listed 5 paths; family
+    surfaces list 12+ globs. Refactors leaking deleted module names
+    across `ops/`, `module-metadata.yaml`, etc. trigger no signal.
+  - ADV-RC18-4: awk yaml parser confused by `- id:` inside `root_cause:`
+    literal block — phantom family bucket injection.
+  - ADV-RC18-5: shallow-clone detection silently fails on git < 2.15
+    (`--is-shallow-repository` returns empty, not "true").
+  - ADV-RC18-6: Wave 4 removed `(legacy Rule NN — ...)` parentheticals
+    but no rule prevents reintroduction; migration.md ungated.
+  - ADV-RC18-7: F-recursive-prevention-irony family is informational;
+    no gate audits future META rules for helper-call pattern.
+  - Maint MAINT-rc18-10: 5-wave workflow has no runbook.
+  - Maint MAINT-rc18-4: filename convention (dot vs hyphen) is
+    documented in README but not gated.
+  - Maint MAINT-rc18-8: README "16 rules" but enumerates 17.
+  - Arch Q1: 11 stale R-C refs in status.yaml/P-C/P-J that Wave 3 + 4
+    of rc18 missed because the split fragmented the rename.
+
+  User directive: fix all under fixed rc19 (no version creep), multi-
+  wave OK.
+
+decision: |
+  ADR-0096 declares the following 5 waves under fixed rc19:
+
+  ## Wave 1 — Meta-Recursion Permanent Close (P0)
+
+  - NEW gate/lib/validate_recurring_families.py — python yaml parser
+    replacing awk. Subcommands: wellformed, freshness, parity.
+    Closes ADV-RC18-1/2/3/4/5 + Correctness Findings 1+2.
+  - Updated gate/lib/check_recurring_families.sh — bash shim delegating
+    to python. Same function names; fixture interface unchanged.
+  - NEW Rule 112 (meta_rule_self_application_check) [META] + E159 —
+    structurally enforces that every [META] rule sources a helper.
+    Closes ADV-RC18-7 + Pattern D mitigation gap.
+  - Rule 110 (existing META) sources the helper as a Rule-112 self-
+    application proof (dogfooding).
+  - 5 new Rule 111 fixtures for ADV-RC18-2/4 + Correctness Finding 2.
+  - 2 Rule 112 fixtures (pos+neg).
+  - Family F-recursive-prevention-irony promoted: cleanup_status
+    structurally_addressed → closed (gate-enforced, no longer author-
+    vigilance-dependent).
+
+  ## Wave 2 — Stragglers + Paren Guard (P1)
+
+  - Sweep 11 stale `Rule R-C.{b,c,d,e}` refs in:
+    - docs/governance/architecture-status.yaml (7 lines)
+    - docs/governance/principles/P-C.md (4 refs)
+    - docs/governance/principles/P-J.md (1 ref)
+    - Plus the "Gate Rule R-C.1 quickstart_present" typo fixed to
+      "Rule R-A.c quickstart_present" (rc18 Wave 4 didn't catch).
+  - NEW Rule 113 (legacy_paren_no_reintroduction_and_migration_doc_complete)
+    + E160 — closes ADV-RC18-6 + Arch Q5.
+  - 2 Rule 113 fixtures.
+
+  ## Wave 3 — Doc Cleanup (P2)
+
+  - README.md R-rule count 16 → 17 (corrects off-by-one from rc18
+    Wave 3 task 3c). Closes Maint MAINT-rc18-8.
+  - recurring-defect-families.yaml schema header comment adds
+    `monitoring` to enum list (matches helper's enforced set).
+    Closes Maint MAINT-rc18-3.
+  - rc18 release note "Zero corrective commits" claim softened to
+    "Zero post-merge corrective commits on main" with truthful
+    disclosure of in-branch correctives. Closes Maint MAINT-rc18-9
+    + Arch Q7.
+
+  ## Wave 4 — Runbook + Filename Gate (P3)
+
+  - NEW docs/runbooks/multi-wave-release.md — codifies the rc17/rc18/
+    rc19 multi-wave-under-fixed-version pattern. When to use, when
+    not, wave numbering, branch naming, PR title convention,
+    worktree workflow, Wave 5 lockstep checklist, common in-branch
+    correctives. Closes Maint MAINT-rc18-10.
+  - NEW Rule 114 (rule_card_filename_dot_convention) + E161 —
+    structurally prevents the rc17 hyphen-vs-dot trap from recurring.
+    2 fixtures. Closes Maint MAINT-rc18-4.
+
+  ## Wave 5 — META Finalize (this commit)
+
+  - ADR-0096 (this doc)
+  - rc19 release note
+  - baseline_metrics lockstep (single commit, no corrective spiral)
+  - freeze rc18 release note with `Historical artifact frozen at SHA
+    61a000e` marker
+  - rule-history.md rc19 section
+  - MEMORY index entry + project_v2_0_0_rc19_response_*.md
+
+consequences:
+  positive:
+    - "Recursive-irony at all 4 deeper structural layers permanently closed: python yaml parser + content-diff freshness + auto-derived signal paths + Rule 112 META-of-META."
+    - "Rule 113 prevents (legacy Rule ...) paren reintroduction; migration.md is now an audited canonical SSOT."
+    - "Rule 114 prevents hyphen-vs-dot filename confusion that caused rc17 corrective #1."
+    - "Multi-wave runbook codifies the pattern for future contributors (no longer tribal knowledge)."
+    - "F-recursive-prevention-irony promoted to cleanup_status: closed (structurally enforced, no longer author-vigilance-dependent)."
+    - "Wave 5 lockstep update demonstrated again: zero post-merge corrective commits expected."
+  negative:
+    - "Python + pyyaml is now a gate runtime dependency. Pre-existing tests already depend on python3 (e2 ndjson tests); now also Rule 111. Linux/CI has both; Windows Git Bash typically aliases as `python` (handled in helper)."
+    - "Each rc19 wave needed 1 in-branch corrective (Wave 2/4 missed adding fixtures for new rules; Wave 1 needed fetch-depth bump + Rule 110 dogfood source). 3 in-branch correctives total. Squash-merge consolidates them on main."
+  open_questions:
+    - "Should derive_signal_paths() in the python helper produce a smaller more-targeted set? Current implementation includes both BASE_SIGNAL_PATHS + SURFACE_PREFIX_BASES + dynamically derived family surfaces. Trade-off: noisier signal (more PRs trigger freshness check) vs better coverage. Decision: keep current as belt-and-suspenders."
+    - "Pattern D (21 fixture helper-isations from rc18 KD-rc18-1) still deferred. Rule 112 enforces helper-call for new META rules but doesn't retrofit the 21 legacy fixtures. Plan: opportunistic per-rule-touch as before."
+
+known_debt:
+  - id: KD-rc19-1
+    title: "Pattern D legacy fixture helper-isation (21 fixtures)"
+    description: |
+      Still deferred from rc18 KD-rc18-1. Rule 112 (rc19) enforces helper-
+      call for [META] rules; the 21 non-META legacy fixtures (test_rule1-6,
+      16, 19, 22, 24-29, 107-110) are not [META] and thus not subject to
+      Rule 112. They remain Pattern D drift-risky.
+    trigger_for_resolution: "rc20+ when any of these rules is touched for feature work"
+    severity: low
+    mitigation_today: "Rule 110 META + Rule 112 META catch the new-rule case. Old fixtures work correctly; drift risk is real but bounded."
+
+verification:
+  - "bash gate/check_architecture_sync.sh — 125+ active gate rules pass"
+  - "bash gate/test_architecture_sync_gate.sh — 220+ self-tests pass on Windows (3 pre-existing python3 env failures); CI Linux clean"
+  - "python gate/lib/validate_recurring_families.py {wellformed|freshness|parity} <args> — all pass on real corpus"
+  - "Manual ADV-RC18-1 reproduction: `git commit --allow-empty --only families.yaml` → Rule 111.b FAILS with content-unchanged message"
+  - "Manual ADV-RC18-4 reproduction: yaml with `- id:` in literal block parses correctly (pyyaml treats as string)"
+  - "Manual Rule 112 reproduction: temporarily remove `source` from Rule 110 → Rule 112 FAILS"
+  - "Manual Rule 113 reproduction: add `(legacy Rule 99 — ...)` to enforcers.yaml → Rule 113 FAILS"
+  - "Manual Rule 114 reproduction: create `docs/governance/rules/rule-G-99-1.md` → Rule 114 FAILS"

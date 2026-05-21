@@ -12,6 +12,16 @@ supersedes_release_notes:
 
 # L0 v2.0.0-rc18 — Comprehensive Hardening (5-Wave Consolidation)
 
+> **Historical artifact frozen at SHA 61a000e.** This release note captures
+> rc18 wave-final baselines (94 ADRs / 123 gate rules / 37 engineering
+> rules / 210 self-tests / 395 graph nodes / 642 edges / 9 families).
+> For current canonical baselines see
+> `docs/governance/architecture-status.yaml#architecture_sync_gate.allowed_claim`.
+> rc19 (per ADR-0096) superseded these counts: 95 ADRs / 126 gate rules
+> (+3: Rule 112/113/114) / 37 engineering rules (unchanged) / 220 self-tests
+> / 402 graph nodes / 656 edges / 9 families (F-recursive-prevention-irony
+> promoted to closed). Rule 28 exempts this file via the frozen-SHA marker.
+
 ## Verdict
 
 rc18 closes the PR #15 (rc17) reviewer pass + 3-agent deep scan. Single
