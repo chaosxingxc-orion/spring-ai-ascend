@@ -110,3 +110,8 @@ app:
   idempotency:
     ttl: PT24H
     allow-in-memory: false
+  runs:
+    dispatch:
+      # Overload fallback for dedicated run-dispatch executor.
+      # CALLER_RUNS keeps current behavior; ABORT fails fast on saturation.
+      rejection-policy: CALLER_RUNS

@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -54,13 +56,18 @@ import java.util.concurrent.CompletableFuture;
 public class RunController {
 
     private static final Logger LOG = LoggerFactory.getLogger(RunController.class);
+    static final String RUN_DISPATCH_EXECUTOR_BEAN = "runDispatchExecutor";
 
     private final RunRepository repository;
     private final AsyncRunDispatcher dispatcher;
+    private final Executor runDispatchExecutor;
 
-    public RunController(RunRepository repository, AsyncRunDispatcher dispatcher) {
+    public RunController(RunRepository repository,
+                         AsyncRunDispatcher dispatcher,
+                         @Qualifier(RUN_DISPATCH_EXECUTOR_BEAN) Executor runDispatchExecutor) {
         this.repository = repository;
         this.dispatcher = dispatcher;
+        this.runDispatchExecutor = runDispatchExecutor;
     }
 
     @PostMapping(produces = "application/json", consumes = "application/json")
@@ -104,7 +111,7 @@ public class RunController {
         // regardless of how long the underlying work takes.
         AsyncRunDispatcher fixedDispatcher = dispatcher;
         Run dispatched = saved;
-        CompletableFuture.runAsync(() -> fixedDispatcher.dispatch(dispatched));
+        CompletableFuture.runAsync(() -> fixedDispatcher.dispatch(dispatched), runDispatchExecutor);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(RunCursorResponse.from(saved, baseUrl(httpRequest)));
     }
