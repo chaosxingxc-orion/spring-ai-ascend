@@ -42,6 +42,13 @@ jobs:
       - name: Regenerate architecture graph
         run: python3 gate/build_architecture_graph.py
 
+      - name: Shell syntax check (gate scripts)
+        # bash -n on every gate/*.sh catches dropped braces / missing fi /
+        # heredoc-EOF problems at CI time instead of at gate execution time.
+        # Cheap (parses, doesn't execute) and fails fast before the long
+        # parallel orchestrator step.
+        run: find gate -type f -name '*.sh' -print0 | xargs -0 -I{} bash -n {}
+
       - name: Architecture-sync gate (parallel)
         # The parallel wrapper runs the same 63+ rules across 8 workers,
         # cutting wall-clock from ~24min to ~7min on Windows/git-bash and

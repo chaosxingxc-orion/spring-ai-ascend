@@ -6111,17 +6111,25 @@ test_rule_114_filename_dot_convention_pos() {
 }
 
 test_rule_114_filename_dot_convention_neg() {
-  # Synthetic hyphenated filename rejected
-  local root="$scratch/r114_neg"
-  mkdir -p "$root"
-  touch "$root/rule-G-3-1.md"  # hyphenated form — should be rejected
-  local base
-  base=$(basename "$root/rule-G-3-1.md")
-  if [[ ! "$base" =~ ^rule-[DRGM]-[A-Z0-9](\.[a-z0-9]+)?\.md$ ]]; then
-    ok "rule_114_filename_dot_convention_neg" "Rule 114 catches hyphenated filename rule-G-3-1.md (prevents rc17 trap from recurring)"
-  else
-    fail "rule_114_filename_dot_convention_neg" "expected hyphenated form to fail regex"
-  fi
+  # rc20 Wave 3 / ADR-0097 parameterized over near-miss inputs (closes
+  # Finding F8 — original fixture tested ONE input only).
+  local _bad_names=(
+    "rule-G-3-1.md"       # rc17 hyphen-vs-dot trap
+    "rule-g-3.1.md"       # lowercase namespace letter
+    "rule-G3.1.md"        # missing dash between namespace and digit
+    "Rule-G-3.1.md"       # capital R in `rule`
+    "rule-G-3.UPPER.md"   # uppercase suffix
+    "rule-G-3..md"        # empty suffix between dots
+  )
+  local _fail=0
+  for _name in "${_bad_names[@]}"; do
+    if [[ "$_name" =~ ^rule-[DRGM]-[A-Z0-9](\.[a-z0-9]+)?\.md$ ]]; then
+      _fail=1
+      fail "rule_114_filename_dot_convention_neg" "expected $_name to fail regex but it passed"
+      return
+    fi
+  done
+  ok "rule_114_filename_dot_convention_neg" "Rule 114 catches near-miss filenames (hyphen, lowercase, missing dash, capital R, uppercase suffix, empty suffix) — rc20 Wave 3 / ADR-0097 parameterization"
 }
 
 # ---------------------------------------------------------------------------

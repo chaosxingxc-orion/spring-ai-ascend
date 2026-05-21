@@ -54,25 +54,20 @@ CLEANUP_STATUS_ENUM = {
     "incomplete",
     "monitoring",
 }
-# Base signal paths (always trigger freshness on change).
+# Base signal paths (always trigger freshness on change). The auto-derive
+# step (cf. derive_signal_paths) walks families[].surfaces[] dynamically
+# and adds every disk-resolvable surface to this set — that closes
+# ADV-RC18-3 (signal-set narrower than tracked surfaces) without the
+# hard-coded SURFACE_PREFIX_BASES that rc19 Wave 1 introduced (those
+# entries — `agent-`, `**/module-metadata.yaml`, etc. — were either
+# invalid git pathspecs or duplicated by surface-derived entries; rc20
+# Wave 3 / ADR-0097 removed them as dead placebo per review Finding F4).
 BASE_SIGNAL_PATHS = [
     "docs/adr/",
     "docs/governance/architecture-status.yaml",
     "docs/logs/releases/",
     "docs/governance/rules/",
     "CLAUDE.md",
-]
-# Auto-derived signal-path PREFIXES from family surfaces. Closes ADV-RC18-3
-# (signal-set narrower than tracked surfaces).
-SURFACE_PREFIX_BASES = [
-    "ops/",
-    "docs/contracts/",
-    "docs/quickstart.md",
-    ".github/workflows/",
-    "Dockerfile",
-    "docs/telemetry/",
-    "**/module-metadata.yaml",
-    "agent-",  # any agent-* module path
 ]
 
 
@@ -251,28 +246,61 @@ def _git_run(args: list[str], cwd: str) -> str:
         return ""
 
 
-def derive_signal_paths(yaml_data: dict) -> list[str]:
+def derive_signal_paths(yaml_data: dict, repo_root: str = ".") -> list[str]:
     """
     Derive signal paths from family surfaces (closes ADV-RC18-3).
     Returns sorted list of paths suitable for `git log -- <paths>`.
+
+    rc20 Wave 3 / ADR-0097 hardening:
+      - Sanitize each surface token: reject `../`, absolute paths, and
+        colon-bearing tokens (e.g. `gate/x.sh:func`) which git silently
+        accepts but never matches; warn so typos surface rather than
+        becoming vacuous freshness passes (closes Finding F7).
+      - Only emit paths that actually resolve on disk OR are explicit
+        directory prefixes ending in `/` — keeps the set tight without
+        re-introducing the hard-coded SURFACE_PREFIX_BASES placebos.
     """
     paths = set(BASE_SIGNAL_PATHS)
-    paths.update(SURFACE_PREFIX_BASES)
-    # Walk family surfaces and extract path-like prefixes.
     for fam in yaml_data.get("families", []):
-        for surface in fam.get("surfaces", []):
+        fid = fam.get("id", "<unknown>") if isinstance(fam, dict) else "<unknown>"
+        for surface in fam.get("surfaces", []) if isinstance(fam, dict) else []:
             if not isinstance(surface, str):
                 continue
-            # Take first whitespace-delimited token (strip annotations like "(latest only)")
             token = surface.split()[0] if surface.split() else ""
-            # Strip fragment (#field) and trailing wildcards
             base = token.split("#")[0]
-            if not base or base.startswith(("`", "/", "git ")):
+            if not base or base.startswith(("`", "git ")):
                 continue
-            # Reduce **/X to X for git log filtering (git can't take **/)
+            # Reject path-traversal + absolute paths (git pathspecs are repo-relative)
+            if base.startswith(("/", "../")) or "/../" in base:
+                print(
+                    f"WARN: family {fid} surface {surface!r} rejected — "
+                    f"not a repo-relative path (rc20 Wave 3 sanitizer)",
+                    file=sys.stderr,
+                )
+                continue
+            # Reject colon-bearing tokens (git accepts but never matches)
+            if ":" in base:
+                print(
+                    f"WARN: family {fid} surface {surface!r} rejected — "
+                    f"colon-bearing tokens are not valid git pathspecs (rc20 Wave 3 sanitizer)",
+                    file=sys.stderr,
+                )
+                continue
             base = base.replace("**/*", "").replace("**/", "")
-            if base:
-                paths.add(base)
+            if not base:
+                continue
+            # Warn (but accept) if the surface doesn't resolve on disk; gives
+            # authors a fast typo-feedback signal instead of vacuous freshness.
+            abs_check = os.path.join(repo_root, base.rstrip("/"))
+            if not (os.path.exists(abs_check) or base.endswith("/")):
+                print(
+                    f"WARN: family {fid} surface {surface!r} (token={base!r}) "
+                    f"does not resolve on disk under {repo_root!r}; "
+                    f"freshness will silently match nothing (rc20 Wave 3 sanitizer; "
+                    f"likely typo or stale path)",
+                    file=sys.stderr,
+                )
+            paths.add(base)
     return sorted(p for p in paths if p)
 
 
@@ -294,8 +322,10 @@ def cmd_freshness(yaml_path: str, repo_root: str = ".") -> int:
     if not os.path.isfile(yaml_path):
         return 0  # subsumed by .a
 
-    # Confirm we're in a git repo
-    if not _git_run(["rev-parse", "--git-dir"], repo_root):
+    # Confirm we're in a git repo (single rev-parse call; rc20 Wave 3 / ADR-0097
+    # consolidates the duplicate rev-parse from rc19 per review Finding F13).
+    git_dir = _git_run(["rev-parse", "--git-dir"], repo_root)
+    if not git_dir:
         return 0  # no git, can't check; tolerate
 
     # Fix 1h: shallow-clone fail-closed (close ADV-RC18-5 — handle empty
@@ -309,8 +339,7 @@ def cmd_freshness(yaml_path: str, repo_root: str = ".") -> int:
         )
         return 1
     # Also handle empty output (older git versions) by checking .git/shallow marker
-    git_dir = _git_run(["rev-parse", "--git-dir"], repo_root)
-    if not is_shallow_out and git_dir:
+    if not is_shallow_out:
         shallow_marker = os.path.join(repo_root, git_dir, "shallow")
         if os.path.isfile(shallow_marker):
             fail(
@@ -324,7 +353,7 @@ def cmd_freshness(yaml_path: str, repo_root: str = ".") -> int:
     if data is None:
         return 0  # subsumed by .a
 
-    signal_paths = derive_signal_paths(data)
+    signal_paths = derive_signal_paths(data, repo_root)
     # Most-recent commit SHA touching any signal path
     signal_sha = _git_run(
         ["log", "-1", "--format=%H", "--", *signal_paths], repo_root
