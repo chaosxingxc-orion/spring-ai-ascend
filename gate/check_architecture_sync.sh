@@ -6072,26 +6072,38 @@ else
       fi
     done < <(grep -E '^\| [A-Za-z][A-Za-z0-9.-]* \|' "$_r117_contract" 2>/dev/null)
   done
-  _r117_all_cited=$(printf '%s%s' "$_r117_cited_p" "$_r117_cited_x" | grep -v '^$' | sort -u)
+  # Materialise the cited / card / principle sets to temp files BEFORE the
+  # lookup loops. `printf '%s\n' "$big_var" | grep -Fxq` triggers SIGPIPE
+  # on the printf when grep -q exits early on first match — combined with
+  # `set -o pipefail` at the top of this script, the captured result becomes
+  # non-deterministic across fast (CI) vs slow (local) runners. CI rc21 hit
+  # this on R-C.1 reporting false orphan. Temp files make the lookup
+  # pipefail-immune.
+  _r117_tmp=$(mktemp -d 2>/dev/null || mktemp -d -t r117) || _r117_tmp="/tmp/r117_$$"
+  mkdir -p "$_r117_tmp"
+  printf '%s%s' "$_r117_cited_p" "$_r117_cited_x" | grep -v '^$' | sort -u > "$_r117_tmp/all_cited" || true
+  printf '%s\n' "$_r117_cards" | grep -v '^$' > "$_r117_tmp/cards" || true
+  printf '%s\n' "$_r117_principles" | grep -v '^$' > "$_r117_tmp/principles" || true
   # Check (a): every cited id resolves to a card or principle
   while IFS= read -r _r117_cited; do
     [[ -z "$_r117_cited" ]] && continue
-    if ! printf '%s\n' "$_r117_cards" | grep -Fxq "$_r117_cited" \
-       && ! printf '%s\n' "$_r117_principles" | grep -Fxq "$_r117_cited"; then
+    if ! grep -Fxq "$_r117_cited" "$_r117_tmp/cards" \
+       && ! grep -Fxq "$_r117_cited" "$_r117_tmp/principles"; then
       _r117_drift+="ghost-rule:$_r117_cited (cited in contract; no card on disk); "
       _r117_fail=1
     fi
-  done <<< "$_r117_all_cited"
+  done < "$_r117_tmp/all_cited"
   # Check (b): every rule card is cited at least once
   while IFS= read -r _r117_card; do
     [[ -z "$_r117_card" ]] && continue
-    if ! printf '%s\n' "$_r117_all_cited" | grep -Fxq "$_r117_card"; then
+    if ! grep -Fxq "$_r117_card" "$_r117_tmp/all_cited"; then
       _r117_drift+="orphan-rule:$_r117_card (card exists; not cited in any contract); "
       _r117_fail=1
     fi
-  done <<< "$_r117_cards"
+  done < "$_r117_tmp/cards"
   # Check (c): dual-P only allowed for G-9
-  _r117_dup_p=$(printf '%s' "$_r117_cited_p" | grep -v '^$' | sort | uniq -d)
+  printf '%s' "$_r117_cited_p" | grep -v '^$' | sort | uniq -d > "$_r117_tmp/dup_p" || true
+  _r117_dup_p=$(cat "$_r117_tmp/dup_p" 2>/dev/null || true)
   if [[ -n "$_r117_dup_p" ]]; then
     while IFS= read -r _r117_dup; do
       [[ -z "$_r117_dup" ]] && continue
@@ -6106,6 +6118,7 @@ else
   else
     fail_rule "phase_contract_rule_allocation_coherence" "${_r117_drift}-- Rule G-11 / E165"
   fi
+  rm -rf "$_r117_tmp" 2>/dev/null || true
 fi
 
 # === END OF RULES ===
