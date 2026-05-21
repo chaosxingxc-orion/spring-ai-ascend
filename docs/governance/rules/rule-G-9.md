@@ -16,7 +16,7 @@ scope_surfaces:
   - docs/logs/releases/*.md (latest)
   - CLAUDE.md (#### Rule heading set)
 kernel: |
-  **Architecture-refresh signals — new `docs/adr/*.yaml`, change in `architecture-status.yaml#baseline_metrics`, new `docs/logs/releases/*.md`, or change in the `#### Rule X` heading set in `CLAUDE.md` — MUST be accompanied by a sync of `docs/governance/recurring-defect-families.yaml` whose mtime/last_updated timestamp is no older than 24h before the most-recent refresh-signal commit. The yaml MUST be well-formed (every family has `id`, `title`, `first_observed_rc`, `last_observed_rc`, `occurrences`, `root_cause`, `surfaces`, `prevention_rules`, `cleanup_status`, `open_residual` — 9 required fields, sub-clause .a). The companion `recurring-defect-families.md` MUST list the SAME set of family ids as the yaml (sub-clause .c — yaml↔md parity). The mtime/last_updated freshness check is sub-clause .b.**
+  **Architecture-refresh signals — new `docs/adr/*.yaml`, change in `architecture-status.yaml#baseline_metrics`, new `docs/logs/releases/*.md`, or change in the `#### Rule X` heading set in `CLAUDE.md` — MUST be accompanied by a content-diff change to `docs/governance/recurring-defect-families.yaml`. Sub-clause .b enforces freshness by comparing the current yaml against `git show {signal_sha}^1:{yaml_path}` (first-parent semantics; squash-merge required on `main`); a no-op edit (trailing newline, whitespace, or `last_updated:` field bump without family-state change) fails. The yaml MUST be well-formed (every family has `id`, `title`, `first_observed_rc`, `last_observed_rc`, `occurrences`, `root_cause`, `surfaces`, `prevention_rules`, `cleanup_status`, `open_residual` — 9 required fields, sub-clause .a). The companion `recurring-defect-families.md` MUST list the SAME set of family ids AND match `cleanup_status` per id (sub-clause .c — yaml↔md parity, status-text included per rc20 Wave 1 / ADR-0097).**
 ---
 
 # Rule G-9 — Recurring-Defect Family Truth
@@ -56,13 +56,16 @@ YAML. Every entry under `families:` MUST declare all 9 required fields:
 6. `root_cause` — paragraph
 7. `surfaces` — list of paths/globs
 8. `prevention_rules` — list of Rule IDs
-9. `cleanup_status` — enum: `closed | structurally_addressed | partial | incomplete`
+9. `cleanup_status` — enum: `closed | structurally_addressed | partial | incomplete | monitoring`
 10. `open_residual` — paragraph (may be empty string for `closed` status)
+
+(rc20 Wave 2 / ADR-0097 added `monitoring` per rc19 Wave 3 schema; the rule
+card and the validator enum `CLEANUP_STATUS_ENUM` agree.)
 
 Top-level keys `schema_version` (integer) and `last_updated` (ISO date)
 are required.
 
-### .b — Mtime / Last-Updated Freshness
+### .b — Content-Diff Freshness
 
 **Enforcer**: E157 (Gate Rule 111 sub-check b).
 
@@ -72,15 +75,26 @@ An "architecture refresh signal" is any of:
 - Change in `docs/governance/architecture-status.yaml#baseline_metrics` block (any field)
 - New `docs/logs/releases/*.md` file (latest by `gate/lib/latest_release.sh`)
 - Change in the `^#### Rule X` heading set in `CLAUDE.md`
+- Change in `docs/governance/rules/*.md` (new card, edited card)
 
 If ANY refresh signal is present in `git log` since the last commit that
-modified `recurring-defect-families.yaml`, the gate FAILS with the
-signal description and the stale mtime.
+modified `recurring-defect-families.yaml`, the implementation in
+`gate/lib/validate_recurring_families.py` resolves the signal-touching
+commit SHA and compares the current yaml content against
+`git show {signal_sha}^1:{yaml_rel}` (first-parent semantics; squash-merge
+is therefore required on `main` for the parent path to be deterministic).
 
-The check is conservative: a refresh signal MUST be paired with a sync
-of the family ledger in the same wave (within 24h). The `last_updated`
-field in the yaml is the canonical timestamp; the git mtime is the
-fallback.
+A trivial edit (trailing newline, whitespace-only change, or a
+`last_updated:` field bump with no family-state change) does NOT satisfy
+freshness — the gate fails with a "no-op edit" message. Authors MUST
+update a real family field (`occurrences`, `cleanup_status`,
+`open_residual`, `prevention_rules`, or `surfaces`) when the refresh
+signal lands.
+
+The `last_updated` field remains a human-readable timestamp for
+auditors; the gate does NOT compare it to git mtime (rc18 Wave 1 +
+rc19 Wave 1 closed ADV-RC18-1 by replacing mtime proxy with
+content-diff).
 
 ### .c — YAML ↔ MD Family-ID Parity
 

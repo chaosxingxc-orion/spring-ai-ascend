@@ -6105,28 +6105,130 @@ SHEOF
   fi
 }
 
+test_rule_112_meta_self_application_live_rule_111_pos() {
+  # rc20 Wave 1 / ADR-0097: explicit assertion that the LIVE Rule 111 header
+  # carries [META] AND its body contains the literal source marker Rule 112
+  # requires (closes F-recursive-prevention-irony reopen P0 finding).
+  local canonical="$repo_root/gate/check_architecture_sync.sh"
+  local meta_line
+  meta_line=$(grep -nE '^# Rule 111 — .*\[META\]' "$canonical" | head -1)
+  if [[ -z "$meta_line" ]]; then
+    fail "rule_112_meta_self_application_live_rule_111_pos" "Rule 111 header missing [META] marker — Rule 112 will silently exempt the prototype META rule (rc20 Wave 1 regression)"
+    return
+  fi
+  local lineno
+  lineno=$(printf '%s' "$meta_line" | cut -d: -f1)
+  local body
+  body=$(awk -v start="$lineno" 'NR > start && NR <= start + 80' "$canonical")
+  if printf '%s' "$body" | grep -qE '(source|\. )[[:space:]]+["'"'"'[:space:]]*[^"'"'"'[:space:]]*gate/lib/check_[a-zA-Z_]+\.sh'; then
+    ok "rule_112_meta_self_application_live_rule_111_pos" "Rule 111 [META] body sources gate/lib/check_*.sh — Rule 112 actually gates the prototype META rule per ADR-0097"
+  else
+    fail "rule_112_meta_self_application_live_rule_111_pos" "Rule 111 [META] body within 80 lines does NOT contain a literal gate/lib/check_*.sh source — Rule 112 will fail-close it OR silently exempt depending on regex; rc20 Wave 1 P0 regression"
+  fi
+}
+
+test_rule_111_c_cleanup_status_parity_neg() {
+  # rc20 Wave 1 / ADR-0097: drift between yaml cleanup_status and md table
+  # cleanup_status text MUST be detected (closes F-recursive review Finding F2/F3).
+  local root="$scratch/r111c_neg"
+  mkdir -p "$root"
+  cat > "$root/families.yaml" <<'YEOF'
+schema_version: 1
+last_updated: 2026-05-21
+families:
+  - id: F-test-fam
+    title: Test
+    first_observed_rc: rc20
+    last_observed_rc: rc20
+    occurrences: [rc20]
+    root_cause: |
+      test
+    surfaces:
+      - docs/test.md
+    prevention_rules:
+      - Rule X
+    cleanup_status: closed
+    open_residual: |
+      none
+YEOF
+  cat > "$root/families.md" <<'MEOF'
+# Recurring Defect Families
+
+| # | Family ID | Title | Occurrences | Cleanup Status |
+|---|---|---|---|---|
+| 1 | F-test-fam | Test | 1 (rc20) | ⚠️ partial |
+
+### F-test-fam — Test
+Some body text.
+MEOF
+  # Run the python validator and check for the drift error.
+  local _python_bin
+  if command -v python >/dev/null 2>&1; then _python_bin=python
+  elif command -v python3 >/dev/null 2>&1; then _python_bin=python3
+  else
+    ok "rule_111_c_cleanup_status_parity_neg" "skipped — no python available on this host"
+    return
+  fi
+  local _output
+  _output=$("$_python_bin" "$repo_root/gate/lib/validate_recurring_families.py" parity "$root/families.yaml" "$root/families.md" 2>&1)
+  if printf '%s' "$_output" | grep -q "cleanup_status drift"; then
+    ok "rule_111_c_cleanup_status_parity_neg" "Rule 111.c (rc20 Wave 1 extension) catches yaml-vs-md cleanup_status drift"
+  else
+    fail "rule_111_c_cleanup_status_parity_neg" "expected cleanup_status drift detection; got: $_output"
+  fi
+}
+
 test_rule_113_legacy_paren_reintroduction_neg() {
-  # Rule 113.a: synthetic enforcers.yaml WITH (legacy Rule NN ...) paren → fail
+  # Rule 113.a: synthetic enforcers.yaml WITH (legacy Rule NN ...) paren → fail.
+  # rc20 Wave 1 / ADR-0097: sources gate/lib/check_legacy_paren.sh and calls the
+  # SAME helper the production gate uses, so the fixture cannot drift from the
+  # gate's regex (closes Pattern D recurrence on Rule 113 fixture).
+  # shellcheck disable=SC1091
+  source "$repo_root/gate/lib/check_legacy_paren.sh"
   local root="$scratch/r113_neg"
   mkdir -p "$root"
   cat > "$root/enforcers.yaml" <<'YEOF'
 - id: E999
   constraint_ref: "CLAUDE.md Rule X.y (legacy Rule 99 — fake legacy paren reintroduction); test"
 YEOF
-  if grep -nE '\(legacy Rule [0-9]+' "$root/enforcers.yaml" > /dev/null; then
-    ok "rule_113_legacy_paren_reintroduction_neg" "Rule 113.a catches (legacy Rule NN ...) paren reintroduction"
+  local _output
+  _output=$(_check_legacy_paren_no_reintroduction "$root/enforcers.yaml")
+  if [[ -n "$_output" ]]; then
+    ok "rule_113_legacy_paren_reintroduction_neg" "Rule 113.a catches (legacy Rule NN ...) paren reintroduction via shared helper"
   else
-    fail "rule_113_legacy_paren_reintroduction_neg" "expected paren to be detected"
+    fail "rule_113_legacy_paren_reintroduction_neg" "expected helper to flag the synthetic paren"
   fi
 }
 
 test_rule_113_migration_doc_complete_pos() {
-  # Rule 113.b: real migration.md MUST contain expected sections
-  if grep -qF 'Legacy numeric' "$repo_root/gate/rule-number-migration.md" && \
-     grep -qF 'rc17 sub-rule splits' "$repo_root/gate/rule-number-migration.md"; then
-    ok "rule_113_migration_doc_complete_pos" "Rule 113.b accepts real migration.md with both required section headings"
+  # Rule 113.b: real migration.md MUST contain expected sections — call helper.
+  # shellcheck disable=SC1091
+  source "$repo_root/gate/lib/check_legacy_paren.sh"
+  local _output
+  _output=$(_check_migration_doc_complete "$repo_root/gate/rule-number-migration.md" 'Legacy numeric' 'rc17 sub-rule splits')
+  if [[ -z "$_output" ]]; then
+    ok "rule_113_migration_doc_complete_pos" "Rule 113.b accepts real migration.md with both required section headings (via shared helper)"
   else
-    fail "rule_113_migration_doc_complete_pos" "real migration.md missing expected headings"
+    fail "rule_113_migration_doc_complete_pos" "real migration.md missing expected headings: $_output"
+  fi
+}
+
+test_rule_113_migration_doc_complete_neg() {
+  # rc20 Wave 1: missing-heading negative case.
+  # shellcheck disable=SC1091
+  source "$repo_root/gate/lib/check_legacy_paren.sh"
+  local root="$scratch/r113_mig_neg"
+  mkdir -p "$root"
+  cat > "$root/migration.md" <<'MEOF'
+# Some random heading
+No expected sections here.
+MEOF
+  local _output
+  _output=$(_check_migration_doc_complete "$root/migration.md" 'Legacy numeric' 'rc17 sub-rule splits')
+  if [[ -n "$_output" ]]; then
+    ok "rule_113_migration_doc_complete_neg" "Rule 113.b helper rejects migration.md with missing required headings"
+  else
+    fail "rule_113_migration_doc_complete_neg" "expected helper to flag missing headings"
   fi
 }
 
