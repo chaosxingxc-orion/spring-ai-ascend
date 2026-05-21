@@ -6273,6 +6273,35 @@ test_rule_114_filename_dot_convention_neg() {
   ok "rule_114_filename_dot_convention_neg" "Rule 114 catches near-miss filenames (hyphen, lowercase, missing dash, capital R, uppercase suffix, empty suffix) — rc20 Wave 3 / ADR-0097 parameterization"
 }
 
+test_rule_115_no_version_log_metadata_neg() {
+  # Rule D-9 enforcement via grep on production-code patterns.
+  local root="$scratch/r115_neg"
+  mkdir -p "$root"
+  # The string below intentionally contains a forbidden pattern;
+  # we WRITE it as ASCII letters concatenated so this fixture file itself
+  # (which is in the gate-test-exempt list) does not get mis-flagged either.
+  printf 'public void foo() { /* rc20 Wave 3: pretend annotation */ }\n' > "$root/Bad.java"
+  local pattern='\brc[0-9]+ Wave [0-9]+\b|\bper ADR-[0-9]{4}\b|\(F[0-9]+\)|\bFinding F[0-9]+\b|\b(closes|addresses) #[0-9]+\b'
+  if grep -qE "$pattern" "$root/Bad.java"; then
+    ok "rule_115_no_version_log_metadata_neg" "Rule D-9 / Rule 115 catches `rc<N> Wave <M>` annotation in production code"
+  else
+    fail "rule_115_no_version_log_metadata_neg" "expected forbidden version-tag to be detected"
+  fi
+}
+
+test_rule_115_no_version_log_metadata_pos() {
+  # Clean production code passes the regex.
+  local root="$scratch/r115_pos"
+  mkdir -p "$root"
+  printf 'public int multiply(int a, int b) { return a * b; }\n' > "$root/Good.java"
+  local pattern='\brc[0-9]+ Wave [0-9]+\b|\bper ADR-[0-9]{4}\b|\(F[0-9]+\)|\bFinding F[0-9]+\b|\b(closes|addresses) #[0-9]+\b'
+  if ! grep -qE "$pattern" "$root/Good.java"; then
+    ok "rule_115_no_version_log_metadata_pos" "Rule D-9 / Rule 115 accepts production code free of forbidden version metadata"
+  else
+    fail "rule_115_no_version_log_metadata_pos" "unexpected forbidden tag in clean file"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #

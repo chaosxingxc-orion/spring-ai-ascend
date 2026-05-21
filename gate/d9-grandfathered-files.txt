@@ -1,0 +1,61 @@
+# Files grandfathered against Rule D-9 / Rule 115 (no_version_log_metadata_in_code).
+# Each row is a repo-relative path with an existing version/log metadata token at
+# the time Rule D-9 landed. New violations in these files still fail the gate
+# when scrubbed below the threshold (sunset_date enforces forward motion).
+#
+# sunset_date: 2026-11-21  (~6 months — files MUST be scrubbed off this list by then)
+#
+.github/workflows/ci.yml
+Dockerfile
+agent-bus/src/main/java/ascend/springai/bus/spi/package-info.java
+agent-bus/src/main/java/ascend/springai/bus/spi/s2c/package-info.java
+agent-client/src/main/java/ascend/springai/client/package-info.java
+agent-client/src/main/java/ascend/springai/client/spi/package-info.java
+agent-execution-engine/src/main/java/ascend/springai/engine/spi/package-info.java
+agent-service/src/main/java/ascend/springai/service/runtime/memory/spi/GraphMemoryRepository.java
+agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/ResilienceContract.java
+agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/SuspendReason.java
+agent-service/src/test/java/ascend/springai/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java
+agent-service/src/test/java/ascend/springai/service/platform/api/ApiCompatibilityTest.java
+agent-service/src/test/java/ascend/springai/service/platform/architecture/HttpEdgeMustNotImportMemorySpiTest.java
+agent-service/src/test/java/ascend/springai/service/platform/architecture/McpReplaySurfaceArchTest.java
+agent-service/src/test/java/ascend/springai/service/platform/architecture/MetricNamingTest.java
+agent-service/src/test/java/ascend/springai/service/platform/architecture/NoStringConcatSqlTest.java
+agent-service/src/test/java/ascend/springai/service/platform/architecture/PlatformImportsOnlyRuntimePublicApiTest.java
+agent-service/src/test/java/ascend/springai/service/platform/architecture/RepositoryPaginationTest.java
+agent-service/src/test/java/ascend/springai/service/platform/engine/EngineRegistryBootValidationIT.java
+agent-service/src/test/java/ascend/springai/service/platform/engine/EngineRegistryClasspathBootIT.java
+agent-service/src/test/java/ascend/springai/service/platform/web/runs/RunHttpContractIT.java
+agent-service/src/test/java/ascend/springai/service/runtime/architecture/LlmGatewayHookChainOnlyTest.java
+agent-service/src/test/java/ascend/springai/service/runtime/architecture/SpanTenantAttributeRequiredTest.java
+agent-service/src/test/java/ascend/springai/service/runtime/architecture/TelemetryVerticalArchTest.java
+agent-service/src/test/java/ascend/springai/service/runtime/architecture/TenantPropagationPurityTest.java
+agent-service/src/test/java/ascend/springai/service/runtime/runs/RunRecordTenantLibraryTest.java
+agent-service/src/test/java/ascend/springai/service/runtime/s2c/S2cCallbackRespectsRule38Test.java
+gate/check_architecture_sync.sh
+gate/migrate_adrs_to_yaml.py
+gate/rules/rule-011.sh
+gate/rules/rule-015.sh
+gate/rules/rule-019.sh
+gate/rules/rule-022.sh
+gate/rules/rule-028e.sh
+gate/rules/rule-030.sh
+gate/rules/rule-044.sh
+gate/rules/rule-072.sh
+gate/rules/rule-091.sh
+gate/rules/rule-094.sh
+gate/rules/rule-098.sh
+gate/rules/rule-099.sh
+gate/rules/rule-101.sh
+gate/rules/rule-106.sh
+gate/rules/rule-107.sh
+gate/rules/rule-108.sh
+gate/rules/rule-109.sh
+gate/rules/rule-110.sh
+gate/rules/rule-111.sh
+gate/rules/rule-112.sh
+gate/rules/rule-113.sh
+gate/rules/rule-114.sh
+scripts/rc13_arch_sweep.py
+scripts/rc13_dissolve_runtime_core.py
+spring-ai-ascend-graphmemory-starter/src/main/java/ascend/springai/service/runtime/graphmemory/GraphMemoryProperties.java

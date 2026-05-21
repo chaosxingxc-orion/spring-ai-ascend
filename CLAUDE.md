@@ -87,6 +87,13 @@ Enforced by [`rule-D-5.md`](docs/governance/rules/rule-D-5.md).
 Enforced by [`rule-D-6.md`](docs/governance/rules/rule-D-6.md).
 
 ---
+#### Rule D-9 — No Version / Log Metadata in Code
+
+**Production code (Java, Python, shell scripts, YAML config) and inline comments MUST NOT carry version metadata: no `rc<N> Wave <M>` tags, no `per ADR-NNNN` pointers, no commit-SHA references, no `Finding F<N>` mentions, no "closes/addresses ticket #<N>" annotations, no changelog-style entries. Such metadata lives in commit messages, PR descriptions, ADRs (`docs/adr/`), release notes (`docs/logs/releases/`), rule cards (`docs/governance/rules/*.md`), `rule-history.md`, and the recurring-defect-families ledger. Implementation comments explain WHY the code exists when non-obvious, never WHICH wave introduced it. Structural rule citations (`# Rule 113 — slug`, `enforcer E160`) are STRUCTURAL identifiers, not metadata, and remain allowed everywhere. The following surfaces are EXEMPT (they exist precisely to carry version/wave metadata): `docs/adr/`, `docs/logs/`, `docs/governance/rules/*.md`, `docs/governance/principles/*.md`, `docs/governance/rule-history.md`, `docs/governance/recurring-defect-families.{yaml,md}`, `docs/governance/architecture-status.yaml` (allowed_claim + baseline_metrics comments), `docs/governance/enforcers.yaml`, `docs/governance/principle-coverage.yaml`, `docs/governance/architecture-graph.yaml`, `CHANGELOG.md`, the kernel paragraphs in `CLAUDE.md` itself, `gate/lib/` (helpers), and `gate/test_architecture_sync_gate.sh` (test fixtures construct synthetic version-tagged inputs).**
+
+Enforced by [`rule-D-9.md`](docs/governance/rules/rule-D-9.md).
+
+---
 
 ### Architectural enforcement
 #### Rule G-2 — Authority-Text Reality (doc / status / path / numeric truth)
@@ -273,7 +280,7 @@ Enforced by [`rule-G-6.md`](docs/governance/rules/rule-G-6.md).
 ### Linux-first dev environment (2026-05-18)
 #### Rule G-7 — Linux-First Dev Environment
 
-**All shell-driven operations (gates, builds, tests, generated artefacts, `git push`) MUST be verified on Linux — native, WSL2 (preferred), or WSL1 (fallback) — before merging to `main`. Git Bash for Windows is a debugging shim, not a verification environment. `docs/governance/dev-environment.md` is the canonical setup + verification guide. Measured 2026-05-18: WSL is 6–20× faster than Git Bash, AND surfaces platform-portability bugs that Win-only verification hides.**
+**All shell-driven operations (gates, builds, tests, generated artefacts, `git push`) MUST be verified on Linux — native, WSL2 (preferred), or WSL1 (fallback) — before merging to `main`. All driving scripts on Windows hosts MUST be invoked through Linux/WSL (e.g. `wsl -d <distro> -- bash -lc '...'` or by working inside a WSL shell with the repo mounted at `/mnt/<drive>/...`); Git Bash for Windows is a one-off debug shim, never the documented default invocation path. Documented commands, runbooks, and agent-driven automation MUST default to WSL/Linux invocation on Windows hosts. `docs/governance/dev-environment.md` is the canonical setup + verification guide. Measured 2026-05-18: WSL is 6–20× faster than Git Bash, AND surfaces platform-portability bugs that Win-only invocation hides.**
 
 Enforced by [`rule-G-7.md`](docs/governance/rules/rule-G-7.md).
 
