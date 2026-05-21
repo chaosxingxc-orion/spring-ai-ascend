@@ -7,6 +7,7 @@ principle_ref: P-A
 authority_refs: []
 enforcer_refs: []
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **For every shared-state resource, exactly one builder/factory owns construction. All consumers receive the instance by dependency injection.**

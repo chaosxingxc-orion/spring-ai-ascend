@@ -7,6 +7,7 @@ principle_ref: P-C
 authority_refs: [ADR-0068]
 enforcer_refs: [E55, E57, E56, E58]
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **Every architecture artefact (`ARCHITECTURE.md` section, `docs/adr/*.yaml`, `docs/L2/*.md`, `docs/logs/reviews/*.md`) MUST declare front-matter `level: L0|L1|L2` and `view: logical|development|process|physical|scenarios` per the 4+1 discipline (sub-clause .a); root `ARCHITECTURE.md` is L0 canonical, `agent-*/ARCHITECTURE.md` is L1, `docs/L2/` is L2; phase-released L0/L1 artefacts are read-only with further edits flowing through `docs/logs/reviews/`. The machine-readable index `docs/governance/architecture-graph.yaml` MUST be generated (never hand-edited) by `gate/build_architecture_graph.sh` from principle-coverage / enforcers / status / module-metadata / ADR yaml inputs; the graph encodes principle→rule, rule→enforcer, enforcer→test/artefact, capability→test, module→module (allowed/forbidden), adr→adr (supersedes/extends/relates_to as DAGs), and (level,view)→artefact edges; the build MUST be idempotent (byte-identical re-run) (sub-clause .b).**

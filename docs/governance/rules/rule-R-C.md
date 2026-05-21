@@ -7,6 +7,7 @@ principle_ref: P-C
 authority_refs: [ADR-0064, ADR-0068, ADR-0094]
 enforcer_refs: [E15, E16, E17, E18, E19, E27, E28, E29, E30]
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **Every active normative constraint in the platform corpus MUST be enforced by code, registered in `docs/governance/enforcers.yaml`, and reach ≥1 of: an ArchUnit test, a `gate/check_architecture_sync.sh` rule, an integration test, a storage-layer schema constraint (NOT NULL / UNIQUE / CHECK / PRIMARY KEY), or a compile-time check (`@ConfigurationProperties + @Valid`, sealed types, package-info enforcement). Module-evolution invariants split to Rule R-C.1; run-spine invariants split to Rule R-C.2 per ADR-0094.**

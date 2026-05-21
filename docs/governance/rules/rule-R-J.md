@@ -7,6 +7,7 @@ principle_ref: P-J
 authority_refs: [ADR-0069, ADR-0020, ADR-0078]
 enforcer_refs: [E69, E106]
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **Tenant isolation is enforced at the storage engine: every Flyway migration creating a `tenant_id`-bearing table MUST enable Postgres Row-Level Security in the same migration (sub-clause .a; pre-rule migrations grandfathered in `gate/rls-baseline-grandfathered.txt` for W2 retrofit). At the HTTP edge, `POST /v1/runs/{runId}/cancel` MUST re-validate `(request.tenantId == Run.tenantId)` with HTTP 403 `tenant_mismatch` on miss; idempotent terminal→terminal same-status returns 200; illegal transitions return 409 `illegal_state_transition`; the cancel surface emits structured `WARN+` audit logs carrying `(runId, fromStatus, toStatus, actor, occurredAt)` MDC (sub-clause .b; resume/retry deferred to Rule R-J.b.d / W2 async orchestrator).**

@@ -7,6 +7,7 @@ principle_ref: P-A
 authority_refs: []
 enforcer_refs: []
 status: active
+scope_phase: commit
 kernel_cap: 12
 kernel: |
   A self-audit with open findings in a downstream-correctness category **blocks delivery**.

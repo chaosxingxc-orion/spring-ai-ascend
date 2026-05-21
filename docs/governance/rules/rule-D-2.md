@@ -7,6 +7,7 @@ principle_ref: P-A
 authority_refs: []
 enforcer_refs: []
 status: active
+scope_phase: always_on
 kernel_cap: 12
 kernel: |
   **Minimum code that solves the stated problem. Touch only what the task requires.**

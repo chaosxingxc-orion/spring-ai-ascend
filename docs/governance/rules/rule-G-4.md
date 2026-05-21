@@ -7,6 +7,7 @@ principle_ref: P-B
 authority_refs: []
 enforcer_refs: [E100, E101]
 status: active
+scope_phase: always_on
 kernel_cap: 8
 kernel: |
   **The always-loaded session-context budget is enforced two ways: every file listed in `gate/always-loaded-budget.txt` MUST be at or below its declared byte ceiling, validated by `gate/measure_always_loaded_tokens.sh` (sub-clause .a; a ceiling of `0` means kept on disk but excluded from the budget). `docs/CLAUDE-deferred.md` MUST NOT be auto-injected into session context — no `@docs/CLAUDE-deferred.md` include directive in `CLAUDE.md`, no `ALWAYS` / `ALWAYS-LOAD` marker on its row in `docs/governance/SESSION-START-CONTEXT.md` (sub-clause .b; plain prose pointers fine, only auto-load mechanisms forbidden).**

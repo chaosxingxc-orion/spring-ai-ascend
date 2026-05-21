@@ -7,6 +7,7 @@ principle_ref: P-L
 authority_refs: [ADR-0069]
 enforcer_refs: [E71]
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **`docs/governance/sandbox-policies.yaml` MUST exist with a `default_policy:` block declaring at least six required keys: `outbound_network`, `filesystem_read`, `filesystem_write`, `cpu_cap_millicores`, `memory_cap_megabytes`, `wall_clock_cap_seconds`. Enforcement-mode keys (e.g. `syscalls`) MAY be added beyond the required six. Per-skill rows MUST NOT widen the default policy beyond what the physical sandbox can enforce. Runtime refusal of over-wide logical grants by `SandboxExecutor` is deferred to Rule R-L.b (W2) per `docs/CLAUDE-deferred.md`.**

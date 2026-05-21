@@ -14,6 +14,7 @@ kernel: |
   and self-service closure (a developer can build, run, and test an agent
   end-to-end against the platform without platform-team intervention).
   Enforced by Rule R-A.
+scope_phase: design
 ---
 
 ## Motivation

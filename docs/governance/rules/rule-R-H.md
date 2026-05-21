@@ -7,6 +7,7 @@ principle_ref: P-H
 authority_refs: [ADR-0069]
 enforcer_refs: [E67]
 status: active
+scope_phase: impl
 kernel_cap: 8
 kernel: |
   **No production class under `agent-service/src/main/java/ascend/springai/service/platform/**` or `agent-service/src/main/java/ascend/springai/service/runtime/**` may invoke `Thread.sleep(...)` or `TimeUnit.<unit>.sleep(...)`. Long-horizon waits MUST be expressed as declarative suspension (`SuspendSignal`) and resumed by the bus-level Tick Engine.**

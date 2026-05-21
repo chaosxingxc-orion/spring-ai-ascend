@@ -7,6 +7,7 @@ principle_ref: P-D
 authority_refs: [ADR-0094]
 enforcer_refs: [E156, E157, E158]
 status: active
+scope_phase: commit
 kernel_cap: 8
 scope_surfaces:
   - docs/governance/recurring-defect-families.yaml

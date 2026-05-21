@@ -7,6 +7,7 @@ principle_ref: P-A
 authority_refs: [ADR-0064]
 enforcer_refs: [E107]
 status: active
+scope_phase: design
 kernel_cap: 12
 kernel: |
   **A CI job named `quickstart-smoke` in `.github/workflows/ci.yml` MUST boot `agent-service` via `mvn -pl agent-service spring-boot:run` on a clean container and assert `GET /v1/health` returns 200 within 60 seconds. Job failure is a ship-blocking finding under Rule D-5 (HTTP / API contract category). The quickstart instructions live at `docs/quickstart.md` (Rule R-A / P-A authority). Activated 2026-05-18 (Wave 4 Track E).**

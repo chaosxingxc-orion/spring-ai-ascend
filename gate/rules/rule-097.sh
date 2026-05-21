@@ -76,6 +76,42 @@ else
       fail_rule "release_note_numeric_truth" "latest release note $_r97_latest contains absolute node/edge count claim(s) that disagree with live $_r97_graph (nodes=$_r97_nodes, edges=$_r97_edges): ${_r97_first}-- Rule 97 / E135 (rc10 I-α-2 closure; either update the prose to match live counts OR add an 'rc[N] correction'/'rc[N] snapshot' marker within ±3 lines)"
       _r97_fail=1
     fi
+    # Extension: scan for `N/M self-tests` and `N/M tests` ratio claims whose
+    # DENOMINATOR diverges from baseline_metrics.gate_executable_test_cases.
+    # Same marker-window exemption as the node/edge check above.
+    _r97_status="docs/governance/architecture-status.yaml"
+    if [[ -f "$_r97_status" ]]; then
+      _r97_live_tests=$(grep -E '^[[:space:]]*gate_executable_test_cases:[[:space:]]+[0-9]+' "$_r97_status" | head -1 | awk -F'[: ]+' '{print $3}')
+      if [[ -n "$_r97_live_tests" ]]; then
+        _r97_test_violations=$(awk -v live="$_r97_live_tests" -v markers="$_r97_markers" '
+          { lines[NR] = $0 }
+          END {
+            in_code = 0
+            for (i = 1; i <= NR; i++) {
+              line = lines[i]
+              if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
+              if (in_code) continue
+              lo = i - 3; if (lo < 1) lo = 1
+              hi = i + 3; if (hi > NR) hi = NR
+              window = ""
+              for (j = lo; j <= hi; j++) window = window " " lines[j]
+              # Match `<N>/<M> self-tests` or `<N>/<M> tests passed` or `<N>/<M> gate self-tests`
+              if (match(line, /([0-9]+)\/([0-9]+)[[:space:]]+(self-tests|tests passed|tests pass|gate self-tests)/, arr)) {
+                denom = arr[2]
+                if (denom != live && window !~ markers) {
+                  print i ":self_tests_denom:claim=" denom ":live=" live ":" line
+                }
+              }
+            }
+          }
+        ' "$_r97_latest" 2>/dev/null || true)
+        if [[ -n "$_r97_test_violations" ]]; then
+          _r97_first_t=$(echo "$_r97_test_violations" | head -3 | tr '\n' '|')
+          fail_rule "release_note_numeric_truth" "latest release note $_r97_latest claims N/M self-tests whose denominator disagrees with baseline_metrics.gate_executable_test_cases=$_r97_live_tests: ${_r97_first_t}-- Rule 97 / E135 (denominator-drift sub-check; either update the ratio OR add an 'rc[N] correction'/'rc[N] snapshot' marker within ±3 lines)"
+          _r97_fail=1
+        fi
+      fi
+    fi
   fi
 fi
 if [[ $_r97_fail -eq 0 ]]; then pass_rule "release_note_numeric_truth"; fi

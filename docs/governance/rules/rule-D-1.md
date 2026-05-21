@@ -7,6 +7,7 @@ principle_ref: P-A
 authority_refs: []
 enforcer_refs: []
 status: active
+scope_phase: always_on
 kernel_cap: 12
 kernel: |
   **Before writing any plan, fix, or feature — surface assumptions, name confusion, and state tradeoffs. Then (a) name the root cause mechanically and (b) choose the strongest valid reading of the requirement.**

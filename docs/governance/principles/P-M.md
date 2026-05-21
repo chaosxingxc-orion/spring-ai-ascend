@@ -17,6 +17,7 @@ kernel: |
   default.
   Enforced by Rules R-M.a–R-M.e (formerly Rules 43–47); cross-cutting structural invariant operationalised
   by Rule M-2 sub-clause .a (formerly Rule 48; Schema-First Domain Contracts).
+scope_phase: design
 ---
 
 ## Motivation

@@ -7,6 +7,7 @@ principle_ref: P-G
 authority_refs: [ADR-0069]
 enforcer_refs: [E66]
 status: active
+scope_phase: impl
 kernel_cap: 8
 kernel: |
   **No production class under `agent-service/src/main/java/ascend/springai/service/runtime/**` may import `org.springframework.web.client.RestTemplate` or `org.springframework.jdbc.core.JdbcTemplate`. External I/O in runtime code MUST go through Reactive (`WebClient` / `R2dbcEntityTemplate`) or Virtual-Thread-backed clients.**

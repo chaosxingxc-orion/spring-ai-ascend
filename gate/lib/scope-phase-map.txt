@@ -1,0 +1,69 @@
+# scope_phase mapping per ADR-0098 (rc21 6-phase scenario-loaded contracts).
+# Format: <rule_or_principle_id>=<phase>
+# Phases: always_on | design | impl | verify | commit | review
+#
+# Dual-P exception (G-9: commit + review) declared in ADR-0098 §rule-allocation-map;
+# scope_phase here records the PRIMARY phase only. Cross-references handled by
+# the phase contract tables under docs/governance/contracts/.
+
+# Daily rules
+D-1=always_on
+D-2=always_on
+D-3=verify
+D-4=impl
+D-5=commit
+D-6=design
+D-7=design
+D-8=design
+D-9=always_on
+
+# Governance rules
+G-1=design
+G-2=commit
+G-2.1=commit
+G-3=commit
+G-3.1=commit
+G-4=always_on
+G-5=verify
+G-6=verify
+G-7=always_on
+G-8=commit
+G-9=commit
+
+# Module rules
+M-1=design
+M-2=design
+
+# Run / runtime rules
+R-A=design
+R-A.c=design
+R-B=commit
+R-C=design
+R-C.1=design
+R-C.2=impl
+R-D=design
+R-E=design
+R-F=design
+R-G=impl
+R-H=impl
+R-I=design
+R-I.1=design
+R-J=design
+R-K=design
+R-L=design
+R-M=design
+
+# Principles (all design-phase consulted)
+P-A=design
+P-B=design
+P-C=design
+P-D=design
+P-E=design
+P-F=design
+P-G=design
+P-H=design
+P-I=design
+P-J=design
+P-K=design
+P-L=design
+P-M=design

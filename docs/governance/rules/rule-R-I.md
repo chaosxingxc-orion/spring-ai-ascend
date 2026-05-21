@@ -7,6 +7,7 @@ principle_ref: P-I
 authority_refs: [ADR-0069, ADR-0094]
 enforcer_refs: [E68]
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **Every `<module>/module-metadata.yaml` MUST declare `deployment_plane:` whose value is one of `edge | compute_control | bus_state | sandbox | evolution | none`. The plane assignment MUST match the L0 §7.1 topology — Edge Access (Agent Client SDK), Compute & Control (Runtime + Execution Engine), Bus & State Hub (Bus + Middleware persistence), Sandbox Execution (untrusted code), Evolution (Python ML). BoMs and build-time-only modules use `none`. Edge↔Compute ingress routing invariants split to Rule R-I.1 per ADR-0094.**

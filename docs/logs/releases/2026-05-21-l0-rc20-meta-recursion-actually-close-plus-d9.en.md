@@ -10,6 +10,13 @@ supersedes_release_notes:
   - docs/logs/releases/2026-05-21-l0-rc19-meta-recursion-permanent-close.en.md
 ---
 
+> **Historical artifact frozen at SHA fb5bd9d** — numeric baselines below
+> (ADR count, gate rule count, etc.) reflect rc20 final merged state.
+> Current canonical baselines live in
+> [`docs/governance/architecture-status.yaml#baseline_metrics`](../../governance/architecture-status.yaml);
+> rc21 closeout (ADR-0098) supersedes this note per Rule 28 release-note
+> convention.
+
 # L0 v2.0.0-rc20 — Meta-Recursion Actually-Close + Rule D-9 + Rule G-7 Extension
 
 ## Verdict

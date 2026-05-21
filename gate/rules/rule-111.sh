@@ -3,7 +3,7 @@
 # Rule 111 — architecture_refresh_defect_family_re_eval_required. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
 # Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
 
-# Rule 111 — architecture_refresh_defect_family_re_eval_required (enforcers E156 E157 E158)
+# Rule 111 — architecture_refresh_defect_family_re_eval_required (enforcers E156 E157 E158) [META]
 #
 # Operationalises Rule G-9 (Recurring-Defect Family Truth). Per ADR-0095
 # rc18 Wave 1, the 3 sub-checks delegate to shared helpers in
@@ -45,7 +45,7 @@ if [[ ! -f "$_r111_helper" ]]; then
 else
   # Source helpers once; capture each sub-check's stdout for fail_rule emission.
   # shellcheck disable=SC1090
-  source "$_r111_helper"
+  source "$_r111_helper"  # source gate/lib/check_recurring_families.sh — Rule 112 [META] self-application marker
 
   # Sub-check .a — yaml well-formedness (covers fixes 1b, 1c, 1d, 1e)
   _r111_a_output=$(_check_recurring_families_yaml_wellformed "$_r111_yaml")

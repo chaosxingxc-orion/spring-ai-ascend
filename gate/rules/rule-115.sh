@@ -79,12 +79,4 @@ if [[ -n "$_r115_hits" ]]; then
 fi
 if [[ $_r115_fail -eq 0 ]]; then pass_rule "no_version_log_metadata_in_code"; fi
 
-# === END OF RULES ===
 # ---------------------------------------------------------------------------
-if [[ $fail_count -eq 0 ]]; then
-  echo "GATE: PASS"
-  exit 0
-else
-  echo "GATE: FAIL"
-  exit 1
-fi

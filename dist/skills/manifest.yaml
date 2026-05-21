@@ -1,0 +1,68 @@
+# Publishable skill bundle for adopters of the 6-phase scenario-contract
+# pattern. Source authority: ADR-0098 (rc21).
+#
+# Downstream platform consumers — teams building agent runtimes on
+# spring-ai-ascend — adopt the pattern by copying the templates under
+# `dist/skills/templates/` into their `.claude/skills/` directory and
+# customising the `{{PLACEHOLDER}}` markers. The phase contracts under
+# `dist/skills/contract-templates/` give the structural skeleton.
+#
+# Per Principle P-A (Business / Platform Decoupling + Developer
+# Self-Service), the platform ships the pattern as a deliverable, not
+# only as a hidden internal convention.
+
+manifest_version: rc21-2026-05-21
+upstream_repo: spring-ai-ascend
+upstream_adr: ADR-0098
+
+audience:
+  - downstream-platform-consumer
+  - in-repo-contributor
+
+published_skills:
+  - name: design-mode
+    template: templates/design-mode.template.md
+    contract_template: contract-templates/architecture-design.contract.template.md
+    phase: design
+    requires:
+      - downstream `.claude/skills/` directory
+      - downstream contract document at a customisable path
+  - name: impl-mode
+    template: templates/impl-mode.template.md
+    contract_template: contract-templates/engineering-implementation.contract.template.md
+    phase: impl
+    requires:
+      - downstream `.claude/skills/` directory
+  - name: verify-mode
+    template: templates/verify-mode.template.md
+    contract_template: contract-templates/integration-verification.contract.template.md
+    phase: verify
+    requires:
+      - downstream gate runner (analogue of `gate/check_parallel.sh`)
+  - name: commit-mode
+    template: templates/commit-mode.template.md
+    contract_template: contract-templates/system-commit.contract.template.md
+    phase: commit
+    requires:
+      - downstream release-note convention
+      - downstream baseline-metrics surface
+  - name: review-mode
+    template: templates/review-mode.template.md
+    contract_template: contract-templates/review-response.contract.template.md
+    phase: review
+    requires:
+      - downstream `recurring-defect-families.yaml` + `.md` (or analogue)
+  - name: refresh-defect-archive
+    template: templates/refresh-defect-archive.template.md
+    contract_template: null   # tied to G-9, not a phase contract
+    phase: review
+    requires:
+      - downstream `recurring-defect-families.yaml` + `.md`
+
+adoption_guide: README.md
+license_inherited_from: ../../LICENSE
+
+# This file is exempt from Rule D-9 (No Version / Log Metadata in Code)
+# because manifest_version is a publication identifier analogous to
+# `pom.xml#version`, not a code identifier. The exemption is enumerated
+# in ADR-0098 §rule-allocation-map.

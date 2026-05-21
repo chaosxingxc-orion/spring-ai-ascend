@@ -7,6 +7,7 @@ principle_ref: P-D
 authority_refs: [ADR-0082, ADR-0083, ADR-0085]
 enforcer_refs: [E121, E122, E123, E124, E125, E126]
 status: active
+scope_phase: verify
 kernel_cap: 8
 kernel: |
   **Gate self-consistency is enforced on four surfaces: canonical (`gate/check_architecture_sync.sh`) and parallel wrapper (`gate/check_parallel.sh`) MUST execute the same rule slug set, terminating at the `# === END OF RULES ===` marker with em-dash `—` separators (no double-dash) (sub-clause .a). `gate/test_architecture_sync_gate.sh` MUST fail closed when `passed != TOTAL`, derive TOTAL at runtime (not a bare literal), and declare a `test_rule_<N>_*` function for every prevention-wave rule (N ≥ 80) (sub-clause .b). `baseline_metrics.active_gate_checks` MUST equal the literal `# Rule N — slug` header count, matching what `parallel_summary: executed N rules` reports (sub-clause .c). Every header MUST have a matching `gate/rules/rule-NNN[a-z]?.sh` file keyed by unique rule id (sub-clause .d; `gate/rules/` is IDE-only generated, the canonical monolith is canonical).**

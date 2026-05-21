@@ -7,6 +7,7 @@ principle_ref: P-B
 authority_refs: [ADR-0078, ADR-0083, ADR-0085, ADR-0094]
 enforcer_refs: [E97, E98, E99, E133, E139, E140, E151]
 status: active
+scope_phase: commit
 kernel_cap: 8
 kernel: |
   **Kernel-Card-Implementation coherence is enforced across the CLAUDE.md / rule-card / CLAUDE-deferred triangle: each `#### Rule X` kernel paragraph in CLAUDE.md fits the per-card `kernel_cap` (sub-clause .a — Kernel Size Bounded); the kernel text byte-matches the card's `kernel:` scalar (sub-clause .b — Kernel-Card Match); every `#### Rule X` heading has a sibling `docs/governance/rules/rule-X.md`, every card has either a CLAUDE.md heading OR a `## Rule X.<letter>` reference in `docs/CLAUDE-deferred.md` (sub-clause .c — Every Active Rule Has a Card). Every `## Rule X.<letter>` sub-clause in CLAUDE-deferred.md MUST be acknowledged by a literal `Rule X.<letter>` in EITHER the CLAUDE.md kernel OR the rule card (sub-clause .d — Kernel-Deferred Coherence). Active kernel verbs implying shipped Run-state transition (`are SUSPENDED`, `transitions to FAILED`, `consumes the * capacity`, `is rejected, not failed`, `admits the caller`) MUST NOT appear when the matching obligation is explicitly deferred — neither in `CLAUDE.md` kernels nor in any active `agent-*/ARCHITECTURE.md` body text (sub-clause .e — Terminal-Verb vs Shipped-Decision; scope widened to module ARCHITECTURE.md in rc15 per ADR-0091). Disjunction-truth invariant (former sub-clause .f) split to Rule G-3.1 per ADR-0094.**

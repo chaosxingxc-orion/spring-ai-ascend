@@ -58,6 +58,7 @@ authority_refs: [ADR-0094]
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
+| 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 1 (rc21) | ✅ closed — phase contracts + skills + dual-track loading per ADR-0098 |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -282,6 +283,76 @@ adds `[META]` to Rule 111 (so Rule 112 now gates it) AND sources the
 helper through a marker comment Rule 112's regex can resolve. Status
 reopened to `monitoring` pending 3-rc cool-down (rc20 + rc21 + rc22
 without recurrence) before re-promotion to `closed`.
+
+---
+
+### F-progressive-loading-weak-enforcement — CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time
+
+**Pattern.** Progressive on-demand rule loading in CLAUDE.md: kernel
+paragraphs auto-load into every session, but the full rule bodies in
+`docs/governance/rules/rule-*.md` are only fetched when Claude
+actively reads them. In practice the active read doesn't happen often
+enough during work-time — the kernel paragraph is "available" in
+context but not "attended to" when the model is reasoning about a
+specific edit. Gate-time META defences (Rule 68 kernel-card
+byte-match, Rule 110 META scope_surfaces, Rule G-9 family ledger)
+catch the symptom AT GATE TIME but cannot enforce attention AT WORK
+TIME.
+
+**Occurrences.** 1 (rc21).
+
+**Root cause.** The user observation 2026-05-21:
+"现在的 claude.md 太臃肿了 ... 渐进式加载之后，很多契约并没有严格执行"
+— CLAUDE.md is bloated; after progressive loading, many contracts
+aren't strictly enforced. The 33-KB CLAUDE.md kernel index loads
+into every session, but the model doesn't refocus on individual rule
+paragraphs at phase entry.
+
+**Surfaces.**
+- `CLAUDE.md` kernel paragraphs (37 rule kernels + 13 principle pointers)
+- `docs/governance/rules/*.md` (on-demand reads)
+- `docs/governance/principles/*.md` (on-demand reads)
+
+**Prevention rules.**
+- ADR-0098 (rc21 — 6-phase scenario-loaded contracts)
+- Rule G-10 (parallel-Linux-scripts mandate)
+- Rule G-11 (phase-contract rule-allocation coherence)
+- `.claude/skills/{design,impl,verify,commit,review}-mode.md` (5 phase-entry skills)
+- `docs/governance/contracts/*.md` (5 phase contracts with Active Rules tables)
+- `CLAUDE.md` Phase Entry directive table (Track 2 dual-track loading mechanism)
+
+**Cleanup status.** ✅ closed — phase contracts + skills + dual-track
+loading per ADR-0098.
+
+**Open residual.** rc21 ships the structural fix. Empirical
+verification of work-time enforcement requires observing the next
+several work sessions — does Claude actually invoke `/design-mode`
+when starting architecture work? Does the contract get cited during
+the work? rc21 release note codifies the hypothesis; rc22+ may re-open
+this family if the work-time behavioural change isn't observed.
+
+**Self-review iteration on rc21.** The 3rd PR commit (5e4ec0e) closed
+4 BUGs + 2 SMELLs found by adversarial self-review on the very rules
+this wave introduced: Rule 114 fixture stale vs widened canonical
+regex; ADR-0098 allocation map cited D-3.a/D-3.b as separate rows
+while disk has unified D-3 card; README + status.yaml composition
+arithmetic off-by-one on R count; allowed_claim arithmetic stale;
+Rule 116 `wait` regex too permissive; `test_architecture_sync_gate.sh`
+accidental fixture-string pass. Meta-lesson: structural fixes still
+need adversarial self-review before merge — the
+F-recursive-prevention-irony pattern can hide in helper logic the
+rule's author didn't themselves write.
+
+**CI corrective on rc21.** PR #31 CI surfaced one bug local WSL gate
+could not reproduce: Rule 117's `printf | grep -Fxq` lookup pipeline
+raced with `set -o pipefail` on fast GitHub Actions runners; the
+resulting SIGPIPE truncated the cited-set capture, producing
+false-orphan FAIL on R-C.1. Fix in commit d297b1d: materialise lookup
+sets to temp files via `mktemp -d`. Meta-lesson: gate rules using
+shell pipelines for set lookup under `set -o pipefail` are
+timing-fragile across CI vs local runners — prefer materialised temp
+files OR associative arrays OR `case` pattern matching for
+deterministic behaviour.
 
 ---
 

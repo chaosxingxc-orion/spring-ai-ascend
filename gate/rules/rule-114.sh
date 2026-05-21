@@ -32,8 +32,8 @@ if [[ -d "$_r114_dir" ]]; then
     # for new sub-rule (e.g., R-C.1, R-C.2.a).
     # Acceptable: rule-D-1.md, rule-R-A.md, rule-R-A.c.md, rule-R-C.1.md,
     # rule-R-C.2.md, rule-G-3.1.md, rule-G-9.md, rule-M-2.md.
-    if [[ ! "$_r114_basename" =~ ^rule-[DRGM]-[A-Z0-9](\.[a-z0-9]+)?\.md$ ]]; then
-      fail_rule "rule_card_filename_dot_convention" "$_r114_file: filename does not match rule card convention (rule-PREFIX-ID[.SUBID].md with dot, NOT hyphen). Per docs/governance/rules/README.md + ADR-0096 Wave 4. Rule 114 / E161"
+    if [[ ! "$_r114_basename" =~ ^rule-[DRGM]-[A-Z0-9]+(\.[a-z0-9]+)?\.md$ ]]; then
+      fail_rule "rule_card_filename_dot_convention" "$_r114_file: filename does not match rule card convention (rule-PREFIX-ID[.SUBID].md with dot, NOT hyphen). Per docs/governance/rules/README.md + ADR-0098 Wave 4 (rc21 widened ID to multi-char to admit G-10, G-11). Rule 114 / E161"
       _r114_fail=1
     fi
   done < <(find "$_r114_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort)

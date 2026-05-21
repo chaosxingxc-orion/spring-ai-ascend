@@ -7,6 +7,7 @@ principle_ref: P-D
 authority_refs: [ADR-0067, ADR-0083, ADR-0085]
 enforcer_refs: [E3, E32, E105, E106, E107, E108, E117, E118, E131]
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **Every `kind: domain` module exposes ≥1 `*.spi.*` package with ≥1 public interface listed under `spi_packages` in `module-metadata.yaml`, plus a `docs/dfx/<module>.yaml` covering five DFX dimensions (releasability, resilience, availability, vulnerability, observability); TCK conformance suites are deferred to W2 per `CLAUDE-deferred.md` 32.b/.c (sub-clause .a). Every `spi_packages` entry MUST resolve to a real directory with ≥1 `.java` beyond `package-info.java` (sub-clause .b), MUST be declared by exactly one Maven module (no split packages, sub-clause .c), and MUST end in `.spi` OR contain `.spi.` (sub-clause .d). Every `kind ∈ {platform, domain}` module's `docs/dfx/<module>.yaml` declares an order-insensitive set-matching `spi_packages` block vs `module-metadata.yaml#spi_packages` (sub-clause .e). Every row in `docs/contracts/contract-catalog.md` §2 Active SPI interfaces table (not `(internal)`-marked) MUST resolve back to `module-metadata.yaml#spi_packages` AND `docs/dfx/<module>.yaml#spi_packages` (sub-clause .f). Every `public interface` declaration under any `*/spi/*` path (excluding `target/`) MUST appear in the catalog as an Active SPI row OR be `(internal)`-marked (sub-clause .g).**

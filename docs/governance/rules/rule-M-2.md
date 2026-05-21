@@ -7,6 +7,7 @@ principle_ref: P-D
 authority_refs: [ADR-0077, ADR-0032, ADR-0052, ADR-0083]
 enforcer_refs: [E85, E116, E127, E128]
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **Domain contract discipline (sub-clause .a): every NEW domain enum or fixed-vocabulary taxonomy in `ARCHITECTURE.md` (root or per-module) on or after 2026-05-16 MUST cite a yaml schema under `docs/contracts/` or `docs/governance/` within ±5 lines; prose `<TYPE> | <TYPE>` enums outside fenced/yaml blocks are forbidden unless schema-referenced or grandfathered in `gate/schema-first-grandfathered.txt` (sunset_date required; advancing requires inline ADR). Every `docs/contracts/*.v1.yaml` whose `status: design_only` OR `runtime_enforced: false` MUST be listed by basename in `docs/contracts/contract-catalog.md` AND cite ≥1 `ADR-NNNN` whose file exists in `docs/adr/` (sub-clause .b). Every `docs/dfx/*.yaml` (excluding `docs/archive/`) MUST have a basename stem matching a `<module>` entry in root `pom.xml` (sub-clause .c).**

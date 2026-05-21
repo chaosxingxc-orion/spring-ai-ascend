@@ -7,6 +7,7 @@ principle_ref: P-C
 authority_refs: [ADR-0073, ADR-0079, "v2.0.0-rc4 cross-constraint review P0-2"]
 enforcer_refs: [E114]
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **For every reactor module whose root `ARCHITECTURE.md` frontmatter `status:` field contains the token `skeleton`, the module's `src/main/java/**/*.java` tree MUST contain only `package-info.java` files OR placeholder SPI stub files whose first 30 lines name a `placeholder` keyword with an `ADR-NNNN` waiver. Modules with extracted production code MUST NOT carry a `skeleton` status.**

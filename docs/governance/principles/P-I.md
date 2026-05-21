@@ -13,6 +13,7 @@ kernel: |
   Sandbox Execution (untrusted code), and Evolution (Python ML).
   Workloads with different characteristics MUST NOT share infrastructure.
   Enforced by Rule R-I.
+scope_phase: design
 ---
 
 ## Motivation

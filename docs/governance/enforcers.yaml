@@ -1430,3 +1430,19 @@
   view: development
   artifact: gate/check_architecture_sync.sh#no_version_log_metadata_in_code
   asserts: "Rule D-9 / Rule 115 — production code files (*.java, *.py, *.sh, *.bash, *.kt, *.ts, *.tsx, application*.yml, Dockerfile, .github/workflows/*.yml) MUST NOT contain the regex `\\brc[0-9]+ Wave [0-9]+\\b|\\bper ADR-[0-9]{4}\\b|\\(F[0-9]+\\)|\\bFinding F[0-9]+\\b|\\b(closes|addresses) #[0-9]+\\b`. Exempt: docs/adr/, docs/logs/, docs/governance/rules/, docs/governance/rule-history.md, docs/governance/recurring-defect-families.{yaml,md}, docs/governance/architecture-status.yaml, CLAUDE.md, CHANGELOG.md, gate/lib/, gate/test_architecture_sync_gate.sh. Such metadata belongs in commit messages / ADRs / release notes / rule cards / rule-history.md — not in the implementation."
+
+- id: E164
+  constraint_ref: "Rule G-10 (parallel_linux_scripts_mandate); ADR-0098"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#parallel_linux_scripts_mandate
+  asserts: "Rule G-10 / Rule 116 — every gate script under `gate/*.sh` (top-level, excluding `check_parallel.sh` and `check_architecture_sync.sh` which ARE the parallel orchestrator + canonical source) MUST EITHER appear in `gate/serial-only-paths.txt` (one-shot / helper / diagnostic / generator exemption list) OR contain a parallel-execution mechanism (`xargs -P`, GNU `parallel`, or background jobs followed by explicit `wait`). Extends Rule G-5.a (serial<->parallel slug parity) discipline to newly-authored scripts. Vacuously passes if `gate/serial-only-paths.txt` is absent (initial-deployment fallback)."
+
+- id: E165
+  constraint_ref: "Rule G-11 (phase_contract_rule_allocation_coherence); ADR-0098"
+  kind: gate-script
+  level: L0
+  view: process
+  artifact: gate/check_architecture_sync.sh#phase_contract_rule_allocation_coherence
+  asserts: "Rule G-11 / Rule 117 — phase contract <-> rule card coherence on the post-ADR-0098 contract layer: (a) every Active Rules row in `docs/governance/contracts/*.md` MUST cite a rule whose card exists under `docs/governance/rules/rule-*.md` OR a principle whose card exists under `docs/governance/principles/P-*.md`; (b) every active rule card MUST be cited in at least one phase contract as P or X; (c) dual-P (same rule cited as P in multiple contracts) is forbidden except for the enumerated G-9 exception (commit + review). Vacuously passes if `docs/governance/contracts/` is absent."

@@ -13,6 +13,7 @@ kernel: |
   processes blocked on that specific skill,
   freeing OS threads for unrelated work.
   Enforced by Rule R-K.
+scope_phase: design
 ---
 
 ## Motivation

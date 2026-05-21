@@ -14,6 +14,7 @@ kernel: |
   **Governance** (tenant isolation, audit, eval, safety).
   Each dimension MUST have a published baseline that future releases can be
   measured against. Enforced by Rule R-B.
+scope_phase: design
 ---
 
 ## Motivation

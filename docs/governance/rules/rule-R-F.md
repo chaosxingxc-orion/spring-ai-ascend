@@ -7,6 +7,7 @@ principle_ref: P-F
 authority_refs: [ADR-0069, ADR-0070]
 enforcer_refs: [E65, E72]
 status: active
+scope_phase: design
 kernel_cap: 8
 kernel: |
   **Every long-horizon Runtime API endpoint MUST return a Task Cursor immediately and MUST NOT hold the client connection while work executes. The contract surface (request → cursor → polled status / SSE / Webhook) MUST be declared in `docs/contracts/openapi-v1.yaml` for at least one runs operation; new long-running endpoints MUST follow the same shape.**
