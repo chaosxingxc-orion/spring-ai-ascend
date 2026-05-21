@@ -1401,3 +1401,11 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#meta_rule_self_application_check
   asserts: "Rule 112 (META) — every gate rule whose `# Rule N — slug` header carries the `[META]` marker MUST source a helper from `gate/lib/check_*.sh` within 80 lines of the header. Closes F-recursive-prevention-irony permanently by structurally enforcing the helper-extraction discipline introduced by Rule 111 (rc18 Wave 1, ADR-0095) on every future META rule. Rule 112 dogfoods itself by sourcing gate/lib/check_recurring_families.sh."
+
+- id: E161
+  constraint_ref: "Rule 114 (rule_card_filename_dot_convention); ADR-0096"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#rule_card_filename_dot_convention
+  asserts: "Rule 114 (rc19 Wave 4) — every file under docs/governance/rules/rule-*.md MUST match the regex `rule-[DRGM]-[A-Z0-9](\\.[a-z0-9]+)?\\.md` (dot-suffix only, no hyphenated `rule-G-3-1.md` form). Prevents the rc17 corrective-loop where 5 cards needed renames due to hyphen-vs-dot ambiguity. README.md is allowed."
