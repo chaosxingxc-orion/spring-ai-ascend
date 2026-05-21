@@ -1,0 +1,167 @@
+id: ADR-0097
+title: "rc20 — Meta-recursion actually-close + D-9 (no version/log metadata in code) + G-7 invocation extension"
+status: accepted
+date: 2026-05-21
+level: L0
+view: process
+affects_level: L0
+affects_view: process
+authors:
+  - chao
+relates_to:
+  - ADR-0096
+  - ADR-0095
+  - ADR-0094
+  - ADR-0086
+extends:
+  - ADR-0096
+context: |
+  Post-rc19 review (3 independent reviewers converged) found that rc19's
+  Rule 112 (META-of-META gate added to permanently close
+  F-recursive-prevention-irony) silently exempted Rule 111 itself — the
+  prototype META rule whose vulnerability spawned the entire rc18 + rc19
+  chain — because Rule 111's `# Rule 111 — slug` header was never marked
+  `[META]`. Rule 112's scan finds only `[META]`-tagged headers, so Rule
+  111 sat outside the discipline that was supposedly designed to govern
+  it. Recursive irony moved one layer deeper instead of closing.
+
+  Independent of that finding, the user directed two new kernel rules:
+  (1) all driving scripts on Windows hosts MUST be invoked through WSL
+  (not Git Bash for Windows); (2) production code MUST NOT carry
+  version/log metadata (`rc<N> Wave <M>`, `per ADR-NNNN`,
+  `Finding F<N>`, etc.). These two requirements join the existing
+  governance ratchet as Rule G-7 (extended) and Rule D-9 (new).
+
+  Additional rc19 review findings closed:
+  - cmd_parity is id-only — F-recursive cleanup_status drifted between
+    yaml (`closed`) and md (`structurally addressed`) and Rule 111.c
+    parity didn't catch it
+  - "`signal_sha^` resolves to first-parent on merge commits — latent"
+    freshness bug masked by current squash-only policy
+  - "`derive_signal_paths` accepts unresolvable surface tokens silently"
+    — typos in `families[].surfaces[]` produce vacuous freshness passes
+  - Rule 112 hard-codes a +80 line body window — long META rule bodies
+    could push the source statement past the window
+  - Rule 112 helper regex locks to `.sh` only — blocks legitimate
+    `.bash`/`.py` helpers (the rc19 helper itself is `.py`)
+  - Rule 113 fixture re-implements production grep inline — Pattern D
+    recurrence in the very META-recursion-prevention rule's own test
+  - rc19 release note overclaims `215/218 self-tests pass` — Rule 97
+    didn't scope-cover release-note `N/M` ratios
+  - ADR-0096 says "3 in-branch correctives total" but the release note
+    body says 5 — self-contradicting truth
+  - "`SURFACE_PREFIX_BASES` contains invalid git pathspecs — dead"
+    placebo entries
+  - rc19 Wave 2 sweep missed `P-C.md` frontmatter `enforced_by_rules: [R-C.a, R-C.b]` (should be `R-C.1`)
+
+decision: |
+  rc20 ships under a single fixed version across 5 sequential waves
+  (1 + 2 + 3 + 4 + 5 finalize), each with its own PR, all merged to
+  `main` independently before Wave 5 finalize. The 5-wave decomposition
+  follows the rc18/rc19 multi-wave runbook (`docs/runbooks/multi-wave-release.md`).
+
+  Wave 1 — META + freshness kernel-card sync:
+  - Mark Rule 111 `[META]` so Rule 112 actually gates it; add a literal
+    source-path marker comment on Rule 111's helper-source line so Rule
+    112's regex can resolve the variable-based source
+  - Sync CLAUDE.md G-9 kernel + rule-G-9.md card prose to content-diff
+    freshness (drop the mtime/24h legacy text that survived rc18 + rc19)
+  - Extend rule-G-9.md cleanup_status enum to 5 values (add `monitoring`)
+  - Extend `cmd_parity` in `gate/lib/validate_recurring_families.py` to
+    compare cleanup_status text per family-id, anchored to the leading
+    status token after optional emoji prefix
+  - Replace `signal_sha^` with `signal_sha^1` (first-parent semantics);
+    document squash-merge requirement
+  - Extract Rule 113 grep + heading checks into
+    `gate/lib/check_legacy_paren.sh` and refactor both production gate
+    body AND test_rule_113_* fixtures to source it (closes Pattern D
+    recurrence on Rule 113)
+  - Reopen F-recursive-prevention-irony to `cleanup_status: monitoring`
+    with 3-rc cool-down convention before re-promotion to `closed`
+  - Sync recurring-defect-families.md §0 table + F-recursive prose +
+    add rc19/rc20 META-lessons rows
+  - Add E162 enforcer + 3 new fixtures (rule_112_meta_self_application_live_rule_111_pos,
+    rule_111_c_cleanup_status_parity_neg, rule_113_migration_doc_complete_neg)
+
+  Wave 2 — release-note + numeric truth:
+  - Fix rc19 release note `215/218 self-tests pass` to `217/220`
+    (Linux/WSL canonical 220/220; Windows Git Bash has 3 pre-existing
+    python3-env skips); add `rc20 snapshot` marker for Rule 97
+  - Resolve ADR-0096 "3 in-branch correctives total" vs release-note
+    Total line "5 in-branch correctives" by standardising on 5 (true
+    per-wave-PR count from the breakdown table)
+  - Extend Rule 97 with a sub-check that scans for `N/M self-tests`
+    denominator drift in the latest release note (same marker-window
+    exemption as the existing node/edge check)
+  - Sync `P-C.md` frontmatter `enforced_by_rules: [R-C.a, R-C.1]`
+    (rc17 split sync that rc19 Wave 2 missed in frontmatter)
+  - Add Rule 97 denominator-drift negative fixture
+
+  Wave 3 — defensive + architectural hardening:
+  - Delete `SURFACE_PREFIX_BASES` dead placebo entries; consolidate
+    duplicate `git rev-parse --git-dir` call
+  - Add surface-token sanitizer to `derive_signal_paths` (warn on
+    absolute paths, colon-bearing tokens, unresolvable surfaces — typos
+    surface fast instead of becoming vacuous freshness passes)
+  - Widen Rule 112 body window from hard-coded `+80` to next `# Rule`
+    header / EOF boundary (long META rule bodies no longer push the
+    source statement past the window)
+  - Widen Rule 112 helper regex to accept
+    `gate/lib/(check|validate)_*.(sh|bash|py)` (.py validators + .bash
+    helpers now accepted)
+  - Add `bash -n` CI step before parallel orchestrator (catches dropped
+    braces / missing fi at CI time instead of gate execution time)
+  - Parameterise Rule 114 negative fixture over 6 near-miss filename
+    variants
+
+  Wave 4 — Rule D-9 + Rule G-7 invocation extension:
+  - **Rule D-9 (NEW kernel)** — Production code (Java, Python, shell,
+    YAML config, Dockerfile, CI workflows) MUST NOT carry version
+    metadata. Exempt: docs/adr/, docs/logs/, docs/governance/rules/,
+    docs/governance/principles/, docs/governance/rule-history.md,
+    docs/governance/recurring-defect-families.{yaml,md},
+    docs/governance/architecture-status.yaml, docs/governance/enforcers.yaml,
+    docs/governance/principle-coverage.yaml,
+    docs/governance/architecture-graph.yaml, CHANGELOG.md, CLAUDE.md
+    kernel, gate/lib/, gate/test_architecture_sync_gate.sh
+  - **Rule G-7 (extended)** — All driving scripts on Windows hosts MUST
+    be invoked through Linux/WSL. Git Bash for Windows is a one-off
+    debug shim only. Documented commands, runbooks, and agent-driven
+    automation MUST default to WSL/Linux invocation
+  - Rule cards: NEW `docs/governance/rules/rule-D-9.md`; updated
+    `docs/governance/rules/rule-G-7.md`
+  - NEW gate Rule 115 `no_version_log_metadata_in_code` + E163 +
+    2 fixtures + grandfather list `gate/d9-grandfathered-files.txt`
+    (54 pre-existing files, sunset_date 2026-11-21 per
+    `feedback_grandfather_lists_need_sunset.md`)
+
+  Wave 5 — finalize: this ADR + release note + baseline lockstep +
+  freeze rc19 release note with `Historical artifact frozen at SHA
+  <merge-sha>` marker + rule-history rc20 section.
+
+consequences:
+  positive:
+    - F-recursive-prevention-irony is now structurally gated against the original META rule (Rule 111 [META] marker + literal source marker). Family `cleanup_status: monitoring` introduces the 3-rc cool-down convention to prevent premature-closure pattern from recurring.
+    - cmd_parity now compares status text per family-id (yaml↔md), closing the rc19 yaml=closed-vs-md=structurally-addressed drift that slipped through id-only parity.
+    - Rule D-9 (production code free of version/log metadata) makes the implementation surface readable for future maintainers without archaeological burden; rule cards + ADRs + release notes carry the wave-by-wave context.
+    - Rule G-7 invocation extension makes WSL/Linux the documented default on Windows hosts, eliminating the recurring "Git Bash performance / portability bug" trap.
+    - Rule 113 helper extraction (`gate/lib/check_legacy_paren.sh`) closes Pattern D recurrence in the very META-recursion-prevention rule's own test fixtures.
+    - signal_sha first-parent semantics + surface-token sanitizer + Rule 112 body-window widening + helper-regex widening close 4 latent freshness/META-of-META weaknesses.
+  negative:
+    - "gate/d9-grandfathered-files.txt carries 54 entries; each requires scrubbing before sunset_date 2026-11-21 (or sunset extension via ADR). The grandfather mechanism is anti-pattern per feedback_grandfather_lists_need_sunset.md but pragmatic for the rule-introduction wave."
+    - In-branch corrective spirals continued (Wave 1 needed 3 correctives; Wave 4 needed 3; Wave 2 needed 2; Wave 3 needed 1; total 9 in-branch correctives). Rebase contention on `recurring-defect-families.yaml#last_updated` between parallel waves was the dominant cost; the lockstep rule held at the merge boundary (0 post-merge correctives on `main`).
+  open_questions:
+    - Should the `cleanup_status: monitoring` cool-down (3 rc cycles without recurrence) be machine-enforced via Rule 111.a? Current design is convention-only.
+    - Should Rule 112 itself be marked `[META]` (it currently is) AND have its self-application asserted by Rule G-3.1 dogfooding chain to prevent the next layer of recursive-irony?
+    - Should `gate/d9-grandfathered-files.txt` track a per-file `target_scrub_rc` so progress is monotonic (instead of one batch-wide sunset_date)?
+
+verification:
+  - All 5 wave PRs merged green to `main` (Wave 1 → #26, Wave 2 → #27, Wave 3 → #28, Wave 4 → #29, Wave 5 → #30)
+  - "`test_rule_112_meta_self_application_live_rule_111_pos` PASS (live Rule 111 carries [META] AND sources gate/lib/check_*.sh)"
+  - "`test_rule_111_c_cleanup_status_parity_neg` PASS (cmd_parity catches yaml↔md status drift)"
+  - "`test_rule_115_no_version_log_metadata_pos` / `_neg` PASS"
+  - "`test_rule_97_release_note_self_tests_denom_neg` PASS"
+  - "`test_rule_113_migration_doc_complete_neg` PASS"
+  - "`bash -n gate/*.sh` PASS in CI (new pre-orchestrator step)"
+  - "F-recursive-prevention-irony status: `cleanup_status: monitoring` (yaml + md aligned)"
+  - "`gate/d9-grandfathered-files.txt` declares sunset_date 2026-11-21"

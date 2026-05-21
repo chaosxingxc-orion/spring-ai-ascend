@@ -12,6 +12,20 @@ supersedes_release_notes:
 
 # L0 v2.0.0-rc19 — Meta-Recursion Permanent Close + Stragglers + Runbook
 
+> **Historical artifact frozen at SHA eeec445.** This release note
+> captures rc19 wave-final baselines (95 ADRs / 126 gate rules / 37
+> engineering rules / 220 self-tests / 160 enforcer rows / 402 graph
+> nodes / 656 edges / 9 families with F-recursive-prevention-irony
+> claimed closed). For current canonical baselines see
+> `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`.
+> rc20 (per ADR-0097) superseded these counts: 96 ADRs / 127 gate rules
+> (+1 Rule 115) / 38 engineering rules (+1 Rule D-9) / 226 self-tests
+> (+6) / 162 enforcer rows (+2 E162 + E163) / 407 graph nodes / 667
+> edges / 9 families (F-recursive-prevention-irony REOPENED to
+> cleanup_status: monitoring — rc19 closed claim was premature, Rule
+> 112 silently exempted Rule 111). Rule 28 exempts this file via the
+> frozen-SHA marker.
+
 ## Verdict
 
 rc19 closes the rc18 reviewer's "recursive irony has 4 deeper layers"

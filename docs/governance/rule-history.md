@@ -381,3 +381,62 @@ rc18 PR #16-#20 review found the rc18 Wave 1 helper extraction closed the surfac
 - Wave 4: 1 in-branch corrective (Rule 114 fixtures + family yaml content bump).
 - Wave 5: lockstep finalize commit (no correctives at merge boundary).
 - Total: 5 in-branch correctives; 0 post-merge correctives on `main`.
+
+---
+
+## 2026-05-21 — rc20 wave: meta-recursion actually-close + Rule D-9 + Rule G-7 invocation extension (ADR-0097)
+
+### Trigger
+
+Post-rc19 review (3 independent reviewers converged) found Rule 111 was never `[META]`-marked, so Rule 112 (the META-of-META gate added in rc19 to "permanently close" F-recursive-prevention-irony) silently exempted the prototype META rule the entire rc18 + rc19 chain was meant to govern. Recursive irony moved one layer deeper rather than closing. The user also directed two new kernel rules: D-9 (no version/log metadata in production code) and G-7 extended (WSL/Linux invocation default on Windows hosts). User directive: ship under fixed `rc20` (no version creep), multi-wave OK.
+
+### Waves
+
+| # | Branch | Merged SHA | Scope |
+|---|---|---|---|
+| 1 | rc20/wave-1-meta-and-freshness-sync | c1cc52d | Rule 111 [META] marker + literal source marker; CLAUDE.md G-9 + rule-G-9 card content-diff freshness sync; cmd_parity status-text per-id comparison with leading-emoji anchor; signal_sha^1 first-parent semantics; gate/lib/check_legacy_paren.sh helper extraction + Rule 113 fixture refactor; F-recursive-prevention-irony reopen to `cleanup_status: monitoring`; E162 + 3 fixtures |
+| 2 | rc20/wave-2-release-note-and-numeric-truth | 4ac3a37 | rc19 release-note `215/218 self-tests` corrected to `217/220`; ADR-0096 vs release-note correctives self-contradiction resolved on 5; Rule 97 widened with N/M self-tests denom-drift sub-check; P-C.md frontmatter R-C.b → R-C.1; 1 fixture |
+| 3 | rc20/wave-3-defensive-and-architectural | f2f60fc | Delete dead SURFACE_PREFIX_BASES; consolidate duplicate rev-parse; derive_signal_paths surface-token sanitizer; Rule 112 body window widening to next `# Rule|# ===` boundary; Rule 112 helper regex widened to .py/.bash; bash -n CI step; Rule 114 negative fixture parameterized over 6 near-miss variants |
+| 4 | rc20/wave-4-d9-and-g7-extension | (Wave 4 SHA pending Wave 5 merge) | NEW Rule D-9 (no_version_log_metadata_in_code) + extended Rule G-7 (WSL invocation default); NEW rule-D-9.md card; updated rule-G-7.md; NEW Rule 115 + E163 + 2 fixtures + grandfather list gate/d9-grandfathered-files.txt (54 pre-existing files, sunset 2026-11-21) |
+| 5 | rc20/wave-5-finalize | (this commit) | ADR-0097 + release note + baseline lockstep + freeze rc19 |
+
+### New / consolidated artefacts
+
+- **docs/governance/rules/rule-D-9.md** (Wave 4) — production-code metadata-discipline card.
+- **gate/lib/check_legacy_paren.sh** (Wave 1) — Rule 113 helper extraction, sourced by production + fixtures.
+- **gate/d9-grandfathered-files.txt** (Wave 4) — 54 pre-existing files with sunset_date 2026-11-21.
+- **docs/adr/0097-rc20-meta-recursion-actually-close-plus-d9.yaml** (Wave 5).
+- **docs/logs/releases/2026-05-21-l0-rc20-meta-recursion-actually-close-plus-d9.en.md** (Wave 5).
+
+### Rule deltas
+
+- **Rule D-9 no_version_log_metadata_in_code** (Wave 4) — production code (Java/Python/shell/YAML config/Dockerfile/CI workflows) MUST NOT carry `rc<N> Wave <M>`, `per ADR-NNNN`, `Finding F<N>`, `closes #<N>`, changelog-style annotations; broad exemption list covers governance metadata surfaces. Gate Rule 115 + E163.
+- **Rule G-7 extended** (Wave 4) — all driving scripts on Windows hosts MUST be invoked through WSL/Linux. Convention-only (no new gate; existing G-7 verification gate carries forward).
+- **Rule 111 [META]** (Wave 1) — marker added so Rule 112 actually gates the prototype META rule.
+- **Rule 112 hardening** (Wave 3) — body window extends until next `# Rule` header; helper regex widened to `.(sh|bash|py)`.
+- **Rule 113 helper extraction** (Wave 1) — gate/lib/check_legacy_paren.sh; production + fixtures source the same helper.
+- **Rule 97 widening** (Wave 2) — added N/M self-tests denominator-drift sub-check.
+- **Rule 114 fixture coverage** (Wave 3) — parameterised over 6 near-miss filename variants.
+
+### Family deltas
+
+- **F-recursive-prevention-irony** — `cleanup_status: closed` (rc19) → `cleanup_status: monitoring` (rc20 per ADR-0097). rc20 introduces the 3-rc cool-down convention (rc20 + rc21 + rc22 without recurrence) before re-promotion to `closed`. Rule 111 [META] marker + literal source marker + cmd_parity status-text parity close the rc19 review's recursive-irony layer-2 finding.
+
+### Baseline impact
+
+- `active_engineering_rules`: 37 → 38 (+1: Rule D-9)
+- `active_gate_checks`: 126 → 127 (+1: Rule 115)
+- `gate_executable_test_cases`: 220 → 226 (+6: 3 Wave 1 + 1 Wave 2 + 2 Wave 4)
+- `enforcer_rows`: 160 → 162 (+2: E162 + E163)
+- `adr_count`: 95 → 96 (+1: ADR-0097)
+- `architecture_graph_nodes` / `_edges`: regenerated in Wave 5 from live graph
+- `recurring_defect_families`: 9 → 9 (unchanged; F-recursive reopened to monitoring)
+
+### CI / corrective ledger
+
+- Wave 1: 3 in-branch correctives.
+- Wave 2: 2 in-branch correctives.
+- Wave 3: 1 in-branch corrective.
+- Wave 4: 4 in-branch correctives (rebase conflict-resolution accident dropped E162; corrective re-added it).
+- Wave 5: lockstep finalize commit (no correctives at merge boundary).
+- Total: 10 in-branch correctives; 0 post-merge correctives on `main`. Rebase contention on `recurring-defect-families.yaml#last_updated` between parallel waves was the dominant rebase cost.
