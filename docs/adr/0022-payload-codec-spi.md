@@ -37,7 +37,7 @@ content — impossible with a raw `Object` that has no schema.
 ### SPI shapes (design-only at W0; shipped at W2)
 
 ```java
-// ascend.springai.runtime.orchestration.spi — pure java.*
+// com.huawei.ascend.runtime.orchestration.spi — pure java.*
 
 // Sealed carrier for in-process payloads
 public sealed interface Payload permits Payload.TypedPayload, Payload.RawPayload {
@@ -71,7 +71,7 @@ public interface PayloadCodecRegistry {
 ### RunEvent schema (HD-D.2)
 
 ```java
-// ascend.springai.runtime.orchestration.spi — pure java.*
+// com.huawei.ascend.runtime.orchestration.spi — pure java.*
 public sealed interface RunEvent
         permits RunEvent.NodeStarted, RunEvent.NodeCompleted,
                 RunEvent.Suspended, RunEvent.Resumed,

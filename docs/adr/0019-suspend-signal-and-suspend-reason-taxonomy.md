@@ -67,7 +67,7 @@ asserts no class outside the orchestration SPI surface declares `throws SuspendS
 Introduce `sealed interface SuspendReason` with the following permitted variants:
 
 ```java
-// ascend.springai.runtime.orchestration.spi — pure java.*
+// com.huawei.ascend.runtime.orchestration.spi — pure java.*
 public sealed interface SuspendReason
         permits SuspendReason.ChildRun, SuspendReason.AwaitChildren,
                 SuspendReason.AwaitTimer, SuspendReason.AwaitExternal,

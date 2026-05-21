@@ -17,8 +17,8 @@ relates_to:
 
 decision_one_liner: |
   Cross-authority parity is enforced as a first-class L0 invariant (Rule G-8 /
-  gate Rule 106), and `ascend.springai.service.runtime.engine.*` is renamed to
-  `ascend.springai.engine.runtime.*` to retire the ADR-0079 source-compat
+  gate Rule 106), and `com.huawei.ascend.service.runtime.engine.*` is renamed to
+  `com.huawei.ascend.engine.runtime.*` to retire the ADR-0079 source-compat
   exception.
 
 context: |
@@ -35,9 +35,9 @@ context: |
     after merge" wording instead of evidence-bearing numbers.
   - L-β (S2C path-truth drift): `CLAUDE.md` Rule R-M kernel + `rule-R-M.md`
     card + `s2c-callback.v1.yaml` comment + `enforcers.yaml` E83/E93
-    asserts all named `ascend.springai.service.runtime.s2c.spi` while
+    asserts all named `com.huawei.ascend.service.runtime.s2c.spi` while
     `agent-bus/module-metadata.yaml` + `contract-catalog.md` + the source
-    tree all named `ascend.springai.bus.spi.s2c` (post-ADR-0088 truth).
+    tree all named `com.huawei.ascend.bus.spi.s2c` (post-ADR-0088 truth).
   - L-γ (current-state vs historical drift): root `ARCHITECTURE.md` lines
     276-281 + 871 + `architecture-status.yaml` lines 716, 1050, 1387, 1405
     still asserted post-ADR-0079 module topology as current truth, with
@@ -54,7 +54,7 @@ context: |
     ratchet (ADR-0086) was supposed to fully replace.
   - L-ζ (engine package compat exception): `agent-execution-engine` kept
     `EngineRegistry` + `EngineEnvelope` under
-    `ascend.springai.service.runtime.engine.*` per ADR-0079 source-compat
+    `com.huawei.ascend.service.runtime.engine.*` per ADR-0079 source-compat
     clause; ADR-0079 was superseded by ADR-0088 (rc13), leaving the
     exception un-anchored.
   - L-η (Rule 103 scope vs Rule 87/94/98 scope mismatch): Rule 103's
@@ -93,7 +93,7 @@ decision: |
        clause dropped, ADR-0088 + ADR-0090 cross-cited as current authority;
        `docs/contracts/engine-envelope.v1.yaml` Java-record reference updated.
      - The ADR-0079 source-compat exception is retired; future engine
-       package references use `ascend.springai.engine.runtime.*`.
+       package references use `com.huawei.ascend.engine.runtime.*`.
 
   L-η is closed by adding a scope-clarification comment to `gate/rules/rule-103.sh`
   + `gate/check_architecture_sync.sh` (Rule 103 deliberately scans only
@@ -104,7 +104,7 @@ alternatives_considered:
   - id: "L-ζ formalize-as-exception (rejected)"
     description: |
       Add a sub-clause to ADR-0088 explicitly preserving the
-      `ascend.springai.service.runtime.engine.*` package as a locked
+      `com.huawei.ascend.service.runtime.engine.*` package as a locked
       source-compat exception with W3+ sunset trigger. Doc-only change;
       zero source churn.
     rejection_reason: |
@@ -136,7 +136,7 @@ consequences:
       rc13 is now blocked.
   - id: engine_package_semantic_home
     decision: |
-      `ascend.springai.engine.runtime.*` is the canonical engine
+      `com.huawei.ascend.engine.runtime.*` is the canonical engine
       implementation home. The ADR-0079 source-compat exception is
       retired; consumers binding to the old package fix imports.
     impact: 1 breaking change for any external consumer (very unlikely at

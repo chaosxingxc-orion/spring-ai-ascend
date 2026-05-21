@@ -1,4 +1,4 @@
-package ascend.springai.service.runtime.graphmemory;
+package com.huawei.ascend.service.runtime.graphmemory;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

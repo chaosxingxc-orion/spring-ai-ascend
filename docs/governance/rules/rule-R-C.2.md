@@ -76,8 +76,8 @@ the updated record. Illegal transitions MUST throw
 
 **Enforcers**: E2, E4.
 
-No production class under `ascend.springai.service.runtime..` (main
-sources) may import any class under `ascend.springai.service.platform..`.
+No production class under `com.huawei.ascend.service.runtime..` (main
+sources) may import any class under `com.huawei.ascend.service.platform..`.
 The original narrow case — no import of `TenantContextHolder` — remains
 the specific instance most likely to be violated and is asserted
 independently as defence-in-depth.

@@ -16,7 +16,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>ascend.springai</groupId>
+  <groupId>com.huawei.ascend</groupId>
   <artifactId>spring-ai-ascend-parent</artifactId>
   <version>0.1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
@@ -240,39 +240,39 @@
         <scope>test</scope>
       </dependency>
 
-      <!-- Local ascend.springai modules — managed here so consumers never need inline <version>. -->
+      <!-- Local com.huawei.ascend modules — managed here so consumers never need inline <version>. -->
       <dependency>
-        <groupId>ascend.springai</groupId>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-client</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>ascend.springai</groupId>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-bus</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>ascend.springai</groupId>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-middleware</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>ascend.springai</groupId>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-execution-engine</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>ascend.springai</groupId>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-evolve</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>ascend.springai</groupId>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-service</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>ascend.springai</groupId>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>spring-ai-ascend-graphmemory-starter</artifactId>
         <version>${project.version}</version>
       </dependency>

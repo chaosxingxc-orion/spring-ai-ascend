@@ -7,7 +7,7 @@
 # This file is the SINGLE SOURCE OF TRUTH for which categories of platform
 # observation are eligible to feed the evolution plane (deployment_plane:
 # evolution per Rule 39). The Java enum
-# ascend.springai.service.runtime.evolution.EvolutionExport mirrors the three
+# com.huawei.ascend.service.runtime.evolution.EvolutionExport mirrors the three
 # discriminator values (in_scope, out_of_scope, opt_in). Gate Rule 59 schema-
 # checks this file; the W2-shipped E86 ArchUnit test asserts every
 # RunEvent variant declares its evolution_export() at the type level.

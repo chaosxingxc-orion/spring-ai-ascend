@@ -24,7 +24,7 @@ amendments:
     summary: |
       The original 2026-05-16 decision introduced a parallel unchecked
       S2cCallbackSignal (a RuntimeException subtype under
-      ascend.springai.service.runtime.s2c.spi) as the executor-side trigger
+      com.huawei.ascend.service.runtime.s2c.spi) as the executor-side trigger
       for S2C capability callbacks. v2.0.0-rc3 (2026-05-17, cross-constraint
       audit alpha-2 / beta-5) deleted that parallel exception type and
       unified the S2C executor-side trigger into the checked-suspension

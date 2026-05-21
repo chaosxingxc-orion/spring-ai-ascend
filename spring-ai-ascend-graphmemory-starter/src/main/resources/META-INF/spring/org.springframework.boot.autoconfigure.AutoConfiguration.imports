@@ -1,1 +1,1 @@
-ascend.springai.service.runtime.graphmemory.GraphMemoryAutoConfiguration
+com.huawei.ascend.service.runtime.graphmemory.GraphMemoryAutoConfiguration

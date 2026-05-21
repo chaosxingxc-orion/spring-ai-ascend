@@ -122,7 +122,7 @@ ADR-0078 (Phase C — `agent-platform` + `agent-runtime` merged into `agent-serv
 The 2026-05-18 rc5 post-response architecture review (finding P0-1 in `docs/logs/reviews/2026-05-18-l0-rc5-post-response-architecture-review.en.md`) found the symmetric defect Rule M-1 does not catch:
 
 - `agent-service/ARCHITECTURE.md:44` declared every Java path was rooted at `agent-service/src/main/java/...`.
-- `agent-service/ARCHITECTURE.md:306` listed `EngineRegistry`, `EngineEnvelope`, and `ExecutorAdapter` under `agent-service/src/main/java/.../runtime/engine/`, even though ADR-0079 had moved `EngineRegistry` + `EngineEnvelope` to `agent-execution-engine` and `ExecutorAdapter` to `ascend.springai.engine.spi.*`.
+- `agent-service/ARCHITECTURE.md:306` listed `EngineRegistry`, `EngineEnvelope`, and `ExecutorAdapter` under `agent-service/src/main/java/.../runtime/engine/`, even though ADR-0079 had moved `EngineRegistry` + `EngineEnvelope` to `agent-execution-engine` and `ExecutorAdapter` to `com.huawei.ascend.engine.spi.*`.
 - `agent-service/ARCHITECTURE.md:321` claimed `S2cCallbackEnvelope` and `S2cCallbackTransport` lived under `agent-service/src/main/java/.../s2c/spi/`, even though ADR-0079 moved them to `agent-runtime-core`.
 - `agent-service/ARCHITECTURE.md:496–498` and `:585–588` still spoke of engine extraction as future work scheduled "in the next wave."
 

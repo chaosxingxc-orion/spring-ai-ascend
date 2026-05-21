@@ -9,7 +9,7 @@
     <dependencyManagement>
       <dependencies>
         <dependency>
-          <groupId>ascend.springai</groupId>
+          <groupId>com.huawei.ascend</groupId>
           <artifactId>spring-ai-ascend-dependencies</artifactId>
           <version>0.1.0-SNAPSHOT</version>
           <type>pom</type>
@@ -32,7 +32,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>ascend.springai</groupId>
+    <groupId>com.huawei.ascend</groupId>
     <artifactId>spring-ai-ascend-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
@@ -56,19 +56,19 @@
       <!-- ============================================================ -->
 
       <dependency>
-        <groupId>ascend.springai</groupId>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-service</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>ascend.springai</groupId>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-eval</artifactId>
         <version>${project.version}</version>
       </dependency>
 
       <!-- Optional sidecar adapter starters -->
       <dependency>
-        <groupId>ascend.springai</groupId>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>spring-ai-ascend-graphmemory-starter</artifactId>
         <version>${project.version}</version>
       </dependency>

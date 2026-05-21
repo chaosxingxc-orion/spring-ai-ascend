@@ -23,19 +23,19 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 
 | Interface | Module | Package | Status |
 |---|---|---|---|
-| `RunRepository` | `agent-service` | `ascend.springai.service.runtime.runs.spi` | shipped — W0 in-memory impl (`InMemoryRunRegistry`); relocated to agent-service per ADR-0088 |
-| `Checkpointer` | `agent-execution-engine` | `ascend.springai.engine.orchestration.spi` | shipped — W0 in-memory impl (`InMemoryCheckpointer`, in `agent-service`); package renamed + module relocated per ADR-0088 |
-| `Orchestrator` | `agent-execution-engine` | `ascend.springai.engine.orchestration.spi` | shipped — W0 reference impl (`SyncOrchestrator`, in `agent-service`); relocated per ADR-0088 |
-| `S2cCallbackTransport` | `agent-bus` | `ascend.springai.bus.spi.s2c` | shipped — W2.x; `InMemoryS2cCallbackTransport` reference (ADR-0074); relocated to agent-bus per ADR-0088 |
-| `IngressGateway` | `agent-bus` | `ascend.springai.bus.spi.ingress` | shipped (SPI stub) — W1 design_only contract per ADR-0089; runtime binding W3+ with agent-client SDK |
-| `GraphMemoryRepository` | `agent-service` | `ascend.springai.service.runtime.memory.spi` | shipped — interface only; Graphiti W1 reference (ADR-0034) |
-| `ResilienceContract` | `agent-service` | `ascend.springai.service.runtime.resilience.spi` | shipped — W0 Resilience4j-backed impl (`DefaultSkillResilienceContract`); per-skill capacity via `YamlResilienceContract`; package home moved to `.spi` per ADR-0080 to align with Rules 32/77/78 — implementations stay in `runtime.resilience.*` |
-| `SkillCapacityRegistry` | `agent-service` | `ascend.springai.service.runtime.resilience.spi` | shipped — W0 YAML-backed impl (`YamlSkillCapacityRegistry`, in `agent-service`); `ResilienceAutoConfiguration` exposes it as an `@ConditionalOnMissingBean` extension point. Consumed by `ResilienceContract.resolve(tenant, skill)` per ADR-0070 / ADR-0080 / ADR-0081 |
-| `ExecutorAdapter` | `agent-execution-engine` | `ascend.springai.engine.spi` | shipped — W2.x; reference adapters in `agent-service` (ADR-0072 / ADR-0088) |
-| `GraphExecutor` | `agent-execution-engine` | `ascend.springai.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`SequentialGraphExecutor`, in `agent-service`) |
-| `AgentLoopExecutor` | `agent-execution-engine` | `ascend.springai.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`IterativeAgentLoopExecutor`, in `agent-service`) |
-| `EngineHookSurface` | `agent-execution-engine` | `ascend.springai.engine.spi` | shipped — W2.x; bridge to `RuntimeMiddleware` (ADR-0073) |
-| `RuntimeMiddleware` | `agent-middleware` | `ascend.springai.middleware.spi` | shipped — W2.x; `@FunctionalInterface` listener (ADR-0073) |
+| `RunRepository` | `agent-service` | `com.huawei.ascend.service.runtime.runs.spi` | shipped — W0 in-memory impl (`InMemoryRunRegistry`); relocated to agent-service per ADR-0088 |
+| `Checkpointer` | `agent-execution-engine` | `com.huawei.ascend.engine.orchestration.spi` | shipped — W0 in-memory impl (`InMemoryCheckpointer`, in `agent-service`); package renamed + module relocated per ADR-0088 |
+| `Orchestrator` | `agent-execution-engine` | `com.huawei.ascend.engine.orchestration.spi` | shipped — W0 reference impl (`SyncOrchestrator`, in `agent-service`); relocated per ADR-0088 |
+| `S2cCallbackTransport` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | shipped — W2.x; `InMemoryS2cCallbackTransport` reference (ADR-0074); relocated to agent-bus per ADR-0088 |
+| `IngressGateway` | `agent-bus` | `com.huawei.ascend.bus.spi.ingress` | shipped (SPI stub) — W1 design_only contract per ADR-0089; runtime binding W3+ with agent-client SDK |
+| `GraphMemoryRepository` | `agent-service` | `com.huawei.ascend.service.runtime.memory.spi` | shipped — interface only; Graphiti W1 reference (ADR-0034) |
+| `ResilienceContract` | `agent-service` | `com.huawei.ascend.service.runtime.resilience.spi` | shipped — W0 Resilience4j-backed impl (`DefaultSkillResilienceContract`); per-skill capacity via `YamlResilienceContract`; package home moved to `.spi` per ADR-0080 to align with Rules 32/77/78 — implementations stay in `runtime.resilience.*` |
+| `SkillCapacityRegistry` | `agent-service` | `com.huawei.ascend.service.runtime.resilience.spi` | shipped — W0 YAML-backed impl (`YamlSkillCapacityRegistry`, in `agent-service`); `ResilienceAutoConfiguration` exposes it as an `@ConditionalOnMissingBean` extension point. Consumed by `ResilienceContract.resolve(tenant, skill)` per ADR-0070 / ADR-0080 / ADR-0081 |
+| `ExecutorAdapter` | `agent-execution-engine` | `com.huawei.ascend.engine.spi` | shipped — W2.x; reference adapters in `agent-service` (ADR-0072 / ADR-0088) |
+| `GraphExecutor` | `agent-execution-engine` | `com.huawei.ascend.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`SequentialGraphExecutor`, in `agent-service`) |
+| `AgentLoopExecutor` | `agent-execution-engine` | `com.huawei.ascend.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`IterativeAgentLoopExecutor`, in `agent-service`) |
+| `EngineHookSurface` | `agent-execution-engine` | `com.huawei.ascend.engine.spi` | shipped — W2.x; bridge to `RuntimeMiddleware` (ADR-0073) |
+| `RuntimeMiddleware` | `agent-middleware` | `com.huawei.ascend.middleware.spi` | shipped — W2.x; `@FunctionalInterface` listener (ADR-0073) |
 
 **SPI count by module (post-ADR-0088 + ADR-0089):**
 
@@ -137,7 +137,7 @@ SemVer from 1.0.0: PATCH=fix, MINOR=additive, MAJOR=breaking. Stable surface: st
 
 ## 7. Maven BoM
 
-`ascend.springai:spring-ai-ascend-dependencies:0.1.0-SNAPSHOT` — active reactor modules (8 per `architecture-status.yaml#repository_counts.reactor_modules`):
+`com.huawei.ascend:spring-ai-ascend-dependencies:0.1.0-SNAPSHOT` — active reactor modules (8 per `architecture-status.yaml#repository_counts.reactor_modules`):
 
 | Artifact | Plane (P-I) | Status |
 |---|---|---|

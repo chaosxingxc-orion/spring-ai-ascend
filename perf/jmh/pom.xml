@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>ascend.springai</groupId>
+    <groupId>com.huawei.ascend</groupId>
     <artifactId>spring-ai-ascend-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
@@ -28,7 +28,7 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>ascend.springai</groupId>
+      <groupId>com.huawei.ascend</groupId>
       <artifactId>agent-platform</artifactId>
       <scope>compile</scope>
     </dependency>

@@ -7,7 +7,7 @@
 # Phase C consolidation (ADR-0078) merged agent-platform + agent-runtime into a
 # single agent-service Maven module. The cross-module pom direction is no longer
 # meaningful: the new invariant is INTRA-MODULE sub-package layering —
-#   ascend.springai.service.runtime.* MUST NOT depend on ascend.springai.service.platform.*
+#   com.huawei.ascend.service.runtime.* MUST NOT depend on com.huawei.ascend.service.platform.*
 # enforced at source level by ArchUnit RuntimeMustNotDependOnPlatformTest (E2).
 # At the pom level, this rule asserts agent-service does not regress by adding
 # a dependency on a deleted artifact (agent-platform, agent-runtime).

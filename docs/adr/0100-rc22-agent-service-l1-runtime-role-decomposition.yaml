@@ -54,7 +54,7 @@ context: |
 
   The proposal §3 development view declared Java packages under
   `com.huawei.ascend.agent.service…`. The current canonical corpus
-  root is `ascend.springai.service…`. This ADR documents the package-
+  root is `com.huawei.ascend.service…`. This ADR documents the package-
   root migration decision (ADR-0104, executed in rc22.5) and uses the
   current root for rc22 itself, with forward-compatibility HTML
   comments (`<!-- root-migration-target: com.huawei.ascend -->`) on
@@ -93,13 +93,13 @@ decision: |
 
   Three new SPIs added to `module-metadata.yaml#spi_packages`:
 
-    - `ascend.springai.service.engine.spi.StatelessEngine` —
+    - `com.huawei.ascend.service.engine.spi.StatelessEngine` —
       pure-function `Execute(TaskMetadata, InjectedContext) →
       StateDelta`. Engine holds no state; returns only state increment.
-    - `ascend.springai.service.session.spi.ContextProjector` —
+    - `com.huawei.ascend.service.session.spi.ContextProjector` —
       projects a `SessionContext` view from full Session history
       (truncation or summarization policy).
-    - `ascend.springai.service.task.spi.TaskStateStore` —
+    - `com.huawei.ascend.service.task.spi.TaskStateStore` —
       TaskControlState persistence interface.
 
   AgentInvokeRequest contract: `Service` is the Read-Modify-Write

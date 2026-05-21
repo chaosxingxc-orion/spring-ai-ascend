@@ -114,7 +114,7 @@
 #  63.  release_note_retracted_tag_qualified            -- every line in docs/logs/releases/*.md mentioning a tag listed in docs/governance/retracted-tags.txt MUST contain "(retracted)" OR appear under a heading matching "Historical" / "Superseded" (F-γ structural prevention)
 #  --- 2026-05-17 cross-corpus consistency audit prevention rules (G1/G2/G3 closure, enforcers E94-E96) ---
 #  64.  module_count_data_driven                        -- root pom.xml <module> count equals docs/governance/architecture-status.yaml#repository_counts.total_reactor_modules (G1 prevention; canonical count lives in one place)
-#  65.  module_metadata_pom_dep_parity                  -- every ascend.springai <dependency> in <module>/pom.xml appears in <module>/module-metadata.yaml allowed_dependencies (G2 prevention; metadata cannot lag behind pom)
+#  65.  module_metadata_pom_dep_parity                  -- every com.huawei.ascend <dependency> in <module>/pom.xml appears in <module>/module-metadata.yaml allowed_dependencies (G2 prevention; metadata cannot lag behind pom)
 #  66.  spi_package_exhaustiveness                      -- every */spi/ directory under <module>/src/main/java appears in <module>/module-metadata.yaml spi_packages (G3 prevention; metadata declares the full SPI surface)
 #  --- 2026-05-17 CLAUDE.md token-optimization wave PR1 (enforcers E97-E101) ---
 #  67.  claude_md_kernel_size_bounded                   -- each #### Rule NN section in CLAUDE.md fits under the per-rule kernel_cap declared in docs/governance/rules/rule-NN.md (Rule 67 / PR1, enforcer E97)
@@ -412,7 +412,7 @@ if [[ $_r9_fail -eq 0 ]]; then pass_rule "openapi_path_consistency"; fi
 # Phase C consolidation (ADR-0078) merged agent-platform + agent-runtime into a
 # single agent-service Maven module. The cross-module pom direction is no longer
 # meaningful: the new invariant is INTRA-MODULE sub-package layering —
-#   ascend.springai.service.runtime.* MUST NOT depend on ascend.springai.service.platform.*
+#   com.huawei.ascend.service.runtime.* MUST NOT depend on com.huawei.ascend.service.platform.*
 # enforced at source level by ArchUnit RuntimeMustNotDependOnPlatformTest (E2).
 # At the pom level, this rule asserts agent-service does not regress by adding
 # a dependency on a deleted artifact (agent-platform, agent-runtime).
@@ -2993,7 +2993,7 @@ if [[ $_r64_fail -eq 0 ]]; then pass_rule "module_count_data_driven"; fi
 # ---------------------------------------------------------------------------
 # Rule 65 — module_metadata_pom_dep_parity (enforcer E95, G2 prevention)
 #
-# For each <module>/module-metadata.yaml, every ascend.springai sibling
+# For each <module>/module-metadata.yaml, every com.huawei.ascend sibling
 # artifact declared in <module>/pom.xml's <dependencies> MUST appear in
 # allowed_dependencies of the metadata. Catches drift where a developer
 # adds a dep to the pom but forgets to update the metadata declaration.
@@ -3004,7 +3004,7 @@ while IFS= read -r _r65_meta; do
   _r65_mod_dir="$(dirname "$_r65_meta")"
   _r65_pom="${_r65_mod_dir}/pom.xml"
   [[ -f "$_r65_pom" ]] || continue
-  # Extract ascend.springai sibling deps from pom — only inside <dependency> blocks
+  # Extract com.huawei.ascend sibling deps from pom — only inside <dependency> blocks
   # (excludes the <parent> block at top, which would otherwise be a false positive).
   # Skip <dependencyManagement> block — those are managed versions for downstream
   # modules (BoM-style), not direct compile-time deps of the current module.
@@ -3026,7 +3026,7 @@ while IFS= read -r _r65_meta; do
   while IFS= read -r _r65_dep; do
     [[ -z "$_r65_dep" ]] && continue
     if ! echo "$_r65_meta_allowed" | grep -qxF "$_r65_dep"; then
-      fail_rule "module_metadata_pom_dep_parity" "$_r65_pom declares dependency on '$_r65_dep' (ascend.springai sibling) but $_r65_meta allowed_dependencies does not list it (G2 prevention)"
+      fail_rule "module_metadata_pom_dep_parity" "$_r65_pom declares dependency on '$_r65_dep' (com.huawei.ascend sibling) but $_r65_meta allowed_dependencies does not list it (G2 prevention)"
       _r65_fail=1
     fi
   done <<< "$_r65_pom_deps"
@@ -3522,7 +3522,7 @@ fi
 # Every <module>/module-metadata.yaml#spi_packages entry MUST resolve to a
 # real directory under <module>/src/main/java/... AND that directory MUST
 # contain at least one .java file beyond package-info.java. Catches the
-# 2026-05-18 root cause (ascend.springai.engine.spi declared but empty).
+# 2026-05-18 root cause (com.huawei.ascend.engine.spi declared but empty).
 #
 # Placeholder marker: an spi_packages line that includes BOTH "placeholder"
 # AND an "ADR-NNNN" reference in its inline comment is allowed to be empty
@@ -5301,7 +5301,7 @@ while IFS= read -r _r105_meta; do
   _r105_violations=$(grep -rnE '^import ascend\.springai\.(service|engine|middleware)\.' "$_r105_main_java" 2>/dev/null || true)
   if [[ -n "$_r105_violations" ]]; then
     while IFS= read -r _r105_line; do
-      fail_rule "edge_no_direct_compute_link" "$_r105_line — edge plane module must not import compute_control plane production class; route via ascend.springai.bus.spi.ingress.IngressGateway per Rule R-I sub-clause .b / ADR-0089"
+      fail_rule "edge_no_direct_compute_link" "$_r105_line — edge plane module must not import compute_control plane production class; route via com.huawei.ascend.bus.spi.ingress.IngressGateway per Rule R-I sub-clause .b / ADR-0089"
       _r105_fail=1
     done <<< "$_r105_violations"
   fi
@@ -5309,7 +5309,7 @@ while IFS= read -r _r105_meta; do
   _r105_rest=$(grep -rnE 'new[[:space:]]+RestTemplate\(|WebClient\.builder\(' "$_r105_main_java" 2>/dev/null || true)
   if [[ -n "$_r105_rest" ]]; then
     while IFS= read -r _r105_line; do
-      fail_rule "edge_no_direct_compute_link" "$_r105_line — edge plane module must not construct direct HTTP clients; route via ascend.springai.bus.spi.ingress.IngressGateway per Rule R-I sub-clause .b / ADR-0089"
+      fail_rule "edge_no_direct_compute_link" "$_r105_line — edge plane module must not construct direct HTTP clients; route via com.huawei.ascend.bus.spi.ingress.IngressGateway per Rule R-I sub-clause .b / ADR-0089"
       _r105_fail=1
     done <<< "$_r105_rest"
   fi
@@ -5356,7 +5356,7 @@ fi
 # kernel authority — rule cards under docs/governance/rules/ may quote
 # historical-defect literals as documentation, so they are intentionally
 # excluded from this scan).
-# Pattern: ascend.springai.<seg>(.<seg>)*.spi(.<seg>)* — anchored so a trailing
+# Pattern: com.huawei.ascend.<seg>(.<seg>)*.spi(.<seg>)* — anchored so a trailing
 # dot followed by an UpperCase Java identifier (e.g. .IngressGateway) does not
 # leak into the captured token. Verify each appears in some
 # module-metadata.yaml spi_packages entry AND a directory exists on disk.
@@ -5456,8 +5456,8 @@ if [[ -f "$_r106_catalog" ]]; then
   # Capture: class name, module name, package suffix (after the `...`)
   while IFS=$'\t' read -r _r106_class _r106_module _r106_pkg_suffix; do
     [[ -z "$_r106_class" || -z "$_r106_module" || -z "$_r106_pkg_suffix" ]] && continue
-    # Reconstruct full package path (ascend.springai.<suffix>) — convert "..." prefix to "ascend.springai."
-    _r106_full_pkg="ascend.springai.${_r106_pkg_suffix#...}"
+    # Reconstruct full package path (com.huawei.ascend.<suffix>) — convert "..." prefix to "com.huawei.ascend."
+    _r106_full_pkg="com.huawei.ascend.${_r106_pkg_suffix#...}"
     _r106_path="$(echo "$_r106_full_pkg" | tr '.' '/')"
     _r106_java_file="${_r106_module}/src/main/java/${_r106_path}/${_r106_class}.java"
     if [[ ! -f "$_r106_java_file" ]]; then

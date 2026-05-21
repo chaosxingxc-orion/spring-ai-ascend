@@ -5,7 +5,7 @@
 **Date:** 2026-05-12
 
 > **L1 update (2026-05-14).** Rule R-C.e was generalised from `TenantContextHolder` to the whole
-> `ascend.springai.service.platform..` package by ADR-0055. The original narrow rule below remains correct
+> `com.huawei.ascend.service.platform..` package by ADR-0055. The original narrow rule below remains correct
 > as the most-likely-violation case but is no longer the full contract. The generalised contract is
 > asserted by `RuntimeMustNotDependOnPlatformTest`; the narrow case is preserved as defence-in-depth
 > by `TenantPropagationPurityTest`. See `docs/adr/0055-permit-platform-to-runtime-direction.md`.
@@ -69,8 +69,8 @@ Timer-driven or internal resume:
 
 ### Rule R-C.e — Tenant Propagation Purity (active, enforced now)
 
-No class in `ascend.springai.service.runtime.*` (main sources) may import
-`ascend.springai.service.platform.tenant.TenantContextHolder`.
+No class in `com.huawei.ascend.service.runtime.*` (main sources) may import
+`com.huawei.ascend.service.platform.tenant.TenantContextHolder`.
 
 Enforced by `TenantPropagationPurityTest` (ArchUnit rule, shipped at W0).
 

@@ -150,7 +150,7 @@ consequences:
   negative:
     - "Migration touches ~50 files (15 java moves + ~37 import rewrites + ~10 metadata/governance docs). Single atomic PR is the right shape but review surface is large."
     - "Package rename from service.runtime.orchestration.spi -> engine.orchestration.spi and service.runtime.s2c.spi -> bus.spi.s2c is a source-incompatible change for any external consumer pinning prior snapshots. Binary BoM was 0.1.0-SNAPSHOT so no SemVer guarantee was in flight; documented in release note."
-    - "Java types under ascend.springai.service.runtime.* are now distributed across two modules (agent-service owns runs/idempotency; agent-execution-engine owns engine/EngineRegistry impl, plus engine.orchestration.spi). Split-package risk neutralised by the rename (engine.orchestration.spi is its own namespace), but the convention is no longer 'package prefix = module prefix' for legacy paths. Out-of-scope future cleanup: rename agent-service.service.runtime.* to plain ascend.springai.runs / .idempotency."
+    - "Java types under com.huawei.ascend.service.runtime.* are now distributed across two modules (agent-service owns runs/idempotency; agent-execution-engine owns engine/EngineRegistry impl, plus engine.orchestration.spi). Split-package risk neutralised by the rename (engine.orchestration.spi is its own namespace), but the convention is no longer 'package prefix = module prefix' for legacy paths. Out-of-scope future cleanup: rename agent-service.service.runtime.* to plain com.huawei.ascend.runs / .idempotency."
   net:
     - "Net break-even on reactor count vs T2.A scaffolding (was 6 substantive modules before T2.B2 = 9 reactor modules pre-rc13 = 8 reactor modules post-rc13). The rc13 wave is structural cleanup, not a feature change."
 

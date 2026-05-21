@@ -72,9 +72,9 @@ yaml↔enum consistency). Nine canonical hook points:
 
 ## 4. Forbidden imports (SPI purity per Rule R-D, formerly Rule 32)
 
-The `ascend.springai.middleware.spi.*` packages import only from `java.*`
+The `com.huawei.ascend.middleware.spi.*` packages import only from `java.*`
 and own spi siblings. Enforced by `SpiPurityGeneralizedArchTest` (E48).
-Constructive impls under `ascend.springai.middleware.*` may use any
+Constructive impls under `com.huawei.ascend.middleware.*` may use any
 agent-* dep listed in `module-metadata.yaml#allowed_dependencies` (today:
 empty — the W2 Telemetry Vertical may widen this).
 
@@ -115,7 +115,7 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-middleware/
 └── src/main/java/
-    └── ascend/springai/middleware/    <!-- root-migration-target: com.huawei.ascend.agent.middleware -->
+    └── ascend/springai/middleware/
         ├── spi/                            # 5 SPI types (Rule R-D purity)
         │   ├── HookPoint.java              # enum mirroring engine-hooks.v1.yaml (10 entries incl. ON_YIELD rc22)
         │   ├── RuntimeMiddleware.java      # listener interface
@@ -135,10 +135,10 @@ Mode-B (Business-Centric per ADR-0101): `agent-middleware` lives on the platform
 
 | Type FQN | SPI package | Purpose |
 |---|---|---|
-| `ascend.springai.middleware.spi.HookPoint` | `middleware.spi` | Enum of canonical hook points; mirrors `engine-hooks.v1.yaml#hooks:` list (10 entries as of rc22: BEFORE/AFTER LLM, TOOL, MEMORY; BEFORE_SUSPENSION/RESUME; ON_ERROR; **ON_YIELD** added rc22 per ADR-0100 coexistence) |
-| `ascend.springai.middleware.spi.RuntimeMiddleware` | `middleware.spi` | Listener interface; called by `HookDispatcher.fire(point, context)` |
-| `ascend.springai.middleware.spi.HookContext` | `middleware.spi` | Per-fire context carrier |
-| `ascend.springai.middleware.spi.HookOutcome` | `middleware.spi` | Sealed return type: `Proceed` \| `Fail` \| `ShortCircuit` |
+| `com.huawei.ascend.middleware.spi.HookPoint` | `middleware.spi` | Enum of canonical hook points; mirrors `engine-hooks.v1.yaml#hooks:` list (10 entries as of rc22: BEFORE/AFTER LLM, TOOL, MEMORY; BEFORE_SUSPENSION/RESUME; ON_ERROR; **ON_YIELD** added rc22 per ADR-0100 coexistence) |
+| `com.huawei.ascend.middleware.spi.RuntimeMiddleware` | `middleware.spi` | Listener interface; called by `HookDispatcher.fire(point, context)` |
+| `com.huawei.ascend.middleware.spi.HookContext` | `middleware.spi` | Per-fire context carrier |
+| `com.huawei.ascend.middleware.spi.HookOutcome` | `middleware.spi` | Sealed return type: `Proceed` \| `Fail` \| `ShortCircuit` |
 
 (`HookDispatcher` is implementation at the package root, not in `.spi`; not counted as SPI surface.)
 

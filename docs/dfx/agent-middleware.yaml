@@ -9,7 +9,7 @@ version: 1
 generated_at: 2026-05-18
 
 spi_packages:
-  - ascend.springai.middleware.spi
+  - com.huawei.ascend.middleware.spi
 
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-middleware"
@@ -34,7 +34,7 @@ vulnerability:
   scan_tooling: "manual review at L1; automated CVE/SCA deferred per CLAUDE-deferred.md 32.d"
   tenant_isolation: "HookContext carries tenant_id; middleware MUST honour tenant scoping for any externally observable side-effect"
   payload_integrity: "HookContext exposes only primitive identifiers; full Run/RunContext not leaked across the SPI boundary"
-  spi_purity: "ascend.springai.middleware.spi.* imports only java.* + own spi siblings (E48)"
+  spi_purity: "com.huawei.ascend.middleware.spi.* imports only java.* + own spi siblings (E48)"
 
 observability:
   metric_namespace: "springai_ascend_middleware_*"
@@ -42,4 +42,4 @@ observability:
   hook_emission_path: "this module IS the hook emission path; engines + orchestrator fire hooks here"
   audit_trail: "audit hooks (W2 LlmSpanEmitterHook, etc.) attach via HookPoint AFTER_LLM_INVOCATION / AFTER_TOOL_INVOCATION"
   spi_packages:
-    - "ascend.springai.middleware.spi"
+    - "com.huawei.ascend.middleware.spi"

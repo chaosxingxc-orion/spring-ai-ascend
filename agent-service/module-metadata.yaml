@@ -11,9 +11,9 @@ description: "Combined HTTP edge + reference adapter host + runtime entity owner
 architecture_doc: agent-service/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-service.yaml
 spi_packages:
-  - ascend.springai.service.runtime.memory.spi
-  - ascend.springai.service.runtime.resilience.spi
-  - ascend.springai.service.runtime.runs.spi   # RunRepository ownership consolidated here per ADR-0088
+  - com.huawei.ascend.service.runtime.memory.spi
+  - com.huawei.ascend.service.runtime.resilience.spi
+  - com.huawei.ascend.service.runtime.runs.spi   # RunRepository ownership consolidated here per ADR-0088
 allowed_dependencies:
   - agent-execution-engine    # engine SPI + orchestration SPI (RunMode, RunContext, SuspendSignal, ...) per ADR-0088
   - agent-bus                 # S2cCallbackTransport SPI + IngressGateway SPI per ADR-0088 + ADR-0089

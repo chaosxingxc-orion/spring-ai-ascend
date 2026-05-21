@@ -60,7 +60,7 @@ decision: |
       4. Exposes the schema path via @Value("${app.engine.envelope-schema-path:
          docs/contracts/engine-envelope.v1.yaml}") so packaging can override.
 
-  - The auto-config class lives under ascend.springai.service.platform.engine; it is
+  - The auto-config class lives under com.huawei.ascend.service.platform.engine; it is
     picked up by PlatformApplication's @SpringBootApplication component scan
     (same pattern as ResilienceAutoConfiguration). No
     AutoConfiguration.imports file is required at this wave.
@@ -97,7 +97,7 @@ alternatives_considered:
   - alternative: "Leave EngineRegistry.validateAgainstSchema() unwired; rely on the EngineMatchingException at first request to surface misconfiguration."
     why_rejected: "Defers the failure to the request path. A misconfigured production deployment would pass health checks, accept traffic, and only fail when a specific tenant submitted a Run that required the missing engine. Boot-time fail-closed is the Rule D-5 ship-gate posture."
   - alternative: "Implement EngineRegistry as an @PostConstruct method inside an existing config class (e.g. RunControllerAutoConfiguration)."
-    why_rejected: "Couples engine wiring to run-controller wiring. Phase 5 keeps engine concerns in a dedicated ascend.springai.service.platform.engine package consistent with the wave's structural-downstreaming theme - each governance YAML gets its own auto-config class."
+    why_rejected: "Couples engine wiring to run-controller wiring. Phase 5 keeps engine concerns in a dedicated com.huawei.ascend.service.platform.engine package consistent with the wave's structural-downstreaming theme - each governance YAML gets its own auto-config class."
   - alternative: "Use Spring's SmartLifecycle to defer validation to after-context-refresh."
     why_rejected: "Validation must happen during bean creation so an invalid wiring aborts ApplicationContext startup with IllegalStateException, not at a later phase when partial state has been published. The current synchronous call inside @Bean is the strongest fail-fast posture."
   - alternative: "Add a gate-script rule (Rule 58) that scans for EngineAutoConfiguration.validateAgainstSchema() being invoked."

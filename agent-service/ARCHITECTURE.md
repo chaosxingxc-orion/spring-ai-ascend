@@ -37,7 +37,7 @@ P1-4 follow-up (L1-expert-review 2026-05-14, carried through Phase C): legacy §
 
 ## 1. Purpose
 
-`agent-service` is the **consolidated edge + kernel module**. It owns the HTTP edge — accepting requests, binding them to a tenant, validating idempotency keys, validating JWT, and serving `/v1/runs` (subpackage `ascend.springai.service.platform.*`, formerly `ascend.springai.platform.*`) — AND it owns the **cognitive runtime kernel** that drives LLMs through tool-calling loops, runs the Run state machine, and dispatches engine envelopes (subpackage `ascend.springai.service.runtime.*`, formerly `ascend.springai.runtime.*`), all within a single deployable. The HTTP edge **trusts the kernel only via the kernel's published SPI surface** (Run repository, Orchestrator, RunRepository), preserving the original platform↛runtime layering as a sub-package invariant enforced by Rule R-C.e (formerly Rule 21, ADR-0078). See `docs/adr/0078-agent-service-consolidation.yaml` for the merger rationale (supersedes ADR-0055, extends ADR-0066, relates_to ADR-0026).
+`agent-service` is the **consolidated edge + kernel module**. It owns the HTTP edge — accepting requests, binding them to a tenant, validating idempotency keys, validating JWT, and serving `/v1/runs` (subpackage `com.huawei.ascend.service.platform.*`, formerly `com.huawei.ascend.platform.*`) — AND it owns the **cognitive runtime kernel** that drives LLMs through tool-calling loops, runs the Run state machine, and dispatches engine envelopes (subpackage `com.huawei.ascend.service.runtime.*`, formerly `com.huawei.ascend.runtime.*`), all within a single deployable. The HTTP edge **trusts the kernel only via the kernel's published SPI surface** (Run repository, Orchestrator, RunRepository), preserving the original platform↛runtime layering as a sub-package invariant enforced by Rule R-C.e (formerly Rule 21, ADR-0078). See `docs/adr/0078-agent-service-consolidation.yaml` for the merger rationale (supersedes ADR-0055, extends ADR-0066, relates_to ADR-0026).
 
 ## 2. Shipped components
 
@@ -139,7 +139,7 @@ Mismatch → 403 `tenant_mismatch`; claim missing with header present →
 
 Rule R-C.e (formerly Rule 21) retargeted at Phase C (ADR-0078): runtime sub-package main
 sources MUST NOT import any class under
-`ascend.springai.service.platform..` (`ServiceRuntimeMustNotDependOnServicePlatformTest`,
+`com.huawei.ascend.service.platform..` (`ServiceRuntimeMustNotDependOnServicePlatformTest`,
 enforcer E2). This is the same invariant that previously sat across
 module boundaries (`agent-runtime ↛ agent-platform`); after Phase C it
 sits across sub-package boundaries within `agent-service`.
@@ -305,7 +305,7 @@ under `agent-service/.../runtime/orchestration/inmemory/` listed above.
 
 The `ResilienceContract` published SPI surface lives at
 `agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi/`
-(package `ascend.springai.service.runtime.resilience.spi`): `ResilienceContract`,
+(package `com.huawei.ascend.service.runtime.resilience.spi`): `ResilienceContract`,
 `ResiliencePolicy`, `SkillResolution`, `SuspendReason`, `SkillCapacityRegistry`.
 Implementations stay in the parent package
 `agent-service/src/main/java/ascend/springai/service/runtime/resilience/`:
@@ -328,7 +328,7 @@ R-D / 77 / 78 — the same split pattern used by `agent-execution-engine`
 `agent-service/src/main/java/ascend/springai/service/runtime/memory/spi/GraphMemoryRepository.java`:
 interface-only SPI. No adapter ships at W0; concrete impl arrives via
 the `spring-ai-ascend-graphmemory-starter` autoconfiguration, which
-points at `ascend.springai.service.runtime.graphmemory.GraphMemoryAutoConfiguration`
+points at `com.huawei.ascend.service.runtime.graphmemory.GraphMemoryAutoConfiguration`
 post-Phase-C.
 
 #### runtime / engine -- Engine envelope + registry (W2.x, **consumed from `agent-execution-engine` post-ADR-0079**)
@@ -337,13 +337,13 @@ post-Phase-C.
 engine SPI surface and the registry/envelope no longer live here. After
 the rc5 wave (2026-05-18) ADR-0079 extraction:
 
-- **Engine SPI surface** (package `ascend.springai.engine.spi.*`,
+- **Engine SPI surface** (package `com.huawei.ascend.engine.spi.*`,
   module `agent-execution-engine`): `ExecutorAdapter`, `GraphExecutor`,
   `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException`
   — sources live at
   `agent-execution-engine/src/main/java/ascend/springai/engine/spi/`.
 - **Engine registry + envelope home** (package
-  `ascend.springai.engine.runtime.*`, module `agent-execution-engine`):
+  `com.huawei.ascend.engine.runtime.*`, module `agent-execution-engine`):
   `EngineRegistry`, `EngineEnvelope` record (mirrors
   `docs/contracts/engine-envelope.v1.yaml`) — sources at
   `agent-execution-engine/src/main/java/ascend/springai/engine/runtime/`
@@ -377,12 +377,12 @@ the rc13 wave (2026-05-20) ADR-0088 dissolution (which moved S2C ownership
 from the dissolved agent-runtime-core to agent-bus):
 
 - **S2C SPI surface** (package
-  `ascend.springai.bus.spi.s2c.*`, module `agent-bus`):
+  `com.huawei.ascend.bus.spi.s2c.*`, module `agent-bus`):
   `S2cCallbackEnvelope`, `S2cCallbackResponse`, `S2cCallbackTransport` —
   sources at `agent-bus/src/main/java/ascend/springai/bus/spi/s2c/`.
 - **Reference transport impl** stays in `agent-service` at
   `agent-service/src/main/java/ascend/springai/service/runtime/s2c/InMemoryS2cCallbackTransport.java`
-  (package `ascend.springai.service.runtime.s2c`, non-`.spi` —
+  (package `com.huawei.ascend.service.runtime.s2c`, non-`.spi` —
   implementation home).
 
 The waiting Run suspends via `SuspendSignal.forClientCallback(...)` —
@@ -602,7 +602,7 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
   `observability/TenantTagMeterFilter` (strips forbidden
   high-cardinality tags from `springai_ascend_*` metrics). Runtime
   side — Telemetry Vertical TraceContext SPI (ADR-0061).
-- **Phase C (delivered 2026-05-18, ADR-0078)**: merger of `agent-platform` + `agent-runtime` → `agent-service`. Package rename `ascend.springai.platform.*` → `ascend.springai.service.platform.*` and `ascend.springai.runtime.*` → `ascend.springai.service.runtime.*`. Rule R-C.e (formerly Rule 21) retargeted; ArchUnit class renamed `RuntimeMustNotDependOnPlatformTest` → `ServiceRuntimeMustNotDependOnServicePlatformTest`. Old modules deleted; reactor count decremented by 1.
+- **Phase C (delivered 2026-05-18, ADR-0078)**: merger of `agent-platform` + `agent-runtime` → `agent-service`. Package rename `com.huawei.ascend.platform.*` → `com.huawei.ascend.service.platform.*` and `com.huawei.ascend.runtime.*` → `com.huawei.ascend.service.runtime.*`. Rule R-C.e (formerly Rule 21) retargeted; ArchUnit class renamed `RuntimeMustNotDependOnPlatformTest` → `ServiceRuntimeMustNotDependOnServicePlatformTest`. Old modules deleted; reactor count decremented by 1.
 - **W2**: `config/`, tenant GUC + RLS, Spring Cloud Gateway routing,
   OTel auto-instrumentation, durable `RunRepository` (Postgres-backed
   beyond the L1 in-memory dev-posture wiring), streaming run event
@@ -648,9 +648,9 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
   catches it.
 - **Engine extraction landed** (T2.B2, ADR-0079, 2026-05-18; package
   rename completed rc14 per ADR-0090): the engine SPI surface moved to
-  `agent-execution-engine` at `ascend.springai.engine.spi.*`
+  `agent-execution-engine` at `com.huawei.ascend.engine.spi.*`
   (`ExecutorAdapter` and friends), and `EngineRegistry` + `EngineEnvelope`
-  moved to the same module under `ascend.springai.engine.runtime.*`
+  moved to the same module under `com.huawei.ascend.engine.runtime.*`
   (relocated from the legacy `service.runtime.engine.*` package in rc14
   per ADR-0090; ADR-0079's source-compat exception was retired since
   rc13 ADR-0088 already broke any consumer binding to the kernel-shim
@@ -698,9 +698,9 @@ TaskID and SessionID are logically decoupled: one Session may concurrently execu
 
 | Interface FQN | SPI package | Purpose |
 |---|---|---|
-| `ascend.springai.service.engine.spi.StatelessEngine` | `service.engine.spi` | Pure-function `Execute(TaskMetadata, InjectedContext) → StateDelta`; engine holds no state |
-| `ascend.springai.service.session.spi.ContextProjector` | `service.session.spi` | Projects a `SessionContext` view from full Session history (truncation / summarization policy) |
-| `ascend.springai.service.task.spi.TaskStateStore` | `service.task.spi` | TaskControlState persistence interface |
+| `com.huawei.ascend.service.engine.spi.StatelessEngine` | `service.engine.spi` | Pure-function `Execute(TaskMetadata, InjectedContext) → StateDelta`; engine holds no state |
+| `com.huawei.ascend.service.session.spi.ContextProjector` | `service.session.spi` | Projects a `SessionContext` view from full Session history (truncation / summarization policy) |
+| `com.huawei.ascend.service.task.spi.TaskStateStore` | `service.task.spi` | TaskControlState persistence interface |
 
 ### 11.3 AgentInvokeRequest contract (rc22 declares; rc24 wires runtime)
 
@@ -726,7 +726,7 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-service/
 └── src/main/java/
-    └── ascend/springai/service/    <!-- root-migration-target: com.huawei.ascend.agent.service -->
+    └── ascend/springai/service/
         ├── platform/                          # HTTP edge (current; §2.A)
         │   ├── auth/                          # JwtDecoderConfig, AuthProperties, JwtTenantClaimCrossCheck
         │   ├── tenant/                        # TenantContextFilter, TenantContextHolder, MDC binding
@@ -766,17 +766,17 @@ Mode-B (Business-Centric per ADR-0101): `agent-service` deploys on the business 
 
 | Interface FQN | SPI package | Purpose | Status |
 |---|---|---|---|
-| `ascend.springai.service.runtime.runs.spi.RunRepository` | `service.runtime.runs.spi` | Run persistence (in-memory ref impl ships; durable W2) | shipped |
-| `ascend.springai.service.runtime.memory.spi.GraphMemoryRepository` | `service.runtime.memory.spi` | Memory SPI (consumer impl in spring-ai-ascend-graphmemory-starter) | shipped |
-| `ascend.springai.service.runtime.resilience.spi.ResilienceContract` | `service.runtime.resilience.spi` | Operation-routing SPI (`resolve(tenant, skill)`) | shipped |
-| `ascend.springai.service.runtime.resilience.spi.ResiliencePolicy` | `service.runtime.resilience.spi` | Per-operation policy carrier | shipped |
-| `ascend.springai.service.runtime.resilience.spi.SkillResolution` | `service.runtime.resilience.spi` | Sealed decision envelope (accept / reject) | shipped |
-| `ascend.springai.service.runtime.resilience.spi.SuspendReason` | `service.runtime.resilience.spi` | Reason enum for SUSPENDED transitions | shipped |
-| `ascend.springai.service.runtime.resilience.spi.SkillCapacityRegistry` | `service.runtime.resilience.spi` | Tenant × skill capacity lookup | shipped |
-| `ascend.springai.platform.idempotency.IdempotencyStore` | `service.platform.idempotency` (interface in package root, not under .spi by historical placement) | Durable claim/replay (JDBC + in-memory) | shipped |
-| `ascend.springai.service.engine.spi.StatelessEngine` | `service.engine.spi` | NEW rc22 — pure-function engine SPI per ADR-0100 | declared (impl rc24) |
-| `ascend.springai.service.session.spi.ContextProjector` | `service.session.spi` | NEW rc22 — projects SessionContext | declared (impl rc24) |
-| `ascend.springai.service.task.spi.TaskStateStore` | `service.task.spi` | NEW rc22 — TaskControlState persistence | declared (impl rc24) |
+| `com.huawei.ascend.service.runtime.runs.spi.RunRepository` | `service.runtime.runs.spi` | Run persistence (in-memory ref impl ships; durable W2) | shipped |
+| `com.huawei.ascend.service.runtime.memory.spi.GraphMemoryRepository` | `service.runtime.memory.spi` | Memory SPI (consumer impl in spring-ai-ascend-graphmemory-starter) | shipped |
+| `com.huawei.ascend.service.runtime.resilience.spi.ResilienceContract` | `service.runtime.resilience.spi` | Operation-routing SPI (`resolve(tenant, skill)`) | shipped |
+| `com.huawei.ascend.service.runtime.resilience.spi.ResiliencePolicy` | `service.runtime.resilience.spi` | Per-operation policy carrier | shipped |
+| `com.huawei.ascend.service.runtime.resilience.spi.SkillResolution` | `service.runtime.resilience.spi` | Sealed decision envelope (accept / reject) | shipped |
+| `com.huawei.ascend.service.runtime.resilience.spi.SuspendReason` | `service.runtime.resilience.spi` | Reason enum for SUSPENDED transitions | shipped |
+| `com.huawei.ascend.service.runtime.resilience.spi.SkillCapacityRegistry` | `service.runtime.resilience.spi` | Tenant × skill capacity lookup | shipped |
+| `com.huawei.ascend.platform.idempotency.IdempotencyStore` | `service.platform.idempotency` (interface in package root, not under .spi by historical placement) | Durable claim/replay (JDBC + in-memory) | shipped |
+| `com.huawei.ascend.service.engine.spi.StatelessEngine` | `service.engine.spi` | NEW rc22 — pure-function engine SPI per ADR-0100 | declared (impl rc24) |
+| `com.huawei.ascend.service.session.spi.ContextProjector` | `service.session.spi` | NEW rc22 — projects SessionContext | declared (impl rc24) |
+| `com.huawei.ascend.service.task.spi.TaskStateStore` | `service.task.spi` | NEW rc22 — TaskControlState persistence | declared (impl rc24) |
 
 ## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
 

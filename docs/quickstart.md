@@ -67,7 +67,7 @@ public class MyFirstAgent {
     return args -> {
       // Orchestrator.run(runId, tenantId, executorDefinition, initialPayload)
       // is the canonical entry point (see
-      // ascend.springai.service.runtime.orchestration.spi.Orchestrator#run).
+      // com.huawei.ascend.service.runtime.orchestration.spi.Orchestrator#run).
       // It synchronously creates the Run if absent, marks it RUNNING, and
       // recursively drives the suspend/resume loop until SUCCEEDED / FAILED.
       UUID runId = UUID.randomUUID();
@@ -85,7 +85,7 @@ public class MyFirstAgent {
 No platform-team intervention required. The patterns this exercises:
 
 - Extension via **SPI** (`GraphExecutor`, `Orchestrator`, `RunRepository`) —
-  not by patching `*.impl.*` or `ascend.springai.service.platform.**` (post-Phase-C package path; pre-Phase-C this was `ascend.springai.platform.**`).
+  not by patching `*.impl.*` or `com.huawei.ascend.service.platform.**` (post-Phase-C package path; pre-Phase-C this was `com.huawei.ascend.platform.**`).
 - Configuration via `@Bean` and `@ConfigurationProperties` — never by source
   patches into the platform module.
 

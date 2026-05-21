@@ -11,7 +11,7 @@ description: "Edge Access plane — AgentClient SDK skeleton. HTTP client + Task
 architecture_doc: agent-client/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-client.yaml
 spi_packages:
-  - ascend.springai.client.spi   # placeholder; populated in W3+ per ADR-0049
+  - com.huawei.ascend.client.spi   # placeholder; populated in W3+ per ADR-0049
 allowed_dependencies: []  # standalone SDK; cross-plane traffic flows via agent-bus IngressGateway SPI consumption only
 forbidden_dependencies:
   - agent-service           # compute_control plane — direct edge↔compute_control imports forbidden (Rule R-I sub-clause .b)

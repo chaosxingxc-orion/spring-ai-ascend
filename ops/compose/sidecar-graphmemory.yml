@@ -5,7 +5,7 @@
 # Graphiti exposes REST API on port 8000 by default.
 #
 # spring-ai-ascend-graphmemory-starter connects via:
-#   ascend.springai.graphmemory.base-url=http://localhost:8002
+#   com.huawei.ascend.graphmemory.base-url=http://localhost:8002
 #
 # Cycle-15 decision: Graphiti vs Cognee. This overlay wires Graphiti; swap
 # Cognee by replacing the image when cycle-15 confirms the alternative.

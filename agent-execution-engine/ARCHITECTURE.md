@@ -20,9 +20,9 @@ authority: "ADR-0072 (Engine Envelope + Strict Matching); Layer-0 principle P-M 
 
 Code now lives under this module:
 
-- `agent-execution-engine/src/main/java/ascend/springai/engine/spi/` — `ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException` (engine contract surface; package root `ascend.springai.engine.spi.*` to keep SPI purity per Rule 77 / OrchestrationSpiArchTest).
+- `agent-execution-engine/src/main/java/ascend/springai/engine/spi/` — `ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException` (engine contract surface; package root `com.huawei.ascend.engine.spi.*` to keep SPI purity per Rule 77 / OrchestrationSpiArchTest).
 - `agent-execution-engine/src/main/java/ascend/springai/engine/orchestration/spi/` — `RunMode`, `RunContext`, `SuspendSignal`, `Checkpointer`, `Orchestrator`, `TraceContext`, `ExecutorDefinition` (orchestration SPI; relocated from the dissolved `agent-runtime-core` per ADR-0088).
-- `agent-execution-engine/src/main/java/ascend/springai/engine/runtime/` — `EngineRegistry`, `EngineEnvelope` (engine implementation home; relocated from `ascend.springai.service.runtime.engine.*` in rc14 per ADR-0090 — the ADR-0079 source-compat exception is retired since rc13 redistribution already broke any consumer that bound to the old kernel-shim module).
+- `agent-execution-engine/src/main/java/ascend/springai/engine/runtime/` — `EngineRegistry`, `EngineEnvelope` (engine implementation home; relocated from `com.huawei.ascend.service.runtime.engine.*` in rc14 per ADR-0090 — the ADR-0079 source-compat exception is retired since rc13 redistribution already broke any consumer that bound to the old kernel-shim module).
 
 The back-dep cycle that previously blocked extraction (engine → service → engine) was resolved by creating a transient `agent-runtime-core` module (per ADR-0079, 2026-05-18) that hosted `Run` / `RunContext` / `SuspendSignal` / `ExecutorDefinition` / S2C SPI types. Per ADR-0088 (rc13, 2026-05-20) `agent-runtime-core` was DISSOLVED and the kernel types relocated to semantic-home modules: orchestration SPI to this module under `engine.orchestration.spi`, runs/idempotency kernel re-consolidated into `agent-service`, S2C SPI to `agent-bus.bus.spi.s2c`. The build graph is now a strict DAG without the intermediate kernel-shim node.
 
@@ -69,7 +69,7 @@ reinterpretation of payloads as another engine's configuration.
 
 ## 4. Forbidden imports
 
-`ascend.springai.engine.spi.*` imports only `java.*` + `agent-middleware`
+`com.huawei.ascend.engine.spi.*` imports only `java.*` + `agent-middleware`
 SPI (for `HookPoint` reference). Enforced by `SpiPurityGeneralizedArchTest`
 (E48, extended in T2.G to scan this module).
 
@@ -91,7 +91,7 @@ Target directory tree (current namespace; rc22.5 migrates to `com.huawei.ascend.
 ```text
 agent-execution-engine/
 └── src/main/java/
-    └── ascend/springai/engine/    <!-- root-migration-target: com.huawei.ascend.agent.engine -->
+    └── ascend/springai/engine/
         ├── spi/                                # engine contract SPI (purity per Rule R-D)
         │   ├── ExecutorAdapter.java
         │   ├── GraphExecutor.java
@@ -120,22 +120,22 @@ Mode-B (Business-Centric per ADR-0101): `agent-execution-engine` joins `agent-se
 
 | Interface FQN | SPI package | Purpose |
 |---|---|---|
-| `ascend.springai.engine.spi.ExecutorAdapter` | `engine.spi` | Unified engine adapter contract |
-| `ascend.springai.engine.spi.GraphExecutor` | `engine.spi` | Workflow-graph execution |
-| `ascend.springai.engine.spi.AgentLoopExecutor` | `engine.spi` | ReAct-loop execution |
-| `ascend.springai.engine.spi.EngineHookSurface` | `engine.spi` | Engine-side hook declaration (cooperates with `agent-middleware` HookPoint) |
-| `ascend.springai.engine.spi.EngineMatchingException` | `engine.spi` | Throw on `engine_type` mismatch (Rule R-M.b) |
-| `ascend.springai.engine.orchestration.spi.Orchestrator` | `engine.orchestration.spi` | Run-level orchestration coordinator |
-| `ascend.springai.engine.orchestration.spi.RunContext` | `engine.orchestration.spi` | Per-Run context (tenantId, traceId, sessionId) |
-| `ascend.springai.engine.orchestration.spi.SuspendSignal` | `engine.orchestration.spi` | **Checked exception** for state-machine suspension (canonical per ADR-0100) |
-| `ascend.springai.engine.orchestration.spi.Checkpointer` | `engine.orchestration.spi` | Run state snapshot SPI |
-| `ascend.springai.engine.orchestration.spi.TraceContext` | `engine.orchestration.spi` | OTel-bridge contract |
-| `ascend.springai.engine.orchestration.spi.RunMode` | `engine.orchestration.spi` | Mode discriminator (GRAPH \| AGENT_LOOP \| ...) |
-| `ascend.springai.engine.orchestration.spi.ExecutorDefinition` | `engine.orchestration.spi` | Sealed: GraphDefinition \| AgentLoopDefinition |
+| `com.huawei.ascend.engine.spi.ExecutorAdapter` | `engine.spi` | Unified engine adapter contract |
+| `com.huawei.ascend.engine.spi.GraphExecutor` | `engine.spi` | Workflow-graph execution |
+| `com.huawei.ascend.engine.spi.AgentLoopExecutor` | `engine.spi` | ReAct-loop execution |
+| `com.huawei.ascend.engine.spi.EngineHookSurface` | `engine.spi` | Engine-side hook declaration (cooperates with `agent-middleware` HookPoint) |
+| `com.huawei.ascend.engine.spi.EngineMatchingException` | `engine.spi` | Throw on `engine_type` mismatch (Rule R-M.b) |
+| `com.huawei.ascend.engine.orchestration.spi.Orchestrator` | `engine.orchestration.spi` | Run-level orchestration coordinator |
+| `com.huawei.ascend.engine.orchestration.spi.RunContext` | `engine.orchestration.spi` | Per-Run context (tenantId, traceId, sessionId) |
+| `com.huawei.ascend.engine.orchestration.spi.SuspendSignal` | `engine.orchestration.spi` | **Checked exception** for state-machine suspension (canonical per ADR-0100) |
+| `com.huawei.ascend.engine.orchestration.spi.Checkpointer` | `engine.orchestration.spi` | Run state snapshot SPI |
+| `com.huawei.ascend.engine.orchestration.spi.TraceContext` | `engine.orchestration.spi` | OTel-bridge contract |
+| `com.huawei.ascend.engine.orchestration.spi.RunMode` | `engine.orchestration.spi` | Mode discriminator (GRAPH \| AGENT_LOOP \| ...) |
+| `com.huawei.ascend.engine.orchestration.spi.ExecutorDefinition` | `engine.orchestration.spi` | Sealed: GraphDefinition \| AgentLoopDefinition |
 
 Implementation home (NOT SPI):
-- `ascend.springai.engine.runtime.EngineRegistry` — the only authority for `resolve(envelope)`; pattern-matching on `ExecutorDefinition` outside this class forbidden (Rule R-M.a).
-- `ascend.springai.engine.runtime.EngineEnvelope` (record) — mirrors `engine-envelope.v1.yaml`.
+- `com.huawei.ascend.engine.runtime.EngineRegistry` — the only authority for `resolve(envelope)`; pattern-matching on `ExecutorDefinition` outside this class forbidden (Rule R-M.a).
+- `com.huawei.ascend.engine.runtime.EngineEnvelope` (record) — mirrors `engine-envelope.v1.yaml`.
 
 ## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
 
@@ -147,4 +147,4 @@ Vacuously green. The W2 Telemetry Vertical (hook outcome consumption per Rule R-
 
 ## *Cross-reference to ADR-0100 StatelessEngine SPI* (rc22)
 
-ADR-0100 records the addition of a new SPI `ascend.springai.service.engine.spi.StatelessEngine` (homed in `agent-service`, NOT here). Relationship: `StatelessEngine` may be expressed as a `ExecutorAdapter` extension or sibling — the decision lands in rc23 alongside the Java refactor. Until then `StatelessEngine` is declared in `agent-service` and consumed via the cross-module dependency direction `agent-service` → `agent-execution-engine`.
+ADR-0100 records the addition of a new SPI `com.huawei.ascend.service.engine.spi.StatelessEngine` (homed in `agent-service`, NOT here). Relationship: `StatelessEngine` may be expressed as a `ExecutorAdapter` extension or sibling — the decision lands in rc23 alongside the Java refactor. Until then `StatelessEngine` is declared in `agent-service` and consumed via the cross-module dependency direction `agent-service` → `agent-execution-engine`.

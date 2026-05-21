@@ -27,7 +27,7 @@ The negative invariant — **`agent-runtime` MUST NOT depend on `agent-platform`
 
 **`agent-runtime` MUST NOT depend on `agent-platform` (Maven level, source level).**
 
-The previously-symmetric Gate Rule D-6 is amended to enforce only the runtime→platform direction. A new ArchUnit test (`RuntimeMustNotDependOnPlatformTest`) generalises Rule R-C.e from the single `TenantContextHolder` class to the whole `ascend.springai.service.platform..` package.
+The previously-symmetric Gate Rule D-6 is amended to enforce only the runtime→platform direction. A new ArchUnit test (`RuntimeMustNotDependOnPlatformTest`) generalises Rule R-C.e from the single `TenantContextHolder` class to the whole `com.huawei.ascend.service.platform..` package.
 
 The `agent-platform-contracts` module is **not** introduced at L1. If a future wave (W2+) identifies a real handoff that benefits from a third module, that decision lands in its own ADR.
 
@@ -36,7 +36,7 @@ The `agent-platform-contracts` module is **not** introduced at L1. If a future w
 Rule R-C.a (Code-as-Contract) requires every constraint to have an executable enforcer. This ADR's invariants are backed by:
 
 - **E1** — `gate/check_architecture_sync.sh` Rule D-6: agent-service/pom.xml does not depend on agent-platform.
-- **E2** — `RuntimeMustNotDependOnPlatformTest` (ArchUnit): no class under `ascend.springai.service.runtime..` imports `ascend.springai.service.platform..`.
+- **E2** — `RuntimeMustNotDependOnPlatformTest` (ArchUnit): no class under `com.huawei.ascend.service.runtime..` imports `com.huawei.ascend.service.platform..`.
 - **E4** — `HttpEdgeMustNotImportMemorySpiTest` (ArchUnit): `agent-platform` does not import `runtime.memory.spi..`.
 - **E27** — `module_count_invariant`: root pom declares exactly 9 modules (bumped from 4 to 9 by the 2026-05-17 six-module materialization PR; canonical count now lives in `docs/governance/architecture-status.yaml#repository_counts.total_reactor_modules` and is data-driven cross-checked by Rule 64).
 

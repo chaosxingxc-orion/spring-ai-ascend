@@ -49,7 +49,7 @@ Three named verticals span every horizontal layer (HTTP edge → orchestration �
 
 ### 0.5.1 Tenant Vertical
 
-Carrier: `TenantContext` (HTTP edge ThreadLocal, valid for one request) + `RunContext.tenantId()` (canonical inside orchestration, ADR-0023). Rule R-C.e (L1 generalisation per ADR-0055) enforces that no runtime production class imports any class under `ascend.springai.service.platform..`; the original narrow case — no read of `TenantContextHolder` — is preserved as defence-in-depth. Every persisted row carries `tenant_id NOT NULL`. References: §4 #3, §4 #22, §4 #37, Rule R-C.e.
+Carrier: `TenantContext` (HTTP edge ThreadLocal, valid for one request) + `RunContext.tenantId()` (canonical inside orchestration, ADR-0023). Rule R-C.e (L1 generalisation per ADR-0055) enforces that no runtime production class imports any class under `com.huawei.ascend.service.platform..`; the original narrow case — no read of `TenantContextHolder` — is preserved as defence-in-depth. Every persisted row carries `tenant_id NOT NULL`. References: §4 #3, §4 #22, §4 #37, Rule R-C.e.
 
 ### 0.5.2 Posture Vertical
 
@@ -89,16 +89,16 @@ that surfaced when engine code moved to `agent-execution-engine`. Rc13
 its 16 sources to the modules that semantically own them:
 
 - `Run` / `RunStatus` / `RunStateMachine` / `RunRepository` / `IdempotencyRecord`
-  back to **agent-service** (same `ascend.springai.service.runtime.{runs,idempotency}`
+  back to **agent-service** (same `com.huawei.ascend.service.runtime.{runs,idempotency}`
   packages they had pre-T2.B2).
 - `RunMode` + the 6 orchestration SPI types
   (`Checkpointer` / `Orchestrator` / `RunContext` / `SuspendSignal` / `TraceContext` /
   `ExecutorDefinition`) into **agent-execution-engine** under
-  `ascend.springai.engine.orchestration.spi` — co-locating the orchestration
+  `com.huawei.ascend.engine.orchestration.spi` — co-locating the orchestration
   vocabulary with the engine that discriminates on it (semantically natural
   AND removes the back-dep that motivated agent-runtime-core in the first place).
-- The 3 S2C transport types into **agent-bus** under `ascend.springai.bus.spi.s2c` —
-  pairing with the **new** `IngressGateway` SPI in `ascend.springai.bus.spi.ingress`
+- The 3 S2C transport types into **agent-bus** under `com.huawei.ascend.bus.spi.s2c` —
+  pairing with the **new** `IngressGateway` SPI in `com.huawei.ascend.bus.spi.ingress`
   (**ADR-0089**, 2026-05-20) so the Bus & State Hub plane owns the entirety of
   cross-plane traffic in both directions (C2S and S2C).
 
@@ -107,7 +107,7 @@ forbidden at the sub-package level (ArchUnit `RuntimeMustNotDependOnPlatformTest
 
 | Module | Plane (P-I) | Owner team | Maturity today |
 |--------|-------------|-----------|----------------|
-| `agent-client` | edge | AgentClient | skeleton (SDK; W3+ per ADR-0049). Cross-plane traffic locked to `ascend.springai.bus.spi.ingress.IngressGateway` per ADR-0089 / Rule R-I.b. |
+| `agent-client` | edge | AgentClient | skeleton (SDK; W3+ per ADR-0049). Cross-plane traffic locked to `com.huawei.ascend.bus.spi.ingress.IngressGateway` per ADR-0089 / Rule R-I.b. |
 | `agent-service` | compute_control | AgentService | shipped — HTTP edge (`service.platform.*`) + cognitive runtime kernel (`service.runtime.*`) + Run/RunStateMachine/IdempotencyRecord entities + memory.spi + resilience.spi + runs.spi (rc13 re-consolidation per ADR-0088) |
 | `agent-middleware` | compute_control | Middleware | SPI extracted from `agent-service.runtime` (T2.B1, 2026-05-17) |
 | `agent-execution-engine` | compute_control | AgentExecutionEngine | engine SPI (`engine.spi`) + orchestration SPI (`engine.orchestration.spi`, owns RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition per ADR-0088) + EngineRegistry/EngineEnvelope; reference adapters remain in agent-service.runtime |
@@ -231,14 +231,14 @@ The original pre-Phase-C `agent-runtime → agent-platform` Maven dependency was
 unused at the source level and was removed per ADR-0026; both of those modules
 no longer exist as separate Maven modules after ADR-0078 (Phase C consolidation).
 The negative invariant Rule R-C.e was generalised to sub-package layering inside
-`agent-service`: no class under `ascend.springai.service.runtime..` may import any
-class under `ascend.springai.service.platform..` (broad — enforced by
+`agent-service`: no class under `com.huawei.ascend.service.runtime..` may import any
+class under `com.huawei.ascend.service.platform..` (broad — enforced by
 `RuntimeMustNotDependOnPlatformTest`) and the original narrow case (no import of
 `TenantContextHolder`) is preserved as defence-in-depth (enforced by
 `TenantPropagationPurityTest`). The HTTP edge MUST NOT import memory SPI or
 internal runtime impl packages (enforced by `PlatformImportsOnlyRuntimePublicApiTest`).
-SPI packages (`ascend.springai.service.runtime.*.spi.*` post-ADR-0079 +
-`ascend.springai.engine.spi.*` post-ADR-0079 + `ascend.springai.middleware.spi.*`
+SPI packages (`com.huawei.ascend.service.runtime.*.spi.*` post-ADR-0079 +
+`com.huawei.ascend.engine.spi.*` post-ADR-0079 + `com.huawei.ascend.middleware.spi.*`
 post-ADR-0073) import only `java.*` + same-spi-package siblings (enforced by
 `OrchestrationSpiArchTest`, `MemorySpiArchTest`, and
 `SpiPurityGeneralizedArchTest#s2c_spi_imports_only_java_and_same_package_siblings`
@@ -328,7 +328,7 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
    New glue must answer "why is this not a configuration of an existing OSS dep?"
    Glue LOC target ≤ 1 500 at W0 close.
 
-7. **SPI purity**: SPI interfaces under `ascend.springai.service.runtime.*.spi.*`
+7. **SPI purity**: SPI interfaces under `com.huawei.ascend.service.runtime.*.spi.*`
    import only `java.*`. No Spring, Micrometer, or platform types in SPIs.
 
 8. **Per-operation resilience routing**: `ResilienceContract` maps `operationId`
@@ -462,8 +462,8 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
     `agent-execution-engine.engine.orchestration.spi` per ADR-0088 (rc13 dissolution of
     `agent-runtime-core`, which had transiently hosted them per ADR-0079); their runtime
     impl host (`agent-service.service.runtime`) consumes the SPI. No production class under
-    `ascend.springai.service.runtime..` may import any class under
-    `ascend.springai.service.platform..` — including (but not limited to) `TenantContextHolder`
+    `com.huawei.ascend.service.runtime..` may import any class under
+    `com.huawei.ascend.service.platform..` — including (but not limited to) `TenantContextHolder`
     (HTTP-edge ThreadLocal in `agent-service.service.platform`; was rooted in `agent-platform`
     pre-ADR-0078). Enforced by `RuntimeMustNotDependOnPlatformTest`
     (ArchUnit — Rule R-C.e L1 generalisation per ADR-0055) and `TenantPropagationPurityTest`
@@ -853,9 +853,9 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
 
 58. **No PII in span attributes.** Raw prompt, completion, tool-input, and tool-output content MUST NOT appear in Span attributes in posture=research/prod. Payloads MUST be stored in `PayloadStore` and referenced via `payload_ref://<id>`. `PiiRedactionHook` MUST be registered at boot in posture=research/prod (verified by `AppPostureGate`); startup MUST fail closed if the hook is absent. Enforced by integration `PostureBootPiiHookPresenceContractIT` (L1.x — asserts the boot-gate contract; the negative emission test `PiiSpanAttributeIT` lands at W2 alongside Hook SPI implementation; class FQN locked here per Rule R-C.a). See ADR-0061 §5.
 
-59. **MCP-only telemetry replay surface.** Trace replay and run/session listing MUST be exposed exclusively via MCP tools (`get_run_trace`, `list_runs`, `get_llm_call`, `list_sessions`). No HTTP endpoint, no UI, no direct DB read endpoint, no Tempo/Jaeger redirect proxy. Preserves §1 exclusion (no Admin UI). Enforced by ArchUnit `McpReplaySurfaceArchTest` (negative: no `@RestController` resides under `ascend.springai.service.platform.web.replay`, `…web.trace`, or `…web.session` in `agent-service/src/main/java/…`; consolidated post-ADR-0078 from the pre-Phase-C `agent-platform/web/...` paths) + ADR-0017 freeze.
+59. **MCP-only telemetry replay surface.** Trace replay and run/session listing MUST be exposed exclusively via MCP tools (`get_run_trace`, `list_runs`, `get_llm_call`, `list_sessions`). No HTTP endpoint, no UI, no direct DB read endpoint, no Tempo/Jaeger redirect proxy. Preserves §1 exclusion (no Admin UI). Enforced by ArchUnit `McpReplaySurfaceArchTest` (negative: no `@RestController` resides under `com.huawei.ascend.service.platform.web.replay`, `…web.trace`, or `…web.session` in `agent-service/src/main/java/…`; consolidated post-ADR-0078 from the pre-Phase-C `agent-platform/web/...` paths) + ADR-0017 freeze.
 
-60. **Business/Platform decoupling enforcement.** Platform code MUST NOT contain business-specific customizations. Business and example modules MUST extend the platform via SPI (`ascend.springai..spi..`) and `@ConfigurationProperties` only — never by patching `*.impl.*` or `ascend.springai.service.platform..`. The platform MUST ship a runnable quickstart at `docs/quickstart.md` referenced from `README.md` so developers reach first-agent execution without platform-team intervention. Enforced by ArchUnit `SpiPurityGeneralizedArchTest` (any `..spi..` package free of Spring/platform/inmemory/Micrometer/OTel deps) + Gate Rule R-C.b `quickstart_present`. CLAUDE.md Rule R-A. See ADR-0064.
+60. **Business/Platform decoupling enforcement.** Platform code MUST NOT contain business-specific customizations. Business and example modules MUST extend the platform via SPI (`com.huawei.ascend..spi..`) and `@ConfigurationProperties` only — never by patching `*.impl.*` or `com.huawei.ascend.service.platform..`. The platform MUST ship a runnable quickstart at `docs/quickstart.md` referenced from `README.md` so developers reach first-agent execution without platform-team intervention. Enforced by ArchUnit `SpiPurityGeneralizedArchTest` (any `..spi..` package free of Spring/platform/inmemory/Micrometer/OTel deps) + Gate Rule R-C.b `quickstart_present`. CLAUDE.md Rule R-A. See ADR-0064.
 
 61. **Competitive baselines (Four Pillars).** Every release MUST publish `docs/governance/competitive-baselines.yaml` declaring four pillar dimensions — `performance`, `cost`, `developer_onboarding`, `governance` — each with a named `baseline_metric` and a `current_value` (or `N/A` for not-yet-instrumented). The most recent `docs/logs/releases/*.md` release note MUST mention all four pillar names. A regression in any `current_value` MUST carry a `regression_adr:` reference (enforcer for the regression-ADR pairing is deferred per `CLAUDE-deferred.md` 30.b). Enforced by Gate Rule R-D sub-clause .a `competitive_baselines_present_and_wellformed` + Gate Rule G-1 sub-clause .a `release_note_references_four_pillars`. CLAUDE.md Rule R-B. See ADR-0065.
 
@@ -885,8 +885,8 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
 - `IdempotencyRecord` entity — contract-spine entity with mandatory `tenantId` (Rule R-C.c target).
 - `OssApiProbeTest` — compile-time probe verifying Spring AI + Spring Boot API surface.
 - `ApiCompatibilityTest` — ArchUnit rules enforcing SPI purity and dependency direction.
-- `RuntimeMustNotDependOnPlatformTest` — ArchUnit Rule R-C.e (L1 generalisation per ADR-0055): no class under `ascend.springai.service.runtime..` (re-consolidated into `agent-service` per ADR-0088, rc13 — the intermediate post-ADR-0079 split into `agent-runtime-core` was dissolved) may import any class under `ascend.springai.service.platform..` (HTTP-edge sub-package of `agent-service`, formerly the `agent-platform` module pre-Phase-C).
-- `TenantPropagationPurityTest` — ArchUnit Rule R-C.e (original narrow case per ADR-0023, preserved as defence-in-depth): no class under `ascend.springai.service.runtime..` may import `TenantContextHolder` (located at `agent-service.service.platform.tenant.TenantContextHolder` post-ADR-0078).
+- `RuntimeMustNotDependOnPlatformTest` — ArchUnit Rule R-C.e (L1 generalisation per ADR-0055): no class under `com.huawei.ascend.service.runtime..` (re-consolidated into `agent-service` per ADR-0088, rc13 — the intermediate post-ADR-0079 split into `agent-runtime-core` was dissolved) may import any class under `com.huawei.ascend.service.platform..` (HTTP-edge sub-package of `agent-service`, formerly the `agent-platform` module pre-Phase-C).
+- `TenantPropagationPurityTest` — ArchUnit Rule R-C.e (original narrow case per ADR-0023, preserved as defence-in-depth): no class under `com.huawei.ascend.service.runtime..` may import `TenantContextHolder` (located at `agent-service.service.platform.tenant.TenantContextHolder` post-ADR-0078).
 - `Orchestrator` SPI + `GraphExecutor` + `AgentLoopExecutor` + `SuspendSignal` + `Checkpointer` — dual-mode runtime SPIs (§4 constraint #9).
 - `RunStateMachine` — DFA validator enforcing §4 #20 legal transitions; `validate/allowedTransitions/isTerminal` (Rule R-C.d). `RunStatus.EXPIRED` added as 7th terminal value.
 - `InMemoryCheckpointer` — dev-posture in-memory checkpoint store with posture-aware 16-KiB

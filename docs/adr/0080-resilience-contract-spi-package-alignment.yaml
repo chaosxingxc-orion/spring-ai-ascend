@@ -17,8 +17,8 @@ relates_to:
 decision_one_liner: |
   Move ResilienceContract and the value types it exposes (ResiliencePolicy,
   SkillResolution, SuspendReason, SkillCapacityRegistry) from
-  ascend.springai.service.runtime.resilience to
-  ascend.springai.service.runtime.resilience.spi, leaving implementations
+  com.huawei.ascend.service.runtime.resilience to
+  com.huawei.ascend.service.runtime.resilience.spi, leaving implementations
   (DefaultSkillResilienceContract, YamlResilienceContract,
   YamlSkillCapacityRegistry) in the parent package. Closes rc5 review P1-2
   and adds Rule R-D sub-clause .f so future catalog SPI rows cannot drift away from
@@ -34,9 +34,9 @@ context: |
   active SPIs at agent-service.
 
   But its source code lived at
-  ascend.springai.service.runtime.resilience — a package with no .spi
+  com.huawei.ascend.service.runtime.resilience — a package with no .spi
   token. agent-service/module-metadata.yaml#spi_packages declared only
-  ascend.springai.service.runtime.memory.spi. The DFX file at
+  com.huawei.ascend.service.runtime.memory.spi. The DFX file at
   docs/dfx/agent-service.yaml mirrored that single entry. Rule R-D sub-clause .d (dot-spi
   convention) and Rule R-D sub-clause .e (DFX set-match) both passed vacuously — there
   was no resilience SPI package declared to test.
@@ -70,10 +70,10 @@ decision: |
         - YamlResilienceContract.java
         - YamlSkillCapacityRegistry.java
     This mirrors the split pattern ADR-0079 used for agent-execution-engine
-    (SPI at ascend.springai.engine.spi.*, registry/envelope impls at
-    ascend.springai.service.runtime.engine.*).
+    (SPI at com.huawei.ascend.engine.spi.*, registry/envelope impls at
+    com.huawei.ascend.service.runtime.engine.*).
   - agent-service/module-metadata.yaml#spi_packages adds
-    ascend.springai.service.runtime.resilience.spi alongside the existing
+    com.huawei.ascend.service.runtime.resilience.spi alongside the existing
     memory.spi entry; docs/dfx/agent-service.yaml mirrors the same
     addition under its top-level spi_packages: block (Rule R-D sub-clause .e set-match).
   - docs/contracts/contract-catalog.md §2 row for ResilienceContract has
@@ -110,7 +110,7 @@ verification:
     - "bash gate/test_architecture_sync_gate.sh -> Tests passed: 138/138 (post-rc6 baseline; +9 self-tests for Rule G-2 sub-clause .b strengthening + Rule G-2 sub-clause .c + Rule R-D sub-clause .f)"
     - "bash gate/check_architecture_sync.sh -> GATE: PASS (70 active gate rules post-rc6, +2 vs rc5)"
   gate:
-    - "Rule R-D sub-clause .d (spi_packages_dot_spi_convention, E110) -> ascend.springai.service.runtime.resilience.spi ends in .spi ✓"
+    - "Rule R-D sub-clause .d (spi_packages_dot_spi_convention, E110) -> com.huawei.ascend.service.runtime.resilience.spi ends in .spi ✓"
     - "Rule R-D sub-clause .e (dfx_spi_packages_match_module_metadata, E111) -> metadata and DFX agree (set-match) ✓"
     - "Rule R-D sub-clause .f (catalog_spi_row_matches_module_spi_metadata, E118) -> catalog row for ResilienceContract resolves to metadata + DFX spi_packages ✓"
     - "SpiPurityGeneralizedArchTest -> resilience.spi imports only java.* + same-spi-package siblings ✓ (already satisfied; SuspendReason imports java.time.Instant + java.util.UUID only)"

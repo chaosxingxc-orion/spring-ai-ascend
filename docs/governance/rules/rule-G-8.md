@@ -20,7 +20,7 @@ kernel: |
 Closes rc13 post-ratchet review P1-5 (L-δ family): a wave can pass every single-surface scanner (Rule 87 / 94 / 98 / 101) while still leaving the L0 authority system internally contradictory. Rule G-8 gates the *agreement* between canonical surfaces, not their well-formedness. The rule exists because rc13 demonstrated that:
 
 - `architecture-status.yaml#baseline_metrics.architecture_graph_nodes: 363` and `architecture_graph_edges: 539` (canonical baseline) disagreed with the generated graph (376 / 558) while every existing rule still passed.
-- `CLAUDE.md` Rule R-M kernel + `rule-R-M.md` card + `s2c-callback.v1.yaml` comment all named `ascend.springai.service.runtime.s2c.spi` while `agent-bus/module-metadata.yaml#spi_packages` + `contract-catalog.md` + the source tree all named `ascend.springai.bus.spi.s2c` (post-ADR-0088 truth).
+- `CLAUDE.md` Rule R-M kernel + `rule-R-M.md` card + `s2c-callback.v1.yaml` comment all named `com.huawei.ascend.service.runtime.s2c.spi` while `agent-bus/module-metadata.yaml#spi_packages` + `contract-catalog.md` + the source tree all named `com.huawei.ascend.bus.spi.s2c` (post-ADR-0088 truth).
 - `architecture-status.yaml` `allowed_claim` text named "each of the 9 reactor modules" with `agent-runtime-core` listed, while `pom.xml`'s `<modules>` block + `repository_counts.reactor_modules` declared 8.
 - The single-surface rule 87/94/98 deleted-module scanners were exempt-by-marker, which let post-ADR-0079 markers shield post-ADR-0088 stale present-tense claims.
 
@@ -52,7 +52,7 @@ Every NON-SPI structural-carrier row in `docs/contracts/contract-catalog.md` MUS
 2. Resolves the full package path under `<module>/src/main/java/`.
 3. Verifies a `.java` file matching `<ClassName>.java` exists at that path.
 
-This closes the rc14 M-α family gap where `EngineRegistry` and `EngineEnvelope` were relocated to `ascend.springai.engine.runtime.*` (rc14 ADR-0090) but the contract-catalog row still cited `...service.runtime.engine`. Rule G-8.b only scans SPI packages (`*.spi` literal); structural carriers are non-SPI public contract types, so they require a separate sub-check. The scope is intentionally narrow — only contract-catalog structural-carrier rows — because (a) those are the canonical authority for non-SPI public-contract module ownership, and (b) the carrier list is short (~10 types) and stable.
+This closes the rc14 M-α family gap where `EngineRegistry` and `EngineEnvelope` were relocated to `com.huawei.ascend.engine.runtime.*` (rc14 ADR-0090) but the contract-catalog row still cited `...service.runtime.engine`. Rule G-8.b only scans SPI packages (`*.spi` literal); structural carriers are non-SPI public contract types, so they require a separate sub-check. The scope is intentionally narrow — only contract-catalog structural-carrier rows — because (a) those are the canonical authority for non-SPI public-contract module ownership, and (b) the carrier list is short (~10 types) and stable.
 
 ## Activation
 

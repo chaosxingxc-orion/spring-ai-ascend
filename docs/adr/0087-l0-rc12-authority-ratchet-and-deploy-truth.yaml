@@ -120,7 +120,7 @@ cited_fix_inventory:
       - ".github/workflows/ci.yml:53: comment updated agent-platform → agent-service with historical marker"
       - "gate/run_operator_shape_smoke.sh: probe paths agent-platform/agent-runtime → agent-service/agent-runtime-core"
       - "docs/architecture-views/plantuml/l0/l0-development.puml: full rewrite to current 9-module reactor"
-      - "docs/quickstart.md:70: ascend.springai.runtime.orchestration.spi → ascend.springai.service.runtime.orchestration.spi"
+      - "docs/quickstart.md:70: com.huawei.ascend.runtime.orchestration.spi → com.huawei.ascend.service.runtime.orchestration.spi"
       - "agent-bus/agent-client/agent-evolve/agent-middleware module-metadata.yaml: forbidden_dependencies agent-platform/agent-runtime → agent-service/agent-runtime-core with post-Phase-C historical markers"
       - "K-δ corpus sweep confirmed all remaining `agent-platform`/`agent-runtime` hits in active corpus (.md, .yaml, .java, application.yml metric tag) carry proper historical markers (post-Phase-C, pre-Phase-C, ADR-0078, ADR-0079, extracted from, consolidated from, formerly)"
   K-ε:

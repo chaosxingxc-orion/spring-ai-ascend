@@ -32,7 +32,7 @@ context: |
   numeric baseline parity + module topology parity, but did NOT cover:
 
   - **M-α (non-SPI structural-carrier path-truth):** rc14 moved
-    `EngineRegistry` + `EngineEnvelope` to `ascend.springai.engine.runtime.*`
+    `EngineRegistry` + `EngineEnvelope` to `com.huawei.ascend.engine.runtime.*`
     in code + module-metadata + engine-envelope.v1.yaml. But root
     `ARCHITECTURE.md:169`, `agent-service/ARCHITECTURE.md:342-348`, and
     `docs/contracts/contract-catalog.md:81-82` still claimed the OLD

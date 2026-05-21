@@ -41,7 +41,7 @@ The gate had no rule to catch posture-truth drift in `posture-model.md`.
 
 ### AppPostureGate (§4 #32)
 
-`ascend.springai.runtime.posture.AppPostureGate` — pure Java, no Spring imports:
+`com.huawei.ascend.runtime.posture.AppPostureGate` — pure Java, no Spring imports:
 
 ```java
 public final class AppPostureGate {

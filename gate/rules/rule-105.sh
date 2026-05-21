@@ -31,7 +31,7 @@ while IFS= read -r _r105_meta; do
   _r105_violations=$(grep -rnE '^import ascend\.springai\.(service|engine|middleware)\.' "$_r105_main_java" 2>/dev/null || true)
   if [[ -n "$_r105_violations" ]]; then
     while IFS= read -r _r105_line; do
-      fail_rule "edge_no_direct_compute_link" "$_r105_line — edge plane module must not import compute_control plane production class; route via ascend.springai.bus.spi.ingress.IngressGateway per Rule R-I sub-clause .b / ADR-0089"
+      fail_rule "edge_no_direct_compute_link" "$_r105_line — edge plane module must not import compute_control plane production class; route via com.huawei.ascend.bus.spi.ingress.IngressGateway per Rule R-I sub-clause .b / ADR-0089"
       _r105_fail=1
     done <<< "$_r105_violations"
   fi
@@ -39,7 +39,7 @@ while IFS= read -r _r105_meta; do
   _r105_rest=$(grep -rnE 'new[[:space:]]+RestTemplate\(|WebClient\.builder\(' "$_r105_main_java" 2>/dev/null || true)
   if [[ -n "$_r105_rest" ]]; then
     while IFS= read -r _r105_line; do
-      fail_rule "edge_no_direct_compute_link" "$_r105_line — edge plane module must not construct direct HTTP clients; route via ascend.springai.bus.spi.ingress.IngressGateway per Rule R-I sub-clause .b / ADR-0089"
+      fail_rule "edge_no_direct_compute_link" "$_r105_line — edge plane module must not construct direct HTTP clients; route via com.huawei.ascend.bus.spi.ingress.IngressGateway per Rule R-I sub-clause .b / ADR-0089"
       _r105_fail=1
     done <<< "$_r105_rest"
   fi

@@ -4,15 +4,15 @@
 
   Status (post-rc13, 2026-05-20): Engine SPI + EngineRegistry + EngineEnvelope
   + orchestration SPI all live here. Code lives under:
-    - ascend.springai.engine.spi.*                (ExecutorAdapter, GraphExecutor,
+    - com.huawei.ascend.engine.spi.*                (ExecutorAdapter, GraphExecutor,
                                                    AgentLoopExecutor, EngineHookSurface,
                                                    EngineMatchingException)
-    - ascend.springai.engine.orchestration.spi.*  (RunMode, RunContext, SuspendSignal,
+    - com.huawei.ascend.engine.orchestration.spi.*  (RunMode, RunContext, SuspendSignal,
                                                    Checkpointer, Orchestrator, TraceContext,
                                                    ExecutorDefinition — moved here from
                                                    the dissolved agent-runtime-core module
                                                    per ADR-0088)
-    - ascend.springai.service.runtime.engine.*    (EngineRegistry, EngineEnvelope —
+    - com.huawei.ascend.service.runtime.engine.*    (EngineRegistry, EngineEnvelope —
                                                    implementations; will be renamed in W3+)
   Reference adapters (SequentialGraphExecutor, IterativeAgentLoopExecutor) stay in
   agent-service.runtime because they wire Run/RunStateMachine (which live in agent-service).
@@ -27,7 +27,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>ascend.springai</groupId>
+    <groupId>com.huawei.ascend</groupId>
     <artifactId>spring-ai-ascend-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
   </parent>
@@ -40,12 +40,12 @@
     <!-- Engine self-contains its orchestration SPI (RunMode/RunContext/SuspendSignal) per ADR-0088. -->
     <!-- Engine references the HookPoint enum + RuntimeMiddleware listener -->
     <dependency>
-      <groupId>ascend.springai</groupId>
+      <groupId>com.huawei.ascend</groupId>
       <artifactId>agent-middleware</artifactId>
     </dependency>
     <!-- Engine registry consumes S2cCallbackTransport SPI from bus.spi.s2c per ADR-0088. -->
     <dependency>
-      <groupId>ascend.springai</groupId>
+      <groupId>com.huawei.ascend</groupId>
       <artifactId>agent-bus</artifactId>
     </dependency>
     <!-- snakeyaml for envelope-schema parsing in EngineRegistry. -->

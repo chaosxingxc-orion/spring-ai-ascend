@@ -14,11 +14,11 @@ spi_packages:
   # Engine-adapter SPI (ExecutorAdapter + GraphExecutor + AgentLoopExecutor +
   # EngineHookSurface + EngineMatchingException). Self-contained: orchestration
   # SPI now lives in the sibling package below.
-  - ascend.springai.engine.spi
+  - com.huawei.ascend.engine.spi
   # Orchestration SPI (RunMode + RunContext + SuspendSignal + Checkpointer +
   # Orchestrator + TraceContext + ExecutorDefinition) — moved here per ADR-0088
   # to break the back-dep that originally motivated agent-runtime-core's existence.
-  - ascend.springai.engine.orchestration.spi
+  - com.huawei.ascend.engine.orchestration.spi
 allowed_dependencies:
   - agent-middleware       # engine references HookPoint enum + RuntimeMiddleware listener
   - agent-bus              # engine registry consumes S2cCallbackTransport SPI from bus.spi.s2c per ADR-0088 (relocated from dissolved agent-runtime-core)

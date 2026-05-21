@@ -633,7 +633,7 @@ springai.ascend.runtime.tenants.tenant-b=springai
 Create in `agent-runtime-core` (or keep in `agent-runtime` under a new `cognitive/spi/` package):
 
 ```java
-package ascend.springai.runtime.cognitive.spi;
+package com.huawei.ascend.runtime.cognitive.spi;
 
 // Pure Java — no Spring, no framework imports
 
@@ -676,7 +676,7 @@ public record EmbeddingResult(List<float[]> embeddings, UsageMetrics usage) {}
 <artifactId>agent-runtime-springai</artifactId>
 <dependencies>
     <dependency>
-        <groupId>ascend.springai</groupId>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-runtime</artifactId>  <!-- for CognitiveEngine SPI -->
     </dependency>
     <dependency>
@@ -691,7 +691,7 @@ public record EmbeddingResult(List<float[]> embeddings, UsageMetrics usage) {}
 ```
 
 ```java
-package ascend.springai.runtime.springai;
+package com.huawei.ascend.runtime.springai;
 
 public class SpringAiCognitiveEngine implements CognitiveEngine {
     private final ChatClient chatClient;
@@ -710,7 +710,7 @@ public class SpringAiCognitiveEngine implements CognitiveEngine {
 **Step 3: Create LangChain4j adapter module (W3)**
 
 ```java
-package ascend.springai.runtime.langchain4j;
+package com.huawei.ascend.runtime.langchain4j;
 
 public class LangChain4jCognitiveEngine implements CognitiveEngine {
     private final ChatLanguageModel model;
