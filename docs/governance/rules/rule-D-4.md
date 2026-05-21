@@ -7,6 +7,7 @@ principle_ref: P-A
 authority_refs: []
 enforcer_refs: []
 status: active
+scope_phase: impl
 kernel_cap: 12
 kernel: |
   A feature is implementable only when all three layers are designed. A feature is shippable only when all three are green and Rule D-5 passes.

@@ -18,6 +18,7 @@ scope_surfaces:
   - ".github/workflows/*.yml"
 kernel: |
   **Production code (Java, Python, shell scripts, YAML config) and inline comments MUST NOT carry version metadata: no `rc<N> Wave <M>` tags, no `per ADR-NNNN` pointers, no commit-SHA references, no `Finding F<N>` mentions, no "closes/addresses ticket #<N>" annotations, no changelog-style entries. Such metadata lives in commit messages, PR descriptions, ADRs (`docs/adr/`), release notes (`docs/logs/releases/`), rule cards (`docs/governance/rules/*.md`), `rule-history.md`, and the recurring-defect-families ledger. Implementation comments explain WHY the code exists when non-obvious, never WHICH wave introduced it. Structural rule citations (`# Rule 113 — slug`, `enforcer E160`) are STRUCTURAL identifiers, not metadata, and remain allowed everywhere. The following surfaces are EXEMPT (they exist precisely to carry version/wave metadata): `docs/adr/`, `docs/logs/`, `docs/governance/rules/*.md`, `docs/governance/principles/*.md`, `docs/governance/rule-history.md`, `docs/governance/recurring-defect-families.{yaml,md}`, `docs/governance/architecture-status.yaml` (allowed_claim + baseline_metrics comments), `docs/governance/enforcers.yaml`, `docs/governance/principle-coverage.yaml`, `docs/governance/architecture-graph.yaml`, `CHANGELOG.md`, the kernel paragraphs in `CLAUDE.md` itself, `gate/lib/` (helpers), and `gate/test_architecture_sync_gate.sh` (test fixtures construct synthetic version-tagged inputs).**
+scope_phase: always_on
 ---
 
 # Rule D-9 — No Version / Log Metadata in Code

@@ -7,6 +7,7 @@ principle_ref: P-B
 authority_refs: [ADR-0085, ADR-0094]
 enforcer_refs: [E141, E142]
 status: active
+scope_phase: commit
 kernel_cap: 6
 scope_surfaces:
   - CLAUDE.md kernel paragraphs

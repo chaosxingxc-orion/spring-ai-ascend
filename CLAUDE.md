@@ -4,6 +4,23 @@
 
 Bodies of every principle and rule below live under `docs/governance/{principles,rules}/` and are loaded on-demand. CLAUDE.md is the kernel index. Drift policed by Gate Rules 67/68/69; always-loaded byte budget by Rule G-4 sub-clause .a (`gate/measure_always_loaded_tokens.sh`).
 
+## Phase Entry — Invoke the matching skill BEFORE working
+
+ADR-0098 (rc21) replaces progressive on-demand rule loading with
+scenario-loaded contracts. At phase entry, **MUST invoke** the matching
+skill; the skill reads the phase contract and surfaces its active rules
++ forbidden patterns + exit criteria into context.
+
+| When you are about to … | MUST invoke | Loads contract |
+|---|---|---|
+| Write ADR / module spec / SPI declaration / design review | `/design-mode` | [`architecture-design.md`](docs/governance/contracts/architecture-design.md) |
+| Write production Java / yaml / Flyway migration / DI wiring | `/impl-mode` | [`engineering-implementation.md`](docs/governance/contracts/engineering-implementation.md) |
+| Run gate / Maven verify / smoke / debug a regression | `/verify-mode` | [`integration-verification.md`](docs/governance/contracts/integration-verification.md) |
+| Write release note / lockstep baseline / pre-commit checklist / open PR | `/commit-mode` | [`system-commit.md`](docs/governance/contracts/system-commit.md) |
+| Process reviewer findings / corpus sweep / write rebuttal | `/review-mode` | [`review-response.md`](docs/governance/contracts/review-response.md) |
+
+If uncertain which phase applies: default to `/impl-mode` (widest coverage). Skills suggest the next phase at exit.
+
 ## Layer 0 — Governing Principles
 
 | ID | Title | Operationalised by | Body |
@@ -329,6 +346,22 @@ Enforced by [`rule-G-9.md`](docs/governance/rules/rule-G-9.md).
 **Canonical authority surfaces MUST agree with each other, not just be internally well-formed. (sub-clause .a — Graph baseline parity) `docs/governance/architecture-status.yaml#baseline_metrics.architecture_graph_nodes` AND `architecture_graph_edges` MUST equal the `node_count` AND `edge_count` declared in `docs/governance/architecture-graph.yaml` (live header from `python gate/build_architecture_graph.py --check --no-write`). (sub-clause .b — SPI path parity) every SPI package named in a CLAUDE.md `#### Rule` kernel OR a `docs/governance/rules/rule-*.md` card kernel MUST appear in exactly one `<module>/module-metadata.yaml#spi_packages` entry, exist on disk (`<module>/src/main/java/<package-path>/`), and match enforcer `asserts:` text in `docs/governance/enforcers.yaml`. (sub-clause .c — Module topology parity) the set of `<module>` entries in root `pom.xml`, `docs/governance/architecture-status.yaml#repository_counts.reactor_modules`, and the `<module>/module-metadata.yaml` files on disk MUST agree on the live module count; "each of the N modules" prose in active `.md` MUST use the same N. (sub-clause .d — Current-claim grammar) a same-line `post-ADR-NNNN` marker does NOT exempt a sentence containing present-tense verbs OR structural-noun phrases (`now reads`, `lives in`, `declares`, `includes`, `depends on`, `each of the [0-9]+ modules`, `shared kernel in`, `extracted to`, `is deployed`) when that sentence names a deleted module from `gate/active-corpus-name-exemption-markers.txt`'s deleted-name set — exemption is reserved for explicitly historical prose (`formerly`, `until dissolved`, `pre-rc13`). (sub-clause .e — Structural-carrier parity) every NON-SPI structural-carrier row in `docs/contracts/contract-catalog.md` (e.g. `EngineRegistry`, `EngineEnvelope`, `Run`, `RunContext`, `SuspendSignal`, `S2cCallbackEnvelope`, `IngressEnvelope`) MUST name a package home whose directory exists on disk under the owning module's `src/main/java/` and contains a `.java` file matching the carrier class name — closes rc14 P1-1 where the catalog rows lagged the actual rename.**
 
 Enforced by [`rule-G-8.md`](docs/governance/rules/rule-G-8.md).
+
+---
+
+### Scenario-loaded phase contracts wave (rc21)
+#### Rule G-10 — Parallel-Linux-Scripts Mandate
+
+**Every new gate check or long-running validation under `gate/**/*.sh` (added on or after ADR-0098 / rc21) MUST be invokable through a parallel-execution path on Linux/WSL — via `xargs -P`, GNU `parallel`, or background jobs with explicit `wait`. The canonical runner is `gate/check_parallel.sh`; `gate/check_architecture_sync.sh` serial execution is debug-only. Rule G-5.a already enforces serial↔parallel slug parity; G-10 extends the discipline to "new scripts are parallel-ready from day one". Exemptions: helper libraries under `gate/lib/` and one-shot bootstrap scripts (listed in `gate/serial-only-paths.txt`).**
+
+Enforced by [`rule-G-10.md`](docs/governance/rules/rule-G-10.md).
+
+---
+#### Rule G-11 — Phase-Contract Rule-Allocation Coherence
+
+**Phase contract ↔ rule allocation coherence: every Active Rules row in `docs/governance/contracts/*.md` MUST reference a rule card that exists under `docs/governance/rules/rule-*.md` (or a principle card under `docs/governance/principles/P-*.md`). Conversely, every active rule card MUST appear in at least one phase contract — either marked **P** (primary phase) in exactly one contract OR marked **X** (cross-reference) in at least one contract. A rule with NO primary phase is an orphan rule; a rule cited in a contract whose card is missing is a ghost rule. Dual-P exception (e.g. G-9 carrying P in both `system-commit.md` and `review-response.md`) is permitted but MUST be enumerated in ADR-0098 §rule-allocation-map.**
+
+Enforced by [`rule-G-11.md`](docs/governance/rules/rule-G-11.md).
 
 ---
 

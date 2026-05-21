@@ -13,6 +13,7 @@ kernel: |
   and `rhythm` (heartbeat / liveness pulses).
   No congestion on one channel can paralyse another.
   Enforced by Rule R-E.
+scope_phase: design
 ---
 
 ## Motivation

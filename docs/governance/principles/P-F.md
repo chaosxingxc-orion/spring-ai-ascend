@@ -13,6 +13,7 @@ kernel: |
   via Webhook.
   No long-poll, no synchronous blocking.
   Enforced by Rule R-F.
+scope_phase: design
 ---
 
 ## Motivation

@@ -7,6 +7,7 @@ principle_ref: P-B
 authority_refs: [ADR-0065]
 enforcer_refs: [E50, E51]
 status: active
+scope_phase: commit
 kernel_cap: 8
 kernel: |
   **Every release MUST publish `docs/governance/competitive-baselines.yaml` declaring four pillar dimensions — `performance`, `cost`, `developer_onboarding`, `governance` — each with a named `baseline_metric` and a `current_value` (or `N/A` for not-yet-instrumented). The most recent `docs/logs/releases/*.md` release note MUST mention all four pillar names. A regression in any `current_value` MUST be paired with a `regression_adr:` reference in the row.**

@@ -7,6 +7,7 @@ principle_ref: P-B
 authority_refs: []
 enforcer_refs: [E104]
 status: active
+scope_phase: always_on
 kernel_cap: 8
 kernel: |
   **All shell-driven operations (gates, builds, tests, generated artefacts, `git push`) MUST be verified on Linux — native, WSL2 (preferred), or WSL1 (fallback) — before merging to `main`. All driving scripts on Windows hosts MUST be invoked through Linux/WSL (e.g. `wsl -d <distro> -- bash -lc '...'` or by working inside a WSL shell with the repo mounted at `/mnt/<drive>/...`); Git Bash for Windows is a one-off debug shim, never the documented default invocation path. Documented commands, runbooks, and agent-driven automation MUST default to WSL/Linux invocation on Windows hosts. `docs/governance/dev-environment.md` is the canonical setup + verification guide. Measured 2026-05-18: WSL is 6–20× faster than Git Bash, AND surfaces platform-portability bugs that Win-only invocation hides.**

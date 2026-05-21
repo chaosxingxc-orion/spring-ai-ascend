@@ -7,6 +7,7 @@ principle_ref: P-B
 authority_refs: [ADR-0077]
 enforcer_refs: [E102, E103]
 status: active
+scope_phase: verify
 kernel_cap: 8
 kernel: |
   **Gate machinery integrity is enforced on two surfaces: every gate run records per-rule duration in `gate/log/runs/<sha>_<ts>/per-rule.ndjson`; `gate/lib/update_benchmark_baseline.sh` maintains a rolling 5-run median at `gate/log/benchmarks/median.json`; the rule fails when any rule's current duration exceeds 2× baseline median AND exceeds 200ms absolute (sub-clause .a; bootstrap is vacuous until 5 successful runs exist). `gate/config.yaml` MUST validate against `gate/config.schema.yaml` — fails closed on missing required keys, type mismatch, out-of-range values, unknown keys (typo detection via `additionalProperties: false`), or enum violation (sub-clause .b; structural invariant: yaml → loader-validated env-vars → runtime-checked).**
