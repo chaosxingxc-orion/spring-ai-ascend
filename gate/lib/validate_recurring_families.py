@@ -422,15 +422,16 @@ def cmd_parity(yaml_path: str, md_path: str) -> int:
     if data is None:
         return 0  # subsumed by .a
 
+    yaml_ids: set[str] = set()
     yaml_id_to_status: dict[str, str] = {}
     for fam in data.get("families", []):
         if isinstance(fam, dict):
             fid = fam.get("id")
             status = fam.get("cleanup_status")
-            if isinstance(fid, str) and isinstance(status, str):
-                yaml_id_to_status[fid] = status
-
-    yaml_ids = set(yaml_id_to_status.keys())
+            if isinstance(fid, str):
+                yaml_ids.add(fid)
+                if isinstance(status, str):
+                    yaml_id_to_status[fid] = status
 
     md_ids: set[str] = set()
     md_heading_re = re.compile(r"^### (F-[A-Za-z0-9_-]+)", re.MULTILINE)
@@ -502,15 +503,20 @@ def cmd_parity(yaml_path: str, md_path: str) -> int:
         "incomplete": "incomplete",
     }
     for fid in sorted(yaml_ids & md_ids):
-        yaml_status = yaml_id_to_status.get(fid, "")
-        md_cell = md_id_to_status_text.get(fid, "")
+        yaml_status = yaml_id_to_status.get(fid)
+        md_cell = md_id_to_status_text.get(fid)
+        # Skip status-text parity for ids whose yaml entry has no cleanup_status
+        # field OR whose md side has no §0 table row — those omissions are
+        # subsumed by sub-check .a (yaml well-formedness) and md format checks.
+        if yaml_status is None or md_cell is None:
+            continue
         m_anchor = md_anchor_re.match(md_cell)
         if not m_anchor:
             fail(
                 f"family {fid}: md §0 table status cell has no leading "
                 f"cleanup_status token (cell={md_cell!r}); expected `<emoji>? "
                 f"<closed|structurally addressed|monitoring|partial|incomplete> ...` "
-                f"-- Rule G-9.c / E158 (rc20 Wave 1 / ADR-0097)"
+                f"-- Rule G-9.c / E158"
             )
             failures += 1
             continue
@@ -519,7 +525,7 @@ def cmd_parity(yaml_path: str, md_path: str) -> int:
             fail(
                 f"family {fid}: cleanup_status drift — yaml={yaml_status!r} "
                 f"md={md_enum_found!r} (md cell leading token from: {md_cell!r}) "
-                f"-- Rule G-9.c / E158 (rc20 Wave 1 / ADR-0097)"
+                f"-- Rule G-9.c / E158"
             )
             failures += 1
 
