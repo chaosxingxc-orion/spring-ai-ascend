@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc20 Wave 2 (post-Wave-3 rebase): release-note + numeric truth corrections
+last_updated: 2026-05-21  # rc20 Wave 1 (post-Wave-2 rebase): F-recursive reopen + cmd_parity emoji anchor + first-parent semantics + baseline align
 
 families:
   - id: F-numeric-drift
@@ -286,8 +286,8 @@ families:
   - id: F-recursive-prevention-irony
     title: META Prevention Rule Exhibits the Defect Class It Prevents
     first_observed_rc: rc17
-    last_observed_rc: rc17
-    occurrences: [rc17]
+    last_observed_rc: rc20
+    occurrences: [rc17, rc19, rc20]
     root_cause: |
       A META rule whose job is preventing defect class X is itself
       vulnerable to class X. rc17 introduced Rule G-9 / Rule 111 to
@@ -304,12 +304,12 @@ families:
       - Newly-introduced helper functions in gate/lib/
       - Self-test fixtures that re-implement gate logic inline
     prevention_rules:
-      - Rule 111 (rc17, then hardened in rc18 Wave 1 per ADR-0095)
-      - Rule G-9 (rc17, then strengthened by helper extraction in rc18)
-      - Rule 112 (rc19 Wave 1 per ADR-0096 — META-of-META gate enforcing helper-extraction discipline on every future META rule)
+      - Rule 111 (rc17, hardened rc18 Wave 1 per ADR-0095, then [META]-marked rc20 Wave 1 per ADR-0097 so Rule 112 actually gates it)
+      - Rule G-9 (rc17, strengthened rc18 helper extraction; rc20 Wave 1 kernel + card sync to content-diff freshness + cleanup_status status-text parity)
+      - Rule 112 (rc19 Wave 1 per ADR-0096 — META-of-META gate enforcing helper-extraction discipline on [META]-marked rules; rc20 Wave 3 widens body window to next # Rule|# === boundary + accepts .py/.bash helpers)
       - Rule 113 (rc19 Wave 2 per ADR-0096 — paren reintroduction guard + migration.md completeness; closes ADV-RC18-6)
       - Rule 114 (rc19 Wave 4 per ADR-0096 — rule card filename convention gate; prevents the rc17 hyphen-vs-dot trap from recurring)
-    cleanup_status: closed
+    cleanup_status: monitoring
     open_residual: |
       rc18 Wave 1 closed all 6 self-vulnerabilities on Rule 111 via
       helper extraction + 8 hardening fixes. rc19 Wave 1 promoted to
@@ -325,6 +325,21 @@ families:
       (402 nodes / 656 edges) and bumped the documentation triangle
       (status.yaml + README.md baseline line + rc18 release note frozen-
       SHA marker) in one commit per feedback_lockstep_baseline_surfaces.md.
+      rc20 reopen rationale: post-rc19 review (3 independent reviewers
+      converged) found Rule 112 did NOT actually gate Rule 111 because
+      Rule 111 lacked the `[META]` header marker Rule 112's scan
+      requires. Recursive irony moved one layer deeper rather than
+      closing. rc20 Wave 1 adds [META] to Rule 111 + literal-path source
+      marker comment (so Rule 112's regex matches) + sync CLAUDE.md
+      G-9 kernel + rule-G-9.md card to content-diff freshness
+      (eliminates the mtime/24h prose drift that survived rc18+rc19).
+      rc20 Wave 1 also extends Rule 111.c parity to compare
+      cleanup_status text per family-id (caught this very F-recursive
+      yaml=closed-vs-md=structurally-addressed drift). Status reopened
+      to `monitoring` pending 3-rc cool-down (rc20 + rc21 + rc22 with
+      no recurrence) before re-promotion to `closed` — cool-down
+      convention introduced in rc20 Wave 1 / ADR-0097 to prevent
+      premature-closure pattern from recurring.
       rc20 Wave 3 defensive hardening: derive_signal_paths now sanitises
       surface tokens (rejects absolute paths + colon-bearing tokens, warns
       on unresolvable paths); Rule 112 body window widened from hard +80

@@ -364,8 +364,12 @@ def cmd_freshness(yaml_path: str, repo_root: str = ".") -> int:
     # Yaml's path relative to repo_root (git expects relative paths)
     yaml_rel = os.path.relpath(yaml_path, repo_root).replace(os.sep, "/")
 
-    # Try to get yaml content at signal_sha's parent (i.e., state BEFORE signal landed)
-    parent_content = _git_run(["show", f"{signal_sha}^:{yaml_rel}"], repo_root)
+    # Try to get yaml content at signal_sha's first parent (state BEFORE signal landed).
+    # `^1` (first-parent) is explicit per rc20 Wave 1 / ADR-0097 — defends against
+    # ADV-RC19-merge-ambiguity (a future non-squash merge with N parents would have
+    # `^` resolve to first parent silently; making it explicit + documenting the
+    # squash-merge expectation closes the latent freshness false-pass/fail).
+    parent_content = _git_run(["show", f"{signal_sha}^1:{yaml_rel}"], repo_root)
     # If parent commit doesn't exist (initial commit) or path didn't exist, use signal_sha itself
     if not parent_content:
         parent_content = _git_run(["show", f"{signal_sha}:{yaml_rel}"], repo_root)
@@ -398,12 +402,18 @@ def cmd_freshness(yaml_path: str, repo_root: str = ".") -> int:
 
 def cmd_parity(yaml_path: str, md_path: str) -> int:
     """
-    Sub-check .c — yaml/md family-id parity.
+    Sub-check .c — yaml/md family-id parity AND cleanup_status text parity.
 
     Uses pyyaml on yaml side (no regex assumption about id chars) and
     a wider md regex `^### F-[A-Za-z0-9_-]+` to mirror the yaml's
     accepted character set (closes Correctness Finding 2 — asymmetric
     anchoring).
+
+    rc20 Wave 1 / ADR-0097: also compares `cleanup_status` value per
+    family-id between yaml and the §0 family table in md (closes
+    Finding F2/F3 — F-recursive-prevention-irony status drift between
+    yaml `closed` and md `structurally addressed` slipped through
+    id-only parity).
     """
     if not os.path.isfile(yaml_path) or not os.path.isfile(md_path):
         return 0
@@ -413,11 +423,15 @@ def cmd_parity(yaml_path: str, md_path: str) -> int:
         return 0  # subsumed by .a
 
     yaml_ids: set[str] = set()
+    yaml_id_to_status: dict[str, str] = {}
     for fam in data.get("families", []):
         if isinstance(fam, dict):
             fid = fam.get("id")
+            status = fam.get("cleanup_status")
             if isinstance(fid, str):
                 yaml_ids.add(fid)
+                if isinstance(status, str):
+                    yaml_id_to_status[fid] = status
 
     md_ids: set[str] = set()
     md_heading_re = re.compile(r"^### (F-[A-Za-z0-9_-]+)", re.MULTILINE)
@@ -430,6 +444,27 @@ def cmd_parity(yaml_path: str, md_path: str) -> int:
 
     for m in md_heading_re.finditer(md_content):
         md_ids.add(m.group(1))
+
+    # Parse status from md §0 table rows. Table format:
+    #   | N | F-<id> | <title> | <occurrences> | <status-symbol-prefix> <status-text> ... |
+    # We extract the canonical enum token from the last cell.
+    md_id_to_status_text: dict[str, str] = {}
+    md_table_row_re = re.compile(
+        r"^\|\s*\d+\s*\|\s*(F-[A-Za-z0-9_-]+)\s*\|[^|]*\|[^|]*\|\s*[^|]*\|",
+        re.MULTILINE,
+    )
+    for m in md_table_row_re.finditer(md_content):
+        fid = m.group(1)
+        # Get the row's full text (m.group(0) ends mid-cell — get full line)
+        line_start = md_content.rfind("\n", 0, m.start()) + 1
+        line_end = md_content.find("\n", m.start())
+        if line_end == -1:
+            line_end = len(md_content)
+        row = md_content[line_start:line_end]
+        # Last cell content (between the 5th `|` and the trailing `|`)
+        cells = [c.strip() for c in row.split("|")]
+        if len(cells) >= 6:
+            md_id_to_status_text[fid] = cells[5]
 
     only_yaml = yaml_ids - md_ids
     only_md = md_ids - yaml_ids
@@ -446,6 +481,54 @@ def cmd_parity(yaml_path: str, md_path: str) -> int:
             f"{' '.join(sorted(only_md))} -- Rule G-9.c / E158"
         )
         failures += 1
+
+    # Status-text parity per id (rc20 Wave 1 / ADR-0097).
+    # Anchor to the LEADING status token (after optional emoji prefix) so that
+    # `closed by adding [META]` inside the prose tail does not mis-bind to the
+    # `closed` enum. Cell shape: `<emoji>? <enum-token-words> (optional prose)`.
+    # Skip leading non-alpha chars (emojis, variant selectors, whitespace,
+    # symbol punctuation) before the enum word. Picks up `⚠️ partial`,
+    # `🟡 monitoring`, `✅ closed`, plain `partial`, etc.
+    md_anchor_re = re.compile(
+        r"^[^A-Za-z]*"
+        r"(closed|structurally[ _]addressed|monitoring|partial|incomplete)\b",
+        re.IGNORECASE,
+    )
+    normalise_token = {
+        "closed": "closed",
+        "structurally addressed": "structurally_addressed",
+        "structurally_addressed": "structurally_addressed",
+        "monitoring": "monitoring",
+        "partial": "partial",
+        "incomplete": "incomplete",
+    }
+    for fid in sorted(yaml_ids & md_ids):
+        yaml_status = yaml_id_to_status.get(fid)
+        md_cell = md_id_to_status_text.get(fid)
+        # Skip status-text parity for ids whose yaml entry has no cleanup_status
+        # field OR whose md side has no §0 table row — those omissions are
+        # subsumed by sub-check .a (yaml well-formedness) and md format checks.
+        if yaml_status is None or md_cell is None:
+            continue
+        m_anchor = md_anchor_re.match(md_cell)
+        if not m_anchor:
+            fail(
+                f"family {fid}: md §0 table status cell has no leading "
+                f"cleanup_status token (cell={md_cell!r}); expected `<emoji>? "
+                f"<closed|structurally addressed|monitoring|partial|incomplete> ...` "
+                f"-- Rule G-9.c / E158"
+            )
+            failures += 1
+            continue
+        md_enum_found = normalise_token[m_anchor.group(1).lower()]
+        if md_enum_found != yaml_status:
+            fail(
+                f"family {fid}: cleanup_status drift — yaml={yaml_status!r} "
+                f"md={md_enum_found!r} (md cell leading token from: {md_cell!r}) "
+                f"-- Rule G-9.c / E158"
+            )
+            failures += 1
+
     return 1 if failures > 0 else 0
 
 

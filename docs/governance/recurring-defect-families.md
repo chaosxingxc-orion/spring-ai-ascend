@@ -57,13 +57,14 @@ authority_refs: [ADR-0094]
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 3 | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
-| 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 1 (rc17) | ✅ structurally addressed (rc18 Wave 1) |
+| 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 
 **Cleanup status legend.**
-- ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces.
+- ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
 - ✅ **structurally addressed** — META rule in place that detects future variants; per-instance defects may still appear in newly-introduced surfaces but are now gateable.
+- 🟡 **monitoring** — recently closed-then-reopened family; gate is in place but cool-down (rc + 3 waves of non-recurrence) not yet satisfied; flag for next reviewer pass.
 - ⚠️ **partial** — prevention rules exist but cover known surfaces only; new surfaces remain at risk.
-- ❌ **incomplete** — defects recur faster than prevention rules can be widened (no current family at this status as of rc17).
+- ❌ **incomplete** — defects recur faster than prevention rules can be widened (no current family at this status as of rc20).
 
 ---
 
@@ -265,12 +266,22 @@ in rc18 Wave 1 per ADR-0095 via helper extraction
 + 8 hardening fixes); Rule G-9 (rc17, strengthened by helper
 extraction in rc18).
 
-**Open residual.** Wave 1 rc18 closed all 6 self-vulnerabilities on
-Rule 111. Future META rules should follow the same pattern: extract
-logic into `gate/lib/check_*.sh`, have fixtures call the helper,
-validate the helper itself with 6+ negative scenarios before merge.
-"Structurally addressed" not "closed" because the discipline depends
-on author vigilance for each new META rule.
+**Prevention chronology (updated rc20).** Rule 111 (rc17, hardened rc18
+Wave 1, then [META]-marked rc20 Wave 1 per ADR-0097); Rule G-9 (rc17,
+strengthened rc18); Rule 112 META-of-META (rc19 Wave 1 per ADR-0096 —
+structurally enforces helper-extraction on `[META]`-marked rules);
+Rule 113 paren guard (rc19 Wave 2); Rule 114 filename convention (rc19
+Wave 4).
+
+**Open residual (rc20 Wave 1 reopen).** rc19 promoted this family to
+`closed` based on Rule 112 (META-of-META gate). The rc19 post-merge
+review found Rule 112 did NOT actually gate Rule 111 itself — Rule 111
+lacked the `[META]` header marker that Rule 112's scan requires.
+Recursive irony moved one layer deeper instead of closing. rc20 Wave 1
+adds `[META]` to Rule 111 (so Rule 112 now gates it) AND sources the
+helper through a marker comment Rule 112's regex can resolve. Status
+reopened to `monitoring` pending 3-rc cool-down (rc20 + rc21 + rc22
+without recurrence) before re-promotion to `closed`.
 
 ---
 
@@ -292,6 +303,8 @@ G-9 + this document as the structural backstop.
 | rc16 | "Recurrence pattern is itself gateable" | Rule 110 META — every prevention rule MUST declare `scope_surfaces:` + ≥2 self-test fixtures across distinct surfaces |
 | **rc17** | **"Recurring families deserve a first-class derived view"** — reviewer should be able to ask "has this class been seen before?" without re-reading 16 release notes | **This document + `recurring-defect-families.yaml` + Rule G-9 + Gate Rule 111 freshness check** |
 | **rc18** | **"Recursive irony — a META prevention rule must first prove it doesn't itself exhibit the defect class it prevents"** — rc17 Rule 111 had 6/8 of its own defect patterns | **F-recursive-prevention-irony added as permanent family; helper-extraction template (`gate/lib/check_recurring_families.sh`) is the structural fix; all future META rules follow this template + validate with 6+ negative scenarios** |
+| **rc19** | **"Surface fixes do not close depth"** — rc18 closed the surface bypasses on Rule 111 but reviewers found 4 deeper structural assumptions in the helper itself (awk fragility, mtime proxy, hard-coded paths, no META-of-META gate) | **Python pyyaml + content-diff freshness via `git show {sha}^1:{yaml}` + auto-derived signal paths + Rule 112 META-of-META that dogfoods itself (per ADR-0096)** |
+| **rc20** | **"A META-of-META gate doesn't close the family if its own scan misses the original META rule"** — rc19 Rule 112 scanned for `[META]`-marked headers but Rule 111 (the prototype META rule) was never marked, so Rule 112 silently exempted the very rule the family is named after | **rc20 Wave 1 adds `[META]` to Rule 111 + literal-path source marker so Rule 112 actually gates it; family reopened to `monitoring` pending 3-rc cool-down; cool-down convention added to the legend (per ADR-0097)** |
 
 ---
 
