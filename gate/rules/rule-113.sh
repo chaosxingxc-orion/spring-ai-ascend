@@ -45,13 +45,3 @@ else
 fi
 
 if [[ $_r113_fail -eq 0 ]]; then pass_rule "legacy_paren_no_reintroduction_and_migration_doc_complete"; fi
-
-# === END OF RULES ===
-# ---------------------------------------------------------------------------
-if [[ $fail_count -eq 0 ]]; then
-  echo "GATE: PASS"
-  exit 0
-else
-  echo "GATE: FAIL"
-  exit 1
-fi
