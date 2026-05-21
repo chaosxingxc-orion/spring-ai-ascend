@@ -32,11 +32,12 @@ Each R-rule bridges from a P-principle to a concrete enforcer. R-rules
 are the "ironclad" layer — most have ArchUnit / integration-test
 backing in addition to gate-script enforcement.
 
-Current (16 rules including `.1`/`.2` sub-rules per rc17 ADR-0094):
+Current (17 rules including `.1`/`.2` sub-rules per rc17 ADR-0094 +
+the R-A.c hybrid):
 R-A, R-A.c, R-B, R-C, R-C.1, R-C.2, R-D, R-E, R-F, R-G, R-H, R-I,
-R-I.1, R-J, R-K, R-L, R-M. (Rule R-A.c is a sub-clause activated post-deferral
-that retains the `.a/.b/.c` convention rather than `.1`/`.2`; see the
-Sub-Rule vs Sub-Clause table below for the rationale.)
+R-I.1, R-J, R-K, R-L, R-M. (Rule R-A.c is a sub-clause activated post-
+deferral that retains the `.a/.b/.c` convention rather than `.1`/`.2`;
+see the Sub-Rule vs Sub-Clause table below for the rationale.)
 
 ### G-* — Gate / Meta-Governance Rules
 

@@ -30,7 +30,7 @@
 #     surfaces               - list of paths/globs where the family manifests
 #     prevention_rules       - list of Rule IDs (D-/R-/G-/M-/Rule-N) authored
 #                              as prevention; in order of introduction
-#     cleanup_status         - enum: closed | structurally_addressed | partial | incomplete
+#     cleanup_status         - enum: closed | structurally_addressed | partial | incomplete | monitoring
 #     open_residual          - one-paragraph remaining risk (empty if closed)
 #
 # Authority: ADR-0094 (rc17 recurring-defect-family-truth + rule-consolidation).

@@ -29,10 +29,13 @@ Wave 1 by helper extraction + 8 hardening fixes.
 
 **Methodology:** Wave 1 fixes the urgent recursive-irony. Waves 3 and 4
 run in parallel (independent files). Wave 2 follows on cross-rule pattern
-sweep. Wave 5 finalizes ADR + release note + baseline. **Zero corrective
-commits across all 5 waves** (vs rc17 which needed 3) — the
-4-surface-lockstep lesson from rc17 (`feedback_lockstep_baseline_surfaces.md`)
-is now institutionalised.
+sweep. Wave 5 finalizes ADR + release note + baseline. **Zero post-merge
+corrective commits on `main`** (vs rc17 which needed 3) — Wave 1 had 1
+in-branch CI corrective (`fetch-depth: 0` for Rule 111.b); Wave 5 had 2
+in-branch CI correctives (Rule 97 stale graph numbers in release-note
+prose; rc19 Wave 3 amends this claim to match the visible git log
+truth — `feedback_lockstep_baseline_surfaces.md` rules apply at merge
+boundary, not within-branch refinement).
 
 ## Family taxonomy (cited findings → wave assignments)
 
