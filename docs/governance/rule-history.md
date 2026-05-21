@@ -357,7 +357,7 @@ rc18 PR #16-#20 review found the rc18 Wave 1 helper extraction closed the surfac
 
 - **Rule 112 meta_rule_self_application_check [META]** (Wave 1) — structurally enforces that META-marked rules ship a `gate/lib/check_*.sh` helper sourced from both the rule body and from ≥2 fixtures. Dogfoods itself (the rule itself is marked META and sources its own helper from Rule 110 and Rule 112).
 - **Rule 113 legacy_paren_no_reintroduction_and_migration_doc_complete** (Wave 2) — sub-check .a: `grep "(legacy Rule [0-9]+" enforcers.yaml` count must be 0 (prevents Wave 4 cleanup regression); sub-check .b: `gate/rule-number-migration.md` must contain `Legacy numeric` + `rc17 sub-rule splits` headings (prevents the migration doc from being deleted/renamed without notice).
-- **Rule 114 rule_card_filename_dot_convention** (Wave 4) — regex `^rule-[DRGM]-[A-Z0-9](\.[a-z0-9]+)?\.md$` against `docs/governance/rules/*.md` (pre-rc16 grandfathered); prevents the rc17 hyphen-vs-dot filename trap recurrence (`rule-G-3-1.md` vs `rule-G-3.1.md`).
+- **Rule 114 rule_card_filename_dot_convention** (Wave 4) — anchored bash regex constrained to `rule-<NAMESPACE>-<ID>[.subsection].md` against `docs/governance/rules/` cards (pre-rc16 grandfathered); prevents the rc17 hyphen-vs-dot filename trap recurrence (`rule-G-3-1.md` vs `rule-G-3.1.md`). See `gate/check_architecture_sync.sh` Rule 114 for the exact pattern.
 
 ### Family deltas
 
