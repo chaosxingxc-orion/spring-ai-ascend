@@ -306,12 +306,16 @@ families:
     prevention_rules:
       - Rule 111 (rc17, then hardened in rc18 Wave 1 per ADR-0095)
       - Rule G-9 (rc17, then strengthened by helper extraction in rc18)
-    cleanup_status: structurally_addressed
+      - Rule 112 (rc19 Wave 1 per ADR-0096 — META-of-META gate enforcing helper-extraction discipline on every future META rule)
+    cleanup_status: closed
     open_residual: |
-      Wave 1 rc18 closed all 6 self-vulnerabilities on Rule 111 via
-      helper extraction + 8 hardening fixes. Future META rules should
-      follow the same pattern: extract logic into gate/lib/check_*.sh,
-      have fixtures call the helper, validate the helper itself with
-      6+ negative scenarios before merge. The family is "structurally
-      addressed" not "closed" because the discipline depends on author
-      vigilance for each new META rule.
+      rc18 Wave 1 closed all 6 self-vulnerabilities on Rule 111 via
+      helper extraction + 8 hardening fixes. rc19 Wave 1 promoted to
+      "closed" by adding Rule 112 (meta_rule_self_application_check)
+      which structurally enforces that every future [META] rule sources
+      a gate/lib/check_*.sh helper. The discipline is no longer author-
+      vigilance-dependent — gate-enforced. Additional rc19 Wave 1
+      hardening: python yaml parser (closes ADV-RC18-4 awk injection),
+      content-diff freshness (closes ADV-RC18-1 no-op commit), semantic
+      date validation (closes ADV-RC18-2), refresh-signal path filter
+      derived from families[].surfaces[] (closes ADV-RC18-3).
