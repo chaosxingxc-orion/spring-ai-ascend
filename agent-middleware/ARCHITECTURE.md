@@ -122,8 +122,7 @@ agent-middleware/
         │   ├── HookContext.java
         │   └── HookOutcome.java            # sealed: Proceed | Fail | ShortCircuit
         └── HookDispatcher.java             # runtime dispatcher impl (root of package, not under .spi)
-└── src/main/resources/
-    └── (W2 consumer impls — TokenCounterHook, PiiRedactionHook, CostAttributionHook, LlmSpanEmitterHook — land alongside W2 Telemetry Vertical)
+(W2 consumer impls — TokenCounterHook, PiiRedactionHook, CostAttributionHook, LlmSpanEmitterHook — land alongside W2 Telemetry Vertical under `src/main/resources/` when shipped; not present today.)
 ```
 
 Mode-A (Platform-Centric per ADR-0101): `agent-middleware` lives on the platform.

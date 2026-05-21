@@ -734,8 +734,7 @@ agent-service/
         │   ├── observability/                 # TenantTagMeterFilter, TraceExtractFilter
         │   ├── posture/                       # PostureBootGuard
         │   ├── web/                           # HealthController, runs/RunController, runs/RunHttpExceptionMapper
-        │   ├── architecture/                  # ArchUnit tests
-        │   └── bootstrap/                     # AppPosture, PlatformApplication
+        │   └── architecture/                  # ArchUnit tests
         ├── runtime/                           # Run kernel (current; §2.B)
         │   ├── runs/                          # Run, RunStatus, RunStateMachine, RunMode, spi/RunRepository
         │   ├── orchestration/                 # inmemory/ (SyncOrchestrator, SequentialGraphExecutor, IterativeAgentLoopExecutor, InMemoryCheckpointer, InMemoryRunRegistry)
