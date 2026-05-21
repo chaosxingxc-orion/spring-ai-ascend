@@ -307,6 +307,7 @@ families:
       - Rule 111 (rc17, then hardened in rc18 Wave 1 per ADR-0095)
       - Rule G-9 (rc17, then strengthened by helper extraction in rc18)
       - Rule 112 (rc19 Wave 1 per ADR-0096 — META-of-META gate enforcing helper-extraction discipline on every future META rule)
+      - Rule 114 (rc19 Wave 4 per ADR-0096 — rule card filename convention gate; prevents the rc17 hyphen-vs-dot trap from recurring)
     cleanup_status: closed
     open_residual: |
       rc18 Wave 1 closed all 6 self-vulnerabilities on Rule 111 via

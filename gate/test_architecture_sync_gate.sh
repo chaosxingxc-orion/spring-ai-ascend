@@ -6066,6 +6066,39 @@ SHEOF
   fi
 }
 
+test_rule_114_filename_dot_convention_pos() {
+  # Real corpus rule cards all match the convention
+  local invalid_count=0
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    local base
+    base=$(basename "$f")
+    [[ "$base" == "README.md" ]] && continue
+    if [[ ! "$base" =~ ^rule-[DRGM]-[A-Z0-9](\.[a-z0-9]+)?\.md$ ]]; then
+      invalid_count=$((invalid_count + 1))
+    fi
+  done < <(find "$repo_root/docs/governance/rules" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort)
+  if [[ "$invalid_count" -eq 0 ]]; then
+    ok "rule_114_filename_dot_convention_pos" "Rule 114 accepts all current corpus rule card filenames (dot convention)"
+  else
+    fail "rule_114_filename_dot_convention_pos" "expected all corpus files to match, $invalid_count did not"
+  fi
+}
+
+test_rule_114_filename_dot_convention_neg() {
+  # Synthetic hyphenated filename rejected
+  local root="$scratch/r114_neg"
+  mkdir -p "$root"
+  touch "$root/rule-G-3-1.md"  # hyphenated form — should be rejected
+  local base
+  base=$(basename "$root/rule-G-3-1.md")
+  if [[ ! "$base" =~ ^rule-[DRGM]-[A-Z0-9](\.[a-z0-9]+)?\.md$ ]]; then
+    ok "rule_114_filename_dot_convention_neg" "Rule 114 catches hyphenated filename rule-G-3-1.md (prevents rc17 trap from recurring)"
+  else
+    fail "rule_114_filename_dot_convention_neg" "expected hyphenated form to fail regex"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
