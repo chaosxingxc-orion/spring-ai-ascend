@@ -40,7 +40,11 @@ hooks:
   - before_suspension
   - before_resume
   - on_error
-  - on_yield   # rc22: cooperative-scheduling hint per ADR-0100 Yield/SuspendSignal coexistence — engine asks orchestrator to be rescheduled WITHOUT a state-machine transition (distinct from SuspendSignal which remains canonical for state-machine suspension)
+  # rc22 / ADR-0100: cooperative-scheduling hint for Yield/SuspendSignal
+  # coexistence. Engine asks orchestrator to be rescheduled WITHOUT a
+  # state-machine transition (distinct from SuspendSignal which remains
+  # canonical for state-machine suspension).
+  - on_yield
 
 ordering: declared
 

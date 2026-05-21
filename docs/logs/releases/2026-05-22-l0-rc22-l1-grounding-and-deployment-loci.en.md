@@ -81,15 +81,25 @@ This wave followed the `/reviewer-feedback-self-check` skill's **Categorize → 
 
 | Metric | Pre (rc21) | Post (rc22) | Delta |
 |---|---|---|---|
-| Active engineering rules | 37 | 38 | +1 |
-| Active gate sections | 123 | 123 | 0 (gate scripts in follow-up commit) |
-| Enforcer rows | 165 | 168 | +3 |
-| ADRs | 98 | 104 | +6 |
+| Active engineering rules | 40 | 41 | +1 |
+| §4 constraints | 65 | 65 | 0 |
+| gate rules | 129 | 132 | +3 (3 placeholder pass_rule entries for G-1.1 sub-clauses) |
+| Enforcer rows | 164 | 167 | +3 |
+| ADRs | 97 | 103 | +6 |
 | Active recurring-defect families | 10 | 11 | +1 |
 | Maven build tests green | 374 | 374 | 0 |
 | `agent-*/ARCHITECTURE.md` Rule G-1.1 compliant | 0 | 6 | +6 |
-| Architecture graph nodes | (regen post-PR) | (regen) | tbd |
-| Architecture graph edges | (regen post-PR) | (regen) | tbd |
+| Architecture graph nodes | 412 | 423 | +11 |
+| Architecture graph edges | 678 | 718 | +40 |
+
+### Four-pillar baseline (per Rule R-B / ADR-0065)
+
+| Pillar | Baseline metric | Current value |
+|---|---|---|
+| performance | gate execution wall-clock | <300s (rc22 added 5-min ceiling per PR-Opt-rc22) |
+| cost | gate machine-time | N/A (CI minutes unchanged) |
+| developer_onboarding | docs/quickstart.md | unchanged at rc22 |
+| governance | active rules + enforcers + ADRs | +1 rule / +3 enforcers / +6 ADRs |
 
 (Architecture graph counts regenerate post-PR via `python gate/build_architecture_graph.py`; baseline_metrics + allowed_claim + README baseline line update in a single lockstep commit per the `feedback_lockstep_baseline_surfaces` memory.)
 

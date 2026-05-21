@@ -84,8 +84,8 @@ future readers do not ask "why two enforcers for SPI?".
 **Enforcer**: E168 (Gate Rule G-1.1 sub-check c — prose pattern check in `gate/check_architecture_sync.sh`).
 
 For any complex subsystem the L1 document delegates to an L2 design
-(any line of the form `… see [L2 doc](path/to/L2.md)` or `… delegated
-to L2`), the L1 document MUST contain a "Boundary Contracts" sub-
+(any line of the form "see L2 doc at docs/L2/..." or "delegated
+to L2"), the L1 document MUST contain a "Boundary Contracts" sub-
 section enumerating: input types, output types, DFX expectations
 (throughput, latency, error rate, deletion policy).
 

@@ -1,3 +1,13 @@
+---
+level: L0
+view: scenarios
+affects_level: L0, L1
+affects_view: logical, development, process, physical, scenarios
+proposal_status: review
+date: 2026-05-20
+authors: ["independent third-party architecture review"]
+---
+
 # spring-ai-ascend Architecture and Financial-Grade Readiness Review
 
 > Perspective: independent third-party architecture review  

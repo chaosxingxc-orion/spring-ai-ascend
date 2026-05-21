@@ -31,5 +31,12 @@ public enum HookPoint {
     AFTER_MEMORY_WRITE,
     BEFORE_SUSPENSION,
     BEFORE_RESUME,
-    ON_ERROR
+    ON_ERROR,
+    /**
+     * Cooperative-scheduling hint per ADR-0100 Yield/SuspendSignal coexistence.
+     * Engine asks orchestrator to be rescheduled WITHOUT a state-machine
+     * transition; distinct from {@link com.huawei.ascend.engine.orchestration.spi.SuspendSignal}
+     * which remains canonical for state-machine suspension.
+     */
+    ON_YIELD
 }
