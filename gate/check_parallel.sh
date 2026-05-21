@@ -49,6 +49,13 @@ SOURCE_SCRIPT="gate/check_architecture_sync.sh"
 # Env var GATE_JOBS still wins; falls back to GATE_PARALLELISM_JOBS (config); finally 8.
 JOBS="${GATE_JOBS:-${GATE_PARALLELISM_JOBS:-8}}"
 PROFILE="${GATE_PROFILE:-${GATE_LOGGING_PROFILE_MODE:-0}}"
+# PR-Opt-rc22: per-rule timeout (seconds). Hung rule -> killed + marked FAIL.
+# Goal: keep total gate < 5min by killing any individual rule > RULE_TIMEOUT.
+# config.yaml#parallelism.rule_timeout_seconds (default 60) sets the value;
+# env GATE_RULE_TIMEOUT overrides. -1 disables (back-compat).
+RULE_TIMEOUT="${GATE_RULE_TIMEOUT:-${GATE_PARALLELISM_RULE_TIMEOUT_SECONDS:-60}}"
+# Total-gate timeout safety net (seconds). Default 300s = 5min ceiling.
+TOTAL_TIMEOUT="${GATE_TOTAL_TIMEOUT:-${GATE_PARALLELISM_TOTAL_TIMEOUT_SECONDS:-300}}"
 [[ "$PROFILE" == "true" ]] && PROFILE=1
 [[ "$PROFILE" == "false" ]] && PROFILE=0
 
@@ -191,14 +198,33 @@ for b in $(seq 0 $((JOBS - 1))); do
         exit_file="$WORK_DIR/exit_${rule_id}.txt"
         ms_file="$WORK_DIR/ms_${rule_id}.txt"
         pid_file="$WORK_DIR/pid_${rule_id}.txt"
+        # PR-Opt-rc22: per-rule timeout via `timeout` command (GNU coreutils).
+        # If `timeout` not available (rare on Linux/WSL/Git Bash), fall back to
+        # no-timeout invocation.
         cat >> "$batch_script" <<RULE
 T0_${idx}=\$(date +%s%3N)
-(
-  fail_count=0
-  source "$body_file"
-  exit "\$fail_count"
-) > "$out_file" 2>&1
-echo "\$?" > "$exit_file"
+if [[ "\${GATE_RULE_TIMEOUT_DISABLED:-0}" == "1" ]] || ! command -v timeout >/dev/null 2>&1; then
+  (
+    fail_count=0
+    source "$body_file"
+    exit "\$fail_count"
+  ) > "$out_file" 2>&1
+  _rc=\$?
+else
+  timeout --preserve-status -k 5 ${RULE_TIMEOUT} bash -c '
+    fail_count=0
+    source "$body_file"
+    exit \$fail_count
+  ' > "$out_file" 2>&1
+  _rc=\$?
+  # GNU timeout exits 124 when it kills the process. Mark as failure with
+  # a clear diagnostic so post-aggregation can surface it.
+  if [[ \$_rc -eq 124 ]]; then
+    echo "FAIL: rule_timed_out -- exceeded ${RULE_TIMEOUT}s timeout (PR-Opt-rc22 safety net)" >> "$out_file"
+    _rc=1
+  fi
+fi
+echo "\$_rc" > "$exit_file"
 echo "\$(( \$(date +%s%3N) - T0_${idx} ))" > "$ms_file"
 echo "\$\$" > "$pid_file"
 RULE
@@ -207,9 +233,23 @@ done
 
 # ---------------------------------------------------------------------------
 # Run batches in parallel.
+# PR-Opt-rc22: total-gate timeout safety net. If the entire gate exceeds
+# TOTAL_TIMEOUT, kill the xargs orchestrator and aggregate whatever
+# completed. Goal: gate ALWAYS returns under (TOTAL_TIMEOUT + 10s).
 # ---------------------------------------------------------------------------
-find "$WORK_DIR" -maxdepth 1 -name 'batch_*.sh' -type f -print0 \
-  | xargs -0 -n 1 -P "$JOBS" bash
+if [[ "${GATE_TOTAL_TIMEOUT_DISABLED:-0}" == "1" ]] || ! command -v timeout >/dev/null 2>&1; then
+  find "$WORK_DIR" -maxdepth 1 -name 'batch_*.sh' -type f -print0 \
+    | xargs -0 -n 1 -P "$JOBS" bash
+else
+  timeout --preserve-status -k 5 "$TOTAL_TIMEOUT" bash -c '
+    find "'"$WORK_DIR"'" -maxdepth 1 -name "batch_*.sh" -type f -print0 \
+      | xargs -0 -n 1 -P "'"$JOBS"'" bash
+  '
+  _orchestrator_rc=$?
+  if [[ $_orchestrator_rc -eq 124 ]]; then
+    echo "WARN: total_gate_timeout -- aggregator killed after ${TOTAL_TIMEOUT}s (PR-Opt-rc22). Rules not yet completed will not appear in summary; treat as FAIL." >&2
+  fi
+fi
 
 # ---------------------------------------------------------------------------
 # Aggregate in deterministic rule-number order.

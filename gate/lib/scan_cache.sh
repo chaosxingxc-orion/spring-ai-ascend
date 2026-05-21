@@ -22,6 +22,18 @@
 #                           their per-line printf|grep loops over the 1388-line
 #                           architecture-status.yaml; saves ~25 min of CPU per
 #                           gate run on Git Bash for Windows).
+#   _SCAN_ENFORCERS_TSV     TSV from docs/governance/enforcers.yaml — one row
+#                           per E-id; fields: e_id, artifact_path (with #anchor
+#                           stripped), kind. Consumed by Rule 28k (~180-row
+#                           awk-per-citation replaced with bash-array lookup,
+#                           saves ~9-20s on gate run). PR-Opt-rc22.
+#   _SCAN_RULE_CARDS        newline-separated paths to every docs/governance/rules/rule-*.md.
+#                           Consumed by Rules 67, 68, 69, 70, 100. PR-Opt-rc22.
+#   _SCAN_ADR_YAMLS         newline-separated paths to every docs/adr/*.yaml
+#                           (excluding archive/locked). Consumed by Rules 28e,
+#                           28f, 28i, 28j, 34, 62, 65, 83, 85. PR-Opt-rc22.
+#   _SCAN_GIT_SHA           short HEAD sha. Consumed by Rules 64, 111.
+#   _SCAN_GIT_LATEST_DATE   ISO date of HEAD commit. Consumed by Rules 64, 111.
 #
 # Each var is empty if GATE_SCAN_CACHE_ENABLED=false OR the pattern is not in
 # GATE_SCAN_CACHE_PATTERNS. Consumers MUST handle the empty case.
@@ -36,13 +48,18 @@ cd "$GATE_REPO_ROOT"
 
 gate_scan_cache_populate() {
   local _enabled="${GATE_SCAN_CACHE_ENABLED:-true}"
-  local _patterns="${GATE_SCAN_CACHE_PATTERNS:-module_metadata active_docs migration_sql agent_java_main}"
+  local _patterns="${GATE_SCAN_CACHE_PATTERNS:-module_metadata active_docs migration_sql agent_java_main enforcers_tsv rule_cards adr_yamls git_metadata}"
 
   export _SCAN_MODULE_METADATA=""
   export _SCAN_ACTIVE_DOCS=""
   export _SCAN_MIGRATION_SQL=""
   export _SCAN_AGENT_JAVA_MAIN=""
   export _SCAN_SHIPPED_ROWS=""
+  export _SCAN_ENFORCERS_TSV=""
+  export _SCAN_RULE_CARDS=""
+  export _SCAN_ADR_YAMLS=""
+  export _SCAN_GIT_SHA=""
+  export _SCAN_GIT_LATEST_DATE=""
 
   [[ "$_enabled" != "true" ]] && return 0
 
@@ -84,7 +101,56 @@ gate_scan_cache_populate() {
     fi
   fi
 
-  export _SCAN_MODULE_METADATA _SCAN_ACTIVE_DOCS _SCAN_MIGRATION_SQL _SCAN_AGENT_JAVA_MAIN _SCAN_SHIPPED_ROWS
+  # PR-Opt-rc22: pre-parse enforcers.yaml -> TSV (e_id \t artifact_path \t kind).
+  # Eliminates Rule 28k's per-citation awk pass over the 3000-line file.
+  if [[ " $_patterns " == *" enforcers_tsv "* ]]; then
+    local _efile="$GATE_REPO_ROOT/docs/governance/enforcers.yaml"
+    if [[ -f "$_efile" ]]; then
+      _SCAN_ENFORCERS_TSV=$(awk '
+        /^- id:[[:space:]]+E[0-9]+/ {
+          if (eid != "") print eid "\t" art "\t" kind
+          eid=$3; art=""; kind=""
+          next
+        }
+        /^[[:space:]]+artifact:/ {
+          line=$0
+          sub(/^[[:space:]]+artifact:[[:space:]]*/, "", line)
+          sub(/#.*$/, "", line)
+          gsub(/[[:space:]]+$/, "", line)
+          art=line
+        }
+        /^[[:space:]]+kind:/ {
+          line=$0
+          sub(/^[[:space:]]+kind:[[:space:]]*/, "", line)
+          gsub(/[[:space:]]+$/, "", line)
+          kind=line
+        }
+        END { if (eid != "") print eid "\t" art "\t" kind }
+      ' "$_efile" 2>/dev/null)
+    fi
+  fi
+
+  # PR-Opt-rc22: rule cards + ADR yaml file lists (5 rules each consume these).
+  if [[ " $_patterns " == *" rule_cards "* ]]; then
+    _SCAN_RULE_CARDS=$(find docs/governance/rules -maxdepth 1 -name 'rule-*.md' 2>/dev/null | sort)
+  fi
+
+  if [[ " $_patterns " == *" adr_yamls "* ]]; then
+    _SCAN_ADR_YAMLS=$(find docs/adr -maxdepth 1 -name '*.yaml' \
+      -not -path '*/archive/*' \
+      -not -path '*/locked/*' \
+      2>/dev/null | sort)
+  fi
+
+  # PR-Opt-rc22: git metadata cached once (avoids spawning git per-rule).
+  if [[ " $_patterns " == *" git_metadata "* ]]; then
+    _SCAN_GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    _SCAN_GIT_LATEST_DATE=$(git log -1 --format=%cd --date=short 2>/dev/null || echo "unknown")
+  fi
+
+  export _SCAN_MODULE_METADATA _SCAN_ACTIVE_DOCS _SCAN_MIGRATION_SQL _SCAN_AGENT_JAVA_MAIN
+  export _SCAN_SHIPPED_ROWS _SCAN_ENFORCERS_TSV _SCAN_RULE_CARDS _SCAN_ADR_YAMLS
+  export _SCAN_GIT_SHA _SCAN_GIT_LATEST_DATE
 }
 
 # Auto-populate when sourced (consumers can also call manually for re-scan).

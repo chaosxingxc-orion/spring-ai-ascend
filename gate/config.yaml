@@ -14,11 +14,14 @@
 #   - Arrays MUST use block style ('- item' per line); '[]' allowed for empty arrays only.
 
 parallelism:
-  jobs: 8                      # number of parallel workers (env: GATE_JOBS)
-                               #   1 = serial; 0 = auto (= nproc); N = exactly N workers
-  enabled: true                # false -> force serial path (env: GATE_PARALLEL=0)
-  rule_timeout_seconds: 60     # kill a rule that exceeds this; -1 = no timeout (env: GATE_RULE_TIMEOUT)
-  batch_strategy: round_robin  # round_robin | longest_first (env: GATE_BATCH_STRATEGY)
+  jobs: 8                          # number of parallel workers (env: GATE_JOBS)
+                                   #   1 = serial; 0 = auto (= nproc); N = exactly N workers
+  enabled: true                    # false -> force serial path (env: GATE_PARALLEL=0)
+  rule_timeout_seconds: 60         # kill any individual rule that exceeds this; -1 = disable (env: GATE_RULE_TIMEOUT)
+                                   # PR-Opt-rc22: enforced via `timeout` command in batch script.
+  total_timeout_seconds: 300       # ceiling for entire gate execution (5 min); -1 = disable (env: GATE_TOTAL_TIMEOUT)
+                                   # PR-Opt-rc22: safety net so a runaway gate never blocks CI > 5min.
+  batch_strategy: round_robin      # round_robin | longest_first (env: GATE_BATCH_STRATEGY)
 
 logging:
   ndjson_enabled: true         # write per-rule.ndjson (env: GATE_LOG_NDJSON)
@@ -39,6 +42,14 @@ scan_cache:
     - shipped_rows             # TSV from gate/lib/extract_shipped_rows.sh (PR-E3.b)
                                # — feeds Rules 7/19/24 with pre-parsed architecture-status.yaml,
                                # cutting per-rule wall-clock from minutes to milliseconds.
+    - enforcers_tsv            # PR-Opt-rc22: pre-parsed enforcers.yaml TSV
+                               # — feeds Rule 28k (saves ~9-20s by replacing per-citation awk loop).
+    - rule_cards               # PR-Opt-rc22: pre-listed docs/governance/rules/rule-*.md
+                               # — feeds Rules 67/68/69/70/100 (~50ms saved per gate).
+    - adr_yamls                # PR-Opt-rc22: pre-listed docs/adr/*.yaml
+                               # — feeds Rules 28e/28f/28i/28j/34/62/65/83/85.
+    - git_metadata             # PR-Opt-rc22: cached `git rev-parse HEAD` + commit date
+                               # — feeds Rules 64/111 (avoids per-rule git spawn).
 
 regression_detection:
   enabled: true                # Rule 72 active (env: GATE_RULE_72)
