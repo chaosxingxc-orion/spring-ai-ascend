@@ -49,13 +49,3 @@ if [[ -f "$_r112_canonical" ]]; then
   done < <(grep -nE '^# Rule [0-9]+[a-z]? — .*\[META\]' "$_r112_canonical" 2>/dev/null)
 fi
 if [[ $_r112_fail -eq 0 ]]; then pass_rule "meta_rule_self_application_check"; fi
-
-# === END OF RULES ===
-# ---------------------------------------------------------------------------
-if [[ $fail_count -eq 0 ]]; then
-  echo "GATE: PASS"
-  exit 0
-else
-  echo "GATE: FAIL"
-  exit 1
-fi

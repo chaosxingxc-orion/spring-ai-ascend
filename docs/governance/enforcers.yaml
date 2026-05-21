@@ -1401,3 +1401,11 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#meta_rule_self_application_check
   asserts: "Rule 112 (META) — every gate rule whose `# Rule N — slug` header carries the `[META]` marker MUST source a helper from `gate/lib/check_*.sh` within 80 lines of the header. Closes F-recursive-prevention-irony permanently by structurally enforcing the helper-extraction discipline introduced by Rule 111 (rc18 Wave 1, ADR-0095) on every future META rule. Rule 112 dogfoods itself by sourcing gate/lib/check_recurring_families.sh."
+
+- id: E160
+  constraint_ref: "Rule 113 (legacy_paren_no_reintroduction_and_migration_doc_complete); ADR-0096"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#legacy_paren_no_reintroduction_and_migration_doc_complete
+  asserts: "Rule 113 (rc19 Wave 2 / ADV-RC18-6 close) — sub-check .a: docs/governance/enforcers.yaml MUST NOT contain `(legacy Rule NN — ...)` parentheticals (rc18 Wave 4 removed all 9 such patterns; reintroduction is gated). Sub-check .b: gate/rule-number-migration.md MUST exist AND contain 'Legacy numeric' + 'rc17 sub-rule splits' section headings (audit trail of the rename mapping preserved as canonical SSOT)."

@@ -28,5 +28,5 @@ This principle exists because **application-layer tenant isolation is structural
 - ADR-0069 (origin of Rules 35–42 and the LucioIT W1 §7.2 RLS doctrine)
 - Grandfather list: [`gate/rls-baseline-grandfathered.txt`](../../../gate/rls-baseline-grandfathered.txt)
 - Deferred sub-clause 40.b — V1/V2 grandfather retrofit (W2 trigger) — see [`docs/CLAUDE-deferred.md`](../../CLAUDE-deferred.md)
-- Related: Rule R-C.e (Tenant Propagation Purity) — runtime code must source tenant from `RunContext.tenantId()`, not request-scoped `TenantContextHolder`
+- Related: Rule R-C.2.c (Tenant Propagation Purity) — runtime code must source tenant from `RunContext.tenantId()`, not request-scoped `TenantContextHolder`
 - Related: P-I (Five-Plane Topology) — Bus & State Hub plane owns persistence enforcement
