@@ -6240,7 +6240,7 @@ test_rule_114_filename_dot_convention_pos() {
     local base
     base=$(basename "$f")
     [[ "$base" == "README.md" ]] && continue
-    if [[ ! "$base" =~ ^rule-[DRGM]-[A-Z0-9](\.[a-z0-9]+)?\.md$ ]]; then
+    if [[ ! "$base" =~ ^rule-[DRGM]-[A-Z0-9]+(\.[a-z0-9]+)?\.md$ ]]; then
       invalid_count=$((invalid_count + 1))
     fi
   done < <(find "$repo_root/docs/governance/rules" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort)

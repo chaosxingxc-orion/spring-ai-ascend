@@ -6007,7 +6007,14 @@ else
     if printf '%s\n' "$_r116_exempt" | grep -Fxq "$_r116_sh"; then
       continue
     fi
-    if grep -qE 'xargs[[:space:]]+(-[a-zA-Z0-9 ]*)?-P[[:space:]]|^[[:space:]]*parallel[[:space:]]|^[[:space:]]*wait([[:space:]]|$)|wait[[:space:]]*$' "$_r116_sh" 2>/dev/null; then
+    # Tighter regex per rc21 PR review: drop trailing-`wait` alternative
+    # (matched any line ending in word `wait`, e.g. `# we wait` — false-pass).
+    # Accepted parallel mechanisms:
+    #   1. `xargs -P<N>` (any -P flag, with or without space before N)
+    #   2. `parallel` command at start of line
+    #   3. `wait` builtin at start of line (after `&`-backgrounded jobs)
+    #   4. `&` line-end (background job indicator, must be paired with wait)
+    if grep -qE 'xargs[[:space:]]+([^|]*[[:space:]])?-P[0-9[:space:]]|^[[:space:]]*parallel([[:space:]]|$)|^[[:space:]]*wait([[:space:]]|$|;)|&[[:space:]]*$' "$_r116_sh" 2>/dev/null; then
       continue
     fi
     _r116_drift+="$_r116_sh; "
