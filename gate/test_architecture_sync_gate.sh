@@ -6088,6 +6088,9 @@ test_rule_113_migration_doc_complete_pos() {
     ok "rule_113_migration_doc_complete_pos" "Rule 113.b accepts real migration.md with both required section headings"
   else
     fail "rule_113_migration_doc_complete_pos" "real migration.md missing expected headings"
+  fi
+}
+
 test_rule_114_filename_dot_convention_pos() {
   # Real corpus rule cards all match the convention
   local invalid_count=0
