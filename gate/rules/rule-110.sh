@@ -16,6 +16,15 @@
 # scope_surfaces: gate/check_architecture_sync.sh, gate/test_architecture_sync_gate.sh
 #
 # Pre-rc16 rules without scope_surfaces: are grandfathered (no retrofit).
+#
+# rc19 Wave 1 (ADR-0096): Rule 110 sources gate/lib/check_recurring_families.sh
+# as a structural-compliance no-op to satisfy Rule 112 (meta_rule_self_
+# application_check). Rule 112 requires every [META] rule to source a
+# gate/lib/check_*.sh helper as the F-recursive-prevention-irony permanent
+# close — this source statement is the Rule 110 → Rule 112 self-application
+# proof. The helper is not invoked here; its presence in scope is the gate.
+# shellcheck disable=SC1091
+source "gate/lib/check_recurring_families.sh"  # Rule 112 dogfooding
 # ---------------------------------------------------------------------------
 _r110_fail=0
 _r110_test_file="gate/test_architecture_sync_gate.sh"

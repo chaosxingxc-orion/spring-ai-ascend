@@ -106,6 +106,7 @@ is now institutionalised.
 - 17 rows: bulk rename R-C.{b,c,d,e} → R-C.{1,2.a,2.b,2.c}.
 - 9 rows: removed `(legacy Rule NN — ...)` parentheticals.
 - **NEW** gate/rule-number-migration.md: single-source legacy→semantic mapping for audit.
+<!-- rc19 snapshot marker: the numbers below are rc18 wave-final; rc19 Wave 1 hardening + Rule 112 + E159 raised graph to 397/644 — see rc19 release note / architecture-status.yaml allowed_claim for current canonical baseline. -->
 - baseline_metrics graph counts: rc18 wave-final is 395 nodes / 642 edges (see §Baseline metrics table above). Wave-4 intermediate snapshot of these counts is preserved in Wave 4's commit message; final reconciliation in this Wave 5 includes ADR-0095 node + F-recursive-prevention-irony family prevention_rules edges.
 
 ### Wave 5 — META + ADR + Release Note + Baseline Lockstep (this PR)
