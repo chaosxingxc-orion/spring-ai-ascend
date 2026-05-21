@@ -198,9 +198,13 @@ for b in $(seq 0 $((JOBS - 1))); do
         exit_file="$WORK_DIR/exit_${rule_id}.txt"
         ms_file="$WORK_DIR/ms_${rule_id}.txt"
         pid_file="$WORK_DIR/pid_${rule_id}.txt"
-        # PR-Opt-rc22: per-rule timeout via `timeout` command (GNU coreutils).
-        # If `timeout` not available (rare on Linux/WSL/Git Bash), fall back to
-        # no-timeout invocation.
+        # PR-Opt-rc22 / rc27 fix: per-rule timeout via `timeout` command (GNU coreutils).
+        # rc27 fix (ADV-1 + CORR-1): the original `bash -c '...'` spawned a fresh
+        # shell that did NOT inherit shell functions (fail_rule/pass_rule), so
+        # every failure was silently dropped (`command not found` -> _rc=0 -> PASS).
+        # Fix: re-source the prologue inside the timeout child so fail_rule and
+        # pass_rule are defined; also drop `--preserve-status` so GNU timeout
+        # actually exits 124 when it fires (preserve-status returns 143/137).
         cat >> "$batch_script" <<RULE
 T0_${idx}=\$(date +%s%3N)
 if [[ "\${GATE_RULE_TIMEOUT_DISABLED:-0}" == "1" ]] || ! command -v timeout >/dev/null 2>&1; then
@@ -211,14 +215,14 @@ if [[ "\${GATE_RULE_TIMEOUT_DISABLED:-0}" == "1" ]] || ! command -v timeout >/de
   ) > "$out_file" 2>&1
   _rc=\$?
 else
-  timeout --preserve-status -k 5 ${RULE_TIMEOUT} bash -c '
+  timeout -k 5 ${RULE_TIMEOUT} bash -c "
+    source \"$WORK_DIR/prologue.sh\"
     fail_count=0
-    source "$body_file"
-    exit \$fail_count
-  ' > "$out_file" 2>&1
+    source \"$body_file\"
+    exit \\\$fail_count
+  " > "$out_file" 2>&1
   _rc=\$?
-  # GNU timeout exits 124 when it kills the process. Mark as failure with
-  # a clear diagnostic so post-aggregation can surface it.
+  # GNU timeout exits 124 when it kills the process (without --preserve-status).
   if [[ \$_rc -eq 124 ]]; then
     echo "FAIL: rule_timed_out -- exceeded ${RULE_TIMEOUT}s timeout (PR-Opt-rc22 safety net)" >> "$out_file"
     _rc=1
@@ -237,17 +241,22 @@ done
 # TOTAL_TIMEOUT, kill the xargs orchestrator and aggregate whatever
 # completed. Goal: gate ALWAYS returns under (TOTAL_TIMEOUT + 10s).
 # ---------------------------------------------------------------------------
+# rc27 fix (CORR-1 + CORR-7): drop --preserve-status (so timeout actually exits 124
+# instead of 143/137); also set a fail-close flag so aggregator marks GATE: FAIL
+# when total timeout fires.
+_total_timeout_fired=0
 if [[ "${GATE_TOTAL_TIMEOUT_DISABLED:-0}" == "1" ]] || ! command -v timeout >/dev/null 2>&1; then
   find "$WORK_DIR" -maxdepth 1 -name 'batch_*.sh' -type f -print0 \
     | xargs -0 -n 1 -P "$JOBS" bash
 else
-  timeout --preserve-status -k 5 "$TOTAL_TIMEOUT" bash -c '
+  timeout -k 5 "$TOTAL_TIMEOUT" bash -c '
     find "'"$WORK_DIR"'" -maxdepth 1 -name "batch_*.sh" -type f -print0 \
       | xargs -0 -n 1 -P "'"$JOBS"'" bash
   '
   _orchestrator_rc=$?
   if [[ $_orchestrator_rc -eq 124 ]]; then
-    echo "WARN: total_gate_timeout -- aggregator killed after ${TOTAL_TIMEOUT}s (PR-Opt-rc22). Rules not yet completed will not appear in summary; treat as FAIL." >&2
+    echo "FAIL: total_gate_timeout -- aggregator killed after ${TOTAL_TIMEOUT}s (PR-Opt-rc22). Rules not yet completed will be counted as FAIL." >&2
+    _total_timeout_fired=1
   fi
 fi
 
@@ -365,6 +374,10 @@ if [[ "${total_rules}" != "${_serial_rule_count}" ]]; then
   exit 1
 fi
 
+if [[ "$_total_timeout_fired" == "1" ]]; then
+  echo "GATE: FAIL (total_gate_timeout fired -- killed after ${TOTAL_TIMEOUT}s; $failed_rules of $total_rules rules failed before kill; $total_subfailures sub-failures total)"
+  exit 1
+fi
 if [[ "$failed_rules" -eq 0 ]]; then
   echo "GATE: PASS"
   exit 0

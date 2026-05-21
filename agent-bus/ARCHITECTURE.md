@@ -156,7 +156,7 @@ Mode-B (Business-Centric per ADR-0101): `agent-bus` lives on the platform AS A F
 
 ## *SPI Interface Appendix* (Rule G-1.1.b — rc22 / ADR-0099)
 
-`agent-bus` produces 2 SPI packages (cross-validates against `module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`, `docs/dfx/agent-bus.yaml`):
+`agent-bus` produces 3 SPI packages (cross-validates against `module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`, `docs/dfx/agent-bus.yaml`):
 
 | Interface / Record FQN | SPI package | Purpose | Wire contract |
 |---|---|---|---|
@@ -166,6 +166,8 @@ Mode-B (Business-Centric per ADR-0101): `agent-bus` lives on the platform AS A F
 | `com.huawei.ascend.bus.spi.s2c.S2cCallbackTransport` | `bus.spi.s2c` | Server-to-client capability invocation SPI (ADR-0074) | `s2c-callback.v1.yaml` |
 | `com.huawei.ascend.bus.spi.s2c.S2cCallbackEnvelope` | `bus.spi.s2c` | 6-required-field request envelope | same |
 | `com.huawei.ascend.bus.spi.s2c.S2cCallbackResponse` | `bus.spi.s2c` | Outcome enum (OK \| ERROR \| TIMEOUT) + correlation fields | same |
+| `com.huawei.ascend.bus.spi.s2c.ReflectionEnvelopeRouter` | `bus.spi.s2c` | rc26: S2C delivery of ReflectionEnvelope for online evolution (rc27 moved under .spi per Rule R-D.d) | `reflection-envelope.v1.yaml` |
+| `com.huawei.ascend.bus.spi.federation.FederationGateway` | `bus.spi.federation` | rc26: Mode B Business-Centric federation forwarding (rc27 moved under .spi) | `federation-envelope.v1.yaml` |
 
 ## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
 

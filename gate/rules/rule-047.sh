@@ -13,10 +13,10 @@
 # ---------------------------------------------------------------------------
 _r47_fail=0
 # Scope NARROWED post-Phase-C (ADR-0078): Rule 37 applies to the runtime sub-
-# package only. agent-service/src/main/java/ascend/springai/service/platform/**
+# package only. agent-service/src/main/java/com/huawei/ascend/service/platform/**
 # is excluded per CLAUDE-deferred.md 37.c — the platform-side JdbcTemplate uses
 # (HealthCheckRepository, PlatformOssApiProbe) migrate to R2DBC in W2.
-_r47_root="agent-service/src/main/java/ascend/springai/service/runtime"
+_r47_root="agent-service/src/main/java/com/huawei/ascend/service/runtime"
 if [[ -d "$_r47_root" ]]; then
   _r47_hits="$(grep -rEln '^import[[:space:]]+org\.springframework\.(web\.client\.RestTemplate|jdbc\.core\.JdbcTemplate);' "$_r47_root" 2>/dev/null || true)"
   if [[ -n "$_r47_hits" ]]; then

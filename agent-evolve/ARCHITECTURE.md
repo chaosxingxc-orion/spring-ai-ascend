@@ -2,7 +2,7 @@
 level: L1
 view: logical
 module: agent-evolve
-status: skeleton
+status: active
 freeze_id: null
 covers_views: [logical]
 spans_levels: [L1]
@@ -112,15 +112,18 @@ Mode-B (Business-Centric per ADR-0101): `agent-evolve` STILL on the platform; on
 
 ## *SPI Interface Appendix* (Rule G-1.1.b — rc22 / ADR-0099)
 
-`agent-evolve` produces NO Java SPI today. Its current shipped surface is the `EvolutionExport` discriminator declared in `docs/governance/evolution-scope.v1.yaml` (enum: `IN_SCOPE | OUT_OF_SCOPE | OPT_IN`, consumed via `RunEvent.evolutionExport()` field per Rule R-M.e).
+`agent-evolve` ships 1 Java SPI as of rc26 (rc27 corrective moved it under `.spi`). Its current shipped surfaces:
 
-Future SPI surface (rc26 per ADR-0102 timeline):
+- The `EvolutionExport` discriminator declared in `docs/governance/evolution-scope.v1.yaml` (enum: `IN_SCOPE | OUT_OF_SCOPE | OPT_IN`, consumed via `RunEvent.evolutionExport()` field per Rule R-M.e).
+- The SlowTrackJudge SPI under `com.huawei.ascend.evolve.online.spi`.
 
-| Future FQN | SPI package | Purpose |
+Current SPI surface:
+
+| FQN | SPI package | Purpose |
 |---|---|---|
-| `com.huawei.ascend.evolve.online.spi.SlowTrackJudge` | `evolve.online.spi` | LLM-as-Judge contract; fires on AFTER_LLM_INVOCATION hook |
-| `com.huawei.ascend.evolve.online.spi.ReflectionEnvelopeRouter` | `evolve.online.spi` | S2C delivery of ReflectionEnvelope to active Session |
-| `com.huawei.ascend.evolve.offline.spi.OfflineExportAdapter` | `evolve.offline.spi` | PII-filtered trace log emission (T+1 batch) |
+| `com.huawei.ascend.evolve.online.spi.SlowTrackJudge` | `evolve.online.spi` | LLM-as-Judge contract; fires on AFTER_LLM_INVOCATION hook (rc26; rc27 moved under .spi per Rule R-D.d) |
+
+Note: ReflectionEnvelopeRouter is owned by **agent-bus** (package `com.huawei.ascend.bus.spi.s2c`) — it is the S2C transport surface, not an evolution-plane SPI. Future OfflineExportAdapter SPI (rc26 design intent, W2 implementation) will live under `com.huawei.ascend.evolve.offline.spi` when shipped.
 
 ## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
 

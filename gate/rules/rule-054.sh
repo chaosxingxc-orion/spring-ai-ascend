@@ -13,8 +13,8 @@
 # fails. The matching integration test (E73) verifies behaviour separately.
 # ---------------------------------------------------------------------------
 _r54_fail=0
-_r54_impl="agent-service/src/main/java/ascend/springai/service/runtime/resilience"
-_r54_spi="agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi"
+_r54_impl="agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience"
+_r54_spi="agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi"
 if [[ ! -d "$_r54_spi" ]]; then
   fail_rule "skill_capacity_runtime_resolver_present" "$_r54_spi directory missing — Rule 41.b runtime SPI types not landed (post-ADR-0080 .spi package home)"
   _r54_fail=1

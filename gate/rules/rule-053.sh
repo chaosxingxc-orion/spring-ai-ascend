@@ -12,7 +12,7 @@
 # refactor that drops this coverage fails the gate.
 # ---------------------------------------------------------------------------
 _r53_fail=0
-_r53_path="agent-service/src/test/java/ascend/springai/service/platform/web/runs/RunCursorFlowIT.java"
+_r53_path="agent-service/src/test/java/com/huawei/ascend/service/platform/web/runs/RunCursorFlowIT.java"
 if [[ ! -f "$_r53_path" ]]; then
   fail_rule "cursor_flow_integration_test_present" "$_r53_path missing — Rule 36.b / P-F integration test not landed"
   _r53_fail=1

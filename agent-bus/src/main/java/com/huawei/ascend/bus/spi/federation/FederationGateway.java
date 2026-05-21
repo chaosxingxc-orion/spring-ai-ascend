@@ -1,4 +1,4 @@
-package com.huawei.ascend.bus.federation;
+package com.huawei.ascend.bus.spi.federation;
 
 import com.huawei.ascend.bus.spi.ingress.IngressEnvelope;
 import com.huawei.ascend.bus.spi.ingress.IngressResponse;

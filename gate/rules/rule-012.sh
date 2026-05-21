@@ -10,9 +10,9 @@
 # ---------------------------------------------------------------------------
 _r12_fail=0
 _posture_targets=(
-  'agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestrator.java'
-  'agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java'
-  'agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SyncOrchestrator.java'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java'
 )
 for _pt in "${_posture_targets[@]}"; do
   if [[ -f "$_pt" ]]; then

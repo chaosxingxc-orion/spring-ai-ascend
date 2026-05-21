@@ -11,7 +11,8 @@ description: "Evolution plane — Java-side adapter skeleton for the Python ML p
 architecture_doc: agent-evolve/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-evolve.yaml
 spi_packages:
-  - com.huawei.ascend.evolve.spi   # placeholder; populated when Java adapter activates per ADR-0075
+  - com.huawei.ascend.evolve.spi             # placeholder; populated when Java adapter activates per ADR-0075
+  - com.huawei.ascend.evolve.online.spi      # rc27 fix (rc22-3): online-evolution SPI (SlowTrackJudge) per ADR-0102
 allowed_dependencies: []
 forbidden_dependencies:
   - agent-service           # post-Phase-C (consolidated from agent-platform per ADR-0078)

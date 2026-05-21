@@ -111,8 +111,11 @@ two rules are complementary, not duplicate:
 ## Activation
 
 Activated 2026-05-22 by the v2.0.0-rc22 wave per ADR-0099. Enforcers
-E159, E160, E161 cover the three sub-clauses with six self-test
-fixtures (positive + negative per sub-clause).
+E166, E167, E168 cover the three sub-clauses with six self-test
+fixtures (positive + negative per sub-clause). Real helper implementations
+landed in rc27 corrective wave (rc22-2 closure); the prior placeholder
+`pass_rule` stubs were replaced with `gate/lib/check_l1_dev_view_tree.sh`
+and `gate/lib/check_l1_spi_appendix.sh`.
 
 ## Self-tests (satisfying Rule 110 META requirements)
 

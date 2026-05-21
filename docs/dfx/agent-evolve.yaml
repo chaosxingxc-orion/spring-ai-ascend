@@ -11,6 +11,10 @@ kind: domain
 version: 1
 generated_at: 2026-05-17
 
+spi_packages:
+  - com.huawei.ascend.evolve.spi             # placeholder per ADR-0075
+  - com.huawei.ascend.evolve.online.spi      # SlowTrackJudge per ADR-0102 (rc26; rc27 fix moved under .spi)
+
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-evolve"
   semver_policy: "experimental — Java adapter only; semver locked once Python pipeline contract stabilises"

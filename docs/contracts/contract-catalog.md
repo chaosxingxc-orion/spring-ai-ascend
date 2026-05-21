@@ -1,7 +1,7 @@
 # Contract Catalog
 
 > Single source of truth for all public contracts in the spring-ai-ascend platform.
-> Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-05-21 (rc22 — L1 grounding + 6 ADRs + agent-invoke-request.v1.yaml + reflection-envelope.v1.yaml per ADR-0099 / ADR-0100 / ADR-0101 / ADR-0102 / ADR-0103 / ADR-0104)
+> Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-05-22 (rc27 — added 3 missing design_only contracts (a2a-envelope, backpressure-request, federation-envelope) + 3 rc23 SPIs (StatelessEngine, ContextProjector, TaskStateStore) + 3 rc26 SPIs moved to .spi packages per Rule R-D.d)
 
 ---
 
@@ -19,7 +19,7 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). SPI packages import only `java.*` plus same-spi-package siblings (ArchUnit `SpiPurityGeneralizedArchTest`). japicmp binary-compat from W1.
 
-**Active SPI interfaces (13 total):**
+**Active SPI interfaces (17 total — rc27 baseline):**
 
 | Interface | Module | Package | Status |
 |---|---|---|---|
@@ -36,6 +36,12 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `AgentLoopExecutor` | `agent-execution-engine` | `com.huawei.ascend.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`IterativeAgentLoopExecutor`, in `agent-service`) |
 | `EngineHookSurface` | `agent-execution-engine` | `com.huawei.ascend.engine.spi` | shipped — W2.x; bridge to `RuntimeMiddleware` (ADR-0073) |
 | `RuntimeMiddleware` | `agent-middleware` | `com.huawei.ascend.middleware.spi` | shipped — W2.x; `@FunctionalInterface` listener (ADR-0073) |
+| `StatelessEngine` | `agent-service` | `com.huawei.ascend.service.engine.spi` | rc23 design_only — pure-function compute SPI (ADR-0100); ref impl `InMemoryStatelessEngine` ships rc24 |
+| `ContextProjector` | `agent-service` | `com.huawei.ascend.service.session.spi` | rc23 design_only — Session-context projection SPI (ADR-0100); ref impl `InMemoryContextProjector` ships rc24 |
+| `TaskStateStore` | `agent-service` | `com.huawei.ascend.service.task.spi` | rc23 design_only — TaskControlState persistence SPI (ADR-0100); ref impl `InMemoryTaskStateStore` ships rc24 |
+| `SlowTrackJudge` | `agent-evolve` | `com.huawei.ascend.evolve.online.spi` | rc26 design_only — LLM-as-Judge SPI for online evolution (ADR-0102); rc27 moved under .spi per Rule R-D.d |
+| `ReflectionEnvelopeRouter` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | rc26 design_only — S2C delivery of ReflectionEnvelope (ADR-0102); rc27 moved under .spi |
+| `FederationGateway` | `agent-bus` | `com.huawei.ascend.bus.spi.federation` | rc26 design_only — Mode B Business-Centric federation forwarding (ADR-0101); rc27 moved under .spi |
 
 **SPI count by module (post-ADR-0088 + ADR-0089):**
 
@@ -111,6 +117,9 @@ Schema-first domain contracts (Rule M-2.a, formerly Rule 48). Each YAML file is 
 | `plan-projection.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0032 (planner contract minimal); ADR-0052 (`SkillResourceMatrix`); rc4 review P1-3 amendment |
 | `agent-invoke-request.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0100 (rc22 — agent-service decomp); Service↔Engine SPI carrier; runtime impl rc24 |
 | `reflection-envelope.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0102 (rc22 — online evolution duality); S2C envelope for hot-patch; runtime impl rc26 |
+| `a2a-envelope.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0100 (rc25 — A2A protocol contract-only adoption); NO SDK dep per Rejection 3 |
+| `backpressure-request.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0100 (rc25 — bus control-track backpressure channel); runtime impl with BackpressureRequestEmitter SPI |
+| `federation-envelope.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0101 (rc26 — Mode B Business-Centric federation wire shape); broker choice deferred to separate ADR |
 | `evolution-scope.v1.yaml` | `docs/governance/` | `schema_shipped` | ADR-0077 (Rule R-M.e) |
 
 Note: `evolution-scope.v1.yaml` lives under `docs/governance/`, not `docs/contracts/`, because it indexes governance-plane export rules rather than a wire/Java contract.

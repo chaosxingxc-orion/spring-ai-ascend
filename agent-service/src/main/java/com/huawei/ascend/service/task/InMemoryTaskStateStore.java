@@ -32,6 +32,17 @@ public class InMemoryTaskStateStore implements TaskStateStore {
         Objects.requireNonNull(taskId, "taskId");
         Objects.requireNonNull(tenantId, "tenantId");
         Objects.requireNonNull(state, "state");
+        // rc27 fix (ADV-3): enforce tenant scope on save — reject cross-tenant
+        // overwrite. Without this guard, Tenant B could silently clobber Tenant
+        // A's task state for the same taskId. Per Rule R-C.c tenant
+        // propagation purity.
+        TaskEntry existing = store.get(taskId);
+        if (existing != null && !existing.tenantId().equals(tenantId)) {
+            throw new IllegalStateException(
+                "cross-tenant overwrite forbidden: taskId=" + taskId
+                + " existing tenant=" + existing.tenantId()
+                + " caller tenant=" + tenantId);
+        }
         store.put(taskId, new TaskEntry(tenantId, new HashMap<>(state)));
     }
 

@@ -14,7 +14,7 @@ _r57_fail=0
 _r57_yaml="docs/contracts/engine-hooks.v1.yaml"
 # Updated 2026-05-17: HookPoint moved from agent-runtime/orchestration/spi/ to
 # agent-middleware/spi/ during the six-module materialization PR (T2.B1).
-_r57_enum="agent-middleware/src/main/java/ascend/springai/middleware/spi/HookPoint.java"
+_r57_enum="agent-middleware/src/main/java/com/huawei/ascend/middleware/spi/HookPoint.java"
 if [[ ! -f "$_r57_yaml" ]]; then
   fail_rule "engine_hooks_yaml_present_and_wellformed" "$_r57_yaml missing -- Rule 45 / P-M hook surface unenforced"
   _r57_fail=1

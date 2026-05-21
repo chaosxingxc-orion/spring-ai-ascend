@@ -2,6 +2,7 @@ package com.huawei.ascend.service.engine.spi;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Service-to-Engine invocation request per ADR-0100 (rc22).
@@ -35,4 +36,19 @@ public record AgentInvokeRequest(
         List<String> injectedSkills,
         Map<String, Object> taskMetadata,
         String traceId) {
+
+    // rc27 fix (ADV-5): enforce non-null invariant matching the
+    // agent-invoke-request.v1.yaml#fields[].required: true contract.
+    // Without these guards, downstream Map.of(...) calls explode with NPE
+    // and the engine cannot produce a well-formed StateDelta.
+    public AgentInvokeRequest {
+        Objects.requireNonNull(runId, "runId");
+        Objects.requireNonNull(taskId, "taskId");
+        Objects.requireNonNull(sessionId, "sessionId");
+        Objects.requireNonNull(tenantId, "tenantId");
+        Objects.requireNonNull(sessionContext, "sessionContext");
+        Objects.requireNonNull(injectedSkills, "injectedSkills");
+        Objects.requireNonNull(taskMetadata, "taskMetadata");
+        Objects.requireNonNull(traceId, "traceId");
+    }
 }

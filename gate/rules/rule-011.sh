@@ -5,17 +5,17 @@
 
 # Rule 11 — contract_spine_tenant_id_required (enforcer E105)
 # Every persistent record under
-#   agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
+#   agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java
 # OR
-#   agent-service/src/main/java/ascend/springai/service/runtime/idempotency/IdempotencyRecord.java
+#   agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency/IdempotencyRecord.java
 # MUST declare a String tenantId component. Scope path relocated from
 # agent-runtime-core to agent-service per ADR-0088 (rc13 dissolution).
 # Process-internal opt-out via "// scope: process-internal" same-line comment.
 # ---------------------------------------------------------------------------
 _r11_fail=0
 _r11_roots=(
-  'agent-service/src/main/java/ascend/springai/service/runtime/runs'
-  'agent-service/src/main/java/ascend/springai/service/runtime/idempotency'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/runs'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency'
 )
 for _r11_root in "${_r11_roots[@]}"; do
   [[ -d "$_r11_root" ]] || continue
@@ -39,7 +39,7 @@ if [[ $_r11_fail -eq 0 ]]; then pass_rule "contract_spine_tenant_id_required"; f
 # with tenant re-validation + RunStateMachine validation + audit log.
 # ---------------------------------------------------------------------------
 _r24_fail=0
-_r24_path='agent-service/src/main/java/ascend/springai/service/platform/web/runs/RunController.java'
+_r24_path='agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java'
 if [[ ! -f "$_r24_path" ]]; then
   fail_rule "runlifecycle_cancel_reauthz_shipped" "$_r24_path missing — Rule 24.c expects RunController to host the cancel surface"
   _r24_fail=1

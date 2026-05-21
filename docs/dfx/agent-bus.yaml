@@ -13,7 +13,8 @@ generated_at: 2026-05-20
 
 spi_packages:
   - com.huawei.ascend.bus.spi.ingress       # IngressGateway + IngressEnvelope + IngressResponse (ADR-0089 rc13)
-  - com.huawei.ascend.bus.spi.s2c           # S2cCallbackTransport + S2cCallbackEnvelope + S2cCallbackResponse (relocated from dissolved agent-runtime-core per ADR-0088 rc13)
+  - com.huawei.ascend.bus.spi.s2c           # S2cCallbackTransport + S2cCallbackEnvelope + S2cCallbackResponse (ADR-0088 rc13) + ReflectionEnvelopeRouter (ADR-0102 rc26; rc27 moved under .spi)
+  - com.huawei.ascend.bus.spi.federation    # FederationGateway (ADR-0101 Mode B; rc27 moved under .spi per Rule R-D.d)
 
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-bus"

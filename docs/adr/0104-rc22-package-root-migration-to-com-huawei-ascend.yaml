@@ -1,5 +1,5 @@
 id: ADR-0104
-title: "rc22 — Package-root migration com.huawei.ascend.* → com.huawei.ascend.* (decision; rc22.5 executes)"
+title: "rc22 — Package-root migration (decision; rc22.5 executes)"
 status: accepted
 date: 2026-05-22
 level: L0
@@ -10,72 +10,75 @@ authors:
   - chao
 relates_to:
   - ADR-0100
+# rc27 corrective (rc22-1): the ORIGINAL from-side namespace was
+# `<a><s><c><e><n><d>.<s><p><r><i><n><g><a><i>` (concatenate the bracketed
+# letters; spelled with separators to defeat re-substitution by any
+# future bulk-rewrite script). The to-side namespace is
+# `com.huawei.ascend.*`. The original ADR-0104 text was self-corrupted by
+# the rc22.5 rename script (which replaced the from-side literal in this
+# very ADR, leaving "X → X" as the title — see commit dde2c27
+# discussion). rc22.5 was executed and merged as PR #42 / squash-merge
+# commit 2c650db; that commit message preserves the original
+# from-side namespace as a non-substitutable string and is the canonical
+# authority for the rename direction.
 context: |
   The 2026-05-21 proposal `docs/logs/reviews/2026-05-21-agent-service-l1-expansion-proposal.en.md`
-  §3 declares Java packages under `com.huawei.ascend.agent.service…`.
-  The current canonical corpus root is `com.huawei.ascend.service…`
-  (every active `module-metadata.yaml#spi_packages`, every ArchUnit
-  `@AnalyzeClasses`, every contract-catalog row, every gate exemption
-  list).
+  §3 declared Java packages under `com.huawei.ascend.agent.service…`.
+  At rc21 the canonical corpus root was a different two-segment prefix
+  starting with `a-s-c-e-n-d` and `s-p-r-i-n-g-a-i` (concatenated; see
+  the rc27-corrective frontmatter note above for the canonical literal).
+  Every active `module-metadata.yaml#spi_packages`, every ArchUnit
+  `@AnalyzeClasses`, every contract-catalog row, and every gate exemption
+  list used that pre-migration root.
 
-  The user has authorized a project-wide migration to
-  `com.huawei.ascend.*` as a SEPARATE cross-cutting wave (the
-  package-rename impact is too large to bundle into rc22's L1-
-  grounding work — estimated 200+ files touched).
+  The user authorized a project-wide migration to `com.huawei.ascend.*`
+  as a SEPARATE cross-cutting wave — the package-rename impact was too
+  large to bundle into rc22's L1-grounding work (~200+ files touched).
 
-  This ADR records the decision. Execution is rc22.5.
-
+  This ADR records the decision. Execution shipped as rc22.5
+  (PR #42, merge commit 2c650db on 2026-05-21).
 decision: |
-  Migrate the Java package root from `com.huawei.ascend.*` to
-  `com.huawei.ascend.*` across the entire project. Maven `<groupId>`
-  also migrates from `com.huawei.ascend` to `com.huawei.ascend` for
-  consistency.
+  Migrate the Java package root project-wide to `com.huawei.ascend.*`.
+  Maven `<groupId>` migrates to `com.huawei.ascend` for consistency.
+  See PR #42 commit 2c650db message for the canonical FROM-side literal
+  (preserved in the commit subject line where this ADR's bulk-rewrite
+  script could not reach).
 
   Migration scope (rc22.5):
 
   - Every `.java` file under `agent-*/src/{main,test}/java/`.
   - Every `module-metadata.yaml#spi_packages` entry.
-  - Every `docs/governance/enforcers.yaml#asserts` text mentioning
-    `com.huawei.ascend.*`.
+  - Every `docs/governance/enforcers.yaml#asserts` text referencing the
+    pre-migration root.
   - Every `docs/contracts/contract-catalog.md` row package reference.
   - Every `docs/dfx/*.yaml#spi_packages` block.
   - Every ArchUnit test's `@AnalyzeClasses(packages = ...)`.
-  - Every `gate/` script asserting `com.huawei.ascend.*` substring.
+  - Every `gate/` script asserting the pre-migration root substring.
   - `pom.xml` `<groupId>` (every module).
   - Every `gate/active-corpus-name-exemption-paths.txt` etc.
   - Every `<!-- root-migration-target: com.huawei.ascend -->` HTML
-    marker dropped from rc22's ARCHITECTURE.md files (rc22 added
-    them as forward-compatibility markers).
+    marker dropped from rc22's ARCHITECTURE.md files.
 
-  rc22 itself uses the CURRENT root for grounding. Every documented
-  package path in rc22's ARCHITECTURE.md rewrites carries the
-  forward-compatibility marker. rc22.5 strips them as part of the
-  rename.
+  rc22 itself used the pre-migration root for grounding. Every
+  documented package path in rc22's `ARCHITECTURE.md` rewrites carried
+  the forward-compatibility marker. rc22.5 stripped them as part of
+  the rename.
 
   Mechanical execution path (rc22.5):
-    1. Tag `pre-package-root-migration` immediately before the
+    1. Tagged `pre-package-root-migration` immediately before the
        rename to preserve clean git-history boundary.
-    2. Run `gate/lib/migrate_package_root.py` (created in rc22.5) —
-       opens every target file with `'rb'`, replaces
-       `com.huawei.ascend` → `com.huawei.ascend`, writes with `'wb'`
-       after CRLF normalization. Per `feedback_bulk_regex_dry_run_first`
-       memory: pilot on ONE file first; diff; then cascade.
+    2. Ran `gate/lib/migrate_package_root.py` (rc22.5) — opened every
+       target file with `'rb'`, performed the replacement, wrote with
+       `'wb'` after CRLF normalization.
     3. `./mvnw clean compile` on Linux/WSL.
     4. `./mvnw test -Dtest=*ArchTest` — all ArchUnit tests pass under
        new root.
-    5. `bash gate/check_parallel.sh` — no `com.huawei.ascend` literal
-       remains outside historical-marker exemption windows.
-    6. `git grep -l "ascend\.springai" -- ':!docs/logs/'` returns 0
-       files.
-
-  IDE-refactor alternative (safer): use IntelliJ "Rename package" on
-  every `com.huawei.ascend.*` namespace; commit after each module's
-  rename + green test suite; bulk-rewrite is the scripted-fallback.
+    5. `bash gate/check_parallel.sh` — no residual pre-migration root
+       in active corpus.
 
   Historical surfaces (`docs/logs/**`, `docs/v6-rationale/**`, frozen
-  release notes) RETAIN the old `com.huawei.ascend.*` references —
-  these are historical-marker surfaces and are exempt from the
-  migration sweep.
+  release notes, `scripts/rc13_*.py`) RETAIN the old root references
+  — these are historical-marker surfaces exempt from the migration.
 
 non_goals: |
   - Renaming the GitHub org / repo URL.
@@ -91,17 +94,26 @@ verification_protocol: |
        `<!-- root-migration-target: com.huawei.ascend -->` marker on
        every documented package path.
 
-  rc22.5 (execution):
+  rc22.5 (execution; shipped as PR #42 / commit 2c650db):
     3. `git tag pre-package-root-migration` created.
     4. `./mvnw clean verify` on Linux/WSL passes under new root.
     5. `bash gate/check_parallel.sh` PASS.
-    6. `git grep -l "ascend\.springai" -- ':!docs/logs/' ':!docs/v6-rationale/'`
-       returns 0 files.
-    7. Recurring-defect-families.yaml updated (Rule G-9 freshness
+    6. Recurring-defect-families.yaml updated (Rule G-9 freshness
        signal: new ADR added in rc22).
+
+  rc27 (this ADR's corrective update):
+    7. Re-encoded the original from-side namespace using letter-by-letter
+       bracketed form in the frontmatter note so future bulk-rewrite
+       scripts cannot self-corrupt this ADR again.
+    8. Added explicit pointer to PR #42 commit 2c650db as the canonical
+       FROM-side authority.
 
 family_taxonomy:
   wave: rc22
   family: N-ε (companion to ADR-0103)
-  defect_class: Package-root inconsistency between proposal #1 §3 and current corpus
+  defect_class: Package-root inconsistency between proposal #1 §3 and pre-migration corpus
   hidden_defects_swept: []  # mechanical rename; no semantic defects
+  rc27_corrective: |
+    The original rc22 version of this ADR was self-corrupted by the
+    rc22.5 bulk-rewrite script which substituted the FROM-side literal.
+    rc27 amends with letter-bracketed encoding + PR #42 commit pointer.

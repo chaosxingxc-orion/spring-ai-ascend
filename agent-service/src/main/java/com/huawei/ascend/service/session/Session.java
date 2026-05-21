@@ -37,5 +37,9 @@ public record Session(
         Objects.requireNonNull(variables, "variables");
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");
+        // rc27 fix (ADV-3 compound): defensive immutable copies so callers
+        // can't mutate the record's internal state after construction.
+        messages = List.copyOf(messages);
+        variables = Map.copyOf(variables);
     }
 }

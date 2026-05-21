@@ -1,4 +1,4 @@
-package com.huawei.ascend.bus.s2c;
+package com.huawei.ascend.bus.spi.s2c;
 
 import java.util.Map;
 

@@ -147,12 +147,19 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 fail_count=0
+export fail_count
 
 pass_rule() { echo "PASS: $1"; }
 fail_rule() {
   echo "FAIL: $1 -- $2"
   fail_count=$((fail_count + 1))
 }
+# rc27 fix (ADV-1): export functions so they survive the `bash -c` subshell
+# spawned by the per-rule timeout wrapper in gate/check_parallel.sh.
+# Without `export -f`, a fresh bash child sees `fail_rule: command not found`
+# and every rule silently passes. This is the most critical fix in rc27 —
+# without it, the entire gate is a green-washed no-op.
+export -f pass_rule fail_rule 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # Scan-cache adoption (PR-E3 of the gate-efficiency wave, 2026-05-17).
@@ -184,6 +191,18 @@ if [[ -f "$repo_root/gate/lib/fast_grep.sh" ]]; then
   # shellcheck source=gate/lib/fast_grep.sh
   source "$repo_root/gate/lib/fast_grep.sh"
 fi
+# rc27 fix (rc22-2): real Rule G-1.1 helpers (replaces placeholder pass_rule).
+if [[ -f "$repo_root/gate/lib/check_l1_dev_view_tree.sh" ]]; then
+  source "$repo_root/gate/lib/check_l1_dev_view_tree.sh"
+fi
+if [[ -f "$repo_root/gate/lib/check_l1_spi_appendix.sh" ]]; then
+  source "$repo_root/gate/lib/check_l1_spi_appendix.sh"
+fi
+# rc27 fix (ADV-1 export -f): export fail_rule + pass_rule so they survive
+# the `bash -c` subshell spawned by the per-rule timeout wrapper.
+# Without this, every rule under the timeout path silently passes because
+# `fail_rule: command not found` returns rc=127, the function never
+# increments fail_count, and the orchestrator counts the rule as PASS.
 
 # ---------------------------------------------------------------------------
 # Rule 1 — status_enum_invalid
@@ -441,7 +460,7 @@ if [[ $_r10_fail -eq 0 ]]; then pass_rule "module_dep_direction"; fi
 # the §4 #13 16-KiB inline cap is actually enforced (not just documented).
 # ---------------------------------------------------------------------------
 _r11_fail=0
-_imc_path='agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java'
+_imc_path='agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java'
 if [[ -f "$_imc_path" ]]; then
   if ! grep -q 'MAX_INLINE_PAYLOAD_BYTES' "$_imc_path" 2>/dev/null; then
     fail_rule "shipped_envelope_fingerprint_present" "$_imc_path missing MAX_INLINE_PAYLOAD_BYTES. §4 #13 16-KiB cap enforcement required."
@@ -461,9 +480,9 @@ if [[ $_r11_fail -eq 0 ]]; then pass_rule "shipped_envelope_fingerprint_present"
 # ---------------------------------------------------------------------------
 _r12_fail=0
 _posture_targets=(
-  'agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/SyncOrchestrator.java'
-  'agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java'
-  'agent-service/src/main/java/ascend/springai/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SyncOrchestrator.java'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java'
 )
 for _pt in "${_posture_targets[@]}"; do
   if [[ -f "$_pt" ]]; then
@@ -832,11 +851,11 @@ if [[ $_r20_fail -eq 0 ]]; then pass_rule "module_metadata_truth"; fi
 _r21_fail=0
 _bom21='docs/cross-cutting/oss-bill-of-materials.md'
 _ghost_paths21=(
-  'agent-service/src/main/java/ascend/springai/service/runtime/llm/ChatClientFactory'
-  'agent-service/src/main/java/ascend/springai/service/runtime/llm/LlmRouter'
-  'agent-service/src/main/java/ascend/springai/service/runtime/memory/PgVectorAdapter'
-  'agent-service/src/main/java/ascend/springai/service/runtime/temporal/RunWorkflow'
-  'agent-service/src/main/java/ascend/springai/service/runtime/tool/McpToolRegistry'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/llm/ChatClientFactory'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/llm/LlmRouter'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/memory/PgVectorAdapter'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/temporal/RunWorkflow'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/tool/McpToolRegistry'
 )
 if [[ -f "$_bom21" ]]; then
   for _gp21 in "${_ghost_paths21[@]}"; do
@@ -2309,10 +2328,10 @@ if [[ $_r46_fail -eq 0 ]]; then pass_rule "cursor_flow_documented"; fi
 # ---------------------------------------------------------------------------
 _r47_fail=0
 # Scope NARROWED post-Phase-C (ADR-0078): Rule 37 applies to the runtime sub-
-# package only. agent-service/src/main/java/ascend/springai/service/platform/**
+# package only. agent-service/src/main/java/com/huawei/ascend/service/platform/**
 # is excluded per CLAUDE-deferred.md 37.c — the platform-side JdbcTemplate uses
 # (HealthCheckRepository, PlatformOssApiProbe) migrate to R2DBC in W2.
-_r47_root="agent-service/src/main/java/ascend/springai/service/runtime"
+_r47_root="agent-service/src/main/java/com/huawei/ascend/service/runtime"
 if [[ -d "$_r47_root" ]]; then
   _r47_hits="$(grep -rEln '^import[[:space:]]+org\.springframework\.(web\.client\.RestTemplate|jdbc\.core\.JdbcTemplate);' "$_r47_root" 2>/dev/null || true)"
   if [[ -n "$_r47_hits" ]]; then
@@ -2471,7 +2490,7 @@ if [[ $_r52_fail -eq 0 ]]; then pass_rule "sandbox_policies_yaml_present_and_wel
 # refactor that drops this coverage fails the gate.
 # ---------------------------------------------------------------------------
 _r53_fail=0
-_r53_path="agent-service/src/test/java/ascend/springai/service/platform/web/runs/RunCursorFlowIT.java"
+_r53_path="agent-service/src/test/java/com/huawei/ascend/service/platform/web/runs/RunCursorFlowIT.java"
 if [[ ! -f "$_r53_path" ]]; then
   fail_rule "cursor_flow_integration_test_present" "$_r53_path missing — Rule 36.b / P-F integration test not landed"
   _r53_fail=1
@@ -2498,8 +2517,8 @@ if [[ $_r53_fail -eq 0 ]]; then pass_rule "cursor_flow_integration_test_present"
 # fails. The matching integration test (E73) verifies behaviour separately.
 # ---------------------------------------------------------------------------
 _r54_fail=0
-_r54_impl="agent-service/src/main/java/ascend/springai/service/runtime/resilience"
-_r54_spi="agent-service/src/main/java/ascend/springai/service/runtime/resilience/spi"
+_r54_impl="agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience"
+_r54_spi="agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi"
 if [[ ! -d "$_r54_spi" ]]; then
   fail_rule "skill_capacity_runtime_resolver_present" "$_r54_spi directory missing — Rule 41.b runtime SPI types not landed (post-ADR-0080 .spi package home)"
   _r54_fail=1
@@ -2611,7 +2630,7 @@ _r57_fail=0
 _r57_yaml="docs/contracts/engine-hooks.v1.yaml"
 # Updated 2026-05-17: HookPoint moved from agent-runtime/orchestration/spi/ to
 # agent-middleware/spi/ during the six-module materialization PR (T2.B1).
-_r57_enum="agent-middleware/src/main/java/ascend/springai/middleware/spi/HookPoint.java"
+_r57_enum="agent-middleware/src/main/java/com/huawei/ascend/middleware/spi/HookPoint.java"
 if [[ ! -f "$_r57_yaml" ]]; then
   fail_rule "engine_hooks_yaml_present_and_wellformed" "$_r57_yaml missing -- Rule 45 / P-M hook surface unenforced"
   _r57_fail=1
@@ -3431,17 +3450,17 @@ if [[ $_r74_fail -eq 0 ]]; then pass_rule "linux_first_dev_doc_present"; fi
 # ---------------------------------------------------------------------------
 # Rule 11 — contract_spine_tenant_id_required (enforcer E105)
 # Every persistent record under
-#   agent-service/src/main/java/ascend/springai/service/runtime/runs/Run.java
+#   agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java
 # OR
-#   agent-service/src/main/java/ascend/springai/service/runtime/idempotency/IdempotencyRecord.java
+#   agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency/IdempotencyRecord.java
 # MUST declare a String tenantId component. Scope path relocated from
 # agent-runtime-core to agent-service per ADR-0088 (rc13 dissolution).
 # Process-internal opt-out via "// scope: process-internal" same-line comment.
 # ---------------------------------------------------------------------------
 _r11_fail=0
 _r11_roots=(
-  'agent-service/src/main/java/ascend/springai/service/runtime/runs'
-  'agent-service/src/main/java/ascend/springai/service/runtime/idempotency'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/runs'
+  'agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency'
 )
 for _r11_root in "${_r11_roots[@]}"; do
   [[ -d "$_r11_root" ]] || continue
@@ -3465,7 +3484,7 @@ if [[ $_r11_fail -eq 0 ]]; then pass_rule "contract_spine_tenant_id_required"; f
 # with tenant re-validation + RunStateMachine validation + audit log.
 # ---------------------------------------------------------------------------
 _r24_fail=0
-_r24_path='agent-service/src/main/java/ascend/springai/service/platform/web/runs/RunController.java'
+_r24_path='agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java'
 if [[ ! -f "$_r24_path" ]]; then
   fail_rule "runlifecycle_cancel_reauthz_shipped" "$_r24_path missing — Rule 24.c expects RunController to host the cancel surface"
   _r24_fail=1
@@ -6146,14 +6165,34 @@ fi
 
 # ---------------------------------------------------------------------------
 # Rule G-1.1 — L1 Architecture Depth & Grounding (3 sub-clauses, ADR-0099)
-# Gate scripts land in a follow-up commit before merge; these placeholder
-# pass_rule calls let the architecture-graph build resolve the anchors.
+# rc27 fix (rc22-2): real helpers replace prior placeholder pass_rule stubs.
 # ---------------------------------------------------------------------------
 # Rule 118 — l1_dev_view_code_mapping (enforcer E166)
-pass_rule "l1_dev_view_code_mapping"
+_r118_fail=0
+if command -v check_l1_dev_view_tree >/dev/null 2>&1; then
+  _r118_out=$(check_l1_dev_view_tree 2>&1)
+  while IFS=$'\t' read -r _s _f _d; do
+    [[ "$_s" == "FAIL" ]] || continue
+    fail_rule "l1_dev_view_code_mapping" "$_f: $_d -- Rule G-1.1.a / E166"
+    _r118_fail=1
+  done <<< "$_r118_out"
+fi
+[[ $_r118_fail -eq 0 ]] && pass_rule "l1_dev_view_code_mapping"
+
 # Rule 119 — l1_spi_appendix_4way_parity (enforcer E167)
-pass_rule "l1_spi_appendix_4way_parity"
-# Rule 120 — l1_l2_constraint_linkage (enforcer E168)
+_r119_fail=0
+if command -v check_l1_spi_appendix >/dev/null 2>&1; then
+  _r119_out=$(check_l1_spi_appendix 2>&1)
+  while IFS=$'\t' read -r _s _f _d; do
+    [[ "$_s" == "FAIL" ]] || continue
+    fail_rule "l1_spi_appendix_4way_parity" "$_f: $_d -- Rule G-1.1.b / E167"
+    _r119_fail=1
+  done <<< "$_r119_out"
+fi
+[[ $_r119_fail -eq 0 ]] && pass_rule "l1_spi_appendix_4way_parity"
+
+# Rule 120 — l1_l2_constraint_linkage (enforcer E168) — vacuously green at rc22
+# (no L2 documents exist yet; arms for W3+).
 pass_rule "l1_l2_constraint_linkage"
 
 # === END OF RULES ===
