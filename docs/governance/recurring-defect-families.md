@@ -331,6 +331,18 @@ when starting architecture work? Does the contract get cited during
 the work? rc21 release note codifies the hypothesis; rc22+ may re-open
 this family if the work-time behavioural change isn't observed.
 
+**Self-review iteration on rc21.** The 3rd PR commit (5e4ec0e) closed
+4 BUGs + 2 SMELLs found by adversarial self-review on the very rules
+this wave introduced: Rule 114 fixture stale vs widened canonical
+regex; ADR-0098 allocation map cited D-3.a/D-3.b as separate rows
+while disk has unified D-3 card; README + status.yaml composition
+arithmetic off-by-one on R count; allowed_claim arithmetic stale;
+Rule 116 `wait` regex too permissive; `test_architecture_sync_gate.sh`
+accidental fixture-string pass. Meta-lesson: structural fixes still
+need adversarial self-review before merge — the
+F-recursive-prevention-irony pattern can hide in helper logic the
+rule's author didn't themselves write.
+
 ---
 
 ## §3 — META-Lessons Codified Into Rules

@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc21 Wave 6: + F-progressive-loading-weak-enforcement family per ADR-0098 (6-phase scenario contracts + G-10 + G-11).
+last_updated: 2026-05-21  # rc21 Wave 6 (3rd PR commit 5e4ec0e self-review iteration): F-progressive-loading-weak-enforcement open_residual extended with meta-lesson on structural-fix self-review.
 
 families:
   - id: F-numeric-drift
@@ -389,3 +389,17 @@ families:
       phase-scoped rule kernels into phase contracts; requires Rule 68
       extension to accept contract-hosted kernels), Rule 110 META
       fixtures for G-10 and G-11, marketplace plugin packaging.
+      Self-review iteration on rc21 (correctness-reviewer agent against
+      the diff before merge) surfaced 4 logic bugs + 2 accidental-pass
+      smells in the very rules introduced this wave (Rule 114 fixture
+      stale vs widened canonical regex; ADR-0098 allocation map cited
+      D-3.a/D-3.b as separate rows while disk has unified D-3 card;
+      README + status.yaml composition arithmetic off-by-one on R
+      count; allowed_claim arithmetic stale; Rule 116 wait regex too
+      permissive; test_architecture_sync_gate.sh accidental fixture
+      string match). All closed in the same wave via fixture sync,
+      allocation-map collapse, prose update, regex tightening, and
+      exempt-list addition. Meta-lesson: structural fixes still need
+      adversarial self-review before merge — the F-recursive-prevention-
+      irony pattern can hide in helper logic the rule's author didn't
+      themselves write.
