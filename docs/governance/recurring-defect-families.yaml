@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc20 Wave 3 defensive hardening
+last_updated: 2026-05-21  # rc20 Wave 2 (post-Wave-3 rebase): release-note + numeric truth corrections
 
 families:
   - id: F-numeric-drift

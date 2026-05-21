@@ -162,7 +162,8 @@ held at the merge boundary.
 
 ## Verification
 
-- [x] 217/220 self-tests pass on Windows Git Bash (3 pre-existing python3-env failures; canonical Linux/WSL run passes 220/220 per gate's TOTAL=passed+failed manifest, see baseline_metrics.gate_executable_test_cases). rc20 Wave 2 / ADR-0097 corrects the rc19 release-note overclaim from `215/218`.
+<!-- rc20 snapshot: the line below is rc19 wave-final (220 denominator); rc20 waves bump baseline_metrics.gate_executable_test_cases as fixtures are added. -->
+- [x] 217/220 self-tests pass on Windows Git Bash (3 pre-existing python3-env failures; canonical Linux/WSL run passes 220/220 per gate's TOTAL=passed+failed manifest, see baseline_metrics.gate_executable_test_cases). rc20 wave corrects the rc19 release-note overclaim from `215/218`.
 - [x] All Rule 111 fixtures (14 total) PASS with new python validator
 - [x] All Rule 112 fixtures (2) PASS
 - [x] All Rule 113 fixtures (2) PASS
