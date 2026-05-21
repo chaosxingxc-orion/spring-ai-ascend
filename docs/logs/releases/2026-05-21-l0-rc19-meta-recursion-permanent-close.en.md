@@ -169,7 +169,7 @@ held at the merge boundary.
 - [x] All Rule 113 fixtures (2) PASS
 - [x] All Rule 114 fixtures (2) PASS
 - [x] Python validator standalone smoke: 3 sub-checks PASS on real corpus
-<!-- rc20 snapshot: this line is rc19 wave-final (402/656); rc20 waves add E162/E163 + ADR-0097 raising live to 405+/660+. See current canonical baseline in architecture-status.yaml. -->
+<!-- rc20 snapshot: this line is rc19 wave-final (402/656); rc20 waves add E162/E163 + ADR-0097 raising live counts. See current canonical baseline in architecture-status.yaml. -->
 - [x] Graph: 402 nodes / 656 edges
 - [x] gate/rule-number-migration.md has expected section headings
 - [x] enforcers.yaml has 0 `(legacy Rule NN ...)` parens

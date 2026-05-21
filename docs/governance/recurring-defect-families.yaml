@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc20 Wave 1 (post-Wave-2 rebase): F-recursive reopen + cmd_parity emoji anchor + first-parent semantics + baseline align
+last_updated: 2026-05-21  # rc20 Wave 4 (post-Wave-1 rebase): D-9 + G-7 invocation extension
 
 families:
   - id: F-numeric-drift

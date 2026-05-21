@@ -40,12 +40,4 @@ if [[ -d "$_r114_dir" ]]; then
 fi
 if [[ $_r114_fail -eq 0 ]]; then pass_rule "rule_card_filename_dot_convention"; fi
 
-# === END OF RULES ===
 # ---------------------------------------------------------------------------
-if [[ $fail_count -eq 0 ]]; then
-  echo "GATE: PASS"
-  exit 0
-else
-  echo "GATE: FAIL"
-  exit 1
-fi
