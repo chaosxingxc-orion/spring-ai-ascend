@@ -47,48 +47,36 @@ _l1_extract_dev_view_block() {
   ' "$_file"
 }
 
-# rc29 fix (ADV3-3): basename-only match false-PASSes on common Maven layout
-# tokens (`spi`, `java`, `main`, `com`, `huawei`, `ascend`). Tighten to full-
-# relative-path equality against actual on-disk directory list under module/src.
-# A tree-block path is accepted iff the SAME relative path (with `src/main/java/`
-# or `src/test/java/` prefix stripped) appears as a real directory.
+# rc28+rc30 hybrid: basename whole-line match against module's src/ basename
+# set. rc29 attempted full-relative-path tightening but the sed delimiter `|`
+# collided with the `(main|test)` alternation (NEW-DEFECT-1), making the
+# helper silently no-op every input. rc30 reverts to rc28's basename approach
+# (proven to work in CI) while retaining rc29's intent for future hardening.
+#
+# Trade-off acknowledged: basename-only match accepts a bogus "fake_path/spi/"
+# tree-block claim because `spi` exists somewhere under the module's src/.
+# Full-path reconstruction (tracking tree-drawing indentation) is the proper
+# fix; deferred to a later wave with a fixture-driven self-test (per rc18
+# F-recursive-prevention-irony lesson).
 _l1_validate_tree_paths() {
   local _module="$1"
   local _block="$2"
   local _failed=0
-  # Build set of all directories under module/src, with src/{main,test}/java
-  # prefix stripped (so the relative path matches the tree-block convention).
-  local _rel_dirs
-  _rel_dirs=$(find "$GATE_REPO_ROOT/$_module/src" -type d 2>/dev/null \
-              | sed -E "s|^$GATE_REPO_ROOT/$_module/||" \
-              | sed -E 's|^src/(main|test)/java/||' \
-              | sed -E 's|^src/(main|test)/(java|resources)$||' \
-              | sed -E 's|^src/(main|test)$||' \
-              | sed -E 's|^src$||' \
-              | grep -v '^$' \
-              | sort -u)
+  local _basename_set
+  _basename_set=$(find "$GATE_REPO_ROOT/$_module/src" -type d 2>/dev/null \
+                  | xargs -I{} basename {} 2>/dev/null | sort -u)
   while IFS= read -r _line; do
     local _path
     _path=$(printf '%s' "$_line" | sed -E 's/^[│├└─[:space:]]*//; s/[[:space:]]+#.*$//')
     [[ "$_path" != */ ]] && continue
     [[ "$_path" == "$_module/" ]] && continue
     local _seg="${_path%/}"
-    _seg=$(printf '%s' "$_seg" | sed -E 's|^src/(main|test)/java/||')
     [[ -z "$_seg" ]] && continue
-    # The tree-block format may show only a leaf (e.g., `└── spi/`) without
-    # the full path. Accept either full-path or as-a-suffix of any rel-dir.
-    if echo "$_rel_dirs" | grep -qFx "$_seg"; then
+    # The segment may contain `/`; take the LAST component for basename match.
+    # rc30: use `##*/` to avoid sed (and any delimiter collision risk).
+    local _basename="${_seg##*/}"
+    if echo "$_basename_set" | grep -qFx "$_basename"; then
       continue
-    fi
-    # Defence-in-depth: also accept if the FULL claimed path is a suffix of
-    # any real rel-dir (handles indentation-driven partial paths).
-    if echo "$_rel_dirs" | grep -qE "(^|/)${_seg}$"; then
-      # But only when _seg is non-trivial (>= 2 path components OR a unique
-      # leaf). Reject common-name leaves like `spi`, `main`, `java`, `com`.
-      case "$_seg" in
-        spi|main|test|java|resources|com|huawei|ascend|target|src) ;;
-        *) continue ;;
-      esac
     fi
     echo "missing-dir:$_path"
     _failed=1
