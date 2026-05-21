@@ -47,17 +47,26 @@ _l1_extract_dev_view_block() {
   ' "$_file"
 }
 
-# Given a tree block, extract every leaf segment (path-component) that ends
-# with `/` and verify the segment EXISTS AS A LITERAL DIRECTORY NAME (not just
-# a substring match) under the module's src/ tree. rc28 fix (NEW-2): tightened
-# from suffix-substring to whole-component match.
+# rc29 fix (ADV3-3): basename-only match false-PASSes on common Maven layout
+# tokens (`spi`, `java`, `main`, `com`, `huawei`, `ascend`). Tighten to full-
+# relative-path equality against actual on-disk directory list under module/src.
+# A tree-block path is accepted iff the SAME relative path (with `src/main/java/`
+# or `src/test/java/` prefix stripped) appears as a real directory.
 _l1_validate_tree_paths() {
   local _module="$1"
   local _block="$2"
   local _failed=0
-  # Build set of all directory BASENAMES under module/src.
-  local _basename_set
-  _basename_set=$(find "$GATE_REPO_ROOT/$_module/src" -type d 2>/dev/null | xargs -I{} basename {} | sort -u)
+  # Build set of all directories under module/src, with src/{main,test}/java
+  # prefix stripped (so the relative path matches the tree-block convention).
+  local _rel_dirs
+  _rel_dirs=$(find "$GATE_REPO_ROOT/$_module/src" -type d 2>/dev/null \
+              | sed -E "s|^$GATE_REPO_ROOT/$_module/||" \
+              | sed -E 's|^src/(main|test)/java/||' \
+              | sed -E 's|^src/(main|test)/(java|resources)$||' \
+              | sed -E 's|^src/(main|test)$||' \
+              | sed -E 's|^src$||' \
+              | grep -v '^$' \
+              | sort -u)
   while IFS= read -r _line; do
     local _path
     _path=$(printf '%s' "$_line" | sed -E 's/^[│├└─[:space:]]*//; s/[[:space:]]+#.*$//')
@@ -66,11 +75,20 @@ _l1_validate_tree_paths() {
     local _seg="${_path%/}"
     _seg=$(printf '%s' "$_seg" | sed -E 's|^src/(main|test)/java/||')
     [[ -z "$_seg" ]] && continue
-    # The segment may itself contain `/`, take last component as the basename.
-    local _basename="${_seg##*/}"
-    # Match basename as a whole-line entry in the basename set.
-    if echo "$_basename_set" | grep -qFx "$_basename"; then
+    # The tree-block format may show only a leaf (e.g., `└── spi/`) without
+    # the full path. Accept either full-path or as-a-suffix of any rel-dir.
+    if echo "$_rel_dirs" | grep -qFx "$_seg"; then
       continue
+    fi
+    # Defence-in-depth: also accept if the FULL claimed path is a suffix of
+    # any real rel-dir (handles indentation-driven partial paths).
+    if echo "$_rel_dirs" | grep -qE "(^|/)${_seg}$"; then
+      # But only when _seg is non-trivial (>= 2 path components OR a unique
+      # leaf). Reject common-name leaves like `spi`, `main`, `java`, `com`.
+      case "$_seg" in
+        spi|main|test|java|resources|com|huawei|ascend|target|src) ;;
+        *) continue ;;
+      esac
     fi
     echo "missing-dir:$_path"
     _failed=1

@@ -418,8 +418,8 @@ families:
   - id: F-l1-architecture-grounding-gap
     title: L1 Architecture Document Lacks Code-Mapping or SPI Enumeration
     first_observed_rc: rc17
-    last_observed_rc: rc28
-    occurrences: [rc17, rc18, rc19, rc20, rc21, rc22, rc27, rc28]
+    last_observed_rc: rc29
+    occurrences: [rc17, rc18, rc19, rc20, rc21, rc22, rc27, rc28, rc29]
     root_cause: |
       Rule G-1.a (Layered 4+1 Discipline) mandates that every
       architecture artefact declares level/view frontmatter, but does

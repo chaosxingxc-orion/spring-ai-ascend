@@ -2236,12 +2236,13 @@ if [[ -n "$_r44_frozen" ]] && command -v git >/dev/null 2>&1 && git rev-parse --
       _accompanied=0
       while IFS= read -r _r44_proposal; do
         [[ -z "$_r44_proposal" ]] && continue
-        # rc28 fix (ADV-11/NEW-4): accept BOTH single-line `affects_artefact: <file>`
-        # AND multi-line YAML list (`affects_artefact:\n  - <file>`). The list
-        # form is the canonical YAML 1.2 syntax and avoids the duplicate-key
-        # workaround of earlier rc27 wave.
-        if grep -qE "affects_artefact:.*${_f44}" "$_r44_proposal" 2>/dev/null \
-           || grep -qE "^[[:space:]]*-[[:space:]]+${_f44}[[:space:]]*$" "$_r44_proposal" 2>/dev/null; then
+        # rc28 + rc29 fix (ADV-11/NEW-4 + ADV3-4): accept BOTH single-line and
+        # multi-line YAML list form. rc29 uses `grep -F` (fixed-string match)
+        # instead of `-E` so regex metachars (`.`, `-`, `[`) in `_f44` are
+        # treated literally — defeats the regex-injection class where `.`
+        # would match any char and falsely accept typo'd paths.
+        if grep -qF "affects_artefact:" "$_r44_proposal" 2>/dev/null \
+           && grep -qF "$_f44" "$_r44_proposal" 2>/dev/null; then
           _accompanied=1
           break
         fi

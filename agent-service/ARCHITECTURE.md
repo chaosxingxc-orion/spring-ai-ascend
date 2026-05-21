@@ -415,7 +415,8 @@ Green `OssApiProbeTest` is a required gate for every wave.
 and is the runtime-side contract-spine entity. It mirrors the persistence
 shape (`tenantId`, `idempotencyKey`, `requestHash`, `status`,
 `createdAt`, `expiresAt`) consumed by the platform-side
-`IdempotencyStore` SPI. Mandatory `tenantId` field is the trigger
+`IdempotencyStore` interface (historical platform-internal extension
+point — see §2.A platform/idempotency for the Rule R-D.d note). Mandatory `tenantId` field is the trigger
 condition for Rule R-C.c (formerly Rule 11) activation (Wave 4 Track B in the Phase C re-plan).
 
 #### runtime / wave-staged placeholders (W2–W4)
@@ -729,7 +730,7 @@ agent-service/
         ├── platform/                          # HTTP edge (current; §2.A)
         │   ├── auth/                          # JwtDecoderConfig, AuthProperties, JwtTenantClaimCrossCheck
         │   ├── tenant/                        # TenantContextFilter, TenantContextHolder, MDC binding
-        │   ├── idempotency/                   # IdempotencyHeaderFilter, IdempotencyStore SPI, jdbc/, inmemory/
+        │   ├── idempotency/                   # IdempotencyHeaderFilter, IdempotencyStore (historical platform interface; not under .spi per Rule R-D.d), jdbc/, inmemory/
         │   ├── observability/                 # TenantTagMeterFilter, TraceExtractFilter
         │   ├── posture/                       # PostureBootGuard
         │   ├── web/                           # HealthController, runs/RunController, runs/RunHttpExceptionMapper
@@ -772,7 +773,7 @@ Mode-B (Business-Centric per ADR-0101): `agent-service` deploys on the business 
 | `com.huawei.ascend.service.runtime.resilience.spi.SkillResolution` | `service.runtime.resilience.spi` | Sealed decision envelope (accept / reject) | shipped |
 | `com.huawei.ascend.service.runtime.resilience.spi.SuspendReason` | `service.runtime.resilience.spi` | Reason enum for SUSPENDED transitions | shipped |
 | `com.huawei.ascend.service.runtime.resilience.spi.SkillCapacityRegistry` | `service.runtime.resilience.spi` | Tenant × skill capacity lookup | shipped |
-| `com.huawei.ascend.platform.idempotency.IdempotencyStore` | `service.platform.idempotency` (interface in package root, not under .spi by historical placement) | Durable claim/replay (JDBC + in-memory) | shipped |
+<!-- rc29 ADV3-1: IdempotencyStore moved OUT of this SPI table — it lives in `service.platform.idempotency` (no `.spi` infix), so per Rule R-D.d it does NOT qualify as a Java SPI surface. Documented in §2.A platform/idempotency body text as a "platform-internal extension interface (historical placement)". The contract-catalog.md §2 SPI table is the authoritative SPI list (19 total post-rc28); this ARCHITECTURE.md appendix tracks the same set. -->
 | `com.huawei.ascend.service.engine.spi.StatelessEngine` | `service.engine.spi` | NEW rc22 — pure-function engine SPI per ADR-0100 | declared (impl rc24) |
 | `com.huawei.ascend.service.session.spi.ContextProjector` | `service.session.spi` | NEW rc22 — projects SessionContext | declared (impl rc24) |
 | `com.huawei.ascend.service.task.spi.TaskStateStore` | `service.task.spi` | NEW rc22 — TaskControlState persistence | declared (impl rc24) |

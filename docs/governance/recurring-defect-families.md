@@ -59,7 +59,7 @@ authority_refs: [ADR-0094]
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 1 (rc21) | ✅ closed — phase contracts + skills + dual-track loading per ADR-0098 |
-| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 8 (rc17-rc22+rc27+rc28) | ✅ closed (rc28) — Rule G-1.1 + 3 enforcers + 6 fixtures + real helpers in gate/lib/check_l1_*.sh + rc28 hyphen-module fix |
+| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 9 (rc17-rc22+rc27-29) | ✅ closed (rc29) — Rule G-1.1 + 3 enforcers + 6 fixtures + real helpers in gate/lib/check_l1_*.sh + LCP prefix + full-path dev-view match + Rule 44 fixed-string grep |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
