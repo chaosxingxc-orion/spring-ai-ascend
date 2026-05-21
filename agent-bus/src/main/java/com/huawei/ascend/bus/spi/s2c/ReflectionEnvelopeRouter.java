@@ -7,7 +7,7 @@ import java.util.Map;
  *
  * <p>Pushes reflection updates from the cloud Slow Track judge
  * ({@code com.huawei.ascend.evolve.online.SlowTrackJudge}) → edge
- * Fast Track via the agent-bus S2C transport (.
+ * Fast Track via the agent-bus S2C transport.
  *
  * <p>This is the cloud-to-edge half of the Heaven-Earth Coordination
  * cell (Mode B + Online). The edge consumer is

@@ -45,15 +45,16 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `ReflectionEnvelopeRouter` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | rc26 design_only — S2C delivery of ReflectionEnvelope (ADR-0102); rc27 moved under .spi |
 | `FederationGateway` | `agent-bus` | `com.huawei.ascend.bus.spi.federation` | rc26 design_only — Mode B Business-Centric federation forwarding (ADR-0101); rc27 moved under .spi |
 
-**SPI count by module (post-ADR-0088 + ADR-0089):**
+**SPI count by module (rc28 baseline; sum = 19 matches headline):**
 
 | Module | SPI interfaces |
 |---|---|
-| `agent-service` | 4 (`RunRepository`, `GraphMemoryRepository`, `ResilienceContract`, `SkillCapacityRegistry`) |
+| `agent-service` | 7 (`RunRepository`, `GraphMemoryRepository`, `ResilienceContract`, `SkillCapacityRegistry`, `StatelessEngine`, `ContextProjector`, `TaskStateStore`) |
 | `agent-execution-engine` | 6 (`ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `Checkpointer`, `Orchestrator`) |
-| `agent-bus` | 2 (`IngressGateway`, `S2cCallbackTransport`) |
+| `agent-bus` | 4 (`IngressGateway`, `S2cCallbackTransport`, `ReflectionEnvelopeRouter`, `FederationGateway`) |
 | `agent-middleware` | 1 (`RuntimeMiddleware`) |
-| `agent-client` / `agent-evolve` | 0 — skeleton `spi/package-info.java` only |
+| `agent-evolve` | 1 (`SlowTrackJudge`) |
+| `agent-client` | 0 — consumer module; no SPI produced |
 | `spring-ai-ascend-graphmemory-starter` | 0 — sidecar adapter; no new SPI |
 
 **Per-SPI tenant scope (canonical post-ADR-0044):**

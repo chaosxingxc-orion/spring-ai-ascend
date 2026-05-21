@@ -2236,7 +2236,12 @@ if [[ -n "$_r44_frozen" ]] && command -v git >/dev/null 2>&1 && git rev-parse --
       _accompanied=0
       while IFS= read -r _r44_proposal; do
         [[ -z "$_r44_proposal" ]] && continue
-        if grep -qE "affects_artefact:.*${_f44}" "$_r44_proposal" 2>/dev/null; then
+        # rc28 fix (ADV-11/NEW-4): accept BOTH single-line `affects_artefact: <file>`
+        # AND multi-line YAML list (`affects_artefact:\n  - <file>`). The list
+        # form is the canonical YAML 1.2 syntax and avoids the duplicate-key
+        # workaround of earlier rc27 wave.
+        if grep -qE "affects_artefact:.*${_f44}" "$_r44_proposal" 2>/dev/null \
+           || grep -qE "^[[:space:]]*-[[:space:]]+${_f44}[[:space:]]*$" "$_r44_proposal" 2>/dev/null; then
           _accompanied=1
           break
         fi
@@ -6168,8 +6173,12 @@ fi
 # rc27 fix (rc22-2): real helpers replace prior placeholder pass_rule stubs.
 # ---------------------------------------------------------------------------
 # Rule 118 — l1_dev_view_code_mapping (enforcer E166)
+# rc28 fix (NEW-3): fail-closed when helper missing instead of silent pass.
 _r118_fail=0
-if command -v check_l1_dev_view_tree >/dev/null 2>&1; then
+if ! command -v check_l1_dev_view_tree >/dev/null 2>&1; then
+  fail_rule "l1_dev_view_code_mapping" "helper-missing: gate/lib/check_l1_dev_view_tree.sh not sourced -- Rule G-1.1.a / E166"
+  _r118_fail=1
+else
   _r118_out=$(check_l1_dev_view_tree 2>&1)
   while IFS=$'\t' read -r _s _f _d; do
     [[ "$_s" == "FAIL" ]] || continue
@@ -6180,8 +6189,12 @@ fi
 [[ $_r118_fail -eq 0 ]] && pass_rule "l1_dev_view_code_mapping"
 
 # Rule 119 — l1_spi_appendix_4way_parity (enforcer E167)
+# rc28 fix (NEW-3): fail-closed when helper missing instead of silent pass.
 _r119_fail=0
-if command -v check_l1_spi_appendix >/dev/null 2>&1; then
+if ! command -v check_l1_spi_appendix >/dev/null 2>&1; then
+  fail_rule "l1_spi_appendix_4way_parity" "helper-missing: gate/lib/check_l1_spi_appendix.sh not sourced -- Rule G-1.1.b / E167"
+  _r119_fail=1
+else
   _r119_out=$(check_l1_spi_appendix 2>&1)
   while IFS=$'\t' read -r _s _f _d; do
     [[ "$_s" == "FAIL" ]] || continue

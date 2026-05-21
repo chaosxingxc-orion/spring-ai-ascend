@@ -76,8 +76,7 @@ requestHash)`. Collisions return 409 `idempotency_conflict` (same hash)
 or 409 `idempotency_body_drift` (different hash) via
 `ErrorEnvelopeWriter`.
 
-`IdempotencyStore` is an SPI interface with two impls wired by
-`IdempotencyStoreAutoConfiguration`:
+`IdempotencyStore` is a **platform-internal extension interface** (historical placement under `service.platform.idempotency`; predates Rule R-D.d's `.spi` package convention — not counted as an SPI in `contract-catalog.md §2`). Two impls wired by `IdempotencyStoreAutoConfiguration`:
 
 - `JdbcIdempotencyStore` (default when DataSource present) — INSERT …
   ON CONFLICT (tenant_id, idempotency_key) DO NOTHING; SELECT on

@@ -81,19 +81,31 @@ check_l1_spi_appendix_for_file() {
   local _appendix_fqns
   _appendix_fqns=$(_l1_extract_spi_fqns "$_file")
   if [[ -z "$_appendix_fqns" ]]; then
-    # No SPI appendix found. For modules with declared SPI packages this
-    # is a Rule G-1.1.b violation, but we tolerate it as WARN at rc27
-    # while migration completes; future rc tightens to FAIL.
-    echo "PASS	$_file	no-spi-appendix-found-tolerated-rc27"
-    return 0
+    # rc28 fix (ADV-10): tightened to FAIL when module declares SPI packages
+    # but appendix is empty/missing. Modules with NO declared SPI packages
+    # remain vacuously OK (handled by earlier _declared_pkgs check).
+    echo "FAIL	$_file	module-has-declared-spi-but-architecture-md-has-empty-or-missing-SPI-Interface-Appendix"
+    return 1
   fi
-  # rc27 corrective: allow cross-module SPI references in the appendix
-  # (e.g., agent-client's appendix lists agent-bus's IngressGateway as a
-  # CONSUMED SPI; agent-evolve's appendix lists agent-bus.ReflectionEnvelopeRouter
-  # as a cross-module reference). The rule is satisfied when each FQN
+  # rc27 corrective + rc28 fix (ADV-8/NEW-1): allow cross-module SPI references
+  # in the appendix (e.g., agent-client's appendix lists agent-bus's
+  # IngressGateway as a CONSUMED SPI). The rule is satisfied when each FQN
   # whose package starts with the CURRENT module's prefix resolves to that
   # module's spi_packages; cross-module references are documentation only.
-  local _module_prefix="com.huawei.ascend.${_module#agent-}"
+  #
+  # rc28: derive the prefix from the LONGEST common dotted prefix of
+  # module-metadata.yaml#spi_packages, not from `module#agent-` (which
+  # silently broke for hyphenated module names like agent-execution-engine
+  # → "com.huawei.ascend.execution-engine" which is an invalid Java package
+  # and matches nothing).
+  local _module_prefix
+  if [[ -n "$_declared_pkgs" ]]; then
+    # Take first declared spi_packages entry, drop trailing `.spi*` suffix,
+    # yielding the module's Java package root (e.g., com.huawei.ascend.engine).
+    _module_prefix=$(echo "$_declared_pkgs" | head -1 | sed -E 's/\.spi(\..*)?$//')
+  else
+    _module_prefix="com.huawei.ascend.${_module#agent-}"
+  fi
   local _fail=0
   local _drift=""
   while IFS= read -r _fqn; do

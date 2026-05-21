@@ -10,7 +10,7 @@ import java.util.Optional;
  * <p>The Task is the control-state layer in the Run ≤ Task ≤ Session ≤
  * Memory lifecycle hierarchy. Decoupled from SessionID: one Session
  * may concurrently execute multiple Tasks; one Task may drift across
- * multiple Sessions (.
+ * multiple Sessions.
  *
  * <p>A2A protocol state vocabulary alignment per
  * {@code docs/contracts/a2a-envelope.v1.yaml} (contract-only adoption;

@@ -4,7 +4,7 @@
  * <p>Contains the {@link com.huawei.ascend.service.task.spi.TaskStateStore}
  * interface for TaskControlState persistence.
  *
- * <p>The Task Center component ( 5-component decomposition
+ * <p>The Task Center component (5-component decomposition
  * of agent-service) owns the control-state layer of the Run ≤ Task ≤
  * Session ≤ Memory lifecycle hierarchy.
  *

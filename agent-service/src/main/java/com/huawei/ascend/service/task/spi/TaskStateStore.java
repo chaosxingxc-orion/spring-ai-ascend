@@ -6,7 +6,7 @@ import java.util.Optional;
 /**
  * Task control-state persistence SPI.
  *
- * <p>The Task Center component ( 5-component decomposition
+ * <p>The Task Center component (5-component decomposition
  * of agent-service) is responsible for TaskControlState persistence.
  * {@code Task} is the control-state layer in the Run ≤ Task ≤ Session ≤
  * Memory lifecycle hierarchy.

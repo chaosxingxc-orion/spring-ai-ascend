@@ -11,31 +11,32 @@ responds_to:
 # Rule 44 frozen-doc gate uses single-line regex `affects_artefact:.*<file>`
 # so we encode the per-file claims inline below (the canonical multi-line list
 # also appears at end of file for human reading).
-affects_artefact: ARCHITECTURE.md
-affects_artefact: CLAUDE.md
-affects_artefact: docs/adr/0104-rc22-package-root-migration-to-com-huawei-ascend.yaml
-affects_artefact: docs/governance/rules/rule-G-1.1.md
-affects_artefact: docs/governance/recurring-defect-families.yaml
-affects_artefact: docs/governance/recurring-defect-families.md
-affects_artefact: docs/governance/architecture-status.yaml
-affects_artefact: docs/governance/enforcers.yaml
-affects_artefact: docs/contracts/contract-catalog.md
-affects_artefact: docs/contracts/engine-hooks.v1.yaml
-affects_artefact: agent-bus/ARCHITECTURE.md
-affects_artefact: agent-client/ARCHITECTURE.md
-affects_artefact: agent-evolve/ARCHITECTURE.md
-affects_artefact: agent-execution-engine/ARCHITECTURE.md
-affects_artefact: agent-middleware/ARCHITECTURE.md
-affects_artefact: agent-service/ARCHITECTURE.md
-affects_artefact: gate/check_parallel.sh
-affects_artefact: gate/check_architecture_sync.sh
-affects_artefact: gate/lib/check_l1_dev_view_tree.sh
-affects_artefact: gate/lib/check_l1_spi_appendix.sh
-affects_artefact: gate/lib/scan_cache.sh
-affects_artefact: gate/lib/fast_grep.sh
-affects_artefact: gate/always-loaded-budget.txt
-affects_artefact: gate/config.yaml
-affects_artefact: gate/config.schema.yaml
+affects_artefact:
+  - ARCHITECTURE.md
+  - CLAUDE.md
+  - docs/adr/0104-rc22-package-root-migration-to-com-huawei-ascend.yaml
+  - docs/governance/rules/rule-G-1.1.md
+  - docs/governance/recurring-defect-families.yaml
+  - docs/governance/recurring-defect-families.md
+  - docs/governance/architecture-status.yaml
+  - docs/governance/enforcers.yaml
+  - docs/contracts/contract-catalog.md
+  - docs/contracts/engine-hooks.v1.yaml
+  - agent-bus/ARCHITECTURE.md
+  - agent-client/ARCHITECTURE.md
+  - agent-evolve/ARCHITECTURE.md
+  - agent-execution-engine/ARCHITECTURE.md
+  - agent-middleware/ARCHITECTURE.md
+  - agent-service/ARCHITECTURE.md
+  - gate/check_parallel.sh
+  - gate/check_architecture_sync.sh
+  - gate/lib/check_l1_dev_view_tree.sh
+  - gate/lib/check_l1_spi_appendix.sh
+  - gate/lib/scan_cache.sh
+  - gate/lib/fast_grep.sh
+  - gate/always-loaded-budget.txt
+  - gate/config.yaml
+  - gate/config.schema.yaml
 related_adrs:
   - ADR-0099
   - ADR-0100

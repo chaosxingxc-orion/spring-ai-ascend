@@ -48,37 +48,28 @@ _l1_extract_dev_view_block() {
 }
 
 # Given a tree block, extract every leaf segment (path-component) that ends
-# with `/` and verify it appears SOMEWHERE under the module's src/main/java/
-# OR src/test/java/. The tree-drawing characters make full-path reconstruction
-# fragile, so we use the more lenient "package segment exists" check.
-# Returns failures one-per-line (best-effort).
+# with `/` and verify the segment EXISTS AS A LITERAL DIRECTORY NAME (not just
+# a substring match) under the module's src/ tree. rc28 fix (NEW-2): tightened
+# from suffix-substring to whole-component match.
 _l1_validate_tree_paths() {
   local _module="$1"
   local _block="$2"
   local _failed=0
-  # Build cache of all directories under the module (relative to repo root).
-  local _dir_cache
-  _dir_cache=$(find "$GATE_REPO_ROOT/$_module/src" -type d 2>/dev/null | sed "s|^$GATE_REPO_ROOT/$_module/||" | sort -u)
-  # Also accept any top-level module subdirectory (e.g., src/main/resources/).
+  # Build set of all directory BASENAMES under module/src.
+  local _basename_set
+  _basename_set=$(find "$GATE_REPO_ROOT/$_module/src" -type d 2>/dev/null | xargs -I{} basename {} | sort -u)
   while IFS= read -r _line; do
-    # Strip tree-drawing chars + trailing "  # comment".
     local _path
     _path=$(printf '%s' "$_line" | sed -E 's/^[│├└─[:space:]]*//; s/[[:space:]]+#.*$//')
     [[ "$_path" != */ ]] && continue
     [[ "$_path" == "$_module/" ]] && continue
-    # Strip trailing slash for matching.
     local _seg="${_path%/}"
-    # Strip a leading `src/main/java/` or `src/test/java/` prefix from the
-    # tree path if present, since those segments may be split across lines.
     _seg=$(printf '%s' "$_seg" | sed -E 's|^src/(main|test)/java/||')
-    # Match against the directory cache as a SUFFIX, allowing the tree-block
-    # nesting indentation to omit ancestor segments. Empty segment = ok.
     [[ -z "$_seg" ]] && continue
-    if echo "$_dir_cache" | grep -qE "(^|/)${_seg}$"; then
-      continue
-    fi
-    # Also accept the segment appearing as a sub-path component anywhere.
-    if echo "$_dir_cache" | grep -qE "(^|/)${_seg}(/|$)"; then
+    # The segment may itself contain `/`, take last component as the basename.
+    local _basename="${_seg##*/}"
+    # Match basename as a whole-line entry in the basename set.
+    if echo "$_basename_set" | grep -qFx "$_basename"; then
       continue
     fi
     echo "missing-dir:$_path"

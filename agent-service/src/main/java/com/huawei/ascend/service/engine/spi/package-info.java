@@ -2,7 +2,7 @@
  * Stateless engine SPI.
  *
  * <p>Contains pure-function compute surface for the Execution Engine
- * Adapter component ( 5-component decomposition of
+ * Adapter component (5-component decomposition of
  * agent-service). The {@link com.huawei.ascend.service.engine.spi.StatelessEngine}
  * interface is the contract; {@link com.huawei.ascend.service.engine.spi.AgentInvokeRequest}
  * and {@link com.huawei.ascend.service.engine.spi.StateDelta} are the carrier records.
