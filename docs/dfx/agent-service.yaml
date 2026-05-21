@@ -15,6 +15,9 @@ spi_packages:
   - com.huawei.ascend.service.runtime.memory.spi
   - com.huawei.ascend.service.runtime.resilience.spi   # promoted per ADR-0080 (rc5 review P1-2 closure, 2026-05-18)
   - com.huawei.ascend.service.runtime.runs.spi          # rc13: RunRepository ownership consolidated here per ADR-0088
+  - com.huawei.ascend.service.engine.spi                # rc23: StatelessEngine SPI per ADR-0100
+  - com.huawei.ascend.service.session.spi               # rc23: ContextProjector SPI per ADR-0100
+  - com.huawei.ascend.service.task.spi                  # rc23: TaskStateStore SPI per ADR-0100
 
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-service"
