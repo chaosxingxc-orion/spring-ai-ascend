@@ -418,8 +418,8 @@ families:
   - id: F-l1-architecture-grounding-gap
     title: L1 Architecture Document Lacks Code-Mapping or SPI Enumeration
     first_observed_rc: rc17
-    last_observed_rc: rc27
-    occurrences: [rc17, rc18, rc19, rc20, rc21, rc22, rc27]
+    last_observed_rc: rc28
+    occurrences: [rc17, rc18, rc19, rc20, rc21, rc22, rc27, rc28]
     root_cause: |
       Rule G-1.a (Layered 4+1 Discipline) mandates that every
       architecture artefact declares level/view frontmatter, but does
@@ -438,6 +438,7 @@ families:
     prevention_rules:
       - Rule G-1.1 (rc22 / ADR-0099) — 3 sub-clauses + 3 enforcers + 6 fixtures
       - rc27 corrective — real helpers shipped (gate/lib/check_l1_dev_view_tree.sh + check_l1_spi_appendix.sh); placeholder pass_rule stubs replaced
+      - rc28 corrective — module-prefix bug fix (hyphenated names), tree-block basename-equality, fail-closed on helper-missing
     cleanup_status: closed
     open_residual: |
       Rule G-1.1 ratifies the depth/grounding discipline. rc22 rewrote
