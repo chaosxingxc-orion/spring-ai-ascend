@@ -343,6 +343,17 @@ need adversarial self-review before merge — the
 F-recursive-prevention-irony pattern can hide in helper logic the
 rule's author didn't themselves write.
 
+**CI corrective on rc21.** PR #31 CI surfaced one bug local WSL gate
+could not reproduce: Rule 117's `printf | grep -Fxq` lookup pipeline
+raced with `set -o pipefail` on fast GitHub Actions runners; the
+resulting SIGPIPE truncated the cited-set capture, producing
+false-orphan FAIL on R-C.1. Fix in commit d297b1d: materialise lookup
+sets to temp files via `mktemp -d`. Meta-lesson: gate rules using
+shell pipelines for set lookup under `set -o pipefail` are
+timing-fragile across CI vs local runners — prefer materialised temp
+files OR associative arrays OR `case` pattern matching for
+deterministic behaviour.
+
 ---
 
 ## §3 — META-Lessons Codified Into Rules

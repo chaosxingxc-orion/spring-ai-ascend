@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc21 Wave 6 (3rd PR commit 5e4ec0e self-review iteration): F-progressive-loading-weak-enforcement open_residual extended with meta-lesson on structural-fix self-review.
+last_updated: 2026-05-21  # rc21 Wave 6 (5th PR commit, post-CI Rule 117 SIGPIPE corrective): F-progressive-loading-weak-enforcement open_residual extended with the CI-vs-local divergence finding (set -o pipefail + grep -Fxq pipe-race on fast CI runners produced false-orphan; fixed by materialising lookup sets to temp files via mktemp -d).
 
 families:
   - id: F-numeric-drift
@@ -403,3 +403,14 @@ families:
       adversarial self-review before merge — the F-recursive-prevention-
       irony pattern can hide in helper logic the rule's author didn't
       themselves write.
+      Post-merge-attempt CI corrective: rc21 PR #31 CI surfaced one
+      more bug the local gate could not reproduce — Rule 117's
+      printf-pipe-grep lookup pipeline raced with `set -o pipefail`
+      on fast GitHub Actions runners; the resulting SIGPIPE truncated
+      the cited-set capture, producing false-orphan FAIL on R-C.1.
+      Fix in commit d297b1d: materialise cited / cards / principles
+      sets to temp files via `mktemp -d`, eliminating the SIGPIPE-race.
+      Meta-lesson: gate rules using shell pipelines for set lookup
+      under `set -o pipefail` are timing-fragile across CI vs local
+      runners — prefer materialised temp files OR associative arrays
+      OR `case` pattern matching for deterministic behaviour.
