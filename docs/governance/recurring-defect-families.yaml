@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc20 Wave 5 finalize: ADR-0097 + release note + baseline lockstep + freeze rc19
+last_updated: 2026-05-21  # rc20 Wave 5 corrective: release-note baseline-truth + denom-drift markers + content-diff freshness bump
 
 families:
   - id: F-numeric-drift
