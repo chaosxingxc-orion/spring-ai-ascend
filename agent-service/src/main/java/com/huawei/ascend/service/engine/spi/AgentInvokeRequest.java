@@ -19,7 +19,7 @@ import java.util.Objects;
  * reference impl.
  *
  * @param runId           the Run this invocation belongs to.
- * @param taskId          the Task this Run materializes (decoupled from sessionId.
+ * @param taskId          the Task this Run materializes (decoupled from sessionId).
  * @param sessionId       the Session whose context this invocation reads.
  * @param tenantId        mandatory per Rule R-C.c.
  * @param sessionContext  projected SessionContext from ContextProjector SPI.
