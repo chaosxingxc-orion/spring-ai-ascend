@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-21  # rc31 orphan-paren cleanup; rc30 CI-corrective: sed delimiter fix + tree-block dir cleanup; rc29 corrective — table-row-only extractor + LCP prefix + Rule 44 fixed-string: F-l1-architecture-grounding-gap closed (real gate helpers shipped per ADR-0099). occurrences extended through rc22+rc27.
+last_updated: 2026-05-22  # rc32 residual-corrective: register F-bulk-scrub-orphan-syntax (12th family) + reopen F-l1-architecture-grounding-gap (rc30 occurrence breaks closure) → monitoring + recount adr_count + repair G-9.b family-surface sanitizer (23 silent no-ops on glob tokens).
 
 families:
   - id: F-numeric-drift
@@ -134,8 +134,8 @@ families:
     surfaces:
       - docs/contracts/contract-catalog.md
       - docs/contracts/*.v1.yaml
-      - agent-*/ARCHITECTURE.md path claims
-      - module-metadata.yaml#spi_packages
+      - agent-*/ARCHITECTURE.md
+      - "**/module-metadata.yaml"
     prevention_rules:
       - Rule 84
       - Rule 94
@@ -194,10 +194,13 @@ families:
       Rule G-8.e (rc15 widening) + Rule 107/108/109 (rc16 namespace
       parity).
     surfaces:
-      - architecture-status.yaml ↔ architecture-graph.yaml
-      - CLAUDE.md kernel ↔ rule-*.md cards
-      - module-metadata.yaml ↔ contract-catalog.md
-      - pom.xml modules ↔ architecture-status.yaml#repository_counts
+      - docs/governance/architecture-status.yaml
+      - docs/governance/architecture-graph.yaml
+      - CLAUDE.md
+      - docs/governance/rules/*.md
+      - "**/module-metadata.yaml"
+      - docs/contracts/contract-catalog.md
+      - pom.xml
     prevention_rules:
       - Rule 106
       - Rule G-8
@@ -300,9 +303,9 @@ families:
       catches X" without applying the rule's own discipline to the
       rule itself.
     surfaces:
-      - Newly-introduced META gate rules (rc16 Rule 110, rc17 Rule 111)
-      - Newly-introduced helper functions in gate/lib/
-      - Self-test fixtures that re-implement gate logic inline
+      - gate/check_architecture_sync.sh
+      - gate/lib/
+      - gate/test_architecture_sync_gate.sh
     prevention_rules:
       - Rule 111 (rc17, hardened rc18 Wave 1 per ADR-0095, then [META]-marked rc20 Wave 1 per ADR-0097 so Rule 112 actually gates it)
       - Rule G-9 (rc17, strengthened rc18 helper extraction; rc20 Wave 1 kernel + card sync to content-diff freshness + cleanup_status status-text parity)
@@ -420,7 +423,7 @@ families:
     first_observed_rc: rc17
     last_observed_rc: rc30
     occurrences: [rc17, rc18, rc19, rc20, rc21, rc22, rc27, rc28, rc29, rc30]
-      # rc30 CI-corrective: remove non-existent tree-block dirs (src/main/resources/ in agent-middleware; bootstrap/ in agent-service)
+      # rc30 CI-corrective: remove non-existent tree-block dirs (src/main/resources/ in agent-middleware; bootstrap/ in agent-service); rc32 review reopens because last_observed_rc==rc30 contradicts cleanup_status: closed.
     root_cause: |
       Rule G-1.a (Layered 4+1 Discipline) mandates that every
       architecture artefact declares level/view frontmatter, but does
@@ -441,11 +444,59 @@ families:
       - rc27 corrective — real helpers shipped (gate/lib/check_l1_dev_view_tree.sh + check_l1_spi_appendix.sh); placeholder pass_rule stubs replaced
       - rc28 corrective — module-prefix bug fix (hyphenated names), tree-block basename-equality, fail-closed on helper-missing
       - rc29 corrective — LCP-based module-prefix derivation, full-relative-path dev-view match, Rule 44 fixed-string grep (regex-injection safe), IdempotencyStore prose 3-place cleanup
-    cleanup_status: closed
+      - rc30 CI-corrective — sed delimiter collision fix in check_l1_dev_view_tree.sh + tree-block dir cleanup (agent-middleware src/main/resources/, agent-service bootstrap/)
+    cleanup_status: monitoring
     open_residual: |
       Rule G-1.1 ratifies the depth/grounding discipline. rc22 rewrote
       all 6 agent-* ARCHITECTURE.md files. rc27 shipped the real gate
       helpers (gate/lib/check_l1_dev_view_tree.sh + check_l1_spi_appendix.sh
       + 6 fixtures test_rule_118/119/120). Sub-clause .c (L2 Constraint
       Linkage) is vacuously green because no L2 documents exist yet; the
-      rule arms for W3+ when L2 docs land. Closed in rc27.
+      rule arms for W3+ when L2 docs land.
+      rc32 reopen rationale: the family was prematurely marked closed at
+      rc29, but rc30 surfaced a NEW occurrence — the rc29 sed-delimiter
+      fix in check_l1_dev_view_tree.sh introduced a regression where
+      Rule 118 silently passed every input. Status reset to `monitoring`
+      pending 3-rc cool-down (rc32 + rc33 + rc34) with no recurrence
+      before re-promotion to closed. The cool-down convention introduced
+      in rc20 Wave 1 / ADR-0097 applies here too.
+
+  - id: F-bulk-scrub-orphan-syntax
+    title: Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments
+    first_observed_rc: rc27
+    last_observed_rc: rc32
+    occurrences: [rc27, rc28, rc31, rc32]
+    root_cause: |
+      Rule D-9 (no version/log metadata in code) is enforced by a bulk
+      per-line regex scrub across .java/.py/.sh files. The scrub deletes
+      tokens like "per ADR-NNNN", "rcN", "(legacy Rule NN)", "Wave N",
+      etc. — but the surrounding punctuation that bound those tokens
+      (open parens, leading commas, sentence-final periods, trailing
+      "+" connectors, "(`)" pointers) is preserved by the regex. The
+      result is orphan punctuation: ".b)" after stripping "legacy 41.b",
+      ", the relationship" after stripping a leading clause, "* ." on a
+      line by itself, "()" empty parens after stripping the ref. The
+      pattern recurred at rc27 D-9 scrub, rc28 ADV-9 (6 files patched),
+      rc31 ADV4-1..3 + 2 follow-ups (5 files), and again at rc32 (8
+      residuals in 6 package-info files). The structural fix is to
+      ALSO scrub the punctuation that bounded the deleted token, or
+      to forbid bulk regex scrubs entirely in favour of per-file
+      semantic review.
+    surfaces:
+      - "**/*.java javadoc and inline comments"
+      - "**/*.py docstrings and comments"
+      - "gate/**/*.sh comment headers"
+    prevention_rules:
+      - Rule D-9 (rc20 — the scrub being enforced)
+      - rc27 grandfather list (54 pre-existing files, sunset 2026-11-21)
+      - rc32 corrective — register family; future D-9 scrub passes MUST also strip bounding punctuation OR use AST-aware tooling
+    cleanup_status: partial
+    open_residual: |
+      The bulk-regex scrub pattern is structurally fragile. Future
+      Rule D-9 enforcement waves should switch to AST-aware tooling
+      (JavaParser, libCST for python, shfmt for shell) so the deleted
+      token's neighbours can be properly re-bound. Until then this
+      family will recur on every new metadata-scrub pass. Considered
+      registering this in rc31 (commit 5597ed8 message acknowledged
+      the pattern as a candidate family) but not formally landed
+      until rc32.

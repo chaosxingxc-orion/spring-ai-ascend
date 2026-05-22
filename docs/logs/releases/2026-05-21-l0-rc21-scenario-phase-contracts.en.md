@@ -12,6 +12,8 @@ supersedes_release_notes:
 
 # L0 v2.0.0-rc21 — 6-Phase Scenario-Loaded Contracts + Rule G-10 + Rule G-11
 
+> **Historical artifact frozen at SHA edb3cd4 (v2.0.0-rc21 merge).** Baseline counts in this document (65 §4 constraints / 97 ADRs / 129 active gate rules / 226 gate self-tests / 40 active engineering rules / 164 enforcer rows / 412 graph nodes / 678 graph edges / 10 recurring defect families) reflect the corpus state at rc21 merge time and are NOT retroactively updated. The current canonical baseline (post-rc32: 90 ADRs / 132 gate rules / 230 self-tests / 41 engineering rules / 167 enforcer rows / 442 graph nodes / 743 graph edges / 12 recurring defect families) is tracked in `docs/governance/architecture-status.yaml#architecture_sync_gate.allowed_claim` and the rc32 release note (`docs/logs/releases/2026-05-22-l0-rc32-residual-corrective-and-family-truth.en.md`).
+
 ## Verdict
 
 rc21 closes the user-observed failure mode that the prior META-gate ratchet

@@ -5,7 +5,7 @@
  * injection. Component #5 of the agent-service 5-component runtime-role
  * decomposition.
  *
- * <p>Implementation lands in 
+ * <p>Reference implementations:
  * <ul>
  *   <li>{@code InMemoryStatelessEngine} — wraps existing GRAPH +
  *       AGENT_LOOP executors as a {@link com.huawei.ascend.service.engine.spi.StatelessEngine}.</li>

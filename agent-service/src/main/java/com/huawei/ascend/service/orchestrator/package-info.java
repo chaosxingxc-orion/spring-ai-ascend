@@ -10,7 +10,7 @@
  * and merges the returned {@link com.huawei.ascend.service.engine.spi.StateDelta}
  * back into Run + Task + Session state.
  *
- * <p>Implementation lands + 
+ * <p>Implementation outline:
  * <ul>
  *   <li>Java refactor moves orchestrator logic here from
  *       {@code com.huawei.ascend.service.runtime.orchestration.inmemory}.</li>
@@ -23,7 +23,7 @@
  * orchestrator → may call engine.adapter, task, session.
  * Reverse direction forbidden.
  *
- * <p>Yield + SuspendSignal coexistence ():
+ * <p>Yield + SuspendSignal coexistence:
  * <ul>
  *   <li>{@link com.huawei.ascend.engine.orchestration.spi.SuspendSignal}
  *       checked-exception flow → state-machine suspension.</li>

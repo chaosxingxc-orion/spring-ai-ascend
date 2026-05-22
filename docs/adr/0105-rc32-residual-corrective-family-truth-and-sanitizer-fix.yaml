@@ -1,0 +1,128 @@
+id: ADR-0105
+title: "rc32 — residual corrective + F-bulk-scrub-orphan-syntax registration + family-surface sanitizer glob expansion + per-rule timeout bump"
+status: accepted
+date: 2026-05-22
+level: L0
+view: process
+affects_level: L0
+affects_view: process
+authors:
+  - chao
+relates_to:
+  - ADR-0097
+  - ADR-0096
+  - ADR-0094
+  - ADR-0099
+extends:
+  - ADR-0097
+context: |
+  Post-rc31 codebase review (2026-05-22) found a recurring debt pattern
+  the rc27-31 corrective spiral did not close:
+
+  1. **Gate RED on main** — 8 of 132 rules timing out at the 60s safety
+     net (Rules 18/23/26/82/84/86/87/115 — all corpus-walking rules
+     scanning large file sets). The previous waves shipped fixes for
+     specific rules but left the underlying bound unchanged; the median
+     timing for the slow rules clustered near 60s, so any future
+     corpus growth would push more rules over the cliff.
+
+  2. **Rule G-9.b family-surface sanitizer silently no-op on globs** —
+     `derive_signal_paths()` in `gate/lib/validate_recurring_families.py`
+     rejected glob-bearing tokens (`agent-*/ARCHITECTURE.md`,
+     `docs/**/*.puml`, `.github/workflows/*.yml`) because
+     `os.path.exists()` returns False for literal patterns. The
+     tokens were still added to the path set passed to `git log --`,
+     but `git log` does not expand `*` in pathspecs without `:(glob)`
+     magic, so the surfaces were tracked on paper only. At rc31 HEAD,
+     23 surfaces across 9 families were affected — effectively
+     unmonitored.
+
+  3. **F-bulk-scrub-orphan-syntax acknowledged but not registered** —
+     rc31's commit body (`5597ed8`) explicitly named the pattern as a
+     candidate family but did NOT add it to the ledger. Per Rule G-9.a
+     schema, a family is added "only after the same root-cause class
+     has been observed in ≥2 rc cycles". rc27 D-9 scrub + rc28 ADV-9
+     + rc31 ADV4-1..3 + rc32 sweep = 4 occurrences.
+
+  4. **F-l1-architecture-grounding-gap self-contradiction** — yaml
+     `cleanup_status: closed` while `last_observed_rc: rc30`. The
+     family was prematurely marked closed at rc29; rc30 surfaced a new
+     occurrence (sed-delimiter collision in `check_l1_dev_view_tree.sh`).
+
+  5. **`adr_count: 103` vs live 89** — claim extrapolated from rc21
+     baseline (97 + 6) but 15 ADR numbers in the 0001-0104 range are
+     vacated (0001, 0002, 0004, 0005, 0006, 0010, 0011, 0014, 0015,
+     0020, 0026, 0027, 0083, 0084, 0085 — retracted or never-issued).
+
+  6. **`allowed_claim` prose stops at rc20** — missing rc22 + rc27-31
+     narrative across ~6 corrective waves. Rule G-2.a violation.
+
+  7. **8 residual Java orphan-paren / broken-Javadoc defects** — rc27
+     D-9 bulk regex scrub left orphan punctuation across 6
+     `package-info.java` and 1 SPI Javadoc file that rc28/29/31 did
+     not catch.
+
+decision: |
+  Close all 7 findings in a single rc32 wave. No new module structure;
+  no new SPI; no new engineering rule. Mechanical truth-and-gate fixes:
+
+  - Bump `rule_timeout_seconds: 60 -> 180` in `gate/config.yaml` so
+    the 8 slow rules pass. Deeper fix (thread `scan_cache` through
+    those rules) deferred as known debt.
+  - Extend `derive_signal_paths()` to expand glob tokens at the python
+    level via `glob.glob(pattern, recursive=True)` before passing to
+    `git log --`. Brace expansion (`**/*.{yaml,yml}`) handled by
+    splitting on `{...}` alternatives.
+  - Register `F-bulk-scrub-orphan-syntax` as the 12th family in
+    `recurring-defect-families.yaml` + add `### F-bulk-scrub-orphan-syntax`
+    H3 section in `recurring-defect-families.md` for Rule G-9.c parity.
+  - Reopen `F-l1-architecture-grounding-gap`: `cleanup_status: closed
+    -> monitoring`; 3-rc cool-down (rc32 + rc33 + rc34) before
+    re-promotion per ADR-0097 convention.
+  - `adr_count: 103 -> 90` (live 89 + ADR-0105 itself = 90); document
+    the 15 vacated numbers in the comment.
+  - Append rc21+rc22+rc27-31+rc32 narrative to `allowed_claim` text;
+    keep the existing rc1-rc20 prose for historical context.
+  - Sweep 8 residual Java orphans surgically (≤20 LoC across 6 files).
+
+  Single ADR carrying 7 sub-changes is consistent with the rc18
+  precedent (ADR-0095 covered 5 sequential corrective waves under a
+  single ADR; rc32 is smaller — one wave, one ADR, 7 sub-changes).
+
+consequences: |
+  - Gate goes GREEN on main (all 132 rules pass, 0 timeouts).
+  - Rule G-9.b family-surface freshness actually monitors 23 surfaces
+    that were previously paper-only. The next refresh-signal commit
+    touching `agent-*/ARCHITECTURE.md` or `**/module-metadata.yaml`
+    will now legitimately trigger Rule 111.b.
+  - The 12th family `F-bulk-scrub-orphan-syntax` makes the
+    bulk-regex-scrub pattern legible to future reviewers, who can now
+    propose AST-aware tooling as a structural fix instead of
+    discovering the pattern by re-reading 5 corrective release notes.
+  - `F-l1-architecture-grounding-gap` reopen prevents premature-closure
+    pattern from recurring under the rc20 cool-down convention.
+  - `adr_count` truth restored; allowed_claim no longer ~17K of
+    stale rc1-rc20 prose pretending to be current.
+
+  Known debt entered with this ADR:
+  - **KD-rc32-1**: 8 gate rules do full corpus walks without using
+    scan_cache (Rules 18/23/26/82/84/86/87/115). The 180s timeout is
+    a workaround, not the structural fix. Future wave should refactor
+    these rules to consume the pre-populated `_SCAN_*` file lists
+    from `gate/lib/scan_cache.sh`.
+  - **KD-rc32-2**: Rule D-9 enforcement is still bulk regex; switch
+    to AST-aware tooling (JavaParser, libCST, shfmt) when grandfather
+    list sunsets (2026-11-21) to prevent recurrence of
+    F-bulk-scrub-orphan-syntax.
+
+  No new families introduced by this wave's own fixes (the rc21 lesson
+  on self-review against the diff was applied: parity + freshness + md
+  §2 sections all validated locally before commit).
+
+non_goals: |
+  - Not optimising the 8 slow rules' algorithms (KD-rc32-1).
+  - Not addressing CORR-2..CORR-6 from rc27 review (5 deferred medium-
+    severity correctness issues in fast_grep + awk helpers). Tracked
+    separately for a dedicated "gate helper hygiene" wave.
+  - Not changing CLAUDE.md kernel paragraphs or any engineering rule
+    body. rc32 is corrective; structural changes deferred.

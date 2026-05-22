@@ -259,7 +259,20 @@ def derive_signal_paths(yaml_data: dict, repo_root: str = ".") -> list[str]:
       - Only emit paths that actually resolve on disk OR are explicit
         directory prefixes ending in `/` — keeps the set tight without
         re-introducing the hard-coded SURFACE_PREFIX_BASES placebos.
+
+    rc32 hardening:
+      - Glob tokens (`agent-*/ARCHITECTURE.md`, `docs/**/*.puml`,
+        `.github/workflows/*.yml`, etc.) were previously WARN'd as
+        "does not resolve on disk" then added to the path set unchanged.
+        `git log -- <literal-glob-pattern>` does NOT expand `*` in
+        pathspecs without `:(glob)` magic, so the surface was tracked
+        on paper only. Result: 23 silent no-ops at rc31 HEAD.
+      - Fix: tokens containing `*` are now expanded via
+        `glob.glob(token, recursive=True)` at the python level. Each
+        match becomes a concrete repo-relative path the freshness
+        check actually scans. Empty expansion still WARNs.
     """
+    import glob as _glob_mod
     paths = set(BASE_SIGNAL_PATHS)
     for fam in yaml_data.get("families", []):
         fid = fam.get("id", "<unknown>") if isinstance(fam, dict) else "<unknown>"
@@ -285,6 +298,43 @@ def derive_signal_paths(yaml_data: dict, repo_root: str = ".") -> list[str]:
                     f"colon-bearing tokens are not valid git pathspecs (rc20 Wave 3 sanitizer)",
                     file=sys.stderr,
                 )
+                continue
+            # rc32: expand glob tokens before disk-existence check.
+            # `git log -- <literal-glob>` does NOT match without :(glob) magic,
+            # so we resolve at the python level into concrete paths.
+            if "*" in base or "?" in base or "{" in base:
+                # Brace expansion isn't supported by python glob; strip simple
+                # `{a,b,c}` alternation by trying each alternative if present.
+                # For the common cases in this corpus (e.g. `**/*.{yaml,yml,tpl,md}`)
+                # we split on the brace group and expand each alternative.
+                expansions: list[str] = []
+                brace_match = re.search(r"\{([^{}]+)\}", base)
+                if brace_match:
+                    alts = [a.strip() for a in brace_match.group(1).split(",")]
+                    for alt in alts:
+                        expansions.append(
+                            base[: brace_match.start()] + alt + base[brace_match.end() :]
+                        )
+                else:
+                    expansions = [base]
+                matched_any = False
+                for pattern in expansions:
+                    # Glob from repo_root so the resulting paths are repo-relative.
+                    abs_pattern = os.path.join(repo_root, pattern)
+                    matches = _glob_mod.glob(abs_pattern, recursive=True)
+                    for m in matches:
+                        rel = os.path.relpath(m, repo_root).replace(os.sep, "/")
+                        if rel and not rel.startswith(".."):
+                            paths.add(rel)
+                            matched_any = True
+                if not matched_any:
+                    print(
+                        f"WARN: family {fid} surface {surface!r} (token={base!r}) "
+                        f"glob expansion matched no files under {repo_root!r}; "
+                        f"freshness will not track this surface (rc32 glob expander; "
+                        f"likely typo or stale path)",
+                        file=sys.stderr,
+                    )
                 continue
             base = base.replace("**/*", "").replace("**/", "")
             if not base:

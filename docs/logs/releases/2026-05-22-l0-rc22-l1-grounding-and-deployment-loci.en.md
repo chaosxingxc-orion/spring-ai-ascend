@@ -18,6 +18,8 @@ related_adrs:
 
 # v2.0.0-rc22 Release — L1 Grounding (Rule G-1.1) + Polymorphic Deployment Loci + Six-Component Capability-Services Distribution
 
+> **Historical artifact frozen at SHA 231a249 (v2.0.0-rc22 merge).** Baseline counts in this document (65 §4 constraints / 103-claim ADRs / 132 active gate rules / 230 gate self-tests / 41 active engineering rules / 167 enforcer rows / 441 graph nodes / 736 graph edges) reflect the corpus state at rc22 merge time and are NOT retroactively updated. Five corrective waves rc27-rc31 (PRs #47-#51) followed without their own release notes; the current canonical baseline (post-rc32: 90 ADRs / 132 gate rules / 230 self-tests / 41 engineering rules / 167 enforcer rows / 442 graph nodes / 743 graph edges / 12 recurring defect families) is tracked in `docs/governance/architecture-status.yaml#architecture_sync_gate.allowed_claim` and the rc32 release note (`docs/logs/releases/2026-05-22-l0-rc32-residual-corrective-and-family-truth.en.md`).
+
 > **Headline:** rc22 ratifies the 2026-05-21 reviewer proposal triple. Six new ADRs (0099–0104), one new engineering rule (G-1.1) with three sub-clauses + three enforcers, two new governance SSOTs (`deployment-loci.yaml`, `evolution-modalities.yaml`), two new contract YAMLs (`reflection-envelope.v1.yaml`, `agent-invoke-request.v1.yaml`), and a Rule G-1.1 grounding pass over all six `agent-*/ARCHITECTURE.md` files. Five reviewer claims explicitly rejected (see response doc). One new recurring-defect family added (`F-l1-architecture-grounding-gap`).
 
 ## Methodology

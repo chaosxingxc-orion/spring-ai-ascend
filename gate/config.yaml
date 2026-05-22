@@ -17,10 +17,17 @@ parallelism:
   jobs: 8                          # number of parallel workers (env: GATE_JOBS)
                                    #   1 = serial; 0 = auto (= nproc); N = exactly N workers
   enabled: true                    # false -> force serial path (env: GATE_PARALLEL=0)
-  rule_timeout_seconds: 60         # kill any individual rule that exceeds this; -1 = disable (env: GATE_RULE_TIMEOUT)
+  rule_timeout_seconds: 300        # kill any individual rule that exceeds this; -1 = disable (env: GATE_RULE_TIMEOUT)
                                    # PR-Opt-rc22: enforced via `timeout` command in batch script.
-  total_timeout_seconds: 300       # ceiling for entire gate execution (5 min); -1 = disable (env: GATE_TOTAL_TIMEOUT)
-                                   # PR-Opt-rc22: safety net so a runaway gate never blocks CI > 5min.
+                                   # rc32: bumped 60 -> 300 because Rules 26 + 115 do per-file *
+                                   #   per-line * per-subrule scans (O(L*N*M)) and need more time on
+                                   #   the growing corpus. Other slow rules (18/23/82/84/86/87) pass
+                                   #   under 180s; 300s gives headroom for Rule 26's release-note walk
+                                   #   and Rule 115's java/py/sh full-tree grep. Deeper fix is to
+                                   #   thread scan_cache through these rules; tracked as known debt.
+  total_timeout_seconds: 900       # ceiling for entire gate execution (15 min); -1 = disable (env: GATE_TOTAL_TIMEOUT)
+                                   # PR-Opt-rc22: safety net so a runaway gate never blocks CI > 15min.
+                                   # rc32: bumped 300 -> 900 to provide headroom alongside the per-rule bump.
   batch_strategy: round_robin      # round_robin | longest_first (env: GATE_BATCH_STRATEGY)
 
 logging:

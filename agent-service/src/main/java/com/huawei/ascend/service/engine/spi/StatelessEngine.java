@@ -13,11 +13,11 @@ package com.huawei.ascend.service.engine.spi;
  * design_only; runtime impl in rc24).
  *
  * <p>Coexistence with {@code com.huawei.ascend.engine.spi.ExecutorAdapter}:
- *, the relationship between {@code StatelessEngine} and the
- * existing {@code ExecutorAdapter} is reconciled (sibling SPIs
- * vs single-interface decision documented in ADR-0100 §non_goals).
+ * the relationship between {@code StatelessEngine} and the existing
+ * {@code ExecutorAdapter} is reconciled as sibling SPIs (single-interface
+ * decision documented in ADR-0100 §non_goals).
  *
- * <p>Yield + SuspendSignal coexistence ():
+ * <p>Yield + SuspendSignal coexistence:
  * <ul>
  *   <li>{@link com.huawei.ascend.engine.orchestration.spi.SuspendSignal}
  *       (checked exception) remains canonical for state-machine

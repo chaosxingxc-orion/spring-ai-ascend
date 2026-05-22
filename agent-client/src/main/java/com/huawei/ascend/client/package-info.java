@@ -1,8 +1,8 @@
 /**
  * agent-client — AgentClient SDK skeleton (Edge Access plane).
  *
- * <p>Empty placeholder package. The SDK implementation lands in W3+
- *. This module exists today so the AgentClient team can
+ * <p>Empty placeholder package. The SDK implementation lands in a later
+ * wave. This module exists today so the AgentClient team can
  * land work without conflicting with AgentService / Middleware /
  * AgentBus PRs.
  *

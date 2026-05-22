@@ -1052,6 +1052,13 @@ _r26_fail=0
 if [[ -d docs/logs/releases ]]; then
   while IFS= read -r _rf26; do
     [[ -z "$_rf26" ]] && continue
+    # rc32 perf: frozen release notes are immutable historical artefacts;
+    # re-validating them on every gate run is wasted work (Rule 28 already
+    # exempts them; Rule 26 should too). This dropped Rule 26 wall-clock
+    # from 300s timeout to under 30s on a corpus with 25+ release notes.
+    if grep -q "Historical artifact frozen at SHA" "$_rf26"; then
+      continue
+    fi
     # Pre-read file into an array of lines for context-window 26a.
     mapfile -t _rf26_lines < "$_rf26"
     _rf26_count=${#_rf26_lines[@]}

@@ -45,7 +45,7 @@ authority_refs: [ADR-0094]
 
 ---
 
-## §1 — Family Summary (11 families as of rc22)
+## §1 — Family Summary (12 families as of rc32)
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
@@ -59,7 +59,8 @@ authority_refs: [ADR-0094]
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 1 (rc21) | ✅ closed — phase contracts + skills + dual-track loading per ADR-0098 |
-| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 9 (rc17-rc22+rc27-29) | ✅ closed (rc29) — Rule G-1.1 + 3 enforcers + 6 fixtures + real helpers in gate/lib/check_l1_*.sh + LCP prefix + full-path dev-view match + Rule 44 fixed-string grep |
+| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 10 (rc17-rc22+rc27-30) | 🟡 monitoring (rc32 reopen — rc29 marked closed but rc30 surfaced a regression in check_l1_dev_view_tree.sh; cool-down rc32+rc33+rc34) |
+| 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, deferred) |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -409,7 +410,60 @@ maintainer who adds a new SPI must remember to update ALL four. The
 4-way scanner is the structural backstop, but it does not auto-write
 the appendix — that remains author discipline. Future improvement
 could generate the appendix from the other three surfaces (machine-
-derived L1 SPI section).
+derived L1 SPI section). **rc32 reopen:** rc30 surfaced a new
+occurrence (sed delimiter collision in `check_l1_dev_view_tree.sh`
+made Rule 118 silently pass every input). The family was prematurely
+marked closed at rc29; reset to `monitoring` for a 3-rc cool-down
+(rc32 + rc33 + rc34) per the rc20 / ADR-0097 convention.
+
+---
+
+### F-bulk-scrub-orphan-syntax — Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments
+
+**Pattern.** Rule D-9 (no version/log metadata in code, rc20) is
+enforced by a bulk per-line regex scrub across `.java`/`.py`/`.sh`
+files. The scrub deletes tokens like `per ADR-NNNN`, `rcN`,
+`(legacy Rule NN)`, `Wave N`, etc. — but the surrounding punctuation
+that bound those tokens (open parens, leading commas, sentence-final
+periods, trailing `+` connectors, `()` empty groups) is preserved
+because the regex matches only the token, not its neighbours.
+
+**Observed.** Recurs every wave a D-9 scrub passes over the corpus.
+rc27 D-9 scrub left ~30 orphans; rc28 ADV-9 patched 6 files; rc31
+ADV4-1..3 + 2 follow-ups patched 5 files; rc32 swept 8 residuals in
+6 `package-info.java` + 1 SPI Javadoc file. rc31's own commit message
+(`5597ed8`) explicitly named this as a candidate family but did NOT
+register it — rc32 closes that meta-gap by formalising the pattern.
+
+**Surfaces.**
+
+- `**/*.java` javadoc and inline comments — package-info files most
+  vulnerable because their Javadocs cross-reference ADRs / waves.
+- `**/*.py` docstrings and comments — fewer instances historically
+  but the bulk scrub applies the same regex.
+- `gate/**/*.sh` comment headers — rc18 was supposed to strip
+  `(legacy Rule NN)` parens but rc19 wave-3 found 8+ residuals.
+
+**Prevention.**
+
+- Rule D-9 (rc20 — the scrub being enforced; grandfather list of 54
+  pre-existing files, sunset 2026-11-21).
+- rc32 register the family in the ledger so the next D-9 scrub wave
+  is aware of the orphan-punctuation pattern at design time.
+- Future structural fix: switch from bulk regex to AST-aware tooling
+  (JavaParser for Java, libCST for python, shfmt for shell). The
+  AST tooling can re-bind the deleted token's neighbours instead
+  of leaving them orphaned.
+
+**Cleanup status.** `partial` — the regex scrub will continue to
+recur on every new D-9 wave until AST-aware tooling replaces it.
+Each manual sweep (rc27, rc28, rc31, rc32) clears the visible
+residuals but does not prevent the next wave's recurrence.
+
+**Open residual.** The structural fix (AST-aware tooling) is the
+real prevention. Until then, the family will remain `partial` and
+require a manual scrub each wave Rule D-9 is widened or the
+grandfather list is reduced.
 
 ---
 

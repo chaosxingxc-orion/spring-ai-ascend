@@ -9,8 +9,8 @@
  * data management; this SPI is the projection surface that compute
  * nodes consume.
  *
- * <p>Reference impl ({@code InMemoryContextProjector}) lands
- *.
+ * <p>Reference impl ({@code InMemoryContextProjector}) lands in a later
+ * wave.
  *
  * <p>SPI purity per Rule R-D: imports only {@code java.*} + own
  * siblings.
