@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-22  # rc32 residual-corrective: register F-bulk-scrub-orphan-syntax (12th family) + reopen F-l1-architecture-grounding-gap (rc30 occurrence breaks closure) → monitoring + recount adr_count + repair G-9.b family-surface sanitizer (23 silent no-ops on glob tokens).
+last_updated: 2026-05-22  # rc32 residual-corrective: register F-bulk-scrub-orphan-syntax (12th family) + reopen F-l1-architecture-grounding-gap (rc30 occurrence breaks closure) → monitoring + recount adr_count + repair G-9.b family-surface sanitizer (23 silent no-ops on glob tokens) + rc32 CI-corrective: F-l1 prevention_rules entry for xargs basename → find -printf race fix.
 
 families:
   - id: F-numeric-drift
@@ -445,6 +445,7 @@ families:
       - rc28 corrective — module-prefix bug fix (hyphenated names), tree-block basename-equality, fail-closed on helper-missing
       - rc29 corrective — LCP-based module-prefix derivation, full-relative-path dev-view match, Rule 44 fixed-string grep (regex-injection safe), IdempotencyStore prose 3-place cleanup
       - rc30 CI-corrective — sed delimiter collision fix in check_l1_dev_view_tree.sh + tree-block dir cleanup (agent-middleware src/main/resources/, agent-service bootstrap/)
+      - rc32 CI-corrective — replace `find | xargs -I{} basename {}` with `find -printf '%f\n'` in check_l1_dev_view_tree.sh; the xargs form silently dropped entries on GitHub Actions runners (CI failed `missing-dir:orchestration/` despite the directory existing); -printf is ~50-100x faster + race-free.
     cleanup_status: monitoring
     open_residual: |
       Rule G-1.1 ratifies the depth/grounding discipline. rc22 rewrote
