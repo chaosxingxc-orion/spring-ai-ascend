@@ -63,8 +63,14 @@ _l1_validate_tree_paths() {
   local _block="$2"
   local _failed=0
   local _basename_set
-  _basename_set=$(find "$GATE_REPO_ROOT/$_module/src" -type d 2>/dev/null \
-                  | xargs -I{} basename {} 2>/dev/null | sort -u)
+  # rc32: switch to GNU `find -printf '%f\n'`. The previous
+  # `find | xargs -I{} basename {}` form was observed to silently drop
+  # entries on GitHub Actions Ubuntu runners (CI failed Rule 118 with
+  # `missing-dir:orchestration/` despite the directory existing in git
+  # and being visible locally on WSL Ubuntu). `-printf '%f\n'` emits
+  # basenames directly without per-dir subprocess spawning, eliminating
+  # the xargs-stdin race AND running ~50-100x faster on large trees.
+  _basename_set=$(find "$GATE_REPO_ROOT/$_module/src" -type d -printf '%f\n' 2>/dev/null | sort -u)
   while IFS= read -r _line; do
     local _path
     _path=$(printf '%s' "$_line" | sed -E 's/^[│├└─[:space:]]*//; s/[[:space:]]+#.*$//')
