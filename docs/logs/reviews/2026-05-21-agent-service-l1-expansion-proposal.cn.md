@@ -40,7 +40,7 @@ status: proposed
   - **成熟开源引入（Bus/Middleware）**：对于 `agent-bus`（总线）与 `agent-middleware`（中间件），本阶段主要引入业界成熟的开源技术栈（如 NATS/RabbitMQ/Redis 存储/向量库等），做轻量适配集成，拒绝闭门造车，全力保障核心链路的交付速度。
 - **部署模式演进 roadmap**：
   - **当前阶段**：优先打通并完整实现**平台中心模式 (Platform-Centric Mode)**，快速跑通端到端核心用例，实现业务闭环。
-  - **下一阶段**：全面落地支持**业务中心模式 (Business-Centric Mode)**。虽然该模式在本阶段暂不交付，但**当前阶段的 L1 架构与 SPI 接口设计必须前置深度考虑该模式的隔离和多态调用语义**，确保未来切换时业务零改动。
+  - **下一阶段**：全面落地支持**业务中心模式 (Business-Centric Mode)**。虽然该模式在本阶段暂不交付，但**当前阶段的 L1 架构与 SPI 接口设计必须前置深度考虑该模式 Rar 隔离和多态调用语义**，确保未来切换时业务零改动。
 
 ### 1.3 设计原则与核心形态
 `agent-service` 在 L1 层的设计中必须严格遵循以下原则，以支撑核心的智能体形态和业务演进诉求：
@@ -64,6 +64,13 @@ status: proposed
   - *在业务中心模式下*：内部事件队列可采用高效的**内存级队列**（如 JVM Reactor Sinks），实现高性能紧凑部署。
   - *在平台中心模式下*：为了保障服务层完全无状态（Stateless）、支持极致的水平弹性缩容，内部事件队列与任务状态需接入外部分布式缓存或进行**半持久化处理（Semi-persistence）**。
 
+#### 1.3.5 A2A 多智能体协同与双向对等网络（Agent-to-Agent Network）
+- **对等双向调用（A2A P2P Invocations）**：`agent-service` 服务层不再是单向的 API 提供者，它同时具备 **A2A 服务端（A2A Server）**与 **A2A 客户端（A2A Client）**的双重角色。各智能体服务不仅对外提供服务，还必须有能力作为客户端调用其他智能体服务。
+- **全场景协同适配**：
+  - *空间维度*：支持同节点内（Intra-node）进程级方法互调，亦支持跨节点（Cross-node）跨网络的 A2A 分布式调用。
+  - *生命周期维度*：支持实时动态拆分与派生的子智能体（Dynamic Sub-agents）的临时协作与生命周期纳管，也支持与预先存在的、长时生存的独立智能体（Long-lived Agents）之间的平级协作。
+- **谷歌 `a2a-java` 协议栈集成**：底层统一引入 A2A 协议标准，通过谷歌官方 Java 实现的 **`a2a-java`** SDK 封装端到端的握手、通道建链、多路由管理及会话关联，确保协议级标准化。
+
 ## 2. 场景视图 (Scenarios View)
 本设计方案覆盖的核心业务运作场景如下：
 
@@ -75,12 +82,16 @@ status: proposed
 - **典型链路**：业务侧下发复杂决策任务 -> `agent-service` 判断当前智能体为存量 or 异构运行态实例 -> 派发器（Dispatcher）切换到服务化模式 -> 通过 A2A 总线或 RPC 调用客户自建的、异构运行的外部引擎实例 -> 接收执行状态、返回控制流。
 - **适用场景**：企业级混部场景。客户已存在运行中的私有智能体，需要平滑接入统一的平台总线治理框架。
 
+### 2.3 跨节点多智能体 A2A 异步协同场景
+- **典型链路**：主智能体 A 执行任务中途遇到瓶颈 -> A 的服务层拉起并调用 A2A 客户端组件 -> 基于 `a2a-java` 发起跨节点远程调用，向智能体 B 的 A2A 服务端投递协作子任务 -> 智能体 A 脱水挂起 -> 智能体 B 计算完毕回调 A 的 A2A 端口 -> 智能体 A 唤醒并复原上下文，继续执行至完结。
+
 ## 3. 逻辑视图 (Logical View)
 实现双模态调用的核心逻辑组件设计：
 
 ### 3.1 多态派发器 (Polymorphic Dispatcher)
 - 智能体调用的统一物理入口。它根据注册表配置，判断当前被调用的智能体类型 and 运行环境。
 - 提供本地分支（`LocalDirectExecutor`）和服务化远程分支（`RemoteServiceExecutor`）的两路多态派发，向北向调用方屏蔽底层的部署差异。
+- **集成 A2A 路由**：当识别到目标调用地址为异构/跨节点的其他智能体时，自动转由内置的 A2A 客户端管道进行协议封包与跨节点派发。
 
 ### 3.2 引擎适配器 (Engine Adapter)
 - 屏蔽 Workflow（图）与 ReAct（循环）引擎的具体执行语义，抽象出统一的无状态计算接口。
@@ -91,6 +102,11 @@ status: proposed
 - **多态存储底层实现（Polymorphic Queue Storage）**：
   - *内存级事件队列（Memory-based Queue）*：服务内基于 Project Reactor Sinks / Disruptor 构建，直接打通内存级订阅消费。
   - *分布式缓存/半持久化队列（Semi-persistent Queue）*：对接 Redis List 或外部轻量级 Task Store，存储当前挂起和执行中的 Task 状态，确保在平台中心模式下的多实例水平伸缩和节点漂移时，任务状态不丢失、计算不中断。
+
+### 3.4 A2A 协议收发引擎组件（A2A Connector）
+- 引入谷歌 **`a2a-java`** SDK，在服务层内部集成对等的 Client/Server 组件：
+  - **A2A Server 端接口**：监听并在 `api/` 北向层统一收口，负责接收来自其他智能体（跨节点或进程内）发起的对等 A2A 协作请求。
+  - **A2A Client 客户端接口**：提供统一的 outbound 路由套接字，供执行引擎或编排器向远端智能体投递协作包（Envelopes）。
 
 ## 4. 进程视图 (Process View)
 聚焦于任务的状态流转与非阻塞响应式背压流控：
@@ -106,16 +122,30 @@ status: proposed
    - *平台中心模式*：服务层自动将 `StateDelta` 及执行进度脱水，同步存储至共享缓存/轻量数据库，随后当前服务节点即可释放物理计算线程，维持完全无状态特征。
    - *业务中心模式*：直接在 JVM 进程内存或本地轻量存储中完成状态更新。
 
+### 4.2 跨节点多智能体协作与中断唤醒链路 (A2A Collaboration Loop)
+1. **协作请求外发（Spawn/Call）**：
+   - 智能体 A 在执行逻辑中发起子智能体拆分，或发起与其他智能体协作的请求。
+   - 适配器拦截指令，触发 A2A 客户端使用 `a2a-java` 向智能体 B 的 A2A 服务端口投递异步请求包。
+2. **脱水等待（Dehydrated Suspend）**：
+   - 智能体 A 在 `agent-service` 中产生标准的 `Yield` 信号。
+   - 协调器对 A 当前的运行态、上下文和 Session 数据进行物理脱水，落盘至 Task Store。
+   - A 所在的计算进程与线程立即释放归还线程池。
+3. **异步唤醒（Rehydrated Resume）**：
+   - 智能体 B 计算完毕后，调用 A2A 客户端向智能体 A 回传响应包。
+   - 智能体 A 的 A2A 接收服务捕获回调，协调器依据包内的 `TaskID` 在 Task Store 中对智能体 A 重新吸水（Rehydrate）复原上下文。
+   - 将任务重新丢入内部事件队列排队，拉起执行线程继续执行。
+
 ## 5. 开发视图 (Development View)
 
 ## 6. 物理视图 (Physical View)
 双模态集成在部署上的拓扑映射：
 
 ### 6.1 共进程内聚部署拓扑 (Embedded Deployment)
-- `agent-service.jar` 与 `agent-execution-engine.jar` 作为一个进程（如一个 Pod 或边缘容器）整体打包，共享同一物理运行空间。内部事件队列和任务控制状态全部托管在 JVM 堆内存中，零网络开销。
+- `agent-service.jar` 与 `agent-execution-engine.jar` 作为一个进程（如一个 Pod 或边缘容器）整体打包，共享同一物理运行空间。内部事件队列和任务控制状态全部托管在 JVM 堆内存中，零网络开销。 A2A 调用在此拓扑下自动降级为高效的内存进程间方法调用。
 
 ### 6.2 存量解耦/异构微服务部署拓扑 (Decoupled Service Deployment)
 - `agent-service` 作为主管控实例集中部署，通过网络（总线/网关）连接独立的、在边缘或客户内网运行的 `agent-execution-engine` 集群或存量第三方智能体执行实例。
 - **多实例无状态模式**：多台 `agent-service` 管控节点共享外部的 Redis 缓存集群和关系/文档数据库（Task Store）。内部事件队列被拉偏至外部中间件实现（或通过 NATS 衔接），节点任意水平伸缩。
+- **A2A 对等网络组网**：各 `agent-service` 服务实例对外暴露 A2A Listener 端口，利用 `a2a-java` 在分布式环境中构建对等图谱网络，通过 A2A 总线交换异步协作数据。
 
 ## 7. 附录：核心 SPI 接口 (Appendix: Core SPI Interfaces)
