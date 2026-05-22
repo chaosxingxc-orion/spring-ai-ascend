@@ -9,7 +9,7 @@ package com.huawei.ascend.service.runtime.resilience.spi;
  *   ({@code @CircuitBreaker}, {@code @Retry}, {@code @TimeLimiter}) using the resolved policy names.
  *   Spring {@code @ConfigurationProperties} wiring is deferred to W2.</li>
  *   <li><b>Skill-capacity axis</b> ({@link #resolve(String, String)}, W1.x Phase 9+): tenant + skill
- *   admission.b). Consults
+ *   admission. Consults
  *   {@code docs/governance/skill-capacity.yaml} via {@link SkillCapacityRegistry}.</li>
  * </ul>
  *
@@ -50,6 +50,6 @@ public interface ResilienceContract {
     default SkillResolution resolve(String tenant, String skill) {
         throw new UnsupportedOperationException(
                 "Two-arg resolve(tenant, skill) requires DefaultSkillResilienceContract "
-                        + "(Rule R-K (legacy 41.b) activation.");
+                        + "(Rule R-K skill-capacity activation).");
     }
 }

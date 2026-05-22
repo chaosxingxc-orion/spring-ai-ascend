@@ -14,7 +14,7 @@ import java.util.Optional;
  *
  * <p>A2A protocol state vocabulary alignment per
  * {@code docs/contracts/a2a-envelope.v1.yaml} (contract-only adoption;
- * NO SDK runtime dep.
+ * NO SDK runtime dep).
  *
  * @param taskId     unique task identifier.
  * @param tenantId   mandatory per Rule R-C.c.

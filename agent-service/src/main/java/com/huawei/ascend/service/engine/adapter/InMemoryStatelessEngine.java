@@ -37,10 +37,10 @@ public class InMemoryStatelessEngine implements StatelessEngine {
         // service.engine.adapter sub-package as adapters over
         // ExecutorAdapter (from agent-execution-engine).
         //
-        // use HashMap instead of Map.of(...). The runId is
-        // already non-null per the AgentInvokeRequest canonical constructor
-        //, but defence-in-depth: Map.of's null-value rejection would
-        // throw NPE if any future field added here is nullable.
+        // Use HashMap instead of Map.of(...). The runId is already non-null
+        // per the AgentInvokeRequest canonical constructor, but defence-in-
+        // depth: Map.of's null-value rejection would throw NPE if any future
+        // field added here is nullable.
         Map<String, Object> metrics = new HashMap<>();
         metrics.put("engine", "InMemoryStatelessEngine");
         metrics.put("request_id", request.runId());
