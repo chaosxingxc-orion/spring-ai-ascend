@@ -48,9 +48,11 @@ The reviewer's `SpawnEnvelope` ask is therefore not just a naming consolidation 
 | `SwarmJoinPolicy` | Alias at L0 contract level | `JoinPolicy: ALL \| ANY \| N_OF` (ADR-0019 §4 #19) inside `SuspendReason.AwaitChildren`. The L0 contract name is `SwarmJoinPolicy`; the Java type remains `JoinPolicy`. |
 | `CrossWorkflowHandoff` | **New L0 contract**; explicit escape-hatch from the workflow-authority invariant | When child execution genuinely belongs to a different workflow authority (e.g. handoff to an external Temporal workflow, a peer Agent Service instance under a different tenant's quota, an off-platform partner system), a `CrossWorkflowHandoff` MUST be performed. The handoff produces (a) a new lifecycle boundary, (b) a fresh resume contract, (c) explicit ownership transfer (the parent run no longer aggregates terminal-state from the handed-off child), (d) audit-grade attestation. **W0 status: design-only**; Java type deferred to W2. |
 
-### The 15-dimension `SpawnEnvelope` field set
+### The 16-dimension `SpawnEnvelope` field set
 
-Each dimension is REQUIRED to be defined on the envelope. Implementation status is per dimension:
+Each dimension is REQUIRED to be defined on the envelope. Implementation status is per dimension.
+
+**Dimension 16 amendment (2026-05-22).** Originally enumerated 15 dimensions; row 16 (`ancestorRunIds`) added per the parent-chain acyclicity refinement in §4 #51 — see "Parent-chain acyclicity" subsection below. The original 15-dimension wording in §4 #51 quoted prose (line 92 below) is preserved as the rule's source text but the canonical field set is 16 rows.
 
 | # | Dimension | Source authority | W0 today | Wave status |
 |---|-----------|------------------|----------|-------------|
@@ -69,8 +71,19 @@ Each dimension is REQUIRED to be defined on the envelope. Implementation status 
 | 13 | `memoryOwnershipScope` (C-Side / S-Side / delegated) | §4 #49 (ADR-0051) | ❌ No accessible-memory marker on child | W2 contract |
 | 14 | `idempotencyContext` | §4 #4 (ADR-0027) | ⚠️ Child gets fresh `null` | W1 promotion |
 | 15 | `observabilityTags` (Micrometer + audit) | §4 #14 + §4 #22 (ADR-0023) | ⚠️ Edge-only at W0; per-span propagation W1+ | W1 / W2 |
+| 16 | `ancestorRunIds` (max-depth 8, parent-propagated; parent-chain acyclicity guard) | §4 #51 (this ADR, 2026-05-22 amendment) | ❌ Not in W0 SPI — `RunContext.suspendForChild` has no ancestor list | W2 (same Java-type trigger as `SpawnEnvelope`); federation attestation deferred per follow-up ADR |
 
 Each dimension is tracked as a row in `docs/governance/architecture-status.yaml`. Where the dimension is already covered by an existing capability row (e.g. `tenant_context_filter`, `causal_payload_envelope`), this ADR cross-references; where the dimension is a new gap, a new row is added.
+
+### Parent-chain acyclicity (dimension 16)
+
+The 16th dimension `ancestorRunIds` carries the parent-chain identifiers so the orchestrator can reject a spawn whose requested child run-id appears in the list — preventing same-instance Run cycles. The W2 contract (when `SpawnEnvelope` Java type ships):
+
+- Max-depth: 8. When the chain exceeds 8, the orchestrator MUST either (a) reject the spawn with a named `OrchestratorReject(reason=ancestor_chain_overflow)`, or (b) require promotion to `CrossWorkflowHandoff`. Decision deferred to the W2 implementation ADR.
+- Detection point: at SpawnEnvelope construction (builder validates list membership against requested child-run-id; checks child-tenant equality; checks chain depth).
+- Reason enumeration (full set, matching §4 #51 amendment): `OrchestratorReject(reason ∈ {child_tenant_mismatch, ancestor_chain_overflow, ancestor_cycle_detected, cross_instance_chain_disagreement})`. The first three are SpawnEnvelope-builder-detected (same-instance); `cross_instance_chain_disagreement` is federation-receiving-orchestrator-detected and emitted when caller-supplied `ancestor_run_ids` (advisory) and `RunRegistry.getAncestors(...)` (trusted) disagree.
+- Error path: orchestrator-reject path emits a structured `WARN+` audit log carrying `(parentRunId, requestedChildRunId, ancestor_run_ids_advisory, ancestor_run_ids_trusted, reason, actor, occurredAt)` MDC fields, analogous to Rule R-J sub-clause .b cancel-mismatch audit shape.
+- Federation gap (R2-NEW-1 / R2-NEW-2): the list is parent-propagated and unsigned. Cross-instance federation cannot trust a peer-supplied ancestor list — a malicious or buggy peer can truncate the list (depth-8 limit) or omit entries to defeat cycle detection. Federation attestation (signed per-hop ancestor chains, or central `RunRegistry` ancestor reconstruction, or two-phase admission) is **deferred to a follow-up ADR** before SWARM cross-instance spawn lands. The W2 invariant holds same-instance only; cross-instance enforcement is explicitly out-of-scope until the federation ADR.
 
 ### The 5-boundary authority-transfer taxonomy
 

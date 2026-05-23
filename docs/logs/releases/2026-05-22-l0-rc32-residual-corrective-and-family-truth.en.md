@@ -72,6 +72,8 @@ Per the rc13 release-note 2-column (canonical Count + Delta) convention introduc
 
 Graph node/edge deltas confirmed via `python gate/build_architecture_graph.py` live rebuild (442 nodes / 743 edges).
 
+> **rc32 snapshot — historical artifact frozen at this wave.** Subsequent waves bump these counts. The 2026-05-22 architecture-design document-review R2 wave (ADR-0106 + ADR-0107) bumped graph counts to 447 nodes / 756 edges; see `docs/governance/architecture-status.yaml#baseline_metrics` for the current truth and `docs/logs/reviews/2026-05-22-architecture-design-document-review-r1-r2.en.md` for the wave context.
+
 ## Four Competitive Pillars
 
 This wave is a corrective wave — does not alter the four-pillar competitive baseline. Per Rule R-B (Competitive Baselines Required):

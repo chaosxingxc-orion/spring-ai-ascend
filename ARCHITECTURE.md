@@ -33,7 +33,19 @@ Per-module `agent-*/ARCHITECTURE.md` files are **L1**; deep technical designs un
 
 ## 1. System boundary
 
-`spring-ai-ascend` is a self-hostable agent runtime architecture for financial-services operators (the term "agent runtime" used here is the generic system class; the pre-Phase-C `agent-runtime` Maven module has since been consolidated into `agent-service` + the shared kernel module `agent-runtime-core` per ADR-0078 / ADR-0079). The system boundary below is split into the **target architecture** (the W1–W4 product contract) and the **W0 shipped subset** (what runs today). All target-architecture sentences are written in target tense; W0 shipped behavior is enumerated separately below and in `§5`.
+`spring-ai-ascend` is a self-hostable agent runtime architecture targeting two audiences in a stepped sequence (declared in §1.1 below). The term "agent runtime" used here is the generic system class; the pre-Phase-C `agent-runtime` Maven module has since been consolidated into `agent-service` + the shared kernel module `agent-runtime-core` per ADR-0078 / ADR-0079. The system boundary below is split into the **target architecture** (the W1–W4 product contract) and the **W0 shipped subset** (what runs today). All target-architecture sentences are written in target tense; W0 shipped behavior is enumerated separately below and in `§5`.
+
+### 1.1 Audience boundary (2026-05-22)
+
+The platform targets two distinct audiences in W0–W2 + W3+ sequence; the active design must satisfy BOTH audiences without compromising either. Misreading §1 as targeting a single audience produces false-negative reviews of governance choices.
+
+**Audience A — framework-internal contributors (W0/W1/W2 primary).** Engineers building the platform's SPI surface, gate rules, and contract catalog. They consume `ARCHITECTURE.md`, the 65 §4 constraints, the ~155 enforcer rows, the ~90 ADRs, and `docs/governance/architecture-status.yaml` directly. The high governance / low surface-area baseline (per the rationale below) is calibrated for this audience.
+
+**Audience B — external Spring developers (W0/W1/W2 secondary; W2/W3 primary).** Engineers integrating the platform into their own Spring Boot 4 + Java 21 applications. They consume `agent-client` SDK + `ChatClient` / `VectorStore` / MCP adapter shapes + `docs/quickstart.md`. Their developer-ergonomics surface lands at W2 (Hook SPI + LLM gateway un-freeze) and W3 (`agent-client` SDK GA per ADR-0063). At W0/W1 their surface is intentionally narrow.
+
+**Audience C — financial-services vertical operators (W3+ deferred).** Self-host operators in regulated industries (FSI as the lead vertical; future verticals candidate). They consume packaged appliances, compliance reports, FIPS-attested builds, and tamper-evident audit. Their surface is W3+ vertical scope, not W0/W1/W2 baseline. Strategic positioning of the W3+ vertical (FSI vs alternatives) is **tracked separately** at `architecture-status.yaml#strategic_decisions.audience_w3_vertical_positioning`; the FSI references throughout active ADRs and `README.md` reflect this vertical, not the W0/W1/W2 audience.
+
+**Rationale for governance-first refinement allocation.** The platform builds the contract surface (Audience A scaffolding) ahead of shipped code by design — refactoring contracts is more expensive than refactoring W0 code, and Audience B + C surfaces are stable functions of the contract surface. The 5 R1 refinement edits (2026-05-22 review) landing exclusively on internal-governance artefacts reflects this allocation, not a misprioritization. See `docs/logs/reviews/2026-05-22-architecture-design-document-review-r1-r2-response.en.md` §"Family α + Family β + META rebuttal" for full reasoning.
 
 **Target architecture (W1–W4).** The W1–W4 product accepts authenticated tenant HTTP requests, drives LLMs through a tool-calling loop with audit-grade evidence, and persists durable side effects through an idempotent outbox. Built on Spring Boot 4.0.5 + Java 21.
 
@@ -91,8 +103,8 @@ its 16 sources to the modules that semantically own them:
 - `Run` / `RunStatus` / `RunStateMachine` / `RunRepository` / `IdempotencyRecord`
   back to **agent-service** (same `com.huawei.ascend.service.runtime.{runs,idempotency}`
   packages they had pre-T2.B2).
-- `RunMode` + the 6 orchestration SPI types
-  (`Checkpointer` / `Orchestrator` / `RunContext` / `SuspendSignal` / `TraceContext` /
+- `RunMode` (enum discriminator: `GRAPH` | `AGENT_LOOP`) plus the 6 orchestration SPI
+  interfaces (`Checkpointer` / `Orchestrator` / `RunContext` / `SuspendSignal` / `TraceContext` /
   `ExecutorDefinition`) into **agent-execution-engine** under
   `com.huawei.ascend.engine.orchestration.spi` — co-locating the orchestration
   vocabulary with the engine that discriminates on it (semantically natural
@@ -150,7 +162,7 @@ spring-ai-ascend/
     src/main/java/com/huawei/ascend/middleware/
       HookDispatcher.java                      # moved here from agent-runtime/engine/ (T2.B1)
       spi/                                     # moved here from agent-runtime/orchestration/spi/ (T2.B1)
-        HookPoint.java                         # 9-value enum mirroring docs/contracts/engine-hooks.v1.yaml
+        HookPoint.java                         # 10-value enum mirroring docs/contracts/engine-hooks.v1.yaml (includes `on_yield` per ADR-0100)
         HookContext.java
         HookOutcome.java                       # sealed: Proceed | ShortCircuit | Fail
         RuntimeMiddleware.java                 # @FunctionalInterface
@@ -188,6 +200,9 @@ spring-ai-ascend/
         idempotency/                           # IdempotencyRecord — Rule R-C.c contract spine (relocated from agent-runtime-core per ADR-0088)
         resilience/                            # impls: DefaultSkillResilienceContract, YamlResilienceContract, YamlSkillCapacityRegistry — SPI types moved to .spi/ per ADR-0080
           spi/                                 # ResilienceContract, ResiliencePolicy, SkillResolution, SuspendReason, SkillCapacityRegistry (extracted per ADR-0080, 2026-05-18)
+      engine/                                  # Service-side engine SPI surface (ADR-0100 stateless-engine contract; sibling to agent-execution-engine `engine.spi.*`)
+        spi/                                   # StatelessEngine — pure-function compute boundary SPI
+        adapter/                               # InMemoryStatelessEngine — reference adapter; W0+ posture-gated
         orchestration/inmemory/                # Reference adapters (posture-gated dev defaults): InMemoryCheckpointer, InMemoryRunRegistry, SyncOrchestrator, SequentialGraphExecutor, IterativeAgentLoopExecutor
         s2c/                                   # InMemoryS2cCallbackTransport — reference impl consuming the S2C SPI relocated to agent-bus per ADR-0088
         memory/spi/                            # GraphMemoryRepository — interface only (W1+; ADR-0034/0082).
@@ -253,7 +268,7 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
 | Component | Version | Role |
 |---|---|---|
 | Spring Boot | 4.0.5 | HTTP server, DI container, actuator |
-| Spring AI | 2.0.0-M5 | ChatClient, VectorStore, MCP adapters |
+| Spring AI | 2.0.0-M5 (milestone; not GA) | ChatClient, VectorStore, MCP adapters — `gate/check_spring_ai_milestone.sh` enforces re-evaluation by 2026-08-01; see `docs/cross-cutting/oss-bill-of-materials.md` §3.1. W2 LLM-gateway surfaces consuming `ChatClient`/Advisor APIs (§4 #16, §4 #56) are most exposed to API drift between M5 and GA |
 | Spring Security | 6.x | JWT filter chain, SecurityFilterChain |
 | Spring Cloud Gateway | see parent POM (`spring-cloud.version`) | Edge routing (W2) |
 | MCP Java SDK | see parent POM (`mcp.version`) | Tool protocol (W3) |
@@ -328,8 +343,19 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
    New glue must answer "why is this not a configuration of an existing OSS dep?"
    Glue LOC target ≤ 1 500 at W0 close.
 
-7. **SPI purity**: SPI interfaces under `com.huawei.ascend.service.runtime.*.spi.*`
-   import only `java.*`. No Spring, Micrometer, or platform types in SPIs.
+7. **SPI purity**: SPI interfaces under every `*.spi.*` package across modules
+   (`com.huawei.ascend.service.runtime.*.spi.*`, `com.huawei.ascend.service.engine.spi.*`,
+   `com.huawei.ascend.engine.{spi,orchestration.spi}.*`,
+   `com.huawei.ascend.bus.spi.{ingress,s2c}.*`, `com.huawei.ascend.middleware.spi.*`,
+   `com.huawei.ascend.evolve.spi.*`, `com.huawei.ascend.client.spi.*`) import only `java.*`,
+   same-spi-package siblings, AND a documented narrow cross-spi allowlist. The cross-spi
+   allowlist is **size-capped at ≤5 entries**; any addition requires an ADR and a matching
+   gate-rule fixture update (Rule G-11.b candidate). Currently 2 entries:
+   (a) `engine.orchestration.spi` may reference kernel `runs.*` + `runs.spi.*` domain types;
+   (b) `engine.spi` may reference `middleware.spi.HookPoint`. No Spring, Micrometer, or platform
+   types in any SPI. Enforced by `OrchestrationSpiArchTest`, `MemorySpiArchTest`,
+   `SpiPurityGeneralizedArchTest`, and (W2+) gate rule `cross_spi_allowlist_size_cap`;
+   comprehensive enumeration above in §2 module dependency direction.
 
 8. **Per-operation resilience routing**: `ResilienceContract` maps `operationId`
    (e.g. `"llm-call"`, `"vector-search"`) to a `ResiliencePolicy(cbName, retryName, tlName)`.
@@ -396,17 +422,32 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
     MUST become named `CapabilityRegistry` entries resolved by name, not inline closures
     (`capability_registry_spi`, `executor_definition_serialization`).
 
-16. **Runtime Hook SPI.** Every LLM invocation, tool call, and agent lifecycle boundary flows
-    through a hook chain. Hook positions: `PRE_LLM_CALL` / `POST_LLM_CALL` / `PRE_TOOL_INVOKE` /
-    `POST_TOOL_INVOKE` / `PRE_AGENT_TURN` / `POST_AGENT_TURN`. Hooks are pluggable `@Bean`s
-    implementing typed `RuntimeHook` interfaces; the chain is ordered and failsafe (hook failure
-    logs at `WARNING+` and does not abort the invocation). Reference hooks shipped in W2: PII
-    filter, token counter, summariser, tool-call-limit. Direct LLM/tool calls that bypass
-    `HookChain` are a gate-blocking defect (Rule 19 — deferred W2; `HookChain` SPI and
-    `HookChainConformanceTest` do not exist at W0). Hooks are the sole emission path
-    for `LlmCall` and middleware spans per §4 #56 and ADR-0061 §7; the Telemetry
-    Vertical's `LlmSpanEmitterHook` and `ToolSpanEmitterHook` reference hooks ship in
-    the same W2 commit that un-freezes this constraint.
+16. **Runtime Hook SPI.** Every LLM invocation, tool call, memory access, suspension, resume,
+    and error boundary flows through a hook chain. The canonical 10 hook positions (single
+    source of truth: `docs/contracts/engine-hooks.v1.yaml`) are:
+    `BEFORE_LLM_INVOCATION` / `AFTER_LLM_INVOCATION` /
+    `BEFORE_TOOL_INVOCATION` / `AFTER_TOOL_INVOCATION` /
+    `BEFORE_MEMORY_READ` / `AFTER_MEMORY_WRITE` /
+    `BEFORE_SUSPENSION` / `BEFORE_RESUME` / `ON_ERROR` / `ON_YIELD` (last added rc22 per
+    ADR-0100). Hooks are pluggable `RuntimeMiddleware` beans dispatched by
+    `agent-middleware.HookDispatcher`; the chain is **ordered** (registration order; lower
+    `@Order` fires earlier; `BEFORE_*` ascending, `AFTER_*` reverse — LIFO unwind) and exhibits
+    **two-level failure semantics**: (a) **fail-fast inside the chain** — a non-`Proceed`
+    outcome (`ShortCircuit` or `Fail`) stops subsequent middlewares for the same `HookPoint`;
+    (b) **failsafe at the invocation boundary today (W0/W2.x)** — `Fail` outcomes are
+    DISCARDED by `SyncOrchestrator` per `engine-hooks.v1.yaml` `outcome_consumption_status:
+    design_only`, so the surrounding LLM/tool invocation does not abort. The Rule R-M.c.b
+    (formerly Rule 45.b) target wires `Fail` → `Run.FAILED` and `ShortCircuit` → engine
+    bypass; that escalation activates with the W2 Telemetry Vertical. `ON_ERROR` is
+    `best_effort` per `engine-hooks.v1.yaml#failure_propagation.per_hook` — it always fires
+    the full chain to avoid masking the original error. Reference hooks shipped in W2: PII
+    filter, token counter, summariser, tool-call-limit, `LlmSpanEmitterHook`,
+    `ToolSpanEmitterHook`. Direct LLM/tool calls that bypass `HookChain` are a gate-blocking
+    defect (Rule 19 — deferred W2; `HookChain` SPI and `HookChainConformanceTest` do not exist
+    at W0). Hooks are the sole emission path for `LlmCall` and middleware spans per §4 #56 and
+    ADR-0061 §7. `@Order` tie-breaking (two hooks declaring the same `@Order` value) is
+    resolved by `Class.getName()` lexicographic order — deterministic and reproducible across
+    JVMs.
 
 17. **Graph DSL conformance.** `ExecutorDefinition.GraphDefinition` MUST support beyond W2:
     (a) per-key `StateReducer` registry (`OverwriteReducer` — last-write-wins; `AppendReducer` —
@@ -446,7 +487,15 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
     `RunStateMachine.validate(from, to)`, throwing `IllegalStateException` on illegal transitions
     (Rule R-C.d, enforced at W0). Idempotency: `cancel` on already-cancelled run returns 200 + same row;
     `cancel` on `SUCCEEDED`/`EXPIRED` returns 409. Every transition writes a `run_state_change` audit
-    row (W2); optimistic lock (`version` field) required before W2 Postgres. See ADR-0020.
+    row (W2); optimistic lock (`version` field) required before W2 Postgres. **Known W0 limitation**:
+    in the W0 in-memory tier, `Run.withStatus()` validates the DFA but does not serialise concurrent
+    HTTP cancel + orchestrator resume on the same Run; last `RunRepository.save()` wins. **Two-phase
+    migration W1.5 → W2 (per ADR-0106)**: at W1.5 the `Run` record gains a `long version` field
+    (default 0; no behavioural change — saves leave it untouched), so pre-W2 in-flight rows already
+    carry a usable version when the W2 CAS check arms. At W2 the Postgres tier enables CAS on
+    `RunRepository.save(run)` (rejected if `persisted.version != run.version() - 1`); migration is
+    a no-op for in-flight Runs because the W1.5 field is already populated. Integration test
+    `RunCancelDuringResumeRaceIT` arms the invariant in W2. See ADR-0020 + ADR-0106.
 
 21. **Typed payload + PayloadCodec SPI.** Every payload crossing a JVM boundary (checkpoint bytes,
     resume payload, streaming event) MUST be encoded via a registered `PayloadCodec<T>` with stable
@@ -817,7 +866,27 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
     `HydrationRequest`/`ResumeEnvelope`; Parent→Child Run via `SpawnEnvelope`; Run→Skill via
     `PermissionEnvelope`; Cross-Workflow via `CrossWorkflowHandoff`); each boundary has a
     named carrier and implicit transfer is forbidden. Per-dimension implementation status
-    is tracked in `docs/governance/architecture-status.yaml`. See ADR-0053.
+    is tracked in `docs/governance/architecture-status.yaml`. **Child-tenant equality
+    invariant (W2 — when SpawnEnvelope Java type ships)**: every `SpawnEnvelope` MUST set
+    `child.tenantId == parent.tenantId`; cross-tenant delegation is forbidden inside the same
+    workflow authority and MUST flow through `CrossWorkflowHandoff` with an explicit
+    authority-transfer attestation. **Parent-chain acyclicity (W2 — same Java-type trigger;
+    federation reconstruction per ADR-0107)**: every `SpawnEnvelope` carries an
+    `ancestor_run_ids` list (max-depth 8, parent-propagated) and the orchestrator MUST reject
+    any spawn whose requested child run-id appears in `ancestor_run_ids` — closes the
+    same-instance cycle case. Cross-instance federation MUST NOT trust the caller-supplied
+    list; instead the receiving Agent Service instance reconstructs the ancestor chain by
+    querying a central `RunRegistry` keyed by `parentRunId` (per ADR-0107). Caller-supplied
+    `ancestor_run_ids` is treated as advisory at federation boundaries; the trusted chain is
+    server-side state. **Error code + detection point + audit shape (R2-NEW-secondary-#2)**:
+    invariant violations raise a named `OrchestratorReject(reason)` where `reason ∈
+    {child_tenant_mismatch, ancestor_chain_overflow, ancestor_cycle_detected,
+    cross_instance_chain_disagreement}`; detection point is the `SpawnEnvelope` builder
+    (`child_tenant_mismatch`, `ancestor_chain_overflow`, `ancestor_cycle_detected`) and the
+    federation receiving-orchestrator (`cross_instance_chain_disagreement`); reject emits a
+    structured `WARN+` audit log carrying MDC fields `(parentRunId, requestedChildRunId,
+    ancestor_run_ids_advisory, ancestor_run_ids_trusted, reason, actor, occurredAt)` —
+    mirrors Rule R-J sub-clause .b cancel-mismatch audit shape. See ADR-0053 + ADR-0107.
 
 52. **Long-Connection Containment.** Long-running agent calls MUST be admitted through a
     bounded runtime-resource model. The architecture MUST NOT assume one logical call equals

@@ -1,0 +1,227 @@
+id: ADR-0107
+title: "Federation acyclicity — central RunRegistry ancestor reconstruction (caller list advisory)"
+status: accepted
+date: 2026-05-22
+level: L0
+view: physical
+affects_level: L0
+affects_view: physical
+authors:
+  - chao
+relates_to:
+  - ADR-0053
+  - ADR-0050
+  - ADR-0098
+extends:
+  - ADR-0053
+context: |
+  The 2026-05-22 architecture-design document-review R2 surfaced a
+  load-bearing gap in the §4 #51 parent-chain acyclicity invariant
+  added during the R1 refinement.
+
+  The refinement introduced a 16th SpawnEnvelope dimension
+  `ancestor_run_ids` (parent-propagated, max-depth 8) with the rule
+  that the orchestrator MUST reject any spawn whose requested child
+  run-id appears in the list. The invariant closes same-instance Run
+  cycles cleanly — the orchestrator owns its own chain authoritatively.
+
+  Adversarial review R2-NEW-1 + R2-NEW-2 (confidence 0.85) constructed
+  the cross-instance federation failure scenario:
+
+  - Instance A holds R1 → R2 → R3. R3 issues SpawnEnvelope to instance
+    B for R4 with `ancestor_run_ids = [R3, R2, R1]`.
+  - Instance B accepts. R4 later issues SpawnEnvelope back to instance
+    A for R5.
+  - Instance A receives a SpawnEnvelope whose `ancestor_run_ids` was
+    constructed by instance B. B may have:
+    - truncated entries beyond depth 8 (silent loss);
+    - omitted entries (buggy implementation, malicious peer);
+    - falsely-attributed entries (audit-trail forgery).
+  - Instance A's membership check `requested_child_run_id ∉
+    ancestor_run_ids` passes because the chain was tampered.
+  - Cycle forms across instances; no local orchestrator detected it.
+
+  The federation case requires a trust model the caller-propagated
+  approach cannot supply. Two design directions were evaluated during
+  the R2 review-response cycle:
+
+  (A) Cryptographic attestation — sign per-hop ancestor chains with
+      each instance's key; receiving instance verifies the chain
+      against a known key distribution surface.
+  (B) Central RunRegistry — federation has no caller-supplied ancestor
+      list; receiving instance queries a server-side authority for the
+      ancestor chain by parent run-id.
+
+  The user-selected direction (2026-05-22 review-response choice) is
+  (B) — central reconstruction. Rationale: avoids cryptographic
+  infrastructure (key distribution, rotation, revocation), keeps the
+  trust surface inside the platform's own persistence layer, and aligns
+  with the existing `architecture-status.yaml` ledger pattern where
+  authority is the central yaml + repository.
+
+decision: |
+  **Cross-instance federation MUST NOT trust the caller-supplied
+  `ancestor_run_ids` field on SpawnEnvelope.** Instead, the receiving
+  Agent Service instance reconstructs the ancestor chain by querying a
+  central `RunRegistry` keyed by `parentRunId`.
+
+  **Same-instance behaviour (W2, per ADR-0053):** the orchestrator
+  reads its own ancestor list from the in-memory or local Postgres
+  RunRepository; the caller-supplied list and the server-side list
+  agree by construction because the orchestrator owns both ends. No
+  RunRegistry query needed.
+
+  **Cross-instance behaviour (post-federation-wave, deferred from W2):**
+  when SpawnEnvelope crosses an instance boundary, the receiving
+  orchestrator:
+
+  1. Treats the caller's `ancestor_run_ids` field as **advisory**
+     (logged for diagnostic correlation but not load-bearing for the
+     cycle check).
+  2. Reads `parentRunId` from the envelope.
+  3. Queries `RunRegistry.getAncestors(parentRunId)` — a new SPI
+     defined below — to obtain the trusted server-side ancestor chain.
+  4. Performs the cycle check (`requested_child_run_id ∉
+     trusted_ancestor_chain`) against the trusted chain.
+  5. Rejects on cycle; logs both the trusted chain AND the caller's
+     advisory chain in the audit envelope; structured `WARN+` audit
+     log if the two disagree (tamper signal).
+
+  **`RunRegistry` SPI shape (W3 — defined here, implemented when
+  federation ships):**
+
+  - Package: `com.huawei.ascend.bus.spi.federation` (existing per
+    ADR-0101).
+  - Interface: `RunRegistry`.
+  - Methods:
+    - `Optional<Run> findByRunId(UUID runId)` — single-row lookup.
+    - `List<UUID> getAncestors(UUID runId)` — reconstruct the ancestor
+      chain root-ward; depth-limited to 8 with explicit overflow
+      semantics (see below).
+    - `boolean isAncestor(UUID candidateAncestor, UUID runId)` —
+      optimized membership predicate used by the federation cycle
+      check.
+  - Implementations: the W3+ reference impl reads from the shared
+    Postgres tier (W2 durability); future impls may layer caching.
+
+  **Depth-limit overflow semantics (resolves R2-N4 / R2-NEW from
+  feasibility review).** When the ancestor chain exceeds depth 8:
+
+  - `getAncestors(...)` returns the 8 nearest ancestors AND throws a
+    sentinel `AncestorChainOverflow` on the 9th read. The federation
+    orchestrator MUST handle the overflow either by (a) rejecting the
+    spawn with `OrchestratorReject(reason = ancestor_chain_overflow)`,
+    or (b) treating it as a promotion-to-`CrossWorkflowHandoff`
+    requirement.
+  - The choice is deferred to the federation-implementation ADR; this
+    ADR declares the SPI surface, not the policy.
+
+  **Error path (resolves R2-N3 from feasibility review).** Cycle
+  rejection emits a structured `WARN+` audit log carrying
+  `(parentRunId, requestedChildRunId, trusted_ancestors,
+   advisory_ancestors_if_present, actor, occurredAt, reason)` MDC
+  fields, analogous to the Rule R-J sub-clause .b cancel-mismatch
+  audit shape.
+
+  **Migration story.** No migration burden because:
+
+  - W0 → W2 has no federation (single-instance only).
+  - W2 → federation wave: when the federation wave opens, every
+    cross-instance SpawnEnvelope picks up the trusted-reconstruction
+    path automatically; caller-supplied `ancestor_run_ids` becomes
+    advisory at that point but pre-existing SpawnEnvelopes constructed
+    by older orchestrator versions remain valid because the field is
+    not removed, just demoted in trust.
+
+consequences: |
+  Positive:
+
+  - Closes R2-NEW-1 + R2-NEW-2 — cross-instance federation cycles are
+    now structurally prevented by server-side authority rather than
+    caller honesty.
+  - No cryptographic infrastructure required (no key distribution,
+    rotation, revocation overhead).
+  - Aligns with the platform's "central authority + repository"
+    pattern (mirrors how `architecture-status.yaml` is the central
+    truth for shipped-capability claims rather than per-module
+    self-declaration).
+  - Audit log carries both trusted and advisory chains, giving a
+    tamper-detection signal at zero additional infrastructure cost.
+
+  Negative:
+
+  - Adds a synchronous cross-instance call on every federated spawn
+    (receiving instance MUST query RunRegistry before admitting). The
+    latency budget for `RunRegistry.getAncestors()` becomes a hot
+    path; W3 federation perf testing MUST measure this.
+  - Centralizes a critical correctness check; a RunRegistry outage
+    blocks federated spawns. The federation-wave ADR MUST address
+    degraded-mode semantics (queue + retry vs reject).
+  - The "caller-supplied list is advisory" semantic is subtle —
+    implementers MAY forget to log the advisory chain, losing the
+    tamper-detection signal. Mitigation: the audit-log shape is
+    declared explicitly above and SHOULD be enforced by an ArchUnit
+    or integration test when the federation wave opens.
+
+  Compounding direction:
+
+  - Mostly positive. Federation correctness debt is now resolved
+    structurally before SWARM ships.
+  - One negative: this ADR introduces a forward-pointing reference
+    from §4 #51 to ADR-0107 that the next §5 staged-rollout section
+    update MUST honor (per Rule G-3 kernel-card coherence).
+
+alternatives_considered: |
+  - **(A) Cryptographic attestation — signed per-hop ancestor chains.**
+    Highest integrity guarantee; receiving instance verifies a chain
+    of HMAC signatures along the path. Rejected because: (1) requires
+    key distribution + rotation + revocation infrastructure; (2)
+    federation latency overhead per hop (sign + verify); (3) the
+    platform's existing trust model is "central authority via shared
+    persistence", introducing a parallel crypto trust model would
+    fragment the security architecture.
+
+  - **(C) Two-phase admission — each ancestor instance confirms
+    cycle-free before admitting.** Highest correctness (every ancestor
+    actually attests its own state) but introduces O(depth) cross-
+    instance round-trips per spawn — incompatible with the W2 cursor-
+    flow contract (Rule R-F) which requires bounded admission latency.
+
+  - **(D) Accept the federation gap; document and ship.** Rejected
+    because R2-NEW-2 named the gap as load-bearing — accepting it
+    silently propagates false confidence in the §4 #51 invariant.
+
+  - **(E) Move the acyclicity check entirely to the receiving
+    orchestrator's audit-after-the-fact analysis (best-effort).**
+    Rejected: turning a structural invariant into best-effort detection
+    contradicts the "MUST reject any spawn whose requested child
+    run-id appears in ancestor_run_ids" wording in §4 #51 + ADR-0053.
+
+  - **(F) RunRegistry as a peer-to-peer gossip protocol rather than a
+    central authority.** Eventual-consistency semantics are
+    incompatible with the synchronous admission decision the spawn
+    boundary requires. Could revisit at scale if central RunRegistry
+    becomes a bottleneck.
+
+deferred_to_implementation_adr: |
+  The following items are NOT decided here; the federation-wave
+  implementation ADR MUST close them before SWARM federation ships:
+
+  1. RunRegistry impl — Postgres-backed (likely default) vs
+     Redis-cached-in-front-of-Postgres (likely scale fix).
+  2. Degraded-mode semantics — what happens when RunRegistry is
+     unavailable (queue + retry, reject with explicit reason, fail
+     open with audit log).
+  3. AncestorChainOverflow policy — orchestrator reject vs forced
+     CrossWorkflowHandoff promotion.
+  4. Latency budget — declare the p99 budget for
+     `RunRegistry.getAncestors(parentRunId)` so federation-wave perf
+     testing has a target.
+
+references: |
+  - ARCHITECTURE.md §4 #51 (Cohesive Agent Swarm Execution)
+  - ADR-0053 (Cohesive Agent Swarm Execution decision)
+  - ADR-0050 (Three-track bus + Rhythm)
+  - ADR-0101 (rc26 federation + reflection SPI placement)
+  - docs/governance/architecture-status.yaml#spawn_envelope_acyclicity
+  - docs/logs/reviews/2026-05-22-architecture-design-document-review-r1-r2.en.md §"R2-NEW-1" + §"R2-NEW-2"

@@ -31,7 +31,7 @@ the W2 observability work, not in this module today.
 | Section | View | Notes |
 |---|---|---|
 | §1 Role | logical | runtime-owned cross-cutting concerns |
-| §2 Hook surface | logical | 9 canonical HookPoint values per `docs/contracts/engine-hooks.v1.yaml` |
+| §2 Hook surface | logical | 10 canonical HookPoint values per `docs/contracts/engine-hooks.v1.yaml` (BEFORE/AFTER LLM, TOOL, MEMORY; BEFORE_SUSPENSION/RESUME; ON_ERROR; ON_YIELD added rc22 per ADR-0100) |
 | §3 Dispatch order | process | declaration order; fail-fast inside the chain |
 
 ## 1. Role

@@ -7,6 +7,35 @@
 version: 5
 generated_at: 2026-05-18
 
+# Strategic decisions awaiting founder/owner resolution. Tracked separately from
+# capabilities (which are design-only or shipped) and recurring-defect families
+# (which track known repeating defect classes). Each row names the decision,
+# the deadline, the owner, and the architecture-design-phase artifact it gates.
+# Convention added 2026-05-22 by document-review R2 response (see
+# docs/logs/reviews/2026-05-22-architecture-design-document-review-r1-r2-response.en.md).
+strategic_decisions:
+
+  audience_w3_vertical_positioning:
+    status: open
+    decision_owner: chao
+    deadline: 2026-Q3
+    surfaces_blocked: ["ARCHITECTURE.md §1.1 Audience C", "README.md vertical positioning", "competitive-baselines.yaml W3+ rows"]
+    note: |
+      FSI (financial-services) is named as the lead W3+ vertical across active ADRs (0009/0028/0031/0051/0063) and `README.md`.
+      Whether FSI stays as the W3+ lead vertical, or whether the platform pivots to a different W3+ vertical (e.g. health-care,
+      legal-tech, dev-tools as primary), is a founder-level decision that the architecture-design phase contract cannot resolve.
+      The 2026-05-22 R2 reviewer cluster β (premise/audience) presupposed FSI was the W0/W1/W2 audience; §1.1 clarifies it is
+      W3+ vertical only. Strategic resolution of "which W3+ vertical" remains open.
+
+  brand_review:
+    status: open
+    decision_owner: chao
+    deadline: 2026-Q3
+    surfaces_blocked: ["README.md brand line", "competitive-baselines.yaml"]
+    note: |
+      The brand name "Ascend" is read by reviewers as Huawei-NPU regional positioning. Architecture-design phase contract
+      does not own brand decisions. Tracked separately so the architecture-team review surface does not block on it.
+
 # Source: root pom.xml <modules> list updated 2026-05-20 (rc13 wave)
 repository_counts:
   note: "Canonical counts -- derived from root pom.xml modules list. All documents reference these; no document may claim a different count without updating this block. Bumped 2026-05-17 for the six-module materialization PR (T2.A scaffolds agent-client, agent-bus, agent-middleware, agent-execution-engine, agent-evolve; T2.B1 extracts middleware code; T2.B2 engine-code extraction completed at v2.0.0-rc5 (2026-05-18) per ADR-0079 — back-dep resolved by introducing agent-runtime-core). rc13 (2026-05-20) DISSOLVED agent-runtime-core per ADR-0088: 16 sources redistributed to semantic-home modules (runs/idempotency back to agent-service; orchestration.spi + RunMode into agent-execution-engine.engine.orchestration.spi; s2c.spi into agent-bus.bus.spi.s2c). Reactor returns to 8 modules = 6 substantive domain modules (client/service/bus/engine/middleware/evolve) + BoM + GraphMemory starter. Paired with ADR-0089 (Edge↔Compute Ingress Routing) which adds agent-bus.bus.spi.ingress as the C2S surface."
@@ -94,10 +123,10 @@ capabilities:
       gate_executable_test_cases: 230           # rc21 Wave 6 baseline 230 — rc22 fixtures (6 for Rule G-1.1) land in follow-up commit alongside helpers.
       enforcer_rows: 167                        # rc22 lockstep: rc21 baseline 164 + E166/E167/E168 (Rule G-1.1 .a/.b/.c) per ADR-0099.
       section_4_constraints: 65                 # ARCHITECTURE.md §4 #1..#65 (unchanged at rc22)
-      adr_count: 90                             # rc32 live recount: 89 unique ADR numbers on disk + ADR-0105 (rc32 residual-corrective). Pre-rc32 claim 103 was extrapolated from rc21 baseline 97 + 6 (rc22 ADRs 0099-0104) but ignored 15 vacated numbers (0001/0002/0004/0005/0006/0010/0011/0014/0015/0020/0026/0027/0083/0084/0085 retracted or never-issued).
-      maven_tests_green: 374                    # `./mvnw.cmd clean verify` total surefire + failsafe (rc32 has no Java code deltas beyond Javadoc — count unchanged)
-      architecture_graph_nodes: 442             # rc32 live recount via `python gate/build_architecture_graph.py --check --no-write`: 441 → 442 (rc32 adds ADR-0105 node).
-      architecture_graph_edges: 743             # rc32 live recount: 736 → 743 (rc32 adds ADR-0105 extends/relates_to edges + rule→enforcer + ADR→file edges from surface additions).
+      adr_count: 92                             # 2026-05-22 architecture-design document-review R2 wave: 90 (rc32 baseline) + ADR-0106 (Run.version two-phase migration) + ADR-0107 (federation ancestor reconstruction via central RunRegistry). Both ADRs land alongside the docs/logs/reviews/2026-05-22-architecture-design-document-review-r1-r2.en.md review note as R2-NEW closures.
+      maven_tests_green: 374                    # `./mvnw.cmd clean verify` total surefire + failsafe (R2 wave has no Java code deltas — count unchanged)
+      architecture_graph_nodes: 448             # 2026-05-23 rc33 R2-closure + gate-perf wave-2 (this commit alone) live recount: 442 → 448 (+6 = ADR-0106 + ADR-0107 + review note + spawn_envelope_acyclicity + 2 extends/relates_to target nodes). The parallel R2-response wave (ADRs 0108-0115 + companion doc updates) bumps this further; that wave's commit will lockstep its own delta.
+      architecture_graph_edges: 756             # 2026-05-23 rc33 R2-closure + gate-perf wave-2 (this commit alone) live recount: 743 → 756 (+13 = ADR-0106 + ADR-0107 extends/relates_to chains + rule→enforcer + ADR→file edges from spawn_envelope_acyclicity surface).
       recurring_defect_families: 12             # rc32 lockstep: rc22 baseline 11 + new family F-bulk-scrub-orphan-syntax (rc27/28/31/32 recurrence — rc31 commit acknowledged but didn't register; rc32 registers per ADR-0105).
       phase_contracts: 5                        # rc21 Wave 6 NEW: docs/governance/contracts/{architecture-design,engineering-implementation,integration-verification,system-commit,review-response}.md per ADR-0098.
       phase_loading_skills: 6                   # rc21 Wave 6 NEW: refresh-defect-archive (rc17) + 5 new phase skills (design-mode + impl-mode + verify-mode + commit-mode + review-mode) under .claude/skills/ per ADR-0098.
@@ -646,8 +675,218 @@ capabilities:
     shipped: false
     l0_decision: docs/adr/0020-runlifecycle-spi-and-runstatus-formal-dfa.md
     implementation: null
+    tests:
+      - planned: agent-service/src/test/java/com/huawei/ascend/service/runtime/runs/RunCancelDuringResumeRaceIT.java
+    allowed_claim: "Design only — Run entity gains long version field at W2; RunRepository.save guards on version; ConcurrentModificationException on stale write. The integration test RunCancelDuringResumeRaceIT (planned W2) arms the invariant against two-thread cancel-vs-resume race on the same Run. Deferred to W2."
+
+  spawn_envelope_acyclicity:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0053-cohesive-agent-swarm-execution.md
+    implementation: null
     tests: []
-    allowed_claim: "Design only — Run entity gains long version field at W2; RunRepository.save guards on version; ConcurrentModificationException on stale write. Deferred to W2."
+    allowed_claim: "Design only — SpawnEnvelope 16th dimension ancestorRunIds (max-depth 8, parent-propagated); orchestrator rejects spawns whose requested child run-id appears in the list; closes same-instance Run cycles only. Cross-instance federation requires signed/attested ancestor chains via a follow-up ADR. Java type and W0 SPI wire-through deferred to W2."
+
+  tenant_reauth_widening:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0108-tenant-reauth-widening-and-graph-isolation.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — Rule R-J sub-clause .b cancel re-auth surface widened to GET /v1/runs/{runId} (W1) and POST /v1/runs/{runId}/resume (W2); background consumers (orchestrator resume tick, S2C-callback receiver, watchdog) require WARN+ audit on tenant mismatch. 403 tenant_mismatch instead of 404 (eliminates existence-oracle). Audit MDC shape shared with cancel + spawn-acyclicity + graph-tenant-mismatch."
+
+  graph_tenant_isolation:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0108-tenant-reauth-widening-and-graph-isolation.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — GraphMemoryRepository implementations declare graph_isolation_strategy ∈ {predicate_injection, label_namespacing, database_isolation} in module-metadata.yaml. ArchUnit GraphMemoryTenantIsolationContractTest (W2) asserts every concrete impl declares a non-null strategy. Deferred to W2."
+
+  sender_identity_proof:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0109-s2c-and-ingress-server-identity-proof.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — both s2c-callback.v1.yaml and ingress-envelope.v1.yaml gain a sender_identity block with two profiles: mtls_fingerprint (default) and signed_jwt (proxy-tolerant). Receiving runtime validates per profile; failed checks emit 401 with structured audit. Nonce-replay dedup reuses IdempotencyStore mechanism (ADR-0027). Key distribution surface (W2 prerequisite) tracked separately. Deferred to W2."
+
+  audit_tamper_evidence:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0110-audit-tamper-evidence-and-hook-pii-failsafe.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — run_audit_event rows gain chain_prev_hash + chain_self_hash columns (W2 Flyway). Per-tenant audit chain anchored hourly via audit_merkle_anchor table. AuditChainVerifier SPI walks chain segments + verifies Merkle anchors. AuditChainBroken raises CRITICAL audit + blocks further writes until operator unblocks. W3 cross-publishes Merkle anchor to external CT log for FSI vertical. Deferred to W2."
+
+  hook_safety_critical_carve_out:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0110-audit-tamper-evidence-and-hook-pii-failsafe.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — @SafetyCritical annotation on RuntimeMiddleware implementations short-circuits the surrounding invocation on HookOutcome.Fail (overrides default failsafe). Engine receives EngineInvocationAborted; Run transitions FAILED. Reference safety-critical hooks: PiiRedactionHook (BEFORE_LLM), ToolAuthorizationHook (BEFORE_TOOL), OutboundContentClassifierHook (BEFORE_LLM). ArchUnit SafetyCriticalHookDeclarationTest asserts annotation only on BEFORE_* hooks. posture=dev MAY override; research|prod MUST honor. Deferred to W2."
+
+  sandbox_w2_w3_startup_gate:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0111-sandbox-routing-vault-rotation-otlp-tenant-outbox-replay.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — SandboxRoutingGuard startup-bean cross-checks UNTRUSTED skills against active SandboxExecutor binding; posture=research|prod fail-closed with BeanCreationException if NoOpSandboxExecutor is the impl. Closes the W2-W3 routing window where UNTRUSTED skills could register without sandbox enforcement. Deferred to W2."
+
+  otlp_per_tenant_exporter_binding:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0111-sandbox-routing-vault-rotation-otlp-tenant-outbox-replay.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — TenantOtlpExporterBinding SPI maps tenantId → OTLP endpoint + auth via docs/governance/otlp-tenant-routing.yaml (W2). LlmSpanEmitterHook consults the binding before emitting; binding miss fails closed at posture=prod with audit otlp_tenant_binding_missing. ArchUnit TenantOtlpExporterBindingTest (W2) asserts every concrete exporter honors tenant routing. Deferred to W2."
+
+  secret_lifecycle_yaml:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0111-sandbox-routing-vault-rotation-otlp-tenant-outbox-replay.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — docs/governance/secret-lifecycle.yaml (W3 deliverable) declares per-secret rotation_cadence_days + rotation_grace_days + on_leak_procedure + active_consumers. LLM provider credentials are a subset (secret_id = llm-provider-{openai|anthropic|...}-api-key). LLM gateway SPI (W2) tolerates rotation without in-flight call disruption via token-bucket preflight + cache-refresh at rotation_cadence × 0.5. Deferred to W3."
+
+  outbox_replay_safety_policy:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0111-sandbox-routing-vault-rotation-otlp-tenant-outbox-replay.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — OutboxPayload envelope (W2 SPI) carries replaySafetyPolicy ∈ {replay_idempotent, replay_redact_on_resend, replay_suppress_after_ttl} + ttlSeconds. RunEventOutboxPublisher (W2) honors policy at retry. GDPR erasure (POST /v1/tenants/{tenantId}/erase, W3+) immediately redacts/suppresses tenant rows regardless of TTL. Deferred to W2."
+
+  value_based_yield_primitive:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0112-engine-stateless-executor-value-based-yield.yaml
+    implementation: null
+    tests:
+      - planned: agent-execution-engine/src/test/java/com/huawei/ascend/engine/spi/InterruptSignalContractTest.java
+      - planned: agent-execution-engine/src/test/java/com/huawei/ascend/engine/orchestration/spi/NoCheckedExceptionInSpiArchTest.java
+    allowed_claim: "Design only — StatelessEngine.execute returns Mono<StateDelta> carrying nullable InterruptSignal value (no checked exception). A2A InterruptType (5 protocol-wire values) ↔ SuspendReason (7 internal-DFA cases) mapping. W0.5 parallel API alongside SuspendSignal; W1 deprecate; W2 remove. Closes δ.1 + θ.1 + θ.2 (engine friction-resolution proposal acceptance)."
+
+  hook_tie_break_determinism:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0113-hook-ordering-failsafe-coherence-and-tie-break.yaml
+    implementation: null
+    tests:
+      - planned: agent-middleware/src/test/java/com/huawei/ascend/middleware/HookOrderTieBreakDeterminismTest.java
+    allowed_claim: "Design only — @Order tie-break is Class.getName() lexicographic ascending. ON_ERROR is best_effort (never fail-fast inside chain); @SafetyCritical is forbidden on ON_ERROR hooks. Two-level failure semantics: chain-level fail-fast + invocation-level failsafe today (Rule R-M.c.b TARGET wires Fail→Run.FAILED at W2). Deferred to W2."
+
+  app_posture_required_in_prod:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0114-implementation-feasibility-batched-closures.yaml
+    implementation: null
+    tests:
+      - planned: agent-service/src/test/java/com/huawei/ascend/service/platform/posture/AppPostureGateRequiredInProdTest.java
+    allowed_claim: "Design only — AppPostureGate constructor fails-closed at posture=research|prod when APP_POSTURE env var is missing AND Spring property app.posture is also missing. posture=dev preserves WARN-and-default behavior. Closes δ.3 fail-open vulnerability. Deferred to W0.5."
+
+  three_track_terminal_drain_ordering:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0114-implementation-feasibility-batched-closures.yaml
+    implementation: null
+    tests:
+      - planned: agent-service/src/test/java/com/huawei/ascend/service/runtime/orchestration/ThreeTrackTerminalDrainOrderingIT.java
+    allowed_claim: "Design only — Terminal Control events (CANCELLED|SUCCEEDED|FAILED|EXPIRED) MUST drain Data channel before delivery. W2 transport buffers Data events per-Run; orchestrator emits Terminal only after drain. Closes δ.4 cursor-flow observable contradiction. Deferred to W2."
+
+  idempotency_409_body_shape:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0114-implementation-feasibility-batched-closures.yaml
+    implementation: null
+    tests:
+      - planned: agent-service/src/test/java/com/huawei/ascend/service/platform/idempotency/IdempotencyConflictResponseShapeIT.java
+    allowed_claim: "Design only — 409 Idempotency-Key conflict body shape declared in openapi-v1.yaml: {code, message, conflict_kind ∈ {same_key_different_payload, replay_after_completion, replay_in_flight}, original_request_fingerprint}. Fingerprint is sha256 hex of canonical-serialized original request. Closes δ.6 timing-oracle + replay-divergence. Deferred to W1."
+
+  bom_mcp_sdk_version_pin:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0114-implementation-feasibility-batched-closures.yaml
+    implementation: null
+    tests:
+      - planned: spring-ai-ascend-dependencies/src/test/java/com/huawei/ascend/bom/BomMcpSdkVersionPinningIT.java
+    allowed_claim: "Design only — BoM explicitly pins both io.modelcontextprotocol.sdk:mcp:1.0.0 AND org.springframework.ai:spring-ai-bom:2.0.0-M5; resolution rule documented in oss-bill-of-materials.md §3.1. Re-evaluate when Spring AI 2.0.0 GA ships (gate: 2026-08-01). Closes δ.9. Deferred to W0."
+
+  perf_overhead_budget:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0114-implementation-feasibility-batched-closures.yaml
+    implementation: null
+    tests:
+      - planned: agent-service/src/test/java/com/huawei/ascend/service/perf/OverheadBudgetEnforcementJMH.java
+    allowed_claim: "Design only — docs/governance/dfx/agent-service.yaml#performance_budget declares per-LLM-call overhead p99 budget: hook_chain=5ms + rls_query=3ms + outbox_publish=4ms + audit_chain=2ms + telemetry_emit=5ms = 19ms total. Measured at W2 via JMH micro-benchmark per component. Exceeding budget by >20% blocks W2 release per Rule R-B competitive-baselines regression. Closes δ.12. Deferred to W2."
+
+  idempotency_retention_and_erasure:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0114-implementation-feasibility-batched-closures.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — Postgres idempotency_keys table (W2) ships with TTL-based GC (default 7 days; configurable per tenant via tenant_idempotency_config) + GDPR erasure-on-request (POST /v1/tenants/{tenantId}/erase, W3+). Flyway V<N>__idempotency_retention.sql at W2. Closes δ.13. Deferred to W2 TTL + W3 GDPR."
+
+  reference_adapter_posture_gate_diagnostic:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0114-implementation-feasibility-batched-closures.yaml
+    implementation: null
+    tests:
+      - planned: agent-service/src/test/java/com/huawei/ascend/service/platform/posture/ReferenceAdapterPostureGateDiagnosticTest.java
+    allowed_claim: "Design only — Posture-gated reference adapters throw PostureGateFailure(adapterName, posture, requiredPosture, reason) instead of raw BeanCreationException. Structured diagnostic at META-INF/posture-gate-diagnostics.log. Spring-Boot-banner-friendly toString. Closes δ.15. Deferred to W0.5."
+
+  dual_deployment_modes:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0115-agent-service-l1-expansion-acceptance.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — Platform-Centric Mode (W0-W2 primary; business integrates only agent-client) + Business-Centric Mode (W3+ rollout; business co-deploys agent-service + agent-execution-engine for ultra-low latency). Both modes preserve client→service→engine topology invariant per Rule R-I.1. Mapping to 5-plane topology (P-I) declared in ADR-0115 Part A. Deferred to W3+ for Business-Centric rollout."
+
+  four_layer_state_model:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0115-agent-service-l1-expansion-acceptance.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — Run/Task/Session/Memory 4-layer model. Run keeps existing Java identity (ADR-0020 DFA); Task is NEW W2 outer-layer entity mapping 1:N to Runs; Session via TraceContext.sessionId (existing); Memory via ADR-0051. Deferred to W2 for Task entity."
+
+  message_vs_task_plane_separation:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0115-agent-service-l1-expansion-acceptance.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — Message (data plane; tag:STATEMENT) vs Task (control plane; tag:COMMAND) per CausalPayloadEnvelope vocabulary (ADR-0028). Inbound translation via ContextProjector SPI (W2). Outbound via StateDelta.newMessages (ADR-0112). Deferred to W2."
+
+  dual_track_router:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0115-agent-service-l1-expansion-acceptance.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — DualTrackRouter at agent-service/src/main/java/com/huawei/ascend/service/orchestrator/DualTrackRouter.java (W2). Fast-Path: in-thread synchronous resumption for ≤100ms operations. Slow-Path: SyncOrchestrator + Checkpointer + Temporal child workflow. Per-InterruptType policy at docs/governance/dual-track-routing-policy.yaml. Deferred to W2."
+
+  a2a_protocol_boundary:
+    status: design_accepted
+    shipped: false
+    l0_decision: docs/adr/0115-agent-service-l1-expansion-acceptance.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — A2A as PROTOCOL surface (envelope shape + state transitions) per docs/contracts/a2a-envelope.v1.yaml (W2 NEW). a2a-java SDK is optional dep for protocol conformance testing in agent-bus test scope only. NOT bus substrate; NOT backpressure transport. Our agent-bus + Reactor + Run.status DFA remain canonical. Deferred to W2."
+
+  shadow_tool_interceptor:
+    status: design_only
+    shipped: false
+    l0_decision: docs/adr/0115-agent-service-l1-expansion-acceptance.yaml
+    implementation: null
+    tests: []
+    allowed_claim: "Design only — Shadow Tool Interceptor pattern for hosting third-party agent frameworks (LangChain, LlamaIndex, Spring AI as foreign engine). ACCEPTED as W3+ design direction; implementation lands with agent-evolve heterogeneous integration scope. W0/W1/W2 does NOT host third-party frameworks. Deferred to W3+."
 
   layered_spi_taxonomy:
     status: design_accepted
