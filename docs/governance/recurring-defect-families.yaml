@@ -181,8 +181,8 @@ families:
   - id: F-cross-authority-agreement
     title: Cross-Authority Surface Disagreement
     first_observed_rc: rc14
-    last_observed_rc: rc35-second-pass
-    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass]
+    last_observed_rc: rc35-second-pass-ci-corrective
+    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective]
     root_cause: |
       117+ single-surface prevention rules can all pass while the
       surfaces themselves contradict each other — e.g.
@@ -296,6 +296,25 @@ families:
       (Rule G-8.b/.c/.e + Rule 109 + Rule G-9 frontmatter). Drift will
       reappear only if a rule introduces a new surface without declaring
       it.
+
+      rc35-second-pass CI corrective (this commit, 2026-05-23): a sibling
+      micro-recurrence at the squash-merge-pattern scale documented in
+      rc34-merge-train. The rc35-second-pass CI run on commit 79a5dfc6
+      (which touched check_parallel.sh's printf-%d-on-dotted-IDs bug +
+      added the historical freeze marker to docs/logs/releases/2026-05-22-l0-rc32-*.md)
+      fired Rule G-9.b first-parent freshness even though Commits A/B/C
+      already bumped families.yaml in 64364cb/7343ee0/d1fa381, because
+      G-9.b compares the LATEST signal-touching commit (79a5dfc6) against
+      its first parent (d1fa381) and saw families.yaml unchanged between
+      those two. This is the rc34-merge-train pattern at finer
+      granularity — within a single PR, every signal-touching commit
+      must carry a families.yaml content-diff, OR the helper must
+      recognise cumulative-since-last-bump semantics. Closed by this
+      paragraph (extending the per-commit content-diff discipline to
+      intra-PR corrective commits). W2 remediation candidate (same as
+      rc34-merge-train): teach check_recurring_families.sh's
+      derive_signal_paths to skip commits whose own ancestry includes a
+      families.yaml bump within the same PR.
 
   - id: F-deferred-clause-orphan
     title: CLAUDE-deferred.md Orphan

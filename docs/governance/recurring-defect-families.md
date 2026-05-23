@@ -53,7 +53,7 @@ authority_refs: [ADR-0094]
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 8 | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 5 (rc6, rc7, rc11, rc15, rc35-second-pass) | ⚠️ partial |
-| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 9 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass) | ✅ structurally addressed (rc14-16; rc33+rc34 forward-pointing-reference recurrence closed in lockstep; rc34-follow-up adversarial-review surfaced 5 in-wave authority-drift manifestations, all closed in commit 6d730521; rc34-merge-train surfaced THIRD scale — squash-merge sequences collapse families.yaml diffs and force per-commit G-9.b reapplication, closed by post-merge corrective PR; rc35-correctness-batch surfaced FOURTH scale via parallel adversarial review on green main — 8 cross-authority drifts; rc35-second-pass surfaced FIFTH scale — running the SAME parallel-adversarial-review pattern against the rc35-first-pass tip found 8 MORE sibling-scope defects the first pass closure missed (cancel-race fix applied only at terminal sites; ADR-0108 "common base shared with R-J.b" wording was itself cross-authority drift; S2C envelope deadline not clamped against orchestrator ceiling; regex `[0-9]+[a-z]?` silently skipped Rule N.c sub-clauses; 10 bare `python3 - <<PYEOF` invocations silent-passed on Windows; `check_recurring_families.sh` python preference inverted vs corpus; R-038/R-042 architecture-graph.yaml write race under xargs -P; /tmp deterministic-filename leftovers in emit_contract_tables.sh + rule-099.sh). All 8 closed across Commits A/B/C of this same PR) |
+| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 10 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective) | ✅ structurally addressed (rc14-16; rc33+rc34 forward-pointing-reference recurrence closed in lockstep; rc34-follow-up adversarial-review surfaced 5 in-wave authority-drift manifestations, all closed in commit 6d730521; rc34-merge-train surfaced THIRD scale — squash-merge sequences collapse families.yaml diffs and force per-commit G-9.b reapplication, closed by post-merge corrective PR; rc35-correctness-batch surfaced FOURTH scale via parallel adversarial review on green main — 8 cross-authority drifts; rc35-second-pass surfaced FIFTH scale — running the SAME parallel-adversarial-review pattern against the rc35-first-pass tip found 8 MORE sibling-scope defects the first pass closure missed (cancel-race fix applied only at terminal sites; ADR-0108 "common base shared with R-J.b" wording was itself cross-authority drift; S2C envelope deadline not clamped against orchestrator ceiling; regex `[0-9]+[a-z]?` silently skipped Rule N.c sub-clauses; 10 bare `python3 - <<PYEOF` invocations silent-passed on Windows; `check_recurring_families.sh` python preference inverted vs corpus; R-038/R-042 architecture-graph.yaml write race under xargs -P; /tmp deterministic-filename leftovers in emit_contract_tables.sh + rule-099.sh). All 8 closed across Commits A/B/C of this same PR) |
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 3 | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
@@ -201,6 +201,14 @@ demand a families.yaml content-diff in each post-merge commit, even when
 the squash payload of the first PR in the train already carried one.
 Candidate W2 remediation: cumulative-since-last-families-bump signal
 detection, or merge-train pattern recognition in `gate/lib/check_recurring_families.sh`.
+
+rc35-second-pass adds a SIXTH micro-scale — *intra-PR squash-pattern
+micro-recurrence*. The first-pass corrective commit (79a5dfc6) touched
+signal surfaces (check_parallel.sh + a release note) without bumping
+families.yaml, even though earlier commits (A/B/C) on the same branch
+had already bumped it. Rule G-9.b's first-parent semantics fire on the
+LATEST signal-touching commit, not on cumulative-since-last-bump. Same
+mechanism as rc34-merge-train but at single-PR scope.
 
 rc35-correctness-batch adds a FOURTH scale — *latent drift on a green main*.
 Three parallel adversarial-review agents (correctness + adversarial-gate +
