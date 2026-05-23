@@ -175,7 +175,7 @@ Enforced by [`rule-R-D.md`](docs/governance/rules/rule-R-D.md).
 ### Vibe-Coding-era structural discipline
 #### Rule G-1 — Layered 4+1 Discipline + Architecture-Graph Truth
 
-**Every architecture artefact (`ARCHITECTURE.md` section, `docs/adr/*.yaml`, `docs/L2/*.md`, `docs/logs/reviews/*.md`) MUST declare front-matter `level: L0|L1|L2` and `view: logical|development|process|physical|scenarios` per the 4+1 discipline (sub-clause .a); root `ARCHITECTURE.md` is L0 canonical, `agent-*/ARCHITECTURE.md` is L1, `docs/L2/` is L2; phase-released L0/L1 artefacts are read-only with further edits flowing through `docs/logs/reviews/`. The machine-readable index `docs/governance/architecture-graph.yaml` MUST be generated (never hand-edited) by `gate/build_architecture_graph.sh` from principle-coverage / enforcers / status / module-metadata / ADR yaml inputs; the graph encodes principle→rule, rule→enforcer, enforcer→test/artefact, capability→test, module→module (allowed/forbidden), adr→adr (supersedes/extends/relates_to as DAGs), and (level,view)→artefact edges; the build MUST be idempotent (byte-identical re-run) (sub-clause .b).**
+**Every architecture artefact (`ARCHITECTURE.md` section, `docs/adr/*.yaml`, `docs/L2/*.md`) MUST declare front-matter `level: L0|L1|L2` and `view: logical|development|process|physical|scenarios` per the 4+1 discipline (sub-clause .a); root `ARCHITECTURE.md` is L0 canonical, `agent-*/ARCHITECTURE.md` is L1, `docs/L2/` is L2; phase-released L0/L1 artefacts are read-only with further edits flowing through `docs/logs/reviews/` (interaction records — front-matter optional per `docs/governance/logs-folder-policy.md`). The machine-readable index `docs/governance/architecture-graph.yaml` MUST be generated (never hand-edited) by `gate/build_architecture_graph.sh` from principle-coverage / enforcers / status / module-metadata / ADR yaml inputs; the graph encodes principle→rule, rule→enforcer, enforcer→test/artefact, capability→test, module→module (allowed/forbidden), adr→adr (supersedes/extends/relates_to as DAGs), and (level,view)→artefact edges; the build MUST be idempotent (byte-identical re-run) (sub-clause .b).**
 
 Enforced by [`rule-G-1.md`](docs/governance/rules/rule-G-1.md).
 
@@ -369,6 +369,13 @@ Enforced by [`rule-G-10.md`](docs/governance/rules/rule-G-10.md).
 **Phase contract ↔ rule allocation coherence: every Active Rules row in `docs/governance/contracts/*.md` MUST reference a rule card that exists under `docs/governance/rules/rule-*.md` (or a principle card under `docs/governance/principles/P-*.md`). Conversely, every active rule card MUST appear in at least one phase contract — either marked **P** (primary phase) in exactly one contract OR marked **X** (cross-reference) in at least one contract. A rule with NO primary phase is an orphan rule; a rule cited in a contract whose card is missing is a ghost rule. Dual-P exception (e.g. G-9 carrying P in both `system-commit.md` and `review-response.md`) is permitted but MUST be enumerated in ADR-0098 §rule-allocation-map.**
 
 Enforced by [`rule-G-11.md`](docs/governance/rules/rule-G-11.md).
+
+---
+#### Rule G-12 — Whitebox Quality Baseline
+
+**Mature static-analysis tools form the first whitebox quality baseline: Maven MUST run SpotBugs, PMD, and Checkstyle through the `quality` profile; gate MUST interpret their reports using project semantics. High-confidence SpotBugs correctness/safety findings and low-dispute Checkstyle style/comment findings block. PMD maintainability findings are review triggers in v1. Generated code, third-party code, build outputs, docs examples, and fixtures are excluded or downgraded rather than hard-gated.**
+
+Enforced by [`rule-G-12.md`](docs/governance/rules/rule-G-12.md).
 
 ---
 

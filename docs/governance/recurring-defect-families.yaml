@@ -44,8 +44,8 @@ families:
   - id: F-numeric-drift
     title: Numeric Drift Across Authority Surfaces
     first_observed_rc: rc5
-    last_observed_rc: rc15
-    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15]
+    last_observed_rc: pr57
+    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57]
     root_cause: |
       Numeric claims (rule counts, gate counts, enforcer counts, graph
       nodes/edges, self-tests) are estimated when a release note is written
@@ -55,7 +55,14 @@ families:
       source) and was widened in rc9 (Rule 91 baseline-match-manifest),
       rc10 (Rule 97 release-note numeric truth), rc12 (Rule 101 namespace
       authority parity), and rc14 (Rule G-8.a graph baseline parity). A
-      re-baseline ritual at release time would close the family.
+      re-baseline ritual at release time would close the family. pr57
+      surfaced a NEW vector: a contributor PR forked from a stale main
+      and recomputed baselines against the fork's base, claiming 133 gate
+      rules / 238 self-tests when live-on-merge-target was 135 / 226. The
+      prevention rules catch doc-vs-baseline disagreement but NOT
+      baseline-computed-against-the-wrong-tree — that requires recomputing
+      every count against the merge target (current main), not the fork's
+      branch point.
     surfaces:
       - docs/governance/architecture-status.yaml#baseline_metrics
       - README.md

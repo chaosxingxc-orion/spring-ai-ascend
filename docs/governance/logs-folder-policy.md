@@ -36,7 +36,7 @@ The following gate rules DO scan log-folder files, but ONLY for non-numeric auth
 
 | Rule | Scope | What it enforces | What it does NOT enforce |
 |---|---|---|---|
-| Rule 39 (`review_proposal_front_matter`) | `docs/logs/reviews/*.md` | YAML frontmatter has `affects_level:` + `affects_view:` | Body content; numerics |
+| Rule 39 (`review_proposal_front_matter`) | `docs/logs/reviews/*.md` | Front-matter is **optional** (interaction records); validated only when a doc opts into 4+1 proposal classification by declaring `affects_level:`/`affects_view:` (then both required + valid) | Front-matter presence on plain records; body content; numerics |
 | Rule 26 (`release_note_shipped_surface_truth`) | `docs/logs/releases/*.md` (all) | No `shipped: true` claims for unshipped rows | Numerics |
 | Rule 28 (`release_note_baseline_truth`) | `docs/logs/releases/*.md` **latest only** | First numeric column matches `architecture-status.yaml#baseline_metrics` | Earlier release notes |
 | Rule 33 (`release_note_references_four_pillars`) | `docs/logs/releases/*.md` **latest only** | All four pillar names appear | Earlier release notes |
@@ -50,6 +50,8 @@ No gate rule enforces architecture-graph numeric parity against:
 - `docs/logs/reviews/*.md` body content (numeric values inside review or closure-response documents)
 - `docs/logs/releases/*.md` non-latest body content (older release notes are historical snapshots)
 - `docs/logs/conversations/**` (raw session transcripts, if present)
+
+No gate rule REQUIRES front-matter on `docs/logs/reviews/*.md`. These are interaction records, not authority artefacts, so a review response / findings log / PR response needs no `level:`/`view:`/`affects_*` block at all. Rule 39 only validates `affects_level:`/`affects_view:` *when a document opts into* 4+1 proposal classification by declaring one of them — a half-classified proposal is then caught, but a plain record is never forced to carry front-matter. This keeps logs friction-free per the rc16 directive while preserving classification quality for real unfreeze proposals. (Rule 37 — `architecture_artefact_front_matter` — enforces mandatory `level:`/`view:` only on `ARCHITECTURE.md`, `docs/L2/`, and `docs/adr/`, never on logs.)
 
 If a future wave's reviewer proposes adding such enforcement, the proposed change is governed by this document — it requires either (a) an explicit ADR amending this policy with clear cost-benefit argument, or (b) demonstration that the marker convention has materially failed (e.g., review documents are being treated as authority by tooling, causing real downstream incidents).
 

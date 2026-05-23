@@ -1,7 +1,5 @@
 package com.huawei.ascend.engine.orchestration.spi;
 
-import com.huawei.ascend.engine.orchestration.spi.RunMode;
-
 import java.util.UUID;
 
 /**

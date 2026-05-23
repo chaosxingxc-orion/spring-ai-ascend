@@ -309,11 +309,21 @@ public final class SyncOrchestrator implements Orchestrator {
             return "s2c_unknown_failure";
         }
         String lower = msg.toLowerCase(java.util.Locale.ROOT);
-        if (lower.startsWith("s2c_transport_unavailable")) return "s2c_transport_unavailable";
-        if (lower.startsWith("s2c_transport_failure")) return "s2c_transport_failure";
-        if (lower.startsWith("s2c_response_invalid")) return "s2c_response_invalid";
-        if (lower.startsWith("s2c_client_error")) return "s2c_client_error";
-        if (lower.startsWith("s2c_timeout")) return "s2c_timeout";
+        if (lower.startsWith("s2c_transport_unavailable")) {
+            return "s2c_transport_unavailable";
+        }
+        if (lower.startsWith("s2c_transport_failure")) {
+            return "s2c_transport_failure";
+        }
+        if (lower.startsWith("s2c_response_invalid")) {
+            return "s2c_response_invalid";
+        }
+        if (lower.startsWith("s2c_client_error")) {
+            return "s2c_client_error";
+        }
+        if (lower.startsWith("s2c_timeout")) {
+            return "s2c_timeout";
+        }
         return "s2c_unknown_failure";
     }
 

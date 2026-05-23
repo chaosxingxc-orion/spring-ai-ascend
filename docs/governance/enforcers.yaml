@@ -1470,3 +1470,11 @@
   view: development
   artifact: gate/check_architecture_sync.sh#l1_l2_constraint_linkage
   asserts: "Rule G-1.1 sub-check .c (rc22 / ADR-0099) — for any complex subsystem the L1 document delegates to an L2 design (any line of the form `… see [L2 doc](path/to/L2.md)` or `… delegated to L2`), the L1 document MUST contain a `Boundary Contracts` sub-section enumerating input types, output types, DFX expectations. Vacuously green when no L2 delegation prose exists in any agent-*/ARCHITECTURE.md (arms for W3+ when L2 docs land)."
+
+- id: E169
+  constraint_ref: "CLAUDE.md Rule G-12; docs/governance/rules/rule-G-12.md"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#whitebox_quality_reports
+  asserts: "Maven quality reports exist; SpotBugs high-confidence findings and Checkstyle hard-style findings fail the gate while PMD findings are summarized as review triggers"

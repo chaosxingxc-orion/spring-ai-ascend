@@ -6477,6 +6477,93 @@ EOF_L1
   fi
 }
 
+test_rule_121_whitebox_missing_report_neg() {
+  local root="$scratch/r121_missing"
+  mkdir -p "$root/agent-service/src/main/java/example" "$root/agent-service/target"
+  cat > "$root/pom.xml" <<'POMEOF'
+<project>
+  <modules>
+    <module>agent-service</module>
+  </modules>
+</project>
+POMEOF
+  printf 'class Example {}\n' > "$root/agent-service/src/main/java/example/Example.java"
+  local out
+  out=$(GATE_REPO_ROOT="$root" bash -c 'source gate/lib/check_whitebox_quality.sh; check_whitebox_quality_reports')
+  if echo "$out" | grep -q $'FAIL\tagent-service\tmissing agent-service/target/spotbugsXml.xml'; then
+    ok "rule_121_whitebox_missing_report_neg" "missing SpotBugs report correctly fails closed"
+  else
+    fail "rule_121_whitebox_missing_report_neg" "expected missing report failure, got: $out"
+  fi
+}
+
+test_rule_121_whitebox_hard_and_review_pos() {
+  local root="$scratch/r121_pos"
+  mkdir -p "$root/agent-service/src/main/java/example" "$root/agent-service/target"
+  cat > "$root/pom.xml" <<'POMEOF'
+<project>
+  <modules>
+    <module>agent-service</module>
+  </modules>
+</project>
+POMEOF
+  printf 'class Example {}\n' > "$root/agent-service/src/main/java/example/Example.java"
+  printf '<BugCollection>\n</BugCollection>\n' > "$root/agent-service/target/spotbugsXml.xml"
+  printf '<checkstyle version="10.20.2">\n</checkstyle>\n' > "$root/agent-service/target/checkstyle-result.xml"
+  cat > "$root/agent-service/target/pmd.xml" <<'XEOF'
+<pmd>
+  <file name="Example.java">
+    <violation beginline="1" rule="LongMethod">review only</violation>
+  </file>
+</pmd>
+XEOF
+  local out
+  out=$(GATE_REPO_ROOT="$root" bash -c 'source gate/lib/check_whitebox_quality.sh; check_whitebox_quality_reports')
+  if ! echo "$out" | grep -q '^FAIL' && echo "$out" | grep -q $'INFO\tpmd\tPMD review-trigger findings: 1'; then
+    ok "rule_121_whitebox_hard_and_review_pos" "clean reports + PMD review trigger reported without hard failure"
+  else
+    fail "rule_121_whitebox_hard_and_review_pos" "expected INFO-only output, got: $out"
+  fi
+}
+
+test_rule_121_whitebox_hard_block_neg() {
+  # Negative: a high-confidence SpotBugs finding AND a Checkstyle severity=error
+  # finding MUST both surface as hard FAILs (the load-bearing blocking path).
+  local root="$scratch/r121_block"
+  mkdir -p "$root/agent-service/src/main/java/example" "$root/agent-service/target"
+  cat > "$root/pom.xml" <<'POMEOF'
+<project>
+  <modules>
+    <module>agent-service</module>
+  </modules>
+</project>
+POMEOF
+  printf 'class Example {}\n' > "$root/agent-service/src/main/java/example/Example.java"
+  cat > "$root/agent-service/target/spotbugsXml.xml" <<'XEOF'
+<BugCollection>
+  <BugInstance type="NP_NULL_ON_SOME_PATH" priority="1" rank="3">detail</BugInstance>
+</BugCollection>
+XEOF
+  cat > "$root/agent-service/target/checkstyle-result.xml" <<'XEOF'
+<checkstyle version="10.20.2">
+  <file name="Example.java">
+    <error line="1" severity="error" message="NeedBraces" source="NeedBracesCheck"/>
+  </file>
+</checkstyle>
+XEOF
+  printf '<pmd>\n</pmd>\n' > "$root/agent-service/target/pmd.xml"
+  local out spotbugs_blocked checkstyle_blocked
+  out=$(GATE_REPO_ROOT="$root" bash -c 'source gate/lib/check_whitebox_quality.sh; check_whitebox_quality_reports')
+  spotbugs_blocked=0; checkstyle_blocked=0
+  echo "$out" | grep -q $'FAIL\tagent-service/target/spotbugsXml.xml\tSpotBugs high-confidence' && spotbugs_blocked=1
+  echo "$out" | grep -q $'FAIL\tagent-service/target/checkstyle-result.xml\tCheckstyle hard-style' && checkstyle_blocked=1
+  if [[ "$spotbugs_blocked" == "1" && "$checkstyle_blocked" == "1" ]]; then
+    ok "rule_121_whitebox_hard_block_neg" "high-confidence SpotBugs + Checkstyle error both block"
+  else
+    fail "rule_121_whitebox_hard_block_neg" "expected both hard blocks (spotbugs=$spotbugs_blocked checkstyle=$checkstyle_blocked), got: $out"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #

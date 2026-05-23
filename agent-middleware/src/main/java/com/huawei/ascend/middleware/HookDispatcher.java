@@ -95,9 +95,7 @@ public final class HookDispatcher {
         } catch (RuntimeException e) {
             LOG.warn("RuntimeMiddleware {} threw on hook {}: {}",
                     mw.getClass().getName(), ctx.point(), e.toString());
-            // Per ADR-0073 boundary: a middleware exception is NEVER allowed to
-            // tear down the orchestrator. Convert to Fail with a synthetic
-            // reason so the caller can decide whether to abort the Run.
+            // Middleware exceptions must not tear down the orchestrator.
             return new HookOutcome.Fail("middleware_threw:" + e.getClass().getSimpleName());
         }
     }

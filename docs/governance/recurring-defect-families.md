@@ -49,7 +49,7 @@ authority_refs: [ADR-0094]
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
-| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 9 | ⚠️ partial |
+| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 10 | ⚠️ partial |
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 8 | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 5 (rc6, rc7, rc11, rc15, rc35-second-pass) | ⚠️ partial |
@@ -92,7 +92,12 @@ manifest match) → Rule 97 (rc10 release-note truth) → Rule 101 (rc12
 namespace parity) → Rule G-8.a (rc14 graph baseline parity).
 
 **Open residual.** rc16 P2-1 surfaced lingering drift. A structured
-re-baseline ritual at release time has not yet been codified.
+re-baseline ritual at release time has not yet been codified. pr57 added
+a new vector: a contributor PR forked from a stale `main` and recomputed
+baselines against the fork's base (claiming 133 gate rules / 238
+self-tests vs live-on-merge-target 135 / 226). The prevention rules catch
+doc-vs-baseline disagreement but not baselines computed against the wrong
+tree — recompute every count against the merge target, not the branch point.
 
 ---
 

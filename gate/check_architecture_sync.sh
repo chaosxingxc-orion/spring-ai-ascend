@@ -20,6 +20,7 @@
 #   2026-05-18 rc6 post-response review response: Rules 86-87 (enforcers E119-E120).
 #   2026-05-18 rc7 post-corrective review response: Rules 88-89 (enforcers E121-E122).
 #   2026-05-19 rc8 post-corrective review response (rc9 wave): Rules 91-96 (enforcers E123-E134).
+#   Code whitebox quality baseline: Rule 121 (enforcer E169).
 # Exits 0 if all rules pass, 1 if any fail.
 # Each rule prints PASS: <name> or FAIL: <name> -- <reason>.
 # Prints GATE: PASS or GATE: FAIL at the end.
@@ -78,7 +79,7 @@
 #  --- W1 Layered 4+1 + Architecture Graph (ADR-0068) ---
 #  37.  architecture_artefact_front_matter             -- every ARCH/L2/ADR.yaml carries level: + view: front-matter (Rule 33, enforcer E55)
 #  38.  architecture_graph_well_formed                 -- generated architecture-graph.yaml builds + validates (Rule 34, enforcer E56)
-#  39.  review_proposal_front_matter                   -- docs/logs/reviews/*.md declare affects_level: + affects_view: (Rule 33, enforcer E57)
+#  39.  review_proposal_front_matter                   -- docs/logs/reviews/*.md front-matter is OPTIONAL (interaction records); validated only when a doc opts into 4+1 proposal classification (Rule 33, enforcer E57)
 #  40.  enforcer_reachable_from_principle              -- every enforcer has at least one rule-edge (Rule 34, enforcer E58)
 #  41.  enforcer_anchor_resolves                       -- every artifact: anchor resolves to real method/heading (Phase M, enforcer E60)
 #  42.  architecture_graph_idempotent                  -- twice-run graph build is byte-identical (Phase M, enforcer E61)
@@ -139,6 +140,7 @@
 #  --- 2026-05-19 rc10 post-corrective review response prevention wave (Rules 99-100 + Rule 94/98 widening; enforcers E139-E142) ---
 #  99.  kernel_terminal_verb_vs_shipped_decision_check  -- For every #### Rule N kernel block in CLAUDE.md with a matching ## Rule N.<letter> sub-clause in CLAUDE-deferred.md, the kernel MUST NOT use end-state verb tokens (`are SUSPENDED`, `is SUSPENDED`, `transitions to FAILED`, `consumes the * capacity`, `is rejected, not failed`, `admits the caller`) that overclaim shipped behaviour. Closes rc10 P1-1 (J-α family; Rule 41 kernel said "callers are SUSPENDED" while shipped code returns SkillResolution.reject — the actual transition is deferred to Rule 41.c).
 #  100. kernel_implementation_disjunction_truth        -- For every rule in gate/rule-100-disjunction-allowlist.txt, BOTH the #### Rule N kernel block in CLAUDE.md AND the matching docs/governance/rules/rule-NN.md card MUST contain explicit disjunction wording (EITHER / OR / either surface / either ... or). Closes rc10 P1-3 (J-γ family; Rule 96 kernel said "MUST contain" while impl accepted EITHER kernel OR card — kernel-AND-impl-OR drift in the rule whose job is preventing such drift).
+#  121. whitebox_quality_reports                     -- Maven SpotBugs/PMD/Checkstyle reports exist; high-confidence SpotBugs + hard-style Checkstyle findings block, PMD is review-trigger summary (Rule G-12, enforcer E169)
 
 set -uo pipefail
 export LC_ALL=C
@@ -213,6 +215,10 @@ if [[ -f "$repo_root/gate/lib/check_l1_dev_view_tree.sh" ]]; then
 fi
 if [[ -f "$repo_root/gate/lib/check_l1_spi_appendix.sh" ]]; then
   source "$repo_root/gate/lib/check_l1_spi_appendix.sh"
+fi
+if [[ -f "$repo_root/gate/lib/check_whitebox_quality.sh" ]]; then
+  # shellcheck source=gate/lib/check_whitebox_quality.sh
+  source "$repo_root/gate/lib/check_whitebox_quality.sh"
 fi
 # rc27 fix (ADV-1 export -f): export fail_rule + pass_rule so they survive
 # the `bash -c` subshell spawned by the per-rule timeout wrapper.
@@ -2252,9 +2258,14 @@ if [[ $_r38_fail -eq 0 ]]; then pass_rule "architecture_graph_well_formed"; fi
 # ---------------------------------------------------------------------------
 # Rule 39 — review_proposal_front_matter (enforcer E57, ADR-0068)
 #
-# Every NEW (post-W1) proposal under docs/logs/reviews/ MUST declare
-# affects_level: + affects_view: front-matter. Pre-W1 historical review
-# files are explicitly listed in the allow-list below and exempted.
+# docs/logs/reviews/ are interaction records (docs/governance/logs-folder-policy.md):
+# front-matter is OPTIONAL and is NOT required on plain records (review responses,
+# findings logs, PR responses). A doc that OPTS IN to 4+1 proposal classification —
+# i.e. it declares affects_level: OR affects_view: — MUST declare BOTH, with valid
+# values, so a half-classified proposal is still caught. Docs declaring neither key
+# are exempt. Pre-W1 historical files and _TEMPLATE.md remain exempt.
+# This validate-if-present scope keeps logs friction-free per the user's logs-folder
+# directive (rc16 / ADR-0093) while preserving classification quality for real proposals.
 # ---------------------------------------------------------------------------
 _r39_fail=0
 # Allow-list of pre-W1 historical files (relative to docs/logs/reviews/).
@@ -2264,14 +2275,19 @@ while IFS= read -r _f39; do
   _base="$(basename "$_f39")"
   [[ "$_base" == "_TEMPLATE.md" ]] && continue
   if [[ "$_base" =~ $_r39_allow_re ]]; then continue; fi
-  # Accept both single-value form (`affects_level: L0`) and YAML list form
-  # (`affects_level: [L0, L1]` or `affects_level: L0, L1`) — 2026-05-23
-  # widening: the rc33 proposals add multi-level/multi-view proposals.
+  # Frontmatter is optional: only validate when the doc opts into proposal
+  # classification by declaring at least one affects_* key.
+  _r39_has_level=0; _r39_has_view=0
+  grep -qE '^affects_level:' "$_f39" 2>/dev/null && _r39_has_level=1
+  grep -qE '^affects_view:' "$_f39" 2>/dev/null && _r39_has_view=1
+  if [[ $_r39_has_level -eq 0 && $_r39_has_view -eq 0 ]]; then continue; fi
+  # Opted-in proposal — both keys MUST be present and valid. Accept single-value
+  # form (`affects_level: L0`) and YAML list form (`affects_level: [L0, L1]`).
   if ! grep -qE '^affects_level:[[:space:]]+(\[[[:space:]]*)?(L0|L1|L2)' "$_f39" 2>/dev/null; then
-    fail_rule "review_proposal_front_matter" "$_f39 missing 'affects_level:' front-matter (CLAUDE.md Rule 33 / ADR-0068)"; _r39_fail=1
+    fail_rule "review_proposal_front_matter" "$_f39 declares proposal front-matter but 'affects_level:' is missing/invalid -- a classified proposal MUST declare both affects_level + affects_view (frontmatter is otherwise optional per logs-folder-policy)"; _r39_fail=1
   fi
   if ! grep -qE '^affects_view:[[:space:]]+(\[[[:space:]]*)?(logical|development|process|physical|scenarios)' "$_f39" 2>/dev/null; then
-    fail_rule "review_proposal_front_matter" "$_f39 missing 'affects_view:' front-matter (CLAUDE.md Rule 33 / ADR-0068)"; _r39_fail=1
+    fail_rule "review_proposal_front_matter" "$_f39 declares proposal front-matter but 'affects_view:' is missing/invalid -- a classified proposal MUST declare both affects_level + affects_view (frontmatter is otherwise optional per logs-folder-policy)"; _r39_fail=1
   fi
 done < <(find docs/logs/reviews -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort || true)
 if [[ $_r39_fail -eq 0 ]]; then pass_rule "review_proposal_front_matter"; fi
@@ -6643,6 +6659,34 @@ fi
 # Rule 120 — l1_l2_constraint_linkage (enforcer E168) — vacuously green at rc22
 # (no L2 documents exist yet; arms for W3+).
 pass_rule "l1_l2_constraint_linkage"
+
+# ---------------------------------------------------------------------------
+# Rule 121 — whitebox_quality_reports (enforcer E169)
+#
+# Operationalises Rule G-12. Maven owns execution of SpotBugs, PMD, and
+# Checkstyle through the quality profile; this gate owns repository semantics:
+# report presence, high-confidence SpotBugs blocking, low-dispute Checkstyle
+# blocking, and PMD review-trigger summarisation.
+#
+# scope_surfaces: pom.xml, config/spotbugs/exclude.xml, config/pmd/pmd-ruleset.xml, config/checkstyle/checkstyle.xml, gate/lib/check_whitebox_quality.sh, .github/workflows/ci.yml
+# ---------------------------------------------------------------------------
+_r121_fail=0
+if ! command -v check_whitebox_quality_reports >/dev/null 2>&1; then
+  fail_rule "whitebox_quality_reports" "helper-missing: gate/lib/check_whitebox_quality.sh not sourced -- Rule G-12 / E169"
+  _r121_fail=1
+else
+  _r121_out=$(check_whitebox_quality_reports 2>&1)
+  while IFS=$'\t' read -r _s _f _d; do
+    [[ -z "$_s" ]] && continue
+    if [[ "$_s" == "FAIL" ]]; then
+      fail_rule "whitebox_quality_reports" "$_f: $_d -- Rule G-12 / E169"
+      _r121_fail=1
+    elif [[ "$_s" == "INFO" ]]; then
+      printf 'INFO: whitebox_quality_reports -- %s: %s\n' "$_f" "$_d"
+    fi
+  done <<< "$_r121_out"
+fi
+[[ $_r121_fail -eq 0 ]] && pass_rule "whitebox_quality_reports"
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------
