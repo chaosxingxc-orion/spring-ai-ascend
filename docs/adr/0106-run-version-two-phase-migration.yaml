@@ -1,0 +1,171 @@
+id: ADR-0106
+title: "Run.version field — two-phase W1.5 + W2 migration to avoid in-flight CAS gap"
+status: accepted
+date: 2026-05-22
+level: L0
+view: development
+affects_level: L0
+affects_view: development
+authors:
+  - chao
+relates_to:
+  - ADR-0020
+  - ADR-0021
+  - ADR-0024
+  - ADR-0098
+extends:
+  - ADR-0020
+context: |
+  The 2026-05-22 architecture-design document-review R2 surfaced a migration
+  gap in the W0 → W2 Run.withStatus race-resolution plan recorded at
+  §4 #20 of ARCHITECTURE.md.
+
+  The original §4 #20 W2 plan reads "optimistic lock (`version` field)
+  required before W2 Postgres" and asserts that `RunRepository.save(run)`
+  rejects when `persisted.version != run.version() - 1`. The plan does not
+  describe how pre-W2 Run rows that already exist (in-memory at W0, durable
+  at W1) transition to the W2 CAS semantics.
+
+  Concrete W1 → W2 scenario:
+
+  1. Cluster runs W1 with 200 Runs in SUSPENDED status, persisted with
+     no `version` field on the `Run` record.
+  2. W2 Flyway migration `V<N>__add_run_version.sql` adds the column with
+     a default of 0 (or NULL).
+  3. First W2 orchestrator boot performs `RunRepository.save(resumed)` on
+     Run R1. The CAS check evaluates `persisted.version (0) !=
+     run.version() - 1 (-1)` → FAIL (or NPE on null default).
+  4. Either every existing Run is unsavable on first W2 write, or the
+     orchestrator carves out a "first save is unconditional, subsequent
+     are CAS" exception that re-opens the W0 race window once per Run
+     lifetime.
+
+  Neither outcome is acceptable. The R2-NEW-3 adversarial-review finding
+  (confidence 0.83) explicitly named this as a blocking gap before the
+  W2 ADR ships.
+
+  Three closure paths were considered (R2 review):
+
+  A. Introduce `Run.version` at W1.5 with no behavioural change (just
+     record-shape change + default 0), so W1 Runs already carry a usable
+     version when W2 arms the CAS check.
+  B. Two-phase migration: W1.5 introduces the field, W2 enables the
+     check.
+  C. Defer the entire migration decision to the W2-implementation ADR.
+
+  The user-selected direction (2026-05-22 review-response choice) is
+  (B) — two-phase migration with explicit wave milestones.
+
+decision: |
+  **Run.version is introduced as a `long` field on the `Run` record at
+  W1.5 with default value 0 and NO behavioural change.** At W2 the
+  Postgres tier enables CAS on `RunRepository.save(run)`; because every
+  pre-W2 in-flight Run already carries `version = 0`, the first W2 save
+  applies normally (`run.version() - 1 == -1` is NOT the comparison —
+  see the corrected CAS semantics below).
+
+  **Corrected CAS semantics (supersedes the ARCHITECTURE.md §4 #20 W1
+  draft prose).** `RunRepository.save(run)` accepts when
+  `persisted.version == run.version()` AND writes
+  `run.withVersion(run.version() + 1)`; rejects (throws
+  `OptimisticLockException`) when `persisted.version != run.version()`.
+  The caller obtains the stale `run.version()` on read; the repository
+  CAS guards against concurrent writers having bumped the persisted
+  version since the caller's read.
+
+  Three wave milestones:
+
+  - **W0 (current)**: `Run` is a 14-component Java record with no
+    `version` field. No CAS. Last-write-wins is the known limitation
+    declared at §4 #20.
+  - **W1.5 (record-shape migration; behavioural no-op)**: `Run` gains
+    a 15th component `long version` (default 0). All `with*` factory
+    methods preserve `version` unchanged. `InMemoryRunRegistry.save()`
+    continues last-write-wins — no CAS yet. Pre-W1.5 in-flight Runs do
+    not exist (W0 is in-memory only; durability ships at W2).
+  - **W2 (CAS enable)**: Postgres `RunRepository.save(run)` enforces
+    CAS as defined above. Integration test
+    `RunCancelDuringResumeRaceIT` (anchored at
+    `docs/governance/architecture-status.yaml#run_optimistic_lock.tests[].planned`)
+    arms two-thread cancel-vs-resume on the same Run. Migration is a
+    no-op for in-flight Runs because every Run already carries
+    `version = 0` from W1.5.
+
+  **W1.5 ordering.** The W1.5 release MAY co-ship the Postgres
+  `RunRepository` implementation (currently W2) provided the CAS check
+  remains disabled. The trigger for "version field exists" is decoupled
+  from the trigger for "CAS check enforces" — only the latter is W2.
+
+  **Migration story for the W0 → W1.5 boundary.** At W0 the only
+  persistence is in-memory; there are no in-flight rows across the
+  W0 → W1.5 boundary. Adding the field is a fresh-start record-shape
+  change.
+
+  **Migration story for the W1.5 → W2 boundary.** When W1.5 ships
+  Postgres durability, every Run row gets `version = 0` from the column
+  default. When W2 enables the CAS check, the first save for any
+  pre-existing row passes the CAS comparison `persisted.version (0) ==
+  run.version() (0)` cleanly — no race window, no exception, no carve-out.
+
+consequences: |
+  Positive:
+
+  - Eliminates the W1 → W2 first-save race window that R2-NEW-3 named.
+  - Decouples the record-shape change (W1.5) from the behavioural
+    change (W2), so the W2 CAS-enable PR is a behavioural patch rather
+    than a schema-and-behaviour-together PR.
+  - The corrected CAS semantics (`persisted.version == run.version()`
+    rather than `persisted.version != run.version() - 1`) match the
+    standard JPA `@Version` optimistic-locking pattern; this aligns
+    the platform with idiomatic Spring Data semantics if a future
+    move to Spring Data JPA happens.
+
+  Negative:
+
+  - Adds a wave milestone (W1.5) that did not exist before. Ratchet
+    discipline (Rule G-2.a baseline metrics) will need a W1.5
+    architecture-status.yaml row when the wave actually opens.
+  - The W1.5 milestone is presently undefined in the §5 staged-rollout
+    section; this ADR creates a forward-pointing reference that the
+    next §5 update MUST honor (see Rule G-3 sub-clause .a kernel-card
+    coherence).
+  - The corrected CAS semantics may invalidate any test or doc that
+    cited the previous `run.version() - 1` formulation. The new
+    formulation is documented here as the authoritative source.
+
+  Compounding direction:
+
+  - Positive — every subsequent persistence ADR can assume the
+    optimistic-lock contract is in place. W3 Temporal child-workflow
+    durability tier inherits the CAS pattern without additional
+    migration design.
+
+alternatives_considered: |
+  - **(A) Introduce field at W1 (not W1.5).** Earlier introduction is
+    safer but creates a record-shape change on the shipped W0 surface
+    before there is any reason to. Rejected as premature: W0 has no
+    durability, so the field is dead weight until W1.5.
+
+  - **(C) Defer to W2-implementation ADR.** Rejected because the
+    record-shape change has knock-on effects on every `Run`
+    construction call site and every `with*` factory; deferring leaves
+    the W2 implementer without a forward-compatible W1 SPI surface.
+
+  - **(D) Status-reset migration (all pre-W2 SUSPENDED → FAILED at
+    W2 boot).** Rejected: operationally expensive (loses suspended-
+    resume context for every in-flight Run) and contradicts §4 #19
+    SuspendSignal taxonomy + watchdog design which already names
+    EXPIRED as the legitimate timeout terminal — using FAILED would
+    misclassify the migration event as an in-band failure.
+
+  - **(E) Defer CAS entirely; rely on transactional isolation.**
+    Rejected: Postgres SERIALIZABLE isolation on a single-row update
+    is a stronger guarantee than CAS BUT requires explicit transaction
+    boundaries on every `withStatus` call site. CAS at the repository
+    layer is the simpler invariant.
+
+references: |
+  - ARCHITECTURE.md §4 #20 (RunStatus formal transition DFA + transition audit trail)
+  - ADR-0020 (Runlifecycle SPI and RunStatus formal DFA)
+  - docs/governance/architecture-status.yaml#run_optimistic_lock
+  - docs/logs/reviews/2026-05-22-architecture-design-document-review-r1-r2.en.md §"R2-NEW-3"

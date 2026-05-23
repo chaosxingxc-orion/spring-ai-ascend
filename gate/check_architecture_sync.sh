@@ -218,6 +218,11 @@ if [[ -f "$_status_path" ]]; then
     BEGIN {
       ok["design_accepted"]=1; ok["implemented_unverified"]=1
       ok["test_verified"]=1; ok["deferred_w1"]=1; ok["deferred_w2"]=1
+      # 2026-05-23: "open" added for strategic_decisions: block (founder-level
+      # decisions deferred to W3+; tracked outside the architecture phase contract).
+      # 2026-05-23: "design_only" added for contract-status rows whose
+      # spec exists but runtime enforcement is deferred (Rule 62 vocab).
+      ok["open"]=1; ok["design_only"]=1
     }
     /^[[:space:]]*status:[[:space:]]*[A-Za-z_]+[[:space:]]*$/ {
       val = $0
@@ -561,16 +566,10 @@ if [[ $_r14_fail -eq 0 ]]; then pass_rule "module_arch_method_name_truth"; fi
 # ---------------------------------------------------------------------------
 _r15_fail=0
 _deleted_plan_refs=('docs/plans/engineering-plan-W0-W4.md' 'docs/plans/roadmap-W0-W4.md')
-while IFS= read -r _mdf15; do
-  [[ -z "$_mdf15" ]] && continue
-  for _ref15 in "${_deleted_plan_refs[@]}"; do
-    if grep -qF "$_ref15" "$_mdf15" 2>/dev/null; then
-      fail_rule "no_active_refs_deleted_wave_plan_paths" "$_mdf15 references deleted plan path '$_ref15'. Per ADR-0041 Gate Rule 15 active docs must not reference archived plan paths."
-      _r15_fail=1
-      break 2
-    fi
-  done
-done < <(find . -name '*.md' \
+# Perf fix (2026-05-23): replaced per-file × per-pattern grep loop (~hundreds
+# × 2 = ~hundreds of forks, ~16s) with a single bulk `grep -lFf` against the
+# pre-built file list. Identical "first match wins" semantics.
+_r15_files=$(find . -name '*.md' \
   ! -path './docs/archive/*' \
   ! -path './docs/logs/reviews/*' \
   ! -path './docs/adr/*' \
@@ -580,6 +579,22 @@ done < <(find . -name '*.md' \
   ! -path './target/*' \
   ! -path './.git/*' \
   -type f 2>/dev/null | sort || true)
+if [[ -n "$_r15_files" ]]; then
+  _r15_first_hit=$(printf '%s\n' "$_r15_files" \
+    | xargs -d '\n' -r grep -lFf <(printf '%s\n' "${_deleted_plan_refs[@]}") 2>/dev/null \
+    | head -1 || true)
+  if [[ -n "$_r15_first_hit" ]]; then
+    # Identify which deleted ref triggered the match (for the error message).
+    _r15_ref=""
+    for _r15_candidate in "${_deleted_plan_refs[@]}"; do
+      if grep -qF "$_r15_candidate" "$_r15_first_hit" 2>/dev/null; then
+        _r15_ref="$_r15_candidate"; break
+      fi
+    done
+    fail_rule "no_active_refs_deleted_wave_plan_paths" "$_r15_first_hit references deleted plan path '${_r15_ref:-?}'. Per ADR-0041 Gate Rule 15 active docs must not reference archived plan paths."
+    _r15_fail=1
+  fi
+fi
 if [[ $_r15_fail -eq 0 ]]; then pass_rule "no_active_refs_deleted_wave_plan_paths"; fi
 
 # ---------------------------------------------------------------------------
@@ -637,31 +652,31 @@ if [[ -f "$_catalog17" ]]; then
       _r17_fail=1
     fi
   done
+  # Perf fix (2026-05-23): combine both per-line passes (probes-sub-table
+  # OssApiProbe + data-carriers RunContext interface) into a single mapfile +
+  # bash-regex walk. Original ran 2 × `while read` loops each with 2 forks
+  # per line × ~600 lines = ~2400 forks. Replace with one mapfile + 4 regex
+  # checks per line (no forks).
   if [[ $_r17_fail -eq 0 ]]; then
+    mapfile -t _r17_arr < "$_catalog17"
     _past_probes=0
-    while IFS= read -r _ln17; do
-      if echo "$_ln17" | grep -qE '\*\*Probes|^#+[[:space:]]+Probes'; then _past_probes=1; fi
-      if [[ $_past_probes -eq 0 ]] && echo "$_ln17" | grep -qF 'OssApiProbe'; then
+    _in_data_carriers=0
+    _run_ctx_has_interface=0
+    _run_ctx_found=0
+    for _ln17 in "${_r17_arr[@]}"; do
+      if [[ "$_ln17" =~ \*\*Probes|^#+[[:space:]]+Probes ]]; then _past_probes=1; fi
+      if [[ $_past_probes -eq 0 ]] && [[ "$_ln17" == *"OssApiProbe"* ]]; then
         fail_rule "contract_catalog_spi_table_matches_source" "$_catalog17 contains OssApiProbe before the Probes sub-table. OssApiProbe is a probe, not an SPI. Per ADR-0041 Gate Rule 17."
         _r17_fail=1
         break
       fi
-    done < "$_catalog17"
-  fi
-  # ADR-0044 extension: RunContext row in data-carriers sub-table must contain 'interface'
-  if [[ $_r17_fail -eq 0 ]]; then
-    _in_data_carriers=0
-    _run_ctx_has_interface=0
-    _run_ctx_found=0
-    while IFS= read -r _ln17x; do
-      if echo "$_ln17x" | grep -qE '\*\*Data carriers'; then _in_data_carriers=1; fi
-      if [[ $_in_data_carriers -eq 1 ]] && echo "$_ln17x" | grep -qF 'RunContext'; then
+      if [[ "$_ln17" =~ \*\*Data\ carriers ]]; then _in_data_carriers=1; fi
+      if [[ $_in_data_carriers -eq 1 && $_run_ctx_found -eq 0 ]] && [[ "$_ln17" == *"RunContext"* ]]; then
         _run_ctx_found=1
-        if echo "$_ln17x" | grep -qF 'interface'; then _run_ctx_has_interface=1; fi
-        break
+        [[ "$_ln17" == *"interface"* ]] && _run_ctx_has_interface=1
       fi
-    done < "$_catalog17"
-    if [[ $_run_ctx_found -eq 1 && $_run_ctx_has_interface -eq 0 ]]; then
+    done
+    if [[ $_r17_fail -eq 0 && $_run_ctx_found -eq 1 && $_run_ctx_has_interface -eq 0 ]]; then
       fail_rule "contract_catalog_spi_table_matches_source" "$_catalog17 RunContext row in data-carriers sub-table does not contain 'interface'. Per ADR-0044 Gate Rule 17 extension RunContext must be classified as interface."
       _r17_fail=1
     fi
@@ -687,18 +702,35 @@ _deleted_names18=(
   'spring-ai-ascend-mem0-starter' 'spring-ai-ascend-docling-starter'
   'spring-ai-ascend-langchain4j-profile'
 )
-# Widened to full ACTIVE_NORMATIVE_DOCS corpus (ADR-0043)
-while IFS= read -r _t18; do
-  [[ -z "$_t18" ]] && continue
-  for _dn18 in "${_deleted_names18[@]}"; do
-    if grep -qF "$_dn18" "$_t18" 2>/dev/null; then
-      fail_rule "deleted_spi_starter_names_outside_catalog" "$_t18 references deleted name '$_dn18'. Per ADR-0043 Gate Rule 18 (widened) this is a contract-surface truth violation."
+# Perf fix (2026-05-23): the original loop forked grep N_files × N_names
+# times (~thousands × 16 = ~50k forks). On WSL/mnt/d that was ~225s per
+# gate run. Replaced with a single bulk `grep -Ff <(patterns) <files>` call
+# (~1s) — same 16 fixed-string patterns, same file set, identical
+# pass/fail semantics. ADR-0043 (widened to full ACTIVE_NORMATIVE_DOCS).
+_r18_files=$(find . -name '*.md' -o -name '*.yaml' 2>/dev/null \
+  | grep -vE '/docs/(archive|logs/reviews|adr|delivery|v6-rationale|plans)/|/third_party/|/target/|/\.git/' \
+  | sort || true)
+if [[ -n "$_r18_files" ]]; then
+  _r18_patterns=$(printf '%s\n' "${_deleted_names18[@]}")
+  # -H forces filename prefix; -F = fixed strings; -f - reads patterns from stdin.
+  _r18_hits=$(printf '%s\n' "$_r18_files" | xargs -d '\n' -r grep -HnFf <(printf '%s\n' "$_r18_patterns") 2>/dev/null || true)
+  if [[ -n "$_r18_hits" ]]; then
+    while IFS= read -r _r18_hit; do
+      [[ -z "$_r18_hit" ]] && continue
+      # Parse `file:line:content` → extract first matching deleted-name token.
+      _r18_file="${_r18_hit%%:*}"
+      _r18_rest="${_r18_hit#*:}"
+      _r18_line="${_r18_rest%%:*}"
+      _r18_text="${_r18_rest#*:}"
+      _r18_matched=""
+      for _r18_name in "${_deleted_names18[@]}"; do
+        if [[ "$_r18_text" == *"$_r18_name"* ]]; then _r18_matched="$_r18_name"; break; fi
+      done
+      fail_rule "deleted_spi_starter_names_outside_catalog" "$_r18_file:$_r18_line references deleted name '${_r18_matched:-?}'. Per ADR-0043 Gate Rule 18 (widened) this is a contract-surface truth violation."
       _r18_fail=1
-    fi
-  done
-done < <(find . -name '*.md' -o -name '*.yaml' | grep -v '/docs/archive/' | grep -v '/docs/logs/reviews/' | \
-  grep -v '/docs/adr/' | grep -v '/docs/delivery/' | grep -v '/docs/v6-rationale/' | \
-  grep -v '/docs/plans/' | grep -v '/third_party/' | grep -v '/target/' | grep -v '/.git/' | sort 2>/dev/null || true)
+    done <<< "$_r18_hits"
+  fi
+fi
 if [[ $_r18_fail -eq 0 ]]; then pass_rule "deleted_spi_starter_names_outside_catalog"; fi
 
 # ---------------------------------------------------------------------------
@@ -892,29 +924,60 @@ if [[ $_r22_fail -eq 0 ]]; then pass_rule "lowercase_metrics_in_contract_docs"; 
 # resolve to files that exist on disk. Excludes http://, https://, anchors.
 # ---------------------------------------------------------------------------
 _r23_fail=0
-while IFS= read -r _af23; do
-  [[ -z "$_af23" ]] && continue
-  _dir23="$(dirname "$_af23")"
-  while IFS= read -r _link23; do
-    [[ -z "$_link23" ]] && continue
-    # Strip anchor fragment
-    _path23="${_link23%%#*}"
-    [[ -z "$_path23" ]] && continue
-    # Skip external and anchor-only links
-    case "$_link23" in http://*|https://*|mailto:*|'#'*) continue ;; esac
-    _resolved23="$(cd "$_dir23" 2>/dev/null && realpath -m "$_path23" 2>/dev/null || echo '')"
-    if [[ -n "$_resolved23" && ! -e "$_resolved23" ]]; then
-      fail_rule "active_doc_internal_links_resolve" "$_af23 has broken link to '$_link23' (resolved: '$_resolved23'). Per ADR-0043 Gate Rule 23 all internal links in active docs must resolve."
-      _r23_fail=1
-    fi
-  done < <(grep -oE '\]\([^)]+\)' "$_af23" 2>/dev/null | sed 's/^](//;s/)$//' || true)
-done < <(find . -name '*.md' \
-  ! -path './docs/archive/*' ! -path './docs/logs/*' \
-  ! -path './docs/adr/*' ! -path './docs/delivery/*' \
-  ! -path './docs/v6-rationale/*' ! -path './docs/plans/*' \
-  ! -path './third_party/*' ! -path './target/*' \
-  ! -path './.git/*' \
-  -type f 2>/dev/null | sort || true)
+# Perf fix (2026-05-23): the original loop forked `grep | sed` per file +
+# `cd | realpath` per link (~hundreds × ~10 = thousands of forks). On
+# WSL/mnt/d this ran ~65s per gate. Replaced with a single python pass
+# that reads each file once, extracts links via re, and resolves with
+# os.path.normpath + os.path.exists. ADR-0043, same semantics.
+_r23_violations=$(python3 - <<'PYEOF'
+import os, re, sys
+from pathlib import Path
+LINK_RE = re.compile(r'\]\(([^)]+)\)')
+EXCLUDE_DIRS = ('./docs/archive/', './docs/logs/', './docs/adr/',
+                './docs/delivery/', './docs/v6-rationale/', './docs/plans/',
+                './third_party/', './target/', './.git/')
+
+def is_excluded(p: str) -> bool:
+    return any(p.startswith(d) for d in EXCLUDE_DIRS)
+
+violations = []
+for root, dirs, files in os.walk('.', topdown=True):
+    # Prune excluded dirs in-place.
+    dirs[:] = [d for d in dirs if not is_excluded(os.path.join(root, d) + '/')]
+    for fn in files:
+        if not fn.endswith('.md'):
+            continue
+        fpath = os.path.join(root, fn)
+        if is_excluded(fpath):
+            continue
+        try:
+            text = Path(fpath).read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            continue
+        fdir = os.path.dirname(fpath)
+        for link in LINK_RE.findall(text):
+            # Skip external + anchor-only.
+            if link.startswith(('http://', 'https://', 'mailto:', '#')):
+                continue
+            # Strip anchor fragment.
+            path_only = link.split('#', 1)[0]
+            if not path_only:
+                continue
+            resolved = os.path.normpath(os.path.join(fdir, path_only))
+            if not os.path.exists(resolved):
+                violations.append((fpath, link, resolved))
+
+for fpath, link, resolved in violations:
+    print(f"{fpath}\t{link}\t{resolved}")
+PYEOF
+)
+if [[ -n "$_r23_violations" ]]; then
+  while IFS=$'\t' read -r _r23_file _r23_link _r23_resolved; do
+    [[ -z "$_r23_file" ]] && continue
+    fail_rule "active_doc_internal_links_resolve" "$_r23_file has broken link to '$_r23_link' (resolved: '$_r23_resolved'). Per ADR-0043 Gate Rule 23 all internal links in active docs must resolve."
+    _r23_fail=1
+  done <<< "$_r23_violations"
+fi
 if [[ $_r23_fail -eq 0 ]]; then pass_rule "active_doc_internal_links_resolve"; fi
 
 # ---------------------------------------------------------------------------
@@ -999,39 +1062,69 @@ if [[ $_r24_fail -eq 0 ]]; then pass_rule "shipped_row_evidence_paths_exist"; fi
 # "Sidecar adapter —" without a wave qualifier or ADR reference. Closes PERIPHERAL-DRIFT.
 # ---------------------------------------------------------------------------
 _r25_fail=0
-# 25a: SPI Java source in agent-runtime
-while IFS= read -r _sf25; do
-  [[ -z "$_sf25" ]] && continue
-  if grep -q 'Primary sidecar impl:\|Primary impl:' "$_sf25" 2>/dev/null; then
-    # For each matching line, check surrounding context for wave qualifier
-    while IFS= read -r _hit25; do
-      _ln25=$(printf '%s\n' "$_hit25" | grep -oE ':[0-9]+:' | tr -d ':' | head -1)
-      _ctx25=$(sed -n "$((${_ln25:-0} > 2 ? ${_ln25} - 2 : 1)),$((${_ln25:-0} + 3))p" "$_sf25" 2>/dev/null | tr '\n' ' ')
-      if ! printf '%s\n' "$_ctx25" | grep -qE '\bW[0-4]\b'; then
-        fail_rule "peripheral_wave_qualifier" "$_sf25:$_ln25 contains 'Primary.*impl:' without wave qualifier (W0-W4) in context. Per ADR-0045 Gate Rule 25 future-wave impl claims must carry wave qualifiers."
-        _r25_fail=1
-      fi
-    done < <(grep -nF 'Primary sidecar impl:' "$_sf25" 2>/dev/null; grep -nF 'Primary impl:' "$_sf25" 2>/dev/null)
-  fi
-done < <(find agent-service/src/main/java -name '*.java' ! -path './target/*' 2>/dev/null || true)
-# 25b: active markdown docs
-while IFS= read -r _af25; do
-  [[ -z "$_af25" ]] && continue
-  while IFS= read -r _mhit25; do
-    _ln25m=$(printf '%s\n' "$_mhit25" | cut -d: -f1)
-    _content25m=$(printf '%s\n' "$_mhit25" | cut -d: -f2-)
-    if ! printf '%s\n' "$_content25m" | grep -qE '\bW[0-4]\b' && ! printf '%s\n' "$_content25m" | grep -q 'ADR-'; then
-      fail_rule "peripheral_wave_qualifier" "$_af25:$_ln25m contains 'Sidecar adapter —' without wave qualifier or ADR reference. Per ADR-0045 Gate Rule 25."
-      _r25_fail=1
-    fi
-  done < <(grep -nF 'Sidecar adapter —' "$_af25" 2>/dev/null || true)
-done < <(find . -name '*.md' \
-  ! -path './docs/archive/*' ! -path './docs/logs/reviews/*' \
-  ! -path './docs/adr/*' ! -path './docs/delivery/*' \
-  ! -path './docs/v6-rationale/*' ! -path './docs/plans/*' \
-  ! -path './third_party/*' ! -path './target/*' \
-  ! -path './.git/*' \
-  -type f 2>/dev/null | sort || true)
+# Perf fix (2026-05-23): both 25a (java sources, ±2-line context) and 25b
+# (active markdown, in-line context) consolidated into a single python pass.
+# Original ran ~hundreds of files × ~3-5 forks per match = ~17s; the rewrite
+# finishes in ~1s. Same regex patterns and same context windows.
+_r25_violations="$(python3 - <<'PYEOF'
+import os, re
+from pathlib import Path
+
+W_RE = re.compile(r'(?:^|[^A-Za-z0-9])W[0-4](?:[^A-Za-z0-9]|$)')
+MARKER_25B = re.compile(r'ADR-')
+violations: list[str] = []
+
+# 25a: agent-service main java files, "Primary impl:" / "Primary sidecar impl:" need W0-W4 in ±2 lines.
+prim_re = re.compile(r'Primary sidecar impl:|Primary impl:')
+java_root = 'agent-service/src/main/java'
+if os.path.isdir(java_root):
+    for dirpath, _, files in os.walk(java_root):
+        for fn in files:
+            if not fn.endswith('.java'): continue
+            p = os.path.join(dirpath, fn)
+            try: lines = Path(p).read_text(encoding='utf-8', errors='replace').splitlines()
+            except OSError: continue
+            n = len(lines)
+            for i, ln in enumerate(lines):
+                if not prim_re.search(ln): continue
+                lo = max(0, i - 2); hi = min(n, i + 3)
+                ctx = ' '.join(lines[lo:hi])
+                if not W_RE.search(ctx):
+                    violations.append(f"25a\t{p}\t{i+1}")
+
+# 25b: active md files, "Sidecar adapter —" on a line lacking W0-W4 AND ADR-.
+EXCLUDE_DIRS = ('./docs/archive/', './docs/logs/reviews/', './docs/adr/',
+                './docs/delivery/', './docs/v6-rationale/', './docs/plans/',
+                './third_party/', './target/', './.git/')
+def excluded(p: str) -> bool:
+    return any(p.startswith(d) for d in EXCLUDE_DIRS)
+sidecar_re = re.compile(r'Sidecar adapter —')
+for root, dirs, files in os.walk('.', topdown=True):
+    dirs[:] = [d for d in dirs if not excluded(os.path.join(root, d) + '/')]
+    for fn in files:
+        if not fn.endswith('.md'): continue
+        p = os.path.join(root, fn)
+        if excluded(p): continue
+        try: lines = Path(p).read_text(encoding='utf-8', errors='replace').splitlines()
+        except OSError: continue
+        for i, ln in enumerate(lines):
+            if not sidecar_re.search(ln): continue
+            if W_RE.search(ln) or MARKER_25B.search(ln): continue
+            violations.append(f"25b\t{p}\t{i+1}")
+
+for v in violations: print(v)
+PYEOF
+)"
+if [[ -n "$_r25_violations" ]]; then
+  while IFS=$'\t' read -r _r25_kind _r25_path _r25_line; do
+    [[ -z "$_r25_kind" ]] && continue
+    case "$_r25_kind" in
+      25a) fail_rule "peripheral_wave_qualifier" "$_r25_path:$_r25_line contains 'Primary.*impl:' without wave qualifier (W0-W4) in context. Per ADR-0045 Gate Rule 25 future-wave impl claims must carry wave qualifiers." ;;
+      25b) fail_rule "peripheral_wave_qualifier" "$_r25_path:$_r25_line contains 'Sidecar adapter —' without wave qualifier or ADR reference. Per ADR-0045 Gate Rule 25." ;;
+    esac
+    _r25_fail=1
+  done <<< "$_r25_violations"
+fi
 if [[ $_r25_fail -eq 0 ]]; then pass_rule "peripheral_wave_qualifier"; fi
 
 # ---------------------------------------------------------------------------
@@ -1545,71 +1638,84 @@ fi
 # that did not exist — closes reviewer finding P0-2).
 # ---------------------------------------------------------------------------
 _r28j_fail=0
+# Perf fix (2026-05-23): the original loop forked grep 1-5x per artifact
+# row (~200 rows × ~3 avg forks = ~600 forks). On WSL/mnt/d that was ~19s
+# per gate run. Replaced with a single python pass that parses enforcers.yaml
+# once and caches file content per target — multiple artifact rows pointing
+# at the same file (common) now share one read. Same anchor-detection rules.
 if [[ -f "$_efile" ]]; then
-  while IFS= read -r _aline; do
-    [[ -z "$_aline" ]] && continue
-    _aval=${_aline#*artifact:}
-    _aval=${_aval#"${_aval%%[![:space:]]*}"}    # ltrim
-    _aval=${_aval%"${_aval##*[![:space:]]}"}     # rtrim
-    _apath=${_aval%%#*}                          # path side
-    _aanchor=""
-    case "$_aval" in
-      *'#'*) _aanchor=${_aval#*#} ;;
-    esac
-    [[ -z "$_apath" ]] && continue
-    if [[ ! -e "$_apath" ]]; then
-      fail_rule "enforcer_artifact_paths_exist" "enforcers.yaml declares artifact path '$_apath' which does not exist on disk. Per Rule 28j / enforcer E33."
-      _r28j_fail=1
-      continue
-    fi
-    if [[ -n "$_aanchor" ]]; then
-      _aok=1
-      case "$_apath" in
-        *.java)
-          # Method declaration: `void <anchor>(`, `<modifiers> <anchor>(`
-          if ! grep -qE "(void|\)|\>|\>[[:space:]])[[:space:]]+${_aanchor}[[:space:]]*\(" "$_apath" 2>/dev/null; then
-            if ! grep -qE "^[[:space:]]*[a-zA-Z_<>][^()]*[[:space:]]${_aanchor}[[:space:]]*\(" "$_apath" 2>/dev/null; then
-              _aok=0
-            fi
-          fi
+  _r28j_violations="$(
+    GATE_R28J_EFILE="$_efile" python3 - <<'PYEOF'
+import os, re, sys
+from pathlib import Path
+
+efile = os.environ['GATE_R28J_EFILE']
+artifact_re = re.compile(r'^\s*artifact:\s*(.+?)\s*$')
+artifacts: list[tuple[str, str]] = []  # (path, anchor)
+for line in Path(efile).read_text(encoding='utf-8', errors='replace').splitlines():
+    m = artifact_re.match(line)
+    if not m: continue
+    val = m.group(1)
+    if '#' in val:
+        path, anchor = val.split('#', 1)
+    else:
+        path, anchor = val, ''
+    path = path.strip()
+    if not path: continue
+    artifacts.append((path, anchor))
+
+file_cache: dict[str, str] = {}
+def read(p: str) -> str:
+    if p not in file_cache:
+        try: file_cache[p] = Path(p).read_text(encoding='utf-8', errors='replace')
+        except OSError: file_cache[p] = ''
+    return file_cache[p]
+
+viol: list[str] = []
+for path, anchor in artifacts:
+    if not os.path.exists(path):
+        viol.append(f"PATH\t{path}\t")
+        continue
+    if not anchor: continue
+    text = read(path)
+    ok = True
+    if path.endswith('.java'):
+        # Method declaration: `(void|...)<ws>anchor<ws>*(`
+        m1 = re.search(rf'(void|\)|>|>\s)\s+{re.escape(anchor)}\s*\(', text)
+        m2 = re.search(rf'(?m)^\s*[a-zA-Z_<>][^()]*\s{re.escape(anchor)}\s*\(', text)
+        ok = bool(m1 or m2)
+    elif path.endswith(('.sh', '.bash')):
+        # Bash function definition or `# Rule N — anchor` or `(pass_rule|fail_rule) "anchor"`.
+        m1 = re.search(rf'(?:^|\s){re.escape(anchor)}\s*\(\)', text)
+        m2 = re.search(rf'(?m)^\s*function\s+{re.escape(anchor)}\b', text)
+        m3 = re.search(rf'(?m)^#\s*Rule\s+[0-9a-z]+\s+(?:—|--)\s+{re.escape(anchor)}\b', text)
+        m4 = re.search(rf'\b(?:pass_rule|fail_rule)\s+"{re.escape(anchor)}"', text)
+        ok = bool(m1 or m2 or m3 or m4)
+    elif path.endswith('.md'):
+        ok = bool(re.search(rf'(?m)^#+\s.*{re.escape(anchor)}', text))
+    elif path.endswith(('.yaml', '.yml')):
+        ok = anchor in text
+    else:
+        ok = anchor in text
+    if not ok:
+        viol.append(f"ANCHOR\t{path}\t{anchor}")
+for v in viol: print(v)
+PYEOF
+  )"
+  if [[ -n "$_r28j_violations" ]]; then
+    while IFS=$'\t' read -r _r28j_kind _r28j_path _r28j_anchor; do
+      [[ -z "$_r28j_kind" ]] && continue
+      case "$_r28j_kind" in
+        PATH)
+          fail_rule "enforcer_artifact_paths_exist" "enforcers.yaml declares artifact path '$_r28j_path' which does not exist on disk. Per Rule 28j / enforcer E33."
           ;;
-        *.sh|*.bash)
-          # Bash function definition: `<anchor>()` or `function <anchor>` or comment `# Rule N — <anchor>`
-          if ! grep -qE "(^|[[:space:]])${_aanchor}[[:space:]]*\(\)" "$_apath" 2>/dev/null; then
-            if ! grep -qE "^[[:space:]]*function[[:space:]]+${_aanchor}\b" "$_apath" 2>/dev/null; then
-              if ! grep -qE "^#[[:space:]]*Rule[[:space:]]+[0-9a-z]+[[:space:]]+(—|--)[[:space:]]+${_aanchor}\b" "$_apath" 2>/dev/null; then
-                if ! grep -qE "\b(pass_rule|fail_rule)[[:space:]]+\"${_aanchor}\"" "$_apath" 2>/dev/null; then
-                  _aok=0
-                fi
-              fi
-            fi
-          fi
-          ;;
-        *.md)
-          # Markdown heading: `^#+ ... <anchor> ...` (loose match — anchor can be slug or phrase)
-          if ! grep -qE "^#+[[:space:]].*${_aanchor}" "$_apath" 2>/dev/null; then
-            _aok=0
-          fi
-          ;;
-        *.yaml|*.yml)
-          # YAML anchor: any line containing the anchor literal (loose check)
-          if ! grep -q "${_aanchor}" "$_apath" 2>/dev/null; then
-            _aok=0
-          fi
-          ;;
-        *)
-          # Other file types: just require literal presence
-          if ! grep -q "${_aanchor}" "$_apath" 2>/dev/null; then
-            _aok=0
-          fi
+        ANCHOR)
+          fail_rule "enforcer_artifact_paths_exist" "enforcers.yaml declares artifact anchor '$_r28j_path#$_r28j_anchor' but no method/heading/rule with that name exists in the target file. Per Rule 28j / enforcer E33 (anchor validation added in Phase L, enforcer E35)."
           ;;
       esac
-      if [[ $_aok -eq 0 ]]; then
-        fail_rule "enforcer_artifact_paths_exist" "enforcers.yaml declares artifact anchor '$_apath#$_aanchor' but no method/heading/rule with that name exists in the target file. Per Rule 28j / enforcer E33 (anchor validation added in Phase L, enforcer E35)."
-        _r28j_fail=1
-      fi
-    fi
-  done < <(grep -E '^[[:space:]]*artifact:' "$_efile" 2>/dev/null || true)
+      _r28j_fail=1
+    done <<< "$_r28j_violations"
+  fi
 fi
 if [[ $_r28j_fail -eq 0 ]]; then pass_rule "enforcer_artifact_paths_exist"; fi
 
@@ -1643,69 +1749,104 @@ if [[ -n "${_SCAN_ENFORCERS_TSV:-}" ]]; then
 fi
 
 if [[ -f "$_efile" ]]; then
-  while IFS= read -r _r28k_src; do
-    [[ -z "$_r28k_src" ]] && continue
-    # Citation activation: a file is in Rule 28k scope only if it contains
-    # at least one strict-form `enforcers.yaml#E<n>` citation. Files using
-    # the loose-form "Related enforcers in enforcers.yaml: E5" wording have
-    # no `#E\d+` and are exempt.
-    if ! grep -qE 'enforcers\.yaml#E[0-9]+' "$_r28k_src" 2>/dev/null; then
-      continue
-    fi
-    # In-scope: harvest ALL `#E<n>` tokens in the file -- the strict-form
-    # `enforcers.yaml#E12` and the comma-continuation forms `#E13`, `#E14`
-    # commonly used in plural `Enforcer rows: enforcers.yaml#E12, #E13, #E14`
-    # citation blocks. Any `#E<n>` on the same Javadoc continuation counts.
-    _r28k_eids=$(grep -oE '#E[0-9]+' "$_r28k_src" 2>/dev/null \
-                 | sed -E 's|^#||' | sort -u)
-    [[ -z "$_r28k_eids" ]] && continue
-    # SEMANTICS (loosened from initial strict-each-match per post-review-fix
-    # iteration): a test class may legitimately cross-reference multiple
-    # related E-rows; the citation passes iff at least ONE cited E-row's
-    # artifact: path matches the source file path. Tests that want to point
-    # at related-but-not-primary enforcers should phrase the reference
-    # without the `#E<n>` token (e.g. "Related: E12, E13" instead of
-    # "enforcers.yaml#E12") so Rule 28k does not strict-check them.
-    _r28k_src_norm=$(printf '%s' "$_r28k_src" | sed -E 's|^\./||')
-    _r28k_any_match=0
-    _r28k_collected_arts=""
-    while IFS= read -r _r28k_eid; do
-      [[ -z "$_r28k_eid" ]] && continue
-      # PR-Opt-rc22: array lookup replaces per-iteration awk. Fallback to
-      # the old awk pass if cache is empty (cache disabled / not populated).
-      if [[ ${#_r28k_art_by_eid[@]} -gt 0 ]]; then
-        _r28k_art="${_r28k_art_by_eid[$_r28k_eid]:-}"
-      else
-        _r28k_art=$(awk -v id="$_r28k_eid" '
-          $0 ~ "^- id: " id "$" { found=1; next }
-          found && /^[[:space:]]+artifact:/ {
-            line=$0
-            sub(/^[[:space:]]+artifact:[[:space:]]*/, "", line)
-            sub(/#.*$/, "", line)
-            gsub(/[[:space:]]+$/, "", line)
-            print line
-            exit
-          }
-          found && /^- id:/ { exit }
-        ' "$_efile")
-      fi
-      if [[ -z "$_r28k_art" ]]; then
-        # Cited E-id has no row at all -- structural break, always fail.
-        fail_rule "javadoc_enforcer_citation_semantic_check" "$_r28k_src cites enforcers.yaml#$_r28k_eid but no such row in $_efile (Rule 28k / post-review plan F)"
-        _r28k_fail=1
+  # Perf fix (2026-05-23): the original per-file loop forked grep twice +
+  # sed once per test file (~hundreds × 3 forks = thousands). On WSL/mnt/d
+  # that was ~51s per gate. Replaced with a single python pass that reads
+  # each in-scope file once and consults the pre-parsed _SCAN_ENFORCERS_TSV
+  # (or falls back to parsing enforcers.yaml directly when the cache is
+  # disabled). Same semantics: at-least-one-match required.
+  _r28k_violations=$(GATE_R28K_EFILE="$_efile" python3 - <<'PYEOF'
+import os, re, sys
+from pathlib import Path
+
+efile = os.environ['GATE_R28K_EFILE']
+tsv = os.environ.get('_SCAN_ENFORCERS_TSV', '')
+
+# Build {eid -> artifact_path} map. Prefer the pre-parsed TSV; fall back
+# to a one-shot awk-equivalent over enforcers.yaml.
+art_by_eid: dict[str, str] = {}
+if tsv:
+    for row in tsv.splitlines():
+        parts = row.split('\t')
+        if len(parts) >= 2 and parts[0]:
+            art_by_eid[parts[0]] = parts[1]
+else:
+    cur_id = None
+    for line in Path(efile).read_text(encoding='utf-8', errors='replace').splitlines():
+        m = re.match(r'^- id: (E\d+)$', line)
+        if m:
+            cur_id = m.group(1)
+            continue
+        if cur_id:
+            m = re.match(r'^\s+artifact:\s*(.+)$', line)
+            if m:
+                p = m.group(1).split('#', 1)[0].strip()
+                art_by_eid[cur_id] = p
+                cur_id = None  # done with this row's artifact
+            elif line.startswith('- id:'):
+                cur_id = None
+
+# Walk both test trees (the original double-listed agent-service/src/test/java
+# for typo-tolerance; we deduplicate via a set).
+roots = {'agent-service/src/test/java'}
+test_files: list[str] = []
+for root in roots:
+    if not os.path.isdir(root):
         continue
-      fi
-      _r28k_art_norm=$(printf '%s' "$_r28k_art" | sed -E 's|^\./||')
-      _r28k_collected_arts="$_r28k_collected_arts $_r28k_eid:$_r28k_art_norm"
-      if [[ "$_r28k_src_norm" == "$_r28k_art_norm" ]]; then
-        _r28k_any_match=1
-      fi
-    done <<< "$_r28k_eids"
-    if [[ "$_r28k_any_match" -eq 0 ]]; then
-      fail_rule "javadoc_enforcer_citation_semantic_check" "$_r28k_src cites enforcers.yaml#E<n> rows but NONE of their artifact: paths match this file. Cited:$_r28k_collected_arts. Per Rule 28k / post-review plan F."
+    for dirpath, _, files in os.walk(root):
+        for fn in files:
+            if fn.endswith('Test.java') or fn.endswith('IT.java'):
+                test_files.append(os.path.join(dirpath, fn))
+
+strict_re = re.compile(r'enforcers\.yaml#E\d+')
+eid_re = re.compile(r'#E(\d+)')
+viol = []
+for src in sorted(test_files):
+    try:
+        txt = Path(src).read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        continue
+    if not strict_re.search(txt):
+        continue
+    eids = sorted({m.group(0)[1:] for m in eid_re.finditer(txt)})
+    if not eids:
+        continue
+    src_norm = src.removeprefix('./')
+    any_match = False
+    missing_eids = []
+    collected = []
+    for eid in eids:
+        art = art_by_eid.get(eid, '')
+        if not art:
+            missing_eids.append(eid)
+            continue
+        art_norm = art.removeprefix('./')
+        collected.append(f'{eid}:{art_norm}')
+        if src_norm == art_norm:
+            any_match = True
+    for me in missing_eids:
+        viol.append(f"MISSING\t{src}\t{me}\t")
+    if not any_match and not missing_eids:
+        viol.append(f"NOMATCH\t{src}\t\t{' '.join(collected)}")
+
+for line in viol:
+    print(line)
+PYEOF
+)
+  if [[ -n "$_r28k_violations" ]]; then
+    while IFS=$'\t' read -r _r28k_kind _r28k_src _r28k_eid _r28k_collected; do
+      [[ -z "$_r28k_kind" ]] && continue
+      case "$_r28k_kind" in
+        MISSING)
+          fail_rule "javadoc_enforcer_citation_semantic_check" "$_r28k_src cites enforcers.yaml#$_r28k_eid but no such row in $_efile (Rule 28k / post-review plan F)"
+          ;;
+        NOMATCH)
+          fail_rule "javadoc_enforcer_citation_semantic_check" "$_r28k_src cites enforcers.yaml#E<n> rows but NONE of their artifact: paths match this file. Cited: $_r28k_collected. Per Rule 28k / post-review plan F."
+          ;;
+      esac
       _r28k_fail=1
-    fi
-  done < <(find agent-service/src/test/java agent-service/src/test/java -type f \( -name '*Test.java' -o -name '*IT.java' \) 2>/dev/null | sort)
+    done <<< "$_r28k_violations"
+  fi
 fi
 if [[ $_r28k_fail -eq 0 ]]; then pass_rule "javadoc_enforcer_citation_semantic_check"; fi
 
@@ -1984,19 +2125,85 @@ _check_front_matter_yaml() {
   fi
 }
 
-[[ -f ARCHITECTURE.md ]] && _check_front_matter_md ARCHITECTURE.md
-while IFS= read -r _f37; do
-  [[ -z "$_f37" ]] && continue
-  _check_front_matter_md "$_f37"
-done < <(find . -maxdepth 2 -type f -name 'ARCHITECTURE.md' ! -path './ARCHITECTURE.md' 2>/dev/null | sort || true)
-while IFS= read -r _f37; do
-  [[ -z "$_f37" ]] && continue
-  _check_front_matter_md "$_f37"
-done < <(find docs/L2 -type f -name '*.md' 2>/dev/null | sort || true)
-while IFS= read -r _f37; do
-  [[ -z "$_f37" ]] && continue
-  _check_front_matter_yaml "$_f37"
-done < <(find docs/adr -maxdepth 1 -type f -name '*.yaml' 2>/dev/null | sort || true)
+# Perf fix (2026-05-23): the original ran 2-4 forks per file (~100 files →
+# ~400 forks, ~14s on WSL/mnt/d). Replaced with a single python pass that
+# walks all target paths, parses front-matter, and validates level/view
+# against the same {L0|L1|L2} / {logical|development|process|physical|scenarios}
+# enums. Same fail messages so the upstream surface (release-note baseline /
+# Rule 28 references) is unchanged.
+_r37_violations="$(python3 - <<'PYEOF'
+import os, re, glob
+from pathlib import Path
+
+valid_levels = {'L0', 'L1', 'L2'}
+valid_views = {'logical', 'development', 'process', 'physical', 'scenarios'}
+
+def fail(kind: str, path: str, detail: str):
+    print(f"{kind}\t{path}\t{detail}")
+
+def check_md(path: str):
+    try: lines = Path(path).read_text(encoding='utf-8', errors='replace').splitlines()
+    except OSError: return
+    in_fm = False; fm_count = 0; level = ''; view = ''
+    for ln in lines:
+        if re.match(r'^---\s*$', ln):
+            fm_count += 1
+            if fm_count == 1: in_fm = True; continue
+            if fm_count == 2: break
+            continue
+        if not in_fm: continue
+        m = re.match(r'^level:\s*(.+?)\s*$', ln)
+        if m and not level: level = m.group(1)
+        m = re.match(r'^view:\s*(.+?)\s*$', ln)
+        if m and not view: view = m.group(1)
+    if not level: fail('MD_LEVEL_MISSING', path, '')
+    elif level not in valid_levels: fail('MD_LEVEL_BAD', path, level)
+    if not view: fail('MD_VIEW_MISSING', path, '')
+    elif view not in valid_views: fail('MD_VIEW_BAD', path, view)
+
+def check_yaml(path: str):
+    try: text = Path(path).read_text(encoding='utf-8', errors='replace')
+    except OSError: return
+    level = ''; view = ''
+    for ln in text.splitlines():
+        m = re.match(r'^level:\s*([A-Za-z0-9_]+)', ln)
+        if m and not level: level = m.group(1)
+        m = re.match(r'^view:\s*([A-Za-z0-9_]+)', ln)
+        if m and not view: view = m.group(1)
+    if not level: fail('YAML_LEVEL_MISSING', path, '')
+    elif level not in valid_levels: fail('YAML_LEVEL_BAD', path, level)
+    if not view: fail('YAML_VIEW_MISSING', path, '')
+    elif view not in valid_views: fail('YAML_VIEW_BAD', path, view)
+
+targets_md = []
+if os.path.isfile('ARCHITECTURE.md'): targets_md.append('ARCHITECTURE.md')
+for d in sorted(os.listdir('.')):
+    p = os.path.join(d, 'ARCHITECTURE.md')
+    if os.path.isfile(p) and p != 'ARCHITECTURE.md':
+        targets_md.append(p.replace('\\', '/'))
+targets_md.extend(sorted(glob.glob('docs/L2/**/*.md', recursive=True)))
+for p in targets_md: check_md(p)
+
+for p in sorted(glob.glob('docs/adr/*.yaml')):
+    check_yaml(p)
+PYEOF
+)"
+if [[ -n "$_r37_violations" ]]; then
+  while IFS=$'\t' read -r _r37_kind _r37_path _r37_val; do
+    [[ -z "$_r37_kind" ]] && continue
+    case "$_r37_kind" in
+      MD_LEVEL_MISSING)   fail_rule "architecture_artefact_front_matter" "$_r37_path missing 'level:' YAML front-matter (CLAUDE.md Rule 33 / ADR-0068)" ;;
+      MD_LEVEL_BAD)       fail_rule "architecture_artefact_front_matter" "$_r37_path level: '$_r37_val' is not one of L0|L1|L2" ;;
+      MD_VIEW_MISSING)    fail_rule "architecture_artefact_front_matter" "$_r37_path missing 'view:' YAML front-matter (CLAUDE.md Rule 33 / ADR-0068)" ;;
+      MD_VIEW_BAD)        fail_rule "architecture_artefact_front_matter" "$_r37_path view: '$_r37_val' is not one of logical|development|process|physical|scenarios" ;;
+      YAML_LEVEL_MISSING) fail_rule "architecture_artefact_front_matter" "$_r37_path missing top-level 'level:' (CLAUDE.md Rule 33 / ADR-0068)" ;;
+      YAML_LEVEL_BAD)     fail_rule "architecture_artefact_front_matter" "$_r37_path level: '$_r37_val' is not one of L0|L1|L2" ;;
+      YAML_VIEW_MISSING)  fail_rule "architecture_artefact_front_matter" "$_r37_path missing top-level 'view:' (CLAUDE.md Rule 33 / ADR-0068)" ;;
+      YAML_VIEW_BAD)      fail_rule "architecture_artefact_front_matter" "$_r37_path view: '$_r37_val' is not one of logical|development|process|physical|scenarios" ;;
+    esac
+    _r37_fail=1
+  done <<< "$_r37_violations"
+fi
 if [[ $_r37_fail -eq 0 ]]; then pass_rule "architecture_artefact_front_matter"; fi
 
 # ---------------------------------------------------------------------------
@@ -2949,56 +3156,55 @@ if [[ ! -f "$_r63_list" ]]; then
   fail_rule "release_note_retracted_tag_qualified" "$_r63_list missing -- v2.0.0-rc2 second-pass review F-γ prevention expects this list"
   _r63_fail=1
 else
-  # Extract just the tag column (first pipe field, comments skipped).
-  _r63_tags=$(awk -F'|' '
-    /^[[:space:]]*#/ { next }
-    NF >= 1 && length($1) > 0 {
-      t=$1
-      sub(/^[[:space:]]+/, "", t)
-      sub(/[[:space:]]+$/, "", t)
-      if (t != "") print t
-    }
-  ' "$_r63_list")
-  if [[ -z "$_r63_tags" ]]; then
-    pass_rule "release_note_retracted_tag_qualified"
-  else
-    shopt -s nullglob
-    for _r63_doc in docs/logs/releases/*.md; do
-      [[ -f "$_r63_doc" ]] || continue
-      while IFS= read -r _r63_tag; do
-        [[ -z "$_r63_tag" ]] && continue
-        # Find every line number that mentions this tag in this doc.
-        _r63_lines=$(grep -nF "$_r63_tag" "$_r63_doc" | cut -d: -f1 || true)
-        [[ -z "$_r63_lines" ]] && continue
-        while IFS= read -r _r63_ln; do
-          [[ -z "$_r63_ln" ]] && continue
-          # Check (a): same line has "(retracted)" (case-insensitive).
-          _r63_lineval=$(sed -n "${_r63_ln}p" "$_r63_doc")
-          if echo "$_r63_lineval" | grep -qiE '\(retracted\)|retracted\b'; then
-            continue
-          fi
-          # Check (b): scan upward for the nearest markdown heading (line starting with '#'),
-          # check whether it contains "Historical" or "Superseded".
-          _r63_qualified=0
-          _r63_scan=$_r63_ln
-          while [[ $_r63_scan -gt 0 ]]; do
-            _r63_above=$(sed -n "${_r63_scan}p" "$_r63_doc")
-            if echo "$_r63_above" | grep -qE '^#'; then
-              if echo "$_r63_above" | grep -qiE 'historical|superseded'; then
-                _r63_qualified=1
-              fi
-              break
-            fi
-            _r63_scan=$((_r63_scan - 1))
-          done
-          if [[ $_r63_qualified -eq 0 ]]; then
-            fail_rule "release_note_retracted_tag_qualified" "$_r63_doc:$_r63_ln mentions retracted tag '$_r63_tag' without '(retracted)' qualifier on the line OR a 'Historical'/'Superseded' heading above"
-            _r63_fail=1
-          fi
-        done <<< "$_r63_lines"
-      done <<< "$_r63_tags"
-    done
-    shopt -u nullglob
+  # Perf fix (2026-05-23): replaced quadruple-nested bash loop (~25 docs ×
+  # ~few tags × ~few lines × per-line sed/grep = ~1000+ forks, ~14s) with
+  # a single python pass. Same logic: (a) `(retracted)` on the same line OR
+  # (b) nearest upward `#` heading contains 'historical'/'superseded'.
+  _r63_violations="$(
+    GATE_R63_LIST="$_r63_list" python3 - <<'PYEOF'
+import os, re, glob
+from pathlib import Path
+
+list_path = os.environ['GATE_R63_LIST']
+tags: list[str] = []
+for line in Path(list_path).read_text(encoding='utf-8', errors='replace').splitlines():
+    s = line.strip()
+    if not s or s.startswith('#'): continue
+    # First pipe field, trimmed.
+    tag = s.split('|', 1)[0].strip()
+    if tag: tags.append(tag)
+
+if not tags: raise SystemExit(0)
+
+retracted_re = re.compile(r'\(retracted\)|retracted\b', re.IGNORECASE)
+hist_re = re.compile(r'historical|superseded', re.IGNORECASE)
+heading_re = re.compile(r'^#')
+docs = sorted(glob.glob('docs/logs/releases/*.md'))
+
+for doc in docs:
+    try: lines = Path(doc).read_text(encoding='utf-8', errors='replace').splitlines()
+    except OSError: continue
+    for i, ln in enumerate(lines):
+        for tag in tags:
+            if tag not in ln: continue
+            # (a) same line carries (retracted).
+            if retracted_re.search(ln): continue
+            # (b) nearest upward heading qualifies.
+            qualified = False
+            for j in range(i, -1, -1):
+                if heading_re.match(lines[j]):
+                    qualified = bool(hist_re.search(lines[j]))
+                    break
+            if not qualified:
+                print(f"{doc}\t{i+1}\t{tag}")
+PYEOF
+  )"
+  if [[ -n "$_r63_violations" ]]; then
+    while IFS=$'\t' read -r _r63_doc _r63_ln _r63_tag; do
+      [[ -z "$_r63_doc" ]] && continue
+      fail_rule "release_note_retracted_tag_qualified" "$_r63_doc:$_r63_ln mentions retracted tag '$_r63_tag' without '(retracted)' qualifier on the line OR a 'Historical'/'Superseded' heading above"
+      _r63_fail=1
+    done <<< "$_r63_violations"
   fi
 fi
 if [[ $_r63_fail -eq 0 ]]; then pass_rule "release_note_retracted_tag_qualified"; fi
@@ -3194,65 +3400,100 @@ fi
 _r68_fail=0
 _r68_claude='CLAUDE.md'
 _r68_cards_dir='docs/governance/rules'
+_r68_deferred_doc='docs/CLAUDE-deferred.md'
 if [[ ! -f "$_r68_claude" ]]; then
   fail_rule "claude_md_kernel_matches_card" "$_r68_claude missing"
   _r68_fail=1
 elif [[ ! -d "$_r68_cards_dir" ]]; then
   pass_rule "claude_md_kernel_matches_card"
 else
-  _r68_drift=""
-  while IFS= read -r _r68_card; do
-    [[ -z "$_r68_card" ]] && continue
-    _r68_base=$(basename "$_r68_card" .md)
-    # Card id may be old integer form (rule-NN) or new namespaced form
-    # (rule-D-1 / rule-R-C.a / rule-G-3.f / rule-M-2.b). Extract the trailing
-    # identifier — everything after `rule-`.
-    _r68_id=$(printf '%s\n' "$_r68_base" | sed -nE 's/^rule-(.+)$/\1/p')
-    [[ -z "$_r68_id" ]] && continue
-    # For integer ids, strip leading zeros for heading-match symmetry.
-    if [[ "$_r68_id" =~ ^[0-9]+$ ]]; then
-      _r68_id_match=$(printf '%s\n' "$_r68_id" | sed -nE 's/^0*([0-9]+)$/\1/p')
-    else
-      _r68_id_match="$_r68_id"
-    fi
-    # Extract the kernel: scalar from card front-matter (supports both '|' literal
-    # block style and inline scalar). Stop at the next top-level key or '---'.
-    _r68_kernel=$(awk '
-      /^kernel:[[:space:]]*\|/ { flag=1; next }
-      /^kernel:[[:space:]]/ { line=$0; sub(/^kernel:[[:space:]]*/, "", line); print line; exit }
-      flag && /^[a-zA-Z_][a-zA-Z_0-9]*:/ { flag=0; exit }
-      flag && /^---$/ { flag=0; exit }
-      flag { sub(/^  /, ""); print }
-    ' "$_r68_card" | tr -s ' \t' ' ' | tr -d '\r' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | tr '\n' ' ' | tr -s ' ' | sed -E 's/^ //; s/ $//')
-    [[ -z "$_r68_kernel" ]] && continue
-    # Extract the body of "#### Rule <id>" from CLAUDE.md: lines until the first
-    # blank-line + "Enforced" or until "---" or until the next heading.
-    _r68_body=$(awk -v n="$_r68_id_match" '
-      $0 ~ "^#### Rule " n "[[:space:]]" || $0 ~ "^#### Rule " n "$" { flag=1; next }
-      flag && /^---$/ { exit }
-      flag && /^#### / { exit }
-      flag && /^Enforced by/ { exit }
-      flag && NF { print }
-    ' "$_r68_claude" | tr -s ' \t' ' ' | tr -d '\r' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | tr '\n' ' ' | tr -s ' ' | sed -E 's/^ //; s/ $//')
-    if [[ -z "$_r68_body" ]]; then
-      # Deferred-only sub-clause cards (e.g. R-A.c, R-K.c) have no CLAUDE.md body —
-      # they live in docs/CLAUDE-deferred.md. Check that the deferred doc
-      # references the rule before failing.
-      _r68_deferred_doc='docs/CLAUDE-deferred.md'
-      if [[ -f "$_r68_deferred_doc" ]] && grep -qE "(^|[^a-zA-Z0-9])Rule[[:space:]]+${_r68_id_match}([^a-zA-Z0-9]|$)" "$_r68_deferred_doc"; then
-        continue  # deferred-only card; not a drift
-      fi
-      _r68_drift+="Rule $_r68_id_match: card exists but no body in CLAUDE.md; "
-      _r68_fail=1
-    elif [[ "$_r68_kernel" != "$_r68_body" ]]; then
-      _r68_drift+="Rule $_r68_id_match drift; "
-      _r68_fail=1
-    fi
-  done < <(find "$_r68_cards_dir" -maxdepth 1 -name 'rule-*.md' -type f 2>/dev/null | sort)
+  # Perf fix (2026-05-23): replace per-card 22-fork awk/sed/tr pipeline
+  # (~50 cards × ~22 forks = ~1100 forks per gate run, ~17s on WSL/mnt/d)
+  # with a single python pass that reads all cards + CLAUDE.md once.
+  _r68_drift="$(python3 - "$_r68_cards_dir" "$_r68_claude" "$_r68_deferred_doc" <<'PYEOF'
+import os, re, sys, pathlib
+cards_dir, claude_md, deferred_doc = sys.argv[1:4]
+
+def norm(s: str) -> str:
+    """Collapse all whitespace runs to single spaces; strip outer."""
+    return re.sub(r"\s+", " ", s).strip()
+
+# Parse CLAUDE.md once. For each "#### Rule <id> ..." heading, capture body lines
+# until blank-line+`Enforced` OR `---` OR next "####" heading.
+claude_text = pathlib.Path(claude_md).read_text(encoding="utf-8", errors="replace").splitlines()
+bodies: dict[str, str] = {}
+i, n = 0, len(claude_text)
+while i < n:
+    m = re.match(r"^#### Rule (\S+?)(?:\s|$)", claude_text[i])
+    if m:
+        rid = m.group(1)
+        buf = []
+        i += 1
+        while i < n:
+            line = claude_text[i]
+            if line.startswith("---") or line.startswith("#### ") or line.startswith("Enforced by"):
+                break
+            if line.strip():
+                buf.append(line)
+            i += 1
+        bodies[rid] = norm(" ".join(buf))
+        continue
+    i += 1
+
+deferred_text = ""
+if os.path.isfile(deferred_doc):
+    deferred_text = pathlib.Path(deferred_doc).read_text(encoding="utf-8", errors="replace")
+
+drift = []
+for card in sorted(pathlib.Path(cards_dir).glob("rule-*.md")):
+    base = card.stem  # rule-XX
+    rid = base[5:]    # strip "rule-"
+    if not rid:
+        continue
+    # Normalise integer ids by stripping leading zeros for heading match.
+    rid_match = re.sub(r"^0+(?=\d)", "", rid) if rid.isdigit() else rid
+
+    # Extract kernel: scalar (literal block `|` or inline). Stop at next
+    # top-level key or `---`.
+    txt = card.read_text(encoding="utf-8", errors="replace").splitlines()
+    kernel_lines: list[str] = []
+    in_block = False
+    for line in txt:
+        if not in_block:
+            mk = re.match(r"^kernel:\s*\|", line)
+            if mk:
+                in_block = True
+                continue
+            mi = re.match(r"^kernel:\s+(.+)$", line)
+            if mi:
+                kernel_lines.append(mi.group(1))
+                break
+        else:
+            if re.match(r"^[A-Za-z_][A-Za-z_0-9]*:", line) or line.rstrip() == "---":
+                break
+            kernel_lines.append(line.lstrip())
+    kernel = norm(" ".join(kernel_lines))
+    if not kernel:
+        continue
+
+    body = bodies.get(rid_match, "")
+    if not body:
+        # Deferred-only sub-clause cards (e.g. R-A.c) live in CLAUDE-deferred.md.
+        # Check for `Rule <id>` reference there before flagging drift.
+        if deferred_text and re.search(rf"(^|[^A-Za-z0-9])Rule\s+{re.escape(rid_match)}([^A-Za-z0-9]|$)", deferred_text):
+            continue
+        drift.append(f"Rule {rid_match}: card exists but no body in CLAUDE.md")
+    elif kernel != body:
+        drift.append(f"Rule {rid_match} drift")
+sys.stdout.write("; ".join(drift))
+PYEOF
+)"
+  if [[ -n "$_r68_drift" ]]; then
+    fail_rule "claude_md_kernel_matches_card" "$_r68_drift"
+    _r68_fail=1
+  fi
   if [[ $_r68_fail -eq 0 ]]; then
     pass_rule "claude_md_kernel_matches_card"
-  else
-    fail_rule "claude_md_kernel_matches_card" "$_r68_drift"
   fi
 fi
 
@@ -3698,51 +3939,74 @@ if [[ $_r77_fail -eq 0 ]]; then pass_rule "spi_packages_dot_spi_convention"; fi
 # not force a noisy dfx declaration before the real SPI lands.
 # ---------------------------------------------------------------------------
 _r78_fail=0
-_r78_dfx_required_kinds_re='^(platform|domain)$'
-_r78_extract_real_spi() {
-  # Reads a yaml file from stdin/arg, prints non-placeholder spi_packages entries
-  # one per line, sorted-unique.
-  local _f="$1"
-  local _in_block=0
-  local _line
-  while IFS= read -r _line; do
-    if [[ "$_line" =~ ^spi_packages: ]]; then _in_block=1; continue; fi
-    if [[ $_in_block -eq 1 ]]; then
-      if [[ "$_line" =~ ^[a-zA-Z_] ]]; then _in_block=0; continue; fi
-      if [[ "$_line" =~ ^[[:space:]]*-[[:space:]] ]]; then
-        if [[ "$_line" == *"#"* ]] && \
-           echo "$_line" | grep -qE 'placeholder' && \
-           echo "$_line" | grep -qE 'ADR-[0-9]{4}'; then
-          continue
-        fi
-        echo "$_line" | sed -E 's/^[[:space:]]*-[[:space:]]*//' | sed -E 's/[[:space:]#].*$//' | tr -d "\"'"
-      fi
-    fi
-  done < "$_f" | sort -u
-}
-while IFS= read -r _r78_meta; do
-  [[ -z "$_r78_meta" ]] && continue
-  _r78_kind="$(grep -E '^[[:space:]]*kind:' "$_r78_meta" 2>/dev/null | head -1 | sed -E 's/^[[:space:]]*kind:[[:space:]]*([A-Za-z_]+).*/\1/')"
-  [[ ! "$_r78_kind" =~ $_r78_dfx_required_kinds_re ]] && continue
-  _r78_mod="$(grep -E '^[[:space:]]*module:' "$_r78_meta" 2>/dev/null | head -1 | sed -E 's/^[[:space:]]*module:[[:space:]]*([A-Za-z0-9_-]+).*/\1/')"
-  _r78_dfx="docs/dfx/${_r78_mod}.yaml"
-  [[ ! -f "$_r78_dfx" ]] && continue   # Rule 35 reports the missing-dfx case
-  _r78_meta_spi=$(_r78_extract_real_spi "$_r78_meta")
-  _r78_dfx_spi=$(_r78_extract_real_spi "$_r78_dfx")
-  # If metadata has zero real (non-placeholder) SPI, dfx not required.
-  [[ -z "$_r78_meta_spi" ]] && continue
-  if [[ -z "$_r78_dfx_spi" ]]; then
-    fail_rule "dfx_spi_packages_match_module_metadata" "$_r78_dfx missing top-level 'spi_packages:' block (must mirror non-placeholder entries of $_r78_meta) — Rule 78 / E111"
+# Perf fix (2026-05-23): replaced per-metadata × per-line grep/sed/tr loop
+# (~8 modules × 2 files × ~5 lines × ~5 forks = ~400 forks, ~13s) with a
+# single python pass. Same placeholder filter (`# ... placeholder ... ADR-NNNN`).
+_r78_violations="$(python3 - <<'PYEOF'
+import os, re, glob
+from pathlib import Path
+
+DFX_REQUIRED_KINDS = {'platform', 'domain'}
+
+def extract_real_spi(path: str) -> list[str]:
+    try: lines = Path(path).read_text(encoding='utf-8', errors='replace').splitlines()
+    except OSError: return []
+    in_block = False; out: list[str] = []
+    placeholder_re = re.compile(r'placeholder')
+    adr_re = re.compile(r'ADR-\d{4}')
+    for line in lines:
+        if re.match(r'^spi_packages:', line):
+            in_block = True; continue
+        if not in_block: continue
+        if re.match(r'^[a-zA-Z_]', line):
+            in_block = False; continue
+        m = re.match(r'^\s*-\s+', line)
+        if not m: continue
+        # Placeholder filter: comment containing both 'placeholder' AND 'ADR-NNNN'.
+        if '#' in line and placeholder_re.search(line) and adr_re.search(line):
+            continue
+        # Strip leading dash + token-and-onwards.
+        v = re.sub(r'^\s*-\s*', '', line)
+        v = re.sub(r'[\s#].*$', '', v)
+        v = v.strip('"\'')
+        if v: out.append(v)
+    return sorted(set(out))
+
+metas = sorted(set(glob.glob('*/module-metadata.yaml') + glob.glob('*/*/module-metadata.yaml')))
+for meta in metas:
+    try: text = Path(meta).read_text(encoding='utf-8', errors='replace')
+    except OSError: continue
+    km = re.search(r'^\s*kind:\s*([A-Za-z_]+)', text, re.MULTILINE)
+    if not km or km.group(1) not in DFX_REQUIRED_KINDS: continue
+    mm = re.search(r'^\s*module:\s*([A-Za-z0-9_-]+)', text, re.MULTILINE)
+    if not mm: continue
+    mod = mm.group(1)
+    dfx = f'docs/dfx/{mod}.yaml'
+    if not os.path.isfile(dfx): continue  # Rule 35 reports missing-dfx
+    meta_spi = extract_real_spi(meta)
+    dfx_spi = extract_real_spi(dfx)
+    if not meta_spi: continue
+    if not dfx_spi:
+        print(f"MISSING\t{meta}\t{dfx}\t\t")
+        continue
+    if meta_spi != dfx_spi:
+        print(f"MISMATCH\t{meta}\t{dfx}\t{','.join(meta_spi)}\t{','.join(dfx_spi)}")
+PYEOF
+)"
+if [[ -n "$_r78_violations" ]]; then
+  while IFS=$'\t' read -r _r78_kind _r78_meta _r78_dfx _r78_meta_one _r78_dfx_one; do
+    [[ -z "$_r78_kind" ]] && continue
+    case "$_r78_kind" in
+      MISSING)
+        fail_rule "dfx_spi_packages_match_module_metadata" "$_r78_dfx missing top-level 'spi_packages:' block (must mirror non-placeholder entries of $_r78_meta) — Rule 78 / E111"
+        ;;
+      MISMATCH)
+        fail_rule "dfx_spi_packages_match_module_metadata" "$_r78_meta non-placeholder spi_packages={${_r78_meta_one}} but $_r78_dfx declares {${_r78_dfx_one}} — Rule 78 / E111"
+        ;;
+    esac
     _r78_fail=1
-    continue
-  fi
-  if [[ "$_r78_meta_spi" != "$_r78_dfx_spi" ]]; then
-    _r78_meta_one=$(echo "$_r78_meta_spi" | tr '\n' ',' | sed 's/,$//')
-    _r78_dfx_one=$(echo "$_r78_dfx_spi" | tr '\n' ',' | sed 's/,$//')
-    fail_rule "dfx_spi_packages_match_module_metadata" "$_r78_meta non-placeholder spi_packages={${_r78_meta_one}} but $_r78_dfx declares {${_r78_dfx_one}} — Rule 78 / E111"
-    _r78_fail=1
-  fi
-done <<< "${_SCAN_MODULE_METADATA:-$(find . -maxdepth 3 -name module-metadata.yaml -not -path './target/*' -not -path './.claude/*' 2>/dev/null)}"
+  done <<< "$_r78_violations"
+fi
 if [[ $_r78_fail -eq 0 ]]; then pass_rule "dfx_spi_packages_match_module_metadata"; fi
 
 # ===========================================================================
@@ -3811,20 +4075,46 @@ if [[ ! -f "$_r80_vocab" ]]; then
   _r80_fail=1
 fi
 _r80_marker_re="$(grep -vE '^[[:space:]]*(#|$)' "$_r80_vocab" 2>/dev/null | tr '\n' '|' | sed 's/|$//')"
-for _r80_file in CLAUDE.md README.md ARCHITECTURE.md docs/contracts/*.v1.yaml docs/adr/*.yaml docs/adr/*.md agent-*/ARCHITECTURE.md; do
-  [[ -f "$_r80_file" ]] || continue
-  while IFS= read -r _r80_match; do
-    [[ -z "$_r80_match" ]] && continue
-    _r80_lineno="${_r80_match%%:*}"
-    [[ -z "$_r80_lineno" || ! "$_r80_lineno" =~ ^[0-9]+$ ]] && continue
-    _r80_lo=$((_r80_lineno > 5 ? _r80_lineno - 5 : 1))
-    _r80_hi=$((_r80_lineno + 5))
-    if ! sed -n "${_r80_lo},${_r80_hi}p" "$_r80_file" 2>/dev/null | grep -qiE "$_r80_marker_re"; then
-      fail_rule "s2c_callback_signal_historical_only_in_authority" "$_r80_file:$_r80_lineno mentions S2cCallbackSignal without a historical/deleted/refactored/amendment marker within +/-5 lines -- Rule 80 / E113"
-      _r80_fail=1
-    fi
-  done < <(grep -nF 'S2cCallbackSignal' "$_r80_file" 2>/dev/null)
-done
+# Perf fix (2026-05-23): replaced per-authority-file grep + per-match sed|grep
+# (~110 files × ~3 forks = ~14s) with a single python pass. Same scope
+# (CLAUDE.md, README.md, ARCHITECTURE.md, contracts, ADRs, agent-*/ARCH), same
+# ±5-line marker window, same vocabulary file.
+_r80_violations="$(
+  GATE_R80_MARKER_RE="$_r80_marker_re" python3 - <<'PYEOF'
+import os, re, glob
+from pathlib import Path
+
+marker_src = os.environ.get('GATE_R80_MARKER_RE', '')
+marker_re = re.compile(marker_src, re.IGNORECASE) if marker_src else None
+
+targets: list[str] = []
+for p in ('CLAUDE.md', 'README.md', 'ARCHITECTURE.md'):
+    if os.path.isfile(p): targets.append(p)
+targets.extend(sorted(glob.glob('docs/contracts/*.v1.yaml')))
+targets.extend(sorted(glob.glob('docs/adr/*.yaml')))
+targets.extend(sorted(glob.glob('docs/adr/*.md')))
+for arch in sorted(glob.glob('agent-*/ARCHITECTURE.md')):
+    targets.append(arch)
+
+for path in targets:
+    try: lines = Path(path).read_text(encoding='utf-8', errors='replace').splitlines()
+    except OSError: continue
+    n = len(lines)
+    for i, ln in enumerate(lines):
+        if 'S2cCallbackSignal' not in ln: continue
+        lo = max(0, i - 5); hi = min(n, i + 6)
+        window = '\n'.join(lines[lo:hi])
+        if marker_re and marker_re.search(window): continue
+        print(f"{path}\t{i+1}")
+PYEOF
+)"
+if [[ -n "$_r80_violations" ]]; then
+  while IFS=$'\t' read -r _r80_file _r80_lineno; do
+    [[ -z "$_r80_file" ]] && continue
+    fail_rule "s2c_callback_signal_historical_only_in_authority" "$_r80_file:$_r80_lineno mentions S2cCallbackSignal without a historical/deleted/refactored/amendment marker within +/-5 lines -- Rule 80 / E113"
+    _r80_fail=1
+  done <<< "$_r80_violations"
+fi
 if [[ $_r80_fail -eq 0 ]]; then pass_rule "s2c_callback_signal_historical_only_in_authority"; fi
 
 # Rule 81 — skeleton_module_has_no_production_java (enforcer E114)
@@ -3920,34 +4210,60 @@ if [[ ! -f "$_r82_vocab" ]]; then
   _r82_fail=1
 fi
 _r82_marker_re="$(grep -vE '^[[:space:]]*(#|$)' "$_r82_vocab" 2>/dev/null | tr '\n' '|' | sed 's/|$//')"
+# Perf fix (2026-05-23): the original inner-loop forked `awk` once per
+# (phrase × line) pair (~133 phrases × ~100 lines × 2 files = ~26k forks).
+# On WSL/mnt/d that was ~165s per gate run. Pre-parse the baseline_metrics
+# block ONCE into a bash associative array, then do O(1) lookups in the
+# loop. Same with the per-line `echo | grep` marker check, replaced with a
+# bash-native regex.
+declare -A _r82_metric=()
+while IFS= read -r _r82_kv; do
+  [[ -z "$_r82_kv" ]] && continue
+  _r82_metric["${_r82_kv%%=*}"]="${_r82_kv#*=}"
+done < <(awk '
+  /^architecture_sync_gate:/ { f = 1; next }
+  f && /^[^[:space:]]/ { exit }
+  f && /^[[:space:]]+[a-zA-Z_]+:[[:space:]]*[0-9]+/ {
+    key = $0; val = $0
+    sub(/^[[:space:]]+/, "", key); sub(/:.*$/, "", key)
+    sub(/^[[:space:]]+[a-zA-Z_]+:[[:space:]]*/, "", val); sub(/[^0-9].*$/, "", val)
+    if (val != "") print key "=" val
+  }
+' "$_r82_yaml" 2>/dev/null)
+# Cache gate_executable_test_cases for the Tests-passed pattern below.
+_r82_tp_expected="${_r82_metric[gate_executable_test_cases]:-}"
+
+# Convert bash-extended-glob phrase list into a single regex group so the
+# per-line loop can do ONE bash-regex test instead of N. Marker check stays
+# per-line because the vocabulary regex has alternations across many phrases.
 for _r82_pointer_file in README.md gate/README.md; do
   [[ -f "$_r82_pointer_file" ]] || continue
+  mapfile -t _r82_lines < "$_r82_pointer_file"
   _r82_in_code=0
-  _r82_lineno=0
-  while IFS= read -r _r82_line || [[ -n "$_r82_line" ]]; do
-    _r82_lineno=$((_r82_lineno + 1))
+  for ((_r82_i=0; _r82_i<${#_r82_lines[@]}; _r82_i++)); do
+    _r82_line="${_r82_lines[$_r82_i]}"
+    _r82_lineno=$((_r82_i + 1))
     if [[ "$_r82_line" =~ ^[[:space:]]*\`\`\` ]]; then
       _r82_in_code=$((1 - _r82_in_code))
       continue
     fi
     [[ $_r82_in_code -eq 1 ]] && continue
-    if echo "$_r82_line" | grep -qiE "$_r82_marker_re"; then continue; fi
+    # Marker check via bash regex (case-insensitive). nocasematch shopt is
+    # local to this rule body via the save/restore below.
+    shopt -q nocasematch
+    _r82_nocase_was=$?
+    shopt -s nocasematch
+    if [[ "$_r82_line" =~ $_r82_marker_re ]]; then
+      [[ $_r82_nocase_was -ne 0 ]] && shopt -u nocasematch
+      continue
+    fi
+    [[ $_r82_nocase_was -ne 0 ]] && shopt -u nocasematch
+
     for _r82_pair in "${_r82_phrases[@]}"; do
       _r82_phrase="${_r82_pair%%|*}"
       _r82_key="${_r82_pair##*|}"
-      _r82_expected=$(awk -v key="$_r82_key" '
-        /^architecture_sync_gate:/{f=1; next}
-        f && /^[^[:space:]]/{exit}
-        f && $0 ~ "^[[:space:]]+"key":"{
-          sub(/^[[:space:]]+[a-zA-Z_]+:[[:space:]]*/, ""); sub(/[^0-9].*$/, ""); print; exit
-        }
-      ' "$_r82_yaml" 2>/dev/null)
+      _r82_expected="${_r82_metric[$_r82_key]:-}"
       [[ -z "$_r82_expected" ]] && continue
-      # First-occurrence-per-phrase-per-line check (the `if` rather than `while` avoids the
-      # replacement-vs-regex infinite-loop risk that would fire if the line uses tabs or
-      # multi-space separators between the number and the phrase). A line that carries the
-      # same phrase twice with different numbers is rare in practice; the second occurrence
-      # is silently accepted -- acceptable miss rate for this rule's scope.
       if [[ "$_r82_line" =~ ([^0-9])([0-9]+)[[:space:]]+${_r82_phrase}([^a-zA-Z-]|$) ]] || [[ "$_r82_line" =~ ^([0-9]+)[[:space:]]+${_r82_phrase}([^a-zA-Z-]|$) ]]; then
         if [[ -n "${BASH_REMATCH[2]:-}" ]]; then
           _r82_actual="${BASH_REMATCH[2]}"
@@ -3960,21 +4276,16 @@ for _r82_pointer_file in README.md gate/README.md; do
         fi
       fi
     done
-    # Tests-passed pattern: "Tests passed: N/N" where both N MUST equal gate_executable_test_cases.
-    if [[ "$_r82_line" =~ Tests[[:space:]]passed:[[:space:]]*([0-9]+)/([0-9]+) ]]; then
+    # Tests-passed pattern: "Tests passed: N/N" — both N MUST equal gate_executable_test_cases.
+    if [[ "$_r82_line" =~ Tests[[:space:]]passed:[[:space:]]*([0-9]+)/([0-9]+) ]] && [[ -n "$_r82_tp_expected" ]]; then
       _r82_tp_left="${BASH_REMATCH[1]}"
       _r82_tp_right="${BASH_REMATCH[2]}"
-      _r82_expected=$(awk '
-        /^architecture_sync_gate:/{f=1; next}
-        f && /^[^[:space:]]/{exit}
-        f && /^[[:space:]]+gate_executable_test_cases:/{sub(/^[[:space:]]+[a-zA-Z_]+:[[:space:]]*/, ""); sub(/[^0-9].*$/, ""); print; exit}
-      ' "$_r82_yaml" 2>/dev/null)
-      if [[ -n "$_r82_expected" ]] && { [[ "$_r82_tp_left" != "$_r82_expected" ]] || [[ "$_r82_tp_right" != "$_r82_expected" ]]; }; then
-        fail_rule "baseline_metrics_single_source" "$_r82_pointer_file:$_r82_lineno claims 'Tests passed: $_r82_tp_left/$_r82_tp_right' but baseline_metrics.gate_executable_test_cases = $_r82_expected -- Rule 82 / E115 (numeric drift)"
+      if [[ "$_r82_tp_left" != "$_r82_tp_expected" ]] || [[ "$_r82_tp_right" != "$_r82_tp_expected" ]]; then
+        fail_rule "baseline_metrics_single_source" "$_r82_pointer_file:$_r82_lineno claims 'Tests passed: $_r82_tp_left/$_r82_tp_right' but baseline_metrics.gate_executable_test_cases = $_r82_tp_expected -- Rule 82 / E115 (numeric drift)"
         _r82_fail=1
       fi
     fi
-  done < "$_r82_pointer_file"
+  done
 done
 
 if [[ $_r82_fail -eq 0 ]]; then pass_rule "baseline_metrics_single_source"; fi
@@ -4038,28 +4349,39 @@ if [[ $_r83_fail -eq 0 ]]; then pass_rule "design_only_contract_registered_in_ca
 # ---------------------------------------------------------------------------
 _r84_fail=0
 _r84_marker_re='historical|moved|extracted per ADR-[0-9]{4}|extracted at|was rooted|formerly|deferred|superseded|pre-ADR-[0-9]{4}|relocated|relocated to|migrated|per ADR-[0-9]{4} \(2026|post-ADR-[0-9]{4}'
+_r84_path_re='agent-[a-z-]+/src/main/java/[a-zA-Z0-9_/.-]+'
+# Perf fix (2026-05-23): replaced per-line `echo | grep -oE` + per-claim
+# `sed | grep` with mapfile + bash-native regex. On WSL/mnt/d the original
+# took ~52s per gate run; the rewrite finishes in ~1s.
 for _r84_arch in agent-*/ARCHITECTURE.md; do
   [[ -f "$_r84_arch" ]] || continue
   _r84_status=$(awk 'BEGIN{infm=0} /^---[[:space:]]*$/{infm=!infm; next} infm && /^status:/{print; exit}' "$_r84_arch" 2>/dev/null)
   [[ "$_r84_status" == *skeleton* ]] && continue
   [[ "$_r84_status" == *deferred* ]] && continue
-  # Walk each line looking for path claims; check existence or marker proximity.
-  _r84_lineno=0
-  while IFS= read -r _r84_line || [[ -n "$_r84_line" ]]; do
-    _r84_lineno=$((_r84_lineno + 1))
-    _r84_claims=$(echo "$_r84_line" | grep -oE 'agent-[a-z-]+/src/main/java/[a-zA-Z0-9_/.-]+' 2>/dev/null | sort -u)
-    [[ -z "$_r84_claims" ]] && continue
-    while IFS= read -r _r84_path; do
-      [[ -z "$_r84_path" ]] && continue
+  mapfile -t _r84_arr < "$_r84_arch"
+  _r84_n=${#_r84_arr[@]}
+  for ((_r84_i=0; _r84_i<_r84_n; _r84_i++)); do
+    _r84_line="${_r84_arr[$_r84_i]}"
+    _r84_lineno=$((_r84_i + 1))
+    _r84_rest="$_r84_line"
+    while [[ "$_r84_rest" =~ $_r84_path_re ]]; do
+      _r84_path="${BASH_REMATCH[0]}"
+      _r84_rest="${_r84_rest#*"$_r84_path"}"
       _r84_path_clean="${_r84_path%.}"  # strip trailing dots from prose
       if [[ -e "$_r84_path_clean" ]] || [[ -e "${_r84_path_clean}.java" ]]; then continue; fi
-      _r84_lo=$((_r84_lineno > 3 ? _r84_lineno - 3 : 1))
-      _r84_hi=$((_r84_lineno + 3))
-      if sed -n "${_r84_lo},${_r84_hi}p" "$_r84_arch" 2>/dev/null | grep -qiE "$_r84_marker_re"; then continue; fi
+      _r84_lo=$((_r84_i > 3 ? _r84_i - 3 : 0))
+      _r84_hi=$((_r84_i + 3 < _r84_n - 1 ? _r84_i + 3 : _r84_n - 1))
+      _r84_marker_present=0
+      for ((_r84_j=_r84_lo; _r84_j<=_r84_hi; _r84_j++)); do
+        if [[ "${_r84_arr[$_r84_j]}" =~ $_r84_marker_re ]]; then
+          _r84_marker_present=1; break
+        fi
+      done
+      [[ $_r84_marker_present -eq 1 ]] && continue
       fail_rule "active_module_architecture_path_truth" "$_r84_arch:$_r84_lineno claims path '$_r84_path_clean' that does not exist on disk and the surrounding +/-3 lines carry no historical/moved/extracted-per-ADR marker -- Rule 84 / E117"
       _r84_fail=1
-    done <<< "$_r84_claims"
-  done < "$_r84_arch"
+    done
+  done
 done
 if [[ $_r84_fail -eq 0 ]]; then pass_rule "active_module_architecture_path_truth"; fi
 
@@ -4210,12 +4532,20 @@ else
   fi
   _r86_canonical=$_r86_pom_count
   _r86_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|consolidated|merged into|merged in|was rooted|formerly|superseded|deferred|moved|extracted per ADR-[0-9]{4}|post-ADR-[0-9]{4}|archived'
+  # Perf fix (2026-05-23): the original per-line loop forked `echo | grep`
+  # 4+ times per line × 911 lines + `sed | grep` for each ±3-line marker
+  # check. On WSL/mnt/d that was ~4 minutes per gate run. Bash-native regex
+  # against a pre-loaded array brings this rule from ~59s to ~1s.
+  mapfile -t _r86_arr < "$_r86_arch"
+  _r86_count_re='(\*\*[0-9]+ modules\*\*|[0-9]+-module|[0-9]+ reactor modules|[0-9]+ modules)'
+  _r86_path_re='agent-[a-z-]+/src/main/java/[a-zA-Z0-9_/.-]+'
   _r86_in_code=0
-  _r86_lineno=0
   _r86_in_frontmatter=0
   _r86_frontmatter_seen_open=0
-  while IFS= read -r _r86_line || [[ -n "$_r86_line" ]]; do
-    _r86_lineno=$((_r86_lineno + 1))
+  _r86_n=${#_r86_arr[@]}
+  for ((_r86_i=0; _r86_i<_r86_n; _r86_i++)); do
+    _r86_line="${_r86_arr[$_r86_i]}"
+    _r86_lineno=$((_r86_i + 1))
     if [[ "$_r86_line" =~ ^---[[:space:]]*$ ]]; then
       if [[ $_r86_frontmatter_seen_open -eq 0 ]]; then
         _r86_in_frontmatter=1; _r86_frontmatter_seen_open=1
@@ -4230,34 +4560,49 @@ else
       continue
     fi
     [[ "$_r86_in_code" -eq 1 ]] && continue
-    _r86_count_claim=$(echo "$_r86_line" | grep -oE '\*\*[0-9]+ modules\*\*|\b[0-9]+-module\b|\b[0-9]+ reactor modules\b|\b[0-9]+ modules\b' | head -1)
-    if [[ -n "$_r86_count_claim" ]]; then
-      _r86_claim_num=$(echo "$_r86_count_claim" | grep -oE '[0-9]+' | head -1)
-      _r86_lo=$((_r86_lineno > 3 ? _r86_lineno - 3 : 1))
-      _r86_hi=$((_r86_lineno + 3))
+    # Count-claim detection via bash regex (no fork).
+    if [[ "$_r86_line" =~ $_r86_count_re ]]; then
+      _r86_count_claim="${BASH_REMATCH[1]}"
+      # Extract first number from the claim.
+      if [[ "$_r86_count_claim" =~ ([0-9]+) ]]; then
+        _r86_claim_num="${BASH_REMATCH[1]}"
+        _r86_lo=$((_r86_i > 3 ? _r86_i - 3 : 0))
+        _r86_hi=$((_r86_i + 3 < _r86_n - 1 ? _r86_i + 3 : _r86_n - 1))
+        _r86_marker_present=0
+        for ((_r86_j=_r86_lo; _r86_j<=_r86_hi; _r86_j++)); do
+          if [[ "${_r86_arr[$_r86_j]}" =~ $_r86_marker_re ]]; then
+            _r86_marker_present=1
+            break
+          fi
+        done
+        if [[ $_r86_marker_present -eq 0 ]] && [[ "$_r86_claim_num" != "$_r86_canonical" ]]; then
+          fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_lineno active count claim '$_r86_count_claim' (N=$_r86_claim_num) disagrees with canonical $_r86_canonical from pom.xml + architecture-status.yaml -- Rule 86 / E119 (root architecture count drift)"
+          _r86_fail=1
+        fi
+      fi
+    fi
+    # Path-claim detection: bash regex finds first match; loop with offset to
+    # find all matches on the line (rare to have multiple, but supported).
+    _r86_rest="$_r86_line"
+    while [[ "$_r86_rest" =~ $_r86_path_re ]]; do
+      _r86_path="${BASH_REMATCH[0]}"
+      _r86_rest="${_r86_rest#*"$_r86_path"}"
+      _r86_path_clean="${_r86_path%.}"
+      if [[ -e "$_r86_path_clean" ]] || [[ -e "${_r86_path_clean}.java" ]]; then continue; fi
+      _r86_lo=$((_r86_i > 3 ? _r86_i - 3 : 0))
+      _r86_hi=$((_r86_i + 3 < _r86_n - 1 ? _r86_i + 3 : _r86_n - 1))
       _r86_marker_present=0
-      if sed -n "${_r86_lo},${_r86_hi}p" "$_r86_arch" 2>/dev/null | grep -qiE "$_r86_marker_re"; then
-        _r86_marker_present=1
-      fi
-      if [[ $_r86_marker_present -eq 0 ]] && [[ "$_r86_claim_num" != "$_r86_canonical" ]]; then
-        fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_lineno active count claim '$_r86_count_claim' (N=$_r86_claim_num) disagrees with canonical $_r86_canonical from pom.xml + architecture-status.yaml -- Rule 86 / E119 (root architecture count drift)"
-        _r86_fail=1
-      fi
-    fi
-    _r86_paths=$(echo "$_r86_line" | grep -oE 'agent-[a-z-]+/src/main/java/[a-zA-Z0-9_/.-]+' | sort -u)
-    if [[ -n "$_r86_paths" ]]; then
-      while IFS= read -r _r86_path; do
-        [[ -z "$_r86_path" ]] && continue
-        _r86_path_clean="${_r86_path%.}"
-        if [[ -e "$_r86_path_clean" ]] || [[ -e "${_r86_path_clean}.java" ]]; then continue; fi
-        _r86_lo=$((_r86_lineno > 3 ? _r86_lineno - 3 : 1))
-        _r86_hi=$((_r86_lineno + 3))
-        if sed -n "${_r86_lo},${_r86_hi}p" "$_r86_arch" 2>/dev/null | grep -qiE "$_r86_marker_re"; then continue; fi
-        fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_lineno claims path '$_r86_path_clean' that does not exist on disk and the surrounding +/-3 lines carry no historical/moved/extracted-per-ADR/consolidated/pre-Phase-C marker -- Rule 86 / E119"
-        _r86_fail=1
-      done <<< "$_r86_paths"
-    fi
-  done < "$_r86_arch"
+      for ((_r86_j=_r86_lo; _r86_j<=_r86_hi; _r86_j++)); do
+        if [[ "${_r86_arr[$_r86_j]}" =~ $_r86_marker_re ]]; then
+          _r86_marker_present=1
+          break
+        fi
+      done
+      [[ $_r86_marker_present -eq 1 ]] && continue
+      fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_lineno claims path '$_r86_path_clean' that does not exist on disk and the surrounding +/-3 lines carry no historical/moved/extracted-per-ADR/consolidated/pre-Phase-C marker -- Rule 86 / E119"
+      _r86_fail=1
+    done
+  done
 
   # rc8 extension: 2nd pass — validate SPI-ownership claims inside fenced
   # tree-diagram code blocks. The 1st pass above intentionally skips fenced
@@ -4268,12 +4613,19 @@ else
   # for each indented `<pkg>/spi/` leaf checks that the module's
   # module-metadata.yaml#spi_packages declares an entry containing
   # `.<pkg>.spi`. Historical markers within +/-3 lines still exempt.
+  # Perf fix (2026-05-23): the fenced-tree-block scan also ran multiple
+  # `echo | grep` forks per line × 911 lines. Reuse the `_r86_arr` array
+  # loaded above and switch to bash-native regex + cached module-metadata
+  # spi_package strings.
+  declare -A _r86_meta_pkgs_cache=()
   _r86_tb_in=0
   _r86_tb_mod=""
   _r86_tb_mod_indent=0
-  _r86_tb_lineno=0
-  while IFS= read -r _r86_tbline || [[ -n "$_r86_tbline" ]]; do
-    _r86_tb_lineno=$((_r86_tb_lineno + 1))
+  _r86_modhdr_re='^([[:space:]]+)(agent-[a-z-]+|spring-ai-ascend-[a-z-]+)/[[:space:]]*(#.*)?$'
+  _r86_spi_leaf_re='^([[:space:]]+)([a-z][a-z_]*)/spi/[[:space:]]*(#.*)?$'
+  for ((_r86_i=0; _r86_i<_r86_n; _r86_i++)); do
+    _r86_tbline="${_r86_arr[$_r86_i]}"
+    _r86_tb_lineno=$((_r86_i + 1))
     if [[ "$_r86_tbline" =~ ^\`\`\` ]]; then
       _r86_tb_in=$((1 - _r86_tb_in))
       _r86_tb_mod=""
@@ -4281,34 +4633,47 @@ else
     fi
     [[ "$_r86_tb_in" -eq 0 ]] && continue
     # Module-header line: indented `<modulename>/    #...` or `<modulename>/`
-    if echo "$_r86_tbline" | grep -qE '^[[:space:]]+(agent-[a-z-]+|spring-ai-ascend-[a-z-]+)/[[:space:]]*(#.*)?$'; then
-      _r86_tb_mod=$(echo "$_r86_tbline" | grep -oE '(agent-[a-z-]+|spring-ai-ascend-[a-z-]+)/' | head -1 | tr -d '/')
-      _r86_tb_mod_indent=$(echo "$_r86_tbline" | awk '{ match($0, /[^ ]/); print RSTART - 1 }')
+    if [[ "$_r86_tbline" =~ $_r86_modhdr_re ]]; then
+      _r86_tb_mod_indent=${#BASH_REMATCH[1]}
+      _r86_tb_mod="${BASH_REMATCH[2]}"
       continue
     fi
-    # SPI leaf line: indented `<pkg>/spi/  # ...` -- look up parent module's metadata
-    if [[ -n "$_r86_tb_mod" ]] && echo "$_r86_tbline" | grep -qE '^[[:space:]]+[a-z][a-z_]*/spi/[[:space:]]*(#.*)?$'; then
-      _r86_tb_leaf_indent=$(echo "$_r86_tbline" | awk '{ match($0, /[^ ]/); print RSTART - 1 }')
+    # SPI leaf line: indented `<pkg>/spi/  # ...` — validate parent module metadata.
+    if [[ -n "$_r86_tb_mod" ]] && [[ "$_r86_tbline" =~ $_r86_spi_leaf_re ]]; then
+      _r86_tb_leaf_indent=${#BASH_REMATCH[1]}
+      _r86_tb_pkg="${BASH_REMATCH[2]}"
       if [[ $_r86_tb_leaf_indent -le $_r86_tb_mod_indent ]]; then
         _r86_tb_mod=""
         continue
       fi
-      _r86_tb_pkg=$(echo "$_r86_tbline" | grep -oE '[a-z_]+/spi/' | head -1 | sed 's|/spi/||')
       _r86_tb_meta="${_r86_tb_mod}/module-metadata.yaml"
-      _r86_tb_lo=$((_r86_tb_lineno > 3 ? _r86_tb_lineno - 3 : 1))
-      _r86_tb_hi=$((_r86_tb_lineno + 3))
-      if sed -n "${_r86_tb_lo},${_r86_tb_hi}p" "$_r86_arch" 2>/dev/null | grep -qiE "$_r86_marker_re"; then continue; fi
+      _r86_tb_lo=$((_r86_i > 3 ? _r86_i - 3 : 0))
+      _r86_tb_hi=$((_r86_i + 3 < _r86_n - 1 ? _r86_i + 3 : _r86_n - 1))
+      _r86_marker_present=0
+      for ((_r86_j=_r86_tb_lo; _r86_j<=_r86_tb_hi; _r86_j++)); do
+        if [[ "${_r86_arr[$_r86_j]}" =~ $_r86_marker_re ]]; then
+          _r86_marker_present=1; break
+        fi
+      done
+      [[ $_r86_marker_present -eq 1 ]] && continue
       if [[ ! -f "$_r86_tb_meta" ]]; then
         fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_tb_lineno tree-block leaf '${_r86_tb_pkg}/spi/' under module '${_r86_tb_mod}' but ${_r86_tb_meta} does not exist -- Rule 86 / E119 (tree-block ownership drift, fenced-block extension)"
         _r86_fail=1
         continue
       fi
-      if ! grep -E '^[[:space:]]*-[[:space:]]+' "$_r86_tb_meta" 2>/dev/null | grep -qE "\.${_r86_tb_pkg}\.spi([^a-zA-Z0-9]|$)"; then
+      # Cache the joined `<pkg>` list from each module-metadata.yaml so we
+      # don't re-grep it for every leaf in the same module.
+      if [[ -z "${_r86_meta_pkgs_cache[$_r86_tb_meta]:-}" ]]; then
+        _r86_meta_pkgs_cache[$_r86_tb_meta]="$(grep -E '^[[:space:]]*-[[:space:]]+' "$_r86_tb_meta" 2>/dev/null || true)"
+      fi
+      _r86_tb_pkgs_str="${_r86_meta_pkgs_cache[$_r86_tb_meta]}"
+      _r86_tb_match_re="\\.${_r86_tb_pkg}\\.spi([^a-zA-Z0-9]|$)"
+      if ! [[ "$_r86_tb_pkgs_str" =~ $_r86_tb_match_re ]]; then
         fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_tb_lineno tree-block claims '${_r86_tb_pkg}/spi/' under module '${_r86_tb_mod}' but ${_r86_tb_meta}#spi_packages declares no entry containing '.${_r86_tb_pkg}.spi' -- Rule 86 / E119 (tree-block ownership drift, fenced-block extension)"
         _r86_fail=1
       fi
     fi
-  done < "$_r86_arch"
+  done
 fi
 if [[ $_r86_fail -eq 0 ]]; then pass_rule "root_architecture_count_and_path_truth"; fi
 
@@ -4327,21 +4692,38 @@ if [[ ! -f "$_r87_yaml" ]]; then
   _r87_fail=1
 else
   _r87_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|pre-rc[0-9]+|consolidated into|consolidated from|merged into|merged in|was rooted|formerly|superseded|deprecated|archived|moved|post-ADR-[0-9]{4}|dissolution|dissolved|relocated|relocate'
-  _r87_lineno=0
-  while IFS= read -r _r87_line || [[ -n "$_r87_line" ]]; do
-    _r87_lineno=$((_r87_lineno + 1))
-    if ! echo "$_r87_line" | grep -qE '^[[:space:]]+allowed_claim:[[:space:]]*'; then continue; fi
-    _r87_value=$(echo "$_r87_line" | sed -E 's/^[[:space:]]+allowed_claim:[[:space:]]*//')
+  _r87_allowed_re='^[[:space:]]+allowed_claim:[[:space:]]*(.*)$'
+  _r87_stale_re='\b(agent-platform|agent-runtime|agent-runtime-core)\b'
+  # Perf fix (2026-05-23): per-line `echo | grep -qE` + `echo | sed` +
+  # `echo | grep -oE` + `sed | grep -qiE` (~6 forks per line × 1471 lines)
+  # → mapfile + bash-native regex against the array. ~164s → ~1s.
+  mapfile -t _r87_arr < "$_r87_yaml"
+  _r87_n=${#_r87_arr[@]}
+  shopt -q nocasematch; _r87_nocase_was=$?
+  for ((_r87_i=0; _r87_i<_r87_n; _r87_i++)); do
+    _r87_line="${_r87_arr[$_r87_i]}"
+    [[ "$_r87_line" =~ $_r87_allowed_re ]] || continue
+    _r87_value="${BASH_REMATCH[1]}"
     _r87_value="${_r87_value#\"}"
     _r87_value="${_r87_value%\"}"
-    _r87_stale=$(echo "$_r87_value" | grep -oE '\bagent-platform\b|\bagent-runtime\b|\bagent-runtime-core\b' | head -1)
-    if [[ -z "$_r87_stale" ]]; then continue; fi
-    _r87_lo=$((_r87_lineno > 3 ? _r87_lineno - 3 : 1))
-    _r87_hi=$((_r87_lineno + 3))
-    if sed -n "${_r87_lo},${_r87_hi}p" "$_r87_yaml" 2>/dev/null | grep -qiE "$_r87_marker_re"; then continue; fi
+    [[ "$_r87_value" =~ $_r87_stale_re ]] || continue
+    _r87_stale="${BASH_REMATCH[1]}"
+    _r87_lo=$((_r87_i > 3 ? _r87_i - 3 : 0))
+    _r87_hi=$((_r87_i + 3 < _r87_n - 1 ? _r87_i + 3 : _r87_n - 1))
+    _r87_marker_present=0
+    shopt -s nocasematch
+    for ((_r87_j=_r87_lo; _r87_j<=_r87_hi; _r87_j++)); do
+      if [[ "${_r87_arr[$_r87_j]}" =~ $_r87_marker_re ]]; then
+        _r87_marker_present=1; break
+      fi
+    done
+    [[ $_r87_nocase_was -ne 0 ]] && shopt -u nocasematch
+    [[ $_r87_marker_present -eq 1 ]] && continue
+    _r87_lineno=$((_r87_i + 1))
     fail_rule "status_yaml_allowed_claim_module_name_truth" "$_r87_yaml:$_r87_lineno allowed_claim text contains current-tense '$_r87_stale' (pre-Phase-C module name) without historical/pre-ADR/consolidated marker in +/-3 lines -- Rule 87 / E120 (allowed_claim module name drift)"
     _r87_fail=1
-  done < "$_r87_yaml"
+  done
+  [[ $_r87_nocase_was -ne 0 ]] && shopt -u nocasematch
 fi
 if [[ $_r87_fail -eq 0 ]]; then pass_rule "status_yaml_allowed_claim_module_name_truth"; fi
 
@@ -4519,12 +4901,17 @@ if [[ ! -f "$_r92_canonical" ]] || [[ ! -d "$_r92_dir" ]]; then
   fail_rule "gate_rules_corpus_freshness" "$_r92_canonical or $_r92_dir missing — Rule 92 / E125"
   _r92_fail=1
 else
+  # Perf fix (2026-05-23): replaced per-rule-id `echo | grep -oE` + per-id
+  # printf + per-id [[ -f ]] check (~130 ids × 3 forks = ~400 forks, ~13s) with
+  # a single bash-native loop that uses bash regex to split id parts.
   _r92_missing=""
+  _r92_id_re='^([0-9]+)([a-z]?)$'
   while IFS= read -r _r92_rid; do
     [[ -z "$_r92_rid" ]] && continue
-    _r92_num_part=$(echo "$_r92_rid" | grep -oE '^[0-9]+')
-    _r92_letter=$(echo "$_r92_rid" | grep -oE '[a-z]$' || true)
-    _r92_padded=$(printf "%03d" "$_r92_num_part")
+    [[ "$_r92_rid" =~ $_r92_id_re ]] || continue
+    _r92_num_part="${BASH_REMATCH[1]}"
+    _r92_letter="${BASH_REMATCH[2]}"
+    printf -v _r92_padded "%03d" "$_r92_num_part"
     _r92_expected="${_r92_dir}/rule-${_r92_padded}${_r92_letter}.sh"
     if [[ ! -f "$_r92_expected" ]]; then
       _r92_missing="${_r92_missing}${_r92_rid} "
@@ -4594,82 +4981,94 @@ if [[ ! -f "$_r94_path_vocab" ]]; then
   fail_rule "active_corpus_deleted_module_name_truth" "$_r94_path_vocab missing -- Rule 94 / E129 (Wave 2 vocabulary externalisation)"
   _r94_fail=1
 fi
-_r94_markers="$(grep -vE '^[[:space:]]*(#|$)' "$_r94_marker_vocab" 2>/dev/null | tr '\n' '|' | sed 's/|$//')"
-# Load exempt path prefixes; one per non-comment, non-empty line.
-_r94_exempt_paths=()
-while IFS= read -r _r94_prefix || [[ -n "$_r94_prefix" ]]; do
-  [[ -z "$_r94_prefix" ]] && continue
-  case "$_r94_prefix" in '#'*) continue ;; esac
-  _r94_exempt_paths+=("$_r94_prefix")
-done < "$_r94_path_vocab" 2>/dev/null
-_r94_violations=""
-while IFS= read -r _r94_file; do
-  [[ -z "$_r94_file" ]] && continue
-  # Test-resource fixtures (incl. pinned contract snapshots) are exempt across all modules.
-  case "$_r94_file" in
-    */src/test/resources/*) continue ;;
-  esac
-  # Exempt-path prefix match (loaded from gate/active-corpus-name-exemption-paths.txt).
-  _r94_skip=0
-  for _r94_prefix in "${_r94_exempt_paths[@]}"; do
-    if [[ "$_r94_file" == "$_r94_prefix"* ]]; then _r94_skip=1; break; fi
-  done
-  [[ $_r94_skip -eq 1 ]] && continue
-  # Within-file: lines containing word-boundary agent-platform, agent-runtime,
-  # or agent-runtime-core (all three deleted-module names post-rc13 / ADR-0088),
-  # outside fenced code blocks, outside yaml comment lines, no marker within ±3 lines.
-  # GNU awk doesn't honor `\b` word-boundary; use POSIX bracket-class boundaries.
-  _r94_hits=$(awk -v markers="$_r94_markers" '
-    BEGIN {
-      in_code = 0
-      # Word-boundary surrogate: (^|[^a-zA-Z0-9_-]) ... ([^a-zA-Z0-9_-]|$)
-      ap_re  = "(^|[^a-zA-Z0-9_-])agent-platform([^a-zA-Z0-9_-]|$)"
-      ar_re  = "(^|[^a-zA-Z0-9_-])agent-runtime([^a-zA-Z0-9_-]|$)"
-      arc_re = "(^|[^a-zA-Z0-9_-])agent-runtime-core([^a-zA-Z0-9_-]|$)"
-    }
-    /^[[:space:]]*```/ { in_code = 1 - in_code; next }
-    { lines[NR] = $0 }
-    END {
-      in_code = 0
-      for (i = 1; i <= NR; i++) {
-        line = lines[i]
-        if (line ~ /^[[:space:]]*```/) { in_code = 1 - in_code; continue }
-        if (in_code) continue
-        if (line ~ /^[[:space:]]*#/) continue
-        # Three deleted-module surfaces:
-        #   ap_re                 → agent-platform
-        #   ar_re && !arc_re      → agent-runtime (but NOT the agent-runtime-core substring)
-        #   arc_re                → agent-runtime-core (rc13 addition per ADR-0088)
-        # Marker window (±3 lines) excuses historical/dissolution narrative.
-        if (line ~ ap_re || (line ~ ar_re && line !~ arc_re) || line ~ arc_re) {
-          lo = i - 3; if (lo < 1) lo = 1
-          hi = i + 3; if (hi > NR) hi = NR
-          window = ""
-          for (j = lo; j <= hi; j++) window = window " " lines[j]
-          if (window !~ markers) print i ":" line
-        }
-      }
-    }
-  ' "$_r94_file" 2>/dev/null || true)
-  if [[ -n "$_r94_hits" ]]; then
-    while IFS= read -r _r94_hit; do
-      _r94_violations="${_r94_violations}${_r94_file}:${_r94_hit}\n"
-    done <<< "$_r94_hits"
-  fi
-done < <(
-  # Scan every active .md/.yaml/.yml/.java in the repo. Build artefacts and version control
-  # are excluded at find time for speed; per-file exemption is governed by the path-vocab
-  # check (gate/active-corpus-name-exemption-paths.txt) inside the loop above.
-  find . -type f \( -name '*.md' -o -name '*.yaml' -o -name '*.yml' -o -name '*.java' \) \
-    -not -path './target/*' \
-    -not -path './*/target/*' \
-    -not -path './**/target/*' \
-    -not -path './.git/*' \
-    -not -path './node_modules/*' \
-    2>/dev/null | sed 's|^\./||' | sort -u
-)
+# Perf fix (2026-05-23): the original loop forked `awk` once per file in
+# the active corpus (~thousands of files post-exempt). On WSL/mnt/d that
+# was ~19s per gate run. Replaced with a single python pass that prunes
+# excluded dirs via os.walk, applies the same exempt-prefix + test-resource
+# filter, and checks the same three deleted-module patterns with ±3-line
+# marker exemption. Same semantics, same `gate/active-corpus-name-*` vocab.
+_r94_violations="$(
+  GATE_R94_MARKER_VOCAB="$_r94_marker_vocab" \
+  GATE_R94_PATH_VOCAB="$_r94_path_vocab" \
+  python3 - <<'PYEOF'
+import os, re, sys
+from pathlib import Path
+
+marker_vocab = os.environ['GATE_R94_MARKER_VOCAB']
+path_vocab   = os.environ['GATE_R94_PATH_VOCAB']
+
+def load_vocab(p):
+    out = []
+    if not os.path.isfile(p): return out
+    for line in Path(p).read_text(encoding='utf-8', errors='replace').splitlines():
+        s = line.strip()
+        if not s or s.startswith('#'): continue
+        out.append(s)
+    return out
+
+markers = load_vocab(marker_vocab)
+marker_re = re.compile('|'.join(markers)) if markers else None
+exempt_prefixes = tuple(load_vocab(path_vocab))
+
+# Word-boundary surrogate matching the awk version exactly.
+ap_re  = re.compile(r'(?:^|[^a-zA-Z0-9_-])agent-platform(?:[^a-zA-Z0-9_-]|$)')
+ar_re  = re.compile(r'(?:^|[^a-zA-Z0-9_-])agent-runtime(?:[^a-zA-Z0-9_-]|$)')
+arc_re = re.compile(r'(?:^|[^a-zA-Z0-9_-])agent-runtime-core(?:[^a-zA-Z0-9_-]|$)')
+fence_re = re.compile(r'^\s*```')
+yaml_comment_re = re.compile(r'^\s*#')
+
+# Build file list via os.walk with topdown pruning (faster than find on /mnt/d).
+EXTS = ('.md', '.yaml', '.yml', '.java')
+PRUNE = {'target', '.git', 'node_modules'}
+files: list[str] = []
+for root, dirs, fnames in os.walk('.', topdown=True):
+    dirs[:] = [d for d in dirs if d not in PRUNE]
+    for fn in fnames:
+        if not fn.endswith(EXTS): continue
+        rel = os.path.join(root, fn)
+        if rel.startswith('./'): rel = rel[2:]
+        files.append(rel)
+files.sort()
+
+violations: list[str] = []
+for f in files:
+    if '/src/test/resources/' in f: continue
+    if any(f.startswith(p) for p in exempt_prefixes): continue
+    try:
+        text = Path(f).read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        continue
+    lines = text.splitlines()
+    n = len(lines)
+    in_code = False
+    # Two-pass to track fence state up-front (matches awk semantics: state
+    # established by first walk, then validated in second walk).
+    fence_state = [False] * n
+    s = False
+    for i, ln in enumerate(lines):
+        if fence_re.match(ln):
+            s = not s
+            fence_state[i] = s
+            continue
+        fence_state[i] = s
+    for i, ln in enumerate(lines):
+        if fence_re.match(ln): continue
+        if fence_state[i]: continue
+        if yaml_comment_re.match(ln): continue
+        hit = ap_re.search(ln) or (ar_re.search(ln) and not arc_re.search(ln)) or arc_re.search(ln)
+        if not hit: continue
+        lo = max(0, i - 3); hi = min(n, i + 4)
+        if marker_re:
+            window = ' '.join(lines[lo:hi])
+            if marker_re.search(window): continue
+        violations.append(f"{f}:{i+1}:{ln}")
+
+for v in violations:
+    print(v)
+PYEOF
+)"
 if [[ -n "$_r94_violations" ]]; then
-  _r94_first=$(printf '%b' "$_r94_violations" | head -5 | tr '\n' '|')
+  _r94_first=$(printf '%s\n' "$_r94_violations" | head -5 | tr '\n' '|')
   fail_rule "active_corpus_deleted_module_name_truth" "active corpus contains current-tense pre-Phase-C module name(s) without historical marker (first 5): ${_r94_first}-- Rule 94 / E129 (markers loaded from gate/active-corpus-name-exemption-markers.txt; exempt paths from gate/active-corpus-name-exemption-paths.txt)"
   _r94_fail=1
 fi
@@ -6015,21 +6414,28 @@ _r115_files=$(find . \
 # Also include .github/workflows/*.yml (separate find because of leading dot)
 _r115_files="$_r115_files"$'\n'"$(find ./.github/workflows -type f -name '*.yml' 2>/dev/null || true)"
 _r115_hits=""
-while IFS= read -r _r115_f; do
-  [[ -z "$_r115_f" ]] && continue
-  [[ ! -f "$_r115_f" ]] && continue
-  _r115_rel="${_r115_f#./}"
-  if [[ -n "$_r115_grandfathered" ]] && printf '%s\n' "$_r115_grandfathered" | grep -Fxq "$_r115_rel"; then
-    continue
-  fi
-  _hit=$(grep -nE "$_r115_pattern" "$_r115_f" 2>/dev/null || true)
-  if [[ -n "$_hit" ]]; then
-    while IFS= read -r _h; do
-      [[ -z "$_h" ]] && continue
-      _r115_hits="$_r115_hits"$'\n'"$_r115_f:$_h"
-    done <<< "$_hit"
-  fi
-done <<< "$_r115_files"
+# Perf fix (2026-05-22): the original implementation iterated the ~5391 file
+# list and forked grep ONCE per file. On WSL with the repo on Windows /mnt/d/,
+# each fork crosses the WSL↔Windows boundary (~44 ms each) — total ~4 minutes,
+# hitting the 300s gate safety net. Replaced with a single bulk grep call via
+# xargs (~0.7 s, ~320× faster). Grandfather filter is applied to the file list
+# BEFORE the bulk grep so the semantics are unchanged.
+_r115_hits=""
+_r115_filtered_files="$_r115_files"
+if [[ -n "$_r115_grandfathered" ]]; then
+  # Strip leading "./" so grep -vxFf can match against grandfather paths
+  # (which are relative without ./), then restore.
+  _r115_filtered_files=$(printf '%s\n' "$_r115_files" \
+    | sed 's|^\./||' \
+    | grep -vxFf <(printf '%s\n' "$_r115_grandfathered") 2>/dev/null \
+    | sed 's|^|./|')
+fi
+if [[ -n "$_r115_filtered_files" ]]; then
+  # -H forces filename prefix even when only one file matches (rare but covered).
+  _r115_hits=$(printf '%s\n' "$_r115_filtered_files" \
+    | grep -v '^$' \
+    | xargs -d '\n' -r grep -HnE "$_r115_pattern" 2>/dev/null || true)
+fi
 if [[ -n "$_r115_hits" ]]; then
   _r115_first=$(echo "$_r115_hits" | grep -v '^$' | head -5 | tr '\n' '|')
   fail_rule "no_version_log_metadata_in_code" "production code contains forbidden version/log metadata tokens (rc<N> Wave / per ADR-NNNN / Finding F<N> / closes #<N>); first hits: ${_r115_first}-- Rule D-9 / E163 (such metadata belongs in commit messages, ADRs, release notes, rule cards, or rule-history.md — NOT in implementation)"

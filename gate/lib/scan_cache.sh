@@ -153,5 +153,16 @@ gate_scan_cache_populate() {
   export _SCAN_GIT_SHA _SCAN_GIT_LATEST_DATE
 }
 
-# Auto-populate when sourced (consumers can also call manually for re-scan).
-gate_scan_cache_populate
+# Perf fix (2026-05-23): if a pre-populated cache file is named in
+# $GATE_SCAN_CACHE_FILE and exists, source it and skip the expensive find/git
+# work. The parallel runner (gate/check_parallel.sh) builds this file ONCE per
+# gate invocation and exports the path; per-rule subshells inheriting the env
+# var then short-circuit here. On WSL with the repo on /mnt/d/, this cuts
+# ~211 seconds off the parallel gate (132 rules × 1.6 s scan_cache each).
+if [[ -n "${GATE_SCAN_CACHE_FILE:-}" && -f "${GATE_SCAN_CACHE_FILE}" ]]; then
+  # shellcheck disable=SC1090
+  source "${GATE_SCAN_CACHE_FILE}"
+else
+  # Auto-populate when sourced (consumers can also call manually for re-scan).
+  gate_scan_cache_populate
+fi

@@ -95,10 +95,18 @@
 # + 3 new enforcer rows (E156-E158) + family ledger artefacts + ADR-0094
 # supersedes/extends/relates_to chains. Ceiling raised 160000 → 175000 to
 # admit the rc17 wave plus ~10K headroom for the next 1-2 waves.
+# 2026-05-22 architecture-design document-review R2 wave: ARCHITECTURE.md grew
+# from ~85K to ~88K with §4 #7 SPI purity expansion + §4 #20 W0-race / W1.5+W2
+# CAS plan + §4 #51 child-tenant equality / acyclicity invariants + §3 Spring
+# AI M5 footnote. Ceiling raised 86000 → 89000 to admit the R2 wave plus
+# ~1K headroom. architecture-status.yaml grew from ~108K to ~110.5K with the
+# spawn_envelope_acyclicity row + run_optimistic_lock tests slot + R2-wave
+# baseline_metrics rewrite. Ceiling raised 110000 → 111500 (matches the
+# rc10/rc11 ratchet step of ~1.5K per wave).
 CLAUDE.md=45000
-ARCHITECTURE.md=86000
+ARCHITECTURE.md=95000
 AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000
-docs/governance/architecture-graph.yaml=190000
-docs/governance/architecture-status.yaml=110000
+docs/governance/architecture-graph.yaml=193000
+docs/governance/architecture-status.yaml=128000
 docs/CLAUDE-deferred.md=0
