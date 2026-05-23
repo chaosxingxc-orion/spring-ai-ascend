@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="Spring AI Ascend PMD Review Triggers"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+  <description>
+    Review-trigger rules for maintainability and suspicious source patterns.
+    PMD findings do not block CI in the first whitebox-quality baseline.
+  </description>
+
+  <rule ref="category/java/bestpractices.xml/UnusedPrivateField" />
+  <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod" />
+  <rule ref="category/java/bestpractices.xml/UnusedLocalVariable" />
+  <rule ref="category/java/bestpractices.xml/UnusedFormalParameter" />
+  <rule ref="category/java/errorprone.xml/EmptyCatchBlock" />
+  <rule ref="category/java/codestyle.xml/EmptyControlStatement" />
+  <rule ref="category/java/errorprone.xml/AvoidCatchingThrowable" />
+  <rule ref="category/java/design.xml/CyclomaticComplexity">
+    <properties>
+      <property name="methodReportLevel" value="15" />
+      <property name="classReportLevel" value="80" />
+    </properties>
+  </rule>
+  <rule ref="category/java/design.xml/CognitiveComplexity" />
+  <rule ref="category/java/design.xml/NcssCount" />
+  <rule ref="category/java/design.xml/TooManyMethods">
+    <properties>
+      <property name="maxmethods" value="40" />
+    </properties>
+  </rule>
+</ruleset>

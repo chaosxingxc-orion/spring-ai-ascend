@@ -371,6 +371,13 @@ Enforced by [`rule-G-10.md`](docs/governance/rules/rule-G-10.md).
 Enforced by [`rule-G-11.md`](docs/governance/rules/rule-G-11.md).
 
 ---
+#### Rule G-12 — Whitebox Quality Baseline
+
+**Mature static-analysis tools form the first whitebox quality baseline: Maven MUST run SpotBugs, PMD, and Checkstyle through the `quality` profile; gate MUST interpret their reports using project semantics. High-confidence SpotBugs correctness/safety findings and low-dispute Checkstyle style/comment findings block. PMD maintainability findings are review triggers in v1. Generated code, third-party code, build outputs, docs examples, and fixtures are excluded or downgraded rather than hard-gated.**
+
+Enforced by [`rule-G-12.md`](docs/governance/rules/rule-G-12.md).
+
+---
 
 ## Deferred Rules
 

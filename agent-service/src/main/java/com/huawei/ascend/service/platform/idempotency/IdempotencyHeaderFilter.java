@@ -81,8 +81,12 @@ public class IdempotencyHeaderFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        if (path.startsWith("/actuator") || "/v1/health".equals(path)) return true;
-        if (path.startsWith("/v3/api-docs")) return true;
+        if (path.startsWith("/actuator") || "/v1/health".equals(path)) {
+            return true;
+        }
+        if (path.startsWith("/v3/api-docs")) {
+            return true;
+        }
         String method = request.getMethod();
         return !"POST".equalsIgnoreCase(method)
                 && !"PUT".equalsIgnoreCase(method)

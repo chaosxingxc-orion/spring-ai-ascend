@@ -1,6 +1,6 @@
 # gate/ — Architecture-Sync Gate
 
-> Document-corpus consistency checks for spring-ai-ascend. **116 active gate rules** (canonical bash, executable rule sections counted from `# Rule N — slug` headers; rc12 K-α/K-β/K-δ/K-ζ adds 4 prevention rules 101-104 per ADR-0087), backed by **172+ self-tests** (rc11 baseline 172; rc12 adds fixtures for Rules 101-104 and Rule 82/94/99 widenings). The canonical numbers live in [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](../docs/governance/architecture-status.yaml) (single source of truth — Rule G-2 sub-clause .b numeric-agreement check rejects stale counts here; Rule G-5 sub-clause .c enforces `active_gate_checks` AND `enforcer_rows` against live extractors). Recent waves: W1 Layered 4+1 + Architecture Graph (ADR-0068) added Rules 37–40; Phase M added Rules 41–44; W1.x L0-ironclad-rule wave Rules 45–52; W1.x Phases 8–9 Rules 53–54; W2.x Engine Contract Structural Wave Rules 55–60; v2.0.0-rc2 second-pass review closure Rules 61–63; 2026-05-17 cross-corpus consistency audit Rules 64–66 (enforcers E94–E96); 2026-05-18 Beyond-SDD review response Rule D-3.b; 2026-05-18 rc4 cross-constraint review response Rules 80–83 (enforcers E113–E116); 2026-05-18 rc5 post-response review response Rules 84–85 + Rule G-2 sub-clause .b strengthening (enforcers E117–E118); 2026-05-18 rc6 post-response review response Rules 86–87 + ADR-0081 (enforcers E119–E120); 2026-05-18 rc7 post-corrective review response Rules 88–89 + Rule G-2 sub-clause .d fenced-tree-block extension + ADR-0082 (enforcers E121–E122); 2026-05-19 rc8 post-corrective review response Rules 91-96 + ADR-0083 (enforcers E123-E134); 2026-05-19 rc8 post-corrective category-sweep follow-up Rules 97-98 + Rule G-5 sub-clause .c widening + ADR-0084 (enforcers E135-E138); 2026-05-19 rc11 kernel-truth + shadow-corpus-precision Rules 99-100 + ADR-0085 (enforcers E139-E142); 2026-05-19 rc12 l0 authority ratchet + deploy-truth + contract truth + terminal-verb scope Rules 101-104 + Rule 82/94/99 widenings + ADR-0087.
+> Document-corpus consistency checks for spring-ai-ascend. **133 active gate rules** (canonical bash, executable rule sections counted from `# Rule N — slug` headers), backed by **238 self-tests** (`gate/test_architecture_sync_gate.sh` derives the total at runtime). The canonical numbers live in [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](../docs/governance/architecture-status.yaml) (single source of truth — Rule G-2 sub-clause .b numeric-agreement check rejects stale counts here; Rule G-5 sub-clause .c enforces `active_gate_checks` AND `enforcer_rows` against live extractors).
 >
 > **Python ≥ 3.10 required** for `gate/build_architecture_graph.py` and `gate/migrate_adrs_to_yaml.py`. Install once: `pip install -r gate/requirements.txt`. Rule R-H (`architecture_graph_well_formed`) fails fast with a clear message if PyYAML is missing.
 >
@@ -10,15 +10,17 @@
 
 The architecture-sync gate proves the document corpus is internally consistent at the current SHA — names, paths, counts, contracts, and wave-qualifier prose stay aligned with reality across `ARCHITECTURE.md`, the per-capability ledger, ADRs, contract catalogs, and release notes.
 
+It also interprets Maven whitebox-quality reports for SpotBugs, PMD, and Checkstyle: high-confidence correctness/safety and hard-style findings are blocking, while PMD maintainability findings are review triggers.
+
 It does **not** prove the running system behaves correctly. That is the operator-shape gate (`run_operator_shape_smoke.*`), which is fail-closed until a W4 runnable-artifact target lands.
 
 ## Canonical entrypoint
 
 ```bash
-bash gate/check_parallel.sh                 # 116 active gate rules, parallel (~7min wall-clock); emits parallel_summary trailer per Rule G-5 sub-clause .a
-bash gate/check_architecture_sync.sh        # 116 active gate rules, serial   (~24min wall-clock); terminates at # === END OF RULES === marker
-bash gate/test_architecture_sync_gate.sh    # 172+ self-tests (~20s); TOTAL derived at runtime per Rule G-5 sub-clause .b; fails closed when passed != TOTAL
-python gate/build_architecture_graph.py     # regenerate the architecture-graph (364 nodes / 525 edges post-rc12 K-γ)
+bash gate/check_parallel.sh                 # 133 active gate rules, parallel (~7min wall-clock); emits parallel_summary trailer per Rule G-5 sub-clause .a
+bash gate/check_architecture_sync.sh        # 133 active gate rules, serial   (~24min wall-clock); terminates at # === END OF RULES === marker
+bash gate/test_architecture_sync_gate.sh    # 238 self-tests (~20s); TOTAL derived at runtime per Rule G-5 sub-clause .b; fails closed when passed != TOTAL
+python gate/build_architecture_graph.py     # regenerate the architecture-graph from canonical inputs
 ```
 
 `gate/check_parallel.sh` is the wrapper used by CI. It reads
@@ -48,9 +50,9 @@ Run the bash entrypoint from Git Bash / WSL / any POSIX shell on Windows.
 
 | File | Role |
 |------|------|
-| `check_architecture_sync.sh` | **Canonical L0 release gate — 116 active executable sections (rc11 baseline 112 + rc12 K-α/β/δ/ζ Rules 101-104). `gate/rules/` filenames stay numeric by design per ADR-0086 `gate_layer_boundary:` section (implementation-layer identifier vs semantic-authority namespace).** |
+| `check_architecture_sync.sh` | **Canonical L0 release gate — 133 active executable sections. `gate/rules/` filenames stay numeric by design per ADR-0086 `gate_layer_boundary:` section (implementation-layer identifier vs semantic-authority namespace).** |
 | `check_architecture_sync.ps1` | DEPRECATED. Fail-closed stub; see deprecation banner. |
-| `test_architecture_sync_gate.sh` | Self-test harness — 172+ self-test cases (rc11 baseline 172 + rc12 fixtures for Rules 101-104 + Rule 82/94/99 widenings). `TOTAL` derived at runtime per Rule G-5.b. |
+| `test_architecture_sync_gate.sh` | Self-test harness — 238 self-test cases. `TOTAL` derived at runtime per Rule G-5.b. |
 | `build_architecture_graph.py` | Regenerates `docs/governance/architecture-graph.yaml` from the authoritative inputs (Rule G-1 sub-clause .b). |
 | `doctor.sh` / `doctor.ps1` | Dev-only env probe (not a gate). |
 | `run_operator_shape_smoke.sh` / `.ps1` | Dev-only fail-closed smoke shells (not a gate). |
@@ -65,7 +67,7 @@ The bash script's header comment is the single source of truth for the rule list
 
 ## Self-test coverage
 
-`gate/test_architecture_sync_gate.sh` runs 172+ self-tests (rc12 wave count) — positive + negative fixtures per the rules most prone to regression. The script prints `Tests passed: N/N` on success where `N` is derived at runtime per Rule G-5.b. Per Rule G-5 sub-clause .b / E122 sub-check (b), `TOTAL` is computed at runtime (`TOTAL=$((passed + failed))`) rather than declared as a bare literal; per sub-check (a) the harness exits non-zero when `passed != TOTAL` (fail-closed); per sub-check (c) every **prevention-wave Rule** (`N >= 80`) defined in `check_architecture_sync.sh` has at least one `test_rule_<N>_*` function in the harness — pre-rc4 Rules 1-79 are grandfathered (covered by ArchUnit / integration tests at design time, not by inline self-test fixtures). This scope narrowing aligns with `CLAUDE.md` Rule G-5 sub-clause .b kernel and `docs/governance/rules/rule-G-5.md`; rc9 corrected an earlier `enforcers.yaml` row + this README line that claimed broader "every Rule" coverage (rc8 post-corrective P1-4). The early `TOTAL=` near the top of the file was removed by the rc8 wave as dead code.
+`gate/test_architecture_sync_gate.sh` runs 238 self-tests (rc12 wave count) — positive + negative fixtures per the rules most prone to regression. The script prints `Tests passed: N/N` on success where `N` is derived at runtime per Rule G-5.b. Per Rule G-5 sub-clause .b / E122 sub-check (b), `TOTAL` is computed at runtime (`TOTAL=$((passed + failed))`) rather than declared as a bare literal; per sub-check (a) the harness exits non-zero when `passed != TOTAL` (fail-closed); per sub-check (c) every **prevention-wave Rule** (`N >= 80`) defined in `check_architecture_sync.sh` has at least one `test_rule_<N>_*` function in the harness — pre-rc4 Rules 1-79 are grandfathered (covered by ArchUnit / integration tests at design time, not by inline self-test fixtures). This scope narrowing aligns with `CLAUDE.md` Rule G-5 sub-clause .b kernel and `docs/governance/rules/rule-G-5.md`; rc9 corrected an earlier `enforcers.yaml` row + this README line that claimed broader "every Rule" coverage (rc8 post-corrective P1-4). The early `TOTAL=` near the top of the file was removed by the rc8 wave as dead code.
 
 ## See also
 

@@ -39,6 +39,7 @@ Markers: **P** = primary · **X** = cross-reference.
 | G-6 | Gate Machinery Integrity (duration + config) | **P** | [`rule-G-6.md`](../rules/rule-G-6.md) |
 | G-7 | Linux-First Dev Environment | **X** | [`rule-G-7.md`](../rules/rule-G-7.md) |
 | G-10 | Parallel-Linux-Scripts Mandate | **X** | [`rule-G-10.md`](../rules/rule-G-10.md) |
+| G-12 | Whitebox Quality Baseline | **P** | [`rule-G-12.md`](../rules/rule-G-12.md) |
 | R-A | Business/Platform Decoupling Enforcement | **X** | [`rule-R-A.md`](../rules/rule-R-A.md) |
 | R-C | Code-as-Contract | **X** | [`rule-R-C.md`](../rules/rule-R-C.md) |
 | R-C.2 | Run Contract Spine | **X** | [`rule-R-C.2.md`](../rules/rule-R-C.2.md) |
@@ -64,6 +65,7 @@ Markers: **P** = primary · **X** = cross-reference.
 ## Exit criteria
 
 - Parallel gate green: `bash gate/check_parallel.sh` exits 0 on Linux/WSL.
+- Whitebox quality green: `./mvnw -Pquality verify` produces SpotBugs, PMD, and Checkstyle reports; gate Rule 121 has no hard failures.
 - All three Rule D-4 test layers green (unit, integration, smoke); test
   scopes documented in the test class's javadoc per `feedback_release_verify_runs_failsafe.md`.
 - Evidence captured under `docs/runbooks/` for any regression (Rule D-3.b).

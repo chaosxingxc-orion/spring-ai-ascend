@@ -67,34 +67,60 @@ if [[ ! -f "$_r82_vocab" ]]; then
   _r82_fail=1
 fi
 _r82_marker_re="$(grep -vE '^[[:space:]]*(#|$)' "$_r82_vocab" 2>/dev/null | tr '\n' '|' | sed 's/|$//')"
+# Perf fix (2026-05-23): the original inner-loop forked `awk` once per
+# (phrase × line) pair (~133 phrases × ~100 lines × 2 files = ~26k forks).
+# On WSL/mnt/d that was ~165s per gate run. Pre-parse the baseline_metrics
+# block ONCE into a bash associative array, then do O(1) lookups in the
+# loop. Same with the per-line `echo | grep` marker check, replaced with a
+# bash-native regex.
+declare -A _r82_metric=()
+while IFS= read -r _r82_kv; do
+  [[ -z "$_r82_kv" ]] && continue
+  _r82_metric["${_r82_kv%%=*}"]="${_r82_kv#*=}"
+done < <(awk '
+  /^architecture_sync_gate:/ { f = 1; next }
+  f && /^[^[:space:]]/ { exit }
+  f && /^[[:space:]]+[a-zA-Z_]+:[[:space:]]*[0-9]+/ {
+    key = $0; val = $0
+    sub(/^[[:space:]]+/, "", key); sub(/:.*$/, "", key)
+    sub(/^[[:space:]]+[a-zA-Z_]+:[[:space:]]*/, "", val); sub(/[^0-9].*$/, "", val)
+    if (val != "") print key "=" val
+  }
+' "$_r82_yaml" 2>/dev/null)
+# Cache gate_executable_test_cases for the Tests-passed pattern below.
+_r82_tp_expected="${_r82_metric[gate_executable_test_cases]:-}"
+
+# Convert bash-extended-glob phrase list into a single regex group so the
+# per-line loop can do ONE bash-regex test instead of N. Marker check stays
+# per-line because the vocabulary regex has alternations across many phrases.
 for _r82_pointer_file in README.md gate/README.md; do
   [[ -f "$_r82_pointer_file" ]] || continue
+  mapfile -t _r82_lines < "$_r82_pointer_file"
   _r82_in_code=0
-  _r82_lineno=0
-  while IFS= read -r _r82_line || [[ -n "$_r82_line" ]]; do
-    _r82_lineno=$((_r82_lineno + 1))
+  for ((_r82_i=0; _r82_i<${#_r82_lines[@]}; _r82_i++)); do
+    _r82_line="${_r82_lines[$_r82_i]}"
+    _r82_lineno=$((_r82_i + 1))
     if [[ "$_r82_line" =~ ^[[:space:]]*\`\`\` ]]; then
       _r82_in_code=$((1 - _r82_in_code))
       continue
     fi
     [[ $_r82_in_code -eq 1 ]] && continue
-    if echo "$_r82_line" | grep -qiE "$_r82_marker_re"; then continue; fi
+    # Marker check via bash regex (case-insensitive). nocasematch shopt is
+    # local to this rule body via the save/restore below.
+    shopt -q nocasematch
+    _r82_nocase_was=$?
+    shopt -s nocasematch
+    if [[ "$_r82_line" =~ $_r82_marker_re ]]; then
+      [[ $_r82_nocase_was -ne 0 ]] && shopt -u nocasematch
+      continue
+    fi
+    [[ $_r82_nocase_was -ne 0 ]] && shopt -u nocasematch
+
     for _r82_pair in "${_r82_phrases[@]}"; do
       _r82_phrase="${_r82_pair%%|*}"
       _r82_key="${_r82_pair##*|}"
-      _r82_expected=$(awk -v key="$_r82_key" '
-        /^architecture_sync_gate:/{f=1; next}
-        f && /^[^[:space:]]/{exit}
-        f && $0 ~ "^[[:space:]]+"key":"{
-          sub(/^[[:space:]]+[a-zA-Z_]+:[[:space:]]*/, ""); sub(/[^0-9].*$/, ""); print; exit
-        }
-      ' "$_r82_yaml" 2>/dev/null)
+      _r82_expected="${_r82_metric[$_r82_key]:-}"
       [[ -z "$_r82_expected" ]] && continue
-      # First-occurrence-per-phrase-per-line check (the `if` rather than `while` avoids the
-      # replacement-vs-regex infinite-loop risk that would fire if the line uses tabs or
-      # multi-space separators between the number and the phrase). A line that carries the
-      # same phrase twice with different numbers is rare in practice; the second occurrence
-      # is silently accepted -- acceptable miss rate for this rule's scope.
       if [[ "$_r82_line" =~ ([^0-9])([0-9]+)[[:space:]]+${_r82_phrase}([^a-zA-Z-]|$) ]] || [[ "$_r82_line" =~ ^([0-9]+)[[:space:]]+${_r82_phrase}([^a-zA-Z-]|$) ]]; then
         if [[ -n "${BASH_REMATCH[2]:-}" ]]; then
           _r82_actual="${BASH_REMATCH[2]}"
@@ -107,21 +133,16 @@ for _r82_pointer_file in README.md gate/README.md; do
         fi
       fi
     done
-    # Tests-passed pattern: "Tests passed: N/N" where both N MUST equal gate_executable_test_cases.
-    if [[ "$_r82_line" =~ Tests[[:space:]]passed:[[:space:]]*([0-9]+)/([0-9]+) ]]; then
+    # Tests-passed pattern: "Tests passed: N/N" — both N MUST equal gate_executable_test_cases.
+    if [[ "$_r82_line" =~ Tests[[:space:]]passed:[[:space:]]*([0-9]+)/([0-9]+) ]] && [[ -n "$_r82_tp_expected" ]]; then
       _r82_tp_left="${BASH_REMATCH[1]}"
       _r82_tp_right="${BASH_REMATCH[2]}"
-      _r82_expected=$(awk '
-        /^architecture_sync_gate:/{f=1; next}
-        f && /^[^[:space:]]/{exit}
-        f && /^[[:space:]]+gate_executable_test_cases:/{sub(/^[[:space:]]+[a-zA-Z_]+:[[:space:]]*/, ""); sub(/[^0-9].*$/, ""); print; exit}
-      ' "$_r82_yaml" 2>/dev/null)
-      if [[ -n "$_r82_expected" ]] && { [[ "$_r82_tp_left" != "$_r82_expected" ]] || [[ "$_r82_tp_right" != "$_r82_expected" ]]; }; then
-        fail_rule "baseline_metrics_single_source" "$_r82_pointer_file:$_r82_lineno claims 'Tests passed: $_r82_tp_left/$_r82_tp_right' but baseline_metrics.gate_executable_test_cases = $_r82_expected -- Rule 82 / E115 (numeric drift)"
+      if [[ "$_r82_tp_left" != "$_r82_tp_expected" ]] || [[ "$_r82_tp_right" != "$_r82_tp_expected" ]]; then
+        fail_rule "baseline_metrics_single_source" "$_r82_pointer_file:$_r82_lineno claims 'Tests passed: $_r82_tp_left/$_r82_tp_right' but baseline_metrics.gate_executable_test_cases = $_r82_tp_expected -- Rule 82 / E115 (numeric drift)"
         _r82_fail=1
       fi
     fi
-  done < "$_r82_pointer_file"
+  done
 done
 
 if [[ $_r82_fail -eq 0 ]]; then pass_rule "baseline_metrics_single_source"; fi

@@ -37,7 +37,9 @@ public final class SequentialGraphExecutor implements GraphExecutor {
 
         while (current != null) {
             ExecutorDefinition.NodeFunction node = def.nodes().get(current);
-            if (node == null) throw new IllegalStateException("No node registered for key: " + current);
+            if (node == null) {
+                throw new IllegalStateException("No node registered for key: " + current);
+            }
             try {
                 payload = node.apply(ctx, payload);
                 current = def.edges().get(current);

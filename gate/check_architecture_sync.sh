@@ -20,6 +20,7 @@
 #   2026-05-18 rc6 post-response review response: Rules 86-87 (enforcers E119-E120).
 #   2026-05-18 rc7 post-corrective review response: Rules 88-89 (enforcers E121-E122).
 #   2026-05-19 rc8 post-corrective review response (rc9 wave): Rules 91-96 (enforcers E123-E134).
+#   Code whitebox quality baseline: Rule 121 (enforcer E169).
 # Exits 0 if all rules pass, 1 if any fail.
 # Each rule prints PASS: <name> or FAIL: <name> -- <reason>.
 # Prints GATE: PASS or GATE: FAIL at the end.
@@ -139,6 +140,7 @@
 #  --- 2026-05-19 rc10 post-corrective review response prevention wave (Rules 99-100 + Rule 94/98 widening; enforcers E139-E142) ---
 #  99.  kernel_terminal_verb_vs_shipped_decision_check  -- For every #### Rule N kernel block in CLAUDE.md with a matching ## Rule N.<letter> sub-clause in CLAUDE-deferred.md, the kernel MUST NOT use end-state verb tokens (`are SUSPENDED`, `is SUSPENDED`, `transitions to FAILED`, `consumes the * capacity`, `is rejected, not failed`, `admits the caller`) that overclaim shipped behaviour. Closes rc10 P1-1 (J-α family; Rule 41 kernel said "callers are SUSPENDED" while shipped code returns SkillResolution.reject — the actual transition is deferred to Rule 41.c).
 #  100. kernel_implementation_disjunction_truth        -- For every rule in gate/rule-100-disjunction-allowlist.txt, BOTH the #### Rule N kernel block in CLAUDE.md AND the matching docs/governance/rules/rule-NN.md card MUST contain explicit disjunction wording (EITHER / OR / either surface / either ... or). Closes rc10 P1-3 (J-γ family; Rule 96 kernel said "MUST contain" while impl accepted EITHER kernel OR card — kernel-AND-impl-OR drift in the rule whose job is preventing such drift).
+#  121. whitebox_quality_reports                     -- Maven SpotBugs/PMD/Checkstyle reports exist; high-confidence SpotBugs + hard-style Checkstyle findings block, PMD is review-trigger summary (Rule G-12, enforcer E169)
 
 set -uo pipefail
 export LC_ALL=C
@@ -197,6 +199,10 @@ if [[ -f "$repo_root/gate/lib/check_l1_dev_view_tree.sh" ]]; then
 fi
 if [[ -f "$repo_root/gate/lib/check_l1_spi_appendix.sh" ]]; then
   source "$repo_root/gate/lib/check_l1_spi_appendix.sh"
+fi
+if [[ -f "$repo_root/gate/lib/check_whitebox_quality.sh" ]]; then
+  # shellcheck source=gate/lib/check_whitebox_quality.sh
+  source "$repo_root/gate/lib/check_whitebox_quality.sh"
 fi
 # rc27 fix (ADV-1 export -f): export fail_rule + pass_rule so they survive
 # the `bash -c` subshell spawned by the per-rule timeout wrapper.
@@ -6126,7 +6132,8 @@ if [[ -f "$_r110_test_file" && -f "$_r110_gate_file" ]]; then
   # `# scope_surfaces:` comment, require ≥2 test_rule_<N>_* fixtures.
   while IFS= read -r _r110_rid; do
     [[ -z "$_r110_rid" ]] && continue
-    _r110_fixture_count=$(grep -cE "^test_rule_${_r110_rid}_" "$_r110_test_file" 2>/dev/null || echo 0)
+    _r110_fixture_count=$(grep -cE "^test_rule_${_r110_rid}_" "$_r110_test_file" 2>/dev/null || true)
+    _r110_fixture_count=${_r110_fixture_count:-0}
     if [[ "$_r110_fixture_count" -lt 2 ]]; then
       fail_rule "prevention_rule_scope_completeness" "Rule $_r110_rid declares scope_surfaces in $_r110_gate_file but has only $_r110_fixture_count test_rule_${_r110_rid}_* fixtures (need ≥2) -- Rule 110 / E155 (META per ADR-0093)"
       _r110_fail=1
@@ -6624,6 +6631,34 @@ fi
 # Rule 120 — l1_l2_constraint_linkage (enforcer E168) — vacuously green at rc22
 # (no L2 documents exist yet; arms for W3+).
 pass_rule "l1_l2_constraint_linkage"
+
+# ---------------------------------------------------------------------------
+# Rule 121 — whitebox_quality_reports (enforcer E169)
+#
+# Operationalises Rule G-12. Maven owns execution of SpotBugs, PMD, and
+# Checkstyle through the quality profile; this gate owns repository semantics:
+# report presence, high-confidence SpotBugs blocking, low-dispute Checkstyle
+# blocking, and PMD review-trigger summarisation.
+#
+# scope_surfaces: pom.xml, config/spotbugs/exclude.xml, config/pmd/pmd-ruleset.xml, config/checkstyle/checkstyle.xml, gate/lib/check_whitebox_quality.sh, .github/workflows/ci.yml
+# ---------------------------------------------------------------------------
+_r121_fail=0
+if ! command -v check_whitebox_quality_reports >/dev/null 2>&1; then
+  fail_rule "whitebox_quality_reports" "helper-missing: gate/lib/check_whitebox_quality.sh not sourced -- Rule G-12 / E169"
+  _r121_fail=1
+else
+  _r121_out=$(check_whitebox_quality_reports 2>&1)
+  while IFS=$'\t' read -r _s _f _d; do
+    [[ -z "$_s" ]] && continue
+    if [[ "$_s" == "FAIL" ]]; then
+      fail_rule "whitebox_quality_reports" "$_f: $_d -- Rule G-12 / E169"
+      _r121_fail=1
+    elif [[ "$_s" == "INFO" ]]; then
+      printf 'INFO: whitebox_quality_reports -- %s: %s\n' "$_f" "$_d"
+    fi
+  done <<< "$_r121_out"
+fi
+[[ $_r121_fail -eq 0 ]] && pass_rule "whitebox_quality_reports"
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------

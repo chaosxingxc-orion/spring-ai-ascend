@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-23  # rc34-merge-train wave (PRs #54+#35+#34 squash-merged in sequence as 769712f→993deb4→c87381b): three-PR merge-train surfaced a NEW manifestation of F-cross-authority-agreement — Rule G-9.b's first-parent freshness semantics require families.yaml content-diff in EACH post-merge commit on main, but squash-merge sequences collapse intermediate-branch family-edits into the first PR commit, leaving the 2nd and 3rd PR merges (993deb4 docs-only + c87381b run-dispatch Executor) with no families.yaml diff vs immediate parent. PR #34 brought c87381b CI red on main even though every individual PR was locally green. The merge-train gap itself is a family recurrence: shipped commits cross-contradict the freshness invariant the rule encodes. Corrective wave (this commit) bumps families.yaml content-diff to satisfy G-9.b for the c87381b parent and records the merge-train family pattern as a new occurrence. Carries forward: rc34 follow-up wave (commit 6d730521) closed 5 in-wave authority-drift manifestations (ADR-0112 Mono<StateDelta> vs shipped synchronous StatelessEngine.execute; ADR-0108 403/WARN tenant_mismatch vs shipped 404 silent in RunController; ADR-0114/0115/0111/0109 referencing 7 not-yet-authored cross-cutting/governance files as present-tense delivery; gate/build_architecture_graph.py silently dropping ADR-0112's supersedes_partial: edge; E105 enforcer asserts text still citing dissolved agent-runtime-core path). All closed in 6d730521. rc34-merge-train wave is the 4th occurrence cluster of F-cross-authority-agreement in the rc series; suggests W2 strengthening: gate G-9.b's signal detection should treat squash-merge commits with prior families.yaml content-diff in the squash payload as already-satisfied (not require a per-commit diff after a merge-train).
+last_updated: 2026-05-23  # rc35 whitebox-quality baseline wave records F-cross-authority-agreement for the new Maven/gate/CI/rule-card/phase-contract/enforcer authority path. The baseline adds Rule G-12, gate Rule 121, E169, Maven quality profile reports, CI quality execution, phase-contract allocation, generated gate/rules corpus, README/gate README baseline counts, and architecture graph count parity. PMD remains a review trigger in v1 and CVE/SBOM/Sonar/CodeQL remain explicitly out of scope, so this family stays partial for the whitebox baseline authority path.
 
 families:
   - id: F-numeric-drift
@@ -181,8 +181,8 @@ families:
   - id: F-cross-authority-agreement
     title: Cross-Authority Surface Disagreement
     first_observed_rc: rc14
-    last_observed_rc: rc34-merge-train
-    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train]
+    last_observed_rc: rc35
+    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35]
     root_cause: |
       117+ single-surface prevention rules can all pass while the
       surfaces themselves contradict each other — e.g.
@@ -275,6 +275,21 @@ families:
       payload itself bumped families.yaml; (c) require contributors
       to rebase their PR head against latest main before merge so
       the second PR in a train inherits the first's family-yaml diff.
+
+      **rc35 whitebox-quality baseline wave (2026-05-23).**
+      Rule G-12 introduces a new multi-surface quality authority path:
+      Maven quality profile reports, SpotBugs/PMD/Checkstyle config,
+      gate Rule 121 report interpretation, E169, phase-contract
+      allocation, CI execution, generated gate/rules corpus, README
+      baseline counts, and architecture graph counts all need lockstep
+      agreement. The first verification pass surfaced exactly this
+      family pattern: the new gate rule and baseline metrics were added
+      before generated gate/rules, graph counts, README baseline text,
+      release-note historical marker, and quality-report findings were
+      synchronized. Corrective: this branch refreshes the generated
+      corpus, aligns graph and entrypoint counts, marks the historical
+      release note, and fixes hard Checkstyle findings while keeping PMD
+      as a review-trigger summary.
     surfaces:
       - docs/governance/architecture-status.yaml
       - docs/governance/architecture-graph.yaml
@@ -283,6 +298,11 @@ families:
       - "**/module-metadata.yaml"
       - docs/contracts/contract-catalog.md
       - pom.xml
+      - .github/workflows/ci.yml
+      - gate/check_architecture_sync.sh
+      - gate/lib/check_whitebox_quality.sh
+      - docs/governance/rules/rule-G-12.md
+      - docs/governance/contracts/*.md
     prevention_rules:
       - Rule 106
       - Rule G-8
@@ -290,12 +310,15 @@ families:
       - Rule 107
       - Rule 108
       - Rule 109
-    cleanup_status: structurally_addressed
+      - Rule G-12
+    cleanup_status: partial
     open_residual: |
       Every new rule MUST explicitly enumerate its authority surfaces
       (Rule G-8.b/.c/.e + Rule 109 + Rule G-9 frontmatter). Drift will
       reappear only if a rule introduces a new surface without declaring
-      it.
+      it. Whitebox quality now has a Maven/gate/CI authority path, but PMD
+      findings remain review triggers in v1 and CVE/SBOM/Sonar/CodeQL
+      remain explicitly out of scope for this baseline.
 
   - id: F-deferred-clause-orphan
     title: CLAUDE-deferred.md Orphan

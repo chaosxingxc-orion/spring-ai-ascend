@@ -16,6 +16,11 @@ if [[ -f "$_status_path" ]]; then
     BEGIN {
       ok["design_accepted"]=1; ok["implemented_unverified"]=1
       ok["test_verified"]=1; ok["deferred_w1"]=1; ok["deferred_w2"]=1
+      # 2026-05-23: "open" added for strategic_decisions: block (founder-level
+      # decisions deferred to W3+; tracked outside the architecture phase contract).
+      # 2026-05-23: "design_only" added for contract-status rows whose
+      # spec exists but runtime enforcement is deferred (Rule 62 vocab).
+      ok["open"]=1; ok["design_only"]=1
     }
     /^[[:space:]]*status:[[:space:]]*[A-Za-z_]+[[:space:]]*$/ {
       val = $0

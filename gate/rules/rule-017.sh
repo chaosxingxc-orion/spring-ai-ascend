@@ -17,31 +17,31 @@ if [[ -f "$_catalog17" ]]; then
       _r17_fail=1
     fi
   done
+  # Perf fix (2026-05-23): combine both per-line passes (probes-sub-table
+  # OssApiProbe + data-carriers RunContext interface) into a single mapfile +
+  # bash-regex walk. Original ran 2 × `while read` loops each with 2 forks
+  # per line × ~600 lines = ~2400 forks. Replace with one mapfile + 4 regex
+  # checks per line (no forks).
   if [[ $_r17_fail -eq 0 ]]; then
+    mapfile -t _r17_arr < "$_catalog17"
     _past_probes=0
-    while IFS= read -r _ln17; do
-      if echo "$_ln17" | grep -qE '\*\*Probes|^#+[[:space:]]+Probes'; then _past_probes=1; fi
-      if [[ $_past_probes -eq 0 ]] && echo "$_ln17" | grep -qF 'OssApiProbe'; then
+    _in_data_carriers=0
+    _run_ctx_has_interface=0
+    _run_ctx_found=0
+    for _ln17 in "${_r17_arr[@]}"; do
+      if [[ "$_ln17" =~ \*\*Probes|^#+[[:space:]]+Probes ]]; then _past_probes=1; fi
+      if [[ $_past_probes -eq 0 ]] && [[ "$_ln17" == *"OssApiProbe"* ]]; then
         fail_rule "contract_catalog_spi_table_matches_source" "$_catalog17 contains OssApiProbe before the Probes sub-table. OssApiProbe is a probe, not an SPI. Per ADR-0041 Gate Rule 17."
         _r17_fail=1
         break
       fi
-    done < "$_catalog17"
-  fi
-  # ADR-0044 extension: RunContext row in data-carriers sub-table must contain 'interface'
-  if [[ $_r17_fail -eq 0 ]]; then
-    _in_data_carriers=0
-    _run_ctx_has_interface=0
-    _run_ctx_found=0
-    while IFS= read -r _ln17x; do
-      if echo "$_ln17x" | grep -qE '\*\*Data carriers'; then _in_data_carriers=1; fi
-      if [[ $_in_data_carriers -eq 1 ]] && echo "$_ln17x" | grep -qF 'RunContext'; then
+      if [[ "$_ln17" =~ \*\*Data\ carriers ]]; then _in_data_carriers=1; fi
+      if [[ $_in_data_carriers -eq 1 && $_run_ctx_found -eq 0 ]] && [[ "$_ln17" == *"RunContext"* ]]; then
         _run_ctx_found=1
-        if echo "$_ln17x" | grep -qF 'interface'; then _run_ctx_has_interface=1; fi
-        break
+        [[ "$_ln17" == *"interface"* ]] && _run_ctx_has_interface=1
       fi
-    done < "$_catalog17"
-    if [[ $_run_ctx_found -eq 1 && $_run_ctx_has_interface -eq 0 ]]; then
+    done
+    if [[ $_r17_fail -eq 0 && $_run_ctx_found -eq 1 && $_run_ctx_has_interface -eq 0 ]]; then
       fail_rule "contract_catalog_spi_table_matches_source" "$_catalog17 RunContext row in data-carriers sub-table does not contain 'interface'. Per ADR-0044 Gate Rule 17 extension RunContext must be classified as interface."
       _r17_fail=1
     fi

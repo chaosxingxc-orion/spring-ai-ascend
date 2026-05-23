@@ -39,6 +39,7 @@ for the marker convention.
 | D-9 | No Version / Log Metadata in Code | **X** | [`rule-D-9.md`](../rules/rule-D-9.md) |
 | G-7 | Linux-First Dev Environment | **X** | [`rule-G-7.md`](../rules/rule-G-7.md) |
 | G-10 | Parallel-Linux-Scripts Mandate | **X** | [`rule-G-10.md`](../rules/rule-G-10.md) |
+| G-12 | Whitebox Quality Baseline | **X** | [`rule-G-12.md`](../rules/rule-G-12.md) |
 | M-1 | Skeleton Module Has No Production Java | **X** | [`rule-M-1.md`](../rules/rule-M-1.md) |
 | M-2 | Domain Contract Discipline (schema-first + design-only registration + DFX-stem truth) | **X** | [`rule-M-2.md`](../rules/rule-M-2.md) |
 | R-A | Business/Platform Decoupling Enforcement | **X** | [`rule-R-A.md`](../rules/rule-R-A.md) |
@@ -80,6 +81,7 @@ for the marker convention.
 - Unit tests pass: `./mvnw -pl <module> -am test` (Windows: `mvnw.cmd`).
 - ArchUnit tests pass (they encode many of these forbidden patterns).
 - Integration tests pass: `./mvnw verify` (uses Failsafe, not Surefire).
+- Whitebox quality profile runs for production Java changes: `./mvnw -Pquality verify`; PMD review triggers may remain non-blocking, but SpotBugs high-confidence and Checkstyle hard-style findings must be clean.
 - Local gate parallel run is green for the touched rule scope: `bash
   gate/check_parallel.sh` on Linux/WSL per Rule G-7.
 - No new entries added to `gate/d9-grandfathered-files.txt` (the

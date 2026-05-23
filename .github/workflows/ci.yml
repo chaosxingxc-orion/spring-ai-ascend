@@ -28,7 +28,7 @@ jobs:
           cache: maven
 
       - name: Maven verify (compile + unit + integration tests)
-        run: ./mvnw -T 1C -B -ntp --strict-checksums verify
+        run: ./mvnw -T 1C -B -ntp --strict-checksums -Pquality verify
 
       - name: Install Python deps for architecture-graph generation
         # Required by Rule 34 (architecture_graph_well_formed) — the gate

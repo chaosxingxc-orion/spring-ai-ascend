@@ -67,6 +67,7 @@ fail() { _record_result FAIL "$1" "$2"; }
 
 # Scratch directory for synthetic test fixtures (cleaned up on exit).
 scratch="$(mktemp -d)"
+_fixtures_root="$scratch"
 trap 'rm -rf "$scratch"' EXIT
 
 # ---------------------------------------------------------------------------
@@ -5714,7 +5715,8 @@ test_rule_107_pos() { :; }
 test_rule_107_neg() { :; }
 SHEOF
   _declared=$(awk '/^# Rule [0-9]+ — /{match($0,/^# Rule ([0-9]+)/,m); cr=m[1]; ls=0; next} cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_pos_root/gate_script.sh" | head -1)
-  _count=$(grep -cE "^test_rule_${_declared}_" "$_r110_pos_root/test_fixtures.sh" 2>/dev/null || echo 0)
+  _count=$(grep -cE "^test_rule_${_declared}_" "$_r110_pos_root/test_fixtures.sh" 2>/dev/null || true)
+  _count=${_count:-0}
   if [[ -n "$_declared" && "$_count" -ge 2 ]]; then
     ok "rule_110_scope_completeness_pos" "Rule 110 accepts Rule $_declared with $_count fixtures"
   else
@@ -5736,11 +5738,31 @@ SHEOF
 test_rule_200_single() { :; }
 SHEOF
   _declared=$(awk '/^# Rule [0-9]+ — /{match($0,/^# Rule ([0-9]+)/,m); cr=m[1]; ls=0; next} cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_neg_root/gate_script.sh" | head -1)
-  _count=$(grep -cE "^test_rule_${_declared}_" "$_r110_neg_root/test_fixtures.sh" 2>/dev/null || echo 0)
+  _count=$(grep -cE "^test_rule_${_declared}_" "$_r110_neg_root/test_fixtures.sh" 2>/dev/null || true)
+  _count=${_count:-0}
   if [[ -n "$_declared" && "$_count" -lt 2 ]]; then
     ok "rule_110_scope_completeness_neg" "Rule 110 catches Rule $_declared with only $_count fixture (need ≥2)"
   else
     fail "rule_110_scope_completeness_neg" "expected <2 fixtures for declared rule, got declared=$_declared count=$_count"
+  fi
+}
+
+test_rule_110_scope_completeness_zero_fixture_neg() {
+  _r110_zero_root="$scratch/r110_zero"
+  mkdir -p "$_r110_zero_root"
+  cat > "$_r110_zero_root/gate_script.sh" <<'SHEOF'
+# Rule 201 — fake_rule_without_fixtures
+#
+# scope_surfaces: surface1, surface2
+SHEOF
+  : > "$_r110_zero_root/test_fixtures.sh"
+  _declared=$(awk '/^# Rule [0-9]+ — /{match($0,/^# Rule ([0-9]+)/,m); cr=m[1]; ls=0; next} cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_zero_root/gate_script.sh" | head -1)
+  _count=$(grep -cE "^test_rule_${_declared}_" "$_r110_zero_root/test_fixtures.sh" 2>/dev/null || true)
+  _count=${_count:-0}
+  if [[ -n "$_declared" && "$_count" == "0" ]]; then
+    ok "rule_110_scope_completeness_zero_fixture_neg" "Rule 110 fixture count remains numeric for zero matches"
+  else
+    fail "rule_110_scope_completeness_zero_fixture_neg" "expected numeric zero fixture count, got declared=$_declared count=$_count"
   fi
 }
 
@@ -6283,7 +6305,7 @@ test_rule_115_no_version_log_metadata_neg() {
   printf 'public void foo() { /* rc20 Wave 3: pretend annotation */ }\n' > "$root/Bad.java"
   local pattern='\brc[0-9]+ Wave [0-9]+\b|\bper ADR-[0-9]{4}\b|\(F[0-9]+\)|\bFinding F[0-9]+\b|\b(closes|addresses) #[0-9]+\b'
   if grep -qE "$pattern" "$root/Bad.java"; then
-    ok "rule_115_no_version_log_metadata_neg" "Rule D-9 / Rule 115 catches `rc<N> Wave <M>` annotation in production code"
+    ok "rule_115_no_version_log_metadata_neg" "Rule D-9 / Rule 115 catches rc<N> Wave <M> annotation in production code"
   else
     fail "rule_115_no_version_log_metadata_neg" "expected forbidden version-tag to be detected"
   fi
@@ -6459,6 +6481,63 @@ EOF_L1
   else
     fail "rule_120_l1_l2_linkage_neg" "synthetic L2 ref without Boundary Contracts was not detected"
   fi
+}
+
+test_rule_121_whitebox_missing_report_neg() {
+_r121_neg_root="$scratch/r121_missing"
+mkdir -p "$_r121_neg_root/agent-service/src/main/java/example" "$_r121_neg_root/agent-service/target"
+cat > "$_r121_neg_root/pom.xml" <<'POMEOF'
+<project>
+  <modules>
+    <module>agent-service</module>
+  </modules>
+</project>
+POMEOF
+printf 'class Example {}\n' > "$_r121_neg_root/agent-service/src/main/java/example/Example.java"
+GATE_REPO_ROOT="$_r121_neg_root"
+source gate/lib/check_whitebox_quality.sh
+_r121_out=$(check_whitebox_quality_reports)
+if echo "$_r121_out" | grep -q $'FAIL\tagent-service\tmissing agent-service/target/spotbugsXml.xml'; then
+  ok "rule121_whitebox_missing_report_neg" "missing SpotBugs report correctly fails closed"
+else
+  fail "rule121_whitebox_missing_report_neg" "expected missing report failure, got: $_r121_out"
+fi
+}
+
+test_rule_121_whitebox_hard_and_review_pos() {
+_r121_pos_root="$scratch/r121_pos"
+mkdir -p "$_r121_pos_root/agent-service/src/main/java/example" "$_r121_pos_root/agent-service/target"
+cat > "$_r121_pos_root/pom.xml" <<'POMEOF'
+<project>
+  <modules>
+    <module>agent-service</module>
+  </modules>
+</project>
+POMEOF
+printf 'class Example {}\n' > "$_r121_pos_root/agent-service/src/main/java/example/Example.java"
+cat > "$_r121_pos_root/agent-service/target/spotbugsXml.xml" <<'XEOF'
+<BugCollection>
+</BugCollection>
+XEOF
+cat > "$_r121_pos_root/agent-service/target/checkstyle-result.xml" <<'XEOF'
+<checkstyle version="10.20.2">
+</checkstyle>
+XEOF
+cat > "$_r121_pos_root/agent-service/target/pmd.xml" <<'XEOF'
+<pmd>
+  <file name="Example.java">
+    <violation beginline="1" rule="LongMethod">review only</violation>
+  </file>
+</pmd>
+XEOF
+GATE_REPO_ROOT="$_r121_pos_root"
+source gate/lib/check_whitebox_quality.sh
+_r121_out=$(check_whitebox_quality_reports)
+if ! echo "$_r121_out" | grep -q '^FAIL' && echo "$_r121_out" | grep -q $'INFO\tpmd\tPMD review-trigger findings: 1'; then
+  ok "rule121_whitebox_hard_and_review_pos" "PMD review trigger is reported without hard failure"
+else
+  fail "rule121_whitebox_hard_and_review_pos" "expected INFO-only output, got: $_r121_out"
+fi
 }
 
 # ---------------------------------------------------------------------------

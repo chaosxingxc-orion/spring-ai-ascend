@@ -53,7 +53,7 @@ authority_refs: [ADR-0094]
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 8 | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 4 | ⚠️ partial |
-| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 7 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train) | ✅ structurally addressed (rc14-16; rc33+rc34 forward-pointing-reference recurrence closed in lockstep; rc34-follow-up adversarial-review surfaced 5 in-wave authority-drift manifestations, all closed in commit 6d730521; rc34-merge-train surfaced THIRD scale — squash-merge sequences collapse families.yaml diffs and force per-commit G-9.b reapplication, closed by post-merge corrective PR) |
+| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 8 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35) | ⚠️ partial (rc14-16 structurally addressed; rc33+rc34 forward-pointing-reference recurrence closed in lockstep; rc34-follow-up adversarial-review surfaced 5 in-wave authority-drift manifestations, all closed in commit 6d730521; rc34-merge-train surfaced THIRD scale; rc35 adds the whitebox-quality Maven/gate/CI authority path, with PMD review triggers and CVE/SBOM/Sonar/CodeQL out of scope) |
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 3 | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
@@ -181,14 +181,20 @@ is necessary but not sufficient.
 - `CLAUDE.md` kernel ↔ `rule-*.md` cards
 - `module-metadata.yaml` ↔ `contract-catalog.md`
 - `pom.xml` modules ↔ `architecture-status.yaml#repository_counts`
+- `pom.xml` quality profile ↔ CI ↔ gate Rule 121 ↔ Rule G-12 card
+- `gate/check_architecture_sync.sh` ↔ generated `gate/rules/*.sh`
+- `docs/governance/contracts/*.md` ↔ rule-card allocation
 
 **Prevention chronology.** Rule 106 (rc14) → Rule G-8 (rc14 mega-rule,
 4 sub-checks) → Rule G-8.e (rc15) → Rule 107 (rc16 clause parity) →
 Rule 108 (rc16 java anchor truth) → Rule 109 (rc16 namespaced ref) →
 rc34-follow-up adds in-wave manifestation evidence (ADR text vs shipped
 Java; ADR `references:` paths not on disk; graph-builder dropping unknown
-ADR-relationship keys) — strengthens the case for a W2 ADR
-frontmatter-schema validation pass.
+ADR-relationship keys). rc35 adds the whitebox-quality authority path:
+Maven report generation, gate report interpretation, CI, rule card,
+phase contracts, generated gate/rules corpus, and baseline counts must
+move in lockstep — strengthening the case for structured authority-surface
+refresh checks when adding a new active rule.
 
 **Open residual.** Every new rule MUST enumerate its authority surfaces.
 Drift will reappear only if a rule introduces a new surface without
@@ -199,8 +205,11 @@ delivery for unauthored documents). rc34-merge-train adds a THIRD scale —
 multi-PR squash-merge sequences where Rule G-9.b's first-parent semantics
 demand a families.yaml content-diff in each post-merge commit, even when
 the squash payload of the first PR in the train already carried one.
-Candidate W2 remediation: cumulative-since-last-families-bump signal
-detection, or merge-train pattern recognition in `gate/lib/check_recurring_families.sh`.
+Whitebox quality now has a Maven/gate/CI authority path, but PMD findings
+remain review triggers in v1 and CVE/SBOM/Sonar/CodeQL remain explicitly
+out of scope for this baseline. Candidate W2 remediation: cumulative-since-last-families-bump signal
+detection, merge-train pattern recognition in `gate/lib/check_recurring_families.sh`,
+or structured authority-surface refresh checks when adding a new active rule.
 
 ---
 

@@ -34,7 +34,8 @@ if [[ -f "$_r110_test_file" && -f "$_r110_gate_file" ]]; then
   # `# scope_surfaces:` comment, require ≥2 test_rule_<N>_* fixtures.
   while IFS= read -r _r110_rid; do
     [[ -z "$_r110_rid" ]] && continue
-    _r110_fixture_count=$(grep -cE "^test_rule_${_r110_rid}_" "$_r110_test_file" 2>/dev/null || echo 0)
+    _r110_fixture_count=$(grep -cE "^test_rule_${_r110_rid}_" "$_r110_test_file" 2>/dev/null || true)
+    _r110_fixture_count=${_r110_fixture_count:-0}
     if [[ "$_r110_fixture_count" -lt 2 ]]; then
       fail_rule "prevention_rule_scope_completeness" "Rule $_r110_rid declares scope_surfaces in $_r110_gate_file but has only $_r110_fixture_count test_rule_${_r110_rid}_* fixtures (need ≥2) -- Rule 110 / E155 (META per ADR-0093)"
       _r110_fail=1

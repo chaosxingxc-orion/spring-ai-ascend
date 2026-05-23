@@ -1,6 +1,5 @@
 package com.huawei.ascend.engine.orchestration.spi;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -22,9 +21,15 @@ public sealed interface ExecutorDefinition
             String startNode
     ) implements ExecutorDefinition {
         public GraphDefinition {
-            if (nodes == null || nodes.isEmpty()) throw new IllegalArgumentException("nodes must not be empty");
-            if (edges == null) throw new IllegalArgumentException("edges must not be null");
-            if (startNode == null || startNode.isBlank()) throw new IllegalArgumentException("startNode is required");
+            if (nodes == null || nodes.isEmpty()) {
+                throw new IllegalArgumentException("nodes must not be empty");
+            }
+            if (edges == null) {
+                throw new IllegalArgumentException("edges must not be null");
+            }
+            if (startNode == null || startNode.isBlank()) {
+                throw new IllegalArgumentException("startNode is required");
+            }
         }
     }
 
@@ -39,9 +44,15 @@ public sealed interface ExecutorDefinition
             Map<String, Object> initialContext
     ) implements ExecutorDefinition {
         public AgentLoopDefinition {
-            if (reasoner == null) throw new IllegalArgumentException("reasoner is required");
-            if (maxIterations <= 0) throw new IllegalArgumentException("maxIterations must be > 0");
-            if (initialContext == null) throw new IllegalArgumentException("initialContext must not be null");
+            if (reasoner == null) {
+                throw new IllegalArgumentException("reasoner is required");
+            }
+            if (maxIterations <= 0) {
+                throw new IllegalArgumentException("maxIterations must be > 0");
+            }
+            if (initialContext == null) {
+                throw new IllegalArgumentException("initialContext must not be null");
+            }
         }
     }
 

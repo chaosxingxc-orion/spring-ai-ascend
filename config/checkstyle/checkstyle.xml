@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<module name="Checker">
+  <property name="charset" value="UTF-8" />
+  <module name="FileTabCharacter">
+    <property name="eachLine" value="true" />
+  </module>
+  <module name="LineLength">
+    <property name="max" value="240" />
+    <property name="severity" value="warning" />
+  </module>
+  <module name="TreeWalker">
+    <module name="AvoidStarImport" />
+    <module name="UnusedImports" />
+    <module name="RedundantImport" />
+    <module name="EmptyStatement" />
+    <module name="ModifierOrder" />
+    <module name="RedundantModifier" />
+    <module name="NeedBraces" />
+    <module name="RegexpSinglelineJava">
+      <property name="format" value="(?i)(TODO|FIXME)(?!: allowed-test-fixture)" />
+      <property name="message" value="TODO/FIXME comments need an explicit issue owner outside test fixtures." />
+      <property name="ignoreComments" value="false" />
+    </module>
+    <module name="RegexpSinglelineJava">
+      <property name="format" value="(?i)(rc[0-9]+ wave|per ADR-[0-9]{4}|Finding F[0-9]+|closes #[0-9]+|commit [0-9a-f]{7,40})" />
+      <property name="message" value="Version, ADR, finding, ticket, and commit metadata belongs in governance docs or commit messages, not Java comments." />
+      <property name="ignoreComments" value="false" />
+    </module>
+  </module>
+</module>
