@@ -122,7 +122,9 @@ families:
       "deleted-module scope" gate. Future refactors will still leak into
       new surfaces; Rule 110 META + Rule G-9 freshness gate are the
       structural backstops that catch the next family member before
-      reviewers do.
+      reviewers do. 2026-05-23 re-evaluation on the CI workflow bump to
+      Node 24 (actions/checkout@v6 + setup-java@v5 + upload-artifact@v7):
+      version-string change only, no deleted-module-name surface impact.
 
   - id: F-authority-surface-path-drift
     title: Authority-Surface Path Drift After Code Refactor
