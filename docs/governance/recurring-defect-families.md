@@ -53,7 +53,7 @@ authority_refs: [ADR-0094]
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 8 | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 4 | ⚠️ partial |
-| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 7 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train) | ✅ structurally addressed (rc14-16; rc33+rc34 forward-pointing-reference recurrence closed in lockstep; rc34-follow-up adversarial-review surfaced 5 in-wave authority-drift manifestations, all closed in commit 6d730521; rc34-merge-train surfaced THIRD scale — squash-merge sequences collapse families.yaml diffs and force per-commit G-9.b reapplication, closed by post-merge corrective PR) |
+| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 8 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch) | ✅ structurally addressed (rc14-16; rc33+rc34 forward-pointing-reference recurrence closed in lockstep; rc34-follow-up adversarial-review surfaced 5 in-wave authority-drift manifestations, all closed in commit 6d730521; rc34-merge-train surfaced THIRD scale — squash-merge sequences collapse families.yaml diffs and force per-commit G-9.b reapplication, closed by post-merge corrective PR; rc35-correctness-batch surfaced FOURTH scale via parallel adversarial review on green main — 8 cross-authority drifts spanning ADR↔ADR, ADR↔code, contract-field↔orchestrator, rule↔orchestrator, claimed-atomic↔impl, fail-closed-intent↔shell-impl, config.yaml↔hardcoded-defaults; all 8 closed with 5 new tests + ADR clarifications + 4 gate-script fixes) |
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 3 | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
@@ -201,6 +201,26 @@ demand a families.yaml content-diff in each post-merge commit, even when
 the squash payload of the first PR in the train already carried one.
 Candidate W2 remediation: cumulative-since-last-families-bump signal
 detection, or merge-train pattern recognition in `gate/lib/check_recurring_families.sh`.
+
+rc35-correctness-batch adds a FOURTH scale — *latent drift on a green main*.
+Three parallel adversarial-review agents (correctness + adversarial-gate +
+doc-coherence) found 8 cross-authority drifts against a corpus where the
+gate (132/132) + self-tests (224/224) + CI all passed. Each was structurally
+a different shape of the same root cause: ADR↔ADR contradiction (the
+"shared/unified" audit MDC across ADR-0108/0109 sharing only 3 of 6 fields),
+ADR↔code drift (ADR-0057 §2 promised TTL-recovery but no implementation
+ever read `expires_at`), contract-field↔orchestrator drift (envelope
+declared `deadline` but `.join()` had no timeout), rule↔orchestrator drift
+(RunStateMachine is authoritative but terminal save used stale local
+`run.status()`), claimed-atomic↔impl drift (`if get>0 then decrement`
+TOCTOU in `release()`), fail-closed-intent↔shell-impl drift (gate scripts
+silently passed when `rg` was missing), and config.yaml↔fallback-defaults
+drift (`load_config.sh` hardcoded 60s but the YAML said 300s). Pattern:
+single-surface gates remain green while cross-surface contracts silently
+contradict; parallel adversarial review continues to be the only
+structural defence. W2 candidate: a recurring "green-main hunt" CI workflow
+that runs the same parallel-reviewer dispatch when nothing has changed,
+on a weekly cadence.
 
 ---
 
