@@ -93,4 +93,66 @@ class S2cTransportTimeoutTrippedByOrchestratorTest {
                 .isEqualTo(RunStatus.FAILED);
         assertThat(finalRun.finishedAt()).isNotNull();
     }
+
+    /**
+     * A misbehaving client can ship an envelope with a far-future absolute
+     * deadline (e.g. now + 1h) intending to defeat the orchestrator's
+     * per-call ceiling. The orchestrator MUST clamp the envelope deadline
+     * against its own {@code s2cCallTimeout} so a hung transport still trips
+     * the timeout inside the configured ceiling rather than pinning the
+     * worker thread until the envelope deadline.
+     */
+    @Test
+    void envelope_deadline_is_clamped_against_orchestrator_ceiling() {
+        S2cCallbackTransport hangingTransport = new S2cCallbackTransport() {
+            @Override
+            public CompletionStage<S2cCallbackResponse> dispatch(S2cCallbackEnvelope envelope) {
+                return new CompletableFuture<>();
+            }
+        };
+
+        EngineRegistry engines = new EngineRegistry()
+                .register(new SequentialGraphExecutor())
+                .register(new IterativeAgentLoopExecutor())
+                .registerS2cCallbackTransport(hangingTransport);
+
+        InMemoryRunRegistry runs = new InMemoryRunRegistry();
+        // Ceiling = 150 ms; envelope below ships a 1-hour deadline.
+        Duration ceiling = Duration.ofMillis(150);
+        SyncOrchestrator orchestrator = new SyncOrchestrator(
+                runs, new InMemoryCheckpointer(), engines, ceiling);
+
+        AtomicReference<S2cCallbackEnvelope> captured = new AtomicReference<>();
+        ExecutorDefinition.AgentLoopDefinition def = new ExecutorDefinition.AgentLoopDefinition(
+                (ctx, payload, iter) -> {
+                    if (captured.get() == null) {
+                        S2cCallbackEnvelope env = new S2cCallbackEnvelope(
+                                UUID.randomUUID(),
+                                ctx.runId(),
+                                "client.test.capability",
+                                "request-payload",
+                                VALID_TRACE,
+                                UUID.randomUUID(),
+                                java.time.Instant.now().plus(Duration.ofHours(1)),
+                                Map.of());
+                        captured.set(env);
+                        throw com.huawei.ascend.engine.orchestration.spi.SuspendSignal
+                                .forClientCallback("loop-iter-0", env);
+                    }
+                    return ExecutorDefinition.ReasoningResult.done("never-reached");
+                },
+                5,
+                Map.of());
+
+        UUID runId = UUID.randomUUID();
+        long started = System.nanoTime();
+        assertThatThrownBy(() -> orchestrator.run(runId, "tenant-A", def, null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("s2c_timeout");
+        long elapsedMs = (System.nanoTime() - started) / 1_000_000;
+
+        assertThat(elapsedMs)
+                .as("orchestrator MUST trip the timeout near the configured ceiling, not the 1h envelope deadline")
+                .isLessThan(5_000);
+    }
 }

@@ -84,9 +84,14 @@ decision: |
   strategy.
 
   **Audit shape (tenant_mismatch message family — common base
-  `{ surface, reason, occurredAt }` shared with Rule R-J .b +
-  ADR-0053/0107/0109; tenant_mismatch adds the message-specific fields
-  `{ runId, expectedTenant, actualTenant }`):**
+  `{ surface, reason, occurredAt }` introduced here and reused by
+  ADR-0053/0107/0109 for sibling reject-on-mismatch families;
+  tenant_mismatch adds the message-specific fields
+  `{ runId, expectedTenant, actualTenant }`. Rule R-J .b's pre-existing
+  cancel-state-transition MDC `{ runId, fromStatus, toStatus, actor,
+  occurredAt }` is a separate sibling family covering the SUCCESSFUL
+  cancel path (the orchestrator emits it when CANCELLED is persisted),
+  not the rejected-on-mismatch path covered here):**
 
       level: WARN
       message: tenant_mismatch

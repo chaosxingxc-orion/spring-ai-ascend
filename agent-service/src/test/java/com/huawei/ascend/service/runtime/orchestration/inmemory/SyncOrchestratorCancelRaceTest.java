@@ -2,6 +2,8 @@ package com.huawei.ascend.service.runtime.orchestration.inmemory;
 
 import com.huawei.ascend.engine.runtime.EngineRegistry;
 import com.huawei.ascend.engine.orchestration.spi.ExecutorDefinition;
+import com.huawei.ascend.engine.orchestration.spi.RunMode;
+import com.huawei.ascend.engine.orchestration.spi.SuspendSignal;
 import com.huawei.ascend.service.runtime.runs.Run;
 import com.huawei.ascend.service.runtime.runs.RunStatus;
 import org.junit.jupiter.api.Test;
@@ -70,6 +72,71 @@ class SyncOrchestratorCancelRaceTest {
         Run finalRun = runs.findById(runId).orElseThrow();
         assertThat(finalRun.status())
                 .as("a parallel CANCELLED state MUST NOT be overwritten by SUCCEEDED")
+                .isEqualTo(RunStatus.CANCELLED);
+    }
+
+    /**
+     * Companion to the SUCCEEDED-overwrite case: the orchestrator's non-terminal
+     * SUSPENDED save was also a blind put on a possibly-stale local snapshot,
+     * so a cancel landing between dispatch and the suspension-save would be
+     * silently overwritten with SUSPENDED. The {@code saveIfNotTerminal} helper
+     * now re-reads before every non-terminal save and short-circuits the
+     * orchestrator loop when the persisted row is already terminal.
+     */
+    @Test
+    void cancel_during_executor_suspension_is_not_overwritten_by_suspended() throws InterruptedException {
+        InMemoryRunRegistry runs = new InMemoryRunRegistry();
+        EngineRegistry engines = new EngineRegistry()
+                .register(new SequentialGraphExecutor())
+                .register(new IterativeAgentLoopExecutor());
+        SyncOrchestrator orchestrator = new SyncOrchestrator(
+                runs, new InMemoryCheckpointer(), engines);
+
+        CountDownLatch executorEntered = new CountDownLatch(1);
+        CountDownLatch cancelApplied = new CountDownLatch(1);
+
+        // The executor blocks until cancel lands, then raises a child-suspend
+        // SuspendSignal. Without the saveIfNotTerminal guard the orchestrator
+        // would then save SUSPENDED on top of the just-written CANCELLED row.
+        ExecutorDefinition.AgentLoopDefinition childDef =
+                new ExecutorDefinition.AgentLoopDefinition(
+                        (ctx, payload, iter) -> ExecutorDefinition.ReasoningResult.done("never-reached"),
+                        1,
+                        Map.of());
+        ExecutorDefinition.AgentLoopDefinition def = new ExecutorDefinition.AgentLoopDefinition(
+                (ctx, payload, iter) -> {
+                    executorEntered.countDown();
+                    try {
+                        cancelApplied.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                    throw new SuspendSignal("loop-iter-0", "resume-payload",
+                            RunMode.AGENT_LOOP, childDef);
+                },
+                1,
+                Map.of());
+
+        UUID runId = UUID.randomUUID();
+        Thread orch = new Thread(() -> orchestrator.run(runId, "tenant-A", def, null),
+                "orchestrator-under-suspension-cancel");
+        orch.setDaemon(true);
+        orch.start();
+
+        assertThat(executorEntered.await(5, TimeUnit.SECONDS))
+                .as("executor lambda should reach the latch")
+                .isTrue();
+
+        Run current = runs.findById(runId).orElseThrow();
+        runs.save(current.withStatus(RunStatus.CANCELLED).withFinishedAt(Instant.now()));
+        cancelApplied.countDown();
+
+        orch.join(5_000);
+        assertThat(orch.isAlive()).as("orchestrator thread should have returned").isFalse();
+
+        Run finalRun = runs.findById(runId).orElseThrow();
+        assertThat(finalRun.status())
+                .as("a parallel CANCELLED state MUST NOT be overwritten by SUSPENDED")
                 .isEqualTo(RunStatus.CANCELLED);
     }
 }
