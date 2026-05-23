@@ -33,12 +33,20 @@ else
   fi
   _r86_canonical=$_r86_pom_count
   _r86_marker_re='historical|pre-ADR-[0-9]{4}|pre-Phase-C|consolidated|merged into|merged in|was rooted|formerly|superseded|deferred|moved|extracted per ADR-[0-9]{4}|post-ADR-[0-9]{4}|archived'
+  # Perf fix (2026-05-23): the original per-line loop forked `echo | grep`
+  # 4+ times per line × 911 lines + `sed | grep` for each ±3-line marker
+  # check. On WSL/mnt/d that was ~4 minutes per gate run. Bash-native regex
+  # against a pre-loaded array brings this rule from ~59s to ~1s.
+  mapfile -t _r86_arr < "$_r86_arch"
+  _r86_count_re='(\*\*[0-9]+ modules\*\*|[0-9]+-module|[0-9]+ reactor modules|[0-9]+ modules)'
+  _r86_path_re='agent-[a-z-]+/src/main/java/[a-zA-Z0-9_/.-]+'
   _r86_in_code=0
-  _r86_lineno=0
   _r86_in_frontmatter=0
   _r86_frontmatter_seen_open=0
-  while IFS= read -r _r86_line || [[ -n "$_r86_line" ]]; do
-    _r86_lineno=$((_r86_lineno + 1))
+  _r86_n=${#_r86_arr[@]}
+  for ((_r86_i=0; _r86_i<_r86_n; _r86_i++)); do
+    _r86_line="${_r86_arr[$_r86_i]}"
+    _r86_lineno=$((_r86_i + 1))
     if [[ "$_r86_line" =~ ^---[[:space:]]*$ ]]; then
       if [[ $_r86_frontmatter_seen_open -eq 0 ]]; then
         _r86_in_frontmatter=1; _r86_frontmatter_seen_open=1
@@ -53,34 +61,49 @@ else
       continue
     fi
     [[ "$_r86_in_code" -eq 1 ]] && continue
-    _r86_count_claim=$(echo "$_r86_line" | grep -oE '\*\*[0-9]+ modules\*\*|\b[0-9]+-module\b|\b[0-9]+ reactor modules\b|\b[0-9]+ modules\b' | head -1)
-    if [[ -n "$_r86_count_claim" ]]; then
-      _r86_claim_num=$(echo "$_r86_count_claim" | grep -oE '[0-9]+' | head -1)
-      _r86_lo=$((_r86_lineno > 3 ? _r86_lineno - 3 : 1))
-      _r86_hi=$((_r86_lineno + 3))
+    # Count-claim detection via bash regex (no fork).
+    if [[ "$_r86_line" =~ $_r86_count_re ]]; then
+      _r86_count_claim="${BASH_REMATCH[1]}"
+      # Extract first number from the claim.
+      if [[ "$_r86_count_claim" =~ ([0-9]+) ]]; then
+        _r86_claim_num="${BASH_REMATCH[1]}"
+        _r86_lo=$((_r86_i > 3 ? _r86_i - 3 : 0))
+        _r86_hi=$((_r86_i + 3 < _r86_n - 1 ? _r86_i + 3 : _r86_n - 1))
+        _r86_marker_present=0
+        for ((_r86_j=_r86_lo; _r86_j<=_r86_hi; _r86_j++)); do
+          if [[ "${_r86_arr[$_r86_j]}" =~ $_r86_marker_re ]]; then
+            _r86_marker_present=1
+            break
+          fi
+        done
+        if [[ $_r86_marker_present -eq 0 ]] && [[ "$_r86_claim_num" != "$_r86_canonical" ]]; then
+          fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_lineno active count claim '$_r86_count_claim' (N=$_r86_claim_num) disagrees with canonical $_r86_canonical from pom.xml + architecture-status.yaml -- Rule 86 / E119 (root architecture count drift)"
+          _r86_fail=1
+        fi
+      fi
+    fi
+    # Path-claim detection: bash regex finds first match; loop with offset to
+    # find all matches on the line (rare to have multiple, but supported).
+    _r86_rest="$_r86_line"
+    while [[ "$_r86_rest" =~ $_r86_path_re ]]; do
+      _r86_path="${BASH_REMATCH[0]}"
+      _r86_rest="${_r86_rest#*"$_r86_path"}"
+      _r86_path_clean="${_r86_path%.}"
+      if [[ -e "$_r86_path_clean" ]] || [[ -e "${_r86_path_clean}.java" ]]; then continue; fi
+      _r86_lo=$((_r86_i > 3 ? _r86_i - 3 : 0))
+      _r86_hi=$((_r86_i + 3 < _r86_n - 1 ? _r86_i + 3 : _r86_n - 1))
       _r86_marker_present=0
-      if sed -n "${_r86_lo},${_r86_hi}p" "$_r86_arch" 2>/dev/null | grep -qiE "$_r86_marker_re"; then
-        _r86_marker_present=1
-      fi
-      if [[ $_r86_marker_present -eq 0 ]] && [[ "$_r86_claim_num" != "$_r86_canonical" ]]; then
-        fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_lineno active count claim '$_r86_count_claim' (N=$_r86_claim_num) disagrees with canonical $_r86_canonical from pom.xml + architecture-status.yaml -- Rule 86 / E119 (root architecture count drift)"
-        _r86_fail=1
-      fi
-    fi
-    _r86_paths=$(echo "$_r86_line" | grep -oE 'agent-[a-z-]+/src/main/java/[a-zA-Z0-9_/.-]+' | sort -u)
-    if [[ -n "$_r86_paths" ]]; then
-      while IFS= read -r _r86_path; do
-        [[ -z "$_r86_path" ]] && continue
-        _r86_path_clean="${_r86_path%.}"
-        if [[ -e "$_r86_path_clean" ]] || [[ -e "${_r86_path_clean}.java" ]]; then continue; fi
-        _r86_lo=$((_r86_lineno > 3 ? _r86_lineno - 3 : 1))
-        _r86_hi=$((_r86_lineno + 3))
-        if sed -n "${_r86_lo},${_r86_hi}p" "$_r86_arch" 2>/dev/null | grep -qiE "$_r86_marker_re"; then continue; fi
-        fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_lineno claims path '$_r86_path_clean' that does not exist on disk and the surrounding +/-3 lines carry no historical/moved/extracted-per-ADR/consolidated/pre-Phase-C marker -- Rule 86 / E119"
-        _r86_fail=1
-      done <<< "$_r86_paths"
-    fi
-  done < "$_r86_arch"
+      for ((_r86_j=_r86_lo; _r86_j<=_r86_hi; _r86_j++)); do
+        if [[ "${_r86_arr[$_r86_j]}" =~ $_r86_marker_re ]]; then
+          _r86_marker_present=1
+          break
+        fi
+      done
+      [[ $_r86_marker_present -eq 1 ]] && continue
+      fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_lineno claims path '$_r86_path_clean' that does not exist on disk and the surrounding +/-3 lines carry no historical/moved/extracted-per-ADR/consolidated/pre-Phase-C marker -- Rule 86 / E119"
+      _r86_fail=1
+    done
+  done
 
   # rc8 extension: 2nd pass — validate SPI-ownership claims inside fenced
   # tree-diagram code blocks. The 1st pass above intentionally skips fenced
@@ -91,12 +114,19 @@ else
   # for each indented `<pkg>/spi/` leaf checks that the module's
   # module-metadata.yaml#spi_packages declares an entry containing
   # `.<pkg>.spi`. Historical markers within +/-3 lines still exempt.
+  # Perf fix (2026-05-23): the fenced-tree-block scan also ran multiple
+  # `echo | grep` forks per line × 911 lines. Reuse the `_r86_arr` array
+  # loaded above and switch to bash-native regex + cached module-metadata
+  # spi_package strings.
+  declare -A _r86_meta_pkgs_cache=()
   _r86_tb_in=0
   _r86_tb_mod=""
   _r86_tb_mod_indent=0
-  _r86_tb_lineno=0
-  while IFS= read -r _r86_tbline || [[ -n "$_r86_tbline" ]]; do
-    _r86_tb_lineno=$((_r86_tb_lineno + 1))
+  _r86_modhdr_re='^([[:space:]]+)(agent-[a-z-]+|spring-ai-ascend-[a-z-]+)/[[:space:]]*(#.*)?$'
+  _r86_spi_leaf_re='^([[:space:]]+)([a-z][a-z_]*)/spi/[[:space:]]*(#.*)?$'
+  for ((_r86_i=0; _r86_i<_r86_n; _r86_i++)); do
+    _r86_tbline="${_r86_arr[$_r86_i]}"
+    _r86_tb_lineno=$((_r86_i + 1))
     if [[ "$_r86_tbline" =~ ^\`\`\` ]]; then
       _r86_tb_in=$((1 - _r86_tb_in))
       _r86_tb_mod=""
@@ -104,34 +134,47 @@ else
     fi
     [[ "$_r86_tb_in" -eq 0 ]] && continue
     # Module-header line: indented `<modulename>/    #...` or `<modulename>/`
-    if echo "$_r86_tbline" | grep -qE '^[[:space:]]+(agent-[a-z-]+|spring-ai-ascend-[a-z-]+)/[[:space:]]*(#.*)?$'; then
-      _r86_tb_mod=$(echo "$_r86_tbline" | grep -oE '(agent-[a-z-]+|spring-ai-ascend-[a-z-]+)/' | head -1 | tr -d '/')
-      _r86_tb_mod_indent=$(echo "$_r86_tbline" | awk '{ match($0, /[^ ]/); print RSTART - 1 }')
+    if [[ "$_r86_tbline" =~ $_r86_modhdr_re ]]; then
+      _r86_tb_mod_indent=${#BASH_REMATCH[1]}
+      _r86_tb_mod="${BASH_REMATCH[2]}"
       continue
     fi
-    # SPI leaf line: indented `<pkg>/spi/  # ...` -- look up parent module's metadata
-    if [[ -n "$_r86_tb_mod" ]] && echo "$_r86_tbline" | grep -qE '^[[:space:]]+[a-z][a-z_]*/spi/[[:space:]]*(#.*)?$'; then
-      _r86_tb_leaf_indent=$(echo "$_r86_tbline" | awk '{ match($0, /[^ ]/); print RSTART - 1 }')
+    # SPI leaf line: indented `<pkg>/spi/  # ...` — validate parent module metadata.
+    if [[ -n "$_r86_tb_mod" ]] && [[ "$_r86_tbline" =~ $_r86_spi_leaf_re ]]; then
+      _r86_tb_leaf_indent=${#BASH_REMATCH[1]}
+      _r86_tb_pkg="${BASH_REMATCH[2]}"
       if [[ $_r86_tb_leaf_indent -le $_r86_tb_mod_indent ]]; then
         _r86_tb_mod=""
         continue
       fi
-      _r86_tb_pkg=$(echo "$_r86_tbline" | grep -oE '[a-z_]+/spi/' | head -1 | sed 's|/spi/||')
       _r86_tb_meta="${_r86_tb_mod}/module-metadata.yaml"
-      _r86_tb_lo=$((_r86_tb_lineno > 3 ? _r86_tb_lineno - 3 : 1))
-      _r86_tb_hi=$((_r86_tb_lineno + 3))
-      if sed -n "${_r86_tb_lo},${_r86_tb_hi}p" "$_r86_arch" 2>/dev/null | grep -qiE "$_r86_marker_re"; then continue; fi
+      _r86_tb_lo=$((_r86_i > 3 ? _r86_i - 3 : 0))
+      _r86_tb_hi=$((_r86_i + 3 < _r86_n - 1 ? _r86_i + 3 : _r86_n - 1))
+      _r86_marker_present=0
+      for ((_r86_j=_r86_tb_lo; _r86_j<=_r86_tb_hi; _r86_j++)); do
+        if [[ "${_r86_arr[$_r86_j]}" =~ $_r86_marker_re ]]; then
+          _r86_marker_present=1; break
+        fi
+      done
+      [[ $_r86_marker_present -eq 1 ]] && continue
       if [[ ! -f "$_r86_tb_meta" ]]; then
         fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_tb_lineno tree-block leaf '${_r86_tb_pkg}/spi/' under module '${_r86_tb_mod}' but ${_r86_tb_meta} does not exist -- Rule 86 / E119 (tree-block ownership drift, fenced-block extension)"
         _r86_fail=1
         continue
       fi
-      if ! grep -E '^[[:space:]]*-[[:space:]]+' "$_r86_tb_meta" 2>/dev/null | grep -qE "\.${_r86_tb_pkg}\.spi([^a-zA-Z0-9]|$)"; then
+      # Cache the joined `<pkg>` list from each module-metadata.yaml so we
+      # don't re-grep it for every leaf in the same module.
+      if [[ -z "${_r86_meta_pkgs_cache[$_r86_tb_meta]:-}" ]]; then
+        _r86_meta_pkgs_cache[$_r86_tb_meta]="$(grep -E '^[[:space:]]*-[[:space:]]+' "$_r86_tb_meta" 2>/dev/null || true)"
+      fi
+      _r86_tb_pkgs_str="${_r86_meta_pkgs_cache[$_r86_tb_meta]}"
+      _r86_tb_match_re="\\.${_r86_tb_pkg}\\.spi([^a-zA-Z0-9]|$)"
+      if ! [[ "$_r86_tb_pkgs_str" =~ $_r86_tb_match_re ]]; then
         fail_rule "root_architecture_count_and_path_truth" "$_r86_arch:$_r86_tb_lineno tree-block claims '${_r86_tb_pkg}/spi/' under module '${_r86_tb_mod}' but ${_r86_tb_meta}#spi_packages declares no entry containing '.${_r86_tb_pkg}.spi' -- Rule 86 / E119 (tree-block ownership drift, fenced-block extension)"
         _r86_fail=1
       fi
     fi
-  done < "$_r86_arch"
+  done
 fi
 if [[ $_r86_fail -eq 0 ]]; then pass_rule "root_architecture_count_and_path_truth"; fi
 

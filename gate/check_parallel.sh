@@ -137,9 +137,9 @@ awk '
     }
   }
   BEGIN { prev_slug = ""; prev_start = 0; idx = 0 }
-  /^# Rule [0-9]+[a-z]? (—|--) / {
+  /^# Rule [0-9]+.?[a-z]? (—|--) / {
     emit_prev(NR - 1)
-    match($0, /^# Rule ([0-9]+[a-z]?) (—|--) ([a-z0-9_]+)/, arr)
+    match($0, /^# Rule ([0-9]+.?[a-z]?) (—|--) ([a-z0-9_]+)/, arr)
     prev_slug = arr[1] "_" arr[3]
     prev_start = NR
     next
@@ -417,7 +417,7 @@ fi
 # coverage without re-deriving counts. The serial-source count is taken from
 # the canonical script's rule-header set (em-dash or double-dash separator
 # tolerant); the parallel count is the size of manifest.tsv built above.
-_serial_rule_count=$(grep -cE '^# Rule [0-9]+[a-z]? (—|--) ' "$SOURCE_SCRIPT" 2>/dev/null || echo 0)
+_serial_rule_count=$(grep -cE '^# Rule [0-9]+.?[a-z]? (—|--) ' "$SOURCE_SCRIPT" 2>/dev/null || echo 0)
 echo "parallel_summary: executed ${total_rules} rules; serial source defined ${_serial_rule_count} rules"
 if [[ "${total_rules}" != "${_serial_rule_count}" ]]; then
   echo "GATE: FAIL (parallel/serial parity: executed ${total_rules} != serial ${_serial_rule_count}; Rule 88 / E121 would catch this in the serial canonical gate)"

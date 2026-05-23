@@ -42,11 +42,11 @@ _r112_canonical="gate/check_architecture_sync.sh"
 #       still satisfies the helper-extraction discipline.
 if [[ -f "$_r112_canonical" ]]; then
   # Pre-compute header line numbers for window-end resolution
-  mapfile -t _r112_all_headers < <(grep -nE '^# Rule [0-9]+[a-z]? — ' "$_r112_canonical" 2>/dev/null | cut -d: -f1)
+  mapfile -t _r112_all_headers < <(grep -nE '^# Rule [0-9]+.?[a-z]? — ' "$_r112_canonical" 2>/dev/null | cut -d: -f1)
   while IFS= read -r _r112_meta_line; do
     [[ -z "$_r112_meta_line" ]] && continue
     _r112_lineno=$(printf '%s' "$_r112_meta_line" | cut -d: -f1)
-    _r112_slug=$(printf '%s' "$_r112_meta_line" | sed -nE 's|^[0-9]+:# Rule ([0-9]+[a-z]?) — ([a-z_]+).*\[META\].*|\1:\2|p')
+    _r112_slug=$(printf '%s' "$_r112_meta_line" | sed -nE 's|^[0-9]+:# Rule ([0-9]+.?[a-z]?) — ([a-z_]+).*\[META\].*|\1:\2|p')
     [[ -z "$_r112_slug" ]] && continue
     _r112_rule_num=$(printf '%s' "$_r112_slug" | cut -d: -f1)
     _r112_rule_slug=$(printf '%s' "$_r112_slug" | cut -d: -f2)
@@ -69,6 +69,6 @@ if [[ -f "$_r112_canonical" ]]; then
       fail_rule "meta_rule_self_application_check" "Rule $_r112_rule_num ($_r112_rule_slug) is marked [META] but body does not source a gate/lib/(check|validate)_*.(sh|bash|py) helper within its block (until next # Rule header or EOF). Every [META] rule MUST use the helper-extraction template. Rule 112 / E159"
       _r112_fail=1
     fi
-  done < <(grep -nE '^# Rule [0-9]+[a-z]? — .*\[META\]' "$_r112_canonical" 2>/dev/null)
+  done < <(grep -nE '^# Rule [0-9]+.?[a-z]? — .*\[META\]' "$_r112_canonical" 2>/dev/null)
 fi
 if [[ $_r112_fail -eq 0 ]]; then pass_rule "meta_rule_self_application_check"; fi

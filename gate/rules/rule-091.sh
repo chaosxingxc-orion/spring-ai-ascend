@@ -18,7 +18,7 @@ if [[ ! -f "$_r91_status_file" ]] || [[ ! -f "$_r91_canonical" ]]; then
   fail_rule "baseline_metric_matches_executable_manifest" "$_r91_status_file or $_r91_canonical missing — Rule 91 / E123"
   _r91_fail=1
 else
-  _r91_manifest_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{c++} END{print c+0}' "$_r91_canonical")
+  _r91_manifest_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{c++} END{print c+0}' "$_r91_canonical")
   _r91_declared=$(grep -E '^[[:space:]]*active_gate_checks:[[:space:]]*[0-9]+' "$_r91_status_file" | head -1 | sed -E 's/.*active_gate_checks:[[:space:]]*([0-9]+).*/\1/')
   # rc10 widening per ADR-0084 / I-α-1 closure: extend Rule 91 to cover baseline_metrics.enforcer_rows.
   # Closes rc10 hidden defect: rc9 declared enforcer_rows: 116 (104 baseline + 12 wave) but live count was 134.

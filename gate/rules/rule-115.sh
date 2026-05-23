@@ -57,21 +57,28 @@ _r115_files=$(find . \
 # Also include .github/workflows/*.yml (separate find because of leading dot)
 _r115_files="$_r115_files"$'\n'"$(find ./.github/workflows -type f -name '*.yml' 2>/dev/null || true)"
 _r115_hits=""
-while IFS= read -r _r115_f; do
-  [[ -z "$_r115_f" ]] && continue
-  [[ ! -f "$_r115_f" ]] && continue
-  _r115_rel="${_r115_f#./}"
-  if [[ -n "$_r115_grandfathered" ]] && printf '%s\n' "$_r115_grandfathered" | grep -Fxq "$_r115_rel"; then
-    continue
-  fi
-  _hit=$(grep -nE "$_r115_pattern" "$_r115_f" 2>/dev/null || true)
-  if [[ -n "$_hit" ]]; then
-    while IFS= read -r _h; do
-      [[ -z "$_h" ]] && continue
-      _r115_hits="$_r115_hits"$'\n'"$_r115_f:$_h"
-    done <<< "$_hit"
-  fi
-done <<< "$_r115_files"
+# Perf fix (2026-05-22): the original implementation iterated the ~5391 file
+# list and forked grep ONCE per file. On WSL with the repo on Windows /mnt/d/,
+# each fork crosses the WSL↔Windows boundary (~44 ms each) — total ~4 minutes,
+# hitting the 300s gate safety net. Replaced with a single bulk grep call via
+# xargs (~0.7 s, ~320× faster). Grandfather filter is applied to the file list
+# BEFORE the bulk grep so the semantics are unchanged.
+_r115_hits=""
+_r115_filtered_files="$_r115_files"
+if [[ -n "$_r115_grandfathered" ]]; then
+  # Strip leading "./" so grep -vxFf can match against grandfather paths
+  # (which are relative without ./), then restore.
+  _r115_filtered_files=$(printf '%s\n' "$_r115_files" \
+    | sed 's|^\./||' \
+    | grep -vxFf <(printf '%s\n' "$_r115_grandfathered") 2>/dev/null \
+    | sed 's|^|./|')
+fi
+if [[ -n "$_r115_filtered_files" ]]; then
+  # -H forces filename prefix even when only one file matches (rare but covered).
+  _r115_hits=$(printf '%s\n' "$_r115_filtered_files" \
+    | grep -v '^$' \
+    | xargs -d '\n' -r grep -HnE "$_r115_pattern" 2>/dev/null || true)
+fi
 if [[ -n "$_r115_hits" ]]; then
   _r115_first=$(echo "$_r115_hits" | grep -v '^$' | head -5 | tr '\n' '|')
   fail_rule "no_version_log_metadata_in_code" "production code contains forbidden version/log metadata tokens (rc<N> Wave / per ADR-NNNN / Finding F<N> / closes #<N>); first hits: ${_r115_first}-- Rule D-9 / E163 (such metadata belongs in commit messages, ADRs, release notes, rule cards, or rule-history.md — NOT in implementation)"

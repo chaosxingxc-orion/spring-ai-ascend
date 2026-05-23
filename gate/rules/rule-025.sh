@@ -9,39 +9,69 @@
 # "Sidecar adapter —" without a wave qualifier or ADR reference. Closes PERIPHERAL-DRIFT.
 # ---------------------------------------------------------------------------
 _r25_fail=0
-# 25a: SPI Java source in agent-runtime
-while IFS= read -r _sf25; do
-  [[ -z "$_sf25" ]] && continue
-  if grep -q 'Primary sidecar impl:\|Primary impl:' "$_sf25" 2>/dev/null; then
-    # For each matching line, check surrounding context for wave qualifier
-    while IFS= read -r _hit25; do
-      _ln25=$(printf '%s\n' "$_hit25" | grep -oE ':[0-9]+:' | tr -d ':' | head -1)
-      _ctx25=$(sed -n "$((${_ln25:-0} > 2 ? ${_ln25} - 2 : 1)),$((${_ln25:-0} + 3))p" "$_sf25" 2>/dev/null | tr '\n' ' ')
-      if ! printf '%s\n' "$_ctx25" | grep -qE '\bW[0-4]\b'; then
-        fail_rule "peripheral_wave_qualifier" "$_sf25:$_ln25 contains 'Primary.*impl:' without wave qualifier (W0-W4) in context. Per ADR-0045 Gate Rule 25 future-wave impl claims must carry wave qualifiers."
-        _r25_fail=1
-      fi
-    done < <(grep -nF 'Primary sidecar impl:' "$_sf25" 2>/dev/null; grep -nF 'Primary impl:' "$_sf25" 2>/dev/null)
-  fi
-done < <(find agent-service/src/main/java -name '*.java' ! -path './target/*' 2>/dev/null || true)
-# 25b: active markdown docs
-while IFS= read -r _af25; do
-  [[ -z "$_af25" ]] && continue
-  while IFS= read -r _mhit25; do
-    _ln25m=$(printf '%s\n' "$_mhit25" | cut -d: -f1)
-    _content25m=$(printf '%s\n' "$_mhit25" | cut -d: -f2-)
-    if ! printf '%s\n' "$_content25m" | grep -qE '\bW[0-4]\b' && ! printf '%s\n' "$_content25m" | grep -q 'ADR-'; then
-      fail_rule "peripheral_wave_qualifier" "$_af25:$_ln25m contains 'Sidecar adapter —' without wave qualifier or ADR reference. Per ADR-0045 Gate Rule 25."
-      _r25_fail=1
-    fi
-  done < <(grep -nF 'Sidecar adapter —' "$_af25" 2>/dev/null || true)
-done < <(find . -name '*.md' \
-  ! -path './docs/archive/*' ! -path './docs/logs/reviews/*' \
-  ! -path './docs/adr/*' ! -path './docs/delivery/*' \
-  ! -path './docs/v6-rationale/*' ! -path './docs/plans/*' \
-  ! -path './third_party/*' ! -path './target/*' \
-  ! -path './.git/*' \
-  -type f 2>/dev/null | sort || true)
+# Perf fix (2026-05-23): both 25a (java sources, ±2-line context) and 25b
+# (active markdown, in-line context) consolidated into a single python pass.
+# Original ran ~hundreds of files × ~3-5 forks per match = ~17s; the rewrite
+# finishes in ~1s. Same regex patterns and same context windows.
+_r25_violations="$("${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
+import os, re
+from pathlib import Path
+
+W_RE = re.compile(r'(?:^|[^A-Za-z0-9])W[0-4](?:[^A-Za-z0-9]|$)')
+MARKER_25B = re.compile(r'ADR-')
+violations: list[str] = []
+
+# 25a: agent-service main java files, "Primary impl:" / "Primary sidecar impl:" need W0-W4 in ±2 lines.
+prim_re = re.compile(r'Primary sidecar impl:|Primary impl:')
+java_root = 'agent-service/src/main/java'
+if os.path.isdir(java_root):
+    for dirpath, _, files in os.walk(java_root):
+        for fn in files:
+            if not fn.endswith('.java'): continue
+            p = os.path.join(dirpath, fn)
+            try: lines = Path(p).read_text(encoding='utf-8', errors='replace').splitlines()
+            except OSError: continue
+            n = len(lines)
+            for i, ln in enumerate(lines):
+                if not prim_re.search(ln): continue
+                lo = max(0, i - 2); hi = min(n, i + 3)
+                ctx = ' '.join(lines[lo:hi])
+                if not W_RE.search(ctx):
+                    violations.append(f"25a\t{p}\t{i+1}")
+
+# 25b: active md files, "Sidecar adapter —" on a line lacking W0-W4 AND ADR-.
+EXCLUDE_DIRS = ('./docs/archive/', './docs/logs/reviews/', './docs/adr/',
+                './docs/delivery/', './docs/v6-rationale/', './docs/plans/',
+                './third_party/', './target/', './.git/')
+def excluded(p: str) -> bool:
+    return any(p.startswith(d) for d in EXCLUDE_DIRS)
+sidecar_re = re.compile(r'Sidecar adapter —')
+for root, dirs, files in os.walk('.', topdown=True):
+    dirs[:] = [d for d in dirs if not excluded(os.path.join(root, d) + '/')]
+    for fn in files:
+        if not fn.endswith('.md'): continue
+        p = os.path.join(root, fn)
+        if excluded(p): continue
+        try: lines = Path(p).read_text(encoding='utf-8', errors='replace').splitlines()
+        except OSError: continue
+        for i, ln in enumerate(lines):
+            if not sidecar_re.search(ln): continue
+            if W_RE.search(ln) or MARKER_25B.search(ln): continue
+            violations.append(f"25b\t{p}\t{i+1}")
+
+for v in violations: print(v)
+PYEOF
+)"
+if [[ -n "$_r25_violations" ]]; then
+  while IFS=$'\t' read -r _r25_kind _r25_path _r25_line; do
+    [[ -z "$_r25_kind" ]] && continue
+    case "$_r25_kind" in
+      25a) fail_rule "peripheral_wave_qualifier" "$_r25_path:$_r25_line contains 'Primary.*impl:' without wave qualifier (W0-W4) in context. Per ADR-0045 Gate Rule 25 future-wave impl claims must carry wave qualifiers." ;;
+      25b) fail_rule "peripheral_wave_qualifier" "$_r25_path:$_r25_line contains 'Sidecar adapter —' without wave qualifier or ADR reference. Per ADR-0045 Gate Rule 25." ;;
+    esac
+    _r25_fail=1
+  done <<< "$_r25_violations"
+fi
 if [[ $_r25_fail -eq 0 ]]; then pass_rule "peripheral_wave_qualifier"; fi
 
 # ---------------------------------------------------------------------------

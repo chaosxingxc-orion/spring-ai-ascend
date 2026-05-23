@@ -32,69 +32,104 @@ if [[ -n "${_SCAN_ENFORCERS_TSV:-}" ]]; then
 fi
 
 if [[ -f "$_efile" ]]; then
-  while IFS= read -r _r28k_src; do
-    [[ -z "$_r28k_src" ]] && continue
-    # Citation activation: a file is in Rule 28k scope only if it contains
-    # at least one strict-form `enforcers.yaml#E<n>` citation. Files using
-    # the loose-form "Related enforcers in enforcers.yaml: E5" wording have
-    # no `#E\d+` and are exempt.
-    if ! grep -qE 'enforcers\.yaml#E[0-9]+' "$_r28k_src" 2>/dev/null; then
-      continue
-    fi
-    # In-scope: harvest ALL `#E<n>` tokens in the file -- the strict-form
-    # `enforcers.yaml#E12` and the comma-continuation forms `#E13`, `#E14`
-    # commonly used in plural `Enforcer rows: enforcers.yaml#E12, #E13, #E14`
-    # citation blocks. Any `#E<n>` on the same Javadoc continuation counts.
-    _r28k_eids=$(grep -oE '#E[0-9]+' "$_r28k_src" 2>/dev/null \
-                 | sed -E 's|^#||' | sort -u)
-    [[ -z "$_r28k_eids" ]] && continue
-    # SEMANTICS (loosened from initial strict-each-match per post-review-fix
-    # iteration): a test class may legitimately cross-reference multiple
-    # related E-rows; the citation passes iff at least ONE cited E-row's
-    # artifact: path matches the source file path. Tests that want to point
-    # at related-but-not-primary enforcers should phrase the reference
-    # without the `#E<n>` token (e.g. "Related: E12, E13" instead of
-    # "enforcers.yaml#E12") so Rule 28k does not strict-check them.
-    _r28k_src_norm=$(printf '%s' "$_r28k_src" | sed -E 's|^\./||')
-    _r28k_any_match=0
-    _r28k_collected_arts=""
-    while IFS= read -r _r28k_eid; do
-      [[ -z "$_r28k_eid" ]] && continue
-      # PR-Opt-rc22: array lookup replaces per-iteration awk. Fallback to
-      # the old awk pass if cache is empty (cache disabled / not populated).
-      if [[ ${#_r28k_art_by_eid[@]} -gt 0 ]]; then
-        _r28k_art="${_r28k_art_by_eid[$_r28k_eid]:-}"
-      else
-        _r28k_art=$(awk -v id="$_r28k_eid" '
-          $0 ~ "^- id: " id "$" { found=1; next }
-          found && /^[[:space:]]+artifact:/ {
-            line=$0
-            sub(/^[[:space:]]+artifact:[[:space:]]*/, "", line)
-            sub(/#.*$/, "", line)
-            gsub(/[[:space:]]+$/, "", line)
-            print line
-            exit
-          }
-          found && /^- id:/ { exit }
-        ' "$_efile")
-      fi
-      if [[ -z "$_r28k_art" ]]; then
-        # Cited E-id has no row at all -- structural break, always fail.
-        fail_rule "javadoc_enforcer_citation_semantic_check" "$_r28k_src cites enforcers.yaml#$_r28k_eid but no such row in $_efile (Rule 28k / post-review plan F)"
-        _r28k_fail=1
+  # Perf fix (2026-05-23): the original per-file loop forked grep twice +
+  # sed once per test file (~hundreds × 3 forks = thousands). On WSL/mnt/d
+  # that was ~51s per gate. Replaced with a single python pass that reads
+  # each in-scope file once and consults the pre-parsed _SCAN_ENFORCERS_TSV
+  # (or falls back to parsing enforcers.yaml directly when the cache is
+  # disabled). Same semantics: at-least-one-match required.
+  _r28k_violations=$(GATE_R28K_EFILE="$_efile" "${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
+import os, re, sys
+from pathlib import Path
+
+efile = os.environ['GATE_R28K_EFILE']
+tsv = os.environ.get('_SCAN_ENFORCERS_TSV', '')
+
+# Build {eid -> artifact_path} map. Prefer the pre-parsed TSV; fall back
+# to a one-shot awk-equivalent over enforcers.yaml.
+art_by_eid: dict[str, str] = {}
+if tsv:
+    for row in tsv.splitlines():
+        parts = row.split('\t')
+        if len(parts) >= 2 and parts[0]:
+            art_by_eid[parts[0]] = parts[1]
+else:
+    cur_id = None
+    for line in Path(efile).read_text(encoding='utf-8', errors='replace').splitlines():
+        m = re.match(r'^- id: (E\d+)$', line)
+        if m:
+            cur_id = m.group(1)
+            continue
+        if cur_id:
+            m = re.match(r'^\s+artifact:\s*(.+)$', line)
+            if m:
+                p = m.group(1).split('#', 1)[0].strip()
+                art_by_eid[cur_id] = p
+                cur_id = None  # done with this row's artifact
+            elif line.startswith('- id:'):
+                cur_id = None
+
+# Walk both test trees (the original double-listed agent-service/src/test/java
+# for typo-tolerance; we deduplicate via a set).
+roots = {'agent-service/src/test/java'}
+test_files: list[str] = []
+for root in roots:
+    if not os.path.isdir(root):
         continue
-      fi
-      _r28k_art_norm=$(printf '%s' "$_r28k_art" | sed -E 's|^\./||')
-      _r28k_collected_arts="$_r28k_collected_arts $_r28k_eid:$_r28k_art_norm"
-      if [[ "$_r28k_src_norm" == "$_r28k_art_norm" ]]; then
-        _r28k_any_match=1
-      fi
-    done <<< "$_r28k_eids"
-    if [[ "$_r28k_any_match" -eq 0 ]]; then
-      fail_rule "javadoc_enforcer_citation_semantic_check" "$_r28k_src cites enforcers.yaml#E<n> rows but NONE of their artifact: paths match this file. Cited:$_r28k_collected_arts. Per Rule 28k / post-review plan F."
+    for dirpath, _, files in os.walk(root):
+        for fn in files:
+            if fn.endswith('Test.java') or fn.endswith('IT.java'):
+                test_files.append(os.path.join(dirpath, fn))
+
+strict_re = re.compile(r'enforcers\.yaml#E\d+')
+eid_re = re.compile(r'#E(\d+)')
+viol = []
+for src in sorted(test_files):
+    try:
+        txt = Path(src).read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        continue
+    if not strict_re.search(txt):
+        continue
+    eids = sorted({m.group(0)[1:] for m in eid_re.finditer(txt)})
+    if not eids:
+        continue
+    src_norm = src.removeprefix('./')
+    any_match = False
+    missing_eids = []
+    collected = []
+    for eid in eids:
+        art = art_by_eid.get(eid, '')
+        if not art:
+            missing_eids.append(eid)
+            continue
+        art_norm = art.removeprefix('./')
+        collected.append(f'{eid}:{art_norm}')
+        if src_norm == art_norm:
+            any_match = True
+    for me in missing_eids:
+        viol.append(f"MISSING\t{src}\t{me}\t")
+    if not any_match and not missing_eids:
+        viol.append(f"NOMATCH\t{src}\t\t{' '.join(collected)}")
+
+for line in viol:
+    print(line)
+PYEOF
+)
+  if [[ -n "$_r28k_violations" ]]; then
+    while IFS=$'\t' read -r _r28k_kind _r28k_src _r28k_eid _r28k_collected; do
+      [[ -z "$_r28k_kind" ]] && continue
+      case "$_r28k_kind" in
+        MISSING)
+          fail_rule "javadoc_enforcer_citation_semantic_check" "$_r28k_src cites enforcers.yaml#$_r28k_eid but no such row in $_efile (Rule 28k / post-review plan F)"
+          ;;
+        NOMATCH)
+          fail_rule "javadoc_enforcer_citation_semantic_check" "$_r28k_src cites enforcers.yaml#E<n> rows but NONE of their artifact: paths match this file. Cited: $_r28k_collected. Per Rule 28k / post-review plan F."
+          ;;
+      esac
       _r28k_fail=1
-    fi
-  done < <(find agent-service/src/test/java agent-service/src/test/java -type f \( -name '*Test.java' -o -name '*IT.java' \) 2>/dev/null | sort)
+    done <<< "$_r28k_violations"
+  fi
 fi
 if [[ $_r28k_fail -eq 0 ]]; then pass_rule "javadoc_enforcer_citation_semantic_check"; fi
 

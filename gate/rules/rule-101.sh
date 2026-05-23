@@ -60,7 +60,7 @@ else
     # Engineering-rule range (1-48) per ADR-0086 gate_layer_boundary requires legacy/namespaced markers.
     # Gate-layer rules (numeric ≥49) are intentional numeric per ADR-0086 and are exempt.
     _r101_bad_refs=$(grep -nE 'constraint_ref:[[:space:]]*"[^"]*\bRule ([1-9]|[1-3][0-9]|4[0-8])[a-z]?\b' "$_r101_enforcers" 2>/dev/null \
-                     | grep -vE 'legacy Rule [0-9]+[a-z]?|Rule [DRGM]-|historical' || true)
+                     | grep -vE 'legacy Rule [0-9]+.?[a-z]?|Rule [DRGM]-|historical' || true)
     if [[ -n "$_r101_bad_refs" ]]; then
       _r101_first=$(echo "$_r101_bad_refs" | head -3 | tr '\n' '|')
       fail_rule "rule_namespace_authority_completeness" "enforcers.yaml constraint_ref row(s) carry bare numeric 'Rule N' without 'legacy' marker or namespaced form: ${_r101_first}-- Rule 101 / E143 (c)"

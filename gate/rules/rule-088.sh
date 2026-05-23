@@ -20,13 +20,13 @@ if [[ ! -f "$_r88_canonical" ]] || [[ ! -f "$_r88_parallel" ]]; then
   fail_rule "serial_parallel_gate_slug_parity" "canonical or parallel script missing -- Rule 88 / E121"
   _r88_fail=1
 else
-  _r88_canonical_set=$(grep -E '^# Rule [0-9]+[a-z]? (—|--) ' "$_r88_canonical" \
-    | sed -E 's/^# Rule [0-9]+[a-z]? (—|--) //' \
+  _r88_canonical_set=$(grep -E '^# Rule [0-9]+.?[a-z]? (—|--) ' "$_r88_canonical" \
+    | sed -E 's/^# Rule [0-9]+.?[a-z]? (—|--) //' \
     | awk '{print $1}' \
     | sort -u)
   _r88_parallel_set=$(awk '
-    /^# Rule [0-9]+[a-z]? (—|--) / {
-      match($0, /^# Rule [0-9]+[a-z]? (—|--) ([a-z0-9_]+)/, arr)
+    /^# Rule [0-9]+.?[a-z]? (—|--) / {
+      match($0, /^# Rule [0-9]+.?[a-z]? (—|--) ([a-z0-9_]+)/, arr)
       print arr[2]
     }
     /^# === END OF RULES ===$/ { exit }
@@ -42,7 +42,7 @@ else
     _r88_fail=1
   fi
   # Sub-check: canonical separator consistency — every rule header MUST use em-dash `—`.
-  _r88_bad_sep=$(grep -nE '^# Rule [0-9]+[a-z]? -- ' "$_r88_canonical" | head -3 || true)
+  _r88_bad_sep=$(grep -nE '^# Rule [0-9]+.?[a-z]? -- ' "$_r88_canonical" | head -3 || true)
   if [[ -n "$_r88_bad_sep" ]]; then
     fail_rule "serial_parallel_gate_slug_parity" "rule header(s) use double-dash separator instead of em-dash: $(echo "$_r88_bad_sep" | tr '\n' '|') -- Rule 88 / E121 (separator consistency)"
     _r88_fail=1

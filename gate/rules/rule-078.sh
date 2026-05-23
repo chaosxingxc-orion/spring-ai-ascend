@@ -19,51 +19,74 @@
 # not force a noisy dfx declaration before the real SPI lands.
 # ---------------------------------------------------------------------------
 _r78_fail=0
-_r78_dfx_required_kinds_re='^(platform|domain)$'
-_r78_extract_real_spi() {
-  # Reads a yaml file from stdin/arg, prints non-placeholder spi_packages entries
-  # one per line, sorted-unique.
-  local _f="$1"
-  local _in_block=0
-  local _line
-  while IFS= read -r _line; do
-    if [[ "$_line" =~ ^spi_packages: ]]; then _in_block=1; continue; fi
-    if [[ $_in_block -eq 1 ]]; then
-      if [[ "$_line" =~ ^[a-zA-Z_] ]]; then _in_block=0; continue; fi
-      if [[ "$_line" =~ ^[[:space:]]*-[[:space:]] ]]; then
-        if [[ "$_line" == *"#"* ]] && \
-           echo "$_line" | grep -qE 'placeholder' && \
-           echo "$_line" | grep -qE 'ADR-[0-9]{4}'; then
-          continue
-        fi
-        echo "$_line" | sed -E 's/^[[:space:]]*-[[:space:]]*//' | sed -E 's/[[:space:]#].*$//' | tr -d "\"'"
-      fi
-    fi
-  done < "$_f" | sort -u
-}
-while IFS= read -r _r78_meta; do
-  [[ -z "$_r78_meta" ]] && continue
-  _r78_kind="$(grep -E '^[[:space:]]*kind:' "$_r78_meta" 2>/dev/null | head -1 | sed -E 's/^[[:space:]]*kind:[[:space:]]*([A-Za-z_]+).*/\1/')"
-  [[ ! "$_r78_kind" =~ $_r78_dfx_required_kinds_re ]] && continue
-  _r78_mod="$(grep -E '^[[:space:]]*module:' "$_r78_meta" 2>/dev/null | head -1 | sed -E 's/^[[:space:]]*module:[[:space:]]*([A-Za-z0-9_-]+).*/\1/')"
-  _r78_dfx="docs/dfx/${_r78_mod}.yaml"
-  [[ ! -f "$_r78_dfx" ]] && continue   # Rule 35 reports the missing-dfx case
-  _r78_meta_spi=$(_r78_extract_real_spi "$_r78_meta")
-  _r78_dfx_spi=$(_r78_extract_real_spi "$_r78_dfx")
-  # If metadata has zero real (non-placeholder) SPI, dfx not required.
-  [[ -z "$_r78_meta_spi" ]] && continue
-  if [[ -z "$_r78_dfx_spi" ]]; then
-    fail_rule "dfx_spi_packages_match_module_metadata" "$_r78_dfx missing top-level 'spi_packages:' block (must mirror non-placeholder entries of $_r78_meta) — Rule 78 / E111"
+# Perf fix (2026-05-23): replaced per-metadata × per-line grep/sed/tr loop
+# (~8 modules × 2 files × ~5 lines × ~5 forks = ~400 forks, ~13s) with a
+# single python pass. Same placeholder filter (`# ... placeholder ... ADR-NNNN`).
+_r78_violations="$("${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
+import os, re, glob
+from pathlib import Path
+
+DFX_REQUIRED_KINDS = {'platform', 'domain'}
+
+def extract_real_spi(path: str) -> list[str]:
+    try: lines = Path(path).read_text(encoding='utf-8', errors='replace').splitlines()
+    except OSError: return []
+    in_block = False; out: list[str] = []
+    placeholder_re = re.compile(r'placeholder')
+    adr_re = re.compile(r'ADR-\d{4}')
+    for line in lines:
+        if re.match(r'^spi_packages:', line):
+            in_block = True; continue
+        if not in_block: continue
+        if re.match(r'^[a-zA-Z_]', line):
+            in_block = False; continue
+        m = re.match(r'^\s*-\s+', line)
+        if not m: continue
+        # Placeholder filter: comment containing both 'placeholder' AND 'ADR-NNNN'.
+        if '#' in line and placeholder_re.search(line) and adr_re.search(line):
+            continue
+        # Strip leading dash + token-and-onwards.
+        v = re.sub(r'^\s*-\s*', '', line)
+        v = re.sub(r'[\s#].*$', '', v)
+        v = v.strip('"\'')
+        if v: out.append(v)
+    return sorted(set(out))
+
+metas = sorted(set(glob.glob('*/module-metadata.yaml') + glob.glob('*/*/module-metadata.yaml')))
+for meta in metas:
+    try: text = Path(meta).read_text(encoding='utf-8', errors='replace')
+    except OSError: continue
+    km = re.search(r'^\s*kind:\s*([A-Za-z_]+)', text, re.MULTILINE)
+    if not km or km.group(1) not in DFX_REQUIRED_KINDS: continue
+    mm = re.search(r'^\s*module:\s*([A-Za-z0-9_-]+)', text, re.MULTILINE)
+    if not mm: continue
+    mod = mm.group(1)
+    dfx = f'docs/dfx/{mod}.yaml'
+    if not os.path.isfile(dfx): continue  # Rule 35 reports missing-dfx
+    meta_spi = extract_real_spi(meta)
+    dfx_spi = extract_real_spi(dfx)
+    if not meta_spi: continue
+    if not dfx_spi:
+        print(f"MISSING\t{meta}\t{dfx}\t\t")
+        continue
+    if meta_spi != dfx_spi:
+        print(f"MISMATCH\t{meta}\t{dfx}\t{','.join(meta_spi)}\t{','.join(dfx_spi)}")
+PYEOF
+)"
+if [[ -n "$_r78_violations" ]]; then
+  while IFS=$'\t' read -r _r78_kind _r78_meta _r78_dfx _r78_meta_one _r78_dfx_one; do
+    [[ -z "$_r78_kind" ]] && continue
+    case "$_r78_kind" in
+      MISSING)
+        fail_rule "dfx_spi_packages_match_module_metadata" "$_r78_dfx missing top-level 'spi_packages:' block (must mirror non-placeholder entries of $_r78_meta) — Rule 78 / E111"
+        ;;
+      MISMATCH)
+        fail_rule "dfx_spi_packages_match_module_metadata" "$_r78_meta non-placeholder spi_packages={${_r78_meta_one}} but $_r78_dfx declares {${_r78_dfx_one}} — Rule 78 / E111"
+        ;;
+    esac
     _r78_fail=1
-    continue
-  fi
-  if [[ "$_r78_meta_spi" != "$_r78_dfx_spi" ]]; then
-    _r78_meta_one=$(echo "$_r78_meta_spi" | tr '\n' ',' | sed 's/,$//')
-    _r78_dfx_one=$(echo "$_r78_dfx_spi" | tr '\n' ',' | sed 's/,$//')
-    fail_rule "dfx_spi_packages_match_module_metadata" "$_r78_meta non-placeholder spi_packages={${_r78_meta_one}} but $_r78_dfx declares {${_r78_dfx_one}} — Rule 78 / E111"
-    _r78_fail=1
-  fi
-done <<< "${_SCAN_MODULE_METADATA:-$(find . -maxdepth 3 -name module-metadata.yaml -not -path './target/*' -not -path './.claude/*' 2>/dev/null)}"
+  done <<< "$_r78_violations"
+fi
 if [[ $_r78_fail -eq 0 ]]; then pass_rule "dfx_spi_packages_match_module_metadata"; fi
 
 # ===========================================================================

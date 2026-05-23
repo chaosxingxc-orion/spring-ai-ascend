@@ -13,65 +13,100 @@
 _r68_fail=0
 _r68_claude='CLAUDE.md'
 _r68_cards_dir='docs/governance/rules'
+_r68_deferred_doc='docs/CLAUDE-deferred.md'
 if [[ ! -f "$_r68_claude" ]]; then
   fail_rule "claude_md_kernel_matches_card" "$_r68_claude missing"
   _r68_fail=1
 elif [[ ! -d "$_r68_cards_dir" ]]; then
   pass_rule "claude_md_kernel_matches_card"
 else
-  _r68_drift=""
-  while IFS= read -r _r68_card; do
-    [[ -z "$_r68_card" ]] && continue
-    _r68_base=$(basename "$_r68_card" .md)
-    # Card id may be old integer form (rule-NN) or new namespaced form
-    # (rule-D-1 / rule-R-C.a / rule-G-3.f / rule-M-2.b). Extract the trailing
-    # identifier — everything after `rule-`.
-    _r68_id=$(printf '%s\n' "$_r68_base" | sed -nE 's/^rule-(.+)$/\1/p')
-    [[ -z "$_r68_id" ]] && continue
-    # For integer ids, strip leading zeros for heading-match symmetry.
-    if [[ "$_r68_id" =~ ^[0-9]+$ ]]; then
-      _r68_id_match=$(printf '%s\n' "$_r68_id" | sed -nE 's/^0*([0-9]+)$/\1/p')
-    else
-      _r68_id_match="$_r68_id"
-    fi
-    # Extract the kernel: scalar from card front-matter (supports both '|' literal
-    # block style and inline scalar). Stop at the next top-level key or '---'.
-    _r68_kernel=$(awk '
-      /^kernel:[[:space:]]*\|/ { flag=1; next }
-      /^kernel:[[:space:]]/ { line=$0; sub(/^kernel:[[:space:]]*/, "", line); print line; exit }
-      flag && /^[a-zA-Z_][a-zA-Z_0-9]*:/ { flag=0; exit }
-      flag && /^---$/ { flag=0; exit }
-      flag { sub(/^  /, ""); print }
-    ' "$_r68_card" | tr -s ' \t' ' ' | tr -d '\r' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | tr '\n' ' ' | tr -s ' ' | sed -E 's/^ //; s/ $//')
-    [[ -z "$_r68_kernel" ]] && continue
-    # Extract the body of "#### Rule <id>" from CLAUDE.md: lines until the first
-    # blank-line + "Enforced" or until "---" or until the next heading.
-    _r68_body=$(awk -v n="$_r68_id_match" '
-      $0 ~ "^#### Rule " n "[[:space:]]" || $0 ~ "^#### Rule " n "$" { flag=1; next }
-      flag && /^---$/ { exit }
-      flag && /^#### / { exit }
-      flag && /^Enforced by/ { exit }
-      flag && NF { print }
-    ' "$_r68_claude" | tr -s ' \t' ' ' | tr -d '\r' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | tr '\n' ' ' | tr -s ' ' | sed -E 's/^ //; s/ $//')
-    if [[ -z "$_r68_body" ]]; then
-      # Deferred-only sub-clause cards (e.g. R-A.c, R-K.c) have no CLAUDE.md body —
-      # they live in docs/CLAUDE-deferred.md. Check that the deferred doc
-      # references the rule before failing.
-      _r68_deferred_doc='docs/CLAUDE-deferred.md'
-      if [[ -f "$_r68_deferred_doc" ]] && grep -qE "(^|[^a-zA-Z0-9])Rule[[:space:]]+${_r68_id_match}([^a-zA-Z0-9]|$)" "$_r68_deferred_doc"; then
-        continue  # deferred-only card; not a drift
-      fi
-      _r68_drift+="Rule $_r68_id_match: card exists but no body in CLAUDE.md; "
-      _r68_fail=1
-    elif [[ "$_r68_kernel" != "$_r68_body" ]]; then
-      _r68_drift+="Rule $_r68_id_match drift; "
-      _r68_fail=1
-    fi
-  done < <(find "$_r68_cards_dir" -maxdepth 1 -name 'rule-*.md' -type f 2>/dev/null | sort)
+  # Perf fix (2026-05-23): replace per-card 22-fork awk/sed/tr pipeline
+  # (~50 cards × ~22 forks = ~1100 forks per gate run, ~17s on WSL/mnt/d)
+  # with a single python pass that reads all cards + CLAUDE.md once.
+  _r68_drift="$("${GATE_PYTHON_BIN:-python3}" - "$_r68_cards_dir" "$_r68_claude" "$_r68_deferred_doc" <<'PYEOF'
+import os, re, sys, pathlib
+cards_dir, claude_md, deferred_doc = sys.argv[1:4]
+
+def norm(s: str) -> str:
+    """Collapse all whitespace runs to single spaces; strip outer."""
+    return re.sub(r"\s+", " ", s).strip()
+
+# Parse CLAUDE.md once. For each "#### Rule <id> ..." heading, capture body lines
+# until blank-line+`Enforced` OR `---` OR next "####" heading.
+claude_text = pathlib.Path(claude_md).read_text(encoding="utf-8", errors="replace").splitlines()
+bodies: dict[str, str] = {}
+i, n = 0, len(claude_text)
+while i < n:
+    m = re.match(r"^#### Rule (\S+?)(?:\s|$)", claude_text[i])
+    if m:
+        rid = m.group(1)
+        buf = []
+        i += 1
+        while i < n:
+            line = claude_text[i]
+            if line.startswith("---") or line.startswith("#### ") or line.startswith("Enforced by"):
+                break
+            if line.strip():
+                buf.append(line)
+            i += 1
+        bodies[rid] = norm(" ".join(buf))
+        continue
+    i += 1
+
+deferred_text = ""
+if os.path.isfile(deferred_doc):
+    deferred_text = pathlib.Path(deferred_doc).read_text(encoding="utf-8", errors="replace")
+
+drift = []
+for card in sorted(pathlib.Path(cards_dir).glob("rule-*.md")):
+    base = card.stem  # rule-XX
+    rid = base[5:]    # strip "rule-"
+    if not rid:
+        continue
+    # Normalise integer ids by stripping leading zeros for heading match.
+    rid_match = re.sub(r"^0+(?=\d)", "", rid) if rid.isdigit() else rid
+
+    # Extract kernel: scalar (literal block `|` or inline). Stop at next
+    # top-level key or `---`.
+    txt = card.read_text(encoding="utf-8", errors="replace").splitlines()
+    kernel_lines: list[str] = []
+    in_block = False
+    for line in txt:
+        if not in_block:
+            mk = re.match(r"^kernel:\s*\|", line)
+            if mk:
+                in_block = True
+                continue
+            mi = re.match(r"^kernel:\s+(.+)$", line)
+            if mi:
+                kernel_lines.append(mi.group(1))
+                break
+        else:
+            if re.match(r"^[A-Za-z_][A-Za-z_0-9]*:", line) or line.rstrip() == "---":
+                break
+            kernel_lines.append(line.lstrip())
+    kernel = norm(" ".join(kernel_lines))
+    if not kernel:
+        continue
+
+    body = bodies.get(rid_match, "")
+    if not body:
+        # Deferred-only sub-clause cards (e.g. R-A.c) live in CLAUDE-deferred.md.
+        # Check for `Rule <id>` reference there before flagging drift.
+        if deferred_text and re.search(rf"(^|[^A-Za-z0-9])Rule\s+{re.escape(rid_match)}([^A-Za-z0-9]|$)", deferred_text):
+            continue
+        drift.append(f"Rule {rid_match}: card exists but no body in CLAUDE.md")
+    elif kernel != body:
+        drift.append(f"Rule {rid_match} drift")
+sys.stdout.write("; ".join(drift))
+PYEOF
+)"
+  if [[ -n "$_r68_drift" ]]; then
+    fail_rule "claude_md_kernel_matches_card" "$_r68_drift"
+    _r68_fail=1
+  fi
   if [[ $_r68_fail -eq 0 ]]; then
     pass_rule "claude_md_kernel_matches_card"
-  else
-    fail_rule "claude_md_kernel_matches_card" "$_r68_drift"
   fi
 fi
 

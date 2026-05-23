@@ -19,17 +19,22 @@ if [[ ! -f "$_r92_canonical" ]] || [[ ! -d "$_r92_dir" ]]; then
   fail_rule "gate_rules_corpus_freshness" "$_r92_canonical or $_r92_dir missing — Rule 92 / E125"
   _r92_fail=1
 else
+  # Perf fix (2026-05-23): replaced per-rule-id `echo | grep -oE` + per-id
+  # printf + per-id [[ -f ]] check (~130 ids × 3 forks = ~400 forks, ~13s) with
+  # a single bash-native loop that uses bash regex to split id parts.
   _r92_missing=""
+  _r92_id_re='^([0-9]+)([a-z]?)$'
   while IFS= read -r _r92_rid; do
     [[ -z "$_r92_rid" ]] && continue
-    _r92_num_part=$(echo "$_r92_rid" | grep -oE '^[0-9]+')
-    _r92_letter=$(echo "$_r92_rid" | grep -oE '[a-z]$' || true)
-    _r92_padded=$(printf "%03d" "$_r92_num_part")
+    [[ "$_r92_rid" =~ $_r92_id_re ]] || continue
+    _r92_num_part="${BASH_REMATCH[1]}"
+    _r92_letter="${BASH_REMATCH[2]}"
+    printf -v _r92_padded "%03d" "$_r92_num_part"
     _r92_expected="${_r92_dir}/rule-${_r92_padded}${_r92_letter}.sh"
     if [[ ! -f "$_r92_expected" ]]; then
       _r92_missing="${_r92_missing}${_r92_rid} "
     fi
-  done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{match($0, /^# Rule ([0-9]+[a-z]?) — /, a); print a[1]}' "$_r92_canonical")
+  done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{match($0, /^# Rule ([0-9]+.?[a-z]?) — /, a); print a[1]}' "$_r92_canonical")
   if [[ -n "$_r92_missing" ]]; then
     fail_rule "gate_rules_corpus_freshness" "$_r92_dir lacks rule file(s) for canonical header(s): ${_r92_missing}-- Rule 92 / E125 (run bash gate/lib/extract_rules.sh to refresh)"
     _r92_fail=1

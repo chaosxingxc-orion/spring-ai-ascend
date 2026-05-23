@@ -3838,13 +3838,25 @@ GATE_LOGGING_SUMMARY_ENABLED="true" \
   fi
 )
 
+# Resolve a usable Python interpreter once for the E2 block. Hosts ship
+# either `python3` (Linux/macOS/CI) or `python` (Windows / some Conda
+# envs); the prior hard-coded `python3` invocations silently failed the
+# JSON validation on `python`-only hosts and surfaced as "expected >=1
+# valid JSON line; got valid=0".
+_re2_pybin=""
+if command -v python3 >/dev/null 2>&1; then
+  _re2_pybin="python3"
+elif command -v python >/dev/null 2>&1; then
+  _re2_pybin="python"
+fi
+
 # -------- Test 1: per-rule.ndjson present + valid JSON ---------------------
 _re2_t1_file="$_re2_log_dir/per-rule.ndjson"
 _re2_t1_lines=0
 [[ -f "$_re2_t1_file" ]] && _re2_t1_lines=$(wc -l < "$_re2_t1_file" 2>/dev/null || echo 0)
 _re2_t1_valid=0
-if [[ "$_re2_t1_lines" -ge 1 ]] && command -v python3 >/dev/null 2>&1; then
-  if cat "$_re2_t1_file" | python3 -c "
+if [[ "$_re2_t1_lines" -ge 1 ]] && [[ -n "$_re2_pybin" ]]; then
+  if cat "$_re2_t1_file" | "$_re2_pybin" -c "
 import json,sys
 for ln in sys.stdin:
     ln=ln.strip()
@@ -3865,8 +3877,8 @@ fi
 # -------- Test 2: summary.json present with record_type=summary -----------
 _re2_t2_file="$_re2_log_dir/summary.json"
 _re2_t2_rt=""
-if [[ -f "$_re2_t2_file" ]]; then
-  _re2_t2_rt=$(cat "$_re2_t2_file" | python3 -c "
+if [[ -f "$_re2_t2_file" ]] && [[ -n "$_re2_pybin" ]]; then
+  _re2_t2_rt=$(cat "$_re2_t2_file" | "$_re2_pybin" -c "
 import json,sys
 d=json.load(sys.stdin)
 print(d.get('record_type',''))
@@ -3894,7 +3906,8 @@ fi
 
 # -------- Test 4: NDJSON sorted ascending by rule_number ------------------
 # Pipe through python (avoids MSYS path mapping); python emits 'OK' on success.
-_re2_t4_check=$(cat "$_re2_log_dir/per-rule.ndjson" | python3 -c "
+if [[ -n "$_re2_pybin" ]]; then
+  _re2_t4_check=$(cat "$_re2_log_dir/per-rule.ndjson" | "$_re2_pybin" -c "
 import json,sys
 prev=-1
 for ln in sys.stdin:
@@ -3909,6 +3922,9 @@ for ln in sys.stdin:
     prev=n
 print('OK')
 " 2>/dev/null || echo "FAIL")
+else
+  _re2_t4_check="NO-PYTHON"
+fi
 if [[ "$_re2_t4_check" == "OK" ]]; then
   ok "rule_e2_ndjson_sorted_by_rule_number" "per-rule.ndjson is ascending by rule_number"
 else
@@ -4184,8 +4200,8 @@ SHEOF
 cat > "$_r88_pos_root/gate/check_parallel.sh" <<'SHEOF'
 # parallel wrapper stub
 SHEOF
-_r88_pos_canon_set=$(grep -E '^# Rule [0-9]+[a-z]? (—|--) ' "$_r88_pos_root/gate/check_architecture_sync.sh" | sed -E 's/^# Rule [0-9]+[a-z]? (—|--) //' | awk '{print $1}' | sort -u)
-_r88_pos_par_set=$(awk '/^# Rule [0-9]+[a-z]? (—|--) / { match($0, /^# Rule [0-9]+[a-z]? (—|--) ([a-z_]+)/, arr); print arr[2] } /^# === END OF RULES ===$/ { exit }' "$_r88_pos_root/gate/check_architecture_sync.sh" | sort -u)
+_r88_pos_canon_set=$(grep -E '^# Rule [0-9]+.?[a-z]? (—|--) ' "$_r88_pos_root/gate/check_architecture_sync.sh" | sed -E 's/^# Rule [0-9]+.?[a-z]? (—|--) //' | awk '{print $1}' | sort -u)
+_r88_pos_par_set=$(awk '/^# Rule [0-9]+.?[a-z]? (—|--) / { match($0, /^# Rule [0-9]+.?[a-z]? (—|--) ([a-z_]+)/, arr); print arr[2] } /^# === END OF RULES ===$/ { exit }' "$_r88_pos_root/gate/check_architecture_sync.sh" | sort -u)
 _r88_pos_missing=$(comm -23 <(echo "$_r88_pos_canon_set") <(echo "$_r88_pos_par_set") | grep -v '^$' || true)
 if [[ -z "$_r88_pos_missing" ]]; then
   ok "rule88_serial_parallel_parity_pos" "em-dash + END-marker canonical script has parity with parallel awk extraction"
@@ -4207,7 +4223,7 @@ echo "rule 1 body"
 echo "rule 2 body with double-dash separator (forbidden)"
 # === END OF RULES ===
 SHEOF
-_r88_neg_bad_sep=$(grep -nE '^# Rule [0-9]+[a-z]? -- ' "$_r88_neg_root/gate/check_architecture_sync.sh" || true)
+_r88_neg_bad_sep=$(grep -nE '^# Rule [0-9]+.?[a-z]? -- ' "$_r88_neg_root/gate/check_architecture_sync.sh" || true)
 if [[ -n "$_r88_neg_bad_sep" ]]; then
   ok "rule88_separator_neg" "double-dash rule header correctly detected by Rule 88 separator-consistency sub-check"
 else
@@ -4271,7 +4287,7 @@ cat > "$_r91_pos_root/docs/governance/architecture-status.yaml" <<'SHEOF'
 baseline_metrics:
   active_gate_checks: 3
 SHEOF
-_r91_pos_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{c++} END{print c+0}' "$_r91_pos_root/gate/check_architecture_sync.sh")
+_r91_pos_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{c++} END{print c+0}' "$_r91_pos_root/gate/check_architecture_sync.sh")
 _r91_pos_decl=$(grep -E '^[[:space:]]*active_gate_checks:[[:space:]]*[0-9]+' "$_r91_pos_root/docs/governance/architecture-status.yaml" | head -1 | sed -E 's/.*active_gate_checks:[[:space:]]*([0-9]+).*/\1/')
 if [[ "$_r91_pos_count" == "$_r91_pos_decl" ]]; then
   ok "rule_91_baseline_matches_pos" "active_gate_checks=$_r91_pos_decl == canonical count $_r91_pos_count"
@@ -4296,7 +4312,7 @@ cat > "$_r91_neg_root/docs/governance/architecture-status.yaml" <<'SHEOF'
 baseline_metrics:
   active_gate_checks: 74
 SHEOF
-_r91_neg_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{c++} END{print c+0}' "$_r91_neg_root/gate/check_architecture_sync.sh")
+_r91_neg_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{c++} END{print c+0}' "$_r91_neg_root/gate/check_architecture_sync.sh")
 _r91_neg_decl=$(grep -E '^[[:space:]]*active_gate_checks:[[:space:]]*[0-9]+' "$_r91_neg_root/docs/governance/architecture-status.yaml" | head -1 | sed -E 's/.*active_gate_checks:[[:space:]]*([0-9]+).*/\1/')
 if [[ "$_r91_neg_count" != "$_r91_neg_decl" ]]; then
   ok "rule_91_baseline_drift_neg" "Rule 91 correctly flags drift: decl=$_r91_neg_decl != count=$_r91_neg_count"
@@ -4324,7 +4340,7 @@ while IFS= read -r _r92_rid; do
   _r92_letter=$(echo "$_r92_rid" | grep -oE '[a-z]$' || true)
   _r92_padded=$(printf "%03d" "$_r92_num")
   [[ -f "$_r92_pos_root/gate/rules/rule-${_r92_padded}${_r92_letter}.sh" ]] || _r92_pos_missing="${_r92_pos_missing}${_r92_rid} "
-done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{match($0, /^# Rule ([0-9]+[a-z]?) — /, a); print a[1]}' "$_r92_pos_root/gate/check_architecture_sync.sh")
+done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{match($0, /^# Rule ([0-9]+.?[a-z]?) — /, a); print a[1]}' "$_r92_pos_root/gate/check_architecture_sync.sh")
 if [[ -z "$_r92_pos_missing" ]]; then
   ok "rule_92_freshness_pos" "all canonical headers have matching gate/rules files"
 else
@@ -4351,7 +4367,7 @@ while IFS= read -r _r92_rid; do
   _r92_letter=$(echo "$_r92_rid" | grep -oE '[a-z]$' || true)
   _r92_padded=$(printf "%03d" "$_r92_num")
   [[ -f "$_r92_neg_root/gate/rules/rule-${_r92_padded}${_r92_letter}.sh" ]] || _r92_neg_missing="${_r92_neg_missing}${_r92_rid} "
-done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{match($0, /^# Rule ([0-9]+[a-z]?) — /, a); print a[1]}' "$_r92_neg_root/gate/check_architecture_sync.sh")
+done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{match($0, /^# Rule ([0-9]+.?[a-z]?) — /, a); print a[1]}' "$_r92_neg_root/gate/check_architecture_sync.sh")
 if [[ -n "$_r92_neg_missing" ]]; then
   ok "rule_92_freshness_drift_neg" "Rule 92 correctly flags missing: $_r92_neg_missing"
 else
@@ -5153,8 +5169,8 @@ _r101_pos_card_ok=0
 if grep -qE "^rule_id: D-1[[:space:]]*\r?$" "$_r101_pos_root/docs/governance/rules/rule-D-1.md"; then
   _r101_pos_card_ok=1
 fi
-_r101_pos_bad_refs=$(grep -nE 'constraint_ref:[[:space:]]*"[^"]*\bRule [0-9]+[a-z]?\b' "$_r101_pos_root/docs/governance/enforcers.yaml" \
-                    | grep -vE 'legacy Rule [0-9]+[a-z]?|Rule [DRGM]-|historical' || true)
+_r101_pos_bad_refs=$(grep -nE 'constraint_ref:[[:space:]]*"[^"]*\bRule [0-9]+.?[a-z]?\b' "$_r101_pos_root/docs/governance/enforcers.yaml" \
+                    | grep -vE 'legacy Rule [0-9]+.?[a-z]?|Rule [DRGM]-|historical' || true)
 if [[ "$_r101_pos_declared" == "$_r101_pos_kernel_count" ]] && [[ $_r101_pos_card_ok -eq 1 ]] && [[ -z "$_r101_pos_bad_refs" ]]; then
   ok "rule_101_authority_completeness_pos" "Rule 101 accepts kernel + matching card + matching baseline + namespaced enforcer"
 else
@@ -6066,7 +6082,7 @@ source "gate/lib/check_recurring_families.sh"
 some_body_code() { :; }
 SHEOF
   local meta_line
-  meta_line=$(grep -nE '^# Rule [0-9]+[a-z]? — .*\[META\]' "$root/gate_script.sh" | head -1)
+  meta_line=$(grep -nE '^# Rule [0-9]+.?[a-z]? — .*\[META\]' "$root/gate_script.sh" | head -1)
   local lineno
   lineno=$(printf '%s' "$meta_line" | cut -d: -f1)
   local body
@@ -6093,7 +6109,7 @@ some_inline_code() {
 }
 SHEOF
   local meta_line
-  meta_line=$(grep -nE '^# Rule [0-9]+[a-z]? — .*\[META\]' "$root/gate_script.sh" | head -1)
+  meta_line=$(grep -nE '^# Rule [0-9]+.?[a-z]? — .*\[META\]' "$root/gate_script.sh" | head -1)
   local lineno
   lineno=$(printf '%s' "$meta_line" | cut -d: -f1)
   local body

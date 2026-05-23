@@ -32,15 +32,15 @@ awk '
     }
   }
   BEGIN { prev_slug = ""; prev_start = 0 }
-  /^# Rule [0-9]+[a-z]? — / {
+  /^# Rule [0-9]+.?[a-z]? — / {
     emit_prev(NR - 1)
-    match($0, /^# Rule ([0-9]+[a-z]?) — ([a-z_0-9]+)/, arr)
+    match($0, /^# Rule ([0-9]+.?[a-z]?) — ([a-z_0-9]+)/, arr)
     prev_num = arr[1]
     prev_slug = arr[2]
     prev_start = NR
     next
   }
-  /^# Summary$/ {
+  /^# === END OF RULES ===$/ {
     emit_prev(NR - 1)
     prev_slug = ""
     exit
@@ -51,8 +51,13 @@ awk '
 count=0
 while IFS=$'\t' read -r num slug start end; do
   [[ -z "$num" ]] && continue
-  num_padded=$(printf '%03d' "${num%%[a-z]}")
-  letter=$(printf '%s' "$num" | sed -E 's/^[0-9]+//')
+  # Rule IDs come in three shapes: bare "24", lettered "28a", dotted "24.c".
+  # For the file name we want zero-padded digits + lowercase suffix (no dot)
+  # so the directory listing stays one-entry-per-rule and `sort` orders them
+  # adjacent: rule-024.sh / rule-024c.sh / rule-028a.sh.
+  num_digits="${num%%[!0-9]*}"
+  num_padded=$(printf '%03d' "$num_digits")
+  letter=$(printf '%s' "$num" | sed -E 's/^[0-9]+\.?//')
   out="$RULES_DIR/rule-${num_padded}${letter}.sh"
   {
     printf '#!/usr/bin/env bash\n'

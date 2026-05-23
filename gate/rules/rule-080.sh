@@ -21,19 +21,45 @@ if [[ ! -f "$_r80_vocab" ]]; then
   _r80_fail=1
 fi
 _r80_marker_re="$(grep -vE '^[[:space:]]*(#|$)' "$_r80_vocab" 2>/dev/null | tr '\n' '|' | sed 's/|$//')"
-for _r80_file in CLAUDE.md README.md ARCHITECTURE.md docs/contracts/*.v1.yaml docs/adr/*.yaml docs/adr/*.md agent-*/ARCHITECTURE.md; do
-  [[ -f "$_r80_file" ]] || continue
-  while IFS= read -r _r80_match; do
-    [[ -z "$_r80_match" ]] && continue
-    _r80_lineno="${_r80_match%%:*}"
-    [[ -z "$_r80_lineno" || ! "$_r80_lineno" =~ ^[0-9]+$ ]] && continue
-    _r80_lo=$((_r80_lineno > 5 ? _r80_lineno - 5 : 1))
-    _r80_hi=$((_r80_lineno + 5))
-    if ! sed -n "${_r80_lo},${_r80_hi}p" "$_r80_file" 2>/dev/null | grep -qiE "$_r80_marker_re"; then
-      fail_rule "s2c_callback_signal_historical_only_in_authority" "$_r80_file:$_r80_lineno mentions S2cCallbackSignal without a historical/deleted/refactored/amendment marker within +/-5 lines -- Rule 80 / E113"
-      _r80_fail=1
-    fi
-  done < <(grep -nF 'S2cCallbackSignal' "$_r80_file" 2>/dev/null)
-done
+# Perf fix (2026-05-23): replaced per-authority-file grep + per-match sed|grep
+# (~110 files × ~3 forks = ~14s) with a single python pass. Same scope
+# (CLAUDE.md, README.md, ARCHITECTURE.md, contracts, ADRs, agent-*/ARCH), same
+# ±5-line marker window, same vocabulary file.
+_r80_violations="$(
+  GATE_R80_MARKER_RE="$_r80_marker_re" "${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
+import os, re, glob
+from pathlib import Path
+
+marker_src = os.environ.get('GATE_R80_MARKER_RE', '')
+marker_re = re.compile(marker_src, re.IGNORECASE) if marker_src else None
+
+targets: list[str] = []
+for p in ('CLAUDE.md', 'README.md', 'ARCHITECTURE.md'):
+    if os.path.isfile(p): targets.append(p)
+targets.extend(sorted(glob.glob('docs/contracts/*.v1.yaml')))
+targets.extend(sorted(glob.glob('docs/adr/*.yaml')))
+targets.extend(sorted(glob.glob('docs/adr/*.md')))
+for arch in sorted(glob.glob('agent-*/ARCHITECTURE.md')):
+    targets.append(arch)
+
+for path in targets:
+    try: lines = Path(path).read_text(encoding='utf-8', errors='replace').splitlines()
+    except OSError: continue
+    n = len(lines)
+    for i, ln in enumerate(lines):
+        if 'S2cCallbackSignal' not in ln: continue
+        lo = max(0, i - 5); hi = min(n, i + 6)
+        window = '\n'.join(lines[lo:hi])
+        if marker_re and marker_re.search(window): continue
+        print(f"{path}\t{i+1}")
+PYEOF
+)"
+if [[ -n "$_r80_violations" ]]; then
+  while IFS=$'\t' read -r _r80_file _r80_lineno; do
+    [[ -z "$_r80_file" ]] && continue
+    fail_rule "s2c_callback_signal_historical_only_in_authority" "$_r80_file:$_r80_lineno mentions S2cCallbackSignal without a historical/deleted/refactored/amendment marker within +/-5 lines -- Rule 80 / E113"
+    _r80_fail=1
+  done <<< "$_r80_violations"
+fi
 if [[ $_r80_fail -eq 0 ]]; then pass_rule "s2c_callback_signal_historical_only_in_authority"; fi
 

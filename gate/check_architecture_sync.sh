@@ -146,6 +146,22 @@ export LC_ALL=C
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+# Resolve a usable Python interpreter once for the whole gate run.
+# Linux/macOS/CI typically ship `python3`; Windows ships `python`. Bare
+# `python3 - <<PYEOF` invocations elsewhere in this script silently fall
+# through to vacuous PASS on hosts without python3 — Rule G-7 lists WSL
+# as the canonical execution env, but the parallel runner extracts each
+# rule body into its own script so a host-level miss still trips here.
+GATE_PYTHON_BIN="${GATE_PYTHON_BIN:-}"
+if [[ -z "$GATE_PYTHON_BIN" ]]; then
+  if command -v python3 >/dev/null 2>&1; then
+    GATE_PYTHON_BIN="python3"
+  elif command -v python >/dev/null 2>&1; then
+    GATE_PYTHON_BIN="python"
+  fi
+fi
+export GATE_PYTHON_BIN
+
 fail_count=0
 export fail_count
 
@@ -929,7 +945,7 @@ _r23_fail=0
 # WSL/mnt/d this ran ~65s per gate. Replaced with a single python pass
 # that reads each file once, extracts links via re, and resolves with
 # os.path.normpath + os.path.exists. ADR-0043, same semantics.
-_r23_violations=$(python3 - <<'PYEOF'
+_r23_violations=$("${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
 import os, re, sys
 from pathlib import Path
 LINK_RE = re.compile(r'\]\(([^)]+)\)')
@@ -1066,7 +1082,7 @@ _r25_fail=0
 # (active markdown, in-line context) consolidated into a single python pass.
 # Original ran ~hundreds of files × ~3-5 forks per match = ~17s; the rewrite
 # finishes in ~1s. Same regex patterns and same context windows.
-_r25_violations="$(python3 - <<'PYEOF'
+_r25_violations="$("${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
 import os, re
 from pathlib import Path
 
@@ -1645,7 +1661,7 @@ _r28j_fail=0
 # at the same file (common) now share one read. Same anchor-detection rules.
 if [[ -f "$_efile" ]]; then
   _r28j_violations="$(
-    GATE_R28J_EFILE="$_efile" python3 - <<'PYEOF'
+    GATE_R28J_EFILE="$_efile" "${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
 import os, re, sys
 from pathlib import Path
 
@@ -1755,7 +1771,7 @@ if [[ -f "$_efile" ]]; then
   # each in-scope file once and consults the pre-parsed _SCAN_ENFORCERS_TSV
   # (or falls back to parsing enforcers.yaml directly when the cache is
   # disabled). Same semantics: at-least-one-match required.
-  _r28k_violations=$(GATE_R28K_EFILE="$_efile" python3 - <<'PYEOF'
+  _r28k_violations=$(GATE_R28K_EFILE="$_efile" "${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
 import os, re, sys
 from pathlib import Path
 
@@ -2131,7 +2147,7 @@ _check_front_matter_yaml() {
 # against the same {L0|L1|L2} / {logical|development|process|physical|scenarios}
 # enums. Same fail messages so the upstream surface (release-note baseline /
 # Rule 28 references) is unchanged.
-_r37_violations="$(python3 - <<'PYEOF'
+_r37_violations="$("${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
 import os, re, glob
 from pathlib import Path
 
@@ -3164,7 +3180,7 @@ else
   # a single python pass. Same logic: (a) `(retracted)` on the same line OR
   # (b) nearest upward `#` heading contains 'historical'/'superseded'.
   _r63_violations="$(
-    GATE_R63_LIST="$_r63_list" python3 - <<'PYEOF'
+    GATE_R63_LIST="$_r63_list" "${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
 import os, re, glob
 from pathlib import Path
 
@@ -3413,7 +3429,7 @@ else
   # Perf fix (2026-05-23): replace per-card 22-fork awk/sed/tr pipeline
   # (~50 cards × ~22 forks = ~1100 forks per gate run, ~17s on WSL/mnt/d)
   # with a single python pass that reads all cards + CLAUDE.md once.
-  _r68_drift="$(python3 - "$_r68_cards_dir" "$_r68_claude" "$_r68_deferred_doc" <<'PYEOF'
+  _r68_drift="$("${GATE_PYTHON_BIN:-python3}" - "$_r68_cards_dir" "$_r68_claude" "$_r68_deferred_doc" <<'PYEOF'
 import os, re, sys, pathlib
 cards_dir, claude_md, deferred_doc = sys.argv[1:4]
 
@@ -3945,7 +3961,7 @@ _r78_fail=0
 # Perf fix (2026-05-23): replaced per-metadata × per-line grep/sed/tr loop
 # (~8 modules × 2 files × ~5 lines × ~5 forks = ~400 forks, ~13s) with a
 # single python pass. Same placeholder filter (`# ... placeholder ... ADR-NNNN`).
-_r78_violations="$(python3 - <<'PYEOF'
+_r78_violations="$("${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
 import os, re, glob
 from pathlib import Path
 
@@ -4083,7 +4099,7 @@ _r80_marker_re="$(grep -vE '^[[:space:]]*(#|$)' "$_r80_vocab" 2>/dev/null | tr '
 # (CLAUDE.md, README.md, ARCHITECTURE.md, contracts, ADRs, agent-*/ARCH), same
 # ±5-line marker window, same vocabulary file.
 _r80_violations="$(
-  GATE_R80_MARKER_RE="$_r80_marker_re" python3 - <<'PYEOF'
+  GATE_R80_MARKER_RE="$_r80_marker_re" "${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
 import os, re, glob
 from pathlib import Path
 
@@ -4747,13 +4763,13 @@ if [[ ! -f "$_r88_canonical" ]] || [[ ! -f "$_r88_parallel" ]]; then
   fail_rule "serial_parallel_gate_slug_parity" "canonical or parallel script missing -- Rule 88 / E121"
   _r88_fail=1
 else
-  _r88_canonical_set=$(grep -E '^# Rule [0-9]+[a-z]? (—|--) ' "$_r88_canonical" \
-    | sed -E 's/^# Rule [0-9]+[a-z]? (—|--) //' \
+  _r88_canonical_set=$(grep -E '^# Rule [0-9]+.?[a-z]? (—|--) ' "$_r88_canonical" \
+    | sed -E 's/^# Rule [0-9]+.?[a-z]? (—|--) //' \
     | awk '{print $1}' \
     | sort -u)
   _r88_parallel_set=$(awk '
-    /^# Rule [0-9]+[a-z]? (—|--) / {
-      match($0, /^# Rule [0-9]+[a-z]? (—|--) ([a-z0-9_]+)/, arr)
+    /^# Rule [0-9]+.?[a-z]? (—|--) / {
+      match($0, /^# Rule [0-9]+.?[a-z]? (—|--) ([a-z0-9_]+)/, arr)
       print arr[2]
     }
     /^# === END OF RULES ===$/ { exit }
@@ -4769,7 +4785,7 @@ else
     _r88_fail=1
   fi
   # Sub-check: canonical separator consistency — every rule header MUST use em-dash `—`.
-  _r88_bad_sep=$(grep -nE '^# Rule [0-9]+[a-z]? -- ' "$_r88_canonical" | head -3 || true)
+  _r88_bad_sep=$(grep -nE '^# Rule [0-9]+.?[a-z]? -- ' "$_r88_canonical" | head -3 || true)
   if [[ -n "$_r88_bad_sep" ]]; then
     fail_rule "serial_parallel_gate_slug_parity" "rule header(s) use double-dash separator instead of em-dash: $(echo "$_r88_bad_sep" | tr '\n' '|') -- Rule 88 / E121 (separator consistency)"
     _r88_fail=1
@@ -4824,8 +4840,8 @@ else
   # shipping without coverage; the prevention waves established the convention,
   # so the scope tracks that convention.
   if [[ -f "$_r89_canonical" ]]; then
-    _r89_canonical_ids=$(grep -E '^# Rule [0-9]+[a-z]? (—|--) ' "$_r89_canonical" \
-      | sed -E 's/^# Rule ([0-9]+[a-z]?) (—|--) .*/\1/' \
+    _r89_canonical_ids=$(grep -E '^# Rule [0-9]+.?[a-z]? (—|--) ' "$_r89_canonical" \
+      | sed -E 's/^# Rule ([0-9]+.?[a-z]?) (—|--) .*/\1/' \
       | sort -u)
     _r89_missing_fixtures=""
     for _r89_rid in $_r89_canonical_ids; do
@@ -4865,7 +4881,7 @@ if [[ ! -f "$_r91_status_file" ]] || [[ ! -f "$_r91_canonical" ]]; then
   fail_rule "baseline_metric_matches_executable_manifest" "$_r91_status_file or $_r91_canonical missing — Rule 91 / E123"
   _r91_fail=1
 else
-  _r91_manifest_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{c++} END{print c+0}' "$_r91_canonical")
+  _r91_manifest_count=$(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{c++} END{print c+0}' "$_r91_canonical")
   _r91_declared=$(grep -E '^[[:space:]]*active_gate_checks:[[:space:]]*[0-9]+' "$_r91_status_file" | head -1 | sed -E 's/.*active_gate_checks:[[:space:]]*([0-9]+).*/\1/')
   # rc10 widening per ADR-0084 / I-α-1 closure: extend Rule 91 to cover baseline_metrics.enforcer_rows.
   # Closes rc10 hidden defect: rc9 declared enforcer_rows: 116 (104 baseline + 12 wave) but live count was 134.
@@ -4919,7 +4935,7 @@ else
     if [[ ! -f "$_r92_expected" ]]; then
       _r92_missing="${_r92_missing}${_r92_rid} "
     fi
-  done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+[a-z]? — /{match($0, /^# Rule ([0-9]+[a-z]?) — /, a); print a[1]}' "$_r92_canonical")
+  done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{match($0, /^# Rule ([0-9]+.?[a-z]?) — /, a); print a[1]}' "$_r92_canonical")
   if [[ -n "$_r92_missing" ]]; then
     fail_rule "gate_rules_corpus_freshness" "$_r92_dir lacks rule file(s) for canonical header(s): ${_r92_missing}-- Rule 92 / E125 (run bash gate/lib/extract_rules.sh to refresh)"
     _r92_fail=1
@@ -4993,7 +5009,7 @@ fi
 _r94_violations="$(
   GATE_R94_MARKER_VOCAB="$_r94_marker_vocab" \
   GATE_R94_PATH_VOCAB="$_r94_path_vocab" \
-  python3 - <<'PYEOF'
+  "${GATE_PYTHON_BIN:-python3}" - <<'PYEOF'
 import os, re, sys
 from pathlib import Path
 
@@ -5569,7 +5585,7 @@ else
     # Engineering-rule range (1-48) per ADR-0086 gate_layer_boundary requires legacy/namespaced markers.
     # Gate-layer rules (numeric ≥49) are intentional numeric per ADR-0086 and are exempt.
     _r101_bad_refs=$(grep -nE 'constraint_ref:[[:space:]]*"[^"]*\bRule ([1-9]|[1-3][0-9]|4[0-8])[a-z]?\b' "$_r101_enforcers" 2>/dev/null \
-                     | grep -vE 'legacy Rule [0-9]+[a-z]?|Rule [DRGM]-|historical' || true)
+                     | grep -vE 'legacy Rule [0-9]+.?[a-z]?|Rule [DRGM]-|historical' || true)
     if [[ -n "$_r101_bad_refs" ]]; then
       _r101_first=$(echo "$_r101_bad_refs" | head -3 | tr '\n' '|')
       fail_rule "rule_namespace_authority_completeness" "enforcers.yaml constraint_ref row(s) carry bare numeric 'Rule N' without 'legacy' marker or namespaced form: ${_r101_first}-- Rule 101 / E143 (c)"
@@ -6253,11 +6269,11 @@ _r112_canonical="gate/check_architecture_sync.sh"
 #       still satisfies the helper-extraction discipline.
 if [[ -f "$_r112_canonical" ]]; then
   # Pre-compute header line numbers for window-end resolution
-  mapfile -t _r112_all_headers < <(grep -nE '^# Rule [0-9]+[a-z]? — ' "$_r112_canonical" 2>/dev/null | cut -d: -f1)
+  mapfile -t _r112_all_headers < <(grep -nE '^# Rule [0-9]+.?[a-z]? — ' "$_r112_canonical" 2>/dev/null | cut -d: -f1)
   while IFS= read -r _r112_meta_line; do
     [[ -z "$_r112_meta_line" ]] && continue
     _r112_lineno=$(printf '%s' "$_r112_meta_line" | cut -d: -f1)
-    _r112_slug=$(printf '%s' "$_r112_meta_line" | sed -nE 's|^[0-9]+:# Rule ([0-9]+[a-z]?) — ([a-z_]+).*\[META\].*|\1:\2|p')
+    _r112_slug=$(printf '%s' "$_r112_meta_line" | sed -nE 's|^[0-9]+:# Rule ([0-9]+.?[a-z]?) — ([a-z_]+).*\[META\].*|\1:\2|p')
     [[ -z "$_r112_slug" ]] && continue
     _r112_rule_num=$(printf '%s' "$_r112_slug" | cut -d: -f1)
     _r112_rule_slug=$(printf '%s' "$_r112_slug" | cut -d: -f2)
@@ -6280,7 +6296,7 @@ if [[ -f "$_r112_canonical" ]]; then
       fail_rule "meta_rule_self_application_check" "Rule $_r112_rule_num ($_r112_rule_slug) is marked [META] but body does not source a gate/lib/(check|validate)_*.(sh|bash|py) helper within its block (until next # Rule header or EOF). Every [META] rule MUST use the helper-extraction template. Rule 112 / E159"
       _r112_fail=1
     fi
-  done < <(grep -nE '^# Rule [0-9]+[a-z]? — .*\[META\]' "$_r112_canonical" 2>/dev/null)
+  done < <(grep -nE '^# Rule [0-9]+.?[a-z]? — .*\[META\]' "$_r112_canonical" 2>/dev/null)
 fi
 if [[ $_r112_fail -eq 0 ]]; then pass_rule "meta_rule_self_application_check"; fi
 # Rule 113 — legacy_paren_no_reintroduction_and_migration_doc_complete (enforcer E160)

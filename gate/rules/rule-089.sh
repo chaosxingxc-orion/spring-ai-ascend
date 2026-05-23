@@ -45,8 +45,8 @@ else
   # shipping without coverage; the prevention waves established the convention,
   # so the scope tracks that convention.
   if [[ -f "$_r89_canonical" ]]; then
-    _r89_canonical_ids=$(grep -E '^# Rule [0-9]+[a-z]? (—|--) ' "$_r89_canonical" \
-      | sed -E 's/^# Rule ([0-9]+[a-z]?) (—|--) .*/\1/' \
+    _r89_canonical_ids=$(grep -E '^# Rule [0-9]+.?[a-z]? (—|--) ' "$_r89_canonical" \
+      | sed -E 's/^# Rule ([0-9]+.?[a-z]?) (—|--) .*/\1/' \
       | sort -u)
     _r89_missing_fixtures=""
     for _r89_rid in $_r89_canonical_ids; do

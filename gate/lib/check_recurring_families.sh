@@ -50,16 +50,22 @@ _CRF_VALIDATOR="${_CRF_SCRIPT_DIR}/validate_recurring_families.py"
 _crf_run_python() {
   # $1 = sub-check name (wellformed|freshness|parity), $@... = args.
   # Calls the python validator and forwards stdout (FAIL messages) +
-  # exit code. Prefer `python` on Windows (where `python3` is often
-  # missing); fall back to `python3` on Linux/macOS.
-  local pyexe
-  if command -v python >/dev/null 2>&1; then
-    pyexe="python"
-  elif command -v python3 >/dev/null 2>&1; then
-    pyexe="python3"
-  else
-    printf 'FAIL [crf-helper]: neither python nor python3 found on PATH (required for rc19 Wave 1 validator) -- Rule G-9 / ADR-0096\n'
-    return 1
+  # exit code. Prefer `python3` over `python` to match the rest of the
+  # gate corpus (`check_parallel.sh`, `build_architecture_graph.sh`,
+  # `aggregate_summary.sh`); on systems where `python` resolves to
+  # Python 2 (older RHEL / minimal images) the validator's Python 3
+  # syntax would crash with SyntaxError. Honour GATE_PYTHON_BIN when
+  # set so a one-time export at the gate entrypoint pins the choice.
+  local pyexe="${GATE_PYTHON_BIN:-}"
+  if [[ -z "$pyexe" ]]; then
+    if command -v python3 >/dev/null 2>&1; then
+      pyexe="python3"
+    elif command -v python >/dev/null 2>&1; then
+      pyexe="python"
+    else
+      printf 'FAIL [crf-helper]: neither python3 nor python found on PATH (required for the recurring-families validator) -- Rule G-9 / ADR-0096\n'
+      return 1
+    fi
   fi
   "$pyexe" "$_CRF_VALIDATOR" "$@"
 }

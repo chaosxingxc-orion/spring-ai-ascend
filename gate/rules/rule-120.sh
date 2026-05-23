@@ -7,12 +7,3 @@
 # (no L2 documents exist yet; arms for W3+).
 pass_rule "l1_l2_constraint_linkage"
 
-# === END OF RULES ===
-# ---------------------------------------------------------------------------
-if [[ $fail_count -eq 0 ]]; then
-  echo "GATE: PASS"
-  exit 0
-else
-  echo "GATE: FAIL"
-  exit 1
-fi
