@@ -53,7 +53,7 @@ authority_refs: [ADR-0094]
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 8 | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 4 | ⚠️ partial |
-| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 3 | ✅ structurally addressed (rc14-16) |
+| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 5 (rc14, rc15, rc16, rc33, rc34) | ✅ structurally addressed (rc14-16; rc33+rc34 forward-pointing-reference recurrence closed in lockstep) |
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 3 | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |

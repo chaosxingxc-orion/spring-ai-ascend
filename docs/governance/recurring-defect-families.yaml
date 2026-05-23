@@ -181,8 +181,8 @@ families:
   - id: F-cross-authority-agreement
     title: Cross-Authority Surface Disagreement
     first_observed_rc: rc14
-    last_observed_rc: rc16
-    occurrences: [rc14, rc15, rc16]
+    last_observed_rc: rc34
+    occurrences: [rc14, rc15, rc16, rc33, rc34]
     root_cause: |
       117+ single-surface prevention rules can all pass while the
       surfaces themselves contradict each other — e.g.
@@ -193,6 +193,22 @@ families:
       structurally by Rule G-8 (rc14 mega-rule, 4 sub-checks) +
       Rule G-8.e (rc15 widening) + Rule 107/108/109 (rc16 namespace
       parity).
+
+      **rc33+rc34 forward-pointing-reference recurrence (2026-05-23).**
+      rc33 committed 23 `l0_decision: docs/adr/01{08..15}-*.yaml`
+      references in `architecture-status.yaml` BEFORE the referenced
+      ADR files existed on disk; rc34 ships the 8 referenced ADRs to
+      resolve. The Rule G-2.a path-truth gate does NOT fire on these
+      rows because they are `shipped: false` (only shipped:true rows
+      require existing path resolution). Rule G-8.a fired on the
+      graph node/edge baseline drift (rc33 didn't bump baseline for
+      the rc34-shipped ADRs because the ADR files arrived in the
+      follow-up commit). This is the same family pattern — multiple
+      authority surfaces (status yaml capability rows, ADR files on
+      disk, graph yaml node/edge counts, baseline_metrics) drifting
+      relative to each other across a wave-pair. Closure: rc34 fixes
+      baseline_metrics 448→464 / 756→826 / adr_count 92→100 in
+      lockstep with the 8 new ADR file additions.
     surfaces:
       - docs/governance/architecture-status.yaml
       - docs/governance/architecture-graph.yaml
