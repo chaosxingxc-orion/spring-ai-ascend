@@ -13,6 +13,8 @@ related_adrs:
 
 # v2.0.0-rc32 Release — Residual Corrective + Family Truth + Sanitizer Fix
 
+> **Historical artifact frozen at SHA 39b4fa6 (rc34-merge-train post-merge corrective).** Baseline counts in this document (e.g. "132 gate rules" at line 31) reflect the corpus state at rc32 merge time and are NOT retroactively updated. Subsequent corrective waves (rc33/rc34/rc35) re-baselined the live numbers; the canonical structured baseline is `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics` and the most recent release note. rc35-second-pass bumped `active_gate_checks` 132→134 when the rule-id regex `[0-9]+[a-z]?` was widened to `[0-9]+\.?[a-z]?` and Rules 24.c (runlifecycle_cancel_reauthz_shipped) + 29.c (quickstart_smoke_job_present) became correctly attributed in the parallel manifest (the headers were always there since rc1).
+
 > **Headline.** rc32 is a single-ADR (ADR-0105) corrective wave closing the 7 P0/P1/P2 findings from the 2026-05-22 codebase review. One new recurring-defect family registered (F-bulk-scrub-orphan-syntax). One family reopened from premature closure (F-l1-architecture-grounding-gap → monitoring). Gate G-9.b family-surface freshness goes from 23 silent no-ops to 0. Gate goes GREEN.
 
 ## Methodology

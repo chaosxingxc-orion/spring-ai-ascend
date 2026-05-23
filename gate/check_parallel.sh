@@ -355,8 +355,12 @@ while IFS=$'\t' read -r idx slug _ _; do
     # "<num>[<a-z>]_<rule_slug>" (e.g. "73_gate_config_well_formed", "28a_...").
     rule_number_part="${slug%%_*}"
     rule_slug_only="${slug#*_}"
-    # Numeric component (strip trailing letter for the rule_number JSON field).
-    rule_number_int="${rule_number_part%%[a-z]}"
+    # Numeric component for the rule_number JSON field. Rule IDs come in
+    # three shapes: bare "24", lettered "28a", dotted "24.c"; strip from the
+    # first non-digit so all three normalise to their digit prefix and the
+    # downstream `printf '%d'` does not choke on "24." (the dot survived a
+    # naive `%%[a-z]` strip and printf 24. emits "invalid number").
+    rule_number_int="${rule_number_part%%[!0-9]*}"
     # Pid the worker batch ran in.
     worker_pid=0
     [[ -s "$WORK_DIR/pid_${rule_id}.txt" ]] && worker_pid="$(cat "$WORK_DIR/pid_${rule_id}.txt")"
