@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-23  # rc34 follow-up + L1-proposal-response wave (commit 6d730521 + this corrective): rc34 adversarial review surfaced 5 additional manifestations of F-cross-authority-agreement (ADR-0112 Mono<StateDelta> vs shipped synchronous StatelessEngine.execute; ADR-0108 403/WARN tenant_mismatch vs shipped 404 silent in RunController; ADR-0114/0115/0111/0109 referencing 7 not-yet-authored cross-cutting/governance files as "Ships with this ADR wave" / "(W2 NEW)" / "(W0 NEW)"; gate/build_architecture_graph.py silently dropping ADR-0112's supersedes_partial: edge; E105 enforcer asserts text still citing dissolved agent-runtime-core path). All 5 are forms of authority-surface drift: ADR text vs shipped Java vs graph yaml vs enforcer text vs status-yaml baseline. Closed in commit 6d730521 (ADR prose revised; javadoc forward-direction note; supersedes_partial branch added; baseline_metrics bumped 464/826→466/829 in lockstep; Rule R-C.2.a scope_surfaces widened to service/task/** + service/session/**; E105 retargeted). Corrective commit (this) bumps F-cross-authority-agreement occurrences to reflect the rc34 follow-up observation, satisfying Rule G-9.b content-diff freshness; rc33+rc34+rc34-follow-up = 3 distinct waves in this family pattern.
+last_updated: 2026-05-23  # rc34-merge-train wave (PRs #54+#35+#34 squash-merged in sequence as 769712f→993deb4→c87381b): three-PR merge-train surfaced a NEW manifestation of F-cross-authority-agreement — Rule G-9.b's first-parent freshness semantics require families.yaml content-diff in EACH post-merge commit on main, but squash-merge sequences collapse intermediate-branch family-edits into the first PR commit, leaving the 2nd and 3rd PR merges (993deb4 docs-only + c87381b run-dispatch Executor) with no families.yaml diff vs immediate parent. PR #34 brought c87381b CI red on main even though every individual PR was locally green. The merge-train gap itself is a family recurrence: shipped commits cross-contradict the freshness invariant the rule encodes. Corrective wave (this commit) bumps families.yaml content-diff to satisfy G-9.b for the c87381b parent and records the merge-train family pattern as a new occurrence. Carries forward: rc34 follow-up wave (commit 6d730521) closed 5 in-wave authority-drift manifestations (ADR-0112 Mono<StateDelta> vs shipped synchronous StatelessEngine.execute; ADR-0108 403/WARN tenant_mismatch vs shipped 404 silent in RunController; ADR-0114/0115/0111/0109 referencing 7 not-yet-authored cross-cutting/governance files as present-tense delivery; gate/build_architecture_graph.py silently dropping ADR-0112's supersedes_partial: edge; E105 enforcer asserts text still citing dissolved agent-runtime-core path). All closed in 6d730521. rc34-merge-train wave is the 4th occurrence cluster of F-cross-authority-agreement in the rc series; suggests W2 strengthening: gate G-9.b's signal detection should treat squash-merge commits with prior families.yaml content-diff in the squash payload as already-satisfied (not require a per-commit diff after a merge-train).
 
 families:
   - id: F-numeric-drift
@@ -181,8 +181,8 @@ families:
   - id: F-cross-authority-agreement
     title: Cross-Authority Surface Disagreement
     first_observed_rc: rc14
-    last_observed_rc: rc34-follow-up
-    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up]
+    last_observed_rc: rc34-merge-train
+    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train]
     root_cause: |
       117+ single-surface prevention rules can all pass while the
       surfaces themselves contradict each other — e.g.
@@ -251,6 +251,30 @@ families:
       frontmatter-schema validation pass (rejects unknown top-level
       keys like `supersedes_partial:` until graph builder adds branch;
       asserts every `references:` path resolves on disk).
+
+      **rc34-merge-train wave (2026-05-23, commits 769712f→993deb4→c87381b).**
+      THIRD scale of the family pattern surfaced: merge-train freshness
+      drift. PRs #54 + #35 + #34 squash-merged to main in sequence over
+      ~2 minutes. PR #54 carried families.yaml content-diff for G-9.b
+      compliance, but the squash collapsed it into commit 769712f. The
+      subsequent squash-merges (993deb4 = docs-only PR #35; c87381b =
+      run-dispatch Executor PR #34) did NOT carry their own families.yaml
+      diff because their head branches predated PR #54's family-yaml
+      edit. Rule G-9.b's first-parent comparison at c87381b sees
+      families.yaml unchanged from 993deb4 (its parent) — even though
+      it IS changed from 4e7c31b (pre-PR-#54 main). Result: c87381b's
+      post-merge CI run on main fired G-9.b and turned main red.
+      Corrective: this branch + PR bumps families.yaml content-diff
+      satisfying G-9.b at its tip; restores main green. Underlying
+      root cause: G-9.b first-parent semantics interact poorly with
+      merge-train patterns where multiple PRs squash-merge in rapid
+      succession. W2 remediation candidates: (a) treat signal-commit
+      detection as cumulative-since-last-families.yaml-bump rather
+      than nearest-signal-walking; (b) add merge-train-pattern
+      detection to relax the per-commit requirement when the squash
+      payload itself bumped families.yaml; (c) require contributors
+      to rebase their PR head against latest main before merge so
+      the second PR in a train inherits the first's family-yaml diff.
     surfaces:
       - docs/governance/architecture-status.yaml
       - docs/governance/architecture-graph.yaml

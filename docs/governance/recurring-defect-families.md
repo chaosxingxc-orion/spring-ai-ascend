@@ -53,7 +53,7 @@ authority_refs: [ADR-0094]
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 8 | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 4 | ⚠️ partial |
-| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 6 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up) | ✅ structurally addressed (rc14-16; rc33+rc34 forward-pointing-reference recurrence closed in lockstep; rc34-follow-up adversarial-review surfaced 5 in-wave authority-drift manifestations, all closed in commit 6d730521) |
+| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 7 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train) | ✅ structurally addressed (rc14-16; rc33+rc34 forward-pointing-reference recurrence closed in lockstep; rc34-follow-up adversarial-review surfaced 5 in-wave authority-drift manifestations, all closed in commit 6d730521; rc34-merge-train surfaced THIRD scale — squash-merge sequences collapse families.yaml diffs and force per-commit G-9.b reapplication, closed by post-merge corrective PR) |
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 3 | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
@@ -195,7 +195,12 @@ Drift will reappear only if a rule introduces a new surface without
 declaring it (Rule 110 META + Rule G-9 freshness gate). rc34-follow-up
 recurrence shows the pattern operates at TWO scales: cross-wave (rc33→rc34
 follow-up commits) AND in-wave (single commit asserting present-tense
-delivery for unauthored documents).
+delivery for unauthored documents). rc34-merge-train adds a THIRD scale —
+multi-PR squash-merge sequences where Rule G-9.b's first-parent semantics
+demand a families.yaml content-diff in each post-merge commit, even when
+the squash payload of the first PR in the train already carried one.
+Candidate W2 remediation: cumulative-since-last-families-bump signal
+detection, or merge-train pattern recognition in `gate/lib/check_recurring_families.sh`.
 
 ---
 
