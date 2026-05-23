@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-23  # rc33 R2-closure + gate-perf wave-2: documents-review R1+R2 surfaced refinement-introduces-regression pattern (5 R1 refinements closed targets but each opened 1 adjacent gap → ADR-0106 + ADR-0107 closures); gate-perf wave-2 hardened 19 rules against the per-file fork-loop anti-pattern (~50,000 forks eliminated, 6m14s → ~2m15s wall on WSL+/mnt/d/). Both deliveries respect Rule G-9.b freshness via this content-diff bump.
+last_updated: 2026-05-23  # rc33 R2-closure + gate-perf wave-2 + Rule 39 list-form widening: documents-review R1+R2 surfaced refinement-introduces-regression pattern (5 R1 refinements closed targets but each opened 1 adjacent gap → ADR-0106 + ADR-0107 closures); gate-perf wave-2 hardened 19 rules against the per-file fork-loop anti-pattern (~50,000 forks eliminated, 6m14s → ~2m15s wall on WSL+/mnt/d/); Rule 39 widened to accept YAML list form for affects_level/affects_view (rebased proposals 2026-05-22-agent-service-l1-expansion declare multi-level spans). All three deliverables respect Rule G-9.b freshness via this content-diff bump.
 
 families:
   - id: F-numeric-drift
