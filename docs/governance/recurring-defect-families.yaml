@@ -459,6 +459,13 @@ families:
       to next # Rule|# === boundary; helper regex widened to accept
       .bash/.py; bash -n added as CI step; Rule 114 negative fixture
       parameterised. Dead SURFACE_PREFIX_BASES removed.
+      2026-05-23 scope narrowing: derive_signal_paths now excludes
+      .github/workflows/ from the refresh-signal set (SIGNAL_PATH_EXCLUSION_PREFIXES).
+      ADV-RC18-3 over-derived CI workflow files as G-9.b signals, so routine
+      action-version bumps forced a families content-diff (false friction
+      neither the kernel nor the card ever mandated). Workflows remain a
+      deleted-module-name CONTENT surface (Rule G-2.1/94/98); they are simply
+      no longer architecture-refresh signals.
 
   - id: F-progressive-loading-weak-enforcement
     title: CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time

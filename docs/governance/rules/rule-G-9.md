@@ -78,6 +78,15 @@ An "architecture refresh signal" is any of:
 - Change in the `^#### Rule X` heading set in `CLAUDE.md`
 - Change in `docs/governance/rules/*.md` (new card, edited card)
 
+In addition, each family's declared `surfaces[]` are derived into the signal
+set (ADV-RC18-3), so a change to a watched surface re-triggers re-evaluation of
+that family. **Exception — CI workflow files (`.github/workflows/`) are excluded
+from the signal set** (`SIGNAL_PATH_EXCLUSION_PREFIXES`). Workflow YAML is
+infrastructure: it is watched for deleted-module-name *content* by Rule
+G-2.1 / 94 / 98, but a routine action-version or runner bump is not an
+architecture-refresh event and must not force a `recurring-defect-families.yaml`
+content-diff.
+
 If ANY refresh signal is present in `git log` since the last commit that
 modified `recurring-defect-families.yaml`, the implementation in
 `gate/lib/validate_recurring_families.py` resolves the signal-touching

@@ -70,6 +70,17 @@ BASE_SIGNAL_PATHS = [
     "CLAUDE.md",
 ]
 
+# Path prefixes that family surfaces may legitimately name (so the deleted-
+# module-name gates Rule G-2.1 / 94 / 98 scan their CONTENT) but which are NOT
+# architecture-refresh signals for G-9.b. The kernel's refresh signals are new
+# ADR / baseline_metrics change / new release note / #### Rule heading change —
+# never CI runtime config. A CI workflow bump (action version, runner image,
+# step tweak) is infrastructure maintenance, not a defect-family event, so it
+# must not force a recurring-defect-families.yaml content-diff. derive_signal_paths
+# filters these out AFTER glob expansion so the surface still resolves (no spurious
+# "matched no files" WARN) but never enters the freshness signal set.
+SIGNAL_PATH_EXCLUSION_PREFIXES = (".github/workflows/",)
+
 
 def fail(msg: str) -> None:
     print(f"FAIL: {msg}")
@@ -351,7 +362,12 @@ def derive_signal_paths(yaml_data: dict, repo_root: str = ".") -> list[str]:
                     file=sys.stderr,
                 )
             paths.add(base)
-    return sorted(p for p in paths if p)
+    # Drop CI-runtime / infrastructure surfaces (e.g. .github/workflows/*.yml):
+    # watched for content by the deleted-name gates, but not G-9.b refresh signals.
+    return sorted(
+        p for p in paths
+        if p and not p.startswith(SIGNAL_PATH_EXCLUSION_PREFIXES)
+    )
 
 
 def cmd_freshness(yaml_path: str, repo_root: str = ".") -> int:
