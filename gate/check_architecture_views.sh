@@ -15,6 +15,14 @@ fail() {
   exit 1
 }
 
+# Fail closed when ripgrep is missing — the whole gate is built on it and
+# silently passing on rg-less hosts would let Mermaid sources, deleted-name
+# leakage, and retired-label drift past this check.
+command -v rg >/dev/null 2>&1 || fail "ripgrep (rg) is required on PATH; install it before running this gate."
+
+MERMAID_SCAN_TMP="$(mktemp -t architecture-view-mermaid.XXXXXX)"
+trap 'rm -f "$MERMAID_SCAN_TMP"' EXIT
+
 required_files=(
   "$VIEW_ROOT/README.md"
   "$COMMON_DIR/theme.puml"
@@ -33,11 +41,10 @@ for file in "${required_files[@]}"; do
 done
 
 log "Checking that Mermaid is not used as a source format."
-if rg -n '```mermaid|\.mmd\b|mermaid\.js' "$VIEW_ROOT" >/tmp/architecture-view-mermaid.matches; then
-  cat /tmp/architecture-view-mermaid.matches >&2
+if rg -n '```mermaid|\.mmd\b|mermaid\.js' "$VIEW_ROOT" >"$MERMAID_SCAN_TMP"; then
+  cat "$MERMAID_SCAN_TMP" >&2
   fail "Mermaid source or dependency found under docs/architecture-views."
 fi
-rm -f /tmp/architecture-view-mermaid.matches
 
 log "Checking that lower-level terms are not promoted to L0 component definitions."
 component_pattern='^[[:space:]]*(Person|System|System_Ext|Container|ContainerDb|Component|ComponentDb|Deployment_Node|Node)\('

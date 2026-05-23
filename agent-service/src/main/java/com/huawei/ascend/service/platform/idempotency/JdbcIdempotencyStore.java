@@ -25,12 +25,27 @@ public class JdbcIdempotencyStore implements IdempotencyStore {
 
     private static final Logger LOG = LoggerFactory.getLogger(JdbcIdempotencyStore.class);
 
+    /**
+     * Upsert that claims the row when (a) no prior row exists OR (b) the prior
+     * row's TTL has elapsed. ADR-0057 §2 mandates TTL-based recovery for L1
+     * because COMPLETED/FAILED status transitions are deferred to W2; the
+     * narrow WHERE clause on DO UPDATE preserves the W1 "first claim wins
+     * until expires_at" semantic atomically at the storage layer.
+     */
     private static final String INSERT_SQL = """
             INSERT INTO idempotency_dedup
                 (tenant_id, idempotency_key, request_hash, status, created_at, expires_at)
             VALUES
                 (:tenantId, :key, :requestHash, 'CLAIMED', :createdAt, :expiresAt)
-            ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
+            ON CONFLICT (tenant_id, idempotency_key) DO UPDATE
+                SET request_hash = EXCLUDED.request_hash,
+                    status = 'CLAIMED',
+                    response_status = NULL,
+                    response_body_ref = NULL,
+                    created_at = EXCLUDED.created_at,
+                    completed_at = NULL,
+                    expires_at = EXCLUDED.expires_at
+                WHERE idempotency_dedup.expires_at <= EXCLUDED.created_at
             """;
 
     private static final String SELECT_SQL = """

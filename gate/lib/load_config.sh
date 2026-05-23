@@ -61,9 +61,15 @@ fi
 # These mirror the documented defaults in gate/config.yaml.
 # ---------------------------------------------------------------------------
 _gate_apply_hardcoded_defaults() {
+  # Values are kept in lockstep with gate/config.yaml so a missing or
+  # malformed config does not silently regress the per-rule timeout
+  # (Rules 26 + 115 need >60s on the current corpus) or starve the
+  # gate-wide ceiling. Drift between the two surfaces would make
+  # CI fail for orthogonal reasons whenever config.yaml is unreachable.
   export GATE_PARALLELISM_JOBS=8
   export GATE_PARALLELISM_ENABLED=true
-  export GATE_PARALLELISM_RULE_TIMEOUT_SECONDS=60
+  export GATE_PARALLELISM_RULE_TIMEOUT_SECONDS=300
+  export GATE_PARALLELISM_TOTAL_TIMEOUT_SECONDS=900
   export GATE_PARALLELISM_BATCH_STRATEGY=round_robin
   export GATE_LOGGING_NDJSON_ENABLED=true
   export GATE_LOGGING_SUMMARY_ENABLED=true

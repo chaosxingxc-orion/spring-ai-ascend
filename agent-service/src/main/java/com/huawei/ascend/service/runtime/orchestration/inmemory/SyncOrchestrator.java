@@ -15,16 +15,21 @@ import com.huawei.ascend.service.runtime.resilience.spi.SuspendReason;
 import com.huawei.ascend.service.runtime.runs.Run;
 import com.huawei.ascend.engine.orchestration.spi.RunMode;
 import com.huawei.ascend.service.runtime.runs.spi.RunRepository;
+import com.huawei.ascend.service.runtime.runs.RunStateMachine;
 import com.huawei.ascend.service.runtime.runs.RunStatus;
 import com.huawei.ascend.bus.spi.s2c.S2cCallbackEnvelope;
 import com.huawei.ascend.bus.spi.s2c.S2cCallbackResponse;
 import com.huawei.ascend.bus.spi.s2c.S2cCallbackTransport;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Reference Orchestrator for in-memory / dev-posture execution.
@@ -39,10 +44,19 @@ import java.util.concurrent.CompletionException;
  */
 public final class SyncOrchestrator implements Orchestrator {
 
+    /**
+     * Default upper bound on a single S2C round-trip when the envelope
+     * carries no explicit deadline. Chosen to be long enough to cover normal
+     * client think-time without permanently pinning an orchestrator worker
+     * thread when a transport misbehaves.
+     */
+    static final Duration DEFAULT_S2C_CALL_TIMEOUT = Duration.ofSeconds(30);
+
     private final RunRepository runs;
     private final Checkpointer checkpointer;
     private final EngineRegistry engineRegistry;
     private final HookDispatcher hookDispatcher;
+    private final Duration s2cCallTimeout;
 
     /**
      * W2.x Phase 1 (ADR-0072): dispatch goes through {@link EngineRegistry}
@@ -59,11 +73,20 @@ public final class SyncOrchestrator implements Orchestrator {
      * fail-fast among middlewares, but the Run lifecycle is unaffected today.
      */
     public SyncOrchestrator(RunRepository runs, Checkpointer checkpointer, EngineRegistry engineRegistry) {
+        this(runs, checkpointer, engineRegistry, DEFAULT_S2C_CALL_TIMEOUT);
+    }
+
+    public SyncOrchestrator(RunRepository runs, Checkpointer checkpointer,
+                            EngineRegistry engineRegistry, Duration s2cCallTimeout) {
         AppPostureGate.requireDevForInMemoryComponent("SyncOrchestrator");
         this.runs = Objects.requireNonNull(runs);
         this.checkpointer = Objects.requireNonNull(checkpointer);
         this.engineRegistry = Objects.requireNonNull(engineRegistry, "engineRegistry is required");
         this.hookDispatcher = engineRegistry.hookDispatcher();
+        this.s2cCallTimeout = Objects.requireNonNull(s2cCallTimeout, "s2cCallTimeout is required");
+        if (s2cCallTimeout.isNegative() || s2cCallTimeout.isZero()) {
+            throw new IllegalArgumentException("s2cCallTimeout must be positive, got " + s2cCallTimeout);
+        }
     }
 
     @Override
@@ -83,7 +106,14 @@ public final class SyncOrchestrator implements Orchestrator {
             RunContextImpl ctx = new RunContextImpl(run.tenantId(), run.runId(), checkpointer);
             try {
                 Object result = dispatch(ctx, def, payload);
-                runs.save(run.withStatus(RunStatus.SUCCEEDED).withFinishedAt(Instant.now()));
+                // Cancel-vs-complete race guard: a parallel HTTP cancel may have
+                // already transitioned the Run to a terminal state (CANCELLED).
+                // Re-read from the repository before writing SUCCEEDED so the
+                // terminal state wins instead of being silently overwritten.
+                Run currentSucceeded = currentOrLocal(run);
+                if (!RunStateMachine.isTerminal(currentSucceeded.status())) {
+                    runs.save(currentSucceeded.withStatus(RunStatus.SUCCEEDED).withFinishedAt(Instant.now()));
+                }
                 return result;
             } catch (SuspendSignal signal) {
                 // v2.0.0-rc3 refactor (cross-constraint audit α-2 / β-5): S2C
@@ -114,8 +144,11 @@ public final class SyncOrchestrator implements Orchestrator {
                         // carrying the typed reason extracted from the failure message
                         // prefix, then rethrow so the caller still observes the exception.
                         String reason = extractS2cFailureReason(s2cFailure);
-                        if (run.status() != RunStatus.FAILED) {
-                            run = runs.save(run.withStatus(RunStatus.FAILED).withFinishedAt(Instant.now()));
+                        Run currentS2c = currentOrLocal(run);
+                        if (!RunStateMachine.isTerminal(currentS2c.status())) {
+                            run = runs.save(currentS2c.withStatus(RunStatus.FAILED).withFinishedAt(Instant.now()));
+                        } else {
+                            run = currentS2c;
                         }
                         hookDispatcher.fire(new HookContext(
                                 HookPoint.ON_ERROR,
@@ -168,8 +201,13 @@ public final class SyncOrchestrator implements Orchestrator {
                 // fired ON_ERROR and rethrew, leaving the Run in its prior status.
                 // The idempotent guard avoids re-transition when a recursive parent
                 // frame catches the same exception (RunStateMachine forbids FAILED -> FAILED).
-                if (run.status() != RunStatus.FAILED) {
-                    run = runs.save(run.withStatus(RunStatus.FAILED).withFinishedAt(Instant.now()));
+                // Cancel-vs-fail race guard: a parallel HTTP cancel may already
+                // have written CANCELLED — skip the FAILED save in that case.
+                Run currentEme = currentOrLocal(run);
+                if (!RunStateMachine.isTerminal(currentEme.status())) {
+                    run = runs.save(currentEme.withStatus(RunStatus.FAILED).withFinishedAt(Instant.now()));
+                } else {
+                    run = currentEme;
                 }
                 hookDispatcher.fire(new HookContext(
                         HookPoint.ON_ERROR,
@@ -198,6 +236,17 @@ public final class SyncOrchestrator implements Orchestrator {
         // Rule 43: never pattern-match on ExecutorDefinition subtypes here —
         // EngineRegistry encapsulates the class-to-engineType mapping.
         return engineRegistry.resolveByPayload(def).execute(ctx, def, payload);
+    }
+
+    /**
+     * Re-read the Run from the repository; fall back to the local in-memory
+     * record if the row is missing (defensive — every Run is persisted before
+     * the executor lambda fires). Used to detect concurrent transitions made
+     * by parallel surfaces (e.g. RunController.cancel) before the orchestrator
+     * writes a terminal state, so cancel does not get silently overwritten.
+     */
+    private Run currentOrLocal(Run local) {
+        return runs.findById(local.runId()).orElse(local);
     }
 
     /**
@@ -254,11 +303,12 @@ public final class SyncOrchestrator implements Orchestrator {
      *       {@code s2c_transport_unavailable}.</li>
      * </ul>
      *
-     * <p>The {@link CompletionStage} returned by the transport is awaited via
-     * {@code toCompletableFuture().join()} -- this is intentional at W2.x:
-     * SyncOrchestrator is single-threaded recursive; W2's async orchestrator
-     * will use non-blocking composition (no Thread.sleep involved, so Rule 38
-     * holds).
+     * <p>The {@link java.util.concurrent.CompletionStage} returned by the transport is awaited
+     * with an upper bound derived from {@link S2cCallbackEnvelope#deadline()}
+     * when present, otherwise from {@link #DEFAULT_S2C_CALL_TIMEOUT}. A
+     * transport that never completes its future will trip the timeout instead
+     * of pinning the orchestrator worker thread indefinitely; the future is
+     * cancelled so the transport can release resources.
      */
     private Object handleClientCallback(Run run, S2cCallbackEnvelope envelope) {
         S2cCallbackTransport transport = engineRegistry.s2cCallbackTransport();
@@ -267,11 +317,25 @@ public final class SyncOrchestrator implements Orchestrator {
                     + "an S2C SuspendSignal but no S2cCallbackTransport is registered "
                     + "(register via EngineRegistry.registerS2cCallbackTransport).");
         }
+        long timeoutMs = resolveCallTimeoutMillis(envelope);
+        CompletableFuture<S2cCallbackResponse> future =
+                transport.dispatch(envelope).toCompletableFuture();
         S2cCallbackResponse response;
         try {
-            response = transport.dispatch(envelope).toCompletableFuture().join();
+            response = future.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException te) {
+            future.cancel(true);
+            throw new IllegalStateException(SuspendReason.AwaitClientCallback.S2C_TIMEOUT
+                    + ": transport did not complete within " + timeoutMs + " ms (deadline="
+                    + envelope.deadline() + ")", te);
         } catch (CompletionException ce) {
             throw new IllegalStateException("s2c_transport_failure: " + ce.getCause(), ce.getCause());
+        } catch (java.util.concurrent.ExecutionException ee) {
+            throw new IllegalStateException("s2c_transport_failure: " + ee.getCause(), ee.getCause());
+        } catch (InterruptedException ie) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("s2c_transport_failure: orchestrator thread interrupted", ie);
         }
         if (response == null) {
             throw new IllegalStateException(SuspendReason.AwaitClientCallback.S2C_RESPONSE_INVALID
@@ -291,5 +355,22 @@ public final class SyncOrchestrator implements Orchestrator {
                     SuspendReason.AwaitClientCallback.S2C_TIMEOUT
                             + ": client did not respond within deadline=" + envelope.deadline());
         };
+    }
+
+    /**
+     * Compute the orchestrator-side upper bound on a single S2C call. When the
+     * envelope carries an absolute {@link S2cCallbackEnvelope#deadline()}, we
+     * use the remaining duration until that instant (clamped to a minimum of
+     * 1 ms so callers with a deadline already in the past trip the timeout
+     * immediately rather than blocking). Otherwise we fall back to
+     * {@link #s2cCallTimeout}.
+     */
+    private long resolveCallTimeoutMillis(S2cCallbackEnvelope envelope) {
+        Instant deadline = envelope.deadline();
+        if (deadline == null) {
+            return s2cCallTimeout.toMillis();
+        }
+        long remaining = Duration.between(Instant.now(), deadline).toMillis();
+        return Math.max(1L, remaining);
     }
 }

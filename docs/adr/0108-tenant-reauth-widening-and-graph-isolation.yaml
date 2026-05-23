@@ -83,7 +83,10 @@ decision: |
   every concrete `GraphMemoryRepository` declares a non-null
   strategy.
 
-  **Audit shape (shared with Rule R-J .b + ADR-0053/0107):**
+  **Audit shape (tenant_mismatch message family — common base
+  `{ surface, reason, occurredAt }` shared with Rule R-J .b +
+  ADR-0053/0107/0109; tenant_mismatch adds the message-specific fields
+  `{ runId, expectedTenant, actualTenant }`):**
 
       level: WARN
       message: tenant_mismatch
@@ -95,7 +98,9 @@ consequences: |
   - Eliminates timing-side-channel oracle on read endpoint.
   - Graph adapters declare isolation strategy at startup — eliminates
     adapter-author drift.
-  - Audit MDC unifies across cancel + read + resume + graph + spawn.
+  - Audit MDC common base (`{ surface, reason, occurredAt }`) unifies across
+    cancel + read + resume + graph + spawn; each message keeps its own
+    message-specific extensions declared in this ADR and in ADR-0109.
 
   Negative:
   - Read endpoint 404 → 403 is a behavioural change visible to client
@@ -103,7 +108,8 @@ consequences: |
   - Graph adapter authors lose freedom to switch strategies per call.
 
   Compounding: positive — future tenant-boundary additions reuse the
-  unified audit MDC schema.
+  common-base MDC schema (`{ surface, reason, occurredAt }`) and declare
+  any message-specific extensions explicitly.
 
 alternatives_considered: |
   - (A) Keep cancel-only re-auth; rely on tenant-scoped queries —

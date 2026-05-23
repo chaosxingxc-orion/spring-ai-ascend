@@ -188,7 +188,13 @@ SHIM
 # env file. Subshells inheriting GATE_SCAN_CACHE_FILE see it and skip work.
 # ---------------------------------------------------------------------------
 SCAN_CACHE_FILE="$WORK_DIR/scan_cache.env"
-if [[ -f "$repo_root/gate/lib/scan_cache.sh" ]]; then
+# Resolve python early so the scan_cache pre-population subshell honours the
+# same python3-then-python fallback the aggregator uses below. Hosts that
+# only have `python` on PATH (Windows native, some conda environments) would
+# otherwise silently lose the 211s scan-cache optimisation.
+GATE_PYTHON_BIN="$(command -v python3 || command -v python || echo '')"
+export GATE_PYTHON_BIN
+if [[ -f "$repo_root/gate/lib/scan_cache.sh" && -n "$GATE_PYTHON_BIN" ]]; then
   (
     # Source scan_cache; it auto-populates the _SCAN_* vars.
     # shellcheck disable=SC1091
@@ -196,7 +202,7 @@ if [[ -f "$repo_root/gate/lib/scan_cache.sh" ]]; then
     # Emit each _SCAN_ var as a here-doc-safe export. Values may contain
     # newlines and special chars (find output), so we use Python for safe
     # shell-quoting.
-    python3 - "$SCAN_CACHE_FILE" <<'PYEOF'
+    "$GATE_PYTHON_BIN" - "$SCAN_CACHE_FILE" <<'PYEOF'
 import os, shlex, sys
 out = sys.argv[1]
 keys = [k for k in os.environ if k.startswith("_SCAN_")]
@@ -311,9 +317,9 @@ failed_rules=0
 total_subfailures=0
 profile_rows=""
 
-# Resolve python binary once; consumed by _gate_json_escape and inline NDJSON.
-GATE_PYTHON_BIN="$(command -v python3 || command -v python || echo '')"
-export GATE_PYTHON_BIN
+# GATE_PYTHON_BIN was resolved earlier (before scan_cache pre-population); it is
+# already exported so subshells inherit it. Consumed below by _gate_json_escape
+# and the inline NDJSON writer.
 
 # JSON-escape helper for the NDJSON reason field.
 _gate_json_escape() {

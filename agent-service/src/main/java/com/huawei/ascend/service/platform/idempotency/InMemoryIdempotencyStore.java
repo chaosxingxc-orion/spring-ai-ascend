@@ -47,8 +47,23 @@ public class InMemoryIdempotencyStore implements IdempotencyStore {
                 tenantId, key, requestHash,
                 Status.CLAIMED, null, null,
                 now, null, now.plus(ttl));
-        IdempotencyRecord prior = rows.putIfAbsent(composite, claim);
-        return Optional.ofNullable(prior);
+        // ADR-0057 §2: L1 stops at CLAIMED and "falls back to TTL expiry for
+        // retried failures". Honour expires_at by atomically replacing a prior
+        // record whose TTL has elapsed; retry the CAS until either we claim,
+        // an unexpired prior is observed, or the prior is removed.
+        while (true) {
+            IdempotencyRecord prior = rows.putIfAbsent(composite, claim);
+            if (prior == null) {
+                return Optional.empty();
+            }
+            if (prior.expiresAt() != null && !prior.expiresAt().isAfter(now)) {
+                if (rows.replace(composite, prior, claim)) {
+                    return Optional.empty();
+                }
+                continue; // raced; re-read state and re-decide
+            }
+            return Optional.of(prior);
+        }
     }
 
     private record Key(UUID tenantId, UUID idempotencyKey) {

@@ -82,6 +82,33 @@ class SkillCapacityResolutionIT {
     }
 
     @Test
+    void doubleReleaseFloorsAtZeroAndDoesNotInflateCapacity(@TempDir Path tmp) throws IOException {
+        // Atomic check-and-decrement guard: prior code did
+        //   if (slot.get() > 0) slot.decrementAndGet();
+        // which TOCTOU-races against a parallel release(), letting the counter
+        // drift negative and silently inflate capacity for subsequent
+        // tryAcquire calls. The fixed implementation must floor at zero so a
+        // double-release of a 1-capacity slot does not admit two parallel
+        // callers afterwards.
+        Path yaml = tmp.resolve("skill-capacity-test.yaml");
+        Files.writeString(yaml, BOTTLENECK_YAML);
+
+        YamlSkillCapacityRegistry registry = new YamlSkillCapacityRegistry(yaml.toString());
+        ResilienceContract contract = new DefaultSkillResilienceContract(registry);
+
+        assertThat(contract.resolve("tenant-A", "bottleneck").admitted()).isTrue();
+        registry.release("tenant-A", "bottleneck");
+        registry.release("tenant-A", "bottleneck"); // double-release simulates the TOCTOU loser
+
+        assertThat(contract.resolve("tenant-A", "bottleneck").admitted())
+                .as("after release the slot is reusable exactly once")
+                .isTrue();
+        assertThat(contract.resolve("tenant-A", "bottleneck").admitted())
+                .as("double-release MUST NOT inflate capacity beyond the configured limit of 1")
+                .isFalse();
+    }
+
+    @Test
     void unknownSkillIsRejected(@TempDir Path tmp) throws IOException {
         Path yaml = tmp.resolve("skill-capacity-test.yaml");
         Files.writeString(yaml, BOTTLENECK_YAML);

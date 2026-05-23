@@ -73,7 +73,10 @@ decision: |
   - W3+: nonce-dedup TTL hardened for FSI vertical (longer windows,
     key rotation per ADR-0111).
 
-  **Audit MDC (shared schema):**
+  **Audit MDC (sender_identity_check_failed message family — common base
+  `{ surface, reason, occurredAt }` shared with ADR-0053/0107/0108;
+  sender_identity_check_failed adds the message-specific fields
+  `{ profile, runId?, nonce }`):**
 
       level: WARN
       message: sender_identity_check_failed
@@ -85,8 +88,10 @@ consequences: |
   - Decouples transport-layer identity from envelope-layer integrity.
   - Reuses ADR-0027 idempotency-dedup for nonce-replay — no new
     persistence surface.
-  - Audit MDC shape unifies with cancel-mismatch + tenant-mismatch
-    + spawn-acyclicity.
+  - Audit MDC common base (`{ surface, reason, occurredAt }`) unifies with
+    cancel-mismatch + tenant-mismatch + spawn-acyclicity; the
+    sender_identity_check_failed message carries the additional
+    `{ profile, runId?, nonce }` fields declared above.
 
   Negative:
   - Client SDKs producing un-signed envelopes WARN at W1, fail at W2;

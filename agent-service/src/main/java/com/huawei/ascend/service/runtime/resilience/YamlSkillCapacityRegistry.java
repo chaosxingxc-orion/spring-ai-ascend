@@ -112,11 +112,14 @@ public class YamlSkillCapacityRegistry implements SkillCapacityRegistry {
     public void release(String tenant, String skill) {
         AtomicInteger tenantSlot = perTenantInFlight.get(tenant + ":" + skill);
         AtomicInteger globalSlot = globalInFlight.get(skill);
-        if (tenantSlot != null && tenantSlot.get() > 0) {
-            tenantSlot.decrementAndGet();
+        // Atomic check-and-decrement floors at zero so concurrent double-release
+        // can never drift the counter negative and silently inflate available
+        // capacity on subsequent tryAcquire calls.
+        if (tenantSlot != null) {
+            tenantSlot.updateAndGet(v -> v > 0 ? v - 1 : 0);
         }
-        if (globalSlot != null && globalSlot.get() > 0) {
-            globalSlot.decrementAndGet();
+        if (globalSlot != null) {
+            globalSlot.updateAndGet(v -> v > 0 ? v - 1 : 0);
         }
     }
 

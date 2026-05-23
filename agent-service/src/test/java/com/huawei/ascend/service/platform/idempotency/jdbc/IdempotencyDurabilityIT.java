@@ -132,6 +132,38 @@ class IdempotencyDurabilityIT {
     }
 
     @Test
+    void claim_can_be_renewed_after_expires_at_passes_per_adr_0057_ttl_recovery() {
+        // ADR-0057 §2: L1 relies on TTL expiry for retried failures. The
+        // JdbcIdempotencyStore upsert MUST replace the prior row when its
+        // expires_at has elapsed; otherwise an expired key locks forever and
+        // legitimate retries see 409 idempotency_conflict in perpetuity.
+        UUID tenant = UUID.randomUUID();
+        UUID key = UUID.randomUUID();
+
+        assertThat(store.claimOrFind(tenant, key, "h1"))
+                .as("first claim succeeds")
+                .isEmpty();
+
+        // Backdate the row's expires_at into the past so the store treats the
+        // claim as expired without waiting on the configured TTL.
+        jdbc.update(
+                "UPDATE idempotency_dedup SET expires_at = now() - interval '1 minute' "
+                        + "WHERE tenant_id = ? AND idempotency_key = ?",
+                tenant, key);
+
+        assertThat(store.claimOrFind(tenant, key, "h2"))
+                .as("retry after expires_at MUST succeed as a fresh claim")
+                .isEmpty();
+
+        String storedHash = jdbc.queryForObject(
+                "SELECT request_hash FROM idempotency_dedup WHERE tenant_id = ? AND idempotency_key = ?",
+                String.class, tenant, key);
+        assertThat(storedHash)
+                .as("renewed claim carries the new request hash")
+                .isEqualTo("h2");
+    }
+
+    @Test
     void claim_row_remains_visible_in_select_until_expires_at_ttl() {
         // W1 stops at CLAIMED; the row is recovered via TTL on the next attempt
         // AFTER expires_at. Verifying expires_at is in the future bounds the TTL

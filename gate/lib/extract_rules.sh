@@ -18,6 +18,12 @@ RULES_DIR="gate/rules"
 
 mkdir -p "$RULES_DIR"
 
+# Use a per-invocation tempfile so two concurrent extract_rules.sh runs (CI
+# matrix, dev parallel shell) cannot interleave bytes into the manifest and
+# silently produce corrupted gate/rules/*.sh outputs.
+manifest_tsv="$(mktemp -t extract_rules.XXXXXX.tsv)"
+trap 'rm -f "$manifest_tsv"' EXIT
+
 # Build a manifest: rule_number<TAB>rule_slug<TAB>start_line<TAB>end_line
 awk '
   function emit_prev(end) {
@@ -40,7 +46,7 @@ awk '
     exit
   }
   END { emit_prev(NR) }
-' "$SOURCE_SCRIPT" > /tmp/extract_rules.tsv
+' "$SOURCE_SCRIPT" > "$manifest_tsv"
 
 count=0
 while IFS=$'\t' read -r num slug start end; do
@@ -57,8 +63,6 @@ while IFS=$'\t' read -r num slug start end; do
     sed -n "${start},${end}p" "$SOURCE_SCRIPT"
   } > "$out"
   count=$((count + 1))
-done < /tmp/extract_rules.tsv
-
-rm -f /tmp/extract_rules.tsv
+done < "$manifest_tsv"
 
 echo "Extracted $count rules into $RULES_DIR/"

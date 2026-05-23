@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
@@ -80,5 +81,62 @@ class IdempotencyStoreTest {
         Optional<IdempotencyStore.IdempotencyRecord> rec = store.claimOrFind(TENANT, key, "h");
         assertThat(rec).isPresent();
         assertThat(rec.get().expiresAt()).isEqualTo(clock.instant().plus(Duration.ofHours(24)));
+    }
+
+    @Test
+    void expired_claim_is_replaced_on_retry_per_adr_0057_ttl_recovery() {
+        // ADR-0057 §2: L1 stops at CLAIMED and "falls back to TTL expiry for
+        // retried failures". A retry whose prior claim's expires_at has
+        // elapsed MUST be accepted as a fresh claim, not rejected as a
+        // duplicate. Prior to the fix the prior record was returned
+        // regardless of expiry, locking the key forever.
+        MutableClock movingClock = new MutableClock(Instant.parse("2026-05-14T12:00:00Z"));
+        InMemoryIdempotencyStore ttlStore = new InMemoryIdempotencyStore(movingClock, Duration.ofMinutes(5));
+        UUID key = UUID.randomUUID();
+
+        assertThat(ttlStore.claimOrFind(TENANT, key, "hash-original")).isEmpty();
+        assertThat(ttlStore.claimOrFind(TENANT, key, "hash-original"))
+                .as("pre-TTL retry must still see the original claim")
+                .isPresent();
+
+        movingClock.advance(Duration.ofMinutes(6));
+
+        assertThat(ttlStore.claimOrFind(TENANT, key, "hash-new"))
+                .as("post-TTL retry must be accepted as a fresh claim")
+                .isEmpty();
+
+        Optional<IdempotencyStore.IdempotencyRecord> peek =
+                ttlStore.claimOrFind(TENANT, key, "hash-new");
+        assertThat(peek).isPresent();
+        assertThat(peek.get().requestHash())
+                .as("the renewed claim carries the new hash, not the expired one")
+                .isEqualTo("hash-new");
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant instant;
+
+        MutableClock(Instant initial) {
+            this.instant = initial;
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        void advance(Duration d) {
+            this.instant = this.instant.plus(d);
+        }
     }
 }
