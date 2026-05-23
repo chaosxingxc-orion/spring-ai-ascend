@@ -286,6 +286,9 @@ def build_graph(repo: Path) -> dict:
         for target in data.get("supersedes", []) or []:
             add_node(target, "adr")
             add_edge(aid, target, "supersedes")
+        for target in data.get("supersedes_partial", []) or []:
+            add_node(target, "adr")
+            add_edge(aid, target, "supersedes_partial")
         for target in data.get("extends", []) or []:
             add_node(target, "adr")
             add_edge(aid, target, "extends")

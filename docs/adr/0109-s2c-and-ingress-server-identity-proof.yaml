@@ -110,3 +110,4 @@ references: |
   - ADR-0088 (S2cCallbackEnvelope canonical owner)
   - ADR-0089 (IngressEnvelope canonical owner — H8 sibling)
   - docs/contracts/s2c-callback.v1.yaml + docs/contracts/ingress-envelope.v1.yaml
+  - docs/governance/key-distribution.yaml (W2 follow-up — not yet authored; required by Profile 2 `signed_jwt` `kid` resolution)

@@ -36,6 +36,18 @@ context: |
   at ingress-receiving orchestrator side; tracked in ADR-0109.
 
 decision: |
+  > **Current shipped state (rc34)**: live `RunController.get()` and
+  > `RunController.cancel()` at
+  > `agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java`
+  > collapse cross-tenant access into HTTP 404 `not_found` (legacy
+  > "architect guidance §9.4" behaviour). The 403 `tenant_mismatch` +
+  > WARN audit MDC declared below is the **W1 widening direction**,
+  > not the W0 shipped behaviour. Cutover is mechanical at the named
+  > W1 milestone (per `architecture-status.yaml#tenant_reauth_widening`).
+  > The pre-existing R-J sub-clause .b cancel path will be revisited
+  > in the same W1 wave; WARN+ audit emission on cancel/get is
+  > tracked there.
+
   **Tenant re-validation is the runtime invariant for EVERY Run-scoped
   endpoint, not just cancel.** Rule R-J sub-clause .b's wording is
   generalised to all `/v1/runs/{runId}/...` paths AND to background

@@ -12,6 +12,8 @@ kernel_cap: 8
 scope_surfaces:
   - "agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/**/*.java"
   - "agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency/**/*.java"
+  - "agent-service/src/main/java/com/huawei/ascend/service/task/**/*.java"
+  - "agent-service/src/main/java/com/huawei/ascend/service/session/**/*.java"
   - "agent-service/src/main/java/com/huawei/ascend/service/runtime/**/*.java (import scan)"
 kernel: |
   **Every persistent record under `agent-service/src/main/java/com/huawei/ascend/service/runtime/{runs,idempotency}/**/*.java` MUST declare a `String tenantId` validated by `Objects.requireNonNull` (sub-clause .a — Contract Spine Completeness; relocated from agent-runtime-core per ADR-0088). Every `Run.withStatus(newStatus)` MUST call `RunStateMachine.validate(this.status, newStatus)` (sub-clause .b — Run State Transition Validity). No production class under `service.runtime..` may import `service.platform..`; the original narrow `TenantContextHolder` ban is asserted independently as defence-in-depth (sub-clause .c — Tenant Propagation Purity).**

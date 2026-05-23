@@ -106,7 +106,9 @@ decision: |
     ADR-0021.
 
   Decision policy declared in
-  `docs/governance/dual-track-routing-policy.yaml` (W2 NEW).
+  `docs/governance/dual-track-routing-policy.yaml` (W2 follow-up — not
+  yet authored; will codify per-`InterruptType` Fast-Path/Slow-Path
+  routing thresholds + tenant-quota interactions).
 
   ## Part E — A2A as protocol boundary, NOT SDK pervasion (S4 reject)
 

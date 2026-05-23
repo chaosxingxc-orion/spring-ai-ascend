@@ -20,8 +20,12 @@ package com.huawei.ascend.service.engine.spi;
  * <p>Yield + SuspendSignal coexistence:
  * <ul>
  *   <li>{@link com.huawei.ascend.engine.orchestration.spi.SuspendSignal}
- *       (checked exception) remains canonical for state-machine
- *       suspension.</li>
+ *       (checked exception) is the current shipped canonical mechanism
+ *       for state-machine suspension. The forward direction is
+ *       value-based yield via a nullable {@code InterruptSignal}
+ *       carried on {@code StateDelta}; phased migration is governed by
+ *       the engine-stateless-executor value-based-yield decision (W0.5
+ *       parallel API → W1 call-site migration → W2 removal).</li>
  *   <li>{@code HookPoint.ON_YIELD} (added to engine-hooks.v1.yaml in
  *       rc22) is the cooperative-scheduling hint when the engine asks
  *       to be rescheduled without a state-machine transition.</li>

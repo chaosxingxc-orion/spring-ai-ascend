@@ -114,12 +114,14 @@ decision: |
   GraalVM Polyglot license: CE is GPL+CPE-compatible; our baseline
   remains GPL+CPE-compatible.
 
-  ## δ.11 — agent-runtime-core dissolution migration guide (W0)
+  ## δ.11 — agent-runtime-core dissolution migration guide (W2 follow-up)
 
-  NEW `docs/cross-cutting/agent-runtime-core-dissolution-migration.md`
-  documents rc13 dissolution (ADR-0088): 16 source files relocated,
-  Maven coords for consumers, deprecation timeline. Promised at
-  rc13; never written. Ships with this ADR wave.
+  `docs/cross-cutting/agent-runtime-core-dissolution-migration.md`
+  (W2 follow-up — not yet authored) documents rc13 dissolution
+  (ADR-0088): 16 source files relocated, Maven coords for consumers,
+  deprecation timeline. Originally promised at rc13; rc34 acknowledges
+  the gap and tracks authoring for the W2 wave alongside the other
+  cross-cutting docs in this ADR.
 
   ## δ.12 — Performance budget for hook + RLS + outbox (W2)
 
@@ -182,6 +184,12 @@ consequences: |
   - Dense ADR (10 decisions in one); mitigated by short-block-per-finding.
   - δ.10 + δ.16 grouped under one virtual-thread bucket; implementer
     must read full bucket. Cross-cutting doc is authoritative.
+  - 3 cross-cutting docs (`virtual-thread-pinning-hazards.md`,
+    `agent-runtime-core-dissolution-migration.md`,
+    `agent-client-wire-contract-compatibility.md`) tracked as W2
+    follow-ups; not authored in this ADR's wave. Reviewers reading
+    decision-section prose should treat these as forward references,
+    not present-tense deliverables.
 
   Compounding: net positive — clears feasibility-finding backlog
   without scope creep.
@@ -198,6 +206,6 @@ references: |
   - ARCHITECTURE.md §4 #28 / #4 / #13/21/25/36 / §3
   - ADR-0009, ADR-0017, ADR-0027, ADR-0028, ADR-0031, ADR-0058,
     ADR-0061, ADR-0063, ADR-0088
-  - docs/cross-cutting/virtual-thread-pinning-hazards.md (W2 NEW)
-  - docs/cross-cutting/agent-runtime-core-dissolution-migration.md (W0 NEW)
-  - docs/cross-cutting/agent-client-wire-contract-compatibility.md (W2 NEW)
+  - docs/cross-cutting/virtual-thread-pinning-hazards.md (W2 follow-up — not yet authored)
+  - docs/cross-cutting/agent-runtime-core-dissolution-migration.md (W2 follow-up — not yet authored; rc13 promise carries forward)
+  - docs/cross-cutting/agent-client-wire-contract-compatibility.md (W2 follow-up — not yet authored)

@@ -956,7 +956,7 @@
   level: L1
   view: development
   artifact: gate/check_architecture_sync.sh#contract_spine_tenant_id_required
-  asserts: "Every public record under agent-runtime-core/src/main/java/com/huawei/ascend/service/runtime/ declares a String tenantId component. Process-internal opt-out via 'scope: process-internal' reason comment."
+  asserts: "Every public record under agent-service/src/main/java/com/huawei/ascend/service/{runtime,task,session}/ declares a String tenantId component (relocated from agent-runtime-core per ADR-0088 rc13 dissolution; scope widened to task + session per rc34 audit closure). Process-internal opt-out via 'scope: process-internal' reason comment."
 
 - id: E106
   constraint_ref: "CLAUDE.md Rule R-J sub-clause .b (runlifecycle_cancel_reauthz_shipped); Wave 4 Track C"

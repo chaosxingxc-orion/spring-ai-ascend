@@ -149,5 +149,5 @@ references: |
   - Rule R-L
   - ADR-0017, ADR-0018, ADR-0027, ADR-0030, ADR-0061
   - docs/governance/sandbox-policies.yaml (Rule R-L SSOT)
-  - docs/governance/otlp-tenant-routing.yaml (W2 NEW)
-  - docs/governance/secret-lifecycle.yaml (W3 NEW)
+  - docs/governance/otlp-tenant-routing.yaml (W2 follow-up — not yet authored)
+  - docs/governance/secret-lifecycle.yaml (W3 follow-up — not yet authored)

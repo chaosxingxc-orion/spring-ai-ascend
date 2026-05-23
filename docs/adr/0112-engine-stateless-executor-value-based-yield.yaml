@@ -44,10 +44,22 @@ context: |
   (c) migration is phased W0.5 → W1 → W2.
 
 decision: |
-  ## Part A — Value-based yield primitive (W0.5+)
+  ## Part A — Value-based yield primitive (W0.5+ FORWARD direction)
 
-  `StatelessEngine.execute(...)` returns `Mono<StateDelta>` where
-  `StateDelta` carries a nullable `InterruptSignal`. No checked
+  > **Current shipped state (rc34)**: live
+  > `agent-service/src/main/java/com/huawei/ascend/service/engine/spi/StatelessEngine.java`
+  > returns `StateDelta` synchronously and takes a single
+  > `AgentInvokeRequest` parameter; the shipped `StateDelta` record
+  > has no `interruptSignal` field. The Mono+InterruptSignal shape
+  > declared below is the W0.5+ FORWARD direction; Part C governs
+  > the phased migration. Until Part C lands, `SuspendSignal` (checked
+  > exception, in `com.huawei.ascend.engine.orchestration.spi`)
+  > remains the current canonical suspension mechanism — that javadoc
+  > wording on `StatelessEngine.java` is correct for W0–rc34 reality
+  > and stays accurate until the W0.5 parallel API lands per Part C.
+
+  At W0.5+, `StatelessEngine.execute(...)` returns `Mono<StateDelta>`
+  where `StateDelta` carries a nullable `InterruptSignal`. No checked
   exception in SPI signature.
 
       package com.huawei.ascend.engine.spi;
