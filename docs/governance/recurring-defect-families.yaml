@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-23  # rc33 R2-closure + gate-perf wave-2 + Rule 39 list-form widening: documents-review R1+R2 surfaced refinement-introduces-regression pattern (5 R1 refinements closed targets but each opened 1 adjacent gap → ADR-0106 + ADR-0107 closures); gate-perf wave-2 hardened 19 rules against the per-file fork-loop anti-pattern (~50,000 forks eliminated, 6m14s → ~2m15s wall on WSL+/mnt/d/); Rule 39 widened to accept YAML list form for affects_level/affects_view (rebased proposals 2026-05-22-agent-service-l1-expansion declare multi-level spans). All three deliverables respect Rule G-9.b freshness via this content-diff bump.
+last_updated: 2026-05-23  # rc34 follow-up + L1-proposal-response wave (commit 6d730521 + this corrective): rc34 adversarial review surfaced 5 additional manifestations of F-cross-authority-agreement (ADR-0112 Mono<StateDelta> vs shipped synchronous StatelessEngine.execute; ADR-0108 403/WARN tenant_mismatch vs shipped 404 silent in RunController; ADR-0114/0115/0111/0109 referencing 7 not-yet-authored cross-cutting/governance files as "Ships with this ADR wave" / "(W2 NEW)" / "(W0 NEW)"; gate/build_architecture_graph.py silently dropping ADR-0112's supersedes_partial: edge; E105 enforcer asserts text still citing dissolved agent-runtime-core path). All 5 are forms of authority-surface drift: ADR text vs shipped Java vs graph yaml vs enforcer text vs status-yaml baseline. Closed in commit 6d730521 (ADR prose revised; javadoc forward-direction note; supersedes_partial branch added; baseline_metrics bumped 464/826→466/829 in lockstep; Rule R-C.2.a scope_surfaces widened to service/task/** + service/session/**; E105 retargeted). Corrective commit (this) bumps F-cross-authority-agreement occurrences to reflect the rc34 follow-up observation, satisfying Rule G-9.b content-diff freshness; rc33+rc34+rc34-follow-up = 3 distinct waves in this family pattern.
 
 families:
   - id: F-numeric-drift
@@ -181,8 +181,8 @@ families:
   - id: F-cross-authority-agreement
     title: Cross-Authority Surface Disagreement
     first_observed_rc: rc14
-    last_observed_rc: rc34
-    occurrences: [rc14, rc15, rc16, rc33, rc34]
+    last_observed_rc: rc34-follow-up
+    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up]
     root_cause: |
       117+ single-surface prevention rules can all pass while the
       surfaces themselves contradict each other — e.g.
@@ -209,6 +209,48 @@ families:
       relative to each other across a wave-pair. Closure: rc34 fixes
       baseline_metrics 448→464 / 756→826 / adr_count 92→100 in
       lockstep with the 8 new ADR file additions.
+
+      **rc34-follow-up wave recurrence (2026-05-23, commit 6d730521).**
+      Adversarial review of rc34 branch found 5 additional forms of
+      cross-authority drift, all closed in the follow-up commit:
+      (1) ADR-0112 Part A declares `Mono<StateDelta>` value-based-yield
+      SPI but shipped `StatelessEngine.java` returns synchronous
+      `StateDelta` and its javadoc declared the opposite direction —
+      closed by ADR prose "Current shipped state" callout + javadoc
+      forward-direction reference.
+      (2) ADR-0108 declares 403 `tenant_mismatch` + WARN audit on
+      GET/cancel but live `RunController` returns 404 silently with
+      no audit emission — closed by ADR prose W1 widening direction
+      clarification.
+      (3) ADR-0114 / ADR-0115 / ADR-0111 / ADR-0109 reference 7
+      not-yet-authored cross-cutting + governance files
+      (`virtual-thread-pinning-hazards.md`,
+      `agent-runtime-core-dissolution-migration.md`,
+      `agent-client-wire-contract-compatibility.md`,
+      `otlp-tenant-routing.yaml`, `secret-lifecycle.yaml`,
+      `key-distribution.yaml`, `dual-track-routing-policy.yaml`) as
+      "Ships with this ADR wave" / "(W2 NEW)" / "(W0 NEW)" prose —
+      closed by revising to "(W2 follow-up — not yet authored)" /
+      "(W3 follow-up — not yet authored)" prose.
+      (4) `gate/build_architecture_graph.py` silently dropped
+      ADR-0112's `supersedes_partial: [ADR-0019]` edge — closed by
+      adding `supersedes_partial` branch at line 286; surfaces 2 nodes
+      + 3 edges previously invisible; baseline_metrics lockstep bump
+      464/826 → 466/829.
+      (5) Rule R-C.2.a `scope_surfaces:` excluded
+      `service/task/**` + `service/session/**` even though `Task.java`
+      voluntarily self-validates `tenantId`; E105 enforcer `asserts:`
+      text cited dissolved `agent-runtime-core` path — closed by
+      scope widening + path retargeting.
+
+      The rc34-follow-up wave demonstrates the family's recurrence
+      pattern operates at TWO scales: cross-wave (rc33→rc34 ADR-shipped
+      after status-yaml row references it) AND in-wave (rc34 ADR text
+      asserts present-tense delivery for documents that don't exist
+      in the same commit). Strengthens the case for a W2 ADR
+      frontmatter-schema validation pass (rejects unknown top-level
+      keys like `supersedes_partial:` until graph builder adds branch;
+      asserts every `references:` path resolves on disk).
     surfaces:
       - docs/governance/architecture-status.yaml
       - docs/governance/architecture-graph.yaml

@@ -53,7 +53,7 @@ authority_refs: [ADR-0094]
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 8 | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 4 | ⚠️ partial |
-| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 5 (rc14, rc15, rc16, rc33, rc34) | ✅ structurally addressed (rc14-16; rc33+rc34 forward-pointing-reference recurrence closed in lockstep) |
+| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 6 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up) | ✅ structurally addressed (rc14-16; rc33+rc34 forward-pointing-reference recurrence closed in lockstep; rc34-follow-up adversarial-review surfaced 5 in-wave authority-drift manifestations, all closed in commit 6d730521) |
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 3 | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
@@ -184,11 +184,18 @@ is necessary but not sufficient.
 
 **Prevention chronology.** Rule 106 (rc14) → Rule G-8 (rc14 mega-rule,
 4 sub-checks) → Rule G-8.e (rc15) → Rule 107 (rc16 clause parity) →
-Rule 108 (rc16 java anchor truth) → Rule 109 (rc16 namespaced ref).
+Rule 108 (rc16 java anchor truth) → Rule 109 (rc16 namespaced ref) →
+rc34-follow-up adds in-wave manifestation evidence (ADR text vs shipped
+Java; ADR `references:` paths not on disk; graph-builder dropping unknown
+ADR-relationship keys) — strengthens the case for a W2 ADR
+frontmatter-schema validation pass.
 
 **Open residual.** Every new rule MUST enumerate its authority surfaces.
 Drift will reappear only if a rule introduces a new surface without
-declaring it (Rule 110 META + Rule G-9 freshness gate).
+declaring it (Rule 110 META + Rule G-9 freshness gate). rc34-follow-up
+recurrence shows the pattern operates at TWO scales: cross-wave (rc33→rc34
+follow-up commits) AND in-wave (single commit asserting present-tense
+delivery for unauthored documents).
 
 ---
 
