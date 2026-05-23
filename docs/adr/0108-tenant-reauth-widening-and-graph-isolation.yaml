@@ -1,0 +1,113 @@
+id: ADR-0108
+title: "Tenant re-authorization widening (read + resume) + GraphMemoryRepository tenant-scoped traversal"
+status: accepted
+date: 2026-05-23
+level: L0
+view: process
+affects_level: L0, L1
+affects_view: process, logical
+authors:
+  - chao
+relates_to:
+  - ADR-0023
+  - ADR-0034
+  - ADR-0082
+extends:
+  - Rule-R-J
+context: |
+  The 2026-05-22 architecture-design document-review R1 security-lens
+  persona surfaced two related tenant-isolation gaps not codified in
+  any existing ADR; both are deferred-design closures (architecture
+  intent only; implementation lands at named W-waves).
+
+  γ.1 — Tenant re-authorization only for cancel. Rule R-J sub-clause .b
+  requires `POST /v1/runs/{runId}/cancel` to re-validate
+  `request.tenantId == Run.tenantId` with HTTP 403 `tenant_mismatch`.
+  The read endpoint (`GET /v1/runs/{runId}`, W1) and resume endpoint
+  (`POST /v1/runs/{runId}/resume`, W2) currently rely on "tenant-scoped
+  query returns 404 if Run belongs to a different tenant" — an
+  existence oracle distinguishable via timing + idempotency-key
+  conflict (W2).
+
+  γ.6 — GraphMemoryRepository has no codified tenant-isolation mechanism
+  for graph traversals. Cypher injection + per-adapter ad-hoc isolation
+  selection is the documented gap. Hidden adjacent: IngressEnvelope
+  (`docs/contracts/ingress-envelope.v1.yaml`) likely shares the gap
+  at ingress-receiving orchestrator side; tracked in ADR-0109.
+
+decision: |
+  **Tenant re-validation is the runtime invariant for EVERY Run-scoped
+  endpoint, not just cancel.** Rule R-J sub-clause .b's wording is
+  generalised to all `/v1/runs/{runId}/...` paths AND to background
+  consumers resolving Runs by id (orchestrator resume tick,
+  S2C-callback receiver, watchdog).
+
+  **W1 widening (read + resume).**
+  - `GET /v1/runs/{runId}` — 403 `tenant_mismatch` on mismatch (NOT
+    404). Row-existence checked independently from tenant scope;
+    `RunRepository.findById(runId)` returns the raw row; controller
+    compares tenant before serialising.
+  - `POST /v1/runs/{runId}/resume` (W2) — same shape; tenant-mismatch
+    check BEFORE idempotency dedup so cross-tenant resume can't
+    poison resume cursor.
+  - Background consumers MUST log `WARN+` with structured MDC
+    `(currentTenantId, expectedTenantId, runId, surface, reason)`
+    and abort the operation.
+
+  **GraphMemoryRepository tenant-scoped traversal (W2 contract).**
+  Every `find*` / `query*` method MUST accept `tenantId` AND enforce
+  scope at the QUERY surface. Adapters pick one of three named
+  strategies declared in `module-metadata.yaml#graph_isolation_strategy`:
+
+  1. `predicate_injection` — adapter rewrites query to inject
+     `WHERE n.tenantId = $tenantId`. Reference pattern for
+     Cypher-aware adapters (Graphiti, Neo4j).
+  2. `label_namespacing` — adapter prefixes labels with
+     `<tenantId>__`. Reference for adapters without rewrite capability.
+  3. `database_isolation` — adapter routes each tenant to a separate
+     physical graph DB. Reference for high-isolation (FSI W3+).
+
+  ArchUnit `GraphMemoryTenantIsolationContractTest` (W2) asserts
+  every concrete `GraphMemoryRepository` declares a non-null
+  strategy.
+
+  **Audit shape (shared with Rule R-J .b + ADR-0053/0107):**
+
+      level: WARN
+      message: tenant_mismatch
+      mdc: { surface, runId, expectedTenant, actualTenant, reason, occurredAt }
+
+consequences: |
+  Positive:
+  - Closes γ.1 + γ.6 + H8 ingress sibling (latter via ADR-0109).
+  - Eliminates timing-side-channel oracle on read endpoint.
+  - Graph adapters declare isolation strategy at startup — eliminates
+    adapter-author drift.
+  - Audit MDC unifies across cancel + read + resume + graph + spawn.
+
+  Negative:
+  - Read endpoint 404 → 403 is a behavioural change visible to client
+    SDKs. agent-client SDK error mapping (ADR-0115) MUST distinguish.
+  - Graph adapter authors lose freedom to switch strategies per call.
+
+  Compounding: positive — future tenant-boundary additions reuse the
+  unified audit MDC schema.
+
+alternatives_considered: |
+  - (A) Keep cancel-only re-auth; rely on tenant-scoped queries —
+    rejected per γ.1 existence-oracle vulnerability.
+  - (B) Always 404 on tenant mismatch (preserve oracle deliberately) —
+    rejected; oracle leaks via timing.
+  - (C) Per-adapter ad-hoc strategy — rejected; implicit selection
+    causes adapter-author drift.
+  - (D) Force all graph adapters to use database_isolation — rejected;
+    physical isolation expensive for non-FSI verticals; reserved for
+    FSI W3+ vertical ADR.
+
+references: |
+  - ARCHITECTURE.md §4 #22 + §4 #37 + Rule R-J sub-clause .b
+  - ADR-0023 (TenantContext SPI)
+  - ADR-0034 (Graphiti reference adapter)
+  - ADR-0082 (GraphMemoryRepository canonical owner)
+  - docs/contracts/openapi-v1.yaml (read + resume routes, W1+)
+  - docs/logs/reviews/2026-05-22-architecture-design-document-review-r1-r2.en.md §"R1 still-open security-lens cluster"

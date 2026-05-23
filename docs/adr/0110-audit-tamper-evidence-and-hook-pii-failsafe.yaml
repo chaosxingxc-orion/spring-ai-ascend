@@ -1,0 +1,121 @@
+id: ADR-0110
+title: "Audit log tamper-evidence (per-tenant hash-chain + Merkle anchor) + Hook PII failsafe carve-out via @SafetyCritical"
+status: accepted
+date: 2026-05-23
+level: L0
+view: logical
+affects_level: L0, L1
+affects_view: logical, process
+authors:
+  - chao
+relates_to:
+  - ADR-0017
+  - ADR-0061
+  - ADR-0073
+  - ADR-0100
+extends:
+  - Rule-R-M
+context: |
+  R1 security-lens surfaced two adjacent gaps about evidence
+  integrity and PII handling.
+
+  γ.2 — Audit log not tamper-evident at W2. Current design (ADR-0017
+  + ADR-0061) writes audit events to mutable Postgres rows + OTLP
+  exporter. For Audience C (FSI W3+ vertical) and honest-broker
+  compliance, tamper-evidence is table-stakes.
+
+  γ.4 — Hook chain failsafe treats PII redaction as best-effort. The
+  Wave 2 §4 #16 rewrite codifies two-level failure semantics (fail-fast
+  inside chain, failsafe at invocation boundary). With default
+  failsafe, a `PiiRedactionHook` returning `HookOutcome.Fail` still
+  proceeds to the LLM call — sending raw PII to the model provider.
+  This is wrong; the fix is an EXPLICIT CARVE-OUT for safety-critical
+  hooks, not a re-default of failsafe.
+
+decision: |
+  ## Part 1 — Audit tamper-evidence (γ.2)
+
+  **Audit events MUST be written as a per-tenant hash-chain anchored
+  to a periodic Merkle root.**
+
+  - `run_audit_event` row gains W2 columns:
+    - `chain_prev_hash` BYTEA (NOT NULL except first row per tenant) —
+      SHA-256 of prior row's canonical-serialized contents.
+    - `chain_self_hash` BYTEA (NOT NULL) — SHA-256 of own contents
+      (excluding `chain_self_hash` itself).
+  - Hourly batch job (configurable) computes per-tenant Merkle root
+    over `chain_self_hash` values in the past hour; writes to
+    `audit_merkle_anchor` table. W3+: optional cross-publish to
+    external CT log for FSI vertical.
+  - Verification: `AuditChainVerifier.verify(tenantId, fromTime,
+    toTime)` walks chain segment + Merkle anchors.
+  - Tampering detection: chain mismatch raises `AuditChainBroken`;
+    runtime emits CRITICAL audit + blocks further writes for that
+    tenant until operator unblocks (forensic preservation).
+
+  ## Part 2 — Hook PII redactor failsafe carve-out (γ.4)
+
+  **Safety-critical hooks declare themselves via `@SafetyCritical`
+  on `RuntimeMiddleware` implementations.** When such a hook returns
+  `HookOutcome.Fail`, the dispatcher SHORT-CIRCUITS the surrounding
+  invocation regardless of default failsafe:
+
+  - Engine receives `EngineInvocationAborted(reason)` instead of LLM
+    response.
+  - Run transitions FAILED with
+    `terminalReason = "safety_critical_hook_failed:<hookId>"`.
+  - Audit event MDC carries hook id + reason; chain-bound per Part 1.
+
+  Reference safety-critical hooks (W2 reference-hook ship):
+  - `PiiRedactionHook` (`BEFORE_LLM_INVOCATION`)
+  - `ToolAuthorizationHook` (`BEFORE_TOOL_INVOCATION`)
+  - `OutboundContentClassifierHook` (`BEFORE_LLM_INVOCATION`)
+
+  Non-safety-critical (token counter, cost attribution, observability
+  emitters) retain default failsafe.
+
+  ArchUnit `SafetyCriticalHookDeclarationTest` asserts:
+  (a) `@SafetyCritical` only on `BEFORE_*` hook positions
+  (b) every PII / authz / classifier hook in reference set carries it
+  See ADR-0113 for `ON_ERROR` exclusion.
+
+  Operator escape-hatch: `posture=dev` MAY override short-circuit to
+  `WARN+proceed`. `posture=research|prod` MUST honor.
+
+consequences: |
+  Positive:
+  - γ.2 closed by deterministic verifier walk; mutability detection
+    no longer trusts the database.
+  - γ.4 closed by named carve-out — failsafe default preserved for
+    observability hooks; PII / authz / classifier get fail-closed.
+  - Reuses ADR-0017 trace_store — single audit table, two integrity
+    layers.
+
+  Negative:
+  - Chain + Merkle adds ~50 bytes per audit row + hourly batch job.
+    Perf cost tracked in ADR-0114 (δ.12).
+  - Legitimate audit row edits (GDPR redaction) require
+    `AuditChainRebuilder` (W3); in-place UPDATE breaks chain by
+    design.
+  - `@SafetyCritical` requires hook authors to pick fail-closed vs
+    failsafe per hook. ArchUnit + reference-set check reduces risk.
+
+  Compounding: positive — chain+Merkle pattern reusable for W3
+  RunRegistry ancestor-chain attestation (ADR-0107).
+
+alternatives_considered: |
+  - (A) Trust the database; rely on operator policy — rejected per
+    FSI vertical compliance.
+  - (B) Append-only WAL as integrity surface — rejected; WAL
+    retention operator-configurable; doesn't bind per-tenant.
+  - (C) Cross-publish every event to external CT log — rejected
+    for W2 (latency); periodic Merkle anchor is the CT-log pattern.
+  - (D) All hooks fail-closed by default — rejected; observability
+    failures shouldn't abort LLM calls.
+  - (E) Per-call config flag for PII fatality — rejected; hook
+    knows its own fatality, caller doesn't.
+
+references: |
+  - ARCHITECTURE.md §4 #16 + §0.5.3 Telemetry Vertical
+  - ADR-0017, ADR-0061, ADR-0073, ADR-0100
+  - docs/contracts/engine-hooks.v1.yaml

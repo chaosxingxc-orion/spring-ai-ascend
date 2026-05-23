@@ -1,0 +1,117 @@
+id: ADR-0113
+title: "Hook chain — two-level failure semantics (chain fail-fast + invocation failsafe) + @Order tie-break determinism"
+status: accepted
+date: 2026-05-23
+level: L0
+view: process
+affects_level: L0, L1
+affects_view: process, logical
+authors:
+  - chao
+relates_to:
+  - ADR-0073
+  - ADR-0100
+  - ADR-0110
+extends:
+  - ADR-0073
+context: |
+  R1 feasibility surfaced two findings about hook-chain semantics:
+
+  δ.5 — Hook chain ordered+failsafe wording self-contradicts.
+  Pre-Wave-2 L0 §4 #16: "chain is ordered and failsafe (does not
+  abort the invocation)". L1 agent-middleware §3: "fail-fast inside
+  the dispatcher chain". Read literally, contradictory.
+
+  Wave 2 §4 #16 rewrite reconciled to two-level semantics. ADR-0110
+  introduces `@SafetyCritical` for hooks whose Fail MUST short-circuit
+  invocation (PII / authz / classifier).
+
+  δ.8 — `@Order` tie-break undefined. Spring's default OrderComparator
+  uses bean name fallback (implementation-detail-dependent, unstable
+  across Spring versions).
+
+  This ADR codifies the §4 #16 wording at ADR level + adds explicit
+  tie-break algorithm.
+
+decision: |
+  ## Part A — Two-level failure semantics (formalized)
+
+  Hook chain has TWO independent failure-propagation scopes:
+
+  | Scope | Default | Override | Today / Target |
+  |---|---|---|---|
+  | Chain (within one HookPoint) | `fail_fast` | `on_error` is `best_effort` per `engine-hooks.v1.yaml` | Wired today (rc22+) |
+  | Invocation (LLM/tool call boundary) | `failsafe` (W0/W2.x) | `@SafetyCritical` per ADR-0110 | Today: Fail discarded. Target (Rule R-M.c.b / W2 Telemetry): Fail → Run.FAILED, ShortCircuit → engine bypass |
+
+  Both terms used honestly:
+  - "ordered" = registration order; lower `@Order` first; BEFORE_*
+    ascending, AFTER_* reverse (LIFO unwind).
+  - "failsafe" = at invocation boundary, NOT chain boundary.
+
+  Triple-source-of-truth (parity enforced by Rule G-8):
+  1. ARCHITECTURE.md §4 #16 (L0 kernel, post-Wave-2)
+  2. agent-middleware/ARCHITECTURE.md §3 (L1 expanded prose)
+  3. docs/contracts/engine-hooks.v1.yaml#failure_propagation
+     (canonical YAML)
+
+  ## Part B — `@Order` tie-break determinism
+
+  When two hooks declare same `@Order`, dispatch order is
+  `Class.getName()` lexicographic ascending.
+
+  `HookDispatcher.sort(...)` uses:
+
+      Comparator.comparingInt(@Order).thenComparing(c -> c.getClass().getName())
+
+  Rationale:
+  - `Class.getName()` deterministic across JVMs (FQN).
+  - Lexicographic stable.
+  - Bean name NOT used; user-chosen, unstable across configs.
+  - Predictable for hook authors who name classes thoughtfully.
+
+  Documented in `agent-middleware/ARCHITECTURE.md` §3; enforced at
+  runtime + tested via `HookOrderTieBreakDeterminismTest` (W2).
+
+  ## Part C — `ON_ERROR` exception case
+
+  `ON_ERROR` is `best_effort` per engine-hooks.v1.yaml — never
+  `fail-fast` inside chain. ENTIRE chain fires for every error;
+  outcomes aggregated "first non-Proceed wins"; `@SafetyCritical`
+  does NOT apply to `ON_ERROR` (error-handler short-circuit creates
+  infinite regress). ArchUnit `SafetyCriticalNotOnErrorHookTest`
+  asserts.
+
+consequences: |
+  Positive:
+  - Closes δ.5 + δ.8 with explicit non-contradictory wording at
+    L0 + L1 + canonical yaml.
+  - `Class.getName()` tie-break deterministic across JVMs + Spring
+    versions.
+  - Rule G-8 catches future re-drift across the 3 surfaces.
+
+  Negative:
+  - Hook authors relying on Spring's default bean-name fallback at
+    same @Order get different order. Mitigated by declaring @Order
+    values far apart in reference set + documenting algorithm.
+  - Two-level semantics requires hook AUTHORS to understand both
+    scopes. Documented prominently.
+
+  Compounding: positive — carve-out pattern (default + annotation
+  override) generalizes for future hook positions.
+
+alternatives_considered: |
+  - (A) All fail-fast (no failsafe) — rejected; observability hooks
+    would fail-stop LLM calls.
+  - (B) All failsafe — rejected; `ShortCircuit` outcome semantics
+    require chain-level fail-fast.
+  - (C) Tie-break by bean name — rejected per non-determinism.
+  - (D) Forbid duplicate @Order compile-time — rejected;
+    cross-module @Order collision can't be compile-time prevented.
+  - (E) Codify in yaml only without ADR — rejected; ADR makes
+    rationale reviewable.
+
+references: |
+  - ARCHITECTURE.md §4 #16 (Wave 2)
+  - agent-middleware/ARCHITECTURE.md §2 + §3
+  - ADR-0073, ADR-0100, ADR-0110
+  - docs/contracts/engine-hooks.v1.yaml#failure_propagation

@@ -1,0 +1,203 @@
+id: ADR-0114
+title: "Implementation feasibility batched closures (10 R1-feasibility findings)"
+status: accepted
+date: 2026-05-23
+level: L0
+view: process
+affects_level: L0, L1
+affects_view: process, logical, physical, development
+authors:
+  - chao
+relates_to:
+  - ADR-0009
+  - ADR-0017
+  - ADR-0027
+  - ADR-0028
+  - ADR-0031
+  - ADR-0058
+  - ADR-0061
+  - ADR-0063
+  - ADR-0088
+context: |
+  R1 feasibility + adversarial personas surfaced 10 distinct
+  W0–W2 implementation hazards, batched here because each closes
+  via a narrow contract-surface amendment (1-2 fields, 1
+  startup-gate, or 1 SPI doc update) with no cross-finding
+  alternatives.
+
+  Findings (response-file taxonomy IDs δ.X):
+  - δ.3 AppPostureGate fail-open on missing APP_POSTURE
+  - δ.4 Three-track Control vs Data ordering — client observes
+    NodeStarted after Terminal(CANCELLED)
+  - δ.6 Idempotency-Key 409 body shape undefined
+  - δ.7 CausalPayloadEnvelope FACT-tag producer-set, no attestation
+  - δ.9 MCP SDK 1.0.0 pin vs Spring AI 2.0-M5 transitive binding
+  - δ.10 + δ.16 GraalVM Polyglot + Postgres RLS + HikariCP
+    virtual-thread pinning
+  - δ.11 agent-runtime-core dissolution migration guide absent
+  - δ.12 Performance budget for hook + RLS + outbox stack (~19ms)
+  - δ.13 W2 IdempotencyStore GC / GDPR erasure plan
+  - δ.14 agent-client SDK W3+ vs current curl callers compatibility
+  - δ.15 Reference adapters opaque BeanCreationException diagnostic
+
+decision: |
+  ## δ.3 — AppPostureGate fail-open (W0.5)
+
+  When `APP_POSTURE` env unset, `AppPostureGate` MUST emit structured
+  `WARN+missing_app_posture_defaults_to_dev` audit + fail-closed
+  under `posture=research|prod`. Spring property `app.posture`
+  fallback only at `dev|test` profile. In `research|prod` profile
+  with both env + property missing: throw `BeanCreationException`
+  with actionable message.
+
+  Test: `AppPostureGateRequiredInProdTest`.
+
+  ## δ.4 — Three-track Control vs Data ordering (W2)
+
+  ARCHITECTURE.md §4 #28 extended with ordering invariant: terminal
+  Control events (`Terminal(CANCELLED|SUCCEEDED|FAILED|EXPIRED)`)
+  MUST drain Data channel before delivery. W2 transport buffers
+  Data per-Run; orchestrator emits Terminal only after drain.
+
+  Test: `ThreeTrackTerminalDrainOrderingIT`.
+
+  ## δ.6 — Idempotency-Key 409 body shape (W1)
+
+  `docs/contracts/openapi-v1.yaml` defines canonical 409 shape:
+
+      Idempotency409Response:
+        required: [code, message, conflict_kind, original_request_fingerprint]
+        properties:
+          code: { const: "idempotency_conflict" }
+          conflict_kind: { enum: [same_key_different_payload, replay_after_completion, replay_in_flight] }
+          original_request_fingerprint: { type: string, description: "sha256 hex of canonical-serialized original request" }
+
+  Test: `IdempotencyConflictResponseShapeIT`.
+
+  ## δ.7 — CausalPayloadEnvelope FACT-tag attestation (W0 doc)
+
+  `docs/contracts/causal-payload-envelope.v1.yaml` clarified: `tag:
+  FACT` is producer-asserted, NOT cryptographically attested.
+  Acceptable in W0/W1/W2 single-tenant single-deployment context;
+  cross-tenant / cross-instance (W3+ federation) requires signing
+  per ADR-0109 server-identity profile.
+
+  Documentation amendment only at W0; signed attestation at W3+.
+
+  ## δ.9 — MCP SDK pin vs Spring AI 2.0-M5 binding (W0)
+
+  BoM `spring-ai-ascend-dependencies` explicitly pins:
+  - `io.modelcontextprotocol.sdk:mcp:1.0.0`
+  - `org.springframework.ai:spring-ai-bom:2.0.0-M5`
+  + resolution rule in `docs/cross-cutting/oss-bill-of-materials.md`
+  §3.1 (Spring AI milestone footnote).
+
+  Re-evaluate at 2026-08-01 (ARCHITECTURE.md §3 gate).
+
+  Test: `BomMcpSdkVersionPinningIT` (reads effective POM).
+
+  ## δ.10 + δ.16 — Virtual-thread pinning hazards (W2 doc; W3 impl)
+
+  `docs/cross-cutting/virtual-thread-pinning-hazards.md` documents:
+
+  1. GraalVM Polyglot Context pins to carrier thread → W3
+     `GraalVMSandboxExecutor` MUST use bounded platform-thread pool,
+     NOT virtual-thread carriers. ArchUnit
+     `GraalVmContextThreadingTest`.
+  2. Postgres JDBC + HikariCP pins virtual threads in JDK 21 → W2
+     orchestrator uses `R2dbcEntityTemplate` only; Rule R-G
+     already forbids `JdbcTemplate` in runtime.
+  3. Postgres RLS + connection pooling: R2DBC connection pool sets
+     per-connection variables on acquire; Hikari incompatible at
+     virtual-thread scale.
+
+  GraalVM Polyglot license: CE is GPL+CPE-compatible; our baseline
+  remains GPL+CPE-compatible.
+
+  ## δ.11 — agent-runtime-core dissolution migration guide (W0)
+
+  NEW `docs/cross-cutting/agent-runtime-core-dissolution-migration.md`
+  documents rc13 dissolution (ADR-0088): 16 source files relocated,
+  Maven coords for consumers, deprecation timeline. Promised at
+  rc13; never written. Ships with this ADR wave.
+
+  ## δ.12 — Performance budget for hook + RLS + outbox (W2)
+
+  `docs/governance/dfx/agent-service.yaml` adds:
+
+      performance_budget:
+        per_llm_call_overhead_p99_ms:
+          hook_chain_overhead: 5
+          rls_query_overhead: 3
+          outbox_publish_overhead: 4
+          audit_chain_overhead: 2          # ADR-0110
+          telemetry_emit_overhead: 5
+          total_overhead_budget_ms: 19
+        measurement_wave: W2
+        instrument: "JMH micro-benchmark per overhead component"
+
+  Reconciles with R1 reviewer estimate. >20% over → blocks W2 per
+  Rule R-B regression.
+
+  Test: `OverheadBudgetEnforcementJMH`.
+
+  ## δ.13 — IdempotencyStore GC / GDPR (W2 + W3)
+
+  Postgres `idempotency_keys` (W2 per ADR-0027) ships with:
+  1. TTL-based GC: rows older than `idempotency_ttl_days` (default
+     7) deleted by daily batch; configurable per tenant via
+     `tenant_idempotency_config`.
+  2. GDPR erasure-on-request: `POST /v1/tenants/{tenantId}/erase`
+     (W3+) deletes all idempotency rows for the tenant
+     immediately (full row delete, not tombstone).
+
+  Flyway `V<N>__idempotency_retention.sql` at W2.
+
+  ## δ.14 — agent-client SDK wire-contract compatibility (W2 doc)
+
+  NEW `docs/cross-cutting/agent-client-wire-contract-compatibility.md`
+  declares W3+ SDK compatibility matrix vs today's curl callers.
+  Breaking wire-contract changes bump `openapi-v1.yaml` major
+  version (v1 → v2) AND ship both versions in parallel for ≥1
+  W-wave.
+
+  ## δ.15 — Reference-adapter opaque BeanCreationException (W0.5)
+
+  Posture-gated reference adapters throw
+  `PostureGateFailure(adapterName, posture, requiredPosture, reason)`
+  (extends `BeanCreationException`) carrying structured fields +
+  Spring-Boot-banner-friendly toString + structured diagnostic at
+  `META-INF/posture-gate-diagnostics.log`.
+
+  Test: `ReferenceAdapterPostureGateDiagnosticTest`.
+
+consequences: |
+  Positive:
+  - 10 findings close via 10 narrow contract-surface amendments.
+  - Per-wave testable; no cross-wave coupling.
+  - `docs/cross-cutting/` gains 3 horizontal docs (virtual-thread
+    hazards, runtime-core migration, agent-client wire compat).
+
+  Negative:
+  - Dense ADR (10 decisions in one); mitigated by short-block-per-finding.
+  - δ.10 + δ.16 grouped under one virtual-thread bucket; implementer
+    must read full bucket. Cross-cutting doc is authoritative.
+
+  Compounding: net positive — clears feasibility-finding backlog
+  without scope creep.
+
+alternatives_considered: |
+  - (A) Per-finding ADRs (10 files) — rejected; finding scope too
+    narrow per-finding.
+  - (B) Defer δ.4 + δ.10 + δ.12 to W2 — rejected; design-only
+    decisions surface ahead of implementation per Rule G-9 lesson.
+  - (C) Batch by W-wave — rejected; spreads same finding across ADRs
+    (δ.13 W2+W3).
+
+references: |
+  - ARCHITECTURE.md §4 #28 / #4 / #13/21/25/36 / §3
+  - ADR-0009, ADR-0017, ADR-0027, ADR-0028, ADR-0031, ADR-0058,
+    ADR-0061, ADR-0063, ADR-0088
+  - docs/cross-cutting/virtual-thread-pinning-hazards.md (W2 NEW)
+  - docs/cross-cutting/agent-runtime-core-dissolution-migration.md (W0 NEW)
+  - docs/cross-cutting/agent-client-wire-contract-compatibility.md (W2 NEW)

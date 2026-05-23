@@ -1,0 +1,112 @@
+id: ADR-0109
+title: "S2C callback + ingress envelope — server-identity proof (mTLS fingerprint or signed JWT)"
+status: accepted
+date: 2026-05-23
+level: L0
+view: physical
+affects_level: L0, L1
+affects_view: physical, logical, process
+authors:
+  - chao
+relates_to:
+  - ADR-0074
+  - ADR-0088
+  - ADR-0089
+extends:
+  - ADR-0074
+context: |
+  R1 security-lens γ.3 surfaced that S2C callback envelope has no
+  documented server-identity proof beyond "Client response is
+  untrusted external input. Runtime MUST validate response"
+  (`docs/contracts/s2c-callback.v1.yaml:94`). The IngressEnvelope
+  sibling surface (H8 self-audit) shares the same gap.
+
+  Threat decomposition:
+  1. Transport identity (TLS peer) — solved by mTLS or JWT-at-edge.
+  2. Envelope integrity (payload tamper / replay between TLS
+     termination and runtime admission) — NOT solved by transport
+     layer alone.
+
+  γ.3 + H8 are envelope-integrity gaps, not transport-identity gaps.
+
+decision: |
+  **Both S2C callback envelope and ingress envelope MUST carry an
+  application-layer server-identity proof, in addition to whatever
+  transport-layer auth is in place.** Two profiles, per-deployment
+  selection at startup:
+
+  Profile 1 — `mtls_fingerprint` (default; platform-controlled TLS):
+  envelope carries `sender_identity_fingerprint` = SHA-256 of
+  presented client-cert; runtime validates against TLS-context cert
+  hash.
+
+  Profile 2 — `signed_jwt` (proxy-tolerant; TLS may be terminated
+  upstream): envelope carries `sender_signature` JWT signed by
+  sender's private key (kid resolved via
+  `docs/governance/key-distribution.yaml`, W2 deliverable). Runtime
+  verifies signature + `aud` + `iat` within replay window (300s
+  default).
+
+  **Schema (appended to s2c-callback.v1.yaml + ingress-envelope.v1.yaml):**
+
+      sender_identity:
+        profile: mtls_fingerprint | signed_jwt
+        fingerprint_or_token: <hash hex | JWT compact>
+        fingerprint_or_token_format: sha256_hex | jwt_es256 | jwt_rs256
+        issued_at: <ISO-8601; required for jwt>
+        nonce: <opaque random; defeats replay>
+
+  Validation flow:
+  1. Read `profile` — missing → 401 `unsupported_identity_profile`.
+  2. mtls_fingerprint: compare to TLS cert hash → mismatch → 401.
+  3. signed_jwt: verify signature + aud + iat + nonce-dedup → 401
+     on any failure. Nonce dedup reuses IdempotencyStore mechanism
+     (ADR-0027).
+  4. Pass → admit envelope.
+
+  **W-wave plan:**
+  - W0-W1: schema declared; status `design_only`; runtime WARN if
+    block absent.
+  - W2: runtime-enforced; mTLS requires Spring Security mTLS
+    config; signed_jwt requires key-distribution.yaml + IdentityKey
+    SPI.
+  - W3+: nonce-dedup TTL hardened for FSI vertical (longer windows,
+    key rotation per ADR-0111).
+
+  **Audit MDC (shared schema):**
+
+      level: WARN
+      message: sender_identity_check_failed
+      mdc: { surface, profile, reason, runId?, nonce, occurredAt }
+
+consequences: |
+  Positive:
+  - Closes γ.3 + H8 simultaneously with single contract surface.
+  - Decouples transport-layer identity from envelope-layer integrity.
+  - Reuses ADR-0027 idempotency-dedup for nonce-replay — no new
+    persistence surface.
+  - Audit MDC shape unifies with cancel-mismatch + tenant-mismatch
+    + spawn-acyclicity.
+
+  Negative:
+  - Client SDKs producing un-signed envelopes WARN at W1, fail at W2;
+    SDK upgrade managed via ADR-0114 wire-contract plan (δ.14).
+  - Key distribution surface (W2 prereq) tracked in CLAUDE-deferred.
+
+alternatives_considered: |
+  - (A) Transport-layer mTLS only — rejected; upstream TLS terminators
+    strip client cert, leaving app layer unauthenticated.
+  - (B) Force signed_jwt only — rejected; mTLS deployments lose
+    simpler key story.
+  - (C) Shared-secret HMAC — rejected; doesn't scale to multi-tenant
+    federation per ADR-0107.
+  - (D) Defer to W3+ federation wave — rejected; S2C surface is
+    already in design area; leaving open propagates false confidence.
+
+references: |
+  - ARCHITECTURE.md §4 #4 + §4 #28
+  - Rule R-J sub-clause .b (audit MDC shape)
+  - ADR-0074 (S2cCallback contract)
+  - ADR-0088 (S2cCallbackEnvelope canonical owner)
+  - ADR-0089 (IngressEnvelope canonical owner — H8 sibling)
+  - docs/contracts/s2c-callback.v1.yaml + docs/contracts/ingress-envelope.v1.yaml

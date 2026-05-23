@@ -1,0 +1,153 @@
+id: ADR-0111
+title: "Sandbox W2-W3 startup gate + Vault rotation policy + OTLP per-tenant binding + Outbox replay safety"
+status: accepted
+date: 2026-05-23
+level: L0
+view: physical
+affects_level: L0, L1
+affects_view: physical, logical, process
+authors:
+  - chao
+relates_to:
+  - ADR-0017
+  - ADR-0018
+  - ADR-0027
+  - ADR-0030
+  - ADR-0061
+extends:
+  - Rule-R-L
+context: |
+  R1 security-lens surfaced four adjacent infrastructure-level gaps
+  sharing a "secret / sensitive-data leakage at subsystem boundary"
+  root cause. Batched because they share W-wave milestones (W2/W3)
+  and audit MDC shape.
+
+  γ.5 — UNTRUSTED skills route through `NoOpSandboxExecutor` W2→W3
+  (Skill SPI ships W2, Rule R-L.b SandboxExecutor impl deferred to
+  W3). NoOpSandboxExecutor appears in 9 files; the W2-W3 routing
+  window is documented but not codified.
+
+  γ.7 — OTLP/Langfuse cross-tenant data hub risk. Single global
+  exporter aggregates traces from different tenants in one pipeline;
+  isolation depends on Langfuse project boundaries + attribute
+  filtering — both vulnerable to misconfiguration.
+
+  γ.8 — Vault appears in 20 files; no file specifies rotation cadence,
+  key-roll procedure, or LLM provider credential lifecycle.
+
+  γ.9 — Outbox at-least-once + sensitive payload replay. If a payload
+  carries LLM output (post-LLM-response, not just pre-LLM redacted
+  input), at-least-once replay re-delivers sensitive data AFTER
+  GDPR erasure requests.
+
+decision: |
+  ## Part A — Sandbox W2-W3 startup gate (γ.5)
+
+  At W2 startup, `SandboxRoutingGuard` cross-checks registered
+  skills' `executionLevel` against active `SandboxExecutor` binding:
+  - posture=dev: `WARN+` audit `untrusted_skill_with_noop_sandbox`,
+    proceed.
+  - posture=research|prod: throw `BeanCreationException` with
+    actionable diagnostic ("skill X is UNTRUSTED; SandboxExecutor
+    impl is NoOp; promote to W3 SandboxExecutor or downgrade skill").
+
+  Operationalizes the W3 Rule R-L.b startup gate at W2 — UNTRUSTED
+  skills cannot register until W3 SandboxExecutor capability lands.
+
+  ## Part B — OTLP per-tenant exporter binding (γ.7)
+
+  Trace export MUST be per-tenant routed.
+  - `TenantOtlpExporterBinding` SPI maps `tenantId → OTLP endpoint
+    + auth` via `docs/governance/otlp-tenant-routing.yaml` (W2).
+  - Default routing for un-named tenants: shared exporter with
+    explicit cross-tenant attribute filtering + `tenant_isolation_warning`
+    field on every span.
+  - `LlmSpanEmitterHook` consults binding before emitting; binding
+    miss at posture=prod fails closed with audit
+    `otlp_tenant_binding_missing`.
+  - ArchUnit `TenantOtlpExporterBindingTest` (W2) asserts every
+    concrete exporter honors tenant routing.
+
+  ## Part C — Vault rotation + LLM credential lifecycle (γ.8)
+
+  All long-lived secrets declared in `docs/governance/secret-lifecycle.yaml`
+  (W3 deliverable):
+
+      secret_id: <stable id>
+      surface: vault | env | config-server
+      rotation_cadence_days: <int>     # 0 = static
+      rotation_grace_days: <int>       # overlap window
+      on_leak_procedure: <runbook URL>
+      active_consumers: [<service-id>]
+
+  At W2 platform pipes Vault via `spring-cloud-vault` with
+  `refresh-interval` configured; rotation policy enforcement at W3.
+  Missing rotation policy for known long-lived secret → startup
+  gate failure (analogous to Part A).
+
+  LLM provider credentials are a subset: `secret_id =
+  llm-provider-{openai|anthropic|...}-api-key`. LLM gateway SPI (W2)
+  tolerates rotation without in-flight disruption via token-bucket
+  preflight + cache-refresh at `rotation_cadence × 0.5`.
+
+  ## Part D — Outbox replay safety (γ.9)
+
+  `OutboxPayload` envelope carries `replaySafetyPolicy` declared per
+  payload type:
+
+  1. `replay_idempotent` — default for system events (Run.transitioned).
+     Consumer dedups by event-id.
+  2. `replay_redact_on_resend` — default for payloads with LLM output /
+     user input / tool args. Replay emits with sensitive fields
+     `<REDACTED>`.
+  3. `replay_suppress_after_ttl` — default for ephemeral / high-sensitivity
+     payloads (auth tokens, S2C callback responses). No replay after
+     `ttl_seconds`.
+
+  `RunEventOutboxPublisher` (W2 SPI) honors policy at retry.
+
+  GDPR erasure (`POST /v1/tenants/{tenantId}/erase`, W3+): all rows
+  with `replay_redact_on_resend` or `replay_suppress_after_ttl`
+  immediately redacted/suppressed regardless of TTL.
+
+consequences: |
+  Positive:
+  - γ.5: explicit fail-closed gate at posture=research|prod.
+  - γ.7: per-tenant OTLP eliminates cross-tenant aggregation risk.
+  - γ.8: secret lifecycle becomes declared, not implicit.
+  - γ.9: replay policy decoupled from publisher mechanism.
+
+  Negative:
+  - 4 new yamls (sandbox routing state, tenant OTLP routing, secret
+    lifecycle, outbox replay declarations) — Audience A governance
+    surface.
+  - W2 startup gate may force early adopters to downgrade skill
+    levels or wait for W3 SandboxExecutor. Documented in quickstart
+    W2 update.
+  - LLM gateway design (ADR-0009) needs amendment for in-flight
+    rotation; W2 follow-up.
+
+  Compounding: positive — each part establishes small SPI surface
+  reusable by future security-lens findings. One negative: Part C
+  overlaps with key-distribution from ADR-0109; W3 unification ADR
+  required.
+
+alternatives_considered: |
+  - (A) For γ.5: posture=dev WARN only — rejected; UNTRUSTED in prod
+    without sandbox is the threat.
+  - (B) For γ.7: rely on Langfuse-side filtering — rejected; pushes
+    trust downstream.
+  - (C) For γ.8: leave to operator runbooks — rejected; implicit
+    knowledge is the gap.
+  - (D) For γ.9: ban at-least-once outbox — rejected; exactly-once
+    not generally achievable.
+  - (E) Split into 4 ADRs — rejected; same W-wave + same audit MDC +
+    same threat family; batching keeps closure traceable.
+
+references: |
+  - ARCHITECTURE.md §4 #5 + §4 #32 + §0.5.3
+  - Rule R-L
+  - ADR-0017, ADR-0018, ADR-0027, ADR-0030, ADR-0061
+  - docs/governance/sandbox-policies.yaml (Rule R-L SSOT)
+  - docs/governance/otlp-tenant-routing.yaml (W2 NEW)
+  - docs/governance/secret-lifecycle.yaml (W3 NEW)

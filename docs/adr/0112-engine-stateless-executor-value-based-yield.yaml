@@ -1,0 +1,154 @@
+id: ADR-0112
+title: "Engine stateless executor — value-based yield (no checked exception); A2A InterruptType ↔ SuspendReason mapping"
+status: accepted
+date: 2026-05-23
+level: L0
+view: logical
+affects_level: L0, L1
+affects_view: logical, development, process
+authors:
+  - chao
+relates_to:
+  - ADR-0019
+  - ADR-0020
+  - ADR-0021
+  - ADR-0044
+  - ADR-0074
+  - ADR-0100
+  - ADR-0104
+supersedes_partial:
+  - ADR-0019  # checked-suspension doctrine — partially superseded
+extends:
+  - ADR-0100
+context: |
+  R1 feasibility δ.1 + the 2026-05-22 engine-friction-resolution L1
+  proposal both point at the same root cause: `SuspendSignal extends
+  Exception` is a checked exception that cannot cross Reactor /
+  CompletableFuture / Temporal-workflow boundaries cleanly.
+
+  Failure modes:
+  1. Reactor `.flatMap(...)` lambdas cannot declare `throws
+     SuspendSignal`; must wrap in `Mono.error(...)` — pollutes
+     onError channel intended for failures.
+  2. `CompletableFuture.supplyAsync` Supplier cannot declare checked
+     exception; same wrap-in-error pollution.
+  3. W4 Temporal workflows MUST be deterministic; checked exceptions
+     serialized as workflow history are non-deterministic across SDK
+     versions.
+
+  We accept engine-friction proposal §4.2 (abolish SuspendSignal in
+  favor of `Mono<StateDelta(InterruptSignal)>`) with three corrections:
+  (a) package root stays `com.huawei.ascend.engine.*` per ADR-0104;
+  (b) A2A InterruptType is wire-protocol vocab, SuspendReason is
+  internal-DFA vocab — both kept with mapping;
+  (c) migration is phased W0.5 → W1 → W2.
+
+decision: |
+  ## Part A — Value-based yield primitive (W0.5+)
+
+  `StatelessEngine.execute(...)` returns `Mono<StateDelta>` where
+  `StateDelta` carries a nullable `InterruptSignal`. No checked
+  exception in SPI signature.
+
+      package com.huawei.ascend.engine.spi;
+      public interface StatelessEngine {
+          Mono<StateDelta> execute(TaskSpec task, InjectedContext ctx);
+      }
+
+      public record StateDelta(
+          List<Message> newMessages,
+          Map<String,Object> updatedVars,
+          InterruptSignal interruptSignal      // null = completion
+      ) { }
+
+  Reactive error channel returns to its purpose: failures only.
+
+  ## Part B — A2A InterruptType ↔ SuspendReason mapping
+
+  A2A `InterruptType` is wire-protocol vocab (5 values per A2A spec):
+  `INPUT_REQUIRED` / `SUB_TASK_AWAIT` / `TOOL_EXECUTION` /
+  `DELAY_AWAIT` / `POLICY_APPROVAL`.
+
+  Internal `SuspendReason` is DFA vocab (7 cases per ADR-0019/0021/0044):
+
+  | SuspendReason | → A2A InterruptType |
+  |---|---|
+  | ChildRun | SUB_TASK_AWAIT |
+  | AwaitChildren(JoinPolicy) | SUB_TASK_AWAIT |
+  | AwaitClientCallback | INPUT_REQUIRED |
+  | AwaitTool | TOOL_EXECUTION |
+  | AwaitApproval | INPUT_REQUIRED |
+  | AwaitTimer | DELAY_AWAIT |
+  | RateLimited | POLICY_APPROVAL |
+
+  Direction: internal → wire is many-to-one (lossy by design).
+  Wire → internal on inbound A2A peer message requires payload
+  context enrichment by the receiving runtime.
+
+      public sealed interface InterruptSignal {
+          InterruptType type();          // A2A wire
+          SuspendReason internalReason(); // internal DFA
+          String runId();
+          Map<String,Object> payload();
+      }
+
+  ## Part C — Migration W-wave plan
+
+  - W0.5: parallel API ship. New `InterruptSignal` sealed +
+    `InterruptType` enum + `SuspendReason` enum at
+    `com.huawei.ascend.engine.spi.*`. Existing
+    `SuspendSignal extends Exception` at
+    `com.huawei.ascend.engine.orchestration.spi.SuspendSignal`
+    marked `@Deprecated(forRemoval=true)`. Both paths coexist.
+  - W1: ~9 call-sites migrate to returning `Mono<StateDelta>`:
+    - `agent-service/.../engine/spi/StatelessEngine.java`
+    - `agent-service/.../runtime/orchestration/inmemory/*` (5 files)
+    - 3 test files
+  - W2: `SuspendSignal.java` deleted; ArchUnit
+    `NoCheckedExceptionInSpiTest` added.
+
+  ## Part D — Coexistence with HookPoint.ON_YIELD (rc22)
+
+  Engine returns `Mono<StateDelta>` → if `interruptSignal != null`,
+  dispatcher emits `ON_YIELD` → middleware may enrich → orchestrator
+  dispatches per `internalReason()`. No behavioral change to
+  ON_YIELD; only the "engine signals yield" mechanism shifts from
+  exception-throw to value-return.
+
+consequences: |
+  Positive:
+  - Closes δ.1 + θ.1 + θ.2 (engine friction-resolution proposal
+    acceptance).
+  - Reactor/CompletableFuture/Temporal compatibility restored.
+  - A2A protocol mapping explicit; future A2A peers consume our
+    suspension envelope without learning internal taxonomy.
+  - `Mono.error(...)` channel reclaimed for failures.
+
+  Negative:
+  - W1 touches 9 production files + 3 test files; mechanical refactor.
+  - Lossy internal→wire mapping (A2A peers see coarser detail);
+    acceptable — protocol surface is portable across implementations.
+  - `SuspendSignal` removal at W2 is breaking for any external
+    importer; mitigated by W0.5-W1 deprecation window + documented
+    drop-in.
+
+  Compounding: strongly positive — every new orchestration SPI
+  inherits value-based pattern; no future SPI re-introduces checked
+  exceptions in reactive boundaries.
+
+alternatives_considered: |
+  - (A) Keep SuspendSignal checked — rejected per δ.1 reactive
+    incompatibility.
+  - (B) A2A InterruptType as SOLE vocab (drop SuspendReason) —
+    rejected; our DFA benefits from finer reasons.
+  - (C) Parallel paths forever — rejected; two SPIs for same purpose
+    is a maintenance tax.
+  - (D) Immediate W0.5 removal — rejected; phased migration lower-risk.
+  - (E) Unchecked exception subclass — rejected; same Mono.error
+    pollution + Temporal determinism issue.
+
+references: |
+  - ARCHITECTURE.md §4 #9 + §4 #16
+  - ADR-0019 (partially superseded), ADR-0020, ADR-0021, ADR-0044,
+    ADR-0074, ADR-0100, ADR-0104
+  - docs/logs/reviews/2026-05-22-agent-execution-engine-friction-resolution.en.md
