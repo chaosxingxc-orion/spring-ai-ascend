@@ -32,6 +32,7 @@ Authority:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from collections import defaultdict
@@ -576,14 +577,29 @@ def main() -> int:
         # otherwise translate \n -> \r\n in text mode, breaking Rule 42
         # cross-platform idempotency when the same input is built on Git Bash
         # for Windows vs WSL/Linux).
-        OUTPUT_YAML.write_bytes((header + yaml_text).encode("utf-8"))
+        #
+        # Atomic write via temp-file + os.replace closes the read-during-write
+        # race surfaced by the rc35-second-pass gate-script review: when
+        # check_parallel.sh runs Rules 38/42 (writers) concurrently with Rules
+        # 40/41/97/106 (readers of docs/governance/architecture-graph.yaml) under
+        # xargs -P, a reader landing on a torn write produced garbage diffs.
+        # write_bytes truncates then writes; os.replace is the POSIX atomic
+        # rename so readers either see the prior full file or the new full
+        # file, never partial bytes.
+        _tmp_path = OUTPUT_YAML.with_suffix(OUTPUT_YAML.suffix + f".tmp.{os.getpid()}")
+        _tmp_path.write_bytes((header + yaml_text).encode("utf-8"))
+        os.replace(_tmp_path, OUTPUT_YAML)
         print(f"Wrote {OUTPUT_YAML.relative_to(REPO)}: {graph['node_count']} nodes, {graph['edge_count']} edges")
     else:
         print(f"Built graph (not written): {graph['node_count']} nodes, {graph['edge_count']} edges")
 
     if args.mermaid:
         mmd_text = render_mermaid(graph)
-        OUTPUT_MMD.write_bytes(mmd_text.encode("utf-8"))
+        # Same atomic-write pattern as OUTPUT_YAML above; Rule 38 also exercises
+        # this path when --mermaid is added in the future.
+        _tmp_mmd = OUTPUT_MMD.with_suffix(OUTPUT_MMD.suffix + f".tmp.{os.getpid()}")
+        _tmp_mmd.write_bytes(mmd_text.encode("utf-8"))
+        os.replace(_tmp_mmd, OUTPUT_MMD)
         print(f"Wrote {OUTPUT_MMD.relative_to(REPO)}")
 
     errors = validate(graph)

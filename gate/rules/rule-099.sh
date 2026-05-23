@@ -34,6 +34,9 @@ else
   # End-state verbs that imply shipped Run-state transitions:
   _r99_end_verbs='are SUSPENDED|is SUSPENDED|callers are SUSPENDED|transitions to FAILED|transitions to SUSPENDED|consumes the .* capacity|is rejected, not failed|admits the caller'
   _r99_violations=""
+  # Per-invocation tempfile (mktemp + trap-style cleanup below) so two
+  # concurrent gate runs cannot race on a shared /tmp/_r99_hits.<pid> path.
+  _r99_hits_file="$(mktemp -t r99_hits.XXXXXX)"
   # Build set of rule numbers that have deferred sub-clauses
   _r99_deferred_nums=$(grep -oE '^## Rule [0-9]+\.[a-z]' "$_r99_deferred" \
     | sed -E 's/^## Rule //; s/\..*$//' | sort -u | tr '\n' ' ')
@@ -63,9 +66,9 @@ else
         print "Rule " rule ":" v
       }
     }
-  ' "$_r99_claude" > /tmp/_r99_hits.$$
-  _r99_violations=$(cat /tmp/_r99_hits.$$)
-  rm -f /tmp/_r99_hits.$$
+  ' "$_r99_claude" > "$_r99_hits_file"
+  _r99_violations=$(cat "$_r99_hits_file")
+  rm -f "$_r99_hits_file"
   if [[ -n "$_r99_violations" ]]; then
     _r99_first=$(echo "$_r99_violations" | head -3 | tr '\n' '|')
     fail_rule "kernel_terminal_verb_vs_shipped_decision_check" "active rule kernel uses end-state verb implying shipped Run-state transition, but matching Rule N.<letter> deferred sub-clause exists (kernel is overclaiming shipped behaviour): ${_r99_first}-- Rule 99 / E139 (rc10 post-corrective P1-1 closure; narrow kernel verb to decision-envelope behaviour OR remove the deferred sub-clause if behaviour has actually shipped)"

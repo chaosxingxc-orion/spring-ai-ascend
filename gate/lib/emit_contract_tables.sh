@@ -103,8 +103,14 @@ emit_table_for_phase() {
   fi
 }
 
+# Use a per-invocation temp directory so two concurrent emit_contract_tables.sh
+# runs (CI matrix, dev parallel shell) cannot clobber each other on the
+# previously-hard-coded /tmp/contract-tables-<phase>.md path. The caller
+# parses the WROTE lines below to discover where each file landed.
+EMIT_TMPDIR="$(mktemp -d -t contract-tables.XXXXXX)"
+trap 'rm -rf "$EMIT_TMPDIR"' EXIT
 for phase in always_on design impl verify commit review; do
-  out="/tmp/contract-tables-${phase}.md"
+  out="${EMIT_TMPDIR}/contract-tables-${phase}.md"
   {
     echo "## Active rules — ${phase} phase"
     echo ""
