@@ -1,120 +1,137 @@
 # spring-ai-ascend
 
-> Enterprise agent platform on Spring AI 2.0.0-M5 + Spring Boot 4.0.5 + Java 21 — as of v2.0.0-rc13 (2026-05-20 L0 architecture ratchet: dissolve agent-runtime-core per ADR-0088 + lock client→bus→server ingress per ADR-0089; reactor 9→8 modules; new Rule R-I sub-clause .b + gate Rule 105 edge_no_direct_compute_link).
+> An open-source, enterprise-grade **agent platform** built for the Huawei **Ascend (NPU)** + **Kunpeng (CPU)** stack — on Spring AI, Spring Boot, and Java 21.
 
-## What is this?
+`spring-ai-ascend` lets a team stand up its own governed agent runtime the way it
+would stand up a Spring Boot service: import the BoM, override the SPI beans you
+care about, and ship. It is designed for self-hosting on Huawei silicon —
+**Kunpeng** (ARM64) for the JVM service tier and **Ascend** NPUs for model
+serving — so an enterprise can run the whole agent stack on its own hardware,
+OSS-first, with no proprietary-cloud lock-in.
 
-`spring-ai-ascend` is a self-hostable agent runtime for financial-services teams. It ships a dual-mode orchestration kernel — deterministic graph state machines and ReAct-style agent loops sharing a single interrupt primitive — with audit-grade evidence, posture-aware fail-closed defaults, and an OSS-first integration model. Build on top of it the same way you would build on Spring Boot itself: pull in the BoM, write `@Bean` overrides for the SPI surface you need, and ship.
+> **What runs today vs. what's on the roadmap.** The shipped runtime is a
+> hardware-agnostic Spring AI / Java kernel — it runs on any JVM, and natively on
+> Kunpeng/ARM64, so you develop and test anywhere. Ascend-NPU-optimised model
+> serving and Kunpeng-tuned deployment profiles are the platform's **design
+> target**, not yet shipped code. This boundary is marked honestly throughout;
+> the machine-readable, per-capability ledger is
+> [`docs/governance/architecture-status.yaml`](docs/governance/architecture-status.yaml).
 
-## Status
+## Why it's built this way
 
-**L1 module-level architecture shipped.** W0 runtime kernel + L1 platform composition (JWT validation, tenant claim cross-check, durable idempotency, posture boot guard, W1 run HTTP API, high-cardinality metric scrub, Rule R-C.a Code-as-Contract governance) shipped; W2–W4 capabilities remain design contracts.
+The platform optimises four pillars:
 
-- Latest release: [docs/logs/releases/2026-05-20-l0-rc13-runtime-core-dissolution-and-ingress-mandate.en.md](docs/logs/releases/2026-05-20-l0-rc13-runtime-core-dissolution-and-ingress-mandate.en.md) (v2.0.0-rc13; L0 architecture ratchet: dissolve agent-runtime-core per ADR-0088 + lock client→bus→server ingress per ADR-0089). Prior waves: [docs/logs/releases/2026-05-19-l0-rc12-corrective.en.md](docs/logs/releases/2026-05-19-l0-rc12-corrective.en.md) (v2.0.0-rc12; ADR-0087), [docs/logs/releases/2026-05-19-l0-rc11-corrective.en.md](docs/logs/releases/2026-05-19-l0-rc11-corrective.en.md) (v2.0.0-rc11), [docs/logs/releases/2026-05-19-l0-rc9-corrective.en.md](docs/logs/releases/2026-05-19-l0-rc9-corrective.en.md), [docs/logs/releases/2026-05-18-l0-rc8-corrective.en.md](docs/logs/releases/2026-05-18-l0-rc8-corrective.en.md), [docs/logs/releases/2026-05-18-l0-rc7-corrective.en.md](docs/logs/releases/2026-05-18-l0-rc7-corrective.en.md), [docs/logs/releases/2026-05-18-l0-rc6-post-response.en.md](docs/logs/releases/2026-05-18-l0-rc6-post-response.en.md), [docs/logs/releases/2026-05-18-l0-rc4-cross-constraint-response.en.md](docs/logs/releases/2026-05-18-l0-rc4-cross-constraint-response.en.md).
-- Per-capability shipped/deferred ledger: [docs/governance/architecture-status.yaml](docs/governance/architecture-status.yaml)
-- Architecture baseline: **65 §4 constraints · 101 ADRs · 135 active gate rules · 226 gate self-tests** · 13 Layer-0 governing principles · 168 enforcer rows · 42 active engineering rules (D-/R-/G-/M- namespace per [ADR-0086](docs/adr/0086-rule-namespace-ratchet.yaml); composition: 9 D + 16 R + 15 G + 2 M = 42 kernel-header count) · 5 phase contracts + 6 phase-loading skills (rc21 NEW: docs/governance/contracts/ + .claude/skills/<phase>-mode.md per ADR-0098) · 12 recurring defect families catalogued · 382 Maven tests green · 469 architecture-graph nodes / 835 edges (live; see `docs/governance/architecture-status.yaml`). Canonical structured baseline lives in [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](docs/governance/architecture-status.yaml) (single source of truth). Wave history lives at [`docs/logs/governance-waves.md`](docs/logs/governance-waves.md). Gate enforcement: Rule G-2.b + Rule G-2.d + Rule G-2.1.a + Rule G-5.a + Rule G-5.b + Rule G-5.c + Rule 101 + Rule 105 + Rule 106 + Rule 107 + Rule 108 + Rule 109 + Rule 110 META + Rule 111 [META] (rc17, hardened rc18 Wave 1 + rc19 Wave 1 + rc20 Wave 1 [META] marker per ADR-0097) + Rule 112 META-of-META (rc19 Wave 1; rc20 Wave 3 window + helper-regex widening) + Rule 113 paren guard (rc19 Wave 2; rc20 Wave 1 helper extraction) + Rule 114 filename convention (rc19 Wave 4) + Rule 115 D-9 metadata gate (rc20 Wave 4) + Rule 121 whitebox_quality_reports (Rule G-12) + Rule 44 (rc18 Wave 2 shallow-clone safeguard).
+- **Performance** — a non-blocking run spine and parallel module build; the
+  deployment target pairs Ascend NPU model serving with Kunpeng ARM throughput.
+- **Cost** — OSS-first integration and self-hosting on commodity Kunpeng/Ascend
+  hardware instead of metered proprietary services.
+- **Developer onboarding** — extend via `@Bean` SPI overrides, exactly like
+  Spring Boot; a runnable quickstart reaches a first agent run with no
+  platform-team hand-holding.
+- **Governance** — audit-grade evidence, posture-aware fail-closed defaults, and
+  a Code-as-Contract gate that keeps the docs and the code honest.
+
+Measured baselines: [`docs/governance/competitive-baselines.yaml`](docs/governance/competitive-baselines.yaml).
+
+## What you can build on it
+
+- **Dual-mode orchestration.** One runtime runs both deterministic **graph**
+  state machines and ReAct-style **agent loops**, sharing a single interrupt
+  primitive (`SuspendSignal`). A graph node can call an agent loop, which can
+  call another graph — arbitrary bidirectional nesting, one `Run` lineage
+  throughout.
+- **Pluggable by SPI, not by patching.** Memory, run persistence, model gateway,
+  tool authorization, and resilience are SPI surfaces you implement and wire by
+  dependency injection; in-memory reference implementations ship for local dev.
+- **Multi-tenant + audit-grade.** Every run carries a tenant id; storage-engine
+  isolation, durable idempotency, and structured audit logging are first-class.
+- **Posture-aware.** `dev` is permissive for fast iteration; `research`/`prod`
+  fail closed at startup when required configuration is missing.
 
 ## Quick start
 
 ```bash
-./mvnw -T 1C verify
+# Compile + unit + integration tests + the quality gate (the canonical command)
+./mvnw -T 1C -Pquality verify
 ```
 
-`verify` (not `test`) is the canonical command — `test` skips the `*IT.java` enforcers, several of which are ship-blocking under Rule D-5. `-T 1C` builds independent reactor modules in parallel; surefire runs JUnit classes concurrently inside each fork (toggle with `-DjunitParallel=false`); failsafe runs IT classes sequentially within a fork (Spring Boot 4.0.5 isn't thread-safe at `SpringApplication.run()`).
+Use `verify`, not `test` — `test` skips the `*IT.java` integration enforcers.
+`-T 1C` builds the reactor modules in parallel. Posture is selected by the
+`APP_POSTURE` environment variable (`dev` / `research` / `prod`); `dev` allows
+in-memory backends and only WARNs on missing config. The full
+boot-and-first-run walkthrough is in [docs/quickstart.md](docs/quickstart.md).
 
-Posture is selected by the `APP_POSTURE` environment variable (`dev` / `research` / `prod`). `dev` is permissive (in-memory backends allowed, missing config emits WARN); `research` and `prod` fail-closed at startup if required config is missing.
+## Architecture at a glance
 
-## Modules — six-team-facing-modules materialization (Phase C + engine extraction complete)
+The runtime is split across **8 Maven modules**, each pinned to exactly one of
+five deployment planes so workloads with different runtime characteristics
+(latency-sensitive HTTP, throughput-heavy ML, untrusted sandbox code) never
+share infrastructure:
 
-The L0 architecture (CLAUDE.md P-A..P-M) declares **six team-facing modules**.
-Phase C (ADR-0078, 2026-05-18) consolidated the prior `agent-platform` + `agent-runtime` into `agent-service`. The reactor now ships **8 Maven modules** = 6 team-facing substantive modules + BoM + graphmemory starter (rc13 dissolved the transient `agent-runtime-core` module per ADR-0088 and redistributed its sources to the modules that semantically own them: runs/idempotency → `agent-service`; orchestration SPI + RunMode → `agent-execution-engine.engine.orchestration.spi`; s2c SPI → `agent-bus.bus.spi.s2c`). Paired with ADR-0089 (2026-05-20), `agent-bus` also hosts the new `bus.spi.ingress.IngressGateway` SPI — the client-to-server cross-plane control surface; together with s2c the Bus & State Hub plane owns cross-plane traffic in both directions.
+| Module | Plane | What it does |
+|--------|-------|--------------|
+| `agent-client` | Edge Access | Client SDK surface (skeleton; W3+) |
+| `agent-service` | Compute & Control | HTTP edge + runtime kernel — `Run` / `RunStateMachine`, the run HTTP API, JWT/tenant/idempotency/posture, and the core SPIs |
+| `agent-execution-engine` | Compute & Control | Engine adapter + orchestration SPIs, `EngineRegistry`, `EngineEnvelope` |
+| `agent-middleware` | Compute & Control | `RuntimeMiddleware` SPI + hook dispatch |
+| `agent-bus` | Bus & State Hub | Cross-plane control surfaces (client→server ingress, server→client callback) |
+| `agent-evolve` | Evolution | ML / self-improvement pipeline (skeleton) |
+| `spring-ai-ascend-dependencies` | (build-time) | Bill of Materials |
+| `spring-ai-ascend-graphmemory-starter` | Bus & State Hub | Graph-memory auto-config starter |
 
-| Module | Plane (P-I) | Owner team | Maturity today |
-|--------|-------------|-----------|----------------|
-| `agent-client` | Edge Access | AgentClient | skeleton (SDK; W3+ per ADR-0049). All cross-plane traffic locked to `bus.spi.ingress.IngressGateway` per ADR-0089 / Rule R-I.b |
-| `agent-service` | Compute & Control | AgentService | shipped — HTTP edge (`service.platform.*`) + cognitive runtime kernel (`service.runtime.*`) + Run / RunStateMachine / IdempotencyRecord (re-consolidated per ADR-0088); owns `GraphMemoryRepository` / `ResilienceContract` / `SkillCapacityRegistry` / `RunRepository` SPIs |
-| `agent-middleware` | Compute & Control | Middleware | shipped — RuntimeMiddleware SPI + HookDispatcher extracted from runtime per ADR-0073 |
-| `agent-execution-engine` | Compute & Control | AgentExecutionEngine | shipped — engine adapter SPI (`engine.spi`: ExecutorAdapter, GraphExecutor, AgentLoopExecutor, EngineHookSurface) + orchestration SPI (`engine.orchestration.spi`: RunMode, Checkpointer, Orchestrator, RunContext, SuspendSignal, TraceContext, ExecutorDefinition — relocated per ADR-0088) + EngineRegistry + EngineEnvelope |
-| `agent-bus` | Bus & State Hub | AgentBus | shipped — cross-plane control surfaces in BOTH directions: `bus.spi.ingress.IngressGateway` (ADR-0089) + `bus.spi.s2c.S2cCallbackTransport` (ADR-0088). Workflow primitives W2 per ADR-0050 |
-| `agent-evolve` | Evolution | AgentEvolve | skeleton (Python ML pipeline; Java adapter deferred) |
-| `spring-ai-ascend-dependencies` | (build-time) | platform | shipped (BoM) |
-| `spring-ai-ascend-graphmemory-starter` | Bus & State Hub | AgentBus | shipped (graphmemory SPI scaffold; ADR-0034) |
+Each module declares its identity in `module-metadata.yaml`, its L1 design in
+`ARCHITECTURE.md`, and its five DFX dimensions in `docs/dfx/<module>.yaml`.
+Cross-service traffic on the Bus & State Hub plane is sliced into three
+physically isolated channels — `control` (PAUSE/KILL intents, never blocked),
+`data` (run payloads), `rhythm` (heartbeats). The full system boundary, the
+constraint corpus, and the SPI contracts live in [ARCHITECTURE.md](ARCHITECTURE.md);
+the narrative tour is [docs/overview.md](docs/overview.md).
 
-Per-module `module-metadata.yaml` is the authoritative identity + dependency
-declaration. Per-module `ARCHITECTURE.md` carries the L1 view. Per-module
-`docs/dfx/<module>.yaml` declares the five DFX dimensions (Rule R-D sub-clause .a).
+## Extending the platform
 
-### Five-plane topology (P-I)
-
-Each module is pinned to exactly one of five deployment planes. Workloads
-with different runtime characteristics MUST NOT share infrastructure — see
-`docs/governance/principle-coverage.yaml` for the principle ↔ rule map and
-`docs/governance/bus-channels.yaml` for the three-track channel isolation
-that protects the Bus & State Hub plane.
-
-### Three-track bus channel isolation (P-E / Rule R-E)
-
-Cross-service internal traffic is sliced into three physically isolated
-channels declared in `docs/governance/bus-channels.yaml`:
-
-| Channel | Cargo | Priority |
-|---------|-------|----------|
-| `control` | PAUSE / KILL / CANCEL intents | highest — never blocks for `data` congestion |
-| `data` | run payload bodies (≤16 KiB inline cap §4 #13) | normal |
-| `rhythm` | heartbeat / liveness pulses | lowest — drops oldest if saturated |
-
-### W2.x heterogeneous engine contract
-
-The engine surface is a structured contract: `docs/contracts/engine-envelope.v1.yaml`
-governs registration / matching / observability; engines fire canonical
-`HookPoint` events declared in `docs/contracts/engine-hooks.v1.yaml`; the
-server-to-client capability protocol uses `docs/contracts/s2c-callback.v1.yaml`;
-the evolution-scope discriminator lives in
-`docs/governance/evolution-scope.v1.yaml`. Authority: Rules 43–48 +
-ADR-0071..0077. Release note:
-[docs/logs/releases/2026-05-16-W2x-engine-contract-wave.en.md](docs/logs/releases/2026-05-16-W2x-engine-contract-wave.en.md).
-
-## Integration paths
-
-| Path | When to use | Entry point |
-|------|-------------|-------------|
-| Drop-in `@Bean` override | You implement `GraphMemoryRepository`; starter auto-config wires it | `spring-ai-ascend-graphmemory-starter` |
-| Direct Spring AI / Spring Data | Use `ChatMemory`, `VectorStore`, `CrudRepository` directly without starters | No starter needed |
-| BoM import only | Pin SDK + OSS versions; manage wiring yourself | `spring-ai-ascend-dependencies` BoM |
-
-## Runtime model
-
-`Run.mode` discriminates `GRAPH` (deterministic state machine) from `AGENT_LOOP` (ReAct-style LLM reasoning). Both modes share one interrupt primitive — `SuspendSignal` — which the `Orchestrator` catches to checkpoint the parent, dispatch a child Run, and resume the parent with the child's result. Three-level bidirectional nesting (graph → agent-loop → graph) is proved by `NestedDualModeIT`.
-
-The full architectural constraint set (§4 #1–#63) and the deferred-capability roadmap (W1–W4) live in [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/governance/architecture-status.yaml](docs/governance/architecture-status.yaml). They are not duplicated here.
+| You want to… | Do this | Entry point |
+|---|---|---|
+| Plug in a graph-memory backend | Implement `GraphMemoryRepository`; the starter auto-wires it | `spring-ai-ascend-graphmemory-starter` |
+| Use Spring AI primitives directly | Use `ChatMemory` / `VectorStore` / `CrudRepository` without a starter | (no starter needed) |
+| Pin versions and wire it yourself | Import the BoM only | `spring-ai-ascend-dependencies` |
 
 ## Posture model
 
 | Posture | Behavior |
 |---------|----------|
-| `dev` (default) | Permissive — in-memory backends allowed; missing config emits WARN, not exception |
-| `research` | Fail-closed — required config present or `IllegalStateException`; durable persistence expected |
-| `prod` | Fail-closed — same as research; stricter enforcement planned for W2 |
+| `dev` (default) | Permissive — in-memory backends allowed; missing config emits WARN |
+| `research` | Fail-closed — required config present or startup fails |
+| `prod` | Fail-closed — same, with stricter enforcement planned |
 
 Full matrix: [docs/cross-cutting/posture-model.md](docs/cross-cutting/posture-model.md).
 
-## Reading order
+## Where to go next
 
-1. **README.md** — you are here.
-2. **[docs/governance/architecture-status.yaml](docs/governance/architecture-status.yaml)** — per-capability shipped/deferred ledger (the canonical machine-readable index; an earlier README incorrectly linked to a non-existent `docs/STATE.md`).
-3. **[ARCHITECTURE.md](ARCHITECTURE.md)** — system boundary, §4 constraints, SPI contracts, decision chains.
-4. **[docs/contracts/](docs/contracts/)** — HTTP API contracts, SPI semantic contracts, pinned OpenAPI snapshot, engine envelope, engine hooks, S2C callback.
-5. **[docs/adr/README.md](docs/adr/README.md)** — Architecture Decision Records (ADR-0001 … ADR-0080).
-6. **[CLAUDE.md](CLAUDE.md)** — Layer-0 governing principles + Layer-1 engineering rules. Current rule + principle counts live in [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](docs/governance/architecture-status.yaml). See also [docs/quickstart.md](docs/quickstart.md).
-7. **[docs/CLAUDE-deferred.md](docs/CLAUDE-deferred.md)** — every staged rule + sub-clause with its explicit re-introduction trigger.
-8. **[docs/governance/SESSION-START-CONTEXT.md](docs/governance/SESSION-START-CONTEXT.md)** — machine-readable entrypoint context (graph traversal cues).
-9. **[docs/governance/principle-coverage.yaml](docs/governance/principle-coverage.yaml)** — Layer-0 principle ↔ Layer-1 rule traceability.
-10. **[docs/governance/retracted-tags.txt](docs/governance/retracted-tags.txt)** — released tags retracted by superseding fixes.
-11. **[docs/governance/competitive-baselines.yaml](docs/governance/competitive-baselines.yaml)** — P-B measurement baseline (Performance / Cost / Developer Onboarding / Governance).
+- [docs/overview.md](docs/overview.md) — narrative platform overview (read this after the README).
+- [ARCHITECTURE.md](ARCHITECTURE.md) — system boundary, architectural constraints, SPI contracts, decision chains.
+- [docs/quickstart.md](docs/quickstart.md) — first-agent-run walkthrough.
+- [docs/contracts/](docs/contracts/) — HTTP API + SPI semantic contracts, engine envelope/hooks, S2C callback.
+- [docs/adr/README.md](docs/adr/README.md) — Architecture Decision Records.
+- [CLAUDE.md](CLAUDE.md) — Layer-0 governing principles + Layer-1 engineering rules.
+- [docs/governance/architecture-status.yaml](docs/governance/architecture-status.yaml) — per-capability shipped/deferred ledger.
 
-## See also
+## Project status & governance
 
-- [docs/logs/releases/](docs/logs/releases/) — formal release notes.
-- [docs/governance/architecture-status.yaml](docs/governance/architecture-status.yaml) — capability ledger.
-- [gate/README.md](gate/README.md) — architecture-sync gate (current rule + self-test counts in [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](docs/governance/architecture-status.yaml); 2026-05-18 rc4 cross-constraint review response added Rules 80–83 with 8 new gate self-test cases; 2026-05-18 rc5 post-response review response added Rules 84–85 + Rule G-2 sub-clause .b numeric-agreement strengthening with 9 new gate self-test cases).
-- [docs/cross-cutting/oss-bill-of-materials.md](docs/cross-cutting/oss-bill-of-materials.md) — OSS dependency policy.
+**L1 module-level architecture shipped.** The W0 runtime kernel and L1 platform
+composition (JWT validation, tenant cross-check, durable idempotency, posture
+boot guard, the W1 run HTTP API, Code-as-Contract governance) are shipped; W2–W4
+capabilities — including the Ascend/Kunpeng-optimised deployment path — remain
+design contracts. Per-capability detail is the single source of truth in
+[`docs/governance/architecture-status.yaml`](docs/governance/architecture-status.yaml).
+
+A Code-as-Contract gate keeps the documentation and the code in lockstep and
+fails closed on drift. Its current baseline:
+**65 §4 constraints · 101 ADRs · 135 active gate rules · 226 gate self-tests**,
+plus 13 Layer-0 governing principles, 42 active engineering rules, 168 enforcer
+rows, and a 469-node / 835-edge architecture graph — all maintained in
+[`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](docs/governance/architecture-status.yaml)
+(the canonical source for every count); see [gate/README.md](gate/README.md) for
+how it runs.
+
+Release history and per-wave change declarations live in
+[docs/logs/releases/](docs/logs/releases/).

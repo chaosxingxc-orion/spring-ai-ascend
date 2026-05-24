@@ -10,7 +10,7 @@ authority: "Derived from docs/contracts, module-metadata.yaml, DFX YAML, and L1 
 ## Purpose
 
 The repository already has schema-first contracts. This document defines the
-additional runtime metadata expected for financial-grade L1 interfaces.
+additional runtime metadata expected for enterprise-grade L1 interfaces.
 
 Schema shape answers "what is the message?" Contract metadata answers "how is
 the message safely operated?"
