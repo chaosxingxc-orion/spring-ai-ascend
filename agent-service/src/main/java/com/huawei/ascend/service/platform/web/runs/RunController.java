@@ -161,21 +161,27 @@ public class RunController {
                     "Run not found within tenant scope.");
         }
 
-        Run current = found.get();
-        if (current.status() == RunStatus.CANCELLED) {
-            // Idempotent: already cancelled; return current state with 200.
-            return ResponseEntity.ok(RunResponse.from(current));
+        // Atomic re-read + conditional cancel. The prior implementation validated
+        // withStatus(CANCELLED) against the stale snapshot above and then blind-saved,
+        // so a parallel terminal write (orchestrator SUCCEEDED/FAILED) landing between
+        // the read and the save was silently overwritten with CANCELLED. Routing the
+        // write through updateIfNotTerminal makes the re-read + terminal check + write
+        // one atomic step so a terminal state always wins.
+        Optional<Run> result = repository.updateIfNotTerminal(id, r -> r.withStatus(RunStatus.CANCELLED));
+        if (result.isEmpty()) {
+            return error(HttpStatus.NOT_FOUND, "not_found",
+                    "Run not found within tenant scope.");
         }
-
-        try {
-            Run cancelled = current.withStatus(RunStatus.CANCELLED);
-            Run saved = repository.save(cancelled);
-            return ResponseEntity.ok(RunResponse.from(saved));
-        } catch (IllegalStateException ise) {
-            // Terminal -> CANCELLED transition rejected by RunStateMachine.
-            return error(HttpStatus.CONFLICT, "illegal_state_transition",
-                    "Run is in a terminal state and cannot be cancelled: " + current.status());
+        Run resolved = result.get();
+        if (resolved.status() == RunStatus.CANCELLED) {
+            // Either we just cancelled it, or it was already CANCELLED (idempotent) — both 200.
+            return ResponseEntity.ok(RunResponse.from(resolved));
         }
+        // Re-read status cannot transition to CANCELLED: either terminal
+        // (SUCCEEDED/EXPIRED/already-handled) or FAILED (non-terminal but only
+        // permits ->RUNNING retry). updateIfNotTerminal left it unchanged.
+        return error(HttpStatus.CONFLICT, "illegal_state_transition",
+                "Run cannot be cancelled from its current state: " + resolved.status());
     }
 
     private static UUID parseUuidOr400(String raw) {

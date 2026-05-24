@@ -250,4 +250,111 @@ class RunHttpContractIT {
         String code = JSON.readTree(second.body()).path("error").path("code").asText();
         assertThat(code).isIn("idempotency_body_drift", "idempotency_conflict");
     }
+
+    @Test
+    void cancelPendingRunReturns200ThenIdempotent() throws Exception {
+        // Closes the cancel happy-path + idempotent-recancel coverage gap: the prior
+        // suite only exercised the already-terminal 409 branch. The W1 dispatcher is
+        // a no-op, so a freshly created run stays PENDING and is cancellable.
+        UUID tenant = UUID.randomUUID();
+        String bearer = JwtTestFixture.mintForTenant(tenant);
+        String runId = JSON.readTree(create(tenant, bearer, "echo").body()).path("runId").asText();
+
+        HttpResponse<String> first = cancel(tenant, bearer, runId);
+        assertThat(first.statusCode()).isEqualTo(200);
+        assertThat(JSON.readTree(first.body()).path("status").asText()).isEqualTo("CANCELLED");
+
+        // Re-cancelling an already-CANCELLED run is idempotent: 200, still CANCELLED.
+        HttpResponse<String> second = cancel(tenant, bearer, runId);
+        assertThat(second.statusCode()).isEqualTo(200);
+        assertThat(JSON.readTree(second.body()).path("status").asText()).isEqualTo("CANCELLED");
+    }
+
+    @Test
+    void getOwnRunReturns200() throws Exception {
+        UUID tenant = UUID.randomUUID();
+        String bearer = JwtTestFixture.mintForTenant(tenant);
+        String runId = JSON.readTree(create(tenant, bearer, "echo").body()).path("runId").asText();
+
+        HttpResponse<String> response = HTTP.send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/v1/runs/" + runId))
+                        .header("Authorization", "Bearer " + bearer)
+                        .header("X-Tenant-Id", tenant.toString())
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(JSON.readTree(response.body()).path("runId").asText()).isEqualTo(runId);
+    }
+
+    @Test
+    void getCrossTenantRunReturns404() throws Exception {
+        // A run owned by tenant A must be invisible to tenant B: cross-tenant read
+        // collapses to 404 not_found (ADR-0108 W0 shipped behaviour — 403 widening is W1).
+        UUID tenantA = UUID.randomUUID();
+        String bearerA = JwtTestFixture.mintForTenant(tenantA);
+        String runId = JSON.readTree(create(tenantA, bearerA, "echo").body()).path("runId").asText();
+
+        UUID tenantB = UUID.randomUUID();
+        String bearerB = JwtTestFixture.mintForTenant(tenantB);
+        HttpResponse<String> response = HTTP.send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/v1/runs/" + runId))
+                        .header("Authorization", "Bearer " + bearerB)
+                        .header("X-Tenant-Id", tenantB.toString())
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isEqualTo(404);
+        assertThat(JSON.readTree(response.body()).path("error").path("code").asText())
+                .isEqualTo("not_found");
+    }
+
+    @Test
+    void cancelFailedRunReturns409() throws Exception {
+        // A FAILED run is NON-terminal (FAILED -> RUNNING retry) but cannot be cancelled.
+        // Cancel MUST return 409 illegal_state_transition, NOT 500 — the atomic CAS
+        // (updateIfNotTerminal) must not surface the state-machine ISE as an internal
+        // error. rc36 regression guard: the original cancel returned 409 here; the first
+        // cut of the CAS fix regressed it to 500 because FAILED is non-terminal.
+        UUID tenant = UUID.randomUUID();
+        String bearer = JwtTestFixture.mintForTenant(tenant);
+        UUID runId = UUID.randomUUID();
+        Instant now = Instant.now();
+        Run failed = new Run(
+                runId, tenant.toString(), "echo",
+                RunStatus.FAILED, RunMode.GRAPH,
+                now, now, now,
+                null, null, null, null);
+        runRepository.save(failed);
+
+        HttpResponse<String> response = cancel(tenant, bearer, runId.toString());
+        assertThat(response.statusCode()).isEqualTo(409);
+        assertThat(JSON.readTree(response.body()).path("error").path("code").asText())
+                .isEqualTo("illegal_state_transition");
+    }
+
+    private HttpResponse<String> create(UUID tenant, String bearer, String capability) throws Exception {
+        HttpResponse<String> response = HTTP.send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/v1/runs"))
+                        .header("Content-Type", "application/json")
+                        .header("Authorization", "Bearer " + bearer)
+                        .header("X-Tenant-Id", tenant.toString())
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"capabilityName\":\"" + capability + "\"}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isEqualTo(202);
+        return response;
+    }
+
+    private HttpResponse<String> cancel(UUID tenant, String bearer, String runId) throws Exception {
+        return HTTP.send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/v1/runs/" + runId + "/cancel"))
+                        .header("Authorization", "Bearer " + bearer)
+                        .header("X-Tenant-Id", tenant.toString())
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
 }

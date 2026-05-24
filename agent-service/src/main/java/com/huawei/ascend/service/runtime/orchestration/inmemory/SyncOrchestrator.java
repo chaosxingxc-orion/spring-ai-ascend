@@ -115,7 +115,12 @@ public final class SyncOrchestrator implements Orchestrator {
                 // mutateIfNotTerminal re-reads from the repository before writing
                 // SUCCEEDED so the terminal state wins instead of being silently
                 // overwritten.
-                mutateIfNotTerminal(run, r -> r.withStatus(RunStatus.SUCCEEDED).withFinishedAt(Instant.now()));
+                run = mutateIfNotTerminal(run, r -> r.withStatus(RunStatus.SUCCEEDED).withFinishedAt(Instant.now()));
+                if (RunStateMachine.isTerminal(run.status()) && run.status() != RunStatus.SUCCEEDED) {
+                    // A parallel cancel won the terminal race; the Run is now CANCELLED.
+                    // Do not report the executor result as a success for a cancelled Run.
+                    return null;
+                }
                 return result;
             } catch (SuspendSignal signal) {
                 // v2.0.0-rc3 refactor (cross-constraint audit α-2 / β-5): S2C
@@ -141,7 +146,7 @@ public final class SyncOrchestrator implements Orchestrator {
                     }
                     Object newPayload;
                     try {
-                        newPayload = handleClientCallback(run, envelope);
+                        newPayload = handleClientCallback(envelope);
                     } catch (RuntimeException s2cFailure) {
                         // Post-review fix (plan C / P0-2): the S2C failure path was
                         // documented in s2c-callback.v1.yaml + Rule 46 to transition
@@ -257,17 +262,6 @@ public final class SyncOrchestrator implements Orchestrator {
     }
 
     /**
-     * Re-read the Run from the repository; fall back to the local in-memory
-     * record if the row is missing (defensive — every Run is persisted before
-     * the executor lambda fires). Used to detect concurrent transitions made
-     * by parallel surfaces (e.g. RunController.cancel) before the orchestrator
-     * writes a terminal state, so cancel does not get silently overwritten.
-     */
-    private Run currentOrLocal(Run local) {
-        return runs.findById(local.runId()).orElse(local);
-    }
-
-    /**
      * Re-read the persisted Run; if non-terminal, apply the {@code mutator} to
      * construct the candidate and save it. If the persisted state is terminal,
      * return the persisted row unchanged without invoking the mutator.
@@ -291,7 +285,16 @@ public final class SyncOrchestrator implements Orchestrator {
         if (RunStateMachine.isTerminal(current.status())) {
             return current;
         }
-        return runs.save(mutator.apply(current));
+        try {
+            return runs.save(mutator.apply(current));
+        } catch (IllegalStateException raceLost) {
+            // A parallel surface advanced the state to one from which this transition
+            // is now illegal (non-terminal but unreachable target). Treat as a lost
+            // race: return the current persisted Run rather than masking the caller's
+            // original error (e.g. the EngineMatchingException being finalized) with
+            // this state-machine ISE.
+            return runs.findById(local.runId()).orElse(current);
+        }
     }
 
     /**
@@ -365,7 +368,7 @@ public final class SyncOrchestrator implements Orchestrator {
      * of pinning the orchestrator worker thread indefinitely; the future is
      * cancelled so the transport can release resources.
      */
-    private Object handleClientCallback(Run run, S2cCallbackEnvelope envelope) {
+    private Object handleClientCallback(S2cCallbackEnvelope envelope) {
         S2cCallbackTransport transport = engineRegistry.s2cCallbackTransport();
         if (transport == null) {
             throw new IllegalStateException("s2c_transport_unavailable: SyncOrchestrator received "

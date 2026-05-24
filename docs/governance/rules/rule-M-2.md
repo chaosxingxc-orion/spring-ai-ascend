@@ -40,6 +40,10 @@ Every `docs/dfx/*.yaml` file (excluding `docs/archive/`) MUST have a basename st
 ## Deferred sub-clauses
 
 - 48.b — Per-entry retrofit triggers + default sunset schedule (CLAUDE-deferred.md).
+- Rule M-2 sub-clause .a.b — W3 prose-enum schema-first retrofit (CLAUDE-deferred.md).
+- Rule M-2 sub-clause .a.c — EngineEnvelope strict-construction validation (CLAUDE-deferred.md).
+
+Rule G-3 sub-clause .d (`kernel_deferred_clause_coherence`) asserts the bidirectional link between this active rule and each deferred sub-clause.
 
 ## Cross-references
 

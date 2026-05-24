@@ -83,6 +83,8 @@ public class JdbcIdempotencyStore implements IdempotencyStore {
             // Some JDBC drivers translate the PRIMARY KEY conflict into a
             // DuplicateKeyException despite the ON CONFLICT clause. Treat as
             // "row exists" and fall through to SELECT.
+            LOG.debug("idempotency claim translated to DuplicateKeyException despite ON CONFLICT; "
+                    + "falling through to SELECT for tenantId={} key={}", tenantId, key, dke);
             inserted = 0;
         }
 

@@ -32,6 +32,15 @@ Every reactor module's `module-metadata.yaml` declares
 `deployment_plane: edge | compute_control | bus_state | sandbox | evolution | none`.
 Gate-script schema check fails closed if missing.
 
+## Deferred sub-clauses
+
+The edge↔compute ingress runtime obligations (split to card R-I.1 per ADR-0094) remain deferred:
+- Rule R-I sub-clause .c — IngressGateway runtime implementation (W3+, CLAUDE-deferred.md).
+- Rule R-I sub-clause .d — edge HTTP-route direct-call prohibition (W3+, CLAUDE-deferred.md).
+- Rule R-I sub-clause .e — bus backpressure mapping for ingress (W2, CLAUDE-deferred.md).
+
+Rule G-3 sub-clause .d (`kernel_deferred_clause_coherence`) asserts the bidirectional link between this active rule and each deferred sub-clause.
+
 ## Cross-references
 
 - Enforced by Gate Rule 49 (`deployment_plane_in_module_metadata`) for sub-clause .a.

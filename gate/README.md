@@ -50,7 +50,7 @@ Run the bash entrypoint from Git Bash / WSL / any POSIX shell on Windows.
 
 | File | Role |
 |------|------|
-| `check_architecture_sync.sh` | **Canonical L0 release gate — 133 active executable sections. `gate/rules/` filenames stay numeric by design per ADR-0086 `gate_layer_boundary:` section (implementation-layer identifier vs semantic-authority namespace).** |
+| `check_architecture_sync.sh` | **Canonical L0 release gate — 135 active executable sections. `gate/rules/` filenames stay numeric by design per ADR-0086 `gate_layer_boundary:` section (implementation-layer identifier vs semantic-authority namespace).** |
 | `check_architecture_sync.ps1` | DEPRECATED. Fail-closed stub; see deprecation banner. |
 | `test_architecture_sync_gate.sh` | Self-test harness — 226 self-test cases. `TOTAL` derived at runtime per Rule G-5.b. |
 | `build_architecture_graph.py` | Regenerates `docs/governance/architecture-graph.yaml` from the authoritative inputs (Rule G-1 sub-clause .b). |

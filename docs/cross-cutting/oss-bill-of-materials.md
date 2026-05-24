@@ -208,10 +208,10 @@ full analysis.
 ### Active SPI surface (W0 shipped)
 
 - `com.huawei.ascend.service.runtime.runs.spi.RunRepository` — dev-posture: `InMemoryRunRegistry`; W2: Spring Data JDBC + Postgres.
-- `com.huawei.ascend.service.runtime.orchestration.spi.Checkpointer` — dev-posture: `InMemoryCheckpointer`; W2: Postgres-backed.
+- `com.huawei.ascend.engine.orchestration.spi.Checkpointer` — dev-posture: `InMemoryCheckpointer`; W2: Postgres-backed.
 - `com.huawei.ascend.service.runtime.memory.spi.GraphMemoryRepository` — sidecar: Graphiti (W1 reference example, ADR-0034). No production impl at W0.
 - `com.huawei.ascend.service.runtime.resilience.spi.ResilienceContract` — W0: Resilience4j impl (package home aligned per ADR-0080).
-- `com.huawei.ascend.service.runtime.orchestration.spi.Orchestrator` — W0: `SyncOrchestrator` reference impl.
+- `com.huawei.ascend.engine.orchestration.spi.Orchestrator` — W0: `SyncOrchestrator` reference impl.
 - `com.huawei.ascend.engine.spi.GraphExecutor` — W0: `SequentialGraphExecutor` reference impl.
 - `com.huawei.ascend.engine.spi.AgentLoopExecutor` — W0: `IterativeAgentLoopExecutor` reference impl.
 

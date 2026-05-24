@@ -90,7 +90,7 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `EngineRegistry` | `agent-execution-engine` (`...engine.runtime`) | Single authority for `resolve(envelope)` / `resolveByPayload(...)` (Rule R-M.a, formerly Rule 43); relocated from `service.runtime.engine` in rc14 per ADR-0090 |
 | `EngineEnvelope` | `agent-execution-engine` (`...engine.runtime`) | Request shape mirroring `engine-envelope.v1.yaml`; relocated from `service.runtime.engine` in rc14 per ADR-0090 |
 | `EngineMatchingException` | `agent-execution-engine` (`...engine.spi`) | Thrown by `EngineRegistry.resolve(...)` on engine-type mismatch (Rule R-M.b, formerly Rule 44) |
-| `HookPoint` | `agent-middleware` (`...middleware.spi`) | 9-value enum (before/after LLM/tool/memory + before_suspension + before_resume + on_error); mirrors `engine-hooks.v1.yaml` |
+| `HookPoint` | `agent-middleware` (`...middleware.spi`) | 10-value enum (before/after LLM/tool/memory + before_suspension + before_resume + on_error + on_yield); mirrors `engine-hooks.v1.yaml` |
 | `HookContext` | `agent-middleware` (`...middleware.spi`) | Hook invocation carrier record |
 | `HookOutcome` | `agent-middleware` (`...middleware.spi`) | Sealed: continue \| short_circuit \| fail |
 

@@ -451,7 +451,7 @@ The reverse direction (`service.platform → service.runtime`) is
 permitted **only** to the runtime public surface, enforced by
 `ServicePlatformImportsOnlyServiceRuntimePublicApiTest` (E34). The
 allowed runtime public packages are: `service.runtime.runs.*`,
-`service.runtime.orchestration.spi.*`, `service.runtime.posture.*`, and
+`engine.orchestration.spi.*`, `service.runtime.posture.*`, and
 the dev-posture-gated `service.runtime.orchestration.inmemory.InMemoryRunRegistry`.
 
 Authority: `docs/adr/0078-agent-service-consolidation.yaml` (supersedes

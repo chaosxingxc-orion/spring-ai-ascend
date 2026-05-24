@@ -38,14 +38,15 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-23  # rc35-second-pass wave (same PR follow-up commits, after rc35-correctness-batch): a second round of 4 parallel adversarial reviewers (correctness + adversarial + gate-script-consistency + doc-coherence) ran against the rc35-correctness-batch tip and found that several of the rc35 first-pass closures were incomplete in scope. (a) The cancel-vs-complete race guard in SyncOrchestrator (rc35 first pass) was applied ONLY at the three terminal SUCCEEDED/FAILED save sites; five sibling non-terminal save sites (PENDING→RUNNING at run() entry; RUNNING→SUSPENDED at S2C suspend + child suspend; SUSPENDED→RUNNING at S2C resume + child resume) remained blind puts that silently overwrote a parallel CANCELLED with RUNNING/SUSPENDED — same family pattern, sibling surfaces. (b) ADR-0108's "common base shared with Rule R-J .b" wording claimed cross-authority parity that didn't hold — Rule R-J .b's pre-existing cancel-state-transition MDC `{ runId, fromStatus, toStatus, actor, occurredAt }` shares only `occurredAt` with the new tenant-mismatch base `{ surface, reason, occurredAt }`. (c) S2C envelope deadline was honoured unconditionally in resolveCallTimeoutMillis with no clamp against the orchestrator's configured s2cCallTimeout ceiling — a client-supplied 1h deadline defeated the 30s default. (d) check_parallel.sh + extract_rules.sh + check_architecture_sync.sh + 8 sibling rule files used the regex `^# Rule [0-9]+[a-z]? (—|--) ` which silently skipped dotted sub-clause headers `# Rule 24.c` / `# Rule 29.c`; both rule bodies were absorbed into Rule 11's chunk and attributed there in NDJSON timing + Rule 72 regression detection — and the "132 == 132" serial/parallel parity check at Rule G-5.a was vacuously true because BOTH sides used the same broken regex. Headers were always there since rc1; only attribution moved. (e) check_architecture_sync.sh used 10 bare `python3 - <<PYEOF` invocations (Rules 23/25/28j/28k/37/63/68/78/80/94) that silently fell through to vacuous PASS with `python3: not found` on Windows hosts where only `python` exists; CI on Ubuntu was green because python3 exists there. Same fail-open pattern, different surface. (f) check_recurring_families.sh inverted the corpus-wide python preference (python before python3) so on Python-2-as-`python` systems the rc19 validator would crash with SyntaxError. (g) R-038 + R-042 both rewrote docs/governance/architecture-graph.yaml under xargs -P concurrently with R-040/041/097/106 readers — read-during-write race; closed by atomic temp-file + os.replace in build_architecture_graph.py. (h) emit_contract_tables.sh wrote 6 hardcoded /tmp/contract-tables-<phase>.md paths with no PID + check_architecture_sync.sh + rule-099.sh used /tmp/_r99_hits.$$ — concurrent gate runs would clobber. All eight closed across Commits A/B/C of this same PR. Pattern reinforcement (BOTH passes): rc35's first-pass discipline ("found 8 bugs in parallel, fixed all") still leaves the cited bugs's SIBLINGS unfound; the second-pass adversarial review systematically constructed sibling scenarios and found 8 more. Lesson: a wave is not complete when the cited bugs are fixed — it's complete when the sibling-scenario sweep returns empty.
+last_updated: 2026-05-24  # rc36 exhaustive-audit wave (branch rc36/exhaustive-correctness-and-cross-authority-truth): a 7-surface parallel adversarial review (runtime-spine correctness + engine/SPI + cross-authority parity + gate-script + test-quality + numeric/doc-truth + whitebox static-analysis) against the post-#61 main tip. HEADLINE: two kernel-truth gate rules — Rule 96 (kernel_deferred_clause_coherence) and Rule 99 (kernel_terminal_verb_vs_shipped_decision_check) — were PERMANENT SILENT-PASSES since the rc16 namespace migration: their numeric-only heading regexes (`^#### Rule [0-9]+`, `^## Rule [0-9]+\.[a-z]`) matched 0 of the 42 namespaced `#### Rule X-N` headings, so both drift-prevention rules never fired. Closed by namespace-aware longest-prefix parent resolution + a non-vacuity guard (the rule now FAILS if it resolves 0 sub-clauses) + 7 stale-legacy-id card references corrected to current namespaced ids (R-J.a.b, R-M.d.c, M-2.a.b/.a.c, R-I.c/.d/.e). Also: (a) RunController.cancel did stale-read-then-blind-save (the missing half of the rc35 cancel-vs-complete CAS fix — a parallel terminal write could be silently overwritten to CANCELLED); closed by an atomic RunRepository.updateIfNotTerminal CAS. (b) Rule 28b + 28d + Rule 14 scanned a DOUBLED single path (`agent-service/src/main/java agent-service/src/main/java`) so 5/6 modules went unscanned; widening to `agent-*/src/main/java` immediately caught a real out-of-scope-name leak in agent-bus/package-info.java. (c) Rule R-J.b kernel+card overclaimed shipped 403+audit while ADR-0108 documents 404 as W0-shipped + 403 as W1-widening — aligned. (d) numeric/path drift: gate/README 133→135 executable sections, contract-catalog HookPoint 9→10, 5 stale service.runtime.orchestration.spi paths → engine.orchestration.spi. (Prior wave note retained below.)
+# rc35-second-pass wave (same PR follow-up commits, after rc35-correctness-batch): a second round of 4 parallel adversarial reviewers (correctness + adversarial + gate-script-consistency + doc-coherence) ran against the rc35-correctness-batch tip and found that several of the rc35 first-pass closures were incomplete in scope. (a) The cancel-vs-complete race guard in SyncOrchestrator (rc35 first pass) was applied ONLY at the three terminal SUCCEEDED/FAILED save sites; five sibling non-terminal save sites (PENDING→RUNNING at run() entry; RUNNING→SUSPENDED at S2C suspend + child suspend; SUSPENDED→RUNNING at S2C resume + child resume) remained blind puts that silently overwrote a parallel CANCELLED with RUNNING/SUSPENDED — same family pattern, sibling surfaces. (b) ADR-0108's "common base shared with Rule R-J .b" wording claimed cross-authority parity that didn't hold — Rule R-J .b's pre-existing cancel-state-transition MDC `{ runId, fromStatus, toStatus, actor, occurredAt }` shares only `occurredAt` with the new tenant-mismatch base `{ surface, reason, occurredAt }`. (c) S2C envelope deadline was honoured unconditionally in resolveCallTimeoutMillis with no clamp against the orchestrator's configured s2cCallTimeout ceiling — a client-supplied 1h deadline defeated the 30s default. (d) check_parallel.sh + extract_rules.sh + check_architecture_sync.sh + 8 sibling rule files used the regex `^# Rule [0-9]+[a-z]? (—|--) ` which silently skipped dotted sub-clause headers `# Rule 24.c` / `# Rule 29.c`; both rule bodies were absorbed into Rule 11's chunk and attributed there in NDJSON timing + Rule 72 regression detection — and the "132 == 132" serial/parallel parity check at Rule G-5.a was vacuously true because BOTH sides used the same broken regex. Headers were always there since rc1; only attribution moved. (e) check_architecture_sync.sh used 10 bare `python3 - <<PYEOF` invocations (Rules 23/25/28j/28k/37/63/68/78/80/94) that silently fell through to vacuous PASS with `python3: not found` on Windows hosts where only `python` exists; CI on Ubuntu was green because python3 exists there. Same fail-open pattern, different surface. (f) check_recurring_families.sh inverted the corpus-wide python preference (python before python3) so on Python-2-as-`python` systems the rc19 validator would crash with SyntaxError. (g) R-038 + R-042 both rewrote docs/governance/architecture-graph.yaml under xargs -P concurrently with R-040/041/097/106 readers — read-during-write race; closed by atomic temp-file + os.replace in build_architecture_graph.py. (h) emit_contract_tables.sh wrote 6 hardcoded /tmp/contract-tables-<phase>.md paths with no PID + check_architecture_sync.sh + rule-099.sh used /tmp/_r99_hits.$$ — concurrent gate runs would clobber. All eight closed across Commits A/B/C of this same PR. Pattern reinforcement (BOTH passes): rc35's first-pass discipline ("found 8 bugs in parallel, fixed all") still leaves the cited bugs's SIBLINGS unfound; the second-pass adversarial review systematically constructed sibling scenarios and found 8 more. Lesson: a wave is not complete when the cited bugs are fixed — it's complete when the sibling-scenario sweep returns empty.
 
 families:
   - id: F-numeric-drift
     title: Numeric Drift Across Authority Surfaces
     first_observed_rc: rc5
-    last_observed_rc: pr57
-    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57]
+    last_observed_rc: rc36
+    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36]
     root_cause: |
       Numeric claims (rule counts, gate counts, enforcer counts, graph
       nodes/edges, self-tests) are estimated when a release note is written
@@ -129,8 +130,8 @@ families:
   - id: F-authority-surface-path-drift
     title: Authority-Surface Path Drift After Code Refactor
     first_observed_rc: rc4
-    last_observed_rc: rc15
-    occurrences: [rc4, rc6, rc7, rc11, rc12, rc13, rc14, rc15]
+    last_observed_rc: rc36
+    occurrences: [rc4, rc6, rc7, rc11, rc12, rc13, rc14, rc15, rc36]
     root_cause: |
       Code refactors (file moves, package renames, SPI relocations) land
       first; authority surfaces (`docs/contracts/contract-catalog.md`,
@@ -162,8 +163,8 @@ families:
   - id: F-kernel-vs-implementation-drift
     title: Prevention Rule Kernel vs Implementation Drift
     first_observed_rc: rc6
-    last_observed_rc: rc35-second-pass
-    occurrences: [rc6, rc7, rc11, rc15, rc35-second-pass]
+    last_observed_rc: rc36
+    occurrences: [rc6, rc7, rc11, rc15, rc35-second-pass, rc36]
     root_cause: |
       A prevention rule's kernel paragraph documents intent X while its
       gate-script implementation checks only Y (Y ⊂ X). This is the
@@ -186,12 +187,22 @@ families:
       Every newly-added rule carries the same risk. Rule G-9 (rc17)
       requires every new rule declare `scope_surfaces:` frontmatter so
       kernel-vs-impl drift becomes detectable at gate time.
+      rc36 recurrence (worst observed instance): Rules 96 + 99 — the two
+      enforcers whose JOB is detecting kernel-vs-impl drift — were
+      themselves silent-passes for ~20 waves because their heading-discovery
+      regexes stayed numeric (`^#### Rule [0-9]+`) after the rc16 D-/R-/G-/M-
+      namespace migration, so they matched 0 of 42 live kernels. Closed by
+      namespace-aware longest-prefix parent resolution + a NON-VACUITY GUARD
+      (each rule now FAILS if it resolves 0 sub-clauses/parents, so a future
+      heading-format change can never re-silence them). The non-vacuity guard
+      is the structural generalisation: a drift-detector that detects nothing
+      must fail loudly, not pass quietly.
 
   - id: F-cross-authority-agreement
     title: Cross-Authority Surface Disagreement
     first_observed_rc: rc14
-    last_observed_rc: rc35-second-pass-ci-corrective
-    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective]
+    last_observed_rc: rc36
+    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36]
     root_cause: |
       117+ single-surface prevention rules can all pass while the
       surfaces themselves contradict each other — e.g.
@@ -328,8 +339,12 @@ families:
   - id: F-deferred-clause-orphan
     title: CLAUDE-deferred.md Orphan
     first_observed_rc: rc12
-    last_observed_rc: rc16
-    occurrences: [rc12, rc15, rc16]
+    last_observed_rc: rc36
+    occurrences: [rc12, rc15, rc16, rc36]
+      # rc36: 7 deferred sub-clauses (R-J.a.b, R-M.d.c, M-2.a.b/.a.c, R-I.c/.d/.e) were
+      # acknowledged in their parent cards only by STALE LEGACY ids (40.b, 46.c, 48.b) —
+      # surfaced when the dead Rule 96 was un-deadened (namespace-aware) and finally fired;
+      # cards updated to cite the current namespaced ids.
     root_cause: |
       Rule kernel changes in CLAUDE.md, or sub-clause changes in rule
       cards, are not synced to docs/CLAUDE-deferred.md (and vice versa).

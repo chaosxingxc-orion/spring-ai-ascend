@@ -570,7 +570,7 @@ if [[ $_r13_fail -eq 0 ]]; then pass_rule "contract_catalog_no_deleted_spi_or_st
 # is probe.probe(). Fails if probe.check() appears in any module ARCHITECTURE.md.
 # ---------------------------------------------------------------------------
 _r14_fail=0
-for _maf in 'agent-service/ARCHITECTURE.md' 'agent-service/ARCHITECTURE.md'; do
+for _maf in agent-*/ARCHITECTURE.md; do
   if [[ -f "$_maf" ]]; then
     if grep -q 'probe\.check()' "$_maf" 2>/dev/null; then
       fail_rule "module_arch_method_name_truth" "$_maf references probe.check() but actual method in OssApiProbe is probe.probe(). Per ADR-0036 Gate Rule 14 method names in docs must match source."
@@ -1443,7 +1443,7 @@ if [[ $_r28a_fail -eq 0 ]]; then pass_rule "tenant_column_present"; fi
 _r28b_fail=0
 _forbidden_tag_pattern='Tag\.of\(\s*"(run_id|idempotency_key|jwt_sub|body)"'
 _28b_hits=$(grep -rnE "$_forbidden_tag_pattern" \
-  agent-service/src/main/java agent-service/src/main/java 2>/dev/null || true)
+  agent-*/src/main/java 2>/dev/null || true)
 if [[ -n "$_28b_hits" ]]; then
   fail_rule "high_cardinality_tag_guard" "Forbidden high-cardinality metric tag found:\n$_28b_hits\nPer Rule 28b / enforcer E19."
   _r28b_fail=1
@@ -1487,7 +1487,7 @@ if [[ $_r28c_fail -eq 0 ]]; then pass_rule "no_secret_patterns"; fi
 _r28d_fail=0
 _oos_names='LLMGateway|PostgresCheckpointer|SkillRegistry|HookChain|SpawnEnvelope|LogicalCallHandle|ConnectionLease|AdmissionDecision|BackpressureSignal|ChronosHydration|SandboxExecutor'
 _28d_hits=$(grep -rnE "\\b($_oos_names)\\b" \
-  agent-service/src/main/java agent-service/src/main/java 2>/dev/null || true)
+  agent-*/src/main/java 2>/dev/null || true)
 if [[ -n "$_28d_hits" ]]; then
   fail_rule "out_of_scope_name_guard" "W2+ out-of-scope name detected in main sources:\n$_28d_hits\nPer Rule 28d / enforcer E26 / plan §13."
   _r28d_fail=1
@@ -2240,8 +2240,8 @@ _r38_fail=0
 if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
   fail_rule "architecture_graph_well_formed" "neither python3 nor python on PATH — required for gate/build_architecture_graph.py (CLAUDE.md Rule 34)"; _r38_fail=1
 else
-  _r38_tmp1="$(mktemp 2>/dev/null || echo /tmp/r38_a.yaml)"
-  _r38_tmp2="$(mktemp 2>/dev/null || echo /tmp/r38_b.yaml)"
+  _r38_tmp1="$(mktemp 2>/dev/null || echo /tmp/r38_a.$$.yaml)"
+  _r38_tmp2="$(mktemp 2>/dev/null || echo /tmp/r38_b.$$.yaml)"
   # Build twice, diff outputs (idempotency).
   if ! bash gate/build_architecture_graph.sh > /dev/null 2> "$_r38_tmp1"; then
     fail_rule "architecture_graph_well_formed" "gate/build_architecture_graph.sh failed: $(cat "$_r38_tmp1")"; _r38_fail=1
@@ -2403,8 +2403,8 @@ elif [[ ! -f docs/governance/architecture-graph.yaml ]]; then
   fail_rule "architecture_graph_idempotent" "docs/governance/architecture-graph.yaml not present — run bash gate/build_architecture_graph.sh first"
   _r42_fail=1
 else
-  _r42_a="$(mktemp 2>/dev/null || echo /tmp/r42_a.yaml)"
-  _r42_b="$(mktemp 2>/dev/null || echo /tmp/r42_b.yaml)"
+  _r42_a="$(mktemp 2>/dev/null || echo /tmp/r42_a.$$.yaml)"
+  _r42_b="$(mktemp 2>/dev/null || echo /tmp/r42_b.$$.yaml)"
   cp docs/governance/architecture-graph.yaml "$_r42_a" 2>/dev/null || true
   if ! bash gate/build_architecture_graph.sh > /dev/null 2>&1; then
     fail_rule "architecture_graph_idempotent" "graph build failed during idempotency probe"
@@ -4231,7 +4231,7 @@ _r82_phrases=(
   "active rules|active_gate_checks"
   "self-tests|gate_executable_test_cases"
   "self-test cases|gate_executable_test_cases"
-  "active engineering rules|active_engineering_rules_post_rc6"
+  "active engineering rules|active_engineering_rules"
   "enforcer rows|enforcer_rows"
   "architecture-graph nodes|architecture_graph_nodes"
   "graph nodes|architecture_graph_nodes"
@@ -4256,15 +4256,31 @@ while IFS= read -r _r82_kv; do
   [[ -z "$_r82_kv" ]] && continue
   _r82_metric["${_r82_kv%%=*}"]="${_r82_kv#*=}"
 done < <(awk '
-  /^architecture_sync_gate:/ { f = 1; next }
-  f && /^[^[:space:]]/ { exit }
-  f && /^[[:space:]]+[a-zA-Z_]+:[[:space:]]*[0-9]+/ {
-    key = $0; val = $0
-    sub(/^[[:space:]]+/, "", key); sub(/:.*$/, "", key)
-    sub(/^[[:space:]]+[a-zA-Z_]+:[[:space:]]*/, "", val); sub(/[^0-9].*$/, "", val)
-    if (val != "") print key "=" val
+  # Anchor on the baseline_metrics block directly. The prior anchor
+  # (^architecture_sync_gate: at column 0) silently matched nothing because in
+  # architecture-status.yaml that key is indented under capabilities: — a dead
+  # numeric-truth gate (same F-kernel-vs-implementation-drift class this wave
+  # un-deadens for Rules 96/99). Compute the block indent and exit when a key
+  # returns to <= that indent (e.g. the sibling allowed_claim:).
+  /^[[:space:]]*baseline_metrics:[[:space:]]*$/ { f = 1; bi = index($0, "baseline_metrics") - 1; next }
+  f {
+    if ($0 ~ /^[[:space:]]*$/ || $0 ~ /^[[:space:]]*#/) next
+    ci = match($0, /[^ ]/); if (ci > 0) ci = ci - 1
+    if (ci <= bi && $0 ~ /^[[:space:]]*[a-zA-Z_]+:/) { exit }
+    if ($0 ~ /^[[:space:]]+[a-zA-Z_]+:[[:space:]]*[0-9]+/) {
+      key = $0; val = $0
+      sub(/^[[:space:]]+/, "", key); sub(/:.*$/, "", key)
+      sub(/^[[:space:]]+[a-zA-Z_]+:[[:space:]]*/, "", val); sub(/[^0-9].*$/, "", val)
+      if (val != "") print key "=" val
+    }
   }
 ' "$_r82_yaml" 2>/dev/null)
+# Non-vacuity guard: the prior anchor parsed 0 metrics and the rule silent-passed.
+# A baseline-truth gate that extracts no baseline is dead — fail loudly.
+if [[ ${#_r82_metric[@]} -eq 0 ]]; then
+  fail_rule "baseline_metrics_single_source" "Rule 82 parsed 0 baseline_metrics keys from $_r82_yaml — the block anchor/parse is vacuous (format drift). Per Rule 82 / E115."
+  _r82_fail=1
+fi
 # Cache gate_executable_test_cases for the Tests-passed pattern below.
 _r82_tp_expected="${_r82_metric[gate_executable_test_cases]:-}"
 
@@ -5162,32 +5178,57 @@ if [[ ! -f "$_r96_claude" ]] || [[ ! -f "$_r96_deferred" ]]; then
   _r96_fail=1
 else
   _r96_missing=""
-  # Find every "## Rule N.X" or "## Rule N.b/c/..." heading in CLAUDE-deferred.md
-  while IFS= read -r _r96_subclause; do
-    [[ -z "$_r96_subclause" ]] && continue
-    _r96_num=$(echo "$_r96_subclause" | grep -oE '^[0-9]+')
-    _r96_letter=$(echo "$_r96_subclause" | grep -oE '\.[a-z]$' | sed 's/^\.//')
-    [[ -z "$_r96_num" ]] || [[ -z "$_r96_letter" ]] && continue
-    _r96_ref="Rule ${_r96_num}.${_r96_letter}"
-    # Find the `#### Rule N` block in CLAUDE.md (between heading and next `---`).
-    _r96_block=$(awk -v rn="$_r96_num" '
-      $0 ~ "^#### Rule "rn" " { in_block = 1; print; next }
+  _r96_seen=0
+  # Active #### Rule ids in CLAUDE.md (namespaced D-/R-/G-/M- or legacy numeric),
+  # used for longest-prefix parent resolution of a deferred sub-clause heading.
+  _r96_ids=$(grep -oE '^#### Rule [A-Za-z0-9.-]+' "$_r96_claude" | sed -E 's/^#### Rule //')
+  # Every deferred-clause heading in CLAUDE-deferred.md. Post-rc16 these are
+  # namespaced ("## Rule R-K.c", "## Rule R-M sub-clause .d.c") not numeric, so the
+  # heading id is the text after "## Rule " up to the " — " title separator. A bare
+  # id with no sub-clause names a fully-deferred rule with no active kernel block.
+  while IFS= read -r _r96_head; do
+    [[ -z "$_r96_head" ]] && continue
+    _r96_raw="${_r96_head%% — *}"
+    _r96_raw="$(printf '%s' "$_r96_raw" | sed -E 's/[[:space:]]+$//')"
+    # Normalise "X sub-clause .a.b" -> "X.a.b" for parent resolution only.
+    _r96_norm="$(printf '%s' "$_r96_raw" | sed -E 's/ sub-clause \././g')"
+    case "$_r96_norm" in *.*) ;; *) continue ;; esac
+    # Longest dotted prefix of the normalised id that is an active #### Rule block.
+    _r96_parent=""
+    _r96_try="$_r96_norm"
+    while [[ "$_r96_try" == *.* ]]; do
+      _r96_try="${_r96_try%.*}"
+      if printf '%s\n' "$_r96_ids" | grep -qxF "$_r96_try"; then _r96_parent="$_r96_try"; break; fi
+    done
+    [[ -z "$_r96_parent" ]] && continue  # parent rule itself deferred (no active kernel)
+    _r96_seen=$((_r96_seen + 1))
+    _r96_ref="Rule ${_r96_raw}"
+    # Extract the `#### Rule <parent>` block via literal prefix match (parent ids
+    # contain '.' so a regex anchor would over-match; index/substr stays literal).
+    _r96_hdr="#### Rule ${_r96_parent}"
+    _r96_block=$(awk -v hdr="$_r96_hdr" '
+      index($0, hdr) == 1 && (substr($0, length(hdr)+1, 1) == " " || $0 == hdr) { in_block = 1; print; next }
       in_block && /^---$/ { exit }
       in_block { print }
     ' "$_r96_claude")
-    if [[ -z "$_r96_block" ]]; then continue; fi  # Rule N might be deferred itself
     # Coherence is satisfied if EITHER the CLAUDE.md kernel OR the matching rule card
-    # references the sub-clause by literal name. Rule cards have no kernel_cap, so a
-    # rule with a long deferred discussion can cite there without bloating CLAUDE.md.
-    _r96_card="docs/governance/rules/rule-${_r96_num}.md"
+    # references the sub-clause by literal name. Rule cards have no kernel_cap.
+    _r96_card="docs/governance/rules/rule-${_r96_parent}.md"
     _r96_kernel_has=0
     _r96_card_has=0
-    echo "$_r96_block" | grep -qF "$_r96_ref" && _r96_kernel_has=1
+    printf '%s' "$_r96_block" | grep -qF "$_r96_ref" && _r96_kernel_has=1
     [[ -f "$_r96_card" ]] && grep -qF "$_r96_ref" "$_r96_card" && _r96_card_has=1
     if [[ $_r96_kernel_has -eq 0 ]] && [[ $_r96_card_has -eq 0 ]]; then
-      _r96_missing="${_r96_missing}Rule${_r96_num}.${_r96_letter} "
+      _r96_missing="${_r96_missing}[${_r96_ref}] "
     fi
-  done < <(grep -oE '^## Rule [0-9]+\.[a-z]' "$_r96_deferred" | sed -E 's/^## Rule //')
+  done < <(grep -E '^## Rule ' "$_r96_deferred" | sed -E 's/^## Rule //')
+  # Non-vacuity guard (F-kernel-vs-implementation-drift / F-recursive-prevention-irony):
+  # the pre-rc36 numeric-only regex matched 0 namespaced headings and silent-passed.
+  # Require the driver to resolve >=1 deferred sub-clause to an active parent.
+  if [[ $_r96_seen -eq 0 ]]; then
+    fail_rule "kernel_deferred_clause_coherence" "Rule 96 resolved 0 deferred sub-clauses to active #### Rule blocks — driver is vacuous (heading-format drift). Per Rule 96 / E133."
+    _r96_fail=1
+  fi
   if [[ -n "$_r96_missing" ]]; then
     fail_rule "kernel_deferred_clause_coherence" "Active rule kernel + rule card pair does not acknowledge deferred sub-clause(s): ${_r96_missing}-- Rule 96 / E133 (add explicit 'Rule N.X' literal-string reference in either CLAUDE.md kernel block OR docs/governance/rules/rule-NN.md card; rc8 post-corrective P1-1 closure)"
     _r96_fail=1
@@ -5423,29 +5464,45 @@ else
   # Per-invocation tempfile (mktemp + trap-style cleanup below) so two
   # concurrent gate runs cannot race on a shared /tmp/_r99_hits.<pid> path.
   _r99_hits_file="$(mktemp -t r99_hits.XXXXXX)"
-  # Build set of rule numbers that have deferred sub-clauses
-  _r99_deferred_nums=$(grep -oE '^## Rule [0-9]+\.[a-z]' "$_r99_deferred" \
-    | sed -E 's/^## Rule //; s/\..*$//' | sort -u | tr '\n' ' ')
-  # For every #### Rule N block in CLAUDE.md, check kernel body for end-state verbs.
+  # Build the set of parent rule ids (namespaced or legacy) that have >=1 deferred
+  # sub-clause. Post-rc16 deferred headings are namespaced; resolve each to its
+  # longest-prefix active #### Rule id (mirrors Rule 96).
+  _r99_ids=$(grep -oE '^#### Rule [A-Za-z0-9.-]+' "$_r99_claude" | sed -E 's/^#### Rule //')
+  _r99_deferred_nums=""
+  while IFS= read -r _r99_head; do
+    [[ -z "$_r99_head" ]] && continue
+    _r99_raw="${_r99_head%% — *}"
+    _r99_norm="$(printf '%s' "$_r99_raw" | sed -E 's/ sub-clause \././g; s/[[:space:]]+$//')"
+    case "$_r99_norm" in *.*) ;; *) continue ;; esac
+    _r99_try="$_r99_norm"
+    while [[ "$_r99_try" == *.* ]]; do
+      _r99_try="${_r99_try%.*}"
+      if printf '%s\n' "$_r99_ids" | grep -qxF "$_r99_try"; then
+        _r99_deferred_nums="${_r99_deferred_nums}${_r99_try} "; break
+      fi
+    done
+  done < <(grep -E '^## Rule ' "$_r99_deferred" | sed -E 's/^## Rule //')
+  _r99_deferred_nums=$(printf '%s\n' $_r99_deferred_nums | sort -u | tr '\n' ' ')
+  # For every #### Rule <id> block whose id has a deferred sub-clause, check the
+  # kernel body for end-state verbs implying shipped Run-state transitions. Uses
+  # 2-arg match() (POSIX-portable; no gawk-only 3-arg array extension).
   awk -v end_verbs="$_r99_end_verbs" -v defnums="$_r99_deferred_nums" '
     BEGIN { rule = ""; body = "" }
-    /^#### Rule [0-9]+/ {
+    /^#### Rule / {
       if (rule) emit()
-      match($0, /^#### Rule ([0-9]+)/, m)
-      rule = m[1]
+      line = $0; sub(/^#### Rule /, "", line); sub(/[ \t].*$/, "", line)
+      rule = line
       body = ""
       next
     }
     /^---$/ && rule { emit(); rule = ""; next }
     rule { body = body $0 " " }
     END { if (rule) emit() }
-    function emit() {
-      # Does this rule have a deferred sub-clause?
+    function emit(   has_deferred, n, dn, i, v) {
       has_deferred = 0
       n = split(defnums, dn, " ")
       for (i = 1; i <= n; i++) if (dn[i] == rule) has_deferred = 1
       if (!has_deferred) return
-      # Test body for any end-state verb
       if (body ~ end_verbs) {
         match(body, end_verbs)
         v = substr(body, RSTART, RLENGTH)
@@ -5455,6 +5512,12 @@ else
   ' "$_r99_claude" > "$_r99_hits_file"
   _r99_violations=$(cat "$_r99_hits_file")
   rm -f "$_r99_hits_file"
+  # Non-vacuity guard: post-rc16 the numeric-only heading regex resolved 0 parents
+  # and the rule silent-passed. Require >=1 resolved parent (F-kernel-vs-impl-drift).
+  if [[ -z "${_r99_deferred_nums// /}" ]]; then
+    fail_rule "kernel_terminal_verb_vs_shipped_decision_check" "Rule 99 resolved 0 deferred-sub-clause parents — driver is vacuous (heading-format drift). Per Rule 99 / E139."
+    _r99_fail=1
+  fi
   if [[ -n "$_r99_violations" ]]; then
     _r99_first=$(echo "$_r99_violations" | head -3 | tr '\n' '|')
     fail_rule "kernel_terminal_verb_vs_shipped_decision_check" "active rule kernel uses end-state verb implying shipped Run-state transition, but matching Rule N.<letter> deferred sub-clause exists (kernel is overclaiming shipped behaviour): ${_r99_first}-- Rule 99 / E139 (rc10 post-corrective P1-1 closure; narrow kernel verb to decision-envelope behaviour OR remove the deferred sub-clause if behaviour has actually shipped)"

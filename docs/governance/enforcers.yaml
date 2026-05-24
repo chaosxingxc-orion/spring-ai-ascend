@@ -54,7 +54,7 @@
   level: L1
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/memory/spi/MemorySpiArchTest.java
-  asserts: "runtime.memory.spi.. and runtime.orchestration.spi.. import only java.*"
+  asserts: "runtime.memory.spi.. imports only java.*"
 
 - id: E4
   constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §5.2; ADR-0055"
@@ -302,7 +302,7 @@
   level: L1
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/PlatformImportsOnlyRuntimePublicApiTest.java
-  asserts: "agent-platform main sources may only import runtime.runs.*, runtime.orchestration.spi.*, runtime.posture.* — never runtime.orchestration.inmemory.*, runtime.resilience.*, runtime.memory.spi.*, or other internal packages."
+  asserts: "service.platform main sources may only import service.runtime.runs.*, engine.orchestration.spi.*, service.runtime.posture.* — never service.runtime.orchestration.inmemory.*, service.runtime.resilience.*, service.runtime.memory.spi.*, or other internal packages."
 
 - id: E35
   constraint_ref: "CLAUDE.md Rule R-C.a; ADR-0060 §1; Phase L reviewer P0-2 root cause"

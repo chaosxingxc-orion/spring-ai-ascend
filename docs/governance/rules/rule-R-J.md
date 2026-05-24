@@ -10,7 +10,7 @@ status: active
 scope_phase: design
 kernel_cap: 8
 kernel: |
-  **Tenant isolation is enforced at the storage engine: every Flyway migration creating a `tenant_id`-bearing table MUST enable Postgres Row-Level Security in the same migration (sub-clause .a; pre-rule migrations grandfathered in `gate/rls-baseline-grandfathered.txt` for W2 retrofit). At the HTTP edge, `POST /v1/runs/{runId}/cancel` MUST re-validate `(request.tenantId == Run.tenantId)` with HTTP 403 `tenant_mismatch` on miss; idempotent terminal→terminal same-status returns 200; illegal transitions return 409 `illegal_state_transition`; the cancel surface emits structured `WARN+` audit logs carrying `(runId, fromStatus, toStatus, actor, occurredAt)` MDC (sub-clause .b; resume/retry deferred to Rule R-J.b.d / W2 async orchestrator).**
+  **Tenant isolation is enforced at the storage engine: every Flyway migration creating a `tenant_id`-bearing table MUST enable Postgres Row-Level Security in the same migration (sub-clause .a; pre-rule migrations grandfathered in `gate/rls-baseline-grandfathered.txt` for W2 retrofit). At the HTTP edge, `POST /v1/runs/{runId}/cancel` MUST re-validate `(request.tenantId == Run.tenantId)`; cross-tenant access collapses to 404 `not_found` at W0 (the 403 `tenant_mismatch` + `WARN+` audit MDC `(runId, fromStatus, toStatus, actor, occurredAt)` is the W1-widening direction per ADR-0108, not W0 shipped); idempotent terminal→terminal same-status returns 200; illegal transitions return 409 `illegal_state_transition` (sub-clause .b; read/resume re-auth widening + cancel audit deferred per ADR-0108, resume/retry to Rule R-J.b.d / W2 async orchestrator).**
 ---
 
 # Rule R-J — Storage-Engine Tenant Isolation + Cancel Re-Authorization
@@ -38,20 +38,20 @@ Every Flyway migration that creates a table with a `tenant_id` column MUST enabl
 
 **Enforcer**: E106 (`runlifecycle_cancel_reauthz_shipped`).
 
-Every `POST /v1/runs/{runId}/cancel` operation MUST re-validate `(request.tenantId == Run.tenantId)`; mismatch returns HTTP 403 `tenant_mismatch`. Idempotent terminal→terminal same-status calls return 200; illegal transitions return 409 `illegal_state_transition`. The cancel surface emits a structured `WARN+` audit log line carrying `(runId, fromStatus, toStatus, actor, occurredAt)` MDC fields. Resume and retry sub-clauses (24.d) remain deferred to the W2 async orchestrator.
+Every `POST /v1/runs/{runId}/cancel` operation MUST re-validate `(request.tenantId == Run.tenantId)`. At W0 the shipped controller collapses cross-tenant access into HTTP 404 `not_found`; the 403 `tenant_mismatch` response and the structured `WARN+` cancel-audit MDC `(runId, fromStatus, toStatus, actor, occurredAt)` are the W1-widening direction per ADR-0108 (which `extends` this rule), not W0 shipped behaviour. Idempotent already-CANCELLED calls return 200; a terminal non-CANCELLED state returns 409 `illegal_state_transition`. Resume and retry sub-clauses (R-J.b.d) remain deferred to the W2 async orchestrator.
 
 **Active surface (W1)**: `RunController.cancel(runId, tenantHeader)` in `agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java`:
-- Reads `Run` from `RunRepository.findById(runId)`; returns 404 if missing.
-- Compares `request.tenantId` with `Run.tenantId`; returns 403 on mismatch.
-- Returns 200 if the Run is already terminal in CANCELLED state (idempotent).
-- Calls `RunStateMachine.validate(currentStatus, CANCELLED)`; throws `IllegalStateException` (handled as 409) on illegal transition.
-- Emits structured WARN log with MDC fields per the kernel above.
+- Reads `Run` from `RunRepository.findById(runId)`; returns 404 if missing OR the Run belongs to another tenant (W0 cross-tenant collapse; the 403 split is the W1-widening direction per ADR-0108).
+- Routes the cancel write through `RunRepository.updateIfNotTerminal(runId, r -> r.withStatus(CANCELLED))` so the re-read, terminal check, and write are one atomic step — a parallel terminal write (orchestrator SUCCEEDED/FAILED) can never be silently overwritten.
+- Returns 200 if the resolved Run is CANCELLED (either just cancelled, or already CANCELLED — idempotent).
+- Returns 409 `illegal_state_transition` when the re-read status is terminal and not CANCELLED.
+- Structured `WARN+` cancel-audit emission is deferred to the W1-widening wave per ADR-0108; at W1 the audit trail is the application log stream.
 
 **Audit table**: A durable `run_state_change` audit table is deferred to W2 per ADR-0020. At W1 the audit trail lives in the application log stream (Logback JSON).
 
 ## Deferred sub-clauses
 
-- 40.b — V1/V2 grandfathered RLS retrofit — W2.
-- R-J.b.d — resume + retry re-authorization, W2 async orchestrator.
+- Rule R-J.a.b (legacy id 40.b) — V1/V2 grandfathered RLS retrofit — W2.
+- Rule R-J.b.d — resume + retry re-authorization, W2 async orchestrator.
 
 See `docs/CLAUDE-deferred.md` for the deferred-runtime obligations and re-introduction triggers. Rule G-3 sub-clause .d (`kernel_deferred_clause_coherence`) asserts the bidirectional link between this active rule and each deferred sub-clause.

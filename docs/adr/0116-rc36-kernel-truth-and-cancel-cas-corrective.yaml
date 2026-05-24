@@ -1,0 +1,117 @@
+id: ADR-0116
+title: "rc36 exhaustive-audit corrective: kernel-truth gate un-deadening + cancel-CAS + cross-authority alignment"
+status: accepted
+date: 2026-05-24
+level: L0
+view: process
+affects_level: L0, L1
+affects_view: process, logical
+authors:
+  - chao
+relates_to:
+  - ADR-0108
+  - ADR-0095
+context: |
+  A 7-surface parallel adversarial review (runtime-spine correctness +
+  engine/middleware/bus SPI + cross-authority parity + gate-script
+  correctness + test quality + numeric/doc truth + whitebox static
+  analysis) ran against the post-#61 main tip. The corpus gate was green
+  (135/135, 226/226 self-tests, whitebox 0/0/7) yet the review surfaced
+  defects the serial gate cannot see — the recurring lesson that green
+  gates do not imply a bug-free corpus.
+
+  HEADLINE (F-kernel-vs-implementation-drift, worst observed instance):
+  Rule 96 (kernel_deferred_clause_coherence) and Rule 99
+  (kernel_terminal_verb_vs_shipped_decision_check) — the two enforcers
+  whose JOB is detecting kernel-vs-implementation drift — were themselves
+  PERMANENT SILENT-PASSES since the rc16 D-/R-/G-/M- namespace migration.
+  Their heading-discovery regexes stayed numeric (`^#### Rule [0-9]+`,
+  `^## Rule [0-9]+\.[a-z]`) and matched 0 of the 42 namespaced `#### Rule
+  X-N` kernels, so the rules iterated empty sets and never fired.
+
+decision: |
+  Adopt the following corrective decisions for rc36:
+
+  1. **Kernel-truth gate un-deadening + non-vacuity guard.** Rules 96/99
+     are rewritten to resolve a deferred sub-clause heading to its
+     longest-prefix active `#### Rule` parent (namespaced or legacy), and
+     each now carries a NON-VACUITY GUARD: the rule FAILS if it resolves
+     0 sub-clauses/parents. A drift-detector that detects nothing must
+     fail loudly, not pass quietly. This generalises the
+     F-recursive-prevention-irony lesson (ADR-0095/0096/0097) to
+     heading-format drift. Seven deferred sub-clauses that the dead rule
+     was hiding (acknowledged only by stale legacy ids 40.b/46.c/48.b)
+     are corrected to current namespaced ids (R-J.a.b, R-M.d.c,
+     M-2.a.b/.a.c, R-I.c/.d/.e).
+
+  2. **Run cancel compare-and-set.** `RunRepository` gains an atomic
+     `updateIfNotTerminal(runId, mutator)` (default + atomic
+     `computeIfPresent` override in `InMemoryRunRegistry`); `RunController.cancel`
+     routes its write through it. This is the missing half of the rc35
+     cancel-vs-complete CAS fix: the controller previously did
+     stale-read → validate-against-stale → blind-save, so a parallel
+     orchestrator terminal write could be silently overwritten with
+     CANCELLED. `SyncOrchestrator.mutateIfNotTerminal` additionally
+     catches the lost-race `IllegalStateException` so it cannot mask a
+     caller's original error.
+
+  3. **Gate scan-scope correction.** Rules 28b/28d and Rule 14 scanned a
+     DOUBLED single path (`agent-service/src/main/java` twice) and so
+     covered only 1 of 6 modules; widened to `agent-*/src/main/java`,
+     which immediately caught a real out-of-scope-name leak in
+     `agent-bus/package-info.java` (now genericised).
+
+  4. **Cross-authority alignment with ADR-0108.** Rule R-J sub-clause .b
+     kernel + card overclaimed shipped 403 `tenant_mismatch` + WARN audit;
+     ADR-0108 documents 404 `not_found` as the W0-shipped behaviour and
+     403 + audit as the W1-widening direction. The kernel (byte-matched
+     across CLAUDE.md + card) and card body are corrected to match
+     shipped reality and cite ADR-0108.
+
+  5. **Numeric / path truth.** gate/README executable-section count
+     133→135; contract-catalog HookPoint 9→10 (adds ON_YIELD); 5 stale
+     `service.runtime.orchestration.spi` paths → `engine.orchestration.spi`
+     (relocated per ADR-0088). Rule 82 phrase-map dead key
+     `active_engineering_rules_post_rc6` → `active_engineering_rules`.
+
+consequences: |
+  Positive:
+  - Three drift-prevention rules (Rule 82 baseline_metrics_single_source —
+    found dead during this wave's own Phase-8 self-review, its awk anchored on
+    a column-0 key that is actually indented under `capabilities:` — plus
+    Rules 96 + 99) that silently protected nothing now fire against the live
+    corpus and cannot be re-silenced by format drift (non-vacuity guards).
+    Un-deadening Rule 82 surfaced the stale "90 ADRs" claim; reconciled to the
+    true 101 (= adr_count) across README + allowed_claim + the release note.
+  - The HTTP cancel edge is no longer the asymmetric weak side of the
+    rc35 race fix; terminal-state immutability holds on both the
+    controller and orchestrator surfaces.
+  - Gate name-guards cover all reactor modules, not 1 of 6.
+
+  Negative / residual:
+  - F-kernel-vs-implementation-drift remains `partial`: every future rule
+    can drift the same way; the non-vacuity guard is a backstop, not a
+    cure. W2 candidate: a meta-test asserting every auto-discovering rule
+    matches >=1 live corpus element.
+  - The 3 new RunController ITs run only on CI (Testcontainers/Docker);
+    they skip locally. The JDBC idempotency TTL-expiry-recovery boundary
+    remains a documented test-coverage gap (the SQL is verified correct).
+
+  Latent findings explicitly deferred (no current reachability):
+  EngineRegistry unsynchronised reads + HookDispatcher ON_ERROR
+  outcome-ranking + skill-capacity acquire/release symmetry are W2 (no
+  production wiring); S2C trace_id MUST-equal enforcement is a contract
+  overclaim that strict equality cannot satisfy while orchestrated child
+  runs carry a null traceId.
+
+alternatives_considered: |
+  - (A) Delete Rules 96/99 instead of fixing them — rejected: they are
+    the sole enforcers of Rule G-3 sub-clauses .d and .e (E133/E139);
+    deletion would leave the obligations unenforced.
+  - (B) Implement 403 + audit in code to match the active Rule R-J.b
+    card — rejected: ADR-0108 (newest authority, extends Rule-R-J)
+    explicitly scopes 403 as W1-widening, and 404 collapse is the
+    deliberate existence-oracle-avoidance behaviour for W0.
+  - (C) Exempt package-info.java from the out-of-scope-name guard —
+    rejected: production javadoc naming reserved W2+ concepts is exactly
+    what the guard prevents; ADR-0050 carries the precise names.
