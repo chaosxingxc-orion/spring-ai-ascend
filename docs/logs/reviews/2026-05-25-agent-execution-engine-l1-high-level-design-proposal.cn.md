@@ -36,62 +36,12 @@ status: proposed
 
 ## 2. 场景视图 (Scenarios View)
 
-### 2.1 高性能内聚运行场景 (共进程模式)
-
-### 2.2 异构存量智能体兼容集成场景 (服务化模式)
-
-### 2.3 跨节点多智能体 A2A 异步协同场景
-
-### 2.4 高频轻量访问快路径场景 (Fast-Path Loop)
-
-### 2.5 异构引擎影子工具挂起与异步执行场景 (Shadow-Plugin Intercept Loop)
-
 ## 3. 逻辑视图 (Logical View)
-
-### 3.1 多态派发器 (Polymorphic Dispatcher)
-
-### 3.2 引擎适配器 (Engine Adapter)
-
-### 3.3 内部事件队列（Internal Event Queue）
-
-### 3.4 A2A 协议收发引擎组件（A2A Connector）
-
-### 3.5 Task-Centric 状态控制体系与信号派发组件
-
-### 3.6 逻辑分工边界映射组件（Logical Boundary Mapping）
 
 ## 4. 进程视图 (Process View)
 
-### 4.1 异步任务发布/消费环路 (Asynchronous Task Loop)
-
-### 4.2 跨节点多智能体协作与中断唤醒链路 (A2A Collaboration Loop)
-
-### 4.3 4级状态全生命周期流转环流（Four-Layer Life Cycle Flow）
-
-### 4.4 双轨快慢路径调度时序流程 (Fast-Path & Slow-Path Dispatch Loop)
-
-### 4.5 异构框架影子工具拦截与恢复流程 (Heterogeneous Framework Shadow Interceptor Flow)
-
 ## 5. 开发视图 (Development View)
-
-### 5.1 依赖开源与自研边界定界
-
-### 5.2 自研代码包目录映射与依赖集成
 
 ## 6. 物理视图 (Physical View)
 
-### 6.1 共进程内聚部署拓扑 (Embedded Deployment)
-
-### 6.2 存量解耦/异构微服务部署拓扑 (Decoupled Service Deployment)
-
-### 6.3 双轨路径的物理存储与计算边界 (Dual-Track Physical & Compute Boundaries)
-
 ## 7. 附录：核心 SPI 接口 (Appendix: Core SPI Interfaces)
-
-### 7.1 A2A 标准任务生命周期与中断类型定义
-
-### 7.2 StatelessEngineExecutor 引擎核心契约接口定义
-
-### 7.3 Dual-Track Router 与快慢路径处理器接口定义
-
-### 7.4 ShadowToolInterceptor 与异构适配器接口定义
