@@ -8,7 +8,7 @@ authority_refs: [ADR-0094]
 # Recurring Defect Families — Human View
 
 > **What this is.** A categorised summary of defect ROOT-CAUSE CLASSES that
-> have recurred across multiple rc waves (rc4 → rc16). The canonical
+> have recurred across multiple rc waves (rc4 → rc38). The canonical
 > machine-readable form is [`recurring-defect-families.yaml`](recurring-defect-families.yaml);
 > this `.md` is a rendered view for human readers and reviewers.
 >
@@ -61,6 +61,7 @@ authority_refs: [ADR-0094]
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 1 (rc21) | ✅ closed — phase contracts + skills + dual-track loading per ADR-0098 |
 | 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 10 (rc17-rc22+rc27-30) | 🟡 monitoring (rc32 reopen — rc29 marked closed but rc30 surfaced a regression in check_l1_dev_view_tree.sh; cool-down rc32+rc33+rc34) |
 | 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, deferred) |
+| 13 | F-nonatomic-run-status-write | Non-Atomic Run Status Write Loses a Parallel Terminal Transition | 4 (rc35-correctness-batch, rc35-second-pass, rc36, rc38) | ⚠️ partial (rc38 register — orchestrator helper converted to atomic updateIfNotTerminal CAS + read-modify-write-window regression test; durable ArchUnit guard forbidding blind status-saves deferred) |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -509,6 +510,52 @@ residuals but does not prevent the next wave's recurrence.
 real prevention. Until then, the family will remain `partial` and
 require a manual scrub each wave Rule D-9 is widened or the
 grandfather list is reduced.
+
+---
+
+### F-nonatomic-run-status-write — Non-Atomic Run Status Write Loses a Parallel Terminal Transition
+
+**Pattern.** A Run status transition done as a separate re-read
+(`findById`) then blind write (`save`) is not atomic relative to a
+parallel terminal write. A `RunController.cancel` that writes CANCELLED
+between the re-read and the save is silently overwritten: the mutator
+validates its transition against the STALE snapshot (RUNNING → SUCCEEDED
+passes) and blind-puts over the just-written CANCELLED, losing the cancel.
+
+**Observed.** Recurred across four passes, each closing one set of
+call-sites while a sibling set survived: rc35-correctness-batch closed the
+three terminal SUCCEEDED/FAILED sites; rc35-second-pass closed the five
+non-terminal sites; rc36 closed the `RunController.cancel` half via the new
+atomic `RunRepository.updateIfNotTerminal` CAS; rc38 found that the
+`SyncOrchestrator`'s own private `mutateIfNotTerminal` helper — the very
+indirection the earlier waves routed writes through — was STILL a
+non-atomic `findById`-then-`save`. The class was never registered as a
+family before rc38, so the ledger could not flag the recurrence.
+
+**Surfaces.**
+
+- `SyncOrchestrator.java` — the private `mutateIfNotTerminal` helper (rc38).
+- `RunController.java` — the cancel endpoint (rc36 closed).
+- `RunRepository.java` — the SPI; `updateIfNotTerminal` is the atomic path.
+- `InMemoryRunRegistry.java` — the dev-posture `computeIfPresent` impl.
+
+**Prevention.**
+
+- Rule R-C.2.b — every `Run.withStatus` validates via `RunStateMachine`.
+- rc36 (ADR-0116) — atomic `RunRepository.updateIfNotTerminal` CAS is the
+  single sanctioned status-transition path.
+- rc38 (ADR-0118) — `SyncOrchestrator` routed through the CAS + a
+  deterministic read-modify-write-window regression test; family registered.
+
+**Cleanup status.** `partial` — the orchestrator helper is now atomic and a
+regression test locks it, but the durable structural fix (an ArchUnit guard
+forbidding blind status-changing saves) is deferred.
+
+**Open residual.** Add an ArchUnit guard that forbids any production
+`RunRepository.save(...)` which CHANGES a Run's status outside the
+`updateIfNotTerminal` CAS (create-only saves remain allowed). The W2
+Postgres orchestrator satisfies the same SPI contract with a conditional
+UPDATE; the in-memory orchestrator is W0/dev-posture only.
 
 ---
 

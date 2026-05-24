@@ -92,7 +92,11 @@ public final class SyncOrchestrator implements Orchestrator {
 
     @Override
     public Object run(UUID runId, String tenantId, ExecutorDefinition def, Object initialPayload) {
-        Run run = runs.findById(runId).orElseGet(() -> createRun(runId, tenantId, def));
+        // Persist the freshly-created Run before the first status transition so the
+        // atomic compare-and-set in mutateIfNotTerminal (RunRepository.updateIfNotTerminal,
+        // backed by computeIfPresent) has a row to operate on. A top-level Run reaches
+        // here unsaved; child Runs are pre-saved by the suspension branch below.
+        Run run = runs.findById(runId).orElseGet(() -> runs.save(createRun(runId, tenantId, def)));
         run = mutateIfNotTerminal(run, r -> r.withStatus(RunStatus.RUNNING));
         if (RunStateMachine.isTerminal(run.status())) {
             return null;
@@ -270,31 +274,22 @@ public final class SyncOrchestrator implements Orchestrator {
      * could otherwise produce a candidate (via {@code Run.withStatus(...)}) that
      * validates a legal transition against the local field (e.g.
      * {@code RUNNING → SUSPENDED}), then blind-overwrite a parallel CANCELLED
-     * write. The mutator is invoked on the freshly-read Run so the state
-     * machine inside {@code Run.withStatus} also sees current state.
+     * write. Delegating to {@link RunRepository#updateIfNotTerminal} makes the
+     * re-read, terminal check, mutate, and write a single atomic step (the
+     * in-memory impl backs it with a {@code computeIfPresent} per-key remap),
+     * so a cancel landing between the read and the write can no longer be lost
+     * — the same atomic primitive {@code RunController.cancel} already uses. A
+     * private read-then-save here re-opened that window because the two calls
+     * were not atomic relative to a parallel terminal write.
      *
-     * <p>The W2 Postgres-backed orchestrator replaces this helper with a
-     * compare-and-set repository contract; in W0 in-memory mode this helper
-     * is the structural stopgap.
+     * <p>The W2 Postgres-backed orchestrator satisfies the same contract with a
+     * conditional UPDATE (compare-and-set); the SPI surface is identical.
      *
      * <p>Callers check {@link RunStateMachine#isTerminal(RunStatus)} on the
      * returned Run to decide whether to short-circuit the orchestrator loop.
      */
     private Run mutateIfNotTerminal(Run local, UnaryOperator<Run> mutator) {
-        Run current = runs.findById(local.runId()).orElse(local);
-        if (RunStateMachine.isTerminal(current.status())) {
-            return current;
-        }
-        try {
-            return runs.save(mutator.apply(current));
-        } catch (IllegalStateException raceLost) {
-            // A parallel surface advanced the state to one from which this transition
-            // is now illegal (non-terminal but unreachable target). Treat as a lost
-            // race: return the current persisted Run rather than masking the caller's
-            // original error (e.g. the EngineMatchingException being finalized) with
-            // this state-machine ISE.
-            return runs.findById(local.runId()).orElse(current);
-        }
+        return runs.updateIfNotTerminal(local.runId(), mutator).orElse(local);
     }
 
     /**

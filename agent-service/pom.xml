@@ -236,6 +236,22 @@
           <include>s2c-callback.v1.yaml</include>
         </includes>
       </resource>
+      <!--
+        Bring the skill-capacity matrix onto the classpath. YamlSkillCapacityRegistry
+        loads its default path "docs/governance/skill-capacity.yaml" from the filesystem
+        first, then falls back to the classpath at "/docs/governance/skill-capacity.yaml".
+        A packaged jar (and the distroless image, which runs from /app with no docs/
+        tree) has no filesystem copy, so without this resource the registry silently
+        loads an EMPTY matrix and fails closed on every tryAcquire once Rule R-K wiring
+        consults it. Mirrors the docs/contracts engine-YAML bundling above.
+      -->
+      <resource>
+        <directory>${project.basedir}/../docs/governance</directory>
+        <targetPath>docs/governance</targetPath>
+        <includes>
+          <include>skill-capacity.yaml</include>
+        </includes>
+      </resource>
     </resources>
     <plugins>
       <plugin>

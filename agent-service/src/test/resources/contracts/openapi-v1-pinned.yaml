@@ -33,7 +33,7 @@ paths:
   /v1/runs:
     post:
       summary: Create a run
-      description: "Creates a new run for the authenticated tenant. The created run is returned with status PENDING. The Idempotency-Key header is mandatory; replays with the same key + body return the original response; same key + different body returns 409 idempotency_body_drift (ADR-0057)."
+      description: "Creates a new run for the authenticated tenant. Per Rule R-F / principle P-F (Cursor Flow) the server returns 202 + TaskCursor immediately; clients poll cursor_url for state. The Idempotency-Key header is mandatory; replays with the same key + body return the original response; same key + different body returns 409 idempotency_body_drift (ADR-0057)."
       operationId: createRun
       tags: [runs]
       parameters:
@@ -46,12 +46,12 @@ paths:
             schema:
               $ref: "#/components/schemas/CreateRunRequest"
       responses:
-        "201":
-          description: Run created (PENDING)
+        "202":
+          description: "Run accepted (PENDING). Cursor Flow per ADR-0070; client polls cursor_url for state."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RunResponse"
+                $ref: "#/components/schemas/TaskCursor"
         "400":
           description: Invalid request (missing tenant context, malformed body)
           content:
@@ -241,6 +241,28 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    TaskCursor:
+      type: object
+      required: [runId, status, cursor_url]
+      description: "Cursor Flow envelope returned by long-horizon POST endpoints per Rule R-F / principle P-F. The client polls cursor_url (GET) or subscribes via SSE; the original request never blocks the connection."
+      properties:
+        runId:
+          type: string
+          format: uuid
+          description: Server-allocated run identifier; stable across the run's lifetime.
+        status:
+          type: string
+          enum: [PENDING, RUNNING, SUSPENDED, SUCCEEDED, FAILED, CANCELLED, EXPIRED]
+          description: "Initial run lifecycle state per RunStateMachine DFA. Always PENDING at cursor issuance."
+        cursor_url:
+          type: string
+          format: uri
+          description: "Absolute URL the client uses to poll run status (GET) or subscribe to event stream (SSE)."
+        webhook_url:
+          type: string
+          format: uri
+          description: "Optional callback URL the platform invokes for blocking checkpoints (Human-in-the-loop intervention points)."
 
     ErrorEnvelope:
       type: object

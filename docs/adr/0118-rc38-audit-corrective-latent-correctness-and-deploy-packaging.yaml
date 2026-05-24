@@ -1,0 +1,119 @@
+id: ADR-0118
+title: "rc38 audit-corrective: parallel-review latent-correctness + deploy-packaging fixes; register the non-atomic-run-status-write family"
+status: accepted
+date: 2026-05-24
+level: L0
+view: scenarios
+affects_level: L0, L1
+affects_view: scenarios, development
+authors:
+  - chao
+relates_to:
+  - ADR-0116
+  - ADR-0070
+  - ADR-0024
+context: |
+  A four-reviewer parallel deep-read of the whole Java corpus (agent-service
+  runtime spine + HTTP edge; agent-bus + agent-middleware SPIs + migrations;
+  agent-execution-engine + agent-evolve + agent-client + graphmemory starter;
+  cross-cutting config / autowiring / posture / deploy) ran against the rc37
+  tip. The gate and Maven verify were already green; the review targeted the
+  residual class the gate cannot see — latent logic/concurrency bugs and
+  deploy-time packaging gaps. Five actionable findings survived per-finding
+  verification (read callers/callees + the covering test before reporting);
+  five further candidate findings were verified to be by-design and rejected.
+
+  The headline finding is a RECURRENCE. The cancel-vs-complete race
+  (a parallel `RunController.cancel` terminal write silently overwritten by an
+  orchestrator status write made against a stale snapshot) was addressed in
+  rc35 (three terminal SUCCEEDED/FAILED sites), rc35-second-pass (five sibling
+  non-terminal sites), and rc36 (the `RunController.cancel` half, via the new
+  atomic `RunRepository.updateIfNotTerminal` compare-and-set). Yet the
+  `SyncOrchestrator`'s OWN private `mutateIfNotTerminal` helper — the very thing
+  those waves were re-routing writes through — still did a non-atomic
+  `findById` then `save`: a cancel landing between its re-read and its write was
+  still lost. The same root-cause class had never been registered as a recurring
+  defect family, so the ledger could not flag the recurrence. rc38 registers it.
+
+decision: |
+  Ship the five verified fixes and reject the five by-design candidates.
+
+  Fixes:
+
+  1. **(P1, dev-posture) Orchestrator status writes routed through the atomic
+     CAS.** `SyncOrchestrator.mutateIfNotTerminal` now delegates to
+     `RunRepository.updateIfNotTerminal(runId, mutator)` — the same atomic
+     primitive (in-memory: `computeIfPresent` per-key remap) the cancel path
+     uses — making re-read + terminal-check + mutate + write a single step. The
+     top-level Run is persisted at `run()` entry so the CAS has a row to operate
+     on (child Runs are already pre-saved by the suspension branch). A
+     deterministic single-threaded regression test (`CancelInjectingRepository`)
+     reproduces the exact read-modify-write window the prior tests missed.
+
+  2. **(P1) Dockerfile copies the executable jar explicitly.** agent-service
+     produces TWO jars — the plain library jar and the `boot`-classified
+     executable jar (ADR-0078 downstream-consumability). The
+     `agent-service-*.jar` glob matched both; a multi-source COPY into a
+     non-directory destination fails `docker build` (or copies the
+     non-executable library jar). Now copies `agent-service-*-boot.jar`.
+
+  3. **(P1, latent) skill-capacity matrix bundled onto the classpath.**
+     `YamlSkillCapacityRegistry`'s default path resolves on the filesystem then
+     the classpath; the packaged jar / distroless image (run from `/app`) has
+     neither, so the registry silently loaded an EMPTY matrix and would
+     fail-closed on every `tryAcquire` once Rule R-K wiring consults it. The pom
+     now copies `docs/governance/skill-capacity.yaml` onto the classpath,
+     mirroring the engine-YAML bundling. Aligns behaviour with the documented
+     contract; no shipped path calls `resolve()` yet, so this is forward hygiene.
+
+  4. **(P2) JWKS decoder gated on `jwks-uri`, not `issuer`.** `issuer` is also a
+     legitimate dev-local-mode setting (issuer-claim validation), so gating the
+     JWKS bean on `issuer` wrongly registered it (calling `withJwkSetUri(null)`)
+     for the dev-local-mode + issuer combination. Gated on the value the decoder
+     actually requires.
+
+  5. **(P2) OpenAPI pinned test fixture realigned to the canonical contract.**
+     `openapi-v1-pinned.yaml`'s POST /v1/runs declared 201 + RunResponse while
+     the canonical `docs/contracts/openapi-v1.yaml` and the live controller
+     return 202 + TaskCursor (Cursor Flow, ADR-0070). The drift made
+     `OpenApiContractIT` pass vacuously. Fixture realigned to 202 + TaskCursor.
+
+  Register **F-nonatomic-run-status-write** in
+  `recurring-defect-families.yaml` (first_observed rc35; occurrences
+  rc35/rc35-second-pass/rc36/rc38) so the ledger captures the recurrence.
+
+consequences: |
+  Positive:
+  - The dev-posture orchestrator can no longer lose a concurrent cancel; all
+    SyncOrchestrator status transitions share the one atomic CAS path.
+  - `docker build` succeeds and ships the executable jar.
+  - The skill-capacity registry loads its matrix in the packaged jar/image.
+  - The dev-local-mode + issuer auth config no longer crashes at boot.
+  - The OpenAPI contract test compares the real shipped response shape.
+
+  Negative / residual:
+  - F-nonatomic-run-status-write is `partial`: the durable structural fix is an
+    ArchUnit guard forbidding any blind `RunRepository.save(...)` that changes a
+    Run's status outside the SPI CAS. Deferred. The W2 Postgres orchestrator
+    satisfies the same contract with a conditional UPDATE.
+
+alternatives_considered: |
+  Rejected (verified by-design, NOT bugs):
+  - (A) Rename `springai_ascend_trace_originated_total{source=client|server}`:
+    the `source` tag IS the origin dimension and is asserted by enforcers.yaml,
+    the architecture graph, telemetry/policy.md, an allowed_claim, and
+    TraceExtractFilterIT. Renaming would break four authority surfaces.
+  - (B) Route `AppPostureGate` through the Spring `app.posture` property: it is
+    a static single-construction-path utility called from no-arg constructors;
+    `APP_POSTURE` is the documented deployment input and `app.posture` derives
+    from it (`${APP_POSTURE:dev}`). The property-level @ConditionalOnProperty is
+    the primary gate; the env-var read is intentional defence-in-depth.
+  - (C) Change the run-dispatch default rejection policy from CALLER_RUNS to
+    ABORT: CALLER_RUNS is a deliberate backpressure default, and today's
+    dispatcher is a no-op so no cursor-flow guarantee is violated. A product
+    decision, not a correctness fix.
+  - (D) Synchronise EngineRegistry reads: the registry is fully built on the
+    boot thread and immutable after publication; the race is unreachable today.
+  - (E) Make skill-capacity `resolve()` non-mutating to fix acquire-without-
+    release: `resolve()` has zero production call sites (W1 decision-envelope,
+    Rule R-K.c suspension deferred). Out of scope until W2 wires it.

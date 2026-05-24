@@ -35,8 +35,13 @@ import java.util.List;
  * <p>Two beans are conditionally registered:
  * <ul>
  *   <li>{@link #jwtDecoderFromJwks(AuthProperties, ObjectProvider)} — when
- *       {@code app.auth.issuer} is set. Backed by a JWKS endpoint via
- *       {@code NimbusJwtDecoder.withJwkSetUri(...)}.</li>
+ *       {@code app.auth.jwks-uri} is set. Backed by a JWKS endpoint via
+ *       {@code NimbusJwtDecoder.withJwkSetUri(...)}. Gated on the JWKS URI (the
+ *       value the decoder actually requires) rather than on {@code issuer},
+ *       which is also a legitimate setting for the dev-local-mode decoder's
+ *       issuer-claim validation; gating on {@code issuer} would wrongly register
+ *       this JWKS bean (calling {@code withJwkSetUri(null)}) for the
+ *       dev-local-mode + issuer combination.</li>
  *   <li>{@link #jwtDecoderFromDevJwk(AuthProperties, ObjectProvider)} — when
  *       {@code app.auth.dev-local-mode=true}. Backed by a static RSA public key
  *       from classpath {@code auth/dev-jwk.json}.
@@ -57,7 +62,7 @@ public class JwtDecoderConfig {
     private static final Logger LOG = LoggerFactory.getLogger(JwtDecoderConfig.class);
 
     @Bean
-    @ConditionalOnProperty(prefix = "app.auth", name = "issuer")
+    @ConditionalOnProperty(prefix = "app.auth", name = "jwks-uri")
     public JwtDecoder jwtDecoderFromJwks(AuthProperties auth, ObjectProvider<MeterRegistry> meters) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder
                 .withJwkSetUri(auth.jwksUri())

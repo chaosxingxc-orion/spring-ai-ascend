@@ -6,13 +6,17 @@ import com.huawei.ascend.engine.orchestration.spi.RunMode;
 import com.huawei.ascend.engine.orchestration.spi.SuspendSignal;
 import com.huawei.ascend.service.runtime.runs.Run;
 import com.huawei.ascend.service.runtime.runs.RunStatus;
+import com.huawei.ascend.service.runtime.runs.spi.RunRepository;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.UnaryOperator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -138,5 +142,116 @@ class SyncOrchestratorCancelRaceTest {
         assertThat(finalRun.status())
                 .as("a parallel CANCELLED state MUST NOT be overwritten by SUSPENDED")
                 .isEqualTo(RunStatus.CANCELLED);
+    }
+
+    /**
+     * The two tests above land the cancel <em>before</em> the orchestrator reaches
+     * its terminal-transition helper, so the helper's re-read already observes
+     * CANCELLED. They therefore never exercise the actual read-modify-write window:
+     * a cancel interleaving <em>between</em> the helper's re-read and its write.
+     *
+     * <p>This test reproduces that window deterministically and single-threaded via
+     * a repository decorator that, the moment the orchestrator attempts to transition
+     * the RUNNING Run, writes CANCELLED into the backing store and hands the caller
+     * the stale RUNNING snapshot. A non-atomic {@code findById}-then-{@code save}
+     * helper validates SUCCEEDED against the stale snapshot and blind-overwrites
+     * CANCELLED (cancel lost). Routing the transition through the atomic
+     * {@link RunRepository#updateIfNotTerminal} compare-and-set instead makes the
+     * re-read+check+write a single step, so the interleaved CANCELLED survives.
+     */
+    @Test
+    void terminal_transition_uses_atomic_cas_so_an_interleaved_cancel_survives() {
+        InMemoryRunRegistry backing = new InMemoryRunRegistry();
+        CancelInjectingRepository runs = new CancelInjectingRepository(backing);
+        EngineRegistry engines = new EngineRegistry()
+                .register(new SequentialGraphExecutor())
+                .register(new IterativeAgentLoopExecutor());
+        SyncOrchestrator orchestrator = new SyncOrchestrator(
+                runs, new InMemoryCheckpointer(), engines);
+
+        ExecutorDefinition.AgentLoopDefinition def = new ExecutorDefinition.AgentLoopDefinition(
+                (ctx, payload, iter) -> ExecutorDefinition.ReasoningResult.done("would-be-succeeded"),
+                1,
+                Map.of());
+
+        UUID runId = UUID.randomUUID();
+        // Inject the cancel on the first transition attempted against a RUNNING Run
+        // (i.e. the post-dispatch SUCCEEDED write), not the PENDING -> RUNNING entry.
+        runs.armCancelInjectionOnRunningTransition();
+        orchestrator.run(runId, "tenant-A", def, null);
+
+        assertThat(backing.findById(runId).orElseThrow().status())
+                .as("a cancel landing inside the read-modify-write window MUST NOT be overwritten by SUCCEEDED")
+                .isEqualTo(RunStatus.CANCELLED);
+    }
+
+    /**
+     * Test double that simulates a concurrent {@code RunController.cancel} landing in
+     * the orchestrator's status-transition window. One-shot: on the first
+     * {@code findById}/{@code updateIfNotTerminal} that observes a RUNNING Run while
+     * armed, it writes CANCELLED into the delegate before yielding control.
+     */
+    private static final class CancelInjectingRepository implements RunRepository {
+        private final InMemoryRunRegistry delegate;
+        private boolean armed;
+
+        CancelInjectingRepository(InMemoryRunRegistry delegate) {
+            this.delegate = delegate;
+        }
+
+        void armCancelInjectionOnRunningTransition() {
+            this.armed = true;
+        }
+
+        /**
+         * If armed and the persisted Run is RUNNING, write CANCELLED into the delegate
+         * and return the pre-cancel (stale RUNNING) snapshot; otherwise empty. One-shot.
+         */
+        private Optional<Run> injectCancelIfRunning(UUID runId) {
+            Optional<Run> before = delegate.findById(runId);
+            if (armed && before.isPresent() && before.get().status() == RunStatus.RUNNING) {
+                armed = false;
+                delegate.save(before.get().withStatus(RunStatus.CANCELLED).withFinishedAt(Instant.now()));
+                return before;
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Run> findById(UUID runId) {
+            Optional<Run> stale = injectCancelIfRunning(runId);
+            return stale.isPresent() ? stale : delegate.findById(runId);
+        }
+
+        @Override
+        public Optional<Run> updateIfNotTerminal(UUID runId, UnaryOperator<Run> mutator) {
+            injectCancelIfRunning(runId);
+            return delegate.updateIfNotTerminal(runId, mutator);
+        }
+
+        @Override
+        public Run save(Run run) {
+            return delegate.save(run);
+        }
+
+        @Override
+        public List<Run> findByTenant(String tenantId) {
+            return delegate.findByTenant(tenantId);
+        }
+
+        @Override
+        public List<Run> findByParentRunId(UUID parentRunId) {
+            return delegate.findByParentRunId(parentRunId);
+        }
+
+        @Override
+        public List<Run> findByTenantAndStatus(String tenantId, RunStatus status) {
+            return delegate.findByTenantAndStatus(tenantId, status);
+        }
+
+        @Override
+        public List<Run> findRootRuns(String tenantId) {
+            return delegate.findRootRuns(tenantId);
+        }
     }
 }

@@ -38,7 +38,13 @@ RUN mvn -B -ntp -pl agent-service -am package -DskipTests
 
 FROM gcr.io/distroless/java21-debian12:nonroot
 WORKDIR /app
-COPY --from=build /workspace/agent-service/target/agent-service-*.jar /app/app.jar
+# agent-service builds TWO jars: the plain library jar (agent-service-<ver>.jar,
+# consumable by the graphmemory starter) and the executable Spring Boot jar under
+# the `boot` classifier (agent-service-<ver>-boot.jar). Copy the boot jar explicitly:
+# a bare agent-service-*.jar glob matches both, and a multi-source COPY into a
+# non-directory destination fails the build (and would otherwise risk copying the
+# non-executable library jar, yielding "no main manifest attribute").
+COPY --from=build /workspace/agent-service/target/agent-service-*-boot.jar /app/app.jar
 
 ENV APP_POSTURE=dev
 ENV APP_SHA=dev

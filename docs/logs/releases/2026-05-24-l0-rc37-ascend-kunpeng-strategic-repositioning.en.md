@@ -4,6 +4,16 @@
 **Branch:** `rc37/ascend-kunpeng-strategic-pivot`
 **Authority:** ADR-0117
 
+> **Historical artifact frozen at SHA 973a83d (v2.0.0-rc37).** Baseline counts in
+> this document (102 ADRs / 470 architecture-graph nodes / 839 edges) reflect the
+> corpus state at rc37 and are NOT retroactively updated. The current canonical
+> baseline (rc38: 103 ADRs / 471 nodes / 844 edges) is tracked in
+> `docs/governance/architecture-status.yaml.architecture_sync_gate.allowed_claim`
+> and `README.md`. Superseded for current-baseline claims by the rc38
+> audit-corrective note
+> `docs/logs/releases/2026-05-24-l0-rc38-audit-corrective-latent-correctness-and-deploy-packaging.en.md`.
+> rc37 is **not retracted** — rc38 is additive correctness uplift.
+
 ## Summary
 
 rc37 repositions `spring-ai-ascend` as a **vertical-agnostic, Huawei Ascend (NPU)
