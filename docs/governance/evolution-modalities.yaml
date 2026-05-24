@@ -94,6 +94,6 @@ notes: |
     decision; evolves with ModelGateway routing ADR (future wave;
     not in rc22 scope).
 
-  - Future Audit Vertical (2026-05-20 financial-readiness backlog)
-    may gate which evolution-export events require immutable audit
-    receipt before write-back.
+  - A future Audit capability (deployment-readiness backlog) may gate
+    which evolution-export events require immutable audit receipt
+    before write-back.

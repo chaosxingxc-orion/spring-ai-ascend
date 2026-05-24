@@ -19,7 +19,7 @@ It is currently an extremely excellent "headless compute pool" foundation. It re
 
 However, the stronger the fortress, the harder it is for life to breathe. When we shift our focus from "defense" to "evolution", the static rigidity of its underlying skeleton exposes three fatal hidden dangers:
 
-1.  **Synchronous HTTP Bottleneck and Reactive Trap**: The current execution flow of the framework is completely bound to the synchronous HTTP Request lifecycle (relying on external interface triggers). It has no independent background pulse and no concept of the passage of time. This architecture can serve as an excellent "Q&A machine" or a "single-shot pipeline", but it can never spawn a "Long-horizon Agent" capable of waking up autonomously at midnight on Friday to review a week's financial data.
+1.  **Synchronous HTTP Bottleneck and Reactive Trap**: The current execution flow of the framework is completely bound to the synchronous HTTP Request lifecycle (relying on external interface triggers). It has no independent background pulse and no concept of the passage of time. This architecture can serve as an excellent "Q&A machine" or a "single-shot pipeline", but it can never spawn a "Long-horizon Agent" capable of waking up autonomously at midnight on Friday to review a week's accumulated operational data.
 2.  **Topological Deadlock Caused by Static SPI Binding**: The framework heavily relies on Java's compile-time interface bindings (e.g., `com.huawei.ascend.runtime.memory.spi.*`). This code-level Interface coupling locks all cognitive components firmly within the same JVM process. This not only stifles the possibility of cross-language expansion (such as mounting Python deep learning components) but also precludes the possibility of swarm emergence through agents dynamically finding external capabilities (Dynamic Discovery) at runtime.
 3.  **Lifecycle Short-Sightedness**: Its core entity `Run` is merely a cold execution record (a punch card), lacking long-term maintenance of "Cognitive State" and business "Identity". It equates the life of an agent to the survival of a single HTTP request, forcing multi-step, long-horizon tasks to rely on the external business system for crude, full-scale retries.
 
@@ -48,7 +48,7 @@ In this architecture, the agent is not a chaotic monolith, but is dynamically as
 *   **C-Side (Business Application Side / Business Brain): Mastering the "Task Cursor" and Business Rules**
     *   **Positioning:** Exists within specific business systems (e.g., CRM, intelligent customer service, OA workbench).
     *   **Responsibilities:** It is the business "contractor". It **does not care** how the agent thinks or what tools it uses. It is only responsible for maintaining: business goals, task completion status, strict business rules and constraint logic, as well as long-term business knowledge and Ontology.
-    *   **Core State:** It only holds a lightweight **"Task Cursor"** (e.g., currently in the "document collection phase of loan approval").
+    *   **Core State:** It only holds a lightweight **"Task Cursor"** (e.g., currently in the "document-collection phase of a multi-step approval workflow").
 *   **S-Side (Platform Runtime Side / Compute Factory): Carrying the "Context Engine" and Trajectory Closed Loop**
     *   **Positioning:** The `spring-ai-ascend` platform itself. It is a "Human Resources Center" dedicated to handling multi-tenancy and resource scheduling.
     *   **Responsibilities:** It is the "subcontractor". It is responsible for managing the real **Context Engine**. The complete execution trajectory of a single task—including the underlying Tool-calls chain, the large model's Chain-of-Thought planning, and the user-guided dialogue flow during the process—**is completely closed-loop on the S-Side**.
@@ -57,7 +57,7 @@ In this architecture, the agent is not a chaotic monolith, but is dynamically as
 
 After breaking the monolithic myth, we discover a counter-intuitive truth: **The platform agents on the S-Side actually live longer than a single business request from the C-Side.**
 
-*   **Long-lived Interactive Agents:** On the S-Side, a "Financial Analysis Agent" equipped with extremely high cognitive capabilities is a long-living, independently scheduled compute resource (Worker).
+*   **Long-lived Interactive Agents:** On the S-Side, a "Data Analysis Agent" equipped with extremely high cognitive capabilities is a long-living, independently scheduled compute resource (Worker).
 *   **N:1 Multiplexing:** It can be highly concurrently multiplexed. 100 different virtual business digital personas from the C-Side can simultaneously initiate "context penetration/injection" into this single S-Side agent. The S-Side agent opens independent sandboxes internally for each request to fulfill different business missions.
 *   **Business-Agnostic Crash Recovery:** Since the C-Side only holds the "Task Cursor", even if the S-Side agent unexpectedly crashes due to OOM (Out of Memory) midway through execution, the S-Side's platform control panel can instantaneously spin up a new agent process. The C-Side simply needs to re-inject the cursor and rules, and the task can seamlessly continue. The business application layer is **completely agnostic** to underlying crashes and drifts.
 
@@ -143,10 +143,10 @@ In extreme situations of restricted resources or system anomalies, agents must p
 
 *   **S-Side's Underlying Compute Compensation:**
     This is the S-Side's only legitimate elastic measure. Its goal is "detour compensation while task requirements remain unchanged".
-    *Scenario:* The C-Side requests a financial summary. The preferred, high-priority `financial_summary_api` skill suddenly crashes.
-    *Compensation:* The S-Side engine automatically triggers an elastic strategy, silently substituting the logic underneath: scraping financial reports via `web_search` + parsing pages via `read_html` + spending an extra 5000 Tokens to force a cheap large model to summarize. The S-Side spent more compute and took a detour, but ultimately delivered a summary of equal quality to the C-Side. The C-Side remains completely unaware.
+    *Scenario:* The C-Side requests a report summary. The preferred, high-priority `report_summary_api` skill suddenly crashes.
+    *Compensation:* The S-Side engine automatically triggers an elastic strategy, silently substituting the logic underneath: scraping source reports via `web_search` + parsing pages via `read_html` + spending an extra 5000 Tokens to force a cheap large model to summarize. The S-Side spent more compute and took a detour, but ultimately delivered a summary of equal quality to the C-Side. The C-Side remains completely unaware.
 *   **C-Side's Business Task Degradation:**
-    If all "compute compensation" methods on the S-Side go bankrupt (no detour available), the S-Side can only immediately suspend, throwing an anomalous interface event with a clear `REASON_CODE` (e.g., "Financial report source completely blocked").
+    If all "compute compensation" methods on the S-Side go bankrupt (no detour available), the S-Side can only immediately suspend, throwing an anomalous interface event with a clear `REASON_CODE` (e.g., "Report source completely blocked").
     At this point, only the C-Side (Business Brain) has the authority to make a decision: whether to abandon generating the summary (degrading the business experience) or pop up a prompt requesting real human intervention. **The decision-making power for business degradation remains entirely on the C-Side.**
 
 ### 4.3 Orthogonal Decoupling of Session and Context: Stripping the Session Layer and Establishing an Independent Memory Paging Mechanism

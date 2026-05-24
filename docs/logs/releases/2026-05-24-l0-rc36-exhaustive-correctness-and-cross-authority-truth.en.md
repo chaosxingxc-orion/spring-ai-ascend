@@ -4,6 +4,14 @@
 **Branch:** `rc36/exhaustive-correctness-and-cross-authority-truth`
 **Authority:** ADR-0116
 
+> **Historical artifact frozen at SHA 71cd7d2 (v2.0.0-rc36).** Baseline counts in
+> this document (101 ADRs / 469 architecture-graph nodes / 835 edges) reflect the
+> corpus state at rc36 and are NOT retroactively updated. The current canonical
+> baseline (rc37: 102 ADRs / 470 nodes / 839 edges) is tracked in
+> `docs/governance/architecture-status.yaml.architecture_sync_gate.allowed_claim`
+> and `README.md`. Superseded by the rc37 strategic-repositioning note
+> (`2026-05-24-l0-rc37-ascend-kunpeng-strategic-repositioning.en.md`).
+
 ## Summary
 
 A 7-surface parallel adversarial review ran against the post-#61 `main` tip

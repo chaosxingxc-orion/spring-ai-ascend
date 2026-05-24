@@ -1,7 +1,7 @@
 # Quickstart — First Agent on `spring-ai-ascend`
 
 > Goal: reach your first authenticated agent invocation without modifying any
-> platform source file. Required by `CLAUDE.md` Rule 29 (Business/Platform
+> platform source file. Required by `CLAUDE.md` Rule R-A (Business/Platform
 > Decoupling + Developer Self-Service).
 
 This document is referenced from the root [`README.md`](../README.md) and is
@@ -28,15 +28,15 @@ The build runs unit + ArchUnit tests for every reactor module. `-T 1C` builds
 independent modules in parallel; surefire runs JUnit classes concurrently within
 each fork. Add `-DjunitParallel=false` to debug intermittent test failures.
 
-Sub-second incremental builds: `./mvnw -pl agent-execution-engine -am test -q` (post-rc13 / ADR-0088; the kernel orchestration SPI was relocated here from the dissolved agent-runtime-core module — pre-rc13 this command targeted `agent-runtime-core`).
+For a fast inner loop, build just one module and its dependencies:
+`./mvnw -pl agent-execution-engine -am test -q` (see §7 for why this module is
+especially quick).
 
 ## 3. Boot `agent-service`
 
 ```bash
 ./mvnw -pl agent-service spring-boot:run
 ```
-
-(post-Phase-C / ADR-0078; pre-Phase-C the boot target was `agent-platform`.)
 
 The HTTP edge starts on port 8080.
 
@@ -85,7 +85,7 @@ public class MyFirstAgent {
 No platform-team intervention required. The patterns this exercises:
 
 - Extension via **SPI** (`GraphExecutor`, `Orchestrator`, `RunRepository`) —
-  not by patching `*.impl.*` or `com.huawei.ascend.service.platform.**` (post-Phase-C package path; pre-Phase-C this was `com.huawei.ascend.platform.**`).
+  not by patching `*.impl.*` or `com.huawei.ascend.service.platform.**`.
 - Configuration via `@Bean` and `@ConfigurationProperties` — never by source
   patches into the platform module.
 
@@ -115,17 +115,16 @@ for the full matrix.
 
 Before you start reasoning about the failure, run the six-step **Evidence-First
 Debug Sequence** in [`docs/runbooks/debug-first-evidence.md`](runbooks/debug-first-evidence.md).
-Authority: CLAUDE.md Rule 79. The runbook tells you what to capture (failing
+Authority: CLAUDE.md Rule D-3 (Evidence-First Debug). The runbook tells you what to capture (failing
 FQN → trace ID → MDC slice → raw error → transition history) BEFORE you open
 `ARCHITECTURE.md`. Spec reading is allowed in step 6, after evidence is recorded.
 
 For library-mode pure-JUnit tests (`./mvnw -pl agent-execution-engine test`),
 the orchestration SPI module runs in under 2 seconds. Use this loop when you
-want sub-second feedback on the SPI value-type algebra. Post-rc13 dissolution
-(ADR-0088), the orchestration SPI lives in `agent-execution-engine`; runs
-+ idempotency entities live in `agent-service`; s2c transport SPI lives in
-`agent-bus`.
+want sub-second feedback on the SPI value-type algebra. The orchestration SPI
+lives in `agent-execution-engine`; the run + idempotency entities live in
+`agent-service`; the server-to-client transport SPI lives in `agent-bus`.
 
 If anything in this quickstart requires modifying platform source to make it
-work — file an issue tagged `decoupling-defect`. Rule 29 says: developers
+work — file an issue tagged `decoupling-defect`. Rule R-A says: developers
 build agents against the platform, not into the platform.

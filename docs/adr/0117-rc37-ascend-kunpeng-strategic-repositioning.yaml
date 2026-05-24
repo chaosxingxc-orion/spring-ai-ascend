@@ -1,0 +1,98 @@
+id: ADR-0117
+title: "rc37 strategic repositioning: Ascend/Kunpeng hardware-synergy platform; drop FSI as lead vertical; resolve brand identity"
+status: accepted
+date: 2026-05-24
+level: L0
+view: scenarios
+affects_level: L0, L1
+affects_view: scenarios, logical
+authors:
+  - chao
+relates_to:
+  - ADR-0099
+  - ADR-0065
+context: |
+  Two founder-level strategic decisions were tracked as OPEN in
+  `docs/governance/architecture-status.yaml#strategic_decisions`
+  (decision_owner: chao), each blocking active-corpus surfaces:
+
+  1. `audience_w3_vertical_positioning` — FSI (financial-services) was the
+     named lead W3+ vertical across `ARCHITECTURE.md` §1.1 Audience C and
+     several ADR example bodies. Whether FSI stayed the lead vertical, or
+     the platform pivoted, was a founder call the architecture-design phase
+     contract could not resolve.
+  2. `brand_review` — the name "Ascend" was read by reviewers as Huawei-NPU
+     regional positioning, left unresolved so the architecture-review surface
+     would not block on a brand question.
+
+  The founder resolved both: the project is repositioned as an open,
+  enterprise-grade agent platform whose identity IS the Huawei Ascend (NPU) +
+  Kunpeng (CPU) hardware/software synergy — not a finance vertical. The
+  forward-facing developer documentation had already drifted to carry stale
+  finance framing (whitepaper example agents, "financial-grade" interface
+  prose, an FSI Audience C) across many waves; this is the
+  F-shadow-corpus-prose-staleness pattern at the positioning layer.
+
+decision: |
+  Adopt the following strategic decisions for rc37:
+
+  1. **Vertical-agnostic, hardware-synergy-led positioning.** The platform's
+     strategic identity is the Ascend (NPU) + Kunpeng (CPU) self-host synergy:
+     Kunpeng (ARM64) runs the JVM service tier; Ascend NPUs serve the models;
+     an enterprise self-hosts the whole agent stack on domestic, commodity
+     silicon, OSS-first, with no proprietary-cloud lock-in. Industry verticals
+     are illustrative examples only, never the product identity.
+
+  2. **Drop FSI as the lead vertical.** `ARCHITECTURE.md` §1.1 Audience C is
+     rewritten from "financial-services vertical operators (FSI as lead
+     vertical)" to "regulated-industry self-host operators (vertical-agnostic)".
+     Finance is, at most, one illustrative example among others. Forward-facing
+     developer docs recast finance examples to compute-neutral ones (the
+     readability refresh shipped in the same wave). Historical ADRs, review
+     records, release notes, and `docs/archive/` are NOT rewritten — they are
+     the decision history and remain accurate as of their date.
+
+  3. **Resolve `audience_w3_vertical_positioning` open -> resolved**, pointing
+     at this ADR. The W3+ vertical-operator audience persists as a tier, but
+     vertical-agnostic; "which industry vertical" is no longer an open question
+     because the platform deliberately does not lead with one.
+
+  4. **Resolve `brand_review` open -> resolved**: "Ascend" + "Kunpeng" is the
+     deliberate brand identity. The Huawei-silicon association is intentional,
+     not incidental — the hardware synergy IS the positioning. The honest
+     "shipped hardware-agnostic kernel vs. Ascend-optimised-serving roadmap"
+     boundary (architecture-status.yaml) is preserved so the brand does not
+     overclaim shipped NPU optimisation.
+
+consequences: |
+  Positive:
+  - The platform has one clear, honest identity (Ascend/Kunpeng-powered,
+    horizontal, OSS-first) instead of a finance-vertical framing that the
+    code never actually implemented.
+  - Two long-open founder decisions are closed, unblocking their dependent
+    surfaces (ARCHITECTURE.md §1.1, README positioning, brand line).
+  - The shipped-vs-roadmap boundary is unchanged: no new capability is
+    claimed; only the strategic framing is corrected.
+
+  Negative / residual:
+  - F-shadow-corpus-prose-staleness remains `partial`: finance examples
+    persist in historical ADRs/reviews/archive (intentionally, as history)
+    and could be mis-read by a reader who skips the date context. The active
+    forward corpus is swept; the historical corpus is marked-by-location.
+  - `competitive-baselines.yaml` carries no FSI rows, so no W3+ baseline row
+    changes were required; if a future vertical baseline is added it must be
+    framed as an example, not the identity.
+
+alternatives_considered: |
+  - (A) Name a different lead vertical (healthcare / gov / telco) — rejected:
+    the founder chose horizontal hardware-synergy positioning, not a vertical
+    swap.
+  - (B) Keep finance as one illustrative vertical among several — rejected:
+    the founder directed dropping finance entirely from the active framing to
+    avoid any residual "this is a fintech platform" reading.
+  - (C) Leave `brand_review` open and scope this ADR to vertical positioning
+    only — rejected: the pivot leans into Ascend/Kunpeng naming, so the brand
+    question is answered by the same decision and is cleaner to close together.
+  - (D) Rewrite the FSI references in historical ADRs/reviews — rejected:
+    falsifying decision history; the marked-by-location historical corpus is
+    the correct home for past framing.

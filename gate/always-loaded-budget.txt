@@ -109,5 +109,8 @@ AGENTS.md=5000
 docs/governance/SESSION-START-CONTEXT.md=6000
 # rc36 (ADR-0116): +1 ADR node / +4 edges grew the graph ~400B over the 193000 ceiling; raised to 194500 (~1.5K-per-wave ratchet step).
 docs/governance/architecture-graph.yaml=194500
-docs/governance/architecture-status.yaml=128000
+# rc37 (ADR-0117): strategic_decisions resolution blocks (2 decisions open→resolved) + allowed_claim
+# rc37 entry grew the file over the 128000 ceiling (historical notes trimmed to offset); raised to
+# 131000 (~1.5K-per-wave ratchet + headroom for the one-time strategic_decisions resolution structure).
+docs/governance/architecture-status.yaml=131000
 docs/CLAUDE-deferred.md=0

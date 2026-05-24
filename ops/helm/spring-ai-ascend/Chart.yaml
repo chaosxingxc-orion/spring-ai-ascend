@@ -1,13 +1,14 @@
 apiVersion: v2
 name: spring-ai-ascend
-description: AI agent platform for financial-services workflows (spring-ai-ascend SDK; post-Phase-C / ADR-0078 the runtime is delivered as the agent-service module — pre-Phase-C the chart shipped agent-platform + agent-runtime)
+description: Ascend/Kunpeng-powered enterprise agent platform (spring-ai-ascend; the runtime is delivered as the agent-service module)
 type: application
 version: 0.1.0
 appVersion: "0.1.0-SNAPSHOT"
 keywords:
   - spring-ai
   - agent-service
-  - financial-services
+  - ascend
+  - kunpeng
 maintainers:
   - name: spring-ai-ascend-platform-team
 annotations:

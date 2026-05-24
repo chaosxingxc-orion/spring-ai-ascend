@@ -2,7 +2,7 @@
 level: L0
 view: physical
 status: draft
-authority: "Derived from ARCHITECTURE.md, module-metadata.yaml, DFX YAML, and financial readiness review"
+authority: "Derived from ARCHITECTURE.md, module-metadata.yaml, DFX YAML, and the system-architecture deployment-readiness review"
 ---
 
 # Deployment Plane Contract
