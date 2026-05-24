@@ -4,7 +4,7 @@ view: [scenarios, logical, process, development, physical]
 module: agent-execution-engine
 affects_level: L0, L1
 affects_view: [scenarios, logical, process, development, physical]
-status: proposed
+status: designing
 ---
 
 # 架构评审提案：agent-execution-engine L1 高级设计提案 (Wave 1.2)
@@ -64,7 +64,7 @@ status: proposed
    - 核心任务是辅助开发与交互式构建。
    - 在此模式下，引擎完全释放“特权”，开启**内存编译器 (In-Memory Compiler)**、开启**组件元数据自省接口**、开启 **Mock 注册表**，支持全量 Trace 追踪以及运行时的断点、调试、拦截和随时热插拔 (Hot-swap)。
 2. **标准的智能体交付包 (Standard Agent Package, 简称 .apg)**：
-   - DEV 模式的唯一物理产出物。它包含声明式的 YAML 配置文件，以及**在开发阶段由于“自我创造”动态编译生成的 Java 字节码文件 (.class)**，整体打包为一个不可变、带签名的 `.apg` 物理交付归档包。
+   - DEV 模式 the 唯一物理产出物。它包含声明式的 YAML 配置文件，以及**在开发阶段由于“自我创造”动态编译生成的 Java 字节码文件 (.class)**，整体打包为一个不可变、带签名的 `.apg` 物理交付归档包。
 3. **生产模式 (PROD Mode) —— 只读不可变、高性能计算芯片态**：
    - 核心任务是追求极致的性能、安全与隔离。它**只认且仅能加载**由开发态导出的 `.apg` 包。
    - **严格物理安全锁 (Registry Lock)**：PROD 引擎在引导（Boot）加载交付包完成之后，底层必须执行**“注册表物理加锁”**。内存编译器和自省端口彻底关闭或物理切除，配置动态改动入口被物理阻断，拒绝任何运行态代码注入或无授权热更，保证零日漏洞（Zero-Day）级的生产绝对安全。
@@ -135,10 +135,10 @@ status: proposed
 ### 4.1 声明式配置解析与动态热加载时序
 1. **配置检测**：Service 监听到智能体配置发生变更（仅限 DEV 环境），调用引擎编译器接口。
 2. **Schema 校验**：`ConfigCompiler` 拦截配置，进行 Schema 合法性与安全性校验。
-3. **图装配**：`ConfigAssembler` 解析节点与连线，去 `ComponentRegistry` 中查找对应的 Node、Tool 和 Hook 物理类并反射实例化。
+3. **图装配**：`ConfigAssembler` 解析节点与连线，去 `ComponentRegistry` 中查找对应的 Node, Tool 和 Hook 物理类并反射实例化。
 4. **内存热换 (Hot-swap)**：引擎以原子操作将该 Agent 对应的内存执行图引用指向全新的装配实体，后续该 Agent 的所有计算请求直接由新图驱动。
 
-### 4.2 调试态交互式单步调试与 Mock 状态注入时序
+### 4.2 调试态交互式单步调试与状态注入时序
 1. **启动录制**：以 DEV 模式启动，`DebuggerMonitor` 激活，对每次 execute 请求生成专有 TraceID，并对指定工具设置 Breakpoint 断点。
 2. **遇到阻断/断点**：执行核运行至含有断点的组件时。
 3. **挂起上报**：组件不进行阻塞，由调试监视器拦截状态并封装为 `StateDelta`，标明 `breakpoint_halt` 及当前运行栈，向上抛回 Service 层并释放线程。
@@ -213,7 +213,7 @@ agent-execution-engine/src/main/java/com/huawei/ascend/agent/engine/
 ├── registry/                   # 组件自进化注册表与自省服务 (乐高积木管理)
 │   ├── ComponentRegistry.java  # Node、Tool、Hook 物理类只读锁注册表 (带 lockRegistry 物理安全锁)
 │   ├── InMemoryCompiler.java   # DEV 态 Java 源码内存瞬时编译器
-│   ├── IntrospectionService.java # 组件元数据自省服务 (向元智能体暴露积木 Schema)
+│   ├── IntrospectionService.java # 组件描述与输入 Schema 元数据查询暴露服务
 │   └── loader/                 # 外部 Jar 动态 ClassLoader 热插拔加载器
 └── transpiler/                 # 异构配置迁移编译器 (纯静态翻译)
     ├── LangChainTranspiler.java # LangChain 配置翻译器
@@ -456,3 +456,29 @@ public interface AgentPackager {
     void bootstrapApg(File sourceApgFile) throws Exception;
 }
 ```
+
+## 8. 架构备忘与待完善点批注 (Appendix: Architectural Annotations & Pending Refinements)
+在评审本 L1 高阶提案的过程中，架构师团队与智能体共同确立了以下三个关键的架构待完善与攻坚方向。这三个课题将在下一步的 L2 级详细设计与开发阶段进行重点突破与闭环：
+
+### 8.1 待完善点 1：基于已有开源代码仓的 Gap 分析与物理重构设计 (Development View Gap)
+* **批注背景**：
+  鉴于 `agent-execution-engine` 将基于开源基座 `openJiuwen/agent-core-java` 迭代开发，代码/开发视图不能脱离其既有物理布局。
+* **攻坚规划**：
+  在 L2 级详细设计中，必须首先对 `openJiuwen/agent-core-java` 的包目录及主执行器（`WorkflowEngine` / `ReActEngine`）进行 Gap 审计。给出具体的“微创手术重构施工图”——即说明如何在保持兼容性的前提下，将其原生的状态化同步阻塞执行机制，通过字节码拦截或重构适配，彻底改写为我们引擎标准的“中断信号（InterruptSignal）- 无状态脱水”模式。
+
+### 8.2 待完善点 2：积木组件分类体系与标准内置组件定义 (Component Taxonomy & Built-in Standards)
+* **批注背景**：
+  作为配置化开发的基础，若不定义明确的可用组件边界（即开发者的工具箱内有哪些积木），则声明式的配置语法（DSL Schema）无法进行语义定界，后续详细设计也将无法按图索骥。
+* **攻坚规划**：
+  在接下来的详细设计中，必须正式定义并枚举三类标准的可用组件及其参数约束：
+  1. *Workflow 图节点 (NodeExecutor)*：如 `LLMNode`、`PromptTemplateNode`、`ConditionalRouterNode`、`APIConnectorNode` 等。
+  2. *ReAct 物理工具 (ToolSPI)*：如 `HttpTool`、`ShellTool`、`WebSearchTool` 等。
+  3. *生命周期拦截钩子 (LifecycleHook)*：如 `SecurityGuardHook`（安全审计）、`TokenRateLimiterHook`（预算限流）等。
+
+### 8.3 待完善点 3：声明式智能体配置语法 (DSL) 与 .apg 物理包文件布局规范 (DSL Spec & APG Layout)
+* **批注背景**：
+  为了实现开发态到生产态的单向不可变流转，我们需要对交付物规格进行严格规范。
+* **攻坚规划**：
+  L2 阶段需要正式出台两项规格说明书：
+  1. *Declarative Agent YAML Spec*：定义智能体 DSL 配置文件的 JSON Schema。
+  2. *APG Archive File Layout*：定义 `.apg` 物理压缩包内部的目录规范（如 `/manifest.json`、`/agent.yaml`、`/classes/`、`/assets/`），为 Packager 的打包和 ProdEngine 的只读解密引导提供唯一的物理契约。
