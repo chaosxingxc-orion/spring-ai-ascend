@@ -17,5 +17,11 @@ public record Embedding(float[] vector, String modelVersion) {
     public Embedding {
         Objects.requireNonNull(vector, "vector");
         Objects.requireNonNull(modelVersion, "modelVersion");
+        vector = vector.clone();
+    }
+
+    @Override
+    public float[] vector() {
+        return vector.clone();
     }
 }

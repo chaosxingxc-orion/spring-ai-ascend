@@ -22,6 +22,8 @@ public record SafetyPolicy(
         Objects.requireNonNull(deniedSkillKeys, "deniedSkillKeys");
         Objects.requireNonNull(deniedMemoryRefs, "deniedMemoryRefs");
         Objects.requireNonNull(outputPolicy, "outputPolicy");
+        deniedSkillKeys = Set.copyOf(deniedSkillKeys);
+        deniedMemoryRefs = Set.copyOf(deniedMemoryRefs);
     }
 
     /** Permissive default: no denies, no PII redaction, preserve placeholders. */

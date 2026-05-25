@@ -16,6 +16,7 @@ public sealed interface SkillResult
     record SkillSuccess(Map<String, Object> outputs) implements SkillResult {
         public SkillSuccess {
             Objects.requireNonNull(outputs, "outputs");
+            outputs = Map.copyOf(outputs);
         }
     }
 

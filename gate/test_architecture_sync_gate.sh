@@ -6800,6 +6800,180 @@ assert 'templates' in data
   fi
 }
 
+test_rule_127_release_note_no_pending_evidence_pos() {
+  local root="$scratch/r127_pos"
+  mkdir -p "$root/docs/logs/releases"
+  cat > "$root/docs/logs/releases/2026-05-25-l0-rc49-current.en.md" <<'SHEOF'
+---
+formal_release: true
+evidence_bundle: gate/release-ci-evidence/rc49.evidence.yaml
+release_candidate_commit: 0123456789abcdef0123456789abcdef01234567
+status: formal-release-ready
+---
+
+# rc49
+
+## Release Decision
+
+Decision: ship.
+SHEOF
+  if python3 "$repo_root/gate/lib/check_release_note_current_truth.py" --root "$root" >/dev/null 2>&1; then
+    ok "rule127_release_note_no_pending_evidence_pos" "latest formal release with real commit and evidence path passes"
+  else
+    fail "rule127_release_note_no_pending_evidence_pos" "expected concrete formal release note to pass"
+  fi
+}
+
+test_rule_127_release_note_no_pending_evidence_placeholder_neg() {
+  local root="$scratch/r127_placeholder_neg"
+  mkdir -p "$root/docs/logs/releases"
+  cat > "$root/docs/logs/releases/2026-05-25-l0-rc49-current.en.md" <<'SHEOF'
+---
+formal_release: true
+release_candidate_commit: pending-formal-validator-run
+status: formal-release-ready
+---
+
+# rc49
+
+## Release Decision
+
+Evidence bundle: TO BE GENERATED.
+SHEOF
+  if ! python3 "$repo_root/gate/lib/check_release_note_current_truth.py" --root "$root" >/dev/null 2>&1; then
+    ok "rule127_release_note_no_pending_evidence_placeholder_neg" "pending evidence placeholders fail the latest release check"
+  else
+    fail "rule127_release_note_no_pending_evidence_placeholder_neg" "expected pending evidence placeholders to fail"
+  fi
+}
+
+test_rule_128_model_gateway_authority_truth_pos() {
+  local root="$scratch/r128_pos"
+  mkdir -p "$root/docs/adr" \
+           "$root/docs/contracts" \
+           "$root/agent-middleware/src/main/java/com/huawei/ascend/middleware/model/spi"
+  cat > "$root/docs/adr/0121-model-gateway-spi.yaml" <<'SHEOF'
+decision: |
+  com.huawei.ascend.middleware.model.spi.ModelGateway
+  ModelResponse invoke(ModelInvocation invocation);
+SHEOF
+  cat > "$root/agent-middleware/src/main/java/com/huawei/ascend/middleware/model/spi/ModelGateway.java" <<'SHEOF'
+package com.huawei.ascend.middleware.model.spi;
+public interface ModelGateway {
+    ModelResponse invoke(ModelInvocation invocation);
+}
+SHEOF
+  cat > "$root/docs/contracts/contract-catalog.md" <<'SHEOF'
+| `ModelGateway` | `agent-middleware` | `com.huawei.ascend.middleware.model.spi` | design_only |
+SHEOF
+  if python3 "$repo_root/gate/lib/check_model_gateway_authority_truth.py" --root "$root" >/dev/null 2>&1; then
+    ok "rule128_model_gateway_authority_truth_pos" "ADR, Java, and catalog agree on ModelGateway package/signature"
+  else
+    fail "rule128_model_gateway_authority_truth_pos" "expected aligned ModelGateway authority surfaces to pass"
+  fi
+}
+
+test_rule_128_model_gateway_authority_truth_reactive_neg() {
+  local root="$scratch/r128_reactive_neg"
+  mkdir -p "$root/docs/adr" \
+           "$root/docs/contracts" \
+           "$root/agent-middleware/src/main/java/com/huawei/ascend/middleware/model/spi"
+  cat > "$root/docs/adr/0121-model-gateway-spi.yaml" <<'SHEOF'
+decision: |
+  com.huawei.ascend.service.model.spi.ModelGateway
+  Mono<ModelResponse> invoke(ModelInvocation invocation);
+SHEOF
+  cat > "$root/agent-middleware/src/main/java/com/huawei/ascend/middleware/model/spi/ModelGateway.java" <<'SHEOF'
+package com.huawei.ascend.middleware.model.spi;
+public interface ModelGateway {
+    ModelResponse invoke(ModelInvocation invocation);
+}
+SHEOF
+  cat > "$root/docs/contracts/contract-catalog.md" <<'SHEOF'
+| `ModelGateway` | `agent-middleware` | `com.huawei.ascend.middleware.model.spi` | design_only |
+SHEOF
+  if ! python3 "$repo_root/gate/lib/check_model_gateway_authority_truth.py" --root "$root" >/dev/null 2>&1; then
+    ok "rule128_model_gateway_authority_truth_reactive_neg" "ADR reactive/service-package drift fails against Java/catalog truth"
+  else
+    fail "rule128_model_gateway_authority_truth_reactive_neg" "expected reactive/service-package ADR drift to fail"
+  fi
+}
+
+test_rule_129_contract_spi_count_truth_pos() {
+  local root="$scratch/r129_pos"
+  mkdir -p "$root/docs/contracts" "$root/docs/logs/releases"
+  cat > "$root/docs/contracts/contract-catalog.md" <<'SHEOF'
+**Active SPI interfaces (33 total):**
+
+**Count by module:**
+
+| Module | Count |
+|---|---:|
+| `agent-service` | 9 (`Agent`) |
+| `agent-execution-engine` | 7 (`Planner`) |
+| `agent-bus` | 4 (`IngressGateway`) |
+| `agent-middleware` | 12 (`ModelGateway`) |
+| `agent-evolve` | 1 (`SlowTrackJudge`) |
+
+**Deferred / Promoted Design Names:**
+
+| Name | Status |
+|---|---|
+| `Skill` | promoted in rc43 |
+| `AgentRegistry` | promoted in rc43 |
+SHEOF
+  cat > "$root/docs/logs/releases/2026-05-25-l0-rc49-current.en.md" <<'SHEOF'
+---
+release_candidate_commit: 0123456789abcdef0123456789abcdef01234567
+status: formal-release-ready
+---
+
+- Active SPI interfaces: 33 total (19 pre-rc43 + 14 rc43).
+SHEOF
+  if python3 "$repo_root/gate/lib/check_contract_spi_count_truth.py" --root "$root" >/dev/null 2>&1; then
+    ok "rule129_contract_spi_count_truth_pos" "catalog module totals and latest release SPI total agree"
+  else
+    fail "rule129_contract_spi_count_truth_pos" "expected aligned SPI count surfaces to pass"
+  fi
+}
+
+test_rule_129_contract_spi_count_truth_stale_deferred_neg() {
+  local root="$scratch/r129_stale_deferred_neg"
+  mkdir -p "$root/docs/contracts" "$root/docs/logs/releases"
+  cat > "$root/docs/contracts/contract-catalog.md" <<'SHEOF'
+**Active SPI interfaces (33 total):**
+
+**Count by module:**
+
+| Module | Count |
+|---|---:|
+| `agent-service` | 9 (`Agent`) |
+| `agent-execution-engine` | 7 (`Planner`) |
+| `agent-bus` | 4 (`IngressGateway`) |
+| `agent-middleware` | 12 (`ModelGateway`) |
+| `agent-evolve` | 1 (`SlowTrackJudge`) |
+
+**Design-named SPIs (deferred W2+):**
+
+| Surface | Target wave | Authority |
+|---|---|---|
+| `Skill` + `SkillContext` + `SkillResourceMatrix` | W2 | ADR-0030 |
+SHEOF
+  cat > "$root/docs/logs/releases/2026-05-25-l0-rc49-current.en.md" <<'SHEOF'
+---
+release_candidate_commit: 0123456789abcdef0123456789abcdef01234567
+status: formal-release-ready
+---
+
+- Active SPI interfaces: 33 total (19 pre-rc43 + 14 rc43).
+SHEOF
+  if ! python3 "$repo_root/gate/lib/check_contract_spi_count_truth.py" --root "$root" >/dev/null 2>&1; then
+    ok "rule129_contract_spi_count_truth_stale_deferred_neg" "promoted Skill stale-deferred row fails"
+  else
+    fail "rule129_contract_spi_count_truth_stale_deferred_neg" "expected stale deferred Skill row to fail"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #

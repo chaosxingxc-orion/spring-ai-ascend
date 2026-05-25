@@ -23,6 +23,7 @@ public record RetrievalOptions(
 
     public RetrievalOptions {
         Objects.requireNonNull(providerHints, "providerHints");
+        providerHints = Map.copyOf(providerHints);
         if (topK <= 0) {
             throw new IllegalArgumentException("topK must be > 0");
         }

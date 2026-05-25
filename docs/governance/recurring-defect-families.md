@@ -668,7 +668,7 @@ EmbeddingModel, Planner, plus the Spring AI integration boundary.
 
 **Surfaces.**
 
-- 12 new SPI Java interfaces under correct semantic-home modules:
+- 14 new SPI Java interfaces under correct semantic-home modules:
   Agent → `agent-service.agent.spi`; Planner → `agent-execution-engine.planner.spi`;
   Model / Skill / Memory / Vector / Retriever / Embedding →
   `agent-middleware.{model,skill,memory,vector,retrieval,embedding}.spi`.
@@ -688,7 +688,7 @@ EmbeddingModel, Planner, plus the Spring AI integration boundary.
 
 **Cleanup status.** `closed` (registered + closed at rc43 by construction).
 
-**Open residual.** Implementations of the 12 SPIs are W2-W4 staged per
+**Open residual.** Implementations of the 14 SPIs are W2-W4 staged per
 the ADRs (W2 LLM gateway, W2 skill registry, W2 memory adapters, W3 RAG
 vertical, W3 SDK GA, W4 planner). The META-lesson: future addition of new
 L0-level primitives MUST follow the same "land contract shape at L0 even

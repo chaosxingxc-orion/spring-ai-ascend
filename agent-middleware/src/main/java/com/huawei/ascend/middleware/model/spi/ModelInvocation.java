@@ -39,6 +39,10 @@ public record ModelInvocation(
         Objects.requireNonNull(tools, "tools");
         Objects.requireNonNull(parameters, "parameters");
         Objects.requireNonNull(hookContext, "hookContext");
+        messages = List.copyOf(messages);
+        tools = List.copyOf(tools);
+        parameters = Map.copyOf(parameters);
+        hookContext = Map.copyOf(hookContext);
         if (tenantId.isBlank()) {
             throw new IllegalArgumentException("tenantId must be non-blank (Rule R-C.c)");
         }

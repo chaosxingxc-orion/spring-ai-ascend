@@ -108,14 +108,14 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `HookContext` | `agent-middleware` (`...middleware.spi`) | Hook invocation carrier record |
 | `HookOutcome` | `agent-middleware` (`...middleware.spi`) | Sealed: continue \| short_circuit \| fail |
 
-**Design-named SPIs (deferred W2+):**
+**Deferred / Promoted Design Names:**
 
-| Interface | Planned Wave | ADR |
+| Surface | Current status | Authority |
 |---|---|---|
-| `Skill` + `SkillContext` + `SkillResourceMatrix` | W2 | ADR-0030 / ADR-0052 |
-| `RunDispatcher` | W2 | ADR-0031 |
-| `CapabilityRegistry` | W2 | ADR-0021 |
-| `AgentRegistry` + `RemoteAgentClient` | post-W4 | ADR-0016 |
+| `Skill` / `SkillRegistry` / `SkillContext` | promoted to active SPI in rc43; `SkillResourceMatrix` remains W2 admission-policy design | ADR-0127 / ADR-0122; ADR-0052 |
+| `AgentRegistry` | promoted to active SPI in rc43; `RemoteAgentClient` remains post-W4 deferred | ADR-0128; ADR-0016 |
+| `RunDispatcher` | deferred W2 dispatcher shape | ADR-0031 |
+| `CapabilityRegistry` | deferred W2 capability registry shape | ADR-0021 |
 
 Seven previously listed SDK SPI interfaces were deleted in the 2026-05-12 Occam pass (see `architecture-status.yaml` row `sdk_spi_starters`). They are no longer part of the contract surface.
 

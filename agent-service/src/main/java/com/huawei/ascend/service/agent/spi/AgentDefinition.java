@@ -54,6 +54,9 @@ public record AgentDefinition(
         Objects.requireNonNull(systemPrompt, "systemPrompt");
         Objects.requireNonNull(safetyPolicy, "safetyPolicy");
         Objects.requireNonNull(metadata, "metadata");
+        toolBindings = Set.copyOf(toolBindings);
+        memoryBindings = Map.copyOf(memoryBindings);
+        metadata = Map.copyOf(metadata);
         if (agentId.isBlank()) {
             throw new IllegalArgumentException("agentId must be non-blank");
         }

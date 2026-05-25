@@ -376,7 +376,7 @@
   level: L1
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/LlmGatewayHookChainOnlyTest.java
-  asserts: "No class under com.huawei.ascend.service.runtime.llm.. imports org.springframework.ai.chat.ChatModel outside the HookChain package. Vacuous at L1.x (no LLM classes yet); arms automatically when W2 LlmGateway lands."
+  asserts: "No class under com.huawei.ascend.service.runtime.llm.. imports org.springframework.ai.chat.ChatModel outside the HookChain package; the Wave C1 SpringAiChatModelGateway shell is asserted to throw before provider invocation until W2 hook binding ships."
 
 - id: E44
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .a; ARCHITECTURE.md §4 #57 (span_tenant_attribute_required); ADR-0061 §5"
@@ -1519,3 +1519,27 @@
   artifact: gate/check_architecture_sync.sh#template_render_idempotency
   asserts: "Rule G-13 — for every entry in docs/governance/templates/surface-classification.yaml whose bucket is `templated` or `hybrid`, render(template, load_context()) MUST produce a buffer byte-identical to the on-disk `output:` file; determinism contract (sorted dict iteration, LC_ALL=C sort, fixed-precision floats, keep_trailing_newline, no datetime/uuid/random) enforced in gate/lib/render_template.py."
   status: active
+
+- id: E175
+  constraint_ref: "Rule G-2 (Authority-Text Reality); 2026-05-25 rc48 agentic-contract-surface review P0-1"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#release_note_no_pending_evidence
+  asserts: "Rule 127 — the latest release note that claims a release/shipped decision MUST NOT retain placeholder evidence tokens such as pending-formal-validator-run or TO BE GENERATED, and MUST carry a real 40-character release_candidate_commit."
+
+- id: E176
+  constraint_ref: "Rule G-8 (Cross-Authority Parity); 2026-05-25 rc48 agentic-contract-surface review P0-2"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#model_gateway_authority_truth
+  asserts: "Rule 128 — ADR-0121, agent-middleware ModelGateway.java, and docs/contracts/contract-catalog.md MUST agree that ModelGateway lives under com.huawei.ascend.middleware.model.spi and exposes the pure-Java synchronous ModelResponse invoke(ModelInvocation invocation) SPI signature."
+
+- id: E177
+  constraint_ref: "Rule G-8 (Cross-Authority Parity); 2026-05-25 rc48 agentic-contract-surface review P0-3/P1-2"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#contract_spi_count_truth
+  asserts: "Rule 129 — contract-catalog active SPI total, module-count sum, and the latest release note's Active SPI total MUST agree; promoted SPIs such as Skill and AgentRegistry MUST NOT remain listed as deferred design-only rows."

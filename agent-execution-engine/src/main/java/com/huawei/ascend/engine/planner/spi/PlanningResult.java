@@ -36,6 +36,7 @@ public sealed interface PlanningResult
         public PlanningInfeasible {
             Objects.requireNonNull(reason, "reason");
             Objects.requireNonNull(unmetConstraints, "unmetConstraints");
+            unmetConstraints = List.copyOf(unmetConstraints);
         }
     }
 }

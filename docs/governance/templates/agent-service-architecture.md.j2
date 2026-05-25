@@ -538,7 +538,7 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
 | `TelemetryVerticalArchTest` | ArchUnit | §4 #53 — adapter classes must not write `TraceContext` outside hook/observability packages | runtime |
 | `RunContextIdentityAccessorsTest` | ArchUnit | §4 #54 — `RunContext` exposes `traceId()` / `spanId()` / `sessionId()` / `traceContext()` returning declared types | runtime |
 | `RunTraceSessionConsistencyIT` | Integration | §4 #54 — `Run.traceId` non-null hex when populated; nullable column tolerated at L1.x; child Run inherits sessionId via Checkpointer | runtime |
-| `LlmGatewayHookChainOnlyTest` | ArchUnit | §4 #56 — no `service.runtime.llm.*` class imports `ChatModel` outside `HookChain` package (vacuous at L1.x; arms for W2) | runtime |
+| `LlmGatewayHookChainOnlyTest` | ArchUnit | §4 #56 — no `service.runtime.llm.*` class imports `ChatModel` outside `HookChain` package (arms for W2) and Wave C1 `SpringAiChatModelGateway` remains a design-only shell until hook binding ships | runtime |
 | `SpanTenantAttributeRequiredTest` | ArchUnit | §4 #57 — emission sites declare `tenant.id` attribute (vacuous at L1.x; arms for W2) | runtime |
 | `McpReplaySurfaceArchTest` | ArchUnit | §4 #59 — no `@RestController` resides in `web/replay/`, `web/trace/`, or `web/session/` | runtime |
 | `PostureBootPiiHookPresenceContractIT` | Integration | §4 #58 — boot-gate contract for `PiiRedactionHook` in research/prod (full negative test W2) | runtime |

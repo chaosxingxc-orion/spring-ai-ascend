@@ -17,5 +17,6 @@ public record SkillSuspensionState(String resumeToken, Map<String, Object> paylo
     public SkillSuspensionState {
         Objects.requireNonNull(resumeToken, "resumeToken");
         Objects.requireNonNull(payload, "payload");
+        payload = Map.copyOf(payload);
     }
 }

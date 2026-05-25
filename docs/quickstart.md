@@ -102,8 +102,8 @@ Spring AI reference adapters under `service.integration.springai` are
 design-only shells today (throw `UnsupportedOperationException`); they
 prove the boundary compiles and the
 [`LlmGatewayHookChainOnlyTest`](../agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/LlmGatewayHookChainOnlyTest.java)
-ArchUnit guard arms automatically when the W1 LLM package directory
-appears.
+ArchUnit guard asserts the current `ChatModel` shell stays design-only
+until the W2 hook-bound LLM implementation lands.
 
 Customer-side registration pattern (the shape Audience B implements
 against — runtime functional W2+):

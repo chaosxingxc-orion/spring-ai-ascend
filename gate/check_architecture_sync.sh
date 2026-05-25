@@ -22,6 +22,7 @@
 #   2026-05-19 rc8 post-corrective review response (rc9 wave): Rules 91-96 (enforcers E123-E134).
 #   Code whitebox quality baseline: Rule 121 (enforcer E169).
 #   Agent-execution-engine readiness prevention: Rules 122-124 (enforcers E170-E172).
+#   rc49 agentic-contract-surface corrective prevention: Rules 127-129 (enforcers E175-E177).
 # Exits 0 if all rules pass, 1 if any fail.
 # Each rule prints PASS: <name> or FAIL: <name> -- <reason>.
 # Prints GATE: PASS or GATE: FAIL at the end.
@@ -6951,6 +6952,58 @@ fi
 # check. Today the list is empty (W0); the check is vacuously satisfied.
 
 [[ $_r126_fail -eq 0 ]] && pass_rule "template_render_idempotency"
+
+# ---------------------------------------------------------------------------
+# Rule 127 — release_note_no_pending_evidence (enforcer E175)
+#
+# Current release notes that claim a shipped / release decision MUST NOT carry
+# placeholder evidence tokens or non-SHA candidate commits.
+#
+# scope_surfaces: docs/logs/releases/*.md, gate/lib/check_release_note_current_truth.py
+# ---------------------------------------------------------------------------
+_r127_out=$(python3 gate/lib/check_release_note_current_truth.py --root . 2>&1)
+_r127_rc=$?
+if [[ $_r127_rc -ne 0 ]]; then
+  fail_rule "release_note_no_pending_evidence" "${_r127_out:-latest release note evidence placeholders detected} -- Rule G-2 / E175"
+else
+  pass_rule "release_note_no_pending_evidence"
+fi
+
+# ---------------------------------------------------------------------------
+# Rule 128 — model_gateway_authority_truth (enforcer E176)
+#
+# ADR-0121, Java code, and the contract catalog must agree on ModelGateway's
+# package and synchronous SPI signature.
+#
+# scope_surfaces: docs/adr/0121-model-gateway-spi.yaml,
+#                 agent-middleware/src/main/java/com/huawei/ascend/middleware/model/spi/ModelGateway.java,
+#                 docs/contracts/contract-catalog.md
+# ---------------------------------------------------------------------------
+_r128_out=$(python3 gate/lib/check_model_gateway_authority_truth.py --root . 2>&1)
+_r128_rc=$?
+if [[ $_r128_rc -ne 0 ]]; then
+  fail_rule "model_gateway_authority_truth" "${_r128_out:-ModelGateway authority surfaces disagree} -- Rule G-8 / E176"
+else
+  pass_rule "model_gateway_authority_truth"
+fi
+
+# ---------------------------------------------------------------------------
+# Rule 129 — contract_spi_count_truth (enforcer E177)
+#
+# Contract-catalog active SPI totals, module totals, and the latest release
+# note's Active SPI total must agree. Promoted SPIs must not remain listed
+# as deferred design names.
+#
+# scope_surfaces: docs/contracts/contract-catalog.md,
+#                 docs/logs/releases/*.md
+# ---------------------------------------------------------------------------
+_r129_out=$(python3 gate/lib/check_contract_spi_count_truth.py --root . 2>&1)
+_r129_rc=$?
+if [[ $_r129_rc -ne 0 ]]; then
+  fail_rule "contract_spi_count_truth" "${_r129_out:-contract SPI count truth check failed} -- Rule G-8 / E177"
+else
+  pass_rule "contract_spi_count_truth"
+fi
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------

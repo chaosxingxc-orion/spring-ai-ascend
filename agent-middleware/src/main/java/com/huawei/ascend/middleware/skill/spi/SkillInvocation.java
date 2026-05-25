@@ -28,6 +28,8 @@ public record SkillInvocation(
         Objects.requireNonNull(skillKey, "skillKey");
         Objects.requireNonNull(inputs, "inputs");
         Objects.requireNonNull(hookContext, "hookContext");
+        inputs = Map.copyOf(inputs);
+        hookContext = Map.copyOf(hookContext);
         if (tenantId.isBlank()) {
             throw new IllegalArgumentException("tenantId must be non-blank (Rule R-C.c)");
         }

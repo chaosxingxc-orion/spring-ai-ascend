@@ -29,5 +29,12 @@ public record AgentInvocation(
         Objects.requireNonNull(userMessage, "userMessage");
         Objects.requireNonNull(conversationId, "conversationId");
         Objects.requireNonNull(context, "context");
+        context = Map.copyOf(context);
+        if (tenantId.isBlank()) {
+            throw new IllegalArgumentException("tenantId must be non-blank (Rule R-C.c)");
+        }
+        if (agentId.isBlank()) {
+            throw new IllegalArgumentException("agentId must be non-blank");
+        }
     }
 }

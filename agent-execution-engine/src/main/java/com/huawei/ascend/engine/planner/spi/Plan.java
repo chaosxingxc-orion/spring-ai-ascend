@@ -35,5 +35,13 @@ public record Plan(
         Objects.requireNonNull(branches, "branches");
         Objects.requireNonNull(loops, "loops");
         Objects.requireNonNull(metadata, "metadata");
+        steps = List.copyOf(steps);
+        dependencies = dependencies.entrySet().stream()
+                .collect(java.util.stream.Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey,
+                        entry -> List.copyOf(entry.getValue())));
+        branches = List.copyOf(branches);
+        loops = List.copyOf(loops);
+        metadata = Map.copyOf(metadata);
     }
 }

@@ -25,5 +25,12 @@ public record Document(
         Objects.requireNonNull(documentId, "documentId");
         Objects.requireNonNull(content, "content");
         Objects.requireNonNull(metadata, "metadata");
+        embedding = embedding == null ? null : embedding.clone();
+        metadata = Map.copyOf(metadata);
+    }
+
+    @Override
+    public float[] embedding() {
+        return embedding == null ? null : embedding.clone();
     }
 }

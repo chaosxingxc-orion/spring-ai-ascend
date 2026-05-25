@@ -38,6 +38,9 @@ public record PlanningRequest(
         Objects.requireNonNull(availableMemoryRefs, "availableMemoryRefs");
         Objects.requireNonNull(budget, "budget");
         Objects.requireNonNull(strategy, "strategy");
+        context = Map.copyOf(context);
+        availableSkillKeys = List.copyOf(availableSkillKeys);
+        availableMemoryRefs = List.copyOf(availableMemoryRefs);
         if (tenantId.isBlank()) {
             throw new IllegalArgumentException("tenantId must be non-blank (Rule R-C.c)");
         }

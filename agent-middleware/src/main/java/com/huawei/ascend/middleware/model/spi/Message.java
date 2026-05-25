@@ -46,6 +46,7 @@ public sealed interface Message
         public AssistantMessage {
             Objects.requireNonNull(content, "content");
             Objects.requireNonNull(toolCalls, "toolCalls");
+            toolCalls = List.copyOf(toolCalls);
         }
         @Override public String role() { return "assistant"; }
     }

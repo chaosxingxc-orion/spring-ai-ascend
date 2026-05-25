@@ -18,6 +18,7 @@ public record OutputContentPolicy(Set<String> redactPiiCategories, int maxOutput
 
     public OutputContentPolicy {
         Objects.requireNonNull(redactPiiCategories, "redactPiiCategories");
+        redactPiiCategories = Set.copyOf(redactPiiCategories);
     }
 
     public static OutputContentPolicy defaults() {

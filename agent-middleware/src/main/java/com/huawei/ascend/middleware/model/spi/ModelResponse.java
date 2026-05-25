@@ -36,6 +36,8 @@ public record ModelResponse(
         Objects.requireNonNull(toolCalls, "toolCalls");
         Objects.requireNonNull(finishReason, "finishReason");
         Objects.requireNonNull(metadata, "metadata");
+        toolCalls = List.copyOf(toolCalls);
+        metadata = Map.copyOf(metadata);
     }
 
     /**

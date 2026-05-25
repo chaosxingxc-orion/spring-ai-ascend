@@ -2,6 +2,7 @@
 status: l0-agentic-contract-surface-shipped
 release_candidate_commit: pending-formal-validator-run
 re_scopes_release: rc41-final-release-readiness
+superseded_by: rc49-agentic-contract-surface-corrective
 authority_adrs:
   - ADR-0120
   - ADR-0121
@@ -20,6 +21,14 @@ phases_executed:
 ---
 
 # v2.1.0 — L0 Agentic Contract Surface (rc43-rc48 consolidated)
+
+> **Historical artifact frozen at SHA 8b4f244f628cd142075e3593825086b8474e230d (rc48 agentic-contract-surface pre-corrective note).** Baseline counts in this document reflect the rc48 publication draft and are superseded by rc49.
+
+> **Superseded by rc49.** This rc48 note is retained as the review target
+> that surfaced the corrective findings. Its pending evidence placeholders,
+> 31-total / 12-interface count, and "HookChain guard no longer vacuous"
+> claim are not current release authority. The corrective publication is
+> `docs/logs/releases/2026-05-25-l0-rc49-agentic-contract-surface-corrective.en.md`.
 
 > **rc48 supersedes the rc41 v2.0.0 framing.** rc41 (commit `d20d1e3`)
 > remains the historical record of "Runtime Kernel + Governance

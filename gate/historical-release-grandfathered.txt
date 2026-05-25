@@ -19,4 +19,5 @@ docs/logs/releases/2026-05-24-l0-rc38-audit-corrective-latent-correctness-and-de
 docs/logs/releases/2026-05-25-l0-rc39-formal-release-transaction.en.md
 docs/logs/releases/2026-05-25-l0-rc40-agent-execution-engine-readiness-corrective.en.md
 docs/logs/releases/2026-05-25-l0-rc41-final-release-readiness.en.md
-# Note: rc42 onwards is rendered, not grandfathered.
+docs/logs/releases/2026-05-25-l0-rc42-single-source-rendering-policy.md
+# Note: rc43+ rendered/current release notes are not grandfathered unless later marked historical by a corrective publication.

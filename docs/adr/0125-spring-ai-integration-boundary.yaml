@@ -21,11 +21,10 @@ context: |
   they can name their SPI signatures.
 
   The current state — `pom.xml` imports `spring-ai-bom 2.0.0-M5`, the
-  `OssApiProbe` checks the Spring AI classpath, the
-  `LlmGatewayHookChainOnlyTest` ArchUnit guard is staged but vacuous
-  because `service.runtime.llm/` does not exist, and zero production
-  Java file imports any Spring AI type — is the worst option: the brand
-  promise is set without delivery.
+  `OssApiProbe` checks the Spring AI classpath, the runtime LLM
+  hook-chain guard is staged for W2, and zero production Java file
+  imports any Spring AI type — is the worst option: the brand promise is
+  set without delivery.
 
   Three integration boundaries are credible:
 
@@ -58,8 +57,8 @@ decision: |
   decorators that:
 
   1. **Re-express Spring AI's input/output shape** in the platform's
-     own packages (`com.huawei.ascend.model.spi.ModelGateway` etc.)
-     using platform-native value records. The decorator translates
+     own packages (`com.huawei.ascend.middleware.model.spi.ModelGateway`
+     etc.) using platform-native value records. The decorator translates
      between platform records and Spring AI types at the adapter
      boundary.
 
@@ -86,9 +85,9 @@ decision: |
      opaque defaults in production).
 
   4. **Are the FIRST place production Spring AI imports land in the
-     repository.** The pre-existing `LlmGatewayHookChainOnlyTest`
-     ArchUnit guard becomes non-vacuous the moment `ModelGateway` and
-     its reference Spring AI adapter ship (Wave B1 + Wave C1).
+     repository.** The Wave C1 adapter shells are design-only and covered
+     by `LlmGatewayHookChainOnlyTest`: they may hold Spring AI beans, but
+     cannot invoke providers until W2 hook/capacity binding ships.
 
   5. **Coexist with future Ascend-NPU-optimised native adapters** by
      virtue of the SPI being independent of any one provider. The

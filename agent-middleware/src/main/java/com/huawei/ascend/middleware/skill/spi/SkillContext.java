@@ -18,6 +18,7 @@ public record SkillContext(String tenantId, String traceId, Map<String, Object> 
     public SkillContext {
         Objects.requireNonNull(tenantId, "tenantId");
         Objects.requireNonNull(config, "config");
+        config = Map.copyOf(config);
         if (tenantId.isBlank()) {
             throw new IllegalArgumentException("tenantId must be non-blank (Rule R-C.c)");
         }

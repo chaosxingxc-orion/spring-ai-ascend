@@ -37,5 +37,6 @@ public record KnowledgeDocument(
         Objects.requireNonNull(content, "content");
         Objects.requireNonNull(chunkingPolicy, "chunkingPolicy");
         Objects.requireNonNull(attributes, "attributes");
+        attributes = Map.copyOf(attributes);
     }
 }

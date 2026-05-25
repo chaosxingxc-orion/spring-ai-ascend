@@ -26,6 +26,7 @@ public record MemoryQuery(
     public MemoryQuery {
         Objects.requireNonNull(category, "category");
         Objects.requireNonNull(tagFilters, "tagFilters");
+        tagFilters = Map.copyOf(tagFilters);
         if (pageSize <= 0) {
             throw new IllegalArgumentException("pageSize must be > 0");
         }

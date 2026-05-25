@@ -17,5 +17,6 @@ public record PlanningRationale(String reasoningTrace,
     public PlanningRationale {
         Objects.requireNonNull(reasoningTrace, "reasoningTrace");
         Objects.requireNonNull(consideredAlternatives, "consideredAlternatives");
+        consideredAlternatives = List.copyOf(consideredAlternatives);
     }
 }

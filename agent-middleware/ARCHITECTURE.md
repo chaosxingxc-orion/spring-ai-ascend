@@ -130,7 +130,7 @@ Mode-B (Business-Centric per ADR-0101): `agent-middleware` lives on the platform
 
 ## *SPI Interface Appendix* (Rule G-1.1.b — rc22 / ADR-0099)
 
-`agent-middleware` produces 1 SPI package (cross-validates against `module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`, `docs/dfx/agent-middleware.yaml`):
+`agent-middleware` produces 7 SPI packages (cross-validates against `module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`, `docs/dfx/agent-middleware.yaml`):
 
 | Type FQN | SPI package | Purpose |
 |---|---|---|
@@ -142,6 +142,8 @@ Mode-B (Business-Centric per ADR-0101): `agent-middleware` lives on the platform
 | `com.huawei.ascend.middleware.skill.spi.Skill` | `middleware.skill.spi` | rc43 — unified Tool/Skill SPI with `SkillKind` discriminator (ADR-0127) |
 | `com.huawei.ascend.middleware.skill.spi.SkillRegistry` | `middleware.skill.spi` | rc43 — tenant-scoped (tenantId, skillKey) registry |
 | `com.huawei.ascend.middleware.memory.spi.MemoryStore` | `middleware.memory.spi` | rc43 — unified MemoryStore<K,V> = MemoryReader + MemoryWriter parameterized by MemoryCategory (ADR-0123) |
+| `com.huawei.ascend.middleware.memory.spi.MemoryReader` | `middleware.memory.spi` | rc43 — read-only half of MemoryStore (ADR-0123 CQRS split) |
+| `com.huawei.ascend.middleware.memory.spi.MemoryWriter` | `middleware.memory.spi` | rc43 — write-only half of MemoryStore (ADR-0123 CQRS split) |
 | `com.huawei.ascend.middleware.memory.spi.SemanticMemoryStore` | `middleware.memory.spi` | rc43 — M3 marker (ADR-0123) |
 | `com.huawei.ascend.middleware.memory.spi.KnowledgeMemoryStore` | `middleware.memory.spi` | rc43 — M5 marker (ADR-0123) |
 | `com.huawei.ascend.middleware.vector.spi.VectorStore` | `middleware.vector.spi` | rc43 — tenant-scoped vector storage + similarity search (ADR-0124) |

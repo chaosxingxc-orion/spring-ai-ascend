@@ -35,5 +35,6 @@ public record MemoryMetadata(
         Objects.requireNonNull(updatedAt, "updatedAt");
         Objects.requireNonNull(ownership, "ownership");
         Objects.requireNonNull(tags, "tags");
+        tags = Map.copyOf(tags);
     }
 }

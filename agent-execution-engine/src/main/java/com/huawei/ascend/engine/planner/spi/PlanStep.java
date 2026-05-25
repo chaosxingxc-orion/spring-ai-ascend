@@ -35,5 +35,6 @@ public record PlanStep(
         Objects.requireNonNull(readMemoryRef, "readMemoryRef");
         Objects.requireNonNull(writeMemoryRef, "writeMemoryRef");
         Objects.requireNonNull(stepBudget, "stepBudget");
+        inputs = Map.copyOf(inputs);
     }
 }

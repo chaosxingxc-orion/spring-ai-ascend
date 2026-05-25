@@ -30,6 +30,8 @@ public sealed interface ExecutorDefinition
             if (startNode == null || startNode.isBlank()) {
                 throw new IllegalArgumentException("startNode is required");
             }
+            nodes = Map.copyOf(nodes);
+            edges = Map.copyOf(edges);
         }
     }
 
@@ -53,6 +55,7 @@ public sealed interface ExecutorDefinition
             if (initialContext == null) {
                 throw new IllegalArgumentException("initialContext must not be null");
             }
+            initialContext = Map.copyOf(initialContext);
         }
     }
 

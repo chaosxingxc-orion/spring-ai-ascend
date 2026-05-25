@@ -35,5 +35,6 @@ public record AgentResponse(
         Objects.requireNonNull(toolCalls, "toolCalls");
         Objects.requireNonNull(traceId, "traceId");
         Objects.requireNonNull(runId, "runId");
+        toolCalls = List.copyOf(toolCalls);
     }
 }

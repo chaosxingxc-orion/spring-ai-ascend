@@ -9,6 +9,8 @@ status: formal-release-candidate
 
 # v2.0.0-rc42 — Single-Source Rendering Policy + Foundation Tooling + Release-Note Render Pilot
 
+> **Historical artifact frozen at SHA a0a298ceec6e9c7f16050b64b7c1d008af9d3182 (rc42 single-source-rendering pilot).** Baseline counts in this document reflect the rc42 release-time corpus and are not retroactively updated after rc49.
+
 > Generated at 2026-05-25T09:00:00+00:00 from commit `a0a298ceec6e9c7f16050b64b7c1d008af9d3182`
 > on branch `main`. Baseline counts in this note come from
 > `architecture-status.yaml#baseline_metrics`; live counts come from a tree

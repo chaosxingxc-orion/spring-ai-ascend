@@ -56,6 +56,6 @@ observability:
   trace_propagation: "TraceExtractFilter at filter-order 10 extracts/originates W3C traceparent; emits traceresponse on outbound (E41)"
   log_field_shape: "MDC carries tenant_id + trace_id + span_id during request scope (E42)"
   trace_carrier: "TraceContext SPI in com.huawei.ascend.engine.orchestration.spi (default NoopTraceContext); RunContext exposes traceId()/spanId()/sessionId()/traceContext() (E39 RunContextIdentityAccessorsTest)"
-  hook_emission_path: "every LLM call, tool call, lifecycle boundary MUST flow through HookChain (Rule 19, deferred W2; ArchUnit LlmGatewayHookChainOnlyTest active and vacuous today per E43)"
+  hook_emission_path: "every LLM call, tool call, lifecycle boundary MUST flow through HookChain (Rule 19, deferred W2; ArchUnit LlmGatewayHookChainOnlyTest keeps runtime LLM calls staged and now asserts the Wave C1 Spring AI ChatModel adapter remains a design-only shell until hook binding ships)"
   audit_trail: "run_state_change audit row deferred to W2 (Rule 24); Rule 24.c log-only at W1 — Wave 4 Track C will ship the logging path"
   api_contract_surface: "OpenAPI snapshot pinned at docs/contracts/openapi-v1.yaml (E25); live-vs-snapshot drift detected by E36"

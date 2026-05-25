@@ -11,11 +11,11 @@
  *
  * <p><b>Wave C1 status — design-only shells:</b> the adapters
  * declare the correct constructor + SPI surface so the boundary
- * is provable at compile-time and the {@code LlmGatewayHookChainOnlyTest}
- * ArchUnit guard becomes non-vacuous; runtime method bodies
- * throw {@link UnsupportedOperationException} pending the W2 LLM
- * gateway / W3 RAG vertical implementations that bind the
- * Spring AI calls behind the platform's hook + capacity machinery.
+ * is provable at compile-time. The {@code LlmGatewayHookChainOnlyTest}
+ * asserts the L0 {@code ChatModel} shell cannot call the provider yet;
+ * runtime method bodies throw {@link UnsupportedOperationException}
+ * pending the W2 LLM gateway / W3 RAG vertical implementations that
+ * bind Spring AI calls behind the platform's hook + capacity machinery.
  *
  * <p>No adapter is auto-wired as a {@code @Bean} at L0. Customers
  * who want to use a Spring AI provider declare their own

@@ -10,7 +10,9 @@ every entry whose `bucket` is `templated` or `hybrid`:
      `gate/lib/load_render_context.py` to assemble the render context.
   4. Runs `gate/lib/render_template.py` in `--check` mode and compares
      the rendered buffer against the on-disk `output:` file.
-  5. Reports per-template PASS / FAIL with a unified-diff snippet on
+  5. Skips byte comparison when the output is explicitly listed in the
+     entry's `historical_grandfathered_list`.
+  6. Reports per-template PASS / FAIL with a unified-diff snippet on
      mismatch.
 
 Exit codes:
@@ -83,6 +85,18 @@ def _check_entry(repo: Path, entry: dict[str, Any], verbose: bool) -> tuple[bool
         return False, f"template file missing on disk: {entry['template']}"
     if not output_path.is_file():
         return False, f"rendered output missing on disk: {entry['output']}"
+
+    grandfathered_list = entry.get("historical_grandfathered_list")
+    if grandfathered_list:
+        listed_path = repo / str(grandfathered_list)
+        if listed_path.is_file():
+            grandfathered_outputs = {
+                line.strip()
+                for line in listed_path.read_text(encoding="utf-8").splitlines()
+                if line.strip() and not line.lstrip().startswith("#")
+            }
+            if entry["output"] in grandfathered_outputs:
+                return True, f"historical-grandfathered by {grandfathered_list}"
 
     # The render engine + context loader live alongside this checker. The
     # `repo` argument is the *target* repo whose template registry we're

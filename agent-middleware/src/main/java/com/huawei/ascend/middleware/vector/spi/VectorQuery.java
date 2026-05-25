@@ -39,6 +39,8 @@ public record VectorQuery(
 
     public VectorQuery {
         Objects.requireNonNull(providerHints, "providerHints");
+        queryEmbedding = queryEmbedding == null ? null : queryEmbedding.clone();
+        providerHints = Map.copyOf(providerHints);
         if (queryText == null && queryEmbedding == null) {
             throw new IllegalArgumentException(
                     "exactly one of queryText or queryEmbedding must be set");
@@ -50,5 +52,10 @@ public record VectorQuery(
         if (topK <= 0) {
             throw new IllegalArgumentException("topK must be > 0");
         }
+    }
+
+    @Override
+    public float[] queryEmbedding() {
+        return queryEmbedding == null ? null : queryEmbedding.clone();
     }
 }
