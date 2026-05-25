@@ -8,7 +8,7 @@ authority_refs: [ADR-0094]
 # Recurring Defect Families — Human View
 
 > **What this is.** A categorised summary of defect ROOT-CAUSE CLASSES that
-> have recurred across multiple rc waves (rc4 → rc40). The canonical
+> have recurred across multiple rc waves (rc4 → rc41). The canonical
 > machine-readable form is [`recurring-defect-families.yaml`](recurring-defect-families.yaml);
 > this `.md` is a rendered view for human readers and reviewers.
 >
@@ -36,7 +36,7 @@ authority_refs: [ADR-0094]
 > 2. **Wave-local finding clusters** — Greek-letter suffix on the rc
 >    review letter (e.g., "Family A" or "L-α", "M-η" in rc14/rc15
 >    release notes). Ephemeral; specific to one review pass. Reset each
->    wave.
+>    wave. Fourteen permanent families are currently registered.
 > When a release note says "Family A closed", it means the wave-local
 > cluster. When this document says "F-numeric-drift partial", it means
 > the permanent root-cause class. The two namespaces never overlap by
@@ -45,7 +45,11 @@ authority_refs: [ADR-0094]
 
 ---
 
-## §1 — Family Summary (14 families as of rc40)
+## §1 — Family Summary (14 families as of rc41 final release-readiness)
+
+rc41 final release-readiness re-evaluated the existing family ledger while
+closing the L0 RC state. No new recurring family was registered; the final
+release note and evidence bundle keep the count at 14.
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|

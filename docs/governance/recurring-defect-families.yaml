@@ -44,6 +44,10 @@ last_updated: 2026-05-25  # rc40-codegraph-mcp-onboarding wave: REGISTERS a new 
 # rc40 agent-execution-engine-readiness corrective: proposal current-vs-forward
 # claims, package truth, unsupported absolute claims, L1 architecture grounding,
 # and baseline-count surfaces were updated together.
+# rc41 final-release-readiness: final L0 closure re-evaluated the registered
+# recurring families against the release evidence, corrected proposal boundaries,
+# Service L1 grounding, and codegraph install-truth wave. No new recurring
+# family was added; the canonical count remains 14.
 families:
   - id: F-numeric-drift
     title: Numeric Drift Across Authority Surfaces

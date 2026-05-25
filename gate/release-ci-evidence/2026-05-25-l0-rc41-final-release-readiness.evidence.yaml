@@ -1,0 +1,94 @@
+schema_version: 1
+generated_at_utc: '2026-05-25T06:51:17+00:00'
+repository:
+  root: /tmp/spring-ai-ascend-final-verify-codex/repo
+  commit_sha: d20d1e395f85d022396fd848b885bba6ae429bd2
+  branch: codex/l0-final-release-readiness
+  dirty: false
+latest_release:
+  path: docs/logs/releases/2026-05-25-l0-rc40-agent-execution-engine-readiness-corrective.en.md
+  formal_release: true
+  evidence_bundle: gate/release-ci-evidence/2026-05-25-l0-rc40-agent-execution-engine-readiness-corrective.evidence.yaml
+baseline_metrics:
+  active_engineering_rules: 42
+  active_governing_principles: 13
+  active_gate_checks: 139
+  gate_executable_test_cases: 249
+  enforcer_rows: 172
+  section_4_constraints: 65
+  adr_count: 103
+  maven_tests_green: 409
+  architecture_graph_nodes: 475
+  architecture_graph_edges: 852
+  recurring_defect_families: 14
+  phase_contracts: 5
+  phase_loading_skills: 6
+live_metrics:
+  active_engineering_rules: 42
+  active_gate_checks: 139
+  enforcer_rows: 172
+  adr_count: 103
+  recurring_defect_families: 14
+  gate_executable_test_cases: 249
+  maven_tests_green: 409
+  architecture_graph_nodes: 475
+  architecture_graph_edges: 852
+baseline_comparison:
+  active_engineering_rules:
+    baseline: 42
+    live: 42
+    matches: true
+  active_gate_checks:
+    baseline: 139
+    live: 139
+    matches: true
+  active_governing_principles:
+    baseline: 13
+    live: null
+    matches: null
+  adr_count:
+    baseline: 103
+    live: 103
+    matches: true
+  architecture_graph_edges:
+    baseline: 852
+    live: 852
+    matches: true
+  architecture_graph_nodes:
+    baseline: 475
+    live: 475
+    matches: true
+  enforcer_rows:
+    baseline: 172
+    live: 172
+    matches: true
+  gate_executable_test_cases:
+    baseline: 249
+    live: 249
+    matches: true
+  maven_tests_green:
+    baseline: 409
+    live: 409
+    matches: true
+  phase_contracts:
+    baseline: 5
+    live: null
+    matches: null
+  phase_loading_skills:
+    baseline: 6
+    live: null
+    matches: null
+  recurring_defect_families:
+    baseline: 14
+    live: 14
+    matches: true
+  section_4_constraints:
+    baseline: 65
+    live: null
+    matches: null
+release_transaction:
+  generated_by: gate/lib/build_release_evidence.py
+  validator: gate/check_formal_release_transaction.sh
+  requires_current_forward_claims: true
+  requires_defect_family_closures: true
+  requires_generated_surface_refresh: true
