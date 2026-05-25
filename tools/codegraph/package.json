@@ -1,0 +1,11 @@
+{
+  "name": "spring-ai-ascend-codegraph",
+  "private": true,
+  "description": "Pinned codegraph MCP server for spring-ai-ascend. Run `npm ci` here after cloning. Wired into Claude Code via project-root .mcp.json.",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@colbymchenry/codegraph": "0.9.4"
+  }
+}
