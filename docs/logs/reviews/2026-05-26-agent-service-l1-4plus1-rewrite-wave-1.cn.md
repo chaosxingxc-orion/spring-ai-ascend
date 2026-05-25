@@ -424,3 +424,136 @@ PR body 检查清单（Rule G-7 + standing user feedback）：
 ## 13. 小结
 
 PR #71 通过人类专家共识捕捉到了合法的 5 层 L1 脚手架。技术内容存在 4 处 P0 结构性缺陷，映射到 7 个缺陷家族（3 现有扩展 + 4 新）。对 ADR-0100 重新校准后，整体重命名叙事被推翻 — Run、Task、Session、SuspendSignal 都是规范化的已落地类型，语义各异；L1 重写词汇通过术语表对齐它们，而非通过代码改名。6-wave 计划批准脚手架，修缺陷，按设计防止复发（4 新 family + 2 新 ADR + 2 窄化 ADR），并在 Wave 8 把成果迁入 `agent-service/ARCHITECTURE.md`。
+
+---
+
+# Wave 2 — Scenarios View + Logical View
+
+> 由 Wave 2/6 追加（rc53-wave-2；分支 `rc53/agent-service-l1-4plus1-rewrite`）。
+> 按 Rule G-1.a（Layered 4+1 Discipline）以下视图分别携带 `view: scenarios` 与 `view: logical`；文件顶部 front-matter 的 `view:` 列表已经涵盖两者。
+
+## 14. Scenarios 视图
+
+本节枚举 L1 设计必须支持的 **5 个规范化场景**。每个场景注明其经过的层、使用的契约 artifact、必须保持的故障模式边界条件。Scenarios 喂给 §15 Logical View（由哪些层实现）、Wave 3 §16 Process View（时序图）、Wave 3 §17 Physical View（部署拓扑 + RLS + 三轨绑定）。
+
+### 14.1 S1 — 标准同步入口（Fast-Path 合格）
+
+| 字段 | 值 |
+|---|---|
+| **Actor** | Web/App 客户端 → REST `POST /v1/runs`（或 gRPC 等价） |
+| **经过的层** | Access Layer → Session & Task Manager → Task-Centric Control Layer → Engine Adapter Layer |
+| **Run.mode** | `GRAPH`（确定性短链）或低估算步数的 `AGENT_LOOP` |
+| **路径鉴别** | DualTrackRouter predicate（按 ADR-0112 的 `SlowTrackJudge`）— Fast-Path 合格当且仅当：(i) 预估 wall-clock ≤ 5 s，(ii) 无外部 input 等待、无 S2C callback、无 A2A collaboration，(iii) 无预期 resume 到不同部署 |
+| **持久化形态** | Run + Task 元数据记录在 create + 终态跃迁时按 RLS 持久化；**无中间 compute checkpoint**（按 ADR-0139 窄化 Fast-Path） |
+| **触动契约** | `openapi-v1.yaml`、`engine-envelope.v1.yaml`、`ingress-envelope.v1.yaml`（若用异步入口） |
+| **边界契约** | wall-clock ≤ Fast-Path 上限；若执行中超出，executor 抛 `SuspendSignal`，Run 通过 SUSPENDED 状态切到 Slow-Path |
+| **故障模式** | (a) 跨租户请求：W0 按 Rule R-J.b 返回 404 not_found；(b) Idempotency-Key 冲突：按 ADR-0057 返回 409 idempotency_conflict 或 409 idempotency_body_drift；(c) Engine envelope schema 违规：`EngineMatchingException` → Run FAILED with reason `engine_mismatch`（按 Rule R-M.b） |
+
+### 14.2 S2 — 含工具调用的长程 ReAct（Slow-Path）
+
+| 字段 | 值 |
+|---|---|
+| **Actor** | Web/App 客户端请求多工具 agent run |
+| **经过的层** | Access Layer → Session & Task Manager → Internal Event Queue（data + rhythm）→ Task-Centric Control Layer ↔ Engine Adapter Layer（带 HookPoint.before_tool / after_tool 的循环） |
+| **Run.mode** | `AGENT_LOOP` |
+| **路径鉴别** | DualTrackRouter 选 Slow-Path（多步或可能工具调用） |
+| **持久化形态** | Run + Task 在 RLS 下持久化；**Checkpointer 在每个工具调用边界为中间状态打快照**（W2 Checkpointer SPI，按 ADR-0021）；从任意 checkpoint Resume — 通过 `RunRepository.updateIfNotTerminal(...)` CAS 把 `RunStatus.SUSPENDED → RUNNING` |
+| **触动契约** | `engine-envelope.v1.yaml`、`engine-hooks.v1.yaml`、`model-invocation.v1.yaml`（按 ADR-0134 的 tool_call_loop 段）、`memory-store.v1.yaml` |
+| **边界契约** | 每个工具调用被 `HookPoint.before_tool` + `HookPoint.after_tool` 包络；工具执行由 `RuntimeMiddleware` 治理（Rule R-M.c）；技能容量按 `skill-capacity.yaml`（Rule R-K） |
+| **故障模式** | (a) 工具执行超时：Run 保持 RUNNING 直到工具返回或中间件抛 SuspendSignal；(b) 在不同部署上 Resume：从 Checkpointer 恢复状态；tenantId 按 Rule R-J.b 再校验（W2 R-J.b.d Resume 重鉴权 deferred） |
+
+### 14.3 S3 — A2A 对等协作
+
+| 字段 | 值 |
+|---|---|
+| **Actor** | Agent A（本实例）调 Agent B（peer 实例）做子任务委派；Agent A 的 Run 挂起直到 Agent B 返回 |
+| **经过的层** | Access Layer（A2A Client outbound + 对端 A2A Server inbound）→ Task-Centric Control Layer 挂起 parent Run → Engine Adapter Layer 经三轨 `control` 通道用 `IngressEnvelope` dispatch 到 peer |
+| **Run.mode** | parent: `GRAPH` 或 `AGENT_LOOP`；peer 上 child Run：独立（peer 自选） |
+| **触动契约** | `a2a-envelope.v1.yaml`（W1 design_only；无 `a2a-java` SDK 运行时依赖，按 ADR-0100 §rejected-framing #1）、`ingress-envelope.v1.yaml`、`engine-envelope.v1.yaml` |
+| **边界契约** | parent Run 挂起用 `SuspendSignal.forClientCallback(...)` checked 变体（ADR-0074）；peer 的 Run 用各自 RunRepository；关联通过 Run record 的 parentRunId + traceId 字段 |
+| **故障模式** | (a) Peer 不可达：SuspendReason.AwaitClientCallback 超时；Run 跃迁 FAILED with `peer_unreachable`；(b) Peer 返回错误包络：parent Run resume 决定恢复（按 ADR-0118 retry 或通过 `RunRepository.updateIfNotTerminal(...)` CAS 跃迁 FAILED）；(c) 跨租户 peer call：在 A2A Server 侧拒绝（按 Rule R-I.1 + IngressGateway 鉴权，W3+ SDK 落地后） |
+
+### 14.4 S4 — S2C 客户端回调（服务端挂起，向客户端要能力）
+
+| 字段 | 值 |
+|---|---|
+| **Actor** | 服务端 Run 需要客户端能力（如用户确认、浏览器 cookie、本地文件访问）；Run 用 `SuspendSignal.forClientCallback(...)` 挂起，客户端通过 `POST /v1/runs/{runId}/resume`（W2 已发布）携带能力响应解析 |
+| **经过的层** | Engine Adapter Layer（executor 抛）→ Task-Centric Control Layer（orchestrator 捕获、持久化 checkpoint、把 Run 跃迁到 SUSPENDED）→ 三轨 `control` 通道把 `S2cCallbackEnvelope` 发到客户端 → `data` 通道携带响应载荷（16 KiB inline 上限，按 Rule R-E）→ Resume |
+| **Run.mode** | 继承自 parent execution |
+| **触动契约** | `s2c-callback.v1.yaml`（runtime_enforced，按 Rule R-M.d）、`engine-envelope.v1.yaml`、`engine-hooks.v1.yaml`（before_suspension + before_resume） |
+| **边界契约** | `RunStatus.RUNNING → SUSPENDED` 跃迁经 `RunRepository.updateIfNotTerminal(...)` 原子 CAS；SuspendReason = `AwaitClientCallback`；resume 时 `SuspendSignal.forClientCallback(...)` unwind，executor 用注入的能力响应（`resumePayload`）继续 |
+| **故障模式** | (a) 客户端超时：SuspendReason.AwaitClientCallback 失效；Run 通过 CAS 跃迁 FAILED；(b) 技能容量耗尽（Rule R-K + `skill-capacity.yaml` 的 `s2c.client.callback` 行）：caller 用 SuspendReason.RateLimited 挂起（W2 deferred 按 Rule R-M.d.b）；(c) 响应包络 schema 不合法：对 `s2c-callback.v1.yaml#response` 校验失败；Run 跃迁 FAILED with `s2c_response_invalid` |
+
+### 14.5 S5 — 执行中 Cancel（Cancel 重鉴权 + Cancel 竞态）
+
+| 字段 | 值 |
+|---|---|
+| **Actor** | 客户端调 `POST /v1/runs/{runId}/cancel`；Run 可能处于 RUNNING、SUSPENDED 或已终态 |
+| **经过的层** | Access Layer（RunController.cancel）→ Session & Task Manager（RunRepository load + tenant 守卫）→ Task-Centric Control Layer（RunStateMachine.validate 守护非法跃迁） |
+| **持久化形态** | cancel 跃迁是**经 `RunRepository.updateIfNotTerminal(this.tenantId, this.runId, RunStatus.CANCELLED)` 的原子 CAS**（按 ADR-0118 为抽象方法）；其实现必须是带 `WHERE status NOT IN (CANCELLED, SUCCEEDED, FAILED, EXPIRED)` 子句的单条 SQL UPDATE 语句（或等价原子原语） |
+| **鉴权** | RunController.cancel 再校验 `(request.tenantId == Run.tenantId)`；跨租户 W0 按 Rule R-J.b 收敛到 **404 not_found**（W1 按 ADR-0108 widen 到 403 tenant_mismatch + WARN audit，deferred） |
+| **结果** | (a) Active → terminal（RUNNING/SUSPENDED → CANCELLED）：成功，返回 200；(b) 同状态终态（CANCELLED → cancel）：幂等，返回 200；(c) 不同终态（SUCCEEDED/FAILED/EXPIRED → cancel）：返回 409 illegal_state_transition；(d) cancel-vs-complete 并发竞态：CAS 的 WHERE 子句允许一个 writer 胜出；败者 re-read 看到 CAS 后的 Run row，按之返回 200（败给同租户 cancel）或 409（败给 complete/fail/expire） |
+| **故障模式** | 4 次复发的 cancel-vs-complete 竞态（`F-nonatomic-run-status-write` rc35/rc36/rc38/rc39）**在此入口结构性关闭** — 通过抽象 `updateIfNotTerminal` 方法；任何 caller 都无法绕过。Run 状态上的任何新写路径都引入第 5 次复发风险 — 由 `RunRepository.updateIfNotTerminal` 抽象方法纪律守护。 |
+
+## 15. Logical 视图
+
+5 层 L1 逻辑分解（按 ADR-0138）。每层映射到 `agent-service/src/main/java/com/huawei/ascend/service/...` 下子包（Wave 4 发布规范的 Development View 树）。
+
+### 15.1 5 层组件图
+
+> Mermaid 图见 .en 版本 §15.1（结构性 artefact；保持中英一致）
+
+**Layer 职责**：
+
+1. **Access Layer** — 入站协议收口（HTTP/gRPC 经 openapi-v1.yaml；A2A 经 a2a-envelope.v1.yaml；MQ 经 ingress-envelope.v1.yaml）。执行租户绑定（`TenantContextFilter` + JWT 交叉校验，按 ADR-0040）、idempotency claim（按 ADR-0057）、不直接驱动 Runtime（Rule R-M.a）、不直接调 Middleware（Rule R-M.c）。
+
+2. **Session & Task Manager** — 拥有 Run / Task / Session record 生命周期。RLS 下持久化（Rule R-J.a），通过 `RunRepository.updateIfNotTerminal(...)` 原子 CAS（Rule R-C.2.b + ADR-0118）。Session ↔ Task 1:N（按 ADR-0100）。
+
+3. **Internal Event Queue（三轨总线本地化绑定层）** — Wave 4 新增子包。Producer/Consumer 按 intent 路由到 `bus-channels.yaml` 中声明的 `control` / `data` / `rhythm` 三轨（Rule R-E）。"in-memory / 半持久 / 持久"持久化等级是正交轴；通道选型是**隔离**轴。ADR-0138 §3 红线 c 禁止合并两轴。
+
+4. **Task-Centric Control Layer** — Orchestrator + 状态机 + DualTrackRouter + RuntimeMiddleware 链。Runtime 直接调 Middleware 的位置转换成 `HookPoint` 事件（按 Rule R-M.c + engine-hooks.v1.yaml）并经中间件链 dispatch。SuspendSignal 处理（child-run + S2C callback 两种变体）住此处。
+
+5. **Engine Adapter Layer** — `EngineRegistry.resolve(envelope)`（按 Rule R-M.a）。Graph（`SequentialGraphExecutor`）+ AgentLoop（`IterativeAgentLoopExecutor`）的 ExecutorAdapter 实现；LangChain / LlamaIndex 异构 adapter shell 在 W1 design_only，实现 defer。ChatAdvisor（ADR-0132）+ ContextProjector + PromptTemplate + StructuredOutputConverter 组合实现 PR #71 "Shadow Tool Interceptor" + "Context Translator" 概念。
+
+### 15.2 ER 模型 — Run / Task / Session / LifecycleState（tenantId-first）
+
+> 红线：以下每个实体必须把 `tenantId` 作为一级字段。已核实：`Run.java:25`、`Task.java:31`、`Session.java:27`。
+
+> Mermaid erDiagram 见 .en 版本 §15.2。
+
+**租户隔离强制**：
+- 上表每张表都带 `tenant_id` 列，创建该表的 Flyway 迁移启用 RLS policy（Rule R-J.a）。
+- `IdempotencyRecord` / `RUN` / `TASK` / `SESSION` 表都带 RLS；legacy `idempotency_dedup` 表在 `gate/rls-baseline-grandfathered.txt` 中 grandfathered（W2 retrofit 待办，Rule R-J.a.b deferred）。
+
+### 15.3 RunStatus 状态机（cancel-race-aware + CAS 标注）
+
+> Mermaid stateDiagram-v2 见 .en 版本 §15.3。
+
+**cancel-vs-complete 竞态消解**：两个 writer 并发（如 `RunController.cancel` 与 orchestrator 终态 SUCCEEDED 在同一 `runId` 上竞）时，原子 CAS 的 `WHERE status NOT IN (CANCELLED, SUCCEEDED, FAILED, EXPIRED)` 子句**仅允许一个胜出**。败者 re-read 看到 CAS 后的 Run row 并按之返回（胜方状态匹配请求转换则 200，否则 409）。状态机因此**结构性建模**竞态，而非 retry-and-pray。
+
+### 15.4 Task.A2aState 状态机（A2A 协议包络）
+
+> Mermaid stateDiagram-v2 见 .en 版本 §15.4。
+
+Task.A2aState 是**控制态** DFA。它与 RunStatus（**执行态** DFA）解耦。一个 WORKING 中的 Task 可能有多个瞬时 Run 循环经过 PENDING/RUNNING/SUSPENDED/SUCCEEDED。
+
+### 15.5 SuspendSignal 流（child-run + S2C-callback 两变体）
+
+> Mermaid flowchart 见 .en 版本 §15.5。
+
+两个 SuspendSignal 变体共享**同一 checked-exception 类型签名** — 这是 ADR-0100 §rejected-framings #2（Yield/SuspendSignal 共存）的设计：一个 Java 编译器守卫、一个 Rule R-G ArchUnit 守卫、一个 Rule R-H "no Thread.sleep" 强制作用域。
+
+### 15.6 词汇术语表（PR #71 ↔ 已落地）
+
+本文档顶部 §3 词汇校准表是规范术语表。Wave 6 将这些同义词传播到 `Run.java` / `Task.java` / `Session.java` / `SuspendSignal.java` / `SuspendReason.java` 的 Javadoc，让未来读其中一种拼法的维护者都到达规范类型。ADR-0136（规范实体校准）+ ADR-0137（SuspendSignal 术语表）是 ADR 级权威。
+
+---
+
+# Wave 2 闭环（G-A..G-F）
+
+- **G-A 直接修复**：§14 Scenarios + §15 Logical View 追加到本评审稿（.en + .cn）；Wave 2 任务关闭。
+- **G-B 分类**：Wave 2 撰写期间无新发现；无新 family 注册。（Negative confirmation: 0 new findings.）
+- **G-C 兄弟横扫**：Wave 2 范围是 design-doc 内部（向同一评审文件追加视图）；§8 Wave 1 清单仍规范。在新追加的 §14/§15 散文上重跑 family 指纹返回 0 新兄弟 hit（Grep 已核实：无风险措辞、无孤立权威 ref、无 tenantId-less ER 块、无单层队列散文）。Negative confirmation：F-design-artifact-omits-tenant-spine 模式在 active-local 上 0 命中（除 ADR / Wave-1-§8 引用）。
+- **G-D 持续修复**：无 in-scope 兄弟需吸收；3 个 Wave 1 deferred 兄弟保留为 Wave 5 跟进。
+- **G-E 非空守卫**：§15.2 ER 块在 4 个实体上都有 tenantId（已核实）；§15.3 RunStatus 状态机在每个 cancel 箭头上都有 CAS + tenant-guard 标注（已核实）；§15.5 SuspendSignal 流使用规范 Java 类型名（已核实）。
+- **G-F 文档化**：Wave 2 章节就地追加；本 Closure block 总结 wave。

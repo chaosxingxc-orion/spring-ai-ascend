@@ -424,3 +424,291 @@ PR body checklist (Rule G-7 + standing-user-feedback):
 ## 13. Summary
 
 PR #71 captures a valid 5-layer L1 scaffolding via human-expert consensus. The technical content has 4 P0 structural defects that map onto 7 defect families (3 existing extensions + 4 new). Reconciling against ADR-0100 reveals that the wholesale-rename narrative was wrong — Run, Task, Session, SuspendSignal are all canonical shipped types with distinct semantics; the L1 rewrite vocabulary aligns onto them via a glossary, not via code renames. The 6-wave plan ratifies the scaffolding, fixes the defects, prevents recurrence by design (4 new families + 2 new ADRs + 2 narrowing ADRs), and migrates the result into `agent-service/ARCHITECTURE.md` at Wave 8.
+
+---
+
+# Wave 2 — Scenarios View + Logical View
+
+> Appended by Wave 2 of 6 (rc53-wave-2; branch `rc53/agent-service-l1-4plus1-rewrite`).
+> Per Rule G-1.a (Layered 4+1 Discipline) the views below carry `view: scenarios` and `view: logical` respectively; the front-matter `view:` list at the top of this file already covers both.
+
+## 14. Scenarios View
+
+This section enumerates the **5 canonical scenarios** the L1 design must support. Each scenario names the layers it traverses, the contract artefacts it uses, and the failure-mode boundary conditions it must respect. Scenarios feed the §15 Logical View (which layers fulfil them), the future §16 Process View (Wave 3, sequence diagrams), and the future §17 Physical View (Wave 3, deployment topology + RLS + three-track bindings).
+
+### 14.1 S1 — Standard Synchronous Intake (Fast-Path eligible)
+
+| Field | Value |
+|---|---|
+| **Actor** | Web/App client → REST `POST /v1/runs` (or gRPC equivalent) |
+| **Layers traversed** | Access Layer → Session & Task Manager → Task-Centric Control Layer → Engine Adapter Layer |
+| **Run.mode** | `GRAPH` (deterministic short chain) OR `AGENT_LOOP` with low estimated step count |
+| **Path discriminator** | DualTrackRouter predicate (`SlowTrackJudge` per ADR-0112) — Fast-Path eligible iff: (i) estimated wall-clock ≤ 5 s, (ii) no external input wait, no S2C callback, no A2A collaboration, (iii) no expected resume on a different deployment |
+| **Persistence shape** | Run + Task metadata records persisted under RLS at create + at terminal transition; **no intermediate compute checkpoint** (ADR-0139 narrowed Fast-Path) |
+| **Contracts touched** | `openapi-v1.yaml`, `engine-envelope.v1.yaml`, `ingress-envelope.v1.yaml` (if async ingress used) |
+| **Boundary contract** | Wall-clock ≤ Fast-Path bound; if exceeded mid-execution, executor throws `SuspendSignal` and Run transitions to Slow-Path via SUSPENDED state |
+| **Failure modes** | (a) Cross-tenant request: 404 not_found at W0 per Rule R-J.b; (b) Idempotency-Key collision: 409 idempotency_conflict or 409 idempotency_body_drift per ADR-0057; (c) Engine envelope schema violation: `EngineMatchingException` → Run FAILED with reason `engine_mismatch` per Rule R-M.b |
+
+### 14.2 S2 — Long-Horizon ReAct With Tool Calls (Slow-Path)
+
+| Field | Value |
+|---|---|
+| **Actor** | Web/App client requesting a multi-tool agent run |
+| **Layers traversed** | Access Layer → Session & Task Manager → Internal Event Queue (data + rhythm) → Task-Centric Control Layer ↔ Engine Adapter Layer (loop with HookPoint.before_tool / after_tool) |
+| **Run.mode** | `AGENT_LOOP` |
+| **Path discriminator** | DualTrackRouter chooses Slow-Path (multi-step or tool calls likely) |
+| **Persistence shape** | Run + Task records under RLS; **Checkpointer snapshots intermediate state** at each tool-call boundary (W2 Checkpointer SPI per ADR-0021); Resume from any checkpoint by `RunStatus.SUSPENDED → RUNNING` via `RunRepository.updateIfNotTerminal(...)` CAS |
+| **Contracts touched** | `engine-envelope.v1.yaml`, `engine-hooks.v1.yaml`, `model-invocation.v1.yaml` (tool_call_loop section per ADR-0134), `memory-store.v1.yaml` |
+| **Boundary contract** | Each tool call is bracketed by `HookPoint.before_tool` + `HookPoint.after_tool`; tool execution governed by `RuntimeMiddleware` (Rule R-M.c); skill capacity per `skill-capacity.yaml` (Rule R-K) |
+| **Failure modes** | (a) Tool execution timeout: Run remains in RUNNING until tool returns or middleware throws SuspendSignal; (b) Resume on different deployment: state recovered from Checkpointer; tenantId re-validated per Rule R-J.b (Resume re-auth deferred to W2 per R-J.b.d) |
+
+### 14.3 S3 — A2A Peer Collaboration
+
+| Field | Value |
+|---|---|
+| **Actor** | Agent A (this instance) calls Agent B (peer instance) for sub-task delegation; Agent A's Run suspends until Agent B returns |
+| **Layers traversed** | Access Layer (A2A Client outbound + A2A Server inbound on peer side) → Task-Centric Control Layer suspends parent Run → Engine Adapter Layer dispatches child Run to peer via `IngressEnvelope` over three-track `control` channel |
+| **Run.mode** | Parent: `GRAPH` or `AGENT_LOOP`; Child Run on peer: independent (peer chooses) |
+| **Contracts touched** | `a2a-envelope.v1.yaml` (design_only at W1; no `a2a-java` SDK runtime dep per ADR-0100 §rejected-framing #1), `ingress-envelope.v1.yaml`, `engine-envelope.v1.yaml` |
+| **Boundary contract** | Parent Run's suspension uses `SuspendSignal.forClientCallback(...)` checked variant (ADR-0074); peer's Run uses its own RunRepository; correlation via parentRunId + traceId per Run record fields |
+| **Failure modes** | (a) Peer unreachable: SuspendReason.AwaitClientCallback times out; Run transitions FAILED with `peer_unreachable` reason; (b) Peer returns error envelope: parent Run resumes and decides recovery (retry per ADR-0118 OR FAILED transition via `RunRepository.updateIfNotTerminal(...)` CAS); (c) Cross-tenant peer call: rejected at A2A Server side per Rule R-I.1 + IngressGateway authentication (W3+ when SDK lands) |
+
+### 14.4 S4 — S2C Client Callback (Server Suspends, Asks Client for Capability)
+
+| Field | Value |
+|---|---|
+| **Actor** | Server-side Run needs a client-side capability (e.g., user confirmation, browser cookie, local-file access); Run suspends with `SuspendSignal.forClientCallback(...)` and the client resolves via `POST /v1/runs/{runId}/resume` (W2-shipped) carrying the resolved capability response |
+| **Layers traversed** | Engine Adapter Layer (executor throws) → Task-Centric Control Layer (orchestrator catches, persists checkpoint, transitions Run to SUSPENDED) → three-track `control` channel publishes `S2cCallbackEnvelope` to client → `data` channel carries the response payload (16 KiB inline cap per Rule R-E) → Resume |
+| **Run.mode** | Inherits from parent execution |
+| **Contracts touched** | `s2c-callback.v1.yaml` (runtime_enforced per Rule R-M.d), `engine-envelope.v1.yaml`, `engine-hooks.v1.yaml` (before_suspension + before_resume) |
+| **Boundary contract** | `RunStatus.RUNNING → SUSPENDED` transition is atomic CAS via `RunRepository.updateIfNotTerminal(...)`; SuspendReason = `AwaitClientCallback`; on resume, `SuspendSignal.forClientCallback(...)` is unwound and executor continues with the resolved capability response injected as `resumePayload` |
+| **Failure modes** | (a) Client times out: SuspendReason.AwaitClientCallback expires; Run transitions FAILED via CAS; (b) Skill capacity exhausted (Rule R-K + `s2c.client.callback` row of `skill-capacity.yaml`): caller suspended with SuspendReason.RateLimited (W2 deferred per Rule R-M.d.b); (c) Response envelope schema-invalid: validation against `s2c-callback.v1.yaml#response` fails; Run transitions FAILED with `s2c_response_invalid` |
+
+### 14.5 S5 — Cancel During Execution (Cancel Re-auth + Cancel Race)
+
+| Field | Value |
+|---|---|
+| **Actor** | Client calls `POST /v1/runs/{runId}/cancel`; Run may be in RUNNING, SUSPENDED, or already in a terminal state |
+| **Layers traversed** | Access Layer (RunController.cancel) → Session & Task Manager (RunRepository load + tenant guard) → Task-Centric Control Layer (RunStateMachine.validate guards illegal transitions) |
+| **Persistence shape** | The cancel transition is **atomic CAS** via `RunRepository.updateIfNotTerminal(this.tenantId, this.runId, RunStatus.CANCELLED)` (abstract method per ADR-0118); the abstract method's implementation MUST be a single SQL update statement with a `WHERE status NOT IN (CANCELLED, SUCCEEDED, FAILED, EXPIRED)` clause (or equivalent atomic primitive) |
+| **Authorization** | RunController.cancel re-validates `(request.tenantId == Run.tenantId)`; cross-tenant collapses to **404 not_found** at W0 per Rule R-J.b (W1 widening to 403 tenant_mismatch + WARN audit deferred per ADR-0108) |
+| **Outcomes** | (a) Active → terminal (RUNNING/SUSPENDED → CANCELLED): success, returns 200; (b) Same-status terminal (CANCELLED → cancel): idempotent, returns 200; (c) Different-terminal (SUCCEEDED/FAILED/EXPIRED → cancel): returns 409 illegal_state_transition; (d) Concurrent cancel-vs-complete race: the CAS WHERE clause wins one writer; the loser sees the post-CAS Run row and returns the appropriate status code based on it (200 if it lost to a same-tenant cancel, 409 if it lost to a complete/fail/expire) |
+| **Failure modes** | The 4-recurrence cancel-vs-complete race (`F-nonatomic-run-status-write` rc35/rc36/rc38/rc39) is **structurally closed at this entry** by the abstract `updateIfNotTerminal` method; no caller may bypass it. Any new write path on Run state introduces a 5th recurrence risk — gated by the `RunRepository.updateIfNotTerminal` abstract-method discipline. |
+
+## 15. Logical View
+
+The 5-layer L1 logical decomposition (per ADR-0138). Each layer maps to a sub-package under `agent-service/src/main/java/com/huawei/ascend/service/...` (Wave 4 publishes the canonical Development View tree).
+
+### 15.1 Five-Layer Component Diagram
+
+```mermaid
+flowchart TB
+    client["External Client<br/>Web / App / A2A Peer / MQ"]
+
+    subgraph service["agent-service (L1)"]
+        access["**1. Access Layer**<br/>(service.dispatcher / web / a2a)<br/>Gateway / A2A Service / MQ Adapter / IngressGateway"]
+        manager["**2. Session & Task Manager**<br/>(service.session / service.task / service.runtime.runs)<br/>SessionManager + ContextProjector SPI<br/>TaskCenter + TaskStateStore SPI<br/>RunRepository + Run record (tenantId-first)"]
+        queue["**3. Internal Event Queue (binding layer)**<br/>(service.queue, new in Wave 4)<br/>Producer/Consumer split over three-track bus<br/>control: cancel / resume<br/>data: payload / S2C response<br/>rhythm: heartbeat / tick"]
+        control["**4. Task-Centric Control Layer**<br/>(service.orchestrator + service.runtime.orchestration)<br/>RunStateMachine.validate CAS<br/>SuspendSignal handling<br/>DualTrackRouter (Fast vs Slow Path)<br/>RuntimeMiddleware chain (HookPoint dispatch)"]
+        adapter["**5. Engine Adapter Layer**<br/>(service.engine.adapter + service.engine.spi)<br/>EngineRegistry.resolve(envelope)<br/>ExecutorAdapter implementations<br/>ChatAdvisor + RuntimeMiddleware on HookPoint.before/after_tool<br/>ContextProjector + PromptTemplate + StructuredOutputConverter"]
+    end
+
+    runtime["External Runtime<br/>agent-execution-engine: GraphExecutor / AgentLoopExecutor /<br/>future LangChain/LlamaIndex shells"]
+    middleware["External Middleware<br/>agent-middleware: Memory / Sandbox / MCP / ModelGateway"]
+    bus["Three-Track Bus<br/>agent-bus: control / data / rhythm channels<br/>(bus-channels.yaml manifest)"]
+
+    client --> access
+    access --> manager
+    manager --> queue
+    queue --> control
+    control --> adapter
+    adapter --> runtime
+    runtime -. "Tool Request / Interrupt / Yield via SuspendSignal" .-> adapter
+    adapter -. "RunEvent / SuspendSignal" .-> control
+    control -. "Middleware Call via RuntimeMiddleware on HookPoint" .-> middleware
+    middleware -. "Middleware Result" .-> control
+    control -. "Resume" .-> adapter
+    queue <--> bus
+
+    runtime -. "Direct connection forbidden — Rule R-M.a/.b" .-x middleware
+```
+
+**Layer responsibilities**:
+
+1. **Access Layer** — Inbound protocol convergence (HTTP/gRPC via openapi-v1.yaml; A2A via a2a-envelope.v1.yaml; MQ via ingress-envelope.v1.yaml). Performs tenant binding (`TenantContextFilter` + JWT cross-check per ADR-0040), idempotency claim (per ADR-0057), no direct Runtime drive (Rule R-M.a) and no direct Middleware call (Rule R-M.c).
+
+2. **Session & Task Manager** — Owns Run / Task / Session record lifecycles. Persistence under RLS (Rule R-J.a) with `RunRepository.updateIfNotTerminal(...)` atomic CAS (Rule R-C.2.b + ADR-0118). Session ↔ Task 1:N per ADR-0100.
+
+3. **Internal Event Queue (binding layer over three-track bus)** — New sub-package in Wave 4. Producer/Consumer split routes events by intent to the canonical `control` / `data` / `rhythm` channels declared in `bus-channels.yaml` per Rule R-E. The "in-memory / semi-persistent / persistent" durability tier (per-channel) is the orthogonal axis; the channel choice is the **isolation** axis. ADR-0138 §3 red-line c forbids merging the two axes.
+
+4. **Task-Centric Control Layer** — Orchestrator + state machine + DualTrackRouter + RuntimeMiddleware chain. Where Runtime would otherwise call Middleware directly, the call is converted to a `HookPoint` event (per Rule R-M.c + engine-hooks.v1.yaml) and dispatched through the middleware chain. SuspendSignal handling (child-run + S2C callback variants) lives here.
+
+5. **Engine Adapter Layer** — `EngineRegistry.resolve(envelope)` per Rule R-M.a. ExecutorAdapter implementations for Graph (`SequentialGraphExecutor`) and AgentLoop (`IterativeAgentLoopExecutor`); future heterogeneous adapters for LangChain / LlamaIndex are shells declared design_only at W1, implementation deferred. ChatAdvisor (ADR-0132) + ContextProjector + PromptTemplate + StructuredOutputConverter compose the PR #71 "Shadow Tool Interceptor" + "Context Translator" concepts.
+
+### 15.2 ER Model — Run / Task / Session / LifecycleState (tenantId-first)
+
+> Red-line: every entity below MUST declare `tenantId` as a first-class field. Verified against shipped Java: `Run.java:25`, `Task.java:31`, `Session.java:27`.
+
+```mermaid
+erDiagram
+    RUN ||--o{ TASK : "may carry concurrent (W2+)"
+    SESSION ||--o{ TASK : "owns (1:N, ADR-0100)"
+    SESSION ||--o{ RUN : "contextualises (N:M projection, ADR-0135)"
+    TASK ||--|| RUN : "current-execution-of (when WORKING)"
+
+    RUN {
+        UUID runId PK
+        String tenantId "MANDATORY (Rule R-C.2.a)"
+        String capabilityName "skill/agent name (lookup via SkillRegistry)"
+        RunStatus status "DFA enum"
+        RunMode mode "GRAPH or AGENT_LOOP"
+        Instant createdAt
+        Instant updatedAt
+        Instant finishedAt
+        UUID parentRunId "for child runs"
+        Integer attemptId "retry counter"
+        String parentNodeKey "checkpoint key"
+        Instant suspendedAt
+        String traceId "W3C 32-char lowercase hex"
+        String sessionId "FK to SESSION (nullable, ADR-0062)"
+    }
+
+    TASK {
+        String taskId PK
+        String tenantId "MANDATORY (Rule R-C.2.a)"
+        String sessionId "FK to SESSION (nullable; tasks may drift, ADR-0100)"
+        TaskKind taskKind "INTERACTIVE | BATCH | PERIODIC | DRIFT"
+        A2aState a2aState "A2A envelope: SUBMITTED | WORKING | INPUT_REQUIRED | COMPLETED | FAILED"
+        Integer stepNumber "sequential counter"
+        String whyStopped "suspension reason (nullable)"
+        Instant createdAt
+        Instant updatedAt
+    }
+
+    SESSION {
+        String sessionId PK
+        String tenantId "MANDATORY (Rule R-C.2.a + R-J.a RLS)"
+        Json messages "ordered conversation history"
+        Json variables "shared variable bag"
+        Instant createdAt
+        Instant updatedAt
+    }
+
+    LIFECYCLE_STATE {
+        UUID runId FK "or taskId FK"
+        String tenantId "MANDATORY (Rule R-C.2.a — derived from FK)"
+        String fromStatus
+        String toStatus
+        String actor "userId or system component"
+        Instant occurredAt "audit MDC field"
+    }
+```
+
+**Tenant isolation enforcement**:
+- Every table above carries `tenant_id` column with RLS policy enabled in the same Flyway migration that creates the table (Rule R-J.a).
+- `IdempotencyRecord` and `RUN`/`TASK`/`SESSION` tables ship with RLS; the `idempotency_dedup` legacy table is grandfathered in `gate/rls-baseline-grandfathered.txt` pending W2 retrofit (Rule R-J.a.b deferred).
+
+### 15.3 RunStatus State Machine (cancel-race-aware, CAS-annotated)
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: POST /v1/runs (Access Layer)<br/>RunRepository.save (insert, RLS-scoped)
+    PENDING --> RUNNING: Orchestrator dispatch<br/>RunRepository.updateIfNotTerminal CAS
+    RUNNING --> SUSPENDED: SuspendSignal thrown<br/>(child-run OR S2C callback)<br/>RunRepository.updateIfNotTerminal CAS
+    SUSPENDED --> RUNNING: ResumeDispatcher<br/>tenant guard re-check (W2: Rule R-J.b.d)<br/>RunRepository.updateIfNotTerminal CAS
+    RUNNING --> SUCCEEDED: terminal success<br/>RunRepository.updateIfNotTerminal CAS
+    RUNNING --> FAILED: terminal failure<br/>RunRepository.updateIfNotTerminal CAS
+    SUSPENDED --> FAILED: ResumeDispatcher gives up<br/>RunRepository.updateIfNotTerminal CAS
+    RUNNING --> CANCELLED: POST /v1/runs/runId/cancel<br/>**(request.tenantId == Run.tenantId) guard (Rule R-J.b)**<br/>**RunRepository.updateIfNotTerminal CAS**
+    SUSPENDED --> CANCELLED: POST /v1/runs/runId/cancel<br/>same guards
+    PENDING --> CANCELLED: POST /v1/runs/runId/cancel<br/>same guards
+    RUNNING --> EXPIRED: deadline pass<br/>RunRepository.updateIfNotTerminal CAS
+    SUSPENDED --> EXPIRED: deadline pass<br/>RunRepository.updateIfNotTerminal CAS
+
+    CANCELLED --> [*]
+    SUCCEEDED --> [*]
+    FAILED --> [*]
+    EXPIRED --> [*]
+
+    note right of CANCELLED
+        Same-status terminal cancel returns 200 (idempotent).
+        Different-terminal cancel returns 409 illegal_state_transition.
+        Cross-tenant cancel collapses to 404 not_found at W0
+        (W1 widening to 403 tenant_mismatch + WARN audit
+         deferred per ADR-0108 / Rule R-J.b).
+    end note
+
+    note left of RUNNING
+        EVERY transition through RunRepository.updateIfNotTerminal
+        atomic CAS (abstract method per ADR-0118).
+        Defends against F-nonatomic-run-status-write
+        (4 recurrences: rc35 / rc36 / rc38 / rc39).
+    end note
+```
+
+**Cancel-vs-complete race resolution**: when two writers contend (e.g., a `RunController.cancel` and an orchestrator `terminal SUCCEEDED` racing on the same `runId`), the atomic CAS `WHERE status NOT IN (CANCELLED, SUCCEEDED, FAILED, EXPIRED)` clause admits exactly one. The loser re-reads, sees the post-CAS Run row, and returns the appropriate response (200 if the winning state matches the requested transition, 409 if not). The state machine therefore models the race **structurally**, not by retry-and-pray.
+
+### 15.4 Task.A2aState State Machine (A2A Protocol Envelope)
+
+```mermaid
+stateDiagram-v2
+    [*] --> SUBMITTED: Task created by SessionManager
+    SUBMITTED --> WORKING: dispatch to Orchestrator
+    WORKING --> INPUT_REQUIRED: SuspendReason.AwaitClientCallback (S2C) OR user-input wait
+    INPUT_REQUIRED --> WORKING: resume with input
+    WORKING --> COMPLETED: terminal success
+    WORKING --> FAILED: terminal failure
+
+    note right of WORKING
+        Task.A2aState is the CONTROL-state DFA.
+        It is decoupled from RunStatus (the execution-state DFA).
+        A single Task in WORKING may have many transient Runs
+        cycling through PENDING/RUNNING/SUSPENDED/SUCCEEDED.
+    end note
+
+    COMPLETED --> [*]
+    FAILED --> [*]
+```
+
+### 15.5 SuspendSignal Flow (Child-Run + S2C-Callback Variants)
+
+```mermaid
+flowchart LR
+    executor["Executor<br/>(GraphExecutor / AgentLoopExecutor /<br/>future heterogeneous adapter)"]
+    orchestrator["Orchestrator<br/>(catches SuspendSignal — Rule R-G ArchUnit guard)"]
+    checkpointer["Checkpointer<br/>(persists serialised compute snapshot)"]
+    s2cTransport["S2cCallbackTransport SPI<br/>(bus.spi.s2c)"]
+    runRepo["RunRepository<br/>(updateIfNotTerminal CAS — Rule R-C.2.b)"]
+
+    executor -- "throws SuspendSignal(parentNodeKey, resumePayload, childMode, childDef)<br/>(child-run variant — ADR-0019)" --> orchestrator
+    executor -- "throws SuspendSignal.forClientCallback(parentNodeKey, S2cCallbackEnvelope)<br/>(S2C variant — ADR-0074)" --> orchestrator
+
+    orchestrator -- "isClientCallback() == false" --> checkpointer
+    checkpointer -- "snapshot persisted" --> runRepo
+    runRepo -- "RUNNING → SUSPENDED CAS" --> orchestrator
+    orchestrator -- "dispatch child Run" --> executor
+
+    orchestrator -- "isClientCallback() == true" --> s2cTransport
+    s2cTransport -- "envelope on control channel" --> runRepo
+    runRepo -- "RUNNING → SUSPENDED (SuspendReason.AwaitClientCallback) CAS" --> orchestrator
+    s2cTransport -- "response on data channel" --> orchestrator
+    orchestrator -- "Resume via SuspendSignal.forClientCallback unwind" --> executor
+```
+
+The two SuspendSignal variants share **the same checked-exception type signature** — a deliberate design per ADR-0100 §rejected-framings #2 (Yield/SuspendSignal coexistence): one Java compiler guard, one Rule R-G ArchUnit guard, one Rule R-H "no Thread.sleep" enforcement scope.
+
+### 15.6 Vocabulary Glossary (PR #71 ↔ Shipped)
+
+The §3 Vocabulary Reconciliation Table at the top of this document is the canonical glossary. Wave 6 propagates these synonyms into Javadoc of `Run.java` / `Task.java` / `Session.java` / `SuspendSignal.java` / `SuspendReason.java` so future maintainers reading either spelling reach the canonical type. ADR-0136 (canonical-entity reconciliation) + ADR-0137 (SuspendSignal glossary) are the ADR-level authority.
+
+---
+
+# Wave 2 Closure (G-A..G-F)
+
+- **G-A direct fix**: §14 Scenarios + §15 Logical View appended to this review draft (.en + .cn); Wave 2 task closed.
+- **G-B classification**: no new findings during Wave 2 authoring; no new families registered. (Negative confirmation: 0 new findings.)
+- **G-C sibling sweep**: scope of Wave 2 is design-doc-internal (adding views to the same review file); the §8 inventory from Wave 1 remains canonical. Re-running family fingerprints on the freshly-appended §14/§15 prose returns 0 new sibling hits (verified by Grep: no risk phrases, no orphaned authority refs, no tenantId-less ER block, no single-tier queue prose). Negative confirmation: F-design-artifact-omits-tenant-spine pattern matched 0 active-local hits beyond ADR/Wave-1-§8 citations.
+- **G-D continuous fix**: no in-scope siblings to absorb; the 3 Wave 1 deferred siblings remain on Wave 5 follow-up.
+- **G-E non-vacuity**: §15.2 ER block has tenantId on all 4 entities (verified); §15.3 RunStatus state machine has CAS + tenant-guard annotations on every cancel arrow (verified); §15.5 SuspendSignal flow uses the canonical Java type name (verified).
+- **G-F documentation**: Wave 2 sections appended in place; this Closure block summarises the wave.
+
