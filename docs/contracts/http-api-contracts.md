@@ -88,9 +88,9 @@ This route is the W0 operator probe. Kubernetes-native liveness and readiness sp
 | Required headers | X-Tenant-Id (UUID), Idempotency-Key (UUID) |
 | Auth | JWT required in research/prod (W1) |
 | Response schema | 202 + TaskCursor (Cursor Flow per Rule R-F; see `openapi-v1.yaml`) |
-| Implementation | `agent-service/src/main/java/.../web/runs/RunController.java#createRun` (line 66) |
+| Implementation | `agent-service/src/main/java/.../web/runs/RunController.java#create` |
 
-Creates a new agent run for the authenticated tenant. The endpoint returns immediately with `202 Accepted` + a TaskCursor; the client polls the cursor or subscribes via SSE/Webhook (Rule R-F Cursor Flow Mandate). The run is assigned a UUID run id and starts in PENDING status. The Idempotency-Key is scoped per tenant; the same key submitted twice returns the first response. rc12 K-ζ marked this route shipped (previously stale `planned;W1` per rc11 review P2-1).
+Creates a new agent run for the authenticated tenant. The endpoint returns immediately with `202 Accepted` + a TaskCursor; the client polls the cursor or subscribes via SSE/Webhook (Rule R-F Cursor Flow Mandate). The run is assigned a UUID run id and starts in PENDING status. The Idempotency-Key is scoped per tenant. At W1, the same key plus the same request hash returns 409 `idempotency_conflict`; the same key plus a different request hash returns 409 `idempotency_body_drift`. Response replay of the original successful response is deferred to W2 per ADR-0057. rc12 K-ζ marked this route shipped (previously stale `planned;W1` per rc11 review P2-1).
 
 ---
 
@@ -103,7 +103,7 @@ Creates a new agent run for the authenticated tenant. The endpoint returns immed
 | Required headers | X-Tenant-Id (UUID) |
 | Auth | JWT required in research/prod (W1) |
 | Response schema | RunResponse |
-| Implementation | `agent-service/src/main/java/.../web/runs/RunController.java#getRun` (line 123) |
+| Implementation | `agent-service/src/main/java/.../web/runs/RunController.java#get` |
 
 Returns the current state of a run. Returns 404 if the run does not exist or belongs to a different tenant. rc12 K-ζ marked this route shipped (previously stale `planned;W1`).
 
@@ -118,9 +118,9 @@ Returns the current state of a run. Returns 404 if the run does not exist or bel
 | Required headers | X-Tenant-Id (UUID), Idempotency-Key (UUID) |
 | Auth | JWT required in research/prod (W1) |
 | Response schema | RunResponse |
-| Implementation | `agent-service/src/main/java/.../web/runs/RunController.java#cancelRun` (line 141); enforced by Rule R-J.b tenant re-authorization |
+| Implementation | `agent-service/src/main/java/.../web/runs/RunController.java#cancel`; enforced by Rule R-J.b tenant re-authorization |
 
-Cancels a live run. Returns 200 + terminal RunResponse if successful. Returns 403 `tenant_mismatch` if the request tenant differs from `Run.tenantId` (Rule R-J.b re-authorization). Returns 404 if the run does not exist. Returns 409 `illegal_state_transition` if the run is already in a terminal stage. Idempotent terminal→terminal same-status returns 200 (per Rule R-J.b kernel). rc12 K-ζ marked this route shipped (previously stale `planned;W1`).
+Cancels a live run. Returns 200 + terminal RunResponse if successful. At W0/W1 shipped scope, a missing run or a run-owner tenant mismatch both collapse to 404 `not_found` to avoid an existence oracle. HTTP 403 `tenant_mismatch` is reserved for JWT `tenant_id` claim versus `X-Tenant-Id` header mismatch today, and for the future W1 widening described by ADR-0108/ADR-0116 when structured audit semantics are promoted. Returns 409 `illegal_state_transition` when the requested transition is illegal. Idempotent terminal→terminal same-status returns 200 (per Rule R-J.b kernel). rc12 K-ζ marked this route shipped (previously stale `planned;W1`).
 
 Note: this shipped HTTP cancel edge is separate from the `RunLifecycle` SPI design-only contract — that SPI remains deferred to W2 for resume/retry/cancel orchestration; the shipped W1 HTTP cancel is independently re-authorized by Rule R-J.b at the edge. See `architecture-status.yaml#run_lifecycle_spi.allowed_claim` for the boundary.
 

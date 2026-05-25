@@ -21,5 +21,6 @@ gate/doctor.ps1
 gate/measure_always_loaded_tokens.sh
 gate/migrate_adrs_to_yaml.py
 gate/check_architecture_sync.ps1
+gate/check_formal_release_transaction.sh
 gate/run_operator_shape_smoke.sh
 gate/test_architecture_sync_gate.sh

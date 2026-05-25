@@ -5,7 +5,7 @@ import java.util.Map;
 /**
  * Reflection patch handler.
  *
- * <p>Edge-side consumer of {@link com.huawei.ascend.bus.s2c.ReflectionEnvelopeRouter}
+ * <p>Edge-side consumer of {@link com.huawei.ascend.bus.spi.s2c.ReflectionEnvelopeRouter}
  * S2C deliveries. Applies the hot-patch to the active SessionContext
  * (e.g., appends summary message, mutates a variable, adjusts a
  * routing override).

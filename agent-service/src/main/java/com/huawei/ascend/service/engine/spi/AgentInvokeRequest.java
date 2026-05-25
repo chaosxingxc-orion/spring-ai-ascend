@@ -9,7 +9,7 @@ import java.util.Objects;
  *
  * <p>Wire contract:
  * {@code docs/contracts/agent-invoke-request.v1.yaml} (status:
- * design_only; runtime impl in rc24).
+ * schema_shipped; runtime orchestration path deferred).
  *
  * <p>Service is the Read-Modify-Write closure boundary; Engine is the
  * Pure-Function compute boundary. See ADR-0100 §decision.
@@ -50,5 +50,8 @@ public record AgentInvokeRequest(
         Objects.requireNonNull(injectedSkills, "injectedSkills");
         Objects.requireNonNull(taskMetadata, "taskMetadata");
         Objects.requireNonNull(traceId, "traceId");
+        sessionContext = Map.copyOf(sessionContext);
+        injectedSkills = List.copyOf(injectedSkills);
+        taskMetadata = Map.copyOf(taskMetadata);
     }
 }

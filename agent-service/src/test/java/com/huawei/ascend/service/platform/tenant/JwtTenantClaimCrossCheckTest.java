@@ -2,6 +2,9 @@ package com.huawei.ascend.service.platform.tenant;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,14 +15,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 /**
  * Unit test for {@link JwtTenantClaimCrossCheck} (ADR-0056 §3, plan §7.2).
@@ -52,11 +52,13 @@ class JwtTenantClaimCrossCheckTest {
         MockHttpServletRequest req = new MockHttpServletRequest("POST", "/v1/runs");
         req.addHeader("X-Tenant-Id", TENANT_A);
         MockHttpServletResponse res = new MockHttpServletResponse();
-        FilterChain chain = mock(FilterChain.class);
+        RecordingFilterChain chain = new RecordingFilterChain();
 
         filter.doFilter(req, res, chain);
 
-        verify(chain, times(1)).doFilter(req, res);
+        assertThat(chain.calls()).isEqualTo(1);
+        assertThat(chain.request()).isSameAs(req);
+        assertThat(chain.response()).isSameAs(res);
         assertThat(res.getStatus()).isEqualTo(200);
     }
 
@@ -64,11 +66,13 @@ class JwtTenantClaimCrossCheckTest {
     void permit_list_path_skips_filter() throws Exception {
         MockHttpServletRequest req = new MockHttpServletRequest("GET", "/v1/health");
         MockHttpServletResponse res = new MockHttpServletResponse();
-        FilterChain chain = mock(FilterChain.class);
+        RecordingFilterChain chain = new RecordingFilterChain();
 
         filter.doFilter(req, res, chain);
 
-        verify(chain, times(1)).doFilter(req, res);
+        assertThat(chain.calls()).isEqualTo(1);
+        assertThat(chain.request()).isSameAs(req);
+        assertThat(chain.response()).isSameAs(res);
     }
 
     @Test
@@ -76,11 +80,13 @@ class JwtTenantClaimCrossCheckTest {
         SecurityContextHolder.getContext().setAuthentication(jwtAuth(TENANT_A));
         MockHttpServletRequest req = new MockHttpServletRequest("POST", "/v1/runs");
         MockHttpServletResponse res = new MockHttpServletResponse();
-        FilterChain chain = mock(FilterChain.class);
+        RecordingFilterChain chain = new RecordingFilterChain();
 
         filter.doFilter(req, res, chain);
 
-        verify(chain, times(1)).doFilter(req, res);
+        assertThat(chain.calls()).isEqualTo(1);
+        assertThat(chain.request()).isSameAs(req);
+        assertThat(chain.response()).isSameAs(res);
         assertThat(registry.find("springai_ascend_tenant_mismatch_total").counter().count()).isZero();
     }
 
@@ -90,11 +96,13 @@ class JwtTenantClaimCrossCheckTest {
         MockHttpServletRequest req = new MockHttpServletRequest("POST", "/v1/runs");
         req.addHeader("X-Tenant-Id", TENANT_A);
         MockHttpServletResponse res = new MockHttpServletResponse();
-        FilterChain chain = mock(FilterChain.class);
+        RecordingFilterChain chain = new RecordingFilterChain();
 
         filter.doFilter(req, res, chain);
 
-        verify(chain, times(1)).doFilter(req, res);
+        assertThat(chain.calls()).isEqualTo(1);
+        assertThat(chain.request()).isSameAs(req);
+        assertThat(chain.response()).isSameAs(res);
         assertThat(registry.find("springai_ascend_tenant_mismatch_total").counter().count()).isZero();
     }
 
@@ -104,11 +112,11 @@ class JwtTenantClaimCrossCheckTest {
         MockHttpServletRequest req = new MockHttpServletRequest("POST", "/v1/runs");
         req.addHeader("X-Tenant-Id", TENANT_B);
         MockHttpServletResponse res = new MockHttpServletResponse();
-        FilterChain chain = mock(FilterChain.class);
+        RecordingFilterChain chain = new RecordingFilterChain();
 
         filter.doFilter(req, res, chain);
 
-        verify(chain, never()).doFilter(req, res);
+        assertThat(chain.calls()).isZero();
         assertThat(res.getStatus()).isEqualTo(403);
         assertThat(res.getContentAsString()).contains("\"code\":\"tenant_mismatch\"");
         assertThat(registry.find("springai_ascend_tenant_mismatch_total").counter().count()).isEqualTo(1.0);
@@ -120,11 +128,11 @@ class JwtTenantClaimCrossCheckTest {
         MockHttpServletRequest req = new MockHttpServletRequest("POST", "/v1/runs");
         req.addHeader("X-Tenant-Id", TENANT_A);
         MockHttpServletResponse res = new MockHttpServletResponse();
-        FilterChain chain = mock(FilterChain.class);
+        RecordingFilterChain chain = new RecordingFilterChain();
 
         filter.doFilter(req, res, chain);
 
-        verify(chain, never()).doFilter(req, res);
+        assertThat(chain.calls()).isZero();
         assertThat(res.getStatus()).isEqualTo(403);
         assertThat(res.getContentAsString()).contains("\"code\":\"jwt_missing_tenant_claim\"");
         assertThat(registry.find("springai_ascend_jwt_missing_tenant_claim_total").counter().count())
@@ -142,5 +150,30 @@ class JwtTenantClaimCrossCheckTest {
                 Map.of("alg", "RS256"),
                 claims);
         return new JwtAuthenticationToken(jwt, AuthorityUtils.NO_AUTHORITIES);
+    }
+
+    private static final class RecordingFilterChain implements FilterChain {
+        private int calls;
+        private ServletRequest request;
+        private ServletResponse response;
+
+        @Override
+        public void doFilter(ServletRequest request, ServletResponse response) throws IOException, ServletException {
+            this.calls++;
+            this.request = request;
+            this.response = response;
+        }
+
+        int calls() {
+            return calls;
+        }
+
+        ServletRequest request() {
+            return request;
+        }
+
+        ServletResponse response() {
+            return response;
+        }
     }
 }

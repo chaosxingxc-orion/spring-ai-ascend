@@ -15,8 +15,8 @@ import java.util.UUID;
  * layer (envelope class, transport SPI, response validator, integration test,
  * audit log). The record below validates the six on construction.
  *
- * <p>Lives in {@code runtime.s2c.spi} (moved from {@code runtime.s2c} in
- * v2.0.0-rc3 per cross-constraint audit α-4 / β-2) so the SPI literally imports
+ * <p>Lives in {@code com.huawei.ascend.bus.spi.s2c} (moved from the old
+ * runtime S2C package per the cross-constraint audit) so the SPI literally imports
  * only {@code java.*} + same-spi-package siblings, restoring exact agreement
  * with the ARCHITECTURE.md SPI-purity prose.
  *

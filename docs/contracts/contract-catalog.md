@@ -7,7 +7,7 @@
 
 ## 1. HTTP API contracts
 
-Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prometheus` (no auth headers). Shipped W1 routes: `POST /v1/runs` (202 + TaskCursor per Rule R-F Cursor Flow), `GET /v1/runs/{id}`, `POST /v1/runs/{id}/cancel` (200/403/404/409 per Rule R-J.b cancel re-authorization) — all require `X-Tenant-Id`; POST routes also require `Idempotency-Key`; W1 adds JWT `tenant_id` claim cross-check against `X-Tenant-Id` (ADR-0040). Implementation: `agent-service/src/main/java/.../web/runs/RunController.java`. Full per-route spec: [http-api-contracts.md](http-api-contracts.md) + `docs/contracts/openapi-v1.yaml`. (rc12 K-ζ updated these rows from prior `Planned W1` per rc11 review P2-1; Rule 104 `openapi_implemented_route_catalog_truth` prevents recurrence.)
+Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prometheus` (no auth headers). Shipped W1 routes: `POST /v1/runs` (202 + TaskCursor per Rule R-F Cursor Flow), `GET /v1/runs/{id}`, `POST /v1/runs/{id}/cancel` (200/404/409 for run-owner semantics; 403 only for JWT/header tenant mismatch today) — all require `X-Tenant-Id`; POST routes also require `Idempotency-Key`; W1 adds JWT `tenant_id` claim cross-check against `X-Tenant-Id` (ADR-0040). Implementation: `agent-service/src/main/java/.../web/runs/RunController.java`. Full per-route spec: [http-api-contracts.md](http-api-contracts.md) + `docs/contracts/openapi-v1.yaml`. (rc12 K-ζ updated these rows from prior `Planned W1` per rc11 review P2-1; Rule 104 `openapi_implemented_route_catalog_truth` prevents recurrence.)
 
 **API conventions** (absorbed from `api-conventions.md`): URL major-versioned (`/v1/`); plural nouns; RFC 7807 `application/problem+json` errors with stable `code`; cursor pagination (`?limit=20&cursor=`); `GET`=200, POST-create=201, async=202, DELETE=204; `Idempotency-Key` required on POST/PUT/PATCH in research/prod; `OpenApiContractIT` snapshot-tests spec; SSE streaming reserved W3+.
 
@@ -38,9 +38,9 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `AgentLoopExecutor` | `agent-execution-engine` | `com.huawei.ascend.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`IterativeAgentLoopExecutor`, in `agent-service`) |
 | `EngineHookSurface` | `agent-execution-engine` | `com.huawei.ascend.engine.spi` | shipped — W2.x; bridge to `RuntimeMiddleware` (ADR-0073) |
 | `RuntimeMiddleware` | `agent-middleware` | `com.huawei.ascend.middleware.spi` | shipped — W2.x; `@FunctionalInterface` listener (ADR-0073) |
-| `StatelessEngine` | `agent-service` | `com.huawei.ascend.service.engine.spi` | rc23 design_only — pure-function compute SPI (ADR-0100); ref impl `InMemoryStatelessEngine` ships rc24 |
-| `ContextProjector` | `agent-service` | `com.huawei.ascend.service.session.spi` | rc23 design_only — Session-context projection SPI (ADR-0100); ref impl `InMemoryContextProjector` ships rc24 |
-| `TaskStateStore` | `agent-service` | `com.huawei.ascend.service.task.spi` | rc23 design_only — TaskControlState persistence SPI (ADR-0100); ref impl `InMemoryTaskStateStore` ships rc24 |
+| `StatelessEngine` | `agent-service` | `com.huawei.ascend.service.engine.spi` | implemented_unverified — pure-function compute SPI + `InMemoryStatelessEngine` reference impl exist and have focused tests; runtime orchestrator wiring remains deferred |
+| `ContextProjector` | `agent-service` | `com.huawei.ascend.service.session.spi` | implemented_unverified — Session-context projection SPI + `InMemoryContextProjector` reference impl exist and have focused tests; durable session projection remains deferred |
+| `TaskStateStore` | `agent-service` | `com.huawei.ascend.service.task.spi` | implemented_unverified — TaskControlState persistence SPI + tenant-scoped `InMemoryTaskStateStore` reference impl exist and have focused tests; JDBC/RLS implementation remains deferred |
 | `SlowTrackJudge` | `agent-evolve` | `com.huawei.ascend.evolve.online.spi` | rc26 design_only — LLM-as-Judge SPI for online evolution (ADR-0102); rc27 moved under .spi per Rule R-D.d |
 | `ReflectionEnvelopeRouter` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | rc26 design_only — S2C delivery of ReflectionEnvelope (ADR-0102); rc27 moved under .spi |
 | `FederationGateway` | `agent-bus` | `com.huawei.ascend.bus.spi.federation` | rc26 design_only — Mode B Business-Centric federation forwarding (ADR-0101); rc27 moved under .spi |
@@ -118,7 +118,7 @@ Schema-first domain contracts (Rule M-2.a, formerly Rule 48). Each YAML file is 
 | `s2c-callback.v1.yaml` | `docs/contracts/` | `runtime_enforced` | ADR-0074 (Rule R-M.d); java types in `agent-bus.bus.spi.s2c` per ADR-0088 |
 | `ingress-envelope.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0089 (Rule R-I.b); runtime binding W3+ with agent-client SDK |
 | `plan-projection.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0032 (planner contract minimal); ADR-0052 (`SkillResourceMatrix`); rc4 review P1-3 amendment |
-| `agent-invoke-request.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0100 (rc22 — agent-service decomp); Service↔Engine SPI carrier; runtime impl rc24 |
+| `agent-invoke-request.v1.yaml` | `docs/contracts/` | `schema_shipped` | ADR-0100 (agent-service decomp); Java carrier records exist and are test-verified; runtime_enforced=false until the first orchestrator path constructs `AgentInvokeRequest` and invokes `StatelessEngine` |
 | `reflection-envelope.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0102 (rc22 — online evolution duality); S2C envelope for hot-patch; runtime impl rc26 |
 | `a2a-envelope.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0100 (rc25 — A2A protocol contract-only adoption); NO SDK dep per Rejection 3 |
 | `backpressure-request.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0100 (rc25 — bus control-track backpressure channel); runtime impl with BackpressureRequestEmitter SPI |

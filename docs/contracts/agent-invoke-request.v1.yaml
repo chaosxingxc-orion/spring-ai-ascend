@@ -1,7 +1,7 @@
 # AgentInvokeRequest schema, version 1.
 #
 # Authority: ADR-0100 (rc22 — agent-service L1 runtime-role decomposition).
-# Wave: design_only at rc22; runtime impl in rc24 (per ADR-0100 timeline).
+# Wave: schema_shipped carrier; runtime orchestration path deferred.
 #
 # Purpose: contract between agent-service Reactive Orchestrator and
 # the Execution Engine. Service is the Read-Modify-Write closure
@@ -12,9 +12,9 @@
 
 schema: agent-invoke-request/v1
 authority: ADR-0100
-status: design_only
+status: schema_shipped
 runtime_enforced: false
-promotion_trigger: First InMemoryStatelessEngine implementation lands in agent-service (rc24 per ADR-0100 timeline).
+promotion_trigger: First orchestrator path that constructs AgentInvokeRequest and invokes StatelessEngine.
 relates_to:
   - docs/contracts/engine-envelope.v1.yaml  # adapter-level envelope; AgentInvokeRequest sits one layer above
   - docs/contracts/engine-hooks.v1.yaml      # ON_YIELD hook added in rc22 for Yield coexistence

@@ -61,7 +61,7 @@ authority_refs: [ADR-0094]
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 1 (rc21) | ✅ closed — phase contracts + skills + dual-track loading per ADR-0098 |
 | 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 10 (rc17-rc22+rc27-30) | 🟡 monitoring (rc32 reopen — rc29 marked closed but rc30 surfaced a regression in check_l1_dev_view_tree.sh; cool-down rc32+rc33+rc34) |
 | 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, deferred) |
-| 13 | F-nonatomic-run-status-write | Non-Atomic Run Status Write Loses a Parallel Terminal Transition | 4 (rc35-correctness-batch, rc35-second-pass, rc36, rc38) | ⚠️ partial (rc38 register — orchestrator helper converted to atomic updateIfNotTerminal CAS + read-modify-write-window regression test; durable ArchUnit guard forbidding blind status-saves deferred) |
+| 13 | F-nonatomic-run-status-write | Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants | 5 (rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction) | 🟡 monitoring (rc39 broadened to tenant-owned runtime state; RunRepository SPI made abstract, save calls source-guarded to create-only sites, TaskStateStore writes made atomic) |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -513,14 +513,14 @@ grandfather list is reduced.
 
 ---
 
-### F-nonatomic-run-status-write — Non-Atomic Run Status Write Loses a Parallel Terminal Transition
+### F-nonatomic-run-status-write — Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants
 
-**Pattern.** A Run status transition done as a separate re-read
-(`findById`) then blind write (`save`) is not atomic relative to a
-parallel terminal write. A `RunController.cancel` that writes CANCELLED
-between the re-read and the save is silently overwritten: the mutator
-validates its transition against the STALE snapshot (RUNNING → SUCCEEDED
-passes) and blind-puts over the just-written CANCELLED, losing the cancel.
+**Pattern.** Runtime invariants that span read + validation + write are not
+protected by `ConcurrentHashMap` alone. A Run status transition done as a
+separate re-read (`findById`) then blind write (`save`) is not atomic relative
+to a parallel terminal write. The sibling TaskStateStore shape is `get` →
+tenant-check → `put`, which lets two tenants racing the same new task id both
+observe no owner and silently overwrite one another.
 
 **Observed.** Recurred across four passes, each closing one set of
 call-sites while a sibling set survived: rc35-correctness-batch closed the
@@ -530,7 +530,8 @@ atomic `RunRepository.updateIfNotTerminal` CAS; rc38 found that the
 `SyncOrchestrator`'s own private `mutateIfNotTerminal` helper — the very
 indirection the earlier waves routed writes through — was STILL a
 non-atomic `findById`-then-`save`. The class was never registered as a
-family before rc38, so the ledger could not flag the recurrence.
+family before rc38, so the ledger could not flag the recurrence. rc39
+broadened the same family to the TaskStateStore tenant-ownership race.
 
 **Surfaces.**
 
@@ -538,6 +539,7 @@ family before rc38, so the ledger could not flag the recurrence.
 - `RunController.java` — the cancel endpoint (rc36 closed).
 - `RunRepository.java` — the SPI; `updateIfNotTerminal` is the atomic path.
 - `InMemoryRunRegistry.java` — the dev-posture `computeIfPresent` impl.
+- `InMemoryTaskStateStore.java` — tenant-owned task state must use atomic `compute`.
 
 **Prevention.**
 
@@ -546,16 +548,18 @@ family before rc38, so the ledger could not flag the recurrence.
   single sanctioned status-transition path.
 - rc38 (ADR-0118) — `SyncOrchestrator` routed through the CAS + a
   deterministic read-modify-write-window regression test; family registered.
+- rc39 — `RunRepository.updateIfNotTerminal` is abstract; production
+  `RunRepository.save` calls are source-guarded to create-only sites;
+  `InMemoryTaskStateStore.save` uses `compute` and has a two-tenant race test.
 
-**Cleanup status.** `partial` — the orchestrator helper is now atomic and a
-regression test locks it, but the durable structural fix (an ArchUnit guard
-forbidding blind status-changing saves) is deferred.
+**Cleanup status.** `monitoring` — known RunRepository and TaskStateStore
+surfaces now have focused source or concurrency guards.
 
-**Open residual.** Add an ArchUnit guard that forbids any production
-`RunRepository.save(...)` which CHANGES a Run's status outside the
-`updateIfNotTerminal` CAS (create-only saves remain allowed). The W2
-Postgres orchestrator satisfies the same SPI contract with a conditional
-UPDATE; the in-memory orchestrator is W0/dev-posture only.
+**Open residual.** Keep the family under monitoring until three subsequent
+release waves pass without another read-check-write sibling. Any new
+tenant-owned or status-owned repository reference implementation must use
+compute, compare-and-set, a conditional UPDATE, or an equivalent transaction
+for invariants that span read + validation + write.
 
 ---
 

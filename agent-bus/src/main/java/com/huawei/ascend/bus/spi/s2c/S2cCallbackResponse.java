@@ -14,8 +14,8 @@ import java.util.UUID;
  * transitions to FAILED with reason
  * {@link com.huawei.ascend.service.runtime.resilience.spi.SuspendReason.AwaitClientCallback#S2C_RESPONSE_INVALID}.
  *
- * <p>Lives in {@code runtime.s2c.spi} (moved from {@code runtime.s2c} in
- * v2.0.0-rc3 per cross-constraint audit α-4 / β-2) so the SPI literally imports
+ * <p>Lives in {@code com.huawei.ascend.bus.spi.s2c} (moved from the old
+ * runtime S2C package per the cross-constraint audit) so the SPI literally imports
  * only {@code java.*} + same-spi-package siblings.
  *
  * <p>Authority: ADR-0074; CLAUDE.md Rule 46.

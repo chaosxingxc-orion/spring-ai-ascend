@@ -6299,7 +6299,7 @@ test_rule_115_no_version_log_metadata_neg() {
   printf 'public void foo() { /* rc20 Wave 3: pretend annotation */ }\n' > "$root/Bad.java"
   local pattern='\brc[0-9]+ Wave [0-9]+\b|\bper ADR-[0-9]{4}\b|\(F[0-9]+\)|\bFinding F[0-9]+\b|\b(closes|addresses) #[0-9]+\b'
   if grep -qE "$pattern" "$root/Bad.java"; then
-    ok "rule_115_no_version_log_metadata_neg" "Rule D-9 / Rule 115 catches `rc<N> Wave <M>` annotation in production code"
+    ok "rule_115_no_version_log_metadata_neg" "Rule D-9 / Rule 115 catches rc<N> Wave <M> annotation in production code"
   else
     fail "rule_115_no_version_log_metadata_neg" "expected forbidden version-tag to be detected"
   fi
@@ -6392,7 +6392,7 @@ test_rule_118_l1_dev_view_tree_pos() {
 
 test_rule_118_l1_dev_view_tree_neg() {
   # Negative: a synthetic ARCHITECTURE.md without Development View should be detected.
-  local scratch="$_fixtures_root/r118_neg"
+  local scratch="$scratch/r118_neg"
   mkdir -p "$scratch"
   cat > "$scratch/ARCHITECTURE.md" <<'EOF_NEG'
 ---
@@ -6427,7 +6427,7 @@ test_rule_119_l1_spi_appendix_pos() {
 
 test_rule_119_l1_spi_appendix_neg() {
   # Negative: synthetic appendix lists FQN whose package not in module-metadata.
-  local scratch="$_fixtures_root/r119_neg"
+  local scratch="$scratch/r119_neg"
   mkdir -p "$scratch"
   cat > "$scratch/module-metadata.yaml" <<'EOF_META'
 spi_packages:
@@ -6460,7 +6460,7 @@ test_rule_120_l1_l2_linkage_pos() {
 
 test_rule_120_l1_l2_linkage_neg() {
   # Negative: synthetic L1 doc references L2 doc but has no Boundary Contracts.
-  local scratch="$_fixtures_root/r120_neg"
+  local scratch="$scratch/r120_neg"
   mkdir -p "$scratch"
   cat > "$scratch/ARCHITECTURE.md" <<'EOF_L1'
 # fake L1

@@ -10,7 +10,7 @@ package com.huawei.ascend.service.engine.spi;
  *
  * <p>Authority: ADR-0100. Wire contract:
  * {@code docs/contracts/agent-invoke-request.v1.yaml} (status:
- * design_only; runtime impl in rc24).
+ * schema_shipped; runtime orchestration path deferred).
  *
  * <p>Coexistence with {@code com.huawei.ascend.engine.spi.ExecutorAdapter}:
  * the relationship between {@code StatelessEngine} and the existing

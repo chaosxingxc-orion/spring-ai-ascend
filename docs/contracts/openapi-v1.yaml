@@ -33,7 +33,7 @@ paths:
   /v1/runs:
     post:
       summary: Create a run
-      description: "Creates a new run for the authenticated tenant. Per Rule R-F (formerly Rule 36) / Layer-0 principle P-F (Cursor Flow & Asynchronous Client Boundary) the server returns 202 + TaskCursor envelope immediately; clients poll cursor_url for state. The Idempotency-Key header is mandatory; replays with the same key + body return the original response; same key + different body returns 409 idempotency_body_drift (ADR-0057)."
+      description: "Creates a new run for the authenticated tenant. Per Rule R-F (formerly Rule 36) / Layer-0 principle P-F (Cursor Flow & Asynchronous Client Boundary) the server returns 202 + TaskCursor envelope immediately; clients poll cursor_url for state. The Idempotency-Key header is mandatory. W1 claim-only idempotency returns 409 idempotency_conflict for the same key + same body, and 409 idempotency_body_drift for the same key + different body; original-response replay is deferred to W2 (ADR-0057)."
       operationId: createRun
       tags: [runs]
       parameters:
@@ -185,7 +185,7 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      description: "UUID-shaped idempotency key. Required on mutating verbs (POST/PUT/PATCH). Reused keys with same body return the original response; same key + different body returns 409 idempotency_body_drift (ADR-0057)."
+      description: "UUID-shaped idempotency key. Required on mutating verbs (POST/PUT/PATCH). W1 claim-only idempotency returns 409 idempotency_conflict for reused keys with the same body and 409 idempotency_body_drift for reused keys with a different body; original-response replay is deferred to W2 (ADR-0057)."
       schema:
         type: string
         format: uuid

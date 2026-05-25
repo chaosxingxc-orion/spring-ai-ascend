@@ -14,8 +14,8 @@
  * <ul>
  *   <li>Java refactor moves orchestrator logic here from
  *       {@code com.huawei.ascend.service.runtime.orchestration.inmemory}.</li>
- *   <li>{@code Orchestrator.invoke(AgentInvokeRequest) → Mono<StateDelta>}
- *       reactive wiring + BackpressureRequest channel consumer.</li>
+ *   <li>{@code Orchestrator.invoke(AgentInvokeRequest) -> StateDelta}
+ *       synchronous wiring first, with value-based/reactive yield deferred.</li>
  * </ul>
  *
  * <p>Cross-package boundary (rc23 ArchUnit

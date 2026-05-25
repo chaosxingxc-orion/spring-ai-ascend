@@ -1,7 +1,6 @@
 package com.huawei.ascend.service.runtime.runs.spi;
 
 import com.huawei.ascend.service.runtime.runs.Run;
-import com.huawei.ascend.service.runtime.runs.RunStateMachine;
 import com.huawei.ascend.service.runtime.runs.RunStatus;
 
 import java.util.List;
@@ -37,22 +36,10 @@ public interface RunRepository {
      * caller (e.g. {@code RunController.cancel} racing the orchestrator's terminal
      * write) could otherwise validate a transition against the stale status and
      * blind-overwrite a parallel terminal state. The re-read, terminal check, and
-     * write MUST be a single atomic step. The W2 Postgres impl satisfies this with a
-     * conditional UPDATE (compare-and-set); this default is a correct non-atomic
-     * fallback for impls that do not override it.
+     * write MUST be a single atomic step. Implementations MUST provide their own
+     * compare-and-set primitive, such as {@code ConcurrentHashMap.computeIfPresent}
+     * for the in-memory reference implementation or a conditional SQL UPDATE for a
+     * durable repository.
      */
-    default Optional<Run> updateIfNotTerminal(UUID runId, UnaryOperator<Run> mutator) {
-        Optional<Run> found = findById(runId);
-        if (found.isEmpty() || RunStateMachine.isTerminal(found.get().status())) {
-            return found;
-        }
-        try {
-            return Optional.of(save(mutator.apply(found.get())));
-        } catch (IllegalStateException illegalTransition) {
-            // Non-terminal but the mutator's target is unreachable from the current
-            // status (e.g. FAILED -> CANCELLED). Return the unchanged Run so the caller
-            // maps it to 409 illegal_state_transition rather than surfacing a 500.
-            return found;
-        }
-    }
+    Optional<Run> updateIfNotTerminal(UUID runId, UnaryOperator<Run> mutator);
 }

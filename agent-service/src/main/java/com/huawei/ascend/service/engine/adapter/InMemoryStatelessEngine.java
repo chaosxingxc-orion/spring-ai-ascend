@@ -45,7 +45,7 @@ public class InMemoryStatelessEngine implements StatelessEngine {
         metrics.put("engine", "InMemoryStatelessEngine");
         metrics.put("request_id", request.runId());
         return new StateDelta(
-                "no_change",
+                StateDelta.RunStatusTransition.NO_CHANGE,
                 Map.of(),
                 Map.of(),
                 List.of(),

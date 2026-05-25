@@ -48,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>Enforcer rows: docs/governance/enforcers.yaml#E5 (createReturnsPending),
  * #E6 (cancel_route_is_post_not_delete), #E7 (status-code matrix rows),
- * #E10 (tenantMismatchReturns403), #E24 (cancelTerminalReturns409),
+ * #E10 (jwtClaimHeaderMismatchReturns403), #E24 (cancelTerminalReturns409),
  * #E37 (JwtTestFixture).
  */
 @Testcontainers(disabledWithoutDocker = true)
@@ -167,7 +167,7 @@ class RunHttpContractIT {
     }
 
     @Test
-    void tenantMismatchReturns403() throws Exception {
+    void jwtClaimHeaderMismatchReturns403() throws Exception {
         UUID claimTenant = UUID.randomUUID();
         UUID headerTenant = UUID.randomUUID();
         String bearer = JwtTestFixture.mintForTenant(claimTenant);
@@ -235,6 +235,33 @@ class RunHttpContractIT {
         // Phase 8 / Rule R-F — first call returns 202 + cursor envelope (was 201).
         assertThat(first.statusCode()).isEqualTo(202);
 
+        // Same idempotency key, SAME body — W1 has claim-only idempotency,
+        // not W2 response replay, so it returns 409 idempotency_conflict.
+        HttpResponse<String> sameBody = HTTP.send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/v1/runs"))
+                        .header("Content-Type", "application/json")
+                        .header("Authorization", "Bearer " + bearer)
+                        .header("X-Tenant-Id", tenant.toString())
+                        .header("Idempotency-Key", idemKey.toString())
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"capabilityName\":\"a\"}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(sameBody.statusCode()).isEqualTo(409);
+        assertThat(JSON.readTree(sameBody.body()).path("error").path("code").asText())
+                .isEqualTo("idempotency_conflict");
+
+        UUID driftKey = UUID.randomUUID();
+        HttpResponse<String> driftSeed = HTTP.send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/v1/runs"))
+                        .header("Content-Type", "application/json")
+                        .header("Authorization", "Bearer " + bearer)
+                        .header("X-Tenant-Id", tenant.toString())
+                        .header("Idempotency-Key", driftKey.toString())
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"capabilityName\":\"a\"}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(driftSeed.statusCode()).isEqualTo(202);
+
         // Same idempotency key, DIFFERENT body — must trip the body-drift
         // branch (409 idempotency_body_drift) per ADR-0057 / IdempotencyHeaderFilter.
         HttpResponse<String> second = HTTP.send(
@@ -242,13 +269,13 @@ class RunHttpContractIT {
                         .header("Content-Type", "application/json")
                         .header("Authorization", "Bearer " + bearer)
                         .header("X-Tenant-Id", tenant.toString())
-                        .header("Idempotency-Key", idemKey.toString())
+                        .header("Idempotency-Key", driftKey.toString())
                         .POST(HttpRequest.BodyPublishers.ofString("{\"capabilityName\":\"b\"}"))
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
         assertThat(second.statusCode()).isEqualTo(409);
-        String code = JSON.readTree(second.body()).path("error").path("code").asText();
-        assertThat(code).isIn("idempotency_body_drift", "idempotency_conflict");
+        assertThat(JSON.readTree(second.body()).path("error").path("code").asText())
+                .isEqualTo("idempotency_body_drift");
     }
 
     @Test
@@ -304,6 +331,21 @@ class RunHttpContractIT {
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isEqualTo(404);
+        assertThat(JSON.readTree(response.body()).path("error").path("code").asText())
+                .isEqualTo("not_found");
+    }
+
+    @Test
+    void cancelCrossTenantRunReturns404() throws Exception {
+        UUID tenantA = UUID.randomUUID();
+        String bearerA = JwtTestFixture.mintForTenant(tenantA);
+        String runId = JSON.readTree(create(tenantA, bearerA, "echo").body()).path("runId").asText();
+
+        UUID tenantB = UUID.randomUUID();
+        String bearerB = JwtTestFixture.mintForTenant(tenantB);
+        HttpResponse<String> response = cancel(tenantB, bearerB, runId);
+
         assertThat(response.statusCode()).isEqualTo(404);
         assertThat(JSON.readTree(response.body()).path("error").path("code").asText())
                 .isEqualTo("not_found");
