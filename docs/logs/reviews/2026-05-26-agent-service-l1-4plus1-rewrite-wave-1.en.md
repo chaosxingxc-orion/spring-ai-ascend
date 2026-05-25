@@ -16,7 +16,9 @@ relates_to:
   - docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal.en.md
 ---
 
-# Agent Service L1 — 4+1 Rewrite (Wave 1: Review Draft + Reject List + ADR Slate)
+# Agent Service L1 — 4+1 Rewrite (Wave 1-6: Review Draft + Reject List + ADR Slate + 4+1 Views + Javadoc Glossary)
+
+> **Historical-artifact freeze marker (added 2026-05-26 rc53-wave-8 closure)**: This file is the canonical L1 4+1 source authored across Waves 1-6 of the rc53 wave. After Wave 8 closure (commit referenced in `docs/logs/releases/2026-05-26-rc53-agent-service-l1-4plus1-rewrite-closure.en.md`), this file is **read-only** per `docs/governance/logs-folder-policy.md`. Further edits flow as new review drafts under `docs/logs/reviews/`. Numeric values inside this document are point-in-time snapshot evidence; the live `agent-service/ARCHITECTURE.md` §0.5 carries the forward-compatible authority pointer.
 
 > Date: 2026-05-26
 > Scope: `agent-service` module only.
@@ -1314,4 +1316,46 @@ Three deferred siblings from §9 closed:
 - **G-D continuous fix**: no new in-scope siblings; out-of-scope siblings unchanged.
 - **G-E non-vacuity**: 5 Java files modified (verified via git diff — Run.java + Task.java + Session.java + SuspendSignal.java + SuspendReason.java); compile-time impact: zero (Javadoc-only edit).
 - **G-F documentation**: this Closure block.
+
+---
+
+# Wave 8 — ARCHITECTURE.md Pointer + Release Note + Closure
+
+> Final wave (rc53-wave-8). The original 8-wave plan's Wave 7 (Run→Task / SuspendSignal→InterruptSignal Java rename + Flyway schema migration) was deleted after the Wave 1 ADR-0100 reconciliation; Wave 8 is therefore the immediate sequel to Wave 6 and closes the rc53 wave family.
+
+## 27. Migration Strategy
+
+The canonical L1 4+1 source for `agent-service` is THIS document (Waves 1-6). Wave 8 wires the active `agent-service/ARCHITECTURE.md` to point to this canonical source rather than overwriting 800+ lines of grounded shipped-state prose:
+
+- A new `## 0.5 Canonical L1 4+1 View Source (rc53 ratification)` section is added at the top of `agent-service/ARCHITECTURE.md` linking to this document for the 4+1 view authority.
+- The existing §1+ prose remains as shipped-state grounding; where it disagrees with the rc53 4+1 view (tenantId-first ER, cancel-race-aware state machine, three-track bus binding for Internal Event Queue layer), the rc53 4+1 document is authoritative.
+- The `Last refreshed:` header line + `authority:` front-matter line are advanced to record the rc53 ratification.
+
+## 28. Historical Snapshot Marker
+
+This document is now read-only per `docs/governance/logs-folder-policy.md` (post-Wave-8 closure). The top-of-document marker (added in Wave 8) declares the freeze and forwards future edits to new review drafts. Numeric values frozen here are snapshot evidence at rc53 closure time; the live `agent-service/ARCHITECTURE.md` §0.5 pointer carries the forward authority.
+
+## 29. families.yaml + families.md Sync (Rule G-9.b/c)
+
+- `docs/governance/recurring-defect-families.yaml#last_updated:` advanced to a Wave-8-closure note referencing all 6 waves' commits and deliverables. recurring_defect_families count remains 20 (no new families discovered during Waves 5-8).
+- `docs/governance/recurring-defect-families.md` §3 META-Lessons table optionally extended with an rc53 row (TBD — minor housekeeping, may be skipped or added in this wave's commit).
+
+## 30. Release Note
+
+Published as `docs/logs/releases/2026-05-26-rc53-agent-service-l1-4plus1-rewrite-closure.en.md`. Summarises all 6 waves' deliverables, lists ADRs accepted (0136-0139), declares the 4 red lines, lists vocabulary reconciliation table, and provides WSL/Linux verification commands.
+
+## 31. Wave 8 Closure (G-A..G-F)
+
+- **G-A direct fix**: §0.5 pointer added to active `agent-service/ARCHITECTURE.md`; historical-snapshot marker added to this review draft (top); release note published; families.yaml last_updated content-diff present (Rule G-9.b).
+- **G-B classification**: 0 new findings during Wave 8.
+- **G-C sibling sweep**: re-ran the 7 touched families on the active corpus including the new release note + the updated ARCHITECTURE.md — 0 new sibling hits. Negative confirmation: the new ARCHITECTURE.md §0.5 contains explicit "rc53 4+1 document is authoritative" precedence language; no Fast-Path bypass wording, no single-tier queue language, no tenantId-less ER, no orphan-from-authority.
+- **G-D continuous fix**: no new in-scope siblings; all 3 Wave 1 deferred siblings remain closed (Wave 5).
+- **G-E non-vacuity**: 4 wave-8 file edits verified by `git status` (ARCHITECTURE.md + this file + cn sibling + families.yaml); 1 new file (release note).
+- **G-F documentation**: this Closure block + the standalone release note are the wave-final documentation.
+
+---
+
+# rc53 Final Closure Summary
+
+8 waves planned → 6 waves executed (Wave 7 deleted after Wave 1 ADR-0100 reconciliation). All G-A..G-F gates passed per wave. 4 new ADRs accepted (ADR-0136..0139). 4 new defect families registered, 3 existing extended (recurring_defect_families 16 → 20). The L1 4+1 view for agent-service is now canonically published as this review draft, with the live ARCHITECTURE.md §0.5 pointer carrying forward authority. PR #71 is dispositioned: vocabulary absorbed as glossary synonyms, structural defects fixed at the design level, scaffolding ratified, no Java rename required.
 
