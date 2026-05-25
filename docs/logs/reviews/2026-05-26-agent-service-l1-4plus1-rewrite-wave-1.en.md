@@ -1,0 +1,426 @@
+---
+level: L1
+view: [scenarios, logical, process, development, physical]
+module: agent-service
+affects_level: L1
+affects_view: [scenarios, logical, process, development, physical]
+status: proposed
+language: en-US
+relates_to:
+  - docs/adr/0100-rc22-agent-service-l1-runtime-role-decomposition.yaml
+  - docs/adr/0136-vocabulary-reconciliation-pr71-task-vs-run.yaml
+  - docs/adr/0137-suspendsignal-canonical-interruptsignal-glossary.yaml
+  - docs/adr/0138-agent-service-five-layer-l1-ratification.yaml
+  - docs/adr/0139-fast-slow-path-narrowed-semantics.yaml
+  - docs/logs/reviews/2026-05-25-xiaoming-agent-service-l1-review-wave-1.en.md
+  - docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal.en.md
+---
+
+# Agent Service L1 — 4+1 Rewrite (Wave 1: Review Draft + Reject List + ADR Slate)
+
+> Date: 2026-05-26
+> Scope: `agent-service` module only.
+> Wave: 1 of 6 (8-wave plan collapsed after ADR-0100 reconciliation; see §11).
+> Goal: Critically re-review the L1 design proposed in PR #71 against shipped Java microservice + agentic platform invariants; reconcile its vocabulary with the platform's canonical 4-layer lifecycle hierarchy (ADR-0100); ratify the 5-layer logical decomposition; produce ADR drafts that lock the rewrite into the rule corpus; classify and sweep recurring-defect families.
+> Constraint: This document is an interaction record under `docs/logs/reviews/` per `docs/governance/logs-folder-policy.md` (front-matter optional but provided). The canonical L1 artefact `agent-service/ARCHITECTURE.md` is migrated to this content by a later wave; until then it remains the active L1 source.
+
+## 1. Context
+
+PR #71 ([`docs/agent-service-l1-cn-20260525`](https://github.com/chaosxingxc-orion/spring-ai-ascend/pull/71)) proposed a 5-layer L1 architecture for `agent-service` reached by human-expert consensus:
+
+1. **Access Layer** — Gateway / A2A Service / MQ Adapter
+2. **Session & Task Manager** — SessionManager / TaskManager / StateStore
+3. **Internal Event Queue** — EventProducer / QueueStorage / EventConsumer
+4. **Task-Centric Control Layer** — Lifecycle / Interrupt / DualTrackRouter / Middleware API
+5. **Engine Adapter Layer** — Runtime SPI / Framework Adapter / ContextTranslator / Shadow Tool Interceptor
+
+This wave (Wave 1 of 6) does three jobs:
+
+- **Absorb** PR #71's terminology into Rules + ADRs (vocabulary reconciliation, not rename).
+- **Severe critique** as a Java microservices + agentic platform reviewer — every claim sorted into ACCEPT / MODIFY / REJECT with explicit citation.
+- **Reset** the L1 doc as a strict 4+1 view (scenarios / logical / process / development / physical) following the contract-first, ADR-anchored design language of [`docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal.en.md`](2026-05-22-agent-service-l1-expansion-proposal.en.md). Views land in Waves 2-4.
+
+## 2. Critical Finding — ADR-0100 Already Owns the Lifecycle Hierarchy
+
+The first read of PR #71 suggested a wholesale Run→Task / SuspendSignal→InterruptSignal rename. **A fresh read of the shipped Java + ADR corpus inverts that conclusion.**
+
+[`ADR-0100`](../../adr/0100-rc22-agent-service-l1-runtime-role-decomposition.yaml) (rc22, accepted 2026-05-22) — authored by the same proposer team — already established:
+
+### 2.1 Four-Layer Lifecycle Hierarchy (Run ≤ Task ≤ Session ≤ Memory)
+
+| Layer | Java type (shipped) | Semantics | Authority |
+|---|---|---|---|
+| **Run** | `com.huawei.ascend.service.runtime.runs.Run` (record) | Transient compute snapshot (compute pointer + delta); state machine RunStatus DFA | ADR-0021 + ADR-0100 + Rule R-C.2 |
+| **Task** | `com.huawei.ascend.service.task.Task` (record) | Control state (done-or-not, why-stopped); A2A protocol state envelope | ADR-0100 + `docs/contracts/a2a-envelope.v1.yaml` |
+| **Session** | `com.huawei.ascend.service.session.Session` (record) | Data context (what was discussed, variables) | ADR-0100 + ADR-0135 |
+| **Memory** | `GraphMemoryRepository` SPI + `ConversationMemory` (M2_EPISODIC) | Knowledge state (who am I, rules) | ADR-0082 + ADR-0123 + ADR-0133 |
+
+`Run` and `Task` are **two distinct entities**. PR #71's "Task as scheduling core" maps onto **the existing platform Task entity** — not to a renamed Run. The Run entity remains the canonical execution-state spine per Rule R-C.2.a (mandatory `tenantId`) and Rule R-C.2.b (mandatory `RunStateMachine.validate(from, to)` CAS guard).
+
+### 2.2 SuspendSignal Is a Declared Tier-A Differentiator (Do Not Rename)
+
+ADR-0100 explicitly **rejects** an InterruptSignal-style rename. Quoting ADR-0100 verbatim:
+
+> "§2.3 / §5.3 'abandon exception-based suspension, switch to explicit Yield event' — rejected because `SuspendSignal` (checked exception) is a Tier-A competitive differentiator: (a) the Java compiler enforces caller-side handling, (b) Rule R-G ArchUnit tests rest on the checked-exception shape, (c) rc8/rc9 cancellation paths use exception-flow semantics for cross-thread propagation."
+
+`SuspendSignal` (`agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/SuspendSignal.java`) has **29 active call-sites** across the platform (orchestrators, S2C, executors, tests). Renaming would forfeit the differentiator and break Rule R-G ArchUnit guards.
+
+### 2.3 Wave Plan Impact
+
+The original 8-wave plan assumed wholesale code renames in Waves 6+7. Reconciliation eliminates those. Revised plan:
+
+- **Waves 1-5** unchanged (review + 4+1 views + Rule/contract updates).
+- **Wave 6 reduced** to Javadoc Glossary injection on Run / Task / Session / SuspendSignal (no method-signature, field, package, or DB-schema change).
+- **Wave 7 deleted** (no Flyway rename migration needed).
+- **Wave 8 unchanged** (migrate finalized 4+1 content into `agent-service/ARCHITECTURE.md`).
+
+## 3. Vocabulary Reconciliation Table — PR #71 ↔ Shipped Platform
+
+This is the **canonical glossary** for the L1 rewrite. Every L1 / L2 document, ADR, and Rule referencing these concepts uses the shipped-platform name; the PR #71 / academic name is a documented synonym that may appear in design-language prose but never as a Java identifier.
+
+| PR #71 / academic name | Shipped platform name (canonical) | Note |
+|---|---|---|
+| Task (as "scheduling core") | `Task` (control-state record, `service.task.Task`) | Already aligned; no rename |
+| TaskID | `taskId` (String UUID, `Task.taskId`) | Already aligned |
+| TaskManager | `TaskCenter` sub-package + `TaskStateStore` SPI (ADR-0100) | "Manager" / "Center" used interchangeably; SPI is `TaskStateStore` |
+| TaskEvent | `Run` lifecycle events fired through `HookPoint` enum (`engine-hooks.v1.yaml`) + Outbox pattern at slow-path persistence | No standalone "TaskEvent" type; the L1 event model is HookPoint-driven |
+| InterruptSignal | `SuspendSignal` (`engine.orchestration.spi.SuspendSignal`, checked exception) | **Glossary synonym only**; ADR-0137 records mapping |
+| InterruptType (INPUT_REQUIRED / TOOL_EXECUTION / COLLABORATION / SAFETY_CHECK) | `SuspendReason` discriminator + `HookPoint.before_tool / after_tool` chain + `Task.A2aState.INPUT_REQUIRED` | The 4 academic interrupt types map onto 3 platform mechanisms (A2A state for input-required, HookPoint for tool, SuspendReason for collaboration / safety) |
+| Engine Adapter Layer | `EngineRegistry.resolve(envelope)` + per-`engine_type` `ExecutorAdapter` | Rule R-M.a/.b; SPI in `agent-execution-engine.spi` |
+| Runtime SPI | `ExecutorAdapter` SPI (`engine.spi.ExecutorAdapter`) | One-to-one mapping |
+| Framework Adapter | `ExecutorAdapter` impls (`SequentialGraphExecutor`, `IterativeAgentLoopExecutor`, future LangChain/LlamaIndex shells) | One Framework = one Adapter impl |
+| Context Translator | `ContextProjector` SPI (`session.spi.ContextProjector`) + `PromptTemplate` (ADR-0131) + `StructuredOutputConverter<T>` (ADR-0130) | 3-way composition |
+| Shadow Tool Interceptor | `ChatAdvisor` (ADR-0132) + `RuntimeMiddleware` listening on `HookPoint.before_tool / after_tool` | Tool intercept already provided by 2-SPI composition |
+| Result Normalizer | `ExecutorAdapter` output contract (declared in `engine-envelope.v1.yaml`) | No separate normalizer SPI |
+| Middleware Adapter | `RuntimeMiddleware` (ADR-0073) listening on `HookPoint` (`engine-hooks.v1.yaml`) | Rule R-M.c |
+| Internal Event Queue | Three-track bus: `control` / `data` / `rhythm` (`docs/governance/bus-channels.yaml`, Rule R-E) | **PR #71's single-queue + 3-mode design is REJECTED**; see §4.3 |
+| EventProducer | Producer-side of three-track bus (per channel) | One producer per channel intent |
+| EventConsumer | Consumer-side of three-track bus (per channel) | One consumer per channel intent |
+| QueueStorage modes (in-mem / semi-persist / persist) | Replaced by per-channel `physical_channel:` declaration in `bus-channels.yaml` | W0/W1 uses in-memory stubs per channel; W2 promotes to durable backends per Rule R-E |
+| SessionManager | `Session` record + `ContextProjector` SPI (ADR-0100) | "Manager" is the sub-package; the SPI is `ContextProjector` |
+| StateStore | `RunRepository` (Run persistence) + `TaskStateStore` (Task persistence) + `Session` storage (W2) | Three independent stores; not one StateStore |
+| DualTrackRouter | New SPI (declared in this Wave 1's ADR-0138; lands as design_only in W2) | Maps to `SlowTrackJudge` (already declared per ADR-0112); narrows Fast vs Slow path per ADR-0139 |
+| FastPath | In-process reactive synchronous engine path; tenantId + RLS preserved | ADR-0139 (Wave 1) |
+| SlowPath | Persistent reactive + SuspendSignal + ResumeDispatcher | ADR-0139 (Wave 1) |
+| RemoteInterrupt via A2A | `S2cCallbackEnvelope` (`bus.spi.s2c`) over three-track bus `control` channel | Rule R-M.d + ADR-0074; A2A cannot bypass S2C |
+| A2A Server / A2A Client | A2A protocol envelope only (`docs/contracts/a2a-envelope.v1.yaml`, design_only) — **no `a2a-java` SDK runtime dep** | ADR-0100 §rejected-framing #1 |
+| F-01..F-22 feature ids | No platform equivalent; accepted as L2 backlog with `authority:` column citing ADR/Rule | This wave keeps them as L2 design backlog (see §10 L2 boundary contracts) |
+| Yield (PR #71 implicit) | `HookPoint.ON_YIELD` cooperative-scheduling hint (added in rc22 per ADR-0100 §coexistence) | Coexists with SuspendSignal; no state-machine transition |
+
+## 4. Strict Accept / Modify / Reject Classification
+
+Every PR #71 claim categorised as **ACCEPT** (carry as-is into Waves 2-4) / **MODIFY** (carry with the listed amendment) / **REJECT — P0** (must not appear in the rewrite at all).
+
+### 4.1 Access Layer (PR #71 §3.1)
+
+| PR #71 claim | Verdict | Rationale |
+|---|---|---|
+| Gateway: REST / gRPC / WebSocket protocol translation | **ACCEPT** | Rule R-F (cursor flow) + `openapi-v1.yaml` already declare the HTTP contract surface. |
+| Gateway never drives Runtime directly nor calls Middleware directly | **ACCEPT** | Matches Rule R-M.a (`EngineRegistry.resolve(...)` mandatory) + Rule R-M.c (RuntimeMiddleware uniform governance). |
+| A2A Server + A2A Client bidirectional | **MODIFY** | Bidirectional capability accepted; "remote interrupt" MUST flow through `S2cCallbackEnvelope` over three-track `control` channel (Rule R-M.d + Rule R-E + ADR-0049); A2A cannot terminate a remote Run directly. No `a2a-java` SDK dependency (ADR-0100 §rejected-framing #1). |
+| MQ / Event Bus async ingress (Kafka / RabbitMQ / RocketMQ / Pulsar) | **MODIFY** | Async ingress lands on `IngressEnvelope` (`docs/contracts/ingress-envelope.v1.yaml`) per Rule R-I.1; choice of broker is a W2+ deployment concern, not L1. |
+
+### 4.2 Session & Task Manager (PR #71 §3.2)
+
+| PR #71 claim | Verdict | Rationale |
+|---|---|---|
+| Session ↔ Task 1:N (one Session many Tasks) | **ACCEPT** | Matches ADR-0100 + ADR-0135 (AgentSession = (tenantId, conversationId) projection over Run sequence; Task is the bounded execution within a Session). |
+| TaskManager + TaskID + standardized creation | **ACCEPT** | Already shipped via `Task` record + `TaskStateStore` SPI (ADR-0100 §decision). No rename. |
+| Task A2A states (Submitted / Working / Input_Required / Completed / Failed) | **ACCEPT** | Already shipped as `Task.A2aState` enum (5 values) per `docs/contracts/a2a-envelope.v1.yaml`. Rejected PR #71's expansion to 9 parallel run-states ("working / input-required / tool-required / processing / completed / canceled / failed") — those collapse into 5 A2A states + `SuspendReason` discriminator + Run-side RunStatus DFA. |
+| StateStore persists Snapshot + Version | **MODIFY** | Accept the abstraction. Constrain: writes MUST go through `RunRepository.updateIfNotTerminal(...)` atomic CAS (existing W1 method, abstract from rc39 per ADR-0118); version field IS the optimistic-lock field. Forecloses F-nonatomic-run-status-write 5th recurrence. |
+| Session cross-node recovery semantics | **MODIFY** | Accept as L2 issue. L1 declares Boundary Contract: recovery MUST re-validate `(request.tenantId == Session.tenantId)` per Rule R-J.b. |
+| §3.2 ER model fields (sessionId, taskId, metadata, version) | **REJECT — P0** | **`tenantId` missing**. Violates Rule R-C.2.a (Run record mandatory `tenantId` + `Objects.requireNonNull`) + Rule R-J.a (RLS on every `tenant_id`-bearing table) + Principle P-J (storage-engine tenant isolation). `tenantId` MUST be promoted to first-class field on Session / Task / LifecycleState / StateStore — verified against shipped `Task.java` (line 31), `Session.java` (line 27), `Run.java` (line 25). |
+
+### 4.3 Internal Event Queue (PR #71 §3.3) — Major Restructure
+
+| PR #71 claim | Verdict | Rationale |
+|---|---|---|
+| EventProducer / EventConsumer decoupling intake-thread from execution-thread | **ACCEPT** | Reactive + backpressure model matches Rule R-G. Standard Outbox / Inbox pattern. |
+| **Single queue layer + 3 storage modes (in-memory / semi-persistent / persistent)** | **REJECT — P0** | **Head-on conflict with Rule R-E three-track physical isolation**: `bus-channels.yaml` declares `control` (highest priority, out-of-band) / `data` (in-band, heavy-load) / `rhythm` (heartbeat / liveness) as **physically isolated channels** with distinct `physical_channel:` ids. PR #71 conflates physical-isolation (channels) with durability-tier (storage modes); these are orthogonal axes. Must be redesigned: internal events are routed by **intent** (cancel/resume → control; payload → data; heartbeat/tick → rhythm), and **each channel independently** declares its durability tier (W0/W1 in-memory stubs, W2+ durable backends per channel). The L1 must surface `bus-channels.yaml` as the binding manifest. |
+| TaskEvent fields (idempotency_key, type, payload) | **MODIFY** | Accept the event-model shape. Constrain: `idempotency_key` MUST be generated by Access Layer at `IngressEnvelope` and propagated through the chain per ADR-0057 (idempotency). |
+| Consumer dedup + dead-letter | **ACCEPT** | Standard microservice pattern; consistent with Outbox/Inbox + Rule R-E channel-level retry. |
+
+### 4.4 Task-Centric Control Layer (PR #71 §3.4) — Hard Security Gates
+
+| PR #71 claim | Verdict | Rationale |
+|---|---|---|
+| Task as scheduling core (not Runtime call-stack) | **ACCEPT** | Matches Rule R-M (engine contract) + Rule R-H (no Thread.sleep, declarative suspension). |
+| Interrupt types: INPUT_REQUIRED / TOOL_EXECUTION / COLLABORATION / SAFETY_CHECK | **MODIFY** | Accept the 4 conceptual classes. Map them per §3 glossary: INPUT_REQUIRED → `Task.A2aState.INPUT_REQUIRED`; TOOL_EXECUTION → `HookPoint.before_tool / after_tool`; COLLABORATION → `SuspendSignal.forClientCallback(...)` over `S2cCallbackEnvelope`; SAFETY_CHECK → `SuspendReason.SafetyCheck` (new value to register in `engine-envelope.v1.yaml`). |
+| **§3.4.1 state machine omits cancel re-auth + cancel race** | **REJECT — P0** | Violates Rule R-J.b (cancel re-validates `(request.tenantId == Run.tenantId)`; cross-tenant → 404 at W0; terminal→terminal → 200; illegal transition → 409). Defends against F-nonatomic-run-status-write (4 recurrences: rc35 / rc36 / rc38 / rc39). State diagram MUST explicitly annotate: (a) Cancelled-entry guard `(tenantId == Run.tenantId)`; (b) terminal→terminal returns 200; (c) illegal transition returns 409; (d) all writes via `RunRepository.updateIfNotTerminal(...)` atomic CAS — quote the abstract method name in the diagram caption. |
+| DualTrackRouter + Fast-Path / Slow-Path | **MODIFY** | Concept accepted; semantics **strictly narrowed** by ADR-0139 (this wave): Fast-Path = in-process reactive synchronous + metadata persistence (does NOT skip tenantId / RLS); Slow-Path = persistent reactive + SuspendSignal + ResumeDispatcher. Neither path may violate Rule R-G (reactive) / Rule R-H (no sleep) / Rule R-J.a (RLS on tenant_id tables). PR #71's "no mandatory persistence" wording is rewritten to "no mandatory checkpoint/snapshot — metadata persistence remains mandatory under RLS". |
+| Middleware invocation convergence at Task-Centric Control Layer | **ACCEPT** | Equivalent to Rule R-M.c (RuntimeMiddleware uniform governance via HookPoint). |
+| ResumeDispatcher triggers Resume (not Runtime-self-driven) | **ACCEPT** | Matches Rule R-H + `SuspendSignal.forClientCallback(...)` checked-exception path. |
+
+### 4.5 Engine Adapter Layer (PR #71 §3.5)
+
+| PR #71 claim | Verdict | Rationale |
+|---|---|---|
+| 5 sub-components: Runtime SPI / Framework Adapter / Context Translator / Shadow Tool Interceptor / Result Normalizer | **ACCEPT** | Academic vocabulary enriches L1 expressiveness. ADR-0136 (this wave) maps each PR #71 sub-component to one or more shipped SPIs per §3 glossary. |
+| Shadow Tool intercept → TOOL_EXECUTION InterruptSignal | **ACCEPT** | Equivalent to Rule R-M.c hook chain + `SuspendSignal` checked path. |
+| Engine Adapter does not implement Runtime internals | **ACCEPT** | Matches Rule R-M.a/.b (every dispatch goes through `EngineRegistry.resolve(envelope)`). |
+| §8.2 Non-Goals (no Workflow / ReAct / Memory / Sandbox / MCP / API impl inside agent-service) | **ACCEPT** | Aligned with Principle P-I (5-plane topology) + Rule R-I (deployment_plane manifest). |
+
+### 4.6 Cross-Layer Items
+
+| PR #71 claim | Verdict | Rationale |
+|---|---|---|
+| 4 Mermaid diagram types (flowchart, ER, sequence, stateDiagram-v2) | **ACCEPT** | Native GitHub rendering; sufficient expressiveness. Carried into Waves 2-4. |
+| F-01..F-22 feature inventory | **MODIFY** | Accept as L2 backlog. Each row MUST add `authority:` column citing ADR-NNNN or Rule X (Rule M-2.b spirit — design surfaces need ADR anchorage). Dangling feature IDs without authority anchor rejected. |
+| Review draft placed under `docs/logs/reviews/` (front-matter optional) | **ACCEPT** | Per `docs/governance/logs-folder-policy.md`. This Wave 1 file follows. |
+| Filename `xiaoming-*` placeholder | **MODIFY** | Renamed to thematic slug `agent-service-l1-4plus1-rewrite-wave-N`. |
+| Bilingual (zh-CN + en-US) output | **ACCEPT** | Sustained. English authored first per CLAUDE.md "translate to English before any model call"; Chinese sibling renders structural parity. |
+| Verification block omits explicit WSL invocation | **MODIFY** | PR body Verification block MUST declare WSL/Linux invocation explicitly (Rule G-7 + standing user feedback `feedback_linux_first_dev.md`). |
+
+## 5. Red Lines (Non-Negotiable in Any Wave)
+
+The 4 hard rejections from §4 above MUST NOT slip into any wave. Closure check at each wave PR's gate:
+
+1. **No tenantId-less data model.** `tenantId` is a first-class field on Run / Task / Session / StateStore. (Rule R-C.2.a + R-J.a + P-J)
+2. **No cancel state-machine without re-auth + atomic CAS.** Cancel re-validates (tenantId == Run.tenantId); writes via `RunRepository.updateIfNotTerminal(...)`. (Rule R-J.b + F-nonatomic-run-status-write defense)
+3. **No single-tier internal queue with mode-based durability.** Queue split per Rule R-E into `control` / `data` / `rhythm` physical channels.
+4. **No Fast-Path language implying skip of tenantId / RLS / reactive / SuspendSignal.** (Rule R-G + R-H + R-J.a)
+
+Any wave PR containing one of these reverts → `reject and re-spin`.
+
+## 6. ADR Slate (Wave 1 Drafts)
+
+Four ADRs draft in this wave (proposed at Wave 1, accepted at Wave 5):
+
+| ADR | Title | Touches Rules |
+|---|---|---|
+| ADR-0136 | Vocabulary Reconciliation: PR 71 "Task" ≡ existing platform Task entity (not Run alias) | R-C.2, G-1.1, G-3 (doc-only) |
+| ADR-0137 | SuspendSignal Canonical; InterruptSignal / InterruptReason are L1 Glossary Synonyms (per ADR-0100 §rejected-framings) | R-M.d, R-H (doc-only) |
+| ADR-0138 | Agent Service 5-Layer L1 Ratification (PR 71 layers ↔ ADR-0100 components + Run≤Task≤Session≤Memory) | G-1, G-1.1, R-D |
+| ADR-0139 | Fast-Path / Slow-Path Narrowed Semantics (reactive-only, tenantId+RLS preserved, metadata persistence mandatory) | R-G, R-H, R-J.a, R-F |
+
+Drafts land alongside this review at `docs/adr/0136-*.yaml` … `docs/adr/0139-*.yaml` with `status: proposed`. Wave 5 promotes to `status: accepted` after Rule + contract-catalog cascade.
+
+## 7. New / Updated Defect Families (G-B Output)
+
+Per the Per-Wave Acceptance Criteria, each finding above is classified against `docs/governance/recurring-defect-families.yaml` (16 existing families). De-duplication first: an existing family is preferred over a new one.
+
+### 7.1 Existing Family Extensions (Wave 1 occurrence appended)
+
+| Family | This wave's occurrence | Surface |
+|---|---|---|
+| **F-l1-architecture-grounding-gap** | PR #71 §3.2 ER model omits tenantId; §3.4.1 state diagram omits security/atomicity transitions — both are L1-design grounding gaps | `docs/logs/reviews/2026-05-25-xiaoming-agent-service-l1-review-wave-1.{en,zh}.md` |
+| **F-cross-authority-agreement** | PR #71 §3.3 "Internal Event Queue" disagrees with `bus-channels.yaml` (cross-authority); §3.1.2 "remote interrupt" disagrees with `s2c-callback.v1.yaml`; §3.5 component names disagree with contract-catalog SPI rows | PR #71 + `bus-channels.yaml` + `s2c-callback.v1.yaml` + `contract-catalog.md` |
+| **F-terminal-verb-overclaim** | PR #71 §3.4.1 state machine arrow labels imply shipped state transitions for deferred behaviour (cross-agent collaboration suspension, safety-check rejection) — uses "transitions to" / "is cancelled" present-tense for W2-deferred sub-clauses (Rule R-K.c / R-L.b / R-M.d.b/.d.c) | PR #71 §3.4.1 |
+
+### 7.2 New Families Registered This Wave
+
+After de-duplication, 4 new families register (the other PR #71 candidate families fold into existing ones as 7.1 extensions):
+
+| Family ID | Title | Root Cause | Surfaces | First Prevention |
+|---|---|---|---|---|
+| **F-design-artifact-omits-tenant-spine** | Design Artefact Omits `tenantId` First-Class Field | Mermaid ER / state-diagram blocks in L1/L2 design surfaces omit `tenantId` as a first-class field on Run / Task / Session / StateStore, burying tenant scope in opaque `metadata` strings or eliding it altogether. Future implementations inherit the design gap and risk Rule R-C.2.a + R-J.a violations at code time. Family is the L1-design sibling of the implementation-side family F-nonatomic-run-status-write — both rooted in "tenant invariant treated as runtime concern, not design concern". | docs/logs/reviews/*.md, docs/L2/*.md, agent-*/ARCHITECTURE.md, docs/contracts/*.yaml | This Wave 1 ADR-0136 + ADR-0138 explicit "first-class tenantId" red line + Wave 2 ER diagram in the rewrite |
+| **F-design-doc-violates-three-track-bus** | Design Artefact Proposes Queue / Event-Bus Abstraction Bypassing Rule R-E Three-Track Channels | Design docs introduce "internal event queue" or "message bus" abstractions with their own durability axis (in-mem / semi-persist / persist) without binding to the canonical `bus-channels.yaml` three channels (control / data / rhythm). Conflates **physical isolation** (channels) with **durability tier** (per-channel backend choice) as if they were one axis. Implementations would skip the three-track guarantee. | docs/logs/reviews/*.md, docs/L2/*.md, docs/contracts/*.yaml | This Wave 1 ADR-0138 §3.3 binding clause + Wave 3 Physical View three-track binding diagram |
+| **F-design-doc-language-bypasses-invariant** | Design Artefact Wording Implies Bypass of Reactive / RLS / No-Sleep Invariants | Design docs use casual language ("no mandatory persistence", "fast-path skips checkpoint", "lightweight synchronous", "memory-only path") that, when read by an implementer, would license bypassing Rule R-G (reactive I/O), Rule R-H (no Thread.sleep), Rule R-J.a (RLS on tenant_id tables), or Rule R-C.2 (RunRepository.updateIfNotTerminal CAS). The language is the upstream cause; the implementation bug would be the downstream effect. | docs/logs/reviews/*.md, docs/L2/*.md, docs/adr/*.yaml | This Wave 1 ADR-0139 (Fast-Path / Slow-Path narrowed semantics) explicit RED LINE + Wave 2 Logical View narrowing prose |
+| **F-placeholder-leaks-into-active-corpus** | Placeholder Names Leak into Active Documentation Corpus | Anonymous-name placeholders (`xiaoming`, `wanshoulu`, `foo`, `bar`, `TBD`, `TODO-template`) leak into active design surfaces — file slugs, prose, code-block author tags — without being scrubbed before review. Slugs in particular become stable URLs (PR review links, archive links), making post-hoc cleanup costly. | docs/logs/reviews/*.md, docs/L2/*.md, docs/contracts/*.yaml | This Wave 1 thematic-slug rename + Wave 5 gate-rule grep word-bag |
+
+### 7.3 yaml + md Sync (Rule G-9.b/c Discipline)
+
+Wave 1 ships `docs/governance/recurring-defect-families.yaml` content-diff:
+- 4 new families appended under `families:` with the 9 required fields each (Rule G-9.a).
+- 3 existing families get their `occurrences:` array extended by `rc53-wave-1-agent-service-l1-4plus1-rewrite` and `last_observed_rc:` advanced.
+- `last_updated:` advances to `2026-05-26`.
+- `schema_version:` unchanged at `1`.
+- `docs/governance/recurring-defect-families.md` synced with matching family-id headings + `cleanup_status:` parity (Rule G-9.c).
+
+## 8. Sibling-Sweep Inventory (G-C Output)
+
+Per Per-Wave Acceptance Criteria gate G-C, each Wave-1-touched family must be swept across the active corpus. Sweeps ran with the fingerprints declared in the plan file `D:\.claude\plans\noble-stargazing-cookie.md` §G-C. **PR #71 itself is in scope** even though the branch is unmerged — its content is reviewed virtually via `git show pr71-review:<path>` since the review's job is exactly to disposition that branch. Results below — every family reports either ≥1 hit OR a negative-confirmation line (Rule G-E non-vacuity).
+
+### Sweep-method legend
+
+| Notation | Meaning |
+|---|---|
+| **active-local** | File exists on the current branch checkout |
+| **virtual-via-pr71** | File exists only at `pr71-review` ref; in scope because this wave dispositions that PR |
+| **historical-archive** | File under `docs/archive/` — exempt from sweep per logs-folder-policy |
+| **prohibition-doc** | A Rule card / contract / deferred-doc that documents a prohibition (the keyword appears as the BAN target, not a violation) |
+
+### 8.1 F-design-artifact-omits-tenant-spine — sibling sweep
+
+Fingerprint: Mermaid `erDiagram` blocks (or equivalent `## *Data Model` field tables) in design surfaces lacking `tenantId` / `tenant_id` field.
+
+Sweep command: `Grep "erDiagram" --glob "*.md"` (entire repo); cross-referenced with `pr71-review` ref.
+
+| Hit # | file:line | Sweep-method | Type | This-wave action |
+|---|---|---|---|---|
+| 1 | `pr71-review:docs/logs/reviews/2026-05-25-xiaoming-agent-service-l1-review-wave-1.en.md` §3.2 ER block | virtual-via-pr71 | original finding | Fixed by ADR-0138 + Wave 2 ER block |
+| 2 | `pr71-review:docs/logs/reviews/2026-05-25-xiaoming-agent-service-l1-review-wave-1.md` §3.2 ER block | virtual-via-pr71 | original finding | Same fix (Wave 2 cn sibling) |
+
+Negative confirmation: `Grep "erDiagram" --glob "*.md"` across active-local branch returned 0 hits (this wave's review-drafts mention the token only in the §8 fingerprint prose — verified). Pattern matched 0 active-local `.md` files. PR #71 is the only artifact carrying an `erDiagram` block, and it lives on the unmerged `pr71-review` ref.
+
+Sibling-occurrence in active-local Java source: `Task.java` (line 31) + `Session.java` (line 27) + `Run.java` (line 25) all declare `String tenantId` with `Objects.requireNonNull` — Rule R-C.2.a compliant. No structural sibling hit in active code.
+
+### 8.2 F-design-doc-shipped-vocab-divergence (folded into F-cross-authority-agreement) — sibling sweep
+
+Fingerprint: PR #71-style academic vocabulary (`DualTrackRouter`, `ShadowToolInterceptor`, `InterruptSignal`) appearing in active design surfaces without a glossary mapping to shipped SPI vocabulary.
+
+Sweep command: `Grep "\\bDualTrackRouter\\b|\\bShadowToolInterceptor\\b|\\bInterruptSignal\\b" --glob "docs/logs/reviews/2026-05-2*.md"`.
+
+Sweep result: **9 active-local files match** + virtual PR #71 files.
+
+| Hit # | file | Sweep-method | Type | This-wave action |
+|---|---|---|---|---|
+| 1 | `pr71-review:docs/logs/reviews/2026-05-25-xiaoming-agent-service-l1-review-wave-1.{en,md}` | virtual-via-pr71 | original | Fixed by §3 Glossary in this Wave 1 |
+| 2 | `docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal.en.md` | active-local | reference template — uses academic vocabulary as design-language but cites ADR-0100 + SuspendSignal correctly | No action; carries forward; ADR-0137 anchors the glossary mapping for future use |
+| 3 | `docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal.cn.md` | active-local | Chinese sibling of #2 | Same |
+| 4 | `docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal-response.en.md` | active-local | response to #2; same vocabulary | Same |
+| 5 | `docs/logs/reviews/2026-05-22-agent-execution-engine-friction-resolution.{en,cn}.md` | active-local | sibling review on engine module; uses InterruptSignal in same sense | No action; same glossary anchor |
+| 6 | `docs/logs/reviews/2026-05-23-rc34-adversarial-followup-findings.md` | active-local | rc34 review; uses academic terms | Same |
+| 7 | `docs/logs/reviews/2026-05-24-l0-rc38-post-audit-architecture-review.en.md` | active-local | rc38 review; uses academic terms | Same |
+| 8 | `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.{en,cn}.md` (this wave) | active-local | intentional — this wave AUTHORS the glossary | n/a |
+
+Negative confirmation: `docs/L2/*.md` directory does not yet exist (0 files); pattern not applicable in that subtree.
+
+Net: 7 active-local files carrying the academic vocabulary, all anchored by ADR-0137 once accepted in Wave 5. No remediation needed on those files individually; ADR-0137 is the structural fix.
+
+### 8.3 F-state-machine-doc-omits-security-atomicity — sibling sweep
+
+Fingerprint: Mermaid `stateDiagram-v2` blocks (and prose-form state diagrams) containing `Canceled`/`Cancelled` transitions without same-paragraph `re-auth` / `tenantId` / `updateIfNotTerminal` / `CAS` annotations.
+
+Sweep command: `Grep "stateDiagram-v2" --glob "*.md"`.
+
+Sweep result: **2 active-local files match** (this wave's en + cn drafts, where the token appears in §8 fingerprint prose, not in actual Mermaid blocks yet).
+
+| Hit # | file | Sweep-method | Type | This-wave action |
+|---|---|---|---|---|
+| 1 | `pr71-review:docs/logs/reviews/2026-05-25-xiaoming-agent-service-l1-review-wave-1.{en,md}` §3.4.1 `stateDiagram-v2` block — `Canceled` transitions WITHOUT atomicity / re-auth annotation | virtual-via-pr71 | original finding | Fixed by Wave 2 Logical View state machine + Wave 3 Process View cancel sequence (both quote `RunRepository.updateIfNotTerminal` + `(tenantId == Run.tenantId)` guard) |
+| 2 | `agent-service/ARCHITECTURE.md` (RunStatus DFA is shipped in prose form, NOT Mermaid; cancel-race-aware narrative is carried at §2.B `runtime / runs`) | active-local | already grounded — explicitly cites `RunRepository.updateIfNotTerminal` + atomic CAS pattern | No regression; Wave 2/3 Mermaid blocks must remain consistent with this prose |
+
+Negative confirmation: `Grep "stateDiagram-v2"` across active-local returned 2 files — both are this wave's drafts (where the token appears as `stateDiagram-v2` mention in §8 fingerprint prose, not as actual Mermaid blocks). The 2026-05-22 reference template does **NOT** use Mermaid state diagrams — verified by negative grep. No silent skip.
+
+### 8.4 F-design-doc-violates-three-track-bus — sibling sweep
+
+Fingerprint: design docs referencing `event queue` / `internal queue` / `message bus` / `task queue` without same-paragraph mention of `control` + `data` + `rhythm` channels, AND without citation of `bus-channels.yaml`.
+
+Sweep command: `Grep -i "internal event queue|internal queue|message bus|task queue" --glob "*.md"`.
+
+Sweep result: **7 active-local files match**, 4 of which are real siblings.
+
+| Hit # | file | Sweep-method | Type | This-wave action |
+|---|---|---|---|---|
+| 1 | `pr71-review:docs/logs/reviews/2026-05-25-xiaoming-agent-service-l1-review-wave-1.{en,md}` §3.3 — single-tier + 3 modes | virtual-via-pr71 | original finding | Fixed by §4.3 rewrite + Wave 2 Logical + Wave 3 Physical |
+| 2 | `docs/spring-ai-ascend-architecture-whitepaper-en.md` | active-local | **false-positive — already binds correctly**: §5.2 of the whitepaper IS the source of the three-track concept (`Three-Track Isolation of Physical Channels: Anti-Congestion System for High-Priority Control, Heavy Data, and Timing Heartbeats`) | No action; whitepaper is the canonical authority |
+| 3 | `docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal.{en,cn}.md` | active-local | references "internal high-throughput event/task queue" + "Reactor Sinks" + semi-persistent backends — does NOT bind to three-track channels in same paragraph | Deferred sibling (§9 row 1); Wave 5 adds same-paragraph three-track binding citation OR marks historical |
+| 4 | `docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal-response.en.md` | active-local | response to #3 — same usage pattern | Deferred sibling (§9 row 1) |
+| 5 | `docs/archive/spring-ai-fin/systematic-architecture-remediation-plan-2026-05-09-cycle-9.en.md` | historical-archive | under `docs/archive/` — exempt per logs-folder-policy | No action |
+
+Negative confirmation: PR #71 is the only artifact with a single-tier-plus-3-modes formulation (the structural defect); the other hits use prose that mentions the queue concept correctly. The 1 deferred sibling (2026-05-22 expansion proposal) is addressed in §9.
+
+### 8.5 F-design-doc-language-bypasses-invariant — sibling sweep
+
+Fingerprint: risk-phrases grep (`no mandatory persistence`, `skip persistence`, `bypass.*reactive`, `synchronous.*long.*running`, `lightweight.*skip`, `memory-only path`, `no checkpoint`).
+
+Sweep command: `Grep "no mandatory persistence|memory-only path|skip persistence|skip checkpoint|bypass.*reactive|synchronous.*long.*running|lightweight.*skip" --glob "*.md"`.
+
+Sweep result: **3 active-local files match** + virtual PR #71.
+
+| Hit # | file | Sweep-method | Type | This-wave action |
+|---|---|---|---|---|
+| 1 | `pr71-review:docs/logs/reviews/2026-05-25-xiaoming-agent-service-l1-review-wave-1.{en,md}` §3.4.3 — "Avoid or minimize cross-thread dispatch, no mandatory persistence, local synchronous resume" | virtual-via-pr71 | original finding | Fixed by ADR-0139 narrowed Fast-Path semantics + §4.4 rewrite |
+| 2 | `docs/logs/reviews/2026-05-13-{wanshoulu}-wave-N-request.md` line 243 — "W0 only supports **synchronous return; long-running** agents cannot provide real-time feedback" | active-local | **false-positive on regex** — the prose describes a W0 limitation (synchronous-return blocks long-running agents), not a design instruction to bypass invariants | No action; regex false-positive, semantically benign |
+| 3 | `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.{en,cn}.md` (this wave) | active-local | this wave AUTHORS the fingerprint prose — token appears in §8.5 fingerprint description, not as a violation | n/a |
+
+Separately, the 2026-05-22 reference template's "compact edge deployment" / "stateless and semi-persistence" phrases are a partial sibling but did NOT trigger the strict regex; they're tracked in §9 row 2 (deferred follow-up) for explicit invariant-preservation pin per ADR-0139.
+
+Negative confirmation on `Thread.sleep` specifically: `Grep "Thread\\.sleep" --glob "*.md"` returned 18 files. ALL 18 are prohibition-doc surfaces (Rule cards R-G/R-H/R-K/R-M/R-F + principle P-H + governance contracts + CLAUDE-deferred + 3 historical review responses + v6-rationale + this wave's drafts) — the keyword appears as the BAN target, not as a violation. Pattern matched 0 actual violations in active prose; 18 prohibition-doc mentions.
+
+### 8.6 F-design-doc-orphan-from-authority — sibling sweep
+
+Fingerprint: `.md` files under `docs/logs/reviews/` or `docs/L2/` with zero `ADR-[0-9]{4}` references AND zero `Rule [DGRM]-` references.
+
+| Hit # | file | Sweep-method | Type | This-wave action |
+|---|---|---|---|---|
+| 1 | `pr71-review:docs/logs/reviews/2026-05-25-xiaoming-agent-service-l1-review-wave-1.{en,md}` — 0 ADR refs + 0 Rule refs across 525 lines | virtual-via-pr71 | original finding | Fixed by §3 Glossary + ADR slate citing ADR-0100 / ADR-0136..0139 / Rule R-C.2 / R-M / R-J / R-E / R-G / R-H |
+
+Negative confirmation across active-local `docs/logs/reviews/2026-05-2*.md`: all reviewed files cite ≥1 ADR or Rule (sampled the 2026-05-22 / 2026-05-23 / 2026-05-24 / 2026-05-26-l0-rc52 batches — each carries multiple ADR and Rule references in normative positions). Pattern `ADR-[0-9]{4}|Rule [DGRM]-` matched ≥1 in 100 % of active-local review files; PR #71's 2 files (virtual-via-pr71) are the only orphans.
+
+### 8.7 F-placeholder-leaks-into-active-corpus — sibling sweep
+
+Fingerprint: grep word-bag `\\bxiaoming\\b`, `\\bwanshoulu\\b`, `\\bfoo\\b`, `\\bbar\\b`, `\\bTBD\\b`, `TODO:` across active docs + Java source, excluding `docs/archive/` + `docs/CLAUDE-locked/` + Git-historical paths.
+
+Sweep commands: `Grep "\\bxiaoming\\b"` and `Grep "\\bwanshoulu\\b"`.
+
+| Hit # | file | Sweep-method | Type | This-wave action |
+|---|---|---|---|---|
+| 1 | `pr71-review:docs/logs/reviews/2026-05-25-xiaoming-agent-service-l1-review-wave-1.{en,md}` — `xiaoming` in file slug | virtual-via-pr71 | original finding (file slug only; in-file content does not carry `xiaoming` beyond front-matter author tag) | This Wave 1 uses thematic slug `agent-service-l1-4plus1-rewrite-wave-1`. Once PR #71 lands and is then dispositioned by Wave 8, the historical-snapshot marker preserves the original review record under its original slug. |
+| 2 | `docs/logs/reviews/2026-05-13-{wanshoulu}-wave-N-request.md` — `wanshoulu` placeholder in CURLY-BRACES in slug | active-local | existing placeholder leak (active corpus) | Deferred sibling (§9 row 3); Wave 5 renames to thematic slug + adds historical-snapshot marker per logs-folder-policy |
+| 3 | `docs/adr/0136-vocabulary-reconciliation-pr71-task-vs-run.yaml` (cites PR #71's `xiaoming` filename in `context:` block) | active-local | intentional citation in ADR body | No action — citation, not a placeholder leak |
+| 4 | `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.{en,cn}.md` (this wave — cites the PR #71 filename in §8.7 fingerprint prose) | active-local | intentional citation | No action |
+
+Negative confirmation: `Grep "\\bTBD\\b|TODO:" docs/governance/ docs/contracts/ docs/adr/ agent-*/src/main/java/` returned 0 hits in **active** governance / contract / ADR / Java-source surfaces. The `\bxiaoming\b` token appears in 3 active-local paths total (this wave's drafts + ADR-0136 citation); the `\bwanshoulu\b` token appears in 1 active-local path (the `2026-05-13` review file slug) — the real leak.
+
+## 9. Out-of-Scope Siblings Deferred (G-D Output)
+
+Per Per-Wave Acceptance Criteria gate G-D, siblings out of this wave's main theme are logged in family `open_residual:` + `docs/CLAUDE-deferred.md` follow-up list. **No silent ignores.**
+
+| Family | Deferred sibling | Wave to address |
+|---|---|---|
+| F-design-doc-violates-three-track-bus | `docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal.{en,cn}.md` "internal queue" prose lacks same-paragraph three-track binding citation | Wave 5 (Rule + contract-catalog cascade) adds a one-paragraph addendum to the 2026-05-22 reference template OR marks it historical |
+| F-design-doc-language-bypasses-invariant | `docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal.{en,cn}.md` "compact edge deployment" Fast-Path language needs explicit Rule R-G/R-J pin per ADR-0139 | Wave 5 same addendum |
+| F-placeholder-leaks-into-active-corpus | `docs/logs/reviews/2026-05-13-{wanshoulu}-wave-N-request.md` curly-brace placeholder slug | Wave 5 — rename to thematic slug, add historical-snapshot marker per logs-folder-policy |
+
+Each deferred row will be added to the matching family `open_residual:` in this wave's families.yaml content-diff.
+
+## 10. Wave Roadmap — 6 Waves (Post-Reconciliation)
+
+Original 8-wave plan reduced to 6 after ADR-0100 reconciliation (see §2.3).
+
+| Wave | Title | Primary deliverable |
+|---|---|---|
+| 1 (this wave) | Review + reject list + ADR slate + family registration | This file + 4 ADR drafts + families.yaml/md content-diff |
+| 2 | 4+1 first half — Scenarios + Logical | Append §Scenarios + §Logical View to this file (5 layers Mermaid + tenantId-first ER + cancel-race-aware state machine + glossary) |
+| 3 | 4+1 second half — Process + Physical | Append §Process View (5 sequences) + §Physical View (5-plane mapping + RLS + three-track bindings + sandbox isolation) |
+| 4 | 4+1 closing — Development + SPI Appendix + L2 Boundary Contracts | Append §Development View (package tree, satisfies Rule G-1.1.a) + §SPI Appendix (4-way parity, satisfies G-1.1.b) + §L2 Boundary Contracts (satisfies G-1.1.c) |
+| 5 | Rule + contract-catalog + module-metadata + DFX cascade | Update Rule cards (R-C.2 / R-M / R-J / R-H / R-D / R-E / R-K / G-1.1 / G-3 kernels remain unchanged in vocabulary; only references update where needed) + contract-catalog SPI rows + module-metadata + dfx; promote ADR-0136..0139 to accepted |
+| 6 | Javadoc Glossary Injection | Add Vocabulary Glossary paragraph to Run.java + Task.java + Session.java + SuspendSignal.java + SuspendReason.java Javadocs; no method-signature / field / package / DB-schema change |
+| (7 deleted) | — | — |
+| 8 | ARCHITECTURE.md migration + release note + close | Migrate Wave-2..4 4+1 content into `agent-service/ARCHITECTURE.md`; add historical-snapshot marker to this Wave 1 file; ship release note + families.yaml content-diff + R-B 4-pillar metrics refresh |
+
+## 11. Per-Wave Acceptance Criteria (Reminder)
+
+Every wave PR must pass the 6 G-* gates declared in `D:\.claude\plans\noble-stargazing-cookie.md` §"Per-Wave 验收标准":
+
+- **G-A** Direct fix (wave's cited findings closed)
+- **G-B** Continuous classification (new findings registered to existing or new family)
+- **G-C** Continuous sibling sweep (each touched family swept across active corpus)
+- **G-D** Continuous fix (in-scope siblings fixed, out-of-scope siblings deferred to open_residual + CLAUDE-deferred + next-wave follow-up list)
+- **G-E** Non-vacuity guard (G-B + G-C output may not be silently empty; negative confirmation lines required when applicable)
+- **G-F** Documentation (the 5 fixed sections at wave-end: Direct-Fix Log, New/Updated Families, Sibling-Sweep Inventory, Out-of-Scope Deferred, Verification)
+
+## 12. Verification
+
+WSL/Linux only per Rule G-7.
+
+```bash
+# A. Gate self-test (read-only — this wave is doc-only)
+wsl -d Ubuntu -- bash -lc 'cd /mnt/d/chao_workspace/spring-ai-ascend && bash gate/check_parallel.sh 2>&1 | tee /tmp/gate-wave-1.log'
+
+# B. Maven verify (no Java changes in this wave — but run for invariant)
+wsl -d Ubuntu -- bash -lc 'cd /mnt/d/chao_workspace/spring-ai-ascend && ./mvnw -Pquality verify 2>&1 | tee /tmp/maven-wave-1.log'
+
+# C. families.yaml content-diff (Rule G-9.b)
+git diff HEAD~1 -- docs/governance/recurring-defect-families.yaml
+
+# D. ADR yaml schema
+wsl -d Ubuntu -- bash -lc 'cd /mnt/d/chao_workspace/spring-ai-ascend && for f in docs/adr/013{6,7,8,9}-*.yaml; do python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$f"; done'
+
+# E. Architecture graph regenerated and consistent (this wave does not touch Maven; check is read-only)
+wsl -d Ubuntu -- bash -lc 'cd /mnt/d/chao_workspace/spring-ai-ascend && python3 gate/build_architecture_graph.py --check --no-write'
+```
+
+PR body checklist (Rule G-7 + standing-user-feedback):
+- [ ] WSL invocation declared (commands above)
+- [ ] families.yaml content-diff present (Rule G-9.b)
+- [ ] families.md sync present (Rule G-9.c)
+- [ ] G-B family-id list: F-l1-architecture-grounding-gap (extension) + F-cross-authority-agreement (extension) + F-terminal-verb-overclaim (extension) + 4 new (F-design-artifact-omits-tenant-spine + F-design-doc-violates-three-track-bus + F-design-doc-language-bypasses-invariant + F-placeholder-leaks-into-active-corpus)
+- [ ] G-C sibling-sweep hit total: see §8 (7 families × counts)
+- [ ] G-E non-vacuity lines: 6 explicit negative-confirmation lines in §8
+
+## 13. Summary
+
+PR #71 captures a valid 5-layer L1 scaffolding via human-expert consensus. The technical content has 4 P0 structural defects that map onto 7 defect families (3 existing extensions + 4 new). Reconciling against ADR-0100 reveals that the wholesale-rename narrative was wrong — Run, Task, Session, SuspendSignal are all canonical shipped types with distinct semantics; the L1 rewrite vocabulary aligns onto them via a glossary, not via code renames. The 6-wave plan ratifies the scaffolding, fixes the defects, prevents recurrence by design (4 new families + 2 new ADRs + 2 narrowing ADRs), and migrates the result into `agent-service/ARCHITECTURE.md` at Wave 8.

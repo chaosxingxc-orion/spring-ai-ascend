@@ -1,0 +1,155 @@
+id: ADR-0139
+title: "Fast-Path / Slow-Path narrowed semantics: Fast-Path = in-process reactive synchronous + tenantId/RLS preserved + metadata persistence mandatory; Slow-Path = persistent reactive + SuspendSignal + ResumeDispatcher; neither path may violate Rule R-G / R-H / R-J.a"
+status: proposed
+date: 2026-05-26
+level: L1
+view: process
+affects_level: L1
+affects_view: logical, process, physical
+authors:
+  - chao
+relates_to:
+  - ADR-0100    # rc22 5-component decomposition (DualTrackRouter context)
+  - ADR-0112    # SlowTrackJudge (closely related earlier SPI)
+  - ADR-0118    # RunRepository.updateIfNotTerminal abstract method
+  - ADR-0138    # 5-layer L1 ratification
+context: |
+  PR #71 §3.4.3 introduces a DualTrackRouter splitting agent-service
+  task execution into Fast-Path and Slow-Path tracks. The intuition
+  is sound — short-chain low-latency operations should not pay the
+  durability/coordination overhead of long-horizon distributed
+  scheduling — but the proposed Fast-Path semantics are dangerously
+  loose:
+
+    - "Avoid or minimize cross-thread dispatch, no mandatory
+       persistence, local synchronous resume"
+    - "Applies to operations that complete quickly, have controlled
+       failure impact, and have low recovery requirements"
+
+  Read by an implementer with implementation pressure, these
+  sentences would license:
+    - Skipping the tenantId-first persistence record (violating
+      Rule R-C.2.a + R-J.a)
+    - Blocking the synchronous thread with Thread.sleep (violating
+      Rule R-H)
+    - Using non-reactive I/O on the Fast-Path (violating Rule R-G)
+    - Bypassing SuspendSignal in favour of in-memory await/notify
+      patterns (violating ADR-0100 §rejected-framings + the rc8/rc9
+      cancel-flow invariants)
+
+  Each of these is a P0 invariant violation. The Fast-Path concept
+  is salvageable but must be narrowed to forbid these bypass paths.
+
+  This ADR records the narrowed semantics and authoritatively closes
+  family F-design-doc-language-bypasses-invariant (registered this
+  wave).
+
+decision: |
+  1. **Fast-Path narrow definition** — Fast-Path is an in-process
+     reactive synchronous path where:
+       a. Execution remains within Project Reactor / virtual-thread
+          reactive machinery (Rule R-G).
+       b. No Thread.sleep / TimeUnit.sleep is invoked (Rule R-H).
+       c. The Run / Task lifecycle record (tenantId-bearing) IS
+          persisted to its respective Repository at create time
+          and at terminal transition; RLS policies apply (Rule
+          R-J.a). The narrowing is: NO checkpoint / snapshot of
+          intermediate compute state is mandatory.
+       d. SuspendSignal MUST still be the suspension primitive if
+          suspension is needed (ADR-0100 §rejected-framings); if a
+          Fast-Path operation needs to suspend, it transitions to
+          Slow-Path automatically by virtue of SuspendSignal
+          throwing.
+       e. RunStatus state transitions go through
+          `RunRepository.updateIfNotTerminal(...)` atomic CAS (Rule
+          R-C.2.b + R-J.b + ADR-0118).
+
+  2. **Slow-Path definition** — Slow-Path is a persistent reactive
+     path where:
+       a. All Fast-Path constraints apply (R-G / R-H / R-J.a /
+          R-C.2.b).
+       b. Additionally, intermediate compute state IS checkpointed
+          via the appropriate Checkpointer SPI (per ADR-0021 / W2
+          implementation).
+       c. SuspendSignal is the normal suspension primitive; the
+          ResumeDispatcher re-resumes via
+          `SuspendSignal.forClientCallback(...)` or child-run
+          resume path.
+
+  3. **Fast-Path eligibility predicate** — operations eligible
+     for Fast-Path execution must satisfy ALL of:
+       a. Expected wall-clock duration ≤ a configurable bound
+          (default 5 seconds; per-deployment override).
+       b. No external dependency awaits beyond reactive HTTP
+          / R2DBC calls (i.e., no human-input wait, no S2C
+          callback, no A2A collaboration).
+       c. No long-horizon checkpoint resume on a subsequent
+          deployment (the path is in-process; node-drift
+          rescheduling is Slow-Path territory).
+
+     Operations failing any predicate transition to Slow-Path.
+     The DualTrackRouter SPI (new in Wave 4, design_only) embodies
+     this predicate; the existing `SlowTrackJudge` from ADR-0112
+     may be reused or specialised.
+
+  4. **Forbidden Fast-Path optimisations** — explicitly disallowed:
+       a. Skipping tenantId persistence record.
+       b. Using RestTemplate / JdbcTemplate (Rule R-G enforcement).
+       c. Thread.sleep / TimeUnit.sleep (Rule R-H enforcement).
+       d. Hand-coded in-memory await/notify suspension instead of
+          SuspendSignal.
+       e. Bypass of `RunRepository.updateIfNotTerminal(...)` CAS
+          for non-create transitions.
+       f. Disabling RLS on the Fast-Path's tenant_id-bearing
+          tables.
+
+  5. **Doc / prose discipline** — L1 / L2 / ADR / Rule prose
+     referencing Fast-Path / Slow-Path MUST use the narrowed
+     vocabulary in this ADR. The phrases "no mandatory persistence"
+     / "skip checkpoint" / "synchronous bypass" are FORBIDDEN as
+     unqualified statements; if used, they must be immediately
+     followed by an invariant-preservation clause (e.g., "no
+     mandatory **checkpoint** — metadata persistence under RLS
+     remains mandatory"). Gate-rule enforcement of this is a
+     candidate for Wave 5+.
+
+consequences: |
+  Positive:
+  - The DualTrackRouter / Fast-Path / Slow-Path concept survives
+    with hardened semantics; performance benefits of the Fast-Path
+    are preserved (in-process synchronous + no checkpoint
+    overhead) while the four-bullet invariant chain remains intact.
+  - Family F-design-doc-language-bypasses-invariant gets its first
+    structural prevention beyond doc-review vigilance.
+  - The "no mandatory persistence" wording is structurally rewritten
+    everywhere it appears (PR #71 §3.4.3, the reference template's
+    "compact edge deployment" prose, future design docs).
+
+  Negative / residual:
+  - The DualTrackRouter SPI (design_only at this wave; W2
+    implementation) needs a sibling Rule-level enforcement that
+    detects Fast-Path-prose-without-invariant-clause. Candidate
+    is a new gate rule under Wave 5+.
+  - The "configurable Fast-Path duration bound" (decision #3.a) is
+    not yet wired; W2 implementation responsibility.
+
+alternatives_considered: |
+  - (A) Reject the Fast/Slow Path duality entirely; mandate
+    Slow-Path semantics for every operation. Rejected — would
+    discard the legitimate performance benefit of in-process
+    synchronous execution for short-chain operations and force
+    every Run through checkpointing overhead.
+
+  - (B) Accept PR #71's Fast-Path language as-is and rely on code-
+    review to catch invariant violations. Rejected — code-review
+    catches downstream symptoms; the upstream cause is the
+    permissive language. Family F-design-doc-language-bypasses-
+    invariant is registered this wave specifically because
+    permissive language is the root cause.
+
+  - (C) Defer DualTrackRouter to W3+ and ship only Slow-Path at
+    W0/W1. Rejected — the existing shipped code already has
+    short-chain in-process execution paths (e.g., synchronous
+    HealthController, certain capability invocations); narrowing
+    them under the Fast-Path label retroactively is a documentation
+    win, not new code.

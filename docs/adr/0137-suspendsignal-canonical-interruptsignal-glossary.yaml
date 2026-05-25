@@ -1,0 +1,125 @@
+id: ADR-0137
+title: "SuspendSignal remains canonical; InterruptSignal / InterruptReason are L1 glossary synonyms only (no Java rename per ADR-0100 §rejected-framings)"
+status: proposed
+date: 2026-05-26
+level: L1
+view: logical
+affects_level: L1
+affects_view: logical, development
+authors:
+  - chao
+relates_to:
+  - ADR-0019    # Checked-suspension doctrine
+  - ADR-0073    # RuntimeMiddleware / HookPoint
+  - ADR-0074    # S2C callback / SuspendSignal.forClientCallback
+  - ADR-0100    # rc22 5-component decomposition + Yield/SuspendSignal coexistence
+  - ADR-0136    # Vocabulary reconciliation (parent of this glossary mapping)
+context: |
+  PR #71 §3.4.2 introduces a 4-value `InterruptType` enum
+  (INPUT_REQUIRED / TOOL_EXECUTION / COLLABORATION / SAFETY_CHECK)
+  and an `InterruptSignal` carrier. The vocabulary is academic-style
+  marketing-aligned terminology common in agent-architecture
+  literature (e.g., recent LangChain / LlamaIndex / AutoGen
+  documentation).
+
+  The platform's canonical type is `SuspendSignal`
+  (`agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/SuspendSignal.java`,
+  29 active call sites), a checked exception thrown by executors to
+  request suspension; its two flavours are child-run suspension
+  (ADR-0019 era) and S2C client-callback suspension (ADR-0074 /
+  v2.0.0-rc3, `forClientCallback(...)` factory). The associated
+  reason enum is `SuspendReason` (carrying RateLimited /
+  AwaitClientCallback / etc.).
+
+  ADR-0100 §rejected-framings explicitly REJECTS an InterruptSignal-
+  style rename, naming SuspendSignal a Tier-A competitive
+  differentiator: the Java compiler enforces caller-side handling,
+  Rule R-G's ArchUnit tests rest on the checked-exception shape, and
+  rc8/rc9 cancellation flows use exception-flow semantics for
+  cross-thread propagation.
+
+  This ADR records that:
+    - SuspendSignal remains the canonical Java type — no rename.
+    - InterruptSignal / InterruptReason are documented synonyms
+      that may appear in L1 / L2 prose, marketing material, and
+      external-reviewer-facing documentation when academic-style
+      vocabulary aids comprehension.
+    - The 4-value PR #71 InterruptType enum does NOT become a new
+      enum; it decomposes onto 3 existing platform mechanisms (see
+      §decision #3 below).
+
+decision: |
+  1. The `SuspendSignal` Java type and the `SuspendReason` enum are
+     the canonical normative carriers for suspension semantics. No
+     Java identifier change, no method-signature change, no DB
+     schema change.
+
+  2. "InterruptSignal" and "InterruptReason" are recorded as
+     glossary synonyms in:
+       - `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md` §3 (this wave)
+       - `Run.java` / `Task.java` / `SuspendSignal.java` /
+         `SuspendReason.java` Javadoc Vocabulary Glossary
+         paragraph (Wave 6)
+     L1 / L2 prose may use either spelling; Java code uses only
+     the canonical name.
+
+  3. PR #71's 4-value `InterruptType` enum maps onto 3 existing
+     platform mechanisms:
+       - `INPUT_REQUIRED`   → `Task.A2aState.INPUT_REQUIRED` (Task-
+                              level A2A protocol state)
+       - `TOOL_EXECUTION`   → `HookPoint.before_tool` /
+                              `HookPoint.after_tool` (engine-hook
+                              chain per ADR-0073 + engine-hooks.v1.yaml)
+       - `COLLABORATION`    → `SuspendSignal.forClientCallback(...)`
+                              over `S2cCallbackEnvelope` (Rule
+                              R-M.d + ADR-0074)
+       - `SAFETY_CHECK`     → `SuspendReason.SafetyCheck` (new
+                              enum value to add in Wave 5 via
+                              SuspendReason source patch +
+                              engine-envelope.v1.yaml schema bump)
+     No new `InterruptType` enum is introduced.
+
+  4. The Yield concept from PR #71 / earlier proposals remains a
+     `HookPoint.ON_YIELD` cooperative-scheduling hint per ADR-0100
+     §coexistence — non-state-machine, non-persistence. Already
+     shipped in `docs/contracts/engine-hooks.v1.yaml` since rc22.
+     This ADR does not duplicate that decision.
+
+consequences: |
+  Positive:
+  - The Tier-A differentiator (checked-exception suspension)
+    is structurally protected against future renames; the synonym
+    mapping is now ADR-anchored.
+  - Rule R-G ArchUnit guards on the SuspendSignal type signature
+    remain stable.
+  - Cross-team / cross-community communication is eased: external
+    reviewers / marketing material / Spring-AI-Alibaba comparison
+    docs can use the academic name without forcing a Java-side
+    rename.
+
+  Negative / residual:
+  - A future maintainer reading Java code with only the academic
+    vocabulary in mind has to consult the ADR or Javadoc Glossary
+    to locate `SuspendSignal`. Mitigation: Wave 6 Javadoc Glossary
+    + cross-link from `engine-envelope.v1.yaml` schema.
+  - The `SuspendReason.SafetyCheck` value addition (decision #3
+    bullet 4) is a Wave 5 deliverable; until landed, PR #71
+    `SAFETY_CHECK` semantics route through `SuspendReason.Other`
+    or equivalent.
+
+alternatives_considered: |
+  - (A) Rename SuspendSignal → InterruptSignal at the Java layer
+    with @Deprecated alias retention. Rejected per ADR-0100
+    §rejected-framings: forfeits Tier-A differentiator status,
+    forces 29 call-site updates, churns Rule R-G ArchUnit, and
+    introduces breaking-change semantics for downstream platform
+    consumers.
+
+  - (B) Introduce a NEW `InterruptSignal` class as a sibling of
+    SuspendSignal, used in agent-architecture-style prose. Rejected
+    — duplicates types, halves the testing surface, and re-creates
+    the "two competing meanings" problem this ADR closes.
+
+  - (C) Leave the synonym mapping undocumented and rely on each
+    reviewer to bridge it themselves. Rejected — the same
+    re-litigation cycle will occur. The ADR is the structural fix.

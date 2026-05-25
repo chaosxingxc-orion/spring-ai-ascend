@@ -1,0 +1,196 @@
+id: ADR-0138
+title: "agent-service 5-layer L1 ratification: PR 71 layers (Access / Session&Task / EventQueue / Task-Centric / EngineAdapter) ↔ ADR-0100 components (Dispatcher / Orchestrator / TaskCenter / SessionManager / EngineAdapter) + Run≤Task≤Session≤Memory lifecycle; reject single-queue + 3-mode; require tenantId-first ER + cancel-race-aware state machine"
+status: proposed
+date: 2026-05-26
+level: L1
+view: logical
+affects_level: L1
+affects_view: scenarios, logical, process, development, physical
+authors:
+  - chao
+relates_to:
+  - ADR-0100    # rc22 5-component decomposition (parent)
+  - ADR-0136    # Vocabulary reconciliation
+  - ADR-0137    # SuspendSignal canonical
+  - ADR-0139    # Fast/Slow path narrowed semantics
+  - ADR-0078    # agent-service consolidation
+  - ADR-0073    # RuntimeMiddleware + HookPoint
+  - ADR-0074    # S2C callback contract
+  - ADR-0049    # Edge↔Compute ingress contract
+  - ADR-0099    # Rule G-1.1 L1 depth/grounding
+context: |
+  PR #71 reached human-expert consensus on a 5-layer L1 decomposition
+  for agent-service:
+
+    1. Access Layer (Gateway / A2A Service / MQ Adapter)
+    2. Session & Task Manager
+    3. Internal Event Queue
+    4. Task-Centric Control Layer
+    5. Engine Adapter Layer
+
+  ADR-0100 (rc22) had earlier ratified a 5-component decomposition
+  using slightly different naming:
+
+    1. Polymorphic Dispatcher (dispatcher/)
+    2. Reactive Orchestrator (orchestrator/)
+    3. Task Center (task/)
+    4. Session Manager (session/)
+    5. Execution Engine Adapter (engine/adapter/)
+
+  The two decompositions overlap substantially but use different
+  framings. PR #71 emphasises the **runtime data-flow viewpoint**
+  (intake → manager → queue → control → adapter), while ADR-0100
+  emphasises the **logical-role viewpoint** (5 cooperating
+  responsibility centers). Both are valid L1 framings; ratifying
+  one without reconciling the other risks future drift.
+
+  Critically, PR #71's design contains four P0 structural defects
+  documented in `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`
+  §4:
+
+    - §3.2 ER model omits tenantId first-class field (vs Rule R-C.2.a)
+    - §3.4.1 state machine omits cancel re-auth + atomic CAS (vs Rule R-J.b)
+    - §3.3 Internal Event Queue single-tier + 3 storage modes (vs Rule R-E three-track)
+    - §3.4.3 Fast-Path "no mandatory persistence" wording implies bypass (vs Rule R-G + R-H + R-J.a)
+
+  This ADR ratifies the 5-layer L1 (carrying PR #71's naming where
+  it does not conflict) while mandating the four corrections.
+
+decision: |
+  1. **Ratified L1 logical decomposition** — 5 layers, with
+     reconciliation mapping from PR #71 naming to ADR-0100
+     naming:
+
+       | L1 Layer (PR #71 name) | ADR-0100 component | Sub-package |
+       |---|---|---|
+       | 1. Access Layer | Polymorphic Dispatcher | `service/dispatcher/` |
+       | 2. Session & Task Manager | Task Center + Session Manager | `service/task/`, `service/session/` |
+       | 3. Internal Event Queue (binding layer over three-track bus) | n/a — new layer | `service/queue/` (Wave 4 scaffold) |
+       | 4. Task-Centric Control Layer | Reactive Orchestrator | `service/orchestrator/` |
+       | 5. Engine Adapter Layer | Execution Engine Adapter | `service/engine/adapter/` |
+
+  2. **Lifecycle hierarchy preserved** — Run ≤ Task ≤ Session ≤
+     Memory per ADR-0100; per-entity ownership documented in
+     ADR-0136. All four lifecycle entities surface tenantId as a
+     first-class field; this is non-negotiable across L1, L2, and
+     code surfaces.
+
+  3. **Red lines** — the four PR #71 P0 defects are blocked from
+     re-entering the corpus:
+
+       a. **No tenantId-less data model.** Any ER block,
+          field table, or YAML schema in L1 / L2 doc surfaces
+          MUST declare tenantId as a first-class field on
+          Run / Task / Session / LifecycleState / StateStore.
+
+       b. **No cancel state machine without re-auth + atomic CAS.**
+          Cancel transitions in L1 / L2 state diagrams MUST
+          annotate the (tenantId == Run.tenantId) guard, the
+          terminal→terminal 200 path, the illegal-transition 409
+          path, and the `RunRepository.updateIfNotTerminal(...)`
+          atomic-CAS write site.
+
+       c. **No single-tier internal queue + mode-based durability.**
+          PR #71's "Internal Event Queue layer" is REDESIGNED
+          as a binding layer over the canonical three-track bus
+          (`control` / `data` / `rhythm` per `bus-channels.yaml`
+          + Rule R-E). The "in-memory / semi-persistent /
+          persistent" axis is eliminated; durability tier is a
+          per-channel property declared in `bus-channels.yaml`.
+          Producers / Consumers route by **intent**:
+            - cancel / resume → control channel
+            - payload / S2C response → data channel
+            - heartbeat / tick → rhythm channel
+
+       d. **No Fast-Path language implying invariant bypass.**
+          ADR-0139 narrows Fast/Slow path semantics; this ADR
+          mandates that no L1 / L2 prose may suggest skipping
+          tenantId, RLS, reactive I/O, or SuspendSignal
+          checked-exception flow.
+
+  4. **A2A / MQ ingress routing** — Access Layer ingress (A2A
+     Service + MQ Adapter) lands on `IngressEnvelope`
+     (`docs/contracts/ingress-envelope.v1.yaml`) per Rule R-I.1
+     and ADR-0049; no SDK runtime dependencies (`a2a-java` SDK
+     prohibited per ADR-0100 §rejected-framing #1).
+
+  5. **Engine Adapter Layer** — the 5 sub-components
+     (Runtime SPI / Framework Adapter / Context Translator /
+     Shadow Tool Interceptor / Result Normalizer) are mapped per
+     ADR-0136 §3 Glossary to shipped SPIs:
+       - Runtime SPI → `ExecutorAdapter` (`engine.spi.ExecutorAdapter`)
+       - Framework Adapter → `ExecutorAdapter` implementations
+         (`SequentialGraphExecutor`, `IterativeAgentLoopExecutor`,
+         future LangChain/LlamaIndex shells)
+       - Context Translator → `ContextProjector` SPI +
+         `PromptTemplate` (ADR-0131) +
+         `StructuredOutputConverter<T>` (ADR-0130)
+       - Shadow Tool Interceptor → `ChatAdvisor` (ADR-0132) +
+         `RuntimeMiddleware` listening on `HookPoint.before_tool /
+         after_tool` (ADR-0073 + engine-hooks.v1.yaml)
+       - Result Normalizer → `ExecutorAdapter` output contract
+         declared in `engine-envelope.v1.yaml`
+
+  6. **F-01..F-22 feature inventory** — carried forward as L2
+     design backlog. Each row in the L2 Boundary Contracts
+     appendix (Wave 4) MUST include an `authority:` column citing
+     ADR-NNNN or Rule X. Dangling feature IDs without an
+     authority anchor are rejected per Rule M-2.b spirit.
+
+  7. **4+1 view depth requirements** — per Rule G-1.1:
+       - .a Development View MUST include a fenced text block
+         declaring the package tree to package-level depth
+         (Wave 4)
+       - .b SPI Interface Appendix MUST list every public SPI
+         with 4-way parity (module-metadata.yaml ↔
+         contract-catalog.md ↔ docs/dfx/agent-service.yaml ↔
+         .java file on disk) (Wave 4)
+       - .c L2 Boundary Contracts MUST declare inputs / outputs /
+         DFX expectations (latency / throughput / error rate /
+         deletion policy) for every L2-delegated subsystem
+         (Wave 4)
+
+consequences: |
+  Positive:
+  - The L1 4+1 rewrite has a single authoritative mapping between
+    PR #71 vocabulary and ADR-0100 vocabulary; future readers do
+    not have to bridge the two on their own.
+  - Four P0 defects from PR #71 are blocked at the ADR level —
+    not just at code-review level — by being elevated to red-line
+    invariants here.
+  - The 5-component logical view (ADR-0100) and 5-layer runtime
+    view (PR #71) coexist as two complementary L1 projections of
+    the same architecture; the table in decision #1 is the
+    cross-walk.
+
+  Negative / residual:
+  - The "Internal Event Queue" sub-package (`service/queue/`) is
+    a new scaffold introduced by Wave 4; the previous L1
+    (`agent-service/ARCHITECTURE.md`) does not have it. Net
+    addition of one sub-package + a corresponding
+    `module-metadata.yaml#spi_packages` entry if any new SPI is
+    declared there.
+  - `SuspendReason.SafetyCheck` (per ADR-0137 §decision #3) is
+    deferred to Wave 5; until then PR #71 SAFETY_CHECK semantics
+    are not yet wired.
+
+alternatives_considered: |
+  - (A) Ratify PR #71's 5-layer naming as canonical and replace
+    ADR-0100's component names. Rejected — ADR-0100 has been
+    accepted since rc22 with downstream package and SPI naming
+    already wired (`service.task.*`, `service.session.*`, etc.);
+    flipping the canonical names would force a Java-side rename
+    chain and break shipped code.
+
+  - (B) Ratify ADR-0100's 5-component naming as canonical and
+    treat PR #71's 5-layer naming as the throw-away review draft.
+    Rejected — PR #71 IS the human-expert-reviewed consensus L1
+    decomposition; discarding its framing would forfeit the
+    review investment and leave the team without a runtime data-
+    flow projection at L1.
+
+  - (C) Maintain both decompositions without explicit reconciliation
+    and let future readers bridge them per-document. Rejected —
+    this is precisely what causes recurring-defect family
+    F-cross-authority-agreement; ratifying both via a single
+    cross-walk table is the structural fix.

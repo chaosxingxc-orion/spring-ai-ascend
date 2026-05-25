@@ -1,0 +1,133 @@
+id: ADR-0136
+title: "Vocabulary Reconciliation: PR 71 'Task' ≡ existing platform Task entity (not Run alias); Run / Task / Session / Memory 4-layer hierarchy preserved per ADR-0100"
+status: proposed
+date: 2026-05-26
+level: L1
+view: scenarios
+affects_level: L1
+affects_view: scenarios, logical, development
+authors:
+  - chao
+relates_to:
+  - ADR-0021    # Run contract spine
+  - ADR-0100    # rc22 5-component decomposition + Run≤Task≤Session≤Memory
+  - ADR-0135    # AgentSession-as-Run-projection
+  - ADR-0137    # SuspendSignal canonical / InterruptSignal glossary
+  - ADR-0138    # 5-layer L1 ratification
+context: |
+  PR #71 (`docs/agent-service-l1-cn-20260525`) introduces an L1 design
+  draft using vocabulary that, at first read, suggested a wholesale
+  rename of the platform's Run entity to Task and of SuspendSignal to
+  InterruptSignal. A planning-phase decision option was opened to the
+  user, who chose "formal ADR approves Run→Task / SuspendSignal→
+  InterruptSignal rename" — but the choice was made without the user
+  being shown that:
+
+    1. The shipped platform already has a `Task` record
+       (`agent-service/src/main/java/com/huawei/ascend/service/task/Task.java`)
+       distinct from the `Run` record
+       (`agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java`).
+       PR #71's "Task as scheduling core" maps DIRECTLY onto the
+       existing platform Task, NOT onto a renamed Run.
+
+    2. ADR-0100 (rc22, accepted 2026-05-22, same proposer team as
+       PR #71) already established the Run ≤ Task ≤ Session ≤ Memory
+       four-layer lifecycle hierarchy, where:
+         - Run     = transient compute snapshot (compute pointer + delta)
+         - Task    = control state (done-or-not, why-stopped; A2A protocol state)
+         - Session = data context (what was discussed, variables)
+         - Memory  = knowledge state (who am I, rules)
+
+    3. Renaming Run to Task would collapse a deliberate semantic
+       distinction (compute snapshot vs. control state) and break
+       29 active call sites including Rule R-C.2.a's Run-record
+       `tenantId` spine and Rule R-C.2.b's `RunStateMachine.validate`
+       CAS guard.
+
+  This ADR records the corrected understanding: PR #71's vocabulary
+  is a *naming-style synonym* for the platform's existing vocabulary,
+  not a rename target. The L1 4+1 rewrite (Waves 2-4) uses the
+  shipped platform names in normative positions (Java identifiers,
+  Rule kernels, SPI declarations) and may use PR #71's names as
+  documented synonyms in prose.
+
+decision: |
+  1. The platform's existing `Task` record (`service.task.Task`) IS
+     the entity PR #71 refers to as "Task" (the scheduling-core /
+     control-state entity, A2A-aligned). No new `Task` type is
+     created; no Run record is renamed.
+
+  2. The Run ≤ Task ≤ Session ≤ Memory four-layer hierarchy from
+     ADR-0100 is reaffirmed as the canonical lifecycle model for
+     agent-service. PR #71's vocabulary aligns onto this model via
+     the Vocabulary Reconciliation Table in
+     `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`
+     §3.
+
+  3. The Run-side state machine (RunStatus DFA) and the Task-side
+     state machine (Task.A2aState enum) are distinct concerns:
+       - RunStatus governs compute-execution lifecycle
+         (PENDING → RUNNING → SUSPENDED/CANCELLED/SUCCEEDED/FAILED/EXPIRED)
+       - Task.A2aState governs A2A protocol-envelope state
+         (SUBMITTED / WORKING / INPUT_REQUIRED / COMPLETED / FAILED)
+     Both must be modelled in the L1 4+1 rewrite; the cancel re-auth
+     + atomic CAS contract (Rule R-J.b, this ADR) attaches to the
+     RunStatus side.
+
+  4. PR #71's expansion of Task lifecycle states to 9 parallel
+     enum values (working / input-required / tool-required /
+     processing / completed / canceled / failed / submitted /
+     accepted) is REJECTED. The 5-state Task.A2aState enum +
+     `SuspendReason` discriminator + Run-side RunStatus DFA already
+     covers the same surface; collapsing the 9 candidate states
+     into these three orthogonal axes is a design constraint of the
+     rewrite.
+
+  5. No Java code changes ship in this wave. Wave 6 adds a
+     "Vocabulary Glossary" paragraph to the Javadoc of
+     `Run.java` / `Task.java` / `Session.java` /
+     `SuspendSignal.java` / `SuspendReason.java` recording the
+     synonym mapping for downstream maintainers; no method
+     signature, field, package, or DB schema is altered.
+
+consequences: |
+  Positive:
+  - The ADR-0100 4-layer hierarchy is no longer at risk of
+    accidental collapse via vocabulary drift.
+  - Rule R-C.2.a + R-C.2.b + 29 SuspendSignal call sites remain
+    structurally intact.
+  - Future contributors reading PR #71 (which stays on disk as a
+    historical artifact) can use this ADR + the §3 Glossary to
+    bridge to shipped vocabulary without confusion.
+  - The 8-wave plan collapses to 6 waves: Waves 6-7 (large code
+    rename + Flyway schema migration) are eliminated; Wave 6 is
+    reduced to a Javadoc Glossary annotation.
+
+  Negative / residual:
+  - PR #71's filename `xiaoming-agent-service-l1-review-wave-1.{en,zh}.md`
+    remains in the corpus as a placeholder-slug leakage (registered
+    against family F-placeholder-leaks-into-active-corpus, this wave).
+  - Future external (non-platform) reviewers reading marketing /
+    competitor material that uses "InterruptSignal" / "Task" in
+    different senses may experience cognitive friction; mitigation
+    is the Wave 6 Javadoc Glossary + ADR-0137.
+
+alternatives_considered: |
+  - (A) Wholesale rename Run → Task + SuspendSignal → InterruptSignal
+    at the Java + DB layer. Rejected — the rename collides with the
+    existing Task record (introducing two competing meanings of
+    "Task"), breaks 29 SuspendSignal call sites, voids the
+    ADR-0100-declared Tier-A differentiator of checked-exception
+    suspension, and forces a Flyway schema migration with downstream
+    contract breakage. Cost dwarfs any naming-cosmetic benefit.
+
+  - (B) Adopt PR #71 vocabulary in design surfaces only (no Java
+    changes) without an ADR formalising the mapping. Rejected —
+    leaves the mapping undocumented; the next L1 reviewer will
+    re-litigate the same confusion. The ADR is the durable artefact.
+
+  - (C) Deprecate the existing `Task` record + introduce a new
+    `Task2` or `AgentTask` to free up "Task" for PR #71's
+    semantics. Rejected — duplicates types, churns the SPI surface,
+    and provides no semantic gain (PR #71's "Task" IS the existing
+    Task in all but naming style).

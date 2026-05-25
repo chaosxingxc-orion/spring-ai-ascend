@@ -824,6 +824,101 @@ ledger freshness check after the release note and CLAUDE template publication
 surfaces changed; no additional problem type was found beyond this family,
 so the canonical recurring-family count remains 16.
 
+### F-design-artifact-omits-tenant-spine — Design Artefact Omits tenantId First-Class Field
+
+- **First observed:** rc53 Wave 1 (agent-service L1 4+1 rewrite)
+- **Last observed:** rc53 Wave 1
+- **Occurrences:** rc53-wave-1-agent-service-l1-4plus1-rewrite (1)
+- **Cleanup status:** monitoring
+
+PR #71's L1 design draft §3.2 ER block declared `sessionId`, `taskId`,
+`metadata`, `version` but omitted `tenantId` as a first-class field on
+Session / Task / LifecycleState / StateStore. The omission would, if
+inherited by the canonical L1 / L2 / Java implementation, violate Rule
+R-C.2.a (Run record mandatory tenantId + Objects.requireNonNull), Rule
+R-J.a (RLS on every tenant_id-bearing table), and Principle P-J
+(storage-engine tenant isolation). This family is the L1-design-side
+sibling of the implementation-side family `F-nonatomic-run-status-write` —
+both rooted in "tenant invariant treated as a runtime concern, not a
+design concern".
+
+Prevention: ADR-0136 (this wave) declares Run vs Task entity distinction
+and reaffirms tenantId as first-class field on each; ADR-0138 (this
+wave) §3 red-line "No tenantId-less data model" enforces at the L1
+artefact level; Wave 2 Logical View ER block ships the canonical
+tenantId-first model. A gate-rule candidate for Wave 5+: multi-line
+regex over `erDiagram` blocks in `docs/**/*.md` checking that every
+entity declares `tenantId` / `tenant_id`.
+
+### F-design-doc-violates-three-track-bus — Design Artefact Proposes Queue / Event-Bus Abstraction Bypassing Rule R-E Three-Track Channels
+
+- **First observed:** rc53 Wave 1 (agent-service L1 4+1 rewrite)
+- **Last observed:** rc53 Wave 1
+- **Occurrences:** rc53-wave-1-agent-service-l1-4plus1-rewrite (1)
+- **Cleanup status:** monitoring
+
+PR #71 §3.3 proposed a single "Internal Event Queue" layer with three
+durability modes (in-memory / semi-persistent / persistent), conflating
+two orthogonal axes — **physical isolation** (channels) vs **durability
+tier** (per-channel backend). This is a head-on conflict with Rule R-E
+three-track physical isolation (`bus-channels.yaml` declares `control` /
+`data` / `rhythm` channels with distinct `physical_channel:` ids). The
+2026-05-22 reference template `docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal.{en,cn}.md`
+is a partial sibling (uses "internal event/task queue" prose without
+same-paragraph three-track binding citation).
+
+Prevention: ADR-0138 (this wave) §3 red-line "No single-tier internal
+queue + mode-based durability" binds the L1 design to `bus-channels.yaml`;
+Wave 3 Physical View will publish the canonical three-track binding
+diagram for downstream design surfaces.
+
+### F-design-doc-language-bypasses-invariant — Design Artefact Wording Implies Bypass of Reactive / RLS / No-Sleep Invariants
+
+- **First observed:** rc53 Wave 1 (agent-service L1 4+1 rewrite)
+- **Last observed:** rc53 Wave 1
+- **Occurrences:** rc53-wave-1-agent-service-l1-4plus1-rewrite (1)
+- **Cleanup status:** monitoring
+
+PR #71 §3.4.3 Fast-Path was described as "Avoid or minimize cross-thread
+dispatch, no mandatory persistence, local synchronous resume" — wording
+that, when read under implementation pressure, would license bypassing
+Rule R-G (reactive I/O), Rule R-H (no Thread.sleep), Rule R-J.a (RLS on
+tenant_id tables), or Rule R-C.2 (RunRepository.updateIfNotTerminal CAS).
+Family is the "language-as-attack-surface" sibling of the structural-
+defect families — closing the implementation surface alone does NOT
+close this family; the design wording must be tightened to deny the
+bypass interpretation.
+
+Prevention: ADR-0139 (this wave) Fast-Path / Slow-Path narrowed
+semantics explicitly forbids bypass-implying language; Wave 2 Logical
+View narrowing prose ships canonical L1 vocabulary; gate-rule
+candidate for Wave 5+ is risk-phrase grep with same-paragraph
+invariant-preservation-clause requirement.
+
+### F-placeholder-leaks-into-active-corpus — Anonymous-Name Placeholders Leak Into Active Documentation Corpus
+
+- **First observed:** rc53 Wave 1 (agent-service L1 4+1 rewrite)
+- **Last observed:** rc53 Wave 1
+- **Occurrences:** rc53-wave-1-agent-service-l1-4plus1-rewrite (1)
+- **Cleanup status:** monitoring
+
+PR #71's filename `2026-05-25-xiaoming-agent-service-l1-review-wave-1.{en,md}`
+carries the `xiaoming` (小明) placeholder slug into stable URLs (PR
+review links, archive links, future search). Pre-existing sibling:
+`docs/logs/reviews/2026-05-13-{wanshoulu}-wave-N-request.md` carries
+`wanshoulu` (万寿路) placeholder in curly braces in the slug. File slugs
+are particularly costly to fix post-hoc because they become stable URLs;
+the historical-snapshot-marker pattern under
+`docs/governance/logs-folder-policy.md` is the canonical fix.
+
+Prevention: This wave's review-draft thematic-slug rename
+(`agent-service-l1-4plus1-rewrite-wave-N`); Wave 5 rename of
+`2026-05-13-{wanshoulu}-*` file plus historical-snapshot marker; gate-
+rule candidate for Wave 5+ is `Grep "\bxiaoming\b|\bwanshoulu\b|\bTODO-template\b|\bTBD\b"`
+over `docs/{logs,L2,contracts,adr}/**/*.md` with allow-list for
+documented citation contexts (ADR `context:` / review-draft sibling-
+sweep prose).
+
 ---
 
 ## §3 — META-Lessons Codified Into Rules
