@@ -1290,3 +1290,28 @@ Three deferred siblings from §9 closed:
 - **G-E non-vacuity**: ADR YAML schema check (Wave 1 already verified); contract-catalog §2 row check (Wave 4 §19 already verified — agent-service has 9 SPI rows); module-metadata.yaml spi_packages count = 7 (verified Wave 4); dfx_packages parity (verified Wave 4).
 - **G-F documentation**: this Closure block.
 
+---
+
+# Wave 6 — Javadoc Vocabulary Glossary Injection
+
+> Wave 6 of 6 (rc53-wave-6). Per ADR-0136 + ADR-0137 §decision #2, this wave injects "Vocabulary Glossary" paragraphs into the Javadoc of the 5 canonical-vocabulary-bearing types so future maintainers reading either the academic spelling (Task/Run, InterruptSignal/SuspendSignal) or the platform spelling reach the canonical Java type. **No method signature / field / package / DB schema change.**
+
+## 25. Javadoc Glossary Patches
+
+| Java type | File | Glossary content (summary) |
+|---|---|---|
+| `Run` (record) | `agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java` | "Run is the transient compute snapshot layer; NOT a synonym for Task. PR-71 'Task as scheduling core' maps to {@link Task}, not to a renamed Run." (per ADR-0136 + ADR-0100) |
+| `Task` (record) | `agent-service/src/main/java/com/huawei/ascend/service/task/Task.java` | "PR-71-style 'Task as scheduling core' refers to THIS class (not a renamed Run). Task is control-state; Run is compute snapshot — different entities per ADR-0100. One Task may have many transient Runs." |
+| `Session` (record) | `agent-service/src/main/java/com/huawei/ascend/service/session/Session.java` | "PR-71 'SessionManager' refers to this entity + {@link ContextProjector}. AgentSession is NOT a separate SPI per ADR-0135 — it is (tenantId, conversationId) projection." |
+| `SuspendSignal` (checked exception) | `agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/SuspendSignal.java` | "PR-71-style 'InterruptSignal' / 'interrupt primitive' refers to THIS class. ADR-0100 §rejected-framings #2 explicitly RETAINS checked-exception form as Tier-A differentiator." Synonyms: InterruptSignal ≡ SuspendSignal; InterruptReason ≡ SuspendReason; Yield ≡ HookPoint.ON_YIELD. |
+| `SuspendReason` (sealed interface) | `agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi/SuspendReason.java` | "PR-71 'InterruptReason' / 'InterruptType' refers to this sealed interface. The 4-value PR-71 InterruptType enum decomposes onto 3 existing mechanisms (Task.A2aState.INPUT_REQUIRED, HookPoint.before/after_tool, SuspendReason.AwaitClientCallback) plus a deferred SafetyCheck permit." No InterruptType enum introduced. |
+
+## 26. Wave 6 Closure (G-A..G-F)
+
+- **G-A direct fix**: 5 Java types annotated with Vocabulary Glossary Javadoc paragraphs. No method-signature / field / package / DB-schema change.
+- **G-B classification**: 0 new findings; 0 family registrations.
+- **G-C sibling sweep**: re-ran the 4 active families on the modified Java source files — none of the Javadoc changes introduce new violations. Negative confirmation: `Grep "Vocabulary Glossary"` over `agent-service/src/main/java/` + `agent-execution-engine/src/main/java/` returns 5 hits (one per modified file) — count matches expectation.
+- **G-D continuous fix**: no new in-scope siblings; out-of-scope siblings unchanged.
+- **G-E non-vacuity**: 5 Java files modified (verified via git diff — Run.java + Task.java + Session.java + SuspendSignal.java + SuspendReason.java); compile-time impact: zero (Javadoc-only edit).
+- **G-F documentation**: this Closure block.
+

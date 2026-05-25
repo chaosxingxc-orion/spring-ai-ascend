@@ -20,6 +20,22 @@ import java.util.UUID;
  * Capability Callback Protocol); CLAUDE.md Rule R-K (Skill Capacity Matrix);
  * CLAUDE.md Rule R-K (legacy 41.b) (ResilienceContract runtime enforcement); CLAUDE.md
  * Rule 46 (S2C Callback Envelope + Lifecycle Bound).
+ *
+ * <p><b>Vocabulary Glossary (per ADR-0137 + rc53-wave-6)</b>: PR-71-style academic
+ * prose ("InterruptReason" / "InterruptType") refers to THIS sealed interface.
+ * The 4-value PR-71 {@code InterruptType} enum
+ * ({@code INPUT_REQUIRED} / {@code TOOL_EXECUTION} / {@code COLLABORATION} /
+ * {@code SAFETY_CHECK}) decomposes onto 3 existing platform mechanisms — not onto
+ * new {@code SuspendReason} permits:
+ * <ul>
+ *   <li>{@code INPUT_REQUIRED} → {@code Task.A2aState.INPUT_REQUIRED} (Task-level)</li>
+ *   <li>{@code TOOL_EXECUTION} → {@code HookPoint.before_tool} / {@code after_tool}
+ *       (engine-hook chain)</li>
+ *   <li>{@code COLLABORATION} → {@link AwaitClientCallback}</li>
+ *   <li>{@code SAFETY_CHECK} → future {@code SafetyCheck} permit (deferred per
+ *       Rule R-L.b; not yet added to the sealed permits list)</li>
+ * </ul>
+ * No {@code InterruptType} enum is introduced.
  */
 public sealed interface SuspendReason
         permits SuspendReason.RateLimited,
