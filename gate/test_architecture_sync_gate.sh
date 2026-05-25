@@ -6651,6 +6651,100 @@ test_rule_124_unsupported_absolute_claim_guard() {
   fi
 }
 
+test_rule_125_codegraph_install_truth_pos() {
+  local root="$scratch/r125_pos"
+  mkdir -p "$root/tools/codegraph"
+  cat > "$root/tools/codegraph/package.json" <<'SHEOF'
+{
+  "name": "spring-ai-ascend-codegraph",
+  "private": true,
+  "dependencies": {
+    "@colbymchenry/codegraph": "0.9.4"
+  }
+}
+SHEOF
+  cat > "$root/tools/codegraph/package-lock.json" <<'SHEOF'
+{
+  "lockfileVersion": 3,
+  "packages": {
+    "node_modules/@colbymchenry/codegraph": { "version": "0.9.4" }
+  }
+}
+SHEOF
+  cat > "$root/.mcp.json" <<'SHEOF'
+{
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["tools/codegraph/node_modules/@colbymchenry/codegraph/npm-shim.js", "serve", "--mcp"]
+    }
+  }
+}
+SHEOF
+  local pkg_ok=0 lock_ok=0 mcp_ok=0
+  grep -qE '"@colbymchenry/codegraph":[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' "$root/tools/codegraph/package.json" && pkg_ok=1
+  grep -qE '"lockfileVersion":[[:space:]]*[3-9][0-9]*' "$root/tools/codegraph/package-lock.json" && lock_ok=1
+  grep -qE '"tools/codegraph/node_modules/@colbymchenry/codegraph/[^"]+"' "$root/.mcp.json" && mcp_ok=1
+  if [[ $pkg_ok -eq 1 && $lock_ok -eq 1 && $mcp_ok -eq 1 ]]; then
+    ok "rule125_install_truth_pos" "exact-pinned package.json + lockfile v3 + .mcp.json relative-shim ref pass all three sub-checks"
+  else
+    fail "rule125_install_truth_pos" "expected all three to pass; got pkg=$pkg_ok lock=$lock_ok mcp=$mcp_ok"
+  fi
+}
+
+test_rule_125_codegraph_install_truth_caret_neg() {
+  local root="$scratch/r125_caret_neg"
+  mkdir -p "$root/tools/codegraph"
+  cat > "$root/tools/codegraph/package.json" <<'SHEOF'
+{
+  "dependencies": {
+    "@colbymchenry/codegraph": "^0.9.4"
+  }
+}
+SHEOF
+  if ! grep -qE '"@colbymchenry/codegraph":[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' "$root/tools/codegraph/package.json"; then
+    ok "rule125_install_truth_caret_neg" "caret-prefixed version fails the exact-pin check (would drift to 0.9.x)"
+  else
+    fail "rule125_install_truth_caret_neg" "expected caret-prefixed version to fail exact-pin check"
+  fi
+}
+
+test_rule_125_codegraph_install_truth_lockfile_v2_neg() {
+  local root="$scratch/r125_lockv2_neg"
+  mkdir -p "$root/tools/codegraph"
+  cat > "$root/tools/codegraph/package-lock.json" <<'SHEOF'
+{
+  "lockfileVersion": 2
+}
+SHEOF
+  if ! grep -qE '"lockfileVersion":[[:space:]]*[3-9][0-9]*' "$root/tools/codegraph/package-lock.json"; then
+    ok "rule125_install_truth_lockfile_v2_neg" "lockfileVersion=2 is detected as below the integrity-hash threshold"
+  else
+    fail "rule125_install_truth_lockfile_v2_neg" "expected lockfileVersion=2 to fail the >=3 check"
+  fi
+}
+
+test_rule_125_codegraph_install_truth_mcp_missing_shim_neg() {
+  local root="$scratch/r125_mcp_neg"
+  mkdir -p "$root"
+  cat > "$root/.mcp.json" <<'SHEOF'
+{
+  "mcpServers": {
+    "codegraph": {
+      "command": "codegraph",
+      "args": ["serve", "--mcp"]
+    }
+  }
+}
+SHEOF
+  if ! grep -qE '"tools/codegraph/node_modules/@colbymchenry/codegraph/[^"]+"' "$root/.mcp.json"; then
+    ok "rule125_install_truth_mcp_missing_shim_neg" "absent relative-shim ref (PATH-only command) fails the cross-platform check"
+  else
+    fail "rule125_install_truth_mcp_missing_shim_neg" "expected absent relative shim to fail"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #

@@ -20,3 +20,5 @@ for _r124_file in docs/logs/reviews/*proposal*.md; do
   fi
 done
 [[ $_r124_fail -eq 0 ]] && pass_rule "unsupported_absolute_claim_guard"
+
+# ---------------------------------------------------------------------------

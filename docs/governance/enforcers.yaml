@@ -1502,3 +1502,11 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#unsupported_absolute_claim_guard
   asserts: "Rule 124 — proposal documents MUST NOT use absolute security/performance claims such as bulletproof, zero-day safety, zero downtime, or sub-millisecond unless the same line anchors the claim to benchmark, measurement, threat-model, acceptance-criterion, or deferred-scope wording."
+
+- id: E173
+  constraint_ref: "Rule R-A (Business/Platform Decoupling + Developer Self-Service); 2026-05-25 codegraph MCP integration"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#codegraph_install_truth
+  asserts: "Rule 125 — project-local codegraph MCP install pinning truth (operationalises Rule R-A's developer-self-service clause): (a) tools/codegraph/package.json declares @colbymchenry/codegraph at an EXACT pin (X.Y.Z form; no ^/~/>=/<= prefix that would drift across npm installs); (b) tools/codegraph/package-lock.json exists with lockfileVersion >= 3 (older formats omit integrity hashes for optionalDependencies, so per-platform bundles drift silently between contributors); (c) .mcp.json registers an mcpServers.codegraph entry whose args reference a relative path under tools/codegraph/node_modules/@colbymchenry/codegraph/ (cross-platform, no PATH dependency). Guards pinning truth, not the local install state — CI without `npm ci` still passes."

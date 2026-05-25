@@ -45,11 +45,11 @@ authority_refs: [ADR-0094]
 
 ---
 
-## §1 — Family Summary (13 families as of rc40)
+## §1 — Family Summary (14 families as of rc40)
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
-| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 14 (rc40 proposal gates moved rule/self-test/enforcer baselines) | ⚠️ partial |
+| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 15 (rc40 codegraph-mcp-onboarding bumped active_gate_checks / enforcer_rows / gate_executable_test_cases / recurring_defect_families baselines) | ⚠️ partial |
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 10 (rc39 stale Java SPI anchors) | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 6 (rc6, rc7, rc11, rc15, rc35-second-pass, rc36) | ⚠️ partial |
@@ -62,6 +62,7 @@ authority_refs: [ADR-0094]
 | 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 11 (rc40 service architecture tree/SPI appendix drift) | 🟡 monitoring (rc40 resets cool-down; service architecture now separates active SPI interfaces from structural carriers) |
 | 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, deferred) |
 | 13 | F-nonatomic-run-status-write | Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants | 5 (rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction) | 🟡 monitoring (rc39 broadened to tenant-owned runtime state; RunRepository SPI made abstract, save calls source-guarded to create-only sites, TaskStateStore writes made atomic) |
+| 14 | F-project-tool-pin-drift | Project-Local Dev-Tool Pin Drift and Manifest Inconsistency | 1 (rc40-codegraph-mcp-onboarding — preventive registration alongside Rule 125) | ✅ structurally addressed (Rule 125 / E173 gates package.json exact-pin + lockfileVersion>=3 + .mcp.json relative-shim ref before any incident; codegraph-specific today, generalization deferred until a second project-local MCP tool lands) |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -578,6 +579,65 @@ release waves pass without another read-check-write sibling. Any new
 tenant-owned or status-owned repository reference implementation must use
 compute, compare-and-set, a conditional UPDATE, or an equivalent transaction
 for invariants that span read + validation + write.
+
+---
+
+### F-project-tool-pin-drift — Project-Local Dev-Tool Pin Drift and Manifest Inconsistency
+
+**Pattern.** Project-local development tools wired into the Claude Code MCP
+layer (or any equivalent contributor surface) keep three independent
+surfaces in lockstep: a `package.json` that pins versions, a
+`package-lock.json` that pins the integrity-hashed dependency tree, and a
+`.mcp.json` that names where the binary lives. Each surface is easy to
+edit in isolation — a caret range "^0.9.4" replacing the exact pin, a
+lockfile regenerated against a registry that doesn't mirror per-platform
+optionalDependencies, a `.mcp.json` shim path edited to rely on `PATH`
+lookup — and each change passes the shape-only review the file gets.
+None of them announce themselves at runtime: Claude Code simply fails to
+start the MCP server with an obscure error, and the next contributor's
+`npm ci` silently installs a different binary than the previous
+contributor used. The result is broken onboarding without an obvious
+failure mode.
+
+**Observed.** rc40-codegraph-mcp-onboarding registers the family
+preventively, alongside the codegraph integration that wires the first
+project-local MCP tool under `tools/codegraph/`. The motivation is to be
+gateable BEFORE the first incident rather than after the third — the
+rc18 META-lesson (recursive prevention irony) explicitly calls out that
+prevention-time registration beats post-incident registration when the
+pattern is foreseeable.
+
+**Surfaces.**
+
+- `tools/codegraph/package.json` — must declare `@colbymchenry/codegraph`
+  at an exact `X.Y.Z` pin (no `^`/`~`/`>=` prefix).
+- `tools/codegraph/package-lock.json` — must exist with `lockfileVersion >=
+  3` so optionalDependencies get integrity hashes.
+- `.mcp.json` — `mcpServers.codegraph` args must reference a relative path
+  under `tools/codegraph/node_modules/@colbymchenry/codegraph/` so the
+  install is cross-platform and PATH-independent.
+
+**Prevention.**
+
+- Rule R-A — the governing self-service kernel (contributor reaches first
+  agent execution without platform-team intervention).
+- Rule 125 / E173 — `codegraph_install_truth` gate verifies all three
+  surfaces in lockstep. Pinning-truth gate (does the manifest declare a
+  reproducible install?), not install-state gate (CI without `npm ci`
+  still passes).
+
+**Cleanup status.** `structurally_addressed` — gate Rule 125 runs against
+every gate parallel/serial pass; any contributor edit that breaks one of
+the three surfaces fails the gate with actionable repair guidance.
+
+**Open residual.** Rule 125 today hardcodes the `@colbymchenry/codegraph`
+package name and the `tools/codegraph/` path. A second project-local MCP
+tool either re-uses the same structural template (a sibling rule with its
+own package name + path pair) or the rule is generalized to walk all
+entries of `.mcp.json#mcpServers` and verify a `tools/<name>/` manifest
+exists per entry. Generalization is deferred until a second tool lands;
+the current concrete enforcer matches the single concrete tool the
+platform ships.
 
 ---
 

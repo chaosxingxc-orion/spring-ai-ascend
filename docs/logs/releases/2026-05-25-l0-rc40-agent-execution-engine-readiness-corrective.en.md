@@ -7,6 +7,8 @@ status: formal-release-candidate
 
 # v2.0.0-rc40 - agent execution engine readiness corrective
 
+> **Historical artifact frozen at SHA 64c1d190a519e718b67acab052430ed7571212f8 (rc40 agent-execution-engine-readiness corrective).** Baseline counts in this document (138 active gate rules / 245 self-tests / 171 enforcer rows / 474 graph nodes / 850 graph edges / 13 recurring defect families) reflect the corpus state at rc40 release time and are NOT retroactively updated. The current canonical baseline (after the rc41 codegraph_install_truth wave: 139 / 249 / 172 / 475 / 852 / 14) is tracked in `docs/governance/architecture-status.yaml.architecture_sync_gate.allowed_claim` and `README.md`.
+
 ## Release Decision
 
 - Decision: ship corrective response
@@ -85,7 +87,7 @@ runtime engine implementation claim.
 | `docs/logs/reviews/2026-05-25-agent-execution-engine-l1-high-level-design-proposal.en.md` | normative corrective proposal | Rewritten to current/forward/exploratory structure. |
 | `agent-service/ARCHITECTURE.md` | L1 architecture authority | Development tree and SPI appendix refreshed against live code. |
 | `gate/check_architecture_sync.sh` | canonical gate | Rules 122-124 added and extracted to `gate/rules/`. |
-| `gate/test_architecture_sync_gate.sh` | executable prevention evidence | 245/245 self-tests passed, including six new proposal-overclaim fixtures. |
+| `gate/test_architecture_sync_gate.sh` | executable prevention evidence | 245/245 self-tests passed at rc40 snapshot, including six new proposal-overclaim fixtures. |
 | `docs/governance/enforcers.yaml` | enforcer ledger | E170-E172 added for Rules 122-124. |
 | `docs/governance/recurring-defect-families.yaml` | recurring-family ledger | rc40 occurrences recorded for numeric drift, cross-authority disagreement, and L1 grounding. |
 | `docs/governance/architecture-status.yaml` | canonical baseline | Baselines updated from live WSL evidence. |
