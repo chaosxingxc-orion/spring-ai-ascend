@@ -41,12 +41,15 @@ schema_version: 1
 last_updated: 2026-05-25  # rc39 formal-release-transaction corrective: closes rc38 residuals across code, contracts, gates, governance, and release evidence. RunRepository.updateIfNotTerminal is abstract; RunRepository.save use is source-guarded to create-only production call sites; InMemoryTaskStateStore tenant ownership uses ConcurrentHashMap.compute; AgentInvokeRequest/StateDelta are immutable carrier boundaries; cancel and idempotency docs state current-vs-forward semantics; gate self-tests no longer emit post-PASS shell diagnostics. (Prior rc38 note retained below.) rc38 audit-corrective wave (ADR-0118): a four-reviewer parallel deep-read of the Java corpus against the rc37 tip (gate + verify already green) surfaced 5 latent-correctness + deploy-packaging fixes and REGISTERS a new family F-nonatomic-run-status-write — the cancel-vs-complete race recurred a 4th time (rc35/rc35-second-pass/rc36/rc38) because the SyncOrchestrator's own private mutateIfNotTerminal helper was still a non-atomic findById-then-save; closed by delegating to the RunRepository.updateIfNotTerminal CAS + a read-modify-write-window regression test. Also: Dockerfile boot-jar glob (multi-match COPY build break), skill-capacity.yaml classpath bundling (empty-matrix fail-closed in packaged jar), JWKS decoder gated on jwks-uri not issuer, OpenAPI pinned fixture 201/RunResponse → 202/TaskCursor drift. recurring_defect_families 12→13; re-baselines adr_count 102→103 / maven_tests 382→383 / graph 470→471 nodes, 839→844 edges. (Prior rc37 note retained below.) rc37 strategic-repositioning wave (ADR-0117): Ascend/Kunpeng vertical-agnostic pivot + forward-doc de-finance + readability refresh; F-numeric-drift gets an rc37 occurrence (the README single-line baseline-phrase lesson) and the wave re-baselines adr_count 101→102 / graph 469→470 nodes, 835→839 edges. (Prior rc36 note retained below.) rc36 exhaustive-audit wave (branch rc36/exhaustive-correctness-and-cross-authority-truth): a 7-surface parallel adversarial review (runtime-spine correctness + engine/SPI + cross-authority parity + gate-script + test-quality + numeric/doc-truth + whitebox static-analysis) against the post-#61 main tip. HEADLINE: two kernel-truth gate rules — Rule 96 (kernel_deferred_clause_coherence) and Rule 99 (kernel_terminal_verb_vs_shipped_decision_check) — were PERMANENT SILENT-PASSES since the rc16 namespace migration: their numeric-only heading regexes (`^#### Rule [0-9]+`, `^## Rule [0-9]+\.[a-z]`) matched 0 of the 42 namespaced `#### Rule X-N` headings, so both drift-prevention rules never fired. Closed by namespace-aware longest-prefix parent resolution + a non-vacuity guard (the rule now FAILS if it resolves 0 sub-clauses) + 7 stale-legacy-id card references corrected to current namespaced ids (R-J.a.b, R-M.d.c, M-2.a.b/.a.c, R-I.c/.d/.e). Also: (a) RunController.cancel did stale-read-then-blind-save (the missing half of the rc35 cancel-vs-complete CAS fix — a parallel terminal write could be silently overwritten to CANCELLED); closed by an atomic RunRepository.updateIfNotTerminal CAS. (b) Rule 28b + 28d + Rule 14 scanned a DOUBLED single path (`agent-service/src/main/java agent-service/src/main/java`) so 5/6 modules went unscanned; widening to `agent-*/src/main/java` immediately caught a real out-of-scope-name leak in agent-bus/package-info.java. (c) Rule R-J.b kernel+card overclaimed shipped 403+audit while ADR-0108 documents 404 as W0-shipped + 403 as W1-widening — aligned. (d) numeric/path drift: gate/README 133→135 executable sections, contract-catalog HookPoint 9→10, 5 stale service.runtime.orchestration.spi paths → engine.orchestration.spi. (Prior wave note retained below.)
 # rc35-second-pass wave (same PR follow-up commits, after rc35-correctness-batch): a second round of 4 parallel adversarial reviewers (correctness + adversarial + gate-script-consistency + doc-coherence) ran against the rc35-correctness-batch tip and found that several of the rc35 first-pass closures were incomplete in scope. (a) The cancel-vs-complete race guard in SyncOrchestrator (rc35 first pass) was applied ONLY at the three terminal SUCCEEDED/FAILED save sites; five sibling non-terminal save sites (PENDING→RUNNING at run() entry; RUNNING→SUSPENDED at S2C suspend + child suspend; SUSPENDED→RUNNING at S2C resume + child resume) remained blind puts that silently overwrote a parallel CANCELLED with RUNNING/SUSPENDED — same family pattern, sibling surfaces. (b) ADR-0108's "common base shared with Rule R-J .b" wording claimed cross-authority parity that didn't hold — Rule R-J .b's pre-existing cancel-state-transition MDC `{ runId, fromStatus, toStatus, actor, occurredAt }` shares only `occurredAt` with the new tenant-mismatch base `{ surface, reason, occurredAt }`. (c) S2C envelope deadline was honoured unconditionally in resolveCallTimeoutMillis with no clamp against the orchestrator's configured s2cCallTimeout ceiling — a client-supplied 1h deadline defeated the 30s default. (d) check_parallel.sh + extract_rules.sh + check_architecture_sync.sh + 8 sibling rule files used the regex `^# Rule [0-9]+[a-z]? (—|--) ` which silently skipped dotted sub-clause headers `# Rule 24.c` / `# Rule 29.c`; both rule bodies were absorbed into Rule 11's chunk and attributed there in NDJSON timing + Rule 72 regression detection — and the "132 == 132" serial/parallel parity check at Rule G-5.a was vacuously true because BOTH sides used the same broken regex. Headers were always there since rc1; only attribution moved. (e) check_architecture_sync.sh used 10 bare `python3 - <<PYEOF` invocations (Rules 23/25/28j/28k/37/63/68/78/80/94) that silently fell through to vacuous PASS with `python3: not found` on Windows hosts where only `python` exists; CI on Ubuntu was green because python3 exists there. Same fail-open pattern, different surface. (f) check_recurring_families.sh inverted the corpus-wide python preference (python before python3) so on Python-2-as-`python` systems the rc19 validator would crash with SyntaxError. (g) R-038 + R-042 both rewrote docs/governance/architecture-graph.yaml under xargs -P concurrently with R-040/041/097/106 readers — read-during-write race; closed by atomic temp-file + os.replace in build_architecture_graph.py. (h) emit_contract_tables.sh wrote 6 hardcoded /tmp/contract-tables-<phase>.md paths with no PID + check_architecture_sync.sh + rule-099.sh used /tmp/_r99_hits.$$ — concurrent gate runs would clobber. All eight closed across Commits A/B/C of this same PR. Pattern reinforcement (BOTH passes): rc35's first-pass discipline ("found 8 bugs in parallel, fixed all") still leaves the cited bugs's SIBLINGS unfound; the second-pass adversarial review systematically constructed sibling scenarios and found 8 more. Lesson: a wave is not complete when the cited bugs are fixed — it's complete when the sibling-scenario sweep returns empty.
 
+# rc40 agent-execution-engine-readiness corrective: proposal current-vs-forward
+# claims, package truth, unsupported absolute claims, L1 architecture grounding,
+# and baseline-count surfaces were updated together.
 families:
   - id: F-numeric-drift
     title: Numeric Drift Across Authority Surfaces
     first_observed_rc: rc5
-    last_observed_rc: rc39-formal-release-transaction
-    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37, rc39-formal-release-transaction]
+    last_observed_rc: rc40-agent-execution-engine-readiness-corrective
+    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective]
     root_cause: |
       Numeric claims (rule counts, gate counts, enforcer counts, graph
       nodes/edges, self-tests) are estimated when a release note is written
@@ -72,6 +75,11 @@ families:
       requiring the formal release note to copy metric values from a generated
       evidence bundle; Maven tests moved 383→409 and gate self-tests 226→239
       only after WSL evidence extraction, not hand-authored release prose.
+      rc40 adds a corrective-design vector: prevention gates added for proposal
+      scope/package/absolute-claim truth changed live baselines
+      (gate rules 135→138, self-tests 239→245, enforcer rows 168→171), so the
+      release ledger, gate README, generated rule corpus, and architecture-status
+      baselines had to move together.
     surfaces:
       - docs/governance/architecture-status.yaml#baseline_metrics
       - README.md
@@ -211,8 +219,8 @@ families:
   - id: F-cross-authority-agreement
     title: Cross-Authority Surface Disagreement
     first_observed_rc: rc14
-    last_observed_rc: rc39-formal-release-transaction
-    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36, rc39-formal-release-transaction]
+    last_observed_rc: rc40-agent-execution-engine-readiness-corrective
+    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective]
     root_cause: |
       117+ single-surface prevention rules can all pass while the
       surfaces themselves contradict each other — e.g.
@@ -314,6 +322,16 @@ families:
       Closure: rc39 aligns the authority surfaces to W1 current behavior
       and W2 forward triggers, then publishes a formal release note backed
       by generated evidence.
+
+      **rc40 agent-execution-engine proposal recurrence (2026-05-25).**
+      The L1 proposal document claimed immediate W0/W1 scope while still
+      carrying pending boundary contracts, referenced non-current package names
+      (`com.huawei.ascend.agent.engine`) and a non-current executor
+      (`StatelessEngineExecutor`), and presented future dynamic compiler/APG/
+      sandbox capabilities as if they were deployable current work. Closure:
+      the proposal now separates current L0/L1 behavior, accepted-forward
+      ADR-0112 direction, and W2+ exploratory items; Rule 122/123/124 reject
+      the same contradiction class in future proposal documents.
     surfaces:
       - docs/governance/architecture-status.yaml
       - docs/governance/architecture-graph.yaml
@@ -322,6 +340,8 @@ families:
       - "**/module-metadata.yaml"
       - docs/contracts/contract-catalog.md
       - pom.xml
+      - docs/logs/reviews/*proposal*.md
+      - agent-service/ARCHITECTURE.md
     prevention_rules:
       - Rule 106
       - Rule G-8
@@ -329,6 +349,9 @@ families:
       - Rule 107
       - Rule 108
       - Rule 109
+      - Rule 122
+      - Rule 123
+      - Rule 124
     cleanup_status: structurally_addressed
     open_residual: |
       Every new rule MUST explicitly enumerate its authority surfaces
@@ -576,8 +599,8 @@ families:
   - id: F-l1-architecture-grounding-gap
     title: L1 Architecture Document Lacks Code-Mapping or SPI Enumeration
     first_observed_rc: rc17
-    last_observed_rc: rc30
-    occurrences: [rc17, rc18, rc19, rc20, rc21, rc22, rc27, rc28, rc29, rc30]
+    last_observed_rc: rc40-agent-execution-engine-readiness-corrective
+    occurrences: [rc17, rc18, rc19, rc20, rc21, rc22, rc27, rc28, rc29, rc30, rc40-agent-execution-engine-readiness-corrective]
       # rc30 CI-corrective: remove non-existent tree-block dirs (src/main/resources/ in agent-middleware; bootstrap/ in agent-service); rc32 review reopens because last_observed_rc==rc30 contradicts cleanup_status: closed.
     root_cause: |
       Rule G-1.a (Layered 4+1 Discipline) mandates that every
@@ -590,7 +613,11 @@ families:
       agent-middleware lacked a Development View tree; agent-client
       and agent-evolve were skeleton-only with no SPI appendix; the
       L1 ARCHITECTURE.md SPI section was not enforced as a parity
-      surface against module-metadata/catalog/DFX.
+      surface against module-metadata/catalog/DFX. rc40 reopens the family for
+      `agent-service/ARCHITECTURE.md`: the development tree omitted live
+      `platform/{engine,persistence,probe,resilience}` and
+      `runtime/{evolution,posture}` packages while the SPI appendix counted
+      structural carriers as if they were active SPI interfaces.
     surfaces:
       - agent-*/ARCHITECTURE.md
       - docs/governance/rules/rule-G-1.md (parent rule lacked depth clauses)
@@ -616,6 +643,9 @@ families:
       pending 3-rc cool-down (rc32 + rc33 + rc34) with no recurrence
       before re-promotion to closed. The cool-down convention introduced
       in rc20 Wave 1 / ADR-0097 applies here too.
+      rc40 resets the cool-down because the service architecture document
+      again drifted from code reality; the appendix now separates the 7 active
+      Java SPI interfaces from SPI-adjacent structural carriers.
 
   - id: F-bulk-scrub-orphan-syntax
     title: Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments

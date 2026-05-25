@@ -53,7 +53,7 @@ _r82_phrases=(
   "active rules|active_gate_checks"
   "self-tests|gate_executable_test_cases"
   "self-test cases|gate_executable_test_cases"
-  "active engineering rules|active_engineering_rules_post_rc6"
+  "active engineering rules|active_engineering_rules"
   "enforcer rows|enforcer_rows"
   "architecture-graph nodes|architecture_graph_nodes"
   "graph nodes|architecture_graph_nodes"
@@ -78,15 +78,31 @@ while IFS= read -r _r82_kv; do
   [[ -z "$_r82_kv" ]] && continue
   _r82_metric["${_r82_kv%%=*}"]="${_r82_kv#*=}"
 done < <(awk '
-  /^architecture_sync_gate:/ { f = 1; next }
-  f && /^[^[:space:]]/ { exit }
-  f && /^[[:space:]]+[a-zA-Z_]+:[[:space:]]*[0-9]+/ {
-    key = $0; val = $0
-    sub(/^[[:space:]]+/, "", key); sub(/:.*$/, "", key)
-    sub(/^[[:space:]]+[a-zA-Z_]+:[[:space:]]*/, "", val); sub(/[^0-9].*$/, "", val)
-    if (val != "") print key "=" val
+  # Anchor on the baseline_metrics block directly. The prior anchor
+  # (^architecture_sync_gate: at column 0) silently matched nothing because in
+  # architecture-status.yaml that key is indented under capabilities: — a dead
+  # numeric-truth gate (same F-kernel-vs-implementation-drift class this wave
+  # un-deadens for Rules 96/99). Compute the block indent and exit when a key
+  # returns to <= that indent (e.g. the sibling allowed_claim:).
+  /^[[:space:]]*baseline_metrics:[[:space:]]*$/ { f = 1; bi = index($0, "baseline_metrics") - 1; next }
+  f {
+    if ($0 ~ /^[[:space:]]*$/ || $0 ~ /^[[:space:]]*#/) next
+    ci = match($0, /[^ ]/); if (ci > 0) ci = ci - 1
+    if (ci <= bi && $0 ~ /^[[:space:]]*[a-zA-Z_]+:/) { exit }
+    if ($0 ~ /^[[:space:]]+[a-zA-Z_]+:[[:space:]]*[0-9]+/) {
+      key = $0; val = $0
+      sub(/^[[:space:]]+/, "", key); sub(/:.*$/, "", key)
+      sub(/^[[:space:]]+[a-zA-Z_]+:[[:space:]]*/, "", val); sub(/[^0-9].*$/, "", val)
+      if (val != "") print key "=" val
+    }
   }
 ' "$_r82_yaml" 2>/dev/null)
+# Non-vacuity guard: the prior anchor parsed 0 metrics and the rule silent-passed.
+# A baseline-truth gate that extracts no baseline is dead — fail loudly.
+if [[ ${#_r82_metric[@]} -eq 0 ]]; then
+  fail_rule "baseline_metrics_single_source" "Rule 82 parsed 0 baseline_metrics keys from $_r82_yaml — the block anchor/parse is vacuous (format drift). Per Rule 82 / E115."
+  _r82_fail=1
+fi
 # Cache gate_executable_test_cases for the Tests-passed pattern below.
 _r82_tp_expected="${_r82_metric[gate_executable_test_cases]:-}"
 

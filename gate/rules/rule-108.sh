@@ -76,6 +76,15 @@ for _r108_dir in docs/governance/rules docs/governance/principles; do
     done
   done
 done
+_r108_stale_java_refs=$(find agent-* -path '*/src/main/java/*' -type f -name '*.java' 2>/dev/null \
+  | xargs grep -nE 'com\.huawei\.ascend\.bus\.s2c\.ReflectionEnvelopeRouter|com\.huawei\.ascend\.evolve\.online\.SlowTrackJudge|Lives in \{@code runtime\.s2c\.spi\}' 2>/dev/null || true)
+if [[ -n "$_r108_stale_java_refs" ]]; then
+  while IFS= read -r _r108_stale_line; do
+    [[ -z "$_r108_stale_line" ]] && continue
+    fail_rule "governance_text_java_anchor_truth" "$_r108_stale_line references a pre-.spi Java package anchor after the ADR-0088/rc27 relocation; update it to the current package or add an explicitly historical package-lineage note outside the stale anchor wording."
+    _r108_fail=1
+  done <<< "$_r108_stale_java_refs"
+fi
 if [[ $_r108_fail -eq 0 ]]; then pass_rule "governance_text_java_anchor_truth"; fi
 
 # ---------------------------------------------------------------------------

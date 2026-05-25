@@ -280,7 +280,7 @@ agent-service/src/main/java/com/huawei/ascend/agent/service/
 │   │   ├── adapter/            # 框架适配器 (LangChainAdapter, LlamaIndexAdapter 等)
 │   │   ├── shadow/             # 影子工具拦截核心 (ShadowToolInterceptor)
 │   │   └── translation/        # 上下文双向翻译器 (ContextTranslator)
-│   └── spi/                    # 引擎计算标准接口 StatelessEngineExecutor
+│   └── spi/                    # proposed, not current: StatelessEngineExecutor
 └── infrastructure/             # [自研粘合] 中件层适配与自动配置
     ├── config/                 # Spring Boot 与 a2a-java 协议栈 AutoConfiguration 配置包
     └── persistence/            # Redis/NATS 适配器、序列化与网络层连接池管理
@@ -341,7 +341,7 @@ public interface InterruptSignal {
 }
 ```
 
-### 7.2 StatelessEngineExecutor 引擎核心契约接口定义
+### 7.2 StatelessEngineExecutor proposed, not current
 此接口作为 `agent-service` 驱动 `agent-execution-engine` 的最底层无状态核心契约，任何引擎适配器均需实现并遵循此契约：
 
 ```java
@@ -356,7 +356,7 @@ import reactor.core.publisher.Mono;
  * 智能体执行引擎核心无状态计算接口 (Engine SPI Contract)
  * 被后续 agent-execution-engine 设计所直接引用并实现
  */
-public interface StatelessEngineExecutor {
+public interface StatelessEngineExecutor { // proposed, not current
     /**
      * 无状态执行入口：输入任务定义与投影上下文，输出执行 Delta 增量
      */

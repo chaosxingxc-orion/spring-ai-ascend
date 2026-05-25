@@ -50,7 +50,7 @@ The `agent-service` module must rigorously adhere to the following principles to
 2. **ReAct Agent**: Encapsulates Loop-mode execution, managing non-deterministic reasoning-action loops that dynamically choose and execute tools and hooks.
 
 #### 1.3.2 Dual Integration and Invocation Models (Dual-Mode Runtime)
-1. **Embedded Co-process**: `agent-service` and `agent-execution-engine` are co-deployed within the same process (e.g., same JVM), interacting via direct, in-memory method/function calls to achieve sub-millisecond overhead.
+1. **Embedded Co-process**: `agent-service` and `agent-execution-engine` are co-deployed within the same process (e.g., same JVM), interacting via direct, in-memory method/function calls to achieve sub-millisecond overhead as a deferred benchmark target.
 2. **Stateless Service-level**: Runs the Agent as a fully stateless microservice. `agent-service` acts as the control plane, dispatching execution directives to independent engine instances via RPC, gRPC, or the Agent Bus.
 
 #### 1.3.3 Heterogeneous Compatibility & Legacy System Decoupling
@@ -140,7 +140,7 @@ To maintain natural language capabilities while securing deterministic microserv
 - **Flow**: Agent A encounters a roadblock -> A2A Client initiates connection using `a2a-java` -> Sub-task dispatched to Agent B's Server -> Agent A dehydrates and suspends -> Agent B completes computation and triggers callback -> Agent A rehydrates, recovers context, and finishes execution.
 
 ### 2.4 Ultra-fast Fast-Path Low Latency Execution
-- **Flow**: Engine encounters a high-frequency read (e.g., looking up local memory values), yielding `InterruptSignal(TOOL_EXECUTION, RedisGet)` -> Service intercepts, queries the local cache, and calls `resume` inside the same thread -> Engine completes execution loop with sub-millisecond overhead.
+- **Flow**: Engine encounters a high-frequency read (e.g., looking up local memory values), yielding `InterruptSignal(TOOL_EXECUTION, RedisGet)` -> Service intercepts, queries the local cache, and calls `resume` inside the same thread -> Engine completes execution loop with sub-millisecond overhead as a deferred benchmark target.
 
 ### 2.5 Heterogeneous Shadow-Plugin Interception and Sandbox Execution
 - **Flow**: LangChain agent executes -> Adapter translates context and boots engine -> LangChain requests SQL Tool execution -> Hits "Shadow SQL Tool" -> Interrupt signal raised, halting the LangChain stack -> Service captures signal, executes SQL safely within sandboxed DB connection -> Service boots adapter, rehydrates state, and injects results back to LangChain.
@@ -261,7 +261,7 @@ agent-service/src/main/java/com/huawei/ascend/agent/service/
 │   │   ├── adapter/            # Framework Adapters (LangChainAdapter, LlamaIndexAdapter, etc.)
 │   │   ├── shadow/             # Shadow Tool Interceptor core (ShadowToolInterceptor)
 │   │   └── translation/        # Bidirectional Context Translator (ContextTranslator)
-│   └── spi/                    # Standard engine interface: StatelessEngineExecutor
+│   └── spi/                    # Proposed standard engine interface: StatelessEngineExecutor (not current)
 └── infrastructure/             # [Proprietary glue] Middleware integrations
     ├── config/                 # Spring Boot AutoConfiguration for a2a-java
     └── persistence/            # NATS/Redis adapters, serializers, and client pool managers
@@ -325,7 +325,7 @@ public interface InterruptSignal {
 }
 ```
 
-### 7.2 StatelessEngineExecutor Specification
+### 7.2 StatelessEngineExecutor Specification (proposed, not current)
 ```java
 package com.huawei.ascend.agent.service.engine.spi;
 
@@ -337,7 +337,7 @@ import reactor.core.publisher.Mono;
 /**
  * Target Stateless Computing SPI implemented by execution engines
  */
-public interface StatelessEngineExecutor {
+public interface StatelessEngineExecutor { // proposed, not current
     /**
      * Stateless execution entrypoint
      */

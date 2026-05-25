@@ -19,32 +19,57 @@ if [[ ! -f "$_r96_claude" ]] || [[ ! -f "$_r96_deferred" ]]; then
   _r96_fail=1
 else
   _r96_missing=""
-  # Find every "## Rule N.X" or "## Rule N.b/c/..." heading in CLAUDE-deferred.md
-  while IFS= read -r _r96_subclause; do
-    [[ -z "$_r96_subclause" ]] && continue
-    _r96_num=$(echo "$_r96_subclause" | grep -oE '^[0-9]+')
-    _r96_letter=$(echo "$_r96_subclause" | grep -oE '\.[a-z]$' | sed 's/^\.//')
-    [[ -z "$_r96_num" ]] || [[ -z "$_r96_letter" ]] && continue
-    _r96_ref="Rule ${_r96_num}.${_r96_letter}"
-    # Find the `#### Rule N` block in CLAUDE.md (between heading and next `---`).
-    _r96_block=$(awk -v rn="$_r96_num" '
-      $0 ~ "^#### Rule "rn" " { in_block = 1; print; next }
+  _r96_seen=0
+  # Active #### Rule ids in CLAUDE.md (namespaced D-/R-/G-/M- or legacy numeric),
+  # used for longest-prefix parent resolution of a deferred sub-clause heading.
+  _r96_ids=$(grep -oE '^#### Rule [A-Za-z0-9.-]+' "$_r96_claude" | sed -E 's/^#### Rule //')
+  # Every deferred-clause heading in CLAUDE-deferred.md. Post-rc16 these are
+  # namespaced ("## Rule R-K.c", "## Rule R-M sub-clause .d.c") not numeric, so the
+  # heading id is the text after "## Rule " up to the " — " title separator. A bare
+  # id with no sub-clause names a fully-deferred rule with no active kernel block.
+  while IFS= read -r _r96_head; do
+    [[ -z "$_r96_head" ]] && continue
+    _r96_raw="${_r96_head%% — *}"
+    _r96_raw="$(printf '%s' "$_r96_raw" | sed -E 's/[[:space:]]+$//')"
+    # Normalise "X sub-clause .a.b" -> "X.a.b" for parent resolution only.
+    _r96_norm="$(printf '%s' "$_r96_raw" | sed -E 's/ sub-clause \././g')"
+    case "$_r96_norm" in *.*) ;; *) continue ;; esac
+    # Longest dotted prefix of the normalised id that is an active #### Rule block.
+    _r96_parent=""
+    _r96_try="$_r96_norm"
+    while [[ "$_r96_try" == *.* ]]; do
+      _r96_try="${_r96_try%.*}"
+      if printf '%s\n' "$_r96_ids" | grep -qxF "$_r96_try"; then _r96_parent="$_r96_try"; break; fi
+    done
+    [[ -z "$_r96_parent" ]] && continue  # parent rule itself deferred (no active kernel)
+    _r96_seen=$((_r96_seen + 1))
+    _r96_ref="Rule ${_r96_raw}"
+    # Extract the `#### Rule <parent>` block via literal prefix match (parent ids
+    # contain '.' so a regex anchor would over-match; index/substr stays literal).
+    _r96_hdr="#### Rule ${_r96_parent}"
+    _r96_block=$(awk -v hdr="$_r96_hdr" '
+      index($0, hdr) == 1 && (substr($0, length(hdr)+1, 1) == " " || $0 == hdr) { in_block = 1; print; next }
       in_block && /^---$/ { exit }
       in_block { print }
     ' "$_r96_claude")
-    if [[ -z "$_r96_block" ]]; then continue; fi  # Rule N might be deferred itself
     # Coherence is satisfied if EITHER the CLAUDE.md kernel OR the matching rule card
-    # references the sub-clause by literal name. Rule cards have no kernel_cap, so a
-    # rule with a long deferred discussion can cite there without bloating CLAUDE.md.
-    _r96_card="docs/governance/rules/rule-${_r96_num}.md"
+    # references the sub-clause by literal name. Rule cards have no kernel_cap.
+    _r96_card="docs/governance/rules/rule-${_r96_parent}.md"
     _r96_kernel_has=0
     _r96_card_has=0
-    echo "$_r96_block" | grep -qF "$_r96_ref" && _r96_kernel_has=1
+    printf '%s' "$_r96_block" | grep -qF "$_r96_ref" && _r96_kernel_has=1
     [[ -f "$_r96_card" ]] && grep -qF "$_r96_ref" "$_r96_card" && _r96_card_has=1
     if [[ $_r96_kernel_has -eq 0 ]] && [[ $_r96_card_has -eq 0 ]]; then
-      _r96_missing="${_r96_missing}Rule${_r96_num}.${_r96_letter} "
+      _r96_missing="${_r96_missing}[${_r96_ref}] "
     fi
-  done < <(grep -oE '^## Rule [0-9]+\.[a-z]' "$_r96_deferred" | sed -E 's/^## Rule //')
+  done < <(grep -E '^## Rule ' "$_r96_deferred" | sed -E 's/^## Rule //')
+  # Non-vacuity guard (F-kernel-vs-implementation-drift / F-recursive-prevention-irony):
+  # the pre-rc36 numeric-only regex matched 0 namespaced headings and silent-passed.
+  # Require the driver to resolve >=1 deferred sub-clause to an active parent.
+  if [[ $_r96_seen -eq 0 ]]; then
+    fail_rule "kernel_deferred_clause_coherence" "Rule 96 resolved 0 deferred sub-clauses to active #### Rule blocks — driver is vacuous (heading-format drift). Per Rule 96 / E133."
+    _r96_fail=1
+  fi
   if [[ -n "$_r96_missing" ]]; then
     fail_rule "kernel_deferred_clause_coherence" "Active rule kernel + rule card pair does not acknowledge deferred sub-clause(s): ${_r96_missing}-- Rule 96 / E133 (add explicit 'Rule N.X' literal-string reference in either CLAUDE.md kernel block OR docs/governance/rules/rule-NN.md card; rc8 post-corrective P1-1 closure)"
     _r96_fail=1

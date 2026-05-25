@@ -7,6 +7,8 @@ status: formal-release-candidate
 
 # v2.0.0-rc39 - formal release transaction closure
 
+> Historical artifact frozen at SHA b5694853a92b095bca3c360a7d7ceaa3c2e1609e. Later corrective waves move live baseline counts; preserve the generated rc39 evidence table as the frozen release record.
+
 ## Release Decision
 
 - Decision: ship

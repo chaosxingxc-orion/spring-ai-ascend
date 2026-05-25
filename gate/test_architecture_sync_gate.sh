@@ -6564,6 +6564,93 @@ XEOF
   fi
 }
 
+test_rule_122_proposal_immediate_scope_pending_contract_guard() {
+  local pos="$scratch/r122_pos.md"
+  cat > "$pos" <<'EOF'
+---
+status: designing
+---
+> **Target Wave:** W2+ exploratory
+## Pending Refinement
+The package schema is intentionally pending.
+EOF
+  local pos_fail=0
+  if grep -qiE 'Target Wave:[^[:cntrl:]]*(W0/W1|Immediate Execution)' "$pos" \
+     && grep -qiE 'Pending Refinement|pending gaps|pending contract|pending refinement|TODO annotations' "$pos"; then
+    pos_fail=1
+  fi
+  if [[ "$pos_fail" == "0" ]]; then
+    ok "rule122_scope_pending_pos" "W2+ exploratory proposal with pending work passes"
+  else
+    fail "rule122_scope_pending_pos" "expected W2+ pending work to pass"
+  fi
+
+  local neg="$scratch/r122_neg.md"
+  cat > "$neg" <<'EOF'
+> **Target Wave:** W0/W1 (Immediate Execution)
+## Pending Refinement
+The same package boundary still lacks a schema.
+EOF
+  local neg_fail=0
+  if grep -qiE 'Target Wave:[^[:cntrl:]]*(W0/W1|Immediate Execution)' "$neg" \
+     && grep -qiE 'Pending Refinement|pending gaps|pending contract|pending refinement|TODO annotations' "$neg"; then
+    neg_fail=1
+  fi
+  if [[ "$neg_fail" == "1" ]]; then
+    ok "rule122_scope_pending_neg" "immediate W0/W1 plus pending contract work is detected"
+  else
+    fail "rule122_scope_pending_neg" "expected immediate W0/W1 plus pending work to fail"
+  fi
+}
+
+test_rule_123_proposal_engine_package_truth() {
+  local pos="$scratch/r123_pos.md"
+  printf 'Future proposed type: com.huawei.ascend.agent.engine.spi.ExperimentalExecutor.\n' > "$pos"
+  local pos_hits
+  pos_hits=$(grep -nE 'com\.huawei\.ascend\.agent\.engine|StatelessEngineExecutor' "$pos" 2>/dev/null \
+    | grep -viE 'proposed|future|candidate|exploratory|not current' || true)
+  if [[ -z "$pos_hits" ]]; then
+    ok "rule123_package_truth_pos" "explicit proposed/future FQN wording passes"
+  else
+    fail "rule123_package_truth_pos" "expected proposed/future FQN wording to pass"
+  fi
+
+  local neg="$scratch/r123_neg.md"
+  printf 'Current interface: com.huawei.ascend.agent.engine.spi.StatelessEngineExecutor.\n' > "$neg"
+  local neg_hits
+  neg_hits=$(grep -nE 'com\.huawei\.ascend\.agent\.engine|StatelessEngineExecutor' "$neg" 2>/dev/null \
+    | grep -viE 'proposed|future|candidate|exploratory|not current' || true)
+  if [[ -n "$neg_hits" ]]; then
+    ok "rule123_package_truth_neg" "unqualified contradictory package/signature wording is detected"
+  else
+    fail "rule123_package_truth_neg" "expected unqualified contradictory package/signature wording to fail"
+  fi
+}
+
+test_rule_124_unsupported_absolute_claim_guard() {
+  local pos="$scratch/r124_pos.md"
+  printf 'Zero downtime is an acceptance criterion deferred to an L2 benchmark.\n' > "$pos"
+  local pos_hits
+  pos_hits=$(grep -nEi 'bulletproof|zero-day safety|zero downtime|sub-millisecond|sub-milliseconds' "$pos" 2>/dev/null \
+    | grep -viE 'benchmark|threat model|measured|measurement|acceptance criteria|acceptance criterion|deferred' || true)
+  if [[ -z "$pos_hits" ]]; then
+    ok "rule124_absolute_claim_pos" "evidence/deferred wording around an absolute claim passes"
+  else
+    fail "rule124_absolute_claim_pos" "expected evidence/deferred wording to pass"
+  fi
+
+  local neg="$scratch/r124_neg.md"
+  printf 'The registry is a bulletproof safety boundary with zero-day safety.\n' > "$neg"
+  local neg_hits
+  neg_hits=$(grep -nEi 'bulletproof|zero-day safety|zero downtime|sub-millisecond|sub-milliseconds' "$neg" 2>/dev/null \
+    | grep -viE 'benchmark|threat model|measured|measurement|acceptance criteria|acceptance criterion|deferred' || true)
+  if [[ -n "$neg_hits" ]]; then
+    ok "rule124_absolute_claim_neg" "unsupported absolute security wording is detected"
+  else
+    fail "rule124_absolute_claim_neg" "expected unsupported absolute security wording to fail"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #

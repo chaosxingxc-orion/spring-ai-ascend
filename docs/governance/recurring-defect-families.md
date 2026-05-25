@@ -8,7 +8,7 @@ authority_refs: [ADR-0094]
 # Recurring Defect Families — Human View
 
 > **What this is.** A categorised summary of defect ROOT-CAUSE CLASSES that
-> have recurred across multiple rc waves (rc4 → rc39). The canonical
+> have recurred across multiple rc waves (rc4 → rc40). The canonical
 > machine-readable form is [`recurring-defect-families.yaml`](recurring-defect-families.yaml);
 > this `.md` is a rendered view for human readers and reviewers.
 >
@@ -45,21 +45,21 @@ authority_refs: [ADR-0094]
 
 ---
 
-## §1 — Family Summary (13 families as of rc39)
+## §1 — Family Summary (13 families as of rc40)
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
-| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 13 (rc39 formal evidence closed hand-authored release-count drift) | ⚠️ partial |
+| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 14 (rc40 proposal gates moved rule/self-test/enforcer baselines) | ⚠️ partial |
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 10 (rc39 stale Java SPI anchors) | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 6 (rc6, rc7, rc11, rc15, rc35-second-pass, rc36) | ⚠️ partial |
-| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 12 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36, rc39-formal-release-transaction) | ✅ structurally addressed (rc39 aligned HTTP, OpenAPI, deferred ledger, contract catalog, architecture-status, and formal release evidence) |
+| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 13 (rc40 corrected current-vs-forward proposal scope, package truth, and future capability claims) | ✅ structurally addressed (Rule 122/123/124 added for proposal documents) |
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 4 (rc12, rc15, rc16, rc36) | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 2 (rc21, rc39-formal-release-transaction) | ✅ closed — phase contracts + skills + formal release transaction workflow |
-| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 10 (rc17-rc22+rc27-30) | 🟡 monitoring (rc32 reopen — rc29 marked closed but rc30 surfaced a regression in check_l1_dev_view_tree.sh; cool-down rc32+rc33+rc34) |
+| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 11 (rc40 service architecture tree/SPI appendix drift) | 🟡 monitoring (rc40 resets cool-down; service architecture now separates active SPI interfaces from structural carriers) |
 | 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, deferred) |
 | 13 | F-nonatomic-run-status-write | Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants | 5 (rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction) | 🟡 monitoring (rc39 broadened to tenant-owned runtime state; RunRepository SPI made abstract, save calls source-guarded to create-only sites, TaskStateStore writes made atomic) |
 
@@ -99,6 +99,12 @@ baselines against the fork's base (claiming 133 gate rules / 238
 self-tests vs live-on-merge-target 135 / 226). The prevention rules catch
 doc-vs-baseline disagreement but not baselines computed against the wrong
 tree — recompute every count against the merge target, not the branch point.
+
+**rc40 recurrence.** Corrective proposal gates changed live counts
+(135→138 active gate rules, 239→245 gate self-tests, 168→171 enforcer rows).
+The fix is the same release-time discipline: regenerate the shadow gate corpus
+and update `architecture-status.yaml`, `gate/README.md`, enforcer rows, and
+release evidence together.
 
 ---
 
@@ -207,6 +213,15 @@ demand a families.yaml content-diff in each post-merge commit, even when
 the squash payload of the first PR in the train already carried one.
 Candidate W2 remediation: cumulative-since-last-families-bump signal
 detection, or merge-train pattern recognition in `gate/lib/check_recurring_families.sh`.
+
+**rc40 recurrence.** The agent-execution-engine proposal mixed current,
+accepted-forward, and W2+ exploratory claims: immediate W0/W1 scope appeared
+beside pending boundary contracts, non-current package/executor names, and
+future dynamic compiler/APG/sandbox capability language. Rule 122 rejects
+proposal documents that claim immediate execution while still carrying pending
+contracts; Rule 123 rejects non-current engine package/executor claims unless
+marked proposed/future; Rule 124 rejects unsupported absolute safety/performance
+phrasing unless backed by evidence or explicitly deferred.
 
 rc35-second-pass adds a SIXTH micro-scale — *intra-PR squash-pattern
 micro-recurrence*. The first-pass corrective commit (79a5dfc6) touched
@@ -421,6 +436,9 @@ as a parity surface against `module-metadata.yaml#spi_packages` /
 `docs/contracts/contract-catalog.md` / `docs/dfx/<module>.yaml`.
 Rule R-D enforces three-way parity (catalog ↔ metadata ↔ DFX) but
 not against the human-readable L1 architecture document.
+rc40 adds a service-module recurrence: `agent-service/ARCHITECTURE.md`
+omitted live platform/runtime package directories from the Development View and
+counted structural carriers in the SPI appendix as active SPI interfaces.
 
 **Surfaces.**
 
@@ -443,12 +461,10 @@ not against the human-readable L1 architecture document.
   live (L3 live-corpus self-check per `/reviewer-feedback-self-check`
   methodology).
 
-**Cleanup status.** `structurally_addressed` — Rule G-1.1 ratifies
-the depth/grounding discipline AND the rc22 wave brings every existing
-L1 ARCHITECTURE.md into compliance. Sub-clause .c arms for W3+ when L2
-docs land. Rc22.5 (package-root migration per ADR-0104) strips the
-forward-compatibility `<!-- root-migration-target -->` markers and
-revalidates the rule under the new namespace.
+**Cleanup status.** `monitoring` — Rule G-1.1 ratifies the depth/grounding
+discipline, but rc40 resets the cool-down because a live service architecture
+document again drifted from code reality. The appendix now separates the 7
+active Java SPI interfaces from SPI-adjacent structural carriers.
 
 **Open residual.** The SPI Appendix scanner now requires 4 surfaces
 to agree (catalog + metadata + DFX + ARCHITECTURE.md appendix). A
@@ -460,7 +476,9 @@ derived L1 SPI section). **rc32 reopen:** rc30 surfaced a new
 occurrence (sed delimiter collision in `check_l1_dev_view_tree.sh`
 made Rule 118 silently pass every input). The family was prematurely
 marked closed at rc29; reset to `monitoring` for a 3-rc cool-down
-(rc32 + rc33 + rc34) per the rc20 / ADR-0097 convention.
+(rc32 + rc33 + rc34) per the rc20 / ADR-0097 convention. **rc40 reset:**
+the same cool-down restarts after the service architecture tree/SPI appendix
+drift.
 
 ---
 

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "tools/codegraph/node_modules/@colbymchenry/codegraph/npm-shim.js",
+        "serve",
+        "--mcp"
+      ]
+    }
+  }
+}
