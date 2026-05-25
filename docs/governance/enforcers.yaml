@@ -1478,3 +1478,27 @@
   view: development
   artifact: gate/check_architecture_sync.sh#whitebox_quality_reports
   asserts: "Maven quality reports exist; SpotBugs high-confidence findings and Checkstyle hard-style findings fail the gate while PMD findings are summarized as review triggers"
+
+- id: E170
+  constraint_ref: "Rule G-2 (Authority-Text Reality); 2026-05-25 agent execution engine readiness review"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#proposal_immediate_scope_pending_contract_guard
+  asserts: "Rule 122 — proposal documents under docs/logs/reviews/*proposal*.md MUST NOT claim immediate W0/W1 execution scope while the same document still carries pending boundary-contract refinement work. Prevents design drafts from becoming accidental release authority."
+
+- id: E171
+  constraint_ref: "Rule G-8 (Cross-Authority Parity); 2026-05-25 agent execution engine readiness review"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#proposal_engine_package_truth
+  asserts: "Rule 123 — proposal FQNs MUST NOT contradict current engine/service package authority unless marked proposed/future/candidate/exploratory on the same line. Current engine-owned packages live under com.huawei.ascend.engine.*; current service-owned StatelessEngine lives under com.huawei.ascend.service.engine.spi."
+
+- id: E172
+  constraint_ref: "Rule G-2 (Authority-Text Reality); 2026-05-25 agent execution engine readiness review"
+  kind: gate-script
+  level: L0
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#unsupported_absolute_claim_guard
+  asserts: "Rule 124 — proposal documents MUST NOT use absolute security/performance claims such as bulletproof, zero-day safety, zero downtime, or sub-millisecond unless the same line anchors the claim to benchmark, measurement, threat-model, acceptance-criterion, or deferred-scope wording."

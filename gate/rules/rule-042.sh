@@ -17,8 +17,8 @@ elif [[ ! -f docs/governance/architecture-graph.yaml ]]; then
   fail_rule "architecture_graph_idempotent" "docs/governance/architecture-graph.yaml not present — run bash gate/build_architecture_graph.sh first"
   _r42_fail=1
 else
-  _r42_a="$(mktemp 2>/dev/null || echo /tmp/r42_a.yaml)"
-  _r42_b="$(mktemp 2>/dev/null || echo /tmp/r42_b.yaml)"
+  _r42_a="$(mktemp 2>/dev/null || echo /tmp/r42_a.$$.yaml)"
+  _r42_b="$(mktemp 2>/dev/null || echo /tmp/r42_b.$$.yaml)"
   cp docs/governance/architecture-graph.yaml "$_r42_a" 2>/dev/null || true
   if ! bash gate/build_architecture_graph.sh > /dev/null 2>&1; then
     fail_rule "architecture_graph_idempotent" "graph build failed during idempotency probe"

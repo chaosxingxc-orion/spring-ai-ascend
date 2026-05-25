@@ -21,6 +21,7 @@
 #   2026-05-18 rc7 post-corrective review response: Rules 88-89 (enforcers E121-E122).
 #   2026-05-19 rc8 post-corrective review response (rc9 wave): Rules 91-96 (enforcers E123-E134).
 #   Code whitebox quality baseline: Rule 121 (enforcer E169).
+#   Agent-execution-engine readiness prevention: Rules 122-124 (enforcers E170-E172).
 # Exits 0 if all rules pass, 1 if any fail.
 # Each rule prints PASS: <name> or FAIL: <name> -- <reason>.
 # Prints GATE: PASS or GATE: FAIL at the end.
@@ -141,6 +142,9 @@
 #  99.  kernel_terminal_verb_vs_shipped_decision_check  -- For every #### Rule N kernel block in CLAUDE.md with a matching ## Rule N.<letter> sub-clause in CLAUDE-deferred.md, the kernel MUST NOT use end-state verb tokens (`are SUSPENDED`, `is SUSPENDED`, `transitions to FAILED`, `consumes the * capacity`, `is rejected, not failed`, `admits the caller`) that overclaim shipped behaviour. Closes rc10 P1-1 (J-α family; Rule 41 kernel said "callers are SUSPENDED" while shipped code returns SkillResolution.reject — the actual transition is deferred to Rule 41.c).
 #  100. kernel_implementation_disjunction_truth        -- For every rule in gate/rule-100-disjunction-allowlist.txt, BOTH the #### Rule N kernel block in CLAUDE.md AND the matching docs/governance/rules/rule-NN.md card MUST contain explicit disjunction wording (EITHER / OR / either surface / either ... or). Closes rc10 P1-3 (J-γ family; Rule 96 kernel said "MUST contain" while impl accepted EITHER kernel OR card — kernel-AND-impl-OR drift in the rule whose job is preventing such drift).
 #  121. whitebox_quality_reports                     -- Maven SpotBugs/PMD/Checkstyle reports exist; high-confidence SpotBugs + hard-style Checkstyle findings block, PMD is review-trigger summary (Rule G-12, enforcer E169)
+#  122. proposal_immediate_scope_pending_contract_guard -- proposal docs must not claim immediate W0/W1 scope while same boundary contracts are still pending (Rule G-2, enforcer E170)
+#  123. proposal_engine_package_truth                 -- proposal FQNs must not contradict current engine/service package authority unless explicitly marked proposed (Rule G-8, enforcer E171)
+#  124. unsupported_absolute_claim_guard              -- proposal security/performance absolutes require evidence wording (Rule G-2, enforcer E172)
 
 set -uo pipefail
 export LC_ALL=C
@@ -977,7 +981,8 @@ from pathlib import Path
 LINK_RE = re.compile(r'\]\(([^)]+)\)')
 EXCLUDE_DIRS = ('./docs/archive/', './docs/logs/', './docs/adr/',
                 './docs/delivery/', './docs/v6-rationale/', './docs/plans/',
-                './third_party/', './target/', './.git/')
+                './third_party/')
+EXCLUDE_DIR_NAMES = {'target', '.git', 'node_modules'}
 
 def is_excluded(p: str) -> bool:
     return any(p.startswith(d) for d in EXCLUDE_DIRS)
@@ -985,7 +990,11 @@ def is_excluded(p: str) -> bool:
 violations = []
 for root, dirs, files in os.walk('.', topdown=True):
     # Prune excluded dirs in-place.
-    dirs[:] = [d for d in dirs if not is_excluded(os.path.join(root, d) + '/')]
+    dirs[:] = [
+        d for d in dirs
+        if d not in EXCLUDE_DIR_NAMES
+        and not is_excluded(os.path.join(root, d) + '/')
+    ]
     for fn in files:
         if not fn.endswith('.md'):
             continue
@@ -6780,6 +6789,63 @@ else
 fi
 [[ $_r121_fail -eq 0 ]] && pass_rule "whitebox_quality_reports"
 
+# ---------------------------------------------------------------------------
+# Rule 122 — proposal_immediate_scope_pending_contract_guard (enforcer E170)
+#
+# Design proposals under docs/logs/reviews/ may be exploratory, but they MUST
+# NOT claim immediate W0/W1 execution scope while the same document still says
+# the boundary contracts are pending. This prevents release-readiness drift
+# where a draft looks like current release authority.
+# ---------------------------------------------------------------------------
+_r122_fail=0
+for _r122_file in docs/logs/reviews/*proposal*.md; do
+  [[ -f "$_r122_file" ]] || continue
+  if grep -qiE 'Target Wave:[^[:cntrl:]]*(W0/W1|Immediate Execution)' "$_r122_file" \
+     && grep -qiE 'Pending Refinement|pending gaps|pending contract|pending refinement|TODO annotations' "$_r122_file"; then
+    fail_rule "proposal_immediate_scope_pending_contract_guard" "$_r122_file claims immediate W0/W1 scope while carrying pending boundary-contract work -- Rule G-2 / E170"
+    _r122_fail=1
+  fi
+done
+[[ $_r122_fail -eq 0 ]] && pass_rule "proposal_immediate_scope_pending_contract_guard"
+
+# ---------------------------------------------------------------------------
+# Rule 123 — proposal_engine_package_truth (enforcer E171)
+#
+# Proposal FQNs must respect current package authority unless explicitly marked
+# proposed/future on the same line. Current authority is:
+#   - engine-owned SPI/runtime under com.huawei.ascend.engine.*
+#   - service-owned StatelessEngine under com.huawei.ascend.service.engine.spi
+# ---------------------------------------------------------------------------
+_r123_fail=0
+for _r123_file in docs/logs/reviews/*proposal*.md; do
+  [[ -f "$_r123_file" ]] || continue
+  _r123_hits=$(grep -nE 'com\.huawei\.ascend\.agent\.engine|StatelessEngineExecutor' "$_r123_file" 2>/dev/null \
+    | grep -viE 'proposed|future|candidate|exploratory|not current' || true)
+  if [[ -n "$_r123_hits" ]]; then
+    fail_rule "proposal_engine_package_truth" "$_r123_file contains engine/service FQN or signature claims not marked proposed: ${_r123_hits//$'\n'/; } -- Rule G-8 / E171"
+    _r123_fail=1
+  fi
+done
+[[ $_r123_fail -eq 0 ]] && pass_rule "proposal_engine_package_truth"
+
+# ---------------------------------------------------------------------------
+# Rule 124 — unsupported_absolute_claim_guard (enforcer E172)
+#
+# Security/performance absolutes in proposal docs invite false release claims.
+# The terms below are allowed only when the same line points at evidence such as
+# a benchmark, threat model, measurement, or acceptance criterion.
+# ---------------------------------------------------------------------------
+_r124_fail=0
+for _r124_file in docs/logs/reviews/*proposal*.md; do
+  [[ -f "$_r124_file" ]] || continue
+  _r124_hits=$(grep -nEi 'bulletproof|zero-day safety|zero downtime|sub-millisecond|sub-milliseconds' "$_r124_file" 2>/dev/null \
+    | grep -viE 'benchmark|threat model|measured|measurement|acceptance criteria|acceptance criterion|deferred' || true)
+  if [[ -n "$_r124_hits" ]]; then
+    fail_rule "unsupported_absolute_claim_guard" "$_r124_file contains unsupported absolute claim(s): ${_r124_hits//$'\n'/; } -- Rule G-2 / E172"
+    _r124_fail=1
+  fi
+done
+[[ $_r124_fail -eq 0 ]] && pass_rule "unsupported_absolute_claim_guard"
 # === END OF RULES ===
 # ---------------------------------------------------------------------------
 if [[ $fail_count -eq 0 ]]; then

@@ -13,7 +13,7 @@
 _r28d_fail=0
 _oos_names='LLMGateway|PostgresCheckpointer|SkillRegistry|HookChain|SpawnEnvelope|LogicalCallHandle|ConnectionLease|AdmissionDecision|BackpressureSignal|ChronosHydration|SandboxExecutor'
 _28d_hits=$(grep -rnE "\\b($_oos_names)\\b" \
-  agent-service/src/main/java agent-service/src/main/java 2>/dev/null || true)
+  agent-*/src/main/java 2>/dev/null || true)
 if [[ -n "$_28d_hits" ]]; then
   fail_rule "out_of_scope_name_guard" "W2+ out-of-scope name detected in main sources:\n$_28d_hits\nPer Rule 28d / enforcer E26 / plan §13."
   _r28d_fail=1

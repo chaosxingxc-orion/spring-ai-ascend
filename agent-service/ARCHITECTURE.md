@@ -729,12 +729,15 @@ agent-service/
     └── com/huawei/ascend/service/
         ├── platform/                          # HTTP edge (current; §2.A)
         │   ├── auth/                          # JwtDecoderConfig, AuthProperties, JwtTenantClaimCrossCheck
+        │   ├── engine/                        # StatelessEngineAutoConfiguration and adapter wiring
         │   ├── tenant/                        # TenantContextFilter, TenantContextHolder, MDC binding
         │   ├── idempotency/                   # IdempotencyHeaderFilter, IdempotencyStore (historical platform interface; not under .spi per Rule R-D.d), jdbc/, inmemory/
         │   ├── observability/                 # TenantTagMeterFilter, TraceExtractFilter
+        │   ├── persistence/                   # DataSource / database presence conditions
         │   ├── posture/                       # PostureBootGuard
-        │   ├── web/                           # HealthController, runs/RunController, runs/RunHttpExceptionMapper
-        │   └── architecture/                  # ArchUnit tests
+        │   ├── probe/                         # platform probe auto-configuration
+        │   ├── resilience/                    # resilience auto-configuration
+        │   └── web/                           # HealthController, runs/RunController, runs/RunHttpExceptionMapper
         ├── runtime/                           # Run kernel (current; §2.B)
         │   ├── runs/                          # Run, RunStatus, RunStateMachine, RunMode, spi/RunRepository
         │   ├── orchestration/                 # inmemory/ (SyncOrchestrator, SequentialGraphExecutor, IterativeAgentLoopExecutor, InMemoryCheckpointer, InMemoryRunRegistry)
@@ -742,6 +745,8 @@ agent-service/
         │   ├── memory/                        # spi/GraphMemoryRepository
         │   ├── s2c/                           # InMemoryS2cCallbackTransport (consumes bus.spi.s2c)
         │   ├── idempotency/                   # IdempotencyRecord contract-spine entity
+        │   ├── evolution/                     # evolution export boundary hooks
+        │   ├── posture/                       # runtime posture helpers
         │   └── probe/                         # OssApiProbe
         ├── dispatcher/                        # rc22 — Polymorphic Dispatcher (sub-package declared; impl rc23)
         ├── orchestrator/                      # rc22 — Reactive Orchestrator (sub-package declared; impl rc23)
@@ -761,21 +766,33 @@ Mode-B (Business-Centric per ADR-0101): `agent-service` deploys on the business 
 
 ## *SPI Interface Appendix* (Rule G-1.1.b — rc22 / ADR-0099)
 
-`agent-service` produces 9 SPI surfaces (cross-validates against `module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`, `docs/dfx/agent-service.yaml`):
+`agent-service` publishes 7 active Java SPI interfaces (cross-validates against `module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`, `docs/dfx/agent-service.yaml`). Records, sealed carriers, and enums in the same packages are listed separately and are not counted as SPI interfaces.
+
+### Active Java SPI interfaces
 
 | Interface FQN | SPI package | Purpose | Status |
 |---|---|---|---|
 | `com.huawei.ascend.service.runtime.runs.spi.RunRepository` | `service.runtime.runs.spi` | Run persistence (in-memory ref impl ships; durable W2) | shipped |
 | `com.huawei.ascend.service.runtime.memory.spi.GraphMemoryRepository` | `service.runtime.memory.spi` | Memory SPI (consumer impl in spring-ai-ascend-graphmemory-starter) | shipped |
 | `com.huawei.ascend.service.runtime.resilience.spi.ResilienceContract` | `service.runtime.resilience.spi` | Operation-routing SPI (`resolve(tenant, skill)`) | shipped |
-| `com.huawei.ascend.service.runtime.resilience.spi.ResiliencePolicy` | `service.runtime.resilience.spi` | Per-operation policy carrier | shipped |
-| `com.huawei.ascend.service.runtime.resilience.spi.SkillResolution` | `service.runtime.resilience.spi` | Sealed decision envelope (accept / reject) | shipped |
-| `com.huawei.ascend.service.runtime.resilience.spi.SuspendReason` | `service.runtime.resilience.spi` | Reason enum for SUSPENDED transitions | shipped |
 | `com.huawei.ascend.service.runtime.resilience.spi.SkillCapacityRegistry` | `service.runtime.resilience.spi` | Tenant × skill capacity lookup | shipped |
-<!-- rc29 ADV3-1: IdempotencyStore moved OUT of this SPI table — it lives in `service.platform.idempotency` (no `.spi` infix), so per Rule R-D.d it does NOT qualify as a Java SPI surface. Documented in §2.A platform/idempotency body text as a "platform-internal extension interface (historical placement)". The contract-catalog.md §2 SPI table is the authoritative SPI list (19 total post-rc28); this ARCHITECTURE.md appendix tracks the same set. -->
 | `com.huawei.ascend.service.engine.spi.StatelessEngine` | `service.engine.spi` | NEW rc22 — pure-function engine SPI per ADR-0100 | declared (impl rc24) |
 | `com.huawei.ascend.service.session.spi.ContextProjector` | `service.session.spi` | NEW rc22 — projects SessionContext | declared (impl rc24) |
 | `com.huawei.ascend.service.task.spi.TaskStateStore` | `service.task.spi` | NEW rc22 — TaskControlState persistence | declared (impl rc24) |
+
+### SPI-adjacent structural carriers
+
+These types live near the SPI packages because they are request, response, or decision carriers. They are contract-relevant, but they are not extension interfaces and are not included in the 7-interface count.
+
+| Carrier type | Home | Purpose |
+|---|---|---|
+| `ResiliencePolicy` | `service.runtime.resilience.spi` | Per-operation policy carrier returned by resilience resolution |
+| `SkillResolution` | `service.runtime.resilience.spi` | Sealed accept/reject decision envelope |
+| `SuspendReason` | `service.runtime.resilience.spi` | Sealed reason taxonomy for suspension and rate-limit decisions |
+| `AgentInvokeRequest` | `service.engine.spi` | Immutable service-to-engine invocation carrier |
+| `StateDelta` | `service.engine.spi` | Immutable engine result carrier with typed run transition hint |
+| `Session` | `service.session` | Session aggregate used by the reference projector |
+| `Task` | `service.task` | Task aggregate used by the reference task-state store |
 
 ## *L2 Constraint Linkage* (Rule G-1.1.c — rc22 / ADR-0099)
 

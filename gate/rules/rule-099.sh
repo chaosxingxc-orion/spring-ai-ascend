@@ -37,29 +37,45 @@ else
   # Per-invocation tempfile (mktemp + trap-style cleanup below) so two
   # concurrent gate runs cannot race on a shared /tmp/_r99_hits.<pid> path.
   _r99_hits_file="$(mktemp -t r99_hits.XXXXXX)"
-  # Build set of rule numbers that have deferred sub-clauses
-  _r99_deferred_nums=$(grep -oE '^## Rule [0-9]+\.[a-z]' "$_r99_deferred" \
-    | sed -E 's/^## Rule //; s/\..*$//' | sort -u | tr '\n' ' ')
-  # For every #### Rule N block in CLAUDE.md, check kernel body for end-state verbs.
+  # Build the set of parent rule ids (namespaced or legacy) that have >=1 deferred
+  # sub-clause. Post-rc16 deferred headings are namespaced; resolve each to its
+  # longest-prefix active #### Rule id (mirrors Rule 96).
+  _r99_ids=$(grep -oE '^#### Rule [A-Za-z0-9.-]+' "$_r99_claude" | sed -E 's/^#### Rule //')
+  _r99_deferred_nums=""
+  while IFS= read -r _r99_head; do
+    [[ -z "$_r99_head" ]] && continue
+    _r99_raw="${_r99_head%% — *}"
+    _r99_norm="$(printf '%s' "$_r99_raw" | sed -E 's/ sub-clause \././g; s/[[:space:]]+$//')"
+    case "$_r99_norm" in *.*) ;; *) continue ;; esac
+    _r99_try="$_r99_norm"
+    while [[ "$_r99_try" == *.* ]]; do
+      _r99_try="${_r99_try%.*}"
+      if printf '%s\n' "$_r99_ids" | grep -qxF "$_r99_try"; then
+        _r99_deferred_nums="${_r99_deferred_nums}${_r99_try} "; break
+      fi
+    done
+  done < <(grep -E '^## Rule ' "$_r99_deferred" | sed -E 's/^## Rule //')
+  _r99_deferred_nums=$(printf '%s\n' $_r99_deferred_nums | sort -u | tr '\n' ' ')
+  # For every #### Rule <id> block whose id has a deferred sub-clause, check the
+  # kernel body for end-state verbs implying shipped Run-state transitions. Uses
+  # 2-arg match() (POSIX-portable; no gawk-only 3-arg array extension).
   awk -v end_verbs="$_r99_end_verbs" -v defnums="$_r99_deferred_nums" '
     BEGIN { rule = ""; body = "" }
-    /^#### Rule [0-9]+/ {
+    /^#### Rule / {
       if (rule) emit()
-      match($0, /^#### Rule ([0-9]+)/, m)
-      rule = m[1]
+      line = $0; sub(/^#### Rule /, "", line); sub(/[ \t].*$/, "", line)
+      rule = line
       body = ""
       next
     }
     /^---$/ && rule { emit(); rule = ""; next }
     rule { body = body $0 " " }
     END { if (rule) emit() }
-    function emit() {
-      # Does this rule have a deferred sub-clause?
+    function emit(   has_deferred, n, dn, i, v) {
       has_deferred = 0
       n = split(defnums, dn, " ")
       for (i = 1; i <= n; i++) if (dn[i] == rule) has_deferred = 1
       if (!has_deferred) return
-      # Test body for any end-state verb
       if (body ~ end_verbs) {
         match(body, end_verbs)
         v = substr(body, RSTART, RLENGTH)
@@ -69,6 +85,12 @@ else
   ' "$_r99_claude" > "$_r99_hits_file"
   _r99_violations=$(cat "$_r99_hits_file")
   rm -f "$_r99_hits_file"
+  # Non-vacuity guard: post-rc16 the numeric-only heading regex resolved 0 parents
+  # and the rule silent-passed. Require >=1 resolved parent (F-kernel-vs-impl-drift).
+  if [[ -z "${_r99_deferred_nums// /}" ]]; then
+    fail_rule "kernel_terminal_verb_vs_shipped_decision_check" "Rule 99 resolved 0 deferred-sub-clause parents — driver is vacuous (heading-format drift). Per Rule 99 / E139."
+    _r99_fail=1
+  fi
   if [[ -n "$_r99_violations" ]]; then
     _r99_first=$(echo "$_r99_violations" | head -3 | tr '\n' '|')
     fail_rule "kernel_terminal_verb_vs_shipped_decision_check" "active rule kernel uses end-state verb implying shipped Run-state transition, but matching Rule N.<letter> deferred sub-clause exists (kernel is overclaiming shipped behaviour): ${_r99_first}-- Rule 99 / E139 (rc10 post-corrective P1-1 closure; narrow kernel verb to decision-envelope behaviour OR remove the deferred sub-clause if behaviour has actually shipped)"

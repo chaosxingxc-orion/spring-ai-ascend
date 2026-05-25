@@ -14,8 +14,8 @@ _r38_fail=0
 if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
   fail_rule "architecture_graph_well_formed" "neither python3 nor python on PATH — required for gate/build_architecture_graph.py (CLAUDE.md Rule 34)"; _r38_fail=1
 else
-  _r38_tmp1="$(mktemp 2>/dev/null || echo /tmp/r38_a.yaml)"
-  _r38_tmp2="$(mktemp 2>/dev/null || echo /tmp/r38_b.yaml)"
+  _r38_tmp1="$(mktemp 2>/dev/null || echo /tmp/r38_a.$$.yaml)"
+  _r38_tmp2="$(mktemp 2>/dev/null || echo /tmp/r38_b.$$.yaml)"
   # Build twice, diff outputs (idempotency).
   if ! bash gate/build_architecture_graph.sh > /dev/null 2> "$_r38_tmp1"; then
     fail_rule "architecture_graph_well_formed" "gate/build_architecture_graph.sh failed: $(cat "$_r38_tmp1")"; _r38_fail=1

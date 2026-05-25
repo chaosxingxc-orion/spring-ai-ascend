@@ -19,7 +19,8 @@ from pathlib import Path
 LINK_RE = re.compile(r'\]\(([^)]+)\)')
 EXCLUDE_DIRS = ('./docs/archive/', './docs/logs/', './docs/adr/',
                 './docs/delivery/', './docs/v6-rationale/', './docs/plans/',
-                './third_party/', './target/', './.git/')
+                './third_party/')
+EXCLUDE_DIR_NAMES = {'target', '.git', 'node_modules'}
 
 def is_excluded(p: str) -> bool:
     return any(p.startswith(d) for d in EXCLUDE_DIRS)
@@ -27,7 +28,11 @@ def is_excluded(p: str) -> bool:
 violations = []
 for root, dirs, files in os.walk('.', topdown=True):
     # Prune excluded dirs in-place.
-    dirs[:] = [d for d in dirs if not is_excluded(os.path.join(root, d) + '/')]
+    dirs[:] = [
+        d for d in dirs
+        if d not in EXCLUDE_DIR_NAMES
+        and not is_excluded(os.path.join(root, d) + '/')
+    ]
     for fn in files:
         if not fn.endswith('.md'):
             continue

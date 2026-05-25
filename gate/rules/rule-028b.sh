@@ -11,7 +11,7 @@
 _r28b_fail=0
 _forbidden_tag_pattern='Tag\.of\(\s*"(run_id|idempotency_key|jwt_sub|body)"'
 _28b_hits=$(grep -rnE "$_forbidden_tag_pattern" \
-  agent-service/src/main/java agent-service/src/main/java 2>/dev/null || true)
+  agent-*/src/main/java 2>/dev/null || true)
 if [[ -n "$_28b_hits" ]]; then
   fail_rule "high_cardinality_tag_guard" "Forbidden high-cardinality metric tag found:\n$_28b_hits\nPer Rule 28b / enforcer E19."
   _r28b_fail=1
