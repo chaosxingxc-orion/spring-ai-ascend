@@ -1,7 +1,9 @@
 # Spring-AI-Ascend Architecture Review and Comparison Report
 
+> **Slug placeholder note (added 2026-05-26 per rc53-wave-5 / family `F-placeholder-leaks-into-active-corpus`)**: the curly-brace token `{wanshoulu}` in this file's slug is an anonymous-name placeholder (万寿路 — a Beijing street name used as a code-name for the original reviewer). The slug is retained for stable-URL preservation per `docs/governance/logs-folder-policy.md`; the placeholder leak is now documented rather than scrubbed to avoid breaking inbound links. Future review-document slugs use thematic naming (e.g., `agent-service-l1-4plus1-rewrite-wave-1` style).
+>
 > **Purpose**: A comprehensive architecture review comparing Spring-AI-Ascend with OpenJiuwen and Claude Code, identifying design gaps and improvement recommendations
-> 
+>
 > **Version**: 1.0 | **Date**: 2026-05-13
 
 ---

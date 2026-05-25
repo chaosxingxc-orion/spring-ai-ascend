@@ -1,6 +1,6 @@
 id: ADR-0136
 title: "Vocabulary Reconciliation: PR 71 'Task' ≡ existing platform Task entity (not Run alias); Run / Task / Session / Memory 4-layer hierarchy preserved per ADR-0100"
-status: proposed
+status: accepted
 date: 2026-05-26
 level: L1
 view: scenarios

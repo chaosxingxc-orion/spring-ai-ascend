@@ -1246,3 +1246,47 @@ Every row has an authority anchor — Rule M-2.b spirit satisfied. Future L2 aut
 - **G-E non-vacuity**: §18 tree maps all 5 logical layers to filesystem paths (verified via `find` against actual `agent-service/src/main/java/com/huawei/ascend/service/` tree); §19.1 lists 9 SPI interfaces with sub-package + status + authority (cross-checked against `module-metadata.yaml` lines 13-20); §20 has 5 L2 zones × 3-4 rows + F-01..F-22 inventory with `authority:` per row.
 - **G-F documentation**: this Closure block.
 
+---
+
+# Wave 5 — Rule + Contract Cascade
+
+> Wave 5 of 6 (rc53-wave-5). Per the §6 ADR Slate and the Wave 1 deferred-sibling list (§9), this wave promotes the 4 ADRs to accepted and closes the 3 deferred siblings.
+
+## 21. ADR Promotion (proposed → accepted)
+
+| ADR | Title | Status (Wave 5) |
+|---|---|---|
+| ADR-0136 | Vocabulary Reconciliation: PR 71 "Task" ≡ existing platform Task entity (not Run alias) | **accepted** |
+| ADR-0137 | SuspendSignal Canonical; InterruptSignal / InterruptReason are L1 Glossary Synonyms | **accepted** |
+| ADR-0138 | Agent Service 5-Layer L1 Ratification | **accepted** |
+| ADR-0139 | Fast-Path / Slow-Path Narrowed Semantics | **accepted** |
+
+## 22. Rule + Contract Catalog Verification
+
+- **Rule cards** (R-C.2 / R-M / R-J / R-H / R-D / R-E / R-K / G-1.1 / G-3): no kernel text changes required — the L1 rewrite uses shipped vocabulary; ADR-0136 + ADR-0137 + ADR-0138 + ADR-0139 are doc-level reconciliation, not Rule kernel mutations.
+- **CLAUDE.md kernel**: no changes (vocabulary unchanged).
+- **`docs/contracts/contract-catalog.md` §2**: verified to already contain all 9 agent-service SPI rows (RunRepository, GraphMemoryRepository, ResilienceContract, SkillCapacityRegistry, StatelessEngine, ContextProjector, TaskStateStore, Agent, AgentRegistry); 4-way parity intact.
+- **`agent-service/module-metadata.yaml#spi_packages`**: 7 packages declared (lines 13-20), no changes.
+- **`docs/dfx/agent-service.yaml#spi_packages`**: pre-existing parity maintained.
+
+No Wave 5 changes to Rule cards, CLAUDE.md, contract-catalog, module-metadata, or DFX file — the L1 reconciliation is doc-only.
+
+## 23. Wave 1 Deferred Sibling Closure
+
+Three deferred siblings from §9 closed:
+
+| Family | Deferred sibling | Wave 5 action taken |
+|---|---|---|
+| F-design-doc-violates-three-track-bus | `docs/logs/reviews/2026-05-22-agent-service-l1-expansion-proposal.{en,cn}.md` "internal queue" prose | Inline **(Updated 2026-05-26 per ADR-0138 §3 red-line c, post-rc53-wave-1)** annotation added to §1.3.4 paragraph in both .en and .cn — binds the internal-queue concept to `bus-channels.yaml` three-track manifest; cross-links to Wave 1 §15.1 / §17.3 |
+| F-design-doc-language-bypasses-invariant | Same file's "compact edge deployment" / "stateless and semi-persistence" Fast-Path prose | Inline **(Updated 2026-05-26 per ADR-0139 narrowed Fast-Path semantics, post-rc53-wave-1)** annotation added to §1.3.4 Stateless/Semi-persistence paragraph in both .en and .cn — pins Rule R-G + R-H + R-J.a invariants; cross-links to Wave 1 §4.4 + §16.2 |
+| F-placeholder-leaks-into-active-corpus | `docs/logs/reviews/2026-05-13-{wanshoulu}-wave-N-request.md` slug | Top-of-file **slug placeholder note** added explaining `{wanshoulu}` is a code-name placeholder retained for stable-URL preservation per logs-folder-policy; future review-document slugs use thematic naming |
+
+## 24. Wave 5 Closure (G-A..G-F)
+
+- **G-A direct fix**: 4 ADRs promoted; 3 deferred siblings closed via inline annotations.
+- **G-B classification**: 0 new findings during Wave 5.
+- **G-C sibling sweep**: re-ran the 3 closed siblings' fingerprints — `Grep` confirms each annotated paragraph now contains the binding citation (three-track) / invariant-preservation pin (Fast-Path) / placeholder note (wanshoulu slug). 0 new sibling hits.
+- **G-D continuous fix**: all 3 Wave 1 deferred siblings now closed in this wave.
+- **G-E non-vacuity**: ADR YAML schema check (Wave 1 already verified); contract-catalog §2 row check (Wave 4 §19 already verified — agent-service has 9 SPI rows); module-metadata.yaml spi_packages count = 7 (verified Wave 4); dfx_packages parity (verified Wave 4).
+- **G-F documentation**: this Closure block.
+

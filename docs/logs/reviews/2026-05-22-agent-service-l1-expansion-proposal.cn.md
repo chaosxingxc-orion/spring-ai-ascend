@@ -59,8 +59,8 @@ status: proposed
 #### 1.3.4 服务级背压与无状态原则（Reactive & Stateless）
 - **接口响应式设计（Reactive API）**：智能体服务端接口全面采用响应式设计。通过背压（Backpressure）机制，向上与总线/客户端形成系统级流量协调，向下保护执行引擎。
 - **双模入参流量适配（Pull & Push）**：服务本身除了支持主动从事件总线拉取（Pull）任务外，还需支持外部直接推送（Push）请求（如 HTTP/gRPC 直连），两者在响应式流控中统一适配。
-- **基于内部队列的非阻塞解耦（Asynchronous Decoupling）**：服务层内部引入高吞吐的“事件/任务队列”。请求到达后先快速发布（Publish）任务，再由后台线程异步消费（Consume）并派发给执行引擎。
-- **无状态与缓存/半持久化**：
+- **基于内部队列的非阻塞解耦（Asynchronous Decoupling）**：服务层内部引入高吞吐的"事件/任务队列"。请求到达后先快速发布（Publish）任务，再由后台线程异步消费（Consume）并派发给执行引擎。**（2026-05-26 rc53-wave-5 按 ADR-0138 §3 红线 c 更新）**：此"内部队列"是规范化 **三轨物理隔离总线**（`docs/governance/bus-channels.yaml`，Rule R-E）在 agent-service 进程内的本地化绑定层 — `control`（高优先级、out-of-band）/ `data`（in-band、重载，16 KiB inline 上限）/ `rhythm`（心跳 / liveness）。Producer / Consumer 按 event intent 路由，**不按存储等级**；持久化是 `bus-channels.yaml` 中每通道独立声明的属性。规范映射见 `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md` §15.1 / §17.3。
+- **无状态与缓存/半持久化**（**2026-05-26 rc53-wave-5 按 ADR-0139 窄化 Fast-Path 语义更新**：任何"业务中心模式 / 内存级队列 / 紧凑部署"Fast-Path 理解必须保留 Rule R-G 反应式 I/O + Rule R-H 无 Thread.sleep + Rule R-J.a 含 tenant_id 表 RLS 的不变量；Fast-Path 只窄化**checkpoint/snapshot**轴，不窄化**元数据持久化**轴。每次 Fast-Path 执行 Run + Task 记录均经 RLS 持久化 — 见 `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md` §4.4 + §16.2）：
   - *在业务中心模式下*：内部事件队列可采用高效的**内存级队列**（如 JVM Reactor Sinks），实现高性能紧凑部署。
   - *在平台中心模式下*：为了保障服务层完全无状态（Stateless）、支持极致的水平弹性缩容，内部事件队列与任务状态需接入外部分布式缓存或进行**半持久化处理（Semi-persistence）**。
 
