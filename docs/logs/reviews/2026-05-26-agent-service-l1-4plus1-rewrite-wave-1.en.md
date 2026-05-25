@@ -712,3 +712,317 @@ The §3 Vocabulary Reconciliation Table at the top of this document is the canon
 - **G-E non-vacuity**: §15.2 ER block has tenantId on all 4 entities (verified); §15.3 RunStatus state machine has CAS + tenant-guard annotations on every cancel arrow (verified); §15.5 SuspendSignal flow uses the canonical Java type name (verified).
 - **G-F documentation**: Wave 2 sections appended in place; this Closure block summarises the wave.
 
+---
+
+# Wave 3 — Process View + Physical View
+
+> Appended by Wave 3 of 6 (rc53-wave-3; branch `rc53/agent-service-l1-4plus1-rewrite`).
+
+## 16. Process View
+
+5 canonical sequence diagrams. Each diagram maps directly to one of the §14 Scenarios.
+
+### 16.1 P1 — Standard Synchronous Intake → State Machine → Suspend → Resume (covers S1 + S2)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Client (Web/App)
+    participant GW as Access::Gateway
+    participant TF as TenantContextFilter
+    participant Idem as IdempotencyHeaderFilter
+    participant Run as RunController
+    participant RR as RunRepository
+    participant Orch as Orchestrator
+    participant DTR as DualTrackRouter
+    participant Reg as EngineRegistry
+    participant Exec as ExecutorAdapter
+    participant Mid as RuntimeMiddleware (HookPoint chain)
+
+    Client->>GW: POST /v1/runs<br/>X-Tenant-Id: <tid>, Idempotency-Key: <uuid>
+    GW->>TF: filter chain
+    TF->>TF: bind tenantId (JWT claim cross-check, ADR-0040)
+    TF->>Idem: forward
+    Idem->>Idem: claimOrFind(tid, key, hash) — ADR-0057
+    alt Idempotency hit
+        Idem-->>Client: 200 cached response (or 409 idempotency_conflict / 409 idempotency_body_drift)
+    else fresh request
+        Idem->>Run: pass through
+        Run->>RR: save(Run with status=PENDING, tenantId=tid)
+        RR-->>Run: Run record
+        Run->>Orch: dispatch(runId, envelope)
+        Orch->>DTR: judge(envelope, predicate)
+        alt Fast-Path eligible
+            DTR-->>Orch: FastPath
+            Orch->>RR: updateIfNotTerminal(tid, runId, RUNNING) CAS
+            Orch->>Reg: resolve(envelope)
+            Reg-->>Orch: ExecutorAdapter
+            Orch->>Exec: execute(runContext)
+            Exec->>Mid: HookPoint.before_llm / before_tool etc.
+            Mid-->>Exec: middleware result
+            Exec-->>Orch: Result (no SuspendSignal)
+            Orch->>RR: updateIfNotTerminal(tid, runId, SUCCEEDED) CAS
+            Run-->>Client: 200 RunResponse
+        else Slow-Path required
+            DTR-->>Orch: SlowPath
+            Run-->>Client: 202 TaskCursor (Rule R-F)
+            Orch->>RR: updateIfNotTerminal(tid, runId, RUNNING) CAS
+            Orch->>Reg: resolve(envelope)
+            Reg-->>Orch: ExecutorAdapter
+            Orch->>Exec: execute(runContext)
+            Exec-->>Orch: throws SuspendSignal(parentNodeKey, ...)
+            Orch->>RR: updateIfNotTerminal(tid, runId, SUSPENDED) CAS
+            Note over Orch,RR: Run is now suspended;<br/>Checkpointer persists snapshot.<br/>Client polls or uses SSE.
+        end
+    end
+```
+
+### 16.2 P2 — Fast-Path / Slow-Path Decision Tree (covers S1 / S2 divergence)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Orch as Orchestrator
+    participant DTR as DualTrackRouter (SlowTrackJudge, ADR-0112)
+    participant Run as Run record (tenantId required, Rule R-C.2.a)
+    participant RR as RunRepository (RLS-scoped writes)
+    participant Exec as ExecutorAdapter
+    participant CP as Checkpointer
+
+    Orch->>DTR: judge(envelope, runMode, estimatedDuration, externalDeps)
+    alt All Fast-Path predicates pass (ADR-0139 §3)
+        DTR-->>Orch: FastPath
+        Note over Orch,RR: Run + Task metadata STILL persisted under RLS<br/>(no skip per ADR-0139 red-line)
+        Orch->>RR: insert Run (PENDING, tenantId)
+        Orch->>RR: updateIfNotTerminal → RUNNING (CAS)
+        Orch->>Exec: execute (reactive, no Thread.sleep — Rule R-G/R-H)
+        Exec-->>Orch: Result inside Fast-Path bound
+        Orch->>RR: updateIfNotTerminal → SUCCEEDED (CAS)
+        Note over Orch: NO Checkpointer snapshot (per ADR-0139 narrowed Fast-Path)
+    else Any predicate fails (long task / external wait / cross-deployment resume)
+        DTR-->>Orch: SlowPath
+        Orch->>RR: insert Run (PENDING, tenantId)
+        Orch->>RR: updateIfNotTerminal → RUNNING (CAS)
+        Orch->>Exec: execute (reactive, with checkpoint hooks)
+        loop Per tool-call boundary
+            Exec->>CP: snapshot(runId, state)
+            CP-->>Exec: checkpoint-id
+        end
+        alt Suspension required (tool wait, S2C, A2A)
+            Exec-->>Orch: throws SuspendSignal
+            Orch->>RR: updateIfNotTerminal → SUSPENDED (CAS)
+        else Terminal success
+            Exec-->>Orch: Result
+            Orch->>RR: updateIfNotTerminal → SUCCEEDED (CAS)
+        end
+    end
+```
+
+### 16.3 P3 — Cancel Re-Authorization + Atomic CAS (covers S5)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Client
+    participant GW as Access::RunController.cancel
+    participant TF as TenantContextFilter
+    participant RR as RunRepository
+    participant Audit as RunStatusTransitionAudit (MDC)
+
+    Client->>GW: POST /v1/runs/{runId}/cancel<br/>X-Tenant-Id: <reqTid>
+    GW->>TF: filter chain
+    TF->>TF: bind reqTid (JWT cross-check, ADR-0040)
+    TF->>GW: pass
+    GW->>RR: findById(runId)
+    alt Run not found
+        RR-->>GW: empty
+        GW-->>Client: 404 not_found
+    else Run found, Run.tenantId != reqTid
+        Note over GW,RR: Cross-tenant: collapse to 404 not_found (Rule R-J.b, W0 shipped)<br/>(W1 widening to 403 tenant_mismatch + WARN audit deferred per ADR-0108)
+        GW-->>Client: 404 not_found
+    else Run found, Run.tenantId == reqTid
+        GW->>RR: updateIfNotTerminal(reqTid, runId, CANCELLED) atomic CAS
+        alt CAS wins (Run was active: PENDING / RUNNING / SUSPENDED)
+            RR-->>GW: 1 row updated
+            GW->>Audit: emit (runId, fromStatus, toStatus=CANCELLED, actor, occurredAt)
+            GW-->>Client: 200 RunResponse (CANCELLED)
+        else CAS loses (Run is already terminal: CANCELLED/SUCCEEDED/FAILED/EXPIRED)
+            RR-->>GW: 0 rows updated
+            GW->>RR: findById(runId) — re-read post-CAS row
+            RR-->>GW: Run (terminal state X)
+            alt X == CANCELLED (idempotent same-status terminal)
+                GW-->>Client: 200 RunResponse (CANCELLED, idempotent)
+            else X ∈ {SUCCEEDED, FAILED, EXPIRED} (different terminal — illegal transition)
+                GW-->>Client: 409 illegal_state_transition
+            end
+        end
+    end
+```
+
+This sequence is the structural defense against `F-nonatomic-run-status-write` (4 recurrences: rc35/rc36/rc38/rc39). The CAS WHERE clause + the post-CAS re-read are not separate writes — the WHERE clause is what atomicity means, and the re-read merely interprets the result. No `findById → withStatus → save` pattern exists in this flow.
+
+### 16.4 P4 — S2C Client Callback (covers S4)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Exec as ExecutorAdapter
+    participant Orch as Orchestrator
+    participant RR as RunRepository
+    participant CP as Checkpointer
+    participant Bus as Three-Track Bus
+    participant Client as Client
+
+    Exec->>Exec: needs client capability (browser cookie / user confirm / local-file)
+    Exec-->>Orch: throws SuspendSignal.forClientCallback(parentNodeKey, S2cCallbackEnvelope)
+    Orch->>CP: snapshot(runId, state)
+    CP-->>Orch: checkpoint-id
+    Orch->>RR: updateIfNotTerminal(tid, runId, SUSPENDED, SuspendReason.AwaitClientCallback) CAS
+    Orch->>Bus: publish(S2cCallbackEnvelope) → "control" channel<br/>(high-priority, out-of-band, per Rule R-E + bus-channels.yaml)
+    Bus->>Client: deliver callback request (SSE / webhook / poll)
+
+    Note over Client: Client resolves the capability locally
+
+    Client->>Bus: respond(S2cCallbackResponse) → "data" channel<br/>(payload ≤ 16 KiB inline per Rule R-E §4 #13)
+    Bus->>Orch: deliver response
+    Orch->>Orch: validate against s2c-callback.v1.yaml#response
+    alt response valid
+        Orch->>RR: updateIfNotTerminal(tid, runId, RUNNING) CAS
+        Orch->>CP: restore(runId, checkpoint-id)
+        CP-->>Orch: state
+        Orch->>Exec: resume(state, resolvedCapabilityResponse)
+        Exec-->>Orch: Result (or new SuspendSignal)
+    else response invalid OR timeout
+        Orch->>RR: updateIfNotTerminal(tid, runId, FAILED, reason="s2c_response_invalid" | "s2c_timeout") CAS
+    end
+```
+
+### 16.5 P5 — Idempotency Dedup Chain (covers S1 ingestion hardening)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Client
+    participant GW as Access::Gateway
+    participant Idem as IdempotencyHeaderFilter
+    participant Store as IdempotencyStore (RLS-scoped)
+    participant Run as RunController
+
+    Client->>GW: POST /v1/runs (Idempotency-Key + body)
+    GW->>Idem: intercept
+    Idem->>Idem: compute SHA-256(method:path:body) → base64url hash
+    Idem->>Store: claimOrFind(tenantId, key, requestHash)
+    alt First request — claim succeeded
+        Store-->>Idem: claimed=true, no prior record
+        Idem->>Run: pass through
+        Run-->>Run: process; produce response envelope
+        Run->>Store: persistResponse(tenantId, key, response)
+        Run-->>Client: response (e.g., 201 Created)
+    else Replay — same key, same hash
+        Store-->>Idem: claimed=false, prior response exists, hash matches
+        Idem-->>Client: 200 (cached prior response)
+    else Conflict — same key, different hash
+        Store-->>Idem: claimed=false, hash mismatch
+        Idem-->>Client: 409 idempotency_body_drift
+    else Inflight collision — same key, no prior response yet
+        Store-->>Idem: claimed=false, no response yet
+        Idem-->>Client: 409 idempotency_conflict
+    end
+```
+
+## 17. Physical View
+
+Deployment topology + RLS + three-track bindings + sandbox boundary.
+
+### 17.1 Five-Plane Deployment Mapping (Principle P-I)
+
+```mermaid
+flowchart TB
+    subgraph edge["Edge Access plane<br/>(deployment_plane: edge)"]
+        client_sdk["agent-client SDK<br/>(W3+; design_only at W0/W1)"]
+        web_app["Web / App / CLI clients"]
+    end
+
+    subgraph compute["Compute & Control plane<br/>(deployment_plane: compute_control)"]
+        as["agent-service<br/>(this module)"]
+        engine["agent-execution-engine<br/>(GraphExecutor / AgentLoopExecutor)"]
+    end
+
+    subgraph bus_state["Bus & State Hub plane<br/>(deployment_plane: bus_state)"]
+        bus["agent-bus<br/>(control / data / rhythm channels;<br/>S2C / Ingress / A2A transports)"]
+        mw["agent-middleware<br/>(ModelGateway / Skill / Memory / Vector / Planner / Sandbox SPIs)"]
+        pg[(PostgreSQL<br/>RLS-enabled tables<br/>per Rule R-J.a)]
+    end
+
+    subgraph sandbox["Sandbox plane<br/>(deployment_plane: sandbox)"]
+        sb_exec["Untrusted code execution<br/>(per sandbox-policies.yaml + Rule R-L)"]
+    end
+
+    subgraph evolve["Evolution plane<br/>(deployment_plane: evolution)"]
+        evolve_py["agent-evolve<br/>(Python ML offline/online evolution)"]
+    end
+
+    web_app --> client_sdk
+    client_sdk --> bus
+    bus --> as
+    as --> engine
+    as --> mw
+    mw --> pg
+    engine -. "tool calls via HookPoint" .-> mw
+    mw -. "tool execution routed to" .-> sb_exec
+    pg -. "anonymised export (EvolutionExport scope, Rule R-M.e)" .-> evolve_py
+
+    web_app -. "Edge→Compute direct call FORBIDDEN<br/>(Rule R-I.1 — IngressGateway only)" .-x as
+    engine -. "Direct Middleware call FORBIDDEN<br/>(Rule R-M.a/.c)" .-x mw
+```
+
+### 17.2 Database Schema + RLS Policy (Rule R-J.a)
+
+| Table | tenantId column | RLS enabled | Flyway migration | W2 retrofit needed |
+|---|---|---|---|---|
+| `runs` | `tenant_id NOT NULL` | YES | `V1__runs_create.sql` ships with `ENABLE ROW LEVEL SECURITY` + per-tenant `CREATE POLICY` (Rule R-J.a) | No |
+| `tasks` | `tenant_id NOT NULL` | YES | `V?__tasks_create.sql` (W2 — Task persistence not yet wired; current `Task` record is in-memory only) | When Task persistence lands, RLS in same migration |
+| `sessions` | `tenant_id NOT NULL` | YES | `V?__sessions_create.sql` (W2) | When Session persistence lands, RLS in same migration |
+| `lifecycle_state_audit` | `tenant_id NOT NULL` (derived from `runs.tenant_id` FK) | YES | `V?__lifecycle_state_audit_create.sql` (W1+) | RLS at table creation |
+| `idempotency_dedup` (legacy) | `tenant_id NOT NULL` | grandfathered NO | `V?__idempotency_dedup_create.sql` (pre-Rule-R-J.a) — in `gate/rls-baseline-grandfathered.txt` | YES — W2 retrofit per deferred Rule R-J.a.b: new Flyway migration `ALTER TABLE idempotency_dedup ENABLE ROW LEVEL SECURITY` + per-tenant `CREATE POLICY` |
+| `s2c_callback_audit` | `tenant_id NOT NULL` | YES | same wave as S2C runtime_enforced (already shipped per Rule R-M.d) | No |
+
+**Application-level tenant binding**: every request bound by `TenantContextFilter` (X-Tenant-Id + JWT claim cross-check, ADR-0040); database session level binding via `SET LOCAL app.tenant_id` GUC is W2 (deferred to coincide with R2DBC adoption).
+
+### 17.3 Three-Track Bus Physical Bindings (Rule R-E)
+
+| Channel | Priority | Physical channel (W0/W1) | Physical channel (W2+) | Carried intents |
+|---|---|---|---|---|
+| **control** | highest | `in_memory_priority_queue_w0` | NATS subject `agent.control.>` (or RabbitMQ priority queue) | PAUSE / KILL / CANCEL / RESUME / DEADLINE_SHIFT / S2cCallbackEnvelope request |
+| **data** | normal | `in_memory_unbounded_queue_w0` | NATS JetStream stream `agent.data.>` (or Kafka) — heavier payloads, durable | Run input payload / S2cCallback response / Engine output |
+| **rhythm** | low | `in_memory_tick_w0` | Lightweight tick service (e.g., Quartz / scheduled-task) | Heartbeat / liveness pulse (1 Hz baseline) |
+
+`bus-channels.yaml` is the canonical manifest; the L1 design ratified by ADR-0138 §3 binds the agent-service "Internal Event Queue" layer to these three channels — explicitly NOT a single queue with mode-based durability.
+
+### 17.4 Sandbox Isolation Boundary (Rule R-L)
+
+```mermaid
+flowchart LR
+    runtime["Engine Runtime<br/>(in-process, trusted)"]
+    sandbox_exec["SandboxExecutor SPI<br/>(routes to physical sandbox)"]
+    sandbox_phys["Physical Sandbox<br/>(separate process / container / VM)<br/>per sandbox-policies.yaml"]
+
+    runtime -- "tool execution request via HookPoint.before_tool" --> sandbox_exec
+    sandbox_exec -- "policy subsumption check<br/>(R-L.b runtime check deferred to W2)" --> sandbox_phys
+    sandbox_phys -- "result" --> sandbox_exec
+    sandbox_exec -- "HookPoint.after_tool" --> runtime
+```
+
+The physical sandbox enforces (1) network egress restrictions, (2) filesystem read/write restrictions, (3) CPU/memory/wall-clock caps. The runtime cannot directly access the sandbox executor; routing flows through `RuntimeMiddleware` on `HookPoint.before_tool`. Per-skill policy declared in `sandbox-policies.yaml` is **logical**; the physical sandbox's actual capabilities are the **physical** constraint, and `SandboxExecutor` must refuse policies wider than the physical sandbox can enforce (Rule R-L.b, runtime check deferred to W2).
+
+---
+
+# Wave 3 Closure (G-A..G-F)
+
+- **G-A direct fix**: §16 Process View + §17 Physical View appended (.en + .cn). Wave 3 task closed.
+- **G-B classification**: 0 new findings during Wave 3 authoring; 0 new families.
+- **G-C sibling sweep**: re-ran family fingerprints on §16/§17 prose — 0 new sibling hits. Negative confirmation: F-design-doc-violates-three-track-bus matched 0 active-local outside Wave 1 §8 documented sites (the §17.3 table is the canonical three-track binding — it CITES `bus-channels.yaml`, satisfying the same-paragraph binding requirement); F-design-doc-language-bypasses-invariant matched 0 (the §16.2 Fast-Path branch explicitly states "Run + Task metadata STILL persisted under RLS" — invariant preserved).
+- **G-D continuous fix**: Wave 1 deferred siblings unchanged.
+- **G-E non-vacuity**: §16.3 P3 cancel sequence has explicit re-auth + CAS + post-CAS re-read (verified against shipped `RunRepository.updateIfNotTerminal` ADR-0118); §17.2 RLS table lists each `tenant_id`-bearing table with policy state (verified); §17.3 binds Internal Event Queue to bus-channels.yaml (verified).
+- **G-F documentation**: this Closure block.
+
