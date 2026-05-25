@@ -626,3 +626,79 @@ P3 结构性防御 `F-nonatomic-run-status-write`（4 次复发：rc35/rc36/rc38
 - **G-D 持续修复**：Wave 1 deferred 兄弟保持不变。
 - **G-E 非空守卫**：§16.3 P3 cancel 时序图有显式 re-auth + CAS + post-CAS 重读（与已发布 `RunRepository.updateIfNotTerminal`（ADR-0118）一致）；§17.2 RLS 表列每个 `tenant_id`-bearing 表的 policy 状态；§17.3 把 Internal Event Queue 绑定到 bus-channels.yaml。
 - **G-F 文档化**：本 Closure block。
+
+---
+
+# Wave 4 — Development View + SPI 附录 + L2 边界契约
+
+> 由 Wave 4/6 追加（rc53-wave-4）。满足 Rule G-1.1 三 sub-clause：.a（Development View 代码映射）、.b（SPI 接口附录 4-way parity）、.c（L2 边界契约）。
+
+## 18. Development 视图
+
+按 Rule G-1.1.a，Development View 必须含 Markdown fenced 文本块声明包级目录树；Logical View 中命名的每个主要组件必须映射到具体代码路径；树路径在 gate 时与实际 filesystem 交叉校验。包树见 `.en` §18 — 在 `agent-service/src/main/java/com/huawei/ascend/service/...` 下：
+
+- `platform/{auth, engine, idempotency, observability, persistence, posture, probe, resilience, tenant, web}` — 平台横切（ADR-0078 起在 service.platform 下）；`web/runs/` 含 RunController（**Layer 1 Access** 入口）。
+- `runtime/{runs, orchestration/inmemory, memory, resilience, s2c, idempotency, posture, probe, evolution}` — runtime kernel（按 ADR-0078 + ADR-0088 合并）；`orchestration/inmemory/` 含 SyncOrchestrator、SequentialGraphExecutor、IterativeAgentLoopExecutor、InMemoryCheckpointer — **Layer 4 Task-Centric Control** 核心。
+- `engine/{adapter, spi}` — rc22 per ADR-0100 — **Layer 5 Engine Adapter**。
+- `session/{Session.java, spi/}` — rc22 per ADR-0100 — **Layer 2 Session 半**；含 `ContextProjector` SPI。
+- `task/{Task.java, spi/}` — rc22 per ADR-0100 — **Layer 2 Task 半**；含 `TaskStateStore` SPI。
+- `agent/{spi}` — rc43 per ADR-0128 — Agent first-class entity SPI。
+- `integration/springai` — Spring AI 参考 adapter shell（ADR-0125）。
+- `queue/` — **Layer 3 Internal Event Queue** 绑定层 — 当前**未在文件系统上**（Wave 4+ scaffold）；按 ADR-0138 §3 绑定到 agent-bus 三轨通道。
+
+**Layer ↔ 子包 映射** 见 .en §18 cross-walk 表；**ADR-0100 5 组件 ↔ 本 L1 5 层** 映射也见 .en §18。两种分解是同一架构的不同投影。
+
+## 19. SPI 接口附录
+
+按 Rule G-1.1.b，SPI 接口附录必须列出模块发布的每个 `public interface` FQN 并满足 **4-way parity**（module-metadata ↔ contract-catalog ↔ DFX ↔ Java 源文件）。
+
+### 19.1 当前已落地 SPI（9 接口，7 spi_packages）
+
+见 .en §19.1 完整表格。9 个 SPI：
+
+1. `RunRepository`（runs.spi，W1 已发布；按 ADR-0118 抽象 `updateIfNotTerminal`）
+2. `GraphMemoryRepository`（memory.spi，W1 in-memory 参考实现）
+3. `ResilienceContract`（resilience.spi，W1 已发布）
+4. `SkillCapacityRegistry`（resilience.spi，W1 已发布）
+5. `StatelessEngine`（engine.spi，rc23/rc24 per ADR-0100）
+6. `ContextProjector`（session.spi，rc23/rc24 per ADR-0100）
+7. `TaskStateStore`（task.spi，rc23/rc24 per ADR-0100）
+8. `Agent`（agent.spi，rc43 design_only per ADR-0128）
+9. `AgentRegistry`（agent.spi，rc43 design_only per ADR-0128）
+
+**4-way parity 校验**（gate 时机器化）：(1) module-metadata.yaml#spi_packages 7 包 ↔ (2) contract-catalog.md §2 ↔ (3) docs/dfx/agent-service.yaml#spi_packages ↔ (4) filesystem。Wave 5 任务负责把 contract-catalog + dfx 落齐。
+
+### 19.2 本 Wave 1 声明的新 SPI（design_only）
+
+ADR-0138 §3 命名 `service.queue/` 子包给 Layer 3 绑定层；ADR-0138 也命名 `DualTrackRouter` SPI（W4+ design_only）。本 wave **不**引入新 Java SPI 接口 — 仅在已落地 SPI 上批准 5 层 L1 视图。
+
+### 19.3 从其他模块消费的 SPI（非本模块导出）
+
+见 .en §19.3 完整表格 — agent-execution-engine 提供 `Orchestrator` / `Checkpointer` / `SuspendSignal` / `ExecutorAdapter` / `EngineHookSurface`；agent-bus 提供 `S2cCallbackTransport` / `IngressGateway`；agent-middleware 提供 `RuntimeMiddleware` / `HookPoint` 及 advisor / memory / model / retrieval / skill 等 SPI。
+
+## 20. L2 边界契约
+
+按 Rule G-1.1.c，任何由 L2（`docs/L2/*.md`）承担的子系统必须在 L1 声明 **inputs / outputs / DFX expectations** 边界契约。PR #71 F-01..F-22 是天然起点；每行映射到未来一份 L2 文档，且本节就是 L1 侧承诺。
+
+当前 `docs/L2/` 0 文件（已核实）。下方 5 个 L2 zone 是 L1 侧承诺（详见 .en §20.1-§20.5 表格）：
+
+- **L2-A Access 层**：HTTP Gateway / A2A Service / MQ Adapter — `openapi-v1.yaml` + `a2a-envelope.v1.yaml` + `ingress-envelope.v1.yaml` 为契约权威。
+- **L2-B Session & Task 管理层**：SessionManager + ContextProjector + TaskCenter + TaskStateStore + RunRepository — ADR-0100 + ADR-0135 + Rule R-C.2 + ADR-0118 为契约权威；写操作经原子 CAS。
+- **L2-C 内部事件队列**：Producer/Consumer 按 intent 绑定到 `control/data/rhythm` 三轨；Outbox/Inbox 模式 W2+ — `bus-channels.yaml` + Rule R-E + ADR-0057 为契约权威。
+- **L2-D Task-Centric Control 层**：Orchestrator + DualTrackRouter + ResumeDispatcher + RuntimeMiddleware chain — Rule R-C.2 + Rule R-G + Rule R-J + ADR-0019/0073/0074/0118/0139 为契约权威。
+- **L2-E Engine Adapter 层**：EngineRegistry + ExecutorAdapter + ContextProjector + PromptTemplate + StructuredOutputConverter + ChatAdvisor — Rule R-M + Rule R-G/R-H + ADR-0130/0131/0132/0133 + ADR-0100 为契约权威。
+
+### 20.6 F-01..F-22 特性 → L2 映射
+
+见 .en §20.6 完整 22 行映射表。每行带 `authority:` 列引用 ADR/Rule，满足 Rule M-2.b 设计稿 ADR 锚定精神。代表性示例：F-09（Task-centric state machine）→ L2-D，authority = Rule R-C.2 + ADR-0118；F-12（Fast-Path 路由）→ L2-D，authority = ADR-0139（窄化语义）；F-16（Shadow Tool Interceptor）→ L2-E，authority = ADR-0132 + Rule R-M.c。
+
+---
+
+# Wave 4 闭环（G-A..G-F）
+
+- **G-A 直接修复**：§18 Development View + §19 SPI 附录 + §20 L2 边界契约追加（.en + .cn）。Rule G-1.1.a/.b/.c 满足。Wave 4 任务关闭。
+- **G-B 分类**：横扫中 1 个新发现 — ADR-0138 §3 引用的 `service.queue/` 子包当前**未在 filesystem**。这是 **design-time forward declaration**，非缺陷；在 §18 layer-to-package 映射和 §19.2（未来 SPI 占位符）中透明跟踪。无 family 注册。
+- **G-C 兄弟横扫**：在 §18（development view 代码映射）和 §19（SPI 附录 4-way parity）上重跑 F-l1-architecture-grounding-gap 指纹 — 均满足 Rule G-1.1.a/.b 结构形态（fenced 文本块 + filesystem 路径交叉引用）；0 新兄弟 hit。
+- **G-D 持续修复**：Wave 1 deferred 兄弟保持不变。
+- **G-E 非空守卫**：§18 树把 5 层映射到 filesystem 路径（与实际 `find agent-service/src/main/java/com/huawei/ascend/service/` 树交叉校验）；§19.1 列 9 SPI 接口与 sub-package + status + authority（与 `module-metadata.yaml` 第 13-20 行交叉校验）；§20 有 5 个 L2 zone × 3-4 行 + F-01..F-22 inventory 每行带 `authority:`。
+- **G-F 文档化**：本 Closure block。

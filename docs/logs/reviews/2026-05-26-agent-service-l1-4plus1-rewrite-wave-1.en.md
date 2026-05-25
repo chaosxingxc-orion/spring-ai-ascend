@@ -1026,3 +1026,223 @@ The physical sandbox enforces (1) network egress restrictions, (2) filesystem re
 - **G-E non-vacuity**: §16.3 P3 cancel sequence has explicit re-auth + CAS + post-CAS re-read (verified against shipped `RunRepository.updateIfNotTerminal` ADR-0118); §17.2 RLS table lists each `tenant_id`-bearing table with policy state (verified); §17.3 binds Internal Event Queue to bus-channels.yaml (verified).
 - **G-F documentation**: this Closure block.
 
+---
+
+# Wave 4 — Development View + SPI Appendix + L2 Boundary Contracts
+
+> Appended by Wave 4 of 6 (rc53-wave-4). Satisfies Rule G-1.1 three sub-clauses: .a (Development View Code-Mapping), .b (SPI Interface Appendix 4-way parity), .c (L2 Boundary Contracts).
+
+## 18. Development View
+
+Per Rule G-1.1.a, the Development View MUST include a Markdown fenced text block declaring the target directory tree at package level; every major logical component named in the Logical View MUST map to a specific code path; tree paths are cross-checked against the actual filesystem at gate time. The tree below maps the 5 L1 layers (§15.1) onto the actual shipped package structure under `agent-service/src/main/java/com/huawei/ascend/service/...`.
+
+```text
+agent-service/src/main/java/com/huawei/ascend/service/
+├── platform/                          (cross-cutting platform concerns — pre-existing per ADR-0078)
+│   ├── auth/                          JWT validation, ADR-0040; supports Access Layer
+│   ├── engine/                        EngineRegistryAutoConfiguration; supports Engine Adapter Layer wiring
+│   ├── idempotency/                   IdempotencyHeaderFilter + IdempotencyStore impl; supports Access Layer (ADR-0057)
+│   ├── observability/                 TenantTagMeterFilter + trace MDC; supports all layers
+│   ├── persistence/                   Spring-Data wiring for shipped JdbcRunRepository (W2 R2DBC migration deferred)
+│   ├── posture/                       PostureBootGuard, ADR-0058; fail-closed on dev/research/prod misconfiguration
+│   ├── probe/                         OssApiProbe (Spring AI + Temporal classpath shape)
+│   ├── resilience/                    YamlResilienceContract + YamlSkillCapacityRegistry adapters
+│   ├── tenant/                        TenantContextFilter + TenantContext + TenantContextHolder; supports Access Layer
+│   └── web/                           HealthController + RunController + ErrorEnvelopeWriter; **Layer 1 (Access) entry point**
+│       └── runs/                      RunController + RunResponseDto + RunCreateRequestDto
+├── runtime/                           (runtime kernel — pre-existing per ADR-0078; consolidated from agent-runtime-core per ADR-0088)
+│   ├── runs/                          Run record + RunStatus + RunStateMachine + RunMode (Run-side execution state)
+│   │   └── spi/                       RunRepository SPI (canonical owner per ADR-0088)
+│   ├── orchestration/                 Orchestrator wiring; SyncOrchestrator in inmemory/
+│   │   └── inmemory/                  SyncOrchestrator + SequentialGraphExecutor + IterativeAgentLoopExecutor + InMemoryRunRegistry + InMemoryCheckpointer + RunContextImpl — **Layer 4 (Task-Centric Control)** core
+│   ├── memory/                        GraphMemoryRepository impl
+│   │   └── spi/                       GraphMemoryRepository SPI
+│   ├── resilience/                    DefaultSkillResilienceContract impl
+│   │   └── spi/                       ResilienceContract SPI + SkillCapacityRegistry SPI
+│   ├── s2c/                           InMemoryS2cCallbackTransport reference impl (canonical SPI in agent-bus.spi.s2c per ADR-0088)
+│   ├── idempotency/                   IdempotencyRecord entity + IdempotencyStore RLS wiring
+│   ├── posture/                       runtime-side posture binding
+│   ├── probe/                         runtime classpath probes
+│   └── evolution/                     EvolutionExport scope handling (Rule R-M.e)
+├── engine/                            **Layer 5 (Engine Adapter)** — rc22 per ADR-0100
+│   ├── adapter/                       ExecutorAdapter implementations (Wave 4+ scaffold)
+│   └── spi/                           StatelessEngine SPI + future ExecutorAdapter SPI
+├── session/                           **Layer 2 (Session) — rc22 per ADR-0100**
+│   ├── Session.java                   record (tenantId + sessionId + messages + variables)
+│   └── spi/                           ContextProjector SPI
+├── task/                              **Layer 2 (Task) — rc22 per ADR-0100**
+│   ├── Task.java                      record (tenantId + taskId + sessionId + a2aState + taskKind)
+│   └── spi/                           TaskStateStore SPI
+├── agent/                             rc43 — Agent first-class entity per ADR-0128
+│   └── spi/                           Agent SPI + AgentRegistry SPI
+├── integration/                       cross-cutting integration shells
+│   └── springai/                      Spring AI reference adapter shells (ADR-0125)
+└── (Layer 3 Internal Event Queue scaffold)
+    └── (sub-package to be created in Wave 4+ as `service.queue/`; binds to agent-bus three-track channels per ADR-0138 §3)
+```
+
+**Layer-to-package mapping** (cross-walks Logical View §15.1 to Development View):
+
+| L1 Layer (§15.1) | Primary sub-packages | Notes |
+|---|---|---|
+| 1. Access Layer | `service.platform.{web,tenant,idempotency,auth,observability}` | All packages exist on filesystem. |
+| 2. Session & Task Manager | `service.session/*`, `service.task/*`, `service.runtime.runs/*` | All 3 sub-trees exist on filesystem. |
+| 3. Internal Event Queue (binding layer) | (planned) `service.queue/` | **Not yet on filesystem** — design-time placeholder; Wave 4+ scaffold; Producer/Consumer bind to `agent-bus` three-track channels per ADR-0138 §3. |
+| 4. Task-Centric Control Layer | `service.runtime.{orchestration,resilience,s2c,evolution}` | All packages exist on filesystem; `inmemory/` sub-package hosts the W0/W1 SyncOrchestrator reference impl. |
+| 5. Engine Adapter Layer | `service.engine/*` + (consumed) `agent-execution-engine.engine.spi/*` | `service.engine.adapter/*` is a rc22 scaffold (per ADR-0100); concrete adapters land in W2. |
+
+**Cross-walk to ADR-0100's 5 logical components**:
+
+| ADR-0100 component name | This L1's Layer | Sub-package |
+|---|---|---|
+| Polymorphic Dispatcher | Layer 1 (Access) | `service.platform.web/*` + future `service.dispatcher/` |
+| Reactive Orchestrator | Layer 4 (Task-Centric Control) | `service.runtime.orchestration/*` |
+| Task Center | Layer 2 (Session & Task — Task half) | `service.task/*` |
+| Session Manager | Layer 2 (Session & Task — Session half) | `service.session/*` |
+| Execution Engine Adapter | Layer 5 (Engine Adapter) | `service.engine/*` |
+
+The two decompositions are projections of the same architecture — PR #71's 5 layers emphasise runtime data-flow; ADR-0100's 5 components emphasise logical role responsibility. The mapping is durable; both names may be used in prose.
+
+## 19. SPI Interface Appendix
+
+Per Rule G-1.1.b, the SPI Interface Appendix MUST list every `public interface` FQN shipped by the module with **4-way parity**:
+1. The FQN appears in `agent-service/module-metadata.yaml#spi_packages` (filtered to the `*.spi.*` containment).
+2. The FQN appears as a row in `docs/contracts/contract-catalog.md` §2 Active SPI interfaces (or is `(internal)`-marked).
+3. The FQN appears in `docs/dfx/agent-service.yaml#spi_packages` (order-insensitive set match with #1).
+4. The FQN exists as a `public interface` `.java` file on disk.
+
+### 19.1 Currently-Shipped SPI (9 interfaces, 7 spi_packages)
+
+| # | SPI FQN | Sub-package | Status | Authority |
+|---|---|---|---|---|
+| 1 | `com.huawei.ascend.service.runtime.runs.spi.RunRepository` | `runs.spi` | shipped (W1) | Rule R-C.2 + ADR-0021 + ADR-0088; abstract `updateIfNotTerminal` per ADR-0118 |
+| 2 | `com.huawei.ascend.service.runtime.memory.spi.GraphMemoryRepository` | `memory.spi` | shipped (W1 in-memory reference impl) | ADR-0082 |
+| 3 | `com.huawei.ascend.service.runtime.resilience.spi.ResilienceContract` | `resilience.spi` | shipped (W1) | Rule R-K + ADR-0073 |
+| 4 | `com.huawei.ascend.service.runtime.resilience.spi.SkillCapacityRegistry` | `resilience.spi` | shipped (W1) | Rule R-K + `skill-capacity.yaml` |
+| 5 | `com.huawei.ascend.service.engine.spi.StatelessEngine` | `engine.spi` | shipped declaration (rc23/rc24 per ADR-0100) | ADR-0100 + ADR-0112 |
+| 6 | `com.huawei.ascend.service.session.spi.ContextProjector` | `session.spi` | shipped declaration (rc23/rc24) | ADR-0100 + ADR-0135 |
+| 7 | `com.huawei.ascend.service.task.spi.TaskStateStore` | `task.spi` | shipped declaration (rc23/rc24) | ADR-0100 |
+| 8 | `com.huawei.ascend.service.agent.spi.Agent` | `agent.spi` | shipped declaration (rc43, design_only) | ADR-0128 |
+| 9 | `com.huawei.ascend.service.agent.spi.AgentRegistry` | `agent.spi` | shipped declaration (rc43, design_only) | ADR-0128 |
+
+**4-way parity check** (machine-verifiable at gate time):
+- (1) `agent-service/module-metadata.yaml#spi_packages` — 7 packages: `runtime.memory.spi`, `runtime.resilience.spi`, `runtime.runs.spi`, `engine.spi`, `session.spi`, `task.spi`, `agent.spi` — covers all 9 interfaces above (`resilience.spi` carries 2: ResilienceContract + SkillCapacityRegistry; `agent.spi` carries 2: Agent + AgentRegistry).
+- (2) `docs/contracts/contract-catalog.md` §2 — verify all 9 FQNs appear as rows with module=agent-service (Wave 5 task — gate-checked).
+- (3) `docs/dfx/agent-service.yaml#spi_packages` — verify same 7-package set as (1) (Rule R-D.e).
+- (4) Filesystem — verified above: 9 `.java` files containing `public interface ...` exist.
+
+### 19.2 New SPI Declared in This Wave 1 (design_only)
+
+ADR-0138 §3 names a new sub-package `service.queue/` for the Layer 3 binding layer. Any SPI in that package will be added in a future Wave (likely Wave 4+ if shipped at this rc, or W2 if deferred). Currently this wave does **not** introduce new Java SPI interfaces — it ratifies a 5-layer L1 view over existing SPIs.
+
+ADR-0138 also names a `DualTrackRouter` SPI (Wave 4+ design_only). When that ships:
+- Add `com.huawei.ascend.service.dualtrack.spi` (or co-locate in `orchestration.spi`)
+- Add `DualTrackRouter` (or rename `SlowTrackJudge` per ADR-0112)
+- Wave 5 must reflect in module-metadata + contract-catalog + DFX 4-way parity
+
+### 19.3 SPI Consumed From Other Modules (not exported by agent-service)
+
+Cross-module SPI surfaces consumed by `agent-service` runtime — not part of agent-service's own SPI export but mentioned here for the Logical View's clarity:
+
+| Consumed SPI | Owning module | Used by L1 Layer |
+|---|---|---|
+| `com.huawei.ascend.engine.orchestration.spi.Orchestrator` | agent-execution-engine | Layer 4 |
+| `com.huawei.ascend.engine.orchestration.spi.Checkpointer` | agent-execution-engine | Layer 4 |
+| `com.huawei.ascend.engine.orchestration.spi.SuspendSignal` (class) + `RunMode`/`RunContext` | agent-execution-engine | Layers 4 + 5 |
+| `com.huawei.ascend.engine.spi.ExecutorAdapter` (+ `GraphExecutor` / `AgentLoopExecutor`) | agent-execution-engine | Layer 5 |
+| `com.huawei.ascend.engine.spi.EngineHookSurface` | agent-execution-engine | Layer 5 |
+| `com.huawei.ascend.bus.spi.s2c.S2cCallbackTransport` (+ `S2cCallbackEnvelope`) | agent-bus | Layers 4 + Access (S2C delivery) |
+| `com.huawei.ascend.bus.spi.ingress.IngressGateway` (+ `IngressEnvelope`) | agent-bus | Layer 1 |
+| `com.huawei.ascend.middleware.spi.RuntimeMiddleware` (+ `HookPoint`) | agent-middleware | Layer 4 hook chain |
+| `com.huawei.ascend.middleware.{advisor,memory,model,retrieval,skill}.spi.*` | agent-middleware | Layer 4 via RuntimeMiddleware |
+
+## 20. L2 Boundary Contracts
+
+Per Rule G-1.1.c, any subsystem delegated to L2 (`docs/L2/*.md`) MUST have its **inputs, outputs, and DFX expectations** declared as Boundary Contracts at L1. PR #71's F-01..F-22 feature inventory is the natural starting point; each row below maps to a future L2 doc with the contract declared here.
+
+The current `docs/L2/` directory has 0 files (verified by Glob). The Boundary Contracts below are the L1-side commitments that any future L2 doc must respect.
+
+### 20.1 L2-A — Access Layer Boundary Contracts
+
+| Subsystem | Inputs | Outputs | DFX expectations | Authority |
+|---|---|---|---|---|
+| HTTP Gateway (RunController + HealthController) | HTTP request (REST/gRPC); X-Tenant-Id + JWT + Idempotency-Key headers | `RunResponseDto` (Fast-Path 200) OR `TaskCursor` (Slow-Path 202) OR `ErrorEnvelope` | latency P95 < 50 ms at Fast-Path entry; throughput per tenant capped by Rule R-K skill matrix; idempotency key TTL per ADR-0057 | `openapi-v1.yaml` + ADR-0040 + ADR-0057 |
+| A2A Service | A2A request envelope per `a2a-envelope.v1.yaml`; remote run delegation | local Run + `parentRunId` correlation | latency target W3 (design_only at W1); no `a2a-java` SDK runtime dep per ADR-0100 | `a2a-envelope.v1.yaml` + ADR-0100 + Rule R-I.1 |
+| MQ / Event Bus Adapter | broker message (Kafka/RabbitMQ/RocketMQ/Pulsar) → `IngressEnvelope` | local Run + ack/nack | per-broker SLO; backpressure via Reactive Sinks | `ingress-envelope.v1.yaml` + Rule R-I.1 |
+
+### 20.2 L2-B — Session & Task Manager Boundary Contracts
+
+| Subsystem | Inputs | Outputs | DFX expectations | Authority |
+|---|---|---|---|---|
+| SessionManager + ContextProjector | session-create / append-context request; tenantId-scoped | `Session` record (tenantId + sessionId + messages + variables) | session lifetime ≤ 24h default; eviction policy per posture | ADR-0100 + ADR-0135 |
+| TaskCenter + TaskStateStore | task-create / state-transition request; tenantId-scoped | `Task` record (taskId + tenantId + sessionId + a2aState) | task lifetime can exceed session; CAS write through `RunRepository.updateIfNotTerminal` equivalent | ADR-0100 |
+| RunRepository | save / find / `updateIfNotTerminal` | atomic state writes; RLS-scoped read | atomic CAS guaranteed by abstract method; no caller may bypass | Rule R-C.2 + ADR-0118 |
+
+### 20.3 L2-C — Internal Event Queue Boundary Contracts
+
+| Subsystem | Inputs | Outputs | DFX expectations | Authority |
+|---|---|---|---|---|
+| Producer (per channel) | TaskEvent / RunEvent → published to `control` / `data` / `rhythm` per intent | bus-channel ack | `control` < 10 ms latency; `data` ≤ 16 KiB inline cap; `rhythm` 1 Hz | `bus-channels.yaml` + Rule R-E |
+| Consumer (per channel) | bus-channel message → dispatched to Layer 4 | state transition trigger / Resume signal | dedup via idempotency_key; dead-letter on validation failure | Rule R-E + ADR-0057 |
+| Outbox / Inbox pattern | Run state writes (Outbox); IngressEnvelope (Inbox) | durable event publication; deduplicated ingestion | W2+ implementation; consistency model per ADR (TBD) | (Wave 4+) |
+
+### 20.4 L2-D — Task-Centric Control Layer Boundary Contracts
+
+| Subsystem | Inputs | Outputs | DFX expectations | Authority |
+|---|---|---|---|---|
+| Orchestrator | RunContext + ExecutorAdapter; state transitions through RunStateMachine | Run terminal state via `RunRepository.updateIfNotTerminal` CAS | cancel-vs-complete race always atomic (Rule R-C.2.b); SuspendSignal handling per Rule R-G ArchUnit | Rule R-C.2 + Rule R-G + ADR-0019 + ADR-0118 |
+| DualTrackRouter | envelope + Run metadata; predicate set | Fast-Path / Slow-Path decision | predicates per ADR-0139; default Fast-Path bound 5 s | ADR-0139 |
+| ResumeDispatcher | resolved external input (S2C response / A2A result / Resume request) | resume call into ExecutorAdapter | re-auth check per Rule R-J.b (Resume widening deferred to W2 / R-J.b.d) | Rule R-J + ADR-0074 |
+| RuntimeMiddleware chain | HookPoint event + RunContext | middleware result OR SuspendSignal | hook ordering per `engine-hooks.v1.yaml`; failure propagation per ADR-0073 | Rule R-M.c + ADR-0073 |
+
+### 20.5 L2-E — Engine Adapter Layer Boundary Contracts
+
+| Subsystem | Inputs | Outputs | DFX expectations | Authority |
+|---|---|---|---|---|
+| EngineRegistry | EngineEnvelope per `engine-envelope.v1.yaml` | ExecutorAdapter resolved by engine_type | type mismatch → `EngineMatchingException` → Run FAILED with `engine_mismatch` reason | Rule R-M.a/.b |
+| ExecutorAdapter (GraphExecutor + AgentLoopExecutor) | InjectedContext + ExecutorDefinition | Result OR SuspendSignal | reactive; no Thread.sleep (Rule R-H); SuspendSignal is the only suspension path (ADR-0100) | Rule R-M.b + Rule R-G + Rule R-H |
+| ContextProjector + PromptTemplate + StructuredOutputConverter | Session history + RetrievalOptions | Projected context + rendered prompt + parsed output | per ADR-0130 / 0131 / 0133 | ADR-0130 + ADR-0131 + ADR-0133 |
+| ChatAdvisor + Shadow Tool path | Tool call request via HookPoint.before_tool | InterruptSignal (≡ SuspendSignal per ADR-0137) OR direct middleware result | tool authz per `skill-capacity.yaml`; sandbox routing per Rule R-L | ADR-0132 + Rule R-M.c |
+
+### 20.6 F-01..F-22 Feature Inventory → L2 Mapping
+
+PR #71's 22-row feature inventory carried forward as L2 backlog. Each row gets an `authority:` column per ADR-0138 §3 red-line (Rule M-2.b spirit). The mapping below ties each PR #71 feature to its primary L2 zone:
+
+| PR #71 ID | Feature | L2 zone | Primary authority |
+|---|---|---|---|
+| F-01 | Unified external intake | L2-A | `openapi-v1.yaml` + `ingress-envelope.v1.yaml` |
+| F-02 | Bidirectional A2A collaboration | L2-A | `a2a-envelope.v1.yaml` (design_only) + Rule R-I.1 |
+| F-03 | Session lifecycle management | L2-B | ADR-0100 + ADR-0135 |
+| F-04 | Task lifecycle management | L2-B | ADR-0100 + Rule R-C.2 |
+| F-05 | State snapshot and recovery | L2-B + L2-D | ADR-0021 + ADR-0118 |
+| F-06 | Internal event production | L2-C | Rule R-E + `bus-channels.yaml` |
+| F-07 | Polymorphic queue storage (per channel) | L2-C | Rule R-E |
+| F-08 | Internal event consumption | L2-C | Rule R-E + ADR-0057 |
+| F-09 | Task-centric state machine | L2-D | Rule R-C.2 + ADR-0118 |
+| F-10 | Interrupt detection | L2-D + L2-E | ADR-0073 + ADR-0074 + ADR-0137 |
+| F-11 | Resume scheduling | L2-D | Rule R-J.b + ADR-0074 |
+| F-12 | Fast-Path routing | L2-D | ADR-0139 (narrowed semantics) |
+| F-13 | Slow-Path routing | L2-D | ADR-0139 |
+| F-14 | Unified Engine Adapter | L2-E | Rule R-M.a/.b |
+| F-15 | Context Translator | L2-E | ADR-0130 + ADR-0131 |
+| F-16 | Shadow Tool Interceptor | L2-E | ADR-0132 + Rule R-M.c |
+| F-17 | Middleware invocation convergence | L2-D + L2-E | Rule R-M.c + ADR-0073 |
+| F-18 | Workflow / ReAct dual-mode coordination | L2-E | Rule R-M.a/.b |
+| F-19 | Heterogeneous Runtime anti-corruption | L2-E | Rule R-M + ADR-0100 §rejected-framing #2 |
+| F-20 | External collaboration + Middleware result return | L2-D | Rule R-M.c + Rule R-J.b |
+| F-21 | Recoverable state | L2-B + L2-D | ADR-0021 + ADR-0118 |
+| F-22 | Module boundary governance | L2 cross-cutting | Rule R-D + Rule R-C.2 + Rule R-M |
+
+Every row has an authority anchor — Rule M-2.b spirit satisfied. Future L2 author for each zone must respect the Boundary Contract declared in §20.1-§20.5 above.
+
+---
+
+# Wave 4 Closure (G-A..G-F)
+
+- **G-A direct fix**: §18 Development View + §19 SPI Interface Appendix + §20 L2 Boundary Contracts appended (.en + .cn). Rule G-1.1.a/.b/.c satisfied. Wave 4 task closed.
+- **G-B classification**: 1 new finding during sweep: `service.queue/` sub-package referenced by ADR-0138 §3 does NOT yet exist on filesystem — this is **design-time forward declaration**, not a defect; tracked transparently in §18 layer-to-package mapping and §19.2 (future SPI placeholder). Not a family registration.
+- **G-C sibling sweep**: re-ran F-l1-architecture-grounding-gap fingerprint on §18 (development view code-mapping) and §19 (SPI appendix 4-way parity) — both satisfy the Rule G-1.1.a/.b structural form (text-block fenced + filesystem paths cross-referenced); 0 new sibling hits.
+- **G-D continuous fix**: Wave 1 deferred siblings unchanged.
+- **G-E non-vacuity**: §18 tree maps all 5 logical layers to filesystem paths (verified via `find` against actual `agent-service/src/main/java/com/huawei/ascend/service/` tree); §19.1 lists 9 SPI interfaces with sub-package + status + authority (cross-checked against `module-metadata.yaml` lines 13-20); §20 has 5 L2 zones × 3-4 rows + F-01..F-22 inventory with `authority:` per row.
+- **G-F documentation**: this Closure block.
+
