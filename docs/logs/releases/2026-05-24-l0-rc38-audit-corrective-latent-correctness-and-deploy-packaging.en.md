@@ -1,5 +1,11 @@
 # v2.0.0-rc38 — audit-corrective: latent-correctness + deploy-packaging fixes
 
+> **Historical artifact frozen at SHA a53dc356 (v2.0.0-rc38).** Baseline
+> counts in this document reflect the rc38 publication state and are NOT
+> retroactively updated. The current canonical baseline lives in
+> `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`
+> and the latest release note.
+
 **Date:** 2026-05-24
 **Branch:** `rc37/ascend-kunpeng-strategic-pivot`
 **Authority:** ADR-0118

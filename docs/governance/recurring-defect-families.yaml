@@ -45,8 +45,8 @@ families:
   - id: F-numeric-drift
     title: Numeric Drift Across Authority Surfaces
     first_observed_rc: rc5
-    last_observed_rc: rc37
-    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37]
+    last_observed_rc: rc39-formal-release-transaction
+    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37, rc39-formal-release-transaction]
     root_cause: |
       Numeric claims (rule counts, gate counts, enforcer counts, graph
       nodes/edges, self-tests) are estimated when a release note is written
@@ -68,7 +68,10 @@ families:
       across two physical lines, defeating Rule 27's line-oriented grep even
       though the number was correct — the count was right but the line-wrap
       hid it. Lesson: each of the four README baseline-count phrases MUST stay
-      on one physical line.
+      on one physical line. rc39 closed the release-time estimate vector by
+      requiring the formal release note to copy metric values from a generated
+      evidence bundle; Maven tests moved 383→409 and gate self-tests 226→239
+      only after WSL evidence extraction, not hand-authored release prose.
     surfaces:
       - docs/governance/architecture-status.yaml#baseline_metrics
       - README.md
@@ -135,8 +138,8 @@ families:
   - id: F-authority-surface-path-drift
     title: Authority-Surface Path Drift After Code Refactor
     first_observed_rc: rc4
-    last_observed_rc: rc36
-    occurrences: [rc4, rc6, rc7, rc11, rc12, rc13, rc14, rc15, rc36]
+    last_observed_rc: rc39-formal-release-transaction
+    occurrences: [rc4, rc6, rc7, rc11, rc12, rc13, rc14, rc15, rc36, rc39-formal-release-transaction]
     root_cause: |
       Code refactors (file moves, package renames, SPI relocations) land
       first; authority surfaces (`docs/contracts/contract-catalog.md`,
@@ -145,7 +148,9 @@ families:
       Family is adjacent to F-deleted-module-name-leakage — both spring
       from "refactor first, authority second" but this family covers path
       truth (correct module but wrong path) while the other covers name
-      truth (deleted module mentioned at all).
+      truth (deleted module mentioned at all). rc39 added stale Java-anchor
+      cleanup for S2C and online-evolution SPI packages plus a main-source
+      guard for known pre-.spi anchor patterns.
     surfaces:
       - docs/contracts/contract-catalog.md
       - docs/contracts/*.v1.yaml
@@ -206,8 +211,8 @@ families:
   - id: F-cross-authority-agreement
     title: Cross-Authority Surface Disagreement
     first_observed_rc: rc14
-    last_observed_rc: rc36
-    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36]
+    last_observed_rc: rc39-formal-release-transaction
+    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36, rc39-formal-release-transaction]
     root_cause: |
       117+ single-surface prevention rules can all pass while the
       surfaces themselves contradict each other — e.g.
@@ -300,6 +305,15 @@ families:
       payload itself bumped families.yaml; (c) require contributors
       to rebase their PR head against latest main before merge so
       the second PR in a train inherits the first's family-yaml diff.
+
+      **rc39 formal-release-transaction recurrence (2026-05-25).**
+      rc38 post-audit review found that HTTP cancel tenant semantics,
+      idempotency replay wording, agent-engine promotion status, pinned
+      OpenAPI fixtures, deferred clauses, and architecture-status claims
+      could all be individually plausible while mutually inconsistent.
+      Closure: rc39 aligns the authority surfaces to W1 current behavior
+      and W2 forward triggers, then publishes a formal release note backed
+      by generated evidence.
     surfaces:
       - docs/governance/architecture-status.yaml
       - docs/governance/architecture-graph.yaml
@@ -490,8 +504,8 @@ families:
   - id: F-progressive-loading-weak-enforcement
     title: CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time
     first_observed_rc: rc21
-    last_observed_rc: rc21
-    occurrences: [rc21]
+    last_observed_rc: rc39-formal-release-transaction
+    occurrences: [rc21, rc39-formal-release-transaction]
     root_cause: |
       Progressive on-demand rule loading: CLAUDE.md kernel paragraphs are
       auto-loaded into every session, but full rule bodies in
@@ -553,7 +567,11 @@ families:
       Meta-lesson: gate rules using shell pipelines for set lookup
       under `set -o pipefail` are timing-fragile across CI vs local
       runners — prefer materialised temp files OR associative arrays
-      OR `case` pattern matching for deterministic behaviour.
+      OR `case` pattern matching for deterministic behaviour. rc39 extends
+      the same "load the right workflow at the right phase" idea to formal
+      release publishing via `.claude/skills/formal-release-transaction.md`,
+      a release-readiness schema, a generated evidence bundle, and a release
+      validator.
 
   - id: F-l1-architecture-grounding-gap
     title: L1 Architecture Document Lacks Code-Mapping or SPI Enumeration

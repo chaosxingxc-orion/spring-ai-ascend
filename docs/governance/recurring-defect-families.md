@@ -8,7 +8,7 @@ authority_refs: [ADR-0094]
 # Recurring Defect Families — Human View
 
 > **What this is.** A categorised summary of defect ROOT-CAUSE CLASSES that
-> have recurred across multiple rc waves (rc4 → rc38). The canonical
+> have recurred across multiple rc waves (rc4 → rc39). The canonical
 > machine-readable form is [`recurring-defect-families.yaml`](recurring-defect-families.yaml);
 > this `.md` is a rendered view for human readers and reviewers.
 >
@@ -32,7 +32,7 @@ authority_refs: [ADR-0094]
 > **Vocabulary note ("Family" disambiguation, rc18 Wave 3).** The word
 > *family* is used at TWO scopes in this corpus; do not confuse them:
 > 1. **Permanent root-cause classes** — `F-<slug>` (e.g.,
->    `F-numeric-drift`). Catalogued here; cross-wave. Eight of them.
+>    `F-numeric-drift`). Catalogued here; cross-wave. Thirteen of them.
 > 2. **Wave-local finding clusters** — Greek-letter suffix on the rc
 >    review letter (e.g., "Family A" or "L-α", "M-η" in rc14/rc15
 >    release notes). Ephemeral; specific to one review pass. Reset each
@@ -45,20 +45,20 @@ authority_refs: [ADR-0094]
 
 ---
 
-## §1 — Family Summary (12 families as of rc34)
+## §1 — Family Summary (13 families as of rc39)
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
-| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 11 | ⚠️ partial |
+| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 13 (rc39 formal evidence closed hand-authored release-count drift) | ⚠️ partial |
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
-| 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 9 | ⚠️ partial |
+| 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 10 (rc39 stale Java SPI anchors) | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 6 (rc6, rc7, rc11, rc15, rc35-second-pass, rc36) | ⚠️ partial |
-| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 11 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36) | ✅ structurally addressed (rc14-16; rc33+rc34 forward-pointing-reference recurrence closed in lockstep; rc34-follow-up adversarial-review surfaced 5 in-wave authority-drift manifestations, all closed in commit 6d730521; rc34-merge-train surfaced THIRD scale — squash-merge sequences collapse families.yaml diffs and force per-commit G-9.b reapplication, closed by post-merge corrective PR; rc35-correctness-batch surfaced FOURTH scale via parallel adversarial review on green main — 8 cross-authority drifts; rc35-second-pass surfaced FIFTH scale — running the SAME parallel-adversarial-review pattern against the rc35-first-pass tip found 8 MORE sibling-scope defects the first pass closure missed (cancel-race fix applied only at terminal sites; ADR-0108 "common base shared with R-J.b" wording was itself cross-authority drift; S2C envelope deadline not clamped against orchestrator ceiling; regex `[0-9]+[a-z]?` silently skipped Rule N.c sub-clauses; 10 bare `python3 - <<PYEOF` invocations silent-passed on Windows; `check_recurring_families.sh` python preference inverted vs corpus; R-038/R-042 architecture-graph.yaml write race under xargs -P; /tmp deterministic-filename leftovers in emit_contract_tables.sh + rule-099.sh). All 8 closed across Commits A/B/C of this same PR) |
+| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 12 (rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36, rc39-formal-release-transaction) | ✅ structurally addressed (rc39 aligned HTTP, OpenAPI, deferred ledger, contract catalog, architecture-status, and formal release evidence) |
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 4 (rc12, rc15, rc16, rc36) | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
-| 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 1 (rc21) | ✅ closed — phase contracts + skills + dual-track loading per ADR-0098 |
+| 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 2 (rc21, rc39-formal-release-transaction) | ✅ closed — phase contracts + skills + formal release transaction workflow |
 | 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 10 (rc17-rc22+rc27-30) | 🟡 monitoring (rc32 reopen — rc29 marked closed but rc30 surfaced a regression in check_l1_dev_view_tree.sh; cool-down rc32+rc33+rc34) |
 | 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, deferred) |
 | 13 | F-nonatomic-run-status-write | Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants | 5 (rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction) | 🟡 monitoring (rc39 broadened to tenant-owned runtime state; RunRepository SPI made abstract, save calls source-guarded to create-only sites, TaskStateStore writes made atomic) |
