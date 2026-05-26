@@ -68,7 +68,7 @@ remains closed.
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 5 (rc55 reopen — agent-service/ARCHITECTURE.md §runtime/resilience present-tense prose flanking deferred Rule R-K.c citation) | 🟡 monitoring (rc55 reopens from `closed` because the rc15 + rc53 closures did not cover narrative prose within agent-*/ARCHITECTURE.md flanking deferred-clause citations; cool-down required: 3 subsequent waves) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 2 (rc21, rc39-formal-release-transaction) | ✅ closed — phase contracts + skills + formal release transaction workflow |
-| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 14 (rc55 capability-feature review follow-up: first feature list carried downstream-design advice, artificial status taxonomy, priority-first grouping, and weak scenario/data/control-flow grounding before being rewritten as module-owned bilingual L1 decomposition) | 🟡 monitoring (rc55 resets review-artefact cool-down; derived L1 reviews must preserve enough evidence and scenario/data/control-flow grounding for reviewers to audit conclusions) |
+| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 15 (rc55 capability-feature scenario follow-up: rewritten feature list still missed concrete enterprise Agent scenarios for SSE/non-SSE/direct ingress, reconnect recovery, context compaction, long-task continuation/switch/retry, same third-party Agent recovery, client-hosted skills, sub-agent delegation, and configuration ownership) | 🟡 monitoring (rc55 resets review-artefact cool-down; derived L1 reviews must preserve enough evidence and scenario/data/control-flow grounding for reviewers to audit conclusions) |
 | 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, partially addressed by rc51 Wave G2 JavaParser/libCST helpers under gate/lib/refactor/) |
 | 13 | F-nonatomic-run-status-write | Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants | 5 (rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction) | 🟡 monitoring (rc39 broadened to tenant-owned runtime state; RunRepository SPI made abstract, save calls source-guarded to create-only sites, TaskStateStore writes made atomic) |
 | 14 | F-project-tool-pin-drift | Project-Local Dev-Tool Pin Drift and Manifest Inconsistency | 2 (rc40-codegraph-mcp-onboarding + rc50-nodegraph-evidence) | ✅ structurally addressed (Rule 125 / E173 gates package.json exact-pin + lockfileVersion>=3 + .mcp.json relative-shim ref; rc50 adds local `.codegraph` nodegraph evidence without committing the SQLite database) |
@@ -518,12 +518,14 @@ not against the human-readable L1 architecture document.
 rc40 adds a service-module recurrence: `agent-service/ARCHITECTURE.md`
 omitted live platform/runtime package directories from the Development View and
 counted structural carriers in the SPI appendix as active SPI interfaces.
-rc55 adds two review-artefact recurrences: the generated OSS comparison review
+rc55 adds three review-artefact recurrences: the generated OSS comparison review
 preserved the conclusion but compressed away source-level project-by-project
 non-equivalence, Layer 3 worker-contract, Layer 5 capability-discovery, and
 Session/Memory concurrency evidence; the first capability-feature list carried
 downstream-design advice, artificial status labels, priority-first grouping, and
-weak scenario/data/control-flow grounding.
+weak scenario/data/control-flow grounding; the rewritten capability-feature list
+still missed concrete enterprise Agent access, recovery, delegation, third-party
+Agent, client-hosted skill, and configuration-ownership scenarios.
 
 **Surfaces.**
 
@@ -555,13 +557,17 @@ weak scenario/data/control-flow grounding.
 - rc55 capability-feature review follow-up: rewrite derived L1 feature lists
   around full module ownership, S1-S5 scenario closure, data/control-flow closure,
   orthogonality checks, and OSS-average capability baseline.
+- rc55 capability-feature scenario follow-up: require Agent Service capability
+  reviews to expand canonical scenarios into concrete enterprise Agent access,
+  recovery, delegation, third-party Agent, client-hosted skill, and configuration-
+  ownership cases before deriving module features.
 
 **Cleanup status.** `monitoring` — Rule G-1.1 ratifies the depth/grounding
 discipline, but rc40 resets the cool-down because a live service architecture
 document again drifted from code reality. The appendix now separates the 7
 active Java SPI interfaces from SPI-adjacent structural carriers. rc55 resets
-the derived-review side again for OSS comparison and module capability-feature
-reviews.
+the derived-review side again for OSS comparison, module capability-feature
+reviews, and the follow-up scenario-decomposition review.
 
 **Open residual.** The SPI Appendix scanner now requires 4 surfaces
 to agree (catalog + metadata + DFX + ARCHITECTURE.md appendix). A
@@ -582,6 +588,9 @@ source record and expanded evidence matrices. **rc55 capability-feature reset:**
 derived feature lists must avoid status-taxonomy and downstream-design overreach
 and instead prove module ownership, scenario closure, normal/exception paths,
 data flow, control flow, orthogonality, and OSS-average capability coverage.
+**rc55 capability-feature scenario reset:** coarse S1-S5 anchoring is insufficient
+unless the derived review enumerates concrete Agent access, recovery, delegation,
+third-party Agent, client skill, and configuration ownership scenarios.
 
 ---
 
