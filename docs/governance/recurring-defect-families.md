@@ -74,7 +74,7 @@ agentic surfaces.
 | 17 | F-design-artifact-omits-tenant-spine | Design Artefact Omits tenantId First-Class Field | 1 (rc53-wave-1-agent-service-l1-4plus1-rewrite) | 🟡 monitoring (ADR-0136 + ADR-0138 §3 red line at the L1 design layer; gate-rule for tenantId-less ER blocks is a W5+ candidate) |
 | 18 | F-design-doc-violates-three-track-bus | Design Artefact Proposes Queue / Event-Bus Abstraction Bypassing Rule R-E Three-Track Channels | 1 (rc53-wave-1-agent-service-l1-4plus1-rewrite) | 🟡 monitoring (ADR-0138 §3 red line binds Internal Event Queue to bus-channels.yaml three-track manifest; physical-isolation vs durability-tier conflation is structurally rejected at L1) |
 | 19 | F-design-doc-language-bypasses-invariant | Design Artefact Wording Implies Bypass of Reactive / RLS / No-Sleep Invariants | 1 (rc53-wave-1-agent-service-l1-4plus1-rewrite) | 🟡 monitoring (ADR-0139 narrowed Fast-Path semantics forbid bypass-implying language; risk-phrase + invariant-preservation-clause gate-rule is a W5+ candidate) |
-| 20 | F-placeholder-leaks-into-active-corpus | Anonymous-Name Placeholders Leak Into Active Documentation Corpus | 2 (rc53-wave-1-agent-service-l1-4plus1-rewrite + rc54-agentic-composition-corrective) | 🟡 monitoring (rc54 adds Rule 127 current-release/current-response placeholder guard; broader slug grep remains a W5+ candidate) |
+| 20 | F-placeholder-leaks-into-active-corpus | Anonymous-Name Placeholders Leak Into Active Documentation Corpus | 3 (rc53-wave-1-agent-service-l1-4plus1-rewrite + rc54-agentic-composition-corrective + pr71-agent-service-l1-review-wave-1) | 🟡 monitoring (rc54 adds Rule 127 current-release/current-response placeholder guard; broader slug grep remains a W5+ candidate) |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -972,7 +972,9 @@ post-hoc because they become stable URLs.
 remains in the active corpus with an explanatory marker (Wave 5
 closure); slug preserved for stable-URL stability. rc54 closes the live
 release-note placeholder recurrence by replacing the rc53 Wave 8 token and
-adding the Rule 127 guard.
+adding the Rule 127 guard. PR #71's original `xiaoming` review slugs remain
+in the current contributor PR for URL stability; the family records the
+recurrence while broader slug guards remain a W5+ candidate.
 
 ---
 

@@ -1080,8 +1080,8 @@ families:
   - id: F-placeholder-leaks-into-active-corpus
     title: Anonymous-Name Placeholders Leak Into Active Documentation Corpus
     first_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
-    last_observed_rc: rc54-agentic-composition-corrective
-    occurrences: [rc53-wave-1-agent-service-l1-4plus1-rewrite, rc54-agentic-composition-corrective]
+    last_observed_rc: pr71-agent-service-l1-review-wave-1
+    occurrences: [rc53-wave-1-agent-service-l1-4plus1-rewrite, rc54-agentic-composition-corrective, pr71-agent-service-l1-review-wave-1]
     root_cause: |
       Anonymous-name placeholders (`xiaoming` 小明, `wanshoulu` 万寿路,
       `foo`, `bar`, `TBD`, `TODO-template`) leak into active design
@@ -1114,4 +1114,7 @@ families:
       drafts + future wave drafts are NOT family hits but require
       gate-rule allow-list maintenance. rc54 closes the current-release-note
       placeholder recurrence by replacing the rc53 Wave 8 line-count token
-      and adding the Rule 127 current-release/current-response guard.
+      and adding the Rule 127 current-release/current-response guard. PR #71's
+      original `xiaoming` review slugs remain in the current contributor PR;
+      the branch keeps them for URL stability while the family records the
+      recurrence and future slug guards remain a W5+ candidate.
