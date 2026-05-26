@@ -101,7 +101,7 @@ rule_D_9 = element "Rule D-9" "Rule" "No Version / Log Metadata in Code" "SAA Ru
     }
 }
 
-rule_G_1 = element "Rule G-1" "Rule" "Layered 4+1 Discipline + Architecture-Graph Truth" "SAA Rule" {
+rule_G_1 = element "Rule G-1" "Rule" "Layered 4+1 Discipline + Architecture Workspace Truth" "SAA Rule" {
     properties {
         "saa.id" "RULE-G-1"
         "saa.kind" "rule"

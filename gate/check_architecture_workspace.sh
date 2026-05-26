@@ -22,11 +22,11 @@ WORKSPACE="$REPO_ROOT/architecture/workspace.dsl"
 TOOL_POM="$REPO_ROOT/tools/architecture-workspace/pom.xml"
 NORMALIZED_OUT="$REPO_ROOT/out/architecture/normalized-model.json"
 
-# Wave 1 advisory mode — toggle via env var; Wave 5 commit will set this to 1.
-ADVISORY="${ARCHITECTURE_WORKSPACE_ADVISORY:-1}"
-
-# Wave 5 blocking flag (default 0; flipped to 1 in Wave 5 commit).
-BLOCKING="${ARCHITECTURE_WORKSPACE_BLOCKING:-0}"
+# Wave 5: BLOCKING mode (default). Override with
+# ARCHITECTURE_WORKSPACE_ADVISORY=1 ARCHITECTURE_WORKSPACE_BLOCKING=0 for
+# rollback-style runs during the 14-day soak (per the migration plan).
+ADVISORY="${ARCHITECTURE_WORKSPACE_ADVISORY:-0}"
+BLOCKING="${ARCHITECTURE_WORKSPACE_BLOCKING:-1}"
 
 red()    { printf '\033[31m%s\033[0m\n' "$1"; }
 green()  { printf '\033[32m%s\033[0m\n' "$1"; }
@@ -114,5 +114,9 @@ if [[ -f "$COMPARE_SCRIPT" ]]; then
   ( cd "$REPO_ROOT" && python3 "$COMPARE_SCRIPT" ) || true
 fi
 
-green "ARCHITECTURE WORKSPACE: PASS (W1 advisory mode; gate flips to blocking at Wave 5)"
+if [[ "$BLOCKING" == "1" ]]; then
+  green "ARCHITECTURE WORKSPACE: PASS (W5+ blocking mode — ADR-0147)"
+else
+  green "ARCHITECTURE WORKSPACE: PASS (advisory mode — set ARCHITECTURE_WORKSPACE_BLOCKING=1 for blocking)"
+fi
 exit 0

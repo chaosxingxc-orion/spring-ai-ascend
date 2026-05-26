@@ -16,7 +16,7 @@ PR merges on the first try.
 ## The mergeability checklist (read this first)
 
 1. **Rebase onto the latest `main` immediately before opening or updating a PR.**
-2. **Never hand-edit generated artefacts** (`gate/rules/*.sh`, `docs/governance/architecture-graph.yaml`).
+2. **Never hand-edit generated artefacts** (`gate/rules/*.sh`, `docs/governance/architecture-graph.yaml`, `docs/governance/architecture-workspace-graph.yaml`, `architecture/generated/*.dsl`).
 3. **Recompute governance counts against `main`** (the merge target), not your fork's branch point, and update the four baseline surfaces in lockstep.
 4. **Run the gate on Linux/WSL**, not Windows Git Bash (Rule G-7).
 5. **Touching a refresh signal?** Add a real `recurring-defect-families.yaml` content-diff (Rule G-9).
@@ -73,7 +73,9 @@ runner executes the same rules. A green run prints `GATE: PASS`.
 | Artefact | Generated from | Regenerate with |
 |---|---|---|
 | `gate/rules/*.sh` | `gate/check_architecture_sync.sh` (the monolith) | `bash gate/lib/extract_rules.sh` |
-| `docs/governance/architecture-graph.yaml` | principle/enforcer/status/ADR inputs | `python3 gate/build_architecture_graph.py` |
+| `architecture/generated/*.dsl` | `*/module-metadata.yaml`, `docs/governance/{enforcers,principle-coverage}.yaml`, `CLAUDE.md`, `docs/adr/*.yaml`, `docs/governance/templates/surface-classification.yaml` | `java ... com.huawei.ascend.tools.architecture.fragment.AllFragmentsCli --repo .` |
+| `docs/governance/architecture-workspace-graph.yaml` | `architecture/workspace.dsl` workspace closure | `bash gate/check_architecture_workspace.sh` |
+| `docs/governance/architecture-graph.yaml` | principle/enforcer/status/ADR inputs (legacy; retires at W7 per ADR-0147) | `python3 gate/build_architecture_graph.py` |
 
 Edit the **source** (the monolith, the inputs) and regenerate. A PR that
 hand-edits `gate/rules/*.sh` will be overwritten on the next regen and will

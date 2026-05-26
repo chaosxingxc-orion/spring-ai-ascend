@@ -7014,6 +7014,22 @@ fi
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------
+
+# Wave 5 authority transfer (ADR-0147): after the rule list runs, invoke the
+# workspace check. In BLOCKING mode it fails closed on profile violations or
+# generated-zone drift. Listed AFTER the rule loop so the structural-rule
+# verdict above is preserved if the workspace tooling is temporarily
+# unavailable (e.g. on a host without Java 21 + Maven wrapper).
+WORKSPACE_GATE="$(dirname "${BASH_SOURCE[0]}")/check_architecture_workspace.sh"
+if [[ -x "$WORKSPACE_GATE" ]]; then
+  echo "---"
+  echo "Running architecture workspace gate (ADR-0147 W5+)..."
+  if ! bash "$WORKSPACE_GATE"; then
+    echo "GATE: FAIL (workspace gate)"
+    exit 1
+  fi
+fi
+
 if [[ $fail_count -eq 0 ]]; then
   echo "GATE: PASS"
   exit 0
