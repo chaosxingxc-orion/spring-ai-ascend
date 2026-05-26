@@ -15,7 +15,6 @@ relates_to:
   - docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md
   - docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.cn.md
   - docs/logs/reviews/2026-05-26-agent-service-l1-service-local-performance-and-parallel-delivery-plan.en.md
-  - docs/logs/reviews/2026-05-26-agent-service-session-task-and-event-queue-l2-proposal.en.md
   - docs/logs/reviews/2026-05-26-l0-rc53-post-closure-agentic-composition-review.en.md
   - docs/logs/reviews/2026-05-26-l0-rc54-agentic-composition-corrective-response.en.md
   - docs/adr/0136-vocabulary-reconciliation-pr71-task-vs-run.yaml
@@ -59,7 +58,7 @@ rc53/rc54 在同一天完成了 L1 4+1 ratification、agentic SPI 补面、advis
 - `agent-service/ARCHITECTURE.md:19-35` 指向 rc53 4+1 review draft，并声明其在冲突时优先。
 - `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md:1116-1138` 声明 9 个当前 agent-service SPI，并明确本 wave 不新增 Java SPI。
 - `docs/logs/reviews/2026-05-26-agent-service-l1-service-local-performance-and-parallel-delivery-plan.en.md:381-436` 另行提出 IF-SVC-001..012 L2 proposed seams。
-- `docs/logs/reviews/2026-05-26-agent-service-session-task-and-event-queue-l2-proposal.en.md:57` 仍把 tri-track routing 写成 optional refinement，与 rc53 canonical L1 的 Rule R-E 红线冲突。
+- `docs/logs/reviews/2026-05-26-agent-service-l1-service-local-performance-and-parallel-delivery-plan.en.md:388` 的 `EventClassifier` row 仍使用 optional channel wording，与同文档的 `physical performance rule` 和 rc53 canonical L1 的 Rule R-E 红线需要统一。
 
 ### 2.2 最强解读
 
@@ -157,7 +156,7 @@ rc53 review 指出 `ChatAdvisor` 没有绑定进 `AgentDefinition`，导致 `cha
 |---|---|
 | 严重度 | P0 文档漂移 |
 | 类型 | 旧 review proposal 与 canonical L1 冲突 |
-| 漂移位置 | `docs/logs/reviews/2026-05-26-agent-service-session-task-and-event-queue-l2-proposal.en.md:57` 和 `:592` |
+| 漂移位置 | `docs/logs/reviews/2026-05-26-agent-service-l1-service-local-performance-and-parallel-delivery-plan.en.md:388` |
 | canonical 权威 | rc53 4+1 明确 reject 单队列 + 三存储模式，要求按 intent 绑定 `control/data/rhythm` 物理通道。 |
 | 证据 | `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md:141`、`:182`、`:544` |
 | 当前风险 | 后续实现者可能按 L2 proposal 建一个统一 queue + priority class，而不是从接口层建模三轨通道，直接触发 F-design-doc-violates-three-track-bus。 |
@@ -172,7 +171,7 @@ rc53 review 指出 `ChatAdvisor` 没有绑定进 `AgentDefinition`，导致 `cha
 | 类型 | L1 grounding prose 陈旧 |
 | 当前文档 | `POST /v1/runs` -> `201` with status `PENDING` |
 | 当前代码/契约 | OpenAPI、contract-catalog、RunController 均为 `202 + TaskCursor` |
-| 证据 | 陈旧处：`agent-service/ARCHITECTURE.md:184-185`；OpenAPI：`docs/contracts/openapi-v1.yaml:49-54`；代码：`RunController.java:115-116` |
+| 证据 | 陈旧处：`agent-service/ARCHITECTURE.md:166-167`；OpenAPI：`docs/contracts/openapi-v1.yaml:49-54`；代码：`RunController.java:115-116` |
 | 当前风险 | 不是运行时 bug，但会误导接口评审与 client contract 判断。 |
 | 建议动作 | 在下一 doc corrective wave 中把该段改为 `202 + TaskCursor`，并引用 Rule R-F cursor flow。 |
 | 状态 | open |
@@ -234,7 +233,7 @@ rc53 review 指出 `ChatAdvisor` 没有绑定进 `AgentDefinition`，导致 `cha
 ```text
 wsl bash -lc "rg -n '^public interface ' agent-service/src/main/java/com/huawei/ascend/service -g '*.java' | rg '[/\\\\]spi[/\\\\]'"
 wsl bash -lc "rg -n 'POST /v1/runs|TaskCursor|202|201' agent-service/ARCHITECTURE.md docs/contracts/openapi-v1.yaml docs/contracts/contract-catalog.md"
-wsl bash -lc "rg -n 'tri-track routing is an optional|candidate refinement|control|data|rhythm' docs/logs/reviews/2026-05-26-agent-service-session-task-and-event-queue-l2-proposal.en.md docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md"
+wsl bash -lc "rg -n 'optional control/data/rhythm|candidate refinement|control|data|rhythm' docs/logs/reviews/2026-05-26-agent-service-l1-service-local-performance-and-parallel-delivery-plan.en.md docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md"
 wsl bash -lc "./mvnw -pl agent-service -am -DskipITs -Dsurefire.failIfNoSpecifiedTests=false -Dtest=InMemoryRunRegistryUpdateIfNotTerminalTest,RunCursorFlowIT,AgentSpiCarrierImmutabilityTest test"
 ```
 
