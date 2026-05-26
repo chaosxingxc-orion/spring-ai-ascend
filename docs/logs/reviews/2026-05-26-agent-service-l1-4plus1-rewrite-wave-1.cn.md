@@ -18,7 +18,9 @@ relates_to:
 
 # Agent Service L1 — 4+1 视图重写（Wave 1-6：评审稿 + 拒绝清单 + ADR 草案 + 4+1 视图 + Javadoc 词汇表）
 
-> **历史 artifact 冻结标记（2026-05-26 rc53-wave-8 闭环时追加）**：本文件是 rc53 wave 跨 Waves 1-6 撰写的规范 L1 4+1 源。Wave 8 闭环后（commit 见 `docs/logs/releases/2026-05-26-rc53-agent-service-l1-4plus1-rewrite-closure.en.md`），本文件按 `docs/governance/logs-folder-policy.md` **只读**。后续编辑作为新评审稿放到 `docs/logs/reviews/` 下。文件中数值是 point-in-time snapshot evidence；活动的 `agent-service/ARCHITECTURE.md` §0.5 携带前向兼容的权威指针。
+> **降级声明（2026-05-26 rc55 按 [ADR-0143](../../adr/0143-review-log-demotion-l1-canonical-move.yaml) 追加）**：本文件是 rc53 Wave 1-6 设计过程的**历史撰写记录**。规范的 L1 4+1 源已按 ADR-0143 迁移到 `docs/L1/agent-service/{README,scenarios,logical,process,physical,development,spi-appendix}.md`。本文件与新规范视图文件冲突时，**新规范视图文件优先**。rc55 审计发现"将冻结的 review log 提升为'规范 L1 4+1 源'"违反 Rule G-1.a 的 L0/L1/L2 视图纪律（已在 `docs/governance/recurring-defect-families.yaml` 中注册为 `F-l1-canonical-source-in-interaction-log`）；ADR-0143 通过将规范源从 `docs/logs/reviews/` 移到 `docs/L1/` 来按结构闭环该家族。本文件按 `docs/governance/logs-folder-policy.md` 仍只读；该降级声明本身是允许追加的历史标记。
+
+> **历史 artifact 冻结标记（2026-05-26 rc53-wave-8 闭环时追加）**：本文件是 rc53 wave 跨 Waves 1-6 撰写的规范 L1 4+1 源。Wave 8 闭环后（commit 见 `docs/logs/releases/2026-05-26-rc53-agent-service-l1-4plus1-rewrite-closure.en.md`），本文件按 `docs/governance/logs-folder-policy.md` **只读**。后续编辑作为新评审稿放到 `docs/logs/reviews/` 下。文件中数值是 point-in-time snapshot evidence；活动的 `agent-service/ARCHITECTURE.md` §0.5 携带前向兼容的权威指针。**rc55 更新（按上方降级声明）**：§0.5 的前向兼容权威指针现在指向 `docs/L1/agent-service/` 而非本评审文件。
 
 > 日期：2026-05-26
 > 范围：仅覆盖 `agent-service` 模块。
