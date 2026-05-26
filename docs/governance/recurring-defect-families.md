@@ -32,11 +32,11 @@ authority_refs: [ADR-0094]
 > **Vocabulary note ("Family" disambiguation, rc18 Wave 3).** The word
 > *family* is used at TWO scopes in this corpus; do not confuse them:
 > 1. **Permanent root-cause classes** — `F-<slug>` (e.g.,
->    `F-numeric-drift`). Catalogued here; cross-wave. Sixteen of them.
+>    `F-numeric-drift`). Catalogued here; cross-wave. Twenty-seven of them.
 > 2. **Wave-local finding clusters** — Greek-letter suffix on the rc
 >    review letter (e.g., "Family A" or "L-α", "M-η" in rc14/rc15
 >    release notes). Ephemeral; specific to one review pass. Reset each
->    wave. Sixteen permanent families are currently registered.
+>    wave. Twenty-seven permanent families are currently registered.
 > When a release note says "Family A closed", it means the wave-local
 > cluster. When this document says "F-numeric-drift partial", it means
 > the permanent root-cause class. The two namespaces never overlap by
@@ -45,13 +45,16 @@ authority_refs: [ADR-0094]
 
 ---
 
-## §1 — Family Summary (20 families as of rc54 agentic-composition corrective)
+## §1 — Family Summary (27 families as of rc55 agent-service-l1-canonical-materialization)
 
-rc52 agentic-completeness-corrective registers
+rc55 agent-service-l1-canonical-materialization registers SEVEN new families
+spanning the L1-design-discipline taxonomy (canonical-source provenance,
+layer-cohesion, frontmatter↔body parity, logical-vs-structural decomposition,
+design-only mechanism marking, discriminator-without-discriminated-type,
+SPI-package bloat). rc54 agentic-completeness-corrective previously registered
 F-agentic-contract-composition-gap: rc51 landed individual primitives, but
 their cross-contract semantics did not compose. F-l0-agentic-primitive-gap
-remains closed; the new family tracks semantic closure across already-shipped
-agentic surfaces.
+remains closed.
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
@@ -59,10 +62,10 @@ agentic surfaces.
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 10 (rc39 stale Java SPI anchors) | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 6 (rc6, rc7, rc11, rc15, rc35-second-pass, rc36) | ⚠️ partial |
-| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 13 (rc40 corrected current-vs-forward proposal scope, package truth, and future capability claims) | ✅ structurally addressed (Rule 122/123/124 added for proposal documents) |
+| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 15 (rc55 agent-service L1 canonical-materialization audit found 5 in-doc disagreements: M2 §0.4 stale transition prose, M3 RunRepository.updateIfNotTerminal wave-status drift, M4 TaskRepository vs TaskStateStore naming, M11 agent-invoke-request.v1.yaml cited without file existing, R4 ADR-0136 glossary aliases ChatAdvisor + RuntimeMiddleware as one mechanism) | ✅ structurally addressed (Rule 122/123/124 added for proposal documents; rc55 adds ADR-0140..0145 L1 canonical materialization closure) |
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 4 (rc12, rc15, rc16, rc36) | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
-| 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 3 | ✅ closed (rc16) |
+| 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 5 (rc55 reopen — agent-service/ARCHITECTURE.md §runtime/resilience present-tense prose flanking deferred Rule R-K.c citation) | 🟡 monitoring (rc55 reopens from `closed` because the rc15 + rc53 closures did not cover narrative prose within agent-*/ARCHITECTURE.md flanking deferred-clause citations; cool-down required: 3 subsequent waves) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 2 (rc21, rc39-formal-release-transaction) | ✅ closed — phase contracts + skills + formal release transaction workflow |
 | 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 11 (rc40 service architecture tree/SPI appendix drift) | 🟡 monitoring (rc40 resets cool-down; service architecture now separates active SPI interfaces from structural carriers) |
@@ -75,6 +78,13 @@ agentic surfaces.
 | 18 | F-design-doc-violates-three-track-bus | Design Artefact Proposes Queue / Event-Bus Abstraction Bypassing Rule R-E Three-Track Channels | 1 (rc53-wave-1-agent-service-l1-4plus1-rewrite) | 🟡 monitoring (ADR-0138 §3 red line binds Internal Event Queue to bus-channels.yaml three-track manifest; physical-isolation vs durability-tier conflation is structurally rejected at L1) |
 | 19 | F-design-doc-language-bypasses-invariant | Design Artefact Wording Implies Bypass of Reactive / RLS / No-Sleep Invariants | 1 (rc53-wave-1-agent-service-l1-4plus1-rewrite) | 🟡 monitoring (ADR-0139 narrowed Fast-Path semantics forbid bypass-implying language; risk-phrase + invariant-preservation-clause gate-rule is a W5+ candidate) |
 | 20 | F-placeholder-leaks-into-active-corpus | Anonymous-Name Placeholders Leak Into Active Documentation Corpus | 3 (rc53-wave-1-agent-service-l1-4plus1-rewrite + rc54-agentic-composition-corrective + pr71-agent-service-l1-review-wave-1) | 🟡 monitoring (rc54 adds Rule 127 current-release/current-response placeholder guard; broader slug grep remains a W5+ candidate) |
+| 21 | F-l1-canonical-source-in-interaction-log | Live L1 Architecture Artefact Points at Freeze-Marked Review Log as Canonical Source | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (ADR-0143 demotes the rc53 review file and rewrites agent-service/ARCHITECTURE.md §0.5 to point at docs/L1/agent-service/{scenarios,logical,process,physical,development}.md; proximity-based gate-rule for canonical/authoritative wording near review-log hyperlinks is a W5+ candidate) |
+| 22 | F-layer-decomposition-low-cohesion | Logical-View Layer Owns Heterogeneous Responsibilities or Double-Homes With Another Layer | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (ADR-0140 Engine Adapter Layer split + ADR-0142 Run aggregate single-owner; gate-rule for layer-description scan is a W5+ candidate) |
+| 23 | F-frontmatter-claim-body-mismatch | Architecture-Doc Frontmatter Declares Views the Body Does Not Author | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (rc55 W2 frontmatter discipline + view-per-file separation under docs/L1/agent-service/; gate-rule for frontmatter↔body parity is a W5+ candidate) |
+| 24 | F-logical-vs-structural-decomposition-conflation | Single Architecture Artefact Carries Two Competing N-Element Decompositions Without a Mapping | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (ADR-0144 publishes the canonical layer↔package matrix; gate-rule for ≥2 un-mapped N-decompositions in same .md is a W5+ candidate) |
+| 25 | F-design-only-mechanism-shown-as-shipped | Design-Only Mechanism Depicted in Architecture Diagram Without Caption-Level Status Marker | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (ADR-0141 Internal Event Queue layer demoted to design_only sub-section; rc55 W3/W4 view discipline annotates DualTrackRouter / SlowTrackJudge per ADR-0112 design_only status; cross-reference gate-rule for contract-status vs diagram is a W5+ candidate) |
+| 26 | F-discriminator-without-discriminated-type | Typed Discriminator Ships Without the Polymorphic Type It Discriminates | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (ADR-0145 specifies sealed RunEvent hierarchy + docs/contracts/run-event.v1.yaml; actual Java sealed type lands in a follow-up impl-mode wave; gate-rule for discriminator-zero-callsite is a W5+ candidate) |
+| 27 | F-spi-package-bloat-with-carriers | SPI Package Contains More Structural Carriers Than Extension Interfaces | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (rc55 W5 audits agent-service memory.spi package which has 1 interface + 12 carriers; carrier-promotion deferred to a follow-up impl-mode wave; gate-rule for carrier/interface ratio is a W5+ candidate) |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -269,6 +279,31 @@ structural defence. W2 candidate: a recurring "green-main hunt" CI workflow
 that runs the same parallel-reviewer dispatch when nothing has changed,
 on a weekly cadence.
 
+**rc55 agent-service L1 canonical-materialization recurrence.** The
+rc55 audit found FIVE in-doc cross-authority disagreements within
+`agent-service/ARCHITECTURE.md` alone, distinct from prior cross-doc
+patterns: (M2) §0.4 "Until full 4+1 reorganisation lands" stale
+transition prose vs §0.5 rc53 4+1 ratification claim — the same doc
+asserts both states simultaneously; (M3) `RunRepository.updateIfNotTerminal`
+wave-staging drift — review §4.2 says "existing W1 method" while
+ARCHITECTURE.md elsewhere says "abstract from rc39 per ADR-0118",
+both true at different abstraction levels but unreconciled in prose;
+(M4) `TaskRepository` vs `TaskStateStore` naming inconsistency
+between ARCHITECTURE.md §11 prose and §11.2 SPI table +
+`module-metadata.yaml`; (M11) `docs/contracts/agent-invoke-request.v1.yaml`
+cited in §11.3 without verifying file exists on disk (verified
+absent at rc55 audit); (R4) ADR-0136 §3 glossary aliases
+`ChatAdvisor` + `RuntimeMiddleware` as one "Shadow Tool Interceptor"
+mapping while they have different cardinality (per-ChatClient-call
+vs per-HookPoint-per-Run) and different scopes (model-call boundary
+vs hook-point boundary). Pattern: within-doc cross-authority drift
+is a NEW scale of the family — prior occurrences were inter-doc
+(authority surface A vs B); rc55 surfaces intra-doc (paragraph A
+vs paragraph B within the same .md file). Closed at the design
+level by ADR-0140..0145 wave + the rc55 L1 canonical materialization
+(docs/L1/agent-service/ replaces the §0.5 review-doc pointer + per-
+view file separation prevents future intra-doc accumulation).
+
 ---
 
 ### F-deferred-clause-orphan — CLAUDE-deferred.md Orphan
@@ -320,11 +355,37 @@ returns a decision envelope.
 - `CLAUDE.md` kernel paragraphs
 - `docs/governance/rules/*.md` card kernels
 - `agent-*/ARCHITECTURE.md` body text
+- `docs/logs/reviews/*.md` (design proposals + 4+1 view drafts)
+- `docs/L1/**/*.md` (per-view files when populated)
 
-**Prevention chronology.** Rule 99 (rc11) → Rule 108 (rc16).
+**Prevention chronology.** Rule 99 (rc11) → Rule 108 (rc16) → ADR-0138
+§3 red-line c (rc53 — state-diagram annotation requirement) → rc55
+W3/W4/W5 view-authoring discipline (every diagram + every prose
+paragraph flanking a deferred-clause citation MUST carry an explicit
+`(WN-deferred: <cause>)` marker).
 
-**Open residual.** None. Rule 108 widens scope to all active corpus
-prose; rc16 closure was the last known instance.
+**rc55 reopen.** `agent-service/ARCHITECTURE.md` §runtime/resilience
+prose reads "over-cap callers receive a rejected decision envelope
+`SkillResolution.reject(SuspendReason.RateLimited)` per Rule R-K
+shipped surface. Translating that decision into `RunStatus.SUSPENDED`
+is deferred to Rule R-K.c (W2 scheduler admission)" — but the
+surrounding paragraph uses present-tense "consumes capacity" for the
+rate-limited path. Reader can interpret the present-tense as "Run
+actually transitions SUSPENDED at W0" when only the envelope is
+shipped. `cleanup_status` bumped from `closed` (stale since rc53)
+to `monitoring`. Closed at the design level by rc55 W4 process view
+explicit `(W2-deferred: scheduler admission)` annotation per Rule
+R-K.c on every diagram + ADR-0140..0145 wave. Cool-down required:
+3 subsequent waves (rc55+1, rc55+2, rc55+3) with no recurrence
+before re-promotion to `closed`.
+
+**Open residual.** rc55 W3/W4/W5 ships the explicit annotation
+discipline for newly-authored `docs/L1/agent-service/*` files. The
+repo-wide sibling sweep in rc55 W0 audits other L1 docs for the
+same prose-pattern. Gate-rule candidate for W5+ would close the
+family structurally by automating the proximity check
+(present-tense terminal verbs within ±5 lines of a deferred-clause
+citation, FAIL without `(WN-deferred)` marker).
 
 ---
 
@@ -975,6 +1036,277 @@ release-note placeholder recurrence by replacing the rc53 Wave 8 token and
 adding the Rule 127 guard. PR #71's original `xiaoming` review slugs remain
 in the current contributor PR for URL stability; the family records the
 recurrence while broader slug guards remain a W5+ candidate.
+
+---
+
+### F-l1-canonical-source-in-interaction-log — Live L1 Architecture Artefact Points at Freeze-Marked Review Log as Canonical Source
+
+**Pattern.** An `agent-*/ARCHITECTURE.md` (L1 root per Rule G-1.a)
+delegates its "canonical 4+1 view source" to a file under
+`docs/logs/reviews/*.md`. The review file is an INTERACTION RECORD
+per `docs/governance/logs-folder-policy.md` and is frozen / read-only
+after wave closure. Promoting it to "authoritative L1 source" creates
+two compounding defects: (a) Rule G-1.a's L0/L1/L2 view discipline is
+bypassed — architecture lives where governance can't gate it;
+(b) the freeze-mark means the "live" architecture cannot evolve
+without writing a fresh review file + chasing the pointer.
+
+**Surfaces.**
+- `agent-*/ARCHITECTURE.md`
+- `docs/L1/**/*.md`
+- `ARCHITECTURE.md` (root)
+
+**Prevention.**
+- ADR-0143 (rc55 — review-log demotion + L1 canonical move;
+  `agent-service/ARCHITECTURE.md` §0.5 rewritten to point at
+  `docs/L1/agent-service/{scenarios,logical,process,physical,development}.md`).
+- Candidate gate-rule for Wave 5+: Grep `agent-*/ARCHITECTURE.md` +
+  `docs/L1/**/*.md` for markdown links to `docs/logs/reviews/.*\.md`
+  with the proximity words {canonical, authoritative, 4+1 source,
+  view source} within ±3 lines.
+
+**Open residual.** ADR-0143 demotes the rc53 review file and
+rewrites the §0.5 pointer; the canonical 4+1 source now lives at
+`docs/L1/agent-service/` per the rc55 wave. Future review files
+MUST NOT be promoted to "canonical" status again. Sibling sweep
+across other modules (agent-execution-engine, agent-bus,
+agent-middleware, agent-client, agent-evolve) is documented in
+`docs/logs/reviews/2026-05-26-agent-service-l1-sibling-sweep.en.md`.
+
+---
+
+### F-layer-decomposition-low-cohesion — Logical-View Layer Owns Heterogeneous Responsibilities or Double-Homes
+
+**Pattern.** A logical-view layer in an L1 architecture document
+either (a) lists ≥4 heterogeneous component types as its
+responsibilities, becoming a "kitchen-sink" layer with no clear
+ownership boundary; OR (b) shares one or more responsibilities with
+a different layer in the same diagram, creating undefined ownership
+at the layer boundary. PR #72 rc53 surfaces both shapes in the same
+diagram: review §15.1 "Engine Adapter Layer" lists 7+ heterogeneous
+concerns (EngineRegistry + ExecutorAdapter + ChatAdvisor +
+RuntimeMiddleware + ContextProjector + PromptTemplate +
+StructuredOutputConverter) AND RuntimeMiddleware appears again in
+"Task-Centric Control Layer" — double-homing.
+
+**Surfaces.**
+- `agent-*/ARCHITECTURE.md`
+- `docs/L1/**/*.md`
+- `docs/L2/**/*.md`
+- `docs/logs/reviews/*.md` (design proposals authoring L1 views)
+
+**Prevention.**
+- ADR-0140 (rc55 — Engine Adapter Layer split into 5a Engine Dispatch
+  & Execution + 5b Translation & Tool-Intercept; RuntimeMiddleware
+  exclusively in Layer 4 Control).
+- ADR-0142 (rc55 — Run aggregate single-owner: Manager layer owns
+  the aggregate; Control layer holds typed reference + invokes
+  `RunRepository.updateIfNotTerminal`).
+- Candidate gate-rule for Wave 5+: pattern-match in
+  `agent-*/ARCHITECTURE.md` + `docs/L1/**/*.md` for `Layer N`
+  headings; count bullet items per layer; FAIL if ≥4 OR if same
+  component name appears under ≥2 layers.
+
+**Open residual.** The rc53 5-layer model (Access / Manager / Queue
+/ Control / Adapter) is preserved with the ADR-0140 + ADR-0142
+narrowings. Repo-wide sibling sweep audits the other 5 modules.
+
+---
+
+### F-frontmatter-claim-body-mismatch — Architecture-Doc Frontmatter Declares Views the Body Does Not Author
+
+**Pattern.** An L0/L1/L2 architecture document's YAML frontmatter
+declares `view:` and/or `covers_views: [...]` that the document body
+does NOT actually author — no matching `## *Scenarios*` /
+`## *Logical*` / `## *Process*` / `## *Physical*` / `## *Development*`
+headings, no Mermaid diagrams for the claimed view. The frontmatter
+therefore lies to the graph builder (`gate/build_architecture_graph.sh`)
+and to any L0/L1/L2 consumer relying on frontmatter as the
+authoritative view declaration. PR #72 rc53 surfaces the family in
+`agent-service/ARCHITECTURE.md` whose frontmatter declares
+`view: scenarios` AND `covers_views: [logical, development, process,
+physical, scenarios]` while the body has no logical / process /
+physical / development view section — §0.5 punts every non-scenarios
+view to the rc53 review file.
+
+**Surfaces.**
+- `agent-*/ARCHITECTURE.md`
+- `docs/L1/**/*.md`
+- `docs/L2/**/*.md`
+- `ARCHITECTURE.md` (root)
+
+**Prevention.**
+- rc55 W2 frontmatter discipline: every L1 view file declares
+  exactly one `view:` value matching its body; `covers_views:` only
+  used on index files where the body lists each covered view as a
+  cross-link.
+- Candidate gate-rule for Wave 5+: for every .md with `level:`
+  frontmatter, parse `view:` + `covers_views:` and scan body for
+  matching view headings; FAIL on any frontmatter-declared view
+  absent from body.
+
+**Open residual.** rc55 W2 ships the structural fix for agent-service.
+Repo-wide sibling sweep audits the other 5 modules' ARCHITECTURE.md
+for the same pattern.
+
+---
+
+### F-logical-vs-structural-decomposition-conflation — Single Artefact Carries Two Competing N-Element Decompositions Without a Mapping
+
+**Pattern.** A single architectural artefact contains TWO different
+N-element decompositions of the same scope (e.g. a 5-layer LOGICAL
+decomposition and a 5-component PACKAGE-STRUCTURAL decomposition)
+without an explicit mapping section linking the two. Reader cannot
+tell which is canonical; implementer doesn't know which sub-package
+a "layer" maps to. Family adjacent to but distinct from
+F-cross-authority-agreement: that family is about TWO surfaces
+disagreeing; this one is about ONE surface carrying two un-mapped
+views internally. PR #72 rc53 surfaces the family in
+`agent-service/ARCHITECTURE.md`: §11 "L1 Runtime-Role Decomposition"
+lists 5 components (Dispatcher/Orchestrator/Task/Session/Engine) per
+ADR-0100, while review §15 lists 5 layers (Access/Manager/Queue/
+Control/Adapter) per ADR-0138.
+
+**Surfaces.**
+- `agent-*/ARCHITECTURE.md`
+- `docs/L1/**/*.md`
+- `docs/L2/**/*.md`
+
+**Prevention.**
+- ADR-0144 (rc55 — Layer↔Package Matrix: publishes the unified
+  mapping table; declares 5-layer model as logical-view decomposition
+  and 5-component model as package-structural decomposition; extends
+  ADR-0100 + ADR-0138).
+- Candidate gate-rule for Wave 5+: detect ≥2 distinct numbered
+  N-table blocks inside the same .md without a "logical ↔ package
+  mapping" section between them.
+
+**Open residual.** Future architectural artefacts that introduce a
+NEW decomposition MUST extend ADR-0144 or supersede it.
+
+---
+
+### F-design-only-mechanism-shown-as-shipped — Design-Only Mechanism Depicted in Diagram Without Caption-Level Status Marker
+
+**Pattern.** Sequence / state / component diagrams in L1 / L2 design
+surfaces depict interactions involving a mechanism whose contract
+carries `status: design_only` (or whose Rule sub-clause is W2+
+deferred) WITHOUT a caption-level `(design_only — ADR-NNNN)`
+annotation. Implementers reading the diagram interpret it as a
+shipped flow and inherit the design gap. Family adjacent to but
+distinct from F-design-doc-language-bypasses-invariant: that family
+is about LANGUAGE bypassing reactive/RLS/no-sleep invariants; this
+one is about DIAGRAMS treating design-only mechanisms as shipped.
+
+**Surfaces.**
+- `docs/L1/**/*.md`
+- `docs/L2/**/*.md`
+- `docs/logs/reviews/*.md` (design proposals)
+- `agent-*/ARCHITECTURE.md`
+
+**Prevention.**
+- ADR-0141 (rc55 — Internal Event Queue layer demoted to
+  design_only sub-section per Rule R-E channel manifest).
+- rc55 W3/W4 view discipline: every Mermaid sequence / state /
+  component diagram caption MUST carry `(design_only — ADR-NNNN)`
+  for any mechanism whose contract is `status: design_only` OR whose
+  Rule sub-clause is W2+ deferred.
+- Candidate gate-rule for Wave 5+: cross-reference parse — read
+  `docs/contracts/*.v1.yaml` `status: design_only` entries → extract
+  referenced types → grep `docs/L1/**/*.md` + `docs/L2/**/*.md`
+  diagrams for those type names → FAIL if caption lacks `design_only`
+  marker.
+
+**Open residual.** ADR-0141 closes the Internal Event Queue case
+structurally. DualTrackRouter / SlowTrackJudge annotation discipline
+ships in rc55 W4 process view. Gate-rule for contract-status-vs-
+diagram cross-reference is a W5+ candidate.
+
+---
+
+### F-discriminator-without-discriminated-type — Typed Discriminator Ships Without the Polymorphic Type It Discriminates
+
+**Pattern.** A typed discriminator (enum, sealed-marker class,
+`*Export`, `*Kind`, `*Type`) is shipped in production Java, but the
+polymorphic type the discriminator was meant to label does NOT exist
+on the classpath yet. Rule enforcers that depend on the discriminated
+type become VACUOUSLY TRUE and silently arm for future drift — a
+reader assumes the contract is gated when it isn't. PR #72 rc53
+surfaces the family with `EvolutionExport` enum at
+`agent-service/src/main/java/com/huawei/ascend/service/runtime/evolution/EvolutionExport.java`
+whose javadoc declares it the discriminator for a sealed `RunEvent`
+hierarchy that does NOT yet exist; Rule R-M.e "Every emitted RunEvent
+declares EvolutionExport" is vacuously true because zero `RunEvent`
+types exist.
+
+**Surfaces.**
+- `agent-*/src/main/java/**/*Export.java`
+- `agent-*/src/main/java/**/*Kind.java`
+- `agent-*/src/main/java/**/*Discriminator.java`
+- `agent-*/src/main/java/**/evolution/*.java`
+- `docs/governance/enforcers.yaml` (rules referencing armed-but-vacuous discriminators)
+
+**Prevention.**
+- ADR-0145 (rc55 — Sealed RunEvent Hierarchy specification; defines
+  the sealed variants required by S1-S5 scenarios; specifies
+  EvolutionExport binding; promotes Rule R-M.e from vacuously true
+  to actively gated).
+- `docs/contracts/run-event.v1.yaml` (rc55 — design_only at W1;
+  promoted to runtime_enforced when Java sealed type lands).
+- Candidate gate-rule for Wave 5+: scan all
+  `agent-*/src/main/java/**/*Export.java` + `*Kind.java` enums; use
+  `codegraph_callers` to count non-self call-sites; FAIL if a
+  discriminator has 0-1 non-self callers AND a Rule kernel claims an
+  enforcer over its consumers.
+
+**Open residual.** ADR-0145 + `docs/contracts/run-event.v1.yaml` are
+the design-side closures. The actual Java sealed RunEvent type lands
+in a follow-up impl-mode wave; until then EvolutionExport remains
+design_only-armed.
+
+---
+
+### F-spi-package-bloat-with-carriers — SPI Package Contains More Structural Carriers Than Extension Interfaces
+
+**Pattern.** An `*.spi.*` Java package contains more structural
+carriers (records / sealed / enums / value objects) than extension
+interfaces. The package's published-SPI surface count becomes
+inflated and the 4-way parity ledger (Rule R-D.e/.f/.g + Rule
+G-1.1.b) becomes confusing — carriers mistakenly show up as SPI
+rows, or are deliberately excluded from one surface but counted in
+another. Family adjacent to but distinct from F-l1-architecture-
+grounding-gap: that family is about the L1 doc lacking SPI
+enumeration; this is about the `.spi` package itself conflating
+"publish point" with "wire shape". Rule R-D.d explicitly mandates
+`*.spi.*` packages contain ONLY extension interfaces (carriers
+belong in the parent package), but no enforcer fires the rule at
+gate time. PR #72 rc53 surfaces the family at
+`agent-service/src/main/java/com/huawei/ascend/service/runtime/memory/spi/`
+which contains 13 types (1 root interface `GraphMemoryRepository` +
+12 carriers).
+
+**Surfaces.**
+- `agent-*/src/main/java/**/spi/*.java`
+- `agent-*/module-metadata.yaml#spi_packages`
+- `docs/contracts/contract-catalog.md`
+- `docs/dfx/agent-*.yaml`
+
+**Prevention.**
+- Rule R-D.d (rc1 — `*.spi.*` package convention; mandates extension
+  interfaces only in .spi sub-packages).
+- rc55 W5 SPI Appendix discipline: every .spi package audit
+  explicitly lists `interfaces` (extension points) vs `carriers`
+  (records/enums); carriers promoted out of .spi per Rule R-D.d.
+- Candidate gate-rule for Wave 5+: for every `*.spi.*` package,
+  parse public classes; count interfaces vs records vs sealed types
+  vs enums; FAIL if (records + sealed + enums) > interfaces.
+
+**Open residual.** rc55 W5 audits the agent-service memory.spi
+package and either splits into focused sub-packages (memory.spi.read,
+memory.spi.write) OR promotes carriers out of .spi per Rule R-D.d.
+The bulk Java refactor (file moves) is deferred to a follow-up
+impl-mode wave; rc55 W5 documents the intended split with an ADR
+placeholder + `(impl rcNN+1)` marker.
 
 ---
 
