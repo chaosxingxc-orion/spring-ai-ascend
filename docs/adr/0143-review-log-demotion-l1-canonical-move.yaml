@@ -1,0 +1,173 @@
+id: ADR-0143
+title: "rc53 review file 2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.{en,cn}.md is DEMOTED from canonical L1 4+1 source to historical authoring record; canonical 4+1 source moves to docs/L1/agent-service/{scenarios,logical,process,physical,development,spi-appendix}.md; agent-service/ARCHITECTURE.md §0.5 rewritten to point at the new canonical home"
+status: accepted
+date: 2026-05-26
+level: L1
+view: scenarios
+affects_level: L1
+affects_view: scenarios, logical, process, physical, development
+authors:
+  - chao
+relates_to:
+  - ADR-0068    # Layered 4+1 discipline (parent rule G-1)
+  - ADR-0099    # rc22 L1 architecture depth & grounding (rule G-1.1)
+  - ADR-0119    # rc42 single-source rendering (rule G-13)
+  - ADR-0138    # rc53 5-layer L1 ratification
+context: |
+  The rc53 4+1 rewrite wave produced a 1362-line review document
+  at `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`
+  (+ `.cn.md` sibling) that contains, in §§14-20, the full 4+1 view
+  content for agent-service (Scenarios / Logical / Process /
+  Physical / Development + SPI Appendix + L2 Boundary Contracts).
+
+  rc53 also modified `agent-service/ARCHITECTURE.md` to add a §0.5
+  "Canonical L1 4+1 View Source" section that names the review
+  document as the canonical 4+1 source, via two markdown
+  hyperlinks (EN + CN). The §0.5 wording explicitly says: "where
+  the prose and the 4+1 document disagree …, the **rc53 4+1
+  document is authoritative**".
+
+  This arrangement violates two governance disciplines:
+
+  1. **`docs/governance/logs-folder-policy.md`** establishes that
+     files under `docs/logs/reviews/` are *interaction records*
+     (point-in-time chat artifacts of design conversations) and
+     become read-only / freeze-marked after wave closure. A
+     review log is FROZEN — once closed, it cannot evolve. Naming
+     a frozen interaction record as the "live canonical" 4+1
+     source means the L1 architecture cannot evolve without
+     writing a fresh review log + chasing pointer references.
+
+  2. **Rule G-1.a (ADR-0068)** establishes that architectural
+     artefacts live as L0/L1/L2 documents (`ARCHITECTURE.md`,
+     `agent-*/ARCHITECTURE.md`, `docs/L2/**`). It does not include
+     `docs/logs/reviews/*.md` as a primary architectural surface.
+     Promoting a review log to canonical L1 4+1 status bypasses
+     the L0/L1/L2 discipline and the per-view rendering pipeline
+     (Rule G-13 / ADR-0119) that consumes those surfaces.
+
+  The compound defect was registered in rc55 W0 as
+  F-l1-canonical-source-in-interaction-log (lead occurrence).
+
+  The user's stated requirement (rc55 plan) explicitly asks for
+  the 4+1 view content to live as 5 separate per-view files under
+  `docs/L1/agent-service/`, with the rc53 review file remaining
+  as historical authoring record only.
+
+decision: |
+  1. **The rc53 review file is DEMOTED** to *historical authoring
+     record*. Its freeze marker (already present per
+     `docs/governance/logs-folder-policy.md`) remains; in addition,
+     a "Demotion note" line is inserted at the very top of the
+     `.en.md` and `.cn.md` siblings (after the existing freeze
+     marker) explaining that the canonical 4+1 source has moved
+     to `docs/L1/agent-service/`. Allowed under the freeze
+     protocol because the demotion note is itself a
+     historical-marker addition.
+
+  2. **The canonical 4+1 source moves to** the following 7 files
+     under `docs/L1/agent-service/`:
+       - `README.md` — L1 index + wave-status + cross-links
+       - `scenarios.md` — Scenarios View (S1-S5)
+       - `logical.md` — Logical View (5-layer w/ ADR-0140 split,
+         ER, state machines, SuspendSignal flow, glossary)
+       - `process.md` — Process View (P1-P5 sequence diagrams)
+       - `physical.md` — Physical View (5-plane, RLS,
+         3-track bus, sandbox)
+       - `development.md` — Development View (package tree +
+         layer↔package matrix per ADR-0144)
+       - `spi-appendix.md` — SPI 4-way parity table
+
+     Each file declares per-view frontmatter (`level: L1`,
+     `view: <single-view-name>`) per Rule G-1.a.
+
+  3. **`agent-service/ARCHITECTURE.md` is updated** as follows:
+       - §0.4 (the stale "Until full 4+1 reorganisation lands"
+         table) is DELETED — it is obsolete once the per-view
+         files exist.
+       - §0.5 is REWRITTEN to point at the new canonical home
+         under `docs/L1/agent-service/` (no more review-doc
+         hyperlinks for canonical purposes; the review doc is
+         linked only as historical context).
+       - Frontmatter is narrowed: `view: scenarios` +
+         `covers_views: [scenarios]` (was
+         `covers_views: [logical, development, process, physical,
+         scenarios]`). The covers_views narrowing closes
+         F-frontmatter-claim-body-mismatch for this file.
+       - §§1-12 (Purpose / Shipped components / Sub-package
+         layering / OSS dependencies / Public contract / Posture
+         / Tests / Out of scope / Wave plan / Roadmap / Runtime-
+         Role Decomposition / Development View) are RETAINED as
+         "shipped-state grounding" prose under the rc55 L1
+         canonical materialization; cross-links to the per-view
+         files are added where appropriate.
+
+  4. **Migration mechanics** for the rc53 review file:
+       - The file is NOT deleted. Stable URLs (PR review links,
+         archive references, gh-page URLs) remain valid.
+       - The demotion note added at the top references this ADR
+         + the new canonical home.
+       - The freeze marker explicitly survives — the file is now
+         a historical snapshot of the rc53 Wave 1-6 design
+         process, not a live architecture surface.
+
+  5. **Future review files** under `docs/logs/reviews/` MUST NOT
+     be promoted to "canonical" status again. The rc55 W0
+     sibling-sweep regex (`F-l1-canonical-source-in-interaction-log`
+     fingerprint) is a W5+ gate-rule candidate to enforce this
+     structurally.
+
+  6. **Single-source rendering compliance** (Rule G-13 /
+     ADR-0119): the 7 new files under `docs/L1/agent-service/`
+     join the `docs/governance/templates/surface-classification.yaml`
+     registry with `bucket: templated` + `context_loader:
+     l1_architecture` (extending the existing W7 template family).
+     The first rc55 W2 commit lands the templates + render-context
+     wiring; subsequent rc55 W3/W4/W5 commits author the rendered
+     `.md` content.
+
+consequences: |
+  Positive:
+  - F-l1-canonical-source-in-interaction-log structurally closed
+    for the rc55 cited case.
+  - L1 architecture surface now lives where Rule G-1.a + G-1.1 +
+    G-13 expect it (`docs/L1/agent-service/`), gated by the
+    single-source rendering pipeline.
+  - Future evolution of the agent-service 4+1 views happens
+    in-place (edit `.md.j2` + re-render `.md`) instead of
+    "write a new review file + bump the §0.5 pointer".
+  - Per-view edit isolation: changing the Logical View no longer
+    requires editing the same 1362-line review file that holds
+    the Process + Physical + Development views.
+
+  Negative / residual:
+  - Some readers may have bookmarked `docs/logs/reviews/2026-05-26-…wave-1.en.md`
+    as the canonical L1 source (rc53 release notes named it as
+    such). The demotion note at the top of the review file
+    redirects them.
+  - The rc53 review file's content effectively duplicates with
+    the new `docs/L1/agent-service/*.md` files. After rc55 W6,
+    if the two diverge (which the rc55 view-authoring discipline
+    explicitly prevents through cross-checks), the canonical
+    `docs/L1/agent-service/*.md` wins per the demotion note.
+
+alternatives_considered: |
+  - (A) Leave the rc53 review file as canonical + accept the
+    governance violation as a "permitted exception". Rejected —
+    the violation is exactly what F-l1-canonical-source-in-
+    interaction-log is meant to prevent; codifying an exception
+    would void the family's prevention discipline going forward.
+
+  - (B) Move the per-view content into `agent-service/ARCHITECTURE.md`
+    body sections (one big file, no per-view file separation).
+    Rejected — the user's rc55 plan explicitly requests per-view
+    file separation under `docs/L1/agent-service/`, and per-view
+    edit isolation is a real maintainability win (a Logical View
+    change should not require touching the Process View).
+
+  - (C) Author the per-view files as raw `.md` (no `.md.j2`
+    template, no render-context, bypass Rule G-13). Rejected —
+    Rule G-13 + ADR-0119 establish single-source rendering as
+    the new W3-W9 standard for architectural prose with dynamic
+    claims; bypassing it for new L1 files re-creates the drift
+    risk Rule G-13 is meant to prevent.

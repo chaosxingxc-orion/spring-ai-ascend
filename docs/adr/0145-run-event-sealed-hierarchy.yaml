@@ -1,0 +1,205 @@
+id: ADR-0145
+title: "Sealed RunEvent hierarchy specification: defines the polymorphic event type that EvolutionExport enum was designed to discriminate; specifies sealed variants required by S1-S5 scenarios; promotes Rule R-M.e (Every emitted RunEvent declares EvolutionExport) from vacuously-true to actively-gated; the actual Java sealed type lands in a follow-up impl-mode wave"
+status: accepted
+date: 2026-05-26
+level: L1
+view: logical
+affects_level: L1
+affects_view: logical, process, development
+authors:
+  - chao
+relates_to:
+  - ADR-0050    # Workflow Intermediary + Mailbox (event-bus context)
+  - ADR-0073    # RuntimeMiddleware + failure propagation
+  - ADR-0100    # rc22 5-component decomposition
+  - ADR-0118    # RunRepository.updateIfNotTerminal CAS (state-transition events)
+  - ADR-0138    # 5-layer L1 ratification
+  - ADR-0141    # Internal Event Queue design_only (sibling rc55 ADR; this hierarchy populates it)
+context: |
+  The `EvolutionExport` enum at
+  `agent-service/src/main/java/com/huawei/ascend/service/runtime/evolution/EvolutionExport.java`
+  ships with three values (`IN_SCOPE`, `OUT_OF_SCOPE`, `OPT_IN`)
+  per its package-info Javadoc:
+
+  > Phase 4 ships only the enum. RunEvent sealed interface
+  > landing in W2 will require evolutionExport() per variant.
+  > When it ships, EveryRunEventDeclaresEvolutionExportTest will
+  > enforce the contract.
+
+  There is a corresponding test class at
+  `agent-service/src/test/java/com/huawei/ascend/service/runtime/evolution/EveryRunEventDeclaresEvolutionExportTest.java`
+  that enforces "every RunEvent declares EvolutionExport".
+
+  However, `find . -name 'RunEvent*.java' -not -path '*/target/*'`
+  returns ZERO results — no `RunEvent` type exists in the
+  codebase. The enforcer test is therefore VACUOUSLY TRUE
+  (asserts a property of an empty set), and Rule R-M.e ("Every
+  emitted `RunEvent` declares an `EvolutionExport` value") is
+  silently armed against a non-existent surface.
+
+  This is the lead occurrence of F-discriminator-without-
+  discriminated-type (rc55 W0 registered): a typed discriminator
+  ships in production Java without the polymorphic type it was
+  meant to discriminate, and the gate enforcers silently arm
+  without firing.
+
+  The rc55 L1 4+1 view authoring also requires `RunEvent` as a
+  named entity in:
+    - the Logical View ER + state-machine diagrams (per ADR-0138 §15)
+    - the Process View sequence diagrams (S1-S5 event emissions
+      per rc55 review §16)
+    - the Internal Event Queue Boundary Contract (per ADR-0141)
+
+  Without a sealed-type specification the L1 views cannot
+  reference `RunEvent` concretely; they would have to use vague
+  "events get emitted somewhere" prose.
+
+decision: |
+  1. **Specify the sealed `RunEvent` hierarchy** at the contract
+     level via `docs/contracts/run-event.v1.yaml` (status:
+     design_only at rc55; promoted to runtime_enforced when the
+     Java sealed type lands). The hierarchy variants required
+     by S1-S5 scenarios are:
+
+     ```
+     sealed interface RunEvent permits
+       RunStateTransitionEvent,        // RunStatus DFA transitions; emitted from RunRepository.updateIfNotTerminal
+       RunCreatedEvent,                // PENDING creation; emitted from RunRepository.save (create-only path)
+       SuspendRequestedEvent,          // SuspendSignal caught; before Run -> SUSPENDED transition
+       ResumeRequestedEvent,           // ResumeDispatcher -> Run.SUSPENDED -> RUNNING transition trigger
+       S2cCallbackRequestedEvent,      // SuspendSignal.forClientCallback variant; carries S2cCallbackEnvelope
+       S2cCallbackCompletedEvent,      // S2C callback response received; resume payload available
+       ChildRunSpawnedEvent,           // SuspendSignal child-run variant; carries child run id
+       ChildRunCompletedEvent,         // Child Run reached terminal; parent resume trigger
+       CancelRequestedEvent,           // RunController.cancel received; tenant guard passed
+       TerminalTransitionEvent;        // SUCCEEDED / FAILED / EXPIRED / CANCELLED; final state
+     ```
+
+     Each variant carries: `runId`, `tenantId`, `traceId`,
+     `occurredAt`, `evolutionExport` (Rule R-M.e), plus
+     variant-specific fields.
+
+  2. **EvolutionExport binding per variant** (also published in
+     `docs/contracts/run-event.v1.yaml`):
+
+     ```
+     RunCreatedEvent              -> IN_SCOPE      (server-controlled lifecycle event)
+     RunStateTransitionEvent      -> IN_SCOPE      (Rule R-C.2.b CAS audit trail)
+     SuspendRequestedEvent        -> IN_SCOPE      (suspension audit)
+     ResumeRequestedEvent         -> IN_SCOPE      (resume audit)
+     S2cCallbackRequestedEvent    -> OPT_IN        (client-bound; telemetry-export.v1.yaml gated)
+     S2cCallbackCompletedEvent    -> OPT_IN        (client-bound; same)
+     ChildRunSpawnedEvent         -> IN_SCOPE      (composite-Run lineage)
+     ChildRunCompletedEvent       -> IN_SCOPE      (composite-Run lineage)
+     CancelRequestedEvent         -> IN_SCOPE      (cancel audit trail)
+     TerminalTransitionEvent      -> IN_SCOPE      (final-state audit)
+     ```
+
+     OUT_OF_SCOPE is reserved for client-private events that
+     should NEVER cross the evolution-plane boundary; no current
+     variant uses OUT_OF_SCOPE but the discriminator value is
+     preserved for future client-side event types.
+
+  3. **The Java sealed type itself lands in a follow-up impl-mode
+     wave** (not rc55 W1). rc55 W1 ships:
+       - This ADR.
+       - `docs/contracts/run-event.v1.yaml` (status: design_only).
+       - `docs/contracts/contract-catalog.md` row + ADR-0145 anchor
+         (Rule M-2.b).
+     The follow-up impl-mode wave (rc55+1 or later) ships:
+       - `agent-service/src/main/java/com/huawei/ascend/service/runtime/evolution/RunEvent.java`
+         (sealed interface).
+       - One Java file per variant (10 records) under
+         the same package.
+       - `EveryRunEventDeclaresEvolutionExportTest` becomes
+         non-vacuous (10 records to validate).
+       - Contract status bumps from `design_only` to
+         `runtime_enforced`.
+
+  4. **Emission discipline** (in the future Java impl):
+       - `RunCreatedEvent` emitted by Layer 2 RunRepository.save
+         (the only create-only call-site allowed per the rc39 ADR
+         source-guard discipline).
+       - `RunStateTransitionEvent` emitted by Layer 2
+         RunRepository.updateIfNotTerminal AFTER the atomic CAS
+         succeeds (so emission and state-transition are atomic
+         per Rule R-C.2.b).
+       - Suspend / Resume / S2C events emitted by Layer 4 Control
+         AFTER its `updateIfNotTerminal(...)` call to Layer 2 (so
+         emission follows the state transition).
+       - Cancel events emitted by `RunController.cancel`
+         AFTER its `updateIfNotTerminal(...)` call.
+       - All events published to Layer 3 Internal Event Queue
+         (when its code home lands per ADR-0141) via the
+         appropriate channel (control / data / rhythm per Rule
+         R-E intent routing).
+
+  5. **The L1 4+1 views reference RunEvent** as follows:
+       - Logical View (`docs/L1/agent-service/logical.md`):
+         A new sub-section "RunEvent sealed hierarchy" lists the
+         10 variants with their EvolutionExport binding (mirrors
+         decision #1 + #2 above).
+       - Process View (`docs/L1/agent-service/process.md`):
+         Each S1-S5 sequence diagram annotates which RunEvent
+         variants are emitted at each step. S1 emits
+         RunCreatedEvent + RunStateTransitionEvent ×N + Terminal.
+         S2 emits the same + SuspendRequestedEvent + ResumeRequestedEvent
+         pairs. S3 emits ChildRunSpawnedEvent +
+         ChildRunCompletedEvent. S4 emits
+         S2cCallbackRequestedEvent + S2cCallbackCompletedEvent. S5
+         emits CancelRequestedEvent + Terminal.
+       - Development View (`docs/L1/agent-service/development.md`):
+         The package tree shows `service.runtime.evolution/`
+         with `EvolutionExport.java` + `(future) RunEvent.java +
+         10 record variants — see ADR-0145, impl rcNN+1`.
+
+consequences: |
+  Positive:
+  - F-discriminator-without-discriminated-type structurally
+    closed at the design layer for the rc55 cited case. The
+    Java impl is gated by the contract → impl pipeline.
+  - The L1 Logical / Process / Development views can name
+    `RunEvent` concretely with a stable contract reference.
+  - Rule R-M.e becomes meaningfully gateable once the impl-mode
+    wave lands.
+  - The 10 variants cover S1-S5 emissions completely; new
+    scenarios that need additional variants extend the sealed
+    hierarchy via a follow-up ADR (Rule R-D + M-2.b).
+
+  Negative / residual:
+  - Until the impl-mode wave ships, `EvolutionExport` enum
+    remains design_only-armed. rc55 W5 SPI Appendix marks this
+    state explicitly so reviewers don't assume the enforcer is
+    fully active.
+  - The 10-variant hierarchy is a substantial Java surface; the
+    follow-up impl-mode wave will need careful TDD per
+    `superpowers:test-driven-development` discipline. The
+    contract YAML's variant list is the authoritative spec for
+    that wave.
+
+alternatives_considered: |
+  - (A) Delete `EvolutionExport` enum + `EveryRunEventDeclaresEvolutionExportTest`
+    and defer the entire event-emission surface to a future
+    rc wave. Rejected — the enum is referenced by Rule R-M.e
+    kernel + ADR-0138 §15 + the rc55 L1 Logical View, and the
+    Process View sequence diagrams need a concrete event
+    vocabulary. Deleting the enum would force re-introduction.
+
+  - (B) Land the Java sealed type + 10 record variants in rc55
+    W1 (alongside this ADR). Rejected — rc55 is a DESIGN wave
+    (per the user's mandate "design + plan + multi-wave
+    execution"); shipping 11 Java files would mix impl-mode work
+    into a design-mode wave and bloat the rc55 W1 commit beyond
+    review-ability. The contract + ADR are the design surface;
+    the impl is a clean follow-up rc wave.
+
+  - (C) Use an unsealed interface + reflection at runtime to
+    validate Rule R-M.e. Rejected — sealed types are the JEP
+    409 design pattern for closed event hierarchies; reflection
+    bypasses the compile-time exhaustiveness check that makes
+    the hierarchy maintainable.
+
+  - (D) Specify only 5 variants now (the minimum for S1) and
+    extend later. Rejected — the rc55 Process View needs the
+    full S1-S5 coverage; under-specifying forces a re-spec ADR
+    in the same wave.

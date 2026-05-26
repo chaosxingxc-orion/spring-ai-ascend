@@ -176,6 +176,7 @@ Schema-first domain contracts (Rule M-2.a, formerly Rule 48). Each YAML file is 
 | `structured-output.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0130 (rc51 — `StructuredOutputConverter<T>` SPI; reference adapter wraps Spring AI `BeanOutputConverter`) |
 | `prompt-template.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0131 (rc51 — `PromptTemplate` SPI; reference adapter wraps Spring AI `PromptTemplate`) |
 | `chat-advisor.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0132 (rc53 — `ChatAdvisor` + `StreamingChatAdvisor` interceptor SPIs; typed same-package advisor carriers avoid model-SPI dependency; `advisor-model-hook-order/v1` binds ordering relative to `BEFORE_LLM` / `AFTER_LLM`) |
+| `run-event.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0145 (rc55 — sealed RunEvent hierarchy specification; closes F-discriminator-without-discriminated-type for EvolutionExport enum; 10 variants cover S1-S5 scenarios; runtime_enforced when the Java sealed interface + 10 record variants land in a follow-up impl-mode wave) |
 
 Note: `evolution-scope.v1.yaml` lives under `docs/governance/`, not `docs/contracts/`, because it indexes governance-plane export rules rather than a wire/Java contract.
 

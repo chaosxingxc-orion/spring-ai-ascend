@@ -1,0 +1,145 @@
+id: ADR-0140
+title: "Engine Adapter Layer split: Layer 5 in ADR-0138 5-layer model decomposes into Layer 5a (Engine Dispatch & Execution: EngineRegistry + ExecutorAdapter impls) and Layer 5b (Translation & Tool-Intercept: ContextProjector + PromptTemplate + StructuredOutputConverter + ChatAdvisor); RuntimeMiddleware moves exclusively into Layer 4 Control"
+status: accepted
+date: 2026-05-26
+level: L1
+view: logical
+affects_level: L1
+affects_view: logical, development
+authors:
+  - chao
+relates_to:
+  - ADR-0100    # rc22 5-component decomposition
+  - ADR-0132    # ChatAdvisor SPI
+  - ADR-0138    # rc53 5-layer L1 ratification (this ADR partially supersedes §3 Layer 5)
+  - ADR-0142    # Run aggregate single owner (sibling rc55 ADR)
+  - ADR-0144    # Layer ↔ package matrix (sibling rc55 ADR)
+context: |
+  ADR-0138 (rc53) ratified a 5-layer L1 model for agent-service:
+  Access / Manager / Queue / Control / Adapter. The Layer 5
+  "Engine Adapter Layer" was specified loosely as "EngineRegistry
+  + ExecutorAdapter implementations + ChatAdvisor + RuntimeMiddleware
+  + ContextProjector + PromptTemplate + StructuredOutputConverter".
+
+  A senior Java microservice + agent-architecture review of the rc53
+  L1 4+1 view document (recorded at
+  `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`
+  §15.1) found two compounding cohesion defects in that specification:
+
+  1. **Kitchen-sink layer** — Layer 5 owned ≥7 heterogeneous
+     responsibilities spanning four orthogonal cohesion zones:
+     (a) engine dispatch (EngineRegistry),
+     (b) execution (ExecutorAdapter impls),
+     (c) prompt / output translation (ContextProjector +
+         PromptTemplate + StructuredOutputConverter),
+     (d) cross-cutting middleware (ChatAdvisor + RuntimeMiddleware).
+     A layer this broad has no useful ownership boundary; any
+     refactor inside it cannot be locally reasoned about.
+
+  2. **Double-homing of RuntimeMiddleware** — `RuntimeMiddleware`
+     also appears in Layer 4 (Task-Centric Control Layer) per the
+     same diagram. The same component listed under two layers means
+     no single layer owns its lifecycle; reviewers cannot tell
+     whether HookPoint dispatch belongs to Control or Adapter.
+
+  Both defects are instances of F-layer-decomposition-low-cohesion
+  (rc55 W0 registered). The cited finding was the lead occurrence of
+  that family; this ADR is the design-level closure.
+
+  Independent of the cohesion analysis, the prompt/output translation
+  surface and the execution surface have different change cadences:
+  ChatAdvisor + PromptTemplate + ContextProjector + StructuredOutputConverter
+  follow Spring AI evolution (per ADR-0125 + ADR-0130 + ADR-0131 +
+  ADR-0132); EngineRegistry + ExecutorAdapter follow Rule R-M / engine
+  contract evolution (per ADR-0100 + Rule R-M.a/.b). Lumping them
+  under one layer obscures this divergence.
+
+decision: |
+  1. Layer 5 in the ADR-0138 5-layer L1 model is SPLIT into TWO
+     sub-layers:
+
+     **Layer 5a — Engine Dispatch & Execution**
+       Responsibilities:
+         - EngineRegistry.resolve(envelope) (Rule R-M.a)
+         - ExecutorAdapter implementations (Rule R-M.b strict
+           matching; per-engine_type adapter)
+         - EngineHookSurface emission to the Layer 4 HookPoint chain
+       Sub-packages: `service.engine.adapter/` (consumer impls),
+         `service.engine.spi/` (StatelessEngine + AgentInvokeRequest);
+         consumes `agent-execution-engine.engine.spi.*` cross-module.
+       Authority: Rule R-M.a + Rule R-M.b + ADR-0100.
+
+     **Layer 5b — Translation & Tool-Intercept**
+       Responsibilities:
+         - ContextProjector (Session → injected context per ADR-0100)
+         - PromptTemplate (Spring AI per ADR-0131)
+         - StructuredOutputConverter<T> (typed-bean extraction per
+           ADR-0130)
+         - ChatAdvisor + AdvisorChain (Spring AI tool-shaping per
+           ADR-0132)
+       Sub-packages: `service.session.spi.ContextProjector` +
+         `service.integration.springai/*` (reference adapters).
+       Authority: ADR-0125 + ADR-0130 + ADR-0131 + ADR-0132.
+
+  2. **RuntimeMiddleware moves exclusively into Layer 4 (Task-Centric
+     Control Layer)**. The Layer 5a Engine Dispatch surface emits
+     HookPoint events into Layer 4; Layer 4's RuntimeMiddleware chain
+     consumes them. Layer 5a does NOT directly invoke RuntimeMiddleware;
+     Layer 5b does NOT mention RuntimeMiddleware at all.
+
+  3. The 5-layer model becomes a "5+1" model conceptually (Access /
+     Manager / Queue / Control / Adapter-5a / Adapter-5b) but the
+     L1 Logical View diagram in `docs/L1/agent-service/logical.md`
+     SHOULD continue to present 5 numbered layers with Layer 5
+     visibly split into 5a + 5b sub-blocks for diagram readability.
+
+  4. The layer ↔ package matrix per ADR-0144 incorporates the
+     5a/5b split. The Development View tree in
+     `docs/L1/agent-service/development.md` lists 5a's sub-packages
+     and 5b's sub-packages distinctly.
+
+  5. This ADR PARTIALLY SUPERSEDES ADR-0138 §3 (the Layer 5
+     responsibility list). ADR-0138's other ratifications
+     (tenantId-first ER, three-track bus binding for Layer 3,
+     5-layer overall structure) remain in force.
+
+consequences: |
+  Positive:
+  - Layer 5a + Layer 5b each own ≤4 responsibilities (cohesion
+    invariant satisfied per F-layer-decomposition-low-cohesion).
+  - RuntimeMiddleware ownership is unambiguous: it lives in Layer 4.
+  - The Spring AI evolution cadence (5b) is decoupled from the
+    Rule R-M engine contract evolution cadence (5a).
+  - The L1 Logical View can be reasoned about layer-by-layer
+    without bleed.
+
+  Negative / residual:
+  - The L1 Logical View now has 6 layers visually (5+1). Diagrams
+    must be drawn carefully to keep "Layer 5" reading as a single
+    abstraction with sub-blocks 5a + 5b, not as a 6-layer
+    decomposition. Wave 3 logical.md text explicitly addresses this.
+  - ADR-0138's §3 Layer 5 prose is now historically frozen by
+    `freeze_id: rc53-...` (review log) — readers must consult both
+    ADR-0138 + this ADR to get the current Layer 5 contract.
+    Mitigated by `docs/L1/agent-service/logical.md` rendering the
+    current contract directly, not by ADR cross-walk.
+
+alternatives_considered: |
+  - (A) Leave Layer 5 as kitchen-sink + add a "cohesion advisory"
+    note in ADR-0138. Rejected — F-layer-decomposition-low-cohesion
+    is a structural defect, not a documentation gap; an advisory
+    note does not constrain future Layer 5 additions, which is
+    exactly the future-drift this family is meant to prevent.
+
+  - (B) Split into THREE sub-layers (5a Dispatch, 5b Execution,
+    5c Translation). Rejected — EngineRegistry and ExecutorAdapter
+    impls share the same change cadence (Rule R-M evolution) and
+    the same authority anchor (ADR-0100 + Rule R-M); splitting
+    them adds layer count without cohesion gain.
+
+  - (C) Leave RuntimeMiddleware in BOTH Layer 4 and Layer 5
+    (preserve double-homing) but add a "primary owner = Layer 4"
+    annotation. Rejected — double-homing is the F-layer-decomposition-
+    low-cohesion fingerprint (b) clause; primary-owner annotations
+    drift over time and don't survive copy-paste into derived L2
+    designs.

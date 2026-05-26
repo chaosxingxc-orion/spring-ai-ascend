@@ -1,0 +1,159 @@
+id: ADR-0141
+title: "Internal Event Queue (ADR-0138 Layer 3) is a design_only sub-section of agent-service L1 until a service.queue/ sub-package + Boundary Contract land; current state shows the Layer 3 binding-only role over the three-track bus; no peer-layer code home exists at rc55"
+status: accepted
+date: 2026-05-26
+level: L1
+view: logical
+affects_level: L1
+affects_view: logical, development, physical
+authors:
+  - chao
+relates_to:
+  - ADR-0100    # rc22 5-component decomposition
+  - ADR-0138    # 5-layer L1 ratification (this ADR demotes Layer 3 to design_only)
+  - ADR-0144    # Layer ↔ package matrix (sibling rc55 ADR)
+context: |
+  ADR-0138 (rc53) ratified Layer 3 "Internal Event Queue" as a peer
+  layer in the agent-service 5-layer L1 model. The cited rc53 review
+  diagram (`docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`
+  §15.1) shows it carrying control / data / rhythm payloads as a
+  binding layer over the three-track bus declared in
+  `docs/governance/bus-channels.yaml` (Rule R-E).
+
+  However:
+
+  1. **No code home exists.** The cited rc53 diagram annotates the
+     layer as `(service.queue, new in Wave 4)` — there is no
+     `agent-service/src/main/java/com/huawei/ascend/service/queue/`
+     directory in the rc55 codebase. The package is design-time
+     forward-declared only.
+
+  2. **No Boundary Contract is published.** Rule G-1.1.c requires
+     every L2-delegated logical-view layer to declare a Boundary
+     Contract (inputs / outputs / DFX expectations). Layer 3 has
+     none.
+
+  3. **The peer-layer depiction creates F-design-only-mechanism-shown-
+     as-shipped risk.** Implementers reading the §15.1 component
+     diagram interpret Layer 3 as a present-tense shipped layer
+     (the diagram uses the same notation for Layer 3 as for the
+     shipped Layers 1, 2, 4, 5). This is the lead occurrence of
+     the family registered in rc55 W0.
+
+  Independently, ADR-0138 already correctly constrains Layer 3 to be
+  a BINDING layer over the canonical three-track channels — not a
+  parallel queue abstraction — and that binding constraint is
+  durable. The defect is not in the binding constraint; it is in
+  presenting a binding-only layer with no code home as a peer of
+  layers with code homes.
+
+decision: |
+  1. **Layer 3 "Internal Event Queue" is reclassified as a
+     design_only sub-section** within the rc55 L1 Logical View
+     (`docs/L1/agent-service/logical.md`), NOT a peer layer in
+     the component diagram. The Logical View MUST present the
+     5-layer diagram as Access → Manager → Control → Adapter with
+     Layer 3 shown either:
+       (i) as a parenthetical aside ("Layers 1-2 produce events
+           that Layer 4 consumes via the three-track bus per
+           `bus-channels.yaml`"), OR
+       (ii) as a separate `### Layer 3 — Internal Event Queue
+           (design_only — this ADR + ADR-0138 §3)` sub-section
+           AFTER the main 5-layer diagram, never inside it.
+
+  2. **Code home is deferred** to a future wave (likely W4 of a
+     follow-up rc, or W2 if scheduling permits). When the code
+     home lands:
+       - Sub-package: `agent-service/src/main/java/com/huawei/ascend/service/queue/`
+       - Bind to `agent-bus` three-track channels per Rule R-E
+         and `bus-channels.yaml`.
+       - The package's `package-info.java` MUST cite this ADR
+         + ADR-0138 §3 as the binding authority.
+
+  3. **Boundary Contract** for the future Layer 3 code home is
+     published here as the rc55 L1 contract input, satisfying
+     Rule G-1.1.c at design time:
+
+     ```
+     inputs:
+       - RunEvent emissions from Layer 2 Session & Task Manager
+         (per ADR-0145 sealed RunEvent hierarchy)
+       - control-channel signals from Layer 4 Control
+         (cancel / resume / suspend)
+       - rhythm-channel ticks from agent-bus Tick Engine
+         (per Rule R-H / Chronos Hydration)
+     outputs:
+       - control-channel publications (cancel / resume / suspend
+         broadcasts to peer Run instances)
+       - data-channel publications (payload + S2C response
+         envelopes; inline payload ≤ 16 KiB per Rule R-E)
+       - rhythm-channel publications (heartbeat / liveness ticks
+         for the long-horizon Run)
+     dfx:
+       - releasability: per-channel durability tier chosen at
+         deployment time (`bus-channels.yaml#physical_channel`);
+         W0/W1 in-memory stubs; W2+ durable backends.
+       - resilience: at-least-once delivery on each channel with
+         dedup keyed by `(tenantId, idempotencyKey)` per ADR-0057.
+       - availability: per-channel back-pressure surfaced as
+         `SuspendReason.BackpressureRequested` (W2-deferred).
+       - vulnerability: tenantId binding propagates from
+         IngressEnvelope to every channel emission (Rule R-J.a).
+       - observability: per-channel metrics
+         `springai_ascend_queue_<channel>_<op>_total{tenantId}`.
+     ```
+
+  4. **The rc55 L1 Logical View diagram MUST NOT show Layer 3
+     as a peer code-home block.** The Development View tree in
+     `docs/L1/agent-service/development.md` MUST NOT show
+     `service.queue/` (it does not exist). Both views explicitly
+     mark Layer 3 with `(design_only — ADR-0141)` annotations.
+
+  5. **When Layer 3 code lands** (post-rc55), this ADR's
+     `status:` is bumped from `accepted` to `superseded` by a
+     follow-up ADR that ratifies the code home + binds the
+     Boundary Contract above to the actual Java SPI signatures.
+
+consequences: |
+  Positive:
+  - F-design-only-mechanism-shown-as-shipped is structurally closed
+    at the rc55 L1 layer for the Internal Event Queue case.
+  - Future implementers reading the rc55 L1 view know Layer 3 is
+    a contract surface, not a code surface.
+  - The Boundary Contract published here satisfies Rule G-1.1.c
+    at design time, even though no L2 design document exists yet.
+  - The binding constraint to `bus-channels.yaml` from ADR-0138
+    remains canonical; this ADR narrows presentation, not contract.
+
+  Negative / residual:
+  - The rc55 L1 Logical View diagram is asymmetric: 4 peer layers
+    + 1 design_only sub-section. Readers expecting a "5 equal
+    layers" diagram experience friction. Mitigated by explicit
+    caption text in `docs/L1/agent-service/logical.md`.
+  - The Boundary Contract here is design-pinned but not gate-
+    enforced (no Java to test against). A W2+ gate-rule that
+    validates the actual `service.queue/` impl against this
+    contract is a future-wave candidate.
+
+alternatives_considered: |
+  - (A) Land an empty `service.queue/package-info.java` stub now
+    so Layer 3 has a code home and the diagram remains symmetric.
+    Rejected — Rule M-1 (skeleton-module has no production java)
+    permits package-info stubs, but a stub without SPI declarations
+    is just diagram-symmetry theatre; better to make the
+    design_only nature explicit.
+
+  - (B) Remove Layer 3 from the 5-layer model entirely (collapse
+    to 4 layers: Access / Manager / Control / Adapter). Rejected —
+    the three-track-bus binding IS a real architectural concern
+    (Rule R-E is the runtime invariant); removing it from the
+    Logical View would suppress the design intent that future
+    Layer 3 code must bind to three physical channels, not to a
+    single-tier queue.
+
+  - (C) Promote Layer 3 to a sibling agent-service-queue/ module
+    in the reactor. Rejected — the queue lives semantically inside
+    agent-service (it's an internal binding, not a published SPI);
+    a separate module would invert the dependency direction
+    (agent-service → agent-service-queue + agent-bus) and create
+    a redundant layer over agent-bus.

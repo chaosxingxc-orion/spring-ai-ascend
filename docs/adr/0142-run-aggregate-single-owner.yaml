@@ -1,0 +1,168 @@
+id: ADR-0142
+title: "Run aggregate (Run record + RunStatus + RunStateMachine + RunRepository) is OWNED EXCLUSIVELY by Layer 2 Session & Task Manager in the ADR-0138 5-layer L1 model; Layer 4 Task-Centric Control holds a typed reference and invokes RunRepository.updateIfNotTerminal(...) — Layer 4 never writes Run state directly"
+status: accepted
+date: 2026-05-26
+level: L1
+view: logical
+affects_level: L1
+affects_view: logical, process, development
+authors:
+  - chao
+relates_to:
+  - ADR-0100    # rc22 5-component decomposition
+  - ADR-0116    # rc36 atomic RunRepository.updateIfNotTerminal CAS
+  - ADR-0118    # rc38/rc39 RunRepository.updateIfNotTerminal abstract method
+  - ADR-0138    # 5-layer L1 ratification
+  - ADR-0140    # Engine Adapter Layer split (sibling rc55 ADR)
+  - ADR-0144    # Layer ↔ package matrix (sibling rc55 ADR)
+context: |
+  ADR-0138 (rc53) §15.1 Logical View placed the Run aggregate in TWO
+  layers simultaneously:
+    - Layer 2 (Session & Task Manager) — owns "RunRepository + Run
+      record (tenantId-first)"
+    - Layer 4 (Task-Centric Control Layer) — owns
+      "RunStateMachine.validate CAS" + "SuspendSignal handling"
+
+  Two layers own pieces of the same aggregate. Per the senior
+  microservice/agent-architecture review of rc55 W0:
+
+    - Layer 2 owns the data record (Run) AND its persistence
+      contract (RunRepository).
+    - Layer 4 owns the state-transition validation
+      (RunStateMachine.validate) AND the suspension semantics
+      (SuspendSignal).
+    - But state-machine validation IS a write-path concern
+      (it gates Run.withStatus mutations), and SuspendSignal IS
+      a Run-status-transition event (it forces RUNNING →
+      SUSPENDED + persistence).
+
+  Effectively, BOTH layers write to the same aggregate via
+  different code paths. There is no single owner who can enforce
+  invariants like "no Run state mutation outside
+  `RunRepository.updateIfNotTerminal(...)` atomic CAS" (Rule
+  R-C.2.b) because the discipline lives partly in Layer 2 (the
+  CAS primitive) and partly in Layer 4 (the caller).
+
+  This is the F-layer-decomposition-low-cohesion family's
+  "double-homing of an aggregate" sub-pattern, distinct from the
+  "kitchen-sink layer" pattern that ADR-0140 closes for Layer 5.
+
+  Background: F-nonatomic-run-status-write (registered in rc35,
+  with 5 cited occurrences through rc39) is the implementation-side
+  consequence of unclear aggregate ownership. Every recurrence was
+  some piece of code OUTSIDE the Run aggregate writing to it via
+  a stale-read / blind-write pattern. Pinning a single owner makes
+  the discipline structural rather than per-caller.
+
+decision: |
+  1. **The Run aggregate is OWNED EXCLUSIVELY by Layer 2 Session
+     & Task Manager.** The aggregate boundary is:
+       - `agent-service/.../service/runtime/runs/Run.java`
+         (record + withStatus/withSuspension/withTraceId/withSessionId
+          mutators)
+       - `agent-service/.../service/runtime/runs/RunStatus.java`
+         (enum)
+       - `agent-service/.../service/runtime/runs/RunStateMachine.java`
+         (DFA validator)
+       - `agent-service/.../service/runtime/runs/RunMode.java`
+         (discriminator)
+       - `agent-service/.../service/runtime/runs/spi/RunRepository.java`
+         (SPI; including the abstract
+         `updateIfNotTerminal(...)` atomic CAS method per
+         ADR-0118).
+
+     All of these classes live under the `service.runtime.runs.*`
+     sub-package which Layer 2 claims per ADR-0144's layer ↔
+     package matrix.
+
+  2. **Layer 4 Task-Centric Control holds a TYPED REFERENCE to
+     RunRepository and invokes its operations.** Layer 4 may NOT:
+       - Call `Run.withStatus(...)` directly (the mutator is
+         `package-private`-equivalent in the aggregate boundary
+         — callers MUST go through `RunRepository.updateIfNotTerminal`).
+       - Persist via a custom store-side path (`save`, `findById`-
+         then-`save`, etc.) that bypasses CAS.
+       - Define a per-layer mutator helper (e.g.
+         `mutateIfNotTerminal` private helper) — the rc38
+         recurrence (ADR-0118) showed that such helpers always
+         drift from the aggregate CAS contract.
+
+  3. **The state machine (RunStateMachine.validate) lives inside
+     Layer 2** as part of the aggregate boundary. Layer 4 NEVER
+     calls `RunStateMachine.validate(...)` directly; it calls
+     `runRepository.updateIfNotTerminal(tenantId, runId, run -> run.withStatus(newStatus))`
+     which internally invokes the validator atomically with the
+     write.
+
+  4. **SuspendSignal handling protocol**:
+       - Layer 5a Engine Dispatch & Execution (per ADR-0140)
+         throws `SuspendSignal` from its ExecutorAdapter impls.
+       - Layer 4 Control catches the SuspendSignal.
+       - Layer 4 dispatches the suspension to:
+           (a) Layer 2's RunRepository via
+               `updateIfNotTerminal(...)` for the
+               RUNNING → SUSPENDED state transition.
+           (b) Layer 3 Internal Event Queue (per ADR-0141) for
+               the control-channel suspension broadcast.
+           (c) Optionally Layer 5b's ContextProjector / S2C transport
+               for callback-variant suspensions.
+
+     Layer 4 NEVER writes Run state; it always delegates to the
+     aggregate's RunRepository CAS.
+
+  5. **The `service.task.Task` aggregate, `service.session.Session`
+     aggregate, and their respective SPIs (TaskStateStore,
+     ContextProjector)** follow the SAME single-owner pattern:
+       - Task aggregate → owned by Layer 2; Layer 4 holds typed
+         reference + uses TaskStateStore atomic CAS.
+       - Session aggregate → owned by Layer 2; Layer 5b uses
+         ContextProjector to read-only project Session into
+         InjectedContext.
+
+  6. **Diagram convention** for `docs/L1/agent-service/logical.md`:
+     Run aggregate is drawn INSIDE the Layer 2 box. Layer 4's
+     control-flow arrow to RunRepository is labelled
+     `updateIfNotTerminal(tenantId, runId, λ)` to make the CAS
+     contract visible in the diagram.
+
+consequences: |
+  Positive:
+  - Run aggregate has one structural owner; no per-caller
+    discipline gap remains.
+  - F-nonatomic-run-status-write becomes harder to recur — every
+    new Layer 4 (or Layer 5) code path that needs to mutate Run
+    state must call `updateIfNotTerminal(...)`, and the
+    aggregate's CAS implementation is the single place where
+    invariants are enforced.
+  - The Layer 2 ↔ Layer 4 boundary contract becomes auditable:
+    Layer 4 sources import `RunRepository` (an SPI) but never
+    `Run.java` or `RunStateMachine.java` directly.
+
+  Negative / residual:
+  - Some existing Layer 4 code (e.g. `SyncOrchestrator`) currently
+    creates `Run` records via `Run.withStatus(...)` indirectly
+    through `RunRepository.save(new Run(...))` at PENDING-state
+    create. This `save` call-site is grandfathered (creates, not
+    mutations); the M-finding in rc55 W0 documents this and
+    rc55 W5 SPI Appendix lists it as a known carve-out.
+  - A future ArchUnit test (`Layer4MustNotImportRunDirectlyTest`)
+    is a W2+ gate-rule candidate; until then this ADR is
+    review-time enforced.
+
+alternatives_considered: |
+  - (A) Leave Run aggregate split between Layer 2 (record + repo)
+    and Layer 4 (state machine). Rejected — this is the cited
+    F-layer-decomposition-low-cohesion pattern; pinning ownership
+    is the only structural fix.
+
+  - (B) Pull the aggregate into Layer 4 entirely (Layer 4 owns
+    Run record + Repository + State Machine). Rejected —
+    persistence is a Manager-layer concern; Run record is shared
+    between the persistence (Layer 2) and execution-state
+    (Layer 4) viewpoints, but persistence is the primary
+    concern that dictates package home.
+
+  - (C) Create a separate "Run Aggregate" Layer 2.5 between
+    Manager and Control. Rejected — adds layer count without
+    cohesion gain; the aggregate IS persistence-state, which is
+    Layer 2's existing responsibility.

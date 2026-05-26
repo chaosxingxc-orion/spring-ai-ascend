@@ -1,0 +1,158 @@
+id: ADR-0144
+title: "Layer ↔ Package matrix unifies the rc22 ADR-0100 5-component package-structural decomposition (Dispatcher/Orchestrator/Task/Session/Engine) with the rc53 ADR-0138 5-layer logical-view decomposition (Access/Manager/Queue/Control/Adapter); the two are NOT competing — they describe orthogonal views and the matrix is the canonical mapping"
+status: accepted
+date: 2026-05-26
+level: L1
+view: development
+affects_level: L1
+affects_view: logical, development
+authors:
+  - chao
+relates_to:
+  - ADR-0100    # rc22 5-component decomposition (package-structural)
+  - ADR-0138    # rc53 5-layer L1 ratification (logical-view)
+  - ADR-0140    # Engine Adapter Layer split (sibling rc55 ADR; refines Layer 5)
+  - ADR-0141    # Internal Event Queue design_only (sibling rc55 ADR; refines Layer 3)
+  - ADR-0142    # Run aggregate single owner (sibling rc55 ADR; refines Layer 2 ↔ Layer 4)
+context: |
+  `agent-service/ARCHITECTURE.md` currently presents TWO different
+  5-element decompositions of the same module:
+
+    §11 "L1 Runtime-Role Decomposition" (rc22 / ADR-0100):
+      1. Dispatcher  — Polymorphic Dispatcher
+      2. Orchestrator — Reactive Orchestrator
+      3. Task        — Task Center
+      4. Session     — Session Manager
+      5. Engine      — Execution Engine Adapter
+
+    review §15 "5-Layer Component Diagram" (rc53 / ADR-0138):
+      1. Access     — Gateway / A2A / MQ / Ingress
+      2. Manager    — Session & Task Manager + Run Repository
+      3. Queue      — Internal Event Queue (binding over 3-track bus)
+      4. Control    — Task-Centric Control + DualTrackRouter + Middleware
+      5. Adapter    — Engine Adapter (with rc55 ADR-0140 5a/5b split)
+
+  Each decomposition is independently coherent, but neither
+  ARCHITECTURE.md nor the rc53 review file maps one onto the other.
+  A reader cannot tell which is canonical, and an implementer
+  doesn't know which sub-package a "layer" or "component" maps to.
+
+  This is the lead occurrence of F-logical-vs-structural-
+  decomposition-conflation (rc55 W0 registered).
+
+  The senior-architecture review insight: the two decompositions
+  are NOT competing because they describe ORTHOGONAL views:
+
+    - ADR-0100's 5-component decomposition is PACKAGE-STRUCTURAL
+      (it names sub-package homes: `service.dispatcher`,
+      `service.orchestrator`, `service.task`, `service.session`,
+      `service.engine`).
+    - ADR-0138's 5-layer decomposition is LOGICAL-VIEW
+      (it names responsibilities: Access intake, Manager
+      persistence, Queue binding, Control orchestration, Adapter
+      execution).
+
+  A package home (Dispatcher) can participate in a logical layer
+  (Access), and a logical layer (Access) can span multiple
+  package homes (Dispatcher + platform/web + platform/idempotency
+  + platform/tenant + platform/auth + future platform/a2a).
+
+  The fix is to publish the canonical mapping, not to collapse
+  one decomposition into the other.
+
+decision: |
+  1. **The canonical Layer ↔ Package matrix is published below**
+     as the single source of truth for the mapping between the
+     ADR-0138 5-layer logical-view and the ADR-0100 5-component
+     package-structural decomposition. The matrix lives normatively
+     in `docs/L1/agent-service/development.md` (rc55 W5) and is
+     summarised here for reference:
+
+     | Logical Layer (ADR-0138) | Sub-Packages (ADR-0100 + Phase C) | Notes |
+     |---|---|---|
+     | 1. Access Layer | `service.dispatcher/` (rc22 ADR-0100), `service.platform.web/`, `service.platform.idempotency/`, `service.platform.tenant/`, `service.platform.auth/`, `service.platform.observability/` (TraceExtractFilter), future `service.platform.a2a/` (W3+) | Inbound protocol convergence + tenant binding + idempotency + JWT cross-check + trace origination. Dispatcher introduced at rc22 alongside the new 5-component model; web/idempotency/tenant/auth stay in `service.platform.*` per Phase C ADR-0078 (HTTP-edge concerns). |
+     | 2. Session & Task Manager | `service.runtime.runs/` (Run aggregate per ADR-0142), `service.task/`, `service.session/`, `service.runtime.idempotency/` (IdempotencyRecord entity) | Owns Run / Task / Session aggregates + their SPIs (RunRepository, TaskStateStore, ContextProjector) + tenantId-first persistence. Run aggregate ownership pinned by ADR-0142. |
+     | 3. Internal Event Queue | `service.queue/` (design_only — does NOT exist on filesystem at rc55 per ADR-0141) | Binding-only layer over `agent-bus` three-track channels per Rule R-E. Code home deferred to a future wave. |
+     | 4. Task-Centric Control Layer | `service.orchestrator/` (rc22 ADR-0100), `service.runtime.orchestration/` (inmemory ref impls), `service.runtime.posture/` (AppPostureGate), future `service.runtime.observability/` (W2 kernel metrics) | RunStateMachine validation via Layer 2's RunRepository CAS (ADR-0142). RuntimeMiddleware chain dispatched on HookPoint events (per ADR-0140 — RuntimeMiddleware exclusively here, not in Layer 5). DualTrackRouter (design_only — ADR-0112). SuspendSignal handling (child-run + S2C callback variants). |
+     | 5a. Engine Dispatch & Execution | `service.engine.adapter/` (consumer impls), `service.engine.spi/` (StatelessEngine + AgentInvokeRequest); consumes `agent-execution-engine.engine.spi.*` cross-module | EngineRegistry.resolve(envelope) per Rule R-M.a. ExecutorAdapter implementations per Rule R-M.b strict matching. EngineHookSurface emits HookPoint events into Layer 4. Per ADR-0140. |
+     | 5b. Translation & Tool-Intercept | `service.session.spi.ContextProjector` (consumed by adapter), `service.integration.springai/` (Spring AI reference adapters: SpringAiChatModelGateway, SpringAiPromptTemplateAdapter, SpringAiBeanOutputConverterAdapter, ChatAdvisor impls) | Per ADR-0140 — ContextProjector + PromptTemplate + StructuredOutputConverter + ChatAdvisor compose to shape model invocation. No RuntimeMiddleware here. |
+     | (cross-cutting) | `service.platform.posture/` (PostureBootGuard), `service.platform.persistence/` (DataSource conditions), `service.platform.engine/` (StatelessEngineAutoConfiguration), `service.platform.resilience/` (resilience auto-config), `service.runtime.resilience/` + `service.runtime.resilience.spi/` (ResilienceContract + SkillCapacityRegistry), `service.runtime.memory/` + `service.runtime.memory.spi/` (GraphMemoryRepository), `service.runtime.s2c/` (InMemoryS2cCallbackTransport), `service.runtime.evolution/` (EvolutionExport + future RunEvent per ADR-0145), `service.runtime.probe/` + `service.platform.probe/` (OssApiProbe), `service.agent.spi/` (Agent + AgentRegistry — design_only per ADR-0128) | Cross-cutting concerns not owned by a specific layer: posture gating (boot fail-closed), persistence wiring, autoconfig, resilience contracts, memory SPI, S2C transport, evolution export discriminator, probes, agent SPIs. |
+
+  2. **The matrix is exhaustive over actual code homes**: every
+     production sub-package under
+     `agent-service/src/main/java/com/huawei/ascend/service/**` is
+     mapped to either a logical layer OR the cross-cutting bucket.
+
+  3. **Layer assignment rules going forward**:
+       - When a new sub-package is added under `service.**`, the
+         author MUST update this matrix in the same commit (rc55
+         W5 establishes the matrix as part of
+         `docs/L1/agent-service/development.md` rendering).
+       - A sub-package MUST belong to exactly ONE layer OR the
+         cross-cutting bucket — never two layers.
+       - If a sub-package's responsibility crosses layers, that
+         is a F-layer-decomposition-low-cohesion signal — split
+         the sub-package OR refine the layer ownership before
+         landing.
+
+  4. **This ADR EXTENDS** ADR-0100 (it does not supersede the
+     5-component decomposition) AND EXTENDS ADR-0138 (it does
+     not supersede the 5-layer decomposition). Both ADRs remain
+     in force; the matrix is the third corner that resolves
+     their tension.
+
+  5. **The matrix is rendered, not hand-edited**. rc55 W5
+     `docs/L1/agent-service/development.md.j2` carries the
+     matrix as static markdown (W5 verbatim seed); a future
+     wave may render the matrix from
+     `agent-service/module-metadata.yaml#layer_assignments` (a
+     new field) so additions are gate-enforceable.
+
+consequences: |
+  Positive:
+  - F-logical-vs-structural-decomposition-conflation structurally
+    closed for the rc55 cited case.
+  - Future contributors adding a sub-package have an explicit
+    classification step — no orphan sub-packages.
+  - The 5-layer model and the 5-component model are decoupled
+    in cadence: the layer model evolves with ADR-0138 + sibling
+    rc55 ADRs (cohesion / boundaries); the component model
+    evolves with ADR-0100 (rc23+ Java refactor).
+  - Reviewers reading either ADR-0100 or ADR-0138 alone can
+    cross-walk to the other via this ADR.
+
+  Negative / residual:
+  - The matrix is large (7 rows + cross-cutting). Maintainers
+    must keep it current as sub-packages are added. Until a
+    `layer_assignments` field lands in module-metadata.yaml, the
+    matrix is review-time enforced via the rc55 W5
+    development.md authoring discipline.
+  - Some sub-packages (e.g. `service.platform.observability`)
+    have responsibilities that touch multiple layers
+    (TraceExtractFilter is Layer 1 Access; TenantTagMeterFilter
+    is cross-cutting). The matrix resolves these by listing the
+    sub-package once with the dominant layer assignment +
+    explanatory notes; future refinements may split such
+    sub-packages.
+
+alternatives_considered: |
+  - (A) Pick one decomposition (ADR-0138 OR ADR-0100) as
+    canonical and demote the other. Rejected — both are
+    independently useful and well-grounded; the logical view is
+    a Logical View artefact, the component model is a Development
+    View artefact, and Rule G-1 4+1 discipline expects both
+    views to coexist.
+
+  - (B) Add the matrix to ADR-0100 OR ADR-0138 as an inline
+    amendment. Rejected — neither ADR alone owns the bridge; a
+    standalone ADR documents the bridge as a first-class design
+    decision. ADR-0100 + ADR-0138 + ADR-0144 form a DAG of
+    `extends` relationships that the architecture-graph builder
+    encodes per Rule G-1.b.
+
+  - (C) Generate the matrix mechanically from sub-package
+    Javadoc tags (e.g. a custom `@LogicalLayer("Access")`
+    annotation). Rejected for now — adds an annotation surface
+    that needs its own gate rule; the W5 review-time discipline
+    + future module-metadata.yaml field is simpler and matches
+    the existing Rule G-13 rendering pipeline.

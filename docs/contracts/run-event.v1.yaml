@@ -1,0 +1,261 @@
+# RunEvent sealed hierarchy schema, version 1.
+#
+# Authority: ADR-0145 (rc55 — Sealed RunEvent hierarchy specification).
+# Wave: design_only at rc55 W1; runtime_enforced when the Java sealed
+# interface + 10 record variants land in a follow-up impl-mode wave.
+#
+# Purpose: closes F-discriminator-without-discriminated-type for the
+# EvolutionExport enum at
+# agent-service/src/main/java/com/huawei/ascend/service/runtime/evolution/EvolutionExport.java
+# whose package-info Javadoc declares it as discriminator for a sealed
+# RunEvent hierarchy that does NOT yet exist. This contract specifies
+# the variants the future Java type MUST declare.
+#
+# The variants are derived from the S1-S5 scenario coverage in
+# docs/L1/agent-service/scenarios.md (rc55 W3 authoring):
+#   S1 Standard Synchronous Intake     -> RunCreated, RunStateTransition, TerminalTransition
+#   S2 Long-Horizon ReAct w/ Tool Calls -> + SuspendRequested, ResumeRequested
+#   S3 A2A Peer Collaboration          -> + ChildRunSpawned, ChildRunCompleted
+#   S4 S2C Client Callback             -> + S2cCallbackRequested, S2cCallbackCompleted
+#   S5 Cancel During Execution         -> + CancelRequested
+
+schema: run-event/v1
+authority: ADR-0145
+status: design_only
+runtime_enforced: false
+promotion_trigger: First impl-mode wave that ships the Java `RunEvent.java` sealed interface + the 10 record variants under `agent-service/src/main/java/com/huawei/ascend/service/runtime/evolution/`. At that point `runtime_enforced: true` AND `EveryRunEventDeclaresEvolutionExportTest` becomes non-vacuous (Rule R-M.e gateable).
+relates_to:
+  - docs/contracts/engine-envelope.v1.yaml      # adapter-level envelope; RunEvent sits one layer above (Layer 2 + Layer 4 emit; Layer 3 carries via three-track bus)
+  - docs/contracts/engine-hooks.v1.yaml         # HookPoint events are runtime-level signals; RunEvent variants are aggregate-level state changes
+  - docs/contracts/s2c-callback.v1.yaml         # S2cCallbackEnvelope carrier for the S2c variants
+  - docs/governance/evolution-scope.v1.yaml     # binds EvolutionExport discriminator semantics
+  - docs/governance/bus-channels.yaml           # three-track bus routing per emission intent
+
+# ---------------------------------------------------------------
+# Common envelope fields — every variant carries these
+# ---------------------------------------------------------------
+common_fields:
+  runId:
+    type: string
+    format: uuid
+    required: true
+    description: The Run this event pertains to. Foreign key into the Run aggregate (Layer 2 per ADR-0142).
+  tenantId:
+    type: string
+    format: uuid
+    required: true
+    description: Mandatory per Rule R-C.2.a + Rule R-J.a (RLS-bound). Propagates from IngressEnvelope through the emission chain.
+  traceId:
+    type: string
+    format: w3c-traceparent
+    required: true
+    description: W3C trace-id for distributed correlation. Sourced from `RunContext.traceContext()` or fresh-minted at Layer 1 if absent.
+  occurredAt:
+    type: string
+    format: iso8601
+    required: true
+    description: ISO-8601 UTC instant of the event. Wall-clock at emission site (Rule R-G reactive — no sleep).
+  evolutionExport:
+    type: enum
+    values: [IN_SCOPE, OUT_OF_SCOPE, OPT_IN]
+    required: true
+    description: |
+      EvolutionExport discriminator binding (Rule R-M.e). Each variant
+      below specifies its default mapping; runtime may override per
+      tenant-policy.
+
+# ---------------------------------------------------------------
+# Sealed hierarchy variants (10)
+# ---------------------------------------------------------------
+variants:
+
+  RunCreatedEvent:
+    emitted_by: Layer 2 RunRepository.save (create-only call-site; grandfathered per rc39 ADR source-guard)
+    emission_trigger: New Run record persisted at PENDING status; this is the only RunRepository.save() that is NOT subject to updateIfNotTerminal CAS (creation is not a mutation).
+    evolution_export_default: IN_SCOPE
+    fields:
+      capabilityName:
+        type: string
+        required: true
+        description: Skill / agent name being executed (lookup key into SkillRegistry).
+      runMode:
+        type: enum
+        values: [GRAPH, AGENT_LOOP]
+        required: true
+      parentRunId:
+        type: string
+        format: uuid
+        required: false
+        description: Present iff this Run was spawned as a child of another Run (S3 A2A or S4 S2C scenarios).
+      sessionId:
+        type: string
+        format: uuid
+        required: false
+        description: Present iff caller bound a Session per ADR-0062.
+
+  RunStateTransitionEvent:
+    emitted_by: Layer 2 RunRepository.updateIfNotTerminal AFTER the atomic CAS succeeds
+    emission_trigger: Run state DFA transition (any of PENDING->RUNNING, RUNNING->SUSPENDED, SUSPENDED->RUNNING, RUNNING->SUCCEEDED, etc.) per RunStateMachine.validate.
+    evolution_export_default: IN_SCOPE
+    fields:
+      fromStatus:
+        type: enum
+        values: [PENDING, RUNNING, SUSPENDED]
+        required: true
+        description: Pre-CAS status (terminal statuses never appear as fromStatus by Rule R-C.2.b).
+      toStatus:
+        type: enum
+        values: [PENDING, RUNNING, SUSPENDED, SUCCEEDED, FAILED, CANCELLED, EXPIRED]
+        required: true
+      reason:
+        type: string
+        required: false
+        description: Optional human-readable narrative (audit field per ADR-0108).
+
+  SuspendRequestedEvent:
+    emitted_by: Layer 4 Control AFTER catching SuspendSignal AND BEFORE invoking Layer 2 RunRepository.updateIfNotTerminal(... SUSPENDED)
+    emission_trigger: Executor throws SuspendSignal (child-run variant per ADR-0019).
+    evolution_export_default: IN_SCOPE
+    fields:
+      parentNodeKey:
+        type: string
+        required: true
+        description: Checkpointer key for resume.
+      suspendReason:
+        type: string
+        required: true
+        description: SuspendReason discriminator value (sealed enum per ADR-0019).
+
+  ResumeRequestedEvent:
+    emitted_by: Layer 4 ResumeDispatcher BEFORE invoking Layer 2 RunRepository.updateIfNotTerminal(... RUNNING)
+    emission_trigger: Resume trigger fires (deadline, child Run completion, S2C callback response, etc.).
+    evolution_export_default: IN_SCOPE
+    fields:
+      resumeCause:
+        type: enum
+        values: [CHILD_COMPLETED, S2C_CALLBACK_RECEIVED, EXTERNAL_TRIGGER, DEADLINE_REACHED]
+        required: true
+      resumePayloadKey:
+        type: string
+        required: false
+        description: Reference to resume payload in Checkpointer / S2cCallbackTransport.
+
+  S2cCallbackRequestedEvent:
+    emitted_by: Layer 4 Control AFTER catching SuspendSignal.forClientCallback per ADR-0074
+    emission_trigger: Executor throws S2C-variant SuspendSignal; envelope addressed to client.
+    evolution_export_default: OPT_IN
+    note: OPT_IN because the S2C envelope is client-bound and may carry tenant-sensitive callback data; per-tenant telemetry-export policy applies.
+    fields:
+      callbackEnvelope:
+        type: object
+        ref: docs/contracts/s2c-callback.v1.yaml
+        required: true
+      capability:
+        type: string
+        required: true
+        description: Skill capacity row consumed (Rule R-K).
+
+  S2cCallbackCompletedEvent:
+    emitted_by: Layer 4 Control AFTER receiving the client's S2C response on the data channel per ADR-0074
+    emission_trigger: Client publishes response envelope; orchestrator unwinds SuspendSignal.forClientCallback.
+    evolution_export_default: OPT_IN
+    fields:
+      callbackId:
+        type: string
+        required: true
+        description: Correlation id matching the S2cCallbackRequestedEvent.
+      outcome:
+        type: enum
+        values: [SUCCESS, TIMEOUT, SCHEMA_INVALID, CLIENT_ERROR]
+        required: true
+
+  ChildRunSpawnedEvent:
+    emitted_by: Layer 4 Control AFTER spawning child Run via Layer 5a Engine Dispatch
+    emission_trigger: SuspendSignal child-run variant (ADR-0019); parent Run -> SUSPENDED while child executes.
+    evolution_export_default: IN_SCOPE
+    fields:
+      childRunId:
+        type: string
+        format: uuid
+        required: true
+      childRunMode:
+        type: enum
+        values: [GRAPH, AGENT_LOOP]
+        required: true
+      joinPolicy:
+        type: enum
+        values: [WAIT_ALL, WAIT_ANY, FIRE_AND_FORGET]
+        required: true
+
+  ChildRunCompletedEvent:
+    emitted_by: Layer 4 Control AFTER receiving child Run terminal status from Layer 2 RunRepository
+    emission_trigger: Child Run reaches SUCCEEDED / FAILED / CANCELLED / EXPIRED; parent resume trigger.
+    evolution_export_default: IN_SCOPE
+    fields:
+      childRunId:
+        type: string
+        format: uuid
+        required: true
+      childTerminalStatus:
+        type: enum
+        values: [SUCCEEDED, FAILED, CANCELLED, EXPIRED]
+        required: true
+
+  CancelRequestedEvent:
+    emitted_by: RunController.cancel AFTER tenant-guard re-validation (Rule R-J.b) AND BEFORE invoking Layer 2 RunRepository.updateIfNotTerminal(... CANCELLED)
+    emission_trigger: POST /v1/runs/{runId}/cancel; tenant matches; Run not in same-status terminal.
+    evolution_export_default: IN_SCOPE
+    fields:
+      actor:
+        type: string
+        required: true
+        description: User principal who requested cancel (JWT `sub` claim or "system").
+      cancelReason:
+        type: string
+        required: false
+        description: Optional caller-supplied reason (passed through CancelRunRequest payload).
+
+  TerminalTransitionEvent:
+    emitted_by: Layer 2 RunRepository.updateIfNotTerminal AFTER the atomic CAS succeeds AND toStatus is terminal
+    emission_trigger: Run reaches SUCCEEDED / FAILED / CANCELLED / EXPIRED. Emitted as a separate event (in addition to RunStateTransitionEvent) for downstream consumers that only care about terminals (Outbox / metric counters / SLA monitors).
+    evolution_export_default: IN_SCOPE
+    fields:
+      terminalStatus:
+        type: enum
+        values: [SUCCEEDED, FAILED, CANCELLED, EXPIRED]
+        required: true
+      finalReason:
+        type: string
+        required: false
+        description: Optional human-readable terminal reason (e.g. `engine_mismatch`, `peer_unreachable`, `timeout_reached`).
+
+# ---------------------------------------------------------------
+# Bus channel routing (Rule R-E + bus-channels.yaml)
+# ---------------------------------------------------------------
+channel_routing:
+  # Intent-based routing (Rule R-E orthogonal-axes design):
+  control:
+    # cancel / resume / suspend broadcasts; highest priority; out-of-band.
+    variants: [SuspendRequestedEvent, ResumeRequestedEvent, CancelRequestedEvent, S2cCallbackRequestedEvent]
+  data:
+    # state transitions + payload-bearing events; in-band; heavy-load.
+    variants: [RunCreatedEvent, RunStateTransitionEvent, S2cCallbackCompletedEvent, ChildRunSpawnedEvent, ChildRunCompletedEvent, TerminalTransitionEvent]
+  rhythm:
+    # heartbeat / liveness ticks; no RunEvent variant maps here (the rhythm channel carries Tick Engine pulses, not aggregate-level events).
+    variants: []
+
+# ---------------------------------------------------------------
+# Compatibility + evolution
+# ---------------------------------------------------------------
+evolution:
+  versioning: |
+    Variants are append-only. Adding a new variant is a minor-version
+    bump (v1.1). Removing or renaming a variant is a major-version
+    bump (v2) with a deprecation window per ADR-0119 single-source
+    rendering discipline.
+  forward_compat: |
+    Consumers MUST handle unknown variant tags by emitting
+    `springai_ascend_runevent_unknown_variant_total{tenant_id,variant}`
+    metric and dropping the event. Sealed-type exhaustiveness check
+    at compile time prevents this in well-tested consumers; the
+    drop+metric path covers cross-version deployment skew.
