@@ -16,15 +16,14 @@ import java.util.Optional;
  * {@code docs/contracts/a2a-envelope.v1.yaml} (contract-only adoption;
  * NO SDK runtime dep).
  *
- * <p><b>Vocabulary Glossary (per ADR-0136 + ADR-0100 + rc53-wave-6)</b>:
- * PR-71-style academic prose that refers to "Task as the scheduling core" maps
- * to THIS class (not to a renamed {@link com.huawei.ascend.service.runtime.runs.Run}).
+ * <p><b>Vocabulary Glossary.</b> Authority: ADR-0136 + ADR-0100.
+ * Academic prose that refers to "Task as the scheduling core" maps to THIS class
+ * (not to a renamed {@link com.huawei.ascend.service.runtime.runs.Run}).
  * Task is the <i>control-state</i> layer (done-or-not, why-stopped, A2A envelope state),
  * while {@code Run} is the <i>transient compute snapshot</i> layer (compute pointer +
- * delta + RunStatus DFA). The two are different entities (ADR-0100 4-layer hierarchy);
+ * delta + RunStatus DFA). The two are different entities in the 4-layer hierarchy;
  * one Task may have many transient Runs cycling through PENDING / RUNNING / SUSPENDED /
- * SUCCEEDED. See ADR-0100 §decision and {@link com.huawei.ascend.service.runtime.runs.Run}
- * Javadoc.
+ * SUCCEEDED. See {@link com.huawei.ascend.service.runtime.runs.Run} Javadoc.
  *
  * @param taskId     unique task identifier.
  * @param tenantId   mandatory per Rule R-C.c.

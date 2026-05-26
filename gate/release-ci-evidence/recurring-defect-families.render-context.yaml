@@ -1,4 +1,78 @@
 families:
+- cleanup_status: monitoring
+  first_observed_rc: rc51
+  id: F-agentic-contract-composition-gap
+  last_observed_rc: rc52-agentic-completeness-corrective
+  occurrences:
+  - rc51-agentic-completeness-review
+  - rc52-agentic-completeness-corrective
+  open_residual: 'rc52 closes the cited surfaces by adding a streaming advisor sibling
+
+    SPI, converting conversation memory to `MemoryStore<String,
+
+    ConversationWindow>`, replacing free-string finish reasons with
+
+    `ModelFinishReason`, introducing same-package retrieval/advisor
+
+    carriers, and strengthening formal-release evidence validation. The
+
+    family remains under monitoring because broader historical SPI
+
+    packages outside agent-middleware still have intentional legacy
+
+    cross-package relationships; if future reviews choose repo-wide SPI
+
+    purity, those surfaces need a separate scoped refactor rather than
+
+    being hidden under the rc52 agentic-contract closure.
+
+    The rc52 formal-publication follow-up also re-ran the recurring-family
+
+    ledger freshness check after the release note and CLAUDE template
+
+    publication surfaces changed; no additional problem type was found beyond
+
+    this family, so the canonical recurring-family count remains 16.
+
+    '
+  prevention_rules:
+  - "Rule R-D (strict SPI purity \u2014 no cross-SPI dependencies in agent-middleware\
+    \ SPI packages)"
+  - Rule G-8 / F-cross-authority-agreement (cross-surface parity discipline, widened
+    here to semantic composition surfaces)
+  - "Formal-release transaction validator (rc52 \u2014 rejects dirty evidence, candidate\
+    \ SHA mismatch, non-formal latest-release evidence, and evidence-bundle path mismatch)"
+  - "SpiPurityGeneralizedArchTest (rc52 \u2014 agent-middleware SPI packages import\
+    \ only java.* and same-package siblings)"
+  root_cause: 'A wave can land individually plausible L0 agentic primitives while
+
+    failing to prove that the primitives compose: one contract declares
+
+    streaming while its sibling advisor contract remains invoke-only;
+
+    one memory surface claims a conversation window while its generic
+
+    parent stores a single turn; one tool-loop contract treats
+
+    `finishReason` as an enum while Java exposes an arbitrary string;
+
+    one release note claims closure while the generated evidence records
+
+    a dirty, non-formal candidate. The root mechanism is semantic closure
+
+    being checked per surface rather than across the contract algebra.
+
+    '
+  surfaces:
+  - agent-middleware/src/main/java/com/huawei/ascend/middleware/{advisor,memory,model,retrieval}/spi/
+  - docs/contracts/{chat-advisor,memory-store,model-invocation,model-streaming}.v1.yaml
+  - docs/adr/0129-streaming-aware-model-gateway.yaml
+  - docs/adr/0132-chat-advisor-spi.yaml
+  - docs/adr/0133-conversation-memory-spi-variant.yaml
+  - docs/adr/0134-tool-call-iteration-loop.yaml
+  - gate/lib/check_formal_release_transaction.py
+  - docs/logs/releases/*.md (latest formal release only)
+  title: Agentic Contract Composition and Semantic-Closure Gap
 - cleanup_status: partial
   first_observed_rc: rc4
   id: F-authority-surface-path-drift
@@ -100,7 +174,7 @@ families:
 - cleanup_status: structurally_addressed
   first_observed_rc: rc14
   id: F-cross-authority-agreement
-  last_observed_rc: rc40-agent-execution-engine-readiness-corrective
+  last_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
   occurrences:
   - rc14
   - rc15
@@ -115,6 +189,7 @@ families:
   - rc36
   - rc39-formal-release-transaction
   - rc40-agent-execution-engine-readiness-corrective
+  - rc53-wave-1-agent-service-l1-4plus1-rewrite
   open_residual: "Every new rule MUST explicitly enumerate its authority surfaces\n\
     (Rule G-8.b/.c/.e + Rule 109 + Rule G-9 frontmatter). Drift will\nreappear only\
     \ if a rule introduces a new surface without declaring\nit.\n\nrc35-second-pass\
@@ -322,6 +397,121 @@ families:
   - docs/telemetry/policy.md
   - spring-ai-ascend-dependencies/module-metadata.yaml
   title: Deleted-Module-Name Leakage After Refactor
+- cleanup_status: monitoring
+  first_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
+  id: F-design-artifact-omits-tenant-spine
+  last_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
+  occurrences:
+  - rc53-wave-1-agent-service-l1-4plus1-rewrite
+  open_residual: "This wave's structural fix is at the ADR + L1-rewrite level\n(ADR-0136\
+    \ + ADR-0138 + Wave 2 ER block). A gate-rule that\ndetects tenantId-less ER blocks\
+    \ in design surfaces is a Wave\n5+ candidate; until landed, family relies on review-time\n\
+    vigilance + the Per-Wave Acceptance Criteria sweep\ndiscipline declared in plan-file\
+    \ noble-stargazing-cookie.md\n\xA7G-C row 1.\n"
+  prevention_rules:
+  - "ADR-0136 (this wave \u2014 declares Run vs Task entity distinction + reaffirms\
+    \ tenantId as first-class field on each)"
+  - "ADR-0138 (this wave \u2014 \xA73 red-line \"No tenantId-less data model\")"
+  - Wave 2 Logical View ER block (canonical tenantId-first model)
+  - "candidate gate-rule for Wave 5+ \u2014 multi-line regex over `erDiagram` blocks\
+    \ in `docs/**/*.md` checking that every entity block under `^\\s+SESSION|TASK|RUN|LIFECYCLE_STATE|STATE_STORE`\
+    \ declares `tenantId` / `tenant_id` field"
+  root_cause: "Mermaid ER blocks / state-diagram blocks / field tables in L1\nand\
+    \ L2 design surfaces omit `tenantId` as a first-class field\non Run / Task / Session\
+    \ / StateStore, burying tenant scope in\nopaque `metadata` strings or eliding\
+    \ it entirely. Future\nimplementations inherit the design gap and risk Rule R-C.2.a\n\
+    (Run record mandatory tenantId + Objects.requireNonNull) plus\nRule R-J.a (RLS\
+    \ on every tenant_id-bearing table) plus\nPrinciple P-J (storage-engine tenant\
+    \ isolation) violations at\ncode time. This family is the L1-design-side sibling\
+    \ of the\nimplementation-side family F-nonatomic-run-status-write \u2014\nboth\
+    \ rooted in \"tenant invariant treated as a runtime\nconcern, not a design concern\"\
+    . PR #71 \xA73.2 ER block omits\ntenantId entirely (only sessionId, taskId, metadata,\
+    \ version\ndeclared), which is the surfacing event for this family.\n"
+  surfaces:
+  - docs/logs/reviews/*.md (design proposals + review responses)
+  - docs/L2/*.md (when L2 directory is populated)
+  - agent-*/ARCHITECTURE.md (L1 architecture docs)
+  - docs/contracts/*.yaml (schema declarations)
+  title: Design Artefact Omits tenantId First-Class Field
+- cleanup_status: monitoring
+  first_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
+  id: F-design-doc-language-bypasses-invariant
+  last_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
+  occurrences:
+  - rc53-wave-1-agent-service-l1-4plus1-rewrite
+  open_residual: 'The 2026-05-22 reference template''s "compact edge deployment"
+
+    / "stateless and semi-persistence" prose is a partial sibling
+
+    that did not trigger the strict regex but deserves an
+
+    explicit invariant-preservation pin per ADR-0139. Deferred
+
+    sibling, Wave 5 follow-up. The general gate-rule for risk-
+
+    phrase + same-paragraph invariant-preservation clause is a
+
+    Wave 5+ candidate; until landed, family relies on Per-Wave
+
+    Acceptance Criteria sweep discipline.
+
+    '
+  prevention_rules:
+  - "ADR-0139 (this wave \u2014 Fast-Path / Slow-Path narrowed semantics; explicit\
+    \ forbid of bypass-implying language)"
+  - Wave 2 Logical View narrowing prose (canonical L1 vocabulary)
+  - "candidate gate-rule for Wave 5+ \u2014 risk-phrase grep with same-paragraph invariant-preservation\
+    \ clause requirement"
+  root_cause: "Design docs use casual language (\"no mandatory persistence\",\n\"\
+    fast-path skips checkpoint\", \"lightweight synchronous\",\n\"memory-only path\"\
+    ) that, when read by an implementer under\ntime pressure, would license bypassing\
+    \ Rule R-G (reactive\nI/O), Rule R-H (no Thread.sleep), Rule R-J.a (RLS on\ntenant_id\
+    \ tables), or Rule R-C.2 (RunRepository.updateIfNotTerminal\nCAS). The language\
+    \ is the upstream cause; the implementation\nbug would be the downstream effect.\
+    \ The family is the\n\"language-as-attack-surface\" sibling of the structural-defect\n\
+    families \u2014 closing the implementation surface (e.g., Rule R-G\nArchUnit)\
+    \ does NOT close this family; the design wording\nmust also be tightened to deny\
+    \ the bypass interpretation.\nPR #71 \xA73.4.3 Fast-Path \"no mandatory persistence,\
+    \ local\nsynchronous resume\" is the surfacing event.\n"
+  surfaces:
+  - docs/logs/reviews/*.md (design proposals)
+  - docs/L2/*.md
+  - docs/adr/*.yaml (`context:` / `decision:` blocks)
+  - agent-*/ARCHITECTURE.md
+  title: Design Artefact Wording Implies Bypass of Reactive / RLS / No-Sleep Invariants
+- cleanup_status: monitoring
+  first_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
+  id: F-design-doc-violates-three-track-bus
+  last_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
+  occurrences:
+  - rc53-wave-1-agent-service-l1-4plus1-rewrite
+  open_residual: "The 2026-05-22 reference template `docs/logs/reviews/\n2026-05-22-agent-service-l1-expansion-proposal.{en,cn}.md`\n\
+    uses \"internal high-throughput event/task queue\" prose\nwithout same-paragraph\
+    \ three-track binding citation \u2014\ndeferred sibling, Wave 5 follow-up. Sibling\
+    \ sweep result\ndocumented in Wave 1 review draft \xA78.4 + \xA79 row 1.\n"
+  prevention_rules:
+  - "ADR-0138 (this wave \u2014 \xA73 red-line \"No single-tier internal queue + mode-based\
+    \ durability\"; binds to bus-channels.yaml)"
+  - "Rule R-E (Three-Track Channel Isolation \u2014 already enforces at runtime; this\
+    \ family adds upstream design-language enforcement)"
+  - Wave 3 Physical View three-track binding diagram (canonical reference for downstream
+    design surfaces)
+  root_cause: "Design docs introduce \"internal event queue\" or \"message bus\"\n\
+    abstractions with their own durability axis (in-memory /\nsemi-persistent / persistent)\
+    \ without binding to the canonical\n`docs/governance/bus-channels.yaml` three\
+    \ channels (`control`\n/ `data` / `rhythm`). The family conflates two orthogonal\
+    \ axes:\n**physical isolation** (channels) vs **durability tier** (per-\nchannel\
+    \ backend choice). PR #71 \xA73.3 proposes the single-queue\n+ 3-storage-modes\
+    \ model that is the surfacing event for this\nfamily \u2014 head-on conflict with\
+    \ Rule R-E three-track physical\nisolation. Implementations would lose the priority\
+    \ / heavy /\nheartbeat isolation guarantee that the three-track design\nprovides.\n"
+  surfaces:
+  - docs/logs/reviews/*.md (esp. design proposals)
+  - docs/L2/*.md (when populated)
+  - docs/contracts/*.yaml (queue/bus schemas)
+  - agent-*/ARCHITECTURE.md
+  title: Design Artefact Proposes Queue / Event-Bus Abstraction Bypassing Rule R-E
+    Three-Track Channels
 - cleanup_status: partial
   first_observed_rc: rc6
   id: F-kernel-vs-implementation-drift
@@ -361,10 +551,93 @@ families:
   - docs/governance/rules/*.md kernel scalars
   - CLAUDE.md kernel paragraphs
   title: Prevention Rule Kernel vs Implementation Drift
+- cleanup_status: closed
+  first_observed_rc: rc41
+  id: F-l0-agentic-primitive-gap
+  last_observed_rc: rc51-agentic-completeness
+  occurrences:
+  - rc41-final-release-readiness
+  - rc50-post-closure-senior-architect-review
+  - rc51-agentic-completeness
+  open_residual: "Implementation of the 19 new SPI interfaces (14 rc43 + 5 rc51) is\n\
+    W2-W4 staged per the ADRs:\n  - W2 LLM gateway       \u2192 wires SpringAiChatModelGateway\
+    \ functional + ModelGateway.stream + StructuredOutputConverter\n  - W2 skill registry\
+    \    \u2192 wires SpringAiToolCallbackSkillAdapter functional\n  - W2 prompt-rendering\
+    \  \u2192 wires SpringAiPromptTemplateAdapter functional\n  - W2 advisor binding\
+    \   \u2192 wires ChatAdvisor chain into HookDispatcher (Telemetry Vertical co-arrival\
+    \ per ADR-0061 \xA77)\n  - W2 chat memory       \u2192 first real ConversationMemory\
+    \ impl\n  - W2 memory adapters   \u2192 first real MemoryStore impl\n  - W3 RAG\
+    \ vertical      \u2192 SpringAiVectorStoreAdapter + Retriever + EmbeddingModel\
+    \ functional; RetrievalOptions gains cacheStrategy field per ADR-0135\n  - W3\
+    \ SDK GA            \u2192 AgentRegistry runtime + AgentExecutorDefinitionFactory\
+    \ wired\n  - W4 planner           \u2192 first real Planner impl\nThe contract\
+    \ surface gap is closed at rc51 by construction (all 19\nSPI interfaces compile,\
+    \ contract YAMLs registered design_only, 4-way\nparity (catalog \u2194 metadata\
+    \ \u2194 DFX \u2194 L1 SPI Appendix) holds). The rc43\nclosure-by-construction\
+    \ at one layer of agentic primitives left\ndeveloper-ergonomics primitives (PromptTemplate,\
+    \ ChatAdvisor,\nStructuredOutputConverter) and the streaming output shape unmodelled;\n\
+    the rc50 post-closure senior-architect review surfaced this gap as\na same-family\
+    \ second occurrence and rc51 closes it. Future addition\nof new L0-level primitives\
+    \ (e.g., Observability SPI, Audit SPI,\nWorkflow SPI) MUST follow the same \"\
+    land contract shape at L0 even\nwhen implementation defers\" pattern this family\
+    \ establishes;\nscope-conflation between \"structural skeleton\" and \"agent contract\n\
+    layer\" (historical pre-Phase-C `agent-platform` Maven module was\nmerged into\
+    \ agent-service via ADR-0078; this paragraph uses the\ngeneric noun phrase in\
+    \ the modern Audience-B narrative sense) must\nbe flagged at each L0 final-release-readiness\
+    \ review, and the\nMETA-lesson from rc51 is: closure-by-construction at one primitive\n\
+    tier (rc43: Agent/Skill/Memory/Vector/Planner) can mask gaps at the\nadjacent\
+    \ ergonomics tier (rc51: Prompt/Advisor/StructuredOutput/\nStreaming) \u2014 every\
+    \ L0 closure review MUST also scan the developer-\nergonomics surface.\n"
+  prevention_rules:
+  - "Rule R-A (rc1 \u2014 Business/Platform Decoupling + Developer Self-Service; rc43\
+    \ re-armed non-vacuously via Agent/ModelGateway/Skill/Memory/Vector extension\
+    \ seams; rc51 widened to cover prompt-template + chat-advisor + structured-output\
+    \ + streaming surfaces so Audience B never needs to import org.springframework.ai.chat.{prompt,model.advisor,converter}.*\
+    \ directly)"
+  - "Rule R-D (rc1 \u2014 SPI + DFX + TCK co-design + catalog integrity; iterating\
+    \ logic auto-validates the 12 new rc43 SPIs + 5 new rc51 SPIs across catalog \u2194\
+    \ metadata \u2194 DFX)"
+  - "Rule G-1.1.b (rc22 \u2014 L1 SPI Appendix 4-way parity; rc49 correction makes\
+    \ the rc43 appendix explicit for all 14 new SPI rows; rc51 widens the agent-middleware\
+    \ \xA7SPI Appendix from 7 to 9 spi_packages, +5 SPI rows, +6 structural-carrier\
+    \ catalog entries)"
+  - "ADR-0120 / ADR-0121 / ADR-0122 / ADR-0123 / ADR-0124 / ADR-0125 / ADR-0126 /\
+    \ ADR-0127 / ADR-0128 (rc43 \u2014 the 9 ADRs that land the contract shapes as\
+    \ design_only with explicit W2-W4 promotion triggers)"
+  - "ADR-0129 / ADR-0130 / ADR-0131 / ADR-0132 / ADR-0133 / ADR-0134 / ADR-0135 (rc51\
+    \ \u2014 streaming-aware ModelGateway, StructuredOutputConverter<T>, PromptTemplate,\
+    \ ChatAdvisor + AdvisorChain, ConversationMemory variant, Tool-Call Iteration\
+    \ Loop semantics supplement, AgentSession-as-Run-projection deliberate-non-SPI\
+    \ capture)"
+  root_cause: "At rc41 final-release-readiness, an independent senior-architect\n\
+    review (Java microservices + agent-architecture reviewer) flagged\nthat seven\
+    \ L0-level contract shapes for the core agentic primitives\nwere missing from\
+    \ the platform SPI surface \u2014 Agent, ModelGateway,\nTool (vs Skill semantic),\
+    \ unified MemoryStore, VectorStore /\nRetriever / EmbeddingModel, Planner \u2014\
+    \ plus the Spring AI integration\nboundary was undeclared (the BoM was imported\
+    \ but zero production\nJava referenced any Spring AI type). The project name\n\
+    `spring-ai-ascend` and ARCHITECTURE.md \xA71.1 Audience B promise\n(\"external\
+    \ Spring developers integrating into their own Spring Boot\n4 + Java 21 applications\"\
+    ) advertised extension seams that did not\nexist as Java SPI interfaces or `docs/contracts/*.yaml`\
+    \ shapes.\nRoot mechanism: SCOPE CONFLATION \u2014 the rc41 closure framed \"\
+    L0 =\nstructural skeleton + governance\" as equivalent to \"L0 = agent-\nplatform\
+    \ contract layer\". For a generic job runtime that framing\nwould have held; for\
+    \ a brand-promising agent platform it left an\nL0-level credibility gap. Rule\
+    \ R-A \"Business/Platform Decoupling\"\nwas VACUOUSLY satisfied (no extension\
+    \ surface meant no possibility\nof failure), masking the gap from existing parity\
+    \ gates. Discovered\nvia docs/logs/reviews/2026-05-25-l0-senior-architect-reopen-recommendation.en.md.\n"
+  surfaces:
+  - agent-middleware/src/main/java/com/huawei/ascend/middleware/{model,skill,memory,vector,retrieval,embedding}/spi/
+  - agent-execution-engine/src/main/java/com/huawei/ascend/engine/planner/spi/
+  - agent-service/src/main/java/com/huawei/ascend/service/agent/spi/
+  - agent-service/src/main/java/com/huawei/ascend/service/integration/springai/
+  - docs/contracts/{agent-definition,model-invocation,skill-definition,memory-store,vector-store,planning-request,plan}.v1.yaml
+  - docs/adr/01{20,21,22,23,24,25,26,27,28}-*.yaml
+  title: L0 Agentic-Primitive Contract Surface Gap
 - cleanup_status: monitoring
   first_observed_rc: rc17
   id: F-l1-architecture-grounding-gap
-  last_observed_rc: rc40-agent-execution-engine-readiness-corrective
+  last_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
   occurrences:
   - rc17
   - rc18
@@ -377,6 +650,7 @@ families:
   - rc29
   - rc30
   - rc40-agent-execution-engine-readiness-corrective
+  - rc53-wave-1-agent-service-l1-4plus1-rewrite
   open_residual: "Rule G-1.1 ratifies the depth/grounding discipline. rc22 rewrote\n\
     all 6 agent-* ARCHITECTURE.md files. rc27 shipped the real gate\nhelpers (gate/lib/check_l1_dev_view_tree.sh\
     \ + check_l1_spi_appendix.sh\n+ 6 fixtures test_rule_118/119/120). Sub-clause\
@@ -533,7 +807,15 @@ families:
 
     will appear in the first authority doc not yet covered by Rules
 
-    82/91/97/101/G-8.a.
+    82/91/97/101/G-8.a. The rc50 supplemental release kept the canonical
+
+    counts unchanged, but still regenerated release evidence from frozen
+
+    candidate commit b554d744 before publishing the latest release note;
+
+    this records the release-surface refresh without registering a new
+
+    numeric-drift occurrence.
 
     '
   prevention_rules:
@@ -579,6 +861,50 @@ families:
   - CLAUDE.md kernel numeric claims
   - docs/governance/architecture-graph.yaml header
   title: Numeric Drift Across Authority Surfaces
+- cleanup_status: monitoring
+  first_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
+  id: F-placeholder-leaks-into-active-corpus
+  last_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
+  occurrences:
+  - rc53-wave-1-agent-service-l1-4plus1-rewrite
+  open_residual: 'The `2026-05-13-{wanshoulu}-wave-N-request.md` file remains in
+
+    the active corpus; Wave 5 rename + historical-snapshot marker
+
+    will close that specific leak. PR #71''s `xiaoming` slug
+
+    becomes a historical artifact after Wave 8 closure; allow-
+
+    listed citation contexts in ADR-0136 + this wave''s review
+
+    drafts + future wave drafts are NOT family hits but require
+
+    gate-rule allow-list maintenance.
+
+    '
+  prevention_rules:
+  - This wave's review-draft thematic-slug rename (`agent-service-l1-4plus1-rewrite-wave-N`)
+  - "candidate gate-rule for Wave 5+ \u2014 `Grep \"\\bxiaoming\\b|\\bwanshoulu\\\
+    b|\\bTODO-template\\b|\\bTBD\\b\"` over `docs/{logs,L2,contracts,adr}/**/*.md`\
+    \ + `agent-*/**/*.java`, with allow-list for documented citation contexts (ADR\
+    \ `context:` / review-draft sibling-sweep prose)"
+  root_cause: "Anonymous-name placeholders (`xiaoming` \u5C0F\u660E, `wanshoulu` \u4E07\
+    \u5BFF\u8DEF,\n`foo`, `bar`, `TBD`, `TODO-template`) leak into active design\n\
+    surfaces \u2014 file slugs, prose, code-block author tags \u2014 without\nbeing\
+    \ scrubbed before review. File slugs are particularly\ncostly because they become\
+    \ stable URLs (PR review links,\narchive links, gh-page URLs), and post-hoc rename\
+    \ requires\nhistorical-snapshot markers + redirect strategy per\n`docs/governance/logs-folder-policy.md`.\
+    \ PR #71's filename\n`2026-05-25-xiaoming-agent-service-l1-review-wave-1.{en,md}`\
+    \ is\nthe surfacing event for this family in design-doc form;\n`docs/logs/reviews/2026-05-13-{wanshoulu}-wave-N-request.md`\n\
+    is a pre-existing active-corpus leak.\n"
+  surfaces:
+  - docs/logs/reviews/*.md (file slugs)
+  - docs/L2/*.md (when populated)
+  - docs/contracts/*.yaml (`title:` / `description:` text)
+  - "agent-*/src/main/java/**/*.java (variable / class / package names \u2014 Java\
+    \ side is largely guarded by Checkstyle but slugs in `@author` comments / Javadoc\
+    \ examples slip through)"
+  title: Anonymous-Name Placeholders Leak Into Active Documentation Corpus
 - cleanup_status: closed
   first_observed_rc: rc21
   id: F-progressive-loading-weak-enforcement
@@ -645,26 +971,47 @@ families:
 - cleanup_status: structurally_addressed
   first_observed_rc: rc40-preventive
   id: F-project-tool-pin-drift
-  last_observed_rc: rc40-preventive
+  last_observed_rc: rc50-nodegraph-evidence
   occurrences:
   - rc40-codegraph-mcp-onboarding
-  open_residual: 'Rule 125 today is codegraph-specific (it hard-codes the
+  - rc50-nodegraph-evidence
+  open_residual: 'Rule 125 remains codegraph-specific for install-truth (it hard-codes
 
-    @colbymchenry/codegraph package name + the tools/codegraph/ path).
+    the @colbymchenry/codegraph package name + the tools/codegraph/ path),
 
-    A future second project-local MCP tool either re-uses the same
+    but rc50 adds a separate local nodegraph evidence builder so the
 
-    structural template (a sibling rule with its own package name + path
+    regenerated `.codegraph/codegraph.db` artifact is included in release
 
-    pair) or the rule is generalized to walk all entries of
+    evidence without committing the SQLite database. The builder also
 
-    `.mcp.json#mcpServers` and verify a `tools/<name>/` manifest exists
+    distinguishes a clean git worktree (`repository.dirty: false`) from
 
-    per entry. Generalization is deferred until a second tool actually
+    a non-git or unreadable worktree (`repository.dirty: null`) so release
 
-    lands; current state is a single concrete enforcer matching the
+    evidence does not conflate unknown status with clean status. A future
 
-    single concrete tool the platform ships.
+    second project-local MCP tool either re-uses the same structural
+
+    template (a sibling rule with its own package name + path pair plus
+
+    local artifact evidence) or the rule is generalized to walk all
+
+    entries of `.mcp.json#mcpServers` and verify a `tools/<name>/`
+
+    manifest exists per entry. Generalization is deferred until a second
+
+    tool actually lands; current state is a single concrete enforcer plus
+
+    a concrete nodegraph evidence builder matching the single concrete
+
+    tool the platform ships. The local `.codegraph/codegraph.db` and
+
+    generated `gate/release-ci-evidence/*codegraph-nodegraph*.evidence.yaml`
+
+    bundles are intentionally not G-9.b signal surfaces: the former is
+
+    git-ignored local state, and the latter is release output.
 
     '
   prevention_rules:
@@ -691,6 +1038,7 @@ families:
   - tools/codegraph/package.json
   - tools/codegraph/package-lock.json
   - .mcp.json
+  - gate/lib/build_codegraph_nodegraph_evidence.py
   title: Project-Local Dev-Tool Pin Drift and Manifest Inconsistency
 - cleanup_status: monitoring
   first_observed_rc: rc17
@@ -791,11 +1139,12 @@ families:
 - cleanup_status: closed
   first_observed_rc: rc11
   id: F-terminal-verb-overclaim
-  last_observed_rc: rc15
+  last_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
   occurrences:
   - rc11
   - rc12
   - rc15
+  - rc53-wave-1-agent-service-l1-4plus1-rewrite
   open_residual: ''
   prevention_rules:
   - Rule 99
@@ -820,6 +1169,6 @@ families:
   - docs/governance/rules/*.md card kernels
   - agent-*/ARCHITECTURE.md body text
   title: Active Kernel Terminal Verb vs Deferred Decision
-family_count: 14
-last_updated: '2026-05-25'
+family_count: 20
+last_updated: '2026-05-26'
 schema_version: 1

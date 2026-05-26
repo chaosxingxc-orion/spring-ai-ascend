@@ -45,7 +45,7 @@ authority_refs: [ADR-0094]
 
 ---
 
-## §1 — Family Summary (16 families as of rc52 agentic-completeness-corrective)
+## §1 — Family Summary (20 families as of rc53 agent-service-l1-4plus1-rewrite)
 
 rc52 agentic-completeness-corrective registers
 F-agentic-contract-composition-gap: rc51 landed individual primitives, but
@@ -71,6 +71,10 @@ agentic surfaces.
 | 14 | F-project-tool-pin-drift | Project-Local Dev-Tool Pin Drift and Manifest Inconsistency | 2 (rc40-codegraph-mcp-onboarding + rc50-nodegraph-evidence) | ✅ structurally addressed (Rule 125 / E173 gates package.json exact-pin + lockfileVersion>=3 + .mcp.json relative-shim ref; rc50 adds local `.codegraph` nodegraph evidence without committing the SQLite database) |
 | 15 | F-l0-agentic-primitive-gap | L0 Agentic-Primitive Contract Surface Gap | 3 (rc41-final-release-readiness + rc50-post-closure-senior-architect-review + rc51-agentic-completeness) | ✅ closed (rc51 — agentic-completeness wave adds 5 new SPI interfaces + 6 structural carriers + 4 contract YAMLs + 2 contract supplements + 7 ADRs 0129-0135 closing the developer-ergonomics-tier residual of the rc43 closure-by-construction) |
 | 16 | F-agentic-contract-composition-gap | Agentic Contract Composition and Semantic-Closure Gap | 2 (rc51-agentic-completeness-review + rc52-agentic-completeness-corrective) | 🟡 monitoring (rc52 — streaming advisor sibling, ConversationWindow, ModelFinishReason enum, same-package carriers, and formal-release evidence validator close cited surfaces; broader historical non-agent-middleware SPI coupling remains explicitly out of scope) |
+| 17 | F-design-artifact-omits-tenant-spine | Design Artefact Omits tenantId First-Class Field | 1 (rc53-wave-1-agent-service-l1-4plus1-rewrite) | 🟡 monitoring (ADR-0136 + ADR-0138 §3 red line at the L1 design layer; gate-rule for tenantId-less ER blocks is a W5+ candidate) |
+| 18 | F-design-doc-violates-three-track-bus | Design Artefact Proposes Queue / Event-Bus Abstraction Bypassing Rule R-E Three-Track Channels | 1 (rc53-wave-1-agent-service-l1-4plus1-rewrite) | 🟡 monitoring (ADR-0138 §3 red line binds Internal Event Queue to bus-channels.yaml three-track manifest; physical-isolation vs durability-tier conflation is structurally rejected at L1) |
+| 19 | F-design-doc-language-bypasses-invariant | Design Artefact Wording Implies Bypass of Reactive / RLS / No-Sleep Invariants | 1 (rc53-wave-1-agent-service-l1-4plus1-rewrite) | 🟡 monitoring (ADR-0139 narrowed Fast-Path semantics forbid bypass-implying language; risk-phrase + invariant-preservation-clause gate-rule is a W5+ candidate) |
+| 20 | F-placeholder-leaks-into-active-corpus | Anonymous-Name Placeholders Leak Into Active Documentation Corpus | 1 (rc53-wave-1-agent-service-l1-4plus1-rewrite) | 🟡 monitoring (thematic-slug rename pattern landed for new review drafts; gate-rule grep word-bag is a W5+ candidate; pre-existing wanshoulu slug retained with explanatory marker per logs-folder-policy) |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -822,7 +826,121 @@ future repo-wide SPI-purity rule would need a separately scoped migration.
 The rc52 formal-publication follow-up also re-ran the recurring-family
 ledger freshness check after the release note and CLAUDE template publication
 surfaces changed; no additional problem type was found beyond this family,
-so the canonical recurring-family count remains 16.
+so the canonical recurring-family count remained 16. rc53 wave-1 (agent-service
+L1 4+1 rewrite) registers 4 new design-side families and the canonical count
+becomes 20.
+
+### F-design-artifact-omits-tenant-spine — Design Artefact Omits tenantId First-Class Field
+
+**Pattern.** Mermaid ER blocks / state-diagram blocks / field tables in
+L1 and L2 design surfaces omit `tenantId` as a first-class field on
+Run / Task / Session / StateStore, burying tenant scope in opaque
+`metadata` strings or eliding it entirely. Future implementations
+inherit the design gap and risk Rule R-C.2.a + R-J.a violations at code
+time. Family is the L1-design-side sibling of the implementation-side
+family F-nonatomic-run-status-write — both rooted in "tenant invariant
+treated as a runtime concern, not a design concern".
+
+**Surfaces.**
+- `docs/logs/reviews/*.md` (design proposals + review responses)
+- `docs/L2/*.md` (when L2 directory is populated)
+- `agent-*/ARCHITECTURE.md` (L1 architecture docs)
+- `docs/contracts/*.yaml` (schema declarations)
+
+**Prevention.**
+- ADR-0136 declares Run vs Task entity distinction + reaffirms tenantId
+  as first-class field on each.
+- ADR-0138 §3 red line: "No tenantId-less data model."
+- Wave 2 Logical View ER block ships the canonical tenantId-first model.
+- Gate-rule candidate (W5+): multi-line regex over `erDiagram` blocks
+  in `docs/**/*.md` checking that every entity declares
+  `tenantId` / `tenant_id`.
+
+**Open residual.** The structural fix is at the ADR + L1-rewrite level.
+A gate-rule that detects tenantId-less ER blocks in design surfaces is
+a W5+ candidate.
+
+### F-design-doc-violates-three-track-bus — Design Artefact Proposes Queue / Event-Bus Abstraction Bypassing Rule R-E Three-Track Channels
+
+**Pattern.** Design docs introduce "internal event queue" or "message
+bus" abstractions with their own durability axis
+(in-memory / semi-persistent / persistent) without binding to the
+canonical `docs/governance/bus-channels.yaml` three channels (`control`
+/ `data` / `rhythm`). Conflates **physical isolation** (channels) with
+**durability tier** (per-channel backend choice). Implementations would
+lose the priority / heavy / heartbeat isolation guarantee.
+
+**Surfaces.**
+- `docs/logs/reviews/*.md` (esp. design proposals)
+- `docs/L2/*.md` (when populated)
+- `docs/contracts/*.yaml` (queue/bus schemas)
+- `agent-*/ARCHITECTURE.md`
+
+**Prevention.**
+- ADR-0138 §3 red line: "No single-tier internal queue + mode-based
+  durability." Binds to `bus-channels.yaml`.
+- Rule R-E (Three-Track Channel Isolation) — runtime enforcement.
+- Wave 3 Physical View three-track binding diagram for downstream
+  design surfaces.
+
+**Open residual.** The 2026-05-22 reference template's "internal queue"
+prose was annotated with the three-track binding citation in Wave 5.
+Future design surfaces fall under the same Per-Wave Acceptance Criteria
+sweep discipline.
+
+### F-design-doc-language-bypasses-invariant — Design Artefact Wording Implies Bypass of Reactive / RLS / No-Sleep Invariants
+
+**Pattern.** Design docs use casual language ("no mandatory
+persistence", "fast-path skips checkpoint", "lightweight synchronous",
+"memory-only path") that, when read by an implementer under time
+pressure, would license bypassing Rule R-G (reactive I/O), Rule R-H
+(no Thread.sleep), Rule R-J.a (RLS on tenant_id tables), or Rule R-C.2
+(RunRepository.updateIfNotTerminal CAS). The language is the upstream
+cause; the implementation bug would be the downstream effect.
+
+**Surfaces.**
+- `docs/logs/reviews/*.md` (design proposals)
+- `docs/L2/*.md`
+- `docs/adr/*.yaml` (`context:` / `decision:` blocks)
+- `agent-*/ARCHITECTURE.md`
+
+**Prevention.**
+- ADR-0139 narrows Fast-Path / Slow-Path semantics; explicitly forbids
+  bypass-implying language.
+- Wave 2 Logical View narrowing prose ships canonical L1 vocabulary.
+- Gate-rule candidate (W5+): risk-phrase grep with same-paragraph
+  invariant-preservation-clause requirement.
+
+**Open residual.** The 2026-05-22 reference template's "compact edge
+deployment" Fast-Path language was annotated with the
+invariant-preservation pin in Wave 5. Gate-rule for risk-phrase +
+same-paragraph invariant-preservation clause is a W5+ candidate.
+
+### F-placeholder-leaks-into-active-corpus — Anonymous-Name Placeholders Leak Into Active Documentation Corpus
+
+**Pattern.** Anonymous-name placeholders (`xiaoming` 小明,
+`wanshoulu` 万寿路, `foo`, `bar`, `TBD`, `TODO-template`) leak into active
+design surfaces — file slugs, prose, code-block author tags — without
+being scrubbed before review. File slugs are particularly costly to fix
+post-hoc because they become stable URLs.
+
+**Surfaces.**
+- `docs/logs/reviews/*.md` (file slugs)
+- `docs/L2/*.md` (when populated)
+- `docs/contracts/*.yaml` (`title:` / `description:` text)
+- `agent-*/src/main/java/**/*.java` (variable / class / package names)
+
+**Prevention.**
+- Wave 1 review-draft thematic-slug rename
+  (`agent-service-l1-4plus1-rewrite-wave-N`).
+- Gate-rule candidate (W5+):
+  `Grep "\bxiaoming\b|\bwanshoulu\b|\bTODO-template\b|\bTBD\b"` over
+  `docs/{logs,L2,contracts,adr}/**/*.md` +
+  `agent-*/**/*.java` with allow-list for documented citation contexts.
+
+**Open residual.** The `2026-05-13-{wanshoulu}-wave-N-request.md` file
+remains in the active corpus with an explanatory marker (Wave 5
+closure); slug preserved for stable-URL stability.
 
 ---
 

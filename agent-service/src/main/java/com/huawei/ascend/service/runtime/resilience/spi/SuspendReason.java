@@ -21,9 +21,9 @@ import java.util.UUID;
  * CLAUDE.md Rule R-K (legacy 41.b) (ResilienceContract runtime enforcement); CLAUDE.md
  * Rule 46 (S2C Callback Envelope + Lifecycle Bound).
  *
- * <p><b>Vocabulary Glossary (per ADR-0137 + rc53-wave-6)</b>: PR-71-style academic
+ * <p><b>Vocabulary Glossary.</b> Authority: ADR-0137. Academic
  * prose ("InterruptReason" / "InterruptType") refers to THIS sealed interface.
- * The 4-value PR-71 {@code InterruptType} enum
+ * A 4-value academic {@code InterruptType} enum
  * ({@code INPUT_REQUIRED} / {@code TOOL_EXECUTION} / {@code COLLABORATION} /
  * {@code SAFETY_CHECK}) decomposes onto 3 existing platform mechanisms — not onto
  * new {@code SuspendReason} permits:

@@ -32,20 +32,20 @@ import java.util.Objects;
  *
  * <p>Executors must not catch this exception.
  *
- * <p><b>Vocabulary Glossary (per ADR-0137 + ADR-0100 + rc53-wave-6)</b>:
- * PR-71-style academic prose ("InterruptSignal" / "interrupt primitive") refers to
- * THIS class. ADR-0100 §rejected-framings #2 explicitly RETAINS the checked-exception
+ * <p><b>Vocabulary Glossary.</b> Authority: ADR-0137 + ADR-0100.
+ * Academic prose ("InterruptSignal" / "interrupt primitive") refers to THIS class.
+ * ADR-0100 §rejected-framings #2 explicitly RETAINS the checked-exception
  * form of {@code SuspendSignal} as a Tier-A competitive differentiator — the Java
  * compiler enforces caller-side handling, Rule R-G ArchUnit guards depend on the
- * checked shape, and rc8/rc9 cancellation flows use exception-flow cross-thread
+ * checked shape, and cancellation flows use exception-flow cross-thread
  * propagation. Synonym mapping:
  * <ul>
  *   <li>"InterruptSignal" ≡ {@code SuspendSignal} (this class)</li>
  *   <li>"InterruptReason" ≡ {@code SuspendReason} (sealed interface in
  *       {@code com.huawei.ascend.service.runtime.resilience.spi.SuspendReason})</li>
  *   <li>"Yield" / "ON_YIELD" ≡ {@code HookPoint.ON_YIELD} cooperative-scheduling
- *       hint (per ADR-0100 §coexistence — does NOT trigger state-machine transition,
- *       coexists alongside SuspendSignal)</li>
+ *       hint (Authority: ADR-0100 §coexistence — does NOT trigger state-machine
+ *       transition, coexists alongside SuspendSignal)</li>
  * </ul>
  */
 public final class SuspendSignal extends Exception {

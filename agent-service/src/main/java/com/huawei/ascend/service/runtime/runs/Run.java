@@ -20,11 +20,11 @@ import java.util.UUID;
  * carries the optional N:M session correlation. Both are nullable at L1.x; W2 promotes
  * {@code traceId} to NOT NULL via Flyway {@code V2__run_trace_id_notnull.sql}.
  *
- * <p><b>Vocabulary Glossary (per ADR-0136 + ADR-0100 + rc53-wave-6)</b>:
+ * <p><b>Vocabulary Glossary.</b> Authority: ADR-0136 + ADR-0100.
  * {@code Run} is the <i>transient compute snapshot</i> layer of the 4-layer lifecycle
- * hierarchy <code>Run &le; Task &le; Session &le; Memory</code> (ADR-0100). It is NOT
+ * hierarchy <code>Run &le; Task &le; Session &le; Memory</code>. It is NOT
  * a synonym for {@link com.huawei.ascend.service.task.Task}, which is the
- * <i>control-state</i> layer (A2A protocol envelope state). PR-71-style academic prose
+ * <i>control-state</i> layer (A2A protocol envelope state). Academic prose
  * that calls "Task" the scheduling-core maps to {@link com.huawei.ascend.service.task.Task};
  * the present-tense compute-pointer entity is {@code Run}. The two are deliberately
  * distinct (one Task may have many Runs cycling through PENDING/RUNNING/SUSPENDED;
