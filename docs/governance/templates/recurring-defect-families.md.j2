@@ -68,7 +68,7 @@ remains closed.
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 5 (rc55 reopen — agent-service/ARCHITECTURE.md §runtime/resilience present-tense prose flanking deferred Rule R-K.c citation) | 🟡 monitoring (rc55 reopens from `closed` because the rc15 + rc53 closures did not cover narrative prose within agent-*/ARCHITECTURE.md flanking deferred-clause citations; cool-down required: 3 subsequent waves) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 2 (rc21, rc39-formal-release-transaction) | ✅ closed — phase contracts + skills + formal release transaction workflow |
-| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 13 (rc55 OSS comparison review follow-up: generated review summary dropped source-level project-by-project evidence before being expanded and paired with the source record) | 🟡 monitoring (rc55 resets review-artefact cool-down; summaries must preserve enough evidence for reviewers to audit conclusions) |
+| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 14 (rc55 capability-feature review follow-up: first feature list carried downstream-design advice, artificial status taxonomy, priority-first grouping, and weak scenario/data/control-flow grounding before being rewritten as module-owned bilingual L1 decomposition) | 🟡 monitoring (rc55 resets review-artefact cool-down; derived L1 reviews must preserve enough evidence and scenario/data/control-flow grounding for reviewers to audit conclusions) |
 | 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, partially addressed by rc51 Wave G2 JavaParser/libCST helpers under gate/lib/refactor/) |
 | 13 | F-nonatomic-run-status-write | Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants | 5 (rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction) | 🟡 monitoring (rc39 broadened to tenant-owned runtime state; RunRepository SPI made abstract, save calls source-guarded to create-only sites, TaskStateStore writes made atomic) |
 | 14 | F-project-tool-pin-drift | Project-Local Dev-Tool Pin Drift and Manifest Inconsistency | 2 (rc40-codegraph-mcp-onboarding + rc50-nodegraph-evidence) | ✅ structurally addressed (Rule 125 / E173 gates package.json exact-pin + lockfileVersion>=3 + .mcp.json relative-shim ref; rc50 adds local `.codegraph` nodegraph evidence without committing the SQLite database) |
@@ -518,16 +518,19 @@ not against the human-readable L1 architecture document.
 rc40 adds a service-module recurrence: `agent-service/ARCHITECTURE.md`
 omitted live platform/runtime package directories from the Development View and
 counted structural carriers in the SPI appendix as active SPI interfaces.
-rc55 adds a review-artefact recurrence: the generated OSS comparison review
+rc55 adds two review-artefact recurrences: the generated OSS comparison review
 preserved the conclusion but compressed away source-level project-by-project
 non-equivalence, Layer 3 worker-contract, Layer 5 capability-discovery, and
-Session/Memory concurrency evidence.
+Session/Memory concurrency evidence; the first capability-feature list carried
+downstream-design advice, artificial status labels, priority-first grouping, and
+weak scenario/data/control-flow grounding.
 
 **Surfaces.**
 
 - `agent-*/ARCHITECTURE.md` — all 6 modules.
 - `docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-review.{cn,en}.md` — derived OSS comparison summaries.
 - `docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-source.cn.md` — preserved source comparison record.
+- `docs/logs/reviews/2026-05-26-agent-service-module-capability-feature-list.{cn,en}.md` — derived module capability/feature reviews.
 - `docs/governance/rules/rule-G-1.md` — parent rule lacked depth
   sub-clauses; the 2026-05-21 reviewer proposal flagged this gap
   ("hollow L1 architecture documents").
@@ -549,11 +552,16 @@ Session/Memory concurrency evidence.
   record in `docs/logs/reviews/` and expand generated summaries with
   project-by-project evidence so reviewers can audit why each OSS pattern is
   accepted, modified, or rejected.
+- rc55 capability-feature review follow-up: rewrite derived L1 feature lists
+  around full module ownership, S1-S5 scenario closure, data/control-flow closure,
+  orthogonality checks, and OSS-average capability baseline.
 
 **Cleanup status.** `monitoring` — Rule G-1.1 ratifies the depth/grounding
 discipline, but rc40 resets the cool-down because a live service architecture
 document again drifted from code reality. The appendix now separates the 7
-active Java SPI interfaces from SPI-adjacent structural carriers.
+active Java SPI interfaces from SPI-adjacent structural carriers. rc55 resets
+the derived-review side again for OSS comparison and module capability-feature
+reviews.
 
 **Open residual.** The SPI Appendix scanner now requires 4 surfaces
 to agree (catalog + metadata + DFX + ARCHITECTURE.md appendix). A
@@ -570,7 +578,10 @@ the same cool-down restarts after the service architecture tree/SPI appendix
 drift. **rc55 OSS comparison reset:** derived review summaries must retain
 enough source evidence to support their architectural conclusions; the current
 branch closes the immediate gap by pairing the generated review with the
-source record and expanded evidence matrices.
+source record and expanded evidence matrices. **rc55 capability-feature reset:**
+derived feature lists must avoid status-taxonomy and downstream-design overreach
+and instead prove module ownership, scenario closure, normal/exception paths,
+data flow, control flow, orthogonality, and OSS-average capability coverage.
 
 ---
 
