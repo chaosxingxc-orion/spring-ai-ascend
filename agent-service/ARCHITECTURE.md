@@ -4,54 +4,33 @@ view: scenarios
 module: agent-service
 status: active
 freeze_id: null
-covers_views: [logical, development, process, physical, scenarios]
+covers_views: [scenarios]
 spans_levels: [L1]
-authority: "ADR-0078 (agent-service consolidation) + ADR-0068 (Layered 4+1) + ADR-0059 (Code-as-Contract) + ADR-0100 (rc22 5-component decomposition + Run≤Task≤Session≤Memory lifecycle) + ADR-0136..0139 (rc53 vocabulary reconciliation + 5-layer L1 ratification + Fast/Slow Path narrowed semantics)"
+authority: "ADR-0078 (agent-service consolidation) + ADR-0068 (Layered 4+1) + ADR-0059 (Code-as-Contract) + ADR-0100 (rc22 5-component decomposition + Run≤Task≤Session≤Memory lifecycle) + ADR-0136..0139 (rc53 vocabulary reconciliation + 5-layer L1 ratification + Fast/Slow Path narrowed semantics) + ADR-0140..0145 (rc55 Engine Adapter split + Internal Event Queue design_only + Run aggregate single owner + review-log demotion + Layer↔Package matrix + sealed RunEvent hierarchy)"
 ---
 
-# agent-service — L1 architecture (2026-05-26 rc53 4+1 ratification)
+# agent-service — L1 architecture (2026-05-26 rc55 canonical materialization)
 
-> Owner: AgentService team | Wave: W0..W3 | Maturity: shipped (post-Phase-C consolidation of agent-platform + agent-runtime + rc22 5-component decomposition + rc53 5-layer L1 4+1 ratification)
-> Last refreshed: 2026-05-26 (rc53 — 4+1 view ratification + vocabulary reconciliation per ADR-0136..0139)
+> Owner: AgentService team | Wave: W0..W3 | Maturity: shipped (post-Phase-C consolidation of agent-platform + agent-runtime + rc22 5-component decomposition + rc53 5-layer L1 4+1 ratification + rc55 canonical 4+1 materialization under `docs/L1/agent-service/`)
+> Last refreshed: 2026-05-26 (rc55 — canonical 4+1 source moved to `docs/L1/agent-service/` per ADR-0143; this file narrowed to scenarios-view-only with shipped-state grounding)
 > Governing rule: Rule R-C — Code-as-Contract (formerly Rule 28; ADR-0059 + ADR-0086 namespace ratchet).
 > Every constraint below maps to at least one row in `docs/governance/enforcers.yaml`.
 
-## 0.5 Canonical L1 4+1 View Source (rc53 ratification)
+## 0.5 Canonical L1 4+1 View Source (rc55 materialization — ADR-0143)
 
-The full 4+1 view of this module (Scenarios + Logical + Process + Development + Physical) is declared in the rc53 wave-1 review draft:
+The canonical 4+1 view of this module (Scenarios + Logical + Process + Development + Physical) lives as 5 per-view files under `docs/L1/agent-service/`, per [ADR-0143](../docs/adr/0143-review-log-demotion-l1-canonical-move.yaml):
 
-- **EN:** [`docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`](../docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md)
-- **CN:** [`docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.cn.md`](../docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.cn.md)
+- **Index:** [`docs/L1/agent-service/README.md`](../docs/L1/agent-service/README.md)
+- **Scenarios View:** [`docs/L1/agent-service/scenarios.md`](../docs/L1/agent-service/scenarios.md) — S1-S5 canonical scenarios
+- **Logical View:** [`docs/L1/agent-service/logical.md`](../docs/L1/agent-service/logical.md) — 5-layer diagram (with ADR-0140 5a/5b Engine Adapter split + ADR-0142 Run aggregate single-owner + ADR-0141 Internal Event Queue design_only sub-section), ER, state machines, SuspendSignal flow, RunEvent hierarchy per ADR-0145, vocabulary glossary
+- **Process View:** [`docs/L1/agent-service/process.md`](../docs/L1/agent-service/process.md) — sequence diagrams P1-P6 (including the cancel-race-loser sequence O3)
+- **Physical View:** [`docs/L1/agent-service/physical.md`](../docs/L1/agent-service/physical.md) — 5-plane deployment + RLS + 3-track bus + sandbox
+- **Development View:** [`docs/L1/agent-service/development.md`](../docs/L1/agent-service/development.md) — package tree (cross-walked vs filesystem) + Layer↔Package matrix per [ADR-0144](../docs/adr/0144-layer-vs-package-matrix.yaml) + 5 L2 Boundary Contracts (Rule G-1.1.c)
+- **SPI Appendix:** [`docs/L1/agent-service/spi-appendix.md`](../docs/L1/agent-service/spi-appendix.md) — 9 active SPIs with 4-way parity (Rule G-1.1.b)
 
-That document is the canonical 4+1 source authored across Waves 1-6 (rc53). It contains:
-- **§14 Scenarios View** — 5 canonical scenarios (S1 standard intake / S2 long-horizon ReAct / S3 A2A collaboration / S4 S2C client callback / S5 cancel race + re-auth)
-- **§15 Logical View** — 5-layer Mermaid component diagram, tenantId-first ER model, cancel-race-aware state machine, A2aState DFA, SuspendSignal flow, vocabulary glossary
-- **§16 Process View** — 5 sequence diagrams covering each scenario
-- **§17 Physical View** — 5-plane deployment mapping, DB schema + RLS policy, three-track bus bindings, sandbox isolation boundary
-- **§18 Development View** — package tree mapping 5 L1 layers to filesystem (Rule G-1.1.a)
-- **§19 SPI Interface Appendix** — 9 SPI interfaces with 4-way parity (Rule G-1.1.b)
-- **§20 L2 Boundary Contracts** — 5 L2 zones + F-01..F-22 inventory with authority anchors (Rule G-1.1.c)
+**Historical note:** the rc53 review file [`docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`](../docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md) (+ `.cn.md` sibling) was the original authoring surface for the §§14-20 view content. Per ADR-0143 it is now a **historical authoring record** (freeze-marked); the canonical 4+1 source is the per-view files above. Where the rc53 review file and the canonical per-view files disagree, the canonical files win.
 
-The §1+ prose below is **shipped-state grounding** under the rc53 L1 4+1 ratification; where the prose and the 4+1 document disagree (e.g., the 4+1 document's tenantId-first ER, cancel-race-aware state machine, or three-track bus binding for the Internal Event Queue layer), the **rc53 4+1 document is authoritative**.
-
-## 0.4 Layered 4+1 view map (W1 — ADR-0068)
-
-This document is the **L1 root** for the `agent-service` module. Until the full 4+1 view reorganisation lands, the table below classifies each existing major section against the 4+1 view taxonomy consumed by `gate/build_architecture_graph.sh`:
-
-| Section | View | Notes |
-|---|---|---|
-| §1 Purpose | scenarios | module mission (platform edge + runtime kernel under one deployable) |
-| §2.A platform / web, runs, architecture | logical | HTTP contract surface + ArchUnit layering enforcers |
-| §2.A platform / tenant, idempotency, observability | process | per-request binding, filter chain + durability, trace propagation |
-| §2.A platform / auth, posture | logical / scenarios | JWT validation matrix; boot-time fail-closed gate |
-| §2.B runtime / orchestration, resilience, memory, engine | logical | Orchestrator / GraphExecutor / AgentLoopExecutor / ResilienceContract / GraphMemoryRepository / EngineRegistry SPI |
-| §2.B runtime / runs, s2c, idempotency | process | Run entity + RunStatus DFA, S2cCallbackEnvelope + suspend semantics, IdempotencyRecord spine |
-| §2.B runtime / probe | development | OssApiProbe (Spring AI + Temporal classpath shape) |
-| §3 Sub-package layering invariant | logical | `service.runtime` ↛ `service.platform` (Rule R-C.e, formerly Rule 21) |
-| §4 OSS dependencies | development | dependency direction + BoM authority |
-| §5–§9 Wave plan / risks | scenarios | rollout + audit hooks + Phase C landing note |
-
-P1-4 follow-up (L1-expert-review 2026-05-14, carried through Phase C): legacy §§4–9 boundary contradictions resolved by Phase C; cross-module-as-cross-package narrative replaces former cross-module narrative under Rule G-1.a (formerly Rule 33).
+The §1+ prose below is **shipped-state grounding** for the agent-service module — purpose, shipped components, dependencies, posture defaults, tests, wave plan, risks. It is NOT a substitute for the 4+1 views above; the 4+1 views are the canonical architectural surface, and this file is the canonical *implementation-grounding* surface that cross-links to them.
 
 ## 1. Purpose
 

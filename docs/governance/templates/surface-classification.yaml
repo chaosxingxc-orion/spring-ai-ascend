@@ -160,7 +160,75 @@ templates:
       - "agent-service/module-metadata.yaml"
       - "agent-service/src/main/java/**/*.java"
     wave: "W7"
-    note: "W7 initial migration — verbatim seed."
+    note: "W7 initial migration — verbatim seed. rc55 W2 reduces scope to scenarios-view-only + cross-links to docs/L1/agent-service/ canonical 4+1 source per ADR-0143."
+
+  # rc55 W2 — agent-service L1 per-view files (canonical 4+1 source per ADR-0143)
+  # All use context_loader: l1_architecture (reuses the existing W7 plugin);
+  # verbatim seeds at W2 skeleton, W3/W4/W5 fill content.
+  - template: "docs/governance/templates/l1-agent-service-README.md.j2"
+    output: "docs/L1/agent-service/README.md"
+    context_loader: "l1_architecture"
+    bucket: "templated"
+    authority_surfaces:
+      - "agent-service/module-metadata.yaml"
+    wave: "W7"
+    note: "rc55 W2 — L1 index file; verbatim seed."
+
+  - template: "docs/governance/templates/l1-agent-service-scenarios.md.j2"
+    output: "docs/L1/agent-service/scenarios.md"
+    context_loader: "l1_architecture"
+    bucket: "templated"
+    authority_surfaces:
+      - "agent-service/module-metadata.yaml"
+    wave: "W7"
+    note: "rc55 W2 skeleton + W3 content authoring; verbatim seed."
+
+  - template: "docs/governance/templates/l1-agent-service-logical.md.j2"
+    output: "docs/L1/agent-service/logical.md"
+    context_loader: "l1_architecture"
+    bucket: "templated"
+    authority_surfaces:
+      - "agent-service/module-metadata.yaml"
+    wave: "W7"
+    note: "rc55 W2 skeleton + W3 content authoring; verbatim seed."
+
+  - template: "docs/governance/templates/l1-agent-service-process.md.j2"
+    output: "docs/L1/agent-service/process.md"
+    context_loader: "l1_architecture"
+    bucket: "templated"
+    authority_surfaces:
+      - "agent-service/module-metadata.yaml"
+    wave: "W7"
+    note: "rc55 W2 skeleton + W4 content authoring; verbatim seed."
+
+  - template: "docs/governance/templates/l1-agent-service-physical.md.j2"
+    output: "docs/L1/agent-service/physical.md"
+    context_loader: "l1_architecture"
+    bucket: "templated"
+    authority_surfaces:
+      - "agent-service/module-metadata.yaml"
+    wave: "W7"
+    note: "rc55 W2 skeleton + W4 content authoring; verbatim seed."
+
+  - template: "docs/governance/templates/l1-agent-service-development.md.j2"
+    output: "docs/L1/agent-service/development.md"
+    context_loader: "l1_architecture"
+    bucket: "templated"
+    authority_surfaces:
+      - "agent-service/module-metadata.yaml"
+      - "agent-service/src/main/java/**/*.java"
+    wave: "W7"
+    note: "rc55 W2 skeleton + W5 content authoring; verbatim seed."
+
+  - template: "docs/governance/templates/l1-agent-service-spi-appendix.md.j2"
+    output: "docs/L1/agent-service/spi-appendix.md"
+    context_loader: "l1_architecture"
+    bucket: "templated"
+    authority_surfaces:
+      - "agent-service/module-metadata.yaml"
+      - "agent-service/src/main/java/**/*.java"
+    wave: "W7"
+    note: "rc55 W2 skeleton + W5 content authoring; verbatim seed."
 
   - template: "docs/governance/templates/readme-root.md.j2"
     output: "README.md"
