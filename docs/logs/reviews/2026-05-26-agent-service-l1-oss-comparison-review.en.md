@@ -25,7 +25,7 @@ relates_to:
   - docs/adr/0145-run-event-sealed-hierarchy.yaml
 ---
 
-# Agent Service L1 — Open-Source Agent / Workflow Architecture Comparison Review (English sibling)
+# Agent Service L1 — Open-Source Agent / Workflow Architecture Comparison Review
 
 > Date: 2026-05-26  
 > Scope: `agent-service` canonical L1 4+1 views and follow-up L2 backlog.  
@@ -57,6 +57,30 @@ This review places OSS projects into the Agent Service 4+1 coordinate system ins
 | Non-Java agent runtime | LangGraph, AutoGen, CrewAI, OpenAI Agents Python, Semantic Kernel | Graph state, actor queue, crew orchestration, runner, plugin kernel | Extract patterns, but do not let them redefine the Java L1 boundary |
 
 Conclusion: most OSS projects cover only one Agent Service layer or one 4+1 view. The closest match to our needs is the composite pattern, not a single repository.
+
+### 2.1 Project-by-project evidence expansion
+
+| Project | Closest Agent Service layer | Why it cannot be copied directly | Architecture opinion to retain |
+|---|---|---|---|
+| A2A Java SDK | Layer 1 + Layer 2 protocol Task boundary | It defines protocol-visible Task / Message / TaskState / AgentExecutor only; it does not own internal Run execution state, Session projection, or the three-track queue | Reuse TaskState final / interrupted predicates and AgentCard / push notification ideas; do not replace RunRepository with A2A TaskStore |
+| Spring AI A2A | Layer 1 thin adapter + Layer 5b ChatClient bridge | It quickly bridges requests into ChatClient and does not govern tenantId-first persistence, cancel race, RuntimeMiddleware, or S2C callback | Keep A2A starter auto-configuration / controller / executor handler separated; controllers must not own state |
+| Spring AI Alibaba | Layer 4 / 5a / 5b Java platform capability set | Graph, agent, admin, MCP, sandbox, and A2A capabilities are spread across modules rather than one Agent Service control plane | Use it as a Java/Spring platform reference for graph, MCP, sandbox, and admin, while preserving this project's five-layer boundary |
+| AgentScope Runtime Java | Layer 1 + 5a runtime-wrapper service | It is a single-agent runtime service where Runner wraps AgentHandler; it lacks full Run/Task/Queue/task-centric governance | Reuse protocol handler → unified runner thin handoff and externalized session/state/memory/sandbox services |
+| Temporal Java SDK | Layer 3 + Layer 4 durable execution substrate | Temporal does not model Agent protocol, tool governance, A2A/S2C, or Session context; workflow history cannot replace Run/Task/Session aggregates | Reuse history/replay, signal, timer, and worker task queue constraints for long-running recoverability |
+| Conductor | Layer 1 / 2 / 3 / 4 workflow/task orchestration server | It centers on workflow task / worker semantics; Agent/LLM is a worker extension, not SuspendSignal / HookPoint / EngineRegistry governance | Reuse worker poll/update, retry/timeout, human task, dead-letter, and task query API patterns |
+| LangGraph4j / LangGraph | Layer 4 + 5a graph runtime | They are graph execution kernels / hosted graph APIs, not enterprise ingress, tenant/RLS, or Run aggregate ownership models | Reuse interrupt/resume/checkpoint/state history; keep Checkpointer SPI small and separate from Session/Memory sovereignty |
+| LangChain4j / Spring AI / Semantic Kernel | Layer 5b model/tool/function invocation kernel | They govern model-call boundaries and do not know Run CAS, tenant, cancel, audit, or Layer 4 middleware | Reuse Advisor / ToolExecutor / plugin filter / structured output patterns, while keeping RuntimeMiddleware in Layer 4 |
+| AutoGen | Layer 3 actor/message runtime + Layer 4 intervention | Its asyncio queue and subscription model are strong, but it is not a durable service queue and lacks tenant-first aggregates | Reuse message envelope, topic/subscription, cancellation token, and intervention/drop fields for RunEvent envelope design |
+| CrewAI / OpenAI Agents Python | Layer 4 / 5a multi-agent orchestration and runner | They are application-level Crew/Flow or SDK runner models, not service-level Run/Task/Queue authorities | Reuse handoff, guardrail, human feedback, and next-step loop patterns without letting SDK runners own service state |
+
+### 2.2 Important details missing from the first summary
+
+The first generated review compressed too much of the source analysis. Four detail categories needed restoration:
+
+1. **Project-specific non-equivalence was underspecified**: saying a project is a reference can be misread as saying it is a substitute. This revision states each OSS project's missing boundary: protocol, runtime, workflow, graph, tool, or plugin kernel.
+2. **Layer 3 worker-contract detail was too thin**: the source analysis stressed that a queue is not only a channel; it also needs Producer / Consumer / lease / ack / retry / dead-letter / heartbeat semantics. This revision promotes that to P0 backlog and binds it to Rule R-E.
+3. **Layer 5 capability-discovery rationale was incomplete**: the source analysis cited LangChain4j capabilities, A2A AgentCard, and AgentScope metadata. This revision states that capability discovery may enhance `EngineRegistry.resolve(envelope)` but must not weaken strict matching.
+4. **Session / Memory concurrency risk was not expanded**: the source used LangChain4j `@MemoryId` as evidence that concurrency discipline cannot be left to callers. This revision adds it as a P1 L2 backlog item aligned with tenantId-first and RLS.
 
 ## 3. Strict accept / modify / reject classification
 
@@ -142,6 +166,8 @@ The current 4+1 design is sound:
 A future OSS pattern appendix or README link to this review would be useful so later L2 designs keep the OSS reference frame. That appendix must remain reference material only; it must not replace ADRs, Rules, contract catalog entries, or canonical L1 views.
 
 ## 6. Follow-up improvement backlog
+
+The table below is not an immediate implementation list. It converts OSS evidence into candidate L2 / impl-mode entry points. Each item still needs a contract, tests, and gate coverage before it can change the current canonical L1 behavior. “An OSS project does this” is evidence, not authority.
 
 | ID | Improvement | Source practice | Suggested landing point | Priority | Constraint |
 |---|---|---|---|---|---|

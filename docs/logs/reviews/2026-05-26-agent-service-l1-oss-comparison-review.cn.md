@@ -25,7 +25,7 @@ relates_to:
   - docs/adr/0145-run-event-sealed-hierarchy.yaml
 ---
 
-# Agent Service L1 — 开源 Agent / Workflow 架构对比评审意见（中英文双稿之一）
+# Agent Service L1 — 开源 Agent / Workflow 架构对比评审意见
 
 > 日期：2026-05-26  
 > 范围：`agent-service` L1 canonical 4+1 视图与后续 L2 backlog。  
@@ -57,6 +57,30 @@ relates_to:
 | Non-Java agent runtime | LangGraph、AutoGen、CrewAI、OpenAI Agents Python、Semantic Kernel | 分别强化 graph state、actor queue、crew orchestration、runner、plugin kernel | 可提取设计模式，不应反向决定 Java L1 边界 |
 
 结论：开源生态多数只覆盖 Agent Service 的某个视图或某一层。真正与我们接近的是组合模式，而不是单个代码库。
+
+### 2.1 逐项目证据展开
+
+| 项目 | 最接近的 Agent Service 层 | 不能直接照搬的原因 | 可沉淀的架构意见 |
+|---|---|---|---|
+| A2A Java SDK | Layer 1 + Layer 2 的协议 Task 边界 | 它只定义协议可见 Task / Message / TaskState / AgentExecutor，不拥有内部 Run execution state、Session projection 或三轨队列 | 借鉴 `TaskState` 的 final / interrupted 谓词和 AgentCard / push notification；但 A2A TaskStore 不替代 RunRepository |
+| Spring AI A2A | Layer 1 thin adapter + Layer 5b ChatClient bridge | 它默认把请求快速桥接到 ChatClient，不治理 tenantId-first persistence、cancel race、RuntimeMiddleware 或 S2C callback | A2A starter 应保持 auto-configuration / controller / executor handler 分离，controller 不拥有状态 |
+| Spring AI Alibaba | Layer 4 / 5a / 5b 的 Java 平台能力集合 | graph、agent、admin、MCP、sandbox、A2A 分散在多个模块，不是单一 Agent Service 控制面 | 可参考 Java/Spring 生态下 graph、MCP、sandbox、admin 的平台化方向，但仍要受本项目 5 层边界约束 |
+| AgentScope Runtime Java | Layer 1 + 5a 的 runtime-wrapper service | 它面向单 agent runtime service，Runner 包住 AgentHandler；缺少完整 Run/Task/Queue/Task-centric governance | 借鉴 protocol handler → unified runner 的 thin handoff，以及 session/state/memory/sandbox externalization |
+| Temporal Java SDK | Layer 3 + Layer 4 的 durable execution substrate | Temporal 不理解 Agent protocol、tool governance、A2A/S2C 或 Session context；workflow history 不能替代 Run/Task/Session 三聚合 | 借鉴 history/replay、signal、timer、worker task queue 对 long-running recoverability 的约束 |
+| Conductor | Layer 1 / 2 / 3 / 4 的 workflow/task orchestration server | 它以 workflow task / worker 为核心，Agent/LLM 只是 worker 扩展，不承载 SuspendSignal / HookPoint / EngineRegistry 语义 | 借鉴 worker poll/update、retry/timeout、human task、dead-letter 与 task query API |
+| LangGraph4j / LangGraph | Layer 4 + 5a 的 graph runtime | 它们是 graph execution kernel / hosted graph API，不定义企业级 ingress、tenant/RLS、Run aggregate single owner | 借鉴 interrupt/resume/checkpoint/state history；Checkpointer SPI 必须保持小而不吞并 Session/Memory |
+| LangChain4j / Spring AI / Semantic Kernel | Layer 5b 的 model/tool/function invocation kernel | 它们治理模型调用边界，不知道 Run CAS、tenant、cancel、audit 或 Layer 4 middleware | 借鉴 Advisor / ToolExecutor / plugin filter / structured output，但 RuntimeMiddleware 仍必须留在 Layer 4 |
+| AutoGen | Layer 3 actor/message runtime + Layer 4 intervention | asyncio queue 与 subscription 很强，但不是 durable service queue，也没有本项目 tenant-first aggregate | 借鉴 message envelope、topic/subscription、cancellation token、intervention/drop 字段，用于 RunEvent envelope 设计 |
+| CrewAI / OpenAI Agents Python | Layer 4 / 5a 多 agent orchestration 与 runner | 它们是应用级 Crew/Flow 或 SDK runner，不定义服务级 Run/Task/Queue | 借鉴 handoff、guardrail、human feedback、next-step loop，但不能让 SDK runner 拥有服务状态 |
+
+### 2.2 首版摘要相对原文遗漏的关键信息
+
+首版生成稿过度压缩了源分析中的逐层证据，主要遗漏了四类细节：
+
+1. **逐项目“不等价原因”不够明确**：只说某项目可参考，容易被误读为可替代。本文补充每个 OSS 项目的边界缺口，明确哪些只覆盖 protocol、runtime、workflow、graph、tool 或 plugin kernel。
+2. **Layer 3 的 worker contract 细节不足**：源文档强调 queue 不只是 channel，还包括 Producer / Consumer / lease / ack / retry / dead-letter / heartbeat。本文将其升级为 P0 backlog，并把 Rule R-E 的三轨隔离作为约束列。
+3. **Layer 5 capability discovery 依据不足**：源文档提到 LangChain4j capability、A2A AgentCard、AgentScope metadata。本文补充它只能增强 `EngineRegistry.resolve(envelope)`，不能削弱 strict matching。
+4. **Session / Memory 并发风险没有展开**：源文档借 LangChain4j `@MemoryId` 风险说明并发纪律不能留给调用者自律。本文将其列为 P1 L2 backlog，并要求与 tenantId-first / RLS 一致。
 
 ## 3. 严格采纳 / 改写 / 拒绝分类
 
@@ -142,6 +166,8 @@ Spring AI、LangChain4j、LangGraph4j、AgentScope Runtime、OpenAI Agents、Sem
 建议后续追加一个 OSS pattern appendix 或从 README 链接本文，避免后续 L2 设计遗忘开源参照。但该 appendix 只能作为参考材料，不能替代 ADR、Rule、contract catalog 或 canonical L1 view。
 
 ## 6. 后续改进 backlog
+
+下表不是立即实现清单，而是把 OSS 证据转成后续 L2 / impl-mode 的候选入口。每一项都必须在落地前补齐 contract、测试与门禁，不得仅凭“某 OSS 如此设计”改变当前 canonical L1。
 
 | 编号 | 改进点 | 来源实践 | 建议落点 | 优先级 | 约束 |
 |---|---|---|---|---|---|

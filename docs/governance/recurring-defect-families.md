@@ -68,7 +68,7 @@ remains closed.
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 5 (rc55 reopen — agent-service/ARCHITECTURE.md §runtime/resilience present-tense prose flanking deferred Rule R-K.c citation) | 🟡 monitoring (rc55 reopens from `closed` because the rc15 + rc53 closures did not cover narrative prose within agent-*/ARCHITECTURE.md flanking deferred-clause citations; cool-down required: 3 subsequent waves) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 2 (rc21, rc39-formal-release-transaction) | ✅ closed — phase contracts + skills + formal release transaction workflow |
-| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 11 (rc40 service architecture tree/SPI appendix drift) | 🟡 monitoring (rc40 resets cool-down; service architecture now separates active SPI interfaces from structural carriers) |
+| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 13 (rc55 OSS comparison review follow-up: generated review summary dropped source-level project-by-project evidence before being expanded and paired with the source record) | 🟡 monitoring (rc55 resets review-artefact cool-down; summaries must preserve enough evidence for reviewers to audit conclusions) |
 | 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, partially addressed by rc51 Wave G2 JavaParser/libCST helpers under gate/lib/refactor/) |
 | 13 | F-nonatomic-run-status-write | Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants | 5 (rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction) | 🟡 monitoring (rc39 broadened to tenant-owned runtime state; RunRepository SPI made abstract, save calls source-guarded to create-only sites, TaskStateStore writes made atomic) |
 | 14 | F-project-tool-pin-drift | Project-Local Dev-Tool Pin Drift and Manifest Inconsistency | 2 (rc40-codegraph-mcp-onboarding + rc50-nodegraph-evidence) | ✅ structurally addressed (Rule 125 / E173 gates package.json exact-pin + lockfileVersion>=3 + .mcp.json relative-shim ref; rc50 adds local `.codegraph` nodegraph evidence without committing the SQLite database) |
@@ -518,10 +518,16 @@ not against the human-readable L1 architecture document.
 rc40 adds a service-module recurrence: `agent-service/ARCHITECTURE.md`
 omitted live platform/runtime package directories from the Development View and
 counted structural carriers in the SPI appendix as active SPI interfaces.
+rc55 adds a review-artefact recurrence: the generated OSS comparison review
+preserved the conclusion but compressed away source-level project-by-project
+non-equivalence, Layer 3 worker-contract, Layer 5 capability-discovery, and
+Session/Memory concurrency evidence.
 
 **Surfaces.**
 
 - `agent-*/ARCHITECTURE.md` — all 6 modules.
+- `docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-review.{cn,en}.md` — derived OSS comparison summaries.
+- `docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-source.cn.md` — preserved source comparison record.
 - `docs/governance/rules/rule-G-1.md` — parent rule lacked depth
   sub-clauses; the 2026-05-21 reviewer proposal flagged this gap
   ("hollow L1 architecture documents").
@@ -539,6 +545,10 @@ counted structural carriers in the SPI appendix as active SPI interfaces.
   rewritten to satisfy Rule G-1.1 BEFORE the rule's enforcer went
   live (L3 live-corpus self-check per `/reviewer-feedback-self-check`
   methodology).
+- rc55 OSS comparison review follow-up: preserve the full source comparison
+  record in `docs/logs/reviews/` and expand generated summaries with
+  project-by-project evidence so reviewers can audit why each OSS pattern is
+  accepted, modified, or rejected.
 
 **Cleanup status.** `monitoring` — Rule G-1.1 ratifies the depth/grounding
 discipline, but rc40 resets the cool-down because a live service architecture
@@ -557,7 +567,10 @@ made Rule 118 silently pass every input). The family was prematurely
 marked closed at rc29; reset to `monitoring` for a 3-rc cool-down
 (rc32 + rc33 + rc34) per the rc20 / ADR-0097 convention. **rc40 reset:**
 the same cool-down restarts after the service architecture tree/SPI appendix
-drift.
+drift. **rc55 OSS comparison reset:** derived review summaries must retain
+enough source evidence to support their architectural conclusions; the current
+branch closes the immediate gap by pairing the generated review with the
+source record and expanded evidence matrices.
 
 ---
 
