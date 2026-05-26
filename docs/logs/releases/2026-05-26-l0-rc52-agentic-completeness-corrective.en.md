@@ -9,6 +9,8 @@ responds_to: docs/logs/reviews/2026-05-25-l0-rc51-agentic-completeness-architect
 
 # v2.1.0-rc52 — Agentic Completeness Corrective Formal Release
 
+> **Historical artifact frozen at SHA acf88bef64a3e08c75ba6f53f0e6d3e9a5b8a3e0 (rc52 formal release evidence publication).** Baseline counts in this document (e.g. `120 ADRs`, `594 nodes / 1073 edges`, `16 recurring defect families`) reflect state at rc52 publication time and are NOT retroactively updated per the logs-folder snapshot-evidence policy (`docs/governance/logs-folder-policy.md`). Canonical baseline lives in `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`.
+
 > This formal release note is valid only for frozen candidate commit
 > `d263bad31f80f72d919a13066bbbaa31628b8f1d` and evidence bundle
 > `gate/release-ci-evidence/2026-05-26-l0-rc52-agentic-completeness-corrective.evidence.yaml`.

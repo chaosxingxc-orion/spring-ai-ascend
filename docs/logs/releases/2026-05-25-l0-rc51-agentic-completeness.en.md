@@ -23,6 +23,8 @@ waves_executed:
 
 # v2.1.0 — L0 Agentic-Completeness wave (rc51)
 
+> **Historical artifact frozen at SHA 165e0b69e1ec1f95a91d1eccfd2389ac6ab3c1f5 (rc51 L0 Agentic-Completeness wave).** Baseline counts in this document (e.g. `120 ADRs`, `594 nodes / 1073 edges`, `16 recurring defect families`) reflect state at rc51 publication time and are NOT retroactively updated per the logs-folder snapshot-evidence policy (`docs/governance/logs-folder-policy.md`). Canonical baseline lives in `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`.
+
 > Re-scopes rc50 (CodeGraph Nodegraph Supplement) by closing the
 > developer-ergonomics tier residual of the rc41/rc43
 > F-l0-agentic-primitive-gap family that the rc50 post-closure
