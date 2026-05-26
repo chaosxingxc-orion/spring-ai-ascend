@@ -23,7 +23,7 @@ Reflects this wave's adjustments to `docs/governance/architecture-status.yaml#ba
 | active engineering rules | 43 | unchanged (no new Rule kernels — rc53 is ADR + design-doc wave) |
 | active governing principles | 13 | unchanged |
 | gate rules | 143 | unchanged |
-| self-tests | 258 | unchanged |
+| self-test cases | 258 | unchanged |
 | enforcer rows | 176 | unchanged |
 | §4 constraints | 65 | unchanged |
 | ADRs | 124 | rc53 +4 (ADR-0136..0139) on the rc51 baseline of 120 |
