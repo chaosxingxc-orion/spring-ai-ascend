@@ -120,7 +120,11 @@ docs/governance/SESSION-START-CONTEXT.md=6000
 # rc54 agentic-composition corrective: typed advisor carrier nodes + adapter and
 # gate truth edges grew the graph to 258257 bytes; raised to 260500 with ~2.2K
 # headroom (same ratchet posture).
-docs/governance/architecture-graph.yaml=260500
+# rc55 agent-service L1 canonical-materialization: +6 ADR nodes (0140-0145) +
+# 41 relates_to/extends/affects edges fanning to existing ADR + contract + family
+# nodes grew the graph to 263149 bytes; raised to 265500 with ~2.3K headroom
+# (same ratchet posture).
+docs/governance/architecture-graph.yaml=265500
 # rc37 (ADR-0117): strategic_decisions resolution blocks (2 decisions open→resolved) + allowed_claim
 # rc37 entry grew the file over the 128000 ceiling (historical notes trimmed to offset); raised to
 # 131000 (~1.5K-per-wave ratchet + headroom for the one-time strategic_decisions resolution structure).

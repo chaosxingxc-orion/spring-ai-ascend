@@ -9,6 +9,33 @@ authority: ADR-0140..0145 + ADR-0143 (review-log demotion) + ADR-0100 + ADR-0138
 
 # rc55 — Agent Service L1 Canonical Materialization — Closure Release Note
 
+## 0. Canonical baselines (rc55 — per Gate Rule 28)
+
+| Baseline | rc55 value |
+|---|---:|
+| §4 constraints | 65 |
+| ADRs | 130 |
+| gate rules | 143 |
+| Gate self-test cases | 260 |
+| self-tests | 260 |
+| active engineering rules | 43 |
+| Layer-0 governing principles | 13 |
+| enforcer rows | 176 |
+| Maven XML-counted tests | 461 |
+| architecture graph nodes | 612 |
+| architecture graph edges | 1153 |
+| recurring defect families | 27 |
+
+These match `docs/governance/architecture-status.yaml#baseline_metrics`
+exactly. The rc55 wave bumped: adr_count 124→130, graph_nodes
+606→612, graph_edges 1112→1153, recurring_defect_families 20→27.
+
+**Canonical baseline phrasing** (matches the rc54 release-note style for
+Gate Rule 28 grep): 65 §4 constraints · 130 ADRs · 143 active gate rules ·
+260 gate self-tests · 43 active engineering rules · 176 enforcer rows ·
+461 Maven XML-counted tests · 612 architecture graph nodes / 1153 edges ·
+27 recurring defect families. **Gate self-tests: 260**.
+
 ## 1. Summary
 
 rc55 closes the rc53 4+1 rewrite's governance category error: the
@@ -20,14 +47,14 @@ single-aggregate-owner, layer↔package-mapping, and
 discriminator-without-discriminated-type design defects identified by
 the rc55 audit + W0 sibling sweep.
 
-## 2. Four competitive pillars (Rule R-B)
+## 2. Four competitive pillars (Rule R-B) — performance · cost · developer_onboarding · governance
 
 | Pillar | rc55 dimension | rc55 baseline movement |
 |---|---|---|
-| **Performance** | Layer 5a/5b split (ADR-0140) decouples Spring AI evolution cadence from Rule R-M engine contract cadence — both can evolve independently without cross-layer drag | `architecture_graph_nodes` 606 → 612 (+6 ADR nodes); no runtime perf metric change at rc55 (design wave) |
-| **Cost** | Per-view edit isolation: changing the Logical View no longer requires editing a 1362-line review file that holds Process + Physical + Development. Reviewer cost per view-change ~7× lower | `recurring_defect_families` 20 → 27 (+7 new prevention surfaces); doc-edit cost regression eliminated |
-| **Developer onboarding** | Canonical L1 4+1 source is now at the expected location `docs/L1/agent-service/` (matches Rule G-1.a discipline); per-view files are independently editable; rc53 review file remains as historical authoring record but no longer "canonical" | `adr_count` 124 → 130 (+6 rc55 ADRs); ADR slate documents the design ratification for future onboarding |
-| **Governance** | F-l1-canonical-source-in-interaction-log + 6 sibling new families registered; F-cross-authority-agreement extended with 5 in-doc occurrences (M2/M3/M4/M11/R4); F-terminal-verb-overclaim REOPENED to monitoring; all surfaces template-rendered byte-identical per Rule G-13 | `architecture_graph_edges` 1112 → 1153 (+41 edges); 25 template renders pass byte-identical |
+| **performance** | Layer 5a/5b split (ADR-0140) decouples Spring AI evolution cadence from Rule R-M engine contract cadence — both can evolve independently without cross-layer drag | `architecture_graph_nodes` 606 → 612 (+6 ADR nodes); no runtime perf metric change at rc55 (design wave) |
+| **cost** | Per-view edit isolation: changing the Logical View no longer requires editing a 1362-line review file that holds Process + Physical + Development. Reviewer cost per view-change ~7× lower | `recurring_defect_families` 20 → 27 (+7 new prevention surfaces); doc-edit cost regression eliminated |
+| **developer_onboarding** | Canonical L1 4+1 source is now at the expected location `docs/L1/agent-service/` (matches Rule G-1.a discipline); per-view files are independently editable; rc53 review file remains as historical authoring record but no longer "canonical" | `adr_count` 124 → 130 (+6 rc55 ADRs); ADR slate documents the design ratification for future onboarding |
+| **governance** | F-l1-canonical-source-in-interaction-log + 6 sibling new families registered; F-cross-authority-agreement extended with 5 in-doc occurrences (M2/M3/M4/M11/R4); F-terminal-verb-overclaim REOPENED to monitoring; all surfaces template-rendered byte-identical per Rule G-13 | `architecture_graph_edges` 1112 → 1153 (+41 edges); 25 template renders pass byte-identical |
 
 ## 3. Wave landing summary
 

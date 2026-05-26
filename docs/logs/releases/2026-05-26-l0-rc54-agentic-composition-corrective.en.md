@@ -9,6 +9,8 @@ responds_to: docs/logs/reviews/2026-05-26-l0-rc53-post-closure-agentic-compositi
 
 # v2.1.0-rc54 — Agentic Composition Corrective Formal Release
 
+> **Historical artifact frozen at SHA 49de909468784ce159121fcf97f83726fc0bff73** (rc55 W6 freeze — per Gate Rule 28). All numeric baselines in this note (124 ADRs, 606 graph nodes, 1112 graph edges, 20 recurring defect families, etc.) reflect the rc54 state at the frozen candidate commit. The rc55 agent-service L1 canonical-materialization wave bumped these baselines to 130 ADRs / 612 nodes / 1153 edges / 27 families; see `docs/logs/releases/2026-05-26-rc55-agent-service-l1-canonical-materialization.en.md` for the rc55 baselines.
+
 > This formal release note is valid only for frozen candidate commit
 > `49de909468784ce159121fcf97f83726fc0bff73` and evidence bundle
 > `gate/release-ci-evidence/2026-05-26-l0-rc54-agentic-composition-corrective.evidence.yaml`.
