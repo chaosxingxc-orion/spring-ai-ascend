@@ -2,9 +2,14 @@ package com.huawei.ascend.service.runtime.architecture;
 
 import com.huawei.ascend.engine.orchestration.spi.RunMode;
 
+import com.tngtech.archunit.core.domain.Dependency;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
 import org.junit.jupiter.api.Test;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
@@ -82,5 +87,31 @@ class SpiPurityGeneralizedArchTest {
                 .should().onlyDependOnClassesThat()
                 .resideInAnyPackage("java..", "com.huawei.ascend.bus.spi.s2c..");
         rule.check(ALL_RUNTIME_CLASSES);
+    }
+
+    @Test
+    void agent_middleware_spi_imports_only_java_and_same_package_siblings() {
+        ArchRule rule = classes()
+                .that().resideInAPackage("com.huawei.ascend.middleware..spi..")
+                .should(importOnlyJavaOrSamePackageSiblings());
+        rule.check(ALL_RUNTIME_CLASSES);
+    }
+
+    private static ArchCondition<JavaClass> importOnlyJavaOrSamePackageSiblings() {
+        return new ArchCondition<>("import only java.* or same-package SPI siblings") {
+            @Override
+            public void check(JavaClass item, ConditionEvents events) {
+                for (Dependency dependency : item.getDirectDependenciesFromSelf()) {
+                    JavaClass target = dependency.getTargetClass();
+                    String targetPackage = target.getPackageName();
+                    if (targetPackage.startsWith("com.huawei.ascend")
+                            && !targetPackage.equals(item.getPackageName())) {
+                        String message = item.getName() + " depends on " + target.getName()
+                                + " via " + dependency.getDescription();
+                        events.add(SimpleConditionEvent.violated(item, message));
+                    }
+                }
+            }
+        };
     }
 }

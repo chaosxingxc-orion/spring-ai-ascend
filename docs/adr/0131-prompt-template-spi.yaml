@@ -1,0 +1,103 @@
+id: ADR-0131
+title: "PromptTemplate SPI: tenant-scoped, sealed-source, pure-Java template-rendering boundary; Spring AI PromptTemplate is the reference adapter"
+status: accepted
+date: 2026-05-25
+level: L0
+view: development
+affects_level: L0, L1
+affects_view: development, logical
+authors:
+  - chao
+relates_to:
+  - ADR-0121    # ModelGateway SPI (rendered prompts feed ModelInvocation.messages)
+  - ADR-0125    # Spring AI canonical integration boundary (Path a)
+  - ADR-0128    # Audience-B / starter-defaults posture (this SPI is what starters wire)
+  - ADR-0073    # Engine hooks + HookPoint (prompt rendering precedes BEFORE_LLM)
+context: |
+  The senior-architect L0 review identified the absence of a
+  `PromptTemplate` SPI as a contract-layer defect (finding P0-2):
+  Audience B (application developers) reaches directly for
+  `org.springframework.ai.chat.prompt.PromptTemplate`, bypassing
+  the platform's decoration boundary. There is no tenant-scoped
+  rendering carrier, no sealed source discriminator, no place to
+  attach tenant policy / placeholder syntax validation, and no
+  contract that the `AgentDefinition.systemPrompt` field can
+  resolve to in a non-trivial way.
+
+  ADR-0125 resolved the Spring AI integration boundary in favour of
+  Path (a) — Spring AI is canonical and the platform decorates. This
+  ADR specifies the prompt-rendering decorator shape, matching the
+  ADR-0121 ModelGateway pattern.
+
+decision: |
+  Land the `PromptTemplate` SPI in
+  `com.huawei.ascend.middleware.prompt.spi.PromptTemplate`
+  (agent-middleware module). Status: design_only at the time of
+  landing; runtime_enforced when the W2 prompt-rendering wave ships.
+
+  - **Signature**: `RenderedPrompt render(String tenantId,
+    Map<String, Object> variables);`. The SPI remains pure Java per
+    Rule R-D.
+  - **Tenant scope**: `render` takes an explicit `tenantId` (Rule
+    R-C.c). Cross-tenant rendering paths fail closed in the W2
+    implementation; the SPI itself validates non-null/non-blank.
+  - **Source discriminator**: `PromptTemplateSource` is a sealed
+    interface permitting two records — `InlineString` (literal body
+    + placeholder syntax) and `ClasspathResource` (loadable path +
+    placeholder syntax). `PlaceholderSyntax` enumerates three
+    syntaxes (`{var}`, `{{var}}`, `${var}`).
+  - **Reference adapter**: `SpringAiPromptTemplateAdapter` (lands in
+    the agent-service integration package as a design-only shell)
+    decorates Spring AI's
+    `org.springframework.ai.chat.prompt.PromptTemplate` (ADR-0125).
+    The adapter holds the Spring AI type as `Object` at the SPI
+    layer to defer the FQN until W2 wires real rendering.
+  - **Value type** ships in the same package:
+    `RenderedPrompt` (record: templateId, renderedText, variables
+                      — variables is an immutable copy of the
+                      resolver inputs for evidence/audit).
+
+  Contract schema lives at `docs/contracts/prompt-template.v1.yaml`
+  (status: design_only, runtime_enforced: false). Catalog row and
+  module-metadata / DFX updates land in the parity-consolidator
+  wave that follows this one.
+
+consequences: |
+  Positive:
+  - Audience B writes against `PromptTemplate` (platform), not
+    `org.springframework.ai.chat.prompt.PromptTemplate` (provider),
+    preserving the decoration boundary.
+  - Tenant-scoped rendering allows per-tenant policy attachment
+    (variable sanitization, secrets redaction) at the W2 wave
+    without changing the SPI signature.
+  - Sealed `PromptTemplateSource` makes the loader surface
+    exhaustive — adding new sources (e.g. remote KV) is an
+    explicit ADR-changing event, not a quiet sneak-in.
+  - `RenderedPrompt.variables` snapshot supports audit/replay and
+    feeds the ModelInvocation hookContext at the W2 binding.
+
+  Negative / residual:
+  - `SpringAiPromptTemplateAdapter` is a design-only shell until
+    W2; calling `render(...)` throws
+    `UnsupportedOperationException`. This is the same posture as
+    `SpringAiChatModelGateway` (ADR-0121) and is the standard L0
+    decorator-shell pattern in this codebase.
+  - The SPI does not (yet) declare a partial-render or
+    streaming-render variant. These can be added as additive
+    methods or sibling SPIs without breaking the v1 contract.
+
+alternatives_considered: |
+  - (A) Put a `String systemPrompt` field on `AgentDefinition` as
+    the only contract. Rejected — defeats variable substitution and
+    pins the platform to inline strings forever; cannot model
+    classpath-resource templates or per-tenant overrides without a
+    discriminator.
+  - (B) Re-export Spring AI `PromptTemplate` directly as the
+    platform's interface. Rejected by ADR-0125 (Path c). Audience
+    B would couple to a provider type with no platform decoration
+    seam.
+  - (C) Reactive `Mono<RenderedPrompt>` signature. Rejected for L0
+    SPI per Rule R-D — pushes a runtime library type into the
+    public contract. Rule R-G applies at the W2 implementation
+    boundary (rendering is CPU-bound + classpath I/O; virtual
+    threads suffice).

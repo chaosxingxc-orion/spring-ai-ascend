@@ -1,0 +1,92 @@
+schema_version: 1
+generated_at_utc: '2026-05-25T15:28:13+00:00'
+repository:
+  root: /mnt/d/chao_workspace/spring-ai-ascend
+  commit_sha: 3b2986cdd14c7b5d9988f17f649558cb254d3df5
+  branch: main
+  dirty: true
+latest_release:
+  path: docs/logs/releases/2026-05-25-l0-rc51-agentic-completeness.en.md
+  formal_release: false
+  evidence_bundle: null
+baseline_metrics:
+  active_engineering_rules: 43
+  active_governing_principles: 13
+  active_gate_checks: 143
+  gate_executable_test_cases: 258
+  enforcer_rows: 176
+  section_4_constraints: 65
+  adr_count: 120
+  maven_tests_green: 423
+  architecture_graph_nodes: 587
+  architecture_graph_edges: 1065
+  recurring_defect_families: 15
+  phase_contracts: 5
+  phase_loading_skills: 6
+live_metrics:
+  active_engineering_rules: 43
+  active_gate_checks: 143
+  enforcer_rows: 176
+  adr_count: 120
+  recurring_defect_families: 15
+  architecture_graph_nodes: 587
+  architecture_graph_edges: 1065
+baseline_comparison:
+  active_engineering_rules:
+    baseline: 43
+    live: 43
+    matches: true
+  active_gate_checks:
+    baseline: 143
+    live: 143
+    matches: true
+  active_governing_principles:
+    baseline: 13
+    live: null
+    matches: null
+  adr_count:
+    baseline: 120
+    live: 120
+    matches: true
+  architecture_graph_edges:
+    baseline: 1065
+    live: 1065
+    matches: true
+  architecture_graph_nodes:
+    baseline: 587
+    live: 587
+    matches: true
+  enforcer_rows:
+    baseline: 176
+    live: 176
+    matches: true
+  gate_executable_test_cases:
+    baseline: 258
+    live: null
+    matches: null
+  maven_tests_green:
+    baseline: 423
+    live: null
+    matches: null
+  phase_contracts:
+    baseline: 5
+    live: null
+    matches: null
+  phase_loading_skills:
+    baseline: 6
+    live: null
+    matches: null
+  recurring_defect_families:
+    baseline: 15
+    live: 15
+    matches: true
+  section_4_constraints:
+    baseline: 65
+    live: null
+    matches: null
+release_transaction:
+  generated_by: gate/lib/build_release_evidence.py
+  validator: gate/check_formal_release_transaction.sh
+  requires_current_forward_claims: true
+  requires_defect_family_closures: true
+  requires_generated_surface_refresh: true

@@ -111,7 +111,10 @@ docs/governance/SESSION-START-CONTEXT.md=6000
 # the generated graph over the rc36 ceiling; raised to 197500 with the same tight ratchet posture.
 # rc42 W0 single-source-rendering policy wave (ADR-0119): +3 nodes / +13 edges (ADR-0119 +
 # Rule-G-13 + E174) grew the file to ~199K; raised to 201000 with ~2K headroom (tight ratchet).
-docs/governance/architecture-graph.yaml=250000
+# rc52 agentic-completeness corrective: generated graph grew to 251287 bytes
+# after adding the composition-family edges and same-package SPI carrier nodes;
+# raised to 253000 with ~1.7K headroom.
+docs/governance/architecture-graph.yaml=253000
 # rc37 (ADR-0117): strategic_decisions resolution blocks (2 decisions open→resolved) + allowed_claim
 # rc37 entry grew the file over the 128000 ceiling (historical notes trimmed to offset); raised to
 # 131000 (~1.5K-per-wave ratchet + headroom for the one-time strategic_decisions resolution structure).

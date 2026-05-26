@@ -1,5 +1,5 @@
 id: ADR-0124
-title: "VectorStore / Retriever / EmbeddingModel SPIs: tenant-scoped decorators of Spring AI types; Wave C1 ships SpringAi* reference adapters; RAG becomes a first-class platform extension seam"
+title: "VectorStore / Retriever / EmbeddingModel SPIs: tenant-scoped decorators of Spring AI types; RAG becomes a first-class platform extension seam"
 status: accepted
 date: 2026-05-25
 level: L0
@@ -27,34 +27,35 @@ context: |
   Wave C1 adapters delegate straight-through.
 
 decision: |
-  Land three SPIs across three sibling packages in agent-service:
+  Land three SPIs across three sibling packages in agent-middleware:
 
-  - **`com.huawei.ascend.service.vector.spi.VectorStore`**
+  - **`com.huawei.ascend.middleware.vector.spi.VectorStore`**
     interface:
-      - `Mono<Void> add(String tenantId, List<Document> documents)`
-      - `Mono<Void> delete(String tenantId, List<String>
-                            documentIds)`
-      - `Flux<VectorMatch> similaritySearch(String tenantId,
+      - `void add(String tenantId, List<Document> documents)`
+      - `void delete(String tenantId, List<String> documentIds)`
+      - `List<VectorMatch> similaritySearch(String tenantId,
                                              VectorQuery query)`
     Value types in the same package: `Document`,
     `VectorMatch`, `VectorQuery` (record: queryText OR
     queryEmbedding, topK, similarityThreshold, filter
     expression, embeddingModelVersion).
 
-  - **`com.huawei.ascend.service.retrieval.spi.Retriever`**
+  - **`com.huawei.ascend.middleware.retrieval.spi.Retriever`**
     interface:
-      - `Flux<Document> retrieve(String tenantId, String query,
-                                  RetrievalOptions options)`
+      - `List<RetrievedDocument> retrieve(String tenantId, String query,
+                                           RetrievalOptions options)`
     Composes one or more `VectorStore`s with reranking /
-    hybrid-search policies; default impl wraps a single
+    hybrid-search policies; default impl may wrap a single
     `VectorStore`. `RetrievalOptions` carries topK, score
-    threshold, optional filters.
+    threshold, optional filters. `RetrievedDocument` is deliberately
+    a same-package retrieval carrier so `retrieval.spi` does not
+    import `vector.spi.Document`; adapters translate from vector or
+    provider-native documents before crossing the retrieval boundary.
 
-  - **`com.huawei.ascend.service.embedding.spi.EmbeddingModel`**
+  - **`com.huawei.ascend.middleware.embedding.spi.EmbeddingModel`**
     interface:
-      - `Mono<Embedding> embed(String tenantId, String text)`
-      - `Mono<List<Embedding>> embedAll(String tenantId,
-                                         List<String> texts)`
+      - `Embedding embed(String tenantId, String text)`
+      - `List<Embedding> embedAll(String tenantId, List<String> texts)`
       - `String modelVersion()` — informs
         `MemoryMetadata.embeddingModelVersion` per ADR-0123.
     Value type: `Embedding` (record: vector float[],
@@ -63,7 +64,8 @@ decision: |
   All three SPIs:
 
   - Carry `tenantId` per Rule R-C.c.
-  - Are Reactive per Rule R-G.
+  - Keep the L0 SPI blocking/pure-Java; asynchronous/reactive provider
+    bindings live behind adapters and do not leak into the public SPI.
   - Bind to `HookPoint.BEFORE_MEMORY` / `AFTER_MEMORY` via
     Wave C1 adapters (ADR-0073 hook taxonomy already covers
     memory hooks).
@@ -97,9 +99,9 @@ consequences: |
   - Three sibling packages (vector.spi, retrieval.spi,
     embedding.spi) instead of one. Reflects Spring AI's own
     separation; consolidating would obscure responsibilities.
-  - Reactive shape forces Wave C1 adapters to bridge Spring AI's
-    blocking calls via `Mono.fromCallable(...).subscribeOn(...)`
-    same as ModelGateway.
+  - Blocking/pure-Java shape means reactive providers bridge internally
+    in the adapter layer; this is intentional SPI decoupling rather than
+    a reactive contract promise.
 
   Forward / staging:
   - Ascend-NPU-optimised vector engine adapter is roadmap, not

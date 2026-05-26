@@ -9,7 +9,7 @@
  * pass-through (ADR-0080), and {@code TraceContext} propagation
  * (ADR-0061).
  *
- * <p><b>Wave C1 status — design-only shells:</b> the adapters
+ * <p><b>Design-only shells:</b> the adapters
  * declare the correct constructor + SPI surface so the boundary
  * is provable at compile-time. The {@code LlmGatewayHookChainOnlyTest}
  * asserts the L0 {@code ChatModel} shell cannot call the provider yet;

@@ -117,6 +117,11 @@ def validate_latest_release(root: Path, reporter: Reporter) -> Path | None:
             "formal_release_without_evidence_bundle",
             f"{latest.relative_to(root).as_posix()} declares formal_release: true but has no evidence_bundle frontmatter field",
         )
+    if bool(frontmatter.get("formal_release", False)) and not frontmatter.get("release_candidate_commit"):
+        reporter.fail(
+            "formal_release_without_release_candidate_commit",
+            f"{latest.relative_to(root).as_posix()} declares formal_release: true but has no release_candidate_commit frontmatter field",
+        )
     evidence_bundle = frontmatter.get("evidence_bundle")
     if evidence_bundle:
         bundle_path = root / str(evidence_bundle)
@@ -128,7 +133,17 @@ def validate_latest_release(root: Path, reporter: Reporter) -> Path | None:
     return latest
 
 
-def validate_evidence_bundle(root: Path, evidence_path: Path, reporter: Reporter) -> None:
+def normalize_rel_path(root: Path, path: Path | str) -> str:
+    candidate = Path(path)
+    if candidate.is_absolute():
+        try:
+            return candidate.resolve().relative_to(root).as_posix()
+        except ValueError:
+            return candidate.as_posix()
+    return candidate.as_posix()
+
+
+def validate_evidence_bundle(root: Path, evidence_path: Path, latest: Path | None, reporter: Reporter) -> None:
     if not evidence_path.is_absolute():
         evidence_path = root / evidence_path
     evidence = load_yaml(evidence_path)
@@ -160,6 +175,52 @@ def validate_evidence_bundle(root: Path, evidence_path: Path, reporter: Reporter
                 f"{evidence_path} has baseline/live mismatches: {', '.join(sorted(mismatches))}",
             )
 
+    if latest is None:
+        return
+    frontmatter = parse_frontmatter(latest)
+    if not bool(frontmatter.get("formal_release", False)):
+        return
+
+    repository = evidence.get("repository") or {}
+    latest_release = evidence.get("latest_release") or {}
+    if isinstance(repository, dict) and repository.get("dirty") is not False:
+        reporter.fail(
+            "formal_release_evidence_dirty_repository",
+            f"{evidence_path} was generated from a dirty repository",
+        )
+
+    expected_commit = frontmatter.get("release_candidate_commit")
+    actual_commit = repository.get("commit_sha") if isinstance(repository, dict) else None
+    if expected_commit and actual_commit != expected_commit:
+        reporter.fail(
+            "formal_release_evidence_candidate_mismatch",
+            f"{evidence_path} commit {actual_commit!r} does not match release_candidate_commit {expected_commit!r}",
+        )
+
+    expected_bundle = frontmatter.get("evidence_bundle")
+    actual_bundle = latest_release.get("evidence_bundle") if isinstance(latest_release, dict) else None
+    expected_release_path = latest.relative_to(root).as_posix()
+    actual_release_path = latest_release.get("path") if isinstance(latest_release, dict) else None
+    evidence_describes_current_release = actual_release_path == expected_release_path
+    if evidence_describes_current_release:
+        if isinstance(latest_release, dict) and latest_release.get("formal_release") is not True:
+            reporter.fail(
+                "formal_release_evidence_latest_release_not_formal",
+                f"{evidence_path} latest_release.formal_release is not true",
+            )
+        if expected_bundle and actual_bundle != expected_bundle:
+            reporter.fail(
+                "formal_release_evidence_bundle_mismatch",
+                f"{evidence_path} latest_release.evidence_bundle {actual_bundle!r} does not match {expected_bundle!r}",
+            )
+
+    evidence_rel = normalize_rel_path(root, evidence_path)
+    if expected_bundle and evidence_rel != expected_bundle:
+        reporter.fail(
+            "formal_release_evidence_bundle_argument_mismatch",
+            f"validated evidence path {evidence_rel!r} does not match release evidence_bundle {expected_bundle!r}",
+        )
+
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -170,9 +231,9 @@ def main(argv: list[str]) -> int:
     root = Path(args.root).resolve()
     reporter = Reporter()
     validate_scaffold(root, reporter)
-    validate_latest_release(root, reporter)
+    latest = validate_latest_release(root, reporter)
     if args.evidence:
-        validate_evidence_bundle(root, Path(args.evidence), reporter)
+        validate_evidence_bundle(root, Path(args.evidence), latest, reporter)
 
     if reporter.failures:
         reporter.emit_failures()

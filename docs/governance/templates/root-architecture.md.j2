@@ -252,14 +252,12 @@ class under `com.huawei.ascend.service.platform..` (broad — enforced by
 `TenantContextHolder`) is preserved as defence-in-depth (enforced by
 `TenantPropagationPurityTest`). The HTTP edge MUST NOT import memory SPI or
 internal runtime impl packages (enforced by `PlatformImportsOnlyRuntimePublicApiTest`).
-SPI packages (`com.huawei.ascend.service.runtime.*.spi.*` post-ADR-0079 +
-`com.huawei.ascend.engine.spi.*` post-ADR-0079 + `com.huawei.ascend.middleware.spi.*`
-post-ADR-0073) import only `java.*` + same-spi-package siblings (enforced by
-`OrchestrationSpiArchTest`, `MemorySpiArchTest`, and
-`SpiPurityGeneralizedArchTest#s2c_spi_imports_only_java_and_same_package_siblings`
-for the s2c.spi surface specifically — `orchestration.spi` retains its
-long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run`,
-`RunMode`, `RunRepository` which are intrinsic to the orchestrator SPI surface).
+SPI packages must avoid implementation and framework dependencies. The rc52
+strict rule applies to all `com.huawei.ascend.middleware..spi..` packages:
+they import only `java.*` plus same-package sibling carriers. Older non-
+middleware SPI packages still carry documented legacy cross-package references
+listed in §3.7 and require a separate migration before the strict rule becomes
+repo-wide.
 
 ---
 
@@ -343,19 +341,23 @@ long-standing dependency on the kernel `runs.*` + `runs.spi.*` domain types `Run
    New glue must answer "why is this not a configuration of an existing OSS dep?"
    Glue LOC target ≤ 1 500 at W0 close.
 
-7. **SPI purity**: SPI interfaces under every `*.spi.*` package across modules
-   (`com.huawei.ascend.service.runtime.*.spi.*`, `com.huawei.ascend.service.engine.spi.*`,
-   `com.huawei.ascend.engine.{spi,orchestration.spi}.*`,
-   `com.huawei.ascend.bus.spi.{ingress,s2c}.*`, `com.huawei.ascend.middleware.spi.*`,
-   `com.huawei.ascend.evolve.spi.*`, `com.huawei.ascend.client.spi.*`) import only `java.*`,
-   same-spi-package siblings, AND a documented narrow cross-spi allowlist. The cross-spi
-   allowlist is **size-capped at ≤5 entries**; any addition requires an ADR and a matching
-   gate-rule fixture update (Rule G-11.b candidate). Currently 2 entries:
-   (a) `engine.orchestration.spi` may reference kernel `runs.*` + `runs.spi.*` domain types;
-   (b) `engine.spi` may reference `middleware.spi.HookPoint`. No Spring, Micrometer, or platform
-   types in any SPI. Enforced by `OrchestrationSpiArchTest`, `MemorySpiArchTest`,
-   `SpiPurityGeneralizedArchTest`, and (W2+) gate rule `cross_spi_allowlist_size_cap`;
-   comprehensive enumeration above in §2 module dependency direction.
+7. **SPI purity**: new agentic SPI surfaces default to strict package purity:
+   `com.huawei.ascend.middleware..spi..` imports only `java.*` plus same-package
+   sibling carriers. Cross-SPI dependency is not an allowed escape hatch for those
+   surfaces; adapter layers translate between packages. The rc52 corrective sweep
+   applies this strict rule to advisor, memory, model, vector, retrieval, prompt,
+   embedding, and skill middleware SPI packages and pins it in
+   `SpiPurityGeneralizedArchTest`.
+
+   Historical pre-rc52 SPI packages outside `agent-middleware` still contain
+   documented cross-package relationships that require a separately scoped
+   migration before the strict rule can become repo-wide: `agent-bus` federation
+   uses ingress envelopes; `agent-execution-engine.engine.spi` uses orchestration
+   carriers and `HookPoint`; `agent-service.agent.spi` exposes agent bindings to
+   model/skill/memory/planner refs; `RunRepository` uses the runtime `Run` domain
+   type. These are treated as legacy residuals, not precedent for new SPI design.
+   No SPI may depend on Spring, Micrometer, OTel, platform web/security packages,
+   or in-memory/reference implementations.
 
 8. **Per-operation resilience routing**: `ResilienceContract` maps `operationId`
    (e.g. `"llm-call"`, `"vector-search"`) to a `ResiliencePolicy(cbName, retryName, tlName)`.

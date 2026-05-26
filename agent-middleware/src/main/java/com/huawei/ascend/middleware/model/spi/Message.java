@@ -7,8 +7,7 @@ import java.util.Objects;
  * Conversation turn in a {@link ModelInvocation}.
  *
  * <p>Authority: ADR-0121. Mirrors Spring AI's message taxonomy at
- * the platform boundary so the reference adapter (Wave C1) is a
- * straight delegation.
+ * the platform boundary so the reference adapter can delegate cleanly.
  */
 public sealed interface Message
         permits Message.SystemMessage,

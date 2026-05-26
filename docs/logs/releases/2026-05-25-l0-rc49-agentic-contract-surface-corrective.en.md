@@ -9,6 +9,8 @@ responds_to: docs/logs/reviews/2026-05-25-l0-rc48-agentic-contract-surface-archi
 
 # v2.1.0-rc49 — Agentic Contract Surface Corrective Formal Release
 
+> **Historical artifact frozen at SHA 1d4b3f95fae39088e79524aef53aa1bf308b7be9 (rc49 agentic-contract-surface corrective publication).** Baseline counts in this document (113 ADRs, 33 active SPI interfaces, 565 graph nodes, 1005 graph edges) reflect the rc49 publication baseline and are superseded at rc51 by the L0 Agentic-Completeness wave (120 ADRs, 38 active SPI interfaces, 587 graph nodes, 1065 graph edges). The rc49 baseline remains the canonical record for the rc43-rc49 primitive-tier scope.
+
 > This formal release note is valid only for frozen candidate commit
 > `1d4b3f95fae39088e79524aef53aa1bf308b7be9` and evidence bundle
 > `gate/release-ci-evidence/2026-05-25-l0-rc49-agentic-contract-surface-corrective.evidence.yaml`.

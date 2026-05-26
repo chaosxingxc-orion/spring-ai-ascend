@@ -10,6 +10,8 @@ responds_to: docs/logs/reviews/2026-05-25-l0-rc48-agentic-contract-surface-archi
 
 # v2.1.0-rc50 - CodeGraph Nodegraph Supplement Formal Release
 
+> **Historical artifact frozen at SHA b554d7445198e4c230631fbf59b14413017736f0 (rc50 CodeGraph nodegraph supplement publication).** Baseline counts in this document (113 ADRs, 33 active SPI interfaces, 565 graph nodes, 1005 graph edges) reflect the rc50 publication baseline and are superseded at rc51 by the L0 Agentic-Completeness wave (120 ADRs, 38 active SPI interfaces, 587 graph nodes, 1065 graph edges). The rc50 baseline remains the canonical record for the rc43-rc49 primitive-tier scope plus the rc50 nodegraph-evidence supplement.
+
 > This supplemental formal release note is valid only for frozen candidate
 > commit `b554d7445198e4c230631fbf59b14413017736f0`, release evidence bundle
 > `gate/release-ci-evidence/2026-05-25-l0-rc50-codegraph-nodegraph-supplement.evidence.yaml`,

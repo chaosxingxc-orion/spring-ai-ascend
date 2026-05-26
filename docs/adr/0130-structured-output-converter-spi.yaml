@@ -1,0 +1,110 @@
+id: ADR-0130
+title: "StructuredOutputConverter<T> SPI: pure-Java generic converter shape; Spring AI BeanOutputConverter is the reference adapter source"
+status: accepted
+date: 2026-05-25
+level: L0
+view: development
+affects_level: L0, L1
+affects_view: development, logical
+authors:
+  - chao
+relates_to:
+  - ADR-0121    # ModelGateway SPI (StructuredOutputConverter consumes ModelResponse)
+  - ADR-0125    # Spring AI canonical integration boundary
+  - ADR-0073    # Engine hooks + HookPoint (the converter binds AFTER_LLM consumers)
+  - ADR-0119    # Single-source rendering coherence (contract YAML is authority)
+  - ADR-0128    # Agent-first-class-entity (agents consume typed model output)
+context: |
+  The senior-architect rc51 review flagged the absence of a
+  `StructuredOutputConverter<T>` as finding P0-4: Spring AI ships
+  `BeanOutputConverter`, `MapOutputConverter`, and `ListOutputConverter`
+  for parsing model output into typed values, but the platform has
+  no L0 contract for typed conversion. Without one, every consumer
+  rolls its own ad-hoc parser against `ModelResponse.content()`,
+  every adapter wires Spring AI directly, and the brand boundary
+  bleeds across module borders.
+
+  ADR-0125 placed Spring AI as the canonical integration boundary;
+  the platform decorates rather than re-exports. The structured-output
+  surface needs the same treatment as `ChatModel`: a pure-Java SPI
+  with a reference Spring AI adapter.
+
+decision: |
+  Land the `StructuredOutputConverter<T>` SPI in
+  `com.huawei.ascend.middleware.model.spi.StructuredOutputConverter`
+  (agent-middleware module). Status: design_only at rc51;
+  runtime_enforced when the W2 LLM gateway wave wires
+  `BeanOutputConverter` behind the adapter.
+
+  - **Signature**:
+    ```java
+    public interface StructuredOutputConverter<T> {
+        T convert(ModelResponse response);
+        String getFormatInstructions();
+    }
+    ```
+  - **Semantics**:
+    - `convert(response)` parses `response.content()` into the
+      target type `T`. Implementations throw
+      `IllegalArgumentException` when the content cannot be parsed.
+    - `getFormatInstructions()` returns the prompt-fragment the
+      caller should append to its `ModelInvocation.messages()` so
+      the model emits parseable output. Typical implementations
+      return a JSON schema or a short natural-language directive.
+  - **SPI purity per Rule R-D**: imports `java.*` only; no Spring AI
+    types in the contract surface.
+  - **Reference adapter**:
+    `SpringAiBeanOutputConverterAdapter<T>` in
+    `agent-service/src/main/java/.../integration/springai/`
+    (Spring AI types live only in the integration package, per
+    ADR-0125). The shell holds the Spring AI converter as an
+    `Object` field to defer the FQN binding to W2 and throws
+    `UnsupportedOperationException` from both methods at rc51.
+  - **Consumer pattern**: callers compose with `ModelGateway`:
+    ```
+    String fmt = converter.getFormatInstructions();
+    // append fmt as a system message;
+    ModelResponse rsp = modelGateway.invoke(invocation);
+    T value = converter.convert(rsp);
+    ```
+
+  Contract schema lives at `docs/contracts/structured-output.v1.yaml`
+  (status: design_only, runtime_enforced: false).
+
+consequences: |
+  Positive:
+  - Closes finding P0-4 — typed model output now has an L0
+    abstraction, and the W2 LLM gateway wave has a fixed pure-Java
+    target signature for wiring Spring AI converters.
+  - Customers can ship custom converters (Avro, Protobuf, custom
+    DSLs) by implementing `StructuredOutputConverter<T>` without
+    touching Spring AI.
+  - The two-method shape (`convert` + `getFormatInstructions`)
+    mirrors Spring AI's contract and keeps the reference adapter a
+    straight delegation.
+
+  Negative / residual:
+  - Until the W2 adapter ships, `StructuredOutputConverter` is
+    design_only: callers may import the interface but cannot wire
+    a working instance.
+  - Streaming-aware structured conversion (parse partial JSON as it
+    streams in) is deliberately out of scope; a follow-on ADR will
+    extend the contract once the streaming surface (ADR-0129)
+    proves out.
+
+alternatives_considered: |
+  - (A) Re-export Spring AI's `StructuredOutputConverter` directly.
+    Rejected by ADR-0125 (Path c): pulling Spring AI types into the
+    platform SPI violates Rule R-D and couples customers to a
+    third-party brand surface.
+  - (B) Non-generic `Object convert(ModelResponse)`. Rejected:
+    forfeits compile-time type safety; every consumer would cast.
+  - (C) Inline `Function<ModelResponse, T>` shape with no
+    `getFormatInstructions()`. Rejected: the prompt-fragment is
+    the half of the contract that makes structured output reliable;
+    omitting it forces every consumer to reinvent the schema
+    description.
+  - (D) Two SPIs — one for JSON bean, one for map, one for list.
+    Rejected: Spring AI consolidated all three behind the single
+    `StructuredOutputConverter<T>` interface for good reason
+    (compose-ability); we mirror the consolidation.

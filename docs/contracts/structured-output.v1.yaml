@@ -1,0 +1,61 @@
+# StructuredOutputConverter<T> schema, version 1.
+#
+# Authority: ADR-0130 (StructuredOutputConverter<T> SPI).
+# Wave: rc51 Wave E1.
+#
+# This file is the single source of truth for the shape of the
+# typed model-output converter SPI. The Java interface
+# com.huawei.ascend.middleware.model.spi.StructuredOutputConverter
+# mirrors this schema; the reference adapter
+# com.huawei.ascend.service.integration.springai.SpringAiBeanOutputConverterAdapter
+# wraps Spring AI's BeanOutputConverter per ADR-0125.
+
+schema: structured-output/v1
+status: design_only
+runtime_enforced: false
+authority: ADR-0130
+promotion_trigger: "First production StructuredOutputConverter wired by the W2 LLM gateway wave"
+
+structured_output_converter:
+  kind: generic_interface
+  type_parameter: T
+  spi_purity: "java.* imports only (Rule R-D); no Spring AI types in the SPI surface"
+
+  methods:
+    convert:
+      signature: "T convert(ModelResponse response)"
+      semantics: |
+        Parse response.content() into a typed value of T. The
+        ModelResponse carrier itself is defined by
+        model-invocation.v1.yaml.
+      preconditions:
+        - "response is non-null"
+      throws:
+        - exception: "IllegalArgumentException"
+          when: "response.content() cannot be parsed into T"
+      returns: "non-null T"
+
+    getFormatInstructions:
+      signature: "String getFormatInstructions()"
+      semantics: |
+        Returns the prompt-fragment that callers SHOULD append to
+        their ModelInvocation.messages() so the model emits output
+        the converter can parse. Typical implementations return a
+        JSON schema or a short natural-language directive
+        (e.g. "Respond with a single JSON object matching this
+        schema: ...").
+      returns: "non-null String"
+
+consumer_pattern:
+  description: "Canonical usage with ModelGateway"
+  steps:
+    - "Obtain a StructuredOutputConverter<T> for the target type."
+    - "Call getFormatInstructions() and append as a system or user message in the ModelInvocation."
+    - "Call modelGateway.invoke(invocation) (or stream(...), per ADR-0129)."
+    - "Call converter.convert(response) to obtain the typed value."
+
+# Reference adapter target: SpringAiBeanOutputConverterAdapter<T>
+# (W2 implementation), wrapping
+# org.springframework.ai.converter.BeanOutputConverter per ADR-0125.
+# The Spring AI converter FQN lives only in the integration package
+# (agent-service/.../integration/springai/), never in the SPI.

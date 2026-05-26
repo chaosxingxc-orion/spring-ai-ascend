@@ -12,7 +12,7 @@ import java.util.Objects;
  * Reference {@link ModelGateway} that decorates a Spring AI
  * {@link ChatModel}.
  *
- * <p>Authority: ADR-0121 + ADR-0125. Wave C1 design-only shell —
+ * <p>Authority: ADR-0121 + ADR-0125. Design-only shell —
  * see package-info for the L0 vs W2 boundary.
  *
  * <p>W2 implementation responsibilities:
@@ -45,7 +45,7 @@ public final class SpringAiChatModelGateway implements ModelGateway {
         Objects.requireNonNull(invocation, "invocation");
         throw new UnsupportedOperationException(
                 "SpringAiChatModelGateway: design-only shell at L0; "
-                        + "W2 LLM gateway wave wires hook dispatch + Spring AI invocation");
+                        + "LLM gateway implementation wires hook dispatch + Spring AI invocation");
     }
 
     @Override

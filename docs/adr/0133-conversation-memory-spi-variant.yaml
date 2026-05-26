@@ -1,0 +1,147 @@
+id: ADR-0133
+title: "ConversationMemory: MemoryStore<String, ConversationWindow> variant for windowed FIFO + token-budget pruning + summarise-and-compact"
+status: accepted
+date: 2026-05-25
+level: L0
+view: development
+affects_level: L0, L1
+affects_view: development, logical
+authors:
+  - chao
+relates_to:
+  - ADR-0123    # Memory unified SPI (parent MemoryStore<K, V>)
+  - ADR-0121    # ModelGateway SPI (optional summary generation target hidden behind implementations)
+  - ADR-0125    # Spring AI canonical integration boundary (Path a)
+context: |
+  The senior-architect L0 review identified the absence of a
+  windowed conversation-memory variant as a contract-layer defect
+  (finding P1-1): ADR-0123 declared the unified `MemoryStore<K, V>`
+  surface and shipped `SemanticMemoryStore` (M3) and
+  `KnowledgeMemoryStore` (M5) marker interfaces, but the most
+  common Audience-B chat-application need — "remember the last
+  N turns of the conversation, prune by token budget, optionally
+  summarise older context" — has no Java surface today.
+
+  Without a platform-owned ConversationMemory variant, application
+  developers either:
+
+  - (a) reach for Spring AI's `ChatMemory` directly
+    (`org.springframework.ai.chat.memory.*`), which breaks the
+    decoration boundary established by ADR-0125 (Path a) by
+    exposing a provider type to Audience B; or
+  - (b) hand-roll a windowed buffer inside each AgentDefinition,
+    duplicating tokenizer choice and pruning policy across
+    applications.
+
+  ADR-0125 resolved the Spring AI integration boundary in favour
+  of Path (a) — Spring AI is canonical and the platform decorates.
+  This ADR specifies the conversation-memory variant of the
+  platform's MemoryStore that gives Audience B the same ergonomics
+  as `ChatMemory` without coupling to the Spring AI type.
+
+decision: |
+  Land the `ConversationMemory` SPI in
+  `com.huawei.ascend.middleware.memory.spi.ConversationMemory`
+  (agent-middleware module, alongside the existing
+  `SemanticMemoryStore` and `KnowledgeMemoryStore` marker
+  interfaces). Status: design_only at the time of landing;
+  runtime_enforced when the W2 chat-memory implementation ships.
+
+  - **Parent interface**: `MemoryStore<String, ConversationWindow>`.
+    The key is the conversation id (free-form string, opaque to
+    the platform); the value is a `ConversationWindow` record that
+    owns the ordered turn list.
+  - **Default category**: overrides `MemoryStore.category()` to
+    return `MemoryCategory.M2_EPISODIC` (session memory,
+    TTL-bounded per ADR-0034).
+  - **Required methods** (in addition to the inherited
+    MemoryReader/MemoryWriter surface):
+      - `void addTurns(String tenantId, String conversationId,
+                       List<ConversationTurn> turns)` — append in
+        insertion order; empty-list call is a no-op.
+      - `List<ConversationTurn> getTurnsUpToBudget(String tenantId,
+                                                    String conversationId,
+                                                    int maxTokenBudget)` —
+        return the SUFFIX (most-recent turns) whose total token
+        count is `<= maxTokenBudget`; drop OLDEST first.
+      - `Optional<ConversationTurn> summariseAndCompact(String tenantId,
+                                                        String conversationId,
+                                                        int keepLastN)` —
+        replace the oldest `totalTurns - keepLastN` turns with a
+        single synthetic assistant summary turn; return the
+        summary turn, or `Optional.empty()` when the
+        conversation had `<= keepLastN` turns (no-op).
+  - **Tenant scope**: every method takes `String tenantId`
+    (Rule R-C.c). Blank tenantId or blank conversationId fails
+    closed before any backing-store I/O.
+  - **Tokenizer choice**: implementation-internal — the SPI does
+    not standardise the counter at L0. Implementations document
+    their tokenizer (provider native, GPT-2 BPE, Llama, ...) in
+    their own javadoc and behave deterministically per call.
+  - **Carrier types** ship in the same package: `ConversationWindow`
+    is `(List<ConversationTurn> turns, Map<String,Object> metadata)`;
+    `ConversationTurn` is `(ConversationRole role, String content,
+    Instant observedAt, int tokenCount, Map<String,Object> metadata)`.
+    Both defensively copy mutable fields. This keeps the memory SPI
+    independent from the model SPI; adapter layers may translate to
+    model `Message` values outside the SPI boundary.
+
+  Contract supplement lives at the END of
+  `docs/contracts/memory-store.v1.yaml` under a
+  `conversation_memory:` section (status: design_only,
+  runtime_enforced: false). The catalog row, module-metadata
+  reference, and DFX update land in the parity-consolidator wave
+  that follows this one — no edits to `module-metadata.yaml`
+  occur here because the `memory.spi` package is already declared.
+
+consequences: |
+  Positive:
+  - Audience B writes against `ConversationMemory` (platform),
+    not `org.springframework.ai.chat.memory.ChatMemory`
+    (provider), preserving the decoration boundary established
+    by ADR-0125.
+  - Token-budget pruning is a first-class platform concern: the
+    pruning policy (drop OLDEST first) and the summarisation
+    hook are part of the contract, not per-application code.
+  - Tenant-scoped conversation memory allows per-tenant retention
+    policy attachment (TTL, redaction, conversation-id namespacing)
+    at the W2 wave without changing the SPI signature.
+  - Keeps the memory SPI pure: no dependency on the model SPI is
+    required to store, prune, or summarise conversation windows.
+
+  Negative / residual:
+  - `ConversationMemory` is design_only at the time of landing;
+    no runtime binding today. The Audience-B-extension-seams
+    ArchUnit guard remains vacuous at L0 (no `examples/**`
+    directory exists) and arms automatically when examples land.
+  - Tokenizer choice is implementation-internal: deterministic
+    replay across implementations is NOT guaranteed at the SPI
+    boundary. Customers requiring cross-implementation
+    determinism MUST pin their implementation choice.
+  - Summarisation may call a ModelGateway internally, creating
+    an implicit dependency from the M2 memory backend to the
+    LLM gateway. The SPI surface intentionally hides this — the
+    `summariseAndCompact` return is just a `ConversationTurn`.
+
+alternatives_considered: |
+  - (A) Re-export Spring AI `ChatMemory` directly as the
+    platform's interface. Rejected by ADR-0125 (Path c).
+    Audience B would couple to a provider type with no platform
+    decoration seam and no platform tenant carrier.
+  - (B) Express conversation memory as a free-form
+    `MemoryStore<String, List<ConversationTurn>>` with the windowing
+    policy left to the caller. Rejected — duplicates the
+    windowing / token-budget / summarisation logic across every
+    application and leaves the tokenizer-choice decision
+    implicit. The whole point of the variant is to standardise
+    the policy surface.
+  - (C) Synchronous pruning only — drop the `summariseAndCompact`
+    method and require callers to fall back to truncation when
+    over budget. Rejected — summarisation is a common-enough
+    pattern that omitting it pushes Audience B back to
+    hand-rolling, defeating the variant.
+  - (D) Two-tier split: `ChatHistory` (read-only buffer) +
+    `ConversationMemory` (write side). Rejected — the parent
+    `MemoryStore<K, V>` already provides the MemoryReader /
+    MemoryWriter CQRS split per ADR-0123; another split at this
+    level would be redundant.

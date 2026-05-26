@@ -13,12 +13,9 @@ import java.util.Objects;
  *                      empty if the model only emitted tool calls.
  * @param toolCalls     tool-call requests emitted by the model; never
  *                      null, may be empty. Each carries a
- *                      target {@code skillKey} (Wave B2) and JSON
- *                      argument blob.
+ *                      target {@code skillKey} and JSON argument blob.
  * @param finishReason  why the model stopped
- *                      ({@code stop} | {@code length} |
- *                      {@code tool_calls} | {@code content_filter} |
- *                      {@code other}).
+ *                      ({@link ModelFinishReason}).
  * @param usage         token usage; nullable when the provider does
  *                      not report it.
  * @param metadata      provider-specific extras (rate-limit headers,
@@ -27,7 +24,7 @@ import java.util.Objects;
 public record ModelResponse(
         String content,
         List<ToolCall> toolCalls,
-        String finishReason,
+        ModelFinishReason finishReason,
         ModelUsage usage,
         Map<String, Object> metadata) {
 
@@ -46,7 +43,7 @@ public record ModelResponse(
      * @param callId    unique identifier for this call within the
      *                  response; used to correlate the tool result
      *                  message in the next turn.
-     * @param skillKey  target skill identifier (Wave B2 SkillRef).
+     * @param skillKey  target skill identifier.
      * @param arguments JSON-encoded argument blob (provider-supplied).
      */
     public record ToolCall(String callId, String skillKey, String arguments) {

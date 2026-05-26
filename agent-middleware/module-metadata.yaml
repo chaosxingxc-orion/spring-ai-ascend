@@ -12,12 +12,14 @@ architecture_doc: agent-middleware/ARCHITECTURE.md
 dfx_doc: docs/dfx/agent-middleware.yaml
 spi_packages:
   - com.huawei.ascend.middleware.spi
-  - com.huawei.ascend.middleware.model.spi        # rc43 — ModelGateway SPI per ADR-0121
+  - com.huawei.ascend.middleware.model.spi        # rc43 — ModelGateway SPI per ADR-0121; rc51 — ModelGateway.stream(...) + ModelResponseChunk per ADR-0129; rc51 — StructuredOutputConverter<T> per ADR-0130
   - com.huawei.ascend.middleware.skill.spi        # rc43 — unified Skill SPI per ADR-0127 + ADR-0122
-  - com.huawei.ascend.middleware.memory.spi       # rc43 — MemoryStore/Reader/Writer + M3/M5 markers per ADR-0123
+  - com.huawei.ascend.middleware.memory.spi       # rc43 — MemoryStore/Reader/Writer + M3/M5 markers per ADR-0123; rc52 — ConversationMemory variant + ConversationWindow/Turn per ADR-0133
   - com.huawei.ascend.middleware.vector.spi       # rc43 — VectorStore SPI per ADR-0124
   - com.huawei.ascend.middleware.retrieval.spi    # rc43 — Retriever SPI per ADR-0124
   - com.huawei.ascend.middleware.embedding.spi    # rc43 — EmbeddingModel SPI per ADR-0124
+  - com.huawei.ascend.middleware.prompt.spi       # rc51 — PromptTemplate SPI per ADR-0131
+  - com.huawei.ascend.middleware.advisor.spi      # rc52 — ChatAdvisor / AdvisorChain + StreamingChatAdvisor / StreamingAdvisorChain per ADR-0132
   # Agent SPI lives in agent-service (HTTP-edge customer entity).
   # Planner SPI lives in agent-execution-engine (engine-side plan generator).
 allowed_dependencies: []  # SPI-pure: java.* only, per Rule R-D sub-clause .d

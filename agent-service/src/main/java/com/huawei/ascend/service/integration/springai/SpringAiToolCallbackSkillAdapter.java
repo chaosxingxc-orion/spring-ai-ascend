@@ -14,7 +14,7 @@ import java.util.Objects;
  *
  * <p>Authority: ADR-0122 (Tool-Skill semantic resolution: Path b)
  * + ADR-0127 (Skill SPI unified) + ADR-0125 (Spring AI canonical
- * boundary). Wave C1 design-only shell.
+ * boundary). Design-only shell.
  *
  * <p>The wrapped Spring AI tool type is held as {@link Object}
  * with the FQN documented in Javadoc — Spring AI's
@@ -22,7 +22,7 @@ import java.util.Objects;
  * releases (2.0.0-M5 candidate paths include
  * {@code org.springframework.ai.tool.ToolCallback} and
  * {@code org.springframework.ai.chat.model.ToolCallback}). The
- * W2 wave that binds tool dispatch will lock the import to the
+ * implementation that binds tool dispatch will lock the import to the
  * shipped 2.0 GA location.
  *
  * <p>{@link SkillKind#TOOL} discriminator (ADR-0122). Lifecycle
@@ -58,7 +58,7 @@ public final class SpringAiToolCallbackSkillAdapter implements Skill {
         Objects.requireNonNull(invocation, "invocation");
         throw new UnsupportedOperationException(
                 "SpringAiToolCallbackSkillAdapter: design-only shell at L0; "
-                        + "W2 tool registry wave wires hook dispatch + ToolCallback.call(...)");
+                        + "tool registry implementation wires hook dispatch + ToolCallback.call(...)");
     }
 
     @Override

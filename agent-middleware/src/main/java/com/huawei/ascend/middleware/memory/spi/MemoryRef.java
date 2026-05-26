@@ -6,8 +6,7 @@ import java.util.Objects;
  * Opaque reference to a {@link MemoryStore} or specific entry.
  *
  * <p>Authority: ADR-0123. Used by {@code Agent.memoryBindings}
- * (Wave B5) and elsewhere to refer to memory targets by id
- * + category.
+ * and elsewhere to refer to memory targets by id + category.
  *
  * @param memoryId  for binding to a store: store id; for binding
  *                  to a specific entry: entry id.

@@ -6507,7 +6507,7 @@ if [[ $_r114_fail -eq 0 ]]; then pass_rule "rule_card_filename_dot_convention"; 
 # Operationalises Rule D-9. Grep across non-exempt production-code surfaces
 # for forbidden version/log metadata tokens:
 #   - `rc<N> Wave <M>` style tags
-#   - `per ADR-NNNN` pointers
+#   - narrative `per ADR-NNNN` change-history pointers
 #   - `Finding F<N>` or `(F<N>)` references
 #   - `closes #<N>` / `addresses #<N>` ticket references
 #
@@ -6580,7 +6580,7 @@ if [[ -n "$_r115_filtered_files" ]]; then
 fi
 if [[ -n "$_r115_hits" ]]; then
   _r115_first=$(echo "$_r115_hits" | grep -v '^$' | head -5 | tr '\n' '|')
-  fail_rule "no_version_log_metadata_in_code" "production code contains forbidden version/log metadata tokens (rc<N> Wave / per ADR-NNNN / Finding F<N> / closes #<N>); first hits: ${_r115_first}-- Rule D-9 / E163 (such metadata belongs in commit messages, ADRs, release notes, rule cards, or rule-history.md — NOT in implementation)"
+  fail_rule "no_version_log_metadata_in_code" "production code contains forbidden version/log metadata tokens (rc<N> Wave / narrative per ADR-NNNN / Finding F<N> / closes #<N>); first hits: ${_r115_first}-- Rule D-9 / E163 (change-history metadata belongs in commit messages, ADRs, release notes, rule cards, or rule-history.md — not implementation)"
   _r115_fail=1
 fi
 if [[ $_r115_fail -eq 0 ]]; then pass_rule "no_version_log_metadata_in_code"; fi

@@ -8,7 +8,7 @@ authority_refs: [ADR-0094]
 # Recurring Defect Families — Human View
 
 > **What this is.** A categorised summary of defect ROOT-CAUSE CLASSES that
-> have recurred across multiple rc waves (rc4 → rc41). The canonical
+> have recurred across multiple rc waves (rc4 → rc52). The canonical
 > machine-readable form is [`recurring-defect-families.yaml`](recurring-defect-families.yaml);
 > this `.md` is a rendered view for human readers and reviewers.
 >
@@ -32,11 +32,11 @@ authority_refs: [ADR-0094]
 > **Vocabulary note ("Family" disambiguation, rc18 Wave 3).** The word
 > *family* is used at TWO scopes in this corpus; do not confuse them:
 > 1. **Permanent root-cause classes** — `F-<slug>` (e.g.,
->    `F-numeric-drift`). Catalogued here; cross-wave. Thirteen of them.
+>    `F-numeric-drift`). Catalogued here; cross-wave. Sixteen of them.
 > 2. **Wave-local finding clusters** — Greek-letter suffix on the rc
 >    review letter (e.g., "Family A" or "L-α", "M-η" in rc14/rc15
 >    release notes). Ephemeral; specific to one review pass. Reset each
->    wave. Fourteen permanent families are currently registered.
+>    wave. Sixteen permanent families are currently registered.
 > When a release note says "Family A closed", it means the wave-local
 > cluster. When this document says "F-numeric-drift partial", it means
 > the permanent root-cause class. The two namespaces never overlap by
@@ -45,11 +45,13 @@ authority_refs: [ADR-0094]
 
 ---
 
-## §1 — Family Summary (14 families as of rc41 final release-readiness)
+## §1 — Family Summary (16 families as of rc52 agentic-completeness-corrective)
 
-rc41 final release-readiness re-evaluated the existing family ledger while
-closing the L0 RC state. No new recurring family was registered; the final
-release note and evidence bundle keep the count at 14.
+rc52 agentic-completeness-corrective registers
+F-agentic-contract-composition-gap: rc51 landed individual primitives, but
+their cross-contract semantics did not compose. F-l0-agentic-primitive-gap
+remains closed; the new family tracks semantic closure across already-shipped
+agentic surfaces.
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
@@ -64,9 +66,11 @@ release note and evidence bundle keep the count at 14.
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 2 (rc21, rc39-formal-release-transaction) | ✅ closed — phase contracts + skills + formal release transaction workflow |
 | 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 11 (rc40 service architecture tree/SPI appendix drift) | 🟡 monitoring (rc40 resets cool-down; service architecture now separates active SPI interfaces from structural carriers) |
-| 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, deferred) |
+| 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, partially addressed by rc51 Wave G2 JavaParser/libCST helpers under gate/lib/refactor/) |
 | 13 | F-nonatomic-run-status-write | Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants | 5 (rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction) | 🟡 monitoring (rc39 broadened to tenant-owned runtime state; RunRepository SPI made abstract, save calls source-guarded to create-only sites, TaskStateStore writes made atomic) |
 | 14 | F-project-tool-pin-drift | Project-Local Dev-Tool Pin Drift and Manifest Inconsistency | 2 (rc40-codegraph-mcp-onboarding + rc50-nodegraph-evidence) | ✅ structurally addressed (Rule 125 / E173 gates package.json exact-pin + lockfileVersion>=3 + .mcp.json relative-shim ref; rc50 adds local `.codegraph` nodegraph evidence without committing the SQLite database) |
+| 15 | F-l0-agentic-primitive-gap | L0 Agentic-Primitive Contract Surface Gap | 3 (rc41-final-release-readiness + rc50-post-closure-senior-architect-review + rc51-agentic-completeness) | ✅ closed (rc51 — agentic-completeness wave adds 5 new SPI interfaces + 6 structural carriers + 4 contract YAMLs + 2 contract supplements + 7 ADRs 0129-0135 closing the developer-ergonomics-tier residual of the rc43 closure-by-construction) |
+| 16 | F-agentic-contract-composition-gap | Agentic Contract Composition and Semantic-Closure Gap | 2 (rc51-agentic-completeness-review + rc52-agentic-completeness-corrective) | 🟡 monitoring (rc52 — streaming advisor sibling, ConversationWindow, ModelFinishReason enum, same-package carriers, and formal-release evidence validator close cited surfaces; broader historical non-agent-middleware SPI coupling remains explicitly out of scope) |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -687,7 +691,19 @@ flagged 7 missing L0 contract shapes: Agent, ModelGateway, Tool vs Skill
 semantic resolution, unified MemoryStore, VectorStore / Retriever /
 EmbeddingModel, Planner, plus the Spring AI integration boundary.
 
-**Surfaces.**
+**Second occurrence (rc50-post-closure-senior-architect-review → rc51-agentic-completeness).**
+After rc43-rc48 closed the primitive tier (Agent/Skill/Memory/Vector/Planner)
+and rc50 supplemented the CodeGraph nodegraph evidence, a second senior-architect
+review found that the rc43 closure-by-construction left the **developer-
+ergonomics tier** unmodelled: no `ModelGateway.stream(...)` for streaming output,
+no `StructuredOutputConverter<T>` for typed-bean extraction, no `PromptTemplate`
+SPI, no `ChatAdvisor` interceptor SPI. Audience B was still going to import
+`org.springframework.ai.chat.{prompt,model.advisor,converter}.*` directly to
+build a real agent, defeating Rule R-A "Business/Platform Decoupling"
+non-vacuously and re-creating the very gap the rc43 wave was meant to seal.
+Closed at rc51 by the agentic-completeness wave.
+
+**Surfaces (rc43).**
 
 - 14 new SPI Java interfaces under correct semantic-home modules:
   Agent → `agent-service.agent.spi`; Planner → `agent-execution-engine.planner.spi`;
@@ -698,26 +714,115 @@ EmbeddingModel, Planner, plus the Spring AI integration boundary.
 - 5 new Spring AI reference adapter shells under
   `agent-service.service.integration.springai`.
 
+**Surfaces (rc51).**
+
+- 5 new SPI Java interfaces under `agent-middleware`:
+  `StructuredOutputConverter<T>` → `model.spi`; `PromptTemplate` →
+  `prompt.spi`; `ChatAdvisor` + `AdvisorChain` → `advisor.spi`;
+  `ConversationMemory` → `memory.spi`.
+- 6 new structural carriers: `ModelResponseChunk` (sealed),
+  `PromptTemplateSource` (sealed), `RenderedPrompt`, `AdvisedRequest`,
+  `AdvisedResponse`, `ConversationTurn`.
+- 1 SPI method addition: `ModelGateway.stream(ModelInvocation)` default
+  returning `java.util.stream.Stream<ModelResponseChunk>`.
+- 4 new `docs/contracts/*.v1.yaml` design_only contracts:
+  `model-streaming.v1.yaml`, `structured-output.v1.yaml`,
+  `prompt-template.v1.yaml`, `chat-advisor.v1.yaml`.
+- 2 contract supplements: `memory-store.v1.yaml` `conversation_memory:`
+  section; `model-invocation.v1.yaml` `tool_call_loop:` section.
+- 7 new ADRs (ADR-0129 through ADR-0135).
+- 2 new Spring AI reference adapter shells:
+  `SpringAiBeanOutputConverterAdapter`, `SpringAiPromptTemplateAdapter`.
+
 **Prevention.**
 
-- Rule R-A — now non-vacuously satisfied: real extension seams exist.
+- Rule R-A — now non-vacuously satisfied across the developer-ergonomics
+  tier too: real PromptTemplate + ChatAdvisor + StructuredOutputConverter
+  + streaming extension seams exist; Audience B has no remaining
+  Spring-AI-direct reach.
 - Rule R-D — iterating logic auto-validates new SPIs across catalog ↔
-  metadata ↔ DFX.
-- Rule G-1.1.b — L1 SPI Appendix 4-way parity gate.
+  metadata ↔ DFX (now 9 spi_packages in agent-middleware).
+- Rule G-1.1.b — L1 SPI Appendix 4-way parity gate (now 17 rows in the
+  agent-middleware §SPI Appendix table).
 - ADR-0120 / ADR-0122 / ADR-0125 — strategic decisions.
-- ADR-0121 / ADR-0123 / ADR-0124 / ADR-0126 / ADR-0127 / ADR-0128 — SPI shapes.
+- ADR-0121 / ADR-0123 / ADR-0124 / ADR-0126 / ADR-0127 / ADR-0128 — primitive-tier SPI shapes.
+- ADR-0129 / ADR-0130 / ADR-0131 / ADR-0132 / ADR-0133 / ADR-0134 / ADR-0135 — ergonomics-tier SPI shapes + AgentSession-as-Run-projection capture.
 
-**Cleanup status.** `closed` (registered + closed at rc43 by construction).
+**Cleanup status.** `closed` (registered at rc43 by construction;
+re-validated and broadened at rc51 to cover the developer-ergonomics tier).
 
-**Open residual.** Implementations of the 14 SPIs are W2-W4 staged per
-the ADRs (W2 LLM gateway, W2 skill registry, W2 memory adapters, W3 RAG
-vertical, W3 SDK GA, W4 planner). The META-lesson: future addition of new
-L0-level primitives MUST follow the same "land contract shape at L0 even
-when implementation defers" pattern; scope-conflation between "structural
-skeleton" and "agent-tier contract layer" (historical pre-Phase-C
-`agent-platform` Maven module was merged via ADR-0078; this paragraph uses
-the modern agent-tier noun phrase) must be flagged at every L0
-final-release-readiness review.
+**Open residual.** Implementations of the 19 SPIs (14 rc43 + 5 rc51) are
+W2-W4 staged per the ADRs (W2 LLM gateway + streaming + structured-output,
+W2 skill registry, W2 prompt-rendering, W2 advisor binding, W2 chat memory,
+W2 memory adapters, W3 RAG vertical with RetrievalOptions.cacheStrategy
+field, W3 SDK GA, W4 planner). The META-lesson from rc51: closure-by-
+construction at one primitive tier can mask gaps at the adjacent
+ergonomics tier; every L0 closure review MUST scan the developer-
+ergonomics surface in addition to the primitive surface. Future addition
+of new L0-level primitives (e.g., Observability SPI, Audit SPI, Workflow
+SPI) MUST follow the same "land contract shape at L0 even when
+implementation defers" pattern this family establishes; scope-conflation
+between "structural skeleton" and "agent-tier contract layer" (historical
+pre-Phase-C `agent-platform` Maven module was merged via ADR-0078; this
+paragraph uses the modern agent-tier noun phrase) must be flagged at every
+L0 final-release-readiness review.
+
+---
+
+### F-agentic-contract-composition-gap — Agentic Contract Composition and Semantic-Closure Gap
+
+**Pattern.** Individually valid agentic primitives can still fail as a
+composed developer contract when adjacent surfaces use incompatible carrier
+types or terminal semantics. rc51 shipped the missing ergonomics-tier shapes,
+but its first pass left four cross-surface contradictions: streaming model
+output could not pass through advisors, conversation memory used a map-store
+generic while prose required ordered windows, model finish reasons were free
+strings while tool-loop logic treated them as an enum, and formal release
+notes were published without clean evidence tied to the candidate commit.
+
+**Surfaces.**
+
+- `agent-middleware/src/main/java/com/huawei/ascend/middleware/{advisor,memory,model,retrieval}/spi`
+- `docs/contracts/chat-advisor.v1.yaml`
+- `docs/contracts/memory-store.v1.yaml`
+- `docs/contracts/model-invocation.v1.yaml`
+- `docs/contracts/model-streaming.v1.yaml`
+- ADR-0129, ADR-0132, ADR-0133, ADR-0134
+- `gate/lib/check_formal_release_transaction.py`
+- Latest formal `docs/logs/releases/*.md` plus its evidence bundle
+
+**rc52 deep sweep.** The corrective sweep grouped the rc51 findings into
+four recurring classes before fixing code: strict same-package SPI purity,
+cross-contract carrier mismatch, terminal-stream semantic mismatch, and
+non-atomic formal-release publication. The sweep found additional latent
+surfaces in retrieval (`Retriever` returning vector `Document`), human
+family-view/template drift, and D-9 kernel-vs-gate wording drift.
+
+**Prevention.**
+
+- Rule R-D — agentic SPI package purity is interpreted as no dependencies
+  outside Java/JDK and same-package sibling carriers for the rc52
+  agent-middleware surfaces.
+- Rule G-8 — cross-authority agreement now includes composed contract
+  semantics, not only per-file presence.
+- Formal release transaction validation rejects dirty evidence, candidate
+  SHA mismatch, non-formal latest notes, and evidence-path mismatch.
+- `SpiPurityGeneralizedArchTest` pins the same-package dependency boundary
+  for every `agent-middleware..spi..` class.
+
+**Cleanup status.** `monitoring` — the cited rc51 surfaces are corrected by
+rc52, but the family is new and needs a three-release cool-down before it can
+be marked closed.
+
+**Open residual.** The rc52 strict no-dependency enforcement covers the
+new agent-middleware contract surfaces. Broader historical SPI packages in
+`agent-bus`, `agent-execution-engine`, and `agent-service` still carry
+intentional cross-package relationships from earlier architecture waves; a
+future repo-wide SPI-purity rule would need a separately scoped migration.
+The rc52 formal-publication follow-up also re-ran the recurring-family
+ledger freshness check after the release note and CLAUDE template publication
+surfaces changed; no additional problem type was found beyond this family,
+so the canonical recurring-family count remains 16.
 
 ---
 

@@ -1,0 +1,167 @@
+id: ADR-0134
+title: "Tool-Call Iteration Loop: agent-driven vs. planner-driven execution modes for LLM <-> Tool <-> LLM iteration"
+status: accepted
+date: 2026-05-25
+level: L0
+view: process
+affects_level: L0, L1
+affects_view: process, development, logical
+authors:
+  - chao
+relates_to:
+  - ADR-0121    # ModelGateway SPI (the LLM call boundary the loop drives)
+  - ADR-0122    # Tool-Skill semantic resolution (ToolCall args carry SkillRef)
+  - ADR-0126    # Planner SPI (planner-driven dispatch mode owner)
+  - ADR-0128    # Agent as first-class entity (AgentDefinition picks the mode)
+context: |
+  The senior-architect L0 review identified the tool-call iteration
+  loop as under-specified at the contract layer (finding P1-2):
+  `docs/contracts/model-invocation.v1.yaml` declares the request /
+  response envelope for a SINGLE `ModelGateway.invoke(...)` call
+  including `finishReason = ModelFinishReason.TOOL_CALLS` and a `toolCalls` list,
+  but says NOTHING about how the platform re-invokes the model
+  after dispatching the tool calls, when the loop terminates,
+  what owns iteration, or how planner-driven dispatch differs
+  from agent-driven iteration.
+
+  This leaves a contract gap with three downstream consequences:
+
+  - W2 LLM gateway implementations have no fixed termination
+    contract — implementations could diverge on max-iteration
+    caps, provider-string parsing, or message accumulation rules.
+  - The relationship between `ModelGateway` iteration (ADR-0121)
+    and `Planner.plan(...)` dispatch (ADR-0126) is implicit:
+    is the planner a step inside the model loop, or is the loop
+    a fallback when no plan exists?
+  - `AgentDefinition` (ADR-0128) needs a knob to pick between the
+    two patterns, but no contract names them.
+
+  ADR-0121 fixed the LLM call boundary; ADR-0126 fixed the plan
+  boundary. This ADR specifies the iteration semantics that
+  compose them.
+
+decision: |
+  Land the tool-call iteration loop contract as a supplement to
+  `docs/contracts/model-invocation.v1.yaml` (status: design_only,
+  runtime_enforced: false). Two execution modes are defined; an
+  `AgentDefinition` picks exactly one per agent. Default:
+  `agent_driven_loop`.
+
+  - **Mode A — `agent_driven_loop`** (the iteration owner is the
+    `ModelGateway`):
+      1. Platform calls `ModelGateway.invoke(invocation)` with
+         the running message history.
+      2. If `ModelResponse.finishReason == ModelFinishReason.TOOL_CALLS` and
+         `toolCalls` is non-empty, the platform dispatches each
+         `ToolCall` to `Skill.execute(...)` (resolution per
+         ADR-0122 SkillRef binding).
+      3. Each `SkillResult` becomes a
+         `Message.ToolResultMessage` appended to the next
+         invocation's `messages` list.
+      4. The platform re-invokes `ModelGateway.invoke(...)` with
+         the grown history.
+      5. The loop terminates when `finishReason` is one of
+         `{STOP, LENGTH, CONTENT_FILTER, OTHER}` OR a configured
+         max-iteration cap fires (default: 10 turns).
+
+  - **Mode B — `planner_driven_dispatch`** (the iteration owner
+    is the `Planner`):
+      1. Platform calls `Planner.plan(...)` once to obtain a Plan
+         DAG.
+      2. Platform dispatches `plan.steps` individually through
+         `Skill.execute(...)` per the plan's dependency graph
+         (Plan-projection scheduling per ADR-0126).
+      3. `ModelGateway.invoke(...)` is NOT re-invoked in a loop;
+         the Plan DAG owns iteration shape. Individual steps MAY
+         call the ModelGateway, but those are leaf calls, not
+         iteration drivers.
+      4. The dispatch terminates when the Plan has no further
+         dependencies to satisfy OR a `PlanStep` returns
+         `SkillError` / budget exhaustion.
+
+  - **AgentDefinition override**: the per-agent mode selector is
+    the `AgentDefinition.metadata` key `tool-call-loop-mode`,
+    with values `agent_driven_loop` (default) or
+    `planner_driven_dispatch`.
+
+  - **Max-iteration cap** (Mode A only): platform-default 10
+    turns; per-agent override via `AgentDefinition.metadata` key
+    `tool-call-loop-max-iterations`. Exceeding the cap surfaces
+    as a terminal `SkillError`-equivalent reason and short-circuits
+    the loop before the next invoke.
+
+  - **Message accumulation rules** (Mode A): each iteration's
+    invocation message list is `prior_messages + assistantTurn +
+    toolResultMessages`. The platform owns appending; advisors
+    (ADR-0132) may rewrite the accumulated list inside the
+    around-call chain.
+
+  - **Finish-reason parsing**: provider-native strings are parsed
+    into `ModelFinishReason` before entering the SPI surface. Unknown
+    strings fail fast at adapter boundaries instead of flowing through
+    the loop as unenforced text.
+
+  Contract supplement lives at the END of
+  `docs/contracts/model-invocation.v1.yaml` under a
+  `tool_call_loop:` section. The catalog row and module-metadata
+  references are unchanged (no new SPI Java file lands in this
+  wave — the modes are contract-level constructs that compose
+  existing SPIs).
+
+consequences: |
+  Positive:
+  - W2 LLM gateway implementations have a fixed termination
+    contract: `finishReason` semantics, max-iteration cap, and
+    message accumulation order are all part of the platform
+    contract, not implementation-discretion.
+  - The relationship between `ModelGateway` iteration and
+    `Planner` dispatch is explicit: they are mutually exclusive
+    modes selected per agent, not nested patterns.
+  - `AgentDefinition` gains a stable extension key
+    (`tool-call-loop-mode`) without a schema change — the
+    metadata map already exists per ADR-0128.
+  - Audience B can pick deterministic plan-driven execution for
+    workflow-shaped tasks (ETL, multi-stage pipelines) and
+    free-form model-driven iteration for chat-shaped tasks
+    without a code change at the SPI surface.
+
+  Negative / residual:
+  - `tool_call_loop` is design_only at the time of landing; no
+    runtime enforcement today. The W2 LLM gateway implementation
+    arms the contract.
+  - Hybrid patterns (e.g. planner-driven dispatch with per-step
+    agent-driven sub-loops) are NOT modelled at L0. Such hybrids
+    would compose by nesting the modes inside a `Plan.step`'s
+    skill implementation, but no first-class contract surface
+    names the composition.
+  - The max-iteration cap defaults to 10 turns; this is a
+    posture-aware default per Rule D-6 and may need
+    posture-specific overrides at the W2 wave (e.g. higher
+    caps for `research` posture, lower for `prod`).
+
+alternatives_considered: |
+  - (A) Single mode — always agent-driven loop, planner dispatch
+    happens only as a nested call inside an assistant turn.
+    Rejected — couples the planner's deterministic dispatch
+    semantics (ADR-0126) to LLM finishReason behaviour, defeating
+    the planner's reason for existing (predictable workflow
+    shape). Audience B picking the planner explicitly is the
+    point.
+  - (B) Single mode — always planner-driven, with chat-shaped
+    iteration expressed as a degenerate Plan with one
+    self-referential step. Rejected — degenerate Plans add
+    conceptual overhead to the simple chat case, which is the
+    most common Audience B pattern. The agent-driven loop is
+    cheaper to reason about for the common case.
+  - (C) Three modes — agent-driven, planner-driven, and a third
+    "react-style" mode where the loop interleaves planner calls
+    and model calls per turn. Rejected — adds a contract surface
+    without a clear customer ask; can be expressed today by
+    nesting a planner call inside a Mode-A iteration via a Skill
+    whose execute() calls `Planner.plan(...)`.
+  - (D) Express the iteration shape inside `ModelInvocation`
+    itself (a `loopMode` field on the request). Rejected — the
+    iteration is a property of the AGENT, not of a single LLM
+    call. A field on `ModelInvocation` would force every caller
+    to repeat the mode choice and would couple the model envelope
+    to the planner SPI.

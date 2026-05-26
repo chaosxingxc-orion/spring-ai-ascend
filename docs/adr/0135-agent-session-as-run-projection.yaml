@@ -1,0 +1,128 @@
+id: ADR-0135
+title: "AgentSession as Run-Projection: no separate AgentSession SPI; conversation continuity is a (tenantId, conversationId) projection over the Run sequence + M2_EPISODIC ConversationMemory"
+status: accepted
+date: 2026-05-25
+level: L0
+view: development
+affects_level: L0, L1
+affects_view: development, logical, scenarios
+authors:
+  - chao
+relates_to:
+  - ADR-0128    # Agent first-class entity (AgentInvocation carries conversationId)
+  - ADR-0123    # Memory unified SPI (M2_EPISODIC is the conversation continuity carrier)
+  - ADR-0133    # ConversationMemory variant (keyed by (tenantId, conversationId))
+  - ADR-0124    # Vector / Retriever / Embedding SPI (RetrievalOptions cacheStrategy forward intent)
+  - ADR-0044    # Tenant scope canonical (tenantId is the partition root)
+context: |
+  The senior-architect L0 review identified two design intents that
+  the platform encodes through code structure but does not yet capture
+  in any ADR:
+
+  1. The platform has no `AgentSession` SPI distinct from `Run`.
+     Existing code carries session state via `Run` + `RunContext` +
+     `AgentInvocation.conversationId` field + M2_EPISODIC memory
+     keyed by conversationId. The absence is deliberate — sessions
+     are projections, not entities — but the design intent is not
+     captured in any ADR, leaving future contributors to potentially
+     propose a new `AgentSession` SPI that would conflict with the
+     existing projection model.
+
+  2. `RetrievalOptions` has no `cacheStrategy` field today. The W3
+     RAG vertical will introduce embedding-cache strategies
+     (in-memory LRU, Redis, ANN-index-backed). At L0 the absence is
+     intentional, but no ADR records that intention as
+     "deferred-with-known-shape" rather than "missing".
+
+  This ADR is documentation-only at L0; no Java code changes ship in
+  the same wave. The W3 RAG vertical owns the `cacheStrategy` field
+  landing.
+
+decision: |
+  Capture both intents as a single L0 design-intent decision:
+
+  1. **AgentSession is a projection, not an SPI.** The conversation
+     continuity surface is the tuple `(tenantId, conversationId)`
+     projected over the sequence of `Run` records that share that
+     tuple. `AgentInvocation.conversationId` is the only
+     client-supplied identifier; the platform NEVER mints a separate
+     `sessionId`. Multi-turn state lives in `ConversationMemory`
+     (ADR-0133) keyed by `(tenantId, conversationId)`. Long-lived
+     analytical aggregations over a conversation are query views,
+     not entities — implementation choice (e.g. a materialised view
+     in Postgres at a later wave) does not change the contract
+     surface. No new SPI, no new entity table, no new lifecycle.
+
+  2. **RetrievalOptions.cacheStrategy is deferred with a declared
+     shape.** When the W3 RAG vertical lands embedding caches,
+     `RetrievalOptions` will gain a nullable `String cacheStrategy`
+     field carrying one of `{"none", "lru", "redis", "annoy",
+     "hnsw"}` plus provider-specific extensions in `providerHints`.
+     The L0 `RetrievalOptions` record intentionally does NOT carry
+     the field; adding it at L0 would force a constructor-signature
+     change that ripples through every existing call site
+     (SpiCarrierImmutabilityTest etc.) without delivering any L0
+     value. The W3 wave will add the field as a 5th (final,
+     nullable) record parameter and update the immutability test in
+     the same change.
+
+  Together these establish that conversation-continuity surface
+  evolution is a Memory-SPI concern (ADR-0123 / ADR-0133), not a
+  new session-SPI concern, and that retrieval-cache evolution is a
+  forward-known nullable extension on `RetrievalOptions`, not a
+  missing field.
+
+consequences: |
+  Positive:
+  - Future contributors do not propose a redundant `AgentSession`
+    SPI; the projection model is now ADR-documented.
+  - W3 RAG vertical has a declared landing shape for
+    `cacheStrategy`: a nullable 5th record parameter with a fixed
+    vocabulary plus `providerHints` overflow.
+  - L0 immutable record surface (`RetrievalOptions`) is preserved
+    until the W3 wave that needs it.
+  - The conversation-continuity story aligns Run, RunContext,
+    AgentInvocation, and ConversationMemory under a single
+    projection rule rather than four overlapping entities.
+
+  Negative / residual:
+  - A customer that genuinely needs durable multi-turn session
+    metadata beyond `ConversationMemory` (e.g. session-scoped
+    tool-permission tokens, per-conversation budget envelopes) must
+    materialise that via `Skill` + the platform's `RunRepository`
+    query API; no first-class `AgentSession` entity helps them.
+    Mitigation: documented in the L1 `agent-service` ARCHITECTURE.md
+    under §Session-vs-Run when that section lands.
+  - The W3 `RetrievalOptions` constructor change is a
+    non-backward-compatible record signature evolution; downstream
+    callers must add the new positional argument (or migrate to a
+    builder). This MUST be flagged in the W3 release note.
+  - Materialised conversation-view choice is left implicit; if
+    Postgres materialised views prove insufficient at scale, a
+    follow-up ADR (not a new SPI) will name the replacement.
+
+alternatives_considered: |
+  - (A) Land a separate `AgentSession` SPI now, with its own
+    lifecycle (`open`, `append`, `close`) and its own store.
+    Rejected — duplicates `Run` + `ConversationMemory` without
+    adding new behaviour, and forces every adapter to thread a
+    second identifier through the call stack. The projection model
+    delivers the same observable behaviour with one less entity.
+  - (B) Add `cacheStrategy` to `RetrievalOptions` at L0 immediately.
+    Rejected — forces an existing record signature rewrite, ripples
+    through every call site and the SpiCarrierImmutabilityTest, and
+    adds a no-op field that no implementation reads until W3. The
+    cost is paid now; the value lands later.
+  - (C) Reserve a `Map<String, Object> options` field on
+    `RetrievalOptions` to absorb cacheStrategy without a record
+    signature change. Rejected — `providerHints` already serves
+    that role; a sibling untyped map would dilute the contract,
+    invite type-unsafe access, and obscure the deliberate fixed
+    vocabulary (`none | lru | redis | annoy | hnsw`) that W3
+    introduces.
+  - (D) Promote `(tenantId, conversationId)` to a value-object
+    `ConversationKey` and pass it everywhere instead of the two
+    fields. Rejected as premature — the tuple is already stable in
+    `AgentInvocation` and `ConversationMemory`; a wrapping type
+    adds ceremony without adding safety until a third member
+    (e.g. `sessionTier`) is needed.

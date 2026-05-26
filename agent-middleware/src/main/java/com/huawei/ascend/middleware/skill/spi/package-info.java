@@ -20,7 +20,7 @@
  * the sandbox executor SPI (ADR-0018, runtime enforcement deferred
  * to W3).
  *
- * <p>Reference adapter {@code SpringAiToolCallbackSkill} (Wave C1)
+ * <p>Reference adapter {@code SpringAiToolCallbackSkill}
  * adapts Spring AI {@code ToolCallback} to {@link Skill} with
  * {@link SkillKind#TOOL}; lifecycle methods {@code init} /
  * {@code teardown} are no-ops, {@code suspend} throws

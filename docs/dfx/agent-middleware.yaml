@@ -16,6 +16,8 @@ spi_packages:
   - com.huawei.ascend.middleware.vector.spi
   - com.huawei.ascend.middleware.retrieval.spi
   - com.huawei.ascend.middleware.embedding.spi
+  - com.huawei.ascend.middleware.prompt.spi
+  - com.huawei.ascend.middleware.advisor.spi
 
 releasability:
   artifact_coords: "io.github.springai-ascend:agent-middleware"
@@ -55,3 +57,5 @@ observability:
     - "com.huawei.ascend.middleware.vector.spi"
     - "com.huawei.ascend.middleware.retrieval.spi"
     - "com.huawei.ascend.middleware.embedding.spi"
+    - "com.huawei.ascend.middleware.prompt.spi"
+    - "com.huawei.ascend.middleware.advisor.spi"

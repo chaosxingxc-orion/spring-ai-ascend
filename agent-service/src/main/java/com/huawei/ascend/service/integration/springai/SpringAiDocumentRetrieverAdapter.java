@@ -1,8 +1,8 @@
 package com.huawei.ascend.service.integration.springai;
 
 import com.huawei.ascend.middleware.retrieval.spi.RetrievalOptions;
+import com.huawei.ascend.middleware.retrieval.spi.RetrievedDocument;
 import com.huawei.ascend.middleware.retrieval.spi.Retriever;
-import com.huawei.ascend.middleware.vector.spi.Document;
 import com.huawei.ascend.middleware.vector.spi.VectorStore;
 
 import java.util.List;
@@ -14,7 +14,7 @@ import java.util.Objects;
  * {@link SpringAiVectorStoreAdapter}) with an optional reranker
  * policy.
  *
- * <p>Authority: ADR-0124 + ADR-0125. Wave C1 design-only shell.
+ * <p>Authority: ADR-0124 + ADR-0125. Design-only shell.
  *
  * <p>The constructor takes the platform's {@link VectorStore}
  * (not Spring AI's) so the adapter is portable across non-Spring-AI
@@ -30,7 +30,7 @@ public final class SpringAiDocumentRetrieverAdapter implements Retriever {
     }
 
     @Override
-    public List<Document> retrieve(String tenantId, String query, RetrievalOptions options) {
+    public List<RetrievedDocument> retrieve(String tenantId, String query, RetrievalOptions options) {
         Objects.requireNonNull(tenantId, "tenantId");
         Objects.requireNonNull(query, "query");
         Objects.requireNonNull(options, "options");

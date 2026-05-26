@@ -2,7 +2,8 @@
 #
 # Authority: ADR-0124 (Vector/Retrieval/Embedding SPI) + ADR-0125
 # (Spring AI canonical boundary).
-# Wave: rc43 Wave B4.
+# rc52 composition sweep: Retriever returns same-package RetrievedDocument
+# carriers so retrieval.spi no longer imports vector.spi.Document directly.
 #
 # This file covers all three RAG primitives because their shapes
 # are interlinked at the contract level.
@@ -43,8 +44,11 @@ vector_query:
 retriever:
   surface: com.huawei.ascend.middleware.retrieval.spi.Retriever
   required_methods:
-    - "retrieve(tenantId, query, RetrievalOptions) -> List<Document>"
+    - "retrieve(tenantId, query, RetrievalOptions) -> List<RetrievedDocument>"
   composition: "Composes one or more VectorStore(s) + optional keyword / reranker layers"
+  carrier:
+    type: com.huawei.ascend.middleware.retrieval.spi.RetrievedDocument
+    rationale: "same-package retrieval carrier; adapters translate from vector Document or provider-native documents before crossing the SPI boundary"
   retrieval_options:
     required_fields:
       - topK
@@ -62,7 +66,7 @@ embedding_model:
     - "dimensionality() -> int"
   metadata_link: "modelVersion() feeds MemoryMetadata.embeddingModelVersion per ADR-0123"
 
-# Reference adapters (Wave C1) decorate Spring AI types per ADR-0125:
+# Reference adapters decorate Spring AI types per ADR-0125:
 #   SpringAiVectorStore       wraps org.springframework.ai.vectorstore.VectorStore
 #   SpringAiDocumentRetriever wraps Spring AI's document retriever
 #   SpringAiEmbeddingModel    wraps org.springframework.ai.embedding.EmbeddingModel

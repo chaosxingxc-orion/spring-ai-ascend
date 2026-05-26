@@ -146,12 +146,90 @@ is the *declarative* shape and the W3 SDK GA wave wires
 
 See:
 - [`docs/contracts/agent-definition.v1.yaml`](contracts/agent-definition.v1.yaml)
-- [`docs/contracts/model-invocation.v1.yaml`](contracts/model-invocation.v1.yaml)
+- [`docs/contracts/model-invocation.v1.yaml`](contracts/model-invocation.v1.yaml) (includes the rc51 `tool_call_loop:` section per ADR-0134)
 - [`docs/contracts/skill-definition.v1.yaml`](contracts/skill-definition.v1.yaml)
-- [`docs/contracts/memory-store.v1.yaml`](contracts/memory-store.v1.yaml)
+- [`docs/contracts/memory-store.v1.yaml`](contracts/memory-store.v1.yaml) (includes the rc51 `conversation_memory:` section per ADR-0133)
 - [`docs/contracts/vector-store.v1.yaml`](contracts/vector-store.v1.yaml)
 - [`docs/contracts/planning-request.v1.yaml`](contracts/planning-request.v1.yaml)
 - ADR-0120 through ADR-0128 under `docs/adr/`.
+
+## 4.6 L0 Agentic-Completeness Surface preview (rc51+)
+
+Wave rc51 of the L0 Agentic-Completeness program (ADR-0129 through
+ADR-0135) adds the developer-ergonomics extension surface so Audience B
+never needs to import Spring AI types directly: **streaming** on
+`ModelGateway`, **`StructuredOutputConverter<T>`** for typed-bean
+extraction, **`PromptTemplate`** for variable-substituted prompts,
+**`ChatAdvisor`** for interceptor chains around model calls, and
+**`ConversationMemory`** for windowed FIFO + token-budget pruning. Like
+rc43, every shape is `status: design_only` at L0; functional
+implementations land in W2 (LLM gateway, prompt rendering, advisor
+binding, chat memory) and W3 (RAG cache strategy per ADR-0135).
+
+Customer-side wiring (the shape Audience B implements — functional W2+):
+
+```java
+@Configuration
+public class MyAgentExtensions {
+
+  /** rc51 — typed-bean extraction wraps Spring AI BeanOutputConverter. */
+  @Bean
+  <T> StructuredOutputConverter<T> orderResponseConverter(
+      ObjectMapper jackson, Class<T> targetType) {
+    // SpringAiBeanOutputConverterAdapter is design-only shell at L0;
+    // W2 LLM gateway wires it through ModelGateway.invoke decoration.
+    return new SpringAiBeanOutputConverterAdapter<>(
+        /* org.springframework.ai.converter.BeanOutputConverter */ jackson, targetType);
+  }
+
+  /** rc51 — variable-substituted prompts wrap Spring AI PromptTemplate. */
+  @Bean
+  PromptTemplate supportSystemPromptTemplate() {
+    return new SpringAiPromptTemplateAdapter(
+        /* org.springframework.ai.chat.prompt.PromptTemplate */ new Object(),
+        "support-agent.system-prompt.v1",
+        new PromptTemplateSource.InlineString(
+            "You help {tenant} with orders placed via {channel}.",
+            PromptTemplateSource.PlaceholderSyntax.MUSTACHE_SINGLE_BRACE));
+  }
+
+  /** rc51 — interceptor chain around ModelGateway.invoke; binds via
+   *  HookDispatcher internally at W2 (Telemetry Vertical co-arrival). */
+  @Bean
+  ChatAdvisor piiRedactionAdvisor() {
+    return new ChatAdvisor() {
+      @Override public String advisorName() { return "pii-redaction"; }
+      @Override public int order() { return 100; }
+      @Override public AdvisedResponse aroundCall(AdvisedRequest req, AdvisorChain chain) {
+        // Inbound: scrub PII from req.invocation().messages() before chain.next.
+        // Outbound: scrub PII from response.content() before return.
+        return chain.next(req); // L0 contract shape; W2 wires real binding.
+      }
+    };
+  }
+
+  /** rc51 — windowed FIFO + token-budget pruning over M2_EPISODIC. */
+  @Bean
+  ConversationMemory chatMemory() {
+    // First production ConversationMemory impl lands in W2 chat-memory
+    // wave; for now customers compose against the SPI shape.
+    return null; // placeholder — Audience B impl lands here in W2.
+  }
+}
+```
+
+The same `AgentDefinition` shape from §4.5 binds these extensions via
+`toolBindings` / `memoryBindings` / `metadata`; the W2 LLM gateway wave
+adds an optional `advisorBindings: List<ChatAdvisor>` accessor on
+`AgentDefinition` so the advisor chain composes at agent registration
+time, not at every invocation.
+
+See:
+- [`docs/contracts/model-streaming.v1.yaml`](contracts/model-streaming.v1.yaml) (ADR-0129)
+- [`docs/contracts/structured-output.v1.yaml`](contracts/structured-output.v1.yaml) (ADR-0130)
+- [`docs/contracts/prompt-template.v1.yaml`](contracts/prompt-template.v1.yaml) (ADR-0131)
+- [`docs/contracts/chat-advisor.v1.yaml`](contracts/chat-advisor.v1.yaml) (ADR-0132)
+- ADR-0129 through ADR-0135 under `docs/adr/`.
 
 ## 5. Switch posture
 

@@ -3,8 +3,7 @@
  *
  * <p>Authority: ADR-0124.
  *
- * <p>Reference adapter ({@code SpringAiEmbeddingModel}, lands in
- * Wave C1) decorates Spring AI's
+ * <p>Reference adapter {@code SpringAiEmbeddingModel} decorates Spring AI's
  * {@code org.springframework.ai.embedding.EmbeddingModel} per
  * ADR-0125.
  *

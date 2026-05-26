@@ -59,3 +59,37 @@ structural_siblings:
   - "TaskStateStore (agent-service.task.spi) — M2-adjacent control state; carries Task control state, not memory content"
   - "GraphMemoryRepository (agent-service.runtime.memory.spi) — M4 reference; pre-existing; migration to middleware deferred"
   - "ContextProjector (agent-service.session.spi) — M1+M6 plumbing"
+
+# ---------------------------------------------------------------------
+# Variant: ConversationMemory (extends MemoryStore<String, ConversationWindow>)
+#
+# Authority: ADR-0133. Status: design_only.
+# Default category: M2_EPISODIC.
+
+conversation_memory:
+  status: design_only
+  authority: ADR-0133
+  promotion_trigger: "First production ConversationMemory implementation (W2 chat-memory wave)"
+  parent_interface: MemoryStore<String, ConversationWindow>
+  default_category: M2_EPISODIC
+  required_methods:
+    - addTurns(tenantId, conversationId, turns)
+    - getTurnsUpToBudget(tenantId, conversationId, maxTokenBudget)
+    - summariseAndCompact(tenantId, conversationId, keepLastN)
+  invariants:
+    - "preserve insertion order across addTurns"
+    - "drop OLDEST turns first when budget exceeded"
+    - "summariseAndCompact is no-op when totalTurns <= keepLastN"
+    - "tokenizer choice is implementation-internal; not standardised at L0"
+  carrier:
+    ConversationWindow:
+      fields:
+        - turns       # list<ConversationTurn>, ordered
+        - metadata    # map<string, any>
+    ConversationTurn:
+      fields:
+        - role        # SYSTEM | USER | ASSISTANT | TOOL
+        - content     # string
+        - observedAt   # Instant
+        - tokenCount   # int >= 0
+        - metadata     # map<string, any>

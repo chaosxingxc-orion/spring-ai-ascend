@@ -1,0 +1,110 @@
+id: ADR-0129
+title: "Streaming-aware ModelGateway: pure-Java `Stream<ModelResponseChunk>` default; Spring AI ChatModel.stream(...) is the reference adapter source"
+status: accepted
+date: 2026-05-25
+level: L0
+view: development
+affects_level: L0, L1
+affects_view: development, logical
+authors:
+  - chao
+relates_to:
+  - ADR-0121    # ModelGateway SPI (this ADR extends it with streaming)
+  - ADR-0125    # Spring AI canonical integration boundary
+  - ADR-0073    # Engine hooks + HookPoint (BEFORE_LLM / AFTER_LLM bind here)
+  - ADR-0061    # Telemetry vertical (TraceContext propagation through ModelGateway)
+  - ADR-0119    # Single-source rendering coherence (contract YAML is authority)
+  - ADR-0128    # Agent-first-class-entity (streaming chat surfaces emerge from agents)
+context: |
+  The senior-architect rc51 review flagged the absence of a streaming
+  surface on `ModelGateway` as finding P0-1: Spring AI's `ChatModel`
+  exposes both `call(...)` and `stream(...)`, but the platform's L0
+  envelope only declared `invoke(...)`. Consumer-facing surfaces that
+  need token-by-token streaming (chat UIs, server-sent events, the
+  cursor-flow polling endpoint per Rule R-F) cannot be wired without
+  a streaming SPI contract at the platform boundary.
+
+  ADR-0121 already established `ModelGateway` as the pure-Java
+  tenant-scoped invocation boundary. ADR-0125 already committed to
+  Spring AI as the canonical reference adapter. The gap is the
+  streaming companion to `invoke(...)`.
+
+decision: |
+  Extend the `ModelGateway` SPI in
+  `com.huawei.ascend.middleware.model.spi.ModelGateway` with a
+  default streaming method. Status: design_only at rc51;
+  runtime_enforced when the W2 LLM gateway implementation ships
+  per ADR-0061 §7.
+
+  - **Signature**:
+    `default Stream<ModelResponseChunk> stream(ModelInvocation invocation)`.
+    The default throws `UnsupportedOperationException` so existing
+    non-streaming adapters keep compiling; adapters that wrap a
+    streaming-capable provider override.
+  - **Return type**: `java.util.stream.Stream<ModelResponseChunk>`,
+    NOT Reactor `Flux`. Rule R-D forbids non-`java.*` imports in SPI
+    packages; the adapter implementation owns the bridge from the
+    provider's reactive type (e.g. Spring AI's `Flux<ChatResponse>`)
+    into a java.util.stream.Stream backed by a virtual-thread-friendly
+    iterator.
+  - **Chunk taxonomy**: `ModelResponseChunk` is a sealed interface
+    permitting three variants:
+    - `ContentDelta(String deltaText)` — token-level content delta.
+    - `ToolCallDelta(String callId, String skillKey, String argumentsDelta)`
+      — partial tool-call argument stream.
+    - `Complete(ModelResponse finalResponse)` — terminal chunk
+      carrying the fully assembled `ModelResponse`. A successful stream
+      MUST contain exactly one `Complete` element which MUST be the last.
+      A cancelled stream may close before `Complete`, and provider/runtime
+      errors surface as stream exceptions rather than an L0 error chunk.
+  - **Hook binding**: `HookPoint.BEFORE_LLM` fires once with
+    `ModelInvocation` before stream open; `HookPoint.AFTER_LLM`
+    fires once with the terminal `Complete.finalResponse()`. Per-chunk
+    hooks are deliberately not declared at L0 — the platform reserves
+    the option to add them in a future ADR without breaking the
+    current envelope.
+  - **Tenant scope**: streams inherit the tenant from
+    `ModelInvocation.tenantId()` (Rule R-C.c). Cross-tenant access
+    fails closed before stream open.
+  - **Reference adapter**: `SpringAiChatModelGateway` inherits the
+    default `UnsupportedOperationException` at rc51; the W2 LLM
+    gateway wave overrides it to delegate into Spring AI
+    `ChatModel.stream(...)`.
+
+  Contract schema lives at `docs/contracts/model-streaming.v1.yaml`
+  (status: design_only, runtime_enforced: false).
+
+consequences: |
+  Positive:
+  - Closes finding P0-1 — the platform now has a streaming surface
+    declared at L0, available to chat-UI and SSE consumers once W2
+    promotes the runtime adapter.
+  - The default-throws shape keeps the L0 SPI binary-compatible:
+    every existing `ModelGateway` implementation continues to compile
+    and run; only adapters that opt into streaming need to override.
+  - The `Complete(ModelResponse)` terminal chunk gives the adapter a
+    single place to fire `AFTER_LLM` and emit usage / finishReason
+    without inventing a parallel "tail metadata" carrier.
+
+  Negative / residual:
+  - Streaming I/O is inherently blocking on `Stream.next()`; W2
+    adapters MUST isolate provider calls behind virtual threads
+    (Rule R-G) before promotion from design_only.
+  - Per-chunk hooks are explicitly deferred; consumers needing
+    per-token policy must wait for a follow-on ADR.
+
+alternatives_considered: |
+  - (A) `Flux<ModelResponseChunk> stream(...)`. Rejected for L0: Rule
+    R-D forbids Reactor in the SPI surface. The adapter owns the
+    bridge.
+  - (B) Callback-style `void stream(ModelInvocation, Consumer<ModelResponseChunk>)`.
+    Rejected: harder to compose, harder to cancel, harder to test;
+    the `Stream` return is the JDK-native iterator equivalent.
+  - (C) Separate `StreamingModelGateway` sibling interface. Rejected:
+    bifurcates the SPI surface, breaks adapter polymorphism, and
+    forces every consumer to pick one. The default-method shape on
+    the existing `ModelGateway` keeps the surface unified.
+  - (D) Expose chunk types as a single union record with nullable
+    fields. Rejected: sealed interface + permits is the idiomatic
+    Java 21 expression of a closed tagged-union and gives the
+    compiler exhaustiveness checking on switch expressions.

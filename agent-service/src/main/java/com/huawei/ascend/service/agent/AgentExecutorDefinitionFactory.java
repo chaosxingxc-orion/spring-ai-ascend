@@ -8,7 +8,7 @@ import com.huawei.ascend.service.agent.spi.AgentDefinition;
  * Bridges an {@link Agent} definition to an
  * {@link ExecutorDefinition} the {@code Orchestrator} can run.
  *
- * <p>Authority: ADR-0128 §Integration. Wave C1 design-only shell.
+ * <p>Authority: ADR-0128 §Integration. Design-only shell.
  *
  * <p>The W3 SDK GA implementation translates an {@link AgentDefinition}
  * into either an {@code ExecutorDefinition.AgentLoopDefinition}

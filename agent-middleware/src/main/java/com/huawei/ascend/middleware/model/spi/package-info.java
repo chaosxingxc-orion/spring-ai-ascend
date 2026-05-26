@@ -6,7 +6,7 @@
  * <p>The {@link com.huawei.ascend.middleware.model.spi.ModelGateway}
  * interface is the platform's abstraction for chat-style LLM
  * invocation. The reference adapter ({@code SpringAiChatModelGateway},
- * lands in Wave C1) decorates Spring AI's
+ * in the Spring AI integration layer) decorates Spring AI's
  * {@code org.springframework.ai.chat.model.ChatModel} (ADR-0125)
  * (Spring AI canonical integration boundary).
  *

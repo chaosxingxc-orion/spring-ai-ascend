@@ -17,7 +17,7 @@ scope_surfaces:
   - "Dockerfile"
   - ".github/workflows/*.yml"
 kernel: |
-  **Production code (Java, Python, shell scripts, YAML config) and inline comments MUST NOT carry version metadata: no `rc<N> Wave <M>` tags, no `per ADR-NNNN` pointers, no commit-SHA references, no `Finding F<N>` mentions, no "closes/addresses ticket #<N>" annotations, no changelog-style entries. Such metadata lives in commit messages, PR descriptions, ADRs (`docs/adr/`), release notes (`docs/logs/releases/`), rule cards (`docs/governance/rules/*.md`), `rule-history.md`, and the recurring-defect-families ledger. Implementation comments explain WHY the code exists when non-obvious, never WHICH wave introduced it. Structural rule citations (`# Rule 113 — slug`, `enforcer E160`) are STRUCTURAL identifiers, not metadata, and remain allowed everywhere. The following surfaces are EXEMPT (they exist precisely to carry version/wave metadata): `docs/adr/`, `docs/logs/`, `docs/governance/rules/*.md`, `docs/governance/principles/*.md`, `docs/governance/rule-history.md`, `docs/governance/recurring-defect-families.{yaml,md}`, `docs/governance/architecture-status.yaml` (allowed_claim + baseline_metrics comments), `docs/governance/enforcers.yaml`, `docs/governance/principle-coverage.yaml`, `docs/governance/architecture-graph.yaml`, `CHANGELOG.md`, the kernel paragraphs in `CLAUDE.md` itself, `gate/lib/` (helpers), and `gate/test_architecture_sync_gate.sh` (test fixtures construct synthetic version-tagged inputs).**
+  **Production code (Java, Python, shell scripts, YAML config) and inline comments MUST NOT carry version metadata: no `rc<N> Wave <M>` tags, no narrative `per ADR-NNNN` change-history pointers, no commit-SHA references, no `Finding F<N>` mentions, no "closes/addresses ticket #<N>" annotations, no changelog-style entries. Such metadata lives in commit messages, PR descriptions, ADRs (`docs/adr/`), release notes (`docs/logs/releases/`), rule cards (`docs/governance/rules/*.md`), `rule-history.md`, and the recurring-defect-families ledger. Stable structural citations (`# Rule 113 — slug`, `enforcer E160`) and public contract authority markers (`Authority: ADR-NNNN`) are STRUCTURAL identifiers, not version/log metadata, and remain allowed where they identify the normative source of a contract rather than the wave that introduced it. Implementation comments explain WHY the code exists when non-obvious, never WHICH wave introduced it. The following surfaces are EXEMPT (they exist precisely to carry version/wave metadata): `docs/adr/`, `docs/logs/`, `docs/governance/rules/*.md`, `docs/governance/principles/*.md`, `docs/governance/rule-history.md`, `docs/governance/recurring-defect-families.{yaml,md}`, `docs/governance/architecture-status.yaml` (allowed_claim + baseline_metrics comments), `docs/governance/enforcers.yaml`, `docs/governance/principle-coverage.yaml`, `docs/governance/architecture-graph.yaml`, `CHANGELOG.md`, the kernel paragraphs in `CLAUDE.md` itself, `gate/lib/` (helpers), and `gate/test_architecture_sync_gate.sh` (test fixtures construct synthetic version-tagged inputs).**
 scope_phase: always_on
 ---
 
@@ -55,6 +55,9 @@ workflows):
 - Comments explaining a non-obvious WHY (`# strip BOM before hashing: BOM is not part of content`).
 - Comments documenting an invariant or constraint (`# tenantId MUST be set before persist; enforced by validate()`).
 - Cross-references to the canonical authority surface for the constraint (`# see Rule G-9 card`).
+- Public contract authority markers that identify the stable source of a
+  type or SPI (`Authority: ADR-0121`), provided they are not written as
+  wave history or implementation-change notes.
 - Linking to a runbook for operational context (`# see docs/runbooks/multi-wave-release.md`).
 
 ## Exempt surfaces
@@ -83,8 +86,10 @@ gate enforcement is grep-based and runs cheaply on every commit.
 
 - "I'll add the wave tag for traceability." → No. Traceability lives in
   `git log` + commit message. Inline tag duplicates and drifts.
-- "But the ADR is the source of truth for this constraint." → Cite the
-  ADR in the commit message and the rule card. Not inline.
+- "But the ADR is the source of truth for this constraint." → If it is a
+  public contract/type authority marker, keep the stable `Authority:
+  ADR-NNNN` citation. If it is a change-history explanation, cite the ADR
+  in the commit message and the rule card, not inline.
 - "The reviewer asked for it." → Push back; reviewer also reads
   `git log`. If the reviewer wants written history, that belongs in the
   release note, not the implementation.

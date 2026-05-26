@@ -4,9 +4,8 @@
  *
  * <p>Authority: ADR-0124.
  *
- * <p>Reference adapter ({@code SpringAiDocumentRetriever}, lands in
- * Wave C1) decorates Spring AI's document-retrieval shape per
- * ADR-0125.
+ * <p>Reference adapter {@code SpringAiDocumentRetriever} decorates
+ * Spring AI's document-retrieval shape defined by ADR-0125.
  *
  * <p>Custom retrievers compose vector search with reranking, hybrid
  * keyword search, or BM25; the SPI surface is intentionally narrow

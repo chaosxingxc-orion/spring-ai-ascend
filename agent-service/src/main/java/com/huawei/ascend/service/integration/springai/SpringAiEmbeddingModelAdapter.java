@@ -10,7 +10,7 @@ import java.util.Objects;
  * Reference {@link EmbeddingModel} that decorates a Spring AI
  * {@code org.springframework.ai.embedding.EmbeddingModel}.
  *
- * <p>Authority: ADR-0124 + ADR-0125. Wave C1 design-only shell.
+ * <p>Authority: ADR-0124 + ADR-0125. Design-only shell.
  *
  * <p>The Spring AI type is held by FQN to avoid name collision
  * with this class's implemented platform interface

@@ -1,0 +1,35 @@
+# PromptTemplate / PromptTemplateSource schema, version 1.
+#
+# Authority: ADR-0131 (Prompt Template SPI).
+#
+# This file is the single source of truth for the shape of a
+# PromptTemplate descriptor and the rendered prompt envelope. The
+# Java types in com.huawei.ascend.middleware.prompt.spi mirror this
+# schema and validate required fields on construction.
+
+schema: prompt-template/v1
+status: design_only
+runtime_enforced: false
+authority: ADR-0131
+promotion_trigger: "First production PromptTemplate implementation (W2 prompt-rendering wave)"
+
+prompt_template:
+  required_fields:
+    - templateId          # string, non-blank, stable identifier
+    - source              # PromptTemplateSource discriminated by kind
+prompt_template_source:
+  kinds:
+    - InlineString        # carries body + syntax
+    - ClasspathResource   # carries path + syntax
+  placeholder_syntax:
+    - MUSTACHE_SINGLE_BRACE   # {variable}
+    - MUSTACHE_DOUBLE_BRACE   # {{variable}}
+    - DOLLAR_BRACE            # ${variable}
+rendered_prompt:
+  required_fields:
+    - templateId
+    - renderedText        # string, may be empty for templates that resolve to empty
+    - variables           # map<string, any>; immutable copy of resolver inputs
+
+# Reference adapter target: SpringAiPromptTemplateAdapter, wrapping
+# org.springframework.ai.chat.prompt.PromptTemplate (ADR-0125).

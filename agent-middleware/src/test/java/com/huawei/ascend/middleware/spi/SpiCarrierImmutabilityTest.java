@@ -6,9 +6,11 @@ import com.huawei.ascend.middleware.memory.spi.MemoryCategory;
 import com.huawei.ascend.middleware.memory.spi.MemoryMetadata;
 import com.huawei.ascend.middleware.memory.spi.MemoryOwnership;
 import com.huawei.ascend.middleware.memory.spi.MemoryQuery;
+import com.huawei.ascend.middleware.model.spi.ModelFinishReason;
 import com.huawei.ascend.middleware.model.spi.Message;
 import com.huawei.ascend.middleware.model.spi.ModelInvocation;
 import com.huawei.ascend.middleware.model.spi.ModelResponse;
+import com.huawei.ascend.middleware.retrieval.spi.RetrievedDocument;
 import com.huawei.ascend.middleware.retrieval.spi.RetrievalOptions;
 import com.huawei.ascend.middleware.skill.spi.SkillContext;
 import com.huawei.ascend.middleware.skill.spi.SkillInvocation;
@@ -66,13 +68,14 @@ class SpiCarrierImmutabilityTest {
         List<ModelResponse.ToolCall> toolCalls = new ArrayList<>(List.of(call));
         Map<String, Object> metadata = new HashMap<>(Map.of("provider", "openai"));
 
-        ModelResponse response = new ModelResponse("content", toolCalls, "stop", null, metadata);
+        ModelResponse response = new ModelResponse("content", toolCalls, ModelFinishReason.STOP, null, metadata);
         Message.AssistantMessage assistant = new Message.AssistantMessage("", toolCalls);
 
         toolCalls.add(new ModelResponse.ToolCall("call-2", "shell", "{}"));
         metadata.put("provider", "mutated");
 
         assertThat(response.toolCalls()).containsExactly(call);
+        assertThat(response.finishReason()).isEqualTo(ModelFinishReason.STOP);
         assertThat(response.metadata()).containsEntry("provider", "openai");
         assertThat(assistant.toolCalls()).containsExactly(call);
         assertThatThrownBy(() -> response.toolCalls().add(call))
@@ -87,18 +90,26 @@ class SpiCarrierImmutabilityTest {
         Map<String, Object> metadata = new HashMap<>(Map.of("source", "doc"));
         Embedding value = new Embedding(embedding, "v1");
         Document document = new Document("doc", "content", embedding, metadata);
+        RetrievedDocument retrievedDocument = new RetrievedDocument("doc", "content", embedding, metadata);
 
         embedding[0] = 9.0f;
         metadata.put("source", "mutated");
 
         assertThat(value.vector()).containsExactly(1.0f, 2.0f);
         assertThat(document.embedding()).containsExactly(1.0f, 2.0f);
+        assertThat(retrievedDocument.embedding()).containsExactly(1.0f, 2.0f);
         assertThat(document.metadata()).containsEntry("source", "doc");
+        assertThat(retrievedDocument.metadata()).containsEntry("source", "doc");
 
         float[] returned = document.embedding();
         returned[0] = 7.0f;
         assertThat(document.embedding()).containsExactly(1.0f, 2.0f);
+        float[] returnedRetrieved = retrievedDocument.embedding();
+        returnedRetrieved[0] = 8.0f;
+        assertThat(retrievedDocument.embedding()).containsExactly(1.0f, 2.0f);
         assertThatThrownBy(() -> document.metadata().put("new", "value"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> retrievedDocument.metadata().put("new", "value"))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 

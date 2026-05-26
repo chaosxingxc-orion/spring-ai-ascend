@@ -25,7 +25,13 @@ def write(path: Path, text: str) -> None:
     path.write_text(textwrap.dedent(text).lstrip(), encoding="utf-8")
 
 
-def create_minimal_release_repo(root: Path, *, formal_release: bool = False) -> None:
+def create_minimal_release_repo(
+    root: Path,
+    *,
+    formal_release: bool = False,
+    evidence_bundle: str | None = None,
+    release_candidate_commit: str | None = None,
+) -> None:
     write(
         root / "docs" / "governance" / "architecture-status.yaml",
         """
@@ -135,16 +141,50 @@ def create_minimal_release_repo(root: Path, *, formal_release: bool = False) -> 
         # Formal Release Transaction
         """,
     )
-    frontmatter = "formal_release: true\n" if formal_release else "formal_release: false\n"
+    frontmatter_lines = [f"formal_release: {str(formal_release).lower()}"]
+    if evidence_bundle is not None:
+        frontmatter_lines.append(f"evidence_bundle: {evidence_bundle}")
+    if release_candidate_commit is not None:
+        frontmatter_lines.append(f"release_candidate_commit: {release_candidate_commit}")
+    frontmatter = "\n".join(frontmatter_lines) + "\n"
     write(
         root / "docs" / "logs" / "releases" / "2026-05-25-l0-rc1-test.en.md",
+        "---\n" + frontmatter + "---\n# Test release\n",
+    )
+
+
+def write_minimal_release_evidence(
+    root: Path,
+    *,
+    path: str = "gate/release-ci-evidence/test-evidence.yaml",
+    repository_commit: str = "abc123",
+    repository_dirty: bool = False,
+    latest_release_path: str = "docs/logs/releases/2026-05-25-l0-rc1-test.en.md",
+    latest_formal_release: bool = True,
+    latest_evidence_bundle: str = "gate/release-ci-evidence/test-evidence.yaml",
+    baseline_matches: bool = True,
+) -> Path:
+    evidence_path = root / path
+    write(
+        evidence_path,
         f"""
-        ---
-        {frontmatter}
-        ---
-        # Test release
+        schema_version: 1
+        repository:
+          commit_sha: {repository_commit}
+          dirty: {str(repository_dirty).lower()}
+        latest_release:
+          path: {latest_release_path}
+          formal_release: {str(latest_formal_release).lower()}
+          evidence_bundle: {latest_evidence_bundle}
+        baseline_metrics: {{}}
+        live_metrics: {{}}
+        baseline_comparison:
+          active_gate_checks:
+            matches: {str(baseline_matches).lower()}
+        release_transaction: {{}}
         """,
     )
+    return evidence_path
 
 
 def create_minimal_codegraph_db(root: Path) -> None:
@@ -250,6 +290,119 @@ class ReleaseReadinessToolTests(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertIn("PASS: formal_release_transaction", result.stdout)
+
+    def test_validator_rejects_dirty_formal_release_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            create_minimal_release_repo(
+                root,
+                formal_release=True,
+                evidence_bundle="gate/release-ci-evidence/test-evidence.yaml",
+                release_candidate_commit="abc123",
+            )
+            evidence = write_minimal_release_evidence(root, repository_dirty=True)
+
+            result = subprocess.run(
+                [sys.executable, str(VALIDATOR), "--root", str(root), "--evidence", str(evidence)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("formal_release_evidence_dirty_repository", result.stdout)
+
+    def test_validator_rejects_release_candidate_commit_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            create_minimal_release_repo(
+                root,
+                formal_release=True,
+                evidence_bundle="gate/release-ci-evidence/test-evidence.yaml",
+                release_candidate_commit="abc123",
+            )
+            evidence = write_minimal_release_evidence(root, repository_commit="def456")
+
+            result = subprocess.run(
+                [sys.executable, str(VALIDATOR), "--root", str(root), "--evidence", str(evidence)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("formal_release_evidence_candidate_mismatch", result.stdout)
+
+    def test_validator_rejects_nonformal_latest_release_in_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            create_minimal_release_repo(
+                root,
+                formal_release=True,
+                evidence_bundle="gate/release-ci-evidence/test-evidence.yaml",
+                release_candidate_commit="abc123",
+            )
+            evidence = write_minimal_release_evidence(root, latest_formal_release=False)
+
+            result = subprocess.run(
+                [sys.executable, str(VALIDATOR), "--root", str(root), "--evidence", str(evidence)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("formal_release_evidence_latest_release_not_formal", result.stdout)
+
+    def test_validator_rejects_evidence_bundle_path_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            create_minimal_release_repo(
+                root,
+                formal_release=True,
+                evidence_bundle="gate/release-ci-evidence/test-evidence.yaml",
+                release_candidate_commit="abc123",
+            )
+            evidence = write_minimal_release_evidence(
+                root,
+                latest_evidence_bundle="gate/release-ci-evidence/other.yaml",
+            )
+
+            result = subprocess.run(
+                [sys.executable, str(VALIDATOR), "--root", str(root), "--evidence", str(evidence)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("formal_release_evidence_bundle_mismatch", result.stdout)
+
+    def test_validator_accepts_evidence_from_frozen_candidate_before_release_note(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            create_minimal_release_repo(
+                root,
+                formal_release=True,
+                evidence_bundle="gate/release-ci-evidence/test-evidence.yaml",
+                release_candidate_commit="abc123",
+            )
+            evidence = write_minimal_release_evidence(
+                root,
+                latest_release_path="docs/logs/releases/2026-05-25-l0-previous.en.md",
+                latest_formal_release=True,
+                latest_evidence_bundle="gate/release-ci-evidence/previous.yaml",
+            )
+
+            result = subprocess.run(
+                [sys.executable, str(VALIDATOR), "--root", str(root), "--evidence", str(evidence)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("PASS: formal_release_transaction", result.stdout)
 
     def test_nodegraph_evidence_builder_derives_counts_from_codegraph_db(self) -> None:

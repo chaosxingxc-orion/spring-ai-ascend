@@ -12,7 +12,7 @@ import java.util.Objects;
  * Reference {@link VectorStore} that decorates a Spring AI
  * {@code org.springframework.ai.vectorstore.VectorStore}.
  *
- * <p>Authority: ADR-0124 + ADR-0125. Wave C1 design-only shell.
+ * <p>Authority: ADR-0124 + ADR-0125. Design-only shell.
  *
  * <p>W3 RAG vertical implementation responsibilities:
  * <ul>

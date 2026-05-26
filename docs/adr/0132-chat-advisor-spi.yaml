@@ -1,0 +1,130 @@
+id: ADR-0132
+title: "ChatAdvisor SPI: tenant-scoped, around-call interceptor chain over ModelGateway; HookDispatcher stays platform-internal"
+status: accepted
+date: 2026-05-25
+level: L0
+view: development
+affects_level: L0, L1
+affects_view: development, logical
+authors:
+  - chao
+relates_to:
+  - ADR-0121    # ModelGateway SPI (advisor chain wraps model invocation)
+  - ADR-0129    # Streaming-aware ModelGateway (streaming advisor sibling)
+  - ADR-0125    # Spring AI canonical integration boundary (Path a)
+  - ADR-0073    # Engine hooks + HookPoint (advisor chain binds inside BEFORE_LLM/AFTER_LLM brackets)
+  - ADR-0128    # Audience-B / starter-defaults posture (advisors are Audience B extension surface)
+context: |
+  The senior-architect L0 review identified the absence of a
+  `ChatAdvisor` interceptor SPI as a contract-layer defect
+  (finding P0-3): Spring AI's `ChatClientAdvisor` ergonomics —
+  around-call decoration of LLM invocations for PII redaction,
+  memory retrieval augmentation, cost attribution, response
+  caching — are missing from the platform. Without a
+  platform-owned advisor pattern, Audience B (application
+  developers) is forced to either:
+
+  - (a) reach for `org.springframework.ai.chat.client.advisor.*`
+    directly, which breaks the decoration boundary established
+    by ADR-0125 (Path a), or
+  - (b) reach for the platform's `HookDispatcher`, which is
+    gate-private engine machinery (ADR-0073) and must NOT be
+    part of the public Audience B surface.
+
+  ADR-0125 resolved the Spring AI integration boundary in favour
+  of Path (a) — Spring AI is canonical and the platform
+  decorates. ADR-0121 specified the `ModelGateway` invocation
+  shape. This ADR specifies the around-call interceptor pattern
+  that wraps `ModelGateway.invoke(...)` and gives Audience B a
+  composable extension seam that mirrors Spring AI's
+  `ChatClientAdvisor` ergonomics without coupling to the
+  Spring AI type.
+
+decision: |
+  Land the `ChatAdvisor` SPI in
+  `com.huawei.ascend.middleware.advisor.spi.ChatAdvisor`
+  (agent-middleware module). Status: design_only at the time of
+  landing; runtime_enforced when the W2 LLM gateway implementation
+  ships per ADR-0061 §7 (Telemetry Vertical co-arrives with the
+  Hook SPI activation).
+
+  - **Interface shape**: three methods — `String advisorName()`
+    (stable, non-blank id), `int order()` (smaller runs first
+    on the inbound leg; Spring's `Ordered.LOWEST_PRECEDENCE`
+    convention), and `AdvisedResponse aroundCall(AdvisedRequest,
+    AdvisorChain)`. The SPI remains pure Java per Rule R-D and does
+    not import the model SPI package.
+  - **Streaming sibling**: `StreamingChatAdvisor` mirrors the same
+    identity/order semantics with
+    `Stream<AdvisedStreamChunk> aroundStream(AdvisedRequest,
+    StreamingAdvisorChain)`. It is a same-package SPI, not a model-SPI
+    subtype, so streaming advice composes without cross-SPI imports.
+  - **Tenant scope**: `AdvisedRequest` carries `tenantId`
+    (Rule R-C.c). Both `AdvisedRequest` and `AdvisedResponse`
+    reject null/blank tenantId on construction.
+  - **Chain semantics**: implementations call
+    `AdvisorChain.next(request)` exactly once to continue the
+    chain, unless they short-circuit by returning a synthetic
+    `AdvisedResponse` (PII-rejection, cache hit, policy denial).
+  - **Hook binding (W2)**: the advisor chain runs around
+    `ModelGateway.invoke(...)` inside
+    `HookDispatcher.fire(BEFORE_LLM)`/`AFTER_LLM` brackets.
+    `HookDispatcher` is platform-internal — Audience B composes
+    advisors at `AgentDefinition` time but never imports
+    `HookDispatcher`.
+  - **Value types** ship in the same package:
+    `AdvisedRequest` (record: tenantId, requestEnvelope, advisorContext)
+    `AdvisedResponse` (record: tenantId, responseEnvelope, advisorContext)
+    `AdvisedStreamChunk` (sealed: ContentDelta | ToolCallDelta | Complete)
+    `AdvisorChain` (interface: `next(AdvisedRequest)
+                    -> AdvisedResponse`)
+    `StreamingAdvisorChain` (interface: `proceed(AdvisedRequest)
+                              -> Stream<AdvisedStreamChunk>`)
+
+  Contract schema lives at `docs/contracts/chat-advisor.v1.yaml`
+  (status: design_only, runtime_enforced: false). Catalog row,
+  module-metadata, and DFX updates land in the parity-consolidator
+  wave that follows this one.
+
+consequences: |
+  Positive:
+  - Audience B writes against `ChatAdvisor` (platform), not
+    `org.springframework.ai.chat.client.advisor.*` (provider),
+    preserving the decoration boundary.
+  - `HookDispatcher` stays platform-internal — gate-private
+    engine machinery is no longer the only seam customers can
+    reach for, closing the temptation to import it from
+    `examples/**`.
+  - Tenant-scoped advisor envelopes allow per-tenant policy
+    attachment (PII denylists, cost-attribution rules) at the W2
+    wave without changing the SPI signature.
+  - Around-call ordering via `order()` is explicit and stable;
+    the `AdvisorChain.next(request)` shape supports inbound
+    mutation (e.g. retrieval augmentation rewriting the request
+    envelope) and outbound mutation (e.g. citation-injection rewriting
+    the response envelope).
+
+  Negative / residual:
+  - `ChatAdvisor` is design_only until W2; no runtime binding
+    today. The Audience-B-extension-seams ArchUnit guard is
+    vacuous at L0 (no `examples/**` directory exists) and arms
+    automatically when examples land in W3.
+  - Runtime binding for both synchronous and streaming advisors is
+    still design_only until W2; the contract surface is complete, but
+    no production chain executor exists today.
+
+alternatives_considered: |
+  - (A) Express advisors as `Plan.steps` with memory-scope
+    pre/post hooks. Rejected — couples retrieval/redaction
+    semantics to the planner SPI (ADR-0126); the planner is
+    about workflow shape, not model-call decoration. Audience B
+    composing advisors does not require touching the planner.
+  - (B) Re-export Spring AI `ChatClientAdvisor` directly as the
+    platform's interface. Rejected by ADR-0125 (Path c).
+    Audience B would couple to a provider type with no platform
+    decoration seam and no platform tenant carrier.
+  - (C) Make `HookDispatcher` part of the public Audience B
+    surface. Rejected — `HookDispatcher` is gate-private engine
+    machinery (ADR-0073). Public hooks would force every hook
+    semantic change to be a contract-breaking event and would
+    expose internal `HookPoint` granularity to customers.

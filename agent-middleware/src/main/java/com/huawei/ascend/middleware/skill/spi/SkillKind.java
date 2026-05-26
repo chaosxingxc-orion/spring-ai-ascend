@@ -9,7 +9,7 @@ package com.huawei.ascend.middleware.skill.spi;
  */
 public enum SkillKind {
 
-    /** LLM-callable function. Spring AI {@code ToolCallback} adapter (Wave C1) is one. */
+    /** LLM-callable function. Spring AI {@code ToolCallback} adapter is one. */
     TOOL,
 
     /** Platform-owned utility (memory read, vector query, MCP server call). */

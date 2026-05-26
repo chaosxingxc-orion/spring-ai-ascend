@@ -17,7 +17,7 @@ import java.util.Objects;
  * @param messages       ordered conversation turns; MUST be non-empty.
  * @param tools          tool descriptors the model may call; never
  *                       null, may be empty. Items reference
- *                       {@code SkillRef.skillKey()} per Wave B2.
+ *                       {@code SkillRef.skillKey()}.
  * @param parameters     provider-orthogonal hints (temperature,
  *                       top_p, max_tokens, response_format, ...).
  * @param hookContext    opaque context propagated through

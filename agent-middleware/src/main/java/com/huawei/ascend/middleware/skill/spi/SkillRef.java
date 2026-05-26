@@ -4,7 +4,7 @@ import java.util.Objects;
 
 /**
  * Opaque reference to a {@link Skill} by key. Used by
- * {@code Agent.toolBindings} (Wave B5) and tool-call arguments in
+ * {@code Agent.toolBindings} and tool-call arguments in
  * {@link com.huawei.ascend.middleware.skill.spi.SkillInvocation}
  * cross-references.
  *

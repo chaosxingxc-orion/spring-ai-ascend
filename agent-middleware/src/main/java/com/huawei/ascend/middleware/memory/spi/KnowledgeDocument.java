@@ -8,7 +8,7 @@ import java.util.Objects;
  *
  * <p>Authority: ADR-0123. Typically composes with a
  * {@link com.huawei.ascend.middleware.vector.spi.VectorStore} for
- * the embedding storage layer (Wave B4) and an
+ * the embedding storage layer and an
  * {@link com.huawei.ascend.middleware.embedding.spi.EmbeddingModel}
  * for chunk embedding.
  *
