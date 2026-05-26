@@ -32,11 +32,7 @@ That document is the canonical 4+1 source authored across Waves 1-6 (rc53). It c
 - **§19 SPI Interface Appendix** — 9 SPI interfaces with 4-way parity (Rule G-1.1.b)
 - **§20 L2 Boundary Contracts** — 5 L2 zones + F-01..F-22 inventory with authority anchors (Rule G-1.1.c)
 
-The existing §1+ prose below is **shipped-state grounding** under the rc53 L1 4+1 ratification; where the prose and the 4+1 document disagree (e.g., the 4+1 document's tenantId-first ER, cancel-race-aware state machine, or three-track bus binding for the Internal Event Queue layer), the **rc53 4+1 document is authoritative**.
-
-## 0.4 Layered 4+1 view map (W1 — ADR-0068)
-
-This document is the **L1 root** for the `agent-service` module. Until the full 4+1 view reorganisation lands, the table below classifies each existing major section against the 4+1 view taxonomy consumed by `gate/build_architecture_graph.sh`:
+The §1+ prose below is **shipped-state grounding** under the rc53 L1 4+1 ratification; where the prose and the 4+1 document disagree (e.g., the 4+1 document's tenantId-first ER, cancel-race-aware state machine, or three-track bus binding for the Internal Event Queue layer), the **rc53 4+1 document is authoritative**.
 
 ## 0.4 Layered 4+1 view map (W1 — ADR-0068)
 

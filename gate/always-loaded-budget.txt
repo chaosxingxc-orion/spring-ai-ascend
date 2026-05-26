@@ -114,7 +114,10 @@ docs/governance/SESSION-START-CONTEXT.md=6000
 # rc52 agentic-completeness corrective: generated graph grew to 251287 bytes
 # after adding the composition-family edges and same-package SPI carrier nodes;
 # raised to 253000 with ~1.7K headroom.
-docs/governance/architecture-graph.yaml=253000
+# rc53 agent-service L1 4+1 rewrite wave: +4 ADR nodes (0136-0139) + 31 edges
+# fanning to existing ADR nodes grew the graph to 254400 bytes; raised to 256500
+# with ~2.1K headroom (same ratchet posture).
+docs/governance/architecture-graph.yaml=256500
 # rc37 (ADR-0117): strategic_decisions resolution blocks (2 decisions open→resolved) + allowed_claim
 # rc37 entry grew the file over the 128000 ceiling (historical notes trimmed to offset); raised to
 # 131000 (~1.5K-per-wave ratchet + headroom for the one-time strategic_decisions resolution structure).

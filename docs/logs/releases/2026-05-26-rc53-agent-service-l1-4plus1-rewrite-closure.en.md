@@ -14,6 +14,33 @@ authority: ADR-0136..0139 + ADR-0100 (parent ratification)
 > **Scope:** `agent-service` module L1 architecture documentation refresh
 > **Java-impact:** Javadoc only (5 types annotated with Vocabulary Glossary paragraphs); no method signatures, fields, packages, or DB schema changed.
 
+## Baseline Metrics (rc53)
+
+Reflects this wave's adjustments to `docs/governance/architecture-status.yaml#baseline_metrics`. Values reproducible via `bash gate/check_parallel.sh` + `python gate/build_architecture_graph.py --check --no-write` on WSL/Linux.
+
+| Metric | Value | Notes |
+|---|---|---|
+| active engineering rules | 43 | unchanged (no new Rule kernels — rc53 is ADR + design-doc wave) |
+| active governing principles | 13 | unchanged |
+| gate rules | 143 | unchanged |
+| self-tests | 258 | unchanged |
+| enforcer rows | 176 | unchanged |
+| §4 constraints | 65 | unchanged |
+| ADRs | 124 | rc53 +4 (ADR-0136..0139) on the rc51 baseline of 120 |
+| Maven tests green | 453 | unchanged (Wave 6 is Javadoc-only) |
+| architecture graph nodes | 598 | rc53 +4 (4 new ADR nodes) on the rc52 baseline of 594 |
+| architecture graph edges | 1104 | rc53 +31 (authority + relates_to + supersedes_partial edges) on the rc52 baseline of 1073 |
+| recurring defect families | 20 | rc53 +4 design-side families on the rc52 baseline of 16 |
+
+## Competitive Pillars (Principle P-B / Rule R-B / ADR-0065)
+
+rc53 status across the 4 pillars:
+
+- **performance** — no regression (Wave 6 Javadoc-only; runtime path unchanged); Fast-Path / Slow-Path narrowed semantics (ADR-0139) preserve reactive + no-Thread.sleep invariants per Rule R-G + R-H.
+- **cost** — no infrastructure cost change; ADR-0100 4-layer lifecycle preserved (no parallel-entity drift).
+- **developer_onboarding** — improved: canonical L1 4+1 view documented for the first time at the module root; Vocabulary Glossary in Run / Task / Session / SuspendSignal / SuspendReason Javadoc eases new-developer onboarding; 5-layer L1 decomposition ratified for reference.
+- **governance** — strengthened: 4 new defect families (design-side siblings of implementation invariants) registered; 4 red lines hard-codified in ADR-0138; per-wave G-A..G-F acceptance criteria piloted across 6 waves.
+
 ## Summary
 
 Closes PR #71 (`docs/agent-service-l1-cn-20260525`) by performing a critical

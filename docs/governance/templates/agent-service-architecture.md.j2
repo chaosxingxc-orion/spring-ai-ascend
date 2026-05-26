@@ -6,15 +6,33 @@ status: active
 freeze_id: null
 covers_views: [logical, development, process, physical, scenarios]
 spans_levels: [L1]
-authority: "ADR-0078 (agent-service consolidation) + ADR-0068 (Layered 4+1) + ADR-0059 (Code-as-Contract)"
+authority: "ADR-0078 (agent-service consolidation) + ADR-0068 (Layered 4+1) + ADR-0059 (Code-as-Contract) + ADR-0100 (rc22 5-component decomposition + Run≤Task≤Session≤Memory lifecycle) + ADR-0136..0139 (rc53 vocabulary reconciliation + 5-layer L1 ratification + Fast/Slow Path narrowed semantics)"
 ---
 
-# agent-service — L1 architecture (2026-05-18 Phase C consolidation)
+# agent-service — L1 architecture (2026-05-26 rc53 4+1 ratification)
 
-> Owner: AgentService team | Wave: W0..W3 | Maturity: shipped (post-Phase-C consolidation of agent-platform + agent-runtime)
-> Last refreshed: 2026-05-20 (rc15 — structural-carrier parity + terminal-state scope per ADR-0090 + ADR-0091)
+> Owner: AgentService team | Wave: W0..W3 | Maturity: shipped (post-Phase-C consolidation of agent-platform + agent-runtime + rc22 5-component decomposition + rc53 5-layer L1 4+1 ratification)
+> Last refreshed: 2026-05-26 (rc53 — 4+1 view ratification + vocabulary reconciliation per ADR-0136..0139)
 > Governing rule: Rule R-C — Code-as-Contract (formerly Rule 28; ADR-0059 + ADR-0086 namespace ratchet).
 > Every constraint below maps to at least one row in `docs/governance/enforcers.yaml`.
+
+## 0.5 Canonical L1 4+1 View Source (rc53 ratification)
+
+The full 4+1 view of this module (Scenarios + Logical + Process + Development + Physical) is declared in the rc53 wave-1 review draft:
+
+- **EN:** [`docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`](../docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md)
+- **CN:** [`docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.cn.md`](../docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.cn.md)
+
+That document is the canonical 4+1 source authored across Waves 1-6 (rc53). It contains:
+- **§14 Scenarios View** — 5 canonical scenarios (S1 standard intake / S2 long-horizon ReAct / S3 A2A collaboration / S4 S2C client callback / S5 cancel race + re-auth)
+- **§15 Logical View** — 5-layer Mermaid component diagram, tenantId-first ER model, cancel-race-aware state machine, A2aState DFA, SuspendSignal flow, vocabulary glossary
+- **§16 Process View** — 5 sequence diagrams covering each scenario
+- **§17 Physical View** — 5-plane deployment mapping, DB schema + RLS policy, three-track bus bindings, sandbox isolation boundary
+- **§18 Development View** — package tree mapping 5 L1 layers to filesystem (Rule G-1.1.a)
+- **§19 SPI Interface Appendix** — 9 SPI interfaces with 4-way parity (Rule G-1.1.b)
+- **§20 L2 Boundary Contracts** — 5 L2 zones + F-01..F-22 inventory with authority anchors (Rule G-1.1.c)
+
+The §1+ prose below is **shipped-state grounding** under the rc53 L1 4+1 ratification; where the prose and the 4+1 document disagree (e.g., the 4+1 document's tenantId-first ER, cancel-race-aware state machine, or three-track bus binding for the Internal Event Queue layer), the **rc53 4+1 document is authoritative**.
 
 ## 0.4 Layered 4+1 view map (W1 — ADR-0068)
 
