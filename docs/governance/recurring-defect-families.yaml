@@ -775,8 +775,8 @@ families:
   - id: F-nonatomic-run-status-write
     title: Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants
     first_observed_rc: rc35
-    last_observed_rc: rc39-formal-release-transaction
-    occurrences: [rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction]
+    last_observed_rc: rc55-pr76-agent-service-interface-drift-review
+    occurrences: [rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction, rc55-pr76-agent-service-interface-drift-review]
     root_cause: |
       A Run status transition done as a separate re-read (`findById`) then
       blind write (`save`) is not atomic relative to a parallel terminal
@@ -823,6 +823,15 @@ families:
       sibling. Any new tenant-owned or status-owned repository reference
       implementation must use compute/compare-and-set/conditional UPDATE for
       invariants that span read + validation + write.
+      rc55 PR #76 interface-drift review keeps this family open for design/API
+      surface monitoring: the current Java SPI has atomic terminal-state CAS,
+      but `RunRepository.updateIfNotTerminal(UUID runId, UnaryOperator<Run>)`
+      still lacks the tenant-scoped signature used by L1/W2 prose
+      (`updateIfNotTerminal(tid, runId, ...)`). W1 HTTP code pre-checks the
+      tenant before invoking the SPI, so this is not a new runtime regression;
+      the residual is that the tenant invariant is still split across caller
+      and repository contract until the W2 durable/RLS repository promotes the
+      tenant-aware CAS signature.
 
   - id: F-project-tool-pin-drift
     title: Project-Local Dev-Tool Pin Drift and Manifest Inconsistency
@@ -1060,8 +1069,8 @@ families:
   - id: F-design-doc-violates-three-track-bus
     title: Design Artefact Proposes Queue / Event-Bus Abstraction Bypassing Rule R-E Three-Track Channels
     first_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
-    last_observed_rc: rc53-wave-1-agent-service-l1-4plus1-rewrite
-    occurrences: [rc53-wave-1-agent-service-l1-4plus1-rewrite]
+    last_observed_rc: rc55-pr76-agent-service-interface-drift-review
+    occurrences: [rc53-wave-1-agent-service-l1-4plus1-rewrite, rc55-pr76-agent-service-interface-drift-review]
     root_cause: |
       Design docs introduce "internal event queue" or "message bus"
       abstractions with their own durability axis (in-memory /
@@ -1092,6 +1101,14 @@ families:
       without same-paragraph three-track binding citation —
       deferred sibling, Wave 5 follow-up. Sibling sweep result
       documented in Wave 1 review draft §8.4 + §9 row 1.
+
+      rc55 PR #76 interface-drift review found the same root cause in the
+      new L2 session/task/event-queue proposal: its wording treats tri-track
+      delivery as an optional L2 mechanism, while canonical L1/ADR-0138/Rule
+      R-E require every queue or event-bus design surface to bind control,
+      data, and rhythm tracks as mandatory physical isolation. The proposed
+      local-queue implementation can still be staged, but the architecture
+      language must not demote the three-track invariant to a future option.
 
   - id: F-design-doc-language-bypasses-invariant
     title: Design Artefact Wording Implies Bypass of Reactive / RLS / No-Sleep Invariants
