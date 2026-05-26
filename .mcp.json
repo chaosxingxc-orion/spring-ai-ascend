@@ -8,10 +8,6 @@
         "serve",
         "--mcp"
       ]
-    },
-    "mem0": {
-      "command": "D:/ai-stack/mem0-venv/Scripts/python.exe",
-      "args": ["-u", "D:/ai-stack/mcp/mem0_mcp_server.py"]
     }
   }
 }
