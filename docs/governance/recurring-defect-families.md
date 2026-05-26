@@ -68,7 +68,7 @@ remains closed.
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 5 (rc55 reopen — agent-service/ARCHITECTURE.md §runtime/resilience present-tense prose flanking deferred Rule R-K.c citation) | 🟡 monitoring (rc55 reopens from `closed` because the rc15 + rc53 closures did not cover narrative prose within agent-*/ARCHITECTURE.md flanking deferred-clause citations; cool-down required: 3 subsequent waves) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 2 (rc21, rc39-formal-release-transaction) | ✅ closed — phase contracts + skills + formal release transaction workflow |
-| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 15 (rc55 capability-feature scenario follow-up: rewritten feature list still missed concrete enterprise Agent scenarios for SSE/non-SSE/direct ingress, reconnect recovery, context compaction, long-task continuation/switch/retry, same third-party Agent recovery, client-hosted skills, sub-agent delegation, and configuration ownership) | 🟡 monitoring (rc55 resets review-artefact cool-down; derived L1 reviews must preserve enough evidence and scenario/data/control-flow grounding for reviewers to audit conclusions) |
+| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 16 (rc55 PR-77 consistency review wave-1 follow-up: external reviewer found 7 cross-view + cross-doc grounding gaps in the post-rc55 4+1 set under `docs/L1/agent-service/` — ERD vs prose cardinality, RunRepository.updateIfNotTerminal signature drift, Task/Session PK type drift, stale test anchor, SSE W2-shipped vs W2-scope, README frontmatter underclaim, module-root legacy terminology) | 🟡 monitoring (rc55 resets review-artefact cool-down; derived L1 reviews must preserve enough evidence and scenario/data/control-flow grounding for reviewers to audit conclusions; Wave 1A finalises the candidate NEW family F-l1-view-set-internal-signature-drift) |
 | 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, partially addressed by rc51 Wave G2 JavaParser/libCST helpers under gate/lib/refactor/) |
 | 13 | F-nonatomic-run-status-write | Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants | 5 (rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction) | 🟡 monitoring (rc39 broadened to tenant-owned runtime state; RunRepository SPI made abstract, save calls source-guarded to create-only sites, TaskStateStore writes made atomic) |
 | 14 | F-project-tool-pin-drift | Project-Local Dev-Tool Pin Drift and Manifest Inconsistency | 2 (rc40-codegraph-mcp-onboarding + rc50-nodegraph-evidence) | ✅ structurally addressed (Rule 125 / E173 gates package.json exact-pin + lockfileVersion>=3 + .mcp.json relative-shim ref; rc50 adds local `.codegraph` nodegraph evidence without committing the SQLite database) |
@@ -525,7 +525,13 @@ Session/Memory concurrency evidence; the first capability-feature list carried
 downstream-design advice, artificial status labels, priority-first grouping, and
 weak scenario/data/control-flow grounding; the rewritten capability-feature list
 still missed concrete enterprise Agent access, recovery, delegation, third-party
-Agent, client-hosted skill, and configuration-ownership scenarios.
+Agent, client-hosted skill, and configuration-ownership scenarios. The merge-train
+PR-77 consistency review adds a fourth: even after canonical-4+1 materialisation,
+the view set still carries internal signature drift (RunRepository.updateIfNotTerminal
+across logical/process/physical), cardinality contradiction (ERD 1:1 vs prose 1:N),
+PK type drift (logical vs physical), stale test anchors (cancel-scenario citing
+non-existent method), and module-root staleness (legacy TaskRepository /
+tenantMismatchReturns403 terminology).
 
 **Surfaces.**
 
@@ -533,6 +539,7 @@ Agent, client-hosted skill, and configuration-ownership scenarios.
 - `docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-review.{cn,en}.md` — derived OSS comparison summaries.
 - `docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-source.cn.md` — preserved source comparison record.
 - `docs/logs/reviews/2026-05-26-agent-service-module-capability-feature-list.{cn,en}.md` — derived module capability/feature reviews.
+- `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-consistency-review-wave-1.cn.md` — PR-77 4+1 consistency review surfacing internal signature drift, ERD cardinality, PK type drift, and module-root staleness.
 - `docs/governance/rules/rule-G-1.md` — parent rule lacked depth
   sub-clauses; the 2026-05-21 reviewer proposal flagged this gap
   ("hollow L1 architecture documents").
