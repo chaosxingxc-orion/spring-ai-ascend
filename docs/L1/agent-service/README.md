@@ -37,15 +37,18 @@ file that also holds Process + Physical + Development).
 
 | File | View | Wave | Frontmatter |
 |---|---|---|---|
-| [`scenarios.md`](scenarios.md) | Scenarios | rc55 W3 | `level: L1, view: scenarios` |
-| [`logical.md`](logical.md) | Logical | rc55 W3 | `level: L1, view: logical` |
+| [`scenarios.md`](scenarios.md) | Scenarios | rc55 W3 + post-merge audit Wave 3 (AS-SC01..AS-SC24 expanded inventory §0.1) | `level: L1, view: scenarios` |
+| [`logical.md`](logical.md) | Logical | rc55 W3 + post-merge audit Wave 3 (§8 Configuration ownership + §9 Orthogonality red-lines) | `level: L1, view: logical` |
 | [`process.md`](process.md) | Process | rc55 W4 | `level: L1, view: process` |
 | [`physical.md`](physical.md) | Physical | rc55 W4 | `level: L1, view: physical` |
 | [`development.md`](development.md) | Development | rc55 W5 | `level: L1, view: development` |
 | [`spi-appendix.md`](spi-appendix.md) | Development (appendix) | rc55 W5 | `level: L1, view: development` |
+| [`features/`](features/) | Development (feature inventory) | post-merge audit Wave 3 — absorbs PR #79 AS-L1-F01..AS-L1-F47 across 6 module files | `level: L1, view: development` (per file) |
 
 Each file declares per-view frontmatter per Rule G-1.a; no file declares
 `covers_views:` plural — that field is reserved for this index file only.
+
+The `features/` subdirectory is an L1 **module-feature decomposition**, NOT a new architectural authority level. Where it conflicts with the per-view canonical files above, the per-view files win. See [`features/README.md`](features/README.md) for the layout and numbering convention.
 
 ## 2. rc55 design ratifications
 

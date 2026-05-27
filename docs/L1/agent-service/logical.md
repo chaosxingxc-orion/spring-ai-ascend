@@ -472,7 +472,37 @@ classDiagram
 | CancelRequestedEvent | — | — | — | — | ✓ | ✓ (rejection audit signal) |
 | TerminalTransitionEvent | ✓ (SUCCEEDED) | ✓ | ✓ (parent + child) | ✓ | ✓ (CANCELLED) | — |
 
-## 8. Cross-references
+## 8. Configuration ownership matrix (per-module sovereign vs read-only)
+
+> Absorbed from PR #79 / `docs/logs/reviews/2026-05-26-agent-service-module-capability-feature-list.{cn,en}.md` §5 per the post-merge audit Wave 3 plan. Configuration MUST NOT be scattered across request bodies, adapter-private fields, or prompt templates — L1 first names the sovereign module and the read-only consumers.
+
+| Configuration category | Sovereign module | Read-only / consumer modules | Required information | Exception closure |
+| --- | --- | --- | --- | --- |
+| Client identity and access capability | Access Layer | Session & Task Manager, Task-Centric Control Layer | clientId, tenant binding, auth posture, SSE / polling / callback transport, client-hosted skill advertisement. | Stale client capability, unavailable transport, tenant mismatch. |
+| Agent identity and service capability | Access Layer + Engine Dispatch & Execution | Task-Centric Control Layer, Translation & Tool-Intercept | AgentCard / capability publication, engine_type, supported run modes, streaming / tool / callback / delegation support. | Capability advertisement disagrees with EngineRegistry strict matching. |
+| Run-creation configuration snapshot | Session & Task Manager | All execution-related modules | Snapshot or reference for resolved model profile, engine profile, adapter profile, tool profile, routing posture, and client callback posture. | Unexplainable config drift during resume / retry. |
+| Model information | Translation & Tool-Intercept | Engine Dispatch & Execution, Task-Centric Control Layer | Provider, model id, options, streaming support, structured-output support, cost / quota tags. | Unsupported option, quota exceeded, provider drift, schema mismatch. |
+| Third-party Agent adapter information | Engine Dispatch & Execution | Access Layer, Task-Centric Control Layer, Session & Task Manager | adapter id, endpoint, auth mode, remoteAgentId, remoteThreadId / remoteTaskId schema, resume token schema, timeout / retry policy. | Cannot recover same remote invocation, credential scope error, adapter version drift. |
+| Client-hosted skill information | Access Layer + Task-Centric Control Layer | Translation & Tool-Intercept, Engine Dispatch & Execution | skill name, capability schema, permission posture, callback transport, result schema, timeout. | Client skill unavailable, over-permission, invalid result schema, callback timeout. |
+| Tool / sandbox / skill capacity | Task-Centric Control Layer | Translation & Tool-Intercept, Engine Dispatch & Execution | skill-capacity, sandbox policy, tool allowlist, quota, memory access policy, HookPoint policy. | Policy bypass, over-wide grant, capacity exhausted, missing audit. |
+| Channel and delivery policy | Internal Event Queue | Session & Task Manager, Task-Centric Control Layer | control / data / rhythm physical channel, durability tier, lease, ack, retry, dead-letter, inline payload cap. | Control starvation, poison message, payload too large, invisible dead-letter. |
+
+## 9. Orthogonality red-lines (correct vs incorrect splits)
+
+> Absorbed from PR #79 / `docs/logs/reviews/2026-05-26-agent-service-module-capability-feature-list.{cn,en}.md` §7 per the post-merge audit Wave 3 plan. These are the 8 layer/module boundaries this L1 design REFUSES to collapse; violating any of them is a recurrence trigger for `F-layer-decomposition-low-cohesion` (rc55 / ADR-0144).
+
+| Boundary | Correct split | Incorrect split |
+| --- | --- | --- |
+| SSE / polling vs Run lifecycle | Access Layer owns connection and projection; Run lifecycle is owned by Session & Task Manager plus Task-Centric Control Layer. | SSE disconnect cancels Run, or polling directly reads engine internals. |
+| Direct access vs bypass | Client may directly access Agent Service Access Layer; it must not directly access engines, repositories, middleware, or bus channels. | Letting clients call ExecutorAdapter or agent-bus topics for low latency. |
+| Run vs Task vs Session | Run owns execution state; Task owns protocol/control state; Session owns context state. | One StateStore swallowing Run, Task, and Session. |
+| Checkpoint vs Session / Memory | Checkpoint is a compute snapshot; Session / Memory are context and knowledge sources of truth. | Using checkpoint as a replacement for Session projection or Memory mutation discipline. |
+| Retry vs new Agent scheduling | Retry / resume first reuses the same Run, attempt, remote handle, or child-Run relationship. | Silently creating a new remote Agent after third-party interruption, causing duplicate side effects and broken audit. |
+| Client-hosted skill vs server tool | Client skill uses S2C callback and policy control; server tool uses RuntimeMiddleware and sandbox control. | Engine adapter directly accesses client-local capability or treats client skill as a normal server-side tool. |
+| RuntimeMiddleware vs ChatAdvisor | RuntimeMiddleware handles Run-aware HookPoints (Layer 4); ChatAdvisor handles model-call boundaries (Layer 5b). | Calling both tool interceptors and placing them in the same module. |
+| Configuration source vs runtime consumption | Configuration is owned by explicit modules and becomes resolved snapshot / reference at Run creation; execution modules only consume it. | Each adapter, prompt, and request body interprets configuration independently. |
+
+## 10. Cross-references
 
 - Scenarios: [`scenarios.md`](scenarios.md) — S1-S5 + the cross-scenario
   invariants (red lines) carried over from ADR-0138 §5.
