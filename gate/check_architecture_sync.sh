@@ -137,7 +137,7 @@
 #  82.  baseline_metrics_single_source                   -- architecture-status.yaml#architecture_sync_gate.baseline_metrics exists with required keys; README.md + gate/README.md point to the block by substring; rc6 strengthening: numeric-drift detection on entrypoint count phrases (P1-1 prevention + rc5-P1-1 strengthening, enforcer E115)
 #  83.  design_only_contract_registered_in_catalog       -- every docs/contracts/*.v1.yaml with status: design_only OR runtime_enforced: false is listed in contract-catalog.md AND cites an existing ADR (P1-3 prevention, enforcer E116)
 #  --- 2026-05-18 rc5 post-response review response prevention wave (Rules 84-85; enforcers E117-E118) ---
-#  84.  active_module_architecture_path_truth           -- every agent-*/ARCHITECTURE.md (status != skeleton|deferred) inline path claim "<module>/src/main/java/..." must resolve on disk OR carry a historical/moved/extracted-per-ADR/superseded/deferred marker within +/-3 lines (rc5 P0-1 prevention, enforcer E117)
+#  84.  active_module_architecture_path_truth           -- every architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md (status != skeleton|deferred) inline path claim "<module>/src/main/java/..." must resolve on disk OR carry a historical/moved/extracted-per-ADR/superseded/deferred marker within +/-3 lines (rc5 P0-1 prevention, enforcer E117)
 #  85.  catalog_spi_row_matches_module_spi_metadata     -- every non-(internal) row in contract-catalog.md SPI table must have its package in <module>/module-metadata.yaml#spi_packages AND docs/dfx/<module>.yaml#spi_packages; the (N total) header MUST equal the non-internal row count (rc5 P1-2 prevention, enforcer E118)
 #  --- 2026-05-19 rc10 post-corrective review response prevention wave (Rules 99-100 + Rule 94/98 widening; enforcers E139-E142) ---
 #  99.  kernel_terminal_verb_vs_shipped_decision_check  -- For every #### Rule N kernel block in CLAUDE.md with a matching ## Rule N.<letter> sub-clause in CLAUDE-deferred.md, the kernel MUST NOT use end-state verb tokens (`are SUSPENDED`, `is SUSPENDED`, `transitions to FAILED`, `consumes the * capacity`, `is rejected, not failed`, `admits the caller`) that overclaim shipped behaviour. Closes rc10 P1-1 (J-α family; Rule 41 kernel said "callers are SUSPENDED" while shipped code returns SkillResolution.reject — the actual transition is deferred to Rule 41.c).
@@ -575,7 +575,7 @@ if [[ $_r13_fail -eq 0 ]]; then pass_rule "contract_catalog_no_deleted_spi_or_st
 # is probe.probe(). Fails if probe.check() appears in any module ARCHITECTURE.md.
 # ---------------------------------------------------------------------------
 _r14_fail=0
-for _maf in agent-*/ARCHITECTURE.md; do
+for _maf in architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md; do
   if [[ -f "$_maf" ]]; then
     if grep -q 'probe\.check()' "$_maf" 2>/dev/null; then
       fail_rule "module_arch_method_name_truth" "$_maf references probe.check() but actual method in OssApiProbe is probe.probe(). Per ADR-0036 Gate Rule 14 method names in docs must match source."
@@ -2134,7 +2134,7 @@ if [[ $_r36_fail -eq 0 ]]; then pass_rule "domain_module_has_spi_package"; fi
 #
 # Every L0/L1/L2 architecture artefact MUST declare a level: + view:
 # front-matter (YAML at top of file for .md; top-level key for .yaml).
-# Targets: ARCHITECTURE.md, agent-*/ARCHITECTURE.md, docs/L2/**/*.md (excluding
+# Targets: ARCHITECTURE.md, architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md, architecture/docs/L2/**/*.md (excluding
 # README.md while empty), docs/adr/*.yaml.
 # ---------------------------------------------------------------------------
 _r37_fail=0
@@ -2235,7 +2235,7 @@ for d in sorted(os.listdir('.')):
     p = os.path.join(d, 'ARCHITECTURE.md')
     if os.path.isfile(p) and p != 'ARCHITECTURE.md':
         targets_md.append(p.replace('\\', '/'))
-targets_md.extend(sorted(glob.glob('docs/L2/**/*.md', recursive=True)))
+targets_md.extend(sorted(glob.glob('architecture/docs/L2/**/*.md', recursive=True)))
 for p in targets_md: check_md(p)
 
 for p in sorted(glob.glob('docs/adr/*.yaml')):
@@ -3036,7 +3036,7 @@ if [[ $_r59_fail -eq 0 ]]; then pass_rule "evolution_scope_yaml_present_and_well
 # Rule 60 — schema_first_domain_contracts (enforcer E85, Rule 48, ADR-0077)
 #
 # Forbid new prose-defined enum sites in the architecture corpus. Scan
-# ARCHITECTURE.md (root) + agent-*/ARCHITECTURE.md for the prose-enum pattern
+# ARCHITECTURE.md (root) + architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md for the prose-enum pattern
 # `<UPPERCASE_TYPE> | <UPPERCASE_TYPE>` outside fenced code blocks and
 # markdown tables. For every match, the rule passes only when one of:
 #   (a) the file path appears as a prefix line in gate/schema-first-grandfathered.txt
@@ -4127,7 +4127,7 @@ if [[ $_r79_fail -eq 0 ]]; then pass_rule "rule_79_runbook_present_and_cited"; f
 # Rule 80 — s2c_callback_signal_historical_only_in_authority (enforcer E113)
 #
 # In authoritative entrypoints (CLAUDE.md, README.md, root ARCHITECTURE.md,
-# agent-*/ARCHITECTURE.md, docs/contracts/*.v1.yaml, docs/adr/*.yaml,
+# architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md, docs/contracts/*.v1.yaml, docs/adr/*.yaml,
 # docs/adr/*.md), the deleted Java type name S2cCallbackSignal MUST appear
 # only in paragraphs marked historical / deleted / refactored from /
 # amendments / rc3-unification (within +/-5 lines). v2.0.0-rc3 unified S2C
@@ -4160,7 +4160,7 @@ for p in ('CLAUDE.md', 'README.md', 'ARCHITECTURE.md'):
 targets.extend(sorted(glob.glob('docs/contracts/*.v1.yaml')))
 targets.extend(sorted(glob.glob('docs/adr/*.yaml')))
 targets.extend(sorted(glob.glob('docs/adr/*.md')))
-for arch in sorted(glob.glob('agent-*/ARCHITECTURE.md')):
+for arch in sorted(glob.glob('architecture/docs/L1/agent-*.md') + glob.glob('architecture/docs/L1/agent-service/ARCHITECTURE.md')):
     targets.append(arch)
 
 for path in targets:
@@ -4194,7 +4194,7 @@ if [[ $_r80_fail -eq 0 ]]; then pass_rule "s2c_callback_signal_historical_only_i
 # agent-middleware post-ADR-0073) MUST NOT carry a "skeleton" status.
 # ---------------------------------------------------------------------------
 _r81_fail=0
-for _r81_arch in agent-*/ARCHITECTURE.md; do
+for _r81_arch in architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md; do
   [[ -f "$_r81_arch" ]] || continue
   _r81_status=$(awk 'BEGIN{infm=0} /^---[[:space:]]*$/{infm=!infm; next} infm && /^status:/{print; exit}' "$_r81_arch" 2>/dev/null)
   if [[ "$_r81_status" == *skeleton* ]]; then
@@ -4421,7 +4421,7 @@ if [[ $_r83_fail -eq 0 ]]; then pass_rule "design_only_contract_registered_in_ca
 
 # Rule 84 — active_module_architecture_path_truth (enforcer E117)
 #
-# Every agent-*/ARCHITECTURE.md whose front-matter status: token does NOT
+# Every architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md whose front-matter status: token does NOT
 # contain "skeleton" or "deferred" MUST have every inline path claim of the
 # shape "<module>/src/main/java/..." resolve to a real file on disk OR carry
 # a historical/moved/extracted-per-ADR/superseded/deferred/formerly marker
@@ -4436,7 +4436,7 @@ _r84_path_re='agent-[a-z-]+/src/main/java/[a-zA-Z0-9_/.-]+'
 # Perf fix (2026-05-23): replaced per-line `echo | grep -oE` + per-claim
 # `sed | grep` with mapfile + bash-native regex. On WSL/mnt/d the original
 # took ~52s per gate run; the rewrite finishes in ~1s.
-for _r84_arch in agent-*/ARCHITECTURE.md; do
+for _r84_arch in architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md; do
   [[ -f "$_r84_arch" ]] || continue
   _r84_status=$(awk 'BEGIN{infm=0} /^---[[:space:]]*$/{infm=!infm; next} infm && /^status:/{print; exit}' "$_r84_arch" 2>/dev/null)
   [[ "$_r84_status" == *skeleton* ]] && continue
@@ -5557,7 +5557,7 @@ else
   fi
 fi
 # rc15 widening (Rule G-3.e scope to module ARCHITECTURE.md — sub-check (b),
-# enforcer E151 per ADR-0091): scan agent-*/ARCHITECTURE.md for the
+# enforcer E151 per ADR-0091): scan architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md for the
 # specific over-claim phrasing pattern (`over-cap[acity]? callers are
 # SUSPENDED` and close variants). The rc14 M-γ defect surfaced when
 # `agent-service/ARCHITECTURE.md:315-317` said "over-cap callers are
@@ -5570,7 +5570,7 @@ fi
 # Admissible if the line carries decision-envelope wording or an explicit
 # defer marker.
 _r99b_hits=$(grep -rnE '(over-cap|over-capacity)( callers| requests)?[^.]*(are SUSPENDED|is SUSPENDED|transitions to SUSPENDED)' \
-             agent-*/ARCHITECTURE.md 2>/dev/null \
+             architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md 2>/dev/null \
              | grep -vE '(decision envelope|SkillResolution\.reject|deferred to R-K|deferred to Rule R-K|deferred per Rule R-K|W2 scheduler admission)' || true)
 if [[ -n "$_r99b_hits" ]]; then
   _r99b_first=$(echo "$_r99b_hits" | head -3 | tr '\n' '|')
@@ -5992,7 +5992,7 @@ fi
 # the patterns they prevent.
 _r106_prose_hits=$(grep -rnE 'each of the [0-9]+ (reactor )?modules' \
                    --include='*.md' --include='*.yaml' \
-                   ARCHITECTURE.md agent-*/ARCHITECTURE.md docs/governance/architecture-status.yaml docs/contracts/contract-catalog.md 2>/dev/null \
+                   ARCHITECTURE.md architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md docs/governance/architecture-status.yaml docs/contracts/contract-catalog.md 2>/dev/null \
                    | grep -v 'docs/archive/' | grep -v 'docs/logs/' || true)
 while IFS= read -r _r106_line; do
   [[ -z "$_r106_line" ]] && continue
@@ -6007,7 +6007,7 @@ while IFS= read -r _r106_line; do
 done <<< "$_r106_prose_hits"
 
 # --- (d) Current-claim grammar (post-ADR-NNNN marker is NOT historical) ---
-# Scope: authority surfaces only (root ARCHITECTURE.md + agent-*/ARCHITECTURE.md
+# Scope: authority surfaces only (root ARCHITECTURE.md + architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md
 # + architecture-status.yaml + contract-catalog.md). docs/governance/rules/*.md
 # is intentionally excluded — rule cards document patterns, including the
 # patterns they prevent (so they legitimately quote old prose).
@@ -6015,7 +6015,7 @@ done <<< "$_r106_prose_hits"
 # `extracted to`, `is deployed`) close the rc14 M-β gap.
 _r106_grammar_hits=$(grep -rnE '(agent-platform|agent-runtime-core|agent-runtime[^-])' \
                      --include='*.md' --include='*.yaml' \
-                     docs/governance/architecture-status.yaml ARCHITECTURE.md agent-*/ARCHITECTURE.md docs/contracts/contract-catalog.md docs/contracts/s2c-callback.v1.yaml 2>/dev/null \
+                     docs/governance/architecture-status.yaml ARCHITECTURE.md architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md docs/contracts/contract-catalog.md docs/contracts/s2c-callback.v1.yaml 2>/dev/null \
                      | grep -v 'docs/archive/' | grep -v 'docs/logs/' \
                      | grep -E '(now reads|lives in|^[^#]*\bdeclares\b|each of the [0-9]+ (reactor )?modules|shared kernel in|extracted to|is deployed)' \
                      | grep -vE '(formerly|historical|until dissolved|pre-rc13|pre-rc12|pre-Phase-C|narration|dissolved|relocated|was consolidated|was extracted|was dissolved|<!--)' || true)
@@ -6206,7 +6206,7 @@ if [[ $_r108_fail -eq 0 ]]; then pass_rule "governance_text_java_anchor_truth"; 
 # rc12 Rule 101 was scoped narrowly per ADR-0086 gate_layer_boundary;
 # this rule widens to ALL semantic-authority surfaces. Per ADR-0093.
 #
-# scope_surfaces: docs/governance/principles/P-*.md, docs/governance/rules/*.md, agent-*/ARCHITECTURE.md, docs/contracts/*.yaml, docs/contracts/*.md
+# scope_surfaces: docs/governance/principles/P-*.md, docs/governance/rules/*.md, architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md, docs/contracts/*.yaml, docs/contracts/*.md
 #
 # Numeric Rule references MUST carry a legacy marker (formerly|legacy|
 # historical|Gate Rule|gate Rule|was Rule|ex-Rule) within the SAME line.
@@ -6214,7 +6214,7 @@ if [[ $_r108_fail -eq 0 ]]; then pass_rule "governance_text_java_anchor_truth"; 
 # ---------------------------------------------------------------------------
 _r109_fail=0
 _r109_surfaces=$(find docs/governance/principles docs/governance/rules \
-                   agent-*/ARCHITECTURE.md docs/contracts \
+                   architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md docs/contracts \
                    -type f \( -name '*.md' -o -name '*.yaml' \) 2>/dev/null \
                  | grep -v 'docs/archive/' | grep -v 'docs/logs/' || true)
 while IFS= read -r _r109_file; do

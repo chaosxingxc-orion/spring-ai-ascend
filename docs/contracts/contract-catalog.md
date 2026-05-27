@@ -3,6 +3,17 @@
 > Single source of truth for all public contracts in the spring-ai-ascend platform.
 > Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-05-22 (rc27 — added 3 missing design_only contracts (a2a-envelope, backpressure-request, federation-envelope) + 3 rc23 SPIs (StatelessEngine, ContextProjector, TaskStateStore) + 3 rc26 SPIs moved to .spi packages per Rule R-D.d)
 
+## Rhetorical stance
+
+This catalog is the **runtime promise** surface. A contract here is what the system COMMITS to at runtime — wire shape, route behavior, SPI signature, header semantics — distinct from:
+
+- **`ARCHITECTURE.md` §4 #1..#65** — declarative architectural constraints (what the platform commits to STRUCTURALLY).
+- **`CLAUDE.md` rules** — enforceable engineering rules (how each commitment is enforced).
+- **`architecture/docs/L1/<module>{.md,/}`** — L1 module design (how a module realises its slice of the contracts).
+- **`docs/governance/architecture-status.yaml#capabilities`** — per-capability shipped/deferred ledger (what's currently active).
+
+Each contract in this catalog has at least one **authority ADR** (the decision that introduced or amended it) and at least one **enforcer** (the gate rule or test that polices its truth). Reading the catalog with this framing prevents conflating "a contract is published" with "a constraint is satisfied" or "a rule is enforced".
+
 ---
 
 ## 1. HTTP API contracts

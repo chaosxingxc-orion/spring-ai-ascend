@@ -103,14 +103,20 @@
 # spawn_envelope_acyclicity row + run_optimistic_lock tests slot + R2-wave
 # baseline_metrics rewrite. Ceiling raised 110000 → 111500 (matches the
 # rc10/rc11 ratchet step of ~1.5K per wave).
-CLAUDE.md=45000
-ARCHITECTURE.md=95000
-AGENTS.md=5000
-docs/governance/SESSION-START-CONTEXT.md=6500
+CLAUDE.md=46500
+ARCHITECTURE.md=98000
+AGENTS.md=8500
+docs/governance/SESSION-START-CONTEXT.md=8000
 # Structurizr workspace authority W5 (ADR-0147 + ADR-0149): +301 bytes to add
 # the `architecture/workspace.dsl` ALWAYS-LOAD row (step 2 + 2a) and rewrite
 # the legacy graph-yaml row as a "retires at W7" entry. Ceiling raised 6000 → 6500
 # to admit the W5 reading-order rewrite plus ~200 bytes headroom.
+# Structurizr W8 docs consolidation (ADR-0150): Rhetorical-stance / Reading-path /
+# Constraint<->Rule sections added across all 4 always-loaded entry surfaces:
+#   CLAUDE.md     45000 -> 46500 (+1500) — Rhetorical stance + Constraint<->Rule mapping.
+#   ARCHITECTURE.md 95000 -> 98000 (+3000) — §0.6 + §0.7 inserts.
+#   AGENTS.md     5000 -> 8500 (+3500) — For-AI load-set + rhetorical-stance table.
+#   SESSION-START-CONTEXT.md 6500 -> 8000 (+1500) — 14-step reading-order aligned with README.
 # rc40 agent-execution-engine corrective: +3 proposal-overclaim enforcer nodes / +6 edges grew
 # the generated graph over the rc36 ceiling; raised to 197500 with the same tight ratchet posture.
 # rc42 W0 single-source-rendering policy wave (ADR-0119): +3 nodes / +13 edges (ADR-0119 +

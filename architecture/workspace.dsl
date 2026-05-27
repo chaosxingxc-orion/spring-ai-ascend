@@ -1,11 +1,22 @@
 // Spring AI Ascend Architecture Workspace
 //
-// Authority: ADR-0147 (Structurizr Workspace Authority); plan at
-// D:\.claude\plans\structurizr-d-chao-workspace-spring-ai-adaptive-hellman.md.
+// PRIMARY ARCHITECTURE AUTHORITY — workspace.dsl is the sole main entry
+// (唯一主入口) for the entire architecture design system.
 //
-// W1 SKELETON STATE. Wave 2 fills features/. Wave 3 emits generated/. Wave 4
-// rewires the L1 doc rendering. Wave 5 declares this file the architecture
-// authoring root (gate flips advisory → blocking).
+// Authority: ADR-0147 + ADR-0149 + ADR-0150.
+// Migration plan: D:\.claude\plans\structurizr-d-chao-workspace-spring-ai-adaptive-hellman.md
+// Status: W0-W7 shipped on main (commit 552ca4e and downstream).
+//          W8 docs consolidation lands on top — L1 corpus moved to
+//          architecture/docs/L1/, module-root ARCHITECTURE.md files
+//          merged into the L1 corpus, `!docs` + `!adrs` directives wired.
+//
+// What this workspace carries (per ADR-0150):
+//   System / Container / Component     -> L1 architecture structure (8 Maven modules)
+//   Custom Element + Tags + Properties -> Feature / Capability / FunctionPoint instances
+//   Relationship + saa.rel             -> dependency / implements / verifies / constrains edges
+//   Documentation (!docs)              -> human-reviewable Markdown imported from architecture/docs/
+//   ADR (!adrs)                        -> decision-source Markdown imported from architecture/decisions/
+//   Views {}                           -> 4+1 organisation form (logical/development/process/physical/scenarios)
 //
 // DSL conventions (per architecture/README.md):
 //   * `element` is the keyword for custom elements (NOT `customElement`).
@@ -13,7 +24,10 @@
 //   * Identifier scope is flat (top-level globally unique).
 //   * Profile-tagged elements MUST satisfy required-properties.yaml.
 
-workspace "Spring AI Ascend" "Architecture authority workspace (W1 advisory)" {
+workspace "Spring AI Ascend" "Architecture authority workspace (W8 — Structurizr-first; docs consolidated)" {
+
+    !docs docs
+    !adrs decisions
 
     model {
         springAiAscend = softwareSystem "Spring AI Ascend" "Agent runtime platform" "SAA Module" {

@@ -100,7 +100,7 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     l2_documents:
-      - agent-service/ARCHITECTURE.md
+      - architecture/docs/L1/agent-service/ARCHITECTURE.md
     implementation:
       - agent-service/src/main/java/com/huawei/ascend/service/platform/PlatformApplication.java
       - agent-service/src/main/java/com/huawei/ascend/service/platform/web/HealthController.java
@@ -114,7 +114,7 @@ capabilities:
     shipped: true
     l0_decision: ARCHITECTURE.md
     l2_documents:
-      - agent-service/ARCHITECTURE.md
+      - architecture/docs/L1/agent-service/ARCHITECTURE.md
     implementation:
       - agent-service/src/main/java/com/huawei/ascend/service/runtime/probe/OssApiProbe.java
       - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java
@@ -356,7 +356,7 @@ capabilities:
     l0_decision: ARCHITECTURE.md
     l2_documents:
       - docs/cross-cutting/posture-model.md
-      - agent-service/ARCHITECTURE.md
+      - architecture/docs/L1/agent-service/ARCHITECTURE.md
     implementation:
       - agent-service/src/main/java/com/huawei/ascend/service/platform/posture/PostureBootGuard.java
       - agent-service/src/main/java/com/huawei/ascend/service/platform/posture/RequiredConfig.java
@@ -1244,7 +1244,7 @@ capabilities:
       - gate/check_architecture_sync.ps1
       - gate/check_architecture_sync.sh
     tests: []
-    allowed_claim: "Active-corpus truth sweep: 11 ADR stale plan paths fixed to archived copy; agent-service/ARCHITECTURE.md + oss-bill-of-materials.md point to wave authority; architecture-systems-engineering-plan.md archived; Gate Rule 15 prevents recurrence (no active .md may reference deleted plan paths). §4 #38."
+    allowed_claim: "Active-corpus truth sweep: 11 ADR stale plan paths fixed to archived copy; architecture/docs/L1/agent-service/ARCHITECTURE.md + oss-bill-of-materials.md point to wave authority; architecture-systems-engineering-plan.md archived; Gate Rule 15 prevents recurrence (no active .md may reference deleted plan paths). §4 #38."
 
   shipped_row_tests_evidence:
     status: design_accepted
@@ -1310,10 +1310,10 @@ capabilities:
     l0_decision: docs/adr/0047-active-entrypoint-truth-and-system-boundary-prose-convention.md
     implementation:
       - ARCHITECTURE.md
-      - agent-service/ARCHITECTURE.md
+      - architecture/docs/L1/agent-service/ARCHITECTURE.md
     tests:
       - gate/test_architecture_sync_gate.sh
-    allowed_claim: "Root ARCHITECTURE.md and agent-service/ARCHITECTURE.md §1 sections split into 'Target architecture (W1-W4)' and 'W0 shipped subset' subsections (per ADR-0078 the pre-Phase-C agent-runtime module was consolidated into agent-service; its §1 split structure carried forward). Catches TEMPORAL-OVERREACH (present-tense prose for W1-W4-deferred capabilities). Reviewer-enforced; structural heading makes inspection trivial. Gate self-test (rule27_baseline_pos/neg) indirectly validates the §1 split by exercising the README baseline cross-check that depends on it. §4 #45(b). ADR-0047."
+    allowed_claim: "Root ARCHITECTURE.md and architecture/docs/L1/agent-service/ARCHITECTURE.md §1 sections split into 'Target architecture (W1-W4)' and 'W0 shipped subset' subsections (per ADR-0078 the pre-Phase-C agent-runtime module was consolidated into agent-service; its §1 split structure carried forward). Catches TEMPORAL-OVERREACH (present-tense prose for W1-W4-deferred capabilities). Reviewer-enforced; structural heading makes inspection trivial. Gate self-test (rule27_baseline_pos/neg) indirectly validates the §1 split by exercising the README baseline cross-check that depends on it. §4 #45(b). ADR-0047."
 
   service_layer_microservice_commitment:
     status: design_accepted
@@ -1554,7 +1554,7 @@ capabilities:
     l0_decision: docs/adr/0061-telemetry-vertical-layer.md
     l2_documents:
       - docs/adr/0061-telemetry-vertical-layer.md
-      - agent-service/ARCHITECTURE.md
+      - architecture/docs/L1/agent-service/ARCHITECTURE.md
     implementation:
       - agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/TraceContext.java
       - agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/NoopTraceContext.java
@@ -1571,7 +1571,7 @@ capabilities:
     l2_documents:
       - docs/adr/0061-telemetry-vertical-layer.md
       - docs/telemetry/policy.md
-      - agent-service/ARCHITECTURE.md
+      - architecture/docs/L1/agent-service/ARCHITECTURE.md
     implementation:
       - agent-service/src/main/java/com/huawei/ascend/service/platform/observability/TraceExtractFilter.java
       - agent-service/src/main/java/com/huawei/ascend/service/platform/observability/TraceFilterAutoConfiguration.java

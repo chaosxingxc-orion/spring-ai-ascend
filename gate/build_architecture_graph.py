@@ -12,7 +12,7 @@ Inputs (read-only — none of these are hand-edited by this script):
     - docs/governance/architecture-status.yaml     (capability → test)
     - <module>/module-metadata.yaml                (module → module allowed/forbidden)
     - docs/adr/*.yaml                              (adr → adr supersedes/extends/relates_to)
-    - ARCHITECTURE.md + agent-*/ARCHITECTURE.md + docs/L2/*.md  (level/view front-matter)
+    - ARCHITECTURE.md + architecture/docs/L1/{agent-*.md,agent-service/ARCHITECTURE.md} + architecture/docs/L2/*.md  (level/view front-matter)
 
 Output:
     - docs/governance/architecture-graph.yaml      (canonical graph)
@@ -48,7 +48,7 @@ except ImportError:
 REPO = Path(__file__).resolve().parent.parent
 GOV = REPO / "docs" / "governance"
 ADR_DIR = REPO / "docs" / "adr"
-L2_DIR = REPO / "docs" / "L2"
+L2_DIR = REPO / "architecture" / "docs" / "L2"
 OUTPUT_YAML = GOV / "architecture-graph.yaml"
 OUTPUT_MMD = GOV / "architecture-graph.mmd"
 
@@ -375,7 +375,7 @@ def build_graph(repo: Path) -> dict:
     # `sorted()` around the glob is required for Rule 38 idempotency: filesystem
     # iteration order differs between NTFS (Windows) and ext4 (Linux/WSL), so the
     # graph would otherwise be order-sensitive and fail re-run byte-equality.
-    for md_path in [repo / "ARCHITECTURE.md", *sorted(repo.glob("agent-*/ARCHITECTURE.md")), *discover_l2_docs(L2_DIR)]:
+    for md_path in [repo / "ARCHITECTURE.md", *sorted(list(repo.glob("architecture/docs/L1/agent-*.md")) + list(repo.glob("architecture/docs/L1/agent-service/ARCHITECTURE.md"))), *discover_l2_docs(L2_DIR)]:
         fm = parse_front_matter(md_path)
         if not fm:
             continue
@@ -564,7 +564,7 @@ def main() -> int:
         "#   docs/governance/architecture-status.yaml\n"
         "#   docs/adr/*.yaml\n"
         "#   */module-metadata.yaml\n"
-        "#   ARCHITECTURE.md + agent-*/ARCHITECTURE.md + docs/L2/**/*.md (front-matter)\n"
+        "#   ARCHITECTURE.md + architecture/docs/L1/{agent-*.md,agent-service/ARCHITECTURE.md} + architecture/docs/L2/**/*.md (front-matter)\n"
         "#\n"
         "# Gate Rule 38 (architecture_graph_well_formed) verifies graph well-formedness;\n"
         "# Gate Rule 40 (enforcer_reachable_from_principle) verifies every principle\n"

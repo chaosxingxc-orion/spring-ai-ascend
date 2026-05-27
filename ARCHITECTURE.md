@@ -27,7 +27,32 @@ This document is the **L0 root** of the Layered 4+1 corpus introduced by Rule G-
 | §4 (#1–#65) Architectural constraints | L0 | scenarios | constraint corpus (each #N carries its own view in the graph) |
 | §5 Staged rollout | L0 | scenarios | wave plan |
 
-Per-module `agent-*/ARCHITECTURE.md` files are **L1**; deep technical designs under `docs/L2/` are **L2**. All future edits to this file MUST flow through `docs/logs/reviews/` once the document is frozen at L1 closure.
+Per-module L1 design lives under `architecture/docs/L1/<module>.md` (single-narrative shape — agent-bus / agent-client / agent-evolve / agent-execution-engine / agent-middleware / graphmemory-starter) OR `architecture/docs/L1/<module>/` (per-view directory shape — agent-service only, with rc55 4+1 per-view files + features/ + ARCHITECTURE.md companion). Deep technical designs are at `architecture/docs/L2/` (W8 — moved from `docs/L2/` per ADR-0150). All future edits to this file (root L0) MUST flow through `docs/logs/reviews/` once the document is frozen at L1 closure.
+
+---
+
+## 0.6 Rhetorical stance of this document
+
+This document is the **declarative L0** system boundary + 65 numbered architectural constraints (§4 #1..#65). It states what the platform commits to STRUCTURALLY. It does NOT carry:
+
+- **Enforcement logic** — read [`CLAUDE.md`](CLAUDE.md) rule kernels + `docs/governance/rules/*.md` cards for that.
+- **Runtime contracts** (wire shapes, route behavior, SPI signatures) — read [`docs/contracts/contract-catalog.md`](docs/contracts/contract-catalog.md) for that.
+- **L1 module design** (how a module realises its slice of the constraints) — read [`architecture/docs/L1/<module>{.md,/}`](architecture/docs/L1/) for that.
+- **Per-capability shipped/deferred ledger** — read [`docs/governance/architecture-status.yaml#capabilities`](docs/governance/architecture-status.yaml) for that.
+
+Readers seeking "the architecture" should start at [`architecture/workspace.dsl`](architecture/workspace.dsl) (the machine-readable architecture authority root per ADR-0147 + ADR-0150). This document is one slice (the declarative constraint corpus), not the architecture as a whole.
+
+## 0.7 Constraint ↔ Rule cross-reference
+
+Each §4 constraint #N MAY be enforced by one or more `CLAUDE.md` rules (D-/R-/G-/M- namespace). The mapping lives in `architecture/generated/enforcers.dsl` (the workspace projection's `enforced_by` edges) and `docs/governance/enforcers.yaml`. Highest-cited pairs:
+
+- §4 #10 module dependency direction ↔ Rule R-C.1 (Independent Module Evolution); enforcer E1.
+- §4 #20 Run W0-race / W1.5+W2 CAS ↔ Rule R-C.2 (Run Contract Spine); enforcers E2, E58.
+- §4 #56 JWT validation + tenant claim cross-check ↔ Rule R-J (Storage-Engine Tenant Isolation); enforcer E69.
+- §4 #58 PostureBootGuard ↔ Rule D-6 (Posture-Aware Defaults); enforcer E55.
+- §4 #65 Architecture workspace truth ↔ Rule G-1.b (Architecture Workspace Truth; W5/W8 amended); enforcers E56, E58.
+
+The workspace projection at `docs/governance/architecture-workspace-graph.yaml` carries the full set of constraint↔rule↔enforcer chains.
 
 ---
 

@@ -103,7 +103,7 @@ templates:
     note: "W6 initial migration — verbatim .md.j2 seed; baseline-row + module-list rendering (subsuming Rule G-2.d root portion) deferred to W6-extended."
 
   - template: "docs/governance/templates/agent-bus-architecture.md.j2"
-    output: "agent-bus/ARCHITECTURE.md"
+    output: "architecture/docs/L1/agent-bus.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -113,7 +113,7 @@ templates:
     note: "W7 initial migration — verbatim seed; dev-view tree + SPI appendix slotted in W7-extended."
 
   - template: "docs/governance/templates/agent-client-architecture.md.j2"
-    output: "agent-client/ARCHITECTURE.md"
+    output: "architecture/docs/L1/agent-client.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -123,7 +123,7 @@ templates:
     note: "W7 initial migration — verbatim seed."
 
   - template: "docs/governance/templates/agent-evolve-architecture.md.j2"
-    output: "agent-evolve/ARCHITECTURE.md"
+    output: "architecture/docs/L1/agent-evolve.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -133,7 +133,7 @@ templates:
     note: "W7 initial migration — verbatim seed."
 
   - template: "docs/governance/templates/agent-execution-engine-architecture.md.j2"
-    output: "agent-execution-engine/ARCHITECTURE.md"
+    output: "architecture/docs/L1/agent-execution-engine.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -143,7 +143,7 @@ templates:
     note: "W7 initial migration — verbatim seed."
 
   - template: "docs/governance/templates/agent-middleware-architecture.md.j2"
-    output: "agent-middleware/ARCHITECTURE.md"
+    output: "architecture/docs/L1/agent-middleware.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -153,7 +153,7 @@ templates:
     note: "W7 initial migration — verbatim seed."
 
   - template: "docs/governance/templates/agent-service-architecture.md.j2"
-    output: "agent-service/ARCHITECTURE.md"
+    output: "architecture/docs/L1/agent-service/ARCHITECTURE.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -166,7 +166,7 @@ templates:
   # All use context_loader: l1_architecture (reuses the existing W7 plugin);
   # verbatim seeds at W2 skeleton, W3/W4/W5 fill content.
   - template: "docs/governance/templates/l1-agent-service-README.md.j2"
-    output: "docs/L1/agent-service/README.md"
+    output: "architecture/docs/L1/agent-service/README.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -175,7 +175,7 @@ templates:
     note: "rc55 W2 — L1 index file; verbatim seed."
 
   - template: "docs/governance/templates/l1-agent-service-scenarios.md.j2"
-    output: "docs/L1/agent-service/scenarios.md"
+    output: "architecture/docs/L1/agent-service/scenarios.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -184,7 +184,7 @@ templates:
     note: "rc55 W2 skeleton + W3 content authoring; verbatim seed."
 
   - template: "docs/governance/templates/l1-agent-service-logical.md.j2"
-    output: "docs/L1/agent-service/logical.md"
+    output: "architecture/docs/L1/agent-service/logical.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -193,7 +193,7 @@ templates:
     note: "rc55 W2 skeleton + W3 content authoring; verbatim seed."
 
   - template: "docs/governance/templates/l1-agent-service-process.md.j2"
-    output: "docs/L1/agent-service/process.md"
+    output: "architecture/docs/L1/agent-service/process.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -202,7 +202,7 @@ templates:
     note: "rc55 W2 skeleton + W4 content authoring; verbatim seed."
 
   - template: "docs/governance/templates/l1-agent-service-physical.md.j2"
-    output: "docs/L1/agent-service/physical.md"
+    output: "architecture/docs/L1/agent-service/physical.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -211,7 +211,7 @@ templates:
     note: "rc55 W2 skeleton + W4 content authoring; verbatim seed."
 
   - template: "docs/governance/templates/l1-agent-service-development.md.j2"
-    output: "docs/L1/agent-service/development.md"
+    output: "architecture/docs/L1/agent-service/development.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:
@@ -221,7 +221,7 @@ templates:
     note: "rc55 W2 skeleton + W5 content authoring; verbatim seed."
 
   - template: "docs/governance/templates/l1-agent-service-spi-appendix.md.j2"
-    output: "docs/L1/agent-service/spi-appendix.md"
+    output: "architecture/docs/L1/agent-service/spi-appendix.md"
     context_loader: "l1_architecture"
     bucket: "templated"
     authority_surfaces:

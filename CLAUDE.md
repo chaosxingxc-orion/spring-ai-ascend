@@ -4,6 +4,12 @@
 
 Bodies of every principle and rule below live under `docs/governance/{principles,rules}/` and are loaded on-demand. CLAUDE.md is the kernel index. Drift policed by Gate Rules 67/68/69; always-loaded byte budget by Rule G-4 sub-clause .a (`gate/measure_always_loaded_tokens.sh`).
 
+## Rhetorical stance
+
+CLAUDE.md is the **enforceable** rule kernel index. Each rule kernel is ≤8 sentences; full bodies live in `docs/governance/rules/*.md` (loaded on demand by phase contracts). Rules enforce one or more of the 65 §4 architectural constraints declared in `ARCHITECTURE.md`. The full constraint ↔ rule mapping is in `architecture/generated/enforcers.dsl` (`enforced_by` edges) and `docs/governance/enforcers.yaml`.
+
+CLAUDE.md is **NOT** the architecture (read `architecture/workspace.dsl` for that), **NOT** the constraint corpus (read `ARCHITECTURE.md` §4 for that), **NOT** the runtime contract surface (read `docs/contracts/contract-catalog.md` for that), and **NOT** the L1 module design (read `architecture/docs/L1/<module>{.md,/}` for that). It is the enforcement layer over those surfaces.
+
 ## Phase Entry — Invoke the matching skill BEFORE working
 
 ADR-0098 (rc21) replaces progressive on-demand rule loading with
@@ -385,6 +391,22 @@ Enforced by [`rule-G-12.md`](docs/governance/rules/rule-G-12.md).
 **Every dynamic claim in the active corpus (count, path, module name, SPI FQN, ADR id, family id, version tag, baseline metric, generated table row) lives in exactly one of: (a) an authority YAML / decision YAML (source-of-truth), (b) a deterministically-generated YAML (e.g. `architecture-graph.yaml`), or (c) a rendered slot in a `*.md.j2` template under `docs/governance/templates/`. No dynamic claim is allowed to exist as free-typed prose anywhere. The corresponding rendered `.md` artifact MUST be byte-identical to `render(template, data)` — gate fails on any drift, including whitespace. Subsumes Rules G-2.b, G-2.d (root portion), G-2.1, G-8.a, G-8.c, G-8.e, G-9.c in the W3..W10 retirement schedule per ADR-0119; subsumed rules remain as defence-in-depth until W10 cleanup.**
 
 Enforced by [`rule-G-13.md`](docs/governance/rules/rule-G-13.md).
+
+---
+
+## Constraint ↔ Rule mapping (entry point)
+
+Each rule above enforces one or more `ARCHITECTURE.md` §4 numbered constraints (#1..#65, declarative). The full mapping lives in `architecture/generated/enforcers.dsl` (`enforced_by` edges) + `docs/governance/enforcers.yaml`. The table below names the most-cited pairs as a discovery entry point:
+
+| §4 # | Constraint topic | Primary enforcing rule(s) | Enforcer ID(s) |
+|---|---|---|---|
+| #10 | Module dependency direction | Rule R-C.1 (Independent Module Evolution) | E1 |
+| #20 | Run W0-race / W1.5+W2 CAS | Rule R-C.2 (Run Contract Spine) | E2, E58 |
+| #56 | JWT validation + tenant claim cross-check | Rule R-J (Storage-Engine Tenant Isolation) | E69 |
+| #58 | PostureBootGuard + `@RequiredConfig` | Rule D-6 (Posture-Aware Defaults) | E55 |
+| #65 | Architecture workspace truth | Rule G-1.b (Architecture Workspace Truth; amended W5/W8) | E56, E58 |
+
+Reading the catalog this way prevents conflation of "a constraint is declared" with "a rule is shipped" or "an enforcer is wired". The workspace projection at `docs/governance/architecture-workspace-graph.yaml` carries the full set of `enforced_by` edges.
 
 ---
 
