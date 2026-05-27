@@ -1,18 +1,22 @@
 package com.huawei.ascend.service.session.spi;
 
-import java.util.Map;
-
 /**
  * Session context projection SPI.
  *
- * <p>Projects a {@code SessionContext} view from full Session history
+ * <p>Projects a {@link ProjectedContext} view from full Session history
  * via a configurable truncation / summarization policy. The Engine
  * sees only what the projector exposed; it never reads full Session
  * history directly.
  *
  * <p>Authority: ADR-0100 (Session Manager component). Reference impl
- * ({@code InMemoryContextProjector}) lands
- * implementation timeline.
+ * ({@code InMemoryContextProjector}) lands as the dev-posture stub.
+ *
+ * <p>SPI shape revised in Wave 5 of the post-merge audit plan
+ * (IF-DRIFT-003 closure): the prior {@code Map<String,Object>} carrier
+ * was too narrow to express taskId scope, token budget, or memory references
+ * that L2 projection policies need. Typed records
+ * {@link ContextProjectionRequest} (input) + {@link ProjectedContext} (output)
+ * make the SPI schema-bearing.
  *
  * <p>SPI purity per Rule R-D: imports only {@code java.*} + own
  * siblings.
@@ -20,18 +24,26 @@ import java.util.Map;
 public interface ContextProjector {
 
     /**
-     * Project a SessionContext from full Session history.
+     * Project a {@link ProjectedContext} from full Session history per the
+     * request's policy + budget + memory references.
      *
-     * <p>The {@code projectionPolicy} name (e.g., {@code "last_n"},
-     * {@code "summary_v1"}, {@code "hybrid_v1"}) is carried in the
-     * returned context so downstream observability can trace which
-     * strategy was applied.
+     * <p>Implementations MUST:
+     * <ul>
+     *   <li>Honour {@code request.tenantId()} as the tenant scope — cross-tenant
+     *       reads MUST return a result whose {@code messages} + {@code variables}
+     *       are empty (or throw an {@link IllegalArgumentException} with a clear
+     *       tenant-scope diagnostic, depending on impl posture). Never leak
+     *       foreign tenant context.</li>
+     *   <li>Set {@code result.projectionPolicy()} to the strategy actually
+     *       applied (when the request's policy was null, the impl reports its
+     *       default).</li>
+     *   <li>Bound the result by {@code request.tokenBudget()} when non-zero;
+     *       the impl MAY exceed the budget for mandatory context but MUST report
+     *       the actual {@code tokenCount} in the result.</li>
+     * </ul>
      *
-     * @param sessionId       the Session whose history to project.
-     * @param tenantId        mandatory per Rule R-C.c.
-     * @param projectionPolicy the named strategy to apply.
-     * @return the projected context as a map; carries
-     *         {@code messages}, {@code variables}, {@code projection_policy}.
+     * @param request typed projection input; non-null.
+     * @return projected context for the request's tenant + session scope; never null.
      */
-    Map<String, Object> project(String sessionId, String tenantId, String projectionPolicy);
+    ProjectedContext project(ContextProjectionRequest request);
 }
