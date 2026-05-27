@@ -167,7 +167,8 @@ public class RunController {
         // the read and the save was silently overwritten with CANCELLED. Routing the
         // write through updateIfNotTerminal makes the re-read + terminal check + write
         // one atomic step so a terminal state always wins.
-        Optional<Run> result = repository.updateIfNotTerminal(id, r -> r.withStatus(RunStatus.CANCELLED));
+        Optional<Run> result = repository.updateIfNotTerminal(
+                tenant.tenantId().toString(), id, r -> r.withStatus(RunStatus.CANCELLED));
         if (result.isEmpty()) {
             return error(HttpStatus.NOT_FOUND, "not_found",
                     "Run not found within tenant scope.");

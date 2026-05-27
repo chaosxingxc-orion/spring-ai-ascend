@@ -66,15 +66,28 @@ public final class InMemoryRunRegistry implements RunRepository {
     }
 
     /**
-     * Atomic compare-and-set: the re-read, terminal check, and write happen inside
-     * a single {@link ConcurrentHashMap#computeIfPresent} remapping (per-key locked),
-     * so a parallel terminal write can never be silently overwritten by a stale-snapshot
-     * caller. The mutator is invoked on the freshly-read Run, so {@code Run.withStatus}'s
+     * Atomic compare-and-set: the re-read, tenant check, terminal check, and write
+     * happen inside a single {@link ConcurrentHashMap#computeIfPresent} remapping
+     * (per-key locked), so a parallel terminal write can never be silently overwritten
+     * by a stale-snapshot caller and a cross-tenant write can never reach the row.
+     * The mutator is invoked on the freshly-read Run, so {@code Run.withStatus}'s
      * state-machine validation also sees current state.
+     *
+     * <p>Tenant-mismatch returns empty (cross-tenant access collapses to "not found"
+     * per Rule R-J.b W0 posture) — the row is left untouched.
      */
     @Override
-    public Optional<Run> updateIfNotTerminal(UUID runId, UnaryOperator<Run> mutator) {
-        return Optional.ofNullable(store.computeIfPresent(runId, (k, current) -> {
+    public Optional<Run> updateIfNotTerminal(String tenantId, UUID runId, UnaryOperator<Run> mutator) {
+        java.util.Objects.requireNonNull(tenantId, "tenantId is required");
+        java.util.Objects.requireNonNull(runId, "runId is required");
+        // Track tenant-mismatch separately so we can return Optional.empty() (cross-tenant
+        // collapse) rather than the unchanged foreign Run.
+        boolean[] tenantMismatch = {false};
+        Run updated = store.computeIfPresent(runId, (k, current) -> {
+            if (!tenantId.equals(current.tenantId())) {
+                tenantMismatch[0] = true;
+                return current; // leave foreign row untouched
+            }
             if (RunStateMachine.isTerminal(current.status())) {
                 return current;
             }
@@ -87,6 +100,10 @@ public final class InMemoryRunRegistry implements RunRepository {
                 // caller observes the current status and maps it to 409, not a 500.
                 return current;
             }
-        }));
+        });
+        if (tenantMismatch[0]) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(updated);
     }
 }

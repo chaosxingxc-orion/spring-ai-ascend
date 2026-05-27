@@ -224,9 +224,9 @@ class SyncOrchestratorCancelRaceTest {
         }
 
         @Override
-        public Optional<Run> updateIfNotTerminal(UUID runId, UnaryOperator<Run> mutator) {
+        public Optional<Run> updateIfNotTerminal(String tenantId, UUID runId, UnaryOperator<Run> mutator) {
             injectCancelIfRunning(runId);
-            return delegate.updateIfNotTerminal(runId, mutator);
+            return delegate.updateIfNotTerminal(tenantId, runId, mutator);
         }
 
         @Override

@@ -35,7 +35,7 @@ class InMemoryRunRegistryUpdateIfNotTerminalTest {
         UUID id = UUID.randomUUID();
         runs.save(run(id, RunStatus.SUCCEEDED));
 
-        Optional<Run> result = runs.updateIfNotTerminal(id, r -> r.withStatus(RunStatus.CANCELLED));
+        Optional<Run> result = runs.updateIfNotTerminal("tenant-A", id, r -> r.withStatus(RunStatus.CANCELLED));
 
         assertThat(result).isPresent();
         assertThat(result.get().status())
@@ -50,7 +50,7 @@ class InMemoryRunRegistryUpdateIfNotTerminalTest {
         UUID id = UUID.randomUUID();
         runs.save(run(id, RunStatus.RUNNING));
 
-        Optional<Run> result = runs.updateIfNotTerminal(id, r -> r.withStatus(RunStatus.CANCELLED));
+        Optional<Run> result = runs.updateIfNotTerminal("tenant-A", id, r -> r.withStatus(RunStatus.CANCELLED));
 
         assertThat(result).isPresent();
         assertThat(result.get().status()).isEqualTo(RunStatus.CANCELLED);
@@ -67,7 +67,7 @@ class InMemoryRunRegistryUpdateIfNotTerminalTest {
         UUID id = UUID.randomUUID();
         runs.save(run(id, RunStatus.FAILED));
 
-        Optional<Run> result = runs.updateIfNotTerminal(id, r -> r.withStatus(RunStatus.CANCELLED));
+        Optional<Run> result = runs.updateIfNotTerminal("tenant-A", id, r -> r.withStatus(RunStatus.CANCELLED));
 
         assertThat(result).isPresent();
         assertThat(result.get().status())
@@ -79,7 +79,7 @@ class InMemoryRunRegistryUpdateIfNotTerminalTest {
     @Test
     void absent_run_returns_empty() {
         InMemoryRunRegistry runs = new InMemoryRunRegistry();
-        assertThat(runs.updateIfNotTerminal(UUID.randomUUID(), r -> r.withStatus(RunStatus.CANCELLED)))
+        assertThat(runs.updateIfNotTerminal("tenant-A", UUID.randomUUID(), r -> r.withStatus(RunStatus.CANCELLED)))
                 .isEmpty();
     }
 
@@ -89,7 +89,7 @@ class InMemoryRunRegistryUpdateIfNotTerminalTest {
         UUID id = UUID.randomUUID();
         runs.save(run(id, RunStatus.CANCELLED));
 
-        Optional<Run> result = runs.updateIfNotTerminal(id, r -> r.withStatus(RunStatus.CANCELLED));
+        Optional<Run> result = runs.updateIfNotTerminal("tenant-A", id, r -> r.withStatus(RunStatus.CANCELLED));
 
         assertThat(result).isPresent();
         assertThat(result.get().status()).isEqualTo(RunStatus.CANCELLED);
@@ -137,7 +137,7 @@ class InMemoryRunRegistryUpdateIfNotTerminalTest {
                 Thread.currentThread().interrupt();
                 return;
             }
-            runs.updateIfNotTerminal(id, r -> {
+            runs.updateIfNotTerminal("tenant-A", id, r -> {
                 appliedCount.incrementAndGet();
                 return r.withStatus(target);
             });

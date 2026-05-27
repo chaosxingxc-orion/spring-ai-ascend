@@ -28,18 +28,25 @@ public interface RunRepository {
 
     /**
      * Atomically apply {@code mutator} to the persisted Run iff its current status is
-     * non-terminal, then persist and return the result. If the persisted status is
-     * terminal, the mutator is NOT applied and the unchanged terminal Run is returned.
-     * Returns empty when no Run exists for {@code runId}.
+     * non-terminal AND its tenantId matches {@code tenantId}, then persist and return
+     * the result. If the persisted status is terminal, the mutator is NOT applied and
+     * the unchanged terminal Run is returned. If the persisted tenantId does NOT match
+     * {@code tenantId}, returns empty (cross-tenant access collapses to "not found"
+     * per Rule R-J.b W0 posture). Returns empty when no Run exists for {@code runId}.
      *
      * <p>Closes the read-modify-write race on status transitions: a stale snapshot
      * caller (e.g. {@code RunController.cancel} racing the orchestrator's terminal
      * write) could otherwise validate a transition against the stale status and
-     * blind-overwrite a parallel terminal state. The re-read, terminal check, and
-     * write MUST be a single atomic step. Implementations MUST provide their own
-     * compare-and-set primitive, such as {@code ConcurrentHashMap.computeIfPresent}
-     * for the in-memory reference implementation or a conditional SQL UPDATE for a
-     * durable repository.
+     * blind-overwrite a parallel terminal state. The re-read, tenant check, terminal
+     * check, and write MUST be a single atomic step. Implementations MUST provide
+     * their own compare-and-set primitive, such as
+     * {@code ConcurrentHashMap.computeIfPresent} for the in-memory reference
+     * implementation or a conditional SQL UPDATE for a durable repository.
+     *
+     * <p>The {@code tenantId} parameter is mandatory — it codifies the
+     * tenant-first persistence discipline (Rule R-C.2.a + R-J.a) in the SPI shape
+     * itself, so callers cannot accidentally drive a Run state transition against
+     * a foreign tenant's row.
      */
-    Optional<Run> updateIfNotTerminal(UUID runId, UnaryOperator<Run> mutator);
+    Optional<Run> updateIfNotTerminal(String tenantId, UUID runId, UnaryOperator<Run> mutator);
 }

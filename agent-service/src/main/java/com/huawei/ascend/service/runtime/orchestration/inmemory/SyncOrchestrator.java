@@ -289,7 +289,7 @@ public final class SyncOrchestrator implements Orchestrator {
      * returned Run to decide whether to short-circuit the orchestrator loop.
      */
     private Run mutateIfNotTerminal(Run local, UnaryOperator<Run> mutator) {
-        return runs.updateIfNotTerminal(local.runId(), mutator).orElse(local);
+        return runs.updateIfNotTerminal(local.tenantId(), local.runId(), mutator).orElse(local);
     }
 
     /**
