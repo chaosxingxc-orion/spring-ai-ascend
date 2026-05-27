@@ -68,7 +68,7 @@ remains closed.
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 5 (rc55 reopen — agent-service/ARCHITECTURE.md §runtime/resilience present-tense prose flanking deferred Rule R-K.c citation) | 🟡 monitoring (rc55 reopens from `closed` because the rc15 + rc53 closures did not cover narrative prose within agent-*/ARCHITECTURE.md flanking deferred-clause citations; cool-down required: 3 subsequent waves) |
 | 9 | F-recursive-prevention-irony | META Prevention Rule Exhibits the Defect Class It Prevents | 3 (rc17, rc19, rc20) | 🟡 monitoring (rc20 reopen — Rule 112 missed Rule 111 itself; closed by adding [META] marker + dogfooding fix, kept under monitoring until 3-rc cool-down) |
 | 10 | F-progressive-loading-weak-enforcement | CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time | 2 (rc21, rc39-formal-release-transaction) | ✅ closed — phase contracts + skills + formal release transaction workflow |
-| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 16 (rc55 PR-77 consistency review wave-1 follow-up: external reviewer found 7 cross-view + cross-doc grounding gaps in the post-rc55 4+1 set under `docs/L1/agent-service/` — ERD vs prose cardinality, RunRepository.updateIfNotTerminal signature drift, Task/Session PK type drift, stale test anchor, SSE W2-shipped vs W2-scope, README frontmatter underclaim, module-root legacy terminology) | 🟡 monitoring (rc55 resets review-artefact cool-down; derived L1 reviews must preserve enough evidence and scenario/data/control-flow grounding for reviewers to audit conclusions; Wave 1A finalises the candidate NEW family F-l1-view-set-internal-signature-drift) |
+| 11 | F-l1-architecture-grounding-gap | L1 Architecture Document Lacks Code-Mapping or SPI Enumeration | 17 (W8 PR-85 follow-up review refresh: the new Agent Service L1 review note kept the right direction but had to be reworked for evidence freshness, explicit RunRepository.updateIfNotTerminal signature-drift grounding, and post-W8 authority-language closure; prior rc55 PR-77 review had already found 7 cross-view + cross-doc grounding gaps in the post-rc55 4+1 set) | 🟡 monitoring (W8 resets the derived-review side again: L1 review artefacts must keep concrete anchors, source freshness, and cross-surface terminology closure in lockstep with the live corpus) |
 | 12 | F-bulk-scrub-orphan-syntax | Bulk Regex Scrub Leaves Orphan Punctuation in Code Comments | 4 (rc27, rc28, rc31, rc32) | ⚠️ partial (rc32 register — Rule D-9 bulk-regex scrub recurs every wave; structural fix is AST-aware tooling, partially addressed by rc51 Wave G2 JavaParser/libCST helpers under gate/lib/refactor/) |
 | 13 | F-nonatomic-run-status-write | Non-Atomic Runtime State Write Loses Tenant or Terminal-State Invariants | 5 (rc35-correctness-batch, rc35-second-pass, rc36, rc38, rc39-formal-release-transaction) | 🟡 monitoring (rc39 broadened to tenant-owned runtime state; RunRepository SPI made abstract, save calls source-guarded to create-only sites, TaskStateStore writes made atomic) |
 | 14 | F-project-tool-pin-drift | Project-Local Dev-Tool Pin Drift and Manifest Inconsistency | 2 (rc40-codegraph-mcp-onboarding + rc50-nodegraph-evidence) | ✅ structurally addressed (Rule 125 / E173 gates package.json exact-pin + lockfileVersion>=3 + .mcp.json relative-shim ref; rc50 adds local `.codegraph` nodegraph evidence without committing the SQLite database) |
@@ -518,31 +518,37 @@ not against the human-readable L1 architecture document.
 rc40 adds a service-module recurrence: `agent-service/ARCHITECTURE.md`
 omitted live platform/runtime package directories from the Development View and
 counted structural carriers in the SPI appendix as active SPI interfaces.
-rc55 adds three review-artefact recurrences: the generated OSS comparison review
-preserved the conclusion but compressed away source-level project-by-project
-non-equivalence, Layer 3 worker-contract, Layer 5 capability-discovery, and
-Session/Memory concurrency evidence; the first capability-feature list carried
-downstream-design advice, artificial status labels, priority-first grouping, and
-weak scenario/data/control-flow grounding; the rewritten capability-feature list
-still missed concrete enterprise Agent access, recovery, delegation, third-party
-Agent, client-hosted skill, and configuration-ownership scenarios. The merge-train
-PR-77 consistency review adds a fourth: even after canonical-4+1 materialisation,
-the view set still carries internal signature drift (RunRepository.updateIfNotTerminal
-across logical/process/physical), cardinality contradiction (ERD 1:1 vs prose 1:N),
-PK type drift (logical vs physical), stale test anchors (cancel-scenario citing
-non-existent method), and module-root staleness (legacy TaskRepository /
-tenantMismatchReturns403 terminology).
+  rc55 adds three review-artefact recurrences: the generated OSS comparison review
+  preserved the conclusion but compressed away source-level project-by-project
+  non-equivalence, Layer 3 worker-contract, Layer 5 capability-discovery, and
+  Session/Memory concurrency evidence; the first capability-feature list carried
+  downstream-design advice, artificial status labels, priority-first grouping, and
+  weak scenario/data/control-flow grounding; the rewritten capability-feature list
+  still missed concrete enterprise Agent access, recovery, delegation, third-party
+  Agent, client-hosted skill, and configuration-ownership scenarios. The merge-train
+  PR-77 consistency review adds a fourth: even after canonical-4+1 materialisation,
+  the view set still carries internal signature drift (RunRepository.updateIfNotTerminal
+  across logical/process/physical), cardinality contradiction (ERD 1:1 vs prose 1:N),
+  PK type drift (logical vs physical), stale test anchors (cancel-scenario citing
+  non-existent method), and module-root staleness (legacy TaskRepository /
+  tenantMismatchReturns403 terminology). W8 PR-85 adds a fifth derived-review
+  recurrence: the new follow-up review note preserved the architectural direction
+  but still needed a second pass to restore evidence freshness, explicitly capture
+  RunRepository.updateIfNotTerminal(...) signature drift as its own finding, and
+  restate Layer 3 / authority-transition judgments using the post-W8 authoring-root
+  vocabulary rather than a mixed pre-/post-transition wording set.
 
 **Surfaces.**
 
 - `agent-*/ARCHITECTURE.md` — all 6 modules.
 - `docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-review.{cn,en}.md` — derived OSS comparison summaries.
-- `docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-source.cn.md` — preserved source comparison record.
-- `docs/logs/reviews/2026-05-26-agent-service-module-capability-feature-list.{cn,en}.md` — derived module capability/feature reviews.
-- `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-consistency-review-wave-1.cn.md` — PR-77 4+1 consistency review surfacing internal signature drift, ERD cardinality, PK type drift, and module-root staleness.
-- `docs/governance/rules/rule-G-1.md` — parent rule lacked depth
-  sub-clauses; the 2026-05-21 reviewer proposal flagged this gap
-  ("hollow L1 architecture documents").
+  - `docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-source.cn.md` — preserved source comparison record.
+  - `docs/logs/reviews/2026-05-26-agent-service-module-capability-feature-list.{cn,en}.md` — derived module capability/feature reviews.
+  - `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-consistency-review-wave-1.cn.md` — PR-77 4+1 consistency review surfacing internal signature drift, ERD cardinality, PK type drift, and module-root staleness.
+  - `docs/logs/reviews/2026-05-27-agent-service-l1-4plus1-and-feature-consistency-review.cn.md` — W8 PR-85 follow-up review refresh; same family recurrence on stale anchors, incomplete finding granularity, and authority-language closure inside a derived L1 review note.
+  - `docs/governance/rules/rule-G-1.md` — parent rule lacked depth
+    sub-clauses; the 2026-05-21 reviewer proposal flagged this gap
+    ("hollow L1 architecture documents").
 
 **Prevention.**
 
@@ -569,12 +575,15 @@ tenantMismatchReturns403 terminology).
   recovery, delegation, third-party Agent, client-hosted skill, and configuration-
   ownership cases before deriving module features.
 
-**Cleanup status.** `monitoring` — Rule G-1.1 ratifies the depth/grounding
-discipline, but rc40 resets the cool-down because a live service architecture
-document again drifted from code reality. The appendix now separates the 7
-active Java SPI interfaces from SPI-adjacent structural carriers. rc55 resets
-the derived-review side again for OSS comparison, module capability-feature
-reviews, and the follow-up scenario-decomposition review.
+  **Cleanup status.** `monitoring` — Rule G-1.1 ratifies the depth/grounding
+  discipline, but rc40 resets the cool-down because a live service architecture
+  document again drifted from code reality. The appendix now separates the 7
+  active Java SPI interfaces from SPI-adjacent structural carriers. rc55 resets
+  the derived-review side again for OSS comparison, module capability-feature
+  reviews, and the follow-up scenario-decomposition review. W8 resets that
+  derived-review side once more because the new follow-up review note itself
+  still needed anchor-freshness and terminology-closure correction before it
+  could serve as a reliable audit record.
 
 **Open residual.** The SPI Appendix scanner now requires 4 surfaces
 to agree (catalog + metadata + DFX + ARCHITECTURE.md appendix). A
