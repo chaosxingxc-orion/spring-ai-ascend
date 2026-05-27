@@ -54,6 +54,19 @@
       <artifactId>snakeyaml</artifactId>
       <version>${snakeyaml.version}</version>
     </dependency>
+    <!--
+      SLF4J binding so structurizr-dsl's transitive slf4j-api has a concrete
+      logger implementation. Without this the JVM prints
+      'SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder"' on
+      every invocation and falls back to NOP (functionally fine, just noise).
+      slf4j-simple is the smallest binding and writes to stderr by default;
+      level set to ERROR via system property so the gate output stays quiet.
+    -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>2.0.16</version>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>

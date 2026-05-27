@@ -23,7 +23,7 @@ import java.util.TreeMap;
 public final class AdrMirrorCli {
 
     private static final List<String> ANCHOR_IDS = List.of(
-            "0068", "0119", "0147", "0148", "0149", "0150"
+            "0068", "0119", "0147", "0148", "0149", "0150", "0151"
     );
 
     private AdrMirrorCli() {

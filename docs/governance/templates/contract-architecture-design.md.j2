@@ -43,6 +43,7 @@ declares allocation.
 | G-3 | Kernel-Card-Implementation Coherence | **X** | [`rule-G-3.md`](../rules/rule-G-3.md) |
 | G-3.1 | Kernel-Implementation Disjunction Truth | **X** | [`rule-G-3.1.md`](../rules/rule-G-3.1.md) |
 | G-8 | Cross-Authority Parity (graph baseline / SPI path / module topology / current-claim grammar / structural-carrier parity) | **X** | [`rule-G-8.md`](../rules/rule-G-8.md) |
+| G-14 | Feature Lifecycle Validity | **P** | [`rule-G-14.md`](../rules/rule-G-14.md) |
 | M-1 | Skeleton Module Has No Production Java | **P** | [`rule-M-1.md`](../rules/rule-M-1.md) |
 | M-2 | Domain Contract Discipline (schema-first + design-only registration + DFX-stem truth) | **P** | [`rule-M-2.md`](../rules/rule-M-2.md) |
 | R-A | Business/Platform Decoupling Enforcement | **P** | [`rule-R-A.md`](../rules/rule-R-A.md) |

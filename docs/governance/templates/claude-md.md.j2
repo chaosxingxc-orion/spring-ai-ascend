@@ -394,6 +394,15 @@ Enforced by [`rule-G-13.md`](docs/governance/rules/rule-G-13.md).
 
 ---
 
+### L1 Feature Registry wave (ADR-0151)
+#### Rule G-14 — Feature Lifecycle Validity
+
+**Every SAA Feature element in `architecture/features/features.dsl` MUST declare `saa.status` from the 9-state lifecycle (`proposed → accepted → design_only → ready_for_impl → implemented_unverified → test_verified → shipped → deprecated → removed`) (sub-clause .a). Per-feature status transitions in git history MUST follow the forward chain OR be paired with an ADR `extends:` or `relates_to:` the original feature ADR (sub-clause .b). Status `shipped` MUST have non-empty `saa.verificationTestFqns`; the pipe-separated FQNs MUST resolve to existing test classes (sub-clause .c). Status `deprecated` MUST carry `saa.sunsetDate` (ISO yyyy-MM-dd) AND a `relates_to:` ADR (sub-clause .d). Advisory at Wave 1 of the L1 Feature Registry plan; promoted to blocking at Wave 5 after 14-day soak. Companion saa.rel types `decided_by` (FEAT- → ADR) and `contained_by` (FEAT- → CAP-) make AI traversal one-hop instead of string-matching.**
+
+Enforced by [`rule-G-14.md`](docs/governance/rules/rule-G-14.md).
+
+---
+
 ## Constraint ↔ Rule mapping (entry point)
 
 Each rule above enforces one or more `ARCHITECTURE.md` §4 numbered constraints (#1..#65, declarative). The full mapping lives in `architecture/generated/enforcers.dsl` (`enforced_by` edges) + `docs/governance/enforcers.yaml`. The table below names the most-cited pairs as a discovery entry point:

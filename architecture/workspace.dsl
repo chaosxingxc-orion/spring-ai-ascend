@@ -118,9 +118,10 @@ workspace "Spring AI Ascend" "Architecture authority workspace (W8 — Structuri
             }
         }
 
-        // Authored zone — W2 mount of capabilities/features/function-points.
+        // Authored zone — W2 mount of capabilities/function-points + W9 mount of features.
         !include features/capabilities.dsl
         !include features/function-points.dsl
+        !include features/features.dsl
         !include features/verification.dsl
 
         // Generated zone — W3 emitters. NEVER hand-edit these files.

@@ -7,6 +7,8 @@ authority: "ADR-0150 (Wave 8 architecture docs consolidation)"
 
 # 2026-05-27 — Structurizr W8 Docs Consolidation Shipped
 
+> **Historical artifact frozen at SHA `3a3208d`** (W8 merge commit on main). Baseline counts in §0 reflect the W8 snapshot (135 ADRs / 626 nodes / 1197 edges / 557 workspace elements / 398 workspace relationships). The current canonical baseline post-W1-Feature-Registry (136 ADRs / 627 nodes / 1203 edges / 566 elements / 413 relationships / 44 active engineering rules) lives in `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`; see `docs/logs/releases/2026-05-27-l1-feature-registry-w1-foundation.md` for the W1 update.
+
 **Branch:** `wave8/structurizr-first-docs-consolidation`
 **PR:** #84
 **Commits:** `b78191f` (W8.1-6 moves) → `ad7aee2` (W8.7-11.7) → `8096f68` (W8.12 fixes).

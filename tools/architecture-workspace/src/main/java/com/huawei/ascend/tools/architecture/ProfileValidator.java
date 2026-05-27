@@ -60,7 +60,16 @@ public final class ProfileValidator {
     static {
         Map<String, List<String>> m = new HashMap<>();
         m.put("SAA Capability", List.of("saa.owner", "saa.sourceAdr"));
-        m.put("SAA Feature", List.of("saa.owner", "saa.sourceAdr"));
+        m.put("SAA Feature", List.of(
+                "saa.owner",
+                "saa.sourceAdr",
+                "saa.capabilityDomain",
+                "saa.synopsis",
+                "saa.aiBoundary.canModifyCode",
+                "saa.aiBoundary.canModifyContracts",
+                "saa.aiBoundary.allowedStatusTransitions",
+                "saa.aiBoundary.requiresHumanReviewAt",
+                "saa.aiBoundary.sandboxPolicyRef"));
         m.put("SAA FunctionPoint", List.of("saa.owner", "saa.sourceAdr"));
         m.put("SAA Module", List.of("saa.owner"));
         m.put("SAA Rule", List.of("saa.sourceAdr"));
@@ -89,7 +98,9 @@ public final class ProfileValidator {
             "extends",
             "relates_to",
             "indexes",
-            "projects_to"
+            "projects_to",
+            "decided_by",
+            "contained_by"
     );
 
     public List<ProfileViolation> validate(Workspace workspace) {

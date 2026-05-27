@@ -83,3 +83,13 @@ relationship_types:
     source_tags: [SAA Module, SAA Capability, SAA Feature, SAA FunctionPoint, SAA Rule, SAA Enforcer, SAA ADR]
     target_tags: [SAA GeneratedProjection]
     description: Source element is projected into a generated output (graph.yaml, mermaid, rendered .md, etc.).
+
+  decided_by:
+    source_tags: [SAA Feature, SAA FunctionPoint, SAA Capability, SAA Contract]
+    target_tags: [SAA ADR]
+    description: Authority for the element's existence and scope; the ADR that decided this. Inverse of `decides`.
+
+  contained_by:
+    source_tags: [SAA Feature]
+    target_tags: [SAA Capability]
+    description: Feature is contained by a capability. Inverse of `contains` (capability -> feature direction). One-hop AI traversal from FEAT- to CAP-.

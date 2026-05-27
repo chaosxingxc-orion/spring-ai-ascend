@@ -21,6 +21,13 @@ required_properties:
     SAA Feature:
       - saa.owner
       - saa.sourceAdr
+      - saa.capabilityDomain
+      - saa.synopsis
+      - saa.aiBoundary.canModifyCode
+      - saa.aiBoundary.canModifyContracts
+      - saa.aiBoundary.allowedStatusTransitions
+      - saa.aiBoundary.requiresHumanReviewAt
+      - saa.aiBoundary.sandboxPolicyRef
     SAA FunctionPoint:
       - saa.owner
       - saa.sourceAdr
