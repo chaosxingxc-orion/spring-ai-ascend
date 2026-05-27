@@ -1277,6 +1277,11 @@ families:
       Sibling sweep across other modules (agent-execution-engine,
       agent-bus, agent-middleware, agent-client, agent-evolve)
       runs in this wave's W0 sibling-sweep report.
+      2026-05-28 review: docs/logs/reviews/2026-05-28-agent-service-m1-m6-design-draft.cn.md
+      (AgentService M1-M6 L1 feature spec + weather clarification scenario) audited
+      against this family's root cause. Each of M1-M6 is a single-module spec with
+      a single clear layer boundary; no "kitchen-sink" layer and no double-homing of
+      responsibilities detected. File is NOT an instance of this defect.
 
   - id: F-frontmatter-claim-body-mismatch
     title: Architecture-Doc Frontmatter Declares Views the Body Does Not Author
@@ -1397,6 +1402,12 @@ families:
       every Mermaid diagram in docs/L1/** + docs/L2/** +
       agent-*/ARCHITECTURE.md against the design_only
       contract list.
+      2026-05-28 review: docs/logs/reviews/2026-05-28-agent-service-m1-m6-design-draft.cn.md
+      (AgentService M1-M6 L1 feature spec + weather clarification scenario) audited
+      against this family's root cause. File carries `proposal_status: draft` in
+      front-matter throughout; no mechanism described in the Mermaid sequence diagram
+      lacks an explicit `(design_only)` annotation where required; no design-only
+      mechanism is depicted as shipped. File is NOT an instance of this defect.
 
   - id: F-discriminator-without-discriminated-type
     title: Typed Discriminator Ships Without the Polymorphic Type It Discriminates
@@ -1584,6 +1595,12 @@ families:
       materialize as Rule W5-1 (or equivalent) so that any
       <JavaType>.<member> mention in active md/yaml is parsed and
       verified against the codegraph at gate time.
+      2026-05-28 review: docs/logs/reviews/2026-05-28-agent-service-m1-m6-design-draft.cn.md
+      and docs/logs/reviews/2026-05-28-agent-service-design-self-audit.cn.md are design-only
+      proposal documents (proposal_status: draft) that do not cite Java enum variants,
+      method signatures, or type names — they describe module responsibilities and data
+      contracts at the conceptual level. No code-level discriminator naming to drift. Files
+      are NOT instances of this defect.
 
   - id: F-dfa-without-validator
     title: Documented State-Machine DFA Ships Without an Enforcement Validator

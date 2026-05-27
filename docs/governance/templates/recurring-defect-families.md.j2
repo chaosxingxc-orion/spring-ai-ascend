@@ -1150,6 +1150,9 @@ StructuredOutputConverter) AND RuntimeMiddleware appears again in
 **Open residual.** The rc53 5-layer model (Access / Manager / Queue
 / Control / Adapter) is preserved with the ADR-0140 + ADR-0142
 narrowings. Repo-wide sibling sweep audits the other 5 modules.
+2026-05-28 review: `docs/logs/reviews/2026-05-28-agent-service-m1-m6-design-draft.cn.md`
+audited against this family — each of M1–M6 is a single-responsibility spec with no
+kitchen-sink layer or double-homing; NOT an instance of this defect.
 
 ---
 
@@ -1261,6 +1264,9 @@ one is about DIAGRAMS treating design-only mechanisms as shipped.
 structurally. DualTrackRouter / SlowTrackJudge annotation discipline
 ships in rc55 W4 process view. Gate-rule for contract-status-vs-
 diagram cross-reference is a W5+ candidate.
+2026-05-28 review: `docs/logs/reviews/2026-05-28-agent-service-m1-m6-design-draft.cn.md`
+carries `proposal_status: draft` throughout; no design-only mechanism is depicted as
+shipped without a draft status marker; NOT an instance of this defect.
 
 ---
 
@@ -1427,6 +1433,9 @@ plural in `process.md:171` and `scenarios.md:83,85` vs Java singular
 **Open residual.** PR77-P1-2, PR76-IF-DRIFT-004, AUD-EVT-1, AUD-EVT-3,
 SBL-NAME-1, SBL-NAME-2 — `pending`. Closure requires the per-symbol
 name-form gate-rule candidate to materialize as Rule W5-1.
+2026-05-28 review: the two new `docs/logs/reviews/` files are design-only proposals that
+do not cite Java enum variants or method signatures — no code-level discriminator naming
+present; NOT instances of this defect.
 
 ---
 
