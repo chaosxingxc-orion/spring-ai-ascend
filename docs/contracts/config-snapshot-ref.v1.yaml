@@ -1,0 +1,33 @@
+# ConfigSnapshotRef — immutable Run-time configuration binding reference, v1.
+#
+# Authority: ADR-0155.
+# Wave: design_only.
+
+schema: config-snapshot-ref/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  snapshotId:
+    type: string
+    required: true
+  hash:
+    type: string
+    required: true
+    description: "Content hash; used as M5 EDE-06 cache-equality key alongside agentId."
+  modelBindings:
+    type: object
+    required: true
+  toolBindings:
+    type: object
+    required: true
+  adapterBindings:
+    type: object
+    required: true
+  policyBindings:
+    type: object
+    required: true
+  createdAt:
+    type: timestamp
+    required: true

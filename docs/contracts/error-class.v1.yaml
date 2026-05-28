@@ -1,0 +1,27 @@
+# ErrorClass — platform-wide error taxonomy enum, v1.
+#
+# Authority: ADR-0155. Status: design_only.
+# Per self-audit H6, EDE-09 is the single authoritative source — M4
+# TCC-07, M6 TTI policy denials, and all adapter failures route to one
+# of these 14 values. Modules MUST NOT invent additional classes.
+
+schema: error-class/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+values:
+  - MODEL_UNAVAILABLE
+  - MODEL_RATE_LIMITED
+  - INPUT_VALIDATION_ERROR
+  - POLICY_DENIED
+  - TOOL_FAILED
+  - TOOL_TIMEOUT
+  - MEMORY_FAILED
+  - RETRIEVAL_FAILED
+  - REMOTE_PROTOCOL_ERROR
+  - CLIENT_CALLBACK_FAILED
+  - INTERNAL_ERROR
+  - CONTEXT_OVERFLOW
+  - ADAPTER_UNAVAILABLE
+  - DEADLINE_EXCEEDED

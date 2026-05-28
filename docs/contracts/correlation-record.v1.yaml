@@ -1,0 +1,27 @@
+# CorrelationRecord — cross-Run / remote-Agent handle, v1.
+#
+# Authority: ADR-0155.
+# Wave: design_only.
+
+schema: correlation-record/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  runId:
+    type: string
+    required: true
+  handleType:
+    type: enum
+    values: [LOCAL_CHILD_RUN, REMOTE_AGENT]
+    required: true
+  handle:
+    type: object
+    required: true
+    description: "Discriminated union: LocalChildHandle{childRunId} | RemoteAgentHandle{remoteAgentId, remoteTaskId, remoteThreadId, callbackId}"
+  status:
+    type: enum
+    values: [PENDING, ACTIVE, SETTLED]
+    required: true
+    description: "PENDING when M4 creates empty skeleton; ACTIVE after M5 fills remote handle; SETTLED on child terminate."
