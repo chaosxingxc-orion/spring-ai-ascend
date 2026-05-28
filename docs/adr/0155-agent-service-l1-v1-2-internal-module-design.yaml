@@ -1,0 +1,150 @@
+id: ADR-0155
+title: "AgentService L1 v1.2 — internal module design absorption (M1–M6 + 6 boundary reversals)"
+status: accepted
+date: 2026-05-28
+level: L1
+view: logical
+affects_level: L1
+affects_view: [logical, process, physical, development, scenarios]
+authors:
+  - x00209170
+  - chao
+extends:
+  - ADR-0138    # rc53 5-layer L1 ratification
+  - ADR-0140    # rc55 Engine Adapter Layer split into 5a + 5b
+  - ADR-0141    # rc55 Internal Event Queue design_only
+  - ADR-0142    # rc55 Run aggregate single owner
+  - ADR-0143    # rc55 review-log demotion + L1 canonical move
+  - ADR-0145    # rc55 sealed RunEvent hierarchy
+  - ADR-0151    # L1 Feature Registry canonical schema
+relates_to:
+  - ADR-0100    # rc22 5-component decomposition
+  - ADR-0128    # Agent SPI design_only
+context: |
+  PR 92 (merged 2026-05-28, head c1ff5a1) submitted two `.cn.md` design
+  documents under `docs/logs/reviews/`:
+
+    - `2026-05-28-agent-service-m1-m6-design-draft.cn.md` — 6 modules
+      (M1 Access Layer / M2 STM / M3 IEQ / M4 TCC / M5 EDE / M6 TTI) +
+      end-to-end Weather Clarification scenario, total 66 functional items
+      and a complete inter-module data-contract matrix.
+    - `2026-05-28-agent-service-design-self-audit.cn.md` — internal audit
+      that closed 20 issues (HIGH 6 / MEDIUM 9 / LOW 5) and recorded two
+      v1.x upgrades (v1.1 Agent-form interception strategy; v1.2 prompt
+      construction reversal).
+
+  Six of these adjustments are boundary-decision reversals with cross-
+  module impact and MUST be anchored in an ADR rather than left implicit
+  in a review log:
+
+    1. STM-03 sole-caller: M4 TCC-03 is the only module allowed to invoke
+       STM-03 (Run state transition CAS). Previously TTI-09 was drafted
+       to call STM-03 directly when registering an interrupt; v1 audit
+       H1 reverses this — TTI-09 now emits a control event, TCC-06A
+       consumes it and drives the STM-03 transition.
+    2. responseSnapshot lifetime owner: terminal-state response-snapshot
+       writeback responsibility moves from M1 Access Layer (originally
+       drafted as part of reply projection) to M4 TCC-03 as a post-
+       transition hook for terminal-state targets {COMPLETED, FAILED,
+       CANCELLED}. Eliminates the multi-reply-channel race that made M1
+       the wrong owner.
+    3. M6 prompt-construction reversal (v1.2): M6 Translation &
+       Tool-Intercept does NOT construct prompts. The v1 draft assumed
+       M6 owned prompt assembly + context trimming as a platform
+       service; the v1.2 reversal restores prompt assembly to the
+       Agent itself (native code, third-party framework Formatter, or
+       remote service) and re-scopes M6 to a "messages-in-flight"
+       boundary-treatment aspect (policy, redaction, token-budget audit,
+       fallback trim only). The data contract `BuiltPrompt` is deleted;
+       `GovernedMessages` replaces it as M6's output type.
+    4. ExecutorAdapter SPI three forms + in-process deployment
+       assumption: M5 EDE-01..04 fixes the three Agent forms (Native /
+       Third-party / Remote) and binds Native + Third-party to in-process
+       deployment with platform-bean injection and bridge replacement
+       respectively; Remote (EDE-04) is out-of-process via A2A protocol
+       with internal model/tool calls beyond local M6 jurisdiction.
+    5. IEQ three-channel topology: Internal Event Queue physically splits
+       into Control / Data / Egress channels, each with independent
+       bounded buffer + worker pool + back-pressure policy. Cross-channel
+       ordering is undefined; per-Run causality lives in STM-09 cursor.
+    6. CANCEL_RACE_RESOLVED_AS_{COMPLETED, CANCELLED}: M4 TCC-03
+       arbitrates the cancel-vs-complete race deterministically based on
+       child-Run settlement and final-artifact presence. Reason codes
+       land in RunEvent.
+
+  PR 92 also introduces a new control event `RESUME_ACCEPTED` (M4 TCC-06B
+  / M5 EDE-07) closing the H3 finding that RESUMING→RUNNING had no
+  termination signal, and extends the EDE-09 error class enumeration to
+  14 values (adding CONTEXT_OVERFLOW, ADAPTER_UNAVAILABLE,
+  DEADLINE_EXCEEDED).
+
+  The current L1 canonical (rc55) carries the 5-layer architecture but
+  predates these six reversals and the 66 v1.2 functional items. Without
+  this ADR, the canonical L1 falls out of sync with the merged design
+  source under `docs/logs/reviews/`, breaking the G-1.a phase-released →
+  review-log → canonical pipeline.
+decision: |
+  Adopt PR 92's M1–M6 v1.2 design as the canonical L1 architecture for
+  agent-service, with the six boundary-decision reversals enumerated
+  above as binding contracts at L1. Operationalise via:
+
+    1. Update the 5 canonical 4+1 view files under
+       `architecture/docs/L1/agent-service/` to reference this ADR as
+       authority for the v1.2 deltas (M6 reversal, RESUME_ACCEPTED
+       handler in P3 sequence, CANCEL_RACE_RESOLVED reasons in P3
+       cancel-race-loser path, in-process/out-of-process deployment
+       matrix in physical view, InjectionMode table in development view).
+    2. Expand the 6 `features/*.md` inventories from the rc55 8-feature
+       baseline (AS-L*-F01..F08) to ~11 features each, accommodating the
+       v1.2 functional items. Backwards compatibility with rc55 feature
+       IDs is preserved by adding new items as F09, F10, F11 rather than
+       renumbering.
+    3. Register 14 new YAML domain contracts under `docs/contracts/`
+       (status `design_only`, cite ADR-0155) covering the inter-module
+       data contracts that PR 92's self-audit §7 matrix lists as
+       authoritative: AccessIntent, ControlEvent, WorkItem,
+       ExecutionRequest, AgentEvent, GovernedMessages, ConfigSnapshotRef,
+       CorrelationRecord, InterruptRegistration, ErrorClass,
+       InterceptRequest, ToolResult, CheckpointRecord, SessionSnapshot.
+    4. Add 7 new SPI-related declarations to the spi-appendix.md
+       inventory with full 4-way parity per Rule G-1.1.b: ExecutorAdapter,
+       InjectionMode (enum carrier, not counted in interface count),
+       PlatformChatClient, PlatformToolCallback, PlatformMemoryProvider,
+       PlatformRetriever. New packages
+       `com.huawei.ascend.service.runtime.spi.executor` and
+       `com.huawei.ascend.service.runtime.spi.intercept` join
+       module-metadata.yaml#spi_packages and the DFX yaml.
+    5. Register 6 new SAA Feature elements (one per module —
+       FEAT-AS-ACCESS-LAYER through FEAT-AS-TRANSLATION-INTERCEPT) in
+       `architecture/features/features.dsl` with `saa.status:
+       design_only` and `saa.sourceAdr: ADR-0155`, plus 4 new
+       FunctionPoints in `function-points.dsl` covering A2A
+       message/send, tasks/cancel, tasks/resubscribe, and MQ inbound
+       entry.
+    6. Open a new recurring defect family
+       `F-agent-service-internal-boundary-drift` documenting H1, H4, H5
+       from the self-audit (M4 sole-caller breach, responseSnapshot
+       owner drift, REMOTE_AGENT_INVOKE_REQUEST cross-jurisdiction leak)
+       so future reviewers detect and prevent recurrence.
+
+  This ADR is the authoritative anchor: every file changed in the
+  absorption PR cites ADR-0155 in its `authority:` front-matter or
+  inline rationale section.
+consequences:
+  positive:
+    - Single normative anchor for the v1.2 design — future audits and L2 designs cite ADR-0155 rather than discovering deltas from the review log alone.
+    - 4-way parity (Rule G-1.1.b) restored: 5 new SPI interfaces land in module-metadata + contract-catalog + DFX + spi-appendix simultaneously in one PR, no temporal drift.
+    - 14 new design_only YAML contracts unblock W2 impl-mode wave — schema placeholders give downstream module authors something to reference even before runtime enforcement.
+    - F-agent-service-internal-boundary-drift family captures the H1 / H4 / H5 patterns so the next module-level audit catches them early.
+  negative:
+    - 14 design_only schemas grow the catalog significantly; gate Rule R-D.f catalog-vs-metadata parity must be verified.
+    - 6 features/*.md files grow by ~3 items each; verification.dsl test_ref binding for the new features is deferred to W2 (acceptable since saa.status is design_only and Rule G-14 sub-clause .c only requires test FQNs for shipped features).
+    - M6 prompt-reversal contradicts any in-flight Java prototype that treated M6 as a prompt constructor — but no such production code exists today.
+  neutral:
+    - PR 92's two `.cn.md` files remain in `docs/logs/reviews/` as design source; ADR-0155 is the structured decision capture.
+verification:
+  - "Gate: `bash gate/check_architecture_sync.sh` passes after merge."
+  - "Spi-appendix 4-way parity audit: 5 new SPI FQN entries resolve in module-metadata.yaml, contract-catalog.md, DFX yaml, and on-disk .java files."
+  - "Rule R-D.f catalog integrity: each new docs/contracts/*.v1.yaml entry appears in contract-catalog.md §3 and cites ADR-0155."
+  - "Rule G-14 advisory: features.dsl 6 new FEAT- elements declare saa.status design_only + saa.aiBoundary.* properties."
+  - "Rule G-15.d: function-points.dsl 4 new FP entries declare code_entrypoint_refs[] when channel=http (placeholder paths pointing to planned classes are acceptable for design_only)."
