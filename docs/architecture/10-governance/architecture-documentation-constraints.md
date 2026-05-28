@@ -339,24 +339,27 @@ Harness Generation Notes
 
 **适用文档：** Overview、Scenario Specs、Capability Map、Verification Matrix、Architecture Review Process。
 
-### DOC-C-012: 每个架构文档必须登记到 Document Artifact Catalog
+### DOC-C-012: 架构目录必须登记到 Document Artifact Catalog
 
-**规则：** `docs/architecture/` 下的每个 Markdown 文档和机器可读 contract 草案都必须登记到 [Document Artifact Catalog](document-artifact-catalog.md)，并说明主要内容、主要作用、对应 A2D 活动和质量检查点。
+**规则：** `docs/architecture/` 下的一级目录和具有独立职责的重要二级目录必须登记到 [Document Artifact Catalog](document-artifact-catalog.md)，并说明主要内容、主要作用、对应 A2D 活动、下级展开规则和质量检查点。
+
+文件级管理不在顶层 catalog 中强制展开。目录内部文件由目录 README、模块 README 或模块级 catalog 管理。`02-modules/<module>/` 这类模块目录可以拥有自己的文件组织方法，但必须在模块 README 中说明。
 
 **禁止模式：**
 
-- 新增文档后没有进入 Document Artifact Catalog。
-- 文件职责发生变化，但 catalog 仍然描述旧职责。
-- 一个文件长期承载多个主职责，却没有拆分或说明主职责。
-- catalog 只写目录层级，不说明单个文件的质量检查点。
+- 新增目录后没有进入 Document Artifact Catalog。
+- 目录职责发生变化，但 catalog 仍然描述旧职责。
+- 顶层 catalog 直接展开所有模块文件，导致模块无法使用自己的文件管理方法。
+- 模块目录没有 README，却依赖全局 catalog 解释模块内部文件。
+- catalog 只写目录名，不说明下级展开规则和质量检查点。
 
 **检查方式：**
 
-- 扫描 `docs/architecture/` 文件列表，与 Document Artifact Catalog 的文件行对齐。
+- 扫描 `docs/architecture/` 一级目录和重要二级目录，与 Document Artifact Catalog 的目录行对齐。
 - Review 时检查新增、删除、改名和职责变化是否同步更新 catalog。
-- 如果某个文件找不到清晰的主要作用，必须回到 A2D Working Model 判断它是否应该存在或是否应合并到已有产物。
+- 如果某个文件找不到清晰归属，先检查它所在目录的 README 或模块 README；如果仍无法归属，再回到 A2D Working Model 判断是否应该新增目录或合并到已有产物。
 
-**适用文档：** 所有 `docs/architecture/**/*.md` 和 `docs/architecture/05-contracts/machine-readable/*.yaml`。
+**适用文档：** `docs/architecture/` 目录结构、各目录 README、模块 README 和模块级 catalog。
 
 ## 7. 当前已沉淀的问题
 
@@ -367,7 +370,7 @@ Harness Generation Notes
 | 核心控制流写 `Workflow`，但未定义真实落点。 | DOC-C-003 |
 | Tool Gateway / Context Engine 被误读为真实模块。 | DOC-C-002 |
 | S1-S6 技术机制场景被当成核心场景，无法检验业务活动级模块组合。 | DOC-C-011 |
-| A2D 产物和归档位置对不上，读者需要自行推断文件职责。 | DOC-C-012 |
+| A2D 产物和归档位置对不上，读者需要自行推断目录职责和下级展开方式。 | DOC-C-012 |
 
 ## 8. 后续可自动化检查
 
@@ -379,4 +382,4 @@ Harness Generation Notes
 4. 检查 Overview 的准入判定是否覆盖 root `pom.xml` 现有项，并确认 BoM / starter / fixture / demo 未进入 L0 模块边界。
 5. 检查 Overview 核心场景索引是否以 BA-* 为主表，technical scenario 是否只作为子场景。
 6. 检查 `Open Issues` / `Conflict` / `Unverified` 是否出现在集中清单或 Verification Matrix。
-7. 检查 `docs/architecture/` 文件列表是否全部登记在 Document Artifact Catalog。
+7. 检查 `docs/architecture/` 一级目录和重要二级目录是否全部登记在 Document Artifact Catalog。

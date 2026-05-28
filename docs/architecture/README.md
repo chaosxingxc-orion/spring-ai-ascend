@@ -57,7 +57,7 @@ Principle -> Capability -> Ownership -> Contract -> Scenario
 | Verification | [09-verification/verification-matrix.md](09-verification/verification-matrix.md) | 设计项到验证方式的矩阵 |
 | Governance | [10-governance/](10-governance/) | 变更分级、评审流程和文档质量约束 |
 | A2D Working Model | [10-governance/a2d-working-model.md](10-governance/a2d-working-model.md) | 定义从需求进入到版本归档的活动流程、输入输出、责任人和归档位置 |
-| Document Artifact Catalog | [10-governance/document-artifact-catalog.md](10-governance/document-artifact-catalog.md) | 登记每个文件的主要内容、主要作用、A2D 活动和质量检查点 |
+| Document Artifact Catalog | [10-governance/document-artifact-catalog.md](10-governance/document-artifact-catalog.md) | 登记目录级主要内容、主要作用、A2D 活动、下级展开规则和质量检查点 |
 | Documentation Constraints | [10-governance/architecture-documentation-constraints.md](10-governance/architecture-documentation-constraints.md) | 约束架构文档自身的命名、分层、表格主键、状态标记和检查方式 |
 
 ## 维护规则
@@ -70,4 +70,4 @@ Principle -> Capability -> Ownership -> Contract -> Scenario
 6. 文档自身必须遵守 [Architecture Documentation Constraints](10-governance/architecture-documentation-constraints.md)；过程检查发现的新模式问题要回填到该文件。
 7. 核心场景必须是 BA-* 业务活动场景；S1-S6 这类机制场景只能作为 `06-scenarios/technical/` 下的技术子场景。
 8. 需求进入、场景建模、能力拆解、模块设计、harness、实现任务和版本归档必须遵守 [A2D Working Model](10-governance/a2d-working-model.md)；目录只作为活动产物的归档位置。
-9. 新增、删除、改名或改变职责的文档必须同步更新 [Document Artifact Catalog](10-governance/document-artifact-catalog.md)。
+9. 新增、删除、改名或改变职责的目录必须同步更新 [Document Artifact Catalog](10-governance/document-artifact-catalog.md)；目录内部文件由目录 README 或模块级 catalog 继续展开。
