@@ -7,4 +7,4 @@
  * Third-party adapters wrap their framework's Model / Toolkit / Memory
  * abstractions around these contracts.</p>
  */
-package com.huawei.ascend.service.runtime.spi.intercept;
+package com.huawei.ascend.service.runtime.intercept.spi;

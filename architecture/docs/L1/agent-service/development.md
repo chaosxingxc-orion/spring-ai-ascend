@@ -75,10 +75,10 @@ NOT yet on disk are explicitly listed under §4 with their ADR anchor.
 Two new SPI packages live under `agent-service/src/main/java/`:
 
 ```
-service.runtime.spi.executor/
+service.runtime.executor.spi/
   ExecutorAdapter.java        (interface)
   InjectionMode.java          (enum — InjectionMode wiring choice per ADR-0155 §4)
-service.runtime.spi.intercept/
+service.runtime.intercept.spi/
   PlatformChatClient.java     (interface)
   PlatformToolCallback.java   (interface)
   PlatformMemoryProvider.java (interface)

@@ -569,7 +569,7 @@ featAgentServiceEngineDispatchExecution = element "AgentService Engine Dispatch 
         "saa.aiBoundary.allowedStatusTransitions" "design_only->ready_for_impl|design_only->deprecated"
         "saa.aiBoundary.requiresHumanReviewAt" "ready_for_impl|test_verified|deprecated"
         "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
-        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/spi/executor|agent-service/src/main/java/com/huawei/ascend/service/engine"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/executor/spi|agent-service/src/main/java/com/huawei/ascend/service/engine"
         "saa.goals" "ExecutorAdapter SPI three-form unification|InjectionMode wiring declaration|14-value ErrorClass taxonomy|Engine instance cache"
         "saa.nonGoals" "Run state writes|Prompt construction|Direct vendor SDK calls"
     }
@@ -591,7 +591,7 @@ featAgentServiceTranslationToolIntercept = element "AgentService Translation Too
         "saa.aiBoundary.allowedStatusTransitions" "design_only->ready_for_impl|design_only->deprecated"
         "saa.aiBoundary.requiresHumanReviewAt" "ready_for_impl|test_verified|deprecated"
         "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
-        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/spi/intercept|agent-service/src/main/java/com/huawei/ascend/service/runtime/intercept"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/intercept/spi|agent-service/src/main/java/com/huawei/ascend/service/runtime/intercept"
         "saa.goals" "Messages-in-flight boundary treatment|Platform intercept SPI surface|HITL interrupt gateway|A2A outbound audit (remote boundary)"
         "saa.nonGoals" "Prompt construction (Agent owns this per v1.2 reversal)|Session-context ownership"
     }

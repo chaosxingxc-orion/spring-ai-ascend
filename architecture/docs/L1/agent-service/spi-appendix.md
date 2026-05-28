@@ -112,21 +112,21 @@ sibling-sweep report ensure it can't be forgotten.
 
 | # | Interface FQN | SPI package | Status | Cross-module consumer | Authority |
 |---|---|---|---|---|---|
-| 10 | `com.huawei.ascend.service.runtime.spi.executor.ExecutorAdapter` | `service.runtime.spi.executor` | design_only — interface placeholder; concrete records (`ExecutionRequest`/`AgentEvent`) ship W2 | Layer 5a Engine Dispatch (EDE-01 contract) | ADR-0155 §4 |
-| 11 | `com.huawei.ascend.service.runtime.spi.intercept.PlatformChatClient` | `service.runtime.spi.intercept` | design_only | Layer 5b TTI-03 (Native + Third-party adapter call path) | ADR-0155 §3 |
-| 12 | `com.huawei.ascend.service.runtime.spi.intercept.PlatformToolCallback` | `service.runtime.spi.intercept` | design_only | Layer 5b TTI-04 | ADR-0155 |
-| 13 | `com.huawei.ascend.service.runtime.spi.intercept.PlatformMemoryProvider` | `service.runtime.spi.intercept` | design_only | Layer 5b TTI-05 (read-only STM-04 projection) | ADR-0155 §3 |
-| 14 | `com.huawei.ascend.service.runtime.spi.intercept.PlatformRetriever` | `service.runtime.spi.intercept` | design_only | Layer 5b TTI-06 | ADR-0155 |
+| 10 | `com.huawei.ascend.service.runtime.executor.spi.ExecutorAdapter` | `service.runtime.executor.spi` | design_only — interface placeholder; concrete records (`ExecutionRequest`/`AgentEvent`) ship W2 | Layer 5a Engine Dispatch (EDE-01 contract) | ADR-0155 §4 |
+| 11 | `com.huawei.ascend.service.runtime.intercept.spi.PlatformChatClient` | `service.runtime.intercept.spi` | design_only | Layer 5b TTI-03 (Native + Third-party adapter call path) | ADR-0155 §3 |
+| 12 | `com.huawei.ascend.service.runtime.intercept.spi.PlatformToolCallback` | `service.runtime.intercept.spi` | design_only | Layer 5b TTI-04 | ADR-0155 |
+| 13 | `com.huawei.ascend.service.runtime.intercept.spi.PlatformMemoryProvider` | `service.runtime.intercept.spi` | design_only | Layer 5b TTI-05 (read-only STM-04 projection) | ADR-0155 §3 |
+| 14 | `com.huawei.ascend.service.runtime.intercept.spi.PlatformRetriever` | `service.runtime.intercept.spi` | design_only | Layer 5b TTI-06 | ADR-0155 |
 
 **§2 carrier addition:** `InjectionMode` enum lives under
-`com.huawei.ascend.service.runtime.spi.executor` per Rule R-D.d
+`com.huawei.ascend.service.runtime.executor.spi` per Rule R-D.d
 carve-out (single-package home; declares an adapter's wiring choice).
 
 **4-way parity check for v1.2 additions:**
 
 | Surface | Where it lives | Status |
 |---|---|---|
-| `agent-service/module-metadata.yaml#spi_packages` | 2 new package entries (`service.runtime.spi.executor` + `service.runtime.spi.intercept`) | added in PR 92 absorption |
+| `agent-service/module-metadata.yaml#spi_packages` | 2 new package entries (`service.runtime.executor.spi` + `service.runtime.intercept.spi`) | added in PR 92 absorption |
 | `docs/contracts/contract-catalog.md` §2 Active SPI interfaces | 5 new rows | added in PR 92 absorption |
 | `docs/dfx/agent-service.yaml#spi_packages` | 2 new package entries (set-equal with module-metadata per Rule R-D.e) | added in PR 92 absorption |
 | On-disk `.java` files | 5 `public interface` + 1 enum + 2 `package-info` declarations | added in PR 92 absorption |

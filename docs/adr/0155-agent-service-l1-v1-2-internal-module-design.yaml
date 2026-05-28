@@ -111,8 +111,8 @@ decision: |
        InjectionMode (enum carrier, not counted in interface count),
        PlatformChatClient, PlatformToolCallback, PlatformMemoryProvider,
        PlatformRetriever. New packages
-       `com.huawei.ascend.service.runtime.spi.executor` and
-       `com.huawei.ascend.service.runtime.spi.intercept` join
+       `com.huawei.ascend.service.runtime.executor.spi` and
+       `com.huawei.ascend.service.runtime.intercept.spi` join
        module-metadata.yaml#spi_packages and the DFX yaml.
     5. Register 6 new SAA Feature elements (one per module —
        FEAT-AS-ACCESS-LAYER through FEAT-AS-TRANSLATION-INTERCEPT) in

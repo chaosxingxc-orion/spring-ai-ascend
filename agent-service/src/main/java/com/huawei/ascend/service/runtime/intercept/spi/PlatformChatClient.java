@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.runtime.spi.intercept;
+package com.huawei.ascend.service.runtime.intercept.spi;
 
 import java.util.concurrent.Flow;
 

@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.runtime.spi.intercept;
+package com.huawei.ascend.service.runtime.intercept.spi;
 
 /**
  * Read-only Session-context provider used by Agents to retrieve STM-04

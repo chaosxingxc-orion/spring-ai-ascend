@@ -30,7 +30,7 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). rc52 agent-middleware SPI packages import only `java.*` plus same-package sibling carriers; broader historical cross-package SPI residuals are documented in root `architecture/docs/L0/ARCHITECTURE.md §3.7` and must not be used as precedent for new SPI design. japicmp binary-compat from W1.
 
-**Active SPI interfaces (40 total):**
+**Active SPI interfaces (45 total):**
 
 (rc43 baseline: 19 pre-rc43 + 14 rc43 agentic-contract-surface SPI surfaces (Agent + AgentRegistry + ModelGateway + Skill + SkillRegistry + MemoryStore + MemoryReader + MemoryWriter + SemanticMemoryStore + KnowledgeMemoryStore + VectorStore + Retriever + EmbeddingModel + Planner) per ADR-0120 / ADR-0121 / ADR-0122 / ADR-0123 / ADR-0124 / ADR-0125 / ADR-0126 / ADR-0127 / ADR-0128. rc51 + 5 agentic-completeness SPI surfaces (StructuredOutputConverter + PromptTemplate + ChatAdvisor + AdvisorChain + ConversationMemory) per ADR-0129 / ADR-0130 / ADR-0131 / ADR-0132 / ADR-0133. rc51 also adds the `stream(...)` default method to the existing `ModelGateway` per ADR-0129 and supplements `model-invocation.v1.yaml` with the tool-call iteration loop per ADR-0134. ADR-0135 documents the deliberate decision not to add a separate `AgentSession` SPI.)
 
@@ -78,11 +78,11 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `StreamingChatAdvisor` | `agent-middleware` | `com.huawei.ascend.middleware.advisor.spi` | rc52 design_only — streaming sibling of `ChatAdvisor`; composes through same-package `AdvisedStreamChunk` (ADR-0132) |
 | `StreamingAdvisorChain` | `agent-middleware` | `com.huawei.ascend.middleware.advisor.spi` | rc52 design_only — continuation abstraction passed to `StreamingChatAdvisor.aroundStream(...)` (ADR-0132) |
 | `ConversationMemory` | `agent-middleware` | `com.huawei.ascend.middleware.memory.spi` | rc52 design_only — windowed FIFO + token-budget pruning variant `extends MemoryStore<String, ConversationWindow>`; default category `M2_EPISODIC` (ADR-0133) |
-| `ExecutorAdapter` | `agent-service` | `com.huawei.ascend.service.runtime.spi.executor` | design_only — Layer 5a Engine Dispatch (ADR-0155) |
-| `PlatformChatClient` | `agent-service` | `com.huawei.ascend.service.runtime.spi.intercept` | design_only — Layer 5b Translation & Tool-Intercept (Native + Third-party adapters consume) (ADR-0155) |
-| `PlatformToolCallback` | `agent-service` | `com.huawei.ascend.service.runtime.spi.intercept` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
-| `PlatformMemoryProvider` | `agent-service` | `com.huawei.ascend.service.runtime.spi.intercept` | design_only — Layer 5b Translation & Tool-Intercept (read-only STM-04 view) (ADR-0155) |
-| `PlatformRetriever` | `agent-service` | `com.huawei.ascend.service.runtime.spi.intercept` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
+| `ExecutorAdapter` | `agent-service` | `com.huawei.ascend.service.runtime.executor.spi` | design_only — Layer 5a Engine Dispatch (ADR-0155) |
+| `PlatformChatClient` | `agent-service` | `com.huawei.ascend.service.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (Native + Third-party adapters consume) (ADR-0155) |
+| `PlatformToolCallback` | `agent-service` | `com.huawei.ascend.service.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
+| `PlatformMemoryProvider` | `agent-service` | `com.huawei.ascend.service.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (read-only STM-04 view) (ADR-0155) |
+| `PlatformRetriever` | `agent-service` | `com.huawei.ascend.service.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
 
 **SPI count by module (rc52 baseline; sum = 40 matches headline):**
 

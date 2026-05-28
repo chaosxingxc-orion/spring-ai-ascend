@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.runtime.spi.executor;
+package com.huawei.ascend.service.runtime.executor.spi;
 
 import java.util.concurrent.Flow;
 

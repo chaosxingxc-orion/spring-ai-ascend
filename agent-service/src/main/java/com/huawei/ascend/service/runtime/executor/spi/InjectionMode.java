@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.runtime.spi.executor;
+package com.huawei.ascend.service.runtime.executor.spi;
 
 /**
  * Wiring choice an {@link ExecutorAdapter} declares at registration.
