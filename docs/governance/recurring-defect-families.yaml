@@ -1979,8 +1979,8 @@ families:
   - id: F-agent-service-internal-boundary-drift
     title: "AgentService internal-module boundary drift (M4 sole-caller breach, responseSnapshot owner drift, cross-jurisdiction remote interception)"
     first_observed_rc: "PR-92 (2026-05-28 self-audit)"
-    last_observed_rc: "Phase-B convergence (2026-05-28 — PR-93's 14 contracts + ADR-0155 product-claim-bound, orphan count 15→0)"
-    occurrences: 3
+    last_observed_rc: "PR-96 interface-contract clarification (2026-05-28)"
+    occurrences: 4
     root_cause: "AgentService internal modules (M1-M6) lack explicit cross-module data-contract anchoring at L1; v1 drafts spread responsibility into the wrong module when authoring per-module designs in isolation. Self-audit caught three concrete drifts (H1 TTI-09 to STM-03 sole-caller breach; H4 responseSnapshot owner drift from M1 to M4; H5 REMOTE_AGENT_INVOKE_REQUEST in M6 violated remote-jurisdiction boundary). The pattern is structural: without ADR-anchored contracts, the next per-module audit will rediscover similar drifts."
     surfaces:
       - architecture/docs/L1/agent-service/logical.md
@@ -1988,6 +1988,7 @@ families:
       - architecture/docs/L1/agent-service/features/*.md
       - docs/contracts/*.v1.yaml
       - docs/adr/0155-agent-service-l1-v1-2-internal-module-design.yaml
+      - docs/logs/reviews/2026-05-28-agent-service-interface-contract-clarification.cn.md
     prevention_rules:
       - "ADR-0155 anchors the 6 v1.2 boundary reversals as binding contracts."
       - "14 new design_only YAML contracts under docs/contracts/ make the inter-module data-contract matrix machine-readable."
@@ -1996,5 +1997,6 @@ families:
       - "Rule R-C.2.b STM-03 sole-caller is already enforced; this family adds defence-in-depth via TCC-03 ownership in features.dsl + LOGICAL + SPI surfaces."
       - "PR-93 absorption verified green via full gate (146 PASS / 0 FAIL) + ./mvnw -Pquality verify; the 4-way SPI parity + 14 design_only contracts are now landed, not just planned."
       - "Phase-B convergence bound all 14 PR-93 contracts + ADR-0155 to product claims (access-intent→PC-002; internal-state/event contracts→PC-003; engine/tool contracts→PC-004; session-snapshot→PC-005); Rule G-17 (no-orphan, now BLOCKING) prevents any future PR-93-style contract from landing without a product-claim anchor, and Rule G-18 (chain-completeness) keeps every contract reachable from a customer claim — closing the structural anchoring gap from the product-traceability axis as well as the SPI-parity axis."
+      - "PR-96 interface-contract clarification records the current boundary ruling in one review artefact: M1-M6 are responsibility surfaces, M2 currently governs Session State only, Run/Task remain adjacent subdomains, explicit missing sessionId returns 404 not_found, and external input/output streams are contract surfaces rather than heartbeat/rhythm business planes."
     cleanup_status: structurally_addressed
-    open_residual: "TCK conformance suites for the new SPIs are deferred to W2; ArchUnit physical enforcement of the new YAML contracts as compile-time assertions is also W2. The family stays open until either (a) all 6 module designs ship and the next L1 audit finds no recurrence of these specific drift patterns or (b) static enforcement closes the structural gap. Post Phase-B convergence the product-claim-orphan residual is closed (G-17 blocking); the remaining residual is purely the W2 TCK + ArchUnit physical-enforcement gap."
+    open_residual: "TCK conformance suites for the new SPIs are deferred to W2; ArchUnit physical enforcement of the new YAML contracts as compile-time assertions is also W2. The family stays open until either (a) all 6 module designs ship and the next L1 audit finds no recurrence of these specific drift patterns or (b) static enforcement closes the structural gap. Post Phase-B convergence the product-claim-orphan residual is closed (G-17 blocking); the remaining residual is W2 TCK + ArchUnit physical-enforcement plus PR-96's proposed Session/API stream contracts becoming canonical L1/L2 surfaces."
