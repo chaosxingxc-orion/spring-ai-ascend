@@ -311,3 +311,75 @@ agentMiddleware -> fpHookDispatch "implements RuntimeMiddleware hook dispatch" "
 
     }
 }
+
+fpA2aMessageSend = element "A2A message/send" "FunctionPoint" "A2A JSON-RPC message/send entry (M1 AL-01 ingress)" "SAA FunctionPoint" {
+    properties {
+        "saa.id" "FP-A2A-MESSAGE-SEND"
+        "saa.kind" "function_point"
+        "saa.level" "L1"
+        "saa.view" "scenarios"
+        "saa.status" "design_only"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0155"
+        "saa.channel" "http"
+        "saa.actor" "tenant-developer-or-peer-agent"
+        "saa.trigger" "A2A JSON-RPC POST message/send"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/a2a/A2aMessageController.java#send"
+        "saa.test_refs" ""
+        "saa.contract_op_refs" "access-intent.v1.yaml#operation=SUBMIT"
+    }
+}
+
+fpA2aTasksCancel = element "A2A tasks/cancel" "FunctionPoint" "A2A tasks/cancel entry (M1 AL-08 control ingress)" "SAA FunctionPoint" {
+    properties {
+        "saa.id" "FP-A2A-TASKS-CANCEL"
+        "saa.kind" "function_point"
+        "saa.level" "L1"
+        "saa.view" "scenarios"
+        "saa.status" "design_only"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0155"
+        "saa.channel" "http"
+        "saa.actor" "tenant-developer-or-peer-agent"
+        "saa.trigger" "A2A JSON-RPC POST tasks/cancel"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/a2a/A2aTasksController.java#cancel"
+        "saa.test_refs" ""
+        "saa.contract_op_refs" "access-intent.v1.yaml#operation=CANCEL"
+    }
+}
+
+fpA2aTasksResubscribe = element "A2A tasks/resubscribe" "FunctionPoint" "A2A tasks/resubscribe stream entry (M1 AL-06 cursor flow)" "SAA FunctionPoint" {
+    properties {
+        "saa.id" "FP-A2A-TASKS-RESUBSCRIBE"
+        "saa.kind" "function_point"
+        "saa.level" "L1"
+        "saa.view" "scenarios"
+        "saa.status" "design_only"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0155"
+        "saa.channel" "http"
+        "saa.actor" "tenant-developer-or-peer-agent"
+        "saa.trigger" "A2A JSON-RPC POST tasks/resubscribe"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/a2a/A2aStreamController.java#resubscribe"
+        "saa.test_refs" ""
+        "saa.contract_op_refs" "access-intent.v1.yaml#operation=SUBSCRIBE"
+    }
+}
+
+fpMqInbound = element "MQ inbound consume" "FunctionPoint" "Outside broker to AL-02 inbound consumer (M1 v1.2)" "SAA FunctionPoint" {
+    properties {
+        "saa.id" "FP-MQ-INBOUND"
+        "saa.kind" "function_point"
+        "saa.level" "L1"
+        "saa.view" "scenarios"
+        "saa.status" "design_only"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0155"
+        "saa.channel" "spi"
+        "saa.actor" "external-mq-broker"
+        "saa.trigger" "Broker delivery (RocketMQ / Kafka SPI)"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/dispatcher/mq/MqInboundConsumer.java#onMessage"
+        "saa.test_refs" ""
+        "saa.contract_op_refs" "access-intent.v1.yaml#operation=SUBMIT"
+    }
+}
