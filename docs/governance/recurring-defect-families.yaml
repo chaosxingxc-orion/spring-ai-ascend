@@ -1939,11 +1939,12 @@ families:
   - id: F-acceptance-evidence-misses-target-branch
     title: "Acceptance-evidence claim (test fixture / response-file verification log) exercises a different code path than the rule it claims to validate"
     first_observed_rc: Fact-Layer-Round-3-W3
-    last_observed_rc: Fact-Layer-Round-4-R4
+    last_observed_rc: PR-96-rule-132-self-test-parallelism-corrective
     occurrences:
       - Fact-Layer-Round-3-W3-negative-drift-proof (mutation appended a comment line to code-symbols.json — broke JSON validity, so the gate failure was caught at G-15.b not the cited G-15.c)
       - Fact-Layer-Round-3-W3-response-overclaim (line 155-156 claimed "all 7 catalogs OK" when agent-bus was actually drifted; the cited command would have shown DRIFT had it been run honestly)
       - Fact-Layer-Round-3-W3-test_rule_131_c_extract_facts_drift_neg (fixture invoked ExtractFactsCli directly rather than the canonical gate, so couldn't prove shell propagation)
+      - PR-96-rule-132-self-test-parallelism-corrective (the Rule 132 negative fixture deliberately mutated the live rendered feature catalog while the positive fixture ran in a parallel batch, so the positive evidence could observe the negative fixture's temporary mutation rather than the repository's true render state)
     root_cause: |
       A test fixture, response-file verification log, or release-evidence
       claim asserts that a particular rule branch (or rule path) is
@@ -1966,6 +1967,7 @@ families:
     prevention_rules:
       - "Round-4 Wave Alpha R3 redesign: Rule G-15.c split into .c.structural (bash gate) + .c.bytes (Maven Surefire FactLayerByteIdentityIT) so the test infrastructure for byte-identity lives where the precondition is guaranteed by lifecycle (Maven compile phase), eliminating the silent-skip surface"
       - "Round-4 Wave Beta Rule 132 (feature_catalog_render_idempotency) wires render_features_catalog.py --check into the canonical gate AND adds test_rule_132_feature_catalog_drift_neg fixture that mutates the catalog + invokes the same detector the gate invokes — fixture exercises the exact same code path the canonical gate exercises"
+      - "PR-96 wraps the Rule 132 positive and negative feature-catalog self-tests in the same flock guard so the negative fixture's live-tree mutation is restored before the positive fixture can evaluate byte identity under the parallel self-test runner"
       - "Future enhancement (Round-5+): meta self-test that for every blocking `_neg` fixture, audits whether the fixture invokes `bash gate/check_architecture_sync.sh` (the canonical gate) OR is documented as a sub-rule unit test"
     cleanup_status: structurally_addressed
     open_residual: |

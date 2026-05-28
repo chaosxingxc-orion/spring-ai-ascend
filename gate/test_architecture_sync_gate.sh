@@ -7188,9 +7188,18 @@ test_rule_132_feature_catalog_render_idempotency_pos() {
   # POSITIVE case: running `python3 gate/lib/render_features_catalog.py
   # --check` against the working tree must return 0 for all 7 module
   # catalogs.
+  local lock_file="$scratch/r132_feature_catalog.lock"
   local out
-  out=$(python3 "$PWD/gate/lib/render_features_catalog.py" --check 2>&1)
-  local rc=$?
+  local rc
+  (
+    flock 9
+    out=$(python3 "$PWD/gate/lib/render_features_catalog.py" --check 2>&1)
+    rc=$?
+    printf '%s\n' "$rc" > "$scratch/r132_feature_catalog_pos.rc"
+    printf '%s\n' "$out" > "$scratch/r132_feature_catalog_pos.out"
+  ) 9>"$lock_file"
+  rc=$(cat "$scratch/r132_feature_catalog_pos.rc")
+  out=$(cat "$scratch/r132_feature_catalog_pos.out")
   if [[ $rc -ne 0 ]]; then
     fail "rule_132_feature_catalog_render_idempotency_pos" "Rule 132 / G-13 sibling: feature catalog drift detected: $(echo "$out" | grep "^DRIFT:" | head -1)"
     return
