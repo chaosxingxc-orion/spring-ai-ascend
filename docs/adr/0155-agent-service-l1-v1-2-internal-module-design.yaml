@@ -149,3 +149,4 @@ verification:
   - "Rule R-D.f catalog integrity: each new docs/contracts/*.v1.yaml entry appears in contract-catalog.md §3 and cites ADR-0155."
   - "Rule G-14 advisory: features.dsl 6 new FEAT- elements declare saa.status design_only + saa.aiBoundary.* properties."
   - "Rule G-15.d: function-points.dsl 4 new FP entries declare code_entrypoint_refs[] when channel=http (placeholder paths pointing to planned classes are acceptable for design_only)."
+  - "CI green on the up-to-date branch (PR-93 merged main into the absorption branch); the Rule G-9.b recurring-defect-families freshness signal is re-anchored to the post-merge tip."

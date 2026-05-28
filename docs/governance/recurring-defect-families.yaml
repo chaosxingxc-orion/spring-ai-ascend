@@ -1780,7 +1780,7 @@ families:
   - id: F-agent-service-internal-boundary-drift
     title: "AgentService internal-module boundary drift (M4 sole-caller breach, responseSnapshot owner drift, cross-jurisdiction remote interception)"
     first_observed_rc: "PR-92 (2026-05-28 self-audit)"
-    last_observed_rc: "PR-92 (2026-05-28)"
+    last_observed_rc: "PR-93 (2026-05-28 absorption merged to main)"
     occurrences: 3
     root_cause: "AgentService internal modules (M1-M6) lack explicit cross-module data-contract anchoring at L1; v1 drafts spread responsibility into the wrong module when authoring per-module designs in isolation. Self-audit caught three concrete drifts (H1 TTI-09 to STM-03 sole-caller breach; H4 responseSnapshot owner drift from M1 to M4; H5 REMOTE_AGENT_INVOKE_REQUEST in M6 violated remote-jurisdiction boundary). The pattern is structural: without ADR-anchored contracts, the next per-module audit will rediscover similar drifts."
     surfaces:
