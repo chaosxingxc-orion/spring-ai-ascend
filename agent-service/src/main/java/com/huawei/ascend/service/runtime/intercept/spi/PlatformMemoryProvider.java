@@ -5,7 +5,7 @@ package com.huawei.ascend.service.runtime.intercept.spi;
  * facts before constructing prompts.
  *
  * <p>This SPI replaces the v1-draft assumption that M6 would read STM-04
- * and inject history into prompts. Per ADR-0155 §3, Agents read STM-04
+ * and inject history into prompts. Per the v1.2 reversal, Agents read STM-04
  * via this SPI and assemble their own messages list.</p>
  *
  * <p>Authority: ADR-0155. Status: design_only.</p>

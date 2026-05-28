@@ -3,7 +3,7 @@ package com.huawei.ascend.service.runtime.intercept.spi;
 /**
  * RAG retrieval interception entry point.
  *
- * <p>Per ADR-0155 §3, M6 does NOT inject retrieved chunks into prompts.
+ * <p>Per the v1.2 reversal, M6 does NOT inject retrieved chunks into prompts.
  * It returns chunk references; the Agent decides whether, where, and
  * how to inject them into its constructed messages.</p>
  *
