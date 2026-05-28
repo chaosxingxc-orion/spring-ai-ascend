@@ -229,3 +229,108 @@ efGraphmemoryAutoconfig -> fpGraphMemoryStore "frame anchors function point" "SA
         "saa.rel" "anchors"
     }
 }
+
+// ---- agent-service (compute_control plane) — frames re-tagged from ADR-0138 Layer
+//      features per ADR-0157; element declarations live in features/features.dsl. ----
+
+genModule_agent_service -> efAccessAdmission "module contains engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "contains"
+    }
+}
+efAccessAdmission -> fpCreateRun "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+efAccessAdmission -> fpGetRunStatus "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+efAccessAdmission -> fpIdempotencyClaim "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+efAccessAdmission -> fpTenantCrossCheck "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+efAccessAdmission -> fpPostureBootGuard "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+efAccessAdmission -> fpA2aMessageSend "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+efAccessAdmission -> fpA2aTasksCancel "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+efAccessAdmission -> fpA2aTasksResubscribe "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+efAccessAdmission -> fpMqInbound "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+
+genModule_agent_service -> efTaskControl "module contains engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "contains"
+    }
+}
+efTaskControl -> fpCancelRun "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+efTaskControl -> fpSuspendResume "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+efTaskControl -> fpChildRunSpawn "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+
+genModule_agent_service -> efSessionTaskState "module contains engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "contains"
+    }
+}
+efSessionTaskState -> fpRunStateTransition "frame anchors function point" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+
+genModule_agent_service -> efEngineDispatch "module contains engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "contains"
+    }
+}
+
+genModule_agent_service -> efInternalEventQueue "module contains engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "contains"
+    }
+}
+
+genModule_agent_service -> efTranslationIntercept "module contains engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "contains"
+    }
+}
+

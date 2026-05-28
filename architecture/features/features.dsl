@@ -335,16 +335,18 @@ featEngineDispatchAndHooks -> fpHookDispatch "engine feature contains hook dispa
 // =============================================================================
 // W4 — agent-service deep-dive feature catalog (rc55 per-layer features).
 // =============================================================================
-// These FEAT- elements map 1:1 to the deep-dive markdown files under
-// architecture/docs/L1/agent-service/features/. They are a DIFFERENT
-// abstraction level than the cross-cutting FEAT- elements above (FEAT-RUN-LIFECYCLE-CONTROL
-// etc.) — these are agent-service-internal architectural layers per ADR-0138.
+// agent-service EngineeringFrames — re-tagged from the ADR-0138 Layer features
+// per ADR-0157. These are the STRUCTURAL axis for agent-service (module-internal
+// responsibility slices that anchor function points), NOT value-thread Features.
+// Their Module-contains / EngineeringFrame-anchors edges live in
+// features/engineering-frames.dsl. Deep-dive markdown: architecture/docs/L1/agent-service/.
 
-featAgentServiceAccessLayer = element "Agent Service Access Layer" "Feature" "Protocol convergence + tenant/auth/idempotency + client capability publication" "SAA Feature" {
+efAccessAdmission = element "Access and Admission Frame" "EngineeringFrame" "Protocol convergence + tenant/auth/idempotency + client capability publication" "SAA EngineeringFrame" {
     properties {
-        "saa.id" "FEAT-AGENT-SERVICE-ACCESS-LAYER"
+        "saa.id" "EF-ACCESS-ADMISSION"
         "saa.productClaim" "PC-001|PC-003"
-        "saa.kind" "feature"
+        "saa.kind" "engineering_frame"
+        "saa.structuralAxis" "true"
         "saa.level" "L1"
         "saa.view" "development"
         "saa.status" "shipped"
@@ -363,11 +365,12 @@ featAgentServiceAccessLayer = element "Agent Service Access Layer" "Feature" "Pr
     }
 }
 
-featAgentServiceEngineDispatchExecution = element "Agent Service Engine Dispatch Execution" "Feature" "Engine adapter + executor dispatch (Layer 4)" "SAA Feature" {
+efEngineDispatch = element "Engine Dispatch Frame" "EngineeringFrame" "Engine adapter + executor dispatch (service-side)" "SAA EngineeringFrame" {
     properties {
-        "saa.id" "FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION"
+        "saa.id" "EF-ENGINE-DISPATCH"
         "saa.productClaim" "PC-004"
-        "saa.kind" "feature"
+        "saa.kind" "engineering_frame"
+        "saa.structuralAxis" "true"
         "saa.level" "L1"
         "saa.view" "development"
         "saa.status" "shipped"
@@ -386,11 +389,12 @@ featAgentServiceEngineDispatchExecution = element "Agent Service Engine Dispatch
     }
 }
 
-featAgentServiceInternalEventQueue = element "Agent Service Internal Event Queue" "Feature" "Internal event queue infrastructure (Layer 5)" "SAA Feature" {
+efInternalEventQueue = element "Internal Event Queue Frame" "EngineeringFrame" "Internal event queue infrastructure (design-only)" "SAA EngineeringFrame" {
     properties {
-        "saa.id" "FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE"
+        "saa.id" "EF-INTERNAL-EVENT-QUEUE"
         "saa.productClaim" "PC-003"
-        "saa.kind" "feature"
+        "saa.kind" "engineering_frame"
+        "saa.structuralAxis" "true"
         "saa.level" "L1"
         "saa.view" "development"
         "saa.status" "shipped"
@@ -409,11 +413,12 @@ featAgentServiceInternalEventQueue = element "Agent Service Internal Event Queue
     }
 }
 
-featAgentServiceSessionTaskManager = element "Agent Service Session Task Manager" "Feature" "Session + Task lifecycle (Layer 3)" "SAA Feature" {
+efSessionTaskState = element "Session Task State Frame" "EngineeringFrame" "Run aggregate + Session + Task lifecycle state" "SAA EngineeringFrame" {
     properties {
-        "saa.id" "FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER"
+        "saa.id" "EF-SESSION-TASK-STATE"
         "saa.productClaim" "PC-001"
-        "saa.kind" "feature"
+        "saa.kind" "engineering_frame"
+        "saa.structuralAxis" "true"
         "saa.level" "L1"
         "saa.view" "development"
         "saa.status" "shipped"
@@ -432,11 +437,12 @@ featAgentServiceSessionTaskManager = element "Agent Service Session Task Manager
     }
 }
 
-featAgentServiceTaskCentricControl = element "Agent Service Task Centric Control" "Feature" "Task-centric control plane (Layer 2)" "SAA Feature" {
+efTaskControl = element "Task Control Frame" "EngineeringFrame" "Task-centric control: orchestrator loop, suspend/resume, cancel re-auth" "SAA EngineeringFrame" {
     properties {
-        "saa.id" "FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL"
+        "saa.id" "EF-TASK-CONTROL"
         "saa.productClaim" "PC-001|PC-003"
-        "saa.kind" "feature"
+        "saa.kind" "engineering_frame"
+        "saa.structuralAxis" "true"
         "saa.level" "L1"
         "saa.view" "development"
         "saa.status" "shipped"
@@ -455,11 +461,12 @@ featAgentServiceTaskCentricControl = element "Agent Service Task Centric Control
     }
 }
 
-featAgentServiceTranslationToolIntercept = element "Agent Service Translation Tool Intercept" "Feature" "Model/tool translation + intercept hooks (Layer 6)" "SAA Feature" {
+efTranslationIntercept = element "Translation Tool Intercept Frame" "EngineeringFrame" "Model/tool translation + intercept hooks" "SAA EngineeringFrame" {
     properties {
-        "saa.id" "FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT"
+        "saa.id" "EF-TRANSLATION-INTERCEPT"
         "saa.productClaim" "PC-003|PC-004"
-        "saa.kind" "feature"
+        "saa.kind" "engineering_frame"
+        "saa.structuralAxis" "true"
         "saa.level" "L1"
         "saa.view" "development"
         "saa.status" "shipped"
