@@ -1,7 +1,7 @@
 # Contract Catalog
 
 > Single source of truth for all public contracts in the spring-ai-ascend platform.
-> Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-05-22 (rc27 — added 3 missing design_only contracts (a2a-envelope, backpressure-request, federation-envelope) + 3 rc23 SPIs (StatelessEngine, ContextProjector, TaskStateStore) + 3 rc26 SPIs moved to .spi packages per Rule R-D.d)
+> Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-05-28 (PR 92 absorption — added 14 design_only YAML schemas + 5 design_only SPI interfaces per ADR-0155)
 
 ## Rhetorical stance
 
@@ -78,6 +78,11 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `StreamingChatAdvisor` | `agent-middleware` | `com.huawei.ascend.middleware.advisor.spi` | rc52 design_only — streaming sibling of `ChatAdvisor`; composes through same-package `AdvisedStreamChunk` (ADR-0132) |
 | `StreamingAdvisorChain` | `agent-middleware` | `com.huawei.ascend.middleware.advisor.spi` | rc52 design_only — continuation abstraction passed to `StreamingChatAdvisor.aroundStream(...)` (ADR-0132) |
 | `ConversationMemory` | `agent-middleware` | `com.huawei.ascend.middleware.memory.spi` | rc52 design_only — windowed FIFO + token-budget pruning variant `extends MemoryStore<String, ConversationWindow>`; default category `M2_EPISODIC` (ADR-0133) |
+| `ExecutorAdapter` | `agent-service` | `com.huawei.ascend.service.runtime.spi.executor` | design_only — Layer 5a Engine Dispatch (ADR-0155) |
+| `PlatformChatClient` | `agent-service` | `com.huawei.ascend.service.runtime.spi.intercept` | design_only — Layer 5b Translation & Tool-Intercept (Native + Third-party adapters consume) (ADR-0155) |
+| `PlatformToolCallback` | `agent-service` | `com.huawei.ascend.service.runtime.spi.intercept` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
+| `PlatformMemoryProvider` | `agent-service` | `com.huawei.ascend.service.runtime.spi.intercept` | design_only — Layer 5b Translation & Tool-Intercept (read-only STM-04 view) (ADR-0155) |
+| `PlatformRetriever` | `agent-service` | `com.huawei.ascend.service.runtime.spi.intercept` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
 
 **SPI count by module (rc52 baseline; sum = 40 matches headline):**
 
@@ -188,6 +193,20 @@ Schema-first domain contracts (Rule M-2.a, formerly Rule 48). Each YAML file is 
 | `prompt-template.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0131 (rc51 — `PromptTemplate` SPI; reference adapter wraps Spring AI `PromptTemplate`) |
 | `chat-advisor.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0132 (rc53 — `ChatAdvisor` + `StreamingChatAdvisor` interceptor SPIs; typed same-package advisor carriers avoid model-SPI dependency; `advisor-model-hook-order/v1` binds ordering relative to `BEFORE_LLM` / `AFTER_LLM`) |
 | `run-event.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0145 (rc55 — sealed RunEvent hierarchy specification; closes F-discriminator-without-discriminated-type for EvolutionExport enum; 10 variants cover S1-S5 scenarios; runtime_enforced when the Java sealed interface + 10 record variants land in a follow-up impl-mode wave) |
+| `access-intent.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 (M1 AL-03 normalised request shape; converges A2A + MQ ingress before crossing module boundaries) |
+| `control-event.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 (IEQ-02 envelope; includes RESUME_ACCEPTED + INTERRUPT_REGISTERED kinds from v1.2 reversal) |
+| `work-item.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 (IEQ-03 envelope carrying engine-tick / tool-invoke / resume-tick payload refs) |
+| `execution-request.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 (ExecutorAdapter.execute input carrier) |
+| `agent-event.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 (ExecutorAdapter.execute output stream; NOT to be confused with sealed RunEvent in run-event.v1.yaml) |
+| `governed-messages.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 §3 (replaces v1-draft BuiltPrompt; M6 TTI-02 output of boundary-treated messages) |
+| `config-snapshot-ref.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 (Run-time immutable config binding; STM-07 carrier) |
+| `correlation-record.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 (STM-06 cross-Run handle union; LocalChildRun or RemoteAgent) |
+| `interrupt-registration.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 §1 (H1 reversal — TTI-09 produces, TCC-06A consumes via ControlEvent.payloadRef) |
+| `error-class.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 (EDE-09 14-value platform-wide error taxonomy; M4 + M6 consume) |
+| `intercept-request.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 (TTI-01 unified entry envelope across 5 resource kinds) |
+| `tool-result.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 (TTI-04 normalised tool result; never carries vendor SDK objects) |
+| `checkpoint-record.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 (STM-05 recoverable boundary; sideEffect ∈ {NONE, PARTIAL, COMMITTED}) |
+| `session-snapshot.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0155 §3 (PlatformMemoryProvider read projection of STM-04) |
 
 Note: `evolution-scope.v1.yaml` lives under `docs/governance/`, not `docs/contracts/`, because it indexes governance-plane export rules rather than a wire/Java contract.
 
