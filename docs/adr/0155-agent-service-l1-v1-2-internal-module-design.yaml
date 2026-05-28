@@ -142,6 +142,7 @@ consequences:
     - M6 prompt-reversal contradicts any in-flight Java prototype that treated M6 as a prompt constructor — but no such production code exists today.
   neutral:
     - PR 92's two `.cn.md` files remain in `docs/logs/reviews/` as design source; ADR-0155 is the structured decision capture.
+    - PR-93 lands the absorption green; the recurring-defect family F-agent-service-internal-boundary-drift tracks residual W2 enforcement work.
 verification:
   - "Gate: `bash gate/check_architecture_sync.sh` passes after merge."
   - "Spi-appendix 4-way parity audit: 5 new SPI FQN entries resolve in module-metadata.yaml, contract-catalog.md, DFX yaml, and on-disk .java files."

@@ -1596,6 +1596,9 @@ contracts, the next per-module audit will rediscover similar drifts.
 - Rule R-C.2.b STM-03 sole-caller is already enforced; this family adds
   defence-in-depth via TCC-03 ownership in `features.dsl` + LOGICAL + SPI
   surfaces.
+- PR-93 absorption verified green via full gate (146 PASS / 0 FAIL) +
+  `./mvnw -Pquality verify`; the 4-way SPI parity + 14 design_only contracts
+  are now landed, not just planned.
 
 **Cleanup status.** `structurally addressed` — ADR-0155 closes the
 cited three drifts; TCK conformance suites and ArchUnit physical enforcement
