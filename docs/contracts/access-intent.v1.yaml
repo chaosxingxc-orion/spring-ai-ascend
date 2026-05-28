@@ -1,0 +1,56 @@
+# AccessIntent inter-module data contract, version 1.
+#
+# Authority: ADR-0155 (AgentService L1 v1.2 absorption).
+# Wave: design_only at this commit; runtime_enforced when M1 Access
+# Layer's normalisation step ships the Java record carrier.
+
+schema: access-intent/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  operation:
+    type: enum
+    values: [SUBMIT, RESUME, CANCEL, QUERY, SUBSCRIBE, CALLBACK]
+    required: true
+  tenantId:
+    type: string
+    required: true
+  principal:
+    type: object
+    required: true
+    description: "Authenticated principal (subject + roles + claims)"
+  sessionHint:
+    type: string
+    required: false
+    description: "Optional sessionId hint; null means M4 TCC-04 will resolve / create."
+  taskHint:
+    type: string
+    required: false
+  runHint:
+    type: string
+    required: false
+    description: "Required for non-SUBMIT operations; SUBMIT assigns runId in TCC-04."
+  payload:
+    type: object
+    required: true
+    description: "Operation-specific payload; multimodal payloads carry references not bytes."
+  replyChannel:
+    type: enum
+    values: [SYNC_HTTP, SSE_STREAM, MQ_REPLY, PUSH_NOTIFICATION]
+    required: true
+  deadline:
+    type: timestamp
+    required: false
+  traceCtx:
+    type: object
+    required: true
+    description: "W3C TraceContext or B3 carrier."
+  idempotencyKey:
+    type: string
+    required: false
+    description: "Required for SUBMIT and CALLBACK to participate in STM-08 replay decision."
+  clientProfileRef:
+    type: string
+    required: false

@@ -1,0 +1,48 @@
+# ControlEvent IEQ-02 control-channel envelope, version 1.
+#
+# Authority: ADR-0155.
+# Wave: design_only; runtime_enforced when M3 IEQ ships the Java
+# envelope record + M4 control-channel consumer.
+
+schema: control-event/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  kind:
+    type: enum
+    values:
+      - SUBMIT
+      - CANCEL
+      - RESUME
+      - CALLBACK
+      - INTERRUPT_REGISTERED
+      - DEADLINE_FIRED
+      - CHILD_DONE
+      - WORKITEM_DONE
+      - WORKITEM_FAILED
+      - RESUME_ACCEPTED
+      - SPAWN_CHILD
+    required: true
+  tenantId:
+    type: string
+    required: true
+  runHint:
+    type: string
+    required: false
+    description: "Run identifier; null only for SUBMIT (TCC-04 assigns)."
+  payloadRef:
+    type: string
+    required: false
+    description: "STM reference to the kind-specific payload."
+  traceCtx:
+    type: object
+    required: true
+  deadline:
+    type: timestamp
+    required: false
+  enqueuedAt:
+    type: timestamp
+    required: true
+    description: "Monotonic clock at enqueue; consumers MUST NOT rely on wall-clock ordering across channels."

@@ -1,0 +1,33 @@
+# WorkItem IEQ-03 data-channel envelope, version 1.
+#
+# Authority: ADR-0155.
+# Wave: design_only.
+
+schema: work-item/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  runId:
+    type: string
+    required: true
+  kind:
+    type: enum
+    values: [ENGINE_TICK, TOOL_INVOKE, CHILD_RUN_START, CHECKPOINT, RESUME_TICK]
+    required: true
+  payloadRef:
+    type: string
+    required: true
+    description: "STM reference to the kind-specific payload."
+  configSnapshotRef:
+    type: string
+    required: true
+    description: "Reference to the immutable ConfigSnapshot bound to this Run at creation."
+  parentCursor:
+    type: object
+    required: false
+    description: "Optional StmContextCursor (sessionId + version) for RESUME_TICK; lets the adapter know which session version to continue from."
+  enqueuedAt:
+    type: timestamp
+    required: true
