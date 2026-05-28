@@ -464,3 +464,135 @@ featAgentServiceTranslationToolIntercept = element "Agent Service Translation To
         "saa.verificationCommands" "./mvnw -pl agent-service -am verify"
     }
 }
+
+featAgentServiceAccessLayer = element "AgentService Access Layer" "Feature" "L1 Access Layer module per PR 92 v1.2 (M1)" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AS-ACCESS-LAYER"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "logical"
+        "saa.status" "design_only"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0155"
+        "saa.capabilityDomain" "runtime-access-layer"
+        "saa.synopsis" "M1 Access Layer per PR 92 v1.2: A2A Server + MQ ingress + AccessIntent normalisation + ingress governance chain + sync/SSE/MQ-reply/push-notification projections. Does not hold execution state."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "design_only->ready_for_impl|design_only->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "ready_for_impl|test_verified|deprecated"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/platform/web|agent-service/src/main/java/com/huawei/ascend/service/dispatcher"
+        "saa.goals" "Protocol convergence (A2A + MQ -> AccessIntent)|Ingress governance (authn + tenant + idempotency + deadline + trace)|Out-projection (sync + SSE + MQ-reply + push notification)"
+        "saa.nonGoals" "Run state ownership|Execution dispatch|Prompt construction"
+    }
+}
+
+featAgentServiceSessionTaskManager = element "AgentService Session Task Manager" "Feature" "L1 STM module per PR 92 v1.2 (M2)" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AS-SESSION-TASK-MANAGER"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "logical"
+        "saa.status" "design_only"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0155"
+        "saa.capabilityDomain" "runtime-state"
+        "saa.synopsis" "M2 Session Task Manager per PR 92 v1.2: Run state machine (sole machine), Session append-only context, Task stable-ID multi-attempt model, Checkpoint with side-effect annotation, ConfigSnapshot, IdempotencyRecord, RunEventLog with monotonic cursor."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "design_only->ready_for_impl|design_only->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "ready_for_impl|test_verified|deprecated"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/runs|agent-service/src/main/java/com/huawei/ascend/service/session|agent-service/src/main/java/com/huawei/ascend/service/task"
+        "saa.goals" "Run state machine sole authority|Session append-only context|Task stable-ID multi-attempt"
+        "saa.nonGoals" "Execution|Prompt construction|Resource interception"
+    }
+}
+
+featAgentServiceInternalEventQueue = element "AgentService Internal Event Queue" "Feature" "L1 IEQ module per PR 92 v1.2 (M3)" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AS-INTERNAL-EVENT-QUEUE"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "logical"
+        "saa.status" "design_only"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0155"
+        "saa.capabilityDomain" "runtime-event-queue"
+        "saa.synopsis" "M3 Internal Event Queue per PR 92 v1.2: three-channel topology (Control / Data / Egress) with independent bounded buffer + worker pool + back-pressure. In-memory v1; SPI hooks for persistence."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "design_only->ready_for_impl|design_only->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "ready_for_impl|test_verified|deprecated"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/eventqueue"
+        "saa.goals" "Three-channel physical isolation|Bounded buffer with explicit rejection|Per-Run causality via STM-09 cursor"
+        "saa.nonGoals" "Cross-channel ordering guarantees|State machine arbitration"
+    }
+}
+
+featAgentServiceTaskCentricControl = element "AgentService Task-Centric Control" "Feature" "L1 TCC module per PR 92 v1.2 (M4)" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AS-TASK-CENTRIC-CONTROL"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "logical"
+        "saa.status" "design_only"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0155"
+        "saa.capabilityDomain" "runtime-control"
+        "saa.synopsis" "M4 Task-Centric Control per PR 92 v1.2: per-Run virtual-actor serialisation, sole STM-03 driver, CANCEL_RACE deterministic arbitration, RESUME_ACCEPTED handler, retry/checkpoint policy."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "design_only->ready_for_impl|design_only->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "ready_for_impl|test_verified|deprecated"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/control"
+        "saa.goals" "Sole STM-03 driver|per-Run serial decisions|CANCEL_RACE_RESOLVED determinism|RESUME_ACCEPTED handler"
+        "saa.nonGoals" "Prompt construction|Resource invocation|Session-context writes (only via STM)"
+    }
+}
+
+featAgentServiceEngineDispatchExecution = element "AgentService Engine Dispatch Execution" "Feature" "L1 EDE module per PR 92 v1.2 (M5)" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AS-ENGINE-DISPATCH-EXECUTION"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "logical"
+        "saa.status" "design_only"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0155"
+        "saa.capabilityDomain" "runtime-engine-dispatch"
+        "saa.synopsis" "M5 Engine Dispatch Execution per PR 92 v1.2: ExecutorAdapter SPI for Native / Third-party / Remote forms, Engine instance cache, InjectionMode declaration, structured ErrorClass emission (14 values)."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "design_only->ready_for_impl|design_only->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "ready_for_impl|test_verified|deprecated"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/spi/executor|agent-service/src/main/java/com/huawei/ascend/service/engine"
+        "saa.goals" "ExecutorAdapter SPI three-form unification|InjectionMode wiring declaration|14-value ErrorClass taxonomy|Engine instance cache"
+        "saa.nonGoals" "Run state writes|Prompt construction|Direct vendor SDK calls"
+    }
+}
+
+featAgentServiceTranslationToolIntercept = element "AgentService Translation Tool Intercept" "Feature" "L1 TTI module per PR 92 v1.2 (M6)" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-AS-TRANSLATION-TOOL-INTERCEPT"
+        "saa.kind" "feature"
+        "saa.level" "L1"
+        "saa.view" "logical"
+        "saa.status" "design_only"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0155"
+        "saa.capabilityDomain" "runtime-resource-intercept"
+        "saa.synopsis" "M6 Translation Tool Intercept per PR 92 v1.2: messages-in-flight boundary aspect (does NOT construct prompts; v1.2 reversal). Platform intercept SPI surface (4 SPIs). 5 resource-call kinds: model / tool / memory / RAG / client-hosted skill. Remote agent internal calls outside jurisdiction."
+        "saa.aiBoundary.canModifyCode" "true"
+        "saa.aiBoundary.canModifyContracts" "false"
+        "saa.aiBoundary.allowedStatusTransitions" "design_only->ready_for_impl|design_only->deprecated"
+        "saa.aiBoundary.requiresHumanReviewAt" "ready_for_impl|test_verified|deprecated"
+        "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/spi/intercept|agent-service/src/main/java/com/huawei/ascend/service/runtime/intercept"
+        "saa.goals" "Messages-in-flight boundary treatment|Platform intercept SPI surface|HITL interrupt gateway|A2A outbound audit (remote boundary)"
+        "saa.nonGoals" "Prompt construction (Agent owns this per v1.2 reversal)|Session-context ownership"
+    }
+}
