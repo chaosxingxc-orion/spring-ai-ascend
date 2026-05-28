@@ -84,11 +84,11 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `PlatformMemoryProvider` | `agent-service` | `com.huawei.ascend.service.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (read-only STM-04 view) (ADR-0155) |
 | `PlatformRetriever` | `agent-service` | `com.huawei.ascend.service.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
 
-**SPI count by module (rc52 baseline; sum = 40 matches headline):**
+**SPI count by module (rc52 baseline + PR 92 absorption; sum = 45 matches headline):**
 
 | Module | SPI interfaces |
 |---|---|
-| `agent-service` | 9 (`RunRepository`, `GraphMemoryRepository`, `ResilienceContract`, `SkillCapacityRegistry`, `StatelessEngine`, `ContextProjector`, `TaskStateStore`, `Agent`, `AgentRegistry`) |
+| `agent-service` | 14 (`RunRepository`, `GraphMemoryRepository`, `ResilienceContract`, `SkillCapacityRegistry`, `StatelessEngine`, `ContextProjector`, `TaskStateStore`, `Agent`, `AgentRegistry`, `ExecutorAdapter`, `PlatformChatClient`, `PlatformToolCallback`, `PlatformMemoryProvider`, `PlatformRetriever`) |
 | `agent-execution-engine` | 7 (`ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `Checkpointer`, `Orchestrator`, `Planner`) |
 | `agent-bus` | 4 (`IngressGateway`, `S2cCallbackTransport`, `ReflectionEnvelopeRouter`, `FederationGateway`) |
 | `agent-middleware` | 19 (`RuntimeMiddleware`, `ModelGateway`, `StructuredOutputConverter`, `Skill`, `SkillRegistry`, `MemoryStore`, `MemoryReader`, `MemoryWriter`, `SemanticMemoryStore`, `KnowledgeMemoryStore`, `ConversationMemory`, `VectorStore`, `Retriever`, `EmbeddingModel`, `PromptTemplate`, `ChatAdvisor`, `AdvisorChain`, `StreamingChatAdvisor`, `StreamingAdvisorChain`) |
