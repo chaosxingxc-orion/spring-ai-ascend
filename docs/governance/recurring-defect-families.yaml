@@ -73,7 +73,10 @@ last_updated: 2026-05-29  # MERGE of PR #93 (agent-service L1 v1.2 — ADR-0155 
 # recurring_defect_families count remains 38. P0-P4 landed across 5 gate-green commits on
 # branch feature/engineering-frame-ontology; P3 migrated Feature->FunctionPoint edges from
 # contains to requires; P4 added the engineering-frames.md dual-track narrative. P5 (pilot),
-# P6 (frame-integrity rule + soak) and P7 (cross-cutting frames) are deferred (see plan file).
+# P5 (pilot doc), P6 (frame-integrity rule DESIGN-NOTED) and P7 (cross-cutting design note)
+# landed design-state. Authoring the integrity rule as an active G-22 card + wiring it into the
+# rendered phase-contract table + the advisory->blocking promotion are deferred to a dedicated
+# PR (see plan file).
 families:
   - id: F-numeric-drift
     title: Numeric Drift Across Authority Surfaces
