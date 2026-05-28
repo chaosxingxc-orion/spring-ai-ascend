@@ -7,6 +7,7 @@ principle_ref: P-C
 authority_refs: [ADR-0086, ADR-0088, ADR-0090, ADR-0091]
 enforcer_refs: [E146, E147, E148, E149, E150]
 status: active
+governance_infra: true
 scope_phase: commit
 kernel_cap: 9
 kernel: |

@@ -1,6 +1,7 @@
 id: ADR-0151
 title: "L1 Feature Registry canonical schema — SAA Feature tag + AI Execution Boundary + 9-state lifecycle"
 status: accepted
+governance_infra: true
 date: 2026-05-27
 level: L0
 view: scenarios

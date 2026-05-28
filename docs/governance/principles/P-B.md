@@ -5,6 +5,7 @@ level: L0
 view: scenarios
 authority: "Layer 0 governing principle (CLAUDE.md)"
 enforced_by_rules: [R-B]   # formerly Rule 30 (numeric pre-ADR-0086)
+product_claim: "PC-001|PC-002|PC-003|PC-005"
 kernel: |
   P-B — Four Competitive Pillars.
   Platform competitiveness rests on four continuously-improvable dimensions —
@@ -28,5 +29,5 @@ This principle exists because a platform without a **published baseline** on eac
 ## Cross-references
 
 - ADR-0065 (origin of Rule R-B and the four-pillar baseline corpus)
-- Deferred sub-clauses 30.b (git-diff regression-ADR pairing), 30.d (measurement automation — W2/W3) — see [`docs/CLAUDE-deferred.md`](../../CLAUDE-deferred.md)
+- Deferred sub-clauses 30.b (git-diff regression-ADR pairing), 30.d (measurement automation — W2/W3); legacy deferred-rule registry retired 2026-05-28, see [`retired-rules-audit.md`](../retired-rules-audit.md)
 - Related: every release note under `docs/logs/releases/*.md` must mention all four pillar names (Gate Rule G-1 sub-clause .a)

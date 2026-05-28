@@ -56,11 +56,12 @@ architecture/
 
 Newcomers (human or AI) reach an unbiased architecture picture by reading in this order:
 
-1. **`architecture/workspace.dsl`** — the architecture's structure as DSL. Parses everything below into one model.
-2. **`architecture/README.md`** (this file) — navigation of the closure + DSL conventions.
-3. **`architecture/docs/L1/README.md`** — L1 module entry index. Pick the module you're working on.
-4. **`architecture/features/function-points.dsl`** — L1 function-point inventory (who implements what, what verifies it).
-5. **`docs/adr/<id>-*.yaml`** — decision rationale for any edge you traverse.
+1. **`architecture/facts/generated/`** — machine-extracted factual ground truth: code symbols, contract operations, tests, module dependencies, runtime config, ADR graph. AI agents read THIS BEFORE prose for any factual claim. Populated by the deterministic extractors under `tools/architecture-workspace/.../facts/` (Fact-Layer Round-1 Waves 2-4 shipped 2026-05-27; Round-2 Wave A truth-up shipped 2026-05-28). See [`architecture/facts/README.md`](facts/README.md) for the wave-status table.
+2. **`architecture/workspace.dsl`** — the architecture's structure as DSL. Parses everything below into one model.
+3. **`architecture/README.md`** (this file) — navigation of the closure + DSL conventions.
+4. **`architecture/docs/L1/README.md`** — L1 module entry index. Pick the module you're working on.
+5. **`architecture/features/function-points.dsl`** — L1 function-point inventory (who implements what, what verifies it).
+6. **`docs/adr/<id>-*.yaml`** — decision rationale for any edge you traverse.
 
 Adjacent surfaces (not architecture-design but operationally needed):
 
@@ -84,8 +85,9 @@ Adjacent surfaces (not architecture-design but operationally needed):
 
 | Zone | Path | Edit by | Drift prevented by |
 |---|---|---|---|
-| Authored | `architecture/workspace.dsl` root + `features/` + `docs/L1/` + `decisions/` | humans (or programmatic mount with explicit run) | profile validator + Rule G-1.b |
-| Generated | `architecture/generated/*.dsl` | machine emitters in `tools/architecture-workspace/.../fragment/` | byte-identical regeneration gate (Rule G-13.b) |
+| Authored | `architecture/workspace.dsl` root + `features/` + `docs/L1/` + `decisions/` + `facts/README.md` + `facts/schema/` + `profile/saa-property-authority.yaml` | humans (or programmatic mount with explicit run) | profile validator + Rule G-1.b + Rule G-15.a |
+| Generated DSL | `architecture/generated/*.dsl` | machine emitters in `tools/architecture-workspace/.../fragment/` | byte-identical regeneration gate (Rule G-13.b) |
+| Generated Facts | `architecture/facts/generated/*.json` | deterministic extractors in `tools/architecture-workspace/.../facts/` (Waves 2-5) | byte-identical regeneration + provenance + LLM-no-author gate (Rule G-15.b/.c) |
 
 ## Running the tools
 

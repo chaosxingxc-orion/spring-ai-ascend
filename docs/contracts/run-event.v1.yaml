@@ -19,11 +19,18 @@
 #   S4 S2C Client Callback             -> + S2cCallbackRequested, S2cCallbackCompleted
 #   S5 Cancel During Execution         -> + CancelRequested
 
+product_claim: "PC-001|PC-003"
+
 schema: run-event/v1
 authority: ADR-0145
 status: design_only
 runtime_enforced: false
-promotion_trigger: First impl-mode wave that ships the Java `RunEvent.java` sealed interface + the 10 record variants under `agent-service/src/main/java/com/huawei/ascend/service/runtime/evolution/`. At that point `runtime_enforced: true` AND `EveryRunEventDeclaresEvolutionExportTest` becomes non-vacuous (Rule R-M.e gateable).
+promotion_trigger: |
+  First impl-mode wave that ships the Java `RunEvent.java` sealed interface
+  + the 10 record variants under `agent-service/src/main/java/com/huawei/ascend/service/runtime/evolution/`.
+  At that point `runtime_enforced` flips to true AND
+  `EveryRunEventDeclaresEvolutionExportTest` becomes non-vacuous
+  (Rule R-M.e gateable).
 relates_to:
   - docs/contracts/engine-envelope.v1.yaml      # adapter-level envelope; RunEvent sits one layer above (Layer 2 + Layer 4 emit; Layer 3 carries via three-track bus)
   - docs/contracts/engine-hooks.v1.yaml         # HookPoint events are runtime-level signals; RunEvent variants are aggregate-level state changes

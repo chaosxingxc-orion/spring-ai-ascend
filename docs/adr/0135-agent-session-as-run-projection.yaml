@@ -1,6 +1,7 @@
 id: ADR-0135
 title: "AgentSession as Run-Projection: no separate AgentSession SPI; conversation continuity is a (tenantId, conversationId) projection over the Run sequence + M2_EPISODIC ConversationMemory"
 status: accepted
+product_claim: "PC-001"
 date: 2026-05-25
 level: L0
 view: development

@@ -1,0 +1,149 @@
+# Property-authority classification for every `saa.*` key in active use.
+#
+# Authority: ADR-0154 (Fact-Layer Authority); Rule G-15 sub-clause .a.
+# Schema:
+#   - id:              The `saa.<dotted-name>` key as it appears in DSL properties.
+#   - element_tag:     Which Structurizr custom-element tag carries this key.
+#                      (SAA Module | SAA Feature | SAA FunctionPoint | SAA Capability
+#                       | SAA Test | SAA Contract | SAA ADR | common-all)
+#   - bucket:          intent | factual_generated | factual_hand_authored_grandfathered
+#                      - intent — human-authored rationale/goals/non-goals/synopsis;
+#                        never generated. Stays hand-authored permanently.
+#                      - factual_generated — value MUST come from architecture/facts/
+#                        generated/* once the corresponding extractor lands. Hand-
+#                        authoring forbidden after the extractor's wave ships.
+#                      - factual_hand_authored_grandfathered — value is factual but
+#                        currently hand-authored because no extractor exists yet.
+#                        MUST declare a sunset_date AND a target_extractor.
+#   - sunset_date:     Required when bucket = factual_hand_authored_grandfathered;
+#                      the ISO yyyy-mm-dd by which the migrating extractor must
+#                      ship and the field must flip to factual_generated.
+#   - target_extractor: Required when bucket = factual_hand_authored_grandfathered;
+#                       the extractor binary that will own this field.
+#   - notes:           Free-form. NOT carry design intent (use ADRs).
+#
+# Wave 6 sunsets every factual_hand_authored_grandfathered row by migrating the
+# field to factual_generated; the gate then forbids hand-authored writes.
+
+schema_version: 1
+authority: ADR-0154
+last_updated: 2026-05-27
+
+properties:
+
+  # ----- Common (every saa-tagged element) -----
+  - id: saa.id
+    element_tag: common-all
+    bucket: factual_generated
+    notes: "Identity. Generated/validated by the workspace profile validator; not hand-authored as a fact claim."
+
+  - id: saa.kind
+    element_tag: common-all
+    bucket: factual_generated
+    notes: "Profile vocabulary; validated by ProfileValidator."
+
+  - id: saa.level
+    element_tag: common-all
+    bucket: factual_generated
+    notes: "L0 | L1 | L2 — declarative classification, profile-validated."
+
+  - id: saa.view
+    element_tag: common-all
+    bucket: factual_generated
+    notes: "4+1 view; profile-validated."
+
+  - id: saa.status
+    element_tag: common-all
+    bucket: factual_generated
+    notes: "Lifecycle state; Rule G-14 enforces 9-state membership. Generated where possible (e.g., feature status from CI status of verificationTestFqns) — but currently hand-authored. Migration target: Wave 5."
+
+  - id: saa.owner
+    element_tag: common-all
+    bucket: factual_generated
+    notes: "Owning module saa.id. Cross-checked vs pom.xml + module-metadata.yaml in Wave 2."
+
+  - id: saa.sourceAdr
+    element_tag: common-all
+    bucket: factual_generated
+    notes: "ADR id. Cross-checked vs docs/adr/*.yaml by AdrFactExtractor in Wave 2."
+
+  # ----- SAA Feature — intent fields -----
+  - id: saa.synopsis
+    element_tag: SAA Feature
+    bucket: intent
+    notes: "100-200 word RAG-friendly description. Pure intent; stays hand-authored."
+
+  - id: saa.goals
+    element_tag: SAA Feature
+    bucket: intent
+    notes: "Pipe-separated goal statements. Pure intent; stays hand-authored."
+
+  - id: saa.nonGoals
+    element_tag: SAA Feature
+    bucket: intent
+    notes: "Pipe-separated non-goal statements. Pure intent; stays hand-authored."
+
+  - id: saa.capabilityDomain
+    element_tag: SAA Feature
+    bucket: intent
+    notes: "Domain string. Cross-checked vs capabilities.dsl but the value itself is a design choice."
+
+  - id: saa.aiBoundary.canModifyCode
+    element_tag: SAA Feature
+    bucket: intent
+    notes: "Policy declaration. Intent; stays hand-authored."
+
+  - id: saa.aiBoundary.canModifyContracts
+    element_tag: SAA Feature
+    bucket: intent
+    notes: "Policy declaration. Intent; stays hand-authored."
+
+  - id: saa.aiBoundary.allowedStatusTransitions
+    element_tag: SAA Feature
+    bucket: intent
+    notes: "Lifecycle policy declaration. Intent; stays hand-authored."
+
+  - id: saa.aiBoundary.requiresHumanReviewAt
+    element_tag: SAA Feature
+    bucket: intent
+    notes: "Lifecycle policy declaration. Intent; stays hand-authored."
+
+  - id: saa.aiBoundary.sandboxPolicyRef
+    element_tag: SAA Feature
+    bucket: intent
+    notes: "Policy pointer; not a fact about code. Stays hand-authored."
+
+  # ----- SAA Feature — factual fields scheduled for extraction -----
+  - id: saa.devPaths
+    element_tag: SAA Feature
+    bucket: factual_hand_authored_grandfathered
+    sunset_date: 2026-07-31
+    target_extractor: "tools/architecture-workspace#CodeSymbolFactExtractor"
+    notes: "Pipe-separated module-relative paths. Migrating to Wave 5 derivation from FunctionPoint.code_entrypoint_refs[] which resolve against code-symbols.json (Wave 4)."
+
+  - id: saa.verificationTestFqns
+    element_tag: SAA Feature
+    bucket: factual_hand_authored_grandfathered
+    sunset_date: 2026-07-31
+    target_extractor: "tools/architecture-workspace#TestInventoryFactExtractor"
+    notes: "Pipe-separated Java test FQNs. Migrating to Wave 4 derivation from tests.json + Wave 5 FunctionPoint.test_refs[]. Rule G-14.c will block when shipped features have empty test_refs."
+
+  - id: saa.verificationCommands
+    element_tag: SAA Feature
+    bucket: factual_hand_authored_grandfathered
+    sunset_date: 2026-07-31
+    target_extractor: "tools/architecture-workspace#TestInventoryFactExtractor"
+    notes: "Pipe-separated bash/mvn commands. Derivable from test_refs[] + module-build.json in Wave 4-5."
+
+  - id: saa.sunsetDate
+    element_tag: SAA Feature
+    bucket: intent
+    notes: "Deprecation deadline; design choice, not a code fact."
+
+  # ----- SAA Test -----
+  - id: saa.sourceFile
+    element_tag: SAA Test
+    bucket: factual_hand_authored_grandfathered
+    sunset_date: 2026-07-31
+    target_extractor: "tools/architecture-workspace#TestInventoryFactExtractor"
+    notes: "Hand-authored .java path. Will be generated from tests.json in Wave 4."

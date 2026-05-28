@@ -7,6 +7,8 @@
 # Java types in com.huawei.ascend.middleware.prompt.spi mirror this
 # schema and validate required fields on construction.
 
+product_claim: "PC-001|PC-004"
+
 schema: prompt-template/v1
 status: design_only
 runtime_enforced: false

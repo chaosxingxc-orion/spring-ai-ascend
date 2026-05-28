@@ -1,6 +1,7 @@
 id: ADR-0080
 title: "ResilienceContract .spi package alignment + Rule R-D sub-clause .f prevention"
 status: accepted
+governance_infra: true
 date: 2026-05-18
 level: L1
 view: development

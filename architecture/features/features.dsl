@@ -30,6 +30,7 @@ featRunLifecycleControl = element "Run Lifecycle Control" "Feature" "Public Run 
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0020"
         "saa.capabilityDomain" "runtime-run-lifecycle"
+        "saa.productClaim" "PC-001|PC-003"
         "saa.synopsis" "Owns the public Run lifecycle surface — POST /v1/runs admission with tenant + idempotency + posture guard, POST /v1/runs/{id}/cancel re-validation and DFA transition to CANCEL_REQUESTED, GET /v1/runs/{id} tenant-scoped polling, GET /v1/runs paginated listing, and the CAS-based RunRepository.updateIfNotTerminal atomic transition that backs all of them. Run state changes are protected by the DFA in RunStateMachine; every persisted Run carries tenantId enforced by NOT NULL + RLS. Public endpoint behavior described by openapi-v1.yaml."
         "saa.aiBoundary.canModifyCode" "true"
         "saa.aiBoundary.canModifyContracts" "false"
@@ -39,7 +40,7 @@ featRunLifecycleControl = element "Run Lifecycle Control" "Feature" "Public Run 
         "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/runs|agent-service/src/main/java/com/huawei/ascend/service/runtime/state"
         "saa.goals" "Public Run lifecycle API with strict tenant isolation|Atomic CAS-based state transitions with no lost updates|Idempotent admission via IdempotencyStore"
         "saa.nonGoals" "Long-poll or websocket subscriptions (use cursor flow)|Cross-tenant aggregation"
-        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.runs.RunsControllerIT|com.huawei.ascend.service.runtime.runs.RunStateMachineTest"
+        "saa.verificationTestFqns" "com.huawei.ascend.service.platform.web.runs.RunHttpContractIT|com.huawei.ascend.service.runtime.runs.RunStateMachineTest"
         "saa.verificationCommands" "./mvnw -pl agent-service -am verify|bash gate/check_architecture_sync.sh"
     }
 }
@@ -47,6 +48,7 @@ featRunLifecycleControl = element "Run Lifecycle Control" "Feature" "Public Run 
 featEdgeComputeIngress = element "Edge to Compute Ingress" "Feature" "Edge-plane to compute_control ingress routing via IngressGateway" "SAA Feature" {
     properties {
         "saa.id" "FEAT-EDGE-COMPUTE-INGRESS"
+        "saa.productClaim" "PC-002"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "process"
@@ -71,6 +73,7 @@ featEdgeComputeIngress = element "Edge to Compute Ingress" "Feature" "Edge-plane
 featServerClientCallback = element "Server to Client Callback" "Feature" "S2C callback envelope + transport for capability invocation" "SAA Feature" {
     properties {
         "saa.id" "FEAT-SERVER-CLIENT-CALLBACK"
+        "saa.productClaim" "PC-004"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "scenarios"
@@ -87,7 +90,7 @@ featServerClientCallback = element "Server to Client Callback" "Feature" "S2C ca
         "saa.devPaths" "agent-bus/src/main/java/com/huawei/ascend/bus/spi/s2c|agent-service/src/main/java/com/huawei/ascend/service/runtime/s2c"
         "saa.goals" "Asynchronous capability invocation without holding client connection|Wire envelope versioned and validated"
         "saa.nonGoals" "Long-poll fallback (cursor flow handles polling)"
-        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.s2c.S2cCallbackIT"
+        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.s2c.S2cCallbackRoundTripIT|com.huawei.ascend.service.runtime.s2c.S2cFailureTransitionsRunToFailedIT|com.huawei.ascend.service.runtime.s2c.S2cCallbackEnvelopeValidationTest"
         "saa.verificationCommands" "./mvnw -pl agent-service -am verify"
     }
 }
@@ -95,6 +98,7 @@ featServerClientCallback = element "Server to Client Callback" "Feature" "S2C ca
 featSuspendResumeControl = element "Suspend and Resume Control" "Feature" "SuspendSignal lifecycle and ResumeDispatcher orchestration" "SAA Feature" {
     properties {
         "saa.id" "FEAT-SUSPEND-RESUME-CONTROL"
+        "saa.productClaim" "PC-003"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "process"
@@ -111,7 +115,7 @@ featSuspendResumeControl = element "Suspend and Resume Control" "Feature" "Suspe
         "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/suspend"
         "saa.goals" "Typed suspension reasons|Resume without restart|Parent/child Run choreography"
         "saa.nonGoals" "Thread.sleep blocking suspension (Rule R-H forbids it)"
-        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.suspend.SuspendResumeIT|com.huawei.ascend.service.runtime.suspend.ChildRunSpawnIT"
+        "saa.verificationTestFqns" "com.huawei.ascend.engine.orchestration.spi.SuspendSignalTest|com.huawei.ascend.engine.orchestration.spi.SuspendSignalLibraryTest"
         "saa.verificationCommands" "./mvnw -pl agent-service -am verify"
     }
 }
@@ -119,6 +123,7 @@ featSuspendResumeControl = element "Suspend and Resume Control" "Feature" "Suspe
 featIdempotencyAndReplay = element "Idempotency and Replay" "Feature" "Idempotency claim + replay on duplicate request" "SAA Feature" {
     properties {
         "saa.id" "FEAT-IDEMPOTENCY-AND-REPLAY"
+        "saa.productClaim" "PC-003"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "scenarios"
@@ -143,6 +148,7 @@ featIdempotencyAndReplay = element "Idempotency and Replay" "Feature" "Idempoten
 featTenantIsolation = element "Tenant Isolation" "Feature" "Tenant claim cross-check + storage-engine RLS" "SAA Feature" {
     properties {
         "saa.id" "FEAT-TENANT-ISOLATION"
+        "saa.productClaim" "PC-003"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "scenarios"
@@ -159,7 +165,7 @@ featTenantIsolation = element "Tenant Isolation" "Feature" "Tenant claim cross-c
         "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/platform/tenant|agent-service/src/main/resources/db/migration"
         "saa.goals" "Defense in depth at HTTP / repo / storage layers"
         "saa.nonGoals" "Cross-tenant aggregation (handled by separate analytics surface)"
-        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.runs.CancelRunCrossTenantIT|com.huawei.ascend.service.platform.tenant.TenantClaimFilterTest"
+        "saa.verificationTestFqns" "com.huawei.ascend.service.platform.security.TenantIsolationIT|com.huawei.ascend.service.platform.tenant.TenantContextFilterIT|com.huawei.ascend.service.platform.tenant.JwtTenantClaimCrossCheckTest"
         "saa.verificationCommands" "./mvnw -pl agent-service -am verify"
     }
 }
@@ -167,6 +173,7 @@ featTenantIsolation = element "Tenant Isolation" "Feature" "Tenant claim cross-c
 featPostureBootstrap = element "Posture Bootstrap" "Feature" "Required-config posture validation at startup" "SAA Feature" {
     properties {
         "saa.id" "FEAT-POSTURE-BOOTSTRAP"
+        "saa.productClaim" "PC-003"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "physical"
@@ -191,6 +198,7 @@ featPostureBootstrap = element "Posture Bootstrap" "Feature" "Required-config po
 featGraphMemory = element "Graph Memory" "Feature" "Tenant-scoped graph memory store with auto-wiring" "SAA Feature" {
     properties {
         "saa.id" "FEAT-GRAPH-MEMORY"
+        "saa.productClaim" "PC-001|PC-005"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "logical"
@@ -207,7 +215,7 @@ featGraphMemory = element "Graph Memory" "Feature" "Tenant-scoped graph memory s
         "saa.devPaths" "graphmemory-starter/src/main/java"
         "saa.goals" "Tenant-scoped graph reasoning surface|Pluggable backend"
         "saa.nonGoals" "Cross-tenant graph queries|Single-backend lock-in"
-        "saa.verificationTestFqns" "com.huawei.ascend.graphmemory.GraphMemoryStoreTest"
+        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.graphmemory.GraphMemoryAutoConfigurationTest"
         "saa.verificationCommands" "./mvnw -pl graphmemory-starter -am verify"
     }
 }
@@ -215,6 +223,7 @@ featGraphMemory = element "Graph Memory" "Feature" "Tenant-scoped graph memory s
 featEngineDispatchAndHooks = element "Engine Dispatch and Hooks" "Feature" "Typed engine envelope dispatch + middleware hook events" "SAA Feature" {
     properties {
         "saa.id" "FEAT-ENGINE-DISPATCH-AND-HOOKS"
+        "saa.productClaim" "PC-004"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "process"
@@ -256,11 +265,9 @@ featRunLifecycleControl -> fpGetRunStatus "Run lifecycle contains status polling
         "saa.rel" "contains"
     }
 }
-featRunLifecycleControl -> fpListRuns "Run lifecycle contains listing" "SAA Relationship" {
-    properties {
-        "saa.rel" "contains"
-    }
-}
+// featRunLifecycleControl -> fpListRuns removed alongside FP-LIST-RUNS
+// (Round-2 Wave A, 2026-05-28 correction P0-1). Re-add when the list
+// endpoint actually ships.
 featRunLifecycleControl -> fpRunStateTransition "Run lifecycle contains CAS state transition" "SAA Relationship" {
     properties {
         "saa.rel" "contains"
@@ -336,6 +343,7 @@ featEngineDispatchAndHooks -> fpHookDispatch "engine feature contains hook dispa
 featAgentServiceAccessLayer = element "Agent Service Access Layer" "Feature" "Protocol convergence + tenant/auth/idempotency + client capability publication" "SAA Feature" {
     properties {
         "saa.id" "FEAT-AGENT-SERVICE-ACCESS-LAYER"
+        "saa.productClaim" "PC-001|PC-003"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "development"
@@ -358,6 +366,7 @@ featAgentServiceAccessLayer = element "Agent Service Access Layer" "Feature" "Pr
 featAgentServiceEngineDispatchExecution = element "Agent Service Engine Dispatch Execution" "Feature" "Engine adapter + executor dispatch (Layer 4)" "SAA Feature" {
     properties {
         "saa.id" "FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION"
+        "saa.productClaim" "PC-004"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "development"
@@ -380,6 +389,7 @@ featAgentServiceEngineDispatchExecution = element "Agent Service Engine Dispatch
 featAgentServiceInternalEventQueue = element "Agent Service Internal Event Queue" "Feature" "Internal event queue infrastructure (Layer 5)" "SAA Feature" {
     properties {
         "saa.id" "FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE"
+        "saa.productClaim" "PC-003"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "development"
@@ -402,6 +412,7 @@ featAgentServiceInternalEventQueue = element "Agent Service Internal Event Queue
 featAgentServiceSessionTaskManager = element "Agent Service Session Task Manager" "Feature" "Session + Task lifecycle (Layer 3)" "SAA Feature" {
     properties {
         "saa.id" "FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER"
+        "saa.productClaim" "PC-001"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "development"
@@ -424,6 +435,7 @@ featAgentServiceSessionTaskManager = element "Agent Service Session Task Manager
 featAgentServiceTaskCentricControl = element "Agent Service Task Centric Control" "Feature" "Task-centric control plane (Layer 2)" "SAA Feature" {
     properties {
         "saa.id" "FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL"
+        "saa.productClaim" "PC-001|PC-003"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "development"
@@ -446,6 +458,7 @@ featAgentServiceTaskCentricControl = element "Agent Service Task Centric Control
 featAgentServiceTranslationToolIntercept = element "Agent Service Translation Tool Intercept" "Feature" "Model/tool translation + intercept hooks (Layer 6)" "SAA Feature" {
     properties {
         "saa.id" "FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT"
+        "saa.productClaim" "PC-003|PC-004"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "development"

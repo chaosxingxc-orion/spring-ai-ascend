@@ -5,6 +5,7 @@ level: L0
 view: development
 authority: "Layer 0 governing principle (CLAUDE.md)"
 enforced_by_rules: [R-D]   # formerly Rule 32 (numeric pre-ADR-0086)
+product_claim: "PC-001"
 kernel: |
   P-D — SPI-Aligned, DFX-Explicit, Spec-Driven, TCK-Tested.
   Every domain module ships an SPI;
@@ -12,7 +13,7 @@ kernel: |
   (releasability, resilience, availability, vulnerability, observability);
   contracts precede implementation;
   alternative implementations must pass a TCK to be conformant.
-  Enforced by Rule R-D sub-clause .a (TCK content deferred per `CLAUDE-deferred.md` 32.b/32.c).
+  Enforced by Rule R-D sub-clause .a (TCK content deferred per `retired-rules-audit.md` 32.b/32.c).
 scope_phase: design
 ---
 
@@ -27,6 +28,6 @@ This principle exists because a platform without a published **SPI** ends up wit
 ## Cross-references
 
 - ADR-0067 (origin of Rule R-D sub-clause .a and the per-module DFX yaml schema)
-- Deferred sub-clauses 32.b (TCK module scaffolding), 32.c (TCK conformance content), 32.d (vulnerability-scanner integration) — see [`docs/CLAUDE-deferred.md`](../../CLAUDE-deferred.md)
+- Deferred sub-clauses 32.b (TCK module scaffolding), 32.c (TCK conformance content), 32.d (vulnerability-scanner integration); legacy deferred-rule registry retired 2026-05-28, see [`retired-rules-audit.md`](../retired-rules-audit.md)
 - Related: P-C (Independent Modules) — SPI surface is what makes independent evolution safe
 - Related: Rule M-2 sub-clause .a (Schema-First Domain Contracts) — extends spec-driven discipline to every fixed-vocabulary taxonomy

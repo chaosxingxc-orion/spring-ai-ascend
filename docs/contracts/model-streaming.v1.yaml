@@ -16,6 +16,8 @@
 # final translated ModelResponse. Per-chunk hooks are deliberately not
 # declared at this contract version.
 
+product_claim: "PC-003|PC-004"
+
 schema: model-streaming/v1
 status: design_only
 runtime_enforced: false

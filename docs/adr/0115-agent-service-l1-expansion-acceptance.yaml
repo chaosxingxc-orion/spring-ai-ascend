@@ -1,6 +1,7 @@
 id: ADR-0115
 title: "agent-service L1 expansion acceptance — dual modes, 4-layer state, Dual-Track router, A2A as protocol boundary"
 status: accepted
+governance_infra: true
 date: 2026-05-23
 level: L1
 view: logical

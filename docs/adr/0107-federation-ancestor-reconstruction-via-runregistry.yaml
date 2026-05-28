@@ -1,6 +1,7 @@
 id: ADR-0107
 title: "Federation acyclicity — central RunRegistry ancestor reconstruction (caller list advisory)"
 status: accepted
+product_claim: "PC-001|PC-003"
 date: 2026-05-22
 level: L0
 view: physical

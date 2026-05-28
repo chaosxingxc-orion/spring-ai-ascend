@@ -1,6 +1,7 @@
 id: ADR-0076
 title: "R2 Pilot - Runtime Self-Validates Engine Envelope Schema on Boot"
 status: accepted
+governance_infra: true
 date: 2026-05-16
 level: L2
 view: process

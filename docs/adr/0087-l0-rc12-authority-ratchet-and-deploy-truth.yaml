@@ -1,6 +1,7 @@
 id: ADR-0087
 title: "L0 rc12 authority ratchet + deploy-truth + contract truth + terminal-verb scope"
 status: accepted
+governance_infra: true
 date: 2026-05-19
 level: L0
 view: scenarios

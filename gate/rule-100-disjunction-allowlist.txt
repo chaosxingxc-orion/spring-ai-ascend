@@ -1,6 +1,6 @@
-# Rule 100 — kernel_implementation_disjunction_truth allow-list.
+# Rule 100 - kernel_implementation_disjunction_truth allow-list.
 #
-# Rules whose kernel explicitly declares "EITHER / OR" semantics — meaning the
+# Rules whose kernel explicitly declares "EITHER / OR" semantics - meaning the
 # matching gate-script implementation uses `||` (disjunction) on the asserted
 # conditions, and BOTH the CLAUDE.md kernel block AND the rule card MUST
 # carry the explicit EITHER/OR connective wording.
@@ -10,12 +10,12 @@
 #
 # Authority: ADR-0085 (rc11 wave); rc10 post-corrective review P1-3 closure.
 #
-# Initial allow-list:
-#   G-3 — kernel_deferred_clause_coherence (kernel block OR card)
+# Initial allow-list (G-3 retired from this list 2026-05-28):
+#   (empty - G-3 retired when CLAUDE.md collaboration-kernel surgery
+#   removed governance machinery rule kernels from CLAUDE.md; the
+#   EITHER/OR check no longer applies because G-3's kernel only lives in
+#   the rule card at docs/governance/rules/rule-G-3.md, not in CLAUDE.md.)
 #
-# Future additions: Rule M-2.a (yaml schema OR grandfather entry), Rule G-3.c
-# (active heading OR deferred reference), Rule R-D.g (catalog row OR internal
-# mark). Each addition requires kernel + card to explicitly declare EITHER/OR
-# wording before the rule id lands here.
-
-G-3
+# Future additions: Rule M-2.a (yaml schema OR grandfather entry), Rule R-D.g
+# (catalog row OR internal mark). Each addition requires kernel + card to
+# explicitly declare EITHER/OR wording before the rule id lands here.

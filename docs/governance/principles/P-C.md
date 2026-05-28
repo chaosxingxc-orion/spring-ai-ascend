@@ -5,6 +5,7 @@ level: L0
 view: development
 authority: "Layer 0 governing principle (CLAUDE.md)"
 enforced_by_rules: [R-C.a, R-C.1]   # rc20 Wave 2 fix per ADR-0097: R-C.b renamed to R-C.1 in rc17 (ADR-0094); frontmatter sync was missed by rc19 Wave 2 sweep. Numeric: formerly Rules 28 + 31 pre-ADR-0086.
+governance_infra: true
 kernel: |
   P-C — Code-as-Everything, Rapid Evolution, Independent Modules.
   Every architectural constraint is code.
@@ -29,6 +30,6 @@ This principle exists because **architecture text without enforcer code rots wit
 
 - ADR-0059 (origin of Rule R-C.a and the enforcer-coverage cross-index)
 - ADR-0066 (origin of Rule R-C.1 and the module-metadata schema)
-- Deferred sub-clause 31.b — runtime semver compatibility enforcement (W2 trigger) — see [`docs/CLAUDE-deferred.md`](../../CLAUDE-deferred.md)
+- Deferred sub-clause 31.b — runtime semver compatibility enforcement (W2 trigger); legacy deferred-rule registry retired 2026-05-28, see [`retired-rules-audit.md`](../retired-rules-audit.md)
 - Related: P-A (Business/Platform Decoupling) — depends on module independence to be meaningful
 - Related: P-D (SPI + DFX + TCK Co-Design) — extends "constraint is code" into the contract surface

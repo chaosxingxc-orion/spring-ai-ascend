@@ -1,6 +1,7 @@
 id: ADR-0117
 title: "rc37 strategic repositioning: Ascend/Kunpeng hardware-synergy platform; drop FSI as lead vertical; resolve brand identity"
 status: accepted
+governance_infra: true
 date: 2026-05-24
 level: L0
 view: scenarios

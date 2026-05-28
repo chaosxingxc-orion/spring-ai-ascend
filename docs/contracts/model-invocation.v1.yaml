@@ -13,6 +13,8 @@
 # ModelInvocation; HookPoint.AFTER_LLM fires with ModelResponse.
 # Hooks may short-circuit per the existing HookOutcome contract.
 
+product_claim: "PC-003|PC-004"
+
 schema: model-invocation/v1
 status: design_only
 runtime_enforced: false

@@ -1,6 +1,7 @@
 id: ADR-0093
 title: "rc16 Recurring-Family Comprehensive Closure + META Scope Completeness"
 status: accepted
+governance_infra: true
 date: 2026-05-20
 level: L0
 view: process

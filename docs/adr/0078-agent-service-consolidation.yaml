@@ -1,6 +1,7 @@
 id: ADR-0078
 title: "agent-service consolidation: fold agent-platform + agent-runtime into a single Maven module"
 status: accepted
+governance_infra: true
 date: 2026-05-18
 level: L1
 view: development

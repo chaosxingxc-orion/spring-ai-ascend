@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  v1.0 reference financial agent (PC-003 + PC-001 + Persona-F).
+
+  This module is intentionally NOT listed in the root reactor by default —
+  it ships as a sample / documentation artefact alongside the
+  Persona-F onboarding flow. Add it to the root reactor explicitly when
+  you want the full build to compile and test it.
+
+  Dependency strategy: pulls in the agent-middleware Skill SPI (ADR-0127)
+  and the spring-ai-ascend-graphmemory-starter optional adapter. No real
+  business credentials; no real LLM keys; stub external API calls.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend</groupId>
+    <artifactId>spring-ai-ascend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>finance-loan-review-sample</artifactId>
+  <packaging>jar</packaging>
+
+  <name>spring-ai-ascend v1.0 finance loan review sample</name>
+  <description>
+    v1.0 reference financial agent demonstrating the Persona-F compliance
+    review checklist applied to a credit-risk assistant. Stubbed external
+    APIs; financial_default sandbox policy; PC-003 + PC-001.
+  </description>
+
+  <properties>
+    <!-- Sample module is not part of mainline distribution; skip
+         enforcer/quality plugins that may not be wired here. -->
+    <enforcer.skip>true</enforcer.skip>
+  </properties>
+
+  <dependencies>
+    <!-- Skill SPI surface (Skill, SkillInvocation, SkillResult, ...). -->
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-middleware</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!-- Optional graph-memory adapter scaffold (W1 per ADR-0034). -->
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>spring-ai-ascend-graphmemory-starter</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!-- Spring Boot baseline for the @SpringBootApplication entry point. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+</project>

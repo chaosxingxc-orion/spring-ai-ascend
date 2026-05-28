@@ -4,6 +4,7 @@ title: Whitebox Quality Baseline
 level: L0
 view: development
 status: active
+governance_infra: true
 kernel_cap: 700
 kernel: |
   **Mature static-analysis tools form the first whitebox quality baseline: Maven MUST run SpotBugs, PMD, and Checkstyle through the `quality` profile; gate MUST interpret their reports using project semantics. High-confidence SpotBugs correctness/safety findings and low-dispute Checkstyle style/comment findings block. PMD maintainability findings are review triggers in v1. Generated code, third-party code, build outputs, docs examples, and fixtures are excluded or downgraded rather than hard-gated.**

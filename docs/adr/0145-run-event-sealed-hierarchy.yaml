@@ -1,6 +1,7 @@
 id: ADR-0145
 title: "Sealed RunEvent hierarchy specification: defines the polymorphic event type that EvolutionExport enum was designed to discriminate; specifies sealed variants required by S1-S5 scenarios; promotes Rule R-M.e (Every emitted RunEvent declares EvolutionExport) from vacuously-true to actively-gated; the actual Java sealed type lands in a follow-up impl-mode wave"
 status: accepted
+product_claim: "PC-001|PC-003"
 date: 2026-05-26
 level: L1
 view: logical

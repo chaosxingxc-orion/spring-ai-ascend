@@ -73,3 +73,18 @@ spring-ai-ascend-dependencies/module-metadata.yaml
 # Rule-98 domain — avoid duplicate-fail by skipping ops/ and docs/contracts/ in Rule 94.
 ops/
 docs/contracts/
+
+# Phase C competitive analyses (added 2026-05-28). These files legitimately quote
+# external repos' module names (lobe-chat's `agent-runtime` package, AgentScope's
+# pre-W2 references, etc.) as part of source-level analysis. Deleted-name leakage
+# protection does NOT apply to verbatim quotations from competitor codebases.
+docs/competitive/
+
+# Phase 7 audit deliverables that reference rule history including deleted names.
+docs/governance/retired-rules-audit.md
+
+# Phase A Wave 5 (ADR-0155): Helm chart values reference "agent-platform" as a
+# Kubernetes taint/toleration VALUE (kunpeng.huawei.com/dedicated), not as a
+# Java module reference. The verbatim string overlaps with a deleted module
+# name but the semantic domain is K8s-scheduler-affinity, not Java packages.
+deploy/middle-office-reference/

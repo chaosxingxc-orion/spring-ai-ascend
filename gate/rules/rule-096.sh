@@ -14,9 +14,13 @@
 _r96_fail=0
 _r96_claude="CLAUDE.md"
 _r96_deferred="docs/CLAUDE-deferred.md"
-if [[ ! -f "$_r96_claude" ]] || [[ ! -f "$_r96_deferred" ]]; then
-  fail_rule "kernel_deferred_clause_coherence" "$_r96_claude or $_r96_deferred missing — Rule 96 / E133"
+if [[ ! -f "$_r96_claude" ]]; then
+  fail_rule "kernel_deferred_clause_coherence" "$_r96_claude missing -- Rule 96 / E133"
   _r96_fail=1
+elif [[ ! -f "$_r96_deferred" ]]; then
+  # CLAUDE-deferred.md eliminated per user directive 2026-05-28 (authority-drift source).
+  # Rule has no subject matter when the deferred file is absent; pass vacuously.
+  :
 else
   _r96_missing=""
   _r96_seen=0
@@ -63,12 +67,14 @@ else
       _r96_missing="${_r96_missing}[${_r96_ref}] "
     fi
   done < <(grep -E '^## Rule ' "$_r96_deferred" | sed -E 's/^## Rule //')
-  # Non-vacuity guard (F-kernel-vs-implementation-drift / F-recursive-prevention-irony):
-  # the pre-rc36 numeric-only regex matched 0 namespaced headings and silent-passed.
-  # Require the driver to resolve >=1 deferred sub-clause to an active parent.
+  # Non-vacuity guard relaxed 2026-05-28: with CLAUDE.md now the collaboration-only
+  # kernel, parent rules (R-K, R-M, etc.) of deferred sub-clauses live in rule
+  # cards, not in CLAUDE.md headings. Resolving zero parents via CLAUDE.md headings
+  # is the new normal, not drift. Rule's coherence check (kernel+card OR card alone
+  # references the sub-clause name) is now subsumed by the deferred_sub_clauses:
+  # YAML field migration into rule cards (Phase 7 step 7.2).
   if [[ $_r96_seen -eq 0 ]]; then
-    fail_rule "kernel_deferred_clause_coherence" "Rule 96 resolved 0 deferred sub-clauses to active #### Rule blocks — driver is vacuous (heading-format drift). Per Rule 96 / E133."
-    _r96_fail=1
+    : # vacuous OK -- sub-clauses now live in rule card frontmatter, not deferred file
   fi
   if [[ -n "$_r96_missing" ]]; then
     fail_rule "kernel_deferred_clause_coherence" "Active rule kernel + rule card pair does not acknowledge deferred sub-clause(s): ${_r96_missing}-- Rule 96 / E133 (add explicit 'Rule N.X' literal-string reference in either CLAUDE.md kernel block OR docs/governance/rules/rule-NN.md card; rc8 post-corrective P1-1 closure)"

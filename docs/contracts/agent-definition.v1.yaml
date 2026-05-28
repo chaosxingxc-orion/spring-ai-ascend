@@ -6,6 +6,8 @@
 # Java record com.huawei.ascend.service.agent.spi.AgentDefinition
 # mirrors this schema and validates required fields on construction.
 
+product_claim: "PC-001"
+
 schema: agent-definition/v1
 status: design_only
 runtime_enforced: false

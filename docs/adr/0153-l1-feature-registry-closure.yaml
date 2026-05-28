@@ -1,6 +1,7 @@
 id: ADR-0153
 title: "L1 Feature Registry closure — Rule G-14 blocking flip + plan completion"
 status: accepted
+governance_infra: true
 date: 2026-05-27
 level: L0
 view: scenarios

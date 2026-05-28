@@ -1,6 +1,7 @@
 id: ADR-0098
 title: "rc21 — 6-phase scenario-loaded contracts + Rule G-10 (parallel-Linux-scripts) + Rule G-11 (phase-contract allocation coherence)"
 status: accepted
+governance_infra: true
 date: 2026-05-21
 level: L0
 view: process

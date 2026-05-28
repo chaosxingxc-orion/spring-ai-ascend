@@ -15,7 +15,7 @@ This file is intentionally a **thin operational wrapper** for Codex / autonomous
 | Layer-0 governing principles (P-A..P-M) + Layer-1 engineering rules (active + deferred) | [`CLAUDE.md`](CLAUDE.md) |
 | **Architecture authoring root (W5+ per ADR-0147)** | [`architecture/workspace.dsl`](architecture/workspace.dsl) + [`architecture/README.md`](architecture/README.md) — Structurizr DSL workspace closure (profile/features/docs/decisions/generated/views). L1 feature/function-point inventory at `architecture/features/`. |
 | Per-capability shipped / deferred ledger; baseline counts (rules, ADRs, tests, gate rules, self-tests, nodes, edges) | [`docs/governance/architecture-status.yaml`](docs/governance/architecture-status.yaml) (the `architecture_sync_gate.allowed_claim` field is the canonical baseline; `#capabilities` authority migrates to `architecture/features/capabilities.dsl` at W6 yaml sunset) |
-| Deferred sub-clauses with re-introduction triggers | [`docs/CLAUDE-deferred.md`](docs/CLAUDE-deferred.md) |
+| Deferred sub-clauses + escalations | `deferred_sub_clauses:` frontmatter in each rule card under [`docs/governance/rules/`](docs/governance/rules/); legacy rules awaiting human review at [`docs/governance/escalations.md`](docs/governance/escalations.md) |
 | ADRs (decision corpus) | [`docs/adr/`](docs/adr/) (every active rule cites its authority ADR) |
 | Quickstart for new-agent onboarding | [`docs/quickstart.md`](docs/quickstart.md) |
 
@@ -25,15 +25,29 @@ This file is intentionally a **thin operational wrapper** for Codex / autonomous
 
 ## For AI assistants — load this set
 
-A coding agent or LLM session reaches an **unbiased** architecture picture by loading these 7 surfaces in order. The order matches `README.md#Reading-path` step-for-step. Loading any one in isolation produces a partial view.
+A coding agent or LLM session reaches an **unbiased** architecture picture by loading these surfaces in order. The order matches `README.md#Reading-path` step-for-step. Loading any one in isolation produces a partial view.
 
-1. `architecture/workspace.dsl` + `architecture/README.md` — architecture authority root (Structurizr DSL workspace + closure navigation; ADR-0147 + ADR-0150).
-2. `architecture/docs/L0/ARCHITECTURE.md` — declarative L0 system boundary + 65 §4 architectural constraints.
-3. `CLAUDE.md` — enforceable Layer-0 principles + Layer-1 rules (each rule cites the §4 constraint it enforces).
-4. `architecture/docs/L1/README.md` + `architecture/docs/L1/<module>{.md,/}` (for the module you touch) — L1 module design.
-5. `docs/contracts/contract-catalog.md` — runtime promise surface (wire shapes, route behavior, SPI signatures).
-6. `docs/quickstart.md` — operational onboarding (boot, post `POST /v1/runs`, observe).
-7. `docs/overview.md` — narrative tour (after-the-fact prose).
+**For any factual claim about code, contracts, tests, dependencies, runtime behaviour, or verification**, read `architecture/facts/generated/*.json` BEFORE prose (Rule G-15 / ADR-0154). Generated facts outrank prose; if prose disagrees with a fact, the fact wins. AI agents MUST NOT directly author or refresh files under `architecture/facts/generated/` — they are produced only by deterministic extractor binaries under `tools/architecture-workspace/` (Rule G-15.c).
+
+1. `architecture/facts/generated/` — machine-extracted factual ground truth: `code-symbols.json`, `contract-surfaces.json`, `tests.json`, `module-build.json`, `runtime-config.json`, `adrs.json`. READ FIRST for any factual claim.
+2. `architecture/workspace.dsl` + `architecture/README.md` — architecture authority root (Structurizr DSL workspace + closure navigation; ADR-0147 + ADR-0150).
+3. `architecture/docs/L0/ARCHITECTURE.md` — declarative L0 system boundary + 65 §4 architectural constraints.
+4. `CLAUDE.md` — enforceable Layer-0 principles + Layer-1 rules (each rule cites the §4 constraint it enforces).
+5. `architecture/docs/L1/README.md` + `architecture/docs/L1/<module>{.md,/}` (for the module you touch) — L1 module design.
+6. `docs/contracts/contract-catalog.md` — runtime promise surface (wire shapes, route behavior, SPI signatures).
+7. `docs/quickstart.md` — operational onboarding (boot, post `POST /v1/runs`, observe).
+8. `docs/overview.md` — narrative tour (after-the-fact prose).
+
+### AI consumption contract (Rule G-15 / ADR-0154)
+
+AI agents using this repository's architecture surfaces MUST:
+
+1. Read generated facts under `architecture/facts/generated/` BEFORE L1 prose for implementation decisions.
+2. Cite fact IDs (e.g., `code-symbol/com.huawei.ascend.service.runtime.api.runscontroller`) when claiming what code, contract, or test exists.
+3. Treat human-authored prose as **intent / rationale** — backed by ADRs and L1 narrative — not as the source of truth for code shape.
+4. Refuse to act on stale or drifted generated artifacts (regenerate via `./mvnw -f tools/architecture-workspace/pom.xml exec:java@extract-facts` if drift suspected).
+5. Run feature-specific verification commands derived from generated facts (e.g., `code_entrypoint_refs[]` + `test_refs[]` on `SAA FunctionPoint` elements in `architecture/features/function-points.dsl`), not from model memory.
+6. Modify the **extractor binary** or the **source authority** (code, contract YAML, ADR) to change a fact — never the generated JSON directly.
 
 ## Rhetorical stance of each top-level doc
 

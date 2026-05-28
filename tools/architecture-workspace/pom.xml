@@ -55,6 +55,25 @@
       <version>${snakeyaml.version}</version>
     </dependency>
     <!--
+      Fact-Layer Wave 4 (ADR-0154): ASM 9.7.1 scans compiled .class files
+      under <module>/target/classes (production) and target/test-classes
+      (tests) to emit public-interface / record / enum / Spring-stereotype
+      / @Test-method facts. ASM was chosen over JavaParser source-AST as
+      the primary code authority because compiled bytecode is the surface
+      the runtime actually loads (so annotation-processed types like
+      Lombok / MapStruct surface correctly).
+    -->
+    <dependency>
+      <groupId>org.ow2.asm</groupId>
+      <artifactId>asm</artifactId>
+      <version>9.7.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.ow2.asm</groupId>
+      <artifactId>asm-tree</artifactId>
+      <version>9.7.1</version>
+    </dependency>
+    <!--
       SLF4J binding so structurizr-dsl's transitive slf4j-api has a concrete
       logger implementation. Without this the JVM prints
       'SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder"' on
@@ -112,6 +131,48 @@
         <configuration>
           <mainClass>com.huawei.ascend.tools.architecture.WorkspaceProjectionCli</mainClass>
         </configuration>
+        <executions>
+          <!--
+            Fact-Layer Wave 2 (ADR-0154 / Rule G-15): emit machine-extracted
+            facts under architecture/facts/generated/. Invoked via
+            mvn (f) tools/architecture-workspace/pom.xml exec:java@extract-facts.
+            The CLI accepts repo, out, extractor-version, and check flags.
+          -->
+          <execution>
+            <id>extract-facts</id>
+            <goals>
+              <goal>java</goal>
+            </goals>
+            <configuration>
+              <mainClass>com.huawei.ascend.tools.architecture.facts.ExtractFactsCli</mainClass>
+              <arguments>
+                <argument>--repo</argument>
+                <argument>${project.basedir}/../..</argument>
+                <argument>--extractor-version</argument>
+                <argument>${project.version}</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <!--
+            Round-2 Wave A (ADR-0154 / 2026-05-28 P0-2): regenerate every
+            architecture/generated/*.dsl fragment from its YAML authority.
+            Invoked via mvn exec:java@regenerate-fragments after adding
+            ADRs, rules, or enforcers so the workspace gate stays clean.
+          -->
+          <execution>
+            <id>regenerate-fragments</id>
+            <goals>
+              <goal>java</goal>
+            </goals>
+            <configuration>
+              <mainClass>com.huawei.ascend.tools.architecture.fragment.AllFragmentsCli</mainClass>
+              <arguments>
+                <argument>--repo</argument>
+                <argument>${project.basedir}/../..</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

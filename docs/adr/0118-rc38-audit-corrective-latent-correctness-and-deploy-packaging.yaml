@@ -1,6 +1,7 @@
 id: ADR-0118
 title: "rc38 audit-corrective: parallel-review latent-correctness + deploy-packaging fixes; register the non-atomic-run-status-write family"
 status: accepted
+governance_infra: true
 date: 2026-05-24
 level: L0
 view: scenarios

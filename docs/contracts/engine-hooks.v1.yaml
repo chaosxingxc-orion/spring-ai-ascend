@@ -17,6 +17,8 @@
 #
 # Self-enforced by gate Rule 57 (engine_hooks_yaml_present_and_wellformed).
 
+product_claim: "PC-004"
+
 schema: engine-hooks/v1
 authority: ADR-0073
 # Post-review status label (plan G / §5 overdesign labels). Phase 2 ships

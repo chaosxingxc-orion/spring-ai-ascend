@@ -19,7 +19,7 @@ from pathlib import Path
 LINK_RE = re.compile(r'\]\(([^)]+)\)')
 EXCLUDE_DIRS = ('./docs/archive/', './docs/logs/', './docs/adr/',
                 './docs/delivery/', './docs/v6-rationale/', './docs/plans/',
-                './third_party/')
+                './docs/superpowers/', './third_party/', './discovery/')
 EXCLUDE_DIR_NAMES = {'target', '.git', 'node_modules'}
 
 def is_excluded(p: str) -> bool:

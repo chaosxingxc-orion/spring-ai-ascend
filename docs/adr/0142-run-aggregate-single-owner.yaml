@@ -1,6 +1,7 @@
 id: ADR-0142
 title: "Run aggregate (Run record + RunStatus + RunStateMachine + RunRepository) is OWNED EXCLUSIVELY by Layer 2 Session & Task Manager in the ADR-0138 5-layer L1 model; Layer 4 Task-Centric Control holds a typed reference and invokes RunRepository.updateIfNotTerminal(...) — Layer 4 never writes Run state directly"
 status: accepted
+product_claim: "PC-001|PC-003"
 date: 2026-05-26
 level: L1
 view: logical

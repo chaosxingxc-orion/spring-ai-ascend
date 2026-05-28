@@ -12,6 +12,8 @@
 # This contract is part of the Heaven-Earth Coordination cell in the
 # Mode × Modality matrix (Mode B + Online).
 
+product_claim: "PC-001|PC-005"
+
 schema: reflection-envelope/v1
 authority: ADR-0102
 status: design_only

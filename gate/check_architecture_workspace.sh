@@ -107,11 +107,32 @@ if [[ $project_exit -ne 0 ]]; then
   fi
 fi
 
+# Round-3 Wave Alpha (sweep defect 17): workspace baseline parity gate.
+# Compares architecture-status.yaml#baseline_metrics.workspace_elements
+# / workspace_relationships against the live projection counts in
+# architecture-workspace-graph.yaml. Drift fails closed.
+PARITY_SCRIPT="$REPO_ROOT/gate/lib/check_workspace_baseline_parity.py"
+if [[ -f "$PARITY_SCRIPT" ]]; then
+  note "ARCHITECTURE WORKSPACE: checking workspace baseline parity..."
+  if ! ( cd "$REPO_ROOT" && python3 "$PARITY_SCRIPT" ); then
+    red "ARCHITECTURE WORKSPACE: workspace baseline parity FAILED -- update docs/governance/architecture-status.yaml#baseline_metrics to match the live projection counts"
+    exit 1
+  fi
+fi
+
 # W4 informational comparison against legacy graph (does not gate).
+# Round-3 Wave Alpha (2026-05-28 sweep defect 12): the previous `|| true`
+# suffix silently lost non-zero exits from the comparison script — same
+# fail-open class as the Rule 131 R1 case. Replaced with an explicit
+# `if !` form that still keeps the check informational by emitting an
+# ADVISORY line on failure instead of propagating the exit code, but
+# the failure is now visible in gate output rather than masked.
 COMPARE_SCRIPT="$REPO_ROOT/gate/lib/compare_workspace_to_legacy_graph.py"
 if [[ -f "$COMPARE_SCRIPT" ]]; then
   note "ARCHITECTURE WORKSPACE: comparing projection to legacy graph (informational)..."
-  ( cd "$REPO_ROOT" && python3 "$COMPARE_SCRIPT" ) || true
+  if ! ( cd "$REPO_ROOT" && python3 "$COMPARE_SCRIPT" ); then
+    note "ADVISORY: legacy-graph comparison reported non-zero exit (informational, not blocking)"
+  fi
 fi
 
 if [[ "$BLOCKING" == "1" ]]; then

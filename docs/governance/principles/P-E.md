@@ -5,6 +5,7 @@ level: L0
 view: physical
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
 enforced_by_rules: [R-E]   # formerly Rule 35 (numeric pre-ADR-0086)
+product_claim: "PC-002"
 kernel: |
   P-E — Multi-Track Bus Physical Channel Isolation.
   Cross-service internal communication is sliced into three physically
@@ -28,6 +29,6 @@ This principle exists because a single shared bus channel under load **paralyses
 
 - ADR-0069 (origin of Rules 35–42 and the LucioIT W1 L0 §6–§7 absorption)
 - Schema source of truth: [`docs/governance/bus-channels.yaml`](../bus-channels.yaml)
-- Deferred sub-clause 35.b — physical channel implementation (W2 trigger) — see [`docs/CLAUDE-deferred.md`](../../CLAUDE-deferred.md)
+- Deferred sub-clause 35.b — physical channel implementation (W2 trigger); legacy deferred-rule registry retired 2026-05-28, see [`retired-rules-audit.md`](../retired-rules-audit.md)
 - Related: P-F (Cursor Flow) — the `control` channel is the upstream side of cursor cancellation
 - Related: P-K (Skill Capacity) — `data` congestion triggers skill-suspension, not bus paralysis

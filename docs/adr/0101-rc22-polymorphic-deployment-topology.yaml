@@ -1,6 +1,7 @@
 id: ADR-0101
 title: "rc22 — Polymorphic Deployment Topology (Mode A Platform-Centric + Mode B Business-Centric) + deployment-loci SSOT"
 status: accepted
+governance_infra: true
 date: 2026-05-22
 level: L0
 view: scenarios

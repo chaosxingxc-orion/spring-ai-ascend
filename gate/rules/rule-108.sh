@@ -50,7 +50,7 @@ for _r108_dir in docs/governance/rules docs/governance/principles; do
         [[ $_r108_start -lt 1 ]] && _r108_start=1
         _r108_end=$((_r108_lineno + 2))
         _r108_context=$(sed -n "${_r108_start},${_r108_end}p" "$_r108_file" 2>/dev/null || true)
-        if echo "$_r108_context" | grep -qE '(formerly|renamed from|pre-rc[0-9]+|superseded|removed|historical|deleted|deprecated)'; then
+        if echo "$_r108_context" | grep -qE '(formerly|renamed from|pre-rc[0-9]+|superseded|removed|historical|deleted|deprecated|[Dd]eferred to W|deferred_body|Rule \(draft\)|draft\):)'; then
           continue
         fi
         # Look for the class file

@@ -403,6 +403,15 @@ Enforced by [`rule-G-14.md`](docs/governance/rules/rule-G-14.md).
 
 ---
 
+### Fact-layer wave (ADR-0154)
+#### Rule G-15 — Fact-Layer Integrity
+
+**Generated structured facts live under `architecture/facts/generated/` and are produced ONLY by deterministic extractor binaries listed under `tools/architecture-workspace/` or `gate/lib/extractors/`. Sub-clause .a (blocking): `architecture/facts/README.md`, `architecture/facts/schema/fact.schema.yaml`, and `architecture/facts/generated/` MUST exist and the schema MUST parse as well-formed YAML. Sub-clause .b (blocking): every entry in every generated fact file MUST carry the required provenance fields (`fact_id`, `fact_kind`, `source_kind`, `source_path`, `extractor`, `extractor_version`, `repo_commit`, `observed_value`). Sub-clause .c is SPLIT (Round-4 redesign 2026-05-28): `.c.structural` (blocking in bash gate) requires the `DO NOT EDIT` banner on the first 5 lines of every generated fact file; `.c.bytes` (blocking in Maven Surefire test `FactLayerByteIdentityIT`) requires files under `architecture/facts/generated/` to be byte-identical to extractor re-emission at the same workspace HEAD — runs in `mvn -Pquality verify` where `target/classes` is guaranteed by the compile-phase ordering, eliminating the precondition gymnastics that bred three rounds of fail-open mechanisms. Sub-clause .d (blocking): a function point in `architecture/features/function-points.dsl` with `saa.status "shipped"` AND channel `http`/`spi` MUST carry non-empty `code_entrypoint_refs[]`, `test_refs[]`, AND at least one of `input_contract_refs[]` / `output_contract_refs[]`. LLMs and humans MUST NOT directly author or refresh files under `architecture/facts/generated/`. Extends Rule G-13 to the extracted-fact surface; does NOT duplicate it.**
+
+Enforced by [`rule-G-15.md`](docs/governance/rules/rule-G-15.md).
+
+---
+
 ## Constraint ↔ Rule mapping (entry point)
 
 Each rule above enforces one or more `ARCHITECTURE.md` §4 numbered constraints (#1..#65, declarative). The full mapping lives in `architecture/generated/enforcers.dsl` (`enforced_by` edges) + `docs/governance/enforcers.yaml`. The table below names the most-cited pairs as a discovery entry point:

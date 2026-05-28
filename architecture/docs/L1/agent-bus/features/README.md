@@ -103,7 +103,9 @@ commands after auto-modifying the feature's owning code.
 ### `FEAT-SERVER-CLIENT-CALLBACK`
 
 **Verification test FQNs:**
-- `com.huawei.ascend.service.runtime.s2c.S2cCallbackIT`
+- `com.huawei.ascend.service.runtime.s2c.S2cCallbackRoundTripIT`
+- `com.huawei.ascend.service.runtime.s2c.S2cFailureTransitionsRunToFailedIT`
+- `com.huawei.ascend.service.runtime.s2c.S2cCallbackEnvelopeValidationTest`
 
 **Verification commands:**
 - `./mvnw -pl agent-service -am verify`

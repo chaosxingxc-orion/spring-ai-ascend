@@ -21,8 +21,9 @@ Module status flipped from `skeleton` to `active` in rc27 per Rule M-1
 (modules with extracted production code MUST NOT carry `skeleton` status).
 The Evolution plane still hosts Python ML / offline improvement loops
 externally; the Java side now ships an interface for online evolution.
-Bulk Java implementation deferred indefinitely per `CLAUDE-deferred.md`
-and the archived design under `docs/v6-rationale/agent-runtime/evolve/`.
+Bulk Java implementation deferred indefinitely per the legacy entries in
+`docs/governance/escalations.md` and the archived design under
+`docs/v6-rationale/agent-runtime/evolve/`.
 
 What *is* shipped today: the `EvolutionExport` discriminator
 (`IN_SCOPE | OUT_OF_SCOPE | OPT_IN`) declared in

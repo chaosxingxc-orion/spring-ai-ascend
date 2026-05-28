@@ -7,6 +7,7 @@ principle_ref: P-C
 authority_refs: [ADR-0151]
 enforcer_refs: [E175]
 status: active_advisory
+governance_infra: true
 scope_phase: design
 kernel_cap: 8
 scope_surfaces:

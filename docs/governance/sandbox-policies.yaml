@@ -34,6 +34,38 @@ default_policy:
   wall_clock_cap_seconds: 30
   syscalls: minimum_needed_seccomp_profile             # default seccomp profile, see deployment/sandbox/seccomp.json (W2)
 
+# Financial-vertical baseline (v1.0 PC-003 + Persona-F mandate).
+#
+# Applies to v1.0 reference agents: loan-review-assistant, AML-screener,
+# fraud-checker (see samples/finance-loan-review/). Conservative posture:
+# outbound internet denied by default, filesystem writes confined to a
+# scratch directory, CPU/memory/wall-clock bounded, PII MUST be redacted
+# before reaching the model gateway.
+#
+# Per Rule R-L the physical sandbox MUST enforce a permission set ≥ the
+# logical grants declared here; SandboxExecutor refuses any skill whose
+# config widens these defaults without an explicit per-deployment
+# override AND an architectural review entry under docs/adr/.
+#
+# Authority: PC-003 (financial-vertical mandate) + Persona-F
+# certification checklist item #4 (docs/onboarding/compliance-reviewer.md).
+financial_default:
+  description: "Conservative sandbox policy for v1.0 financial-vertical agents (loan-review-assistant, AML-screener, fraud-checker). Per PC-003 + Persona-F mandate, denies outbound internet by default, caps CPU/memory/wall-clock, denies FS writes outside scratch dir, no PII egress to model gateway without explicit allow-list."
+  outbound_network: deny                              # No outbound by default; per-skill allow-list required.
+  outbound_network_allowlist: []                      # Per-deployment override; empty by default.
+  filesystem_read:
+    - "/var/agent-data/scratch"                       # Scratch only
+    - "/etc/agent-config/readonly"
+  filesystem_write:
+    - "/var/agent-data/scratch"
+  cpu_cap_millicores: 2000                            # 2 vCPU
+  memory_cap_megabytes: 2048                          # 2 GiB
+  wall_clock_cap_seconds: 60                          # Conservative: 1 minute per skill invocation
+  pii_egress_to_model: false                          # No PII to LLM without explicit redaction
+  syscall_allowlist: []                               # Per-deployment override
+  product_claim: "PC-003"
+  target_persona: "Persona-F"
+
 # Per-skill overrides. Each explicitly widens the default policy and the
 # SandboxExecutor enforces that the runtime cannot grant scope beyond what
 # is declared here.

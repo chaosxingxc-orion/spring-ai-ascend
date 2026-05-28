@@ -1,6 +1,7 @@
 id: ADR-0133
 title: "ConversationMemory: MemoryStore<String, ConversationWindow> variant for windowed FIFO + token-budget pruning + summarise-and-compact"
 status: accepted
+product_claim: "PC-001|PC-005"
 date: 2026-05-25
 level: L0
 view: development

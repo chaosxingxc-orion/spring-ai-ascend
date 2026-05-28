@@ -8,6 +8,8 @@
 # from the Reactive Orchestrator (per ADR-0100 §2.2) into distributed-
 # pull signals across the federation bus.
 
+product_claim: "PC-003"
+
 schema: backpressure-request/v1
 authority: ADR-0100
 status: design_only

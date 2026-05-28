@@ -76,7 +76,7 @@ The platform targets two distinct audiences in W0–W2 + W3+ sequence; the activ
 
 **W0 shipped subset.** What runs at the current release: a `GET /v1/health` probe; `TenantContextFilter` + `IdempotencyHeaderFilter` posture-aware edge filters; the Orchestration SPI contracts (`Orchestrator`, `GraphExecutor`, `AgentLoopExecutor`, `SuspendSignal`, `Checkpointer`, `ExecutorDefinition`, `RunContext`); the `Run` entity + `RunStatus` formal DFA validator; posture-gated in-memory reference executors (`SyncOrchestrator`, `SequentialGraphExecutor`, `IterativeAgentLoopExecutor`, `InMemoryCheckpointer`, `InMemoryRunRegistry`) that fail-closed in research/prod via `AppPostureGate`; the `ResilienceContract` operation-routing SPI; the `GraphMemoryRepository` SPI scaffold (no adapter shipped); contract-truth tests (`OpenApiContractIT`, `ApiCompatibilityTest`, `OrchestrationSpiArchTest`, `TenantPropagationPurityTest`). The LLM gateway, tool registry, outbox publisher, durable Postgres checkpointer, ActionGuard, and Temporal workflow implementations are staged as W1–W4 design contracts (see `§5` + `docs/governance/architecture-status.yaml`); they are not present as half-built runtime paths.
 
-**Not in scope:** admin UI, LangChain4j dispatch, Python sidecars (out-of-process IPC), multi-region replication, on-device models. In-process polyglot (GraalVM Polyglot embedded in the JVM) is a W3-optional sandbox impl per ADR-0018 — it is not a sidecar. See `docs/CLAUDE-deferred.md` for deferred items.
+**Not in scope:** admin UI, LangChain4j dispatch, Python sidecars (out-of-process IPC), multi-region replication, on-device models. In-process polyglot (GraalVM Polyglot embedded in the JVM) is a W3-optional sandbox impl per ADR-0018 — it is not a sidecar. See `docs/governance/architecture-status.yaml` (per-capability deferral ledger) and `docs/governance/escalations.md` (legacy rules awaiting human review) for deferred items.
 
 ---
 
@@ -661,10 +661,14 @@ repo-wide.
 34. **Wave authority consolidation.** A single chain of authority governs wave-planning decisions:
     (1) `ARCHITECTURE.md` §1 + §4 — wave boundary constraints; (2)
     `docs/governance/architecture-status.yaml` — per-capability shipped/deferred status;
-    (3) `docs/CLAUDE-deferred.md` — deferred engineering rules with re-introduction triggers.
-    All other planning documents are informational or archived. Stale parallel plans
-    (`roadmap-W0-W4.md`, `engineering-plan-W0-W4.md`) are archived in
-    `docs/archive/2026-05-13-plans-archived/`. See ADR-0037, `wave_authority_consolidation`.
+    (3) `deferred_sub_clauses:` blocks in each alphanumeric rule card under
+    `docs/governance/rules/` — deferred engineering rules with re-introduction triggers
+    (the prior `docs/CLAUDE-deferred.md` monolith was retired 2026-05-28 in favour of
+    per-card frontmatter; legacy rules awaiting human review live in
+    `docs/governance/escalations.md`). All other planning documents are informational
+    or archived. Stale parallel plans (`roadmap-W0-W4.md`, `engineering-plan-W0-W4.md`)
+    are archived in `docs/archive/2026-05-13-plans-archived/`. See ADR-0037,
+    `wave_authority_consolidation`.
 
 35. **Skill SPI resource-tier classification.** `SkillResourceMatrix` fields are grouped into four
     enforceability tiers: (a) **Hard-enforceable** — quota key, token budget, wall-clock timeout,
@@ -953,11 +957,11 @@ repo-wide.
 
 60. **Business/Platform decoupling enforcement.** Platform code MUST NOT contain business-specific customizations. Business and example modules MUST extend the platform via SPI (`com.huawei.ascend..spi..`) and `@ConfigurationProperties` only — never by patching `*.impl.*` or `com.huawei.ascend.service.platform..`. The platform MUST ship a runnable quickstart at `docs/quickstart.md` referenced from `README.md` so developers reach first-agent execution without platform-team intervention. Enforced by ArchUnit `SpiPurityGeneralizedArchTest` (any `..spi..` package free of Spring/platform/inmemory/Micrometer/OTel deps) + Gate Rule R-C.b `quickstart_present`. CLAUDE.md Rule R-A. See ADR-0064.
 
-61. **Competitive baselines (Four Pillars).** Every release MUST publish `docs/governance/competitive-baselines.yaml` declaring four pillar dimensions — `performance`, `cost`, `developer_onboarding`, `governance` — each with a named `baseline_metric` and a `current_value` (or `N/A` for not-yet-instrumented). The most recent `docs/logs/releases/*.md` release note MUST mention all four pillar names. A regression in any `current_value` MUST carry a `regression_adr:` reference (enforcer for the regression-ADR pairing is deferred per `CLAUDE-deferred.md` 30.b). Enforced by Gate Rule R-D sub-clause .a `competitive_baselines_present_and_wellformed` + Gate Rule G-1 sub-clause .a `release_note_references_four_pillars`. CLAUDE.md Rule R-B. See ADR-0065.
+61. **Competitive baselines (Four Pillars).** Every release MUST publish `docs/governance/competitive-baselines.yaml` declaring four pillar dimensions — `performance`, `cost`, `developer_onboarding`, `governance` — each with a named `baseline_metric` and a `current_value` (or `N/A` for not-yet-instrumented). The most recent `docs/logs/releases/*.md` release note MUST mention all four pillar names. A regression in any `current_value` MUST carry a `regression_adr:` reference (enforcer for the regression-ADR pairing is deferred per Rule R-B `deferred_sub_clauses` block in `docs/governance/rules/rule-R-B.md`). Enforced by Gate Rule R-D sub-clause .a `competitive_baselines_present_and_wellformed` + Gate Rule G-1 sub-clause .a `release_note_references_four_pillars`. CLAUDE.md Rule R-B. See ADR-0065.
 
 62. **Independent module evolution.** Every reactor module under `<module>/pom.xml` MUST own a sibling `<module>/module-metadata.yaml` declaring `module`, `kind ∈ {platform | domain | starter | bom | sample}`, `version`, and `semver_compatibility`. Each module MUST build and test in isolation via `mvn -pl <module> -am test`. Inter-module dependency direction is governed by §4 #1 / §4 #10. Enforced by Gate Rule G-1 sub-clause .b `module_metadata_present_and_complete` + existing Gate Rule D-6 `module_dep_direction`. CLAUDE.md Rule R-C.b. See ADR-0066.
 
-63. **SPI + DFX + TCK co-design.** Every module with `kind: domain` in `module-metadata.yaml` MUST expose at least one `*.spi.*` package containing ≥ 1 public interface, listed under `spi_packages:` in the metadata file. Every module with `kind: platform` or `kind: domain` MUST publish a `docs/dfx/<module>.yaml` covering five DFX dimensions — `releasability`, `resilience`, `availability`, `vulnerability`, `observability` — each with a non-empty body. The sibling `<module>-tck` reactor module and conformance suite are deferred per `CLAUDE-deferred.md` 32.b/32.c (W2 trigger). Enforced by Gate Rule R-E `dfx_yaml_present_and_wellformed` + Gate Rule R-F `domain_module_has_spi_package` + ArchUnit `SpiPurityGeneralizedArchTest`. CLAUDE.md Rule R-D sub-clause .a. See ADR-0067.
+63. **SPI + DFX + TCK co-design.** Every module with `kind: domain` in `module-metadata.yaml` MUST expose at least one `*.spi.*` package containing ≥ 1 public interface, listed under `spi_packages:` in the metadata file. Every module with `kind: platform` or `kind: domain` MUST publish a `docs/dfx/<module>.yaml` covering five DFX dimensions — `releasability`, `resilience`, `availability`, `vulnerability`, `observability` — each with a non-empty body. The sibling `<module>-tck` reactor module and conformance suite are deferred per Rule R-D `deferred_sub_clauses` block in `docs/governance/rules/rule-R-D.md` (W2 trigger). Enforced by Gate Rule R-E `dfx_yaml_present_and_wellformed` + Gate Rule R-F `domain_module_has_spi_package` + ArchUnit `SpiPurityGeneralizedArchTest`. CLAUDE.md Rule R-D sub-clause .a. See ADR-0067.
 
 64. **Layered 4+1 discipline.** Every architecture artefact — root `ARCHITECTURE.md`, `agent-*/ARCHITECTURE.md`, `docs/L2/**/*.md`, `docs/adr/*.yaml`, `docs/logs/reviews/*.md` — MUST declare front-matter `level: L0 | L1 | L2` and `view: logical | development | process | physical | scenarios`. Root `ARCHITECTURE.md` is the canonical L0 corpus; per-module `agent-*/ARCHITECTURE.md` files are L1; deep technical designs under `docs/L2/` are L2. Each level MUST organise its content under the 4+1 view headings (L2 MAY omit views not relevant to the feature). All proposals in `docs/logs/reviews/` MUST declare `affects_level:` + `affects_view:`. Phase-released L0/L1 artefacts declaring `freeze_id: <non-null>` are read-only — further edits MUST flow through a new `docs/logs/reviews/*.md` proposal in the same commit. Enforced by Gate Rule R-G `architecture_artefact_front_matter` + Gate Rule R-I `review_proposal_front_matter` + Gate Rule R-M sub-clause .b `frozen_doc_edit_path_compliance` + ArchUnit `ArchitectureLayeringTest`. CLAUDE.md Rule G-1 sub-clause .a. See ADR-0068.
 
@@ -998,7 +1002,7 @@ repo-wide.
 
 ## 6. Roadmap pointers
 
-- Deferred capabilities and re-introduction triggers: `docs/CLAUDE-deferred.md`
+- Deferred capabilities and re-introduction triggers: `deferred_sub_clauses:` block in each alphanumeric rule card under `docs/governance/rules/` (parent-rule frontmatter); legacy rules awaiting human review at `docs/governance/escalations.md` (the prior `docs/CLAUDE-deferred.md` monolith was retired 2026-05-28)
 - Current per-capability state and maturity levels: `docs/governance/architecture-status.yaml` (canonical machine-readable ledger; supersedes the pre-Phase-C `docs/STATE.md` archived at `docs/archive/2026-05-19-STATE-md-archived/` per ADR-0083)
 - Per-capability shipped/deferred status: `docs/governance/architecture-status.yaml`
 - Design rationale for pre-C26 decisions: `docs/v6-rationale/`

@@ -67,7 +67,8 @@ yaml↔enum consistency). Nine canonical hook points:
   `HookPoint`).
 - Run-state consumption of outcomes (`Fail` → `Run.FAILED`,
   `ShortCircuit` → engine bypass) is DEFERRED to W2 Telemetry Vertical
-  per `CLAUDE-deferred.md` 45.b.
+  per Rule R-M sub-clause .c.b in the `deferred_sub_clauses` block of
+  `docs/governance/rules/rule-R-M.md`.
 - `on_error` is best-effort across the chain.
 
 ## 4. Forbidden imports (SPI purity per Rule R-D, formerly Rule 32)

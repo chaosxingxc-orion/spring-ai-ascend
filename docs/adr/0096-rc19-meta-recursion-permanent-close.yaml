@@ -1,6 +1,7 @@
 id: ADR-0096
 title: "rc19 META-Recursion Permanent Close — Python YAML Parser + Rule 112/113/114 + Multi-Wave Runbook"
 status: accepted
+governance_infra: true
 date: 2026-05-21
 level: L0
 view: process

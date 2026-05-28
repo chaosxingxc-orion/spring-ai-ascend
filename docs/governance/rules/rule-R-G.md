@@ -7,10 +7,20 @@ principle_ref: P-G
 authority_refs: [ADR-0069]
 enforcer_refs: [E66]
 status: active
+product_claim: "PC-003"
 scope_phase: impl
 kernel_cap: 8
 kernel: |
   **No production class under `agent-service/src/main/java/com/huawei/ascend/service/runtime/**` may import `org.springframework.web.client.RestTemplate` or `org.springframework.jdbc.core.JdbcTemplate`. External I/O in runtime code MUST go through Reactive (`WebClient` / `R2dbcEntityTemplate`) or Virtual-Thread-backed clients.**
+deferred_sub_clauses:
+  - id: ".c"
+    title: "agent-platform JdbcTemplate → R2DBC Migration [Deferred to W2]"
+    re_introduction_trigger: "first move of any HTTP edge endpoint from blocking Servlet to reactive WebFlux (target: W2 telemetry vertical)."
+    deferred_body: |
+      **Rule (draft)**: `HealthCheckRepository` and `PlatformOssApiProbe` (the two existing `JdbcTemplate` consumers in `agent-platform`) MUST be migrated to `R2dbcEntityTemplate`. Once migrated, Rule R-G widens to cover `agent-platform/src/main/java/**` in addition to the current `agent-runtime` scope.
+
+      Composes with: ARCHITECTURE.md §6.3; ADR-0069; Rule R-G; LucioIT W1 §6.3.
+    relates_to: ["ADR-0069", "Rule R-G", "ARCHITECTURE.md §6.3", "LucioIT W1 §6.3"]
 ---
 
 ## Motivation

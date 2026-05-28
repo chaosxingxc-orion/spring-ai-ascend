@@ -1,6 +1,7 @@
 id: ADR-0095
 title: "rc18 Comprehensive Hardening — Rule 111 Self-Hardening + Pattern Sweep + Naming/Structural Cleanup + Enforcer Normalization + META"
 status: accepted
+governance_infra: true
 date: 2026-05-21
 level: L0
 view: process

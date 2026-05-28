@@ -7,6 +7,7 @@ principle_ref: P-B
 authority_refs: []
 enforcer_refs: [E104]
 status: active
+governance_infra: true
 scope_phase: always_on
 kernel_cap: 8
 kernel: |

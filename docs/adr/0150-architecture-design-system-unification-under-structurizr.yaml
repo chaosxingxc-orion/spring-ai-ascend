@@ -1,6 +1,7 @@
 id: ADR-0150
 title: "Architecture design system unified under architecture/ — L1 corpus + module ARCHITECTURE.md consolidated; docs/ is work directory"
 status: accepted
+governance_infra: true
 date: 2026-05-27
 level: L0
 view: scenarios

@@ -135,7 +135,7 @@ agent-service CONSUMES SPIs from the modules declared in
 |---|---|---|---|---|
 | `RunEvent` (sealed interface + 10 record variants) | agent-service | `service.runtime.evolution` (parent — NOT under `.spi` per ADR-0145 §decision) | Follow-up impl-mode wave (rc55+1 or later) | ADR-0145 + `docs/contracts/run-event.v1.yaml` (design_only) |
 | `DualTrackRouter` SPI | agent-service | `service.orchestrator/` | W2 | ADR-0112 + ADR-0139 narrowed semantics |
-| `SandboxExecutor.refuseOverWideGrant(...)` runtime check | agent-middleware (consumed) | (cross-module) | W2 | Rule R-L.b (deferred per CLAUDE-deferred) |
+| `SandboxExecutor.refuseOverWideGrant(...)` runtime check | agent-middleware (consumed) | (cross-module) | W2 | Rule R-L.b (deferred per `rule-R-L.md#deferred_sub_clauses`) |
 | Layer 3 queue Producer/Consumer SPIs | agent-service | `service.queue/` | W4 (or W2 per scheduling) | ADR-0141 + Rule R-E binding |
 
 ## 6. Cross-references

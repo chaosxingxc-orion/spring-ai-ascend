@@ -1,6 +1,7 @@
 id: ADR-0116
 title: "rc36 exhaustive-audit corrective: kernel-truth gate un-deadening + cancel-CAS + cross-authority alignment"
 status: accepted
+governance_infra: true
 date: 2026-05-24
 level: L0
 view: process

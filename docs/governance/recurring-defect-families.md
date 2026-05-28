@@ -1602,6 +1602,98 @@ Open residual: W6.a..W6.d sub-waves + W7 retirements are gated by post-W5 soak (
 
 ---
 
+### F-hand-authored-factual-drift — Hand-Authored Factual Fields Drift From Code, Contracts, and Tests
+
+**Status: partial** (Wave 1 of the Fact-Layer plan ships the structural foundation; real extractors land Waves 2-4; FunctionPoint thicker schema lands W5; sunset of grandfathered factual `saa.*` fields runs W6; promotion to `closed` requires one release cycle with zero new occurrences plus Rule G-15.c blocking plus the 2026-07-31 sunset date passing.)
+
+First observed: rc5. Last observed: post-W5 L1 Feature Registry (the 2026-05-27 expert review for AI-unbiased L1 understanding identifies the same pattern at the function-point / FEAT- level).
+
+Occurrences: rc5, rc7, rc12, rc14, rc15, rc17, rc18, rc19, rc35, rc40, rc48, rc54, rc55, post-W5 L1 Feature Registry.
+
+Root cause: factual claims about code shape (`saa.devPaths`, `saa.verificationTestFqns`, `saa.verificationCommands`, `saa.sourceFile`, contract-catalog SPI counts, ModelGateway authority text, root `ARCHITECTURE.md` module counts) are hand-authored as prose or DSL string properties. The code that owns these facts (Java SPI interfaces, OpenAPI operations, test classes, `pom.xml` module list) moves on its own cadence. Without a deterministic extractor binding the two, the hand-authored layer drifts on every refactor — `F-numeric-drift` recurred 14+ times rc5 through rc40; `F-deleted-module-name-leakage` required two waves of sweeping; the 2026-05-27 expert review for L1 Feature Registry identifies the same pattern at the function-point / FEAT- level (`function-points.dsl` carries only thin metadata; `features.dsl` hand-authors test FQNs that should resolve from a test extractor).
+
+Prevention rules (current):
+
+- **Rule G-13** (Single-Source Rendering Coherence) closes the *rendered* surface for derived YAML/Markdown.
+- **Rule G-15** (Fact-Layer Integrity, ADR-0154, NEW) closes the *extracted* surface for generated facts under `architecture/facts/generated/`.
+- `architecture/profile/saa-property-authority.yaml` classifies every `saa.*` key as `intent` / `factual_generated` / `factual_hand_authored_grandfathered` with a sunset date of 2026-07-31 for the third bucket.
+- `tools/architecture-workspace/.../facts/` — Java extractor binaries ship in Waves 2-5 (ModuleBuildFactExtractor, AdrFactExtractor, RuntimeConfigFactExtractor, ContractFactExtractor, CodeSymbolFactExtractor via ASM + JavaParser hybrid, TestInventoryFactExtractor).
+- `gate/lib/check_fact_layer_integrity.py` — provenance + banner + LLM-no-author checks, invoked from gate Rule 131 / E179.
+
+Open residual: Wave 1 (this PR) ships the structural foundation only — schema + advisory Rule G-15.a + `saa-property-authority.yaml` + ADR-0154 + response file. Real extractors land Waves 2-4; the FunctionPoint thicker schema lands W5; sunset of `saa.devPaths` / `saa.verificationTestFqns` / `saa.verificationCommands` runs W6. Until W6 ships, the legacy hand-authored factual fields remain in place under a `sunset_date: 2026-07-31` commitment; the family stays open with `cleanup_status: partial`. Promotion to `closed` requires (a) one full release cycle with zero new occurrences AND (b) Rule G-15.c blocking (Wave 4 ship) AND (c) the 2026-07-31 sunset date passing with the hand-authored fields removed.
+
+---
+
+### F-llm-fabricated-factual-claim — Hand-Authored References to Code / Tests / Contracts That Do Not Exist
+
+**Status: structurally addressed** (Round-3 Wave Beta truth-up replaced all 15 known fabricated refs against real `tests.json` / `code-symbols.json` / `contract-surfaces.json` values; Rule G-15.d resolver extended to features.dsl + verification.dsl so future occurrences fail closed at gate time.)
+
+First observed: Fact-Layer Round-1 Wave 5 (four hallucinated FunctionPoint refs: `RunsController.createRun/cancelRun/getRun/listRuns` + `RunControllerCreateIT/CancelIT/GetIT/ListIT`). Sibling sweep in Round-3 Wave Beta turned up 11 more in `architecture/features/verification.dsl` and `features.dsl`.
+
+Root cause: hand-authored prose / DSL / YAML references to code paths, method names, FQNs, test classes, ADR ids, contract operation ids, or schema fields that do not exist on disk. The author (human or LLM) writes "plausible-sounding" references without cross-checking against the generated fact layer. Distinct from `F-numeric-drift` (which is about stale counts) because here the reference is structurally invalid, not merely outdated. Distinct from `F-kernel-vs-implementation-drift` (which is about kernel paragraphs lagging implementation) because here the direction is reversed: the docs claim behaviour the code never had.
+
+Prevention rules (current):
+
+- **Rule G-15.d** (Fact-Layer Integrity sub-clause d) FunctionPoint resolver — implemented Round-2 Wave A, extended Round-3 Wave Beta to also resolve `features.dsl#saa.verificationTestFqns` and `verification.dsl#saa.sourceFile` against generated facts.
+- Round-3 Wave Beta truth-up: 15 hand-authored fabricated refs replaced with real FQNs / paths.
+- Round-3 Wave Alpha negative-fixture pattern (`test_rule_131_c_extract_facts_drift_neg`) — proves the resolver fails closed under mutation.
+
+Open residual: structural prevention is in place; promotion to `closed` requires one full release cycle with zero new occurrences AND extending the resolver to non-shipped/non-http FunctionPoints if those grow code/test/contract refs in future waves.
+
+---
+
+### F-gate-machinery-fail-open-pattern — Gate Machinery That Looks Like Enforcement But Cannot Fail Closed
+
+**Status: structurally addressed** (Round-3 Wave Alpha replaced `|| true` exit-code masking with `if !` form across the Rule 131 ExtractFactsCli block and the `check_architecture_workspace.sh:114` legacy-graph comparison; added meta self-test scanning for fail-open shell patterns + workspace baseline parity gate; added negative drift fixture proving the gate fails on mutation.)
+
+Six occurrences across three rounds:
+
+| Round | Sub-pattern | Surface |
+|---|---|---|
+| Fact-Layer Round-1 W1 | declared gate green via `check_parallel.sh` which skipped the workspace-gate tail | `bash gate/check_parallel.sh` |
+| Fact-Layer Round-2 P1-1 | rule claimed byte-identical but only inspected a "DO NOT EDIT" banner | `gate/lib/check_fact_layer_integrity.py#check_subclause_c` |
+| Fact-Layer Round-2 P1-2 | `check_subclause_d` returned `[]` unconditionally — empty stub | same file |
+| Fact-Layer Round-2 P1-3 | `ContractFactExtractor` swallowed parse failures as `parse_failed: true` facts | `tools/architecture-workspace/.../facts/ContractFactExtractor.java` |
+| Fact-Layer Round-2 P2-3 | extractors silent `continue;` on missing `target/classes` | `CodeSymbolFactExtractor`, `TestInventoryFactExtractor` |
+| Fact-Layer Round-3 R1 | `... 2>&1 \|\| true)` masked `$?` for Rule 131 ExtractFactsCli `--check` | `gate/check_architecture_sync.sh:7092` |
+| Fact-Layer Round-3 sweep-defect-12 | legacy-graph comparison `\|\| true` silently lost non-zero exit | `gate/check_architecture_workspace.sh:114` |
+
+Root cause: gate machinery declared as enforcing a rule but unable to fail closed because of one of: empty function stub returning empty-finding default; silent `continue;` on missing prerequisite without distinguishing "no work" from "broken state"; `|| true` masking command exit code that's then checked downstream; check defined but not invoked from the canonical gate driver; exception caught and converted into a "parse_failed" stub fact rather than re-raised.
+
+Prevention rules (current):
+
+- `gate/fail-open-allowlist.txt` (Round-3 Wave Alpha) — explicit allowlist for legitimate fail-open patterns; empty by design.
+- `test_rule_131_meta_no_fail_open_pipelines` (Round-3 Wave Alpha) — meta self-test greps gate scripts for `|| true` + `$?` capture; fails closed on any non-allowlisted occurrence.
+- `test_rule_131_c_extract_facts_drift_neg` (Round-3 Wave Alpha) — negative-fixture pattern that mutates a generated fact file and proves the gate fails on drift.
+- Round-3 Wave Alpha: replaced `|| true` + `$?` capture with `if ! cmd; then fail; fi` form.
+- Round-3 Wave Alpha workspace baseline parity gate (`gate/lib/check_workspace_baseline_parity.py`) — fails closed on `workspace_elements` / `workspace_relationships` drift.
+
+Open residual: the meta self-test + allowlist + negative fixture together prevent recurrence of the known fail-open sub-patterns. Promotion to `closed` requires one full release cycle with zero new occurrences AND widening the meta-test to also scan Python checkers for `return []` stubs and Java extractors for swallow-with-stub patterns (deferred to a future enhancement).
+
+---
+
+### F-acceptance-evidence-misses-target-branch — Acceptance Evidence Exercises a Different Branch Than the Rule It Claims to Validate
+
+**Status: structurally addressed** (Round-4 Wave Alpha redesigned Rule G-15.c into `.c.structural` (bash gate) + `.c.bytes` (Maven Surefire `FactLayerByteIdentityIT`) so the test infrastructure for byte-identity lives where the precondition is guaranteed by Maven's compile-phase ordering; Round-4 Wave Beta added Rule 132 wiring `render_features_catalog.py --check` into the canonical gate with a paired negative fixture that exercises the exact same code path.)
+
+Three occurrences in the Round-3 ship audited by the 2026-05-28 fourth-correction request:
+
+- `docs/reviews/2026-05-28-fact-layer-delivery-third-correction-response.en.md:160` — the documented "negative drift proof" mutated `code-symbols.json` by appending a comment line, which broke JSON validity. The gate failure was therefore caught at Rule G-15.b (JSON parse), not the cited G-15.c (byte-diff). The proof claimed by name (G-15.c) was never exercised by the cited command.
+- `docs/reviews/2026-05-28-fact-layer-delivery-third-correction-response.en.md:155-156` — the verification log claimed "OK for all 7 module catalogs" but the cited command (`render_features_catalog.py --check`), if re-run honestly, would have flagged `agent-bus` as DRIFT. The catalog drift was real at the moment the response was written; the response froze a different state.
+- `gate/test_architecture_sync_gate.sh:7186-7222` `test_rule_131_c_extract_facts_drift_neg` — invoked `ExtractFactsCli --check` directly rather than `bash gate/check_architecture_sync.sh`. The fixture therefore proved the sub-component works but not the canonical-gate shell propagation that was the actual Round-3 R1 defect.
+
+Root cause: a test fixture, response-file verification log, or release-evidence claim asserts that a particular rule branch (or rule path) is validated, but the cited command actually exercises a different, upstream rule branch that catches the mutation first; OR the cited command invokes a sub-helper instead of the canonical gate driver, hiding propagation defects. The test passes vacuously with respect to the claimed rule. Distinct from `F-half-built-state-machine` (where tests don't exist at all) because here tests DO exist but exercise the wrong surface. Distinct from `F-gate-machinery-fail-open-pattern` because the gate machinery itself may be correct; the defect is in the EVIDENCE that the gate works.
+
+Prevention rules (current):
+
+- **Round-4 Wave Alpha redesign**: Rule G-15.c split into `.c.structural` (banner check, stays in bash gate) and `.c.bytes` (byte-identity, moves to Maven `FactLayerByteIdentityIT`). The Maven test runs in the integration-test phase where `target/classes` is guaranteed by compile-phase ordering — no precondition-skip surface, no env-var opt-in.
+- **Round-4 Wave Beta** Rule 132 (`feature_catalog_render_idempotency`) wires `render_features_catalog.py --check` into the canonical gate. The paired negative fixture `test_rule_132_feature_catalog_drift_neg` mutates `architecture/docs/L1/agent-bus/features/README.md` then invokes the same detector the gate invokes — fixture exercises the exact same code path the canonical gate exercises.
+- Future enhancement (Round-5+): a meta self-test that, for every blocking `_neg` fixture, audits whether the fixture invokes the canonical gate OR is documented as a sub-rule unit test. Deferred until at least one round elapses without re-occurrence.
+
+Open residual: the R3 redesign sidesteps the precondition-skip class entirely; the Rule 132 + Round-4 fixture pattern sets the standard for future tests. Promotion to `closed` requires one full release cycle with zero new occurrences AND the future meta-test that automates fixture-method auditing.
+
+---
+
 ## §4 — Cross-references
 
 - Authority: [ADR-0094](../adr/0094-rc17-recurring-defect-family-truth-and-rule-consolidation.yaml) — rc17 recurring-defect-family-truth + rule-consolidation.

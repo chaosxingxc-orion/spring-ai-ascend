@@ -1,0 +1,577 @@
+---
+contract_id: iam-bridge.v1
+status: design_only
+product_claim: "PC-003"
+authority: "ADR-0155 (to be filed)"
+v1_0_ship_blocker: true
+target_persona: "Persona-F + Persona-D"
+---
+
+# OAuth2 / OIDC Identity-Bridge Contract, version 1.
+#
+# Authority: ADR-0155 (to be filed in Phase A Wave 3 of the v1.0 financial MVP plan).
+# Product claim: PC-003 (Production-grade for the AI-platform era — financial-vertical mandate).
+# Target personas:
+#   - Persona-F (Enterprise Compliance / Risk Officer; PRIMARY v1.0 persona):
+#     requires that downstream business-system calls carry the delegating
+#     user's identity, NOT the agent service principal, so audit chains
+#     attribute LLM-driven actions to the actual human in the loop.
+#   - Persona-D (Enterprise SRE / Production Operator):
+#     requires that token validation, refresh, and revocation are
+#     observable, fail-closed under `prod` posture, and capable of
+#     surviving an IDP outage without cascading agent failures.
+#
+# Purpose: declare how the platform CONSUMES an enterprise IDP's OIDC
+# token at the HTTP edge AND PROPAGATES the user's identity through agent
+# execution to downstream business-system calls. The contract closes the
+# Persona-F pain point: "Agent identity is 'the service principal', not
+# the user — breaks attribution".
+#
+# status:design_only at v1.0; promotes to runtime_enforced when the
+# `IamBridge` SPI and the `JwtTenantValidator` filter chain wiring land in
+# a follow-up impl-mode wave per the v1.0 plan.
+
+schema: iam-bridge/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+promotion_trigger: |
+  Impl-mode wave that ships:
+    1. `JwtTenantValidator` Spring Security filter that enforces §4 #56
+       (JWT validation + tenant claim cross-check against X-Tenant-Id).
+    2. The `IamBridge` SPI under `com.huawei.ascend.security.iam.spi`
+       (module home TBD in ADR-0155) with `validate(token, request)`,
+       `refresh(refreshToken)`, `revoke(token)`, and `propagate(...)`
+       methods, plus reference adapters for Keycloak, Okta, Azure AD,
+       Auth0, and a generic OIDC adapter for domestic IAM products.
+    3. Outbound HTTP client filter (`UserContextTokenPropagationFilter`)
+       that attaches `User-Context-Token: <delegated-token>` to every
+       downstream business-system call within a Run's execution
+       boundary, sourcing the delegated identity from `RunContext`.
+    4. Audit-trail integration: every successful admission emits an
+       `identity_propagation` event per audit-trail.v1; every refused
+       admission emits a `run_admitted` event with to_status=`denied`
+       and evidence_ref pointing to the specific rejection reason.
+    5. The `JwksProvider` SPI that caches the IDP's JWKS endpoint with
+       configurable TTL + fallback to last-known-good keys on IDP outage
+       (Persona-D survivability requirement).
+
+relates_to:
+  - docs/contracts/audit-trail.v1.yaml        # Every admission outcome (success + denial) emits an audit-trail entry; identity_propagation events are emitted at the outbound-call site.
+  - docs/contracts/openapi-v1.yaml            # HTTP edge surfaces (POST /v1/runs, etc.) consume the inbound token validation pipeline declared here.
+  - docs/contracts/ingress-envelope.v1.yaml   # IngressEnvelope.tenantId MUST equal the JWT tenant claim (cross-plane parity with the edge filter).
+  - docs/contracts/engine-hooks.v1.yaml       # HookPoint.BEFORE_TOOL / BEFORE_LLM are the hooks at which the delegated token is materialised onto outbound calls.
+
+# ---------------------------------------------------------------
+# JSON Schema 2020-12 — Incoming OIDC Token Envelope
+# ---------------------------------------------------------------
+json_schema_incoming_token:
+  $schema: "https://json-schema.org/draft/2020-12/schema"
+  $id: "https://springai-ascend.huawei.com/contracts/iam-bridge/v1/incoming-token.schema.json"
+  title: IncomingOidcTokenEnvelope
+  description: |
+    The envelope the platform expects at the HTTP edge of every
+    authenticated request: a Bearer-scheme access token in the
+    `Authorization` header, optionally paired with an OIDC ID token.
+    Both tokens MUST be RFC 7519 JWTs signed by the enterprise IDP whose
+    JWKS endpoint is declared in `iam_bridge.providers[*].jwks_uri`.
+  type: object
+  additionalProperties: false
+  required:
+    - access_token
+    - tenant_id_header
+  properties:
+
+    access_token:
+      type: object
+      description: OAuth2 access token (RFC 6749 §1.4) as a JWT.
+      required:
+        - raw
+        - claims
+      properties:
+        raw:
+          type: string
+          description: Compact-serialization JWT (header.payload.signature, base64url).
+          pattern: "^[A-Za-z0-9_\\-]+\\.[A-Za-z0-9_\\-]+\\.[A-Za-z0-9_\\-]+$"
+        claims:
+          $ref: "#/$defs/access_token_claims"
+
+    id_token:
+      type: object
+      description: OIDC ID token (OIDC Core 1.0 §2). OPTIONAL — only required for interactive flows.
+      required:
+        - raw
+        - claims
+      properties:
+        raw:
+          type: string
+          pattern: "^[A-Za-z0-9_\\-]+\\.[A-Za-z0-9_\\-]+\\.[A-Za-z0-9_\\-]+$"
+        claims:
+          $ref: "#/$defs/id_token_claims"
+
+    tenant_id_header:
+      type: string
+      format: uuid
+      description: |
+        Value of the `X-Tenant-Id` HTTP header on the inbound request.
+        MUST equal `access_token.claims.tenant_id` after the JWT signature
+        and `iss`/`aud`/`exp` validation succeed (§4 #56). Mismatch results
+        in 401 with structured error code `tenant_claim_mismatch`.
+
+  "$defs":
+
+    access_token_claims:
+      type: object
+      additionalProperties: true     # IDPs add provider-specific claims; we tolerate them.
+      required:
+        - iss
+        - sub
+        - aud
+        - exp
+        - iat
+        - tenant_id
+        - email
+      properties:
+        iss:
+          type: string
+          format: uri
+          description: |
+            Issuer URL. MUST equal one of the configured
+            `iam_bridge.providers[*].issuer` values; tokens from unknown
+            issuers are rejected before any other claim is evaluated.
+        sub:
+          type: string
+          description: |
+            Subject — the delegating user's stable identifier within the
+            issuing IDP. Carried forward as `audit_trail.user_id`. MUST be
+            stable across token refreshes (we depend on it for chain
+            attribution under SR 11-7).
+        aud:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+          description: |
+            Audience — MUST contain the platform's configured client_id
+            (single-string form) OR include it in the array form.
+        exp:
+          type: integer
+          description: Expiration timestamp (seconds since epoch, UTC).
+        iat:
+          type: integer
+          description: Issued-at timestamp (seconds since epoch, UTC).
+        nbf:
+          type: integer
+          description: Optional not-before timestamp; if present, validated.
+        tenant_id:
+          type: string
+          format: uuid
+          description: |
+            Tenant scope claim. NON-STANDARD OIDC claim — every supported
+            IDP MUST be configured to inject this claim into issued tokens
+            via the IDP's claim-mapping facility (see provider mappings
+            below). For IDPs that cannot inject the claim natively, the
+            platform's IDP-adapter MAY derive it from a configured claim
+            (e.g. `organization_id` in Azure AD) provided the mapping is
+            deterministic AND declared in
+            `iam_bridge.providers[*].tenant_claim_source`.
+        email:
+          type: string
+          format: email
+          description: |
+            Delegating user's email. Required for v1.0 because the financial
+            audit reviewer needs human-readable user attribution in
+            regulatory submissions (UUIDs alone are insufficient under
+            JR/T 0223-2021 §7.4.1).
+        roles:
+          type: array
+          items:
+            type: string
+          description: |
+            Optional role assertions from the IDP. Used by capability-scope
+            resolution (see `capability_scoping` below). When present, MUST
+            be the canonical role names from the enterprise IDP, NOT
+            platform-internal role names — translation happens in the IDP-
+            adapter layer.
+        groups:
+          type: array
+          items:
+            type: string
+          description: |
+            Optional group memberships from the IDP. Same translation rules
+            as `roles`.
+        scope:
+          type: string
+          description: |
+            OAuth2 scope value (space-separated). Standard OAuth2 claim;
+            interpreted as the set of platform capabilities the user has
+            authorized this agent execution to use on their behalf.
+
+    id_token_claims:
+      type: object
+      additionalProperties: true
+      required:
+        - iss
+        - sub
+        - aud
+        - exp
+        - iat
+      properties:
+        iss: {type: string, format: uri}
+        sub: {type: string}
+        aud:
+          oneOf:
+            - type: string
+            - type: array
+              items: {type: string}
+        exp: {type: integer}
+        iat: {type: integer}
+        auth_time: {type: integer}
+        nonce: {type: string}
+        email: {type: string, format: email}
+        email_verified: {type: boolean}
+        name: {type: string}
+        preferred_username: {type: string}
+
+# ---------------------------------------------------------------
+# Tenant cross-check at admission (§4 #56 enforcement)
+# ---------------------------------------------------------------
+tenant_cross_check:
+  rule: |
+    On every authenticated request, the edge filter MUST:
+      1. Validate JWT signature against the issuer's JWKS (cached, with
+         clock-skew tolerance per `validation.clock_skew_seconds`).
+      2. Validate `iss`, `aud`, `exp`, `nbf` (if present), and `iat`.
+      3. Read the `X-Tenant-Id` HTTP header.
+      4. Compare `access_token.claims.tenant_id == X-Tenant-Id`.
+      5. On mismatch, emit a 401 response with the structured error body
+         declared below AND emit an audit-trail entry with
+         event_type=run_admitted, to_status=`denied`,
+         evidence_ref=`vault://iam-bridge/tenant-claim-mismatch/<request_id>`.
+    The validation MUST be in a Spring Security filter that runs BEFORE
+    any controller handler; tenant-mismatch reaching a handler is a §4 #56
+    violation (Persona-D regression — defense-in-depth required).
+
+  failure_response_structured_error:
+    media_type: "application/problem+json"
+    description: RFC 7807-style structured error.
+    schema:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - code
+        - detail
+        - request_id
+      properties:
+        type:
+          type: string
+          format: uri
+          enum:
+            - "https://springai-ascend.huawei.com/errors/iam/tenant-claim-mismatch"
+            - "https://springai-ascend.huawei.com/errors/iam/token-invalid"
+            - "https://springai-ascend.huawei.com/errors/iam/token-expired"
+            - "https://springai-ascend.huawei.com/errors/iam/token-revoked"
+            - "https://springai-ascend.huawei.com/errors/iam/issuer-unknown"
+            - "https://springai-ascend.huawei.com/errors/iam/jwks-fetch-failed"
+            - "https://springai-ascend.huawei.com/errors/iam/audience-mismatch"
+            - "https://springai-ascend.huawei.com/errors/iam/scope-insufficient"
+        title: {type: string}
+        status:
+          type: integer
+          enum: [401, 403]
+        code:
+          type: string
+          enum:
+            - tenant_claim_mismatch
+            - token_invalid
+            - token_expired
+            - token_revoked
+            - issuer_unknown
+            - jwks_fetch_failed
+            - audience_mismatch
+            - scope_insufficient
+        detail:
+          type: string
+          description: |
+            Human-readable narrative. MUST NOT include the raw token, the
+            tenant_id value(s) that mismatched, or PII — these surface in
+            audit-trail entries via evidence_ref, not in client-visible
+            responses.
+        request_id:
+          type: string
+          format: uuid
+
+# ---------------------------------------------------------------
+# Capability scoping + downstream identity propagation
+# ---------------------------------------------------------------
+capability_scoping:
+  rule: |
+    Every downstream business-system call made within a Run's execution
+    boundary MUST carry the delegating user's identity, NOT the platform
+    service principal. The vehicle is the `User-Context-Token` HTTP
+    header attached to the outbound request by
+    `UserContextTokenPropagationFilter`.
+
+  user_context_token_header:
+    name: "User-Context-Token"
+    value_format: |
+      Either:
+        (a) the original inbound access token verbatim, when the downstream
+            business system trusts the SAME IDP as the inbound flow (most
+            common in 中台 deployments where one Keycloak realm serves both
+            the agent platform and the downstream core-banking system), OR
+        (b) a freshly minted, scope-narrowed token from the same IDP via
+            RFC 8693 token-exchange (`urn:ietf:params:oauth:grant-type:
+            token-exchange`), when the downstream system requires a
+            narrower audience or shorter lifetime than the inbound token.
+    selection_rule: |
+      The `IamBridge.propagate(call, request)` SPI implementation chooses
+      between (a) and (b) based on per-downstream-system configuration
+      under `iam_bridge.downstream_systems[*].propagation_mode`. Default
+      is (a) for v1.0; (b) is shipped as opt-in until the token-exchange
+      flow has soaked for one release.
+    delegation_invariant: |
+      The `sub` claim of the token in `User-Context-Token` MUST equal the
+      `audit_trail.user_id` of the originating Run. Token-exchange that
+      changes the subject MUST be refused; the platform NEVER impersonates
+      a different user even with admin privileges — that path is reserved
+      for break-glass support flows outside this contract (which carry a
+      separate `Admin-Override-Reason` header and emit audit entries with
+      event_type=identity_propagation, from_status=`break_glass`).
+
+  inbound_to_outbound_propagation:
+    site: "outbound HTTP client filter; runs on every WebClient call originating from within a Run boundary"
+    audit_emission: "audit-trail.v1 event_type=identity_propagation, to_status=delegated"
+    failure_mode: |
+      If propagation fails (e.g. token expired mid-Run and refresh failed),
+      the outbound call MUST be refused with the Run transitioning to
+      FAILED status, reason=`identity_propagation_failed`. The platform
+      MUST NOT fall back to the service principal silently — silent
+      fallback is a Persona-F deal-breaker.
+
+# ---------------------------------------------------------------
+# Provider compatibility — standard claim mappings
+# ---------------------------------------------------------------
+provider_compatibility:
+  description: |
+    The platform ships first-class adapters for the IDPs below. Each
+    adapter is configured via `iam_bridge.providers[*]` and translates
+    the IDP's native claim shape into the canonical `tenant_id` +
+    `email` + `roles` + `groups` shape the rest of the platform consumes.
+
+  providers:
+
+    keycloak:
+      class: "com.huawei.ascend.security.iam.adapter.KeycloakIamAdapter"
+      issuer_pattern: "https://{host}/realms/{realm}"
+      jwks_uri_template: "https://{host}/realms/{realm}/protocol/openid-connect/certs"
+      token_endpoint_template: "https://{host}/realms/{realm}/protocol/openid-connect/token"
+      revocation_endpoint_template: "https://{host}/realms/{realm}/protocol/openid-connect/revoke"
+      claim_mappings:
+        tenant_id: "tenant_id"                  # Configured Keycloak claim mapper, type=String, required.
+        email: "email"                          # Standard OIDC claim, present when `email` scope requested.
+        roles: "realm_access.roles"             # Keycloak realm-roles default location.
+        groups: "groups"                        # Requires Keycloak group-membership mapper.
+      tenant_claim_source: native               # Keycloak supports native tenant_id mapper injection.
+
+    okta:
+      class: "com.huawei.ascend.security.iam.adapter.OktaIamAdapter"
+      issuer_pattern: "https://{org}.okta.com/oauth2/{authServerId}"
+      jwks_uri_template: "https://{org}.okta.com/oauth2/{authServerId}/v1/keys"
+      token_endpoint_template: "https://{org}.okta.com/oauth2/{authServerId}/v1/token"
+      revocation_endpoint_template: "https://{org}.okta.com/oauth2/{authServerId}/v1/revoke"
+      claim_mappings:
+        tenant_id: "tenant_id"                  # Okta custom claim, configured per authorization server.
+        email: "email"
+        roles: "groups"                         # Okta typically delivers role-equivalents as groups.
+        groups: "groups"
+      tenant_claim_source: native
+
+    azure_ad:
+      class: "com.huawei.ascend.security.iam.adapter.AzureAdIamAdapter"
+      issuer_pattern: "https://login.microsoftonline.com/{tenantId}/v2.0"
+      jwks_uri_template: "https://login.microsoftonline.com/{tenantId}/discovery/v2.0/keys"
+      token_endpoint_template: "https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token"
+      revocation_endpoint_template: null        # Azure AD lacks a public revocation endpoint; conditional-access policies are the substitute.
+      claim_mappings:
+        tenant_id: "tid"                        # Azure AD tenant id is the standard `tid` claim.
+        email: "preferred_username"             # `email` not always present; preferred_username is the practical substitute.
+        roles: "roles"                          # App-role claim from Azure AD App Roles feature.
+        groups: "groups"                        # Requires opt-in via app manifest `groupMembershipClaims`.
+      tenant_claim_source: derived              # Native `tid` mapped to platform tenant_id via configured lookup table.
+      derivation_rule: |
+        Azure AD `tid` is the AAD-tenant UUID, not the platform-tenant UUID.
+        The adapter MUST resolve `tid` to platform `tenant_id` via the
+        configured `iam_bridge.providers.azure_ad.tenant_lookup` map; an
+        unmapped `tid` is rejected with code=`issuer_unknown`.
+
+    auth0:
+      class: "com.huawei.ascend.security.iam.adapter.Auth0IamAdapter"
+      issuer_pattern: "https://{domain}/"
+      jwks_uri_template: "https://{domain}/.well-known/jwks.json"
+      token_endpoint_template: "https://{domain}/oauth/token"
+      revocation_endpoint_template: "https://{domain}/oauth/revoke"
+      claim_mappings:
+        tenant_id: "https://springai-ascend.huawei.com/tenant_id"   # Auth0 requires namespaced custom claims.
+        email: "email"
+        roles: "https://springai-ascend.huawei.com/roles"
+        groups: "https://springai-ascend.huawei.com/groups"
+      tenant_claim_source: native
+
+    domestic_iam_generic:
+      class: "com.huawei.ascend.security.iam.adapter.GenericOidcIamAdapter"
+      issuer_pattern: "{configured-per-deployment}"
+      jwks_uri_template: "{configured-per-deployment}"
+      token_endpoint_template: "{configured-per-deployment}"
+      revocation_endpoint_template: "{optional-per-deployment}"
+      claim_mappings:
+        tenant_id: "{configured-claim-name}"
+        email: "{configured-claim-name}"
+        roles: "{configured-claim-name}"
+        groups: "{configured-claim-name}"
+      tenant_claim_source: configured
+      note: |
+        Designed for domestic enterprise IAM products (华为 OneAccess,
+        阿里 IDaaS, 腾讯 CIAM, 北京数字认证, etc.) that implement OIDC
+        but ship non-standard claim names. Each deployment customizes
+        the claim mappings via `application-{posture}.yaml` under
+        `iam-bridge.providers.domestic_iam_generic.claim_mappings`. The
+        adapter validates that the configured tenant_id claim exists and
+        is a UUID string on every token; missing the configured claim
+        rejects the token with code=`token_invalid`.
+
+# ---------------------------------------------------------------
+# Refresh + revocation handling
+# ---------------------------------------------------------------
+refresh_handling:
+  trigger: |
+    A long-horizon Run whose execution spans the inbound token's `exp`
+    window MUST refresh the user-context token before it expires;
+    otherwise outbound calls after the original `exp` will be rejected
+    by the downstream business system.
+  mechanism: |
+    The `IamBridge.refresh(refreshToken)` SPI is invoked by a
+    background hook within the Run boundary at exp - safety_margin
+    (default safety_margin = 60s, configurable per posture). The new
+    access_token replaces the prior one in the RunContext; subsequent
+    outbound calls use the refreshed token automatically.
+  failure_mode: |
+    If refresh fails (refresh token expired, IDP outage, revocation),
+    the Run is SUSPENDED with `SuspendReason.IdentityRefreshRequired`
+    and a human-in-the-loop re-authentication is solicited via the S2C
+    callback envelope (s2c-callback.v1.yaml). Auto-failing the Run on
+    refresh failure is a Persona-D regression (long-horizon Runs MUST
+    survive transient IDP issues).
+  refresh_token_storage: |
+    Refresh tokens are stored in Vault / KMS, referenced by URI in
+    RunContext.identityContext; never persisted as raw strings in the
+    Run aggregate. Per-tenant Vault path under
+    `vault://tenants/<tenant_id>/run-refresh-tokens/<run_id>`.
+
+revocation_handling:
+  trigger: |
+    The platform polls the IDP's revocation list / introspection endpoint
+    on a configurable interval (default 60s in `prod`, 300s in `research`,
+    disabled in `dev` per Rule D-6 posture defaults) AND honors push
+    notifications via the OIDC backchannel logout endpoint if the IDP
+    supports it.
+  enforcement: |
+    On revocation detection:
+      - In-flight Runs owned by the revoked token's subject are
+        transitioned to FAILED with reason=`identity_revoked` AND an
+        audit-trail entry event_type=run_status_transition,
+        evidence_ref=`vault://iam-bridge/revocation/<token-id>`.
+      - Subsequent inbound requests carrying the revoked token return
+        401 with code=`token_revoked`.
+      - Outbound calls in-flight on the revoked token MUST NOT be
+        retried; the Run cancellation is final.
+  cache_invalidation: |
+    JWKS cache entries for the affected issuer MUST NOT be evicted on
+    revocation (revocation is per-token, not per-key); ONLY the per-
+    token revocation list is updated. Conflating the two is a documented
+    failure mode in 等保 2.0 §8.1.4 audits.
+
+# ---------------------------------------------------------------
+# Validation parameters (per-posture defaults)
+# ---------------------------------------------------------------
+validation:
+  clock_skew_seconds:
+    dev: 300
+    research: 60
+    prod: 30
+    rationale: |
+      Rule D-6 posture defaults. Tightens as posture progresses to fail-
+      closed; `dev` tolerates clock drift on developer laptops, `prod`
+      requires near-synchronized clocks (NTP-disciplined production
+      infrastructure).
+  jwks_cache_ttl_seconds:
+    dev: 3600
+    research: 600
+    prod: 300
+    rationale: |
+      JWKS rotation cadence varies per IDP; 5-minute TTL in prod balances
+      revocation latency against IDP load. Fallback-to-last-known-good
+      keys is enabled in `prod` to survive IDP outages (Persona-D).
+  jwks_fallback_on_outage:
+    dev: false
+    research: true
+    prod: true
+    note: |
+      In `prod`, when JWKS fetch fails the platform continues to validate
+      tokens against the last successfully fetched JWKS for up to
+      `jwks_outage_grace_seconds` (default 900) — this prevents the
+      entire platform from rejecting traffic during a brief IDP outage.
+      AFTER the grace window expires, inbound requests are rejected with
+      code=`jwks_fetch_failed`; the platform fails closed, not open.
+  jwks_outage_grace_seconds:
+    dev: 0
+    research: 300
+    prod: 900
+
+# ---------------------------------------------------------------
+# Observability requirements
+# ---------------------------------------------------------------
+observability:
+  counters:
+    - "springai_ascend_iam_admission_total{tenant_id, provider, outcome}"
+    - "springai_ascend_iam_token_refresh_total{tenant_id, provider, outcome}"
+    - "springai_ascend_iam_token_revocation_total{tenant_id, provider}"
+    - "springai_ascend_iam_jwks_fetch_total{provider, outcome}"
+    - "springai_ascend_iam_propagation_total{tenant_id, downstream_system, propagation_mode, outcome}"
+  timers:
+    - "springai_ascend_iam_token_validation_seconds{provider}"
+    - "springai_ascend_iam_jwks_fetch_seconds{provider}"
+    - "springai_ascend_iam_token_refresh_seconds{provider}"
+  cardinality_note: |
+    `tenant_id` is a high-cardinality label and is admitted here as an
+    explicit exception under `docs/telemetry/policy.md`. Per-Run / per-
+    user_id labels are FORBIDDEN on Prometheus; they appear only in
+    structured JSON logs and in the audit-trail backend.
+
+# ---------------------------------------------------------------
+# Compatibility + evolution
+# ---------------------------------------------------------------
+evolution:
+  versioning: |
+    Provider adapters are append-only — adding a new provider is a minor
+    bump. Adding a new required claim mapping is a major bump with a
+    migration window. Removing a provider is a major bump with a
+    deprecation window of one full release cycle.
+  forward_compat: |
+    Unknown provider-specific claims in the access_token are tolerated
+    by the adapter and ignored. Unknown REQUIRED claims (e.g. a new
+    `risk_tier` claim added in v2) cause v1 consumers to reject the
+    token with code=`token_invalid` — this is intentional, since
+    silently dropping a security-relevant claim is a §4 #56 regression.
+  test_matrix: |
+    Every supported provider MUST have:
+      - one ArchUnit test asserting the adapter class is present.
+      - one integration test against a mock IDP (Keycloak Testcontainer
+        for the Keycloak adapter; Mockoon HTTP fixtures for the others)
+        covering: success, tenant_claim_mismatch, token_expired, token_revoked,
+        token_invalid, jwks_fetch_failed.
+      - one DoS regression test verifying jwks_cache_ttl + fallback-on-outage
+        behavior matches the per-posture defaults declared above.

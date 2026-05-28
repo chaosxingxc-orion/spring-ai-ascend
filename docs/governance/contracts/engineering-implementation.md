@@ -40,6 +40,7 @@ for the marker convention.
 | G-7 | Linux-First Dev Environment | **X** | [`rule-G-7.md`](../rules/rule-G-7.md) |
 | G-10 | Parallel-Linux-Scripts Mandate | **X** | [`rule-G-10.md`](../rules/rule-G-10.md) |
 | G-12 | Whitebox Quality Baseline | **X** | [`rule-G-12.md`](../rules/rule-G-12.md) |
+| G-15 | Fact-Layer Integrity | **P** | [`rule-G-15.md`](../rules/rule-G-15.md) |
 | M-1 | Skeleton Module Has No Production Java | **X** | [`rule-M-1.md`](../rules/rule-M-1.md) |
 | M-2 | Domain Contract Discipline (schema-first + design-only registration + DFX-stem truth) | **X** | [`rule-M-2.md`](../rules/rule-M-2.md) |
 | R-A | Business/Platform Decoupling Enforcement | **X** | [`rule-R-A.md`](../rules/rule-R-A.md) |

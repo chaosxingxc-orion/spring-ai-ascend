@@ -1,0 +1,206 @@
+# Product Claims registry for spring-ai-ascend.
+#
+# Authority: product/PRODUCT.md + plan file D:\.claude\plans\ai-l0-adr-ai-l1-adr-adr-ai-ai-1-2-3-ai-effervescent-flask.md
+# Source ADR: ADR-0155 (Product Authority and Traceability Chain) — to be filed in Phase A Wave 3
+# Enforced by: Rule G-16 (ProductClaim Referential Integrity), Rule G-18 (Traceability Chain Completeness)
+#
+# Every ADR, contract, feature, rule, and enforcer in this repo MUST declare
+# either `product_claim: PC-NNN` (resolving to one of the entries below)
+# or `governance_infra: true` (honest self-marker for meta-machinery).
+#
+# AI sessions are forbidden from authoring new PC entries without product-owner
+# review. AI may draft refinements; final wording is product-owner authority.
+
+schema_version: "1.0"
+last_updated: "2026-05-28"
+
+claims:
+
+  - id: PC-001
+    title: Spring-native developer ergonomics for the agent era
+    statement: >
+      Build agents the way you already build Spring services — config-driven
+      via Spring Boot starters, dependency-injected skills and models,
+      ConfigurationProperties-validated config, and full reuse of your existing
+      Spring middleware stack (Data, Cloud, Security, Integration, Batch, Cache).
+      Spring developers enter the agent era without learning a new ecosystem.
+    beneficiaries:
+      - Persona-C  # Enterprise Agent Developer, Spring background — ~90% of agent-developer population
+    sub_dimensions:
+      - starter_based_onboarding
+      - configuration_properties_with_validation
+      - di_wired_skills_and_tools
+      - enterprise_middleware_absorption
+      - mcp_bridge_to_anthropic_protocol
+      - human_in_the_loop_via_suspend_signal
+    evidence_refs:
+      - rule: R-A           # Business/Platform Decoupling Enforcement
+      - rule: D-6           # Posture-Aware Defaults
+      - module: agent-service
+      - module: graphmemory-starter
+    success_metric:
+      name: time_to_first_agent_minutes
+      target: "<= 30"
+      posture: dev
+      instrumentation_status: deferred_until_w2
+    status: design_only          # full PC-001 evidence backfill is Phase B
+    v1_0_relevance: primary_developer_facing
+
+  - id: PC-002
+    title: Two Chinese-enterprise topologies plus sovereign hardware, one artifact set
+    statement: >
+      Deploy under YOUR organization's shape and YOUR sovereignty boundary.
+      The same artifact set supports the 中台 pattern (central platform team
+      hosts the agent service; business centers configure and push agents —
+      owning all business logic and downstream system calls themselves), the
+      能力复用 pattern (central IT provides only middleware + model gateway;
+      business units self-build the agent service), AND on-prem deployment on
+      Huawei Ascend NPU + Kunpeng CPU silicon. Same JAR, three deployment shapes.
+    beneficiaries:
+      - Persona-A  # Platform Team Lead — 中台 buyer
+      - Persona-B  # Enterprise IT Capability Provider — 能力复用 buyer
+    sub_dimensions:
+      - middle_office_topology_中台
+      - capability_reuse_topology_能力复用
+      - sovereign_hardware_ascend_kunpeng
+      - single_artifact_set_no_fork
+    evidence_refs:
+      - architecture_section: "architecture/docs/L0/ARCHITECTURE.md#§1.1"
+      - rule: R-A
+      - rule: R-I           # Five-Plane Manifest
+      - convention: "module-metadata.yaml#kind"
+    success_metric:
+      name: reference_deployments_published
+      target: ">= 2"   # one per org pattern + Ascend+Kunpeng certification artifact
+      v1_0_target: 1   # 中台 only ships in v1.0; 能力复用 follows in v1.1
+      instrumentation_status: planned_v1_1
+    status: design_only          # 中台 reference manifest ships in v1.0; 能力复用 in v1.1+
+    v1_0_relevance: primary_buyer_facing
+
+  - id: PC-003
+    title: Production-grade for the AI-platform era (financial-vertical mandate for v1.0)
+    statement: >
+      Production-grade defined for AI workloads and for financial-industry
+      compliance, not borrowed from microservices. Long-horizon Run state
+      machines that survive minutes-to-days of waiting without blocking server
+      threads; storage-engine-enforced multi-tenancy (Postgres RLS); reactive
+      non-blocking I/O throughout; idempotent admission for non-deterministic
+      LLM behavior; capability-scoped agent identity with OAuth2/OIDC delegation;
+      physical sandbox enforcement that subsumes any logical permission grant;
+      cost / token / capacity governance per tenant per skill; audit-grade
+      observability of every Run, tool call, and model invocation — formatted
+      for regulatory submission under 中国 等保 2.0/3.0, PIPL, 数据安全法,
+      JR/T 0223-2021, and 国际 SOC 2 / ISO 27001 / SR 11-7.
+    beneficiaries:
+      - Persona-D  # Enterprise SRE / Production Operator
+      - Persona-F  # Enterprise Compliance / Risk Officer — PRIMARY for v1.0
+    sub_dimensions:
+      - long_horizon_execution_via_suspend_signal
+      - storage_engine_multi_tenancy_rls
+      - reactive_non_blocking_io
+      - posture_aware_defaults
+      - idempotent_admission
+      - capability_scoped_agent_identity
+      - sandbox_permission_subsumption
+      - cost_capacity_governance
+      - safety_guardrails_at_sandbox_boundary
+      - immutable_audit_trail_regulator_grade
+    evidence_refs:
+      - rule: R-F           # Cursor Flow
+      - rule: R-G           # Reactive External I/O
+      - rule: R-H           # No Thread.sleep
+      - rule: R-J           # Storage-Engine Tenant Isolation
+      - rule: R-K           # Skill Capacity Matrix
+      - rule: R-L           # Sandbox Permission Subsumption
+      - rule: R-M           # Engine Contract
+      - rule: D-6           # Posture-Aware Defaults
+      - architecture_constraint: "§4 #56 (JWT validation + tenant claim cross-check)"
+    success_metric:
+      name: financial_audit_trail_complete_v1_0
+      target: "100% RunEvent + tool call + model invocation persisted immutably with regulator-grade schema"
+      instrumentation_status: must_ship_by_2026_06_30
+    status: design_only          # audit-trail schema + IAM bridge + financial sandbox template ship in v1.0
+    v1_0_relevance: PRIMARY_v1_0_blocker
+
+  - id: PC-004
+    title: Multi-framework + multi-model + multi-orchestration substrate
+    statement: >
+      Enterprises can't be locked into one agent framework, one model vendor,
+      or one orchestration pattern. This platform hosts the heterogeneity.
+      Multiple agent frameworks (graph-state, ReAct, supervisor-worker, debate,
+      hierarchical, external SDK adapters) run side-by-side via the Engine
+      Contract envelope; multiple LLM providers (OpenAI, Anthropic, local
+      Ascend-hosted, Kunpeng-served open-source) route through one model
+      gateway with retries / fallback / A-B; tools exposed via MCP, OpenAI
+      plugins, or direct skill SPI all govern uniformly. We are the SUBSTRATE
+      that hosts the heterogeneity, not yet-another-framework.
+    beneficiaries:
+      - Persona-E  # Enterprise Agent Architect
+    sub_dimensions:
+      - engine_envelope_contract
+      - strict_engine_matching
+      - cross_cutting_policy_via_hooks
+      - multi_model_gateway
+      - mcp_bridge
+      - orchestration_pattern_library
+      - s2c_callback_for_client_capability
+    evidence_refs:
+      - rule: R-M           # Engine Contract (all sub-clauses)
+      - contract: "docs/contracts/engine-envelope.v1.yaml"
+      - contract: "docs/contracts/engine-hooks.v1.yaml"
+      - contract: "docs/contracts/s2c-callback.v1.yaml"
+      - module: agent-execution-engine
+    success_metric:
+      name: distinct_engine_adapters_runnable_side_by_side
+      target: ">= 3"
+      v1_0_target: 1   # one engine adapter (graph-state on top of extended ChatClient) ships in v1.0
+      instrumentation_status: phase_b_cluster_engine_envelope
+    status: design_only
+    v1_0_relevance: secondary_v1_0   # ships ONE engine type in v1.0; additional engines in v1.1+
+
+  - id: PC-005
+    title: Self-evolving agents — the irreplaceable differentiator
+    statement: >
+      Agents on this platform don't just execute — they evolve. Three-axis
+      observability (business / platform / model) captures every Run as
+      evolution-grade data; knowledge, memory, and skill middleware evolve
+      with use; RL trajectory export feeds model fine-tuning pipelines that
+      close the loop back into the platform. This is what makes it an agent
+      PLATFORM, not just an agent RUNTIME — and the only durable moat against
+      a SaaS competitor with a bigger model.
+    beneficiaries:
+      - Persona-E  # Architect — designs evolution strategy
+      - Persona-C  # Developer — harvests evolution into next-iteration config
+    sub_dimensions:
+      - three_axis_observability_business_platform_model
+      - evolvable_knowledge_substrate_rag_vector
+      - evolvable_memory_substrate_episodic_semantic_procedural
+      - evolvable_skill_substrate_versioned_success_rate_tracked
+      - rl_trajectory_export_open_format
+    evidence_refs:
+      - principle: P-I       # Five-Plane Distributed Topology (evolution plane)
+      - rule: R-M.e         # EvolutionExport on every RunEvent
+      - module: graphmemory-starter
+      - module: agent-evolve    # design_only at W1
+      - deferred_section: "docs/CLAUDE-deferred.md#32.b 32.c"
+    success_metric:
+      name: run_event_evolution_export_coverage
+      target: ">= 95% on in_scope events"
+      v1_0_target: design_only_only   # PC-005 ships no shipped-status evidence in v1.0
+      instrumentation_status: post_v1_5_target
+    status: design_only          # honest disclosure — evolution plane is largely design_only at v1.0
+    v1_0_relevance: future_differentiator_not_v1_0   # ships in v1.5+ functionally
+    honesty_note: >
+      PC-005 is the weakest claim by current evidence — most of the evolution
+      plane is design_only. This is allowed under Rule G-3.e (no claiming
+      shipped what is deferred). PC-005 declares the DIRECTION; Phase B
+      cluster cycles 11-12 of the plan progressively ship its components.
+
+# Cross-claim notes
+#
+# - PC-001 .. PC-004 are competitive — other platforms could replicate any one of them.
+# - PC-005 is the irreplaceable differentiator and the long-term moat.
+# - For v1.0 (2026-06-30): PC-003 is the PRIMARY ship-blocker (financial-vertical mandate);
+#   PC-001 is the primary developer-facing claim; PC-002 ships one of two patterns (中台).
+# - For v1.1+ weekly cadence: PC-002 能力复用 pattern, PC-004 second-engine adapter,
+#   PC-005 memory + knowledge substrate ship progressively.

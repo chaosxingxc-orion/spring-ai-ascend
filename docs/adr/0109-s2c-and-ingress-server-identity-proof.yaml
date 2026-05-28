@@ -1,6 +1,7 @@
 id: ADR-0109
 title: "S2C callback + ingress envelope — server-identity proof (mTLS fingerprint or signed JWT)"
 status: accepted
+product_claim: "PC-002|PC-003"
 date: 2026-05-23
 level: L0
 view: physical

@@ -1,6 +1,7 @@
 id: ADR-0111
 title: "Sandbox W2-W3 startup gate + Vault rotation policy + OTLP per-tenant binding + Outbox replay safety"
 status: accepted
+product_claim: "PC-003"
 date: 2026-05-23
 level: L0
 view: physical

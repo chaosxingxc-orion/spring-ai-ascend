@@ -1,6 +1,7 @@
 id: ADR-0091
 title: "rc15 Structural-Carrier Parity + Terminal-State Scope Widening (M-α..M-η wave)"
 status: accepted
+governance_infra: true
 date: 2026-05-20
 level: L0
 view: process

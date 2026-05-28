@@ -27,6 +27,12 @@ fpCreateRun = element "Create Run" "FunctionPoint" "POST /v1/runs — admit a ne
         "saa.status" "shipped"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0020"
+        "saa.channel" "http"
+        "saa.actor" "tenant-developer"
+        "saa.trigger" "HTTP POST /v1/runs"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java#create"
+        "saa.test_refs" "com.huawei.ascend.service.platform.web.runs.RunHttpContractIT|com.huawei.ascend.service.runtime.runs.RunStateMachineTest"
+        "saa.contract_op_refs" "contract-op/createrun"
     }
 }
 
@@ -39,6 +45,12 @@ fpCancelRun = element "Cancel Run" "FunctionPoint" "POST /v1/runs/(runId)/cancel
         "saa.status" "shipped"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0108"
+        "saa.channel" "http"
+        "saa.actor" "tenant-developer"
+        "saa.trigger" "HTTP POST /v1/runs/(runId)/cancel"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java#cancel"
+        "saa.test_refs" "com.huawei.ascend.service.platform.web.runs.RunHttpContractIT|com.huawei.ascend.service.runtime.runs.RunStateMachineTest"
+        "saa.contract_op_refs" "contract-op/cancelrun"
     }
 }
 
@@ -51,20 +63,20 @@ fpGetRunStatus = element "Get Run Status" "FunctionPoint" "GET /v1/runs/(runId) 
         "saa.status" "shipped"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0020"
+        "saa.channel" "http"
+        "saa.actor" "tenant-developer"
+        "saa.trigger" "HTTP GET /v1/runs/(runId)"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java#get"
+        "saa.test_refs" "com.huawei.ascend.service.platform.web.runs.RunHttpContractIT"
+        "saa.contract_op_refs" "contract-op/getrun"
     }
 }
 
-fpListRuns = element "List Runs" "FunctionPoint" "GET /v1/runs — tenant-scoped pagination over Runs (filter by status, owner, time window)" "SAA FunctionPoint" {
-    properties {
-        "saa.id" "FP-LIST-RUNS"
-        "saa.kind" "function_point"
-        "saa.level" "L1"
-        "saa.view" "scenarios"
-        "saa.status" "shipped"
-        "saa.owner" "agent-service"
-        "saa.sourceAdr" "ADR-0020"
-    }
-}
+// FP-LIST-RUNS removed by Round-2 Wave A (2026-05-28 correction request P0-1):
+// no GET /v1/runs handler exists on RunController, and openapi-v1.yaml has no
+// listRuns operation. The shipped status + the four hard-evidence refs were
+// hallucinated by the W5 seed mount. The FP is reintroduced only when the
+// list endpoint actually ships.
 
 fpIngressEnvelope = element "Ingress Envelope Routing" "FunctionPoint" "Route IngressEnvelope from edge-plane to compute_control via IngressGateway (Rule R-I.1)" "SAA FunctionPoint" {
     properties {
@@ -75,6 +87,9 @@ fpIngressEnvelope = element "Ingress Envelope Routing" "FunctionPoint" "Route In
         "saa.status" "shipped"
         "saa.owner" "agent-bus"
         "saa.sourceAdr" "ADR-0089"
+        "saa.channel" "internal"
+        "saa.actor" "platform-runtime"
+        "saa.trigger" "internal-orchestration-event"
     }
 }
 
@@ -87,6 +102,9 @@ fpS2cCallback = element "S2C Callback" "FunctionPoint" "Server-to-client callbac
         "saa.status" "shipped"
         "saa.owner" "agent-bus"
         "saa.sourceAdr" "ADR-0088"
+        "saa.channel" "internal"
+        "saa.actor" "platform-runtime"
+        "saa.trigger" "internal-orchestration-event"
     }
 }
 
@@ -99,6 +117,9 @@ fpRunStateTransition = element "Run State Transition" "FunctionPoint" "RunReposi
         "saa.status" "shipped"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0118"
+        "saa.channel" "internal"
+        "saa.actor" "platform-runtime"
+        "saa.trigger" "internal-orchestration-event"
     }
 }
 
@@ -111,6 +132,9 @@ fpSuspendResume = element "Suspend Resume" "FunctionPoint" "SuspendSignal throw,
         "saa.status" "shipped"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0137"
+        "saa.channel" "internal"
+        "saa.actor" "platform-runtime"
+        "saa.trigger" "internal-orchestration-event"
     }
 }
 
@@ -123,6 +147,9 @@ fpChildRunSpawn = element "Child Run Spawn" "FunctionPoint" "SuspendSignal child
         "saa.status" "shipped"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0145"
+        "saa.channel" "internal"
+        "saa.actor" "platform-runtime"
+        "saa.trigger" "internal-orchestration-event"
     }
 }
 
@@ -135,6 +162,9 @@ fpIdempotencyClaim = element "Idempotency Claim" "FunctionPoint" "IdempotencyHea
         "saa.status" "shipped"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0027"
+        "saa.channel" "internal"
+        "saa.actor" "platform-runtime"
+        "saa.trigger" "internal-orchestration-event"
     }
 }
 
@@ -147,6 +177,9 @@ fpTenantCrossCheck = element "Tenant Cross Check" "FunctionPoint" "JWT.tenant cl
         "saa.status" "shipped"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0056"
+        "saa.channel" "internal"
+        "saa.actor" "platform-runtime"
+        "saa.trigger" "internal-orchestration-event"
     }
 }
 
@@ -159,6 +192,9 @@ fpPostureBootGuard = element "Posture Boot Guard" "FunctionPoint" "PostureBootGu
         "saa.status" "shipped"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0058"
+        "saa.channel" "internal"
+        "saa.actor" "platform-runtime"
+        "saa.trigger" "internal-orchestration-event"
     }
 }
 
@@ -171,6 +207,9 @@ fpGraphMemoryStore = element "Graph Memory Store" "FunctionPoint" "GraphMemoryRe
         "saa.status" "shipped"
         "saa.owner" "spring-ai-ascend-graphmemory-starter"
         "saa.sourceAdr" "ADR-0081"
+        "saa.channel" "internal"
+        "saa.actor" "platform-runtime"
+        "saa.trigger" "internal-orchestration-event"
     }
 }
 
@@ -183,6 +222,9 @@ fpEngineDispatch = element "Engine Dispatch" "FunctionPoint" "EngineRegistry.res
         "saa.status" "shipped"
         "saa.owner" "agent-execution-engine"
         "saa.sourceAdr" "ADR-0140"
+        "saa.channel" "internal"
+        "saa.actor" "platform-runtime"
+        "saa.trigger" "internal-orchestration-event"
     }
 }
 
@@ -195,6 +237,9 @@ fpHookDispatch = element "Hook Dispatch" "FunctionPoint" "RuntimeMiddleware list
         "saa.status" "shipped"
         "saa.owner" "agent-middleware"
         "saa.sourceAdr" "ADR-0073"
+        "saa.channel" "internal"
+        "saa.actor" "platform-runtime"
+        "saa.trigger" "internal-orchestration-event"
     }
 }
 
@@ -227,13 +272,8 @@ agentService -> fpGetRunStatus "implements GET /v1/runs/(runId) handler" "SAA Re
 
     }
 }
-agentService -> fpListRuns "implements GET /v1/runs handler" "SAA Relationship" {
-    properties {
-
-        "saa.rel" "implements"
-
-    }
-}
+// agentService -> fpListRuns relationship removed alongside the
+// FP-LIST-RUNS element (Round-2 Wave A, 2026-05-28 correction P0-1).
 agentBus -> fpIngressEnvelope "implements IngressGateway routing" "SAA Relationship" {
     properties {
 

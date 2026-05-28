@@ -19,6 +19,15 @@ dimensions:
     current_value: "N/A"
     measurement_status: "not-yet-instrumented; W2 LLM gateway perf-benchmark deferred per CLAUDE-deferred.md 30.d.performance"
     last_measured: null
+    v1_0_baselines_file: "docs/perf/v1.0-baselines.yaml"      # PERF-V1-0-BASELINES — Ascend NPU + Kunpeng ARM64 SLOs for PC-003 financial-vertical mandate; design_only at v1.0, runtime_enforced when Phase B wires the OTel + Prometheus exporters
+    v1_0_targets_summary:
+      run_admission_p95_ms: 500                                # see v1.0-baselines.yaml#run_admission
+      tool_call_internal_api_p95_ms: 100                       # see v1.0-baselines.yaml#tool_call.classes.internal_api
+      tool_call_external_api_p95_ms: 1000                      # see v1.0-baselines.yaml#tool_call.classes.external_api
+      model_invoke_ascend_local_first_token_p95_ms: 2000       # see v1.0-baselines.yaml#model_invocation.providers.ascend_local_llama_class
+      concurrent_runs_per_instance: 100                        # see v1.0-baselines.yaml#throughput
+      tenant_isolation_overhead_percent_max: 5                 # see v1.0-baselines.yaml#tenant_isolation_overhead
+      memory_cap_per_agent_megabytes_p95: 512                  # see v1.0-baselines.yaml#memory_cap
 
   cost:
     baseline_metric: "average_cost_usd_per_run (LLM tokens + infra) — capability emitting cost metric"

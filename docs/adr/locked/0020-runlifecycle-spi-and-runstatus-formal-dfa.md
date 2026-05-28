@@ -1,3 +1,10 @@
+---
+adr_id: ADR-0020
+product_claim: "PC-001|PC-003"
+binds_features: [FEAT-RUN-LIFECYCLE-CONTROL]
+binds_rules: [R-C.2]
+---
+
 # 0020. RunLifecycle SPI Separation and RunStatus Formal DFA
 
 **Status:** accepted

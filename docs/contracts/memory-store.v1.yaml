@@ -4,6 +4,8 @@
 # Knowledge Taxonomy) + ADR-0051 (Ownership Boundary).
 # Wave: rc43 Wave B3.
 
+product_claim: "PC-001|PC-005"
+
 schema: memory-store/v1
 status: design_only
 runtime_enforced: false

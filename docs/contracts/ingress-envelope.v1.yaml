@@ -23,6 +23,8 @@
 # agent-client/src/main/java for forbidden imports + WebClient/RestTemplate
 # construction against non-bus hosts.
 
+product_claim: "PC-002"
+
 schema: ingress-envelope/v1
 # Status: design_only at W1 — no runtime binding ships yet. The IngressGateway
 # SPI interface ships under agent-bus/src/main/java/com/huawei/ascend/bus/spi/ingress/

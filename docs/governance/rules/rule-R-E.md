@@ -7,10 +7,20 @@ principle_ref: P-E
 authority_refs: [ADR-0069]
 enforcer_refs: [E64]
 status: active
+product_claim: "PC-002"
 scope_phase: design
 kernel_cap: 8
 kernel: |
   **Cross-service internal communication MUST be sliced into three physically isolated channels declared in `docs/governance/bus-channels.yaml`: `control` (out-of-band, highest priority), `data` (in-band, heavy-load), and `rhythm` (heartbeat/liveness). No two channels may share a `physical_channel:` identifier. The `data` channel inherits the 16 KiB inline-payload cap from §4 #13.**
+deferred_sub_clauses:
+  - id: ".b"
+    title: "Three-Track Channel Physical Implementation [Deferred to W2]"
+    re_introduction_trigger: "first deployable `agent-bus-java` reactor module shipping in research/prod posture with > 1 service instance (target: W2)."
+    deferred_body: |
+      **Rule (draft)**: Each of the three channels declared in `docs/governance/bus-channels.yaml` MUST be backed by a distinct physical transport — Kafka topics with isolated partitions, separate Redis Streams, OR equivalent broker primitives. The `physical_channel:` identifier in the YAML MUST map to a concrete broker resource. Co-locating two channels on the same physical transport (even with different routing keys) is forbidden — the failure-isolation guarantee requires distinct underlying queues.
+
+      Composes with: ARCHITECTURE.md §6.4; ADR-0069; Rule R-E; LucioIT W1 §6.4.
+    relates_to: ["ADR-0069", "Rule R-E", "ARCHITECTURE.md §6.4", "LucioIT W1 §6.4"]
 ---
 
 ## Motivation

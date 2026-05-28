@@ -7,10 +7,29 @@ principle_ref: P-A
 authority_refs: [ADR-0064]
 enforcer_refs: [E48, E49]
 status: active
+product_claim: "PC-001"
 scope_phase: design
 kernel_cap: 8
 kernel: |
   **Platform code MUST NOT contain business-specific customizations. Business and example code MUST extend the platform via SPI + `@ConfigurationProperties` only — never by patching `*.impl.*` or `com.huawei.ascend.service.platform..`. The platform MUST ship a runnable quickstart (`docs/quickstart.md`) referenced from `README.md` so a developer reaches first-agent execution without platform-team intervention.**
+deferred_sub_clauses:
+  - id: ".c"
+    title: "Quickstart Smoke Run in CI (ACTIVATED 2026-05-18)"
+    re_introduction_trigger: "first `.github/workflows/*.yml` (or sibling container-based CI workflow) that boots a Spring Boot reactor end-to-end. Fired 2026-05-18 when `.github/workflows/ci.yml` quickstart-smoke job landed."
+    deferred_body: |
+      **Activated 2026-05-18 per Wave 4 Track E.** See `docs/governance/rules/rule-29c.md` for
+      the active rule card. The original deferred draft below is preserved for audit.
+
+      **Re-introduction trigger (original)**: first `.github/workflows/*.yml` (or sibling container-based CI
+      workflow) that boots a Spring Boot reactor end-to-end. Fired 2026-05-18 when
+      `.github/workflows/ci.yml` quickstart-smoke job landed.
+
+      **Rule (now active)**: A CI job MUST execute the `docs/quickstart.md` instructions on a clean
+      container and assert that `GET /v1/health` returns 200 within 60 s of `spring-boot:run` start.
+      Failure of this job is a ship-blocking finding under Rule D-5.
+
+      Composes with: ARCHITECTURE.md §4 #60; ADR-0064; Rule R-A.
+    relates_to: ["ADR-0064", "Rule R-A", "ARCHITECTURE.md §4 #60"]
 ---
 
 ## Motivation

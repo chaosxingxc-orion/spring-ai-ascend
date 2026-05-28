@@ -1,0 +1,19 @@
+# gate/fail-open-allowlist.txt
+#
+# Allowlist for the `test_meta_no_fail_open_pipelines` self-test
+# (Round-3 Wave Alpha, 2026-05-28).
+#
+# Each line MUST be of the form `<repo-relative path>:<line number>`,
+# matching the literal `<file>:<line>` produced by `grep -n`. Lines
+# starting with `#` are comments; blank lines are ignored.
+#
+# A line is permitted here only if the `|| true` followed by a `$?`
+# capture is provably safe (the exit code is intentionally discarded,
+# or it's captured into a variable that is never used as a fail-closed
+# branch). Adding a line REQUIRES a paired follow-up ticket explaining
+# why the exception is correct.
+#
+# Empty file = zero exceptions = every match is a real defect. Round-3
+# Wave Alpha closed the only two known instances (Rule 131
+# ExtractFactsCli block + check_architecture_workspace.sh:114 legacy
+# comparison) without adding allowlist entries.

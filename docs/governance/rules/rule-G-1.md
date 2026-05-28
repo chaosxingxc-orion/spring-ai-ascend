@@ -7,6 +7,7 @@ principle_ref: P-C
 authority_refs: [ADR-0068, ADR-0147]
 enforcer_refs: [E55, E57, E56, E58]
 status: active
+governance_infra: true
 scope_phase: design
 kernel_cap: 8
 kernel: |

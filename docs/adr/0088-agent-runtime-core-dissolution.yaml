@@ -1,6 +1,7 @@
 id: ADR-0088
 title: "Dissolve agent-runtime-core; redistribute kernel SPI to semantic-home modules; align L0 reactor with 6-module narrative"
 status: accepted
+governance_infra: true
 date: 2026-05-20
 level: L0
 view: development

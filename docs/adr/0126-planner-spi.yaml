@@ -1,6 +1,7 @@
 id: ADR-0126
 title: "Planner SPI: `Planner.plan(PlanningRequest)` returning a `Plan` DAG (steps, dependencies, branch points, loop annotations); distinguishes planner OUTPUT from `plan-projection.v1.yaml` scheduler INPUT"
 status: accepted
+product_claim: "PC-001|PC-004"
 date: 2026-05-25
 level: L0
 view: development

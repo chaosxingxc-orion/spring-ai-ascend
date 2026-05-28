@@ -1,6 +1,7 @@
 id: ADR-0144
 title: "Layer ↔ Package matrix unifies the rc22 ADR-0100 5-component package-structural decomposition (Dispatcher/Orchestrator/Task/Session/Engine) with the rc53 ADR-0138 5-layer logical-view decomposition (Access/Manager/Queue/Control/Adapter); the two are NOT competing — they describe orthogonal views and the matrix is the canonical mapping"
 status: accepted
+governance_infra: true
 date: 2026-05-26
 level: L1
 view: development

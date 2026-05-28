@@ -1,6 +1,7 @@
 id: ADR-0149
 title: "Structurizr workspace authority — W0..W5 shipped; W6/W7 entry-criteria documented"
 status: accepted
+governance_infra: true
 date: 2026-05-27
 level: L0
 view: scenarios

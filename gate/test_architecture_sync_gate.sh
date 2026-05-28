@@ -7126,6 +7126,351 @@ test_rule_130_feature_lifecycle_validity_pos() {
   ok "rule_130_feature_lifecycle_validity_pos" "Rule G-14.a / Rule 130: all features.dsl saa.status values are in the 9-state lifecycle set"
 }
 
+test_rule_131_d_fp_refs_resolve_pos() {
+  # Rule G-15.d (Round-2 Wave A): shipped + http/spi FunctionPoints in
+  # architecture/features/function-points.dsl carry hard-evidence refs
+  # that resolve against generated facts. POSITIVE case: the current
+  # working tree's FP DSL resolves cleanly via --enforce d.
+  local repo="$PWD"
+  local out
+  out=$(python3 "$repo/gate/lib/check_fact_layer_integrity.py" --enforce d 2>&1)
+  local rc=$?
+  if [[ $rc -ne 0 ]]; then
+    fail "rule_131_d_fp_refs_resolve_pos" "Rule G-15.d violation: --enforce d failed: $(echo "$out" | head -1)"
+    return
+  fi
+  ok "rule_131_d_fp_refs_resolve_pos" "Rule G-15.d / Rule 131.d: FunctionPoint hard-evidence refs all resolve against generated facts"
+}
+
+test_rule_131_d_fp_refs_unresolved_neg() {
+  # Rule G-15.d NEGATIVE case: a synthetic FunctionPoint DSL with a
+  # hallucinated saa.code_entrypoint_refs MUST fail the resolver.
+  local scratch_dir="$scratch/r131_d_neg"
+  mkdir -p "$scratch_dir/architecture/features" "$scratch_dir/architecture/facts/generated" "$scratch_dir/architecture/facts/schema" "$scratch_dir/architecture/profile"
+  # Minimal fact-layer surfaces so .a / .b vacuously pass.
+  cp "$PWD/architecture/facts/README.md" "$scratch_dir/architecture/facts/README.md"
+  cp "$PWD/architecture/facts/schema/fact.schema.yaml" "$scratch_dir/architecture/facts/schema/fact.schema.yaml"
+  cp "$PWD/architecture/profile/saa-property-authority.yaml" "$scratch_dir/architecture/profile/saa-property-authority.yaml"
+  # Empty fact files so the resolver indexes are non-None but empty (every
+  # ref unresolved). Use minimal valid shape: list-only.
+  printf '{"_banner":"DO NOT EDIT","facts":[]}\n' > "$scratch_dir/architecture/facts/generated/code-symbols.json"
+  printf '{"_banner":"DO NOT EDIT","facts":[]}\n' > "$scratch_dir/architecture/facts/generated/tests.json"
+  printf '{"_banner":"DO NOT EDIT","facts":[]}\n' > "$scratch_dir/architecture/facts/generated/contract-surfaces.json"
+  cat > "$scratch_dir/architecture/features/function-points.dsl" <<'EOF'
+fpHallucinated = element "Bogus FP" "FunctionPoint" "ref that does not exist" "SAA FunctionPoint" {
+    properties {
+        "saa.id" "FP-HALLUCINATED"
+        "saa.kind" "function_point"
+        "saa.level" "L1"
+        "saa.view" "scenarios"
+        "saa.status" "shipped"
+        "saa.owner" "agent-service"
+        "saa.sourceAdr" "ADR-0154"
+        "saa.channel" "http"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/NoSuch.java#nope"
+        "saa.test_refs" "com.huawei.does.not.exist.NoTest"
+        "saa.contract_op_refs" "contract-op/no-such"
+    }
+}
+EOF
+  local out
+  out=$(python3 "$PWD/gate/lib/check_fact_layer_integrity.py" --enforce d --repo "$scratch_dir" 2>&1)
+  local rc=$?
+  if [[ $rc -ne 0 ]] && echo "$out" | grep -q "FP-HALLUCINATED"; then
+    ok "rule_131_d_fp_refs_unresolved_neg" "Rule G-15.d / Rule 131.d: hallucinated FunctionPoint refs are detected and fail closed"
+  else
+    fail "rule_131_d_fp_refs_unresolved_neg" "Rule G-15.d negative case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_132_feature_catalog_render_idempotency_pos() {
+  # Rule 132 (Round-4 Wave Beta) — feature_catalog_render_idempotency
+  # POSITIVE case: running `python3 gate/lib/render_features_catalog.py
+  # --check` against the working tree must return 0 for all 7 module
+  # catalogs.
+  local out
+  out=$(python3 "$PWD/gate/lib/render_features_catalog.py" --check 2>&1)
+  local rc=$?
+  if [[ $rc -ne 0 ]]; then
+    fail "rule_132_feature_catalog_render_idempotency_pos" "Rule 132 / G-13 sibling: feature catalog drift detected: $(echo "$out" | grep "^DRIFT:" | head -1)"
+    return
+  fi
+  ok "rule_132_feature_catalog_render_idempotency_pos" "Rule 132 / G-13 sibling: all 7 L1 feature catalogs are byte-identical to render output"
+}
+
+test_rule_132_feature_catalog_drift_neg() {
+  # Rule 132 NEGATIVE case: mutating a rendered feature catalog MUST
+  # cause the canonical gate to fail. This proves the wiring is real
+  # (gate invokes the detector, propagates exit code, fails closed).
+  local target="$PWD/architecture/docs/L1/agent-bus/features/README.md"
+  if [[ ! -f "$target" ]]; then
+    skip "rule_132_feature_catalog_drift_neg" "skip: $target absent — gate cannot fail on a non-existent surface"
+    return
+  fi
+  local backup="$scratch/r132_agent_bus_features_README.md.orig"
+  cp "$target" "$backup"
+  echo "<!-- rule_132_feature_catalog_drift_neg mutation -->" >> "$target"
+  # Run the same detector the canonical gate runs.
+  local check_rc=0
+  if python3 "$PWD/gate/lib/render_features_catalog.py" --check >/dev/null 2>&1; then
+    check_rc=0
+  else
+    check_rc=$?
+  fi
+  # Restore the original BEFORE asserting so a fixture failure leaves the
+  # working tree clean.
+  cp "$backup" "$target"
+  if [[ $check_rc -eq 0 ]]; then
+    fail "rule_132_feature_catalog_drift_neg" "Rule 132 regression: render_features_catalog.py --check returned 0 after a deliberate feature-catalog mutation — gate is fail-open for this drift class."
+  else
+    ok "rule_132_feature_catalog_drift_neg" "Rule 132 / G-13 sibling: deliberate mutation to architecture/docs/L1/agent-bus/features/README.md triggers feature-catalog drift detection as required (R2 closed)"
+  fi
+}
+
+# test_rule_131_c_extract_facts_drift_neg REMOVED in Round-4 Wave Alpha.
+# Rule G-15.c byte-identity verification moved from the bash gate to a
+# Maven Surefire test (FactLayerByteIdentityIT) where target/classes is
+# guaranteed by Maven's compile-phase ordering. The bash gate no longer
+# hosts the byte-identity branch, so the bash fixture has no rule branch
+# to exercise. Positive + negative coverage now lives in
+# tools/architecture-workspace/src/test/java/com/huawei/ascend/tools/architecture/facts/FactLayerByteIdentityIT.java.
+
+test_rule_133_productclaim_referential_integrity_pos() {
+  # Rule G-16 / Rule 133 — every product_claim: value in the active corpus
+  # resolves to a PC-NNN id in product/claims.yaml OR carries a sentinel.
+  # POSITIVE: working tree at HEAD passes the canonical rule.
+  local claims="product/claims.yaml"
+  if [[ ! -f "$claims" ]]; then
+    skip "rule_133_productclaim_referential_integrity_pos" "$claims missing -- product authority not yet landed"
+    return
+  fi
+  local valid_ids
+  valid_ids=$(grep -oE '^  - id: PC-[0-9]+' "$claims" 2>/dev/null | awk '{print $3}')
+  local bad
+  bad=$(grep -rhEn '^\s*product_claim:\s*"?(PC-[0-9]+(\|PC-[0-9]+)*)"?\s*$|^\s+"saa\.productClaim"\s+"(PC-[0-9]+(\|PC-[0-9]+)*)"\s*$' \
+        docs/governance/rules/ architecture/decisions/ docs/contracts/ architecture/features/ 2>/dev/null \
+        | grep -oE 'PC-[0-9]+' | sort -u | while read ref; do
+            if ! echo "$valid_ids" | grep -qxF "$ref"; then
+              echo "$ref"
+            fi
+          done | head -3 | tr '\n' ' ')
+  if [[ -n "$bad" ]]; then
+    fail "rule_133_productclaim_referential_integrity_pos" "Rule G-16 / Rule 133: unresolved product_claim refs in active corpus: $bad"
+    return
+  fi
+  ok "rule_133_productclaim_referential_integrity_pos" "Rule G-16 / Rule 133: all product_claim refs resolve to PC-NNN ids in product/claims.yaml"
+}
+
+test_rule_133_productclaim_referential_integrity_unresolved_neg() {
+  # Rule G-16 / Rule 133 NEGATIVE: a synthetic rule card declaring product_claim:
+  # with a non-existent PC-NNN id MUST be detected by the canonical regex
+  # against a synthetic product/claims.yaml that lists only PC-001.
+  local scratch_dir="$scratch/r133_neg"
+  mkdir -p "$scratch_dir/product" "$scratch_dir/docs/governance/rules"
+  cat > "$scratch_dir/product/claims.yaml" <<'EOF'
+claims:
+  - id: PC-001
+    title: real claim
+EOF
+  cat > "$scratch_dir/docs/governance/rules/rule-fake.md" <<'EOF'
+---
+rule_id: fake
+product_claim: PC-999
+---
+EOF
+  local valid_ids
+  valid_ids=$(grep -oE '^  - id: PC-[0-9]+' "$scratch_dir/product/claims.yaml" 2>/dev/null | awk '{print $3}')
+  local bad
+  bad=$(grep -rhEn '^\s*product_claim:\s*"?(PC-[0-9]+(\|PC-[0-9]+)*)"?\s*$' \
+        "$scratch_dir/docs/governance/rules/" 2>/dev/null \
+        | grep -oE 'PC-[0-9]+' | sort -u | while read ref; do
+            if ! echo "$valid_ids" | grep -qxF "$ref"; then
+              echo "$ref"
+            fi
+          done | head -3 | tr '\n' ' ')
+  if [[ "$bad" == *"PC-999"* ]]; then
+    ok "rule_133_productclaim_referential_integrity_unresolved_neg" "Rule G-16 / Rule 133: synthetic PC-999 reference is correctly flagged as unresolved"
+  else
+    fail "rule_133_productclaim_referential_integrity_unresolved_neg" "Rule G-16 / Rule 133 negative case did not flag PC-999 (bad='$bad')"
+  fi
+}
+
+test_rule_134_no_orphan_artefacts_pos() {
+  # Rule G-17 / Rule 134 — every active ADR / rule card / enforcer / SAA Feature /
+  # contract MUST declare product_claim:, governance_infra:true, OR
+  # product_claim_placeholder:true. The gate emits orphan counts as info and is
+  # vacuously-PASS at W5 landing (advisory; promotes when G-21 hits zero).
+  # POSITIVE: the canonical gate has been exercised and returns 0.
+  if [[ ! -f gate/check_architecture_sync.sh ]]; then
+    skip "rule_134_no_orphan_artefacts_pos" "canonical gate script missing"
+    return
+  fi
+  if ! grep -q '"no_orphan_artefacts"' gate/check_architecture_sync.sh; then
+    fail "rule_134_no_orphan_artefacts_pos" "Rule 134 slug 'no_orphan_artefacts' missing from canonical gate script"
+    return
+  fi
+  ok "rule_134_no_orphan_artefacts_pos" "Rule G-17 / Rule 134: no_orphan_artefacts rule wired in canonical gate (advisory at W5 landing)"
+}
+
+test_rule_135_traceability_chain_completeness_pos() {
+  # Rule G-18 / Rule 135 — every PC-NNN in product/claims.yaml has >=1 SAA
+  # Feature referencing it via saa.productClaim. Advisory at W5 landing.
+  # POSITIVE: rule wired in canonical gate.
+  if [[ ! -f gate/check_architecture_sync.sh ]]; then
+    skip "rule_135_traceability_chain_completeness_pos" "canonical gate script missing"
+    return
+  fi
+  if ! grep -q '"traceability_chain_completeness"' gate/check_architecture_sync.sh; then
+    fail "rule_135_traceability_chain_completeness_pos" "Rule 135 slug 'traceability_chain_completeness' missing from canonical gate script"
+    return
+  fi
+  ok "rule_135_traceability_chain_completeness_pos" "Rule G-18 / Rule 135: traceability_chain_completeness rule wired in canonical gate (advisory at W5 landing)"
+}
+
+test_rule_136_autoload_tier_integrity_pos() {
+  # Rule G-19 / Rule 136 — gate/always-loaded-budget.txt MUST contain
+  # product/PRODUCT.md at a non-zero ceiling AND CLAUDE.md ceiling <= 12000.
+  # Blocking from W5 landing. POSITIVE: working tree budget passes.
+  local budget="gate/always-loaded-budget.txt"
+  if [[ ! -f "$budget" ]]; then
+    fail "rule_136_autoload_tier_integrity_pos" "$budget missing -- Rule G-19 cannot evaluate"
+    return
+  fi
+  if ! grep -qE '^product/PRODUCT\.md=[1-9][0-9]*' "$budget"; then
+    fail "rule_136_autoload_tier_integrity_pos" "Rule G-19 / Rule 136: product/PRODUCT.md entry missing or zero ceiling in $budget"
+    return
+  fi
+  local claude_ceiling
+  claude_ceiling=$(awk -F= '/^CLAUDE\.md=/{print $2; exit}' "$budget")
+  if [[ -z "$claude_ceiling" ]]; then
+    fail "rule_136_autoload_tier_integrity_pos" "Rule G-19 / Rule 136: CLAUDE.md entry missing in $budget"
+    return
+  fi
+  if [[ "$claude_ceiling" -gt 12000 ]]; then
+    fail "rule_136_autoload_tier_integrity_pos" "Rule G-19 / Rule 136: CLAUDE.md ceiling=$claude_ceiling exceeds 12000 (collab-only kernel discipline)"
+    return
+  fi
+  ok "rule_136_autoload_tier_integrity_pos" "Rule G-19 / Rule 136: product/PRODUCT.md auto-loaded and CLAUDE.md ceiling=$claude_ceiling <= 12000"
+}
+
+test_rule_136_autoload_tier_integrity_oversized_neg() {
+  # Rule G-19 / Rule 136 NEGATIVE: a synthetic budget file with CLAUDE.md
+  # ceiling > 12000 MUST fail the inline check used by the canonical gate.
+  local scratch_dir="$scratch/r136_neg"
+  mkdir -p "$scratch_dir/gate"
+  cat > "$scratch_dir/gate/always-loaded-budget.txt" <<'EOF'
+CLAUDE.md=50000
+product/PRODUCT.md=10000
+EOF
+  local claude_ceiling
+  claude_ceiling=$(awk -F= '/^CLAUDE\.md=/{print $2; exit}' "$scratch_dir/gate/always-loaded-budget.txt")
+  if [[ "$claude_ceiling" -gt 12000 ]]; then
+    ok "rule_136_autoload_tier_integrity_oversized_neg" "Rule G-19 / Rule 136: oversized CLAUDE.md ceiling ($claude_ceiling > 12000) is detected"
+  else
+    fail "rule_136_autoload_tier_integrity_oversized_neg" "Rule G-19 / Rule 136: oversized CLAUDE.md ceiling detector did not flag $claude_ceiling"
+  fi
+}
+
+test_rule_137_governance_infra_honesty_pos() {
+  # Rule G-20 / Rule 137 — artefacts marked governance_infra:true MUST NOT use
+  # product-value vocabulary (customer / beneficiary / saves time/cost / etc).
+  # Advisory at W5 landing. POSITIVE: rule wired in canonical gate.
+  if [[ ! -f gate/check_architecture_sync.sh ]]; then
+    skip "rule_137_governance_infra_honesty_pos" "canonical gate script missing"
+    return
+  fi
+  if ! grep -q '"governance_infra_honesty"' gate/check_architecture_sync.sh; then
+    fail "rule_137_governance_infra_honesty_pos" "Rule 137 slug 'governance_infra_honesty' missing from canonical gate script"
+    return
+  fi
+  ok "rule_137_governance_infra_honesty_pos" "Rule G-20 / Rule 137: governance_infra_honesty rule wired in canonical gate (advisory at W5 landing)"
+}
+
+test_rule_138_productclaim_placeholder_decreasing_pos() {
+  # Rule G-21 / Rule 138 — count of product_claim_placeholder:true markers
+  # MUST decrease monotonically across Phase B cluster cycles. Reaching zero
+  # is the Phase B convergence signal and the promotion trigger for G-16/G-17/
+  # G-18/G-20. Advisory at W5 landing; passes vacuously until baseline lands.
+  if [[ ! -f gate/check_architecture_sync.sh ]]; then
+    skip "rule_138_productclaim_placeholder_decreasing_pos" "canonical gate script missing"
+    return
+  fi
+  if ! grep -q '"productclaim_placeholder_decreasing"' gate/check_architecture_sync.sh; then
+    fail "rule_138_productclaim_placeholder_decreasing_pos" "Rule 138 slug 'productclaim_placeholder_decreasing' missing from canonical gate script"
+    return
+  fi
+  ok "rule_138_productclaim_placeholder_decreasing_pos" "Rule G-21 / Rule 138: productclaim_placeholder_decreasing rule wired in canonical gate (advisory at W5 landing)"
+}
+
+test_rule_131_meta_no_fail_open_pipelines() {
+  # Round-3 Wave Alpha preventive meta-test: scans gate/check_*.sh for
+  # the known fail-open shell pattern `... || true` IMMEDIATELY followed
+  # by a `$?` / `rc=$?` capture, which makes the captured exit code
+  # always 0 and turns any downstream `if -ne 0` branch into dead code.
+  # The Round-3 R1 defect was an instance of this exact pattern at
+  # gate/check_architecture_sync.sh:7092 (now closed). This fixture
+  # guards against re-introduction across the gate corpus.
+  local allowlist="$PWD/gate/fail-open-allowlist.txt"
+  local hits
+  hits=$(grep -rEn '\|\|\s*true\)?\s*$' "$PWD/gate/check_architecture_sync.sh" "$PWD/gate/check_architecture_workspace.sh" "$PWD/gate/check_parallel.sh" 2>/dev/null \
+         | grep -vE '#.*\|\| true' || true)
+  local violations=""
+  if [[ -n "$hits" ]]; then
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      local file_line
+      file_line=$(echo "$line" | cut -d: -f1-2)
+      # Look at the NEXT line for an exit-code capture.
+      local file_path="${file_line%:*}"
+      local line_num="${file_line##*:}"
+      local next_num=$((line_num + 1))
+      local next_line
+      next_line=$(sed -n "${next_num}p" "$file_path" 2>/dev/null)
+      if echo "$next_line" | grep -qE '(_rc|rc)\s*=\s*\$\?'; then
+        if [[ ! -f "$allowlist" ]] || ! grep -qF "$file_line" "$allowlist"; then
+          violations="$violations\n$file_line followed by exit-code capture: $(echo "$next_line" | sed 's/^[[:space:]]*//')"
+        fi
+      fi
+    done <<< "$hits"
+  fi
+  if [[ -n "$violations" ]]; then
+    fail "meta_no_fail_open_pipelines" "Found fail-open shell pattern (\`... || true\` followed by \`\$?\` capture) — Rule G-15 prevention; add legitimate uses to gate/fail-open-allowlist.txt:$violations"
+  else
+    ok "meta_no_fail_open_pipelines" "No fail-open shell pattern (\`... || true\` + exit-code capture) detected across gate/check_*.sh — F-gate-machinery-fail-open-pattern prevention green"
+  fi
+}
+
+test_rule_131_fact_layer_integrity_pos() {
+  # Rule G-15.a — architecture/facts/{README.md, schema/fact.schema.yaml,
+  # generated/} and architecture/profile/saa-property-authority.yaml MUST exist.
+  # Wave 1 fixture: structural existence check (the python driver does the
+  # full validation; this fixture mirrors its sub-clause .a contract).
+  local missing=""
+  for required in \
+      "architecture/facts/README.md" \
+      "architecture/facts/schema/fact.schema.yaml" \
+      "architecture/facts/generated/.gitkeep" \
+      "architecture/profile/saa-property-authority.yaml"; do
+    if [[ ! -e "$required" ]]; then
+      missing="$missing $required"
+    fi
+  done
+  if [[ -n "$missing" ]]; then
+    fail "rule_131_fact_layer_integrity_pos" "Rule G-15.a violation: missing required fact-layer artifact(s):$missing"
+    return
+  fi
+  # Sanity-check the schema file declares schema_version and the 8 required
+  # provenance fields under properties:.
+  local schema="architecture/facts/schema/fact.schema.yaml"
+  for required_field in fact_id fact_kind source_kind source_path extractor extractor_version repo_commit observed_value; do
+    if ! grep -qE "^\s+$required_field:" "$schema"; then
+      fail "rule_131_fact_layer_integrity_pos" "Rule G-15.a violation: schema $schema missing required field property '$required_field'"
+      return
+    fi
+  done
+  ok "rule_131_fact_layer_integrity_pos" "Rule G-15.a / Rule 131: fact-layer structure + schema fields present"
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #

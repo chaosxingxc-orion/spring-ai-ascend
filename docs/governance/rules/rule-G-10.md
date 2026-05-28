@@ -7,6 +7,7 @@ principle_ref: P-B
 authority_refs: ["ADR-0098"]
 enforcer_refs: [E164]
 status: active
+governance_infra: true
 scope_phase: always_on
 kernel_cap: 8
 scope_surfaces:

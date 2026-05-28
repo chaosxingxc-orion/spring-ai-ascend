@@ -1,6 +1,7 @@
 id: ADR-0143
 title: "rc53 review file 2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.{en,cn}.md is DEMOTED from canonical L1 4+1 source to historical authoring record; canonical 4+1 source moves to docs/L1/agent-service/{scenarios,logical,process,physical,development,spi-appendix}.md; agent-service/ARCHITECTURE.md §0.5 rewritten to point at the new canonical home"
 status: accepted
+governance_infra: true
 date: 2026-05-26
 level: L1
 view: scenarios

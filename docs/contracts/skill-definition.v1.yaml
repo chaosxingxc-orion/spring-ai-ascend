@@ -9,6 +9,8 @@
 #   com.huawei.ascend.middleware.skill.spi.SkillRef
 # mirror this schema.
 
+product_claim: "PC-001|PC-004"
+
 schema: skill-definition/v1
 status: design_only
 runtime_enforced: false

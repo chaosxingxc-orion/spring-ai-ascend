@@ -1,6 +1,7 @@
 id: ADR-0134
 title: "Tool-Call Iteration Loop: agent-driven vs. planner-driven execution modes for LLM <-> Tool <-> LLM iteration"
 status: accepted
+product_claim: "PC-003"
 date: 2026-05-25
 level: L0
 view: process

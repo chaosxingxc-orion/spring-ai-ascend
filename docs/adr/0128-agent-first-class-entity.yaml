@@ -1,6 +1,7 @@
 id: ADR-0128
 title: "Agent first-class SPI: `Agent` binds (identity, modelBinding, toolBindings, memoryBindings, systemPrompt, safetyPolicy); `AgentDefinition` + `AgentRegistry` complete the entry-point surface"
 status: accepted
+product_claim: "PC-001"
 date: 2026-05-25
 level: L0
 view: development

@@ -1,6 +1,7 @@
 id: ADR-0099
 title: "rc22 — L1 Architecture Depth & Grounding (Rule G-1.1) + Tree-Parser + SPI-Appendix-Scanner"
 status: accepted
+governance_infra: true
 date: 2026-05-22
 level: L0
 view: development

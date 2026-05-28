@@ -17,6 +17,8 @@
 #
 # Self-enforced by gate Rule 58 (s2c_callback_yaml_present_and_wellformed).
 
+product_claim: "PC-004"
+
 schema: s2c-callback/v1
 # Post-review status label (plan G / §5): S2C protocol is runtime_enforced --
 # SyncOrchestrator catches SuspendSignal once and branches on isClientCallback()

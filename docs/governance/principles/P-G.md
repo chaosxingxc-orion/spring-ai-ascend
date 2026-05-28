@@ -5,6 +5,7 @@ level: L0
 view: process
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
 enforced_by_rules: [R-G]   # formerly Rule 37 (numeric pre-ADR-0086)
+product_claim: "PC-003"
 kernel: |
   P-G — Absolute Non-Blocking I/O.
   External I/O calls (model gateway, vector DB, sandbox dispatch) MUST use
@@ -31,7 +32,7 @@ This principle exists because **a single blocking external call holds an OS thre
 ## Cross-references
 
 - ADR-0069 (origin of Rules 35–42 and the LucioIT W1 §6.3 absolute-non-blocking doctrine)
-- Deferred sub-clause 37.c — `agent-platform` `JdbcTemplate` uses (HealthCheckRepository, PlatformOssApiProbe) migrate to R2DBC in W2 — see [`docs/CLAUDE-deferred.md`](../../CLAUDE-deferred.md)
+- Deferred sub-clause 37.c — `agent-platform` `JdbcTemplate` uses (HealthCheckRepository, PlatformOssApiProbe) migrate to R2DBC in W2; legacy deferred-rule registry retired 2026-05-28, see [`retired-rules-audit.md`](../retired-rules-audit.md)
 - Deferred sub-clause 46.c — synchronous S2C bridge non-blocking lifecycle (W2 async orchestrator)
 - Related: P-H (Chronos Hydration) — sleeping declaratively is the second half of "never hold a thread"
 - Related: P-K (Skill Capacity) — skill-pool exhaustion suspends agents instead of blocking threads

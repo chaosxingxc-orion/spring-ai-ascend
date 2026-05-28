@@ -1,6 +1,7 @@
 id: ADR-0082
 title: "GraphMemoryRepository canonical ownership + module-metadata.yaml is single source of truth for SPI ownership topology"
 status: accepted
+governance_infra: true
 date: 2026-05-18
 level: L0
 view: development

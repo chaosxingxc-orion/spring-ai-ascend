@@ -1,6 +1,7 @@
 id: ADR-0070
 title: "Cursor Flow + Skill Capacity Runtime — activation of Rules 36.b and 41.b"
 status: accepted
+product_claim: "PC-003"
 date: 2026-05-15
 level: L1
 view: process

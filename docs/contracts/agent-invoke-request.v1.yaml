@@ -10,6 +10,8 @@
 # This contract operationalizes the Run ≤ Task ≤ Session ≤ Memory
 # lifecycle (per ADR-0100 §decision).
 
+product_claim: "PC-001"
+
 schema: agent-invoke-request/v1
 authority: ADR-0100
 status: schema_shipped

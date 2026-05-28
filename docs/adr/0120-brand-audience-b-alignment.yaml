@@ -1,6 +1,7 @@
 id: ADR-0120
 title: "Brand & Audience B alignment: KEEP `spring-ai-ascend` identity and Audience B promise; close the L0 agentic-primitive contract gap"
 status: accepted
+governance_infra: true
 date: 2026-05-25
 level: L0
 view: scenarios

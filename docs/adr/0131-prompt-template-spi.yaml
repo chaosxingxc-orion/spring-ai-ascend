@@ -1,6 +1,7 @@
 id: ADR-0131
 title: "PromptTemplate SPI: tenant-scoped, sealed-source, pure-Java template-rendering boundary; Spring AI PromptTemplate is the reference adapter"
 status: accepted
+product_claim: "PC-001|PC-004"
 date: 2026-05-25
 level: L0
 view: development

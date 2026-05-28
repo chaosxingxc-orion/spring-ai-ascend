@@ -1,6 +1,7 @@
 id: ADR-0141
 title: "Internal Event Queue (ADR-0138 Layer 3) is a design_only sub-section of agent-service L1 until a service.queue/ sub-package + Boundary Contract land; current state shows the Layer 3 binding-only role over the three-track bus; no peer-layer code home exists at rc55"
 status: accepted
+product_claim: "PC-003"
 date: 2026-05-26
 level: L1
 view: logical

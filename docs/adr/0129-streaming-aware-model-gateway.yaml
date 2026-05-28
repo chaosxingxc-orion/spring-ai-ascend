@@ -1,6 +1,7 @@
 id: ADR-0129
 title: "Streaming-aware ModelGateway: pure-Java `Stream<ModelResponseChunk>` default; Spring AI ChatModel.stream(...) is the reference adapter source"
 status: accepted
+product_claim: "PC-003|PC-004"
 date: 2026-05-25
 level: L0
 view: development

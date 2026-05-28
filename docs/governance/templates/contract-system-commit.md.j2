@@ -53,6 +53,7 @@ Markers: **P** = primary · **X** = cross-reference.
 | G-13 | Single-Source Rendering Coherence | **P** | [`rule-G-13.md`](../rules/rule-G-13.md) |
 | M-2 | Domain Contract Discipline (schema-first + design-only registration + DFX-stem truth) | **X** | [`rule-M-2.md`](../rules/rule-M-2.md) |
 | R-B | Competitive Baselines Required | **P** | [`rule-R-B.md`](../rules/rule-R-B.md) |
+| G-19 | Auto-Load Tier Integrity | **P** | [`rule-G-19.md`](../rules/rule-G-19.md) |
 
 ## Forbidden patterns (this phase)
 

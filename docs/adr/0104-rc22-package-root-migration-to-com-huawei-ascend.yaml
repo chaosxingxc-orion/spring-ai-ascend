@@ -1,6 +1,7 @@
 id: ADR-0104
 title: "rc22 — Package-root migration (decision; rc22.5 executes)"
 status: accepted
+governance_infra: true
 date: 2026-05-22
 level: L0
 view: development

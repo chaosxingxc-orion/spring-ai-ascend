@@ -1,6 +1,7 @@
 id: ADR-0081
 title: "ResilienceContract dual-surface reconciliation (operation-policy + skill-capacity)"
 status: accepted
+governance_infra: true
 date: 2026-05-18
 level: L0
 view: logical

@@ -1,0 +1,12 @@
+# docs/contracts/parse-exempt.txt
+#
+# Authority: ADR-0154 + Round-2 Wave B (2026-05-28 expert-review P1-3).
+#
+# Each line names a `<basename>.v1.yaml` file under docs/contracts/ that the
+# ContractFactExtractor MUST tolerate as non-parseable. The pre-2026-05-28
+# behaviour was to emit a `parse_failed: true` fact silently; the corrected
+# behaviour is to FAIL the extractor unless the basename is listed here.
+#
+# Empty / comment-only file = ZERO exemptions = every contract MUST parse.
+# Adding a basename here REQUIRES a paired follow-up ticket to clean the
+# contract OR justify the exemption.

@@ -1,6 +1,7 @@
 id: ADR-0110
 title: "Audit log tamper-evidence (per-tenant hash-chain + Merkle anchor) + Hook PII failsafe carve-out via @SafetyCritical"
 status: accepted
+governance_infra: true
 date: 2026-05-23
 level: L0
 view: logical

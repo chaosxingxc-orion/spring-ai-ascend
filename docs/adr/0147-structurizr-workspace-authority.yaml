@@ -1,6 +1,7 @@
 id: ADR-0147
 title: "Structurizr workspace closure as the architecture authoring root, with programmatic mounting"
 status: accepted
+governance_infra: true
 date: 2026-05-27
 level: L0
 view: scenarios

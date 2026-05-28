@@ -5,6 +5,7 @@ level: L0
 view: physical
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
 enforced_by_rules: [R-L]   # formerly Rule 42 (numeric pre-ADR-0086)
+product_claim: "PC-003"
 kernel: |
   P-L — Sandbox Permission Subsumption.
   Logical authorizations issued by the bus MUST 1:1 map to physical sandbox
@@ -27,5 +28,5 @@ This principle exists because **a logical authorization issued by the bus to a d
 
 - ADR-0069 (origin of Rules 35–42 and the LucioIT W1 §7.4 sandbox subsumption doctrine)
 - Policy source of truth: [`docs/governance/sandbox-policies.yaml`](../sandbox-policies.yaml) — `default_policy:` block with six required keys (outbound_network, filesystem_read, filesystem_write, cpu_cap_millicores, memory_cap_megabytes, wall_clock_cap_seconds)
-- Deferred sub-clause 42.b — runtime enforcement of over-wide grant refusal (W2 trigger) — see [`docs/CLAUDE-deferred.md`](../../CLAUDE-deferred.md)
+- Deferred sub-clause 42.b — runtime enforcement of over-wide grant refusal (W2 trigger); legacy deferred-rule registry retired 2026-05-28, see [`retired-rules-audit.md`](../retired-rules-audit.md)
 - Related: P-I (Five-Plane Topology) — Sandbox Execution plane is where physical limits live

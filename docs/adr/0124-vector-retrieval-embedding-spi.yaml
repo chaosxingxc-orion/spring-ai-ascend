@@ -1,6 +1,7 @@
 id: ADR-0124
 title: "VectorStore / Retriever / EmbeddingModel SPIs: tenant-scoped decorators of Spring AI types; RAG becomes a first-class platform extension seam"
 status: accepted
+product_claim: "PC-001|PC-005"
 date: 2026-05-25
 level: L0
 view: development

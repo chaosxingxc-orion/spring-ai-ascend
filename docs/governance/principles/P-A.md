@@ -5,6 +5,7 @@ level: L0
 view: development
 authority: "Layer 0 governing principle (CLAUDE.md)"
 enforced_by_rules: [R-A]   # formerly Rule 29 (numeric pre-ADR-0086)
+product_claim: "PC-001"
 kernel: |
   P-A — Business / Platform Decoupling + Developer Self-Service.
   Business code and Platform code are decoupled.
@@ -28,5 +29,5 @@ This principle exists because **platform internals patched in-place by business 
 ## Cross-references
 
 - ADR-0064 (origin of Rule R-A and the developer self-service mandate)
-- Deferred sub-clause 29.c — quickstart smoke-run in CI (W1 trigger), see [`docs/CLAUDE-deferred.md`](../../CLAUDE-deferred.md)
+- Deferred sub-clause 29.c — quickstart smoke-run in CI (W1 trigger); legacy deferred-rule registry retired 2026-05-28, see [`retired-rules-audit.md`](../retired-rules-audit.md)
 - Related: P-C (Independent Modules) — without module independence, decoupling is rhetorical

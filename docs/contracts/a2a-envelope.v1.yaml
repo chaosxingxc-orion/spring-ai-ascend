@@ -11,6 +11,8 @@
 # translation at the contract boundary; A2A interoperability is
 # achieved via mapping, not by importing an A2A SDK.
 
+product_claim: "PC-002|PC-004"
+
 schema: a2a-envelope/v1
 authority: ADR-0100
 adoption_policy: contract_only  # NO SDK dep per Rejection 3

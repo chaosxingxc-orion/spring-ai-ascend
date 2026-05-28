@@ -1,6 +1,7 @@
 id: ADR-0119
 title: "Single-Source Rendering for derived architecture documents (release notes, READMEs, contract catalog, recurring-families.md, L1 ARCHITECTURE.md): Rule G-13 + Falcon 11-wave roadmap"
 status: accepted
+governance_infra: true
 date: 2026-05-25
 level: L0
 view: scenarios

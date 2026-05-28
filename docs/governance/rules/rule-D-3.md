@@ -7,6 +7,7 @@ principle_ref: P-D
 authority_refs: []
 enforcer_refs: [E112]
 status: active
+governance_infra: true
 scope_phase: verify
 kernel_cap: 12
 kernel: |

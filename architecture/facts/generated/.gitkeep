@@ -1,0 +1,12 @@
+# This directory holds machine-extracted fact files produced ONLY by the
+# deterministic extractor binaries under tools/architecture-workspace and
+# gate/lib/extractors/. See ../README.md for the LLM-no-author contract.
+#
+# Current state (Round-2 Wave A, 2026-05-28): six fact files populated —
+# module-build.json + adrs.json + runtime-config.json + contract-surfaces.json
+# + code-symbols.json + tests.json. Rule G-15 sub-clauses a/b/c/d are all
+# blocking; ExtractFactsCli --check verifies byte-identical regen via the
+# gate (closes 2026-05-28 expert-review P1-1, P1-2, P1-3, P2-3).
+#
+# .gitkeep is retained so the directory remains in version control even
+# during transient cleanup operations.

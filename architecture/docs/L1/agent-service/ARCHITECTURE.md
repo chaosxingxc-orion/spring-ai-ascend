@@ -660,8 +660,8 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
 
 ## 10. Roadmap
 
-- Deferred capabilities and design decisions: `docs/CLAUDE-deferred.md`; current delivery state per wave (W0..W4): `docs/governance/architecture-status.yaml` (structured capability ledger; the prior `docs/STATE.md` pointer was removed at the rc6 wave — never landed on disk).
-- Wave engineering plan: `ARCHITECTURE.md §1 + docs/governance/architecture-status.yaml + docs/CLAUDE-deferred.md` (per ADR-0037; engineering-plan-W0-W4.md archived).
+- Deferred capabilities and design decisions: `deferred_sub_clauses:` block in each alphanumeric rule card under `docs/governance/rules/` (parent-rule frontmatter); legacy rules awaiting human review at `docs/governance/escalations.md` (the prior `docs/CLAUDE-deferred.md` monolith was retired 2026-05-28). Current delivery state per wave (W0..W4): `docs/governance/architecture-status.yaml` (structured capability ledger; the prior `docs/STATE.md` pointer was removed at the rc6 wave — never landed on disk).
+- Wave engineering plan: `ARCHITECTURE.md §1 + docs/governance/architecture-status.yaml + per-card deferred_sub_clauses blocks under docs/governance/rules/` (per ADR-0037; engineering-plan-W0-W4.md archived).
 - Phase C consolidation specification: `docs/adr/0078-agent-service-consolidation.yaml`; execution plan: `docs/plans/phase-c-merge.md`.
 
 ---

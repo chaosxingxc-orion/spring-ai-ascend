@@ -1,0 +1,364 @@
+---
+file_id: PERF-V1-0-BASELINES
+product_claim: PC-003
+status: design_only
+authority: ADR-0155
+target_personas: ["Persona-D"]
+v1_0_ship_blocker: true
+---
+
+# Performance Baselines for v1.0 Financial MVP — Ascend NPU + Kunpeng ARM64
+#
+# Authority: ADR-0155 (Product Authority and Traceability Chain).
+# Product claim: PC-003 (Production-grade for the AI-platform era — financial-vertical mandate).
+# Primary persona: Persona-D (Enterprise SRE / Production Operator).
+#
+# Purpose: declare the measurable, regulator-defensible performance SLOs that
+# v1.0 commits to when deployed on sovereign Huawei silicon (Kunpeng 920
+# ARM64 CPU + Ascend 310 inference card). These numbers form the SLA contract
+# the central platform team (Persona-A) offers to consuming business centers
+# in 中台-mode deployments and the SLA Persona-D measures against in
+# production. Numbers below are TARGETS for the v1.0 release window
+# (2026-06-30) and become baseline metrics when the corresponding
+# instrumentation lands in a follow-up impl-mode wave.
+#
+# Why this file exists:
+#   - PC-003 sub-dimension `cost_capacity_governance` requires SLO declaration
+#     before instrumentation. Without a published target the cost / capacity
+#     enforcer cannot reject Run admissions that would breach it.
+#   - Persona-D pain_points_today names "no posture-aware default model" and
+#     "cost reporting absent at the agent-instance granularity"; the targets
+#     below resolve both by attaching posture + granularity to every SLO.
+#   - The 中台-mode reference deployment (`deploy/middle-office-reference/`)
+#     sizes its Kubernetes resource requests + limits against these numbers
+#     — they are the upstream source for `resources:` blocks in those Helm
+#     templates, not a downstream observation of them.
+#
+# Promotion path: status flips from `design_only` to `runtime_enforced` when
+# Phase B wires the OTel + Prometheus exporters specified in
+# `docs/cross-cutting/non-functional-requirements.md` and the
+# `springai_ascend_*` counter/timer surface declared in §5 of
+# `docs/contracts/contract-catalog.md`. Each target row below carries
+# `instrumentation_status: not_yet_wired` until that wave lands.
+
+schema_version: "1.0"
+generated_at: 2026-05-28
+last_updated: 2026-05-28
+release_target: "v1.0 / 2026-06-30"
+status: design_only
+runtime_enforced: false
+promotion_trigger: |
+  Impl-mode wave that ships:
+    1. The `springai_ascend_runs_admit_seconds` + `springai_ascend_tool_call_seconds`
+       + `springai_ascend_model_invoke_seconds` Prometheus timer surface from
+       `docs/contracts/contract-catalog.md` §5.
+    2. The `PerfBaselineRegressionIT` integration tests that load this yaml at
+       boot, scrape the live `/actuator/prometheus` endpoint after a fixed
+       traffic profile, and FAIL if any target row's p95 is exceeded.
+    3. The Kunpeng+Ascend reference-hardware soak run captured at
+       `perf/baseline-<date>-kunpeng-ascend.md` with raw histograms attached.
+    4. The `regression_adr:` linkage from `docs/governance/competitive-baselines.yaml#performance`
+       resolved to a concrete ADR rather than a `to be filed` placeholder.
+  At that point each row's `instrumentation_status` flips to `wired` and the
+  `current_value` row attaches the observed measurement.
+
+# ---------------------------------------------------------------------------
+# Reference hardware spec — the silicon every SLO below is measured against.
+# Banks deploying on different SKUs MUST publish their own per-SKU sheet that
+# references this one. v1.0 commits ONLY to the Kunpeng 920 + Ascend 310
+# combination listed here; other silicon is best-effort until certified.
+# ---------------------------------------------------------------------------
+reference_hardware:
+  cpu:
+    family: "Huawei Kunpeng 920"
+    architecture: "ARM64 / aarch64"
+    cores: 4
+    base_clock_ghz: 2.6
+    notes: |
+      Single-socket 4-core slice of a Kunpeng 920 server SKU (typical
+      bank deployment leases a 32-core/64-core node and carves agent-service
+      pods at 4-core boundaries). Performance numbers below assume no
+      hyperthreading bursting and CPU governor pinned to performance mode.
+  memory:
+    size_gib: 8
+    type: "DDR4-2933 ECC"
+  npu:
+    family: "Huawei Ascend 310"
+    role: "inference card for Ascend-hosted Llama-class models"
+    notes: |
+      Ascend 310 is the inference SKU; training is out of scope for v1.0
+      (Persona-D operates RUNTIME, not training). Ascend 910 is the training
+      SKU and lands as a separate baselines sheet in v1.5 when the evolution
+      plane (P-I evolution plane) ships its RL trajectory pipeline.
+  os:
+    kernel: "openEuler 22.03 LTS (ARM64)"
+    notes: "Sovereign-compatible Linux base; same kernel that the 中台 reference deployment manifests assume."
+  jvm:
+    distribution: "BiSheng JDK 21 (Huawei) OR OpenJDK 21 Temurin"
+    target_garbage_collector: "ZGC generational"
+    notes: |
+      BiSheng JDK ships Kunpeng-tuned intrinsics; OpenJDK 21 is the fallback
+      for environments that cannot consume the Huawei distribution. Both
+      MUST run ZGC generational for the long-pause-sensitive Run admission
+      path (Rule R-F Cursor Flow + Rule R-G Reactive External I/O).
+
+# ---------------------------------------------------------------------------
+# Run admission SLOs — the front-door HTTP latency Persona-D measures.
+# ---------------------------------------------------------------------------
+run_admission:
+  description: |
+    `POST /v1/runs` is the front-door admission route (Rule R-F Cursor Flow).
+    It MUST return a Task Cursor immediately and MUST NOT hold the connection
+    while work executes. The latency target below covers cursor-issuance only,
+    NOT downstream execution.
+  product_claim: PC-003
+  target_persona: Persona-D
+  metric:
+    name: springai_ascend_runs_admit_seconds
+    type: histogram_timer
+    posture: prod
+  targets:
+    p50_ms: 100
+    p95_ms: 500
+    p99_ms: 1000
+  rationale: |
+    p95 ≤ 500ms on Kunpeng ARM64 4-core / 8GiB matches the microservices-era
+    admission SLO bank Persona-D operators are already accountable to. p99
+    ≤ 1000ms absorbs JVM safepoint pauses and ZGC concurrent cycles.
+  instrumentation_status: not_yet_wired
+  current_value: "N/A"
+  measurement_status: "not-yet-instrumented; wired in Phase B"
+  last_measured: null
+  regression_policy: "2x baseline rule per perf/README.md regression policy"
+
+# ---------------------------------------------------------------------------
+# Tool-call SLOs — per-skill latency targets.
+# Rule R-K Skill Capacity Matrix + Rule R-M.c Hook Points govern admission.
+# These targets feed the per-skill capacity numbers in
+# `docs/governance/skill-capacity.yaml` (a slow tool MUST consume more
+# capacity than a fast one).
+# ---------------------------------------------------------------------------
+tool_call:
+  description: |
+    Per-skill p95 latency targets at the tool-call boundary. The internal
+    API class is the fastest; external API class crosses the bank's
+    perimeter; model gateway class is provider-dependent and inherits from
+    `model_invocation` below.
+  product_claim: PC-003
+  target_persona: Persona-D
+  metric:
+    name: springai_ascend_tool_call_seconds
+    type: histogram_timer
+    posture: prod
+    cardinality_label: skill_class
+  classes:
+    - id: internal_api
+      description: "Tool call to an in-cluster business system (loan ledger, AML score lookup, customer master). Same VPC, mTLS, no external hop."
+      targets:
+        p50_ms: 30
+        p95_ms: 100
+        p99_ms: 250
+      example_skills:
+        - id: loan-ledger-query
+          notes: "Same Postgres tenant_id partition the agent-service shares."
+        - id: aml-score-lookup
+          notes: "Internal AML microservice; gRPC over mTLS."
+      instrumentation_status: not_yet_wired
+    - id: external_api
+      description: "Tool call to a bank-external business system (credit bureau, regulator-filing endpoint, third-party KYC). Crosses the bank's perimeter; subject to firewall + outbound proxy + per-destination allowlist (per `docs/governance/sandbox-policies.yaml#financial_default`)."
+      targets:
+        p50_ms: 300
+        p95_ms: 1000
+        p99_ms: 3000
+      example_skills:
+        - id: credit-bureau-pull
+          notes: "External HTTPS to PBOC credit bureau; ~300-800ms typical."
+        - id: kyc-third-party-verify
+          notes: "External KYC vendor; bounded by their SLA."
+      instrumentation_status: not_yet_wired
+    - id: model_gateway
+      description: "Tool call that routes through the model gateway. Per-model latency dominates; see `model_invocation` section for per-provider/per-model targets."
+      targets:
+        p95_ms: "see model_invocation.providers[].p95_ms"
+      delegates_to: model_invocation
+      instrumentation_status: not_yet_wired
+  current_value: "N/A"
+  measurement_status: "not-yet-instrumented; wired in Phase B"
+  last_measured: null
+
+# ---------------------------------------------------------------------------
+# Model invocation SLOs — per-provider, per-model targets.
+# Three provider classes covered: local Ascend-hosted (sovereign), Pangu
+# Ascend-cloud-served (sovereign cloud), and OpenAI-compatible gateway
+# pass-through (non-sovereign, gateway overhead only).
+# ---------------------------------------------------------------------------
+model_invocation:
+  description: |
+    Per-provider, per-model first-token + streaming targets. The model
+    gateway is Rule R-M.c HookPoint binding site; `BEFORE_LLM` /
+    `AFTER_LLM` hooks attach cost-governance + audit-trail capture.
+    First-token latency is the operationally meaningful number for
+    Persona-D (long first-token + fast streaming = bad UX for chat
+    workloads; the inverse = good UX). Streaming token rate matters for
+    chunked-output workloads (loan-narrative drafting, AML report).
+  product_claim: PC-003
+  target_persona: Persona-D
+  metric:
+    name: springai_ascend_model_invoke_seconds
+    type: histogram_timer
+    posture: prod
+    cardinality_label: model_id
+  providers:
+    - id: ascend_local_llama_class
+      description: |
+        Llama-class open-weight models served locally on the Ascend 310
+        inference card (Qwen2-7B, Llama-3-8B, ChatGLM3-6B family).
+        Sovereign-deployable; no outbound network hop.
+      targets:
+        first_token_p95_ms: 2000
+        streaming_per_token_p95_ms: 50
+        full_response_p95_ms: "first_token_p95 + completion_tokens * streaming_per_token_p95"
+      example_models:
+        - id: "qwen2-7b-instruct"
+          notes: "Default v1.0 sovereign model for chat workloads. 4-bit quantization on Ascend 310."
+        - id: "llama-3-8b-instruct"
+          notes: "Fallback open-weight model; same Ascend 310 deployment shape."
+      instrumentation_status: not_yet_wired
+    - id: pangu_ascend_cloud
+      description: |
+        Pangu LLM family served via the Ascend Cloud REST endpoint
+        (`pangu.ascend-cloud.com:443`). Sovereign cloud; first-tier choice
+        for Chinese bank deployments needing a stronger model than the
+        local Ascend 310 can host.
+      targets:
+        first_token_p95_ms: 1500
+        streaming_per_token_p95_ms: 40
+        full_response_p95_ms: "first_token_p95 + completion_tokens * streaming_per_token_p95"
+      example_models:
+        - id: "pangu-nlp-banking"
+          notes: "Banking-domain-tuned Pangu model. Sovereign-served; allowed in `docs/governance/sandbox-policies.yaml#skills.model-call.outbound_network.destinations`."
+      instrumentation_status: not_yet_wired
+    - id: openai_compatible_gateway_passthrough
+      description: |
+        OpenAI / Anthropic API-compatible model gateway pass-through. The
+        latency target below is GATEWAY OVERHEAD ONLY (the time
+        `ModelGateway.invoke` adds on top of the upstream provider's
+        latency); the provider itself is out of our SLA. Used by
+        non-sovereign deployment shapes (能力复用 v1.1 + 中台 deployments
+        explicitly opting into a foreign model).
+      targets:
+        overhead_p95_ms: 100
+        notes: "Total p95 = upstream_provider_p95 + 100ms. Upstream typically 300-2000ms first-token for gpt-4o-mini / claude-3-haiku."
+      example_models:
+        - id: "openai/gpt-4o-mini"
+          notes: "OpenAI pass-through; not sovereign — restricted to non-PII workloads under `pii_egress_to_model: false` in `docs/governance/sandbox-policies.yaml#financial_default`."
+        - id: "anthropic/claude-3-haiku"
+          notes: "Anthropic pass-through; same PII restriction."
+      instrumentation_status: not_yet_wired
+  current_value: "N/A"
+  measurement_status: "not-yet-instrumented; wired in Phase B"
+  last_measured: null
+
+# ---------------------------------------------------------------------------
+# Throughput target — concurrent Runs per agent-service instance.
+# Sized so a 4-core / 8GiB pod supports 100 simultaneous in-flight Runs
+# without breaching the p95 numbers above.
+# ---------------------------------------------------------------------------
+throughput:
+  description: |
+    Concurrent in-flight Runs per agent-service Kubernetes pod at the p95
+    SLA declared above. A Run is "in-flight" when its status ∈ {ADMITTED,
+    RUNNING, SUSPENDED_WAITING_S2C, SUSPENDED_RATE_LIMITED}. Terminal
+    statuses (COMPLETED, FAILED, CANCELLED) are NOT counted.
+  product_claim: PC-003
+  target_persona: Persona-D
+  targets:
+    concurrent_runs_per_instance: 100
+    sustained_admissions_per_second: 20
+    burst_admissions_per_second: 50
+  rationale: |
+    100 concurrent Runs per 4-core/8GiB pod is feasible because Rule R-F
+    (Cursor Flow) + Rule R-G (Reactive External I/O) + Rule R-H (no
+    Thread.sleep in business code) ensure the Run is virtual-thread or
+    Reactor-scheduled, not OS-thread-pinned. The bottleneck is the
+    R2DBC connection pool + the model gateway capacity matrix
+    (`docs/governance/skill-capacity.yaml#model-call.capacity_per_tenant`).
+  instrumentation_status: not_yet_wired
+  current_value: "N/A"
+  last_measured: null
+
+# ---------------------------------------------------------------------------
+# Tenant isolation overhead — RLS on Postgres tenant_id queries.
+# Rule R-J.a (Storage-Engine Tenant Isolation) requires RLS at the
+# storage layer; the cost MUST be quantified so Persona-D + Persona-F
+# can defend it to internal architecture review boards.
+# ---------------------------------------------------------------------------
+tenant_isolation_overhead:
+  description: |
+    Postgres Row-Level Security (Rule R-J.a) adds a `tenant_id = current_setting('app.tenant_id')`
+    predicate to every query against tenant-bearing tables. Persona-D
+    + Persona-F need to know the cost; the target below is the upper
+    bound on that cost relative to a `SET ROLE bypass_rls` baseline run
+    against the same dataset.
+  product_claim: PC-003
+  target_personas: ["Persona-D", "Persona-F"]
+  targets:
+    p95_latency_overhead_percent_max: 5
+    cpu_overhead_percent_max: 3
+    notes: "Measured against a 1M-row tenant-partitioned table with the standard B-tree index on (tenant_id, primary_key)."
+  rationale: |
+    <5% p95 overhead is the threshold internal architecture review boards
+    at Chinese banks have historically accepted for storage-engine RLS
+    (per ADR-0061 reference notes on prior bank deployments). Above 5%
+    the conversation flips to application-tier filtering, which Rule R-J.a
+    forbids. The 3% CPU number is the secondary cost — RLS predicate
+    evaluation is cheap but non-zero.
+  instrumentation_status: not_yet_wired
+  current_value: "N/A"
+  last_measured: null
+
+# ---------------------------------------------------------------------------
+# Memory cap — per-agent resident memory.
+# Sized so a 100-concurrent-Run pod fits the 8GiB pod budget with headroom.
+# ---------------------------------------------------------------------------
+memory_cap:
+  description: |
+    Per-agent resident memory cap. An "agent" here is an `Agent`-SPI
+    instance (per ADR-0128); a single tenant may have many agents, but
+    each individual agent's resident footprint is bounded so capacity
+    planning is linear.
+  product_claim: PC-003
+  target_persona: Persona-D
+  targets:
+    resident_megabytes_p95: 512
+    resident_megabytes_p99: 768
+    notes: |
+      512MB p95 leaves ~3 GiB of headroom in an 8GiB pod after JVM heap
+      (4GiB ZGC), per-pod system overhead (~512MB), and the agent
+      instances themselves (~512MB × small-N agents per pod).
+  rationale: |
+    The 512MB number derives from the conversation-memory window size
+    (`docs/contracts/chat-advisor.v1.yaml` token-budget) + per-agent
+    skill-binding registry + the agent-local prompt-template cache.
+    Agents above 512MB resident usually leak memory through unbounded
+    conversation history; Rule R-K capacity admission lands the agent
+    into SUSPENDED_RATE_LIMITED rather than allowing the leak to
+    propagate.
+  instrumentation_status: not_yet_wired
+  current_value: "N/A"
+  last_measured: null
+
+# ---------------------------------------------------------------------------
+# Cross-references — links into companion artefacts.
+# ---------------------------------------------------------------------------
+relates_to:
+  - product/PRODUCT.md                                # PC-003 + Persona-D authority
+  - product/claims.yaml                               # PC-003 success_metric definition
+  - product/personas.yaml                             # Persona-D daily_job + pain_points
+  - docs/governance/competitive-baselines.yaml        # `performance` row references this file
+  - docs/governance/skill-capacity.yaml               # per-skill capacity numbers consume the targets here
+  - docs/governance/sandbox-policies.yaml             # `financial_default` cpu_cap + memory_cap sized against these targets
+  - docs/contracts/contract-catalog.md                # §5 Telemetry contract — exporter surface that instruments these
+  - docs/cross-cutting/non-functional-requirements.md # broader NFR canvas
+  - deploy/middle-office-reference/values.yaml        # 中台 reference Helm chart resources sized from these
+  - docs/adr/0155-product-authority-and-traceability.yaml # authority ADR

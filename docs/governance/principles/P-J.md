@@ -5,6 +5,7 @@ level: L0
 view: physical
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
 enforced_by_rules: [R-J]   # formerly Rule 40 (numeric pre-ADR-0086)
+product_claim: "PC-003"
 kernel: |
   P-J — Storage-Engine Tenant Isolation.
   Tenant isolation lives at the storage engine, not the application code.
@@ -12,7 +13,7 @@ kernel: |
   even a fully-compromised application tier cannot leak across tenants.
   Enforced by Rule R-J.a (V1/V2 grandfathered per
   `gate/rls-baseline-grandfathered.txt`; W2 retrofit per
-  `CLAUDE-deferred.md` 40.b).
+  `retired-rules-audit.md` 40.b).
 scope_phase: design
 ---
 
@@ -28,6 +29,6 @@ This principle exists because **application-layer tenant isolation is structural
 
 - ADR-0069 (origin of Rules 35–42 and the LucioIT W1 §7.2 RLS doctrine)
 - Grandfather list: [`gate/rls-baseline-grandfathered.txt`](../../../gate/rls-baseline-grandfathered.txt)
-- Deferred sub-clause 40.b — V1/V2 grandfather retrofit (W2 trigger) — see [`docs/CLAUDE-deferred.md`](../../CLAUDE-deferred.md)
+- Deferred sub-clause 40.b — V1/V2 grandfather retrofit (W2 trigger); legacy deferred-rule registry retired 2026-05-28, see [`retired-rules-audit.md`](../retired-rules-audit.md)
 - Related: Rule R-C.2.c (Tenant Propagation Purity) — runtime code must source tenant from `RunContext.tenantId()`, not request-scoped `TenantContextHolder`
 - Related: P-I (Five-Plane Topology) — Bus & State Hub plane owns persistence enforcement

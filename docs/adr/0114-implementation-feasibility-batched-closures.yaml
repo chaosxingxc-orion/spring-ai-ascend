@@ -1,6 +1,7 @@
 id: ADR-0114
 title: "Implementation feasibility batched closures (10 R1-feasibility findings)"
 status: accepted
+governance_infra: true
 date: 2026-05-23
 level: L0
 view: process

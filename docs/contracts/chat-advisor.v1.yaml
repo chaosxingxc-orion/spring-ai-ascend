@@ -23,6 +23,8 @@
 # advisors at AgentDefinition time but never imports
 # HookDispatcher directly.
 
+product_claim: "PC-001|PC-004"
+
 schema: chat-advisor/v1
 status: design_only
 runtime_enforced: false

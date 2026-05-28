@@ -1,6 +1,7 @@
 id: ADR-0127
 title: "Skill SPI: unified lifecycle interface with `SkillKind` discriminator; Spring AI ToolCallback adapts via Wave C1; reuses existing SkillCapacityRegistry + ResilienceContract"
 status: accepted
+product_claim: "PC-001|PC-004"
 date: 2026-05-25
 level: L0
 view: development

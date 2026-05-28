@@ -7,6 +7,7 @@ principle_ref: P-C
 authority_refs: [ADR-0066, ADR-0068, ADR-0094]
 enforcer_refs: [E31]
 status: active
+product_claim: "PC-003"
 scope_phase: design
 kernel_cap: 6
 scope_surfaces:
@@ -15,6 +16,17 @@ scope_surfaces:
   - root pom.xml modules list
 kernel: |
   **Every Maven module declares a sibling `module-metadata.yaml` with `module`, `kind ∈ {platform|domain|starter|bom|sample}`, `version`, `semver_compatibility`, `architecture_doc`, `dfx_doc`, `spi_packages`, `allowed/forbidden_dependencies`; each builds and tests in isolation via `mvn -pl <module> -am test`. Inter-module dependency direction is governed by the dependency-allowlist enforcer (E1).**
+deferred_sub_clauses:
+  - id: ".a"
+    title: "Runtime Semver Compatibility Enforcement [Deferred to W2]"
+    re_introduction_trigger: "first BoM release that drops a previously-published artifact, OR first starter that introduces a breaking config change without a major-version bump (target: W2)."
+    deferred_body: |
+      **Renamed 2026-05-21 (rc17 per ADR-0094)** — was `Rule R-C.b.b` (sub-clause .b of original R-C.b "Independent Module Evolution"). After the rc17 R-C split, the parent sub-clause `R-C.b` became standalone `Rule R-C.1`; this deferred clause renumbers from `R-C.b.b` → `R-C.1.a` accordingly.
+
+      **Rule (draft)**: A gate rule MUST cross-check `<module>/module-metadata.yaml`'s `semver_compatibility` against the artifact's actual API delta. A starter that introduces a breaking config change without a major-version bump → gate failure. A BoM revision that removes a coordinate without a deprecation window declared in `module-metadata.yaml` → gate failure.
+
+      Composes with: ARCHITECTURE.md §4 #62; ADR-0066; Rule R-C.1 (Independent Module Evolution); ADR-0094 (rc17 split authority).
+    relates_to: ["ADR-0066", "ADR-0094", "Rule R-C.1", "ARCHITECTURE.md §4 #62"]
 ---
 
 # Rule R-C.1 — Independent Module Evolution

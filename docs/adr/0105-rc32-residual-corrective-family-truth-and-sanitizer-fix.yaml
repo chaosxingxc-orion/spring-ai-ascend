@@ -1,6 +1,7 @@
 id: ADR-0105
 title: "rc32 — residual corrective + F-bulk-scrub-orphan-syntax registration + family-surface sanitizer glob expansion + per-rule timeout bump"
 status: accepted
+governance_infra: true
 date: 2026-05-22
 level: L0
 view: process

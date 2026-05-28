@@ -7,6 +7,7 @@ principle_ref: P-I
 authority_refs: [ADR-0049, ADR-0089, ADR-0094]
 enforcer_refs: [E143]
 status: design_only
+product_claim: "PC-002"
 scope_phase: design
 kernel_cap: 6
 scope_surfaces:

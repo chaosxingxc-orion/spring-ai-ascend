@@ -1,6 +1,7 @@
 id: ADR-0106
 title: "Run.version field — two-phase W1.5 + W2 migration to avoid in-flight CAS gap"
 status: accepted
+product_claim: "PC-001|PC-003"
 date: 2026-05-22
 level: L0
 view: development

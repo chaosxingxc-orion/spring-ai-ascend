@@ -1,0 +1,306 @@
+---
+contract_id: cost-governance.v1
+product_claim: PC-003
+status: design_only
+authority: ADR-0155
+target_personas: ["Persona-A", "Persona-B", "Persona-D"]
+v1_0_ship_blocker: true
+---
+
+# Cost Governance / Token Budget Contract, version 1.
+#
+# Authority: ADR-0155 (Product Authority and Traceability Chain).
+# Product claim: PC-003 — sub-dimension `cost_capacity_governance`.
+# Target personas:
+#   - Persona-A (Platform Team Lead, 中台 buyer) — defines per-business-center budgets
+#     and chargebacks cost back to consuming centers.
+#   - Persona-B (Enterprise IT Capability Provider, 能力复用 buyer) — exposes cost
+#     attribution per business unit consuming the central middleware + model gateway.
+#   - Persona-D (Enterprise SRE / Production Operator) — operates the enforcer
+#     and tunes budgets per observed spend.
+#
+# Purpose: declare the wire schema + enforcement semantics for per-tenant
+# per-agent token budgets, the enforcement-mode taxonomy, and the spend
+# reporting record. Without this contract, Persona-A cannot answer "what
+# did business center X cost us this month" and Persona-D cannot prevent
+# runaway LLM consumption from a single misbehaving agent.
+#
+# Promotion path: status flips from `design_only` to `runtime_enforced` when
+# the impl-mode wave wires:
+#   1. The `TokenBudgetStore` SPI under `com.huawei.ascend.middleware.cost.spi`
+#      (module home: `agent-middleware`).
+#   2. The `BEFORE_LLM` / `AFTER_LLM` hook (Rule R-M.c) consuming this
+#      contract's `pre_call_budget_check` + `post_call_spend_record`
+#      schemas.
+#   3. The `SpendLogStore` SPI persisting the per-(tenant, agent) daily
+#      roll-up record into Postgres (RLS-enabled per Rule R-J.a).
+#   4. ArchUnit tests verifying every `ModelGateway.invoke` call site is
+#      wrapped by the two hooks above (no orphan model calls bypassing
+#      budget enforcement).
+#   5. The `SkillResolution.reject(SuspendReason.RateLimited)` integration
+#      with the budget check (Rule R-K Skill Capacity Matrix already
+#      issues this rejection on capacity exhaustion; this contract extends
+#      the same rejection path to budget exhaustion).
+
+schema: cost-governance/v1
+status: design_only
+runtime_enforced: false
+authority: ADR-0155
+promotion_trigger: |
+  Impl-mode wave landing the four wiring steps above + the JSON Schema
+  validators on every `TokenBudget` and `SpendLogEntry` record.
+
+# ---------------------------------------------------------------------------
+# JSON Schema 2020-12 — TokenBudget record.
+# Authority record per (tenant_id, agent_id) pair. The composite key is
+# canonical because a single tenant may run many agents with different
+# budget profiles (a high-volume customer-service agent vs a low-volume
+# loan-review-assistant agent).
+# ---------------------------------------------------------------------------
+token_budget_schema:
+  $schema: "https://json-schema.org/draft/2020-12/schema"
+  $id: "https://spring-ai-ascend.huawei.com/contracts/cost-governance/v1/TokenBudget.json"
+  title: "TokenBudget"
+  description: "Per-(tenant_id, agent_id) token budget envelope. Consumed by `BEFORE_LLM` hook to admit/reject a model invocation; consumed by `AFTER_LLM` hook to decrement remaining."
+  type: object
+  required:
+    - tenant_id
+    - agent_id
+    - daily_input_tokens
+    - daily_output_tokens
+    - monthly_input_tokens
+    - monthly_output_tokens
+    - enforcement_mode
+    - schema_version
+  properties:
+    schema_version:
+      type: string
+      const: "cost-governance/v1"
+    tenant_id:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: "Tenant identifier; matches RLS predicate value (Rule R-J.a)."
+    agent_id:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: "Agent identifier within the tenant; matches `AgentRegistry` key (ADR-0128)."
+    daily_input_tokens:
+      type: integer
+      minimum: 0
+      description: "Hard cap on input (prompt) tokens consumed in a UTC calendar day."
+    daily_output_tokens:
+      type: integer
+      minimum: 0
+      description: "Hard cap on output (completion) tokens emitted in a UTC calendar day."
+    monthly_input_tokens:
+      type: integer
+      minimum: 0
+      description: "Hard cap on input tokens consumed in a UTC calendar month."
+    monthly_output_tokens:
+      type: integer
+      minimum: 0
+      description: "Hard cap on output tokens emitted in a UTC calendar month."
+    enforcement_mode:
+      type: string
+      enum: ["block", "degrade", "notify"]
+      description: |
+        block:    BEFORE_LLM hook rejects the model invocation via
+                  SkillResolution.reject(SuspendReason.RateLimited);
+                  Run transitions to SUSPENDED_RATE_LIMITED. Persona-D
+                  default for prod posture.
+        degrade:  BEFORE_LLM hook rewrites ModelInvocation.modelId to
+                  the configured fallback (a smaller / cheaper model);
+                  the original model is logged but not invoked.
+                  Persona-A default for tiered service offerings.
+        notify:   BEFORE_LLM hook emits a structured WARN log + counter
+                  bump (`springai_ascend_cost_budget_exceeded_total`)
+                  and proceeds with the original invocation. Persona-D
+                  default for dev / research posture only.
+    model_specific_overrides:
+      type: array
+      description: "Per-(model_id) override of the global daily / monthly caps. Used to rate-limit expensive models (gpt-4-class) more tightly than cheap ones (gpt-4o-mini-class)."
+      items:
+        type: object
+        required:
+          - model_id
+        properties:
+          model_id:
+            type: string
+            description: "Matches ModelInvocation.modelId, e.g. `openai/gpt-4o` or `ascend-local/qwen2-7b-instruct`."
+          daily_input_tokens:
+            type: integer
+            minimum: 0
+          daily_output_tokens:
+            type: integer
+            minimum: 0
+          monthly_input_tokens:
+            type: integer
+            minimum: 0
+          monthly_output_tokens:
+            type: integer
+            minimum: 0
+          enforcement_mode:
+            type: string
+            enum: ["block", "degrade", "notify"]
+          degrade_fallback_model_id:
+            type: string
+            description: "Required iff enforcement_mode == 'degrade'. Names the cheaper model to route to."
+    posture_default:
+      type: string
+      enum: ["dev", "research", "prod"]
+      description: "Posture this budget profile is the default for; consumed by `PostureBootGuard` (Rule D-6)."
+  additionalProperties: false
+
+# ---------------------------------------------------------------------------
+# JSON Schema 2020-12 — SpendLogEntry record.
+# Per-(tenant, agent) daily roll-up entry. Fields follow the
+# `LiteLLM_SpendLogs` shape so existing FinOps tooling can ingest the
+# stream without bespoke parsing. Persisted to a Postgres table with
+# RLS-on-tenant_id (Rule R-J.a) and an append-only trigger (audit-trail
+# precedent in `docs/contracts/audit-trail.v1.yaml`).
+# ---------------------------------------------------------------------------
+spend_log_entry_schema:
+  $schema: "https://json-schema.org/draft/2020-12/schema"
+  $id: "https://spring-ai-ascend.huawei.com/contracts/cost-governance/v1/SpendLogEntry.json"
+  title: "SpendLogEntry"
+  description: "Per-invocation immutable spend record. Emitted by the `AFTER_LLM` hook (Rule R-M.c). Fields mirror LiteLLM_SpendLogs for FinOps tool compatibility."
+  type: object
+  required:
+    - schema_version
+    - request_id
+    - tenant_id
+    - agent_id
+    - model
+    - prompt_tokens
+    - completion_tokens
+    - cost_usd
+    - occurred_at
+  properties:
+    schema_version:
+      type: string
+      const: "cost-governance/v1"
+    request_id:
+      type: string
+      format: uuid
+      description: "Idempotency-Key value or generated UUID; correlates with `RunEvent.runId` + `ModelInvocation.callId`."
+    tenant_id:
+      type: string
+      minLength: 1
+      maxLength: 64
+    agent_id:
+      type: string
+      minLength: 1
+      maxLength: 128
+    user_id:
+      type: ["string", "null"]
+      description: "Delegating end-user identity (per `iam-bridge.v1.yaml`); null only for system-initiated invocations."
+    model:
+      type: string
+      description: "Matches ModelInvocation.modelId (`openai/gpt-4o-mini`, `ascend-local/qwen2-7b-instruct`, …)."
+    provider:
+      type: string
+      enum: ["openai", "anthropic", "ascend_local", "pangu_ascend_cloud", "other"]
+      description: "Provider class for FinOps grouping; aligns with `docs/perf/v1.0-baselines.yaml#model_invocation.providers[].id`."
+    prompt_tokens:
+      type: integer
+      minimum: 0
+    completion_tokens:
+      type: integer
+      minimum: 0
+    total_tokens:
+      type: integer
+      minimum: 0
+      description: "MUST equal prompt_tokens + completion_tokens; redundant for FinOps tool compatibility."
+    cost_usd:
+      type: number
+      minimum: 0
+      description: "Computed at ingestion time from provider's published per-million-token price; immutable thereafter."
+    cost_breakdown:
+      type: object
+      description: "Optional split between input + output cost when provider pricing differs."
+      properties:
+        input_cost_usd:
+          type: number
+          minimum: 0
+        output_cost_usd:
+          type: number
+          minimum: 0
+    occurred_at:
+      type: string
+      format: date-time
+      description: "ISO 8601 timestamp of the model invocation completion."
+    posture:
+      type: string
+      enum: ["dev", "research", "prod"]
+      description: "Posture under which the invocation ran (Rule D-6)."
+    metadata:
+      type: object
+      description: "Free-form FinOps tagging (cost_center, project_code, business_unit). Cardinality discipline lives in `docs/contracts/contract-catalog.md §5`."
+      additionalProperties:
+        type: string
+  additionalProperties: false
+
+# ---------------------------------------------------------------------------
+# Integration points — Rule R-M.c HookPoint + Rule R-K SkillResolution.
+# These are the canonical wiring sites. Any new model gateway adapter
+# MUST attach to BOTH hooks; cost governance is non-bypassable.
+# ---------------------------------------------------------------------------
+integration_points:
+  pre_call_budget_check:
+    hook_point: BEFORE_LLM
+    binding: |
+      The hook resolves the active `TokenBudget` for
+      (ModelInvocation.tenantId, ModelInvocation.agentId), checks
+      remaining-daily + remaining-monthly counters against the projected
+      input_tokens, applies `enforcement_mode`:
+        - block   -> HookOutcome.reject(SkillResolution.reject(SuspendReason.RateLimited))
+        - degrade -> HookOutcome.rewrite(invocation.withModelId(fallback_model_id))
+        - notify  -> HookOutcome.proceed() + structured WARN log + counter bump
+      Idempotent under retry of the same Idempotency-Key (the projected
+      input_tokens is not double-counted).
+    contract_refs:
+      - docs/contracts/engine-hooks.v1.yaml
+      - docs/contracts/model-invocation.v1.yaml
+  post_call_spend_record:
+    hook_point: AFTER_LLM
+    binding: |
+      The hook reads ModelResponse.usage (promptTokens, completionTokens,
+      totalTokens), builds a `SpendLogEntry`, persists it via
+      `SpendLogStore`, and decrements the live budget counters by the
+      ACTUAL input + output token count. Emitted as a paired
+      `AuditTrailEntry` per `docs/contracts/audit-trail.v1.yaml` event
+      type `model_invocation` so the regulator can correlate spend to
+      audit.
+    contract_refs:
+      - docs/contracts/engine-hooks.v1.yaml
+      - docs/contracts/model-invocation.v1.yaml
+      - docs/contracts/audit-trail.v1.yaml
+  capacity_matrix_interlock:
+    rule_ref: "Rule R-K (Skill Capacity Matrix)"
+    binding: |
+      Budget enforcement is the SECOND admission gate after Rule R-K
+      capacity (the first gate). Order: SkillResolution.resolve checks
+      capacity_per_tenant + global_capacity FIRST (returns RateLimited
+      on exhaustion); if admitted, BEFORE_LLM hook checks token budget
+      (also returns RateLimited on exhaustion). Both rejection paths
+      transition the Run to SUSPENDED_RATE_LIMITED via the same suspend
+      signal — Persona-D sees one suspend taxonomy, not two.
+    yaml_ref: docs/governance/skill-capacity.yaml
+
+# ---------------------------------------------------------------------------
+# Cross-references.
+# ---------------------------------------------------------------------------
+relates_to:
+  - product/PRODUCT.md
+  - product/claims.yaml
+  - product/personas.yaml
+  - docs/contracts/model-invocation.v1.yaml
+  - docs/contracts/engine-hooks.v1.yaml
+  - docs/contracts/audit-trail.v1.yaml
+  - docs/contracts/iam-bridge.v1.yaml
+  - docs/governance/skill-capacity.yaml
+  - docs/governance/sandbox-policies.yaml
+  - docs/perf/v1.0-baselines.yaml
+  - docs/adr/0155-product-authority-and-traceability.yaml

@@ -1,6 +1,7 @@
 id: ADR-0108
 title: "Tenant re-authorization widening (read + resume) + GraphMemoryRepository tenant-scoped traversal"
 status: accepted
+product_claim: "PC-003"
 date: 2026-05-23
 level: L0
 view: process

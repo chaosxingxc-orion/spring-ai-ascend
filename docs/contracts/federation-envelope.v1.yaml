@@ -7,6 +7,8 @@
 # federation. Wraps the existing ingress-envelope.v1.yaml shape with
 # federation routing metadata.
 
+product_claim: "PC-002"
+
 schema: federation-envelope/v1
 authority: ADR-0101
 status: design_only

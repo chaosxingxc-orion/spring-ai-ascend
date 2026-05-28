@@ -7,6 +7,7 @@ principle_ref: P-C
 authority_refs: [ADR-0119]
 enforcer_refs: [E174]
 status: active
+governance_infra: true
 scope_phase: commit
 kernel_cap: 8
 scope_surfaces:
@@ -187,15 +188,36 @@ Rule G-13 declares 10 surfaces; fixtures ship incrementally:
 All fixtures live under `gate/test_template_render.py` (created in W1)
 following the existing `test_rule_NNN_*` naming pattern.
 
+## Relationship to Rule G-15 (Fact-Layer Integrity)
+
+Rule G-13 polices **rendered** Markdown / YAML — `templated` and
+`hybrid` buckets in `docs/governance/templates/surface-classification.
+yaml`. Rule G-15 (added 2026-05-27 per ADR-0154) extends the same
+byte-identical-on-regen discipline to **extracted** facts under
+`architecture/facts/generated/*.json` (emitted by deterministic
+extractor binaries reading code / contracts / tests / build files /
+config / ADRs).
+
+The two rules share the byte-identical invariant but apply it to
+different artifact classes. They do NOT duplicate. At W6 of the
+Fact-Layer plan, `surface-classification.yaml` adds rows for the
+`architecture/facts/generated/*.json` outputs classifying them as
+`templated` with the extractor as the renderer — so G-13.b ALSO catches
+fact-layer drift as defence-in-depth, alongside G-15.c (the fact-
+specific banner + LLM-no-author check).
+
 ## Cross-references
 
 - ADR-0119 — Single-Source Rendering for derived architecture documents
   (this rule's authoring ADR + 11-wave roadmap).
+- ADR-0154 — Fact-Layer Authority (Rule G-15, the sibling rule that
+  extends G-13 to extracted facts).
 - ADR-0068 — Layered 4+1 + architecture-graph as twin sources of truth
   (proof-of-concept of render idempotency at zero defect rate).
 - Rule G-1.b — architecture-graph idempotency (pattern G-13 generalises).
 - Rule G-9 — Recurring-defect family truth (G-13.b subsumes G-9.c
   yaml↔md parity in W4).
+- Rule G-15 — Fact-Layer Integrity (sibling to G-13 for extracted facts).
 - Rule G-2.b, G-2.d, G-2.1 — Drift prevention rules (subsumed by G-13 in
   W6/W7/W8/W10).
 - Rule G-8.a/c/e — Cross-authority parity (subsumed by G-13 in W3/W5/W6).
@@ -204,5 +226,6 @@ following the existing `test_rule_NNN_*` naming pattern.
 - `gate/lib/render_template.py` — render engine (lands W1).
 - `gate/lib/load_render_context.py` — context loader (lands W1).
 - `gate/check_template_render_idempotency.sh` — gate driver (lands W1).
+- `architecture/facts/` — extracted-fact surface policed by Rule G-15.
 - `.claude/skills/refresh-architecture-doc.md` — orchestrator skill
   (lands W2).

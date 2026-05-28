@@ -1,6 +1,7 @@
 id: ADR-0100
 title: "rc22 — agent-service L1 runtime-role decomposition (5-component model + Run≤Task≤Session lifecycle + 3 new SPIs + Yield/SuspendSignal coexistence)"
 status: accepted
+governance_infra: true
 date: 2026-05-22
 level: L1
 view: scenarios

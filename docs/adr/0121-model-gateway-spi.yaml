@@ -1,6 +1,7 @@
 id: ADR-0121
 title: "ModelGateway SPI: tenant-scoped, hook-bound, pure-Java `ModelResponse invoke(ModelInvocation)` shape; Spring AI ChatModel is the reference adapter"
 status: accepted
+product_claim: "PC-004"
 date: 2026-05-25
 level: L0
 view: development

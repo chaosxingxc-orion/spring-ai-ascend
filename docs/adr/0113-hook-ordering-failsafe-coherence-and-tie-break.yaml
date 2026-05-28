@@ -1,6 +1,7 @@
 id: ADR-0113
 title: "Hook chain — two-level failure semantics (chain fail-fast + invocation failsafe) + @Order tie-break determinism"
 status: accepted
+product_claim: "PC-003"
 date: 2026-05-23
 level: L0
 view: process

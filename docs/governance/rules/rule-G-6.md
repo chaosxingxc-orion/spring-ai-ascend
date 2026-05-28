@@ -7,6 +7,7 @@ principle_ref: P-B
 authority_refs: [ADR-0077]
 enforcer_refs: [E102, E103]
 status: active
+governance_infra: true
 scope_phase: verify
 kernel_cap: 8
 kernel: |

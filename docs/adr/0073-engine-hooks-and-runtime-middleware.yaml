@@ -1,6 +1,7 @@
 id: ADR-0073
 title: "Engine Lifecycle Hooks + Runtime-Owned Middleware SPI — second L1 expression of P-M"
 status: accepted
+product_claim: "PC-004"
 date: 2026-05-16
 level: L1
 view: process

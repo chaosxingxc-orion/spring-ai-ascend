@@ -1,6 +1,7 @@
 id: ADR-0122
 title: "Tool vs Skill semantic resolution: `Tool` is a `SkillKind` enum value; one unified `Skill` SPI and registry; Spring AI `ToolCallback` is one Skill adapter"
 status: accepted
+product_claim: "PC-001|PC-004"
 date: 2026-05-25
 level: L0
 view: scenarios

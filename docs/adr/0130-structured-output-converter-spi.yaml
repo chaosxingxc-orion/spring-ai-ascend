@@ -1,6 +1,7 @@
 id: ADR-0130
 title: "StructuredOutputConverter<T> SPI: pure-Java generic converter shape; Spring AI BeanOutputConverter is the reference adapter source"
 status: accepted
+product_claim: "PC-001|PC-004"
 date: 2026-05-25
 level: L0
 view: development

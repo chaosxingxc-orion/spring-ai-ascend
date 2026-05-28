@@ -1,6 +1,7 @@
 id: ADR-0068
 title: "Layered 4+1 and Architecture Graph as Twin Sources of Truth"
 status: accepted
+governance_infra: true
 date: 2026-05-14
 level: L0
 view: scenarios

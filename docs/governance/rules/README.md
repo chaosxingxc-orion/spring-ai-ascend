@@ -136,16 +136,18 @@ The `status:` field in a card's frontmatter takes one of:
 
 - `active` — shipped + enforced in W1.
 - `design_only` — kernel + card exist, enforcement is W2+ deferred.
-- `deferred` — rule body lives in `docs/CLAUDE-deferred.md`, this card
-  is a placeholder (rare; usually deferred rules don't have a card).
+- `deferred` — rule body archived in `docs/governance/retired-rules-audit.md`
+  (legacy deferred-rule registry retired 2026-05-28); this card is a
+  placeholder (rare; usually deferred rules don't have a card).
 - `archived` — historically active, now superseded by ADR; card retained
   for audit but rule no longer enforced.
 
 ## Cross-references
 
 - [CLAUDE.md](../../../CLAUDE.md) — kernel index of all active rules.
-- [docs/CLAUDE-deferred.md](../../CLAUDE-deferred.md) — deferred rules
-  with re-introduction triggers.
+- [docs/governance/retired-rules-audit.md](../retired-rules-audit.md) —
+  legacy deferred-rule registry retired 2026-05-28; disposition of every
+  pre-May-2026 numeric rule (migrated / obsolete / unclear).
 - [docs/governance/principle-coverage.yaml](../principle-coverage.yaml)
   — mapping from P-* principles to R-* rules.
 - [docs/governance/enforcers.yaml](../enforcers.yaml) — every rule

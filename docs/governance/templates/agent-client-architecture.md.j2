@@ -93,7 +93,8 @@ When the W3+ SDK PR lands it MUST include:
   added in rc13; W3+ PR re-runs it green on the populated tree).
 - Backpressure handling test — `IngressResponse.deferred(...)` is
   consumed as a retry-with-backoff hint, not a terminal failure (see
-  deferred Rule R-I sub-clause .e in `docs/CLAUDE-deferred.md`).
+  deferred Rule R-I sub-clause .e in the `deferred_sub_clauses` block
+  of `docs/governance/rules/rule-R-I.md`).
 - Contract-conformance test against `ingress-envelope.v1.yaml` snapshot.
 
 ## Reading order for new contributors

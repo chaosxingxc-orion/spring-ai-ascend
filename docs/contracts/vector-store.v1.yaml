@@ -8,6 +8,8 @@
 # This file covers all three RAG primitives because their shapes
 # are interlinked at the contract level.
 
+product_claim: "PC-001|PC-005"
+
 schema: vector-store/v1
 status: design_only
 runtime_enforced: false

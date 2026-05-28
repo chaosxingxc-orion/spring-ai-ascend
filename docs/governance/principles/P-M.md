@@ -5,6 +5,7 @@ level: L0
 view: logical
 authority: "Layer 0 governing principle (CLAUDE.md); W2.x engine contract structural wave"
 enforced_by_rules: [R-M.a, R-M.b, R-M.c, R-M.d, R-M.e, M-2.a]   # formerly Rules 43, 44, 45, 46, 47, 48 (numeric pre-ADR-0086)
+product_claim: "PC-004"
 kernel: |
   P-M — Heterogeneous Engine Contract & Server-Sovereign Boundary.
   The platform supports heterogeneous execution engines through a structured
@@ -42,6 +43,6 @@ This principle exists because **a platform that supports more than one execution
 - ADR-0075 (evolution scope default boundary — Rule R-M sub-clause .e)
 - ADR-0077 (schema-first domain contracts — Rule M-2 sub-clause .a cross-cutting invariant)
 - Contract sources of truth under `docs/contracts/`: `engine-envelope.v1.yaml`, `engine-hooks.v1.yaml`, `s2c-callback.v1.yaml`; governance scope at `docs/governance/evolution-scope.v1.yaml`
-- Deferred sub-clauses: 44.b, 44.c (matching follow-on), 45.b (Run-state consumption of HookOutcome — W2 Telemetry Vertical), 46.b, 46.c (S2C async orchestrator), 48.b, 48.c (schema-first follow-on) — see [`docs/CLAUDE-deferred.md`](../../CLAUDE-deferred.md)
+- Deferred sub-clauses: 44.b, 44.c (matching follow-on), 45.b (Run-state consumption of HookOutcome — W2 Telemetry Vertical), 46.b, 46.c (S2C async orchestrator), 48.b, 48.c (schema-first follow-on); legacy deferred-rule registry retired 2026-05-28, see [`retired-rules-audit.md`](../retired-rules-audit.md)
 - Related: P-D (SPI + DFX + TCK) — P-M is the W2.x extension of P-D into engine pluggability
 - Related: P-H (Chronos Hydration) — S2C callback (Rule R-M sub-clause .d) uses SuspendSignal sealed checked-suspension variant

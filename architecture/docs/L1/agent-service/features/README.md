@@ -20,6 +20,12 @@ Catalog template (ADR-0151).
 
 | Feature ID | Name | Status | Capability Domain |
 |---|---|---|---|
+| `FEAT-AGENT-SERVICE-ACCESS-LAYER` | Agent Service Access Layer | `shipped` | `agent-service-access-layer` |
+| `FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION` | Agent Service Engine Dispatch Execution | `shipped` | `agent-service-engine-dispatch` |
+| `FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE` | Agent Service Internal Event Queue | `shipped` | `agent-service-event-queue` |
+| `FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER` | Agent Service Session Task Manager | `shipped` | `agent-service-session-task-manager` |
+| `FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL` | Agent Service Task Centric Control | `shipped` | `agent-service-task-control` |
+| `FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT` | Agent Service Translation Tool Intercept | `shipped` | `agent-service-translation-tool` |
 | `FEAT-ENGINE-DISPATCH-AND-HOOKS` | Engine Dispatch and Hooks | `shipped` | `engine-contract` |
 | `FEAT-IDEMPOTENCY-AND-REPLAY` | Idempotency and Replay | `shipped` | `idempotency-protocol` |
 | `FEAT-POSTURE-BOOTSTRAP` | Posture Bootstrap | `shipped` | `posture-bootstrap` |
@@ -28,6 +34,48 @@ Catalog template (ADR-0151).
 | `FEAT-TENANT-ISOLATION` | Tenant Isolation | `shipped` | `tenant-isolation` |
 
 ## 2. Architecture Binding
+
+### `FEAT-AGENT-SERVICE-ACCESS-LAYER`
+
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/api`
+
+**Source ADR:** `ADR-0138`
+
+### `FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION`
+
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/engine`
+
+**Source ADR:** `ADR-0138`
+
+### `FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE`
+
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/events`
+
+**Source ADR:** `ADR-0138`
+
+### `FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER`
+
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/session`
+
+**Source ADR:** `ADR-0138`
+
+### `FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL`
+
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/runs`
+
+**Source ADR:** `ADR-0138`
+
+### `FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT`
+
+**Development paths:**
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/translation`
+
+**Source ADR:** `ADR-0138`
 
 ### `FEAT-ENGINE-DISPATCH-AND-HOOKS`
 
@@ -82,6 +130,18 @@ by `contains` relationships in
 Walk the workspace projection from each feature ID to traverse the
 function-point inventory.
 
+- `FEAT-AGENT-SERVICE-ACCESS-LAYER` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
+- `FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
+- `FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
+- `FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
+- `FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
+- `FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT` contains the function points listed
+  under `feat... -> fp... "contains"` relationships in features.dsl.
 - `FEAT-ENGINE-DISPATCH-AND-HOOKS` contains the function points listed
   under `feat... -> fp... "contains"` relationships in features.dsl.
 - `FEAT-IDEMPOTENCY-AND-REPLAY` contains the function points listed
@@ -102,6 +162,30 @@ full catalog, see
 [`docs/contracts/contract-catalog.md`](../../../../../docs/contracts/contract-catalog.md).
 
 ## 5. Runtime Behavior
+
+### `FEAT-AGENT-SERVICE-ACCESS-LAYER`
+
+Layer 1 of the agent-service per-layer architecture (ADR-0138). Owns protocol convergence (HTTP / gRPC / WebSocket), tenant + auth binding (JWT.tenant cross-check, IdempotencyHeaderFilter), client capability publication via OpenAPI surface, and ingress for cursor / cancel / resume / S2C callback. Does NOT own Run aggregate state, Task control state, Session context state, engine dispatch, or model/tool translation. The deep-dive feature inventory (AS-L1-F01..F08) lives at architecture/docs/L1/agent-service/features/access-layer.md.
+
+### `FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION`
+
+Layer 4 of the agent-service per-layer architecture (ADR-0138). Owns engine-adapter dispatch (EngineRegistry.resolve(envelope) → typed ExecutorAdapter) and the executor invocation pathway that drives the Run state machine. The deep-dive inventory lives at architecture/docs/L1/agent-service/features/engine-dispatch-execution.md. Cross-cutting policies expressed as RuntimeMiddleware hooks (see FEAT-ENGINE-DISPATCH-AND-HOOKS for the cross-module Engine Contract feature).
+
+### `FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE`
+
+Layer 5 of the agent-service per-layer architecture (ADR-0138). Owns in-process event queue infrastructure used by the runtime to decouple emit-side from consume-side concerns. The deep-dive lives at architecture/docs/L1/agent-service/features/internal-event-queue.md. This is the runtime's internal eventing primitive; cross-service eventing flows through agent-bus three-track channels (control/data/rhythm).
+
+### `FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER`
+
+Layer 3 of the agent-service per-layer architecture (ADR-0138). Owns Session and Task aggregate lifecycles — the entities above Run that group runs into user-visible interactions. Task state machine governs admission / suspension / completion at the user-interaction level; Session state machine groups tasks into a conversation context. The deep-dive lives at architecture/docs/L1/agent-service/features/session-task-manager.md.
+
+### `FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL`
+
+Layer 2 of the agent-service per-layer architecture (ADR-0138). Owns task-centric control: cursor flow + cancel re-authorization + resume/replay against Run state. This is the layer that translates client-side task semantics into runtime Run lifecycle operations. The deep-dive lives at architecture/docs/L1/agent-service/features/task-centric-control.md.
+
+### `FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT`
+
+Layer 6 of the agent-service per-layer architecture (ADR-0138). Owns model/tool translation hooks: ModelGateway, tool authz boundary, prompt shaping, response normalisation. Intercepts model invocations to enforce platform policy before they reach provider SDKs. The deep-dive lives at architecture/docs/L1/agent-service/features/translation-tool-intercept.md.
 
 ### `FEAT-ENGINE-DISPATCH-AND-HOOKS`
 
@@ -141,6 +225,12 @@ AI agents acting on this module MUST consult these before auto-modifying:
 
 | Feature | Can modify code | Can modify contracts | Allowed transitions | Requires human review at | Sandbox policy |
 |---|---|---|---|---|---|
+| `FEAT-AGENT-SERVICE-ACCESS-LAYER` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
+| `FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
+| `FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
+| `FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
+| `FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
+| `FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
 | `FEAT-ENGINE-DISPATCH-AND-HOOKS` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
 | `FEAT-IDEMPOTENCY-AND-REPLAY` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
 | `FEAT-POSTURE-BOOTSTRAP` | `true` | `false` | `shipped->deprecated` | `deprecated, removed` | `docs/governance/sandbox-policies.yaml#default_policy` |
@@ -152,6 +242,54 @@ AI agents acting on this module MUST consult these before auto-modifying:
 
 Tests + commands that verify each feature. AI agents MUST run these
 commands after auto-modifying the feature's owning code.
+
+### `FEAT-AGENT-SERVICE-ACCESS-LAYER`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.runtime.api.*IT`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
+
+### `FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.runtime.engine.*IT`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
+
+### `FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.runtime.events.*Test`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
+
+### `FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.runtime.session.*IT`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
+
+### `FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.runtime.runs.*IT`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
+
+### `FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT`
+
+**Verification test FQNs:**
+- `com.huawei.ascend.service.runtime.translation.*IT`
+
+**Verification commands:**
+- `./mvnw -pl agent-service -am verify`
 
 ### `FEAT-ENGINE-DISPATCH-AND-HOOKS`
 
@@ -183,7 +321,7 @@ commands after auto-modifying the feature's owning code.
 ### `FEAT-RUN-LIFECYCLE-CONTROL`
 
 **Verification test FQNs:**
-- `com.huawei.ascend.service.runtime.runs.RunsControllerIT`
+- `com.huawei.ascend.service.platform.web.runs.RunHttpContractIT`
 - `com.huawei.ascend.service.runtime.runs.RunStateMachineTest`
 
 **Verification commands:**
@@ -193,8 +331,8 @@ commands after auto-modifying the feature's owning code.
 ### `FEAT-SUSPEND-RESUME-CONTROL`
 
 **Verification test FQNs:**
-- `com.huawei.ascend.service.runtime.suspend.SuspendResumeIT`
-- `com.huawei.ascend.service.runtime.suspend.ChildRunSpawnIT`
+- `com.huawei.ascend.engine.orchestration.spi.SuspendSignalTest`
+- `com.huawei.ascend.engine.orchestration.spi.SuspendSignalLibraryTest`
 
 **Verification commands:**
 - `./mvnw -pl agent-service -am verify`
@@ -202,8 +340,9 @@ commands after auto-modifying the feature's owning code.
 ### `FEAT-TENANT-ISOLATION`
 
 **Verification test FQNs:**
-- `com.huawei.ascend.service.runtime.runs.CancelRunCrossTenantIT`
-- `com.huawei.ascend.service.platform.tenant.TenantClaimFilterTest`
+- `com.huawei.ascend.service.platform.security.TenantIsolationIT`
+- `com.huawei.ascend.service.platform.tenant.TenantContextFilterIT`
+- `com.huawei.ascend.service.platform.tenant.JwtTenantClaimCrossCheckTest`
 
 **Verification commands:**
 - `./mvnw -pl agent-service -am verify`
@@ -221,6 +360,12 @@ proposed -> accepted -> design_only -> ready_for_impl
 
 Current state per feature:
 
+- `FEAT-AGENT-SERVICE-ACCESS-LAYER` — `shipped`
+- `FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION` — `shipped`
+- `FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE` — `shipped`
+- `FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER` — `shipped`
+- `FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL` — `shipped`
+- `FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT` — `shipped`
 - `FEAT-ENGINE-DISPATCH-AND-HOOKS` — `shipped`
 - `FEAT-IDEMPOTENCY-AND-REPLAY` — `shipped`
 - `FEAT-POSTURE-BOOTSTRAP` — `shipped`

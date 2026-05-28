@@ -1,6 +1,7 @@
 id: ADR-0152
 title: "Uniform L1 per-view mechanism + L0 mounting under architecture/docs/L0/"
 status: accepted
+governance_infra: true
 date: 2026-05-27
 level: L0
 view: scenarios

@@ -44,6 +44,11 @@ ADR-0098 §rule-allocation-map.
 | G-3 | Kernel-Card-Implementation Coherence | **X** | [`rule-G-3.md`](../rules/rule-G-3.md) |
 | G-8 | Cross-Authority Parity (graph baseline / SPI path / module topology / current-claim grammar / structural-carrier parity) | **X** | [`rule-G-8.md`](../rules/rule-G-8.md) |
 | G-9 | Recurring-Defect Family Truth | **P** | [`rule-G-9.md`](../rules/rule-G-9.md) |
+| G-16 | ProductClaim Referential Integrity | **P** | [`rule-G-16.md`](../rules/rule-G-16.md) |
+| G-17 | No Orphan Artefacts | **P** | [`rule-G-17.md`](../rules/rule-G-17.md) |
+| G-18 | Traceability Chain Completeness | **P** | [`rule-G-18.md`](../rules/rule-G-18.md) |
+| G-20 | Governance-Infra Honesty | **P** | [`rule-G-20.md`](../rules/rule-G-20.md) |
+| G-21 | ProductClaim Placeholder Decreasing | **P** | [`rule-G-21.md`](../rules/rule-G-21.md) |
 
 ## Forbidden patterns (this phase)
 

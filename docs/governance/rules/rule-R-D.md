@@ -7,10 +7,43 @@ principle_ref: P-D
 authority_refs: [ADR-0067, ADR-0083, ADR-0085]
 enforcer_refs: [E3, E32, E105, E106, E107, E108, E117, E118, E131]
 status: active
+product_claim: "PC-001"
 scope_phase: design
 kernel_cap: 8
 kernel: |
   **Every `kind: domain` module exposes ≥1 `*.spi.*` package with ≥1 public interface listed under `spi_packages` in `module-metadata.yaml`, plus a `docs/dfx/<module>.yaml` covering five DFX dimensions (releasability, resilience, availability, vulnerability, observability); TCK conformance suites are deferred to W2 per `CLAUDE-deferred.md` 32.b/.c (sub-clause .a). Every `spi_packages` entry MUST resolve to a real directory with ≥1 `.java` beyond `package-info.java` (sub-clause .b), MUST be declared by exactly one Maven module (no split packages, sub-clause .c), and MUST end in `.spi` OR contain `.spi.` (sub-clause .d). Every `kind ∈ {platform, domain}` module's `docs/dfx/<module>.yaml` declares an order-insensitive set-matching `spi_packages` block vs `module-metadata.yaml#spi_packages` (sub-clause .e). Every row in `docs/contracts/contract-catalog.md` §2 Active SPI interfaces table (not `(internal)`-marked) MUST resolve back to `module-metadata.yaml#spi_packages` AND `docs/dfx/<module>.yaml#spi_packages` (sub-clause .f). Every `public interface` declaration under any `*/spi/*` path (excluding `target/`) MUST appear in the catalog as an Active SPI row OR be `(internal)`-marked (sub-clause .g).**
+deferred_sub_clauses:
+  - id: ".a.b"
+    title: "TCK Reactor Module Scaffolding [Deferred to W2]"
+    re_introduction_trigger: "first alternative implementation of any `agent-runtime` SPI is proposed — Postgres `Checkpointer`, Temporal `RunRepository`, or Redis `IdempotencyStore` (target: W2)."
+    deferred_body: |
+      **Rule (draft)**: A sibling `agent-runtime-tck` reactor module MUST exist with a single `@TckSurfaceMarker` test asserting the SPI interface signatures it covers. Adding the module bumps `module_count_invariant` (Gate Rule 28e) from 4 to 5.
+
+      **Pre-promotion holding tank** (added 2026-05-18 by the Beyond-SDD review response, see [`docs/logs/reviews/spring-ai-ascend-beyond-sdd-response.en.md`](../../logs/reviews/spring-ai-ascend-beyond-sdd-response.en.md) §4): the SPI-contract semantics that the future TCK module will assert are already executable today, in two locations that lift-and-shift cleanly when the trigger fires:
+
+      1. **`agent-runtime-core/src/test/java/...`** — pure-JUnit library-mode tests (`RunStateMachineLibraryTest`, `SuspendSignalLibraryTest`, `S2cCallbackEnvelopeLibraryTest`, `RunRecordTenantLibraryTest`) exercise the SPI value-type algebra with no Spring context. These tests are universal — they apply to every conformant impl.
+      2. **`agent-service/src/test/java/.../inmemory/`** — `InMemoryCheckpointerTest`, `InMemoryCheckpointerSizeCapTest`, `InMemoryRunRegistryFindRootRunsTest` carry a `// TCK-promotion-candidate` class-level marker. On Rule R-D sub-clause .a.b trigger they move to `agent-runtime-tck/src/main/java/.../tck/` and the in-memory impl becomes one test target alongside Postgres/Temporal/Redis.
+
+      This holding tank honours Rule D-2 (Simplicity) — no module is scaffolded today for a single implementation — while making the W2 promotion mechanical.
+
+      Composes with: ARCHITECTURE.md §4 #63; ADR-0067; Rule R-D sub-clause .a (SPI + DFX + TCK Co-Design); Rule D-3.b (Evidence-First Debug Sequence) — the library-mode tests above ARE the evidence layer Rule D-3.b calls for.
+    relates_to: ["ADR-0067", "Rule R-D sub-clause .a", "Rule D-3.b", "Rule D-2", "ARCHITECTURE.md §4 #63"]
+  - id: ".a.c"
+    title: "TCK Conformance Suite [Deferred to W2]"
+    re_introduction_trigger: "first alternative implementation is proposed AND its author requests \"conformant\" status (target: W2)."
+    deferred_body: |
+      **Rule (draft)**: For every SPI under `<module>/spi_packages` declared in `module-metadata.yaml`, there MUST be a `<module>-tck` test class that an alternative implementation runs against to be accepted as conformant. The TCK MUST cover (a) happy-path semantics, (b) error contract (which exceptions on which inputs), (c) thread-safety claim, (d) tenant-scope honouring.
+
+      Composes with: ARCHITECTURE.md §4 #63; ADR-0067; Rule R-D sub-clause .a.
+    relates_to: ["ADR-0067", "Rule R-D sub-clause .a", "ARCHITECTURE.md §4 #63"]
+  - id: ".a.d"
+    title: "Vulnerability Scanner Integration [Deferred to W2]"
+    re_introduction_trigger: "first CVE-bearing transitive dependency flagged manually OR first regulated-customer deployment requiring SCA reports (target: W2)."
+    deferred_body: |
+      **Rule (draft)**: A CI workflow MUST run a CVE/SCA scanner (Dependency-Check, Snyk, Trivy, or equivalent) on every PR. Findings at severity ≥ HIGH block merge unless an allow-list entry with a `risk_acceptance_adr:` reference is present.
+
+      Composes with: ARCHITECTURE.md §4 #63; ADR-0067; Rule R-D sub-clause .a; per-module `docs/dfx/<module>.yaml` `vulnerability:` block.
+    relates_to: ["ADR-0067", "Rule R-D sub-clause .a", "ARCHITECTURE.md §4 #63"]
 ---
 
 # Rule R-D — SPI + DFX + TCK Co-Design + Catalog Integrity

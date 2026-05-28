@@ -1,6 +1,7 @@
 id: ADR-0138
 title: "agent-service 5-layer L1 ratification: PR 71 layers (Access / Session&Task / EventQueue / Task-Centric / EngineAdapter) ↔ ADR-0100 components (Dispatcher / Orchestrator / TaskCenter / SessionManager / EngineAdapter) + Run≤Task≤Session≤Memory lifecycle; reject single-queue + 3-mode; require tenantId-first ER + cancel-race-aware state machine"
 status: accepted
+governance_infra: true
 date: 2026-05-26
 level: L1
 view: logical

@@ -1,6 +1,7 @@
 id: ADR-0077
 title: "Schema-First Domain Contracts — codify the W2.x prose-enum prohibition (P-M cross-cutting)"
 status: accepted
+governance_infra: true
 date: 2026-05-16
 level: L1
 view: development

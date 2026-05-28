@@ -49,6 +49,19 @@ Optional (5 keys): `saa.devPaths`, `saa.goals`, `saa.nonGoals`,
 Pipe (`|`) is the list separator (DSL `properties` are scalar→scalar; multi-value
 properties encode lists via the pipe delimiter).
 
+> **Sunset notice (ADR-0154 / Rule G-15, Fact-Layer W1, 2026-05-27):** the
+> three factual fields `saa.devPaths`, `saa.verificationTestFqns`, and
+> `saa.verificationCommands` are classified as
+> `factual_hand_authored_grandfathered` under
+> [`architecture/profile/saa-property-authority.yaml`](../profile/saa-property-authority.yaml)
+> with `sunset_date: 2026-07-31`. Wave 4 of the Fact-Layer plan lands the
+> Java extractors (CodeSymbolFactExtractor via ASM + JavaParser overlay
+> and TestInventoryFactExtractor); Wave 5 lands the thicker
+> FunctionPoint schema with `code_entrypoint_refs[]` / `test_refs[]` /
+> contract refs; Wave 6 retires the hand-authored fields. Until then,
+> values remain hand-authored at FEAT- level; treat them as advisory and
+> prefer FunctionPoint cross-fact resolution where available.
+
 ## The `saa.rel` relationship vocabulary
 
 See [`architecture/profile/relationship-types.yaml`](../profile/relationship-types.yaml)

@@ -7,6 +7,7 @@ principle_ref: P-A
 authority_refs: []
 enforcer_refs: []
 status: active
+governance_infra: true
 scope_phase: impl
 kernel_cap: 12
 kernel: |

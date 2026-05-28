@@ -1,0 +1,191 @@
+id: ADR-0155
+title: "Product Authority and Traceability Chain — ProductClaim as the binding axis between product, architecture, and governance"
+status: accepted
+governance_infra: true
+date: 2026-05-28
+level: L0
+view: development
+affects_level: L1
+affects_view: logical
+authors:
+  - chao
+extends:
+  - ADR-0086    # Two-namespace rule ratchet (D-/R-/G-/M-) — adds the ProductClaim binding axis on top of the rule namespace
+  - ADR-0151    # L1 Feature Registry canonical schema (saa.productClaim slot already present)
+  - ADR-0152    # Uniform L1 mechanism + L0 mounting
+  - ADR-0153    # L1 Feature Registry closure (Rule G-14 blocking)
+  - ADR-0154    # Fact-layer authority (the AI-grounding sibling decision)
+supersedes:
+  - "CLAUDE-deferred.md mirror pattern (deferred-rule registry mirroring the kernel index)"
+relates_to:
+  - ADR-0064    # Layer-0 governing principles (P-A: business/platform decoupling + developer self-service)
+  - ADR-0098    # Phase-contract scenario loading (cards-as-authority precedent)
+context: |
+  Pre-2026-05-28 the repository had three parallel ways an artefact (ADR,
+  rule, contract, feature, enforcer, module) could declare what it served:
+
+    * Implicitly via prose in CLAUDE.md kernels.
+    * Implicitly via reviewer narrative in docs/logs/reviews/.
+    * Not at all — many artefacts shipped without naming any business
+      claim they advanced.
+
+  This was structurally costly:
+
+    * AI sessions could not answer "which product claim does this rule
+      protect?" without re-reading the whole kernel.
+    * New team members could not see how an architecture constraint
+      mapped to a buyer-visible promise.
+    * `docs/CLAUDE-deferred.md` evolved into a parallel rule registry
+      that mirrored — and drifted from — the CLAUDE.md kernel index;
+      the mirror was the root cause of three recurring defect families
+      (F-kernel-mirror-drift, F-deferred-trigger-stale,
+      F-deferred-rule-orphan).
+
+  The v1.0 financial-MVP plan (filed at
+  D:\.claude\plans\ai-l0-adr-ai-l1-adr-adr-ai-ai-1-2-3-ai-effervescent-flask.md)
+  proposes ProductClaim (PC-NNN) as a first-class binding axis between
+  product/PRODUCT.md, the architecture corpus, and the governance kernel.
+  This ADR codifies that proposal.
+
+  Two design-only contracts (audit-trail.v1.yaml, iam-bridge.v1.yaml)
+  already declare `authority: ADR-0155` and `product_claim: PC-003`;
+  they were filed in the v1.0 financial MVP plan ahead of this ADR's
+  ratification.
+
+  CLAUDE.md was also restructured in this wave (collaboration-kernel
+  surgery: 46500 → ~9000 bytes) to make CARDS the sole rule authority
+  per ADR-0086's `gate_layer_boundary` semantic. CLAUDE.md retains only
+  the kernel index, phase-entry table, and Layer-0 principle/Layer-1
+  rule index — body bodies live exclusively in
+  docs/governance/{principles,rules}/. The deferred-rule registry
+  (docs/CLAUDE-deferred.md) is retired; its disposition table is
+  archived at docs/governance/retired-rules-audit.md (audit_id
+  PHASE7-OLD-NUMERIC-RULE-AUDIT, dated 2026-05-28).
+decision: |
+  Adopt the hard rule:
+
+      ProductClaim (PC-NNN) is the canonical binding axis between
+      product/, architecture/, and docs/governance/. Every active
+      ADR, rule card, enforcer row, contract YAML, feature DSL
+      element, and module-metadata.yaml MUST declare either
+      `product_claim: PC-NNN` (resolving to an `id:` in
+      product/claims.yaml) OR carry one of the explicit sentinels
+      `governance_infra: true` (the artefact serves the enforcement
+      system itself, not a buyer claim) or
+      `product_claim_placeholder: true` (transitional Wave 4 backfill
+      marker, monotonically decreasing toward zero per Rule G-21).
+
+  Operationalise via:
+
+    1. Authority surface: product/claims.yaml is the SINGLE registry
+       of valid PC-NNN ids. AI sessions MAY draft refinements but the
+       product owner (chao) is the sole signatory for new PC entries,
+       elevator-pitch changes, and the v1.0 buyer scope.
+
+    2. CLAUDE.md collaboration-kernel surgery: kernel index shrunk
+       from 46500 to ~9000 bytes; rule bodies removed from CLAUDE.md
+       and now live exclusively under
+       docs/governance/{principles,rules}/. CLAUDE.md is the kernel
+       INDEX, not the rule authority; cards remain the sole authority
+       per Rule G-3.b kernel↔card byte-match. This eliminates the
+       CLAUDE-deferred.md alt-home mirror pattern.
+
+    3. docs/CLAUDE-deferred.md retired; the disposition table is
+       archived at docs/governance/retired-rules-audit.md with
+       `audit_id: PHASE7-OLD-NUMERIC-RULE-AUDIT`. Every legacy
+       reference in active corpus has been swept to point at the
+       archive instead.
+
+    4. Six new gate rules ship in Phase A Wave 5 (this wave):
+         * Rule G-16 (productclaim_referential_integrity, E181) —
+           every `product_claim:` value resolves to a `PC-NNN` id
+           or sentinel.
+         * Rule G-17 (no_orphan_artefacts, E182) — every active
+           artefact carries a `product_claim:` field OR sentinel
+           (the inverse direction of G-16).
+         * Rule G-18 (traceability_chain_completeness, E183) —
+           every PC has at least one consumer in each of the four
+           expected surfaces (rule card, ADR, contract, feature).
+         * Rule G-19 (autoload_tier_integrity, E184) — every file
+           in gate/always-loaded-budget.txt with a non-zero ceiling
+           resolves to one of the four Tier-1 authority surfaces
+           (CLAUDE.md, product/, AGENTS.md, SESSION-START-CONTEXT.md)
+           OR a generated index under discovery/.
+         * Rule G-20 (governance_infra_honesty, E185) — artefacts
+           marked `governance_infra: true` MUST be located under
+           docs/governance/, gate/, or architecture/generated/;
+           the sentinel cannot be used to escape PC-NNN binding from
+           a business-domain location.
+         * Rule G-21 (productclaim_placeholder_decreasing, E186) —
+           count of `product_claim_placeholder: true` markers
+           monotonically decreases across Phase B cluster cycles;
+           reaching zero triggers G-16/G-17/G-18/G-20 advisory →
+           blocking promotion.
+
+    5. Advisory at Wave 5 landing 2026-05-28. Promotion to blocking
+       happens at the Phase B convergence signal — when Rule G-21
+       reports placeholder count zero. This mirrors the ADR-0151 →
+       ADR-0153 ratchet pattern (advisory at L1 W1, blocking at L1
+       W5 after 14-day soak).
+
+  Baselines fixed at Phase A Wave 5 ship:
+
+    * 140 ADRs (Phase A Wave 5 adds ADR-0155 on the W5 baseline of 139
+      that included ADR-0154).
+    * 152 active gate rules (Phase A Wave 5 adds Rules 133-138 on the
+      W5 baseline of 146).
+    * 51 active engineering rules (Phase A Wave 5 adds G-16..G-21 on
+      the W5 baseline of 45 that included G-15).
+    * 186 enforcer rows (Phase A Wave 5 adds E181-E186 on the W5
+      baseline of 180).
+consequences: |
+  Positive
+  --------
+    * Every artefact answers "which product claim does this serve?"
+      in one machine-readable field. AI sessions can build
+      claim-to-artefact graphs in one pass.
+    * CLAUDE.md token cost drops dramatically; the collaboration
+      kernel (~9000 bytes) is small enough to load alongside every
+      session without compromising the per-rule card depth.
+    * CLAUDE-deferred.md mirror pattern eliminated; the
+      kernel-mirror-drift defect family closes at its root cause.
+    * Product-owner authority over PC entries is structurally
+      enforced — AI sessions cannot silently invent new claims.
+    * The 4-surface auto-load tier (CLAUDE.md + product/ +
+      AGENTS.md + SESSION-START-CONTEXT.md) is bounded by Rule
+      G-19; future bloat in the always-loaded budget requires
+      explicit reclassification.
+
+  Negative
+  --------
+    * 4 of the 6 new rules ship advisory at Wave 5 (G-16, G-17,
+      G-18, G-20) — they emit warnings but do not block until G-21
+      placeholder count reaches zero. The Phase B cluster cycles
+      must do the backfill work; ride is bumpy until convergence.
+    * Existing artefacts that lack `product_claim:` will be
+      Wave 4 backfilled with `product_claim_placeholder: true`,
+      growing the placeholder population before it shrinks. The
+      initial placeholder baseline is the gate-able Phase B start
+      signal.
+    * Cards-as-sole-authority semantic places more reading burden
+      on cards in review-mode; mitigated by the per-phase contract
+      loading (ADR-0098) so reviewers only load rules in their
+      current phase.
+
+  Forward-looking
+  ---------------
+    * Phase B opens N cluster cycles, each resolving a slice of
+      placeholders to real PC-NNN ids or `governance_infra: true`.
+    * When G-21 reports zero placeholders, the four advisory rules
+      flip to blocking and Phase A is structurally closed.
+    * Future widening: rendered claim-to-artefact graphs under
+      architecture/facts/generated/ via the Wave 5+ extractor chain
+      (ADR-0154); LLM consumption contract update points future
+      Claude / Codex sessions at product/claims.yaml as the FIRST
+      read alongside the fact layer.
+    * Sunset roadmap: docs/governance/retired-rules-audit.md is
+      a frozen audit artefact; once Phase B closes and all legacy
+      numeric rule dispositions are resolved (deleted, migrated, or
+      promoted), the file becomes a historical reference and the
+      `## Phase 7 Old-Numeric Rule Audit Report` heading is annotated
+      "RESOLVED <date>" at the top.

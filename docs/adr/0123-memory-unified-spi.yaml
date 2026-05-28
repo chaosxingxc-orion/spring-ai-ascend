@@ -1,6 +1,7 @@
 id: ADR-0123
 title: "Memory unified SPI: `MemoryStore<K, V>` parameterized by `MemoryCategory` (M1-M6); CQRS split (MemoryReader / MemoryWriter); M3 SemanticMemoryStore + M5 KnowledgeMemoryStore marker interfaces land alongside existing M2/M4"
 status: accepted
+product_claim: "PC-001|PC-005"
 date: 2026-05-25
 level: L0
 view: development

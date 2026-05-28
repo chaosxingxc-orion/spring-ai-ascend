@@ -1,6 +1,7 @@
 id: ADR-0092
 title: "Ultimate Architecture Ledger Acknowledgment + Agent-OS Scope Boundary"
 status: accepted
+governance_infra: true
 date: 2026-05-20
 level: L0
 view: scenarios

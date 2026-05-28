@@ -249,15 +249,14 @@ templates:
     wave: "W8"
     note: "W8 initial migration — verbatim seed; numeric-cells rendering deferred to W8-extended."
 
-  - template: "docs/governance/templates/claude-md.md.j2"
-    output: "CLAUDE.md"
-    context_loader: "claude_md_index"
-    bucket: "templated"
-    authority_surfaces:
-      - "docs/governance/rules/*.md"
-      - "docs/governance/principles/*.md"
-    wave: "W9"
-    note: "W9 initial migration — verbatim seed; rule-index table rendering deferred to W9-extended."
+  # CLAUDE.md retired from templated bucket 2026-05-28: per user directive,
+  # CLAUDE.md is now the hand-authored team-collaboration kernel ONLY (daily
+  # principles + phase-entry skill table + Linux-first dev environment).
+  # The kernel cards under docs/governance/rules/ remain sole rule authority;
+  # CLAUDE.md no longer mirrors them. Hand-authored = inline bucket = not
+  # registered here. claude-md.md.j2 template kept on disk as historical
+  # reference for the templated phase (2026-05-17..2026-05-28) but no longer
+  # used to generate CLAUDE.md.
 
   - template: "docs/governance/templates/contract-architecture-design.md.j2"
     output: "docs/governance/contracts/architecture-design.md"

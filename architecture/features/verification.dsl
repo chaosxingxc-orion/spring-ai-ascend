@@ -19,7 +19,7 @@ testRunControllerCreateIT = element "RunControllerCreateIT" "IntegrationTest" "P
         "saa.view" "scenarios"
         "saa.status" "shipped"
         "saa.owner" "agent-service"
-        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/service/runtime/api/RunControllerCreateIT.java"
+        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/service/platform/web/runs/RunHttpContractIT.java"
     }
 }
 
@@ -31,7 +31,7 @@ testRunControllerCancelIT = element "RunControllerCancelIT" "IntegrationTest" "P
         "saa.view" "scenarios"
         "saa.status" "shipped"
         "saa.owner" "agent-service"
-        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/service/runtime/api/RunControllerCancelIT.java"
+        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/service/platform/web/runs/RunHttpContractIT.java"
     }
 }
 
@@ -79,7 +79,7 @@ testEngineRegistryTest = element "EngineRegistryTest" "UnitTest" "EngineRegistry
         "saa.view" "scenarios"
         "saa.status" "shipped"
         "saa.owner" "agent-execution-engine"
-        "saa.sourceFile" "agent-execution-engine/src/test/java/com/huawei/ascend/engine/EngineRegistryTest.java"
+        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/engine/runtime/EngineRegistryResolveTest.java"
     }
 }
 
@@ -91,7 +91,7 @@ testPostureBootGuardTest = element "PostureBootGuardTest" "UnitTest" "PostureBoo
         "saa.view" "scenarios"
         "saa.status" "shipped"
         "saa.owner" "agent-service"
-        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/service/platform/posture/PostureBootGuardTest.java"
+        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/service/platform/posture/PostureBootGuardIT.java"
     }
 }
 

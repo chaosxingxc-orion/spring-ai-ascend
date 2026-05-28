@@ -1,0 +1,166 @@
+---
+index_id: DISCOVERY-ADR-INDEX
+governance_infra: true
+generated_at: 2026-05-28
+generator: "spring-ai-ascend Phase A Wave 3"
+purpose: "Tier-2 progressive disclosure index — auto-loaded with summary lines; full bodies loaded on demand by phase-contract skills."
+---
+
+# ADR Discovery Index
+
+schema_version: 1 | last_updated: 2026-05-28 | count: 150
+
+Tier-2 progressive-disclosure index over the ADR corpus. Each row: id link, title, `status:`, `product_claim` (`PC-NNN`, `governance_infra`, or `placeholder` pending Wave-4 backfill). Sources: `docs/adr/*.yaml`, `docs/adr/*.md`, `docs/adr/locked/*.md`, `architecture/decisions/*` (precedence in that order on id collision).
+
+## Index
+
+- [ADR-0001](docs/adr/locked/0001-java-21-spring-boot-runtime.md) — Java 21 + Spring Boot 4.0.5 as the runtime baseline — accepted — product_claim:placeholder
+- [ADR-0002](docs/adr/locked/0002-spring-ai-llm-gateway.md) — Spring AI 2.0.0-M5 as the LLM gateway, not LangChain4j — accepted — product_claim:placeholder
+- [ADR-0003](docs/adr/0003-temporal-durable-workflows.md) — Temporal Java SDK 1.35.0 for durable workflows, not Airflow / Step Functions — accepted — product_claim:placeholder
+- [ADR-0004](docs/adr/locked/0004-postgres-primary-data-store.md) — PostgreSQL 16 with RLS + pgvector, not separate vector DB — accepted — product_claim:placeholder
+- [ADR-0005](docs/adr/locked/0005-tenant-isolation-guc-set-local.md) — Row-level security with SET LOCAL transaction-scoped GUC, not per-connection re… — accepted — product_claim:placeholder
+- [ADR-0006](docs/adr/locked/0006-posture-model-dev-research-prod.md) — ActionGuard 5-stage chain (cycle-9 truth-cut), not 11-stage — accepted — product_claim:placeholder
+- [ADR-0007](docs/adr/0007-outbox-postgres-not-kafka.md) — At-least-once outbox in Postgres, not Kafka, for v1 — accepted — product_claim:placeholder
+- [ADR-0008](docs/adr/0008-resilience4j-circuit-breaker.md) — OPA sidecar for authorization, not in-process Cedar / custom — accepted — product_claim:placeholder
+- [ADR-0009](docs/adr/0009-micrometer-observability.md) — HashiCorp Vault (OSS) for secrets, not env vars / K8s Secrets only — accepted — product_claim:placeholder
+- [ADR-0010](docs/adr/locked/0010-spring-security-oauth2.md) — Keycloak (OSS) as default IdP, but customer can BYO — accepted — product_claim:placeholder
+- [ADR-0011](docs/adr/locked/0011-flyway-schema-migration.md) — Spring Cloud Gateway as ingress, not Kong / Traefik — accepted — product_claim:placeholder
+- [ADR-0012](docs/adr/0012-valkey-session-cache.md) — Maven multi-module, not Gradle — accepted — product_claim:placeholder
+- [ADR-0013](docs/adr/0013-vault-secrets-management.md) — UUIDv7 for surrogate IDs, not snowflake / sequence — accepted — product_claim:placeholder
+- [ADR-0014](docs/adr/locked/0014-contract-spine-versioning-policy.md) — 3-posture model (dev/research/prod), not 5 or 2 — accepted — product_claim:placeholder
+- [ADR-0015](docs/adr/locked/0015-layered-architecture-capability-model.md) — Defer multi-framework dispatch (Python sidecar, LangChain4j) to W4+ — accepted — product_claim:placeholder
+- [ADR-0016](docs/adr/0016-a2a-federation-strategic-deferral.md) — A2A Federation — Strategic Deferral to Post-W4 — accepted — product_claim:placeholder
+- [ADR-0017](docs/adr/0017-dev-time-trace-replay.md) — Dev-time Trace Replay Surface — MCP Server, No Admin UI — accepted — product_claim:placeholder
+- [ADR-0018](docs/adr/0018-sandbox-executor-spi.md) — Sandbox Executor SPI for ActionGuard Bound Stage — accepted — product_claim:placeholder
+- [ADR-0019](docs/adr/0019-suspend-signal-and-suspend-reason-taxonomy.md) — SuspendSignal: Checked-Exception Primitive and Sealed SuspendReason Taxonomy — accepted — product_claim:placeholder
+- [ADR-0020](docs/adr/locked/0020-runlifecycle-spi-and-runstatus-formal-dfa.md) — RunLifecycle SPI Separation and RunStatus Formal DFA — accepted — product_claim:placeholder
+- [ADR-0021](docs/adr/0021-layered-spi-taxonomy.md) — Layered SPI Taxonomy: Cross-Tier Core vs Tier-Specific Adapters — accepted — product_claim:placeholder
+- [ADR-0022](docs/adr/0022-payload-codec-spi.md) — PayloadCodec SPI and Typed Payload Contract — accepted — product_claim:placeholder
+- [ADR-0023](docs/adr/0023-cross-boundary-context-propagation.md) — Cross-Boundary Context Propagation: Tenant, Trace, MDC, Metric Tags — accepted — product_claim:placeholder
+- [ADR-0024](docs/adr/0024-suspension-write-atomicity.md) — Suspension Write Atomicity: Checkpointer and RunRepository Transactional Contra… — accepted — product_claim:placeholder
+- [ADR-0025](docs/adr/0025-checkpoint-ownership-boundary.md) — Checkpoint Ownership Boundary: Executor Resume Cursors vs Orchestrator Run Row — accepted — product_claim:placeholder
+- [ADR-0027](docs/adr/locked/0027-idempotency-scope-w0-header-validation.md) — Idempotency Scope at W0: Header Validation Only, Dedup Deferred to W1 — accepted — product_claim:placeholder
+- [ADR-0028](docs/adr/0028-causal-payload-envelope-and-semantic-ontology.md) — Causal Payload Envelope and Semantic Ontology Tags — accepted — product_claim:placeholder
+- [ADR-0029](docs/adr/0029-cognition-action-separation.md) — Cognition-Action Separation Principle — accepted — product_claim:placeholder
+- [ADR-0030](docs/adr/0030-skill-spi-lifecycle-resource-matrix.md) — Skill SPI: Lifecycle, Resource Matrix, and Posture-Mandatory Sandbox — accepted — product_claim:placeholder
+- [ADR-0031](docs/adr/0031-three-track-channel-isolation.md) — Three-Track Channel Isolation for Northbound Streaming — accepted — product_claim:placeholder
+- [ADR-0032](docs/adr/0032-scope-based-run-hierarchy-and-planner-contract-minimal.md) — Scope-Based Run Hierarchy and Planner Contract Minimal — accepted — product_claim:placeholder
+- [ADR-0033](docs/adr/0033-logical-identity-equivalence-and-deployment-locus-vocabulary.md) — Logical Identity Equivalence and Deployment-Locus Vocabulary — accepted — product_claim:placeholder
+- [ADR-0034](docs/adr/0034-memory-and-knowledge-taxonomy-at-l0.md) — Memory and Knowledge Taxonomy at L0 — accepted — product_claim:placeholder
+- [ADR-0035](docs/adr/0035-posture-enforcement-single-construction-path.md) — Posture Enforcement Single-Construction-Path — accepted — product_claim:placeholder
+- [ADR-0036](docs/adr/0036-contract-surface-truth-generalization.md) — Contract-Surface Truth Generalization — accepted — product_claim:placeholder
+- [ADR-0037](docs/adr/0037-wave-authority-consolidation.md) — Wave Authority Consolidation — accepted — product_claim:placeholder
+- [ADR-0038](docs/adr/0038-skill-spi-resource-tier-classification.md) — Skill SPI Resource Tier Classification — accepted — product_claim:placeholder
+- [ADR-0039](docs/adr/0039-payload-migration-adapter-strategy.md) — Payload Migration Adapter Strategy — accepted — product_claim:placeholder
+- [ADR-0040](docs/adr/0040-w1-http-contract-reconciliation.md) — W1 HTTP Contract Reconciliation — accepted — product_claim:placeholder
+- [ADR-0041](docs/adr/0041-active-corpus-truth-sweep.md) — Active-Corpus Truth Sweep — accepted — product_claim:placeholder
+- [ADR-0042](docs/adr/0042-test-evidence-enforcement-for-rule-25.md) — ADR-0042: Test-Evidence Enforcement for Rule G-2 sub-clause .a (Gate Rule 19) — unknown — product_claim:placeholder
+- [ADR-0043](docs/adr/0043-active-normative-doc-catalog-and-peripheral-drift-prevention.md) — ADR-0043: Active Normative Doc Catalog and Peripheral Drift Prevention — unknown — product_claim:placeholder
+- [ADR-0044](docs/adr/0044-spi-contract-precision-and-memory-metadata-reconciliation.md) — ADR-0044: SPI Contract Precision and Memory Metadata Reconciliation — unknown — product_claim:placeholder
+- [ADR-0045](docs/adr/0045-shipped-row-evidence-path-existence-and-peripheral-wave-qualifier.md) — ADR-0045: Shipped-Row Evidence Path Existence and Peripheral Wave-Qualifier Gate — unknown — product_claim:placeholder
+- [ADR-0046](docs/adr/0046-release-note-shipped-surface-truth.md) — ADR-0046: Release-Note Shipped-Surface Truth Gate — unknown — product_claim:placeholder
+- [ADR-0047](docs/adr/0047-active-entrypoint-truth-and-system-boundary-prose-convention.md) — ADR-0047: Active-Entrypoint Truth and System-Boundary Prose Convention — unknown — product_claim:placeholder
+- [ADR-0048](docs/adr/0048-service-layer-microservice-architecture-commitment.md) — Service-Layer Microservice-Architecture Commitment — accepted — product_claim:placeholder
+- [ADR-0049](docs/adr/0049-c-s-dynamic-hydration-protocol.md) — C/S Dynamic Hydration Protocol and Cursor Handoff — accepted — product_claim:placeholder
+- [ADR-0050](docs/adr/0050-workflow-intermediary-mailbox-rhythm-track.md) — Workflow Intermediary Bus, Mailbox Backpressure, and Rhythm Track — accepted — product_claim:placeholder
+- [ADR-0051](docs/adr/0051-memory-knowledge-ownership-boundary.md) — Memory and Knowledge Ownership Boundary — accepted — product_claim:placeholder
+- [ADR-0052](docs/adr/0052-skill-topology-scheduler-and-capability-bidding.md) — Skill Topology Scheduler and Capability Bidding — accepted — product_claim:placeholder
+- [ADR-0053](docs/adr/0053-cohesive-agent-swarm-execution.md) — Cohesive Agent Swarm Execution — Workflow Authority Invariant + SpawnEnvelope — accepted — product_claim:placeholder
+- [ADR-0054](docs/adr/0054-long-connection-containment-runtime-handles.md) — Long-Connection Containment — Logical Runtime Handle Invariant — accepted — product_claim:placeholder
+- [ADR-0055](docs/adr/0055-permit-platform-to-runtime-direction.md) — ADR-0055 — Permit `agent-platform → agent-runtime`; Forbid the Reverse — unknown — product_claim:placeholder
+- [ADR-0056](docs/adr/0056-jwt-validation-and-tenant-claim-cross-check.md) — ADR-0056 — JWT Validation and Tenant Claim Cross-Check — unknown — product_claim:placeholder
+- [ADR-0057](docs/adr/0057-durable-idempotency-claim-replay.md) — ADR-0057 — Durable Idempotency Claim/Replay — unknown — product_claim:placeholder
+- [ADR-0058](docs/adr/0058-posture-boot-guard.md) — ADR-0058 — Posture Boot Guard — unknown — product_claim:placeholder
+- [ADR-0059](docs/adr/0059-code-as-contract-architectural-enforcement.md) — ADR-0059 — Code-as-Contract Architectural Enforcement (Introduces Rule R-C.a) — unknown — product_claim:placeholder
+- [ADR-0060](docs/adr/0060-phase-l-reviewer-remediation.md) — ADR-0060 — Phase L Reviewer Remediation (Closes P0-1, P0-2, P0-3, P1-1, P1-2, P… — unknown — product_claim:placeholder
+- [ADR-0061](docs/adr/0061-telemetry-vertical-layer.md) — ADR-0061 — Telemetry Vertical Layer — unknown — product_claim:placeholder
+- [ADR-0062](docs/adr/0062-trace-run-session-identity.md) — ADR-0062 — Trace ↔ Run ↔ Session Identity (N:M with session_id) — unknown — product_claim:placeholder
+- [ADR-0063](docs/adr/0063-client-sdk-observability-contract.md) — ADR-0063 — Client SDK Observability Contract (W3, design recorded at L1.x) — unknown — product_claim:placeholder
+- [ADR-0064](docs/adr/0064-layer-0-governing-principles.md) — ADR-0064 — Layer-0 Governing Principles + CLAUDE.md Restructure — unknown — product_claim:placeholder
+- [ADR-0065](docs/adr/0065-competitive-baselines.md) — ADR-0065 — Competitive Baselines (Four Pillars) — unknown — product_claim:placeholder
+- [ADR-0066](docs/adr/0066-independent-module-evolution.md) — ADR-0066 — Independent Module Evolution — unknown — product_claim:placeholder
+- [ADR-0067](docs/adr/0067-spi-dfx-tck-codesign.md) — ADR-0067 — SPI + DFX + TCK Co-Design — unknown — product_claim:placeholder
+- [ADR-0068](docs/adr/0068-layered-4plus1-and-architecture-graph.yaml) — Layered 4+1 and Architecture Graph as Twin Sources of Truth — accepted — product_claim:placeholder
+- [ADR-0069](docs/adr/0069-l0-ironclad-rules.yaml) — Layer-0 Ironclad Rules — promotion of LucioIT W1 §6/§7 to governing principles — accepted — product_claim:placeholder
+- [ADR-0070](docs/adr/0070-cursor-flow-and-skill-capacity-runtime.yaml) — Cursor Flow + Skill Capacity Runtime — activation of Rules 36.b and 41.b — accepted — product_claim:placeholder
+- [ADR-0071](docs/adr/0071-engine-contract-structural-wave.yaml) — Engine Contract Structural Wave — umbrella for ADR-0072..0075 + L0 principle P-M — accepted — product_claim:placeholder
+- [ADR-0072](docs/adr/0072-engine-envelope-and-strict-matching.yaml) — Engine Envelope + Strict Matching — first L1 expression of P-M — accepted — product_claim:placeholder
+- [ADR-0073](docs/adr/0073-engine-hooks-and-runtime-middleware.yaml) — Engine Lifecycle Hooks + Runtime-Owned Middleware SPI — second L1 expression of… — accepted — product_claim:placeholder
+- [ADR-0074](docs/adr/0074-s2c-capability-callback.yaml) — Server-to-Client (S2C) Capability Callback Protocol — third L1 expression of P-M — accepted — product_claim:placeholder
+- [ADR-0075](docs/adr/0075-evolution-scope-boundary.yaml) — Evolution Scope Boundary -- server-controlled evolution surface, fourth L1 expr… — accepted — product_claim:placeholder
+- [ADR-0076](docs/adr/0076-r2-pilot-runtime-self-validation.yaml) — R2 Pilot - Runtime Self-Validates Engine Envelope Schema on Boot — accepted — product_claim:placeholder
+- [ADR-0077](docs/adr/0077-schema-first-domain-contracts.yaml) — Schema-First Domain Contracts — codify the W2.x prose-enum prohibition (P-M cro… — accepted — product_claim:placeholder
+- [ADR-0078](docs/adr/0078-agent-service-consolidation.yaml) — agent-service consolidation: fold agent-platform + agent-runtime into a single… — accepted — product_claim:placeholder
+- [ADR-0079](docs/adr/0079-engine-extraction-runtime-core.yaml) — T2.B2 engine extraction with shared agent-runtime-core (resolves the Run/RunCon… — superseded — product_claim:placeholder
+- [ADR-0080](docs/adr/0080-resilience-contract-spi-package-alignment.yaml) — ResilienceContract .spi package alignment + Rule R-D sub-clause .f prevention — accepted — product_claim:placeholder
+- [ADR-0081](docs/adr/0081-resilience-contract-dual-surface-reconciliation.yaml) — ResilienceContract dual-surface reconciliation (operation-policy + skill-capaci… — accepted — product_claim:placeholder
+- [ADR-0082](docs/adr/0082-graphmemory-ownership-canonical-and-topology-truth.yaml) — GraphMemoryRepository canonical ownership + module-metadata.yaml is single sour… — accepted — product_claim:placeholder
+- [ADR-0086](docs/adr/0086-rule-namespace-ratchet.yaml) — Rule Namespace Ratchet — adopt P-/R-/D-/G-/M- prefix scheme — accepted — product_claim:placeholder
+- [ADR-0087](docs/adr/0087-l0-rc12-authority-ratchet-and-deploy-truth.yaml) — L0 rc12 authority ratchet + deploy-truth + contract truth + terminal-verb scope — accepted — product_claim:placeholder
+- [ADR-0088](docs/adr/0088-agent-runtime-core-dissolution.yaml) — Dissolve agent-runtime-core; redistribute kernel SPI to semantic-home modules;… — accepted — product_claim:placeholder
+- [ADR-0089](docs/adr/0089-edge-plane-ingress-gateway-mandate.yaml) — Edge-Plane Ingress Gateway Mandate — client → bus → server is the only allowed… — accepted — product_claim:placeholder
+- [ADR-0090](docs/adr/0090-rc14-cross-authority-parity-and-engine-semantic-home.yaml) — rc14 Cross-Authority Parity + Engine Package Semantic-Home (L-α..L-η wave) — accepted — product_claim:placeholder
+- [ADR-0091](docs/adr/0091-rc15-structural-carrier-parity-and-terminal-state-scope.yaml) — rc15 Structural-Carrier Parity + Terminal-State Scope Widening (M-α..M-η wave) — accepted — product_claim:placeholder
+- [ADR-0092](docs/adr/0092-ledger-acknowledgment-and-agent-os-scope-boundary.yaml) — Ultimate Architecture Ledger Acknowledgment + Agent-OS Scope Boundary — accepted — product_claim:placeholder
+- [ADR-0093](docs/adr/0093-rc16-recurring-family-comprehensive-closure-and-meta-scope-completeness.yaml) — rc16 Recurring-Family Comprehensive Closure + META Scope Completeness — accepted — product_claim:placeholder
+- [ADR-0094](docs/adr/0094-rc17-recurring-defect-family-truth-and-rule-consolidation.yaml) — rc17 Recurring-Defect Family Truth + Rule Consolidation — accepted — product_claim:placeholder
+- [ADR-0095](docs/adr/0095-rc18-comprehensive-hardening.yaml) — rc18 Comprehensive Hardening — Rule 111 Self-Hardening + Pattern Sweep + Naming… — accepted — product_claim:placeholder
+- [ADR-0096](docs/adr/0096-rc19-meta-recursion-permanent-close.yaml) — rc19 META-Recursion Permanent Close — Python YAML Parser + Rule 112/113/114 + M… — accepted — product_claim:placeholder
+- [ADR-0097](docs/adr/0097-rc20-meta-recursion-actually-close-plus-d9.yaml) — rc20 — Meta-recursion actually-close + D-9 (no version/log metadata in code) +… — accepted — product_claim:placeholder
+- [ADR-0098](docs/adr/0098-rc21-scenario-phase-contracts-and-new-discipline-rules.yaml) — rc21 — 6-phase scenario-loaded contracts + Rule G-10 (parallel-Linux-scripts) +… — accepted — product_claim:placeholder
+- [ADR-0099](docs/adr/0099-rc22-l1-architecture-depth-and-grounding.yaml) — rc22 — L1 Architecture Depth & Grounding (Rule G-1.1) + Tree-Parser + SPI-Appen… — accepted — product_claim:placeholder
+- [ADR-0100](docs/adr/0100-rc22-agent-service-l1-runtime-role-decomposition.yaml) — rc22 — agent-service L1 runtime-role decomposition (5-component model + Run≤Tas… — accepted — product_claim:placeholder
+- [ADR-0101](docs/adr/0101-rc22-polymorphic-deployment-topology.yaml) — rc22 — Polymorphic Deployment Topology (Mode A Platform-Centric + Mode B Busine… — accepted — product_claim:placeholder
+- [ADR-0102](docs/adr/0102-rc22-evolution-plane-online-offline-duality.yaml) — rc22 — Evolution Plane Online/Offline Duality (Offline T+1 + Online Dual-Track… — accepted — product_claim:placeholder
+- [ADR-0103](docs/adr/0103-rc22-agent-middleware-naming-and-capability-services-distribution.yaml) — rc22 — agent-middleware naming resolution (REJECT rename + REJECT 7th module) +… — accepted — product_claim:placeholder
+- [ADR-0104](docs/adr/0104-rc22-package-root-migration-to-com-huawei-ascend.yaml) — rc22 — Package-root migration (decision; rc22.5 executes) — accepted — product_claim:placeholder
+- [ADR-0105](docs/adr/0105-rc32-residual-corrective-family-truth-and-sanitizer-fix.yaml) — rc32 — residual corrective + F-bulk-scrub-orphan-syntax registration + family-s… — accepted — product_claim:placeholder
+- [ADR-0106](docs/adr/0106-run-version-two-phase-migration.yaml) — Run.version field — two-phase W1.5 + W2 migration to avoid in-flight CAS gap — accepted — product_claim:placeholder
+- [ADR-0107](docs/adr/0107-federation-ancestor-reconstruction-via-runregistry.yaml) — Federation acyclicity — central RunRegistry ancestor reconstruction (caller lis… — accepted — product_claim:placeholder
+- [ADR-0108](docs/adr/0108-tenant-reauth-widening-and-graph-isolation.yaml) — Tenant re-authorization widening (read + resume) + GraphMemoryRepository tenant… — accepted — product_claim:placeholder
+- [ADR-0109](docs/adr/0109-s2c-and-ingress-server-identity-proof.yaml) — S2C callback + ingress envelope — server-identity proof (mTLS fingerprint or si… — accepted — product_claim:placeholder
+- [ADR-0110](docs/adr/0110-audit-tamper-evidence-and-hook-pii-failsafe.yaml) — Audit log tamper-evidence (per-tenant hash-chain + Merkle anchor) + Hook PII fa… — accepted — product_claim:placeholder
+- [ADR-0111](docs/adr/0111-sandbox-routing-vault-rotation-otlp-tenant-outbox-replay.yaml) — Sandbox W2-W3 startup gate + Vault rotation policy + OTLP per-tenant binding +… — accepted — product_claim:placeholder
+- [ADR-0112](docs/adr/0112-engine-stateless-executor-value-based-yield.yaml) — Engine stateless executor — value-based yield (no checked exception); A2A Inter… — accepted — product_claim:placeholder
+- [ADR-0113](docs/adr/0113-hook-ordering-failsafe-coherence-and-tie-break.yaml) — Hook chain — two-level failure semantics (chain fail-fast + invocation failsafe… — accepted — product_claim:placeholder
+- [ADR-0114](docs/adr/0114-implementation-feasibility-batched-closures.yaml) — Implementation feasibility batched closures (10 R1-feasibility findings) — accepted — product_claim:placeholder
+- [ADR-0115](docs/adr/0115-agent-service-l1-expansion-acceptance.yaml) — agent-service L1 expansion acceptance — dual modes, 4-layer state, Dual-Track r… — accepted — product_claim:placeholder
+- [ADR-0116](docs/adr/0116-rc36-kernel-truth-and-cancel-cas-corrective.yaml) — rc36 exhaustive-audit corrective: kernel-truth gate un-deadening + cancel-CAS +… — accepted — product_claim:placeholder
+- [ADR-0117](docs/adr/0117-rc37-ascend-kunpeng-strategic-repositioning.yaml) — rc37 strategic repositioning: Ascend/Kunpeng hardware-synergy platform; drop FS… — accepted — product_claim:placeholder
+- [ADR-0118](docs/adr/0118-rc38-audit-corrective-latent-correctness-and-deploy-packaging.yaml) — rc38 audit-corrective: parallel-review latent-correctness + deploy-packaging fi… — accepted — product_claim:placeholder
+- [ADR-0119](docs/adr/0119-single-source-rendering.yaml) — Single-Source Rendering for derived architecture documents (release notes, READ… — accepted — product_claim:placeholder
+- [ADR-0120](docs/adr/0120-brand-audience-b-alignment.yaml) — Brand & Audience B alignment: KEEP `spring-ai-ascend` identity and Audience B p… — accepted — product_claim:placeholder
+- [ADR-0121](docs/adr/0121-model-gateway-spi.yaml) — ModelGateway SPI: tenant-scoped, hook-bound, pure-Java `ModelResponse invoke(Mo… — accepted — product_claim:placeholder
+- [ADR-0122](docs/adr/0122-tool-skill-semantic-resolution.yaml) — Tool vs Skill semantic resolution: `Tool` is a `SkillKind` enum value; one unif… — accepted — product_claim:placeholder
+- [ADR-0123](docs/adr/0123-memory-unified-spi.yaml) — Memory unified SPI: `MemoryStore<K, V>` parameterized by `MemoryCategory` (M1-M… — accepted — product_claim:placeholder
+- [ADR-0124](docs/adr/0124-vector-retrieval-embedding-spi.yaml) — VectorStore / Retriever / EmbeddingModel SPIs: tenant-scoped decorators of Spri… — accepted — product_claim:placeholder
+- [ADR-0125](docs/adr/0125-spring-ai-integration-boundary.yaml) — Spring AI integration boundary: Spring AI is the canonical Model / Tool / Vecto… — accepted — product_claim:placeholder
+- [ADR-0126](docs/adr/0126-planner-spi.yaml) — Planner SPI: `Planner.plan(PlanningRequest)` returning a `Plan` DAG (steps, dep… — accepted — product_claim:placeholder
+- [ADR-0127](docs/adr/0127-skill-spi-tool-unification.yaml) — Skill SPI: unified lifecycle interface with `SkillKind` discriminator; Spring A… — accepted — product_claim:placeholder
+- [ADR-0128](docs/adr/0128-agent-first-class-entity.yaml) — Agent first-class SPI: `Agent` binds (identity, modelBinding, toolBindings, mem… — accepted — product_claim:placeholder
+- [ADR-0129](docs/adr/0129-streaming-aware-model-gateway.yaml) — Streaming-aware ModelGateway: pure-Java `Stream<ModelResponseChunk>` default; S… — accepted — product_claim:placeholder
+- [ADR-0130](docs/adr/0130-structured-output-converter-spi.yaml) — StructuredOutputConverter<T> SPI: pure-Java generic converter shape; Spring AI… — accepted — product_claim:placeholder
+- [ADR-0131](docs/adr/0131-prompt-template-spi.yaml) — PromptTemplate SPI: tenant-scoped, sealed-source, pure-Java template-rendering… — accepted — product_claim:placeholder
+- [ADR-0132](docs/adr/0132-chat-advisor-spi.yaml) — ChatAdvisor SPI: tenant-scoped, around-call interceptor chain over ModelGateway… — accepted — product_claim:placeholder
+- [ADR-0133](docs/adr/0133-conversation-memory-spi-variant.yaml) — ConversationMemory: MemoryStore<String, ConversationWindow> variant for windowe… — accepted — product_claim:placeholder
+- [ADR-0134](docs/adr/0134-tool-call-iteration-loop.yaml) — Tool-Call Iteration Loop: agent-driven vs. planner-driven execution modes for L… — accepted — product_claim:placeholder
+- [ADR-0135](docs/adr/0135-agent-session-as-run-projection.yaml) — AgentSession as Run-Projection: no separate AgentSession SPI; conversation cont… — accepted — product_claim:placeholder
+- [ADR-0136](docs/adr/0136-vocabulary-reconciliation-pr71-task-vs-run.yaml) — Vocabulary Reconciliation: PR 71 'Task' ≡ existing platform Task entity (not Ru… — accepted — product_claim:placeholder
+- [ADR-0137](docs/adr/0137-suspendsignal-canonical-interruptsignal-glossary.yaml) — SuspendSignal remains canonical; InterruptSignal / InterruptReason are L1 gloss… — accepted — product_claim:placeholder
+- [ADR-0138](docs/adr/0138-agent-service-five-layer-l1-ratification.yaml) — agent-service 5-layer L1 ratification: PR 71 layers (Access / Session&Task / Ev… — accepted — product_claim:placeholder
+- [ADR-0139](docs/adr/0139-fast-slow-path-narrowed-semantics.yaml) — Fast-Path / Slow-Path narrowed semantics: Fast-Path = in-process reactive synch… — accepted — product_claim:placeholder
+- [ADR-0140](docs/adr/0140-engine-adapter-layer-split.yaml) — Engine Adapter Layer split: Layer 5 in ADR-0138 5-layer model decomposes into L… — accepted — product_claim:placeholder
+- [ADR-0141](docs/adr/0141-internal-event-queue-design-only.yaml) — Internal Event Queue (ADR-0138 Layer 3) is a design_only sub-section of agent-s… — accepted — product_claim:placeholder
+- [ADR-0142](docs/adr/0142-run-aggregate-single-owner.yaml) — Run aggregate (Run record + RunStatus + RunStateMachine + RunRepository) is OWN… — accepted — product_claim:placeholder
+- [ADR-0143](docs/adr/0143-review-log-demotion-l1-canonical-move.yaml) — rc53 review file 2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.{en,cn}.md i… — accepted — product_claim:placeholder
+- [ADR-0144](docs/adr/0144-layer-vs-package-matrix.yaml) — Layer ↔ Package matrix unifies the rc22 ADR-0100 5-component package-structural… — accepted — product_claim:placeholder
+- [ADR-0145](docs/adr/0145-run-event-sealed-hierarchy.yaml) — Sealed RunEvent hierarchy specification: defines the polymorphic event type tha… — accepted — product_claim:placeholder
+- [ADR-0146](docs/adr/0146-suspend-reason-taxonomy-alignment-2026-05-22.yaml) — SuspendReason taxonomy canonical alignment to 2026-05-22 expansion-proposal-res… — accepted — product_claim:placeholder
+- [ADR-0147](docs/adr/0147-structurizr-workspace-authority.yaml) — Structurizr workspace closure as the architecture authoring root, with programm… — accepted — product_claim:placeholder
+- [ADR-0148](docs/adr/0148-architecture-workspace-spike-results.yaml) — Wave 0 spike results — Structurizr workspace authority feasibility — accepted — product_claim:placeholder
+- [ADR-0149](docs/adr/0149-structurizr-workspace-authority-w0-w5-shipped.yaml) — Structurizr workspace authority — W0..W5 shipped; W6/W7 entry-criteria document… — accepted — product_claim:placeholder
+- [ADR-0150](docs/adr/0150-architecture-design-system-unification-under-structurizr.yaml) — Architecture design system unified under architecture/ — L1 corpus + module ARC… — accepted — product_claim:placeholder
+- [ADR-0151](docs/adr/0151-l1-feature-registry-canonical-schema.yaml) — L1 Feature Registry canonical schema — SAA Feature tag + AI Execution Boundary… — accepted — product_claim:placeholder
+- [ADR-0152](docs/adr/0152-uniform-l1-per-view-mechanism-and-l0-mounting.yaml) — Uniform L1 per-view mechanism + L0 mounting under architecture/docs/L0/ — accepted — product_claim:placeholder
+- [ADR-0153](docs/adr/0153-l1-feature-registry-closure.yaml) — L1 Feature Registry closure — Rule G-14 blocking flip + plan completion — accepted — product_claim:placeholder
+- [ADR-0154](docs/adr/0154-fact-layer-authority.yaml) — Fact-Layer Authority — generated structured facts as the AI's primary L1 input — accepted — product_claim:placeholder

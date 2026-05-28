@@ -1,6 +1,7 @@
 id: ADR-0132
 title: "ChatAdvisor SPI: tenant-scoped, around-call interceptor chain over ModelGateway; HookDispatcher stays platform-internal"
 status: accepted
+product_claim: "PC-001|PC-004"
 date: 2026-05-25
 level: L0
 view: development

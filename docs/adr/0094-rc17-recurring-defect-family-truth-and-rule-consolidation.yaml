@@ -1,6 +1,7 @@
 id: ADR-0094
 title: "rc17 Recurring-Defect Family Truth + Rule Consolidation"
 status: accepted
+governance_infra: true
 date: 2026-05-21
 level: L0
 view: process

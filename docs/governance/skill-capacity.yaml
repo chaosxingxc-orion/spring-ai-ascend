@@ -15,6 +15,20 @@
 version: 1
 generated_at: 2026-05-15
 
+# v1.0 financial-vertical default token budget (PC-003 / Persona-A + Persona-B + Persona-D).
+# Conservative per-(tenant, agent) budget that banks override per-tenant via
+# the 中台-mode deployment manifest (`deploy/middle-office-reference/values-bank-example.yaml`).
+# Wire schema authority: `docs/contracts/cost-governance.v1.yaml#token_budget_schema`.
+v1_0_financial_default_budget:
+  description: "Conservative per-tenant per-agent token budget for v1.0 financial workloads. Banks override per-tenant via deployment manifest."
+  daily_input_tokens: 1_000_000
+  daily_output_tokens: 200_000
+  monthly_input_tokens: 30_000_000
+  monthly_output_tokens: 6_000_000
+  enforcement_mode: block
+  product_claim: PC-003
+
+
 # Post-rc2 status label (gate Rule 62 `contract_yaml_declares_status`): this
 # file ships the capacity SCHEMA + per-skill capacity declarations. The
 # `model-call` + `memory-write` rows are runtime_enforced today via

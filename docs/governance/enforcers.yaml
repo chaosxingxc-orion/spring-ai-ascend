@@ -39,6 +39,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#module_dep_direction
   asserts: "agent-runtime pom does not depend on agent-platform"
+  governance_infra: true
 
 - id: E2
   constraint_ref: "CLAUDE.md Rule R-C.2.c generalised at L1; ADR-0055"
@@ -47,6 +48,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/RuntimeMustNotDependOnPlatformTest.java
   asserts: "no class under com.huawei.ascend.service.runtime.. imports any class under com.huawei.ascend.service.platform.."
+  product_claim: "PC-001|PC-003"
 
 - id: E3
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .a; ARCHITECTURE.md §4.7 (SPI purity); pre-existing"
@@ -55,6 +57,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/memory/spi/MemorySpiArchTest.java
   asserts: "runtime.memory.spi.. imports only java.*"
+  product_claim: "PC-001"
 
 - id: E4
   constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §5.2; ADR-0055"
@@ -63,6 +66,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/HttpEdgeMustNotImportMemorySpiTest.java
   asserts: "agent-platform does not import com.huawei.ascend.service.runtime.memory.spi.."
+  product_claim: "PC-001|PC-003"
 
 - id: E5
   constraint_ref: "CLAUDE.md Rule R-C.2.b; L1 plan §6.5; architecture-status.yaml line 892; W1.x Phase 8 — ADR-0070 (cursor flow)"
@@ -71,6 +75,7 @@
   view: logical
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/web/runs/RunHttpContractIT.java#createReturns202WithCursor
   asserts: "POST /v1/runs returns 202 with TaskCursor envelope (status=PENDING, cursor_url present); RunStatus enum contains no CREATED — Phase 8 migrated this contract from 201+RunResponse to 202+TaskCursor."
+  governance_infra: true
 
 - id: E6
   constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §6.5; architecture-status.yaml line 892"
@@ -79,6 +84,7 @@
   view: logical
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/web/runs/RunHttpContractIT.java#cancel_route_is_post_not_delete
   asserts: "DELETE /v1/runs/{id} returns 405/404; cancellation is POST /v1/runs/{id}/cancel"
+  governance_infra: true
 
 - id: E7
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §6.3 status-code matrix"
@@ -87,6 +93,7 @@
   view: logical
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/web/runs/RunHttpContractIT.java
   asserts: "each row of §6.3 returns the documented status code + ErrorEnvelope.code"
+  product_claim: "PC-003"
 
 - id: E8
   constraint_ref: "CLAUDE.md Rule R-C.2.b; L1 plan §6.4 error envelope"
@@ -95,6 +102,7 @@
   view: logical
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/ErrorEnvelopeContractTest.java
   asserts: "every 4xx/5xx response has only the top-level 'error' field with code+message+details"
+  product_claim: "PC-001|PC-003"
 
 - id: E9
   constraint_ref: "CLAUDE.md Rule D-6; L1 plan §7.1; ADR-0056"
@@ -103,6 +111,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/auth/JwtValidationIT.java
   asserts: "JWT validation enforces RS256, iss, aud, exp, nbf, clock-skew; failures return 401 with metric"
+  product_claim: "PC-003"
 
 - id: E10
   constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §7.2; ADR-0056"
@@ -111,6 +120,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/tenant/JwtTenantClaimCrossCheckTest.java
   asserts: "JWT tenant_id claim mismatched with X-Tenant-Id header returns 403 tenant_mismatch + counter increment"
+  product_claim: "PC-001|PC-003"
 
 - id: E11
   constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §7.3; ADR-0056; ADR-0058"
@@ -119,6 +129,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/auth/JwtDevLocalModeGuardIT.java
   asserts: "app.auth.dev-local-mode=true causes startup failure when app.posture != dev"
+  product_claim: "PC-001|PC-003"
 
 - id: E12
   constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §8.3; ADR-0057"
@@ -127,6 +138,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/idempotency/jdbc/IdempotencyDurabilityIT.java
   asserts: "claim row durable before Orchestrator.submit; submit failure marks row FAILED; key cannot be re-claimed before expires_at"
+  product_claim: "PC-001|PC-003"
 
 - id: E13
   constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §8.1; ADR-0057"
@@ -135,6 +147,7 @@
   view: logical
   artifact: agent-service/src/main/resources/db/migration/V2__idempotency_dedup.sql
   asserts: "PRIMARY KEY (tenant_id, idempotency_key) prevents duplicate inserts at storage layer"
+  product_claim: "PC-001|PC-003"
 
 - id: E14
   constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §8.2; ADR-0057"
@@ -143,6 +156,7 @@
   view: logical
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/idempotency/IdempotencyStorePostgresIT.java#body_drift_returns_existing_with_original_hash
   asserts: "same key + different request_hash returns 409 idempotency_body_drift"
+  product_claim: "PC-001|PC-003"
 
 - id: E15
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §11 row E15"
@@ -151,6 +165,7 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#tenant_column_present
   asserts: "every CREATE TABLE under src/main/resources/db/migration/ has a tenant_id column"
+  product_claim: "PC-003"
 
 - id: E16
   constraint_ref: "CLAUDE.md Rule D-6; architect guidance §11"
@@ -159,6 +174,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/RepositoryPaginationTest.java
   asserts: "Spring Data repository methods returning Collection/Page declare Pageable OR are annotated @BoundedQuery. Test ships with allowEmptyShould(true) — armed for W1 persistence work; vacuous at L1 (no Spring Data Repository beans yet)."
+  product_claim: "PC-003"
 
 - id: E17
   constraint_ref: "CLAUDE.md Rule D-6; architect guidance §11"
@@ -167,6 +183,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/NoStringConcatSqlTest.java
   asserts: "no source under agent-platform/persistence/.. builds JPQL/SQL with String concatenation"
+  product_claim: "PC-003"
 
 - id: E18
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §10; architect guidance §12"
@@ -175,6 +192,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/MetricNamingTest.java
   asserts: "every Counter/Timer/Gauge name starts with springai_ascend_"
+  product_claim: "PC-003"
 
 - id: E19
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §10"
@@ -183,6 +201,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#high_cardinality_tag_guard
   asserts: "no source registers Tag.of(\"run_id\"|\"idempotency_key\"|\"jwt_sub\"|\"body\", …) on a springai_ascend_* metric"
+  product_claim: "PC-003"
 
 - id: E20
   constraint_ref: "CLAUDE.md Rule R-C.a; architect guidance §9.3"
@@ -191,6 +210,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#no_secret_patterns
   asserts: "no AKIA/sk-/-----BEGIN PRIVATE KEY-----/etc. patterns in tracked files (allow-list inline-annotated)"
+  product_claim: "PC-003"
 
 - id: E21
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §9; ADR-0058"
@@ -199,6 +219,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/posture/PostureBootGuardIT.java
   asserts: "research/prod posture fails startup with IllegalStateException when any @RequiredConfig field absent"
+  product_claim: "PC-003"
 
 - id: E22
   constraint_ref: "CLAUDE.md Rule D-6; L1 plan §8.4; ADR-0058"
@@ -207,6 +228,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/idempotency/InMemoryIdempotencyAllowFlagIT.java
   asserts: "InMemoryIdempotencyStore bean registered only when posture=dev AND app.idempotency.allow-in-memory=true"
+  product_claim: "PC-003"
 
 - id: E23
   constraint_ref: "CLAUDE.md Rule R-C.2.b; ADR-0020"
@@ -215,6 +237,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/runs/RunStateMachineTest.java
   asserts: "Run.withStatus and Run.withSuspension call RunStateMachine.validate; illegal transitions throw IllegalStateException"
+  product_claim: "PC-001|PC-003"
 
 - id: E24
   constraint_ref: "CLAUDE.md Rule R-C.2.b; L1 plan §6.5 cancel semantics"
@@ -223,6 +246,7 @@
   view: logical
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/web/runs/RunHttpContractIT.java#cancelTerminalReturns409
   asserts: "cancel of SUCCEEDED/FAILED/EXPIRED run returns 409 illegal_state_transition"
+  product_claim: "PC-001|PC-003"
 
 - id: E25
   constraint_ref: "CLAUDE.md Rule R-C.2.c; architect guidance §15.6; pre-existing"
@@ -231,6 +255,7 @@
   view: logical
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/contracts/OpenApiContractIT.java
   asserts: "live /v3/api-docs response matches the committed snapshot byte-for-byte"
+  product_claim: "PC-001|PC-003"
 
 - id: E26
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §13 out-of-scope"
@@ -239,6 +264,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#out_of_scope_name_guard
   asserts: "names LLMGateway/PostgresCheckpointer/SkillRegistry/HookChain/SpawnEnvelope/LogicalCallHandle/ConnectionLease/AdmissionDecision/BackpressureSignal/ChronosHydration/SandboxExecutor do not appear in agent-*/src/main/java"
+  product_claim: "PC-003"
 
 - id: E27
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan decision D3"
@@ -247,6 +273,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#module_count_invariant
   asserts: "root pom.xml declares exactly 4 <module> entries at L1"
+  product_claim: "PC-003"
 
 - id: E28
   constraint_ref: "CLAUDE.md Rule R-C.a (meta); ADR-0059"
@@ -255,6 +282,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#constraint_enforcer_coverage
   asserts: "every must/must not/forbidden/required sentence in the architecture corpus maps to at least one row in this file"
+  product_claim: "PC-003"
 
 - id: E29
   constraint_ref: "CLAUDE.md Rule R-C.a; ADR-0059 §1"
@@ -263,6 +291,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#enforcers_yaml_wellformed
   asserts: "every row in this file has id+constraint_ref+kind+level+view+artifact+asserts; kind is one of the five legal values; level is L0|L1|L2; view is one of the five legal values"
+  product_claim: "PC-003"
 
 - id: E30
   constraint_ref: "CLAUDE.md Rule R-C.a; ADR-0059 §3"
@@ -271,6 +300,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#no_prose_only_constraint_marker
   asserts: "no TODO:enforce / FIXME:enforcer / XXX:test / deferred:gate markers in CLAUDE.md, ARCHITECTURE.md, or any */ARCHITECTURE.md"
+  product_claim: "PC-003"
 
 - id: E31
   constraint_ref: "CLAUDE.md Rule R-C.a; architect guidance §16"
@@ -279,6 +309,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#l1_review_checklist_present
   asserts: "every ADR 0055-0059 contains the §16 review checklist as a sub-section"
+  product_claim: "PC-003"
 
 - id: E32
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §11"
@@ -287,6 +318,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#plan_enforcer_table_in_sync
   asserts: "L1 plan §11 table row IDs equal the set of id: fields in this file"
+  product_claim: "PC-003"
 
 - id: E33
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §18.3 step 1; Phase K audit fix F6; ADR-0059"
@@ -295,6 +327,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#enforcer_artifact_paths_exist
   asserts: "every artifact: path in this file resolves to a real file on disk (strips #anchor suffix). Closes the gate-gap that let E12 ship pointing at a non-existent test."
+  product_claim: "PC-003"
 
 - id: E34
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §18.3 step 8; ADR-0055; Phase K audit fix F9"
@@ -303,6 +336,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/PlatformImportsOnlyRuntimePublicApiTest.java
   asserts: "service.platform main sources may only import service.runtime.runs.*, engine.orchestration.spi.*, service.runtime.posture.* — never service.runtime.orchestration.inmemory.*, service.runtime.resilience.*, service.runtime.memory.spi.*, or other internal packages."
+  product_claim: "PC-003"
 
 - id: E35
   constraint_ref: "CLAUDE.md Rule R-C.a; ADR-0060 §1; Phase L reviewer P0-2 root cause"
@@ -311,6 +345,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#enforcer_artifact_paths_exist
   asserts: "every artifact: path#anchor in enforcers.yaml resolves to a real method (.java/.sh) or heading (.md) inside the target file; closes the gate gap where E5/E6/E24 shipped pointing at non-existent test methods."
+  product_claim: "PC-003"
 
 - id: E36
   constraint_ref: "CLAUDE.md Rule R-C.a; ADR-0060 §3; Phase L reviewer P0-3"
@@ -319,6 +354,7 @@
   view: logical
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/contracts/OpenApiContractIT.java#noUndocumentedV1OperationsExposedByLive
   asserts: "live spec at /v3/api-docs MUST NOT expose any /v1/** operation that is absent from the pinned snapshot, unless tagged x-experimental: true; closes the gap where /v1/runs shipped while openapi-v1.yaml still said W0."
+  product_claim: "PC-003"
 
 - id: E37
   constraint_ref: "CLAUDE.md Rule R-C.2.c; ADR-0060 §2; Phase L"
@@ -327,6 +363,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/web/runs/JwtTestFixture.java
   asserts: "test fixture providing stable RSA keypair + mint() helper, re-used by RunHttpContractIT to drive authenticated POST /v1/runs (closes the P1-1 underlying gap)."
+  product_claim: "PC-001|PC-003"
 
 # --- Telemetry Vertical L1.x (ADR-0061 / ADR-0062 / ADR-0063 / §4 #53–#59) ---
 
@@ -337,6 +374,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/TelemetryVerticalArchTest.java
   asserts: "Telemetry Vertical first-class — no class outside hook/observability packages reads or writes the TraceWriter sink; TraceContext SPI is the sole carrier for trace-emission-side concerns at L1.x."
+  governance_infra: true
 
 - id: E39
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .a; ARCHITECTURE.md §4 #54 (run_trace_session_identity_spi); ADR-0062"
@@ -345,6 +383,7 @@
   view: logical
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/RunContextIdentityAccessorsTest.java
   asserts: "RunContext SPI exposes traceId() : String, spanId() : String, sessionId() : String, traceContext() : TraceContext accessors (L1.x mandatory shape per §4 #54)."
+  governance_infra: true
 
 - id: E40
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .a; ARCHITECTURE.md §4 #54 (run_trace_session_identity_data); ADR-0062"
@@ -353,6 +392,7 @@
   view: logical
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/runs/RunTraceSessionConsistencyIT.java
   asserts: "Run.traceId is non-null 32-char lowercase hex when populated; nullable column tolerated at L1.x; child Run inherits parent's sessionId via Checkpointer carry-over."
+  governance_infra: true
 
 - id: E41
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .a; ARCHITECTURE.md §4 #55 (w3c_traceparent_at_http_edge); ADR-0061 §4"
@@ -361,6 +401,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/observability/TraceExtractFilterIT.java
   asserts: "TraceExtractFilter at order 10 extracts well-formed W3C traceparent or originates a fresh trace_id+span_id; populates MDC trace_id/span_id/parent_span_id; emits traceresponse: 00-<trace_id>-<server_span_id>-01 on every outbound response; increments springai_ascend_trace_originated_total{source=client|server} appropriately."
+  governance_infra: true
 
 - id: E42
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .a; ARCHITECTURE.md §4 #55 (mdc_correlation_carriers); docs/telemetry/policy.md §7"
@@ -369,6 +410,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/observability/LogFieldShapeIT.java
   asserts: "MDC during a filter-chain request carries tenant_id + trace_id + span_id; cleared on filter completion. run_id is populated by RunController at Run materialisation (verified separately by the controller's own integration test)."
+  governance_infra: true
 
 - id: E43
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .a; ARCHITECTURE.md §4 #56 (generation_span_schema_hookchain_only); ADR-0061 §7"
@@ -377,6 +419,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/LlmGatewayHookChainOnlyTest.java
   asserts: "No class under com.huawei.ascend.service.runtime.llm.. imports org.springframework.ai.chat.ChatModel outside the HookChain package; the Wave C1 SpringAiChatModelGateway shell is asserted to throw before provider invocation until W2 hook binding ships."
+  governance_infra: true
 
 - id: E44
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .a; ARCHITECTURE.md §4 #57 (span_tenant_attribute_required); ADR-0061 §5"
@@ -385,6 +428,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/SpanTenantAttributeRequiredTest.java
   asserts: "No class under agent-runtime/main attempts to construct a span-shaped record (TraceWriter or future Span builder) without passing a tenant_id-derived argument. Vacuous at L1.x (no span builders yet); arms automatically when W2 Hook SPI un-freezes."
+  governance_infra: true
 
 - id: E45
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .a; ARCHITECTURE.md §4 #58 (no_pii_in_span_attributes_contract); ADR-0061 §5"
@@ -393,6 +437,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/observability/PostureBootPiiHookPresenceContractIT.java
   asserts: "Boot-gate contract: in posture=research/prod, AppPostureGate exposes the requirement for a PiiRedactionHook bean; absence MUST be a fail-closed condition once the Hook SPI un-freezes at W2. L1.x asserts the contract surface; the negative emission test PiiSpanAttributeIT lands at W2."
+  governance_infra: true
 
 - id: E46
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .a; ARCHITECTURE.md §4 #59 (mcp_only_telemetry_replay_surface); §1 (no Admin UI); ADR-0017"
@@ -401,6 +446,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/McpReplaySurfaceArchTest.java
   asserts: "No @RestController is placed under packages matching agent-platform/web/replay, agent-platform/web/trace, or agent-platform/web/session. Preserves §1 exclusion and ADR-0017 MCP-only replay surface."
+  governance_infra: true
 
 - id: E47
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .a; ARCHITECTURE.md §4 #53–#59 coverage gate; ADR-0061 §8 enforcer plan"
@@ -409,6 +455,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#telemetry_vertical_constraint_coverage
   asserts: "Every §4 #53–#59 constraint number resolves to at least one enforcer row in this file (this is enforced positively as Gate Rule R-B in addition to the existing meta-rule 28 which scans must/required sentences)."
+  governance_infra: true
 
 # --- Layer-0 Governing Principles (CLAUDE.md Rules 29-32, ARCHITECTURE.md §4 #60-#63, ADR-0064..0067) ---
 
@@ -419,6 +466,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/SpiPurityGeneralizedArchTest.java
   asserts: "Any package matching com.huawei.ascend..spi.. does not depend on Spring, agent-platform, inmemory reference impls, Micrometer, or OpenTelemetry — generalises E3 to all current and future SPI packages."
+  product_claim: "PC-001"
 
 - id: E49
   constraint_ref: "CLAUDE.md Rule R-A; ARCHITECTURE.md §4 #60; ADR-0064"
@@ -427,6 +475,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#quickstart_present
   asserts: "docs/quickstart.md exists and is referenced from README.md so a developer reaches first-agent execution without platform-team intervention."
+  product_claim: "PC-001"
 
 - id: E50
   constraint_ref: "CLAUDE.md Rule R-B; ARCHITECTURE.md §4 #61; ADR-0065"
@@ -435,6 +484,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#competitive_baselines_present_and_wellformed
   asserts: "docs/governance/competitive-baselines.yaml exists and declares the four required pillar dimensions (performance, cost, developer_onboarding, governance)."
+  product_claim_placeholder: true
 
 - id: E51
   constraint_ref: "CLAUDE.md Rule R-B; ARCHITECTURE.md §4 #61; ADR-0065"
@@ -443,6 +493,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#release_note_references_four_pillars
   asserts: "The most recent docs/logs/releases/*.md release note mentions all four pillar names (performance, cost, developer_onboarding, governance)."
+  product_claim_placeholder: true
 
 - id: E52
   constraint_ref: "CLAUDE.md Rule R-C.1; ARCHITECTURE.md §4 #62; ADR-0066"
@@ -451,6 +502,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#module_metadata_present_and_complete
   asserts: "Every reactor module's <module>/pom.xml has a sibling <module>/module-metadata.yaml declaring module, kind, version, and semver_compatibility."
+  product_claim: "PC-003"
 
 - id: E53
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .a; ARCHITECTURE.md §4 #63; ADR-0067"
@@ -459,6 +511,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#dfx_yaml_present_and_wellformed
   asserts: "Every kind:platform and kind:domain module has docs/dfx/<module>.yaml covering five DFX dimensions: releasability, resilience, availability, vulnerability, observability."
+  product_claim: "PC-001"
 
 - id: E54
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .a; ARCHITECTURE.md §4 #63; ADR-0067"
@@ -467,6 +520,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#domain_module_has_spi_package
   asserts: "Every kind:domain module declares at least one entry under spi_packages: and each declared package resolves to a directory under <module>/src/main/java/."
+  product_claim: "PC-001"
 
 # --- W1 Layered-4+1 + Architecture-Graph wave (Rules 33-34; ADR-0068; §4 #64-#65) ---
 
@@ -477,6 +531,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#architecture_artefact_front_matter
   asserts: "every docs/adr/*.yaml, every docs/L2/*.md, root ARCHITECTURE.md, and every agent-*/ARCHITECTURE.md declare level: + view: front-matter with values in the legal enums."
+  governance_infra: true
 
 - id: E56
   constraint_ref: "CLAUDE.md Rule G-1 sub-clause .b; ADR-0068; ARCHITECTURE.md §4 #65"
@@ -485,6 +540,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#architecture_graph_well_formed
   asserts: "docs/governance/architecture-graph.yaml is regenerated idempotently from authoritative inputs; supersedes/extends sub-graph is a DAG; every edge endpoint resolves to a real graph node or file path; every artifact#anchor reference resolves to a real method/heading (strengthens E33/E35)."
+  governance_infra: true
 
 - id: E57
   constraint_ref: "CLAUDE.md Rule G-1 sub-clause .a; ADR-0068; ARCHITECTURE.md §4 #64"
@@ -493,6 +549,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#review_proposal_front_matter
   asserts: "every docs/logs/reviews/*.md (excluding _TEMPLATE.md and pre-W1 historical files declared in an allow-list) declares affects_level: + affects_view: front-matter."
+  governance_infra: true
 
 - id: E58
   constraint_ref: "CLAUDE.md Rule G-1 sub-clause .b; ADR-0068; ARCHITECTURE.md §4 #65"
@@ -501,6 +558,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#enforcer_reachable_from_principle
   asserts: "every enforcer row with status: shipped must be reachable from at least one Layer-0 principle (P-A..P-D) by traversing edges in docs/governance/architecture-graph.yaml — closes the gap where an enforcer can ship without a stated principle motivation."
+  governance_infra: true
 
 - id: E59
   constraint_ref: "CLAUDE.md Rule G-1 sub-clause .a; ADR-0068"
@@ -509,6 +567,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/ArchitectureLayeringTest.java
   asserts: "no test or main class under agent-platform/ or agent-runtime/ imports a doc class that violates the (level, view) frontier — vacuous at L1 (no doc classes); arms when W2 introduces typed Layered-4+1 references."
+  governance_infra: true
 
 # --- Phase M remediation (CLAUDE.md Rules 34; ADR-0068; ARCHITECTURE.md §4 #65) ---
 
@@ -519,6 +578,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#enforcer_anchor_resolves
   asserts: "every artefact node in docs/governance/architecture-graph.yaml with anchor: non-null carries anchor_resolves: true — closes the L1-expert P0-2 / P2-1 gap where prior validation only checked file path, allowing E5/E7/E24-class enforcer rows to ship with wrong #methodName."
+  governance_infra: true
 
 - id: E61
   constraint_ref: "CLAUDE.md Rule G-1 sub-clause .b; ADR-0068; ARCHITECTURE.md §4 #65 (build script MUST be idempotent)"
@@ -527,6 +587,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#architecture_graph_idempotent
   asserts: "running gate/build_architecture_graph.sh twice on unchanged inputs produces byte-identical docs/governance/architecture-graph.yaml output — closes the Rule G-1 sub-clause .b normative-phrase gap where idempotency had no enforcer."
+  governance_infra: true
 
 - id: E62
   constraint_ref: "CLAUDE.md Rule G-1 sub-clause .a; ADR-0068; ARCHITECTURE.md §4 #64 (ADRs MUST be .yaml)"
@@ -535,6 +596,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#new_adr_must_be_yaml
   asserts: "the highest-numbered ADR file under docs/adr/NNNN-*.{md,yaml} carries the .yaml extension — prevents future ADRs from regressing to the legacy .md shape after ADR-0068."
+  governance_infra: true
 
 - id: E63
   constraint_ref: "CLAUDE.md Rule G-1 sub-clause .a; ADR-0068; ARCHITECTURE.md §4 #64 (frozen artefacts edit path)"
@@ -543,6 +605,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#frozen_doc_edit_path_compliance
   asserts: "any modification to a file carrying freeze_id: <non-null> in front-matter is accompanied (same commit, vs $BASE_REF) by a new docs/logs/reviews/*.md proposal naming the file under affects_artefact: — no-op today (all freeze_id values are null); arms automatically at first phase release."
+  governance_infra: true
 
 # ---------------------------------------------------------------------------
 # Phase 1 of W1.x — L0 ironclad rules promoted from LucioIT W1 §6/§7.
@@ -556,6 +619,7 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#bus_channels_three_track_present
   asserts: "docs/governance/bus-channels.yaml exists; declares exactly 3 channels (control/data/rhythm) each with a unique physical_channel: identifier; data channel inherits the 16-KiB inline payload cap."
+  product_claim: "PC-002"
 
 - id: E65
   constraint_ref: "CLAUDE.md Rule R-F (Cursor Flow Mandate); ADR-0069; LucioIT W1 §6.1"
@@ -564,6 +628,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#cursor_flow_documented
   asserts: "docs/contracts/openapi-v1.yaml declares at least one 202-returning operation OR an explicit cursor: schema — Cursor Flow surface enumerable in machine form."
+  product_claim: "PC-003"
 
 - id: E66
   constraint_ref: "CLAUDE.md Rule R-G (Reactive External I/O); ADR-0069; LucioIT W1 §6.3"
@@ -572,6 +637,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#no_blocking_io_in_runtime_main
   asserts: "no production class under agent-service/src/main/java/** imports org.springframework.web.client.RestTemplate or org.springframework.jdbc.core.JdbcTemplate (agent-platform-side existing JdbcTemplate uses are out of scope per ADR-0069 / CLAUDE-deferred 37.c)."
+  product_claim: "PC-003"
 
 - id: E67
   constraint_ref: "CLAUDE.md Rule R-H (No Thread.sleep in Business Code); ADR-0069; LucioIT W1 §6.4"
@@ -580,6 +646,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#no_thread_sleep_in_business_code
   asserts: "no production class under agent-service/src/main/java/** or agent-service/src/main/java/** invokes Thread.sleep(...) or TimeUnit.<unit>.sleep(...); test code, gate scripts, and Awaitility usage are excluded."
+  product_claim: "PC-003"
 
 - id: E68
   constraint_ref: "CLAUDE.md Rule R-I (Five-Plane Manifest); ADR-0069; LucioIT W1 §7.1"
@@ -588,6 +655,7 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#deployment_plane_in_module_metadata
   asserts: "every <module>/module-metadata.yaml declares deployment_plane: ∈ {edge, compute_control, bus_state, sandbox, evolution, none}."
+  product_claim: "PC-002"
 
 - id: E69
   constraint_ref: "CLAUDE.md Rule R-J sub-clause .a (Storage-Engine Tenant Isolation); ADR-0069; LucioIT W1 §7.2"
@@ -596,6 +664,7 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#rls_for_new_tenant_tables
   asserts: "every Flyway migration creating a table with a tenant_id column either includes ENABLE ROW LEVEL SECURITY in the same file OR is listed in gate/rls-baseline-grandfathered.txt."
+  product_claim: "PC-003"
 
 - id: E70
   constraint_ref: "CLAUDE.md Rule R-K (Skill Capacity Matrix); ADR-0069; LucioIT W1 §7.3"
@@ -604,6 +673,7 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#skill_capacity_yaml_present_and_wellformed
   asserts: "docs/governance/skill-capacity.yaml exists; each skill row declares capacity_per_tenant + global_capacity + queue_strategy ∈ {suspend, fail}."
+  product_claim: "PC-003"
 
 - id: E71
   constraint_ref: "CLAUDE.md Rule R-L (Sandbox Permission Subsumption); ADR-0069; LucioIT W1 §7.4"
@@ -612,6 +682,7 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#sandbox_policies_yaml_present_and_wellformed
   asserts: "docs/governance/sandbox-policies.yaml exists with default_policy: declaring all 6 required keys (outbound_network, filesystem_read, filesystem_write, cpu_cap_millicores, memory_cap_megabytes, wall_clock_cap_seconds)."
+  product_claim: "PC-003"
 
 # ---------------------------------------------------------------------------
 # W1.x Phase 8 — Cursor Flow runtime activation (Rule R-F.b / ADR-0070)
@@ -624,6 +695,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/web/runs/RunCursorFlowIT.java#createReturns202WithCursorWithin200ms
   asserts: "POST /v1/runs returns HTTP 202 within 200 ms with a TaskCursor payload (runId + status=PENDING + cursor_url matching the run URL), even when the registered AsyncRunDispatcher synchronously blocks for 30 seconds — proves the controller fires the dispatcher via CompletableFuture.runAsync and the HTTP response is never gated on dispatcher runtime."
+  product_claim: "PC-003"
 
 # ---------------------------------------------------------------------------
 # W1.x Phase 9 — ResilienceContract runtime activation (Rule R-K.b / ADR-0070)
@@ -636,6 +708,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/resilience/SkillCapacityResolutionIT.java#rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne
   asserts: "ResilienceContract.resolve(tenant, skill) consults docs/governance/skill-capacity.yaml at runtime; the second concurrent caller for a 1-capacity skill receives a rejected decision envelope: SkillResolution.admitted=false carrying SuspendReason.RateLimited(SKILL_CAPACITY_EXCEEDED). This is the W1 shipped surface (would-suspend intent in the envelope); translating the decision into RunStatus.SUSPENDED is deferred to Rule R-K.c (W2 scheduler admission per ADR-0070). Test method renamed in rc15 per ADR-0091 to remove the prior `suspendsSecondCaller...` overclaim."
+  product_claim: "PC-003"
 
 # ---------------------------------------------------------------------------
 # W2.x Phase 1 — Engine Envelope + Strict Matching (Rules 43, 44 / ADR-0072 / P-M)
@@ -648,6 +721,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/engine/runtime/EnginePayloadDispatchOnlyViaRegistryTest.java#every_orchestrator_implementation_depends_on_engine_registry
   asserts: "every concrete Orchestrator implementation in agent-service/src/main depends on com.huawei.ascend.engine.runtime.EngineRegistry -- dispatch authority is centralised; pattern-matching on ExecutorDefinition subtypes outside the registry is the prohibited shape (the source-level instanceof scan is gate Rule 56's responsibility). Test path relocated rc14 per ADR-0090 (engine package semantic-home alignment); previously at agent-service/src/test/java/com/huawei/ascend/service/runtime/engine/."
+  product_claim: "PC-004"
 
 - id: E75
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .b (Strict Engine Matching); ADR-0072; P-M"
@@ -656,6 +730,7 @@
   view: logical
   artifact: agent-service/src/test/java/com/huawei/ascend/engine/runtime/EngineMatchingStrictnessIT.java#payload_with_no_registered_adapter_raises_engine_mismatch
   asserts: "SyncOrchestrator.run with a payload class for which no ExecutorAdapter is registered raises EngineMatchingException carrying engine_mismatch -- proves no silent reinterpretation, no fallback policy (Rule R-M sub-clause .b strongest reading)."
+  product_claim: "PC-004"
 
 - id: E76
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .a (Engine Envelope Single Authority); ADR-0072; P-M"
@@ -664,6 +739,7 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#engine_envelope_yaml_present_and_wellformed
   asserts: "docs/contracts/engine-envelope.v1.yaml exists; declares schema: engine-envelope/v1, known_engines: block, and at least one '- id:' entry -- the single source of truth for envelope shape is gate-validated."
+  product_claim: "PC-004"
 
 - id: E77
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .b (Strict Engine Matching); ADR-0072; P-M"
@@ -672,6 +748,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#engine_registry_covers_all_known_engines
   asserts: "bidirectional consistency between known_engines[].id in docs/contracts/engine-envelope.v1.yaml and String ENGINE_TYPE = \"<id>\" constants in agent-service/src/main -- guarantees the Phase 5 EngineRegistry.validateAgainstSchema boot check has matching inputs at compile time."
+  product_claim: "PC-004"
 
 # ---------------------------------------------------------------------------
 # W2.x Phase 2 — Engine Lifecycle Hooks + Runtime Middleware SPI (Rule R-M sub-clause .c / ADR-0073 / P-M)
@@ -684,6 +761,7 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#engine_hooks_yaml_present_and_wellformed
   asserts: "docs/contracts/engine-hooks.v1.yaml declares schema: engine-hooks/v1, a hooks: list, and bidirectionally agrees with the HookPoint enum constants in agent-service/src/main -- the canonical hook surface and the Java enum never drift."
+  product_claim: "PC-004"
 
 - id: E79
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .c (Runtime-Owned Middleware via Engine Hooks); ADR-0073; P-M"
@@ -692,6 +770,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java#every_executor_adapter_exposes_hook_surface
   asserts: "every concrete GraphExecutor / AgentLoopExecutor implementation under agent-service/src/main exposes a hookSurface() method (default empty allowed) -- structural pre-condition for the EngineHookSurface contract; allowEmptyShould(true) is intentional at W2.x while Phase 2 ships SPI surface only."
+  product_claim: "PC-004"
 
 - id: E80
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .c (Runtime-Owned Middleware via Engine Hooks); ADR-0073; P-M"
@@ -700,6 +779,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/engine/runtime/RuntimeMiddlewareInterceptsHooksIT.java#suspend_resume_cycle_fires_before_suspension_then_before_resume
   asserts: "SyncOrchestrator fires HookPoint.BEFORE_SUSPENSION + HookPoint.BEFORE_RESUME on a suspend/resume cycle and HookPoint.ON_ERROR on a propagated RuntimeException -- proves the three Phase 2 mandatory hooks reach registered RuntimeMiddleware end-to-end through EngineRegistry.hookDispatcher()."
+  product_claim: "PC-004"
 
 # ---------------------------------------------------------------------------
 # W2.x Phase 3 — S2C Capability Callback (Rule R-M sub-clause .d / ADR-0074 / P-M)
@@ -712,6 +792,7 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#s2c_callback_yaml_present_and_wellformed
   asserts: "docs/contracts/s2c-callback.v1.yaml exists; declares schema header, request: and response: blocks, the 6 mandatory request fields (callback_id, server_run_id, capability_ref, request_payload, trace_id, idempotency_key per Phase 3a audit §5.2), and outcome_values closed at {ok, error, timeout}."
+  product_claim: "PC-004"
 
 - id: E82
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .d (S2C Callback Envelope + Lifecycle Bound); ADR-0074; P-M"
@@ -720,6 +801,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/s2c/S2cCallbackRoundTripIT.java#happy_path_outcome_ok_propagates_payload_to_resume
   asserts: "SyncOrchestrator catches the checked SuspendSignal where isClientCallback() is true (the v2.0.0-rc3 unification of the historical S2cCallbackSignal — see ADR-0074 amendments block), dispatches via InMemoryS2cCallbackTransport, validates response (callback_id match, outcome enum), and resumes the parent run with the response payload. Four cases: happy-path OK, callback_id mismatch -> s2c_response_invalid, outcome=ERROR -> s2c_client_error, no transport -> s2c_transport_unavailable."
+  product_claim: "PC-004"
 
 - id: E83
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .d; CLAUDE.md Rule R-H (No Thread.sleep); ADR-0074; P-H + P-M"
@@ -728,6 +810,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/s2c/S2cCallbackRespectsRule38Test.java#s2c_package_must_not_call_thread_sleep
   asserts: "No class under com.huawei.ascend.bus.spi.s2c.. (SPI, owned by agent-bus per ADR-0088) or com.huawei.ascend.service.runtime.s2c.. (reference impl InMemoryS2cCallbackTransport on agent-service) calls Thread.sleep(long) or Thread.sleep(long, int) -- the S2C wait MUST route through SuspendSignal/checkpoint (Chronos Hydration), never busy-wait. Package path lineage: rc3 unified s2c types under service.runtime.s2c.spi; rc13 ADR-0088 relocated the SPI to bus.spi.s2c while the reference impl stayed on service.runtime.s2c."
+  product_claim: "PC-003"
 
 # ---------------------------------------------------------------------------
 # W2.x Phase 5 — R2 Pilot: runtime self-validate Engine Envelope (ADR-0076 / P-M)
@@ -740,6 +823,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/engine/EngineRegistryBootValidationIT.java#boot_fails_when_known_engine_has_no_adapter
   asserts: "Spring Boot startup fails with IllegalStateException when the registered ExecutorAdapter set does not match docs/contracts/engine-envelope.v1.yaml#known_engines -- fail-fast at boot via EngineAutoConfiguration wiring. Three cases verified: match-succeeds, missing-adapter-fails, unknown-adapter-fails."
+  product_claim: "PC-003"
 
 # ---------------------------------------------------------------------------
 # W2.x Phase 6 — Schema-First Domain Contracts (Rule M-2 sub-clause .a / ADR-0077 / P-M cross-cutting)
@@ -752,6 +836,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#schema_first_domain_contracts
   asserts: "Every prose-enum site (<UPPERCASE_TYPE> | <UPPERCASE_TYPE>) in ARCHITECTURE.md (root) or agent-*/ARCHITECTURE.md outside fenced code blocks and markdown tables MUST be either (a) listed in gate/schema-first-grandfathered.txt with a matching file_path prefix or (b) accompanied by a docs/contracts/*.yaml or docs/governance/*.yaml reference within +/-5 lines. The grandfather list is closed (no additions after 2026-05-16) -- new domain taxonomies MUST land yaml-first, preventing recurrence of defect family F1 (79/158 historical text-drift defects)."
+  governance_infra: true
 
 # ---------------------------------------------------------------------------
 # W2.x Phase 4 — Evolution Scope Boundary (Rule R-M sub-clause .e / ADR-0075 / P-M)
@@ -764,6 +849,7 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#evolution_scope_yaml_present_and_wellformed
   asserts: "docs/governance/evolution-scope.v1.yaml exists with schema: evolution-scope/v1, three discriminator blocks (in_scope, out_of_scope_default, opt_in_export) all present, in_scope and out_of_scope_default both non-empty, and opt_in_export.contract_required references telemetry-export.v1.yaml (W3 placeholder)."
+  product_claim: "PC-004"
 
 - id: E87
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .e (Evolution Scope Default Boundary); ADR-0075; P-M"
@@ -772,6 +858,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/evolution/EveryRunEventDeclaresEvolutionExportTest.java
   asserts: "Every record class implementing com.huawei.ascend.service.runtime.runs.RunEvent declares an evolutionExport() accessor returning com.huawei.ascend.service.runtime.evolution.EvolutionExport. Armed with allowEmptyShould(true) at W2.x because RunEvent ships in W2 per ADR-0022 -- test starts asserting per-variant declaration when variants land."
+  product_claim: "PC-004"
 
 # ---------------------------------------------------------------------------
 # W2.x Phase 7 audit response -- Rule R-M sub-clause .b compliance closure + Phase 3a Matrix freeze
@@ -785,6 +872,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/engine/runtime/EngineMismatchTransitionsRunToFailedIT.java#engine_mismatch_transitions_run_to_failed_and_fires_on_error_with_reason
   asserts: "SyncOrchestrator catches EngineMatchingException, transitions the Run to RunStatus.FAILED with finishedAt set, and fires HookPoint.ON_ERROR carrying reason=engine_mismatch + requestedEngineType + actualPayloadType. Closes the Rule R-M sub-clause .b prose-vs-code gap surfaced by the Phase 7 self-audit -- E75 only asserted the exception-raising half, E88 asserts the Run-state-transition half."
+  product_claim: "PC-004"
 
 - id: E89
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .d (S2C Callback) -- Phase 3a Cross-Rule Co-Design Audit Matrix freeze; ADR-0074; P-M"
@@ -793,6 +881,7 @@
   view: scenarios
   artifact: docs/logs/reviews/2026-05-16-engine-contract-structural-response.en.md
   asserts: "The Phase 3a section 5 Cross-Rule Co-Design Audit Matrix is referenced by ADR-0074 line 47 and CLAUDE.md Rule R-M sub-clause .d prose as the canonical Rules 20/35/38/41/42 interlock specification. Freeze invariant: this file MUST exist on disk; a future rename or split MUST update both anchors AND this enforcer row in the same PR. Today the assertion is structural (file exists); the matrix content itself is reviewed under PR review per Rule D-5 ship-gate posture."
+  product_claim: "PC-004"
 
 # ---------------------------------------------------------------------------
 # v2.0.0-rc1 post-release review response -- Rule R-M sub-clause .d FAILED-transition + R2 classpath fallback
@@ -806,6 +895,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/s2c/S2cFailureTransitionsRunToFailedIT.java
   asserts: "For each of the four S2C failure modes (s2c_response_invalid, s2c_client_error, s2c_transport_unavailable, s2c_transport_failure), SyncOrchestrator transitions the Run to RunStatus.FAILED with finishedAt set, fires HookPoint.ON_ERROR carrying reason + callbackId, and rethrows so the caller observes failure. Closes the post-review P0-2 gap: prior code let IllegalStateException from handleClientCallback escape the try, leaving the Run in SUSPENDED. Companion to E82 which covered only the happy path + raw exception type."
+  product_claim: "PC-004"
 
 - id: E91
   constraint_ref: "CLAUDE.md Rule R-C.a / Rule D-5 -- runtime self-validation of governance YAML via classpath fallback; ADR-0076"
@@ -814,6 +904,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/engine/EngineRegistryClasspathBootIT.java
   asserts: "EngineAutoConfiguration boots successfully when app.engine.envelope-schema-path resolves only via classpath fallback (filesystem path absent), proving the agent-platform jar carries docs/contracts/engine-envelope.v1.yaml on its classpath. Closes the post-review P0-4 gap: prior code claimed jar deployment worked but the pom.xml had no <resources> rule copying the YAML; production boot from a packaged jar would have failed. Companion to E84 which covers the same R2 pilot in the reactor (filesystem) launch mode."
+  product_claim: "PC-003"
 
 # ---------------------------------------------------------------------------
 # v2.0.0-rc1 post-release review response -- Rule R-M sub-clause .d FAILED-transition + R2 classpath fallback
@@ -827,6 +918,7 @@
   view: process
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/s2c/S2cCallbackEnvelopeValidationTest.java
   asserts: "Beyond length() != 32, S2cCallbackEnvelope.requireLowerHex32(...) and S2cCallbackResponse rejection paths assert the W3C trace-ID character class: only 0-9 + a-f are accepted; uppercase hex AND non-hex chars are rejected with IllegalArgumentException whose message names 'lowercase hex'. Closes the rc3 cross-constraint audit P1-5 gap where the contract text claimed lowercase-hex enforcement but the constructor only checked length."
+  product_claim: "PC-004"
 
 - id: E93
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .a (SPI + DFX + TCK Co-Design); ARCHITECTURE.md SPI purity (java.* only + same-spi-package siblings); cross-constraint audit α-4 / β-2"
@@ -835,6 +927,7 @@
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/SpiPurityGeneralizedArchTest.java#s2c_spi_imports_only_java_and_same_package_siblings
   asserts: "Every class under com.huawei.ascend.bus.spi.s2c MUST depend only on java.* + same-spi-package siblings. Package path lineage: rc3 cross-constraint audit α-4 / β-2 moved S2cCallbackEnvelope + S2cCallbackResponse under service.runtime.s2c.spi; rc13 ADR-0088 relocated the SPI to bus.spi.s2c on agent-bus to co-locate cross-plane control surfaces with bus.spi.ingress. orchestration.spi is intentionally excluded (its long-standing dependency on runs.* kernel domain types is a known exception)."
+  product_claim: "PC-001"
 
 # ---------------------------------------------------------------------------
 # 2026-05-17 cross-corpus consistency audit prevention rules.
@@ -848,6 +941,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#module_count_data_driven
   asserts: "Root pom.xml <module> count equals the canonical total_reactor_modules in docs/governance/architecture-status.yaml#repository_counts. Module-count changes update one file (the YAML), not four (gate + 3 ADRs). Drift surfaced by 2026-05-17 audit when six-module materialization PR landed and the count was hard-coded in 4 places."
+  product_claim: "PC-003"
 
 - id: E95
   constraint_ref: "CLAUDE.md Rule R-C.1 (Independent Module Evolution); cross-corpus consistency audit 2026-05-17 / G2 (metadata-vs-pom drift)"
@@ -856,6 +950,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#module_metadata_pom_dep_parity
   asserts: "Every com.huawei.ascend sibling artifact declared inside a <dependency> block of <module>/pom.xml appears in the same module's module-metadata.yaml allowed_dependencies. Drift surfaced by 2026-05-17 audit when agent-service/pom.xml gained an agent-middleware dep after T2.B1 but agent-service/module-metadata.yaml's allowed_dependencies remained empty."
+  governance_infra: true
 
 - id: E96
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .a (SPI + DFX + TCK Co-Design); cross-corpus consistency audit 2026-05-17 / G3 (SPI surface drift)"
@@ -864,6 +959,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#spi_package_exhaustiveness
   asserts: "Every */spi/ leaf directory under <module>/src/main/java appears in <module>/module-metadata.yaml spi_packages. Drift surfaced by 2026-05-17 audit when agent-runtime contained an com.huawei.ascend.service.runtime.s2c.spi directory that was undeclared in spi_packages; Rule R-F (domain_module_has_spi_package) verified declared packages existed on disk but did not enforce the reverse direction (every on-disk SPI directory is declared)."
+  governance_infra: true
 
 # ---------------------------------------------------------------------------
 # 2026-05-17 CLAUDE.md token-optimization wave PR1.
@@ -878,6 +974,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#claude_md_kernel_size_bounded
   asserts: "Each '#### Rule NN' section in CLAUDE.md fits under the per-rule kernel_cap declared in docs/governance/rules/rule-NN.md (daily principles: cap 12; architectural + ironclad: cap 6). If a card does not exist yet, the rule is SKIPPED for that section (Rule G-3 sub-clause .c catches the missing card)."
+  governance_infra: true
 
 - id: E98
   constraint_ref: "CLAUDE.md Rule G-3 sub-clause .b (claude_md_kernel_matches_card); token-optimization wave PR1"
@@ -886,6 +983,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#claude_md_kernel_matches_card
   asserts: "For every docs/governance/rules/rule-NN.md card, the kernel: scalar in YAML front-matter byte-matches (after whitespace normalisation) the body paragraph of '#### Rule NN' in CLAUDE.md. Prevents semantic drift between kernel and card."
+  governance_infra: true
 
 - id: E99
   constraint_ref: "CLAUDE.md Rule G-3 sub-clause .c (every_active_rule_has_card); token-optimization wave PR1"
@@ -894,6 +992,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#every_active_rule_has_card
   asserts: "Every '#### Rule NN' heading in CLAUDE.md has a sibling docs/governance/rules/rule-NN.md (zero-padded). Every card either appears as a heading in CLAUDE.md or as a 'Rule NN' reference in docs/CLAUDE-deferred.md. Orphan cards fail."
+  governance_infra: true
 
 - id: E100
   constraint_ref: "CLAUDE.md Rule G-4 sub-clause .a (always_loaded_budget_enforced); token-optimization wave PR1"
@@ -902,6 +1001,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#always_loaded_budget_enforced
   asserts: "gate/measure_always_loaded_tokens.sh walks every file in gate/always-loaded-budget.txt; the rule fails if any file exceeds its declared byte ceiling. Primary defence against CLAUDE.md regressing back to its pre-shrink size."
+  governance_infra: true
 
 - id: E101
   constraint_ref: "CLAUDE.md Rule G-4 sub-clause .b (deferred_doc_not_in_always_loaded); token-optimization wave PR1"
@@ -910,6 +1010,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#deferred_doc_not_in_always_loaded
   asserts: "docs/CLAUDE-deferred.md is not auto-injected: no @docs/CLAUDE-deferred.md include directive in CLAUDE.md, and no ALWAYS / ALWAYS-LOAD marker on its row in docs/governance/SESSION-START-CONTEXT.md. Plain prose pointers are fine."
+  governance_infra: true
 
 # ---------------------------------------------------------------------------
 # 2026-05-17 gate-script efficiency wave PR-E1.
@@ -923,6 +1024,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#gate_config_well_formed
   asserts: "gate/config.yaml validates against gate/config.schema.yaml: required top-level keys present (parallelism, logging, scan_cache, regression_detection, rule_filters); leaf types/ranges/enums correct (jobs in [0,256]; batch_strategy in {round_robin, longest_first}; stdout_format in {human, quiet, json}; multiplier_threshold >= 1.0). Implementation lives in gate/lib/load_config.sh#gate_validate_config_against_schema. Schema-first per Rule M-2 sub-clause .a."
+  governance_infra: true
 
 # ---------------------------------------------------------------------------
 # 2026-05-18 Linux-first dev environment policy (PR-E7).
@@ -936,6 +1038,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#linux_first_dev_doc_present
   asserts: "docs/governance/dev-environment.md exists on disk AND mentions WSL2 (preferred), WSL1 (fallback), and Linux (native). The doc is the canonical onboarding guide; its absence or weakening signals the Linux-first policy has been silently regressed. Codifies the 2026-05-18 lesson: running the gate in WSL surfaced 2 production bugs (Windows-absolute paths + CRLF line endings) that Git Bash for Windows verification had hidden through multiple review cycles. WSL is 6-20x faster than Git Bash AND honest about platform-portability bugs."
+  governance_infra: true
 
 # ---------------------------------------------------------------------------
 # 2026-05-18 Wave 4 — rule activations (Rules 11, 24.c, 29.c, 72).
@@ -949,6 +1052,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#rule_duration_regression_check
   asserts: "After 5+ successful runs are recorded under gate/log/runs/, every subsequent gate run compares per-rule durations against the rolling median in gate/log/benchmarks/median.json. A rule whose current duration exceeds 2x its baseline AND exceeds 200ms absolute fails Rule G-6 sub-clause .a."
+  governance_infra: true
 
 - id: E105
   constraint_ref: "CLAUDE.md Rule R-C.2.a (contract_spine_tenant_id_required); Wave 4 Track B"
@@ -957,6 +1061,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#contract_spine_tenant_id_required
   asserts: "Every public record under agent-service/src/main/java/com/huawei/ascend/service/{runtime,task,session}/ declares a String tenantId component (relocated from agent-runtime-core per ADR-0088 rc13 dissolution; scope widened to task + session per rc34 audit closure). Process-internal opt-out via 'scope: process-internal' reason comment."
+  product_claim: "PC-001|PC-003"
 
 - id: E106
   constraint_ref: "CLAUDE.md Rule R-J sub-clause .b (runlifecycle_cancel_reauthz_shipped); Wave 4 Track C"
@@ -965,6 +1070,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#runlifecycle_cancel_reauthz_shipped
   asserts: "agent-service RunController exposes POST /v1/runs/{runId}/cancel with tenant re-validation. Resume + retry sub-clauses (24.d) remain deferred to W2."
+  product_claim: "PC-003"
 
 - id: E107
   constraint_ref: "CLAUDE.md Rule R-A.c (quickstart_smoke_job_present); Wave 4 Track E"
@@ -973,6 +1079,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#quickstart_smoke_job_present
   asserts: ".github/workflows/ci.yml declares a job named 'quickstart-smoke' that boots agent-service and polls /v1/health."
+  product_claim: "PC-001"
 
 - id: E108
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .b (spi_packages_populated); SPI metadata integrity wave 2026-05-18"
@@ -981,6 +1088,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#spi_packages_populated
   asserts: "Every module-metadata.yaml#spi_packages entry resolves to a directory with at least one .java file beyond package-info.java. Entries marked '# placeholder; ADR-NNNN ...' are exempt as deferred SPI work."
+  product_claim: "PC-001"
 
 - id: E109
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .c (no_split_spi_packages); SPI metadata integrity wave 2026-05-18"
@@ -989,6 +1097,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#no_split_spi_packages
   asserts: "No Java SPI package may be declared by more than one Maven module's spi_packages: list. Prevents Maven split-packages (CLAUDE.md Rule R-D sub-clause .c)."
+  product_claim: "PC-001"
 
 - id: E110
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .d (spi_packages_dot_spi_convention); SPI metadata integrity wave 2026-05-18"
@@ -997,6 +1106,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#spi_packages_dot_spi_convention
   asserts: "Every spi_packages entry ends in '.spi' or contains '.spi.' — operationalises the *.spi.* literal convention of Rule R-D sub-clause .a."
+  product_claim: "PC-001"
 
 - id: E111
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .e (dfx_spi_packages_match_module_metadata); SPI metadata integrity wave 2026-05-18"
@@ -1005,6 +1115,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#dfx_spi_packages_match_module_metadata
   asserts: "For every kind={platform,domain} module, docs/dfx/<module>.yaml declares a top-level spi_packages: matching the non-placeholder entries of module-metadata.yaml#spi_packages."
+  product_claim: "PC-001"
 
 - id: E112
   constraint_ref: "CLAUDE.md Rule D-3.b (rule_79_runbook_present_and_cited); Beyond-SDD review response wave 2026-05-18"
@@ -1013,6 +1124,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#rule_79_runbook_present_and_cited
   asserts: "docs/runbooks/debug-first-evidence.md exists with the canonical title 'Evidence-First Debug Sequence', AND docs/governance/rules/rule-D-3.b.md references the runbook path — catches both runbook deletion and card↔runbook link breakage."
+  governance_infra: true
 
 # ---------------------------------------------------------------------------
 # 2026-05-18 rc4 cross-constraint review response prevention wave — E113-E116
@@ -1027,6 +1139,7 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#s2c_callback_signal_historical_only_in_authority
   asserts: "Across active accepted ADRs (docs/adr/*.yaml + docs/adr/*.md), CLAUDE.md, README.md, agent-*/ARCHITECTURE.md, and docs/contracts/*.v1.yaml, every occurrence of the literal token 'S2cCallbackSignal' MUST appear within ±5 lines (markdown paragraph or yaml comment/block-scalar window) of one of the historical markers 'historical', 'deleted', 'refactored from', 'rc3-unification', or 'amendments' (case-insensitive). Live current-state claims using the deleted Java type fail. Closes rc4 P0-1: ADR-0074 amendments block + s2c-callback.v1.yaml header + enforcers.yaml E82 description are the canonical historical references; new authority drift is rejected."
+  product_claim: "PC-004"
 
 - id: E114
   constraint_ref: "CLAUDE.md Rule M-1 (skeleton_module_has_no_production_java); rc4 review P0-2; ADR-0073; ADR-0079"
@@ -1035,6 +1148,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#skeleton_module_has_no_production_java
   asserts: "For every agent-*/ARCHITECTURE.md whose front-matter status: contains the token 'skeleton', the module's src/main/java/**/*.java tree contains only package-info.java files OR placeholder SPI stubs whose first 30 lines name both the 'placeholder' keyword (case-insensitive) AND an 'ADR-NNNN' waiver. Bidirectional: modules with extracted production code MUST NOT declare status: skeleton. Closes rc4 P0-2 (agent-execution-engine still claimed skeleton across README + ARCHITECTURE.md + pom.xml + architecture-status while ADR-0079 had extracted production code)."
+  governance_infra: true
 
 - id: E115
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .b (baseline_metrics_single_source); rc4 review P1-1"
@@ -1043,6 +1157,7 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#baseline_metrics_single_source
   asserts: "docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics MUST exist as a structured block declaring the six required keys 'active_engineering_rules', 'active_gate_checks', 'gate_executable_test_cases', 'enforcer_rows', 'architecture_graph_nodes', 'architecture_graph_edges'. README.md AND gate/README.md MUST each contain at least one occurrence of the substring 'architecture_sync_gate.baseline_metrics' so prose baseline claims acknowledge the canonical source. Closes rc4 P1-1: entrypoint counts have one source."
+  governance_infra: true
 
 - id: E116
   constraint_ref: "CLAUDE.md Rule M-2 sub-clause .b (design_only_contract_registered_in_catalog); rc4 review P1-3; ADR-0032; ADR-0052"
@@ -1051,6 +1166,7 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#design_only_contract_registered_in_catalog
   asserts: "For every docs/contracts/*.v1.yaml with 'status: design_only' OR 'runtime_enforced: false', (a) the file basename appears as a literal substring in docs/contracts/contract-catalog.md, AND (b) at least one ADR-NNNN reference cited in the yaml resolves to a real file under docs/adr/<NNNN>-*.yaml or docs/adr/<NNNN>-*.md. Every cited ADR must exist (dangling references fail). Closes rc4 P1-3 prevention: plan-projection.v1.yaml unregistered + W2/W4 staging ambiguity defect class."
+  governance_infra: true
 
 - id: E117
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .c (active_module_architecture_path_truth); rc5 post-response review P0-1; ADR-0078; ADR-0079"
@@ -1059,6 +1175,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#active_module_architecture_path_truth
   asserts: "For every agent-*/ARCHITECTURE.md file whose YAML front-matter status: token does NOT contain 'skeleton' or 'deferred', every inline path claim matching the regex 'agent-[a-z-]+/src/main/java/[a-zA-Z0-9_/.-]+' MUST resolve to a real file on disk OR the surrounding +/-3 lines MUST carry one of the historical markers: historical, moved, extracted per ADR-NNNN, extracted at, was rooted, formerly, deferred, superseded, pre-ADR-NNNN, relocated, migrated, post-ADR-NNNN. Closes rc5 post-response P0-1: active module ARCHITECTURE.md path claims cannot lag behind real code locations after a refactor (Rule M-1 covers the symmetric skeleton case; Rule G-2 sub-clause .c covers the active case Rule M-1 does not reach)."
+  governance_infra: true
 
 - id: E118
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .f (catalog_spi_row_matches_module_spi_metadata); rc5 post-response review P1-2; ADR-0030; ADR-0070; ADR-0080"
@@ -1067,6 +1184,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#catalog_spi_row_matches_module_spi_metadata
   asserts: "Every row in the docs/contracts/contract-catalog.md '**Active SPI interfaces (N total):**' table whose 'Status' column does NOT contain the literal substring '(internal)' MUST: (a) point at a module whose <module>/module-metadata.yaml contains a spi_packages: entry that exactly matches the row's Package column OR contains the package as a .spi-prefixed sub-package, AND (b) the same module's docs/dfx/<module>.yaml#spi_packages list MUST contain the same package. The header count (N total) MUST equal the number of non-(internal) rows. Closes rc5 post-response P1-2: catalog SPI commitments must be backed by SPI metadata declarations on both sides of the Rule R-D sub-clause .e set."
+  product_claim: "PC-001"
 
 - id: E119
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .d (root_architecture_count_and_path_truth); rc6 post-response review P0-2; ADR-0078; ADR-0079"
@@ -1075,6 +1193,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#root_architecture_count_and_path_truth
   asserts: "Root ARCHITECTURE.md numeric module-count claims (\b[0-9]+-module\b | \b[0-9]+ modules\b | \b[0-9]+ reactor modules\b) outside fenced code blocks and YAML frontmatter MUST equal both (a) the count of <module> entries in root pom.xml and (b) docs/governance/architecture-status.yaml#repository_counts.reactor_modules; root ARCHITECTURE.md path claims of shape agent-*/src/main/java/... MUST resolve to a real path on disk OR carry one of the markers (historical, pre-ADR-NNNN, pre-Phase-C, consolidated, merged, was rooted, formerly, superseded, deferred, moved, extracted per ADR-NNNN, post-ADR-NNNN, archived) within +/-3 lines. Closes rc6 post-response P0-2: root ARCHITECTURE.md count and path truth (Rule G-2 sub-clause .c covers agent-*/ARCHITECTURE.md; Rule G-2 sub-clause .d covers root)."
+  governance_infra: true
 
 - id: E120
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .e (status_yaml_allowed_claim_module_name_truth); rc6 post-response review P1-2; ADR-0078; ADR-0079"
@@ -1083,6 +1202,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#status_yaml_allowed_claim_module_name_truth
   asserts: "Every line in docs/governance/architecture-status.yaml matching ^[[:space:]]+allowed_claim:[[:space:]]* whose extracted value contains a word-boundary match for agent-platform, agent-runtime, or agent-runtime-core (all three deleted-module names post-rc13 / ADR-0088) MUST have one of the markers (historical, pre-ADR-NNNN, pre-Phase-C, consolidated into, consolidated from, merged into, merged in, was rooted, formerly, superseded, deprecated, archived, moved, post-ADR-NNNN, dissolution, dissolved, relocated, rc13) present within +/-3 lines of the same yaml file. Closes rc6 post-response P1-2 + rc13 dissolution widening."
+  governance_infra: true
 
 - id: E121
   constraint_ref: "CLAUDE.md Rule G-5 sub-clause .a (serial_parallel_gate_slug_parity); rc7 post-corrective review P0-2; ADR-0082"
@@ -1091,6 +1211,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#serial_parallel_gate_slug_parity
   asserts: "Set of rule slugs extracted from gate/check_architecture_sync.sh (canonical) MUST equal the set the parallel awk extraction in gate/check_parallel.sh would produce, bounded by the explicit `# === END OF RULES ===` terminator. Every `# Rule N — slug` header MUST use em-dash `—` separator; double-dash `--` is forbidden. The canonical script MUST declare the `# === END OF RULES ===` marker. Closes rc7 post-corrective P0-2: the parallel wrapper silently skipped Rules 86-87 because of a compound defect (marker mismatch + separator mismatch); Rule G-5 sub-clause .a catches both legs."
+  governance_infra: true
 
 - id: E122
   constraint_ref: "CLAUDE.md Rule G-5 sub-clause .b (self_test_harness_fail_closed_coverage); rc7 post-corrective review P1-1; rc8 post-corrective review P1-4; ADR-0082; ADR-0083"
@@ -1099,6 +1220,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#self_test_harness_fail_closed_coverage
   asserts: "gate/test_architecture_sync_gate.sh MUST (a) contain a `passed != TOTAL` fail-closed clause that exits non-zero, (b) NOT declare TOTAL via a bare literal `TOTAL=NNN` form (must derive from passed+failed or an explicit manifest), and (c) declare at least one `test_rule_<N>_*` function for every prevention-wave `# Rule N — slug` header (`N >= 80`) defined in gate/check_architecture_sync.sh. Pre-rc4 Rules 1-79 are grandfathered (covered by ArchUnit / integration tests at design time, not by inline self-test fixtures). rc9 narrows the wording from the original 'full coverage parity / every Rule' phrasing to the prevention-wave-only scope matching CLAUDE.md Rule G-5 sub-clause .b kernel and gate/check_architecture_sync.sh implementation (closes rc8 post-corrective P1-4: enforcers row + gate/README claim overclaimed broader coverage than the rule actually enforces). Original rc7 closure: harness hardcoded TOTAL=143 and exited 0 when only ~37 tests ran; inline Rule G-2 sub-clause .d/87 fixtures lost their results to the parallel orchestrator overwriting passed/failed counters."
+  governance_infra: true
 
 - id: E123
   constraint_ref: "CLAUDE.md Rule G-5 sub-clause .c (baseline_metric_matches_executable_manifest); rc8 post-corrective review P0-1; ADR-0083"
@@ -1107,6 +1229,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#baseline_metric_matches_executable_manifest
   asserts: "docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics.active_gate_checks MUST equal the literal count of `# Rule N — slug` headers in gate/check_architecture_sync.sh before the `# === END OF RULES ===` terminator. Closes rc8 post-corrective P0-1: published baseline declared 74 active gate rules while parallel_summary reported 102 (28-section gap persisted across 8 release notes). ADR-0083 adopts the executable-section count as the canonical meaning of active_gate_checks."
+  governance_infra: true
 
 - id: E124
   constraint_ref: "CLAUDE.md Rule G-5 sub-clause .c (baseline_metric_matches_executable_manifest); ADR-0083"
@@ -1115,6 +1238,7 @@
   view: process
   artifact: gate/test_architecture_sync_gate.sh#test_rule_91_baseline_matches_pos
   asserts: "Positive + negative self-test fixtures for Rule G-5 sub-clause .c in gate/test_architecture_sync_gate.sh. Positive: mock status YAML with active_gate_checks matching the canonical manifest count → rule passes. Negative: mock status YAML with active_gate_checks set to a value lower than the canonical manifest count → rule fails closed."
+  governance_infra: true
 
 - id: E125
   constraint_ref: "CLAUDE.md Rule G-5 sub-clause .d (gate_rules_corpus_freshness); rc8 post-corrective review P2-1; ADR-0083"
@@ -1123,6 +1247,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#gate_rules_corpus_freshness
   asserts: "Every `# Rule N — slug` header in gate/check_architecture_sync.sh (before the END marker) MUST have a matching gate/rules/rule-NNN[a-z]?.sh file (zero-padded to 3 digits with optional letter suffix). gate/rules/ is an IDE-only generated artifact refreshed by gate/lib/extract_rules.sh; the production parallel gate consumes the canonical monolith directly. Closes rc8 post-corrective P2-1: incomplete shadow rule corpus (83 files vs 102 canonical headers)."
+  governance_infra: true
 
 - id: E126
   constraint_ref: "CLAUDE.md Rule G-5 sub-clause .d (gate_rules_corpus_freshness); ADR-0083"
@@ -1131,6 +1256,7 @@
   view: process
   artifact: gate/test_architecture_sync_gate.sh#test_rule_92_freshness_pos
   asserts: "Positive + negative self-test fixtures for Rule G-5 sub-clause .d. Positive: every canonical header has a matching gate/rules/rule-NNN[a-z]?.sh file → pass. Negative: a canonical header without a matching file (synthetic deletion) → fail."
+  governance_infra: true
 
 - id: E127
   constraint_ref: "CLAUDE.md Rule M-2 sub-clause .c (dfx_stem_matches_module); rc8 post-corrective review P0-3; ADR-0082; ADR-0083"
@@ -1139,6 +1265,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#dfx_stem_matches_module
   asserts: "Every docs/dfx/*.yaml file (excluding docs/archive/) MUST have a basename stem matching a `<module>` entry in root pom.xml. Closes rc8 post-corrective P0-3: docs/dfx/agent-platform.yaml remained on disk after ADR-0078 deleted the agent-platform module; ADR-0082 mandated removal but the gate did not enforce orphan-detection until rc9."
+  governance_infra: true
 
 - id: E128
   constraint_ref: "CLAUDE.md Rule M-2 sub-clause .c (dfx_stem_matches_module); ADR-0083"
@@ -1147,6 +1274,7 @@
   view: development
   artifact: gate/test_architecture_sync_gate.sh#test_rule_93_dfx_stem_pos
   asserts: "Positive + negative self-test fixtures for Rule M-2 sub-clause .c. Positive: all dfx/*.yaml stems match modules in pom.xml → pass. Negative: synthetic dfx/orphan-module.yaml with no matching pom.xml entry → fail."
+  governance_infra: true
 
 - id: E129
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .f (active_corpus_deleted_module_name_truth); rc8 post-corrective review P1-3; ADR-0078; ADR-0083"
@@ -1155,6 +1283,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#active_corpus_deleted_module_name_truth
   asserts: "Active corpus (`.md`, `.yaml`, `*.java` files outside docs/archive/, docs/logs/reviews/, docs/logs/releases/2026-05-1[0-7]-*.md, fenced code blocks, yaml comment lines) MUST NOT contain word-boundary current-tense `agent-platform`, `agent-runtime`, or `agent-runtime-core` (all three deleted-module names post-rc13 / ADR-0088) without a historical marker (historical, pre-ADR-NNNN, pre-Phase-C, consolidated into, merged into, was rooted, formerly, superseded, deprecated, archived, moved, extracted per ADR-NNNN, post-ADR-NNNN, dissolution, dissolved, relocated, rc13) within ±3 lines. Widens Rule G-2 sub-clause .e (which only covered architecture-status.yaml#allowed_claim) to root constraints, rule cards, and test Javadocs. Closes rc8 post-corrective P1-3 + rc13 dissolution widening."
+  governance_infra: true
 
 - id: E130
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .f (active_corpus_deleted_module_name_truth); ADR-0083"
@@ -1163,6 +1292,7 @@
   view: development
   artifact: gate/test_architecture_sync_gate.sh#test_rule_94_corpus_bare_neg
   asserts: "Positive + negative self-test fixtures for Rule G-2 sub-clause .f. Positive: synthetic file mentioning agent-platform with a `pre-Phase-C` marker on the line above → pass. Negative: synthetic file mentioning agent-platform on a bare line → fail. Also positive: fenced code-block content mentioning agent-platform → pass (excluded scope)."
+  governance_infra: true
 
 - id: E131
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .g (spi_catalog_exhaustiveness); rc8 post-corrective review P1-2; ADR-0080; ADR-0081; ADR-0083"
@@ -1171,6 +1301,7 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#spi_catalog_exhaustiveness
   asserts: "Every `public interface ...` declaration in a Java source file under any `*/spi/*` path (excluding `target/`) MUST appear in docs/contracts/contract-catalog.md as a backtick-wrapped interface name (either as an Active SPI table row OR explicitly marked `(internal)`). Closes rc8 post-corrective P1-2: SkillCapacityRegistry was public under .spi but missing from the catalog (11 total claimed)."
+  product_claim: "PC-001"
 
 - id: E132
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .g (spi_catalog_exhaustiveness); ADR-0083"
@@ -1179,6 +1310,7 @@
   view: logical
   artifact: gate/test_architecture_sync_gate.sh#test_rule_95_spi_catalog_pos
   asserts: "Positive + negative self-test fixtures for Rule R-D sub-clause .g. Positive: every public interface under */spi/* appears in catalog → pass. Negative: a synthetic public interface under */spi/* not in catalog → fail."
+  product_claim: "PC-001"
 
 - id: E133
   constraint_ref: "CLAUDE.md Rule G-3 sub-clause .d (kernel_deferred_clause_coherence); rc8 post-corrective review P1-1; rc10 post-corrective review P1-3; ADR-0083; ADR-0085"
@@ -1187,6 +1319,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#kernel_deferred_clause_coherence
   asserts: "For every `## Rule N.<letter>` sub-clause heading in docs/CLAUDE-deferred.md, EITHER the matching `#### Rule N` kernel block in CLAUDE.md (between the heading and the next `---`) OR the matching `docs/governance/rules/rule-NN.md` card MUST contain the literal string `Rule N.<letter>` to acknowledge the deferred runtime obligation. Closes rc8 post-corrective P1-1 (Rule R-L + Rule R-M sub-clause .d active kernels overclaimed runtime enforcement that CLAUDE-deferred.md correctly deferred to W2) + rc10 post-corrective P1-3 (kernel-vs-implementation alignment: cards have no kernel_cap, so long deferred discussions may cite there)."
+  governance_infra: true
 
 - id: E134
   constraint_ref: "CLAUDE.md Rule G-3 sub-clause .d (kernel_deferred_clause_coherence); ADR-0083; ADR-0085"
@@ -1195,6 +1328,7 @@
   view: process
   artifact: gate/test_architecture_sync_gate.sh#test_rule_96_kernel_cites_pos
   asserts: "Positive + negative self-test fixtures for Rule G-3 sub-clause .d. Positive A (kernel-cited): synthetic CLAUDE.md Rule N kernel containing the literal `Rule N.b` reference → pass. Positive B (card-only, rc11): synthetic Rule N.b deferred sub-clause cited only in docs/governance/rules/rule-NN.md card → pass (proves the card-only path is intentional). Negative: synthetic Rule N.b deferred sub-clause with no `Rule N.b` reference in either the kernel or the card → fail."
+  governance_infra: true
 
 - id: E135
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .g (release_note_numeric_truth); rc10 category-sweep I-α-2; ADR-0084"
@@ -1203,6 +1337,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#release_note_numeric_truth
   asserts: "The LATEST release note under docs/logs/releases/*.md (lex-sort tail -1) MUST NOT contain an absolute `<N> nodes` or `<M> edges` prose claim disagreeing with the live values in docs/governance/architecture-graph.yaml#node_count + #edge_count, unless the line carries a historical/rc[N] snapshot/rc[N] correction/rc[N] first cut/superseded marker within ±3 lines. Delta-formatted claims (`+N nodes / +M edges`) are exempt. Closes rc10 I-α-2: rc9 first cut declared 360 nodes / 510 edges while live header was 369 / 520 — no rule caught the prose drift because Rule G-5 sub-clause .c only checked architecture-status.yaml#baseline_metrics.active_gate_checks."
+  governance_infra: true
 
 - id: E136
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .g (release_note_numeric_truth); ADR-0084"
@@ -1211,6 +1346,7 @@
   view: process
   artifact: gate/test_architecture_sync_gate.sh#test_rule_97_release_note_numeric_pos
   asserts: "Positive + negative self-test fixtures for Rule G-2 sub-clause .g. Positive: synthetic latest release note with `369 nodes / 520 edges` matching live values → pass. Negative: synthetic latest release note with `360 nodes / 510 edges` and no historical/correction marker → fail. Also positive: same wrong values BUT with `rc10 correction` marker within ±3 lines → pass."
+  governance_infra: true
 
 - id: E137
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .h (broad_corpus_deleted_module_name_truth); rc10 category-sweep I-ε family; ADR-0078; ADR-0084"
@@ -1219,6 +1355,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#broad_corpus_deleted_module_name_truth
   asserts: "Widens Rule G-2 sub-clause .f file-discovery scope to ops/**/*.{yaml,yml,tpl}, docs/contracts/*.yaml, **/module-metadata.yaml (excluding archive). Same word-boundary regex (`agent-platform` or `agent-runtime` not -core), same exemption-marker set (historical, pre-ADR-NNNN, pre-Phase-C, consolidated, formerly, superseded, ADR-NNNN, forbidden_dependencies, etc.) within ±3 lines. Closes rc10 I-ε family hidden defects: Helm chart files (values.yaml, deployment.yaml, Chart.yaml), live OpenAPI contract owner, BoM module-metadata.yaml description — all carried pre-Phase-C names but were outside Rule G-2 sub-clause .f's narrow ARCHITECTURE.md + rule-card + test-Javadoc scope."
+  governance_infra: true
 
 - id: E138
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .h (broad_corpus_deleted_module_name_truth); ADR-0084"
@@ -1227,6 +1364,7 @@
   view: development
   artifact: gate/test_architecture_sync_gate.sh#test_rule_98_broad_corpus_pos
   asserts: "Positive + negative self-test fixtures for Rule G-2 sub-clause .h. Positive: synthetic ops/helm/test.yaml with `agent-service` reference → pass. Negative: synthetic ops/helm/test.yaml with bare `agent-platform` reference → fail. Also positive: same `agent-platform` reference but with `pre-Phase-C` marker on adjacent line → pass."
+  governance_infra: true
 
 - id: E139
   constraint_ref: "CLAUDE.md Rule G-3 sub-clause .e (kernel_terminal_verb_vs_shipped_decision_check); rc10 post-corrective review P1-1; ADR-0085"
@@ -1235,6 +1373,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#kernel_terminal_verb_vs_shipped_decision_check
   asserts: "For every #### Rule N kernel block in CLAUDE.md, if a matching ## Rule N.<letter> sub-clause exists in docs/CLAUDE-deferred.md AND the kernel body contains an end-state verb token (`are SUSPENDED`, `is SUSPENDED`, `transitions to FAILED`, `consumes the * capacity`, `is rejected, not failed`, `admits the caller`), the gate FAILS — the active kernel is overclaiming shipped behaviour when the matching obligation is deferred. Closes rc10 post-corrective review P1-1: Rule R-K kernel said `over-cap callers are SUSPENDED, not rejected` while DefaultSkillResilienceContract.resolve returns a SkillResolution decision envelope (the actual Run.SUSPENDED transition is deferred to Rule R-K.c)."
+  governance_infra: true
 
 - id: E140
   constraint_ref: "CLAUDE.md Rule G-3 sub-clause .e (kernel_terminal_verb_vs_shipped_decision_check); ADR-0085"
@@ -1243,6 +1382,7 @@
   view: process
   artifact: gate/test_architecture_sync_gate.sh#test_rule_99_kernel_verb_pos
   asserts: "Positive + negative self-test fixtures for Rule G-3 sub-clause .e. Positive: synthetic CLAUDE.md Rule N kernel saying `MUST return SkillResolution.reject(...)` with matching Rule N.c deferred sub-clause → pass. Negative: synthetic CLAUDE.md Rule N kernel saying `callers are SUSPENDED` with matching Rule N.c deferred sub-clause → fail."
+  governance_infra: true
 
 - id: E141
   constraint_ref: "CLAUDE.md Rule G-3 sub-clause .f (kernel_implementation_disjunction_truth); rc10 post-corrective review P1-3; ADR-0085"
@@ -1251,6 +1391,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#kernel_implementation_disjunction_truth
   asserts: "For every rule listed in gate/rule-100-disjunction-allowlist.txt, BOTH the #### Rule N kernel block in CLAUDE.md AND the matching docs/governance/rules/rule-NN.md card MUST contain explicit disjunction wording (EITHER / OR / either surface / either ... or ... / either kernel / either the). Initial allow-list (rc11): Rule G-3 sub-clause .d. Closes rc10 post-corrective review P1-3: Rule G-3 sub-clause .d kernel said `the matching CLAUDE.md kernel block MUST contain` while the impl accepted EITHER kernel OR rule card — a kernel-AND-impl-OR drift in the rule whose job is preventing kernel/deferred drift."
+  governance_infra: true
 
 - id: E142
   constraint_ref: "CLAUDE.md Rule G-3 sub-clause .f (kernel_implementation_disjunction_truth); ADR-0085"
@@ -1259,6 +1400,7 @@
   view: process
   artifact: gate/test_architecture_sync_gate.sh#test_rule_100_disjunction_pos
   asserts: "Positive + negative self-test fixtures for Rule G-3 sub-clause .f. Positive: synthetic Rule G-3 sub-clause .d kernel + card both saying `EITHER the kernel block OR the rule card` → pass. Negative: synthetic Rule G-3 sub-clause .d kernel saying only `the kernel block MUST contain` with `96` in the allow-list → fail (kernel=0)."
+  governance_infra: true
 
 - id: E143
   constraint_ref: "CLAUDE.md Rule R-I sub-clause .b (Edge↔Compute Ingress Routing); ADR-0089"
@@ -1267,6 +1409,7 @@
   view: physical
   artifact: agent-client/src/test/java/com/huawei/ascend/client/architecture/EdgeToComputeDirectLinkArchTest.java
   asserts: "no class under com.huawei.ascend.client.. imports any class under com.huawei.ascend.{service,engine,middleware}.. — enforces Rule R-I.b at the bytecode level. Vacuous-but-armed at W1 (agent-client is skeleton). When the W3+ SDK lands, this test starts gating PRs that try direct compute_control plane access."
+  product_claim: "PC-002"
 
 - id: E144
   constraint_ref: "CLAUDE.md Rule R-I sub-clause .b (Edge↔Compute Ingress Routing); ADR-0089"
@@ -1275,6 +1418,7 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#edge_no_direct_compute_link
   asserts: "Rule 105 — for every agent-*/module-metadata.yaml whose deployment_plane is `edge`, NO .java file under <module>/src/main/java/**/*.java may carry an `import com.huawei.ascend.{service,engine,middleware}.*` line, AND NO file may construct a RestTemplate or WebClient targeting a host other than the bus ingress endpoint. Source-level guard complementing E143 (bytecode-level)."
+  product_claim: "PC-002"
 
 # ---------------------------------------------------------------------------
 # rc14 (2026-05-20) — Cross-Authority Parity wave (Rule G-8 / Rule 106).
@@ -1289,6 +1433,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#cross_authority_parity
   asserts: "Rule 106 sub-check (a) — `docs/governance/architecture-status.yaml#baseline_metrics.architecture_graph_nodes` MUST equal the `node_count:` value declared in the header of `docs/governance/architecture-graph.yaml`. Same parity for `architecture_graph_edges` vs `edge_count:`. Closes rc13 P1-1: rc12 baseline 363/539 drifted from live graph 376/558 while all single-surface gates passed."
+  governance_infra: true
 
 - id: E147
   constraint_ref: "CLAUDE.md Rule G-8 sub-clause .b (SPI path parity); ADR-0090"
@@ -1297,6 +1442,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#cross_authority_parity
   asserts: "Rule 106 sub-check (b) — every SPI package literal (`ascend\\.springai\\.<seg>(\\.<seg>)*\\.spi(\\.<seg>)*`) named in `CLAUDE.md` kernel blocks MUST appear in exactly one `<module>/module-metadata.yaml#spi_packages:` entry AND a directory matching the package path MUST exist on disk under `<module>/src/main/java/`. Rule cards under docs/governance/rules/ are intentionally excluded — they may quote historical-defect literals when documenting prevented patterns. Closes rc13 P1-2: CLAUDE.md Rule R-M kernel named `service.runtime.s2c.spi` while module-metadata + catalog + disk named `bus.spi.s2c`."
+  governance_infra: true
 
 - id: E148
   constraint_ref: "CLAUDE.md Rule G-8 sub-clause .c (Module topology parity); ADR-0090"
@@ -1305,6 +1451,7 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#cross_authority_parity
   asserts: "Rule 106 sub-check (c) — the set of `<module>` entries in root `pom.xml` MUST match (a) `architecture-status.yaml#repository_counts.reactor_modules` integer, (b) the count of `*/module-metadata.yaml` files on disk, and (c) every `each of the N (reactor )?modules` present-tense numeric claim across active authority surfaces (root + per-module ARCHITECTURE.md + architecture-status.yaml + contract-catalog.md). Closes rc13 P1-3: architecture-status.yaml allowed_claim said `each of the 9 reactor modules` listing `agent-runtime-core` while pom.xml had 8 modules post-rc13."
+  governance_infra: true
 
 - id: E149
   constraint_ref: "CLAUDE.md Rule G-8 sub-clause .d (Current-claim grammar); ADR-0090"
@@ -1313,6 +1460,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#cross_authority_parity
   asserts: "Rule 106 sub-check (d) — a line in an active `.md`/`.yaml` authority surface (root + module ARCHITECTURE.md + architecture-status.yaml + contract-catalog.md + s2c-callback.v1.yaml) that contains BOTH (1) a deleted-module token (`agent-platform`, `agent-runtime`, `agent-runtime-core`) AND (2) one of the present-tense verbs `now reads`, `lives in`, `declares`, OR the pattern `each of the [0-9]+ (reactor )?modules`, OR (3) a structural-noun phrase `shared kernel in`, `extracted to`, `is deployed` (rc15 widening per ADR-0091, M-β family) MUST be marked by an *explicitly historical* token (`formerly`, `until dissolved`, `pre-rc13`, `pre-rc12`, `pre-Phase-C`, `historical`, `narration`, `was consolidated`, `was extracted`, `was dissolved`). The bare marker `post-ADR-[0-9]+` does NOT count as historical — it only attests provenance, not tense. Rule cards are intentionally excluded — they document patterns. Closes rc13 P1-4 + rc14 P1-2: ARCHITECTURE.md + architecture-status.yaml constraint sections carried post-ADR-0079 markers while sentences still asserted `agent-runtime-core declares its SPI packages` (present-tense verb) and `shared kernel in agent-runtime-core` (structural-noun) post-ADR-0088 dissolution."
+  governance_infra: true
 
 - id: E150
   constraint_ref: "CLAUDE.md Rule G-8 sub-clause .e (Structural-carrier parity); ADR-0091"
@@ -1321,6 +1469,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#cross_authority_parity
   asserts: "Rule 106 sub-check (e) — every NON-SPI structural-carrier row in `docs/contracts/contract-catalog.md` (rows matching pattern `| `<ClassName>` | `<module>` (`<...package>`) | <description> |`) MUST resolve to a real Java file on disk at `<module>/src/main/java/<package-path>/<ClassName>.java`. The scan extracts class + module + package directly from the catalog row syntax rather than hardcoding the carrier list, so new carriers added to the catalog are automatically covered. Closes rc14 post-closure review P1-1: contract-catalog.md rows for `EngineRegistry` + `EngineEnvelope` still cited `...service.runtime.engine` while rc14 ADR-0090 relocated the Java sources to `...engine.runtime`. Rule G-8.b (SPI path parity) only scans `*.spi` packages; structural carriers are non-SPI public contract types and require this separate sub-check."
+  governance_infra: true
 
 - id: E151
   constraint_ref: "CLAUDE.md Rule G-3 sub-clause .e (Terminal-Verb vs Shipped-Decision; module-arch scope widening); ADR-0091"
@@ -1329,6 +1478,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#kernel_terminal_verb_vs_shipped_decision_check
   asserts: "Rule 99 sub-check (b) — scan `agent-*/ARCHITECTURE.md` for the over-capacity SUSPENSION over-claim pattern `(over-cap|over-capacity)( callers| requests)?.*? (are|is|transitions to) SUSPENDED`. Hit must be admissible only when the same line carries `decision envelope`, `SkillResolution.reject`, `deferred to R-K`, `deferred to Rule R-K`, `deferred per Rule R-K`, or `W2 scheduler admission` (the Rule R-K shipped-surface wording). Closes rc14 post-closure review P1-3: `agent-service/ARCHITECTURE.md:315-317` said `over-cap callers are SUSPENDED, not rejected` while shipped Java + Rule R-K kernel both say the W1 surface returns a decision envelope and Run suspension transitions are deferred to Rule R-K.c (W2 scheduler admission). Module ARCHITECTURE.md is added to Rule 99's scope (previously CLAUDE.md kernels only)."
+  governance_infra: true
 
 # ---------------------------------------------------------------------------
 # rc16 — Family A/B/C + META prevention wave (ADR-0093).
@@ -1345,6 +1495,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#cross_authority_clause_parity
   asserts: "Rule 107 — every clause name `Rule-X.<letter>` (where X is the namespaced rule, <letter> is the sub-clause suffix) listed under `docs/governance/principle-coverage.yaml#deferred_operationalisers` MUST have a matching `## Rule X.<letter>` heading in `docs/CLAUDE-deferred.md`. Closes rc15 post-closure review P1-1 (Family A) AND the 3 hidden defects surfaced by Family A sweep (R-J.b.d orphaned in principle-coverage.yaml + rule-R-J.md kernel + rule-R-J.md card; R-K.b orphaned in principle-coverage.yaml + CLAUDE-deferred.md cross-ref). Scope dimensions: principle-coverage.yaml + CLAUDE-deferred.md + CLAUDE.md + docs/governance/rules/*.md."
+  product_claim_placeholder: true
 
 - id: E153
   constraint_ref: "CLAUDE.md Rule 108 (governance_text_java_anchor_truth); ADR-0093"
@@ -1353,6 +1504,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#governance_text_java_anchor_truth
   asserts: "Rule 108 — every ClassName.methodName token in active rule cards (`docs/governance/rules/*.md`) + principle cards (`docs/governance/principles/P-*.md`) MUST resolve to a real Java method in `agent-*/src/{main,test}/java/`. Exemption tokens within ±2 lines: `formerly|renamed from|pre-rc[0-9]+|superseded|removed|historical|deleted|deprecated`. Load-bearing class suffixes (IT|Test|Repository|Service|Controller|Component|Configuration|Properties|Filter|Listener|Hook|Executor|Registry|Envelope|Signal|Context|Response|Resolver) are flagged when class itself is missing; for other classes only missing methods are flagged. Closes rc15 post-closure review P1-2 (Family B): `SkillCapacityResolutionIT.suspendsSecondCallerWhenCapacityIsOne` cited in rule-R-K.md + P-K.md after rc15 rename to `rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne` per ADR-0091."
+  product_claim_placeholder: true
 
 - id: E154
   constraint_ref: "CLAUDE.md Rule 109 (namespaced_rule_reference_completeness); ADR-0093"
@@ -1361,6 +1513,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#namespaced_rule_reference_completeness
   asserts: "Rule 109 — every `Rule <digits>` reference in active semantic-authority surfaces (principle cards + rule cards + module ARCHITECTURE.md + contract YAML/MD) MUST carry a SAME-LINE legacy marker: `formerly|legacy|historical|Gate Rule|gate Rule|was Rule|ex-Rule|pre-rc[0-9]+|superseded|deprecated`. Gate-layer numeric refs (`Gate Rule N`) are exempt by syntax (gate-layer rules per ADR-0086 stay numeric by design). Closes rc15 post-closure review P2-1 (Family C): rc12 Rule 101 was scoped narrowly to authority-surfaces-per-ADR-0086 and explicitly excluded principle-card frontmatter + engine contract docs + module ARCHITECTURE.md (other than agent-service); rc15 M-η rewrote agent-service but left agent-execution-engine + agent-bus + agent-middleware untouched. Rule 109 widens to ALL manifestation surfaces."
+  governance_infra: true
 
 - id: E155
   constraint_ref: "CLAUDE.md Rule 110 (prevention_rule_scope_completeness — META); ADR-0093"
@@ -1369,6 +1522,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#prevention_rule_scope_completeness
   asserts: "Rule 110 (META) — every rule card in `docs/governance/rules/rule-*.md` whose frontmatter declares `scope_surfaces:` MUST have ≥2 self-test fixture functions named `test_rule_<rule_id>_*` in `gate/test_architecture_sync_gate.sh`. Operationalises the rc10/rc11/rc12 documented meta-lesson 'Reviewer scope can be narrower than defect scope' that prior waves recorded but never gated. Pre-rc16 rules without `scope_surfaces:` are grandfathered (no retrofit). The rule dogfoods itself: rule cards 107/108/109/110 each declare `scope_surfaces:` AND carry ≥2 fixtures."
+  product_claim_placeholder: true
 
 - id: E156
   constraint_ref: "CLAUDE.md Rule G-9 sub-clause .a (recurring_defect_family_yaml_wellformed); ADR-0094"
@@ -1377,6 +1531,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#architecture_refresh_defect_family_re_eval_required
   asserts: "Rule 111 sub-check .a — `docs/governance/recurring-defect-families.yaml` MUST exist, declare top-level `schema_version`, `last_updated`, `families`, and every family entry MUST have all 9 required per-family fields (`title`, `first_observed_rc`, `last_observed_rc`, `occurrences`, `root_cause`, `surfaces`, `prevention_rules`, `cleanup_status`, `open_residual`) at the count = number of `^  - id:` family entries. Operationalises Rule G-9 sub-clause .a (Recurring-Defect Family Truth — yaml well-formedness) per ADR-0094 rc17 wave."
+  governance_infra: true
 
 - id: E157
   constraint_ref: "CLAUDE.md Rule G-9 sub-clause .b (recurring_defect_family_yaml_freshness); ADR-0094"
@@ -1385,6 +1540,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#architecture_refresh_defect_family_re_eval_required
   asserts: "Rule 111 sub-check .b — `docs/governance/recurring-defect-families.yaml` `last_updated:` ISO date MUST be ≥ the commit date of the most recent refresh-signal change. Refresh signals: any change under `docs/adr/`, `docs/governance/architecture-status.yaml`, `docs/logs/releases/`, or `CLAUDE.md` (the latter detected by heading-set change). Operationalises Rule G-9 sub-clause .b per ADR-0094 rc17 wave. Companion skill `/refresh-defect-archive` (`.claude/skills/refresh-defect-archive.md`) updates `last_updated` after a refresh."
+  governance_infra: true
 
 - id: E158
   constraint_ref: "CLAUDE.md Rule G-9 sub-clause .c (recurring_defect_family_yaml_md_parity); ADR-0094"
@@ -1393,6 +1549,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#architecture_refresh_defect_family_re_eval_required
   asserts: "Rule 111 sub-check .c — the set of `^  - id:` family slugs in `docs/governance/recurring-defect-families.yaml` MUST equal the set of `F-...` family-id references in `docs/governance/recurring-defect-families.md`. A family in yaml but not md is an incomplete human view; a family in md but not yaml is a stale human view. Both directions fail closed. Operationalises Rule G-9 sub-clause .c per ADR-0094 rc17 wave."
+  governance_infra: true
 
 - id: E159
   constraint_ref: "Rule 112 (meta_rule_self_application_check); ADR-0096"
@@ -1401,6 +1558,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#meta_rule_self_application_check
   asserts: "Rule 112 (META) — every gate rule whose `# Rule N — slug` header carries the `[META]` marker MUST source a helper from `gate/lib/check_*.sh` within 80 lines of the header. Closes F-recursive-prevention-irony permanently by structurally enforcing the helper-extraction discipline introduced by Rule 111 (rc18 Wave 1, ADR-0095) on every future META rule. Rule 112 dogfoods itself by sourcing gate/lib/check_recurring_families.sh."
+  product_claim_placeholder: true
 
 - id: E160
   constraint_ref: "Rule 113 (legacy_paren_no_reintroduction_and_migration_doc_complete); ADR-0096"
@@ -1409,6 +1567,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#legacy_paren_no_reintroduction_and_migration_doc_complete
   asserts: "Rule 113 (rc19 Wave 2 / ADV-RC18-6 close) — sub-check .a: docs/governance/enforcers.yaml MUST NOT contain `(legacy Rule NN — ...)` parentheticals (rc18 Wave 4 removed all 9 such patterns; reintroduction is gated). Sub-check .b: gate/rule-number-migration.md MUST exist AND contain 'Legacy numeric' + 'rc17 sub-rule splits' section headings (audit trail of the rename mapping preserved as canonical SSOT)."
+  product_claim_placeholder: true
 - id: E161
   constraint_ref: "Rule 114 (rule_card_filename_dot_convention); ADR-0096"
   kind: gate-script
@@ -1416,6 +1575,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#rule_card_filename_dot_convention
   asserts: "Rule 114 (rc19 Wave 4) — every file under docs/governance/rules/rule-*.md MUST match the regex `rule-[DRGM]-[A-Z0-9](\\.[a-z0-9]+)?\\.md` (dot-suffix only, no hyphenated `rule-G-3-1.md` form). Prevents the rc17 corrective-loop where 5 cards needed renames due to hyphen-vs-dot ambiguity. README.md is allowed."
+  product_claim_placeholder: true
 - id: E162
   constraint_ref: "Rule 113.a (legacy_paren helper extraction); ADR-0097"
   kind: gate-script
@@ -1423,6 +1583,7 @@
   view: scenarios
   artifact: gate/lib/check_legacy_paren.sh
   asserts: "Rule 113.a + .b helper extracted to gate/lib/check_legacy_paren.sh per rc20 Wave 1 / ADR-0097. Both the production gate (Rule 113 body) AND the test_rule_113_* fixtures source this helper, closing Pattern D recurrence on Rule 113 (fixture inlining production grep was the rc19 review finding). Helper exports _check_legacy_paren_no_reintroduction and _check_migration_doc_complete."
+  product_claim_placeholder: true
 - id: E163
   constraint_ref: "Rule D-9 (no_version_log_metadata_in_code); ADR-0097"
   kind: gate-script
@@ -1430,6 +1591,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#no_version_log_metadata_in_code
   asserts: "Rule D-9 / Rule 115 — production code files (*.java, *.py, *.sh, *.bash, *.kt, *.ts, *.tsx, application*.yml, Dockerfile, .github/workflows/*.yml) MUST NOT contain the regex `\\brc[0-9]+ Wave [0-9]+\\b|\\bper ADR-[0-9]{4}\\b|\\(F[0-9]+\\)|\\bFinding F[0-9]+\\b|\\b(closes|addresses) #[0-9]+\\b`. Exempt: docs/adr/, docs/logs/, docs/governance/rules/, docs/governance/rule-history.md, docs/governance/recurring-defect-families.{yaml,md}, docs/governance/architecture-status.yaml, CLAUDE.md, CHANGELOG.md, gate/lib/, gate/test_architecture_sync_gate.sh. Such metadata belongs in commit messages / ADRs / release notes / rule cards / rule-history.md — not in the implementation."
+  governance_infra: true
 
 - id: E164
   constraint_ref: "Rule G-10 (parallel_linux_scripts_mandate); ADR-0098"
@@ -1438,6 +1600,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#parallel_linux_scripts_mandate
   asserts: "Rule G-10 / Rule 116 — every gate script under `gate/*.sh` (top-level, excluding `check_parallel.sh` and `check_architecture_sync.sh` which ARE the parallel orchestrator + canonical source) MUST EITHER appear in `gate/serial-only-paths.txt` (one-shot / helper / diagnostic / generator exemption list) OR contain a parallel-execution mechanism (`xargs -P`, GNU `parallel`, or background jobs followed by explicit `wait`). Extends Rule G-5.a (serial<->parallel slug parity) discipline to newly-authored scripts. Vacuously passes if `gate/serial-only-paths.txt` is absent (initial-deployment fallback)."
+  governance_infra: true
 
 - id: E165
   constraint_ref: "Rule G-11 (phase_contract_rule_allocation_coherence); ADR-0098"
@@ -1446,6 +1609,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#phase_contract_rule_allocation_coherence
   asserts: "Rule G-11 / Rule 117 — phase contract <-> rule card coherence on the post-ADR-0098 contract layer: (a) every Active Rules row in `docs/governance/contracts/*.md` MUST cite a rule whose card exists under `docs/governance/rules/rule-*.md` OR a principle whose card exists under `docs/governance/principles/P-*.md`; (b) every active rule card MUST be cited in at least one phase contract as P or X; (c) dual-P (same rule cited as P in multiple contracts) is forbidden except for the enumerated G-9 exception (commit + review). Vacuously passes if `docs/governance/contracts/` is absent."
+  governance_infra: true
 
 - id: E166
   constraint_ref: "Rule G-1.1 sub-clause .a (l1_dev_view_code_mapping); ADR-0099"
@@ -1454,6 +1618,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#l1_dev_view_code_mapping
   asserts: "Rule G-1.1 sub-check .a (rc22 / ADR-0099) — every agent-*/ARCHITECTURE.md MUST include a Markdown fenced text block under `## *Development View*` (or numbered `## 3.`) declaring the target directory tree at least to the package level. Every line ending with `/` is parsed as a package-path declaration relative to the module's `src/main/java/`. The rule FAILS when any documented package directory does NOT exist on the filesystem OR when any major production package (excluding `*.impl.*`) is NOT documented. Forward-compatibility marker `<!-- root-migration-target: com.huawei.ascend -->` is honored (path resolution allows pre-rename namespace at rc22; rc22.5 strips the markers). Helper: gate/lib/check_l1_dev_view_tree.sh."
+  governance_infra: true
 
 - id: E167
   constraint_ref: "Rule G-1.1 sub-clause .b (l1_spi_appendix_4way_parity); ADR-0099"
@@ -1462,6 +1627,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#l1_spi_appendix_4way_parity
   asserts: "Rule G-1.1 sub-check .b (rc22 / ADR-0099) — every agent-*/ARCHITECTURE.md MUST contain a section titled `SPI Interface Appendix` (or `## *Appendix*` containing `SPI`) listing every public interface FQN the module ships. Four-way parity: (1) FQN appears in module's module-metadata.yaml#spi_packages; (2) FQN appears as a row in docs/contracts/contract-catalog.md §2 (or its package appears in the SPI table); (3) FQN appears in docs/dfx/<module>.yaml#spi_packages; (4) FQN exists as a `public interface` `.java` file on disk. Adds the L1 architecture-doc appendix as the FOURTH parity point to Rule R-D sub-clauses .e/.f/.g (catalog↔metadata↔DFX). Helper: gate/lib/check_l1_spi_appendix.sh."
+  governance_infra: true
 
 - id: E168
   constraint_ref: "Rule G-1.1 sub-clause .c (l1_l2_constraint_linkage); ADR-0099"
@@ -1470,6 +1636,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#l1_l2_constraint_linkage
   asserts: "Rule G-1.1 sub-check .c (rc22 / ADR-0099) — for any complex subsystem the L1 document delegates to an L2 design (any line of the form `… see [L2 doc](path/to/L2.md)` or `… delegated to L2`), the L1 document MUST contain a `Boundary Contracts` sub-section enumerating input types, output types, DFX expectations. Vacuously green when no L2 delegation prose exists in any agent-*/ARCHITECTURE.md (arms for W3+ when L2 docs land)."
+  governance_infra: true
 
 - id: E169
   constraint_ref: "CLAUDE.md Rule G-12; docs/governance/rules/rule-G-12.md"
@@ -1478,6 +1645,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#whitebox_quality_reports
   asserts: "Maven quality reports exist; SpotBugs high-confidence findings and Checkstyle hard-style findings fail the gate while PMD findings are summarized as review triggers"
+  governance_infra: true
 
 - id: E170
   constraint_ref: "Rule G-2 (Authority-Text Reality); 2026-05-25 agent execution engine readiness review"
@@ -1486,6 +1654,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#proposal_immediate_scope_pending_contract_guard
   asserts: "Rule 122 — proposal documents under docs/logs/reviews/*proposal*.md MUST NOT claim immediate W0/W1 execution scope while the same document still carries pending boundary-contract refinement work. Prevents design drafts from becoming accidental release authority."
+  governance_infra: true
 
 - id: E171
   constraint_ref: "Rule G-8 (Cross-Authority Parity); 2026-05-25 agent execution engine readiness review"
@@ -1494,6 +1663,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#proposal_engine_package_truth
   asserts: "Rule 123 — proposal FQNs MUST NOT contradict current engine/service package authority unless marked proposed/future/candidate/exploratory on the same line. Current engine-owned packages live under com.huawei.ascend.engine.*; current service-owned StatelessEngine lives under com.huawei.ascend.service.engine.spi."
+  governance_infra: true
 
 - id: E172
   constraint_ref: "Rule G-2 (Authority-Text Reality); 2026-05-25 agent execution engine readiness review"
@@ -1502,6 +1672,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#unsupported_absolute_claim_guard
   asserts: "Rule 124 — proposal documents MUST NOT use absolute security/performance claims such as bulletproof, zero-day safety, zero downtime, or sub-millisecond unless the same line anchors the claim to benchmark, measurement, threat-model, acceptance-criterion, or deferred-scope wording."
+  governance_infra: true
 
 - id: E173
   constraint_ref: "Rule R-A (Business/Platform Decoupling + Developer Self-Service); 2026-05-25 codegraph MCP integration"
@@ -1510,6 +1681,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#codegraph_install_truth
   asserts: "Rule 125 — project-local codegraph MCP install pinning truth (operationalises Rule R-A's developer-self-service clause): (a) tools/codegraph/package.json declares @colbymchenry/codegraph at an EXACT pin (X.Y.Z form; no ^/~/>=/<= prefix that would drift across npm installs); (b) tools/codegraph/package-lock.json exists with lockfileVersion >= 3 (older formats omit integrity hashes for optionalDependencies, so per-platform bundles drift silently between contributors); (c) .mcp.json registers an mcpServers.codegraph entry whose args reference a relative path under tools/codegraph/node_modules/@colbymchenry/codegraph/ (cross-platform, no PATH dependency). Guards pinning truth, not the local install state — CI without `npm ci` still passes."
+  product_claim: "PC-001"
 
 - id: E174
   constraint_ref: "Rule G-13 (Single-Source Rendering Coherence); ADR-0119 W1 wave promotes status to active with gate/lib/render_template.py + gate/lib/load_render_context.py + gate/lib/check_template_render_idempotency.py landed"
@@ -1519,6 +1691,7 @@
   artifact: gate/check_architecture_sync.sh#template_render_idempotency
   asserts: "Rule G-13 — for every entry in docs/governance/templates/surface-classification.yaml whose bucket is `templated` or `hybrid`, render(template, load_context()) MUST produce a buffer byte-identical to the on-disk `output:` file; determinism contract (sorted dict iteration, LC_ALL=C sort, fixed-precision floats, keep_trailing_newline, no datetime/uuid/random) enforced in gate/lib/render_template.py."
   status: active
+  governance_infra: true
 
 - id: E175
   constraint_ref: "Rule G-2 (Authority-Text Reality); 2026-05-25 rc48 agentic-contract-surface review P0-1"
@@ -1527,6 +1700,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#release_note_no_pending_evidence
   asserts: "Rule 127 — the latest release note that claims a release/shipped/closure decision and the latest review response MUST NOT retain live placeholder tokens such as TBD, TODO-template, pending-formal-validator-run, or TO BE GENERATED outside documented citation contexts; formal release notes MUST carry a real 40-character release_candidate_commit."
+  governance_infra: true
 
 - id: E176
   constraint_ref: "Rule G-8 (Cross-Authority Parity); 2026-05-25 rc48 agentic-contract-surface review P0-2"
@@ -1535,6 +1709,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#model_gateway_authority_truth
   asserts: "Rule 128 — ADR-0121, agent-middleware ModelGateway.java, and docs/contracts/contract-catalog.md MUST agree that ModelGateway lives under com.huawei.ascend.middleware.model.spi and exposes the pure-Java synchronous ModelResponse invoke(ModelInvocation invocation) SPI signature."
+  governance_infra: true
 
 - id: E177
   constraint_ref: "Rule G-8 (Cross-Authority Parity); 2026-05-25 rc48 agentic-contract-surface review P0-3/P1-2"
@@ -1543,6 +1718,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#contract_spi_count_truth
   asserts: "Rule 129 — contract-catalog active SPI total, module-count sum, and the latest release note's Active SPI total MUST agree; promoted SPIs such as Skill and AgentRegistry MUST NOT remain listed as deferred design-only rows; Agent/advisor composition claims MUST be backed by AgentDefinition fields, typed advisor carriers, and the shared advisor/model hook sequence."
+  governance_infra: true
 
 - id: E178
   constraint_ref: "Rule G-14 (Feature Lifecycle Validity); ADR-0151 + ADR-0153 W5 closure"
@@ -1551,3 +1727,76 @@
   view: development
   artifact: gate/check_architecture_sync.sh#feature_lifecycle_validity
   asserts: "Rule 130 — every SAA Feature element in architecture/features/features.dsl MUST declare saa.status from the 9-state lifecycle set (proposed/accepted/design_only/ready_for_impl/implemented_unverified/test_verified/shipped/deprecated/removed). Sub-clause .a enforced blocking at W5; sub-clauses .b (forward-only transitions vs git history), .c (shipped requires non-empty verificationTestFqns resolving to real test classes), .d (deprecated requires saa.sunsetDate + relates_to ADR) remain advisory pending follow-up soak."
+  governance_infra: true
+
+- id: E179
+  constraint_ref: "Rule G-15 (Fact-Layer Integrity); ADR-0154 fact-layer W1"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#fact_layer_integrity
+  asserts: "Rule 131 — architecture/facts/{README.md, schema/fact.schema.yaml, generated/} and architecture/profile/saa-property-authority.yaml MUST exist and the YAML surfaces MUST parse (sub-clause .a, advisory at W1, blocking from W2). Generated fact entries MUST carry the 8 required provenance fields fact_id/fact_kind/source_kind/source_path/extractor/extractor_version/repo_commit/observed_value (sub-clause .b, blocking from W2). Banner present (sub-clause .c.structural, blocking in bash gate); byte-identity to extractor re-emission (sub-clause .c.bytes, blocking in Maven Surefire test FactLayerByteIdentityIT per Round-4 redesign 2026-05-28). Shipped + http/spi function points MUST carry non-empty code_entrypoint_refs/test_refs/contract refs (sub-clause .d, advisory at W5, blocking at W6)."
+  governance_infra: true
+
+- id: E180
+  constraint_ref: "Rule G-13 sibling (Single-Source Rendering Coherence — feature-catalog surface); Round-4 second-correction R2 (2026-05-28)"
+  kind: gate-script
+  level: L0
+  view: development
+  artifact: gate/check_architecture_sync.sh#feature_catalog_render_idempotency
+  asserts: "Rule 132 — rendered L1 feature catalogs at architecture/docs/L1/<module>/features/README.md MUST be byte-identical to the output of `python3 gate/lib/render_features_catalog.py` against architecture/features/features.dsl. The renderer is a separate script from the Jinja2 template renderer policed by Rule 126; Rule 132 wires it into the canonical gate so feature-catalog drift fails closed (closes Round-4 fourth-correction R2 gate-coverage gap)."
+  governance_infra: true
+
+- id: E181
+  constraint_ref: "Rule G-16 (ProductClaim Referential Integrity); ADR-0155 Phase A Wave 5"
+  kind: gate-script
+  level: L1
+  view: logical
+  artifact: gate/check_architecture_sync.sh#productclaim_referential_integrity
+  asserts: "Rule 133 -- every product_claim: value in ADR YAML / rule card frontmatter / SAA feature saa.productClaim / contract YAML MUST resolve to a PC-NNN id declared in product/claims.yaml OR carry sentinel governance_infra:true OR product_claim_placeholder:true. Advisory at W5 landing; promotes to blocking when G-21 placeholder count reaches zero."
+  governance_infra: true
+
+- id: E182
+  constraint_ref: "Rule G-17 (No Orphan Artefacts); ADR-0155 Phase A Wave 5"
+  kind: gate-script
+  level: L1
+  view: logical
+  artifact: gate/check_architecture_sync.sh#no_orphan_artefacts
+  asserts: "Rule 134 -- every ADR / rule card / enforcer / SAA Feature / contract MUST declare one of: (a) product_claim: with PC-NNN value, (b) governance_infra: true, (c) product_claim_placeholder: true. Missing all three = orphan. Advisory at W5 landing."
+  governance_infra: true
+
+- id: E183
+  constraint_ref: "Rule G-18 (Traceability Chain Completeness); ADR-0155 Phase A Wave 5"
+  kind: gate-script
+  level: L1
+  view: logical
+  artifact: gate/check_architecture_sync.sh#traceability_chain_completeness
+  asserts: "Rule 135 -- every PC-NNN in product/claims.yaml MUST have >=1 SAA Feature referencing it via saa.productClaim; every shipped feature MUST have >=1 code_entrypoint_refs[] + test_refs[]. Advisory at W5; promotes to blocking when G-21 placeholder count reaches zero."
+  governance_infra: true
+
+- id: E184
+  constraint_ref: "Rule G-19 (Auto-Load Tier Integrity); ADR-0155 Phase A Wave 5"
+  kind: gate-script
+  level: L1
+  view: logical
+  artifact: gate/check_architecture_sync.sh#autoload_tier_integrity
+  asserts: "Rule 136 -- gate/always-loaded-budget.txt MUST contain product/PRODUCT.md at non-zero ceiling AND CLAUDE.md MUST have ceiling <= 12000 bytes. Enforces Tier-1 product-authority + collab-only kernel discipline established by 2026-05-28 surgery. Blocking from W5 landing."
+  governance_infra: true
+
+- id: E185
+  constraint_ref: "Rule G-20 (Governance-Infra Honesty); ADR-0155 Phase A Wave 5"
+  kind: gate-script
+  level: L1
+  view: logical
+  artifact: gate/check_architecture_sync.sh#governance_infra_honesty
+  asserts: "Rule 137 -- artefacts marked governance_infra: true MUST NOT use product-value vocabulary (customer / beneficiary / user-facing claim / saves time/cost / delivers value) in body prose. Reserved for product-claim-bound artefacts. Advisory at W5."
+  governance_infra: true
+
+- id: E186
+  constraint_ref: "Rule G-21 (ProductClaim Placeholder Decreasing); ADR-0155 Phase A Wave 5"
+  kind: gate-script
+  level: L1
+  view: logical
+  artifact: gate/check_architecture_sync.sh#productclaim_placeholder_decreasing
+  asserts: "Rule 138 -- count of product_claim_placeholder: true markers MUST decrease monotonically across Phase B cluster cycles; reaching zero is the Phase B convergence signal AND the promotion trigger for Rules G-16/G-17/G-18/G-20 from advisory to blocking. Advisory at W5 landing."
+  governance_infra: true

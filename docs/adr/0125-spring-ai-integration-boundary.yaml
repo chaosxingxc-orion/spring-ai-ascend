@@ -1,6 +1,7 @@
 id: ADR-0125
 title: "Spring AI integration boundary: Spring AI is the canonical Model / Tool / Vector / Embedding abstraction; platform SPIs are thin decorators"
 status: accepted
+product_claim: "PC-001|PC-004"
 date: 2026-05-25
 level: L0
 view: scenarios

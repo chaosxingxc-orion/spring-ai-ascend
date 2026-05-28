@@ -1,6 +1,7 @@
 id: ADR-0069
 title: "Layer-0 Ironclad Rules — promotion of LucioIT W1 §6/§7 to governing principles"
 status: accepted
+governance_infra: true
 date: 2026-05-15
 level: L0
 view: scenarios

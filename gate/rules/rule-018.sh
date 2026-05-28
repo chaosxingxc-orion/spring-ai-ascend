@@ -23,7 +23,7 @@ _deleted_names18=(
 # (~1s) — same 16 fixed-string patterns, same file set, identical
 # pass/fail semantics. ADR-0043 (widened to full ACTIVE_NORMATIVE_DOCS).
 _r18_files=$(find . -name '*.md' -o -name '*.yaml' 2>/dev/null \
-  | grep -vE '/docs/(archive|logs/reviews|adr|delivery|v6-rationale|plans)/|/third_party/|/target/|/\.git/' \
+  | grep -vE '/docs/(archive|logs/reviews|adr|delivery|v6-rationale|plans|competitive|superpowers)/|/third_party/|/target/|/\.git/' \
   | sort || true)
 if [[ -n "$_r18_files" ]]; then
   _r18_patterns=$(printf '%s\n' "${_deleted_names18[@]}")

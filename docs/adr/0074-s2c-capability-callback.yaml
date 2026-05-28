@@ -1,6 +1,7 @@
 id: ADR-0074
 title: "Server-to-Client (S2C) Capability Callback Protocol — third L1 expression of P-M"
 status: accepted
+product_claim: "PC-004"
 date: 2026-05-16
 last_amended: 2026-05-18
 level: L1

@@ -5,34 +5,40 @@
 
 # Rule 68 — claude_md_kernel_matches_card (enforcer E98)
 #
-# For every docs/governance/rules/rule-NN.md card, extract the kernel: scalar
-# from the YAML front-matter, normalise whitespace, and assert the same text
-# appears verbatim in the body of "#### Rule NN" in CLAUDE.md. Fails on drift.
-# If no cards exist (initial PR1 landing), the rule is vacuously true.
+# For every docs/governance/rules/rule-NN.md card with status:active, if the
+# card's rule_id appears as "#### Rule <id>" in CLAUDE.md, the body paragraph
+# MUST byte-match the kernel: scalar (after whitespace normalisation). Cards
+# whose rule_id does NOT appear in CLAUDE.md are NOT drift -- CLAUDE.md is the
+# team-collaboration kernel only, and rule cards are sole authority for rule
+# definitions. Cards with status:deferred/retired/proposed may exist without
+# any CLAUDE.md heading.
+# If no cards exist, the rule is vacuously true.
 # ---------------------------------------------------------------------------
 _r68_fail=0
 _r68_claude='CLAUDE.md'
 _r68_cards_dir='docs/governance/rules'
-_r68_deferred_doc='docs/CLAUDE-deferred.md'
 if [[ ! -f "$_r68_claude" ]]; then
   fail_rule "claude_md_kernel_matches_card" "$_r68_claude missing"
   _r68_fail=1
 elif [[ ! -d "$_r68_cards_dir" ]]; then
   pass_rule "claude_md_kernel_matches_card"
 else
-  # Perf fix (2026-05-23): replace per-card 22-fork awk/sed/tr pipeline
-  # (~50 cards × ~22 forks = ~1100 forks per gate run, ~17s on WSL/mnt/d)
-  # with a single python pass that reads all cards + CLAUDE.md once.
-  _r68_drift="$("${GATE_PYTHON_BIN:-python3}" - "$_r68_cards_dir" "$_r68_claude" "$_r68_deferred_doc" <<'PYEOF'
-import os, re, sys, pathlib
-cards_dir, claude_md, deferred_doc = sys.argv[1:4]
+  _r68_drift="$("${GATE_PYTHON_BIN:-python3}" - "$_r68_cards_dir" "$_r68_claude" <<'PYEOF'
+import re, sys, pathlib
+cards_dir, claude_md = sys.argv[1:3]
 
 def norm(s: str) -> str:
-    """Collapse all whitespace runs to single spaces; strip outer."""
     return re.sub(r"\s+", " ", s).strip()
 
-# Parse CLAUDE.md once. For each "#### Rule <id> ..." heading, capture body lines
-# until blank-line+`Enforced` OR `---` OR next "####" heading.
+def extract_field(text: str, field: str) -> str:
+    m = re.search(rf"(?m)^{re.escape(field)}:\s*(.+?)$", text)
+    if not m:
+        return ""
+    val = m.group(1).strip()
+    if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+        val = val[1:-1]
+    return val
+
 claude_text = pathlib.Path(claude_md).read_text(encoding="utf-8", errors="replace").splitlines()
 bodies: dict[str, str] = {}
 i, n = 0, len(claude_text)
@@ -53,22 +59,20 @@ while i < n:
         continue
     i += 1
 
-deferred_text = ""
-if os.path.isfile(deferred_doc):
-    deferred_text = pathlib.Path(deferred_doc).read_text(encoding="utf-8", errors="replace")
-
 drift = []
 for card in sorted(pathlib.Path(cards_dir).glob("rule-*.md")):
-    base = card.stem  # rule-XX
-    rid = base[5:]    # strip "rule-"
+    base = card.stem
+    rid = base[5:]
     if not rid:
         continue
-    # Normalise integer ids by stripping leading zeros for heading match.
     rid_match = re.sub(r"^0+(?=\d)", "", rid) if rid.isdigit() else rid
 
-    # Extract kernel: scalar (literal block `|` or inline). Stop at next
-    # top-level key or `---`.
-    txt = card.read_text(encoding="utf-8", errors="replace").splitlines()
+    card_text = card.read_text(encoding="utf-8", errors="replace")
+    status = extract_field(card_text, "status").lower()
+    if status and status != "active":
+        continue
+
+    txt = card_text.splitlines()
     kernel_lines: list[str] = []
     in_block = False
     for line in txt:
@@ -91,12 +95,9 @@ for card in sorted(pathlib.Path(cards_dir).glob("rule-*.md")):
 
     body = bodies.get(rid_match, "")
     if not body:
-        # Deferred-only sub-clause cards (e.g. R-A.c) live in CLAUDE-deferred.md.
-        # Check for `Rule <id>` reference there before flagging drift.
-        if deferred_text and re.search(rf"(^|[^A-Za-z0-9])Rule\s+{re.escape(rid_match)}([^A-Za-z0-9]|$)", deferred_text):
-            continue
-        drift.append(f"Rule {rid_match}: card exists but no body in CLAUDE.md")
-    elif kernel != body:
+        # Active card not in CLAUDE.md -- OK. CLAUDE.md is collaboration-only.
+        continue
+    if kernel != body:
         drift.append(f"Rule {rid_match} drift")
 sys.stdout.write("; ".join(drift))
 PYEOF

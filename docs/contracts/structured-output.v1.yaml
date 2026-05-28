@@ -10,6 +10,8 @@
 # com.huawei.ascend.service.integration.springai.SpringAiBeanOutputConverterAdapter
 # wraps Spring AI's BeanOutputConverter per ADR-0125.
 
+product_claim: "PC-001|PC-004"
+
 schema: structured-output/v1
 status: design_only
 runtime_enforced: false

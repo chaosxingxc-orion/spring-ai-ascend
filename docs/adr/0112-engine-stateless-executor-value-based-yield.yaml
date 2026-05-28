@@ -1,6 +1,7 @@
 id: ADR-0112
 title: "Engine stateless executor — value-based yield (no checked exception); A2A InterruptType ↔ SuspendReason mapping"
 status: accepted
+product_claim: "PC-004"
 date: 2026-05-23
 level: L0
 view: logical

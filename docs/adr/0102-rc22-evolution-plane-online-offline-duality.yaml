@@ -1,6 +1,7 @@
 id: ADR-0102
 title: "rc22 — Evolution Plane Online/Offline Duality (Offline T+1 + Online Dual-Track Fast/Slow) + 2×2 Mode×Modality matrix"
 status: accepted
+governance_infra: true
 date: 2026-05-22
 level: L0
 view: scenarios
