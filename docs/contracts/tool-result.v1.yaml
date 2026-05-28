@@ -1,0 +1,25 @@
+# ToolResult — normalised tool-invocation result, v1.
+#
+# Authority: ADR-0155. Wave: design_only.
+
+schema: tool-result/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  contentBlocks:
+    type: array
+    required: true
+    description: "Platform-normalised ContentBlock list; never carries vendor SDK objects."
+  success:
+    type: boolean
+    required: true
+  errorClass:
+    type: string
+    required: false
+    description: "One of error-class.v1.yaml values when success=false."
+  usage:
+    type: object
+    required: false
+    description: "Tool-specific usage metrics (latency, units consumed)."

@@ -1,0 +1,31 @@
+# SessionSnapshot — STM-04 read projection, v1.
+#
+# Authority: ADR-0155 §3 (PlatformMemoryProvider return shape).
+# Wave: design_only.
+
+schema: session-snapshot/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  sessionId:
+    type: string
+    required: true
+  version:
+    type: integer
+    required: true
+    description: "Monotonic version cursor; STM-04 is append-only."
+  messages:
+    type: array
+    required: true
+    description: "Typed Msg entries with role + ContentBlock list."
+  variables:
+    type: object
+    required: false
+  memoryRefs:
+    type: array
+    required: false
+  toolSummaries:
+    type: array
+    required: false
