@@ -350,6 +350,13 @@ Other vocabulary mappings (rc55 reaffirmation; full table in ADR-0136
 | DualTrackRouter | New SPI `(design_only — W2, ADR-0112)`; maps to `SlowTrackJudge` (already declared per ADR-0112); narrowed by ADR-0139 |
 | FastPath / SlowPath | In-process reactive synchronous + metadata persistence (Fast) vs persistent reactive + SuspendSignal + ResumeDispatcher (Slow); neither bypasses tenantId / RLS / reactive / SuspendSignal (per ADR-0139 narrowed semantics) |
 
+**v1.2 (per ADR-0155 §3)**: M6 Translation & Tool-Intercept does NOT
+construct prompts. The Agent (native code, third-party framework
+Formatter, or remote service) owns prompt assembly. M6 is a
+messages-in-flight boundary aspect — policy, redaction, token-budget
+audit, fallback trim. `BuiltPrompt` is deleted; `GovernedMessages`
+replaces it as M6's downstream type.
+
 ## 7. RunEvent Sealed Hierarchy (per ADR-0145)
 
 > **Status**: `design_only` per [`docs/contracts/run-event.v1.yaml`](../../../../docs/contracts/run-event.v1.yaml). The Java sealed `RunEvent` interface + 10 record variants land in a follow-up impl-mode wave. Until then, Rule R-M.e (Every emitted `RunEvent` declares `EvolutionExport`) is design-armed but not actively gated. `EvolutionExport` enum already ships at `agent-service.../runtime/evolution/EvolutionExport.java`.
@@ -440,6 +447,8 @@ classDiagram
     RunEvent <|-- CancelRequestedEvent
     RunEvent <|-- TerminalTransitionEvent
 ```
+
+- `ResumeAccepted { runId }` — emitted when M5 EDE-07 successfully injects the adapter on a RESUME_TICK; consumed by M4 TCC-06B to drive RESUMING → RUNNING. Per ADR-0155 H3 audit reversal.
 
 **Emission discipline** (in the future Java impl):
 - `RunCreatedEvent` emitted by Layer 2 `RunRepository.save(...)` — the

@@ -147,6 +147,18 @@ sequenceDiagram
     end
 ```
 
+#### P3 v1.2 amendment — CANCEL_RACE_RESOLVED reasons (ADR-0155 §6)
+
+When CANCEL_REQUESTED arrives concurrent with WORKITEM_DONE, M4 TCC-03 arbitrates:
+
+| Condition | Final state | RunEvent reason |
+|---|---|---|
+| Child Runs unsettled | wait → CANCEL_REQUESTED → CANCELLED | `CANCEL_RACE_RESOLVED_AS_CANCELLED` |
+| No children, final artifact present | COMPLETED | `CANCEL_RACE_RESOLVED_AS_COMPLETED` |
+| No children, partial artifact only | CANCELLED | `CANCEL_RACE_RESOLVED_AS_CANCELLED` |
+
+This is deterministic — the CAS engine never has to "guess" who arrived first; it inspects the in-flight envelope and applies the rule.
+
 ## 4. P4 — A2A Peer Collaboration (covers S3)
 
 ```mermaid

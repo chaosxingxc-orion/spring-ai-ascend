@@ -13,6 +13,7 @@ authority: "ADR-0143 (rc55 — canonical 4+1 source moved here) + ADR-0099 (rc22
 > - **M4** (`F-cross-authority-agreement`): the SPI table uses the canonical `TaskStateStore` name (matches `module-metadata.yaml#spi_packages` + shipped Java `service.task.spi.TaskStateStore`); the legacy `TaskRepository` prose in ARCHITECTURE.md §11 is wrong and corrected during rc55 W2.
 > - **M10** (`F-spi-package-bloat-with-carriers`): the rc55 cited surface was MIS-IDENTIFIED in the original audit — `service.runtime.memory.spi` has 1 interface + 0 carriers (clean) per the rc55 W0 sibling sweep. The actual offenders are 12 OTHER `*.spi.*` packages across agent-middleware + agent-execution-engine + agent-service per the sibling-sweep report; the systemic Java refactor is OUT OF SCOPE for rc55 and DEFERRED to a follow-up impl-mode wave. §3 of this appendix documents the systemic gap.
 > - **Rule G-1.1.b** (4-way parity): every active SPI FQN listed below appears in `agent-service/module-metadata.yaml#spi_packages` AND `docs/contracts/contract-catalog.md` §2 Active SPI interfaces AND `docs/dfx/agent-service.yaml#spi_packages` AND exists as a `public interface` `.java` file on disk.
+> - **v1.2 absorption (ADR-0155, 2026-05-28)**: §4 added with 5 new SPI interface entries (rows 10–14) and the `InjectionMode` enum carrier; 4-way parity restored in the same PR.
 
 ## 1. Active Java SPI interfaces (9)
 
@@ -107,7 +108,30 @@ packages. Doing this in rc55 would blow the design-mode scope. The
 follow-up impl-mode wave is the right place; the family yaml +
 sibling-sweep report ensure it can't be forgotten.
 
-## 4. Cross-module SPI consumption
+## 4. v1.2 SPI additions (ADR-0155 — design_only)
+
+| # | Interface FQN | SPI package | Status | Cross-module consumer | Authority |
+|---|---|---|---|---|---|
+| 10 | `com.huawei.ascend.service.runtime.executor.spi.ExecutorAdapter` | `service.runtime.executor.spi` | design_only — interface placeholder; concrete records (`ExecutionRequest`/`AgentEvent`) ship W2 | Layer 5a Engine Dispatch (EDE-01 contract) | ADR-0155 §4 |
+| 11 | `com.huawei.ascend.service.runtime.intercept.spi.PlatformChatClient` | `service.runtime.intercept.spi` | design_only | Layer 5b TTI-03 (Native + Third-party adapter call path) | ADR-0155 §3 |
+| 12 | `com.huawei.ascend.service.runtime.intercept.spi.PlatformToolCallback` | `service.runtime.intercept.spi` | design_only | Layer 5b TTI-04 | ADR-0155 |
+| 13 | `com.huawei.ascend.service.runtime.intercept.spi.PlatformMemoryProvider` | `service.runtime.intercept.spi` | design_only | Layer 5b TTI-05 (read-only STM-04 projection) | ADR-0155 §3 |
+| 14 | `com.huawei.ascend.service.runtime.intercept.spi.PlatformRetriever` | `service.runtime.intercept.spi` | design_only | Layer 5b TTI-06 | ADR-0155 |
+
+**§2 carrier addition:** `InjectionMode` enum lives under
+`com.huawei.ascend.service.runtime.executor.spi` per Rule R-D.d
+carve-out (single-package home; declares an adapter's wiring choice).
+
+**4-way parity check for v1.2 additions:**
+
+| Surface | Where it lives | Status |
+|---|---|---|
+| `agent-service/module-metadata.yaml#spi_packages` | 2 new package entries (`service.runtime.executor.spi` + `service.runtime.intercept.spi`) | added in PR 92 absorption |
+| `docs/contracts/contract-catalog.md` §2 Active SPI interfaces | 5 new rows | added in PR 92 absorption |
+| `docs/dfx/agent-service.yaml#spi_packages` | 2 new package entries (set-equal with module-metadata per Rule R-D.e) | added in PR 92 absorption |
+| On-disk `.java` files | 5 `public interface` + 1 enum + 2 `package-info` declarations | added in PR 92 absorption |
+
+## 5. Cross-module SPI consumption
 
 agent-service CONSUMES SPIs from the modules declared in
 `module-metadata.yaml#allowed_dependencies`:
@@ -129,7 +153,7 @@ agent-service CONSUMES SPIs from the modules declared in
 | `StructuredOutputConverter<T>` | `agent-middleware` | `middleware.model.spi` | Typed-bean extraction SPI (per ADR-0130); consumed in Layer 5b |
 | `VectorStore`, `Retriever`, `EmbeddingModel` | `agent-middleware` | `middleware.vector.spi`, `middleware.retrieval.spi`, `middleware.embedding.spi` | Vector / retrieval / embedding SPIs (per ADR-0124) |
 
-## 5. Future SPIs (declared in design; NOT yet on disk at rc55)
+## 6. Future SPIs (declared in design; NOT yet on disk at rc55)
 
 | SPI | Module | Package | Wave | Authority |
 |---|---|---|---|---|
@@ -138,7 +162,7 @@ agent-service CONSUMES SPIs from the modules declared in
 | `SandboxExecutor.refuseOverWideGrant(...)` runtime check | agent-middleware (consumed) | (cross-module) | W2 | Rule R-L.b (deferred per CLAUDE-deferred) |
 | Layer 3 queue Producer/Consumer SPIs | agent-service | `service.queue/` | W4 (or W2 per scheduling) | ADR-0141 + Rule R-E binding |
 
-## 6. Cross-references
+## 7. Cross-references
 
 - 4-way parity gate: enforcer E167 (`gate/lib/check_l1_spi_appendix.sh`)
   per Rule G-1.1.b. rc55 W5 cross-walked this appendix against the

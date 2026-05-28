@@ -151,6 +151,12 @@ per ADR-0141) · 4 Task-Centric Control · 5a Engine Dispatch & Execution
 
 ---
 
+### S6 (cross-reference) — Weather Clarification (PR 92 v1.2 baseline)
+
+A complete end-to-end HITL-plus-tool scenario walking through M1–M6 and demonstrating: MQ ingress → AccessIntent normalisation → Native ReAct Agent first round → INTERRUPT_REGISTERED control event → SUSPENDED → callback → RESUMING → tool call → second LLM round → COMPLETED. Source: [`../../../../docs/logs/reviews/2026-05-28-agent-service-m1-m6-design-draft.cn.md`](../../../../docs/logs/reviews/2026-05-28-agent-service-m1-m6-design-draft.cn.md) §Scenario. Authority: ADR-0155.
+
+---
+
 ## 6. Cross-scenario invariants
 
 The following invariants hold across ALL S1-S5; they are the "red lines"
