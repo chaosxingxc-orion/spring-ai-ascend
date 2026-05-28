@@ -162,8 +162,8 @@ capabilities:
       section_4_constraints: 65                 # architecture/docs/L0/ARCHITECTURE.md §4 #1..#65 (unchanged at rc22)
       adr_count: 138                            # L1 Feature Registry W5 +1 (ADR-0153 closure) on the W4 baseline of 137.
       maven_tests_green: 461                    # Formula: Surefire/Failsafe XML `tests` attributes after canonical WSL `./mvnw -Pquality verify`; rc54 +8 XML-counted Maven tests for advisor binding/envelope adapter, planner, and skill invariant coverage on the rc53 baseline of 453.
-      architecture_graph_nodes: 625             # live recount via WSL `python3 gate/build_architecture_graph.py` per Rule G-7: L1 Feature Registry W2 -5 net (single-narrative .md leaf nodes pruned + architecture/docs/L0/ARCHITECTURE.md relocated + ADR-0152 added) on the L1-Feature-Registry-W1 baseline of 627.
-      architecture_graph_edges: 1210            # live recount via WSL `python3 gate/build_architecture_graph.py` per Rule G-7: L1 Feature Registry W2 -3 net (single-narrative .md edges pruned + ADR-0152 +6 extends/supersedes_partial edges) on the L1-Feature-Registry-W1 baseline of 1203.
+      architecture_graph_nodes: 636             # live recount via WSL `python3 gate/build_architecture_graph.py` per Rule G-7: agent-service L1 features.dsl + function-points.dsl additions +11 net on the rc55 baseline of 625.
+      architecture_graph_edges: 1231            # live recount via WSL `python3 gate/build_architecture_graph.py` per Rule G-7: agent-service L1 features.dsl + function-points.dsl additions +21 net on the rc55 baseline of 1210.
       workspace_elements: 575                   # L1 Feature Registry W4 +6 agent-service deep-dive FEAT- elements (rc55 per-layer architecture) on the W3 baseline of 569 + W3 +3 view elements on the W1-W2 baseline of 566.
       workspace_relationships: 420              # L1 Feature Registry W3 +7 view-relationship edges on the W1-W2 baseline of 413.
       feature_corpus_size: 15                    # L1 Feature Registry W4 +6 agent-service per-layer features (rc55 deep-dive) on the W1 seed baseline of 9.

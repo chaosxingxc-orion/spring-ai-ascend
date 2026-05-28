@@ -143,7 +143,7 @@ docs/governance/SESSION-START-CONTEXT.md=8000
 # (extends ADR-0147 + ADR-0148 + ADR-0149 + ADR-0150; relates_to ADR-0064)
 # grew the graph from 268799 to ~269000 bytes. Ceiling raised 268500 → 270000
 # with ~1K headroom.
-docs/governance/architecture-graph.yaml=270000
+docs/governance/architecture-graph.yaml=285000
 # Structurizr workspace authority W7 (ADR-0149): +1 ADR node (0149) + 6 edges
 # (extends ADR-0147 + ADR-0148; relates_to ADR-0068 + ADR-0119) grew the graph
 # from 265500 to ~266400 bytes. Ceiling raised 265500 → 267000 with ~600 bytes
