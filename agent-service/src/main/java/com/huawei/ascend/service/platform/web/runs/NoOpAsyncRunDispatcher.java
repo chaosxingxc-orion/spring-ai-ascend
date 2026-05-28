@@ -3,24 +3,22 @@ package com.huawei.ascend.service.platform.web.runs;
 import com.huawei.ascend.service.runtime.runs.Run;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 /**
- * Default {@link AsyncRunDispatcher} for W1.x. Logs the dispatch intent at DEBUG and
- * returns. A real orchestrator-backed dispatcher (ADR-0070, W2 scope) overrides this
- * bean by declaring its own {@code @Bean @Primary} in a test {@code @TestConfiguration}
- * or by registering a production dispatcher with {@code @Primary}.
+ * Fallback {@link AsyncRunDispatcher} that logs the dispatch intent at DEBUG and
+ * returns without executing. Registered by {@link RunControllerAutoConfiguration}
+ * only when no other {@link AsyncRunDispatcher} bean exists — i.e. in
+ * {@code research}/{@code prod} posture (where the dev-posture
+ * {@link OrchestratingAsyncRunDispatcher} is absent and a durable, W2-scope
+ * dispatcher (ADR-0070) has not yet been provided).
  *
- * <p>Override pattern: see {@code RunCursorFlowIT.Config#blockingDispatcher()} — a
- * test {@code @Bean @Primary AsyncRunDispatcher} unambiguously wins autowiring without
- * touching the default registration. Earlier revisions used
- * {@code @ConditionalOnMissingBean} on this {@code @Component} to gate registration;
- * that annotation is reliable only on {@code @Bean} methods inside
- * {@code @Configuration} classes — on {@code @Component} the evaluation is
- * order-dependent and excluded this bean on Linux CI (root cause of the rc4
- * regression).
+ * <p>The {@code @ConditionalOnMissingBean} that selects between this and the
+ * orchestrating dispatcher lives on a {@code @Bean} method inside
+ * {@code @Configuration} (not a {@code @Component}-level conditional) so its
+ * evaluation is order-independent — the form the rc4 regression established. A
+ * test may still override either by declaring its own {@code @Primary
+ * AsyncRunDispatcher} (see {@code RunCursorFlowIT.Config#blockingDispatcher()}).
  */
-@Component
 public class NoOpAsyncRunDispatcher implements AsyncRunDispatcher {
 
     private static final Logger LOG = LoggerFactory.getLogger(NoOpAsyncRunDispatcher.class);
