@@ -20,7 +20,8 @@ DSL is the structured source; Markdown is the prose surface; render-idempotency
 |---|---|---|
 | `capabilities.dsl` | SAA Capability inventory (152 entries) — coarse-grained ownership units | AUTHORED |
 | `function-points.dsl` | SAA FunctionPoint inventory (15 entries) — concrete API verbs / workflow steps | AUTHORED |
-| `features.dsl` | SAA Feature inventory (≥9 entries) — the middle layer between Capability and FunctionPoint, with full AI Execution Boundary + 9-state lifecycle | AUTHORED |
+| `features.dsl` | SAA Feature inventory — the **value / demand axis** (value-threads), with full AI Execution Boundary + 9-state lifecycle. NOT the structural middle layer: the structural axis is `SAA Module → SAA EngineeringFrame → SAA FunctionPoint` (ADR-0157, see `engineering-frames.dsl`). A Feature drives FunctionPoints and traverses EngineeringFrames; it does not structurally own them. | AUTHORED |
+| `engineering-frames.dsl` | SAA EngineeringFrame inventory — the **structural axis** (durable module-internal responsibility slices that anchor function points), per ADR-0157 | AUTHORED |
 | `verification.dsl` | SAA Test inventory + `verifies` relationships | AUTHORED |
 
 ## The `saa.*` property schema

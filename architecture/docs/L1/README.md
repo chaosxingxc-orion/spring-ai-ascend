@@ -53,7 +53,8 @@ A module is free to expand from a single `.md` to a per-view directory when its 
 
 - Architecture authority root: [`../../workspace.dsl`](../../workspace.dsl).
 - Workspace navigation: [`../../README.md`](../../README.md).
-- Feature inventory: [`../../features/function-points.dsl`](../../features/function-points.dsl).
+- **Structural axis (read before features)**: [`engineering-frames.md`](engineering-frames.md) + [`../../features/engineering-frames.dsl`](../../features/engineering-frames.dsl) — `Module → EngineeringFrame → FunctionPoint` (ADR-0157).
+- Feature inventory (value axis): [`../../features/function-points.dsl`](../../features/function-points.dsl).
 - Capability registry: [`../../features/capabilities.dsl`](../../features/capabilities.dsl).
 - ADR corpus index: [`../../../docs/adr/INDEX.md`](../../../docs/adr/INDEX.md).
 - ADR-0147 (workspace authority): [`../../../docs/adr/0147-structurizr-workspace-authority.yaml`](../../../docs/adr/0147-structurizr-workspace-authority.yaml).
