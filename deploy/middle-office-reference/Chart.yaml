@@ -4,7 +4,7 @@
 #                        one artifact set — sub-dimension middle_office_topology_中台)
 # target_personas: Persona-A (Platform Team Lead, 中台 buyer), Persona-D (SRE)
 # v1_0_ship_blocker: true
-# authority: ADR-0155
+# authority: ADR-0156
 #
 # This chart deploys the 中台 pattern: the central platform team operates the
 # runtime + bus + middleware + audit + observability stack. Business centers
@@ -36,7 +36,7 @@ maintainers:
 annotations:
   product_claim: PC-002
   target_personas: "Persona-A,Persona-D"
-  authority: "ADR-0155"
+  authority: "ADR-0156"
   v1_0_ship_blocker: "true"
   status: "design_only"
   maturity: "L0 — scaffold, not deployment-tested. Promotes to L1 when the impl-mode wave wires the Postgres RLS + audit-trail + IAM bridge + financial sandbox policy templates and runs a soak on Kunpeng+Ascend hardware."

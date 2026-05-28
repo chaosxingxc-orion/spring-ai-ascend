@@ -1,0 +1,33 @@
+# InterruptRegistration — HITL interrupt site descriptor, v1.
+#
+# Authority: ADR-0155 §1 (H1 reversal — TTI-09 emits this, TCC-06A
+# consumes via ControlEvent.payloadRef).
+# Wave: design_only.
+
+schema: interrupt-registration/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  runId:
+    type: string
+    required: true
+  callbackId:
+    type: string
+    required: true
+  interruptKind:
+    type: enum
+    values: [USER_INPUT, APPROVAL, CLIENT_HOSTED_SKILL]
+    required: true
+  schemaHint:
+    type: object
+    required: false
+    description: "Optional JSON Schema describing the expected callback payload shape."
+  promptToUserRef:
+    type: string
+    required: false
+    description: "STM reference to the human-facing prompt content."
+  registeredAt:
+    type: timestamp
+    required: true

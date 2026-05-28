@@ -45,7 +45,7 @@ authority_refs: [ADR-0094]
 
 ---
 
-## §1 — Family Summary (27 families as of rc55 agent-service-l1-canonical-materialization)
+## §1 — Family Summary (28 families as of PR-92 agent-service-l1-v1-2)
 
 rc55 agent-service-l1-canonical-materialization registers SEVEN new families
 spanning the L1-design-discipline taxonomy (canonical-source provenance,
@@ -85,6 +85,7 @@ remains closed.
 | 25 | F-design-only-mechanism-shown-as-shipped | Design-Only Mechanism Depicted in Architecture Diagram Without Caption-Level Status Marker | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (ADR-0141 Internal Event Queue layer demoted to design_only sub-section; rc55 W3/W4 view discipline annotates DualTrackRouter / SlowTrackJudge per ADR-0112 design_only status; cross-reference gate-rule for contract-status vs diagram is a W5+ candidate) |
 | 26 | F-discriminator-without-discriminated-type | Typed Discriminator Ships Without the Polymorphic Type It Discriminates | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (ADR-0145 specifies sealed RunEvent hierarchy + docs/contracts/run-event.v1.yaml; actual Java sealed type lands in a follow-up impl-mode wave; gate-rule for discriminator-zero-callsite is a W5+ candidate) |
 | 27 | F-spi-package-bloat-with-carriers | SPI Package Contains More Structural Carriers Than Extension Interfaces | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (rc55 W5 audits agent-service memory.spi package which has 1 interface + 12 carriers; carrier-promotion deferred to a follow-up impl-mode wave; gate-rule for carrier/interface ratio is a W5+ candidate) |
+| 28 | F-agent-service-internal-boundary-drift | AgentService internal-module boundary drift (M4 sole-caller breach, responseSnapshot owner drift, cross-jurisdiction remote interception) | 3 (PR-92 2026-05-28 self-audit) | ✅ structurally addressed — ADR-0155 anchors 6 boundary reversals; 14 new design_only YAML contracts; TCK and ArchUnit enforcement deferred to W2 |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -1150,6 +1151,9 @@ StructuredOutputConverter) AND RuntimeMiddleware appears again in
 **Open residual.** The rc53 5-layer model (Access / Manager / Queue
 / Control / Adapter) is preserved with the ADR-0140 + ADR-0142
 narrowings. Repo-wide sibling sweep audits the other 5 modules.
+2026-05-28 review: `docs/logs/reviews/2026-05-28-agent-service-m1-m6-design-draft.cn.md`
+audited against this family — each of M1–M6 is a single-responsibility spec with no
+kitchen-sink layer or double-homing; NOT an instance of this defect.
 
 ---
 
@@ -1261,6 +1265,9 @@ one is about DIAGRAMS treating design-only mechanisms as shipped.
 structurally. DualTrackRouter / SlowTrackJudge annotation discipline
 ships in rc55 W4 process view. Gate-rule for contract-status-vs-
 diagram cross-reference is a W5+ candidate.
+2026-05-28 review: `docs/logs/reviews/2026-05-28-agent-service-m1-m6-design-draft.cn.md`
+carries `proposal_status: draft` throughout; no design-only mechanism is depicted as
+shipped without a draft status marker; NOT an instance of this defect.
 
 ---
 
@@ -1427,6 +1434,9 @@ plural in `process.md:171` and `scenarios.md:83,85` vs Java singular
 **Open residual.** PR77-P1-2, PR76-IF-DRIFT-004, AUD-EVT-1, AUD-EVT-3,
 SBL-NAME-1, SBL-NAME-2 — `pending`. Closure requires the per-symbol
 name-form gate-rule candidate to materialize as Rule W5-1.
+2026-05-28 review: the two new `docs/logs/reviews/` files are design-only proposals that
+do not cite Java enum variants or method signatures — no code-level discriminator naming
+present; NOT instances of this defect.
 
 ---
 
@@ -1556,6 +1566,49 @@ components and NONE is `tenantId`.
 adding `tenantId` to the Java record (per Rule R-C.c, preferred) OR
 rewriting the catalog row to "tenant resolved out-of-band via
 `S2cCallbackTransport` registry binding".
+
+---
+
+### F-agent-service-internal-boundary-drift — AgentService Internal-Module Boundary Drift
+
+**Pattern.** AgentService internal modules (M1-M6) lack explicit cross-module
+data-contract anchoring at L1; per-module design drafts spread responsibility
+into the wrong module when authored in isolation. Self-audit caught three
+concrete drifts: H1 (TTI-09 to STM-03 sole-caller breach), H4 (responseSnapshot
+owner drift from M1 to M4), H5 (REMOTE_AGENT_INVOKE_REQUEST in M6 violated
+remote-jurisdiction boundary). The pattern is structural: without ADR-anchored
+contracts, the next per-module audit will rediscover similar drifts.
+
+**Surfaces.**
+- `architecture/docs/L1/agent-service/logical.md`
+- `architecture/docs/L1/agent-service/spi-appendix.md`
+- `architecture/docs/L1/agent-service/features/*.md`
+- `docs/contracts/*.v1.yaml`
+- `docs/adr/0155-agent-service-l1-v1-2-internal-module-design.yaml`
+
+**Prevention.**
+- ADR-0155 anchors the 6 v1.2 boundary reversals as binding contracts.
+- 14 new design_only YAML contracts under `docs/contracts/` make the
+  inter-module data-contract matrix machine-readable.
+- Rule R-D.f catalog integrity ensures new contracts appear in `contract-catalog.md`.
+- Rule G-1.1.b 4-way SPI parity ensures new SPIs cannot land in only some
+  authority surfaces.
+- Rule R-C.2.b STM-03 sole-caller is already enforced; this family adds
+  defence-in-depth via TCC-03 ownership in `features.dsl` + LOGICAL + SPI
+  surfaces.
+- PR-93 absorption verified green via full gate (146 PASS / 0 FAIL) +
+  `./mvnw -Pquality verify`; the 4-way SPI parity + 14 design_only contracts
+  are now landed, not just planned.
+
+**Cleanup status.** `structurally addressed` — ADR-0155 closes the
+cited three drifts; TCK conformance suites and ArchUnit physical enforcement
+of the new YAML contracts are deferred to W2.
+
+**Open residual.** TCK conformance suites for the new SPIs are deferred to W2;
+ArchUnit physical enforcement of the new YAML contracts as compile-time
+assertions is also W2. The family stays open until either (a) all 6 module
+designs ship and the next L1 audit finds no recurrence of these specific drift
+patterns or (b) static enforcement closes the structural gap.
 
 ---
 

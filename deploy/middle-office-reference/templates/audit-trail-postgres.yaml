@@ -96,7 +96,7 @@ metadata:
     app.kubernetes.io/component: audit-store
   annotations:
     product_claim: PC-002
-    authority: ADR-0155
+    authority: ADR-0156
     contract_ref: "docs/contracts/audit-trail.v1.yaml"
     target_persona: Persona-F
 spec:

@@ -1,7 +1,7 @@
 # Product Claims registry for spring-ai-ascend.
 #
 # Authority: product/PRODUCT.md + plan file D:\.claude\plans\ai-l0-adr-ai-l1-adr-adr-ai-ai-1-2-3-ai-effervescent-flask.md
-# Source ADR: ADR-0155 (Product Authority and Traceability Chain) — to be filed in Phase A Wave 3
+# Source ADR: ADR-0156 (Product Authority and Traceability Chain) — to be filed in Phase A Wave 3
 # Enforced by: Rule G-16 (ProductClaim Referential Integrity), Rule G-18 (Traceability Chain Completeness)
 #
 # Every ADR, contract, feature, rule, and enforcer in this repo MUST declare

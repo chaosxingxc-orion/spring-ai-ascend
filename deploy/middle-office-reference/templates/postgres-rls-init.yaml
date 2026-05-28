@@ -50,7 +50,7 @@ metadata:
     app.kubernetes.io/component: state-store
   annotations:
     product_claim: PC-002
-    authority: ADR-0155
+    authority: ADR-0156
     rule_ref: "Rule R-J.a (Storage-Engine Tenant Isolation)"
 spec:
   serviceName: {{ .Release.Name }}-postgres

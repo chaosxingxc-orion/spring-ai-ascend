@@ -1748,7 +1748,7 @@
   governance_infra: true
 
 - id: E181
-  constraint_ref: "Rule G-16 (ProductClaim Referential Integrity); ADR-0155 Phase A Wave 5"
+  constraint_ref: "Rule G-16 (ProductClaim Referential Integrity); ADR-0156 Phase A Wave 5"
   kind: gate-script
   level: L1
   view: logical
@@ -1757,7 +1757,7 @@
   governance_infra: true
 
 - id: E182
-  constraint_ref: "Rule G-17 (No Orphan Artefacts); ADR-0155 Phase A Wave 5"
+  constraint_ref: "Rule G-17 (No Orphan Artefacts); ADR-0156 Phase A Wave 5"
   kind: gate-script
   level: L1
   view: logical
@@ -1766,7 +1766,7 @@
   governance_infra: true
 
 - id: E183
-  constraint_ref: "Rule G-18 (Traceability Chain Completeness); ADR-0155 Phase A Wave 5"
+  constraint_ref: "Rule G-18 (Traceability Chain Completeness); ADR-0156 Phase A Wave 5"
   kind: gate-script
   level: L1
   view: logical
@@ -1775,7 +1775,7 @@
   governance_infra: true
 
 - id: E184
-  constraint_ref: "Rule G-19 (Auto-Load Tier Integrity); ADR-0155 Phase A Wave 5"
+  constraint_ref: "Rule G-19 (Auto-Load Tier Integrity); ADR-0156 Phase A Wave 5"
   kind: gate-script
   level: L1
   view: logical
@@ -1784,7 +1784,7 @@
   governance_infra: true
 
 - id: E185
-  constraint_ref: "Rule G-20 (Governance-Infra Honesty); ADR-0155 Phase A Wave 5"
+  constraint_ref: "Rule G-20 (Governance-Infra Honesty); ADR-0156 Phase A Wave 5"
   kind: gate-script
   level: L1
   view: logical
@@ -1793,7 +1793,7 @@
   governance_infra: true
 
 - id: E186
-  constraint_ref: "Rule G-21 (ProductClaim Placeholder Decreasing); ADR-0155 Phase A Wave 5"
+  constraint_ref: "Rule G-21 (ProductClaim Placeholder Decreasing); ADR-0156 Phase A Wave 5"
   kind: gate-script
   level: L1
   view: logical

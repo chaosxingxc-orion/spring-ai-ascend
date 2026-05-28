@@ -21,7 +21,7 @@ metadata:
     app.kubernetes.io/instance: middle-office-reference
   annotations:
     product_claim: PC-002
-    authority: ADR-0155
+    authority: ADR-0156
 spec:
   podSelector: {}
   policyTypes:

@@ -15,7 +15,7 @@ metadata:
     app.kubernetes.io/component: sandbox
   annotations:
     product_claim: PC-002
-    authority: ADR-0155
+    authority: ADR-0156
     rule_ref: "Rule R-L (Sandbox Permission Subsumption)"
     sandbox_policy_ref: "docs/governance/sandbox-policies.yaml#financial_default"
 spec:

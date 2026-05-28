@@ -2,14 +2,14 @@
 contract_id: iam-bridge.v1
 status: design_only
 product_claim: "PC-003"
-authority: "ADR-0155 (to be filed)"
+authority: "ADR-0156 (to be filed)"
 v1_0_ship_blocker: true
 target_persona: "Persona-F + Persona-D"
 ---
 
 # OAuth2 / OIDC Identity-Bridge Contract, version 1.
 #
-# Authority: ADR-0155 (to be filed in Phase A Wave 3 of the v1.0 financial MVP plan).
+# Authority: ADR-0156 (to be filed in Phase A Wave 3 of the v1.0 financial MVP plan).
 # Product claim: PC-003 (Production-grade for the AI-platform era — financial-vertical mandate).
 # Target personas:
 #   - Persona-F (Enterprise Compliance / Risk Officer; PRIMARY v1.0 persona):
@@ -32,7 +32,7 @@ target_persona: "Persona-F + Persona-D"
 # a follow-up impl-mode wave per the v1.0 plan.
 
 schema: iam-bridge/v1
-authority: ADR-0155
+authority: ADR-0156
 status: design_only
 runtime_enforced: false
 promotion_trigger: |
@@ -40,7 +40,7 @@ promotion_trigger: |
     1. `JwtTenantValidator` Spring Security filter that enforces §4 #56
        (JWT validation + tenant claim cross-check against X-Tenant-Id).
     2. The `IamBridge` SPI under `com.huawei.ascend.security.iam.spi`
-       (module home TBD in ADR-0155) with `validate(token, request)`,
+       (module home TBD in ADR-0156) with `validate(token, request)`,
        `refresh(refreshToken)`, `revoke(token)`, and `propagate(...)`
        methods, plus reference adapters for Keycloak, Okta, Azure AD,
        Auth0, and a generic OIDC adapter for domestic IAM products.

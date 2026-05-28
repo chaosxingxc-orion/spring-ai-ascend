@@ -1,0 +1,37 @@
+# AgentEvent stream emitted by ExecutorAdapter.execute, version 1.
+#
+# Authority: ADR-0155.
+# Wave: design_only. NOT to be confused with the sealed RunEvent
+# hierarchy in run-event.v1.yaml — AgentEvent is the adapter-internal
+# emission stream; RunEvent is the platform-internal projection stream
+# emitted on the IEQ-04 egress channel after STM-09 cursor assignment.
+
+schema: agent-event/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  kind:
+    type: enum
+    values:
+      - TOKEN
+      - STEP
+      - TOOL_REQUEST
+      - MEMORY_REQUEST
+      - MODEL_REQUEST
+      - INTERRUPT_REQUEST
+      - CHECKPOINT_HINT
+      - FINISHED
+      - FAILED
+    required: true
+  runId:
+    type: string
+    required: true
+  payloadRef:
+    type: string
+    required: false
+  errorClass:
+    type: string
+    required: false
+    description: "When kind=FAILED; one of error-class.v1.yaml enum values."

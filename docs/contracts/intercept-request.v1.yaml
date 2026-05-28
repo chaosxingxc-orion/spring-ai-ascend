@@ -1,0 +1,30 @@
+# InterceptRequest — TTI-01 unified intercept entry envelope, v1.
+#
+# Authority: ADR-0155.
+# Wave: design_only.
+
+schema: intercept-request/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  runId:
+    type: string
+    required: true
+  kind:
+    type: enum
+    values: [MODEL, TOOL, MEMORY, RAG, CLIENT_HOSTED_SKILL, INTERRUPT]
+    required: true
+  payloadRef:
+    type: string
+    required: true
+  sessionContextRef:
+    type: object
+    required: true
+  configSnapshotRef:
+    type: string
+    required: true
+  traceCtx:
+    type: object
+    required: true

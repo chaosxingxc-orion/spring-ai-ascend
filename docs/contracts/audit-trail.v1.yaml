@@ -2,7 +2,7 @@
 contract_id: audit-trail.v1
 status: design_only
 product_claim: "PC-003"
-authority: "ADR-0155 (to be filed)"
+authority: "ADR-0156 (to be filed)"
 v1_0_ship_blocker: true
 target_persona: "Persona-F"
 regulatory_alignment: ["JR/T 0223-2021", "等保 2.0/3.0", "SR 11-7"]
@@ -10,7 +10,7 @@ regulatory_alignment: ["JR/T 0223-2021", "等保 2.0/3.0", "SR 11-7"]
 
 # Immutable Audit Trail Contract, version 1.
 #
-# Authority: ADR-0155 (to be filed in Phase A Wave 3 of the v1.0 financial MVP plan).
+# Authority: ADR-0156 (to be filed in Phase A Wave 3 of the v1.0 financial MVP plan).
 # Product claim: PC-003 (Production-grade for the AI-platform era — financial-vertical mandate).
 # Target persona: Persona-F (Enterprise Compliance / Risk Officer; PRIMARY v1.0 persona).
 #
@@ -31,7 +31,7 @@ regulatory_alignment: ["JR/T 0223-2021", "等保 2.0/3.0", "SR 11-7"]
 # in a follow-up impl-mode wave per the v1.0 plan.
 
 schema: audit-trail/v1
-authority: ADR-0155
+authority: ADR-0156
 status: design_only
 runtime_enforced: false
 promotion_trigger: |
@@ -43,7 +43,7 @@ promotion_trigger: |
        enforcement; logical-tier denial alone is insufficient per Persona-F
        pain_points_today: "Sandbox is honor-system").
     3. The `AuditTrailEmitter` SPI under `com.huawei.ascend.audit.spi`
-       (module home TBD in ADR-0155) wired to all canonical emission sites.
+       (module home TBD in ADR-0156) wired to all canonical emission sites.
     4. ArchUnit tests verifying every `RunRepository.save` /
        `RunRepository.updateIfNotTerminal` / `ToolExecutor.invoke` /
        `ModelGateway.invoke` / `SandboxExecutor.execute` call site emits

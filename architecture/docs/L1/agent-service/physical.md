@@ -40,6 +40,16 @@ in Mode A; SQLite or embedded in Mode B) MUST implement the
 (`ON CONFLICT` / `UPDATE … WHERE` / `ConcurrentHashMap.computeIfPresent`
 respectively).
 
+### 1.x Deployment vs Code Ownership (ADR-0155 §4 — orthogonal dimensions)
+
+| Agent form | Code home | Deployment | M6 interception range | Bridge mechanism |
+|---|---|---|---|---|
+| Native | This repo (`agent-service/...`) | In-process JVM | All 5 resource kinds (model / tool / memory / RAG / client-hosted skill) | DI-injected platform beans |
+| Third-party (AgentScope-java, LangGraph4j, ...) | External library | In-process JVM | All 5 resource kinds | Startup bridge replacement of framework Model/Toolkit/Memory abstractions |
+| Remote | Anywhere (external service) | Out-of-process / remote network | None locally — A2A protocol boundary audit only (TTI-08) | A2A SDK client |
+
+Code home and deployment are **orthogonal** — a self-developed Agent CAN be deployed remotely (use EDE-04). Combinations beyond these three rows are deferred per ADR-0155 §6 (Managed Remote / Resource Gateway pattern is v2 scope).
+
 ## 2. Database Schema + RLS Policy (Rule R-J.a)
 
 | Table | Primary key | tenant_id column | RLS policy | Flyway migration | Status |

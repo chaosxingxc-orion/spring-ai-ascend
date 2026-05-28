@@ -1,6 +1,6 @@
 # 中台-mode Reference Deployment
 
-> Authority: ADR-0155 (Product Authority and Traceability Chain)
+> Authority: ADR-0156 (Product Authority and Traceability Chain)
 > Product claim: **PC-002** (Two Chinese-enterprise topologies plus sovereign hardware, one artifact set)
 > Target personas: **Persona-A** (Platform Team Lead) + **Persona-D** (SRE)
 > Status: **design_only** — scaffold, not deployment-tested. Promotes to L1 when the impl-mode wave wires the Postgres RLS + audit-trail + IAM bridge + financial sandbox policy templates and runs a soak on Kunpeng+Ascend hardware.

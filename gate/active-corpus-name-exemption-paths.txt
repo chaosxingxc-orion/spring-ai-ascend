@@ -83,7 +83,7 @@ docs/competitive/
 # Phase 7 audit deliverables that reference rule history including deleted names.
 docs/governance/retired-rules-audit.md
 
-# Phase A Wave 5 (ADR-0155): Helm chart values reference "agent-platform" as a
+# Phase A Wave 5 (ADR-0156): Helm chart values reference "agent-platform" as a
 # Kubernetes taint/toleration VALUE (kunpeng.huawei.com/dedicated), not as a
 # Java module reference. The verbatim string overlaps with a deleted module
 # name but the semantic domain is K8s-scheduler-affinity, not Java packages.

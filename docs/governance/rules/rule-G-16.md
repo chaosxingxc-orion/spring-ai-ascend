@@ -4,7 +4,7 @@ title: "ProductClaim Referential Integrity"
 level: L1
 view: logical
 principle_ref: P-A
-authority_refs: [ADR-0155]
+authority_refs: [ADR-0156]
 enforcer_refs: [E181]
 status: active
 scope_phase: review

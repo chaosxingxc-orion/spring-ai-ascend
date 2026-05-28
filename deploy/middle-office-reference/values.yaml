@@ -2,7 +2,7 @@
 #
 # product_claim: PC-002 (中台 topology)
 # target_personas: ["Persona-A", "Persona-D"]
-# authority: ADR-0155
+# authority: ADR-0156
 # status: design_only — schema_shipped scaffold; runtime soak deferred to Phase B
 #
 # Resource sizing is sourced UPSTREAM from docs/perf/v1.0-baselines.yaml.

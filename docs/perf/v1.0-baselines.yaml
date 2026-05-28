@@ -2,14 +2,14 @@
 file_id: PERF-V1-0-BASELINES
 product_claim: PC-003
 status: design_only
-authority: ADR-0155
+authority: ADR-0156
 target_personas: ["Persona-D"]
 v1_0_ship_blocker: true
 ---
 
 # Performance Baselines for v1.0 Financial MVP — Ascend NPU + Kunpeng ARM64
 #
-# Authority: ADR-0155 (Product Authority and Traceability Chain).
+# Authority: ADR-0156 (Product Authority and Traceability Chain).
 # Product claim: PC-003 (Production-grade for the AI-platform era — financial-vertical mandate).
 # Primary persona: Persona-D (Enterprise SRE / Production Operator).
 #

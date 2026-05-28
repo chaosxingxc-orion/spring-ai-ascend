@@ -39,7 +39,7 @@ metadata:
     app.kubernetes.io/component: bus
   annotations:
     product_claim: PC-002
-    authority: ADR-0155
+    authority: ADR-0156
     rule_ref: "Rule R-E (Three-Track Channel Isolation)"
 spec:
   serviceName: {{ .Release.Name }}-agent-bus

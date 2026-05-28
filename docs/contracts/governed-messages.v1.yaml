@@ -1,0 +1,30 @@
+# GovernedMessages — M6 TTI-02 output (replaces v1-draft BuiltPrompt), v1.
+#
+# Authority: ADR-0155 §3 (M6 prompt-reversal).
+# Wave: design_only.
+
+schema: governed-messages/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  messages:
+    type: array
+    required: true
+    description: "List of typed Msg entries (role + ContentBlock list). M6 may have applied fallback trim; original message references preserved in masks/denials."
+  toolSpecs:
+    type: array
+    required: false
+  budgetSnapshot:
+    type: object
+    required: true
+    description: "Token-budget audit record (model context window, estimated input tokens, output cap, headroom)."
+  masks:
+    type: array
+    required: false
+    description: "Field-level PII redaction records (path + reason)."
+  denials:
+    type: array
+    required: false
+    description: "Policy-denial markers when partial allow + partial deny is in effect."

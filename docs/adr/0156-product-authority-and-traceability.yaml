@@ -1,4 +1,4 @@
-id: ADR-0155
+id: ADR-0156
 title: "Product Authority and Traceability Chain — ProductClaim as the binding axis between product, architecture, and governance"
 status: accepted
 governance_infra: true
@@ -48,7 +48,7 @@ context: |
   This ADR codifies that proposal.
 
   Two design-only contracts (audit-trail.v1.yaml, iam-bridge.v1.yaml)
-  already declare `authority: ADR-0155` and `product_claim: PC-003`;
+  already declare `authority: ADR-0156` and `product_claim: PC-003`;
   they were filed in the v1.0 financial MVP plan ahead of this ADR's
   ratification.
 
@@ -130,7 +130,7 @@ decision: |
 
   Baselines fixed at Phase A Wave 5 ship:
 
-    * 140 ADRs (Phase A Wave 5 adds ADR-0155 on the W5 baseline of 139
+    * 140 ADRs (Phase A Wave 5 adds ADR-0156 on the W5 baseline of 139
       that included ADR-0154).
     * 152 active gate rules (Phase A Wave 5 adds Rules 133-138 on the
       W5 baseline of 146).

@@ -1,7 +1,7 @@
 # Personas registry for spring-ai-ascend.
 #
 # Authority: product/PRODUCT.md + plan file D:\.claude\plans\ai-l0-adr-ai-l1-adr-adr-ai-ai-1-2-3-ai-effervescent-flask.md
-# Source ADR: ADR-0155 (Product Authority and Traceability Chain)
+# Source ADR: ADR-0156 (Product Authority and Traceability Chain)
 #
 # Each persona names a single archetypal user of the platform. AI sessions
 # may draft refinements; final wording is product-owner authority.

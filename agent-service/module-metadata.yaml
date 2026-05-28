@@ -18,6 +18,8 @@ spi_packages:
   - com.huawei.ascend.service.session.spi         # rc23 — ContextProjector SPI per ADR-0100
   - com.huawei.ascend.service.task.spi            # rc23 — TaskStateStore SPI per ADR-0100
   - com.huawei.ascend.service.agent.spi           # rc43 — Agent first-class entity SPI per ADR-0128 (HTTP-edge customer registration surface)
+  - com.huawei.ascend.service.runtime.executor.spi
+  - com.huawei.ascend.service.runtime.intercept.spi
 allowed_dependencies:
   - agent-execution-engine    # engine SPI + orchestration SPI (RunMode, RunContext, SuspendSignal, ...) per ADR-0088
   - agent-bus                 # S2cCallbackTransport SPI + IngressGateway SPI per ADR-0088 + ADR-0089

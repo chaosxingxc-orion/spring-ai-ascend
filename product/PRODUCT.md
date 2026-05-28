@@ -90,5 +90,5 @@ Disclaimed explicitly to keep claims honest under Rule G-3.e:
 ## Authority + lifecycle
 
 - **Author of this file**: product owner (chao). AI may draft refinements; only product owner signs off changes to the elevator pitch, the 5 PC statements, or the v1.0 buyer scope.
-- **Source ADR**: ADR-0155 (Product Authority and Traceability Chain) — to be filed in Phase A Wave 3 of the plan at `D:\.claude\plans\ai-l0-adr-ai-l1-adr-adr-ai-ai-1-2-3-ai-effervescent-flask.md`.
+- **Source ADR**: ADR-0156 (Product Authority and Traceability Chain) — to be filed in Phase A Wave 3 of the plan at `D:\.claude\plans\ai-l0-adr-ai-l1-adr-adr-ai-ai-1-2-3-ai-effervescent-flask.md`.
 - **Governing rule**: Rule G-16 .. G-21 (Phase A Wave 5 — ProductClaim Referential Integrity / No Orphan Artefacts / Traceability Chain Completeness / Auto-Load Tier Integrity / Governance-Infra Honesty / Placeholder Decreasing).

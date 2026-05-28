@@ -2,14 +2,14 @@
 contract_id: cost-governance.v1
 product_claim: PC-003
 status: design_only
-authority: ADR-0155
+authority: ADR-0156
 target_personas: ["Persona-A", "Persona-B", "Persona-D"]
 v1_0_ship_blocker: true
 ---
 
 # Cost Governance / Token Budget Contract, version 1.
 #
-# Authority: ADR-0155 (Product Authority and Traceability Chain).
+# Authority: ADR-0156 (Product Authority and Traceability Chain).
 # Product claim: PC-003 — sub-dimension `cost_capacity_governance`.
 # Target personas:
 #   - Persona-A (Platform Team Lead, 中台 buyer) — defines per-business-center budgets
@@ -45,7 +45,7 @@ v1_0_ship_blocker: true
 schema: cost-governance/v1
 status: design_only
 runtime_enforced: false
-authority: ADR-0155
+authority: ADR-0156
 promotion_trigger: |
   Impl-mode wave landing the four wiring steps above + the JSON Schema
   validators on every `TokenBudget` and `SpendLogEntry` record.

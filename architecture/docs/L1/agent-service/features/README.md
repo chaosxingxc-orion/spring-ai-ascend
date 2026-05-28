@@ -40,42 +40,44 @@ Catalog template (ADR-0151).
 **Development paths:**
 - `agent-service/src/main/java/com/huawei/ascend/service/runtime/api`
 
-**Source ADR:** `ADR-0138`
+**Source ADR:** `ADR-0138|ADR-0155`
 
 ### `FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION`
 
 **Development paths:**
 - `agent-service/src/main/java/com/huawei/ascend/service/runtime/engine`
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/executor/spi`
 
-**Source ADR:** `ADR-0138`
+**Source ADR:** `ADR-0138|ADR-0155`
 
 ### `FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE`
 
 **Development paths:**
 - `agent-service/src/main/java/com/huawei/ascend/service/runtime/events`
 
-**Source ADR:** `ADR-0138`
+**Source ADR:** `ADR-0138|ADR-0155`
 
 ### `FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER`
 
 **Development paths:**
 - `agent-service/src/main/java/com/huawei/ascend/service/runtime/session`
 
-**Source ADR:** `ADR-0138`
+**Source ADR:** `ADR-0138|ADR-0155`
 
 ### `FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL`
 
 **Development paths:**
 - `agent-service/src/main/java/com/huawei/ascend/service/runtime/runs`
 
-**Source ADR:** `ADR-0138`
+**Source ADR:** `ADR-0138|ADR-0155`
 
 ### `FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT`
 
 **Development paths:**
 - `agent-service/src/main/java/com/huawei/ascend/service/runtime/translation`
+- `agent-service/src/main/java/com/huawei/ascend/service/runtime/intercept/spi`
 
-**Source ADR:** `ADR-0138`
+**Source ADR:** `ADR-0138|ADR-0155`
 
 ### `FEAT-ENGINE-DISPATCH-AND-HOOKS`
 
@@ -165,27 +167,27 @@ full catalog, see
 
 ### `FEAT-AGENT-SERVICE-ACCESS-LAYER`
 
-Layer 1 of the agent-service per-layer architecture (ADR-0138). Owns protocol convergence (HTTP / gRPC / WebSocket), tenant + auth binding (JWT.tenant cross-check, IdempotencyHeaderFilter), client capability publication via OpenAPI surface, and ingress for cursor / cancel / resume / S2C callback. Does NOT own Run aggregate state, Task control state, Session context state, engine dispatch, or model/tool translation. The deep-dive feature inventory (AS-L1-F01..F08) lives at architecture/docs/L1/agent-service/features/access-layer.md.
+Layer 1 of the agent-service per-layer architecture (ADR-0138). Owns protocol convergence (HTTP / gRPC / WebSocket), tenant + auth binding (JWT.tenant cross-check, IdempotencyHeaderFilter), client capability publication via OpenAPI surface, and ingress for cursor / cancel / resume / S2C callback. Does NOT own Run aggregate state, Task control state, Session context state, engine dispatch, or model/tool translation. The deep-dive feature inventory (AS-L1-F01..F08) lives at architecture/docs/L1/agent-service/features/access-layer.md. + ADR-0155 v1.2 absorption adds F48-F65 design-only items.
 
 ### `FEAT-AGENT-SERVICE-ENGINE-DISPATCH-EXECUTION`
 
-Layer 4 of the agent-service per-layer architecture (ADR-0138). Owns engine-adapter dispatch (EngineRegistry.resolve(envelope) → typed ExecutorAdapter) and the executor invocation pathway that drives the Run state machine. The deep-dive inventory lives at architecture/docs/L1/agent-service/features/engine-dispatch-execution.md. Cross-cutting policies expressed as RuntimeMiddleware hooks (see FEAT-ENGINE-DISPATCH-AND-HOOKS for the cross-module Engine Contract feature).
+Layer 4 of the agent-service per-layer architecture (ADR-0138). Owns engine-adapter dispatch (EngineRegistry.resolve(envelope) → typed ExecutorAdapter) and the executor invocation pathway that drives the Run state machine. The deep-dive inventory lives at architecture/docs/L1/agent-service/features/engine-dispatch-execution.md. Cross-cutting policies expressed as RuntimeMiddleware hooks (see FEAT-ENGINE-DISPATCH-AND-HOOKS for the cross-module Engine Contract feature). + ADR-0155 v1.2 absorption adds F48-F65 design-only items.
 
 ### `FEAT-AGENT-SERVICE-INTERNAL-EVENT-QUEUE`
 
-Layer 5 of the agent-service per-layer architecture (ADR-0138). Owns in-process event queue infrastructure used by the runtime to decouple emit-side from consume-side concerns. The deep-dive lives at architecture/docs/L1/agent-service/features/internal-event-queue.md. This is the runtime's internal eventing primitive; cross-service eventing flows through agent-bus three-track channels (control/data/rhythm).
+Layer 5 of the agent-service per-layer architecture (ADR-0138). Owns in-process event queue infrastructure used by the runtime to decouple emit-side from consume-side concerns. The deep-dive lives at architecture/docs/L1/agent-service/features/internal-event-queue.md. This is the runtime's internal eventing primitive; cross-service eventing flows through agent-bus three-track channels (control/data/rhythm). + ADR-0155 v1.2 absorption adds F48-F65 design-only items.
 
 ### `FEAT-AGENT-SERVICE-SESSION-TASK-MANAGER`
 
-Layer 3 of the agent-service per-layer architecture (ADR-0138). Owns Session and Task aggregate lifecycles — the entities above Run that group runs into user-visible interactions. Task state machine governs admission / suspension / completion at the user-interaction level; Session state machine groups tasks into a conversation context. The deep-dive lives at architecture/docs/L1/agent-service/features/session-task-manager.md.
+Layer 3 of the agent-service per-layer architecture (ADR-0138). Owns Session and Task aggregate lifecycles — the entities above Run that group runs into user-visible interactions. Task state machine governs admission / suspension / completion at the user-interaction level; Session state machine groups tasks into a conversation context. The deep-dive lives at architecture/docs/L1/agent-service/features/session-task-manager.md. + ADR-0155 v1.2 absorption adds F48-F65 design-only items.
 
 ### `FEAT-AGENT-SERVICE-TASK-CENTRIC-CONTROL`
 
-Layer 2 of the agent-service per-layer architecture (ADR-0138). Owns task-centric control: cursor flow + cancel re-authorization + resume/replay against Run state. This is the layer that translates client-side task semantics into runtime Run lifecycle operations. The deep-dive lives at architecture/docs/L1/agent-service/features/task-centric-control.md.
+Layer 2 of the agent-service per-layer architecture (ADR-0138). Owns task-centric control: cursor flow + cancel re-authorization + resume/replay against Run state. This is the layer that translates client-side task semantics into runtime Run lifecycle operations. The deep-dive lives at architecture/docs/L1/agent-service/features/task-centric-control.md. + ADR-0155 v1.2 absorption adds F48-F65 design-only items.
 
 ### `FEAT-AGENT-SERVICE-TRANSLATION-TOOL-INTERCEPT`
 
-Layer 6 of the agent-service per-layer architecture (ADR-0138). Owns model/tool translation hooks: ModelGateway, tool authz boundary, prompt shaping, response normalisation. Intercepts model invocations to enforce platform policy before they reach provider SDKs. The deep-dive lives at architecture/docs/L1/agent-service/features/translation-tool-intercept.md.
+Layer 6 of the agent-service per-layer architecture (ADR-0138). Owns model/tool translation hooks: ModelGateway, tool authz boundary, prompt shaping, response normalisation. Intercepts model invocations to enforce platform policy before they reach provider SDKs. The deep-dive lives at architecture/docs/L1/agent-service/features/translation-tool-intercept.md. + ADR-0155 v1.2 absorption adds F48-F65 design-only items.
 
 ### `FEAT-ENGINE-DISPATCH-AND-HOOKS`
 

@@ -1,0 +1,35 @@
+# CheckpointRecord — STM-05 recoverable boundary marker, v1.
+#
+# Authority: ADR-0155. Wave: design_only.
+
+schema: checkpoint-record/v1
+authority: ADR-0155
+status: design_only
+runtime_enforced: false
+
+fields:
+  runId:
+    type: string
+    required: true
+  checkpointId:
+    type: string
+    required: true
+  createdAt:
+    type: timestamp
+    required: true
+  nodeKey:
+    type: string
+    required: true
+    description: "Engine-side schema key identifying the boundary node."
+  engineStateRef:
+    type: string
+    required: true
+  sideEffect:
+    type: enum
+    values: [NONE, PARTIAL, COMMITTED]
+    required: true
+    description: "Side-effect commit status; COMMITTED checkpoints are NOT valid retry restart points absent explicit policy."
+  recoveryPolicy:
+    type: string
+    required: false
+    description: "Optional policy override identifier."
