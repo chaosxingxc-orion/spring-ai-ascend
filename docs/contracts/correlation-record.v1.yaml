@@ -3,6 +3,8 @@
 # Authority: ADR-0155.
 # Wave: design_only.
 
+product_claim: "PC-003"
+
 schema: correlation-record/v1
 authority: ADR-0155
 status: design_only

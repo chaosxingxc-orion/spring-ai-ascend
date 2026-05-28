@@ -2,6 +2,8 @@
 #
 # Authority: ADR-0155. Wave: design_only.
 
+product_claim: "PC-004"
+
 schema: tool-result/v1
 authority: ADR-0155
 status: design_only

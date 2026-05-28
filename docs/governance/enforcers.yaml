@@ -484,7 +484,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#competitive_baselines_present_and_wellformed
   asserts: "docs/governance/competitive-baselines.yaml exists and declares the four required pillar dimensions (performance, cost, developer_onboarding, governance)."
-  product_claim_placeholder: true
+  product_claim: "PC-001|PC-002|PC-003|PC-005"
 
 - id: E51
   constraint_ref: "CLAUDE.md Rule R-B; ARCHITECTURE.md §4 #61; ADR-0065"
@@ -493,7 +493,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#release_note_references_four_pillars
   asserts: "The most recent docs/logs/releases/*.md release note mentions all four pillar names (performance, cost, developer_onboarding, governance)."
-  product_claim_placeholder: true
+  product_claim: "PC-001|PC-002|PC-003|PC-005"
 
 - id: E52
   constraint_ref: "CLAUDE.md Rule R-C.1; ARCHITECTURE.md §4 #62; ADR-0066"
@@ -1495,7 +1495,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#cross_authority_clause_parity
   asserts: "Rule 107 — every clause name `Rule-X.<letter>` (where X is the namespaced rule, <letter> is the sub-clause suffix) listed under `docs/governance/principle-coverage.yaml#deferred_operationalisers` MUST have a matching `## Rule X.<letter>` heading in `docs/CLAUDE-deferred.md`. Closes rc15 post-closure review P1-1 (Family A) AND the 3 hidden defects surfaced by Family A sweep (R-J.b.d orphaned in principle-coverage.yaml + rule-R-J.md kernel + rule-R-J.md card; R-K.b orphaned in principle-coverage.yaml + CLAUDE-deferred.md cross-ref). Scope dimensions: principle-coverage.yaml + CLAUDE-deferred.md + CLAUDE.md + docs/governance/rules/*.md."
-  product_claim_placeholder: true
+  governance_infra: true
 
 - id: E153
   constraint_ref: "CLAUDE.md Rule 108 (governance_text_java_anchor_truth); ADR-0093"
@@ -1504,7 +1504,7 @@
   view: development
   artifact: gate/check_architecture_sync.sh#governance_text_java_anchor_truth
   asserts: "Rule 108 — every ClassName.methodName token in active rule cards (`docs/governance/rules/*.md`) + principle cards (`docs/governance/principles/P-*.md`) MUST resolve to a real Java method in `agent-*/src/{main,test}/java/`. Exemption tokens within ±2 lines: `formerly|renamed from|pre-rc[0-9]+|superseded|removed|historical|deleted|deprecated`. Load-bearing class suffixes (IT|Test|Repository|Service|Controller|Component|Configuration|Properties|Filter|Listener|Hook|Executor|Registry|Envelope|Signal|Context|Response|Resolver) are flagged when class itself is missing; for other classes only missing methods are flagged. Closes rc15 post-closure review P1-2 (Family B): `SkillCapacityResolutionIT.suspendsSecondCallerWhenCapacityIsOne` cited in rule-R-K.md + P-K.md after rc15 rename to `rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne` per ADR-0091."
-  product_claim_placeholder: true
+  governance_infra: true
 
 - id: E154
   constraint_ref: "CLAUDE.md Rule 109 (namespaced_rule_reference_completeness); ADR-0093"
@@ -1522,7 +1522,7 @@
   view: process
   artifact: gate/check_architecture_sync.sh#prevention_rule_scope_completeness
   asserts: "Rule 110 (META) — every rule card in `docs/governance/rules/rule-*.md` whose frontmatter declares `scope_surfaces:` MUST have ≥2 self-test fixture functions named `test_rule_<rule_id>_*` in `gate/test_architecture_sync_gate.sh`. Operationalises the rc10/rc11/rc12 documented meta-lesson 'Reviewer scope can be narrower than defect scope' that prior waves recorded but never gated. Pre-rc16 rules without `scope_surfaces:` are grandfathered (no retrofit). The rule dogfoods itself: rule cards 107/108/109/110 each declare `scope_surfaces:` AND carry ≥2 fixtures."
-  product_claim_placeholder: true
+  governance_infra: true
 
 - id: E156
   constraint_ref: "CLAUDE.md Rule G-9 sub-clause .a (recurring_defect_family_yaml_wellformed); ADR-0094"
@@ -1558,7 +1558,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#meta_rule_self_application_check
   asserts: "Rule 112 (META) — every gate rule whose `# Rule N — slug` header carries the `[META]` marker MUST source a helper from `gate/lib/check_*.sh` within 80 lines of the header. Closes F-recursive-prevention-irony permanently by structurally enforcing the helper-extraction discipline introduced by Rule 111 (rc18 Wave 1, ADR-0095) on every future META rule. Rule 112 dogfoods itself by sourcing gate/lib/check_recurring_families.sh."
-  product_claim_placeholder: true
+  governance_infra: true
 
 - id: E160
   constraint_ref: "Rule 113 (legacy_paren_no_reintroduction_and_migration_doc_complete); ADR-0096"
@@ -1567,7 +1567,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#legacy_paren_no_reintroduction_and_migration_doc_complete
   asserts: "Rule 113 (rc19 Wave 2 / ADV-RC18-6 close) — sub-check .a: docs/governance/enforcers.yaml MUST NOT contain `(legacy Rule NN — ...)` parentheticals (rc18 Wave 4 removed all 9 such patterns; reintroduction is gated). Sub-check .b: gate/rule-number-migration.md MUST exist AND contain 'Legacy numeric' + 'rc17 sub-rule splits' section headings (audit trail of the rename mapping preserved as canonical SSOT)."
-  product_claim_placeholder: true
+  governance_infra: true
 - id: E161
   constraint_ref: "Rule 114 (rule_card_filename_dot_convention); ADR-0096"
   kind: gate-script
@@ -1575,7 +1575,7 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#rule_card_filename_dot_convention
   asserts: "Rule 114 (rc19 Wave 4) — every file under docs/governance/rules/rule-*.md MUST match the regex `rule-[DRGM]-[A-Z0-9](\\.[a-z0-9]+)?\\.md` (dot-suffix only, no hyphenated `rule-G-3-1.md` form). Prevents the rc17 corrective-loop where 5 cards needed renames due to hyphen-vs-dot ambiguity. README.md is allowed."
-  product_claim_placeholder: true
+  governance_infra: true
 - id: E162
   constraint_ref: "Rule 113.a (legacy_paren helper extraction); ADR-0097"
   kind: gate-script
@@ -1583,7 +1583,7 @@
   view: scenarios
   artifact: gate/lib/check_legacy_paren.sh
   asserts: "Rule 113.a + .b helper extracted to gate/lib/check_legacy_paren.sh per rc20 Wave 1 / ADR-0097. Both the production gate (Rule 113 body) AND the test_rule_113_* fixtures source this helper, closing Pattern D recurrence on Rule 113 (fixture inlining production grep was the rc19 review finding). Helper exports _check_legacy_paren_no_reintroduction and _check_migration_doc_complete."
-  product_claim_placeholder: true
+  governance_infra: true
 - id: E163
   constraint_ref: "Rule D-9 (no_version_log_metadata_in_code); ADR-0097"
   kind: gate-script

@@ -1,6 +1,7 @@
 id: ADR-0155
 title: "AgentService L1 v1.2 — internal module design absorption (M1–M6 + 6 boundary reversals)"
 status: accepted
+product_claim: "PC-003"
 date: 2026-05-28
 level: L1
 view: logical

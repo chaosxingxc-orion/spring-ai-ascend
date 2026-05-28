@@ -5,6 +5,8 @@
 # TCC-07, M6 TTI policy denials, and all adapter failures route to one
 # of these 14 values. Modules MUST NOT invent additional classes.
 
+product_claim: "PC-003"
+
 schema: error-class/v1
 authority: ADR-0155
 status: design_only

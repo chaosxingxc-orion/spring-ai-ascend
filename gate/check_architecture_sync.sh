@@ -7196,7 +7196,20 @@ fi
 # threshold down).
 # ---------------------------------------------------------------------------
 _r134_fail=0
-# Orphan counts emitted as info; advisory at W5.
+# BLOCKING from Phase B convergence (2026-05-28, placeholder count reached 0).
+# Every ADR yaml / contract yaml / rule card / principle card MUST carry one of
+# product_claim: / governance_infra: / product_claim_placeholder: markers.
+_r134_orphans=""
+for _r134_f in docs/adr/*.yaml architecture/decisions/*.yaml docs/contracts/*.yaml docs/governance/rules/rule-*.md docs/governance/principles/P-*.md; do
+  [[ -f "$_r134_f" ]] || continue
+  if ! grep -qE '^[[:space:]]*(product_claim|governance_infra|product_claim_placeholder):' "$_r134_f"; then
+    _r134_orphans="${_r134_orphans}$(basename "$_r134_f") "
+  fi
+done
+if [[ -n "$_r134_orphans" ]]; then
+  fail_rule "no_orphan_artefacts" "artefacts without a ProductClaim marker (orphans): ${_r134_orphans}-- Rule G-17 / E182 (blocking from Phase B convergence)"
+  _r134_fail=1
+fi
 [[ $_r134_fail -eq 0 ]] && pass_rule "no_orphan_artefacts"
 
 # ---------------------------------------------------------------------------
@@ -7207,6 +7220,17 @@ _r134_fail=0
 # until Wave 4 backfill threads the chain across the corpus.
 # ---------------------------------------------------------------------------
 _r135_fail=0
+# BLOCKING from Phase B convergence: every PC-NNN declared in product/claims.yaml
+# MUST be referenced by >=1 artefact (feature / rule / contract / ADR).
+_r135_claims="product/claims.yaml"
+if [[ -f "$_r135_claims" ]]; then
+  for _r135_pc in $(grep -oE '^[[:space:]]*-?[[:space:]]*id:[[:space:]]*PC-[0-9]+' "$_r135_claims" | grep -oE 'PC-[0-9]+' | sort -u); do
+    if ! grep -rqE "${_r135_pc}([^0-9]|$)" docs/contracts docs/governance/rules architecture/features docs/adr docs/governance/principles 2>/dev/null; then
+      fail_rule "traceability_chain_completeness" "${_r135_pc} declared in product/claims.yaml but referenced by zero artefacts -- Rule G-18 / E183 (blocking from Phase B convergence)"
+      _r135_fail=1
+    fi
+  done
+fi
 [[ $_r135_fail -eq 0 ]] && pass_rule "traceability_chain_completeness"
 
 # ---------------------------------------------------------------------------
@@ -7248,6 +7272,20 @@ fi
 # enough artefacts are classified to support precise lexicon enforcement.
 # ---------------------------------------------------------------------------
 _r137_fail=0
+# BLOCKING from Phase B convergence: artefacts marked governance_infra:true MUST
+# NOT use product-value vocabulary in body prose. Narrow phrase list (not bare
+# "user") to avoid false positives on governance docs that legitimately mention users.
+_r137_hits=""
+while IFS= read -r _r137_f; do
+  [[ -z "$_r137_f" ]] && continue
+  if grep -qiE 'delivers (customer|user) value|saves (the )?(customer|user)|user-facing (benefit|value)|customer benefit|compounds value for' "$_r137_f"; then
+    _r137_hits="${_r137_hits}$(basename "$_r137_f") "
+  fi
+done < <(grep -rlE '^[[:space:]]*governance_infra:[[:space:]]*true' docs/governance/rules docs/adr docs/contracts 2>/dev/null)
+if [[ -n "$_r137_hits" ]]; then
+  fail_rule "governance_infra_honesty" "governance_infra:true artefact(s) use product-value vocabulary: ${_r137_hits}-- Rule G-20 / E185 (blocking from Phase B convergence)"
+  _r137_fail=1
+fi
 [[ $_r137_fail -eq 0 ]] && pass_rule "governance_infra_honesty"
 
 # ---------------------------------------------------------------------------
@@ -7260,6 +7298,15 @@ _r137_fail=0
 # baseline is recorded.
 # ---------------------------------------------------------------------------
 _r138_fail=0
+# BLOCKING from Phase B convergence (2026-05-28): count of REAL product_claim_placeholder
+# field markers (frontmatter/yaml field lines, not prose mentions in meta-rule docs)
+# MUST be 0. Reaching 0 was the G-21 convergence signal that promoted G-16/17/18/20
+# from advisory to blocking.
+_r138_count=$(grep -rlE '^[[:space:]]*product_claim_placeholder:[[:space:]]*true[[:space:]]*$' docs/adr architecture/decisions docs/contracts docs/governance/rules docs/governance/principles architecture/features 2>/dev/null | wc -l | tr -d '[:space:]')
+if [[ "${_r138_count:-0}" -gt 0 ]]; then
+  fail_rule "productclaim_placeholder_decreasing" "${_r138_count} artefact(s) still carry product_claim_placeholder:true; Phase B convergence requires 0 -- Rule G-21 / E186 (blocking from convergence)"
+  _r138_fail=1
+fi
 [[ $_r138_fail -eq 0 ]] && pass_rule "productclaim_placeholder_decreasing"
 
 # === END OF RULES ===
