@@ -85,7 +85,7 @@ remains closed.
 | 25 | F-design-only-mechanism-shown-as-shipped | Design-Only Mechanism Depicted in Architecture Diagram Without Caption-Level Status Marker | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (ADR-0141 Internal Event Queue layer demoted to design_only sub-section; rc55 W3/W4 view discipline annotates DualTrackRouter / SlowTrackJudge per ADR-0112 design_only status; cross-reference gate-rule for contract-status vs diagram is a W5+ candidate) |
 | 26 | F-discriminator-without-discriminated-type | Typed Discriminator Ships Without the Polymorphic Type It Discriminates | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (ADR-0145 specifies sealed RunEvent hierarchy + docs/contracts/run-event.v1.yaml; actual Java sealed type lands in a follow-up impl-mode wave; gate-rule for discriminator-zero-callsite is a W5+ candidate) |
 | 27 | F-spi-package-bloat-with-carriers | SPI Package Contains More Structural Carriers Than Extension Interfaces | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (rc55 W5 audits agent-service memory.spi package which has 1 interface + 12 carriers; carrier-promotion deferred to a follow-up impl-mode wave; gate-rule for carrier/interface ratio is a W5+ candidate) |
-| 28 | F-agent-service-internal-boundary-drift | AgentService internal-module boundary drift (M4 sole-caller breach, responseSnapshot owner drift, cross-jurisdiction remote interception) | 3 (PR-92 2026-05-28 self-audit) | open_documented_with_prevention (ADR-0155 anchors 6 boundary reversals; 14 new design_only YAML contracts; TCK and ArchUnit enforcement deferred to W2) |
+| 28 | F-agent-service-internal-boundary-drift | AgentService internal-module boundary drift (M4 sole-caller breach, responseSnapshot owner drift, cross-jurisdiction remote interception) | 3 (PR-92 2026-05-28 self-audit) | ✅ structurally addressed — ADR-0155 anchors 6 boundary reversals; 14 new design_only YAML contracts; TCK and ArchUnit enforcement deferred to W2 |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -1597,7 +1597,7 @@ contracts, the next per-module audit will rediscover similar drifts.
   defence-in-depth via TCC-03 ownership in `features.dsl` + LOGICAL + SPI
   surfaces.
 
-**Cleanup status.** `open_documented_with_prevention` — ADR-0155 closes the
+**Cleanup status.** `structurally addressed` — ADR-0155 closes the
 cited three drifts; TCK conformance suites and ArchUnit physical enforcement
 of the new YAML contracts are deferred to W2.
 

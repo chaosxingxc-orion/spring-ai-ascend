@@ -1795,5 +1795,5 @@ families:
       - "Rule R-D.f catalog integrity ensures new contracts appear in contract-catalog.md."
       - "Rule G-1.1.b 4-way SPI parity ensures new SPIs cannot land in only some authority surfaces."
       - "Rule R-C.2.b STM-03 sole-caller is already enforced; this family adds defence-in-depth via TCC-03 ownership in features.dsl + LOGICAL + SPI surfaces."
-    cleanup_status: open_documented_with_prevention
+    cleanup_status: structurally_addressed
     open_residual: "TCK conformance suites for the new SPIs are deferred to W2; ArchUnit physical enforcement of the new YAML contracts as compile-time assertions is also W2. The family stays open until either (a) all 6 module designs ship and the next L1 audit finds no recurrence of these specific drift patterns or (b) static enforcement closes the structural gap."
