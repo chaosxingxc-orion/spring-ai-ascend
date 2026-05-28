@@ -80,6 +80,20 @@ class RunHttpContractIT {
         JwtDecoder fixtureJwtDecoder() {
             return JwtTestFixture.decoder();
         }
+
+        /**
+         * Non-executing dispatcher so Runs remain PENDING. This suite asserts
+         * HTTP status / idempotency / tenant-scoping contracts that depend on a
+         * Run staying in a controllable state (e.g. cancel-while-PENDING);
+         * end-to-end execution to SUCCEEDED is covered by {@code RunExecutionIT}.
+         */
+        @Bean
+        @Primary
+        AsyncRunDispatcher nonExecutingDispatcher() {
+            return (Run run) -> {
+                // intentionally no-op: leave the Run in its created (PENDING) state
+            };
+        }
     }
 
     @LocalServerPort
