@@ -10,9 +10,9 @@
 
 relationship_types:
   contains:
-    source_tags: [SAA Capability, SAA Feature]
-    target_tags: [SAA Feature, SAA FunctionPoint]
-    description: Hierarchical ownership inside the L1 feature/function-point inventory.
+    source_tags: [SAA Capability, SAA Feature, SAA Module]
+    target_tags: [SAA Feature, SAA FunctionPoint, SAA EngineeringFrame]
+    description: Hierarchical ownership inside the L1 feature/function-point inventory; also Module -> EngineeringFrame on the structural axis.
 
   implements:
     source_tags: [SAA Module]
@@ -93,3 +93,13 @@ relationship_types:
     source_tags: [SAA Feature]
     target_tags: [SAA Capability]
     description: Feature is contained by a capability. Inverse of `contains` (capability -> feature direction). One-hop AI traversal from FEAT- to CAP-.
+
+  anchors:
+    source_tags: [SAA EngineeringFrame]
+    target_tags: [SAA FunctionPoint]
+    description: EngineeringFrame anchors a function point — the structural axis (Module -> EngineeringFrame -> FunctionPoint).
+
+  traverses:
+    source_tags: [SAA Feature]
+    target_tags: [SAA EngineeringFrame]
+    description: Feature traverses an engineering frame — the value axis crossing the structural map.

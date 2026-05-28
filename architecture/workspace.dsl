@@ -144,6 +144,10 @@ workspace "Spring AI Ascend" "Architecture authority workspace (W8 — Structuri
         !include generated/enforcers.dsl
         !include generated/adr-graph.dsl
         !include generated/surface-classification.dsl
+
+        // Authored zone — structural axis (ADR-0157). Included LAST so frame edges
+        // to genModule_* / fp* / feat* resolve against already-declared elements.
+        !include features/engineering-frames.dsl
     }
 
     views {

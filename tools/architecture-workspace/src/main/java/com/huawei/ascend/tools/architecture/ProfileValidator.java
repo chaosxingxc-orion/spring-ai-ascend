@@ -44,7 +44,8 @@ public final class ProfileValidator {
             "SAA SPI",
             "SAA Contract",
             "SAA ADR",
-            "SAA GeneratedProjection"
+            "SAA GeneratedProjection",
+            "SAA EngineeringFrame"
     );
 
     public static final List<String> COMMON_PROPERTIES = List.of(
@@ -80,6 +81,7 @@ public final class ProfileValidator {
         m.put("SAA Principle", List.of("saa.principleId"));
         m.put("SAA ADR", List.of("saa.adrId", "saa.adrStatus"));
         m.put("SAA GeneratedProjection", List.of("saa.generated", "saa.sourceFile"));
+        m.put("SAA EngineeringFrame", List.of("saa.owner", "saa.sourceAdr"));
         TAG_SPECIFIC = Map.copyOf(m);
     }
 
@@ -100,7 +102,9 @@ public final class ProfileValidator {
             "indexes",
             "projects_to",
             "decided_by",
-            "contained_by"
+            "contained_by",
+            "anchors",
+            "traverses"
     );
 
     public List<ProfileViolation> validate(Workspace workspace) {

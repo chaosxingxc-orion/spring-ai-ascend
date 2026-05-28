@@ -57,3 +57,6 @@ required_properties:
     SAA GeneratedProjection:
       - saa.generated
       - saa.sourceFile
+    SAA EngineeringFrame:
+      - saa.owner
+      - saa.sourceAdr

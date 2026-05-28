@@ -1,0 +1,142 @@
+id: ADR-0157
+title: "EngineeringFrame Ontology — structural axis between Module and FunctionPoint for dual-track architecture"
+status: accepted
+governance_infra: true
+date: 2026-05-29
+level: L1
+view: development
+affects_level: L1
+affects_view: logical
+authors:
+  - chao
+extends:
+  - ADR-0138    # agent-service five-layer L1 ratification — its 6 Layer "features" become the first EngineeringFrames
+  - ADR-0151    # L1 Feature Registry canonical schema — re-scopes the Feature tag this ADR disambiguates
+relates_to:
+  - ADR-0147    # Structurizr Workspace Authority — profile tag + relationship vocabulary home
+  - ADR-0152    # Uniform L1 mechanism + L0 mounting
+  - ADR-0156    # Product Authority and Traceability — claim binding stays on the value axis (Feature)
+context: |
+  A product-owner + architect review (docs/logs/reviews/2026-05-28-dual-track-
+  architecture-engineering-skeleton-recommendations.en.md) found that the
+  architecture model conflates two axes through one overloaded concept,
+  `SAA Feature`:
+
+    * the product / value axis (Product Definition -> Product Feature -> FunctionPoint), and
+    * the engineering / structure axis (Technical Architecture -> Module -> FunctionPoint).
+
+  Verified against the live repo (facts, not prose):
+
+    * architecture/features/README.md literally calls features.dsl "the middle
+      layer between Capability and FunctionPoint" — Feature is modeled as a
+      STRUCTURAL container of FunctionPoint via the `contains` relationship
+      (architecture/profile/relationship-types.yaml; features.dsl).
+    * A single `SAA Feature` carries product intent AND 9-state lifecycle AND
+      five mandatory saa.aiBoundary.* fields AND verification fields
+      (architecture/profile/required-properties.yaml).
+    * Six of the fifteen corpus "features"
+      (featAgentServiceAccessLayer, featAgentServiceTaskCentricControl,
+      featAgentServiceSessionTaskManager, featAgentServiceEngineDispatchExecution,
+      featAgentServiceInternalEventQueue, featAgentServiceTranslationToolIntercept;
+      ratified by ADR-0138) are NOT value-threads — they are structural layers
+      wearing the Feature tag. That is the overload, made concrete.
+
+  No ontology layer exists between `SAA Module` and `SAA FunctionPoint` today
+  (architecture/profile/profile.yaml carries no such tag). The result: customer
+  demand decomposes directly into features, bypassing engineering structure, and
+  cross-module concerns (audit, model gateway, memory, evolution) keep pulling
+  module boundaries back and forth.
+decision: |
+  Introduce a first-class STRUCTURAL ontology layer, `EngineeringFrame`, between
+  Module and FunctionPoint, and move Feature back onto the value axis.
+
+    1. New Structurizr profile tag `SAA EngineeringFrame`. Element ID prefix
+       `EF-` (e.g. EF-ACCESS-ADMISSION); slugs are globally unique and the owning
+       module is carried by `saa.owner`.
+
+    2. Relationship vocabulary:
+         * Structural axis: Module --contains--> EngineeringFrame --anchors--> FunctionPoint.
+         * Value axis: Feature --requires--> FunctionPoint, and Feature --traverses--> EngineeringFrame.
+       Two new relationship types ship: `anchors` and `traverses`. The existing
+       `contains` is widened to allow Module -> EngineeringFrame.
+
+    3. EngineeringFrames are CLAIM-AGNOSTIC. Structure serves no ProductClaim
+       directly; product claims bind to the value axis (Feature) per ADR-0156.
+       Frames carry a `saa.structuralAxis "true"` sentinel, and Rule G-17
+       (no-orphan) is extended to accept this sentinel in lieu of `product_claim`.
+       A `design_only` frame with zero anchored shipped FunctionPoints (e.g.
+       EF-INTERNAL-EVENT-QUEUE) is explicitly permitted.
+
+    4. The six agent-service Layer "features" are RE-TAGGED `SAA Feature ->
+       SAA EngineeringFrame`, resolving the overload. `feature_corpus_size`
+       drops 15 -> 9; the remaining nine are true value-threads whose
+       `contains FunctionPoint` edges migrate to `requires`/`traverses`.
+       Re-tag mapping:
+         * featAgentServiceAccessLayer            -> EF-ACCESS-ADMISSION
+         * featAgentServiceTaskCentricControl     -> EF-TASK-CONTROL
+         * featAgentServiceSessionTaskManager     -> EF-SESSION-TASK-STATE
+         * featAgentServiceEngineDispatchExecution-> EF-ENGINE-DISPATCH
+         * featAgentServiceInternalEventQueue     -> EF-INTERNAL-EVENT-QUEUE (design_only)
+         * featAgentServiceTranslationToolIntercept-> EF-TRANSLATION-INTERCEPT
+
+    5. Dual-track operating model. Both tracks share the EngineeringFrame +
+       FunctionPoint map; they differ in direction and authority:
+         * Product Development (Track A) draws the map and MAY mint Frames — but
+           creating a new Frame is an architecture-decision event (ADR).
+         * Demand Response (Track B) reads the map; it MAY add/adjust
+           FunctionPoints and Contracts but MUST land on an EXISTING Frame. A
+           demand that cannot land on an existing Frame STOPS and escalates to an
+           ADR (entering Track A).
+
+    6. Rollout: advisory at landing; promotion to blocking after a 14-day soak,
+       gated on a clean workspace gate and ProfileYamlParityTest — mirroring the
+       ADR-0151 -> ADR-0153 (Rule G-14) and ADR-0156 (Rule G-16..G-21) ratchets.
+
+  Profile lockstep (all change together, verified by ProfileYamlParityTest):
+  architecture/profile/profile.yaml, required-properties.yaml,
+  relationship-types.yaml, and
+  tools/architecture-workspace/.../ProfileValidator.java.
+consequences: |
+  Positive
+  --------
+    * AI and engineers read a stable Module -> EngineeringFrame -> FunctionPoint
+      anchor BEFORE the feature list, so feature authoring stops drifting into
+      user-story prose.
+    * Customer demand can be accepted/rejected without changing architecture by
+      default; architecture changes become explicit ADR events, not silent
+      feature edits.
+    * The Feature overload closes at its root: structural slices become Frames;
+      Features become pure value-threads.
+
+  Negative / cost
+  ---------------
+    * Multi-phase migration (7 phases). The contains -> requires/traverses
+      relationship migration interacts with Rules G-16/G-17/G-18, which are NOW
+      BLOCKING (promoted in PR #95). The G-17 `structuralAxis` sentinel
+      recognition MUST land before any EngineeringFrame element is authored, or
+      the blocking gate hard-fails.
+    * The six re-tagged features are the least reversible authored change; they
+      reconcile ADR-0138 and must be reviewed hardest.
+
+  LOCKSTEP FLAG for the implementation phase (/impl-mode)
+  -------------------------------------------------------
+    This decision changes authority surfaces consumed by templates and gates.
+    The design is NOT complete until, in lockstep (Rule G-13 byte-identical
+    re-render + Rule G-8 baseline parity):
+      * gate/lib/render_features_catalog.py re-renders module catalogs with an
+        EngineeringFrame section;
+      * docs/governance/architecture-status.yaml baseline_metrics move
+        (workspace_elements, workspace_relationships, feature_corpus_size 15->9,
+        adr_count, and at promotion active_gate_checks / enforcer_rows /
+        gate_executable_test_cases), each with its allowed_claim + README phrase;
+      * architecture/profile/* and ProfileValidator.java stay in lockstep
+        (ProfileYamlParityTest).
+
+  Forward-looking
+  ---------------
+    * Pilot: the financial-grade audit-trail demand (PC-003) is driven through
+      the dual-track loop end-to-end to validate the model before blocking
+      promotion.
+    * Post-v1.0: cross-cutting frame design (audit / model-gateway / memory /
+      evolution) and optional EngineeringFrame fact extraction under
+      architecture/facts/generated/ via the ExtractFactsCli chain (ADR-0154).
