@@ -245,24 +245,27 @@ featEngineDispatchAndHooks = element "Engine Dispatch and Hooks" "Feature" "Type
     }
 }
 
-// Relationship declarations: feature -> capability (contained_by), feature -> functionPoint (contains).
+// Relationship declarations: feature -> functionPoint (requires) — the value axis.
+// A Feature drives FunctionPoints (requires) and traverses EngineeringFrames; the
+// STRUCTURAL ownership of a FunctionPoint is the EngineeringFrame's `anchors` edge
+// (engineering-frames.dsl), not the Feature. Per ADR-0157.
 // Capability identifiers (`cap_*`) are defined in features/capabilities.dsl;
 // function-point identifiers (`fp*`) are defined in features/function-points.dsl.
 // !include order in workspace.dsl ensures both producers come before this consumer.
 
 featRunLifecycleControl -> fpCreateRun "Run lifecycle contains create" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 featRunLifecycleControl -> fpCancelRun "Run lifecycle contains cancel" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 featRunLifecycleControl -> fpGetRunStatus "Run lifecycle contains status polling" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 // featRunLifecycleControl -> fpListRuns removed alongside FP-LIST-RUNS
@@ -270,65 +273,65 @@ featRunLifecycleControl -> fpGetRunStatus "Run lifecycle contains status polling
 // endpoint actually ships.
 featRunLifecycleControl -> fpRunStateTransition "Run lifecycle contains CAS state transition" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 
 featEdgeComputeIngress -> fpIngressEnvelope "ingress feature contains envelope routing" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 
 featServerClientCallback -> fpS2cCallback "S2C callback feature contains the envelope" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 
 featSuspendResumeControl -> fpSuspendResume "suspend/resume feature contains the SuspendSignal lifecycle" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 featSuspendResumeControl -> fpChildRunSpawn "suspend/resume feature contains child-run choreography" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 
 featIdempotencyAndReplay -> fpIdempotencyClaim "idempotency feature contains the claim and replay" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 
 featTenantIsolation -> fpTenantCrossCheck "tenant isolation feature contains the cross-check" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 
 featPostureBootstrap -> fpPostureBootGuard "posture bootstrap feature contains the boot guard" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 
 featGraphMemory -> fpGraphMemoryStore "graph memory feature contains the store" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 
 featEngineDispatchAndHooks -> fpEngineDispatch "engine feature contains dispatch" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 featEngineDispatchAndHooks -> fpHookDispatch "engine feature contains hook dispatch" "SAA Relationship" {
     properties {
-        "saa.rel" "contains"
+        "saa.rel" "requires"
     }
 }
 

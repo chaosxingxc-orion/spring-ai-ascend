@@ -104,7 +104,8 @@ public final class ProfileValidator {
             "decided_by",
             "contained_by",
             "anchors",
-            "traverses"
+            "traverses",
+            "requires"
     );
 
     public List<ProfileViolation> validate(Workspace workspace) {

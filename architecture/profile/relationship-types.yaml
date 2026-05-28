@@ -103,3 +103,8 @@ relationship_types:
     source_tags: [SAA Feature]
     target_tags: [SAA EngineeringFrame]
     description: Feature traverses an engineering frame — the value axis crossing the structural map.
+
+  requires:
+    source_tags: [SAA Feature]
+    target_tags: [SAA FunctionPoint]
+    description: Feature requires / drives a function point — the value axis. A value thread drives behaviours; it does not structurally own them (contrast the structural `anchors` edge from EngineeringFrame).
