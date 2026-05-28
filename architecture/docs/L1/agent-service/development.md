@@ -70,6 +70,23 @@ agent-service/
 exists on disk per the rc55 W5 filesystem scan. Future sub-packages
 NOT yet on disk are explicitly listed under §4 with their ADR anchor.
 
+### v1.2 SPI package additions (ADR-0155)
+
+Two new SPI packages live under `agent-service/src/main/java/`:
+
+```
+service.runtime.spi.executor/
+  ExecutorAdapter.java        (interface)
+  InjectionMode.java          (enum — InjectionMode wiring choice per ADR-0155 §4)
+service.runtime.spi.intercept/
+  PlatformChatClient.java     (interface)
+  PlatformToolCallback.java   (interface)
+  PlatformMemoryProvider.java (interface)
+  PlatformRetriever.java      (interface)
+```
+
+`InjectionMode` enum values: `NATIVE_DI | THIRD_PARTY_BRIDGE | EVENT_RELAY | NONE` — see L5a EDE-08 in the features inventory.
+
 ## 2. Layer ↔ Package Matrix (ADR-0144)
 
 The canonical mapping between ADR-0138's 5-layer logical-view
