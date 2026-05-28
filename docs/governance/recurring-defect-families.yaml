@@ -70,7 +70,10 @@ last_updated: 2026-05-29  # MERGE of PR #93 (agent-service L1 v1.2 — ADR-0155 
 # (collapsed to a 7-rule kernel after the ADR-0156 shrink) instead of the rule cards, so
 # principles.dsl emitted dangling principle->rule edges and workspace.dsl failed to parse.
 # No new defect FAMILY registered (single observation, below the >=2-occurrence threshold);
-# recurring_defect_families count remains 38.
+# recurring_defect_families count remains 38. P0-P4 landed across 5 gate-green commits on
+# branch feature/engineering-frame-ontology; P3 migrated Feature->FunctionPoint edges from
+# contains to requires; P4 added the engineering-frames.md dual-track narrative. P5 (pilot),
+# P6 (frame-integrity rule + soak) and P7 (cross-cutting frames) are deferred (see plan file).
 families:
   - id: F-numeric-drift
     title: Numeric Drift Across Authority Surfaces
