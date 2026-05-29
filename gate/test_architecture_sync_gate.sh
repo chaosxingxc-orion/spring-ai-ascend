@@ -7804,6 +7804,431 @@ test_rule_143_local_plan_path_exempted_pos() {
 }
 
 # ---------------------------------------------------------------------------
+# Rule 144 — ADR Normalization (Rule G-28 / E192). ADR-0160 (ADR Governance
+# Model). Two gate helpers back the single rule:
+#   * gate/lib/check_adr_taxonomy.py — validates each normalized ADR view
+#     (docs/adr/normalized/ADR-NNNN.yaml) against adr-taxonomy.yaml +
+#     adr-governance-policy.yaml: required fields, the closed five-value
+#     current_state set, the per-state field invariants, and the per-level
+#     decision_type altitude (forbidden lower-altitude leakage). Modes:
+#     advisory (always rc 0), changed-files-blocking, full-blocking (rc 1 on
+#     any finding). PyYAML is required; its absence is a config error (rc 2).
+#   * gate/lib/check_historical_adr_governance.py — ledger totality (every raw
+#     ADR in adrs.json has a docs/governance/adr-remediation-ledger.yaml entry)
+#     + normalized-view coverage (every accepted ADR has a normalized view).
+#     Modes: advisory (always rc 0) | changed-files (advisory here) | blocking
+#     (rc 1 on findings). A missing adrs.json is a fatal error (rc 1 any mode).
+# Every fixture runs the helper against an ISOLATED scratch repo root via
+# --repo (never the working tree) and copies the helper into that root, exactly
+# like the Rule 140/141/142 fixtures.
+# ---------------------------------------------------------------------------
+
+# Resolve a python interpreter the same way the Rule 111.c fixture does:
+# prefer `python`, fall back to `python3`. Echoes the binary, or empty if none.
+_g28_python_bin() {
+  if command -v python >/dev/null 2>&1; then printf 'python'
+  elif command -v python3 >/dev/null 2>&1; then printf 'python3'
+  else printf ''; fi
+}
+
+# Author a complete, valid normalized ADR view into $1 (a file path). $2 is the
+# ADR id (must equal the filename stem). Remaining keyword-ish positionals set
+# the fields a test wants to vary: $3 current_state, $4 decision_level,
+# $5 decision_type, $6 active_guidance (a YAML inline list literal, e.g.
+# '["x"]' or '[]'), $7 non_authoritative_legacy_content (inline list),
+# $8 superseded_by (bare scalar, may be empty). All other required fields are
+# emitted present-and-empty so the only finding a test sees is the one it
+# deliberately introduces.
+_g28_write_view() {
+  local path="$1" adr="$2" state="$3" level="$4" dtype="$5"
+  local active="$6" legacy="$7" superseded_by="$8"
+  cat > "$path" <<EOF
+adr: $adr
+raw_path: docs/adr/${adr#ADR-}-synthetic.yaml
+current_state: $state
+decision_level: $level
+affected_levels: [$level]
+view: scenarios
+decision_type: $dtype
+clean_decision_summary: Synthetic normalized view for the G-28 gate self-test.
+active_guidance: $active
+non_authoritative_legacy_content: $legacy
+supersedes: []
+superseded_by: "$superseded_by"
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs: []
+review_notes: ""
+EOF
+}
+
+# Stand up an isolated scratch repo at $1 carrying the two policy surfaces the
+# taxonomy helper needs, the helper itself, and an empty normalized dir.
+_g28_taxonomy_scratch() {
+  local sroot="$1"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/gate/lib" "$sroot/docs/governance" "$sroot/docs/adr/normalized"
+  cp "$PWD/gate/lib/check_adr_taxonomy.py" "$sroot/gate/lib/check_adr_taxonomy.py"
+  cp "$PWD/docs/governance/adr-taxonomy.yaml" "$sroot/docs/governance/adr-taxonomy.yaml"
+  cp "$PWD/docs/governance/adr-governance-policy.yaml" "$sroot/docs/governance/adr-governance-policy.yaml"
+}
+
+test_rule_144_adr_taxonomy_clean_view_pos() {
+  # POSITIVE: a complete, in-altitude active_guidance view passes full-blocking.
+  local helper="$PWD/gate/lib/check_adr_taxonomy.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_144_adr_taxonomy_clean_view_pos" "Rule G-28 / Rule 144: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_144_adr_taxonomy_clean_view_pos" "Rule G-28 / Rule 144: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r144_tax_pos"
+  _g28_taxonomy_scratch "$sroot"
+  _g28_write_view "$sroot/docs/adr/normalized/ADR-9101.yaml" \
+    ADR-9101 active_guidance L0 global_constraint '["clause one still governs"]' '[]' ''
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_adr_taxonomy.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_144_adr_taxonomy_clean_view_pos" "Rule G-28 / Rule 144: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "0 finding(s)"; then
+    ok "rule_144_adr_taxonomy_clean_view_pos" "Rule G-28 / Rule 144: a complete in-altitude active_guidance view passes full-blocking with zero findings"
+  else
+    fail "rule_144_adr_taxonomy_clean_view_pos" "Rule G-28 / Rule 144: clean view unexpectedly flagged: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_144_adr_taxonomy_forbidden_decision_type_neg() {
+  # NEGATIVE: an L0 view carrying an L2-altitude decision_type (method_signature)
+  # is the layer-purity leakage G-28 exists to catch; full-blocking MUST fail.
+  local helper="$PWD/gate/lib/check_adr_taxonomy.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_144_adr_taxonomy_forbidden_decision_type_neg" "Rule G-28 / Rule 144: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_144_adr_taxonomy_forbidden_decision_type_neg" "Rule G-28 / Rule 144: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r144_tax_forbidden"
+  _g28_taxonomy_scratch "$sroot"
+  _g28_write_view "$sroot/docs/adr/normalized/ADR-9102.yaml" \
+    ADR-9102 active_guidance L0 method_signature '["x"]' '[]' ''
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_adr_taxonomy.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_144_adr_taxonomy_forbidden_decision_type_neg" "Rule G-28 / Rule 144: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "is FORBIDDEN at decision_level 'L0'"; then
+    ok "rule_144_adr_taxonomy_forbidden_decision_type_neg" "Rule G-28 / Rule 144: an L2-altitude decision_type at L0 is detected and fails closed (full-blocking)"
+  else
+    fail "rule_144_adr_taxonomy_forbidden_decision_type_neg" "Rule G-28 / Rule 144 forbidden-decision-type case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_144_adr_taxonomy_superseded_invariant_neg() {
+  # NEGATIVE: a `superseded` view with no superseded_by AND a non-empty
+  # active_guidance violates two state invariants; full-blocking MUST fail.
+  local helper="$PWD/gate/lib/check_adr_taxonomy.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_144_adr_taxonomy_superseded_invariant_neg" "Rule G-28 / Rule 144: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_144_adr_taxonomy_superseded_invariant_neg" "Rule G-28 / Rule 144: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r144_tax_superseded"
+  _g28_taxonomy_scratch "$sroot"
+  _g28_write_view "$sroot/docs/adr/normalized/ADR-9103.yaml" \
+    ADR-9103 superseded L1 module_responsibility '["should be empty when superseded"]' '["legacy"]' ''
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_adr_taxonomy.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_144_adr_taxonomy_superseded_invariant_neg" "Rule G-28 / Rule 144: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "requires non-empty 'superseded_by'"; then
+    ok "rule_144_adr_taxonomy_superseded_invariant_neg" "Rule G-28 / Rule 144: a superseded view missing superseded_by is detected and fails closed (state invariant)"
+  else
+    fail "rule_144_adr_taxonomy_superseded_invariant_neg" "Rule G-28 / Rule 144 superseded-invariant case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_144_adr_taxonomy_partial_guidance_invariant_neg() {
+  # NEGATIVE: a `partial_guidance` view with active_guidance but EMPTY
+  # non_authoritative_legacy_content violates the partial-state invariant.
+  local helper="$PWD/gate/lib/check_adr_taxonomy.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_144_adr_taxonomy_partial_guidance_invariant_neg" "Rule G-28 / Rule 144: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_144_adr_taxonomy_partial_guidance_invariant_neg" "Rule G-28 / Rule 144: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r144_tax_partial"
+  _g28_taxonomy_scratch "$sroot"
+  _g28_write_view "$sroot/docs/adr/normalized/ADR-9104.yaml" \
+    ADR-9104 partial_guidance L1 public_spi_surface '["still governs"]' '[]' ''
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_adr_taxonomy.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_144_adr_taxonomy_partial_guidance_invariant_neg" "Rule G-28 / Rule 144: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "requires non-empty 'non_authoritative_legacy_content'"; then
+    ok "rule_144_adr_taxonomy_partial_guidance_invariant_neg" "Rule G-28 / Rule 144: a partial_guidance view with no legacy-content split is detected and fails closed (state invariant)"
+  else
+    fail "rule_144_adr_taxonomy_partial_guidance_invariant_neg" "Rule G-28 / Rule 144 partial-guidance-invariant case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_144_adr_taxonomy_historical_evidence_invariant_neg() {
+  # NEGATIVE: a `historical_evidence` view MUST carry empty active_guidance
+  # (it governs nothing now); a non-empty active_guidance is a state violation.
+  local helper="$PWD/gate/lib/check_adr_taxonomy.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_144_adr_taxonomy_historical_evidence_invariant_neg" "Rule G-28 / Rule 144: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_144_adr_taxonomy_historical_evidence_invariant_neg" "Rule G-28 / Rule 144: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r144_tax_historical"
+  _g28_taxonomy_scratch "$sroot"
+  _g28_write_view "$sroot/docs/adr/normalized/ADR-9105.yaml" \
+    ADR-9105 historical_evidence L0 global_constraint '["this should be empty for historical_evidence"]' '[]' ''
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_adr_taxonomy.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_144_adr_taxonomy_historical_evidence_invariant_neg" "Rule G-28 / Rule 144: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "forbids a non-empty 'active_guidance'"; then
+    ok "rule_144_adr_taxonomy_historical_evidence_invariant_neg" "Rule G-28 / Rule 144: a historical_evidence view that still carries active_guidance is detected and fails closed (state invariant)"
+  else
+    fail "rule_144_adr_taxonomy_historical_evidence_invariant_neg" "Rule G-28 / Rule 144 historical-evidence-invariant case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_144_adr_taxonomy_advisory_never_blocks_pos() {
+  # POSITIVE (ratchet posture): the SAME forbidden-decision-type fixture that
+  # fails full-blocking MUST NOT block in advisory mode (always exit 0). This
+  # locks the advisory->blocking ratchet that ADR-0160 ships first.
+  local helper="$PWD/gate/lib/check_adr_taxonomy.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_144_adr_taxonomy_advisory_never_blocks_pos" "Rule G-28 / Rule 144: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_144_adr_taxonomy_advisory_never_blocks_pos" "Rule G-28 / Rule 144: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r144_tax_advisory"
+  _g28_taxonomy_scratch "$sroot"
+  _g28_write_view "$sroot/docs/adr/normalized/ADR-9106.yaml" \
+    ADR-9106 active_guidance L0 method_signature '["x"]' '[]' ''
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_adr_taxonomy.py" --repo "$sroot" --mode advisory 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_144_adr_taxonomy_advisory_never_blocks_pos" "Rule G-28 / Rule 144: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  # Advisory: rc 0 even though the finding is still reported.
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "is FORBIDDEN at decision_level 'L0'"; then
+    ok "rule_144_adr_taxonomy_advisory_never_blocks_pos" "Rule G-28 / Rule 144: advisory mode reports the leak but never blocks (exit 0) — ratchet soak posture"
+  else
+    fail "rule_144_adr_taxonomy_advisory_never_blocks_pos" "Rule G-28 / Rule 144 advisory case unexpected: rc=$rc (want 0) out=$(echo "$out" | head -1)"
+  fi
+}
+
+# --- check_historical_adr_governance.py (the same Rule G-28 / Rule 144) ------
+
+# Stand up an isolated scratch repo at $1 for the historical-governance helper:
+# the helper, a minimal adrs.json with one fact, the ledger, and the normalized
+# dir. $2 = ADR id, $3 = adrs.json status, $4 = include-ledger-entry (1|0),
+# $5 = include-normalized-view (1|0).
+_g28_historical_scratch() {
+  local sroot="$1" adr="$2" status="$3" with_ledger="$4" with_view="$5"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/gate/lib" "$sroot/architecture/facts/generated" \
+           "$sroot/docs/governance" "$sroot/docs/adr/normalized"
+  cp "$PWD/gate/lib/check_historical_adr_governance.py" \
+     "$sroot/gate/lib/check_historical_adr_governance.py"
+  cat > "$sroot/architecture/facts/generated/adrs.json" <<EOF
+{"facts":[{"observed_value":{"id":"$adr","status":"$status"}}]}
+EOF
+  if [[ "$with_ledger" == "1" ]]; then
+    cat > "$sroot/docs/governance/adr-remediation-ledger.yaml" <<EOF
+schema_version: 1
+last_updated: 2026-05-30
+entries:
+  - adr: $adr
+    raw_path: docs/adr/${adr#ADR-}-synthetic.yaml
+    normalized_path: docs/adr/normalized/$adr.yaml
+    current_state: active_guidance
+    remediation_action: ""
+    required_follow_up: ""
+    owner: chao
+    due_wave: ""
+EOF
+  else
+    cat > "$sroot/docs/governance/adr-remediation-ledger.yaml" <<EOF
+schema_version: 1
+last_updated: 2026-05-30
+entries: []
+EOF
+  fi
+  if [[ "$with_view" == "1" ]]; then
+    : > "$sroot/docs/adr/normalized/$adr.yaml"
+  fi
+}
+
+test_rule_144_historical_adr_clean_coverage_pos() {
+  # POSITIVE: an accepted ADR with BOTH a ledger entry and a normalized view
+  # passes blocking mode with two OK: lines.
+  local helper="$PWD/gate/lib/check_historical_adr_governance.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_144_historical_adr_clean_coverage_pos" "Rule G-28 / Rule 144: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_144_historical_adr_clean_coverage_pos" "Rule G-28 / Rule 144: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r144_hist_pos"
+  _g28_historical_scratch "$sroot" ADR-9201 accepted 1 1
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_historical_adr_governance.py" --repo "$sroot" --mode blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "has a ledger entry" && echo "$out" | grep -q "has a normalized view"; then
+    ok "rule_144_historical_adr_clean_coverage_pos" "Rule G-28 / Rule 144: an accepted ADR with a ledger entry + normalized view passes blocking with full coverage"
+  else
+    fail "rule_144_historical_adr_clean_coverage_pos" "Rule G-28 / Rule 144: clean-coverage case unexpectedly failed: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_144_historical_adr_missing_ledger_entry_neg() {
+  # NEGATIVE: an accepted ADR absent from the ledger MUST fail blocking with a
+  # MISSING-LEDGER-ENTRY line (ledger-totality assertion).
+  local helper="$PWD/gate/lib/check_historical_adr_governance.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_144_historical_adr_missing_ledger_entry_neg" "Rule G-28 / Rule 144: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_144_historical_adr_missing_ledger_entry_neg" "Rule G-28 / Rule 144: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r144_hist_noledger"
+  # Accepted ADR, NO ledger entry, but a view exists -> isolates the ledger gap.
+  _g28_historical_scratch "$sroot" ADR-9202 accepted 0 1
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_historical_adr_governance.py" --repo "$sroot" --mode blocking 2>&1); rc=$?
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "^MISSING-LEDGER-ENTRY: ADR-9202"; then
+    ok "rule_144_historical_adr_missing_ledger_entry_neg" "Rule G-28 / Rule 144: a raw ADR with no ledger entry is detected and fails closed (blocking)"
+  else
+    fail "rule_144_historical_adr_missing_ledger_entry_neg" "Rule G-28 / Rule 144 missing-ledger-entry case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_144_historical_adr_missing_normalized_view_neg() {
+  # NEGATIVE: an accepted ADR WITH a ledger entry but NO normalized view MUST
+  # fail blocking with a MISSING-NORMALIZED-VIEW line (coverage assertion).
+  local helper="$PWD/gate/lib/check_historical_adr_governance.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_144_historical_adr_missing_normalized_view_neg" "Rule G-28 / Rule 144: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_144_historical_adr_missing_normalized_view_neg" "Rule G-28 / Rule 144: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r144_hist_noview"
+  # Accepted ADR, ledger entry present, NO view -> isolates the coverage gap.
+  _g28_historical_scratch "$sroot" ADR-9203 accepted 1 0
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_historical_adr_governance.py" --repo "$sroot" --mode blocking 2>&1); rc=$?
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "^MISSING-NORMALIZED-VIEW: ADR-9203"; then
+    ok "rule_144_historical_adr_missing_normalized_view_neg" "Rule G-28 / Rule 144: an accepted ADR with no normalized view is detected and fails closed (blocking)"
+  else
+    fail "rule_144_historical_adr_missing_normalized_view_neg" "Rule G-28 / Rule 144 missing-normalized-view case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_144_historical_adr_advisory_never_blocks_pos() {
+  # POSITIVE (ratchet posture): the SAME un-governed ADR that fails blocking
+  # MUST NOT block in advisory mode (always exit 0) — the soak posture
+  # ADR-0160 wires while the normalization wave back-fills the ledger/views.
+  local helper="$PWD/gate/lib/check_historical_adr_governance.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_144_historical_adr_advisory_never_blocks_pos" "Rule G-28 / Rule 144: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_144_historical_adr_advisory_never_blocks_pos" "Rule G-28 / Rule 144: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r144_hist_advisory"
+  _g28_historical_scratch "$sroot" ADR-9204 accepted 0 0
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_historical_adr_governance.py" --repo "$sroot" --mode advisory 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "^ADVISORY:"; then
+    ok "rule_144_historical_adr_advisory_never_blocks_pos" "Rule G-28 / Rule 144: advisory mode reports the gaps but never blocks (exit 0) — ratchet soak posture"
+  else
+    fail "rule_144_historical_adr_advisory_never_blocks_pos" "Rule G-28 / Rule 144 advisory case unexpected: rc=$rc (want 0) out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_144_historical_adr_missing_facts_fatal_neg() {
+  # NEGATIVE: the apex authority adrs.json is the source of truth for WHICH ADRs
+  # exist; if it is absent the helper MUST fail closed (exit 1) in EVERY mode,
+  # including advisory — a missing apex authority is never an advisory condition.
+  local helper="$PWD/gate/lib/check_historical_adr_governance.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_144_historical_adr_missing_facts_fatal_neg" "Rule G-28 / Rule 144: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_144_historical_adr_missing_facts_fatal_neg" "Rule G-28 / Rule 144: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r144_hist_nofacts"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/gate/lib" "$sroot/docs/governance" "$sroot/docs/adr/normalized"
+  cp "$PWD/gate/lib/check_historical_adr_governance.py" \
+     "$sroot/gate/lib/check_historical_adr_governance.py"
+  # Deliberately no architecture/facts/generated/adrs.json.
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_historical_adr_governance.py" --repo "$sroot" --mode advisory 2>&1); rc=$?
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "^ERROR:"; then
+    ok "rule_144_historical_adr_missing_facts_fatal_neg" "Rule G-28 / Rule 144: a missing adrs.json fails closed (exit 1) even in advisory mode"
+  else
+    fail "rule_144_historical_adr_missing_facts_fatal_neg" "Rule G-28 / Rule 144 missing-adrs.json case did not fail closed: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

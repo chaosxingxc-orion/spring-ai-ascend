@@ -1849,3 +1849,29 @@
   artifact: gate/check_architecture_sync.sh#local_plan_path_ban
   asserts: "Rule 143 -- active authority (product/, docs/adr/, docs/governance/ excluding rule-history.md, architecture/, CLAUDE.md, AGENTS.md) MUST NOT reference the local agent-host .claude plans directory in either Windows-backslash or POSIX-forward-slash form; the only permitted surfaces are listed in gate/local-plan-path-exemptions.txt."
   governance_infra: true
+
+# ---------------------------------------------------------------------------
+# 2026-05-30 progressive-learning-curve-remediation W3 — ADR Governance Model
+# (Rule 144 / kernel Rule G-28; enforcers E192-E193).
+# Authority: docs/governance/rules/rule-G-28-adr-normalization.md + ADR-0160.
+# Both helpers ship advisory (the ADR-0160 ratchet starts soft); a missing
+# helper or vanished adrs.json fails closed.
+# ---------------------------------------------------------------------------
+
+- id: E192
+  constraint_ref: "Rule G-28 (ADR Normalization); ADR-0160 (ADR Governance Model)"
+  kind: gate-script
+  level: L1
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#adr_taxonomy_normalization
+  asserts: "Rule 144 -- every normalized ADR view (docs/adr/normalized/ADR-NNNN.yaml) MUST satisfy docs/governance/adr-governance-policy.yaml (required-field list + the closed five-value current_state set + per-state field-presence invariants) AND docs/governance/adr-taxonomy.yaml (per-decision_level decision_type altitude — a forbidden lower-altitude decision_type is layer-purity leakage). Backed by gate/lib/check_adr_taxonomy.py (modes advisory/changed-files-blocking/full-blocking; PyYAML required, its absence is a config error). Wired advisory at W3 landing per the ADR-0160 ratchet."
+  governance_infra: true
+
+- id: E193
+  constraint_ref: "Rule G-28 (ADR Normalization); ADR-0160 (ADR Governance Model)"
+  kind: gate-script
+  level: L1
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#historical_adr_governance
+  asserts: "Rule 144 -- ledger totality (every raw ADR enumerated in architecture/facts/generated/adrs.json has a docs/governance/adr-remediation-ledger.yaml entry) + normalized-view coverage (every accepted ADR has a docs/adr/normalized/ADR-NNNN.yaml view). Backed by gate/lib/check_historical_adr_governance.py (modes advisory/changed-files/blocking); a missing adrs.json is fatal (exit 1) in every mode so a vanished apex fact never green-washes. Wired advisory at W3 landing per the ADR-0160 ratchet."
+  governance_infra: true
