@@ -39,7 +39,7 @@ if [[ -f "$_r110_test_file" && -f "$_r110_gate_file" ]]; then
       fail_rule "prevention_rule_scope_completeness" "Rule $_r110_rid declares scope_surfaces in $_r110_gate_file but has only $_r110_fixture_count test_rule_${_r110_rid}_* fixtures (need ≥2) -- Rule 110 / E155 (META per ADR-0093)"
       _r110_fail=1
     fi
-  done < <(awk '/^# Rule [0-9]+ — /{match($0,/^# Rule ([0-9]+)/,m); cr=m[1]; ls=0; next} cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_gate_file" 2>/dev/null)
+  done < <(awk '/^# Rule [0-9]+ — /{ str=substr($0, 8); space_idx=index(str, " "); cr=substr(str, 1, space_idx - 1); ls=0; next } cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_gate_file" 2>/dev/null)
 fi
 if [[ $_r110_fail -eq 0 ]]; then pass_rule "prevention_rule_scope_completeness"; fi
 

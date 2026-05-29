@@ -26,8 +26,12 @@ else
     | sort -u)
   _r88_parallel_set=$(awk '
     /^# Rule [0-9]+.?[a-z]? (—|--) / {
-      match($0, /^# Rule [0-9]+.?[a-z]? (—|--) ([a-z0-9_]+)/, arr)
-      print arr[2]
+      str = substr($0, 8)
+      space_idx = index(str, " ")
+      rest = substr(str, space_idx + 1)
+      sub(/^[^a-zA-Z0-9_]*/, "", rest)
+      match(rest, /^[a-zA-Z0-9_]+/)
+      print substr(rest, RSTART, RLENGTH)
     }
     /^# === END OF RULES ===$/ { exit }
   ' "$_r88_canonical" | sort -u)

@@ -50,7 +50,7 @@ for _r103_f in "${_r103_files[@]}"; do
       for (i = 1; i <= NR; i++) {
         line = lines[i]
         # Check for agent-platform or agent-runtime (not -core variant)
-        match_pf = (line ~ /\<agent-platform\>/)
+        match_pf = (line ~ /([^a-zA-Z0-9_-]|^)agent-platform([^a-zA-Z0-9_-]|$)/)
         match_rt = (line ~ /agent-runtime[^-]/) || (line ~ /agent-runtime$/)
         if (!match_pf && !match_rt) continue
         # Build ±3 marker window

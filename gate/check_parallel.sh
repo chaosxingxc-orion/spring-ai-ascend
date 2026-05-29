@@ -139,8 +139,14 @@ awk '
   BEGIN { prev_slug = ""; prev_start = 0; idx = 0 }
   /^# Rule [0-9]+.?[a-z]? (—|--) / {
     emit_prev(NR - 1)
-    match($0, /^# Rule ([0-9]+.?[a-z]?) (—|--) ([a-z0-9_]+)/, arr)
-    prev_slug = arr[1] "_" arr[3]
+    str = substr($0, 8)
+    space_idx = index(str, " ")
+    rule_id = substr(str, 1, space_idx - 1)
+    rest = substr(str, space_idx + 1)
+    sub(/^[^a-zA-Z0-9_]*/, "", rest)
+    match(rest, /^[a-zA-Z0-9_]+/)
+    slug = substr(rest, RSTART, RLENGTH)
+    prev_slug = rule_id "_" slug
     prev_start = NR
     next
   }

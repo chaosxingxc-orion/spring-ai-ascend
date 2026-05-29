@@ -34,9 +34,13 @@ awk '
   BEGIN { prev_slug = ""; prev_start = 0 }
   /^# Rule [0-9]+.?[a-z]? — / {
     emit_prev(NR - 1)
-    match($0, /^# Rule ([0-9]+.?[a-z]?) — ([a-z_0-9]+)/, arr)
-    prev_num = arr[1]
-    prev_slug = arr[2]
+    str = substr($0, 8)
+    space_idx = index(str, " ")
+    prev_num = substr(str, 1, space_idx - 1)
+    rest = substr(str, space_idx + 1)
+    sub(/^[^a-zA-Z0-9_]*/, "", rest)
+    match(rest, /^[a-zA-Z0-9_]+/)
+    prev_slug = substr(rest, RSTART, RLENGTH)
     prev_start = NR
     next
   }

@@ -4803,8 +4803,12 @@ else
     | sort -u)
   _r88_parallel_set=$(awk '
     /^# Rule [0-9]+.?[a-z]? (—|--) / {
-      match($0, /^# Rule [0-9]+.?[a-z]? (—|--) ([a-z0-9_]+)/, arr)
-      print arr[2]
+      str = substr($0, 8)
+      space_idx = index(str, " ")
+      rest = substr(str, space_idx + 1)
+      sub(/^[^a-zA-Z0-9_]*/, "", rest)
+      match(rest, /^[a-zA-Z0-9_]+/)
+      print substr(rest, RSTART, RLENGTH)
     }
     /^# === END OF RULES ===$/ { exit }
   ' "$_r88_canonical" | sort -u)
@@ -4969,7 +4973,7 @@ else
     if [[ ! -f "$_r92_expected" ]]; then
       _r92_missing="${_r92_missing}${_r92_rid} "
     fi
-  done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{match($0, /^# Rule ([0-9]+.?[a-z]?) — /, a); print a[1]}' "$_r92_canonical")
+  done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{ str=substr($0, 8); space_idx=index(str, " "); print substr(str, 1, space_idx - 1) }' "$_r92_canonical")
   if [[ -n "$_r92_missing" ]]; then
     fail_rule "gate_rules_corpus_freshness" "$_r92_dir lacks rule file(s) for canonical header(s): ${_r92_missing}-- Rule 92 / E125 (run bash gate/lib/extract_rules.sh to refresh)"
     _r92_fail=1
@@ -5338,8 +5342,11 @@ else
               window = ""
               for (j = lo; j <= hi; j++) window = window " " lines[j]
               # Match `<N>/<M> self-tests` or `<N>/<M> tests passed` or `<N>/<M> gate self-tests`
-              if (match(line, /([0-9]+)\/([0-9]+)[[:space:]]+(self-tests|tests passed|tests pass|gate self-tests)/, arr)) {
-                denom = arr[2]
+              if (match(line, /[0-9]+\/[0-9]+[[:space:]]+(self-tests|tests passed|tests pass|gate self-tests)/)) {
+                matched_str = substr(line, RSTART, RLENGTH)
+                split(matched_str, parts, "/")
+                match(parts[2], /^[0-9]+/)
+                denom = substr(parts[2], RSTART, RLENGTH)
                 if (denom != live && window !~ markers) {
                   print i ":self_tests_denom:claim=" denom ":live=" live ":" line
                 }
@@ -5781,7 +5788,7 @@ for _r103_f in "${_r103_files[@]}"; do
       for (i = 1; i <= NR; i++) {
         line = lines[i]
         # Check for agent-platform or agent-runtime (not -core variant)
-        match_pf = (line ~ /\<agent-platform\>/)
+        match_pf = (line ~ /([^a-zA-Z0-9_-]|^)agent-platform([^a-zA-Z0-9_-]|$)/)
         match_rt = (line ~ /agent-runtime[^-]/) || (line ~ /agent-runtime$/)
         if (!match_pf && !match_rt) continue
         # Build ±3 marker window
@@ -5961,7 +5968,7 @@ _r106_pom_modules=$(awk '/<modules>/,/<\/modules>/' pom.xml 2>/dev/null \
                     | grep -oE '<module>[^<]+</module>' \
                     | sed -E 's,</?module>,,g' | sort -u || true)
 _r106_pom_count=$(echo -n "$_r106_pom_modules" | grep -c . || true)
-_r106_reactor_declared=$(awk '/^\s+reactor_modules:/{print $2; exit}' "$_r106_status")
+_r106_reactor_declared=$(awk '/^[[:space:]]+reactor_modules:/{print $2; exit}' "$_r106_status")
 _r106_metadata_files=$(find . -maxdepth 2 -name module-metadata.yaml -type f 2>/dev/null \
                        | grep -v '^./target/' | sort -u | wc -l | tr -d ' ')
 if [[ -n "$_r106_reactor_declared" && "$_r106_pom_count" != "$_r106_reactor_declared" ]]; then
@@ -6284,7 +6291,7 @@ if [[ -f "$_r110_test_file" && -f "$_r110_gate_file" ]]; then
       fail_rule "prevention_rule_scope_completeness" "Rule $_r110_rid declares scope_surfaces in $_r110_gate_file but has only $_r110_fixture_count test_rule_${_r110_rid}_* fixtures (need ≥2) -- Rule 110 / E155 (META per ADR-0093)"
       _r110_fail=1
     fi
-  done < <(awk '/^# Rule [0-9]+ — /{match($0,/^# Rule ([0-9]+)/,m); cr=m[1]; ls=0; next} cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_gate_file" 2>/dev/null)
+  done < <(awk '/^# Rule [0-9]+ — /{ str=substr($0, 8); space_idx=index(str, " "); cr=substr(str, 1, space_idx - 1); ls=0; next } cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_gate_file" 2>/dev/null)
 fi
 if [[ $_r110_fail -eq 0 ]]; then pass_rule "prevention_rule_scope_completeness"; fi
 

@@ -73,7 +73,7 @@ _r106_pom_modules=$(awk '/<modules>/,/<\/modules>/' pom.xml 2>/dev/null \
                     | grep -oE '<module>[^<]+</module>' \
                     | sed -E 's,</?module>,,g' | sort -u || true)
 _r106_pom_count=$(echo -n "$_r106_pom_modules" | grep -c . || true)
-_r106_reactor_declared=$(awk '/^\s+reactor_modules:/{print $2; exit}' "$_r106_status")
+_r106_reactor_declared=$(awk '/^[[:space:]]+reactor_modules:/{print $2; exit}' "$_r106_status")
 _r106_metadata_files=$(find . -maxdepth 2 -name module-metadata.yaml -type f 2>/dev/null \
                        | grep -v '^./target/' | sort -u | wc -l | tr -d ' ')
 if [[ -n "$_r106_reactor_declared" && "$_r106_pom_count" != "$_r106_reactor_declared" ]]; then

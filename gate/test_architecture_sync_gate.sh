@@ -4201,7 +4201,7 @@ cat > "$_r88_pos_root/gate/check_parallel.sh" <<'SHEOF'
 # parallel wrapper stub
 SHEOF
 _r88_pos_canon_set=$(grep -E '^# Rule [0-9]+.?[a-z]? (—|--) ' "$_r88_pos_root/gate/check_architecture_sync.sh" | sed -E 's/^# Rule [0-9]+.?[a-z]? (—|--) //' | awk '{print $1}' | sort -u)
-_r88_pos_par_set=$(awk '/^# Rule [0-9]+.?[a-z]? (—|--) / { match($0, /^# Rule [0-9]+.?[a-z]? (—|--) ([a-z_]+)/, arr); print arr[2] } /^# === END OF RULES ===$/ { exit }' "$_r88_pos_root/gate/check_architecture_sync.sh" | sort -u)
+_r88_pos_par_set=$(awk '/^# Rule [0-9]+.?[a-z]? (—|--) / { str=substr($0, 8); space_idx=index(str, " "); rest=substr(str, space_idx + 1); sub(/^[^a-zA-Z0-9_]*/, "", rest); match(rest, /^[a-zA-Z0-9_]+/); print substr(rest, RSTART, RLENGTH) } /^# === END OF RULES ===$/ { exit }' "$_r88_pos_root/gate/check_architecture_sync.sh" | sort -u)
 _r88_pos_missing=$(comm -23 <(echo "$_r88_pos_canon_set") <(echo "$_r88_pos_par_set") | grep -v '^$' || true)
 if [[ -z "$_r88_pos_missing" ]]; then
   ok "rule88_serial_parallel_parity_pos" "em-dash + END-marker canonical script has parity with parallel awk extraction"
@@ -4340,7 +4340,7 @@ while IFS= read -r _r92_rid; do
   _r92_letter=$(echo "$_r92_rid" | grep -oE '[a-z]$' || true)
   _r92_padded=$(printf "%03d" "$_r92_num")
   [[ -f "$_r92_pos_root/gate/rules/rule-${_r92_padded}${_r92_letter}.sh" ]] || _r92_pos_missing="${_r92_pos_missing}${_r92_rid} "
-done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{match($0, /^# Rule ([0-9]+.?[a-z]?) — /, a); print a[1]}' "$_r92_pos_root/gate/check_architecture_sync.sh")
+done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{ str=substr($0, 8); space_idx=index(str, " "); print substr(str, 1, space_idx - 1) }' "$_r92_pos_root/gate/check_architecture_sync.sh")
 if [[ -z "$_r92_pos_missing" ]]; then
   ok "rule_92_freshness_pos" "all canonical headers have matching gate/rules files"
 else
@@ -4367,7 +4367,7 @@ while IFS= read -r _r92_rid; do
   _r92_letter=$(echo "$_r92_rid" | grep -oE '[a-z]$' || true)
   _r92_padded=$(printf "%03d" "$_r92_num")
   [[ -f "$_r92_neg_root/gate/rules/rule-${_r92_padded}${_r92_letter}.sh" ]] || _r92_neg_missing="${_r92_neg_missing}${_r92_rid} "
-done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{match($0, /^# Rule ([0-9]+.?[a-z]?) — /, a); print a[1]}' "$_r92_neg_root/gate/check_architecture_sync.sh")
+done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{ str=substr($0, 8); space_idx=index(str, " "); print substr(str, 1, space_idx - 1) }' "$_r92_neg_root/gate/check_architecture_sync.sh")
 if [[ -n "$_r92_neg_missing" ]]; then
   ok "rule_92_freshness_drift_neg" "Rule 92 correctly flags missing: $_r92_neg_missing"
 else
@@ -4742,8 +4742,11 @@ MEOF
         hi = i + 3; if (hi > NR) hi = NR
         window = ""
         for (j = lo; j <= hi; j++) window = window " " lines[j]
-        if (match(line, /([0-9]+)\/([0-9]+)[[:space:]]+(self-tests|tests passed|tests pass|gate self-tests)/, arr)) {
-          denom = arr[2]
+        if (match(line, /[0-9]+\/[0-9]+[[:space:]]+(self-tests|tests passed|tests pass|gate self-tests)/)) {
+          matched_str = substr(line, RSTART, RLENGTH)
+          split(matched_str, parts, "/")
+          match(parts[2], /^[0-9]+/)
+          denom = substr(parts[2], RSTART, RLENGTH)
           if (denom != live && window !~ markers) print i ":denom:" denom
         }
       }
@@ -4915,8 +4918,8 @@ _r99_pos_violations=$(awk -v end_verbs="$_r99_end_verbs" -v defnums="51 " '
   BEGIN { rule = ""; body = "" }
   /^#### Rule [0-9]+/ {
     if (rule) emit()
-    match($0, /^#### Rule ([0-9]+)/, m)
-    rule = m[1]; body = ""; next
+    match($0, /[0-9]+/)
+    rule = substr($0, RSTART, RLENGTH); body = ""; next
   }
   /^---$/ && rule { emit(); rule = ""; next }
   rule { body = body $0 " " }
@@ -4961,8 +4964,8 @@ _r99_neg_violations=$(awk -v end_verbs="$_r99_end_verbs" -v defnums="51 " '
   BEGIN { rule = ""; body = "" }
   /^#### Rule [0-9]+/ {
     if (rule) emit()
-    match($0, /^#### Rule ([0-9]+)/, m)
-    rule = m[1]; body = ""; next
+    match($0, /[0-9]+/)
+    rule = substr($0, RSTART, RLENGTH); body = ""; next
   }
   /^---$/ && rule { emit(); rule = ""; next }
   rule { body = body $0 " " }
@@ -5241,7 +5244,7 @@ _r103_pos_hits=$(awk -v markers="$_r103_pos_markers" '
   END {
     for (i = 1; i <= NR; i++) {
       line = lines[i]
-      if ((line ~ /\<agent-platform\>/) || (line ~ /agent-runtime[^-]/) || (line ~ /agent-runtime$/)) {
+      if ((line ~ /([^a-zA-Z0-9_-]|^)agent-platform([^a-zA-Z0-9_-]|$)/) || (line ~ /agent-runtime[^-]/) || (line ~ /agent-runtime$/)) {
         lo = i - 3; if (lo < 1) lo = 1
         hi = i + 3; if (hi > NR) hi = NR
         window = ""
@@ -5272,7 +5275,7 @@ _r103_neg_hits=$(awk -v markers="$_r103_neg_markers" '
   END {
     for (i = 1; i <= NR; i++) {
       line = lines[i]
-      if ((line ~ /\<agent-platform\>/) || (line ~ /agent-runtime[^-]/) || (line ~ /agent-runtime$/)) {
+      if ((line ~ /([^a-zA-Z0-9_-]|^)agent-platform([^a-zA-Z0-9_-]|$)/) || (line ~ /agent-runtime[^-]/) || (line ~ /agent-runtime$/)) {
         lo = i - 3; if (lo < 1) lo = 1
         hi = i + 3; if (hi > NR) hi = NR
         window = ""
@@ -5428,7 +5431,7 @@ test_rule_106_c_module_topology_parity_pos() {
   printf '<modules>\n  <module>agent-bus</module>\n  <module>agent-service</module>\n</modules>\n' > "$_r106c_pos_root/pom.xml"
   printf 'repository_counts:\n  reactor_modules: 2\n' > "$_r106c_pos_root/architecture-status.yaml"
   _pom_count=$(awk '/<modules>/,/<\/modules>/' "$_r106c_pos_root/pom.xml" | grep -oE '<module>[^<]+</module>' | wc -l | tr -d ' ')
-  _declared=$(awk '/^\s+reactor_modules:/{print $2}' "$_r106c_pos_root/architecture-status.yaml")
+  _declared=$(awk '/^[[:space:]]+reactor_modules:/{print $2}' "$_r106c_pos_root/architecture-status.yaml")
   if [[ "$_pom_count" == "$_declared" ]]; then
     ok "rule_106_c_module_topology_parity_pos" "Rule G-8.c accepts matching pom + repository_counts (count=$_pom_count)"
   else
@@ -5729,7 +5732,7 @@ SHEOF
 test_rule_107_pos() { :; }
 test_rule_107_neg() { :; }
 SHEOF
-  _declared=$(awk '/^# Rule [0-9]+ — /{match($0,/^# Rule ([0-9]+)/,m); cr=m[1]; ls=0; next} cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_pos_root/gate_script.sh" | head -1)
+  _declared=$(awk '/^# Rule [0-9]+ — /{ str=substr($0, 8); space_idx=index(str, " "); cr=substr(str, 1, space_idx - 1); ls=0; next } cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_pos_root/gate_script.sh" | head -1)
   _count=$(grep -cE "^test_rule_${_declared}_" "$_r110_pos_root/test_fixtures.sh" 2>/dev/null || echo 0)
   if [[ -n "$_declared" && "$_count" -ge 2 ]]; then
     ok "rule_110_scope_completeness_pos" "Rule 110 accepts Rule $_declared with $_count fixtures"
@@ -5751,7 +5754,7 @@ SHEOF
   cat > "$_r110_neg_root/test_fixtures.sh" <<'SHEOF'
 test_rule_200_single() { :; }
 SHEOF
-  _declared=$(awk '/^# Rule [0-9]+ — /{match($0,/^# Rule ([0-9]+)/,m); cr=m[1]; ls=0; next} cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_neg_root/gate_script.sh" | head -1)
+  _declared=$(awk '/^# Rule [0-9]+ — /{ str=substr($0, 8); space_idx=index(str, " "); cr=substr(str, 1, space_idx - 1); ls=0; next } cr!="" { ls++; if (ls>20){cr=""; next} if ($0 ~ /^# scope_surfaces:/){print cr; cr=""} }' "$_r110_neg_root/gate_script.sh" | head -1)
   _count=$(grep -cE "^test_rule_${_declared}_" "$_r110_neg_root/test_fixtures.sh" 2>/dev/null || echo 0)
   if [[ -n "$_declared" && "$_count" -lt 2 ]]; then
     ok "rule_110_scope_completeness_neg" "Rule 110 catches Rule $_declared with only $_count fixture (need ≥2)"
@@ -7901,7 +7904,7 @@ fi
 # result. If the emitted-result-id count is lower than the function count,
 # at least one function ran silently. Note: a function may emit MORE than one
 # id (some emit 2-3), so we only fail when emitted < expected.
-_pre4_emitted_ids=$(awk '/^PASS / || /^FAIL / { match($0, /\[([a-zA-Z0-9_]+)\]/, arr); if (arr[1] != "") print arr[1] }' "$_pre4_all_results" | sort -u | wc -l)
+_pre4_emitted_ids=$(awk '/^PASS / || /^FAIL / { if (match($0, /\[[a-zA-Z0-9_]+\]/)) { print substr($0, RSTART + 1, RLENGTH - 2) } }' "$_pre4_all_results" | sort -u | wc -l)
 if [[ "$_pre4_emitted_ids" -lt "$_pre4_expected_fn_count" ]]; then
   echo "FAIL: ${_pre4_emitted_ids} unique test_ids emitted but ${_pre4_expected_fn_count} functions defined — at least one function emitted nothing; Rule 89 / E122 fail-closed exit" >&2
   exit 1

@@ -34,7 +34,7 @@ else
     if [[ ! -f "$_r92_expected" ]]; then
       _r92_missing="${_r92_missing}${_r92_rid} "
     fi
-  done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{match($0, /^# Rule ([0-9]+.?[a-z]?) — /, a); print a[1]}' "$_r92_canonical")
+  done < <(awk '/^# === END OF RULES ===$/{exit} /^# Rule [0-9]+.?[a-z]? — /{ str=substr($0, 8); space_idx=index(str, " "); print substr(str, 1, space_idx - 1) }' "$_r92_canonical")
   if [[ -n "$_r92_missing" ]]; then
     fail_rule "gate_rules_corpus_freshness" "$_r92_dir lacks rule file(s) for canonical header(s): ${_r92_missing}-- Rule 92 / E125 (run bash gate/lib/extract_rules.sh to refresh)"
     _r92_fail=1
