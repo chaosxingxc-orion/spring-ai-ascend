@@ -559,8 +559,8 @@ families:
   - id: F-recursive-prevention-irony
     title: META Prevention Rule Exhibits the Defect Class It Prevents
     first_observed_rc: rc17
-    last_observed_rc: rc20
-    occurrences: [rc17, rc19, rc20]
+    last_observed_rc: progressive-learning-curve-remediation-2026-05-29
+    occurrences: [rc17, rc19, rc20, progressive-learning-curve-remediation-2026-05-29]
     root_cause: |
       A META rule whose job is preventing defect class X is itself
       vulnerable to class X. rc17 introduced Rule G-9 / Rule 111 to
@@ -626,6 +626,25 @@ families:
       neither the kernel nor the card ever mandated). Workflows remain a
       deleted-module-name CONTENT surface (Rule G-2.1/94/98); they are simply
       no longer architecture-refresh signals.
+      progressive-learning-curve-remediation (2026-05-29) recurrence — same
+      mechanism, two more surface classes: a docs-only commit landing advisory
+      inventories under docs/governance/ plus review logs under docs/logs/reviews/
+      spuriously became a G-9.b refresh signal because (a) the Local-Plan-Path
+      family (F-local-plan-path-in-active-authority) names the bare container
+      `docs/governance` as a Rule G-26 CONTENT surface, and (b) many families
+      name `docs/logs/reviews/*.md` as a design-doc-language CONTENT surface.
+      Neither is an architecture-refresh signal (the kernel's signals are new
+      ADR / baseline_metrics / new RELEASE NOTE under docs/logs/releases/ / Rule
+      heading / rule card), yet derive_signal_paths re-used surfaces[] for the
+      freshness signal set, forcing a vacuous content-diff on a no-op commit.
+      Fix: SIGNAL_PATH_EXCLUSION_PREFIXES adds docs/logs/reviews/ + docs/reviews/
+      (review/verification logs are audit-trail artifacts emitted BY review and
+      remediation waves, not refresh events); a new SIGNAL_PATH_EXCLUSION_CONTAINERS
+      exact-match set drops the bare authority containers product / architecture /
+      docs/governance whose only refresh-bearing children (docs/adr/,
+      docs/governance/rules/, docs/governance/architecture-status.yaml) are already
+      explicit in BASE_SIGNAL_PATHS. All three remain CONTENT surfaces for the
+      deleted-name / plan-path gates; they are simply no longer refresh signals.
 
   - id: F-progressive-loading-weak-enforcement
     title: CLAUDE.md Kernel Loaded but Rules Don't Fire at Work Time

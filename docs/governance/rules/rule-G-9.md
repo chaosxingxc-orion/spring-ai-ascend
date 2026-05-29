@@ -81,12 +81,24 @@ An "architecture refresh signal" is any of:
 
 In addition, each family's declared `surfaces[]` are derived into the signal
 set (ADV-RC18-3), so a change to a watched surface re-triggers re-evaluation of
-that family. **Exception — CI workflow files (`.github/workflows/`) are excluded
-from the signal set** (`SIGNAL_PATH_EXCLUSION_PREFIXES`). Workflow YAML is
-infrastructure: it is watched for deleted-module-name *content* by Rule
-G-2.1 / 94 / 98, but a routine action-version or runner bump is not an
-architecture-refresh event and must not force a `recurring-defect-families.yaml`
-content-diff.
+that family. **Exceptions — two surface classes are watched for *content* by the
+deleted-module-name / plan-path gates (Rule G-2.1 / 94 / 98 / G-26) but are NOT
+architecture-refresh signals, so they are dropped from the signal set:**
+
+- **Prefix exclusions** (`SIGNAL_PATH_EXCLUSION_PREFIXES`): CI workflow files
+  (`.github/workflows/`) and review/verification logs (`docs/logs/reviews/`,
+  `docs/reviews/`). A routine action-version or runner bump is infrastructure
+  maintenance; a review/verification log is an audit-trail artifact emitted *by*
+  review and remediation waves. Neither is a defect-family event. (Release notes
+  under `docs/logs/releases/` ARE a signal and stay in `BASE_SIGNAL_PATHS`.)
+- **Container exclusions** (`SIGNAL_PATH_EXCLUSION_CONTAINERS`, exact-token match):
+  the bare top-level authority directories `product`, `architecture`, and
+  `docs/governance` that families name so Rule G-26 scans their whole content.
+  Their only refresh-bearing children (`docs/adr/`, `docs/governance/rules/`,
+  `docs/governance/architecture-status.yaml`) survive because the match is exact,
+  not prefix. Treating the bare container as a signal would make every doc-only
+  commit under it (advisory inventories, onboarding, principles, the ledger
+  itself) a spurious refresh signal forcing a vacuous content-diff.
 
 If ANY refresh signal is present in `git log` since the last commit that
 modified `recurring-defect-families.yaml`, the implementation in

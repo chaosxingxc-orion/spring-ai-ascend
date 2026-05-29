@@ -71,15 +71,40 @@ BASE_SIGNAL_PATHS = [
 ]
 
 # Path prefixes that family surfaces may legitimately name (so the deleted-
-# module-name gates Rule G-2.1 / 94 / 98 scan their CONTENT) but which are NOT
-# architecture-refresh signals for G-9.b. The kernel's refresh signals are new
-# ADR / baseline_metrics change / new release note / #### Rule heading change —
-# never CI runtime config. A CI workflow bump (action version, runner image,
-# step tweak) is infrastructure maintenance, not a defect-family event, so it
-# must not force a recurring-defect-families.yaml content-diff. derive_signal_paths
-# filters these out AFTER glob expansion so the surface still resolves (no spurious
-# "matched no files" WARN) but never enters the freshness signal set.
-SIGNAL_PATH_EXCLUSION_PREFIXES = (".github/workflows/",)
+# module-name gates Rule G-2.1 / 94 / 98 and the design-doc-language families scan
+# their CONTENT) but which are NOT architecture-refresh signals for G-9.b. The
+# kernel's refresh signals are new ADR / baseline_metrics change / new RELEASE
+# NOTE (docs/logs/releases/) / #### Rule heading change — never CI runtime config
+# and never review/verification logs. A CI workflow bump (action version, runner
+# image, step tweak) is infrastructure maintenance; a review/verification log
+# (docs/logs/reviews/, docs/reviews/) is an audit-trail artifact emitted BY review
+# and remediation waves — neither is a defect-family event, so neither must force a
+# recurring-defect-families.yaml content-diff. (Contrast docs/logs/releases/, which
+# IS a signal and stays in BASE_SIGNAL_PATHS.) derive_signal_paths filters these out
+# AFTER glob expansion so the surface still resolves (no spurious "matched no files"
+# WARN) but never enters the freshness signal set.
+SIGNAL_PATH_EXCLUSION_PREFIXES = (
+    ".github/workflows/",
+    "docs/logs/reviews/",
+    "docs/reviews/",
+)
+
+# Bare top-level authority *container* directory tokens that several families
+# name as a `surfaces[]` entry so the Local-Plan-Path ban (Rule G-26 / E191) and
+# the deleted-module-name gates scan their entire CONTENT, but which are NOT
+# themselves architecture-refresh signals for G-9.b. Their only refresh-bearing
+# children are already enumerated explicitly in BASE_SIGNAL_PATHS
+# (`docs/adr/`, `docs/governance/rules/`, `docs/governance/architecture-status.yaml`).
+# Treating the bare container as a signal makes EVERY commit touching ANY file
+# under it (advisory inventories, onboarding, principles, DSL/profile/fact edits,
+# the ledger itself) a spurious refresh signal that forces a vacuous content-diff
+# — the same defect-shape `.github/workflows/` solved. Excluded by EXACT match
+# (not prefix) so the legitimate BASE children under the same tree are preserved.
+SIGNAL_PATH_EXCLUSION_CONTAINERS = frozenset({
+    "product",
+    "architecture",
+    "docs/governance",
+})
 
 
 def fail(msg: str) -> None:
@@ -362,11 +387,17 @@ def derive_signal_paths(yaml_data: dict, repo_root: str = ".") -> list[str]:
                     file=sys.stderr,
                 )
             paths.add(base)
-    # Drop CI-runtime / infrastructure surfaces (e.g. .github/workflows/*.yml):
-    # watched for content by the deleted-name gates, but not G-9.b refresh signals.
+    # Drop CI-runtime / infrastructure surfaces (e.g. .github/workflows/*.yml,
+    # prefix match) and bare top-level authority container directories (exact
+    # match): both are watched for content by the deleted-name / plan-path gates,
+    # but neither is a G-9.b architecture-refresh signal. Container children that
+    # ARE refresh signals (docs/adr/, docs/governance/rules/, architecture-status.yaml)
+    # survive because the exclusion is an exact-token match, not a prefix.
     return sorted(
         p for p in paths
-        if p and not p.startswith(SIGNAL_PATH_EXCLUSION_PREFIXES)
+        if p
+        and not p.startswith(SIGNAL_PATH_EXCLUSION_PREFIXES)
+        and p.rstrip("/") not in SIGNAL_PATH_EXCLUSION_CONTAINERS
     )
 
 
