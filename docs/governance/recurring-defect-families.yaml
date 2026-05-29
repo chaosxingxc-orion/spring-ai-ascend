@@ -39,6 +39,7 @@
 
 schema_version: 1
 last_updated: 2026-05-29  # engineport-frame-authority-convergence wave (branch review/2026-05-29-engineport-frame-authority-convergence, on the ADR-0158 engine-boundary tip): records recurrences of F-numeric-drift (8 baselines moved in lockstep after the EnginePort/EngineeringFrame regen), F-authority-surface-path-drift (engine.orchestration.spi → bus.spi.engine authority-surface lag) and F-cross-authority-agreement (generated facts/contract/product/workspace divergence at the d66749b merge tip); REGISTERS 2 new families F-non-english-in-tier1-authority (prevention Rule G-25) and F-local-plan-path-in-active-authority (prevention Rule G-26). Family count 39→41. Prior MERGE-of-PR#93/#94 note retained below.
+# progressive-learning-curve-remediation W1 (branch governance/progressive-learning-curve-remediation): ratifies the eight-node software-engineering learning curve as decision authority via three methodology ADRs (ADR-0159 progressive-learning-curve-and-authority-lanes, ADR-0160 adr-governance-model, ADR-0161 engineering-frame-package-cluster-anchor-and-card-over-dsl). The three were drafted sharing one ADR number (all `id: ADR-0159`); reconciliation renumbered them 0159/0160/0161, regenerated adrs.json + adr-graph.dsl (88->91 ADR nodes), and bumped architecture_graph_nodes 674->677 / architecture_graph_edges 1301->1329 in lockstep. REGISTERS 1 new family F-adr-id-collision-across-files (prevention: ID-uniqueness reconciliation + a candidate gate that fails closed when two docs/adr/*.yaml files declare the same id:). Family count 41->42. last_updated stays 2026-05-29 (UTC today; the local +08 date 2026-05-30 is UTC-future and would fail Rule G-9.a).
 # engineport-frame-authority-convergence (2026-05-29): MERGE-of-PR #93 (agent-service L1 v1.2 — ADR-0155 + family F-agent-service-internal-boundary-drift) and PR #94 (AI progressive learning curve — ADR-0156 product authority + traceability + G-16..G-21 + Phase 7 CLAUDE-deferred.md elimination + family F-acceptance-evidence-misses-target-branch). Both branches bumped baselines independently; post-merge baselines reconciled to live recount. Phase-B convergence (feature/phase-b-convergence) advanced F-agent-service-internal-boundary-drift: PR-93's 14 orphan contracts + ADR-0155 product-claim-bound, orphans 15→0 / placeholders 8→0, and Rules G-17/G-18/G-20 promoted advisory→BLOCKING (G-21 placeholder=0 trigger met). Branch feature/dev-posture-run-execution recorded a component-level recurrence of F-half-built-state-machine (AsyncRunDispatcher shipped with only the NoOp producer in the running app; orchestrating producer materialized for dev posture).
 # rc54 corrective publication refresh: rc53 findings were classified before repair and mapped to existing F-agentic-contract-composition-gap + F-placeholder-leaks-into-active-corpus. No new problem type was registered; family count remained 20. rc54 closed the cited composition gaps with AgentDefinition.advisorBindings, same-package typed advisor carriers, shared advisor-model-hook-order/v1, constructor-owned planner/skill invariants, Rule 129 composition truth, and Rule 127 current-placeholder guard. Prior rc53 notes retained below.
 # rc35-second-pass wave (same PR follow-up commits, after rc35-correctness-batch): a second round of 4 parallel adversarial reviewers (correctness + adversarial + gate-script-consistency + doc-coherence) ran against the rc35-correctness-batch tip and found that several of the rc35 first-pass closures were incomplete in scope. (a) The cancel-vs-complete race guard in SyncOrchestrator (rc35 first pass) was applied ONLY at the three terminal SUCCEEDED/FAILED save sites; five sibling non-terminal save sites (PENDING→RUNNING at run() entry; RUNNING→SUSPENDED at S2C suspend + child suspend; SUSPENDED→RUNNING at S2C resume + child resume) remained blind puts that silently overwrote a parallel CANCELLED with RUNNING/SUSPENDED — same family pattern, sibling surfaces. (b) ADR-0108's "common base shared with Rule R-J .b" wording claimed cross-authority parity that didn't hold — Rule R-J .b's pre-existing cancel-state-transition MDC `{ runId, fromStatus, toStatus, actor, occurredAt }` shares only `occurredAt` with the new tenant-mismatch base `{ surface, reason, occurredAt }`. (c) S2C envelope deadline was honoured unconditionally in resolveCallTimeoutMillis with no clamp against the orchestrator's configured s2cCallTimeout ceiling — a client-supplied 1h deadline defeated the 30s default. (d) check_parallel.sh + extract_rules.sh + check_architecture_sync.sh + 8 sibling rule files used the regex `^# Rule [0-9]+[a-z]? (—|--) ` which silently skipped dotted sub-clause headers `# Rule 24.c` / `# Rule 29.c`; both rule bodies were absorbed into Rule 11's chunk and attributed there in NDJSON timing + Rule 72 regression detection — and the "132 == 132" serial/parallel parity check at Rule G-5.a was vacuously true because BOTH sides used the same broken regex. Headers were always there since rc1; only attribution moved. (e) check_architecture_sync.sh used 10 bare `python3 - <<PYEOF` invocations (Rules 23/25/28j/28k/37/63/68/78/80/94) that silently fell through to vacuous PASS with `python3: not found` on Windows hosts where only `python` exists; CI on Ubuntu was green because python3 exists there. Same fail-open pattern, different surface. (f) check_recurring_families.sh inverted the corpus-wide python preference (python before python3) so on Python-2-as-`python` systems the rc19 validator would crash with SyntaxError. (g) R-038 + R-042 both rewrote docs/governance/architecture-graph.yaml under xargs -P concurrently with R-040/041/097/106 readers — read-during-write race; closed by atomic temp-file + os.replace in build_architecture_graph.py. (h) emit_contract_tables.sh wrote 6 hardcoded /tmp/contract-tables-<phase>.md paths with no PID + check_architecture_sync.sh + rule-099.sh used /tmp/_r99_hits.$$ — concurrent gate runs would clobber. All eight closed across Commits A/B/C of this same PR. Pattern reinforcement (BOTH passes): rc35's first-pass discipline ("found 8 bugs in parallel, fixed all") still leaves the cited bugs's SIBLINGS unfound; the second-pass adversarial review systematically constructed sibling scenarios and found 8 more. Lesson: a wave is not complete when the cited bugs are fixed — it's complete when the sibling-scenario sweep returns empty.
@@ -2123,3 +2124,55 @@ families:
       notes (e.g. interaction logs under docs/logs/) remain out of scope.
       Promotion to `closed` requires one full release cycle with zero new
       occurrences after G-26 went blocking.
+
+  - id: F-adr-id-collision-across-files
+    title: Two or More ADR Source Files Declare the Same id, Silently Collapsing in the ID-Keyed Extractors
+    first_observed_rc: progressive-learning-curve-remediation-W1-2026-05-29
+    last_observed_rc: progressive-learning-curve-remediation-W1-2026-05-29
+    occurrences: [progressive-learning-curve-remediation-W1-2026-05-29]
+    root_cause: |
+      Multiple ADR source files under docs/adr/ carry the same `id:` value.
+      Both the fact extractor (tools/architecture-workspace
+      #AdrFactExtractor) and the DSL emitter (#AdrGraphFragmentEmitter) key
+      ADRs by their `id:` field, not by filename — AdrGraphFragmentEmitter
+      builds a `TreeMap<String,...>` keyed by id, so N files sharing one id
+      collapse to a SINGLE map entry (last-writer-wins by file-sort order),
+      silently dropping the other N-1 ADRs from architecture/generated/
+      adr-graph.dsl AND from the workspace closure. A reviewer (or an AI
+      agent) reading "ADR-0159" likewise cannot tell which of the colliding
+      decisions the number names — the governance-clarity failure the
+      progressive-learning-curve remediation is closing at the corpus level.
+      Distinct from F-vocabulary-identity-collision (two same-simple-name
+      Java types in one module) and F-architecture-authority-fragmentation
+      (one inventory split across surfaces): here a single authoritative
+      IDENTIFIER (the ADR number) is multiply-claimed across sibling files in
+      one authority lane. Observed 2026-05-29 when the three methodology-
+      ratification ADRs were drafted all carrying `id: ADR-0159`
+      (0159-progressive-learning-curve-and-authority-lanes.yaml,
+      0159-adr-governance-model.yaml,
+      0159-engineering-frame-package-cluster-anchor-and-card-over-dsl.yaml);
+      adrs.json enumerated only the file that sorted last and adr-graph.dsl
+      would have emitted a single ADR-0159 node for all three. Reconciliation
+      renumbered them to 0159 / 0160 / 0161 (id field + filename in lockstep),
+      after which the fact layer enumerated 91 unique ADR ids and the graph
+      gained the expected +3 nodes / +28 edges.
+    surfaces:
+      - docs/adr/*.yaml
+      - architecture/facts/generated/adrs.json
+      - architecture/generated/adr-graph.dsl
+      - tools/architecture-workspace/src/main/java/com/huawei/ascend/tools/architecture/facts/AdrFactExtractor.java
+      - tools/architecture-workspace/src/main/java/com/huawei/ascend/tools/architecture/fragment/AdrGraphFragmentEmitter.java
+    prevention_rules:
+      - "Reconciliation discipline (this wave): when ADRs are authored in parallel, assign distinct ids before merge; the id: field and the NNNN- filename prefix move in lockstep."
+      - "candidate gate-rule (free band G-27..G-33) — glob docs/adr/*.yaml + docs/adr/locked/*.md, parse each id:, FAIL closed on any duplicate id across files; the non-vacuity guard fails the rule if zero ADR files are matched. This makes the silent TreeMap/extractor collapse a fail-closed condition instead of a last-writer-wins data loss."
+      - "ADR-0160 (ADR Governance Model) — the adr-remediation-ledger keys one entry per raw ADR by raw_path, so a duplicate id surfaces as two ledger rows pointing at different files; G-28 (ADR Normalization) requires a normalized view per accepted ADR id, which a collision cannot satisfy uniquely."
+    cleanup_status: monitoring
+    open_residual: |
+      The concrete 0159x3 collision is fully resolved (renumbered to
+      0159/0160/0161; fact layer + graph regenerated and verified unique).
+      No executable gate yet fails closed on a future duplicate ADR id — the
+      candidate ID-uniqueness check above is registered as planning input for
+      the free G-27..G-33 band and is not authored by this methodology-
+      ratification wave (which ships no rule/enforcer/gate by itself per
+      ADR-0159 section 9). Promotion to `closed` requires that gate to land
+      blocking with positive AND negative self-test fixtures.

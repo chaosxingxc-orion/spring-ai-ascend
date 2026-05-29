@@ -1,0 +1,247 @@
+id: ADR-0161
+title: "EngineeringFrame as Package-Cluster Anchor + Card-over-DSL — the Frame Card is a readable interpretation of DSL+facts, never authority"
+status: accepted
+governance_infra: true
+date: 2026-05-30
+level: L1
+view: development
+affects_level: L1
+affects_view: [logical, development]
+authors:
+  - chao
+extends:
+  - ADR-0157    # EngineeringFrame Ontology — this ADR thickens the frame definition it introduced (Module -> EngineeringFrame -> FunctionPoint) and binds a per-frame readable card to it
+  - ADR-0154    # Fact-Layer Authority — the Frame Card sits BELOW generated facts in the authority cascade; this ADR places it on that cascade as a non-authoritative interpretation layer
+relates_to:
+  - ADR-0147    # Structurizr Workspace Authority — profile tag + required-property + relationship vocabulary home; the two new properties land here in lockstep
+  - ADR-0151    # L1 Feature Registry canonical schema — the advisory->blocking ratchet pattern this ADR reuses (ADR-0151 -> ADR-0153 -> Rule G-14)
+  - ADR-0153    # L1 Feature Registry closure (Rule G-14 blocking) — the precedent for promoting a required-property gate to blocking after a clean-soak window
+  - ADR-0156    # Product Authority and Traceability — frames stay claim-agnostic; the Card explains structure, never re-binds a ProductClaim onto the structural axis
+  - ADR-0158    # EnginePort boundary — supplies the EF-ENGINE-PORT pilot-card candidate (agent-bus, design_only) and the EF-ORCHESTRATION-SPI re-home the Card must mirror, not redefine
+context: |
+  ADR-0157 introduced `EngineeringFrame` as the structural-axis layer between
+  Module and FunctionPoint, and the corpus now carries 17 frames
+  (`architecture/features/engineering-frames.dsl` declares 11; the six
+  agent-service Layer elements re-tagged in `architecture/features/features.dsl`
+  supply the rest) anchoring 18 FunctionPoints
+  (`architecture/features/function-points.dsl`). A 2026-05-29 product-owner +
+  software-engineering review
+  (docs/reviews/2026-05-29-progressive-learning-curve-engineering-correction-
+  checklist.en.md) accepted the ontology but returned a verdict: the frame is a
+  useful structural INDEX, but it is not yet a strong enough engineering ANCHOR
+  for a new AI agent or a new engineer.
+
+  Verified against the live repo (facts, not prose), the gap is concrete:
+
+    * The frame element is thin. A `SAA EngineeringFrame` is required to carry
+      only `saa.owner` + `saa.sourceAdr`
+      (architecture/profile/required-properties.yaml). It identifies a slice but
+      does not state WHICH Java package or package cluster is the anchor, which
+      types live inside the boundary, which packages are explicitly excluded,
+      or which FunctionPoint-to-method mappings hold.
+    * No per-frame readable artifact exists. `architecture/docs/L1/frames/` does
+      not exist; the only frame-level prose is the single collective narrative
+      `architecture/docs/L1/engineering-frames.md`. Frame Cards present: 0 / 17
+      (per docs/governance/remediation-inventory/frame-and-fp-gap.md).
+    * The binding property does not exist. No DSL element declares
+      `saa.cardPath` or `saa.primaryPackage`, and the profile does not require
+      them — so there is no machine-checkable DSL -> readable-card link to gate.
+    * An AI agent landing on a frame from `architecture/workspace.dsl` cannot
+      answer, from artifacts alone, which packages/classes are in scope before
+      editing — the non-negotiable bar the review set (its questions 3-12).
+
+  The review's risk, stated plainly: a frame-explanation layer authored to fill
+  this gap could silently become a SECOND architecture registry — inventing
+  frame IDs, owners, statuses, or relationship edges that diverge from the
+  Structurizr DSL and the generated facts. The repository already paid for
+  registry divergence (the dual-home rule-registry defect; the F-numeric-drift /
+  F-deleted-module-name-leakage families that ADR-0154 collapsed). Any thicker
+  frame artifact MUST be subordinate to the existing authority spine, not a
+  rival to it.
+decision: |
+  Thicken the EngineeringFrame into a package-cluster engineering ANCHOR, and
+  bind to it a per-frame readable artifact — the Frame Card — that is a
+  DERIVED INTERPRETATION of the DSL and generated facts, never an authority.
+
+    1. Corrected EngineeringFrame definition. An EngineeringFrame is a
+       package-level or package-cluster engineering anchor INSIDE a single
+       Maven module. It names the capability boundary, the primary Java package
+       root, the included/excluded package set, the internal type inventory,
+       class collaboration, communication contracts, forbidden dependencies,
+       and the FunctionPoint-to-class/method mappings for one stable engineering
+       area. Default rule: one frame normally anchors ONE primary package root;
+       if the true boundary spans sibling packages the frame MAY declare an
+       explicit package cluster (included + excluded lists). A cross-module
+       concern MUST NOT become one cross-module frame by default — it is one
+       frame per owning module plus the contracts between them. This refines,
+       and does not repeal, ADR-0157: frames remain durable, claim-agnostic,
+       and carry the `saa.structuralAxis "true"` sentinel.
+
+    2. Two new required properties on `SAA EngineeringFrame` (Structurizr
+       profile, ADR-0147 home):
+         * `saa.cardPath` — REQUIRED on every frame. The repo-relative path to
+           the frame's readable card, `architecture/docs/L1/frames/<frame-id>.md`.
+         * `saa.primaryPackage` — REQUIRED on every `shipped` frame; OPTIONAL on
+           `design_only` / skeleton frames that have no Java package home yet.
+           The fully-qualified primary Java package root the frame anchors
+           (e.g. `com.huawei.ascend.bus.spi.engine`).
+       Long include/exclude package lists and type inventories stay in the Frame
+       Card and the generated facts — they are NOT promoted to DSL properties
+       (the profile team's explicit boundary). Adding a required property is not
+       sufficient without ProfileValidator parity: `ProfileValidator` +
+       `ProfileYamlParityTest` move in lockstep with the YAML (the recurring
+       "YAML changed, validator didn't" failure mode).
+
+    3. Card-over-DSL — authority direction is fixed and one-way. The Frame Card
+       is a READABLE INTERPRETATION layer. It invents NO IDs, owners, statuses,
+       or relationship edges. Every identity field in a card
+       (frame_id / dsl_element / owner_module / status / primary_package) is
+       COPIED from the DSL element and MUST match it; every factual code / type /
+       method / contract / test claim is CITED by generated fact ID
+       (`code-symbol/<kebab-fqn>`, the class fact's `public_methods[]` entry,
+       `test/<kebab-fqn>`, `contract-op/<kebab-op-id>`) and MUST resolve in
+       `architecture/facts/generated/*.json`. The authority cascade is, top to
+       bottom:
+
+           ADR
+             -> architecture/profile/*
+               -> architecture/workspace.dsl
+                 -> architecture/features/engineering-frames.dsl
+                   -> architecture/facts/generated/*.json
+                     -> architecture/docs/L1/frames/<frame-id>.md   (Card: derived)
+                       -> gate
+                         -> docs/governance/architecture-status.yaml
+
+       Where the Card and the DSL disagree, the DSL wins; where the DSL and
+       generated facts disagree, generated facts win. This places the Card on
+       the ADR-0154 cascade explicitly as the lowest interpretation tier — the
+       same posture the normalized-ADR views and the frame-and-fp-gap inventory
+       already hold. No second architecture registry is created.
+
+    4. Frame Card shape. Each card carries YAML frontmatter (the copied-from-DSL
+       identity block + fact_refs) and seven prose sections: (1) Identity,
+       (2) Capability Boundary (can do / cannot do / owned state / external +
+       forbidden dependencies), (3) Type Inventory (fact-cited), (4) Internal
+       Collaboration, (5) Communication Contracts, (6) FunctionPoint Mapping
+       (entry + participating class/method anchors, contract refs, test refs,
+       fact IDs), (7) Constraints and Verification. The template explicitly marks
+       which fields are COPIED from DSL and which are FACT-BACKED. A `design_only`
+       card MUST state what proof is missing before promotion to `shipped`; a
+       `mock_functional` card MUST state why it is not yet a real production
+       implementation. The frames/ directory ships a `README.md` and a
+       `_template.md`; at least one real pilot card lands first — the
+       high-fan-out shipped frame `EF-ACCESS-ADMISSION` (9 anchors) and/or the
+       design-only boundary frame `EF-ENGINE-PORT` (agent-bus, ADR-0158).
+
+    5. Gate coverage (a new structural-axis rule, sibling to Rules G-22/G-23).
+       The gate fails closed when: a frame DSL element lacks `saa.cardPath`; a
+       `saa.cardPath` does not point to an existing card; a shipped frame lacks
+       `saa.primaryPackage`; card frontmatter disagrees with the DSL element's
+       `saa.id` / `saa.owner` / `saa.status` / `saa.primaryPackage`; a shipped
+       card cites a package / class / method / test / contract absent from
+       generated facts; or a card lists FunctionPoints not backed by DSL
+       `anchors` edges (or declared participating-frame references). Failures
+       are file/line-oriented and name the exact broken link. Each failure mode
+       ships with a negative AND a positive self-test fixture in
+       `gate/test_architecture_sync_gate.sh` (fail-closed discipline; the
+       non-vacuity guard for any auto-discovering rule).
+
+    6. Staged ratchet, mirroring ADR-0151 -> ADR-0153 (Rule G-14) and
+       ADR-0156's G-16..G-21 promotions. Phase 1: profile binding + validator
+       parity + template + README + pilot card, with the new card gate ADVISORY
+       at landing. Phase 2: roll Frame Cards across all shipped frames (lighter
+       design-only cards for design-only frames). Phase 3: promote the card gate
+       to BLOCKING after a 14-day soak, gated on a clean workspace gate and a
+       green ProfileYamlParityTest. Phases 4-5 (post-promotion, forward-looking):
+       an `EngineeringFrameFactExtractor` may emit
+       `architecture/facts/generated/engineering-frames.json` (frame -> package /
+       type / FunctionPoint / contract / test links), making the Card downstream
+       of generated frame facts where practical, with the gate failing on
+       frame/prose/fact disagreement.
+
+    7. Reading-path placement. The AI reading path gains the Frame Card AFTER the
+       collective `engineering-frames.md` narrative and BEFORE
+       `function-points.dsl`: product intent + generated facts first, then the
+       L0 constraint layer, then the frame map, then the per-frame card, then
+       FunctionPoints, then contracts, then code. The AGENTS.md reading-path edit
+       lands once cards exist (Phase 2), not before.
+consequences: |
+  Positive
+  --------
+    * A new AI agent or engineer can land on a frame from
+      `architecture/workspace.dsl`, open its Card, and learn which Java packages,
+      classes, interfaces, methods, contracts, and tests are in scope BEFORE
+      editing — and verify every factual claim against generated facts. The
+      review's non-negotiable bar (its questions 3-12) becomes answerable from
+      artifacts alone.
+    * The frame stops being a thin index and becomes the engineering anchor of
+      the progressive learning curve, without bloating the DSL: identity + the
+      two binding properties live in DSL; the heavy inventory lives in the Card
+      and the facts.
+    * The "second registry" risk is closed structurally. The Card is pinned to
+      the lowest interpretation tier of the ADR-0154 cascade; a card that drifts
+      from the DSL identity block or cites a non-existent fact fails the gate
+      rather than quietly establishing a rival truth.
+
+  Negative / cost
+  ---------------
+    * Authoring cost. 17 frames each need a Card; the seven shipped frames need
+      full cards with fact-cited type inventories, and the FunctionPoint-anchor
+      gap (11 shipped FunctionPoints carry none of code/test/contract refs) is a
+      parallel, denser remediation surface the cards will expose but do not by
+      themselves close.
+    * Two new required properties tighten the profile. Until every frame
+      declares `saa.cardPath` (and every shipped frame `saa.primaryPackage`), the
+      gate must stay ADVISORY or the blocking workspace gate hard-fails — hence
+      the staged ratchet. The `saa.primaryPackage`-only-on-shipped split must be
+      encoded in both the YAML and `ProfileValidator`, or the parity test breaks.
+    * The Frame Card is prose that can rot. The DSL-parity + fact-citation gate
+      is the anti-rot mechanism; it is only as strong as its negative fixtures,
+      so each failure mode MUST ship a negative self-test, not only a positive
+      one.
+
+  LOCKSTEP FLAG for the implementation phase (/impl-mode)
+  -------------------------------------------------------
+    This decision changes authority surfaces consumed by the profile validator
+    and the architecture sync gate. The design is NOT complete until, in lockstep
+    (Rule G-13 byte-identical re-render where applicable + Rule G-8 baseline
+    parity):
+      * `architecture/profile/required-properties.yaml` adds `saa.cardPath`
+        (all frames) and `saa.primaryPackage` (shipped frames) under
+        `SAA EngineeringFrame`, and `ProfileValidator` + `ProfileYamlParityTest`
+        move with it;
+      * `architecture/features/engineering-frames.dsl` (and the re-tagged frame
+        elements in `architecture/features/features.dsl`) gain `saa.cardPath` on
+        every frame and `saa.primaryPackage` on every shipped frame; the
+        workspace gate stays green;
+      * a new Rule G-27 (Frame-Card / DSL parity) lands with kernel paragraph,
+        card at `docs/governance/rules/rule-G-27.md`, an enforcer row in
+        `docs/governance/enforcers.yaml` citing the rule card + gate artifact +
+        assertion, and `gate/lib/check_engineering_frame_cards.py` wired into
+        `gate/check_architecture_sync.sh` with positive AND negative fixtures in
+        `gate/test_architecture_sync_gate.sh`;
+      * `docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`
+        moves ONLY after the live counts change (active_gate_checks, enforcer_rows,
+        active engineering rules, and any workspace element/relationship deltas),
+        each with its `allowed_claim` + README phrase frozen in lockstep
+        (the 3-surface baseline discipline).
+    The reconcile / gate phases own these shared authority surfaces; this ADR
+    authorizes the changes and fixes their direction, it does not author them.
+
+  Forward-looking
+  ---------------
+    * Pilot first: `EF-ACCESS-ADMISSION` (highest fan-out, 9 anchors) and/or
+      `EF-ENGINE-PORT` (the ADR-0158 boundary frame) prove the Card shape and the
+      gate before the corpus-wide roll-out.
+    * L2 destination: the cards make the structural boundary legible, but the
+      runtime detail flagged as leaked into L0/L1 (method call chains, runtime
+      sequences, SQL/RLS/GUC, HTTP status/route-verb/header behaviour, filter
+      ordering, wire formats, method signatures, test-class inventories) migrates
+      to `architecture/docs/L2/<slug>/...`, which is greenfield today
+      (`architecture/docs/L2/` ships only its scaffold README). Standing up at
+      least one L2 slug is a prerequisite for that migration and is tracked
+      separately.
+    * Post-promotion: the `EngineeringFrameFactExtractor` +
+      `architecture/facts/generated/engineering-frames.json` make the Card a
+      downstream projection of generated frame facts, completing the ADR-0154
+      "facts outrank prose" posture for the structural axis.

@@ -1779,6 +1779,22 @@ Prevention rules (current):
 
 Open residual: G-26 scans the named authority surfaces against an explicit exemption allowlist. Plan-path references in non-authority working notes (e.g. interaction logs under `docs/logs/`) remain out of scope. Promotion to `closed` requires one full release cycle with zero new occurrences after G-26 went blocking.
 
+### F-adr-id-collision-across-files — Two or More ADR Source Files Declare the Same id, Silently Collapsing in the ID-Keyed Extractors
+
+**Status: monitoring** (the concrete collision is resolved; no executable gate yet fails closed on a future duplicate ADR id — registered as planning input for the free G-27..G-33 band.)
+
+One occurrence (progressive-learning-curve-remediation W1, 2026-05-29): the three methodology-ratification ADRs were drafted all carrying `id: ADR-0159` (`0159-progressive-learning-curve-and-authority-lanes.yaml`, `0159-adr-governance-model.yaml`, `0159-engineering-frame-package-cluster-anchor-and-card-over-dsl.yaml`). Both the fact extractor (`AdrFactExtractor`) and the DSL emitter (`AdrGraphFragmentEmitter`) key ADRs by their `id:` field, not by filename; `AdrGraphFragmentEmitter` builds a `TreeMap` keyed by id, so the three files would collapse to a single ADR-0159 node (last-writer-wins by file-sort order) and `adrs.json` would enumerate only the last-sorting file. Reconciliation renumbered them to 0159 / 0160 / 0161 (id field + filename in lockstep), after which the fact layer enumerated 91 unique ADR ids and the architecture graph gained the expected +3 nodes / +28 edges.
+
+Root cause: a single authoritative identifier (the ADR number) was multiply-claimed across sibling files in one authority lane; the ID-keyed extractor/emitter dedupe silently rather than failing closed, so two of three real decisions would have vanished from the fact layer and the graph. Distinct from `F-vocabulary-identity-collision` (same-simple-name Java types in one module) and `F-architecture-authority-fragmentation` (one inventory split across surfaces).
+
+Prevention rules (current):
+
+- **Reconciliation discipline (this wave)** — when ADRs are authored in parallel, assign distinct ids before merge; the `id:` field and the `NNNN-` filename prefix move in lockstep.
+- **Candidate gate-rule (free band G-27..G-33)** — glob `docs/adr/*.yaml` + `docs/adr/locked/*.md`, parse each `id:`, fail closed on any duplicate id across files; a non-vacuity guard fails the rule if zero ADR files are matched.
+- **ADR-0160 (ADR Governance Model)** — the adr-remediation-ledger keys one entry per raw ADR by `raw_path`, so a duplicate id surfaces as two ledger rows pointing at different files; G-28 requires a uniquely-resolving normalized view per accepted ADR id.
+
+Open residual: the concrete 0159×3 collision is fully resolved (renumbered, fact layer + graph regenerated and verified unique). No executable gate yet fails closed on a future duplicate ADR id; the candidate ID-uniqueness check is planning input for the free G-27..G-33 band and is not authored by this methodology-ratification wave. Promotion to `closed` requires that gate to land blocking with positive AND negative self-test fixtures.
+
 ---
 
 ## §4 — Cross-references

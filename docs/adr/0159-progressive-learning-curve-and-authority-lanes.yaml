@@ -1,0 +1,310 @@
+id: ADR-0159
+title: "Progressive Learning Curve and Authority Lanes — the eight-node software-engineering chain, its single-owner lanes, and the granularity ladder as decision authority"
+status: accepted
+governance_infra: true
+date: 2026-05-30
+level: L0
+view: development
+affects_level: L1
+affects_view: [logical, development]
+authors:
+  - chao
+extends:
+  - ADR-0156    # Product Authority and Traceability — ProductClaim as the binding axis; this ADR pins the full chain that claim anchors
+  - ADR-0157    # EngineeringFrame Ontology — the structural axis (Module -> EngineeringFrame -> FunctionPoint); this ADR names it node 4 of the curve
+relates_to:
+  - ADR-0064    # Layer-0 governing principles (P-A business/platform decoupling) — the learning curve operationalises the same separation of concerns
+  - ADR-0068    # Layered 4+1 and Architecture Graph — L0/L1/L2 view stack the lanes draw their layer-purity boundary from
+  - ADR-0098    # Phase-contract scenario loading — cards-as-authority precedent for "one machine-checkable owner per concern"
+  - ADR-0144    # Layer-vs-Package matrix — the L0/L1 (architecture) vs L2 (package/code detail) boundary this ADR turns into a lane invariant
+  - ADR-0147    # Structurizr Workspace Authority — DSL graph lane (element IDs + relationship vocabulary) is the navigation spine
+  - ADR-0154    # Fact-layer authority — generated facts outrank prose; node 7 of the curve and the Evidence axis terminus-but-one
+  - ADR-0158    # EnginePort transport-agnostic boundary — the first decision authored end-to-end against this curve (product claim -> frame -> contract)
+context: |
+  The repository now owns every surface a software-engineering delivery
+  model needs: product claims (ADR-0156), normalized ADRs, a Structurizr
+  workspace (ADR-0147), EngineeringFrames (ADR-0157), FunctionPoints,
+  contracts, generated facts (ADR-0154), and gates. Two reviews on
+  2026-05-29 — the progressive-learning-curve engineering correction
+  checklist and the engineering-governance systemic-remediation plan —
+  found that the surfaces exist but the CHAIN between them is neither a
+  named software-engineering artifact ladder nor a single-owner authority
+  partition.
+
+  The adjudicated defect (verified, not re-litigated here): architecture
+  authority and implementation detail are interleaved across layers.
+
+    * L0 ARCHITECTURE.md SS0.6 declares it carries no runtime contracts,
+      wire formats, or SPI signatures, yet SS0.5.3 and SS4 (#37/#41/#44)
+      carry exactly those.
+    * L1 agent-service prose carries SQL/RLS/GUC persistence, HTTP
+      status/route-verb/header behavior, servlet filter ordering, and
+      method-level CAS — and even names a literal "L2 zone" section
+      inside an L1 document.
+
+  Two readings of any given fact were therefore always available — a
+  reader could not tell current authority from leaked detail or from
+  historical evidence. The remediation plan's conclusion (section 5,
+  "Authority Lanes") is that this is a GOVERNANCE-ARCHITECTURE defect,
+  not a documentation-quality defect: the fix is to make the learning
+  curve an explicit, enforceable artifact chain in which every concern
+  has exactly one authoritative producing surface.
+
+  This ADR does not invent that chain. It ratifies, as decision
+  authority, the eight-node curve and the lane partition already drafted
+  in:
+    * docs/reviews/2026-05-29-progressive-learning-curve-engineering-
+      correction-checklist.en.md (the eight-node ladder and the
+      corrected EngineeringFrame / FunctionPoint definitions);
+    * docs/logs/reviews/2026-05-29-engineering-governance-systemic-
+      remediation.en.md sections 4-6 (the target operating model, the
+      lane table, and the four-axis dual-track join semantics).
+
+  No competing methodology doc is created: the authority chain
+  (ADR -> architecture/profile/* -> architecture/workspace.dsl ->
+  architecture/features/engineering-frames.dsl ->
+  architecture/facts/generated/*.json -> Frame Card -> gate ->
+  docs/governance/architecture-status.yaml) stays the single source of
+  truth. This ADR is the decision record that PINS that chain; the
+  normalized-ADR index and Frame Cards remain READABLE INTERPRETATION
+  layers that may not mint IDs or relationships.
+decision: |
+  Adopt the progressive learning curve as the binding software-engineering
+  delivery model, expressed as eight nodes, eight single-owner authority
+  lanes, one for each node, and one granularity ladder that refines a
+  ProductClaim down to a gate.
+
+    1. THE EIGHT NODES. Every unit of work travels this chain top to
+       bottom; each node names the external standard it answers to:
+
+         N1  Product Definition        — buyer value, personas, non-goals
+                                          (ProductClaim, PC-NNN).
+         N2  Requirement Definition     — ISO/IEC/IEEE 29148: stakeholder /
+                                          system / non-functional
+                                          requirements + acceptance criteria.
+         N3  L0 Architecture            — ISO/IEC/IEEE 42010 + C4
+                                          context/container: system boundary
+                                          and global cross-module constraints
+                                          (ADR + numbered constraint).
+         N4  EngineeringFrame           — C4 Component / arc42 building-block
+                                          (L2 building block): a Java package
+                                          or package-cluster anchor inside one
+                                          Maven module (ADR-0157).
+         N5  FunctionPoint              — arc42 runtime scenario / Cucumber
+                                          example: one concrete method or
+                                          scenario, the behavioral join point.
+         N6  Contract Surface           — OpenAPI / AsyncAPI / Java SPI: the
+                                          machine-readable promise across a
+                                          boundary.
+         N7  Implementation Facts       — extractor-generated CodeFact /
+                                          TestFact (ADR-0154); never
+                                          hand-authored.
+         N8  Verification and Gate      — executable rule + enforcer + gate +
+                                          self-test fixture; the conformance
+                                          terminus.
+
+    2. THE EIGHT AUTHORITY LANES. Each node has exactly one authoritative
+       PRODUCING lane (its single source of truth). An artifact is
+       classifiable into exactly one primary lane; cross-links are allowed,
+       authority duplication is forbidden (remediation plan section 5
+       acceptance rule). The eight lanes, with their producing surfaces and
+       what they MUST NOT own:
+
+         L1-PRODUCT      -> Product Definition (N1).
+           Owns: product/PRODUCT.md, product/claims.yaml,
+                 product/requirements.yaml (stakeholder requirements slot),
+                 product/personas.yaml, product/journey.md.
+           Must not own: Java classes, package roots, module gates,
+                 source-file migrations.
+         L2-REQUIREMENT  -> Requirement Definition (N2).
+           Owns: product/requirements.yaml (system/NFR + acceptance),
+                 product/acceptance-criteria/.
+           Must not own: architecture decisions, package detail.
+         L3-L0ARCH       -> L0 Architecture (N3).
+           Owns: architecture/docs/L0/ARCHITECTURE.md (system boundary +
+                 numbered global constraints only).
+           Must not own: class names, method names, test-class lists,
+                 route/wire implementation detail.
+         L4-FRAME        -> EngineeringFrame (N4).
+           Owns: architecture/features/engineering-frames.dsl (frame
+                 identity, module containment, anchors/traverses edges) +
+                 architecture/docs/L1/frames/<frame-id>.md (boundary, package
+                 root, public API/SPI surface, inter-frame contract).
+           Must not own: private method call chains, persistence detail,
+                 test inventory, line-level facts.
+         L5-FUNCTIONPOINT-> FunctionPoint (N5).
+           Owns: architecture/features/function-points.dsl + the
+                 FunctionPoint section of the owning Frame Card + L2 design
+                 under architecture/docs/L2/ (class/method anchor, sequence,
+                 state transition, error path).
+           Must not own: global policy, product claim, cross-module principle.
+         L6-CONTRACT     -> Contract Surface (N6).
+           Owns: docs/contracts/ (OpenAPI / AsyncAPI / contract YAML),
+                 module-metadata.yaml SPI declarations.
+           Must not own: product rationale, architecture taxonomy.
+         L7-FACTS        -> Implementation Facts (N7).
+           Owns: architecture/facts/generated/{code-symbols, tests,
+                 contract-surfaces, module-build, runtime-config, adrs}.json.
+           Must not own: hand-authored intent or future design.
+         L8-GOVERNANCE   -> Verification and Gate (N8).
+           Owns: docs/governance/rules/*.md, docs/governance/enforcers.yaml,
+                 gate/*, docs/governance/architecture-status.yaml.
+           Must not own: product or architecture design content.
+
+    3. CROSS-CUTTING AUTHORITY SPINES (not learning-curve nodes; they bind
+       the eight lanes together and are NOT a ninth concern any node may
+       duplicate):
+         * DSL graph (architecture/workspace.dsl, architecture/profile/*,
+           architecture/features/*.dsl) — the navigation spine: element IDs,
+           relationship vocabulary, views. Authored structure; carries no
+           implementation evidence (ADR-0147).
+         * ADR governance (docs/adr/*.yaml, normalized-ADR index, review
+           index) — the decision spine: every node's authority traces to an
+           accepted ADR. Reviews inspect NORMALIZED ADR state, not raw
+           historical ADR text alone.
+         * Explicit mapping (architecture/mappings/ai-understanding-map.*) —
+           the traceability spine making the cross-lane chain queryable.
+         * AI onboarding (README, CLAUDE.md, AGENTS.md, the AI reading path)
+           — the entry spine: reading sequence + the facts-before-prose
+           switch. It indexes authority; it never restates it.
+
+    4. THE GRANULARITY LADDER. The eight nodes refine through these
+       intermediate grains; each arrow is a refinement, never an ownership
+       inversion:
+
+         ProductClaim
+           -> Requirement
+             -> L0 Constraint / ADR
+               -> EngineeringFrame (Java package or package-cluster)
+                 -> Type Inventory (classes, interfaces, records, adapters)
+                   -> FunctionPoint (a concrete method / scenario)
+                     -> Contract (OpenAPI / AsyncAPI / SPI op)
+                       -> CodeFact / TestFact (generated)
+                         -> Gate (rule + enforcer + self-test)
+
+    5. THE FOUR AXES (the dual-track join, ratified from remediation plan
+       section 6.3). The curve is the spine; these axes are the directed
+       reading orders over it, and they MUST stay distinct:
+
+         Value axis:     ProductClaim -> Requirement -> Feature -> FunctionPoint
+         Structure axis: Module -> EngineeringFrame -> FunctionPoint
+         Evidence axis:  FunctionPoint -> Contract -> GeneratedFact -> Gate
+         Decision axis:  ADR -> L0/L1/L2/Contract/Gate authority
+
+       FunctionPoint is the behavioral JOIN POINT: the only object that is
+       simultaneously demanded by a requirement, anchored by an
+       EngineeringFrame, described by a contract, evidenced by generated
+       facts, verified by tests, and enforced by gates. EngineeringFrame is
+       the engineering LANDING and NAVIGATION point — a boundary object, not
+       a behavioral proof object.
+
+    6. DERIVED NAVIGATION PROJECTION, NOT OWNERSHIP.
+       `Feature --traverses--> EngineeringFrame` is DERIVED from
+       `Feature --requires--> FunctionPoint` composed with
+       `EngineeringFrame --anchors--> FunctionPoint` (ADR-0157
+       relationship vocabulary). It is a read-time projection and MUST NOT
+       be read as ownership. A model in which a ProductClaim, Requirement,
+       or Feature directly OWNS (contains) an EngineeringFrame is invalid:
+       the value axis drives behaviours, it never structurally owns them.
+
+    7. LAYER PURITY AS A LANE INVARIANT (the adjudicated defect's standing
+       fix). DEFENSIBLE at L0/L1: naming a public SPI as a boundary
+       identity, development-view package decomposition, citing an ArchUnit
+       enforcer as the mechanism. LEAKED detail that MUST migrate down to
+       L2 / contracts / generated facts: method call chains, runtime
+       sequences, SQL/RLS/GUC/persistence, HTTP status/route-verb/header
+       behavior, filter ordering, wire formats, method signatures,
+       test-class inventories. L0 owns global constraints; L1 owns frame
+       boundaries and public surfaces; L2 + contracts + facts own
+       implementation truth.
+
+    8. AUTHORITY CASCADE on conflict (single source of truth):
+       generated facts > DSL > Card/prose. Within the decision spine, an
+       accepted ADR is the authority for a node's existence and scope; the
+       normalized-ADR index and Frame Cards are readable interpretation
+       layers that may neither invent IDs/relationships nor outrank the
+       generated facts they cite.
+
+    9. ENFORCEMENT POSTURE. This ADR is the methodology RATIFICATION; it
+       declares the model authoritative and is itself `governance_infra`
+       (it serves the enforcement system, not a single buyer claim). The
+       executable lane-purity, traceability-completeness, and
+       frame/card/fact-parity gates are authored and promoted in the
+       remediation waves that consume this ADR (new Rule cards in the free
+       G-27..G-33 band with their enforcer rows and self-test fixtures).
+       Those gates land advisory and promote to blocking after a clean
+       workspace gate + fact-layer byte-identity check, mirroring the
+       ADR-0151 -> ADR-0153 (Rule G-14) and ADR-0156 (Rule G-16..G-21)
+       ratchets. This ADR creates no rule, enforcer, baseline, or DSL
+       element by itself.
+consequences: |
+  Positive
+  --------
+    * One named chain replaces "many surfaces, no ladder." A new AI agent
+      or engineer can answer, from artifacts alone, the thirteen
+      non-negotiable questions (correction checklist) and the eight
+      orientation questions (remediation plan section 4) without relying on
+      model memory or tribal knowledge.
+    * Single-owner lanes make authority duplication a gate-able defect
+      rather than a style preference: every artifact is classifiable into
+      exactly one primary lane, so the recurring "two readings of the same
+      fact" ambiguity closes at its root.
+    * Layer purity becomes a standing invariant, not a one-off cleanup: the
+      adjudicated L0/L1-carries-L2-detail defect has a permanent home for
+      the leaked detail (L2 / contracts / generated facts) and a permanent
+      rule against re-leaking it.
+    * The four axes stay distinct, so the value track can accept or reject
+      demand without mutating engineering structure (Track B lands on an
+      existing frame or escalates to an ADR, per ADR-0157), and the
+      derived Feature->traverses->EngineeringFrame projection cannot
+      silently become ownership.
+
+  Negative / cost
+  ---------------
+    * Ratifying the model exposes every artifact that currently sits in the
+      wrong lane or leaks across a layer boundary; the backlog of lane
+      reclassification and L0/L1 -> L2 detail migration is real work,
+      sequenced across the remediation waves.
+    * The chain only becomes load-bearing once the executable gates exist;
+      until the G-27..G-33 band is authored and promoted to blocking, the
+      lane partition is advisory and depends on reviewer discipline.
+    * New work now carries an explicit traceability obligation at each node
+      (claim -> requirement -> constraint -> frame -> function point ->
+      contract -> fact -> gate); the cost is paid up front per change, not
+      amortised at review.
+
+  LOCKSTEP FLAG for the implementation phase (/impl-mode)
+  -------------------------------------------------------
+    This ADR is a methodology ratification and ships NO rule, enforcer,
+    baseline, DSL element, or contract by itself. The reconcile step owns
+    every shared authority surface. When the remediation waves author the
+    executable gates that make this chain load-bearing, those changes MUST
+    land in lockstep (Rule G-13 byte-identical re-render + Rule G-8 baseline
+    parity):
+      * docs/governance/rules/rule-G-2x.md cards + docs/governance/
+        enforcers.yaml rows + gate self-test fixtures land together;
+      * docs/governance/architecture-status.yaml baseline_metrics
+        (active_gate_checks / enforcer_rows / gate_executable_test_cases,
+        and any workspace/graph node/edge deltas) move with their
+        allowed_claim + README phrases;
+      * any new required EngineeringFrame property (e.g. saa.cardPath,
+        saa.primaryPackage) stays in lockstep across architecture/profile/*
+        and ProfileValidator (ProfileYamlParityTest);
+      * the AI reading path and the explicit-mapping surface are updated
+        only after the Frame Cards and lanes they reference exist.
+
+  Forward-looking
+  ---------------
+    * Pilot: ADR-0158 (EnginePort) is the first decision authored end to end
+      against this curve — PC-004 -> requirement -> L0 boundary ->
+      EF-ENGINE-PORT frame -> FunctionPoints -> engine-port.v1 contract ->
+      generated facts -> gate — and validates the chain before the lane
+      gates promote to blocking.
+    * Post-ratification: the explicit mapping
+      (architecture/mappings/ai-understanding-map.yaml) and the AI reading
+      path (docs/governance/ai-reading-path.yaml) make the cross-lane chain
+      queryable; the EngineeringFrame fact extractor (ADR-0154 chain) may
+      later emit architecture/facts/generated/engineering-frames.json so
+      node N4 is fact-backed like N7.
+    * Reviews after this ADR inspect NORMALIZED ADR state and lane
+      classification, not raw historical ADR text alone.

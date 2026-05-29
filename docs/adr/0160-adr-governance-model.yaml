@@ -1,0 +1,258 @@
+id: ADR-0160
+title: "ADR Governance Model — every raw ADR has a ledger entry; every accepted ADR has a normalized view with five current_state values; architecture review reads the normalized view, not raw prose"
+status: accepted
+governance_infra: true
+date: 2026-05-30
+level: L0
+view: scenarios
+affects_level: L0
+affects_view: [scenarios, development]
+authors:
+  - chao
+extends:
+  - ADR-0154    # Fact-Layer Authority — architecture/facts/generated/adrs.json is the authoritative raw-ADR enumeration the ledger/views read from, never a parallel hand-count
+  - ADR-0156    # Product Authority and Traceability — the precedent for a single governing binding rule (PC-NNN) over the corpus; this ADR adds the orthogonal decision-authority-state axis
+  - ADR-0098    # Phase-contract scenario loading (cards-as-authority precedent) — the precedent for "read the curated interpretation surface, not the raw historical prose"
+relates_to:
+  - ADR-0068    # Layered 4+1 + Architecture Graph — origin of the Level x View decision-level taxonomy this model reuses (decision_level vs affected_levels)
+  - ADR-0119    # Single-source rendering coherence (Rule G-13) — the byte-identical-regen contract the readable-interpretation layer (ledger/views/review-index) must obey, never hand-amended where a generator exists
+  - ADR-0157    # EngineeringFrame Ontology — Frame Cards reference ADR authority; G-29 requires that reference to resolve to a normalized ADR state, not raw prose
+context: |
+  The 2026-05-29 engineering-governance systemic-remediation review
+  (docs/logs/reviews/2026-05-29-engineering-governance-systemic-remediation.en.md,
+  section 9 "ADR Governance Model") found that the ADR corpus cannot be
+  used as architecture-review authority in its current shape, and named
+  ADR cleanup the highest-priority remediation because future review
+  depends on ADR clarity.
+
+  Verified against the live repo (facts, not prose):
+
+    * The ADR corpus is large and mixed-format. The Wave-W0 census
+      (docs/governance/remediation-inventory/adr-census.md, derived from
+      architecture/facts/generated/adrs.json at source commit
+      98a58c1) enumerates 88 YAML-format ADRs in the fact layer; a further
+      ~56 Markdown active/deferred ADRs (docs/adr/*.md) and 11 locked
+      Markdown ADRs (docs/adr/locked/*.md) are real governing decisions
+      that the extractor does NOT yet enumerate. Any consumer that treats
+      adrs.json as the complete set under-counts the corpus.
+
+    * Individual ADRs mix decision levels and time states in one prose
+      blob. A single raw ADR can simultaneously carry a still-current L0
+      principle, a now-superseded earlier framing, an implementation-detail
+      clause that has drifted from the code, and a migration diary. The
+      review (section 2) records the surface symptom: "ADRs appear
+      inconsistent because they mix decision levels and time states."
+
+    * Several ADRs are explicitly superseded or amended in prose
+      (e.g. ADR-0079 superseded_by ADR-0088; ADR-0140 reversed in part by
+      ADR-0158; ADR-0048 amended by ADR-0050) but a reviewer cannot
+      mechanically tell, per ADR, which clauses still govern and which are
+      history. The census reports ZERO normalized views exist today — there
+      is no *normaliz* directory under docs/ or architecture/, so the only
+      way to recover current authority is to re-read the whole raw ADR and
+      infer.
+
+    * "decided at" and "affected" are conflated. The existing per-ADR
+      classification (docs/adr/ADR-CLASSIFICATION.md, authority ADR-0068)
+      carries one `level` + one `view`, but an ADR is routinely decided at
+      one level and AFFECTS several (ADR-0156 is `level: L0` with
+      `affects_level: L1`; ADR-0158 is `level: L1` with
+      `affects_view: [logical, development, physical]`). Without a stable
+      affected-levels axis, L0/L1 documents become containers for
+      lower-level implementation detail (the leakage adjudicated TRUE in
+      the same remediation).
+
+  The result: architecture review cannot reliably distinguish current
+  authority from historical evidence, and cannot be automated, because
+  reviewers must read raw historical prose and infer the current decision
+  state. This is a governance-architecture defect, not a documentation
+  quality defect.
+decision: |
+  Adopt the hard rule:
+
+      Every raw ADR in docs/adr/ (and docs/adr/locked/) MUST have a
+      remediation-ledger entry, and every ADR whose raw status is
+      `accepted` MUST have a normalized view that records exactly one
+      `current_state` drawn from a closed five-value set. Architecture
+      review derives ADR authority from the normalized view, NOT from raw
+      ADR prose. An ADR cited as current authority with no normalized view
+      is a review-blocking condition.
+
+  The five current_state values (closed set):
+
+    | current_state        | Meaning                                                | Review behavior                                                  |
+    |----------------------|--------------------------------------------------------|------------------------------------------------------------------|
+    | active_guidance      | Current decision authority.                            | Citeable as governing architecture.                              |
+    | partial_guidance     | Some guidance still active; some content stale/lower-  | Citeable ONLY through the normalized active_guidance clauses;    |
+    |                      | level/superseded.                                      | the legacy clauses are explicitly non-authoritative.             |
+    | superseded           | Replaced by a later decision.                          | NOT citeable as current authority (history only); points to its  |
+    |                      |                                                        | replacement.                                                     |
+    | historical_evidence  | Explains why the system evolved; governs nothing now.  | Citeable for context only.                                       |
+    | remediation_record   | Captures cleanup work or review findings.              | Citeable for governance traceability, not architecture authority.|
+
+  Operationalise via three authority surfaces and one rule. (This ADR
+  RATIFIES the model and pins it as decision authority; the file bodies,
+  the bulk per-ADR normalization, the rule card G-28, the enforcer row,
+  and the gate wiring are authored by the dedicated remediation tasks —
+  this ADR does not itself create or edit those surfaces, and asserts no
+  final baseline counts.)
+
+    1. ADR remediation ledger — docs/governance/adr-remediation-ledger.yaml.
+       The COMPLETE enumeration: one entry per raw ADR (raw_path,
+       normalized_path, current_state, remediation_action, required_follow_up,
+       owner, due_wave). Coverage is total over docs/adr/ and docs/adr/locked/.
+       The ledger's enumeration of WHICH ADRs exist is itself a readable
+       interpretation of architecture/facts/generated/adrs.json (extended to
+       the Markdown ADRs); it MUST NOT introduce ADR ids the fact layer /
+       raw sources do not carry (Rule G-15 / ADR-0154 authority cascade).
+
+    2. Normalized ADR views — docs/adr/normalized/ADR-NNNN.yaml, one per
+       accepted ADR, plus docs/adr/normalized/index.yaml. Each view carries
+       the normalized_adr_required_fields fixed by the governance policy:
+       adr, raw_path, current_state, decision_level, affected_levels, view,
+       decision_type, clean_decision_summary, active_guidance,
+       non_authoritative_legacy_content, supersedes, superseded_by, dsl_refs,
+       l0_constraint_refs, l1_refs, l2_refs, contract_refs, fact_refs,
+       gate_refs, review_notes. State invariants (from
+       docs/governance/adr-governance-policy.yaml):
+         * active_guidance     -> active_guidance non-empty; superseded_by empty.
+         * partial_guidance    -> active_guidance non-empty AND
+                                  non_authoritative_legacy_content non-empty.
+         * superseded          -> superseded_by required; active_guidance empty.
+         * historical_evidence -> active_guidance empty.
+         * remediation_record  -> gate_refs required when a gate change is claimed.
+
+    3. Decision-level taxonomy — docs/governance/adr-taxonomy.yaml. Splits
+       `decision_level` (where the decision is MADE) from `affected_levels`
+       (what it touches), reusing the ADR-0068 Level x View vocabulary, and
+       fixes the allowed/forbidden decision_type per level so that an
+       L0/L1 ADR cannot smuggle L2 implementation detail. Forbidden at L0:
+       implementation_class, source_file_move, method_signature,
+       test_class_inventory, private_call_chain. Forbidden at L1:
+       private_method_anchor, implementation_call_chain, database_index_detail,
+       line_level_test_inventory. L2 owns class/method anchors, sequences,
+       persistence, error paths, test mapping; contract and gate levels own
+       wire/SPI shape and enforcement respectively.
+
+    4. ADR review index — docs/adr/review-index.md. A generated summary:
+       total / normalized / unclassified counts, the per-state tallies,
+       ADRs blocked from architecture-review authority, ADRs citeable as
+       current authority, and ADRs citeable only as context.
+
+    5. One new governance rule, G-28 (ADR Normalization), card at
+       docs/governance/rules/rule-G-28-adr-normalization.md, with an
+       enforcer row and a gate check (check_adr_taxonomy.py +
+       check_historical_adr_governance.py). G-28 enforces, in three gate
+       modes (advisory -> changed-files-blocking -> full-blocking, the
+       ADR-0151 -> ADR-0153 / ADR-0156 ratchet pattern):
+         * every raw ADR has a ledger entry;
+         * every accepted ADR has a normalized view with a valid
+           current_state and the required fields;
+         * a normalized view's state invariants hold;
+         * a normalized view's decision_level does not carry a decision_type
+           the taxonomy forbids at that level;
+         * an ADR cited as current authority resolves to a normalized view in
+           state active_guidance or partial_guidance (raw-prose authority
+           citation is rejected once G-28 is blocking).
+
+  Authority-chain placement (binding):
+
+    * The single source of truth for WHICH ADRs exist and their raw status
+      is the raw docs/adr/ sources and their extracted projection
+      architecture/facts/generated/adrs.json (ADR-0154). The ledger,
+      normalized views, and review-index are READABLE INTERPRETATION layers
+      OVER that source. They invent no ADR ids and no relationships beyond
+      what the raw ADRs declare; they re-state (supersedes / superseded_by)
+      and curate (which clause still governs), they do not author new graph
+      edges. Authority cascade is unchanged: generated facts > DSL >
+      Card/prose; a normalized view never outranks a generated fact.
+    * Where a generator emits any of these surfaces, it obeys the Rule G-13
+      byte-identical re-render contract (ADR-0119): the review-index and the
+      normalized index are regenerated, not hand-amended, exactly as the
+      adr-census already declares for itself.
+
+  This decision is intentionally narrow: it pins the ADR GOVERNANCE model
+  (ledger + five-state normalized views + review-reads-the-view). It does
+  not by itself perform the corpus normalization, author the rule card, or
+  move any baseline; those are sequenced remediation tasks under the same
+  plan, each gate-green in its own wave.
+consequences: |
+  Positive
+  --------
+    * Architecture review becomes mechanical and ADR-based without being
+      raw-ADR-based: a reviewer (human or AI) reads one normalized view per
+      ADR and learns the current state, the still-governing clauses, the
+      affected levels, and the supersession chain in fixed fields, instead
+      of inferring authority from historical prose.
+    * decision_level vs affected_levels is separated structurally, which
+      removes the pressure that turns L0/L1 ADRs into containers for L2
+      implementation detail — the leakage this remediation adjudicated TRUE
+      gains a per-ADR control point.
+    * The "is this clause still authoritative?" question is answered in data
+      (active_guidance vs non_authoritative_legacy_content) rather than by
+      reading dates and cross-references, closing the
+      mixed-decision-level / mixed-time-state symptom at its root.
+    * The ledger gives total coverage over the corpus (including the
+      Markdown and locked ADRs the fact layer does not yet enumerate), so
+      no ADR can silently escape governance.
+
+  Negative / cost
+  ---------------
+    * Bulk one-time cost. Every accepted ADR needs a normalized view and a
+      ledger entry (the census baseline is dozens of ADRs across two
+      formats). This is the least reversible authored output of the
+      remediation and is sequenced as its own wave (plan Task 3 / Wave 1),
+      shipping advisory first.
+    * A second readable-interpretation layer over the ADRs (alongside the
+      adr-census) raises the maintenance surface; mitigated by the Rule G-13
+      regen contract for the generated parts (index, review-index) and by the
+      closed five-value state set, which bounds what a view can say.
+    * The fact-layer gap (Markdown + locked ADRs absent from adrs.json) means
+      the ledger's enumeration is, until the extractor is widened, partly a
+      hand-maintained reading of the raw sources rather than a pure
+      projection of the JSON; the ledger MUST cite its raw_path per entry so
+      the gap is auditable, and widening the extractor stays the preferred
+      long-term close.
+
+  LOCKSTEP FLAG for the implementation phase (/impl-mode)
+  -------------------------------------------------------
+    This decision stands up new governance authority surfaces consumed by a
+    gate. The design is NOT complete until, in lockstep (Rule G-13 / Rule G-8
+    baseline parity), the dedicated remediation tasks land:
+      * docs/governance/adr-governance-policy.yaml + adr-taxonomy.yaml define
+        the required fields, state invariants, and per-level decision-type
+        allow/forbid lists;
+      * docs/governance/adr-remediation-ledger.yaml covers every raw ADR;
+      * docs/adr/normalized/ carries one view per accepted ADR + index.yaml,
+        and docs/adr/review-index.md is generated;
+      * Rule card docs/governance/rules/rule-G-28-adr-normalization.md, its
+        enforcer row in docs/governance/enforcers.yaml, and the gate checks
+        (gate/lib/check_adr_taxonomy.py, gate/lib/check_historical_adr_governance.py)
+        land together and are wired into gate/check_architecture_sync.sh with
+        self-tests in gate/test_architecture_sync_gate.sh;
+      * docs/governance/architecture-status.yaml baseline_metrics
+        (adr_count and, at promotion, active_gate_checks / enforcer_rows /
+        active engineering-rule count for G-28) move with their allowed_claim
+        + README phrases.
+    These shared authority surfaces are owned by the reconcile / remediation
+    tasks, not by this ADR; this ADR asserts no final counts.
+
+  Forward-looking
+  ---------------
+    * G-28 promotes advisory -> changed-files-blocking -> full-blocking on the
+      established ratchet (ADR-0151 -> ADR-0153; ADR-0156 G-16..G-21). Full
+      blocking is reached only after the historical normalization wave clears
+      the acceptance bar (no raw ADR unclassified; no authority citation
+      without a normalized view).
+    * Once docs/adr/normalized/index.yaml exists, the AI reading path
+      (docs/governance/ai-reading-path.yaml, step 3 "architecture_anchor")
+      points sessions at the normalized index + review-index for "current
+      decision authority state," superseding raw-prose reads for authority.
+    * Preferred long-term close of the format gap: widen AdrFactExtractor to
+      the Markdown and locked ADR sources so the ledger's enumeration becomes
+      a pure projection of architecture/facts/generated/adrs.json, OR converge
+      the corpus to a single (YAML) format. Either is out of scope for the
+      ratification and is recorded as planning input.
+    * The adr-census normalized-view column (currently `none` for all rows)
+      is flipped to the view path as each ADR gains a normalized view, giving
+      a regenerable coverage tracker without changing the census shape.
