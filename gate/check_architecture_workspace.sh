@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Wave 1 advisory gate for the Structurizr workspace authority migration.
 #
-# Authority: ADR-0147 (Structurizr Workspace Authority); plan at
-# D:\.claude\plans\structurizr-d-chao-workspace-spring-ai-adaptive-hellman.md.
+# Authority: ADR-0147 (Structurizr Workspace Authority).
 #
 # Wave 1 mode: ADVISORY. The script reports violations but exits 0 even when
 # the profile validator finds them. Wave 5 flips this to blocking — the

@@ -7489,6 +7489,321 @@ test_rule_131_fact_layer_integrity_pos() {
 }
 
 # ---------------------------------------------------------------------------
+# Rule 139 — accepted_adr_frame_map_coherence (Rule G-22 / E187)
+# 2026-05-29 EnginePort/Frame review F1.4 closure.
+# ---------------------------------------------------------------------------
+test_rule_139_accepted_adr_frame_map_coherence_pos() {
+  # POSITIVE: the current corpus declares EF-ENGINE-PORT (owner agent-bus) AND
+  # EF-ORCHESTRATION-SPI (owner agent-bus) under a genModule_agent_bus contains
+  # edge, as accepted ADR-0158 requires.
+  local dsl="architecture/features/engineering-frames.dsl"
+  if [[ ! -f "$dsl" ]]; then
+    fail "rule_139_accepted_adr_frame_map_coherence_pos" "Rule G-22: $dsl missing on the working tree"
+    return
+  fi
+  local ep_block os_block bad=""
+  ep_block=$(awk '/"saa\.id"[[:space:]]+"EF-ENGINE-PORT"/{f=1} f{print} f&&/^}/{exit}' "$dsl")
+  os_block=$(awk '/"saa\.id"[[:space:]]+"EF-ORCHESTRATION-SPI"/{f=1} f{print} f&&/^}/{exit}' "$dsl")
+  grep -qE '"saa\.id"[[:space:]]+"EF-ENGINE-PORT"' "$dsl" || bad="$bad no-EF-ENGINE-PORT"
+  printf '%s\n' "$ep_block" | grep -qE '"saa\.owner"[[:space:]]+"agent-bus"' || bad="$bad EF-ENGINE-PORT-not-agent-bus"
+  grep -qE '"saa\.id"[[:space:]]+"EF-ORCHESTRATION-SPI"' "$dsl" || bad="$bad no-EF-ORCHESTRATION-SPI"
+  printf '%s\n' "$os_block" | grep -qE '"saa\.owner"[[:space:]]+"agent-bus"' || bad="$bad EF-ORCHESTRATION-SPI-not-agent-bus"
+  grep -qE '^genModule_agent_bus[[:space:]]*->[[:space:]]*efOrchestrationSpi' "$dsl" || bad="$bad no-contains-edge"
+  if [[ -n "$bad" ]]; then
+    fail "rule_139_accepted_adr_frame_map_coherence_pos" "Rule G-22 / Rule 139: current corpus violates ADR-0158 frame-map coherence:$bad"
+    return
+  fi
+  ok "rule_139_accepted_adr_frame_map_coherence_pos" "Rule G-22 / Rule 139: EF-ENGINE-PORT + EF-ORCHESTRATION-SPI (owner agent-bus) + genModule_agent_bus contains edge all present"
+}
+
+test_rule_139_missing_engine_port_frame_neg() {
+  # NEGATIVE: a synthetic engineering-frames.dsl missing EF-ENGINE-PORT MUST be
+  # flagged by the same assertion the canonical gate uses.
+  local sdsl="$scratch/r139_neg/engineering-frames.dsl"
+  mkdir -p "$scratch/r139_neg"
+  cat > "$sdsl" <<'EOF'
+efOrchestrationSpi = element "Orchestration SPI Frame" "EngineeringFrame" "x" "SAA EngineeringFrame" {
+    properties {
+        "saa.id" "EF-ORCHESTRATION-SPI"
+        "saa.owner" "agent-bus"
+    }
+}
+genModule_agent_bus -> efOrchestrationSpi "module contains engineering frame" "SAA Relationship" {
+    properties { "saa.rel" "contains" }
+}
+EOF
+  if grep -qE '"saa\.id"[[:space:]]+"EF-ENGINE-PORT"' "$sdsl"; then
+    fail "rule_139_missing_engine_port_frame_neg" "Rule G-22 / Rule 139 negative case: synthetic DSL unexpectedly contains EF-ENGINE-PORT"
+  else
+    ok "rule_139_missing_engine_port_frame_neg" "Rule G-22 / Rule 139: synthetic DSL missing EF-ENGINE-PORT is correctly detected (would FAIL the gate)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 140 — shipped_frame_anchor_integrity (Rule G-23 / E188)
+# 2026-05-29 EnginePort/Frame review F8.3 closure.
+# ---------------------------------------------------------------------------
+test_rule_140_shipped_frame_anchor_integrity_pos() {
+  # POSITIVE: the working tree's frames pass — every shipped frame anchors >=1
+  # FunctionPoint (the 4 zero-anchor frames are design_only).
+  local helper="$PWD/gate/lib/check_frame_shipped_anchors.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_140_shipped_frame_anchor_integrity_pos" "Rule G-23: $helper missing"
+    return
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    ok "rule_140_shipped_frame_anchor_integrity_pos" "Rule G-23 / Rule 140: python3 absent on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local out rc
+  out=$(python3 "$helper" 2>&1); rc=$?
+  if [[ $rc -ne 0 ]]; then
+    fail "rule_140_shipped_frame_anchor_integrity_pos" "Rule G-23 / Rule 140: shipped frame anchors no FunctionPoint: $(echo "$out" | head -1)"
+    return
+  fi
+  ok "rule_140_shipped_frame_anchor_integrity_pos" "Rule G-23 / Rule 140: every shipped EngineeringFrame anchors >=1 FunctionPoint"
+}
+
+test_rule_140_shipped_frame_zero_anchor_neg() {
+  # NEGATIVE: a synthetic shipped frame with NO anchors edge MUST fail the
+  # helper. Runs against an isolated scratch repo root (never the working tree).
+  local helper="$PWD/gate/lib/check_frame_shipped_anchors.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_140_shipped_frame_zero_anchor_neg" "Rule G-23: $helper missing"
+    return
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    ok "rule_140_shipped_frame_zero_anchor_neg" "Rule G-23 / Rule 140: python3 absent on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r140_neg_repo"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/gate/lib" "$sroot/architecture/features"
+  cp "$helper" "$sroot/gate/lib/check_frame_shipped_anchors.py"
+  : > "$sroot/gate/frame-shipped-zero-anchor-allowlist.txt"
+  cat > "$sroot/architecture/features/engineering-frames.dsl" <<'EOF'
+efLonely = element "Lonely Frame" "EngineeringFrame" "shipped with no anchors" "SAA EngineeringFrame" {
+    properties {
+        "saa.id" "EF-LONELY"
+        "saa.status" "shipped"
+        "saa.owner" "agent-bus"
+    }
+}
+genModule_agent_bus -> efLonely "module contains engineering frame" "SAA Relationship" {
+    properties { "saa.rel" "contains" }
+}
+EOF
+  : > "$sroot/architecture/features/features.dsl"
+  local out rc
+  out=$(python3 "$sroot/gate/lib/check_frame_shipped_anchors.py" --repo "$sroot" 2>&1); rc=$?
+  if [[ $rc -ne 0 ]] && echo "$out" | grep -q "EF-LONELY"; then
+    ok "rule_140_shipped_frame_zero_anchor_neg" "Rule G-23 / Rule 140: synthetic shipped frame with zero anchors is detected and fails closed"
+  else
+    fail "rule_140_shipped_frame_zero_anchor_neg" "Rule G-23 / Rule 140 negative case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 141 — old_orchestration_spi_package_ban (Rule G-24 / E189)
+# 2026-05-29 EnginePort/Frame review F6.3 closure.
+# Note: the working-tree PASS of this rule is validated POST-RENDER (W8) because
+# the rendered architecture/docs/**.md still name the old package pre-W6. The
+# PASS fixture therefore scans a CLEAN SYNTHETIC corpus, not the live tree.
+# ---------------------------------------------------------------------------
+test_rule_141_old_orchestration_spi_clean_synthetic_pos() {
+  # POSITIVE: a clean synthetic corpus (current package name only) passes.
+  local helper="$PWD/gate/lib/check_old_orchestration_spi_package.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_141_old_orchestration_spi_clean_synthetic_pos" "Rule G-24: $helper missing"
+    return
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    ok "rule_141_old_orchestration_spi_clean_synthetic_pos" "Rule G-24 / Rule 141: python3 absent on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r141_pos_repo"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/docs/governance/templates" "$sroot/docs/contracts"
+  cat > "$sroot/docs/governance/templates/root-architecture.md.j2" <<'EOF'
+The neutral execution contract lives in `com.huawei.ascend.bus.spi.engine`.
+EOF
+  cat > "$sroot/docs/contracts/contract-catalog.md" <<'EOF'
+ADR-0158 re-homed the orchestration SPI from engine.orchestration.spi to bus.spi.engine. This is the current home.
+EOF
+  local out rc
+  out=$(python3 "$helper" --repo "$sroot" 2>&1); rc=$?
+  if [[ $rc -ne 0 ]]; then
+    fail "rule_141_old_orchestration_spi_clean_synthetic_pos" "Rule G-24 / Rule 141: clean synthetic corpus unexpectedly flagged: $(echo "$out" | head -1)"
+    return
+  fi
+  ok "rule_141_old_orchestration_spi_clean_synthetic_pos" "Rule G-24 / Rule 141: clean synthetic corpus (new package + historical-marker re-home line) passes (live-tree PASS validated post-W6 render)"
+}
+
+test_rule_141_old_orchestration_spi_active_template_neg() {
+  # NEGATIVE: a synthetic ACTIVE template line naming the old package as current
+  # (no historical marker) MUST fail.
+  local helper="$PWD/gate/lib/check_old_orchestration_spi_package.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_141_old_orchestration_spi_active_template_neg" "Rule G-24: $helper missing"
+    return
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    ok "rule_141_old_orchestration_spi_active_template_neg" "Rule G-24 / Rule 141: python3 absent on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r141_neg_repo"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/docs/governance/templates"
+  cat > "$sroot/docs/governance/templates/root-architecture.md.j2" <<'EOF'
+The orchestration SPI is owned by agent-execution-engine under engine.orchestration.spi (RunMode + Checkpointer).
+EOF
+  local out rc
+  out=$(python3 "$helper" --repo "$sroot" 2>&1); rc=$?
+  if [[ $rc -ne 0 ]] && echo "$out" | grep -q "^OLD-PACKAGE:"; then
+    ok "rule_141_old_orchestration_spi_active_template_neg" "Rule G-24 / Rule 141: active template line naming the old package as current is detected and fails closed"
+  else
+    fail "rule_141_old_orchestration_spi_active_template_neg" "Rule G-24 / Rule 141 negative case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 142 — tier1_non_english_lint (Rule G-25 / E190)
+# 2026-05-29 EnginePort/Frame review P1-3 closure.
+# ---------------------------------------------------------------------------
+test_rule_142_tier1_non_english_pos() {
+  # POSITIVE: the working tree's always-loaded Tier-1 set is English-only.
+  local helper="$PWD/gate/lib/check_tier1_non_english.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_142_tier1_non_english_pos" "Rule G-25: $helper missing"
+    return
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    ok "rule_142_tier1_non_english_pos" "Rule G-25 / Rule 142: python3 absent on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local out rc
+  out=$(python3 "$helper" 2>&1); rc=$?
+  if [[ $rc -ne 0 ]]; then
+    fail "rule_142_tier1_non_english_pos" "Rule G-25 / Rule 142: Tier-1 surface carries non-English/mojibake: $(echo "$out" | head -1)"
+    return
+  fi
+  ok "rule_142_tier1_non_english_pos" "Rule G-25 / Rule 142: all non-zero-budget Tier-1 surfaces are free of CJK + mojibake"
+}
+
+test_rule_142_tier1_cjk_neg() {
+  # NEGATIVE: a synthetic always-loaded file with a CJK char MUST fail, and the
+  # output MUST NOT echo the offending character (line:col + byte offset only).
+  local helper="$PWD/gate/lib/check_tier1_non_english.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_142_tier1_cjk_neg" "Rule G-25: $helper missing"
+    return
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    ok "rule_142_tier1_cjk_neg" "Rule G-25 / Rule 142: python3 absent on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r142_cjk_repo"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/gate" "$sroot/product"
+  cat > "$sroot/gate/always-loaded-budget.txt" <<'EOF'
+product/PRODUCT.md=10000
+EOF
+  # Write a CJK ideograph into the synthetic always-loaded surface.
+  printf 'Tier-1 product authority \xe5\x94\xaf\xe4\xb8\x80 here\n' > "$sroot/product/PRODUCT.md"
+  local out rc
+  out=$(python3 "$helper" --repo "$sroot" 2>&1); rc=$?
+  # Must fail, flag kind=cjk, AND not echo the CJK bytes.
+  if [[ $rc -ne 0 ]] && echo "$out" | grep -q "kind=cjk" && ! echo "$out" | grep -qP '[\x{4e00}-\x{9fff}]'; then
+    ok "rule_142_tier1_cjk_neg" "Rule G-25 / Rule 142: CJK in a Tier-1 surface is detected (kind=cjk) and the offending text is NOT echoed"
+  else
+    fail "rule_142_tier1_cjk_neg" "Rule G-25 / Rule 142 CJK negative case failed expectations: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_142_tier1_mojibake_neg() {
+  # NEGATIVE: a synthetic always-loaded file with a U+FFFD replacement char MUST
+  # fail with kind=mojibake.
+  local helper="$PWD/gate/lib/check_tier1_non_english.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_142_tier1_mojibake_neg" "Rule G-25: $helper missing"
+    return
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    ok "rule_142_tier1_mojibake_neg" "Rule G-25 / Rule 142: python3 absent on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r142_moji_repo"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/gate" "$sroot/product"
+  cat > "$sroot/gate/always-loaded-budget.txt" <<'EOF'
+product/PRODUCT.md=10000
+EOF
+  # Write a U+FFFD replacement char (UTF-8 EF BF BD) into the synthetic surface.
+  printf 'corrupted byte \xef\xbf\xbd here\n' > "$sroot/product/PRODUCT.md"
+  local out rc
+  out=$(python3 "$helper" --repo "$sroot" 2>&1); rc=$?
+  if [[ $rc -ne 0 ]] && echo "$out" | grep -q "kind=mojibake"; then
+    ok "rule_142_tier1_mojibake_neg" "Rule G-25 / Rule 142: U+FFFD mojibake marker in a Tier-1 surface is detected (kind=mojibake)"
+  else
+    fail "rule_142_tier1_mojibake_neg" "Rule G-25 / Rule 142 mojibake negative case did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 143 — local_plan_path_ban (Rule G-26 / E191)
+# 2026-05-29 EnginePort/Frame review P1-4 closure.
+# ---------------------------------------------------------------------------
+test_rule_143_local_plan_path_backslash_neg() {
+  # NEGATIVE: a synthetic product file with the BACKSLASH form MUST be caught.
+  local sfile="$scratch/r143_bs/product/PRODUCT.md"
+  mkdir -p "$scratch/r143_bs/product"
+  printf 'See the plan at D:\\.claude\\plans\\foo.md for details.\n' > "$sfile"
+  local pat='D:[\\/]\.claude[\\/]plans'
+  if grep -qE "$pat" "$sfile"; then
+    ok "rule_143_local_plan_path_backslash_neg" "Rule G-26 / Rule 143: backslash form D:\\.claude\\plans is detected (would FAIL the gate)"
+  else
+    fail "rule_143_local_plan_path_backslash_neg" "Rule G-26 / Rule 143 negative case: backslash form not detected by the dual-separator pattern"
+  fi
+}
+
+test_rule_143_local_plan_path_forwardslash_neg() {
+  # NEGATIVE: a synthetic ADR with the FORWARD-SLASH form MUST be caught
+  # (proves BOTH separators are matched by the same pattern).
+  local sfile="$scratch/r143_fs/docs/adr/9999-synthetic.md"
+  mkdir -p "$scratch/r143_fs/docs/adr"
+  printf 'Plan lived at D:/.claude/plans/bar.md before the move.\n' > "$sfile"
+  local pat='D:[\\/]\.claude[\\/]plans'
+  if grep -qE "$pat" "$sfile"; then
+    ok "rule_143_local_plan_path_forwardslash_neg" "Rule G-26 / Rule 143: forward-slash form D:/.claude/plans is detected (both separators caught)"
+  else
+    fail "rule_143_local_plan_path_forwardslash_neg" "Rule G-26 / Rule 143 negative case: forward-slash form not detected by the dual-separator pattern"
+  fi
+}
+
+test_rule_143_local_plan_path_exempted_pos() {
+  # POSITIVE: an exempted reference passes. Mirrors the canonical gate's
+  # exemption-prefix matching against gate/local-plan-path-exemptions.txt.
+  local exempt="$PWD/gate/local-plan-path-exemptions.txt"
+  if [[ ! -f "$exempt" ]]; then
+    fail "rule_143_local_plan_path_exempted_pos" "Rule G-26: $exempt missing"
+    return
+  fi
+  # rule-G-7.md is an exempted surface that legitimately names the local path.
+  local rel="docs/governance/rules/rule-G-7.md"
+  local exempted=0 e
+  while IFS= read -r e; do
+    e="${e%%$'\r'}"
+    [[ -z "$e" || "$e" == \#* ]] && continue
+    if [[ "$rel" == "$e" || "$rel" == "$e"* ]]; then exempted=1; break; fi
+  done < "$exempt"
+  if [[ $exempted -eq 1 ]]; then
+    ok "rule_143_local_plan_path_exempted_pos" "Rule G-26 / Rule 143: exempted surface ($rel) is correctly skipped by the exemption list"
+  else
+    fail "rule_143_local_plan_path_exempted_pos" "Rule G-26 / Rule 143: exempted surface ($rel) not matched in $exempt"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

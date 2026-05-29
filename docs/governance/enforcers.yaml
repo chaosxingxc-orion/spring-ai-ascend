@@ -335,7 +335,7 @@
   level: L1
   view: development
   artifact: agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/PlatformImportsOnlyRuntimePublicApiTest.java
-  asserts: "service.platform main sources may only import service.runtime.runs.*, engine.orchestration.spi.*, service.runtime.posture.* — never service.runtime.orchestration.inmemory.*, service.runtime.resilience.*, service.runtime.memory.spi.*, or other internal packages."
+  asserts: "service.platform main sources may only import service.runtime.runs.*, bus.spi.engine.*, service.runtime.posture.* — never service.runtime.orchestration.inmemory.*, service.runtime.resilience.*, service.runtime.memory.spi.*, or other internal packages."
   product_claim: "PC-003"
 
 - id: E35
@@ -862,7 +862,6 @@
 
 # ---------------------------------------------------------------------------
 # W2.x Phase 7 audit response -- Rule R-M sub-clause .b compliance closure + Phase 3a Matrix freeze
-# (plan D:/.claude/plans/spi-atomic-willow.md L-1 + L-12)
 # ---------------------------------------------------------------------------
 
 - id: E88
@@ -885,7 +884,6 @@
 
 # ---------------------------------------------------------------------------
 # v2.0.0-rc1 post-release review response -- Rule R-M sub-clause .d FAILED-transition + R2 classpath fallback
-# (plan D:/.claude/plans/spi-atomic-willow.md C + E)
 # ---------------------------------------------------------------------------
 
 - id: E90
@@ -963,7 +961,7 @@
 
 # ---------------------------------------------------------------------------
 # 2026-05-17 CLAUDE.md token-optimization wave PR1.
-# Authority: D:/.claude/plans/tokens-token-buzzing-sprout.md + docs/governance/rules/rule-{67..71}.md
+# Authority: docs/governance/rules/rule-{67..71}.md
 # Goal: shrink always-loaded governance set from ~99K -> ~10.6K tokens / session.
 # ---------------------------------------------------------------------------
 
@@ -1014,7 +1012,7 @@
 
 # ---------------------------------------------------------------------------
 # 2026-05-17 gate-script efficiency wave PR-E1.
-# Authority: D:/.claude/plans/tokens-token-buzzing-sprout.md + docs/governance/rules/rule-G-6.md
+# Authority: docs/governance/rules/rule-G-6.md
 # ---------------------------------------------------------------------------
 
 - id: E103
@@ -1042,7 +1040,6 @@
 
 # ---------------------------------------------------------------------------
 # 2026-05-18 Wave 4 — rule activations (Rules 11, 24.c, 29.c, 72).
-# Authority: D:/.claude/plans/spicy-mixing-galaxy.md Wave 4.
 # ---------------------------------------------------------------------------
 
 - id: E102
@@ -1799,4 +1796,56 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#productclaim_placeholder_decreasing
   asserts: "Rule 138 -- count of product_claim_placeholder: true markers MUST decrease monotonically across Phase B cluster cycles; reaching zero is the Phase B convergence signal AND the promotion trigger for Rules G-16/G-17/G-18/G-20 from advisory to blocking. Advisory at W5 landing."
+  governance_infra: true
+
+# ---------------------------------------------------------------------------
+# 2026-05-29 EnginePort/Frame authority-convergence review-response prevention
+# wave (Rules 139-143; enforcers E187-E191).
+# Authority: docs/governance/rules/rule-{G-22..G-26}.md
+# Closes review findings F1.4 / F8.3 / F6.3 / P1-3 / P1-4.
+# ---------------------------------------------------------------------------
+
+- id: E187
+  constraint_ref: "Rule G-22 (Accepted-ADR Frame-Map Coherence); ADR-0157 + ADR-0158; 2026-05-29 review F1.4"
+  kind: gate-script
+  level: L1
+  view: logical
+  artifact: gate/check_architecture_sync.sh#accepted_adr_frame_map_coherence
+  asserts: "Rule 139 -- when ADR-0158 is accepted, architecture/features/engineering-frames.dsl MUST declare EF-ENGINE-PORT (owner agent-bus) AND EF-ORCHESTRATION-SPI (owner agent-bus) with a genModule_agent_bus -> efOrchestrationSpi contains edge, so an accepted ADR's declared EngineeringFrame re-home is reflected in the frame map."
+  governance_infra: true
+
+- id: E188
+  constraint_ref: "Rule G-23 (Shipped-Frame Anchor Integrity); ADR-0157 + ADR-0158; 2026-05-29 review F8.3"
+  kind: gate-script
+  level: L1
+  view: logical
+  artifact: gate/check_architecture_sync.sh#shipped_frame_anchor_integrity
+  asserts: "Rule 140 -- every SAA EngineeringFrame element with saa.status shipped (across engineering-frames.dsl + features.dsl) MUST have >=1 anchors edge to a FunctionPoint in engineering-frames.dsl, unless allowlisted in gate/frame-shipped-zero-anchor-allowlist.txt (ADR-backed exceptions; ships empty)."
+  governance_infra: true
+
+- id: E189
+  constraint_ref: "Rule G-24 (Old Orchestration-SPI Package Ban); ADR-0158; 2026-05-29 review F6.3"
+  kind: gate-script
+  level: L1
+  view: development
+  artifact: gate/check_architecture_sync.sh#old_orchestration_spi_package_ban
+  asserts: "Rule 141 -- active authority surfaces (templates .j2 + rendered architecture/docs + docs/dfx + quickstart + oss-bom + enforcers.yaml + architecture-status.yaml + contract-catalog.md + architecture/features) MUST NOT name engine.orchestration.spi / engine/orchestration/spi as the current home (ADR-0158 re-homed it to com.huawei.ascend.bus.spi.engine); past-tense re-home/dissolution prose carrying a historical marker is skipped; docs/logs, docs/adr, rule-history, archive, scripts and generated artefacts are excluded."
+  governance_infra: true
+
+- id: E190
+  constraint_ref: "Rule G-25 (Tier-1 Non-English / Mojibake Lint); CLAUDE.md kernel English-only directive; 2026-05-29 review P1-3"
+  kind: gate-script
+  level: L1
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#tier1_non_english_lint
+  asserts: "Rule 142 -- every file with a non-zero budget in gate/always-loaded-budget.txt MUST be free of CJK code points U+4E00..U+9FFF and common UTF-8/GBK mojibake markers (U+FFFD and literal double-decode sequences). Fails closed. The checker reports line:col + byte offset only and MUST NOT echo the offending non-English text into the gate log."
+  governance_infra: true
+
+- id: E191
+  constraint_ref: "Rule G-26 (Local Plan-Path Ban); 2026-05-29 review P1-4"
+  kind: gate-script
+  level: L1
+  view: scenarios
+  artifact: gate/check_architecture_sync.sh#local_plan_path_ban
+  asserts: "Rule 143 -- active authority (product/, docs/adr/, docs/governance/ excluding rule-history.md, architecture/, CLAUDE.md, AGENTS.md) MUST NOT reference the local agent-host .claude plans directory in either Windows-backslash or POSIX-forward-slash form; the only permitted surfaces are listed in gate/local-plan-path-exemptions.txt."
   governance_infra: true

@@ -44,6 +44,11 @@ declares allocation.
 | G-3.1 | Kernel-Implementation Disjunction Truth | **X** | [`rule-G-3.1.md`](../rules/rule-G-3.1.md) |
 | G-8 | Cross-Authority Parity (graph baseline / SPI path / module topology / current-claim grammar / structural-carrier parity) | **X** | [`rule-G-8.md`](../rules/rule-G-8.md) |
 | G-14 | Feature Lifecycle Validity | **P** | [`rule-G-14.md`](../rules/rule-G-14.md) |
+| G-22 | Accepted-ADR Frame-Map Coherence | **P** | [`rule-G-22.md`](../rules/rule-G-22.md) |
+| G-23 | Shipped-Frame Anchor Integrity | **P** | [`rule-G-23.md`](../rules/rule-G-23.md) |
+| G-24 | Old Orchestration-SPI Package Ban | **P** | [`rule-G-24.md`](../rules/rule-G-24.md) |
+| G-25 | Tier-1 Non-English / Mojibake Lint | **P** | [`rule-G-25.md`](../rules/rule-G-25.md) |
+| G-26 | Local Plan-Path Ban | **P** | [`rule-G-26.md`](../rules/rule-G-26.md) |
 | M-1 | Skeleton Module Has No Production Java | **P** | [`rule-M-1.md`](../rules/rule-M-1.md) |
 | M-2 | Domain Contract Discipline (schema-first + design-only registration + DFX-stem truth) | **P** | [`rule-M-2.md`](../rules/rule-M-2.md) |
 | R-A | Business/Platform Decoupling Enforcement | **P** | [`rule-R-A.md`](../rules/rule-R-A.md) |

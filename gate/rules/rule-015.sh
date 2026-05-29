@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 15 — no_active_refs_deleted_wave_plan_paths. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 15 — no_active_refs_deleted_wave_plan_paths
 # ADR-0041: active .md files (outside archive/reviews/third_party/target/.git)

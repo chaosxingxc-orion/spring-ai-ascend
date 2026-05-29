@@ -105,7 +105,7 @@ spi_packages:
 
 ## Activation
 
-Activated 2026-05-18 by the SPI metadata integrity wave per `D:\.claude\plans\spi-smooth-llama.md`. Surfaced during the wave: bus/client/evolve modules already had ADR-referenced placeholders; only agent-execution-engine had an unmarked empty SPI declaration (fixed by Track A of the same plan).
+Activated 2026-05-18 by the SPI metadata integrity wave (historical session plan, local-only). Surfaced during the wave: bus/client/evolve modules already had ADR-referenced placeholders; only agent-execution-engine had an unmarked empty SPI declaration (fixed by Track A of the same plan).
 
 ### .c — (was sub-clause .c)
 
@@ -135,7 +135,7 @@ The 2026-05-18 remediation chose option 3 for `orchestration.spi` / `engine.spi`
 
 ## Activation
 
-Activated 2026-05-18 by the SPI metadata integrity wave per `D:\.claude\plans\spi-smooth-llama.md`.
+Activated 2026-05-18 by the SPI metadata integrity wave (historical session plan, local-only).
 
 ### .d — (was sub-clause .d)
 
@@ -163,7 +163,7 @@ For each `spi_packages:` entry, fail unless the package ends in `.spi` OR contai
 
 ## Activation
 
-Activated 2026-05-18 by the SPI metadata integrity wave per `D:\.claude\plans\spi-smooth-llama.md`. Drove the `runs` → `runs/spi/` sub-package move documented in the same wave.
+Activated 2026-05-18 by the SPI metadata integrity wave (historical session plan, local-only). Drove the `runs` → `runs/spi/` sub-package move documented in the same wave.
 
 ### .e — (was sub-clause .e)
 
@@ -195,7 +195,7 @@ DFX yamls have a 5-dimension structure (releasability/resilience/availability/vu
 
 ## Activation
 
-Activated 2026-05-18 by the SPI metadata integrity wave per `D:\.claude\plans\spi-smooth-llama.md`. Triggered fixes to all 4 affected DFX files (agent-runtime-core, agent-execution-engine, agent-service, agent-middleware).
+Activated 2026-05-18 by the SPI metadata integrity wave (historical session plan, local-only). Triggered fixes to all 4 affected DFX files (agent-runtime-core, agent-execution-engine, agent-service, agent-middleware).
 
 ### .f — (was sub-clause .f)
 

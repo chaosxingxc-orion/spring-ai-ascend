@@ -190,7 +190,7 @@ prevents a misconfigured prod environment from silently falling back.
 
 ## References
 
-- L1 plan `D:\.claude\plans\l1-modular-russell.md` §8, §11 (E12, E13, E14, E15, E22).
+- L1 plan (historical session plan, local-only) §8, §11 (E12, E13, E14, E15, E22).
 - Architect guidance §10.
 - ADR-0027 (W0 stub IdempotencyStore; this ADR supersedes its W1 deferral note).
 - ADR-0058 (PostureBootGuard).

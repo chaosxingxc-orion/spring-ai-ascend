@@ -4,7 +4,7 @@
 # Override hierarchy (highest -> lowest): env var > gate/config.yaml > hardcoded fallback.
 #
 # Validated by gate Rule 73 (gate_config_well_formed, enforcer E103) on every run.
-# Authority: docs/governance/rules/rule-73.md + D:/.claude/plans/tokens-token-buzzing-sprout.md.
+# Authority: docs/governance/rules/rule-73.md.
 #
 # Format constraints (because the loader is a pure-bash parser, not a full YAML engine):
 #   - All values are scalars (int, bool, string) or single-level arrays of scalars.

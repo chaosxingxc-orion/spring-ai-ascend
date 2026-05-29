@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 25 — peripheral_wave_qualifier. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 25 — peripheral_wave_qualifier
 # ADR-0045: SPI Javadoc must not use "Primary sidecar impl:" or "Primary impl:"

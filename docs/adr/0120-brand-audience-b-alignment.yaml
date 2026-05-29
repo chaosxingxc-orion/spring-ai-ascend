@@ -65,8 +65,8 @@ decision: |
      - True L0 Final Release-Ready is achieved at rc48 after Phases A-D
        complete.
 
-  4. **Authorize the rc43->rc48 wave plan.** The plan at
-     `D:\.claude\plans\d-chao-workspace-spring-ai-ascend-docs-eager-harp.md`
+  4. **Authorize the rc43->rc48 wave plan.** The plan
+     (historical session plan, local-only)
      is the canonical execution roadmap:
        Phase A — Strategic Foundation (rc43): this ADR + ADR-0122 +
                                               ADR-0125 (Waves A1/A3/A2).

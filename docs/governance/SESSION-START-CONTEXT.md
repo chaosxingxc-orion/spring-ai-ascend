@@ -13,7 +13,7 @@ This is the canonical entry-point for any human contributor or LLM agent startin
 
 The architecture lives in **two coupled forms** (per ADR-0068 + ADR-0147 + ADR-0150):
 
-1. **Architecture workspace closure** (machine-readable; W5+ blocking, W8 consolidated) — `architecture/workspace.dsl` is the `唯一主入口` (sole main entry). The closure carries `architecture/docs/L1/` (human-readable narrative + 4+1 views for agent-service), `architecture/features/` (capability + function-point DSL), `architecture/decisions/` (ADR markdown imports via `!adrs`), `architecture/generated/` (7 emitted fragments from authoritative YAMLs), `architecture/profile/` (SAA tag/relationship/property schema), `architecture/views/` (4+1 view DSL).
+1. **Architecture workspace closure** (machine-readable; W5+ blocking, W8 consolidated) — `architecture/workspace.dsl` is the sole main entry. The closure carries `architecture/docs/L1/` (human-readable narrative + 4+1 views for agent-service), `architecture/features/` (capability + function-point DSL), `architecture/decisions/` (ADR markdown imports via `!adrs`), `architecture/generated/` (7 emitted fragments from authoritative YAMLs), `architecture/profile/` (SAA tag/relationship/property schema), `architecture/views/` (4+1 view DSL).
 2. **Operational + governance authorities** (`docs/`) — `docs/governance/` (rules + principles + status + enforcers + templates), `docs/adr/` (ADR corpus), `docs/contracts/` (runtime promises), `docs/logs/` (releases + reviews), `docs/quickstart.md` + `docs/overview.md` (onboarding). These are NOT architecture-design content — they're operational authorities that surround the workspace.
 
 **Do not read the 75+ ADRs sequentially.** Start at `architecture/workspace.dsl` + `architecture/README.md`; drill into the prose only after you know which edge you are traversing.
@@ -24,7 +24,7 @@ This table matches `README.md#Reading-path` step-for-step. Loading these in orde
 
 | Step | Open | Load | Purpose |
 |---|---|---|---|
-| 1 | `architecture/workspace.dsl` + `architecture/README.md` | ALWAYS-LOAD | Architecture authority root (`唯一主入口` per ADR-0147 + ADR-0150). Structurizr DSL workspace + closure navigation. |
+| 1 | `architecture/workspace.dsl` + `architecture/README.md` | ALWAYS-LOAD | Architecture authority root (sole main entry per ADR-0147 + ADR-0150). Structurizr DSL workspace + closure navigation. |
 | 1a | `architecture/features/function-points.dsl` + `architecture/features/capabilities.dsl` | ON-DEMAND | L1 feature inventory: which function points exist, who owns them, which ADR decided them, which tests verify them. |
 | 2 | `architecture/docs/L0/ARCHITECTURE.md` (root, L0) | ALWAYS-LOAD | Declarative L0 system boundary + 65 §4 architectural constraints. §0.6 declares rhetorical stance; §0.7 lists Constraint↔Rule pairs. |
 | 3 | `CLAUDE.md` | ALWAYS-LOAD | Enforceable rule kernel index. `## Rhetorical stance` block + `## Constraint ↔ Rule mapping` table. Full rule bodies under `docs/governance/rules/*.md` (load on demand). |

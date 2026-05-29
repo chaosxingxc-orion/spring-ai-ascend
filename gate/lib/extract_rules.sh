@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Extract per-rule bodies from gate/check_architecture_sync.sh into
-# gate/rules/rule-<NN>.sh files. Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# gate/rules/rule-<NN>.sh files. Authority: PR-E5.
 #
 # Idempotent: re-running on an unchanged monolith produces byte-identical
 # output. Used by Wave 3 to materialise the 82-file extraction the plan
@@ -63,7 +63,7 @@ while IFS=$'\t' read -r num slug start end; do
     printf '#!/usr/bin/env bash\n'
     printf '# Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh\n'
     printf '# Rule %s — %s. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.\n' "$num" "$slug"
-    printf '# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).\n'
+    printf '# Authority: PR-E5.\n'
     printf '\n'
     sed -n "${start},${end}p" "$SOURCE_SCRIPT"
   } > "$out"

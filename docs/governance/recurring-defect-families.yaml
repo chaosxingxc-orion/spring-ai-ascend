@@ -38,7 +38,8 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-28  # MERGE of PR #93 (agent-service L1 v1.2 — ADR-0155 + family F-agent-service-internal-boundary-drift) and PR #94 (AI progressive learning curve — ADR-0156 product authority + traceability + G-16..G-21 + Phase 7 CLAUDE-deferred.md elimination + family F-acceptance-evidence-misses-target-branch). Both branches bumped baselines independently; post-merge baselines reconciled to live recount. Phase-B convergence (feature/phase-b-convergence) advanced F-agent-service-internal-boundary-drift: PR-93's 14 orphan contracts + ADR-0155 product-claim-bound, orphans 15→0 / placeholders 8→0, and Rules G-17/G-18/G-20 promoted advisory→BLOCKING (G-21 placeholder=0 trigger met). Branch feature/dev-posture-run-execution recorded a component-level recurrence of F-half-built-state-machine (AsyncRunDispatcher shipped with only the NoOp producer in the running app; orchestrating producer materialized for dev posture).
+last_updated: 2026-05-29  # engineport-frame-authority-convergence wave (branch review/2026-05-29-engineport-frame-authority-convergence, on the ADR-0158 engine-boundary tip): records recurrences of F-numeric-drift (8 baselines moved in lockstep after the EnginePort/EngineeringFrame regen), F-authority-surface-path-drift (engine.orchestration.spi → bus.spi.engine authority-surface lag) and F-cross-authority-agreement (generated facts/contract/product/workspace divergence at the d66749b merge tip); REGISTERS 2 new families F-non-english-in-tier1-authority (prevention Rule G-25) and F-local-plan-path-in-active-authority (prevention Rule G-26). Family count 39→41. Prior MERGE-of-PR#93/#94 note retained below.
+# engineport-frame-authority-convergence (2026-05-29): MERGE-of-PR #93 (agent-service L1 v1.2 — ADR-0155 + family F-agent-service-internal-boundary-drift) and PR #94 (AI progressive learning curve — ADR-0156 product authority + traceability + G-16..G-21 + Phase 7 CLAUDE-deferred.md elimination + family F-acceptance-evidence-misses-target-branch). Both branches bumped baselines independently; post-merge baselines reconciled to live recount. Phase-B convergence (feature/phase-b-convergence) advanced F-agent-service-internal-boundary-drift: PR-93's 14 orphan contracts + ADR-0155 product-claim-bound, orphans 15→0 / placeholders 8→0, and Rules G-17/G-18/G-20 promoted advisory→BLOCKING (G-21 placeholder=0 trigger met). Branch feature/dev-posture-run-execution recorded a component-level recurrence of F-half-built-state-machine (AsyncRunDispatcher shipped with only the NoOp producer in the running app; orchestrating producer materialized for dev posture).
 # rc54 corrective publication refresh: rc53 findings were classified before repair and mapped to existing F-agentic-contract-composition-gap + F-placeholder-leaks-into-active-corpus. No new problem type was registered; family count remained 20. rc54 closed the cited composition gaps with AgentDefinition.advisorBindings, same-package typed advisor carriers, shared advisor-model-hook-order/v1, constructor-owned planner/skill invariants, Rule 129 composition truth, and Rule 127 current-placeholder guard. Prior rc53 notes retained below.
 # rc35-second-pass wave (same PR follow-up commits, after rc35-correctness-batch): a second round of 4 parallel adversarial reviewers (correctness + adversarial + gate-script-consistency + doc-coherence) ran against the rc35-correctness-batch tip and found that several of the rc35 first-pass closures were incomplete in scope. (a) The cancel-vs-complete race guard in SyncOrchestrator (rc35 first pass) was applied ONLY at the three terminal SUCCEEDED/FAILED save sites; five sibling non-terminal save sites (PENDING→RUNNING at run() entry; RUNNING→SUSPENDED at S2C suspend + child suspend; SUSPENDED→RUNNING at S2C resume + child resume) remained blind puts that silently overwrote a parallel CANCELLED with RUNNING/SUSPENDED — same family pattern, sibling surfaces. (b) ADR-0108's "common base shared with Rule R-J .b" wording claimed cross-authority parity that didn't hold — Rule R-J .b's pre-existing cancel-state-transition MDC `{ runId, fromStatus, toStatus, actor, occurredAt }` shares only `occurredAt` with the new tenant-mismatch base `{ surface, reason, occurredAt }`. (c) S2C envelope deadline was honoured unconditionally in resolveCallTimeoutMillis with no clamp against the orchestrator's configured s2cCallTimeout ceiling — a client-supplied 1h deadline defeated the 30s default. (d) check_parallel.sh + extract_rules.sh + check_architecture_sync.sh + 8 sibling rule files used the regex `^# Rule [0-9]+[a-z]? (—|--) ` which silently skipped dotted sub-clause headers `# Rule 24.c` / `# Rule 29.c`; both rule bodies were absorbed into Rule 11's chunk and attributed there in NDJSON timing + Rule 72 regression detection — and the "132 == 132" serial/parallel parity check at Rule G-5.a was vacuously true because BOTH sides used the same broken regex. Headers were always there since rc1; only attribution moved. (e) check_architecture_sync.sh used 10 bare `python3 - <<PYEOF` invocations (Rules 23/25/28j/28k/37/63/68/78/80/94) that silently fell through to vacuous PASS with `python3: not found` on Windows hosts where only `python` exists; CI on Ubuntu was green because python3 exists there. Same fail-open pattern, different surface. (f) check_recurring_families.sh inverted the corpus-wide python preference (python before python3) so on Python-2-as-`python` systems the rc19 validator would crash with SyntaxError. (g) R-038 + R-042 both rewrote docs/governance/architecture-graph.yaml under xargs -P concurrently with R-040/041/097/106 readers — read-during-write race; closed by atomic temp-file + os.replace in build_architecture_graph.py. (h) emit_contract_tables.sh wrote 6 hardcoded /tmp/contract-tables-<phase>.md paths with no PID + check_architecture_sync.sh + rule-099.sh used /tmp/_r99_hits.$$ — concurrent gate runs would clobber. All eight closed across Commits A/B/C of this same PR. Pattern reinforcement (BOTH passes): rc35's first-pass discipline ("found 8 bugs in parallel, fixed all") still leaves the cited bugs's SIBLINGS unfound; the second-pass adversarial review systematically constructed sibling scenarios and found 8 more. Lesson: a wave is not complete when the cited bugs are fixed — it's complete when the sibling-scenario sweep returns empty.
 
@@ -94,8 +95,16 @@ families:
   - id: F-numeric-drift
     title: Numeric Drift Across Authority Surfaces
     first_observed_rc: rc5
-    last_observed_rc: rc40-agent-execution-engine-readiness-corrective
-    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective]
+    last_observed_rc: engineport-frame-authority-convergence-2026-05-29
+    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective, engineport-frame-authority-convergence-2026-05-29]
+      # engineport-frame-authority-convergence (2026-05-29): the ADR-0158 engine-boundary
+      # wave (EnginePort neutral boundary + EngineeringFrame re-home + 5 new gate rules
+      # G-22..G-26) moved eight baseline_metrics in lockstep — active_gate_checks 152→157,
+      # enforcer_rows 185→190, active_engineering_rules 50→55, gate_executable_test_cases
+      # 275→287, workspace_elements 608→620, workspace_relationships 469→495,
+      # architecture_graph_nodes 659→674, architecture_graph_edges 1286→1301. All taken
+      # from the regenerated projection / graph / extract_rules outputs, never hand-computed,
+      # and reconciled across architecture-status.yaml + README + gate/README in one wave.
     root_cause: |
       Numeric claims (rule counts, gate counts, enforcer counts, graph
       nodes/edges, self-tests) are estimated when a release note is written
@@ -198,8 +207,18 @@ families:
   - id: F-authority-surface-path-drift
     title: Authority-Surface Path Drift After Code Refactor
     first_observed_rc: rc4
-    last_observed_rc: rc39-formal-release-transaction
-    occurrences: [rc4, rc6, rc7, rc11, rc12, rc13, rc14, rc15, rc36, rc39-formal-release-transaction]
+    last_observed_rc: engineport-frame-authority-convergence-2026-05-29
+    occurrences: [rc4, rc6, rc7, rc11, rc12, rc13, rc14, rc15, rc36, rc39-formal-release-transaction, engineport-frame-authority-convergence-2026-05-29]
+      # engineport-frame-authority-convergence (2026-05-29): the neutral engine boundary
+      # relocated the orchestration SPI package com.huawei.ascend.engine.orchestration.spi
+      # to com.huawei.ascend.bus.spi.engine (3 test files relocated, new bus.spi.engine
+      # types). Authority surfaces lagged the code move: rendered architecture/docs/**.md,
+      # contract-catalog.md, dfx yaml, quickstart, oss-bom, the L0 puml, package-info, and
+      # architecture-status test-path entries still named the old package. Closed for this
+      # wave by re-rendering every templated surface from its W2-fixed .md.j2, re-mirroring
+      # the ADRs, re-emitting the DSL fragments, and re-extracting facts so code-symbols.json
+      # and tests.json carry zero engine.orchestration.spi references. A new blocking gate
+      # rule G-24 (old-orchestration-spi package ban) now fails closed on the lag.
     root_cause: |
       Code refactors (file moves, package renames, SPI relocations) land
       first; authority surfaces (`docs/contracts/contract-catalog.md`,
@@ -272,8 +291,17 @@ families:
   - id: F-cross-authority-agreement
     title: Cross-Authority Surface Disagreement
     first_observed_rc: rc14
-    last_observed_rc: rc55-pr76-interface-review-anchor-corrective
-    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective, rc53-wave-1-agent-service-l1-4plus1-rewrite, rc55-agent-service-l1-canonical-materialization, rc55-pr76-interface-review-anchor-corrective]
+    last_observed_rc: engineport-frame-authority-convergence-2026-05-29
+    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective, rc53-wave-1-agent-service-l1-4plus1-rewrite, rc55-agent-service-l1-canonical-materialization, rc55-pr76-interface-review-anchor-corrective, engineport-frame-authority-convergence-2026-05-29]
+      # engineport-frame-authority-convergence (2026-05-29): at the ADR-0158 merge tip
+      # (d66749b) the generated authority surfaces had diverged from one another — the
+      # extracted facts (code-symbols.json / tests.json), contract-catalog.md, product
+      # surfaces, and the workspace projection each described a different engine boundary
+      # vintage (old engine.orchestration.spi vs new bus.spi.engine; design_only vs shipped
+      # engineering frames; product claims still tagged onto re-homed frames). Closed for
+      # this wave by regenerating ALL derived surfaces from the single edited sources and
+      # reconciling baseline_metrics against the live projection/graph/extract outputs in
+      # lockstep, so every authority surface agrees at one commit.
       # rc53 Wave 1: PR #71's L1 design draft disagrees with 3 authority surfaces — §3.3 Internal Event Queue (single-tier + 3 storage modes) contradicts bus-channels.yaml's three physically-isolated channels (Rule R-E); §3.1.2 "remote interrupt" via A2A contradicts s2c-callback.v1.yaml's S2cCallbackEnvelope-via-control-channel design (Rule R-M.d); §3.5 component names contradict contract-catalog.md SPI rows (EngineRegistry / ExecutorAdapter / RuntimeMiddleware / HookPoint). Closed at the design level by ADR-0136 vocabulary reconciliation + ADR-0138 5-layer L1 ratification with explicit name-mapping table.
       # rc55: agent-service L1 canonical-materialization review found 5 in-doc cross-authority disagreements in agent-service/ARCHITECTURE.md alone: (M2) §0.4 "Until full 4+1 reorganisation lands" stale transition prose vs §0.5 rc53 4+1 ratification claim — the same doc says both "not yet reorganised" and "fully ratified"; (M3) `RunRepository.updateIfNotTerminal` wave-staging drift — review §4.2 says "existing W1 method" while ARCHITECTURE.md elsewhere says "abstract from rc39 per ADR-0118"; (M4) TaskRepository vs TaskStateStore naming inconsistency between ARCHITECTURE.md §11 prose and §11.2 SPI table + module-metadata.yaml; (M11) `docs/contracts/agent-invoke-request.v1.yaml` cited in §11.3 without verifying file exists on disk (verified absent); (R4) ADR-0136 §3 glossary aliases `ChatAdvisor` + `RuntimeMiddleware` as one "Shadow Tool Interceptor" mapping while they have different cardinality (per-ChatClient-call vs per-HookPoint-per-Run) and different scopes (model-call boundary vs hook-point boundary). Closed at the design level by ADR-0140..0145 + the rc55 L1 canonical materialization wave (docs/L1/agent-service/ replaces the §0.5 review-doc pointer).
       # rc55 PR #76 anchor corrective: the new interface-drift review initially cited a workspace-local L2 proposal file that was not part of the PR and anchored the stale POST /v1/runs 201 prose to the wrong agent-service/ARCHITECTURE.md line range. The review has been corrected to cite only PR-visible tracked surfaces and the actual stale 201 lines (166-167). This is the same cross-authority evidence-anchor class, not a new family.
@@ -1998,3 +2026,81 @@ families:
       - "Phase-B convergence bound all 14 PR-93 contracts + ADR-0155 to product claims (access-intent→PC-002; internal-state/event contracts→PC-003; engine/tool contracts→PC-004; session-snapshot→PC-005); Rule G-17 (no-orphan, now BLOCKING) prevents any future PR-93-style contract from landing without a product-claim anchor, and Rule G-18 (chain-completeness) keeps every contract reachable from a customer claim — closing the structural anchoring gap from the product-traceability axis as well as the SPI-parity axis."
     cleanup_status: structurally_addressed
     open_residual: "TCK conformance suites for the new SPIs are deferred to W2; ArchUnit physical enforcement of the new YAML contracts as compile-time assertions is also W2. The family stays open until either (a) all 6 module designs ship and the next L1 audit finds no recurrence of these specific drift patterns or (b) static enforcement closes the structural gap. Post Phase-B convergence the product-claim-orphan residual is closed (G-17 blocking); the remaining residual is purely the W2 TCK + ArchUnit physical-enforcement gap."
+
+  - id: F-non-english-in-tier1-authority
+    title: Non-English Text in Tier-1 Auto-Loaded Authority
+    first_observed_rc: engineport-frame-authority-convergence-2026-05-29
+    last_observed_rc: engineport-frame-authority-convergence-2026-05-29
+    occurrences: [engineport-frame-authority-convergence-2026-05-29]
+    root_cause: |
+      The kernel mandate "translate all instructions into English before any
+      model call" applies to the Tier-1 auto-loaded authority set
+      (product/PRODUCT.md, claims.yaml, personas.yaml, journey.md and the
+      other files with a non-zero ceiling in gate/always-loaded-budget.txt).
+      Source inputs and product authority were authored in Chinese first and
+      the Chinese text persisted in the auto-loaded surfaces, so every model
+      call silently ingested non-English authority — defeating the
+      English-only contract precisely where it matters most (the always-loaded
+      tier seen by every agent on every turn). This wave translated the
+      product/* surfaces to English and archived the Chinese originals under
+      product/source-inputs/. The defect is structural: any future Tier-1
+      surface authored or imported in another language re-introduces the
+      class unless a gate fails closed on it.
+    surfaces:
+      - product/PRODUCT.md
+      - product/claims.yaml
+      - product/personas.yaml
+      - product/journey.md
+      - gate/always-loaded-budget.txt
+    prevention_rules:
+      - Rule G-25 (Tier-1 Non-English / Mojibake Lint, enforcer E190) — fails
+        closed when any file with a non-zero byte ceiling in
+        gate/always-loaded-budget.txt contains CJK code points or mojibake
+        markers; reports line:col + byte offset only so the gate log never
+        embeds the non-English text.
+    cleanup_status: monitoring
+    open_residual: |
+      Rule G-25 covers exactly the always-loaded Tier-1 set. Non-English text
+      in non-Tier-1 authority (ADRs, contract YAML such as the financial
+      audit-trail.v1.yaml regulatory-alignment token, review logs) is out of
+      scope by design and intentionally tolerated for now. Promotion to
+      `closed` requires one full release cycle with zero new Tier-1
+      occurrences after G-25 went blocking.
+
+  - id: F-local-plan-path-in-active-authority
+    title: Local Plan-Path Reference in Active Authority
+    first_observed_rc: engineport-frame-authority-convergence-2026-05-29
+    last_observed_rc: engineport-frame-authority-convergence-2026-05-29
+    occurrences: [engineport-frame-authority-convergence-2026-05-29]
+    root_cause: |
+      Active authority surfaces (product/*, docs/adr, docs/governance,
+      architecture/*, CLAUDE.md, rule cards, the gate/lib/extract_rules.sh
+      emitter and gate/config.yaml) carried hard references to a
+      machine-local plan file path under a developer home directory
+      (a drive-prefixed `.claude/plans/...` path). The path is unresolvable on any other
+      machine and in CI, so an authority surface pointed at content no
+      reviewer or build agent can read — an authority dangling-pointer. The
+      extract_rules.sh emitter then propagated the local path into all 150
+      gate/rules/*.sh mirrors. This wave stripped or demoted the plan-path
+      references across the corpus and fixed the emitter so regenerated
+      mirrors carry only the stable structural citation.
+    surfaces:
+      - product
+      - docs/adr
+      - docs/governance
+      - architecture
+      - CLAUDE.md
+      - gate/lib/extract_rules.sh
+      - gate/config.yaml
+      - gate/local-plan-path-exemptions.txt
+    prevention_rules:
+      - Rule G-26 (Local Plan-Path Ban, enforcer E191) — fails closed when an
+        active authority surface references a machine-local plan path outside
+        the explicit allowlist in gate/local-plan-path-exemptions.txt.
+    cleanup_status: monitoring
+    open_residual: |
+      Rule G-26 scans the named authority surfaces against an explicit
+      exemption allowlist. Plan-path references in non-authority working
+      notes (e.g. interaction logs under docs/logs/) remain out of scope.
+      Promotion to `closed` requires one full release cycle with zero new
+      occurrences after G-26 went blocking.

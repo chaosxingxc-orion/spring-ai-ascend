@@ -89,7 +89,7 @@ Enforced by [`rule-G-7.md`](docs/governance/rules/rule-G-7.md).
 | Constraint ↔ rule mapping | `docs/governance/enforcers.yaml`, `architecture/generated/enforcers.dsl` | On-demand |
 | Recurring defects ledger | `docs/governance/recurring-defect-families.yaml` | On-demand |
 | Retired-rules audit (Phase 7) | `docs/governance/retired-rules-audit.md` | On-demand |
-| Active plan (AI progressive learning curve restructure) | `D:/.claude/plans/ai-l0-adr-ai-l1-adr-adr-ai-ai-1-2-3-ai-effervescent-flask.md` | On-demand |
+| Active plan (AI progressive learning curve restructure) | tracked outside the repo; see ADR-0156 for product authority | On-demand |
 
 ## Program status
 

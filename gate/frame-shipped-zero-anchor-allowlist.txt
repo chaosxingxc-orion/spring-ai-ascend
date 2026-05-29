@@ -1,0 +1,10 @@
+# Shipped-frame zero-anchor allowlist (Rule G-23 / Rule 140 / enforcer E188).
+#
+# Each non-comment line names an EngineeringFrame that is permitted to declare
+# saa.status "shipped" while anchoring zero FunctionPoints, despite Rule G-23.
+# Entries are ADR-backed exceptions only. Use either the DSL element var
+# (e.g. efEnginePort) or the saa.id (e.g. EF-ENGINE-PORT); one per line.
+#
+# This file ships EMPTY: at landing every shipped frame anchors >=1 FunctionPoint,
+# and the 4 zero-anchor frames were demoted to design_only in the prior wave.
+# An empty allowlist means Rule G-23 fails closed on the next zero-anchor regression.

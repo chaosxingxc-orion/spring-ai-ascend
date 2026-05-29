@@ -4,8 +4,9 @@
 
   Authority: ADR-0078 (agent-service consolidation), ADR-0088 (agent-runtime-core dissolution).
   Post-rc13 (2026-05-20): Run / RunStatus / RunStateMachine / RunRepository / IdempotencyRecord
-  re-consolidated here after agent-runtime-core dissolved per ADR-0088. Orchestration SPI now
-  lives in agent-execution-engine (engine.orchestration.spi); s2c SPI in agent-bus (bus.spi.s2c).
+  re-consolidated here after agent-runtime-core dissolved per ADR-0088. The neutral
+  orchestration/engine SPI now lives in agent-bus (bus.spi.engine) per ADR-0158; s2c SPI in
+  agent-bus (bus.spi.s2c).
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

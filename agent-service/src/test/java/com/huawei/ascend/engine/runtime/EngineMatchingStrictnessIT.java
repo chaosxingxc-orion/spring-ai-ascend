@@ -4,6 +4,7 @@ import com.huawei.ascend.service.runtime.orchestration.inmemory.InMemoryCheckpoi
 import com.huawei.ascend.service.runtime.orchestration.inmemory.InMemoryRunRegistry;
 import com.huawei.ascend.engine.exec.IterativeAgentLoopExecutor;
 import com.huawei.ascend.engine.exec.SequentialGraphExecutor;
+import com.huawei.ascend.service.runtime.orchestration.TestEnginePorts;
 import com.huawei.ascend.service.runtime.orchestration.inmemory.SyncOrchestrator;
 import com.huawei.ascend.engine.spi.EngineMatchingException;
 import com.huawei.ascend.bus.spi.engine.ExecutorDefinition;
@@ -30,7 +31,7 @@ class EngineMatchingStrictnessIT {
     void payload_with_no_registered_adapter_raises_engine_mismatch() {
         // Registry has only the graph adapter; the Run will submit an agent-loop payload.
         EngineRegistry engines = new EngineRegistry().register(new SequentialGraphExecutor());
-        SyncOrchestrator orchestrator = new SyncOrchestrator(
+        SyncOrchestrator orchestrator = TestEnginePorts.inProcessOrchestrator(
                 new InMemoryRunRegistry(),
                 new InMemoryCheckpointer(),
                 engines);
@@ -52,7 +53,7 @@ class EngineMatchingStrictnessIT {
         EngineRegistry engines = new EngineRegistry()
                 .register(new SequentialGraphExecutor())
                 .register(new IterativeAgentLoopExecutor());
-        SyncOrchestrator orchestrator = new SyncOrchestrator(
+        SyncOrchestrator orchestrator = TestEnginePorts.inProcessOrchestrator(
                 new InMemoryRunRegistry(),
                 new InMemoryCheckpointer(),
                 engines);

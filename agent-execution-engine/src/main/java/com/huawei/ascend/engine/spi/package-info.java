@@ -10,11 +10,10 @@
  *
  * <p>The payload contract type
  * {@link com.huawei.ascend.bus.spi.engine.ExecutorDefinition}
- * lives in the sibling {@code engine.orchestration.spi} package alongside
- * {@code RunContext} / {@code SuspendSignal} (relocated here from the
- * dissolved {@code agent-runtime-core} module / rc13) so the
- * orchestration vocabulary stays co-located with the engine that
- * discriminates over it.
+ * lives in the {@code com.huawei.ascend.bus.spi.engine} package (owned by
+ * agent-bus) alongside {@code RunContext} / {@code SuspendSignal}: the neutral
+ * orchestration/engine SPI is the transport-agnostic EnginePort boundary owned
+ * by the Bus &amp; State Hub plane, which this adapter SPI consumes.
  *
  * <p>SPI-pure per CLAUDE.md Rule 32: imports restricted to {@code java.*} +
  * own spi siblings + cross-module SPI surfaces

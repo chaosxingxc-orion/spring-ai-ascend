@@ -164,7 +164,7 @@ verification:
   manual:
     - "principle-coverage.yaml lists P-M with operationalised_by_rules including Rule-R-M.a..47"
     - "docs/logs/reviews/2026-05-16-engine-contract-structural-response.en.md §5 matrix exists and is complete (5 rows × 2 columns)"
-    - "Wave plan at D:/.claude/plans/https-github-com-chaosxingxc-orion-spri-compressed-taco.md is the canonical execution reference"
+    - "Wave plan (historical session plan, local-only) is the canonical execution reference"
 
 enforcer_rows: []
 gate_rules: []

@@ -108,8 +108,8 @@ decision: |
      list it). No production module depends on `com.structurizr:*`.
      Structurizr server is explicitly out of scope.
 
-  8. Wave decomposition (per the replacement plan at
-     `D:\.claude\plans\structurizr-d-chao-workspace-spring-ai-adaptive-hellman.md`):
+  8. Wave decomposition (per the replacement plan —
+     historical session plan, local-only):
        - Wave 0: spike + ADR (this ADR + ADR-0148)
        - Wave 1: tooling foundation (advisory gate)
        - Wave 2: authored zone

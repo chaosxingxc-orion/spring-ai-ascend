@@ -79,6 +79,44 @@ genModule_agent_bus -> efChannelIsolation "module contains engineering frame" "S
     }
 }
 
+efEnginePort = element "Engine Port Frame" "EngineeringFrame" "Neutral transport-agnostic Service<->Engine boundary — EnginePort, ExecutionContext, ExecuteRequest, AgentEvent stream, DefinitionRef, EngineDescriptor; in-process / internal-RPC / A2A realizations selected by deployment form" "SAA EngineeringFrame" {
+    properties {
+        "saa.id" "EF-ENGINE-PORT"
+        "saa.kind" "engineering_frame"
+        "saa.level" "L1"
+        "saa.view" "logical"
+        "saa.status" "design_only"
+        "saa.owner" "agent-bus"
+        "saa.sourceAdr" "ADR-0158"
+        "saa.structuralAxis" "true"
+    }
+}
+genModule_agent_bus -> efEnginePort "module contains engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "contains"
+    }
+}
+
+// EF-ORCHESTRATION-SPI re-homed from agent-execution-engine to agent-bus per ADR-0158
+// (the neutral execution contract lives in bus.spi.engine, owned by no single engine).
+efOrchestrationSpi = element "Orchestration SPI Frame" "EngineeringFrame" "Neutral execution model — Orchestrator, ExecutionContext, RunContext, SuspendSignal, Checkpointer, ExecutorDefinition, RunMode (bus.spi.engine)" "SAA EngineeringFrame" {
+    properties {
+        "saa.id" "EF-ORCHESTRATION-SPI"
+        "saa.kind" "engineering_frame"
+        "saa.level" "L1"
+        "saa.view" "logical"
+        "saa.status" "design_only"
+        "saa.owner" "agent-bus"
+        "saa.sourceAdr" "ADR-0157|ADR-0158"
+        "saa.structuralAxis" "true"
+    }
+}
+genModule_agent_bus -> efOrchestrationSpi "module contains engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "contains"
+    }
+}
+
 // ---- agent-execution-engine (compute_control plane) ----
 
 efEngineRegistry = element "Engine Registry Frame" "EngineeringFrame" "Engine contract surface — EngineRegistry strict matching, EngineEnvelope, ExecutorAdapter lifecycle, EngineHookSurface" "SAA EngineeringFrame" {
@@ -101,24 +139,6 @@ genModule_agent_execution_engine -> efEngineRegistry "module contains engineerin
 efEngineRegistry -> fpEngineDispatch "frame anchors function point" "SAA Relationship" {
     properties {
         "saa.rel" "anchors"
-    }
-}
-
-efOrchestrationSpi = element "Orchestration SPI Frame" "EngineeringFrame" "Orchestration SPI — Orchestrator, RunContext, SuspendSignal, Checkpointer, ExecutorDefinition, RunMode" "SAA EngineeringFrame" {
-    properties {
-        "saa.id" "EF-ORCHESTRATION-SPI"
-        "saa.kind" "engineering_frame"
-        "saa.level" "L1"
-        "saa.view" "logical"
-        "saa.status" "shipped"
-        "saa.owner" "agent-execution-engine"
-        "saa.sourceAdr" "ADR-0157"
-        "saa.structuralAxis" "true"
-    }
-}
-genModule_agent_execution_engine -> efOrchestrationSpi "module contains engineering frame" "SAA Relationship" {
-    properties {
-        "saa.rel" "contains"
     }
 }
 
@@ -331,6 +351,91 @@ genModule_agent_service -> efInternalEventQueue "module contains engineering fra
 genModule_agent_service -> efTranslationIntercept "module contains engineering frame" "SAA Relationship" {
     properties {
         "saa.rel" "contains"
+    }
+}
+
+// ---- value axis x structural axis: Feature --traverses--> EngineeringFrame ----
+// A value demand (Feature) is read as a route across the structural map. ADR-0157 §2.
+// feat* are declared in features.dsl (included earlier); ef* span this file + features.dsl.
+
+featRunLifecycleControl -> efAccessAdmission "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featRunLifecycleControl -> efTaskControl "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featRunLifecycleControl -> efSessionTaskState "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featSuspendResumeControl -> efTaskControl "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featSuspendResumeControl -> efOrchestrationSpi "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featIdempotencyAndReplay -> efAccessAdmission "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featTenantIsolation -> efAccessAdmission "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featPostureBootstrap -> efAccessAdmission "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featEdgeComputeIngress -> efIngressGateway "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featServerClientCallback -> efS2cTransport "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featGraphMemory -> efGraphmemoryAutoconfig "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featEngineDispatchAndHooks -> efEngineDispatch "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featEngineDispatchAndHooks -> efHookSurface "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featEngineDispatchAndHooks -> efEngineRegistry "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featEngineDispatchAndHooks -> efTranslationIntercept "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featEngineDispatchAndHooks -> efEnginePort "feature traverses engineering frame" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
     }
 }
 

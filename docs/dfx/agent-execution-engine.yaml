@@ -36,7 +36,7 @@ vulnerability:
   scan_tooling: "manual review at L1; automated CVE/SCA deferred per CLAUDE-deferred.md 32.d"
   tenant_isolation: "EngineEnvelope carries no tenant — tenant scope is enforced upstream by the orchestrator before dispatch"
   payload_integrity: "ExecutorDefinition is a sealed type per engine; pattern-matching restricted to EngineRegistry (Rule 43)"
-  spi_purity: "com.huawei.ascend.engine.spi.* imports java.* + own spi siblings + agent-middleware SPI (HookPoint) + own-module orchestration SPI surfaces (engine.orchestration.spi for RunContext/ExecutorDefinition/SuspendSignal). Spring / platform / impl / micrometer imports forbidden — enforced by E48 SpiPurityGeneralizedArchTest (the strict same-package-only test applies only to s2c.spi)"
+  spi_purity: "com.huawei.ascend.engine.spi.* imports java.* + own spi siblings + agent-middleware SPI (HookPoint) + the neutral orchestration/engine SPI from agent-bus (bus.spi.engine for RunContext/ExecutorDefinition/SuspendSignal, re-homed there per ADR-0158). Spring / platform / impl / micrometer imports forbidden — enforced by E48 SpiPurityGeneralizedArchTest (the strict same-package-only test applies only to s2c.spi)"
 
 observability:
   metric_namespace: "springai_ascend_engine_*"
@@ -45,5 +45,4 @@ observability:
   audit_trail: "engine_dispatched / engine_mismatch span events emitted at registry resolve"
   spi_packages:
     - "com.huawei.ascend.engine.spi"
-    - "com.huawei.ascend.engine.orchestration.spi"
     - "com.huawei.ascend.engine.planner.spi"

@@ -15,7 +15,7 @@ context: |
   observed (2026-05-19) that 100 rules at L0 pre-publication is bloated:
   rule content can be preserved while rule count is compressed.
 
-  Migration plan: D:/.claude/plans/rc1-rc2-docs-logs-ai-agent-spi-adr-rule-scalable-pond.md
+  Migration plan: (historical session plan, local-only)
 
 decision: |
   Adopt a prefixed namespace for engineering rules:

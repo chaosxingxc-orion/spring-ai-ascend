@@ -10,6 +10,7 @@ import com.huawei.ascend.service.runtime.capability.CapabilityRegistry;
 import com.huawei.ascend.service.runtime.orchestration.inmemory.InMemoryCheckpointer;
 import com.huawei.ascend.service.runtime.orchestration.inmemory.InMemoryRunRegistry;
 import com.huawei.ascend.engine.exec.SequentialGraphExecutor;
+import com.huawei.ascend.service.runtime.orchestration.TestEnginePorts;
 import com.huawei.ascend.service.runtime.orchestration.inmemory.SyncOrchestrator;
 import com.huawei.ascend.service.runtime.runs.Run;
 import com.huawei.ascend.service.runtime.runs.RunStatus;
@@ -37,7 +38,7 @@ class OrchestratingAsyncRunDispatcherTest {
     private OrchestratingAsyncRunDispatcher dispatcher(RunRepository runs, Capability... capabilities) {
         Checkpointer checkpointer = new InMemoryCheckpointer();
         EngineRegistry engineRegistry = new EngineRegistry().register(new SequentialGraphExecutor());
-        Orchestrator orchestrator = new SyncOrchestrator(runs, checkpointer, engineRegistry);
+        Orchestrator orchestrator = TestEnginePorts.inProcessOrchestrator(runs, checkpointer, engineRegistry);
         CapabilityRegistry registry = new CapabilityRegistry(List.of(capabilities));
         return new OrchestratingAsyncRunDispatcher(runs, orchestrator, registry);
     }

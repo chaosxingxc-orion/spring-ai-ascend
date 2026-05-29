@@ -55,7 +55,8 @@ result checkpoints via Webhook.
   consolidated per ADR-0078; the transient `agent-runtime-core` module
   was dissolved per ADR-0088 with runs / idempotency relocated back to
   `agent-service`), heterogeneous engine selection (lives in
-  `agent-execution-engine`, owns `engine.orchestration.spi` per ADR-0088),
+  `agent-execution-engine`; the neutral orchestration/engine SPI is owned by
+  `agent-bus` as `bus.spi.engine` per ADR-0158),
   bus channels (live in `agent-bus`).
 - **No-direct-link clause (rc13 — ADR-0089 / Rule R-I sub-clause .b):**
   The SDK MUST NOT import any class under

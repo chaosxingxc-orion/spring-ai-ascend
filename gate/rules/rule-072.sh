@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 72 — rule_duration_regression_check. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 72 — rule_duration_regression_check (enforcer E102)
 # Vacuously passes until gate/log/benchmarks/median.json has >= 5 entries
@@ -38,7 +38,6 @@ fi
 # ===========================================================================
 # SPI metadata integrity wave (2026-05-18)
 # Authority: docs/governance/rules/rule-{75..78}.md
-#            + D:\.claude\plans\spi-smooth-llama.md
 # Rules 75-78 with enforcer rows E108-E111. Prevents the SPI declaration vs
 # physical layout drift surfaced by the 2026-05-18 SPI integrity audit
 # (T2.B2 extraction left engine.spi empty + orchestration.spi double-claimed

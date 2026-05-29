@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 71 — deferred_doc_not_in_always_loaded. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 71 — deferred_doc_not_in_always_loaded (enforcer E101)
 #
@@ -32,7 +32,7 @@ if [[ $_r71_fail -eq 0 ]]; then pass_rule "deferred_doc_not_in_always_loaded"; f
 
 # ===========================================================================
 # Gate-script efficiency wave PR-E1 (2026-05-17)
-# Authority: D:/.claude/plans/tokens-token-buzzing-sprout.md + docs/governance/rules/rule-73.md
+# Authority: docs/governance/rules/rule-73.md
 # ===========================================================================
 
 # ---------------------------------------------------------------------------

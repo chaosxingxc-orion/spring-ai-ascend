@@ -128,7 +128,7 @@ just property values.
 
 ## References
 
-- L1 plan `D:\.claude\plans\l1-modular-russell.md` §9, §11 (E11, E21, E22).
+- L1 plan (historical session plan, local-only) §9, §11 (E11, E21, E22).
 - Architect guidance §6.3, §9.2, §10.
 - ADR-0056 (AuthProperties consumed here).
 - ADR-0057 (IdempotencyStore beans consumed here).

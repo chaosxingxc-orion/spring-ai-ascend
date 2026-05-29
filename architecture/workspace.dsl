@@ -4,7 +4,7 @@
 // (唯一主入口) for the entire architecture design system.
 //
 // Authority: ADR-0147 + ADR-0149 + ADR-0150.
-// Migration plan: D:\.claude\plans\structurizr-d-chao-workspace-spring-ai-adaptive-hellman.md
+// Migration plan: see ADR-0147 for the Structurizr workspace authority migration.
 // Status: W0-W7 shipped on main (commit 552ca4e and downstream).
 //          W8 docs consolidation lands on top — L1 corpus moved to
 //          architecture/docs/L1/, module-root ARCHITECTURE.md files

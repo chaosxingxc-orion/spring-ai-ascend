@@ -58,11 +58,11 @@ remains closed.
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
-| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 15 (rc40 codegraph-mcp-onboarding bumped active_gate_checks / enforcer_rows / gate_executable_test_cases / recurring_defect_families baselines) | ⚠️ partial |
+| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 16 (engineport-frame-authority-convergence moved 8 baselines in lockstep after the ADR-0158 EnginePort/EngineeringFrame regen) | ⚠️ partial |
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
-| 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 10 (rc39 stale Java SPI anchors) | ⚠️ partial |
+| 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 11 (engineport-frame-authority-convergence — old engine.orchestration.spi re-homed to bus.spi.engine per ADR-0158; authority-surface lag) | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 6 (rc6, rc7, rc11, rc15, rc35-second-pass, rc36) | ⚠️ partial |
-| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 15 (rc55 agent-service L1 canonical-materialization audit found 5 in-doc disagreements: M2 §0.4 stale transition prose, M3 RunRepository.updateIfNotTerminal wave-status drift, M4 TaskRepository vs TaskStateStore naming, M11 agent-invoke-request.v1.yaml cited without file existing, R4 ADR-0136 glossary aliases ChatAdvisor + RuntimeMiddleware as one mechanism) | ✅ structurally addressed (Rule 122/123/124 added for proposal documents; rc55 adds ADR-0140..0145 L1 canonical materialization closure) |
+| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 17 (engineport-frame-authority-convergence — generated facts/contract/product/workspace surfaces divergent at the d66749b engine-boundary merge tip; reconciled by regenerating all derived surfaces from single edited sources) | ✅ structurally addressed (Rule 122/123/124 added for proposal documents; rc55 adds ADR-0140..0145 L1 canonical materialization closure) |
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 4 (rc12, rc15, rc16, rc36) | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 5 (rc55 reopen — agent-service/ARCHITECTURE.md §runtime/resilience present-tense prose flanking deferred Rule R-K.c citation) | 🟡 monitoring (rc55 reopens from `closed` because the rc15 + rc53 closures did not cover narrative prose within agent-*/ARCHITECTURE.md flanking deferred-clause citations; cool-down required: 3 subsequent waves) |
@@ -86,6 +86,8 @@ remains closed.
 | 26 | F-discriminator-without-discriminated-type | Typed Discriminator Ships Without the Polymorphic Type It Discriminates | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (ADR-0145 specifies sealed RunEvent hierarchy + docs/contracts/run-event.v1.yaml; actual Java sealed type lands in a follow-up impl-mode wave; gate-rule for discriminator-zero-callsite is a W5+ candidate) |
 | 27 | F-spi-package-bloat-with-carriers | SPI Package Contains More Structural Carriers Than Extension Interfaces | 1 (rc55-agent-service-l1-canonical-materialization) | 🟡 monitoring (rc55 W5 audits agent-service memory.spi package which has 1 interface + 12 carriers; carrier-promotion deferred to a follow-up impl-mode wave; gate-rule for carrier/interface ratio is a W5+ candidate) |
 | 28 | F-agent-service-internal-boundary-drift | AgentService internal-module boundary drift (M4 sole-caller breach, responseSnapshot owner drift, cross-jurisdiction remote interception) | 3 (PR-92 2026-05-28 self-audit) | ✅ structurally addressed — ADR-0155 anchors 6 boundary reversals; 14 new design_only YAML contracts; TCK and ArchUnit enforcement deferred to W2 |
+| 29 | F-non-english-in-tier1-authority | Non-English Text in Tier-1 Auto-Loaded Authority | 1 (engineport-frame-authority-convergence — product/* authored in Chinese first, persisted in the always-loaded Tier-1 set) | 🟡 monitoring (Rule G-25 / E190 fails closed on CJK + mojibake in gate/always-loaded-budget.txt files; non-Tier-1 authority out of scope by design) |
+| 30 | F-local-plan-path-in-active-authority | Local Plan-Path Reference in Active Authority | 1 (engineport-frame-authority-convergence — a drive-prefixed `.claude/plans/...` path referenced across product/docs/governance/architecture + propagated into 150 gate/rules mirrors by the emitter) | 🟡 monitoring (Rule G-26 / E191 fails closed on machine-local plan paths outside gate/local-plan-path-exemptions.txt) |
 
 **Cleanup status legend.**
 - ✅ **closed** — no recurrence expected; prevention rule covers all known surfaces; cool-down satisfied.
@@ -1744,6 +1746,38 @@ Prevention rules (current):
 - Future enhancement (Round-5+): a meta self-test that, for every blocking `_neg` fixture, audits whether the fixture invokes the canonical gate OR is documented as a sub-rule unit test. Deferred until at least one round elapses without re-occurrence.
 
 Open residual: the R3 redesign sidesteps the precondition-skip class entirely; the Rule 132 + Round-4 fixture pattern sets the standard for future tests. Promotion to `closed` requires one full release cycle with zero new occurrences AND the future meta-test that automates fixture-method auditing.
+
+---
+
+### F-non-english-in-tier1-authority — Non-English Text in Tier-1 Auto-Loaded Authority
+
+**Status: monitoring** (Rule G-25 / E190 fails closed on CJK code points + mojibake markers in every file with a non-zero ceiling in `gate/always-loaded-budget.txt`; non-Tier-1 authority is out of scope by design.)
+
+One occurrence (engineport-frame-authority-convergence, 2026-05-29): the product authority surfaces (`product/PRODUCT.md`, `product/claims.yaml`, `product/personas.yaml`, `product/journey.md`) were authored in Chinese first and the Chinese text persisted in the Tier-1 auto-loaded set, so every model call ingested non-English authority on every turn — defeating the kernel's English-only contract precisely in the always-loaded tier. This wave translated those surfaces to English and archived the Chinese originals under `product/source-inputs/`.
+
+Root cause: the kernel mandate "translate all instructions into English before any model call" is enforced by discipline, not by a gate, for the always-loaded Tier-1 set. Any Tier-1 surface authored or imported in another language re-introduces the class until a gate fails closed on it.
+
+Prevention rules (current):
+
+- **Rule G-25** (Tier-1 Non-English / Mojibake Lint, enforcer E190) — fails closed when any file with a non-zero byte ceiling in `gate/always-loaded-budget.txt` contains CJK code points `[U+4E00..U+9FFF]` or mojibake markers; reports line:col + byte offset only so the gate log never embeds the offending text.
+
+Open residual: G-25 covers exactly the always-loaded Tier-1 set. Non-English in non-Tier-1 authority (ADRs, contract YAML such as the financial `audit-trail.v1.yaml` regulatory-alignment token, review logs) is intentionally tolerated for now. Promotion to `closed` requires one full release cycle with zero new Tier-1 occurrences after G-25 went blocking.
+
+---
+
+### F-local-plan-path-in-active-authority — Local Plan-Path Reference in Active Authority
+
+**Status: monitoring** (Rule G-26 / E191 fails closed when an active authority surface references a machine-local plan path outside the explicit allowlist in `gate/local-plan-path-exemptions.txt`.)
+
+One occurrence (engineport-frame-authority-convergence, 2026-05-29): active authority surfaces (`product/*`, `docs/adr`, `docs/governance`, `architecture/*`, `CLAUDE.md`, rule cards, the `gate/lib/extract_rules.sh` emitter, `gate/config.yaml`) carried hard references to a machine-local plan file under a developer home directory (a drive-prefixed `.claude/plans/...` path). The path is unresolvable on any other machine and in CI — an authority dangling-pointer — and the `extract_rules.sh` emitter propagated it into all 150 `gate/rules/*.sh` mirrors. This wave stripped or demoted the references and fixed the emitter so regenerated mirrors carry only the stable structural citation.
+
+Root cause: authority surfaces are allowed to cite their source-of-record, but a machine-local absolute path is not a portable source-of-record; nothing failed closed on it, so the local path spread across the corpus and into every regenerated mirror.
+
+Prevention rules (current):
+
+- **Rule G-26** (Local Plan-Path Ban, enforcer E191) — fails closed when an active authority surface references a machine-local plan path outside the explicit exemption allowlist.
+
+Open residual: G-26 scans the named authority surfaces against an explicit exemption allowlist. Plan-path references in non-authority working notes (e.g. interaction logs under `docs/logs/`) remain out of scope. Promotion to `closed` requires one full release cycle with zero new occurrences after G-26 went blocking.
 
 ---
 

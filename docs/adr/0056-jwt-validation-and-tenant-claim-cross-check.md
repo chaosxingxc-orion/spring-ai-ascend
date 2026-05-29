@@ -118,7 +118,7 @@ Rejected. Architect guidance §15.3 lists JWT validation as W1 scope. Without it
 
 ## References
 
-- L1 plan `D:\.claude\plans\l1-modular-russell.md` §7, §11 (E9, E10, E11, E21).
+- L1 plan (historical session plan, local-only) §7, §11 (E9, E10, E11, E21).
 - Architect guidance §9.
 - ADR-0055 (module direction).
 - ADR-0058 (PostureBootGuard — required-config enforcement).

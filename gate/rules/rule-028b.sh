@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 28b — high_cardinality_tag_guard. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 28b — high_cardinality_tag_guard (enforcer E19)
 # No source in agent-*/src/main/java registers Tag.of("run_id"|"idempotency_key"|

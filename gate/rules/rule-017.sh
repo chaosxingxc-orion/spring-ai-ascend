@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 17 — contract_catalog_spi_table_matches_source. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 17 — contract_catalog_spi_table_matches_source
 # ADR-0041: contract-catalog.md must list the 7 known active SPI interfaces.

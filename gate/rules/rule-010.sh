@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 10 — module_dep_direction. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 10 — module_dep_direction (amended at L1 by ADR-0055; further by ADR-0078)
 # Phase C consolidation (ADR-0078) merged agent-platform + agent-runtime into a

@@ -38,7 +38,7 @@ The §1+ prose below is **shipped-state grounding** for the agent-service module
 
 ## 2. Shipped components
 
-> Path convention: every Java path below is rooted at `agent-service/src/main/java/com/huawei/ascend/service/{platform,runtime}/...` **except where explicitly noted as living in `agent-execution-engine` (orchestration SPI: `engine.orchestration.spi`, relocated from the dissolved agent-runtime-core per ADR-0088) or `agent-bus` (S2C transport SPI: `bus.spi.s2c`, relocated from the dissolved agent-runtime-core per ADR-0088)**. The engine SPI surface and the S2C SPI types were extracted to their own modules at the rc5 wave (2026-05-18) per ADR-0079; the transient kernel-shim module `agent-runtime-core` was dissolved in rc13 (2026-05-20) per ADR-0088 and its sources redistributed back to semantic-home modules — see §2.B `runtime / engine` and `runtime / s2c` below. Test paths mirror the layout under `src/test/java/`.
+> Path convention: every Java path below is rooted at `agent-service/src/main/java/com/huawei/ascend/service/{platform,runtime}/...` **except where explicitly noted as living in `agent-bus` (neutral orchestration/engine SPI: `bus.spi.engine`, re-homed per ADR-0158; and S2C transport SPI: `bus.spi.s2c`, relocated from the dissolved agent-runtime-core per ADR-0088) or `agent-execution-engine` (engine adapter SPI: `engine.spi`, plus the `InProcessEnginePort` realization per ADR-0158)**. The engine SPI surface and the S2C SPI types were extracted to their own modules at the rc5 wave (2026-05-18) per ADR-0079; the transient kernel-shim module `agent-runtime-core` was dissolved in rc13 (2026-05-20) per ADR-0088 and its sources redistributed to semantic-home modules; ADR-0158 then re-homed the neutral orchestration/engine SPI to `agent-bus` as `bus.spi.engine` — see §2.B `runtime / orchestration` below. Test paths mirror the layout under `src/test/java/`.
 
 ### 2.A Platform-side concerns (subpackage `service.platform.*`)
 
@@ -252,15 +252,16 @@ ArchUnit tests under
 
 ### 2.B Runtime-side concerns (subpackage `service.runtime.*`)
 
-#### runtime / orchestration -- Cognitive runtime SPI + reference impls (W0; SPI **owned by `agent-execution-engine` (rc13 - orchestration SPI relocated from dissolved agent-runtime-core per ADR-0088)**)
+#### runtime / orchestration -- Cognitive runtime SPI + reference impls (W0; neutral orchestration/engine SPI **owned by `agent-bus` as `bus.spi.engine` per ADR-0158 (transport-agnostic EnginePort boundary)**)
 
 The cognitive runtime kernel's SPI contracts live in **two** modules after the
-ADR-0079 (T2.B2) engine-extraction wave (2026-05-18):
+ADR-0079 (T2.B2) engine-extraction wave (2026-05-18) and the ADR-0158 EnginePort re-home:
 
-- **`agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/`**
-  (extracted per ADR-0079) — kernel SPI types `Orchestrator`, `RunContext`,
-  `SuspendSignal`, `Checkpointer`, `TraceContext`, and the sealed
-  `ExecutorDefinition` hierarchy (`GraphDefinition` | `AgentLoopDefinition`).
+- **`agent-bus/src/main/java/com/huawei/ascend/bus/spi/engine/`**
+  (re-homed per ADR-0158) — neutral kernel SPI types `EnginePort`, `Orchestrator`,
+  `RunContext`, `ExecutionContext`, `SuspendSignal`, `Checkpointer`, `TraceContext`,
+  `RunMode`, and the sealed `ExecutorDefinition` hierarchy (`GraphDefinition` |
+  `AgentLoopDefinition`).
 - **`agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/`**
   (extracted per ADR-0079) — executor adapters `GraphExecutor`,
   `AgentLoopExecutor`, the unified `ExecutorAdapter`, `EngineHookSurface`, and
@@ -448,7 +449,7 @@ The reverse direction (`service.platform → service.runtime`) is
 permitted **only** to the runtime public surface, enforced by
 `ServicePlatformImportsOnlyServiceRuntimePublicApiTest` (E34). The
 allowed runtime public packages are: `service.runtime.runs.*`,
-`engine.orchestration.spi.*`, `service.runtime.posture.*`, and
+`bus.spi.engine.*`, `service.runtime.posture.*`, and
 the dev-posture-gated `service.runtime.orchestration.inmemory.InMemoryRunRegistry`.
 
 Authority: `docs/adr/0078-agent-service-consolidation.yaml` (supersedes

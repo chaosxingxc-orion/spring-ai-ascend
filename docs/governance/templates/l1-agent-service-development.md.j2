@@ -154,7 +154,7 @@ under `service.platform.**`. Enforced by ArchUnit
 reverse (`service.platform.* → service.runtime.*`) is permitted ONLY
 to the runtime public surface declared by
 `ServicePlatformImportsOnlyServiceRuntimePublicApiTest` (enforcer E34):
-`runs/`, `engine.orchestration.spi.*`, `posture/`, and the dev-posture-
+`runs/`, `bus.spi.engine.*`, `posture/`, and the dev-posture-
 gated `InMemoryRunRegistry`.
 
 ### 3.3 New rc22 sub-packages (`dispatcher/orchestrator/task/session/engine/`)

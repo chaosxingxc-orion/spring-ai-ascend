@@ -138,7 +138,7 @@ agent-service CONSUMES SPIs from the modules declared in
 
 | SPI consumed | Source module | Source package | Purpose |
 |---|---|---|---|
-| `Orchestrator`, `RunContext`, `Checkpointer`, `SuspendSignal`, `TraceContext`, `ExecutorDefinition`, `RunMode` | `agent-execution-engine` | `engine.orchestration.spi` | Kernel orchestration types (relocated from dissolved agent-runtime-core per ADR-0088) |
+| `EnginePort`, `Orchestrator`, `RunContext`, `ExecutionContext`, `Checkpointer`, `SuspendSignal`, `TraceContext`, `ExecutorDefinition`, `RunMode` | `agent-bus` | `bus.spi.engine` | Neutral orchestration/engine SPI (re-homed to agent-bus per ADR-0158 — transport-agnostic EnginePort boundary) |
 | `ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException` | `agent-execution-engine` | `engine.spi` | Engine adapter SPI (per ADR-0079 extraction) |
 | `EngineRegistry`, `EngineEnvelope` | `agent-execution-engine` | `engine.runtime` | Engine registry + envelope (relocated to engine.runtime per ADR-0090) |
 | `S2cCallbackEnvelope`, `S2cCallbackResponse`, `S2cCallbackTransport` | `agent-bus` | `bus.spi.s2c` | S2C transport SPI (relocated to agent-bus per ADR-0088) |

@@ -143,7 +143,7 @@ gate_rules:
   - rule_57_engine_hooks_yaml_present_and_wellformed
 
 # Hook ownership clarification — added in Phase 7 audit response
-# (D:/.claude/plans/spi-atomic-willow.md L-5). Earlier Phase 2 text was
+# (historical session plan, local-only, L-5). Earlier Phase 2 text was
 # ambiguous about whether engines must declare runtime-fired hooks
 # (BEFORE_SUSPENSION, BEFORE_RESUME, ON_ERROR) in their EngineHookSurface.
 # The nine canonical HookPoints split into two ownership classes:

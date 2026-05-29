@@ -42,7 +42,7 @@ A new tracked artifact. Each row has the shape:
   asserts: <one-line summary of what the enforcer asserts>
 ```
 
-The file is the canonical cross-reference between constraints and their enforcers. The plan-of-record `D:\.claude\plans\l1-modular-russell.md` §11 is the human-readable mirror; the YAML is the machine-readable source.
+The file is the canonical cross-reference between constraints and their enforcers. The plan-of-record (historical session plan, local-only) §11 is the human-readable mirror; the YAML is the machine-readable source.
 
 ### 2. Five legal enforcer kinds
 
@@ -151,4 +151,4 @@ Rejected: leaves the L0 corpus exposed. The bootstrap one-time cost of backfilli
 - Rule G-2 sub-clause .a (`CLAUDE.md`) — Architecture-Text Truth (extended by Rule R-C.a).
 - ADR-0025, ADR-0026, ADR-0027 — Rule G-2 sub-clause .a's enforcement triad (Rule R-C.a inherits and extends).
 - ADR-0046 — Release-note shipped-surface truth (a Rule G-2 sub-clause .a specialisation; Rule R-C.a generalises).
-- Plan-of-record: `D:\.claude\plans\l1-modular-russell.md` §0, §11.
+- Plan-of-record (historical session plan, local-only): §0, §11.

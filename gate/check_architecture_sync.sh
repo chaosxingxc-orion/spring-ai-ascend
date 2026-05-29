@@ -3053,8 +3053,8 @@ if [[ ! -f "$_r60_grandfather" ]]; then
   fail_rule "schema_first_domain_contracts" "$_r60_grandfather missing -- Rule 48 grandfather list required"
   _r60_fail=1
 else
-  # Phase 7 audit fix (Rule 48 sunset discipline -- plan F2/F3 in
-  # D:/.claude/plans/spi-atomic-willow.md). Each grandfather entry MUST be
+  # Phase 7 audit fix (Rule 48 sunset discipline -- plan F2/F3).
+  # Each grandfather entry MUST be
   # pipe-delimited <path>|<sunset_date>|<desc>. Validate sunset_date format
   # and that today <= sunset_date for every entry.
   _r60_today=$(date +%Y-%m-%d)
@@ -3391,7 +3391,6 @@ if [[ $_r66_fail -eq 0 ]]; then pass_rule "spi_package_exhaustiveness"; fi
 # ===========================================================================
 # CLAUDE.md token-optimization wave -- PR1 (2026-05-17)
 # Authority: docs/governance/rules/rule-{67..71}.md
-#            + D:\.claude\plans\tokens-token-buzzing-sprout.md
 # Goal: shrink always-loaded governance set from ~99K -> ~10.6K tokens.
 # Rules 67-71 with enforcer rows E97-E101 and 10 self-tests (2 per rule).
 # ===========================================================================
@@ -3656,7 +3655,7 @@ if [[ $_r71_fail -eq 0 ]]; then pass_rule "deferred_doc_not_in_always_loaded"; f
 
 # ===========================================================================
 # Gate-script efficiency wave PR-E1 (2026-05-17)
-# Authority: D:/.claude/plans/tokens-token-buzzing-sprout.md + docs/governance/rules/rule-73.md
+# Authority: docs/governance/rules/rule-73.md
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
@@ -3739,7 +3738,6 @@ if [[ $_r74_fail -eq 0 ]]; then pass_rule "linux_first_dev_doc_present"; fi
 
 # ===========================================================================
 # Wave 4 — small rule activations (2026-05-18)
-# Authority: D:/.claude/plans/spicy-mixing-galaxy.md Wave 4.
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
@@ -3847,7 +3845,6 @@ fi
 # ===========================================================================
 # SPI metadata integrity wave (2026-05-18)
 # Authority: docs/governance/rules/rule-{75..78}.md
-#            + D:\.claude\plans\spi-smooth-llama.md
 # Rules 75-78 with enforcer rows E108-E111. Prevents the SPI declaration vs
 # physical layout drift surfaced by the 2026-05-18 SPI integrity audit
 # (T2.B2 extraction left engine.spi empty + orchestration.spi double-claimed
@@ -4053,7 +4050,6 @@ if [[ $_r78_fail -eq 0 ]]; then pass_rule "dfx_spi_packages_match_module_metadat
 # ===========================================================================
 # 2026-05-18 beyond-SDD review response wave -- Rule 79
 # Authority: docs/governance/rules/rule-79.md
-#            + D:/.claude/plans/d-chao-workspace-spring-ai-ascend-docs-shimmering-milner.md
 # Operationalises the "Telemetry-First Debugging" remediation proposal from
 # docs/logs/reviews/spring-ai-ascend-beyond-sdd-en.md by requiring an executable
 # debug-sequence runbook to exist on disk, cited by the rule card, with the
@@ -7308,6 +7304,202 @@ if [[ "${_r138_count:-0}" -gt 0 ]]; then
   _r138_fail=1
 fi
 [[ $_r138_fail -eq 0 ]] && pass_rule "productclaim_placeholder_decreasing"
+
+# ---------------------------------------------------------------------------
+# Rule 139 — accepted_adr_frame_map_coherence (enforcer E187, kernel Rule G-22)
+#
+# Authority: ADR-0157 (EngineeringFrame Ontology) + ADR-0158 (transport-agnostic
+# EnginePort boundary). Closes external review F1.4: an accepted ADR that
+# declares an EngineeringFrame re-home or new frame in its decision text MUST be
+# reflected in architecture/features/engineering-frames.dsl, else the frame map
+# silently lies about the structural axis.
+#
+# Targeted assertion keyed off the live ADR-0158 case: the DSL MUST declare
+# EF-ENGINE-PORT (owner agent-bus) AND place EF-ORCHESTRATION-SPI (owner
+# agent-bus) under a genModule_agent_bus contains edge.
+#
+# scope_surfaces: docs/adr/0158-*.yaml, architecture/features/engineering-frames.dsl
+# ---------------------------------------------------------------------------
+_r139_fail=0
+_r139_dsl="architecture/features/engineering-frames.dsl"
+_r139_adr=$(ls docs/adr/0158-*.yaml 2>/dev/null | head -1)
+if [[ -z "$_r139_adr" ]]; then
+  : # vacuous pass before ADR-0158 lands as yaml
+elif ! grep -qE '^[[:space:]]*status:[[:space:]]*accepted' "$_r139_adr"; then
+  : # ADR-0158 not accepted yet — frame-map coherence not yet required
+elif [[ ! -f "$_r139_dsl" ]]; then
+  fail_rule "accepted_adr_frame_map_coherence" "$_r139_dsl missing but ADR-0158 is accepted and declares the EnginePort frame re-home -- Rule G-22 / E187"
+  _r139_fail=1
+else
+  # (a) EF-ENGINE-PORT present with owner agent-bus.
+  _r139_ep_block=$(awk '/"saa\.id"[[:space:]]+"EF-ENGINE-PORT"/{f=1} f{print} f&&/^}/{exit}' "$_r139_dsl")
+  if ! grep -qE '"saa\.id"[[:space:]]+"EF-ENGINE-PORT"' "$_r139_dsl"; then
+    fail_rule "accepted_adr_frame_map_coherence" "$_r139_dsl missing EF-ENGINE-PORT frame required by accepted ADR-0158 -- Rule G-22 / E187"
+    _r139_fail=1
+  elif ! printf '%s\n' "$_r139_ep_block" | grep -qE '"saa\.owner"[[:space:]]+"agent-bus"'; then
+    fail_rule "accepted_adr_frame_map_coherence" "EF-ENGINE-PORT in $_r139_dsl is not owner=agent-bus as ADR-0158 requires -- Rule G-22 / E187"
+    _r139_fail=1
+  fi
+  # (b) EF-ORCHESTRATION-SPI owner agent-bus AND genModule_agent_bus contains edge.
+  _r139_os_block=$(awk '/"saa\.id"[[:space:]]+"EF-ORCHESTRATION-SPI"/{f=1} f{print} f&&/^}/{exit}' "$_r139_dsl")
+  if ! grep -qE '"saa\.id"[[:space:]]+"EF-ORCHESTRATION-SPI"' "$_r139_dsl"; then
+    fail_rule "accepted_adr_frame_map_coherence" "$_r139_dsl missing EF-ORCHESTRATION-SPI frame required by accepted ADR-0158 -- Rule G-22 / E187"
+    _r139_fail=1
+  elif ! printf '%s\n' "$_r139_os_block" | grep -qE '"saa\.owner"[[:space:]]+"agent-bus"'; then
+    fail_rule "accepted_adr_frame_map_coherence" "EF-ORCHESTRATION-SPI in $_r139_dsl is not owner=agent-bus as ADR-0158 requires -- Rule G-22 / E187"
+    _r139_fail=1
+  elif ! grep -qE '^genModule_agent_bus[[:space:]]*->[[:space:]]*efOrchestrationSpi' "$_r139_dsl"; then
+    fail_rule "accepted_adr_frame_map_coherence" "$_r139_dsl missing the genModule_agent_bus -> efOrchestrationSpi contains edge required by ADR-0158 -- Rule G-22 / E187"
+    _r139_fail=1
+  fi
+fi
+[[ $_r139_fail -eq 0 ]] && pass_rule "accepted_adr_frame_map_coherence"
+
+# ---------------------------------------------------------------------------
+# Rule 140 — shipped_frame_anchor_integrity (enforcer E188, kernel Rule G-23)
+#
+# Authority: ADR-0157 (EngineeringFrame Ontology) + ADR-0158. Closes external
+# review F8.3: every SAA EngineeringFrame with saa.status "shipped" MUST anchor
+# >=1 FunctionPoint (an anchors edge in engineering-frames.dsl), else the
+# shipped status is a structural lie. Frame elements live in BOTH
+# engineering-frames.dsl and features.dsl; the anchors edges live in
+# engineering-frames.dsl. ADR-backed exceptions are listed in
+# gate/frame-shipped-zero-anchor-allowlist.txt (ships empty).
+#
+# scope_surfaces: architecture/features/engineering-frames.dsl, architecture/features/features.dsl, gate/frame-shipped-zero-anchor-allowlist.txt, gate/lib/check_frame_shipped_anchors.py
+# ---------------------------------------------------------------------------
+_r140_fail=0
+_r140_helper="gate/lib/check_frame_shipped_anchors.py"
+if [[ ! -f "$_r140_helper" ]]; then
+  fail_rule "shipped_frame_anchor_integrity" "$_r140_helper missing -- Rule G-23 / E188"
+  _r140_fail=1
+elif [[ -z "$GATE_PYTHON_BIN" ]]; then
+  : # vacuous pass on hosts without python (Rule G-7 lists WSL as canonical env)
+else
+  _r140_out=$("$GATE_PYTHON_BIN" "$_r140_helper" 2>&1)
+  _r140_rc=$?
+  if [[ $_r140_rc -ne 0 ]]; then
+    _r140_first=$(printf '%s' "$_r140_out" | grep -E '^(MISSING-ANCHOR|MISSING-FILE):' | head -1)
+    fail_rule "shipped_frame_anchor_integrity" "shipped EngineeringFrame anchors no FunctionPoint: ${_r140_first:-rc=$_r140_rc} -- Rule G-23 / E188"
+    _r140_fail=1
+  fi
+fi
+[[ $_r140_fail -eq 0 ]] && pass_rule "shipped_frame_anchor_integrity"
+
+# ---------------------------------------------------------------------------
+# Rule 141 — old_orchestration_spi_package_ban (enforcer E189, kernel Rule G-24)
+#
+# Authority: ADR-0158. Closes external review F6.3: active authority surfaces
+# MUST NOT name the old orchestration/engine SPI package
+# `engine.orchestration.spi` / `engine/orchestration/spi` as the CURRENT home
+# (ADR-0158 re-homed it to com.huawei.ascend.bus.spi.engine). Past-tense
+# re-home / dissolution prose is legitimate and skipped via per-line historical
+# markers. Scoped to current-authority surfaces (templates + rendered docs +
+# inline authority); excludes docs/logs, docs/adr, rule-history, archive,
+# scripts, and generated artefacts.
+#
+# NOTE: the rendered architecture/docs/**.md are re-rendered from the fixed .j2
+# in a later wave (W6). The live-tree PASS of this rule is validated POST-RENDER
+# (W8); the .j2 sources + inline surfaces are already clean.
+#
+# scope_surfaces: docs/governance/templates/*.j2, architecture/docs/*.md, docs/dfx/*, docs/quickstart.md, docs/cross-cutting/oss-bill-of-materials.md, docs/governance/enforcers.yaml, docs/governance/architecture-status.yaml, docs/contracts/contract-catalog.md, architecture/features/*, gate/lib/check_old_orchestration_spi_package.py
+# ---------------------------------------------------------------------------
+_r141_fail=0
+_r141_helper="gate/lib/check_old_orchestration_spi_package.py"
+if [[ ! -f "$_r141_helper" ]]; then
+  fail_rule "old_orchestration_spi_package_ban" "$_r141_helper missing -- Rule G-24 / E189"
+  _r141_fail=1
+elif [[ -z "$GATE_PYTHON_BIN" ]]; then
+  : # vacuous pass on hosts without python (Rule G-7 lists WSL as canonical env)
+else
+  _r141_out=$("$GATE_PYTHON_BIN" "$_r141_helper" 2>&1)
+  _r141_rc=$?
+  if [[ $_r141_rc -ne 0 ]]; then
+    _r141_count=$(printf '%s\n' "$_r141_out" | grep -cE '^OLD-PACKAGE:')
+    _r141_first=$(printf '%s' "$_r141_out" | grep -E '^OLD-PACKAGE:' | head -1)
+    fail_rule "old_orchestration_spi_package_ban" "active authority surface(s) name the old engine.orchestration.spi package as current ($_r141_count line(s), first: ${_r141_first:-rc=$_r141_rc}) -- Rule G-24 / E189"
+    _r141_fail=1
+  fi
+fi
+[[ $_r141_fail -eq 0 ]] && pass_rule "old_orchestration_spi_package_ban"
+
+# ---------------------------------------------------------------------------
+# Rule 142 — tier1_non_english_lint (enforcer E190, kernel Rule G-25)
+#
+# Authority: CLAUDE.md kernel "Translate all instructions into English".
+# Closes external review P1-3: every file with a non-zero budget in
+# gate/always-loaded-budget.txt (the always-loaded Tier-1 set) MUST be free of
+# CJK code points [U+4E00..U+9FFF] and common UTF-8/GBK mojibake markers
+# (U+FFFD plus the literal sequences for double-decoded text). Fails closed.
+# The checker reports line:col + byte offset ONLY and MUST NOT echo the
+# offending non-English text, so the gate log never embeds non-English source.
+#
+# scope_surfaces: gate/always-loaded-budget.txt, gate/lib/check_tier1_non_english.py
+# ---------------------------------------------------------------------------
+_r142_fail=0
+_r142_helper="gate/lib/check_tier1_non_english.py"
+if [[ ! -f "$_r142_helper" ]]; then
+  fail_rule "tier1_non_english_lint" "$_r142_helper missing -- Rule G-25 / E190"
+  _r142_fail=1
+elif [[ -z "$GATE_PYTHON_BIN" ]]; then
+  : # vacuous pass on hosts without python (Rule G-7 lists WSL as canonical env)
+else
+  _r142_out=$("$GATE_PYTHON_BIN" "$_r142_helper" 2>&1)
+  _r142_rc=$?
+  if [[ $_r142_rc -ne 0 ]]; then
+    _r142_count=$(printf '%s\n' "$_r142_out" | grep -cE '^(NON-ENGLISH|MISSING-SURFACE|MISSING-BUDGET|NO-SCOPE|UNREADABLE):')
+    _r142_first=$(printf '%s' "$_r142_out" | grep -E '^(NON-ENGLISH|MISSING-SURFACE|MISSING-BUDGET|NO-SCOPE|UNREADABLE):' | head -1)
+    fail_rule "tier1_non_english_lint" "always-loaded Tier-1 surface(s) carry non-English / mojibake ($_r142_count finding(s), first: ${_r142_first:-rc=$_r142_rc}) -- Rule G-25 / E190 (line:col + byte offset only; offending text intentionally not echoed)"
+    _r142_fail=1
+  fi
+fi
+[[ $_r142_fail -eq 0 ]] && pass_rule "tier1_non_english_lint"
+
+# ---------------------------------------------------------------------------
+# Rule 143 — local_plan_path_ban (enforcer E191, kernel Rule G-26)
+#
+# Authority: 2026-05-29 EnginePort/Frame review P1-4. Closes the defect class of
+# active authority referencing a local agent-host plan path (`D:\.claude\plans`
+# or `D:/.claude/plans`, BOTH separators). SCOPE: product/, docs/adr/,
+# docs/governance/ (excluding rule-history.md), architecture/, CLAUDE.md,
+# AGENTS.md. The only permitted surfaces are listed in
+# gate/local-plan-path-exemptions.txt (Linux-first workflow docs + history +
+# gate helpers/fixtures that construct synthetic inputs).
+#
+# scope_surfaces: product/*, docs/adr/*, docs/governance/*, architecture/*, CLAUDE.md, AGENTS.md, gate/local-plan-path-exemptions.txt
+# ---------------------------------------------------------------------------
+_r143_fail=0
+_r143_exempt="gate/local-plan-path-exemptions.txt"
+# Match BOTH path separators: D:\.claude\plans and D:/.claude/plans.
+_r143_pat='D:[\\/]\.claude[\\/]plans'
+_r143_hits=$(grep -rEln "$_r143_pat" \
+               product docs/adr docs/governance architecture CLAUDE.md AGENTS.md 2>/dev/null \
+             | sort -u)
+_r143_bad=""
+while IFS= read -r _r143_f; do
+  [[ -z "$_r143_f" ]] && continue
+  _r143_rel="${_r143_f#./}"
+  _r143_exempted=0
+  if [[ -f "$_r143_exempt" ]]; then
+    while IFS= read -r _r143_e; do
+      _r143_e="${_r143_e%%$'\r'}"
+      [[ -z "$_r143_e" || "$_r143_e" == \#* ]] && continue
+      # Prefix match supports both exact files and directory prefixes (trailing /).
+      if [[ "$_r143_rel" == "$_r143_e" || "$_r143_rel" == "$_r143_e"* ]]; then
+        _r143_exempted=1
+        break
+      fi
+    done < "$_r143_exempt"
+  fi
+  if [[ $_r143_exempted -eq 0 ]]; then
+    _r143_bad="${_r143_bad}${_r143_rel} "
+  fi
+done <<< "$_r143_hits"
+if [[ -n "$_r143_bad" ]]; then
+  fail_rule "local_plan_path_ban" "active authority references local plan path D:\\.claude\\plans (both separators) in non-exempt surface(s): ${_r143_bad}-- Rule G-26 / E191 (exempt list: $_r143_exempt)"
+  _r143_fail=1
+fi
+[[ $_r143_fail -eq 0 ]] && pass_rule "local_plan_path_ban"
 
 # === END OF RULES ===
 # ---------------------------------------------------------------------------
