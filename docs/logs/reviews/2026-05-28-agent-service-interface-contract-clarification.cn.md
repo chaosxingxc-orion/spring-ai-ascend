@@ -49,9 +49,9 @@ relates_to:
 
 > 日期：2026-05-28
 >
-> 范围：结合 2026-05-27 / 2026-05-28 的 review、PR #93 合入后的 ADR-0155、以及 `architecture/docs/L1/agent-service/` canonical L1 文档，明确 `agent-service` 的对外接口、内部模块接口、SPI、数据契约、未实现接口与 Wave 落地顺序。
+> 范围：结合 2026-05-27 / 2026-05-28 的 review、PR #93 合入后的 ADR-0155、ADR-0158（EnginePort 边界与部署形态）、以及 `architecture/docs/L1/agent-service/` canonical L1 文档，明确 `agent-service` 的对外接口、内部模块接口、SPI、数据契约、未实现接口与 Wave 落地顺序。
 >
-> 非范围：本文不修改 Java 代码，不升级 design_only 契约为 shipped，不替代 ADR-0155 与 L1 canonical 文档；本文是后续 L2/impl-mode wave 的接口边界输入。
+> 非范围：本文不修改 Java 代码，不升级 design_only 契约为 shipped，不替代 ADR-0155 / ADR-0158 与 L1 canonical 文档；本文是后续 L2/impl-mode wave 的接口边界输入。
 
 ## 1. D-1：根因与最强解释
 
@@ -89,7 +89,7 @@ relates_to:
 | architecture root | `architecture/workspace.dsl` + `architecture/README.md` | 后续落地必须同步 DSL/function-point，不在本文直接编辑。 |
 | fact layer | `architecture/facts/generated/*.json` + ADR-0154 | 对代码、contract、test、runtime 行为的事实判断优先读 generated facts；本文只做设计澄清，不直接编辑 generated 文件。 |
 | L1 module design | `architecture/docs/L1/agent-service/*` | 本文接口边界的直接基线。 |
-| accepted decision | ADR-0155 + ADR-0156 | 本文吸收 ADR-0155 的 6 个边界逆转，并补入 ADR-0156 的 ProductClaim / IAM / Audit / Cost 横切约束。 |
+| accepted decision | ADR-0155 + ADR-0156 + ADR-0158 | 本文吸收 ADR-0155 的 6 个边界逆转，补入 ADR-0156 的 ProductClaim / IAM / Audit / Cost 横切约束，并补入 ADR-0158 的 EnginePort 服务↔引擎中立边界与三种部署形态。 |
 | runtime contract | `docs/contracts/contract-catalog.md` + `docs/contracts/*.yaml` | 区分 HTTP API、SPI、YAML domain contract 的 status。 |
 | product traceability | `product/claims.yaml` + `product_claim:` fields | 后续新增 contract / feature / ADR / rule 必须绑定 PC-NNN 或显式 governance sentinel。 |
 | review evidence | 0527/0528 review docs | 用来识别漂移、缺口、开源对标和 Wave 规划。 |
@@ -399,7 +399,8 @@ M4 不得：
 
 | 接口/契约 | 状态 | 用途 |
 |---|---|---|
-| `ExecutorAdapter` | design_only placeholder | Native / third-party / remote agent 执行统一入口。 |
+| `EnginePort` | shipped (in-process) / design_only (RPC, A2A) | ADR-0158 引入的服务↔引擎中立边界；三种部署形态的传输适配器均实现此端口。 |
+| `ExecutorAdapter` | design_only placeholder | Native / third-party / remote agent 执行统一入口；被 EnginePort 在进程内路径委托。 |
 | `InjectionMode` | design_only enum | `NATIVE_DI` / `THIRD_PARTY_BRIDGE` / `EVENT_RELAY` / `NONE`。 |
 | `ExecutionRequest` | design_only schema | Adapter execute input。 |
 | `AgentEvent` | design_only schema | Adapter output stream。 |
@@ -742,7 +743,7 @@ agent-service/src/main/java/com/huawei/ascend/service/
   session/                            # M2 Session aggregate + facade
   session/spi/                        # M2/M6 shared session projection SPI
   queue/                              # proposed M3 internal event queue
-  orchestrator/                       # proposed M4 TCC home
+  orchestrator/                       # rc22 ADR-0100 top-level package; M4 TCC home
   runtime/executor/spi/               # M5 ExecutorAdapter design_only
   runtime/intercept/spi/              # M6 platform resource SPIs design_only
   integration/springai/               # provider/framework adapters
@@ -770,7 +771,7 @@ agent-service/src/main/java/com/huawei/ascend/service/
 | W2 | RunEvent spine | Java sealed RunEvent + variants。 | `runtime/evolution` carriers + tests。 | gate 不再 vacuous；每个 terminal/suspend/resume 有 typed event。 |
 | W3 | M3 queue + external stream | Control/Data/Output envelopes + in-memory queue + output stream facade。 | `service.queue/` + `OutputEvent` + `ExternalInputEnvelope` + stream routing tests。 | control 不被 data flood 阻塞；输出断开不取消 Run；DLQ/retry 可测。 |
 | W4 | TCC facade | RunLifecycleService + per-Run actor + resume/cancel race。 | `orchestrator/` 最小闭环。 | M4 是唯一状态决策者，M5/M6 无 STM-03 写路。 |
-| W5 | M5/M6 SPI runtime | ExecutorAdapter + Platform* SPIs typed 化。 | typed carriers + reference adapters。 | Native/third-party/remote 三形态接入策略可测。 |
+| W5 | M5/M6 SPI runtime | EnginePort contract freeze + ExecutorAdapter + Platform* SPIs typed 化。 | typed carriers + reference adapters + cross-transport TCK。 | Native/third-party/remote 三形态接入策略可测；Form 2/3 先绿，Form 1 后开。 |
 | W6 | durable posture | JDBC/RLS stores + idempotency completion/replay。 | Postgres IT + RLS migrations。 | tenant leak / duplicate create / response replay 有 IT。 |
 | W7 | IAM/Audit/Cost 横切闭环 | 补齐 `IamBridge`、`AuditTrailEmitter`、`TokenBudgetStore`/`SpendLogStore` 与 hook wiring。 | admission filter、audit emitter、budget hooks、ArchUnit no-bypass tests。 | Run/Session/model/tool/downstream-call 边界都有身份、审计、成本归因证据。 |
 
@@ -780,7 +781,7 @@ agent-service/src/main/java/com/huawei/ascend/service/
 
 ```bash
 git diff --check -- docs/logs/reviews/2026-05-28-agent-service-interface-contract-clarification.cn.md
-rg -n "SessionStore|SessionMessageStore|PlatformMemoryProvider|AccessIntent|ControlEvent|ExecutorAdapter|M6 不构造 prompt|externalSessionId|RunEvent|service.queue|ADR-0154|ADR-0156|audit-trail|iam-bridge|cost-governance|ProductClaim|ExternalInputEnvelope|OutputEvent|OutputStreamPublisher|control/data/output" docs/logs/reviews/2026-05-28-agent-service-interface-contract-clarification.cn.md
+rg -n "SessionStore|SessionMessageStore|PlatformMemoryProvider|AccessIntent|ControlEvent|EnginePort|ExecutorAdapter|M6 不构造 prompt|externalSessionId|RunEvent|service.queue|ADR-0154|ADR-0156|ADR-0158|audit-trail|iam-bridge|cost-governance|ProductClaim|ExternalInputEnvelope|OutputEvent|OutputStreamPublisher|control/data/output" docs/logs/reviews/2026-05-28-agent-service-interface-contract-clarification.cn.md
 ```
 
 后续实现 wave 的强制验证：
