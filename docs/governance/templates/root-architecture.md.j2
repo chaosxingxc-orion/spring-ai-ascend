@@ -128,12 +128,15 @@ its 16 sources to the modules that semantically own them:
 - `Run` / `RunStatus` / `RunStateMachine` / `RunRepository` / `IdempotencyRecord`
   back to **agent-service** (same `com.huawei.ascend.service.runtime.{runs,idempotency}`
   packages they had pre-T2.B2).
-- `RunMode` (enum discriminator: `GRAPH` | `AGENT_LOOP`) plus the 6 orchestration SPI
+- `RunMode` (enum discriminator: `GRAPH` | `AGENT_LOOP`) plus the orchestration SPI
   interfaces (`Checkpointer` / `Orchestrator` / `RunContext` / `SuspendSignal` / `TraceContext` /
-  `ExecutorDefinition`) into **agent-execution-engine** under
-  `com.huawei.ascend.engine.orchestration.spi` — co-locating the orchestration
-  vocabulary with the engine that discriminates on it (semantically natural
-  AND removes the back-dep that motivated agent-runtime-core in the first place).
+  `ExecutorDefinition`) now live in **agent-bus** under
+  `com.huawei.ascend.bus.spi.engine` per ADR-0158 (transport-agnostic EnginePort
+  boundary) — the neutral execution contract is owned by the Bus & State Hub plane
+  so the engine is treated as a real instance behind a port. ADR-0088 had transiently
+  co-located them in `agent-execution-engine`; ADR-0158 re-homed the neutral SPI to
+  agent-bus and the engine module now provides only the engine adapter SPI plus the
+  `InProcessEnginePort` realization.
 - The 3 S2C transport types into **agent-bus** under `com.huawei.ascend.bus.spi.s2c` —
   pairing with the **new** `IngressGateway` SPI in `com.huawei.ascend.bus.spi.ingress`
   (**ADR-0089**, 2026-05-20) so the Bus & State Hub plane owns the entirety of
@@ -147,8 +150,8 @@ forbidden at the sub-package level (ArchUnit `RuntimeMustNotDependOnPlatformTest
 | `agent-client` | edge | AgentClient | skeleton (SDK; W3+ per ADR-0049). Cross-plane traffic locked to `com.huawei.ascend.bus.spi.ingress.IngressGateway` per ADR-0089 / Rule R-I.b. |
 | `agent-service` | compute_control | AgentService | shipped — HTTP edge (`service.platform.*`) + cognitive runtime kernel (`service.runtime.*`) + Run/RunStateMachine/IdempotencyRecord entities + memory.spi + resilience.spi + runs.spi (rc13 re-consolidation per ADR-0088) |
 | `agent-middleware` | compute_control | Middleware | SPI extracted from `agent-service.runtime` (T2.B1, 2026-05-17) |
-| `agent-execution-engine` | compute_control | AgentExecutionEngine | engine SPI (`engine.spi`) + orchestration SPI (`engine.orchestration.spi`, owns RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition per ADR-0088) + EngineRegistry/EngineEnvelope; reference adapters remain in agent-service.runtime |
-| `agent-bus` | bus_state | AgentBus | active SPI surfaces — `bus.spi.ingress` (IngressGateway per ADR-0089) + `bus.spi.s2c` (S2cCallbackTransport per ADR-0088). Workflow primitives + W2 channel impls per ADR-0050 |
+| `agent-execution-engine` | compute_control | AgentExecutionEngine | engine adapter SPI (`engine.spi`) + EngineRegistry/EngineEnvelope + `InProcessEnginePort` realization of the neutral EnginePort boundary (ADR-0158); reference adapters remain in agent-service.runtime |
+| `agent-bus` | bus_state | AgentBus | active SPI surfaces — `bus.spi.ingress` (IngressGateway per ADR-0089) + `bus.spi.s2c` (S2cCallbackTransport per ADR-0088) + `bus.spi.engine` (neutral EnginePort + orchestration SPI: RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition + ExecutionContext per ADR-0158). Workflow primitives + W2 channel impls per ADR-0050 |
 | `agent-evolve` | evolution | AgentEvolve | skeleton (Python ML; Java adapter deferred) |
 | `spring-ai-ascend-dependencies` | none | platform | shipped (BoM) |
 | `spring-ai-ascend-graphmemory-starter` | bus_state | AgentBus | shipped (graphmemory SPI scaffold; ADR-0034) |
@@ -181,6 +184,16 @@ spring-ai-ascend/
         S2cCallbackTransport.java              # transport interface (ADR-0074)
         S2cCallbackEnvelope.java               # 6-required-field S2C request shape
         S2cCallbackResponse.java               # outcome enum + correlation fields
+      engine/                                  # NEW per ADR-0158: neutral EnginePort + orchestration SPI (re-homed from agent-execution-engine)
+        EnginePort.java                        # transport-agnostic engine boundary; engine is a real instance behind this port
+        Orchestrator.java                      # top-level orchestration entry-point SPI
+        RunContext.java                        # per-run context interface
+        ExecutionContext.java                  # engine-boundary execution context (ADR-0158 sibling type)
+        SuspendSignal.java                     # checked-suspension primitive with forClientCallback variant (ADR-0074 rc3 unification)
+        Checkpointer.java                      # suspend-point persistence SPI
+        TraceContext.java                      # trace correlation carrier
+        RunMode.java                           # engine type discriminator (GRAPH | AGENT_LOOP)
+        ExecutorDefinition.java                # sealed: GraphDefinition | AgentLoopDefinition
 
   agent-middleware/                            # NEW 2026-05-17: cross-cutting middleware (compute_control plane; ADR-0073)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-middleware.yaml
@@ -192,17 +205,11 @@ spring-ai-ascend/
         HookOutcome.java                       # sealed: Proceed | ShortCircuit | Fail
         RuntimeMiddleware.java                 # @FunctionalInterface
 
-  agent-execution-engine/                      # heterogeneous engine surface + orchestration SPI host (compute_control plane; ADR-0072 + ADR-0088)
+  agent-execution-engine/                      # heterogeneous engine surface + InProcessEnginePort realization (compute_control plane; ADR-0072 + ADR-0158)
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-execution-engine.yaml
     src/main/java/com/huawei/ascend/engine/spi/  # ExecutorAdapter, GraphExecutor, AgentLoopExecutor, EngineHookSurface, EngineMatchingException (engine adapter SPI per ADR-0072)
-    src/main/java/com/huawei/ascend/engine/orchestration/spi/   # NEW 2026-05-20 per ADR-0088 (relocated + renamed from agent-runtime-core/.../service.runtime.orchestration.spi):
-      RunMode.java                             # engine type discriminator (GRAPH | AGENT_LOOP); co-located with its orchestration SPI
-      Checkpointer.java                        # suspend-point persistence SPI
-      Orchestrator.java                        # top-level orchestration entry-point SPI
-      RunContext.java                          # per-run context interface
-      SuspendSignal.java                       # checked-suspension primitive with forClientCallback variant (ADR-0074 rc3 unification)
-      TraceContext.java                        # trace correlation carrier
-      ExecutorDefinition.java                  # sealed: GraphDefinition | AgentLoopDefinition
+    # NEW per ADR-0158: the neutral orchestration/engine SPI re-homed to agent-bus (com.huawei.ascend.bus.spi.engine);
+    # this module now realizes the EnginePort boundary (InProcessEnginePort) rather than owning the SPI vocabulary.
     src/main/java/com/huawei/ascend/engine/runtime/        # EngineRegistry, EngineEnvelope (engine implementation home; relocated from service/runtime/engine/ in rc14 per ADR-0090 — ADR-0079 source-compat exception retired)
 
   agent-evolve/                                # NEW 2026-05-17: Java adapter skeleton for Python ML pipeline (evolution plane; ADR-0075)
@@ -253,8 +260,9 @@ Module dependency direction (enforced by `ApiCompatibilityTest`, `RuntimeMustNot
 agent-service  ────────────►  agent-execution-engine, agent-bus, agent-middleware,
                               [Postgres / LLMs / sidecars]
 
-agent-execution-engine ───►  agent-middleware, [externals only — self-contains
-                              engine.spi + engine.orchestration.spi]
+agent-execution-engine ───►  agent-bus (for bus.spi.engine neutral EnginePort + orchestration SPI per ADR-0158),
+                              agent-middleware, [externals — self-contains engine.spi adapter surface
+                              + InProcessEnginePort realization]
 
 agent-middleware  ────────►  [externals only — pure-Java SPI]
 
@@ -319,10 +327,12 @@ repo-wide.
    idempotency kernel was re-consolidated into `agent-service.service.runtime.runs.*` per
    ADR-0088;
    (b) `agent-execution-engine` depends on `agent-bus` (for `bus.spi.s2c` consumed by the
-   engine registry) and `agent-middleware` (for `HookPoint`), never on `agent-service`;
-   orchestration SPI (RunMode + Checkpointer + RunContext + SuspendSignal + ExecutorDefinition)
-   is co-located here in `engine.orchestration.spi` per ADR-0088 — this was the back-dep that
-   originally motivated `agent-runtime-core` and is now resolved by semantic co-location;
+   engine registry, and for the neutral `bus.spi.engine` EnginePort + orchestration SPI it
+   realizes) and `agent-middleware` (for `HookPoint`), never on `agent-service`;
+   the neutral orchestration/engine SPI (EnginePort + RunMode + Checkpointer + RunContext +
+   SuspendSignal + ExecutorDefinition) lives in `agent-bus` under `bus.spi.engine` per ADR-0158
+   (transport-agnostic EnginePort boundary) — the Bus & State Hub plane owns the neutral execution
+   contract and the engine module provides the `InProcessEnginePort` realization;
    (c) `agent-bus` depends on no inner peer — only `java.*` + minimal externals;
    (d) `agent-runtime-core` was dissolved per ADR-0088 (rc13, 2026-05-20); ADR-0079 is
    superseded. The 16 production sources + 4 tests were redistributed to semantic-home
@@ -535,8 +545,9 @@ repo-wide.
 22. **Canonical run context propagation.** `RunContext.tenantId()` is the sole carrier of tenant
     identity inside the runtime kernel. The kernel SPI types (`RunContext`, `SuspendSignal`,
     `Checkpointer`, `Orchestrator`, `ExecutorDefinition`) live under
-    `agent-execution-engine.engine.orchestration.spi` per ADR-0088 (rc13 dissolution of
-    `agent-runtime-core`, which had transiently hosted them per ADR-0079); their runtime
+    `agent-bus.bus.spi.engine` per ADR-0158 (transport-agnostic EnginePort boundary; the neutral
+    execution contract is owned by the Bus & State Hub plane, re-homed from the transient
+    `agent-execution-engine.engine.orchestration.spi` co-location under ADR-0088); their runtime
     impl host (`agent-service.service.runtime`) consumes the SPI. No production class under
     `com.huawei.ascend.service.runtime..` may import any class under
     `com.huawei.ascend.service.platform..` — including (but not limited to) `TenantContextHolder`

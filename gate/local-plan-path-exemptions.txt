@@ -1,0 +1,13 @@
+# Local plan-path ban exemptions (Rule G-26 / Rule 143 / enforcer E191).
+#
+# Active authority surfaces MUST NOT reference local agent-host plan paths of the
+# form `D:\.claude\plans` or `D:/.claude/plans`. The files listed here are the
+# only surfaces permitted to mention such a path, because their job is precisely
+# to document the Linux-first / local-environment workflow or to record history.
+# One repo-relative path (or path-prefix, trailing-slash) per line.
+docs/governance/rules/rule-G-7.md
+docs/governance/rules/rule-G-26.md
+docs/governance/dev-environment.md
+docs/governance/rule-history.md
+gate/lib/
+gate/test_architecture_sync_gate.sh

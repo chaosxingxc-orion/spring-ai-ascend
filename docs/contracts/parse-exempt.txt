@@ -10,3 +10,15 @@
 # Empty / comment-only file = ZERO exemptions = every contract MUST parse.
 # Adding a basename here REQUIRES a paired follow-up ticket to clean the
 # contract OR justify the exemption.
+#
+# The financial-vertical design_only contracts below are multi-document YAML
+# (a `---` front-matter document followed by the contract body document).
+# SnakeYAML's single-document loader rejects the second `---`, so the
+# structural fact extractor cannot parse them as one document. Exempted here
+# so fact extraction proceeds and still captures the parseable contract
+# surfaces; the contract bodies themselves are unchanged. Follow-up: fold the
+# front-matter into the body document or teach the extractor to read
+# multi-document contract YAML.
+audit-trail.v1.yaml
+cost-governance.v1.yaml
+iam-bridge.v1.yaml

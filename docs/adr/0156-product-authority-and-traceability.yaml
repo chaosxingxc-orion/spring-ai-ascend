@@ -41,8 +41,7 @@ context: |
       (F-kernel-mirror-drift, F-deferred-trigger-stale,
       F-deferred-rule-orphan).
 
-  The v1.0 financial-MVP plan (filed at
-  D:\.claude\plans\ai-l0-adr-ai-l1-adr-adr-ai-ai-1-2-3-ai-effervescent-flask.md)
+  The v1.0 financial-MVP plan (historical session plan, local-only)
   proposes ProductClaim (PC-NNN) as a first-class binding axis between
   product/PRODUCT.md, the architecture corpus, and the governance kernel.
   This ADR codifies that proposal.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 31 — quickstart_present. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 31 — quickstart_present (enforcer E49, CLAUDE.md Rule 29 / ADR-0064)
 #

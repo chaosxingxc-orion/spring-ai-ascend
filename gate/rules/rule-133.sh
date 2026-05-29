@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 133 — productclaim_referential_integrity. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 133 — productclaim_referential_integrity (enforcer E181, kernel Rule G-16)
 #

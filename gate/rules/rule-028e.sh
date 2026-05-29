@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 28e — module_count_invariant. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 28e — module_count_invariant (enforcer E27)
 # Root pom.xml MUST declare exactly 8 <module> entries after the 2026-05-20

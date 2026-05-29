@@ -21,10 +21,10 @@ authority: "ADR-0072 (Engine Envelope + Strict Matching); Layer-0 principle P-M 
 Code now lives under this module:
 
 - `agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/` — `ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException` (engine contract surface; package root `com.huawei.ascend.engine.spi.*` to keep SPI purity per Rule 77 / OrchestrationSpiArchTest).
-- `agent-execution-engine/src/main/java/com/huawei/ascend/engine/orchestration/spi/` — `RunMode`, `RunContext`, `SuspendSignal`, `Checkpointer`, `Orchestrator`, `TraceContext`, `ExecutorDefinition` (orchestration SPI; relocated from the dissolved `agent-runtime-core` per ADR-0088).
+- The neutral orchestration/engine SPI (`RunMode`, `RunContext`, `SuspendSignal`, `Checkpointer`, `Orchestrator`, `TraceContext`, `ExecutorDefinition`, `ExecutionContext`) lives in **agent-bus** under `com.huawei.ascend.bus.spi.engine` per ADR-0158 (transport-agnostic EnginePort boundary); this module no longer owns it and instead provides the `InProcessEnginePort` realization. ADR-0088 had transiently co-located these types here before the ADR-0158 re-home.
 - `agent-execution-engine/src/main/java/com/huawei/ascend/engine/runtime/` — `EngineRegistry`, `EngineEnvelope` (engine implementation home; relocated from `com.huawei.ascend.service.runtime.engine.*` in rc14 per ADR-0090 — the ADR-0079 source-compat exception is retired since rc13 redistribution already broke any consumer that bound to the old kernel-shim module).
 
-The back-dep cycle that previously blocked extraction (engine → service → engine) was resolved by creating a transient `agent-runtime-core` module (per ADR-0079, 2026-05-18) that hosted `Run` / `RunContext` / `SuspendSignal` / `ExecutorDefinition` / S2C SPI types. Per ADR-0088 (rc13, 2026-05-20) `agent-runtime-core` was DISSOLVED and the kernel types relocated to semantic-home modules: orchestration SPI to this module under `engine.orchestration.spi`, runs/idempotency kernel re-consolidated into `agent-service`, S2C SPI to `agent-bus.bus.spi.s2c`. The build graph is now a strict DAG without the intermediate kernel-shim node.
+The back-dep cycle that previously blocked extraction (engine → service → engine) was resolved by creating a transient `agent-runtime-core` module (per ADR-0079, 2026-05-18) that hosted `Run` / `RunContext` / `SuspendSignal` / `ExecutorDefinition` / S2C SPI types. Per ADR-0088 (rc13, 2026-05-20) `agent-runtime-core` was DISSOLVED and the kernel types relocated to semantic-home modules. Per ADR-0158 the neutral orchestration/engine SPI was re-homed once more to `agent-bus` under `bus.spi.engine` (transport-agnostic EnginePort boundary owned by the Bus & State Hub plane); runs/idempotency kernel stays consolidated in `agent-service`, S2C SPI in `agent-bus.bus.spi.s2c`. The build graph is now a strict DAG without the intermediate kernel-shim node.
 
 **Reference adapters stay in `agent-service.runtime`.** `SequentialGraphExecutor` and `IterativeAgentLoopExecutor` implement the engine SPI but wire `Run` / `RunContext` from the runtime kernel and therefore live on the runtime side, not in this module. The engine contract surface (SPI + registry + envelope) is the team-facing artefact this module owns; reference implementations are intentionally where the kernel state is.
 
@@ -98,15 +98,11 @@ agent-execution-engine/
         │   ├── AgentLoopExecutor.java
         │   ├── EngineHookSurface.java
         │   └── EngineMatchingException.java
-        ├── orchestration/spi/                  # orchestration SPI (relocated from dissolved agent-runtime-core per ADR-0088)
-        │   ├── Orchestrator.java
-        │   ├── RunContext.java
-        │   ├── SuspendSignal.java              # CHECKED EXCEPTION — canonical state-machine suspension per ADR-0100
-        │   ├── Checkpointer.java
-        │   ├── TraceContext.java
-        │   ├── RunMode.java
-        │   └── ExecutorDefinition.java         # sealed; GraphDefinition | AgentLoopDefinition
-        └── runtime/                             # engine implementation home (relocated rc14 / ADR-0090)
+        │   # NEW per ADR-0158: the neutral orchestration/engine SPI (Orchestrator, RunContext,
+        │   # SuspendSignal, Checkpointer, TraceContext, RunMode, ExecutorDefinition, ExecutionContext)
+        │   # re-homed to agent-bus under com.huawei.ascend.bus.spi.engine; this module realizes the
+        │   # EnginePort boundary rather than owning the SPI vocabulary.
+        └── runtime/                             # engine implementation home (relocated rc14 / ADR-0090) + InProcessEnginePort realization (ADR-0158)
             ├── EngineRegistry.java
             └── EngineEnvelope.java              # mirrors engine-envelope.v1.yaml
 ```
@@ -116,7 +112,7 @@ Mode-B (Business-Centric per ADR-0101): `agent-execution-engine` joins `agent-se
 
 ## *SPI Interface Appendix* (Rule G-1.1.b — rc22 / ADR-0099)
 
-`agent-execution-engine` produces 2 SPI packages (cross-validates against `module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`, `docs/dfx/agent-execution-engine.yaml`):
+`agent-execution-engine` produces the `engine.spi` engine-adapter SPI package (cross-validates against `module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`, `docs/dfx/agent-execution-engine.yaml`). The neutral orchestration/engine SPI (`Orchestrator`, `RunContext`, `SuspendSignal`, `Checkpointer`, `TraceContext`, `RunMode`, `ExecutorDefinition`, `ExecutionContext`) lives in **agent-bus** under `com.huawei.ascend.bus.spi.engine` per ADR-0158 and is consumed here, not owned here:
 
 | Interface FQN | SPI package | Purpose |
 |---|---|---|
@@ -125,13 +121,6 @@ Mode-B (Business-Centric per ADR-0101): `agent-execution-engine` joins `agent-se
 | `com.huawei.ascend.engine.spi.AgentLoopExecutor` | `engine.spi` | ReAct-loop execution |
 | `com.huawei.ascend.engine.spi.EngineHookSurface` | `engine.spi` | Engine-side hook declaration (cooperates with `agent-middleware` HookPoint) |
 | `com.huawei.ascend.engine.spi.EngineMatchingException` | `engine.spi` | Throw on `engine_type` mismatch (Rule R-M.b) |
-| `com.huawei.ascend.engine.orchestration.spi.Orchestrator` | `engine.orchestration.spi` | Run-level orchestration coordinator |
-| `com.huawei.ascend.engine.orchestration.spi.RunContext` | `engine.orchestration.spi` | Per-Run context (tenantId, traceId, sessionId) |
-| `com.huawei.ascend.engine.orchestration.spi.SuspendSignal` | `engine.orchestration.spi` | **Checked exception** for state-machine suspension (canonical per ADR-0100) |
-| `com.huawei.ascend.engine.orchestration.spi.Checkpointer` | `engine.orchestration.spi` | Run state snapshot SPI |
-| `com.huawei.ascend.engine.orchestration.spi.TraceContext` | `engine.orchestration.spi` | OTel-bridge contract |
-| `com.huawei.ascend.engine.orchestration.spi.RunMode` | `engine.orchestration.spi` | Mode discriminator (GRAPH \| AGENT_LOOP \| ...) |
-| `com.huawei.ascend.engine.orchestration.spi.ExecutorDefinition` | `engine.orchestration.spi` | Sealed: GraphDefinition \| AgentLoopDefinition |
 
 Implementation home (NOT SPI):
 - `com.huawei.ascend.engine.runtime.EngineRegistry` — the only authority for `resolve(envelope)`; pattern-matching on `ExecutorDefinition` outside this class forbidden (Rule R-M.a).

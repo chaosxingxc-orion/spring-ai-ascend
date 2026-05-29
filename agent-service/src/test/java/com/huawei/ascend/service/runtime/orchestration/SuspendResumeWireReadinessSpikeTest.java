@@ -47,7 +47,7 @@ class SuspendResumeWireReadinessSpikeTest {
     private static final String TENANT = "spike-tenant";
 
     private static Orchestrator orchestrator(InMemoryCheckpointer cp, InMemoryRunRegistry reg) {
-        return new SyncOrchestrator(reg, cp,
+        return TestEnginePorts.inProcessOrchestrator(reg, cp,
                 new EngineRegistry().register(new SequentialGraphExecutor()));
     }
 

@@ -89,7 +89,7 @@ Rejected: defeats L1's purpose. The W1 HTTP API is the headline deliverable of L
 ## References
 
 - Supersedes ADR-0026.
-- L1 plan: `D:\.claude\plans\l1-modular-russell.md` §5, §11 (E1, E2, E4, E27).
+- L1 plan (historical session plan, local-only) §5, §11 (E1, E2, E4, E27).
 - ADR-0023 (tenant propagation purity, Rule R-C.e origin).
 - ADR-0059 (Rule R-C.a, governs enforcement).
 - Architect guidance §7.3, §15.5.

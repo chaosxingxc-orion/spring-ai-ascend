@@ -1,6 +1,6 @@
 # Personas registry for spring-ai-ascend.
 #
-# Authority: product/PRODUCT.md + plan file D:\.claude\plans\ai-l0-adr-ai-l1-adr-adr-ai-ai-1-2-3-ai-effervescent-flask.md
+# Authority: product/PRODUCT.md
 # Source ADR: ADR-0156 (Product Authority and Traceability Chain)
 #
 # Each persona names a single archetypal user of the platform. AI sessions
@@ -14,7 +14,7 @@ personas:
 
   - id: Persona-A
     role: Platform Team Lead
-    deployment_pattern: 中台模式 (middle-office)
+    deployment_pattern: middle-office mode
     org_context: >
       Large enterprise with strong middle-office structure. A central platform
       team owns the agent service offering. Business centers consume agent
@@ -32,11 +32,11 @@ personas:
       - Every business unit rebuilds its own agent runtime
       - Tenant isolation is ad-hoc (no storage-engine enforcement)
       - No shared governance across business-unit agent runtimes
-    v1_0_priority: secondary    # 中台 reference deployment manifest ships in v1.0
+    v1_0_priority: secondary    # middle-office reference deployment manifest ships in v1.0
 
   - id: Persona-B
     role: Enterprise IT Capability Provider
-    deployment_pattern: 能力复用模式 (capability-reuse)
+    deployment_pattern: capability-reuse mode
     org_context: >
       Federated enterprise where the central IT department provides only
       middleware and model services. Business units own their own agent
@@ -53,7 +53,7 @@ personas:
       - Business units re-invent agent runtime per project
       - Observability fragmented across business-unit-built runtimes
       - Cost reporting opaque
-    v1_0_priority: deferred     # 能力复用 ships in v1.1+
+    v1_0_priority: deferred     # capability-reuse ships in v1.1+
 
   - id: Persona-C
     role: Enterprise Agent Developer
@@ -126,9 +126,11 @@ personas:
     org_context: >
       Risk / compliance / audit function in a regulated enterprise. For v1.0
       this is specifically the financial-industry compliance officer in a
-      bank / insurer / securities firm / fintech. Subject-matter: 等保 2.0/3.0,
-      关键信息基础设施, PIPL, 数据安全法, JR/T 0223-2021 (金融数据安全
-      数据生命周期安全规范); 国际 SOC 2, ISO 27001, SR 11-7 model risk.
+      bank / insurer / securities firm / fintech. Subject-matter: MLPS 2.0/3.0
+      (China Multi-Level Protection Scheme), Critical Information Infrastructure,
+      PIPL, the Data Security Law (China), JR/T 0223-2021 (China financial
+      data-security spec — financial data-security data-lifecycle security
+      specification); international SOC 2, ISO 27001, SR 11-7 model risk.
     daily_job:
       - Audit agent behavior for regulatory submissions
       - Certify compliance with regulatory requirements before production rollout
@@ -156,7 +158,7 @@ personas:
 # Cross-persona notes
 #
 # - Persona-A and Persona-B are mutually exclusive per deployment — an enterprise
-#   adopts ONE topology pattern (中台 or 能力复用), not both.
+#   adopts ONE topology pattern (middle-office or capability-reuse mode), not both.
 # - Persona-C / D / E exist in BOTH deployment patterns, in different org locations.
 # - Persona-F sign-off is a release gate for v1.0; without Persona-F approval an
 #   agent does not enter financial-industry production.

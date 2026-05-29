@@ -1,6 +1,6 @@
 # Canonical User Journey — `spring-ai-ascend`
 
-Authority: `product/PRODUCT.md` + plan file `D:\.claude\plans\ai-l0-adr-ai-l1-adr-adr-ai-ai-1-2-3-ai-effervescent-flask.md`
+Authority: `product/PRODUCT.md`
 
 This is the **canonical journey** the platform must support end-to-end. The protagonist is **Persona-C** (Enterprise Agent Developer, Spring background) — chosen as canonical because she represents ~90% of the agent-developer population per the product owner's input. Persona-D (SRE), Persona-E (Architect), and Persona-F (Compliance) appear at specific stages.
 
@@ -22,7 +22,7 @@ Each stage names the action, the claim it serves, the existing feature / artefac
 | 6 | Local test (dev posture) | Agent runs locally; she uses `agent-execution-engine` traces to inspect Run lifecycle; iterates on prompt + skill config | PC-001, PC-005.a | posture `dev` defaults (R-D-6); platform-axis observability | shipped |
 | 7 | Promote to research posture | Flips posture to `research`; tenant isolation enforced at storage engine (RLS); idempotency keys active; cost budget enforced | PC-003 | Rule R-J (RLS); IdempotencyStore; skill-capacity matrix | shipped |
 | 8 | Compliance review | Persona-F (compliance officer) reviews the agent's sandbox policy + identity delegation + audit trail format against bank's internal compliance checklist (mapped to JR/T 0223-2021 + SR 11-7) | PC-003 | Rule R-L (sandbox subsumption); `audit-trail.v1.yaml` (NEW v1.0) | **v1.0 ship-blocker — audit-trail schema must land** |
-| 9 | Deploy | Pushes the agent definition to the bank's central platform team's hosted runtime (Persona-A operates it — 中台 mode for v1.0) | PC-002 | module `kind:` taxonomy; deployment manifest; `deploy/middle-office-reference/` | **v1.0 ship-blocker — 中台 reference manifest must land** |
+| 9 | Deploy | Pushes the agent definition to the bank's central platform team's hosted runtime (Persona-A operates it — middle-office mode for v1.0) | PC-002 | module `kind:` taxonomy; deployment manifest; `deploy/middle-office-reference/` | **v1.0 ship-blocker — middle-office reference manifest must land** |
 | 10 | Observe in production | Three-axis dashboards (business KPI / platform SLO / model behavior); cost per Run attributed per tenant per agent; Persona-D operates this | PC-003, PC-005.a | OTel-compatible spans; cost recorder | v1.0 ships platform-axis + model-axis; business-axis deferred to v1.1+ |
 | 11 | Evolve | Over weeks, the agent's knowledge & memory grow via the evolution middleware; skill success rates tracked per (skill, tenant, agent); underperforming skills swapped | PC-005.b | `graphmemory-starter`; memory SPI; skill versioning | **design_only at v1.0 — ships v1.5+** |
 | 12 | Close the loop | Persona-E (architect) reviews the trajectory export from this agent's Runs; decides to RL-tune the model on the bank's accumulated trajectories; refined model deployed via model gateway; subsequent Runs use the refined model | PC-005.c, PC-004 | trajectory contract; model gateway | **design_only at v1.0 — first real loop closure target v1.6+** |
@@ -33,7 +33,7 @@ Stages 1-10 must work functionally for an Persona-C developer at a partner bank 
 - Stage 1: `product/PRODUCT.md` exists and is auto-loaded ✓ (this file lands in Phase A Wave 1)
 - Stage 5: IAM bridge ships — OAuth2/OIDC + tenant cross-check + capability-scoped delegation
 - Stage 8: Audit-trail schema (`docs/contracts/audit-trail.v1.yaml`) shipped + immutable storage backend wired + Persona-F-facing review checklist exists
-- Stage 9: 中台-mode reference deployment manifest at `deploy/middle-office-reference/` complete
+- Stage 9: middle-office-mode reference deployment manifest at `deploy/middle-office-reference/` complete
 - Stage 11-12: explicitly **NOT** shipping at v1.0 — the evolution loop is part of v1.5+ via weekly cadence Phase B cluster cycles for memory / knowledge / trajectory.
 
 ## How the journey is verified
@@ -66,14 +66,14 @@ To keep the abstract journey grounded, here is the specific v1.0 working example
   - LoanRiskSummary is a Spring-managed POJO with Bean Validation
   - Skill config is `application.yaml`, not a new DSL
 - **Why it tests PC-002**:
-  - The bank operates `agent-service` centrally (中台); the loan-review-assistant team only contributes the agent definition + the business-side skill implementations
+  - The bank operates `agent-service` centrally (middle-office); the loan-review-assistant team only contributes the agent definition + the business-side skill implementations
 
 ## Out-of-scope for the v1.0 journey
 
 These stages exist in the design but are NOT verified at v1.0 release:
 
 - Stage 11-12 (evolution loop) — design_only at v1.0
-- Persona-B (能力复用) deployment path — design_only at v1.0
+- Persona-B (capability-reuse) deployment path — design_only at v1.0
 - Multi-engine swap at stage 3 (the v1.0 graph-state engine is the only engine type) — second engine adapter ships in v1.1
 - MCP-bridge for skill exposure — ships in v1.2
 

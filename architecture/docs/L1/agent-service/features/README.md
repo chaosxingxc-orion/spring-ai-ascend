@@ -193,8 +193,8 @@ commands after auto-modifying the feature's owning code.
 ### `FEAT-SUSPEND-RESUME-CONTROL`
 
 **Verification test FQNs:**
-- `com.huawei.ascend.engine.orchestration.spi.SuspendSignalTest`
-- `com.huawei.ascend.engine.orchestration.spi.SuspendSignalLibraryTest`
+- `com.huawei.ascend.bus.spi.engine.SuspendSignalTest`
+- `com.huawei.ascend.bus.spi.engine.SuspendSignalLibraryTest`
 
 **Verification commands:**
 - `./mvnw -pl agent-service -am verify`

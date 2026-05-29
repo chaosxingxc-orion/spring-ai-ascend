@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 49 — deployment_plane_in_module_metadata. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 49 — deployment_plane_in_module_metadata (enforcer E68, Rule 39 / P-I)
 #

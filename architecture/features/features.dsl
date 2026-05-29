@@ -115,7 +115,7 @@ featSuspendResumeControl = element "Suspend and Resume Control" "Feature" "Suspe
         "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/suspend"
         "saa.goals" "Typed suspension reasons|Resume without restart|Parent/child Run choreography"
         "saa.nonGoals" "Thread.sleep blocking suspension (Rule R-H forbids it)"
-        "saa.verificationTestFqns" "com.huawei.ascend.engine.orchestration.spi.SuspendSignalTest|com.huawei.ascend.engine.orchestration.spi.SuspendSignalLibraryTest"
+        "saa.verificationTestFqns" "com.huawei.ascend.bus.spi.engine.SuspendSignalTest|com.huawei.ascend.bus.spi.engine.SuspendSignalLibraryTest"
         "saa.verificationCommands" "./mvnw -pl agent-service -am verify"
     }
 }
@@ -347,7 +347,6 @@ featEngineDispatchAndHooks -> fpHookDispatch "engine feature contains hook dispa
 efAccessAdmission = element "Access and Admission Frame" "EngineeringFrame" "Protocol convergence + tenant/auth/idempotency + client capability publication" "SAA EngineeringFrame" {
     properties {
         "saa.id" "EF-ACCESS-ADMISSION"
-        "saa.productClaim" "PC-001|PC-003"
         "saa.kind" "engineering_frame"
         "saa.structuralAxis" "true"
         "saa.level" "L1"
@@ -371,12 +370,11 @@ efAccessAdmission = element "Access and Admission Frame" "EngineeringFrame" "Pro
 efEngineDispatch = element "Engine Dispatch Frame" "EngineeringFrame" "Engine adapter + executor dispatch (service-side)" "SAA EngineeringFrame" {
     properties {
         "saa.id" "EF-ENGINE-DISPATCH"
-        "saa.productClaim" "PC-004"
         "saa.kind" "engineering_frame"
         "saa.structuralAxis" "true"
         "saa.level" "L1"
         "saa.view" "development"
-        "saa.status" "shipped"
+        "saa.status" "design_only"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0138|ADR-0155"
         "saa.capabilityDomain" "agent-service-engine-dispatch"
@@ -395,12 +393,11 @@ efEngineDispatch = element "Engine Dispatch Frame" "EngineeringFrame" "Engine ad
 efInternalEventQueue = element "Internal Event Queue Frame" "EngineeringFrame" "Internal event queue infrastructure (design-only)" "SAA EngineeringFrame" {
     properties {
         "saa.id" "EF-INTERNAL-EVENT-QUEUE"
-        "saa.productClaim" "PC-003"
         "saa.kind" "engineering_frame"
         "saa.structuralAxis" "true"
         "saa.level" "L1"
         "saa.view" "development"
-        "saa.status" "shipped"
+        "saa.status" "design_only"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0138|ADR-0155"
         "saa.capabilityDomain" "agent-service-event-queue"
@@ -419,7 +416,6 @@ efInternalEventQueue = element "Internal Event Queue Frame" "EngineeringFrame" "
 efSessionTaskState = element "Session Task State Frame" "EngineeringFrame" "Run aggregate + Session + Task lifecycle state" "SAA EngineeringFrame" {
     properties {
         "saa.id" "EF-SESSION-TASK-STATE"
-        "saa.productClaim" "PC-001"
         "saa.kind" "engineering_frame"
         "saa.structuralAxis" "true"
         "saa.level" "L1"
@@ -443,7 +439,6 @@ efSessionTaskState = element "Session Task State Frame" "EngineeringFrame" "Run 
 efTaskControl = element "Task Control Frame" "EngineeringFrame" "Task-centric control: orchestrator loop, suspend/resume, cancel re-auth" "SAA EngineeringFrame" {
     properties {
         "saa.id" "EF-TASK-CONTROL"
-        "saa.productClaim" "PC-001|PC-003"
         "saa.kind" "engineering_frame"
         "saa.structuralAxis" "true"
         "saa.level" "L1"
@@ -467,12 +462,11 @@ efTaskControl = element "Task Control Frame" "EngineeringFrame" "Task-centric co
 efTranslationIntercept = element "Translation Tool Intercept Frame" "EngineeringFrame" "Model/tool translation + intercept hooks" "SAA EngineeringFrame" {
     properties {
         "saa.id" "EF-TRANSLATION-INTERCEPT"
-        "saa.productClaim" "PC-003|PC-004"
         "saa.kind" "engineering_frame"
         "saa.structuralAxis" "true"
         "saa.level" "L1"
         "saa.view" "development"
-        "saa.status" "shipped"
+        "saa.status" "design_only"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0138|ADR-0155"
         "saa.capabilityDomain" "agent-service-translation-tool"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 16 — http_contract_w1_tenant_and_cancel_consistency. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 16 — http_contract_w1_tenant_and_cancel_consistency
 # ADR-0040: (a) no "replace.*X-Tenant-Id" in active docs; (b) http-api-contracts.md

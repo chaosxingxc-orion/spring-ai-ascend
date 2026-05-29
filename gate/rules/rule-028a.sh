@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 28a — tenant_column_present. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 28a — tenant_column_present (Rule 28 sub-check, ADR-0059, enforcer E15)
 # Every CREATE TABLE under any */src/main/resources/db/migration/*.sql that

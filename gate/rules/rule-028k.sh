@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 28k — javadoc_enforcer_citation_semantic_check. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 28k — javadoc_enforcer_citation_semantic_check (post-review fix
 # plan F / P1-2, enforcer E33+ semantic widening).

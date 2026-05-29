@@ -182,9 +182,10 @@ consequences: |
         `InProcessEnginePort`. The SDK is the library classifier of the same jars —
         no separate source set.
       * Form 1 (centralized / separate microservices): `agent-execution-engine`
-        packaged and run standalone; the Service drives it via `RpcEngineAdapter`
-        (engines you own) or `A2aEngineAdapter` (external / federated), both
-        design_only until a live transport is provisioned.
+        packaged and run standalone; the Service drives it via `RpcEnginePort`
+        (engines you own) or `A2aEnginePort` (external / federated), both
+        mock-functional (serialize / round-trip / dispatch, selected by
+        `app.engine.transport`) until a live wire transport is provisioned.
 
     Repo-split readiness (W7.3): `agent-execution-engine` builds and packages via
     `mvn -pl agent-execution-engine -am` — against `agent-bus` (the neutral contract)

@@ -344,7 +344,7 @@ Other vocabulary mappings (rc55 reaffirmation; full table in ADR-0136
 | Task (as "scheduling core") | `Task` (control-state record, `service.task.Task`) — distinct from Run |
 | TaskManager | TaskCenter sub-package + `TaskStateStore` SPI (per ADR-0100; rc55 audit M4 corrected stale "TaskRepository" naming) |
 | TaskEvent | `RunEvent` sealed hierarchy variants (per ADR-0145; §7 below) — NO standalone `TaskEvent` Java type |
-| InterruptSignal | `SuspendSignal` (`engine.orchestration.spi.SuspendSignal`, checked exception) — glossary synonym only per ADR-0137 |
+| InterruptSignal | `SuspendSignal` (`bus.spi.engine.SuspendSignal`, checked exception) — glossary synonym only per ADR-0137 |
 | InterruptType (INPUT_REQUIRED / TOOL_EXECUTION / COLLABORATION / SAFETY_CHECK) | Maps onto 3 platform mechanisms: A2A state for input-required, HookPoint for tool, SuspendReason for collaboration / safety |
 | Internal Event Queue | Three-track bus: `control` / `data` / `rhythm` (`bus-channels.yaml`, Rule R-E); Layer 3's binding role per ADR-0141 (`design_only`) |
 | DualTrackRouter | New SPI `(design_only — W2, ADR-0112)`; maps to `SlowTrackJudge` (already declared per ADR-0112); narrowed by ADR-0139 |

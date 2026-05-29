@@ -39,7 +39,7 @@ The cap discipline is rule-class-specific because:
 
 - Enforcer E97 — `gate/check_architecture_sync.sh#claude_md_kernel_size_bounded`.
 - Companion: Rule G-3 sub-clause .b (kernel ↔ card byte-identity), Rule G-3 sub-clause .c (every rule has a card), Rule G-4 sub-clause .a (always-loaded byte budget).
-- Authority: token-optimization wave PR1 — D:/.claude/plans/tokens-token-buzzing-sprout.md.
+- Authority: token-optimization wave PR1 (historical session plan, local-only).
 
 ### .b — (was sub-clause .b)
 

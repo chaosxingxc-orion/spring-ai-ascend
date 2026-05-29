@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 60 — schema_first_domain_contracts. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 60 — schema_first_domain_contracts (enforcer E85, Rule 48, ADR-0077)
 #
@@ -23,8 +23,8 @@ if [[ ! -f "$_r60_grandfather" ]]; then
   fail_rule "schema_first_domain_contracts" "$_r60_grandfather missing -- Rule 48 grandfather list required"
   _r60_fail=1
 else
-  # Phase 7 audit fix (Rule 48 sunset discipline -- plan F2/F3 in
-  # D:/.claude/plans/spi-atomic-willow.md). Each grandfather entry MUST be
+  # Phase 7 audit fix (Rule 48 sunset discipline -- plan F2/F3).
+  # Each grandfather entry MUST be
   # pipe-delimited <path>|<sunset_date>|<desc>. Validate sunset_date format
   # and that today <= sunset_date for every entry.
   _r60_today=$(date +%Y-%m-%d)

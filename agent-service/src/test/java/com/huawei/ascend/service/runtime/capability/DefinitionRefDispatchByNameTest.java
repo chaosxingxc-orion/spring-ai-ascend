@@ -5,6 +5,7 @@ import com.huawei.ascend.engine.runtime.EngineRegistry;
 import com.huawei.ascend.bus.spi.engine.DefinitionRef;
 import com.huawei.ascend.bus.spi.engine.ExecutorDefinition;
 import com.huawei.ascend.bus.spi.engine.Orchestrator;
+import com.huawei.ascend.service.runtime.orchestration.TestEnginePorts;
 import com.huawei.ascend.service.runtime.orchestration.inmemory.InMemoryCheckpointer;
 import com.huawei.ascend.service.runtime.orchestration.inmemory.InMemoryRunRegistry;
 import com.huawei.ascend.service.runtime.orchestration.inmemory.SyncOrchestrator;
@@ -58,7 +59,7 @@ class DefinitionRefDispatchByNameTest {
         DefinitionRef ref = new DefinitionRef("echo");
 
         Capability resolved = registry.resolve(ref.capabilityName()).orElseThrow();
-        Orchestrator orchestrator = new SyncOrchestrator(
+        Orchestrator orchestrator = TestEnginePorts.inProcessOrchestrator(
                 new InMemoryRunRegistry(),
                 new InMemoryCheckpointer(),
                 new EngineRegistry().register(new SequentialGraphExecutor()));

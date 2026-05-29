@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 66 — spi_package_exhaustiveness. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 66 — spi_package_exhaustiveness (enforcer E96, G3 prevention)
 #
@@ -32,7 +32,6 @@ if [[ $_r66_fail -eq 0 ]]; then pass_rule "spi_package_exhaustiveness"; fi
 # ===========================================================================
 # CLAUDE.md token-optimization wave -- PR1 (2026-05-17)
 # Authority: docs/governance/rules/rule-{67..71}.md
-#            + D:\.claude\plans\tokens-token-buzzing-sprout.md
 # Goal: shrink always-loaded governance set from ~99K -> ~10.6K tokens.
 # Rules 67-71 with enforcer rows E97-E101 and 10 self-tests (2 per rule).
 # ===========================================================================

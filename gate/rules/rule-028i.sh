@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 28i — plan_enforcer_table_in_sync. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 28i — plan_enforcer_table_in_sync (enforcer E32)
 # The L1 plan §11 table E<n> IDs MUST equal the set of `id:` fields in

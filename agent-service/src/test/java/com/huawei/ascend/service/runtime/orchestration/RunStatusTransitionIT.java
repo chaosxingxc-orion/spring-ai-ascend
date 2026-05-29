@@ -31,7 +31,7 @@ class RunStatusTransitionIT {
         EngineRegistry engines = new EngineRegistry()
                 .register(new SequentialGraphExecutor())
                 .register(new IterativeAgentLoopExecutor());
-        Orchestrator orchestrator = new SyncOrchestrator(registry, new InMemoryCheckpointer(), engines);
+        Orchestrator orchestrator = TestEnginePorts.inProcessOrchestrator(registry, new InMemoryCheckpointer(), engines);
 
         // Child graph: single terminal node
         ExecutorDefinition.GraphDefinition childGraph = new ExecutorDefinition.GraphDefinition(

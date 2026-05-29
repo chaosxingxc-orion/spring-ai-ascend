@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 13 — contract_catalog_no_deleted_spi_or_starter_names. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 13 — contract_catalog_no_deleted_spi_or_starter_names
 # ADR-0036: contract-catalog.md must not reference deleted SPI interface names

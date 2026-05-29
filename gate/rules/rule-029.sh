@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 29 — whitepaper_alignment_matrix_present. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 29 — whitepaper_alignment_matrix_present
 # ADR-0049 + P2-1: docs/governance/whitepaper-alignment-matrix.md must exist

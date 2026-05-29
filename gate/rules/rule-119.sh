@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 119 — l1_spi_appendix_4way_parity. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 119 — l1_spi_appendix_4way_parity (enforcer E167)
 # rc28 fix (NEW-3): fail-closed when helper missing instead of silent pass.

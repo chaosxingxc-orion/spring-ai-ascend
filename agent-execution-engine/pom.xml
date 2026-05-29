@@ -1,21 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  agent-execution-engine — heterogeneous engine surface + orchestration SPI host (per ADR-0072 + ADR-0088).
+  agent-execution-engine — heterogeneous engine surface + InProcessEnginePort realization (per ADR-0072 + ADR-0158).
 
-  Status (post-rc13, 2026-05-20): Engine SPI + EngineRegistry + EngineEnvelope
-  + orchestration SPI all live here. Code lives under:
+  Status: Engine adapter SPI + EngineRegistry + EngineEnvelope live here. The neutral
+  orchestration/engine SPI moved to agent-bus (com.huawei.ascend.bus.spi.engine) per
+  ADR-0158 (transport-agnostic EnginePort boundary); this module provides the
+  InProcessEnginePort realization of that boundary. Code lives under:
     - com.huawei.ascend.engine.spi.*                (ExecutorAdapter, GraphExecutor,
                                                    AgentLoopExecutor, EngineHookSurface,
                                                    EngineMatchingException)
-    - com.huawei.ascend.engine.orchestration.spi.*  (RunMode, RunContext, SuspendSignal,
-                                                   Checkpointer, Orchestrator, TraceContext,
-                                                   ExecutorDefinition — moved here from
-                                                   the dissolved agent-runtime-core module
-                                                   per ADR-0088)
-    - com.huawei.ascend.service.runtime.engine.*    (EngineRegistry, EngineEnvelope —
-                                                   implementations; will be renamed in W3+)
-  Reference adapters (SequentialGraphExecutor, IterativeAgentLoopExecutor) stay in
-  agent-service.runtime because they wire Run/RunStateMachine (which live in agent-service).
+    - com.huawei.ascend.engine.runtime.*            (EngineRegistry, EngineEnvelope,
+                                                   InProcessEnginePort — implementations)
+  The neutral SPI consumed from agent-bus: com.huawei.ascend.bus.spi.engine.* (RunMode,
+  RunContext, SuspendSignal, Checkpointer, Orchestrator, TraceContext, ExecutorDefinition,
+  ExecutionContext). Reference adapters (SequentialGraphExecutor, IterativeAgentLoopExecutor)
+  stay in agent-service.runtime because they wire Run/RunStateMachine (which live in agent-service).
 
   Why this module exists separately: ADR-0072 / Rule R-M.a declare the engine
   contract as an independent surface (Graph / AgentLoop today, room for

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 74 — linux_first_dev_doc_present. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 74 — linux_first_dev_doc_present (enforcer E104)
 #
@@ -32,7 +32,6 @@ if [[ $_r74_fail -eq 0 ]]; then pass_rule "linux_first_dev_doc_present"; fi
 
 # ===========================================================================
 # Wave 4 — small rule activations (2026-05-18)
-# Authority: D:/.claude/plans/spicy-mixing-galaxy.md Wave 4.
 # ===========================================================================
 
 # ---------------------------------------------------------------------------

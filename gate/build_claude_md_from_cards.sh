@@ -5,7 +5,6 @@
 # CLAUDE.md. Gate Rule 68 (claude_md_kernel_matches_card) requires this output to
 # byte-match (after whitespace normalisation) the kernel: field of each card.
 #
-# Authority: D:/.claude/plans/tokens-token-buzzing-sprout.md PR1.
 # Authored: 2026-05-17.
 
 set -euo pipefail

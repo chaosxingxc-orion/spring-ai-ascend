@@ -5,6 +5,7 @@ import com.huawei.ascend.service.runtime.orchestration.inmemory.InMemoryCheckpoi
 import com.huawei.ascend.service.runtime.orchestration.inmemory.InMemoryRunRegistry;
 import com.huawei.ascend.engine.exec.IterativeAgentLoopExecutor;
 import com.huawei.ascend.engine.exec.SequentialGraphExecutor;
+import com.huawei.ascend.service.runtime.orchestration.TestEnginePorts;
 import com.huawei.ascend.service.runtime.orchestration.inmemory.SyncOrchestrator;
 import com.huawei.ascend.service.runtime.runs.Run;
 import com.huawei.ascend.service.runtime.runs.RunStatus;
@@ -52,7 +53,7 @@ class S2cTransportTimeoutTrippedByOrchestratorTest {
                 .registerS2cCallbackTransport(hangingTransport);
 
         InMemoryRunRegistry runs = new InMemoryRunRegistry();
-        SyncOrchestrator orchestrator = new SyncOrchestrator(
+        SyncOrchestrator orchestrator = TestEnginePorts.inProcessOrchestrator(
                 runs, new InMemoryCheckpointer(), engines, Duration.ofMillis(150));
 
         AtomicReference<S2cCallbackEnvelope> captured = new AtomicReference<>();
@@ -119,7 +120,7 @@ class S2cTransportTimeoutTrippedByOrchestratorTest {
         InMemoryRunRegistry runs = new InMemoryRunRegistry();
         // Ceiling = 150 ms; envelope below ships a 1-hour deadline.
         Duration ceiling = Duration.ofMillis(150);
-        SyncOrchestrator orchestrator = new SyncOrchestrator(
+        SyncOrchestrator orchestrator = TestEnginePorts.inProcessOrchestrator(
                 runs, new InMemoryCheckpointer(), engines, ceiling);
 
         AtomicReference<S2cCallbackEnvelope> captured = new AtomicReference<>();

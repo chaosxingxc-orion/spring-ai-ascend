@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Auto-extracted from gate/check_architecture_sync.sh by gate/lib/extract_rules.sh
 # Rule 78 — dfx_spi_packages_match_module_metadata. DO NOT HAND-EDIT — re-run extract_rules.sh to refresh.
-# Authority: PR-E5 (D:/.claude/plans/spicy-mixing-galaxy.md).
+# Authority: PR-E5.
 
 # Rule 78 — dfx_spi_packages_match_module_metadata (enforcer E111)
 #
@@ -92,7 +92,6 @@ if [[ $_r78_fail -eq 0 ]]; then pass_rule "dfx_spi_packages_match_module_metadat
 # ===========================================================================
 # 2026-05-18 beyond-SDD review response wave -- Rule 79
 # Authority: docs/governance/rules/rule-79.md
-#            + D:/.claude/plans/d-chao-workspace-spring-ai-ascend-docs-shimmering-milner.md
 # Operationalises the "Telemetry-First Debugging" remediation proposal from
 # docs/logs/reviews/spring-ai-ascend-beyond-sdd-en.md by requiring an executable
 # debug-sequence runbook to exist on disk, cited by the rule card, with the

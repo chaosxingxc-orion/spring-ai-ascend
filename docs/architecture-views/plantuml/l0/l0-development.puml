@@ -9,15 +9,16 @@ title L0 Development View - Repository Modules Supporting the Six Capabilities
 ' agent-platform + agent-runtime into agent-service per ADR-0078; ADR-0079
 ' transiently extracted agent-runtime-core; rc13 dissolved agent-runtime-core
 ' per ADR-0088 and redistributed its sources back to agent-service (runs +
-' idempotency) + agent-execution-engine (engine.orchestration.spi + RunMode)
-' + agent-bus (bus.spi.s2c). Paired with ADR-0089 which adds agent-bus
+' idempotency) + agent-bus (bus.spi.s2c). ADR-0158 then re-homed the neutral
+' orchestration/engine SPI to agent-bus (bus.spi.engine: EnginePort + RunMode +
+' orchestration types). Paired with ADR-0089 which adds agent-bus
 ' bus.spi.ingress.IngressGateway as the C2S cross-plane control surface.
 
 System_Boundary(repo, "Current repository modules") {
   Container(agent_service, "agent-service", "Maven module", "Northbound HTTP facade + Spring Boot bootstrap + tenant filter + idempotency + posture gate + reference orchestrator wiring + Run/RunStateMachine/IdempotencyRecord entities + memory/resilience/runs SPIs (rc13 re-consolidation per ADR-0088).", $tags="S-Side")
-  Container(agent_execution_engine, "agent-execution-engine", "Maven module", "Execution adapter SPI (engine.spi: ExecutorAdapter / EngineRegistry / EngineEnvelope) + orchestration SPI (engine.orchestration.spi: RunMode / Checkpointer / Orchestrator / RunContext / SuspendSignal / TraceContext / ExecutorDefinition — relocated per ADR-0088).", $tags="S-Side")
+  Container(agent_execution_engine, "agent-execution-engine", "Maven module", "Execution adapter SPI (engine.spi: ExecutorAdapter / EngineRegistry / EngineEnvelope) + InProcessEnginePort realization of the neutral EnginePort boundary (ADR-0158).", $tags="S-Side")
   Container(agent_middleware_module, "agent-middleware", "Maven module", "Runtime-owned cross-cutting middleware SPI (HookPoint / RuntimeMiddleware / HookContext / HookOutcome / HookDispatcher) per ADR-0073.", $tags="S-Side")
-  Container(agent_bus_module, "agent-bus", "Maven module", "Bus & State Hub plane — cross-plane control surfaces in BOTH directions: bus.spi.ingress.IngressGateway (ADR-0089) + bus.spi.s2c.S2cCallbackTransport (ADR-0074 + ADR-0088). Workflow primitives W2 per ADR-0050.", $tags="S-Side")
+  Container(agent_bus_module, "agent-bus", "Maven module", "Bus & State Hub plane — cross-plane control surfaces in BOTH directions: bus.spi.ingress.IngressGateway (ADR-0089) + bus.spi.s2c.S2cCallbackTransport (ADR-0074 + ADR-0088) + neutral orchestration/engine SPI bus.spi.engine (EnginePort / RunMode / Checkpointer / Orchestrator / RunContext / SuspendSignal / TraceContext / ExecutorDefinition / ExecutionContext per ADR-0158). Workflow primitives W2 per ADR-0050.", $tags="S-Side")
   Container(agent_client_module, "agent-client", "Maven module", "Edge Access plane skeleton (AgentClient SDK + Task Cursor consumer + SSE/Webhook receiver). W3+ per ADR-0049. Cross-plane traffic locked to bus.spi.ingress.IngressGateway per ADR-0089 / Rule R-I.b.", $tags="C-Side")
   Container(agent_evolve_module, "agent-evolve", "Maven module", "Evolution plane Java-side adapter skeleton. Bulk implementation deferred per ADR-0075.", $tags="S-Side")
   Container(dependencies_bom, "spring-ai-ascend-dependencies", "Maven BOM", "Dependency pinning and build alignment across the eight reactor modules.", $tags="Governance")

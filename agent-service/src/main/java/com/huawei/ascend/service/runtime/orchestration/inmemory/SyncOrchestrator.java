@@ -1,12 +1,18 @@
 package com.huawei.ascend.service.runtime.orchestration.inmemory;
 
 import com.huawei.ascend.engine.runtime.EngineRegistry;
-import com.huawei.ascend.engine.runtime.InProcessEnginePort;
+import com.huawei.ascend.engine.runtime.EngineOutcomeChannel;
 import com.huawei.ascend.middleware.HookDispatcher;
+import com.huawei.ascend.bus.spi.engine.AgentEvent;
 import com.huawei.ascend.bus.spi.engine.Checkpointer;
+import com.huawei.ascend.bus.spi.engine.DefinitionRef;
+import com.huawei.ascend.bus.spi.engine.DefinitionResolver;
 import com.huawei.ascend.bus.spi.engine.EnginePort;
+import com.huawei.ascend.bus.spi.engine.ExecuteRequest;
 import com.huawei.ascend.engine.spi.EngineMatchingException;
 import com.huawei.ascend.bus.spi.engine.ExecutorDefinition;
+import com.huawei.ascend.service.runtime.orchestration.EngineEventStreams;
+import com.huawei.ascend.service.runtime.orchestration.EngineExecutionException;
 import com.huawei.ascend.middleware.spi.HookContext;
 import com.huawei.ascend.middleware.spi.HookPoint;
 import com.huawei.ascend.bus.spi.engine.Orchestrator;
@@ -59,6 +65,8 @@ public final class SyncOrchestrator implements Orchestrator {
     private final Checkpointer checkpointer;
     private final EngineRegistry engineRegistry;
     private final EnginePort enginePort;
+    private final DefinitionResolver definitionResolver;
+    private final EngineOutcomeChannel outcomes;
     private final HookDispatcher hookDispatcher;
     private final Duration s2cCallTimeout;
 
@@ -76,20 +84,29 @@ public final class SyncOrchestrator implements Orchestrator {
      * The discard is intentional — the dispatcher already enforces in-chain
      * fail-fast among middlewares, but the Run lifecycle is unaffected today.
      */
-    public SyncOrchestrator(RunRepository runs, Checkpointer checkpointer, EngineRegistry engineRegistry) {
-        this(runs, checkpointer, engineRegistry, DEFAULT_S2C_CALL_TIMEOUT);
+    public SyncOrchestrator(RunRepository runs, Checkpointer checkpointer, EngineRegistry engineRegistry,
+                            EnginePort enginePort, DefinitionResolver definitionResolver,
+                            EngineOutcomeChannel outcomes) {
+        this(runs, checkpointer, engineRegistry, enginePort, definitionResolver, outcomes,
+                DEFAULT_S2C_CALL_TIMEOUT);
     }
 
     public SyncOrchestrator(RunRepository runs, Checkpointer checkpointer,
-                            EngineRegistry engineRegistry, Duration s2cCallTimeout) {
+                            EngineRegistry engineRegistry, EnginePort enginePort,
+                            DefinitionResolver definitionResolver, EngineOutcomeChannel outcomes,
+                            Duration s2cCallTimeout) {
         AppPostureGate.requireDevForInMemoryComponent("SyncOrchestrator");
         this.runs = Objects.requireNonNull(runs);
         this.checkpointer = Objects.requireNonNull(checkpointer);
         this.engineRegistry = Objects.requireNonNull(engineRegistry, "engineRegistry is required");
-        // In-process realization of the EnginePort boundary: when service+engine share a JVM
-        // the engine is driven via a direct call; a networked deployment injects an RPC/A2A
-        // adapter here instead.
-        this.enginePort = new InProcessEnginePort(this.engineRegistry);
+        // The EnginePort boundary is transport-selected by the deployment: in-process direct call,
+        // internal-RPC, or A2A federation. The Service injects the selected port plus the shared
+        // DefinitionResolver (wire-form reference <-> runnable definition) and the in-JVM
+        // EngineOutcomeChannel (rich thrown outcome <-> opaque event handle), so neither module
+        // depends on the other beyond the neutral contract.
+        this.enginePort = Objects.requireNonNull(enginePort, "enginePort is required");
+        this.definitionResolver = Objects.requireNonNull(definitionResolver, "definitionResolver is required");
+        this.outcomes = Objects.requireNonNull(outcomes, "outcomes is required");
         this.hookDispatcher = engineRegistry.hookDispatcher();
         this.s2cCallTimeout = Objects.requireNonNull(s2cCallTimeout, "s2cCallTimeout is required");
         if (s2cCallTimeout.isNegative() || s2cCallTimeout.isZero()) {
@@ -270,7 +287,43 @@ public final class SyncOrchestrator implements Orchestrator {
         // Rule 43: never pattern-match on ExecutorDefinition subtypes here —
         // the EnginePort (in-process: EngineRegistry strict dispatch) encapsulates the
         // class-to-engineType mapping.
-        return enginePort.execute(ctx, def, payload);
+        DefinitionRef ref = definitionResolver.referenceFor(def);
+        String engineType = modeFor(def) == RunMode.GRAPH ? "graph" : "agent-loop";
+        String traceId = ctx.traceId() == null || ctx.traceId().isBlank() ? "0".repeat(32) : ctx.traceId();
+        String spanId = ctx.spanId() == null || ctx.spanId().isBlank() ? "0".repeat(16) : ctx.spanId();
+        String traceparent = "00-" + traceId + "-" + spanId + "-01";
+        ExecuteRequest request = new ExecuteRequest(
+                ctx.runId().toString(), engineType, ref, payload, null, traceparent, null);
+        AgentEvent terminal = EngineEventStreams.awaitTerminal(enginePort.execute(ctx, request));
+        if (terminal instanceof AgentEvent.Finished finished) {
+            return finished.result();
+        }
+        if (terminal instanceof AgentEvent.InterruptRequest interrupt) {
+            Throwable raw = outcomes.take(interrupt.correlationHandle());
+            if (raw instanceof SuspendSignal suspend) {
+                throw suspend;
+            }
+            throw new IllegalStateException(
+                    "INTERRUPT_REQUEST without retrievable suspend signal (handle="
+                            + interrupt.correlationHandle() + ")");
+        }
+        if (terminal instanceof AgentEvent.Failed failed) {
+            Throwable raw = outcomes.take(failed.outcomeHandle());
+            if (raw instanceof EngineMatchingException eme) {
+                throw eme;
+            }
+            if (raw instanceof RuntimeException re) {
+                throw re;
+            }
+            if (raw instanceof Error err) {
+                throw err;
+            }
+            if ("engine_mismatch".equals(failed.errorClass())) {
+                throw new EngineMatchingException(null, null, failed.message());
+            }
+            throw new EngineExecutionException(failed.errorClass(), failed.message());
+        }
+        throw new IllegalStateException("unexpected non-terminal engine event: " + terminal);
     }
 
     /**

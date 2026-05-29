@@ -9,30 +9,30 @@ Companion files (read in this order when you need depth):
 - `architecture/docs/L0/ARCHITECTURE.md` — L0 architectural constraints (loaded on demand by `/design-mode`)
 - `README.md` — developer-facing technical introduction (engineering audience; complementary to this file)
 
-## Authoritative user inputs (verbatim — do not paraphrase)
+## Authoritative user inputs (English translation — do not paraphrase)
 
-2026-05-28, the product owner gave the following 5-bullet specification of what `spring-ai-ascend` is for. These are the source-of-truth for every claim below.
+2026-05-28, the product owner gave the following 5-bullet specification of what `spring-ai-ascend` is for. These are the source-of-truth for every claim below. The verbatim Chinese original is archived at `product/source-inputs/2026-05-28-product-owner-input.zh.md` (not auto-loaded); the English below is the authoritative translation.
 
-> 1）本质上我这个项目是想做一个企业级智能体平台，在不同企业会有典型的两种模式：一种模式是**中台模式**，也就是中台部门提供标准的智能体服务，各业务中心基于自身业务的要求，可配置的开发智能体并推送到智能体服务层代管，同时业务中心在驱动智能体的时候，需要所有的业务逻辑配置和调用业务系统的动作都要求在业务侧自行完成；第二种模式是**能力复用模式**，没有一个很强的中台部门，中台部门更多的是企业的IT部门，提供一些企业级中间件和模型服务的能力，业务中心使用中台部门的中间件，模型服务的能力，自建智能体服务和业务逻辑配置的模块。
+> 1) Fundamentally this project aims to build an enterprise-grade agent platform. Across different enterprises there are two typical modes. The first is the **middle-office mode**: the middle-office department provides standard agent services; each business center, based on its own business requirements, develops agents in a configuration-driven way and pushes them to the agent service layer for hosting. When a business center drives an agent, all business-logic configuration and the actions that call business systems are required to be completed by the business side itself. The second is the **capability-reuse mode**: there is no strong middle-office department — the "middle office" is more the enterprise's IT department, which provides some enterprise-grade middleware and model-service capabilities. Business centers use the IT department's middleware and model-service capabilities, and self-build their own agent service and business-logic configuration modules.
 >
-> 2）针对企业智能体开发者视角，90%以上的开发者都是从微服务时代过来的，他们天生对 Spring 生态有足够的了解和学习能力的掌握，他们希望在智能体时代继续使用类似于配置化开发的方式来开发和集成智能体，因此需要一套基于 Spring 生态体系的智能体开发平台，能够吸收企业级中间件。
+> 2) From the perspective of the enterprise agent developer: over 90% of developers come from the microservices era. They naturally have sufficient understanding of the Spring ecosystem and the ability to master it. They want to continue developing and integrating agents in the agent era using a configuration-driven development style similar to what they already know. Therefore a Spring-ecosystem-based agent development platform is needed, one that can absorb enterprise-grade middleware.
 >
-> 3）我们的大客户很多已经达到了万卡 A100 级的水平，在 Claw 和 Claude Code 被客户广泛认可的现在，智能体服务层需要承载更高的流量，更稳定的服务，以及进入核心生产系统后提供更大的价值和更严格的使用标准和要求。
+> 3) Many of our large customers have already reached the 10,000-card A100 class. Now that Claw and Claude Code are widely recognized by customers, the agent service layer needs to carry higher traffic, deliver more stable service, and — once it enters core production systems — provide greater value under stricter usage standards and requirements.
 >
-> 4）一个企业对于智能体框架和模型类似，不可能被一套框架限制死，因此在这个平台上运行多源异构的智能体框架，同时还需要简化开发。
+> 4) Like models, an enterprise cannot be locked into a single agent framework. Therefore the platform must run multi-source, heterogeneous agent frameworks while also simplifying development.
 >
-> 5）智能体平台区别于传统软件平台的核心要素是智能体在其中能够**自进化的能力**——智能体执行可观测（业务侧、平台侧、模型侧均要具备可观测能力），同时可演进（基于中间件的知识、记忆和技能的演进），以及对模型通过强化学习来演进所需要的轨迹支撑。
+> 5) The core element distinguishing an agent platform from a traditional software platform is the agents' capacity for **self-evolution** within it — agent execution must be observable (observability on the business side, platform side, and model side), agents must be evolvable (evolution of knowledge, memory, and skills based on middleware), and there must be trajectory support for evolving models via reinforcement learning.
 
 ## Elevator pitch
 
-`spring-ai-ascend` is the Spring-native enterprise agent platform for the AI-platform era — letting Spring-shop enterprises build, deploy, and evolve multi-framework agents at production scale under their own organizational topology (中台 or 能力复用) on sovereign Huawei Ascend + Kunpeng infrastructure, with built-in identity, cost, safety, and observability governance that microservices teams already understand.
+`spring-ai-ascend` is the Spring-native enterprise agent platform for the AI-platform era — letting Spring-shop enterprises build, deploy, and evolve multi-framework agents at production scale under their own organizational topology (middle-office or capability-reuse mode) on sovereign Huawei Ascend + Kunpeng infrastructure, with built-in identity, cost, safety, and observability governance that microservices teams already understand.
 
 ## v1.0 target buyer (2026-06-30 release)
 
 **Financial-industry first.** v1.0 is built to serve enterprise financial-services buyers (banks, insurers, securities firms, fintech platforms) where:
 - Multi-tenant isolation is table stakes (Persona-A / Persona-B / Persona-D requirement)
 - Audit-grade observability is mandatory for regulatory submission (Persona-F primary persona for v1.0)
-- Identity delegation must trace every agent action to an end-user identity (中国 等保 / PIPL / JR/T 0223-2021; 国际 SOC 2 / SR 11-7)
+- Identity delegation must trace every agent action to an end-user identity (China: MLPS / PIPL / JR/T 0223-2021; international: SOC 2 / SR 11-7)
 - Sandbox enforcement must subsume any logical permission grant — no honor-system
 
 v1.1+ extends the same artefact set to other regulated verticals (manufacturing, healthcare, government). The platform positioning (`README.md`) stays vertical-neutral; `product/PRODUCT.md` is where the v1.0 GTM target is named.
@@ -44,7 +44,7 @@ Full schema in `product/claims.yaml`. Each claim has `id`, `statement`, `benefic
 | ID | One-line claim | Primary persona |
 |---|---|---|
 | **PC-001** | Build agents the way you already build Spring services — config-driven, Spring Boot starter-based, ConfigurationProperties-validated, full reuse of existing Spring middleware | Persona-C (Spring developer, ~90% of agent-developer population) |
-| **PC-002** | Deploy under your organization's shape AND your sovereignty boundary — same artifact set supports 中台 + 能力复用 + on-prem Ascend+Kunpeng | Persona-A (中台 buyer) + Persona-B (能力复用 buyer) |
+| **PC-002** | Deploy under your organization's shape AND your sovereignty boundary — same artifact set supports middle-office + capability-reuse modes + on-prem Ascend+Kunpeng | Persona-A (middle-office buyer) + Persona-B (capability-reuse buyer) |
 | **PC-003** | Production-grade for the AI-platform era — long-horizon Run state machine, RLS multi-tenancy, reactive I/O, posture-aware defaults, idempotency, capability-scoped identity, sandbox subsumption, cost governance, audit-grade observability | Persona-D (SRE) + Persona-F (Compliance) |
 | **PC-004** | Run any agent framework, governed uniformly — multiple agent frameworks (graph / ReAct / supervisor-worker / debate / external SDK), multiple LLM providers, multiple orchestration patterns through one Engine Contract | Persona-E (Architect) |
 | **PC-005** | Agents that evolve, not just execute — three-axis observability (business/platform/model), evolvable knowledge+memory+skill middleware, RL trajectory export for model fine-tuning | Persona-E + Persona-C |
@@ -57,8 +57,8 @@ Full schema in `product/personas.yaml`. Each persona has `id`, `role`, `org_cont
 
 | ID | Role | v1.0 priority |
 |---|---|---|
-| **Persona-A** | Platform Team Lead (中台 buyer) | secondary v1.0 (能力复用-mode deploys in v1.1) |
-| **Persona-B** | Enterprise IT Capability Provider (能力复用 buyer) | deferred to v1.1 |
+| **Persona-A** | Platform Team Lead (middle-office buyer) | secondary v1.0 (capability-reuse-mode deploys in v1.1) |
+| **Persona-B** | Enterprise IT Capability Provider (capability-reuse buyer) | deferred to v1.1 |
 | **Persona-C** | Enterprise Agent Developer (Spring background, ~90% of dev population) | primary developer for v1.0 |
 | **Persona-D** | Enterprise SRE / Production Operator | primary operator for v1.0 |
 | **Persona-E** | Enterprise Agent Architect | primary for PC-004 + PC-005 conversations |
@@ -90,5 +90,5 @@ Disclaimed explicitly to keep claims honest under Rule G-3.e:
 ## Authority + lifecycle
 
 - **Author of this file**: product owner (chao). AI may draft refinements; only product owner signs off changes to the elevator pitch, the 5 PC statements, or the v1.0 buyer scope.
-- **Source ADR**: ADR-0156 (Product Authority and Traceability Chain) — to be filed in Phase A Wave 3 of the plan at `D:\.claude\plans\ai-l0-adr-ai-l1-adr-adr-ai-ai-1-2-3-ai-effervescent-flask.md`.
+- **Source ADR**: ADR-0156 (Product Authority and Traceability Chain) — filed in Phase A Wave 3; ADR-0156 is the source authority for this file.
 - **Governing rule**: Rule G-16 .. G-21 (Phase A Wave 5 — ProductClaim Referential Integrity / No Orphan Artefacts / Traceability Chain Completeness / Auto-Load Tier Integrity / Governance-Infra Honesty / Placeholder Decreasing).

@@ -46,7 +46,7 @@ class NestedDualModeIT {
         EngineRegistry engines = new EngineRegistry()
                 .register(new SequentialGraphExecutor())
                 .register(new IterativeAgentLoopExecutor());
-        Orchestrator orchestrator = new SyncOrchestrator(registry, checkpointer, engines);
+        Orchestrator orchestrator = TestEnginePorts.inProcessOrchestrator(registry, checkpointer, engines);
 
         // L3 Graph: g1 → g2, produces "GRAPH-L3"
         ExecutorDefinition.GraphDefinition l3Graph = new ExecutorDefinition.GraphDefinition(
