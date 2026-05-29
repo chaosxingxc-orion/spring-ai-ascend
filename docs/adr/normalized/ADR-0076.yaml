@@ -1,0 +1,90 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0076
+raw_path: docs/adr/0076-r2-pilot-runtime-self-validation.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels: [L0, L1, L2, contract, gate]
+view: process
+decision_type: architecture_principle
+
+clean_decision_summary: >-
+  Establishes the R2 pattern -- governance-as-runtime-contract -- as a
+  first-class technique: a governance / contract YAML that until now was consumed
+  only by build-time gate scripts (R1) becomes ALSO a runtime self-validation
+  source of truth, loaded at process boot and asserted against the application's
+  bean wiring, so a misconfiguration fails the process closed at startup rather
+  than surfacing at first request. The standing decision is the R2 pattern itself
+  (boot-time fail-closed self-validation of a wiring set against a declared
+  contract); the specific boot wiring that piloted it is downstream realisation.
+active_guidance:
+  - >-
+      The R2 governance-as-runtime-contract pattern is durable: a contract /
+      governance YAML may be BOTH a build-time gate input AND a runtime
+      self-validation source. A runtime registry loads the declared set at boot
+      and asserts the live wiring matches it; a mismatch aborts startup
+      fail-closed so the process never reaches request-serving state. This is the
+      Rule D-5 ship-gate posture applied to a dispatch surface.
+  - >-
+      Boot-time fail-closed is preferred over deferring the failure to the request
+      path: a misconfigured deployment must not pass health checks and accept
+      traffic only to fail when a specific tenant submits work that needs the
+      missing capability. Validation runs during bean creation so an invalid
+      wiring aborts the application context, not a later lifecycle phase.
+  - >-
+      An exercised integration test that boots the real context is a stronger
+      enforcer of runtime wiring than a static file-existence gate scan; the
+      self-validation code plus the boot test are the enforcer pair, and a
+      structural gate that merely greps for the wiring is redundant duplication.
+non_authoritative_legacy_content:
+  - >-
+      The concrete pilot wiring (the EngineAutoConfiguration boot bean, the
+      EngineRegistry validate-against-schema call site, the reference executor
+      bean registrations, the named boot-validation integration-test methods, the
+      configurable schema-path property) is L2 runtime-sequence / class-method
+      realisation detail owned by the generated code facts and the contract
+      surface, not standing L0 authority.
+  - >-
+      The packaging concern about resolving the contract YAML from the filesystem
+      vs the classpath when shipped as a jar is L2/physical realisation detail
+      tracked by the packaging work, not part of the standing pattern decision.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "P-M (Heterogeneous Engine Contract -- the L0 principle whose engine-envelope contract this pilot self-validates at boot)"
+l1_refs:
+  - "agent-service (Platform) -- the boot context that hosts the runtime self-validation"
+  - "agent-execution-engine -- owner of the engine registry + envelope the pilot validates"
+l2_refs:
+  - "Boot-time engine self-validation wiring + its integration-test realisation (L2 process detail)"
+contract_refs:
+  - docs/contracts/engine-envelope.v1.yaml
+fact_refs:
+  - adr/0076-r2-pilot-runtime-self-validation
+  - contract-yaml/engine-envelope
+  - code-symbol/com-huawei-ascend-engine-runtime-engineregistry
+gate_refs: []
+review_notes: >-
+  Lane: L3-L0ARCH (ADR-0159). Re-altitude UP (raw self-labels level L2 / view
+  process) to decision_level L0, on the same principle ADR-0143 was re-altituded
+  L1 -> L0: the DURABLE decision this ADR makes is the R2
+  governance-as-runtime-contract PATTERN, which the raw text itself frames as "the
+  first instance" of a cross-cutting technique "reused in upcoming waves" -- a
+  cross-cutting architecture principle, not a feature-local runtime sequence. The
+  L2 boot-wiring + integration-test specifics (which WOULD be a forbidden
+  lower-altitude leak if presented as the L0 decision) are pushed to
+  non_authoritative_legacy_content and to the generated facts. decision_type
+  architecture_principle is the allowed L0 type for ratifying a reusable
+  cross-cutting technique. view process is kept from the raw (the pattern is about
+  a boot-time runtime process). current_state partial_guidance: the pattern still
+  governs (active_guidance) while the named pilot wiring is non-authoritative L2
+  realisation, and the engine implementation home named in the raw
+  (service.runtime.engine.*) is itself overtaken by the realised facts
+  (engine.runtime.* / engine-exec) per ADR-0090 -- generated facts win on the
+  location. superseded_by empty (no later ADR replaces the R2-pattern decision).

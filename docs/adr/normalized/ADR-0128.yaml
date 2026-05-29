@@ -1,0 +1,74 @@
+# Normalized ADR view — readable-interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). This view re-states and curates;
+# it invents no ADR ids and no relationships and never outranks a generated
+# fact. Authority cascade: generated facts > DSL > Card/prose. Schema pinned by
+# docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml,
+# enforced by Rule G-28. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0128
+raw_path: docs/adr/0128-agent-first-class-entity.yaml
+current_state: active_guidance
+decision_level: L1
+affected_levels:
+  - L1
+  - contract
+view: development
+decision_type: public_spi_surface
+
+clean_decision_summary: |
+  Agent is a first-class public SPI: the entry-point primitive an integrator
+  defines and registers, binding a stable per-tenant identity to a model binding,
+  tool/skill bindings, memory bindings, an optional planner binding, a system
+  prompt, and a safety policy. The surface is completed by a declarative
+  AgentDefinition (the shape customers attach), an AgentRegistry (register /
+  unregister / find / list), and the invocation/response/reference value types,
+  with a SafetyPolicy as a first-class field. The bindings reference the other
+  platform SPIs (model / skill / memory / vector / planner) by typed reference
+  records, so an integrator extends at one seam. The contract schema lives at
+  docs/contracts/agent-definition.v1.yaml; the public surface is design_only and
+  lands its first real registry implementation and adapter chain at the W3 SDK GA.
+
+active_guidance:
+  - "Agent is the single first-class public-SPI primitive an Audience-B integrator learns: define an AgentDefinition, register it, invoke it; the model / skill / memory / vector / planner SPIs are reached via typed reference records, so the extension seam is singular."
+  - "The Agent entry-point surface is Agent + AgentDefinition + AgentRegistry plus the supporting invocation / response / reference value types; SafetyPolicy is a first-class field (no prose-only safety guarantee), integrating the placeholder-preservation policy and output content policy."
+  - "Agent is the home of identity + configuration + bindings (it is NOT an engine-routing adapter and NOT a tagged skill — Agent owns skills); Agent-to-Agent composition is expressed by referencing an agent as a tool via the agent-as-tool skill kind."
+  - "The contract surface is docs/contracts/agent-definition.v1.yaml; long-running agent work flows through the existing orchestration entry point (the Agent's bindings compose into an executor definition), while short request/response goes through the Agent's own synchronous invoke."
+
+non_authoritative_legacy_content: []
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - service.agent.spi
+l0_constraint_refs:
+  - "Rule R-A (Business/Platform Decoupling — an AgentDefinition @Bean is the non-vacuous extension point)"
+  - "Rule R-C sub-clause .c (tenant id as a first-class field on the SPI)"
+l1_refs:
+  - "agent-service — service.agent.spi (Agent / AgentDefinition / AgentRegistry + value + reference + SafetyPolicy types)"
+l2_refs:
+  - "Per-method signatures of Agent / AgentDefinition / AgentRegistry and the AgentExecutorDefinitionFactory helper (raw ADR decision body — L2 detail, not normalized authority)"
+contract_refs:
+  - docs/contracts/agent-definition.v1.yaml
+fact_refs:
+  - adr/0128-agent-first-class-entity
+gate_refs: []
+
+review_notes: |
+  Classified active_guidance: the Agent first-class SPI is the current governing
+  entry-point identity for the platform; nothing supersedes it. The surface is
+  design_only at the SPI-shape level (the first runtime registry impl + Spring AI
+  adapter chain land at W3 SDK GA), but design_only is an implementation-maturity
+  state, NOT a current_state authority value — the decision IS current authority,
+  so active_guidance is correct.
+
+  decision_level RECLASSIFIED L0 -> L1 (flagged). The raw ADR self-labels level
+  L0 (it was raised by an L0 review), but the DECISION ALTITUDE is L1: it names a
+  public SPI surface as a boundary identity, which the taxonomy places at L1
+  (public_spi_surface) and explicitly calls defensible at L1. A human owner may
+  prefer to keep affected_levels including L0 to reflect the L0-review origin
+  (done here). The raw ADR's per-method interface signatures (invoke(...),
+  agentId(), register(...), the default binding accessors) are L2 leakage and were
+  deliberately NOT carried into clean_decision_summary or active_guidance — they
+  belong in L2 / the contract surface.

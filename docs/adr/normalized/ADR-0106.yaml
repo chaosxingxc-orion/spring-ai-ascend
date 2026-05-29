@@ -1,0 +1,72 @@
+# Normalized ADR view — ADR-0106.
+#
+# Authority: ADR-0160 (ADR Governance Model). READABLE INTERPRETATION layer over
+# the raw ADR (docs/adr/0106-run-version-two-phase-migration.yaml) and its
+# projection in architecture/facts/generated/adrs.json. Invents no
+# ids/relationships; re-states supersedes/superseded_by from the fact layer.
+# Authority cascade: generated facts > DSL > Card/prose.
+#
+# Shape pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0106
+raw_path: docs/adr/0106-run-version-two-phase-migration.yaml
+current_state: partial_guidance
+
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - L2
+view: development
+decision_type: global_constraint
+
+clean_decision_summary: |
+  The Run optimistic-lock field is introduced in two phases to avoid an
+  in-flight compare-and-set gap: a record-shape-only phase adds a version field
+  with a zero default and no behavioural change, and a later phase arms the
+  durable-tier CAS on save. Because every pre-armed Run already carries the
+  default version, the first armed save passes the CAS comparison cleanly — no
+  race window, no exception, no per-Run carve-out. This is a cross-cutting
+  sequencing constraint on how the persistence migration rolls out.
+
+active_guidance:
+  - "The two-phase sequencing constraint holds — the version field's existence is decoupled from CAS enforcement; the record-shape change ships first as a behavioural no-op, and the CAS check is armed only in the durable tier."
+  - "The migration-safety invariant holds — a default-zero version on every pre-armed Run guarantees the first armed save is a clean CAS pass, so no in-flight Run is ever unsavable and no race window is re-opened."
+
+non_authoritative_legacy_content:
+  - "The method-level CAS semantics in the raw ADR (the accept/reject comparison expressions on the repository save method, the version-increment write, the exact optimistic-lock throw site). L2 implementation detail owned by the L2 design / generated facts, not by this sequencing constraint."
+  - "The exact wave milestone labels (W0 / W1.5 / W2) and the Run record component counts. Wave labels are planning artefacts; the live record shape is a generated code-symbol fact, not this ADR's prose."
+  - "The clause asserting the corrected CAS semantics supersede the prior architecture draft prose. The corrected semantics are owned at L2 / the persistence design; this view records only that a correction occurred, not the formula."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - efTaskControl
+l0_constraint_refs: []
+l1_refs:
+  - efTaskControl
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0106-run-version-two-phase-migration
+  - code-symbol/com-huawei-ascend-service-runtime-runs-run
+  - code-symbol/com-huawei-ascend-service-runtime-runs-runstatemachine
+gate_refs: []
+
+review_notes: |
+  current_state = partial_guidance: the two-phase migration sequencing
+  constraint still governs (every later persistence decision inherits the
+  optimistic-lock contract), but the raw ADR carries L2 method-level CAS
+  semantics, exact throw sites, and Run record component counts that are no
+  longer current authority and are recorded under non_authoritative_legacy_content
+  per the 2026-05-29 layer-purity verdict. decision_level kept at L0 with
+  decision_type global_constraint (a cross-cutting persistence/migration
+  sequencing rule); public_spi_surface was rejected because the decision is
+  about migration sequencing, not about declaring a new SPI. Run code-symbol
+  facts are cited because they exist in code-symbols.json; the version field
+  itself is a forward (un-shipped) change, so no version-specific fact is
+  cited. Human review: this is a forward-pointing migration plan in a design-
+  phase repo; confirm partial_guidance (active sequencing constraint) is the
+  right state versus historical_evidence.

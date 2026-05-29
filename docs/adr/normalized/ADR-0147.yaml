@@ -1,0 +1,79 @@
+# Normalized ADR view — ADR-0147.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml.
+# Authority: ADR-0160. Enforced by Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0147
+raw_path: docs/adr/0147-structurizr-workspace-authority.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - DSL
+  - facts
+  - gate
+view: scenarios
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  Adopts architecture/workspace.dsl and its workspace closure (profile,
+  features, docs, decisions, generated, views) as the single machine-readable
+  architecture authoring root. The closure is partially generated: the generated
+  zone is byte-identical re-emitted from the existing authoritative inputs and is
+  never hand-edited; the authored zone is where engineers add L1 capabilities,
+  function points, ADR descriptions and L1 narrative. Structurizr dependencies
+  are build-time only (the tooling module is outside the production reactor).
+  EXTENDS ADR-0068 and ADR-0119; the legacy authority YAMLs flip to generated
+  projections in later waves.
+
+active_guidance:
+  - "architecture/workspace.dsl and its workspace closure are the machine-readable architecture authoring root; the generated zone (architecture/generated/*.dsl) is byte-identical re-emitted from authoritative inputs and never hand-edited."
+  - "The Spring AI Ascend Architecture Profile is normative and validated by the workspace ProfileValidator; the validator walks the model element set exactly once (no double-count)."
+  - "Structurizr is a build-time-only dependency: no production module depends on it and the tooling module is not a member of the production reactor."
+  - "Generated projections, including docs/governance/architecture-graph.yaml, MUST be built from the workspace closure, never hand-edited, and byte-identical on regeneration (the amended Rule G-1.b kernel)."
+
+non_authoritative_legacy_content:
+  - "The 7-wave migration schedule, soak windows and per-wave deliverable list are migration sequencing, not standing L0 authority; the standing authority is the workspace-as-root invariant itself."
+  - "The corrected critique of the original expert proposal (wrong DSL keyword, wrong element iteration, stale upstream pointer) is recorded as a cautionary note, not as governing architecture."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - "architecture/workspace.dsl (architecture authoring root)"
+  - "architecture/generated/*.dsl (generated zone — byte-identical re-emit)"
+  - "architecture/profile/profile.yaml (normative Architecture Profile)"
+l0_constraint_refs:
+  - "ADR-0068 (Layered 4+1 + Architecture Graph as twin sources of truth; EXTENDED)"
+  - "ADR-0119 (Single-Source Rendering Coherence; EXTENDED)"
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - "architecture/facts/generated/*.json (the generated-fact layer this authority chain terminates in)"
+gate_refs:
+  - "Rule G-1.b (Architecture Workspace Truth; amended by this ADR)"
+  - "gate/check_architecture_workspace.sh (profile validator + idempotent generated zone)"
+
+review_notes: |
+  Classified active_guidance: this is the standing L0 decision that sets the
+  architecture authoring root and the generated-zone byte-identity invariant; it
+  is extended (not superseded) by ADR-0149/0150/0151/0152 and remains current
+  authority. decision_type governance_invariant is the allowed L0 type for a
+  meta-rule about how the corpus is itself governed (the authority root + Rule
+  G-1.b amendment). No forbidden L0 leakage: the ADR names DSL element kinds and
+  the ProfileValidator as the mechanism (DEFENSIBLE per the 2026-05-29 verdict —
+  citing an enforcer as mechanism and naming a public structural surface), and
+  pushes the migration schedule into non_authoritative_legacy_content.
+  supersedes / superseded_by empty: the raw ADR declares EXTENDS only and the
+  fact layer carries no supersession for ADR-0147.

@@ -1,0 +1,84 @@
+# Normalized ADR view — ADR-0152.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml.
+# Authority: ADR-0160. Enforced by Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0152
+raw_path: docs/adr/0152-uniform-l1-per-view-mechanism-and-l0-mounting.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - DSL
+  - gate
+view: scenarios
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  Makes the L1 module-directory shape uniform: every domain Maven module's L1
+  corpus lives at architecture/docs/L1/<module>/ with the canonical file set
+  (README, ARCHITECTURE, the five 4+1 views, spi-appendix, features/README),
+  the single-narrative <module>.md shape is retired, and architecture/docs/L1/
+  _template/ is the canonical skeleton — fixed by Rule G-1.1.d. Separately,
+  moves root ARCHITECTURE.md to architecture/docs/L0/ARCHITECTURE.md so the
+  workspace !docs directive imports L0 into the closure. EXTENDS ADR-0147,
+  ADR-0149, ADR-0150 and ADR-0151. agent-service is the canonical mature
+  instance; the other modules adopt the same shape with stub view content.
+
+active_guidance:
+  - "Every domain module's L1 corpus lives at architecture/docs/L1/<module>/ with the canonical 9-file set; the single-narrative <module>.md shape is RETIRED and content depth varies by maturity while structure does not."
+  - "architecture/docs/L1/_template/ is the canonical skeleton new modules copy from; basename parity with _template/ is enforced by Rule G-1.1.d."
+  - "L0 ARCHITECTURE.md lives at architecture/docs/L0/ARCHITECTURE.md so the workspace !docs directive imports the L0 corpus into the closure; the Rule G-1.a L0/L1 location regexes are updated accordingly."
+
+non_authoritative_legacy_content:
+  - "The ~80-130-reference path-sweep enumeration and the AdrMirrorCli anchor-id extension are migration mechanics, not standing L0 authority."
+  - "The advisory-at-Wave-2 status of Rule G-1.1.d and the W3/W4/W5 render-and-promote schedule are point-in-time migration sequencing; the standing authority is the uniform-shape requirement and the L0 mounting location."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - "architecture/workspace.dsl (!docs directive now imports L0 + L1 + L2)"
+  - "architecture/docs/L1/_template/ (canonical L1 module skeleton)"
+l0_constraint_refs:
+  - "ADR-0147 (Structurizr Workspace Authority; EXTENDED)"
+  - "ADR-0149 (W0-W5 shipped record; EXTENDED)"
+  - "ADR-0150 (architecture/docs consolidation; EXTENDED)"
+  - "ADR-0151 (L1 Feature Registry canonical schema; EXTENDED)"
+l1_refs:
+  - "architecture/docs/L1/<module>/ (uniform canonical L1 corpus shape)"
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs:
+  - "Rule G-1.1 (L1 architecture depth; sub-clause .d added by this ADR)"
+  - "Rule G-1.a (L0/L1 doc-location authority; regexes updated)"
+  - "Rule 44 (frozen-doc review-log requirement for the ARCHITECTURE.md move)"
+
+review_notes: |
+  Classified active_guidance: the uniform L1 per-view directory mechanism, the
+  retirement of the single-.md shape, the _template skeleton, and the L0
+  ARCHITECTURE.md mounting location are the live governing decision; extended (not
+  superseded) by later waves. decision_type governance_invariant is the allowed
+  L0 type for a corpus structural-uniformity + doc-location governance decision;
+  naming the canonical file set and the Rule G-1.1.d / G-1.a enforcers is
+  DEFENSIBLE at L0 (structural surfaces + enforcer-as-mechanism per the
+  2026-05-29 verdict). supersedes is EMPTY despite the raw ADR's
+  supersedes_partial: [ADR-0068, ADR-0143, ADR-0150]: those are CLAUSE-level
+  partial supersessions (ADR-0068 for LOCATION only; ADR-0143 module-shape choice;
+  ADR-0150 single-.md fallback), the extracted fact layer carries NO supersedes
+  edge for ADR-0152, and the policy `supersedes` field is for whole-decision
+  replacement re-stated from the source, not minted. Recording these as full
+  supersedes edges would invent edges the source does not declare. HUMAN-REVIEW
+  FLAG: if governance wants these partial supersessions represented as first-class
+  edges, declare them in the raw ADR / fact layer first, then re-state here.

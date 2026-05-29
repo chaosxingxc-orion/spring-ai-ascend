@@ -1,0 +1,87 @@
+# Normalized ADR view — ADR-0142.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml (required fields + closed
+# current_state set + per-state invariants) AND docs/governance/adr-taxonomy.yaml
+# (decision_level / decision_type altitude). Authority: ADR-0160. Enforced by
+# Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0142
+raw_path: docs/adr/0142-run-aggregate-single-owner.yaml
+
+current_state: active_guidance
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - facts
+view: logical
+decision_type: module_responsibility
+
+clean_decision_summary: |
+  Resolve the double-homing of the Run aggregate in the 5-layer L1 model: the
+  Run aggregate (the run record + its status enum + its state-machine validator +
+  its repository SPI, including the atomic compare-and-set update method) is OWNED
+  EXCLUSIVELY by the Session & Task Manager layer (Layer 2). The Task-Centric
+  Control layer (Layer 4) holds a TYPED REFERENCE to the repository SPI and
+  mutates run state ONLY through its atomic update-if-not-terminal operation;
+  Layer 4 never writes run state directly, never calls the mutator or the
+  validator directly, and never defines a per-layer mutation helper. The same
+  single-owner pattern applies to the Task and Session aggregates. The standing
+  decision is the single-owner layer-responsibility rule; the concrete class
+  paths and diagram conventions are realisation detail.
+
+active_guidance:
+  - "The Run aggregate (run record + status enum + state-machine validator + repository SPI with its atomic compare-and-set update) is owned EXCLUSIVELY by Layer 2 (Session & Task Manager); the state-machine validator lives inside that aggregate boundary."
+  - "Layer 4 (Task-Centric Control) holds a typed reference to the run repository SPI and mutates run state ONLY via its atomic update-if-not-terminal operation; Layer 4 MUST NOT call the run mutator directly, MUST NOT persist via a CAS-bypassing store path, MUST NOT call the state-machine validator directly, and MUST NOT define a per-layer mutation helper (such helpers drift from the aggregate CAS contract)."
+  - "Suspension protocol: the engine-dispatch layer raises the suspension; Layer 4 catches it and delegates the RUNNING->SUSPENDED transition to the Layer 2 repository's atomic update, broadcasts on the internal event queue, and optionally drives the callback-variant transport — Layer 4 never writes run state itself."
+  - "The Task and Session aggregates follow the SAME single-owner pattern: owned by Layer 2; downstream layers hold typed references and use the aggregate's atomic store / read-only projection rather than writing directly."
+
+non_authoritative_legacy_content:
+  - "The fully-qualified aggregate class PATHS (the run record, status enum, state-machine, run-mode discriminator, and repository SPI under service.runtime.runs.*) are L2 class-anchor detail owned at L2 + the generated code-symbol facts; the L1 decision is the single-owner layer assignment, not the file inventory."
+  - "The diagram-convention clause (draw the Run aggregate inside the Layer 2 box; label Layer 4's control-flow arrow with the atomic update call) is L1/L2 rendering detail for the logical-view doc, not a standing structural invariant."
+  - "The grandfathered PENDING-create save() call-site carve-out and the recurring-defect-family background (F-nonatomic-run-status-write occurrences through earlier rc waves) are recurring-defect-families ledger / known-carve-out content owned by that ledger and the SPI appendix."
+  - "The future ArchUnit candidate (a Layer4MustNotImportRunDirectly test as a W2+ gate-rule candidate) is a forward enforcement note; until it lands this ADR is review-time enforced (recorded so reviewers know the structural guard is not yet a gate)."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Product Claims PC-001, PC-003 (recorded on the raw ADR)"
+l1_refs:
+  - "RunRepository (the public SPI boundary identity through which all run-state mutation flows)"
+  - "ADR-0138 5-layer L1 model (Layer 2 Session & Task Manager; Layer 4 Task-Centric Control)"
+  - "ADR-0100 component decomposition; ADR-0144 layer-to-package matrix (the package homes for service.runtime.runs.*)"
+l2_refs:
+  - "The Run / RunStatus / RunStateMachine / RunMode / RunRepository concrete types under service.runtime.runs.* (the per-type detail lives at L2 / generated code-symbol facts)."
+contract_refs: []
+fact_refs:
+  - adr/0142-run-aggregate-single-owner
+gate_refs:
+  - "Rule R-C.2.b (no Run state mutation outside the atomic update-if-not-terminal CAS — the discipline this single-owner decision makes structural)"
+
+review_notes: |
+  Lane: L4-FRAME (ADR-0159). Classified at decision_level L1 to match the raw ADR
+  self-label (level: L1, view: logical) and the module/layer-responsibility
+  character of the decision (WHICH layer owns the Run aggregate). decision_type
+  module_responsibility is the allowed L1 type. Naming RunRepository as a public
+  SPI boundary identity is DEFENSIBLE at L1 per the 2026-05-29 remediation verdict
+  (a public SPI as a boundary identity); the fully-qualified class paths are NOT
+  defensible at L1 and are recorded as non_authoritative_legacy_content (L2
+  leakage the verdict migrates down to L2 / generated facts).
+  current_state active_guidance: the single-owner rule is current authority and
+  the raw declares it EXTENDS the 5-layer model rather than superseding it. The
+  raw `decision` block embeds L2 class anchors + a diagram convention + a
+  grandfathered call-site; those are pushed to legacy so the view is citeable only
+  through the ownership clauses. supersedes / superseded_by empty: the raw
+  declares only relates_to (ADR-0100 / 0116 / 0118 / 0138 / 0140 / 0144) and no
+  supersession edge; the extracted fact layer carries none. No ambiguity in the
+  active_guidance choice.

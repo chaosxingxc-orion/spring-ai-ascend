@@ -1,0 +1,103 @@
+# Normalized view of ADR-0115  -  readable interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). Schema pinned by
+# docs/governance/adr-governance-policy.yaml (required fields + state
+# invariants) and docs/governance/adr-taxonomy.yaml (decision-level + type
+# altitude). This view INVENTS NO ids and NO relationships: supersedes /
+# superseded_by are re-stated from the raw ADR + adrs.json, never minted.
+# Authority cascade is unchanged: generated facts > DSL > Card/prose.
+# UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0115
+raw_path: docs/adr/0115-agent-service-l1-expansion-acceptance.yaml
+current_state: partial_guidance
+decision_level: L1
+affected_levels:
+  - L0
+  - L1
+  - contract
+view: logical
+decision_type: module_responsibility
+
+clean_decision_summary: >
+  Accept the 2026-05-22 agent-service L1 expansion as L1 direction with three
+  binding reconciliations: the existing package root is preserved (no
+  `.agent.` segment, no third root migration); A2A is adopted as a protocol
+  boundary defined by the platform's own envelope contract, NOT as a pervasive
+  SDK dependency; and Run keeps its platform-spine identity with Task layered
+  ABOVE Run (Task does not replace Run). The dual deployment modes are physical
+  -view variations of the existing topology, and the Message-vs-Task plane
+  separation and a Fast/Slow-Path router are accepted as directions. The Shadow
+  Tool Interceptor is deferred to a later evolution-scope wave.
+
+active_guidance:
+  - >
+    Package root is preserved: agent-service stays under its established root
+    with NO `.agent.` segment and NO package-root migration. This rejection
+    still governs.
+  - >
+    A2A is a PROTOCOL boundary, not SDK pervasion: the accepted surface is the
+    platform's own A2A envelope contract and wire state transitions; the
+    external A2A SDK is bounded to test-scope conformance, not pervasive type
+    imports across service packages.
+  - >
+    Run keeps platform-spine identity; the Task layer sits ABOVE Run (one Task
+    maps 1:N to Runs). Rewriting to make Task the primary orchestrable unit is
+    rejected  -  the Run status DFA remains authoritative.
+  - >
+    The two deployment modes (platform-centric, business-centric) are
+    physical-view variations that preserve the client -> service -> engine
+    topology in both modes; they are not new planes.
+
+non_authoritative_legacy_content:
+  - >
+    The concrete W2 package tree and specific component placements drawn in
+    this ADR (DualTrackRouter / handler / projection sub-packages, the
+    engine/{workflow,react,heterogeneous} layout) predate the rc53/rc55 L1
+    refinement and the v1.2 internal-module design; the canonical L1 structure
+    is the later 5-layer / M1-M6 model, not this ADR's tree. Treat the tree as
+    superseded-in-detail.
+  - >
+    Specific class/file anchors and SPI placements named here
+    (ContextProjector package path, Run.java / Task.java paths) are L1/L2
+    placement detail under the legacy package root and are not current
+    authority; read the live module-metadata + canonical L1 views instead.
+  - >
+    The Fast-Path/Slow-Path routing described here is an early framing; the
+    narrowed Fast/Slow-Path semantics were settled in a later L1 decision, so
+    this ADR's routing prose is non-authoritative where it conflicts.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - efOrchestrationSpi
+  - efEngineRegistry
+  - efCapabilitySpi
+l0_constraint_refs:
+  - "Rule R-I / R-I.1 (client -> service -> engine topology invariance)"
+l1_refs:
+  - "agent-service (5-layer / M1-M6 canonical L1)"
+l2_refs: []
+contract_refs:
+  - docs/contracts/a2a-envelope.v1.yaml
+fact_refs:
+  - adr/0115-agent-service-l1-expansion-acceptance
+gate_refs:
+  - "ArchUnit EdgeToComputeDirectLinkArchTest (topology invariance)"
+
+review_notes: >
+  current_state = partial_guidance: the three binding reconciliations (package
+  root preserved, A2A as protocol boundary not SDK pervasion, Run keeps spine
+  identity with Task above Run) plus the dual-mode physical-view framing are
+  still governing L1 direction. The concrete W2 package tree, component
+  placements, and Fast/Slow-Path routing prose are superseded-in-detail by the
+  later rc53/rc55 L1 work (5-layer ratification, engine-adapter split, run
+  aggregate ownership, narrowed Fast/Slow semantics, and the M1-M6 v1.2 internal
+  module design). Those later ADRs EXTEND/refine rather than declare a formal
+  supersede edge over ADR-0115, and adrs.json records no superseded_by for this
+  ADR, so superseded_by is left empty and the staleness is captured as
+  non_authoritative_legacy_content instead. Flagged for human review: if the
+  governance owner judges ADR-0138/0155 to formally retire ADR-0115's structural
+  content, a superseded_by edge should be minted at the raw-ADR layer first, then
+  re-stated here.

@@ -1,0 +1,88 @@
+# Normalized ADR view — ADR-0132.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml (required fields + closed
+# current_state set + per-state invariants) AND docs/governance/adr-taxonomy.yaml
+# (decision_level / decision_type altitude). Authority: ADR-0160. Enforced by
+# Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0132
+raw_path: docs/adr/0132-chat-advisor-spi.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - contract
+view: development
+decision_type: architecture_principle
+
+clean_decision_summary: |
+  Give application developers a platform-owned around-call interceptor seam (a
+  ChatAdvisor) that decorates model invocations, instead of forcing them to
+  either reach for the provider's advisor type directly (which breaks the
+  Spring-AI-is-canonical / platform-decorates boundary) or reach for the
+  gate-private engine hook dispatcher (which must NOT be public). The standing
+  governing principle is the DECORATION BOUNDARY: a tenant-scoped, ordered,
+  platform-owned advisor chain wraps the model gateway; the hook dispatcher stays
+  platform-internal. The concrete advisor interface shape and its value records
+  are the L1/contract realisation (a design-only contract surface), not the L0
+  boundary decision.
+
+active_guidance:
+  - "The platform exposes a platform-owned around-call advisor seam that decorates model invocation for the application-developer audience; developers compose advisors at agent-definition time and never import the gate-private engine hook dispatcher."
+  - "Decoration boundary: the provider (Spring AI) is canonical and the platform DECORATES it; the application audience writes against the platform advisor SPI, not against the provider's advisor type, preserving the integration boundary."
+  - "The advisor chain is tenant-scoped (the advised request/response carry a non-blank tenant id) and ordered (a stable order() determines inbound execution); an advisor may short-circuit by returning a synthetic response (policy denial, cache hit, redaction)."
+  - "The engine hook dispatcher remains platform-internal; the BEFORE_LLM / AFTER_LLM hook brackets bound the advisor chain but hooks are not part of the public audience surface (keeping hook-granularity changes from becoming contract-breaking events)."
+
+non_authoritative_legacy_content:
+  - "The concrete advisor INTERFACE SHAPE (advisorName / order / aroundCall(AdvisedRequest, AdvisorChain); the StreamingChatAdvisor.aroundStream sibling; the AdvisorChain.next / StreamingAdvisorChain.proceed signatures) and the package home (com.huawei.ascend.middleware.advisor.spi.*) are L1 public-SPI-surface / contract detail owned at L1 + docs/contracts/chat-advisor.v1.yaml, NOT L0 authority."
+  - "The value-type record inventory (AdvisedRequest / AdvisedResponse / AdvisedModelRequest / AdvisedMessage / AdvisedToolCall / AdvisedUsage / AdvisedFinishReason / AdvisedModelResponse / AdvisedStreamChunk and its sealed variants) is L2 / contract envelope detail owned by the contract surface and the generated facts."
+  - "The W2 hook-binding RUNTIME SEQUENCE (the advisor-model-hook-order/v1 step order: translate ModelInvocation -> AdvisedRequest, fire BEFORE_LLM, run chain, invoke terminal gateway, outbound transforms, translate back, fire AFTER_LLM) is an L2 runtime-sequence owned at L2; the standing L0 decision is the decoration boundary, not the sequence."
+  - "design_only / runtime_enforced staging notes, the vacuous-until-examples ArchUnit guard, and the catalog/module-metadata/DFX follow-up are wave/process detail owned by release notes and the gate surfaces."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Product Claims PC-001, PC-004 (recorded on the raw ADR)"
+l1_refs:
+  - "ChatAdvisor / StreamingChatAdvisor SPI in the agent-middleware module (the L1 public-SPI realisation of the decoration seam)"
+  - "ModelGateway invocation surface (the model-call boundary the advisor chain wraps)"
+l2_refs:
+  - "The advisor value-type records and the W2 hook-binding runtime sequence (the per-type / per-step detail lives at L2 / generated facts)."
+contract_refs:
+  - docs/contracts/chat-advisor.v1.yaml
+fact_refs:
+  - adr/0132-chat-advisor-spi
+gate_refs:
+  - "Rule R-D (SPI purity — the advisor SPI stays pure Java and does not import the model SPI package)"
+
+review_notes: |
+  Lane: L3-L0ARCH (ADR-0159). LAYER-PURITY FLAG for human review: the raw ADR
+  self-labels level: L0 but its decision block is dominated by an L1
+  public-SPI-surface + contract + L2 runtime-sequence payload (interface
+  signatures, a record inventory, a step-ordered hook-binding sequence). This is
+  the "L0 contains L1/L2 detail" leakage adjudicated TRUE in the 2026-05-29
+  remediation review. I have kept decision_level L0 (honouring the raw self-label)
+  and chosen decision_type architecture_principle — the genuinely L0-altitude
+  decision in this ADR is the DECORATION BOUNDARY (platform-owned advisor seam vs
+  reaching for the provider type or the gate-private hook dispatcher). The
+  SPI-shape / contract / sequence detail is recorded as
+  non_authoritative_legacy_content and cross-referenced to
+  docs/contracts/chat-advisor.v1.yaml + L1. A human should decide whether the raw
+  ADR ought to be reclassified to L1 (decision_type public_spi_surface) with the
+  decoration principle hoisted to a sibling L0 note; until then the L0 view is
+  citeable only through the decoration-boundary clauses. current_state
+  active_guidance: the decoration boundary governs today even though the SPI is
+  design_only. superseded_by / supersedes empty (raw declares only relates_to; no
+  supersession edge in the fact layer).

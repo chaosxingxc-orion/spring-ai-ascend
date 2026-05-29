@@ -1,0 +1,81 @@
+# Normalized ADR view — ADR-0116.
+#
+# Authority: ADR-0160 (ADR Governance Model). READABLE INTERPRETATION layer over
+# the raw ADR (docs/adr/0116-rc36-kernel-truth-and-cancel-cas-corrective.yaml)
+# and its projection in architecture/facts/generated/adrs.json. Invents no
+# ids/relationships; re-states supersedes/superseded_by from the fact layer.
+# Authority cascade: generated facts > DSL > Card/prose.
+#
+# Shape pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0116
+raw_path: docs/adr/0116-rc36-kernel-truth-and-cancel-cas-corrective.yaml
+current_state: remediation_record
+
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - gate
+view: process
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  An exhaustive-audit corrective wave run against a green gate. It un-deadens
+  three drift-prevention gate rules that had become permanent silent-passes
+  after the rule-namespace migration (their discovery regexes matched zero
+  namespaced kernels) and gives each a non-vacuity guard so a drift-detector
+  that resolves nothing now fails loudly. It also lands the missing controller-
+  side half of the cancel-vs-terminal compare-and-set fix, widens two gate scans
+  that covered only one of six modules, aligns a tenant re-auth kernel clause to
+  the newest authority, and corrects several numeric/path truths. Captured as
+  governance-traceability, not standalone architecture authority.
+
+active_guidance: []
+
+non_authoritative_legacy_content:
+  - The standing invariant this wave generalised — every auto-discovering gate
+    rule must fail when it matches zero live corpus elements (the non-vacuity
+    guard) — is authoritative through its rule cards and enforcers, not through
+    this ADR's prose. As a remediation_record this view carries no
+    active_guidance clauses of its own.
+  - The method-level cancel-CAS detail (the atomic update-if-not-terminal
+    repository method, the controller cancel routing, the lost-race exception
+    catch). This is L2 implementation detail owned by the L2 design.
+  - The point-in-time numeric corrections (gate section count, HookPoint count,
+    relocated SPI paths, the reconciled ADR count) and the per-finding
+    deferral list. These are wave-mechanics, not standing authority.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - efTaskControl
+l0_constraint_refs: []
+l1_refs:
+  - efTaskControl
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0116-rc36-kernel-truth-and-cancel-cas-corrective
+gate_refs:
+  - E133
+  - E139
+  - rule_82_baseline_metrics_single_source
+  - rule_96_kernel_deferred_clause_coherence
+  - rule_99_kernel_terminal_verb_vs_shipped_decision_check
+
+review_notes: |
+  current_state = remediation_record: ADR-0116 is an exhaustive-audit corrective
+  wave (its content is the audit findings and the fixes that closed them), which
+  the policy maps to remediation_record rather than active_guidance. gate_refs
+  are populated per the remediation_record invariant because the wave claims gate
+  changes (un-deadening Rules 82/96/99 and adding non-vacuity guards; E133/E139
+  are the enforcers for the Rule G-3 sub-clauses that 96/99 enforce). The
+  cross-authority alignment clause defers to ADR-0108 as the newer authority on
+  the tenant re-auth HTTP behaviour; this view does not re-assert that behaviour.
+  Gate-layer numeric rule ids (82/96/99) are intentionally numeric per the
+  ADR-0086 gate_layer_boundary. Human review: confirm remediation_record over
+  partial_guidance — the standing non-vacuity invariant lives in the rule cards,
+  not in this ADR.

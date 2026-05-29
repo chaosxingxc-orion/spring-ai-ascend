@@ -1,0 +1,88 @@
+# Normalized ADR view — ADR-0068.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml (required fields + closed
+# current_state set + per-state invariants) AND docs/governance/adr-taxonomy.yaml
+# (decision_level / decision_type altitude). Authority: ADR-0160. Enforced by
+# Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0068
+raw_path: docs/adr/0068-layered-4plus1-and-architecture-graph.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - L2
+  - DSL
+  - facts
+  - gate
+view: scenarios
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  Architecture truth lives in two coupled forms governed as one: a human-facing
+  corpus organised by Layered 4+1 (every architectural artefact declares level +
+  view; Logical / Development / Process / Physical / Scenarios) and a
+  machine-readable graph index generated from that corpus (never hand-edited).
+  The standing governing invariant is the twin-source discipline itself: every
+  architectural artefact declares its (level, view); relational truth
+  (supersedes / extends / relates_to, principle to rule to enforcer to test) is
+  carried as gate-validated graph edges rather than re-derived from prose. The
+  concrete repo-root LOCATION of the L0 ARCHITECTURE.md document is superseded
+  for-location-only by ADR-0152 (mounted under architecture/docs/L0/); the
+  declarative twin-truth role is unchanged.
+
+active_guidance:
+  - "Layered 4+1 discipline: every architectural artefact declares a (level, view); L0 governs cross-module principle, L1 governs module/EngineeringFrame contract, L2 owns feature detail; proposals declare which view of which level they touch."
+  - "Architecture-graph truth: relational architecture truth (adr->adr supersedes/extends/relates_to, principle->rule->enforcer->test/artefact, module->module allowed/forbidden, (level,view)->artefact) is carried as a machine-readable, generated, idempotent graph index — not as multi-copy prose — so the relational spine cannot text-drift."
+  - "Phase-released L0/L1 artefacts are frozen; further edits flow through a review log rather than silent in-place edits."
+  - "Institutional rationale is preserved as structured block-scalar prose so machine-readability never costs the why."
+
+non_authoritative_legacy_content:
+  - "The L0 document LOCATION clause (Root ARCHITECTURE.md is L0 at repo root; the ^ARCHITECTURE.md$ regex) is superseded FOR LOCATION ONLY by ADR-0152, which relocates it to architecture/docs/L0/ARCHITECTURE.md and narrows the L1 path to architecture/docs/L1/<module>/ (single-.md alternative retired). The declarative L0 role is unchanged."
+  - "Concrete entry-time corpus counts (67 ADRs, 32 active engineering rules, 47 gate-script rules, 54 enforcer rows, 24 self-tests, 18 active / 15 deferred / 1 retired rule lifecycle, 4 L0 principles) and the post-impl graph snapshot (269 nodes / 377 edges) are wave-era baseline observations owned by docs/governance/architecture-status.yaml and release notes, not standing L0 authority."
+  - "Named build scripts, ArchUnit test classes, specific gate-rule numbers (Gate Rules 37-40), and the .md->.yaml ADR migration mechanics are implementation/process detail owned by the gate surfaces and the generated facts; the standing L0 decision is the twin-truth invariant, not the realisation."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "P-A (Layered 4+1 discipline)"
+  - "P-B (Architecture-Graph Truth)"
+l1_refs: []
+l2_refs:
+  - "docs/L2 deep-technical-design subtree (introduced by this ADR as the L2 home for feature detail)."
+contract_refs: []
+fact_refs:
+  - adr/0068-layered-4plus1-and-architecture-graph
+gate_refs:
+  - "Rule G-1 (Layered 4+1 discipline + Architecture-Graph Truth; raw enforced_by Rule-G-1.a / Rule-G-1.b)"
+
+review_notes: |
+  Lane: L3-L0ARCH (ADR-0159). Classified at decision_level L0 to match the raw
+  ADR self-label (level: L0) and the cross-corpus governance-invariant character
+  of the decision (governance_infra: true on the raw). decision_type
+  governance_invariant is the allowed L0 type for a meta-rule about how the
+  corpus is itself governed.
+  current_state is partial_guidance (NOT active_guidance) because ADR-0152
+  declares supersedes_partial: [ADR-0068] for the L0 document LOCATION clause
+  only; the twin-truth discipline (active_guidance above) still governs, while
+  the located-at-repo-root clause is non-authoritative legacy. supersedes /
+  superseded_by are left empty: the supersession is PARTIAL and inbound (ADR-0152
+  declares supersedes_partial for a single LOCATION clause of this ADR), and the
+  extracted fact layer carries no full superseded_by edge for ADR-0068 — minting
+  one here would overclaim. The inbound partial-supersession is annotated in
+  ADR-0152's normalized view review_notes (likewise left out of its supersedes
+  field as a clause-level, not whole-decision, edge).
+  No ambiguity in the partial_guidance choice; flagged for human review only to
+  confirm the location-clause split is the sole non-authoritative carve-out.

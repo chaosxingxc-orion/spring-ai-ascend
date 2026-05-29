@@ -1,0 +1,98 @@
+# Normalized view of ADR-0103 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160.
+
+adr: ADR-0103
+raw_path: docs/adr/0103-rc22-agent-middleware-naming-and-capability-services-distribution.yaml
+
+# partial_guidance: the cross-module policy (keep the agent-middleware name; do NOT
+# add a seventh module; distribute capability-services across the six fixed modules)
+# still governs; the specific hook-constant names and SPI method anchors used to
+# illustrate the distribution are L2 detail and now lower-level.
+current_state: partial_guidance
+
+# Decided at L0: a cross-module structural policy (module-set composition + how a
+# cross-cutting capability concept distributes across the six modules).
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - L2
+view: development
+# A decision about the module set and how a concept distributes across modules is a
+# cross_module_policy (adr-taxonomy decision_levels.L0.allowed_decision_types).
+decision_type: cross_module_policy
+
+clean_decision_summary: >
+  A reviewer proposed renaming agent-middleware (and reusing the name for a new
+  cloudified Capability-Services module). Both proposed actions are REJECTED: the
+  agent-middleware name is consistent with the in-process runtime-hooks middleware
+  pattern, and the six L1 reactor modules are pinned by user directive (no seventh
+  module). The conceptual gap the reviewer named is ACCEPTED and resolved by
+  distributing the four capability concepts across the existing six modules —
+  Memory and Skills and Sandbox each map to specific existing module homes, and
+  Knowledge is explicitly deferred. The agent-middleware module doc carries a
+  "What this module is NOT" section as the canonical artifact future reviewers must
+  consult before re-opening the naming question.
+
+active_guidance:
+  - >
+    REJECT the agent-middleware rename and REJECT adding a seventh module: the six
+    L1 reactor modules are the pinned grounding architecture, and capability-services
+    concepts distribute across the existing six rather than concentrating in a new
+    module. This is the still-governing cross-module policy.
+  - >
+    The capability-to-module distribution is governing at the module-home level:
+    Memory homes in the graphmemory consumer + agent-service SPI surface; Skills home
+    in agent-execution-engine (registry) + agent-service (capacity governance);
+    Sandbox homes in agent-execution-engine + the sandbox-policies SSOT; Knowledge is
+    DEFERRED (no active module owns it; nothing ships) pending a future ADR.
+  - >
+    "Agent middleware" carries two distinct community meanings — (a) in-process
+    runtime hooks (this codebase's kept scope) and (b) cloudified capability services
+    — and the agent-middleware module doc's "What this module is NOT" section is the
+    canonical resolution record.
+
+non_authoritative_legacy_content:
+  - >
+    The specific hook-constant names used to illustrate where tenant-scoped filters
+    and authorization attach (BEFORE_MEMORY_READ, AFTER_MEMORY_WRITE,
+    BEFORE_TOOL_INVOCATION) and the SPI method anchor ResilienceContract
+    resolve(tenant, skill) are L2/contract detail; the live hook contract and
+    code-symbol facts own the current hook list and method shapes, not this ADR.
+  - >
+    The rc22-specific verification protocol steps (the exact ARCHITECTURE.md section
+    headings to assert, the "no new module in root pom.xml" check) are point-in-time
+    acceptance bookkeeping for the wave, not governing content.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - P-M   # Heterogeneous Engine Contract (the principle the kept middleware pattern serves)
+l1_refs:
+  - ADR-0073  # Engine Lifecycle Hooks + Runtime-Owned Middleware SPI (the kept middleware pattern)
+  - ADR-0082  # GraphMemoryRepository canonical ownership (Memory capability home)
+  - ADR-0088  # agent-runtime-core dissolution + 6-module narrative alignment
+l2_refs: []
+contract_refs:
+  - docs/governance/sandbox-policies.yaml   # Sandbox capability SSOT (Rule R-L)
+fact_refs: []
+gate_refs:
+  - Rule-R-L   # sandbox permission subsumption / sandbox-policies SSOT
+  - Rule-R-K   # skill-dimensional resource arbitration (Skills capability governance)
+
+review_notes: >
+  Layer-purity: correctly L0 — a cross-module composition policy (reject rename,
+  reject 7th module, distribute a cross-cutting concept across the six fixed
+  modules). The only leakage is illustrative L2 detail (specific hook-constant names
+  and one SPI method anchor used to show WHERE capabilities attach), recorded as
+  non_authoritative_legacy_content; the live hook contract + code facts own those.
+  No supersession applies (the six-module pin remains the standing architecture).
+  current_state is unambiguous (partial_guidance — the policy governs; the
+  illustrative hook/method names are lower-level).

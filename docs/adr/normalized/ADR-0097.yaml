@@ -1,0 +1,87 @@
+# Normalized view of ADR-0097 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# + docs/governance/adr-taxonomy.yaml. Authority: ADR-0160.
+
+adr: ADR-0097
+raw_path: docs/adr/0097-rc20-meta-recursion-actually-close-plus-d9.yaml
+
+# remediation_record: rc20 is a META-recursion-close + freshness-hardening wave.
+# It ALSO births two standing kernel rules (Rule D-9, Rule G-7 extension) — but
+# the standing authority for those lives in their rule cards + the CLAUDE.md
+# kernel, not in this ADR. As a document this ADR captures cleanup work and review
+# findings: remediation_record. Its live, governing output is reached through the
+# rule cards it points to (see gate_refs / review_notes).
+current_state: remediation_record
+
+# Decided at L0 (governance meta-rules + the dev-environment invariant).
+decision_level: L0
+affected_levels:
+  - L0
+  - gate
+view: process
+decision_type: governance_invariant
+
+clean_decision_summary: >
+  rc20 closes the META-recursion irony (the prototype META rule was itself exempt
+  from the META-of-META gate) and hardens recurring-defect freshness checks, then
+  introduces two standing kernel rules: Rule D-9 (production code/comments carry no
+  version/wave/changelog metadata; a fixed exempt-surface list) and an extension of
+  Rule G-7 (driving scripts on Windows hosts run through WSL/Linux; Git Bash is a
+  debug-only shim). The standing authority for D-9 and G-7 is their rule cards plus
+  the CLAUDE.md kernel; this ADR records the wave that introduced them.
+
+# Empty: a remediation record governs no architecture as current authority. The
+# standing rules D-9 / G-7 govern via their cards, not via this ADR.
+active_guidance: []
+
+non_authoritative_legacy_content:
+  - >
+    The 5-wave decomposition, the per-wave PR list (#26..#30), the verification
+    command snapshots and self-test fixture names, the in-branch corrective tally,
+    and the open_questions are point-in-time wave records — not current authority.
+  - >
+    The Rule D-9 exempt-surface list and the Rule G-7 wording quoted in the raw
+    decision are a SNAPSHOT as of rc20; the live, authoritative text is the
+    CLAUDE.md kernel paragraph plus docs/governance/rules/rule-D-9.md and
+    rule-G-7.md (the rule cards are the sole rule authority). Read the cards, not
+    this ADR, for the current rules.
+  - >
+    Numeric gate ids (Rule 97/111/112/113/114/115, enforcer E162/E163) and the
+    grandfather file gate/d9-grandfathered-files.txt with its rc20 sunset date are
+    historical labels from before the rule-card-as-sole-authority model; the live
+    enforcement is whatever the corresponding cards / enforcers carry now.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - D-9  # no version/log metadata in code (introduced by this wave; authority = its card)
+  - G-7  # Linux-first dev environment (extended by this wave; authority = its card)
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs:
+  # gate_refs_required_when_gate_change_claimed (remediation_record state rule):
+  # rc20 added Rule 115 and the D-9 / G-7 cards. Live authority is the current
+  # rule cards (rule-D-9.md, rule-G-7.md); these are the wave's historical labels.
+  - docs/governance/rules/rule-D-9.md
+  - docs/governance/rules/rule-G-7.md
+  - rule_115_no_version_log_metadata_in_code
+
+review_notes: >
+  Ambiguity flagged for human/reconcile review: this record sits at the boundary
+  between remediation_record and active_guidance. The WAVE is cleanup (META-
+  recursion close + freshness hardening) -> remediation_record, and active_guidance
+  is empty per the state invariant. BUT the wave introduced two STANDING governing
+  rules (D-9, G-7-extended) that are very much current authority. Resolution adopted
+  here, consistent with the rule-card-as-sole-authority model (no dual-home rule
+  registry): the rules govern through their cards + the CLAUDE.md kernel, which the
+  gate_refs point to; this ADR is the historical record of their introduction, not
+  their authority. If the reconcile step prefers to model the standing rules as
+  partial_guidance on this ADR, it must add an active_guidance clause that DEFERS
+  to the cards (never restates the rule text), to avoid re-homing rule authority.

@@ -1,0 +1,67 @@
+# Normalized ADR view — ADR-0148.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml.
+# Authority: ADR-0160. Enforced by Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0148
+raw_path: docs/adr/0148-architecture-workspace-spike-results.yaml
+
+current_state: historical_evidence
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+view: scenarios
+decision_type: architecture_principle
+
+clean_decision_summary: |
+  Records the Wave 0 spike evidence that validated the four technical
+  assumptions behind the Structurizr workspace-authority direction (ADR-0147),
+  measured on the smallest L1 module: all four gates PASS, three surprise
+  empirical findings captured (CustomElement extends Element so the model element
+  set must be walked once; hierarchical-identifier scope behaviour; structurizr-
+  export transitivity), and the recorded decision is PROCEED to Wave 1. The
+  standing architecture authority is carried by ADR-0147, not by this evidence
+  record.
+
+active_guidance: []
+
+non_authoritative_legacy_content:
+  - "The four spike gate results (parse + validate, idempotent emission, build time, context-budget delta) are point-in-time measurement evidence, not standing architecture authority."
+  - "The PROCEED to Wave 1 decision was consumed by the ADR-0147 migration and is historical; the governing decision is ADR-0147."
+  - "The three empirical findings, while still technically accurate about structurizr-dsl behaviour, are recorded as the rationale for ADR-0147's mechanism choices and do not themselves govern."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "ADR-0147 (Structurizr Workspace Authority — the decision this spike informed)"
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs: []
+
+review_notes: |
+  HUMAN-REVIEW FLAG (ambiguous current_state). This ADR is a Wave 0 spike
+  EVIDENCE record, not a standing decision: the architecture authority it
+  validated is owned by ADR-0147. Two closed-set states are defensible —
+  historical_evidence ("explains why the system evolved; governs nothing now",
+  which fits a spike that justified a later decision) and remediation_record
+  ("captures cleanup work or review findings"). historical_evidence is chosen
+  because the content is feasibility evidence for an evolution step, not a
+  cleanup/review finding. Under that state the policy requires active_guidance to
+  be EMPTY, which it is. decision_type architecture_principle is recorded only to
+  satisfy the required field at an allowed L0 altitude (a spike has no native
+  decision_type in the taxonomy); the spike validated an architecture-authority
+  principle. A human should confirm historical_evidence vs remediation_record and
+  whether a non-leaking decision_type better fits a spike-result record.

@@ -1,0 +1,80 @@
+# Normalized ADR view — ADR-0081.
+#
+# Authority: ADR-0160 (ADR Governance Model). This is a READABLE INTERPRETATION
+# layer over the raw ADR source (raw_path below) and its extracted projection in
+# architecture/facts/generated/adrs.json (ADR-0154). It invents no ADR ids and
+# no relationships; it re-states supersedes / superseded_by and curates which
+# clause still governs. Authority cascade is unchanged: generated facts > DSL >
+# Card/prose. Schema pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml; validated by Rule G-28.
+
+adr: ADR-0081
+raw_path: docs/adr/0081-resilience-contract-dual-surface-reconciliation.yaml
+current_state: partial_guidance
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+view: logical
+decision_type: public_spi_surface
+
+clean_decision_summary: |
+  ResilienceContract is a dual-surface boundary along two orthogonal axes that
+  MUST NOT be conflated: an operation-policy routing axis (origin ADR-0030) and a
+  skill-capacity arbitration axis (origin ADR-0070). The pre-ADR-0070 plan to
+  extend the operation axis with a tenant argument is narrowed: tenant capacity
+  lives on the skill axis, not on a renamed operation argument. The governing
+  decision is the orthogonal-axes contract identity; the specific Java method
+  signatures and the in-place line-level amendments to sibling ADRs are
+  contract/L2 detail.
+
+active_guidance:
+  - "ResilienceContract is one SPI exposing two orthogonal surfaces: operation-policy routing and skill-capacity arbitration. The two axes MUST NOT be conflated."
+  - "Future operation-axis extensions MUST NOT add a tenant axis; tenant capacity arbitration lives exclusively on the skill-capacity axis."
+  - "Future skill-axis extensions MUST NOT add an operation-identifier axis; operation-side policy routing lives exclusively on the operation-policy axis."
+  - "Over-capacity on the skill axis yields a non-admitted resolution carrying a rate-limited suspend reason so the orchestrator maps to a suspended (not failed) lifecycle state, interlocking with Rule R-H."
+
+non_authoritative_legacy_content:
+  - "Concrete Java method signatures (resolve(String operationId), resolve(String tenant, String skill)) and the UnsupportedOperationException default-method realization — contract/L2 surface detail owned by docs/contracts/contract-catalog.md and the generated code-symbol facts, not by this L1 decision."
+  - "Named production bindings (YamlResilienceContract, DefaultSkillResilienceContract, YamlSkillCapacityRegistry.tryAcquire) — L2 implementation detail."
+  - "In-place line-level amendments to sibling sources (ADR-0030:223, ADR-0044:77, contract-catalog.md:58) and the ResilienceContract.java @see Javadoc cross-references — corpus-bookkeeping / L2 detail, superseded as a citable mechanism by this normalized view."
+  - "Build/gate baseline citations carried in the raw verification block (74 active gate rules; 149 self-test cases; rc7/rc8 baselines) — version-tagged process detail owned by release notes and the gate surfaces."
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - "P-K (Skill-Dimensional Resource Arbitration)"
+  - "Rule R-K (operation-policy resilience routing)"
+  - "Rule R-K.b (skill-capacity runtime enforcement)"
+  - "Rule R-H (suspended-not-failed terminal-state interlock)"
+l1_refs:
+  - "ResilienceContract SPI boundary (dual-surface)"
+l2_refs:
+  - "ResilienceContract method signatures + production bindings (migrated down from the raw decision prose)."
+contract_refs:
+  - docs/contracts/contract-catalog.md
+fact_refs:
+  - adr/0081-resilience-contract-dual-surface-reconciliation
+gate_refs: []
+
+review_notes: |
+  Lane: L4-FRAME (ADR-0159). ALTITUDE RECLASSIFICATION FLAGGED FOR HUMAN REVIEW:
+  the raw ADR self-labels level: L0 (governance_infra: true), but the decision is
+  about the two-axis identity of a single public SPI (ResilienceContract), which
+  the decision-level taxonomy places at L1 (public_spi_surface / cross_frame_
+  contract). Normalized at L1 so the decision_type is taxonomy-valid; a reviewer
+  may prefer to re-frame the orthogonal-axes invariant as an L0 cross_module_
+  policy if they judge the no-conflation rule to be a system-wide governing
+  constraint rather than a module-level SPI contract. current_state is
+  partial_guidance because the raw decision mixes the still-governing orthogonal-
+  axes invariant with non-authoritative method-signature and line-level-amendment
+  detail. SUPERSESSION NOTE: the raw ADR declares supersedes: [] but records
+  supersedes_partial of ADR-0030 (§HD-C.3 W2 evolution claim) and ADR-0044
+  (catalog row); a partial supersession is NOT a full replacement edge, so
+  supersedes is left empty here (minting a full-supersession edge would
+  contradict the raw source) and the partial scope is recorded as non-
+  authoritative_legacy_content instead.

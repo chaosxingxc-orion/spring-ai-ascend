@@ -1,0 +1,73 @@
+# Normalized ADR view — ADR-0124.
+#
+# Authority: ADR-0160 (ADR Governance Model). This is a READABLE INTERPRETATION
+# layer over the raw ADR source (raw_path below) and its extracted projection in
+# architecture/facts/generated/adrs.json (ADR-0154). It invents no ADR ids and
+# no relationships; it re-states supersedes / superseded_by and curates which
+# clause still governs. Authority cascade is unchanged: generated facts > DSL >
+# Card/prose. Schema pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml; validated by Rule G-28.
+
+adr: ADR-0124
+raw_path: docs/adr/0124-vector-retrieval-embedding-spi.yaml
+current_state: partial_guidance
+decision_level: L1
+affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+view: development
+decision_type: public_spi_surface
+
+clean_decision_summary: |
+  Establish three tenant-scoped public SPI boundaries in agent-middleware —
+  VectorStore, Retriever, and EmbeddingModel — so retrieval-augmented generation
+  becomes a first-class platform extension seam that decorates the canonical
+  Spring AI types rather than forcing consumers to bypass the platform. The
+  governing outcome is the three SPI boundary identities and their tenant-scoped,
+  pure-Java, decorator posture; the concrete method signatures and value-type
+  records are contract/L2 detail owned by the contract schema and generated facts.
+
+active_guidance:
+  - "VectorStore, Retriever, and EmbeddingModel are three sibling public SPI boundaries in agent-middleware (vector.spi / retrieval.spi / embedding.spi), each a tenant-scoped extension seam for RAG."
+  - "All three SPIs are tenant-scoped (carry tenantId per Rule R-C.c) and are blocking / pure-Java at the public boundary; asynchronous or reactive provider bindings live behind adapters and do not leak into the public SPI."
+  - "The three SPIs decorate the canonical Spring AI types (the platform-decorates-Spring-AI boundary of ADR-0125); they are the low-level RAG pipeline primitives that the M5 KnowledgeMemoryStore taxonomy entry (ADR-0123) composes."
+
+non_authoritative_legacy_content:
+  - "Concrete method signatures on the three SPIs (add/delete/similaritySearch, retrieve, embed/embedAll/modelVersion) and their value-type records (Document, VectorMatch, VectorQuery, RetrievedDocument, RetrievalOptions, Embedding) — contract/L2 surface detail owned by docs/contracts/vector-store.v1.yaml (design_only) and the generated code-symbol facts, not by this L1 decision."
+  - "Named Wave C1 Spring AI adapter classes (SpringAiVectorStore, SpringAiDocumentRetriever, SpringAiEmbeddingModel) and the specific HookPoint binding names (BEFORE_MEMORY / AFTER_MEMORY) — L2 implementation detail."
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule R-C.c (tenantId-scoped SPI surface)"
+l1_refs:
+  - "VectorStore SPI (agent-middleware vector.spi)"
+  - "Retriever SPI (agent-middleware retrieval.spi)"
+  - "EmbeddingModel SPI (agent-middleware embedding.spi)"
+l2_refs:
+  - "RAG SPI method signatures + value-type records + Spring AI adapters (migrated down from the raw decision prose)."
+contract_refs:
+  - docs/contracts/vector-store.v1.yaml
+  - docs/contracts/contract-catalog.md
+fact_refs:
+  - adr/0124-vector-retrieval-embedding-spi
+gate_refs: []
+
+review_notes: |
+  Lane: L4-FRAME (ADR-0159). The raw ADR self-labels level: L0 (view:
+  development, affects_level L0, L1); normalized at decision_level L1 because the
+  decision is the introduction of three public SPI boundary identities, which the
+  decision-level taxonomy classifies at L1 (public_spi_surface; naming a public
+  SPI as a boundary identity is explicitly DEFENSIBLE at L1). current_state
+  partial_guidance: the SPI boundary identities + tenant-scoped/pure-Java/
+  decorator posture govern, while the concrete method signatures and value-type
+  records are non-authoritative legacy now owned by docs/contracts/
+  vector-store.v1.yaml and the generated facts. product_claim PC-001|PC-005 is
+  recorded on the raw ADR. No ambiguity in the current_state choice; flagged for
+  human review only to confirm the L0->L1 altitude reclassification and the
+  active/legacy split match the intended boundary scope.

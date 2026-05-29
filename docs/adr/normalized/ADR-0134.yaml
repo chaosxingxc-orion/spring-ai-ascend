@@ -1,0 +1,76 @@
+# Normalized ADR view — ADR-0134.
+#
+# Authority: ADR-0160 (ADR Governance Model). This is a READABLE INTERPRETATION
+# layer over the raw ADR source (raw_path below) and its extracted projection in
+# architecture/facts/generated/adrs.json (ADR-0154). It invents no ADR ids and
+# no relationships; it re-states supersedes / superseded_by and curates which
+# clause still governs. Authority cascade is unchanged: generated facts > DSL >
+# Card/prose. Schema pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml; validated by Rule G-28.
+
+adr: ADR-0134
+raw_path: docs/adr/0134-tool-call-iteration-loop.yaml
+current_state: partial_guidance
+decision_level: L1
+affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+view: process
+decision_type: cross_frame_contract
+
+clean_decision_summary: |
+  Specify the tool-call iteration loop as a cross-frame composition contract over
+  the ModelGateway SPI, the Planner SPI, and the Agent entity. Two mutually
+  exclusive execution modes exist — model-driven iteration (the ModelGateway owns
+  the loop) and planner-driven dispatch (the Planner's plan DAG owns iteration) —
+  and each agent selects exactly one. The governing outcome is the two-mode
+  composition contract and its per-agent selection; the concrete loop step
+  sequences, enum values, caps, and metadata-key spellings are contract/L2 detail.
+
+active_guidance:
+  - "Tool-call iteration has exactly two mutually exclusive modes: model-driven iteration (the ModelGateway owns the loop) and planner-driven dispatch (the plan DAG owns iteration). They are alternatives selected per agent, NOT nested patterns."
+  - "Each Agent selects exactly one mode; model-driven iteration is the default. The selector lives in the existing Agent metadata map, requiring no schema change."
+  - "Model-driven iteration is bounded by a configurable maximum-iteration cap whose exhaustion short-circuits the loop as a terminal error-equivalent reason; provider-native finish strings are parsed to the canonical finish-reason taxonomy at the adapter boundary and unknown strings fail fast rather than flowing through the loop."
+
+non_authoritative_legacy_content:
+  - "The step-by-step loop sequences for each mode (invoke -> dispatch ToolCall -> append ToolResultMessage -> re-invoke; plan -> dispatch plan.steps by dependency graph) — runtime-sequence / L2 detail owned by architecture/docs/L2 and the contract supplement, not by this L1 decision."
+  - "Concrete enum values and literals (ModelFinishReason TOOL_CALLS/STOP/LENGTH/CONTENT_FILTER/OTHER; default cap = 10 turns; the message-accumulation order prior_messages + assistantTurn + toolResultMessages) — contract/L2 detail owned by docs/contracts/model-invocation.v1.yaml."
+  - "The exact metadata-key spellings (tool-call-loop-mode, tool-call-loop-max-iterations) and the design_only / runtime_enforced:false status markers — contract-surface detail owned by the model-invocation contract supplement and the generated facts."
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule D-6 (posture-aware defaults)"
+l1_refs:
+  - "ModelGateway SPI (the LLM call boundary the loop drives)"
+  - "Planner SPI (planner-driven dispatch owner)"
+  - "Agent entity (selects the iteration mode)"
+l2_refs:
+  - "Per-mode loop step sequences, finish-reason enum values, max-iteration cap, message-accumulation order (migrated down from the raw decision prose)."
+contract_refs:
+  - docs/contracts/model-invocation.v1.yaml
+  - docs/contracts/contract-catalog.md
+fact_refs:
+  - adr/0134-tool-call-iteration-loop
+gate_refs: []
+
+review_notes: |
+  Lane: L4-FRAME / L6-CONTRACT (ADR-0159). The raw ADR self-labels level: L0
+  (view: process, affects_level L0, L1) and lands as a design_only supplement to
+  docs/contracts/model-invocation.v1.yaml with no new Java SPI file. Normalized at
+  decision_level L1 with decision_type cross_frame_contract because the decision
+  composes three existing frames (ModelGateway, Planner, Agent) into a single
+  iteration contract — a cross-frame contract rather than a global L0 constraint.
+  AMBIGUITY FLAGGED FOR HUMAN REVIEW: an equally defensible classification is
+  decision_level contract + decision_type compatibility_rule (it fixes the W2
+  termination/iteration compatibility contract); L1 cross_frame_contract was
+  chosen to keep the view at the altitude the raw ADR occupies and because the
+  two-mode selection is a frame-composition decision. current_state
+  partial_guidance: the two-mode composition contract governs; the concrete
+  sequences, enum values, caps, and metadata-key spellings are non-authoritative
+  legacy owned by the contract supplement. product_claim PC-003 on the raw ADR.
+  No supersedes declared; none minted.

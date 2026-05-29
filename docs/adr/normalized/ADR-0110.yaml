@@ -1,0 +1,98 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0110
+raw_path: docs/adr/0110-audit-tamper-evidence-and-hook-pii-failsafe.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels: [L0, L1, L2, contract]
+view: logical
+decision_type: global_constraint
+
+clean_decision_summary: >-
+  Closes two adjacent security gaps as L0 global constraints. First, audit events
+  MUST be tamper-evident: written as a per-tenant hash-chain anchored to a
+  periodic Merkle root, with a deterministic verifier walk and a fail-closed
+  forensic-preservation response on detected tampering -- mutability detection no
+  longer trusts the database. Second, a safety-critical hook (PII redaction,
+  tool authorization, outbound-content classification) that fails MUST short-
+  circuit the surrounding invocation fail-closed, via an explicit carve-out
+  marker, rather than re-defaulting the hook chain's failsafe behaviour; non-
+  safety-critical observability hooks retain default failsafe.
+active_guidance:
+  - >-
+      Audit-log tamper-evidence is a standing global constraint: audit events are
+      a per-tenant hash-chain (each row binds the prior row's hash and its own
+      content hash) anchored to a periodic per-tenant Merkle root; verification is
+      a deterministic walk over the chain segment + anchors, and detected
+      tampering raises a critical audit event and blocks further writes for that
+      tenant pending operator action (forensic preservation). Integrity no longer
+      trusts database mutability.
+  - >-
+      Safety-critical hook fail-closed is a standing constraint expressed as an
+      explicit carve-out, NOT a re-default: a hook declared safety-critical that
+      returns a failure short-circuits the surrounding invocation regardless of
+      the chain's default failsafe -- the engine receives an abort instead of a
+      model response and the run transitions to a terminal failed state with the
+      hook id + reason. Default failsafe is preserved for non-safety-critical
+      observability hooks so an observability failure does not abort a model call.
+  - >-
+      Posture-aware override is bounded: the development posture MAY downgrade the
+      safety-critical short-circuit to warn-and-proceed; the research and
+      production postures MUST honour the fail-closed short-circuit.
+non_authoritative_legacy_content:
+  - >-
+      The persistence detail (the audit-row hash columns and their nullability,
+      the Merkle-anchor table, the hourly batch-job cadence) and the verifier /
+      rebuilder method signatures are L2 persistence / class-method realisation
+      detail owned by the L2 design + generated facts, not standing L0 authority.
+  - >-
+      The safety-critical marker annotation name, the named reference hooks and
+      their hook positions, the abort signal and terminal-reason string shapes,
+      and the ArchUnit assertion are L1/L2 realisation detail; the standing L0
+      decision is the fail-closed constraint, not the annotation or the named
+      reference hooks.
+  - >-
+      The forward / compounding notes (optional W3 cross-publish to an external
+      transparency log, the W3 audit-chain rebuilder for lawful redaction, reuse
+      of the chain+anchor pattern for a later ancestor-attestation feature) are
+      forward-wave design intent, not present-tense standing authority.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule R-M (Heterogeneous Engine Contract / hook surface -- the hook-chain failsafe semantics this carve-out refines)"
+l1_refs:
+  - "agent-middleware -- owner of the hook / runtime-middleware surface the safety-critical carve-out governs"
+  - "agent-service -- owner of the audit trail + run terminal-state transition"
+l2_refs:
+  - "Audit hash-chain persistence + verifier, and the safety-critical hook short-circuit handler -- L2 realisation"
+contract_refs:
+  - docs/contracts/audit-trail.v1.yaml
+  - docs/contracts/engine-hooks.v1.yaml
+fact_refs:
+  - adr/0110-audit-tamper-evidence-and-hook-pii-failsafe
+  - contract-yaml/audit-trail
+  - contract-yaml/engine-hooks
+gate_refs: []
+review_notes: >-
+  Lane: L3-L0ARCH (ADR-0159). decision_level L0 matches the raw self-label (level:
+  L0, governance_infra: true, view: logical). decision_type global_constraint is
+  the allowed L0 type for two system-wide security MUSTs (audit tamper-evidence;
+  safety-critical hook fail-closed); these are global constraints, not per-module
+  contracts. The raw carries substantial L2 leakage -- SQL column shapes,
+  verifier/rebuilder method signatures, the annotation name, named reference
+  hooks, the terminal-reason string (all forbidden lower-altitude detail at L0:
+  persistence_detail / method_signature / implementation_class) -- which is pushed
+  to non_authoritative_legacy_content and to the L2 design + contract surfaces.
+  Code-symbol facts are NOT cited because the named audit-verifier / safety-
+  critical-hook types are design_only and do not resolve in the generated facts
+  (citing them would invent fact ids); only the resolving contract-yaml facts are
+  cited. current_state partial_guidance: the two global constraints govern
+  (active_guidance) while the persistence shapes, annotation, named hooks, and
+  forward W3 notes are non-authoritative L2 realisation. superseded_by empty
+  (relates_to / extends only; no inbound supersession).

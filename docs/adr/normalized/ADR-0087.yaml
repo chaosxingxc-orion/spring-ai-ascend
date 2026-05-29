@@ -1,0 +1,85 @@
+# Normalized view of ADR-0087 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# + docs/governance/adr-taxonomy.yaml. Authority: ADR-0160.
+
+adr: ADR-0087
+raw_path: docs/adr/0087-l0-rc12-authority-ratchet-and-deploy-truth.yaml
+
+# remediation_record: a corrective wave (rc12). It captures cleanup work and
+# review-finding closure (11 findings -> families K-α..K-η) plus the prevention
+# gates that the wave added. It governs no architecture directly; it is citeable
+# for governance traceability, not as architecture authority.
+current_state: remediation_record
+
+# Decided at L0 (governance/authority-surface correctness across the corpus).
+decision_level: L0
+affected_levels:
+  - L0
+  - contract
+  - facts
+  - gate
+view: scenarios
+decision_type: governance_invariant
+
+clean_decision_summary: >
+  rc12 corrective wave: bind 11 post-rc11 review findings into seven defect
+  families (K-α..K-η) covering rule-namespace authority completeness, latest-
+  release recency resolution, baseline-metric drift, deleted-module references in
+  deploy entrypoints, docs/logs dual-semantics, contract-catalog vs runtime truth,
+  and terminal-verb overclaim outside the kernel; batch-fix cited + hidden defects
+  in one wave and add one prevention gate per recurrence-prone family. The
+  namespace-ratchet scope was fixed to authority surfaces only (gate
+  implementation-layer numeric identifiers retained by design).
+
+# Empty: a remediation record governs no architecture as current authority.
+active_guidance: []
+
+non_authoritative_legacy_content:
+  - >
+    The entire raw body — cited_fix_inventory, hidden_defect_inventory,
+    closure_criteria_met, the per-family surface lists, and the verification
+    command/count snapshots (e.g. "GATE: PASS 116/0", "364 nodes / 525 edges",
+    "172/172 self-tests") — is a point-in-time record of the rc12 wave. It is NOT
+    current authority; the live baselines are in docs/governance/architecture-
+    status.yaml, the live rules are the rule cards, and the live counts are
+    whatever the gate regenerates today.
+  - >
+    Numeric rule ids referenced as outcomes (Rules 101-104, enforcers E143-E146)
+    are historical labels from before the rule-card-as-sole-authority model and
+    the D-/R-/G-/M- namespace; the live enforcement is whatever the corresponding
+    rule cards / enforcers.yaml carry now.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - R-C  # rule-namespace authority completeness family (K-α successor namespace)
+l1_refs: []
+l2_refs: []
+contract_refs:
+  - docs/contracts/http-api-contracts.md  # K-ζ: run-lifecycle routes re-marked shipped vs planned
+  - docs/contracts/contract-catalog.md
+fact_refs: []
+gate_refs:
+  # gate_refs_required_when_gate_change_claimed (remediation_record state rule):
+  # rc12 added these prevention gates. Live authority is the current rule cards;
+  # these are the historical identifiers the wave introduced.
+  - rule_101_rule_namespace_authority_completeness
+  - rule_102_release_recency_resolver_correctness
+  - rule_103_deploy_entrypoint_deleted_module_truth
+  - rule_104_openapi_implemented_route_catalog_truth
+
+review_notes: >
+  current_state is unambiguous: this is a corrective/remediation wave (the raw
+  source even carries governance_infra: true), so it maps to remediation_record —
+  citeable for traceability, not architecture authority, and active_guidance is
+  empty per the state invariant. The wave's own structural outcomes (the D-/R-/G-/M-
+  authority-surface ratchet) are carried forward by ADR-0086 (which this ADR
+  extends) and the live rule corpus; reconcile/ledger should link this record to
+  ADR-0086 and to the rc11 review input. gate_refs are populated because a gate
+  change is claimed (Rules 101-104), as the remediation_record state rule requires;
+  the numeric ids are historical labels, not the live rule authority.

@@ -1,0 +1,94 @@
+# Normalized view of ADR-0082  -  readable interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). Schema pinned by
+# docs/governance/adr-governance-policy.yaml (required fields + state
+# invariants) and docs/governance/adr-taxonomy.yaml (decision-level + type
+# altitude). This view INVENTS NO ids and NO relationships: supersedes /
+# superseded_by are re-stated from the raw ADR + adrs.json, never minted.
+# Authority cascade is unchanged: generated facts > DSL > Card/prose.
+# UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0082
+raw_path: docs/adr/0082-graphmemory-ownership-canonical-and-topology-truth.yaml
+current_state: partial_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - gate
+view: development
+decision_type: governance_invariant
+
+clean_decision_summary: >
+  For every SPI surface in the repository the canonical source of ownership
+  truth is `<module>/module-metadata.yaml#spi_packages` intersected with the
+  actual Java file path under that module. No other authority surface (root or
+  per-module ARCHITECTURE.md, architecture-status.yaml allowed_claim,
+  contract-catalog.md, DFX files, release notes) may make a current-tense
+  ownership claim that contradicts that canonical pair; historical claims are
+  permitted only under an explicit historical marker. DFX files for deleted
+  modules must not remain on disk.
+
+active_guidance:
+  - >
+    The canonical SPI-ownership-topology source of truth is the pair
+    `<module>/module-metadata.yaml#spi_packages`  intersect  the on-disk Java file path.
+    Every authority surface must agree with that pair for current-tense
+    ownership claims; this is the still-governing invariant.
+  - >
+    Historical ownership claims are permitted only when the surrounding
+    paragraph carries an explicit historical marker (historical, pre-ADR-NNNN,
+    superseded, deprecated, moved, formerly) within close proximity.
+  - >
+    A per-module DFX file describing a module that no longer exists is an
+    anti-pattern and must be deleted or moved to a historical/ subdir with an
+    explicit historical status.
+
+non_authoritative_legacy_content:
+  - >
+    The specific module-placement decision in this ADR  -  GraphMemoryRepository
+    SPI remaining on agent-runtime-core vs agent-service  -  is stale topology:
+    agent-runtime-core was dissolved (its kernel SPI redistributed to
+    semantic-home modules), so the agent-service-vs-agent-runtime-core framing
+    no longer describes the live module graph. The live owner is whatever the
+    canonical module-metadata + Java-path pair currently declares.
+  - >
+    Concrete Java source paths under the legacy `ascend.springai.service`
+    package root are pre-migration facts; the package root later moved to
+    `com.huawei.ascend`. Treat the paths as historical, not current authority.
+  - >
+    The mechanical corpus-reconciliation list (specific file line numbers,
+    rc7/rc8 wave commit framing, the deleted dfx/agent-runtime.yaml) is
+    historical cleanup evidence, not standing authority.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - efGraphmemoryAutoconfig
+l0_constraint_refs:
+  - "section 4 SPI-ownership-topology canonical-source invariant"
+l1_refs:
+  - "agent-service module-metadata.yaml#spi_packages"
+  - "graphmemory-starter"
+l2_refs: []
+contract_refs:
+  - docs/contracts/memory-store.v1.yaml
+fact_refs:
+  - adr/0082-graphmemory-ownership-canonical-and-topology-truth
+gate_refs:
+  - rule-86
+  - rule-87
+  - rule-88
+  - rule-89
+
+review_notes: >
+  current_state = partial_guidance: the AUTHORITY decision (module-metadata  intersect 
+  Java-path is the single canonical ownership source) is current L0 governance
+  authority and survives intact. The ARCHITECTURAL decision body (where the
+  GraphMemoryRepository SPI physically sits, expressed in terms of
+  agent-runtime-core) is stale because ADR-0088 dissolved agent-runtime-core
+  and ADR-0104 migrated the package root; the live ownership is read from the
+  canonical pair, not from this ADR's prose. The gate rule ids 86-89 are
+  re-stated verbatim from the raw ADR's gate_rules list (not minted). No
+  supersedes/superseded_by edge is declared, so both lists are empty.

@@ -1,0 +1,74 @@
+# Normalized ADR view — readable-interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). This view re-states and curates;
+# it invents no ADR ids and no relationships and never outranks a generated
+# fact. Authority cascade: generated facts > DSL > Card/prose. Schema pinned by
+# docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml,
+# enforced by Rule G-28. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0118
+raw_path: docs/adr/0118-rc38-audit-corrective-latent-correctness-and-deploy-packaging.yaml
+current_state: remediation_record
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - contract
+  - gate
+view: scenarios
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  rc38 audit-corrective record: a four-reviewer parallel deep-read of the Java
+  corpus against a green gate surfaced five verified latent-correctness and
+  deploy-packaging fixes (orchestrator status writes routed through the atomic
+  compare-and-set primitive; Dockerfile copying the executable jar; the
+  skill-capacity matrix bundled onto the classpath; the JWKS decoder gated on the
+  field it actually requires; the OpenAPI pinned test fixture realigned to the
+  canonical contract) and rejected five candidate findings as verified-by-design.
+  The headline finding is a recurrence of the cancel-vs-complete race, so the wave
+  registers the recurring-defect family F-nonatomic-run-status-write to make the
+  recurrence visible in the ledger.
+
+active_guidance: []
+
+non_authoritative_legacy_content:
+  - "The five individual code fixes (atomic-CAS routing of the orchestrator status write, executable-jar Dockerfile COPY, skill-capacity classpath bundling, JWKS decoder gating, OpenAPI pinned-fixture realignment) are L2 correctness/packaging fixes; they are not architecture authority — the governing contracts they restore (atomic Run-status write, canonical OpenAPI response shape) are owned by their own ADRs and the contract surfaces."
+  - "The five rejected-by-design candidates are recorded for traceability only and assert nothing about current architecture."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule G-9 (Recurring-Defect Family Truth — the family registration discipline this record satisfies)"
+l1_refs:
+  - "agent-service runtime spine (orchestrator atomic-CAS Run-status write path)"
+l2_refs:
+  - "The five verified fixes (orchestrator CAS delegation, Dockerfile boot-jar COPY, skill-capacity classpath, JWKS gating, OpenAPI fixture) — L2 detail in the raw ADR"
+contract_refs:
+  - docs/contracts/openapi-v1.yaml
+fact_refs:
+  - adr/0118-rc38-audit-corrective-latent-correctness-and-deploy-packaging
+gate_refs:
+  - "recurring-defect-families.yaml#F-nonatomic-run-status-write (first_observed rc35; occurrences rc35 / rc35-second-pass / rc36 / rc38)"
+
+review_notes: |
+  Classified remediation_record: ADR-0118 captures audit-corrective cleanup work
+  and a recurring-defect-family registration. Its value is governance traceability
+  (the recurrence is now ledger-visible), not architecture authority — so
+  active_guidance is intentionally empty and the concrete fixes are quarantined as
+  non_authoritative_legacy_content. Architecture authority for the contracts these
+  fixes restore lives in their own ADRs and contract surfaces.
+
+  decision_level L0 / decision_type governance_invariant: the durable decision of
+  this record is the family-registration + posture discipline (a meta-rule about
+  how the corpus catches the recurring non-atomic-status-write defect class), which
+  is an L0 governance invariant. The five fixes themselves are L2 and are not
+  carried as current authority.
+
+  F-nonatomic-run-status-write is marked partial in the raw ADR (the durable
+  ArchUnit guard forbidding blind status-changing Run saves outside the SPI CAS is
+  deferred). The family-ledger cleanup_status and any ArchUnit gate wiring are
+  owned by the reconcile/governance wave and the recurring-defect-families ledger,
+  not by this normalized view.

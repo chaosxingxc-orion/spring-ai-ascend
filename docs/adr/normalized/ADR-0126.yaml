@@ -1,0 +1,78 @@
+# Normalized ADR view — ADR-0126.
+#
+# Authority: ADR-0160 (ADR Governance Model). READABLE INTERPRETATION layer over
+# the raw ADR (docs/adr/0126-planner-spi.yaml) and its projection in
+# architecture/facts/generated/adrs.json. Invents no ids/relationships;
+# re-states supersedes/superseded_by from the fact layer; curates which clause
+# still governs. Authority cascade: generated facts > DSL > Card/prose.
+#
+# Shape pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0126
+raw_path: docs/adr/0126-planner-spi.yaml
+current_state: partial_guidance
+
+# Declaring a module's public Planner SPI as a boundary identity is an L1
+# decision (public_spi_surface is DEFENSIBLE at L1). The raw ADR labels itself
+# L0/development because it fills an L0 contract gap; the DECISION altitude is L1.
+decision_level: L1
+affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+view: development
+decision_type: public_spi_surface
+
+clean_decision_summary: |
+  There is a public Planner SPI: a Planner produces a Plan as a DAG (steps,
+  dependencies, branch points, loop annotations) from a planning request, and
+  this planner OUTPUT is distinguished from the per-step scheduler INPUT carried
+  by plan-projection.v1.yaml. The Plan is the source; a per-step projection is
+  derived from it. The SPI's home is the engine side (the engine consumes the
+  Plan); the cross-cutting model / skill / memory primitives stay in middleware.
+  The surface is design_only — a fixed output target for the future planner
+  implementer and a typed input for scheduler admission.
+
+active_guidance:
+  - "The Planner SPI is a named public boundary identity — a planner emits a Plan DAG, and that planner output is contractually distinct from the scheduler-input projection (plan-projection.v1.yaml); one is the source, the other is derived per-step."
+  - "The boundary's home is engine-side (the engine consumes the Plan); this extends, and does not supersede, the prior planner-taxonomy decision, and the projection contract is unchanged."
+  - "The surface is design_only — it exists as a contract target, not a shipped implementation."
+
+non_authoritative_legacy_content:
+  - "The full record-field enumeration and method signatures in the raw ADR (the planning-request / plan / step / branch / loop record components, the reactive plan method shape, the sealed result variants). L2 design detail owned by the L2 design and the contract schemas, not by this boundary decision."
+  - "The constructor-level invariants (blank-id rejection, duplicate-step rejection, dependency-cycle rejection, budget bounds). These are L2 / TCK-level validation detail, not an L1 boundary clause."
+  - "The design_only status label expressed as a version marker; the live status is carried by the contract YAML headers and the generated facts, not by this ADR's version tag."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs: []
+l2_refs: []
+contract_refs:
+  - docs/contracts/planning-request.v1.yaml
+  - docs/contracts/plan.v1.yaml
+  - docs/contracts/plan-projection.v1.yaml
+fact_refs:
+  - adr/0126-planner-spi
+  - code-symbol/com-huawei-ascend-engine-planner-spi-planner
+  - code-symbol/com-huawei-ascend-engine-planner-spi-plannerref
+gate_refs: []
+
+review_notes: |
+  current_state = partial_guidance: the Planner SPI boundary identity + the
+  source/derived distinction from plan-projection still govern, but the raw ADR
+  is dense with L2 leakage (record fields, method signatures, constructor
+  invariants) recorded under non_authoritative_legacy_content per the 2026-05-29
+  layer-purity verdict. ALTITUDE RECLASSIFICATION (human review): the raw ADR
+  labels itself L0/development, but declaring a module's public SPI surface is an
+  L1 decision_type (public_spi_surface), which is not allowed at L0 in the
+  taxonomy; this view re-states the decision at its true L1 altitude and lists L0
+  under affected_levels (it fills an L0 contract gap). This is the exact altitude
+  correction normalization exists to make. The planner code-symbol facts are
+  cited because they exist in code-symbols.json; the deeper Plan/PlanStep record
+  facts are not enumerated there (design phase), so they are not cited.

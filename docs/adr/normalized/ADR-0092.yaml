@@ -1,0 +1,82 @@
+# Normalized ADR view — ADR-0092.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml (required fields + closed
+# current_state set + per-state invariants) AND docs/governance/adr-taxonomy.yaml
+# (decision_level / decision_type altitude). Authority: ADR-0160. Enforced by
+# Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0092
+raw_path: docs/adr/0092-ledger-acknowledgment-and-agent-os-scope-boundary.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - facts
+view: scenarios
+decision_type: system_boundary
+
+clean_decision_summary: |
+  Declare the authority boundary of this project relative to the long-arc
+  "Agent-OS" architecture ledger: this project's L0 covers Phase-1 (the
+  shipped/architected baseline) and the JVM-reachable subset of Phase-2.
+  Phase-3 OS-kernel + hardware-direct items (eBPF probes, DMA zero-copy bus,
+  Kunpeng KAE offload, RDMA + NPU-Direct Storage, Semantic GC over HBM, async RL
+  pipeline on NPU) are OUT OF this project's L0 authority and require a sibling
+  Agent-OS / openEuler / NPU-driver epic owned by a different team. The standing
+  governing outcome is the scope line itself, plus the vocabulary correction that
+  heterogeneous-framework isolation is described as SPI-boundary immutability /
+  stateless-execution-shell, never "cognitive disablement".
+
+active_guidance:
+  - "Scope boundary: this project's L0 authority covers Phase-1 (shipped/architected) and the JVM-reachable subset of Phase-2; all Phase-3 OS-kernel and hardware-direct items are out-of-scope for this project's L0 and belong to a separate Agent-OS / openEuler / Kunpeng-driver authority."
+  - "In-repo prose that claims this project will ship eBPF / DMA / RDMA / NPU-Direct / KAE / Semantic GC / async RL pipeline is incorrect on its face; release notes are NOT to be measured against deliverables the project does not own."
+  - "Heterogeneous-framework isolation is described in this project's authority text as SPI boundary immutability / stateless execution shell (engines run as stateless shells injected with read-only context; they observe lifecycle via the canonical hook contract) — NOT as 'forcibly disabling the framework's native memory system'."
+  - "This decision adds NO new rule and NO new enforcer; it is a scope-boundary declaration, not a correctness constraint."
+
+non_authoritative_legacy_content:
+  - "The reference to docs/CLAUDE-deferred.md as the home of deferred Phase-2 sub-items is stale: the dual-home deferred-rule registry was retired (rule cards are the sole rule authority; a status field on the card encodes deferred/active). Treat the deferral signal as carried by the rule cards + recurring-defect-families ledger, not by CLAUDE-deferred.md."
+  - "The baseline_metrics deltas (adr_count 90->91, architecture_graph_nodes 384, architecture_graph_edges 577, the 118-rule / 194-self-test / 374-test counts) are rc15-era baseline snapshots owned by docs/governance/architecture-status.yaml and release notes, not standing L0 authority."
+  - "The Whitepaper Alignment Matrix row-add mechanics and the per-Phase in/out-of-scope table cells are navigation/process detail; the standing decision is the Phase-3 out-of-scope line, not the matrix realisation."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "P-M (Heterogeneous-engine stateless-shell isolation; SPI-boundary immutability vocabulary)"
+l1_refs: []
+l2_refs: []
+contract_refs:
+  - "engine-envelope.v1.yaml (read-only RunContext injection — the SPI-boundary-immutability mechanism cited as the isolation vocabulary)"
+  - "engine-hooks.v1.yaml (canonical HookPoint lifecycle observation surface)"
+fact_refs:
+  - adr/0092-ledger-acknowledgment-and-agent-os-scope-boundary
+gate_refs:
+  - "Rule G-8.d (deleted/foreign-module current-claim grammar — catches Phase-3 misownership claims)"
+  - "Rule G-3.e (terminal-state overclaim)"
+
+review_notes: |
+  Lane: L3-L0ARCH (ADR-0159). Classified at decision_level L0 to match the raw
+  ADR self-label (level: L0, governance_infra: true). decision_type
+  system_boundary is the allowed L0 type that most precisely names an authority /
+  scope boundary declaration (the document is, by its own words, an explicit
+  authority boundary).
+  current_state active_guidance: the scope line and the isolation-vocabulary
+  correction still govern, and the raw ADR explicitly adds no rule/enforcer.
+  superseded_by empty (no later ADR replaces this scope declaration). The
+  CLAUDE-deferred.md citation is recorded as non_authoritative_legacy_content
+  because that dual-home registry has since been retired in favour of rule cards
+  as sole authority; this is a stale POINTER, not a change to the scope decision.
+  The vocabulary clause cross-references the engine-envelope / engine-hooks
+  contract surfaces as the realisation of SPI-boundary immutability. No ambiguity
+  in the active_guidance choice; flagged for human review only to confirm the
+  retired-CLAUDE-deferred.md pointer is the sole legacy carve-out.

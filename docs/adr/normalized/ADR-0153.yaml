@@ -1,0 +1,49 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose.
+adr: ADR-0153
+raw_path: docs/adr/0153-l1-feature-registry-closure.yaml
+current_state: active_guidance
+decision_level: L0
+affected_levels: [L1, DSL, gate]
+view: scenarios
+decision_type: governance_invariant
+clean_decision_summary: >-
+  Closes the L1 Feature Registry plan by flipping Rule G-14 sub-clause .a
+  (feature_lifecycle_validity) from advisory to blocking: the gate fails closed
+  when any features.dsl saa.status value is outside the closed 9-state lifecycle
+  set. Sub-clauses .b/.c/.d remain advisory until a follow-up 14-day soak.
+active_guidance:
+  - Rule G-14 sub-clause .a (feature_lifecycle_validity) is BLOCKING — every
+    `saa.status` in architecture/features/features.dsl must be one of the closed
+    9-state set (proposed / accepted / design_only / ready_for_impl /
+    implemented_unverified / test_verified / shipped / deprecated / removed).
+  - The 9-state feature lifecycle set is the canonical lifecycle vocabulary for
+    SAA Feature elements.
+non_authoritative_legacy_content:
+  - The wave-summary numeric baselines quoted inline (138 ADRs, 144 active gate
+    rules, 177 enforcer rows, 575 elements / 420 relationships / 15 feature
+    corpus) are point-in-time W5-ship counts, not standing authority; the
+    canonical live baselines are docs/governance/architecture-status.yaml.
+supersedes: []
+superseded_by: ""
+dsl_refs:
+  - architecture/features/features.dsl
+l0_constraint_refs: []
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs:
+  - Rule G-14
+  - Rule G-14 sub-clause .a
+review_notes: >-
+  Decision is made at L0 (a governance invariant ratcheting a corpus-wide rule
+  to blocking) and affects L1 (the Feature Registry surface), the DSL graph
+  (features.dsl), and the gate. current_state is unambiguous: the .a blocking
+  flip is current authority and nothing supersedes ADR-0153. Sub-clauses
+  .b/.c/.d are explicitly still-advisory forward work, recorded as such in the
+  raw ADR, not as superseded content.

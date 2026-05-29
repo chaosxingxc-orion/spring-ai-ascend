@@ -1,0 +1,88 @@
+# Normalized view of ADR-0143 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160.
+
+adr: ADR-0143
+raw_path: docs/adr/0143-review-log-demotion-l1-canonical-move.yaml
+
+# superseded: ADR-0150 (Architecture design system unified under architecture/)
+# supersedes ADR-0143 per the generated fact. The specific canonical home this ADR
+# chose (docs/L1/agent-service/) was itself relocated under architecture/ by the
+# superseding decision. Per the superseded-state invariant, active_guidance is empty.
+current_state: superseded
+
+# Decided at L0: a corpus-governance rule about where canonical L1 architecture
+# artifacts live (and that frozen review logs are not a canonical architecture
+# surface). The raw ADR labels itself L1; see review_notes for the altitude note.
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+view: scenarios
+# A rule about which surfaces count as canonical architecture (how the corpus is
+# governed) is a governance_invariant (adr-taxonomy decision_levels.L0).
+decision_type: governance_invariant
+
+clean_decision_summary: >
+  A frozen review-log interaction record had been named the canonical source of the
+  agent-service L1 4+1 views. This decision demoted that review log to a historical
+  authoring record and moved the canonical 4+1 source into per-view files under a
+  dedicated L1 documentation directory (one file per view), bringing the L1
+  architecture surface back under the layered-4+1 discipline and the single-source
+  rendering pipeline. It is SUPERSEDED by the later decision that unified the whole
+  architecture design system under the architecture/ tree, which relocated that
+  canonical home again.
+
+active_guidance: []
+
+non_authoritative_legacy_content:
+  - >
+    The specific canonical home this decision chose — the seven per-view files under
+    docs/L1/agent-service/ (README, scenarios, logical, process, physical,
+    development, spi-appendix) — is no longer the canonical location: the superseding
+    decision (ADR-0150) unified the architecture design system under the architecture/
+    tree and treats docs/ as a work directory. Do NOT cite docs/L1/agent-service/ as
+    the canonical L1 home on the authority of this ADR.
+  - >
+    The migration mechanics (the demotion-note insertion at the top of the review
+    log, the ARCHITECTURE.md section deletions/rewrites, the frontmatter narrowing,
+    the surface-classification registry bucket/context-loader wiring, the per-wave
+    render-pipeline commit plan) are point-in-time remediation bookkeeping, not
+    governing content.
+  - >
+    The numeric/structural family references (the F-l1-canonical-source-in-interaction-log
+    fingerprint, the per-section renumbering of agent-service/ARCHITECTURE.md) are
+    historical detail; the live governance ledger + rule cards own the current state.
+
+supersedes: []
+superseded_by: ADR-0150
+
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs:
+  - ADR-0068  # Layered 4+1 discipline (the discipline the demotion restored)
+  - ADR-0099  # rc22 L1 architecture depth & grounding (per-view file requirement)
+  - ADR-0119  # single-source rendering (the pipeline the new home joined)
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs:
+  - Rule-G-1.a   # layered-4+1 discipline (architectural artifacts live as L0/L1/L2 docs)
+  - Rule-G-13    # single-source rendering (the pipeline the canonical home must use)
+
+review_notes: >
+  STATE-DETERMINING FACT: the generated adrs.json records ADR-0150 supersedes
+  ADR-0143; current_state is therefore superseded and active_guidance is empty per
+  the state invariant. The durable governance lesson (review logs are not a canonical
+  architecture surface; canonical L1 4+1 lives as per-view docs under the layered
+  discipline) lives on in the superseding decision and in Rule G-1.a / G-13 — it is
+  NOT re-asserted here because this specific ADR's chosen home (docs/L1/agent-service/)
+  was itself relocated. Layer-purity note: the raw ADR labels itself level L1, but
+  the decision is a corpus-governance rule about which surfaces are canonical
+  architecture (L0 governance_invariant); the raw L1 label conflated "affects L1
+  docs" with "is an L1 decision". Recorded here for the reconcile/ledger step; not
+  re-litigated. current_state is unambiguous (superseded).

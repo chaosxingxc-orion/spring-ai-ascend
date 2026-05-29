@@ -1,0 +1,104 @@
+# Normalized view of ADR-0127 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# + docs/governance/adr-taxonomy.yaml. Authority: ADR-0160.
+
+adr: ADR-0127
+raw_path: docs/adr/0127-skill-spi-tool-unification.yaml
+
+# partial_guidance: the unification decision (one Skill SPI discriminated by a
+# closed SkillKind enum; reuse the existing capacity + resilience apparatus; sandbox
+# routing keyed on the kind discriminator) still governs as an L1 public-SPI
+# boundary. The exhaustive method signatures, record field lists, and enum-value
+# semantics are L2 detail now owned by the live facts + contract surface, and the
+# raw decision's package home does not match the realized facts (see review_notes).
+current_state: partial_guidance
+
+# Decided at L1 (a module-level public SPI surface — Tool/Skill unification).
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+view: development
+decision_type: public_spi_surface
+
+clean_decision_summary: >
+  Tool and Skill are unified into a single Skill SPI discriminated by a closed
+  SkillKind enum; new kinds require an ADR (open enums would defeat type-safe
+  sandbox routing). The pre-existing capacity-arbitration and resilience apparatus
+  (keyed on tenant + skill key) is reused unchanged — no new arbitration surface.
+  Untrusted kinds route through the sandbox via the kind discriminator. Spring AI
+  ToolCallback is one TOOL-kind adapter. The Skill definition/registry surface and
+  its contract schema are design-only until the runtime registry implementation
+  ships.
+
+active_guidance:
+  - >
+    One Skill SPI for tools, builtins, MCP servers, and agent-as-tool — a single
+    public boundary identity; the cognitive surface stays small.
+  - >
+    SkillKind is a CLOSED enum; adding a kind is an architecture-decision event
+    (ADR amendment), because type-safe sandbox routing depends on the closed set.
+  - >
+    Untrusted skill kinds MUST route through the sandbox executor; the kind
+    discriminator (rather than a separate trust-tier concept) is the routing key.
+  - >
+    The existing capacity-arbitration + resilience apparatus is reused by
+    construction; this SPI introduces no parallel arbitration surface.
+
+non_authoritative_legacy_content:
+  - >
+    The exhaustive Java surface in the raw decision — Skill lifecycle method
+    signatures (skillKey/kind/init/execute/suspend/teardown), the SkillRegistry
+    operations, and the record field lists for SkillDefinition / SkillRef /
+    SkillContext / SkillInvocation / SkillResult / SkillSuspensionState — is L2
+    detail. The live class/method facts (code-symbol/com-huawei-ascend-middleware-
+    skill-spi-*) and the contract schema are authoritative for those shapes.
+  - >
+    The package home stated in the raw decision (com.huawei.ascend.service.skill.spi,
+    agent-service module) does NOT match the realized facts, which place the Skill
+    SPI in the middleware module (com.huawei.ascend.middleware.skill.spi). Generated
+    facts win — treat the realized package as authoritative (see review_notes).
+  - >
+    Status snapshots ("design_only at rc44", "runtime_enforced when the W2 registry
+    ships") are point-in-time; the live status is whatever the contract surface and
+    architecture-status.yaml carry now.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs:
+  - efCapabilitySpi  # architecture/features/engineering-frames.dsl — Capability SPI Frame (skill/tool family)
+l0_constraint_refs:
+  - R-L  # sandbox routing for untrusted skill kinds
+l1_refs:
+  - ADR-0122  # Tool-Skill semantic resolution (Path b chosen; parent of this ADR)
+  - ADR-0030  # original Skill SPI design (this ADR consolidates its prose)
+l2_refs:
+  - architecture/docs/L2/  # method signatures, record fields, enum-value semantics (L2-owned detail)
+contract_refs:
+  - docs/contracts/skill-definition.v1.yaml  # the Skill definition contract schema
+fact_refs:
+  - code-symbol/com-huawei-ascend-middleware-skill-spi-skill
+  - code-symbol/com-huawei-ascend-middleware-skill-spi-skillkind
+  - code-symbol/com-huawei-ascend-middleware-skill-spi-skillregistry
+  - code-symbol/com-huawei-ascend-middleware-skill-spi-skilldefinition
+  - code-symbol/com-huawei-ascend-middleware-skill-spi-skillresult
+gate_refs: []
+
+review_notes: >
+  current_state is unambiguous (partial_guidance): the SPI-unification boundary
+  governs, while the method/record/enum detail is L2 and recorded as non-authoritative.
+  Layer-purity note: naming the Skill SPI as a boundary identity is DEFENSIBLE at L1,
+  but the raw body is dense with method signatures and record field lists (L2 leakage)
+  — migrated, in spirit, to the live facts + skill-definition.v1.yaml. Authority-cascade
+  discrepancy to reconcile (not re-litigated here): the raw ADR places the SPI in
+  com.huawei.ascend.service.skill.spi (agent-service), but the realized facts are under
+  com.huawei.ascend.middleware.skill.spi (middleware module). Generated facts outrank
+  prose, so the realized package is authoritative; the reconcile/ledger step should
+  record this stale-package fact (and the ADR-0103 capability-services distribution may
+  be the reason the SPI landed in middleware rather than service).

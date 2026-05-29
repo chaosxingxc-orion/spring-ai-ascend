@@ -1,0 +1,114 @@
+# Normalized view of ADR-0069 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160.
+
+adr: ADR-0069
+raw_path: docs/adr/0069-l0-ironclad-rules.yaml
+
+# partial_guidance: the eight Layer-0 governing principles (P-E..P-L) still govern
+# as system-wide invariants, but the raw ADR's numeric Rule/gate identifiers,
+# rule-lifecycle counts, and CLAUDE-deferred.md cross-references were overtaken by
+# the D-/R-/G-/M- namespace ratchet (ADR-0086) and the deferred-registry retirement
+# (ADR-0156) and are now non-authoritative.
+current_state: partial_guidance
+
+# Decided at L0: promotes eight system-wide ironclad rules to governing principles.
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - gate
+view: scenarios
+# Promoting system-wide invariants to governing principles is an L0 architecture
+# principle (adr-taxonomy decision_levels.L0.allowed_decision_types).
+decision_type: architecture_principle
+
+clean_decision_summary: >
+  Eight ironclad system-wide invariants drawn from the LucioIT W1 L0 draft are
+  promoted from prose to first-class Layer-0 governing principles: P-E (multi-track
+  bus physical channel isolation), P-F (cursor flow + asynchronous client boundary),
+  P-G (absolute non-blocking I/O), P-H (Chronos hydration / no Thread.sleep in
+  business code), P-I (five-plane distributed topology), P-J (storage-engine tenant
+  isolation via row-level security), P-K (skill-dimensional resource arbitration),
+  and P-L (sandbox permission subsumption). Each principle is a 1:1 graph node with
+  a distinct enforcer character, kept separate (not collapsed into super-principles)
+  so per-violation reporting stays mechanical.
+
+active_guidance:
+  - >
+    The eight Layer-0 principles P-E through P-L are the still-governing decision:
+    each is a system-wide invariant that holds across modules and waves, and each is
+    operationalised by a Layer-1 rule (now in the R-* namespace per ADR-0086) with a
+    working enforcer per the Code-as-Contract discipline.
+  - >
+    The 1:1 principle-to-rule shape is deliberate and still binding: collapsing the
+    eight into 2-3 super-principles was rejected (ALT-A / ALT-C) because composite
+    enforcers mix unrelated checks and hurt per-violation reporting.
+  - >
+    The supporting authoritative side-files introduced by this decision remain part
+    of the corpus: docs/governance/bus-channels.yaml (P-E), skill-capacity.yaml
+    (P-K), sandbox-policies.yaml (P-L), the RLS grandfather baseline (P-J), and the
+    deployment_plane field on every module-metadata.yaml (P-I).
+
+non_authoritative_legacy_content:
+  - >
+    The numeric rule identifiers (Rules 35-42), the numeric gate-rule identifiers
+    (gate rules 45-52), the enforcer rows E64-E71, and the rule-lifecycle counts
+    ("26 active / 14 deferred / 1 retired", "52 active gate rules", "66 self-tests")
+    predate the D-/R-/G-/M- namespace ratchet (ADR-0086) and the rule-card-as-sole-
+    authority model. Treat the live rule cards + enforcers as authoritative, not
+    these numbers.
+  - >
+    The CLAUDE-deferred.md references (sub-clauses 37.b / 40.b / 42.b and the
+    deferred-rule registry generally) are non-authoritative: ADR-0156 retired the
+    CLAUDE-deferred.md mirror pattern; deferred status now lives on the rule card's
+    status field.
+  - >
+    The Java-anchor verification claims naming specific scans
+    (no_blocking_io_in_runtime_main against agent-runtime, Thread.sleep scan results)
+    are point-in-time evidence, not governing content; the live gate enforcers own
+    the current verification surface.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - P-E   # Multi-Track Bus Physical Channel Isolation
+  - P-F   # Cursor Flow & Asynchronous Client Boundary
+  - P-G   # Absolute Non-Blocking I/O
+  - P-H   # Chronos Hydration
+  - P-I   # Five-Plane Distributed Topology
+  - P-J   # Storage-Engine Tenant Isolation
+  - P-K   # Skill-Dimensional Resource Arbitration
+  - P-L   # Sandbox Permission Subsumption
+l1_refs:
+  - ADR-0064  # Layer-0 governing principles (the principle framework this extends)
+  - ADR-0068  # Layered 4+1 + Architecture Graph (the substrate this fills with L0 content)
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs:
+  - Rule-R-E   # bus-channel three-track isolation (formerly Rule 35 / gate rule 45)
+  - Rule-R-F   # cursor flow + async client boundary (formerly Rule 36)
+  - Rule-R-G   # absolute non-blocking I/O (formerly Rule 37)
+  - Rule-R-H   # Chronos hydration / no Thread.sleep (formerly Rule 38)
+  - Rule-R-I   # five-plane deployment_plane in module-metadata (formerly Rule 39)
+  - Rule-R-J.a # storage-engine RLS for new tenant tables (formerly Rule 40)
+  - Rule-R-K   # skill-dimensional resource arbitration (formerly Rule 41)
+  - Rule-R-L   # sandbox permission subsumption (formerly Rule 42)
+
+review_notes: >
+  Layer-purity: this ADR is correctly L0 — eight system-wide governing principles.
+  The leakage here is TIME-state, not altitude: the raw body is dense with numeric
+  rule/gate/enforcer identifiers and lifecycle counts that the ADR-0086 namespace
+  ratchet superseded, and with CLAUDE-deferred.md cross-references that ADR-0156
+  retired. Those are recorded as non_authoritative_legacy_content; the live rule
+  cards + enforcers + principle-coverage own the current mapping. current_state is
+  unambiguous (partial_guidance — principles active, numbering legacy). The gate_refs
+  re-state the R-* namespace names the raw numeric rules were renamed to (ADR-0086);
+  no new mapping is minted here.

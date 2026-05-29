@@ -1,0 +1,88 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0091
+raw_path: docs/adr/0091-rc15-structural-carrier-parity-and-terminal-state-scope.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels: [L0, L1, contract, gate]
+view: process
+decision_type: governance_invariant
+
+clean_decision_summary: >-
+  Widens the cross-authority parity invariant rather than adding a sibling rule:
+  Rule G-8 gains structural-carrier parity (a non-SPI public type named in the
+  contract catalog MUST resolve to a real Java file on disk) and a widened
+  current-claim grammar that also catches structural-noun phrases for deleted
+  modules; the terminal-state-overclaim check is widened in scope from the kernel
+  to module architecture body text. The standing decision is the widened parity +
+  grammar + terminal-state invariants; the per-rule realisation and the wave's
+  inline prose batch-fixes are non-authoritative.
+active_guidance:
+  - >-
+      Structural-carrier parity extends cross-authority parity beyond SPI
+      packages: a non-SPI public structural carrier (a class named as an
+      authority in the contract catalog) MUST have a corresponding real source
+      file on disk. The catalog is the single source of truth for structural-
+      carrier ownership; the check extracts carriers from the catalog rows rather
+      than from a hardcoded list, so future additions are covered automatically.
+  - >-
+      Current-claim grammar covers structural-noun phrasing, not only verb
+      phrasing: a noun-phrase that ascribes current-state ownership to a deleted
+      module (e.g. "shared kernel in X", "extracted to X") is a present-tense
+      claim subject to the same historical-token exemption as verb phrasing.
+  - >-
+      Terminal-state overclaims are checked in module architecture body text, not
+      only in the kernel: a narrow phrasing pattern asserting an over-capacity
+      suspension transition fires unless the line carries a decision-envelope
+      marker, so module docs cannot overclaim a deferred state transition as
+      shipped while legitimate shipped end-state narration is unaffected.
+non_authoritative_legacy_content:
+  - >-
+      The point-in-time baseline-metric deltas quoted inline (self-test / enforcer-
+      row / ADR / graph-node / graph-edge counts and their rc14->rc15 transitions,
+      and the inline graph-number reconciliations) are wave-era baseline
+      observations owned by architecture-status.yaml and the release note, not
+      standing L0 authority.
+  - >-
+      The specific defect-instance inventory (the M-alpha..M-eta findings with
+      their file paths and line numbers, the named stale prose sites, the legacy
+      numeric rule references rewritten to canonical names) is review-response +
+      recurring-defect-families content, not standing architecture authority.
+  - >-
+      The per-rule realisation (the new sub-clause letters, the catalog-row and
+      over-capacity regex patterns, the added enforcer-row ids, the named self-test
+      fixtures, the gate-rule numbers) is gate-surface realisation owned by the
+      gate scripts + enforcers ledger, not standing L0 authority.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "P-A (Layered 4+1 discipline) / P-B (Architecture-Graph Truth) -- the twin-truth spine whose cross-surface agreement Rule G-8 enforces"
+l1_refs: []
+l2_refs: []
+contract_refs:
+  - docs/contracts/contract-catalog.md
+fact_refs:
+  - adr/0091-rc15-structural-carrier-parity-and-terminal-state-scope
+gate_refs:
+  - "Rule G-8 (Cross-Authority Parity -- structural-carrier + noun-phrase grammar sub-clauses)"
+  - "Rule G-3 (terminal-state overclaim check -- module-architecture scope widening)"
+review_notes: >-
+  Lane: L8-GOVERNANCE (ADR-0159). decision_level L0 matches the raw self-label
+  (level: L0, governance_infra: true, view: process) and the governance-invariant
+  character: this ADR widens the existing cross-authority parity meta-rule rather
+  than introducing a new top-level rule. decision_type governance_invariant is the
+  allowed L0 type. The point-in-time baseline deltas, the M-alpha..M-eta defect-
+  site inventory with file/line citations, and the per-rule regex/fixture
+  mechanics (a forbidden lower-altitude leak if presented as the L0 decision) are
+  pushed to non_authoritative_legacy_content and to the owning status / ledger /
+  gate surfaces. current_state partial_guidance: the widened parity + grammar +
+  terminal-state invariants still govern (active_guidance) while the baseline
+  numbers and rule mechanics are non-authoritative legacy. superseded_by empty:
+  the raw declares extends: [ADR-0086, ADR-0088, ADR-0090] and relates_to (no
+  inbound supersession); the apex fact carries no superseded_by for ADR-0091.

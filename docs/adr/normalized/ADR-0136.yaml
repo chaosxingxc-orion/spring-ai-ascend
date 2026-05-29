@@ -1,0 +1,72 @@
+# Normalized ADR view — ADR-0136.
+#
+# Authority: ADR-0160 (ADR Governance Model). READABLE INTERPRETATION layer over
+# the raw ADR (docs/adr/0136-vocabulary-reconciliation-pr71-task-vs-run.yaml)
+# and its projection in architecture/facts/generated/adrs.json. Invents no
+# ids/relationships; re-states supersedes/superseded_by from the fact layer.
+# Authority cascade: generated facts > DSL > Card/prose.
+#
+# Shape pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0136
+raw_path: docs/adr/0136-vocabulary-reconciliation-pr71-task-vs-run.yaml
+current_state: partial_guidance
+
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+view: scenarios
+decision_type: module_responsibility
+
+clean_decision_summary: |
+  A vocabulary reconciliation for agent-service: a proposal's "Task" is the
+  platform's existing Task entity (the scheduling-core / control-state entity),
+  not a renamed Run, and no type is renamed and no new Task type is created. The
+  Run / Task / Session / Memory four-layer lifecycle hierarchy is reaffirmed as
+  canonical, with the compute-execution state machine and the A2A protocol state
+  machine kept as distinct concerns. A proposed nine-state expansion of the Task
+  lifecycle is rejected in favour of the existing orthogonal state axes. No code
+  changes ship; the synonym mapping is documented in prose only.
+
+active_guidance:
+  - "The Run / Task / Session / Memory four-layer hierarchy is the canonical lifecycle model for agent-service; Run (compute snapshot) and Task (control state) are deliberately distinct and must not be collapsed by vocabulary drift."
+  - "The proposal's vocabulary is a naming-style synonym for the shipped platform vocabulary, not a rename target — shipped names are normative in code, rule kernels, and SPI declarations, while proposal names may appear as documented synonyms in prose."
+  - "The compute-execution state machine and the A2A protocol-envelope state machine are distinct concerns and are modelled separately."
+
+non_authoritative_legacy_content:
+  - "File paths, line anchors, and call-site counts in the raw ADR (the Java source paths for the Task and Run records, the count of active call sites, rule-anchored CAS-guard line references). L2 detail owned by the L2 design / generated facts, not by this vocabulary decision."
+  - "The deferred Javadoc-glossary annotation clause (the specific files to be annotated and the assertion that no signature, field, package, or schema is altered). L2 implementation detail; the binding decision is the vocabulary mapping itself."
+  - "The wave-count narrative (the eight-wave-to-six-wave collapse) and the placeholder-slug family-registration note. Point-in-time wave mechanics, not standing authority."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - efTaskControl
+  - efSessionTaskState
+l0_constraint_refs: []
+l1_refs:
+  - efTaskControl
+  - efSessionTaskState
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0136-vocabulary-reconciliation-pr71-task-vs-run
+  - code-symbol/com-huawei-ascend-service-task-task
+  - code-symbol/com-huawei-ascend-service-task-task-a2astate
+  - code-symbol/com-huawei-ascend-service-runtime-runs-run
+gate_refs: []
+
+review_notes: |
+  current_state = partial_guidance: the four-layer hierarchy reaffirmation and
+  the synonym-not-rename decision still govern at L1, but the raw ADR carries L2
+  leakage (Java file paths, line numbers, call-site counts, the per-file Javadoc
+  annotation plan) recorded under non_authoritative_legacy_content per the
+  2026-05-29 layer-purity verdict. decision_type module_responsibility chosen
+  because the decision settles how the agent-service module names and structures
+  its Run/Task/Session/Memory responsibilities. The Task and Run code-symbol
+  facts are cited because they exist in code-symbols.json. This ADR reaffirms
+  (does not supersede) the prior 4-layer decomposition; supersedes is empty per
+  the fact layer.

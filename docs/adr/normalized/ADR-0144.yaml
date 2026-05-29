@@ -1,0 +1,74 @@
+# Normalized ADR view — ADR-0144.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml (required fields + closed
+# current_state set + per-state invariants) AND docs/governance/adr-taxonomy.yaml
+# (decision_level / decision_type altitude). Authority: ADR-0160. Enforced by
+# Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0144
+raw_path: docs/adr/0144-layer-vs-package-matrix.yaml
+
+current_state: partial_guidance
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+view: development
+decision_type: engineering_frame_boundary
+
+clean_decision_summary: |
+  Publishes the canonical Layer to Package matrix for agent-service: the
+  ADR-0138 5-layer logical-view decomposition (Access / Manager / Queue /
+  Control / Adapter) and the ADR-0100 5-component package-structural
+  decomposition (Dispatcher / Orchestrator / Task / Session / Engine) are
+  orthogonal views, not competitors. The matrix is the single mapping between a
+  logical layer and the sub-package homes that realise it. This ADR EXTENDS both
+  ADR-0100 and ADR-0138 (it supersedes neither); the matrix is the third corner
+  that resolves their tension.
+
+active_guidance:
+  - "The Layer to Package matrix is the canonical mapping between the ADR-0138 logical layers and the ADR-0100 package homes; both decompositions remain in force and this ADR extends rather than replaces them."
+  - "A sub-package belongs to exactly ONE logical layer OR the cross-cutting bucket, never two layers; a responsibility that crosses layers is a low-cohesion signal to split before landing."
+  - "When a new sub-package is added under the agent-service package root, the author updates the matrix in the same change."
+
+non_authoritative_legacy_content:
+  - "The inline class-level enumerations inside the matrix cells (concrete adapter / filter / gateway type names, EngineRegistry.resolve and RunRepository.updateIfNotTerminal call references) are L2 FunctionPoint detail and are NOT L1 authority; the L1 decision is the layer-to-package-home mapping only. The type-level detail is owned at L2 / generated facts."
+  - "The rc55 wave-sequencing notes (which wave renders the matrix, the future module-metadata.yaml#layer_assignments field) are migration history, not standing L1 authority."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs:
+  - "ADR-0100 (rc22 5-component package-structural decomposition)"
+  - "ADR-0138 (rc53 5-layer logical-view decomposition)"
+  - "agent-service module L1 development view"
+l2_refs:
+  - "agent-service sub-package inventory (the per-cell package-home detail lives at L2)"
+contract_refs: []
+fact_refs: []
+gate_refs:
+  - "Rule G-1 (4+1 view discipline; both Logical and Development views coexist)"
+
+review_notes: |
+  Classified partial_guidance because the standing L1 decision — the orthogonal
+  layer-vs-package framing and the matrix mapping plus the one-layer-per-package
+  assignment rule — is current authority, while the matrix cells additionally
+  embed L2-altitude class/method anchors that are the leakage adjudicated TRUE in
+  the 2026-05-29 systemic-remediation review. Those anchors are recorded as
+  non_authoritative_legacy_content so the view is citeable only through the
+  layer-mapping clauses. supersedes / superseded_by are empty: the raw ADR
+  declares EXTENDS for ADR-0100 and ADR-0138 (not supersedes), and the extracted
+  fact layer carries no supersession edge for ADR-0144. decision_type
+  engineering_frame_boundary is the allowed L1 type that matches a
+  package-cluster / EngineeringFrame boundary mapping (DEFENSIBLE at L1 per the
+  remediation verdict: development-view package decomposition).

@@ -1,0 +1,104 @@
+# Normalized view of ADR-0071  -  readable interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). Schema pinned by
+# docs/governance/adr-governance-policy.yaml (required fields + state
+# invariants) and docs/governance/adr-taxonomy.yaml (decision-level + type
+# altitude). This view INVENTS NO ids and NO relationships: supersedes /
+# superseded_by are re-stated from the raw ADR + adrs.json, never minted.
+# Authority cascade is unchanged: generated facts > DSL > Card/prose.
+# UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0071
+raw_path: docs/adr/0071-engine-contract-structural-wave.yaml
+current_state: partial_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - gate
+view: scenarios
+decision_type: architecture_principle
+
+clean_decision_summary: >
+  Land L0 governing principle P-M (Heterogeneous Engine Contract &
+  Server-Sovereign Boundary) as the umbrella for the Engine Contract
+  Structural Wave. Every new domain contract under this wave is born
+  structured  -  yaml schema first, a Java type that validates against the
+  schema second, runtime self-validation third  -  so a new domain contract
+  cannot land as prose-only. The wave anchors four substantive child
+  decisions (engine envelope + strict matching, engine hooks + runtime
+  middleware, S2C capability callback, evolution scope boundary), a runtime
+  self-validation pilot, and the schema-first cross-cutting rule.
+
+active_guidance:
+  - >
+    L0 principle P-M (Heterogeneous Engine Contract & Server-Sovereign
+    Boundary) is the still-governing clause: the platform contracts with
+    execution engines through a server-sovereign boundary, complementing the
+    substrate principles P-E..P-L.
+  - >
+    The structural-downstreaming invariant  -  a new domain contract ships as a
+    yaml schema, then a validating Java type, then a runtime self-validate  - 
+    remains the governing discipline (operationalised as the Schema-First
+    Domain Contracts rule).
+  - >
+    The umbrella relationship to the four child decisions (engine envelope +
+    strict matching, engine hooks + runtime middleware, S2C capability
+    callback, evolution scope boundary) and the schema-first rule stands; read
+    those child ADRs for the per-surface contract authority.
+
+non_authoritative_legacy_content:
+  - >
+    The Phase 0-7 execution plan with concrete package paths
+    (e.g. SyncOrchestrator under the legacy `ascend.springai.service.runtime`
+    root) is stale: the package root migrated to `com.huawei.ascend` and the
+    engine boundary was later relocated into agent-bus as a neutral
+    transport-agnostic EnginePort  -  those are L1/L2 placement facts, not L0
+    authority here.
+  - >
+    The triggering-input code-inspection citations (file line numbers, the
+    instanceof switch, empty SuspendReason slots) are historical evidence of
+    why the wave was opened, not current authority; the authoritative engine
+    boundary surface is the contract + DSL frame layer.
+  - >
+    The provisional gate-rule / enforcer numbering (gate rules 55-61,
+    enforcers E74-E86) is a wave-local plan; the live rule/enforcer ids are
+    the ones the gate currently declares.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - efEnginePort
+  - efEngineRegistry
+  - efHookSurface
+  - efEvolutionExport
+l0_constraint_refs:
+  - "P-M"
+  - "P-E..P-L (L0 ironclad-rules corpus)"
+l1_refs:
+  - "agent-bus engine boundary (bus.spi.engine)"
+  - "agent-execution-engine"
+l2_refs: []
+contract_refs:
+  - docs/contracts/engine-envelope.v1.yaml
+  - docs/contracts/engine-hooks.v1.yaml
+  - docs/contracts/s2c-callback.v1.yaml
+fact_refs:
+  - adr/0071-engine-contract-structural-wave
+gate_refs:
+  - "Rule M-2.a (Schema-First Domain Contracts)"
+
+review_notes: >
+  current_state = partial_guidance: P-M and the schema-first invariant are
+  current L0 authority, but the wave's implementation-phase content (concrete
+  package paths, the pre-migration engine-on-agent-service placement, and the
+  provisional gate/enforcer numbers) is lower-altitude and partly superseded
+  by ADR-0088 (agent-runtime-core dissolution) and ADR-0158 (neutral EnginePort
+  absorbed into agent-bus). The child decisions ADR-0072..0077 each carry their
+  own normalized view; cite those for per-surface contract authority. No
+  supersedes/superseded_by edge is declared by the raw ADR or adrs.json, so both
+  lists are empty (the engine-boundary evolution is an extends/relates chain,
+  not a supersede).

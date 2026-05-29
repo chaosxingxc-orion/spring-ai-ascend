@@ -1,0 +1,73 @@
+# Normalized view of ADR-0105  -  readable interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). Schema pinned by
+# docs/governance/adr-governance-policy.yaml (required fields + state
+# invariants) and docs/governance/adr-taxonomy.yaml (decision-level + type
+# altitude). This view INVENTS NO ids and NO relationships: supersedes /
+# superseded_by are re-stated from the raw ADR + adrs.json, never minted.
+# Authority cascade is unchanged: generated facts > DSL > Card/prose.
+# UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0105
+raw_path: docs/adr/0105-rc32-residual-corrective-family-truth-and-sanitizer-fix.yaml
+current_state: remediation_record
+decision_level: L0
+affected_levels:
+  - L0
+  - gate
+view: process
+decision_type: governance_invariant
+
+clean_decision_summary: >
+  rc32 residual-corrective wave: one wave, seven mechanical truth-and-gate
+  fixes with no new module structure, no new SPI, and no new engineering rule.
+  Closes a gate-RED-on-main timeout cliff, fixes the family-surface sanitizer
+  that silently no-op'd on glob pathspecs, registers the
+  bulk-scrub-orphan-syntax recurring-defect family, reopens a
+  prematurely-closed family, and corrects stale ADR-count / allowed_claim
+  prose. Captured here as governance traceability, not as standing architecture
+  authority.
+
+active_guidance: []
+
+non_authoritative_legacy_content:
+  - >
+    All seven sub-changes are point-in-time corrective fixes: the gate timeout
+    bump, the sanitizer glob expansion, the family registration / reopen, the
+    adr_count and allowed_claim prose corrections, and the residual Java
+    orphan-punctuation sweep. They describe work done in that wave and are not
+    current architecture authority  -  the live gate config, family ledger, and
+    status surfaces are authoritative now.
+  - >
+    Concrete counts and ids quoted in the record (e.g. "132 rules", the
+    enumerated vacated ADR numbers, the 60->180s timeout value, the rc27-rc31
+    occurrence chain) are historical wave context, superseded by whatever the
+    live gate config and ledger currently declare.
+  - >
+    The known-debt items (full corpus-walk rules not using scan_cache; bulk
+    regex D-9 enforcement pending AST-aware tooling) are tracked debt notes, not
+    binding authority.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0105-rc32-residual-corrective-family-truth-and-sanitizer-fix
+gate_refs:
+  - "Rule G-9.a / G-9.b / G-9.c (recurring-defect-family truth + freshness + md parity)"
+  - "gate/lib/validate_recurring_families.py (derive_signal_paths glob expansion)"
+  - "gate/config.yaml rule_timeout_seconds"
+
+review_notes: >
+  current_state = remediation_record: ADR-0105 is a corrective wave capturing
+  cleanup work, so it is citeable for governance traceability only, not as
+  architecture authority. A gate change IS claimed (sanitizer fix + timeout
+  config + family registration), so gate_refs is non-empty to satisfy the
+  remediation_record state invariant. active_guidance is intentionally empty
+  (allowed for this state). No supersedes/superseded_by edge is declared by the
+  raw ADR or adrs.json, so both lists are empty.

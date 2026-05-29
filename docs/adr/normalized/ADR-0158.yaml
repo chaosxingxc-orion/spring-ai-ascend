@@ -1,0 +1,109 @@
+# Normalized ADR view — readable-interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). This view re-states and curates;
+# it invents no ADR ids and no relationships and never outranks a generated
+# fact. Authority cascade: generated facts > DSL > Card/prose. Schema pinned by
+# docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml,
+# enforced by Rule G-28. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0158
+raw_path: docs/adr/0158-engine-port-transport-agnostic-boundary.yaml
+current_state: active_guidance
+decision_level: L1
+affected_levels:
+  - L1
+  - DSL
+  - contract
+  - facts
+  - gate
+view: development
+decision_type: engineering_frame_boundary
+
+clean_decision_summary: |
+  EnginePort is the neutral, transport-agnostic semantic contract for the
+  Service-to-Engine boundary, carrying no tenant/session/run semantics: the
+  Service registers, discovers, and drives a generic abstract engine across
+  execute, stream-events, suspend, resume, and describe-health. The contract is
+  absorbed into agent-bus as a sibling of the ingress, S2C, and federation SPI
+  packages, so it is owned by no single engine and stays in the main repo when the
+  engine is later extracted; no new Maven module is created. Deployment form
+  becomes a packaging plus adapter choice rather than a code fork: three EnginePort
+  transport implementations live inside agent-service (in-process, internal-RPC,
+  and A2A federation). The dependency direction in all three forms is
+  agent-service to agent-bus engine-contract back to agent-execution-engine, and
+  this ADR reverses the earlier reference-executor placement so the reference
+  executors live in the engine (they ARE the engine), not in the Service's driving
+  adapters.
+
+active_guidance:
+  - "EnginePort is the single neutral, transport-agnostic semantic contract for the Service-to-Engine boundary (execute, stream events, suspend, resume, describe-health); it carries NO tenant/session/run semantics, that ownership stays Service-side."
+  - "The engine contract is absorbed into agent-bus as a sibling of ingress / S2C / federation; agent-bus depends on nothing and is a dependency of both agent-service and agent-execution-engine, so the contract is neutral and stays in the main repo when the engine splits. No new Maven module is created (six domain modules unchanged)."
+  - "Dependency direction in ALL three deployment forms is agent-service to agent-bus engine-contract back to agent-execution-engine; the engine implements the contract and never depends on agent-service."
+  - "Deployment form is a packaging plus adapter choice, not a code fork: three EnginePort implementations live in agent-service, an in-process adapter (co-deployed / embedded), an internal-RPC adapter (engines you own), and an A2A federation adapter (external/federated agents via the federation gateway)."
+  - "The engine-facing execution context is neutralized to opaque correlation (runId / traceId / spanId) plus the checkpointer and the suspend capability; the tenant/session-bearing run context becomes a Service-side subtype."
+  - "Suspend/resume is a capability with two realizations: in-process (the existing checked suspension caught by the Orchestrator) and over-the-wire (a checkpoint-token protocol generalizing the proven S2C suspend-over-a-boundary protocol); the executor definition becomes a serializable named reference so dispatch can cross a JVM."
+  - "The two rival executor-adapter surfaces are reconciled under EnginePort on a streaming model with errors as terminal events; the losing surface is retired. The reference executors move into agent-execution-engine; the engine registry / envelope / hook surface stay engine-internal."
+  - "EngineeringFrame ontology: EF-ORCHESTRATION-SPI is re-homed to agent-bus and EF-ENGINE-PORT (owned by agent-bus) is added; EF-ENGINE-REGISTRY stays owned by agent-execution-engine."
+
+non_authoritative_legacy_content:
+  - "The pre-decision inverted placement (the module named agent-execution-engine being the pinned in-process CONTRACT while the reference executors lived in agent-service) is the state this ADR corrects; it is no longer authoritative."
+  - "The reference-executor placement of ADR-0140 (reference adapters in agent-service) is REVERSED by this ADR; that specific placement clause is non-authoritative while ADR-0140's 5a/5b split otherwise stands."
+  - "The over-the-wire suspend checkpoint-token realization mechanics and the wide re-namespacing of the orchestration-SPI referencing sites are L2 / migration-sequencing detail, not standing normative clauses."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - bus.spi.engine
+  - EF-ENGINE-PORT
+  - EF-ORCHESTRATION-SPI
+  - EF-ENGINE-REGISTRY
+l0_constraint_refs:
+  - "ADR-0101 polymorphic deployment topology (the three deployment forms this one contract must serve)"
+  - "Rule R-L / Rule G-13 (byte-identical re-emission of generated DSL fragments on the lockstep change)"
+l1_refs:
+  - "agent-bus — bus.spi.engine (neutral EnginePort contract; sibling of bus.spi.ingress / bus.spi.s2c / bus.spi.federation)"
+  - "agent-execution-engine — reference executors + EngineRegistry / EngineEnvelope / EngineHookSurface (engine-internal)"
+  - "agent-service — the three EnginePort transport adapters (in-process / internal-RPC / A2A)"
+l2_refs:
+  - "Over-the-wire suspend checkpoint-token realization + the re-namespacing of the orchestration-SPI referencing sites (raw ADR — L2 / migration detail, not normalized authority)"
+contract_refs:
+  - docs/contracts/engine-port.v1.yaml
+  - docs/contracts/s2c-callback.v1.yaml
+fact_refs:
+  - adr/0158-engine-port-transport-agnostic-boundary
+gate_refs:
+  - "Rule G-13 / Rule R-L (AllFragmentsCli byte-identical re-emission of spi-catalog.dsl + modules.dsl)"
+  - "ProfileValidator + workspace gate (engineering-frames.dsl re-home stays green)"
+
+review_notes: |
+  Classified active_guidance: EnginePort is the current governing Service-to-Engine
+  boundary contract and nothing supersedes ADR-0158. The raw ADR carries a LOCKSTEP
+  FLAG for the implementation phase (agent-bus module-metadata declares
+  bus.spi.engine; engineering-frames.dsl re-homes EF-ORCHESTRATION-SPI and adds
+  EF-ENGINE-PORT; architecture-status.yaml baseline_metrics move with their
+  allowed_claim + README phrases; engine-port.v1.yaml + a contract-catalog row land
+  before the networked transports). Those authority surfaces
+  (architecture-status.yaml, README, engineering-frames.dsl, the generated
+  fragments, the contract catalog) are owned by the reconcile/governance wave, NOT
+  by this normalized view — this view only re-states the decision and cites them.
+
+  decision_level L1 / decision_type engineering_frame_boundary: the decision draws
+  an EngineeringFrame / public-SPI boundary (EF-ENGINE-PORT) and re-homes a frame's
+  SPI package between L1 modules — an L1 frame-boundary altitude (defensible:
+  naming a public SPI as a boundary identity, citing the workspace/ProfileValidator
+  gate as the mechanism). public_spi_surface is an equally valid L1 decision_type
+  for this ADR; engineering_frame_boundary was chosen because the dominant act is
+  re-homing/adding EngineeringFrames (EF-ENGINE-PORT / EF-ORCHESTRATION-SPI).
+
+  The ADR REVERSES ADR-0140's reference-executor placement but does NOT supersede
+  ADR-0140 (its 5a/5b split otherwise stands) — so supersedes is empty and the
+  reversal is stated as an active_guidance clause plus a non_authoritative_legacy
+  clause. Layer-purity discipline applied: wire/SPI signature detail and the
+  ~47-site re-namespacing are L2/contract-lane material and were not carried up as
+  current authority.
+
+  NOTE (parallel-wave collision): this ID was also produced by a sibling W4
+  subtask; that copy failed YAML parse (an unquoted colon in a flow value). This
+  view replaces it with a schema-valid version that passes Rule G-28
+  (check_adr_taxonomy.py full-blocking). The reconcile step owns final de-dup.

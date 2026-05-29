@@ -1,0 +1,76 @@
+# Normalized ADR view — ADR-0070.
+#
+# Authority: ADR-0160 (ADR Governance Model). This is a READABLE INTERPRETATION
+# layer over the raw ADR source (raw_path below) and its extracted projection in
+# architecture/facts/generated/adrs.json (ADR-0154). It invents no ADR ids and
+# no relationships; it re-states supersedes / superseded_by and curates which
+# clause still governs. Authority cascade is unchanged: generated facts > DSL >
+# Card/prose. Schema pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml; validated by Rule G-28.
+
+adr: ADR-0070
+raw_path: docs/adr/0070-cursor-flow-and-skill-capacity-runtime.yaml
+current_state: partial_guidance
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  - gate
+view: process
+decision_type: public_spi_surface
+
+clean_decision_summary: |
+  Activate the two deferred L1 process-view sub-clauses whose Phase-6
+  preconditions were met: Cursor Flow (Rule R-F.b) and runtime skill-capacity
+  arbitration (Rule R-K.b). The governing outcome is the introduction of two
+  module-level boundary identities — an asynchronous run-dispatch SPI so the run
+  submission boundary never blocks on dispatcher work, and a skill-capacity
+  resolution surface on ResilienceContract whose over-capacity outcome maps to a
+  SUSPENDED (not FAILED) lifecycle state. The narrow runtime/contract mechanics
+  the raw ADR enumerates are L2/contract detail, not the L1 decision.
+
+active_guidance:
+  - "AsyncRunDispatcher is a public SPI boundary on the run-submission path: the run-submission boundary MUST NOT block on dispatcher execution (Cursor-Flow / Rule R-F.b boundary identity)."
+  - "ResilienceContract carries a skill-capacity arbitration surface resolved against the governance-owned skill-capacity policy; an over-capacity caller is admitted=false and is mapped to a suspended lifecycle outcome rather than a failure (Rule R-K.b principle activation)."
+  - "SuspendReason is a sealed taxonomy (rate-limited capacity exhaustion is one variant); additive variants are the intended evolution shape per the ADR-0019 taxonomy as canonicalized by ADR-0146."
+
+non_authoritative_legacy_content:
+  - "The HTTP-level realization (POST /v1/runs shifting from 201+RunResponse to 202+TaskCursor/RunCursorResponse with cursor_url) — runtime/wire detail owned by the contract surface (docs/contracts/openapi-v1.yaml), not by this L1 decision."
+  - "Named implementation classes and method bodies (RunController.create(), NoOpAsyncRunDispatcher, CompletableFuture.runAsync, YamlSkillCapacityRegistry, DefaultSkillResilienceContract, ConcurrentHashMap<String,AtomicInteger> CAS, SnakeYAML loading) — L2 implementation detail."
+  - "Test-class inventory and timing assertions (RunCursorFlowIT, SkillCapacityResolutionIT, createReturns202WithCursor, 200 ms / 30 s synthetic dispatcher) — L2 test mapping owned by the generated test facts."
+  - "Phase 8 / Phase 9 single-commit packaging, deferred-rule list trimming, CLAUDE-deferred.md section deletes, and the numeric gate/self-test baseline movements (66 -> 70) — process-narrative detail owned by release notes and the gate/enforcer surfaces."
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - "P-F (Cursor Flow & Asynchronous Client Boundary)"
+  - "P-K (Skill-Dimensional Resource Arbitration)"
+l1_refs:
+  - "Rule R-F.b (Cursor Flow integration boundary)"
+  - "Rule R-K.b (ResilienceContract.resolve runtime enforcement)"
+l2_refs:
+  - "Async run-dispatch realization and skill-capacity registry implementation detail (migrated down from the raw decision prose)."
+contract_refs:
+  - docs/contracts/openapi-v1.yaml
+  - docs/contracts/contract-catalog.md
+fact_refs:
+  - adr/0070-cursor-flow-and-skill-capacity-runtime
+gate_refs:
+  - "Rule R-F.b"
+  - "Rule R-K.b"
+
+review_notes: |
+  Lane: L4-FRAME (ADR-0159). Classified at decision_level L1 to match the raw
+  ADR self-label (level: L1) and the public-SPI-boundary character of the
+  decision; the raw `decision` block leaks L2 (method/class/test) and contract
+  (HTTP 202 + cursor envelope) detail that the layer-purity invariant pushes down
+  to architecture/docs/L2 + docs/contracts + generated facts, hence
+  current_state partial_guidance. The skill-capacity policy file
+  docs/governance/skill-capacity.yaml is the governance input the active surface
+  consults. product_claim PC-003 is recorded on the raw ADR. No ambiguity in the
+  current_state choice; flagged for human review only to confirm the
+  active_guidance / legacy split matches the intended L1 boundary scope.

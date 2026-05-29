@@ -1,0 +1,71 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose.
+adr: ADR-0156
+raw_path: docs/adr/0156-product-authority-and-traceability.yaml
+current_state: active_guidance
+decision_level: L0
+affected_levels: [L1, gate]
+view: development
+decision_type: governance_invariant
+clean_decision_summary: >-
+  ProductClaim (PC-NNN) is the canonical binding axis between product/,
+  architecture/, and docs/governance/. Every active ADR, rule card, enforcer
+  row, contract YAML, feature DSL element, and module-metadata.yaml MUST declare
+  `product_claim: PC-NNN` (resolving to an id in product/claims.yaml) OR carry
+  the sentinel `governance_infra: true` or `product_claim_placeholder: true`.
+  product/claims.yaml is the single registry of valid PC ids; the product owner
+  is the sole signatory for new PC entries.
+active_guidance:
+  - ProductClaim (PC-NNN) is the canonical product-to-artefact binding axis;
+    every active artefact declares a product_claim value or an explicit sentinel.
+  - product/claims.yaml is the SINGLE registry of valid PC-NNN ids; AI sessions
+    may draft refinements but the product owner is the sole signatory.
+  - Cards are the sole rule authority; CLAUDE.md is the kernel INDEX (kernel
+    paragraphs only), with rule bodies living exclusively under
+    docs/governance/{principles,rules}/ (Rule G-3.b kernel<->card byte-match).
+  - >-
+      The two binding-direction rules and their supports ship in this wave --
+      G-16 (productclaim_referential_integrity), G-17 (no_orphan_artefacts),
+      G-18 (traceability_chain_completeness), G-19 (autoload_tier_integrity),
+      G-20 (governance_infra_honesty), G-21 (productclaim_placeholder_decreasing).
+non_authoritative_legacy_content:
+  - docs/CLAUDE-deferred.md (the deferred-rule registry mirror) is RETIRED; its
+    disposition table is archived at docs/governance/retired-rules-audit.md
+    (audit_id PHASE7-OLD-NUMERIC-RULE-AUDIT). The mirror pattern is no longer
+    authoritative anywhere.
+  - The CLAUDE.md byte-count figures (46500 -> ~9000) are point-in-time surgery
+    measurements, not standing authority.
+  - The Phase-A-Wave-5 baseline counts quoted inline (140 ADRs, 152 gate rules,
+    51 engineering rules, 186 enforcer rows) are point-in-time figures; the
+    canonical live baselines are docs/governance/architecture-status.yaml.
+  - The advisory posture of G-16/G-17/G-18/G-20 at Wave-5 landing is transitional
+    (promotion to blocking is gated on Rule G-21 reaching zero placeholders).
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs:
+  - Rule G-16
+  - Rule G-17
+  - Rule G-18
+  - Rule G-19
+  - Rule G-20
+  - Rule G-21
+  - Rule G-3.b
+review_notes: >-
+  Decision is made at L0 (a corpus-wide governance invariant: the ProductClaim
+  binding rule + cards-as-sole-authority) and affects L1 and the gate lane. The
+  raw ADR's `supersedes` lists a DOC PATTERN ("CLAUDE-deferred.md mirror
+  pattern"), not an ADR id; per the governance policy `supersedes` carries ADR
+  ids only, so it is left empty here and the pattern-supersession is recorded in
+  this note and in non_authoritative_legacy_content (the mirror is retired/
+  archived). current_state is active_guidance: the binding rule is current
+  authority and nothing supersedes ADR-0156.

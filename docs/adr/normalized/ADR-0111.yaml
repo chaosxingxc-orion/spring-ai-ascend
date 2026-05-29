@@ -1,0 +1,105 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0111
+raw_path: docs/adr/0111-sandbox-routing-vault-rotation-otlp-tenant-outbox-replay.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels: [L0, L1, L2, contract]
+view: physical
+decision_type: global_constraint
+
+clean_decision_summary: >-
+  Batches four infrastructure-boundary security gaps that share a "secret /
+  sensitive-data leakage at a subsystem boundary" root cause into one set of L0
+  global constraints: (A) an untrusted skill cannot register against a no-op
+  sandbox at the research/production postures -- a startup gate fails closed; (B)
+  trace export MUST be per-tenant routed, with a binding miss failing closed at
+  production; (C) every long-lived secret MUST declare a rotation policy in a
+  secret-lifecycle source of truth, with the LLM provider credential as a subset
+  rotated without in-flight disruption; (D) outbox payloads MUST declare a replay-
+  safety policy so at-least-once redelivery cannot leak sensitive data after a
+  lawful-erasure request. The standing decision is the four fail-closed
+  constraints + their governance source-of-truth files; the YAML field shapes,
+  SPI signatures, and W2/W3 sequencing are realisation.
+active_guidance:
+  - >-
+      Sandbox routing is fail-closed: at startup a routing guard cross-checks
+      registered skills' execution levels against the active sandbox-executor
+      binding; at the research/production postures an untrusted skill with a no-op
+      sandbox aborts bean creation with an actionable diagnostic, operationalising
+      the sandbox-executor admission gate early.
+  - >-
+      Trace export is per-tenant routed: a tenant maps to its export endpoint +
+      auth via a routing source of truth; un-named tenants fall back to a shared
+      exporter with explicit cross-tenant attribute filtering and an isolation-
+      warning marker; a binding miss at the production posture fails closed. Cross-
+      tenant trace aggregation in one global pipeline is the threat this removes.
+  - >-
+      Secret lifecycle is declared, not implicit: every long-lived secret declares
+      a rotation cadence, grace window, on-leak runbook, and active consumers in a
+      secret-lifecycle source of truth; a missing rotation policy for a known
+      long-lived secret is a startup-gate failure. The LLM provider credential is
+      a subset rotated without in-flight disruption via preflight + cache refresh.
+  - >-
+      Outbox replay is policy-governed: each payload type declares a replay-safety
+      policy -- replay-idempotent (default for system events; consumer dedups),
+      redact-on-resend (default for payloads carrying model output / user input /
+      tool args), or suppress-after-ttl (default for ephemeral high-sensitivity
+      payloads) -- and lawful erasure immediately redacts/suppresses the sensitive
+      classes regardless of ttl. Replay safety is decoupled from the publisher
+      mechanism; banning at-least-once delivery is rejected.
+non_authoritative_legacy_content:
+  - >-
+      The governance source-of-truth file shapes quoted inline (the secret-
+      lifecycle entry fields; the named tenant-OTLP-routing and secret-lifecycle
+      files that are explicitly "not yet authored") are forward-wave governance
+      realisation owned by those files when they land, not present-tense standing
+      authority.
+  - >-
+      The SPI / guard / hook / publisher names, the diagnostic and audit-key
+      strings, the per-channel metric names, and the named ArchUnit tests are
+      L1/L2 class-method realisation detail; the standing L0 decision is the four
+      fail-closed constraints, not the named carriers.
+  - >-
+      The W2 vs W3 sequencing of each part, and the compounding note that one part
+      overlaps a key-distribution ADR and needs a later unification ADR, are
+      forward scheduling / design intent, not standing L0 authority.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "PC-003 (the product claim the raw cites for these infrastructure-security constraints)"
+  - "Rule R-L (Sandbox execution boundary -- the sandbox admission constraint this operationalises early)"
+l1_refs:
+  - "agent-middleware / agent-service -- owners of the sandbox routing, trace export, secret consumption, and outbox surfaces these constraints govern"
+l2_refs:
+  - "Sandbox routing guard, per-tenant exporter binding, secret-lifecycle enforcement, outbox replay publisher -- L2 realisation"
+contract_refs:
+  - docs/contracts/audit-trail.v1.yaml
+fact_refs:
+  - adr/0111-sandbox-routing-vault-rotation-otlp-tenant-outbox-replay
+gate_refs: []
+review_notes: >-
+  Lane: L3-L0ARCH (ADR-0159). decision_level L0 matches the raw self-label (level:
+  L0, view: physical). decision_type global_constraint is the allowed L0 type for
+  a batch of system-wide infrastructure-security MUSTs (fail-closed sandbox
+  routing, per-tenant trace isolation, declared secret rotation, outbox replay
+  safety); these are global constraints, not per-module contracts. The raw carries
+  L2/contract leakage -- the secret-lifecycle field schema, SPI/guard/publisher
+  names, metric names, diagnostic strings, named ArchUnit tests (forbidden lower-
+  altitude detail at L0) -- which is pushed to non_authoritative_legacy_content and
+  to the L2 design + governance source-of-truth files. Code-symbol facts are NOT
+  cited because the named sandbox-guard / tenant-exporter-binding / outbox-
+  publisher types are design_only and do not resolve in the generated facts
+  (citing them would invent fact ids); only the resolving contract-yaml is cited
+  (the audit trail the trace/secret constraints emit into). current_state
+  partial_guidance: the four fail-closed constraints govern (active_guidance) while
+  the YAML field shapes, named carriers, metric names, and W2/W3 sequencing are
+  non-authoritative realisation -- including the two source-of-truth files the raw
+  itself marks "not yet authored". superseded_by empty (relates_to / extends only;
+  no inbound supersession).

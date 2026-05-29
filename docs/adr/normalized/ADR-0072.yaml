@@ -1,0 +1,102 @@
+# Normalized ADR view — ADR-0072.
+#
+# Authority: ADR-0160 (ADR Governance Model). This is a READABLE INTERPRETATION
+# layer over the raw ADR (docs/adr/0072-engine-envelope-and-strict-matching.yaml)
+# and its extracted projection in architecture/facts/generated/adrs.json. It
+# invents no ADR ids and no relationships; it re-states supersedes / superseded_by
+# verbatim from the fact layer and curates which clause still governs. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Shape pinned by docs/governance/adr-governance-policy.yaml (required fields +
+# closed current_state set + per-state invariants) and
+# docs/governance/adr-taxonomy.yaml (decision_level x decision_type altitude).
+# UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0072
+raw_path: docs/adr/0072-engine-envelope-and-strict-matching.yaml
+current_state: partial_guidance
+
+# Where the decision is MADE. Declaring a module's public engine SPI as a
+# boundary identity is an L1 decision (public_spi_surface is DEFENSIBLE at L1
+# per the adjudicated layer-purity verdict). The raw ADR labels itself L1.
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  - gate
+view: logical
+decision_type: public_spi_surface
+
+clean_decision_summary: |
+  The engine boundary is a named public SPI surface: a strictly-matched
+  EngineEnvelope (schema authority docs/contracts/engine-envelope.v1.yaml) is
+  resolved by a central EngineRegistry to exactly one ExecutorAdapter by
+  engineType, with no fallback. Pattern-matching on executor-definition subtypes
+  outside the registry is forbidden; an engine/payload mismatch is a hard error
+  that fails the calling Run. This is the first L1 expression of principle P-M
+  (every domain contract ships schema -> typed surface -> runtime self-validate).
+
+active_guidance:
+  - The engine boundary identity — EngineEnvelope + EngineRegistry +
+    ExecutorAdapter — is a public SPI surface; engine resolution is by strict
+    engineType match through the registry, with no silent reinterpretation and
+    no fallback policy.
+  - docs/contracts/engine-envelope.v1.yaml is the single source of truth for the
+    envelope shape and the closed known-engines set.
+  - Dispatch authority is centralized in the registry; subtype pattern-matching
+    elsewhere is fenced off by an ArchUnit enforcer (the mechanism, not the
+    call site, is the L1-citeable fact).
+
+non_authoritative_legacy_content:
+  - Method-level and line-anchored detail in the raw ADR (dispatch-site line
+    numbers in the legacy orchestrator, executor method signatures, record
+    component counts, constructor-arity changes, the compile-time test blast
+    radius). This is L2 detail and is owned by the L2 design / generated facts,
+    not by this boundary decision.
+  - The transitional engine package home stated in the raw ADR
+    (agent-runtime/engine/...) and the deferred extraction note. The engine
+    contract surface was subsequently relocated to a neutral home by later
+    decisions in the same authority chain; the current location is a generated
+    fact, not this ADR's prose.
+  - The deferred Run.engineType / Run.mode proxy clause and the CLAUDE-deferred.md
+    sub-clause pointer (44.b). The deferred-rule registry has since been retired;
+    that pointer no longer resolves and is not current authority.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - efEngineRegistry
+  - fpEngineDispatch
+l0_constraint_refs:
+  - P-M
+l1_refs:
+  - efEngineRegistry
+l2_refs: []
+contract_refs:
+  - docs/contracts/engine-envelope.v1.yaml
+fact_refs:
+  - adr/0072-engine-envelope-and-strict-matching
+gate_refs:
+  - E74
+  - E75
+  - E76
+  - E77
+  - rule_55_engine_envelope_yaml_present_and_wellformed
+  - rule_56_engine_registry_covers_all_known_engines
+
+review_notes: |
+  current_state = partial_guidance: the engine-boundary SPI identity still
+  governs at L1, but the raw ADR is dense with L2 leakage (executor method
+  signatures, dispatch-site line numbers, record component counts, the
+  transitional agent-runtime/engine/ home) that is no longer current authority
+  and is captured under non_authoritative_legacy_content per the 2026-05-29
+  layer-purity verdict. The Java engine types (EngineRegistry / EngineEnvelope /
+  ExecutorAdapter) are not yet materialized as code-symbol facts (design phase),
+  so no code-symbol fact_ref is cited — citing one would invent an id. The raw
+  ADR's own prose notes the engine surface home is "transitional"; the current
+  home is a later decision in this authority chain and a generated fact, not
+  re-asserted here. Human review: confirm the L1 (not L0) decision_level for a
+  public-SPI-surface decision that fills an engine-contract gap.

@@ -1,0 +1,75 @@
+# Normalized ADR view — ADR-0149.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml.
+# Authority: ADR-0160. Enforced by Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0149
+raw_path: docs/adr/0149-structurizr-workspace-authority-w0-w5-shipped.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - DSL
+  - facts
+  - gate
+view: scenarios
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  Records that Waves 0 through 5 of the Structurizr workspace-authority migration
+  have shipped (workspace rooted; profile validator clean; generated zone
+  idempotent; Rule G-1.b amended and the workspace gate flipped to blocking) and
+  crystallises the W6 and W7 entry criteria and cleanup deliverables so a future
+  reviewer can verify the post-soak closure. EXTENDS ADR-0147 and ADR-0148. The
+  standing authority-direction decision remains ADR-0147; this ADR adds the
+  shipped-state checkpoint plus the forward governance gates for closure.
+
+active_guidance:
+  - "No rule retirement happens before W7 closure; each sub-wave retirement is deliberate so a reviewer can revert it independently during its sub-wave soak."
+  - "The W6 entry criteria (W5 soak clean on every commit in the soak window; the architecture-sync gate green at the soak-end commit) gate the YAML-authority sunset work."
+  - "The W7 entry criteria (all W6 sub-waves clean for the required soak; legacy-graph removal only if no active gate rule depends on it as source) gate the final cleanup."
+
+non_authoritative_legacy_content:
+  - "The W0-W5 shipped-state commit-SHA list and the point-in-time workspace counts (element / relationship totals) are progress-record metadata, not standing L0 authority."
+  - "The pre-registered F-architecture-authority-fragmentation family YAML block embedded in the decision is a forward-looking draft for recurring-defect-families.yaml (the authoritative ledger surface); it is not authority in this ADR and must be authored into that ledger by the owning wave, not minted from here."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - "architecture/workspace.dsl (rooted authority — shipped state)"
+  - "architecture/features/ (authored L1 feature/function-point registry)"
+l0_constraint_refs:
+  - "ADR-0147 (Structurizr Workspace Authority; EXTENDED)"
+  - "ADR-0148 (Wave 0 spike results; EXTENDED)"
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - "architecture/facts/generated/*.json (generated-fact layer fed by the workspace closure)"
+gate_refs:
+  - "Rule G-1.b (Architecture Workspace Truth; amended at W5)"
+  - "gate/check_architecture_workspace.sh"
+  - "gate/check_architecture_sync.sh"
+
+review_notes: |
+  Classified partial_guidance: the standing clauses are the forward governance
+  gates — the no-retirement-before-W7 rule and the W6 / W7 entry criteria — which
+  still govern the closure path; the W0-W5 shipped-state SHA list and workspace
+  counts are progress metadata and the embedded family YAML block is a draft for
+  another surface, all recorded as non_authoritative_legacy_content. partial_
+  guidance requires both active_guidance and non_authoritative_legacy_content
+  non-empty (satisfied). decision_type governance_invariant is the allowed L0
+  type for migration-governance gates. supersedes / superseded_by empty: the raw
+  ADR declares EXTENDS only and the fact layer carries no supersession for
+  ADR-0149.

@@ -1,0 +1,104 @@
+# Normalized view of ADR-0080 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160.
+
+adr: ADR-0080
+raw_path: docs/adr/0080-resilience-contract-spi-package-alignment.yaml
+
+# partial_guidance: the boundary identity (ResilienceContract and its value types
+# are a published SPI under a .spi sub-package) still governs and the realized facts
+# confirm it; but the raw ADR's class-file enumeration, "no method signature change"
+# claims, and mechanical caller-update counts are L2 detail and now lower-level.
+current_state: partial_guidance
+
+# Decided at L1: classifies ResilienceContract as a governed public SPI surface and
+# fixes its package home.
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  - gate
+view: development
+# Naming a published SPI as a boundary identity + its .spi package home is
+# DEFENSIBLE at L1 (adr-taxonomy decision_levels.L1.allowed_decision_types).
+decision_type: public_spi_surface
+
+clean_decision_summary: >
+  ResilienceContract — already published as the skill-capacity arbitration boundary
+  (ADR-0030) and listed in the contract catalog — is classified as a governed public
+  SPI: its interface and exposed value types (ResiliencePolicy, SkillResolution,
+  SuspendReason, SkillCapacityRegistry) live under a dedicated .spi sub-package, with
+  implementations in the parent package. The module-metadata, DFX, and contract
+  catalog agree on the .spi home. A prevention enforcer (Rule R-D sub-clause .f /
+  E118) keeps any future catalog SPI row from drifting away from its module-metadata
+  + DFX declaration; rows explicitly marked internal are exempt.
+
+active_guidance:
+  - >
+    ResilienceContract is a governed published SPI, classified consistently across
+    contract catalog, module-metadata spi_packages, DFX, and prose. The boundary
+    identity (the SPI lives under a .spi sub-package; implementations stay in the
+    parent package) is the still-governing decision and is confirmed by the realized
+    facts (the SPI resolves at ...resilience.spi.*; the impls at ...resilience.*).
+  - >
+    Rule R-D sub-clause .f (catalog_spi_row_matches_module_spi_metadata, enforcer
+    E118) is the durable prevention: every catalog SPI row must be declared in
+    module-metadata + DFX, or be explicitly marked internal. This brings the surface
+    under the .spi-convention and DFX set-match enforcers (no longer vacuously
+    passing for this contract).
+
+non_authoritative_legacy_content:
+  - >
+    The exhaustive class-file enumeration in the raw decision (the five SPI files and
+    three implementation files with their full source paths) is L2 detail; the live
+    code-symbol facts own the current type inventory and locations, not this ADR.
+  - >
+    The mechanical-migration claims — "no public method signatures change", "callers
+    update only import lines", "~10 files across 3 impls / 1 autoconfig / 5 tests /
+    1 Javadoc FQN" — are point-in-time refactor bookkeeping, not governing content.
+  - >
+    The numeric verification counts (gate self-test totals "138/138", "70 active gate
+    rules", enforcer-row deltas) are point-in-time baselines superseded by later
+    waves; the live baselines + enforcers own the current numbers. The bare gate
+    identifier "rule-85" predates the rule-card-as-sole-authority model; the R-D
+    sub-clause naming is authoritative.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - P-M   # Heterogeneous Engine Contract (skill-capacity arbitration lives under P-M cross-cutting)
+  - P-K   # Skill-Dimensional Resource Arbitration (the principle ResilienceContract serves)
+l1_refs:
+  - ADR-0030  # Skill-Dimensional Resource Arbitration (names ResilienceContract as the boundary)
+  - ADR-0070  # Cursor Flow + Skill Capacity Runtime (publishes resolve(tenant, skill))
+  - ADR-0079  # engine SPI/impl split pattern this decision mirrors (later superseded by ADR-0088)
+l2_refs: []
+contract_refs:
+  - docs/contracts/contract-catalog.md   # the catalog row whose Package column this decision fixes
+  - docs/dfx/agent-service.yaml          # DFX spi_packages mirror (Rule R-D sub-clause .e set-match)
+fact_refs:
+  - code-symbol/com-huawei-ascend-service-runtime-resilience-spi-resiliencecontract
+  - code-symbol/com-huawei-ascend-service-runtime-resilience-spi-skillcapacityregistry
+  - code-symbol/com-huawei-ascend-service-runtime-resilience-spi-suspendreason
+gate_refs:
+  - Rule-R-D.f   # catalog_spi_row_matches_module_spi_metadata (enforcer E118; formerly rule-85)
+  - Rule-R-D.d   # spi_packages_dot_spi_convention (enforcer E110)
+  - Rule-R-D.e   # dfx_spi_packages_match_module_metadata (enforcer E111)
+
+review_notes: >
+  Layer-purity: decided at L1 (a published-SPI boundary identity + its package home,
+  DEFENSIBLE at L1). The raw body leaks L2 detail — full class-file paths, method-
+  signature stability claims, and per-file caller-update counts — recorded as
+  non_authoritative_legacy_content. Facts-confirm note (not re-litigated): the
+  realized code-symbol facts place ResilienceContract + SuspendReason +
+  SkillCapacityRegistry at ...service.runtime.resilience.spi.*, matching this
+  decision; the SuspendReason taxonomy itself has since been realigned (ADR-0146),
+  which is out of this ADR's scope. current_state is unambiguous (partial_guidance).

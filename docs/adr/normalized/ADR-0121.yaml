@@ -1,0 +1,94 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0121
+raw_path: docs/adr/0121-model-gateway-spi.yaml
+
+current_state: partial_guidance
+decision_level: L1
+affected_levels: [L1, L2, contract, facts]
+view: development
+decision_type: public_spi_surface
+
+clean_decision_summary: >-
+  Lands the model-gateway as a public SPI boundary identity in the middleware
+  module: a tenant-scoped, hook-bound, pure-Java gateway over which all model
+  invocations route, with the canonical Spring AI chat model as the reference
+  adapter (Spring AI types confined to the integration package, not the SPI
+  surface). The boundary lets customers swap providers by implementing the
+  gateway without touching Spring AI. The standing decision is the gateway
+  boundary identity + its tenant/hook/purity contract; the method signature, the
+  value records, and the design_only-until-runtime status are L2 / contract
+  detail.
+active_guidance:
+  - >-
+      The model-gateway boundary identity is the governing decision: ONE pure-Java
+      gateway SPI (imports the JDK only, no runtime-library types in the contract
+      surface) is the single seam through which model invocations route, and
+      customers swap providers (direct provider adapters, a custom accelerator
+      adapter, or the reference Spring AI adapter) by implementing it.
+  - >-
+      The gateway carries the platform's cross-cutting model-invocation contract:
+      it is tenant-scoped (the invocation carries a tenant identity and cross-
+      tenant access fails closed before provider I/O), hook-bound (the before-LLM
+      and after-LLM hook points fire around it with short-circuit semantics), and
+      capacity-arbitrable (per-model rate limits MAY arbitrate at the runtime
+      implementation's call site).
+  - >-
+      Spring AI is the reference, not the surface: the canonical Spring AI chat
+      model is wrapped by a reference adapter in the integration package; the SPI
+      itself exposes no reactive or provider types, and blocking isolation is the
+      runtime implementation's responsibility, not the SPI carrier's.
+non_authoritative_legacy_content:
+  - >-
+      The gateway method signature and the value-type shapes (the invocation /
+      response / message / usage records and their field lists) are L2 / contract
+      realisation detail; the model-invocation contract surface and the live code-
+      symbol facts own those, not this ADR.
+  - >-
+      The design_only-at-landing / runtime-enforced-when-the-runtime-gateway-ships
+      status, the reference-adapter shell behaviour (holding the Spring AI type to
+      defer the binding, throwing until the runtime wave), and the staged wiring
+      timeline are status / sequencing detail owned by the contract surface and
+      release notes, not standing L1 authority.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "PC-004 (the product claim the raw cites -- the model-gateway is one of the agentic-primitive SPIs that closes the L0 contract gap)"
+l1_refs:
+  - "agent-middleware -- the module that homes the model-gateway SPI"
+  - "ADR-0125 -- the Spring AI canonical-integration-boundary decision this SPI realises (platform decorates, does not re-export)"
+  - "ADR-0073 -- the engine-hooks / hook-point decision the before-LLM / after-LLM bindings rest on"
+l2_refs:
+  - "model-gateway method signature + value records + reference-adapter shell behaviour -- L2 realisation"
+contract_refs:
+  - docs/contracts/model-invocation.v1.yaml
+fact_refs:
+  - adr/0121-model-gateway-spi
+  - contract-yaml/model-invocation
+  - code-symbol/com-huawei-ascend-middleware-model-spi-modelgateway
+  - code-symbol/com-huawei-ascend-middleware-model-spi-modelinvocation
+  - code-symbol/com-huawei-ascend-middleware-model-spi-modelresponse
+  - code-symbol/com-huawei-ascend-service-integration-springai-springaichatmodelgateway
+gate_refs: []
+review_notes: >-
+  Lane: L4-FRAME (ADR-0159). Layer-purity reclassification: the raw labels itself
+  level L0, but a public-SPI-surface decision is a FORBIDDEN lower-altitude leak at
+  L0 and is DEFENSIBLE at L1 (adr-taxonomy) -- this is the same re-altitude applied
+  to the sibling SPI ADRs (the memory / planner / chat-advisor SPIs). The
+  normalized decision_level is therefore L1 (public_spi_surface), with L0 retained
+  in affected_levels because the SPI closes an L0 agentic-primitive contract gap.
+  The method signature + value records (forbidden line-level / private detail at
+  L1) are pushed to non_authoritative_legacy_content and cited via the realised
+  code-symbol facts (the gateway, invocation, response, and the reference Spring AI
+  adapter all resolve in the generated facts). current_state partial_guidance: the
+  gateway boundary identity + tenant/hook/purity contract still govern
+  (active_guidance) while the signature, records, and design_only status are
+  non-authoritative L2 / contract realisation. AMBIGUITY FLAG for human review: the
+  raw marks the SPI design_only; the realised code-symbol facts show the SPI +
+  reference adapter present, so if runtime enforcement has since landed the active/
+  legacy split should be re-confirmed. superseded_by empty (relates_to only).

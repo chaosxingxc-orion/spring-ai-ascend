@@ -1,0 +1,68 @@
+# Normalized view of ADR-0095  -  readable interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). Schema pinned by
+# docs/governance/adr-governance-policy.yaml (required fields + state
+# invariants) and docs/governance/adr-taxonomy.yaml (decision-level + type
+# altitude). This view INVENTS NO ids and NO relationships: supersedes /
+# superseded_by are re-stated from the raw ADR + adrs.json, never minted.
+# Authority cascade is unchanged: generated facts > DSL > Card/prose.
+# UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0095
+raw_path: docs/adr/0095-rc18-comprehensive-hardening.yaml
+current_state: remediation_record
+decision_level: L0
+affected_levels:
+  - L0
+  - gate
+view: process
+decision_type: governance_invariant
+
+clean_decision_summary: >
+  rc18 comprehensive-hardening wave: five sequential corrective waves under a
+  single fixed version closing a post-merge reviewer + multi-agent scan of the
+  rc17 deliverables. The headline fix closes the recursive irony where the
+  META rule meant to prevent recurring-defect-family recurrence itself
+  exhibited the defect patterns it was supposed to prevent; the wave also
+  cleans naming/structural drift and normalises enforcer constraint-ref
+  namespace mixing. Captured here as governance traceability, not as standing
+  architecture authority.
+
+active_guidance: []
+
+non_authoritative_legacy_content:
+  - >
+    The entire wave content is a point-in-time remediation record: the
+    five-wave decomposition, the per-commit fix lists, the 21-fixture
+    helper-isation deferral and other known-debt entries describe cleanup work
+    performed in that wave. None of it is current architecture authority  -  the
+    live rule bodies, gate helpers, and recurring-defect-family ledger are the
+    authoritative surfaces now.
+  - >
+    Specific rule numbers in legacy numeric form (Rule 111 / Rule G-9 and the
+    Rule 1-110 enumerations) reflect the pre-namespace-ratchet naming; the
+    current rule ids are the ones the rule cards and enforcers declare.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0095-rc18-comprehensive-hardening
+gate_refs:
+  - "Rule G-9 / recurring-defect-family META rule (self-hardened in this wave)"
+  - "gate/lib/check_recurring_families.sh (helper extracted in this wave)"
+  - "gate/rule-number-migration.md (legacy->semantic rule-id map)"
+
+review_notes: >
+  current_state = remediation_record: ADR-0095 captures cleanup / review-finding
+  closure work, so it is citeable for governance traceability but NOT as
+  architecture authority (per the closed-state set). A gate change IS claimed
+  (Rule G-9 self-hardening + helper extraction + migration doc), so gate_refs is
+  non-empty to satisfy the remediation_record state invariant. active_guidance is
+  intentionally empty (allowed for this state). No supersedes/superseded_by edge
+  is declared by the raw ADR or adrs.json, so both lists are empty.

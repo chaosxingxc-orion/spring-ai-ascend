@@ -1,0 +1,118 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0161
+raw_path: docs/adr/0161-engineering-frame-package-cluster-anchor-and-card-over-dsl.yaml
+current_state: active_guidance
+decision_level: L1
+affected_levels: [L1, DSL, facts, gate]
+view: development
+decision_type: engineering_frame_boundary
+clean_decision_summary: >-
+  Thickens the EngineeringFrame into a package-level / package-cluster engineering
+  ANCHOR inside a single Maven module, and binds to it a per-frame readable Frame
+  Card that is a DERIVED INTERPRETATION of the DSL and generated facts, never an
+  authority. Adds two required Structurizr properties (saa.cardPath on every
+  frame; saa.primaryPackage on every shipped frame). Card-over-DSL fixes a one-way
+  authority direction: a card copies identity from the DSL element and cites every
+  factual claim by generated fact ID; where card and DSL disagree the DSL wins,
+  and where DSL and generated facts disagree the facts win.
+active_guidance:
+  - >-
+      An EngineeringFrame is a package-level or package-cluster engineering anchor
+      inside a SINGLE Maven module. Default rule -- one frame normally anchors one
+      primary package root; a frame MAY declare an explicit package cluster
+      (included + excluded lists) when the true boundary spans sibling packages. A
+      cross-module concern MUST NOT become one cross-module frame by default -- it
+      is one frame per owning module plus the contracts between them. This refines,
+      and does not repeal, ADR-0157; frames stay durable, claim-agnostic, and carry
+      the saa.structuralAxis "true" sentinel.
+  - >-
+      Two new required properties on SAA EngineeringFrame (Structurizr profile,
+      ADR-0147 home) -- saa.cardPath (REQUIRED on every frame; the repo-relative
+      path to architecture/docs/L1/frames/<frame-id>.md) and saa.primaryPackage
+      (REQUIRED on every shipped frame, OPTIONAL on design_only/skeleton frames;
+      the fully-qualified primary Java package root). Long include/exclude lists
+      and type inventories stay in the Card and the generated facts, NOT in DSL
+      properties. ProfileValidator + ProfileYamlParityTest move in lockstep.
+  - >-
+      Card-over-DSL -- the Frame Card is a READABLE INTERPRETATION layer that
+      invents no IDs, owners, statuses, or relationship edges. Every identity
+      field (frame_id / dsl_element / owner_module / status / primary_package) is
+      COPIED from the DSL element and MUST match it; every code/type/method/
+      contract/test claim is CITED by generated fact ID (code-symbol/<kebab-fqn>,
+      the class fact public_methods[] entry, test/<kebab-fqn>,
+      contract-op/<kebab-op-id>) and MUST resolve in
+      architecture/facts/generated/*.json. Where the Card and the DSL disagree the
+      DSL wins; where the DSL and generated facts disagree the facts win. No second
+      architecture registry is created.
+  - >-
+      Frame Card shape -- YAML frontmatter (copied-from-DSL identity block +
+      fact_refs) plus seven prose sections (Identity; Capability Boundary; Type
+      Inventory [fact-cited]; Internal Collaboration; Communication Contracts;
+      FunctionPoint Mapping; Constraints and Verification). A design_only card MUST
+      state what proof is missing before promotion to shipped; a mock_functional
+      card MUST state why it is not yet a real production implementation. The
+      frames/ directory ships a README.md and a _template.md with a pilot card
+      first (EF-ACCESS-ADMISSION and/or EF-ENGINE-PORT).
+  - >-
+      A new structural-axis gate rule (sibling to Rules G-22/G-23) fails closed
+      when a frame lacks saa.cardPath, the cardPath does not resolve, a shipped
+      frame lacks saa.primaryPackage, card frontmatter disagrees with the DSL
+      element, a shipped card cites a package/class/method/test/contract absent
+      from generated facts, or a card lists FunctionPoints not backed by DSL
+      anchors edges. Each failure mode ships a negative AND a positive self-test
+      fixture (fail-closed; non-vacuity guard).
+non_authoritative_legacy_content:
+  - >-
+      The pre-decision thin-frame state (a SAA EngineeringFrame carrying only
+      saa.owner + saa.sourceAdr, zero Frame Cards present, no saa.cardPath /
+      saa.primaryPackage property) is the gap this ADR closes; it is no longer the
+      target shape.
+  - >-
+      The corpus-count figures quoted inline (17 frames; engineering-frames.dsl
+      declares 11; 18 FunctionPoints; Frame Cards present 0/17) are point-in-time
+      inventory readings from the frame-and-fp-gap census, not standing authority;
+      the live counts are the DSL + generated facts + architecture-status.yaml.
+  - >-
+      The staged Phase 1..5 rollout mechanics and the forward-looking
+      EngineeringFrameFactExtractor / engineering-frames.json are sequencing and
+      future work, not present-tense normative clauses.
+supersedes: []
+superseded_by: ""
+dsl_refs:
+  - architecture/features/engineering-frames.dsl
+  - architecture/features/features.dsl
+  - architecture/profile/required-properties.yaml
+l0_constraint_refs: []
+l1_refs:
+  - architecture/docs/L1/frames/
+l2_refs:
+  - architecture/docs/L2/
+contract_refs: []
+fact_refs:
+  - architecture/facts/generated/
+gate_refs:
+  - Rule G-27
+  - Rule G-22
+  - Rule G-23
+  - Rule G-13
+  - Rule G-8
+review_notes: >-
+  Decision is made at L1 (the EngineeringFrame boundary definition is thickened
+  to a package-cluster anchor and bound to a readable card) and affects L1, the
+  DSL graph (two new required profile properties), the facts lane (the card cites
+  generated fact IDs and sits at the lowest interpretation tier of the ADR-0154
+  cascade), and the gate (the new G-27 frame-card/DSL-parity rule). decision_type
+  engineering_frame_boundary is in-altitude for L1; naming a package root and the
+  public boundary of a frame is defensible at L1, and the heavy type/method/
+  test inventories are explicitly pushed DOWN to the Card + generated facts +
+  L2, not promoted to L1/DSL. current_state is active_guidance: ADR-0161 is
+  current authority and nothing supersedes it; it REFINES (does not repeal)
+  ADR-0157. The L0/L1-leaked runtime detail flagged for L2 migration
+  (method call chains, runtime sequences, SQL/RLS/GUC, HTTP behaviour, filter
+  ordering, wire formats, method signatures, test-class inventories) is recorded
+  in the raw ADR as forward L2 work, not as content this view owns.

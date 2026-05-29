@@ -1,0 +1,87 @@
+# Normalized ADR view — readable-interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). This view re-states and curates;
+# it invents no ADR ids and no relationships and never outranks a generated
+# fact. Authority cascade: generated facts > DSL > Card/prose. Schema pinned by
+# docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml,
+# enforced by Rule G-28. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0138
+raw_path: docs/adr/0138-agent-service-five-layer-l1-ratification.yaml
+current_state: active_guidance
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - contract
+view: logical
+decision_type: module_responsibility
+
+clean_decision_summary: |
+  Ratify the agent-service L1 logical decomposition as five layers (Access;
+  Session & Task Manager; Internal Event Queue; Task-Centric Control; Engine
+  Adapter) and bind it by a single canonical cross-walk table to the earlier
+  five-component decomposition (Dispatcher / Orchestrator / Task Center / Session
+  Manager / Engine Adapter), so the runtime data-flow view and the logical-role
+  view are two complementary projections rather than rival authorities. The
+  Run <= Task <= Session <= Memory lifecycle is preserved, with tenant id a
+  first-class field on every lifecycle entity. Four red-line invariants are
+  elevated to ADR level: no tenant-id-less data model; no cancel state machine
+  without re-authorization and an atomic compare-and-set write; no single-tier
+  internal queue with mode-based durability (the queue is redesigned as a binding
+  layer over the canonical three-track bus, routed by intent); and no Fast-Path
+  language implying invariant bypass.
+
+active_guidance:
+  - "agent-service has one authoritative L1 decomposition: the five layers (Access / Session & Task Manager / Internal Event Queue / Task-Centric Control / Engine Adapter) bound to the five components (Dispatcher / Orchestrator / Task Center / Session Manager / Engine Adapter) by the single cross-walk table; the two are orthogonal views of the same architecture, not competitors."
+  - "Lifecycle hierarchy Run <= Task <= Session <= Memory is preserved; all four lifecycle entities carry tenant id as a first-class field across L1, L2, and code surfaces."
+  - "Red line: no tenant-id-less data model — any ER block / field table / schema in L1 or L2 surfaces MUST declare tenant id first-class on the Run / Task / Session / lifecycle-state / state-store entities."
+  - "Red line: every cancel state machine MUST carry the tenant-match guard, the terminal->terminal success path, the illegal-transition rejection path, and the atomic compare-and-set write site (no blind status overwrite)."
+  - "Red line: the Internal Event Queue is a binding layer over the canonical three-track bus (control / data / rhythm), routed by intent (cancel/resume -> control; payload / S2C response -> data; heartbeat / tick -> rhythm); the in-memory/semi-persistent/persistent durability axis is eliminated and durability is a per-channel property."
+  - "Red line: no L1/L2 prose may suggest a Fast-Path that skips tenant id, row-level security, reactive I/O, or the checked-suspension flow (Fast/Slow path semantics narrowed by ADR-0139)."
+  - "Access-Layer ingress (A2A service + MQ adapter) lands on the IngressEnvelope contract with no SDK runtime dependency; the Engine Adapter Layer's sub-components map to the shipped SPIs (executor adapter, context projector, prompt template, structured-output converter, chat advisor, runtime middleware hook points)."
+
+non_authoritative_legacy_content:
+  - "The raw PR #71 design's four P0 structural defects (tenant-id-less ER, cancel state machine without re-auth/CAS, single-tier queue with 3 storage modes, Fast-Path 'no mandatory persistence' wording) are the corrected-against antipatterns — they are recorded as what this ADR BLOCKS, never as guidance."
+  - "Per-sub-package paths and the F-01..F-22 feature inventory rows are L2 design-backlog detail (each row must later carry an authority column); they are not normalized-view authority."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - service.agent.spi
+l0_constraint_refs:
+  - "Rule R-C sub-clause .2.a (tenant id first-class on the data model)"
+  - "Rule R-J sub-clause .b (cancel re-authorization + atomic CAS)"
+  - "Rule R-E (three-track bus channels)"
+  - "Rule R-G / Rule R-H / Rule R-J sub-clause .a (no Fast-Path invariant bypass)"
+  - "Rule R-I sub-clause .1 + Rule G-1 sub-clause .1 (ingress envelope + L1 4+1 depth/grounding)"
+l1_refs:
+  - "agent-service five-layer L1 decomposition (Access / Session & Task / Internal Event Queue / Task-Centric Control / Engine Adapter)"
+l2_refs:
+  - "Sub-package layout (service/dispatcher, service/task, service/session, service/queue, service/orchestrator, service/engine/adapter) + F-01..F-22 L2 backlog (raw ADR — L2 detail, not normalized authority)"
+contract_refs:
+  - docs/contracts/ingress-envelope.v1.yaml
+  - docs/contracts/s2c-callback.v1.yaml
+fact_refs:
+  - adr/0138-agent-service-five-layer-l1-ratification
+gate_refs:
+  - "Rule M-2 sub-clause .b spirit (dangling feature IDs without an authority anchor are rejected)"
+
+review_notes: |
+  Classified active_guidance: the five-layer ratification, the cross-walk table,
+  the lifecycle hierarchy, and the four red-line invariants are current governing
+  L1 authority for agent-service; nothing supersedes ADR-0138. Later ADRs
+  (ADR-0140 layer split, ADR-0141 queue design-only, ADR-0142 Run-aggregate owner,
+  ADR-0144 layer-vs-package matrix, ADR-0155 internal module design) EXTEND this
+  decomposition rather than replace it.
+
+  decision_level L1 / decision_type module_responsibility: the decision allocates
+  module-internal responsibilities and frame boundaries within agent-service — an
+  L1 altitude. The red lines reference L0 cross-cutting rules (cited in
+  l0_constraint_refs as affected, not as the decision's own altitude).
+
+  Layer-purity discipline applied: the red lines are stated at invariant altitude
+  (presence of a guard / a field / a routing intent), NOT as method call chains,
+  SQL, HTTP status numbers, or filter ordering. The concrete sub-package paths and
+  the F-01..F-22 inventory are L2 and were pushed to non_authoritative_legacy_content.

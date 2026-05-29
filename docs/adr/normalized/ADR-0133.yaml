@@ -1,0 +1,109 @@
+# Normalized view of ADR-0133 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160.
+
+adr: ADR-0133
+raw_path: docs/adr/0133-conversation-memory-spi-variant.yaml
+
+# partial_guidance: the conversation-memory boundary identity (a platform-owned
+# windowed-conversation variant of MemoryStore that preserves the decoration
+# boundary instead of exposing a provider type) still governs; the method
+# signatures, carrier record field lists, and pruning-algorithm wording are
+# L2/contract detail and now lower-level.
+current_state: partial_guidance
+
+# Decided at L1: a public SPI surface (a platform-owned memory variant boundary),
+# even though the raw ADR labels itself L0 — the SPI-surface decision belongs at L1.
+decision_level: L1
+affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+view: development
+# Naming a public SPI variant as a boundary identity is DEFENSIBLE at L1; it is a
+# forbidden lower-altitude leak at L0 (adr-taxonomy). Hence decision_level L1.
+decision_type: public_spi_surface
+
+clean_decision_summary: >
+  The most common chat-application need — remember the last N turns, prune by token
+  budget, optionally summarise older context — gains a platform-owned ConversationMemory
+  SPI as a variant of the unified MemoryStore (keyed by an opaque conversation id,
+  valued by an ordered conversation window, defaulting to the episodic category). It
+  gives Audience B the same ergonomics as the provider's chat-memory type WITHOUT
+  coupling to that provider type, preserving the platform decoration boundary. Token
+  budgeting (drop oldest first) and an optional summarise-and-compact operation are
+  part of the contract, not per-application code; the tokenizer choice is left
+  implementation-internal. The machine-readable shape lives in a conversation-memory
+  section of the memory-store contract surface.
+
+active_guidance:
+  - >
+    The conversation-memory boundary identity is the governing decision: a platform-
+    owned ConversationMemory variant of MemoryStore (keyed by an opaque conversation
+    id, valued by an ordered conversation window, defaulting to the episodic
+    category). Audience B writes against this platform SPI, NOT the provider's
+    chat-memory type — preserving the decoration boundary. Re-exporting the provider
+    type directly was rejected.
+  - >
+    Token-budget pruning (drop OLDEST first) and the optional summarise-and-compact
+    operation are first-class CONTRACT concerns, not per-application code. A free-form
+    window with caller-side policy was rejected (it duplicates windowing/budget/
+    summarisation logic and leaves the tokenizer choice implicit).
+  - >
+    Every operation is tenant-scoped and fails closed on a blank tenant or
+    conversation id before any backing-store I/O. The tokenizer choice is deliberately
+    implementation-internal (the SPI does not standardise the counter), so cross-
+    implementation deterministic replay is NOT guaranteed at the boundary.
+
+non_authoritative_legacy_content:
+  - >
+    The method signatures (the add-turns / get-turns-up-to-budget / summarise-and-
+    compact shapes and their parameter/return types) and the precise no-op/ordering
+    wording are L2/contract detail; the conversation-memory section of the memory-
+    store contract surface and the live code-symbol facts own those, not this ADR.
+  - >
+    The carrier record field lists (the conversation-window and conversation-turn
+    record shapes, their defensive-copy behavior, the role/content/observed-at/
+    token-count fields) are L2/contract detail owned by the contract + facts.
+  - >
+    The point-in-time status wording (design_only at landing; the parity-consolidator
+    wave that lands the catalog row / module-metadata reference / DFX update; the
+    vacuous examples/** ArchUnit guard) is a roadmap snapshot, not governing content.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - PC-001   # product claim cited by the raw ADR
+  - PC-005   # product claim cited by the raw ADR
+l1_refs:
+  - ADR-0123  # Memory unified SPI (the parent MemoryStore boundary this varies)
+  - ADR-0125  # Spring AI integration boundary (the decoration boundary this preserves)
+  - ADR-0121  # ModelGateway SPI (the optional summary-generation target hidden behind impls)
+l2_refs: []
+contract_refs:
+  - docs/contracts/memory-store.v1.yaml   # conversation_memory: section (status: design_only)
+fact_refs:
+  - code-symbol/com-huawei-ascend-middleware-memory-spi-conversationmemory
+gate_refs: []
+
+review_notes: >
+  Layer-purity reclassification: like its parent ADR-0123, the raw ADR labels itself
+  level L0, but a public-SPI-variant decision is a FORBIDDEN lower-altitude leak at L0
+  and DEFENSIBLE at L1 (adr-taxonomy). The normalized decision_level is L1
+  (public_spi_surface); L0 is retained in affected_levels because the variant closes
+  an L0 contract-layer gap. Method signatures, the pruning/summarise algorithm
+  wording, and the carrier record field lists are pushed to
+  non_authoritative_legacy_content (L2/contract). Facts-confirm note: the realized
+  fact places ConversationMemory at com.huawei.ascend.middleware.memory.spi, matching
+  the raw decision's stated home. AMBIGUITY FLAGGED FOR HUMAN REVIEW: the raw ADR is
+  design_only at landing (runtime_enforced when the W2 chat-memory implementation
+  ships); if that status has since changed, re-confirm the active/legacy split.
+  current_state is partial_guidance.

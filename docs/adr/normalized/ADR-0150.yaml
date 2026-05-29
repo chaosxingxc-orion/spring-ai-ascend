@@ -1,0 +1,78 @@
+# Normalized ADR view — ADR-0150.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml.
+# Authority: ADR-0160. Enforced by Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0150
+raw_path: docs/adr/0150-architecture-design-system-unification-under-structurizr.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - DSL
+  - gate
+view: scenarios
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  Makes architecture/ the publish/canonical root of the architecture-design
+  system (workspace.dsl is the sole main entry; architecture/docs/ holds L1/L2
+  narrative; architecture/decisions/ mirrors ADR markdown), and demotes docs/ to
+  a work directory for operational/governance surfaces. Moves the L1 design
+  corpus and module-root ARCHITECTURE.md files under architecture/docs/L1/ with
+  no pointer/redirect/index files left behind. EXTENDS ADR-0147 and ADR-0149;
+  SUPERSEDES ADR-0143. The per-module single-.md fallback shape this ADR allowed
+  is superseded in part by ADR-0152's uniform per-view mechanism.
+
+active_guidance:
+  - "architecture/ is the publish/canonical root of the architecture-design system; architecture/workspace.dsl is the sole main entry and docs/ is a work directory for operational/governance surfaces, not for architecture-design content."
+  - "The L1 design corpus and module-root ARCHITECTURE.md live under architecture/docs/L1/<module>/; no pointer/redirect/index file is left at an old location and every consumer repoints its citation."
+  - "workspace.dsl imports the human-reviewable docs and decision sources via its !docs and !adrs directives."
+
+non_authoritative_legacy_content:
+  - "Clause 6's per-module single-.md OR per-view-directory CHOICE is superseded by ADR-0152, which retires the single-.md fallback and makes the per-view directory the uniform shape for every L1 module."
+  - "The Wave 8 path-sweep enumeration (specific gate scripts / templates / top-level docs touched) and the advisory check_doc_coherence.py status are migration sequencing, not standing L0 authority."
+
+supersedes:
+  - ADR-0143
+superseded_by: []
+
+dsl_refs:
+  - "architecture/workspace.dsl (sole main entry; !docs + !adrs directives)"
+l0_constraint_refs:
+  - "ADR-0147 (Structurizr Workspace Authority; EXTENDED)"
+  - "ADR-0149 (W0-W5 shipped record; EXTENDED)"
+  - "ADR-0068 (Layered 4+1 + Architecture Graph)"
+  - "ADR-0119 (Single-Source Rendering Coherence)"
+l1_refs:
+  - "architecture/docs/L1/<module>/ (canonical L1 corpus location)"
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs:
+  - "Rule G-1.a (L0/L1 doc-location authority; kernel + card updated by this ADR)"
+
+review_notes: |
+  Classified partial_guidance: the architecture/-as-canonical-root and
+  docs/-as-work-directory decision is current authority, but clause 6's single-.md
+  fallback shape is superseded in part by ADR-0152, so that clause is recorded as
+  non_authoritative_legacy_content. supersedes: [ADR-0143] is RE-STATED from the
+  raw ADR's declared supersedes edge (confirmed in the extracted fact layer).
+  superseded_by is EMPTY: ADR-0152 supersedes ADR-0150 only PARTIALLY (a
+  clause-level supersedes_partial in the raw ADR), the fact layer carries no
+  whole-ADR superseded_by edge for ADR-0150, and partial_guidance does not
+  require superseded_by. Minting a whole-ADR superseded_by would invent an edge
+  the source does not declare. The partial supersession by ADR-0152 is recorded
+  in non_authoritative_legacy_content and here. decision_type governance_invariant
+  is the allowed L0 type for a corpus-location / design-system-root governance
+  decision.

@@ -1,0 +1,94 @@
+# Normalized view of ADR-0125  -  readable interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). Schema pinned by
+# docs/governance/adr-governance-policy.yaml (required fields + state
+# invariants) and docs/governance/adr-taxonomy.yaml (decision-level + type
+# altitude). This view INVENTS NO ids and NO relationships: supersedes /
+# superseded_by are re-stated from the raw ADR + adrs.json, never minted.
+# Authority cascade is unchanged: generated facts > DSL > Card/prose.
+# UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0125
+raw_path: docs/adr/0125-spring-ai-integration-boundary.yaml
+current_state: partial_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - contract
+view: scenarios
+decision_type: system_boundary
+
+clean_decision_summary: >
+  Adopt Path (a) as the Spring AI integration boundary: Spring AI is the
+  canonical Model / Tool / Vector / Embedding / Retrieval abstraction, and the
+  platform's own SPIs are thin decorators over Spring AI's reference types. The
+  decorators re-express Spring AI's input/output shape in platform packages and
+  add the cross-cutting concerns Spring AI's types do not carry  -  tenant
+  scoping, hook binding, resilience/capacity pass-through, and trace
+  propagation. Customers swapping providers implement the platform SPI directly;
+  Ascend-NPU-optimised native adapters coexist by implementing the same SPI
+  without going through Spring AI.
+
+active_guidance:
+  - >
+    The integration-boundary decision is Path (a): Spring AI is the canonical
+    Model/Tool/Vector/Embedding/Retrieval abstraction and the platform SPIs are
+    thin decorators over it. This boundary is current authority.
+  - >
+    The decorator obligation stands: every platform capability SPI re-expresses
+    Spring AI's shape in platform-native records and layers tenant scoping, hook
+    binding, resilience/capacity pass-through, and trace propagation that the
+    raw Spring AI types do not carry.
+  - >
+    The boundary is provider-agnostic: a customer (or an Ascend-NPU native
+    adapter) implements the platform SPI directly without dragging Spring AI;
+    the abstraction is real, not a nominal re-export.
+
+non_authoritative_legacy_content:
+  - >
+    The concrete package paths quoted in the decision (the model-gateway SPI
+    package under middleware, the springai reference-adapter package under
+    agent-service) are L1 placement detail; the authoritative SPI signatures
+    and their homes live in the per-capability ADRs and the contract surfaces,
+    not in this L0 boundary decision.
+  - >
+    Specific class/probe/test names (the OSS classpath probe, the
+    hook-chain-only adapter test) and the pinned spring-ai-bom version are
+    L2/build facts, not L0 authority; the live build-config and test facts are
+    authoritative.
+  - >
+    The Wave A2/C1 staging notes (which rc the decision lands in vs which rc
+    ships the adapters) are scheduling context, not standing authority.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - efCapabilitySpi
+l0_constraint_refs:
+  - "Rule R-C.c (tenant-scoped SPI carriers)"
+  - "Rule R-A (no opaque production auto-wiring defaults)"
+l1_refs:
+  - "agent-middleware capability SPI family"
+  - "agent-service springai reference adapters"
+l2_refs: []
+contract_refs:
+  - docs/contracts/model-invocation.v1.yaml
+  - docs/contracts/chat-advisor.v1.yaml
+fact_refs:
+  - adr/0125-spring-ai-integration-boundary
+gate_refs: []
+
+review_notes: >
+  current_state = partial_guidance: the L0 integration-boundary DECISION (Path
+  (a): Spring AI canonical, platform SPIs are thin decorators with the four
+  cross-cutting concerns) is current, unsuperseded authority. The ADR also
+  embeds lower-altitude content  -  concrete package paths, the OSS probe and
+  hook-chain-only test class names, the bom version pin, and Wave A2/C1 staging
+   -  which is L1/L2/build detail that should be read from the per-capability ADRs
+  (ModelGateway / Vector etc.), the contract surfaces, and the generated facts
+  rather than from this L0 boundary doc. Per the adjudicated layer-purity verdict
+  that embedded detail is flagged non-authoritative here. No supersedes/
+  superseded_by edge is declared by the raw ADR or adrs.json, so both lists are
+  empty.

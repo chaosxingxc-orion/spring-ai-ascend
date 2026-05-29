@@ -1,0 +1,80 @@
+# Normalized ADR view — ADR-0099.
+#
+# READABLE INTERPRETATION layer over the raw ADR source + its extracted fact
+# (architecture/facts/generated/adrs.json). It re-states supersedes/superseded_by
+# and curates which clause still governs; it invents no ADR ids and no
+# relationships, and it never outranks a generated fact (cascade: generated
+# facts > DSL > Card/prose). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160. UTC dates (Rule G-9.a).
+
+adr: ADR-0099
+raw_path: docs/adr/0099-rc22-l1-architecture-depth-and-grounding.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels: [L0, L1, gate]
+view: development
+decision_type: governance_invariant
+
+clean_decision_summary: >
+  Rule G-1.1 (L1 Architecture Depth and Grounding) is adopted to enforce the
+  depth and grounding of L1 architecture documents, not merely their 4+1 shape:
+  every L1 ARCHITECTURE.md must map its logical components to a code-path tree
+  (Development View), enumerate its SPI/API surface as a fourth parity point
+  alongside the catalog/metadata/DFX cross-check, and define the boundary
+  contracts for any subsystem delegated to an L2 design. The rule is
+  complementary to (not a duplicate of) the existing SPI-parity rule.
+
+active_guidance:
+  - >
+    Rule G-1.1.a — every L1 architecture document declares its target directory
+    tree to at least package level and maps every major logical component to a
+    code path, cross-checked against the filesystem.
+  - >
+    Rule G-1.1.b — every L1 architecture document enumerates its full SPI/API
+    surface; each listed interface must resolve in module metadata, the contract
+    catalog, and as a real public interface source file (the fourth parity point).
+  - >
+    Rule G-1.1.c — for any subsystem delegated to an L2 design, the L1 document
+    defines the boundary contracts (inputs, outputs, DFX expectations) the L2
+    design must adhere to.
+  - >
+    The rule is named with the .1 child-rule suffix (Rule G-1.1), not a .a/.b/.c
+    sub-clause suffix, because it is a standalone rule extracted from Rule G-1,
+    per the child-rule naming convention.
+
+non_authoritative_legacy_content: []
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule G-1 (L1 4+1 structure) — Rule G-1.1 deepens it with depth/grounding"
+  - "Rule R-D (catalog <-> metadata <-> DFX SPI parity) — G-1.1 adds the L1 doc as a fourth, complementary parity point"
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0099-rc22-l1-architecture-depth-and-grounding
+gate_refs:
+  - "Rule G-1.1 (rule card docs/governance/rules/rule-G-1.1.md)"
+  - "enforcer E166 (Development-View tree parser)"
+  - "enforcer E167 (SPI-appendix scanner)"
+  - "enforcer E168 (L2 boundary-contract linkage check)"
+
+review_notes: >
+  current_state is active_guidance: this is a self-contained governance-invariant
+  ADR that adopts a still-active rule, and its non_authoritative_legacy_content is
+  empty because the enforcer/gate-script citations are the rule's mechanism, which
+  is explicitly DEFENSIBLE at this altitude (citing an ArchUnit/gate enforcer as
+  the mechanism is allowed; it is not leaked L2 detail). The decision is a
+  governance_invariant (a meta-rule about how the corpus is authored), allowed at
+  L0. AMBIGUITY FLAG for human review: ADR-0119 (Single-Source Rendering, Rule
+  G-13) plans in its later waves to RENDER the L1 Development-View tree and SPI
+  Appendix sections from templates, which would subsume part of G-1.1's policing
+  job by construction; G-1.1 itself is not retired here, but a reviewer citing
+  G-1.1 as the live enforcement mechanism should confirm whether the
+  single-source-rendering migration has changed which gate actually enforces
+  these sections.

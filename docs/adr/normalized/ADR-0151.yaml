@@ -1,0 +1,80 @@
+# Normalized ADR view — ADR-0151.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml.
+# Authority: ADR-0160. Enforced by Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0151
+raw_path: docs/adr/0151-l1-feature-registry-canonical-schema.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels:
+  - L1
+  - DSL
+  - gate
+view: scenarios
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  Adopts the L1 Feature Registry as a first-class workspace surface: a new
+  authored DSL fragment (architecture/features/features.dsl) carrying FEAT-
+  elements with a canonical schema (id, name, owning module, capability domain,
+  status, source ADR, RAG-friendly synopsis, and five AI Execution Boundary
+  properties), a profile extension adding the new required properties, two new
+  inverse relationship types (decided_by, contained_by), a 9-state forward-only
+  feature lifecycle, and Rule G-14 (Feature Lifecycle Validity, advisory then
+  blocking after soak). EXTENDS ADR-0147, ADR-0149 and ADR-0150. The registry is
+  the AI-readable three-level CAP- contains FEAT- contains FP- inventory.
+
+active_guidance:
+  - "architecture/features/features.dsl is the authored single source for FEAT- elements; every FEAT- declares the canonical schema including saa.status from the 9-state set and the five AI Execution Boundary properties (canModifyCode, canModifyContracts, allowedStatusTransitions, requiresHumanReviewAt, sandboxPolicyRef)."
+  - "The feature lifecycle is the 9 states proposed -> accepted -> design_only -> ready_for_impl -> implemented_unverified -> test_verified -> shipped -> deprecated -> removed; forward-only by default, backward transitions require an ADR."
+  - "Rule G-14 (Feature Lifecycle Validity) governs FEAT- status validity and transitions; the human-readable 9-section Feature Catalog is a RENDERED output from the DSL under Rule G-13 render-idempotency."
+
+non_authoritative_legacy_content:
+  - "The Wave 1 vs Waves 2-5 sequencing (which wave seeds FEAT- entries, renders the catalog, migrates agent-service features, or promotes Rule G-14 to blocking) is migration sequencing, not standing L0 authority."
+  - "The advisory-at-Wave-1 status of Rule G-14 is a point-in-time gate posture; the standing authority is the lifecycle + schema themselves."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - "architecture/features/features.dsl (authored FEAT- registry)"
+  - "architecture/profile/required-properties.yaml (SAA Feature property extension)"
+  - "saa.rel decided_by + contained_by (new inverse relationship types)"
+l0_constraint_refs:
+  - "ADR-0147 (Structurizr Workspace Authority; EXTENDED)"
+  - "ADR-0149 (W0-W5 shipped record; EXTENDED)"
+  - "ADR-0150 (architecture/docs consolidation; EXTENDED)"
+  - "ADR-0064 (Layer-0 governing principles; capability seed)"
+l1_refs:
+  - "architecture/docs/L1/<module>/features/README.md (rendered 9-section Feature Catalog)"
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs:
+  - "Rule G-14 (Feature Lifecycle Validity)"
+  - "Rule G-13 (single-source render-idempotency)"
+
+review_notes: |
+  Classified active_guidance: the FEAT- schema, the 9-state lifecycle, the AI
+  Execution Boundary property set, the new relationship types and Rule G-14 are
+  the live governing decision; extended (not superseded) by later waves. The
+  content stays at L0/governance altitude — it defines a workspace/profile schema
+  and a gate rule (DEFENSIBLE per the 2026-05-29 verdict: naming DSL/profile
+  structural surfaces and citing an enforcer as mechanism), so there is no
+  forbidden L0 leakage; the wave sequencing is pushed into
+  non_authoritative_legacy_content. NOTE: raw `level: L0` with `affects_level: L1`
+  — decision_level is L0 (the registry schema is a corpus-governance decision) and
+  affected_levels records the L1 touch plus the DSL and gate surfaces.
+  decision_type governance_invariant is the allowed L0 type. supersedes /
+  superseded_by empty: the raw ADR declares EXTENDS only and the fact layer
+  carries no supersession for ADR-0151.

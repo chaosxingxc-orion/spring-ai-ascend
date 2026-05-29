@@ -1,0 +1,77 @@
+# Normalized ADR view — readable-interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). This view re-states and curates;
+# it invents no ADR ids and no relationships and never outranks a generated
+# fact. Authority cascade: generated facts > DSL > Card/prose. Schema pinned by
+# docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml,
+# enforced by Rule G-28. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0098
+raw_path: docs/adr/0098-rc21-scenario-phase-contracts-and-new-discipline-rules.yaml
+current_state: active_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - gate
+view: process
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  Replace progressive on-demand rule loading with a scenario-loaded phase-contract
+  model: six work phases (always-on CLAUDE.md kernel, architecture design,
+  engineering implementation, integration verification, system commit, review
+  response), each phase backed by a contract document and a triggering skill that
+  surfaces the phase's active rules, forbidden patterns, and exit criteria into
+  context at phase entry. Loading is dual-track (explicit skill invocation plus a
+  CLAUDE.md MUST-invoke directive table). The same wave adds two discipline rules:
+  G-10 (every new gate script is parallel-execution-compatible on Linux/WSL) and
+  G-11 (phase-contract rule-allocation coherence — every cited rule has a card and
+  every active card is cited).
+
+active_guidance:
+  - "The six-phase scenario-loaded contract model governs work-phase entry: at phase entry the matching skill / contract MUST be invoked to surface that phase's active rules, forbidden patterns, and exit criteria; the full rule body lives in the rule card, the contract table declares allocation only (no kernel duplication)."
+  - "Dual-track loading: an explicit phase skill trigger AND the CLAUDE.md Phase Entry directive table both operate, so the model still works if one path is skipped."
+  - "Rule G-10 (Parallel-Linux-Scripts Mandate): every new top-level gate script under gate/ MUST be parallel-execution-compatible on Linux/WSL, with a declared serial-only exemption list."
+  - "Rule G-11 (Phase-Contract Rule-Allocation Coherence): forward invariant (every cited rule resolves to a card) and reverse invariant (every active card is cited in >=1 contract); G-9's dual-primary allocation is the SOLE sanctioned dual-P exception."
+
+non_authoritative_legacy_content: []
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule G-10 (Parallel-Linux-Scripts Mandate)"
+  - "Rule G-11 (Phase-Contract Rule-Allocation Coherence)"
+  - "Rule G-9 (Recurring-Defect Family Truth — sole sanctioned dual-primary allocation)"
+l1_refs: []
+l2_refs: []
+contract_refs:
+  - docs/governance/contracts/architecture-design.md
+  - docs/governance/contracts/engineering-implementation.md
+  - docs/governance/contracts/integration-verification.md
+  - docs/governance/contracts/system-commit.md
+  - docs/governance/contracts/review-response.md
+fact_refs:
+  - adr/0098-rc21-scenario-phase-contracts-and-new-discipline-rules
+gate_refs:
+  - "enforcer E164 (Rule G-10, gate-script)"
+  - "enforcer E165 (Rule G-11, gate-script)"
+
+review_notes: |
+  Classified active_guidance: the phase-contract model and Rules G-10/G-11 are the
+  live governance mechanism (CLAUDE.md's Phase Entry table and the
+  docs/governance/contracts/ documents are the current operating surface). Nothing
+  supersedes this ADR.
+
+  decision_level L0 / decision_type governance_invariant: the ADR is a meta-rule
+  about how the team+AI corpus is itself governed (work-time rule loading + two
+  discipline rules), which is squarely an L0 governance invariant.
+
+  Raw-ADR rule numbering note: the raw ADR cites gate "Rule 116/117"; those map to
+  enforcers E164/E165 and to the G-10/G-11 cards under the ADR-0086 namespace
+  ratchet. The numeric gate-rule labels are pre-ratchet and the card slugs (G-10,
+  G-11) are the stable identifiers; the reconcile/governance wave owns any gate
+  wiring. The raw ADR's deferred_work (deep CLAUDE.md kernel shrink, dist/skills
+  templates, marketplace packaging) is forward backlog, not current authority, and
+  is intentionally not listed as an active_guidance clause.

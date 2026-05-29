@@ -1,0 +1,96 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose.
+adr: ADR-0157
+raw_path: docs/adr/0157-engineering-frame-ontology.yaml
+current_state: active_guidance
+decision_level: L1
+affected_levels: [L1, DSL, gate]
+view: development
+decision_type: engineering_frame_boundary
+clean_decision_summary: >-
+  Introduces a first-class STRUCTURAL ontology layer, EngineeringFrame, between
+  Module and FunctionPoint, and moves Feature back onto the value axis. Structural
+  axis: Module contains EngineeringFrame, EngineeringFrame anchors FunctionPoint.
+  Value axis: Feature requires FunctionPoint and Feature traverses
+  EngineeringFrame. Frames are claim-agnostic (saa.structuralAxis "true"); the six
+  agent-service Layer "features" are re-tagged as EngineeringFrames, dropping the
+  feature corpus from 15 to 9 true value-threads.
+active_guidance:
+  - >-
+    EngineeringFrame is the structural-axis ontology layer between Module and
+    FunctionPoint (Structurizr profile tag "SAA EngineeringFrame", element-ID
+    prefix "EF-", owning module carried by saa.owner).
+  - >-
+    Structural relationship vocabulary -- Module contains EngineeringFrame,
+    EngineeringFrame anchors FunctionPoint; value axis -- Feature requires
+    FunctionPoint and Feature traverses EngineeringFrame. New relationship types
+    "anchors" and "traverses"; "contains" is widened to allow Module to
+    EngineeringFrame.
+  - >-
+    EngineeringFrames are CLAIM-AGNOSTIC: they bind no ProductClaim directly and
+    carry the saa.structuralAxis "true" sentinel; Rule G-17 (no-orphan) accepts
+    that sentinel in lieu of product_claim. A design_only frame with zero anchored
+    shipped FunctionPoints is explicitly permitted.
+  - >-
+    The six agent-service Layer elements are re-tagged from SAA Feature to
+    SAA EngineeringFrame (EF-ACCESS-ADMISSION, EF-TASK-CONTROL,
+    EF-SESSION-TASK-STATE, EF-ENGINE-DISPATCH, EF-INTERNAL-EVENT-QUEUE
+    [design_only], EF-TRANSLATION-INTERCEPT).
+  - >-
+    Dual-track operating model -- Track A (Product Development) may mint Frames but
+    only via an ADR; Track B (Demand Response) must land on an EXISTING Frame or
+    STOP and escalate to an ADR.
+non_authoritative_legacy_content:
+  - >-
+    The pre-decision overload (SAA Feature modeled as a structural container of
+    FunctionPoint via "contains") is the defect this ADR repeals; it is no longer
+    authoritative.
+  - >-
+    The feature_corpus_size transition figure (15 to 9) is a point-in-time
+    migration result; the canonical live baseline is
+    docs/governance/architecture-status.yaml.
+  - >-
+    The proposed EF- element-ID slugs in the re-tag mapping are the ADR's intended
+    identifiers; the realized DSL element identities in
+    architecture/features/engineering-frames.dsl are authoritative where they
+    differ (generated facts / DSL outrank prose) -- see review_notes.
+supersedes: []
+superseded_by: ""
+dsl_refs:
+  - architecture/features/features.dsl
+  - architecture/features/engineering-frames.dsl
+  - architecture/profile/profile.yaml
+  - architecture/profile/required-properties.yaml
+  - architecture/profile/relationship-types.yaml
+l0_constraint_refs: []
+l1_refs:
+  - ADR-0138  # agent-service five-layer L1 ratification (its 6 Layer "features" become the first frames)
+  - ADR-0151  # L1 Feature Registry canonical schema (re-scopes the Feature tag this ADR disambiguates)
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs:
+  - Rule G-17  # no-orphan (extended to accept the structuralAxis sentinel)
+  - Rule G-13  # byte-identical re-render lockstep
+  - Rule G-8   # baseline parity
+review_notes: >-
+  Decision is made at L1 (an EngineeringFrame boundary ontology -- a structural
+  contract between Module and FunctionPoint) and affects L1, the DSL graph
+  (profile + features.dsl + engineering-frames.dsl), and the gate. decision_type
+  engineering_frame_boundary is in-altitude for L1. The re-tag mapping and
+  relationship vocabulary are structural identities, not private call chains or
+  test inventories, so no L1 forbidden-altitude type is tripped. current_state is
+  active_guidance: ADR-0157 is current authority and is later THICKENED (not
+  superseded) by ADR-0161; the thickening refines the same ontology. Authority-
+  cascade note for reconcile: the ADR's proposed EF- slugs (EF-ACCESS-ADMISSION
+  etc.) are NOT the element identifiers realized in
+  architecture/features/engineering-frames.dsl (which uses identities such as
+  efHookSurface, efCapabilitySpi, efOrchestrationSpi); where they differ the
+  generated DSL wins. This view re-states the ADR's intent and flags the slug
+  divergence rather than minting either set as authoritative. NOTE: this file was
+  re-authored to repair an invalid-YAML construct (a multi-line plain scalar
+  containing a colon) in the prior revision; content/state are unchanged in intent.

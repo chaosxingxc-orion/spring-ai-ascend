@@ -1,0 +1,85 @@
+# Normalized ADR view — ADR-0086.
+#
+# Authority: ADR-0160 (ADR Governance Model). READABLE INTERPRETATION layer over
+# the raw ADR (docs/adr/0086-rule-namespace-ratchet.yaml) and its projection in
+# architecture/facts/generated/adrs.json. Invents no ids/relationships; re-states
+# supersedes/superseded_by from the fact layer; curates which clause still
+# governs. Authority cascade: generated facts > DSL > Card/prose.
+#
+# Shape pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0086
+raw_path: docs/adr/0086-rule-namespace-ratchet.yaml
+current_state: partial_guidance
+
+decision_level: L0
+affected_levels:
+  - L0
+  - gate
+view: scenarios
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  Engineering rules use a prefixed namespace — D- (daily discipline), R- (one
+  per governing principle P-A..P-M), G- (cross-cutting governance), M- (module
+  hygiene) — with lowercase sub-clauses (.a, .b, ...). The semantic-authority
+  surfaces (kernel index, rule cards, enforcers, principle coverage, baselines,
+  architecture graph) are namespaced; the gate implementation layer (shell
+  section headers, gate/rules/*.sh filenames, ndjson rule_id integers) retains
+  numeric ids by design, bridged bi-directionally by a migration map. No rule
+  assertion is dropped: every legacy rule maps to at least one namespaced
+  sub-clause.
+
+active_guidance:
+  - "The D-/R-/G-/M- prefixed namespace is the canonical scheme for engineering rules on semantic-authority surfaces; sub-clauses preserve per-assertion granularity inside merged rules."
+  - "The gate_layer_boundary invariant holds — gate implementation-layer identifiers (executable shell section headers, gate rule-file names, per-rule ndjson integer keys) stay numeric, while the semantic authority of what a rule says lives in the kernel index, rule cards, enforcers, and architecture graph; a bi-directional migration map keeps the two layers mutually addressable."
+  - "Coverage-parity invariant holds — every old rule maps to at least one namespaced rule sub-clause and every enforcer constraint_ref resolves to a current rule via the map; no assertion is silently dropped."
+
+non_authoritative_legacy_content:
+  - "The execution_status and wave-by-wave migration narrative (Waves 1-6, the rc12 K-alpha/K-gamma streams, substitution counts, per-file edit tallies). Point-in-time migration mechanics, not standing authority."
+  - "The transitional one-shot rule-migration-truth gate and the backward-compat resolve_rule_id translator, both declared as removed after the migration release cycle; they no longer govern."
+  - "Point-in-time corpus counts in the raw context/consequences (the 67-to-30 rule reduction, the kernel byte figure, the citation-rewrite tallies). The live counts are carried by the baselines in docs/governance/architecture-status.yaml, not by this ADR's prose."
+
+supersedes:
+  - ADR-0083
+  - ADR-0084
+  - ADR-0085
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - P-A
+  - P-B
+  - P-C
+  - P-D
+  - P-E
+  - P-F
+  - P-G
+  - P-H
+  - P-I
+  - P-J
+  - P-K
+  - P-L
+  - P-M
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0086-rule-namespace-ratchet
+gate_refs:
+  - rule_G-3.c
+  - rule_101_rule_namespace_authority_completeness
+
+review_notes: |
+  current_state = partial_guidance: the namespace scheme and the
+  gate_layer_boundary invariant are live governing policy (the whole rule corpus
+  is addressed by D-/R-/G-/M- ids today), but the raw ADR carries a large
+  point-in-time migration narrative (execution_status waves, removed transitional
+  gates, byte/rule/citation counts) that is no longer current authority and is
+  recorded under non_authoritative_legacy_content. supersedes (ADR-0083/0084/
+  0085) is re-stated verbatim from the fact layer. l0_constraint_refs lists
+  P-A..P-M because the R- namespace pairs one rule to each governing principle;
+  this is a structural re-statement, not a minted edge. Gate-layer numeric rule
+  ids referenced (rule_101) are intentionally numeric per the gate_layer_boundary
+  this ADR itself establishes.

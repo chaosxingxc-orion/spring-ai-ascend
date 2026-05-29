@@ -1,0 +1,82 @@
+# Normalized ADR view — readable-interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). This view re-states and curates;
+# it invents no ADR ids and no relationships and never outranks a generated
+# fact. Authority cascade: generated facts > DSL > Card/prose. Schema pinned by
+# docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml,
+# enforced by Rule G-28. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0074
+raw_path: docs/adr/0074-s2c-capability-callback.yaml
+current_state: partial_guidance
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - contract
+view: process
+decision_type: cross_frame_contract
+
+clean_decision_summary: |
+  The Server-to-Client (S2C) capability callback protocol is the cross-frame
+  contract by which a server-side Run awaits a capability that only the client
+  environment can fulfil, treating it as an asynchronous callback (not a
+  transparent local call). The schema docs/contracts/s2c-callback.v1.yaml is the
+  single source of truth for the request and response shape; the executor-side
+  trigger is the checked-suspension variant of the canonical SuspendSignal
+  (a client-callback branding of the same single suspension type, NOT a parallel
+  exception hierarchy), and the await is modelled by the AwaitClientCallback
+  suspend-reason variant. The transport is a registrable SPI of which at most one
+  may be bound per engine boundary.
+
+active_guidance:
+  - "docs/contracts/s2c-callback.v1.yaml is the SINGLE SOURCE OF TRUTH for the S2C request + response shape: six mandatory request fields and a closed response outcome enum (OK | ERROR | TIMEOUT)."
+  - "S2C suspension reuses the one canonical checked SuspendSignal as a client-callback variant; ADR-0019's compile-time-visible-suspension doctrine remains a single source of truth (no parallel RuntimeException suspension hierarchy)."
+  - "The await is the AwaitClientCallback suspend-reason variant; the response is validated (callback-id match + outcome enum membership) BEFORE the resumed engine code observes the payload."
+  - "The S2C transport is a registrable SPI; at most one transport may be bound (single construction path)."
+
+non_authoritative_legacy_content:
+  - "The original 2026-05-16 design's parallel unchecked S2cCallbackSignal exception type (under the former service.runtime.s2c.spi package) was DELETED at v2.0.0-rc3 and no longer exists; only the executor-side suspension trigger was unified, the envelope/response/transport SPI types survived."
+  - "Package-path anchors in the raw ADR that name agent-runtime-core (service.runtime.s2c.spi / orchestration.spi) are stale: ADR-0088 dissolved agent-runtime-core and re-homed the S2C SPI types to agent-bus (bus.spi.s2c). The package locations in the raw decision body are NOT current authority."
+  - "The two rejected alternatives about adding/extending a separate S2cCallbackSignal hierarchy were REVERSED at v2.0.0-rc3 (the accepted design reuses SuspendSignal); the raw alternatives_considered text is preserved for history only."
+  - "Concrete executor wiring detail (SyncOrchestrator.executeLoop branching, handleClientCallback step list, transport.dispatch(...).join()) is L2 implementation detail and is not normalized-view authority; it lives in the raw ADR / L2."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - bus.spi.s2c
+l0_constraint_refs:
+  - "Rule R-M sub-clause .d (S2C callback discipline)"
+l1_refs:
+  - "agent-bus — bus.spi.s2c (S2cCallbackEnvelope / S2cCallbackResponse / S2cCallbackTransport, re-homed per ADR-0088)"
+l2_refs:
+  - "Executor-side suspend/branch + handleClientCallback flow (raw ADR decision body — L2 detail, not normalized authority)"
+contract_refs:
+  - docs/contracts/s2c-callback.v1.yaml
+fact_refs:
+  - adr/0074-s2c-capability-callback
+gate_refs:
+  - "enforcer E81 (s2c-callback yaml present + well-formed, gate-script)"
+  - "enforcer E82 (S2cCallbackRoundTripIT)"
+  - "enforcer E83 (S2cCallbackRespectsRule38Test — ArchUnit)"
+  - "enforcer E84 (S2cCallbackEnvelopeValidationTest)"
+
+review_notes: |
+  Classified partial_guidance, not active_guidance, because the protocol itself
+  still governs (active_guidance clauses) while two strata of the raw ADR are no
+  longer authority: (1) the deleted S2cCallbackSignal design and its now-reversed
+  rejected-alternatives, and (2) the agent-runtime-core package-path anchors that
+  ADR-0088 re-homed to bus.spi.engine's sibling bus.spi.s2c. A reviewer may cite
+  this ADR for the S2C contract ONLY through the active_guidance clauses; the
+  legacy clauses are explicitly non-authoritative.
+
+  decision_level set to L1 (cross_frame_contract): the raw ADR self-labels L1 and
+  the decision is a public SPI / wire-contract boundary between the Service and
+  Engine/Bus frames — defensible at L1 (naming a public SPI as a boundary
+  identity). Method-signature and call-chain detail in the raw body is L2 leakage
+  and was deliberately NOT carried up.
+
+  enforcer ids are transcribed from the raw ADR's enforcer_rows; the reconcile /
+  governance wave owns whether they remain E81-E84 and any gate Rule renaming
+  (the raw ADR's "Rule 58" predates the G-/R-/D- namespace ratchet of ADR-0086).

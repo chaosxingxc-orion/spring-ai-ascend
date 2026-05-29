@@ -1,0 +1,91 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0101
+raw_path: docs/adr/0101-rc22-polymorphic-deployment-topology.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels: [L0, L1, DSL]
+view: scenarios
+decision_type: system_boundary
+
+clean_decision_summary: >-
+  Ratifies a polymorphic deployment topology as an L0 scenarios-view reference:
+  the same logical five-plane system supports two named deployment loci -- a
+  platform-centric locus (the client lives on the business side; service, engine,
+  bus, middleware and evolve live on the platform; absolute governance
+  sovereignty, shipped today) and a business-centric locus (client, service and
+  engine deploy on the business side; bus and middleware stay on the platform,
+  evolving into a federation hub; design_only). The governance single source of
+  truth is the deployment-loci policy file, and every module declares which loci
+  it supports. The standing decision is the two named loci + the per-module
+  declaration discipline; the broker technology and the Mode B Java runtime are
+  explicitly deferred.
+active_guidance:
+  - >-
+      Two named deployment loci are L0 canonical references: platform-centric
+      (SaaS / cloud; components_on_platform = service, engine, bus, middleware,
+      evolve; components_on_business = client; shipped) and business-centric
+      (federated / edge; components_on_platform = bus, middleware;
+      components_on_business = client, service, engine; design_only). Without an
+      explicit locus declaration modules silently assume platform-centric and
+      Mode B extensions have no authoritative home.
+  - >-
+      The deployment-loci policy file is the single source of truth for the per-
+      locus component placement; every module declares the loci it supports, and
+      a future gate rule cross-checks each module's declaration against the
+      policy's per-locus component lists.
+  - >-
+      The ingress contract is locus-invariant: in the business-centric locus the
+      in-process bus shim is still an ingress gateway implementation and the
+      ingress envelope wire shape is unchanged whether the bus is in-process or
+      remote.
+non_authoritative_legacy_content:
+  - >-
+      The Mode B design extensions named inline (local direct-connect / IPC
+      bypass, middleware proxy local cache, federation bus) and the Mode B local-
+      fallback list (local memory caching, process-level sandbox degradation,
+      middleware-proxy heartbeat) are forward design work owned by the L1 modules
+      and later waves, not standing L0 authority.
+  - >-
+      The staged enforcement timeline (rc22 SSOT + per-module declaration; rc24
+      gate rule + ArchUnit manifest test) is release scheduling owned by release
+      notes / the plan file, and the named gate rule + ArchUnit test are gate /
+      L2 realisation, not standing L0 authority.
+  - >-
+      The family_taxonomy block (wave rc22, family N-gamma, hidden defects swept)
+      is recurring-defect-families ledger content; the federation broker
+      technology choice is explicitly deferred to a separate future ADR and is not
+      decided here.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "P-A (Business/Platform Decoupling) -- the platform-centric locus matches this principle; the loci formalise where the decoupled halves deploy"
+l1_refs:
+  - "all six domain modules -- each declares the deployment loci it supports per the SSOT"
+l2_refs: []
+contract_refs:
+  - docs/contracts/ingress-envelope.v1.yaml
+fact_refs:
+  - adr/0101-rc22-polymorphic-deployment-topology
+  - contract-yaml/ingress-envelope
+gate_refs: []
+review_notes: >-
+  Lane: L3-L0ARCH (ADR-0159). decision_level L0 matches the raw self-label (level:
+  L0, governance_infra: true, view: scenarios) and the sibling ADR with which it
+  was split (the evolution-modality duality ADR, normalized at L0). decision_type
+  system_boundary is the allowed L0 type that most precisely fits a deployment-
+  topology / where-the-system's-components-live decision (as used by the edge-
+  plane ingress and federation ADRs); the sibling used architecture_principle for
+  a modality reference, but deployment LOCUS is concretely a system-boundary
+  declaration. current_state active_guidance: the two named loci + the per-module
+  declaration discipline are current L0 reference authority and nothing supersedes
+  them; the raw explicitly scopes the Mode B Java runtime, the broker choice, and
+  the gate-rule enforcement to later waves, so those are recorded as
+  non_authoritative_legacy_content. superseded_by empty (relates_to only; no
+  inbound supersession).

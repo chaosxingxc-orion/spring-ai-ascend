@@ -1,0 +1,97 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0141
+raw_path: docs/adr/0141-internal-event-queue-design-only.yaml
+
+current_state: partial_guidance
+decision_level: L1
+affected_levels: [L1, L2, contract]
+view: logical
+decision_type: module_responsibility
+
+clean_decision_summary: >-
+  Reclassifies the agent-service "internal event queue" layer from a peer code-
+  home layer to a design_only sub-section of the L1 logical view, because no code
+  home exists for it yet and presenting a binding-only layer with no code home as
+  a peer of shipped layers creates a design_only-shown-as-shipped risk. The durable
+  constraint from the prior 5-layer ratification -- that this layer is a BINDING
+  layer over the canonical three-track bus, not a parallel queue abstraction --
+  is unchanged; this ADR narrows PRESENTATION, not contract, and defers the code
+  home (with a stated boundary contract) to a future wave, at which point this ADR
+  is superseded by the ADR that ratifies the code home.
+active_guidance:
+  - >-
+      The internal-event-queue layer is reclassified as design_only: the L1
+      logical view MUST present it as a design_only sub-section (or a parenthetical
+      aside) rather than as a peer code-home block in the component diagram, and
+      the development view MUST NOT show a queue sub-package that does not exist.
+      Both views mark the layer explicitly as design_only.
+  - >-
+      The binding-only role is the durable contract (re-stated from the prior 5-
+      layer ratification, not newly minted): this layer BINDS to the canonical
+      three-track bus channels (control / data / rhythm), it is not a parallel
+      single-tier queue abstraction; when a code home lands it binds to those
+      channels and cites this ADR plus the prior ratification as authority.
+  - >-
+      Presentation discipline closes the design_only-shown-as-shipped defect:
+      future implementers reading the L1 view know this layer is a contract
+      surface, not a code surface, until the deferred code-home wave lands.
+non_authoritative_legacy_content:
+  - >-
+      The forward boundary-contract block published inline (the inputs / outputs /
+      DFX expectations -- the run-event and control/rhythm-channel inputs, the
+      per-channel publication outputs with payload-size limits, and the per-channel
+      releasability / resilience / availability / vulnerability / observability
+      DFX including the concrete metric-name shape) is L2 / contract realisation
+      detail design-pinned for the future code home, owned by the bus contract
+      surface and the future L2 design, not standing L1 authority.
+  - >-
+      The deferred code-home mechanics (the future queue sub-package path, the
+      package-info authority-citation requirement, the at-least-once + dedup-key
+      delivery detail) are L2 realisation detail owned by the future wave, not
+      present-tense standing authority.
+  - >-
+      The design_only-mechanism-shown-as-shipped defect-family framing (the lead
+      occurrence and the family registration) is recurring-defect-families ledger
+      content, not standing architecture authority.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "PC-003 (the product claim the raw cites for the agent-service runtime topology)"
+  - "Rule R-E (three-track bus channels -- the canonical channels this layer binds to)"
+l1_refs:
+  - "agent-service (Platform) -- the module whose internal-event-queue layer this ADR reclassifies"
+  - "agent-bus -- owner of the canonical three-track channels the binding layer targets"
+  - "ADR-0138 -- the 5-layer L1 ratification whose Layer 3 this ADR demotes to design_only (binding constraint unchanged)"
+l2_refs:
+  - "future internal-event-queue code home + its boundary contract (inputs/outputs/DFX, metric shapes) -- L2 / contract realisation"
+contract_refs:
+  - docs/governance/bus-channels.yaml
+fact_refs:
+  - adr/0141-internal-event-queue-design-only
+gate_refs: []
+review_notes: >-
+  Lane: L4-FRAME (ADR-0159). decision_level L1 matches the raw self-label (level:
+  L1, view: logical) and the module-responsibility character: this is a within-
+  module layer reclassification + a re-stated binding constraint. decision_type
+  module_responsibility is in-altitude for L1. The forward boundary-contract block
+  (inputs / outputs / DFX with concrete per-channel metric-name shapes -- forbidden
+  lower-altitude detail at L1) is pushed to non_authoritative_legacy_content and to
+  the bus contract surface + future L2 design. No code-symbol fact is cited because
+  the layer is design_only with no code home (the raw is explicit that the queue
+  sub-package does not exist); citing one would invent a fact id. The bus-channels
+  governance file is cited as the binding contract surface. current_state
+  partial_guidance: the design_only reclassification + the binding-only role +
+  presentation discipline govern (active_guidance) while the forward boundary
+  contract, the deferred code-home mechanics, and the defect-family framing are
+  non-authoritative L2 / contract / ledger realisation. superseded_by empty TODAY:
+  the raw declares that WHEN the Layer 3 code lands (post the current wave) this
+  ADR's status is bumped to superseded by a follow-up ADR -- but that follow-up
+  does not yet exist and the apex fact carries no superseded_by for ADR-0141, so
+  minting one here would overclaim; the pending future supersession is annotated
+  here for the human reviewer rather than asserted in the field.

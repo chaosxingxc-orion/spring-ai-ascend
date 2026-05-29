@@ -1,0 +1,85 @@
+# Normalized ADR view  -  readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose.
+adr: ADR-0155
+raw_path: docs/adr/0155-agent-service-l1-v1-2-internal-module-design.yaml
+current_state: active_guidance
+decision_level: L1
+affected_levels: [L1, DSL, contract]
+view: logical
+decision_type: module_responsibility
+clean_decision_summary: >-
+  Adopts the agent-service M1-M6 v1.2 internal module design as the canonical L1
+  architecture for agent-service, with six boundary-decision reversals as binding
+  L1 contracts: M4 TCC-03 sole-caller of the Run-state transition; terminal-state
+  responseSnapshot writeback owned by M4 (not M1); M6 does NOT construct prompts
+  (GovernedMessages replaces BuiltPrompt); ExecutorAdapter three Agent forms with
+  in-process deployment for Native/Third-party; Internal Event Queue splits into
+  Control/Data/Egress channels; and deterministic cancel-vs-complete arbitration.
+active_guidance:
+  - The agent-service M1-M6 v1.2 design is the canonical L1 module decomposition
+    for agent-service; ADR-0155 is the authoritative anchor each absorption file
+    cites.
+  - "Six binding L1 boundary contracts hold (module-responsibility level):
+    (1) M4 TCC-03 is the sole caller of Run-state transition; (2) terminal-state
+    responseSnapshot writeback is owned by M4, not M1; (3) M6 does not construct
+    prompts (it is a messages-in-flight boundary aspect and outputs
+    GovernedMessages, not BuiltPrompt); (4) the ExecutorAdapter SPI fixes three
+    Agent forms (Native / Third-party / Remote), binding Native + Third-party to
+    in-process deployment and Remote to out-of-process via A2A; (5) the Internal
+    Event Queue splits into Control / Data / Egress channels with per-channel
+    bounded buffers and back-pressure; (6) cancel-vs-complete races resolve
+    deterministically with reason codes carried in RunEvent."
+  - "Public SPI surfaces introduced at L1: ExecutorAdapter, PlatformChatClient,
+    PlatformToolCallback, PlatformMemoryProvider, PlatformRetriever (plus the
+    InjectionMode enum carrier), homed in packages
+    com.huawei.ascend.service.runtime.executor.spi and
+    com.huawei.ascend.service.runtime.intercept.spi."
+non_authoritative_legacy_content:
+  - The two .cn.md PR-92 design documents under docs/logs/reviews/ remain
+    design SOURCE / authoring record; ADR-0155 is the structured decision
+    capture and the citeable authority, the review logs are not.
+  - The rollout mechanics (expand features/*.md to ~11 items, register 14
+    design_only contracts, PR-93 merge sequencing) are executed wave actions,
+    not standing normative clauses.
+  - The internal function-item identifiers and counts (STM-03 / TCC-03 / EDE-09
+    error-class enumeration) are L2 module-internal detail; the binding L1
+    authority is the module-boundary contract, not the function-item numbering.
+supersedes: []
+superseded_by: ""
+dsl_refs:
+  - architecture/features/features.dsl
+  - architecture/features/function-points.dsl
+l0_constraint_refs: []
+l1_refs:
+  - architecture/docs/L1/agent-service/
+l2_refs: []
+contract_refs:
+  - docs/contracts/governed-messages.v1.yaml
+  - docs/contracts/control-event.v1.yaml
+  - docs/contracts/execution-request.v1.yaml
+fact_refs:
+  - adr/0155-agent-service-l1-v1-2-internal-module-design
+gate_refs:
+  - Rule G-1.1.b
+  - Rule R-D.f
+  - Rule G-14
+  - Rule G-15
+review_notes: >-
+  Decision is made at L1 (agent-service module responsibility + public SPI
+  surfaces + inter-module data contracts) and affects L1, the DSL graph (new
+  FEAT- / FunctionPoint elements) and the contract lane (14 new design_only
+  YAML contracts). decision_type module_responsibility is in-altitude for L1:
+  the six reversals are module-boundary contracts, NOT private method anchors or
+  call chains, so they do not trip the L1 forbidden-altitude list. current_state
+  is active_guidance: the v1.2 design is current and nothing supersedes ADR-0155;
+  the cited design_only contracts are forward enforcement work tracked by the
+  F-agent-service-internal-boundary-drift family. The internal function-item
+  identifiers (STM-/TCC-/EDE- ids and error-class counts) are recorded as
+  non_authoritative_legacy_content because they are L2 detail, not L1 authority.
+  Note: this view corrected a non-ASCII encoding corruption in the prior draft
+  that broke YAML parsing (an em-dash mangled to invalid bytes), per the
+  English/ASCII authoring rule.

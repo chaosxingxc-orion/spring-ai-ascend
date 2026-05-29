@@ -1,0 +1,106 @@
+# Normalized ADR view — ADR-0159.
+#
+# READABLE INTERPRETATION layer over the raw ADR source + its extracted fact
+# (architecture/facts/generated/adrs.json). It re-states supersedes/superseded_by
+# and curates which clause still governs; it invents no ADR ids and no
+# relationships, and it never outranks a generated fact (cascade: generated
+# facts > DSL > Card/prose). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160. UTC dates (Rule G-9.a).
+
+adr: ADR-0159
+raw_path: docs/adr/0159-progressive-learning-curve-and-authority-lanes.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels: [L0, L1, L2, DSL, contract, facts, gate]
+view: development
+decision_type: architecture_principle
+
+clean_decision_summary: >
+  The progressive learning curve is adopted as the binding software-engineering
+  delivery model: every unit of work travels an eight-node chain from product
+  definition down to verification and gate, each node answers to a named external
+  standard, and each node has exactly one authoritative producing lane. Authority
+  duplication across lanes is forbidden, cross-links are allowed, and layer purity
+  is a standing invariant — higher layers own boundaries and global constraints
+  while implementation detail lives in the L2 / contract / facts lanes. The
+  FunctionPoint is the behavioral join point of the four reading axes; the
+  EngineeringFrame is the navigation/landing point, and a value-axis object never
+  structurally owns a frame.
+
+active_guidance:
+  - >
+    Every unit of work travels the eight-node chain top to bottom: product
+    definition, requirement definition, L0 architecture, EngineeringFrame,
+    FunctionPoint, contract surface, implementation facts, verification and gate.
+  - >
+    Each node has exactly one authoritative producing lane (its single source of
+    truth); an artifact is classifiable into exactly one primary lane, cross-links
+    are allowed, and authority duplication is a gate-able defect.
+  - >
+    Layer purity is a standing lane invariant: naming a public SPI as a boundary
+    identity, development-view package decomposition, and citing an enforcer as the
+    mechanism are defensible at L0/L1, while method call chains, runtime sequences,
+    persistence detail, HTTP/route/header behavior, filter ordering, wire formats,
+    method signatures, and test-class inventories must live in the L2 / contract /
+    facts lanes.
+  - >
+    The four reading axes (value, structure, evidence, decision) stay distinct
+    over the one chain; the FunctionPoint is the behavioral join point and the
+    EngineeringFrame is a boundary/navigation object, not a behavioral proof
+    object.
+  - >
+    Feature-traverses-EngineeringFrame is a derived read-time projection (Feature
+    requires FunctionPoint composed with EngineeringFrame anchors FunctionPoint)
+    and must never be read as ownership; a product claim, requirement, or feature
+    that directly owns a frame is an invalid model.
+  - >
+    Authority cascade on conflict is generated facts > DSL > Card/prose; within
+    the decision spine an accepted ADR is the authority for a node's existence and
+    scope, and the normalized-ADR index and Frame Cards are readable interpretation
+    layers that neither mint IDs/relationships nor outrank the facts they cite.
+
+non_authoritative_legacy_content: []
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - architecture/workspace.dsl
+  - architecture/profile/
+  - architecture/features/engineering-frames.dsl
+  - architecture/features/function-points.dsl
+l0_constraint_refs:
+  - "Principle P-A (business / platform decoupling; ADR-0064) — the same separation of concerns the curve operationalises"
+  - "Layered 4+1 view stack (ADR-0068) — the L0/L1/L2 layer-purity boundary the lanes draw from"
+  - "Layer-vs-Package matrix (ADR-0144) — the architecture-vs-code-detail boundary turned into a lane invariant"
+l1_refs:
+  - "architecture/docs/L1/frames/<frame-id>.md (Frame Card lane L4-FRAME)"
+l2_refs:
+  - "architecture/docs/L2/ (FunctionPoint lane L5-FUNCTIONPOINT)"
+contract_refs:
+  - "docs/contracts/ (contract lane L6-CONTRACT)"
+fact_refs:
+  - adr/0159-progressive-learning-curve-and-authority-lanes
+gate_refs:
+  - "docs/governance/rules/*.md + docs/governance/enforcers.yaml + gate/* + docs/governance/architecture-status.yaml (lane L8-GOVERNANCE)"
+  - "free G-27..G-33 rule band reserved for the executable lane-purity / traceability / frame-card-fact-parity gates authored by the consuming remediation waves"
+
+review_notes: >
+  current_state is active_guidance: this ADR ratifies the eight-node curve and the
+  single-owner lane partition as the binding delivery model, and that model
+  governs now. non_authoritative_legacy_content is empty because the ADR is
+  self-consistent and authors no leaked detail: it explicitly ships no rule,
+  enforcer, baseline, DSL element, or contract by itself, and the lane / spine /
+  axis descriptions are the principle, not lower-altitude content. decision_type
+  is architecture_principle (the foundational principle the lanes derive from),
+  allowed at L0; the affected_levels list spans all lanes because the principle
+  defines authority for every node from L0 down to the gate. NOTE for human
+  review (not an ambiguity in the current_state): the chain only becomes
+  load-bearing once the executable gates in the G-27..G-33 band are authored and
+  promoted to blocking by the consuming remediation waves; until then the lane
+  partition is advisory and depends on reviewer discipline, and the LOCKSTEP FLAG
+  in the raw ADR (shared baseline / rule-card / enforcer / DSL-property surfaces
+  move together) binds those later waves, not this ratification. ADR-0158
+  (EnginePort) is the pilot decision authored end-to-end against this curve.

@@ -1,0 +1,99 @@
+# Normalized ADR view — ADR-0139.
+#
+# READABLE INTERPRETATION layer over the raw ADR source + its extracted fact
+# (architecture/facts/generated/adrs.json). It re-states supersedes/superseded_by
+# and curates which clause still governs; it invents no ADR ids and no
+# relationships, and it never outranks a generated fact (cascade: generated
+# facts > DSL > Card/prose). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160. UTC dates (Rule G-9.a).
+
+adr: ADR-0139
+raw_path: docs/adr/0139-fast-slow-path-narrowed-semantics.yaml
+
+current_state: partial_guidance
+decision_level: L1
+affected_levels: [L1, L2, gate]
+view: process
+decision_type: cross_frame_contract
+
+clean_decision_summary: >
+  The Fast-Path / Slow-Path execution duality is kept but narrowed so neither
+  path can be read as licensing a bypass of the platform's correctness
+  invariants. Fast-Path is an in-process reactive synchronous path that still
+  persists the tenant-bearing lifecycle record under row-level security and still
+  routes state transitions through the atomic compare-and-set primitive; the only
+  narrowing is that intermediate compute-state checkpointing is not mandatory.
+  Slow-Path adds mandatory checkpointing and the suspend/resume primitive. A
+  permissive-language defect family is registered: design/ADR/rule prose using
+  Fast/Slow path must use this narrowed vocabulary and may not state
+  "no mandatory persistence" / "skip checkpoint" / "synchronous bypass"
+  unqualified.
+
+active_guidance:
+  - >
+    Fast-Path is in-process reactive synchronous and still preserves every
+    correctness invariant — reactive execution (no blocking sleeps), persistence
+    of the tenant-bearing lifecycle record under row-level security, and atomic
+    compare-and-set state transitions; the sole relaxation is that intermediate
+    compute-state checkpointing is not mandatory.
+  - >
+    Slow-Path is the persistent reactive path: all Fast-Path constraints apply,
+    plus mandatory intermediate-state checkpointing and the canonical
+    suspend/resume primitive.
+  - >
+    Suspension is always the canonical suspend primitive; if a Fast-Path operation
+    must suspend it transitions to Slow-Path by that primitive, never via a
+    hand-coded in-memory await/notify pattern.
+  - >
+    A Fast-Path eligibility predicate (bounded duration, no external/human/callback
+    awaits, no cross-deployment resume) gates which operations may run Fast-Path;
+    failing any clause routes the operation to Slow-Path.
+  - >
+    Documentation discipline: prose referencing Fast/Slow path must use this
+    narrowed vocabulary; unqualified "no mandatory persistence" / "skip checkpoint"
+    / "synchronous bypass" phrasing is forbidden and must carry an
+    invariant-preservation clause.
+
+non_authoritative_legacy_content:
+  - >
+    The specific repository CAS method name, the named forbidden APIs
+    (blocking-sleep and non-reactive template calls), and the per-clause numeric
+    eligibility bound in the raw ADR are L2-lane detail (method/call-chain
+    anchors, persistence detail, configurable values), which is leaked at L1 per
+    the layer-purity verdict and owned by the L2 design and the gate enforcers.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule R-G (reactive / virtual-thread execution)"
+  - "Rule R-H (no blocking sleep on the execution path)"
+  - "Rule R-J sub-clause .a (tenant-bearing persistence under RLS)"
+  - "Rule R-C sub-clause .2.b (atomic compare-and-set on non-terminal state transitions)"
+l1_refs:
+  - "agent-service Dual-Track router (the L1 frame that embodies the eligibility predicate; design_only at this wave)"
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0139-fast-slow-path-narrowed-semantics
+gate_refs:
+  - "candidate Fast-Path-prose-without-invariant-clause gate rule (named as a later-wave follow-up; not yet an active enforcer)"
+
+review_notes: >
+  current_state is partial_guidance because the raw ADR mixes an actively
+  governing L1 process contract (the narrowed Fast/Slow path semantics + the
+  doc-discipline rule, which together close the registered
+  permissive-language defect family) with L2-lane detail (the concrete repository
+  CAS method name, named forbidden APIs, and the numeric eligibility bound) that
+  is leaked at L1 per the 2026-05-29 layer-purity verdict and owned by the L2
+  design and gate enforcers. The decision_type is cross_frame_contract because the
+  narrowed semantics are a behavioral contract across the agent-service
+  execution frames (router / engine adapter); they are unsuperseded. AMBIGUITY
+  FLAG for human review: the Dual-Track router SPI is design_only at this wave and
+  its sibling gate rule (detecting Fast-Path prose without an
+  invariant-preservation clause) was only named as a later-wave candidate; whether
+  the SPI and the enforcing gate have since landed should be confirmed against the
+  live contract catalog and enforcers.yaml before this view is cited as runtime or
+  gate authority.

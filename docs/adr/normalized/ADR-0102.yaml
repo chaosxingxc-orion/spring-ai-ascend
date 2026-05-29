@@ -1,0 +1,83 @@
+# Normalized ADR view — ADR-0102.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml (required fields + closed
+# current_state set + per-state invariants) AND docs/governance/adr-taxonomy.yaml
+# (decision_level / decision_type altitude). Authority: ADR-0160. Enforced by
+# Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0102
+raw_path: docs/adr/0102-rc22-evolution-plane-online-offline-duality.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - contract
+view: scenarios
+decision_type: architecture_principle
+
+clean_decision_summary: |
+  Ratify the Evolution Plane Online/Offline modality duality as an L0
+  scenarios-view reference: the evolution plane supports both an Offline (T+1,
+  batch-analysed, version-released updates) modality and an Online dual-track
+  modality (a fast user-facing track plus a slow real-time trajectory-critique
+  track whose optimisations are injected back into the live agent's memory). The
+  duality is paired against the deployment topology as a 2x2 Mode x Modality
+  matrix (platform-centric vs business-centric x offline vs online), whose
+  governance single-source-of-truth is the evolution-modalities policy file. The
+  standing decision is the duality + matrix as the L0 reference shape; the Java
+  realisation is downstream-wave work, not part of this decision.
+
+active_guidance:
+  - "The evolution plane has two first-class modalities: Offline (T+1 asynchronous capture/analyse, updates shipped via explicit version releases) and Online dual-track (a fast user-facing track plus a slow LLM-as-Judge trajectory-critique track that feeds optimisations back into the live agent's short/long-term memory)."
+  - "Modality x deployment mode is a 2x2 matrix (platform-centric vs business-centric, each x offline vs online); the canonical enumeration lives in the governance evolution-modalities policy file as the single source of truth."
+  - "Which run events are eligible for evolution export is governed by the evolution-scope-default-boundary rule (IN_SCOPE / OUT_OF_SCOPE / OPT_IN); the deployment-locus side of the matrix is supplied by the polymorphic-deployment topology ADR."
+
+non_authoritative_legacy_content:
+  - "The wave-tagged implementation timeline (rc22 ratification, rc24 PII-filtered trace emission, rc25 slow-track judge runtime, rc26 ReflectionEnvelope hot-patch runtime) is release scheduling owned by release notes / the plan file, not standing L0 authority."
+  - "The verification_protocol clause referencing a 'per ADR-NNNN signal rule' for recurring-defect-families freshness is a placeholder pointer (no concrete ADR id); freshness is governed by Rule G-9 against the recurring-defect-families ledger, and this placeholder carries no standing authority."
+  - "The family_taxonomy block (wave rc22, family N-delta, hidden defects swept) is recurring-defect-families ledger content, not standing architecture authority."
+  - "Named runtime handlers and transports (ReflectionPatchHandler landing in a later wave, the S2C transport carrier) are L1/L2 realisation detail; the standing L0 decision is the modality duality + matrix shape."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "P-M (Evolution Scope Default Boundary; Rule R-M.e governs evolution-export eligibility)"
+l1_refs:
+  - "agent-evolve module (Evolution Plane) — owner of the offline/online modality realisation"
+l2_refs: []
+contract_refs:
+  - docs/contracts/reflection-envelope.v1.yaml
+fact_refs:
+  - adr/0102-rc22-evolution-plane-online-offline-duality
+gate_refs:
+  - "Rule G-9 (recurring-defect-families freshness — the concrete rule the raw verification_protocol placeholder gestures at)"
+
+review_notes: |
+  Lane: L3-L0ARCH (ADR-0159). Classified at decision_level L0 to match the raw
+  ADR self-label (level: L0, governance_infra: true, view: scenarios).
+  decision_type architecture_principle is the allowed L0 type for ratifying a
+  cross-plane evolution-modality reference shape (the 2x2 Mode x Modality matrix
+  is a principle/reference, not a per-module contract).
+  current_state active_guidance: the modality duality + matrix is current L0
+  reference authority; the raw ADR explicitly scopes the Java realisation to
+  later waves, so the wave timeline + family_taxonomy + handler names are recorded
+  as non_authoritative_legacy_content. AMBIGUITY FLAG for human review: the raw
+  verification_protocol cites 'per ADR-NNNN signal rule' — an unresolved
+  placeholder ADR id. I have interpreted it as the recurring-defect-families
+  freshness obligation (Rule G-9) and recorded the placeholder as
+  non-authoritative; a human should confirm whether a specific ADR was intended
+  and, if so, whether it changes the active guidance. superseded_by empty (no
+  later ADR replaces this ratification; the raw declares extends: [ADR-0075] and
+  relates_to ADR-0075 / ADR-0101, no supersession).

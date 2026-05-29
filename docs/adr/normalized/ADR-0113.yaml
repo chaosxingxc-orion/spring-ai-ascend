@@ -1,0 +1,110 @@
+# Normalized view of ADR-0113 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160.
+
+adr: ADR-0113
+raw_path: docs/adr/0113-hook-ordering-failsafe-coherence-and-tie-break.yaml
+
+# partial_guidance: the two-level hook failure semantics (chain fail-fast vs
+# invocation failsafe) and the requirement for a deterministic tie-break still
+# govern as a cross-cutting invariant; the concrete comparator code and the named
+# test classes are L2 detail and now lower-level.
+current_state: partial_guidance
+
+# Decided at L0: a system-wide behavioral invariant on every hook chain (two-level
+# failure propagation + deterministic ordering), with the canonical contract surface.
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+view: process
+# A system-wide behavioral invariant that holds for every hook chain is a
+# governance_invariant (adr-taxonomy decision_levels.L0.allowed_decision_types).
+decision_type: governance_invariant
+
+clean_decision_summary: >
+  The hook chain has two INDEPENDENT failure-propagation scopes, and the prior
+  self-contradiction ("ordered and failsafe" vs "fail-fast inside the dispatcher")
+  is resolved by naming them separately: the chain scope (within one hook point)
+  defaults to fail-fast; the invocation scope (the LLM/tool call boundary) defaults
+  to failsafe, with a safety-critical override that short-circuits the invocation.
+  "Ordered" means registration order (BEFORE ascending, AFTER reverse). Same-order
+  ties resolve deterministically by class fully-qualified name (never by the unstable
+  bean-name fallback). The error-handling hook position is always best-effort and is
+  not subject to the safety-critical short-circuit. The failure-propagation semantics
+  are mirrored across three surfaces (L0 kernel, L1 module prose, and the canonical
+  hook contract) with cross-surface parity enforced.
+
+active_guidance:
+  - >
+    Two-level failure semantics is the governing invariant: chain scope (within one
+    hook point) is fail-fast by default; invocation scope (the model/tool call
+    boundary) is failsafe by default with a safety-critical override that short-
+    circuits. "Ordered" = registration order; "failsafe" applies at the invocation
+    boundary, not the chain boundary. Both terms are used honestly and consistently.
+  - >
+    Same-@Order ties MUST resolve deterministically by class fully-qualified name
+    (lexicographic ascending), never by the framework's bean-name fallback, so
+    dispatch order is stable across JVMs and framework versions.
+  - >
+    The error-handling hook position is best-effort: the entire chain fires for every
+    error, outcomes aggregate "first non-proceed wins", and the safety-critical
+    short-circuit does NOT apply there (it would create infinite regress).
+  - >
+    The failure-propagation semantics live in three parity-locked surfaces — the L0
+    kernel constraint, the agent-middleware L1 prose, and the canonical hook contract
+    (docs/contracts/engine-hooks.v1.yaml#failure_propagation) — with cross-surface
+    parity enforced by the parity gate (Rule G-8).
+
+non_authoritative_legacy_content:
+  - >
+    The concrete tie-break implementation — the HookDispatcher.sort(...) signature
+    and the literal comparator expression — is L2 detail; the live code-symbol facts
+    and L2 design docs own the implementation, not this ADR.
+  - >
+    The named test classes (HookOrderTieBreakDeterminismTest,
+    SafetyCriticalNotOnErrorHookTest) are a line-level test inventory; the live
+    test-fact inventory owns which tests assert these behaviors, not this ADR.
+  - >
+    The "Today vs Target" wording (Fail discarded today; Fail -> Run.FAILED at a W2
+    Telemetry target) is a point-in-time roadmap snapshot, not a governing clause;
+    the live contract + code facts own the current behavior.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - P-M   # Heterogeneous Engine Contract (hook surface is the P-M cross-cutting mechanism)
+l1_refs:
+  - ADR-0073  # Engine Lifecycle Hooks + Runtime-Owned Middleware SPI (the hook surface this constrains)
+  - ADR-0110  # @SafetyCritical carve-out (the invocation-scope short-circuit override)
+l2_refs:
+  - architecture/docs/L2/   # tie-break comparator + dispatch sequence + outcome aggregation (L2-owned)
+contract_refs:
+  - docs/contracts/engine-hooks.v1.yaml   # failure_propagation: the canonical failure-scope semantics
+fact_refs:
+  - code-symbol/com-huawei-ascend-middleware-hookdispatcher
+gate_refs:
+  - Rule-G-8   # cross-surface parity (L0 kernel <-> L1 prose <-> canonical hook contract)
+
+review_notes: >
+  Layer-purity: this ADR roots its decision in the L0 kernel as a system-wide
+  invariant on every hook chain (two-level failure semantics + deterministic
+  ordering), classified here as L0 governance_invariant. Its raw body leaks L2
+  detail — the HookDispatcher.sort comparator expression and two named test classes —
+  recorded as non_authoritative_legacy_content; the live code/test facts and the
+  canonical hook contract own that detail. AMBIGUITY FLAGGED FOR HUMAN REVIEW: the
+  decision is equally defensible as an L1 cross_frame_contract, since its canonical
+  authority is a contract surface (engine-hooks.v1.yaml#failure_propagation) spanning
+  the middleware frame and the invocation boundary. The view chose L0
+  governance_invariant because the raw ADR sites the two-level semantics in the L0
+  kernel constraint as an invariant over every hook; the reconcile/ledger step may
+  prefer the L1/contract reading. current_state is unambiguous (partial_guidance).

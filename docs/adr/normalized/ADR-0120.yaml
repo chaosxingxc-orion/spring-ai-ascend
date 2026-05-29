@@ -1,0 +1,79 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0120
+raw_path: docs/adr/0120-brand-audience-b-alignment.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels: [L0, L1]
+view: scenarios
+decision_type: architecture_principle
+
+clean_decision_summary: >-
+  Resolves the prerequisite founder decision behind the agentic-primitive
+  contract gap: KEEP the project's brand identity and the external-Spring-
+  developer (Audience B) extension promise rather than rescope to a kernel-only
+  product. The brand is treated as part of the contract surface -- external
+  readers reasonably expect first-class Spring AI integration and non-vacuous
+  extension seams (agent, model-gateway, skill, memory, vector, planner SPIs)
+  before broad Audience B onboarding. The standing decision is the KEEP
+  commitment + the extension-seam obligation; the wave plan, the release re-scope
+  mechanics, and the strategic-decision ledger row are realisation / record.
+active_guidance:
+  - >-
+      The brand identity is retained and is part of the contract surface: the
+      platform commits to delivering the Spring AI integration that the name
+      implies as the canonical model / tool / vector abstraction, rather than
+      flipping to a kernel-only product.
+  - >-
+      The external-Spring-developer (Audience B) promise is retained: the platform
+      MUST provide non-vacuous extension seams (agent, model-gateway, skill,
+      memory-store, vector-store, planner SPIs) before broad Audience B
+      onboarding, so the platform/business-decoupling principle is satisfied by
+      real seams to extend rather than an empty surface.
+non_authoritative_legacy_content:
+  - >-
+      The rc43->rc48 phased wave plan (strategic foundation, contract-surface
+      SPIs, integration & discoverability, governance lockstep) and its per-phase
+      ADR/wave enumeration are release scheduling owned by release notes / the
+      plan file, not standing L0 authority.
+  - >-
+      The release re-scope mechanics (adding a historical re-scope marker to a
+      prior release note, retracting its formal-release framing, freezing its
+      release-readiness evidence bundle) are release-note / evidence-surface
+      record, not standing architecture authority.
+  - >-
+      The strategic-decision ledger row (the named decision, its resolved status,
+      its resolution) is architecture-status.yaml record content, and the
+      effort/day estimates are planning estimates -- neither is standing L0
+      authority.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule R-A (Business/Platform Decoupling -- the KEEP decision makes this non-vacuously satisfiable via real extension seams)"
+l1_refs:
+  - "agent-middleware -- home of the model-gateway / prompt / skill SPIs the Audience B promise obligates"
+  - "agent-client -- the Audience B integration surface"
+l2_refs: []
+contract_refs:
+  - docs/contracts/contract-catalog.md
+fact_refs:
+  - adr/0120-brand-audience-b-alignment
+gate_refs: []
+review_notes: >-
+  Lane: L3-L0ARCH (ADR-0159). decision_level L0 matches the raw self-label (level:
+  L0, governance_infra: true, view: scenarios). decision_type architecture_principle
+  is the allowed L0 type for a system-wide positioning / commitment decision (KEEP
+  the brand + Audience B extension obligation as a standing principle that anchors
+  the downstream SPI contract surface); it is a principle, not a per-module
+  contract or a global MUST. current_state active_guidance: the KEEP commitment and
+  the non-vacuous-extension-seam obligation are current authority and nothing
+  supersedes them. The rc43->rc48 wave plan, the prior-release re-scope mechanics,
+  and the strategic-decision ledger row are recorded as
+  non_authoritative_legacy_content (release / planning / status record).
+  superseded_by empty (relates_to only; no inbound supersession).

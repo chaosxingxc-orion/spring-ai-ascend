@@ -1,0 +1,81 @@
+# Normalized ADR view — readable-interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). This view re-states and curates;
+# it invents no ADR ids and no relationships and never outranks a generated
+# fact. Authority cascade: generated facts > DSL > Card/prose. Schema pinned by
+# docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml,
+# enforced by Rule G-28. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0108
+raw_path: docs/adr/0108-tenant-reauth-widening-and-graph-isolation.yaml
+current_state: partial_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - contract
+view: process
+decision_type: cross_module_policy
+
+clean_decision_summary: |
+  Tenant re-validation is the runtime invariant for EVERY Run-scoped surface, not
+  just cancel: any path resolving a Run by id (read, resume, cancel, and
+  background consumers such as the resume tick, the S2C-callback receiver, and the
+  watchdog) MUST re-validate that the requesting tenant matches the Run's tenant
+  and reject a mismatch (rejecting with the tenant-mismatch outcome rather than a
+  not-found existence oracle), emitting a structured warn-level audit record on
+  the rejected-on-mismatch path. Separately, every GraphMemoryRepository traversal
+  MUST accept a tenant id and enforce isolation at the query surface, with each
+  adapter declaring exactly one of three named isolation strategies
+  (predicate-injection, label-namespacing, or database-isolation) in module
+  metadata.
+
+active_guidance:
+  - "Tenant re-validation is generalised from cancel-only to EVERY /v1/runs/{runId}/... path AND to background consumers that resolve Runs by id; a tenant mismatch is rejected (not collapsed into a not-found existence oracle) so the timing/idempotency side-channel is removed."
+  - "Rejected-on-mismatch audit shape: a warn-level tenant_mismatch record over a common base { surface, reason, occurredAt } plus message-specific { runId, expectedTenant, actualTenant }; this common base is shared with sibling reject-on-mismatch families (ADR-0053 / ADR-0107 / ADR-0109)."
+  - "GraphMemoryRepository tenant-scoped traversal: every find/query method accepts a tenant id and enforces scope at the QUERY surface; each concrete adapter declares exactly one named isolation strategy (predicate_injection | label_namespacing | database_isolation) in module-metadata; an ArchUnit contract test asserts a non-null strategy."
+
+non_authoritative_legacy_content:
+  - "The 'Current shipped state (rc34)' block in the raw ADR records that the live controller then collapsed cross-tenant access into not-found (legacy architect-guidance behaviour). That shipped state is a point-in-time snapshot, NOT the governing direction; the governing invariant is the tenant-mismatch rejection described in active_guidance, with cutover at the named W1 milestone."
+  - "Concrete controller/method anchors and the findById-then-compare ordering in the raw decision body are L2 implementation detail and are not normalized-view authority."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule R-J sub-clause .b (tenant re-authorization — generalised from cancel-only to all Run-scoped surfaces)"
+  - "ARCHITECTURE.md section 4 #22 + #37 (tenant isolation constraints)"
+l1_refs:
+  - "agent-service Run-scoped HTTP surface (read / resume / cancel + background Run resolvers)"
+  - "GraphMemoryRepository (graph_isolation_strategy in module-metadata)"
+l2_refs:
+  - "Controller tenant-compare ordering + idempotency-before/after sequencing (raw ADR — L2 detail, not normalized authority)"
+contract_refs:
+  - docs/contracts/openapi-v1.yaml
+  - docs/contracts/ingress-envelope.v1.yaml
+fact_refs:
+  - adr/0108-tenant-reauth-widening-and-graph-isolation
+gate_refs:
+  - "GraphMemoryTenantIsolationContractTest (ArchUnit, W2 — asserts each adapter declares a non-null isolation strategy)"
+
+review_notes: |
+  AMBIGUOUS current_state — flagged for human review. The raw ADR carries an
+  explicit 'Current shipped state (rc34)' caveat (cross-tenant access then
+  collapsed into not-found) that DIVERGES from the governing direction
+  (tenant-mismatch rejection at the W1 milestone). Two defensible readings:
+    (a) active_guidance — the invariant is current authority and the not-found
+        shipped behaviour is merely implementation timing within the same decision;
+    (b) partial_guidance — the not-found shipped state is live behaviour that the
+        decision explicitly marks as the W1 widening DIRECTION, so part of the ADR
+        is forward-looking and the shipped-state block is non-authoritative.
+  This view chooses partial_guidance and quarantines the shipped-state block under
+  non_authoritative_legacy_content, so a reviewer cites the ADR only through the
+  active_guidance invariant. A human owner should confirm whether the W1 cutover
+  has shipped (it would flip this view to active_guidance with no legacy content)
+  by checking docs/governance/architecture-status.yaml#tenant_reauth_widening.
+
+  decision_level L0 / decision_type cross_module_policy: a cross-module runtime
+  security invariant spanning the HTTP edge, background consumers, and the graph
+  store. Controller/method anchors in the raw body are L2 leakage and were pushed
+  to non_authoritative_legacy_content rather than carried up.

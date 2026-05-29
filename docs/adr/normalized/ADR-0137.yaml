@@ -1,0 +1,100 @@
+# Normalized view of ADR-0137 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# + docs/governance/adr-taxonomy.yaml. Authority: ADR-0160.
+
+adr: ADR-0137
+raw_path: docs/adr/0137-suspendsignal-canonical-interruptsignal-glossary.yaml
+
+# partial_guidance: the canonical-vocabulary decision (SuspendSignal / SuspendReason
+# remain the normative Java carriers; InterruptSignal / InterruptReason are L1/L2
+# glossary synonyms only; no Java rename) still governs as an L1 boundary identity.
+# The specific class file path, method/factory names, and the 4-value InterruptType
+# -> 3-mechanism decomposition are L2 detail, and the cited SuspendSignal path no
+# longer matches the realized fact (see review_notes).
+current_state: partial_guidance
+
+# Decided at L1 (the canonical type/vocabulary identity for suspension semantics).
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - facts
+view: logical
+decision_type: public_api_surface
+
+clean_decision_summary: >
+  SuspendSignal (and the SuspendReason enum) remain the canonical, normative Java
+  carriers for suspension semantics — no Java rename, no method-signature change, no
+  schema change; the checked-exception suspension shape is a deliberate differentiator
+  protected against renames. "InterruptSignal" / "InterruptReason" are recorded as
+  glossary synonyms that may appear in L1/L2 prose, marketing, and external-reviewer
+  material, but Java code uses only the canonical name. A 4-value academic
+  InterruptType vocabulary decomposes onto three existing platform mechanisms rather
+  than becoming a new enum.
+
+active_guidance:
+  - >
+    SuspendSignal / SuspendReason are the canonical normative carriers; no Java
+    identifier rename, no method-signature change, no DB schema change.
+  - >
+    InterruptSignal / InterruptReason are documented synonyms for prose and external
+    communication only; the canonical Java name is the single source of truth in code.
+  - >
+    No new InterruptType enum is introduced; an academic 4-value vocabulary maps onto
+    existing platform mechanisms (A2A task state, the engine hook chain, the S2C
+    client-callback suspension factory, and a suspend reason value).
+  - >
+    The cooperative-scheduling Yield concept stays a hook-point hint (non-state-machine,
+    non-persistence), already owned by the engine-hooks contract — this ADR does not
+    duplicate that decision.
+
+non_authoritative_legacy_content:
+  - >
+    The SuspendSignal class file path quoted in the raw decision
+    (agent-execution-engine/.../com/huawei/ascend/engine/orchestration/spi/SuspendSignal.java,
+    "29 active call sites") is STALE: the realized fact places SuspendSignal in the
+    bus.spi.engine package (code-symbol/com-huawei-ascend-bus-spi-engine-suspendsignal),
+    per the later engine-boundary relocation. Generated facts win — see review_notes.
+  - >
+    The exact factory/method names (forClientCallback), the specific
+    InterruptType -> mechanism bullet mapping, and the planned new SuspendReason value
+    addition (named as a future-wave deliverable) are L2 detail owned by the live
+    facts + L2 docs, not by this ADR.
+  - >
+    The Javadoc-glossary placement plan and the named review-log location are
+    point-in-time wave records, not current authority.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs:
+  - efOrchestrationSpi  # architecture/features/engineering-frames.dsl — Orchestration SPI Frame (lists SuspendSignal in bus.spi.engine)
+l0_constraint_refs: []
+l1_refs:
+  - ADR-0019  # checked-suspension doctrine
+  - ADR-0100  # rc22 decomposition; §rejected-framings rejects an InterruptSignal rename
+  - ADR-0136  # vocabulary reconciliation (parent of this glossary mapping)
+l2_refs:
+  - architecture/docs/L2/  # InterruptType decomposition, factory/method detail (L2-owned)
+contract_refs:
+  - docs/contracts/engine-hooks.v1.yaml  # the ON_YIELD / before_tool / after_tool hook points the academic vocabulary maps onto
+fact_refs:
+  - code-symbol/com-huawei-ascend-bus-spi-engine-suspendsignal
+gate_refs:
+  - docs/governance/rules/rule-R-G.md  # ArchUnit guard resting on the SuspendSignal checked-exception shape
+
+review_notes: >
+  current_state is unambiguous (partial_guidance): the canonical-vocabulary boundary
+  governs, while the path/method/decomposition detail is L2 and recorded as
+  non-authoritative. Layer-purity note: naming SuspendSignal as the canonical type is
+  DEFENSIBLE at L1, but the raw body carries a class FQN path, method names, and an
+  enum decomposition (L2 leakage). Authority-cascade discrepancy to reconcile (not
+  re-litigated here): the raw ADR cites SuspendSignal at
+  agent-execution-engine/.../engine/orchestration/spi/, but the realized fact is
+  code-symbol/com-huawei-ascend-bus-spi-engine-suspendsignal (the type was relocated
+  to bus.spi.engine by the later engine-boundary work, ADR-0158). The decision content
+  (canonical name, no rename) is unaffected; only the location detail is stale, which
+  the reconcile/ledger step should record.

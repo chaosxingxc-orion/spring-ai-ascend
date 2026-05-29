@@ -1,0 +1,90 @@
+# Normalized ADR view — ADR-0112.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml (required fields + closed
+# current_state set + per-state invariants) AND docs/governance/adr-taxonomy.yaml
+# (decision_level / decision_type altitude). Authority: ADR-0160. Enforced by
+# Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0112
+raw_path: docs/adr/0112-engine-stateless-executor-value-based-yield.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - contract
+  - facts
+view: logical
+decision_type: architecture_principle
+
+clean_decision_summary: |
+  Adopt value-based yield as the engine suspension principle: the engine signals
+  a yield by RETURNING a value (a reactive state-delta carrying a nullable
+  interrupt signal), NOT by throwing a checked exception, so suspension can cross
+  reactive / future / durable-workflow boundaries cleanly and the reactive error
+  channel is reclaimed for failures only. Pair the external wire-protocol
+  interrupt vocabulary with the internal suspend-reason DFA vocabulary via an
+  explicit (lossy, many-to-one) mapping. The standing governing principle is
+  "no checked exception in a reactive SPI boundary; engine yields are values";
+  the concrete SPI signatures, the reason-table contents, the shipped-state
+  callouts, and the phased migration are realisation detail (the reason table is
+  now owned by ADR-0146).
+
+active_guidance:
+  - "Engine suspension is value-based: the stateless engine SPI signals a yield by returning a reactive state-delta carrying a nullable interrupt signal, with NO checked exception in the SPI signature; the reactive error channel is reserved for failures only."
+  - "Compounding invariant: every new orchestration SPI inherits the value-based pattern; no future SPI re-introduces a checked exception in a reactive / future / durable-workflow boundary (the rationale: such boundaries cannot carry checked exceptions cleanly and durable workflows require deterministic history)."
+  - "Two interrupt vocabularies coexist with an explicit mapping: an external wire-protocol interrupt type (portable across peer implementations) and an internal suspend-reason DFA vocabulary; internal->wire is many-to-one and lossy by design; inbound wire->internal requires payload-context enrichment by the receiving runtime."
+
+non_authoritative_legacy_content:
+  - "The concrete SPI code blocks (StatelessEngine.execute returning Mono<StateDelta>, the StateDelta record fields, the InterruptSignal sealed interface and its methods, package roots com.huawei.ascend.engine.spi.* and com.huawei.ascend.engine.orchestration.spi.SuspendSignal) are L2 method-signature / class-anchor detail owned at L2 + the generated code-symbol facts, NOT L0 authority."
+  - "The 'Current shipped state (rc34)' callouts and the phased migration plan (W0.5 parallel-API ship, W1 ~9-call-site migration with the named file list, W2 SuspendSignal deletion + the NoCheckedExceptionInSpiTest ArchUnit add) are wave-tagged shipped-state / migration narrative owned by release notes, the plan file, and the generated facts."
+  - "The SuspendReason -> wire-InterruptType mapping TABLE (the 6-case AwaitClientCallback / AwaitChildRun / AwaitToolResult / AwaitTimer / RequiresApproval / RateLimited rows and the deferred AwaitChildren fan-out variant) is, by the raw ADR's own words, NOW OWNED BY ADR-0146 section 1; defer to ADR-0146 as the authority for the canonical reason set. This ADR's Part B is aligned to it post-2026-05-27 and the table contents here are non-authoritative."
+  - "References to ARCHITECTURE.md numbered items and the friction-resolution review/proposal docs are provenance pointers, not standing authority."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Product Claim PC-004 (recorded on the raw ADR)"
+l1_refs:
+  - "Engine SPI boundary (stateless executor) — the L1/contract surface the value-based-yield principle constrains"
+l2_refs:
+  - "StatelessEngine / StateDelta / InterruptSignal concrete signatures and the orchestration SuspendSignal migration (the per-type / per-call-site detail lives at L2 / generated code-symbol facts)."
+contract_refs:
+  - "engine-envelope.v1.yaml (engine injection/yield envelope shape)"
+fact_refs:
+  - adr/0112-engine-stateless-executor-value-based-yield
+gate_refs:
+  - "NoCheckedExceptionInSpiTest (W2 ArchUnit candidate enforcing the no-checked-exception-in-reactive-SPI invariant)"
+
+review_notes: |
+  Lane: L3-L0ARCH (ADR-0159). Classified at decision_level L0 to match the raw
+  ADR self-label (level: L0, view: logical) and the cross-cutting
+  architecture-principle character of the decision (value-based yield is a global
+  SPI-shape invariant, not a single-module contract). decision_type
+  architecture_principle is the allowed L0 type.
+  current_state is partial_guidance because (a) the raw ADR declares
+  supersedes_partial: [ADR-0019] (it partially supersedes the checked-suspension
+  doctrine) and (b) it is a textbook instance of the 2026-05-29 remediation
+  verdict's "L0 ADR carrying L2/code detail" leakage — it embeds full SPI code
+  blocks, method signatures, package paths, a per-call-site file list, and
+  shipped-state callouts. Those are recorded as non_authoritative_legacy_content
+  so the view is citeable ONLY through the value-based-yield principle, while the
+  signatures live at L2 / generated facts.
+  Notable: the raw Part B reason TABLE is, per the raw text itself, superseded by
+  ADR-0146 section 1 as the canonical reason set; this view defers to ADR-0146 and
+  marks the table non-authoritative rather than re-stating a (now stale) edge.
+  supersedes / superseded_by left empty: the supersession of ADR-0019 is PARTIAL
+  (raw `supersedes_partial`), and the extracted fact layer carries no full
+  supersedes edge for ADR-0112 — minting a full supersedes here would overclaim.
+  No ambiguity in the partial_guidance choice.

@@ -1,0 +1,87 @@
+# Normalized view of ADR-0135  -  readable interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). Schema pinned by
+# docs/governance/adr-governance-policy.yaml (required fields + state
+# invariants) and docs/governance/adr-taxonomy.yaml (decision-level + type
+# altitude). This view INVENTS NO ids and NO relationships: supersedes /
+# superseded_by are re-stated from the raw ADR + adrs.json, never minted.
+# Authority cascade is unchanged: generated facts > DSL > Card/prose.
+# UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0135
+raw_path: docs/adr/0135-agent-session-as-run-projection.yaml
+current_state: partial_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - contract
+view: development
+decision_type: architecture_principle
+
+clean_decision_summary: >
+  AgentSession is a projection, not an SPI. Conversation continuity is the
+  tuple (tenantId, conversationId) projected over the sequence of Run records
+  that share that tuple; the client-supplied conversationId is the only
+  identifier and the platform never mints a separate sessionId. Multi-turn
+  state lives in ConversationMemory keyed by (tenantId, conversationId); no new
+  session SPI, entity, or lifecycle is created. Separately, the
+  retrieval-cache strategy is a deferred-with-declared-shape extension (a
+  future nullable field with a fixed vocabulary), not a missing field  -  it
+  lands in the RAG vertical, not at L0.
+
+active_guidance:
+  - >
+    Conversation continuity is modelled as a (tenantId, conversationId)
+    projection over the Run sequence  -  there is deliberately NO AgentSession
+    SPI, no separate session entity, and no separate minted sessionId. This is
+    the governing design intent.
+  - >
+    Multi-turn state is a Memory-SPI concern: it lives in ConversationMemory
+    keyed by (tenantId, conversationId). Conversation-continuity surface
+    evolution is therefore a Memory-SPI question, not a new-session-SPI
+    question.
+  - >
+    Retrieval-cache strategy is deferred-with-known-shape (a forward, nullable,
+    fixed-vocabulary extension on the retrieval options), not a missing field;
+    it is owned by the later RAG vertical, not by L0.
+
+non_authoritative_legacy_content:
+  - >
+    The exact deferred record-extension mechanics (which positional parameter
+    the future cacheStrategy field becomes, the named immutability test it must
+    update) are L2 implementation detail; the authoritative landing shape is
+    the retrieval contract surface and the RAG-vertical decision, not this L0
+    intent doc.
+  - >
+    Implementation-choice asides (a Postgres materialised view for long-lived
+    aggregations, builder-vs-positional constructor migration) are illustrative
+    L2 options, not L0 authority.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs:
+  - efCapabilitySpi
+l0_constraint_refs:
+  - "Tenant scope canonical (tenantId is the partition root)"
+l1_refs:
+  - "agent-service ConversationMemory (M2_EPISODIC)"
+l2_refs: []
+contract_refs:
+  - docs/contracts/memory-store.v1.yaml
+fact_refs:
+  - adr/0135-agent-session-as-run-projection
+gate_refs: []
+
+review_notes: >
+  current_state = partial_guidance: the L0 design-intent decision (no
+  AgentSession SPI; conversation continuity = (tenantId, conversationId)
+  projection over Runs + ConversationMemory; cacheStrategy deferred-with-shape)
+  is current, unsuperseded authority. The embedded L2 detail  -  the precise
+  future record-parameter position, the named immutability test class, and
+  materialised-view implementation choices  -  is lower-altitude and belongs to
+  the contract surface / RAG-vertical decision / generated facts; per the
+  layer-purity verdict it is flagged non-authoritative here. No supersedes/
+  superseded_by edge is declared by the raw ADR or adrs.json, so both lists are
+  empty.

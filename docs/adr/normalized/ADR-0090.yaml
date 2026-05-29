@@ -1,0 +1,89 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0090
+raw_path: docs/adr/0090-rc14-cross-authority-parity-and-engine-semantic-home.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels: [L0, L1, DSL, gate, facts]
+view: process
+decision_type: governance_invariant
+
+clean_decision_summary: >-
+  Makes cross-authority parity a first-class L0 governance invariant: single-
+  surface gate scanners check each canonical surface for well-formedness, but a
+  dedicated cross-surface comparator (Rule G-8) checks that the canonical
+  authority surfaces AGREE with each other -- graph baseline vs status file, SPI
+  package literals vs module metadata vs disk, module topology vs build vs prose,
+  and a current-claim grammar rule that a provenance marker does not make a
+  present-tense sentence naming a deleted module "historical". Also retires the
+  superseded engine package source-compat exception by adopting a single canonical
+  engine implementation package home.
+active_guidance:
+  - >-
+      Cross-authority parity is a standing L0 invariant (Rule G-8): the canonical
+      authority surfaces MUST agree, not merely each be well-formed. Well-formed
+      single-surface checks cannot catch a defect class where two surfaces each
+      pass in isolation but contradict each other; an explicit cross-surface
+      comparator is required.
+  - >-
+      Current-claim grammar discipline: a provenance marker recording WHEN a
+      decision was made does not attest to TENSE; a present-tense verb or
+      structural-noun phrase naming a deleted module is a current-state claim and
+      must be rewritten or carry an explicitly historical token to be exempt.
+  - >-
+      Engine implementation code has a single canonical package home; the prior
+      source-compatibility exception (which kept the engine types under a legacy
+      package) is retired, and consumers bind to the canonical engine package.
+non_authoritative_legacy_content:
+  - >-
+      The point-in-time baseline-metric deltas quoted inline (engineering-rule /
+      gate-check / self-test / enforcer-row / ADR / graph-node / graph-edge /
+      Maven-test counts and their rc13->rc14 transitions) are wave-era baseline
+      observations owned by architecture-status.yaml and the release note, not
+      standing L0 authority.
+  - >-
+      The specific defect-instance inventory (the L-alpha..L-eta findings with
+      their file paths and line numbers, the named stale prose sites, the legacy
+      numeric rule references being retired) is review-response + recurring-defect-
+      families content, not standing architecture authority.
+  - >-
+      The engine package-rename mechanics (the old/new package paths, the moved
+      class/test files, the rewritten import sites, the updated enforcer-row
+      artifact paths, the per-sub-clause gate-rule numbers and fixtures) are
+      L2/gate realisation detail; the realised engine package home is owned by the
+      generated code facts, which win on the location.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "P-A (Layered 4+1 discipline) / P-B (Architecture-Graph Truth) -- the twin-truth spine whose cross-surface agreement Rule G-8 enforces"
+l1_refs:
+  - "agent-execution-engine -- owner of the canonical engine implementation package home this ADR ratifies"
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0090-rc14-cross-authority-parity-and-engine-semantic-home
+  - code-symbol/com-huawei-ascend-engine-runtime-engineregistry
+gate_refs:
+  - "Rule G-8 (Cross-Authority Parity -- the standing cross-surface comparator)"
+review_notes: >-
+  Lane: L8-GOVERNANCE (ADR-0159). decision_level L0 matches the raw self-label
+  (level: L0, governance_infra: true, view: process) and the cross-corpus
+  governance-invariant character: cross-authority parity is a meta-rule about how
+  the corpus's own authority surfaces are kept consistent. decision_type
+  governance_invariant is the allowed L0 type. The heavy point-in-time content the
+  raw carries -- baseline-metric deltas, the L-alpha..L-eta defect-site inventory
+  with file/line citations, the engine-rename mechanics (a forbidden
+  source_file_move / lower-altitude leak if presented as the L0 decision) -- is
+  pushed to non_authoritative_legacy_content and to the owning status / ledger /
+  facts surfaces. current_state partial_guidance: the parity invariant + current-
+  claim grammar + canonical-engine-home decisions still govern (active_guidance)
+  while the baseline numbers and rename mechanics are non-authoritative legacy.
+  superseded_by empty: the raw declares extends: [ADR-0086, ADR-0088] and
+  relates_to (no inbound supersession); the apex fact carries no superseded_by for
+  ADR-0090.

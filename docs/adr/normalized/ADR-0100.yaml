@@ -1,0 +1,110 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0100
+raw_path: docs/adr/0100-rc22-agent-service-l1-runtime-role-decomposition.yaml
+
+current_state: partial_guidance
+decision_level: L1
+affected_levels: [L1, L2, contract, facts]
+view: scenarios
+decision_type: module_responsibility
+
+clean_decision_summary: >-
+  Decomposes the agent-service module into five logical runtime-role components
+  (a polymorphic dispatcher, a reactive orchestrator, a task center, a session
+  manager, and an execution-engine adapter) to dissolve the module's
+  concentration risk, ratifies a Run <= Task <= Session <= Memory lifecycle
+  hierarchy, and introduces three new SPI boundary identities (a stateless
+  engine, a context projector, a task-state store). It rejects embedding an
+  external agent SDK and rejects replacing exception-based suspension with an
+  explicit yield event, locking instead a coexistence: the checked-exception
+  suspension remains canonical for state-machine suspension while a cooperative-
+  scheduling yield hint is added as a hook point.
+active_guidance:
+  - >-
+      The agent-service runtime-role decomposition is the governing decision: five
+      logical components -- dispatcher (unified local + remote entry), reactive
+      orchestrator (tempo / backpressure / protocol-envelope packaging), task
+      center (control-state persistence), session manager (context data +
+      projection toward compute), and execution-engine adapter (masks engine
+      differences; pure-function compute injection). The decomposition stays
+      INSIDE agent-service; the dissolved kernel-shim module is not reintroduced.
+  - >-
+      The Run <= Task <= Session <= Memory lifecycle hierarchy is canonical: Run
+      is a transient compute snapshot, Task is control state, Session is data
+      context, Memory is knowledge state; task and session identities are
+      logically decoupled (one session may run many tasks; one task may drift
+      across sessions).
+  - >-
+      Three SPI boundary identities are part of the agent-service contract: a
+      stateless pure-function engine SPI, a session context-projector SPI, and a
+      task-state-store SPI. Naming these public SPI surfaces is the durable
+      boundary decision; the service is the read-modify-write closure boundary and
+      the engine is the pure-function compute boundary.
+  - >-
+      Yield / suspension coexistence is locked: the checked-exception suspension
+      signal remains canonical for state-machine suspension (the compiler-enforced
+      caller handling and the cancellation flow rest on it), while a cooperative-
+      scheduling yield is added as a new hook point that asks for rescheduling
+      WITHOUT a persistence transition. Replacing suspension with yield is
+      rejected; embedding an external agent SDK is rejected (protocol alignment
+      proceeds at the contract layer without an SDK runtime dependency).
+non_authoritative_legacy_content:
+  - >-
+      The sub-package paths, the stateless-engine method signature, the SPI
+      fully-qualified package homes quoted inline, and the value/record shapes are
+      L2 / contract realisation detail owned by the generated code facts and the
+      contract surface; the realised SPI homes (service.engine.spi /
+      service.session.spi / service.task.spi) are owned by the facts, which win on
+      the location.
+  - >-
+      The staged implementation timeline (rc22 ratification, rc22.5 package-root
+      migration, rc23 sub-package split, rc24 reference impls, rc25 entity types +
+      migrations) is release scheduling owned by release notes / the plan file,
+      not standing L1 authority.
+  - >-
+      The family_taxonomy block (wave rc22, family N-beta, hidden defects swept)
+      is recurring-defect-families ledger content, not standing architecture
+      authority; the forward-compatibility root-migration HTML-comment convention
+      is superseded by the executed package-root migration.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "PC-004 (agentic primitives -- the L1 decomposition serves the product-claim contract surface)"
+l1_refs:
+  - "agent-service (Platform) -- the module this ADR decomposes into five runtime-role components"
+  - "agent-execution-engine -- the cross-module engine the execution-engine adapter masks"
+l2_refs:
+  - "agent-service component internals (sub-package layout, SPI method signatures, value records) -- L2 realisation"
+contract_refs:
+  - docs/contracts/agent-invoke-request.v1.yaml
+  - docs/contracts/engine-hooks.v1.yaml
+fact_refs:
+  - adr/0100-rc22-agent-service-l1-runtime-role-decomposition
+  - contract-yaml/agent-invoke-request
+  - code-symbol/com-huawei-ascend-service-engine-spi-statelessengine
+  - code-symbol/com-huawei-ascend-service-session-spi-contextprojector
+  - code-symbol/com-huawei-ascend-service-task-spi-taskstatestore
+gate_refs: []
+review_notes: >-
+  Lane: L4-FRAME (ADR-0159). decision_level L1 matches the raw self-label (level:
+  L1, view: scenarios) and the module-responsibility character: this is a within-
+  module decomposition plus the public SPI boundary identities it introduces.
+  decision_type module_responsibility is in-altitude for L1 (naming module
+  responsibilities and public SPI surfaces is defensible at L1; the private method
+  anchors and implementation call chains are NOT, and are pushed down). The SPI
+  method signatures, sub-package paths, and value records (a forbidden
+  line-level / private-method leak at L1) are recorded as non_authoritative_legacy_content
+  and cited via the generated code-symbol facts. current_state partial_guidance:
+  the decomposition + lifecycle + SPI boundary identities + yield/suspension
+  coexistence still govern (active_guidance) while signatures, package homes, the
+  rc-staged timeline, and the family_taxonomy are non-authoritative L2 / ledger
+  realisation. The SuspendSignal-canonical clause is reaffirmed by the suspend/
+  interrupt glossary ADR (a glossary synonym, not a vocabulary replacement) per the
+  raw's own audit clarification. superseded_by empty (no later ADR replaces the
+  decomposition; relates_to only).

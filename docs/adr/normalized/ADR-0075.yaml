@@ -1,0 +1,84 @@
+# Normalized ADR view — ADR-0075.
+#
+# READABLE INTERPRETATION layer over the raw ADR source + its extracted fact
+# (architecture/facts/generated/adrs.json). It re-states supersedes/superseded_by
+# and curates which clause still governs; it invents no ADR ids and no
+# relationships, and it never outranks a generated fact (cascade: generated
+# facts > DSL > Card/prose). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160. UTC dates (Rule G-9.a).
+
+adr: ADR-0075
+raw_path: docs/adr/0075-evolution-scope-boundary.yaml
+
+current_state: partial_guidance
+decision_level: L1
+affected_levels: [L1, contract, facts, gate]
+view: logical
+decision_type: cross_frame_contract
+
+clean_decision_summary: >
+  The evolution plane's in/out scope is a server-sovereign boundary expressed as
+  a machine-checked contract: server-controlled signals are in scope by default,
+  client-autonomous behavior is out of scope unless exported through a declared
+  telemetry-export contract (opt-in default-deny). The scope discriminator has
+  exactly three values and no future decision may widen the evolution surface to
+  client-local state without first widening the contract.
+
+active_guidance:
+  - >
+    The evolution-scope contract (docs/governance/evolution-scope.v1.yaml) is the
+    single source of truth for evolution-plane scope, with three discriminator
+    blocks: in-scope (server-controlled), out-of-scope-default (client-owned),
+    and opt-in-export (gated on a future telemetry-export contract).
+  - >
+    Opt-in is default-deny: a client-data export must resolve to a contract row
+    before persistence; absent a contract, opt-in attempts are rejected.
+  - >
+    Every future RunEvent variant is born with the per-variant export-declaration
+    obligation (the boundary precedes the variants; the obligation is structural,
+    not retrofitted).
+
+non_authoritative_legacy_content:
+  - >
+    The Java package path, the EvolutionExport enum constant listing, the
+    package-info note, and the ArchUnit test-class name in the raw ADR are
+    lower-level detail owned by the L2 / facts / gate lanes, not L1 authority.
+  - >
+    The "armed-but-empty (allowEmptyShould(true))" test posture and the
+    deferred-to-W2 RunEvent integration describe a point-in-time implementation
+    plan; the live actively-gated obligation is ratified separately (see
+    review_notes).
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Principle P-M (Heterogeneous Engine Contract + Server-Sovereign Boundary; ADR-0071)"
+l1_refs: []
+l2_refs: []
+contract_refs:
+  - docs/governance/evolution-scope.v1.yaml
+fact_refs:
+  - adr/0075-evolution-scope-boundary
+gate_refs:
+  - "Rule 59 (evolution_scope_yaml_present_and_wellformed)"
+  - "enforcer E85 (gate-script)"
+  - "enforcer E86 (ArchUnit: every RunEvent declares its EvolutionExport)"
+  - "Rule R-M sub-clause .e (every emitted RunEvent declares EvolutionExport)"
+
+review_notes: >
+  current_state is partial_guidance because the raw ADR mixes an actively
+  governing L1 scope-contract decision with point-in-time implementation detail
+  (Java enum/package paths, an armed-empty ArchUnit test) that belongs to the
+  L2 / facts / gate lanes per the 2026-05-29 layer-purity verdict (method/test
+  detail is leaked at L1). The scope-contract decision itself is unsuperseded
+  and still governs. The deferred RunEvent integration referenced here was later
+  specified and its per-variant export obligation promoted from vacuously-true to
+  actively-gated by ADR-0145 (Sealed RunEvent hierarchy); that follow-up does not
+  supersede this scope boundary, it consumes it. AMBIGUITY FLAG for human review:
+  whether the gate Rule 59 / R-M.e mechanism cited here remains the live enforcer
+  after subsequent rule-namespace and single-source-rendering waves should be
+  confirmed against the current enforcers.yaml before this view is cited as
+  authority.

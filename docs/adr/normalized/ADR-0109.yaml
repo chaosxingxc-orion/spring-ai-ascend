@@ -1,0 +1,89 @@
+# Normalized ADR view — ADR-0109.
+#
+# READABLE INTERPRETATION layer over the raw ADR source + its extracted fact
+# (architecture/facts/generated/adrs.json). It re-states supersedes/superseded_by
+# and curates which clause still governs; it invents no ADR ids and no
+# relationships, and it never outranks a generated fact (cascade: generated
+# facts > DSL > Card/prose). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160. UTC dates (Rule G-9.a).
+
+adr: ADR-0109
+raw_path: docs/adr/0109-s2c-and-ingress-server-identity-proof.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels: [L0, L1, contract]
+view: physical
+decision_type: global_constraint
+
+clean_decision_summary: >
+  Both the server-to-client (S2C) callback envelope and the client-to-server
+  ingress envelope MUST carry an application-layer sender-identity proof in
+  addition to any transport-layer authentication, because transport identity and
+  envelope integrity are distinct threats and upstream TLS termination can strip
+  transport identity. Two per-deployment profiles are offered (a TLS-certificate
+  fingerprint by default, or a signed token where TLS is terminated upstream),
+  selected at startup, with replay defeated by a nonce reusing the existing
+  idempotency mechanism.
+
+active_guidance:
+  - >
+    Envelope integrity is a separate concern from transport identity; a
+    transport-layer-only posture is insufficient because an upstream terminator
+    can strip the client certificate, leaving the application layer
+    unauthenticated.
+  - >
+    Sender-identity verification is a per-deployment choice between a
+    platform-controlled TLS-fingerprint profile and a proxy-tolerant signed-token
+    profile, selected at startup.
+  - >
+    Replay protection reuses the existing idempotency-dedup mechanism rather than
+    introducing a new persistence surface.
+  - >
+    The constraint starts design_only (runtime warns when the proof is absent) and
+    promotes to runtime-enforced in a later wave once the supporting key
+    distribution and identity-key surfaces land.
+
+non_authoritative_legacy_content:
+  - >
+    The concrete sender_identity envelope schema (field names and value formats),
+    the HTTP 401 rejection status and reason codes, and the audit MDC field list
+    in the raw ADR are contract- and L2-lane detail (wire/envelope shapes, HTTP
+    status behavior, log field shapes), not L0 authority per the layer-purity
+    verdict.
+  - >
+    The numbered validation-flow steps describe a runtime sequence, which is L2
+    detail; the L0 authority is the requirement that an application-layer proof
+    exist and be verified, not the step ordering.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule R-J sub-clause .b (audit MDC shape / common base) — cited as the shared audit-message family"
+l1_refs: []
+l2_refs: []
+contract_refs:
+  - docs/contracts/s2c-callback.v1.yaml
+  - docs/contracts/ingress-envelope.v1.yaml
+  - "docs/governance/key-distribution.yaml (referenced as a later-wave prerequisite for the signed-token profile)"
+fact_refs:
+  - adr/0109-s2c-and-ingress-server-identity-proof
+gate_refs: []
+
+review_notes: >
+  current_state is partial_guidance because the raw ADR mixes an actively
+  governing L0 security constraint (both cross-plane envelopes must carry an
+  application-layer sender-identity proof) with contract/L2-lane detail (the
+  concrete envelope schema, HTTP 401 status and reason codes, MDC field list, and
+  the numbered runtime validation sequence) that is leaked at L0 per the
+  2026-05-29 layer-purity verdict and properly owned by the contract / L2 lanes.
+  The security constraint itself is unsuperseded and extends ADR-0074 (S2C) and
+  builds on ADR-0089 (ingress boundary). AMBIGUITY FLAG for human review: the raw
+  ADR references docs/governance/key-distribution.yaml as a later-wave deliverable
+  that may not yet exist, and the design_only -> runtime_enforced promotion is
+  gated on later security waves; whether the runtime enforcement has shipped
+  should be confirmed against the live contract catalog before this view is cited
+  as runtime authority.

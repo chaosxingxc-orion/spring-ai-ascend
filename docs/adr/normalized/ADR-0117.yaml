@@ -1,0 +1,94 @@
+# Normalized view of ADR-0117 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# + docs/governance/adr-taxonomy.yaml. Authority: ADR-0160.
+
+adr: ADR-0117
+raw_path: docs/adr/0117-rc37-ascend-kunpeng-strategic-repositioning.yaml
+
+# partial_guidance: the brand-identity resolution (Ascend NPU + Kunpeng CPU
+# hardware/software synergy IS the identity) and the shipped-vs-roadmap honesty
+# boundary still govern. The "drop FSI as the lead vertical / vertical-agnostic"
+# clause is in tension with a later product redirect (2026-05-28) that targets a
+# financial vertical for the v1.0 release — see review_notes; that clause is treated
+# as non-authoritative for the v1.0 product framing pending an explicit reconcile.
+current_state: partial_guidance
+
+# Decided at L0 (a cross-module strategic positioning / brand-identity principle).
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+view: scenarios
+decision_type: architecture_principle
+
+clean_decision_summary: >
+  The platform's strategic identity is the Huawei Ascend (NPU) + Kunpeng (CPU)
+  hardware/software self-host synergy — an open, OSS-first, vertical-agnostic
+  enterprise agent platform with no proprietary-cloud lock-in. The Ascend/Kunpeng
+  brand association is deliberate. Two long-open founder decisions
+  (audience vertical positioning; brand review) are resolved by this ADR. The
+  shipped-vs-roadmap boundary is unchanged: no new capability is claimed; only the
+  strategic framing is corrected, and the hardware-agnostic kernel vs Ascend-
+  optimised-serving roadmap split is preserved so the brand does not overclaim.
+
+active_guidance:
+  - >
+    Brand identity is resolved: Ascend (NPU) + Kunpeng (CPU) hardware/software
+    synergy is the deliberate, intentional positioning — Kunpeng (ARM64) runs the
+    JVM service tier, Ascend NPUs serve the models, an enterprise self-hosts the
+    whole stack on domestic commodity silicon, OSS-first.
+  - >
+    The shipped-vs-roadmap honesty boundary is preserved: no NPU-optimised-serving
+    capability is claimed as shipped; the brand must not overclaim the hardware-
+    agnostic kernel as Ascend-optimised.
+  - >
+    Historical ADRs, review records, release notes, and docs/archive/ are NOT
+    rewritten — they remain accurate as of their date (marked-by-location), and
+    falsifying decision history is rejected.
+
+non_authoritative_legacy_content:
+  - >
+    "Drop FSI as the lead vertical; the platform is vertical-agnostic and finance
+    is at most one illustrative example": this clause is in tension with the
+    2026-05-28 product redirect that makes a financial vertical the lead target for
+    the v1.0 release (product/PRODUCT.md). For the v1.0 PRODUCT framing the later
+    product authority governs; this clause is non-authoritative there. See
+    review_notes — the two surfaces may be compatible (general platform identity vs
+    a specific v1.0 go-to-market vertical), but the reconciliation is not adjudicated
+    in this view.
+  - >
+    The status-field bookkeeping in the raw decision (resolving the named
+    architecture-status.yaml#strategic_decisions entries open -> resolved) is a
+    point-in-time record; the live status is whatever architecture-status.yaml
+    carries now.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs:
+  - ADR-0065  # competitive baselines (no FSI rows; related positioning input)
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs: []
+
+review_notes: >
+  AMBIGUOUS current_state — flagged for human review. The brand-identity decision
+  (Ascend/Kunpeng synergy) and the shipped-vs-roadmap honesty boundary are clearly
+  active. The "vertical-agnostic / drop FSI as lead vertical" decision, however,
+  is in tension with a LATER product redirect dated 2026-05-28 that targets a
+  financial vertical first for the v1.0 release (product/PRODUCT.md; ADR-0156 is the
+  product-authority anchor for that traceability chain). These two may be reconcilable
+  — a general, vertical-agnostic PLATFORM identity can still pick a specific FINANCIAL
+  vertical as its first v1.0 go-to-market — i.e. SUPERSEDED-IN-PART rather than fully
+  superseded. This view records the FSI clause as non_authoritative_legacy_content for
+  the v1.0 product framing and asks the reconcile step (with the product owner) to
+  decide whether ADR-0117 should instead carry superseded_by pointing at the
+  product-redirect ADR for that one clause, or whether an explicit reconciliation ADR
+  is warranted. I did not mint a superseded_by edge because the raw sources declare
+  none and the relationship is a product-axis judgment, not an architecture fact.

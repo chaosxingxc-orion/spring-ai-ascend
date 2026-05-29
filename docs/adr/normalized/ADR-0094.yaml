@@ -1,0 +1,74 @@
+# Normalized ADR view — ADR-0094.
+#
+# Authority: ADR-0160 (ADR Governance Model). This is a READABLE INTERPRETATION
+# layer over the raw ADR source (raw_path below) and its extracted projection in
+# architecture/facts/generated/adrs.json (ADR-0154). It invents no ADR ids and
+# no relationships; it re-states supersedes / superseded_by and curates which
+# clause still governs. Authority cascade is unchanged: generated facts > DSL >
+# Card/prose. Schema pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml; validated by Rule G-28.
+
+adr: ADR-0094
+raw_path: docs/adr/0094-rc17-recurring-defect-family-truth-and-rule-consolidation.yaml
+current_state: partial_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - gate
+view: process
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  Institutionalize the recurring-defect-family pattern as a first-class corpus
+  citizen: a structured ledger (YAML single-source-of-truth plus a human-readable
+  view) that catalogues every root-cause defect class, with a standing freshness
+  obligation gated on every architecture refresh. Simultaneously split four
+  overloaded rule kernels into focused single-invariant sub-rules. The governing
+  outcome is the standing governance invariant (the family ledger exists and
+  stays fresh; sub-rules carry one coherent invariant each); the specific rc17
+  split mechanics, enforcer redistributions, and numeric baselines are bookkeeping.
+
+active_guidance:
+  - "The recurring-defect-family ledger is a first-class governance surface: every root-cause defect class is catalogued in a YAML single-source-of-truth with a companion human-readable view, and the ledger MUST stay fresh on every architecture refresh (Rule G-9 — Recurring-Defect Family Truth)."
+  - "A rule kernel carries exactly ONE coherent invariant; an overloaded kernel bundling orthogonal concerns is split into sibling sub-rules (the .1/.2 sub-rule naming convention), preserving every gate-rule number and enforcer id across the split."
+  - "A reviewer establishes whether a defect class has recurred by reading the family ledger, not by re-reading historical release notes."
+
+non_authoritative_legacy_content:
+  - "The specific rc17 kernel splits and their sub-clause redistributions (G-3 -> G-3 + G-3.1; R-I -> R-I + R-I.1; G-2 -> G-2 + G-2.1; R-C -> R-C + R-C.1 + R-C.2) and the named enforcer reassignments (E2/E4/E120/E129/E130/E137/E138/E141/E142/E143/E154 ...) — gate-surface bookkeeping owned by docs/governance/rules/*.md, enforcers.yaml, and principle-coverage.yaml, not by this L0 decision."
+  - "The point-in-time family-recurrence audit table (per-family occurrence lists rc4..rc16 and cleanup_status snapshots) — historical evidence, superseded as live data by the recurring-defect-families ledger itself."
+  - "The numeric baseline movements claimed in the raw decision (31 -> 37 engineering rules; 122 -> 123 gate checks; 202 -> 205 self-tests; 154 -> 157 enforcer rows; adr_count 92 -> 93; 0 -> 8 families) — version-tagged baseline detail owned by architecture-status.yaml and release notes."
+  - "The opt-in /refresh-defect-archive skill mechanics — developer-tooling detail; the gate, not the skill, is authoritative."
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule G-9 (Recurring-Defect Family Truth)"
+  - "Rule G-2 / G-2.1 (authority-text truth vs deleted-module scope prevention)"
+  - "Rule G-3 / G-3.1 (kernel-card coherence vs disjunction-truth grammar)"
+  - "Rule R-C / R-C.1 / R-C.2 (code-as-contract vs module evolution vs run spine)"
+  - "Rule R-I / R-I.1 (shipped manifest vs deferred ingress routing)"
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0094-rc17-recurring-defect-family-truth-and-rule-consolidation
+gate_refs:
+  - "Rule G-9"
+  - "gate Rule 111 (recurring-defect-family freshness)"
+  - docs/governance/recurring-defect-families.yaml
+  - docs/governance/recurring-defect-families.md
+
+review_notes: |
+  Lane: L8-GOVERNANCE (ADR-0159). A governance-machinery decision (raw
+  governance_infra: true, level: L0, view: process). decision_type
+  governance_invariant (a meta-rule about how the corpus is itself governed).
+  current_state is partial_guidance — NOT remediation_record — because the
+  family-ledger freshness obligation (Rule G-9) and the one-invariant-per-kernel
+  discipline are STILL GOVERNING, while the rc17-specific split mechanics and the
+  numeric baselines are non-authoritative legacy. gate_refs is populated because
+  the decision claims a gate change (Rule G-9 / gate Rule 111). The current_state
+  choice is unambiguous; flagged for human review only to confirm reviewers agree
+  the standing invariant should remain citeable rather than demoting the whole
+  ADR to remediation_record.

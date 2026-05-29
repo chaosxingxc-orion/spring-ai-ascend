@@ -1,0 +1,75 @@
+# Normalized ADR view — ADR-0114.
+#
+# Authority: ADR-0160 (ADR Governance Model). This is a READABLE INTERPRETATION
+# layer over the raw ADR source (raw_path below) and its extracted projection in
+# architecture/facts/generated/adrs.json (ADR-0154). It invents no ADR ids and
+# no relationships; it re-states supersedes / superseded_by and curates which
+# clause still governs. Authority cascade is unchanged: generated facts > DSL >
+# Card/prose. Schema pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml; validated by Rule G-28.
+
+adr: ADR-0114
+raw_path: docs/adr/0114-implementation-feasibility-batched-closures.yaml
+current_state: partial_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+view: process
+decision_type: cross_module_policy
+
+clean_decision_summary: |
+  A batch of ten implementation-feasibility findings, each closing via a narrow
+  contract-surface amendment, a startup gate, or a single SPI/doc update. The
+  governing outcomes are two cross-module policies: a security-posture gate fails
+  CLOSED (never open) when its posture input is missing under non-dev postures,
+  and a breaking wire-contract change bumps the contract major version AND ships
+  both versions in parallel for at least one wave. The ten per-finding technical
+  realizations are L2/contract detail now owned by their respective surfaces.
+
+active_guidance:
+  - "A missing security-posture signal MUST fail CLOSED under non-dev postures (research / prod): boot fails with an actionable error rather than defaulting open; a dev/test profile fallback is the only permitted relaxation."
+  - "A breaking wire-contract change bumps the public contract major version (v1 -> v2) AND ships both versions in parallel for at least one wave; it is never an in-place breaking edit."
+  - "Design-only decisions are surfaced ahead of their implementation wave (the batching discipline that motivated this ADR); reviewers treat the not-yet-authored cross-cutting docs named in the raw ADR as forward references, not present-tense deliverables."
+
+non_authoritative_legacy_content:
+  - "Per-finding contract/persistence realizations: the Idempotency-Key 409 response schema (Idempotency409Response fields + conflict_kind enum), the idempotency_keys TTL/GC + GDPR erase endpoint + Flyway retention migration, the three-track terminal-drain ordering invariant, and the BoM version pins (mcp:1.0.0, spring-ai-bom:2.0.0-M5) — contract/L2 detail owned by docs/contracts/* and the generated facts, not by this L0 decision."
+  - "Named test classes and benchmark budgets (AppPostureGateRequiredInProdTest, ThreeTrackTerminalDrainOrderingIT, IdempotencyConflictResponseShapeIT, BomMcpSdkVersionPinningIT, GraalVmContextThreadingTest, OverheadBudgetEnforcementJMH, ReferenceAdapterPostureGateDiagnosticTest; the ~19 ms per-LLM-call overhead budget) — L2 test mapping / performance detail."
+  - "Virtual-thread pinning hazard mechanics (GraalVM Polyglot carrier-pinning, Postgres JDBC + HikariCP pinning, R2DBC per-connection RLS variables) and the named diagnostic class PostureGateFailure — L2 runtime/implementation detail owned by the cross-cutting docs and code-symbol facts."
+  - "The three cross-cutting docs explicitly marked W2 follow-up / not yet authored (virtual-thread-pinning-hazards.md, agent-runtime-core-dissolution-migration.md, agent-client-wire-contract-compatibility.md) and the response-file delta taxonomy ids (δ.3 .. δ.16) — forward references / version-tagged bookkeeping, not standing authority."
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule R-B (performance regression budget)"
+  - "Rule R-G (no blocking JDBC in runtime)"
+l1_refs: []
+l2_refs:
+  - "Ten per-finding contract/persistence/runtime realizations (migrated down from the raw decision prose)."
+contract_refs:
+  - docs/contracts/openapi-v1.yaml
+  - docs/contracts/contract-catalog.md
+fact_refs:
+  - adr/0114-implementation-feasibility-batched-closures
+gate_refs: []
+
+review_notes: |
+  Lane: L8-GOVERNANCE / L3-L0ARCH (ADR-0159). The raw ADR (level: L0, view:
+  process, governance_infra: true) batches ten heterogeneous findings; most of
+  the raw `decision` block is L2/contract leakage (SQL/Flyway, OpenAPI schemas,
+  JMH budgets, named test classes, env-var behavior, virtual-thread pinning),
+  hence current_state partial_guidance with only the two cross-module policies +
+  the forward-reference discipline kept as active_guidance. decision_type
+  cross_module_policy (an L0-allowed type) was chosen over governance_invariant
+  because the surviving clauses (posture fail-closed, wire-version parallel-ship)
+  bind multiple modules rather than governing the corpus. AMBIGUITY FLAGGED FOR
+  HUMAN REVIEW: this ADR is close to a remediation_record (a batched feasibility-
+  finding closure); it is kept partial_guidance because the posture-fail-closed
+  and wire-versioning policies are genuinely still governing. A reviewer may
+  instead split it into an L0 policy ADR plus an L2 implementation record. The
+  raw ADR declares no supersedes; none minted.

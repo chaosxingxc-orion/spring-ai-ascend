@@ -1,0 +1,73 @@
+# Normalized ADR view — ADR-0096.
+#
+# Authority: ADR-0160 (ADR Governance Model). READABLE INTERPRETATION layer over
+# the raw ADR (docs/adr/0096-rc19-meta-recursion-permanent-close.yaml) and its
+# projection in architecture/facts/generated/adrs.json. Invents no
+# ids/relationships; re-states supersedes/superseded_by from the fact layer.
+# Authority cascade: generated facts > DSL > Card/prose.
+#
+# Shape pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0096
+raw_path: docs/adr/0096-rc19-meta-recursion-permanent-close.yaml
+current_state: remediation_record
+
+decision_level: L0
+affected_levels:
+  - L0
+  - gate
+view: process
+decision_type: governance_invariant
+
+clean_decision_summary: |
+  A corrective wave that permanently closes the "recursive-irony" pattern (rules
+  meant to prevent drift drifting themselves). It replaces the awk recurring-
+  defect-families parser with a Python YAML parser, makes freshness a content
+  diff rather than an mtime check, derives refresh-signal paths from the family
+  surfaces, and adds a META-of-META gate that structurally requires every [META]
+  rule to source a shared helper. It also adds a legacy-parenthetical
+  reintroduction guard, a rule-card filename-convention gate, and a multi-wave
+  release runbook. Captured here as governance-traceability, not as standalone
+  architecture authority.
+
+active_guidance: []
+
+non_authoritative_legacy_content:
+  - The standing governance invariants this wave introduced (Python-parser /
+    content-diff freshness / auto-derived signal paths / META-of-META helper
+    discipline / legacy-paren guard / filename-convention gate) are authoritative
+    only via their rule cards and enforcers, NOT via this ADR's prose. As a
+    remediation_record this view carries no active_guidance clauses of its own.
+  - The wave-mechanics narrative (Wave 1-5 decomposition, per-finding ADV-RC18-*
+    closures, in-branch corrective-commit counts, known-debt KD-rc19-1) is
+    point-in-time cleanup record and governs nothing now.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0096-rc19-meta-recursion-permanent-close
+gate_refs:
+  - E159
+  - rule_112_meta_rule_self_application_check
+  - rule_113_legacy_paren_no_reintroduction_and_migration_doc_complete
+  - rule_114_rule_card_filename_dot_convention
+
+review_notes: |
+  current_state = remediation_record: ADR-0096 is fundamentally a cleanup /
+  review-finding closure wave (it captures the post-rc18 adversarial-review
+  findings and the gate hardening that resolved them), which the policy maps to
+  remediation_record rather than active_guidance. Per the remediation_record
+  invariant, gate_refs are populated because the wave claims gate changes
+  (Rule 112 META-of-META + E159, Rule 113, Rule 114). The standing rules it
+  introduced remain authoritative through their own rule cards / enforcers, not
+  through this ADR. Gate-layer numeric rule ids (112/113/114) are intentionally
+  numeric per the ADR-0086 gate_layer_boundary. Human review: confirm
+  remediation_record over partial_guidance — none of this ADR's clauses are
+  cited as standalone governing architecture; they live in the rule cards.

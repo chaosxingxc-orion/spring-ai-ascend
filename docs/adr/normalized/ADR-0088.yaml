@@ -1,0 +1,87 @@
+# Normalized ADR view — readable-interpretation layer over the raw ADR.
+#
+# Authority: ADR-0160 (ADR Governance Model). This view re-states and curates;
+# it invents no ADR ids and no relationships and never outranks a generated
+# fact. Authority cascade: generated facts > DSL > Card/prose. Schema pinned by
+# docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml,
+# enforced by Rule G-28. UTC date for any date field (Rule G-9.a).
+
+adr: ADR-0088
+raw_path: docs/adr/0088-agent-runtime-core-dissolution.yaml
+current_state: active_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - contract
+  - facts
+  - gate
+view: development
+decision_type: cross_module_policy
+
+clean_decision_summary: |
+  Dissolve the agent-runtime-core module and redistribute its kernel types to the
+  modules that semantically own them: the Run aggregate and idempotency types to
+  agent-service; the engine orchestration SPI (and the RunMode engine
+  discriminator) to agent-execution-engine; the S2C callback SPI types to
+  agent-bus. This restores the L0 six-substantive-module mental model
+  (client / service / bus / engine / middleware / evolve, plus the BoM and the
+  GraphMemory starter) and makes agent-bus the single cross-plane control surface
+  for both directions (C2S ingress and S2C callback). The dependency map collapses
+  to already-allowed edges, removing the back-dependency that motivated the
+  superseded ADR-0079.
+
+active_guidance:
+  - "agent-runtime-core is dissolved; the L0 narrative is six substantive domain modules (client / service / bus / engine / middleware / evolve) + BoM + GraphMemory starter. agent-runtime-core is a deleted-module name (any reappearance is a gate finding)."
+  - "Kernel-type semantic homes: the Run aggregate + idempotency live in agent-service; the engine orchestration SPI + the RunMode discriminator live in agent-execution-engine; the S2C callback SPI lives in agent-bus."
+  - "agent-bus owns BOTH ingress (C2S) and s2c (S2C) transport SPIs — the Bus & State Hub plane is the single cross-plane control surface; agent-execution-engine self-contains its orchestration vocabulary rather than importing it from a sibling kernel module."
+  - "Module-dependency direction: agent-service depends on agent-execution-engine (orchestration SPI consumption) and on agent-bus (S2C transport); the engine does not depend on agent-service."
+
+non_authoritative_legacy_content:
+  - "Wave-by-wave migration mechanics (specific file-move lists, import-rewrite counts, pom.xml edits, exemption-marker file edits) are L2/process execution detail of the one-time move and are not normalized-view authority; they are preserved in the raw ADR."
+  - "Legacy package prefix com.huawei.ascend.service.runtime.* survives on the relocated Run/idempotency types as an explicitly-noted out-of-scope cleanup; 'package prefix == module prefix' no longer holds for those legacy paths."
+
+supersedes:
+  - ADR-0079
+superseded_by: []
+
+dsl_refs:
+  - bus.spi.s2c
+  - engine.orchestration.spi
+l0_constraint_refs:
+  - "Rule R-C sub-clause .c (Contract Spine Completeness — scope path returns to agent-service runtime kernel)"
+  - "Rule R-G / Rule R-H (runtime-kernel scope, now symmetric with R-C.c)"
+  - "Rule 94 / Rule 98 (deleted-module-name truth gates pick up agent-runtime-core)"
+l1_refs:
+  - "agent-service (runs/ + idempotency/ semantic home)"
+  - "agent-execution-engine (engine.orchestration.spi self-contained)"
+  - "agent-bus (bus.spi.s2c + bus.spi.ingress)"
+l2_refs: []
+contract_refs:
+  - docs/contracts/contract-catalog.md
+fact_refs:
+  - adr/0088-agent-runtime-core-dissolution
+  - adr/0079-engine-extraction-runtime-core
+gate_refs:
+  - "module_count_invariant (reactor_modules 8)"
+  - "module_metadata_present_and_complete"
+  - "Rule R-D sub-clause .e (DFX <-> SPI parity)"
+
+review_notes: |
+  Classified active_guidance: the dissolution and the six-module narrative are
+  current governing authority and nothing supersedes ADR-0088. It is itself the
+  superseding decision for ADR-0079 (re-stated in supersedes, not minted — the
+  raw ADR and adrs.json both carry the edge).
+
+  decision_level L0 / decision_type cross_module_policy: the decision is a
+  cross-module structural redistribution + the L0 module-count narrative — an L0
+  governing-policy altitude. Per the taxonomy, naming the destination packages
+  (bus.spi.s2c, engine.orchestration.spi) as boundary identities is defensible;
+  the file-move mechanics are L2 and were pushed to non_authoritative_legacy_content
+  rather than carried as current authority.
+
+  Note on downstream re-homing: ADR-0158 later re-homes EF-ORCHESTRATION-SPI to
+  agent-bus (bus.spi.engine) and adds EF-ENGINE-PORT. That is a FORWARD evolution
+  of the boundary, not a supersession of ADR-0088's dissolution decision; the two
+  are compatible and ADR-0088 remains active_guidance for the module-narrative and
+  semantic-home rules.

@@ -1,0 +1,69 @@
+# Normalized ADR view — ADR-0104.
+#
+# Authority: ADR-0160 (ADR Governance Model). This is a READABLE INTERPRETATION
+# layer over the raw ADR source (raw_path below) and its extracted projection in
+# architecture/facts/generated/adrs.json (ADR-0154). It invents no ADR ids and
+# no relationships; it re-states supersedes / superseded_by and curates which
+# clause still governs. Authority cascade is unchanged: generated facts > DSL >
+# Card/prose. Schema pinned by docs/governance/adr-governance-policy.yaml +
+# docs/governance/adr-taxonomy.yaml; validated by Rule G-28.
+
+adr: ADR-0104
+raw_path: docs/adr/0104-rc22-package-root-migration-to-com-huawei-ascend.yaml
+current_state: partial_guidance
+decision_level: L1
+affected_levels:
+  - L0
+  - L1
+  - facts
+  - gate
+  - contract
+view: development
+decision_type: package_root
+
+clean_decision_summary: |
+  The canonical Java package root for the project is com.huawei.ascend.*, and the
+  Maven groupId is com.huawei.ascend, for every module. The governing outcome is
+  the package-root identity itself; the rc22.5 mechanical execution path, the
+  file-by-file rename scope, and the rc27 self-corruption corrective are
+  historical execution detail, not the standing decision.
+
+active_guidance:
+  - "The canonical Java package root is com.huawei.ascend.* across every module (a pure rename: zero behavior change)."
+  - "The Maven groupId is com.huawei.ascend for every module."
+  - "Historical-marker surfaces (frozen release notes, archived logs, pre-rename scripts) RETAIN the pre-migration root and are exempt from the migration."
+
+non_authoritative_legacy_content:
+  - "The rc22.5 mechanical execution path (the pre-package-root-migration tag, the migrate_package_root.py rb/wb rewrite + CRLF normalization, the ./mvnw clean compile + *ArchTest + check_parallel.sh sequence) — L2/process execution detail, not a standing decision."
+  - "The file-by-file rename scope enumeration (every .java, every module-metadata.yaml#spi_packages, every enforcers.yaml#asserts, every contract-catalog row, every @AnalyzeClasses, every gate script, pom.xml groupId, exemption-path files, the forward-compat HTML markers) — point-in-time scope detail owned by the rename PR and the generated facts."
+  - "The rc27 self-corruption corrective narrative (the from-side literal self-substituted by the rc22.5 script; the letter-bracketed re-encoding; the PR #42 / commit 2c650db canonical-authority pointer) — historical remediation evidence about the raw document, not current architecture authority."
+  - "The family_taxonomy block (wave rc22; family N-epsilon companion to ADR-0103) — version-tagged classification bookkeeping owned by the recurring-defect-families ledger."
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs:
+  - "Project-wide package-root identity (com.huawei.ascend.*) and Maven groupId"
+l2_refs:
+  - "rc22.5 rename execution path + file-by-file scope (migrated down from the raw decision/verification prose)."
+contract_refs:
+  - docs/contracts/contract-catalog.md
+fact_refs:
+  - adr/0104-rc22-package-root-migration-to-com-huawei-ascend
+gate_refs: []
+
+review_notes: |
+  Lane: L4-FRAME (ADR-0159). ALTITUDE RECLASSIFICATION FLAGGED FOR HUMAN REVIEW:
+  the raw ADR self-labels level: L0 (governance_infra: true) with affects_level
+  L0, L1, but a package-root decision is classified at L1 by the decision-level
+  taxonomy (package_root is an L1-allowed decision_type; package-root naming is
+  explicitly DEFENSIBLE at L1, and is forbidden at L0 only as source_file_move
+  leakage). Normalized at L1 so the decision_type is taxonomy-valid; a reviewer
+  who reads the root choice as a cross-module governing policy may prefer L0 +
+  cross_module_policy. current_state partial_guidance: the package-root identity
+  governs; the execution path, the file-by-file scope, and the rc27 corrective
+  are non-authoritative legacy. The raw ADR declares supersedes: [] (none); none
+  minted here. The single source of truth for the actual on-disk package root is
+  the generated code-symbol facts (ADR-0154), which outrank this prose.

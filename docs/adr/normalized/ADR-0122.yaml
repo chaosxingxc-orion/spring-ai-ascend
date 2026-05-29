@@ -1,0 +1,83 @@
+# Normalized ADR view — ADR-0122.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml (required fields + closed
+# current_state set + per-state invariants) AND docs/governance/adr-taxonomy.yaml
+# (decision_level / decision_type altitude). Authority: ADR-0160. Enforced by
+# Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0122
+raw_path: docs/adr/0122-tool-skill-semantic-resolution.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+view: scenarios
+decision_type: architecture_principle
+
+clean_decision_summary: |
+  Resolve the Tool-vs-Skill semantic ambiguity by adopting one unified Skill SPI
+  with a platform lifecycle, where "Tool" is one SkillKind enum value rather than
+  a separate sibling SPI. There is ONE Skill registry, ONE capacity-arbitration
+  surface, and ONE sandbox; the SkillKind discriminator drives policy (e.g.
+  untrusted kinds route through the sandbox). A provider tool callback adapts to
+  the unified Skill via an adapter whose kind() returns TOOL. The standing
+  decision is the single-Skill-SPI semantic resolution; the concrete enum body,
+  package paths, and wave staging are realisation detail.
+
+active_guidance:
+  - "There is ONE unified Skill SPI (platform lifecycle: init / execute / suspend / teardown) covering both LLM-callable tools and long-running workflow steps; 'Tool' is a SkillKind enum value, not a separate Tool SPI."
+  - "There is ONE Skill registry (indexed by tenant + skill key), ONE capacity-arbitration surface, and ONE sandbox; no second registry / capacity / sandbox surface is introduced. The SkillKind discriminator drives policy decisions."
+  - "Untrusted skill kinds MUST route through the sandbox executor SPI; other kinds bypass it. The kind discriminator replaces the need for a separate skill-trust-tier taxonomy."
+  - "A provider (Spring AI) tool callback is adapted to the unified Skill via an adapter whose kind() returns TOOL — it is ONE Skill adapter, not a parallel surface. SkillKind is a CLOSED set on the platform side; adding a kind requires an ADR amendment (open enums would defeat type-safe sandbox routing)."
+  - "Where the pre-existing Skill SPI lifecycle design diverges from this decision text, this decision wins (it consolidates the earlier Skill-SPI design)."
+
+non_authoritative_legacy_content:
+  - "The concrete SkillKind enum body (the specific TOOL / BUILTIN / AGENT_AS_TOOL / MCP_SERVER / UNTRUSTED_TOOL / UNTRUSTED_CODE members) and the fully-qualified package paths (com.huawei.ascend.skill.spi.Skill / SkillRegistry, the SpringAiToolCallbackSkill adapter class) are L1 public-SPI-surface / L2 class-anchor detail owned at L1 + the generated code-symbol facts, NOT L0 authority."
+  - "The wave-tagged staging (this decision LANDS in Wave A3 / rc43; the Skill SPI ships in Wave B2 / rc44+; the adapter ships in Wave C1) is release scheduling owned by release notes / the plan file."
+  - "Adapter no-op / UnsupportedOperationException residual-behaviour notes are L2 implementation detail documented in the SPI package-info, not standing L0 authority."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Product Claims PC-001, PC-004 (recorded on the raw ADR)"
+l1_refs:
+  - "Skill SPI surface (unified Skill + SkillRegistry) — the L1 public-SPI realisation of this principle"
+  - "ResilienceContract / SkillCapacityRegistry (the single capacity-arbitration surface, unchanged by this decision)"
+l2_refs:
+  - "The SkillKind enum members and the provider-tool-callback adapter (the per-type detail lives at L2 / generated code-symbol facts)."
+contract_refs: []
+fact_refs:
+  - adr/0122-tool-skill-semantic-resolution
+gate_refs:
+  - "Rule R-L (sandbox routing keyed on the closed SkillKind set — the type-safety the closed enum protects)"
+
+review_notes: |
+  Lane: L3-L0ARCH (ADR-0159). Classified at decision_level L0 to match the raw
+  ADR self-label (level: L0, view: scenarios) and the semantic-resolution
+  character of the decision (it resolves a cross-module vocabulary question:
+  one Skill SPI, Tool is a kind). decision_type architecture_principle is the
+  allowed L0 type for a unifying semantic principle that constrains how a
+  cross-module SPI is shaped.
+  current_state active_guidance: the single-Skill-SPI resolution is current
+  authority and the raw ADR states it consolidates the earlier Skill-SPI design
+  (divergences resolved in its favour). The concrete enum body, package paths,
+  and wave staging are recorded as non_authoritative_legacy_content so the view
+  is citeable only through the semantic-resolution clauses, keeping the L0 view
+  free of the L1/L2 surface detail (the adjudicated leakage pattern).
+  superseded_by empty (no later ADR replaces this resolution). supersedes empty:
+  the raw declares only relates_to (incl. the earlier Skill-SPI design ADR) and
+  no `supersedes` edge — the "consolidates / wins over divergence" language is
+  recorded as active guidance, not minted as a supersession edge. No ambiguity in
+  the active_guidance choice.

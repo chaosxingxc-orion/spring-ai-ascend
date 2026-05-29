@@ -1,0 +1,75 @@
+# Normalized ADR view — ADR-0146.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml.
+# Authority: ADR-0160. Enforced by Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0146
+raw_path: docs/adr/0146-suspend-reason-taxonomy-alignment-2026-05-22.yaml
+
+current_state: partial_guidance
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+view: logical
+decision_type: cross_frame_contract
+
+clean_decision_summary: |
+  Ratifies the canonical 6-variant SuspendReason taxonomy
+  {AwaitClientCallback, AwaitChildRun, AwaitToolResult, AwaitTimer,
+  RequiresApproval, RateLimited} as the L1 authority and single-sources the A2A
+  InterruptType to SuspendReason wire mapping. Reconciles prior naming drift
+  across ADR-0019, ADR-0070, ADR-0074 and ADR-0112 by applying the user
+  precedence rule (the 2026-05-22 expansion-proposal-response doc wins over the
+  ADRs). EXTENDS ADR-0019; the fan-out AwaitChildren variant is deferred as
+  design_only to a future ADR.
+
+active_guidance:
+  - "The canonical SuspendReason set is exactly the 6 variants {AwaitClientCallback, AwaitChildRun, AwaitToolResult, AwaitTimer, RequiresApproval, RateLimited}; future ADRs EXTEND this set (e.g. a 7th fan-out variant) rather than rename within it."
+  - "The A2A InterruptType to SuspendReason mapping in this ADR is the single authoritative wire-protocol to internal mapping."
+  - "Each variant's resume-payload contract (per-variant) is carried forward from ADR-0019 as restated here."
+
+non_authoritative_legacy_content:
+  - "The Java rename scope (SuspendReason.java line anchors, per-variant constructor call-site counts) is L2 implementation detail, not L1 authority; the rename lands in an impl-mode follow-up wave."
+  - "The pre-alignment variant names from ADR-0019 (ChildRun / AwaitExternal / AwaitApproval), ADR-0070 (AwaitChild) and ADR-0112 Part B (AwaitTool / AwaitChildren) are explicitly NON-current — they are listed only to record the drift this ADR closes."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs:
+  - "ADR-0019 (original SuspendReason taxonomy; EXTENDED by this ADR)"
+  - "ADR-0074 (AwaitClientCallback origin)"
+  - "ADR-0112 (Part B InterruptType to SuspendReason mapping table)"
+  - "ADR-0137 (SuspendSignal canonical glossary)"
+  - "agent-service runtime.resilience SuspendReason taxonomy"
+l2_refs:
+  - "SuspendReason Java records rename (impl-mode follow-up; L2-owned)"
+contract_refs: []
+fact_refs: []
+gate_refs: []
+
+review_notes: |
+  Classified partial_guidance: the standing L1 decision is the canonical
+  6-variant taxonomy plus the single-sourced A2A InterruptType to SuspendReason
+  wire mapping (a cross_frame_contract — the public cross-boundary mapping
+  authority). The raw ADR embeds L2-altitude Java line anchors and call-site
+  counts, recorded as non_authoritative_legacy_content per the 2026-05-29
+  remediation verdict. supersedes is EMPTY despite the raw ADR §6 stating it
+  supersedes ADR-0019's original variant block: that is a CLAUSE-level partial
+  supersession, the raw ADR's declared edge to ADR-0019 is EXTENDS, and the
+  extracted fact layer carries no supersedes edge for ADR-0146. Minting a
+  whole-ADR supersedes here would invent an edge the source does not declare,
+  which the readable-interpretation discipline forbids. HUMAN-REVIEW FLAG: if
+  governance wants the clause-level supersession of ADR-0019's variant block
+  represented as a first-class edge, it must be declared in the raw ADR /
+  fact layer first, then re-stated here — not minted in this view.

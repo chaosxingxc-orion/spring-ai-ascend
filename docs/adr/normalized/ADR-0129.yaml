@@ -1,0 +1,88 @@
+# Normalized ADR view — ADR-0129.
+#
+# READABLE INTERPRETATION layer over the raw ADR source + its extracted fact
+# (architecture/facts/generated/adrs.json). It re-states supersedes/superseded_by
+# and curates which clause still governs; it invents no ADR ids and no
+# relationships, and it never outranks a generated fact (cascade: generated
+# facts > DSL > Card/prose). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160. UTC dates (Rule G-9.a).
+
+adr: ADR-0129
+raw_path: docs/adr/0129-streaming-aware-model-gateway.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels: [L0, L1, contract]
+view: development
+decision_type: system_boundary
+
+clean_decision_summary: >
+  The platform model-invocation boundary gains a streaming companion to its
+  request/response invocation: the model gateway exposes a pure-Java streaming
+  surface as an opt-in default-method extension, so the boundary stays
+  binary-compatible (existing non-streaming adapters keep working) while
+  streaming-capable adapters override. The streaming surface stays inside the
+  java.* standard library (no reactive-framework type in the SPI); the adapter
+  owns the bridge from a provider's reactive type, and the canonical third-party
+  integration remains the reference adapter source.
+
+active_guidance:
+  - >
+    Streaming is a first-class part of the model-invocation boundary, declared as
+    an opt-in extension that preserves binary compatibility for existing adapters.
+  - >
+    The streaming surface uses only java.* standard-library types; bridging a
+    provider's reactive type into the standard streaming type is the adapter's
+    responsibility, not the SPI's.
+  - >
+    Streams inherit tenant scope from the invocation and fail closed on
+    cross-tenant access before the stream opens.
+  - >
+    The streaming contract begins design_only and promotes to runtime-enforced
+    when the model-gateway runtime implementation ships.
+
+non_authoritative_legacy_content:
+  - >
+    The exact streaming method signature, the sealed chunk-type variants and their
+    record component fields, and the terminal-chunk ordering rule in the raw ADR
+    are contract- and L2-lane detail (SPI method signatures, type shapes, runtime
+    sequence), which is leaked at L0 per the layer-purity verdict and is owned by
+    the streaming contract and the L2 design.
+  - >
+    The hook-binding order name and the BEFORE/AFTER firing sequence describe a
+    runtime sequence (L2); the L0 authority is that the boundary is hook-bound and
+    tenant-scoped, not the firing order itself.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule R-D (no non-java.* imports in SPI packages) — why the streaming surface returns a java.* type, not a reactive type"
+  - "Rule R-G (reactive / virtual-thread isolation) — why blocking provider calls are isolated before promotion"
+  - "Rule R-C sub-clause .c (tenant-scoped invocation)"
+l1_refs: []
+l2_refs: []
+contract_refs:
+  - docs/contracts/model-streaming.v1.yaml
+fact_refs:
+  - adr/0129-streaming-aware-model-gateway
+gate_refs: []
+
+review_notes: >
+  current_state is partial_guidance because the raw ADR mixes an actively
+  governing L0 boundary decision (the model-invocation boundary now includes a
+  tenant-scoped, hook-bound, binary-compatible streaming surface) with
+  contract/L2-lane detail (the concrete SPI method signature, the sealed
+  chunk-record variants and their fields, the terminal-chunk ordering rule, and
+  the hook firing sequence) that is leaked at L0 per the 2026-05-29 layer-purity
+  verdict and properly owned by the streaming contract and the L2 design. The
+  decision_type is system_boundary (the platform model boundary) rather than
+  public_spi_surface, which is an L1-only type — declaring the SPI method
+  signature itself at L0 is precisely the leak this view quarantines into
+  non_authoritative_legacy_content. The boundary decision extends ADR-0121
+  (the base gateway) and is unsuperseded. AMBIGUITY FLAG for human review: the
+  design_only -> runtime_enforced promotion is gated on the model-gateway runtime
+  wave; whether streaming has been promoted should be confirmed against the live
+  contract catalog before this view is cited as runtime authority.

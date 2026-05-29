@@ -1,0 +1,112 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0140
+raw_path: docs/adr/0140-engine-adapter-layer-split.yaml
+
+current_state: partial_guidance
+decision_level: L1
+affected_levels: [L1, L2, contract, facts]
+view: logical
+decision_type: module_responsibility
+
+clean_decision_summary: >-
+  Splits the kitchen-sink "engine adapter" layer of the agent-service 5-layer L1
+  model into two cohesive sub-layers -- 5a Engine Dispatch & Execution (engine
+  registry + executor adapters + hook-surface emission, on the engine-contract
+  change cadence) and 5b Translation & Tool-Intercept (context projection, prompt
+  template, structured-output conversion, chat advisor, on the Spring AI change
+  cadence) -- and moves the runtime-middleware responsibility EXCLUSIVELY into the
+  Layer 4 control layer, removing its double-homing. This partially supersedes the
+  prior 5-layer ratification's Layer 5 responsibility list while leaving that
+  ADR's other ratifications in force. The standing decision is the cohesive split
+  + single-home middleware; the diagram-rendering guidance and the concrete
+  package mapping are L2 realisation.
+active_guidance:
+  - >-
+      Layer 5 splits into two cohesive sub-layers on different change cadences: 5a
+      Engine Dispatch & Execution (engine registry resolution + executor-adapter
+      implementations + hook-surface emission into the Layer 4 hook chain; engine-
+      contract evolution cadence) and 5b Translation & Tool-Intercept (context
+      projection + prompt template + structured-output conversion + chat advisor /
+      advisor chain; Spring AI evolution cadence). Each sub-layer owns a bounded
+      set of responsibilities so a refactor inside it can be reasoned about
+      locally.
+  - >-
+      Runtime-middleware ownership is unambiguous and single-homed in the Layer 4
+      control layer: 5a emits hook-point events INTO Layer 4, whose middleware
+      chain consumes them; 5a does not directly invoke runtime middleware and 5b
+      does not mention it. Double-homing the same component across two layers is
+      the low-cohesion fingerprint this closes.
+  - >-
+      This refines (partially supersedes) only the prior 5-layer ratification's
+      Layer 5 responsibility list; that ADR's other ratifications (the tenant-
+      first execution-request, the three-track bus binding for the queue layer,
+      the overall 5-layer structure) remain in force.
+non_authoritative_legacy_content:
+  - >-
+      The concrete sub-package mapping quoted inline (5a under an engine-adapter /
+      engine-spi home; 5b under a session-spi + integration home) is L2 realisation
+      detail owned by the layer-vs-package matrix and the generated code facts;
+      per the raw ADR's own post-decision audit note the shipped executors do NOT
+      live under the declared 5a engine-adapter home, so the boundary is doc-only
+      at code level until a follow-up impl wave relocates them or amends the
+      mapping -- the generated facts win on the actual location.
+  - >-
+      The diagram-rendering guidance (present five numbered layers with Layer 5
+      visibly split into 5a/5b sub-blocks; the asymmetry caveats) is L1/L2 view-
+      presentation detail owned by the agent-service logical + development view
+      documents, not standing L1 contract authority.
+  - >-
+      The low-cohesion defect-family framing (the lead occurrence and the family
+      registration) is recurring-defect-families ledger content, not standing
+      architecture authority.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "PC-004 (the product claim the raw cites for the agent-service runtime-role decomposition)"
+l1_refs:
+  - "agent-service (Platform) -- the module whose Layer 5 this ADR splits and whose Layer 4 absorbs runtime middleware"
+  - "agent-execution-engine -- the cross-module engine the 5a dispatch sub-layer consumes"
+  - "ADR-0138 -- the 5-layer L1 ratification whose Layer 5 responsibility list this ADR partially supersedes"
+l2_refs:
+  - "agent-service layer-to-package mapping (5a/5b sub-packages) + logical/development view diagrams -- L2 realisation"
+contract_refs:
+  - docs/contracts/engine-hooks.v1.yaml
+  - docs/contracts/prompt-template.v1.yaml
+  - docs/contracts/structured-output.v1.yaml
+  - docs/contracts/chat-advisor.v1.yaml
+fact_refs:
+  - adr/0140-engine-adapter-layer-split
+  - code-symbol/com-huawei-ascend-service-engine-spi-statelessengine
+  - code-symbol/com-huawei-ascend-service-session-spi-contextprojector
+  - code-symbol/com-huawei-ascend-middleware-prompt-spi-prompttemplate
+  - code-symbol/com-huawei-ascend-middleware-model-spi-structuredoutputconverter
+  - code-symbol/com-huawei-ascend-middleware-advisor-spi-chatadvisor
+  - code-symbol/com-huawei-ascend-engine-exec-sequentialgraphexecutor
+  - code-symbol/com-huawei-ascend-engine-exec-iterativeagentloopexecutor
+gate_refs: []
+review_notes: >-
+  Lane: L4-FRAME (ADR-0159). decision_level L1 matches the raw self-label (level:
+  L1, view: logical) and the module-responsibility character: this is a within-
+  module layer / responsibility re-decomposition. decision_type
+  module_responsibility is in-altitude for L1 (assigning sub-layer responsibilities
+  and a single home for a component is defensible at L1; the implementation call
+  chains are NOT and are not carried). The concrete package mapping (an
+  implementation detail at L1) is recorded as non_authoritative_legacy_content and
+  cited via the realised code-symbol facts; critically, the raw ADR's own audit
+  note records that the shipped executors live under an engine-exec home, NOT the
+  declared 5a engine-adapter home -- so the generated facts win on location and the
+  5a/5b package boundary is doc-only at code level pending a follow-up. current_state
+  partial_guidance: the cohesive split + single-home middleware decision governs
+  (active_guidance) while the package mapping, the diagram guidance, and the defect-
+  family framing are non-authoritative L2 / view / ledger realisation. superseded_by
+  empty: this ADR is the SUPERSEDER (it partially supersedes the prior 5-layer
+  ADR's Layer 5 clause) and the apex fact carries no inbound superseded_by for
+  ADR-0140; the outbound partial supersession is a clause-level edge re-stated in
+  l1_refs, not minted in supersedes (the extracted fact layer carries no full
+  supersedes edge for it).

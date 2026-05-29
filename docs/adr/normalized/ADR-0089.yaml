@@ -1,0 +1,82 @@
+# Normalized ADR view — ADR-0089.
+#
+# READABLE INTERPRETATION layer over the raw ADR source + its extracted fact
+# (architecture/facts/generated/adrs.json). It re-states supersedes/superseded_by
+# and curates which clause still governs; it invents no ADR ids and no
+# relationships, and it never outranks a generated fact (cascade: generated
+# facts > DSL > Card/prose). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160. UTC dates (Rule G-9.a).
+
+adr: ADR-0089
+raw_path: docs/adr/0089-edge-plane-ingress-gateway-mandate.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels: [L0, L1, contract, gate]
+view: physical
+decision_type: system_boundary
+
+clean_decision_summary: >
+  client -> bus -> server is the only allowed client-to-server (C2S) topology.
+  Edge-plane modules (deployment_plane edge) MUST NOT directly import production
+  classes of compute_control-plane modules and MUST NOT invoke compute_control
+  routes directly; all cross-plane traffic flows through the bus ingress
+  boundary. agent-bus thereby owns cross-plane traffic in both directions
+  (paired with ADR-0088's server-to-client placement).
+
+active_guidance:
+  - >
+    The edge plane may not reach the compute_control plane directly, at either
+    the build-dependency level or the wire level; the bus ingress boundary is the
+    single positive C2S path.
+  - >
+    The cross-plane fabric is centralised in agent-bus in both directions: the
+    bus owns the ingress (client -> server) boundary alongside the S2C callback
+    (server -> client) boundary.
+  - >
+    The ingress contract begins design_only (the schema and topology are locked,
+    but the runtime binding is not claimed shipped); runtime-enforced promotion is
+    triggered by the edge-plane SDK landing.
+
+non_authoritative_legacy_content:
+  - >
+    The bus ingress SPI fully-qualified type names, the ingress envelope/response
+    field lists, and the HTTP route paths in the raw ADR are contract- and
+    L2-lane detail (wire formats / SPI signatures / route-verb behavior), not L0
+    authority per the layer-purity verdict.
+  - >
+    The wave-by-wave SPI-stub and gate-rule build sequence (E143, Rule 105,
+    rule-105.sh wrapper) is gate-lane mechanism cited here for traceability; it is
+    owned by L8-GOVERNANCE, not by this L0 boundary statement.
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Principle P-I (Five-Plane Distributed Topology)"
+  - "Rule R-I sub-clause .b (bus-mediated client ingress topology invariant)"
+l1_refs: []
+l2_refs: []
+contract_refs:
+  - docs/contracts/ingress-envelope.v1.yaml
+fact_refs:
+  - adr/0089-edge-plane-ingress-gateway-mandate
+gate_refs:
+  - "Rule 105 (edge_no_direct_compute_link)"
+  - "enforcer E143 (ArchUnit: edge classes import no compute_control classes)"
+
+review_notes: >
+  current_state is partial_guidance because the raw ADR mixes an actively
+  governing L0 system-boundary decision (the C2S topology invariant) with
+  contract/L2-lane detail (ingress SPI type names, envelope field lists, HTTP
+  route paths, gate-rule wiring) that is leaked at L0 per the 2026-05-29
+  layer-purity verdict and properly owned by the contract / gate lanes. The
+  topology mandate itself is unsuperseded and still governs. ADR-0109 extends
+  this boundary by mandating an application-layer server-identity proof on the
+  ingress envelope; that is an extension, not a supersession. AMBIGUITY FLAG for
+  human review: the design_only -> runtime_enforced promotion is gated on the
+  edge-plane (agent-client) SDK landing, which remains a future wave; whether the
+  contract has since been promoted should be confirmed against the live contract
+  catalog before this view is cited as runtime authority.

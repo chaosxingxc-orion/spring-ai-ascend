@@ -1,0 +1,89 @@
+# Normalized ADR view — readable interpretation layer over the raw ADR.
+# Authority: ADR-0160 (ADR Governance Model). Schema: docs/governance/
+# adr-governance-policy.yaml (required fields + state invariants) +
+# docs/governance/adr-taxonomy.yaml (decision-level altitude). This view invents
+# no ADR ids and no relationships; it re-states and curates only. Authority
+# cascade is unchanged: generated facts > DSL > Card/prose. UTC dates (Rule G-9.a).
+adr: ADR-0077
+raw_path: docs/adr/0077-schema-first-domain-contracts.yaml
+
+current_state: partial_guidance
+decision_level: L0
+affected_levels: [L0, L1, contract, gate]
+view: development
+decision_type: governance_invariant
+
+clean_decision_summary: >-
+  Codifies the schema-first domain-contract discipline as a permanent,
+  ship-blocking governance invariant: a new domain enum / taxonomy MUST cite a
+  YAML schema (under the contracts or governance surfaces) rather than be defined
+  in prose, so the "YAML schema -> Java type -> runtime self-validate" shape
+  replaces prose-first taxonomies and the text-drift defect family becomes
+  structurally impossible for new taxonomies. Pre-existing prose-enum sites are
+  carried on a closed grandfather list (no additions); their migration is
+  follow-up work, not a re-opening of the closed list.
+active_guidance:
+  - >-
+      Schema-first is a standing governance invariant: every NEW domain enum or
+      taxonomy in the normative architecture corpus MUST have a single source of
+      truth in a YAML schema with a gate-enforced cross-check, not a prose
+      definition. This is the leaf-shape companion to the Layered 4+1 + graph
+      structural substrate -- structure says WHERE a constraint lives; this rule
+      says WHAT SHAPE its taxonomy takes.
+  - >-
+      The rule is ship-blocking, not advisory: advisory enforcement of a
+      text-discipline decays the moment the authoring engineers move on, which is
+      the documented mechanism behind the historical text-drift defect family. A
+      new prose enum with no nearby schema reference and no grandfather entry
+      fails the gate closed.
+  - >-
+      The grandfather list of pre-existing prose-enum sites is CLOSED -- a
+      named, auditable, dateless-additions-forbidden set. New taxonomies cannot be
+      slipped onto it; the only way to add a prose enum is to give it a YAML
+      schema.
+non_authoritative_legacy_content:
+  - >-
+      The concrete gate-rule realisation (the numbered gate rule, its heuristic
+      prose-enum regex, the +/-5-line proximity window, the grandfather-list file
+      and its entry count, the named positive/negative self-test fixtures, the
+      enforcer row id) is gate-surface realisation owned by the gate scripts +
+      enforcers ledger, not standing L0 authority.
+  - >-
+      The point-in-time defect-family arithmetic (79 of 158 historical closed
+      defects) and the specific list of grandfathered prose-enum sites are
+      recurring-defect-families ledger + grandfather-list content, not standing
+      architecture authority.
+  - >-
+      The bash-only-gate constraint and the deferred option to upgrade the
+      prose-enum scanner to a Markdown-AST parser are implementation/process
+      detail, not part of the standing schema-first invariant.
+supersedes: []
+superseded_by: ""
+dsl_refs: []
+l0_constraint_refs:
+  - "P-M (Heterogeneous Engine Contract -- the engine/hook contracts are the first schema-first domain contracts this rule generalises)"
+l1_refs: []
+l2_refs: []
+contract_refs:
+  - docs/contracts/engine-envelope.v1.yaml
+  - docs/contracts/engine-hooks.v1.yaml
+fact_refs:
+  - adr/0077-schema-first-domain-contracts
+  - contract-yaml/engine-envelope
+  - contract-yaml/engine-hooks
+gate_refs:
+  - "Rule M-2.a (Schema-First Domain Contracts -- the standing engineering rule)"
+review_notes: >-
+  Lane: L8-GOVERNANCE (ADR-0159). Re-altitude UP (raw self-labels level L1 / view
+  development) to decision_level L0: the decision is a CROSS-CUTTING text-
+  discipline invariant -- the raw itself classifies the enforcer at L0/scenarios
+  as "a CROSS-CUTTING text-discipline, not a per-module concern" -- which is a
+  governance invariant about how the whole corpus shapes its taxonomies, not a
+  single module's contract. decision_type governance_invariant is the allowed L0
+  type for a meta-rule about corpus content shape; the gate-rule mechanics (a
+  forbidden lower-altitude detail at L0) are pushed to
+  non_authoritative_legacy_content + the gate surface. view development kept from
+  the raw. current_state partial_guidance: the schema-first invariant still
+  governs (active_guidance) while the heuristic regex, grandfather-list mechanics,
+  and defect-count arithmetic are non-authoritative gate/ledger realisation.
+  superseded_by empty (no later ADR replaces the schema-first decision).

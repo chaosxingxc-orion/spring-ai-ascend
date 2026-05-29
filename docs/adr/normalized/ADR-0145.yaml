@@ -1,0 +1,73 @@
+# Normalized ADR view  -  ADR-0145.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml + docs/governance/adr-taxonomy.yaml.
+# Authority: ADR-0160. Enforced by Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0145
+raw_path: docs/adr/0145-run-event-sealed-hierarchy.yaml
+
+current_state: partial_guidance
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - contract
+view: logical
+decision_type: cross_frame_contract
+
+clean_decision_summary: |
+  Specifies the sealed RunEvent hierarchy as a contract surface
+  (docs/contracts/run-event.v1.yaml)  -  the polymorphic event type the
+  EvolutionExport discriminator was designed to discriminate  -  and binds each
+  RunEvent variant to its EvolutionExport value. Promotes Rule R-M.e (every
+  emitted RunEvent declares an EvolutionExport) from vacuously-true to
+  meaningfully gateable once the type exists. The contract is design_only at
+  authoring time; the Java sealed type and the test that makes Rule R-M.e
+  non-vacuous land in a follow-up implementation wave.
+
+active_guidance:
+  - "The RunEvent contract surface (docs/contracts/run-event.v1.yaml) is the authoritative specification of the sealed RunEvent variant set and each variant's EvolutionExport binding."
+  - "Rule R-M.e (every emitted RunEvent declares an EvolutionExport) is the governing constraint the contract makes gateable; OUT_OF_SCOPE is reserved for client-private events that must never cross the evolution-plane boundary."
+  - "New scenarios that need additional event variants EXTEND the sealed hierarchy via a follow-up ADR rather than mutating it in place."
+
+non_authoritative_legacy_content:
+  - "The Java-level emission discipline (which call-site emits which variant, RunRepository.save / updateIfNotTerminal anchors, Layer-4 emission ordering) is L2 FunctionPoint / runtime-sequence detail, not L1 authority; it is owned at L2 once the implementation wave lands."
+  - "The '10 record variants land in a follow-up impl-mode wave' inventory and the design_only -> runtime_enforced status-bump narrative are migration sequencing, not standing L1 authority."
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs:
+  - "ADR-0100 (rc22 5-component decomposition)"
+  - "ADR-0138 (5-layer L1 ratification)"
+  - "ADR-0141 (Internal Event Queue  -  this hierarchy populates it)"
+  - "agent-service runtime.evolution package (EvolutionExport discriminator home)"
+l2_refs:
+  - "RunEvent Java sealed type + variant records (deferred to a follow-up implementation wave; L2-owned)"
+contract_refs:
+  - "docs/contracts/run-event.v1.yaml"
+fact_refs: []
+gate_refs:
+  - "Rule R-M.e (every emitted RunEvent declares an EvolutionExport)"
+
+review_notes: |
+  Classified partial_guidance: the standing L1 decision is the contract-surface
+  specification of the sealed RunEvent variant set plus each variant's
+  EvolutionExport binding (a cross_frame_contract  -  the allowed L1 decision_type
+  for a public cross-boundary promise specified as a contract). The raw ADR
+  additionally embeds L2-altitude emission call-chains and a Java record
+  inventory, which are recorded as non_authoritative_legacy_content per the
+  2026-05-29 remediation verdict (runtime sequences / method anchors migrate to
+  L2). supersedes / superseded_by empty: the raw ADR declares only relates_to
+  edges and the fact layer carries no supersession for ADR-0145. The
+  run-event.v1.yaml contract file exists in the tree, so contract_refs resolves.

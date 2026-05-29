@@ -1,0 +1,89 @@
+# Normalized ADR view — ADR-0078.
+#
+# READABLE INTERPRETATION LAYER over the raw ADR source (raw_path below) and its
+# extracted projection architecture/facts/generated/adrs.json (ADR-0154). This
+# view re-states relationships the raw ADR declares and curates which clauses
+# still govern; it INVENTS NO ADR ids and NO graph edges, and it never outranks a
+# generated fact. Authority cascade is unchanged: generated facts > DSL > Card/prose.
+#
+# Schema: docs/governance/adr-governance-policy.yaml (required fields + closed
+# current_state set + per-state invariants) AND docs/governance/adr-taxonomy.yaml
+# (decision_level / decision_type altitude). Authority: ADR-0160. Enforced by
+# Rule G-28 via gate/lib/check_adr_taxonomy.py.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+adr: ADR-0078
+raw_path: docs/adr/0078-agent-service-consolidation.yaml
+
+current_state: active_guidance
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - DSL
+  - facts
+  - gate
+view: development
+decision_type: module_responsibility
+
+clean_decision_summary: |
+  Fold the two reactor modules (the request-scoped web/tenant tier and the
+  non-request runtime kernel) into a single agent-service Maven module. The
+  platform/runtime split survives as an INTRA-module sub-package layering under
+  one parent namespace (service.platform.* beside service.runtime.*), preserving
+  the negative dependency invariant (service.runtime MUST NOT import
+  service.platform) without a Maven module boundary. This is the standing module
+  responsibility decision: agent-service is one of the fixed domain modules and
+  the platform/runtime asymmetry is enforced as sub-package layering, not module
+  separation.
+
+active_guidance:
+  - "agent-service is a single Maven module that absorbs the former request-scoped tier and runtime kernel; the reactor carries one fewer module as a result."
+  - "The platform/runtime asymmetry is preserved as intra-module sub-package layering: service.platform.* (request-scoped) sits beside service.runtime.* (non-request), and service.runtime MUST NOT depend on service.platform (the retargeted tenant-propagation-purity / module-dep-direction invariant)."
+  - "agent-service evolves with a single module identity (one pom.xml, one module-metadata.yaml, one ARCHITECTURE/L1 corpus, one DFX descriptor); module-granular independent versioning of the web tier vs the runtime kernel is intentionally given up because the two always deploy together."
+
+non_authoritative_legacy_content:
+  - "Concrete package-rename mechanics, the per-file counts (164 in-module Java files, 3 import-site files, 213-file PR diff, 51/590+ gate-reference touches), the six-sequential-commit branch packaging, and the Flyway move-as-is mechanics are L2 implementation / process detail owned by the generated facts, the build surfaces, and release notes — not standing L1 authority."
+  - "Named ArchUnit test classes (ServiceRuntimeMustNotDependOnServicePlatformTest, TenantPropagationPurityTest), specific gate-rule numbers, and the per-rule PASS verification list are L2 test mapping / enforcer detail owned by the generated test facts and the gate/enforcer surfaces."
+  - "The repository_counts deltas (reactor_modules 9->8, internal_modules 7->6) are baseline metrics owned by docs/governance/architecture-status.yaml, not this ADR."
+  - "The forward reference to a later agent-runtime-core extraction (the ADR-0079 T2.B2 wave) is roadmap narrative; the standing decision here is the consolidation itself."
+
+supersedes:
+  - ADR-0055
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "P-C (Business / Platform decoupling preserved as sub-package layering)"
+l1_refs:
+  - "Rule R-C.e (Tenant Propagation Purity; retargeted to ..service.runtime.. must-not-import ..service.platform..)"
+  - "agent-service module L1 development view"
+l2_refs:
+  - "agent-service sub-package inventory and the relocated source tree (service.platform.* / service.runtime.*) — the per-file relocation detail lives at L2 / generated facts."
+contract_refs: []
+fact_refs:
+  - adr/0078-agent-service-consolidation
+gate_refs:
+  - "Rule R-C.e (tenant_propagation_purity; intra-module sub-package check)"
+  - "Rule D-6 (module_dep_direction; retargeted intra-module)"
+
+review_notes: |
+  Lane: L4-FRAME (ADR-0159). Classified at decision_level L1 to match the raw
+  ADR self-label (level: L1) and the module-responsibility character of the
+  decision (which Maven module owns the consolidated surface, and how the
+  platform/runtime sub-layering is enforced). decision_type module_responsibility
+  is the allowed L1 type; naming the module boundary + the sub-package
+  dependency-direction invariant is DEFENSIBLE at L1 per the 2026-05-29
+  remediation verdict (development-view package decomposition + citing an ArchUnit
+  enforcer as the mechanism).
+  current_state active_guidance: the consolidated agent-service module and its
+  sub-package layering are current reality and current authority; the raw decision
+  block additionally enumerates L2/process detail (file counts, ArchUnit class
+  names, Flyway mechanics, per-rule PASS lists) which is recorded as
+  non_authoritative_legacy_content so the view is citeable only through the
+  module-boundary clauses. supersedes: [ADR-0055] re-states the raw `supersedes`
+  edge (full supersession of the asymmetric-dependency codification ADR);
+  superseded_by empty (no later ADR replaces this consolidation; ADR-0152 retired
+  the per-module single-.md ARCHITECTURE shape but did not undo the module merge).
+  No ambiguity in the active_guidance choice.

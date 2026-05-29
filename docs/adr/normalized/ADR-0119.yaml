@@ -1,0 +1,78 @@
+# Normalized ADR view — ADR-0119.
+#
+# READABLE INTERPRETATION layer over the raw ADR source + its extracted fact
+# (architecture/facts/generated/adrs.json). It re-states supersedes/superseded_by
+# and curates which clause still governs; it invents no ADR ids and no
+# relationships, and it never outranks a generated fact (cascade: generated
+# facts > DSL > Card/prose). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160. UTC dates (Rule G-9.a).
+
+adr: ADR-0119
+raw_path: docs/adr/0119-single-source-rendering.yaml
+
+current_state: active_guidance
+decision_level: L0
+affected_levels: [L0, L1, gate]
+view: scenarios
+decision_type: governance_invariant
+
+clean_decision_summary: >
+  Rule G-13 (Single-Source Rendering Coherence) is adopted: every dynamic claim
+  in the active corpus (count, path, module name, SPI FQN, ADR id, family id,
+  version tag, baseline metric, generated table row) lives in exactly one place —
+  an authority source, a deterministically generated artifact, or a rendered slot
+  in a template — and no dynamic claim may exist as free-typed prose. The
+  corresponding rendered document must be byte-identical to its template render,
+  so drift between hand-typed prose and the authority surface it reflects becomes
+  impossible by construction rather than detected after the fact.
+
+active_guidance:
+  - >
+    No dynamic claim may exist as free-typed prose; each lives in exactly one of
+    an authority source, a generated artifact, or a rendered template slot.
+  - >
+    Every rendered document must be byte-identical to render(template, data); the
+    gate fails on any drift, including whitespace.
+  - >
+    Rendering is deterministic (sorted iteration, fixed sort locale, no wall-clock
+    or randomness) so the byte-identity contract is reproducible.
+  - >
+    Every active document is classified into exactly one of three buckets —
+    fully-templated (rendered, do-not-edit), hybrid (template file with prose plus
+    rendered slots), or inline (authored source-of-truth, never rendered) — in a
+    surface-classification registry.
+
+non_authoritative_legacy_content: []
+
+supersedes: []
+superseded_by: []
+
+dsl_refs: []
+l0_constraint_refs:
+  - "Rule G-1.b (Architecture Workspace / graph render idempotency) — the proven render-idempotency precedent G-13 generalises"
+  - "Rule G-9.c (recurring-families yaml<->md parity) — subsumed by construction in a later G-13 wave"
+l1_refs: []
+l2_refs: []
+contract_refs: []
+fact_refs:
+  - adr/0119-single-source-rendering
+gate_refs:
+  - "Rule G-13 (Single-Source Rendering Coherence)"
+  - "enforcer E174 (template_render_idempotency; gate-script)"
+
+review_notes: >
+  current_state is active_guidance: this is a governance-invariant ADR that adopts
+  a still-active rule (Rule G-13), and its non_authoritative_legacy_content is
+  empty because the tool-path and enforcer citations are the rule's mechanism
+  (DEFENSIBLE at this altitude) rather than leaked L2 detail. The decision_type is
+  governance_invariant (a meta-rule about how derived documents are produced),
+  allowed at L0. The raw ADR contains a large forward-looking W0..W10 roadmap and
+  names future tooling and a set of rules it PLANS to retire at its final wave;
+  those are sequencing/forward content, not yet-executed authority, and only the
+  W0 policy (the Rule G-13 invariant + classification model) was shipped with this
+  ADR. AMBIGUITY FLAG for human review: which downstream rules have actually been
+  retired or subsumed (the roadmap lists candidates such as the README/root-doc
+  numeric-claim rules and the families yaml<->md parity rule) must be confirmed
+  against the live enforcers.yaml and rule cards before relying on the retirement
+  claims in the raw ADR; the wave roadmap is explicitly pausable and reorderable.

@@ -1,0 +1,97 @@
+# Normalized view of ADR-0107 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# + docs/governance/adr-taxonomy.yaml. Authority: ADR-0160.
+
+adr: ADR-0107
+raw_path: docs/adr/0107-federation-ancestor-reconstruction-via-runregistry.yaml
+
+# partial_guidance: the trust-model decision (federation MUST NOT trust caller-
+# supplied ancestor chains; the receiving instance reconstructs them from a central
+# server-side authority) still governs as an L0 boundary. The SPI method shapes,
+# overflow/error-path detail, and latency-budget items are forward-looking,
+# explicitly deferred to the federation-implementation ADR, and are lower-level
+# (L2/contract) leakage, not current L0 authority.
+current_state: partial_guidance
+
+# Decided at L0 (a system boundary / global trust-model constraint on federation).
+decision_level: L0
+affected_levels:
+  - L0
+  - L1
+  - contract
+  - facts
+view: physical
+decision_type: system_boundary
+
+clean_decision_summary: >
+  Cross-instance federation MUST NOT trust the caller-supplied ancestor-run-id
+  field on a spawn envelope. The receiving Agent Service instance reconstructs the
+  trusted ancestor chain from a central server-side authority (RunRegistry) keyed
+  by parent run-id and runs the acyclicity check against that trusted chain;
+  same-instance behaviour is unchanged because the orchestrator owns both ends. The
+  caller-supplied chain is demoted to advisory (logged for tamper detection). The
+  concrete RunRegistry implementation, degraded-mode policy, depth-overflow policy,
+  and latency budget are deferred to the federation-implementation ADR.
+
+active_guidance:
+  - >
+    L0 boundary: cross-instance federation does not trust caller-supplied ancestor
+    chains; cycle prevention rests on a central server-side authority, not caller
+    honesty.
+  - >
+    The trust surface stays inside the platform's own persistence/central-authority
+    pattern (no cryptographic key-distribution infrastructure) — chosen over signed
+    per-hop attestation and over best-effort after-the-fact detection.
+  - >
+    Same-instance acyclicity behaviour is unchanged (the orchestrator reads its own
+    ancestor list); only the cross-instance path adds trusted reconstruction.
+  - >
+    The caller-supplied ancestor field is retained but demoted to advisory, and a
+    disagreement between the trusted and advisory chains is a tamper signal that
+    MUST be audit-logged — so no migration burden is created when federation opens.
+
+non_authoritative_legacy_content:
+  - >
+    The RunRegistry SPI method shapes named in the raw decision (findByRunId,
+    getAncestors, isAncestor and their signatures), the AncestorChainOverflow
+    sentinel, the depth-8 overflow handling, and the structured WARN+ audit MDC
+    field list are L2/contract-level detail. The raw ADR itself defers them to the
+    federation-implementation ADR; they are NOT current L0 authority and have no
+    realized fact yet (no RunRegistry code-symbol exists — see review_notes).
+  - >
+    The deferred_to_implementation_adr items (Postgres vs Redis impl, degraded-mode
+    semantics, overflow policy, p99 latency budget) are explicitly open and decide
+    nothing here.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - "ARCHITECTURE.md §4 #51"  # parent-chain acyclicity invariant (the L0 constraint this ADR closes for federation)
+l1_refs:
+  - ADR-0053  # Cohesive Agent Swarm Execution (the same-instance acyclicity decision this extends)
+  - ADR-0101  # rc22 federation SPI placement (bus.spi.federation package home)
+l2_refs:
+  - architecture/docs/L2/  # RunRegistry method shapes, overflow sentinel, audit MDC fields (L2/contract-owned, when federation ships)
+contract_refs: []
+# No realized fact: RunRegistry is forward-looking (W3 federation wave). fact_refs
+# stays empty by design — the ledger mints no fact id the extractor has not emitted.
+fact_refs: []
+gate_refs: []
+
+review_notes: >
+  current_state is partial_guidance: the L0 trust-model boundary governs now, while
+  the SPI method detail is forward-looking and deferred — a clean split into
+  active_guidance vs non_authoritative_legacy_content. Layer-purity note: naming the
+  RunRegistry SPI as a boundary identity is DEFENSIBLE at L0/L1, but the raw body's
+  method signatures + overflow/error-path/MDC detail are L2/contract leakage and are
+  recorded as non-authoritative here. Authority-cascade note for reconcile: there is
+  NO RunRegistry code-symbol in architecture/facts/generated/code-symbols.json (the
+  decision is deferred to the federation wave), so fact_refs is correctly empty; do
+  not mint a fact id. The raw ADR also references ADR-0101 for the bus.spi.federation
+  package home — that placement claim should be re-verified against the live facts
+  before the federation-implementation ADR cites it as realized.

@@ -1,0 +1,113 @@
+# Normalized view of ADR-0123 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160.
+
+adr: ADR-0123
+raw_path: docs/adr/0123-memory-unified-spi.yaml
+
+# partial_guidance: the unified memory SPI boundary identity (a single MemoryStore
+# parameterized by a closed MemoryCategory, with a reader/writer CQRS split, plus
+# the semantic and knowledge marker interfaces) still governs; the method
+# signatures, record field lists, and the raw package home are L2/contract detail
+# and (for the package home) overtaken by the realized facts.
+current_state: partial_guidance
+
+# Decided at L1: a public SPI surface (the memory boundary identity), even though the
+# raw ADR labels itself L0 — the SPI-surface decision belongs at L1 per the taxonomy.
+decision_level: L1
+affected_levels:
+  - L0
+  - L1
+  - L2
+  - contract
+  - facts
+view: development
+# Naming a public SPI surface as a boundary identity is DEFENSIBLE at L1; it is a
+# forbidden lower-altitude leak at L0 (adr-taxonomy). Hence decision_level L1.
+decision_type: public_spi_surface
+
+clean_decision_summary: >
+  The six-category memory taxonomy (M1 short-term, M2 episodic, M3 semantic, M4
+  graph, M5 knowledge, M6 retrieved) gains a single unified SPI boundary: a generic
+  MemoryStore that is the superset of a one-sided reader and a one-sided writer
+  (a CQRS split so adapters can expose read-only surfaces), discriminated by a closed
+  MemoryCategory enum, with a common memory-metadata envelope that makes the
+  C-side/S-side ownership decision runtime-checkable per write. The previously
+  prose-only semantic (M3) and knowledge (M5) categories gain marker interfaces. The
+  machine-readable shape lives in the memory-store contract surface.
+
+active_guidance:
+  - >
+    The memory boundary identity is the governing decision: ONE unified MemoryStore
+    SPI, superset of a reader + writer CQRS split, discriminated by a CLOSED
+    MemoryCategory enum (M1..M6). One interface per category was rejected (categories
+    ARE the discriminator); an untyped MemoryStore was rejected (defeats type safety).
+  - >
+    The closed six-value MemoryCategory vocabulary (M1_SHORT_TERM, M2_EPISODIC,
+    M3_SEMANTIC, M4_GRAPH, M5_KNOWLEDGE, M6_RETRIEVED) and the marker interfaces for
+    the previously-unmodelled semantic (M3) and knowledge (M5) categories are part of
+    the boundary identity customers implement.
+  - >
+    The C-side / S-side / delegated ownership decision (from the memory ownership ADR)
+    becomes runtime-checkable through the metadata envelope's ownership field; the
+    CQRS split lets read-only adapters expose no write path.
+
+non_authoritative_legacy_content:
+  - >
+    The method signatures (the reactive read/scan/write/delete shapes with their
+    Mono/Flux/Optional return types) and the record field lists (the metadata
+    envelope fields, the entry/query/ref record shapes) are L2/contract detail; the
+    memory-store contract surface and the live code-symbol facts own those, not this
+    ADR.
+  - >
+    The raw package home "com.huawei.ascend.service.runtime.memory.spi" is overtaken
+    by the realized facts: the memory SPIs resolve at
+    com.huawei.ascend.middleware.memory.spi.* (MemoryStore, MemoryReader,
+    MemoryWriter, MemoryCategory, SemanticMemoryStore, KnowledgeMemoryStore). The
+    generated facts win on the location.
+  - >
+    The pre-existing-SPI cross-reference prose (TaskStateStore / GraphMemoryRepository
+    / ContextProjector classification as structural siblings, and the default-method
+    bridge note) is L2 design detail; the live code facts own those relationships.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs:
+  - PC-001   # product claim cited by the raw ADR (memory as a first-class platform concern)
+  - PC-005   # product claim cited by the raw ADR
+l1_refs:
+  - ADR-0034  # Memory & Knowledge Taxonomy (M1-M6) — the L0 taxonomy this SPI realizes
+  - ADR-0051  # Memory & Knowledge Ownership Boundary (C-side vs S-side) — the ownership field source
+  - ADR-0120  # Brand & Audience B alignment (the L0 agentic-primitive contract gap this closes)
+l2_refs: []
+contract_refs:
+  - docs/contracts/memory-store.v1.yaml   # the machine-readable MemoryStore shape (status: design_only)
+fact_refs:
+  - code-symbol/com-huawei-ascend-middleware-memory-spi-memorystore
+  - code-symbol/com-huawei-ascend-middleware-memory-spi-memoryreader
+  - code-symbol/com-huawei-ascend-middleware-memory-spi-memorywriter
+  - code-symbol/com-huawei-ascend-middleware-memory-spi-memorycategory
+  - code-symbol/com-huawei-ascend-middleware-memory-spi-semanticmemorystore
+  - code-symbol/com-huawei-ascend-middleware-memory-spi-knowledgememorystore
+gate_refs: []
+
+review_notes: >
+  Layer-purity reclassification (the core of this normalization): the raw ADR labels
+  itself level L0, but a public-SPI-surface decision is a FORBIDDEN lower-altitude
+  leak at L0 and is DEFENSIBLE at L1 (adr-taxonomy). The normalized decision_level is
+  therefore L1 (public_spi_surface), with L0 retained in affected_levels because the
+  decision closes an L0 agentic-primitive contract gap. The method signatures and
+  record field lists are pushed to non_authoritative_legacy_content (L2/contract).
+  Facts-discrepancy flagged (not re-litigated): the raw package home
+  (service.runtime.memory.spi) does NOT match the realized facts
+  (middleware.memory.spi.*) — generated facts win; the reconcile/ledger step should
+  record the stale-package fact. AMBIGUITY FLAGGED FOR HUMAN REVIEW: the raw ADR is
+  marked design_only at rc44; if the implementation status has since changed, the
+  active/legacy split above (which treats the boundary identity as governing and the
+  signatures as lower-level) should be re-confirmed. current_state is partial_guidance.

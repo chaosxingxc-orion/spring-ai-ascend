@@ -1,0 +1,109 @@
+# Normalized view of ADR-0093 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160.
+
+adr: ADR-0093
+raw_path: docs/adr/0093-rc16-recurring-family-comprehensive-closure-and-meta-scope-completeness.yaml
+
+# partial_guidance: the META governance invariant (a prevention rule must declare
+# its manifestation surfaces and carry >=2 self-test fixtures, and prevention rules
+# scope by mechanism not by reviewer-cited surface) still governs; the numeric
+# Rule/enforcer identifiers and the per-finding rc15 closure bookkeeping are
+# point-in-time / legacy.
+current_state: partial_guidance
+
+# Decided at L0: a meta-rule about how the rule corpus is itself governed
+# (scope-completeness of prevention rules) plus the logs-folder exemption policy.
+decision_level: L0
+affected_levels:
+  - L0
+  - gate
+view: process
+# A meta-rule about how the corpus is governed is a governance_invariant
+# (adr-taxonomy decision_levels.L0.allowed_decision_types).
+decision_type: governance_invariant
+
+clean_decision_summary: >
+  Recurring defect families recur because each wave scopes its prevention rule to
+  the reviewer-cited surface rather than to every surface where the family can
+  manifest. The durable decision codifies the previously-prose-only meta-lesson
+  ("reviewer scope can be narrower than defect scope") as a governance invariant:
+  every prevention rule must declare its manifestation surfaces explicitly and carry
+  at least two self-test fixtures across distinct surfaces, and prevention rules are
+  designed to scope by mechanism. A companion policy declares that interaction
+  records under docs/logs/reviews and non-latest docs/logs/releases are point-in-time
+  artifacts exempt from architecture-graph numeric-truth gates.
+
+active_guidance:
+  - >
+    The META scope-completeness discipline is the still-governing decision: a
+    prevention rule whose card declares manifestation surfaces MUST carry at least
+    two self-test fixtures, and prevention rules are designed to scope by mechanism
+    rather than by the single reviewer-cited surface. This closes the documented-
+    but-never-gated meta-loop that let the same families recur under different labels.
+  - >
+    docs/governance/logs-folder-policy.md is the active companion policy: review
+    interaction records and non-latest release notes are point-in-time artifacts and
+    are NOT locked against the live architecture graph. Extending release-note
+    numeric-truth gates to docs/logs/reviews was explicitly REJECTED; the historical-
+    snapshot marker convention handles that drift without gate enforcement.
+  - >
+    The three family-closure obligations remain in force as durable invariants
+    (independent of their original numbering): cross-authority clause-name parity,
+    governance-text Java-anchor truth in active cards, and namespaced-rule-reference
+    completeness across every semantic-authority surface.
+
+non_authoritative_legacy_content:
+  - >
+    The numeric gate-rule identifiers (Rules 107/108/109/110), the enforcer rows
+    (E152-E155), and the gate/self-test/enforcer count deltas ("118 -> 122",
+    "194 -> 202", "150 -> 154") predate the D-/R-/G-/M- namespace ratchet (ADR-0086)
+    and the rule-card-as-sole-authority model; treat the live rule cards + enforcers
+    as authoritative for the current identities and counts.
+  - >
+    The per-finding rc15 closure bookkeeping (P1-1 / P1-2 / P2-1 / P2-2 line-by-line
+    file/line edits in principle-coverage.yaml, CLAUDE-deferred.md, and individual
+    rule/principle cards) is a point-in-time remediation record, not governing
+    content. The CLAUDE-deferred.md references specifically are stale: ADR-0156
+    retired that mirror pattern.
+  - >
+    The baseline_metrics deltas attributed to this wave (adr_count, graph node/edge
+    counts) are superseded snapshots; the live architecture-status baselines own the
+    current values.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs: []
+l0_constraint_refs: []
+l1_refs:
+  - ADR-0086  # gate-layer boundary + namespace ratchet (the surface this wave widens)
+  - ADR-0090  # rc14 cross-authority parity (the parity family extended here)
+  - ADR-0091  # rc15 structural-carrier parity + terminal-state scope (text-anchor truth widened here)
+l2_refs: []
+contract_refs: []
+fact_refs: []
+gate_refs:
+  - Rule-110-prevention_rule_scope_completeness    # META: scope_surfaces + >=2 fixtures (enforcer E155)
+  - Rule-107-cross_authority_clause_parity          # enforcer E152
+  - Rule-108-governance_text_java_anchor_truth       # enforcer E153
+  - Rule-109-namespaced_rule_reference_completeness  # enforcer E154
+
+review_notes: >
+  Layer-purity: correctly L0 — a meta-rule about how the rule corpus is governed
+  (prevention-rule scope completeness) plus a logs-folder exemption policy; no
+  class/method/sequence leakage. The legacy here is TIME-state: the numeric Rule
+  107-110 / E152-E155 identifiers and count deltas predate the ADR-0086 namespace
+  ratchet, and the per-finding rc15 edit list (and its CLAUDE-deferred.md targets,
+  retired by ADR-0156) is point-in-time remediation bookkeeping. AMBIGUITY FLAGGED
+  FOR HUMAN REVIEW: this ADR is umbrella-shaped — its dominant durable contribution
+  is the META governance_invariant (Rule 110), but it also ships three concrete
+  enforcement rules (107/108/109) that read as decision_level=gate. The view models
+  it under the single dominant decision_type governance_invariant and records the
+  three enforcement rules in gate_refs; if the reconcile/ledger step prefers to split
+  the enforcement-rule facet to a gate-level classification, that is a defensible
+  alternative. current_state is unambiguous (partial_guidance).

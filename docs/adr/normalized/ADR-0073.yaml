@@ -1,0 +1,116 @@
+# Normalized view of ADR-0073 — a READABLE INTERPRETATION layer over the raw
+# ADR source. It re-states relationships (supersedes / superseded_by) and curates
+# which clauses still govern; it INVENTS no ADR ids and no relationships, and it
+# never outranks a generated fact. Authority cascade: generated facts > DSL >
+# Card/prose (ADR-0154 / ADR-0160). Schema: docs/governance/adr-governance-policy.yaml
+# (required fields + state invariants) + docs/governance/adr-taxonomy.yaml
+# (decision-level altitude). Authority: ADR-0160.
+
+adr: ADR-0073
+raw_path: docs/adr/0073-engine-hooks-and-runtime-middleware.yaml
+
+# partial_guidance: the boundary decision (Runtime owns middleware; engines expose
+# a neutral hook surface; engines never depend on concrete middleware types) still
+# governs, but the raw ADR's class/method/test-inventory and the orchestration.spi
+# package locations have been overtaken by later moves (ADR-0088 redistribution;
+# ADR-0158 engine boundary) and are now lower-level / partly stale.
+current_state: partial_guidance
+
+# Decided at L1 (module-level public SPI surface + EngineeringFrame boundary).
+decision_level: L1
+affected_levels:
+  - L1
+  - L2
+  - contract
+  - facts
+  - gate
+view: process
+# Naming a public SPI as a boundary identity is DEFENSIBLE at L1 (adr-taxonomy).
+decision_type: public_spi_surface
+
+clean_decision_summary: >
+  Runtime-owned middleware attaches to engine execution through a neutral engine
+  hook surface: engines expose lifecycle hook points and never depend on concrete
+  middleware implementations; the hook list and its ordering/failure-propagation
+  semantics are declared in the engine-hooks contract, not in code; a central
+  dispatcher applies ordering and converts a throwing middleware into a failure
+  outcome so middleware faults cannot crash engines. The canonical hook list and
+  the runtime-fired vs engine-fired ownership split are owned by the contract
+  surface, which the gate validates against the enum.
+
+active_guidance:
+  - >
+    The middleware-integration boundary is L1-governing: middleware belongs to the
+    Runtime; engines expose lifecycle hooks; engines MUST NOT depend on concrete
+    middleware implementations (the strict §5.4 boundary from the LucioIT review).
+  - >
+    docs/contracts/engine-hooks.v1.yaml is the single source of truth for the
+    canonical hook list, hook ordering, and the runtime_fired vs engine_fired
+    ownership map. Code mirrors the contract; the contract is authoritative.
+  - >
+    Hook ordering and failure propagation are declared (in the contract), not
+    encoded ad hoc per orchestrator: a central dispatcher applies the declared
+    order and converts a throwing middleware into a Fail outcome; ON_ERROR fires
+    best-effort so a failing error handler cannot mask the original error.
+  - >
+    The public SPI identity (the engine hook surface + runtime middleware
+    abstraction) is the boundary; reference executors that delegate to user
+    lambdas declare no engine-fired hooks.
+
+non_authoritative_legacy_content:
+  - >
+    The package locations in the raw decision (agent-runtime/orchestration/spi/,
+    agent-runtime/engine/, agent-service/.../orchestration/spi/) are stale: the
+    realized facts place HookPoint/RuntimeMiddleware in middleware.spi, the
+    HookDispatcher in middleware, EngineHookSurface in engine.spi, and
+    EngineRegistry in engine.runtime (see fact_refs). The raw "stays in
+    agent-runtime pending T2.B2 engine extraction" rationale was overtaken by
+    ADR-0088 (agent-runtime-core dissolution) and the ADR-0158 engine boundary.
+  - >
+    Method signatures, the SyncOrchestrator call-site wiring, the LOGGED-not-acted
+    Phase-2 outcome semantics, the loose HookContext.attributes Map, and the named
+    test classes (HookDispatcherFireOrderTest, EveryEngineDeclaresHookSurfaceTest,
+    RuntimeMiddlewareInterceptsHooksIT) are L2 detail; the live class/method/test
+    facts and the L2 design docs are authoritative for those, not this ADR.
+  - >
+    Numeric rule/enforcer identifiers and gate-pass counts in the raw ADR
+    ("63 active rules", E78/E79/E80, Rule 57) predate the D-/R-/G-/M- namespace
+    ratchet (ADR-0086) and the rule-card-as-sole-authority model; treat the gate
+    refs as the live enforcers, not these numbers.
+
+supersedes: []
+superseded_by: ""
+
+dsl_refs:
+  - efHookSurface        # architecture/features/engineering-frames.dsl — Hook Surface Frame
+  - efEngineRegistry     # Engine Registry Frame (EngineHookSurface lives here per the DSL description)
+l0_constraint_refs:
+  - P-M  # Heterogeneous Engine Contract (the L0 principle ADR-0073 expresses at L1)
+l1_refs:
+  - ADR-0071  # Engine Contract Structural Wave (umbrella)
+  - ADR-0072  # EngineEnvelope + strict matching (first L1 expression of P-M)
+l2_refs:
+  - architecture/docs/L2/  # runtime sequences, outcome handling, HookContext schema (L2-owned detail)
+contract_refs:
+  - docs/contracts/engine-hooks.v1.yaml  # canonical hook list + ordering + hook_ownership map
+fact_refs:
+  - code-symbol/com-huawei-ascend-middleware-spi-hookpoint
+  - code-symbol/com-huawei-ascend-middleware-spi-runtimemiddleware
+  - code-symbol/com-huawei-ascend-middleware-hookdispatcher
+  - code-symbol/com-huawei-ascend-engine-spi-enginehooksurface
+  - code-symbol/com-huawei-ascend-engine-runtime-engineregistry
+gate_refs:
+  - rule_57_engine_hooks_yaml_present_and_wellformed  # bidirectional yaml <-> HookPoint enum check
+
+review_notes: >
+  Layer-purity note: this ADR is decided at L1 (the Runtime/engine middleware
+  boundary, a public SPI identity, which is DEFENSIBLE at L1) but its raw body
+  carries substantial L2 leakage — method signatures, the SyncOrchestrator call
+  chain, runtime outcome sequences, and a named test inventory. Those clauses are
+  recorded as non_authoritative_legacy_content; the live class/method/test facts
+  and L2 docs own that detail. Authority-cascade discrepancy to reconcile (not
+  re-litigated here): the package homes in the raw decision do not match the
+  realized facts (HookPoint/RuntimeMiddleware now in middleware.spi, EngineRegistry
+  in engine.runtime, EngineHookSurface in engine.spi) — the generated facts win.
+  current_state is unambiguous (partial_guidance); flagged here only so the
+  reconcile/ledger step records the stale-package and stale-rule-number facts.
