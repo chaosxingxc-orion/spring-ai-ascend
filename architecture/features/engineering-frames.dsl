@@ -24,6 +24,8 @@ efIngressGateway = element "Ingress Gateway Frame" "EngineeringFrame" "Edge->com
         "saa.status" "shipped"
         "saa.owner" "agent-bus"
         "saa.sourceAdr" "ADR-0157"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-INGRESS-GATEWAY.md"
+        "saa.primaryPackage" "com.huawei.ascend.bus.spi.ingress"
         "saa.structuralAxis" "true"
     }
 }
@@ -47,6 +49,8 @@ efS2cTransport = element "S2C Transport Frame" "EngineeringFrame" "Server-to-cli
         "saa.status" "shipped"
         "saa.owner" "agent-bus"
         "saa.sourceAdr" "ADR-0157"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-S2C-TRANSPORT.md"
+        "saa.primaryPackage" "com.huawei.ascend.bus.spi.s2c"
         "saa.structuralAxis" "true"
     }
 }
@@ -70,6 +74,7 @@ efChannelIsolation = element "Channel Isolation Frame" "EngineeringFrame" "Three
         "saa.status" "design_only"
         "saa.owner" "agent-bus"
         "saa.sourceAdr" "ADR-0157"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-CHANNEL-ISOLATION.md"
         "saa.structuralAxis" "true"
     }
 }
@@ -88,6 +93,7 @@ efEnginePort = element "Engine Port Frame" "EngineeringFrame" "Neutral transport
         "saa.status" "design_only"
         "saa.owner" "agent-bus"
         "saa.sourceAdr" "ADR-0158"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-ENGINE-PORT.md"
         "saa.structuralAxis" "true"
     }
 }
@@ -108,6 +114,7 @@ efOrchestrationSpi = element "Orchestration SPI Frame" "EngineeringFrame" "Neutr
         "saa.status" "design_only"
         "saa.owner" "agent-bus"
         "saa.sourceAdr" "ADR-0157|ADR-0158"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-ORCHESTRATION-SPI.md"
         "saa.structuralAxis" "true"
     }
 }
@@ -128,6 +135,8 @@ efEngineRegistry = element "Engine Registry Frame" "EngineeringFrame" "Engine co
         "saa.status" "shipped"
         "saa.owner" "agent-execution-engine"
         "saa.sourceAdr" "ADR-0157"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-ENGINE-REGISTRY.md"
+        "saa.primaryPackage" "com.huawei.ascend.engine.runtime"
         "saa.structuralAxis" "true"
     }
 }
@@ -153,6 +162,8 @@ efHookSurface = element "Hook Surface Frame" "EngineeringFrame" "Runtime middlew
         "saa.status" "shipped"
         "saa.owner" "agent-middleware"
         "saa.sourceAdr" "ADR-0157"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-HOOK-SURFACE.md"
+        "saa.primaryPackage" "com.huawei.ascend.middleware"
         "saa.structuralAxis" "true"
     }
 }
@@ -176,6 +187,7 @@ efCapabilitySpi = element "Capability SPI Frame" "EngineeringFrame" "Cross-cutti
         "saa.status" "design_only"
         "saa.owner" "agent-middleware"
         "saa.sourceAdr" "ADR-0157"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-CAPABILITY-SPI.md"
         "saa.structuralAxis" "true"
     }
 }
@@ -196,6 +208,7 @@ efClientIngressAdapter = element "Client Ingress Adapter Frame" "EngineeringFram
         "saa.status" "design_only"
         "saa.owner" "agent-client"
         "saa.sourceAdr" "ADR-0157"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-CLIENT-INGRESS-ADAPTER.md"
         "saa.structuralAxis" "true"
     }
 }
@@ -216,6 +229,7 @@ efEvolutionExport = element "Evolution Export Frame" "EngineeringFrame" "RunEven
         "saa.status" "design_only"
         "saa.owner" "agent-evolve"
         "saa.sourceAdr" "ADR-0157"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-EVOLUTION-EXPORT.md"
         "saa.structuralAxis" "true"
     }
 }
@@ -236,6 +250,7 @@ efGraphmemoryAutoconfig = element "Graph Memory Auto-Config Frame" "EngineeringF
         "saa.status" "design_only"
         "saa.owner" "spring-ai-ascend-graphmemory-starter"
         "saa.sourceAdr" "ADR-0157"
+        "saa.cardPath" "architecture/docs/L1/frames/EF-GRAPHMEMORY-AUTOCONFIG.md"
         "saa.structuralAxis" "true"
     }
 }

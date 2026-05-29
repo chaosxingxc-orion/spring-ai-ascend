@@ -27,7 +27,7 @@
 
 schema_version: 1
 authority: ADR-0154
-last_updated: 2026-05-27
+last_updated: 2026-05-29
 
 properties:
 
@@ -147,3 +147,18 @@ properties:
     sunset_date: 2026-07-31
     target_extractor: "tools/architecture-workspace#TestInventoryFactExtractor"
     notes: "Hand-authored .java path. Will be generated from tests.json in Wave 4."
+
+  # ----- SAA EngineeringFrame (ADR-0161 §2) -----
+  - id: saa.cardPath
+    element_tag: SAA EngineeringFrame
+    bucket: factual_hand_authored_grandfathered
+    sunset_date: 2026-07-31
+    target_extractor: "tools/architecture-workspace#EngineeringFrameFactExtractor"
+    notes: "Repo-relative path to the frame's readable card (architecture/docs/L1/frames/<frame-id>.md). Deterministic from saa.id by convention; hand-authored until the frame fact extractor (ADR-0161 §6 Phase 4-5) emits engineering-frames.json. Required on every frame (required-properties.yaml#by_tag)."
+
+  - id: saa.primaryPackage
+    element_tag: SAA EngineeringFrame
+    bucket: factual_hand_authored_grandfathered
+    sunset_date: 2026-07-31
+    target_extractor: "tools/architecture-workspace#EngineeringFrameFactExtractor"
+    notes: "Fully-qualified primary Java package root the frame anchors. A code fact verifiable against architecture/facts/generated/code-symbols.json; hand-authored until the frame fact extractor lands. Required only on shipped frames (required-properties.yaml#by_tag_status); design_only frames omit it (ADR-0161 §2)."

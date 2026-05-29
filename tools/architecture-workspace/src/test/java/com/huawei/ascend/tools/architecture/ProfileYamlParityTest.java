@@ -71,6 +71,38 @@ class ProfileYamlParityTest {
         }
     }
 
+    @Test
+    void statusConditionalPropertiesMatchYaml() throws IOException {
+        Map<String, Object> props = loadYaml(PROFILE_DIR.resolve("required-properties.yaml"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> required = (Map<String, Object>) props.get("required_properties");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> byTagStatusYaml =
+                (Map<String, Object>) required.get("by_tag_status");
+        Map<String, Map<String, List<String>>> byTagStatusJava =
+                ProfileValidator.TAG_STATUS_SPECIFIC;
+
+        assertEquals(byTagStatusYaml.keySet(), byTagStatusJava.keySet(),
+                "required-properties.yaml#required_properties.by_tag_status keys must match Java TAG_STATUS_SPECIFIC keys");
+
+        for (var tagEntry : byTagStatusJava.entrySet()) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> statusMapYaml =
+                    (Map<String, Object>) byTagStatusYaml.get(tagEntry.getKey());
+            assertEquals(statusMapYaml.keySet(), tagEntry.getValue().keySet(),
+                    "by_tag_status." + tagEntry.getKey() + " status keys: yaml and Java must match");
+            for (var statusEntry : tagEntry.getValue().entrySet()) {
+                @SuppressWarnings("unchecked")
+                List<String> yamlList =
+                        (List<String>) statusMapYaml.get(statusEntry.getKey());
+                assertEquals(yamlList, statusEntry.getValue(),
+                        "by_tag_status." + tagEntry.getKey() + "." + statusEntry.getKey()
+                                + " yaml and Java must match");
+            }
+        }
+    }
+
     private static Map<String, Object> loadYaml(Path path) throws IOException {
         try (var in = Files.newInputStream(path)) {
             Object parsed = new Yaml().load(in);

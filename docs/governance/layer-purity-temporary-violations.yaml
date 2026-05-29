@@ -1,0 +1,460 @@
+# Layer-Purity Temporary Violations — the known, not-yet-migrated leaks.
+#
+# Authority: ADR-0159 (Progressive Learning Curve and Authority Lanes) §7 + §9.
+# Companion policy: docs/governance/layer-purity-policy.yaml (the owns/forbids
+#   category vocabulary every row here cites).
+# Baseline-truth input: docs/governance/remediation-inventory/layer-purity-scan.md
+#   (the line-referenced, advisory scan that classified each leak LEAKED vs
+#   DEFENSIBLE against the adjudicated verdict). Every row below is copied from
+#   a LEAKED row of that scan; this file invents no new locus and no new
+#   category.
+#
+# What this file IS. The closed, dated grandfather list of L2/code detail that
+#   currently sits in an L0 or L1 architecture document in violation of the
+#   layer-purity policy, but has not yet been migrated to its authoritative
+#   home (L2 / contracts / generated facts). Each entry freezes one known
+#   violation AND declares a per-entry sunset_date by which the migration MUST
+#   complete. A closed-but-dateless grandfather list is an anti-pattern (every
+#   entry MUST carry a sunset_date); this list is closed (no new entry may be
+#   added once the lane-purity gate is blocking — new leaks must be fixed at
+#   authoring time, never grandfathered).
+#
+# What this file is NOT. A migration plan (the scan §4 holds the priority
+#   ordering), a rule card, or an enforcer row. The future lane-purity gate
+#   (G-27..G-33, authored + promoted by the remediation waves per ADR-0159 §9,
+#   NOT by this file) consumes this list as its allow-list: a leaked-category
+#   block whose locus matches a non-expired row here is tolerated; any leak
+#   NOT listed here, or any row whose sunset_date has passed, fails the gate.
+#   The authority cascade (generated facts > DSL > Card/prose) is untouched.
+#
+# Schema:
+#   schema_version  - integer, bumped when fields are added.
+#   authority       - the ratifying ADR id.
+#   last_updated    - ISO yyyy-mm-dd (UTC). UTC convention (a local +08 date
+#                     can be UTC-future and trip a freshness gate).
+#   status          - advisory | blocking. Advisory until the lane-purity gate
+#                     promotes to blocking per ADR-0159 §9. This is the LIST's
+#                     posture, not a contract-status enum (Rule 62 does not
+#                     apply — this is not a docs/contracts/*.v1.yaml).
+#   list_closed     - true. No new violation may be grandfathered; new leaks
+#                     are fixed at authoring time.
+#   violations[]    - one row per known leak. Each row:
+#       id          - stable kebab id, prefix LPV- (Layer-Purity Violation).
+#       layer       - L0 | L1 (the over-layer the leak currently sits in).
+#       file        - the offending authority document (module-relative path).
+#       locus       - the smallest in-file anchor (section + line range) as
+#                     recorded by the scan; for cross-reference, NOT a code
+#                     fact.
+#       category    - the leaked-category id from layer-purity-policy.yaml
+#                     (one of L1..L8). Multiple categories -> categories[].
+#       categories  - OPTIONAL list when a single block leaks more than one
+#                     category (used instead of `category`).
+#       trigger     - the smallest verbatim phrase that makes it a leak (from
+#                     the scan). Quoted as EVIDENCE, never as a live claim.
+#       migrate_to  - the authoritative home the detail must move to.
+#       sunset_date - REQUIRED ISO yyyy-mm-dd by which migration MUST complete
+#                     and this row MUST be removed. Tiered by scan §4 priority:
+#                     highest-priority L0 leaks 2026-06-30 (v1.0 boundary);
+#                     L1 agent-service corpus 2026-07-31 (aligned with the
+#                     saa-property-authority.yaml grandfather sunset already in
+#                     flight); lower-priority deferred-row / other-module leaks
+#                     2026-08-31.
+#       scan_ref    - the scan section the row was copied from.
+#       defensible_part - OPTIONAL note on the identity portion of a mixed
+#                     block that MAY stay after the leaked detail is extracted.
+
+schema_version: 1
+authority: ADR-0159
+last_updated: 2026-05-29
+status: advisory
+list_closed: true
+
+violations:
+
+  # ======================================================================
+  # L0 root — architecture/docs/L0/ARCHITECTURE.md (scan §1.2)
+  # Highest migration priority; sunset 2026-06-30 (v1.0 boundary).
+  # ======================================================================
+
+  - id: LPV-l0-run-dfa-table
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #20 : 520-535"
+    categories: [L1-method-call-chain, L2-runtime-sequence, L4-http-status-route-verb, L3-sql-rls-persistence]
+    trigger: "PENDING -> RUNNING | CANCELLED; ... Every Run.withStatus(newStatus) MUST invoke RunStateMachine.validate(from, to) ... cancel on already-cancelled run returns 200 ... returns 409 ... persisted.version != run.version() - 1"
+    migrate_to: "architecture/docs/L2/<run-state-frame>/ (state machine + CAS) + docs/contracts/*.v1.yaml (HTTP status)"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2 (heaviest L0 leak)"
+    defensible_part: "The 'Run has a formal DFA' identity stays at L0; the transition table, withStatus->validate call chain, HTTP 200/409, and optimistic-lock CAS predicate migrate."
+
+  - id: LPV-l0-telemetry-wire-format
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§0.5.3 : 99"
+    category: L6-wire-format
+    trigger: "Wire format: OTLP/HTTP (Langfuse-compatible attribute namespace gen_ai.* + langfuse.*) ... Sampling is posture-aware (dev=100 %, research=10 %, prod=1 % head + tail-on-error at W4)."
+    migrate_to: "docs/telemetry/policy.md + docs/contracts/*.v1.yaml"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2"
+
+  - id: LPV-l0-tenant-rls-guc
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #3 : 360"
+    category: L3-sql-rls-persistence
+    trigger: "add SET LOCAL app.tenant_id = :id GUC inside each transaction; enable Postgres RLS policies on tenant tables."
+    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/ + Flyway migrations"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2"
+    defensible_part: "The structural commitment (tenant isolation, fail-closed) stays at L0; the SQL/GUC/RLS mechanism migrates."
+
+  - id: LPV-l0-idempotency-status-table
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #4 : 364-368"
+    categories: [L4-http-status-route-verb, L3-sql-rls-persistence]
+    trigger: "validates the Idempotency-Key header ... missing returns 400 ... concurrent duplicate returns 409; backed by Postgres idempotency_dedup table."
+    migrate_to: "docs/contracts/*.v1.yaml (HTTP status) + architecture/docs/L2/<idempotency-frame>/ (dedup table)"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2"
+
+  - id: LPV-l0-hook-chain-ordering
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #16 : 471-487"
+    categories: [L5-filter-ordering, L1-method-call-chain]
+    trigger: "the chain is ordered (registration order; lower @Order fires earlier; BEFORE_* ascending, AFTER_* reverse - LIFO unwind) ... @Order tie-breaking ... resolved by Class.getName() lexicographic order"
+    migrate_to: "architecture/docs/L2/<hook-dispatch-frame>/ + the hook contract"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2"
+    defensible_part: "The 'hooks exist / 10 positions' identity is defensible; the ordering algorithm and Class.getName() tie-break migrate."
+
+  - id: LPV-l0-suspendreason-signatures
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #19 : 510-517"
+    category: L7-method-signature
+    trigger: "ChildRun(UUID childRunId, ChildFailurePolicy, Instant deadline) | AwaitChildren(List<UUID> ...) ..."
+    migrate_to: "docs/contracts/*.v1.yaml (SPI) + architecture/facts/generated/code-symbols.json"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2"
+    defensible_part: "Naming SuspendReason as a boundary identity is defensible; the sealed-variant constructor parameter lists migrate."
+
+  - id: LPV-l0-event-buffer-overflow
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #28 : 614-616"
+    category: L6-wire-format
+    trigger: "bounded buffer (default 64 events, DROP_OLDEST overflow - Terminal events never dropped)"
+    migrate_to: "docs/contracts/*.v1.yaml + architecture/docs/L2/<event-channel-frame>/"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2"
+
+  - id: LPV-l0-runs-api-status-verb
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #37 : 702-710"
+    category: L4-http-status-route-verb
+    trigger: "X-Tenant-Id header stays required ... (403 on mismatch). The initial run status is PENDING ... POST /v1/runs/{id}/cancel (not DELETE)"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI route x verb x status)"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2 (verdict cites #37 explicitly)"
+
+  - id: LPV-l0-runcontext-shape
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #41 : 732-737"
+    category: L7-method-signature
+    trigger: "RunContext is classified as interface (not record); ... embeddingModelVersion is the canonical field name ..."
+    migrate_to: "docs/contracts/*.v1.yaml (SPI shape) + architecture/facts/generated/code-symbols.json"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2 (verdict cites #41 explicitly)"
+    defensible_part: "The Gate Rule 17 citation portion is D3-defensible; the interface-vs-record classification and canonical field name migrate."
+
+  - id: LPV-l0-spi-method-subset
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§4 #44 : 755-768"
+    category: L7-method-signature
+    trigger: "Method lists on shipped SPIs must be a subset of the canonical interface (e.g. RunContext is runId/tenantId/checkpointer/suspendForChild - posture() is forbidden ...)"
+    migrate_to: "docs/contracts/*.v1.yaml (SPI) + architecture/facts/generated/code-symbols.json"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2 (verdict cites #44 explicitly)"
+    defensible_part: "The release-note-truth constraint framing may stay; the enumerated SPI method lists + forbidden method name migrate."
+
+  # ======================================================================
+  # L1 agent-service — the verdict's primary L1 leak site (scan §2.1-§2.4)
+  # Sunset 2026-07-31 (aligned with saa-property-authority.yaml grandfather).
+  # ======================================================================
+
+  - id: LPV-l1-as-idempotency-hash-status
+    layer: L1
+    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
+    locus: "§2.A idempotency : 71-74"
+    categories: [L3-sql-rls-persistence, L4-http-status-route-verb]
+    trigger: "hashes method:path:body (SHA-256 -> base64url) ... Collisions return 409 idempotency_conflict ... or 409 idempotency_body_drift"
+    migrate_to: "architecture/docs/L2/<idempotency-frame>/ + docs/contracts/*.v1.yaml"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.1"
+
+  - id: LPV-l1-as-idempotency-sql
+    layer: L1
+    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
+    locus: "§2.A idempotency : 78-83"
+    category: L3-sql-rls-persistence
+    trigger: "INSERT ... ON CONFLICT (tenant_id, idempotency_key) DO NOTHING; SELECT on collision. Flyway V2__idempotency_dedup.sql ... CHECK constraint on status (CLAIMED|COMPLETED|FAILED)."
+    migrate_to: "architecture/docs/L2/<idempotency-frame>/ + Flyway migrations"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.1"
+
+  - id: LPV-l1-as-runs-api-matrix
+    layer: L1
+    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
+    locus: "§2.A runs API : 164-181"
+    category: L4-http-status-route-verb
+    trigger: "POST /v1/runs ... -> 201 ... GET /v1/runs/{runId} -> 200 ... 404 ... POST /v1/runs/{runId}/cancel -> 200 ... 409 illegal_state_transition ... Cancellation is POST, never DELETE ... -> 422 invalid_run_spec ... -> 400 invalid_request ... -> 500"
+    migrate_to: "docs/contracts/*.v1.yaml (OpenAPI route x verb x status)"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.1"
+
+  - id: LPV-l1-as-tenant-filter-order
+    layer: L1
+    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
+    locus: "§2.A tenant cross-check : 128-134"
+    categories: [L5-filter-ordering, L4-http-status-route-verb]
+    trigger: "JwtTenantClaimCrossCheck (L1, order 15 - after Spring Security's BearerTokenAuthenticationFilter, before TenantContextFilter at 20) ... Mismatch -> 403 tenant_mismatch"
+    migrate_to: "architecture/docs/L2/<access-layer-frame>/ (filter-chain design)"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.1"
+
+  - id: LPV-l1-as-observability-filter-wire
+    layer: L1
+    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
+    locus: "§2.A observability : 199-218"
+    categories: [L5-filter-ordering, L4-http-status-route-verb, L6-wire-format]
+    trigger: "TraceExtractFilter ... runs at order 10 ... parses the W3C version-00 traceparent header ... emits traceresponse: 00-<trace_id>-<span_id>-01 ... Filter chain order (L1.x): 1. ... (order 10) 2. ... (order 15) 3. ... (order 20) 4. ..."
+    migrate_to: "architecture/docs/L2/<access-layer-frame>/ + docs/telemetry/policy.md"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.1"
+
+  - id: LPV-l1-as-test-inventory
+    layer: L1
+    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
+    locus: "§7 Tests : 509-549"
+    category: L8-test-class-inventory
+    trigger: "HealthEndpointIT ... RunHttpContractIT ... RunStateMachineTest ... RunCancelDuringResumeRaceIT ... (named test-class inventory with asserted runtime behaviour)"
+    migrate_to: "architecture/facts/generated/tests.json (+ FunctionPoint test_refs[])"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.1 (~40-row test-class catalogue)"
+
+  - id: LPV-l1-as-spi-signatures
+    layer: L1
+    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
+    locus: "§11.2 SPI : 698-701"
+    category: L7-method-signature
+    trigger: "Execute(TaskMetadata, InjectedContext) -> StateDelta ... Projects a SessionContext view ..."
+    migrate_to: "docs/contracts/*.v1.yaml (SPI) + architecture/facts/generated/code-symbols.json"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.1"
+
+  - id: LPV-l1-as-l2-linkage-rls
+    layer: L1
+    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
+    locus: "L2 Constraint Linkage : 797-799"
+    category: L3-sql-rls-persistence
+    trigger: "Postgres RLS migration sequence (rc25). (named under an in-file 'L2 Constraint Linkage' heading)"
+    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/ + Flyway migrations"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.1"
+    defensible_part: "The delegation framing is defensible; the named RLS migration sequence inlined into it is the leak."
+
+  - id: LPV-l1-as-logical-cas-chain
+    layer: L1
+    file: architecture/docs/L1/agent-service/logical.md
+    locus: "31, 39, 67"
+    categories: [L1-method-call-chain, L3-sql-rls-persistence]
+    trigger: "Run aggregate (single owner): ... RunRepository (atomic CAS via updateIfNotTerminal) / RunStateMachine validation invoked via Layer 2 CAS / updateIfNotTerminal(tenantId, runId, lambda) - atomic CAS"
+    migrate_to: "architecture/docs/L2/<run-state-frame>/ (CAS + persistence)"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.2"
+
+  - id: LPV-l1-as-logical-rls-chain
+    layer: L1
+    file: architecture/docs/L1/agent-service/logical.md
+    locus: "92-96"
+    categories: [L3-sql-rls-persistence, L1-method-call-chain]
+    trigger: "Persistence under RLS (Rule R-J.a) with RunRepository.updateIfNotTerminal(...) atomic CAS ... validation (RunStateMachine.validate(from, to)) is invoked"
+    migrate_to: "architecture/docs/L2/<run-state-frame>/ (CAS + RLS)"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.2"
+
+  - id: LPV-l1-as-logical-rls-tables
+    layer: L1
+    file: architecture/docs/L1/agent-service/logical.md
+    locus: "207-209"
+    category: L3-sql-rls-persistence
+    trigger: "Every table above carries tenant_id column with RLS policy enabled ... IdempotencyRecord (V2__idempotency_dedup.sql) ships RLS-bound"
+    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/ + Flyway migrations"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.2"
+
+  - id: LPV-l1-as-logical-annotated-dfa
+    layer: L1
+    file: architecture/docs/L1/agent-service/logical.md
+    locus: "217-262"
+    categories: [L2-runtime-sequence, L1-method-call-chain, L3-sql-rls-persistence, L4-http-status-route-verb]
+    trigger: "## 3. RunStatus State Machine (cancel-race-aware, CAS-annotated) - full DFA with RunRepository.updateIfNotTerminal CAS on every edge, POST /v1/runs, POST /v1/runs/{runId}/cancel, 409, RunStateMachine.java:37 source ref, WHERE status NOT IN (...)"
+    migrate_to: "architecture/docs/L2/<run-state-frame>/ (annotated state machine)"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.2"
+
+  - id: LPV-l1-as-logical-cancel-noop
+    layer: L1
+    file: architecture/docs/L1/agent-service/logical.md
+    locus: "474"
+    category: L2-runtime-sequence
+    trigger: "RunStateTransitionEvent ... (->CANCELLED) ... (CAS no-op)"
+    migrate_to: "architecture/docs/L2/<run-state-frame>/"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.2"
+
+  - id: LPV-l1-as-process-sequences
+    layer: L1
+    file: architecture/docs/L1/agent-service/process.md
+    locus: "22, 89, 113, 165, 207, 259 (sequenceDiagram P1-P6)"
+    category: L2-runtime-sequence
+    trigger: "sequenceDiagram blocks (P1-P6) - six runtime sequence diagrams"
+    migrate_to: "architecture/docs/L2/<agent-service frames>/ (process / sequence view)"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.3 (canonical runtime-sequence leak)"
+
+  - id: LPV-l1-as-process-idempotency-status
+    layer: L1
+    file: architecture/docs/L1/agent-service/process.md
+    locus: "45"
+    category: L4-http-status-route-verb
+    trigger: "409 idempotency_conflict OR 409 idempotency_body_drift ... (200 cached response branch is W2-design ...)"
+    migrate_to: "docs/contracts/*.v1.yaml (HTTP status)"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.3"
+
+  - id: LPV-l1-as-process-cas-chain
+    layer: L1
+    file: architecture/docs/L1/agent-service/process.md
+    locus: "55-79"
+    categories: [L1-method-call-chain, L3-sql-rls-persistence]
+    trigger: "updateIfNotTerminal(runId, lambda->RUNNING) - ATOMIC CAS ... RunStateMachine.validate(PENDING, RUNNING) - atomic inside CAS ... lambda->SUSPENDED ... lambda->SUCCEEDED"
+    migrate_to: "architecture/docs/L2/<run-state-frame>/ (CAS dispatch)"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.3"
+
+  - id: LPV-l1-as-process-cancel-cas-sql
+    layer: L1
+    file: architecture/docs/L1/agent-service/process.md
+    locus: "128-145"
+    categories: [L4-http-status-route-verb, L3-sql-rls-persistence, L1-method-call-chain]
+    trigger: "404 not_found ... 403 tenant_mismatch ... updateIfNotTerminal(tid_request, runId, lambda ... withStatus(CANCELLED)) - ATOMIC CAS ... CAS WHERE status NOT IN (CANCELLED, SUCCEEDED, FAILED, EXPIRED) ... 409 illegal_state_transition"
+    migrate_to: "architecture/docs/L2/<run-state-frame>/ + docs/contracts/*.v1.yaml"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.3"
+
+  - id: LPV-l1-as-process-cancel-race
+    layer: L1
+    file: architecture/docs/L1/agent-service/process.md
+    locus: "259-286 (P6)"
+    categories: [L2-runtime-sequence, L4-http-status-route-verb]
+    trigger: "P6 cancel-race loser sequence: CAS WINS ... LOSES because status is now SUCCEEDED ... post-CAS re-read ... => 409 illegal_state_transition"
+    migrate_to: "architecture/docs/L2/<run-state-frame>/ (race sequence)"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.3 (verdict's named method-CAS leak)"
+
+  - id: LPV-l1-as-development-rls-projection
+    layer: L1
+    file: architecture/docs/L1/agent-service/development.md
+    locus: "203-208"
+    category: L3-sql-rls-persistence
+    trigger: "Tenant-bound RLS coverage extending to the projection tables ... cross-tenant projection blocked at RLS layer"
+    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/ + Flyway migrations"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.4 (RLS inlined into the Boundary Contract)"
+    defensible_part: "The §5 Boundary-Contract delegation frame (Rule G-1.1.c - E168) stays; the inlined RLS detail migrates."
+
+  - id: LPV-l1-as-development-rls-guc
+    layer: L1
+    file: architecture/docs/L1/agent-service/development.md
+    locus: "239-248"
+    category: L3-sql-rls-persistence
+    trigger: "V?__tenant_rls.sql series creating RLS policies on all tenant_id- ... SET LOCAL app.tenant_id GUC wiring via R2DBC ... RLS-blocked SELECTs counted per tenant"
+    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/ + Flyway migrations"
+    sunset_date: 2026-07-31
+    scan_ref: "§2.4"
+    defensible_part: "The L2-zone delegation + ADR-0141 pointer stays; the migration-file series + SET LOCAL GUC + RLS SELECT-counting migrate."
+
+  # ======================================================================
+  # Lower-priority deferred-row + other-module leaks (scan §2.5, §3.2, §3.3)
+  # Sunset 2026-08-31.
+  # ======================================================================
+
+  - id: LPV-l1-as-physical-rls
+    layer: L1
+    file: architecture/docs/L1/agent-service/physical.md
+    locus: "matched RLS / 3-track / sandbox (row-level pass deferred)"
+    category: L3-sql-rls-persistence
+    trigger: "matched RLS / 3-track bus / sandbox leak markers (physical view legitimately carries deployment topology; the RLS-policy + per-table detail is the leak)"
+    migrate_to: "architecture/docs/L2/<tenant-isolation-frame>/"
+    sunset_date: 2026-08-31
+    scan_ref: "§2.5"
+    defensible_part: "Physical-view deployment topology stays (defensible); the RLS-policy + per-table detail migrates."
+
+  - id: LPV-l1-as-scenarios-status
+    layer: L1
+    file: architecture/docs/L1/agent-service/scenarios.md
+    locus: "matched status codes (row-level pass deferred)"
+    category: L4-http-status-route-verb
+    trigger: "scenario narratives that quote HTTP status codes inherit the L4 leak"
+    migrate_to: "docs/contracts/*.v1.yaml (HTTP status)"
+    sunset_date: 2026-08-31
+    scan_ref: "§2.5"
+
+  - id: LPV-l1-as-spi-appendix-shapes
+    layer: L1
+    file: architecture/docs/L1/agent-service/spi-appendix.md
+    locus: "matched SPI signatures (row-level pass deferred)"
+    category: L7-method-signature
+    trigger: "SPI identities are defensible (D1); any method-body / parameter-list detail is L7-leaked"
+    migrate_to: "docs/contracts/*.v1.yaml (SPI) + architecture/facts/generated/code-symbols.json"
+    sunset_date: 2026-08-31
+    scan_ref: "§2.5"
+    defensible_part: "SPI boundary identities (D1) stay; method-body / parameter-list detail migrates."
+
+  - id: LPV-l1-as-features-cas-rls
+    layer: L1
+    file: architecture/docs/L1/agent-service/features/session-task-manager.md
+    locus: "matched CAS / RLS (row-level pass deferred; sibling: features/task-centric-control.md)"
+    categories: [L1-method-call-chain, L3-sql-rls-persistence]
+    trigger: "feature notes that restate CAS / RLS detail (L2/L3 mixed)"
+    migrate_to: "architecture/docs/L2/<agent-service frames>/"
+    sunset_date: 2026-08-31
+    scan_ref: "§2.5"
+
+  - id: LPV-l1-engine-strict-matching-outcome
+    layer: L1
+    file: architecture/docs/L1/agent-execution-engine/ARCHITECTURE.md
+    locus: "63-68"
+    categories: [L1-method-call-chain, L2-runtime-sequence]
+    trigger: "## 3. Strict matching ... A Run with engine_type=X executes only on the adapter registered under X. Mismatch -> EngineMatchingException -> Run.FAILED with reason engine_mismatch."
+    migrate_to: "architecture/docs/L2/<engine-dispatch-frame>/ (dispatch + outcome)"
+    sunset_date: 2026-08-31
+    scan_ref: "§3.2"
+    defensible_part: "The boundary identity ('registry resolves engine by type') stays; the dispatch-and-fail outcome chain migrates."
+
+  - id: LPV-l1-middleware-hook-ordering
+    layer: L1
+    file: architecture/docs/L1/agent-middleware/ARCHITECTURE.md
+    locus: "64"
+    category: L5-filter-ordering
+    trigger: "Hook ordering = middleware registration order."
+    migrate_to: "architecture/docs/L2/<hook-dispatch-frame>/ + the hook contract"
+    sunset_date: 2026-08-31
+    scan_ref: "§3.3"
+    defensible_part: "The 'hooks are ordered' identity is defensible; '= registration order' is the mechanism that migrates."

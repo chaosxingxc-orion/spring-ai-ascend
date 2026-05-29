@@ -1,0 +1,194 @@
+# Feature Readiness Policy — data-level definition of "what makes a unit of
+# work shippable" across the four axes of the progressive learning curve.
+#
+# Authority: ADR-0159 (Progressive Learning Curve and Authority Lanes — the
+# eight-node chain, the four axes, and the layer-purity lane invariant) and
+# the engineering-governance systemic-remediation review section 12.3
+# (docs/logs/reviews/2026-05-29-engineering-governance-systemic-remediation.en.md),
+# which supplies the readiness schema verbatim. Status vocabulary derives from
+# ADR-0151 (L1 Feature Registry 9-state lifecycle). Frame anchoring + fact
+# citation rules derive from ADR-0157 + ADR-0161.
+#
+# This file is the SINGLE SOURCE OF TRUTH for the readiness gate's policy data.
+# It is a LANE-L8 (governance) policy surface: it declares WHICH axes a unit of
+# work must complete to reach a given lifecycle state, and the per-state hard
+# requirements. It does NOT enumerate features (the value axis lives in
+# product/*.yaml and architecture/features/features.dsl), does NOT enumerate
+# FunctionPoints (architecture/features/function-points.dsl), and does NOT mint
+# any ID or relationship — those live on the authority spine above this file
+# (ADR -> profile -> workspace.dsl -> features/*.dsl -> generated facts ->
+# Card -> gate -> architecture-status.yaml). Authority cascade is unchanged:
+# generated facts > DSL > Card/prose; this policy never outranks a generated
+# fact, it only declares which facts must EXIST for a state to be valid.
+#
+# Consumed by the readiness gate helper gate/lib/check_feature_readiness.py
+# (gate check gate.feature_readiness), authored and wired into the gate by the
+# dedicated governance wave; until that helper lands and promotes to blocking,
+# this policy is advisory data. The reconcile / gate phase owns the rule card,
+# enforcer row, gate wiring, and the architecture-status.yaml baseline; this
+# file declares only the policy data they consume.
+
+version: 1
+
+# Lifecycle this policy reads its states from — ADR-0151 9-state feature
+# machine (forward-only by default; a backward transition requires an ADR that
+# extends:/relates_to: the original feature ADR). The readiness requirements
+# below are keyed on these states. The structural axis (EngineeringFrame /
+# FunctionPoint) currently uses the narrower `design_only` / `mock_functional`
+# / `shipped` subset of the same vocabulary on the DSL elements; the mapping is
+# recorded under `status_vocabulary` so a worker reading a `design_only` frame
+# or a `shipped` FunctionPoint resolves to the same readiness bar.
+status: active
+
+# ---------------------------------------------------------------------------
+# THE FOUR AXES (ADR-0159 section 5). The curve is the spine; these axes are
+# the directed reading orders over it and MUST stay distinct. A unit of work is
+# "shippable" only when EVERY required axis is complete. FunctionPoint is the
+# behavioral JOIN POINT (the single object demanded by a requirement, anchored
+# by an EngineeringFrame, described by a contract, evidenced by generated
+# facts, verified by tests, enforced by gates). EngineeringFrame is the
+# engineering LANDING/NAVIGATION point — a boundary object, not a proof object.
+#
+#   Value axis:     ProductClaim -> Requirement -> Feature -> FunctionPoint
+#   Structure axis: Module -> EngineeringFrame -> FunctionPoint
+#   Evidence axis:  FunctionPoint -> Contract -> GeneratedFact -> Gate
+#   Decision axis:  ADR (normalized view) -> L0/L1/L2/Contract/Gate authority
+#   Join:           FunctionPoint behavioral join + the DERIVED (never owned)
+#                   Feature --traverses--> EngineeringFrame navigation
+# ---------------------------------------------------------------------------
+required_axes_for_shipped_work:
+  value_axis:
+    description: |
+      The buyer-value chain. A shippable unit traces up to a product claim or a
+      requirement, through a Feature, down to at least one FunctionPoint. The
+      value axis drives behaviours; it NEVER structurally owns an
+      EngineeringFrame (ADR-0159 section 6 — a model where a ProductClaim,
+      Requirement, or Feature directly contains a frame is invalid).
+    required:
+      - product_claim_or_requirement
+      - feature
+      - function_point
+  structure_axis:
+    description: |
+      The engineering-structure chain. A shippable FunctionPoint is anchored by
+      exactly one primary EngineeringFrame inside one Maven module
+      (ADR-0157 anchors edge; ADR-0161 one-frame-per-owning-module rule). The
+      frame is the landing point a worker navigates to before editing.
+    required:
+      - module
+      - engineering_frame
+      - function_point_anchor
+  join:
+    description: |
+      The dual-track join (ADR-0159 section 5/6). The FunctionPoint is the
+      behavioral join point shared by the value and structure axes;
+      Feature --traverses--> EngineeringFrame is a DERIVED read-time navigation
+      projection (Feature --requires--> FunctionPoint composed with
+      EngineeringFrame --anchors--> FunctionPoint) and MUST NOT be read as
+      ownership.
+    required:
+      - function_point_behavioral_join
+      - derived_feature_to_frame_navigation
+  evidence_axis:
+    description: |
+      The proof chain. A shippable FunctionPoint carries a contract (or an
+      explicit, recorded no-contract rationale), a generated-fact reference
+      (code-symbol/<kebab-fqn> + the class fact public_methods[] entry), a test
+      reference (or an explicit approved exception), and a gate reference.
+      Fact IDs MUST resolve in architecture/facts/generated/*.json — this axis
+      never asserts a fact, it cites one.
+    required:
+      - contract_or_no_contract_rationale
+      - generated_fact_ref
+      - test_ref_or_exception
+      - gate_ref
+  decision_axis:
+    description: |
+      The decision chain (ADR-0160). Authority traces to an ADR read through
+      its NORMALIZED view, not raw historical prose. A shippable unit cites a
+      normalized ADR in current_state active_guidance or partial_guidance; a
+      citation that resolves only to raw prose, or to a superseded /
+      historical_evidence / remediation_record view, is not current authority.
+    required:
+      - normalized_adr_ref
+
+# ---------------------------------------------------------------------------
+# PER-STATE HARD REQUIREMENTS. Keyed on the lifecycle state a unit declares
+# (saa.status on the Feature / FunctionPoint / EngineeringFrame element). A
+# unit in a given state MUST satisfy that state's requirements before the gate
+# treats the declared state as valid. States not listed (accepted,
+# ready_for_impl, implemented_unverified, test_verified, deprecated, removed)
+# inherit the nearest stricter listed state's intent and are evaluated by the
+# gate helper against the lifecycle transition rules in ADR-0151 (Rule G-14);
+# this policy fixes only the readiness-bearing checkpoints.
+# ---------------------------------------------------------------------------
+status_rules:
+  proposed:
+    # Earliest state: intent recorded, no engineering evidence required yet.
+    may_lack_facts: true
+  active:
+    # Under construction with a real engineering home: a frame anchor and an
+    # L2 detailed-design landing for the leaked runtime detail must exist.
+    requires_l2_design: true
+    requires_frame_anchor: true
+  shipped:
+    # Fully delivered: every evidence-axis and decision-axis obligation is
+    # discharged. This is the acceptance gate below, stated per-field.
+    requires_contract_or_exception: true
+    requires_generated_facts: true
+    requires_tests_or_exception: true
+    requires_gate_ref: true
+    requires_normalized_adr: true
+
+# ---------------------------------------------------------------------------
+# STATUS VOCABULARY MAP. The readiness states above are the ADR-0151 9-state
+# Feature lifecycle. The structural-axis DSL elements (EngineeringFrame,
+# FunctionPoint) currently carry a narrower subset; this map records how those
+# values resolve to the readiness bar so the same gate logic applies to a
+# frame, a FunctionPoint, and a Feature without a parallel state machine.
+# ---------------------------------------------------------------------------
+status_vocabulary:
+  feature_lifecycle:  # ADR-0151 9-state machine (forward-only by default)
+    - proposed
+    - accepted
+    - design_only
+    - ready_for_impl
+    - implemented_unverified
+    - test_verified
+    - shipped
+    - deprecated
+    - removed
+  structural_axis_subset:  # values observed on engineering-frames.dsl + function-points.dsl
+    design_only:
+      readiness_bar: proposed
+      note: |
+        No production code home / no anchored proof required yet. A design_only
+        EngineeringFrame MAY anchor zero FunctionPoints (Rule G-23) and MAY omit
+        saa.primaryPackage (ADR-0161); its Frame Card MUST state what proof is
+        missing before promotion to shipped.
+    mock_functional:
+      readiness_bar: active
+      note: |
+        A functional placeholder (e.g. a mock transport) that is not yet a real
+        production implementation. Its Frame Card MUST state why it is not yet
+        production. Treated as `active`: needs an engineering home, not full
+        ship evidence.
+    shipped:
+      readiness_bar: shipped
+      note: |
+        Real production implementation. A shipped EngineeringFrame MUST declare
+        saa.primaryPackage (ADR-0161) and anchor >=1 FunctionPoint (Rule G-23);
+        a shipped FunctionPoint MUST satisfy the full evidence + decision axes.
+
+# ---------------------------------------------------------------------------
+# ACCEPTANCE RULE (systemic-remediation review section 12.3, verbatim intent).
+# ---------------------------------------------------------------------------
+acceptance_rule: |
+  No Feature can be marked shipped unless every required axis is complete.
+  Concretely, a shipped Feature maps to >=1 FunctionPoint; every shipped
+  FunctionPoint maps to exactly one primary EngineeringFrame, carries a
+  contract or an explicit no-contract rationale, has generated-fact evidence,
+  has test evidence or an explicit approved exception, and resolves to a
+  normalized ADR in active_guidance or partial_guidance. No ProductClaim,
+  Requirement, or Feature owns an EngineeringFrame (the derived
+  Feature --traverses--> EngineeringFrame navigation is not ownership).

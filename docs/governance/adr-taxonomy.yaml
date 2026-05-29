@@ -1,0 +1,157 @@
+# ADR Decision-Level Taxonomy.
+#
+# The decision-level taxonomy that splits WHERE an ADR decision is MADE
+# (`decision_level`) from WHAT it touches (`affected_levels`), and fixes the
+# allowed / forbidden `decision_type` per level so an L0 or L1 ADR cannot
+# smuggle L2 implementation detail into a higher-altitude document. This is the
+# data form of the layer-purity invariant adjudicated TRUE in the 2026-05-29
+# engineering-governance systemic-remediation review (the "L0/L1 contains
+# L2/code detail" leakage) and ratified as a standing lane invariant by
+# ADR-0159 (decision 7).
+#
+# Authority: ADR-0160 (ADR Governance Model) decision (4) "Decision-level
+# taxonomy". Reuses the Level x View vocabulary of ADR-0068 (Layered 4+1 +
+# Architecture Graph) and the eight-node authority-lane partition of ADR-0159
+# (Progressive Learning Curve and Authority Lanes).
+#
+# Relationship to the rest of the authority chain:
+#   * This file is a hand-authored GOVERNANCE POLICY surface (lane L8-GOVERNANCE
+#     per ADR-0159), not a generated artifact. It invents no ADR ids and no
+#     relationships; it classifies decision altitude only. The single source of
+#     truth for WHICH ADRs exist and their raw status is the raw docs/adr/
+#     sources and their extracted projection
+#     architecture/facts/generated/adrs.json (ADR-0154). Authority cascade is
+#     unchanged: generated facts > DSL > Card/prose.
+#   * Consumed by Rule G-28 (ADR Normalization) via the gate check
+#     gate/lib/check_adr_taxonomy.py: a normalized ADR view
+#     (docs/adr/normalized/ADR-NNNN.yaml) whose `decision_level` carries a
+#     `decision_type` listed under that level's `forbidden_decision_types` is a
+#     review-blocking condition once G-28 is blocking. The companion required-
+#     fields + state-invariant policy lives in
+#     docs/governance/adr-governance-policy.yaml.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+version: 1
+status: active
+authority: ADR-0160
+last_updated: 2026-05-29
+
+# WHERE a decision is made (decision_level) vs WHAT it touches
+# (affected_levels) are ORTHOGONAL axes. An ADR is decided at exactly one
+# `decision_level` (a key of `decision_levels` below) and MAY declare an
+# `affected_levels` list drawn from the `affected_level_vocabulary` further
+# down. Conflating the two is the leakage this taxonomy exists to prevent: a
+# decision made at L0 (a global constraint) routinely AFFECTS L1 frames and L2
+# code without being ABOUT L2 code.
+
+# Per-level allow / forbid lists for the `decision_type` of a normalized ADR
+# view. `allowed_decision_types` is the closed set a decision at that level MAY
+# carry; `forbidden_decision_types` names the lower-altitude leakage that is a
+# blocking defect at that level (it is detail the level MUST push down to L2 /
+# contracts / generated facts). The lists are transcribed verbatim from the
+# adjudicated remediation review (section 9.3) and ADR-0160 decision (4).
+decision_levels:
+
+  # L0 -- cross-module governing principle / system boundary / meta-rule about
+  # how the corpus is itself governed (ADR-0068 L0; ADR-0159 lane L3-L0ARCH).
+  # Owns global constraints; MUST NOT name classes, methods, file moves, test
+  # inventories, or private call chains.
+  L0:
+    allowed_decision_types:
+      - system_boundary
+      - global_constraint
+      - architecture_principle
+      - cross_module_policy
+      - governance_invariant
+    forbidden_decision_types:
+      - implementation_class
+      - source_file_move
+      - method_signature
+      - test_class_inventory
+      - private_call_chain
+
+  # L1 -- domain / module-level contract: module responsibility, EngineeringFrame
+  # boundary, package root, public API/SPI surface, cross-frame contract,
+  # module dependency policy (ADR-0068 L1; ADR-0159 lane L4-FRAME). Naming a
+  # public SPI as a boundary identity and citing an ArchUnit enforcer are
+  # DEFENSIBLE here; private method anchors, implementation call chains,
+  # database-index detail, and line-level test inventory are leakage.
+  L1:
+    allowed_decision_types:
+      - module_responsibility
+      - engineering_frame_boundary
+      - package_root
+      - public_api_surface
+      - public_spi_surface
+      - cross_frame_contract
+      - module_dependency_policy
+    forbidden_decision_types:
+      - private_method_anchor
+      - implementation_call_chain
+      - database_index_detail
+      - line_level_test_inventory
+
+  # L2 -- feature-specific technical detail (ADR-0068 L2; ADR-0159 lane
+  # L5-FUNCTIONPOINT). This is the level that OWNS the detail the leaked
+  # critique migrated down: class/method anchors, runtime sequences, state
+  # transitions, persistence detail, error paths, test mapping. It MUST NOT
+  # carry product value claims or global architecture policy (those belong to
+  # the value axis and L0 respectively).
+  L2:
+    allowed_decision_types:
+      - function_point_design
+      - class_method_anchor
+      - runtime_sequence
+      - state_transition
+      - persistence_detail
+      - error_path
+      - test_mapping
+    forbidden_decision_types:
+      - product_value_claim
+      - global_architecture_policy
+
+  # contract -- the machine-readable cross-boundary promise (ADR-0159 lane
+  # L6-CONTRACT): OpenAPI / AsyncAPI / Java SPI shape and compatibility rules.
+  contract:
+    allowed_decision_types:
+      - http_contract
+      - spi_contract
+      - envelope_shape
+      - compatibility_rule
+
+  # gate -- the conformance terminus (ADR-0159 lane L8-GOVERNANCE): the
+  # executable rule, its verification command, and the baseline metric it
+  # ratchets.
+  gate:
+    allowed_decision_types:
+      - enforcement_rule
+      - verification_command
+      - baseline_metric
+
+# Closed vocabulary for the `affected_levels` list of a normalized ADR view.
+# A decision made at one `decision_level` MAY touch several of these. The first
+# three reuse the ADR-0068 Level x View level axis; the remaining tokens name
+# the cross-cutting authority spines / lanes of ADR-0159 that a decision can
+# affect without being decided "at" a Level. `view` (the seventh required
+# normalized field) draws from the ADR-0068 view axis
+# (logical | development | process | physical | scenarios) OR an explicit
+# authority-surface label (e.g. architecture_authority) where the decision is
+# about a spine rather than a 4+1 view; the per-view semantics are the
+# canonical ones in docs/adr/ADR-CLASSIFICATION.md and
+# docs/governance/enforcers.yaml.
+affected_level_vocabulary:
+  - L0          # global constraints / system boundary
+  - L1          # module + EngineeringFrame boundaries and public surfaces
+  - L2          # FunctionPoint / class / method / sequence detail
+  - DSL         # Structurizr workspace + engineering-frames graph (ADR-0147 spine)
+  - contract    # docs/contracts/ OpenAPI / AsyncAPI / SPI surfaces
+  - facts       # architecture/facts/generated/*.json (ADR-0154)
+  - gate        # rules + enforcers + gate scripts + self-tests
+
+# Cross-reference: the per-level `decision_type` allow/forbid sets above are the
+# decision-altitude control; the per-state field presence / absence invariants
+# (active_guidance, partial_guidance, superseded, historical_evidence,
+# remediation_record) are defined in
+# docs/governance/adr-governance-policy.yaml#state_rules. A normalized ADR view
+# is valid only when it satisfies BOTH this taxonomy and that policy.

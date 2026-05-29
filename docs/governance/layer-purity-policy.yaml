@@ -1,0 +1,275 @@
+# Layer-Purity Policy — what each architecture layer OWNS and FORBIDS.
+#
+# Authority: ADR-0159 (Progressive Learning Curve and Authority Lanes) §7
+#   "Layer purity as a lane invariant"; ADR-0144 (Layer-vs-Package matrix);
+#   ADR-0068 (Layered 4+1 and Architecture Graph). The adjudicated verdict
+#   that motivates this file (the "L0/L1 carries L2/code detail" critique is
+#   TRUE) is recorded in
+#   docs/governance/remediation-inventory/layer-purity-scan.md §0 and
+#   ADR-0159 context; it is NOT re-litigated here.
+#
+# What this file IS. The single machine-readable statement of the
+#   owns/forbids category sets per architecture layer (L0 / L1 / L2). It
+#   turns the verdict's DEFENSIBLE-vs-LEAKED rubric into named categories so
+#   a future executable gate (authored + promoted in the G-27..G-33 band by
+#   the remediation waves that consume ADR-0159 §9, NOT by this file) can
+#   classify any block of layer prose as in-layer or leaked. It is policy
+#   DATA; it ships no rule, enforcer, baseline, or DSL element.
+#
+# What this file is NOT. A rule card, an enforcer row, a migration plan, or
+#   a grandfather/exception list. Known not-yet-migrated violations and their
+#   per-entry sunset dates live in the sibling file
+#   docs/governance/layer-purity-temporary-violations.yaml. The authority
+#   cascade (generated facts > DSL > Card/prose) is untouched here.
+#
+# Relationship to the authority lanes. ADR-0159 §2 partitions the eight
+#   learning-curve nodes into eight single-owner authority LANES (who
+#   produces what). This file is the layer-purity COMPLEMENT of that lane
+#   partition: the lanes say which surface owns a node; layer purity says
+#   which DETAIL CATEGORY is allowed to appear in the L0 / L1 architecture
+#   prose at all. The two agree by construction — L0 owns global constraints,
+#   L1 owns frame boundaries + public surfaces, and implementation truth
+#   (L2 + contracts + facts) is the only home for the leaked categories.
+#
+# Schema:
+#   schema_version  - integer, bumped when fields are added.
+#   authority       - the ratifying ADR id.
+#   last_updated    - ISO yyyy-mm-dd (UTC). The freshness convention is UTC;
+#                     a local +08 date can be UTC-future and trip a freshness
+#                     gate (see recurring-defect-families.yaml header note).
+#   status          - advisory | blocking. Advisory until the G-27..G-33 lane-
+#                     purity gate is authored and promoted to blocking per
+#                     ADR-0159 §9 (clean workspace gate + fact-layer byte
+#                     identity). This field reflects the POLICY posture, not a
+#                     contract-status enum (this file is not a
+#                     docs/contracts/*.v1.yaml, so Rule 62 does not apply).
+#   categories[]    - the canonical category vocabulary. Each row:
+#       id          - stable kebab id (defensible D1..D3, leaked L1..L8). These
+#                     mirror the verdict rubric in layer-purity-scan.md §0 and
+#                     are the only tokens a temporary-violation row may cite.
+#       kind        - defensible | leaked.
+#       title       - one-line human title.
+#       definition  - what the category covers.
+#       owned_at    - layers where prose in this category is IN-LAYER (allowed).
+#       forbidden_at- layers where prose in this category is a LEAK.
+#       home        - the authoritative home for leaked detail (where it MUST
+#                     migrate to); empty for defensible categories.
+#   layers[]        - per-layer owns/forbids roll-up over the categories above,
+#                     plus the layer's authoritative producing surface. This is
+#                     a derived convenience view; the categories[] table is the
+#                     normative source where the two disagree.
+
+schema_version: 1
+authority: ADR-0159
+last_updated: 2026-05-29
+status: advisory
+
+# --------------------------------------------------------------------------
+# Category vocabulary (the verdict's DEFENSIBLE-vs-LEAKED rubric, named).
+# --------------------------------------------------------------------------
+categories:
+
+  # ----- DEFENSIBLE at L0/L1 (keep) -----
+  - id: D1-spi-boundary-identity
+    kind: defensible
+    title: SPI named as a boundary identity
+    definition: >
+      Naming a public SPI as a boundary identity — its fully-qualified name
+      plus a one-line role — WITHOUT inlining method bodies, call chains, or
+      wire payloads. The single-line SPI signature is the boundary's identity,
+      not a method body.
+    owned_at: [L0, L1, L2]
+    forbidden_at: []
+    home: ""
+
+  - id: D2-package-decomposition
+    kind: defensible
+    title: Development-view package / module decomposition
+    definition: >
+      Which package or module owns which concern — the development view's
+      module layout and target directory tree. Structural, not behavioural.
+    owned_at: [L0, L1, L2]
+    forbidden_at: []
+    home: ""
+
+  - id: D3-enforcer-citation
+    kind: defensible
+    title: ArchUnit enforcer / gate rule cited as the mechanism
+    definition: >
+      Citing an ArchUnit enforcer or gate rule as the MECHANISM that guards a
+      constraint — the enforcer name and the constraint identity, not the
+      runtime behaviour the enforcer asserts.
+    owned_at: [L0, L1, L2]
+    forbidden_at: []
+    home: ""
+
+  # ----- LEAKED (migrate to L2 / contracts / generated facts) -----
+  - id: L1-method-call-chain
+    kind: leaked
+    title: Method call chains
+    definition: >
+      Inter-method dispatch sequences and named method-to-method call chains
+      (e.g. "withStatus -> validate", "resolve(envelope) -> execute").
+    owned_at: [L2]
+    forbidden_at: [L0, L1]
+    home: "architecture/docs/L2/<frame>/ (FunctionPoint design)"
+
+  - id: L2-runtime-sequence
+    kind: leaked
+    title: Runtime sequences
+    definition: >
+      Sequence diagrams, race orderings, and winner/loser CAS narratives —
+      the runtime ordering of operations across collaborators.
+    owned_at: [L2]
+    forbidden_at: [L0, L1]
+    home: "architecture/docs/L2/<frame>/ (process / sequence view)"
+
+  - id: L3-sql-rls-persistence
+    kind: leaked
+    title: SQL / RLS / GUC / persistence detail
+    definition: >
+      SET LOCAL GUC statements, ON CONFLICT / WHERE clauses, RLS policy
+      wiring, migration-file names, CHECK-constraint enums, table-level
+      persistence design.
+    owned_at: [L2]
+    forbidden_at: [L0, L1]
+    home: "architecture/docs/L2/<frame>/ + Flyway migrations (persistence design)"
+
+  - id: L4-http-status-route-verb
+    kind: leaked
+    title: HTTP status / route-verb / header behaviour
+    definition: >
+      Concrete HTTP status codes (201/400/403/404/409/422/500), route x verb
+      semantics (POST-not-DELETE), and header parse/emit rules.
+    owned_at: [L2]
+    forbidden_at: [L0, L1]
+    home: "docs/contracts/*.v1.yaml (OpenAPI) + architecture/docs/L2/<frame>/"
+
+  - id: L5-filter-ordering
+    kind: leaked
+    title: Filter ordering
+    definition: >
+      Numeric filter order values, @Order tie-break algorithms, and
+      chain-position rules — runtime dispatch ordering.
+    owned_at: [L2]
+    forbidden_at: [L0, L1]
+    home: "architecture/docs/L2/<frame>/ (filter-chain design)"
+
+  - id: L6-wire-format
+    kind: leaked
+    title: Wire formats
+    definition: >
+      Concrete wire encodings (OTLP/HTTP), attribute namespaces
+      (gen_ai.* / langfuse.*), buffer sizes + overflow strategy, sampling
+      rates.
+    owned_at: [L2]
+    forbidden_at: [L0, L1]
+    home: "docs/contracts/*.v1.yaml + docs/telemetry/policy.md"
+
+  - id: L7-method-signature
+    kind: leaked
+    title: Method signatures
+    definition: >
+      Parameter lists, return types, JVM-level shapes, enumerated SPI method
+      lists, type-shape classification (interface-vs-record), forbidden method
+      names, canonical field names. Distinct from D1: a one-line SPI identity
+      is allowed; a parameter/return inventory is not.
+    owned_at: [L2]
+    forbidden_at: [L0, L1]
+    home: "docs/contracts/*.v1.yaml (SPI) + architecture/facts/generated/code-symbols.json"
+
+  - id: L8-test-class-inventory
+    kind: leaked
+    title: Test-class inventories
+    definition: >
+      Named test classes with their asserted runtime behaviour — a test
+      catalogue embedded in layer prose.
+    owned_at: [L2]
+    forbidden_at: [L0, L1]
+    home: "architecture/facts/generated/tests.json (+ FunctionPoint test_refs[])"
+
+# --------------------------------------------------------------------------
+# Per-layer owns/forbids roll-up (derived convenience view).
+# --------------------------------------------------------------------------
+layers:
+
+  - id: L0
+    name: L0 Architecture
+    authority_surface: architecture/docs/L0/ARCHITECTURE.md
+    authority_node: N3
+    authority_lane: L3-L0ARCH
+    owns: >
+      System boundary and global, cross-module numbered constraints only.
+      Defensible identity statements (D1 SPI boundary identity, D2 package /
+      module decomposition, D3 enforcer citation) are in-layer.
+    owns_categories: [D1-spi-boundary-identity, D2-package-decomposition, D3-enforcer-citation]
+    forbids_categories:
+      - L1-method-call-chain
+      - L2-runtime-sequence
+      - L3-sql-rls-persistence
+      - L4-http-status-route-verb
+      - L5-filter-ordering
+      - L6-wire-format
+      - L7-method-signature
+      - L8-test-class-inventory
+    self_declared_scope: >
+      L0 §0.6 declares it does NOT carry runtime contracts (wire shapes,
+      route behaviour, SPI signatures). This policy makes that self-claim
+      enforceable: any L1..L8 leaked category appearing in the L0 root is a
+      violation.
+
+  - id: L1
+    name: L1 Module / EngineeringFrame
+    authority_surface: architecture/docs/L1/<module>/ (+ frames/<frame-id>.md)
+    authority_node: N4
+    authority_lane: L4-FRAME
+    owns: >
+      Frame boundaries and public surfaces — boundary identity, package root,
+      the public API/SPI surface as identity, and the inter-frame contract
+      pointer. Defensible identity statements (D1, D2, D3) are in-layer.
+    owns_categories: [D1-spi-boundary-identity, D2-package-decomposition, D3-enforcer-citation]
+    forbids_categories:
+      - L1-method-call-chain
+      - L2-runtime-sequence
+      - L3-sql-rls-persistence
+      - L4-http-status-route-verb
+      - L5-filter-ordering
+      - L6-wire-format
+      - L7-method-signature
+      - L8-test-class-inventory
+    self_declared_scope: >
+      An L1 document MUST NOT carry a literal "L2 zone" of inlined
+      implementation detail. Delegating a Boundary Contract to L2 (naming the
+      zone + its DFX expectations, per Rule G-1.1.c) is the DEFENSIBLE way to
+      reference L2; inlining persistence / sequence / status detail inside
+      that delegation is the leak.
+
+  - id: L2
+    name: L2 Implementation / FunctionPoint detail
+    authority_surface: architecture/docs/L2/<frame>/ + docs/contracts/*.v1.yaml + architecture/facts/generated/*.json
+    authority_node: N5
+    authority_lane: L5-FUNCTIONPOINT
+    owns: >
+      Implementation truth — method call chains, runtime sequences,
+      persistence design, HTTP/route/header behaviour, filter ordering, wire
+      formats, method signatures, and test inventory. This is the
+      authoritative HOME for every leaked category; the cross-boundary promise
+      portions live in the contract surface (L6-CONTRACT) and the generated
+      facts (L7-FACTS).
+    owns_categories:
+      - D1-spi-boundary-identity
+      - D2-package-decomposition
+      - D3-enforcer-citation
+      - L1-method-call-chain
+      - L2-runtime-sequence
+      - L3-sql-rls-persistence
+      - L4-http-status-route-verb
+      - L5-filter-ordering
+      - L6-wire-format
+      - L7-method-signature
+      - L8-test-class-inventory
+    forbids_categories: []
+    self_declared_scope: >
+      L2 carries no global policy, product claim, or cross-module principle
+      (those are owned upstream at L0/N1/N2); it is the landing zone for the
+      detail the upper layers delegate down.

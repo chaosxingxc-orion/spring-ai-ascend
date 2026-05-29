@@ -1,0 +1,128 @@
+# ADR Governance Policy -- normalized-ADR required fields, the closed five-value
+# current_state set, and the per-state field invariants.
+#
+# This file pins the SHAPE of a normalized ADR view: which fields every view
+# MUST carry, the closed set of authority states a view may declare, and the
+# field-presence invariants each state enforces. Together with the decision-
+# level taxonomy in docs/governance/adr-taxonomy.yaml it is the complete schema
+# a normalized view (docs/adr/normalized/ADR-NNNN.yaml) must satisfy.
+#
+# Authority: ADR-0160 (ADR Governance Model) -- decision (2) "Normalized ADR
+# views" (the required-field list and the state invariants) and the closed
+# five-value current_state set. The model exists because the 2026-05-29
+# engineering-governance systemic-remediation review (section 9) found the ADR
+# corpus mixes decision levels and time states in one prose blob, so a reviewer
+# cannot mechanically tell which clauses still govern; the normalized view
+# answers that question in fixed fields instead of by inferring from history.
+#
+# Relationship to the rest of the authority chain:
+#   * This file is a hand-authored GOVERNANCE POLICY surface (lane L8-GOVERNANCE
+#     per ADR-0159), not a generated artifact. It invents no ADR ids and no
+#     relationships. The single source of truth for WHICH ADRs exist and their
+#     raw status is the raw docs/adr/ sources and their extracted projection
+#     architecture/facts/generated/adrs.json (ADR-0154); the normalized views,
+#     the ledger, and the review index are READABLE INTERPRETATION layers over
+#     that source. A normalized view re-states (supersedes / superseded_by) and
+#     curates (which clause still governs) -- it never authors a new graph edge,
+#     and it never outranks a generated fact. Authority cascade is unchanged:
+#     generated facts > DSL > Card/prose.
+#   * Architecture review derives ADR authority from the normalized view, NOT
+#     from raw ADR prose: an ADR cited as current authority with no normalized
+#     view in state active_guidance or partial_guidance is a review-blocking
+#     condition once Rule G-28 is blocking.
+#   * Consumed by Rule G-28 (ADR Normalization) via the gate checks
+#     gate/lib/check_adr_taxonomy.py (required fields + state invariants +
+#     decision-type altitude) and gate/lib/check_historical_adr_governance.py
+#     (every raw ADR has a ledger entry; every accepted ADR has a normalized
+#     view). The companion decision-level allow/forbid lists live in
+#     docs/governance/adr-taxonomy.yaml.
+#
+# UTC date for any date field (CI runs the gate in UTC; Rule G-9.a).
+
+version: 1
+status: active
+authority: ADR-0160
+last_updated: 2026-05-29
+
+# Fields every normalized ADR view (docs/adr/normalized/ADR-NNNN.yaml) MUST
+# declare. Order is the canonical authoring order; presence is mandatory for all
+# twenty. A field may be empty (e.g. an empty list) where a state invariant
+# below permits it, but the KEY must be present so the view is uniformly
+# machine-readable. Transcribed verbatim from ADR-0160 decision (2) and the
+# adjudicated remediation review (section 9.2).
+normalized_adr_required_fields:
+  - adr                              # canonical ADR id, e.g. ADR-0147
+  - raw_path                         # path to the raw ADR source this view reads (docs/adr/... )
+  - current_state                    # exactly one value from current_states below
+  - decision_level                   # where the decision is MADE; a key of adr-taxonomy.yaml#decision_levels
+  - affected_levels                  # what it touches; list from adr-taxonomy.yaml#affected_level_vocabulary
+  - view                             # ADR-0068 view axis OR an authority-surface label
+  - decision_type                    # must be allowed at decision_level per adr-taxonomy.yaml
+  - clean_decision_summary           # one normalized statement of the current decision
+  - active_guidance                  # the still-governing clauses (list); empty only where a state allows
+  - non_authoritative_legacy_content # clauses explicitly NOT current authority (list)
+  - supersedes                       # ADR ids this decision replaces (re-stated, not minted)
+  - superseded_by                    # ADR id that replaces this one (required when superseded)
+  - dsl_refs                         # Structurizr / engineering-frames element ids this view cites
+  - l0_constraint_refs               # numbered L0 constraints / principles cited
+  - l1_refs                          # L1 frame / module references cited
+  - l2_refs                          # L2 design / FunctionPoint references cited
+  - contract_refs                    # docs/contracts/ surfaces cited
+  - fact_refs                        # architecture/facts/generated/*.json fact ids cited
+  - gate_refs                        # rule / enforcer / gate ids cited
+  - review_notes                     # free-form governance traceability notes
+
+# The closed five-value authority-state set. A normalized view declares exactly
+# one `current_state` from these keys; no other value is valid. `review_behavior`
+# records how architecture review may use a view in that state (from ADR-0160
+# decision (2) table and remediation review section 9.1). The machine-checkable
+# field invariants for each state live under `state_rules` below.
+current_states:
+  active_guidance:
+    meaning: "Current decision authority."
+    review_behavior: "Citeable as governing architecture."
+  partial_guidance:
+    meaning: "Some guidance still active; some content is stale, lower-level, or superseded."
+    review_behavior: "Citeable ONLY through the normalized active_guidance clauses; the legacy clauses are explicitly non-authoritative."
+  superseded:
+    meaning: "Replaced by a later decision."
+    review_behavior: "NOT citeable as current authority (history only); points to its replacement."
+  historical_evidence:
+    meaning: "Explains why the system evolved; governs nothing now."
+    review_behavior: "Citeable for context only."
+  remediation_record:
+    meaning: "Captures cleanup work or review findings."
+    review_behavior: "Citeable for governance traceability, not architecture authority."
+
+# Per-state field-presence invariants enforced by the gate. Each boolean names a
+# REQUIRED-when-true or ALLOWED-when-true / FORBIDDEN-when-false condition on the
+# fields above. Transcribed verbatim from ADR-0160 decision (2) and the
+# adjudicated remediation review (section 9.2).
+#   active_guidance     -> active_guidance non-empty; superseded_by empty.
+#   partial_guidance    -> active_guidance non-empty AND
+#                          non_authoritative_legacy_content non-empty.
+#   superseded          -> superseded_by required; active_guidance empty.
+#   historical_evidence -> active_guidance empty.
+#   remediation_record  -> gate_refs required when a gate change is claimed.
+state_rules:
+  active_guidance:
+    active_guidance_required: true
+    superseded_by_allowed: false
+  partial_guidance:
+    active_guidance_required: true
+    non_authoritative_legacy_content_required: true
+  superseded:
+    superseded_by_required: true
+    active_guidance_allowed: false
+  historical_evidence:
+    active_guidance_allowed: false
+  remediation_record:
+    gate_refs_required_when_gate_change_claimed: true
+
+# Cross-reference: `decision_level`, `affected_levels`, and `decision_type` draw
+# their allowed values and altitude allow/forbid lists from
+# docs/governance/adr-taxonomy.yaml. A normalized ADR view is valid only when it
+# satisfies BOTH the required fields + state invariants in this file AND the
+# decision-level taxonomy. The complete-coverage obligation -- every raw ADR has
+# a ledger entry, every accepted ADR has a normalized view -- is carried by
+# docs/governance/adr-remediation-ledger.yaml and enforced by the same Rule G-28.

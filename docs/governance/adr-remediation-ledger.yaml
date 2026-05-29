@@ -1,0 +1,121 @@
+# ADR Remediation Ledger — the COMPLETE per-ADR enumeration of remediation
+# state across the whole ADR corpus.
+#
+# Authority: ADR-0160 (ADR Governance Model — every raw ADR has a ledger entry;
+# every accepted ADR has a normalized view with exactly one current_state from
+# a closed five-value set; architecture review reads the normalized view, not
+# raw prose). Coverage is TOTAL over docs/adr/*.{md,yaml} and docs/adr/locked/.
+#
+# SKELETON (version + empty entries). This file pins the SCHEMA and the closed
+# current_state vocabulary; the bulk per-ADR enumeration is authored by the
+# dedicated ADR-normalization wave (ADR-0160 consequences — "sequenced as its
+# own wave (plan Task 3 / Wave 1), shipping advisory first"). The `entries`
+# list is intentionally empty here; the normalization wave fills one entry per
+# raw ADR and ships the matching normalized views under docs/adr/normalized/.
+#
+# READABLE-INTERPRETATION DISCIPLINE (binding, ADR-0160 + ADR-0154 cascade):
+# this ledger is an interpretation layer OVER the raw ADR sources and their
+# extracted projection architecture/facts/generated/adrs.json. It INVENTS NO
+# ADR ids and NO relationships beyond what the raw ADRs declare — it re-states
+# supersedes / superseded_by and curates which clause still governs; it never
+# authors a new graph edge. Authority cascade is unchanged: generated facts >
+# DSL > Card/prose. Each entry MUST cite its raw_path so the fact-layer gap is
+# auditable (the Markdown + locked ADRs are real governing decisions that the
+# YAML-only extractor does not yet enumerate; see
+# docs/governance/remediation-inventory/adr-census.md). Where a generator emits
+# the normalized index / review-index, it obeys the Rule G-13 byte-identical
+# re-render contract (ADR-0119) — those are regenerated, not hand-amended.
+#
+# Enforced (once authored + promoted) by Rule G-28 (ADR Normalization) via the
+# gate helpers gate/lib/check_adr_taxonomy.py + check_historical_adr_governance.py
+# in three modes (advisory -> changed-files-blocking -> full-blocking, the
+# ADR-0151 -> ADR-0153 / ADR-0156 ratchet). The reconcile / governance wave owns
+# the rule card, enforcer row, gate wiring, and the architecture-status.yaml
+# baseline; this file declares only the ledger data those consume.
+
+schema_version: 1
+last_updated: 2026-05-29  # UTC date; the local +08 date is UTC-future and would fail Rule G-9.a.
+
+# Closed five-value set for current_state (ADR-0160). The ledger entry's
+# current_state MUST be one of these; the per-ADR normalized view (when it
+# exists) carries the same value. Review behavior per state:
+#
+#   active_guidance      Current decision authority. Citeable as governing architecture.
+#   partial_guidance     Some guidance still active, some content stale/lower-level/
+#                        superseded. Citeable ONLY through the normalized
+#                        active_guidance clauses; legacy clauses are non-authoritative.
+#   superseded           Replaced by a later decision. NOT citeable as current
+#                        authority (history only); points to its replacement.
+#   historical_evidence  Explains why the system evolved; governs nothing now.
+#                        Citeable for context only.
+#   remediation_record   Captures cleanup work or review findings. Citeable for
+#                        governance traceability, not architecture authority.
+current_state_values:
+  - active_guidance
+  - partial_guidance
+  - superseded
+  - historical_evidence
+  - remediation_record
+
+# Per-entry schema (ADR-0160 decision item 1). One entry per raw ADR; coverage
+# total over docs/adr/ and docs/adr/locked/. Required fields:
+#
+#   adr                ADR id exactly as the raw source declares it (e.g. ADR-0158).
+#                      MUST already exist in the raw sources / adrs.json — the
+#                      ledger mints no ids (Rule G-15 / ADR-0154 cascade).
+#   raw_path           Repo-relative path to the raw ADR source (docs/adr/*.{md,yaml}
+#                      or docs/adr/locked/*.md). REQUIRED so the fact-layer gap
+#                      (Markdown/locked ADRs absent from adrs.json) stays auditable.
+#   normalized_path    Repo-relative path to the normalized view
+#                      (docs/adr/normalized/ADR-NNNN.yaml). REQUIRED for every ADR
+#                      whose raw status is `accepted`; an accepted ADR cited as
+#                      current authority with no normalized view is a
+#                      review-blocking condition. May be empty for raw statuses
+#                      that need no view (e.g. a purely archived/superseded record),
+#                      which the normalization wave fixes per state invariant.
+#   current_state      One of current_state_values above.
+#   remediation_action What was done (or must be done) to normalize this ADR:
+#                      e.g. "normalized view authored", "split active L0 clause
+#                      from superseded framing", "marked historical_evidence",
+#                      "ledger-only until extractor widened".
+#   required_follow_up Remaining work before this entry is closed (empty string
+#                      when none). e.g. "author normalized view", "resolve
+#                      superseded_by target", "migrate leaked L2 detail to
+#                      architecture/docs/L2/".
+#   owner              Accountable owner (e.g. chao).
+#   due_wave           The remediation wave by which the follow-up is due
+#                      (e.g. W2), or empty when no follow-up remains.
+#
+# Example shape (illustrative only; NOT an entry — entries is empty in this skeleton):
+#   - adr: ADR-XXXX
+#     raw_path: docs/adr/XXXX-...yaml
+#     normalized_path: docs/adr/normalized/ADR-XXXX.yaml
+#     current_state: active_guidance
+#     remediation_action: ""
+#     required_follow_up: ""
+#     owner: chao
+#     due_wave: ""
+
+entries: []
+
+# Coverage targets (advisory; ratified against the live corpus by the
+# normalization wave, NOT asserted as final counts here per ADR-0160 — "this
+# ADR asserts no final counts"). Recorded so the gate can later check totality:
+#   * Active YAML ADRs (docs/adr/*.yaml) — enumerated in
+#     architecture/facts/generated/adrs.json.
+#   * Active/deferred Markdown ADRs (docs/adr/*.md) — present in the raw sources,
+#     absent from adrs.json until AdrFactExtractor is widened.
+#   * Locked Markdown ADRs (docs/adr/locked/*.md) — present in the raw sources,
+#     absent from adrs.json.
+# The ledger is closed only when every raw ADR across these three sets has an
+# entry, and every `accepted` ADR has a normalized view (ADR-0160 acceptance
+# bar). The preferred long-term close of the format gap is widening the
+# extractor to the Markdown/locked sources so the ledger's enumeration becomes
+# a pure projection of adrs.json (ADR-0160 forward-looking).
+coverage_scope:
+  raw_sources:
+    - docs/adr/*.yaml
+    - docs/adr/*.md
+    - docs/adr/locked/*.md
+  fact_layer_source: architecture/facts/generated/adrs.json
+  census: docs/governance/remediation-inventory/adr-census.md

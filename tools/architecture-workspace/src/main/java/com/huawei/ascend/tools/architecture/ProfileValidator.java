@@ -24,8 +24,9 @@ import java.util.Set;
  * exactly once reaches every profile-tagged item.
  * Walking BOTH {@link Model#getElements()} AND {@link Model#getCustomElements()}
  * double-counts every CustomElement. The {@link #PROFILE_TAGS},
- * {@link #COMMON_PROPERTIES}, {@link #TAG_SPECIFIC} and {@link #RELATIONSHIP_TYPES}
- * sets MUST stay in lockstep with {@code architecture/profile/profile.yaml},
+ * {@link #COMMON_PROPERTIES}, {@link #TAG_SPECIFIC}, {@link #TAG_STATUS_SPECIFIC}
+ * and {@link #RELATIONSHIP_TYPES} sets MUST stay in lockstep with
+ * {@code architecture/profile/profile.yaml},
  * {@code architecture/profile/required-properties.yaml}, and
  * {@code architecture/profile/relationship-types.yaml}. The parity is asserted
  * by {@code ProfileYamlParityTest}.
@@ -81,8 +82,24 @@ public final class ProfileValidator {
         m.put("SAA Principle", List.of("saa.principleId"));
         m.put("SAA ADR", List.of("saa.adrId", "saa.adrStatus"));
         m.put("SAA GeneratedProjection", List.of("saa.generated", "saa.sourceFile"));
-        m.put("SAA EngineeringFrame", List.of("saa.owner", "saa.sourceAdr"));
+        m.put("SAA EngineeringFrame", List.of("saa.owner", "saa.sourceAdr", "saa.cardPath"));
         TAG_SPECIFIC = Map.copyOf(m);
+    }
+
+    /**
+     * Status-conditional required properties: {@code TAG_STATUS_SPECIFIC.get(tag).get(status)}
+     * is required only when an element carries {@code tag} AND its {@code saa.status}
+     * equals {@code status}. Authority: ADR-0161 §2 — {@code saa.primaryPackage} is
+     * required on {@code shipped} EngineeringFrames but optional on
+     * {@code design_only} / skeleton frames with no Java package home yet.
+     * Mirrors {@code required-properties.yaml#required_properties.by_tag_status}.
+     */
+    public static final Map<String, Map<String, List<String>>> TAG_STATUS_SPECIFIC;
+
+    static {
+        Map<String, Map<String, List<String>>> m = new HashMap<>();
+        m.put("SAA EngineeringFrame", Map.of("shipped", List.of("saa.primaryPackage")));
+        TAG_STATUS_SPECIFIC = Map.copyOf(m);
     }
 
     public static final Set<String> RELATIONSHIP_TYPES = Set.of(
@@ -142,6 +159,19 @@ public final class ProfileValidator {
         for (String tag : profileTagsOnItem) {
             for (String required : TAG_SPECIFIC.getOrDefault(tag, List.of())) {
                 requireProp(itemId, props, required, violations);
+            }
+        }
+
+        String status = props.get("saa.status");
+        if (status != null && !status.isBlank()) {
+            for (String tag : profileTagsOnItem) {
+                Map<String, List<String>> byStatus = TAG_STATUS_SPECIFIC.get(tag);
+                if (byStatus == null) {
+                    continue;
+                }
+                for (String required : byStatus.getOrDefault(status, List.of())) {
+                    requireProp(itemId, props, required, violations);
+                }
             }
         }
     }

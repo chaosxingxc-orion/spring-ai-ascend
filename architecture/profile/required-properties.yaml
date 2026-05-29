@@ -1,10 +1,17 @@
 # Spring AI Ascend Architecture Profile — required properties per tag.
 #
-# Authority: ADR-0147. Validated against ProfileValidator.COMMON_PROPERTIES
-# and ProfileValidator.TAG_SPECIFIC by ProfileYamlParityTest.
+# Authority: ADR-0147. Validated against ProfileValidator.COMMON_PROPERTIES,
+# ProfileValidator.TAG_SPECIFIC, and ProfileValidator.TAG_STATUS_SPECIFIC by
+# ProfileYamlParityTest.
 #
-# common[] is required on EVERY profile-tagged element. by_tag[X] is required
-# additionally when an element carries the SAA-X tag.
+# Three requirement classes, evaluated together for each element:
+#   common[]          — required on EVERY profile-tagged element.
+#   by_tag[X]         — required additionally when an element carries the
+#                       SAA-X tag (unconditional, independent of saa.status).
+#   by_tag_status[X][S] — required additionally when an element carries the
+#                       SAA-X tag AND its saa.status equals S. This expresses a
+#                       status-conditional obligation that the flat by_tag map
+#                       cannot (e.g. a property required only on shipped frames).
 
 required_properties:
   common:
@@ -60,3 +67,15 @@ required_properties:
     SAA EngineeringFrame:
       - saa.owner
       - saa.sourceAdr
+      - saa.cardPath
+
+  # by_tag_status[tag][status] — required when an element carries `tag` AND its
+  # saa.status equals `status`. Authority: ADR-0161 §2. saa.primaryPackage (the
+  # fully-qualified primary Java package root the frame anchors) is required only
+  # on `shipped` frames; design_only / skeleton frames that have no Java package
+  # home yet legitimately omit it (ADR-0161; feature-readiness-policy.yaml
+  # structural_axis_subset.design_only).
+  by_tag_status:
+    SAA EngineeringFrame:
+      shipped:
+        - saa.primaryPackage

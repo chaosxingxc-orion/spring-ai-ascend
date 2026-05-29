@@ -52,6 +52,32 @@ class ProfileValidatorTest {
     }
 
     @Test
+    void shippedFrameMissingPrimaryPackageIsFlagged() throws Exception {
+        // ADR-0161 §2: saa.primaryPackage is required when an EngineeringFrame is
+        // shipped, optional when design_only. The fixture declares three frames.
+        Workspace ws = parse("src/test/resources/engineering-frame-status-conditional.dsl");
+        List<ProfileViolation> violations = new ProfileValidator().validate(ws);
+
+        // The shipped frame that omits saa.primaryPackage MUST be flagged for it.
+        assertTrue(violations.stream().anyMatch(v -> v.itemId().equals("EF-SHIPPED-NO-PKG")
+                        && v.message().contains("saa.primaryPackage")),
+                "EF-SHIPPED-NO-PKG must produce a saa.primaryPackage violation; got: " + violations);
+
+        // The design_only frame omitting saa.primaryPackage MUST NOT be flagged.
+        assertTrue(violations.stream().noneMatch(v -> v.itemId().equals("EF-DESIGN-ONLY")),
+                "EF-DESIGN-ONLY (design_only) must produce no violation; got: " + violations);
+
+        // The fully-populated shipped frame MUST NOT be flagged.
+        assertTrue(violations.stream().noneMatch(v -> v.itemId().equals("EF-SHIPPED-OK")),
+                "EF-SHIPPED-OK (fully populated) must produce no violation; got: " + violations);
+
+        // saa.primaryPackage must be the ONLY violation across the fixture (every
+        // frame carries saa.cardPath + all common/tag-specific props).
+        assertEquals(1, violations.size(),
+                "expected exactly one violation (EF-SHIPPED-NO-PKG saa.primaryPackage); got: " + violations);
+    }
+
+    @Test
     void illegalRelationshipTypeFlagged() throws Exception {
         Workspace ws = parse("src/test/resources/invalid-missing-properties.dsl");
         List<ProfileViolation> violations = new ProfileValidator().validate(ws);
