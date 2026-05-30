@@ -20,7 +20,7 @@ scope_surfaces:
   - architecture/facts/generated/contract-surfaces.json
   - gate/lib/check_frame_card_consistency.py
 kernel: |
-  An EngineeringFrame Frame Card (`architecture/docs/L1/frames/<frame-id>.md`) is a READABLE INTERPRETATION of the Structurizr DSL and the generated facts — never an authority. It invents no id, no owner, no status, and no relationship edge, and it never outranks a generated fact: it sits at the lowest interpretation tier of the ADR-0154 cascade (`generated facts > DSL > Card/prose`), the same posture the normalized-ADR views hold. Every identity field a card copies (`frame_id` / `owner_module` / `status` / `primary_package`) MUST equal the `saa.id` / `saa.owner` / `saa.status` / `saa.primaryPackage` of the DSL EngineeringFrame element it names; every factual code / type / method / contract / test claim MUST be cited by generated-fact ID (`code-symbol/<kebab-fqn>`, the class fact's `public_methods[]` entry as `code-symbol/<kebab-fqn>#<jvm-method-descriptor>`, `test/<kebab-fqn>`, `contract-op/<kebab-op-id>`) and MUST resolve in `architecture/facts/generated/*.json`; every FunctionPoint (`FP-…`) a card names MUST be `anchors`-bound to THAT frame in the DSL, or declared a participating-frame reference (no invented anchor). The single gate Rule 146 invokes `gate/lib/check_frame_card_consistency.py` (E196), which reads the DSL frame / FunctionPoint elements + their `anchors` edges as the identity authority and the generated facts as the factual authority, and classifies the cards against them. The `architecture/docs/L1/frames/` directory is greenfield until the pilot card lands (ADR-0161 §4): with no authored card (only `README.md` / `_template.md`) the check is vacuously clean in every mode; the instant one card exists, the DSL elements and the generated facts MUST be readable or the check fails closed (exit 2) — a missing authority is never an advisory condition. Runs ADVISORY at this landing rung per the ADR-0161 §6 ratchet (advisory → changed-files-blocking → full-blocking, the terminal rung after a 14-day soak on a clean corpus + a green ProfileYamlParityTest). A missing helper fails closed; a missing python interpreter is a vacuous pass (Rule G-7 lists WSL as the canonical env).
+  An EngineeringFrame Frame Card (`architecture/docs/L1/frames/<frame-id>.md`) is a READABLE INTERPRETATION of the Structurizr DSL and the generated facts — never an authority. It invents no id, no owner, no status, and no relationship edge, and it never outranks a generated fact: it sits at the lowest interpretation tier of the ADR-0154 cascade (`generated facts > DSL > Card/prose`), the same posture the normalized-ADR views hold. Every identity field a card copies (`frame_id` / `owner_module` / `status` / `primary_package`) MUST equal the `saa.id` / `saa.owner` / `saa.status` / `saa.primaryPackage` of the DSL EngineeringFrame element it names; every factual code / type / method / contract / test claim MUST be cited by generated-fact ID (`code-symbol/<kebab-fqn>`, the class fact's `public_methods[]` entry as `code-symbol/<kebab-fqn>#<jvm-method-descriptor>`, `test/<kebab-fqn>`, `contract-op/<kebab-op-id>`) and MUST resolve in `architecture/facts/generated/*.json`; every FunctionPoint (`FP-…`) a card names MUST be `anchors`-bound to THAT frame in the DSL, or declared a participating-frame reference (no invented anchor). The single gate Rule 146 invokes `gate/lib/check_frame_card_consistency.py` (E196), which reads the DSL frame / FunctionPoint elements + their `anchors` edges as the identity authority and the generated facts as the factual authority, and classifies the cards against them. The `architecture/docs/L1/frames/` directory is greenfield until the pilot card lands (ADR-0161 §4): with no authored card (only `README.md` / `_template.md`) the check is vacuously clean in every mode; the instant one card exists, the DSL elements and the generated facts MUST be readable or the check fails closed (exit 2) in every mode — a missing authority is never an advisory condition. Runs CHANGED-FILES-BLOCKING at this rung per the ADR-0161 §6 ratchet (advisory → changed-files-blocking → full-blocking, the terminal rung after a 14-day soak on a clean corpus + a green ProfileYamlParityTest): a PR may not ADD or worsen a card violation in a Frame Card it touches; pre-existing findings on untouched cards stay advisory. The helper self-derives the changed-card set from git against `--base` (default `origin/main`, else `HEAD`). A missing helper fails closed; a missing python interpreter is a vacuous pass (Rule G-7 lists WSL as the canonical env).
 ---
 
 # Rule G-29 — Frame-Card / DSL Parity
@@ -78,7 +78,7 @@ authority spine, never a rival to it.
 
 ## How it works
 
-The single gate Rule 146 invokes one helper at the advisory rung:
+The single gate Rule 146 invokes one helper at the changed-files-blocking rung:
 
 - `gate/lib/check_frame_card_consistency.py` (E196) — parses the DSL frame /
   FunctionPoint elements + their `anchors` edges, loads the three generated fact
@@ -101,15 +101,18 @@ condition.
 
 ## Ratchet
 
-advisory (this rung) → changed-files-blocking (a PR may not ADD or worsen a
-finding on a changed card) → full-blocking (the terminal posture once the corpus
-is clean). The helper `--mode` flags (`advisory` / `changed-files-blocking` /
-`full-blocking`) implement the rungs; the changed-files rung derives its scope
-from `--base` (default `origin/main`, else `HEAD`). Promotion to the terminal
-full-blocking rung is gated by a 14-day soak on a clean corpus + a green
-`ProfileYamlParityTest` per ADR-0161 §6, mirroring the ADR-0153 (Rule G-14) and
-ADR-0156 (Rules G-16..G-21) ratchets. A missing helper fails closed; a missing
-python interpreter is a vacuous pass (Rule G-7 lists WSL as the canonical env).
+advisory → changed-files-blocking (this rung: a PR may not ADD or worsen a
+finding on a changed card; pre-existing findings on untouched cards stay
+advisory) → full-blocking (the terminal posture once the corpus is clean). The
+helper `--mode` flags (`advisory` / `changed-files-blocking` / `full-blocking`)
+implement the rungs; the changed-files rung derives its scope from `--base`
+(default `origin/main`, else `HEAD`) — the same git-deriving pattern as Rule 145
+/ E194 `check_layer_purity.py`, and it falls back to full-corpus validation when
+git cannot resolve the base. Promotion to the terminal full-blocking rung is
+gated by a 14-day soak on a clean corpus + a green `ProfileYamlParityTest` per
+ADR-0161 §6, mirroring the ADR-0153 (Rule G-14) and ADR-0156 (Rules G-16..G-21)
+ratchets. A missing helper fails closed; a missing python interpreter is a
+vacuous pass (Rule G-7 lists WSL as the canonical env).
 
 ## Test fixtures
 
@@ -125,6 +128,9 @@ python interpreter is a vacuous pass (Rule G-7 lists WSL as the canonical env).
              ratchet soak posture.
   - INVALID: a vanished fact file fails closed (exit 2) even in advisory mode —
              a missing authority is never an advisory condition.
+  - INVALID: changed-files-blocking blocks a NEW broken card (exit 1) while the
+             same card once committed + untouched stays advisory (exit 0) — the
+             changed-files scope (git scratch, `--base HEAD`).
 
 ## Cross-references
 

@@ -9188,6 +9188,69 @@ test_rule_146_frame_card_missing_facts_fail_closed_neg() {
   fi
 }
 
+test_rule_146_frame_card_changed_files_scope_neg() {
+  # NEGATIVE (changed-files-blocking ratchet rung — the W19 promotion posture):
+  # the helper self-derives the changed-card set from git against --base. A BROKEN
+  # card that is CHANGED (newly added, untracked under frames/) BLOCKS (rc 1); the
+  # SAME broken card once committed and outside the diff range stays advisory
+  # (rc 0). Two probes on one git scratch lock the changed-files scope. Requires a
+  # real git repo (the checker's actual mechanism), so the scratch is git-init'd.
+  local helper="$PWD/gate/lib/check_frame_card_consistency.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_146_frame_card_changed_files_scope_neg" "Rule G-29 / Rule 146: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_146_frame_card_changed_files_scope_neg" "Rule G-29 / Rule 146: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  if ! command -v git >/dev/null 2>&1; then
+    ok "rule_146_frame_card_changed_files_scope_neg" "Rule G-29 / Rule 146: git unavailable — changed-files scope test skipped"
+    return
+  fi
+  local sroot="$scratch/r146_changed_scope"
+  _g29_frame_card_scratch "$sroot"
+  # Commit a clean baseline: the valid card is the only authored card and is
+  # committed, so it is pre-existing + untouched on every later probe.
+  _g29_write_valid_card "$sroot"
+  ( cd "$sroot" \
+    && git init -q \
+    && git config user.email gate@test.local \
+    && git config user.name gate-self-test \
+    && git add -A \
+    && git commit -qm baseline ) >/dev/null 2>&1
+  # A config error (PyYAML absent) short-circuits BEFORE scope evaluation — skip.
+  local probe rc_probe
+  probe=$("$py" "$sroot/gate/lib/check_frame_card_consistency.py" --repo "$sroot" --mode changed-files-blocking --base HEAD 2>&1); rc_probe=$?
+  if [[ $rc_probe -eq 2 ]]; then
+    ok "rule_146_frame_card_changed_files_scope_neg" "Rule G-29 / Rule 146: helper config error (likely PyYAML absent) — skipped: $(echo "$probe" | head -1)"
+    return
+  fi
+  # Probe 1: add a BROKEN card as a NEW untracked file -> it is in the changed set
+  # (git ls-files --others) and MUST block (rc 1).
+  cat > "$sroot/architecture/docs/L1/frames/EF-GHOST.md" <<'EOF'
+---
+frame_id: EF-GHOST-NOT-IN-DSL
+owner_module: agent-service
+status: shipped
+---
+# ghost
+EOF
+  local out_in rc_in out_out rc_out
+  out_in=$("$py" "$sroot/gate/lib/check_frame_card_consistency.py" --repo "$sroot" --mode changed-files-blocking --base HEAD 2>&1); rc_in=$?
+  # Probe 2: commit the broken card, then re-run with --base HEAD. Now nothing is
+  # changed vs HEAD and the broken card is committed (not untracked, not in any
+  # diff) -> out of scope -> the pre-existing finding stays advisory (rc 0).
+  ( cd "$sroot" && git add -A && git commit -qm "commit broken card" ) >/dev/null 2>&1
+  out_out=$("$py" "$sroot/gate/lib/check_frame_card_consistency.py" --repo "$sroot" --mode changed-files-blocking --base HEAD 2>&1); rc_out=$?
+  if [[ $rc_in -eq 1 ]] && echo "$out_in" | grep -q "IDENTITY-FRAME-ID" && [[ $rc_out -eq 0 ]]; then
+    ok "rule_146_frame_card_changed_files_scope_neg" "Rule G-29 / Rule 146: changed-files-blocking blocks a NEW broken card (rc 1); the same card once committed + untouched stays advisory (rc 0)"
+  else
+    fail "rule_146_frame_card_changed_files_scope_neg" "Rule G-29 / Rule 146 changed-files scope wrong: rc_in=$rc_in (want 1) rc_out=$rc_out (want 0) out_in=$(echo "$out_in" | head -1)"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #

@@ -1909,17 +1909,17 @@
   governance_infra: true
 
 # ---------------------------------------------------------------------------
-# 2026-05-30 progressive-learning-curve-remediation W16 — Frame-Card / DSL
+# 2026-05-30 progressive-learning-curve-remediation W16/W19 — Frame-Card / DSL
 # parity (Rule 146 / kernel Rule G-29; enforcer E196).
 # Authority: docs/governance/rules/rule-G-29.md + ADR-0161 (EngineeringFrame as
-# Package-Cluster Anchor + Card-over-DSL). One ADVISORY helper pins the Frame
-# Card to the lowest interpretation tier of the ADR-0154 cascade per the
-# ADR-0161 §6 ratchet (advisory -> changed-files-blocking -> full-blocking, the
-# terminal rung after a 14-day soak on a clean corpus + a green
-# ProfileYamlParityTest). Greenfield-clean until the pilot card lands; the
-# instant one card exists the DSL/facts authority MUST be readable or the helper
-# fails closed (exit 2) in every mode. A missing helper fails closed; a missing
-# python interpreter is a vacuous pass (Rule G-7 lists WSL as the canonical env).
+# Package-Cluster Anchor + Card-over-DSL). One helper pins the Frame Card to the
+# lowest interpretation tier of the ADR-0154 cascade per the ADR-0161 §6 ratchet
+# (advisory -> changed-files-blocking -> full-blocking, the terminal rung after a
+# 14-day soak on a clean corpus + a green ProfileYamlParityTest). W19 promotes it
+# from advisory to changed-files-blocking. Greenfield-clean until the pilot card
+# lands; the instant one card exists the DSL/facts authority MUST be readable or
+# the helper fails closed (exit 2) in every mode. A missing helper fails closed; a
+# missing python interpreter is a vacuous pass (Rule G-7 lists WSL as canonical).
 # ---------------------------------------------------------------------------
 
 - id: E196
@@ -1928,5 +1928,5 @@
   level: L1
   view: development
   artifact: gate/check_architecture_sync.sh#frame_card_consistency
-  asserts: "Rule 146 -- an EngineeringFrame Frame Card (architecture/docs/L1/frames/<frame-id>.md) is a READABLE INTERPRETATION of the DSL + generated facts, never an authority: it invents no id/owner/status/relationship and never outranks a generated fact (lowest tier of the ADR-0154 cascade generated facts > DSL > Card/prose). The helper reads the DSL frame/FunctionPoint elements + their anchors edges (architecture/features/engineering-frames.dsl + the re-tagged elements in features.dsl) as the identity authority and architecture/facts/generated/{code-symbols,tests,contract-surfaces}.json as the factual authority, and reports a card that (1) carries a frontmatter frame_id resolving to no DSL EngineeringFrame, or whose copied frame_id/owner_module/status/primary_package disagrees with that element's saa.id/saa.owner/saa.status/saa.primaryPackage; (2) cites a code-symbol/<kebab-fqn>, test/<kebab-fqn>, contract-op/<kebab-op-id> -- or a code-symbol/<kebab-fqn>#<jvm-method-descriptor> method ref against the class fact's public_methods[] -- that does not resolve in the generated facts; or (3) names a FunctionPoint (FP-...) the frame does not 'anchors' in the DSL and the card does not declare a participating-frame reference. Greenfield-clean while architecture/docs/L1/frames/ holds only README.md/_template.md; the instant one authored card exists the DSL + facts MUST be readable or the helper fails closed (exit 2) in every mode -- a missing authority is never an advisory condition. Backed by gate/lib/check_frame_card_consistency.py (modes advisory/changed-files-blocking/full-blocking). Wired ADVISORY (--mode advisory) at the W16 landing rung per the ADR-0161 §6 ratchet: findings are reported to the gate log but never block; only a config error (vanished DSL/facts while a card exists) hard-fails."
+  asserts: "Rule 146 -- an EngineeringFrame Frame Card (architecture/docs/L1/frames/<frame-id>.md) is a READABLE INTERPRETATION of the DSL + generated facts, never an authority: it invents no id/owner/status/relationship and never outranks a generated fact (lowest tier of the ADR-0154 cascade generated facts > DSL > Card/prose). The helper reads the DSL frame/FunctionPoint elements + their anchors edges (architecture/features/engineering-frames.dsl + the re-tagged elements in features.dsl) as the identity authority and architecture/facts/generated/{code-symbols,tests,contract-surfaces}.json as the factual authority, and reports a card that (1) carries a frontmatter frame_id resolving to no DSL EngineeringFrame, or whose copied frame_id/owner_module/status/primary_package disagrees with that element's saa.id/saa.owner/saa.status/saa.primaryPackage; (2) cites a code-symbol/<kebab-fqn>, test/<kebab-fqn>, contract-op/<kebab-op-id> -- or a code-symbol/<kebab-fqn>#<jvm-method-descriptor> method ref against the class fact's public_methods[] -- that does not resolve in the generated facts; or (3) names a FunctionPoint (FP-...) the frame does not 'anchors' in the DSL and the card does not declare a participating-frame reference. Greenfield-clean while architecture/docs/L1/frames/ holds only README.md/_template.md; the instant one authored card exists the DSL + facts MUST be readable or the helper fails closed (exit 2) in every mode -- a missing authority is never an advisory condition. Backed by gate/lib/check_frame_card_consistency.py (modes advisory/changed-files-blocking/full-blocking). Wired CHANGED-FILES-BLOCKING (--mode changed-files-blocking --base BASE_REF, default origin/main, else HEAD) at the W19 promotion rung per the ADR-0161 §6 ratchet: a PR may not ADD or worsen a card violation in a Frame Card it touches (a CHANGED card with identity drift / a non-resolving fact citation / an invented anchor BLOCKS, exit 1); pre-existing findings on untouched cards stay advisory. The helper self-derives the changed-card set from git against --base (same git-deriving pattern as Rule 145 / E194 check_layer_purity.py); when git cannot resolve the base it falls back to full-corpus validation. A config error (vanished DSL/facts while a card exists) still hard-fails in every mode. Promotion to full-blocking is gated on a 14-day soak on a clean corpus + a green ProfileYamlParityTest."
   governance_infra: true
