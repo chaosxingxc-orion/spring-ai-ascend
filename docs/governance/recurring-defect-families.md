@@ -58,7 +58,7 @@ remains closed.
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
-| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 16 (engineport-frame-authority-convergence moved 8 baselines in lockstep after the ADR-0158 EnginePort/EngineeringFrame regen) | ⚠️ partial |
+| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 17 (W11 L2-sink wave moved the graph node/edge baselines + the graph byte-budget ceiling in lockstep) | ⚠️ partial |
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 11 (engineport-frame-authority-convergence — old engine.orchestration.spi re-homed to bus.spi.engine per ADR-0158; authority-surface lag) | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 6 (rc6, rc7, rc11, rc15, rc35-second-pass, rc36) | ⚠️ partial |
@@ -113,6 +113,7 @@ baseline; subsequent drift compounds until a reviewer catches it.
 - Latest `docs/logs/releases/*.md`
 - `CLAUDE.md` kernel numeric claims
 - `docs/governance/architecture-graph.yaml` header
+- `gate/always-loaded-budget.txt` (architecture-graph byte-budget ceiling; Rule 70 / E100)
 
 **Prevention chronology.** Rule 82 (rc6 single source) → Rule 91 (rc9
 manifest match) → Rule 97 (rc10 release-note truth) → Rule 101 (rc12
@@ -151,6 +152,20 @@ W8 re-emitted both fragments (192 enforcers / 55 rules) via
 change, since the metrics were already correct and only the dependent generated
 artifacts lagged. Lesson: a baseline bump and the generated fragments emitted
 from the same source authority MUST land in one commit.
+
+**progressive-learning-curve W11 byte-budget vector.** The L2-detail-sink wave
+added three sinks (`engine-port-boundary` / `run-http-contract` /
+`telemetry-vertical`) whose eight non-README view files each become a `file:`
+architecture-graph node. That moved the two count baselines in lockstep
+(`architecture_graph_nodes` 683→691, `architecture_graph_edges` 1337→1353) AND
+surfaced a third numeric authority surface this family had not enumerated: the
+architecture-graph **byte-budget ceiling** in `gate/always-loaded-budget.txt`.
+The graph yaml is gitignored, but Rule 70 (`always_loaded_budget_enforced` /
+E100) fails when the regenerated file exceeds its committed ceiling — the +8
+nodes / +16 edges grew it from 294736 to 297691 bytes, past the 296000 ceiling,
+so the ceiling moved to 300000 in the same commit as the count bump. Lesson: any
+document that becomes an architecture-graph node shifts THREE numeric surfaces
+together — node count, edge count, and the graph file's byte-budget ceiling.
 
 ---
 
