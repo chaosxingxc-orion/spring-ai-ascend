@@ -38,7 +38,7 @@
 # freshness + E158 yaml/md family-id parity).
 
 schema_version: 1
-last_updated: 2026-05-29  # engineport-frame-authority-convergence wave (branch review/2026-05-29-engineport-frame-authority-convergence, on the ADR-0158 engine-boundary tip): records recurrences of F-numeric-drift (8 baselines moved in lockstep after the EnginePort/EngineeringFrame regen), F-authority-surface-path-drift (engine.orchestration.spi → bus.spi.engine authority-surface lag) and F-cross-authority-agreement (generated facts/contract/product/workspace divergence at the d66749b merge tip); REGISTERS 2 new families F-non-english-in-tier1-authority (prevention Rule G-25) and F-local-plan-path-in-active-authority (prevention Rule G-26). Family count 39→41. Prior MERGE-of-PR#93/#94 note retained below.
+last_updated: 2026-05-30  # progressive-learning-curve-remediation W8 (branch governance/progressive-learning-curve-remediation): the requirements.yaml + traceability reconcile wave. REGISTERS 1 new family F-dangling-authority-reference (the W7 value-axis wiring cited product/requirements.yaml as data authority from the traceability matrix + DSL saa.requirement back-references before the file existed; W8 created it with REQ-001..REQ-009 derived one-to-one from the nine value-thread Features); records a W8 COMPLEMENT occurrence of F-numeric-drift (the W3/W5 G-28 wave bumped enforcer_rows 190→192 / active_engineering_rules 55→56 / active_gate_checks 157→158 / graph 677→680 in baseline_metrics but left architecture/generated/enforcers.dsl at 190 and rules.dsl at 54, failing Rule G-13 byte-identical-regen; W8 re-emitted both fragments to 192/55 with no baseline_metrics change) and adds the two generated DSL fragments to that family's surfaces. Family count 42→43.
 # progressive-learning-curve-remediation W1 (branch governance/progressive-learning-curve-remediation): ratifies the eight-node software-engineering learning curve as decision authority via three methodology ADRs (ADR-0159 progressive-learning-curve-and-authority-lanes, ADR-0160 adr-governance-model, ADR-0161 engineering-frame-package-cluster-anchor-and-card-over-dsl). The three were drafted sharing one ADR number (all `id: ADR-0159`); reconciliation renumbered them 0159/0160/0161, regenerated adrs.json + adr-graph.dsl (88->91 ADR nodes), and bumped architecture_graph_nodes 674->677 / architecture_graph_edges 1301->1329 in lockstep. REGISTERS 1 new family F-adr-id-collision-across-files (prevention: ID-uniqueness reconciliation + a candidate gate that fails closed when two docs/adr/*.yaml files declare the same id:). Family count 41->42. last_updated stays 2026-05-29 (UTC today; the local +08 date 2026-05-30 is UTC-future and would fail Rule G-9.a).
 # progressive-learning-curve-remediation W3 (same branch): lands the ADR-governance gate that operationalises ADR-0160 — Rule 144 (kernel Rule G-28 ADR Normalization) wires two advisory helpers (gate/lib/check_adr_taxonomy.py: normalized-ADR view shape/altitude vs adr-taxonomy.yaml + adr-governance-policy.yaml; gate/lib/check_historical_adr_governance.py: ledger totality vs adr-remediation-ledger.yaml + normalized-view coverage vs accepted ADRs in adrs.json). Adds rule card rule-G-28-adr-normalization.md + enforcers E192/E193. Records an in-wave recurrence of F-cross-authority-agreement (the helpers + 11 self-tests were staged before the gate body, card, and enforcer rows existed; reconciled here so every surface agrees at one commit) and a lockstep recurrence of F-numeric-drift (active_engineering_rules 55->56, active_gate_checks 157->158, gate_executable_test_cases 287->298, enforcer_rows 190->192, architecture_graph_nodes 677->680, architecture_graph_edges 1329->1333 + README/gate/README numeric phrases + allowed_claim, all from live extractor/graph output). No new family registered (ratchet-soft advisory gate, no new ≥2-occurrence defect class). Family count stays 42. last_updated stays 2026-05-29 (UTC; local +08 is 2026-05-30 which would be UTC-future and fail Rule G-9.a).
 # progressive-learning-curve-remediation W5 (same branch): closes the ADR-0160 ledger+index reconciliation and promotes the historical-ADR helper to its terminal ratchet rung. (1) LEDGER POPULATION — docs/governance/adr-remediation-ledger.yaml goes from SKELETON (empty entries) to 157 entries (one per raw ADR across docs/adr/*.{md,yaml} + docs/adr/locked/), re-stated from adrs.json + the normalized views + raw sources, never minted. (2) INDEX + REVIEW-INDEX — docs/adr/normalized/index.yaml (90 entries, per-state tallies) + docs/adr/review-index.md (human-readable review surface) ship as the readable-interpretation layer over the views. (3) SUPERSESSION RECONCILIATION — the sole in-corpus supersession pair (ADR-0143 superseded_by ADR-0150 / ADR-0150 supersedes ADR-0143) is bidirectionally consistent across views, ledger, index, and review-index; out-of-corpus targets (ADR-0055/0079/0083/0084/0085, pre-ADR-0068 historical) carry no view by design. (4) E193 ADVISORY->BLOCKING — gate/lib/check_historical_adr_governance.py is now wired `--mode blocking` in gate/check_architecture_sync.sh (re-extracted into gate/rules/rule-144.sh): every raw ADR has a ledger entry and every accepted ADR has a normalized view (90 accepted = 90 views; the 1 superseded raw ADR ADR-0079 needs none), so the coverage assertion holds at the full-blocking rung. E192 (taxonomy/per-view altitude) stays advisory. This is the planned terminal rung of an existing ratchet, NOT a fail-open defect (the helper could always fail closed; it was advisory by design during the back-fill soak) — so this is NOT a recurrence of F-gate-machinery-fail-open-pattern and registers no new family. NO baseline movement: the mode flip adds no rule header, no self-test (the existing 5 historical_adr fixtures already exercise --mode blocking), no enforcer row, and no graph node/edge — active_gate_checks/enforcer_rows/gate_executable_test_cases/architecture_graph_* all unchanged from the W3 values above. Family count stays 42. last_updated stays 2026-05-29 (UTC; local +08 is 2026-05-30 which would be UTC-future and fail Rule G-9.a).
@@ -98,8 +98,8 @@ families:
   - id: F-numeric-drift
     title: Numeric Drift Across Authority Surfaces
     first_observed_rc: rc5
-    last_observed_rc: progressive-learning-curve-remediation-W3-2026-05-29
-    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective, engineport-frame-authority-convergence-2026-05-29, progressive-learning-curve-remediation-W3-2026-05-29]
+    last_observed_rc: progressive-learning-curve-remediation-W8-2026-05-30
+    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective, engineport-frame-authority-convergence-2026-05-29, progressive-learning-curve-remediation-W3-2026-05-29, progressive-learning-curve-remediation-W8-2026-05-30]
       # engineport-frame-authority-convergence (2026-05-29): the ADR-0158 engine-boundary
       # wave (EnginePort neutral boundary + EngineeringFrame re-home + 5 new gate rules
       # G-22..G-26) moved eight baseline_metrics in lockstep — active_gate_checks 152→157,
@@ -108,6 +108,18 @@ families:
       # architecture_graph_nodes 659→674, architecture_graph_edges 1286→1301. All taken
       # from the regenerated projection / graph / extract_rules outputs, never hand-computed,
       # and reconciled across architecture-status.yaml + README + gate/README in one wave.
+      # progressive-learning-curve-remediation-W8 (2026-05-30): the COMPLEMENT vector of
+      # this family — the W3/W5 ADR-normalization wave (G-28 + enforcers E192/E193 + the
+      # G-28 rule card) bumped baseline_metrics (enforcer_rows 190→192, active_engineering_rules
+      # 55→56, active_gate_checks 157→158, architecture_graph_nodes 677→680) and the architecture
+      # graph in lockstep, but did NOT re-emit the two generated DSL fragments those sources
+      # produce. architecture/generated/enforcers.dsl stayed at "Element count at emission: 190"
+      # (190 of 192 enforcers) and architecture/generated/rules.dsl at "54" (54 of 55 rules),
+      # so the Rule G-13 byte-identical-regen check (gate generated-zone idempotency) failed
+      # exit 1 on the committed tip while the numeric baselines already read the post-wave
+      # values. W8 re-emitted both fragments via gate/lib/check_workspace_fragment_idempotency.py
+      # (now byte-identical: 192 enforcers / 55 rules) with no baseline_metrics change, since
+      # the metrics were already correct and only the dependent generated artifacts lagged.
     root_cause: |
       Numeric claims (rule counts, gate counts, enforcer counts, graph
       nodes/edges, self-tests) are estimated when a release note is written
@@ -145,6 +157,8 @@ families:
       - docs/logs/releases/*.md (latest only)
       - CLAUDE.md kernel numeric claims
       - docs/governance/architecture-graph.yaml header
+      - architecture/generated/enforcers.dsl (Element-count header + emitted enforcer rows must match docs/governance/enforcers.yaml; W8 regen-lag vector)
+      - architecture/generated/rules.dsl (Element-count header + emitted rule rows must match the status:active rule cards; W8 regen-lag vector)
     prevention_rules:
       - Rule 82
       - Rule 91
@@ -2207,3 +2221,62 @@ families:
       ratification wave (which ships no rule/enforcer/gate by itself per
       ADR-0159 section 9). Promotion to `closed` requires that gate to land
       blocking with positive AND negative self-test fixtures.
+
+  - id: F-dangling-authority-reference
+    title: Interpretation Layer Names a Data-Authority File as Its Source of Truth Before That File Exists
+    first_observed_rc: progressive-learning-curve-remediation-W8-2026-05-30
+    last_observed_rc: progressive-learning-curve-remediation-W8-2026-05-30
+    occurrences: [progressive-learning-curve-remediation-W8-2026-05-30]
+    root_cause: |
+      A readable-interpretation / derived layer (a traceability matrix, a DSL
+      back-reference property, a card) declares a specific data-authority file
+      as its single source of truth, but that authority file is never created
+      in the same wave — so the authority pointer resolves to nothing. The
+      single-source-of-truth cascade (generated facts > DSL > Card/prose)
+      depends on the cited authority actually existing; when it does not, the
+      derived layer silently becomes the de-facto authority it disclaims, and
+      a reader following the pointer hits a missing file. Distinct from
+      F-architecture-authority-fragmentation (one real inventory split across
+      several existing surfaces) and F-adr-id-collision-across-files (one
+      identifier multiply-claimed across existing files): here the cited
+      authority surface is ABSENT, not split or duplicated. Observed
+      2026-05-30 when the progressive-learning-curve value-axis wiring added
+      the Requirement node (node N2): architecture/features/features.dsl and
+      function-points.dsl gained saa.requirement "REQ-NNN" back-references and
+      docs/governance/requirement-feature-functionpoint-traceability.md was
+      authored citing "Requirement data authority: product/requirements.yaml"
+      in its frontmatter and section 1 — but product/requirements.yaml did not
+      exist (the W0 entry-and-requirements-gap inventory had flagged its
+      absence as gap G-5). The matrix and the DSL back-references therefore
+      pointed at a file that was not on disk. ADR-0159 had already named
+      product/requirements.yaml as the L2-REQUIREMENT lane authority, so the
+      decision authority existed; only the data file lagged. W8 closed the
+      dangle by creating product/requirements.yaml (REQ-001..REQ-009 derived
+      one-to-one from the nine value-thread Features, each carrying
+      source_claim / feature / function_points / source_adr / priority /
+      status / rationale / acceptance_criteria), after which every cited
+      REQ-NNN and the matrix authority pointer resolve to a real row.
+    surfaces:
+      - product/requirements.yaml
+      - docs/governance/requirement-feature-functionpoint-traceability.md
+      - architecture/features/features.dsl (saa.requirement back-reference)
+      - architecture/features/function-points.dsl (saa.requirement back-reference)
+      - docs/adr/0159-progressive-learning-curve-and-authority-lanes.yaml (L2-REQUIREMENT lane authority naming)
+    prevention_rules:
+      - "Reconciliation discipline (this wave): when an interpretation layer or a DSL back-reference cites a data-authority file as its single source of truth, that authority file MUST exist in the SAME wave — author the data file before, or in lockstep with, the layer that points at it. A dangling authority pointer is a blocker, not a TODO."
+      - "candidate gate-rule (free band G-27..G-33) — REQ referential integrity: every saa.requirement \"REQ-NNN\" in architecture/features/*.dsl MUST resolve to a REQ-NNN row in product/requirements.yaml, and every REQ-NNN source_claim MUST resolve to a PC-NNN in product/claims.yaml; a non-vacuity guard fails the rule if zero saa.requirement properties are matched. This makes the dangle a fail-closed condition rather than a silently-missing file. Mirrors the existing Rule G-16/G-17/G-18 chain on the ProductClaim -> Feature -> FunctionPoint sub-axis, extended to the Requirement node."
+      - "ADR-0159 (progressive learning curve) section LOCKSTEP FLAG — the lane partition is advisory until the G-27..G-33 band is authored and promoted to blocking; until then, reviewer discipline plus the existing G-16/G-17/G-18 chain on the claim->feature->fp sub-axis is the guard."
+    cleanup_status: monitoring
+    open_residual: |
+      The concrete dangle is fully resolved: product/requirements.yaml now
+      exists with REQ-001..REQ-009, every saa.requirement back-reference and
+      the matrix authority pointer resolve, and the value-axis coverage
+      invariants (every value-thread Feature has exactly one requirement; every
+      requirement maps to >= 1 FunctionPoint; every ProductClaim retains >= 1
+      downstream requirement) hold. No executable gate yet fails closed on a
+      future dangling REQ reference — the candidate REQ-referential-integrity
+      check above is registered as planning input for the free G-27..G-33 band
+      and is NOT authored by this reconcile wave (per the ADR-0159 LOCKSTEP
+      FLAG, which sequences the lane gates across later waves). Promotion to
+      `closed` requires that gate to land blocking with positive AND negative
+      self-test fixtures.

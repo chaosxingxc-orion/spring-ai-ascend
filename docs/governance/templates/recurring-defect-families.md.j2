@@ -137,6 +137,21 @@ counts unchanged, but regenerated release evidence from frozen candidate
 commit `b554d744` before publishing the latest release note. This is a
 release-surface refresh, not a new numeric-drift occurrence.
 
+**progressive-learning-curve W8 complement.** The complement vector: the
+W3/W5 ADR-normalization wave (G-28 + enforcers E192/E193 + the G-28 rule
+card) bumped `baseline_metrics` (enforcer_rows 190→192, active_engineering_rules
+55→56, active_gate_checks 157→158, architecture_graph_nodes 677→680) and the
+architecture graph in lockstep, but did NOT re-emit the two generated DSL
+fragments those sources produce — `architecture/generated/enforcers.dsl`
+stayed at 190 of 192 enforcers and `rules.dsl` at 54 of 55 rules, failing the
+Rule G-13 byte-identical-regen (generated-zone idempotency) check on the
+committed tip while the numeric baselines already read the post-wave values.
+W8 re-emitted both fragments (192 enforcers / 55 rules) via
+`gate/lib/check_workspace_fragment_idempotency.py` with no `baseline_metrics`
+change, since the metrics were already correct and only the dependent generated
+artifacts lagged. Lesson: a baseline bump and the generated fragments emitted
+from the same source authority MUST land in one commit.
+
 ---
 
 ### F-deleted-module-name-leakage — Deleted-Module-Name Leakage After Refactor
@@ -1794,6 +1809,24 @@ Prevention rules (current):
 - **ADR-0160 (ADR Governance Model)** — the adr-remediation-ledger keys one entry per raw ADR by `raw_path`, so a duplicate id surfaces as two ledger rows pointing at different files; G-28 requires a uniquely-resolving normalized view per accepted ADR id.
 
 Open residual: the concrete 0159×3 collision is fully resolved (renumbered, fact layer + graph regenerated and verified unique). No executable gate yet fails closed on a future duplicate ADR id; the candidate ID-uniqueness check is planning input for the free G-27..G-33 band and is not authored by this methodology-ratification wave. Promotion to `closed` requires that gate to land blocking with positive AND negative self-test fixtures.
+
+---
+
+### F-dangling-authority-reference — Interpretation Layer Names a Data-Authority File as Its Source of Truth Before That File Exists
+
+**Status: monitoring** (the concrete dangle is resolved; no executable gate yet fails closed on a future dangling REQ reference — the candidate REQ-referential-integrity check is registered as planning input for the free G-27..G-33 band per the ADR-0159 LOCKSTEP FLAG.)
+
+One occurrence (progressive-learning-curve-remediation W8, 2026-05-30): the value-axis wiring that added the Requirement node (node N2 of the eight-node progressive learning curve) gave `architecture/features/features.dsl` and `function-points.dsl` a `saa.requirement "REQ-NNN"` back-reference and authored `docs/governance/requirement-feature-functionpoint-traceability.md` citing "Requirement data authority: `product/requirements.yaml`" in its frontmatter and section 1 — but `product/requirements.yaml` did not exist (the W0 `entry-and-requirements-gap` inventory had flagged its absence as gap G-5). The traceability matrix and the DSL back-references therefore pointed at a file that was not on disk. `ADR-0159` had already named `product/requirements.yaml` as the L2-REQUIREMENT lane authority, so the decision authority existed; only the data file lagged. W8 closed the dangle by creating `product/requirements.yaml` (`REQ-001`..`REQ-009`, derived one-to-one from the nine value-thread Features, each carrying `source_claim` / `feature` / `function_points` / `source_adr` / `priority` / `status` / `rationale` / `acceptance_criteria`), after which every cited `REQ-NNN` and the matrix authority pointer resolve to a real row.
+
+Root cause: a readable-interpretation / derived layer declared a specific data-authority file as its single source of truth, but that authority file was never created in the same wave, so the authority pointer resolved to nothing and the derived layer silently became the de-facto authority it disclaims. Distinct from `F-architecture-authority-fragmentation` (one real inventory split across several existing surfaces) and `F-adr-id-collision-across-files` (one identifier multiply-claimed across existing files): here the cited authority surface is ABSENT, not split or duplicated.
+
+Prevention rules (current):
+
+- **Reconciliation discipline (this wave)** — when an interpretation layer or a DSL back-reference cites a data-authority file as its single source of truth, that authority file MUST exist in the SAME wave; author the data file before, or in lockstep with, the layer that points at it. A dangling authority pointer is a blocker, not a TODO.
+- **Candidate gate-rule (free band G-27..G-33)** — REQ referential integrity: every `saa.requirement "REQ-NNN"` in `architecture/features/*.dsl` MUST resolve to a `REQ-NNN` row in `product/requirements.yaml`, and every `REQ-NNN` `source_claim` MUST resolve to a `PC-NNN` in `product/claims.yaml`; a non-vacuity guard fails the rule if zero `saa.requirement` properties are matched. Mirrors the existing Rule G-16 / G-17 / G-18 chain on the ProductClaim → Feature → FunctionPoint sub-axis, extended to the Requirement node.
+- **ADR-0159 (progressive learning curve) LOCKSTEP FLAG** — the lane partition is advisory until the G-27..G-33 band is authored and promoted to blocking; until then, reviewer discipline plus the existing G-16 / G-17 / G-18 chain on the claim → feature → fp sub-axis is the guard.
+
+Open residual: the concrete dangle is fully resolved (`product/requirements.yaml` exists with `REQ-001`..`REQ-009`; every back-reference and the matrix authority pointer resolve; the value-axis coverage invariants hold — every value-thread Feature has exactly one requirement, every requirement maps to ≥ 1 FunctionPoint, every ProductClaim retains ≥ 1 downstream requirement). No executable gate yet fails closed on a future dangling REQ reference; the candidate REQ-referential-integrity check is planning input for the free G-27..G-33 band and is not authored by this reconcile wave. Promotion to `closed` requires that gate to land blocking with positive AND negative self-test fixtures.
 
 ---
 

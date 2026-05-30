@@ -1,0 +1,293 @@
+# Requirement Definition registry for spring-ai-ascend (node N2 of the
+# eight-node progressive learning curve).
+#
+# Authority: ADR-0159 (progressive learning curve, node N2 + the value axis;
+# L2-REQUIREMENT authority lane). Extends ADR-0156 (Product Authority and
+# Traceability Chain). ISO/IEC/IEEE 29148 vocabulary (need / rationale /
+# acceptance criteria).
+#
+# This is the single source of truth for the Requirement node of the value
+# axis:  ProductClaim -> Requirement -> Feature -> FunctionPoint.
+# The readable projection (the join across all four hops) lives at
+# docs/governance/requirement-feature-functionpoint-traceability.md; that
+# matrix reflects the edges declared here and in the DSL spine, it does not
+# own them.
+#
+# Per ADR-0159 §LOCKSTEP FLAG, the lane partition is advisory until the
+# G-27..G-33 executable-gate band is authored and promoted to blocking;
+# referential integrity of the value axis below is enforced today by reviewer
+# discipline plus the existing Rule G-16 / G-17 / G-18 chain on the
+# ProductClaim -> Feature -> FunctionPoint sub-axis.
+#
+# DERIVATION RULE (ECR-2 acceptance bar). Each REQ-NNN is a one-to-one
+# refinement of an already-registered value-thread Feature in
+# architecture/features/features.dsl: it restates the source ProductClaim as a
+# single demanded capability that the named Feature realises and the named
+# FunctionPoints make behavioural. No requirement below introduces new
+# normative product wording — that remains product-owner authority
+# (product/PRODUCT.md) — and no requirement introduces a FunctionPoint from
+# prose alone. The structural-axis EngineeringFrames and the design-only
+# A2A / MQ FunctionPoints carry no ProductClaim and therefore no requirement;
+# they are reached on the structure axis, not the value axis.
+#
+# Field contract per entry:
+#   id                 stable REQ-NNN identifier (value-axis node id)
+#   source_claim       the ProductClaim(s) this requirement refines (PC-NNN,
+#                      mirrors saa.productClaim on the realising Feature). The
+#                      key is `source_claim`, NOT `product_claim`, so this data
+#                      file is not double-counted by the Rule G-16 scan whose
+#                      authority surface is the DSL / ADR / rule / contract
+#                      corpus, not product/.
+#   feature            the realising Feature (FEAT-... in features.dsl)
+#   function_points    the FunctionPoints the Feature requires that satisfy
+#                      this requirement (FP-... in function-points.dsl)
+#   source_adr         the decision authority for the realising Feature
+#                      (mirrors saa.sourceAdr on the FEAT- element)
+#   priority           MoSCoW band with v1.0 (2026-06-30) context
+#   status             requirement lifecycle: accepted | design_only
+#                      (mirrors the realising Feature's shipped vs design_only
+#                      posture; the requirement is accepted normative intent
+#                      even where the Feature is still design_only)
+#   rationale          why the demanded capability exists (refines the claim)
+#   acceptance_criteria  observable conditions; each line maps to an existing
+#                      verification asset (saa.verificationTestFqns on the
+#                      realising Feature) so acceptance is fact-backed, not
+#                      aspirational.
+#
+# AI sessions MUST NOT author a new REQ entry with new normative wording
+# without product-owner review; AI may draft refinements of already-ratified
+# Feature/Claim/ADR intent. Adding a value-thread Feature is the trigger to add
+# the matching requirement here (see the matrix §6 extension recipe).
+
+schema_version: "1.0"
+last_updated: "2026-05-30"
+
+requirements:
+
+  - id: REQ-001
+    source_claim:
+      - PC-001
+      - PC-003
+    feature: FEAT-RUN-LIFECYCLE-CONTROL
+    function_points:
+      - FP-CREATE-RUN
+      - FP-CANCEL-RUN
+      - FP-GET-RUN-STATUS
+      - FP-RUN-STATE-TRANSITION
+    source_adr: ADR-0020
+    priority: must_have_v1_0
+    status: accepted
+    rationale: >
+      A Spring developer must drive the full public Run lifecycle — admit,
+      cancel, poll — through tenant-isolated HTTP endpoints whose state
+      changes are governed by a formal DFA, so that no transition is lost or
+      double-applied under concurrency. Refines PC-001 (Spring-native
+      ergonomics) and PC-003 (production-grade isolation) into the demanded
+      lifecycle-control capability.
+    acceptance_criteria:
+      - >
+        POST /v1/runs admits a Run with tenant + idempotency + posture guards
+        and GET /v1/runs/{id} returns it tenant-scoped, per
+        com.huawei.ascend.service.platform.web.runs.RunHttpContractIT.
+      - >
+        Concurrent transitions are atomic with no lost update via the CAS-based
+        RunRepository.updateIfNotTerminal path, per
+        com.huawei.ascend.service.runtime.runs.RunStateMachineTest.
+
+  - id: REQ-002
+    source_claim:
+      - PC-002
+    feature: FEAT-EDGE-COMPUTE-INGRESS
+    function_points:
+      - FP-INGRESS-ENVELOPE
+    source_adr: ADR-0049
+    priority: should_have_v1_0
+    status: design_only
+    rationale: >
+      Every edge-originated request must reach the compute_control plane
+      through a single governed ingress hop, never by direct cross-module
+      import, so the edge/compute boundary stays a versioned contract surface.
+      Refines PC-002 (capability-reuse / deployment-pattern flexibility) into
+      the demanded single-ingress-hop capability.
+    acceptance_criteria:
+      - >
+        Edge modules cannot import service/engine/middleware production code;
+        the IngressGateway SPI is the only hop, per
+        com.huawei.ascend.bus.spi.ingress.EdgeToComputeDirectLinkArchTest.
+
+  - id: REQ-003
+    source_claim:
+      - PC-004
+    feature: FEAT-SERVER-CLIENT-CALLBACK
+    function_points:
+      - FP-S2C-CALLBACK
+    source_adr: ADR-0088
+    priority: must_have_v1_0
+    status: accepted
+    rationale: >
+      The runtime must invoke a client-side capability asynchronously without
+      holding the originating client connection: the Run suspends, the client
+      responds against a versioned envelope, and the Run resumes. Refines
+      PC-004 (open multi-engine / capability-invocation surface) into the
+      demanded server-to-client callback capability.
+    acceptance_criteria:
+      - >
+        A capability callback round-trips and resumes the suspended Run, per
+        com.huawei.ascend.service.runtime.s2c.S2cCallbackRoundTripIT.
+      - >
+        A failed callback transitions the Run to FAILED rather than hanging,
+        per com.huawei.ascend.service.runtime.s2c.S2cFailureTransitionsRunToFailedIT.
+
+  - id: REQ-004
+    source_claim:
+      - PC-003
+    feature: FEAT-SUSPEND-RESUME-CONTROL
+    function_points:
+      - FP-SUSPEND-RESUME
+      - FP-CHILD-RUN-SPAWN
+    source_adr: ADR-0058
+    priority: must_have_v1_0
+    status: accepted
+    rationale: >
+      A Run must suspend on a typed reason and resume without restart, and a
+      parent Run must be able to spawn a child and suspend until the child
+      reaches a terminal state — all without blocking a thread. Refines PC-003
+      (production-grade orchestration) into the demanded suspend/resume +
+      child-run choreography capability.
+    acceptance_criteria:
+      - >
+        SuspendSignal variants drive SUSPENDED <-> RUNNING transitions with a
+        typed SuspendReason, per
+        com.huawei.ascend.bus.spi.engine.SuspendSignalTest and
+        com.huawei.ascend.bus.spi.engine.SuspendSignalLibraryTest.
+
+  - id: REQ-005
+    source_claim:
+      - PC-003
+    feature: FEAT-IDEMPOTENCY-AND-REPLAY
+    function_points:
+      - FP-IDEMPOTENCY-CLAIM
+    source_adr: ADR-0027
+    priority: must_have_v1_0
+    status: accepted
+    rationale: >
+      A duplicate admission carrying the same Idempotency-Key must replay the
+      stored response byte-identically without re-executing the Run, within a
+      tenant-scoped key namespace. Refines PC-003 (production-grade
+      at-least-once safety) into the demanded idempotency-and-replay capability.
+    acceptance_criteria:
+      - >
+        A repeated Idempotency-Key replays the stored response rather than
+        re-running, per
+        com.huawei.ascend.service.runtime.idempotency.IdempotencyHeaderFilterIT
+        and IdempotencyStoreTest.
+
+  - id: REQ-006
+    source_claim:
+      - PC-003
+    feature: FEAT-TENANT-ISOLATION
+    function_points:
+      - FP-TENANT-CROSS-CHECK
+    source_adr: ADR-0030
+    priority: must_have_v1_0
+    status: accepted
+    rationale: >
+      Tenant isolation must hold in depth — JWT tenant claim cross-checked at
+      the HTTP edge, enforced at the repository layer, and backed by storage
+      Row-Level Security — so no request can read or mutate another tenant's
+      data. Refines PC-003 (financial-vertical isolation mandate) into the
+      demanded defense-in-depth tenant-isolation capability.
+    acceptance_criteria:
+      - >
+        Cross-tenant access is denied at the HTTP edge and at storage, per
+        com.huawei.ascend.service.platform.security.TenantIsolationIT and
+        com.huawei.ascend.service.platform.tenant.JwtTenantClaimCrossCheckTest.
+
+  - id: REQ-007
+    source_claim:
+      - PC-003
+    feature: FEAT-POSTURE-BOOTSTRAP
+    function_points:
+      - FP-POSTURE-BOOT-GUARD
+    source_adr: ADR-0055
+    priority: must_have_v1_0
+    status: accepted
+    rationale: >
+      The runtime must fail closed at startup on missing required
+      configuration in research and prod postures, and surface the
+      misconfiguration before any traffic is accepted, so a posture-unsafe
+      deployment never serves a request. Refines PC-003 (fail-loud production
+      posture) into the demanded posture-bootstrap capability.
+    acceptance_criteria:
+      - >
+        @RequiredConfig validation fails the boot on missing config in
+        research/prod posture and allows-with-log in dev, per
+        com.huawei.ascend.service.platform.posture.PostureBootGuardIT.
+
+  - id: REQ-008
+    source_claim:
+      - PC-001
+      - PC-005
+    feature: FEAT-GRAPH-MEMORY
+    function_points:
+      - FP-GRAPH-MEMORY-STORE
+    source_adr: ADR-0064
+    priority: could_have_v1_0
+    status: design_only
+    rationale: >
+      Agents must have a tenant-scoped graph-shaped memory surface, auto-wired
+      from a Spring starter and backed by a pluggable store SPI, so memory
+      reasoning is available without cross-tenant leakage and without
+      single-backend lock-in. Refines PC-001 (starter ergonomics) and PC-005
+      (evolvable memory substrate) into the demanded graph-memory capability.
+    acceptance_criteria:
+      - >
+        The graph-memory repository auto-configures when the starter is on the
+        classpath, per
+        com.huawei.ascend.service.runtime.graphmemory.GraphMemoryAutoConfigurationTest.
+
+  - id: REQ-009
+    source_claim:
+      - PC-004
+    feature: FEAT-ENGINE-DISPATCH-AND-HOOKS
+    function_points:
+      - FP-ENGINE-DISPATCH
+      - FP-HOOK-DISPATCH
+    source_adr: ADR-0088
+    priority: must_have_v1_0
+    status: accepted
+    rationale: >
+      Every Run dispatch must resolve through a typed engine registry against a
+      versioned envelope, and cross-cutting policy must be expressed as
+      hook-listening middleware on a versioned hook contract, so new engines
+      and new policies are added without instanceof checks on executors.
+      Refines PC-004 (open multi-engine + extensible policy surface) into the
+      demanded engine-dispatch-and-hooks capability.
+    acceptance_criteria:
+      - >
+        Dispatch resolves through EngineRegistry against the engine envelope
+        and middleware fires on canonical hook points, per
+        com.huawei.ascend.service.runtime.engine.EngineRegistryIT and
+        HookDispatchTest.
+
+# Coverage invariants (mirrors the matrix §5 reverse audit; the matrix is the
+# readable projection of these same facts):
+#
+# - Every value-thread Feature with saa.productClaim in features.dsl (nine of
+#   them) has exactly one requirement above; no value-thread Feature is left
+#   without a requirement and no requirement points at a non-existent Feature.
+# - Every requirement maps to >= 1 FunctionPoint that the realising Feature
+#   `requires` in features.dsl.
+# - Every ProductClaim retains >= 1 downstream requirement, so inserting the
+#   Requirement node does not orphan any claim:
+#     PC-001 -> REQ-001, REQ-008
+#     PC-002 -> REQ-002
+#     PC-003 -> REQ-001, REQ-004, REQ-005, REQ-006, REQ-007
+#     PC-004 -> REQ-003, REQ-009
+#     PC-005 -> REQ-008
+#
+# Acceptance-criteria surface note: ECR-2 also names a product/acceptance-criteria/
+# directory. The acceptance_criteria block above carries the observable
+# conditions inline, each bound to an existing verification asset; a separate
+# per-requirement acceptance-criteria directory is a later-wave elaboration and
+# is intentionally not created here to avoid an empty-scaffold surface.

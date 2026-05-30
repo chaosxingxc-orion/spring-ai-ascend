@@ -31,6 +31,7 @@ featRunLifecycleControl = element "Run Lifecycle Control" "Feature" "Public Run 
         "saa.sourceAdr" "ADR-0020"
         "saa.capabilityDomain" "runtime-run-lifecycle"
         "saa.productClaim" "PC-001|PC-003"
+        "saa.requirement" "REQ-001"
         "saa.synopsis" "Owns the public Run lifecycle surface — POST /v1/runs admission with tenant + idempotency + posture guard, POST /v1/runs/{id}/cancel re-validation and DFA transition to CANCEL_REQUESTED, GET /v1/runs/{id} tenant-scoped polling, GET /v1/runs paginated listing, and the CAS-based RunRepository.updateIfNotTerminal atomic transition that backs all of them. Run state changes are protected by the DFA in RunStateMachine; every persisted Run carries tenantId enforced by NOT NULL + RLS. Public endpoint behavior described by openapi-v1.yaml."
         "saa.aiBoundary.canModifyCode" "true"
         "saa.aiBoundary.canModifyContracts" "false"
@@ -49,6 +50,7 @@ featEdgeComputeIngress = element "Edge to Compute Ingress" "Feature" "Edge-plane
     properties {
         "saa.id" "FEAT-EDGE-COMPUTE-INGRESS"
         "saa.productClaim" "PC-002"
+        "saa.requirement" "REQ-002"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "process"
@@ -74,6 +76,7 @@ featServerClientCallback = element "Server to Client Callback" "Feature" "S2C ca
     properties {
         "saa.id" "FEAT-SERVER-CLIENT-CALLBACK"
         "saa.productClaim" "PC-004"
+        "saa.requirement" "REQ-003"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "scenarios"
@@ -99,6 +102,7 @@ featSuspendResumeControl = element "Suspend and Resume Control" "Feature" "Suspe
     properties {
         "saa.id" "FEAT-SUSPEND-RESUME-CONTROL"
         "saa.productClaim" "PC-003"
+        "saa.requirement" "REQ-004"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "process"
@@ -124,6 +128,7 @@ featIdempotencyAndReplay = element "Idempotency and Replay" "Feature" "Idempoten
     properties {
         "saa.id" "FEAT-IDEMPOTENCY-AND-REPLAY"
         "saa.productClaim" "PC-003"
+        "saa.requirement" "REQ-005"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "scenarios"
@@ -149,6 +154,7 @@ featTenantIsolation = element "Tenant Isolation" "Feature" "Tenant claim cross-c
     properties {
         "saa.id" "FEAT-TENANT-ISOLATION"
         "saa.productClaim" "PC-003"
+        "saa.requirement" "REQ-006"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "scenarios"
@@ -174,6 +180,7 @@ featPostureBootstrap = element "Posture Bootstrap" "Feature" "Required-config po
     properties {
         "saa.id" "FEAT-POSTURE-BOOTSTRAP"
         "saa.productClaim" "PC-003"
+        "saa.requirement" "REQ-007"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "physical"
@@ -199,6 +206,7 @@ featGraphMemory = element "Graph Memory" "Feature" "Tenant-scoped graph memory s
     properties {
         "saa.id" "FEAT-GRAPH-MEMORY"
         "saa.productClaim" "PC-001|PC-005"
+        "saa.requirement" "REQ-008"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "logical"
@@ -224,6 +232,7 @@ featEngineDispatchAndHooks = element "Engine Dispatch and Hooks" "Feature" "Type
     properties {
         "saa.id" "FEAT-ENGINE-DISPATCH-AND-HOOKS"
         "saa.productClaim" "PC-004"
+        "saa.requirement" "REQ-009"
         "saa.kind" "feature"
         "saa.level" "L1"
         "saa.view" "process"
