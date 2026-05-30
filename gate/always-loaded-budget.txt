@@ -213,7 +213,13 @@ docs/governance/SESSION-START-CONTEXT.md=8000
 # --enforced_by--> / --asserts_in--> edges grew the graph to 309763 bytes
 # (matches baseline_metrics architecture_graph_nodes 698 / edges 1361). Ceiling
 # raised 308000 -> 312000 with ~2.2K headroom (same ratchet posture).
-docs/governance/architecture-graph.yaml=312000
+# 2026-05-30 progressive-learning-curve-remediation W24: the Rule-G-32 rule
+# node + E199 enforcer node (AI understanding-map derivation-integrity gate
+# landing) + their --enforced_by--> / --asserts_in--> edges grew the graph to
+# 314299 bytes (matches baseline_metrics architecture_graph_nodes 700 /
+# edges 1363). Ceiling raised 312000 -> 316000 with ~1.7K headroom (same
+# ratchet posture).
+docs/governance/architecture-graph.yaml=316000
 # Structurizr workspace authority W7 (ADR-0149): +1 ADR node (0149) + 6 edges
 # (extends ADR-0147 + ADR-0148; relates_to ADR-0068 + ADR-0119) grew the graph
 # from 265500 to ~266400 bytes. Ceiling raised 265500 → 267000 with ~600 bytes
@@ -227,4 +233,11 @@ docs/governance/architecture-graph.yaml=312000
 # workspace_elements 626->629) + their per-metric ratchet comments + the allowed_claim
 # numeric refresh grew the file to ~130980 bytes (~20 bytes under the old 131000 ceiling).
 # Ceiling raised 131000 -> 133000 with ~2K headroom (same ratchet posture).
-docs/governance/architecture-status.yaml=133000
+# 2026-05-30 progressive-learning-curve-remediation W24: the understanding-map
+# gate baseline bumps (active_engineering_rules 60->61, active_gate_checks
+# 162->163, gate_executable_test_cases 331->334, enforcer_rows 197->198,
+# graph 698/1361->700/1363, workspace_elements 635->637) + their per-metric
+# ratchet comments + the allowed_claim numeric refresh grew the file to
+# 133274 bytes (over the old 133000 ceiling). Ceiling raised 133000 -> 135000
+# with ~1.7K headroom (same ratchet posture).
+docs/governance/architecture-status.yaml=135000

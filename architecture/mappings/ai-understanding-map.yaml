@@ -1,0 +1,558 @@
+# =============================================================================
+# AI Understanding Map — explicit queryable dual-track map
+# =============================================================================
+# Authority: ADR-0157 (EngineeringFrame Ontology / dual-track), ADR-0161
+# (Card-over-DSL), ADR-0154 (Fact-Layer Authority). Role contract:
+# docs/governance/ai-reading-path.yaml step 5 (demand_to_behavior_mapping).
+# Schema: architecture/mappings/schema/ai-understanding-map.schema.yaml.
+#
+# WHAT THIS IS: a readable, queryable projection of the three axes
+#   value     ProductClaim -> Requirement -> Feature -> FunctionPoint
+#   structure Module -> EngineeringFrame -> FunctionPoint
+#   evidence  FunctionPoint -> Contract -> GeneratedFact -> Gate
+# plus the derived Feature -> traverses -> EngineeringFrame reconciliation.
+#
+# WHAT THIS IS NOT: an authority. It invents no id and no relationship. Every
+# id below is declared upstream (engineering-frames.dsl / features.dsl /
+# function-points.dsl / architecture/facts/generated/*.json). On any conflict
+# the authority cascade wins: generated facts > DSL > Card/prose > this map.
+# The reconcile step owns architecture-status.yaml and the gate wiring; this
+# file is hand-authored interpretation and is kept id-consistent with the DSL.
+
+version: 1
+status: active
+last_updated: "2026-05-30"
+
+authority:
+  cascade:
+    - "architecture/facts/generated/*.json (generated facts — apex truth)"
+    - "architecture/features/engineering-frames.dsl + features.dsl + function-points.dsl (DSL — structural/value source)"
+    - "architecture/docs/L1/frames/*.md (Frame Cards — readable interpretation, ADR-0161)"
+    - "architecture/mappings/ai-understanding-map.yaml (this map — readable projection, lowest authority)"
+  primary_adrs:
+    - adr/0157-engineering-frame-ontology
+    - adr/0158-engine-port-transport-agnostic-boundary
+    - adr/0161-engineering-frame-package-cluster-anchor-and-card-over-dsl
+    - adr/0156-product-authority-and-traceability
+    - adr/0154-fact-layer-authority
+  invariant: "reads-not-decides; invents no id and no edge; every cited id resolves upstream in the authority cascade."
+
+axes:
+  value: "ProductClaim -> Requirement (ISO 29148) -> Feature (value-thread) -> FunctionPoint. A Feature drives behaviour (`requires`); it does not structurally own it."
+  structure: "Module -> EngineeringFrame (durable module-internal responsibility slice) -> FunctionPoint (`anchors`). The structural axis is claim-agnostic (ADR-0157 §3)."
+  evidence: "FunctionPoint -> Contract Surface -> Generated Fact -> Gate. Cite fact ids, never prose (ai-reading-path output_discipline)."
+  per_function_point_facets:
+    - "value     — required_by_features + requirement (value axis incidence)"
+    - "structure — anchored_by_frames + owner_module (structure axis incidence)"
+    - "join      — channel + actor + trigger (where value meets structure)"
+    - "evidence  — contract_op / code_symbol / test fact ids"
+    - "decision  — source ADR fact ids (authority for existence + scope)"
+    - "governance— relevant rules/enforcers (optional; absence is not a defect)"
+
+id_formats:
+  feature: "FEAT-<SCREAMING-KEBAB> (SAA Feature saa.id)"
+  engineering_frame: "EF-<SCREAMING-KEBAB> (SAA EngineeringFrame saa.id)"
+  function_point: "FP-<SCREAMING-KEBAB> (SAA FunctionPoint saa.id)"
+  module: "short module name (SAA Module saa.id / saa.owner; element genModule_<snake>)"
+  code_symbol: "code-symbol/<kebab-fqn> (dots->hyphens, lowercase) — architecture/facts/generated/code-symbols.json"
+  test: "test/<kebab-fqn> — architecture/facts/generated/tests.json"
+  contract_op: "contract-op/<kebab-op-id> — architecture/facts/generated/contract-surfaces.json"
+  adr: "adr/<4-digit>-<kebab-slug> — architecture/facts/generated/adrs.json"
+
+# --- Structure axis roots: the six fixed domain modules + BoM + starter --------
+modules:
+  - {id: agent-client,            plane: edge,            kind: domain, note: "Edge SDK / client-side ingress + capability publication (skeleton)."}
+  - {id: agent-bus,               plane: bus_state,       kind: domain, note: "Ingress / S2C transport / channel isolation / neutral engine port + orchestration SPI."}
+  - {id: agent-middleware,        plane: compute_control, kind: domain, note: "Runtime middleware hook surface + cross-cutting capability SPI families."}
+  - {id: agent-execution-engine,  plane: compute_control, kind: domain, note: "Engine contract surface — registry / executor adapter lifecycle."}
+  - {id: agent-evolve,            plane: evolution,       kind: domain, note: "Run/trajectory export + online-evaluation hooks (skeleton)."}
+  - {id: agent-service,           plane: compute_control, kind: domain, note: "Access/admission, task control, session/task state, engine dispatch, event queue, translation intercept."}
+  - {id: spring-ai-ascend-graphmemory-starter, plane: bus_state, kind: starter, note: "Spring Boot starter auto-wiring GraphMemoryRepository SPI (disabled by default)."}
+
+# --- Structure axis: EngineeringFrame inventory (mirrors the DSL) --------------
+# anchors_function_points mirrors the `anchors` edges in
+# engineering-frames.dsl + features.dsl. A design_only frame with zero anchored
+# shipped FPs is permitted (ADR-0157 §3).
+engineering_frames:
+  - id: EF-INGRESS-GATEWAY
+    owner_module: agent-bus
+    status: shipped
+    source_adr: ADR-0157
+    primary_package: com.huawei.ascend.bus.spi.ingress
+    card_path: architecture/docs/L1/frames/EF-INGRESS-GATEWAY.md
+    anchors_function_points: [FP-INGRESS-ENVELOPE]
+  - id: EF-S2C-TRANSPORT
+    owner_module: agent-bus
+    status: shipped
+    source_adr: ADR-0157
+    primary_package: com.huawei.ascend.bus.spi.s2c
+    card_path: architecture/docs/L1/frames/EF-S2C-TRANSPORT.md
+    anchors_function_points: [FP-S2C-CALLBACK]
+  - id: EF-CHANNEL-ISOLATION
+    owner_module: agent-bus
+    status: design_only
+    source_adr: ADR-0157
+    card_path: architecture/docs/L1/frames/EF-CHANNEL-ISOLATION.md
+    anchors_function_points: []
+  - id: EF-ENGINE-PORT
+    owner_module: agent-bus
+    status: design_only
+    source_adr: ADR-0158
+    card_path: architecture/docs/L1/frames/EF-ENGINE-PORT.md
+    anchors_function_points: []
+  - id: EF-ORCHESTRATION-SPI
+    owner_module: agent-bus
+    status: design_only
+    source_adr: ADR-0157|ADR-0158
+    card_path: architecture/docs/L1/frames/EF-ORCHESTRATION-SPI.md
+    anchors_function_points: []
+  - id: EF-ENGINE-REGISTRY
+    owner_module: agent-execution-engine
+    status: shipped
+    source_adr: ADR-0157
+    primary_package: com.huawei.ascend.engine.runtime
+    card_path: architecture/docs/L1/frames/EF-ENGINE-REGISTRY.md
+    anchors_function_points: [FP-ENGINE-DISPATCH]
+  - id: EF-HOOK-SURFACE
+    owner_module: agent-middleware
+    status: shipped
+    source_adr: ADR-0157
+    primary_package: com.huawei.ascend.middleware
+    card_path: architecture/docs/L1/frames/EF-HOOK-SURFACE.md
+    anchors_function_points: [FP-HOOK-DISPATCH]
+  - id: EF-CAPABILITY-SPI
+    owner_module: agent-middleware
+    status: design_only
+    source_adr: ADR-0157
+    card_path: architecture/docs/L1/frames/EF-CAPABILITY-SPI.md
+    anchors_function_points: []
+  - id: EF-CLIENT-INGRESS-ADAPTER
+    owner_module: agent-client
+    status: design_only
+    source_adr: ADR-0157
+    card_path: architecture/docs/L1/frames/EF-CLIENT-INGRESS-ADAPTER.md
+    anchors_function_points: []
+  - id: EF-EVOLUTION-EXPORT
+    owner_module: agent-evolve
+    status: design_only
+    source_adr: ADR-0157
+    card_path: architecture/docs/L1/frames/EF-EVOLUTION-EXPORT.md
+    anchors_function_points: []
+  - id: EF-GRAPHMEMORY-AUTOCONFIG
+    owner_module: spring-ai-ascend-graphmemory-starter
+    status: design_only
+    source_adr: ADR-0157
+    card_path: architecture/docs/L1/frames/EF-GRAPHMEMORY-AUTOCONFIG.md
+    anchors_function_points: [FP-GRAPH-MEMORY-STORE]
+  - id: EF-ACCESS-ADMISSION
+    owner_module: agent-service
+    status: shipped
+    source_adr: ADR-0157
+    primary_package: com.huawei.ascend.service.platform.web
+    card_path: architecture/docs/L1/frames/EF-ACCESS-ADMISSION.md
+    anchors_function_points:
+      - FP-CREATE-RUN
+      - FP-GET-RUN-STATUS
+      - FP-IDEMPOTENCY-CLAIM
+      - FP-TENANT-CROSS-CHECK
+      - FP-POSTURE-BOOT-GUARD
+      - FP-A2A-MESSAGE-SEND
+      - FP-A2A-TASKS-CANCEL
+      - FP-A2A-TASKS-RESUBSCRIBE
+      - FP-MQ-INBOUND
+  - id: EF-ENGINE-DISPATCH
+    owner_module: agent-service
+    status: design_only
+    source_adr: ADR-0157
+    card_path: architecture/docs/L1/frames/EF-ENGINE-DISPATCH.md
+    anchors_function_points: []
+  - id: EF-INTERNAL-EVENT-QUEUE
+    owner_module: agent-service
+    status: design_only
+    source_adr: ADR-0157
+    card_path: architecture/docs/L1/frames/EF-INTERNAL-EVENT-QUEUE.md
+    anchors_function_points: []
+  - id: EF-SESSION-TASK-STATE
+    owner_module: agent-service
+    status: shipped
+    source_adr: ADR-0157
+    primary_package: com.huawei.ascend.service.session
+    card_path: architecture/docs/L1/frames/EF-SESSION-TASK-STATE.md
+    anchors_function_points: [FP-RUN-STATE-TRANSITION]
+  - id: EF-TASK-CONTROL
+    owner_module: agent-service
+    status: shipped
+    source_adr: ADR-0157
+    primary_package: com.huawei.ascend.service.runtime.runs
+    card_path: architecture/docs/L1/frames/EF-TASK-CONTROL.md
+    anchors_function_points: [FP-CANCEL-RUN, FP-SUSPEND-RESUME, FP-CHILD-RUN-SPAWN]
+  - id: EF-TRANSLATION-INTERCEPT
+    owner_module: agent-service
+    status: design_only
+    source_adr: ADR-0157
+    card_path: architecture/docs/L1/frames/EF-TRANSLATION-INTERCEPT.md
+    anchors_function_points: []
+
+# --- Value axis: Feature inventory (value-threads only; mirrors features.dsl) --
+features:
+  - id: FEAT-RUN-LIFECYCLE-CONTROL
+    owner_module: agent-service
+    status: shipped
+    requirement: REQ-001
+    capability_domain: runtime-run-lifecycle
+    source_adr: ADR-0020
+    requires_function_points: [FP-CREATE-RUN, FP-CANCEL-RUN, FP-GET-RUN-STATUS, FP-RUN-STATE-TRANSITION]
+    traverses_engineering_frames: [EF-ACCESS-ADMISSION, EF-TASK-CONTROL, EF-SESSION-TASK-STATE]
+  - id: FEAT-EDGE-COMPUTE-INGRESS
+    owner_module: agent-bus
+    status: design_only
+    requirement: REQ-002
+    capability_domain: edge-compute-routing
+    source_adr: ADR-0089
+    requires_function_points: [FP-INGRESS-ENVELOPE]
+    traverses_engineering_frames: [EF-INGRESS-GATEWAY]
+  - id: FEAT-SERVER-CLIENT-CALLBACK
+    owner_module: agent-bus
+    status: shipped
+    requirement: REQ-003
+    capability_domain: s2c-callback-protocol
+    source_adr: ADR-0088
+    requires_function_points: [FP-S2C-CALLBACK]
+    traverses_engineering_frames: [EF-S2C-TRANSPORT]
+  - id: FEAT-SUSPEND-RESUME-CONTROL
+    owner_module: agent-service
+    status: shipped
+    requirement: REQ-004
+    capability_domain: run-suspension-orchestration
+    source_adr: ADR-0137
+    requires_function_points: [FP-SUSPEND-RESUME, FP-CHILD-RUN-SPAWN]
+    traverses_engineering_frames: [EF-TASK-CONTROL, EF-ORCHESTRATION-SPI]
+  - id: FEAT-IDEMPOTENCY-AND-REPLAY
+    owner_module: agent-service
+    status: shipped
+    requirement: REQ-005
+    capability_domain: idempotency-protocol
+    source_adr: ADR-0027
+    requires_function_points: [FP-IDEMPOTENCY-CLAIM]
+    traverses_engineering_frames: [EF-ACCESS-ADMISSION]
+  - id: FEAT-TENANT-ISOLATION
+    owner_module: agent-service
+    status: shipped
+    requirement: REQ-006
+    capability_domain: tenant-isolation
+    source_adr: ADR-0056
+    requires_function_points: [FP-TENANT-CROSS-CHECK]
+    traverses_engineering_frames: [EF-ACCESS-ADMISSION]
+  - id: FEAT-POSTURE-BOOTSTRAP
+    owner_module: agent-service
+    status: shipped
+    requirement: REQ-007
+    capability_domain: posture-bootstrap
+    source_adr: ADR-0058
+    requires_function_points: [FP-POSTURE-BOOT-GUARD]
+    traverses_engineering_frames: [EF-ACCESS-ADMISSION]
+  - id: FEAT-GRAPH-MEMORY
+    owner_module: graphmemory-starter
+    status: design_only
+    requirement: REQ-008
+    capability_domain: graph-memory
+    source_adr: ADR-0081
+    requires_function_points: [FP-GRAPH-MEMORY-STORE]
+    traverses_engineering_frames: [EF-GRAPHMEMORY-AUTOCONFIG]
+  - id: FEAT-ENGINE-DISPATCH-AND-HOOKS
+    owner_module: agent-service
+    status: shipped
+    requirement: REQ-009
+    capability_domain: engine-contract
+    source_adr: ADR-0140
+    requires_function_points: [FP-ENGINE-DISPATCH, FP-HOOK-DISPATCH]
+    traverses_engineering_frames: [EF-ENGINE-DISPATCH, EF-HOOK-SURFACE, EF-ENGINE-REGISTRY, EF-TRANSLATION-INTERCEPT, EF-ENGINE-PORT]
+
+# --- The behavioral join object: one record per FunctionPoint -----------------
+# Six facets per FP. Evidence fact ids resolve in architecture/facts/generated/*.
+# Absent evidence arrays = "no fact of that kind for this FP yet" (not invented).
+function_points:
+  - id: FP-CREATE-RUN
+    status: shipped
+    owner_module: agent-service
+    title: "POST /v1/runs — admit a new Run with tenant + idempotency + posture guard"
+    value: {required_by_features: [FEAT-RUN-LIFECYCLE-CONTROL], requirement: REQ-001}
+    structure: {anchored_by_frames: [EF-ACCESS-ADMISSION], owner_module: agent-service}
+    join: {channel: http, actor: tenant-developer, trigger: "HTTP POST /v1/runs"}
+    evidence:
+      contract_op_facts: [contract-op/createrun]
+      code_symbol_facts: [code-symbol/com-huawei-ascend-service-platform-web-runs-runcontroller]
+      test_facts:
+        - test/com-huawei-ascend-service-platform-web-runs-runhttpcontractit
+        - test/com-huawei-ascend-service-runtime-runs-runstatemachinetest
+    decision:
+      source_adr: [ADR-0020]
+      resolution:
+        - {adr: ADR-0020, resolves_to: unresolved}
+  - id: FP-CANCEL-RUN
+    status: shipped
+    owner_module: agent-service
+    title: "POST /v1/runs/{runId}/cancel — re-validate tenant + DFA transition to CANCEL_REQUESTED"
+    value: {required_by_features: [FEAT-RUN-LIFECYCLE-CONTROL], requirement: REQ-001}
+    structure: {anchored_by_frames: [EF-TASK-CONTROL], owner_module: agent-service}
+    join: {channel: http, actor: tenant-developer, trigger: "HTTP POST /v1/runs/{runId}/cancel"}
+    evidence:
+      contract_op_facts: [contract-op/cancelrun]
+      code_symbol_facts: [code-symbol/com-huawei-ascend-service-platform-web-runs-runcontroller]
+      test_facts:
+        - test/com-huawei-ascend-service-platform-web-runs-runhttpcontractit
+        - test/com-huawei-ascend-service-runtime-runs-runstatemachinetest
+    decision:
+      source_adr: [ADR-0108]
+      resolution:
+        - {adr: ADR-0108, resolves_to: fact, ref: adr/0108-tenant-reauth-widening-and-graph-isolation}
+  - id: FP-GET-RUN-STATUS
+    status: shipped
+    owner_module: agent-service
+    title: "GET /v1/runs/{runId} — tenant-scoped polling endpoint for Run state + last error"
+    value: {required_by_features: [FEAT-RUN-LIFECYCLE-CONTROL], requirement: REQ-001}
+    structure: {anchored_by_frames: [EF-ACCESS-ADMISSION], owner_module: agent-service}
+    join: {channel: http, actor: tenant-developer, trigger: "HTTP GET /v1/runs/{runId}"}
+    evidence:
+      contract_op_facts: [contract-op/getrun]
+      code_symbol_facts: [code-symbol/com-huawei-ascend-service-platform-web-runs-runcontroller]
+      test_facts: [test/com-huawei-ascend-service-platform-web-runs-runhttpcontractit]
+    decision:
+      source_adr: [ADR-0020]
+      resolution:
+        - {adr: ADR-0020, resolves_to: unresolved}
+  - id: FP-INGRESS-ENVELOPE
+    status: shipped
+    owner_module: agent-bus
+    title: "Route IngressEnvelope from edge-plane to compute_control via IngressGateway"
+    value: {required_by_features: [FEAT-EDGE-COMPUTE-INGRESS], requirement: REQ-002}
+    structure: {anchored_by_frames: [EF-INGRESS-GATEWAY], owner_module: agent-bus}
+    join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0089]
+      resolution:
+        - {adr: ADR-0089, resolves_to: fact, ref: adr/0089-edge-plane-ingress-gateway-mandate}
+  - id: FP-S2C-CALLBACK
+    status: shipped
+    owner_module: agent-bus
+    title: "Server-to-client callback envelope via S2cCallbackTransport"
+    value: {required_by_features: [FEAT-SERVER-CLIENT-CALLBACK], requirement: REQ-003}
+    structure: {anchored_by_frames: [EF-S2C-TRANSPORT], owner_module: agent-bus}
+    join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0088]
+      resolution:
+        - {adr: ADR-0088, resolves_to: fact, ref: adr/0088-agent-runtime-core-dissolution}
+  - id: FP-RUN-STATE-TRANSITION
+    status: shipped
+    owner_module: agent-service
+    title: "RunRepository.updateIfNotTerminal CAS-based atomic Run status transition"
+    value: {required_by_features: [FEAT-RUN-LIFECYCLE-CONTROL], requirement: REQ-001}
+    structure: {anchored_by_frames: [EF-SESSION-TASK-STATE], owner_module: agent-service}
+    join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0118]
+      resolution:
+        - {adr: ADR-0118, resolves_to: fact, ref: adr/0118-rc38-audit-corrective-latent-correctness-and-deploy-packaging}
+  - id: FP-SUSPEND-RESUME
+    status: shipped
+    owner_module: agent-service
+    title: "SuspendSignal throw, Run -> SUSPENDED, ResumeDispatcher -> RUNNING transition"
+    value: {required_by_features: [FEAT-SUSPEND-RESUME-CONTROL], requirement: REQ-004}
+    structure: {anchored_by_frames: [EF-TASK-CONTROL], owner_module: agent-service}
+    join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0137]
+      resolution:
+        - {adr: ADR-0137, resolves_to: fact, ref: adr/0137-suspendsignal-canonical-interruptsignal-glossary}
+  - id: FP-CHILD-RUN-SPAWN
+    status: shipped
+    owner_module: agent-service
+    title: "SuspendSignal child-Run variant — parent suspends, child Run executes, parent resumes"
+    value: {required_by_features: [FEAT-SUSPEND-RESUME-CONTROL], requirement: REQ-004}
+    structure: {anchored_by_frames: [EF-TASK-CONTROL], owner_module: agent-service}
+    join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0145]
+      resolution:
+        - {adr: ADR-0145, resolves_to: fact, ref: adr/0145-run-event-sealed-hierarchy}
+  - id: FP-IDEMPOTENCY-CLAIM
+    status: shipped
+    owner_module: agent-service
+    title: "IdempotencyHeaderFilter -> IdempotencyStore PG-backed claim + replay"
+    value: {required_by_features: [FEAT-IDEMPOTENCY-AND-REPLAY], requirement: REQ-005}
+    structure: {anchored_by_frames: [EF-ACCESS-ADMISSION], owner_module: agent-service}
+    join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0027]
+      resolution:
+        - {adr: ADR-0027, resolves_to: unresolved}
+  - id: FP-TENANT-CROSS-CHECK
+    status: shipped
+    owner_module: agent-service
+    title: "JWT.tenant claim cross-check vs IngressEnvelope.tenantId at every tenant-scoped surface"
+    value: {required_by_features: [FEAT-TENANT-ISOLATION], requirement: REQ-006}
+    structure: {anchored_by_frames: [EF-ACCESS-ADMISSION], owner_module: agent-service}
+    join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0056]
+      resolution:
+        - {adr: ADR-0056, resolves_to: disk, ref: docs/adr/0056-jwt-validation-and-tenant-claim-cross-check.md}
+  - id: FP-POSTURE-BOOT-GUARD
+    status: shipped
+    owner_module: agent-service
+    title: "PostureBootGuard validates @RequiredConfig at startup; research/prod fail-closed"
+    value: {required_by_features: [FEAT-POSTURE-BOOTSTRAP], requirement: REQ-007}
+    structure: {anchored_by_frames: [EF-ACCESS-ADMISSION], owner_module: agent-service}
+    join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0058]
+      resolution:
+        - {adr: ADR-0058, resolves_to: disk, ref: docs/adr/0058-posture-boot-guard.md}
+  - id: FP-GRAPH-MEMORY-STORE
+    status: shipped
+    owner_module: spring-ai-ascend-graphmemory-starter
+    title: "GraphMemoryRepository tenant-scoped CRUD + semantic facts (auto-wired by starter)"
+    value: {required_by_features: [FEAT-GRAPH-MEMORY], requirement: REQ-008}
+    structure: {anchored_by_frames: [EF-GRAPHMEMORY-AUTOCONFIG], owner_module: spring-ai-ascend-graphmemory-starter}
+    join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0081]
+      resolution:
+        - {adr: ADR-0081, resolves_to: fact, ref: adr/0081-resilience-contract-dual-surface-reconciliation}
+  - id: FP-ENGINE-DISPATCH
+    status: shipped
+    owner_module: agent-execution-engine
+    title: "EngineRegistry.resolve(envelope) -> typed ExecutorAdapter dispatch via engine-envelope.v1.yaml"
+    value: {required_by_features: [FEAT-ENGINE-DISPATCH-AND-HOOKS], requirement: REQ-009}
+    structure: {anchored_by_frames: [EF-ENGINE-REGISTRY], owner_module: agent-execution-engine}
+    join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0140]
+      resolution:
+        - {adr: ADR-0140, resolves_to: fact, ref: adr/0140-engine-adapter-layer-split}
+  - id: FP-HOOK-DISPATCH
+    status: shipped
+    owner_module: agent-middleware
+    title: "RuntimeMiddleware listens on canonical HookPoint events (engine-hooks.v1.yaml)"
+    value: {required_by_features: [FEAT-ENGINE-DISPATCH-AND-HOOKS], requirement: REQ-009}
+    structure: {anchored_by_frames: [EF-HOOK-SURFACE], owner_module: agent-middleware}
+    join: {channel: internal, actor: platform-runtime, trigger: internal-orchestration-event}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0073]
+      resolution:
+        - {adr: ADR-0073, resolves_to: fact, ref: adr/0073-engine-hooks-and-runtime-middleware}
+  # design_only FPs anchored by EF-ACCESS-ADMISSION (ADR-0155 A2A/MQ ingress).
+  # Structurally anchored but on NO value-thread yet: no Feature `requires` them,
+  # so value.required_by_features is empty. Their DSL contract refs point at
+  # access-intent.v1.yaml (a contract-yaml schema fact, not a contract-op
+  # operation fact) and no code-symbol/test facts exist (not built) — so the
+  # evidence facet is intentionally empty. Included for structure-axis parity
+  # with engineering-frames.dsl (the frame's `anchors` edges must all resolve).
+  - id: FP-A2A-MESSAGE-SEND
+    status: design_only
+    owner_module: agent-service
+    title: "A2A JSON-RPC message/send entry (M1 AL-01 ingress)"
+    value: {required_by_features: []}
+    structure: {anchored_by_frames: [EF-ACCESS-ADMISSION], owner_module: agent-service}
+    join: {channel: http, actor: tenant-developer-or-peer-agent, trigger: "A2A JSON-RPC POST message/send"}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0155]
+      resolution:
+        - {adr: ADR-0155, resolves_to: fact, ref: adr/0155-agent-service-l1-v1-2-internal-module-design}
+  - id: FP-A2A-TASKS-CANCEL
+    status: design_only
+    owner_module: agent-service
+    title: "A2A tasks/cancel entry (M1 AL-08 control ingress)"
+    value: {required_by_features: []}
+    structure: {anchored_by_frames: [EF-ACCESS-ADMISSION], owner_module: agent-service}
+    join: {channel: http, actor: tenant-developer-or-peer-agent, trigger: "A2A JSON-RPC POST tasks/cancel"}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0155]
+      resolution:
+        - {adr: ADR-0155, resolves_to: fact, ref: adr/0155-agent-service-l1-v1-2-internal-module-design}
+  - id: FP-A2A-TASKS-RESUBSCRIBE
+    status: design_only
+    owner_module: agent-service
+    title: "A2A tasks/resubscribe stream entry (M1 AL-06 cursor flow)"
+    value: {required_by_features: []}
+    structure: {anchored_by_frames: [EF-ACCESS-ADMISSION], owner_module: agent-service}
+    join: {channel: http, actor: tenant-developer-or-peer-agent, trigger: "A2A JSON-RPC POST tasks/resubscribe"}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0155]
+      resolution:
+        - {adr: ADR-0155, resolves_to: fact, ref: adr/0155-agent-service-l1-v1-2-internal-module-design}
+  - id: FP-MQ-INBOUND
+    status: design_only
+    owner_module: agent-service
+    title: "Outside broker to AL-02 inbound consumer (M1 v1.2)"
+    value: {required_by_features: []}
+    structure: {anchored_by_frames: [EF-ACCESS-ADMISSION], owner_module: agent-service}
+    join: {channel: spi, actor: external-mq-broker, trigger: "Broker delivery (RocketMQ / Kafka SPI)"}
+    evidence: {}
+    decision:
+      source_adr: [ADR-0155]
+      resolution:
+        - {adr: ADR-0155, resolves_to: fact, ref: adr/0155-agent-service-l1-v1-2-internal-module-design}
+
+# --- value x structure reconciliation: Feature -> traverses -> EngineeringFrame
+# ADR-0157 §2 makes `traverses` a first-class AUTHORED value-axis edge: the DSL is
+# authoritative. This block exposes the JOIN-derivable subset (Feature requires FP
+# AND Frame anchors FP) and flags edges authored-direct because the target frame
+# anchors no shipped FunctionPoint yet (permitted by ADR-0157 §3). An AI can use
+# join_derivable to independently confirm the DSL `traverses` edges, and
+# authored_direct_only to see which routes rest solely on the authored edge.
+derived_feature_traversals:
+  derivation_rule: "feature TRAVERSES frame  iff  exists fp such that (feature requires fp) AND (frame anchors fp)."
+  authority: "The DSL `traverses` edge in engineering-frames.dsl is authoritative. The join is an advisory cross-check, NOT a replacement. authored_direct_only edges are legitimate (target frame is design_only with no anchored shipped FP)."
+  entries:
+    - feature: FEAT-RUN-LIFECYCLE-CONTROL
+      authored_traverses: [EF-ACCESS-ADMISSION, EF-TASK-CONTROL, EF-SESSION-TASK-STATE]
+      join_derivable: [EF-ACCESS-ADMISSION, EF-TASK-CONTROL, EF-SESSION-TASK-STATE]
+      authored_direct_only: []
+    - feature: FEAT-EDGE-COMPUTE-INGRESS
+      authored_traverses: [EF-INGRESS-GATEWAY]
+      join_derivable: [EF-INGRESS-GATEWAY]
+      authored_direct_only: []
+    - feature: FEAT-SERVER-CLIENT-CALLBACK
+      authored_traverses: [EF-S2C-TRANSPORT]
+      join_derivable: [EF-S2C-TRANSPORT]
+      authored_direct_only: []
+    - feature: FEAT-SUSPEND-RESUME-CONTROL
+      authored_traverses: [EF-TASK-CONTROL, EF-ORCHESTRATION-SPI]
+      join_derivable: [EF-TASK-CONTROL]
+      authored_direct_only: [EF-ORCHESTRATION-SPI]
+    - feature: FEAT-IDEMPOTENCY-AND-REPLAY
+      authored_traverses: [EF-ACCESS-ADMISSION]
+      join_derivable: [EF-ACCESS-ADMISSION]
+      authored_direct_only: []
+    - feature: FEAT-TENANT-ISOLATION
+      authored_traverses: [EF-ACCESS-ADMISSION]
+      join_derivable: [EF-ACCESS-ADMISSION]
+      authored_direct_only: []
+    - feature: FEAT-POSTURE-BOOTSTRAP
+      authored_traverses: [EF-ACCESS-ADMISSION]
+      join_derivable: [EF-ACCESS-ADMISSION]
+      authored_direct_only: []
+    - feature: FEAT-GRAPH-MEMORY
+      authored_traverses: [EF-GRAPHMEMORY-AUTOCONFIG]
+      join_derivable: [EF-GRAPHMEMORY-AUTOCONFIG]
+      authored_direct_only: []
+    - feature: FEAT-ENGINE-DISPATCH-AND-HOOKS
+      authored_traverses: [EF-ENGINE-DISPATCH, EF-HOOK-SURFACE, EF-ENGINE-REGISTRY, EF-TRANSLATION-INTERCEPT, EF-ENGINE-PORT]
+      join_derivable: [EF-HOOK-SURFACE, EF-ENGINE-REGISTRY]
+      authored_direct_only: [EF-ENGINE-DISPATCH, EF-TRANSLATION-INTERCEPT, EF-ENGINE-PORT]

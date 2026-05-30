@@ -9806,6 +9806,179 @@ test_rule_148_ai_reading_path_missing_marker_neg() {
 }
 
 # ---------------------------------------------------------------------------
+# Rule 149 / kernel Rule G-32 (enforcer E199) — ai_understanding_map.
+# A CLEAN dual-track map materialized under $sroot:
+#   Module genModule_demo --contains--> efShipped, efPlanned
+#   efShipped --anchors--> fpAlpha
+#   featShipped (shipped) --requires--> fpAlpha   --traverses--> efShipped (derived)
+#   featShipped            --traverses--> efPlanned (anchors nothing -> vacuous)
+# Mirrors the standalone unit harness gate/test_ai_understanding_map.py; here we
+# lock the gate-script's three landing self-tests (greenfield / clean / one
+# ownership negative) per Rule 89 / E122 sub-check (c).
+# ---------------------------------------------------------------------------
+_g32_understanding_map_scratch() {
+  local sroot="$1"
+  mkdir -p "$sroot/gate/lib" "$sroot/architecture/features"
+  cp "$PWD/gate/lib/check_ai_understanding_map.py" "$sroot/gate/lib/check_ai_understanding_map.py"
+  # features.dsl — one shipped Feature requiring fpAlpha.
+  cat > "$sroot/architecture/features/features.dsl" <<'DSL'
+featShipped = element "FEAT-SHIPPED Feature" "Feature" "demo feature" "SAA Feature" {
+    properties {
+        "saa.id" "FEAT-SHIPPED"
+        "saa.kind" "feature"
+        "saa.status" "shipped"
+    }
+}
+featShipped -> fpAlpha "requires edge" "SAA Relationship" {
+    properties {
+        "saa.rel" "requires"
+    }
+}
+DSL
+  # function-points.dsl — two FunctionPoints.
+  cat > "$sroot/architecture/features/function-points.dsl" <<'DSL'
+fpAlpha = element "FP-ALPHA FP" "FunctionPoint" "demo fp" "SAA FunctionPoint" {
+    properties {
+        "saa.id" "FP-ALPHA"
+        "saa.kind" "function_point"
+    }
+}
+fpBeta = element "FP-BETA FP" "FunctionPoint" "demo fp" "SAA FunctionPoint" {
+    properties {
+        "saa.id" "FP-BETA"
+        "saa.kind" "function_point"
+    }
+}
+DSL
+  # engineering-frames.dsl — module contains two frames; shipped frame anchors
+  # fpAlpha; both frames traversed by the shipped feature (efPlanned vacuous).
+  cat > "$sroot/architecture/features/engineering-frames.dsl" <<'DSL'
+efShipped = element "EF-SHIPPED Frame" "EngineeringFrame" "demo frame" "SAA EngineeringFrame" {
+    properties {
+        "saa.id" "EF-SHIPPED"
+        "saa.kind" "engineering_frame"
+        "saa.status" "shipped"
+    }
+}
+efPlanned = element "EF-PLANNED Frame" "EngineeringFrame" "demo frame" "SAA EngineeringFrame" {
+    properties {
+        "saa.id" "EF-PLANNED"
+        "saa.kind" "engineering_frame"
+        "saa.status" "design_only"
+    }
+}
+genModule_demo -> efShipped "contains edge" "SAA Relationship" {
+    properties {
+        "saa.rel" "contains"
+    }
+}
+genModule_demo -> efPlanned "contains edge" "SAA Relationship" {
+    properties {
+        "saa.rel" "contains"
+    }
+}
+efShipped -> fpAlpha "anchors edge" "SAA Relationship" {
+    properties {
+        "saa.rel" "anchors"
+    }
+}
+featShipped -> efShipped "traverses edge" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+featShipped -> efPlanned "traverses edge" "SAA Relationship" {
+    properties {
+        "saa.rel" "traverses"
+    }
+}
+DSL
+}
+
+test_rule_149_ai_understanding_map_greenfield_pos() {
+  # POSITIVE: no map DSL files yet -> vacuously clean in every mode.
+  local helper="$PWD/gate/lib/check_ai_understanding_map.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_149_ai_understanding_map_greenfield_pos" "Rule G-32 / Rule 149: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_149_ai_understanding_map_greenfield_pos" "Rule G-32 / Rule 149: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r149_greenfield"
+  mkdir -p "$sroot/gate/lib"
+  cp "$helper" "$sroot/gate/lib/check_ai_understanding_map.py"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_ai_understanding_map.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "greenfield"; then
+    ok "rule_149_ai_understanding_map_greenfield_pos" "Rule G-32 / Rule 149: an absent map (no DSL files) is vacuously clean (greenfield)"
+  else
+    fail "rule_149_ai_understanding_map_greenfield_pos" "Rule G-32 / Rule 149 greenfield case unexpected: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_149_ai_understanding_map_clean_pos() {
+  # POSITIVE: a clean dual-track map (derived traverses, module-only contains,
+  # well-typed axes, no value-axis on a Frame) passes full-blocking with 0 findings.
+  local helper="$PWD/gate/lib/check_ai_understanding_map.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_149_ai_understanding_map_clean_pos" "Rule G-32 / Rule 149: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_149_ai_understanding_map_clean_pos" "Rule G-32 / Rule 149: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r149_clean"
+  _g32_understanding_map_scratch "$sroot"
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_ai_understanding_map.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "0 finding(s)"; then
+    ok "rule_149_ai_understanding_map_clean_pos" "Rule G-32 / Rule 149: a clean dual-track map passes full-blocking (0 findings)"
+  else
+    fail "rule_149_ai_understanding_map_clean_pos" "Rule G-32 / Rule 149 clean case unexpected: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
+test_rule_149_ai_understanding_map_feature_owns_frame_neg() {
+  # NEGATIVE: add a Feature--contains-->Frame edge -> the helper reports
+  # FEATURE-OWNS-FRAME (a Feature may only traverse a Frame, never own it), and
+  # full-blocking exits 1 on it. Advisory tolerance + the other invariants are
+  # proved by the unit-level gate/test_ai_understanding_map.py; here we lock the
+  # full-blocking terminal rung that a value-axis ownership claim is a real finding.
+  local helper="$PWD/gate/lib/check_ai_understanding_map.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_149_ai_understanding_map_feature_owns_frame_neg" "Rule G-32 / Rule 149: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_149_ai_understanding_map_feature_owns_frame_neg" "Rule G-32 / Rule 149: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r149_feature_owns_frame"
+  _g32_understanding_map_scratch "$sroot"
+  # A Feature is the source of a 'contains' edge into a Frame -> FEATURE-OWNS-FRAME.
+  cat >> "$sroot/architecture/features/engineering-frames.dsl" <<'DSL'
+featShipped -> efPlanned "contains edge" "SAA Relationship" {
+    properties {
+        "saa.rel" "contains"
+    }
+}
+DSL
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_ai_understanding_map.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "FEATURE-OWNS-FRAME"; then
+    ok "rule_149_ai_understanding_map_feature_owns_frame_neg" "Rule G-32 / Rule 149: a Feature owning (contains) a Frame fails full-blocking (FEATURE-OWNS-FRAME)"
+  else
+    fail "rule_149_ai_understanding_map_feature_owns_frame_neg" "Rule G-32 / Rule 149 feature-owns-frame case did not fail as expected: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

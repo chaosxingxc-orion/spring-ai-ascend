@@ -1,0 +1,363 @@
+# JSON/YAML schema for architecture/mappings/ai-understanding-map.yaml
+#
+# Authority: ADR-0157 (EngineeringFrame Ontology — dual-track value/structure axes),
+# ADR-0161 (Card-over-DSL: readable interpretation layers invent nothing),
+# ADR-0154 (Fact-Layer Authority — evidence axis cites fact ids), and
+# docs/governance/ai-reading-path.yaml step 5 (the role this map fulfils:
+# "Explicit queryable dual-track map (value/structure/join/evidence/decision/
+# governance axes per FunctionPoint)").
+#
+# This map is a READABLE INTERPRETATION LAYER, not an authority. It MUST invent
+# no IDs and no relationships. Every id it carries MUST resolve to an element
+# already declared in the authority cascade:
+#   ADR -> architecture/profile/* -> architecture/workspace.dsl
+#       -> architecture/features/engineering-frames.dsl
+#       -> architecture/facts/generated/*.json -> Frame Card -> gate
+#       -> docs/governance/architecture-status.yaml
+# Authority cascade for conflicts: generated facts > DSL > Card/prose > this map.
+#
+# This file is an `inline` source under Rule G-13 (it is the authoring source of
+# truth for the map schema; it is rendered from nothing). The map data file
+# (ai-understanding-map.yaml) and the prose surface (ai-understanding-map.md) are
+# AUTHORED interpretation layers, not generated facts; they are NOT policed by
+# Rule G-15 (no extractor produces them) but they ARE bound by the reconcile
+# step to stay id-consistent with the DSL and the generated facts.
+
+schema_version: 1
+spec_url: "https://json-schema.org/draft/2020-12/schema"
+type: object
+additionalProperties: false
+required:
+  - version
+  - status
+  - authority
+  - axes
+  - id_formats
+  - modules
+  - engineering_frames
+  - features
+  - function_points
+  - derived_feature_traversals
+properties:
+
+  version:
+    type: integer
+    description: "Schema/content major version of this map. Bumped on a breaking shape change."
+
+  status:
+    type: string
+    enum: [draft, active, deprecated]
+    description: "Lifecycle of the map as a readable surface (not a feature lifecycle)."
+
+  last_updated:
+    type: string
+    description: "UTC date (YYYY-MM-DD) of the last hand-edit. UTC, never local time (gate Rule G-9.a)."
+    pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+
+  authority:
+    type: object
+    description: "Pointers to the authority cascade this map interprets. The map invents nothing; it cites."
+    additionalProperties: false
+    required: [cascade, primary_adrs, invariant]
+    properties:
+      cascade:
+        type: array
+        description: "Ordered authority cascade (highest first). Conflicts resolve toward the front."
+        items: {type: string}
+        minItems: 1
+      primary_adrs:
+        type: array
+        description: "ADR fact ids that decided this map's ontology (must resolve in architecture/facts/generated/adrs.json)."
+        items:
+          type: string
+          pattern: "^adr/[0-9]{4}-[a-z0-9-]+$"
+        minItems: 1
+      invariant:
+        type: string
+        description: "The one-line contract the map must never violate (e.g. 'reads-not-decides; invents no id or edge')."
+
+  axes:
+    type: object
+    description: "The three top-level axes (value / structure / evidence) plus the per-FunctionPoint facet set the ai-reading-path role names."
+    additionalProperties: false
+    required: [value, structure, evidence, per_function_point_facets]
+    properties:
+      value:
+        type: string
+        description: "Value axis description: ProductClaim -> Requirement -> Feature -> FunctionPoint."
+      structure:
+        type: string
+        description: "Structure axis description: Module -> EngineeringFrame -> FunctionPoint."
+      evidence:
+        type: string
+        description: "Evidence axis description: FunctionPoint -> Contract -> GeneratedFact -> Gate."
+      per_function_point_facets:
+        type: array
+        description: "The facets every function_points[] record carries (value/structure/join/evidence/decision/governance)."
+        items: {type: string}
+        minItems: 1
+
+  id_formats:
+    type: object
+    description: "Canonical id formats this map references, mirrored from the fact layer so a reader can resolve any cited id."
+    additionalProperties: false
+    required: [feature, engineering_frame, function_point, module, code_symbol, test, contract_op, adr]
+    properties:
+      feature: {type: string}
+      engineering_frame: {type: string}
+      function_point: {type: string}
+      module: {type: string}
+      code_symbol: {type: string}
+      test: {type: string}
+      contract_op: {type: string}
+      adr: {type: string}
+
+  modules:
+    type: array
+    description: "The fixed domain modules (structure axis roots). Each must be a real SAA Module saa.id."
+    items:
+      type: object
+      additionalProperties: false
+      required: [id, plane, kind]
+      properties:
+        id:
+          type: string
+          description: "Module saa.id / short name (matches a genModule_* element and a SAA Module saa.owner)."
+        plane:
+          type: string
+          description: "Logical plane the module belongs to (edge / compute_control / bus_state / evolution)."
+        kind:
+          type: string
+          enum: [domain, bom, starter]
+        note:
+          type: string
+
+  engineering_frames:
+    type: array
+    description: "Structure axis — EngineeringFrame inventory mirrored from engineering-frames.dsl + features.dsl. No frame may appear here that is not declared in the DSL."
+    items:
+      type: object
+      additionalProperties: false
+      required: [id, owner_module, status, source_adr, anchors_function_points]
+      properties:
+        id:
+          type: string
+          pattern: "^EF-[A-Z0-9-]+$"
+        owner_module:
+          type: string
+          description: "saa.owner of the frame (a modules[].id)."
+        status:
+          type: string
+          enum: [proposed, accepted, design_only, ready_for_impl, implemented_unverified, test_verified, shipped, deprecated, removed]
+        source_adr:
+          type: string
+          description: "Authority ADR(s) for the frame; pipe-separated when multiple, mirroring the DSL saa.sourceAdr."
+        primary_package:
+          type: string
+          description: "saa.primaryPackage (the Java package root the frame anchors). Required on shipped frames per required-properties.yaml#by_tag_status; omitted on design_only frames that have no package home yet."
+        card_path:
+          type: string
+          description: "saa.cardPath — the Frame Card (readable interpretation, ADR-0161 card-over-DSL)."
+        anchors_function_points:
+          type: array
+          description: "FunctionPoint ids this frame anchors (structure axis). Mirrors the `anchors` edges in the DSL. May be empty for a design_only frame (ADR-0157 §3 permits a frame with zero anchored shipped FPs)."
+          items:
+            type: string
+            pattern: "^FP-[A-Z0-9-]+$"
+
+  features:
+    type: array
+    description: "Value axis — SAA Feature inventory mirrored from features.dsl. Value-threads only (the structural slices are frames, not features, per ADR-0157)."
+    items:
+      type: object
+      additionalProperties: false
+      required: [id, owner_module, status, requirement, capability_domain, source_adr, requires_function_points, traverses_engineering_frames]
+      properties:
+        id:
+          type: string
+          pattern: "^FEAT-[A-Z0-9-]+$"
+        owner_module:
+          type: string
+        status:
+          type: string
+          enum: [proposed, accepted, design_only, ready_for_impl, implemented_unverified, test_verified, shipped, deprecated, removed]
+        requirement:
+          type: string
+          description: "REQ-* id (ISO 29148 requirement) this feature satisfies, mirroring saa.requirement."
+        capability_domain:
+          type: string
+        source_adr:
+          type: string
+        requires_function_points:
+          type: array
+          description: "Value axis — FunctionPoints this feature drives (`requires` edge). A feature drives behaviour; it does not structurally own it."
+          items:
+            type: string
+            pattern: "^FP-[A-Z0-9-]+$"
+        traverses_engineering_frames:
+          type: array
+          description: "Value-crosses-structure — EngineeringFrames this feature routes through (`traverses` edge, authored in the DSL). See derived_feature_traversals[] for the join-vs-authored reconciliation."
+          items:
+            type: string
+            pattern: "^EF-[A-Z0-9-]+$"
+
+  function_points:
+    type: array
+    description: "The behavioral join object. One record per FunctionPoint, carrying the six per-FP facets (value/structure/join/evidence/decision/governance). The apex of queryability."
+    items:
+      type: object
+      additionalProperties: false
+      required: [id, status, owner_module, value, structure, join, evidence, decision]
+      properties:
+        id:
+          type: string
+          pattern: "^FP-[A-Z0-9-]+$"
+        status:
+          type: string
+          enum: [proposed, accepted, design_only, ready_for_impl, implemented_unverified, test_verified, shipped, deprecated, removed]
+        owner_module:
+          type: string
+        title:
+          type: string
+        value:
+          type: object
+          description: "Value facet — which Feature(s)/Requirement drive this FP."
+          additionalProperties: false
+          required: [required_by_features]
+          properties:
+            required_by_features:
+              type: array
+              items: {type: string, pattern: "^FEAT-[A-Z0-9-]+$"}
+            requirement:
+              type: string
+              description: "REQ-* id this FP serves (mirrors saa.requirement when present on the FP)."
+        structure:
+          type: object
+          description: "Structure facet — which EngineeringFrame anchors this FP, and the owning module."
+          additionalProperties: false
+          required: [anchored_by_frames, owner_module]
+          properties:
+            anchored_by_frames:
+              type: array
+              items: {type: string, pattern: "^EF-[A-Z0-9-]+$"}
+            owner_module:
+              type: string
+        join:
+          type: object
+          description: "Join facet — where the value axis meets the structure axis at this FP (the dual-track join point)."
+          additionalProperties: false
+          required: [channel, actor, trigger]
+          properties:
+            channel:
+              type: string
+              description: "saa.channel (http / internal / spi)."
+            actor:
+              type: string
+            trigger:
+              type: string
+        evidence:
+          type: object
+          description: "Evidence facet — FunctionPoint -> Contract -> GeneratedFact -> Gate. Ids resolve to architecture/facts/generated/*.json fact_ids. Absent arrays mean 'no fact of that kind for this FP yet' (do NOT invent)."
+          additionalProperties: false
+          properties:
+            contract_op_facts:
+              type: array
+              description: "contract-op/* fact ids (architecture/facts/generated/contract-surfaces.json)."
+              items: {type: string, pattern: "^contract-op/[a-z0-9-]+$"}
+            code_symbol_facts:
+              type: array
+              description: "code-symbol/* fact ids (architecture/facts/generated/code-symbols.json)."
+              items: {type: string, pattern: "^code-symbol/[a-z0-9.-]+$"}
+            test_facts:
+              type: array
+              description: "test/* fact ids (architecture/facts/generated/tests.json)."
+              items: {type: string, pattern: "^test/[a-z0-9.-]+$"}
+        decision:
+          type: object
+          description: >-
+            Decision facet — the ADR authority for this FP's existence and scope,
+            mirroring the FP's declared saa.sourceAdr in function-points.dsl.
+            `source_adr` carries the DSL's raw ADR id(s) verbatim (the authority).
+            `resolution` records how each resolves so a reader can follow it
+            WITHOUT the map inventing anything: a fact id when the ADR is in the
+            generated fact layer (adrs.json covers ADR-0068+), a docs/adr path when
+            the ADR exists only on disk, or `unresolved` when the DSL cites an ADR
+            id that has neither (a pre-existing upstream gap the reconcile/DSL owner
+            owns — the map reports it, it does not fabricate a target).
+          additionalProperties: false
+          required: [source_adr, resolution]
+          properties:
+            source_adr:
+              type: array
+              description: "Verbatim saa.sourceAdr id(s) declared on the FP in function-points.dsl (e.g. ADR-0020)."
+              items: {type: string, pattern: "^ADR-[0-9]{4}$"}
+            resolution:
+              type: array
+              description: "Per-source_adr resolution. One entry per source_adr id, in the same order."
+              items:
+                type: object
+                additionalProperties: false
+                required: [adr, resolves_to]
+                properties:
+                  adr:
+                    type: string
+                    pattern: "^ADR-[0-9]{4}$"
+                  resolves_to:
+                    type: string
+                    enum: [fact, disk, unresolved]
+                    description: "fact = adrs.json fact id present; disk = docs/adr/*.md present but not in fact layer; unresolved = neither (upstream DSL gap)."
+                  ref:
+                    type: string
+                    description: "The resolved target: an adr/* fact id (resolves_to=fact), or a docs/adr/*.md path (resolves_to=disk). Omitted when resolves_to=unresolved."
+        governance:
+          type: object
+          description: "Governance facet — optional pointers to the rules/enforcers/gate coverage relevant to this FP. Optional because not every FP has a dedicated rule; absence is not a defect."
+          additionalProperties: false
+          properties:
+            rules:
+              type: array
+              items: {type: string}
+            note:
+              type: string
+
+  derived_feature_traversals:
+    type: object
+    description: >-
+      Reconciliation of the `traverses` edge against the structural join.
+      ADR-0157 §2 makes Feature--traverses-->EngineeringFrame a first-class
+      AUTHORED value-axis edge (the DSL is authority). This block exposes the
+      derivable subset (Feature--requires-->FP and Frame--anchors-->FP =>
+      Feature--traverses-->Frame) and flags edges that are authored-direct
+      because the target frame anchors no shipped FunctionPoint yet. It lets an
+      AI verify the DSL `traverses` edges against the join without re-deriving.
+    additionalProperties: false
+    required: [derivation_rule, authority, entries]
+    properties:
+      derivation_rule:
+        type: string
+        description: "The join rule in words."
+      authority:
+        type: string
+        description: "Which surface is authoritative when the join and the authored edge differ (the DSL traverses edge wins; the join is advisory)."
+      entries:
+        type: array
+        items:
+          type: object
+          additionalProperties: false
+          required: [feature, authored_traverses, join_derivable, authored_direct_only]
+          properties:
+            feature:
+              type: string
+              pattern: "^FEAT-[A-Z0-9-]+$"
+            authored_traverses:
+              type: array
+              description: "The frames the DSL authoritatively records this feature traverses."
+              items: {type: string, pattern: "^EF-[A-Z0-9-]+$"}
+            join_derivable:
+              type: array
+              description: "Subset of authored_traverses also reachable by the requires/anchors join (independent confirmation)."
+              items: {type: string, pattern: "^EF-[A-Z0-9-]+$"}
+            authored_direct_only:
+              type: array
+              description: "Frames in authored_traverses NOT join-derivable (target frame anchors no shipped FP yet) — authored directly per ADR-0157 §2."
+              items: {type: string, pattern: "^EF-[A-Z0-9-]+$"}

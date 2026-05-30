@@ -1,0 +1,11 @@
+# ADR-backed exceptions for gate/lib/check_ai_understanding_map.py
+# (Rule for the dual-track understanding map; Authority: ADR-0157).
+#
+# One entry per line. An entry suppresses any finding whose subject equals it.
+# A finding subject is one of:
+#   * an element var      e.g.  efOrchestrationSpi        (FRAME-OWNS-VALUE subject)
+#   * an edge `src->dst`  e.g.  featGraphMemory->efGraphmemoryAutoconfig
+#   * a saa.id of either endpoint  e.g.  FEAT-GRAPH-MEMORY  /  EF-ORCHESTRATION-SPI
+#
+# Every entry MUST cite the ADR that authorises the exception in a trailing
+# comment. This file ships EMPTY -- the live map satisfies all invariants.
