@@ -95,6 +95,27 @@ dispatch resolves through the registry (Rule R-M.a), and strict matching
 (Rule R-M.b) admits a run only to the adapter for its declared engine
 type — no fallback. The split-package arrangement is protected by Rule 76.
 
+## Development View (Rule G-1.1.a — ADR-0099)
+
+Package decomposition (the type inventory under each package is owned by
+the generated code facts, `architecture/facts/generated/code-symbols.json`,
+and is not restated here; the full source-rendered tree lives in
+[`./development.md`](./development.md)):
+
+```text
+agent-execution-engine/
+└── src/main/java/
+    └── com/huawei/ascend/engine/
+        ├── spi/        # engine-adapter + engine-kind executor SPIs + planner SPI (ADR-0079 / ADR-0126)
+        ├── exec/       # reference executors for the shipped engine kinds
+        └── runtime/    # engine envelope + registry realization (ADR-0072)
+```
+
+The neutral orchestration vocabulary this module consumes
+(`RunMode` / `RunContext` / `SuspendSignal` / `Checkpointer` /
+`Orchestrator` / `ExecutorDefinition`) is owned by `agent-bus`
+(`bus.spi.engine`, ADR-0158) and is not re-declared here.
+
 ## 3. Heterogeneous-engine boundary (Rule R-M.a / R-M.b)
 
 At L1 the boundary identity is: **the registry is the single authority

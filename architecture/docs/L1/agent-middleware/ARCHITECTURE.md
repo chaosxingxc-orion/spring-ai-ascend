@@ -78,6 +78,28 @@ The consumer hook implementations (token counter, PII redaction, cost
 attribution, span emitter) are populated by the W2 Telemetry Vertical and
 do not ship in this module today.
 
+## Development View (Rule G-1.1.a — ADR-0099)
+
+Package decomposition (the type inventory under each package is owned by
+the generated code facts, `architecture/facts/generated/code-symbols.json`,
+and the per-type SPI surface by the rendered [`spi-appendix.md`](spi-appendix.md);
+the full source-rendered tree lives in [`./development.md`](./development.md)):
+
+```text
+agent-middleware/
+└── src/main/java/
+    └── com/huawei/ascend/middleware/
+        ├── spi/            # hook SPI: hook-point enum + listener + outcome + dispatcher (ADR-0073)
+        ├── model/spi/      # LLM invocation boundary (ADR-0121)
+        ├── skill/spi/      # unified Tool/Skill SPI (ADR-0127)
+        ├── memory/spi/     # memory store/reader/writer split (ADR-0123)
+        ├── vector/spi/     # vector storage + similarity search (ADR-0124)
+        ├── retrieval/spi/  # retrieval composition (ADR-0124)
+        ├── embedding/spi/  # text-embedding boundary (ADR-0124)
+        ├── prompt/spi/     # prompt-rendering boundary (ADR-0131)
+        └── advisor/spi/    # model-invocation interceptor SPI (ADR-0132)
+```
+
 ## 3. Hook surface + dispatch (boundary identity)
 
 At L1 the boundary identity is: **cross-cutting policies are listeners

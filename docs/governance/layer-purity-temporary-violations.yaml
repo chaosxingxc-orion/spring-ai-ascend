@@ -182,6 +182,17 @@ violations:
     sunset_date: 2026-06-30
     scan_ref: "§1.2"
 
+  - id: LPV-l0-shipped-subset-test-inventory
+    layer: L0
+    file: architecture/docs/L0/ARCHITECTURE.md
+    locus: "§1 W0 shipped subset : 77"
+    category: L8-test-class-inventory
+    trigger: "contract-truth tests (OpenApiContractIT, ApiCompatibilityTest, OrchestrationSpiArchTest, TenantPropagationPurityTest)"
+    migrate_to: "architecture/facts/generated/tests.json (+ FunctionPoint test_refs[])"
+    sunset_date: 2026-06-30
+    scan_ref: "§1.2 (sink-only: the E195 inline-test-list probe fires on the W0 shipped-subset grounding paragraph; E194's L8 probe does not — the line is a comma-run, not a table/bullet inventory)"
+    defensible_part: "The 'what ships at W0' grounding sentence stays at L0; the inlined contract-test enumeration migrates to the generated test facts. The named *ArchTest tokens are D3-defensible enforcer identities; the *IT tokens are the inventory."
+
   # ======================================================================
   # L1 agent-service — the verdict's primary L1 leak site (scan §2.1-§2.4)
   # Sunset 2026-07-31 (aligned with saa-property-authority.yaml grandfather).

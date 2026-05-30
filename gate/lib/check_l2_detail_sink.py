@@ -66,6 +66,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import datetime
 import re
 import sys
 from dataclasses import dataclass
@@ -180,6 +181,94 @@ LEAK_FAMILIES: list[tuple[str, str, list[re.Pattern[str]]]] = [
 ENFORCER_CITATION_RE = re.compile(r"\b(enforcer\s+E\d+|Rule\s+[A-Z]-[\w.]+|[A-Z][A-Za-z0-9]*ArchTest)\b")
 PACKAGE_PATH_RE = re.compile(r"\bcom\.huawei\.ascend\b|/src/main/java/")
 
+# --------------------------------------------------------------------------
+# Delegation-pointer guard.
+#
+# The layer-purity verdict KEEPS, at L0/L1, the DELEGATION of a forbidden
+# category to its authoritative home: a sentence that NAMES a category noun
+# only to say "this detail lives in <contract/L2/fact>, not here" is the
+# OPPOSITE of a leak — it is the boundary doc doing its job. A purely
+# topic-anchored regex (e.g. the bare noun "wire shape", "traceparent",
+# "filter ordering") cannot tell that delegation pointer from an inlined
+# format/ordering leak, so without this guard the cleanup waves' own
+# delegation prose trips the scan. Two signals, BOTH required within a small
+# neighbourhood (the markdown bullet/sentence a match sits in spans a few
+# physical lines), mark a delegation pointer:
+#
+#   * an explicit DELEGATION cue — a verb/phrase that hands the detail off
+#     ("delegated to", "owned downstream", "lives in", "not (re)stated here",
+#     "does not carry", "is contract material", "verification material",
+#     "governed by", "(authority)", a "Wire shape:" forward-heading); and
+#   * a HOME reference — a contract path, an architecture/docs/L2/ path, a
+#     generated-fact path, a `*.v1.yaml`, or an `ADR-NNNN` pointer.
+#
+# An inlined leak (a `SET LOCAL` GUC, an `ON CONFLICT` clause, a concrete
+# `gen_ai.*` namespace, a `00-<trace_id>-<span_id>-01` grammar, a numeric
+# `@Order`) carries the MECHANISM on the line and is not redeemed by a
+# neighbouring pointer; the dated grandfather list remains the sole tolerance
+# for any genuinely-leaked-but-not-yet-migrated block.
+DELEGATION_CUE_RE = re.compile(
+    r"(?:"
+    r"delegat|"
+    r"owned\s+(?:by|downstream|elsewhere|upstream|at\b)|"
+    r"owned\b[^.\n]{0,30}\bdownstream|"
+    r"lives?\s+(?:in|downstream)|live\s+downstream|"
+    r"belongs?\s+(?:at|in|to)\b|"
+    r"not\s+(?:re)?stated|not\s+carried\s+here|"
+    r"does\s+not\s+carry|deliberately\s+does\s+not|"
+    r"(?:contract|verification)\s+material|"
+    r"governed\s+by|single\s+authority|\(authority\)|"
+    r"wire\s+shape:"
+    r")",
+    re.IGNORECASE,
+)
+# A reference to the authoritative HOME the detail is delegated to. A bare
+# `ADR-NNNN` counts as a pointer (the ADR is the decision home); the path forms
+# are the concrete L2 / contract / fact homes; the bare layer token `L2` is the
+# Rule G-1.1.c prose-delegation home ("... are **L2 / contract** material",
+# "points at the ... L2 zone"). The bare `L2` only ever suppresses in
+# conjunction with an explicit delegation CUE (see DELEGATION_CUE_RE), so a
+# stray "L2" near an inlined leak cannot launder it.
+HOME_REF_RE = re.compile(
+    r"(?:docs/contracts/|architecture/docs/L2/|architecture/facts/generated/|\.v1\.yaml|\bADR-\d{4}\b|\bL2\b)"
+)
+
+# A `wire_format` match is uniquely noun-prone: the words "wire shape",
+# "envelope", "traceparent" appear whenever a boundary doc POINTS at a wire
+# contract (a reading-order list entry `docs/contracts/x.v1.yaml — ... wire
+# shape.`, a per-frame "behaviour per ADR-NNNN" delegation cell). A genuine
+# on-wire-FORMAT leak spells the encoding/namespace/grammar out and does NOT
+# co-cite its own contract / ADR / enforcer on the same physical line (the
+# grandfathered wire leaks — `gen_ai.*`, `DROP_OLDEST` buffer, the
+# `00-<trace_id>-<span_id>-01` grammar — carry none). So for the wire_format
+# family ONLY, a same-line pointer (contract/L2/fact path, `*.v1.yaml`,
+# `ADR-NNNN`, or an enforcer citation) marks the match as a reference, not an
+# inlined format.
+WIRE_POINTER_RE = re.compile(
+    r"(?:docs/contracts/|architecture/docs/L2/|architecture/facts/generated/|\.v1\.yaml|\bADR-\d{4}\b|enforcer[s]?\s+E\d+)"
+)
+
+# Repo-relative location of the closed, dated grandfather list (shared with the
+# E194 layer_purity helper). E195 consumes the SAME tolerance surface so the two
+# helpers that encode one verdict honour one allow-list. Loaded best-effort:
+# PyYAML is NOT a hard dependency of this pure-regex helper, so an absent parser
+# degrades to "no grandfather tolerance" (the delegation + wire-pointer guards
+# still apply) rather than a config error.
+VIOLATIONS_REL = "docs/governance/layer-purity-temporary-violations.yaml"
+
+# Map each E195 signal family to the E194 leaked-category id(s) a grandfather row
+# may cite for it. The grandfather list is authored in the E194 vocabulary
+# (L1..L8); this projection lets an open row written for, e.g., `L3-sql-rls-
+# persistence` tolerate this helper's `sql_persistence` finding on the same file.
+FAMILY_TO_LP_CATEGORIES: dict[str, frozenset[str]] = {
+    "sql_persistence": frozenset({"L3-sql-rls-persistence"}),
+    "http_runtime": frozenset({"L4-http-status-route-verb"}),
+    "wire_format": frozenset({"L6-wire-format"}),
+    "method_signature": frozenset({"L1-method-call-chain", "L7-method-signature"}),
+    "filter_ordering": frozenset({"L5-filter-ordering"}),
+    "test_inventory": frozenset({"L8-test-class-inventory"}),
+}
+
 
 @dataclass(frozen=True)
 class Finding:
@@ -212,6 +301,109 @@ def _line_is_suppressed(lines: list[str], idx: int) -> bool:
         return True
     if idx > 0 and ALLOW_TOKEN in lines[idx - 1]:
         return True
+    return False
+
+
+# Neighbourhood radius for the delegation-pointer guard. A markdown bullet that
+# names a forbidden category and delegates it to a contract/L2/fact often spans
+# the trigger line plus a continuation line or two (e.g. "... wire shape for X
+# (the\n single authority ...; not restated here)."). Two lines on each side
+# covers the observed delegation bullets without reaching across blank-line
+# boundaries into an unrelated block.
+_DELEGATION_WINDOW = 2
+
+
+def _is_delegation_pointer(lines: list[str], idx: int) -> bool:
+    """True when the match at ``idx`` sits inside a delegation pointer, not a leak.
+
+    Requires BOTH an explicit delegation cue AND a home reference within the
+    bullet/sentence neighbourhood (``±_DELEGATION_WINDOW`` lines, not crossing a
+    blank-line paragraph boundary). The window stops at a blank line so a
+    delegation pointer in one bullet cannot launder an inlined leak in the next.
+    """
+    lo = idx
+    while lo > 0 and lo > idx - _DELEGATION_WINDOW and lines[lo - 1].strip():
+        lo -= 1
+    hi = idx
+    last = len(lines) - 1
+    while hi < last and hi < idx + _DELEGATION_WINDOW and lines[hi + 1].strip():
+        hi += 1
+    block = "\n".join(lines[lo : hi + 1])
+    return bool(DELEGATION_CUE_RE.search(block) and HOME_REF_RE.search(block))
+
+
+@dataclass(frozen=True)
+class _GrandfatherRow:
+    """One open temporary-violation row, projected for E195 suppression."""
+
+    file: str               # repo-relative POSIX path
+    categories: frozenset[str]  # E194 leaked-category ids the row cites
+
+
+def load_open_grandfather_rows(root: Path) -> list[_GrandfatherRow]:
+    """Best-effort load of still-open grandfather rows from the shared allow-list.
+
+    Returns the open rows (sunset today-or-later, UTC) with a parseable file +
+    category set. A missing file, an unparseable file, or an absent PyYAML
+    parser yields an EMPTY list — this pure-regex helper keeps PyYAML optional,
+    so the grandfather tolerance simply does not apply when the schema cannot be
+    read (the delegation + wire-pointer guards still run). The companion E194
+    helper, which hard-requires PyYAML, is the authority that fails closed on a
+    malformed allow-list; here we never upgrade a parse miss into a verdict.
+    """
+    path = root / VIOLATIONS_REL
+    if not path.is_file():
+        return []
+    try:
+        import yaml  # type: ignore[import-not-found]
+    except ImportError:
+        return []
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            doc = yaml.safe_load(fh)
+    except (OSError, ValueError, yaml.YAMLError):  # type: ignore[attr-defined]
+        return []
+    if not isinstance(doc, dict):
+        return []
+    today = datetime.datetime.now(datetime.timezone.utc).date()
+    rows: list[_GrandfatherRow] = []
+    for raw in doc.get("violations", []) or []:
+        if not isinstance(raw, dict):
+            continue
+        vfile = str(raw.get("file", "")).strip().replace("\\", "/")
+        if not vfile:
+            continue
+        cats: set[str] = set()
+        if isinstance(raw.get("categories"), list):
+            cats.update(str(x).strip() for x in raw["categories"] if str(x).strip())
+        single = raw.get("category")
+        if single is not None and str(single).strip():
+            cats.add(str(single).strip())
+        if not cats:
+            continue
+        sunset_raw = str(raw.get("sunset_date", "")).strip()
+        try:
+            sunset = datetime.date.fromisoformat(sunset_raw)
+        except ValueError:
+            # A missing/unparseable sunset cannot prove the row is still open;
+            # treat as expired (do not suppress) — mirrors the E194 helper.
+            continue
+        if sunset < today:
+            continue
+        rows.append(_GrandfatherRow(file=vfile, categories=frozenset(cats)))
+    return rows
+
+
+def _grandfathered(finding: "Finding", rows: list[_GrandfatherRow]) -> bool:
+    """True when an open grandfather row tolerates ``finding`` (same file + category)."""
+    lp_cats = FAMILY_TO_LP_CATEGORIES.get(finding.family, frozenset())
+    if not lp_cats:
+        return False
+    for row in rows:
+        if row.file != finding.path:
+            continue
+        if row.categories & lp_cats:
+            return True
     return False
 
 
@@ -252,6 +444,23 @@ def scan_file(root: Path, path: Path) -> list[Finding]:
             # citation/package false-positive.
             blanked = PACKAGE_PATH_RE.sub(" ", ENFORCER_CITATION_RE.sub(" ", line))
             if not any(p.search(blanked) for p in patterns):
+                continue
+            # Wire-pointer guard (wire_format ONLY): the noun-prone wire family
+            # fires whenever a boundary doc names a wire shape/envelope/header
+            # while POINTING at its authoritative source. A same-line
+            # contract/L2/fact path, `*.v1.yaml`, `ADR-NNNN`, or enforcer
+            # citation marks the match as a reference, not an inlined format
+            # (inlined wire leaks carry the encoding/grammar, never their own
+            # contract pointer — see WIRE_POINTER_RE rationale).
+            if family == "wire_format" and WIRE_POINTER_RE.search(line):
+                continue
+            # Delegation-pointer guard (all families): a match inside a bullet
+            # that NAMES the category only to delegate it to its home
+            # ("delegated to / owned downstream / not restated here ...
+            # <contract/L2/fact/ADR>") is the boundary doc doing its job, not a
+            # leak. The dated grandfather list — not this guard — remains the
+            # tolerance for a genuinely inlined-but-unmigrated block.
+            if _is_delegation_pointer(lines, idx):
                 continue
             findings.append(
                 Finding(
@@ -318,14 +527,33 @@ def main(argv: list[str]) -> int:
         return 1
 
     targets = _iter_target_files(root)
-    all_findings: list[Finding] = []
+    raw_findings: list[Finding] = []
     for path in targets:
-        all_findings.extend(scan_file(root, path))
+        raw_findings.extend(scan_file(root, path))
+
+    # Partition against the shared dated grandfather list: a finding whose
+    # (file, family->category) matches an OPEN row is a tolerated, not-yet-
+    # migrated leak — reported as a grandfathered advisory, never counted for a
+    # blocking exit. This is the same tolerance surface the E194 helper honours.
+    grandfather_rows = load_open_grandfather_rows(root)
+    all_findings: list[Finding] = []
+    grandfathered: list[Finding] = []
+    for f in raw_findings:
+        if _grandfathered(f, grandfather_rows):
+            grandfathered.append(f)
+        else:
+            all_findings.append(f)
 
     # Emit a deterministic, grep-friendly report to stderr.
     for f in all_findings:
         print(
             f"L2-DETAIL-SINK {f.path}:{f.line_no} [{f.family}] {f.label} :: {f.excerpt}",
+            file=sys.stderr,
+        )
+    for f in grandfathered:
+        print(
+            f"L2-DETAIL-SINK GRANDFATHERED {f.path}:{f.line_no} [{f.family}] "
+            f"tolerated by an open {VIOLATIONS_REL} row",
             file=sys.stderr,
         )
 
@@ -339,9 +567,13 @@ def main(argv: list[str]) -> int:
         summary = (
             f"{len(all_findings)} L2-detail-sink finding(s) across "
             f"{len({f.path for f in all_findings})} L0/L1 doc(s): {breakdown}"
+            f" ({len(grandfathered)} grandfathered)"
         )
     else:
-        summary = "0 L2-detail-sink finding(s): L0/L1 prose is altitude-clean"
+        summary = (
+            "0 L2-detail-sink finding(s): L0/L1 prose is altitude-clean"
+            f" ({len(grandfathered)} grandfathered)"
+        )
     print(summary, file=sys.stderr)
 
     # Mode-dependent exit.

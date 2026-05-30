@@ -140,6 +140,26 @@ runtime public surface, enforced by
 in-memory run registry. Authority:
 [`docs/adr/0078-agent-service-consolidation.yaml`](../../../../docs/adr/0078-agent-service-consolidation.yaml).
 
+## Development View (Rule G-1.1.a — ADR-0099)
+
+Package decomposition (the type inventory under each package is owned by
+the generated code facts, `architecture/facts/generated/code-symbols.json`,
+and is not restated here; the full source-rendered tree lives in
+[`./development.md`](./development.md)):
+
+```text
+agent-service/
+└── src/main/java/
+    └── com/huawei/ascend/service/
+        ├── platform/   # HTTP edge: web + tenant + idempotency + auth + posture + observability
+        └── runtime/    # runtime kernel: runs + orchestration + resilience + engine adapters
+```
+
+The `service.runtime ↛ service.platform` sub-package layering invariant
+(section 3) governs the boundary between the two clusters; the neutral
+engine SPI the runtime consumes is owned by `agent-bus` (`bus.spi.engine`,
+ADR-0158).
+
 ## 4. OSS dependencies
 
 Dependency versions are managed by the parent POM and the

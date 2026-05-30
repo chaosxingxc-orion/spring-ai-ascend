@@ -1845,6 +1845,24 @@ Open residual: the concrete dangle is fully resolved (`product/requirements.yaml
 
 ---
 
+### F-layer-gate-flags-delegation-pointer — A Layer-Purity / Altitude Probe Fires on the Delegation Pointer It Should Reward (Matches the Category Noun, Not the Leak Mechanism)
+
+**Status: structurally_addressed** (the changed-files-blocking rung is clean — both helpers exit 0 on the W15 changed L0/L1 set with the new guards; the terminal full-blocking rung is not yet clean — 23 findings remain in the untouched L1 feature-catalog / module-README corpus.)
+
+One occurrence (progressive-learning-curve-remediation W15, 2026-05-30): promoting Rule 145 / G-27 from `--mode advisory` to `--mode changed-files-blocking` surfaced that the W12–W15 cleanup's OWN delegation prose tripped the blunt topic-anchored probes. Of the 27 E195 (`l2_detail_sink`) full-corpus findings, 26 landed on changed files and ALL were delegation prose: `wire_format` firing on "Wire shape (authority): `docs/contracts/ingress-envelope.v1.yaml`" and on the "deliberately does NOT carry … filter ordering … **L2 / contract** material" disclaimers; the sole E194 (`layer_purity`) changed-file finding was constraint L0 #58's "Enforced by integration `PostureBootPiiHookPresenceContractIT` … class FQN locked here per Rule R-C.a" — a D3 enforcer citation misread as an L8 test inventory because the enforcing test is an `*IT`, not an `*ArchTest`. Two distinct helpers, one root cause.
+
+Root cause: a topic-anchored regex cannot distinguish a LEAK (an L0/L1 doc inlining L2 mechanism) from a DELEGATION POINTER (the same boundary doc naming the category only to hand it to its authoritative home). The probe matches the category NOUN, which appears in both. Harmless at the advisory rung; the moment the gate is promoted to blocking, the cleanup's correct delegation prose fails and the naive "fix" is to weaken the gate rather than teach it the delegation shape. Distinct from `F-gate-machinery-fail-open-pattern` (a gate that PASSES when it should FAIL — the inverse) and `F-recursive-prevention-irony` (a rule exhibiting the defect it bans).
+
+Prevention rules (current):
+
+- **Rule G-27 / Rule 145 (E194 + E195)** — the discriminators live in code: E195 a delegation-pointer guard (explicit cue + a contract/L2/fact/ADR home in the bullet neighbourhood) + a wire-pointer guard (a `wire_format` match co-citing its own contract/ADR/enforcer is a reference) + the SAME dated grandfather list E194 honours; E194 a D3 enforcer-citation carve-out (a single locked enforcing test named via "Enforced by … per Rule R-C.a" is defensible even as an `*IT`, while a multi-test inventory table/bullet still leaks).
+- **Promotion discipline** — when promoting an advisory altitude/layer gate to blocking, FIRST run it blocking against the live corpus and CLASSIFY every finding as genuine leak (migrate), delegation pointer / mechanism citation (teach the probe), or known debt (dated grandfather row); NEVER weaken leak detection to pass. An anti-overreach self-test (a genuine leak with no delegation cue still fails closed) ships alongside each guard.
+- **Self-test parity (Rule 89 / G-5.b)** — each guard + carve-out ships positive AND negative fixtures so a future regression that re-blunts a probe is caught by the self-test harness.
+
+Open residual: the changed-files-blocking rung is clean (both helpers exit 0 on the W15 changed set; six new self-tests pass). The terminal full-blocking rung is not yet clean — 23 E194 findings remain in the L1 feature-catalog / module-README corpus that the module-root + 4+1 cleanup did not touch; promoting Rule 145 to full-blocking per ADR-0159 §9 requires draining or grandfathering those first. The guards are deliberately conservative (explicit cue + home, bounded ±2-line window); a leak lacking a real home reference is still caught, and the dated grandfather list plus the full-corpus advisory scan remain the backstop.
+
+---
+
 ## §4 — Cross-references
 
 - Authority: [ADR-0094](../adr/0094-rc17-recurring-defect-family-truth-and-rule-consolidation.yaml) — rc17 recurring-defect-family-truth + rule-consolidation.

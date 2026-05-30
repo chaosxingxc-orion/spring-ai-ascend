@@ -8454,6 +8454,89 @@ EOF
   fi
 }
 
+test_rule_145_layer_purity_d3_enforcing_it_citation_pos() {
+  # POSITIVE (D3 enforcing-test citation): a numbered CONSTRAINT that names its
+  # single locked enforcing test via an explicit mechanism clause ("Enforced by
+  # integration `FooBootContractIT`: asserts ...; class FQN locked here per Rule
+  # R-C.a") is a D3-defensible enforcer citation — NOT an L8 test inventory —
+  # even though the enforcing test is an *IT, not an *ArchTest. It MUST pass
+  # full-blocking (the verdict keeps "citing an enforcer as the mechanism").
+  local helper="$PWD/gate/lib/check_layer_purity.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_layer_purity_d3_enforcing_it_citation_pos" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_layer_purity_d3_enforcing_it_citation_pos" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_purity_d3_it"
+  _g27_layer_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L0/ARCHITECTURE.md" <<'EOF'
+---
+level: L0
+view: logical
+---
+# L0
+42. **Boot fail-closed.** Startup MUST abort if the hook is absent. Enforced by integration `FooBootContractIT`: asserts the boot-gate contract; class FQN locked here per Rule R-C.a.
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_layer_purity.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_145_layer_purity_d3_enforcing_it_citation_pos" "Rule G-27 / Rule 145: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 0 ]]; then
+    ok "rule_145_layer_purity_d3_enforcing_it_citation_pos" "Rule G-27 / Rule 145: a constraint citing its single enforcing *IT via an 'Enforced by ... per Rule R-C.a' clause is D3-defensible (full-blocking passes)"
+  else
+    fail "rule_145_layer_purity_d3_enforcing_it_citation_pos" "Rule G-27 / Rule 145 D3 enforcing-IT citation wrongly flagged: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
+test_rule_145_layer_purity_d3_inventory_anti_overreach_neg() {
+  # NEGATIVE (D3 anti-overreach): a genuine test-class INVENTORY — a markdown
+  # table of three *IT rows with asserted behaviour — is NOT redeemed by the D3
+  # enforcing-test carve-out (that carve-out spares a single prose CITATION, not
+  # a catalogue STRUCTURE). It MUST still fail full-blocking. Pairs with the
+  # positive above to lock the citation-vs-inventory boundary.
+  local helper="$PWD/gate/lib/check_layer_purity.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_layer_purity_d3_inventory_anti_overreach_neg" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_layer_purity_d3_inventory_anti_overreach_neg" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_purity_d3_inventory"
+  _g27_layer_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/agent-service/ARCHITECTURE.md" <<'EOF'
+---
+level: L1
+view: logical
+---
+# agent-service
+| Test | Asserts |
+|---|---|
+| `FooRunIT` | asserts the run admission path |
+| `BarCancelIT` | asserts the cancel transition |
+| `BazIdempotencyIT` | asserts the dedup window |
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_layer_purity.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_145_layer_purity_d3_inventory_anti_overreach_neg" "Rule G-27 / Rule 145: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "L8-test-class-inventory"; then
+    ok "rule_145_layer_purity_d3_inventory_anti_overreach_neg" "Rule G-27 / Rule 145: a 3-row *IT inventory table still fails full-blocking (D3 carve-out spares citations, not catalogues)"
+  else
+    fail "rule_145_layer_purity_d3_inventory_anti_overreach_neg" "Rule G-27 / Rule 145 D3 anti-overreach: inventory table not flagged: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # Rule 145 — L2 Detail Sink (Rule G-27 / E195). ADR-0159 §7. Helper:
 # gate/lib/check_l2_detail_sink.py. The DISCRIMINATING gate of this wave:
@@ -8619,6 +8702,171 @@ EOF
     ok "rule_145_l2_detail_sink_advisory_never_blocks_pos" "Rule G-27 / Rule 145: advisory mode reports the leak but never blocks (exit 0) — ratchet soak posture"
   else
     fail "rule_145_l2_detail_sink_advisory_never_blocks_pos" "Rule G-27 / Rule 145 advisory case unexpected: rc=$rc (want 0) out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_145_l2_detail_sink_delegation_pointer_pos() {
+  # POSITIVE (delegation-pointer guard): an L1 line that NAMES a wire shape only
+  # to POINT at the authoritative contract ("Wire shape (authority): docs/
+  # contracts/...v1.yaml") is the boundary doc doing its job, NOT a leak — it
+  # MUST pass blocking. Without the guard the wire_format probe's bare "wire
+  # shape" noun trips on the cleanup waves' own delegation prose.
+  local helper="$PWD/gate/lib/check_l2_detail_sink.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_l2_detail_sink_delegation_pointer_pos" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_l2_detail_sink_delegation_pointer_pos" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_sink_delegation_ptr"
+  _g27_sink_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/agent-service/ARCHITECTURE.md" <<'EOF'
+---
+level: L1
+view: logical
+---
+# agent-service
+- Wire shape (authority): `docs/contracts/ingress-envelope.v1.yaml` (status design_only).
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_l2_detail_sink.py" --repo "$sroot" --mode blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "altitude-clean"; then
+    ok "rule_145_l2_detail_sink_delegation_pointer_pos" "Rule G-27 / Rule 145: a 'Wire shape (authority): <contract>' delegation pointer passes blocking (not a leak)"
+  else
+    fail "rule_145_l2_detail_sink_delegation_pointer_pos" "Rule G-27 / Rule 145 delegation pointer wrongly flagged: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_145_l2_detail_sink_delegation_disclaimer_pos() {
+  # POSITIVE (delegation-disclaimer guard): a blockquote that ENUMERATES a
+  # forbidden category precisely to say "this doc deliberately does NOT carry it;
+  # it is **L2 / contract** material" MUST pass blocking. The cue ("deliberately
+  # does NOT carry") + home ("L2 / contract") span the bullet neighbourhood.
+  local helper="$PWD/gate/lib/check_l2_detail_sink.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_l2_detail_sink_delegation_disclaimer_pos" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_l2_detail_sink_delegation_disclaimer_pos" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_sink_disclaimer"
+  _g27_sink_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/agent-service/ARCHITECTURE.md" <<'EOF'
+---
+level: L1
+view: logical
+---
+# agent-service
+> It deliberately does NOT carry code-level detail: routes, status codes, SQL,
+> filter ordering, and method descriptors are **L2 / contract** material.
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_l2_detail_sink.py" --repo "$sroot" --mode blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "altitude-clean"; then
+    ok "rule_145_l2_detail_sink_delegation_disclaimer_pos" "Rule G-27 / Rule 145: a 'deliberately does NOT carry ... L2/contract material' disclaimer passes blocking"
+  else
+    fail "rule_145_l2_detail_sink_delegation_disclaimer_pos" "Rule G-27 / Rule 145 delegation disclaimer wrongly flagged: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_145_l2_detail_sink_grandfathered_pos() {
+  # POSITIVE (dated-grandfather integration): an L1 SQL leak with NO delegation
+  # cue is tolerated in blocking mode WHEN an open temporary-violations row cites
+  # the same file + the L3 category the sink's sql_persistence family maps to.
+  # E195 now honours the SAME allow-list E194 does (one verdict, one tolerance).
+  local helper="$PWD/gate/lib/check_l2_detail_sink.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_l2_detail_sink_grandfathered_pos" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_l2_detail_sink_grandfathered_pos" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  # PyYAML is OPTIONAL for this helper; if it is absent the grandfather path is
+  # inert (load returns []), so the leak would block. Detect that and skip
+  # rather than emit a false failure (mirrors the E194 PyYAML-absent skip).
+  if ! "$py" -c 'import yaml' >/dev/null 2>&1; then
+    ok "rule_145_l2_detail_sink_grandfathered_pos" "Rule G-27 / Rule 145: PyYAML absent — grandfather integration is inert by design; skipped"
+    return
+  fi
+  local sroot="$scratch/r145_sink_grandfather"
+  _g27_sink_scratch "$sroot"
+  mkdir -p "$sroot/docs/governance"
+  cat > "$sroot/docs/governance/layer-purity-temporary-violations.yaml" <<'EOF'
+schema_version: 1
+authority: ADR-0159
+last_updated: 2026-05-30
+status: advisory
+list_closed: true
+violations:
+  - id: LPV-synthetic-sink-sql
+    layer: L1
+    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
+    locus: "synthetic sink self-test"
+    category: L3-sql-rls-persistence
+    trigger: "SET LOCAL app.tenant_id"
+    migrate_to: "architecture/docs/L2/run-state-frame/"
+    sunset_date: 2099-12-31
+    scan_ref: "self-test"
+EOF
+  cat > "$sroot/architecture/docs/L1/agent-service/ARCHITECTURE.md" <<'EOF'
+---
+level: L1
+view: logical
+---
+# agent-service
+- W2 (planned): add `SET LOCAL app.tenant_id = :id` GUC inside each transaction.
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_l2_detail_sink.py" --repo "$sroot" --mode blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "GRANDFATHERED"; then
+    ok "rule_145_l2_detail_sink_grandfathered_pos" "Rule G-27 / Rule 145: an L1 leak matching an open temporary-violations row is tolerated in blocking mode (grandfathered)"
+  else
+    fail "rule_145_l2_detail_sink_grandfathered_pos" "Rule G-27 / Rule 145 grandfathered sink leak not tolerated: rc=$rc out=$(echo "$out" | head -2)"
+  fi
+}
+
+test_rule_145_l2_detail_sink_guard_anti_overreach_neg() {
+  # NEGATIVE (guard anti-overreach): a GENUINE inlined method-call-chain leak
+  # with NO delegation cue, NO home reference, and NO grandfather row MUST still
+  # FAIL blocking. Proves the delegation/wire-pointer guards filter only
+  # delegation prose — they did not blanket-disable leak detection. (Uses the
+  # method_signature arrow-chain string shared with the other half of this wave,
+  # which carries none of the guard cues.)
+  local helper="$PWD/gate/lib/check_l2_detail_sink.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_l2_detail_sink_guard_anti_overreach_neg" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_l2_detail_sink_guard_anti_overreach_neg" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_sink_anti_overreach"
+  _g27_sink_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/agent-service/ARCHITECTURE.md" <<EOF
+---
+level: L1
+view: logical
+---
+# agent-service
+$_g27_leak_method_chain
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_l2_detail_sink.py" --repo "$sroot" --mode blocking 2>&1); rc=$?
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "method_signature"; then
+    ok "rule_145_l2_detail_sink_guard_anti_overreach_neg" "Rule G-27 / Rule 145: a genuine method-chain leak with no delegation cue still fails closed (guards did not over-suppress)"
+  else
+    fail "rule_145_l2_detail_sink_guard_anti_overreach_neg" "Rule G-27 / Rule 145 anti-overreach: genuine leak not flagged: rc=$rc out=$(echo "$out" | head -1)"
   fi
 }
 

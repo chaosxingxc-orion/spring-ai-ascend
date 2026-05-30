@@ -444,39 +444,80 @@ TRIGGERS: dict[str, list[tuple[re.Pattern[str], str]]] = {
     ],
 }
 
-# A line whose only test-ish token is a D3-defensible ArchUnit-enforcer citation
-# MUST NOT be flagged L8: the verdict keeps "citing an ArchUnit enforcer as the
-# mechanism" at L0/L1. Two signals mark such a citation:
-#   * the token is an ArchUnit architecture-test name (suffix ArchTest / ArchUnitTest
-#     / PurityTest) — these ARE enforcers, not behaviour catalogues; or
+# A line whose only test-ish token is a D3-defensible enforcer citation MUST NOT
+# be flagged L8: the verdict keeps "citing an ArchUnit enforcer [or gate rule] as
+# the mechanism" at L0/L1 (policy D3, ADR-0159). Three shapes mark such a citation:
+#   * the token is an ArchUnit architecture-test name (suffix ArchTest /
+#     ArchUnitTest / PurityTest) — these ARE enforcers, not behaviour catalogues;
 #   * the test token sits inside an explicit mechanism clause ("enforced by ...",
-#     "ArchUnit `...`", "(enforcer E<n>)").
+#     "ArchUnit `...`", "(enforcer E<n>)"); or
+#   * a numbered/prose CONSTRAINT names its single locked enforcing test under
+#     the Rule R-C.a Code-as-Contract discipline ("Enforced by integration `X`
+#     ... class FQN locked here per Rule R-C.a") — the test is the constraint's
+#     enforcement mechanism, named once, NOT a behaviour catalogue. This stays
+#     D3-defensible even when the enforcing test is an *IT (not an *ArchTest):
+#     the verdict's keep-list is about the ROLE (mechanism citation), not the
+#     test's harness flavour.
 _D3_ARCHUNIT_TOKEN_RE = re.compile(r"\b[A-Z]\w*(?:ArchTest|ArchUnitTest|PurityTest)\b")
 _D3_MECHANISM_CLAUSE_RE = re.compile(r"enforced by|ArchUnit|\(enforcer\s+E\d+\)", re.IGNORECASE)
+# Explicit enforcement / FQN-lock clause that marks a constraint's enforcing-test
+# CITATION (Rule R-C.a Code-as-Contract), distinct from a behaviour inventory.
+_D3_ENFORCEMENT_CLAUSE_RE = re.compile(
+    r"enforced by|verified by|asserted by|locked here per rule|per rule\s+r-c\.a|class fqn locked",
+    re.IGNORECASE,
+)
 # A non-ArchUnit behaviour test (e.g. RunHttpContractIT, S2cCallbackRoundTripIT)
-# whose presence means the line is a genuine inventory even if it also cites a
-# mechanism — so the D3 exemption applies only when NO behaviour-test token is
-# present alongside the ArchUnit/mechanism citation.
+# whose presence — in INVENTORY quantity (3+) or INVENTORY structure (a markdown
+# table row / a test-leading bullet) — means the line is a genuine catalogue, not
+# a single mechanism citation.
 _NON_ARCHUNIT_TEST_TOKEN_RE = re.compile(r"\b[A-Z]\w+(?:IT|Test|Spec)\b")
+# Inventory STRUCTURE: a markdown table row, or a bullet whose leading content is
+# a test class. These are the catalogue shapes the L8 leak targets; a mechanism
+# clause does NOT redeem them.
+_TEST_INVENTORY_STRUCTURE_RE = re.compile(
+    r"^\s*\|.*`?[A-Z]\w+(?:IT|Test|Spec)`?"          # table row naming a test
+    r"|^\s*[-*]\s+`?(?:[a-z][\w.]*\.)?[A-Z]\w+(?:IT|Test|Spec)`?\b",  # test-leading bullet
+)
+# At most this many behaviour-test tokens may appear in a mechanism CITATION
+# before the line is treated as an inventory. A constraint may name its primary
+# enforcing test plus one deferred companion (e.g. a W2 negative-emission test),
+# so the threshold is 2; a third enumerated test makes it a catalogue.
+_D3_CITATION_MAX_TESTS = 2
 
 
 def _is_d3_enforcer_citation(line: str) -> bool:
     """Return True when an L8 match on ``line`` is a D3-defensible enforcer citation.
 
-    The exemption holds only when every test token on the line is an ArchUnit
-    architecture-test (or the line is purely a mechanism citation) AND no
-    behaviour-test (``*IT`` / non-Arch ``*Test`` / ``*Spec``) is enumerated. This
-    keeps a real integration-test inventory a leak even when it sits beside an
-    "enforced by" clause, while sparing pure ArchUnit-rule citations.
+    Three D3 shapes are spared (see the module comment above):
+      1. every enumerated test token is an ArchUnit architecture-test;
+      2. the line carries a mechanism clause and enumerates NO behaviour test
+         (pure ArchUnit / enforcer-id citation); or
+      3. a prose constraint cites its enforcing test(s) via an explicit
+         enforcement / FQN-lock clause (Rule R-C.a), the line is NOT an inventory
+         STRUCTURE (table row / test-leading bullet), and it names at most
+         ``_D3_CITATION_MAX_TESTS`` behaviour tests.
+
+    A genuine integration-test INVENTORY — a table of tests, a bullet list of
+    tests, or three-plus behaviour tests enumerated in one line — stays a leak
+    even beside an "enforced by" clause.
     """
     tokens = _NON_ARCHUNIT_TEST_TOKEN_RE.findall(line)
     if not tokens:
         # No behaviour-test token at all (e.g. only a `@Test` annotation match or
         # an ArchTest handled below) — defer to the mechanism/ArchUnit signals.
         return bool(_D3_ARCHUNIT_TOKEN_RE.search(line) or _D3_MECHANISM_CLAUSE_RE.search(line))
-    # Every enumerated test token is an ArchUnit architecture-test -> D3.
+    # Shape 1: every enumerated test token is an ArchUnit architecture-test -> D3.
     archunit_tokens = set(_D3_ARCHUNIT_TOKEN_RE.findall(line))
     if archunit_tokens and all(t in archunit_tokens for t in tokens):
+        return True
+    # Shape 3: a constraint's enforcing-test citation (Rule R-C.a). Spared only
+    # when it is NOT an inventory structure AND names few tests AND carries an
+    # explicit enforcement/FQN-lock clause.
+    if (
+        _D3_ENFORCEMENT_CLAUSE_RE.search(line)
+        and not _TEST_INVENTORY_STRUCTURE_RE.search(line)
+        and len(tokens) <= _D3_CITATION_MAX_TESTS
+    ):
         return True
     return False
 
