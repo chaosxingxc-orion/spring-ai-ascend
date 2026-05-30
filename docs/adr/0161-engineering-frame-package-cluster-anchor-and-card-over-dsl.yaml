@@ -214,8 +214,8 @@ consequences: |
         elements in `architecture/features/features.dsl`) gain `saa.cardPath` on
         every frame and `saa.primaryPackage` on every shipped frame; the
         workspace gate stays green;
-      * a new Rule G-27 (Frame-Card / DSL parity) lands with kernel paragraph,
-        card at `docs/governance/rules/rule-G-27.md`, an enforcer row in
+      * a new Rule G-29 (Frame-Card / DSL parity) lands with kernel paragraph,
+        card at `docs/governance/rules/rule-G-29.md`, an enforcer row in
         `docs/governance/enforcers.yaml` citing the rule card + gate artifact +
         assertion, and `gate/lib/check_engineering_frame_cards.py` wired into
         `gate/check_architecture_sync.sh` with positive AND negative fixtures in

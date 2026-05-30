@@ -8229,6 +8229,400 @@ test_rule_144_historical_adr_missing_facts_fatal_neg() {
 }
 
 # ---------------------------------------------------------------------------
+# Rule 145 — Layer Purity (Rule G-27 / E194). ADR-0159 (Progressive Learning
+# Curve and Authority Lanes) §7. Helper: gate/lib/check_layer_purity.py.
+#
+# The helper loads the owns/forbids category vocabulary from
+# docs/governance/layer-purity-policy.yaml, scans the L0/L1/L2 architecture
+# docs for the LEAKED categories (L1..L8: method call chains, runtime
+# sequences, SQL/RLS/persistence, HTTP status/route-verb, filter ordering,
+# wire formats, method signatures, test-class inventories) appearing in a
+# layer that FORBIDS them (L0/L1), and tolerates a leak whose locus matches a
+# non-expired row in docs/governance/layer-purity-temporary-violations.yaml.
+# Modes: advisory (always rc 0), changed-files-blocking, full-blocking (rc 1
+# on any un-grandfathered leak). PyYAML is required; its absence is a config
+# error (rc 2) the fixture treats as a skip, exactly like Rule 144.
+#
+# Every fixture stands up an ISOLATED scratch repo root via --repo (never the
+# working tree), copies the helper + the REAL policy file into it (so the
+# leaked-category tokens the fixture greps are the authoritative ones), and
+# writes a SYNTHETIC temporary-violations file (so the grandfather allow-list
+# is hermetic and never coupled to the live violations corpus), mirroring the
+# Rule 144 taxonomy fixtures.
+# ---------------------------------------------------------------------------
+
+# A method-call-chain string (leaked category L1-method-call-chain in the
+# layer-purity policy; matched by the l2-detail-sink method_signature family's
+# `foo(..) -> bar(` arrow-chain pattern too) reused across BOTH helpers so the
+# "identical detail fails at L1, passes at L2" pair compares like-for-like.
+_g27_leak_method_chain='On every transition withStatus(newStatus) -> validate(fromStatus, toStatus) runs inside the CAS.'
+# A defensible identity line (D1 SPI boundary identity + D2 package root) that
+# any layer, including L1, is allowed to carry.
+_g27_clean_identity='The bus.spi.engine.EnginePort SPI is the engine boundary identity; its package root is bus.spi.engine.'
+
+# Stand up an isolated scratch repo at $1 carrying the layer-purity helper, the
+# real policy surface, a synthetic (by default empty) temporary-violations
+# allow-list, and empty L0/L1/L2 doc trees. $2, when "grandfather", writes a
+# temporary-violations row that grandfathers the synthetic L1 leak locus used
+# by the fixtures below.
+_g27_layer_scratch() {
+  local sroot="$1" mode="${2:-strict}"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/gate/lib" "$sroot/docs/governance" \
+           "$sroot/architecture/docs/L0" \
+           "$sroot/architecture/docs/L1/agent-service" \
+           "$sroot/architecture/docs/L2/run-state-frame"
+  cp "$PWD/gate/lib/check_layer_purity.py" "$sroot/gate/lib/check_layer_purity.py"
+  cp "$PWD/docs/governance/layer-purity-policy.yaml" \
+     "$sroot/docs/governance/layer-purity-policy.yaml"
+  if [[ "$mode" == "grandfather" ]]; then
+    cat > "$sroot/docs/governance/layer-purity-temporary-violations.yaml" <<EOF
+schema_version: 1
+authority: ADR-0159
+last_updated: 2026-05-30
+status: advisory
+list_closed: true
+violations:
+  - id: LPV-synthetic-l1-method-chain
+    layer: L1
+    file: architecture/docs/L1/agent-service/ARCHITECTURE.md
+    locus: "synthetic self-test leak"
+    category: L1-method-call-chain
+    trigger: "withStatus(newStatus) -> validate(fromStatus, toStatus)"
+    migrate_to: "architecture/docs/L2/run-state-frame/"
+    sunset_date: 2099-12-31
+    scan_ref: "self-test"
+EOF
+  else
+    cat > "$sroot/docs/governance/layer-purity-temporary-violations.yaml" <<EOF
+schema_version: 1
+authority: ADR-0159
+last_updated: 2026-05-30
+status: advisory
+list_closed: true
+violations: []
+EOF
+  fi
+}
+
+test_rule_145_layer_purity_clean_l1_pos() {
+  # POSITIVE: an L1 doc that carries ONLY a defensible SPI boundary identity +
+  # package root (categories D1/D2) passes full-blocking with zero findings.
+  local helper="$PWD/gate/lib/check_layer_purity.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_layer_purity_clean_l1_pos" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_layer_purity_clean_l1_pos" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_purity_clean"
+  _g27_layer_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/agent-service/ARCHITECTURE.md" <<EOF
+---
+level: L1
+view: logical
+---
+# agent-service
+$_g27_clean_identity
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_layer_purity.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_145_layer_purity_clean_l1_pos" "Rule G-27 / Rule 145: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 0 ]]; then
+    ok "rule_145_layer_purity_clean_l1_pos" "Rule G-27 / Rule 145: an L1 doc with only a defensible SPI boundary identity + package root passes full-blocking"
+  else
+    fail "rule_145_layer_purity_clean_l1_pos" "Rule G-27 / Rule 145: clean L1 identity unexpectedly flagged: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_145_layer_purity_l1_method_chain_neg() {
+  # NEGATIVE: an L1 doc that inlines a method-to-method call chain (leaked
+  # category L1-method-call-chain, FORBIDDEN at L1 per the policy) MUST fail
+  # full-blocking. This is the altitude leak G-27 exists to catch.
+  local helper="$PWD/gate/lib/check_layer_purity.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_layer_purity_l1_method_chain_neg" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_layer_purity_l1_method_chain_neg" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_purity_leak"
+  _g27_layer_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/agent-service/ARCHITECTURE.md" <<EOF
+---
+level: L1
+view: logical
+---
+# agent-service
+$_g27_leak_method_chain
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_layer_purity.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_145_layer_purity_l1_method_chain_neg" "Rule G-27 / Rule 145: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  # Load-bearing: full-blocking fails closed (rc 1) and names the leaked
+  # category id (a policy-derived, author-stable token the helper must surface).
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "L1-method-call-chain"; then
+    ok "rule_145_layer_purity_l1_method_chain_neg" "Rule G-27 / Rule 145: a method-call chain inlined at L1 is detected and fails closed (full-blocking)"
+  else
+    fail "rule_145_layer_purity_l1_method_chain_neg" "Rule G-27 / Rule 145 L1-method-chain leak did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_145_layer_purity_advisory_never_blocks_pos() {
+  # POSITIVE (ratchet posture): the SAME L1 method-chain leak that fails
+  # full-blocking MUST NOT block in advisory mode (always exit 0). This locks
+  # the advisory->blocking ratchet ADR-0159 §9 ships first.
+  local helper="$PWD/gate/lib/check_layer_purity.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_layer_purity_advisory_never_blocks_pos" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_layer_purity_advisory_never_blocks_pos" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_purity_advisory"
+  _g27_layer_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/agent-service/ARCHITECTURE.md" <<EOF
+---
+level: L1
+view: logical
+---
+# agent-service
+$_g27_leak_method_chain
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_layer_purity.py" --repo "$sroot" --mode advisory 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_145_layer_purity_advisory_never_blocks_pos" "Rule G-27 / Rule 145: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "L1-method-call-chain"; then
+    ok "rule_145_layer_purity_advisory_never_blocks_pos" "Rule G-27 / Rule 145: advisory mode reports the leak but never blocks (exit 0) — ratchet soak posture"
+  else
+    fail "rule_145_layer_purity_advisory_never_blocks_pos" "Rule G-27 / Rule 145 advisory case unexpected: rc=$rc (want 0) out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_145_layer_purity_grandfathered_leak_pos() {
+  # POSITIVE: the SAME L1 method-chain leak, when its locus is grandfathered by
+  # a non-expired temporary-violations row, is TOLERATED — full-blocking passes
+  # (rc 0). This proves the allow-list is honored (review §10.1 Step 4).
+  local helper="$PWD/gate/lib/check_layer_purity.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_layer_purity_grandfathered_leak_pos" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_layer_purity_grandfathered_leak_pos" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_purity_grandfather"
+  _g27_layer_scratch "$sroot" grandfather
+  cat > "$sroot/architecture/docs/L1/agent-service/ARCHITECTURE.md" <<EOF
+---
+level: L1
+view: logical
+---
+# agent-service
+$_g27_leak_method_chain
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_layer_purity.py" --repo "$sroot" --mode full-blocking 2>&1); rc=$?
+  if [[ $rc -eq 2 ]]; then
+    ok "rule_145_layer_purity_grandfathered_leak_pos" "Rule G-27 / Rule 145: helper config error (likely PyYAML absent) — skipped: $(echo "$out" | head -1)"
+    return
+  fi
+  if [[ $rc -eq 0 ]]; then
+    ok "rule_145_layer_purity_grandfathered_leak_pos" "Rule G-27 / Rule 145: a leak whose locus is in a non-expired temporary-violations row is tolerated (full-blocking passes)"
+  else
+    fail "rule_145_layer_purity_grandfathered_leak_pos" "Rule G-27 / Rule 145 grandfathered leak was not tolerated: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Rule 145 — L2 Detail Sink (Rule G-27 / E195). ADR-0159 §7. Helper:
+# gate/lib/check_l2_detail_sink.py. The DISCRIMINATING gate of this wave:
+# implementation detail (method call chains / SQL / HTTP status / wire / filter
+# ordering / test inventory) left in an L0/L1 architecture doc FAILS, but the
+# byte-identical detail under architecture/docs/L2/<frame>/ PASSES — because the
+# sink helper scans ONLY architecture/docs/{L0,L1}, never L2 (L2 is the
+# authoritative HOME for that detail). The fixtures below write the SAME
+# method-level string into an L1 doc and an L2 doc and assert opposite verdicts
+# (review Task 6 Step 5). Modes: advisory (always rc 0), changed-files-blocking
+# (rc 1 only on a finding in a --changed file), blocking (rc 1 on any finding —
+# the terminal rung). No PyYAML dependency (pure regex scan), so there is no
+# rc-2 config-error skip branch here; a missing helper still fails closed for
+# rule-card/enforcer/self-test parity, exactly like Rule 144 / Rule 145.
+# ---------------------------------------------------------------------------
+
+# Stand up an isolated scratch repo at $1 for the l2-detail-sink helper, with
+# empty L0/L1/L2 doc trees.
+_g27_sink_scratch() {
+  local sroot="$1"
+  rm -rf "$sroot"
+  mkdir -p "$sroot/gate/lib" \
+           "$sroot/architecture/docs/L0" \
+           "$sroot/architecture/docs/L1/agent-service" \
+           "$sroot/architecture/docs/L2/run-state-frame"
+  cp "$PWD/gate/lib/check_l2_detail_sink.py" "$sroot/gate/lib/check_l2_detail_sink.py"
+}
+
+test_rule_145_l2_detail_sink_l1_method_detail_neg() {
+  # NEGATIVE (the wave's discriminating assertion, half 1): a method call chain
+  # left in an L1 doc MUST fail blocking mode — it belongs in the L2 detail
+  # sink, not at L1. Asserts both the fail-closed rc and the family token the
+  # helper is contracted to surface (method_signature).
+  local helper="$PWD/gate/lib/check_l2_detail_sink.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_l2_detail_sink_l1_method_detail_neg" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_l2_detail_sink_l1_method_detail_neg" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_sink_l1_fails"
+  _g27_sink_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/agent-service/ARCHITECTURE.md" <<EOF
+---
+level: L1
+view: logical
+---
+# agent-service
+$_g27_leak_method_chain
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_l2_detail_sink.py" --repo "$sroot" --mode blocking 2>&1); rc=$?
+  if [[ $rc -eq 1 ]] && echo "$out" | grep -q "method_signature"; then
+    ok "rule_145_l2_detail_sink_l1_method_detail_neg" "Rule G-27 / Rule 145: a method call chain left at L1 is detected and fails closed (blocking)"
+  else
+    fail "rule_145_l2_detail_sink_l1_method_detail_neg" "Rule G-27 / Rule 145 L1 method-detail did not fail: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_145_l2_detail_sink_l2_method_detail_pos() {
+  # POSITIVE (the wave's discriminating assertion, half 2): the BYTE-IDENTICAL
+  # method call chain, written under architecture/docs/L2/<frame>/, PASSES even
+  # in blocking mode — the sink helper scans ONLY L0/L1, so L2 is the
+  # authoritative detail sink. Paired with the negative above this proves the
+  # SAME detail fails at L1 and passes at L2 (review Task 6 Step 5).
+  local helper="$PWD/gate/lib/check_l2_detail_sink.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_l2_detail_sink_l2_method_detail_pos" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_l2_detail_sink_l2_method_detail_pos" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_sink_l2_passes"
+  _g27_sink_scratch "$sroot"
+  # Same string as the L1 negative — only the LAYER (target directory) differs.
+  cat > "$sroot/architecture/docs/L2/run-state-frame/README.md" <<EOF
+---
+level: L2
+view: logical
+---
+# run-state-frame (FunctionPoint design)
+$_g27_leak_method_chain
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_l2_detail_sink.py" --repo "$sroot" --mode blocking 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "altitude-clean"; then
+    ok "rule_145_l2_detail_sink_l2_method_detail_pos" "Rule G-27 / Rule 145: identical method call chain under architecture/docs/L2/ passes blocking (L2 is the detail sink)"
+  else
+    fail "rule_145_l2_detail_sink_l2_method_detail_pos" "Rule G-27 / Rule 145 identical detail at L2 was wrongly flagged: rc=$rc out=$(echo "$out" | head -1)"
+  fi
+}
+
+test_rule_145_l2_detail_sink_changed_files_scope_neg() {
+  # NEGATIVE (changed-files-blocking ratchet rung, review verification command):
+  # the L1 leak blocks ONLY when its file is passed via --changed; an unrelated
+  # --changed file leaves the same finding advisory (rc 0). Two probes on one
+  # fixture lock the changed-files scope.
+  local helper="$PWD/gate/lib/check_l2_detail_sink.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_l2_detail_sink_changed_files_scope_neg" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_l2_detail_sink_changed_files_scope_neg" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_sink_changed"
+  _g27_sink_scratch "$sroot"
+  local leakfile="architecture/docs/L1/agent-service/ARCHITECTURE.md"
+  cat > "$sroot/$leakfile" <<EOF
+---
+level: L1
+view: logical
+---
+# agent-service
+$_g27_leak_method_chain
+EOF
+  local out_in rc_in out_out rc_out
+  # Probe 1: the leak file IS the changed file -> blocks (rc 1).
+  out_in=$("$py" "$sroot/gate/lib/check_l2_detail_sink.py" --repo "$sroot" --mode changed-files-blocking --changed "$leakfile" 2>&1); rc_in=$?
+  # Probe 2: an unrelated changed file -> same finding stays advisory (rc 0).
+  out_out=$("$py" "$sroot/gate/lib/check_l2_detail_sink.py" --repo "$sroot" --mode changed-files-blocking --changed "architecture/docs/L0/ARCHITECTURE.md" 2>&1); rc_out=$?
+  if [[ $rc_in -eq 1 && $rc_out -eq 0 ]]; then
+    ok "rule_145_l2_detail_sink_changed_files_scope_neg" "Rule G-27 / Rule 145: changed-files-blocking blocks the leak only when its file is --changed (rc 1), advisory otherwise (rc 0)"
+  else
+    fail "rule_145_l2_detail_sink_changed_files_scope_neg" "Rule G-27 / Rule 145 changed-files scope wrong: rc_in=$rc_in (want 1) rc_out=$rc_out (want 0)"
+  fi
+}
+
+test_rule_145_l2_detail_sink_advisory_never_blocks_pos() {
+  # POSITIVE (ratchet posture): the SAME L1 method-detail leak that fails
+  # blocking MUST NOT block in advisory mode (always exit 0).
+  local helper="$PWD/gate/lib/check_l2_detail_sink.py"
+  if [[ ! -f "$helper" ]]; then
+    fail "rule_145_l2_detail_sink_advisory_never_blocks_pos" "Rule G-27 / Rule 145: $helper missing"
+    return
+  fi
+  local py; py=$(_g28_python_bin)
+  if [[ -z "$py" ]]; then
+    ok "rule_145_l2_detail_sink_advisory_never_blocks_pos" "Rule G-27 / Rule 145: no python on host — skipped (WSL is canonical per Rule G-7)"
+    return
+  fi
+  local sroot="$scratch/r145_sink_advisory"
+  _g27_sink_scratch "$sroot"
+  cat > "$sroot/architecture/docs/L1/agent-service/ARCHITECTURE.md" <<EOF
+---
+level: L1
+view: logical
+---
+# agent-service
+$_g27_leak_method_chain
+EOF
+  local out rc
+  out=$("$py" "$sroot/gate/lib/check_l2_detail_sink.py" --repo "$sroot" --mode advisory 2>&1); rc=$?
+  if [[ $rc -eq 0 ]] && echo "$out" | grep -q "method_signature"; then
+    ok "rule_145_l2_detail_sink_advisory_never_blocks_pos" "Rule G-27 / Rule 145: advisory mode reports the leak but never blocks (exit 0) — ratchet soak posture"
+  else
+    fail "rule_145_l2_detail_sink_advisory_never_blocks_pos" "Rule G-27 / Rule 145 advisory case unexpected: rc=$rc (want 0) out=$(echo "$out" | head -1)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # PR-E4: Parallel orchestrator.
 #
 # Each test_rule*() function is independent (uses its own $scratch/r<N>_*

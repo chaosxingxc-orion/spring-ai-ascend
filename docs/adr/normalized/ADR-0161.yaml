@@ -96,7 +96,7 @@ contract_refs: []
 fact_refs:
   - architecture/facts/generated/
 gate_refs:
-  - Rule G-27
+  - Rule G-29
   - Rule G-22
   - Rule G-23
   - Rule G-13
@@ -106,7 +106,7 @@ review_notes: >-
   to a package-cluster anchor and bound to a readable card) and affects L1, the
   DSL graph (two new required profile properties), the facts lane (the card cites
   generated fact IDs and sits at the lowest interpretation tier of the ADR-0154
-  cascade), and the gate (the new G-27 frame-card/DSL-parity rule). decision_type
+  cascade), and the gate (the new G-29 frame-card/DSL-parity rule). decision_type
   engineering_frame_boundary is in-altitude for L1; naming a package root and the
   public boundary of a frame is defensible at L1, and the heavy type/method/
   test inventories are explicitly pushed DOWN to the Card + generated facts +

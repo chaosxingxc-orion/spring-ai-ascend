@@ -1877,3 +1877,33 @@
   artifact: gate/check_architecture_sync.sh#historical_adr_governance
   asserts: "Rule 144 -- ledger totality (every raw ADR enumerated in architecture/facts/generated/adrs.json has a docs/governance/adr-remediation-ledger.yaml entry) + normalized-view coverage (every accepted ADR has a docs/adr/normalized/ADR-NNNN.yaml view). Backed by gate/lib/check_historical_adr_governance.py (modes advisory/changed-files/blocking); a missing adrs.json is fatal (exit 1) in every mode so a vanished apex fact never green-washes. Wired BLOCKING (--mode blocking) once the ledger + normalized corpus reached total coverage; a raw ADR with no ledger entry or an accepted ADR with no view fails the gate."
   governance_infra: true
+
+# ---------------------------------------------------------------------------
+# 2026-05-30 progressive-learning-curve-remediation W10 — Layer Purity
+# (Rule 145 / kernel Rule G-27; enforcers E194-E195).
+# Authority: docs/governance/rules/rule-G-27.md + ADR-0159 (Progressive Learning
+# Curve and Authority Lanes) §7 layer purity, §9 enforcement-posture ratchet.
+# Both helpers run ADVISORY at the W10 landing rung per the ADR-0159 §9 ratchet
+# (advisory -> changed-files-blocking -> full-blocking, gated by a clean
+# workspace gate + fact-layer byte-identity check). A missing helper fails
+# closed; a missing python interpreter is a vacuous pass (Rule G-7 lists WSL as
+# the canonical env).
+# ---------------------------------------------------------------------------
+
+- id: E194
+  constraint_ref: "Rule G-27 (Layer Purity); ADR-0159 (Progressive Learning Curve and Authority Lanes)"
+  kind: gate-script
+  level: L1
+  view: development
+  artifact: gate/check_architecture_sync.sh#layer_purity
+  asserts: "Rule 145 -- an L0/L1 authority surface MUST NOT carry L2 runtime detail it is not entitled to: the layer-purity helper reports the self-contradiction of an authority surface that DECLARES it carries no runtime contract / wire / SPI signature yet leaks a forbidden category, classified against docs/governance/layer-purity-policy.yaml (closed owns/forbids vocabulary: defensible D1..D3, leaked L1..L8) and tolerated only by a still-open, per-entry-dated row in docs/governance/layer-purity-temporary-violations.yaml. Backed by gate/lib/check_layer_purity.py (modes advisory/changed-files-blocking/full-blocking; PyYAML required, its absence is a config error). Wired ADVISORY at the W10 landing per the ADR-0159 §9 ratchet."
+  governance_infra: true
+
+- id: E195
+  constraint_ref: "Rule G-27 (Layer Purity); ADR-0159 (Progressive Learning Curve and Authority Lanes)"
+  kind: gate-script
+  level: L1
+  view: development
+  artifact: gate/check_architecture_sync.sh#layer_purity
+  asserts: "Rule 145 -- L2 implementation detail (method call chains, runtime sequences, SQL/RLS/GUC + persistence, HTTP status/route-verb/header behaviour, filter ordering, wire formats, method signatures, test-class inventories) MUST NOT be left in L0/L1 prose: the l2-detail-sink helper scans ONLY architecture/docs/{L0,L1} (never architecture/docs/L2/, the authoritative home) and reports leaks by signal family (sql_persistence / http_runtime / wire_format / method_signature / filter_ordering / test_inventory); a single finding may be suppressed in place with an HTML comment l2-detail-sink-allow. Backed by gate/lib/check_l2_detail_sink.py (pure-regex, no PyYAML; modes advisory/changed-files-blocking/blocking). Wired ADVISORY at the W10 landing per the ADR-0159 §9 ratchet."
+  governance_infra: true
