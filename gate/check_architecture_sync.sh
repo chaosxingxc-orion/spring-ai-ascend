@@ -984,7 +984,7 @@ LINK_RE = re.compile(r'\]\(([^)]+)\)')
 EXCLUDE_DIRS = ('./docs/archive/', './docs/logs/', './docs/adr/',
                 './docs/delivery/', './docs/v6-rationale/', './docs/plans/',
                 './docs/superpowers/', './third_party/', './discovery/',
-                './knowledge/', './docs/architecture/', './architecture/docs/L1/')
+                './knowledge/', './docs/architecture/', './architecture/docs/L1/', './docs/reviews/')
 EXCLUDE_DIR_NAMES = {'target', '.git', 'node_modules'}
 
 def is_excluded(p: str) -> bool:

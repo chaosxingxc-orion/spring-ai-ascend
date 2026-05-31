@@ -261,7 +261,7 @@ for the full matrix.
 ## 7. When a test fails
 
 Before you start reasoning about the failure, run the six-step **Evidence-First
-Debug Sequence** in [`docs/harness/debug-first-evidence.md`](runbooks/debug-first-evidence.md).
+Debug Sequence** in [`docs/harness/debug-first-evidence.md`](harness/debug-first-evidence.md).
 Authority: CLAUDE.md Rule D-3 (Evidence-First Debug). The runbook tells you what to capture (failing
 FQN → trace ID → MDC slice → raw error → transition history) BEFORE you open
 `ARCHITECTURE.md`. Spec reading is allowed in step 6, after evidence is recorded.

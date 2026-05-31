@@ -103,7 +103,7 @@ the narrative tour is [docs/overview.md](docs/overview.md).
 | `research` | Fail-closed — required config present or startup fails |
 | `prod` | Fail-closed — same, with stricter enforcement planned |
 
-Full matrix: [docs/cross-cutting/posture-model.md](docs/cross-cutting/posture-model.md).
+Full matrix: [docs/architecture/l0/cross-cutting/posture-model.md](docs/architecture/l0/cross-cutting/posture-model.md).
 
 ## Reading path
 
