@@ -2805,8 +2805,8 @@ families:
   - id: F-layer-gate-flags-delegation-pointer
     title: A Layer-Purity / Altitude Probe Fires on the Delegation Pointer It Should Reward (Matches the Category Noun, Not the Leak Mechanism)
     first_observed_rc: progressive-learning-curve-remediation-W15-2026-05-30
-    last_observed_rc: progressive-learning-curve-remediation-R1-2026-05-30
-    occurrences: [progressive-learning-curve-remediation-W15-2026-05-30, progressive-learning-curve-remediation-R1-2026-05-30]
+    last_observed_rc: progressive-learning-curve-remediation-C3a-2026-05-31
+    occurrences: [progressive-learning-curve-remediation-W15-2026-05-30, progressive-learning-curve-remediation-R1-2026-05-30, progressive-learning-curve-remediation-C3a-2026-05-31]
     root_cause: |
       A layer-purity / altitude gate that classifies prose by topic-anchored
       regex cannot distinguish a LEAK (an L0/L1 doc inlining L2 mechanism — a
@@ -2867,6 +2867,42 @@ families:
       (`architecture/docs/L1/**/features/README.md`) no longer enumerate
       test classes inline — shrinking the residual E194 feature-catalog leak set
       this family's open_residual had flagged.
+
+      C3a (2026-05-31) is the family's prevention discipline APPLIED, plus one
+      new sub-mechanism. The residual-cleanup pass took the live grandfathered
+      set (E194 34 / E195 4 at C3a entry) and classified every L0-root row by the
+      family's own (a)/(b)/(c) rubric: the GENUINE inline leaks were MIGRATED
+      out of the L0 prose — §4 #19's sealed-`SuspendReason` variant-constructor
+      inventory drained to the per-variant `…-suspendreason-*` SPI-shape facts;
+      §4 #54's `V2__run_trace_id_notnull.sql` Flyway name + `RunContext`
+      accessor enumeration drained to the runcontext fact + Flyway + the
+      telemetry-vertical L2 sink; §4 #5's `gen_ai.*`/`langfuse.*` span-attribute
+      namespaces drained to §4 #56 + the telemetry policy — leaving the
+      DEFENSIBLE delegation-pointer rows (§4 #22, §4 #55, §4 #27, the E195-side
+      W0 test comma-run) grandfathered with refreshed loci, and removing the now
+      dead §4 #23 suspension-write-atomicity row (whose body had already drained
+      in a prior wave, so it tolerated zero live leak under both helpers). Two of
+      the migrated inline inventories had additionally DRIFTED from the shipped
+      facts (the §4 #19 list named `ChildRun`+`AwaitChildren` where the code
+      ships one `awaitchild` and omitted the shipped `awaitclientcallback`, and
+      gave `RateLimited(String resourceKey, Instant retryAfter)` where the
+      `ratelimited` record components are `skill`+`code`; §4 #54 enumerated
+      `traceId()`/`spanId()` accessors the runcontext fact's public_methods do
+      not carry) — so delegating to the fact rather than re-asserting the names
+      ALSO closed a stale-inventory defect, and the discharge deliberately did
+      not transcribe the drifted names (guardrail: never point a ref at a shape
+      absent from the generated fact). The NEW sub-mechanism: the L0
+      ARCHITECTURE.md is a TEMPLATE-RENDERED surface
+      (`docs/governance/templates/root-architecture.md.j2` ->
+      `architecture/docs/L0/ARCHITECTURE.md`, registered `templated` in
+      surface-classification.yaml), so a prose drain that edits ONLY the rendered
+      `.md` leaves the `.j2` template carrying the leak and the byte-identical
+      render-idempotency gate (Rule G-13 / check_template_render_idempotency.py)
+      fails on render drift — AND a future re-render would clobber the drain.
+      C3a applied each drain to BOTH the template and the rendered output
+      (verified byte-identical), the layer-purity-temporary-violations.yaml drain
+      discipline's render-coupling analogue of the same delegation-vs-leak
+      verdict.
     surfaces:
       - gate/lib/check_l2_detail_sink.py (delegation-pointer + wire-pointer guards; dated-grandfather integration; R1 bullet/table test_inventory probe + E194-mirrored D3 enforcer-citation carve-out)
       - gate/lib/check_layer_purity.py (D3 enforcing-test-citation carve-out; the L8 bullet/table test_inventory probe E195 converged onto)
@@ -2874,20 +2910,24 @@ families:
       - gate/test_architecture_sync_gate.sh (test_rule_145_l2_detail_sink_bullet_test_inventory_neg — convergence + D3-carve-out fixture)
       - architecture/features/features.dsl (R1: hand-authored saa.verificationTestFqns test-class inventories drained from the feature registry source)
       - "docs/governance/architecture-status.yaml#capabilities[].allowed_claim (R2 — the status-ledger leak surface this family had OMITTED; the per-capability allowed_claim free-text carries the SAME L4/L5/L6/L7/L8 categories the L0/L1 prose carried — HTTP status + route verbs `POST /v1/runs/{runId}/resume` / `409 idempotency_conflict`, filter ordering `OncePerRequestFilter order 20/30`, SQL/RLS/persistence `INSERT ... ON CONFLICT` + `PRIMARY KEY (tenant_id, idempotency_key)`, method signatures `compareResponseSchemas()` / `claimOrFind`, and test-class inventories — yet the layer-purity gate's helpers do not scan this YAML, only L0/L1 `.md` + rendered feature catalogs; out of scope for the gate, tracked here as residual)"
-      - docs/governance/layer-purity-temporary-violations.yaml (LPV-l0-shipped-subset-test-inventory)
+      - docs/governance/layer-purity-temporary-violations.yaml (LPV-l0-shipped-subset-test-inventory; C3a — discharged LPV-l0-suspendreason-signatures §4 #19 / LPV-l0-run-trace-id-notnull §4 #54 / LPV-l0-metric-span-attr-namespaces §4 #5 by migration, removed dead LPV-l0-suspension-write-atomicity §4 #23, re-anchored the retained delegation-pointer rows)
+      - "architecture/docs/L0/ARCHITECTURE.md + docs/governance/templates/root-architecture.md.j2 (C3a — a template-rendered L0 surface: a prose drain MUST edit the .j2 template AND the rendered .md in lockstep or Rule G-13 render-idempotency flags drift / a re-render clobbers the drain)"
       - docs/governance/rules/rule-G-27.md
     prevention_rules:
       - "Rule G-27 / Rule 145 (enforcers E194 + E195) — the two layer-purity helpers carry the delegation-vs-leak discriminators in code: E195 a delegation-pointer guard (explicit delegation cue + a contract/L2/fact/ADR home in the bullet neighbourhood) + a wire-pointer guard (a wire_format match co-citing its own contract/ADR/enforcer is a reference) + the SAME dated grandfather list E194 honours; E194 a D3 enforcer-citation carve-out (a constraint naming its single locked enforcing test via an 'Enforced by ... per Rule R-C.a' clause is defensible even when the test is an *IT, while a genuine multi-test inventory table/bullet still leaks)."
       - "Promotion discipline (this wave): when promoting an advisory altitude/layer gate to a blocking rung, FIRST run it blocking against the live corpus and CLASSIFY every finding as (a) genuine leak -> migrate, (b) delegation pointer / mechanism citation -> teach the probe the shape, or (c) known-but-unmigrated debt -> dated grandfather row; NEVER weaken the probe's leak detection to pass. The anti-overreach self-test (a genuine leak with no delegation cue still fails closed) is mandatory alongside each new guard so the guard cannot silently blanket-disable detection."
       - "Self-test parity (Rule 89 / G-5.b): each guard + carve-out ships positive AND negative fixtures (delegation pointer passes; disclaimer passes; grandfathered leak tolerated; genuine leak still fails; D3 citation passes; multi-test inventory still fails) so a future regression that re-blunts a probe is caught by the gate self-test harness."
       - "Two-helpers-one-verdict coverage parity (R1): when two advisory helpers encode ONE adjudicated verdict (E194 + E195 both encode the layer-purity test_inventory leak), every leak SHAPE one helper detects (a comma run, a one-FQN-per-bullet list, a per-test markdown table) MUST be detected by the other, and every defensible-citation SHAPE one helper spares (a lone *ArchTest bullet, an 'enforced by `X`' clause, a Rule R-C.a single-test citation) MUST be spared by the other — otherwise the helper with the narrower probe hands a false all-clear on the surface the broader one blocks. The R1 fix grew E195's test_inventory probe to the bullet/table shape and ported E194's `_is_d3_enforcer_citation` carve-out byte-for-byte; the `test_rule_145_l2_detail_sink_bullet_test_inventory_neg` fixture locks BOTH directions (a bullet inventory fails; a lone *ArchTest bullet is spared) so a future divergence is caught."
+      - "Render-coupled drain (C3a): when the L0/L1 doc being drained is a TEMPLATE-RENDERED surface (registered `templated`/`hybrid` in docs/governance/templates/surface-classification.yaml — the L0 root ARCHITECTURE.md and every L1 module ARCHITECTURE.md are), the leak-removing edit MUST be applied to the `.j2` TEMPLATE and the rendered `.md` in the SAME commit, then verified byte-identical with check_template_render_idempotency.py (Rule G-13). Editing only the rendered `.md` leaves the template carrying the leak: the render-idempotency gate fails on drift now, and a future re-render silently re-introduces the migrated detail. The drain is not done until template + render + the layer-purity gate (E194/E195) are all green together."
       - "Leak-surface-inventory completeness (R2): a layer-purity / altitude family authored DURING a doc-cleanup MUST NOT inherit that cleanup's surface frame as its permanent leak-surface inventory — it MUST widen `surfaces[]` and `open_residual` to EVERY authority surface that can carry an L3+ mechanism category, not only the L0/L1 `.md` the cleanup happened to scan. This family was scoped to L0/L1 prose + rendered L1 feature catalogs (the W12-R1 cleanup's frame) and silently OMITTED docs/governance/architecture-status.yaml#capabilities[].allowed_claim, an upstream authority surface whose free-text carries the SAME HTTP-status / route-verb / filter-ordering / SQL-RLS-persistence / method-signature / test-inventory categories the gate flags in prose, but which the gate's two helpers (E194/E195) do not scan (they walk L0/L1 `.md` + feature-catalog README renders, never the status YAML). The fix is a ledger fix only: register the surface + state the unscanned-surface residual; the actual allowed_claim drain (and any future executable guard over the YAML) is separate downstream work, not owned here."
     cleanup_status: structurally_addressed
     open_residual: |
-      Both rungs measured on the R1 working tree are clean: at full corpus
-      (advisory) E194 reports 0 active findings over 91 L0/L1 documents (34
-      grandfathered) and E195 reports 0 active findings (7 grandfathered); the
-      changed-files-blocking rung is likewise 0/0. The W15 open_residual flagged
+      Both rungs measured on the C3a working tree are clean: at full corpus
+      (advisory) E194 reports 0 active findings over 91 L0/L1 documents (28
+      grandfathered, down from 34 after the C3a L0 genuine-leak migration +
+      dead-row removal) and E195 reports 0 active findings (2 grandfathered, down
+      from 4); the changed-files-blocking rung is likewise 0/0. The W15
+      open_residual flagged
       ~23 E194 feature-catalog findings; the W16-W29 cleanup waves plus R1's
       `saa.verificationTestFqns` drain from the feature registry source have
       since reduced the ACTIVE feature-catalog leak set to zero, so the rendered
@@ -2898,8 +2938,11 @@ families:
       block; the self-tests pass, now including the R1 convergence fixture.
       Residual is no longer an ACTIVE-finding backlog but the dated GRANDFATHER
       debt: the TERMINAL full-blocking rung per ADR-0159 §9 stays blocked until
-      the 34 E194 + 7 E195 grandfathered rows in
-      docs/governance/layer-purity-temporary-violations.yaml are migrated to
+      the remaining E194 + E195 grandfathered rows in
+      docs/governance/layer-purity-temporary-violations.yaml (28 E194 / 2 E195
+      after the C3a L0 genuine-leak drain — the L0-root residue is now DEFENSIBLE
+      delegation-pointer rows; the L1 corpus stays on its 2026-07-31 / 08-31
+      sunsets) are migrated to
       their L2 / contract / generated-fact homes (or expire at their per-row
       sunset) — promoting to full-blocking while any row is open would either
       fail on the grandfathered loci or require the list to keep tolerating them.
@@ -2927,7 +2970,8 @@ families:
       test-class inventories). The two helpers (E194/E195) never walk this YAML,
       so the gate's clean verdict says nothing about it. The TRUE residual is
       therefore two distinct debts, not one: (a) the dated GRANDFATHER debt
-      above (the 34 E194 + 7 E195 rows on already-scanned L0/L1 loci), and
+      above (the 28 E194 + 2 E195 rows on already-scanned L0/L1 loci after the
+      C3a L0 drain), and
       (b) the UNSCANNED-SURFACE debt — the allowed_claim leak set in the status
       ledger, neither measured nor grandfathered, hidden until R2 because the
       family inherited the cleanup's L0/L1-only leak-surface frame and never

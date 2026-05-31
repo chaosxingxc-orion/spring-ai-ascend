@@ -391,8 +391,8 @@ repo-wide.
 
 5. **Metric naming**: all custom Micrometer metrics use the prefix
    `springai_ascend_`. No bare or provider-prefixed names on platform meters.
-   Span attribute naming follows `gen_ai.*` (OTel semconv) and `langfuse.*`
-   (platform-specific) per §4 #56 and `docs/telemetry/policy.md §4`.
+   The concrete span-attribute namespace convention is wire-format detail owned by
+   §4 #56 and `docs/telemetry/policy.md §4`, not restated here.
 
 6. **OSS-first**: every core concern is delegated to an existing OSS project.
    New glue must answer "why is this not a configuration of an existing OSS dep?"
@@ -540,16 +540,14 @@ repo-wide.
 
 19. **Fan-out, suspend-reason taxonomy, and suspend-deadline contract.** `SuspendSignal` MUST
     carry a sealed `SuspendReason` identifying why the run is suspended. Every reason MUST expose the
-    instant at which the suspended run transitions to `EXPIRED` if not resumed; the deadline
-    accessor's signature is owned by the SPI-shape fact
-    `code-symbol/com-huawei-ascend-service-runtime-resilience-spi-suspendreason`, not L0.
-    Sealed variants: `ChildRun(UUID childRunId, ChildFailurePolicy, Instant deadline)` |
-    `AwaitChildren(List<UUID> childRunIds, JoinPolicy, ChildFailurePolicy, Instant deadline)` |
-    `AwaitTimer(Instant fireAt)` | `AwaitExternal(String callbackToken, Instant deadline)` |
-    `AwaitApproval(String approvalRequestId, Instant deadline)` |
-    `RateLimited(String resourceKey, Instant retryAfter)`.
-    `JoinPolicy: ALL | ANY | N_OF`; `ChildFailurePolicy: PROPAGATE | IGNORE | COMPENSATE`.
-    W0 reference impl covers only single-`ChildRun`; remaining variants are contract-level,
+    instant at which the suspended run transitions to `EXPIRED` if not resumed. The sealed
+    `SuspendReason` and its variant carriers are a boundary identity; their per-variant
+    constructor shapes, the deadline accessor's signature, and the join / child-failure
+    enums are SPI-signature detail owned by the SPI-shape facts rooted at
+    `code-symbol/com-huawei-ascend-service-runtime-resilience-spi-suspendreason` (the sealed
+    interface plus its per-variant `…-suspendreason-*` facts' `public_methods[]` /
+    `record_components`), not enumerated at L0.
+    W0 reference impl covers only the single child-await variant; remaining variants are contract-level,
     deferred to W2 (`suspend_reason_taxonomy`, `parallel_child_dispatch`, `suspend_deadline_watchdog`).
     See ADR-0019.
 
@@ -1033,7 +1031,7 @@ repo-wide.
 
 53. **Telemetry Vertical first-class.** The Telemetry Vertical (Trace + Span + LlmCall) is a named cross-cutting concept declared in `ARCHITECTURE.md §0.5.3`. Every horizontal layer (HTTP edge, orchestration, executor, adapter, MCP) MUST emit into it via the `TraceContext` SPI or the Hook SPI — never directly. Direct telemetry emission from adapter code (LlmGateway, ToolInvoker, DB/Redis bridges) is forbidden. Enforced by ArchUnit `TelemetryVerticalArchTest` (no class outside `agent-service/src/main/java/com/huawei/ascend/service/runtime/observability` or `agent-service/src/main/java/com/huawei/ascend/service/platform/observability` may write to a `TraceWriter`-shaped sink — paths reflect the post-ADR-0078 sub-package layout; was rooted in `agent-runtime/observability` / `agent-platform/observability` pre-Phase-C). See ADR-0061.
 
-54. **Trace ↔ Run ↔ Session identity (N:M).** Every persisted `Run` row MUST carry a non-null `trace_id` (32-char lowercase W3C hex; the column is nullable at L1.x and NOT NULL from W2 via `V2__run_trace_id_notnull.sql`). `Run.sessionId` MAY be null at L1.x; in posture=research/prod from W2 it MUST be non-null. Multiple Runs MAY share a Trace or a Session. `RunContext` MUST expose `traceId()`, `spanId()`, `sessionId()`, and `traceContext()` alongside `tenantId()`. Child Runs spawned via `SuspendForChild` inherit `sessionId` from the parent and start a new Trace whose root span attribute `parent_trace_id` points to the parent's `traceId` (ADR-0062 default policy). Enforced by ArchUnit `RunContextIdentityAccessorsTest` + integration `RunTraceSessionConsistencyIT` + (W2) Flyway schema constraint. See ADR-0062.
+54. **Trace ↔ Run ↔ Session identity (N:M).** The L0 invariant is that **every persisted `Run` is correlatable to exactly one Trace and N:M to Sessions**: a Run carries a durable, non-null trace correlation; multiple Runs MAY share a Trace or a Session; and a child Run spawned via `SuspendForChild` inherits its parent's Session while starting a fresh Trace linked back to the parent (ADR-0062 default policy). L0 owns this correlation identity, not the trace-id column shape, the nullability-transition migration, or the accessor signatures that realize it. The persisted `trace_id` column and its W2 NOT-NULL Flyway migration are persistence detail owned by the Flyway migrations + the L2 sink [`../L2/telemetry-vertical/`](../L2/telemetry-vertical/); the trace / span / session correlation accessors are the `public_methods[]` of the generated SPI-shape fact `code-symbol/com-huawei-ascend-bus-spi-engine-runcontext`, not enumerated here. Enforced by ArchUnit `RunContextIdentityAccessorsTest` + integration `RunTraceSessionConsistencyIT` + (W2) Flyway schema constraint. See ADR-0062.
 
 55. **W3C traceparent propagation at HTTP edge.** The HTTP-edge sub-package of `agent-service` (`com.huawei.ascend.service.platform`, formerly the standalone `agent-platform` module pre-ADR-0078) MUST extract or originate the W3C `traceparent` trace-context header on every inbound request and propagate the resulting trace/span correlation outbound so client SDKs can correlate. An unparseable inbound `traceparent` MUST fail closed by originating a fresh trace (never propagating an unparseable id). The concrete propagation mechanics — the filter-chain position relative to the JWT/Tenant/Idempotency filters, the outbound trace-correlation response header and its wire grammar, the response-status scope, the Logback MDC slice, and the invalid-header metric — are runtime/wire detail owned by [`docs/telemetry/policy.md`](../../../docs/telemetry/policy.md) §6 and the L2 sink [`../L2/telemetry-vertical/process.md`](../L2/telemetry-vertical/process.md) §1–§2, verified by the generated test facts `test/…-traceextractfilterit` + `test/…-logfieldshapeit` ([`architecture/facts/generated/tests.json`](../../facts/generated/tests.json)); they are NOT restated here. See ADR-0061 §4.
 

@@ -343,10 +343,52 @@
 #     (WSL): E194 0 findings / 34 grandfathered; E195 0 findings / 4 grandfathered;
 #     render-idempotency byte-identical (root + agent-service templates re-synced to
 #     their drained outputs). The authority cascade is untouched.
+#   2026-05-31 — C3a L0 genuine-migration drain (residual-cleanup; root family
+#     F-layer-gate-flags-delegation-pointer — the genuine-leak arm of its (a)/(b)/(c)
+#     promotion rubric). The live grandfathered set was classified row-by-row and the
+#     three L0-root rows over a GENUINE live inline leak were DISCHARGED by migrating
+#     the inlined detail to its authoritative home, leaving only boundary identity +
+#     a delegation pointer in the L0 prose:
+#       - LPV-l0-suspendreason-signatures (§4 #19) — the sealed-`SuspendReason`
+#         variant-constructor inventory drained to the per-variant
+#         `code-symbol/…-suspendreason-*` SPI-shape facts' public_methods[] /
+#         record_components (the inline list had also DRIFTED from the shipped facts:
+#         `ChildRun`+`AwaitChildren` vs the shipped single `awaitchild`, the omitted
+#         `awaitclientcallback`, and `RateLimited(resourceKey, retryAfter)` vs the
+#         shipped `ratelimited(skill, code)` — so the migration also closes a
+#         stale-inventory defect; the drain does NOT transcribe the drifted names).
+#       - LPV-l0-run-trace-id-notnull (§4 #54) — the `V2__run_trace_id_notnull.sql`
+#         Flyway name, the trace_id column nullability transition, and the
+#         `traceId()/spanId()/sessionId()/traceContext()` accessor enumeration drained
+#         to the Flyway migrations + the `code-symbol/…-bus-spi-engine-runcontext`
+#         fact + the telemetry-vertical L2 sink (the enumerated `traceId()`/`spanId()`
+#         are not in the runcontext fact's public_methods, another drift the delegation
+#         removes by not re-asserting the names).
+#       - LPV-l0-metric-span-attr-namespaces (§4 #5) — the inline `gen_ai.*` /
+#         `langfuse.*` span-attribute namespaces drained to §4 #56 (their real owner)
+#         + docs/telemetry/policy.md; the `springai_ascend_` metric-prefix reservation
+#         stays as the durable L0 invariant.
+#     LPV-l0-suspension-write-atomicity (§4 #23) was REMOVED as a dead row: its body
+#     had already drained in a prior wave, so it tolerated ZERO live leak under both
+#     E194 (locus-anchored) and E195 — per the closed-list discipline a row over zero
+#     live leak is removed, not kept. The retained L0-root rows are DEFENSIBLE
+#     delegation-pointer residue (LPV-l0-run-context-accessor-residual §4 #22,
+#     LPV-l0-traceparent-edge-residual §4 #55, LPV-l0-skill-spi-lifecycle-run §4 #27,
+#     and the E195-side LPV-l0-shipped-subset-test-inventory); the §4 #19 drain shifted
+#     §4 line numbers, so those rows were re-anchored to their LIVE loci
+#     (run-context-accessor-residual 584-614 -> 582-612; traceparent-edge-residual
+#     1038 -> 1036). NOTE the L0 root ARCHITECTURE.md is TEMPLATE-RENDERED from
+#     docs/governance/templates/root-architecture.md.j2: each drain was applied to the
+#     `.j2` template AND the rendered `.md` in lockstep so the byte-identical
+#     render-idempotency gate (Rule G-13) stays green and a future re-render cannot
+#     re-introduce the migrated detail. VERIFIED (WSL): E194 0 findings / 28
+#     grandfathered; E195 0 findings / 2 grandfathered; render-idempotency
+#     byte-identical; layer-purity self-tests 47/47; full architecture-sync gate PASS.
+#     The authority cascade (generated facts > DSL > Card/prose) is untouched.
 
 schema_version: 1
 authority: ADR-0159
-last_updated: 2026-05-30
+last_updated: 2026-05-31
 status: advisory
 list_closed: true
 
@@ -365,20 +407,34 @@ violations:
   # drained in place to identity + delegation + fact-ID form, so under the
   # locus-anchored gate (gate/lib/check_layer_purity.py, E194) each row's locus
   # range now covers ZERO live leak. Per the closed-list discipline a row that
-  # tolerates no live leak is removed, not kept. The lone survivor is
-  # LPV-l0-suspendreason-signatures, whose §4 #19 sealed-variant constructor
-  # signatures are still inlined at lines 537-541.
+  # tolerates no live leak is removed, not kept. (The 2026-05-31 residual-cleanup
+  # C3a wave then DISCHARGED the remaining genuine L0 inline leaks by migration —
+  # LPV-l0-suspendreason-signatures §4 #19, LPV-l0-run-trace-id-notnull §4 #54,
+  # LPV-l0-metric-span-attr-namespaces §4 #5 — and removed the dead
+  # LPV-l0-suspension-write-atomicity §4 #23 row; see the change-log entry "C3a —
+  # L0 genuine-migration drain". The L0-root rows that remain are DEFENSIBLE
+  # regex-residue: LPV-l0-run-context-accessor-residual, LPV-l0-traceparent-edge-
+  # residual, LPV-l0-skill-spi-lifecycle-run, and the E195-side
+  # LPV-l0-shipped-subset-test-inventory.)
 
-  - id: LPV-l0-suspendreason-signatures
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #19 : 546-551"
-    category: L7-method-signature
-    trigger: "ChildRun(UUID childRunId, ChildFailurePolicy, Instant deadline) | AwaitChildren(List<UUID> childRunIds, JoinPolicy, ChildFailurePolicy, Instant deadline) | AwaitTimer(Instant fireAt) | AwaitExternal(String callbackToken, Instant deadline) | AwaitApproval(String approvalRequestId, Instant deadline) | RateLimited(String resourceKey, Instant retryAfter) - the full sealed-variant constructor inventory"
-    migrate_to: "docs/contracts/*.v1.yaml (SPI) + architecture/facts/generated/code-symbols.json"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2"
-    defensible_part: "Naming SuspendReason as a boundary identity is defensible; the sealed-variant constructor parameter lists migrate. Locus re-anchored to the LIVE block: the §4 #19 SPI-shape drain inserted the deadline-accessor fact-pointer prose ahead of the sealed-variant list (and replaced the `deadline() : Instant` colon-return signature with a public_methods[] pointer), drifting the variant inventory from 537-541 to 549-554. The JVM-typed-parameter-inventory probe detects the leak across the ChildRun/AwaitChildren/AwaitTimer/AwaitExternal/AwaitApproval/RateLimited variant lines; the JoinPolicy/ChildFailurePolicy enum line at 554 closes the block. The migration scope is unchanged."
+  # LPV-l0-suspendreason-signatures was DISCHARGED + removed 2026-05-31
+  # (residual-cleanup C3a — genuine migration). The §4 #19 inline sealed-variant
+  # constructor inventory (`ChildRun(UUID childRunId, ChildFailurePolicy, Instant
+  # deadline) | AwaitChildren(...) | AwaitTimer(...) | ...`) was drained out of the
+  # L0 prose: §4 #19 now states the suspend-deadline / EXPIRED invariant + names
+  # the sealed `SuspendReason` as a boundary identity, and delegates the per-variant
+  # constructor shapes + the deadline-accessor signature + the join / child-failure
+  # enums to the SPI-shape facts rooted at
+  # `code-symbol/com-huawei-ascend-service-runtime-resilience-spi-suspendreason`
+  # (the sealed interface fact + its per-variant `…-suspendreason-*` facts'
+  # `public_methods[]` / `record_components`). The inline enumeration had DRIFTED
+  # from the shipped facts (it listed `ChildRun`+`AwaitChildren` as two variants
+  # where the code ships one `awaitchild`, omitted the shipped `awaitclientcallback`
+  # variant, and gave `RateLimited(String resourceKey, Instant retryAfter)` where
+  # the shipped `ratelimited` record components are `skill` + `code`), so the
+  # delegation also removes a stale-inventory defect. The JVM-typed-parameter probe
+  # no longer fires on §4 #19. VERIFIED (WSL, E194 --mode advisory): 0 findings at
+  # the §4 #19 block.
 
   - id: LPV-l0-shipped-subset-test-inventory
     layer: L0
@@ -391,27 +447,33 @@ violations:
     scan_ref: "§1 W0 shipped subset"
     defensible_part: "Naming the shipped contract-truth tests as evidence of the W0 release is a reasonable L0 grounding claim; the enumerated test-class inventory is what migrates to tests.json + the FunctionPoint test_refs. This row is the E195-side tolerance (E195 maps test_inventory -> L8-test-class-inventory and matches on file + category, not locus); it is anchorless so it also covers the E194 L8 probe should the comma-run ever trip it."
 
-  - id: LPV-l0-suspension-write-atomicity
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #23 : 596-601"
-    categories: [L1-method-call-chain, L2-runtime-sequence]
-    trigger: "RunRepository.save(suspended) and checkpointer.save(runId, nodeKey, payload) MUST be observable atomically ... single-threaded, sequential on same call stack (invariant documented in SyncOrchestrator.executeLoop javadoc) ... both in one @Transactional block ... transactional outbox"
-    migrate_to: "architecture/docs/L2/fp-suspend-resume/ (suspend-leg write sequence) + architecture/docs/L2/fp-run-state-transition/ (atomic Run-state write realization)"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2"
-    defensible_part: "The structural invariant 'the suspension write is atomic' stays at L0; the named persistence-write hops (RunRepository.save + checkpointer.save) and the per-tier atomicity ordering (sequential-on-call-stack / one @Transactional block / transactional outbox) migrate. Named by the line-43 disclaimer ('the suspension-atomicity sequence (§4 #23)'); this row is the grandfather entry that named disclosure presumed."
+  # LPV-l0-suspension-write-atomicity was REMOVED 2026-05-31 (residual-cleanup
+  # C3a — dead-grandfather removal). The §4 #23 named persistence-write hops
+  # (`RunRepository.save` + `checkpointer.save`), the per-tier atomicity ordering
+  # (sequential-on-call-stack / one @Transactional block / transactional outbox),
+  # and the suspend-leg sequence had already been drained in place to the L2
+  # FunctionPoint sink `../L2/fp-suspend-resume/`; §4 #23 now carries only the
+  # structural all-or-nothing observability invariant. Under both the
+  # locus-anchored gate (E194) and the file+category gate (E195) the §4 #23 locus
+  # covered ZERO live leak (the L1/L2 probes no longer fire there), so per the
+  # closed-list discipline a row that tolerates no live leak is removed, not kept.
+  # VERIFIED (WSL, both helpers --mode advisory): no finding/grandfathered hit at
+  # the §4 #23 block.
 
   # ----------------------------------------------------------------------
-  # L0 telemetry-band live-leak freeze (convergence scan round 2, 2026-05-30).
+  # L0 telemetry-band residue (convergence scan round 2, 2026-05-30; partially
+  # discharged 2026-05-31 by residual-cleanup C3a).
   #
-  # Added to make the closed list COMPLETE relative to the by-fact-id leak set.
-  # The list had frozen the heaviest L0 leaks but left four telemetry-band loci
-  # that the locus-anchored gate (gate/lib/check_layer_purity.py, E194) reports
-  # as LIVE, non-grandfathered findings unlisted: every one of these rows covers
-  # a leak the gate detects TODAY, so each earns its place under the closed-list
-  # discipline (a row must tolerate a live leak; rows over zero live leak are not
-  # added). They share the 2026-06-30 v1.0-boundary sunset of the L0 band.
+  # Originally four telemetry-band loci were frozen here. The 2026-05-31 C3a wave
+  # genuinely DISCHARGED two of them by migration — LPV-l0-metric-span-attr-
+  # namespaces (§4 #5 `gen_ai.*`/`langfuse.*` → §4 #56 + telemetry policy) and
+  # LPV-l0-run-trace-id-notnull (§4 #54 Flyway filename + accessor enumeration →
+  # facts + Flyway + telemetry-vertical L2) — leaving the two whose residue is a
+  # DEFENSIBLE delegation pointer NAMING the migrated `traceparent` mechanism:
+  # LPV-l0-run-context-accessor-residual (§4 #22) and LPV-l0-traceparent-edge-
+  # residual (§4 #55). Each remaining row covers a leak the gate detects TODAY (a
+  # row over zero live leak is not kept). They share the 2026-06-30 v1.0-boundary
+  # sunset of the L0 band.
   #
   # Scope note. The §4 #25 envelope shape, #56 GENERATION span schema, #57 span
   # tenant attribute, #58 no-PII invariant, and #59 MCP replay-tool inventory
@@ -419,47 +481,54 @@ violations:
   # docs/telemetry/policy.md + the telemetry-vertical L2 sink + the generated
   # facts); the gate's regex no longer fires on them, so under the closed-list
   # discipline they are NOT grandfathered here (a row over zero live leak would
-  # be dead weight the gate's unused-row housekeeping flags for removal). #23 is
-  # covered by LPV-l0-suspension-write-atomicity above.
+  # be dead weight the gate's unused-row housekeeping flags for removal). #23 was
+  # covered by LPV-l0-suspension-write-atomicity (now removed 2026-05-31 — see the
+  # C3a removal note above; §4 #23 carries no live leak).
   # ----------------------------------------------------------------------
 
-  - id: LPV-l0-metric-span-attr-namespaces
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #5 : 392-395"
-    category: L6-wire-format
-    trigger: "Span attribute naming follows gen_ai.* (OTel semconv) and langfuse.* (platform-specific) per §4 #56 and docs/telemetry/policy.md §4 - the concrete telemetry attribute-namespace convention inlined into the metric-naming constraint."
-    migrate_to: "architecture/docs/L2/telemetry-vertical/ + docs/telemetry/policy.md"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2 (telemetry band)"
-    defensible_part: "The 'platform meters use a single reserved prefix' structural invariant stays at L0; the gen_ai.* / langfuse.* span-attribute namespaces are a wire-format convention owned by the telemetry-vertical L2 sink + the telemetry-policy SSOT. The L6 probe fires on the literal gen_ai.* / langfuse.* tokens; the metric-prefix reservation is the durable L0 commitment."
+  # LPV-l0-metric-span-attr-namespaces was DISCHARGED + removed 2026-05-31
+  # (residual-cleanup C3a — genuine migration). The §4 #5 inline span-attribute
+  # namespaces (`gen_ai.*` / `langfuse.*`) were drained out of the metric-naming
+  # constraint: §4 #5 now keeps the durable `springai_ascend_` metric-prefix
+  # reservation invariant and delegates the concrete span-attribute namespace
+  # convention to §4 #56 (its real owner, which already delegates to
+  # docs/telemetry/policy.md §4 + the telemetry-vertical L2 sink). The L6
+  # `gen_ai.*`/`langfuse.*` probe no longer fires on §4 #5. VERIFIED (WSL, E194 +
+  # E195 --mode advisory): 0 findings at the §4 #5 block.
 
   - id: LPV-l0-run-context-accessor-residual
     layer: L0
     file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #22 : 584-614"
+    locus: "§4 #22 : 582-612"
     categories: [L4-http-status-route-verb, L6-wire-format]
     trigger: "OTel traceparent propagation across suspend ... the concrete accessor inventory and its return types - the session / trace correlation accessors on the run context and the TraceContext it exposes - are the public_methods[] entries of the generated SPI-shape facts code-symbol/...runcontext and code-symbol/...tracecontext, not enumerated here (a delegation pointer that NAMES the migrated accessor mechanism + the traceparent propagation to say they are delegated)."
     migrate_to: "architecture/facts/generated/code-symbols.json + architecture/docs/L2/telemetry-vertical/"
     sunset_date: 2026-06-30
     scan_ref: "§1.2 (telemetry band)"
-    defensible_part: "The §4 #22 accessor inventory was drained in-place: the constraint states only the structural invariant (the run context is the single in-kernel carrier of tenant/session/trace correlation, isolated from the HTTP edge) and delegates the typed accessor shapes to the runcontext / tracecontext SPI-shape facts' public_methods[]. The residual the regex matches is the named `traceparent` propagation in that delegation prose, regex-indistinguishable from a live header-behaviour leak (E194 reads it L4 header-parse/emit; E195's wire family reads the same named-header token as L6 wire-format, so the row carries both categories). Locus re-anchored 575-602 -> 587-617 to track the LIVE §4 #22 block (the SPI-shape drain shifted the constraint and its traceparent residue down to line 609); the structural carrier commitment stays, the accessor inventory is already fact-owned."
+    defensible_part: "The §4 #22 accessor inventory was drained in-place: the constraint states only the structural invariant (the run context is the single in-kernel carrier of tenant/session/trace correlation, isolated from the HTTP edge) and delegates the typed accessor shapes to the runcontext / tracecontext SPI-shape facts' public_methods[]. The residual the regex matches is the named `traceparent` propagation in that delegation prose, regex-indistinguishable from a live header-behaviour leak (E194 reads it L4 header-parse/emit; E195's wire family reads the same named-header token as L6 wire-format, so the row carries both categories). Locus re-anchored 584-614 -> 582-612 to track the LIVE §4 #22 block after the 2026-05-31 C3a §4 #19 drain shifted the constraint up by two lines (the traceparent residue is now at line 604); the structural carrier commitment stays, the accessor inventory is already fact-owned."
 
-  - id: LPV-l0-run-trace-id-notnull
-    layer: L0
-    file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #54 : 1036"
-    categories: [L3-sql-rls-persistence, L7-method-signature]
-    trigger: "Every persisted Run row MUST carry a non-null trace_id (32-char lowercase W3C hex; the column is nullable at L1.x and NOT NULL from W2 via V2__run_trace_id_notnull.sql) ... RunContext MUST expose traceId(), spanId(), sessionId(), and traceContext() alongside tenantId() ... root span attribute parent_trace_id."
-    migrate_to: "architecture/facts/generated/code-symbols.json + Flyway migrations + architecture/docs/L2/telemetry-vertical/"
-    sunset_date: 2026-06-30
-    scan_ref: "§1.2 (telemetry band)"
-    defensible_part: "The 'every Run is correlatable to exactly one Trace and N:M to Sessions' identity invariant stays at L0; the named Flyway migration (V2__run_trace_id_notnull.sql), the column nullability transition, and the enumerated RunContext accessor list (traceId/spanId/sessionId/traceContext) are persistence + SPI-signature detail. The L3 probe fires on the V__*.sql migration-file name; the accessor list is fact-owned on the runcontext SPI-shape fact."
+  # LPV-l0-run-trace-id-notnull was DISCHARGED + removed 2026-05-31
+  # (residual-cleanup C3a — genuine migration). The §4 #54 inline Flyway
+  # migration-file name (`V2__run_trace_id_notnull.sql`), the trace_id column
+  # nullability transition, and the enumerated `RunContext` accessor list
+  # (`traceId()`/`spanId()`/`sessionId()`/`traceContext()`) were drained out of the
+  # L0 prose: §4 #54 now states only the structural N:M Trace↔Run↔Session
+  # correlation-identity invariant and delegates the persisted-column shape + the
+  # NOT-NULL Flyway migration to the Flyway migrations + the
+  # `../L2/telemetry-vertical/` sink, and the correlation accessors to the
+  # `public_methods[]` of `code-symbol/com-huawei-ascend-bus-spi-engine-runcontext`.
+  # (The drained accessor enumeration had also drifted from the shipped fact — the
+  # runcontext fact's public_methods carry `sessionId()`/`tenantId()`/
+  # `traceContext()` but not a separate `traceId()`/`spanId()` — so delegating to
+  # the fact, rather than re-asserting the names, removes a stale-inventory defect;
+  # the migration does not transcribe the accessor names.) The L3 V__*.sql probe no
+  # longer fires on §4 #54. VERIFIED (WSL, E194 + E195 --mode advisory): 0 findings
+  # at the §4 #54 block.
 
   - id: LPV-l0-traceparent-edge-residual
     layer: L0
     file: architecture/docs/L0/ARCHITECTURE.md
-    locus: "§4 #55 : 1038"
+    locus: "§4 #55 : 1036"
     category: L4-http-status-route-verb
     trigger: "MUST extract or originate the W3C traceparent trace-context header on every inbound request ... The concrete propagation mechanics - the filter-chain position relative to the JWT/Tenant/Idempotency filters, the outbound trace-correlation response header and its wire grammar, the response-status scope, the Logback MDC slice, and the invalid-header metric - are runtime/wire detail owned by docs/telemetry/policy.md §6 and the L2 sink ../L2/telemetry-vertical/process.md (a delegation pointer that NAMES the traceparent header to say its mechanics are delegated)."
     migrate_to: "architecture/docs/L2/telemetry-vertical/ + architecture/docs/L2/run-http-contract/development.md + docs/telemetry/policy.md"
