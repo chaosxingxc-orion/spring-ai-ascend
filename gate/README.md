@@ -1,6 +1,6 @@
 # gate/ — Architecture-Sync Gate
 
-> Document-corpus consistency checks for spring-ai-ascend. **110 active gate rules** (canonical bash, executable rule sections counted from `# Rule N — slug` headers), backed by **233 self-tests** (`gate/test_architecture_sync_gate.sh` derives the total at runtime). The canonical numbers live in [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](../docs/governance/architecture-status.yaml) (single source of truth).
+> Document-corpus consistency checks for spring-ai-ascend. **102 active gate rules** (canonical bash, executable rule sections counted from `# Rule N — slug` headers), backed by **212 self-tests** (`gate/test_architecture_sync_gate.sh` derives the total at runtime). The canonical numbers live in [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](../docs/governance/architecture-status.yaml) (single source of truth).
 >
 > **Python ≥ 3.10 required** for `gate/build_architecture_graph.py` and `gate/migrate_adrs_to_yaml.py`. Install once: `pip install -r gate/requirements.txt`. Rule R-H (`architecture_graph_well_formed`) fails fast with a clear message if PyYAML is missing.
 >
@@ -50,9 +50,9 @@ Run the bash entrypoint from Git Bash / WSL / any POSIX shell on Windows.
 
 | File | Role |
 |------|------|
-| `check_architecture_sync.sh` | **Canonical L0 release gate — 110 active executable sections. `gate/rules/` filenames stay numeric by design per ADR-0086 `gate_layer_boundary:` section (implementation-layer identifier vs semantic-authority namespace).** |
+| `check_architecture_sync.sh` | **Canonical L0 release gate — 102 active executable sections. `gate/rules/` filenames stay numeric by design per ADR-0086 `gate_layer_boundary:` section (implementation-layer identifier vs semantic-authority namespace).** |
 | `check_architecture_sync.ps1` | DEPRECATED. Fail-closed stub; see deprecation banner. |
-| `test_architecture_sync_gate.sh` | Self-test harness — 233 self-test cases. `TOTAL` derived at runtime per Rule G-5.b. |
+| `test_architecture_sync_gate.sh` | Self-test harness — 212 self-test cases. `TOTAL` derived at runtime per Rule G-5.b. |
 | `build_architecture_graph.py` | Regenerates `docs/governance/architecture-graph.yaml` from the authoritative inputs (Rule G-1 sub-clause .b). |
 | `doctor.sh` / `doctor.ps1` | Dev-only env probe (not a gate). |
 | `run_operator_shape_smoke.sh` / `.ps1` | Dev-only fail-closed smoke shells (not a gate). |

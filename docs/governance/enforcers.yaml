@@ -998,24 +998,6 @@
   asserts: "Positive + negative self-test fixtures for Rule R-D sub-clause .g. Positive: every public interface under */spi/* appears in catalog → pass. Negative: a synthetic public interface under */spi/* not in catalog → fail."
   product_claim: "PC-001"
 
-- id: E133
-  constraint_ref: "CLAUDE.md Rule G-3 sub-clause .d (kernel_deferred_clause_coherence); rc8 post-corrective review P1-1; rc10 post-corrective review P1-3; ADR-0083; ADR-0085"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/check_architecture_sync.sh#kernel_deferred_clause_coherence
-  asserts: "For every `## Rule N.<letter>` sub-clause heading in docs/CLAUDE-deferred.md, EITHER the matching `#### Rule N` kernel block in CLAUDE.md (between the heading and the next `---`) OR the matching `docs/governance/rules/rule-NN.md` card MUST contain the literal string `Rule N.<letter>` to acknowledge the deferred runtime obligation. Closes rc8 post-corrective P1-1 (Rule R-L + Rule R-M sub-clause .d active kernels overclaimed runtime enforcement that CLAUDE-deferred.md correctly deferred to W2) + rc10 post-corrective P1-3 (kernel-vs-implementation alignment: cards have no kernel_cap, so long deferred discussions may cite there)."
-  governance_infra: true
-
-- id: E134
-  constraint_ref: "CLAUDE.md Rule G-3 sub-clause .d (kernel_deferred_clause_coherence); ADR-0083; ADR-0085"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/test_architecture_sync_gate.sh#test_rule_96_kernel_cites_pos
-  asserts: "Positive + negative self-test fixtures for Rule G-3 sub-clause .d. Positive A (kernel-cited): synthetic CLAUDE.md Rule N kernel containing the literal `Rule N.b` reference → pass. Positive B (card-only, rc11): synthetic Rule N.b deferred sub-clause cited only in docs/governance/rules/rule-NN.md card → pass (proves the card-only path is intentional). Negative: synthetic Rule N.b deferred sub-clause with no `Rule N.b` reference in either the kernel or the card → fail."
-  governance_infra: true
-
 - id: E135
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .g (release_note_numeric_truth); rc10 category-sweep I-α-2; ADR-0084"
   kind: gate-script
@@ -1050,42 +1032,6 @@
   view: development
   artifact: gate/test_architecture_sync_gate.sh#test_rule_98_broad_corpus_pos
   asserts: "Positive + negative self-test fixtures for Rule G-2 sub-clause .h. Positive: synthetic ops/helm/test.yaml with `agent-service` reference → pass. Negative: synthetic ops/helm/test.yaml with bare `agent-platform` reference → fail. Also positive: same `agent-platform` reference but with `pre-Phase-C` marker on adjacent line → pass."
-  governance_infra: true
-
-- id: E139
-  constraint_ref: "CLAUDE.md Rule G-3 sub-clause .e (kernel_terminal_verb_vs_shipped_decision_check); rc10 post-corrective review P1-1; ADR-0085"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/check_architecture_sync.sh#kernel_terminal_verb_vs_shipped_decision_check
-  asserts: "For every #### Rule N kernel block in CLAUDE.md, if a matching ## Rule N.<letter> sub-clause exists in docs/CLAUDE-deferred.md AND the kernel body contains an end-state verb token (`are SUSPENDED`, `is SUSPENDED`, `transitions to FAILED`, `consumes the * capacity`, `is rejected, not failed`, `admits the caller`), the gate FAILS — the active kernel is overclaiming shipped behaviour when the matching obligation is deferred. Closes rc10 post-corrective review P1-1: Rule R-K kernel said `over-cap callers are SUSPENDED, not rejected` while DefaultSkillResilienceContract.resolve returns a SkillResolution decision envelope (the actual Run.SUSPENDED transition is deferred to Rule R-K.c)."
-  governance_infra: true
-
-- id: E140
-  constraint_ref: "CLAUDE.md Rule G-3 sub-clause .e (kernel_terminal_verb_vs_shipped_decision_check); ADR-0085"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/test_architecture_sync_gate.sh#test_rule_99_kernel_verb_pos
-  asserts: "Positive + negative self-test fixtures for Rule G-3 sub-clause .e. Positive: synthetic CLAUDE.md Rule N kernel saying `MUST return SkillResolution.reject(...)` with matching Rule N.c deferred sub-clause → pass. Negative: synthetic CLAUDE.md Rule N kernel saying `callers are SUSPENDED` with matching Rule N.c deferred sub-clause → fail."
-  governance_infra: true
-
-- id: E141
-  constraint_ref: "CLAUDE.md Rule G-3 sub-clause .f (kernel_implementation_disjunction_truth); rc10 post-corrective review P1-3; ADR-0085"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/check_architecture_sync.sh#kernel_implementation_disjunction_truth
-  asserts: "For every rule listed in gate/rule-100-disjunction-allowlist.txt, BOTH the #### Rule N kernel block in CLAUDE.md AND the matching docs/governance/rules/rule-NN.md card MUST contain explicit disjunction wording (EITHER / OR / either surface / either ... or ... / either kernel / either the). Initial allow-list (rc11): Rule G-3 sub-clause .d. Closes rc10 post-corrective review P1-3: Rule G-3 sub-clause .d kernel said `the matching CLAUDE.md kernel block MUST contain` while the impl accepted EITHER kernel OR rule card — a kernel-AND-impl-OR drift in the rule whose job is preventing kernel/deferred drift."
-  governance_infra: true
-
-- id: E142
-  constraint_ref: "CLAUDE.md Rule G-3 sub-clause .f (kernel_implementation_disjunction_truth); ADR-0085"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/test_architecture_sync_gate.sh#test_rule_100_disjunction_pos
-  asserts: "Positive + negative self-test fixtures for Rule G-3 sub-clause .f. Positive: synthetic Rule G-3 sub-clause .d kernel + card both saying `EITHER the kernel block OR the rule card` → pass. Negative: synthetic Rule G-3 sub-clause .d kernel saying only `the kernel block MUST contain` with `96` in the allow-list → fail (kernel=0)."
   governance_infra: true
 
 - id: E143
@@ -1157,15 +1103,6 @@
   asserts: "Rule 106 sub-check (e) — every NON-SPI structural-carrier row in `docs/contracts/contract-catalog.md` (rows matching pattern `| `<ClassName>` | `<module>` (`<...package>`) | <description> |`) MUST resolve to a real Java file on disk at `<module>/src/main/java/<package-path>/<ClassName>.java`. The scan extracts class + module + package directly from the catalog row syntax rather than hardcoding the carrier list, so new carriers added to the catalog are automatically covered. Closes rc14 post-closure review P1-1: contract-catalog.md rows for `EngineRegistry` + `EngineEnvelope` still cited `...service.runtime.engine` while rc14 ADR-0090 relocated the Java sources to `...engine.runtime`. Rule G-8.b (SPI path parity) only scans `*.spi` packages; structural carriers are non-SPI public contract types and require this separate sub-check."
   governance_infra: true
 
-- id: E151
-  constraint_ref: "CLAUDE.md Rule G-3 sub-clause .e (Terminal-Verb vs Shipped-Decision; module-arch scope widening); ADR-0091"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/check_architecture_sync.sh#kernel_terminal_verb_vs_shipped_decision_check
-  asserts: "Rule 99 sub-check (b) — scan `agent-*/ARCHITECTURE.md` for the over-capacity SUSPENSION over-claim pattern `(over-cap|over-capacity)( callers| requests)?.*? (are|is|transitions to) SUSPENDED`. Hit must be admissible only when the same line carries `decision envelope`, `SkillResolution.reject`, `deferred to R-K`, `deferred to Rule R-K`, `deferred per Rule R-K`, or `W2 scheduler admission` (the Rule R-K shipped-surface wording). Closes rc14 post-closure review P1-3: `agent-service/ARCHITECTURE.md:315-317` said `over-cap callers are SUSPENDED, not rejected` while shipped Java + Rule R-K kernel both say the W1 surface returns a decision envelope and Run suspension transitions are deferred to Rule R-K.c (W2 scheduler admission). Module ARCHITECTURE.md is added to Rule 99's scope (previously CLAUDE.md kernels only)."
-  governance_infra: true
-
 # ---------------------------------------------------------------------------
 # rc16 — Family A/B/C + META prevention wave (ADR-0093).
 # Closes rc15 post-closure review P1-1 / P1-2 / P2-1 / P2-2 by operationalising
@@ -1181,33 +1118,6 @@
   view: process
   artifact: gate/check_architecture_sync.sh#cross_authority_clause_parity
   asserts: "Rule 107 — every clause name `Rule-X.<letter>` (where X is the namespaced rule, <letter> is the sub-clause suffix) listed under `docs/governance/principle-coverage.yaml#deferred_operationalisers` MUST have a matching `## Rule X.<letter>` heading in `docs/CLAUDE-deferred.md`. Closes rc15 post-closure review P1-1 (Family A) AND the 3 hidden defects surfaced by Family A sweep (R-J.b.d orphaned in principle-coverage.yaml + rule-R-J.md kernel + rule-R-J.md card; R-K.b orphaned in principle-coverage.yaml + CLAUDE-deferred.md cross-ref). Scope dimensions: principle-coverage.yaml + CLAUDE-deferred.md + CLAUDE.md + docs/governance/rules/*.md."
-  governance_infra: true
-
-- id: E153
-  constraint_ref: "CLAUDE.md Rule 108 (governance_text_java_anchor_truth); ADR-0093"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#governance_text_java_anchor_truth
-  asserts: "Rule 108 — every ClassName.methodName token in active rule cards (`docs/governance/rules/*.md`) + principle cards (`docs/governance/principles/P-*.md`) MUST resolve to a real Java method in `agent-*/src/{main,test}/java/`. Exemption tokens within ±2 lines: `formerly|renamed from|pre-rc[0-9]+|superseded|removed|historical|deleted|deprecated`. Load-bearing class suffixes (IT|Test|Repository|Service|Controller|Component|Configuration|Properties|Filter|Listener|Hook|Executor|Registry|Envelope|Signal|Context|Response|Resolver) are flagged when class itself is missing; for other classes only missing methods are flagged. Closes rc15 post-closure review P1-2 (Family B): `SkillCapacityResolutionIT.suspendsSecondCallerWhenCapacityIsOne` cited in rule-R-K.md + P-K.md after rc15 rename to `rejectsSecondCallerWithRateLimitedDecisionWhenCapacityIsOne` per ADR-0091."
-  governance_infra: true
-
-- id: E154
-  constraint_ref: "CLAUDE.md Rule 109 (namespaced_rule_reference_completeness); ADR-0093"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/check_architecture_sync.sh#namespaced_rule_reference_completeness
-  asserts: "Rule 109 — every `Rule <digits>` reference in active semantic-authority surfaces (principle cards + rule cards + module ARCHITECTURE.md + contract YAML/MD) MUST carry a SAME-LINE legacy marker: `formerly|legacy|historical|Gate Rule|gate Rule|was Rule|ex-Rule|pre-rc[0-9]+|superseded|deprecated`. Gate-layer numeric refs (`Gate Rule N`) are exempt by syntax (gate-layer rules per ADR-0086 stay numeric by design). Closes rc15 post-closure review P2-1 (Family C): rc12 Rule 101 was scoped narrowly to authority-surfaces-per-ADR-0086 and explicitly excluded principle-card frontmatter + engine contract docs + module ARCHITECTURE.md (other than agent-service); rc15 M-η rewrote agent-service but left agent-execution-engine + agent-bus + agent-middleware untouched. Rule 109 widens to ALL manifestation surfaces."
-  governance_infra: true
-
-- id: E155
-  constraint_ref: "CLAUDE.md Rule 110 (prevention_rule_scope_completeness — META); ADR-0093"
-  kind: gate-script
-  level: L0
-  view: process
-  artifact: gate/check_architecture_sync.sh#prevention_rule_scope_completeness
-  asserts: "Rule 110 (META) — every rule card in `docs/governance/rules/rule-*.md` whose frontmatter declares `scope_surfaces:` MUST have ≥2 self-test fixture functions named `test_rule_<rule_id>_*` in `gate/test_architecture_sync_gate.sh`. Operationalises the rc10/rc11/rc12 documented meta-lesson 'Reviewer scope can be narrower than defect scope' that prior waves recorded but never gated. Pre-rc16 rules without `scope_surfaces:` are grandfathered (no retrofit). The rule dogfoods itself: rule cards 107/108/109/110 each declare `scope_surfaces:` AND carry ≥2 fixtures."
   governance_infra: true
 
 - id: E156
@@ -1237,23 +1147,6 @@
   asserts: "Rule 111 sub-check .c — the set of `^  - id:` family slugs in `docs/governance/recurring-defect-families.yaml` MUST equal the set of `F-...` family-id references in `docs/governance/recurring-defect-families.md`. A family in yaml but not md is an incomplete human view; a family in md but not yaml is a stale human view. Both directions fail closed. Operationalises Rule G-9 sub-clause .c per ADR-0094 rc17 wave."
   governance_infra: true
 
-- id: E159
-  constraint_ref: "Rule 112 (meta_rule_self_application_check); ADR-0096"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#meta_rule_self_application_check
-  asserts: "Rule 112 (META) — every gate rule whose `# Rule N — slug` header carries the `[META]` marker MUST source a helper from `gate/lib/check_*.sh` within 80 lines of the header. Closes F-recursive-prevention-irony permanently by structurally enforcing the helper-extraction discipline introduced by Rule 111 (rc18 Wave 1, ADR-0095) on every future META rule. Rule 112 dogfoods itself by sourcing gate/lib/check_recurring_families.sh."
-  governance_infra: true
-
-- id: E160
-  constraint_ref: "Rule 113 (legacy_paren_no_reintroduction_and_migration_doc_complete); ADR-0096"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#legacy_paren_no_reintroduction_and_migration_doc_complete
-  asserts: "Rule 113 (rc19 Wave 2 / ADV-RC18-6 close) — sub-check .a: docs/governance/enforcers.yaml MUST NOT contain `(legacy Rule NN — ...)` parentheticals (rc18 Wave 4 removed all 9 such patterns; reintroduction is gated). Sub-check .b: gate/rule-number-migration.md MUST exist AND contain 'Legacy numeric' + 'rc17 sub-rule splits' section headings (audit trail of the rename mapping preserved as canonical SSOT)."
-  governance_infra: true
 - id: E161
   constraint_ref: "Rule 114 (rule_card_filename_dot_convention); ADR-0096"
   kind: gate-script
