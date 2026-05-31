@@ -26,7 +26,7 @@ fpCreateRun = element "Create Run" "FunctionPoint" "POST /v1/runs — admit a ne
         "saa.view" "scenarios"
         "saa.status" "shipped"
         "saa.owner" "agent-service"
-        "saa.sourceAdr" "ADR-0020"
+        "saa.sourceAdr" "ADR-0040"
         "saa.requirement" "REQ-001"
         "saa.channel" "http"
         "saa.actor" "tenant-developer"
@@ -64,7 +64,7 @@ fpGetRunStatus = element "Get Run Status" "FunctionPoint" "GET /v1/runs/(runId) 
         "saa.view" "scenarios"
         "saa.status" "shipped"
         "saa.owner" "agent-service"
-        "saa.sourceAdr" "ADR-0020"
+        "saa.sourceAdr" "ADR-0040"
         "saa.requirement" "REQ-001"
         "saa.channel" "http"
         "saa.actor" "tenant-developer"
@@ -208,11 +208,15 @@ fpTenantCrossCheck = element "Tenant Cross Check" "FunctionPoint" "JWT.tenant cl
         "saa.view" "scenarios"
         "saa.status" "shipped"
         "saa.owner" "agent-service"
-        "saa.sourceAdr" "ADR-0056"
+        "saa.sourceAdr" "ADR-0040"
         "saa.requirement" "REQ-006"
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/tenant/JwtTenantClaimCrossCheck.java#doFilterInternal"
+        "saa.fact_refs" "code-symbol/com-huawei-ascend-service-platform-tenant-jwttenantclaimcrosscheck"
+        "saa.test_refs" "com.huawei.ascend.service.platform.tenant.JwtTenantClaimCrossCheckTest|com.huawei.ascend.service.platform.tenant.TenantContextFilterIT"
+        "saa.no_contract_rationale" "Internal admission filter: JwtTenantClaimCrossCheck.doFilterInternal cross-checks the validated JWT tenant_id claim against the X-Tenant-Id header before the request reaches the handler (rejects mismatch / missing-claim with 403); it is a boot-installed OncePerRequestFilter with no external wire operation to name."
     }
 }
 
@@ -229,6 +233,10 @@ fpPostureBootGuard = element "Posture Boot Guard" "FunctionPoint" "PostureBootGu
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
+        "saa.code_entrypoint_refs" "agent-service/src/main/java/com/huawei/ascend/service/platform/posture/PostureBootGuard.java#onApplicationEvent"
+        "saa.fact_refs" "code-symbol/com-huawei-ascend-service-platform-posture-posturebootguard"
+        "saa.test_refs" "com.huawei.ascend.service.platform.posture.PostureBootGuardIT|com.huawei.ascend.service.platform.posture.PostureBindingIT"
+        "saa.no_contract_rationale" "Boot-time fail-closed guard: PostureBootGuard.onApplicationEvent runs the @RequiredConfig matrix on ApplicationReadyEvent and aborts startup under research/prod when required config is absent; it is a boot lifecycle listener, not a request surface, so there is no external wire operation to name."
     }
 }
 

@@ -2908,8 +2908,8 @@ families:
   - id: F-ratchet-promotion-without-dated-baseline
     title: An Advisory Gate Promoted to Changed-Files-Blocking on a Corpus Carrying Historical Findings Hard-Blocks the Whole Corpus Without a Dated Baseline Allow-List
     first_observed_rc: progressive-learning-curve-remediation-W22-2026-05-30
-    last_observed_rc: progressive-learning-curve-remediation-C1b-2026-05-31
-    occurrences: [progressive-learning-curve-remediation-W22-2026-05-30, progressive-learning-curve-remediation-C1a-2026-05-31, progressive-learning-curve-remediation-C1b-2026-05-31]
+    last_observed_rc: progressive-learning-curve-remediation-C1c-2026-05-31
+    occurrences: [progressive-learning-curve-remediation-W22-2026-05-30, progressive-learning-curve-remediation-C1a-2026-05-31, progressive-learning-curve-remediation-C1b-2026-05-31, progressive-learning-curve-remediation-C1c-2026-05-31]
     root_cause: |
       A ratchet gate (advisory -> changed-files-blocking -> full-blocking) whose
       changed-files rung RE-SCOPES the whole corpus on any shared-surface change
@@ -3041,3 +3041,48 @@ families:
       to the element's closing brace rather than a fixed char count, with its
       self-tests kept green — recorded here as an open probe-hardening residual,
       not silently relied upon.
+
+      DRAIN PROGRESS (residual-cleanup C1c, 2026-05-31, batch B of 3/3 — all
+      remaining not-yet-discharged FRB rows processed). The evidence-axis drain is
+      COMPLETE: the full evidence axis of FP-POSTURE-BOOT-GUARD and
+      FP-TENANT-CROSS-CHECK was discharged by wiring a saa.code_entrypoint_refs at a
+      real public method (PostureBootGuard.onApplicationEvent — the ApplicationListener
+      contract method; JwtTenantClaimCrossCheck.doFilterInternal — the
+      OncePerRequestFilter contract method, both present in the element's fact's
+      observed_value.public_methods[]) + a saa.fact_refs that resolves in
+      code-symbols.json + real saa.test_refs (PostureBootGuardIT/PostureBindingIT,
+      JwtTenantClaimCrossCheckTest/TenantContextFilterIT — all four present in
+      tests.json) + an explicit saa.no_contract_rationale. THREE decision rows were
+      discharged by re-pointing saa.sourceAdr to ADR-0040 (W1 HTTP-contract
+      reconciliation, active_guidance), the active normalized authority that genuinely
+      governs each: FP-TENANT-CROSS-CHECK ADR-0056 -> ADR-0040 (ADR-0040 active_guidance
+      IS the "tenant identity is cross-checked, never replaced" decision — a JWT tenant
+      claim added alongside X-Tenant-Id, mismatch rejected, naming ARCHITECTURE.md §4
+      #3+#22); FP-CREATE-RUN + FP-GET-RUN-STATUS ADR-0020 -> ADR-0040 (ADR-0040 governs
+      the create/get-run HTTP contract — the DFA-initial RunStatus.PENDING per the
+      ADR-0020 RunLifecycle DFA — and uniquely owns the contract-op/createrun +
+      contract-op/getrun facts). 9 FRB- rows removed (12 -> 3 open); changed-files-
+      blocking exit 0 with the 3 residuals BASELINED, zero NEW or WORSENED. The
+      anti-fabrication discipline (F-llm-fabricated-factual-claim, same
+      function-points.dsl surface) was honoured: a sweep over the active normalized
+      ADR corpus confirmed ADR-0040 is the precise governing decision for each re-point
+      BEFORE the row was removed, and every fact/test ref was verified to resolve.
+      The C1b 1400-char window sub-hazard was pre-empted authoring-side (short
+      evidence refs placed before the long no_contract_rationale; an advisory run
+      confirmed the gate saw every ref and reported 0 spurious findings on both
+      elements). HONEST HOLDS kept + refreshed (the residual 3, none fabricatable now):
+      FP-IDEMPOTENCY-CLAIM (ADR-0027) and FP-POSTURE-BOOT-GUARD (ADR-0058)
+      DECISION-NO-NORMALIZED-VIEW — both Markdown-era ADRs absent from the apex
+      fact-layer corpus (adrs.json starts at ADR-0068) with NO active normalized
+      successor governing the idempotency-claim+replay / posture-boot-guard behavioral
+      invariant (the ADR-0062/0068/0147/0149/0151 keyword hits are incidental — none
+      is the governing decision, so a re-point would fabricate authority); and
+      FP-INGRESS-ENVELOPE EVIDENCE-NO-TEST (IngressGateway is a design-only SPI with no
+      concrete impl/test in tests.json). NET RESIDUAL after C1a/C1b/C1c: the entire
+      evidence axis is drained (0 evidence rows except the genuinely test-less
+      design-only SPI); 2 decision rows wait on a Markdown-era ADR being migrated to a
+      YAML ADR (or an active YAML successor adopted), sunset 2026-07-31; 1 evidence row
+      waits on a concrete ingress impl, sunset 2026-08-31. The terminal full-blocking
+      rung (which ignores the baseline) is reachable for the evidence axis but still
+      blocked by these 3 honest holds — they are the forcing function, not silently
+      relied upon.

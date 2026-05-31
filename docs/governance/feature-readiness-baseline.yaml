@@ -113,6 +113,39 @@
 #     to normalize — cannot author a view without fabricating decision content). No
 #     ref was fabricated — every fact_refs resolves in code-symbols.json and every
 #     test_refs in tests.json; ADR-0142's normalized view is on-disk and citeable.
+#   2026-05-31 — residual-cleanup C1c (feature-readiness wiring batch B, 3/3 — all
+#     remaining not-yet-discharged FRB rows processed). Discharged the full evidence
+#     axis of FP-POSTURE-BOOT-GUARD and FP-TENANT-CROSS-CHECK: each element now
+#     carries saa.code_entrypoint_refs at a real public method
+#     (PostureBootGuard.onApplicationEvent — the ApplicationListener contract method;
+#     JwtTenantClaimCrossCheck.doFilterInternal — the OncePerRequestFilter contract
+#     method), a saa.fact_refs that resolves in code-symbols.json
+#     (code-symbol/...posture-posturebootguard, code-symbol/...tenant-
+#     jwttenantclaimcrosscheck), real saa.test_refs (PostureBootGuardIT/PostureBindingIT;
+#     JwtTenantClaimCrossCheckTest/TenantContextFilterIT — all four present in
+#     tests.json), and an explicit saa.no_contract_rationale (boot lifecycle listener /
+#     internal admission filter — no external wire op). Discharged THREE decision-axis
+#     rows by re-pointing saa.sourceAdr to ADR-0040 (W1 HTTP-contract reconciliation,
+#     active_guidance), the active normalized authority that genuinely governs each:
+#     FP-TENANT-CROSS-CHECK ADR-0056 -> ADR-0040 (ADR-0040 active_guidance IS the
+#     "tenant identity is cross-checked, never replaced" decision — a JWT tenant claim
+#     added alongside X-Tenant-Id, mismatch rejected); FP-CREATE-RUN + FP-GET-RUN-STATUS
+#     ADR-0020 -> ADR-0040 (ADR-0040 governs the create/get-run HTTP contract — the
+#     DFA-initial RunStatus.PENDING per the ADR-0020 RunLifecycle DFA — and owns the
+#     contract-op/createrun + contract-op/getrun facts; the run-create/get-status FP
+#     decision is current authority through ADR-0040, where ADR-0020 is a Markdown-era
+#     id with no normalized view). 9 rows removed (12 -> 3 open); changed-files-blocking
+#     exit 0 with the 3 residuals BASELINED, zero NEW or WORSENED. KEPT (honest holds,
+#     refreshed below): FP-IDEMPOTENCY-CLAIM DECISION-NO-NORMALIZED-VIEW (ADR-0027) and
+#     FP-POSTURE-BOOT-GUARD DECISION-NO-NORMALIZED-VIEW (ADR-0058) — both Markdown-era
+#     ADRs absent from the apex fact-layer corpus with no active normalized successor
+#     that governs the same boot-guard / idempotency-claim+replay behavioral invariant
+#     (the ADR-0062/0147/0151 keyword hits are incidental — none is the governing
+#     decision), so a view cannot be authored and no re-point is honest; and
+#     FP-INGRESS-ENVELOPE EVIDENCE-NO-TEST (IngressGateway is a design-only SPI with no
+#     concrete implementation/test in tests.json). No ref was fabricated — every
+#     fact_refs resolves in code-symbols.json, every test_refs in tests.json, and
+#     ADR-0040's normalized view is on-disk in active_guidance.
 
 schema_version: 1
 authority: ADR-0159
@@ -129,21 +162,24 @@ findings:
   # Closes when the fact-extractor lands the entrypoint + test + (if any)
   # contract-op facts and the refs are added to the element. Sunset 2026-08-31.
   # -------------------------------------------------------------------------
-  # FunctionPoints FP-CHILD-RUN-SPAWN, FP-ENGINE-DISPATCH, FP-GRAPH-MEMORY-STORE,
-  # and FP-HOOK-DISPATCH discharged their full evidence axis (contract/fact/test)
-  # on 2026-05-31 (progressive-learning-curve-remediation residual-cleanup C1a):
-  # each element now carries a resolvable saa.code_entrypoint_refs + saa.fact_refs
-  # (the EngineRegistry.resolve / HookDispatcher.fire / GraphMemoryRepository.query
-  # / InMemoryRunRegistry.findByParentRunId code-symbol facts), real saa.test_refs
-  # (EngineRegistryResolveTest, HookDispatcherFireOrderTest, GraphMemoryAuto-
-  # ConfigurationTest, NestedDualModeIT, etc.), and an explicit
-  # saa.no_contract_rationale naming the governing internal contract surface
-  # (engine-envelope / engine-hooks / memory-store .v1.yaml). FP-IDEMPOTENCY-CLAIM
-  # discharged its EVIDENCE-NO-CONTRACT row the same way (no_contract_rationale);
-  # its remaining no-fact / no-test / no-normalized-view rows stay below. The
-  # twelve evidence rows for the four FunctionPoints + the idempotency contract row
-  # were removed because their obligation is genuinely discharged (readiness gate
-  # no longer reports those (fp_id, axis, code) findings).
+  # The evidence axis of every internal-channel shipped FunctionPoint was drained
+  # across residual-cleanup C1a/C1b/C1c (2026-05-31): FP-CHILD-RUN-SPAWN,
+  # FP-ENGINE-DISPATCH, FP-GRAPH-MEMORY-STORE, FP-HOOK-DISPATCH (C1a);
+  # FP-S2C-CALLBACK, FP-RUN-STATE-TRANSITION, FP-SUSPEND-RESUME, FP-IDEMPOTENCY-CLAIM,
+  # FP-INGRESS-ENVELOPE (C1b); FP-POSTURE-BOOT-GUARD, FP-TENANT-CROSS-CHECK (C1c).
+  # Each element carries a resolvable saa.code_entrypoint_refs at a real public method
+  # + a saa.fact_refs that resolves in code-symbols.json + real saa.test_refs (FQNs
+  # present in tests.json) + an explicit saa.no_contract_rationale naming the
+  # governing internal contract surface (or the boot/admission rationale). Three
+  # decision rows were also discharged by re-pointing saa.sourceAdr to the active
+  # normalized ADR that genuinely governs the invariant: FP-RUN-STATE-TRANSITION
+  # ADR-0118 -> ADR-0142 (C1b); FP-TENANT-CROSS-CHECK ADR-0056 -> ADR-0040,
+  # FP-CREATE-RUN + FP-GET-RUN-STATUS ADR-0020 -> ADR-0040 (C1c). Every such row was
+  # removed only because the readiness gate no longer reports its (fp_id, axis, code)
+  # finding. The THREE rows below are honest holds: two decision rows whose
+  # Markdown-era ADR (ADR-0027 / ADR-0058) has no normalized view and no active
+  # successor governing its behavioral invariant, and one evidence row on a
+  # design-only SPI (FP-INGRESS-ENVELOPE) with no concrete implementation/test.
   - id: FRB-idempotency-claim-no-normalized-view
     fp_id: FP-IDEMPOTENCY-CLAIM
     axis: decision
@@ -154,10 +190,15 @@ findings:
       is NOT in the apex fact-layer corpus (architecture/facts/generated/adrs.json
       carries only the YAML ADRs from ADR-0068 onward; there is no raw
       docs/adr/0027-*.yaml to normalize), so a normalized view cannot be authored
-      without fabricating decision content. KEEP until either ADR-0027 is migrated
-      to a raw YAML ADR (then author its normalized view) or saa.sourceAdr is
-      re-pointed to the active YAML ADR that currently governs the idempotency
-      claim+replay invariant. Honest hold, not a wiring gap.
+      without fabricating decision content. C1c checked for an active normalized ADR
+      that genuinely governs the idempotency claim+replay invariant and found none
+      (the ADR-0068 / 0147 / 0149 keyword hits on "idempot" are incidental — none is
+      the governing claim+replay decision), so no honest re-point exists. The
+      evidence axis is fully discharged (C1b wired entry/fact/test refs + a
+      no_contract_rationale); only the decision-axis normalized view remains. KEEP
+      until either ADR-0027 is migrated to a raw YAML ADR (then author its normalized
+      view) or an active YAML ADR governing the idempotency claim+replay invariant is
+      adopted. Honest hold, not a wiring gap.
     sunset_date: 2026-08-31
 
   - id: FRB-ingress-envelope-no-test
@@ -176,93 +217,37 @@ findings:
       for a surface that has no production implementation would be dishonest.
     sunset_date: 2026-08-31
 
-  - id: FRB-posture-boot-guard-no-contract
-    fp_id: FP-POSTURE-BOOT-GUARD
-    axis: evidence
-    code: EVIDENCE-NO-CONTRACT
-    note: |
-      PostureBootGuard validates @RequiredConfig at startup; no external wire
-      contract. Discharge by recording an explicit no-contract rationale (this is
-      a boot-time guard, not a request surface).
-    sunset_date: 2026-08-31
-  - id: FRB-posture-boot-guard-no-fact
-    fp_id: FP-POSTURE-BOOT-GUARD
-    axis: evidence
-    code: EVIDENCE-NO-FACT
-    note: |
-      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
-      PostureBootGuard entry symbol once extracted.
-    sunset_date: 2026-08-31
-  - id: FRB-posture-boot-guard-no-test
-    fp_id: FP-POSTURE-BOOT-GUARD
-    axis: evidence
-    code: EVIDENCE-NO-TEST
-    note: |
-      Element declares no saa.test_refs. Cite the AppPostureGate / boot-guard
-      test once its test fact resolves.
-    sunset_date: 2026-08-31
+  # FP-POSTURE-BOOT-GUARD and FP-TENANT-CROSS-CHECK discharged their full evidence
+  # axis (contract/fact/test) on 2026-05-31 (residual-cleanup C1c): each element now
+  # carries saa.code_entrypoint_refs at a real public method
+  # (PostureBootGuard.onApplicationEvent / JwtTenantClaimCrossCheck.doFilterInternal),
+  # a resolving saa.fact_refs (code-symbol/...posture-posturebootguard,
+  # code-symbol/...tenant-jwttenantclaimcrosscheck), real saa.test_refs
+  # (PostureBootGuardIT/PostureBindingIT, JwtTenantClaimCrossCheckTest/TenantContextFilterIT),
+  # and an explicit saa.no_contract_rationale. FP-TENANT-CROSS-CHECK also discharged
+  # its decision axis by re-pointing saa.sourceAdr ADR-0056 -> ADR-0040 (W1
+  # HTTP-contract reconciliation, active_guidance — the active normalized authority
+  # whose active_guidance IS the "tenant identity is cross-checked, never replaced"
+  # decision). The six tenant/posture evidence rows + the tenant decision row were
+  # removed because their obligation is genuinely discharged. FP-POSTURE-BOOT-GUARD's
+  # decision row stays below (ADR-0058 is a Markdown-era ADR with no normalized view
+  # and no active successor governing the boot-guard invariant — an honest hold).
   - id: FRB-posture-boot-guard-no-normalized-view
     fp_id: FP-POSTURE-BOOT-GUARD
     axis: decision
     code: DECISION-NO-NORMALIZED-VIEW
     note: |
       saa.sourceAdr ADR-0058 has no normalized view at
-      docs/adr/normalized/ADR-0058.yaml. Discharge by authoring the normalized
-      view in a citeable state.
-    sunset_date: 2026-07-31
-
-  - id: FRB-tenant-cross-check-no-contract
-    fp_id: FP-TENANT-CROSS-CHECK
-    axis: evidence
-    code: EVIDENCE-NO-CONTRACT
-    note: |
-      JWT.tenant cross-check filter; internal admission guard, no external wire
-      contract. Discharge by recording an explicit no-contract rationale.
-    sunset_date: 2026-08-31
-  - id: FRB-tenant-cross-check-no-fact
-    fp_id: FP-TENANT-CROSS-CHECK
-    axis: evidence
-    code: EVIDENCE-NO-FACT
-    note: |
-      Element declares no saa.code_entrypoint_refs / saa.fact_refs. Wire the
-      tenant cross-check filter entry symbol once extracted.
-    sunset_date: 2026-08-31
-  - id: FRB-tenant-cross-check-no-test
-    fp_id: FP-TENANT-CROSS-CHECK
-    axis: evidence
-    code: EVIDENCE-NO-TEST
-    note: |
-      Element declares no saa.test_refs. Cite the tenant cross-check test once
-      its test fact resolves.
-    sunset_date: 2026-08-31
-  - id: FRB-tenant-cross-check-no-normalized-view
-    fp_id: FP-TENANT-CROSS-CHECK
-    axis: decision
-    code: DECISION-NO-NORMALIZED-VIEW
-    note: |
-      saa.sourceAdr ADR-0056 has no normalized view at
-      docs/adr/normalized/ADR-0056.yaml. Discharge by authoring the normalized
-      view in a citeable state.
-    sunset_date: 2026-07-31
-
-  - id: FRB-create-run-no-normalized-view
-    fp_id: FP-CREATE-RUN
-    axis: decision
-    code: DECISION-NO-NORMALIZED-VIEW
-    note: |
-      saa.sourceAdr ADR-0020 has no normalized view at
-      docs/adr/normalized/ADR-0020.yaml. The FunctionPoint discharges its full
-      evidence axis (contract+fact+test refs all wired); only the decision-axis
-      normalized view is missing. Discharge by authoring the ADR-0020 normalized
-      view in a citeable state.
-    sunset_date: 2026-07-31
-  - id: FRB-get-run-status-no-normalized-view
-    fp_id: FP-GET-RUN-STATUS
-    axis: decision
-    code: DECISION-NO-NORMALIZED-VIEW
-    note: |
-      saa.sourceAdr ADR-0020 has no normalized view at
-      docs/adr/normalized/ADR-0020.yaml (shared with FP-CREATE-RUN). The
-      FunctionPoint discharges its full evidence axis; only the normalized view
-      is missing. Discharge by authoring the ADR-0020 normalized view.
+      docs/adr/normalized/ADR-0058.yaml. ADR-0058 is a Markdown-era decision
+      (docs/adr/0058-posture-boot-guard.md) NOT in the apex fact-layer corpus
+      (architecture/facts/generated/adrs.json carries only the YAML ADRs from
+      ADR-0068 onward), so a normalized view cannot be authored without fabricating
+      decision content. C1c checked for an active normalized ADR that genuinely
+      governs the posture boot-guard fail-closed @RequiredConfig invariant and found
+      none (the ADR-0062 / 0147 / 0151 keyword hits on "posture" are incidental —
+      none is the governing boot-guard decision), so no honest re-point exists. The
+      evidence axis is fully discharged (entry/fact/test refs all wired in C1c); only
+      the decision-axis normalized view remains. KEEP until either ADR-0058 is
+      migrated to a raw YAML ADR (then author its normalized view) or an active YAML
+      ADR governing the boot-guard invariant is adopted. Honest hold, not a wiring gap.
     sunset_date: 2026-07-31
