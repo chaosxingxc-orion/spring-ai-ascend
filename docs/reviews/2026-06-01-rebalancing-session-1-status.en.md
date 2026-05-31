@@ -10,7 +10,7 @@ Nothing merged to `main`. Every step below is a separate, reversible commit.
 Major progress on the program **and** a big surprise: current `main` was already
 **red** — the recent `文档整理` doc-reorg broke **264 gate checks** by moving files
 without updating references. I fixed the largest pieces and landed the program's
-core, taking the gate from **264 → ~60 failures**, and built the knowledge system.
+core, taking the gate from **264 → 2 failures (residual = generated-artifact freshness: template render-drift + workspace DSL drift [advisory in soak] — need the build renderer/emitter, not content edits)**, and built the knowledge system.
 Two findings need your judgment (below): the reorg tangle and a **gate fail-open**.
 
 ## What landed (8 commits)

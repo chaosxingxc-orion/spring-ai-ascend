@@ -98,9 +98,9 @@ surface_architecture_docs_L1_agent_service_ARCHITECTURE_md = element "architectu
     }
 }
 
-surface_docs_L1_agent_service_README_md = element "docs/L1/agent-service/README.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-README.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L1_agent_service_README_md = element "architecture/docs/L1/agent-service/README.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-README.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-DOCS_L1_AGENT-SERVICE_README_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-SERVICE_README_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"
@@ -110,9 +110,9 @@ surface_docs_L1_agent_service_README_md = element "docs/L1/agent-service/README.
     }
 }
 
-surface_docs_L1_agent_service_development_md = element "docs/L1/agent-service/development.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-development.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L1_agent_service_development_md = element "architecture/docs/L1/agent-service/development.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-development.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-DOCS_L1_AGENT-SERVICE_DEVELOPMENT_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-SERVICE_DEVELOPMENT_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"
@@ -122,9 +122,9 @@ surface_docs_L1_agent_service_development_md = element "docs/L1/agent-service/de
     }
 }
 
-surface_docs_L1_agent_service_logical_md = element "docs/L1/agent-service/logical.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-logical.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L1_agent_service_logical_md = element "architecture/docs/L1/agent-service/logical.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-logical.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-DOCS_L1_AGENT-SERVICE_LOGICAL_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-SERVICE_LOGICAL_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"
@@ -134,9 +134,9 @@ surface_docs_L1_agent_service_logical_md = element "docs/L1/agent-service/logica
     }
 }
 
-surface_docs_L1_agent_service_physical_md = element "docs/L1/agent-service/physical.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-physical.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L1_agent_service_physical_md = element "architecture/docs/L1/agent-service/physical.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-physical.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-DOCS_L1_AGENT-SERVICE_PHYSICAL_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-SERVICE_PHYSICAL_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"
@@ -146,9 +146,9 @@ surface_docs_L1_agent_service_physical_md = element "docs/L1/agent-service/physi
     }
 }
 
-surface_docs_L1_agent_service_process_md = element "docs/L1/agent-service/process.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-process.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L1_agent_service_process_md = element "architecture/docs/L1/agent-service/process.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-process.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-DOCS_L1_AGENT-SERVICE_PROCESS_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-SERVICE_PROCESS_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"
@@ -158,9 +158,9 @@ surface_docs_L1_agent_service_process_md = element "docs/L1/agent-service/proces
     }
 }
 
-surface_docs_L1_agent_service_scenarios_md = element "docs/L1/agent-service/scenarios.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-scenarios.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L1_agent_service_scenarios_md = element "architecture/docs/L1/agent-service/scenarios.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-scenarios.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-DOCS_L1_AGENT-SERVICE_SCENARIOS_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-SERVICE_SCENARIOS_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"
@@ -170,9 +170,9 @@ surface_docs_L1_agent_service_scenarios_md = element "docs/L1/agent-service/scen
     }
 }
 
-surface_docs_L1_agent_service_spi_appendix_md = element "docs/L1/agent-service/spi-appendix.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-spi-appendix.md.j2 (templated)" "SAA GeneratedProjection" {
+surface_architecture_docs_L1_agent_service_spi_appendix_md = element "architecture/docs/L1/agent-service/spi-appendix.md" "GeneratedProjection" "Rendered from docs/governance/templates/l1-agent-service-spi-appendix.md.j2 (templated)" "SAA GeneratedProjection" {
     properties {
-        "saa.id" "SURFACE-DOCS_L1_AGENT-SERVICE_SPI-APPENDIX_MD"
+        "saa.id" "SURFACE-ARCHITECTURE_DOCS_L1_AGENT-SERVICE_SPI-APPENDIX_MD"
         "saa.kind" "generated_projection"
         "saa.level" "L0"
         "saa.view" "scenarios"
