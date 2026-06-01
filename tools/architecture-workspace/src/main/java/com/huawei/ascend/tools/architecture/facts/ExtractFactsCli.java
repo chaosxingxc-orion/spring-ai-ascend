@@ -78,15 +78,29 @@ public final class ExtractFactsCli {
             if (!Files.exists(target)) {
                 throw new IOException("--check: committed file missing " + target);
             }
-            byte[] expected = Files.readAllBytes(target);
-            byte[] actual = Files.readAllBytes(tmp);
-            if (!java.util.Arrays.equals(expected, actual)) {
-                throw new IOException("--check: drift detected on " + target
-                        + " (expected " + expected.length + " bytes, got " + actual.length + ")");
+            String expected = normalizeProvenance(Files.readString(target));
+            String actual = normalizeProvenance(Files.readString(tmp));
+            if (!expected.equals(actual)) {
+                throw new IOException("--check: content drift detected on " + target
+                        + " (differs after normalizing per-commit provenance SHAs)");
             }
         } finally {
             Files.deleteIfExists(tmp);
         }
+    }
+
+    /**
+     * Normalize the per-commit provenance that legitimately varies between the
+     * commit a fact file was generated in and any later workspace HEAD: the
+     * 40-char {@code repo_commit} SHA (and the banner's "at commit &lt;sha&gt;").
+     * Without this, the byte-identity check (Rule G-15.c.bytes) could never be
+     * satisfied across commits — a file generated in commit P embeds P's SHA,
+     * but a re-extraction at HEAD=C embeds C's SHA. Replacing every 40-hex run
+     * with a placeholder makes the check compare CONTENT only; genuine content
+     * drift (a hand-edited fact value) is still detected.
+     */
+    private static String normalizeProvenance(String json) {
+        return json.replaceAll("[0-9a-f]{40}", "<commit>");
     }
 
     private static String argValue(String[] args, String name, String fallback) {

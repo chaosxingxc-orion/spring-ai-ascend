@@ -124,6 +124,27 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.2</version>
       </plugin>
+      <!--
+        Fact-Layer Wave 4 (ADR-0154 / Rule G-15 sub-clause .c.bytes): the
+        byte-identity IT (FactLayerByteIdentityIT) is bound to the
+        integration-test/verify phase via Failsafe. Without this plugin the
+        *IT class matched no Surefire include pattern and never ran, so the
+        byte-identity contract was unenforced. Surefire keeps running the
+        unit *Test classes in the test phase; Failsafe runs *IT in verify.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <version>3.5.2</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
