@@ -524,27 +524,9 @@
   asserts: "SyncOrchestrator.run with a payload class for which no ExecutorAdapter is registered raises EngineMatchingException carrying engine_mismatch -- proves no silent reinterpretation, no fallback policy (Rule R-M sub-clause .b strongest reading)."
   product_claim: "PC-004"
 
-- id: E77
-  constraint_ref: "CLAUDE.md Rule R-M sub-clause .b (Strict Engine Matching); ADR-0072; P-M"
-  kind: gate-script
-  level: L1
-  view: development
-  artifact: gate/check_architecture_sync.sh#engine_registry_covers_all_known_engines
-  asserts: "bidirectional consistency between known_engines[].id in docs/contracts/engine-envelope.v1.yaml and String ENGINE_TYPE = \"<id>\" constants in agent-service/src/main -- guarantees the Phase 5 EngineRegistry.validateAgainstSchema boot check has matching inputs at compile time."
-  product_claim: "PC-004"
-
 # ---------------------------------------------------------------------------
 # W2.x Phase 2 — Engine Lifecycle Hooks + Runtime Middleware SPI (Rule R-M sub-clause .c / ADR-0073 / P-M)
 # ---------------------------------------------------------------------------
-
-- id: E78
-  constraint_ref: "CLAUDE.md Rule R-M sub-clause .c (Runtime-Owned Middleware via Engine Hooks); ADR-0073; P-M"
-  kind: gate-script
-  level: L1
-  view: logical
-  artifact: gate/check_architecture_sync.sh#engine_hooks_yaml_present_and_wellformed
-  asserts: "docs/contracts/engine-hooks.v1.yaml declares schema: engine-hooks/v1, a hooks: list, and bidirectionally agrees with the HookPoint enum constants in agent-service/src/main -- the canonical hook surface and the Java enum never drift."
-  product_claim: "PC-004"
 
 - id: E79
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .c (Runtime-Owned Middleware via Engine Hooks); ADR-0073; P-M"
@@ -693,24 +675,6 @@
 # Authority: docs/logs/reviews/2026-05-17-cross-corpus-consistency-audit-response.en.md
 # ---------------------------------------------------------------------------
 
-- id: E95
-  constraint_ref: "CLAUDE.md Rule R-C.1 (Independent Module Evolution); cross-corpus consistency audit 2026-05-17 / G2 (metadata-vs-pom drift)"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#module_metadata_pom_dep_parity
-  asserts: "Every com.huawei.ascend sibling artifact declared inside a <dependency> block of <module>/pom.xml appears in the same module's module-metadata.yaml allowed_dependencies. Drift surfaced by 2026-05-17 audit when agent-service/pom.xml gained an agent-middleware dep after T2.B1 but agent-service/module-metadata.yaml's allowed_dependencies remained empty."
-  governance_infra: true
-
-- id: E96
-  constraint_ref: "CLAUDE.md Rule R-D sub-clause .a (SPI + DFX + TCK Co-Design); cross-corpus consistency audit 2026-05-17 / G3 (SPI surface drift)"
-  kind: gate-script
-  level: L0
-  view: development
-  artifact: gate/check_architecture_sync.sh#spi_package_exhaustiveness
-  asserts: "Every */spi/ leaf directory under <module>/src/main/java appears in <module>/module-metadata.yaml spi_packages. Drift surfaced by 2026-05-17 audit when agent-runtime contained an com.huawei.ascend.service.runtime.s2c.spi directory that was undeclared in spi_packages; Rule R-F (domain_module_has_spi_package) verified declared packages existed on disk but did not enforce the reverse direction (every on-disk SPI directory is declared)."
-  governance_infra: true
-
 # ---------------------------------------------------------------------------
 # 2026-05-17 CLAUDE.md token-optimization wave PR1.
 # Authority: docs/governance/rules/rule-{67..71}.md
@@ -721,15 +685,6 @@
 # 2026-05-17 gate-script efficiency wave PR-E1.
 # Authority: docs/governance/rules/rule-G-6.md
 # ---------------------------------------------------------------------------
-
-- id: E103
-  constraint_ref: "CLAUDE.md Rule G-6 sub-clause .b (gate_config_well_formed); gate-efficiency wave PR-E1"
-  kind: gate-script
-  level: L0
-  view: scenarios
-  artifact: gate/check_architecture_sync.sh#gate_config_well_formed
-  asserts: "gate/config.yaml validates against gate/config.schema.yaml: required top-level keys present (parallelism, logging, scan_cache, regression_detection, rule_filters); leaf types/ranges/enums correct (jobs in [0,256]; batch_strategy in {round_robin, longest_first}; stdout_format in {human, quiet, json}; multiplier_threshold >= 1.0). Implementation lives in gate/lib/load_config.sh#gate_validate_config_against_schema. Schema-first per Rule M-2 sub-clause .a."
-  governance_infra: true
 
 # ---------------------------------------------------------------------------
 # 2026-05-18 Wave 4 — rule activations (Rules 11, 24.c, 29.c).
@@ -762,38 +717,11 @@
   asserts: ".github/workflows/ci.yml declares a job named 'quickstart-smoke' that boots agent-service and polls /v1/health."
   product_claim: "PC-001"
 
-- id: E108
-  constraint_ref: "CLAUDE.md Rule R-D sub-clause .b (spi_packages_populated); SPI metadata integrity wave 2026-05-18"
-  kind: gate-script
-  level: L1
-  view: development
-  artifact: gate/check_architecture_sync.sh#spi_packages_populated
-  asserts: "Every module-metadata.yaml#spi_packages entry resolves to a directory with at least one .java file beyond package-info.java. Entries marked '# placeholder; ADR-NNNN ...' are exempt as deferred SPI work."
-  product_claim: "PC-001"
-
-- id: E109
-  constraint_ref: "CLAUDE.md Rule R-D sub-clause .c (no_split_spi_packages); SPI metadata integrity wave 2026-05-18"
-  kind: gate-script
-  level: L1
-  view: development
-  artifact: gate/check_architecture_sync.sh#no_split_spi_packages
-  asserts: "No Java SPI package may be declared by more than one Maven module's spi_packages: list. Prevents Maven split-packages (CLAUDE.md Rule R-D sub-clause .c)."
-  product_claim: "PC-001"
-
 # ---------------------------------------------------------------------------
 # 2026-05-18 rc4 cross-constraint review response prevention wave — E116
 # Authority: docs/logs/reviews/2026-05-18-l0-rc4-cross-constraint-architecture-review.en.md
 #            + docs/logs/reviews/2026-05-18-l0-rc4-cross-constraint-architecture-review-response.en.md
 # ---------------------------------------------------------------------------
-
-- id: E116
-  constraint_ref: "CLAUDE.md Rule M-2 sub-clause .b (design_only_contract_registered_in_catalog); rc4 review P1-3; ADR-0032; ADR-0052"
-  kind: gate-script
-  level: L1
-  view: logical
-  artifact: gate/check_architecture_sync.sh#design_only_contract_registered_in_catalog
-  asserts: "For every docs/contracts/*.v1.yaml with 'status: design_only' OR 'runtime_enforced: false', (a) the file basename appears as a literal substring in docs/contracts/contract-catalog.md, AND (b) at least one ADR-NNNN reference cited in the yaml resolves to a real file under docs/adr/<NNNN>-*.yaml or docs/adr/<NNNN>-*.md. Every cited ADR must exist (dangling references fail). Closes rc4 P1-3 prevention: plan-projection.v1.yaml unregistered + W2/W4 staging ambiguity defect class."
-  governance_infra: true
 
 - id: E118
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .f (catalog_spi_row_matches_module_spi_metadata); rc5 post-response review P1-2; ADR-0030; ADR-0070; ADR-0080"

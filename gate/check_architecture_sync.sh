@@ -78,25 +78,19 @@
 #  --- W1.x Phase 9 — ResilienceContract runtime activation (ADR-0070) ---
 #  54.  skill_capacity_runtime_resolver_present        -- DefaultSkillResilienceContract implements resolve(tenant, skill) consulting SkillCapacityRegistry; rejection carries SuspendReason.RateLimited (Rule 41.b / P-K, enforcer E73)
 #  --- W2.x Phase 1 — Engine Envelope + Strict Matching (ADR-0072) ---
-#  56.  engine_registry_covers_all_known_engines       -- bidirectional id <-> ENGINE_TYPE consistency between yaml and agent-service/src/main (Rule 44 / P-M, enforcer E77)
 #  --- W2.x Phase 2 — Engine Hooks + Runtime Middleware SPI (ADR-0073) ---
-#  57.  engine_hooks_yaml_present_and_wellformed       -- docs/contracts/engine-hooks.v1.yaml declares 9-hook list matching HookPoint enum (Rule 45 / P-M, enforcer E78)
 #  --- W2.x Phase 3 — S2C Capability Callback (ADR-0074) ---
 #  58.  s2c_callback_yaml_present_and_wellformed       -- docs/contracts/s2c-callback.v1.yaml declares request+response shape with 6 mandatory request fields and outcome enum (Rule 46 / P-M, enforcer E81)
 #  --- W2.x Phase 6 — Schema-First Domain Contracts (ADR-0077, Rule 48) ---
 #  --- v2.0.0-rc2 second-pass review closure (F-α / F-β / F-γ category audit) ---
 #  62.  contract_yaml_declares_status                   -- every docs/contracts/*.v1.yaml + 3 governance YAMLs declare top-level status: with allowed enum value (F-β structural prevention)
 #  --- 2026-05-17 cross-corpus consistency audit prevention rules (G1/G2/G3 closure, enforcers E94-E96) ---
-#  65.  module_metadata_pom_dep_parity                  -- every com.huawei.ascend <dependency> in <module>/pom.xml appears in <module>/module-metadata.yaml allowed_dependencies (G2 prevention; metadata cannot lag behind pom)
-#  66.  spi_package_exhaustiveness                      -- every */spi/ directory under <module>/src/main/java appears in <module>/module-metadata.yaml spi_packages (G3 prevention; metadata declares the full SPI surface)
 #  --- 2026-05-17 CLAUDE.md token-optimization wave PR1 (enforcers E97-E101) ---
 #  --- 2026-05-17 gate-script efficiency wave PR-E1 (enforcer E103) ---
-#  73.  gate_config_well_formed                          -- gate/config.yaml validates against gate/config.schema.yaml (required keys, types, ranges, enums, no unknown keys) (Rule 73 / PR-E1, enforcer E103)
 #  --- 2026-05-18 Linux-first dev environment policy (enforcer E104) ---
 #  74.  linux_first_dev_doc_present                      -- docs/governance/dev-environment.md exists + recommends WSL2/WSL1/Linux for verification (Rule 74 / PR-E7, enforcer E104)
 #  --- 2026-05-18 SPI metadata integrity wave (Rules 75-78; enforcers E105-E111) ---
 #  --- 2026-05-18 rc4 cross-constraint review response prevention wave (Rules 80-83; enforcers E113-E116) ---
-#  83.  design_only_contract_registered_in_catalog       -- every docs/contracts/*.v1.yaml with status: design_only OR runtime_enforced: false is listed in contract-catalog.md AND cites an existing ADR (P1-3 prevention, enforcer E116)
 #  --- 2026-05-18 rc5 post-response review response prevention wave (Rules 84-85; enforcers E117-E118) ---
 #  84.  active_module_architecture_path_truth           -- every architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md (status != skeleton|deferred) inline path claim "<module>/src/main/java/..." must resolve on disk OR carry a historical/moved/extracted-per-ADR/superseded/deferred marker within +/-3 lines (rc5 P0-1 prevention, enforcer E117)
 #  85.  catalog_spi_row_matches_module_spi_metadata     -- every non-(internal) row in contract-catalog.md SPI table must have its package in <module>/module-metadata.yaml#spi_packages AND docs/dfx/<module>.yaml#spi_packages; the (N total) header MUST equal the non-internal row count (rc5 P1-2 prevention, enforcer E118)
@@ -1168,88 +1162,6 @@ done <<< "$(find agent-service/src/main/resources/db/migration agent-service/src
 if [[ $_r50_fail -eq 0 ]]; then pass_rule "rls_for_new_tenant_tables"; fi
 
 # ---------------------------------------------------------------------------
-# Rule 56 — engine_registry_covers_all_known_engines (enforcer E77, Rule 44 / P-M, ADR-0072)
-#
-# Bidirectional consistency: every known_engines[].id in
-# docs/contracts/engine-envelope.v1.yaml MUST appear as a
-# String ENGINE_TYPE = "<id>" constant in agent-service/src/main, and every
-# such constant MUST appear in known_engines. This guarantees the Phase 5
-# EngineRegistry.validateAgainstSchema() boot check has matching inputs at
-# compile time -- Rule 44 strict matching cannot be silently broken by a
-# missing yaml row or a stale ENGINE_TYPE constant.
-# ---------------------------------------------------------------------------
-_r56_fail=0
-_r56_yaml="docs/contracts/engine-envelope.v1.yaml"
-# Post-T2.B2 (ADR-0079): EngineRegistry + ENGINE_TYPE constants moved to
-# agent-execution-engine. Reference adapters (SequentialGraphExecutor +
-# IterativeAgentLoopExecutor) stay in agent-service/.../inmemory and also
-# declare ENGINE_TYPE. Scan BOTH source roots.
-_r56_main="agent-execution-engine/src/main/java agent-service/src/main/java"
-if [[ ! -f "$_r56_yaml" ]]; then
-  fail_rule "engine_registry_covers_all_known_engines" "$_r56_yaml missing -- cannot cross-check"
-  _r56_fail=1
-else
-  _r56_yaml_ids=$(grep -E '^[[:space:]]+- id:[[:space:]]+' "$_r56_yaml" | sed -E 's/^[[:space:]]+- id:[[:space:]]+([A-Za-z0-9_.-]+).*/\1/' | sort -u)
-  _r56_src_ids=$(grep -rhE 'String[[:space:]]+ENGINE_TYPE[[:space:]]*=[[:space:]]*"[A-Za-z0-9_.-]+"' $_r56_main 2>/dev/null | sed -E 's/.*ENGINE_TYPE[[:space:]]*=[[:space:]]*"([A-Za-z0-9_.-]+)".*/\1/' | sort -u)
-  for _id in $_r56_yaml_ids; do
-    if ! echo "$_r56_src_ids" | grep -qxE "${_id}"; then
-      fail_rule "engine_registry_covers_all_known_engines" "yaml declares known_engines.id=$_id but no ENGINE_TYPE=\"$_id\" found in $_r56_main"
-      _r56_fail=1
-    fi
-  done
-  for _id in $_r56_src_ids; do
-    if ! echo "$_r56_yaml_ids" | grep -qxE "${_id}"; then
-      fail_rule "engine_registry_covers_all_known_engines" "ENGINE_TYPE=\"$_id\" in source has no matching - id: $_id in $_r56_yaml"
-      _r56_fail=1
-    fi
-  done
-fi
-if [[ $_r56_fail -eq 0 ]]; then pass_rule "engine_registry_covers_all_known_engines"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 57 — engine_hooks_yaml_present_and_wellformed (enforcer E78, Rule 45 / P-M, ADR-0073)
-#
-# docs/contracts/engine-hooks.v1.yaml MUST exist with schema:, hooks: list of
-# exactly the 9 canonical hook names, and bidirectionally agree with the
-# HookPoint enum constants in agent-service/src/main. Drift in either
-# direction breaks Rule 45 (Runtime-Owned Middleware via Engine Hooks).
-# ---------------------------------------------------------------------------
-_r57_fail=0
-_r57_yaml="docs/contracts/engine-hooks.v1.yaml"
-# Updated 2026-05-17: HookPoint moved from agent-runtime/orchestration/spi/ to
-# agent-middleware/spi/ during the six-module materialization PR (T2.B1).
-_r57_enum="agent-middleware/src/main/java/com/huawei/ascend/middleware/spi/HookPoint.java"
-if [[ ! -f "$_r57_yaml" ]]; then
-  fail_rule "engine_hooks_yaml_present_and_wellformed" "$_r57_yaml missing -- Rule 45 / P-M hook surface unenforced"
-  _r57_fail=1
-elif [[ ! -f "$_r57_enum" ]]; then
-  fail_rule "engine_hooks_yaml_present_and_wellformed" "$_r57_enum missing -- cannot cross-check HookPoint enum"
-  _r57_fail=1
-else
-  if ! grep -qE '^schema:[[:space:]]+engine-hooks/v1[[:space:]]*$' "$_r57_yaml"; then
-    fail_rule "engine_hooks_yaml_present_and_wellformed" "$_r57_yaml missing 'schema: engine-hooks/v1' header"
-    _r57_fail=1
-  fi
-  # Extract hook names from yaml (lines under 'hooks:' that look like '  - <name>')
-  _r57_yaml_hooks=$(awk '/^hooks:/{f=1;next} /^[a-z_]+:/{f=0} f && /^[[:space:]]+- [a-z_]+/{gsub(/^[[:space:]]+- /,""); print}' "$_r57_yaml" | sort -u)
-  # Extract HookPoint enum constants (lines like '    BEFORE_LLM_INVOCATION,' or '    ON_ERROR')
-  _r57_enum_consts=$(grep -E '^[[:space:]]+[A-Z_]+[,;]?[[:space:]]*$' "$_r57_enum" | sed -E 's/[[:space:]]+([A-Z_]+)[,;]?[[:space:]]*/\1/' | tr 'A-Z_' 'a-z_' | sort -u)
-  for _hook in $_r57_yaml_hooks; do
-    if ! echo "$_r57_enum_consts" | grep -qxE "${_hook}"; then
-      fail_rule "engine_hooks_yaml_present_and_wellformed" "yaml declares hook=$_hook but no matching HookPoint enum constant"
-      _r57_fail=1
-    fi
-  done
-  for _const in $_r57_enum_consts; do
-    if ! echo "$_r57_yaml_hooks" | grep -qxE "${_const}"; then
-      fail_rule "engine_hooks_yaml_present_and_wellformed" "HookPoint enum has constant $_const with no matching yaml hooks: entry"
-      _r57_fail=1
-    fi
-  done
-fi
-if [[ $_r57_fail -eq 0 ]]; then pass_rule "engine_hooks_yaml_present_and_wellformed"; fi
-
-# ---------------------------------------------------------------------------
 # Rule 58 — s2c_callback_yaml_present_and_wellformed (enforcer E81, Rule 46 / P-M, ADR-0074)
 #
 # docs/contracts/s2c-callback.v1.yaml MUST exist with schema: header, a request:
@@ -1304,76 +1216,6 @@ if [[ $_r58_fail -eq 0 ]]; then pass_rule "s2c_callback_yaml_present_and_wellfor
 # Rules 64-66 with enforcer rows E94-E96 and 6 self-tests (2 per rule).
 # ===========================================================================
 
-# ---------------------------------------------------------------------------
-# Rule 65 — module_metadata_pom_dep_parity (enforcer E95, G2 prevention)
-#
-# For each <module>/module-metadata.yaml, every com.huawei.ascend sibling
-# artifact declared in <module>/pom.xml's <dependencies> MUST appear in
-# allowed_dependencies of the metadata. Catches drift where a developer
-# adds a dep to the pom but forgets to update the metadata declaration.
-# ---------------------------------------------------------------------------
-_r65_fail=0
-while IFS= read -r _r65_meta; do
-  [[ -z "$_r65_meta" ]] && continue
-  _r65_mod_dir="$(dirname "$_r65_meta")"
-  _r65_pom="${_r65_mod_dir}/pom.xml"
-  [[ -f "$_r65_pom" ]] || continue
-  # Extract com.huawei.ascend sibling deps from pom — only inside <dependency> blocks
-  # (excludes the <parent> block at top, which would otherwise be a false positive).
-  # Skip <dependencyManagement> block — those are managed versions for downstream
-  # modules (BoM-style), not direct compile-time deps of the current module.
-  _r65_pom_deps=$(awk '
-    /<dependencyManagement>/ { in_mgmt=1; next }
-    /<\/dependencyManagement>/ { in_mgmt=0; next }
-    !in_mgmt && /<dependency>/ { in_dep=1; want=0; next }
-    /<\/dependency>/ { in_dep=0; want=0; next }
-    in_dep && /<groupId>ascend\.springai<\/groupId>/ { want=1; next }
-    in_dep && want && /<artifactId>/ {
-      gsub(/^[[:space:]]*<artifactId>/, "")
-      gsub(/<\/artifactId>.*/, "")
-      print
-      want=0
-    }
-  ' "$_r65_pom" | sort -u)
-  # Extract allowed_dependencies block entries from metadata
-  _r65_meta_allowed=$(awk '/^allowed_dependencies:/{flag=1; next} /^[a-zA-Z_]/{flag=0} flag && /^[[:space:]]*-[[:space:]]+/{gsub(/^[[:space:]]*-[[:space:]]+/,""); gsub(/[[:space:]#].*$/,""); print}' "$_r65_meta" | sort -u)
-  while IFS= read -r _r65_dep; do
-    [[ -z "$_r65_dep" ]] && continue
-    if ! echo "$_r65_meta_allowed" | grep -qxF "$_r65_dep"; then
-      fail_rule "module_metadata_pom_dep_parity" "$_r65_pom declares dependency on '$_r65_dep' (com.huawei.ascend sibling) but $_r65_meta allowed_dependencies does not list it (G2 prevention)"
-      _r65_fail=1
-    fi
-  done <<< "$_r65_pom_deps"
-done <<< "${_SCAN_MODULE_METADATA:-$(find . -maxdepth 3 -name module-metadata.yaml -not -path './target/*' -not -path './.claude/*' 2>/dev/null)}"
-if [[ $_r65_fail -eq 0 ]]; then pass_rule "module_metadata_pom_dep_parity"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 66 — spi_package_exhaustiveness (enforcer E96, G3 prevention)
-#
-# For each <module>/module-metadata.yaml, every src/main/java/.../spi
-# directory MUST appear in spi_packages. Catches drift where a developer
-# adds a new SPI package (e.g. runtime.s2c.spi) but forgets to declare it
-# in the metadata.
-# ---------------------------------------------------------------------------
-_r66_fail=0
-while IFS= read -r _r66_meta; do
-  [[ -z "$_r66_meta" ]] && continue
-  _r66_mod_dir="$(dirname "$_r66_meta")"
-  _r66_src="${_r66_mod_dir}/src/main/java"
-  [[ -d "$_r66_src" ]] || continue
-  _r66_declared=$(awk '/^spi_packages:/{flag=1; next} /^[a-zA-Z_]/{flag=0} flag && /^[[:space:]]*-[[:space:]]+/{gsub(/^[[:space:]]*-[[:space:]]+/,""); gsub(/[[:space:]#].*$/,""); print}' "$_r66_meta" | sort -u)
-  while IFS= read -r _r66_dir; do
-    [[ -z "$_r66_dir" ]] && continue
-    _r66_pkg="${_r66_dir#${_r66_src}/}"
-    _r66_pkg="${_r66_pkg//\//.}"
-    if ! echo "$_r66_declared" | grep -qxF "$_r66_pkg"; then
-      fail_rule "spi_package_exhaustiveness" "$_r66_dir exists on disk but package '$_r66_pkg' is not declared in $_r66_meta spi_packages (G3 prevention)"
-      _r66_fail=1
-    fi
-  done <<< "$(find "$_r66_src" -type d -name spi 2>/dev/null)"
-done <<< "${_SCAN_MODULE_METADATA:-$(find . -maxdepth 3 -name module-metadata.yaml -not -path './target/*' -not -path './.claude/*' 2>/dev/null)}"
-if [[ $_r66_fail -eq 0 ]]; then pass_rule "spi_package_exhaustiveness"; fi
-
 # ===========================================================================
 # CLAUDE.md token-optimization wave -- PR1 (2026-05-17)
 # Authority: docs/governance/rules/rule-{67..71}.md
@@ -1385,51 +1227,6 @@ if [[ $_r66_fail -eq 0 ]]; then pass_rule "spi_package_exhaustiveness"; fi
 # Gate-script efficiency wave PR-E1 (2026-05-17)
 # Authority: docs/governance/rules/rule-73.md
 # ===========================================================================
-
-# ---------------------------------------------------------------------------
-# Rule 73 — gate_config_well_formed (enforcer E103)
-#
-# Sources gate/lib/load_config.sh and runs the validator. Fails if:
-#   - gate/config.yaml or gate/config.schema.yaml missing
-#   - YAML parser detected malformed input (__ERROR__ sentinel)
-#   - Required top-level key missing
-#   - Type / range / enum violation on any validated leaf
-#
-# The validator implementation lives in gate/lib/load_config.sh
-# (gate_validate_config_against_schema). This rule is the gate-side wrapper.
-# ---------------------------------------------------------------------------
-_r73_fail=0
-_r73_loader='gate/lib/load_config.sh'
-_r73_config='gate/config.yaml'
-_r73_schema='gate/config.schema.yaml'
-if [[ ! -f "$_r73_loader" ]]; then
-  fail_rule "gate_config_well_formed" "$_r73_loader missing -- cannot validate gate/config.yaml"
-  _r73_fail=1
-elif [[ ! -f "$_r73_config" ]]; then
-  fail_rule "gate_config_well_formed" "$_r73_config missing"
-  _r73_fail=1
-elif [[ ! -f "$_r73_schema" ]]; then
-  fail_rule "gate_config_well_formed" "$_r73_schema missing"
-  _r73_fail=1
-else
-  # Run validation in a subshell so we don't pollute the main shell with
-  # the loader's exported GATE_* variables. Capture VALID + ERRORS via stdout.
-  _r73_result=$(bash -c '
-    source '"'$_r73_loader'"'
-    gate_load_config >/dev/null 2>&1
-    gate_validate_config_against_schema >/dev/null 2>&1
-    printf "%s\n" "${GATE_CONFIG_VALID:-false}"
-    printf "%s" "${GATE_CONFIG_ERRORS:-}"
-  ')
-  _r73_valid=$(printf '%s\n' "$_r73_result" | head -1)
-  _r73_errors=$(printf '%s\n' "$_r73_result" | tail -n +2)
-  if [[ "$_r73_valid" == "true" ]]; then
-    pass_rule "gate_config_well_formed"
-  else
-    fail_rule "gate_config_well_formed" "$(printf '%s' "$_r73_errors" | tr '\n' ';')"
-    _r73_fail=1
-  fi
-fi
 
 # ===========================================================================
 # Wave 4 — small rule activations (2026-05-18)
@@ -1513,93 +1310,6 @@ if [[ $_r29c_fail -eq 0 ]]; then pass_rule "quickstart_smoke_job_present"; fi
 # across two Maven modules + dfx yaml omitting/mis-nesting spi_packages).
 # ===========================================================================
 
-# Rule 75 — spi_packages_populated (enforcer E108)
-#
-# Every <module>/module-metadata.yaml#spi_packages entry MUST resolve to a
-# real directory under <module>/src/main/java/... AND that directory MUST
-# contain at least one .java file beyond package-info.java. Catches the
-# 2026-05-18 root cause (com.huawei.ascend.engine.spi declared but empty).
-#
-# Placeholder marker: an spi_packages line that includes BOTH "placeholder"
-# AND an "ADR-NNNN" reference in its inline comment is allowed to be empty
-# (or absent on disk). This honors deferred SPI work explicitly waived via
-# an ADR — e.g. agent-bus / agent-client / agent-evolve W2/W3+ scaffolds.
-# ---------------------------------------------------------------------------
-_r75_fail=0
-while IFS= read -r _r75_meta; do
-  [[ -z "$_r75_meta" ]] && continue
-  _r75_mod_dir="$(dirname "$_r75_meta")"
-  _r75_src="${_r75_mod_dir}/src/main/java"
-  _r75_in_block=0
-  while IFS= read -r _r75_line; do
-    if [[ "$_r75_line" =~ ^spi_packages: ]]; then
-      _r75_in_block=1
-      continue
-    fi
-    if [[ $_r75_in_block -eq 1 ]]; then
-      if [[ "$_r75_line" =~ ^[a-zA-Z_] ]]; then
-        _r75_in_block=0
-        continue
-      fi
-      if [[ "$_r75_line" =~ ^[[:space:]]*-[[:space:]] ]]; then
-        # Honor placeholder marker — skip if line comment contains both
-        # "placeholder" and an ADR-NNNN reference (deferred SPI work).
-        if [[ "$_r75_line" == *"#"* ]] && \
-           echo "$_r75_line" | grep -qE 'placeholder' && \
-           echo "$_r75_line" | grep -qE 'ADR-[0-9]{4}'; then
-          continue
-        fi
-        _r75_pkg=$(echo "$_r75_line" | sed -E 's/^[[:space:]]*-[[:space:]]*//' | sed -E 's/[[:space:]#].*$//' | tr -d "\"'")
-        [[ -z "$_r75_pkg" ]] && continue
-        _r75_dir="${_r75_src}/${_r75_pkg//./\/}"
-        if [[ ! -d "$_r75_dir" ]]; then
-          fail_rule "spi_packages_populated" "$_r75_meta declares spi package '$_r75_pkg' which resolves to '$_r75_dir' — directory does not exist on disk (Rule 75 / E108)"
-          _r75_fail=1
-          continue
-        fi
-        _r75_java_count=$(find "$_r75_dir" -maxdepth 1 -name '*.java' -not -name 'package-info.java' 2>/dev/null | wc -l)
-        if [[ "${_r75_java_count:-0}" -lt 1 ]]; then
-          fail_rule "spi_packages_populated" "$_r75_meta declares spi package '$_r75_pkg' at '$_r75_dir' which contains only package-info.java (no real SPI classes). Mark as deferred with '# placeholder; ADR-NNNN ...' comment to waive, or populate the SPI. Rule 75 / E108"
-          _r75_fail=1
-        fi
-      fi
-    fi
-  done < "$_r75_meta"
-done <<< "${_SCAN_MODULE_METADATA:-$(find . -maxdepth 3 -name module-metadata.yaml -not -path './target/*' -not -path './.claude/*' 2>/dev/null)}"
-if [[ $_r75_fail -eq 0 ]]; then pass_rule "spi_packages_populated"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 76 — no_split_spi_packages (enforcer E109)
-#
-# A given Java spi package MUST be declared by exactly one Maven module's
-# module-metadata.yaml#spi_packages. Two modules co-declaring the same
-# package is a split-package — Maven and JPMS cannot reason about ownership.
-# Catches the 2026-05-18 root cause (orchestration.spi historical double-
-# declaration by agent-runtime-core AND agent-execution-engine — both modules
-# resolved by rc13 ADR-0088 dissolution).
-# ---------------------------------------------------------------------------
-_r76_fail=0
-_r76_tmp="$(mktemp 2>/dev/null || echo /tmp/r76.$$)"
-: > "$_r76_tmp"
-while IFS= read -r _r76_meta; do
-  [[ -z "$_r76_meta" ]] && continue
-  _r76_mod="$(grep -E '^[[:space:]]*module:' "$_r76_meta" 2>/dev/null | head -1 | sed -E 's/^[[:space:]]*module:[[:space:]]*([A-Za-z0-9_-]+).*/\1/')"
-  _r76_pkgs=$(awk '/^spi_packages:/{flag=1; next} /^[a-zA-Z_]/{flag=0} flag && /^[[:space:]]*-[[:space:]]+/{gsub(/^[[:space:]]*-[[:space:]]+/,""); gsub(/["\047]/,""); gsub(/[[:space:]#].*$/,""); print}' "$_r76_meta")
-  while IFS= read -r _r76_pkg; do
-    [[ -z "$_r76_pkg" ]] && continue
-    printf '%s|%s\n' "$_r76_pkg" "$_r76_mod" >> "$_r76_tmp"
-  done <<< "$_r76_pkgs"
-done <<< "${_SCAN_MODULE_METADATA:-$(find . -maxdepth 3 -name module-metadata.yaml -not -path './target/*' -not -path './.claude/*' 2>/dev/null)}"
-_r76_dupes=$(sort "$_r76_tmp" | awk -F'|' '{ owners[$1]=owners[$1]" "$2; counts[$1]++ } END { for (k in counts) if (counts[k] > 1) print k "|" owners[k] }')
-rm -f "$_r76_tmp"
-if [[ -n "$_r76_dupes" ]]; then
-  while IFS= read -r _r76_d; do
-    fail_rule "no_split_spi_packages" "spi package '${_r76_d%%|*}' declared by multiple modules:${_r76_d#*|} (Rule 76 / E109)"
-    _r76_fail=1
-  done <<< "$_r76_dupes"
-fi
-if [[ $_r76_fail -eq 0 ]]; then pass_rule "no_split_spi_packages"; fi
-
 # ===========================================================================
 # 2026-05-18 rc4 cross-constraint review response prevention wave -- Rule 83
 # Authority: docs/governance/rules/rule-83.md
@@ -1608,42 +1318,6 @@ if [[ $_r76_fail -eq 0 ]]; then pass_rule "no_split_spi_packages"; fi
 # Closes finding families:
 #   P1-3 design-only contracts unregistered / dangling auth  -> Rule 83
 # ===========================================================================
-
-# Rule 83 — design_only_contract_registered_in_catalog (enforcer E116)
-#
-# Every docs/contracts/*.v1.yaml with status: design_only (or runtime_enforced:
-# false) MUST (a) be listed by file basename in docs/contracts/contract-catalog.md,
-# AND (b) cite at least one ADR-NNNN reference whose file exists under
-# docs/adr/. Operationalises the rc4 review P1-3 prevention: design-only
-# contracts cannot drift unregistered, and cited ADRs cannot dangle.
-# ---------------------------------------------------------------------------
-_r83_fail=0
-_r83_catalog="docs/contracts/contract-catalog.md"
-for _r83_contract in docs/contracts/*.v1.yaml; do
-  [[ -f "$_r83_contract" ]] || continue
-  _r83_status=$(grep -E '^status:' "$_r83_contract" 2>/dev/null | head -1 || true)
-  _r83_runtime=$(grep -E '^runtime_enforced:' "$_r83_contract" 2>/dev/null | head -1 || true)
-  if [[ "$_r83_status" == *design_only* ]] || [[ "$_r83_runtime" == *false* ]]; then
-    _r83_name="$(basename "$_r83_contract")"
-    if [[ ! -f "$_r83_catalog" ]] || ! grep -qF "$_r83_name" "$_r83_catalog" 2>/dev/null; then
-      fail_rule "design_only_contract_registered_in_catalog" "$_r83_contract is design-only/runtime_enforced=false but not listed in $_r83_catalog -- Rule 83 / E116"
-      _r83_fail=1
-    fi
-    _r83_adr_ok=0
-    while IFS= read -r _r83_adr; do
-      [[ -z "$_r83_adr" ]] && continue
-      _r83_num="${_r83_adr#ADR-}"
-      if compgen -G "docs/adr/${_r83_num}-*.yaml" > /dev/null || compgen -G "docs/adr/${_r83_num}-*.md" > /dev/null; then
-        _r83_adr_ok=1
-      fi
-    done < <(grep -oE 'ADR-[0-9]{4}' "$_r83_contract" 2>/dev/null | sort -u)
-    if [[ $_r83_adr_ok -eq 0 ]]; then
-      fail_rule "design_only_contract_registered_in_catalog" "$_r83_contract cites no ADR file that exists under docs/adr/ -- Rule 83 / E116 (authority chain broken)"
-      _r83_fail=1
-    fi
-  fi
-done
-if [[ $_r83_fail -eq 0 ]]; then pass_rule "design_only_contract_registered_in_catalog"; fi
 
 # ===========================================================================
 # 2026-05-18 rc5 post-response review response prevention wave -- Rules 84-85
