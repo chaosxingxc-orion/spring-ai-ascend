@@ -21,14 +21,19 @@ import org.junit.jupiter.api.Test;
  * Smoke test: drives a real ping through the engine's openJiuwen handler against
  * the configured LLM endpoint. Tagged {@code smoke} and skipped (not failed)
  * when no endpoint is configured, so it never breaks builds without access.
+ *
+ * <p>Named {@code ...SmokeTest} (not {@code ...IT}) so the default surefire
+ * {@code test} phase runs it — the sample module does not activate failsafe.
+ * Run with: export OJW_API_KEY=... OJW_API_BASE=... ; mvn test.
  */
 @Tag("smoke")
-class OpenJiuwenEchoAgentSmokeIT {
+class OpenJiuwenEchoAgentSmokeTest {
 
     @Test
     void echoAgent_overEngine_completesAgainstRealLlm() {
-        String apiBase = System.getenv().getOrDefault("OJW_API_BASE", "http://localhost:4000/v1");
-        assumeTrue(apiBase != null && !apiBase.isBlank(), "OJW_API_BASE not set");
+        String apiKey = System.getenv("OJW_API_KEY");
+        assumeTrue(apiKey != null && !apiKey.isBlank(),
+                "OJW_API_KEY not set — skipping real-LLM smoke test");
 
         OpenJiuwenAgentHandler handler = new OpenJiuwenAgentHandler(
                 "echo-agent", new EchoOpenJiuwenAgentFactory(), new OpenJiuwenMessageConverter());
