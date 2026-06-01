@@ -4,8 +4,8 @@ import com.huawei.ascend.service.access.model.AccessAcceptedResponse;
 import com.huawei.ascend.service.access.model.AccessIntent;
 import com.huawei.ascend.service.access.model.NotificationFrame;
 import com.huawei.ascend.service.access.model.NotificationType;
-import com.huawei.ascend.service.access.port.NotificationPort;
-import com.huawei.ascend.service.access.port.TaskHandler;
+import com.huawei.ascend.service.access.api.NotificationPort;
+import com.huawei.ascend.service.access.core.TaskHandler;
 
 import java.util.Map;
 import java.util.Objects;
@@ -74,3 +74,5 @@ public final class TemporaryL4TaskHandler implements TaskHandler {
         }
     }
 }
+
+

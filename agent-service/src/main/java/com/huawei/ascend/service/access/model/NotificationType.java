@@ -6,3 +6,5 @@ public enum NotificationType {
     LLM_RESULT,
     ERROR
 }
+
+

@@ -147,6 +147,10 @@
       <groupId>io.modelcontextprotocol.sdk</groupId>
       <artifactId>mcp</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-server-common</artifactId>
+    </dependency>
 
     <!-- Temporal Java SDK. -->
     <dependency>

@@ -18,3 +18,5 @@ public record EgressBinding(
         Objects.requireNonNull(replyChannel, "replyChannel");
     }
 }
+
+

@@ -1,7 +1,7 @@
 package com.huawei.ascend.service.access.egress;
 
 import com.huawei.ascend.service.access.model.NotificationFrame;
-import com.huawei.ascend.service.access.port.NotificationPort;
+import com.huawei.ascend.service.access.api.NotificationPort;
 import com.huawei.ascend.service.access.temp.L3QueuePlaceholders.Queue;
 
 import java.util.Objects;
@@ -24,3 +24,5 @@ public final class DefaultNotificationPort implements NotificationPort {
         queue.push(frame);
     }
 }
+
+

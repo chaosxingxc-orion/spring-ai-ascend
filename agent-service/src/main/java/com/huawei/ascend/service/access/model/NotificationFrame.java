@@ -17,3 +17,5 @@ public record NotificationFrame(
         Objects.requireNonNull(type, "type");
     }
 }
+
+

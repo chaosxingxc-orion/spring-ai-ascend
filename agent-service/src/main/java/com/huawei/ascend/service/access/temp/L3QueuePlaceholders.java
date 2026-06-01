@@ -34,12 +34,6 @@ public final class L3QueuePlaceholders {
         Queue createQueue(QueueSpec spec);
     }
 
-    public interface QueueManager {
-        Optional<Queue> getQueue(QueueId queueId);
-
-        Optional<Queue> findQueueBySession(String tenantId, String sessionId);
-    }
-
     public record QueueId(String value) {
         public QueueId {
             Objects.requireNonNull(value, "value");
@@ -111,3 +105,5 @@ public final class L3QueuePlaceholders {
         }
     }
 }
+
+

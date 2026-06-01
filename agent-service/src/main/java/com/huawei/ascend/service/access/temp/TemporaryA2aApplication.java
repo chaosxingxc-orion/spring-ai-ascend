@@ -20,7 +20,7 @@ import org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAu
  *
  * <p>This class scans only {@code com.huawei.ascend.service.access}. Delete it
  * when the normal platform startup path can load L1 and the real L4
- * {@link com.huawei.ascend.service.access.port.TaskHandler} bean is available.
+ * {@link com.huawei.ascend.service.access.core.TaskHandler} bean is available.
  */
 @SpringBootApplication(
         scanBasePackages = "com.huawei.ascend.service.access",
@@ -43,3 +43,5 @@ public class TemporaryA2aApplication {
         SpringApplication.run(TemporaryA2aApplication.class, args);
     }
 }
+
+

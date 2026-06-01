@@ -9,3 +9,5 @@ public interface EgressAdapter {
 
     void deliver(EgressBinding binding, NotificationFrame frame);
 }
+
+
