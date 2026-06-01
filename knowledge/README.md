@@ -11,16 +11,20 @@ agents understand the repository. It is deliberately **outside the engineering m
 > gate — is the defect this system exists to undo. Knowledge is **available unless needed**; governance
 > **applies only when justified**.
 
-## What lives here
+## What is "knowledge" here — two homes, one search
 
-| Subtree | Holds |
+Knowledge is everything governance does **not** enforce. It lives in two places, both reached by
+`knowledge/_tools/search.sh`:
+
+| Where | Holds |
 |---|---|
-| `knowledge/adr/` | ADR history — the decision record, consolidated by topic. Historical and current rationale, kept for recall, **not** as binding authority. |
-| `knowledge/architecture/` | Architecture rationale, the A2D delivery corpus, design narratives (the "why"), relocated from the old `docs/architecture/l0,l1` trees. |
-| `knowledge/maps/` | Orientation maps and indexes (architecture graph, facet map, reading guides) — reference, not mandatory pre-work. |
-| `knowledge/governance-history/` | The history of governance waves (rc-wave records, retired rules, defect-family narratives) — changelog, not active rules. |
-| `knowledge/lessons/` | Distilled lessons from past defects and reviews. |
-| `knowledge/_tools/` | The advisory maintenance tooling (integrity check + search). Not a gate. |
+| `knowledge/` (this tree) | Knowledge authored directly: lessons, synthesis, cross-cutting notes, and the advisory tooling in `knowledge/_tools/`. |
+| **knowledge in place** (not moved) | The existing record, already excluded from governance by the keystone: the **ADR decision record** (`docs/adr/`), the **history / wave logs** (`docs/logs/`), and the **architecture delivery / design narrative** (`docs/architecture/`). |
+
+ADRs are deliberately **not** physically relocated: they are simultaneously the decision record *and* the
+generated fact-layer's source (`architecture/facts/generated/adrs.json`). The keystone already makes them
+knowledge — governance corpus scans exclude `docs/adr/` — so they are knowledge **in place**, and the
+search reaches them where they live rather than severing them from the fact layer.
 
 ## How to use it
 
