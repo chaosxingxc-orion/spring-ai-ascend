@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Predicate;
 
 /**
  * Current in-memory TaskQueue implementation backed by JDK primitives.
@@ -39,6 +40,12 @@ public final class InMemoryTaskQueue<T> implements TaskQueue<T> {
     @Override
     public Optional<T> peek() {
         return Optional.ofNullable(delegate.peek());
+    }
+
+    @Override
+    public Optional<T> find(Predicate<? super T> matcher) {
+        Objects.requireNonNull(matcher, "matcher");
+        return delegate.stream().filter(matcher).findFirst();
     }
 
     @Override

@@ -1,8 +1,11 @@
 package com.huawei.ascend.service.engine.config;
 
+import com.huawei.ascend.service.engine.api.DefaultEngineDispatchApi;
+import com.huawei.ascend.service.engine.api.EngineDispatchApi;
 import com.huawei.ascend.service.engine.dispatch.AgentHandlerRegistry;
 import com.huawei.ascend.service.engine.dispatch.DefaultAgentHandlerRegistry;
 import com.huawei.ascend.service.engine.dispatch.EngineDispatcher;
+import com.huawei.ascend.service.engine.queue.EngineCommandEventFactory;
 import com.huawei.ascend.service.engine.queue.EngineCommandSubscriber;
 import com.huawei.ascend.service.engine.queue.InMemoryEngineQueueGateway;
 import com.huawei.ascend.service.engine.spi.AccessLayerClient;
@@ -37,6 +40,19 @@ public class EngineAutoConfiguration {
     @ConditionalOnMissingBean
     public EngineQueueGateway engineQueueGateway() {
         return new InMemoryEngineQueueGateway();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public EngineCommandEventFactory engineCommandEventFactory() {
+        return new EngineCommandEventFactory();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public EngineDispatchApi engineDispatchApi(EngineCommandEventFactory commandEventFactory,
+                                               EngineQueueGateway engineQueueGateway) {
+        return new DefaultEngineDispatchApi(commandEventFactory, engineQueueGateway);
     }
 
     @Bean

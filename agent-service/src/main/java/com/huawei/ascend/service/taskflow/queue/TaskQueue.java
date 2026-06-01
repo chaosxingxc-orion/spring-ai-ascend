@@ -2,6 +2,7 @@ package com.huawei.ascend.service.taskflow.queue;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * Internal Event Queue (IEQ) boundary.
@@ -19,6 +20,8 @@ public interface TaskQueue<T> {
     Optional<T> poll();
 
     Optional<T> peek();
+
+    Optional<T> find(Predicate<? super T> matcher);
 
     List<T> snapshot();
 

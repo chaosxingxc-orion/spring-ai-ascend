@@ -1,1 +1,2 @@
+com.huawei.ascend.service.taskflow.config.TaskflowAutoConfiguration
 com.huawei.ascend.service.engine.config.EngineAutoConfiguration

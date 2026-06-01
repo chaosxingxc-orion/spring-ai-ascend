@@ -9,11 +9,17 @@ authoring_mode: implementation_spec
 
 # Agent Service L3/L4 Taskflow Queue/Control 实现规格
 
-本文只说明当前 PR #102 的 W1 实现形态：包结构、接口、数据结构、测试和后续 Wave。本文不重复解释为什么这样设计；原因见同目录架构提议文档。
+本文说明当前 taskflow 的实现形态：包结构、接口、数据结构、测试和后续 Wave。本文不重复解释为什么这样设计；原因见同目录架构提议文档。
+
+代码旁审阅入口见：
+
+```text
+agent-service/src/main/java/com/huawei/ascend/service/taskflow/README.md
+```
 
 ## 0. W1 实现范围
 
-W1 只保留必须代码：
+W1 已经从“接口冻结”推进到“本地可运行闭环”：
 
 1. L3 提供一个基于 JDK `LinkedBlockingQueue` 的本地内存队列。
 2. `QueueFactory` 是 `final` 工具类，提供静态工厂函数，不是 interface。
@@ -21,8 +27,10 @@ W1 只保留必须代码：
 4. L4 提供一个紧凑的 `TaskControlClient` API。
 5. L1 侧只有一个任务入口：`runTask(RunTaskCommand)`。
 6. `RUN`、`RESUME_INPUT`、`CANCEL` 通过 `TaskAction` 表达，不拆成多个 handler 方法。
-7. 当前不实现 `QueueManager`、`TaskStore`、`TaskController`、runtime dispatcher；这些进入后续 Wave。
+7. 当前实现 `QueueManager` 弱管理：记录队列注册、按 `queueId` 查询、按 `tenantId + sessionId` 查询和注销。
 8. 当前不定义 `RuntimeQueueGateway`。Runtime 不直接发布或消费 Queue。
+9. 当前实现 `TaskControlService`，负责 Task 创建、当前 Task 选择、状态流转、幂等和 revision fencing。
+10. 当前实现 `EngineTaskControlAdapter`，把 engine 侧状态回调转成 TCC `mark*` 调用。
 
 ## 1. 包结构
 
@@ -32,12 +40,16 @@ agent-service/src/main/java/com/huawei/ascend/service/taskflow/
     TaskQueue.java
     InMemoryTaskQueue.java
     QueueFactory.java
+    QueueManager.java
+    QueueRegistration.java
 
   control/
     Task.java
     TaskState.java
     TaskFailureCode.java
     WaitingReason.java
+    TaskControlService.java
+    EngineTaskControlAdapter.java
     api/
       TaskControlClient.java
 
@@ -45,6 +57,9 @@ agent-service/src/test/java/com/huawei/ascend/service/taskflow/test/
   TaskBeanWhiteboxTest.java
   InMemoryTaskQueueWhiteboxTest.java
   TaskControlClientApiWhiteboxTest.java
+  QueueManagerWhiteboxTest.java
+  TaskControlServiceWhiteboxTest.java
+  TaskflowEngineBridgeWhiteboxTest.java
 ```
 
 命名规则：
@@ -62,12 +77,14 @@ package com.huawei.ascend.service.taskflow.queue;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 public interface TaskQueue<T> {
     String queueId();
     boolean offer(T value);
     Optional<T> poll();
     Optional<T> peek();
+    Optional<T> find(Predicate<? super T> matcher);
     List<T> snapshot();
     int size();
 }
@@ -77,7 +94,7 @@ public interface TaskQueue<T> {
 
 1. Queue 不关心队列内容物类型。
 2. Queue 不解析 Task，不持有 Task 状态。
-3. Queue 当前只提供 FIFO、查看快照和读取能力。
+3. Queue 当前只提供 FIFO、查看快照、按谓词查找和读取能力。
 4. `snapshot()` 返回只读拷贝，不能 drain 队列。
 5. Queue 不暴露 admin port。
 
@@ -106,6 +123,17 @@ public final class QueueFactory {
     public static <T> TaskQueue<T> inMemoryQueue(String queueId) {
         return new InMemoryTaskQueue<>(queueId);
     }
+
+    public static <T> TaskQueue<T> inMemoryQueue(
+            String queueId, QueueManager manager, QueueRegistration registration) {
+        return manager.register(new InMemoryTaskQueue<>(queueId), registration);
+    }
+
+    public static TaskQueue<Task> inMemorySessionQueue(
+            String tenantId, String sessionId, QueueManager manager) {
+        QueueRegistration registration = QueueRegistration.session(tenantId, sessionId);
+        return inMemoryQueue(registration.queueId(), manager, registration);
+    }
 }
 ```
 
@@ -113,8 +141,30 @@ public final class QueueFactory {
 
 1. `QueueFactory` 不是 interface。
 2. W1 只提供静态工厂函数。
-3. 后续若引入弱管理 `QueueManager`，可在创建/销毁时通知 manager；W1 不强制实现。
+3. 带 `QueueManager` 的重载在创建 session 队列时同步注册弱管理关系。
 4. 创建 Queue 不要求调用方知道具体实现类。
+
+### 2.4 QueueManager
+
+`QueueManager` 是弱管理对象，不是 admin port。
+
+```java
+public class QueueManager {
+    public <T> TaskQueue<T> register(TaskQueue<T> queue, QueueRegistration registration);
+    public Optional<TaskQueue<?>> findByQueueId(String queueId);
+    public Optional<TaskQueue<?>> findBySession(String tenantId, String sessionId);
+    public Optional<QueueRegistration> registration(String queueId);
+    public List<QueueRegistration> registrations();
+    public void unregister(String queueId);
+}
+```
+
+实现规则：
+
+1. `QueueManager` 只记录队列注册、归属和注销事实。
+2. `QueueManager` 不理解 Task 状态。
+3. 普通调用方不需要拿到对外 admin port。
+4. session 队列通过 `tenantId + sessionId` 定位，Access 不传 `queueId`。
 
 ## 3. L4 Task 数据结构
 
@@ -288,9 +338,9 @@ public record TaskResult(
 }
 ```
 
-## 5. Runtime 边界
+## 5. Runtime / engine 边界
 
-当前 W1 不新增 Runtime 派发接口。
+当前不定义 `RuntimeQueueGateway`，但已经通过 PR #100/#105 的 engine dispatch API 完成最小桥接。
 
 规则：
 
@@ -300,6 +350,8 @@ public record TaskResult(
 4. Runtime 面向 Access 的输出按同步返回链路处理。
 5. Runtime 的状态意图由 adapter 转成 `TaskControlClient.mark*` 调用。
 6. Runtime 细节对象如果需要入队，必须先交回 L4，由 L4 决定是否写 Queue。
+7. TCC 通过 `EngineDispatchApi.enqueueExecution`、`enqueueResume`、`enqueueCancel` 把执行意图交给 engine/runtime 侧。
+8. `EngineTaskControlAdapter` 把 engine 侧 Task 控制回调映射到 `TaskControlService.mark*`。
 
 ## 6. 当前流程视图
 
@@ -314,10 +366,10 @@ sequenceDiagram
 
     Client->>Access: user input(sessionId, agentId, query)
     Access->>TCC: runTask(action=RUN/RESUME_INPUT/CANCEL)
-    TCC->>Queue: optional offer(Object)
-    TCC->>Runtime: future wave dispatch
+    TCC->>Queue: find or create session Task
+    TCC->>Runtime: enqueueExecution / enqueueResume / enqueueCancel
     Runtime-->>Access: sync user output
-    Runtime-->>TCC: markRunning/markWaiting/markSucceeded/markFailed/markCancelled
+    Runtime-->>TCC: EngineTaskControlAdapter -> mark*
 ```
 
 ## 7. 状态转换视图
@@ -354,46 +406,50 @@ agent-service/src/test/java/com/huawei/ascend/service/taskflow/test/
 1. `TaskBeanWhiteboxTest`
 2. `InMemoryTaskQueueWhiteboxTest`
 3. `TaskControlClientApiWhiteboxTest`
+4. `QueueManagerWhiteboxTest`
+5. `TaskControlServiceWhiteboxTest`
+6. `TaskflowEngineBridgeWhiteboxTest`
 
 最小验证命令：
 
 ```powershell
-.\mvnw.cmd -pl agent-service -am "-Dtest=TaskBeanWhiteboxTest,InMemoryTaskQueueWhiteboxTest,TaskControlClientApiWhiteboxTest" "-Dsurefire.failIfNoSpecifiedTests=false" -Pquality -B -ntp test
+.\mvnw.cmd -pl agent-service -am "-Dtest=TaskBeanWhiteboxTest,InMemoryTaskQueueWhiteboxTest,TaskControlClientApiWhiteboxTest,QueueManagerWhiteboxTest,TaskControlServiceWhiteboxTest,TaskflowEngineBridgeWhiteboxTest" "-Dsurefire.failIfNoSpecifiedTests=false" -Pquality -B -ntp test
 ```
 
 ## 9. 后续 Wave
 
-### W2：弱管理 QueueManager
+### W2：Access / Session 集成
 
 目标：
 
-- 记录 Queue 创建者、归属 session、生命周期事实。
-- 管理监听注册、审计日志和维护视图。
-- 不作为强制创建入口。
-- 不在 Queue 主接口上暴露 admin port。
+- Access 注册绑定 TCC 的 TaskHandler。
+- Session 创建时明确绑定 session 队列。
+- Access 仍只传 `sessionId`，不感知 `queueId`。
+- 端到端串起首次用户输入、等待用户补充和取消任务。
 
-### W3：TaskStore 与状态机实现
-
-目标：
-
-- 实现当前 Task 查询。
-- 实现 `findActiveTask(sessionId)`。
-- 实现 revision/CAS。
-- 实现 Runtime OOD 后由 L4 创建新 Task 的策略。
-
-### W4：Runtime adapter 接入
+### W3：状态策略增强
 
 目标：
 
-- 对齐 PR #100 的 Runtime/Engine SPI。
-- Runtime adapter 将执行结果转换成 `TaskControlClient.mark*`。
-- Runtime 不直接访问 Queue。
+- 明确 Runtime OOD 后由 TCC 创建新 Task 的策略。
+- 补充并发用户输入的排序策略测试。
+- 补充 dispatch 失败后的补偿策略。
+- 评估是否需要独立 Task 索引或持久化 TaskStore。
+
+### W4：持久化 IEQ 后端
+
+目标：
+
+- 增加 Redis/JDBC/Kafka 等后端实现。
+- 保持 `TaskQueue` 语义不变。
+- 保持 Queue 不理解 Task 状态。
+- 为持久化后端补充 exactly-once / at-least-once 边界说明。
 
 ## 10. 已解决的冲突
 
 1. `TaskHandler` 不再暴露 `resumeInput`、`cancelTask`，统一为 `runTask + TaskAction`。
 2. `QueueFactory` 不再是 interface，W1 是静态工具类。
-3. 当前不实现 `QueueManager` 强管理。
+3. 当前实现 `QueueManager` 弱管理，不实现强管理或对外 admin port。
 4. 当前不定义 `RuntimeQueueGateway`。
 5. taskflow 当前按内部 API 处理，不注册为新的 SPI 面。
 6. 白盒测试已经放入 `agent-service/src/test/java/com/huawei/ascend/service/taskflow/test`。
