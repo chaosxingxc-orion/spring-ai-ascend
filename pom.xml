@@ -39,7 +39,6 @@
     <module>agent-execution-engine</module>
     <module>agent-evolve</module>
     <module>agent-service</module>
-    <module>spring-ai-ascend-graphmemory-starter</module>
   </modules>
 
   <properties>
@@ -287,11 +286,6 @@
       <dependency>
         <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-service</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.huawei.ascend</groupId>
-        <artifactId>spring-ai-ascend-graphmemory-starter</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

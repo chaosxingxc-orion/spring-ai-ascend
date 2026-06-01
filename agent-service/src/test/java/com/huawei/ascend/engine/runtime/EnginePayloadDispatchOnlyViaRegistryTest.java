@@ -24,8 +24,11 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
  * scan ships as gate Rule 55 (source-level) — ArchUnit operates on bytecode
  * dependencies and cannot directly observe the {@code instanceof} keyword.
  *
- * <p>Authority: ADR-0072; CLAUDE.md Rule R-M.a.
- * Enforcer row: {@code docs/governance/enforcers.yaml#E74}.
+ * <p>Authority: ADR-0072; CLAUDE.md Rule R-M.a. agent-service no longer hosts
+ * concrete Orchestrator implementations (orchestration ships in
+ * agent-execution-engine); the rule remains as a structural guard that fails if
+ * an Orchestrator impl is ever reintroduced here without depending on the
+ * registry, so it allows an empty match set.
  */
 class EnginePayloadDispatchOnlyViaRegistryTest {
 
@@ -58,6 +61,7 @@ class EnginePayloadDispatchOnlyViaRegistryTest {
                 .and().areNotInterfaces()
                 .should(DEPEND_ON_ENGINE_REGISTRY)
                 .because("ADR-0072 + Rule R-M.a: dispatch authority is centralised in EngineRegistry.")
+                .allowEmptyShould(true)
                 .check(RUNTIME_MAIN);
     }
 }

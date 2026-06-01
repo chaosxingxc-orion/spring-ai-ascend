@@ -66,13 +66,6 @@
         <version>${project.version}</version>
       </dependency>
 
-      <!-- Optional sidecar adapter starters -->
-      <dependency>
-        <groupId>com.huawei.ascend</groupId>
-        <artifactId>spring-ai-ascend-graphmemory-starter</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-
       <!-- ============================================================ -->
       <!-- Platform: Spring AI (milestone — GA expected mid-2026)       -->
       <!-- ============================================================ -->

@@ -47,13 +47,6 @@
       <version>${project.version}</version>
     </dependency>
 
-    <!-- Optional graph-memory adapter scaffold (W1 per ADR-0034). -->
-    <dependency>
-      <groupId>com.huawei.ascend</groupId>
-      <artifactId>spring-ai-ascend-graphmemory-starter</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
     <!-- Spring Boot baseline for the @SpringBootApplication entry point. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

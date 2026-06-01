@@ -7,19 +7,11 @@ module: agent-service
 kind: domain
 version: 0.1.0-SNAPSHOT
 semver_compatibility: 0.x
-description: "Combined HTTP edge + reference adapter host + runtime entity owner. Sub-package layering: service.platform owns HTTP/JWT/idempotency-filter/tenant + persistence + probes; service.runtime owns Run/RunStateMachine/IdempotencyRecord entities + runs.spi RunRepository SPI + memory.spi + resilience.spi + posture-gated reference (inmemory) orchestrator and adapters (SyncOrchestrator, InMemoryRunRegistry, InMemoryCheckpointer, DefaultSkillResilienceContract, YamlResilienceContract, YamlSkillCapacityRegistry, InMemoryS2cCallbackTransport, NoopTraceContext). Orchestration SPI canonical owner: agent-bus (bus.spi.engine per ADR-0158); reference executors SequentialGraphExecutor + IterativeAgentLoopExecutor live in agent-execution-engine (engine.exec per ADR-0158). S2C SPI canonical owner: agent-bus (bus.spi.s2c per ADR-0088). Module shape consolidated from agent-platform + agent-runtime per ADR-0078; runtime kernel entities re-consolidated from agent-runtime-core per ADR-0088."
+description: "Engine dispatch host + taskflow control. Sub-package layering: service.engine owns the stateless engine dispatch surface (engine.spi StatelessEngine SPI, engine.dispatch, engine.handler, engine.queue, engine.event, engine.model, engine.adapter.openjiuwen reference adapter); service.taskflow owns the task-control queue and control API."
 architecture_doc: architecture/docs/L1/agent-service/README.md
 dfx_doc: docs/dfx/agent-service.yaml
 spi_packages:
-  - com.huawei.ascend.service.runtime.memory.spi
-  - com.huawei.ascend.service.runtime.resilience.spi
-  - com.huawei.ascend.service.runtime.runs.spi   # RunRepository ownership consolidated here per ADR-0088
-  - com.huawei.ascend.service.engine.spi          # rc23 — StatelessEngine SPI per ADR-0100
-  - com.huawei.ascend.service.session.spi         # rc23 — ContextProjector SPI per ADR-0100
-  - com.huawei.ascend.service.task.spi            # rc23 — TaskStateStore SPI per ADR-0100
-  - com.huawei.ascend.service.agent.spi           # rc43 — Agent first-class entity SPI per ADR-0128 (HTTP-edge customer registration surface)
-  - com.huawei.ascend.service.runtime.executor.spi
-  - com.huawei.ascend.service.runtime.intercept.spi
+  - com.huawei.ascend.service.engine.spi
 allowed_dependencies:
   - agent-execution-engine    # engine SPI + orchestration SPI (RunMode, RunContext, SuspendSignal, ...) per ADR-0088
   - agent-bus                 # S2cCallbackTransport SPI + IngressGateway SPI per ADR-0088 + ADR-0089

@@ -12,16 +12,14 @@
 # Hook binding per ADR-0073 / ADR-0121 / ADR-0129: sequence
 # advisor-model-hook-order/v1 is the single source for advisor
 # placement relative to BEFORE_LLM and AFTER_LLM:
-#   1. AgentDefinition.advisorBindings resolve ordered advisors.
-#   2. ModelInvocation translates to AdvisedRequest.modelRequest.
-#   3. BEFORE_LLM fires with the canonical ModelInvocation payload.
-#   4. ChatAdvisor / StreamingChatAdvisor chain wraps the provider call.
-#   5. Terminal chain step invokes ModelGateway.invoke/stream.
-#   6. Outbound advisors produce AdvisedResponse.modelResponse.
-#   7. AFTER_LLM fires with the final translated ModelResponse.
-# HookDispatcher is platform-internal — Audience B composes
-# advisors at AgentDefinition time but never imports
-# HookDispatcher directly.
+#   1. ModelInvocation translates to AdvisedRequest.modelRequest.
+#   2. BEFORE_LLM fires with the canonical ModelInvocation payload.
+#   3. ChatAdvisor / StreamingChatAdvisor chain wraps the provider call.
+#   4. Terminal chain step invokes ModelGateway.invoke/stream.
+#   5. Outbound advisors produce AdvisedResponse.modelResponse.
+#   6. AFTER_LLM fires with the final translated ModelResponse.
+# HookDispatcher is platform-internal and never imported directly
+# by advisor authors.
 
 product_claim: "PC-001|PC-004"
 
@@ -91,7 +89,6 @@ advised_stream_chunk:
 
 binding:
   sequence_id: advisor-model-hook-order/v1
-  agent_definition_field: advisorBindings
   adapter: com.huawei.ascend.middleware.advisor.adapter.AdvisedModelEnvelopeAdapter
   order: "bindings resolve advisors by name; smaller effective order runs first inbound and last outbound"
   hook_dispatcher_visibility: "platform-internal; not exposed to Audience B"

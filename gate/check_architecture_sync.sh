@@ -251,31 +251,6 @@ fi
 if [[ $_r10_fail -eq 0 ]]; then pass_rule "module_dep_direction"; fi
 
 # ---------------------------------------------------------------------------
-# Rule 12 — inmemory_orchestrator_posture_guard_present
-# ADR-0035: AppPostureGate.requireDevForInMemoryComponent is the single
-# construction path for posture reads. All three in-memory components MUST
-# contain AppPostureGate.requireDev in their source.
-# ---------------------------------------------------------------------------
-_r12_fail=0
-_posture_targets=(
-  'agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/SyncOrchestrator.java'
-  'agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryRunRegistry.java'
-  'agent-service/src/main/java/com/huawei/ascend/service/runtime/orchestration/inmemory/InMemoryCheckpointer.java'
-)
-for _pt in "${_posture_targets[@]}"; do
-  if [[ -f "$_pt" ]]; then
-    if ! grep -q 'AppPostureGate\.requireDev' "$_pt" 2>/dev/null; then
-      fail_rule "inmemory_orchestrator_posture_guard_present" "$_pt does not call AppPostureGate.requireDev*. Per ADR-0035 all in-memory components must delegate posture reads to AppPostureGate."
-      _r12_fail=1
-    fi
-  else
-    fail_rule "inmemory_orchestrator_posture_guard_present" "$_pt not found on disk."
-    _r12_fail=1
-  fi
-done
-if [[ $_r12_fail -eq 0 ]]; then pass_rule "inmemory_orchestrator_posture_guard_present"; fi
-
-# ---------------------------------------------------------------------------
 # Rule 16 — http_contract_w1_tenant_and_cancel_consistency
 # ADR-0040: (a) no "replace.*X-Tenant-Id" in active docs; (b) http-api-contracts.md
 # must not reference CREATED as initial status; (c) openapi-v1.yaml must not
@@ -404,15 +379,15 @@ if [[ -n "${_SCAN_SHIPPED_ROWS:-}" ]]; then
     [[ -z "$_r19_cap" ]] && continue
     case "$_r19_status" in
       missing_key)
-        fail_rule "shipped_row_tests_evidence" "$_status_path capability '$_r19_cap' shipped:true but tests: key absent. Per ADR-0042 Gate Rule 19 all shipped rows must have non-empty test evidence."
+        fail_rule "shipped_row_tests_evidence" "$_status_file capability '$_r19_cap' shipped:true but tests: key absent. Per ADR-0042 Gate Rule 19 all shipped rows must have non-empty test evidence."
         _r19_fail=1
         ;;
       empty)
-        fail_rule "shipped_row_tests_evidence" "$_status_path capability '$_r19_cap' shipped:true but tests: is empty. Per ADR-0042 Gate Rule 19 all shipped rows must have non-empty test evidence."
+        fail_rule "shipped_row_tests_evidence" "$_status_file capability '$_r19_cap' shipped:true but tests: is empty. Per ADR-0042 Gate Rule 19 all shipped rows must have non-empty test evidence."
         _r19_fail=1
         ;;
       path_missing)
-        fail_rule "shipped_row_tests_evidence" "$_status_path capability '$_r19_cap' lists test path '$_r19_detail' not found on disk. Per ADR-0042 Gate Rule 19 all test paths must resolve."
+        fail_rule "shipped_row_tests_evidence" "$_status_file capability '$_r19_cap' lists test path '$_r19_detail' not found on disk. Per ADR-0042 Gate Rule 19 all test paths must resolve."
         _r19_fail=1
         ;;
     esac
@@ -450,7 +425,7 @@ if [[ -n "${_SCAN_SHIPPED_ROWS:-}" ]]; then
       printf '%s\t%s\t%s\n' "$_cap" "$_status" "$_path"
     fi
   done)
-elif [[ -f "$_status_path" ]]; then
+elif [[ -f "$_status_file" ]]; then
   # Fallback (cache disabled): original per-line scan.
   _current_key19=''
   _in_shipped19=0
@@ -462,15 +437,15 @@ elif [[ -f "$_status_path" ]]; then
   _flush_shipped19() {
     if [[ $_in_shipped19 -eq 1 ]]; then
       if [[ $_tests_found19 -eq 0 ]]; then
-        fail_rule "shipped_row_tests_evidence" "$_status_path capability '$_current_key19' shipped:true but tests: key absent. Per ADR-0042 Gate Rule 19 all shipped rows must have non-empty test evidence."
+        fail_rule "shipped_row_tests_evidence" "$_status_file capability '$_current_key19' shipped:true but tests: key absent. Per ADR-0042 Gate Rule 19 all shipped rows must have non-empty test evidence."
         _r19_fail=1
       elif [[ $_tests_has_items19 -eq 0 ]]; then
-        fail_rule "shipped_row_tests_evidence" "$_status_path capability '$_current_key19' shipped:true but tests: is empty. Per ADR-0042 Gate Rule 19 all shipped rows must have non-empty test evidence."
+        fail_rule "shipped_row_tests_evidence" "$_status_file capability '$_current_key19' shipped:true but tests: is empty. Per ADR-0042 Gate Rule 19 all shipped rows must have non-empty test evidence."
         _r19_fail=1
       else
         for _tp19 in "${_current_test_paths19[@]}"; do
           if [[ ! -e "$_tp19" ]]; then
-            fail_rule "shipped_row_tests_evidence" "$_status_path capability '$_current_key19' lists test path '$_tp19' not found on disk. Per ADR-0042 Gate Rule 19 all test paths must resolve."
+            fail_rule "shipped_row_tests_evidence" "$_status_file capability '$_current_key19' lists test path '$_tp19' not found on disk. Per ADR-0042 Gate Rule 19 all test paths must resolve."
             _r19_fail=1
           fi
         done
@@ -502,7 +477,7 @@ elif [[ -f "$_status_path" ]]; then
         _in_tests_list19=0
       fi
     fi
-  done < "$_status_path"
+  done < "$_status_file"
   _flush_shipped19
 fi
 if [[ $_r19_fail -eq 0 ]]; then pass_rule "shipped_row_tests_evidence"; fi
@@ -522,10 +497,10 @@ if [[ -n "${_SCAN_SHIPPED_ROWS:-}" ]]; then
     if [[ ! -e "$_r24_path" ]]; then
       case "$_r24_field" in
         latest_delivery)
-          fail_rule "shipped_row_evidence_paths_exist" "$_status_path capability '$_r24_cap' latest_delivery_file '$_r24_path' not found on disk. Per ADR-0045 Gate Rule 24 all shipped-row evidence paths must resolve."
+          fail_rule "shipped_row_evidence_paths_exist" "$_status_file capability '$_r24_cap' latest_delivery_file '$_r24_path' not found on disk. Per ADR-0045 Gate Rule 24 all shipped-row evidence paths must resolve."
           ;;
         l2_doc)
-          fail_rule "shipped_row_evidence_paths_exist" "$_status_path capability '$_r24_cap' l2_documents entry '$_r24_path' not found on disk. Per ADR-0045 Gate Rule 24."
+          fail_rule "shipped_row_evidence_paths_exist" "$_status_file capability '$_r24_cap' l2_documents entry '$_r24_path' not found on disk. Per ADR-0045 Gate Rule 24."
           ;;
       esac
       _r24_fail=1
@@ -540,7 +515,7 @@ if [[ -n "${_SCAN_SHIPPED_ROWS:-}" ]]; then
       }
     }
   ')
-elif [[ -f "$_status_path" ]]; then
+elif [[ -f "$_status_file" ]]; then
   # Fallback (cache disabled): original per-line scan.
   _current_key24=''
   _in_shipped24=0
@@ -557,7 +532,7 @@ elif [[ -f "$_status_path" ]]; then
       if printf '%s\n' "$_line24" | grep -qE '^[[:space:]]+latest_delivery_file:[[:space:]]+'; then
         _ldf24=$(printf '%s\n' "$_line24" | sed -E 's/^[[:space:]]+latest_delivery_file:[[:space:]]+(.*)/\1/')
         if [[ -n "$_ldf24" && ! -e "$_ldf24" ]]; then
-          fail_rule "shipped_row_evidence_paths_exist" "$_status_path capability '$_current_key24' latest_delivery_file '$_ldf24' not found on disk. Per ADR-0045 Gate Rule 24 all shipped-row evidence paths must resolve."
+          fail_rule "shipped_row_evidence_paths_exist" "$_status_file capability '$_current_key24' latest_delivery_file '$_ldf24' not found on disk. Per ADR-0045 Gate Rule 24 all shipped-row evidence paths must resolve."
           _r24_fail=1
         fi
       fi
@@ -571,14 +546,14 @@ elif [[ -f "$_status_path" ]]; then
       elif [[ $_in_l2_list24 -eq 1 ]] && printf '%s\n' "$_line24" | grep -qE '^[[:space:]]+-[[:space:]]+'; then
         _l2p24=$(printf '%s\n' "$_line24" | sed -E 's/^[[:space:]]+-[[:space:]]+(.*)/\1/')
         if [[ -n "$_l2p24" && ! -e "$_l2p24" ]]; then
-          fail_rule "shipped_row_evidence_paths_exist" "$_status_path capability '$_current_key24' l2_documents entry '$_l2p24' not found on disk. Per ADR-0045 Gate Rule 24."
+          fail_rule "shipped_row_evidence_paths_exist" "$_status_file capability '$_current_key24' l2_documents entry '$_l2p24' not found on disk. Per ADR-0045 Gate Rule 24."
           _r24_fail=1
         fi
       elif [[ $_in_l2_list24 -eq 1 ]] && ! printf '%s\n' "$_line24" | grep -qE '^[[:space:]]+-'; then
         _in_l2_list24=0
       fi
     fi
-  done < "$_status_path"
+  done < "$_status_file"
 fi
 if [[ $_r24_fail -eq 0 ]]; then pass_rule "shipped_row_evidence_paths_exist"; fi
 
@@ -1262,25 +1237,6 @@ for _r11_root in "${_r11_roots[@]}"; do
   done <<< "$_r11_hits"
 done
 if [[ $_r11_fail -eq 0 ]]; then pass_rule "contract_spine_tenant_id_required"; fi
-
-# ---------------------------------------------------------------------------
-# Rule 24.c — runlifecycle_cancel_reauthz_shipped (enforcer E106)
-# agent-service RunController MUST expose POST /v1/runs/{runId}/cancel
-# with tenant re-validation + RunStateMachine validation + audit log.
-# ---------------------------------------------------------------------------
-_r24_fail=0
-_r24_path='agent-service/src/main/java/com/huawei/ascend/service/platform/web/runs/RunController.java'
-if [[ ! -f "$_r24_path" ]]; then
-  fail_rule "runlifecycle_cancel_reauthz_shipped" "$_r24_path missing — Rule 24.c expects RunController to host the cancel surface"
-  _r24_fail=1
-elif ! grep -qE '/v1/runs/\{[a-zA-Z]+\}/cancel' "$_r24_path" 2>/dev/null; then
-  fail_rule "runlifecycle_cancel_reauthz_shipped" "$_r24_path missing the POST /v1/runs/{runId}/cancel mapping"
-  _r24_fail=1
-elif ! grep -qE 'tenantId\(\)' "$_r24_path" 2>/dev/null; then
-  fail_rule "runlifecycle_cancel_reauthz_shipped" "$_r24_path cancel handler does not re-validate tenantId"
-  _r24_fail=1
-fi
-if [[ $_r24_fail -eq 0 ]]; then pass_rule "runlifecycle_cancel_reauthz_shipped"; fi
 
 # ---------------------------------------------------------------------------
 # Rule 29.c — quickstart_smoke_job_present (enforcer E107)

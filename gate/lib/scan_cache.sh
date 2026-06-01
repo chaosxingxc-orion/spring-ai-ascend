@@ -68,6 +68,7 @@ gate_scan_cache_populate() {
       -not -path './target/*' \
       -not -path './.claude/*' \
       -not -path './.git/*' \
+      -not -path './third_party/*' \
       2>/dev/null | sort)
   fi
 
@@ -79,18 +80,21 @@ gate_scan_cache_populate() {
       -not -path './docs/archive/*' \
       -not -path './docs/v6-rationale/*' \
       -not -path './gate/log/*' \
+      -not -path './third_party/*' \
       2>/dev/null | sort)
   fi
 
   if [[ " $_patterns " == *" migration_sql "* ]]; then
     _SCAN_MIGRATION_SQL=$(find . -path '*/src/main/resources/db/migration/V*.sql' \
       -not -path './target/*' \
+      -not -path './third_party/*' \
       2>/dev/null | sort)
   fi
 
   if [[ " $_patterns " == *" agent_java_main "* ]]; then
     _SCAN_AGENT_JAVA_MAIN=$(find . -path '*/agent-*/src/main/java/*' -name '*.java' \
       -not -path './target/*' \
+      -not -path './third_party/*' \
       2>/dev/null | sort)
   fi
 

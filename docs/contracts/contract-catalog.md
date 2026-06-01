@@ -123,15 +123,12 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 
 | Type | Module | Notes |
 |---|---|---|
-| `Run` | `agent-service` (`...service.runtime.runs`) | Run aggregate record; status transitions guarded by `RunStateMachine` (Rule R-C.d); relocated per ADR-0088 |
-| `RunStatus` | `agent-service` (`...service.runtime.runs`) | Sealed status taxonomy; relocated per ADR-0088 |
 | `RunMode` | `agent-bus` (`...bus.spi.engine`) | GRAPH \| AGENT_LOOP discriminator; co-located with orchestration SPI per ADR-0088 |
 | `RunContext` | `agent-bus` (`...bus.spi.engine`) | Per-run context interface; exposes `tenantId()`, `runId()` |
 | `TraceContext` | `agent-bus` (`...bus.spi.engine`) | Trace-id / span carrier interface |
 | `ExecutorDefinition` | `agent-bus` (`...bus.spi.engine`) | Sealed: `GraphDefinition` \| `AgentLoopDefinition` |
 | `DefinitionRef` | `agent-bus` (`...bus.spi.engine`) | Serializable capability-name reference; the wire-form of an `ExecutorDefinition` a remote engine resolves to its own definition (engine-port.v1.yaml) per ADR-0158 |
 | `SuspendSignal` | `agent-bus` (`...bus.spi.engine`) | Checked-exception interrupt primitive; carries `forClientCallback(...)` variant per ADR-0074 |
-| `IdempotencyRecord` | `agent-service` (`...service.runtime.idempotency`) | Idempotency-Key persistence record (Rule R-C.c contract spine); relocated per ADR-0088 |
 | `S2cCallbackEnvelope` / `S2cCallbackResponse` | `agent-bus` (`...bus.spi.s2c`) | Six mandatory request fields per ADR-0074; relocated per ADR-0088 |
 | `IngressEnvelope` / `IngressResponse` / `IngressStatus` / `IngressRequestType` | `agent-bus` (`...bus.spi.ingress`) | C2S ingress envelope (6 required fields per ADR-0089); response carries Task Cursor (Rule R-F) on ACCEPTED RUN_CREATE |
 | `EngineRegistry` | `agent-execution-engine` (`...engine.runtime`) | Single authority for `resolve(envelope)` / `resolveByPayload(...)` (Rule R-M.a, formerly Rule 43); relocated from `service.runtime.engine` in rc14 per ADR-0090 |
@@ -144,7 +141,6 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `ModelResponseChunk` | `agent-middleware` (`...middleware.model.spi`) | rc51 — sealed streaming chunk: `ContentDelta` \| `ToolCallDelta` \| `Complete` (ADR-0129); terminal `Complete` carries the assembled `ModelResponse` |
 | `PromptTemplateSource` | `agent-middleware` (`...middleware.prompt.spi`) | rc51 — sealed prompt source: `InlineString` \| `ClasspathResource`; each carries a `PlaceholderSyntax` enum value (ADR-0131) |
 | `RenderedPrompt` | `agent-middleware` (`...middleware.prompt.spi`) | rc51 — record `(templateId, renderedText, variables)` returned by `PromptTemplate.render(...)` (ADR-0131) |
-| `AdvisorBinding` | `agent-service` (`...service.agent.spi`) | rc53 — per-agent advisor binding carrier `(advisorName, mode, orderOverride, metadata)` on `AgentDefinition`; resolves advisors by name without importing middleware advisor SPI (ADR-0128 / ADR-0132) |
 | `AdvisedRequest` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — record `(tenantId, modelRequest, advisorContext)` passed along sync/stream advisor chains without model-SPI imports (ADR-0132) |
 | `AdvisedResponse` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — record `(tenantId, modelResponse, advisorContext)` returned along sync/stream advisor chains (ADR-0132) |
 | `AdvisedModelRequest` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — typed same-package model request carrier `(modelId, messages, tools, parameters, hookContext)` for advisors (ADR-0132) |
