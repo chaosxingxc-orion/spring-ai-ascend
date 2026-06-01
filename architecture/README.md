@@ -11,6 +11,53 @@ authority: "ADR-0147 (Structurizr Workspace Authority) + ADR-0149 (W0-W5 shipped
 
 > **Status (Wave 8 shipped, 2026-05-27):** the workspace gate is BLOCKING since W5; the L1 design corpus is consolidated under `architecture/docs/L1/` since W8; module-root `agent-*/ARCHITECTURE.md` files are merged into the L1 corpus; `!docs docs` + `!adrs decisions` directives are wired so Structurizr formally imports the narrative + ADR markdowns.
 
+## Directory roles
+
+| Path | Role | Edit policy |
+|---|---|---|
+| `workspace.dsl` | Sole architecture model entry point. | Hand-edit only when changing accepted architecture structure. |
+| `docs/L0/` | Canonical L0 prose: system boundary, platform constraints, and cross-module commitments. | Accepted facts only. |
+| `docs/L1/` | Canonical module architecture prose. | Accepted module design only; proposals must be promoted before landing here. |
+| `docs/L2/` | Canonical deep technical designs promoted from accepted L0/L1 needs. | Accepted designs only. |
+| `features/` | Authored capability, feature, function-point, and verification DSL fragments. | Keep aligned with workspace validation. |
+| `decisions/` | ADR markdown mirror imported by the workspace. | Mirror accepted ADR anchors; rationale remains in `docs/adr/`. |
+| `facts/generated/` | Deterministic facts extracted from code, contracts, tests, modules, and runtime config. | Generated only. |
+| `generated/` | Generated DSL projections. | Generated only; never hand-edit. |
+| `profile/` and `views/` | Workspace validation profile and view fragments. | Internal architecture tooling. |
+
+## Human reading path
+
+1. **`architecture/README.md`** (this file) - understand the authority model,
+   directory roles, and edit policy.
+2. **`architecture/workspace.dsl`** - inspect the system/container/component
+   structure and the relationships that the workspace validates.
+3. **`architecture/docs/L0/ARCHITECTURE.md`** - read the declarative system
+   boundary and platform constraints.
+4. **`architecture/docs/L1/README.md`** - pick the module you are implementing
+   or reviewing.
+5. **`docs/contracts/contract-catalog.md`** and the relevant contract schemas -
+   confirm runtime promises.
+6. **`docs/adr/`** and **`docs/governance/`** - confirm decision rationale,
+   rules, enforcers, and status ledgers when cited by canonical architecture.
+
+## AI reading path
+
+1. **`architecture/facts/generated/`** - deterministic ground truth for code
+   symbols, contract operations, tests, module dependencies, runtime config, and
+   ADR graph. Read this before prose when making factual claims.
+2. **`architecture/workspace.dsl`** - architecture structure and relationships.
+3. **`architecture/docs/L0/ARCHITECTURE.md`** - declarative L0 constraints.
+4. **`architecture/docs/L1/README.md`** and the relevant module - canonical
+   module design.
+5. **`docs/contracts/`**, **`docs/adr/`**, and **`docs/governance/`** -
+   supporting authority for specific claims.
+
+AI agents must treat `docs/architecture/`, `docs/logs/`, `docs/reviews/`, and
+`docs/archive/` as non-overriding context unless a canonical file explicitly
+promotes a specific artifact. Draft material can explain why a design is under
+discussion; it cannot override the workspace, L0/L1 canonical prose, accepted
+contracts, accepted ADRs, or governance status ledgers.
+
 ## What workspace.dsl carries
 
 | Structurizr concept | Spring AI Ascend role |

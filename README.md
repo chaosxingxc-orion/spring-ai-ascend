@@ -109,6 +109,43 @@ Full matrix: [docs/architecture/l0/cross-cutting/posture-model.md](docs/architec
 
 ## Reading path
 
+Architecture truth starts in [`architecture/`](architecture/). The
+[`docs/`](docs/) tree contains contracts, ADRs, governance, evidence, proposals,
+and history; it can support architecture claims, but it does not replace the
+architecture-of-record.
+
+Human contributors should read:
+
+1. [`architecture/README.md`](architecture/README.md) - authority model,
+   directory roles, and edit policy.
+2. [`architecture/workspace.dsl`](architecture/workspace.dsl) - canonical model
+   of structure and relationships.
+3. [`architecture/docs/L0/ARCHITECTURE.md`](architecture/docs/L0/ARCHITECTURE.md)
+   - declarative system boundary and platform constraints.
+4. [`architecture/docs/L1/README.md`](architecture/docs/L1/README.md) - module
+   design index.
+5. [`docs/contracts/contract-catalog.md`](docs/contracts/contract-catalog.md),
+   [`docs/adr/`](docs/adr/), and [`docs/governance/`](docs/governance/) when
+   cited by canonical architecture.
+6. [`docs/quickstart.md`](docs/quickstart.md) for operational onboarding.
+
+AI assistants should read:
+
+1. [`architecture/facts/generated/`](architecture/facts/generated/) before prose
+   for factual claims about code, contracts, tests, modules, or runtime config.
+2. [`architecture/workspace.dsl`](architecture/workspace.dsl), then
+   [`architecture/docs/L0/ARCHITECTURE.md`](architecture/docs/L0/ARCHITECTURE.md)
+   and the relevant [`architecture/docs/L1/`](architecture/docs/L1/) module.
+3. [`docs/contracts/`](docs/contracts/), [`docs/adr/`](docs/adr/), and
+   [`docs/governance/`](docs/governance/) only as supporting authority for the
+   specific claim being checked.
+4. [`docs/architecture/`](docs/architecture/), [`docs/logs/`](docs/logs/),
+   [`docs/reviews/`](docs/reviews/), and [`docs/archive/`](docs/archive/) only
+   as non-overriding context unless a canonical architecture file explicitly
+   promotes a specific artifact.
+
+## Legacy reading path (superseded)
+
 Whether you are a new human contributor or an AI assistant, follow this order for an unbiased architecture picture. Each step names the surface's **rhetorical stance** so you don't conflate it with another slice.
 
 1. **`architecture/workspace.dsl`** + **`architecture/README.md`** — the architecture authority (`唯一主入口` / sole main entry; ADR-0147 + ADR-0150). Structurizr DSL workspace carrying system/container/component structure, Feature/Capability/FunctionPoint instances, dependencies, contracts, decisions, and views.
