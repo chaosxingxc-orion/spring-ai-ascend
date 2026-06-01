@@ -39,8 +39,10 @@ class A2aSendMessageModeTest {
         assertThat(body.path("jsonrpc").asText()).isEqualTo("2.0");
         assertThat(body.path("id").asText()).isEqualTo("req-send");
         assertThat(body.path("error").isMissingNode()).isTrue();
-        assertThat(body.path("result").path("kind").asText()).isEqualTo("message");
+        assertThat(body.path("result").path("role").asText()).isEqualTo("ROLE_AGENT");
         assertThat(body.path("result").path("taskId").asText()).startsWith("temporary-task-");
+        assertThat(body.path("result").path("parts").get(0).path("text").asText())
+                .isEqualTo("Accepted by temporary L4 TaskHandler placeholder");
         assertThat(body.path("result").path("metadata").path("tenantId").asText()).isEqualTo("tenant-001");
     }
 
@@ -51,8 +53,9 @@ class A2aSendMessageModeTest {
                   "id": "req-send",
                   "method": "%s",
                   "params": {
+                    "tenant": "tenant-001",
                     "message": {
-                      "role": "user",
+                      "role": "ROLE_USER",
                       "messageId": "msg-send",
                       "contextId": "session-send",
                       "parts": [

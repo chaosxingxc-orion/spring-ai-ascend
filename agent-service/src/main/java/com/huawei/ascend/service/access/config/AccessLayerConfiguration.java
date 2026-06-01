@@ -1,6 +1,7 @@
 package com.huawei.ascend.service.access.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.huawei.ascend.service.access.protocol.a2a.A2aAccessService;
 import com.huawei.ascend.service.access.protocol.a2a.A2aEgressAdapter;
 import com.huawei.ascend.service.access.protocol.a2a.A2aOutputRegistry;
@@ -29,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.a2aproject.sdk.spec.AgentCapabilities;
 import org.a2aproject.sdk.spec.AgentCard;
+import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.AgentProvider;
 import org.a2aproject.sdk.spec.TransportProtocol;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -42,7 +44,7 @@ public class AccessLayerConfiguration {
     @Bean
     @ConditionalOnMissingBean
     ObjectMapper accessObjectMapper() {
-        return new ObjectMapper();
+        return new ObjectMapper().registerModule(new JavaTimeModule());
     }
 
     @Bean
@@ -64,11 +66,12 @@ public class AccessLayerConfiguration {
                 .description("A2A access layer for spring-ai-ascend agent service.")
                 .url("/a2a/")
                 .version("0.1.0")
-                .provider(new AgentProvider("spring-ai-ascend", null))
+                .provider(new AgentProvider("spring-ai-ascend", "http://localhost:8080"))
                 .capabilities(capabilities)
                 .defaultInputModes(List.of("text"))
                 .defaultOutputModes(List.of("text", "artifact"))
                 .skills(List.of())
+                .supportedInterfaces(List.of(new AgentInterface(TransportProtocol.JSONRPC.asString(), "/a2a/")))
                 .preferredTransport(TransportProtocol.JSONRPC.asString())
                 .build();
     }

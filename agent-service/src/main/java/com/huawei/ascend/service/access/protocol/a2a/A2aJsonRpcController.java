@@ -184,7 +184,7 @@ public final class A2aJsonRpcController {
         String sessionId = firstText(metadata.get("sessionId"), message.get("contextId"));
         return new A2aEnvelope(
                 new A2aEnvelope.A2aContext(
-                        requiredText(metadata, "tenantId"),
+                        requiredText(params, metadata, "tenant", "tenantId"),
                         requiredText(metadata, "userId"),
                         requiredText(metadata, "agentId"),
                         sessionId,
@@ -283,6 +283,14 @@ public final class A2aJsonRpcController {
         String value = text(node.get(field));
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("Missing A2A metadata." + field);
+        }
+        return value;
+    }
+
+    private String requiredText(JsonNode firstNode, JsonNode secondNode, String firstField, String secondField) {
+        String value = firstText(firstNode.get(firstField), secondNode.get(secondField));
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Missing A2A params." + firstField);
         }
         return value;
     }

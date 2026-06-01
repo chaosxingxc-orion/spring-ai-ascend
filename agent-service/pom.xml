@@ -282,6 +282,7 @@
             Maven modules.
           -->
           <classifier>boot</classifier>
+          <mainClass>com.huawei.ascend.service.platform.PlatformApplication</mainClass>
         </configuration>
       </plugin>
       <plugin>

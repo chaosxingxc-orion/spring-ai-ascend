@@ -70,6 +70,7 @@ class A2aPushNotificationModeTest {
                   "id": "req-push",
                   "method": "SendMessage",
                   "params": {
+                    "tenant": "tenant-001",
                     "configuration": {
                       "taskPushNotificationConfig": {
                         "id": "push-config-001",
@@ -78,7 +79,7 @@ class A2aPushNotificationModeTest {
                       }
                     },
                     "message": {
-                      "role": "user",
+                      "role": "ROLE_USER",
                       "messageId": "msg-push",
                       "contextId": "session-push",
                       "parts": [
