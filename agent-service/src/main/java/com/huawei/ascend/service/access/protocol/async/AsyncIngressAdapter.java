@@ -15,11 +15,6 @@ public final class AsyncIngressAdapter implements AsyncIngressPort {
     @Override
     public void enqueue(AsyncEnvelope envelope) {
         AccessIntent intent = accessGateway.acceptAsync(envelope);
-        accessGateway.dispatch(intent)
-                .thenAccept(accepted -> {
-                    if (accepted.accepted()) {
-                        accessGateway.bindEgress(intent, accepted);
-                    }
-                });
+        accessGateway.dispatch(intent);
     }
 }

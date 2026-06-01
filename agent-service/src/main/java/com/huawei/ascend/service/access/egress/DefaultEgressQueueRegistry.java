@@ -1,39 +1,35 @@
 package com.huawei.ascend.service.access.egress;
 
 import com.huawei.ascend.service.access.model.EgressBinding;
-import com.huawei.ascend.service.access.temp.L3QueuePlaceholders.Queue;
-import com.huawei.ascend.service.access.temp.L3QueuePlaceholders.QueueFactory;
-import com.huawei.ascend.service.access.temp.L3QueuePlaceholders.QueueId;
-import com.huawei.ascend.service.access.temp.L3QueuePlaceholders.QueueSpec;
+import com.huawei.ascend.service.access.model.NotificationFrame;
+import com.huawei.ascend.service.queue.QueueFactory;
+import com.huawei.ascend.service.queue.TaskQueue;
 
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * In-memory {@link EgressQueueRegistry} backed by the shared internal-event-queue
+ * module. One {@link TaskQueue} of {@link NotificationFrame} is created per task,
+ * keyed by (tenant, session, task).
+ */
 public final class DefaultEgressQueueRegistry implements EgressQueueRegistry {
 
-    private final QueueFactory queueFactory;
-    private final ConcurrentHashMap<Key, Queue> queues = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Key, TaskQueue<NotificationFrame>> queues = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Key, EgressBinding> bindings = new ConcurrentHashMap<>();
 
-    public DefaultEgressQueueRegistry(QueueFactory queueFactory) {
-        this.queueFactory = Objects.requireNonNull(queueFactory, "queueFactory");
-    }
-
     @Override
-    public Queue getOrCreate(EgressBinding binding) {
+    public TaskQueue<NotificationFrame> getOrCreate(EgressBinding binding) {
         Objects.requireNonNull(binding, "binding");
         Key key = Key.from(binding.tenantId(), binding.sessionId(), binding.taskId());
         bindings.putIfAbsent(key, binding);
-        return queues.computeIfAbsent(key, ignored -> queueFactory.createQueue(new QueueSpec(
-                new QueueId(queueIdValue(binding)),
-                binding.tenantId(),
-                binding.sessionId(),
-                binding.taskId())));
+        return queues.computeIfAbsent(key,
+                ignored -> QueueFactory.inMemoryQueue(queueIdValue(binding)));
     }
 
     @Override
-    public Optional<Queue> find(String tenantId, String sessionId, String taskId) {
+    public Optional<TaskQueue<NotificationFrame>> find(String tenantId, String sessionId, String taskId) {
         return Optional.ofNullable(queues.get(Key.from(tenantId, sessionId, taskId)));
     }
 
@@ -65,5 +61,3 @@ public final class DefaultEgressQueueRegistry implements EgressQueueRegistry {
         }
     }
 }
-
-

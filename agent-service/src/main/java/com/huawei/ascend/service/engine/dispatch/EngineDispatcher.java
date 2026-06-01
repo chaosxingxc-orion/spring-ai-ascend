@@ -52,6 +52,18 @@ public class EngineDispatcher {
         AgentExecutionContext context = new AgentExecutionContext(command.getScope(), command.getInput());
         try (Stream<EngineExecutionEvent> events = handler.execute(context)) {
             events.forEach(this::route);
+        } catch (RuntimeException ex) {
+            // A handler that throws (rather than emitting a failure event) must
+            // still produce a terminal outcome, or the caller waits forever and
+            // the reply channel leaks. Translate it into a failure event routed
+            // to both the task-control and access layers.
+            EngineFailedEvent failed = new EngineFailedEvent(
+                    UUID.randomUUID().toString(),
+                    command.getScope(),
+                    Instant.now(),
+                    ex.getClass().getSimpleName(),
+                    ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+            route(failed);
         }
     }
 

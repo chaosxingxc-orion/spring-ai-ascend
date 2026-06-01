@@ -20,9 +20,6 @@ import com.huawei.ascend.service.access.protocol.async.AsyncIngressPort;
 import com.huawei.ascend.service.access.protocol.async.AsyncOutputSink;
 import com.huawei.ascend.service.access.api.NotificationPort;
 import com.huawei.ascend.service.access.core.TaskHandler;
-import com.huawei.ascend.service.access.temp.L3QueuePlaceholders.InMemoryQueueFactory;
-import com.huawei.ascend.service.access.temp.L3QueuePlaceholders.QueueFactory;
-import com.huawei.ascend.service.access.temp.TemporaryL4TaskHandler;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -45,12 +42,6 @@ public class AccessLayerConfiguration {
     @ConditionalOnMissingBean
     ObjectMapper accessObjectMapper() {
         return new ObjectMapper().registerModule(new JavaTimeModule());
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(TaskHandler.class)
-    TaskHandler temporaryL4TaskHandler(NotificationPort notificationPort, Executor accessEgressExecutor) {
-        return new TemporaryL4TaskHandler(notificationPort, accessEgressExecutor);
     }
 
     @Bean
@@ -89,15 +80,9 @@ public class AccessLayerConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(QueueFactory.class)
-    QueueFactory accessQueueFactory() {
-        return new InMemoryQueueFactory();
-    }
-
-    @Bean
     @ConditionalOnMissingBean
-    EgressQueueRegistry egressQueueRegistry(QueueFactory queueFactory) {
-        return new DefaultEgressQueueRegistry(queueFactory);
+    EgressQueueRegistry egressQueueRegistry() {
+        return new DefaultEgressQueueRegistry();
     }
 
     @Bean(destroyMethod = "shutdown")

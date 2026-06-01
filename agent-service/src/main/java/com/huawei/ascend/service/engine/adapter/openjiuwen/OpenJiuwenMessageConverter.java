@@ -1,7 +1,8 @@
 package com.huawei.ascend.service.engine.adapter.openjiuwen;
 
 import com.huawei.ascend.service.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.service.engine.model.EngineMessage;
+import com.huawei.ascend.service.schema.Message;
+import com.huawei.ascend.service.schema.Role;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,16 +23,16 @@ public class OpenJiuwenMessageConverter {
     }
 
     private String lastUserText(AgentExecutionContext context) {
-        List<EngineMessage> messages = context.getInput() == null ? null : context.getInput().messages();
+        List<Message> messages = context.getInput() == null ? null : context.getInput().messages();
         if (messages == null || messages.isEmpty()) {
             return "";
         }
         for (int i = messages.size() - 1; i >= 0; i--) {
-            EngineMessage message = messages.get(i);
-            if (message != null && "user".equals(message.role())) {
-                return message.content();
+            Message message = messages.get(i);
+            if (message != null && message.role() == Role.USER) {
+                return message.text();
             }
         }
-        return messages.get(messages.size() - 1).content();
+        return messages.get(messages.size() - 1).text();
     }
 }

@@ -32,9 +32,6 @@ public final class A2aIngressAdapter implements A2aAccessService {
 
     private A2aAcceptedResponse submit(AccessIntent intent) {
         AccessAcceptedResponse accepted = accessGateway.dispatch(intent).toCompletableFuture().join();
-        if (accepted.accepted()) {
-            accessGateway.bindEgress(intent, accepted);
-        }
         return toA2aAcceptedResponse(accepted);
     }
 

@@ -1,5 +1,6 @@
 package com.huawei.ascend.service.engine.model;
 
+import com.huawei.ascend.service.schema.Message;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -9,7 +10,8 @@ import java.util.Objects;
  *
  * <p>Carries Agent execution input. Prioritizes {@code messages} for
  * conversational input. {@code variables} is used for workflow variables
- * or structured task parameters.
+ * or structured task parameters. Messages use the canonical {@link Message}
+ * schema shared across the service.
  *
  * @param inputType input type: USER_MESSAGE, RESUME_SIGNAL, or AGENT_CALL_RESULT.
  * @param messages  list of messages (conversational input).
@@ -17,7 +19,7 @@ import java.util.Objects;
  */
 public record EngineInput(
         String inputType,
-        List<EngineMessage> messages,
+        List<Message> messages,
         Map<String, Object> variables) {
 
     public EngineInput {

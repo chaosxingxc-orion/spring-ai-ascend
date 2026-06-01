@@ -3,14 +3,13 @@ package com.huawei.ascend.service.access.egress;
 import com.huawei.ascend.service.access.model.EgressBinding;
 import com.huawei.ascend.service.access.model.NotificationFrame;
 import com.huawei.ascend.service.access.model.ReplyChannel;
-import com.huawei.ascend.service.access.temp.L3QueuePlaceholders.Queue;
-import com.huawei.ascend.service.access.temp.L3QueuePlaceholders.QueuePollRequest;
+import com.huawei.ascend.service.queue.TaskQueue;
 
-import java.time.Duration;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -19,7 +18,7 @@ import org.slf4j.LoggerFactory;
 
 public final class EgressDispatcher {
 
-    private static final Duration DEFAULT_POLL_TIMEOUT = Duration.ofMillis(200);
+    private static final long IDLE_BACKOFF_MILLIS = 5L;
     private static final Logger LOGGER = LoggerFactory.getLogger(EgressDispatcher.class);
 
     private final EgressQueueRegistry registry;
@@ -63,15 +62,21 @@ public final class EgressDispatcher {
     private void dispatchLoop(EgressBinding binding, Key key) {
         try {
             while (running.containsKey(key)) {
-                Queue queue = registry.find(binding.tenantId(), binding.sessionId(), binding.taskId())
-                        .orElse(null);
-                if (queue == null) {
+                Optional<TaskQueue<NotificationFrame>> queue =
+                        registry.find(binding.tenantId(), binding.sessionId(), binding.taskId());
+                if (queue.isEmpty()) {
                     stop(binding);
                     return;
                 }
-                queue.poll(new QueuePollRequest(DEFAULT_POLL_TIMEOUT))
-                        .ifPresent(value -> deliver(binding, value));
+                Optional<NotificationFrame> frame = queue.get().poll();
+                if (frame.isPresent()) {
+                    deliver(binding, frame.get());
+                } else {
+                    Thread.sleep(IDLE_BACKOFF_MILLIS);
+                }
             }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
         } catch (RuntimeException ex) {
             registry.remove(binding.tenantId(), binding.sessionId(), binding.taskId());
             throw ex;
@@ -80,10 +85,7 @@ public final class EgressDispatcher {
         }
     }
 
-    private void deliver(EgressBinding binding, Object value) {
-        if (!(value instanceof NotificationFrame frame)) {
-            throw new EgressDeliveryException("Egress queue item is not a NotificationFrame");
-        }
+    private void deliver(EgressBinding binding, NotificationFrame frame) {
         EgressAdapter adapter = adapters.get(binding.replyChannel());
         if (adapter == null) {
             throw new EgressDeliveryException("No egress adapter for channel " + binding.replyChannel());

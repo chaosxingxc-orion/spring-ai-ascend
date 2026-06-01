@@ -32,8 +32,13 @@ public class EngineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AgentHandlerRegistry agentHandlerRegistry() {
-        return new DefaultAgentHandlerRegistry();
+    public AgentHandlerRegistry agentHandlerRegistry(
+            org.springframework.beans.factory.ObjectProvider<com.huawei.ascend.service.engine.spi.AgentHandler> handlers) {
+        DefaultAgentHandlerRegistry registry = new DefaultAgentHandlerRegistry();
+        // Auto-register every AgentHandler bean by its agentId so framework
+        // integrators only need to publish a handler bean to plug in an agent.
+        handlers.orderedStream().forEach(handler -> registry.register(handler.agentId(), handler));
+        return registry;
     }
 
     @Bean
