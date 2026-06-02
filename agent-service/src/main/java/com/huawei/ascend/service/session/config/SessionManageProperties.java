@@ -9,8 +9,7 @@ public record SessionManageProperties(
         Store store) {
 
     public enum StoreType {
-        MEMORY,
-        REDIS
+        MEMORY
     }
 
     public record Store(StoreType type) {

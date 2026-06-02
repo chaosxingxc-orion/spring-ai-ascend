@@ -41,12 +41,11 @@ public final class EgressDispatcher {
                 .publishOn(scheduler)
                 .doOnNext(frame -> deliver(binding, frame))
                 .doOnError(failure -> {
-                    registry.remove(binding.tenantId(), binding.sessionId(), binding.replyId());
+                    registry.remove(binding.tenantId(), binding.sessionId());
                     LOGGER.error(
-                            "Egress dispatcher stopped after delivery failure, tenantId={}, sessionId={}, replyId={}",
+                            "Egress dispatcher stopped after delivery failure, tenantId={}, sessionId={}",
                             binding.tenantId(),
                             binding.sessionId(),
-                            binding.replyId(),
                             failure);
                 })
                 .doFinally(signalType -> running.remove(key))
@@ -69,13 +68,13 @@ public final class EgressDispatcher {
         adapter.deliver(binding, frame);
         if (frame.terminal()) {
             stop(binding);
-            registry.remove(binding.tenantId(), binding.sessionId(), binding.replyId());
+            registry.remove(binding.tenantId(), binding.sessionId());
         }
     }
 
-    private record Key(String tenantId, String sessionId, String replyId) {
+    private record Key(String tenantId, String sessionId) {
         static Key from(EgressBinding binding) {
-            return new Key(binding.tenantId(), binding.sessionId(), binding.replyId());
+            return new Key(binding.tenantId(), binding.sessionId());
         }
     }
 }

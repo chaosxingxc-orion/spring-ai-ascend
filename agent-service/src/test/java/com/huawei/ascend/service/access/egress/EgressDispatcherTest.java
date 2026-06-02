@@ -25,7 +25,7 @@ class EgressDispatcherTest {
         RecordingEgressAdapter adapter = new RecordingEgressAdapter();
         Executor directExecutor = Runnable::run;
         EgressDispatcher dispatcher = new EgressDispatcher(registry, List.of(adapter), directExecutor);
-        EgressBinding binding = new EgressBinding("tenant", "session", "task", ReplyChannel.A2A,
+        EgressBinding binding = new EgressBinding("tenant", "session", ReplyChannel.A2A,
                 "stream", "target", "correlation", Map.of());
 
         assertThatCode(() -> {
@@ -37,7 +37,7 @@ class EgressDispatcherTest {
                 NotificationType.ACK, RunStatus.COMPLETED, List.of(), null, Map.of(), true));
 
         assertThat(adapter.frames()).hasSize(1);
-        assertThat(queueManager.find("tenant:session:task:egress")).isEmpty();
+        assertThat(queueManager.find("tenant:session:egress")).isEmpty();
     }
 
     private static final class RecordingEgressAdapter implements EgressAdapter {

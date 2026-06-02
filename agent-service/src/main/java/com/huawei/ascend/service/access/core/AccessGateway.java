@@ -15,10 +15,10 @@ import java.util.concurrent.CompletionStage;
 
 public final class AccessGateway {
 
-    private final TaskHandler taskHandler;
+    private final AccessSubmissionService submissionService;
 
-    public AccessGateway(TaskHandler taskHandler) {
-        this.taskHandler = Objects.requireNonNull(taskHandler, "taskHandler");
+    public AccessGateway(AccessSubmissionService submissionService) {
+        this.submissionService = Objects.requireNonNull(submissionService, "submissionService");
     }
 
     public CompletionStage<AccessAcceptedResponse> submitA2a(A2aEnvelope envelope) {
@@ -44,11 +44,11 @@ public final class AccessGateway {
 
     public CompletionStage<AccessAcceptedResponse> cancelA2a(A2aEnvelope envelope) {
         Objects.requireNonNull(envelope, "envelope");
-        return taskHandler.cancel(toA2aCancelCommand(envelope));
+        return submissionService.cancel(toA2aCancelCommand(envelope));
     }
 
     private CompletionStage<AccessAcceptedResponse> run(AgentRequest request, ReplyContext reply) {
-        return taskHandler.run(request, reply);
+        return submissionService.run(request, reply);
     }
 
     private AgentRequest toA2aAgentRequest(A2aEnvelope envelope) {

@@ -23,7 +23,6 @@ public final class EgressBindingFactory {
         return new EgressBinding(
                 request.tenantId(),
                 request.sessionId(),
-                reply.replyId(),
                 replyChannel,
                 deliveryMode,
                 resolveTargetRef(reply, replyChannel),

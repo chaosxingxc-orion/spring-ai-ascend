@@ -1,7 +1,7 @@
 package com.huawei.ascend.service.bootstrap;
 
 import com.huawei.ascend.service.access.api.NotificationPort;
-import com.huawei.ascend.service.access.core.TaskHandler;
+import com.huawei.ascend.service.access.core.AccessSubmissionService;
 import com.huawei.ascend.service.access.egress.EgressDispatcher;
 import com.huawei.ascend.service.access.egress.EgressQueueRegistry;
 import com.huawei.ascend.service.engine.port.AccessLayerClient;
@@ -15,8 +15,8 @@ import org.springframework.context.annotation.Configuration;
  * five independently-configured layers into one working runtime.
  *
  * <ul>
- *   <li>{@link AccessTaskHandler} — inbound: access layer to task-centric-control.</li>
- *   <li>{@link AccessNotificationClient} — outbound: engine to access layer.</li>
+ *   <li>{@link AccessSubmissionService} - inbound: access layer to task-centric-control.</li>
+ *   <li>{@link AccessNotificationClient} - outbound: engine to access layer.</li>
  * </ul>
  *
  * <p>The access, session, queue, task-control and engine modules each ship their
@@ -28,17 +28,17 @@ public class AgentServiceBootstrapConfiguration {
 
     /**
      * Inbound seam. The access module publishes its {@code AccessGateway} only
-     * once a {@link TaskHandler} exists, so this handler is what activates the
-     * whole inbound chain. Task control owns task-id allocation; this handler
-     * binds egress before dispatching the prepared task.
+     * once an {@link AccessSubmissionService} exists. Access binds egress before
+     * submitting to task control, while task control owns task-id allocation and
+     * lifecycle state.
      */
     @Bean
-    @ConditionalOnMissingBean(TaskHandler.class)
-    public TaskHandler accessTaskHandler(
+    @ConditionalOnMissingBean(AccessSubmissionService.class)
+    public AccessSubmissionService accessSubmissionService(
             TaskControlClient taskControlClient,
             EgressQueueRegistry egressQueueRegistry,
             EgressDispatcher egressDispatcher) {
-        return new AccessTaskHandler(taskControlClient, egressQueueRegistry, egressDispatcher);
+        return new AccessSubmissionService(taskControlClient, egressQueueRegistry, egressDispatcher);
     }
 
     /**

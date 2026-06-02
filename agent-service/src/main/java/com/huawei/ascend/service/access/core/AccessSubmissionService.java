@@ -1,6 +1,5 @@
-package com.huawei.ascend.service.bootstrap;
+package com.huawei.ascend.service.access.core;
 
-import com.huawei.ascend.service.access.core.TaskHandler;
 import com.huawei.ascend.service.access.egress.EgressBindingFactory;
 import com.huawei.ascend.service.access.egress.EgressDispatcher;
 import com.huawei.ascend.service.access.egress.EgressQueueRegistry;
@@ -19,19 +18,16 @@ import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Inbound glue from L1 access into task-centric control.
- *
- * <p>Task control owns task identity. Access owns the reply channel, so this
- * bridge binds egress by session before submitting a single run/resume command
- * to task control.
+ * Submits normalized access requests into task control and binds the session
+ * reply channel before dispatch.
  */
-public final class AccessTaskHandler implements TaskHandler {
+public final class AccessSubmissionService {
 
     private final TaskControlClient taskControlClient;
     private final EgressQueueRegistry egressQueueRegistry;
     private final EgressDispatcher egressDispatcher;
 
-    public AccessTaskHandler(
+    public AccessSubmissionService(
             TaskControlClient taskControlClient,
             EgressQueueRegistry egressQueueRegistry,
             EgressDispatcher egressDispatcher) {
@@ -40,7 +36,6 @@ public final class AccessTaskHandler implements TaskHandler {
         this.egressDispatcher = Objects.requireNonNull(egressDispatcher, "egressDispatcher");
     }
 
-    @Override
     public CompletionStage<AccessAcceptedResponse> run(AgentRequest request, ReplyContext reply) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(reply, "reply");
@@ -49,7 +44,6 @@ public final class AccessTaskHandler implements TaskHandler {
                 .thenApply(result -> toAccepted(request, result));
     }
 
-    @Override
     public CompletionStage<AccessAcceptedResponse> resume(AgentRequest request, ReplyContext reply) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(reply, "reply");
@@ -58,7 +52,6 @@ public final class AccessTaskHandler implements TaskHandler {
                 .thenApply(result -> toAccepted(request, result));
     }
 
-    @Override
     public CompletionStage<AccessAcceptedResponse> cancel(AccessCancelCommand command) {
         Objects.requireNonNull(command, "command");
         CancelCommand cancelCommand = new CancelCommand(

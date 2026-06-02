@@ -3,14 +3,11 @@ package com.huawei.ascend.service.session.core;
 import com.huawei.ascend.service.session.api.SessionManager;
 import com.huawei.ascend.service.session.model.Session;
 import com.huawei.ascend.service.session.model.SessionKey;
-import com.huawei.ascend.service.session.model.SessionMessage;
 import com.huawei.ascend.service.session.store.SessionStore;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,10 +44,6 @@ public final class SessionManagerImpl implements SessionManager {
                 userId,
                 agentId,
                 resolvedSessionId,
-                1L,
-                java.util.List.of(),
-                java.util.Map.of(),
-                java.util.Map.of(),
                 now,
                 now,
                 now,
@@ -68,97 +61,14 @@ public final class SessionManagerImpl implements SessionManager {
     }
 
     @Override
-    public Session appendMessage(String tenantId, String sessionId, SessionMessage message) {
-        Objects.requireNonNull(message, "message");
-        return sessionStore.update(new SessionKey(tenantId, sessionId), session -> {
-            ArrayList<SessionMessage> messages = new ArrayList<>(session.messages());
-            messages.add(message);
-            return withMessages(session, messages);
-        });
-    }
-
-    @Override
-    public Session putState(String tenantId, String sessionId, String key, Object value) {
-        Objects.requireNonNull(key, "key");
-        Objects.requireNonNull(value, "value");
-        return sessionStore.update(new SessionKey(tenantId, sessionId), session -> {
-            HashMap<String, Object> state = new HashMap<>(session.state());
-            state.put(key, value);
-            return withState(session, state);
-        });
-    }
-
-    @Override
-    public Session removeState(String tenantId, String sessionId, String key) {
-        Objects.requireNonNull(key, "key");
-        return sessionStore.update(new SessionKey(tenantId, sessionId), session -> {
-            HashMap<String, Object> state = new HashMap<>(session.state());
-            state.remove(key);
-            return withState(session, state);
-        });
-    }
-
-    @Override
-    public Session putMetadata(String tenantId, String sessionId, String key, Object value) {
-        Objects.requireNonNull(key, "key");
-        Objects.requireNonNull(value, "value");
-        return sessionStore.update(new SessionKey(tenantId, sessionId), session -> {
-            HashMap<String, Object> metadata = new HashMap<>(session.metadata());
-            metadata.put(key, value);
-            return withMetadata(session, metadata);
-        });
-    }
-
-    @Override
-    public Session removeMetadata(String tenantId, String sessionId, String key) {
-        Objects.requireNonNull(key, "key");
-        return sessionStore.update(new SessionKey(tenantId, sessionId), session -> {
-            HashMap<String, Object> metadata = new HashMap<>(session.metadata());
-            metadata.remove(key);
-            return withMetadata(session, metadata);
-        });
-    }
-
-    @Override
     public void delete(String tenantId, String sessionId) {
         sessionStore.remove(new SessionKey(tenantId, sessionId));
     }
 
     private Session touch(SessionKey key) {
-        return sessionStore.update(key, session -> withTimestamps(session, session.updatedAt()));
-    }
-
-    private Session withMessages(Session session, java.util.List<SessionMessage> messages) {
-        return copy(session, messages, session.state(), session.metadata());
-    }
-
-    private Session withState(Session session, java.util.Map<String, Object> state) {
-        return copy(session, session.messages(), state, session.metadata());
-    }
-
-    private Session withMetadata(Session session, java.util.Map<String, Object> metadata) {
-        return copy(session, session.messages(), session.state(), metadata);
-    }
-
-    private Session copy(
-            Session session,
-            java.util.List<SessionMessage> messages,
-            java.util.Map<String, Object> state,
-            java.util.Map<String, Object> metadata) {
-        Instant now = clock.instant();
-        return new Session(
-                session.tenantId(),
-                session.userId(),
-                session.agentId(),
-                session.sessionId(),
-                session.version(),
-                messages,
-                state,
-                metadata,
-                session.createdAt(),
-                now,
-                now,
-                expiresAt(now));
+        Session session = sessionStore.find(key)
+                .orElseThrow(() -> new IllegalStateException("Session not found: " + key));
+        return sessionStore.save(withTimestamps(session, session.updatedAt()));
     }
 
     private Session withTimestamps(Session session, Instant updatedAt) {
@@ -168,10 +78,6 @@ public final class SessionManagerImpl implements SessionManager {
                 session.userId(),
                 session.agentId(),
                 session.sessionId(),
-                session.version(),
-                session.messages(),
-                session.state(),
-                session.metadata(),
                 session.createdAt(),
                 updatedAt,
                 now,

@@ -81,14 +81,14 @@ class AgentServiceEndToEndIT {
         assertThat(outputs).anyMatch(o -> String.valueOf(o.body()).contains("hello world"));
 
         // The reply channel must be torn down after the terminal frame — no leak.
-        awaitEgressCleanup("session-1", accepted.taskId());
-        assertThat(egressQueueRegistry.find(TENANT, "session-1", accepted.taskId())).isEmpty();
+        awaitEgressCleanup("session-1");
+        assertThat(egressQueueRegistry.find(TENANT, "session-1")).isEmpty();
     }
 
-    private void awaitEgressCleanup(String sessionId, String taskId) {
+    private void awaitEgressCleanup(String sessionId) {
         long deadline = System.nanoTime() + java.time.Duration.ofSeconds(5).toNanos();
         while (System.nanoTime() < deadline
-                && egressQueueRegistry.find(TENANT, sessionId, taskId).isPresent()) {
+                && egressQueueRegistry.find(TENANT, sessionId).isPresent()) {
             try {
                 Thread.sleep(20L);
             } catch (InterruptedException ex) {
@@ -112,8 +112,8 @@ class AgentServiceEndToEndIT {
         assertThat(outputs).isNotEmpty();
         assertThat(outputs.get(outputs.size() - 1).terminal()).isTrue();
         assertThat(outputs).anyMatch(o -> "error".equals(o.kind()));
-        awaitEgressCleanup("session-err", accepted.taskId());
-        assertThat(egressQueueRegistry.find(TENANT, "session-err", accepted.taskId())).isEmpty();
+        awaitEgressCleanup("session-err");
+        assertThat(egressQueueRegistry.find(TENANT, "session-err")).isEmpty();
     }
 
     private List<A2aOutput> awaitOutputs(A2aOutputHandle handle) {

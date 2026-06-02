@@ -17,7 +17,7 @@ public final class DefaultNotificationPort implements NotificationPort {
     @Override
     public void notify(NotificationFrame frame) {
         Objects.requireNonNull(frame, "frame");
-        InternalEventQueue<NotificationFrame> queue = registry.findActive(frame.tenantId(), frame.sessionId())
+        InternalEventQueue<NotificationFrame> queue = registry.find(frame.tenantId(), frame.sessionId())
                 .orElseThrow(() -> new EgressDeliveryException(
                         "No active egress queue for tenantId=%s, sessionId=%s"
                                 .formatted(frame.tenantId(), frame.sessionId())));
