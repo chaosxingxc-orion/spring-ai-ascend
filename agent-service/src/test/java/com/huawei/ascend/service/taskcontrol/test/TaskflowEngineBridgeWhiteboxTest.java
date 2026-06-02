@@ -32,7 +32,7 @@ class TaskflowEngineBridgeWhiteboxTest {
     @Test
     void executeWaitingResumeCompletionLoopUpdatesTccStateWithoutEngineOwningQueue() {
         QueueManager manager = new QueueManager();
-        InMemoryEngineQueueGateway engineQueue = new InMemoryEngineQueueGateway();
+        InMemoryEngineQueueGateway engineQueue = new InMemoryEngineQueueGateway(manager);
         EngineDispatchApi dispatchApi = new DefaultEngineDispatchApi(new EngineCommandEventFactory(), engineQueue);
         TaskControlService tcc = new TaskControlService(
                 manager,
@@ -61,7 +61,8 @@ class TaskflowEngineBridgeWhiteboxTest {
                 .containsExactly("REQUEST_INPUT:" + waiting.taskId(),
                         "APPEND:" + waiting.taskId(),
                         "COMPLETE:" + waiting.taskId());
-        assertThat(manager.findBySession("tenant", "session")).isPresent();
+        assertThat(manager.find("task:tenant:session")).isPresent();
+        assertThat(manager.find("engine:commands")).isPresent();
     }
 
     private AgentRequest request(String input) {

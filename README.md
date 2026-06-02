@@ -107,6 +107,23 @@ the narrative tour is [docs/overview.md](docs/overview.md).
 
 Full matrix: [docs/architecture/l0/cross-cutting/posture-model.md](docs/architecture/l0/cross-cutting/posture-model.md).
 
+## Architecture facts and version scope
+
+The project keeps two related systems separate.
+
+The architecture fact system is organized by L0/L1/L2 and 4+1 views. It answers
+what the system is, which modules and state owners are allowed, which
+cross-cutting constraints cannot be violated, and which ADRs or generated facts
+are authoritative. This system lives under [`architecture/`](architecture/).
+
+The version scope system is organized from requirements to scenarios, L1 feature
+use cases, L2 function points, delivery slices, and acceptance plans. It answers
+what a version commits to deliver and how that scope is validated. This system
+lives under [`version-scope/`](version-scope/).
+
+Version scope documents may reference architecture facts and may request
+architecture changes, but they do not directly become architecture truth.
+
 ## Reading path
 
 Architecture truth starts in [`architecture/`](architecture/). The

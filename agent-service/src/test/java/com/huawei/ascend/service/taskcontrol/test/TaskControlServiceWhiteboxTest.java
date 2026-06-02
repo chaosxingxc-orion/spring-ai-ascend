@@ -40,7 +40,7 @@ class TaskControlServiceWhiteboxTest {
 
         assertThat(result.accepted()).isTrue();
         assertThat(result.state()).isEqualTo(TaskState.CREATED);
-        assertThat(queueManager.findBySession("tenant", "session")).isPresent();
+        assertThat(queueManager.find("task:tenant:session")).isPresent();
         assertThat(engine.executions).hasSize(1);
         assertThat(engine.executions.get(0).scope().sessionId()).isEqualTo("session");
         assertThat(engine.executions.get(0).scope().agentId()).isEqualTo("agent");

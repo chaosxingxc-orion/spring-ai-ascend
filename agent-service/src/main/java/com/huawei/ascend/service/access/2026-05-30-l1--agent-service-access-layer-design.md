@@ -410,8 +410,8 @@ public interface EgressAdapter {
 }
 
 public interface EgressQueueRegistry {
-    Queue getOrCreate(EgressBinding binding);
-    Optional<Queue> find(String tenantId, String sessionId, String taskId);
+    InternalEventQueue<NotificationFrame> getOrCreate(EgressBinding binding);
+    Optional<InternalEventQueue<NotificationFrame>> find(String tenantId, String sessionId, String taskId);
     Optional<EgressBinding> findBinding(String tenantId, String sessionId, String taskId);
     void remove(String tenantId, String sessionId, String taskId);
 }
@@ -421,12 +421,12 @@ public interface EgressQueueRegistry {
 |---|---|---|---|
 | `EgressAdapter.channel` | 无 | `ReplyChannel` | 声明出站适配器负责的回消息通道。 |
 | `EgressAdapter.deliver` | `EgressBinding binding, NotificationFrame frame` | `void` | 将内部通知帧投递到具体外部通道。 |
-| `EgressQueueRegistry.getOrCreate` | `EgressBinding binding` | `Queue` | 按交付绑定获取或通过 L3 `QueueFactory.createQueue` 创建回消息队列。 |
-| `EgressQueueRegistry.find` | `tenantId, sessionId, taskId` | `Optional<Queue>` | 查询已有回消息队列。 |
+| `EgressQueueRegistry.getOrCreate` | `EgressBinding binding` | `InternalEventQueue<NotificationFrame>` | 按交付绑定通过公共 `QueueManager.getOrCreate` 获取或初始化回消息队列。 |
+| `EgressQueueRegistry.find` | `tenantId, sessionId, taskId` | `Optional<InternalEventQueue<NotificationFrame>>` | 查询已有回消息队列。 |
 | `EgressQueueRegistry.findBinding` | `tenantId, sessionId, taskId` | `Optional<EgressBinding>` | 查询已有交付绑定。 |
 | `EgressQueueRegistry.remove` | `tenantId, sessionId, taskId` | `void` | terminal 后清理队列索引。 |
 
-L1 不继承 L3 队列，也不要求 L3 提供入队回调。L1 通过组合方式持有 L3 `QueueFactory.createQueue(...)` 创建出来的队列实例，由 `EgressDispatcher` 主动消费队列。
+L1 不继承 L3 队列，也不要求 L3 提供入队回调。L1 通过组合方式持有公共 IEQ 实例，由 `EgressDispatcher` 订阅 `stream()` 主动消费队列。
 
 `NotificationPort.notify(frame)` 按 `tenantId + sessionId + taskId` 查找已有队列并入队。若队列不存在，第一版不自动创建，因为缺少 `replyChannel / deliveryMode / targetRef` 等交付信息，应抛出明确异常或记录投递失败。
 

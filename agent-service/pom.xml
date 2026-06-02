@@ -212,6 +212,11 @@
       <scope>test</scope>
     </dependency>
     <dependency>
+      <groupId>io.projectreactor</groupId>
+      <artifactId>reactor-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <!-- Boot 4 + springdoc 3.0.3 SpringDocJacksonKotlinModuleConfiguration eagerly
            wires springdocKotlinObjectMapperProvider which transitively requires
            YAMLFactory at boot. Without this jar on the runtime classpath the boot

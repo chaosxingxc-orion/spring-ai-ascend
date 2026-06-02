@@ -19,6 +19,7 @@ import com.huawei.ascend.service.engine.queue.InMemoryEngineQueueGateway;
 import com.huawei.ascend.service.engine.support.FakeInterruptingAgentHandler;
 import com.huawei.ascend.service.engine.support.RecordingAccessLayerClient;
 import com.huawei.ascend.service.engine.support.RecordingTaskControlClient;
+import com.huawei.ascend.service.queue.QueueManager;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +45,7 @@ class EngineClosedLoopIntegrationTest {
         AgentHandlerRegistry registry = new DefaultAgentHandlerRegistry();
         registry.register("echo-agent", new FakeInterruptingAgentHandler("echo-agent"));
 
-        gateway = new InMemoryEngineQueueGateway();
+        gateway = new InMemoryEngineQueueGateway(new QueueManager());
         EngineDispatcher dispatcher = new EngineDispatcher(registry, taskControl, accessLayer);
         new EngineCommandSubscriber(gateway, dispatcher).start();
         api = new DefaultEngineDispatchApi(new EngineCommandEventFactory(), gateway);

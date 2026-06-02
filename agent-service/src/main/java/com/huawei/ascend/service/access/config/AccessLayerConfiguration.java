@@ -14,12 +14,13 @@ import com.huawei.ascend.service.access.egress.EgressAdapter;
 import com.huawei.ascend.service.access.egress.EgressDispatcher;
 import com.huawei.ascend.service.access.egress.EgressQueueRegistry;
 import com.huawei.ascend.service.access.core.AccessGateway;
-import com.huawei.ascend.service.access.core.AccessSubmissionService;
 import com.huawei.ascend.service.access.protocol.async.AsyncEgressAdapter;
 import com.huawei.ascend.service.access.protocol.async.AsyncIngressAdapter;
 import com.huawei.ascend.service.access.protocol.async.AsyncIngressPort;
 import com.huawei.ascend.service.access.protocol.async.AsyncOutputSink;
 import com.huawei.ascend.service.access.api.NotificationPort;
+import com.huawei.ascend.service.access.core.TaskHandler;
+import com.huawei.ascend.service.queue.QueueManager;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -81,8 +82,8 @@ public class AccessLayerConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    EgressQueueRegistry egressQueueRegistry() {
-        return new DefaultEgressQueueRegistry();
+    EgressQueueRegistry egressQueueRegistry(QueueManager queueManager) {
+        return new DefaultEgressQueueRegistry(queueManager);
     }
 
     @Bean(destroyMethod = "shutdown")
@@ -120,10 +121,10 @@ public class AccessLayerConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean(AccessSubmissionService.class)
+    @ConditionalOnBean(TaskHandler.class)
     @ConditionalOnMissingBean
-    AccessGateway accessGateway(AccessSubmissionService submissionService) {
-        return new AccessGateway(submissionService);
+    AccessGateway accessGateway(TaskHandler taskHandler) {
+        return new AccessGateway(taskHandler);
     }
 
     @Bean
@@ -141,3 +142,4 @@ public class AccessLayerConfiguration {
     }
 
 }
+

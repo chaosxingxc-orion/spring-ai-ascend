@@ -9,66 +9,52 @@ import java.util.concurrent.ConcurrentMap;
 
 public class QueueManager {
 
-    private final ConcurrentMap<String, InternalEventQueue<?>> queuesById = new ConcurrentHashMap<>();
-    private final ConcurrentMap<SessionKey, String> queueIdsBySession = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, QueueRegistration> registrations = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, QueueEntry<?>> queuesById = new ConcurrentHashMap<>();
 
-    public <T> InternalEventQueue<T> register(InternalEventQueue<T> queue, QueueRegistration registration) {
-        Objects.requireNonNull(queue, "queue");
-        Objects.requireNonNull(registration, "registration");
-        if (!queue.queueId().equals(registration.queueId())) {
-            throw new IllegalArgumentException("queueId mismatch");
-        }
-        InternalEventQueue<?> existing = queuesById.putIfAbsent(queue.queueId(), queue);
-        if (existing != null && existing != queue) {
-            throw new IllegalStateException("queue already registered: " + queue.queueId());
-        }
-        SessionKey sessionKey = new SessionKey(registration.tenantId(), registration.sessionId());
-        String existingQueueId = queueIdsBySession.putIfAbsent(sessionKey, queue.queueId());
-        if (existingQueueId != null && !existingQueueId.equals(queue.queueId())) {
-            throw new IllegalStateException("session already has queue: " + registration.sessionId());
-        }
-        registrations.putIfAbsent(queue.queueId(), registration);
-        return queue;
+    public <T> InternalEventQueue<T> getOrCreate(String queueId, Class<T> payloadType) {
+        Objects.requireNonNull(payloadType, "payloadType");
+        QueueEntry<?> entry = queuesById.compute(requireNonBlank(queueId, "queueId"), (id, existing) -> {
+            if (existing == null) {
+                return new QueueEntry<>(payloadType, new InMemoryInternalEventQueue<>(id));
+            }
+            if (!existing.payloadType().equals(payloadType)) {
+                throw new IllegalStateException("payload type mismatch for queue: " + id);
+            }
+            return existing;
+        });
+        return typed(entry, payloadType);
     }
 
-    public Optional<InternalEventQueue<?>> findByQueueId(String queueId) {
+    public Optional<InternalEventQueue<?>> find(String queueId) {
         Objects.requireNonNull(queueId, "queueId");
-        return Optional.ofNullable(queuesById.get(queueId));
+        QueueEntry<?> entry = queuesById.get(queueId);
+        return entry == null ? Optional.empty() : Optional.of(entry.queue());
     }
 
-    public Optional<InternalEventQueue<?>> findBySession(String tenantId, String sessionId) {
-        String queueId = queueIdsBySession.get(new SessionKey(tenantId, sessionId));
-        return queueId == null ? Optional.empty() : findByQueueId(queueId);
-    }
-
-    public Optional<QueueRegistration> registration(String queueId) {
-        Objects.requireNonNull(queueId, "queueId");
-        return Optional.ofNullable(registrations.get(queueId));
-    }
-
-    public List<QueueRegistration> registrations() {
-        return registrations.values().stream()
-                .sorted(Comparator.comparing(QueueRegistration::createdAt)
-                        .thenComparing(QueueRegistration::queueId))
+    public List<String> queueIds() {
+        return queuesById.keySet().stream()
+                .sorted(Comparator.naturalOrder())
                 .toList();
     }
 
-    public void unregister(String queueId) {
+    public void close(String queueId) {
         Objects.requireNonNull(queueId, "queueId");
-        QueueRegistration registration = registrations.remove(queueId);
-        queuesById.remove(queueId);
-        if (registration != null) {
-            queueIdsBySession.remove(new SessionKey(registration.tenantId(), registration.sessionId()), queueId);
+        QueueEntry<?> entry = queuesById.remove(queueId);
+        if (entry != null) {
+            entry.queue().close();
         }
     }
 
-    private record SessionKey(String tenantId, String sessionId) {
-        private SessionKey {
-            tenantId = requireNonBlank(tenantId, "tenantId");
-            sessionId = requireNonBlank(sessionId, "sessionId");
+    @SuppressWarnings("unchecked")
+    private static <T> InternalEventQueue<T> typed(QueueEntry<?> entry, Class<T> payloadType) {
+        if (!entry.payloadType().equals(payloadType)) {
+            throw new IllegalStateException("payload type mismatch for queue: " + entry.queue().queueId());
         }
+        return (InternalEventQueue<T>) entry.queue();
     }
+
+    private record QueueEntry<T>(Class<T> payloadType, InternalEventQueue<T> queue) {
+    };
 
     private static String requireNonBlank(String value, String name) {
         Objects.requireNonNull(value, name);

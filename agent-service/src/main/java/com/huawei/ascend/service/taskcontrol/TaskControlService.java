@@ -10,12 +10,9 @@ import com.huawei.ascend.service.engine.model.EngineInput;
 import com.huawei.ascend.service.schema.AgentRequest;
 import com.huawei.ascend.service.schema.Message;
 import com.huawei.ascend.service.taskcontrol.api.TaskControlClient;
-import com.huawei.ascend.service.queue.QueueFactory;
 import com.huawei.ascend.service.queue.QueueManager;
-import com.huawei.ascend.service.queue.InternalEventQueue;
 
 import java.time.Clock;
-import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -29,12 +26,11 @@ import java.util.function.Supplier;
 
 public class TaskControlService implements TaskControlClient {
 
-    private final QueueManager queueManager;
+    private final TaskQueueRegistry taskQueues;
     private final Supplier<EngineDispatchApi> engineDispatchApi;
     private final Clock clock;
     private final ConcurrentMap<SessionKey, Object> sessionLocks = new ConcurrentHashMap<>();
     private final ConcurrentMap<IdempotencyKey, TaskResult> idempotencyResults = new ConcurrentHashMap<>();
-    private final Object queueCreationLock = new Object();
 
     public TaskControlService(QueueManager queueManager, EngineDispatchApi engineDispatchApi) {
         this(queueManager, () -> engineDispatchApi, Clock.systemUTC());
@@ -45,7 +41,7 @@ public class TaskControlService implements TaskControlClient {
     }
 
     public TaskControlService(QueueManager queueManager, Supplier<EngineDispatchApi> engineDispatchApi, Clock clock) {
-        this.queueManager = Objects.requireNonNull(queueManager, "queueManager");
+        this.taskQueues = new TaskQueueRegistry(queueManager);
         this.engineDispatchApi = Objects.requireNonNull(engineDispatchApi, "engineDispatchApi");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -107,16 +103,15 @@ public class TaskControlService implements TaskControlClient {
     }
 
     public Optional<Task> findTask(String tenantId, String sessionId, String taskId) {
-        return internalEventQueue(tenantId, sessionId).find(task -> taskId.equals(task.getTaskId()));
+        return taskQueues.findTask(tenantId, sessionId, taskId);
     }
 
     public Optional<Task> findCurrentTask(String tenantId, String sessionId) {
-        return latest(internalEventQueue(tenantId, sessionId).snapshot().stream()
-                .filter(this::attachable));
+        return latest(taskQueues.tasks(tenantId, sessionId).stream().filter(this::attachable));
     }
 
     public List<Task> tasks(String tenantId, String sessionId) {
-        return internalEventQueue(tenantId, sessionId).snapshot();
+        return taskQueues.tasks(tenantId, sessionId);
     }
 
     private TaskResult submit(String action, String taskId, AgentRequest request, boolean resumeOnly) {
@@ -235,7 +230,7 @@ public class TaskControlService implements TaskControlClient {
                     .filter(task -> resumeOnly ? task.getState() == TaskState.WAITING : attachable(task));
         }
         if (resumeOnly) {
-            return latest(internalEventQueue(request.tenantId(), request.sessionId()).snapshot().stream()
+            return latest(taskQueues.tasks(request.tenantId(), request.sessionId()).stream()
                     .filter(task -> task.getState() == TaskState.WAITING));
         }
         return findCurrentTask(request.tenantId(), request.sessionId());
@@ -244,7 +239,7 @@ public class TaskControlService implements TaskControlClient {
     private Task createTask(AgentRequest request) {
         Task task = Task.created(request.tenantId(), request.sessionId(), request.agentId(), clock.instant());
         task.setDetail(request.input());
-        internalEventQueue(request.tenantId(), request.sessionId()).offer(task);
+        taskQueues.add(task);
         return task;
     }
 
@@ -273,18 +268,6 @@ public class TaskControlService implements TaskControlClient {
             case CANCELLING -> next == TaskState.CANCELLED || next == TaskState.FAILED;
             case COMPLETED, FAILED, CANCELLED -> false;
         };
-    }
-
-    @SuppressWarnings("unchecked")
-    private InternalEventQueue<Task> internalEventQueue(String tenantId, String sessionId) {
-        Optional<InternalEventQueue<?>> existing = queueManager.findBySession(tenantId, sessionId);
-        if (existing.isPresent()) {
-            return (InternalEventQueue<Task>) existing.get();
-        }
-        synchronized (queueCreationLock) {
-            return (InternalEventQueue<Task>) queueManager.findBySession(tenantId, sessionId)
-                    .orElseGet(() -> QueueFactory.inMemorySessionQueue(tenantId, sessionId, queueManager));
-        }
     }
 
     private Object sessionLock(String tenantId, String sessionId) {

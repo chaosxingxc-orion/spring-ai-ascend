@@ -5,9 +5,9 @@
 ## 1. 本版实现范围
 
 1. IEQ 提供通用薄队列抽象：`InternalEventQueue<T>`。
-2. IEQ 当前本地实现为 `InMemoryInternalEventQueue<T>`，底层只使用 JDK `LinkedBlockingQueue`。
-3. `QueueFactory` 是静态工厂类，不是 SPI，也不引入第三方队列依赖。
-4. `QueueManager` 是弱管理对象，负责记录队列注册、查询和注销；它不提供对外 admin port。
+2. IEQ 当前本地实现为 `InMemoryInternalEventQueue<T>`，提供多生产者、单消费者的 Reactor `Flux<T>` 流式读取。
+3. `QueueManager` 是队列资源初始化与分配对象，按 `queueId + payloadType` 创建和关闭队列；它不管理业务数据。
+4. 各业务模块持有自己的队列注册表；TCC 使用 `TaskQueueRegistry` 维护 task 索引并通过公共 IEQ 完成异步交接。
 5. TCC 主实现为 `TaskControlService`，负责创建 Task、选择当前 Task、状态流转、幂等键和 revision fencing。
 6. `TaskControlClient` 是内部 API，不是 SPI。Access 侧只调用 `runTask(RunTaskCommand)`；runtime/engine 回写侧只调用 `mark*` 状态入口。
 7. `EngineTaskControlAdapter` 把 engine 侧状态回调转换为 `TaskControlService.mark*`，避免 runtime/engine 直接读写 IEQ。
@@ -18,15 +18,14 @@
 agent-service/src/main/java/com/huawei/ascend/service/queue/
   InternalEventQueue.java
   InMemoryInternalEventQueue.java
-  QueueFactory.java
   QueueManager.java
-  QueueRegistration.java
 
 agent-service/src/main/java/com/huawei/ascend/service/taskcontrol/
   Task.java
   TaskState.java
   TaskFailureCode.java
   WaitingReason.java
+  TaskQueueRegistry.java
   TaskControlService.java
   EngineTaskControlAdapter.java
   api/
@@ -35,9 +34,12 @@ agent-service/src/main/java/com/huawei/ascend/service/taskcontrol/
     TaskControlAutoConfiguration.java
 
 agent-service/src/test/java/com/huawei/ascend/service/taskcontrol/test/
-  QueueManagerWhiteboxTest.java
   TaskControlServiceWhiteboxTest.java
   TaskflowEngineBridgeWhiteboxTest.java
+
+agent-service/src/test/java/com/huawei/ascend/service/queue/
+  InternalEventQueueTest.java
+  QueueManagerTest.java
 ```
 
 ## 3. IEQ 接口边界
@@ -45,23 +47,19 @@ agent-service/src/test/java/com/huawei/ascend/service/taskcontrol/test/
 `InternalEventQueue<T>` 只定义队列能力：
 
 - `queueId()`
-- `offer(T value)`
-- `poll()`
-- `peek()`
-- `find(Predicate<? super T> matcher)`
-- `snapshot()`
-- `size()`
+- `offer(T value)`：线程安全，多生产者可并发写入，写入后立即返回。
+- `stream()`：返回唯一消费者使用的 `Flux<T>`；无数据时等待，有数据时向消费者发出。
+- `size()`：仅用于 DFX 观测，不作为业务消费入口。
+- `close()`
 
-队列不关心内容物类型，也不理解 Task 状态。当前 TCC 会把 `Task` 放进队列，但这是 TCC 的使用方式，不是 IEQ 的语义。
+队列不关心内容物类型，也不理解 Task 状态。当前 TCC 会把 `Task` 放进队列，但 task 查询、当前任务选择和状态流转均由 `TaskQueueRegistry` / `TaskControlService` 维护，不由 IEQ 扫描队列完成。
 
-`QueueManager` 只做弱管理：
+`QueueManager` 只做资源初始化、查找和关闭：
 
-- `register(InternalEventQueue<T>, QueueRegistration)`
-- `findByQueueId(String)`
-- `findBySession(String tenantId, String sessionId)`
-- `registration(String queueId)`
-- `registrations()`
-- `unregister(String queueId)`
+- `getOrCreate(String queueId, Class<T> payloadType)`
+- `find(String queueId)`
+- `queueIds()`
+- `close(String queueId)`
 
 ## 4. TCC 接口边界
 
@@ -100,8 +98,8 @@ Engine 侧接口按方向分为三类：
 
 1. Access/Session 层拿到或创建 `sessionId`。
 2. Access 把 `tenantId`、`sessionId`、`agentId` 和用户输入组装为 `RunTaskCommand(action=RUN)`。
-3. `TaskControlService` 通过 `QueueManager` 找到 session 对应 IEQ；不存在时使用 `QueueFactory.inMemorySessionQueue` 创建并注册。
-4. 如果 session 下没有可挂接 Task，TCC 创建 `Task`，初始状态为 `CREATED`，并写入 IEQ。
+3. `TaskControlService` 通过 `TaskQueueRegistry` 获取 session 对应的 task 索引和 IEQ；registry 内部通过 `QueueManager.getOrCreate("task:<tenantId>:<sessionId>", Task.class)` 初始化队列。
+4. 如果 session 下没有可挂接 Task，TCC 创建 `Task`，初始状态为 `CREATED`，写入 task 索引并 `offer` 到 IEQ。
 5. TCC 调用 `EngineDispatchApi.enqueueExecution`，把执行请求交给 engine/runtime。
 6. Runtime/engine 通过 outbound port 回写 `markRunning`、`markWaiting`、`markSucceeded`、`markFailed` 或 `markCancelled`。
 7. TCC 校验 revision 和状态转换规则后更新 Task。
@@ -109,7 +107,7 @@ Engine 侧接口按方向分为三类：
 ## 8. 当前明确保留的风险
 
 1. OOD / `NOT_CURRENT_TASK` 后是否立即由 TCC 创建新 Task，仍需后续策略确认。
-2. 当前 in-memory IEQ 使用 `snapshot()` / `find()` 扫描对象，W1 可接受；持久化后端需要补索引或 TaskStore。
+2. 当前 in-memory IEQ 仅支持单消费者；需要多消费者时应新增明确的队列语义，而不是复用当前接口。
 3. 现在只做本地内存队列，分布式后端的 at-least-once、幂等重放和 fencing 还需要独立设计。
 
 ## 9. 最小验证
@@ -118,7 +116,7 @@ Engine 侧接口按方向分为三类：
 
 ```bash
 ./mvnw -pl agent-service -am \
-  -Dtest=QueueManagerWhiteboxTest,TaskControlServiceWhiteboxTest,TaskflowEngineBridgeWhiteboxTest \
+  -Dtest=InternalEventQueueTest,QueueManagerTest,TaskControlServiceWhiteboxTest,TaskflowEngineBridgeWhiteboxTest \
   -Dsurefire.failIfNoSpecifiedTests=false \
   -Pquality -B -ntp test
 ```

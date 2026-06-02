@@ -16,6 +16,7 @@ import com.huawei.ascend.service.engine.event.EngineStartedEvent;
 import com.huawei.ascend.service.engine.handler.AgentExecutionContext;
 import com.huawei.ascend.service.engine.model.EngineOutput;
 import com.huawei.ascend.service.engine.spi.AgentHandler;
+import com.huawei.ascend.service.queue.config.QueueAutoConfiguration;
 import com.huawei.ascend.service.session.config.SessionManageConfiguration;
 import com.huawei.ascend.service.taskcontrol.config.TaskControlAutoConfiguration;
 
@@ -150,6 +151,7 @@ class AgentServiceEndToEndIT {
      */
     @SpringBootConfiguration
     @Import({
+            QueueAutoConfiguration.class,
             TaskControlAutoConfiguration.class,
             AgentServiceBootstrapConfiguration.class,
             AccessLayerConfiguration.class,

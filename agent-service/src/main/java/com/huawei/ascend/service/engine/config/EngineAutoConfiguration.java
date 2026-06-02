@@ -11,6 +11,7 @@ import com.huawei.ascend.service.engine.queue.InMemoryEngineQueueGateway;
 import com.huawei.ascend.service.engine.port.AccessLayerClient;
 import com.huawei.ascend.service.engine.queue.EngineQueueGateway;
 import com.huawei.ascend.service.engine.port.TaskControlClient;
+import com.huawei.ascend.service.queue.QueueManager;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -43,8 +44,8 @@ public class EngineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public EngineQueueGateway engineQueueGateway() {
-        return new InMemoryEngineQueueGateway();
+    public EngineQueueGateway engineQueueGateway(QueueManager queueManager) {
+        return new InMemoryEngineQueueGateway(queueManager);
     }
 
     @Bean

@@ -2,7 +2,6 @@ package com.huawei.ascend.service.engine.queue;
 
 import com.huawei.ascend.service.engine.dispatch.EngineDispatcher;
 import com.huawei.ascend.service.engine.event.EngineCommandEvent;
-import com.huawei.ascend.service.engine.queue.EngineQueueGateway;
 
 /**
  * Subscribes to the engine command queue and hands each command to the
