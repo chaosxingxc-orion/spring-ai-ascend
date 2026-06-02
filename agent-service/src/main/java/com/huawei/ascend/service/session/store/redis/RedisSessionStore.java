@@ -80,7 +80,6 @@ public final class RedisSessionStore implements SessionStore {
                 version,
                 session.messages(),
                 session.state(),
-                session.tasks(),
                 session.metadata(),
                 session.createdAt(),
                 session.updatedAt(),

@@ -2,6 +2,7 @@ package com.huawei.ascend.service.bootstrap;
 
 import com.huawei.ascend.service.access.api.NotificationPort;
 import com.huawei.ascend.service.access.model.NotificationFrame;
+import com.huawei.ascend.service.access.model.NotificationFrame.RunError;
 import com.huawei.ascend.service.access.model.NotificationType;
 import com.huawei.ascend.service.engine.event.EngineCompletedEvent;
 import com.huawei.ascend.service.engine.event.EngineFailedEvent;
@@ -10,7 +11,11 @@ import com.huawei.ascend.service.engine.event.EngineOutputEvent;
 import com.huawei.ascend.service.engine.model.EngineExecutionScope;
 import com.huawei.ascend.service.engine.model.EngineOutput;
 import com.huawei.ascend.service.engine.port.AccessLayerClient;
+import com.huawei.ascend.service.schema.Message;
+import com.huawei.ascend.service.schema.RunStatus;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -42,40 +47,45 @@ public final class AccessNotificationClient implements AccessLayerClient {
     public void appendOutput(EngineExecutionScope scope, EngineOutputEvent event) {
         EngineOutput output = event == null ? null : event.getOutput();
         boolean terminal = output != null && output.isFinalOutput();
-        publish(scope, NotificationType.LLM_RESULT, text(output), terminal);
+        RunStatus status = terminal ? RunStatus.COMPLETED : RunStatus.IN_PROGRESS;
+        publish(scope, NotificationType.LLM_RESULT, status, messages(text(output)), null, Map.of(), terminal);
     }
 
     @Override
     public void completeOutput(EngineExecutionScope scope, EngineCompletedEvent event) {
         EngineOutput output = event == null ? null : event.getFinalOutput();
-        publish(scope, NotificationType.LLM_RESULT, text(output), true);
+        publish(scope, NotificationType.LLM_RESULT, RunStatus.COMPLETED,
+                messages(text(output)), null, Map.of(), true);
     }
 
     @Override
     public void failOutput(EngineExecutionScope scope, EngineFailedEvent event) {
         String code = event == null ? "UNKNOWN" : event.getErrorCode();
         String message = event == null ? "" : event.getErrorMessage();
-        publish(scope, NotificationType.ERROR, new ErrorPayload(code, message), true);
+        publish(scope, NotificationType.ERROR, RunStatus.FAILED,
+                List.of(), new RunError(code, message), Map.of(), true);
     }
 
     @Override
     public void requestUserInput(EngineExecutionScope scope, EngineInterruptedEvent event) {
         String prompt = event == null ? null : event.getPrompt();
-        publish(scope, NotificationType.ACK, prompt, false);
+        publish(scope, NotificationType.ACK, RunStatus.INCOMPLETE,
+                messages(prompt), null, Map.of("waitingReason", "USER_INPUT"), false);
     }
 
-    private void publish(EngineExecutionScope scope, NotificationType type, Object payload, boolean terminal) {
+    private void publish(EngineExecutionScope scope, NotificationType type, RunStatus status, List<Message> output,
+                         RunError error, Map<String, Object> metadata, boolean terminal) {
         Objects.requireNonNull(scope, "scope");
         String sessionId = scope.sessionId() == null ? scope.taskId() : scope.sessionId();
         notificationPort.notify(new NotificationFrame(
-                scope.tenantId(), sessionId, scope.taskId(), type, payload, terminal));
+                scope.tenantId(), sessionId, scope.taskId(), type, status, output, error, metadata, terminal));
     }
 
     private static String text(EngineOutput output) {
         return output == null || output.getContent() == null ? "" : output.getContent();
     }
 
-    /** Structured error payload carried on an {@link NotificationType#ERROR} frame. */
-    public record ErrorPayload(String code, String message) {
+    private static List<Message> messages(String text) {
+        return List.of(Message.assistant(text == null ? "" : text));
     }
 }

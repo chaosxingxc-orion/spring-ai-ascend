@@ -51,16 +51,6 @@ public class Task {
                 TaskState.CREATED, 1L, now, now);
     }
 
-    /**
-     * Creates a task with a caller-supplied {@code taskId}. The access layer
-     * pre-allocates the id so it can bind the reply (egress) channel before the
-     * task is dispatched, which the synchronous in-memory engine requires.
-     */
-    public static Task created(String tenantId, String sessionId, String taskId, String agentId, Instant now) {
-        String id = taskId == null || taskId.isBlank() ? UUID.randomUUID().toString() : taskId;
-        return new Task(tenantId, sessionId, id, agentId, TaskState.CREATED, 1L, now, now);
-    }
-
     public Task transitionTo(TaskState nextState, WaitingReason nextWaitingReason,
                              TaskFailureCode nextFailureCode, Object nextDetail, Instant now) {
         setState(nextState);

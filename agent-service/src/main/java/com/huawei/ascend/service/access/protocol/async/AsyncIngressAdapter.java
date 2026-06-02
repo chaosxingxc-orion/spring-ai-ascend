@@ -1,7 +1,6 @@
 package com.huawei.ascend.service.access.protocol.async;
 
 import com.huawei.ascend.service.access.core.AccessGateway;
-import com.huawei.ascend.service.access.model.AccessIntent;
 import java.util.Objects;
 
 public final class AsyncIngressAdapter implements AsyncIngressPort {
@@ -14,7 +13,6 @@ public final class AsyncIngressAdapter implements AsyncIngressPort {
 
     @Override
     public void enqueue(AsyncEnvelope envelope) {
-        AccessIntent intent = accessGateway.acceptAsync(envelope);
-        accessGateway.dispatch(intent);
+        accessGateway.submitAsync(envelope);
     }
 }

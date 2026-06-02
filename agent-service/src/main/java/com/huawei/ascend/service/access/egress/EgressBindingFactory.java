@@ -1,100 +1,69 @@
 package com.huawei.ascend.service.access.egress;
 
-import com.huawei.ascend.service.access.model.AccessIntent;
 import com.huawei.ascend.service.access.model.EgressBinding;
 import com.huawei.ascend.service.access.model.ReplyChannel;
+import com.huawei.ascend.service.access.model.ReplyContext;
 import com.huawei.ascend.service.access.protocol.a2a.A2aEnvelope;
-
+import com.huawei.ascend.service.schema.AgentRequest;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * Resolves the {@link EgressBinding} (reply channel, delivery mode, target ref,
- * correlation, push-notification attributes) for a request from its
- * {@link AccessIntent} payload.
- *
- * <p>Extracted so both {@code AccessGateway} and the task handler can build a
- * binding for the same task — the handler binds the reply queue <em>before</em>
- * dispatching, which the synchronous in-memory engine requires, and the gateway
- * re-binding afterwards is then idempotent.
- */
 public final class EgressBindingFactory {
 
     private EgressBindingFactory() {
     }
 
-    /** Builds the egress binding for {@code taskId} from the intent payload. */
-    public static EgressBinding from(AccessIntent intent, String taskId) {
-        Objects.requireNonNull(intent, "intent");
-        Objects.requireNonNull(taskId, "taskId");
-        ReplyChannel replyChannel = resolveReplyChannel(intent);
-        String deliveryMode = resolveDeliveryMode(intent, replyChannel);
-        String targetRef = resolveTargetRef(intent, replyChannel);
-        String correlationId = resolveCorrelationId(intent);
+    public static EgressBinding from(AgentRequest request, ReplyContext reply) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(reply, "reply");
+        ReplyChannel replyChannel = resolveReplyChannel(reply);
+        String deliveryMode = resolveDeliveryMode(reply, replyChannel);
         return new EgressBinding(
-                intent.tenantId(),
-                intent.sessionId(),
-                taskId,
+                request.tenantId(),
+                request.sessionId(),
+                reply.replyId(),
                 replyChannel,
                 deliveryMode,
-                targetRef,
-                correlationId,
-                resolveAttributes(intent, deliveryMode));
+                resolveTargetRef(reply, replyChannel),
+                reply.correlationId(),
+                resolveAttributes(reply, deliveryMode));
     }
 
-    private static ReplyChannel resolveReplyChannel(AccessIntent intent) {
-        if (intent.payload() instanceof Map<?, ?> payload && payload.containsKey("replyTopic")) {
-            return ReplyChannel.ASYNC;
-        }
-        return ReplyChannel.A2A;
+    private static ReplyChannel resolveReplyChannel(ReplyContext reply) {
+        return reply.replyTopic() == null || reply.replyTopic().isBlank()
+                ? ReplyChannel.A2A
+                : ReplyChannel.ASYNC;
     }
 
-    private static String resolveTargetRef(AccessIntent intent, ReplyChannel replyChannel) {
-        if (replyChannel == ReplyChannel.ASYNC && intent.payload() instanceof Map<?, ?> payload) {
-            Object replyTopic = payload.get("replyTopic");
-            return replyTopic == null ? null : replyTopic.toString();
+    private static String resolveTargetRef(ReplyContext reply, ReplyChannel replyChannel) {
+        if (replyChannel == ReplyChannel.ASYNC) {
+            return reply.replyTopic();
         }
-        if (intent.payload() instanceof Map<?, ?> payload) {
-            A2aEnvelope.A2aPushNotificationConfig pushConfig = pushConfig(payload);
-            if (pushConfig != null && pushConfig.url() != null && !pushConfig.url().isBlank()) {
-                return pushConfig.url();
-            }
-            Object stream = payload.get("a2aStreaming");
-            return Boolean.TRUE.equals(stream) ? "sse" : null;
+        A2aEnvelope.A2aPushNotificationConfig pushConfig = reply.a2aPushNotificationConfig();
+        if (pushConfig != null && pushConfig.url() != null && !pushConfig.url().isBlank()) {
+            return pushConfig.url();
         }
-        return null;
+        return reply.a2aStreaming() ? "sse" : null;
     }
 
-    private static String resolveDeliveryMode(AccessIntent intent, ReplyChannel replyChannel) {
+    private static String resolveDeliveryMode(ReplyContext reply, ReplyChannel replyChannel) {
         if (replyChannel == ReplyChannel.ASYNC) {
             return ReplyChannel.ASYNC.name();
         }
-        if (intent.payload() instanceof Map<?, ?> payload) {
-            A2aEnvelope.A2aPushNotificationConfig pushConfig = pushConfig(payload);
-            if (pushConfig != null && pushConfig.url() != null && !pushConfig.url().isBlank()) {
-                return "PUSH_NOTIFICATION";
-            }
-            Object stream = payload.get("a2aStreaming");
-            return Boolean.TRUE.equals(stream) ? "STREAM" : "SYNC";
+        A2aEnvelope.A2aPushNotificationConfig pushConfig = reply.a2aPushNotificationConfig();
+        if (pushConfig != null && pushConfig.url() != null && !pushConfig.url().isBlank()) {
+            return "PUSH_NOTIFICATION";
         }
-        return "SYNC";
+        return reply.a2aStreaming() ? "STREAM" : "SYNC";
     }
 
-    private static String resolveCorrelationId(AccessIntent intent) {
-        if (intent.payload() instanceof Map<?, ?> payload) {
-            Object correlationId = payload.get("correlationId");
-            return correlationId == null ? null : correlationId.toString();
-        }
-        return null;
-    }
-
-    private static Map<String, Object> resolveAttributes(AccessIntent intent, String deliveryMode) {
-        if (!"PUSH_NOTIFICATION".equals(deliveryMode) || !(intent.payload() instanceof Map<?, ?> payload)) {
+    private static Map<String, Object> resolveAttributes(ReplyContext reply, String deliveryMode) {
+        if (!"PUSH_NOTIFICATION".equals(deliveryMode)) {
             return Map.of();
         }
-        A2aEnvelope.A2aPushNotificationConfig pushConfig = pushConfig(payload);
+        A2aEnvelope.A2aPushNotificationConfig pushConfig = reply.a2aPushNotificationConfig();
         if (pushConfig == null) {
             return Map.of();
         }
@@ -106,11 +75,6 @@ public final class EgressBindingFactory {
         putIfPresent(attributes, "pushNotificationAuthCredentials", pushConfig.authCredentials());
         putIfPresent(attributes, "pushNotificationTenant", pushConfig.tenant());
         return Collections.unmodifiableMap(attributes);
-    }
-
-    private static A2aEnvelope.A2aPushNotificationConfig pushConfig(Map<?, ?> payload) {
-        Object value = payload.get("a2aPushNotificationConfig");
-        return value instanceof A2aEnvelope.A2aPushNotificationConfig config ? config : null;
     }
 
     private static void putIfPresent(HashMap<String, Object> attributes, String key, String value) {

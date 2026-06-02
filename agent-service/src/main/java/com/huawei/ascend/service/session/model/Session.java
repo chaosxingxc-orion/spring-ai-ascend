@@ -13,7 +13,6 @@ public record Session(
         long version,
         List<SessionMessage> messages,
         Map<String, Object> state,
-        List<Task> tasks,
         Map<String, Object> metadata,
         Instant createdAt,
         Instant updatedAt,
@@ -27,7 +26,6 @@ public record Session(
         Objects.requireNonNull(sessionId, "sessionId");
         messages = messages == null ? List.of() : List.copyOf(messages);
         state = state == null ? Map.of() : Map.copyOf(state);
-        tasks = tasks == null ? List.of() : List.copyOf(tasks);
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");

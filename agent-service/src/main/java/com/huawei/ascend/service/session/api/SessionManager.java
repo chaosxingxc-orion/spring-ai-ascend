@@ -2,7 +2,6 @@ package com.huawei.ascend.service.session.api;
 
 import com.huawei.ascend.service.session.model.Session;
 import com.huawei.ascend.service.session.model.SessionMessage;
-import com.huawei.ascend.service.session.model.Task;
 
 import java.util.Optional;
 
@@ -22,8 +21,6 @@ public interface SessionManager {
     Session putMetadata(String tenantId, String sessionId, String key, Object value);
 
     Session removeMetadata(String tenantId, String sessionId, String key);
-
-    Session appendTask(String tenantId, String sessionId, Task task);
 
     void delete(String tenantId, String sessionId);
 }

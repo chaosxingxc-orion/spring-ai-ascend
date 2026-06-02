@@ -2,6 +2,8 @@ package com.huawei.ascend.service.bootstrap;
 
 import com.huawei.ascend.service.access.api.NotificationPort;
 import com.huawei.ascend.service.access.core.TaskHandler;
+import com.huawei.ascend.service.access.egress.EgressDispatcher;
+import com.huawei.ascend.service.access.egress.EgressQueueRegistry;
 import com.huawei.ascend.service.engine.port.AccessLayerClient;
 import com.huawei.ascend.service.taskcontrol.api.TaskControlClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -27,13 +29,16 @@ public class AgentServiceBootstrapConfiguration {
     /**
      * Inbound seam. The access module publishes its {@code AccessGateway} only
      * once a {@link TaskHandler} exists, so this handler is what activates the
-     * whole inbound chain. The gateway owns task-id allocation and egress
-     * binding, so the handler is a pure access-to-task-control bridge.
+     * whole inbound chain. Task control owns task-id allocation; this handler
+     * binds egress before dispatching the prepared task.
      */
     @Bean
     @ConditionalOnMissingBean(TaskHandler.class)
-    public TaskHandler accessTaskHandler(TaskControlClient taskControlClient) {
-        return new AccessTaskHandler(taskControlClient);
+    public TaskHandler accessTaskHandler(
+            TaskControlClient taskControlClient,
+            EgressQueueRegistry egressQueueRegistry,
+            EgressDispatcher egressDispatcher) {
+        return new AccessTaskHandler(taskControlClient, egressQueueRegistry, egressDispatcher);
     }
 
     /**

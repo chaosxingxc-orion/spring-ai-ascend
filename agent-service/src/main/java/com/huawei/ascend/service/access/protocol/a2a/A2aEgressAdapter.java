@@ -3,6 +3,7 @@ package com.huawei.ascend.service.access.protocol.a2a;
 import com.huawei.ascend.service.access.egress.EgressAdapter;
 import com.huawei.ascend.service.access.model.EgressBinding;
 import com.huawei.ascend.service.access.model.NotificationFrame;
+import com.huawei.ascend.service.access.model.NotificationFrame.RunError;
 import com.huawei.ascend.service.access.model.ReplyChannel;
 import java.util.HashMap;
 import java.util.List;
@@ -45,16 +46,16 @@ public final class A2aEgressAdapter implements EgressAdapter {
     }
 
     public A2aOutput toA2aOutput(EgressBinding binding, NotificationFrame frame) {
-        String kind = switch (frame.type()) {
-            case ACK -> "TaskStatus";
-            case TOOL_RESULT -> "Artifact";
-            case LLM_RESULT -> "Message";
-            case ERROR -> "error";
-        };
         Map<String, Object> metadata = new HashMap<>();
+        metadata.putAll(frame.metadata());
         metadata.put("notificationType", frame.type().name());
+        metadata.put("runStatus", frame.status().wire());
         metadata.put("sequence", nextSequence(binding, frame));
         metadata.put("protocol", "A2A");
+        if (binding != null) {
+            metadata.put("replyId", binding.replyId());
+        }
+        String kind = outputKind(frame);
         if ("Artifact".equals(kind)) {
             metadata.put("artifactId", artifactId(binding, frame));
         }
@@ -63,7 +64,7 @@ public final class A2aEgressAdapter implements EgressAdapter {
                 kind,
                 frame.taskId(),
                 event,
-                frame.payload(),
+                payload(frame),
                 frame.terminal(),
                 metadata);
     }
@@ -77,7 +78,7 @@ public final class A2aEgressAdapter implements EgressAdapter {
         if ("Artifact".equals(kind)) {
             org.a2aproject.sdk.spec.Artifact artifact = A2aTaskMapper.artifact(
                     metadata.get("artifactId").toString(),
-                    String.valueOf(frame.payload()),
+                    outputText(frame),
                     metadata);
             return new TaskArtifactUpdateEvent(
                     frame.taskId(),
@@ -89,7 +90,7 @@ public final class A2aEgressAdapter implements EgressAdapter {
         }
         Message message = Message.builder()
                 .role(Message.Role.ROLE_AGENT)
-                .parts(List.of(new TextPart(String.valueOf(frame.payload()))))
+                .parts(List.of(new TextPart(outputText(frame))))
                 .messageId(UUID.randomUUID().toString())
                 .contextId(contextId)
                 .taskId(frame.taskId())
@@ -98,15 +99,48 @@ public final class A2aEgressAdapter implements EgressAdapter {
         if ("Message".equals(kind)) {
             return message;
         }
-        TaskState state = switch (frame.type()) {
-            case ACK -> TaskState.TASK_STATE_SUBMITTED;
-            case ERROR -> TaskState.TASK_STATE_FAILED;
-            case TOOL_RESULT, LLM_RESULT -> frame.terminal()
-                    ? TaskState.TASK_STATE_COMPLETED
-                    : TaskState.TASK_STATE_WORKING;
-        };
+        TaskState state = taskState(frame);
         TaskStatus status = new TaskStatus(state, message, null);
         return new TaskStatusUpdateEvent(frame.taskId(), status, contextId, metadata);
+    }
+
+    private String outputKind(NotificationFrame frame) {
+        if (frame.error() != null) {
+            return "error";
+        }
+        if (frame.type() == com.huawei.ascend.service.access.model.NotificationType.TOOL_RESULT
+                && !frame.output().isEmpty()) {
+            return "Artifact";
+        }
+        if (!frame.output().isEmpty()) {
+            return "Message";
+        }
+        return "TaskStatus";
+    }
+
+    private Object payload(NotificationFrame frame) {
+        return frame.error() == null ? frame.output() : frame.error();
+    }
+
+    private String outputText(NotificationFrame frame) {
+        if (frame.error() != null) {
+            RunError error = frame.error();
+            return "%s: %s".formatted(error.code(), error.message());
+        }
+        StringBuilder text = new StringBuilder();
+        for (com.huawei.ascend.service.schema.Message message : frame.output()) {
+            text.append(message.text());
+        }
+        return text.toString();
+    }
+
+    private TaskState taskState(NotificationFrame frame) {
+        return switch (frame.status()) {
+            case COMPLETED -> TaskState.TASK_STATE_COMPLETED;
+            case FAILED, REJECTED -> TaskState.TASK_STATE_FAILED;
+            case CANCELED -> TaskState.TASK_STATE_CANCELED;
+            default -> frame.terminal() ? TaskState.TASK_STATE_COMPLETED : TaskState.TASK_STATE_WORKING;
+        };
     }
 
     private long nextSequence(EgressBinding binding, NotificationFrame frame) {
@@ -119,12 +153,11 @@ public final class A2aEgressAdapter implements EgressAdapter {
     private String artifactId(EgressBinding binding, NotificationFrame frame) {
         String tenantId = binding == null ? frame.tenantId() : binding.tenantId();
         String sessionId = binding == null ? frame.sessionId() : binding.sessionId();
-        String taskId = binding == null ? frame.taskId() : binding.taskId();
-        return "artifact-%s-%s-%s".formatted(nullToId(tenantId), nullToId(sessionId), nullToId(taskId));
+        return "artifact-%s-%s-%s".formatted(nullToId(tenantId), nullToId(sessionId), nullToId(frame.taskId()));
     }
 
     private String sequenceKey(EgressBinding binding) {
-        return "%s:%s:%s".formatted(binding.tenantId(), binding.sessionId(), binding.taskId());
+        return "%s:%s:%s".formatted(binding.tenantId(), binding.sessionId(), binding.replyId());
     }
 
     private String nullToId(String value) {

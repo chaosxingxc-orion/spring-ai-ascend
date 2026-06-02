@@ -1,21 +1,24 @@
 package com.huawei.ascend.service.access.core;
 
 import com.huawei.ascend.service.access.model.AccessAcceptedResponse;
-import com.huawei.ascend.service.access.model.AccessIntent;
+import com.huawei.ascend.service.access.model.AccessCancelCommand;
+import com.huawei.ascend.service.access.model.ReplyContext;
+import com.huawei.ascend.service.schema.AgentRequest;
 
 import java.util.concurrent.CompletionStage;
 
 /**
  * Inbound port from the access layer to the rest of the service.
  *
- * <p>The access layer pre-allocates the {@code taskId} and binds the reply
- * (egress) channel for it <em>before</em> calling this handler, so a fully
- * synchronous runtime can deliver output during the call. Implementations turn
- * the intent into a task on task-centric-control using the supplied id.
+ * <p>The handler coordinates the L1 reply binding with task control. Task
+ * control owns task identity; access binds egress after task control returns
+ * the task id and before dispatch starts.
  */
 public interface TaskHandler {
-    CompletionStage<AccessAcceptedResponse> runTask(AccessIntent intent, String taskId);
+    CompletionStage<AccessAcceptedResponse> run(AgentRequest request, ReplyContext reply);
+
+    CompletionStage<AccessAcceptedResponse> resume(AgentRequest request, ReplyContext reply);
+
+    CompletionStage<AccessAcceptedResponse> cancel(AccessCancelCommand command);
 }
-
-
 

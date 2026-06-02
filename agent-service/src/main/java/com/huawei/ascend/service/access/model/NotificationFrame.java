@@ -1,5 +1,9 @@
 package com.huawei.ascend.service.access.model;
 
+import com.huawei.ascend.service.schema.Message;
+import com.huawei.ascend.service.schema.RunStatus;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public record NotificationFrame(
@@ -7,7 +11,10 @@ public record NotificationFrame(
         String sessionId,
         String taskId,
         NotificationType type,
-        Object payload,
+        RunStatus status,
+        List<Message> output,
+        RunError error,
+        Map<String, Object> metadata,
         boolean terminal) {
 
     public NotificationFrame {
@@ -15,6 +22,16 @@ public record NotificationFrame(
         Objects.requireNonNull(sessionId, "sessionId");
         Objects.requireNonNull(taskId, "taskId");
         Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(status, "status");
+        output = output == null ? List.of() : List.copyOf(output);
+        metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+    }
+
+    public record RunError(String code, String message) {
+        public RunError {
+            code = (code == null || code.isBlank()) ? "UNKNOWN" : code;
+            message = message == null ? "" : message;
+        }
     }
 }
 

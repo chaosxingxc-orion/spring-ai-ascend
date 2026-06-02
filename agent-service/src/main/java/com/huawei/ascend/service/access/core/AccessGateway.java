@@ -1,16 +1,14 @@
 package com.huawei.ascend.service.access.core;
 
-import com.huawei.ascend.service.access.protocol.a2a.A2aEnvelope;
-import com.huawei.ascend.service.access.egress.EgressBindingFactory;
-import com.huawei.ascend.service.access.egress.EgressDispatcher;
-import com.huawei.ascend.service.access.egress.EgressQueueRegistry;
 import com.huawei.ascend.service.access.model.AccessAcceptedResponse;
-import com.huawei.ascend.service.access.model.AccessIntent;
-import com.huawei.ascend.service.access.model.AccessOperation;
-import com.huawei.ascend.service.access.model.EgressBinding;
+import com.huawei.ascend.service.access.model.AccessCancelCommand;
+import com.huawei.ascend.service.access.model.ReplyContext;
+import com.huawei.ascend.service.access.protocol.a2a.A2aEnvelope;
 import com.huawei.ascend.service.access.protocol.async.AsyncEnvelope;
-import java.util.Collections;
+import com.huawei.ascend.service.schema.AgentRequest;
+import com.huawei.ascend.service.schema.Message;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
@@ -18,99 +16,118 @@ import java.util.concurrent.CompletionStage;
 public final class AccessGateway {
 
     private final TaskHandler taskHandler;
-    private final EgressQueueRegistry egressQueueRegistry;
-    private final EgressDispatcher egressDispatcher;
 
-    public AccessGateway(
-            TaskHandler taskHandler,
-            EgressQueueRegistry egressQueueRegistry,
-            EgressDispatcher egressDispatcher) {
+    public AccessGateway(TaskHandler taskHandler) {
         this.taskHandler = Objects.requireNonNull(taskHandler, "taskHandler");
-        this.egressQueueRegistry = Objects.requireNonNull(egressQueueRegistry, "egressQueueRegistry");
-        this.egressDispatcher = Objects.requireNonNull(egressDispatcher, "egressDispatcher");
     }
 
-    public AccessIntent acceptA2a(A2aEnvelope envelope) {
-        return acceptA2a(envelope, false);
+    public CompletionStage<AccessAcceptedResponse> submitA2a(A2aEnvelope envelope) {
+        return submitA2a(envelope, false);
     }
 
-    public AccessIntent acceptA2a(A2aEnvelope envelope, boolean streaming) {
+    public CompletionStage<AccessAcceptedResponse> submitA2a(A2aEnvelope envelope, boolean streaming) {
         Objects.requireNonNull(envelope, "envelope");
+        AgentRequest request = toA2aAgentRequest(envelope);
+        ReplyContext reply = a2aReplyContext(envelope, streaming);
+        return run(request, reply);
+    }
+
+    public CompletionStage<AccessAcceptedResponse> submitAsync(AsyncEnvelope envelope) {
+        Objects.requireNonNull(envelope, "envelope");
+        AgentRequest request = toAsyncAgentRequest(envelope);
+        ReplyContext reply = ReplyContext.async(
+                envelope.headers().replyTopic(),
+                envelope.headers().correlationId(),
+                Map.of("payload", envelope.body().payload()));
+        return run(request, reply);
+    }
+
+    public CompletionStage<AccessAcceptedResponse> cancelA2a(A2aEnvelope envelope) {
+        Objects.requireNonNull(envelope, "envelope");
+        return taskHandler.cancel(toA2aCancelCommand(envelope));
+    }
+
+    private CompletionStage<AccessAcceptedResponse> run(AgentRequest request, ReplyContext reply) {
+        return taskHandler.run(request, reply);
+    }
+
+    private AgentRequest toA2aAgentRequest(A2aEnvelope envelope) {
         A2aEnvelope.A2aContext context = envelope.context();
         A2aEnvelope.A2aMessage message = envelope.message();
-        HashMap<String, Object> payload = new HashMap<>();
-        payload.put("parts", message == null ? java.util.List.of() : message.parts());
-        payload.put("metadata", message == null ? Map.of() : message.metadata());
-        payload.put("contextId", context.contextId());
-        payload.put("correlationId", context.correlationId());
-        payload.put("a2aStreaming", streaming);
-        if (envelope.pushNotificationConfig() != null) {
-            payload.put("a2aPushNotificationConfig", envelope.pushNotificationConfig());
+        HashMap<String, Object> metadata = new HashMap<>();
+        metadata.put("parts", message == null ? List.of() : message.parts());
+        metadata.put("metadata", message == null ? Map.of() : message.metadata());
+        metadata.put("contextId", context.contextId());
+        metadata.put("correlationId", context.correlationId());
+        if (message != null) {
+            metadata.putAll(message.metadata());
         }
-        return new AccessIntent(
-                AccessOperation.SUBMIT,
+        return new AgentRequest(
                 context.tenantId(),
                 context.userId(),
                 context.agentId(),
-                context.sessionId(),
-                message == null ? null : message.text(),
+                normalizeSessionId(context.sessionId(), context.contextId()),
+                List.of(Message.user(message == null || message.text() == null ? "" : message.text())),
                 context.idempotencyKey(),
-                Collections.unmodifiableMap(payload));
+                metadata);
     }
 
-    /**
-     * Single inbound entry: allocate the task id, normalise the session id,
-     * bind the reply (egress) channel, then hand off to the task handler.
-     *
-     * <p>Binding before the handler runs is what lets a synchronous runtime
-     * deliver output during {@link TaskHandler#runTask}. The reply channel is
-     * keyed by (tenant, session, task), so the session id is normalised here —
-     * defaulting to the task id when absent — and the same resolved intent is
-     * passed to the handler so task control sees the identical session id.
-     */
-    public CompletionStage<AccessAcceptedResponse> dispatch(AccessIntent intent) {
-        Objects.requireNonNull(intent, "intent");
-        String taskId = java.util.UUID.randomUUID().toString();
-        AccessIntent resolved = withSessionId(intent, taskId);
-        bindEgress(resolved, taskId);
-        return taskHandler.runTask(resolved, taskId);
-    }
-
-    private static AccessIntent withSessionId(AccessIntent intent, String fallback) {
-        if (intent.sessionId() != null && !intent.sessionId().isBlank()) {
-            return intent;
-        }
-        return new AccessIntent(intent.operation(), intent.tenantId(), intent.userId(),
-                intent.agentId(), fallback, intent.query(), intent.idempotencyKey(), intent.payload());
-    }
-
-    public AccessIntent acceptAsync(AsyncEnvelope envelope) {
-        Objects.requireNonNull(envelope, "envelope");
-        HashMap<String, Object> payload = new HashMap<>();
-        payload.put("payload", envelope.body().payload());
-        payload.put("replyTopic", envelope.headers().replyTopic());
-        payload.put("correlationId", envelope.headers().correlationId());
-        return new AccessIntent(
-                envelope.headers().operation(),
+    private AgentRequest toAsyncAgentRequest(AsyncEnvelope envelope) {
+        HashMap<String, Object> metadata = new HashMap<>();
+        metadata.put("payload", envelope.body().payload());
+        metadata.put("replyTopic", envelope.headers().replyTopic());
+        metadata.put("correlationId", envelope.headers().correlationId());
+        return new AgentRequest(
                 envelope.headers().tenantId(),
                 envelope.headers().userId(),
                 envelope.headers().agentId(),
-                envelope.headers().sessionId(),
-                envelope.body().query(),
+                normalizeSessionId(envelope.headers().sessionId(), envelope.headers().correlationId()),
+                List.of(Message.user(envelope.body().query() == null ? "" : envelope.body().query())),
                 envelope.headers().idempotencyKey(),
-                Collections.unmodifiableMap(payload));
+                metadata);
     }
 
-    /**
-     * Creates (idempotently) the reply queue for {@code taskId} and starts its
-     * egress dispatcher. Safe to call more than once for the same task.
-     */
-    private void bindEgress(AccessIntent intent, String taskId) {
-        EgressBinding binding = EgressBindingFactory.from(intent, taskId);
-        egressQueueRegistry.getOrCreate(binding);
-        egressDispatcher.start(binding);
+    private AccessCancelCommand toA2aCancelCommand(A2aEnvelope envelope) {
+        A2aEnvelope.A2aContext context = envelope.context();
+        Map<String, Object> metadata = envelope.message() == null ? Map.of() : envelope.message().metadata();
+        return new AccessCancelCommand(
+                context.tenantId(),
+                context.userId(),
+                context.agentId(),
+                normalizeSessionId(context.sessionId(), context.contextId()),
+                taskId(envelope),
+                null,
+                metadata);
+    }
+
+    private ReplyContext a2aReplyContext(A2aEnvelope envelope, boolean streaming) {
+        HashMap<String, Object> attributes = new HashMap<>();
+        A2aEnvelope.A2aMessage message = envelope.message();
+        attributes.put("parts", message == null ? List.of() : message.parts());
+        attributes.put("metadata", message == null ? Map.of() : message.metadata());
+        attributes.put("contextId", envelope.context().contextId());
+        return ReplyContext.a2a(
+                streaming,
+                envelope.context().correlationId(),
+                envelope.pushNotificationConfig(),
+                attributes);
+    }
+
+    private static String taskId(A2aEnvelope envelope) {
+        if (envelope.message() == null || envelope.message().metadata() == null) {
+            return null;
+        }
+        Object taskId = envelope.message().metadata().get("taskId");
+        return taskId == null ? null : taskId.toString();
+    }
+
+    private static String normalizeSessionId(String sessionId, String fallback) {
+        if (sessionId != null && !sessionId.isBlank()) {
+            return sessionId;
+        }
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback;
+        }
+        return java.util.UUID.randomUUID().toString();
     }
 }
-
-
-

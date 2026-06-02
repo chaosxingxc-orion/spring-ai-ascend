@@ -10,6 +10,8 @@ import com.huawei.ascend.service.engine.queue.EngineCommandSubscriber;
 import com.huawei.ascend.service.engine.queue.InMemoryEngineQueueGateway;
 import com.huawei.ascend.service.engine.support.FakeInterruptingAgentHandler;
 import com.huawei.ascend.service.engine.support.RecordingAccessLayerClient;
+import com.huawei.ascend.service.schema.AgentRequest;
+import com.huawei.ascend.service.schema.Message;
 import com.huawei.ascend.service.taskcontrol.EngineTaskControlAdapter;
 import com.huawei.ascend.service.taskcontrol.TaskControlService;
 import com.huawei.ascend.service.taskcontrol.TaskState;
@@ -42,16 +44,15 @@ class TaskflowEngineBridgeWhiteboxTest {
         registry.register("echo-agent", new FakeInterruptingAgentHandler("echo-agent"));
         new EngineCommandSubscriber(engineQueue, new EngineDispatcher(registry, adapter, access)).start();
 
-        TaskControlClient.TaskResult waiting = tcc.runTask(command(
-                        TaskControlClient.TaskAction.RUN, null, "hello"))
+        TaskControlClient.TaskResult waiting = tcc.run(new TaskControlClient.RunCommand(request("hello")))
                 .toCompletableFuture().join();
 
         assertThat(waiting.state()).isEqualTo(TaskState.WAITING);
         assertThat(tcc.findTask("tenant", "session", waiting.taskId()).orElseThrow().getWaitingReason())
                 .isEqualTo(WaitingReason.USER_INPUT);
 
-        TaskControlClient.TaskResult completed = tcc.runTask(command(
-                        TaskControlClient.TaskAction.RESUME_INPUT, null, "yes"))
+        TaskControlClient.TaskResult completed = tcc.resume(new TaskControlClient.ResumeCommand(
+                        waiting.taskId(), request("yes")))
                 .toCompletableFuture().join();
 
         assertThat(completed.taskId()).isEqualTo(waiting.taskId());
@@ -63,16 +64,14 @@ class TaskflowEngineBridgeWhiteboxTest {
         assertThat(manager.findBySession("tenant", "session")).isPresent();
     }
 
-    private TaskControlClient.RunTaskCommand command(TaskControlClient.TaskAction action, String taskId, String input) {
-        return new TaskControlClient.RunTaskCommand(
+    private AgentRequest request(String input) {
+        return new AgentRequest(
                 "tenant",
-                "session",
-                taskId,
+                "user",
                 "echo-agent",
-                action,
-                input,
+                "session",
+                java.util.List.of(Message.user(input)),
                 null,
-                null,
-                Map.of("userId", "user"));
+                Map.of());
     }
 }

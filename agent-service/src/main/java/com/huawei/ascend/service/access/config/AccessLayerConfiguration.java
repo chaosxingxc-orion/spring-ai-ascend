@@ -122,11 +122,8 @@ public class AccessLayerConfiguration {
     @Bean
     @ConditionalOnBean(TaskHandler.class)
     @ConditionalOnMissingBean
-    AccessGateway accessGateway(
-            TaskHandler taskHandler,
-            EgressQueueRegistry egressQueueRegistry,
-            EgressDispatcher egressDispatcher) {
-        return new AccessGateway(taskHandler, egressQueueRegistry, egressDispatcher);
+    AccessGateway accessGateway(TaskHandler taskHandler) {
+        return new AccessGateway(taskHandler);
     }
 
     @Bean
@@ -144,5 +141,4 @@ public class AccessLayerConfiguration {
     }
 
 }
-
 

@@ -27,7 +27,7 @@ public final class DefaultA2aOutputSink implements A2aOutputSink {
     public void send(EgressBinding binding, A2aOutput output) {
         Objects.requireNonNull(binding, "binding");
         Objects.requireNonNull(output, "output");
-        A2aOutputHandle handle = new A2aOutputHandle(binding.tenantId(), binding.sessionId(), binding.taskId());
+        A2aOutputHandle handle = new A2aOutputHandle(binding.tenantId(), binding.sessionId(), output.taskId());
         outputRegistry.append(handle, output);
         if ("PUSH_NOTIFICATION".equals(binding.deliveryMode())) {
             pushNotification(binding, output);

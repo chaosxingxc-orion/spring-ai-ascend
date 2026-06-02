@@ -45,10 +45,10 @@ public final class EgressDispatcher {
                 .whenComplete((ignored, failure) -> {
                     if (failure != null) {
                         LOGGER.error(
-                                "Egress dispatcher stopped after delivery failure, tenantId={}, sessionId={}, taskId={}",
+                                "Egress dispatcher stopped after delivery failure, tenantId={}, sessionId={}, replyId={}",
                                 binding.tenantId(),
                                 binding.sessionId(),
-                                binding.taskId(),
+                                binding.replyId(),
                                 failure);
                     }
                 });
@@ -63,7 +63,7 @@ public final class EgressDispatcher {
         try {
             while (running.containsKey(key)) {
                 Optional<InternalEventQueue<NotificationFrame>> queue =
-                        registry.find(binding.tenantId(), binding.sessionId(), binding.taskId());
+                        registry.find(binding.tenantId(), binding.sessionId(), binding.replyId());
                 if (queue.isEmpty()) {
                     stop(binding);
                     return;
@@ -78,7 +78,7 @@ public final class EgressDispatcher {
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (RuntimeException ex) {
-            registry.remove(binding.tenantId(), binding.sessionId(), binding.taskId());
+            registry.remove(binding.tenantId(), binding.sessionId(), binding.replyId());
             throw ex;
         } finally {
             running.remove(key);
@@ -93,15 +93,13 @@ public final class EgressDispatcher {
         adapter.deliver(binding, frame);
         if (frame.terminal()) {
             stop(binding);
-            registry.remove(binding.tenantId(), binding.sessionId(), binding.taskId());
+            registry.remove(binding.tenantId(), binding.sessionId(), binding.replyId());
         }
     }
 
-    private record Key(String tenantId, String sessionId, String taskId) {
+    private record Key(String tenantId, String sessionId, String replyId) {
         static Key from(EgressBinding binding) {
-            return new Key(binding.tenantId(), binding.sessionId(), binding.taskId());
+            return new Key(binding.tenantId(), binding.sessionId(), binding.replyId());
         }
     }
 }
-
-

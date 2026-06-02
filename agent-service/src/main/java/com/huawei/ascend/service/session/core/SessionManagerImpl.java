@@ -4,7 +4,6 @@ import com.huawei.ascend.service.session.api.SessionManager;
 import com.huawei.ascend.service.session.model.Session;
 import com.huawei.ascend.service.session.model.SessionKey;
 import com.huawei.ascend.service.session.model.SessionMessage;
-import com.huawei.ascend.service.session.model.Task;
 import com.huawei.ascend.service.session.store.SessionStore;
 
 import java.time.Clock;
@@ -51,7 +50,6 @@ public final class SessionManagerImpl implements SessionManager {
                 1L,
                 java.util.List.of(),
                 java.util.Map.of(),
-                java.util.List.of(),
                 java.util.Map.of(),
                 now,
                 now,
@@ -122,16 +120,6 @@ public final class SessionManagerImpl implements SessionManager {
     }
 
     @Override
-    public Session appendTask(String tenantId, String sessionId, Task task) {
-        Objects.requireNonNull(task, "task");
-        return sessionStore.update(new SessionKey(tenantId, sessionId), session -> {
-            ArrayList<Task> tasks = new ArrayList<>(session.tasks());
-            tasks.add(task);
-            return withTasks(session, tasks);
-        });
-    }
-
-    @Override
     public void delete(String tenantId, String sessionId) {
         sessionStore.remove(new SessionKey(tenantId, sessionId));
     }
@@ -141,26 +129,21 @@ public final class SessionManagerImpl implements SessionManager {
     }
 
     private Session withMessages(Session session, java.util.List<SessionMessage> messages) {
-        return copy(session, messages, session.state(), session.tasks(), session.metadata());
+        return copy(session, messages, session.state(), session.metadata());
     }
 
     private Session withState(Session session, java.util.Map<String, Object> state) {
-        return copy(session, session.messages(), state, session.tasks(), session.metadata());
+        return copy(session, session.messages(), state, session.metadata());
     }
 
     private Session withMetadata(Session session, java.util.Map<String, Object> metadata) {
-        return copy(session, session.messages(), session.state(), session.tasks(), metadata);
-    }
-
-    private Session withTasks(Session session, java.util.List<Task> tasks) {
-        return copy(session, session.messages(), session.state(), tasks, session.metadata());
+        return copy(session, session.messages(), session.state(), metadata);
     }
 
     private Session copy(
             Session session,
             java.util.List<SessionMessage> messages,
             java.util.Map<String, Object> state,
-            java.util.List<Task> tasks,
             java.util.Map<String, Object> metadata) {
         Instant now = clock.instant();
         return new Session(
@@ -171,7 +154,6 @@ public final class SessionManagerImpl implements SessionManager {
                 session.version(),
                 messages,
                 state,
-                tasks,
                 metadata,
                 session.createdAt(),
                 now,
@@ -189,7 +171,6 @@ public final class SessionManagerImpl implements SessionManager {
                 session.version(),
                 session.messages(),
                 session.state(),
-                session.tasks(),
                 session.metadata(),
                 session.createdAt(),
                 updatedAt,
