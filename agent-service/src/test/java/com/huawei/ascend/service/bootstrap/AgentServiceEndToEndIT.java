@@ -101,6 +101,21 @@ class AgentServiceEndToEndIT {
         assertThat(outputs).anyMatch(o -> "error".equals(o.kind()));
     }
 
+    @Test
+    void a2aRequestCanReadIdentityFromParamsMetadata() {
+        JsonNode accepted = sendWithParamsMetadataOnly("session-params", "params metadata");
+
+        assertThat(accepted.path("metadata").path("accepted").asBoolean()).isTrue();
+        assertThat(accepted.path("metadata").path("tenantId").asText()).isEqualTo(TENANT);
+
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-params");
+        List<A2aOutput> outputs = awaitOutputs(handle);
+
+        assertThat(outputs).isNotEmpty();
+        assertThat(outputs.get(outputs.size() - 1).terminal()).isTrue();
+        assertThat(outputs).anyMatch(o -> String.valueOf(o.body()).contains("params metadata"));
+    }
+
     private List<A2aOutput> awaitOutputs(A2aOutputHandle handle) {
         long deadline = System.nanoTime() + java.time.Duration.ofSeconds(5).toNanos();
         List<A2aOutput> outputs = outputRegistry.list(handle);
@@ -123,6 +138,15 @@ class AgentServiceEndToEndIT {
 
     private JsonNode send(String agentId, String sessionId, String text) {
         String response = a2aJsonRpcHandler.handleToJson(sendMessageBody(agentId, sessionId, text));
+        return result(response);
+    }
+
+    private JsonNode sendWithParamsMetadataOnly(String sessionId, String text) {
+        String response = a2aJsonRpcHandler.handleToJson(sendMessageBodyWithParamsMetadataOnly(sessionId, text));
+        return result(response);
+    }
+
+    private JsonNode result(String response) {
         try {
             JsonNode root = objectMapper.readTree(response);
             assertThat(root.path("error").isMissingNode() || root.path("error").isNull())
@@ -175,6 +199,47 @@ class AgentServiceEndToEndIT {
                 agentId,
                 sessionId,
                 UUID.randomUUID());
+    }
+
+    private static String sendMessageBodyWithParamsMetadataOnly(String sessionId, String text) {
+        return """
+                {
+                  "jsonrpc": "2.0",
+                  "id": "%s",
+                  "method": "SendMessage",
+                  "params": {
+                    "tenant": "%s",
+                    "metadata": {
+                      "tenantId": "%s",
+                      "userId": "user-1",
+                      "agentId": "%s",
+                      "sessionId": "%s",
+                      "idempotencyKey": "%s",
+                      "correlationId": "corr-params"
+                    },
+                    "message": {
+                      "role": "ROLE_USER",
+                      "messageId": "%s",
+                      "contextId": "%s",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "%s"
+                        }
+                      ]
+                    }
+                  }
+                }
+                """.formatted(
+                UUID.randomUUID(),
+                TENANT,
+                TENANT,
+                AGENT,
+                sessionId,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                sessionId,
+                text);
     }
 
     /**

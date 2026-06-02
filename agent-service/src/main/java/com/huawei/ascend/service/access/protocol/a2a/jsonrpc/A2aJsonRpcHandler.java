@@ -226,18 +226,25 @@ public final class A2aJsonRpcHandler {
             throw new IllegalArgumentException("Missing JSON-RPC params");
         }
         JsonNode message = required(params, "message");
-        JsonNode metadata = object(message.get("metadata"));
+        JsonNode paramsMetadata = object(params.get("metadata"));
+        JsonNode messageMetadata = object(message.get("metadata"));
+        Map<String, Object> paramsMetadataMap = metadataMap(paramsMetadata);
+        Map<String, Object> messageMetadataMap = metadataMap(messageMetadata);
+        HashMap<String, Object> mergedMetadata = new HashMap<>(paramsMetadataMap);
+        mergedMetadata.putAll(messageMetadataMap);
+        JsonNode metadata = objectMapper.valueToTree(mergedMetadata);
         String contextId = text(message.get("contextId"));
         String sessionId = firstText(metadata.get("sessionId"), message.get("contextId"));
         validatePushNotificationConfig(params);
 
-        Map<String, Object> metadataMap = metadataMap(metadata);
         HashMap<String, Object> requestMetadata = new HashMap<>();
         requestMetadata.put("parts", parts(message.get("parts")));
-        requestMetadata.put("metadata", metadataMap);
+        requestMetadata.put("paramsMetadata", paramsMetadataMap);
+        requestMetadata.put("messageMetadata", messageMetadataMap);
+        requestMetadata.put("metadata", mergedMetadata);
         requestMetadata.put("contextId", contextId);
         requestMetadata.put("correlationId", text(metadata.get("correlationId")));
-        requestMetadata.putAll(metadataMap);
+        requestMetadata.putAll(mergedMetadata);
         return new AgentRequest(
                 requiredText(params, metadata, "tenant", "tenantId"),
                 requiredText(metadata, "userId"),
