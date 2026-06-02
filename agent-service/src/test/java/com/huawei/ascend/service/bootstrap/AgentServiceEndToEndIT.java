@@ -124,8 +124,12 @@ class AgentServiceEndToEndIT {
     private JsonNode send(String agentId, String sessionId, String text) {
         String response = a2aJsonRpcHandler.handleToJson(sendMessageBody(agentId, sessionId, text));
         try {
-            JsonNode result = objectMapper.readTree(response).path("result");
-            assertThat(result.isMissingNode()).isFalse();
+            JsonNode root = objectMapper.readTree(response);
+            assertThat(root.path("error").isMissingNode() || root.path("error").isNull())
+                    .as(response)
+                    .isTrue();
+            JsonNode result = root.path("result");
+            assertThat(result.isMissingNode()).as(response).isFalse();
             return result;
         } catch (java.io.IOException ex) {
             throw new AssertionError("Invalid JSON-RPC response: " + response, ex);
@@ -141,6 +145,8 @@ class AgentServiceEndToEndIT {
                   "params": {
                     "tenant": "%s",
                     "message": {
+                      "role": "ROLE_USER",
+                      "messageId": "%s",
                       "contextId": "%s",
                       "parts": [
                         {
@@ -162,6 +168,7 @@ class AgentServiceEndToEndIT {
                 """.formatted(
                 UUID.randomUUID(),
                 TENANT,
+                UUID.randomUUID(),
                 sessionId,
                 text,
                 TENANT,
