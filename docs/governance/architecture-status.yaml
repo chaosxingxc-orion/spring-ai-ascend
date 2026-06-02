@@ -1081,7 +1081,7 @@ capabilities:
     implementation:
       - agent-bus/src/main/java/com/huawei/ascend/bus/spi/engine/SuspendSignal.java
     tests:
-      - agent-service/src/test/java/com/huawei/ascend/bus/spi/engine/SuspendSignalTest.java
+      - agent-bus/src/test/java/com/huawei/ascend/bus/spi/engine/SuspendSignalTest.java
     allowed_claim: "Named principle: a long wait MUST become a suspended workflow state when useful compute is not happening. W0 implemented via SuspendReason.RateLimited (ADR-0019) and SuspendReason.AwaitTimer. Idle waits must NOT consume scarce physical resources (threads, sockets, connections, event-loop slots). The principle composes with AdmissionDecision.Yielded (ADR-0050)."
 
   socket_per_tenant_cap:
