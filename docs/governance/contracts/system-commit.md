@@ -50,7 +50,6 @@ Markers: **P** = primary · **X** = cross-reference.
 | G-9 | Recurring-Defect Family Truth | **P** | [`rule-G-9.md`](../rules/rule-G-9.md) |
 | G-10 | Parallel-Linux-Scripts Mandate | **X** | [`rule-G-10.md`](../rules/rule-G-10.md) |
 | G-11 | Phase-Contract Rule-Allocation Coherence | **P** | [`rule-G-11.md`](../rules/rule-G-11.md) |
-| G-13 | Single-Source Rendering Coherence | **P** | [`rule-G-13.md`](../rules/rule-G-13.md) |
 | M-2 | Domain Contract Discipline (schema-first + design-only registration + DFX-stem truth) | **X** | [`rule-M-2.md`](../rules/rule-M-2.md) |
 | R-B | Competitive Baselines Required | **P** | [`rule-R-B.md`](../rules/rule-R-B.md) |
 | G-19 | Auto-Load Tier Integrity | **P** | [`rule-G-19.md`](../rules/rule-G-19.md) |
@@ -85,10 +84,6 @@ Markers: **P** = primary · **X** = cross-reference.
 - Branch protection status checks all green (Maven build + Quickstart
   smoke per rc9 enforcement).
 - 4-surface baseline lockstep in single commit.
-- `/refresh-architecture-doc` reports all stages PASS — every templated
-  + hybrid surface re-renders byte-identical against the live authority
-  surfaces (Rule G-13.b). Editing an authority surface without
-  re-rendering the dependent templates blocks at this gate.
 
 ## Composes with
 

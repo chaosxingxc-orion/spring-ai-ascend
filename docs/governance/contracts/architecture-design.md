@@ -108,13 +108,6 @@ declares allocation.
   (Rule R-D sub-clauses .b through .g).
 - Gate G-1, G-2, G-8 clean (architecture graph regenerates byte-identical
   and authority surfaces agree).
-- If the design changes an authority surface listed in any template's
-  `context_loader` (e.g. `module-metadata.yaml`, `architecture-status.yaml`,
-  `recurring-defect-families.yaml`, `pom.xml`), the design is NOT complete
-  until the downstream rendered artefacts re-render byte-identical under
-  Rule G-13. The implementation phase (`/impl-mode`) is responsible for
-  the re-render; this phase MUST flag the dependency in the ADR's
-  `consequences:` block so the implementer doesn't miss it.
 
 ## Composes with
 
