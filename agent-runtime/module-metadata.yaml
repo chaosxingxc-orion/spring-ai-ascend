@@ -16,10 +16,10 @@ spi_packages:
   # surface. The neutral orchestration SPI it consumes (RunContext / ExecutorDefinition
   # / SuspendSignal / Checkpointer / Orchestrator / RunMode / TraceContext) was
   # relocated to com.huawei.ascend.bus.spi.engine per ADR-0158.
-  - com.huawei.ascend.engine.spi
+  - com.huawei.ascend.runtime.engine.spi
   # Planner SPI (Planner + Plan + PlanStep + PlanningRequest + PlanningResult +
   # BranchPoint + LoopAnnotation + ...) — engine-side plan generator per ADR-0126.
-  - com.huawei.ascend.engine.planner.spi
+  - com.huawei.ascend.runtime.engine.planner.spi
 allowed_dependencies:
   - agent-middleware       # engine references HookPoint enum + RuntimeMiddleware listener
   - agent-bus              # engine registry consumes S2cCallbackTransport SPI from bus.spi.s2c per ADR-0088 (relocated from dissolved agent-runtime-core)

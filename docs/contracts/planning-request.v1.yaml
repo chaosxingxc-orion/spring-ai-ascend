@@ -11,7 +11,7 @@ runtime_enforced: false
 authority: ADR-0126
 promotion_trigger: "First production Planner implementation (W4 planner)"
 home_module: agent-runtime
-home_package: com.huawei.ascend.engine.planner.spi
+home_package: com.huawei.ascend.runtime.engine.planner.spi
 
 planning_request:
   required_fields:

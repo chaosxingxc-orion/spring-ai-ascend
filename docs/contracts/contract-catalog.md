@@ -48,10 +48,10 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `GraphMemoryRepository` | `agent-service` | `com.huawei.ascend.service.runtime.memory.spi` | shipped — interface only; Graphiti W1 reference (ADR-0034) |
 | `ResilienceContract` | `agent-service` | `com.huawei.ascend.service.runtime.resilience.spi` | shipped — W0 Resilience4j-backed impl (`DefaultSkillResilienceContract`); per-skill capacity via `YamlResilienceContract`; package home moved to `.spi` per ADR-0080 to align with Rules 32/77/78 — implementations stay in `runtime.resilience.*` |
 | `SkillCapacityRegistry` | `agent-service` | `com.huawei.ascend.service.runtime.resilience.spi` | shipped — W0 YAML-backed impl (`YamlSkillCapacityRegistry`, in `agent-service`); `ResilienceAutoConfiguration` exposes it as an `@ConditionalOnMissingBean` extension point. Consumed by `ResilienceContract.resolve(tenant, skill)` per ADR-0070 / ADR-0080 / ADR-0081 |
-| `ExecutorAdapter` | `agent-runtime` | `com.huawei.ascend.engine.spi` | shipped — W2.x; reference adapters in `agent-service` (ADR-0072 / ADR-0088) |
-| `GraphExecutor` | `agent-runtime` | `com.huawei.ascend.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`SequentialGraphExecutor`, in `agent-runtime`) |
-| `AgentLoopExecutor` | `agent-runtime` | `com.huawei.ascend.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`IterativeAgentLoopExecutor`, in `agent-runtime`) |
-| `EngineHookSurface` | `agent-runtime` | `com.huawei.ascend.engine.spi` | shipped — W2.x; bridge to `RuntimeMiddleware` (ADR-0073) |
+| `ExecutorAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — W2.x; reference adapters in `agent-service` (ADR-0072 / ADR-0088) |
+| `GraphExecutor` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`SequentialGraphExecutor`, in `agent-runtime`) |
+| `AgentLoopExecutor` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`IterativeAgentLoopExecutor`, in `agent-runtime`) |
+| `EngineHookSurface` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — W2.x; bridge to `RuntimeMiddleware` (ADR-0073) |
 | `RuntimeMiddleware` | `agent-middleware` | `com.huawei.ascend.middleware.spi` | shipped — W2.x; `@FunctionalInterface` listener (ADR-0073) |
 | `EngineDispatchApi` | `agent-service` | `com.huawei.ascend.service.engine.api` | (internal) shipped — inbound async dispatch entry (execute / interrupt-resume / cancel) for task-centric-control to enqueue Agent execution; reference impl wired via `EngineAutoConfiguration`; intra-service contract; design authority: L1 engine model design doc |
 | `AgentHandler` | `agent-service` | `com.huawei.ascend.service.engine.spi` | (internal) shipped — engine→agent-framework outbound port driven by the openJiuwen adapter; intra-service contract; design authority: L1 engine model design doc §14 |
@@ -76,7 +76,7 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `VectorStore` | `agent-middleware` | `com.huawei.ascend.middleware.vector.spi` | rc43 design_only — tenant-scoped vector storage + similarity search (ADR-0124); reference adapter `SpringAiVectorStore` lands Wave C1 |
 | `Retriever` | `agent-middleware` | `com.huawei.ascend.middleware.retrieval.spi` | rc43 design_only — composition layer over VectorStore(s) (ADR-0124); reference adapter `SpringAiDocumentRetriever` lands Wave C1 |
 | `EmbeddingModel` | `agent-middleware` | `com.huawei.ascend.middleware.embedding.spi` | rc43 design_only — text embedding boundary; `modelVersion()` feeds `MemoryMetadata.embeddingModelVersion` (ADR-0124 + ADR-0123) |
-| `Planner` | `agent-runtime` | `com.huawei.ascend.engine.planner.spi` | rc43 design_only — goal → Plan DAG generator (ADR-0126); engine-side because Plan output is engine-consumable; distinct from `plan-projection.v1.yaml` scheduler INPUT |
+| `Planner` | `agent-runtime` | `com.huawei.ascend.runtime.engine.planner.spi` | rc43 design_only — goal → Plan DAG generator (ADR-0126); engine-side because Plan output is engine-consumable; distinct from `plan-projection.v1.yaml` scheduler INPUT |
 | `Agent` | `agent-service` | `com.huawei.ascend.service.agent.spi` | rc43 design_only — first-class entity binding model + skills + memory + planner (ADR-0128); HTTP-edge customer registration surface |
 | `AgentRegistry` | `agent-service` | `com.huawei.ascend.service.agent.spi` | rc43 design_only — tenant-scoped (tenantId, agentId) index (ADR-0128) |
 | `StructuredOutputConverter` | `agent-middleware` | `com.huawei.ascend.middleware.model.spi` | rc51 design_only — generic `StructuredOutputConverter<T>` typed-bean extraction (ADR-0130); reference adapter `SpringAiBeanOutputConverterAdapter` lands in `agent-service.integration.springai` |
@@ -132,9 +132,9 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `SuspendSignal` | `agent-bus` (`...bus.spi.engine`) | Checked-exception interrupt primitive; carries `forClientCallback(...)` variant per ADR-0074 |
 | `S2cCallbackEnvelope` / `S2cCallbackResponse` | `agent-bus` (`...bus.spi.s2c`) | Six mandatory request fields per ADR-0074; relocated per ADR-0088 |
 | `IngressEnvelope` / `IngressResponse` / `IngressStatus` / `IngressRequestType` | `agent-bus` (`...bus.spi.ingress`) | C2S ingress envelope (6 required fields per ADR-0089); response carries Task Cursor (Rule R-F) on ACCEPTED RUN_CREATE |
-| `EngineRegistry` | `agent-runtime` (`...engine.runtime`) | Single authority for `resolve(envelope)` / `resolveByPayload(...)` (Rule R-M.a, formerly Rule 43); relocated from `service.runtime.engine` in rc14 per ADR-0090 |
-| `EngineEnvelope` | `agent-runtime` (`...engine.runtime`) | Request shape mirroring `engine-envelope.v1.yaml`; relocated from `service.runtime.engine` in rc14 per ADR-0090 |
-| `EngineMatchingException` | `agent-runtime` (`...engine.spi`) | Thrown by `EngineRegistry.resolve(...)` on engine-type mismatch (Rule R-M.b, formerly Rule 44) |
+| `EngineRegistry` | `agent-runtime` (`...runtime.engine.runtime`) | Single authority for `resolve(envelope)` / `resolveByPayload(...)` (Rule R-M.a, formerly Rule 43); relocated from `service.runtime.engine` in rc14 per ADR-0090 |
+| `EngineEnvelope` | `agent-runtime` (`...runtime.engine.runtime`) | Request shape mirroring `engine-envelope.v1.yaml`; relocated from `service.runtime.engine` in rc14 per ADR-0090 |
+| `EngineMatchingException` | `agent-runtime` (`...runtime.engine.spi`) | Thrown by `EngineRegistry.resolve(...)` on engine-type mismatch (Rule R-M.b, formerly Rule 44) |
 | `HookPoint` | `agent-middleware` (`...middleware.spi`) | 10-value enum (before/after LLM/tool/memory + before_suspension + before_resume + on_error + on_yield); mirrors `engine-hooks.v1.yaml` |
 | `HookContext` | `agent-middleware` (`...middleware.spi`) | Hook invocation carrier record |
 | `HookOutcome` | `agent-middleware` (`...middleware.spi`) | Sealed: continue \| short_circuit \| fail |

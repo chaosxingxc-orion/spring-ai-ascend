@@ -6,10 +6,10 @@
   orchestration/engine SPI moved to agent-bus (com.huawei.ascend.bus.spi.engine) per
   ADR-0158 (transport-agnostic EnginePort boundary); this module provides the
   InProcessEnginePort realization of that boundary. Code lives under:
-    - com.huawei.ascend.engine.spi.*                (ExecutorAdapter, GraphExecutor,
+    - com.huawei.ascend.runtime.engine.spi.*                (ExecutorAdapter, GraphExecutor,
                                                    AgentLoopExecutor, EngineHookSurface,
                                                    EngineMatchingException)
-    - com.huawei.ascend.engine.runtime.*            (EngineRegistry, EngineEnvelope,
+    - com.huawei.ascend.runtime.engine.runtime.*            (EngineRegistry, EngineEnvelope,
                                                    InProcessEnginePort — implementations)
   The neutral SPI consumed from agent-bus: com.huawei.ascend.bus.spi.engine.* (RunMode,
   RunContext, SuspendSignal, Checkpointer, Orchestrator, TraceContext, ExecutorDefinition,

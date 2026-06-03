@@ -15,7 +15,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  *
  * <p>Modules whose {@code deployment_plane} is {@code edge} (today:
  * agent-client) MUST NOT import any production class under
- * {@code com.huawei.ascend.service..}, {@code com.huawei.ascend.engine..}, or
+ * {@code com.huawei.ascend.service..}, {@code com.huawei.ascend.runtime.engine..}, or
  * {@code com.huawei.ascend.middleware..}. Cross-plane traffic flows
  * exclusively through {@link com.huawei.ascend.bus.spi.ingress.IngressGateway}
  * whose wire schema is {@code docs/contracts/ingress-envelope.v1.yaml}.
@@ -48,7 +48,7 @@ class EdgeToComputeDirectLinkArchTest {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.huawei.ascend.client..")
                 .should().dependOnClassesThat()
-                .resideInAPackage("com.huawei.ascend.engine..")
+                .resideInAPackage("com.huawei.ascend.runtime.engine..")
                 .because("Rule R-I sub-clause .b: edge plane has no business reaching into engine internals");
         rule.check(CLIENT_CLASSES);
     }

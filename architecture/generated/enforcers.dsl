@@ -210,7 +210,7 @@ enforcer_E69 = element "E69" "Enforcer" "every Flyway migration creating a table
     }
 }
 
-enforcer_E74 = element "E74" "Enforcer" "every concrete Orchestrator implementation in agent-service/src/main depends on com.huawei.ascend.engine.runtime.EngineRegistry -- dispatch authority is centralised; pattern-matching on ExecutorDef..." "SAA Enforcer" {
+enforcer_E74 = element "E74" "Enforcer" "every concrete Orchestrator implementation in agent-service/src/main depends on com.huawei.ascend.runtime.engine.runtime.EngineRegistry -- dispatch authority is centralised; pattern-matching on Exe..." "SAA Enforcer" {
     properties {
         "saa.id" "ENF-E74"
         "saa.kind" "archunit"
@@ -218,7 +218,7 @@ enforcer_E74 = element "E74" "Enforcer" "every concrete Orchestrator implementat
         "saa.view" "development"
         "saa.status" "shipped"
         "saa.owner" "architecture"
-        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/engine/runtime/EnginePayloadDispatchOnlyViaRegistryTest.java#every_orchestrator_implementation_depends_on_engine_registry"
+        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/runtime/engine/runtime/EnginePayloadDispatchOnlyViaRegistryTest.java#every_orchestrator_implementation_depends_on_engine_registry"
         "saa.enforcerId" "E74"
     }
 }
@@ -231,7 +231,7 @@ enforcer_E79 = element "E79" "Enforcer" "every concrete GraphExecutor / AgentLoo
         "saa.view" "development"
         "saa.status" "shipped"
         "saa.owner" "architecture"
-        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java#every_executor_adapter_exposes_hook_surface"
+        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/runtime/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java#every_executor_adapter_exposes_hook_surface"
         "saa.enforcerId" "E79"
     }
 }

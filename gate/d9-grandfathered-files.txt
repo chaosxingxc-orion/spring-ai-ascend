@@ -11,11 +11,11 @@ agent-bus/src/main/java/com/huawei/ascend/bus/spi/package-info.java
 agent-bus/src/main/java/com/huawei/ascend/bus/spi/s2c/package-info.java
 agent-client/src/main/java/com/huawei/ascend/client/package-info.java
 agent-client/src/main/java/com/huawei/ascend/client/spi/package-info.java
-agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/package-info.java
+agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/spi/package-info.java
 agent-service/src/main/java/com/huawei/ascend/service/runtime/memory/spi/GraphMemoryRepository.java
 agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi/ResilienceContract.java
 agent-service/src/main/java/com/huawei/ascend/service/runtime/resilience/spi/SuspendReason.java
-agent-service/src/test/java/com/huawei/ascend/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java
+agent-service/src/test/java/com/huawei/ascend/runtime/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java
 agent-service/src/test/java/com/huawei/ascend/service/platform/api/ApiCompatibilityTest.java
 agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/HttpEdgeMustNotImportMemorySpiTest.java
 agent-service/src/test/java/com/huawei/ascend/service/platform/architecture/McpReplaySurfaceArchTest.java

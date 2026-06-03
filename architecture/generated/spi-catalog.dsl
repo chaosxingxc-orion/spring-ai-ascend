@@ -104,40 +104,6 @@ genModule_agent_client -> spi_com_huawei_ascend_client_spi "module-metadata.yaml
         "saa.rel" "declares_spi"
     }
 }
-spi_com_huawei_ascend_engine_planner_spi = element "com.huawei.ascend.engine.planner.spi" "SPI Package" "SPI package mounted from module-metadata.yaml" "SAA SPI" {
-    properties {
-        "saa.id" "SPI-COM_HUAWEI_ASCEND_ENGINE_PLANNER_SPI"
-        "saa.kind" "spi_package"
-        "saa.level" "L1"
-        "saa.view" "development"
-        "saa.status" "shipped"
-        "saa.owner" "agent-runtime"
-        "saa.sourceFile" "agent-runtime/src/main/java/com/huawei/ascend/engine/planner/spi"
-    }
-}
-
-genModule_agent_runtime -> spi_com_huawei_ascend_engine_planner_spi "module-metadata.yaml#spi_packages" "SAA Relationship" {
-    properties {
-        "saa.rel" "declares_spi"
-    }
-}
-spi_com_huawei_ascend_engine_spi = element "com.huawei.ascend.engine.spi" "SPI Package" "SPI package mounted from module-metadata.yaml" "SAA SPI" {
-    properties {
-        "saa.id" "SPI-COM_HUAWEI_ASCEND_ENGINE_SPI"
-        "saa.kind" "spi_package"
-        "saa.level" "L1"
-        "saa.view" "development"
-        "saa.status" "shipped"
-        "saa.owner" "agent-runtime"
-        "saa.sourceFile" "agent-runtime/src/main/java/com/huawei/ascend/engine/spi"
-    }
-}
-
-genModule_agent_runtime -> spi_com_huawei_ascend_engine_spi "module-metadata.yaml#spi_packages" "SAA Relationship" {
-    properties {
-        "saa.rel" "declares_spi"
-    }
-}
 spi_com_huawei_ascend_evolve_online_spi = element "com.huawei.ascend.evolve.online.spi" "SPI Package" "SPI package mounted from module-metadata.yaml" "SAA SPI" {
     properties {
         "saa.id" "SPI-COM_HUAWEI_ASCEND_EVOLVE_ONLINE_SPI"
@@ -321,6 +287,40 @@ spi_com_huawei_ascend_middleware_vector_spi = element "com.huawei.ascend.middlew
 }
 
 genModule_agent_middleware -> spi_com_huawei_ascend_middleware_vector_spi "module-metadata.yaml#spi_packages" "SAA Relationship" {
+    properties {
+        "saa.rel" "declares_spi"
+    }
+}
+spi_com_huawei_ascend_runtime_engine_planner_spi = element "com.huawei.ascend.runtime.engine.planner.spi" "SPI Package" "SPI package mounted from module-metadata.yaml" "SAA SPI" {
+    properties {
+        "saa.id" "SPI-COM_HUAWEI_ASCEND_RUNTIME_ENGINE_PLANNER_SPI"
+        "saa.kind" "spi_package"
+        "saa.level" "L1"
+        "saa.view" "development"
+        "saa.status" "shipped"
+        "saa.owner" "agent-runtime"
+        "saa.sourceFile" "agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/planner/spi"
+    }
+}
+
+genModule_agent_runtime -> spi_com_huawei_ascend_runtime_engine_planner_spi "module-metadata.yaml#spi_packages" "SAA Relationship" {
+    properties {
+        "saa.rel" "declares_spi"
+    }
+}
+spi_com_huawei_ascend_runtime_engine_spi = element "com.huawei.ascend.runtime.engine.spi" "SPI Package" "SPI package mounted from module-metadata.yaml" "SAA SPI" {
+    properties {
+        "saa.id" "SPI-COM_HUAWEI_ASCEND_RUNTIME_ENGINE_SPI"
+        "saa.kind" "spi_package"
+        "saa.level" "L1"
+        "saa.view" "development"
+        "saa.status" "shipped"
+        "saa.owner" "agent-runtime"
+        "saa.sourceFile" "agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/spi"
+    }
+}
+
+genModule_agent_runtime -> spi_com_huawei_ascend_runtime_engine_spi "module-metadata.yaml#spi_packages" "SAA Relationship" {
     properties {
         "saa.rel" "declares_spi"
     }
