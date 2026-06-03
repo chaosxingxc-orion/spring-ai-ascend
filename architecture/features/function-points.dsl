@@ -220,7 +220,7 @@ fpEngineDispatch = element "Engine Dispatch" "FunctionPoint" "EngineRegistry.res
         "saa.level" "L1"
         "saa.view" "scenarios"
         "saa.status" "shipped"
-        "saa.owner" "agent-execution-engine"
+        "saa.owner" "agent-runtime"
         "saa.sourceAdr" "ADR-0140"
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
@@ -337,7 +337,7 @@ graphMemoryStarter -> fpGraphMemoryStore "auto-wires GraphMemoryRepository imple
 
     }
 }
-agentExecutionEngine -> fpEngineDispatch "implements EngineRegistry.resolve" "SAA Relationship" {
+agentRuntime -> fpEngineDispatch "implements EngineRegistry.resolve" "SAA Relationship" {
     properties {
 
         "saa.rel" "implements"

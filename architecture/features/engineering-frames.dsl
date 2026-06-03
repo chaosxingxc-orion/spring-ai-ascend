@@ -97,7 +97,7 @@ genModule_agent_bus -> efEnginePort "module contains engineering frame" "SAA Rel
     }
 }
 
-// EF-ORCHESTRATION-SPI re-homed from agent-execution-engine to agent-bus per ADR-0158
+// EF-ORCHESTRATION-SPI re-homed from agent-runtime to agent-bus per ADR-0158
 // (the neutral execution contract lives in bus.spi.engine, owned by no single engine).
 efOrchestrationSpi = element "Orchestration SPI Frame" "EngineeringFrame" "Neutral execution model — Orchestrator, ExecutionContext, RunContext, SuspendSignal, Checkpointer, ExecutorDefinition, RunMode (bus.spi.engine)" "SAA EngineeringFrame" {
     properties {
@@ -117,7 +117,7 @@ genModule_agent_bus -> efOrchestrationSpi "module contains engineering frame" "S
     }
 }
 
-// ---- agent-execution-engine (compute_control plane) ----
+// ---- agent-runtime (compute_control plane) ----
 
 efEngineRegistry = element "Engine Registry Frame" "EngineeringFrame" "Engine contract surface — EngineRegistry strict matching, EngineEnvelope, ExecutorAdapter lifecycle, EngineHookSurface" "SAA EngineeringFrame" {
     properties {
@@ -126,12 +126,12 @@ efEngineRegistry = element "Engine Registry Frame" "EngineeringFrame" "Engine co
         "saa.level" "L1"
         "saa.view" "logical"
         "saa.status" "shipped"
-        "saa.owner" "agent-execution-engine"
+        "saa.owner" "agent-runtime"
         "saa.sourceAdr" "ADR-0157"
         "saa.structuralAxis" "true"
     }
 }
-genModule_agent_execution_engine -> efEngineRegistry "module contains engineering frame" "SAA Relationship" {
+genModule_agent_runtime -> efEngineRegistry "module contains engineering frame" "SAA Relationship" {
     properties {
         "saa.rel" "contains"
     }

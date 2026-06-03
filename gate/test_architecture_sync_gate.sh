@@ -1846,7 +1846,7 @@ test_rule_106_c_module_topology_parity_neg() {
 test_rule_106_d_current_claim_grammar_pos() {
   _r106d_pos_root="$scratch/r106d_pos"; mkdir -p "$_r106d_pos_root"
   printf 'agent-runtime-core was dissolved per ADR-0088 (rc13, 2026-05-20) — formerly the kernel-shim module.\n' > "$_r106d_pos_root/ARCHITECTURE.md"
-  _hit=$(grep -nE '(agent-platform|agent-runtime-core|agent-runtime[^-])' "$_r106d_pos_root/ARCHITECTURE.md" | \
+  _hit=$(grep -nE '(agent-platform|agent-runtime-core)' "$_r106d_pos_root/ARCHITECTURE.md" | \
          grep -E '(now reads|lives in|^[^#]*\bdeclares\b|each of the [0-9]+ (reactor )?modules)' | \
          grep -vE '(formerly|historical|until dissolved|pre-rc13|pre-rc12|pre-Phase-C|narration|dissolved|relocated|was consolidated|was extracted|was dissolved)' || true)
   if [[ -z "$_hit" ]]; then
@@ -1859,7 +1859,7 @@ test_rule_106_d_current_claim_grammar_pos() {
 test_rule_106_d_current_claim_grammar_neg() {
   _r106d_neg_root="$scratch/r106d_neg"; mkdir -p "$_r106d_neg_root"
   printf 'agent-runtime-core declares its SPI packages for orchestration / runs / s2c (post-ADR-0079).\n' > "$_r106d_neg_root/ARCHITECTURE.md"
-  _hit=$(grep -nE '(agent-platform|agent-runtime-core|agent-runtime[^-])' "$_r106d_neg_root/ARCHITECTURE.md" | \
+  _hit=$(grep -nE '(agent-platform|agent-runtime-core)' "$_r106d_neg_root/ARCHITECTURE.md" | \
          grep -E '(now reads|lives in|^[^#]*\bdeclares\b|each of the [0-9]+ (reactor )?modules)' | \
          grep -vE '(formerly|historical|until dissolved|pre-rc13|pre-rc12|pre-Phase-C|narration|dissolved|relocated|was consolidated|was extracted|was dissolved)' || true)
   if [[ -n "$_hit" ]]; then

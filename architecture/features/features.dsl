@@ -237,11 +237,11 @@ featEngineDispatchAndHooks = element "Engine Dispatch and Hooks" "Feature" "Type
         "saa.aiBoundary.allowedStatusTransitions" "shipped->deprecated"
         "saa.aiBoundary.requiresHumanReviewAt" "deprecated|removed"
         "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
-        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/engine|agent-execution-engine/src/main/java"
+        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/engine|agent-runtime/src/main/java"
         "saa.goals" "Typed engine dispatch + hook-based middleware|Versioned contracts at the boundary"
         "saa.nonGoals" "Per-executor instanceof checks outside the registry"
         "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.engine.EngineRegistryIT|com.huawei.ascend.service.runtime.engine.HookDispatchTest"
-        "saa.verificationCommands" "./mvnw -pl agent-service -am verify|./mvnw -pl agent-execution-engine -am verify"
+        "saa.verificationCommands" "./mvnw -pl agent-service -am verify|./mvnw -pl agent-runtime -am verify"
     }
 }
 

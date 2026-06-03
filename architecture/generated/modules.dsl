@@ -44,20 +44,6 @@ genModule_agent_evolve = element "agent-evolve" "Module" "Evolution plane — Ja
     }
 }
 
-genModule_agent_execution_engine = element "agent-execution-engine" "Module" "Heterogeneous execution engine module + orchestration SPI host. Owns: ExecutorAdapter / GraphExecutor / AgentLoopExecutor / EngineHookSurface / EngineMatchingException (engine.spi — team-facing SPI..." "SAA Module" {
-    properties {
-        "saa.id" "GEN-MOD-AGENT_EXECUTION_ENGINE"
-        "saa.kind" "module_metadata"
-        "saa.level" "L1"
-        "saa.view" "development"
-        "saa.status" "shipped"
-        "saa.owner" "agent-execution-engine"
-        "saa.modulePath" "agent-execution-engine"
-        "saa.moduleKind" "domain"
-        "saa.deploymentPlane" "compute_control"
-    }
-}
-
 genModule_agent_middleware = element "agent-middleware" "Module" "Runtime-owned cross-cutting middleware SPI — HookPoint enum + RuntimeMiddleware listener + HookContext + HookOutcome + HookDispatcher (originally extracted from agent-runtime/orchestration/spi per ..." "SAA Module" {
     properties {
         "saa.id" "GEN-MOD-AGENT_MIDDLEWARE"
@@ -67,6 +53,20 @@ genModule_agent_middleware = element "agent-middleware" "Module" "Runtime-owned 
         "saa.status" "shipped"
         "saa.owner" "agent-middleware"
         "saa.modulePath" "agent-middleware"
+        "saa.moduleKind" "domain"
+        "saa.deploymentPlane" "compute_control"
+    }
+}
+
+genModule_agent_runtime = element "agent-runtime" "Module" "Heterogeneous execution engine module + orchestration SPI host. Owns: ExecutorAdapter / GraphExecutor / AgentLoopExecutor / EngineHookSurface / EngineMatchingException (engine.spi — team-facing SPI..." "SAA Module" {
+    properties {
+        "saa.id" "GEN-MOD-AGENT_RUNTIME"
+        "saa.kind" "module_metadata"
+        "saa.level" "L1"
+        "saa.view" "development"
+        "saa.status" "shipped"
+        "saa.owner" "agent-runtime"
+        "saa.modulePath" "agent-runtime"
         "saa.moduleKind" "domain"
         "saa.deploymentPlane" "compute_control"
     }
@@ -86,7 +86,7 @@ genModule_agent_service = element "agent-service" "Module" "Engine dispatch host
     }
 }
 
-genModule_spring_ai_ascend_dependencies = element "spring-ai-ascend-dependencies" "Module" "Bill of Materials — pins the post-rc13 reactor (agent-service, agent-execution-engine, agent-middleware, agent-bus, agent-client, agent-evolve), the graphmemory starter, and OSS transitive dependen..." "SAA Module" {
+genModule_spring_ai_ascend_dependencies = element "spring-ai-ascend-dependencies" "Module" "Bill of Materials — pins the post-rc13 reactor (agent-service, agent-runtime, agent-middleware, agent-bus, agent-client, agent-evolve), the graphmemory starter, and OSS transitive dependency versio..." "SAA Module" {
     properties {
         "saa.id" "GEN-MOD-SPRING_AI_ASCEND_DEPENDENCIES"
         "saa.kind" "module_metadata"
@@ -100,12 +100,12 @@ genModule_spring_ai_ascend_dependencies = element "spring-ai-ascend-dependencies
     }
 }
 
-genModule_agent_execution_engine -> genModule_agent_bus "module-metadata.yaml allowed dependency" "SAA Relationship" {
+genModule_agent_runtime -> genModule_agent_bus "module-metadata.yaml allowed dependency" "SAA Relationship" {
     properties {
         "saa.rel" "depends_on"
     }
 }
-genModule_agent_execution_engine -> genModule_agent_middleware "module-metadata.yaml allowed dependency" "SAA Relationship" {
+genModule_agent_runtime -> genModule_agent_middleware "module-metadata.yaml allowed dependency" "SAA Relationship" {
     properties {
         "saa.rel" "depends_on"
     }
@@ -115,12 +115,12 @@ genModule_agent_service -> genModule_agent_bus "module-metadata.yaml allowed dep
         "saa.rel" "depends_on"
     }
 }
-genModule_agent_service -> genModule_agent_execution_engine "module-metadata.yaml allowed dependency" "SAA Relationship" {
+genModule_agent_service -> genModule_agent_middleware "module-metadata.yaml allowed dependency" "SAA Relationship" {
     properties {
         "saa.rel" "depends_on"
     }
 }
-genModule_agent_service -> genModule_agent_middleware "module-metadata.yaml allowed dependency" "SAA Relationship" {
+genModule_agent_service -> genModule_agent_runtime "module-metadata.yaml allowed dependency" "SAA Relationship" {
     properties {
         "saa.rel" "depends_on"
     }

@@ -16,7 +16,7 @@ spi_packages:
 allowed_dependencies: []
 forbidden_dependencies:
   - agent-service           # post-Phase-C (consolidated from agent-platform per ADR-0078)
-  - agent-execution-engine  # compute_control plane
+  - agent-runtime  # compute_control plane
   - agent-middleware
   - agent-bus
   - agent-client

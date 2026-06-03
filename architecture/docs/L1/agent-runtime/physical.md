@@ -5,7 +5,7 @@ status: template
 authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 ---
 
-# `agent-execution-engine` — Physical View
+# `agent-runtime` — Physical View
 
 <!-- W2-stub: replace this body with module-specific physical-view content; the file SHAPE is fixed by Rule G-1.1.d. -->
 

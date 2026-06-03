@@ -152,7 +152,7 @@ returns:
 routing:
   caller_module: agent-service
   caller_component: orchestrator
-  callee_module: agent-execution-engine  # via StatelessEngine SPI in agent-service/engine/spi/
+  callee_module: agent-runtime  # via StatelessEngine SPI in agent-service/engine/spi/
   delivery_track: data
 
 # Authorization

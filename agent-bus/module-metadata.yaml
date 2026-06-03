@@ -15,11 +15,11 @@ spi_packages:
   - com.huawei.ascend.bus.spi.ingress    # IngressGateway + IngressEnvelope + IngressResponse per ADR-0089
   - com.huawei.ascend.bus.spi.s2c        # S2cCallbackTransport + S2cCallbackEnvelope + S2cCallbackResponse per ADR-0088 (relocated from agent-runtime-core); rc27: + ReflectionEnvelopeRouter per ADR-0102
   - com.huawei.ascend.bus.spi.federation # rc27 fix (rc22-3): FederationGateway per ADR-0101 Mode B Business-Centric deployment
-  - com.huawei.ascend.bus.spi.engine     # EnginePort + neutral execution model (ExecutorDefinition / RunContext / SuspendSignal / Checkpointer / Orchestrator / RunMode / TraceContext) relocated from agent-execution-engine per ADR-0158 (transport-agnostic engine boundary)
+  - com.huawei.ascend.bus.spi.engine     # EnginePort + neutral execution model (ExecutorDefinition / RunContext / SuspendSignal / Checkpointer / Orchestrator / RunMode / TraceContext) relocated from agent-runtime per ADR-0158 (transport-agnostic engine boundary)
 allowed_dependencies: []
 forbidden_dependencies:
   - agent-service           # bus is upstream of compute_control plane
-  - agent-execution-engine
+  - agent-runtime
   - agent-middleware
   - agent-client
   - agent-evolve

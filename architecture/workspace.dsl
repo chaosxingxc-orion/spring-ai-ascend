@@ -73,14 +73,14 @@ workspace "Spring AI Ascend" "Architecture authority workspace (W8 — Structuri
                 }
             }
 
-            agentExecutionEngine = container "agent-execution-engine" "Engine adapter + orchestration SPIs (EngineRegistry, EngineEnvelope)" "Java 21 / Maven" "SAA Module" {
+            agentRuntime = container "agent-runtime" "Engine adapter + orchestration SPIs (EngineRegistry, EngineEnvelope)" "Java 21 / Maven" "SAA Module" {
                 properties {
-                    "saa.id" "MOD-AGENT-EXECUTION-ENGINE"
+                    "saa.id" "MOD-AGENT-RUNTIME"
                     "saa.kind" "module"
                     "saa.level" "L1"
                     "saa.view" "development"
                     "saa.status" "shipped"
-                    "saa.owner" "agent-execution-engine"
+                    "saa.owner" "agent-runtime"
                 }
             }
 

@@ -14,7 +14,7 @@ status: design_only
 runtime_enforced: false
 authority: ADR-0032
 promotion_trigger: "First production Planner implementation (W4 planner)"
-home_module: agent-execution-engine
+home_module: agent-runtime
 home_package: com.huawei.ascend.engine.planner.spi
 
 plan:

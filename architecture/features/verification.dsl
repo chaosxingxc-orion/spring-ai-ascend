@@ -78,7 +78,7 @@ testEngineRegistryTest = element "EngineRegistryTest" "UnitTest" "EngineRegistry
         "saa.level" "L1"
         "saa.view" "scenarios"
         "saa.status" "shipped"
-        "saa.owner" "agent-execution-engine"
+        "saa.owner" "agent-runtime"
         "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/engine/runtime/EngineRegistryResolveTest.java"
     }
 }

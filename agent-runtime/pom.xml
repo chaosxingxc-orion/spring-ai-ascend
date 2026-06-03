@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  agent-execution-engine — heterogeneous engine surface + InProcessEnginePort realization (per ADR-0072 + ADR-0158).
+  agent-runtime — heterogeneous engine surface + InProcessEnginePort realization (per ADR-0072 + ADR-0158).
 
   Status: Engine adapter SPI + EngineRegistry + EngineEnvelope live here. The neutral
   orchestration/engine SPI moved to agent-bus (com.huawei.ascend.bus.spi.engine) per
@@ -31,8 +31,8 @@
     <version>0.1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>agent-execution-engine</artifactId>
-  <name>agent-execution-engine</name>
+  <artifactId>agent-runtime</artifactId>
+  <name>agent-runtime</name>
   <description>Heterogeneous execution engine surface — EngineRegistry / EngineEnvelope / ExecutorAdapter / ExecutorDefinition + Graph/AgentLoop adapters (ADR-0072).</description>
 
   <dependencies>

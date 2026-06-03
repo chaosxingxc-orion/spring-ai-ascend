@@ -1,9 +1,9 @@
-# DFX (Design-for-X) declaration for the agent-execution-engine module.
+# DFX (Design-for-X) declaration for the agent-runtime module.
 #
 # Required by CLAUDE.md Rule 32 — every module declared `kind: domain` MUST
 # publish a DFX yaml covering all five dimensions.
 
-module: agent-execution-engine
+module: agent-runtime
 kind: domain
 version: 1
 generated_at: 2026-05-18
@@ -13,7 +13,7 @@ spi_packages:
   - com.huawei.ascend.engine.planner.spi          # rc43: Planner SPI per ADR-0126 (engine-side plan generator; Plan DAG feeds plan-projection.v1.yaml scheduler INPUT)
 
 releasability:
-  artifact_coords: "io.github.springai-ascend:agent-execution-engine"
+  artifact_coords: "io.github.springai-ascend:agent-runtime"
   semver_policy: "0.x — engine SPI contract-frozen at L1 under .spi.*; envelope schema versioned via docs/contracts/engine-envelope.v1.yaml"
   deprecation_window: "two minor versions on SPI; one on non-SPI"
   packaging: "library jar consumed by agent-service (post-Phase-C consolidation of pre-Phase-C agent-runtime + agent-platform per ADR-0078)"

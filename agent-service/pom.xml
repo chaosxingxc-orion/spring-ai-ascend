@@ -24,10 +24,10 @@
   <description>Combined HTTP edge + cognitive runtime kernel. Sub-package layering: service.platform owns HTTP/JWT/idempotency/tenant; service.runtime owns orchestration SPI + Run lifecycle + reference executors.</description>
 
   <dependencies>
-    <!-- Sibling module: agent-execution-engine (EngineRegistry + ExecutorAdapter SPI + orchestration SPI per ADR-0072 + ADR-0088). -->
+    <!-- Sibling module: agent-runtime (EngineRegistry + ExecutorAdapter SPI + orchestration SPI per ADR-0072 + ADR-0088). -->
     <dependency>
       <groupId>com.huawei.ascend</groupId>
-      <artifactId>agent-execution-engine</artifactId>
+      <artifactId>agent-runtime</artifactId>
     </dependency>
     <!-- Sibling module: agent-bus (S2cCallbackTransport SPI + IngressGateway SPI per ADR-0088 + ADR-0089). -->
     <dependency>

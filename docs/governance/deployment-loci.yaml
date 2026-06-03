@@ -27,7 +27,7 @@ loci:
       centralized control and lightweight clients.
     components_on_platform:
       - agent-service
-      - agent-execution-engine
+      - agent-runtime
       - agent-bus
       - agent-middleware
       - agent-evolve
@@ -41,7 +41,7 @@ loci:
     status: design_only
     description: |
       Federated deployment. agent-client + agent-service +
-      agent-execution-engine deploy on the business department's
+      agent-runtime deploy on the business department's
       servers or client devices. agent-bus + agent-middleware remain
       on the platform. Local direct-connect C/S interaction bypasses
       network for zero-latency execution loops. The platform agent-bus
@@ -53,7 +53,7 @@ loci:
     components_on_business:
       - agent-client
       - agent-service
-      - agent-execution-engine
+      - agent-runtime
     components_either:
       - agent-evolve  # platform-resident in 2×2 matrix Mode B / Online; PII-filtered data flow from business → platform
     matches_principle: P-A

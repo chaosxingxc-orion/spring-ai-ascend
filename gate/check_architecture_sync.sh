@@ -236,12 +236,14 @@ if [[ $_r7_fail -eq 0 ]]; then pass_rule "shipped_impl_paths_exist"; fi
 #   com.huawei.ascend.service.runtime.* MUST NOT depend on com.huawei.ascend.service.platform.*
 # enforced at source level by ArchUnit RuntimeMustNotDependOnPlatformTest (E2).
 # At the pom level, this rule asserts agent-service does not regress by adding
-# a dependency on a deleted artifact (agent-platform, agent-runtime).
+# a dependency on the deleted artifact agent-platform. (agent-runtime was a
+# deleted name pre-ADR-0159; ADR-0159 RESURRECTS it as the renamed engine/runtime
+# module that agent-service legitimately depends on, so it left this dead list.)
 # Enforcer row: docs/governance/enforcers.yaml#E1
 # ---------------------------------------------------------------------------
 _r10_fail=0
 if [[ -f 'agent-service/pom.xml' ]]; then
-  for _r10_dead in 'agent-platform' 'agent-runtime'; do
+  for _r10_dead in 'agent-platform'; do   # agent-runtime resurrected as the renamed engine/runtime module per ADR-0159; agent-service legitimately depends on it
     if grep -q "<artifactId>${_r10_dead}</artifactId>" 'agent-service/pom.xml' 2>/dev/null; then
       fail_rule "module_dep_direction" "agent-service/pom.xml declares dependency on ${_r10_dead}. Per ADR-0078 this artifact was deleted in Phase C consolidation."
       _r10_fail=1
@@ -1641,7 +1643,7 @@ done <<< "$_r106_prose_hits"
 # patterns they prevent (so they legitimately quote old prose).
 # rc15 widening (per ADR-0091): noun-phrase additions (`shared kernel in`,
 # `extracted to`, `is deployed`) close the rc14 M-β gap.
-_r106_grammar_hits=$(grep -rnE '(agent-platform|agent-runtime-core|agent-runtime[^-])' \
+_r106_grammar_hits=$(grep -rnE '(agent-platform|agent-runtime-core)' \
                      --include='*.md' --include='*.yaml' \
                      docs/governance/architecture-status.yaml ARCHITECTURE.md architecture/docs/L1/agent-*.md architecture/docs/L1/agent-service/ARCHITECTURE.md docs/contracts/contract-catalog.md docs/contracts/s2c-callback.v1.yaml 2>/dev/null \
                      | grep -v 'docs/archive/' | grep -v 'docs/logs/' \

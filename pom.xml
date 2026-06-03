@@ -36,7 +36,7 @@
     <module>agent-client</module>
     <module>agent-bus</module>
     <module>agent-middleware</module>
-    <module>agent-execution-engine</module>
+    <module>agent-runtime</module>
     <module>agent-evolve</module>
     <module>agent-service</module>
   </modules>
@@ -275,7 +275,7 @@
       </dependency>
       <dependency>
         <groupId>com.huawei.ascend</groupId>
-        <artifactId>agent-execution-engine</artifactId>
+        <artifactId>agent-runtime</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

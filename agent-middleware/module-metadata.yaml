@@ -7,7 +7,7 @@ module: agent-middleware
 kind: domain             # platform | domain | starter | bom | sample
 version: 0.0.1-SNAPSHOT
 semver_compatibility: experimental
-description: "Runtime-owned cross-cutting middleware SPI — HookPoint enum + RuntimeMiddleware listener + HookContext + HookOutcome + HookDispatcher (originally extracted from agent-runtime/orchestration/spi per T2.B1). rc43+: also hosts the cross-cutting middleware-tier SPI surface per ADR-0120 — ModelGateway, Skill (unified Tool), Memory, Vector, Retriever, Embedding — the intermediary primitives between engine and external systems. The first-class Agent entity (HTTP-edge customer registration surface) lives in agent-service; the Planner SPI (engine-side plan generator) lives in agent-execution-engine. Reference adapters (SpringAi*) live in agent-service per Wave C1."
+description: "Runtime-owned cross-cutting middleware SPI — HookPoint enum + RuntimeMiddleware listener + HookContext + HookOutcome + HookDispatcher (originally extracted from agent-runtime/orchestration/spi per T2.B1). rc43+: also hosts the cross-cutting middleware-tier SPI surface per ADR-0120 — ModelGateway, Skill (unified Tool), Memory, Vector, Retriever, Embedding — the intermediary primitives between engine and external systems. The first-class Agent entity (HTTP-edge customer registration surface) lives in agent-service; the Planner SPI (engine-side plan generator) lives in agent-runtime. Reference adapters (SpringAi*) live in agent-service per Wave C1."
 architecture_doc: architecture/docs/L1/agent-middleware/README.md
 dfx_doc: docs/dfx/agent-middleware.yaml
 spi_packages:
@@ -21,11 +21,11 @@ spi_packages:
   - com.huawei.ascend.middleware.prompt.spi       # rc51 — PromptTemplate SPI per ADR-0131
   - com.huawei.ascend.middleware.advisor.spi      # rc52 — ChatAdvisor / AdvisorChain + StreamingChatAdvisor / StreamingAdvisorChain per ADR-0132
   # Agent SPI lives in agent-service (HTTP-edge customer entity).
-  # Planner SPI lives in agent-execution-engine (engine-side plan generator).
+  # Planner SPI lives in agent-runtime (engine-side plan generator).
 allowed_dependencies: []  # SPI-pure: java.* only, per Rule R-D sub-clause .d
 forbidden_dependencies:
   - agent-service            # post-Phase-C (consolidated from agent-platform per ADR-0078); middleware is upstream of service
-  - agent-execution-engine   # engine references middleware (HookPoint), not the other way
+  - agent-runtime   # engine references middleware (HookPoint), not the other way
   - agent-bus
   - agent-client
   - agent-evolve

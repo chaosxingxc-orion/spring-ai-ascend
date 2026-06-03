@@ -59,4 +59,4 @@ boundary_statement: >
   EnginePort carries NO tenant/session semantics (those stay Service-owned); the engine
   receives only opaque correlation (runId / traceId / spanId) + checkpointer + the suspend
   capability. This keeps the contract neutral across transports and across heterogeneous
-  engines, and is why agent-execution-engine never depends on agent-service.
+  engines, and is why agent-runtime never depends on agent-service.
