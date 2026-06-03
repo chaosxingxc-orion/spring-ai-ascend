@@ -2,7 +2,7 @@
  * Planner SPI — tenant-scoped boundary for goal → plan generation.
  *
  * <p>Authority: ADR-0126 (extends ADR-0032). Lives in
- * {@code agent-execution-engine} because the planner produces
+ * {@code agent-runtime} because the planner produces
  * {@link Plan} DAGs that the engine consumes — Planner output is
  * directly executable by the engine's registry pattern, distinct
  * from the cross-cutting model/skill/memory primitives that live

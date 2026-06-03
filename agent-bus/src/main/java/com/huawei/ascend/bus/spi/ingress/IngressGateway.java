@@ -10,7 +10,7 @@ package com.huawei.ascend.bus.spi.ingress;
  * <p>Topology invariant — modules whose {@code deployment_plane} is
  * {@code edge} (today: {@code agent-client}) MUST NOT directly import
  * production classes from {@code compute_control}-plane modules
- * ({@code agent-service}, {@code agent-execution-engine},
+ * ({@code agent-service}, {@code agent-runtime},
  * {@code agent-middleware}) and MUST NOT invoke {@code compute_control}
  * HTTP routes directly. Every C2S call flows through this SPI; the bus
  * forwards onto the {@code data} channel of {@code bus-channels.yaml}

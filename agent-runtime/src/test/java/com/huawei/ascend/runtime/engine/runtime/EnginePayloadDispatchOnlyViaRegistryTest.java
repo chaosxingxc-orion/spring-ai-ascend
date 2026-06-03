@@ -26,7 +26,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
  *
  * <p>Authority: ADR-0072; CLAUDE.md Rule R-M.a. agent-service no longer hosts
  * concrete Orchestrator implementations (orchestration ships in
- * agent-execution-engine); the rule remains as a structural guard that fails if
+ * agent-runtime); the rule remains as a structural guard that fails if
  * an Orchestrator impl is ever reintroduced here without depending on the
  * registry, so it allows an empty match set.
  */

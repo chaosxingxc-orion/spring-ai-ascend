@@ -1,5 +1,5 @@
 /**
- * agent-execution-engine — heterogeneous engine contract surface (root).
+ * agent-runtime engine — heterogeneous engine contract surface (root).
  *
  * <p>Placeholder root package. Concrete types land via T2.B2 extraction:
  * <ul>

@@ -1,6 +1,6 @@
 /**
  * Engine runtime package — implementation home for the engine contract surface
- * (registry + envelope) owned by the {@code agent-execution-engine} module.
+ * (registry + envelope) owned by the {@code agent-runtime} module.
  *
  * <p>This is the semantic home for {@link com.huawei.ascend.runtime.engine.runtime.EngineRegistry}
  * (single dispatch authority per Rule R-M sub-clause .a) and

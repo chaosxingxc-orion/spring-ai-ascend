@@ -6,7 +6,7 @@
  * model (ExecutorDefinition, RunContext, SuspendSignal, Checkpointer,
  * Orchestrator, RunMode, TraceContext) was relocated here from
  * {@code com.huawei.ascend.engine.orchestration.spi} so the contract is owned
- * by no single engine and survives extraction of agent-execution-engine into
+ * by no single engine and survives extraction of agent-runtime into
  * its own repository.
  *
  * <p>The transport-agnostic boundary additionally comprises the neutral,
@@ -29,7 +29,7 @@
  * ingress ({@code bus.spi.ingress}), S2C callback ({@code bus.spi.s2c}), A2A
  * federation ({@code bus.spi.federation}), and the engine boundary
  * ({@code bus.spi.engine}). agent-service drives engines through this contract;
- * agent-execution-engine implements it. Neither module depends on the other.
+ * agent-runtime implements it. Neither module depends on the other.
  *
  * <p>SPI-pure per Rule R-D sub-clause .d: imports restricted to {@code java.*}
  * + same-spi-package siblings.

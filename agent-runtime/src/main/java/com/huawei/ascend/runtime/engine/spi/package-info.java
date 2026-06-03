@@ -1,5 +1,5 @@
 /**
- * agent-execution-engine SPI — engine-adapter surface for heterogeneous
+ * agent-runtime engine SPI — engine-adapter surface for heterogeneous
  * execution. Holds {@link com.huawei.ascend.runtime.engine.spi.ExecutorAdapter}
  * + its two reference sub-interfaces
  * ({@link com.huawei.ascend.runtime.engine.spi.GraphExecutor},
