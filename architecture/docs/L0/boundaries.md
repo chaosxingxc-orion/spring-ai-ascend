@@ -34,8 +34,8 @@ runtime architecture.
 
 | Module / Artifact | Classification | L0 Boundary Treatment |
 |---|---|---|
-| `agent-service` | Core runtime architecture module | Primary service runtime boundary and state owner. |
-| `agent-runtime` | Core runtime architecture module | Engine adapter and execution/orchestration realization boundary as assigned by accepted ADRs. |
+| `agent-service` | Serviceization façade skeleton | Enterprise serviceization edge that drives `agent-runtime`-hosted Agent instances; registration/discovery deferred (ADR-0159). |
+| `agent-runtime` | Core runtime architecture module | Run-owning runtime kernel — engine, dispatch, access (A2A), session, task-control, queue, and the bootable runtime (ADR-0159). |
 | `agent-middleware` | Core runtime architecture module | Model, skill, memory, retrieval, prompt, advisor, runtime middleware, hook, and governance SPI boundary. |
 | `agent-bus` | Core runtime architecture module | Bus/state hub plane, ingress, S2C, neutral engine port, A2A/federation, and three-track channel boundary. |
 | `agent-client` | Runtime component boundary | SDK, edge access, local capability endpoint, cursor/callback/SSE consumption. |
@@ -173,10 +173,10 @@ Any new writer or second lifecycle owner is an L0 architecture change.
 
 | State | Current / Proposed Owner | Allowed Writers | Forbidden Writers | Status |
 |---|---|---|---|---|
-| Run execution state | `agent-service` runtime Run owner in current canonical material | Sanctioned service/runtime repository path | Gateway, bus, middleware, client, provider adapters | accepted_current |
-| Task execution state | `agent-service` TaskStateStore in draft delivery material | `agent-service` controlled lifecycle entry | Gateway, bus, engine adapter direct writes, middleware, client | pending_decision |
-| Client invocation reference | `agent-client` local handle plus `agent-service` query/reference surface | `agent-service` creates authoritative mapping; client stores local reference | Any writer treating it as independent server lifecycle state | candidate_promote |
-| Session state | `agent-service` session/context shell | Session owner and approved context projection paths | Memory owner, tool gateway, business agent direct platform mutation | candidate_promote |
+| Run execution state | `agent-runtime` run-owning runtime (Run kernel is a design target) | Sanctioned `agent-runtime` repository path | Gateway, bus, middleware, client, provider adapters | accepted_current |
+| Task execution state | `agent-runtime` task-control in draft delivery material | `agent-runtime` controlled lifecycle entry | Gateway, bus, engine adapter direct writes, middleware, client | pending_decision |
+| Client invocation reference | `agent-client` local handle plus `agent-runtime` query/reference surface | `agent-runtime` creates authoritative mapping; client stores local reference | Any writer treating it as independent server lifecycle state | candidate_promote |
+| Session state | `agent-runtime` session/context shell | Session owner and approved context projection paths | Memory owner, tool gateway, business agent direct platform mutation | candidate_promote |
 | Memory / knowledge state | `agent-middleware` memory SPI and external memory provider boundary | Memory store writer or configured adapter | Runtime lifecycle state owner; hidden engine context builder | accepted_direction |
 | Workflow checkpoint | Checkpointer SPI implementation under runtime governance | Orchestrator/checkpointer sanctioned path | Gateway, tool gateway, client | accepted_direction |
 | Context package | Context capability across service and middleware | Context projector / retrieval / memory pipeline | Gateway, lifecycle state store | candidate_promote |

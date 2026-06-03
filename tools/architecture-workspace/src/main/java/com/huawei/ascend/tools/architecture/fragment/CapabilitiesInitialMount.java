@@ -174,7 +174,7 @@ public final class CapabilitiesInitialMount {
             if (s.contains("agent-service/")) return "agent-service";
             if (s.contains("agent-bus/")) return "agent-bus";
             if (s.contains("agent-client/")) return "agent-client";
-            if (s.contains("agent-execution-engine/")) return "agent-execution-engine";
+            if (s.contains("agent-runtime/")) return "agent-runtime";
             if (s.contains("agent-middleware/")) return "agent-middleware";
             if (s.contains("agent-evolve/")) return "agent-evolve";
             if (s.contains("spring-ai-ascend-graphmemory-starter/")) return "spring-ai-ascend-graphmemory-starter";
@@ -183,7 +183,7 @@ public final class CapabilitiesInitialMount {
         if (capKey.contains("agent_service") || capKey.contains("runtime")) return "agent-service";
         if (capKey.contains("agent_bus") || capKey.contains("bus") || capKey.contains("ingress") || capKey.contains("s2c")) return "agent-bus";
         if (capKey.contains("agent_client") || capKey.contains("client")) return "agent-client";
-        if (capKey.contains("execution_engine") || capKey.contains("engine")) return "agent-execution-engine";
+        if (capKey.contains("execution_engine") || capKey.contains("engine")) return "agent-runtime";
         if (capKey.contains("middleware") || capKey.contains("hook")) return "agent-middleware";
         if (capKey.contains("evolve") || capKey.contains("evolution")) return "agent-evolve";
         if (capKey.contains("graphmemory") || capKey.contains("memory")) return "spring-ai-ascend-graphmemory-starter";

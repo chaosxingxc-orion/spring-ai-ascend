@@ -1214,33 +1214,36 @@ if [[ $_r58_fail -eq 0 ]]; then pass_rule "s2c_callback_yaml_present_and_wellfor
 
 # ---------------------------------------------------------------------------
 # Rule 11 — contract_spine_tenant_id_required (enforcer E105)
-# Every persistent record under
-#   agent-runtime/src/main/java/com/huawei/ascend/runtime/runs/Run.java
-# OR
-#   agent-runtime/src/main/java/com/huawei/ascend/runtime/idempotency/IdempotencyRecord.java
-# MUST declare a String tenantId component. Scope path relocated from
-# agent-runtime-core to agent-service per ADR-0088 (rc13 dissolution).
+# Every persistent record in a runs/ or idempotency/ package under agent-runtime
+# (the Run lifecycle kernel) MUST declare a String tenantId component (Rule R-C.c).
+# The kernel is a design target per ADR-0159 (run-owning runtime); the scope is
+# DISCOVERED (find runs/ + idempotency/ packages under agent-runtime) rather than
+# hardcoded to a single path, so the check follows the entities wherever they land.
+# When no such package exists yet (design phase) the rule emits a VISIBLE advisory
+# instead of passing silently (non-vacuity principle) and does not fail the gate.
 # Process-internal opt-out via "// scope: process-internal" same-line comment.
 # ---------------------------------------------------------------------------
 _r11_fail=0
-_r11_roots=(
-  'agent-runtime/src/main/java/com/huawei/ascend/runtime/runs'
-  'agent-runtime/src/main/java/com/huawei/ascend/runtime/idempotency'
-)
-for _r11_root in "${_r11_roots[@]}"; do
-  [[ -d "$_r11_root" ]] || continue
-  _r11_hits="$(grep -rEln 'public[[:space:]]+record[[:space:]]' "$_r11_root" 2>/dev/null || true)"
-  while IFS= read -r _r11_f; do
-    [[ -z "$_r11_f" ]] && continue
-    if grep -qE 'scope:[[:space:]]*process-internal' "$_r11_f" 2>/dev/null; then
-      continue
-    fi
-    if ! grep -qE 'String[[:space:]]+tenantId' "$_r11_f" 2>/dev/null; then
-      fail_rule "contract_spine_tenant_id_required" "$_r11_f declares a record without a String tenantId component (Rule R-C.c / E105)"
-      _r11_fail=1
-    fi
-  done <<< "$_r11_hits"
-done
+_r11_module="agent-runtime/src/main/java"
+_r11_roots="$(find "$_r11_module" -type d \( -name runs -o -name idempotency \) 2>/dev/null || true)"
+if [[ -z "$_r11_roots" ]]; then
+  echo "ADVISORY: contract_spine_tenant_id_required -- no runs/ or idempotency/ persistence package under $_r11_module; the Run lifecycle kernel is a design target (ADR-0159), tenant-id spine check deferred until it materializes"
+else
+  while IFS= read -r _r11_root; do
+    [[ -z "$_r11_root" ]] && continue
+    _r11_hits="$(grep -rEln 'public[[:space:]]+record[[:space:]]' "$_r11_root" 2>/dev/null || true)"
+    while IFS= read -r _r11_f; do
+      [[ -z "$_r11_f" ]] && continue
+      if grep -qE 'scope:[[:space:]]*process-internal' "$_r11_f" 2>/dev/null; then
+        continue
+      fi
+      if ! grep -qE 'String[[:space:]]+tenantId' "$_r11_f" 2>/dev/null; then
+        fail_rule "contract_spine_tenant_id_required" "$_r11_f declares a record without a String tenantId component (Rule R-C.c / E105)"
+        _r11_fail=1
+      fi
+    done <<< "$_r11_hits"
+  done <<< "$_r11_roots"
+fi
 if [[ $_r11_fail -eq 0 ]]; then pass_rule "contract_spine_tenant_id_required"; fi
 
 # ===========================================================================

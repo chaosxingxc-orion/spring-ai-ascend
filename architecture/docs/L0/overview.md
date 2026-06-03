@@ -68,7 +68,7 @@ The platform has to solve several long-lived architecture problems:
 | Suspend instead of hold | Long waits are expressed as cursor, suspend, resume, or handoff, not retained physical resources. |
 | Runtime-owned governance | Model, skill, memory, planner, callback, and policy behavior enters through runtime hooks, middleware, capacity, and audit surfaces. |
 | Explicit capability placement | Each tool, context, memory, retriever, approval UI, and A2A action declares where it executes and which data boundary it crosses. |
-| Boundary-mediated A2A | Same-service multi-agent collaboration is closed by `agent-service`; cross-boundary A2A control flows through `agent-bus`. |
+| Boundary-mediated A2A | Same-service multi-agent collaboration is closed by `agent-runtime` (access / A2A); cross-boundary A2A control flows through `agent-bus`. |
 | Control/data/stream separation | Gateway, service SSE, bus control, and object-reference data paths are separate mechanisms. |
 | Harness-first development | Core scenarios and invariants should produce mocks, stubs, assertions, and tests before runtime binding is called complete. |
 
@@ -78,9 +78,9 @@ The platform has to solve several long-lived architecture problems:
 External Client
   -> agent-client or external HTTP caller
   -> Gateway capability
-  -> agent-service.platform
-  -> agent-service runtime state owner and reference adapters
-  -> agent-runtime and/or neutral engine port
+  -> agent-runtime access layer (A2A ingress)
+  -> agent-runtime run-owning runtime: Run / session / task-control kernel + reference adapters
+  -> agent-runtime engine and/or neutral engine port
   -> agent-middleware for model, skill, memory, retrieval, prompt, and hook surfaces
   -> agent-bus for ingress, S2C, cross-boundary A2A, federation, control, and rhythm
   -> observability, audit, cost attribution, and verification evidence
@@ -110,8 +110,8 @@ The detailed policy is in `boundaries.md`.
 
 | Runtime Boundary | Summary |
 |---|---|
-| `agent-service` | HTTP ingress, tenant/auth/idempotency/trace entry, runtime state owner, service-side adapters, SSE, and runtime query surfaces. |
-| `agent-runtime` | Engine adapter, engine registry/envelope, execution SPI realization, planner and orchestration behavior as assigned by accepted ADRs. |
+| `agent-service` | Enterprise serviceization façade skeleton: registration/discovery of `agent-runtime`-hosted Agent instances (deferred, ADR-0159). Former HTTP ingress / runtime state ownership / query surfaces relocated to `agent-runtime`. |
+| `agent-runtime` | Run-owning runtime kernel: engine adapter + registry/envelope, dispatch, access (A2A ingress), session, task-control, internal queue, Run lifecycle state, planner/orchestration realization, and the bootable runtime (ADR-0159). |
 | `agent-middleware` | Runtime middleware, hooks, model/skill/memory/vector/retriever/prompt/advisor SPI and governance surfaces. |
 | `agent-bus` | Bus and state hub plane: ingress, S2C, neutral engine port per ADR-0158, cross-boundary A2A, federation, three-track channels. |
 | `agent-client` | SDK, edge access, local capability endpoint, cursor/callback/SSE consumption. |

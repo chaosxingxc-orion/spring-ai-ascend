@@ -24,13 +24,13 @@ the current L0 reading and flags pending vocabulary decisions.
 |---|---|---|---|---|
 | Architecture fact system | L0/L1/L2 + 4+1 architecture truth used to guide and constrain architecture. | `architecture/` | Version scope backlog | accepted |
 | Version scope system | Requirements, scenarios, feature use cases, function points, delivery slices, and acceptance scope for a release. | To be defined | Architecture authority | pending_location |
-| Run | Current canonical/shipped runtime execution aggregate in existing L0 and code vocabulary, including `Run`, `RunStatus`, `RunRepository`, `RunContext`, and run tree terms. | `agent-service` current authority | Task, Session, business order | accepted_current |
-| Task | Draft proposed server-side canonical execution/control state in delivery material. It may become the preferred name for what current authority often calls Run. | `agent-service` candidate | Session, Memory, client invocation | pending_decision |
-| Client invocation | Client-side call reference or SDK invocation handle that may map to a server-side Run/Task. | `agent-client` + `agent-service` query surface | Independent server lifecycle state | candidate_promote |
-| Session | Context state for conversation, variables, and context projection continuity. | `agent-service` session boundary | Run/Task lifecycle, Memory | accepted_direction |
+| Run | Current canonical/shipped runtime execution aggregate in existing L0 and code vocabulary, including `Run`, `RunStatus`, `RunRepository`, `RunContext`, and run tree terms. | `agent-runtime` current authority | Task, Session, business order | accepted_current |
+| Task | Draft proposed server-side canonical execution/control state in delivery material. It may become the preferred name for what current authority often calls Run. | `agent-runtime` candidate | Session, Memory, client invocation | pending_decision |
+| Client invocation | Client-side call reference or SDK invocation handle that may map to a server-side Run/Task. | `agent-client` + `agent-runtime` query surface | Independent server lifecycle state | candidate_promote |
+| Session | Context state for conversation, variables, and context projection continuity. | `agent-runtime` session boundary | Run/Task lifecycle, Memory | accepted_direction |
 | Memory | Knowledge or experience state exposed through memory SPI or external memory adapters. | `agent-middleware` and configured memory providers | Session temporary context | accepted_direction |
 | Checkpoint | Resume/recovery payload saved before suspend or long-horizon interruption. | Checkpointer SPI / runtime owner | Business state snapshot | accepted_direction |
-| Agent | Registered entity binding model, skills, memory, planner, prompt, and advisors for execution. | `agent-service` agent SPI | Orchestrator | accepted_direction |
+| Agent | Registered entity binding model, skills, memory, planner, prompt, and advisors for execution. | `agent-runtime` agent SPI | Orchestrator | accepted_direction |
 | Orchestrator | Runtime component that dispatches work, handles suspend/resume, and emits execution/state intent. | Engine/service/bus boundary per accepted ADRs | Lifecycle state owner | accepted_direction |
 | EnginePort | Neutral engine boundary assigned to `agent-bus` by ADR-0158. | `agent-bus` | Engine adapter implementation | accepted_current |
 | Engine adapter | Concrete execution adapter and registry/envelope behavior. | `agent-runtime` | Neutral bus-owned EnginePort | accepted_current |
@@ -47,13 +47,13 @@ the current L0 reading and flags pending vocabulary decisions.
 | S2C callback | Server-to-client callback or handoff for local capability, approval, or external input. | `agent-bus` S2C + `agent-client` endpoint | A2A federation | accepted_direction |
 | A2A control command | Agent-to-Agent control instruction for child work, federation, completion, failure, timeout, or join. | `agent-bus` for cross-boundary control; `agent-service` for same-service relationship | Large data payload or token stream | accepted_direction |
 | Federation | Cross-service, cross-department, or cross-deployment A2A collaboration. | `agent-bus` + `agent-service` relationship owner | Same-service child work | accepted_direction |
-| Task/Run tree | Parent-child execution relationship used to trace delegation, join, failure, and cost attribution. | `agent-service` + observability | Single trace span | pending_vocabulary |
+| Task/Run tree | Parent-child execution relationship used to trace delegation, join, failure, and cost attribution. | `agent-runtime` + observability | Single trace span | pending_vocabulary |
 | Data reference path | Large or sensitive payload path where control messages carry URI/object reference/metadata and data is fetched by authorized consumers. | external storage owner + bus envelope metadata | Bus payload transport | accepted_direction |
 | Service SSE stream | `agent-service` realtime external output surface. | `agent-service` | Bus token event stream | candidate_promote |
 | Tenant Vertical | Cross-cutting tenant identity propagation and isolation concern. | platform runtime | Per-module tenant reinvention | accepted |
 | Posture Vertical | Cross-cutting dev/research/prod behavior and fail-closed startup concern. | platform runtime | Runtime feature flag | accepted |
 | Telemetry Vertical | Cross-cutting trace/span/event/LLM call/cost evidence concern. | platform observability | Provider-local logging | accepted |
-| TraceContext | Runtime telemetry carrier companion to runtime context. | bus/service runtime SPI per accepted placement | HTTP-only header | accepted_current |
+| TraceContext | Runtime telemetry carrier companion to runtime context. | `agent-bus` (`bus.spi.engine`) SPI consumed by `agent-runtime` | HTTP-only header | accepted_current |
 | Audit record | Append-only platform evidence for important runtime decisions and side effects. | platform audit writer | Business record | accepted_direction |
 | LLM cost attribution | Platform aggregation of token usage, model route, and model-call cost by tenant/app/agent/tree dimensions. | observability + governance | Customer internal tool cost | candidate_promote |
 | Platform-hosted service | Platform-managed runtime for weak department/PaaS tenants. | platform operations | Business-owned service | candidate_promote |

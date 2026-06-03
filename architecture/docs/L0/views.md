@@ -99,7 +99,7 @@ The physical view is governed by deployment mode and trust boundary.
 | Plane | Typical Owner | Notes |
 |---|---|---|
 | Edge / client | Business application or integrating developer | SDK, local capability endpoint, cursor and stream consumption. |
-| Compute control | Platform or business-hosted service | `agent-service`, execution control, engine realization, middleware binding. |
+| Compute control | Platform or business-hosted service | `agent-runtime` run-owning runtime (execution control, engine realization), `agent-service` serviceization façade, middleware binding. |
 | Bus and state hub | Platform by default | Ingress, S2C, A2A, federation, rhythm, data-reference envelopes. |
 | Middleware / adapters | Platform or configured provider | Model, skill, memory, retrieval, prompt, advisor and hook surfaces. |
 | Evolution | Platform | Governed export and future evolution pipeline integration. |
