@@ -54,7 +54,6 @@ principles:
       - Rule-R-C.2     # run contract spine (split rc17 ADR-0094, was R-C.c+.d+.e)
       - Rule-G-1
       - Rule-M-1   # rc4 review P0-2 — skeleton-module identity
-      - Rule-G-13  # single-source rendering coherence (new W0 / ADR-0119)
 
   - id: P-D
     name: "SPI-Aligned, DFX-Explicit, Spec-Driven, TCK-Tested"

@@ -75,11 +75,6 @@ principle_P_C -> rule_G_1 "principle-coverage: operationalised_by_rules" "SAA Re
         "saa.rel" "operationalised_by"
     }
 }
-principle_P_C -> rule_G_13 "principle-coverage: operationalised_by_rules" "SAA Relationship" {
-    properties {
-        "saa.rel" "operationalised_by"
-    }
-}
 principle_P_C -> rule_G_2 "principle-coverage: operationalised_by_rules" "SAA Relationship" {
     properties {
         "saa.rel" "operationalised_by"

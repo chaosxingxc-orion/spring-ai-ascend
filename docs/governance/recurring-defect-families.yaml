@@ -2060,19 +2060,18 @@ families:
       - product/journey.md
       - gate/always-loaded-budget.txt
     prevention_rules:
-      - Rule G-25 (Tier-1 Non-English / Mojibake Lint, enforcer E190) — fails
-        closed when any file with a non-zero byte ceiling in
-        gate/always-loaded-budget.txt contains CJK code points or mojibake
-        markers; reports line:col + byte offset only so the gate log never
-        embeds the non-English text.
+      - Rule G-25 (Tier-1 Non-English / Mojibake Lint) — RETIRED 2026-06-03.
+        Its Rule 142 gate check + check_tier1_non_english.py checker were
+        already retired from the active gate during the governance rebalancing;
+        the dead card + checker were deleted in the gate-residue cleanup. The
+        Tier-1 English-only invariant is now convention-only (unenforced).
     cleanup_status: monitoring
     open_residual: |
-      Rule G-25 covers exactly the always-loaded Tier-1 set. Non-English text
-      in non-Tier-1 authority (ADRs, contract YAML such as the financial
-      audit-trail.v1.yaml regulatory-alignment token, review logs) is out of
-      scope by design and intentionally tolerated for now. Promotion to
-      `closed` requires one full release cycle with zero new Tier-1
-      occurrences after G-25 went blocking.
+      The Tier-1 English-only invariant is no longer gate-enforced — Rule 142 /
+      G-25 + check_tier1_non_english.py were retired and deleted (the team now
+      works in Chinese while keeping governed always-loaded FILES English by
+      convention). Re-introduce a Tier-1 CJK/mojibake gate if file-fidelity
+      regressions appear; until then this family is convention-monitored only.
 
   - id: F-local-plan-path-in-active-authority
     title: Local Plan-Path Reference in Active Authority
