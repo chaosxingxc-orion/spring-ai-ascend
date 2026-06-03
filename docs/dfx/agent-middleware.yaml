@@ -23,7 +23,7 @@ releasability:
   artifact_coords: "io.github.springai-ascend:agent-middleware"
   semver_policy: "0.x — SPI under .spi.* contract-frozen at L1; dispatcher impl may evolve"
   deprecation_window: "two minor versions on SPI; one on non-SPI"
-  packaging: "library jar consumed by agent-service (post-Phase-C; pre-Phase-C agent-runtime per ADR-0078) and (W2) by agent-execution-engine"
+  packaging: "library jar consumed by agent-service (post-Phase-C; pre-Phase-C agent-runtime per ADR-0078) and (W2) by agent-runtime"
 
 resilience:
   fallback_paths:
