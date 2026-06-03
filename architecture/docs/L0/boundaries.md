@@ -35,7 +35,7 @@ runtime architecture.
 | Module / Artifact | Classification | L0 Boundary Treatment |
 |---|---|---|
 | `agent-service` | Core runtime architecture module | Primary service runtime boundary and state owner. |
-| `agent-execution-engine` | Core runtime architecture module | Engine adapter and execution/orchestration realization boundary as assigned by accepted ADRs. |
+| `agent-runtime` | Core runtime architecture module | Engine adapter and execution/orchestration realization boundary as assigned by accepted ADRs. |
 | `agent-middleware` | Core runtime architecture module | Model, skill, memory, retrieval, prompt, advisor, runtime middleware, hook, and governance SPI boundary. |
 | `agent-bus` | Core runtime architecture module | Bus/state hub plane, ingress, S2C, neutral engine port, A2A/federation, and three-track channel boundary. |
 | `agent-client` | Runtime component boundary | SDK, edge access, local capability endpoint, cursor/callback/SSE consumption. |
@@ -63,7 +63,7 @@ Does not own:
 - Customer business facts or customer data-source permission models.
 - Cross-boundary A2A private connections that bypass bus governance.
 
-### `agent-execution-engine`
+### `agent-runtime`
 
 Owns:
 

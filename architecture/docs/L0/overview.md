@@ -80,7 +80,7 @@ External Client
   -> Gateway capability
   -> agent-service.platform
   -> agent-service runtime state owner and reference adapters
-  -> agent-execution-engine and/or neutral engine port
+  -> agent-runtime and/or neutral engine port
   -> agent-middleware for model, skill, memory, retrieval, prompt, and hook surfaces
   -> agent-bus for ingress, S2C, cross-boundary A2A, federation, control, and rhythm
   -> observability, audit, cost attribution, and verification evidence
@@ -111,7 +111,7 @@ The detailed policy is in `boundaries.md`.
 | Runtime Boundary | Summary |
 |---|---|
 | `agent-service` | HTTP ingress, tenant/auth/idempotency/trace entry, runtime state owner, service-side adapters, SSE, and runtime query surfaces. |
-| `agent-execution-engine` | Engine adapter, engine registry/envelope, execution SPI realization, planner and orchestration behavior as assigned by accepted ADRs. |
+| `agent-runtime` | Engine adapter, engine registry/envelope, execution SPI realization, planner and orchestration behavior as assigned by accepted ADRs. |
 | `agent-middleware` | Runtime middleware, hooks, model/skill/memory/vector/retriever/prompt/advisor SPI and governance surfaces. |
 | `agent-bus` | Bus and state hub plane: ingress, S2C, neutral engine port per ADR-0158, cross-boundary A2A, federation, three-track channels. |
 | `agent-client` | SDK, edge access, local capability endpoint, cursor/callback/SSE consumption. |

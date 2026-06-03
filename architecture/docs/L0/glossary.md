@@ -33,7 +33,7 @@ the current L0 reading and flags pending vocabulary decisions.
 | Agent | Registered entity binding model, skills, memory, planner, prompt, and advisors for execution. | `agent-service` agent SPI | Orchestrator | accepted_direction |
 | Orchestrator | Runtime component that dispatches work, handles suspend/resume, and emits execution/state intent. | Engine/service/bus boundary per accepted ADRs | Lifecycle state owner | accepted_direction |
 | EnginePort | Neutral engine boundary assigned to `agent-bus` by ADR-0158. | `agent-bus` | Engine adapter implementation | accepted_current |
-| Engine adapter | Concrete execution adapter and registry/envelope behavior. | `agent-execution-engine` | Neutral bus-owned EnginePort | accepted_current |
+| Engine adapter | Concrete execution adapter and registry/envelope behavior. | `agent-runtime` | Neutral bus-owned EnginePort | accepted_current |
 | RuntimeMiddleware | Cross-cutting middleware hook listener and dispatch surface. | `agent-middleware` | Provider implementation | accepted_current |
 | ModelGateway | Platform model invocation boundary. | `agent-middleware` model SPI | Direct Spring AI `ChatModel` use | accepted_direction |
 | Skill | Governed tool/skill execution unit. | `agent-middleware` skill SPI | Ungoverned business function call | accepted_direction |

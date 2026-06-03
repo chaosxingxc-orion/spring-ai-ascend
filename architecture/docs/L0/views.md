@@ -58,7 +58,7 @@ The current generated module set contains:
 - `agent-client`.
 - `agent-bus`.
 - `agent-service`.
-- `agent-execution-engine`.
+- `agent-runtime`.
 - `agent-middleware`.
 - `agent-evolve`.
 - `spring-ai-ascend-dependencies`.
