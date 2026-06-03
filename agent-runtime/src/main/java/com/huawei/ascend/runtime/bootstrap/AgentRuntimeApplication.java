@@ -4,7 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * Entry point for the agent-service runtime.
+ * Entry point for the agent-runtime.
  *
  * <p>Boots the full five-layer stack — access, session, internal-event-queue,
  * task-centric-control and engine — into one Spring context. Component scanning
@@ -18,9 +18,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "com.huawei.ascend.runtime.access",
         "com.huawei.ascend.runtime.bootstrap"
 })
-public class AgentServiceApplication {
+public class AgentRuntimeApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(AgentServiceApplication.class, args);
+        SpringApplication.run(AgentRuntimeApplication.class, args);
     }
 }

@@ -18,13 +18,19 @@
 // Relationship declarations live in verification.dsl to keep this file
 // focused on the function-point inventory itself.
 
+// FP-CREATE-RUN / FP-CANCEL-RUN / FP-GET-RUN-STATUS were downgraded shipped -> design_only
+// per ADR-0159: the northbound HTTP Run API (RunController + the service.platform web layer)
+// was removed when agent-service was re-founded as a serviceization façade skeleton. The HTTP
+// Run verbs are a design target again; the entrypoint re-lands in a later implementation phase
+// (runtime access or the serviceization façade). The code/test/contract refs below are retained
+// as design intent, consistent with the other design_only function points.
 fpCreateRun = element "Create Run" "FunctionPoint" "POST /v1/runs — admit a new Run with tenant + idempotency + posture guard" "SAA FunctionPoint" {
     properties {
         "saa.id" "FP-CREATE-RUN"
         "saa.kind" "function_point"
         "saa.level" "L1"
         "saa.view" "scenarios"
-        "saa.status" "shipped"
+        "saa.status" "design_only"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0020"
         "saa.channel" "http"
@@ -42,7 +48,7 @@ fpCancelRun = element "Cancel Run" "FunctionPoint" "POST /v1/runs/(runId)/cancel
         "saa.kind" "function_point"
         "saa.level" "L1"
         "saa.view" "scenarios"
-        "saa.status" "shipped"
+        "saa.status" "design_only"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0108"
         "saa.channel" "http"
@@ -60,7 +66,7 @@ fpGetRunStatus = element "Get Run Status" "FunctionPoint" "GET /v1/runs/(runId) 
         "saa.kind" "function_point"
         "saa.level" "L1"
         "saa.view" "scenarios"
-        "saa.status" "shipped"
+        "saa.status" "design_only"
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0020"
         "saa.channel" "http"

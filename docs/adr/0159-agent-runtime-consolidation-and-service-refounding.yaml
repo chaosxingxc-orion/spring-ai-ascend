@@ -157,3 +157,32 @@ consequences: |
         Rule 106(d) deleted-name regex update together; recurring-defect-families.yaml
         gets a substantive same-commit edit per Rule 111 / G-9.b on every wave that
         touches an ADR or ARCHITECTURE.md.
+
+  Post-merge reconciliation (2026-06-03)
+  --------------------------------------
+    A follow-up wave after the squash-merge closed residuals the staged waves
+    deferred, leaving the architecture gate green:
+      * Bootstrap entry class renamed AgentServiceApplication -> AgentRuntimeApplication
+        (boot mainClass updated).
+      * L1/agent-runtime/ARCHITECTURE.md rewritten as the run-owning runtime kernel;
+        L0 ARCHITECTURE.md module table / directory tree / dependency-direction
+        narrative corrected to this ADR's reality.
+      * The three HTTP Run function points (FP-CREATE-RUN / FP-CANCEL-RUN /
+        FP-GET-RUN-STATUS) downgraded shipped -> design_only: the RunController +
+        service.platform web layer was removed when agent-service became a façade
+        skeleton, so the prior "shipped + http" claim no longer matched code.
+      * The fact extractors' hardcoded SCAN_MODULES lists (CodeSymbol / RuntimeConfig /
+        TestInventory) renamed agent-execution-engine -> agent-runtime;
+        architecture/facts/generated/*.json regenerated (FactLayerByteIdentityIT green).
+
+    Open follow-ups (tracked, not yet closed):
+      * Rule 11 (contract_spine_tenant_id_required, E105) hardcodes
+        agent-runtime/.../runtime/{runs,idempotency}; those packages do not exist in
+        the design phase (the Run kernel is a design target), so the rule's
+        "[[ -d ]] || continue" guard makes it pass vacuously. A naive non-vacuity guard
+        would wrongly fail the gate; the rule needs a design-phase-aware predicate that
+        asserts the tenant-id spine only once the Run kernel materializes.
+      * Remaining L0 surfaces (boundaries.md / views.md / overview.md / glossary.md)
+        and CapabilitiesInitialMount's capability->module map still carry pre-repartition
+        wording for agent-execution-engine / agent-service-as-runtime-kernel; refresh in
+        a later doc pass.

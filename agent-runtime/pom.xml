@@ -277,7 +277,7 @@
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
           <classifier>boot</classifier>
-          <mainClass>com.huawei.ascend.runtime.bootstrap.AgentServiceApplication</mainClass>
+          <mainClass>com.huawei.ascend.runtime.bootstrap.AgentRuntimeApplication</mainClass>
         </configuration>
       </plugin>
     </plugins>

@@ -36,7 +36,7 @@ public final class RuntimeConfigFactExtractor {
         List<String> modules = List.of(
                 "agent-service",
                 "agent-bus",
-                "agent-execution-engine",
+                "agent-runtime",
                 "agent-middleware",
                 "agent-evolve",
                 "agent-client",
