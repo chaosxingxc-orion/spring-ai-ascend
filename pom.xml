@@ -382,6 +382,11 @@
               workaround until RestAssured catches up.
             -->
             <argLine>-Djava.net.useSystemProxies=false</argLine>
+            <!-- Safety net: a deadlocked IT fork (Spring Boot 4 concurrent context-boot
+                 fragility described above) fails fast at 15 min instead of hanging for
+                 hours and stalling CI. CI also drops -T 1C so only one context boots at
+                 a time globally, which removes the cross-module boot race itself. -->
+            <forkedProcessTimeoutInSeconds>900</forkedProcessTimeoutInSeconds>
           </configuration>
           <executions>
             <execution>
