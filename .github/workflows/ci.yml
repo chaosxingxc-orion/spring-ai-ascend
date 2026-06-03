@@ -28,7 +28,13 @@ jobs:
           cache: maven
 
       - name: Maven verify (compile + unit + integration tests)
-        run: ./mvnw -T 1C -B -ntp --strict-checksums -Pquality verify
+        # NOTE: no -T 1C here. Spring Boot 4.0.5 is not thread-safe at
+        # SpringApplication.run() init; -T 1C boots module ITs concurrently in
+        # parallel reactor JVMs and intermittently deadlocks (observed: 5h+ hangs
+        # on main and PR CI). Running the reactor single-threaded means only one
+        # context boots at a time globally, removing the race. Failsafe also has a
+        # 15-min forkedProcessTimeoutInSeconds safety net (see parent pom).
+        run: ./mvnw -B -ntp --strict-checksums -Pquality verify
 
       - name: Install Python deps for architecture-graph generation
         # Required by Rule 34 (architecture_graph_well_formed) — the gate
