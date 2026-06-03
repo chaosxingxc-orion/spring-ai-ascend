@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.access.model;
+package com.huawei.ascend.runtime.access.model;
 
-import com.huawei.ascend.service.schema.Message;
-import com.huawei.ascend.service.schema.RunStatus;
+import com.huawei.ascend.runtime.schema.Message;
+import com.huawei.ascend.runtime.schema.RunStatus;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;

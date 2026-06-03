@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.queue;
+package com.huawei.ascend.runtime.queue;
 
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;

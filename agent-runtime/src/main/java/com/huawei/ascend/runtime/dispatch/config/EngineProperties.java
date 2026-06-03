@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.engine.config;
+package com.huawei.ascend.runtime.dispatch.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

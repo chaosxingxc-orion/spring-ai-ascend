@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.bootstrap;
+package com.huawei.ascend.runtime.bootstrap;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -15,8 +15,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * the scan to avoid double registration).
  */
 @SpringBootApplication(scanBasePackages = {
-        "com.huawei.ascend.service.access",
-        "com.huawei.ascend.service.bootstrap"
+        "com.huawei.ascend.runtime.access",
+        "com.huawei.ascend.runtime.bootstrap"
 })
 public class AgentServiceApplication {
 

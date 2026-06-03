@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.access.protocol.a2a.egress;
+package com.huawei.ascend.runtime.access.protocol.a2a.egress;
 
-import com.huawei.ascend.service.access.model.AgentNotification;
-import com.huawei.ascend.service.access.model.AgentNotification.RunError;
+import com.huawei.ascend.runtime.access.model.AgentNotification;
+import com.huawei.ascend.runtime.access.model.AgentNotification.RunError;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +83,7 @@ public final class A2aOutputMapper {
         if (notification.error() != null) {
             return "error";
         }
-        if (notification.type() == com.huawei.ascend.service.access.model.NotificationType.TOOL_RESULT
+        if (notification.type() == com.huawei.ascend.runtime.access.model.NotificationType.TOOL_RESULT
                 && !notification.output().isEmpty()) {
             return "Artifact";
         }
@@ -103,7 +103,7 @@ public final class A2aOutputMapper {
             return "%s: %s".formatted(error.code(), error.message());
         }
         StringBuilder text = new StringBuilder();
-        for (com.huawei.ascend.service.schema.Message message : notification.output()) {
+        for (com.huawei.ascend.runtime.schema.Message message : notification.output()) {
             text.append(message.text());
         }
         return text.toString();

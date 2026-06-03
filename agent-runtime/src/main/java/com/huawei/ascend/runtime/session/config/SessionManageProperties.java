@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.session.config;
+package com.huawei.ascend.runtime.session.config;
 
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;

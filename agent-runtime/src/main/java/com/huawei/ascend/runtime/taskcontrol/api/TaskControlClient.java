@@ -1,9 +1,9 @@
-package com.huawei.ascend.service.taskcontrol.api;
+package com.huawei.ascend.runtime.taskcontrol.api;
 
-import com.huawei.ascend.service.schema.AgentRequest;
-import com.huawei.ascend.service.taskcontrol.TaskFailureCode;
-import com.huawei.ascend.service.taskcontrol.TaskState;
-import com.huawei.ascend.service.taskcontrol.WaitingReason;
+import com.huawei.ascend.runtime.schema.AgentRequest;
+import com.huawei.ascend.runtime.taskcontrol.TaskFailureCode;
+import com.huawei.ascend.runtime.taskcontrol.TaskState;
+import com.huawei.ascend.runtime.taskcontrol.WaitingReason;
 
 import java.util.Map;
 import java.util.Objects;

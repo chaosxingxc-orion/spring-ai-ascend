@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.engine.handler;
+package com.huawei.ascend.runtime.dispatch.handler;
 
-import com.huawei.ascend.service.engine.model.EngineExecutionScope;
-import com.huawei.ascend.service.engine.model.EngineInput;
+import com.huawei.ascend.runtime.dispatch.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.dispatch.model.EngineInput;
 
 /**
  * The context handed to an {@code AgentHandler} for a single execution: the

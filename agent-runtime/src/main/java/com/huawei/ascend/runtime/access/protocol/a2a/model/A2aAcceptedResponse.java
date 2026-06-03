@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.access.protocol.a2a.model;
+package com.huawei.ascend.runtime.access.protocol.a2a.model;
 
 public record A2aAcceptedResponse(
         String tenantId,

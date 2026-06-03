@@ -1,8 +1,8 @@
-package com.huawei.ascend.service.engine.api;
+package com.huawei.ascend.runtime.dispatch.api;
 
-import com.huawei.ascend.service.engine.event.EngineCommandEvent;
-import com.huawei.ascend.service.engine.command.EngineCommandEventFactory;
-import com.huawei.ascend.service.engine.command.EngineCommandGateway;
+import com.huawei.ascend.runtime.dispatch.event.EngineCommandEvent;
+import com.huawei.ascend.runtime.dispatch.command.EngineCommandEventFactory;
+import com.huawei.ascend.runtime.dispatch.command.EngineCommandGateway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

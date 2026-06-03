@@ -1,8 +1,8 @@
 package com.huawei.ascend.samples.a2a;
 
-import com.huawei.ascend.service.engine.adapter.openjiuwen.OpenJiuwenAgentHandler;
-import com.huawei.ascend.service.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.service.engine.spi.AgentHandler;
+import com.huawei.ascend.runtime.dispatch.adapter.openjiuwen.OpenJiuwenAgentHandler;
+import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.dispatch.spi.AgentHandler;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.ReActAgent;

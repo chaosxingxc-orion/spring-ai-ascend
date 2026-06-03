@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.engine.event;
+package com.huawei.ascend.runtime.dispatch.event;
 
-import com.huawei.ascend.service.engine.model.EngineExecutionScope;
-import com.huawei.ascend.service.engine.model.EngineOutput;
+import com.huawei.ascend.runtime.dispatch.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.dispatch.model.EngineOutput;
 import java.time.Instant;
 
 /**

@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.taskcontrol;
+package com.huawei.ascend.runtime.taskcontrol;
 
 /**
  * Task-Centric Control (TCC) visible failure classes.

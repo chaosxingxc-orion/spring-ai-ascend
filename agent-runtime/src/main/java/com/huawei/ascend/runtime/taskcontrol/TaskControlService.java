@@ -1,16 +1,16 @@
-package com.huawei.ascend.service.taskcontrol;
+package com.huawei.ascend.runtime.taskcontrol;
 
-import com.huawei.ascend.service.engine.api.EngineDispatchApi;
-import com.huawei.ascend.service.engine.api.EnqueueEngineCancelRequest;
-import com.huawei.ascend.service.engine.api.EnqueueEngineExecutionRequest;
-import com.huawei.ascend.service.engine.api.EnqueueEngineResumeRequest;
-import com.huawei.ascend.service.engine.api.EnqueueEngineStatus;
-import com.huawei.ascend.service.engine.model.EngineExecutionScope;
-import com.huawei.ascend.service.engine.model.EngineInput;
-import com.huawei.ascend.service.schema.AgentRequest;
-import com.huawei.ascend.service.schema.Message;
-import com.huawei.ascend.service.taskcontrol.api.TaskControlClient;
-import com.huawei.ascend.service.queue.QueueManager;
+import com.huawei.ascend.runtime.dispatch.api.EngineDispatchApi;
+import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineCancelRequest;
+import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineExecutionRequest;
+import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineResumeRequest;
+import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineStatus;
+import com.huawei.ascend.runtime.dispatch.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.dispatch.model.EngineInput;
+import com.huawei.ascend.runtime.schema.AgentRequest;
+import com.huawei.ascend.runtime.schema.Message;
+import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient;
+import com.huawei.ascend.runtime.queue.QueueManager;
 
 import java.time.Clock;
 import java.util.Comparator;

@@ -1,8 +1,8 @@
-package com.huawei.ascend.service.session.config;
+package com.huawei.ascend.runtime.session.config;
 
-import com.huawei.ascend.service.session.store.SessionStore;
-import com.huawei.ascend.service.session.store.SessionStoreFactory;
-import com.huawei.ascend.service.session.store.memory.InMemorySessionStore;
+import com.huawei.ascend.runtime.session.store.SessionStore;
+import com.huawei.ascend.runtime.session.store.SessionStoreFactory;
+import com.huawei.ascend.runtime.session.store.memory.InMemorySessionStore;
 
 public final class DefaultSessionStoreFactory implements SessionStoreFactory {
 

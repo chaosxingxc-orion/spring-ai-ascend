@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.engine.model;
+package com.huawei.ascend.runtime.dispatch.model;
 
 /**
  * How an agent invokes another agent. See engine model design §5.5.

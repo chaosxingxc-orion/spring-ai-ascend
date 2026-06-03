@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.access.protocol.a2a;
+package com.huawei.ascend.runtime.access.protocol.a2a;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

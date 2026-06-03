@@ -45,7 +45,7 @@
   kind: schema
   level: L1
   view: logical
-  artifact: agent-service/src/main/resources/db/migration/V2__idempotency_dedup.sql
+  artifact: agent-runtime/src/main/resources/db/migration/V2__idempotency_dedup.sql
   asserts: "PRIMARY KEY (tenant_id, idempotency_key) prevents duplicate inserts at storage layer"
   product_claim: "PC-001|PC-003"
 
@@ -117,7 +117,7 @@
   kind: archunit
   level: L1
   view: logical
-  artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/RunContextIdentityAccessorsTest.java
+  artifact: agent-runtime/src/test/java/com/huawei/ascend/runtime/architecture/RunContextIdentityAccessorsTest.java
   asserts: "RunContext SPI exposes traceId() : String, spanId() : String, sessionId() : String, traceContext() : TraceContext accessors (L1.x mandatory shape per §4 #54)."
   governance_infra: true
 
@@ -126,7 +126,7 @@
   kind: archunit
   level: L1
   view: development
-  artifact: agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/SpanTenantAttributeRequiredTest.java
+  artifact: agent-runtime/src/test/java/com/huawei/ascend/runtime/architecture/SpanTenantAttributeRequiredTest.java
   asserts: "No class under agent-runtime/main attempts to construct a span-shaped record (TraceWriter or future Span builder) without passing a tenant_id-derived argument. Vacuous at L1.x (no span builders yet); arms automatically when W2 Hook SPI un-freezes."
   governance_infra: true
 
@@ -191,8 +191,8 @@
   kind: archunit
   level: L1
   view: development
-  artifact: agent-service/src/test/java/com/huawei/ascend/runtime/engine/runtime/EnginePayloadDispatchOnlyViaRegistryTest.java#every_orchestrator_implementation_depends_on_engine_registry
-  asserts: "every concrete Orchestrator implementation in agent-service/src/main depends on com.huawei.ascend.runtime.engine.runtime.EngineRegistry -- dispatch authority is centralised; pattern-matching on ExecutorDefinition subtypes outside the registry is the prohibited shape (the source-level instanceof scan is gate Rule 56's responsibility). Test path relocated rc14 per ADR-0090 (engine package semantic-home alignment); previously at agent-service/src/test/java/com/huawei/ascend/service/runtime/engine/."
+  artifact: agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/runtime/EnginePayloadDispatchOnlyViaRegistryTest.java#every_orchestrator_implementation_depends_on_engine_registry
+  asserts: "every concrete Orchestrator implementation in agent-runtime/src/main depends on com.huawei.ascend.runtime.engine.runtime.EngineRegistry -- dispatch authority is centralised; pattern-matching on ExecutorDefinition subtypes outside the registry is the prohibited shape (the source-level instanceof scan is gate Rule 56's responsibility). Test path relocated rc14 per ADR-0090 (engine package semantic-home alignment); previously at agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/."
   product_claim: "PC-004"
 
 - id: E79
@@ -200,8 +200,8 @@
   kind: archunit
   level: L1
   view: development
-  artifact: agent-service/src/test/java/com/huawei/ascend/runtime/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java#every_executor_adapter_exposes_hook_surface
-  asserts: "every concrete GraphExecutor / AgentLoopExecutor implementation under agent-service/src/main exposes a hookSurface() method (default empty allowed) -- structural pre-condition for the EngineHookSurface contract; allowEmptyShould(true) is intentional at W2.x while Phase 2 ships SPI surface only."
+  artifact: agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java#every_executor_adapter_exposes_hook_surface
+  asserts: "every concrete GraphExecutor / AgentLoopExecutor implementation under agent-runtime/src/main exposes a hookSurface() method (default empty allowed) -- structural pre-condition for the EngineHookSurface contract; allowEmptyShould(true) is intentional at W2.x while Phase 2 ships SPI surface only."
   product_claim: "PC-004"
 
 - id: E81
@@ -232,7 +232,7 @@
   level: L1
   view: development
   artifact: gate/check_architecture_sync.sh#contract_spine_tenant_id_required
-  asserts: "Every public record under agent-service/src/main/java/com/huawei/ascend/service/{runtime,task,session}/ declares a String tenantId component (relocated from agent-runtime-core per ADR-0088 rc13 dissolution; scope widened to task + session per rc34 audit closure). Process-internal opt-out via 'scope: process-internal' reason comment."
+  asserts: "Every public record under agent-runtime/src/main/java/com/huawei/ascend/service/{runtime,task,session}/ declares a String tenantId component (relocated from agent-runtime-core per ADR-0088 rc13 dissolution; scope widened to task + session per rc34 audit closure). Process-internal opt-out via 'scope: process-internal' reason comment."
   product_claim: "PC-001|PC-003"
 
 # ---------------------------------------------------------------------------

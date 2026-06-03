@@ -1,10 +1,10 @@
-package com.huawei.ascend.service.engine.port;
+package com.huawei.ascend.runtime.dispatch.port;
 
-import com.huawei.ascend.service.engine.event.EngineCompletedEvent;
-import com.huawei.ascend.service.engine.event.EngineFailedEvent;
-import com.huawei.ascend.service.engine.event.EngineInterruptedEvent;
-import com.huawei.ascend.service.engine.event.EngineOutputEvent;
-import com.huawei.ascend.service.engine.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.dispatch.event.EngineCompletedEvent;
+import com.huawei.ascend.runtime.dispatch.event.EngineFailedEvent;
+import com.huawei.ascend.runtime.dispatch.event.EngineInterruptedEvent;
+import com.huawei.ascend.runtime.dispatch.event.EngineOutputEvent;
+import com.huawei.ascend.runtime.dispatch.model.EngineExecutionScope;
 
 /**
  * Outbound port to the access layer. The engine streams output and terminal

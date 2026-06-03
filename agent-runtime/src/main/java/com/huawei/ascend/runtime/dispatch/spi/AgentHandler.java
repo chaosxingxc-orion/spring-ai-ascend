@@ -1,6 +1,6 @@
-package com.huawei.ascend.service.engine.spi;
+package com.huawei.ascend.runtime.dispatch.spi;
 
-import com.huawei.ascend.service.engine.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
 import java.util.stream.Stream;
 
 /**

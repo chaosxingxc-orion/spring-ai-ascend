@@ -1,6 +1,6 @@
-package com.huawei.ascend.service.engine.dispatch;
+package com.huawei.ascend.runtime.dispatch.dispatch;
 
-import com.huawei.ascend.service.engine.spi.AgentHandler;
+import com.huawei.ascend.runtime.dispatch.spi.AgentHandler;
 
 /**
  * Holds the {@code AgentHandler} instances known to the engine, keyed by agent

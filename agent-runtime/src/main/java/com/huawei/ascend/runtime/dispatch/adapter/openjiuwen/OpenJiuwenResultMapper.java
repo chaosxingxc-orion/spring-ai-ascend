@@ -1,8 +1,8 @@
-package com.huawei.ascend.service.engine.adapter.openjiuwen;
+package com.huawei.ascend.runtime.dispatch.adapter.openjiuwen;
 
-import com.huawei.ascend.service.engine.model.InterruptType;
+import com.huawei.ascend.runtime.dispatch.model.InterruptType;
 import java.util.Map;
-import com.huawei.ascend.service.engine.spi.AgentExecutionResult;
+import com.huawei.ascend.runtime.dispatch.spi.AgentExecutionResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -11,7 +11,7 @@ import java.util.Map;
  *
  * <p>This is the cloud-to-edge half of the Heaven-Earth Coordination
  * cell (Mode B + Online). The edge consumer is
- * {@code com.huawei.ascend.service.session.ReflectionPatchHandler}.
+ * {@code com.huawei.ascend.runtime.session.ReflectionPatchHandler}.
  *
  * <p>Wire contract: {@code docs/contracts/reflection-envelope.v1.yaml}.
  *

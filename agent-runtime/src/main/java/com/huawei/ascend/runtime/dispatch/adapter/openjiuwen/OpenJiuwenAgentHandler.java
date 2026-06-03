@@ -1,9 +1,9 @@
-package com.huawei.ascend.service.engine.adapter.openjiuwen;
+package com.huawei.ascend.runtime.dispatch.adapter.openjiuwen;
 
-import com.huawei.ascend.service.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.service.engine.model.EngineExecutionScope;
-import com.huawei.ascend.service.engine.spi.AgentResultAdapter;
-import com.huawei.ascend.service.engine.spi.AgentHandler;
+import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.dispatch.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter;
+import com.huawei.ascend.runtime.dispatch.spi.AgentHandler;
 import com.openjiuwen.core.runner.Runner;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -64,7 +64,7 @@ public abstract class OpenJiuwenAgentHandler implements AgentHandler {
     }
 
     @SuppressWarnings("unchecked")
-    private com.huawei.ascend.service.engine.spi.AgentExecutionResult mapRawResult(Object rawResult) {
+    private com.huawei.ascend.runtime.dispatch.spi.AgentExecutionResult mapRawResult(Object rawResult) {
         LOGGER.info("openjiuwen raw result received type={}",
                 rawResult == null ? "null" : rawResult.getClass().getName());
         if (rawResult instanceof Map<?, ?> map) {

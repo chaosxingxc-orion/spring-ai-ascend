@@ -42,7 +42,7 @@ import java.util.Objects;
  * <ul>
  *   <li>"InterruptSignal" ≡ {@code SuspendSignal} (this class)</li>
  *   <li>"InterruptReason" ≡ {@code SuspendReason} (sealed interface in
- *       {@code com.huawei.ascend.service.runtime.resilience.spi.SuspendReason})</li>
+ *       {@code com.huawei.ascend.runtime.resilience.spi.SuspendReason})</li>
  *   <li>"Yield" / "ON_YIELD" ≡ {@code HookPoint.ON_YIELD} cooperative-scheduling
  *       hint (Authority: ADR-0100 §coexistence — does NOT trigger state-machine
  *       transition, coexists alongside SuspendSignal)</li>
@@ -74,7 +74,7 @@ public final class SuspendSignal extends Exception {
      *
      * <p>{@code envelope} must be an instance of
      * {@code com.huawei.ascend.bus.spi.s2c.S2cCallbackEnvelope} (relocated
-     * from {@code com.huawei.ascend.service.runtime.s2c} in v2.0.0-rc3 per α-4 / β-2);
+     * from {@code com.huawei.ascend.runtime.s2c} in v2.0.0-rc3 per α-4 / β-2);
      * typed as Object here to preserve orchestration.spi purity (E3 archunit).
      * Orchestrators cast in non-spi packages.
      */

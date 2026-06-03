@@ -301,7 +301,7 @@ if [[ $_r16_fail -eq 0 ]] && [[ -f 'docs/contracts/http-api-contracts.md' ]]; th
 fi
 # 16e: W1 idempotency claim-only behavior is 409, response replay is W2.
 if [[ $_r16_fail -eq 0 ]] && grep -q 'Response replay deferred to W2' docs/governance/architecture-status.yaml 2>/dev/null; then
-  for _r16_idem_file in docs/contracts/http-api-contracts.md docs/contracts/openapi-v1.yaml agent-service/src/test/resources/contracts/openapi-v1-pinned.yaml; do
+  for _r16_idem_file in docs/contracts/http-api-contracts.md docs/contracts/openapi-v1.yaml agent-runtime/src/test/resources/contracts/openapi-v1-pinned.yaml; do
     [[ -f "$_r16_idem_file" ]] || continue
     if grep -qiE 'same key[^.]*return(s|ed)? the original response|same key[^.]*return(s|ed)? the first response|replays with the same key \+ body return the original response|Reused keys with same body return the original response' "$_r16_idem_file" 2>/dev/null; then
       fail_rule "http_contract_w1_tenant_and_cancel_consistency" "$_r16_idem_file promises response replay for same-body idempotency, but architecture-status.yaml says response replay is deferred to W2. W1 contract is 409 idempotency_conflict for same hash and 409 idempotency_body_drift for different hash."
@@ -824,8 +824,8 @@ if [[ $_r28j_fail -eq 0 ]]; then pass_rule "enforcer_artifact_paths_exist"; fi
 # test file citing `enforcers.yaml#E<n>` in its Javadoc actually corresponds
 # to E<n>'s declared `artifact:` field.
 #
-# This rule scans *Test.java and *IT.java under agent-service/src/test/java
-# and agent-service/src/test/java for Javadoc citations of the form
+# This rule scans *Test.java and *IT.java under agent-runtime/src/test/java
+# and agent-runtime/src/test/java for Javadoc citations of the form
 # `enforcers.yaml#E<n>` and asserts each cited E-row's `artifact:` field's
 # file path (anchor stripped, path normalised) matches the source file
 # path. Mis-citation is a Rule 25 truth violation.
@@ -880,9 +880,9 @@ else:
             elif line.startswith('- id:'):
                 cur_id = None
 
-# Walk both test trees (the original double-listed agent-service/src/test/java
+# Walk both test trees (the original double-listed agent-runtime/src/test/java
 # for typo-tolerance; we deduplicate via a set).
-roots = {'agent-service/src/test/java'}
+roots = {'agent-runtime/src/test/java'}
 test_files: list[str] = []
 for root in roots:
     if not os.path.isdir(root):
@@ -1138,7 +1138,7 @@ while IFS= read -r _r50_mig; do
   fi
   fail_rule "rls_for_new_tenant_tables" "$_r50_mig creates a tenant-scoped table without ENABLE ROW LEVEL SECURITY; not in $_r50_baseline either"
   _r50_fail=1
-done <<< "$(find agent-service/src/main/resources/db/migration agent-service/src/main/resources/db/migration -maxdepth 1 -type f -name 'V*.sql' 2>/dev/null || true)"
+done <<< "$(find agent-runtime/src/main/resources/db/migration agent-runtime/src/main/resources/db/migration -maxdepth 1 -type f -name 'V*.sql' 2>/dev/null || true)"
 if [[ $_r50_fail -eq 0 ]]; then pass_rule "rls_for_new_tenant_tables"; fi
 
 # ---------------------------------------------------------------------------
@@ -1215,17 +1215,17 @@ if [[ $_r58_fail -eq 0 ]]; then pass_rule "s2c_callback_yaml_present_and_wellfor
 # ---------------------------------------------------------------------------
 # Rule 11 — contract_spine_tenant_id_required (enforcer E105)
 # Every persistent record under
-#   agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java
+#   agent-runtime/src/main/java/com/huawei/ascend/runtime/runs/Run.java
 # OR
-#   agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency/IdempotencyRecord.java
+#   agent-runtime/src/main/java/com/huawei/ascend/runtime/idempotency/IdempotencyRecord.java
 # MUST declare a String tenantId component. Scope path relocated from
 # agent-runtime-core to agent-service per ADR-0088 (rc13 dissolution).
 # Process-internal opt-out via "// scope: process-internal" same-line comment.
 # ---------------------------------------------------------------------------
 _r11_fail=0
 _r11_roots=(
-  'agent-service/src/main/java/com/huawei/ascend/service/runtime/runs'
-  'agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency'
+  'agent-runtime/src/main/java/com/huawei/ascend/runtime/runs'
+  'agent-runtime/src/main/java/com/huawei/ascend/runtime/idempotency'
 )
 for _r11_root in "${_r11_roots[@]}"; do
   [[ -d "$_r11_root" ]] || continue
@@ -1461,7 +1461,7 @@ if [[ $_r95_fail -eq 0 ]]; then pass_rule "spi_catalog_exhaustiveness"; fi
 _r104_fail=0
 _r104_catalog="docs/contracts/http-api-contracts.md"
 _r104_brief="docs/contracts/contract-catalog.md"
-_r104_controller_dir="agent-service/src/main/java"
+_r104_controller_dir="agent-runtime/src/main/java"
 # Cross-check: for each known live route, the catalog row MUST NOT carry `planned`.
 _r104_routes=(
   "POST /v1/runs"
@@ -1893,7 +1893,7 @@ fi
 #                 docs/contracts/chat-advisor.v1.yaml,
 #                 docs/contracts/agent-definition.v1.yaml,
 #                 docs/contracts/model-streaming.v1.yaml,
-#                 agent-service/src/main/java/.../AgentDefinition.java
+#                 agent-runtime/src/main/java/.../AgentDefinition.java
 # ---------------------------------------------------------------------------
 _r129_out=$(python3 gate/lib/check_contract_spi_count_truth.py --root . 2>&1)
 _r129_rc=$?

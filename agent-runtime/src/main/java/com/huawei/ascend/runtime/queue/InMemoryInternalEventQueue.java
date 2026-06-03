@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.queue;
+package com.huawei.ascend.runtime.queue;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;

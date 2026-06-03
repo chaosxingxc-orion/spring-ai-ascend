@@ -1,14 +1,14 @@
-package com.huawei.ascend.service.queue;
+package com.huawei.ascend.runtime.queue;
 
-import com.huawei.ascend.service.access.config.AccessLayerConfiguration;
-import com.huawei.ascend.service.bootstrap.AgentServiceBootstrapConfiguration;
-import com.huawei.ascend.service.engine.command.EngineCommandGateway;
-import com.huawei.ascend.service.engine.command.EngineCommandProcessor;
-import com.huawei.ascend.service.engine.config.EngineAutoConfiguration;
-import com.huawei.ascend.service.queue.config.QueueAutoConfiguration;
-import com.huawei.ascend.service.session.config.SessionManageConfiguration;
-import com.huawei.ascend.service.taskcontrol.TaskControlService;
-import com.huawei.ascend.service.taskcontrol.config.TaskControlAutoConfiguration;
+import com.huawei.ascend.runtime.access.config.AccessLayerConfiguration;
+import com.huawei.ascend.runtime.bootstrap.AgentServiceBootstrapConfiguration;
+import com.huawei.ascend.runtime.dispatch.command.EngineCommandGateway;
+import com.huawei.ascend.runtime.dispatch.command.EngineCommandProcessor;
+import com.huawei.ascend.runtime.dispatch.config.EngineAutoConfiguration;
+import com.huawei.ascend.runtime.queue.config.QueueAutoConfiguration;
+import com.huawei.ascend.runtime.session.config.SessionManageConfiguration;
+import com.huawei.ascend.runtime.taskcontrol.TaskControlService;
+import com.huawei.ascend.runtime.taskcontrol.config.TaskControlAutoConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 

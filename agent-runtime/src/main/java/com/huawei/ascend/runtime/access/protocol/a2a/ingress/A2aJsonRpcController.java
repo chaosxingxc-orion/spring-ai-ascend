@@ -1,8 +1,8 @@
-package com.huawei.ascend.service.access.protocol.a2a.ingress;
+package com.huawei.ascend.runtime.access.protocol.a2a.ingress;
 
-import com.huawei.ascend.service.access.protocol.a2a.egress.A2aOutputRegistry;
-import com.huawei.ascend.service.access.protocol.a2a.jsonrpc.A2aJsonRpcStreamExchange;
-import com.huawei.ascend.service.access.protocol.a2a.jsonrpc.A2aJsonRpcHandler;
+import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputRegistry;
+import com.huawei.ascend.runtime.access.protocol.a2a.jsonrpc.A2aJsonRpcStreamExchange;
+import com.huawei.ascend.runtime.access.protocol.a2a.jsonrpc.A2aJsonRpcHandler;
 import java.io.IOException;
 import java.util.Objects;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendStreamingMessageResponse;

@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.engine.api;
+package com.huawei.ascend.runtime.dispatch.api;
 
 /**
  * Enqueue status returned by {@link EngineDispatchApi}.
@@ -6,7 +6,7 @@ package com.huawei.ascend.service.engine.api;
  * <p>Indicates whether the engine accepted the enqueue request.
  * Does not represent the real execution status; real execution status
  * is written back through the outbound port
- * {@code com.huawei.ascend.service.engine.port.TaskControlClient}.
+ * {@code com.huawei.ascend.runtime.dispatch.port.TaskControlClient}.
  */
 public enum EnqueueEngineStatus {
     /**

@@ -12,7 +12,7 @@ import java.util.UUID;
  * <p>The response {@code callbackId} MUST match the originating request's
  * {@code callbackId}. Mismatch raises a validation error and the Run
  * transitions to FAILED with reason
- * {@link com.huawei.ascend.service.runtime.resilience.spi.SuspendReason.AwaitClientCallback#S2C_RESPONSE_INVALID}.
+ * {@link com.huawei.ascend.runtime.resilience.spi.SuspendReason.AwaitClientCallback#S2C_RESPONSE_INVALID}.
  *
  * <p>Lives in {@code com.huawei.ascend.bus.spi.s2c} (moved from the old
  * runtime S2C package per the cross-constraint audit) so the SPI literally imports

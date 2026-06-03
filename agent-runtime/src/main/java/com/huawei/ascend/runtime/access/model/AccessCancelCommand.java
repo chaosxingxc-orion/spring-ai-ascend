@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.access.model;
+package com.huawei.ascend.runtime.access.model;
 
 import java.util.Map;
 import java.util.Objects;

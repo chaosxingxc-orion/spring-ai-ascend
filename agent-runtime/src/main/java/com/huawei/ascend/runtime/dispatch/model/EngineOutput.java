@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.engine.model;
+package com.huawei.ascend.runtime.dispatch.model;
 
 /**
  * A unit of agent-produced output. {@code finalOutput} marks the terminal chunk

@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.engine.command;
+package com.huawei.ascend.runtime.dispatch.command;
 
-import com.huawei.ascend.service.engine.dispatch.EngineDispatcher;
-import com.huawei.ascend.service.engine.event.EngineCommandEvent;
+import com.huawei.ascend.runtime.dispatch.dispatch.EngineDispatcher;
+import com.huawei.ascend.runtime.dispatch.event.EngineCommandEvent;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;

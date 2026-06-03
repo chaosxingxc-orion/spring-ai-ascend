@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.runtime.architecture;
+package com.huawei.ascend.runtime.architecture;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -26,7 +26,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 class SpanTenantAttributeRequiredTest {
 
     private static final JavaClasses RUNTIME_MAIN_CLASSES = new ClassFileImporter()
-            .importPackages("com.huawei.ascend.service.runtime");
+            .importPackages("com.huawei.ascend.runtime");
 
     @Test
     void no_span_emitter_exists_without_run_context_dependency() {

@@ -11,7 +11,7 @@
  * implementation of the dispatch + envelope plumbing.
  *
  * <p>Package path history: pre-rc13 (ADR-0079) these types lived at
- * {@code com.huawei.ascend.service.runtime.engine.*} for backwards source
+ * {@code com.huawei.ascend.runtime.engine.*} for backwards source
  * compatibility through the engine-extraction wave; rc14 (ADR-0090,
  * 2026-05-20) relocated them to {@code com.huawei.ascend.runtime.engine.runtime.*}
  * to align with the post-ADR-0088 semantic-home model. ADR-0079's

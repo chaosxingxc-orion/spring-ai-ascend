@@ -1,10 +1,10 @@
-package com.huawei.ascend.service.session.core;
+package com.huawei.ascend.runtime.session.core;
 
-import com.huawei.ascend.service.schema.Message;
-import com.huawei.ascend.service.session.api.SessionManager;
-import com.huawei.ascend.service.session.model.Session;
-import com.huawei.ascend.service.session.model.SessionKey;
-import com.huawei.ascend.service.session.store.SessionStore;
+import com.huawei.ascend.runtime.schema.Message;
+import com.huawei.ascend.runtime.session.api.SessionManager;
+import com.huawei.ascend.runtime.session.model.Session;
+import com.huawei.ascend.runtime.session.model.SessionKey;
+import com.huawei.ascend.runtime.session.store.SessionStore;
 
 import java.time.Clock;
 import java.time.Duration;

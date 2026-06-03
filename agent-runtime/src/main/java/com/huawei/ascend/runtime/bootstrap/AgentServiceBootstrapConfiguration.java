@@ -1,10 +1,10 @@
-package com.huawei.ascend.service.bootstrap;
+package com.huawei.ascend.runtime.bootstrap;
 
-import com.huawei.ascend.service.access.api.NotificationPort;
-import com.huawei.ascend.service.access.core.AccessSubmissionService;
-import com.huawei.ascend.service.engine.port.AccessLayerClient;
-import com.huawei.ascend.service.session.api.SessionManager;
-import com.huawei.ascend.service.taskcontrol.api.TaskControlClient;
+import com.huawei.ascend.runtime.access.api.NotificationPort;
+import com.huawei.ascend.runtime.access.core.AccessSubmissionService;
+import com.huawei.ascend.runtime.dispatch.port.AccessLayerClient;
+import com.huawei.ascend.runtime.session.api.SessionManager;
+import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

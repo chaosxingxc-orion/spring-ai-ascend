@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.access.protocol.a2a.jsonrpc;
+package com.huawei.ascend.runtime.access.protocol.a2a.jsonrpc;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -6,17 +6,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.huawei.ascend.service.access.core.AccessSubmissionService;
-import com.huawei.ascend.service.access.model.AccessAcceptedResponse;
-import com.huawei.ascend.service.access.model.AccessCancelCommand;
-import com.huawei.ascend.service.access.protocol.a2a.A2aAccessProperties;
-import com.huawei.ascend.service.access.protocol.a2a.egress.A2aOutput;
-import com.huawei.ascend.service.access.protocol.a2a.egress.A2aOutputHandle;
-import com.huawei.ascend.service.access.protocol.a2a.egress.A2aOutputRegistry;
-import com.huawei.ascend.service.access.protocol.a2a.egress.A2aTaskMapper;
-import com.huawei.ascend.service.access.protocol.a2a.model.A2aAcceptedResponse;
-import com.huawei.ascend.service.access.protocol.a2a.model.A2aTaskQueryParams;
-import com.huawei.ascend.service.schema.AgentRequest;
+import com.huawei.ascend.runtime.access.core.AccessSubmissionService;
+import com.huawei.ascend.runtime.access.model.AccessAcceptedResponse;
+import com.huawei.ascend.runtime.access.model.AccessCancelCommand;
+import com.huawei.ascend.runtime.access.protocol.a2a.A2aAccessProperties;
+import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutput;
+import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputHandle;
+import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputRegistry;
+import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aTaskMapper;
+import com.huawei.ascend.runtime.access.protocol.a2a.model.A2aAcceptedResponse;
+import com.huawei.ascend.runtime.access.protocol.a2a.model.A2aTaskQueryParams;
+import com.huawei.ascend.runtime.schema.AgentRequest;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -286,7 +286,7 @@ public final class A2aJsonRpcHandler {
                         properties.getDefaultAgentId(),
                         "A2A metadata.agentId"),
                 optionalSessionId(sessionId),
-                List.of(com.huawei.ascend.service.schema.Message.user(messageText(message))),
+                List.of(com.huawei.ascend.runtime.schema.Message.user(messageText(message))),
                 text(metadata.get("idempotencyKey")),
                 requestMetadata);
     }

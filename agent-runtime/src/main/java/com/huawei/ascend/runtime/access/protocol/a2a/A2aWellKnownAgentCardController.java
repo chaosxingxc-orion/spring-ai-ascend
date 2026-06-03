@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.access.protocol.a2a;
+package com.huawei.ascend.runtime.access.protocol.a2a;
 
 import java.util.Objects;
 import org.a2aproject.sdk.spec.AgentCard;

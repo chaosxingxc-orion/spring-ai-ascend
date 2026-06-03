@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.access.protocol.a2a.egress;
+package com.huawei.ascend.runtime.access.protocol.a2a.egress;
 
-import com.huawei.ascend.service.access.api.NotificationPort;
-import com.huawei.ascend.service.access.model.AgentNotification;
+import com.huawei.ascend.runtime.access.api.NotificationPort;
+import com.huawei.ascend.runtime.access.model.AgentNotification;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

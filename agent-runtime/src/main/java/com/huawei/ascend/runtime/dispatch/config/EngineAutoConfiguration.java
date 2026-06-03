@@ -1,17 +1,17 @@
-package com.huawei.ascend.service.engine.config;
+package com.huawei.ascend.runtime.dispatch.config;
 
-import com.huawei.ascend.service.engine.api.DefaultEngineDispatchApi;
-import com.huawei.ascend.service.engine.api.EngineDispatchApi;
-import com.huawei.ascend.service.engine.command.EngineCommandEventFactory;
-import com.huawei.ascend.service.engine.command.EngineCommandGateway;
-import com.huawei.ascend.service.engine.command.EngineCommandProcessor;
-import com.huawei.ascend.service.engine.command.InternalEngineCommandGateway;
-import com.huawei.ascend.service.engine.dispatch.AgentHandlerRegistry;
-import com.huawei.ascend.service.engine.dispatch.DefaultAgentHandlerRegistry;
-import com.huawei.ascend.service.engine.dispatch.EngineDispatcher;
-import com.huawei.ascend.service.engine.port.AccessLayerClient;
-import com.huawei.ascend.service.engine.port.TaskControlClient;
-import com.huawei.ascend.service.queue.QueueManager;
+import com.huawei.ascend.runtime.dispatch.api.DefaultEngineDispatchApi;
+import com.huawei.ascend.runtime.dispatch.api.EngineDispatchApi;
+import com.huawei.ascend.runtime.dispatch.command.EngineCommandEventFactory;
+import com.huawei.ascend.runtime.dispatch.command.EngineCommandGateway;
+import com.huawei.ascend.runtime.dispatch.command.EngineCommandProcessor;
+import com.huawei.ascend.runtime.dispatch.command.InternalEngineCommandGateway;
+import com.huawei.ascend.runtime.dispatch.dispatch.AgentHandlerRegistry;
+import com.huawei.ascend.runtime.dispatch.dispatch.DefaultAgentHandlerRegistry;
+import com.huawei.ascend.runtime.dispatch.dispatch.EngineDispatcher;
+import com.huawei.ascend.runtime.dispatch.port.AccessLayerClient;
+import com.huawei.ascend.runtime.dispatch.port.TaskControlClient;
+import com.huawei.ascend.runtime.queue.QueueManager;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,7 +35,7 @@ public class EngineAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public AgentHandlerRegistry agentHandlerRegistry(
-            org.springframework.beans.factory.ObjectProvider<com.huawei.ascend.service.engine.spi.AgentHandler> handlers) {
+            org.springframework.beans.factory.ObjectProvider<com.huawei.ascend.runtime.dispatch.spi.AgentHandler> handlers) {
         DefaultAgentHandlerRegistry registry = new DefaultAgentHandlerRegistry();
         // Auto-register every AgentHandler bean by its agentId so framework
         // integrators only need to publish a handler bean to plug in an agent.

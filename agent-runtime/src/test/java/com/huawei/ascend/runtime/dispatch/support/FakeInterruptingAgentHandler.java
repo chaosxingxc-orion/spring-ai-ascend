@@ -1,10 +1,10 @@
-package com.huawei.ascend.service.engine.support;
+package com.huawei.ascend.runtime.dispatch.support;
 
-import com.huawei.ascend.service.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.service.engine.model.InterruptType;
-import com.huawei.ascend.service.engine.spi.AgentExecutionResult;
-import com.huawei.ascend.service.engine.spi.AgentHandler;
-import com.huawei.ascend.service.engine.spi.AgentResultAdapter;
+import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.dispatch.model.InterruptType;
+import com.huawei.ascend.runtime.dispatch.spi.AgentExecutionResult;
+import com.huawei.ascend.runtime.dispatch.spi.AgentHandler;
+import com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter;
 import java.util.Map;
 import java.util.stream.Stream;
 

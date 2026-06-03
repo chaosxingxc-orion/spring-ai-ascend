@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.runtime.architecture;
+package com.huawei.ascend.runtime.architecture;
 
 import org.junit.jupiter.api.Test;
 

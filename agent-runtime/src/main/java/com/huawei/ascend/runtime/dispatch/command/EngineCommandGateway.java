@@ -1,6 +1,6 @@
-package com.huawei.ascend.service.engine.command;
+package com.huawei.ascend.runtime.dispatch.command;
 
-import com.huawei.ascend.service.engine.event.EngineCommandEvent;
+import com.huawei.ascend.runtime.dispatch.event.EngineCommandEvent;
 import reactor.core.publisher.Flux;
 
 /**

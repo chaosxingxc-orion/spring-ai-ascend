@@ -34,7 +34,7 @@ class EnginePayloadDispatchOnlyViaRegistryTest {
 
     private static final JavaClasses RUNTIME_MAIN = new ClassFileImporter()
             .withImportOption(new ImportOption.DoNotIncludeTests())
-            .importPackages("com.huawei.ascend.service.runtime");
+            .importPackages("com.huawei.ascend.runtime");
 
     private static final ArchCondition<JavaClass> DEPEND_ON_ENGINE_REGISTRY =
             new ArchCondition<>("depend on " + EngineRegistry.class.getName()) {

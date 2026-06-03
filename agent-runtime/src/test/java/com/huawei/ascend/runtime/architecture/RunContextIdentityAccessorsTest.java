@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.runtime.architecture;
+package com.huawei.ascend.runtime.architecture;
 
 import com.huawei.ascend.bus.spi.engine.RunContext;
 import com.huawei.ascend.bus.spi.engine.TraceContext;
@@ -60,7 +60,7 @@ class RunContextIdentityAccessorsTest {
                     .as("TraceContext SPI MUST import only java.* and project types (§4 #7)")
                     .satisfiesAnyOf(
                             p -> assertThat(p).startsWith("java"),
-                            p -> assertThat(p).startsWith("com.huawei.ascend.service.runtime"),
+                            p -> assertThat(p).startsWith("com.huawei.ascend.runtime"),
                             p -> assertThat(p).startsWith("com.huawei.ascend.bus.spi.engine")
                     );
         }

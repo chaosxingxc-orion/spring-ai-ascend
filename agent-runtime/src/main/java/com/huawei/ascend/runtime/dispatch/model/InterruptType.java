@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.engine.model;
+package com.huawei.ascend.runtime.dispatch.model;
 
 /**
  * Why an agent execution paused and is waiting. See engine model design §5.6.

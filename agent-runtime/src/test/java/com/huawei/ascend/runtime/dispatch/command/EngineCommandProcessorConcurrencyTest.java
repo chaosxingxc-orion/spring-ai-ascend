@@ -1,20 +1,20 @@
-package com.huawei.ascend.service.engine.command;
+package com.huawei.ascend.runtime.dispatch.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.huawei.ascend.service.engine.api.DefaultEngineDispatchApi;
-import com.huawei.ascend.service.engine.api.EnqueueEngineExecutionRequest;
-import com.huawei.ascend.service.engine.dispatch.DefaultAgentHandlerRegistry;
-import com.huawei.ascend.service.engine.dispatch.EngineDispatcher;
-import com.huawei.ascend.service.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.service.engine.model.EngineExecutionScope;
-import com.huawei.ascend.service.engine.model.EngineInput;
-import com.huawei.ascend.service.engine.spi.AgentExecutionResult;
-import com.huawei.ascend.service.engine.spi.AgentHandler;
-import com.huawei.ascend.service.engine.spi.AgentResultAdapter;
-import com.huawei.ascend.service.engine.support.RecordingAccessLayerClient;
-import com.huawei.ascend.service.engine.support.RecordingTaskControlClient;
-import com.huawei.ascend.service.queue.QueueManager;
+import com.huawei.ascend.runtime.dispatch.api.DefaultEngineDispatchApi;
+import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineExecutionRequest;
+import com.huawei.ascend.runtime.dispatch.dispatch.DefaultAgentHandlerRegistry;
+import com.huawei.ascend.runtime.dispatch.dispatch.EngineDispatcher;
+import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.dispatch.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.dispatch.model.EngineInput;
+import com.huawei.ascend.runtime.dispatch.spi.AgentExecutionResult;
+import com.huawei.ascend.runtime.dispatch.spi.AgentHandler;
+import com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter;
+import com.huawei.ascend.runtime.dispatch.support.RecordingAccessLayerClient;
+import com.huawei.ascend.runtime.dispatch.support.RecordingTaskControlClient;
+import com.huawei.ascend.runtime.queue.QueueManager;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;

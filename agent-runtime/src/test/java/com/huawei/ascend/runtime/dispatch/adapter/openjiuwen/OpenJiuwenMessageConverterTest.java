@@ -1,11 +1,11 @@
-package com.huawei.ascend.service.engine.adapter.openjiuwen;
+package com.huawei.ascend.runtime.dispatch.adapter.openjiuwen;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.huawei.ascend.service.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.service.engine.model.EngineExecutionScope;
-import com.huawei.ascend.service.engine.model.EngineInput;
-import com.huawei.ascend.service.schema.Message;
+import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.dispatch.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.dispatch.model.EngineInput;
+import com.huawei.ascend.runtime.schema.Message;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;

@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.session.store;
+package com.huawei.ascend.runtime.session.store;
 
-import com.huawei.ascend.service.session.model.Session;
-import com.huawei.ascend.service.session.model.SessionKey;
+import com.huawei.ascend.runtime.session.model.Session;
+import com.huawei.ascend.runtime.session.model.SessionKey;
 
 import java.util.Optional;
 

@@ -1,6 +1,6 @@
-package com.huawei.ascend.service.access.api;
+package com.huawei.ascend.runtime.access.api;
 
-import com.huawei.ascend.service.access.model.AgentNotification;
+import com.huawei.ascend.runtime.access.model.AgentNotification;
 
 public interface NotificationPort {
     void notify(AgentNotification notification);

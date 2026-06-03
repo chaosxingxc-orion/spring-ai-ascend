@@ -1,9 +1,9 @@
-package com.huawei.ascend.service.engine.command;
+package com.huawei.ascend.runtime.dispatch.command;
 
-import com.huawei.ascend.service.engine.api.EnqueueEngineCancelRequest;
-import com.huawei.ascend.service.engine.api.EnqueueEngineExecutionRequest;
-import com.huawei.ascend.service.engine.api.EnqueueEngineResumeRequest;
-import com.huawei.ascend.service.engine.event.EngineCommandEvent;
+import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineCancelRequest;
+import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineExecutionRequest;
+import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineResumeRequest;
+import com.huawei.ascend.runtime.dispatch.event.EngineCommandEvent;
 import java.time.Instant;
 
 /**

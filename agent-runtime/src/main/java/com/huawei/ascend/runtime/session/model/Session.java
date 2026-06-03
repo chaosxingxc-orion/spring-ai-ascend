@@ -1,6 +1,6 @@
-package com.huawei.ascend.service.session.model;
+package com.huawei.ascend.runtime.session.model;
 
-import com.huawei.ascend.service.schema.Message;
+import com.huawei.ascend.runtime.schema.Message;
 
 import java.time.Instant;
 import java.util.List;

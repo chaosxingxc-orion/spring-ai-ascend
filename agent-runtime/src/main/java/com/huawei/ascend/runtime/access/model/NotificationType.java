@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.access.model;
+package com.huawei.ascend.runtime.access.model;
 
 public enum NotificationType {
     ACK,

@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.engine.spi;
+package com.huawei.ascend.runtime.dispatch.spi;
 
-import com.huawei.ascend.service.engine.model.EngineOutput;
-import com.huawei.ascend.service.engine.model.InterruptType;
+import com.huawei.ascend.runtime.dispatch.model.EngineOutput;
+import com.huawei.ascend.runtime.dispatch.model.InterruptType;
 
 /**
  * Engine-neutral result produced by a framework result adapter. User handlers

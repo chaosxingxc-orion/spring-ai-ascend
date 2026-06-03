@@ -1,9 +1,9 @@
-package com.huawei.ascend.service.session.config;
+package com.huawei.ascend.runtime.session.config;
 
-import com.huawei.ascend.service.session.api.SessionManager;
-import com.huawei.ascend.service.session.core.SessionManagerImpl;
-import com.huawei.ascend.service.session.store.SessionStore;
-import com.huawei.ascend.service.session.store.SessionStoreFactory;
+import com.huawei.ascend.runtime.session.api.SessionManager;
+import com.huawei.ascend.runtime.session.core.SessionManagerImpl;
+import com.huawei.ascend.runtime.session.store.SessionStore;
+import com.huawei.ascend.runtime.session.store.SessionStoreFactory;
 
 import java.time.Clock;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;

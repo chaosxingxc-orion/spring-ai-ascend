@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.access.protocol.async;
+package com.huawei.ascend.runtime.access.protocol.async;
 
-import com.huawei.ascend.service.queue.InternalEventQueue;
-import com.huawei.ascend.service.queue.QueueManager;
+import com.huawei.ascend.runtime.queue.InternalEventQueue;
+import com.huawei.ascend.runtime.queue.QueueManager;
 import java.util.Objects;
 import java.util.Optional;
 

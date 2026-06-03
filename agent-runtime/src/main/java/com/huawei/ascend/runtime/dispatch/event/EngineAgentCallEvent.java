@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.engine.event;
+package com.huawei.ascend.runtime.dispatch.event;
 
-import com.huawei.ascend.service.engine.model.AgentCallMode;
-import com.huawei.ascend.service.engine.model.EngineInput;
+import com.huawei.ascend.runtime.dispatch.model.AgentCallMode;
+import com.huawei.ascend.runtime.dispatch.model.EngineInput;
 
 /**
  * Emitted when an agent invokes another agent. See engine model design §6.5.

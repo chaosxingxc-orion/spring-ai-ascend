@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.taskcontrol;
+package com.huawei.ascend.runtime.taskcontrol;
 
-import com.huawei.ascend.service.queue.InternalEventQueue;
-import com.huawei.ascend.service.queue.QueueManager;
+import com.huawei.ascend.runtime.queue.InternalEventQueue;
+import com.huawei.ascend.runtime.queue.QueueManager;
 
 import java.util.Comparator;
 import java.util.List;

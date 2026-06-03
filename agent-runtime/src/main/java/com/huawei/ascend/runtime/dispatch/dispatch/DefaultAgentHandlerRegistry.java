@@ -1,6 +1,6 @@
-package com.huawei.ascend.service.engine.dispatch;
+package com.huawei.ascend.runtime.dispatch.dispatch;
 
-import com.huawei.ascend.service.engine.spi.AgentHandler;
+import com.huawei.ascend.runtime.dispatch.spi.AgentHandler;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;

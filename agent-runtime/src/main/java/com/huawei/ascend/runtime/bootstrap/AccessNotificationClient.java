@@ -1,18 +1,18 @@
-package com.huawei.ascend.service.bootstrap;
+package com.huawei.ascend.runtime.bootstrap;
 
-import com.huawei.ascend.service.access.api.NotificationPort;
-import com.huawei.ascend.service.access.model.AgentNotification;
-import com.huawei.ascend.service.access.model.AgentNotification.RunError;
-import com.huawei.ascend.service.access.model.NotificationType;
-import com.huawei.ascend.service.engine.event.EngineCompletedEvent;
-import com.huawei.ascend.service.engine.event.EngineFailedEvent;
-import com.huawei.ascend.service.engine.event.EngineInterruptedEvent;
-import com.huawei.ascend.service.engine.event.EngineOutputEvent;
-import com.huawei.ascend.service.engine.model.EngineExecutionScope;
-import com.huawei.ascend.service.engine.model.EngineOutput;
-import com.huawei.ascend.service.engine.port.AccessLayerClient;
-import com.huawei.ascend.service.schema.Message;
-import com.huawei.ascend.service.schema.RunStatus;
+import com.huawei.ascend.runtime.access.api.NotificationPort;
+import com.huawei.ascend.runtime.access.model.AgentNotification;
+import com.huawei.ascend.runtime.access.model.AgentNotification.RunError;
+import com.huawei.ascend.runtime.access.model.NotificationType;
+import com.huawei.ascend.runtime.dispatch.event.EngineCompletedEvent;
+import com.huawei.ascend.runtime.dispatch.event.EngineFailedEvent;
+import com.huawei.ascend.runtime.dispatch.event.EngineInterruptedEvent;
+import com.huawei.ascend.runtime.dispatch.event.EngineOutputEvent;
+import com.huawei.ascend.runtime.dispatch.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.dispatch.model.EngineOutput;
+import com.huawei.ascend.runtime.dispatch.port.AccessLayerClient;
+import com.huawei.ascend.runtime.schema.Message;
+import com.huawei.ascend.runtime.schema.RunStatus;
 
 import java.util.List;
 import java.util.Map;

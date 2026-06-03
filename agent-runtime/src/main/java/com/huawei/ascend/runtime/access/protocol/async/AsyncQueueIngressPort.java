@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.access.protocol.async;
+package com.huawei.ascend.runtime.access.protocol.async;
 
 public interface AsyncQueueIngressPort {
 

@@ -73,8 +73,8 @@ share infrastructure:
 | Module | Plane | What it does |
 |--------|-------|--------------|
 | `agent-client` | Edge Access | Client SDK surface (skeleton; W3+) |
-| `agent-service` | Compute & Control | HTTP edge + runtime kernel — `Run` / `RunStateMachine`, the run HTTP API, JWT/tenant/idempotency/posture, and the core SPIs |
-| `agent-execution-engine` | Compute & Control | Engine adapter + orchestration SPIs, `EngineRegistry`, `EngineEnvelope` |
+| `agent-runtime` | Compute & Control | Run-owning runtime SDK — execution engine (`EngineRegistry`, `EngineEnvelope`, `ExecutorAdapter` SPI), `Run` / `RunStateMachine`, engine dispatch, session/task-control, internal event queue, access (A2A), and the bootable runtime app |
+| `agent-service` | Compute & Control | Enterprise serviceization façade (skeleton) — registration/discovery driving runtime-built Agent instances via agent-runtime (ADR-0159) |
 | `agent-middleware` | Compute & Control | `RuntimeMiddleware` SPI + hook dispatch |
 | `agent-bus` | Bus & State Hub | Cross-plane control surfaces (client→server ingress, server→client callback) |
 | `agent-evolve` | Evolution | ML / self-improvement pipeline (skeleton) |

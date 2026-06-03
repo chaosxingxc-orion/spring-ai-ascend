@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.session.model;
+package com.huawei.ascend.runtime.session.model;
 
 import java.util.Objects;
 

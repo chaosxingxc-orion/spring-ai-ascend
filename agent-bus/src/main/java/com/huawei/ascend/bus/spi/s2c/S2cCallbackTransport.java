@@ -10,7 +10,7 @@ import java.util.concurrent.CompletionStage;
  * {@link S2cCallbackResponse}. The actual wire format is implementation-defined
  * (webhook POST, SSE push, WebSocket, gRPC, etc.); only the in-memory reference
  * implementation
- * {@link com.huawei.ascend.service.runtime.s2c.InMemoryS2cCallbackTransport}
+ * {@link com.huawei.ascend.runtime.s2c.InMemoryS2cCallbackTransport}
  * ships at W2.x. Production transports land in W3.
  *
  * <p>Implementations MUST NOT block the calling thread; they MUST honor the

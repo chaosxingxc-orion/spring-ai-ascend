@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.schema;
+package com.huawei.ascend.runtime.schema;
 
 /**
  * Canonical message role, shared across the agent-service modules.

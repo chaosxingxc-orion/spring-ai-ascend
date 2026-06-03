@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.queue;
+package com.huawei.ascend.runtime.queue;
 
 import java.util.Comparator;
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.session.store;
+package com.huawei.ascend.runtime.session.store;
 
 public interface SessionStoreFactory {
     SessionStore create();

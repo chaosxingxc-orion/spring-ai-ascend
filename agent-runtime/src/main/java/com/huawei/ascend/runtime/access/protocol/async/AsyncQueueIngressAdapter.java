@@ -1,6 +1,6 @@
-package com.huawei.ascend.service.access.protocol.async;
+package com.huawei.ascend.runtime.access.protocol.async;
 
-import com.huawei.ascend.service.access.protocol.a2a.jsonrpc.A2aJsonRpcHandler;
+import com.huawei.ascend.runtime.access.protocol.a2a.jsonrpc.A2aJsonRpcHandler;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;

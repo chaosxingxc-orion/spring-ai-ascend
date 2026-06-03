@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.engine.event;
+package com.huawei.ascend.runtime.dispatch.event;
 
-import com.huawei.ascend.service.engine.model.EngineExecutionScope;
-import com.huawei.ascend.service.engine.model.InterruptType;
+import com.huawei.ascend.runtime.dispatch.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.dispatch.model.InterruptType;
 import java.time.Instant;
 
 /**

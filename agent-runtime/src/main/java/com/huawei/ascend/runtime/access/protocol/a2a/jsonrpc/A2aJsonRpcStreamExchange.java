@@ -1,6 +1,6 @@
-package com.huawei.ascend.service.access.protocol.a2a.jsonrpc;
+package com.huawei.ascend.runtime.access.protocol.a2a.jsonrpc;
 
-import com.huawei.ascend.service.access.protocol.a2a.egress.A2aOutputHandle;
+import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputHandle;
 
 public record A2aJsonRpcStreamExchange(
         Object id,

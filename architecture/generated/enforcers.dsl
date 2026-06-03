@@ -23,7 +23,7 @@ enforcer_E13 = element "E13" "Enforcer" "PRIMARY KEY (tenant_id, idempotency_key
         "saa.view" "logical"
         "saa.status" "shipped"
         "saa.owner" "architecture"
-        "saa.sourceFile" "agent-service/src/main/resources/db/migration/V2__idempotency_dedup.sql"
+        "saa.sourceFile" "agent-runtime/src/main/resources/db/migration/V2__idempotency_dedup.sql"
         "saa.enforcerId" "E13"
     }
 }
@@ -127,7 +127,7 @@ enforcer_E39 = element "E39" "Enforcer" "RunContext SPI exposes traceId() : Stri
         "saa.view" "logical"
         "saa.status" "shipped"
         "saa.owner" "architecture"
-        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/RunContextIdentityAccessorsTest.java"
+        "saa.sourceFile" "agent-runtime/src/test/java/com/huawei/ascend/runtime/architecture/RunContextIdentityAccessorsTest.java"
         "saa.enforcerId" "E39"
     }
 }
@@ -140,7 +140,7 @@ enforcer_E44 = element "E44" "Enforcer" "No class under agent-runtime/main attem
         "saa.view" "development"
         "saa.status" "shipped"
         "saa.owner" "architecture"
-        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/SpanTenantAttributeRequiredTest.java"
+        "saa.sourceFile" "agent-runtime/src/test/java/com/huawei/ascend/runtime/architecture/SpanTenantAttributeRequiredTest.java"
         "saa.enforcerId" "E44"
     }
 }
@@ -210,7 +210,7 @@ enforcer_E69 = element "E69" "Enforcer" "every Flyway migration creating a table
     }
 }
 
-enforcer_E74 = element "E74" "Enforcer" "every concrete Orchestrator implementation in agent-service/src/main depends on com.huawei.ascend.runtime.engine.runtime.EngineRegistry -- dispatch authority is centralised; pattern-matching on Exe..." "SAA Enforcer" {
+enforcer_E74 = element "E74" "Enforcer" "every concrete Orchestrator implementation in agent-runtime/src/main depends on com.huawei.ascend.runtime.engine.runtime.EngineRegistry -- dispatch authority is centralised; pattern-matching on Exe..." "SAA Enforcer" {
     properties {
         "saa.id" "ENF-E74"
         "saa.kind" "archunit"
@@ -218,12 +218,12 @@ enforcer_E74 = element "E74" "Enforcer" "every concrete Orchestrator implementat
         "saa.view" "development"
         "saa.status" "shipped"
         "saa.owner" "architecture"
-        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/runtime/engine/runtime/EnginePayloadDispatchOnlyViaRegistryTest.java#every_orchestrator_implementation_depends_on_engine_registry"
+        "saa.sourceFile" "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/runtime/EnginePayloadDispatchOnlyViaRegistryTest.java#every_orchestrator_implementation_depends_on_engine_registry"
         "saa.enforcerId" "E74"
     }
 }
 
-enforcer_E79 = element "E79" "Enforcer" "every concrete GraphExecutor / AgentLoopExecutor implementation under agent-service/src/main exposes a hookSurface() method (default empty allowed) -- structural pre-condition for the EngineHookSur..." "SAA Enforcer" {
+enforcer_E79 = element "E79" "Enforcer" "every concrete GraphExecutor / AgentLoopExecutor implementation under agent-runtime/src/main exposes a hookSurface() method (default empty allowed) -- structural pre-condition for the EngineHookSur..." "SAA Enforcer" {
     properties {
         "saa.id" "ENF-E79"
         "saa.kind" "archunit"
@@ -231,7 +231,7 @@ enforcer_E79 = element "E79" "Enforcer" "every concrete GraphExecutor / AgentLoo
         "saa.view" "development"
         "saa.status" "shipped"
         "saa.owner" "architecture"
-        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/runtime/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java#every_executor_adapter_exposes_hook_surface"
+        "saa.sourceFile" "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java#every_executor_adapter_exposes_hook_surface"
         "saa.enforcerId" "E79"
     }
 }
@@ -262,7 +262,7 @@ enforcer_E89 = element "E89" "Enforcer" "The Phase 3a section 5 Cross-Rule Co-De
     }
 }
 
-enforcer_E105 = element "E105" "Enforcer" "Every public record under agent-service/src/main/java/com/huawei/ascend/service/(runtime,task,session)/ declares a String tenantId component (relocated from agent-runtime-core per ADR-0088 rc13 dis..." "SAA Enforcer" {
+enforcer_E105 = element "E105" "Enforcer" "Every public record under agent-runtime/src/main/java/com/huawei/ascend/service/(runtime,task,session)/ declares a String tenantId component (relocated from agent-runtime-core per ADR-0088 rc13 dis..." "SAA Enforcer" {
     properties {
         "saa.id" "ENF-E105"
         "saa.kind" "gate-script"

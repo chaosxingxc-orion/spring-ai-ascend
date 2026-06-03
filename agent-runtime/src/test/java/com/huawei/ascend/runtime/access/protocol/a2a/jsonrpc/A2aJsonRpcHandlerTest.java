@@ -1,16 +1,16 @@
-package com.huawei.ascend.service.access.protocol.a2a.jsonrpc;
+package com.huawei.ascend.runtime.access.protocol.a2a.jsonrpc;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.huawei.ascend.service.access.core.AccessSubmissionService;
-import com.huawei.ascend.service.access.model.AccessAcceptedResponse;
-import com.huawei.ascend.service.access.protocol.a2a.A2aAccessProperties;
-import com.huawei.ascend.service.access.protocol.a2a.egress.A2aOutput;
-import com.huawei.ascend.service.access.protocol.a2a.egress.A2aOutputHandle;
-import com.huawei.ascend.service.access.protocol.a2a.egress.A2aOutputRegistry;
-import com.huawei.ascend.service.access.protocol.a2a.egress.A2aTaskMapper;
-import com.huawei.ascend.service.schema.AgentRequest;
+import com.huawei.ascend.runtime.access.core.AccessSubmissionService;
+import com.huawei.ascend.runtime.access.model.AccessAcceptedResponse;
+import com.huawei.ascend.runtime.access.protocol.a2a.A2aAccessProperties;
+import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutput;
+import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputHandle;
+import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputRegistry;
+import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aTaskMapper;
+import com.huawei.ascend.runtime.schema.AgentRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

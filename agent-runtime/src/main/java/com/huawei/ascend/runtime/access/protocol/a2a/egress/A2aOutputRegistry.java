@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.access.protocol.a2a.egress;
+package com.huawei.ascend.runtime.access.protocol.a2a.egress;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;

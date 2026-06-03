@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.engine.spi;
+package com.huawei.ascend.runtime.dispatch.spi;
 
 import java.util.stream.Stream;
 

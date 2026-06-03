@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.runtime.architecture;
+package com.huawei.ascend.runtime.architecture;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;

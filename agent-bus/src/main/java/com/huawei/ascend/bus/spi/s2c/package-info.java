@@ -1,7 +1,7 @@
 /**
  * agent-bus server-to-client (S2C) callback SPI — owned by the Bus & State
  * Hub plane (agent-runtime-core dissolution; relocated here
- * from {@code com.huawei.ascend.service.runtime.s2c.spi}).
+ * from {@code com.huawei.ascend.runtime.s2c.spi}).
  *
  * <p>Authority: ADR-0074 (S2C Capability Callback Protocol); ADR-0088
  * (ownership move to agent-bus). Contract schema lives at

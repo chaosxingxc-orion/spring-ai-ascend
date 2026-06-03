@@ -8,7 +8,7 @@
  * KV store).
  *
  * <p>The pre-existing {@code GraphMemoryRepository} (M4 reference)
- * in {@code com.huawei.ascend.service.runtime.memory.spi} remains
+ * in {@code com.huawei.ascend.runtime.memory.spi} remains
  * in place at L0 for backward compatibility; a follow-up wave may
  * migrate it here once the runtime kernel's coupling to it is
  * documented.

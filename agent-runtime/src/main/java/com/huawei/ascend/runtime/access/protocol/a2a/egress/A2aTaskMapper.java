@@ -1,7 +1,7 @@
-package com.huawei.ascend.service.access.protocol.a2a.egress;
+package com.huawei.ascend.runtime.access.protocol.a2a.egress;
 
-import com.huawei.ascend.service.access.protocol.a2a.model.A2aAcceptedResponse;
-import com.huawei.ascend.service.access.protocol.a2a.model.A2aTaskQueryParams;
+import com.huawei.ascend.runtime.access.protocol.a2a.model.A2aAcceptedResponse;
+import com.huawei.ascend.runtime.access.protocol.a2a.model.A2aTaskQueryParams;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

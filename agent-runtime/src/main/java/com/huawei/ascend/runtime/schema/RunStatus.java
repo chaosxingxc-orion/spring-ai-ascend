@@ -1,4 +1,4 @@
-package com.huawei.ascend.service.schema;
+package com.huawei.ascend.runtime.schema;
 
 /**
  * Canonical run lifecycle status, aligned with the agentscope-runtime

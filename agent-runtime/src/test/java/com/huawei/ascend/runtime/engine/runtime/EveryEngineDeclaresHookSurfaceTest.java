@@ -34,7 +34,7 @@ class EveryEngineDeclaresHookSurfaceTest {
 
     private static final JavaClasses RUNTIME_MAIN = new ClassFileImporter()
             .withImportOption(new ImportOption.DoNotIncludeTests())
-            .importPackages("com.huawei.ascend.service.runtime");
+            .importPackages("com.huawei.ascend.runtime");
 
     private static final ArchCondition<JavaClass> DECLARE_HOOK_SURFACE =
             new ArchCondition<>("declare a non-null EngineHookSurface (default empty allowed)") {
