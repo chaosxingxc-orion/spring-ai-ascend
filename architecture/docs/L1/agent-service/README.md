@@ -16,6 +16,8 @@ authority: "ADR-0078 (agent-service consolidation) + ADR-0068 (Layered 4+1) + AD
 > Module-root L1 spec: [`ARCHITECTURE.md`](ARCHITECTURE.md) carries shipped-state grounding + cross-links here.
 > Front-matter declares full 4+1 coverage per AUD-2026-05-27 PR77-P2-3 closure.
 
+> **ADR-0159 status (2026-06-03):** `agent-service` is re-founded as the **serviceization façade skeleton** (registration/discovery deferred). The runtime design captured in this 4+1 tree (access, session/task, engine dispatch, internal queue, translation intercept) was **consolidated into `agent-runtime`** (`com.huawei.ascend.runtime.*`); these views are retained as the runtime L1 design **pending physical migration to `architecture/docs/L1/agent-runtime/`**.
+
 ## 0. Why this directory exists
 
 The rc53 4+1 rewrite landed the agent-service Logical / Process / Physical /
@@ -84,7 +86,7 @@ authored:
 
 - L0: root [`ARCHITECTURE.md`](../../L0/ARCHITECTURE.md) — platform-level 4+1
 - L1 module root: [`ARCHITECTURE.md`](ARCHITECTURE.md) — shipped-state grounding + dependencies + wave plan
-- Sibling L1 modules: [`agent-bus`](../agent-bus/README.md) · [`agent-client`](../agent-client/README.md) · [`agent-evolve`](../agent-evolve/README.md) · [`agent-execution-engine`](../agent-execution-engine/README.md) · [`agent-middleware`](../agent-middleware/README.md)
+- Sibling L1 modules: [`agent-bus`](../agent-bus/README.md) · [`agent-client`](../agent-client/README.md) · [`agent-evolve`](../agent-evolve/README.md) · [`agent-runtime`](../agent-runtime/README.md) · [`agent-middleware`](../agent-middleware/README.md)
 - L2: TBD — first L2 design will likely cover (a) Postgres RLS migration sequence, (b) Reactive Orchestrator backpressure protocol, (c) Run lifecycle extended for Session decoupling (per review §20 L2 zones)
 - Rule cards: [G-1](../../../../docs/governance/rules/rule-G-1.md), [G-1.1](../../../../docs/governance/rules/rule-G-1.1.md), [G-13](../../../../docs/governance/rules/rule-G-13.md), [R-C.2](../../../../docs/governance/rules/rule-R-C.2.md), [R-E](../../../../docs/governance/rules/rule-R-E.md), [R-J](../../../../docs/governance/rules/rule-R-J.md), [R-M](../../../../docs/governance/rules/rule-R-M.md)
 - Defect families: [`recurring-defect-families.md`](../../../../docs/governance/recurring-defect-families.md) — see entries #5, #8, #21-27 for rc55-related families.

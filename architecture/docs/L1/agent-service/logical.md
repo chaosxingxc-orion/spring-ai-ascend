@@ -48,7 +48,7 @@ flowchart TB
         end
     end
 
-    runtime_ext["External Runtime<br/>agent-execution-engine: GraphExecutor / AgentLoopExecutor /<br/>future LangChain/LlamaIndex shells (impl rc23+)"]
+    runtime_ext["External Runtime<br/>agent-runtime: GraphExecutor / AgentLoopExecutor /<br/>future LangChain/LlamaIndex shells (impl rc23+)"]
     middleware_ext["External Middleware<br/>agent-middleware: Memory / Sandbox / MCP / ModelGateway"]
     bus_ext["Three-Track Bus<br/>agent-bus: control / data / rhythm channels<br/>(bus-channels.yaml manifest; Rule R-E)"]
 

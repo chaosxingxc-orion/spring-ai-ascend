@@ -11,7 +11,7 @@ authority: "ADR-0143 (rc55 — canonical 4+1 source moved here) + ADR-0099 (rc22
 > Authoring source: `ARCHITECTURE.md` §SPI Interface Appendix + rc53 review file §19, ported in rc55 W5 with corrections:
 >
 > - **M4** (`F-cross-authority-agreement`): the SPI table uses the canonical `TaskStateStore` name (matches `module-metadata.yaml#spi_packages` + shipped Java `service.task.spi.TaskStateStore`); the legacy `TaskRepository` prose in ARCHITECTURE.md §11 is wrong and corrected during rc55 W2.
-> - **M10** (`F-spi-package-bloat-with-carriers`): the rc55 cited surface was MIS-IDENTIFIED in the original audit — `service.runtime.memory.spi` has 1 interface + 0 carriers (clean) per the rc55 W0 sibling sweep. The actual offenders are 12 OTHER `*.spi.*` packages across agent-middleware + agent-execution-engine + agent-service per the sibling-sweep report; the systemic Java refactor is OUT OF SCOPE for rc55 and DEFERRED to a follow-up impl-mode wave. §3 of this appendix documents the systemic gap.
+> - **M10** (`F-spi-package-bloat-with-carriers`): the rc55 cited surface was MIS-IDENTIFIED in the original audit — `service.runtime.memory.spi` has 1 interface + 0 carriers (clean) per the rc55 W0 sibling sweep. The actual offenders are 12 OTHER `*.spi.*` packages across agent-middleware + agent-runtime + agent-service per the sibling-sweep report; the systemic Java refactor is OUT OF SCOPE for rc55 and DEFERRED to a follow-up impl-mode wave. §3 of this appendix documents the systemic gap.
 > - **Rule G-1.1.b** (4-way parity): every active SPI FQN listed below appears in `agent-service/module-metadata.yaml#spi_packages` AND `docs/contracts/contract-catalog.md` §2 Active SPI interfaces AND `docs/dfx/agent-service.yaml#spi_packages` AND exists as a `public interface` `.java` file on disk.
 > - **v1.2 absorption (ADR-0155, 2026-05-28)**: §4 added with 5 new SPI interface entries (rows 10–14) and the `InjectionMode` enum carrier; 4-way parity restored in the same PR.
 
@@ -139,15 +139,15 @@ agent-service CONSUMES SPIs from the modules declared in
 | SPI consumed | Source module | Source package | Purpose |
 |---|---|---|---|
 | `EnginePort`, `Orchestrator`, `RunContext`, `ExecutionContext`, `Checkpointer`, `SuspendSignal`, `TraceContext`, `ExecutorDefinition`, `RunMode` | `agent-bus` | `bus.spi.engine` | Neutral orchestration/engine SPI (re-homed to agent-bus per ADR-0158 — transport-agnostic EnginePort boundary) |
-| `ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException` | `agent-execution-engine` | `engine.spi` | Engine adapter SPI (per ADR-0079 extraction) |
-| `EngineRegistry`, `EngineEnvelope` | `agent-execution-engine` | `engine.runtime` | Engine registry + envelope (relocated to engine.runtime per ADR-0090) |
+| `ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException` | `agent-runtime` | `engine.spi` | Engine adapter SPI (per ADR-0079 extraction) |
+| `EngineRegistry`, `EngineEnvelope` | `agent-runtime` | `engine.runtime` | Engine registry + envelope (relocated to engine.runtime per ADR-0090) |
 | `S2cCallbackEnvelope`, `S2cCallbackResponse`, `S2cCallbackTransport` | `agent-bus` | `bus.spi.s2c` | S2C transport SPI (relocated to agent-bus per ADR-0088) |
 | `IngressGateway`, `IngressEnvelope` | `agent-bus` | `bus.spi.ingress` | Ingress gateway SPI (per ADR-0089; design_only at W1) |
 | `HookPoint`, `HookContext`, `HookOutcome`, `RuntimeMiddleware`, `HookDispatcher` | `agent-middleware` | `middleware.spi` | Hook chain SPI (cross-cutting middleware; per ADR-0073) |
 | `Skill`, `SkillRegistry`, `SkillContext`, `SkillKind` | `agent-middleware` | `middleware.skill.spi` | Skill SPI (per ADR-0127) |
 | `MemoryStore`, `ConversationMemory`, `KnowledgeMemoryStore`, `SemanticMemoryStore`, `MemoryReader`, `MemoryWriter` | `agent-middleware` | `middleware.memory.spi` | Memory SPI (per ADR-0123) |
 | `ModelGateway` + carriers | `agent-middleware` | `middleware.model.spi` | Model invocation SPI (per ADR-0121 + ADR-0129 streaming) |
-| `Planner` + carriers | `agent-execution-engine` | `engine.planner.spi` | Planner SPI (per ADR-0126) |
+| `Planner` + carriers | `agent-runtime` | `engine.planner.spi` | Planner SPI (per ADR-0126) |
 | `ChatAdvisor`, `AdvisorChain`, `StreamingChatAdvisor` | `agent-middleware` | `middleware.advisor.spi` | Tool-shaping interceptor SPI (per ADR-0132); consumed in Layer 5b |
 | `PromptTemplate` + `RenderedPrompt` | `agent-middleware` | `middleware.prompt.spi` | Prompt rendering SPI (per ADR-0131); consumed in Layer 5b |
 | `StructuredOutputConverter<T>` | `agent-middleware` | `middleware.model.spi` | Typed-bean extraction SPI (per ADR-0130); consumed in Layer 5b |

@@ -15,7 +15,7 @@ authority: "ADR-0143 (rc55 — canonical 4+1 source moved here) + ADR-0078 (cons
 | Plane | Modules deployed | agent-service responsibility | Posture defaults |
 |---|---|---|---|
 | **Edge Access** | (agent-client SDK, W3+ — not yet shipped) | Receives inbound HTTP/gRPC/A2A. Layer 1 Access Layer is the inbound boundary FOR THIS MODULE. No edge-only code lives in agent-service. | n/a (agent-service is not deployed on the edge plane) |
-| **Compute & Control** | `agent-service` (this module), `agent-execution-engine` (consumed cross-module) | Hosts Layer 1-5. Runs the Run aggregate, RunStateMachine CAS, all Orchestrator/ExecutorAdapter execution. `deployment_plane: compute_control` per `agent-service/module-metadata.yaml`. | Posture-gated startup per `PostureBootGuard` (ADR-0058): research/prod fail-closed if any required-config matrix entry is missing. |
+| **Compute & Control** | `agent-service` (this module), `agent-runtime` (consumed cross-module) | Hosts Layer 1-5. Runs the Run aggregate, RunStateMachine CAS, all Orchestrator/ExecutorAdapter execution. `deployment_plane: compute_control` per `agent-service/module-metadata.yaml`. | Posture-gated startup per `PostureBootGuard` (ADR-0058): research/prod fail-closed if any required-config matrix entry is missing. |
 | **Bus & State Hub** | `agent-bus` (consumed cross-module) | Layer 3 Internal Event Queue `(design_only — ADR-0141)` is a BINDING layer over agent-bus's three physical channels. No bus-side code lives in agent-service yet. | n/a (agent-service binds to but does not host the bus plane) |
 | **Sandbox Execution** | `agent-middleware` (consumed cross-module — Sandbox SPI) | agent-service routes untrusted code execution requests to the Sandbox SPI in agent-middleware. Layer 4 RuntimeMiddleware chain enforces the route. | Posture-gated; research/prod reject any sandbox-bypass attempt at boot per `PostureBootGuard`. |
 | **Evolution** | `agent-evolve` (consumed cross-module — SlowTrackJudge SPI rc26) | agent-service emits RunEvent variants (per ADR-0145) with `EvolutionExport` discriminator; the Evolution plane consumes IN_SCOPE / OPT_IN events for the SlowTrackJudge feedback loop. OUT_OF_SCOPE events MUST NOT be persisted by the evolution plane (Rule R-M.e). | n/a (agent-service produces; agent-evolve consumes) |
@@ -28,7 +28,7 @@ authority: "ADR-0143 (rc55 — canonical 4+1 source moved here) + ADR-0078 (cons
   default deployment mode.
 - **Mode B (Business-Centric)**: `agent-service` deploys on the
   business department's servers / client devices alongside
-  `agent-execution-engine` for zero-latency local execution loops.
+  `agent-runtime` for zero-latency local execution loops.
   The Compute & Control plane is hosted by the business unit. Used
   for latency-critical or data-sovereignty-sensitive scenarios.
 
@@ -137,7 +137,7 @@ check.
 ```mermaid
 flowchart LR
     edge["Edge Access<br/>(W3+ agent-client SDK)"]
-    cc["Compute & Control<br/>(agent-service + agent-execution-engine)"]
+    cc["Compute & Control<br/>(agent-service + agent-runtime)"]
     bus["Bus & State Hub<br/>(agent-bus 3-track channels)"]
     sandbox["Sandbox Execution<br/>(agent-middleware)"]
     evolution["Evolution<br/>(agent-evolve)"]

@@ -43,9 +43,9 @@ features; their edges are in `engineering-frames.dsl`).
 
 | Module (plane) | EngineeringFrames |
 |---|---|
-| `agent-service` (compute_control) | `EF-ACCESS-ADMISSION`, `EF-SESSION-TASK-STATE`, `EF-TASK-CONTROL`, `EF-ENGINE-DISPATCH` (design-only), `EF-INTERNAL-EVENT-QUEUE` (design-only), `EF-TRANSLATION-INTERCEPT` (design-only) |
+| `agent-runtime` (compute_control) | `EF-ACCESS-ADMISSION`, `EF-SESSION-TASK-STATE`, `EF-TASK-CONTROL`, `EF-ENGINE-DISPATCH` (design-only), `EF-INTERNAL-EVENT-QUEUE` (design-only), `EF-TRANSLATION-INTERCEPT` (design-only), `EF-ENGINE-REGISTRY` |
 | `agent-bus` (bus_state) | `EF-INGRESS-GATEWAY`, `EF-S2C-TRANSPORT`, `EF-CHANNEL-ISOLATION` (design-only), `EF-ENGINE-PORT` (design-only), `EF-ORCHESTRATION-SPI` (design-only) |
-| `agent-execution-engine` (compute_control) | `EF-ENGINE-REGISTRY` |
+| `agent-service` (serviceization façade) | registration/discovery frames deferred (ADR-0159) |
 | `agent-middleware` (compute_control) | `EF-HOOK-SURFACE`, `EF-CAPABILITY-SPI` |
 | `agent-client` (edge, skeleton) | `EF-CLIENT-INGRESS-ADAPTER` |
 | `agent-evolve` (evolution, skeleton) | `EF-EVOLUTION-EXPORT` |
@@ -98,7 +98,7 @@ Read in this order so the durable anchor is understood before the demand list:
 ## Authority
 
 - ADR-0157 — EngineeringFrame Ontology (this concept).
-- ADR-0158 — EnginePort Transport-Agnostic Boundary (re-homes `EF-ORCHESTRATION-SPI` from `agent-execution-engine` to `agent-bus`; adds `EF-ENGINE-PORT` owned by `agent-bus`).
+- ADR-0158 — EnginePort Transport-Agnostic Boundary (re-homes `EF-ORCHESTRATION-SPI` from `agent-runtime` to `agent-bus`; adds `EF-ENGINE-PORT` owned by `agent-bus`).
 - ADR-0138 — agent-service five-layer L1 ratification (the six re-tagged frames originate here).
 - ADR-0147 — Structurizr Workspace Authority (profile tag + relationship home).
 - ADR-0156 — Product Authority and Traceability (claims bind to the value axis).

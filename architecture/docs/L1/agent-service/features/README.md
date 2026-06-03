@@ -33,7 +33,7 @@ Catalog template (ADR-0151).
 
 **Development paths:**
 - `agent-service/src/main/java/com/huawei/ascend/service/runtime/engine`
-- `agent-execution-engine/src/main/java`
+- `agent-runtime/src/main/java`
 
 **Source ADR:** `ADR-0088`
 
@@ -161,7 +161,7 @@ commands after auto-modifying the feature's owning code.
 
 **Verification commands:**
 - `./mvnw -pl agent-service -am verify`
-- `./mvnw -pl agent-execution-engine -am verify`
+- `./mvnw -pl agent-runtime -am verify`
 
 ### `FEAT-IDEMPOTENCY-AND-REPLAY`
 

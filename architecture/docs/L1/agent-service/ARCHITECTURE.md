@@ -16,6 +16,8 @@ authority: "ADR-0078 (agent-service consolidation) + ADR-0068 (Layered 4+1) + AD
 > Governing rule: Rule R-C — Code-as-Contract (formerly Rule 28; ADR-0059 + ADR-0086 namespace ratchet).
 > Every constraint below maps to at least one row in `docs/governance/enforcers.yaml`.
 
+> **ADR-0159 status (2026-06-03):** `agent-service` is re-founded as the **enterprise serviceization façade skeleton** (registration/discovery deferred to a dedicated ADR). The HTTP edge + cognitive runtime kernel documented below were **consolidated into `agent-runtime`** (package root `com.huawei.ascend.runtime.*`); the Run lifecycle kernel is now a design target there. This file is **retained as the runtime L1 design pending physical migration to `architecture/docs/L1/agent-runtime/`** — every `agent-service/src/...` path and `service.{platform,runtime}.*` package referenced below describes code **relocated to `agent-runtime` per ADR-0159**. agent-runtime owns it now; agent-service is the façade.
+
 ## 0.5 Canonical L1 4+1 View Source (rc55 materialization — ADR-0143)
 
 The canonical 4+1 view of this module (Scenarios + Logical + Process + Development + Physical) lives as 5 per-view files under `docs/L1/agent-service/`, per [ADR-0143](../docs/adr/0143-review-log-demotion-l1-canonical-move.yaml):
@@ -34,11 +36,11 @@ The §1+ prose below is **shipped-state grounding** for the agent-service module
 
 ## 1. Purpose
 
-`agent-service` is the **consolidated edge + kernel module**. It owns the HTTP edge — accepting requests, binding them to a tenant, validating idempotency keys, validating JWT, and serving `/v1/runs` (subpackage `com.huawei.ascend.service.platform.*`, formerly `com.huawei.ascend.platform.*`) — AND it owns the **cognitive runtime kernel** that drives LLMs through tool-calling loops, runs the Run state machine, and dispatches engine envelopes (subpackage `com.huawei.ascend.service.runtime.*`, formerly `com.huawei.ascend.runtime.*`), all within a single deployable. The HTTP edge **trusts the kernel only via the kernel's published SPI surface** (Run repository, Orchestrator, RunRepository), preserving the original platform↛runtime layering as a sub-package invariant enforced by Rule R-C.e (formerly Rule 21, ADR-0078). See `docs/adr/0078-agent-service-consolidation.yaml` for the merger rationale (supersedes ADR-0055, extends ADR-0066, relates_to ADR-0026).
+Historically (pre-ADR-0159), `agent-service` was the **consolidated edge + kernel module**: it owned the HTTP edge — accepting requests, binding them to a tenant, validating idempotency keys, validating JWT, and serving `/v1/runs` (subpackage `com.huawei.ascend.service.platform.*`, formerly `com.huawei.ascend.platform.*`) — AND the **cognitive runtime kernel** that drives LLMs through tool-calling loops, runs the Run state machine, and dispatches engine envelopes (subpackage `com.huawei.ascend.service.runtime.*`, formerly `com.huawei.ascend.runtime.*`), all within a single deployable. Per **ADR-0159** that entire runtime — edge + kernel — is **consolidated into `agent-runtime`** (`com.huawei.ascend.runtime.*`), and `agent-service` is re-founded as the serviceization façade skeleton; the description below documents that relocated runtime design pending its physical migration to `architecture/docs/L1/agent-runtime/`. The HTTP edge **trusts the kernel only via the kernel's published SPI surface** (Run repository, Orchestrator, RunRepository), preserving the original platform↛runtime layering as a sub-package invariant enforced by Rule R-C.e (formerly Rule 21, ADR-0078). See `docs/adr/0078-agent-service-consolidation.yaml` for the merger rationale (supersedes ADR-0055, extends ADR-0066, relates_to ADR-0026).
 
 ## 2. Shipped components
 
-> Path convention: every Java path below is rooted at `agent-service/src/main/java/com/huawei/ascend/service/{platform,runtime}/...` **except where explicitly noted as living in `agent-bus` (neutral orchestration/engine SPI: `bus.spi.engine`, re-homed per ADR-0158; and S2C transport SPI: `bus.spi.s2c`, relocated from the dissolved agent-runtime-core per ADR-0088) or `agent-execution-engine` (engine adapter SPI: `engine.spi`, plus the `InProcessEnginePort` realization per ADR-0158)**. The engine SPI surface and the S2C SPI types were extracted to their own modules at the rc5 wave (2026-05-18) per ADR-0079; the transient kernel-shim module `agent-runtime-core` was dissolved in rc13 (2026-05-20) per ADR-0088 and its sources redistributed to semantic-home modules; ADR-0158 then re-homed the neutral orchestration/engine SPI to `agent-bus` as `bus.spi.engine` — see §2.B `runtime / orchestration` below. Test paths mirror the layout under `src/test/java/`.
+> Path convention: every Java path below is rooted at `agent-service/src/main/java/com/huawei/ascend/service/{platform,runtime}/...` **except where explicitly noted as living in `agent-bus` (neutral orchestration/engine SPI: `bus.spi.engine`, re-homed per ADR-0158; and S2C transport SPI: `bus.spi.s2c`, relocated from the dissolved agent-runtime-core per ADR-0088) or `agent-runtime` (engine adapter SPI: `engine.spi`, plus the `InProcessEnginePort` realization per ADR-0158)**. The engine SPI surface and the S2C SPI types were extracted to their own modules at the rc5 wave (2026-05-18) per ADR-0079; the transient kernel-shim module `agent-runtime-core` was dissolved in rc13 (2026-05-20) per ADR-0088 and its sources redistributed to semantic-home modules; ADR-0158 then re-homed the neutral orchestration/engine SPI to `agent-bus` as `bus.spi.engine` — see §2.B `runtime / orchestration` below. Test paths mirror the layout under `src/test/java/`.
 
 ### 2.A Platform-side concerns (subpackage `service.platform.*`)
 
@@ -262,7 +264,7 @@ ADR-0079 (T2.B2) engine-extraction wave (2026-05-18) and the ADR-0158 EnginePort
   `RunContext`, `ExecutionContext`, `SuspendSignal`, `Checkpointer`, `TraceContext`,
   `RunMode`, and the sealed `ExecutorDefinition` hierarchy (`GraphDefinition` |
   `AgentLoopDefinition`).
-- **`agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/`**
+- **`agent-runtime/src/main/java/com/huawei/ascend/engine/spi/`**
   (extracted per ADR-0079) — executor adapters `GraphExecutor`,
   `AgentLoopExecutor`, the unified `ExecutorAdapter`, `EngineHookSurface`, and
   `EngineMatchingException`.
@@ -317,7 +319,7 @@ surface. Translating that decision into `RunStatus.SUSPENDED` is deferred
 to Rule R-K.c (W2 scheduler admission). Chronos Hydration interlock per
 Rule R-H (formerly Rule 38). The `.spi` package home was added at the rc6
 wave (ADR-0080, 2026-05-18) to align the published-SPI surface with Rules
-R-D / 77 / 78 — the same split pattern used by `agent-execution-engine`
+R-D / 77 / 78 — the same split pattern used by `agent-runtime`
 (`engine.spi.*` vs `engine.runtime.*`).
 
 #### runtime / memory -- Memory SPI shell (W0 shell)
@@ -328,22 +330,22 @@ the `spring-ai-ascend-graphmemory-starter` autoconfiguration, which
 points at `com.huawei.ascend.service.runtime.graphmemory.GraphMemoryAutoConfiguration`
 post-Phase-C.
 
-#### runtime / engine -- Engine envelope + registry (W2.x, **consumed from `agent-execution-engine` post-ADR-0079**)
+#### runtime / engine -- Engine envelope + registry (W2.x, **consumed from `agent-runtime` post-ADR-0079**)
 
-`agent-service` **consumes** the `agent-execution-engine` module — the
+`agent-service` **consumes** the `agent-runtime` module — the
 engine SPI surface and the registry/envelope no longer live here. After
 the rc5 wave (2026-05-18) ADR-0079 extraction:
 
 - **Engine SPI surface** (package `com.huawei.ascend.engine.spi.*`,
-  module `agent-execution-engine`): `ExecutorAdapter`, `GraphExecutor`,
+  module `agent-runtime`): `ExecutorAdapter`, `GraphExecutor`,
   `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException`
   — sources live at
-  `agent-execution-engine/src/main/java/com/huawei/ascend/engine/spi/`.
+  `agent-runtime/src/main/java/com/huawei/ascend/engine/spi/`.
 - **Engine registry + envelope home** (package
-  `com.huawei.ascend.engine.runtime.*`, module `agent-execution-engine`):
+  `com.huawei.ascend.engine.runtime.*`, module `agent-runtime`):
   `EngineRegistry`, `EngineEnvelope` record (mirrors
   `docs/contracts/engine-envelope.v1.yaml`) — sources at
-  `agent-execution-engine/src/main/java/com/huawei/ascend/engine/runtime/`
+  `agent-runtime/src/main/java/com/huawei/ascend/engine/runtime/`
   (relocated from the legacy `service/runtime/engine/` path in rc14 per
   ADR-0090; ADR-0079's source-compat exception was retired since rc13
   ADR-0088 already broke any consumer binding to the kernel-shim module).
@@ -360,9 +362,9 @@ Mismatch raises `EngineMatchingException` and transitions the Run to
 FAILED with reason `engine_mismatch` (Rule R-M.b, formerly Rule 44; no
 fallback policy). The intentional split-package arrangement (SPI under
 `engine.spi.*`, registry/envelope under `engine.runtime.*` — both
-inside `agent-execution-engine`; the registry/envelope home was
+inside `agent-runtime`; the registry/envelope home was
 relocated from the legacy `service.runtime.engine.*` package in rc14
-per ADR-0090) is documented in `agent-execution-engine/ARCHITECTURE.md`
+per ADR-0090) is documented in `agent-runtime/ARCHITECTURE.md`
 Status section and protected by Rule 76 (no split SPI packages —
 `engine.spi.*` is owned by exactly one module).
 
@@ -646,18 +648,18 @@ values (keys: `spring-ai.version`, `temporal.version`, `mcp.version`,
   catches it.
 - **Engine extraction landed** (T2.B2, ADR-0079, 2026-05-18; package
   rename completed rc14 per ADR-0090): the engine SPI surface moved to
-  `agent-execution-engine` at `com.huawei.ascend.engine.spi.*`
+  `agent-runtime` at `com.huawei.ascend.engine.spi.*`
   (`ExecutorAdapter` and friends), and `EngineRegistry` + `EngineEnvelope`
   moved to the same module under `com.huawei.ascend.engine.runtime.*`
   (relocated from the legacy `service.runtime.engine.*` package in rc14
   per ADR-0090; ADR-0079's source-compat exception was retired since
   rc13 ADR-0088 already broke any consumer binding to the kernel-shim
   module). The intentional split-package arrangement is documented in
-  `agent-execution-engine/ARCHITECTURE.md` Status section.
+  `agent-runtime/ARCHITECTURE.md` Status section.
   `EngineRegistry.resolve` boundary remains asserted by Rule R-M.a
   (formerly Rule 43)
-  enforcer E84; consumed cross-module via the `agent-execution-engine` (rc13 dissolution per ADR-0088) →
-  `agent-execution-engine` → `agent-service` dependency chain.
+  enforcer E84; consumed cross-module via the `agent-runtime` (rc13 dissolution per ADR-0088) →
+  `agent-runtime` → `agent-service` dependency chain.
 
 ## 10. Roadmap
 
@@ -760,7 +762,7 @@ agent-service/
 NOTE: The new sub-packages (`dispatcher/`, `orchestrator/`, `task/`, `session/`, `engine/{adapter,spi}/`) are DECLARED in rc22 (package-info.java + SPI interfaces only) — bulk Java refactor is rc23 scope per ADR-0100 timeline. The existing `platform/` + `runtime/` sub-packages remain unchanged at rc22.
 
 Mode-A (Platform-Centric per ADR-0101): `agent-service` on platform.
-Mode-B (Business-Centric per ADR-0101): `agent-service` deploys on the business department's servers / client devices alongside `agent-execution-engine` for zero-latency local execution loops.
+Mode-B (Business-Centric per ADR-0101): `agent-service` deploys on the business department's servers / client devices alongside `agent-runtime` for zero-latency local execution loops.
 
 ## *SPI Interface Appendix* (Rule G-1.1.b — rc22 / ADR-0099)
 
@@ -800,4 +802,4 @@ Vacuously green at rc22. Future L2 designs likely include: (a) Run lifecycle sta
 
 ## Deployment loci (rc22 / ADR-0101)
 
-`deployment_loci: [platform_centric, business_centric]` — supports both modes. In Mode-B the module deploys on the business side alongside `agent-execution-engine`.
+`deployment_loci: [platform_centric, business_centric]` — supports both modes. In Mode-B the module deploys on the business side alongside `agent-runtime`.
