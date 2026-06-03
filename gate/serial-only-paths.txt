@@ -13,7 +13,6 @@
 # Format: one path per line, relative to repo root. Comments start with `#`.
 
 gate/build_architecture_graph.sh
-gate/build_claude_md_from_cards.sh
 gate/check_architecture_views.sh
 gate/check_spring_ai_milestone.sh
 gate/doctor.sh

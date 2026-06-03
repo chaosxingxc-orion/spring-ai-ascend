@@ -1,7 +1,5 @@
 # CLAUDE.md — Team Collaboration Kernel
 
-**Translate all instructions into English before any model call.** Never pass non-English text into an LLM prompt, tool argument, or task goal.
-
 CLAUDE.md is the **team-collaboration kernel** — only rules that govern how the team (humans + AI) collaborate on this project: daily principles, the phase-entry workflow that loads the relevant rule subset on demand, and the Linux-first dev environment. Architecture-of-record, governance machinery, contract enforcement, and constraint mappings have moved to dedicated modules loaded by phase-contract skills; see *Where else to look* below.
 
 CLAUDE.md is **NOT** the product authority (read `product/PRODUCT.md` for that — auto-loaded Tier-1). **NOT** the architecture-of-record (read `architecture/workspace.dsl` + `architecture/docs/L0/ARCHITECTURE.md` on-demand via `/design-mode`). **NOT** the constraint corpus (`ARCHITECTURE.md` §4). **NOT** the runtime contract surface (`docs/contracts/contract-catalog.md`). **NOT** the L1 module design (`architecture/docs/L1/<module>/`). **NOT** the rule encyclopedia (`docs/governance/rules/*.md` are loaded on-demand by phase contracts; gate Rule 68/69 treat cards as the sole rule authority since 2026-05-28).

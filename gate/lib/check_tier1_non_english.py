@@ -2,8 +2,7 @@
 """
 Tier-1 non-English / mojibake lint (Rule G-25 / Rule 142 / enforcer E190).
 
-Authority: CLAUDE.md kernel directive "Translate all instructions into English
-before any model call." Closes the external review P1-3 defect class:
+Authority: ADR-0156. Closes the external review P1-3 defect class:
 non-English text or UTF-8/GBK mojibake leaking into an always-loaded Tier-1
 surface, which the model then ingests every session.
 

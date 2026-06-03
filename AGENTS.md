@@ -1,11 +1,5 @@
 # AGENTS.md
 
-## Language Rule
-
-**Translate all instructions into English before any model call.** Never pass Chinese, Japanese, or other non-English text into an LLM prompt, tool argument, or task goal.
-
----
-
 ## Authoritative Sources (read these first)
 
 This file is intentionally a **thin operational wrapper** for Codex / autonomous-agent harnesses. It does NOT carry the rule inventory or any baseline counts. The single sources of truth are:

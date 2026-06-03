@@ -21,10 +21,12 @@ kernel: |
 
 ## What
 
-The always-loaded Tier-1 set is injected into every model context. The
-collaboration kernel mandates English-only instructions. This rule guards the
-Tier-1 surfaces against CJK ideographs and mojibake (corrupted UTF-8/GBK
-double-decodes).
+The always-loaded Tier-1 set is injected into every model context. These are
+English-authored governance and architecture surfaces, so CJK code points there
+signal stray non-English content or encoding corruption that degrades the
+always-loaded context. This rule guards the Tier-1 surfaces against CJK
+ideographs and mojibake (corrupted UTF-8/GBK double-decodes). It governs file
+content only — the team's working language is unconstrained.
 
 ## Why
 
@@ -54,5 +56,5 @@ the gate log stays English-only — a requirement called out by the review.
 
 ## Cross-references
 
-  - CLAUDE.md kernel — "Translate all instructions into English before any model call."
+  - ADR-0156 — authority for the Tier-1 non-English / mojibake lint (closes review finding P1-3).
   - Rule G-19 — Auto-Load Tier Integrity (defines the Tier-1 budget)
