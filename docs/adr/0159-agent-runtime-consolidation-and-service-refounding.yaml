@@ -1,0 +1,159 @@
+id: ADR-0159
+title: "agent-runtime consolidation — the runtime SDK (today mislabelled agent-service) and the execution engine merge into one run-owning agent-runtime module; agent-service is re-founded as the enterprise serviceization façade"
+status: accepted
+product_claim: "PC-004"
+date: 2026-06-03
+level: L1
+view: development
+affects_level: L1
+affects_view: [logical, development, physical, process, scenarios]
+authors:
+  - chao
+extends:
+  - ADR-0101    # polymorphic deployment topology — the three forms are re-characterised, not removed
+  - ADR-0156    # Product Authority — PC-004 multi-framework substrate binding
+relates_to:
+  - ADR-0138    # agent-service five-layer L1 ratification — those layers are re-homed into agent-runtime by this ADR
+  - ADR-0140    # Engine Adapter Layer split (5a/5b) — re-homed into agent-runtime
+  - ADR-0155    # agent-service L1 v1.2 (M1–M6 internal design) — M1–M5 re-home to agent-runtime; M6/edge stays in agent-service
+  - ADR-0158    # transport-agnostic EnginePort boundary — §Decision.5 (engine tenant-neutrality / run-ownership-on-Service) is SUPERSEDED IN PART by this ADR
+supersedes:
+  - ADR-0158    # §Decision.5 ONLY (engine tenant-neutrality / run-ownership-on-Service); all other ADR-0158 decisions stand
+context: |
+  An architecture-team deep read found a severe design↔code divergence at the
+  Service/Engine boundary, and the product owner re-scoped the boundary.
+
+    1. MISLABELLED RUNTIME. The module named `agent-service` is, in code, an
+       embeddable RUNTIME SDK: its entire SPI surface lives under
+       `com.huawei.ascend.service.{runtime,agent,engine,session,task}.*`
+       (Run / RunStateMachine / RunRepository / Orchestrator reference impl /
+       Agent / AgentHandler / AccessLayerClient / TaskControlClient / session /
+       task-control / internal event queue). NOT ONE owned SPI lives under
+       `service.platform.*`. The name "service" hides that this is the runtime a
+       developer is developed-against to drive Agent instances built on
+       heterogeneous agent frameworks.
+
+    2. THE ENGINE IS THE RUNTIME. `agent-execution-engine`
+       (`com.huawei.ascend.engine.*` — ExecutorAdapter / GraphExecutor /
+       AgentLoopExecutor / EngineRegistry / EngineEnvelope / InProcessEnginePort /
+       Planner / reference executors) is the execution core of that same runtime.
+       The split between "engine" and "service-runtime" is an artefact of the
+       rc13 module churn, not a real boundary: `agent-service -> agent-execution-engine`
+       is a one-directional intra-runtime edge.
+
+    3. ADR-0158 §Decision.5 REVERSAL. ADR-0158 deliberately placed Run / tenant /
+       session OWNERSHIP on the Service side and made the engine tenant-neutral so
+       it could be physically extracted, keeping EnginePort "carrying NO
+       tenant/session". The product owner has decided the opposite: the runtime is
+       a first-class, run-owning, tenant-aware runtime; the thin enterprise layer
+       on top only registers, discovers, and drives runtime-built Agent instances.
+       Holding Run/session/tenant on a near-empty "service" while the engine stays
+       neutral is precisely the divergence to remove.
+
+  Verified against the live repo (facts, not prose):
+
+    * `agent-service` owns ~19 SPI/internal-SPI types, all under
+      `service.{runtime,agent,engine,session,task}.*`; `service.platform.*` owns
+      zero SPI (it is controllers / filters / web wiring — the northbound edge).
+    * `agent-execution-engine` owns 5 SPI under `engine.*` plus EngineRegistry /
+      EngineEnvelope / InProcessEnginePort / reference executors.
+    * The neutral EnginePort / Orchestrator / Checkpointer / DefinitionResolver
+      contract already lives in `agent-bus.bus.spi.engine` and is depended on by
+      both modules — it stays there (the product owner keeps the neutral boundary).
+    * Module topology: 6 domain modules + BoM + graphmemory starter. This change is
+      a SWAP (execution-engine → runtime), keeping agent-service, so the reactor
+      count is unchanged.
+decision: |
+  Re-partition the two modules along the real seam (runtime DRIVES, service
+  EXPOSES) and rename to reflect what each actually is.
+
+    1. CREATE `agent-runtime` = `agent-execution-engine` (fully dissolved; the
+       "engine" module identity and its governance footprint — L1 directory,
+       module-metadata, workspace container, contract home_module, dfx — are
+       removed, not preserved as historical scaffolding) PLUS every
+       `agent-service` source package EXCEPT `service.platform`. agent-runtime is a
+       self-contained, independently bootable, developed-against runtime that
+       drives heterogeneous-framework Agent instances and OWNS the Run lifecycle,
+       session, task-control, tenant propagation, internal event queue, engine
+       dispatch, the execution engine, and the planner.
+
+    2. RETAIN `agent-service`, re-founded as the enterprise serviceization façade:
+       the northbound HTTP edge (`service.platform.*` — RunController, JWT/tenant
+       extraction, idempotency, observability) and, in a FUTURE wave under a
+       separate ADR, registration & discovery of runtime-built Agent instances.
+       agent-service depends on agent-runtime; the dependency direction is
+       `agent-service -> agent-runtime -> {agent-bus, agent-middleware}`, no cycle.
+
+    3. FULL package rename for everything that moves into agent-runtime:
+       `com.huawei.ascend.{engine,service.<non-platform>}.* -> com.huawei.ascend.runtime.*`.
+       Retained `agent-service` code stays `com.huawei.ascend.service.*` — now
+       semantically accurate (a real service edge).
+
+    4. SUPERSEDE ADR-0158 §Decision.5 ONLY. The runtime OWNS Run / session /
+       tenant. ADR-0158's neutral, transport-agnostic EnginePort boundary is KEPT
+       (the product owner's explicit choice) and stays in `agent-bus.bus.spi.engine`,
+       but is re-characterised: it is the seam between the serviceization façade
+       (agent-service) and the run-owning runtime (agent-runtime), and it carries
+       tenant / correlation EXPLICITLY rather than claiming neutrality.
+       `InProcessEnginePort` becomes an agent-runtime-internal realization. All
+       other ADR-0158 decisions (the transport-agnostic boundary itself, the three
+       deployment forms, repo-split readiness of the runtime) stand.
+
+    5. RE-HOME the agent-service internal-design ADRs. ADR-0138 (5-layer),
+       ADR-0140 (5a/5b engine-adapter split), and ADR-0155 (M1–M6) described
+       layers/modules INSIDE agent-service; those layers are now INSIDE
+       agent-runtime (M6 Translation/Tool-Intercept and the northbound edge are the
+       agent-service façade's concern). The decisions stand; only their home module
+       changes.
+
+    6. RE-CHARACTERISE the ADR-0101 deployment forms with the new names:
+       Form 2 (co-deployed) = agent-service + agent-runtime in one Spring Boot app;
+       Form 3 (SDK/embedded) = the same jars embedded; Form 1 (centralized) =
+       agent-runtime run standalone, driven by agent-service over a networked
+       EnginePort realization. The runtime stays physically extractable against the
+       neutral `agent-bus` contract.
+
+    7. Registration & discovery (agent-service's future enterprise capability) is
+       DEFERRED to a separate design discussion + ADR. This ADR only RESERVES the
+       responsibility on agent-service; it declares no SPI/contract for it.
+consequences: |
+  Positive
+  --------
+    * The name finally matches the code: agent-runtime IS the run-owning runtime
+      developers drive; agent-service IS a real service edge.
+    * The Run/session/tenant ownership lives with the runtime that uses it,
+      removing the rc13 split artefact and the ADR-0158 §5 neutrality fiction.
+    * The neutral EnginePort boundary is preserved, so the three deployment forms
+      and runtime repo-extraction remain expressible.
+
+  Negative / cost
+  ---------------
+    * Wide mechanical migration: ~130 Java sources change package; contract-catalog
+      SPI + carrier rows, module-metadata spi_packages, enforcers.yaml artifact
+      paths, generated DSL, facts, workspace projection, L0/L1 docs, and the gate's
+      own hardcoded module paths all move in lockstep. Executed as staged waves,
+      each leaving `./mvnw -Pquality verify` + the architecture gate green.
+    * Reverses ADR-0158 §Decision.5; EnginePort is no longer tenant-neutral. The
+      cross-transport conformance goal (ADR-0158 §10) now carries tenant/correlation
+      across the wire explicitly.
+    * The gate's Rule 106(d) regex bans `agent-runtime` as a deleted (rc13) module
+      name; resurrecting the name requires lifting that ban in the same wave that
+      first writes `agent-runtime` into the authority surfaces.
+
+  LOCKSTEP FLAG for the implementation phase
+  ------------------------------------------
+    Touches authority surfaces. Not complete until, in lockstep:
+      * root pom.xml <modules> swaps execution-engine→runtime; agent-runtime and
+        (re-scoped) agent-service module-metadata + dfx land; reactor count stays 6
+        domain / 7 pom (Rule 106(c)).
+      * architecture/workspace.dsl collapses the two containers' arrows onto one
+        agentRuntime container (agent-service stays); generated *.dsl re-emitted
+        byte-identically via AllFragmentsCli (Rule 42); workspace projection
+        re-taken and baseline_metrics updated (workspace gate).
+      * contract-catalog SPI rows + carrier rows (Rule 106(e)) + the by-module SPI
+        table re-home agent-service/agent-execution-engine SPIs to agent-runtime;
+        Rule 95/129/17 SPI-catalog truth stays green.
+      * enforcers.yaml artifact paths + the gate script's hardcoded module paths +
+        Rule 106(d) deleted-name regex update together; recurring-defect-families.yaml
+        gets a substantive same-commit edit per Rule 111 / G-9.b on every wave that
+        touches an ADR or ARCHITECTURE.md.
