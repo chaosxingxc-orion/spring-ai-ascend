@@ -1,9 +1,19 @@
 ---
-level: L0
-view: scenarios
-status: draft
-authority: "Consolidated from archived L0 constraints, docs/architecture/l0 principles/invariants, and reviewed L0 proposals"
-source_of_truth: true
+level: L0-TLD
+TAG:
+  - constraints
+  - invariants
+  - tenant
+  - posture
+  - telemetry
+  - architecture-fact
+status: 架构事实
+dependency:
+  - README.md
+  - overview.md
+  - boundaries.md
+  - governance.md
+  - glossary.md
 ---
 
 # L0 Constraints
@@ -69,14 +79,14 @@ module contributors to integrate agents without platform-team intervention.
 | Platform/business decoupling | Business code extends via SPI and configuration; it does not patch platform internals. |
 | Single lifecycle writer | Runtime execution lifecycle state has one owner and one sanctioned writer path. |
 | Governed tool calls | Tool/skill calls pass through authorization, capacity, idempotency, audit, and observability boundaries. |
-| Governed interruption | User, agent, approval, cancellation, and direction-change interrupts must enter through sanctioned suspend/resume, callback, or control-command paths. |
+| Governed interruption | User, agent, approval, cancellation, and direction-change interrupts must enter through sanctioned service-owned suspend/resume, callback, or control-command paths. |
 | Context through context boundary | Context packages are produced through service/middleware context and memory/retrieval surfaces, not hidden engine logic. |
 | Business state externality | Business systems own business facts; platform records references, traces, and controlled results. |
-| Suspend instead of hold | Long waits use suspend/resume, cursor, or callback rather than retained physical resources. |
+| Suspend instead of hold | Long waits use service-owned suspend/resume, cursor, callback, or cross-boundary rhythm signals rather than retained physical resources. |
 | Trace context propagation | Cross-module execution propagates tenant, trace, and runtime identity. |
 | Side-effect safety | Irreversible side effects require idempotency or duplicate protection plus audit. |
-| Child work visibility | Child execution is correlated under the parent run/task tree or explicit cross-workflow handoff. |
-| Control/data/stream separation | Bus control, service streams, gateway ingress, and object-reference data paths remain separate. |
+| Child work visibility | Child execution is correlated under the parent Task tree or explicit cross-workflow handoff. |
+| Control/data/stream separation | Platform Gateway governance, Service Task API, service realtime streams, `agent-bus` governance, narrow event/control channels, and object-reference data paths remain separate. |
 
 ## System Boundary Constraints
 
@@ -96,22 +106,25 @@ module contributors to integrate agents without platform-team intervention.
 - Generated architecture fragments are not hand-edited.
 - Capability aggregates do not become modules without module admission and ADR
   support.
-- Heterogeneous execution frameworks are integrated through engine adapters,
-  neutral SPI placement, middleware hooks, and contracts; they do not redefine
-  lifecycle state ownership or bypass platform governance.
+- Heterogeneous execution frameworks are integrated through `agent-execution-engine`
+  adapters and the Execution Engine SPI; they do not redefine lifecycle state
+  ownership or bypass platform governance.
 
 ## Runtime Control Constraints
 
 - Entry must bind tenant, actor, idempotency, posture, and trace.
 - Runtime lifecycle transition must go through the sanctioned service/runtime
   owner path.
+- Task dispatch to `agent-execution-engine` must go through `agent-service`; the
+  engine must not pull Tasks directly from bus, broker, external queue, or
+  Platform Gateway surfaces.
 - Engine behavior returns intents or execution results; it does not bypass the
   lifecycle owner.
 - Middleware surfaces enforce model, tool, memory, retrieval, prompt, and hook
   governance.
-- Same-service child work is not outsourced to the bus.
-- Cross-service, cross-department, or cross-deployment A2A control is mediated
-  by bus/federation contracts.
+- Child work inside one `agent-service` instance is not outsourced to the bus.
+- Cross-instance, cross-department, cross-deployment, or cross-trust-boundary
+  A2A control is mediated by bus/federation contracts.
 
 ## Data and State Constraints
 
@@ -121,7 +134,7 @@ module contributors to integrate agents without platform-team intervention.
 - Platform trajectory, checkpoint, trace, audit, and cost evidence are platform
   runtime concerns.
 - Large payloads and multimodal artifacts use data-reference paths rather than
-  bus payloads.
+  narrow event/control channel payloads.
 - Untrusted generated code and unverified third-party tools must route through
   sandbox-governed capacity before stricter postures can treat them as allowed
   execution.

@@ -1,9 +1,18 @@
 ---
-level: L0
-view: logical
-status: draft
-authority: "Consolidated from archived L0 corpus, docs/architecture/l0/00-overview/, and reviewed L0 proposals"
-source_of_truth: true
+level: L0-TLD
+TAG:
+  - overview
+  - logical-view
+  - runtime-path
+  - deployment-variants
+  - architecture-fact
+status: 架构事实
+dependency:
+  - README.md
+  - views.md
+  - boundaries.md
+  - constraints.md
+  - glossary.md
 ---
 
 # L0 Overview
@@ -29,8 +38,10 @@ governance, and change governance.
 It is also an open-source Agent development and runtime foundation aligned with
 the Kunpeng and Ascend ecosystem. The platform is intentionally compatible with
 heterogeneous agent frameworks: rigid workflow-style execution and flexible
-agent-loop execution can be integrated through governed engine, middleware, and
-adapter surfaces instead of a closed single-framework runtime.
+agent-loop execution can be integrated through the `agent-execution-engine`
+boundary instead of a closed single-framework runtime. The official execution
+engine is the openJiuwen implementation. Other agent frameworks are treated as
+heterogeneous execution engines adapted to the same Execution Engine SPI.
 
 The target architecture accepts authenticated tenant requests, drives LLM and
 tool-calling execution with audit-grade evidence, supports long-horizon
@@ -79,10 +90,10 @@ The platform has to solve several long-lived architecture problems:
 | Single state owner | Every core state has one owner and a restricted writer path. |
 | Suspend instead of hold | Long waits are expressed as cursor, suspend, resume, or handoff, not retained physical resources. |
 | Runtime-owned governance | Model, skill, memory, planner, callback, and policy behavior enters through runtime hooks, middleware, capacity, and audit surfaces. |
-| Explicit capability placement | Each tool, context, memory, retriever, approval UI, and A2A action declares where it executes and which data boundary it crosses. |
-| Boundary-mediated A2A | Same-service multi-agent collaboration is closed by `agent-service`; cross-boundary A2A control flows through `agent-bus`. |
-| Control/data/stream separation | Gateway, service SSE, bus control, and object-reference data paths are separate mechanisms. |
-| Heterogeneous framework compatibility | Engines and adapters are loaded through governed SPI and contract surfaces rather than through a closed runtime monopoly. |
+| Explicit capability placement | Each tool, context, memory, retriever, approval UI, Gateway capability, and A2A action declares where it executes and which data boundary it crosses. |
+| Boundary-mediated A2A | Multi-agent collaboration inside one `agent-service` instance is closed by that instance; cross-instance or cross-boundary A2A control flows through `agent-bus`. |
+| Control/data/stream separation | Platform Gateway governance, Service Task API, service realtime stream, `agent-bus` interaction governance, event/control channels, and object-reference data paths are separate mechanisms. |
+| Heterogeneous framework compatibility | Official openJiuwen execution and heterogeneous framework execution both enter through the `agent-execution-engine` boundary and the Execution Engine SPI. |
 | Developer lifecycle support | Development, debugging, observability, operations evidence, and verification harnesses are first-class architecture concerns. |
 | Harness-first development | Core scenarios and invariants should produce mocks, stubs, assertions, and tests before runtime binding is called complete. |
 
@@ -91,22 +102,29 @@ The platform has to solve several long-lived architecture problems:
 ```text
 External Client
   -> agent-client or external HTTP caller
-  -> Gateway capability
+  -> Platform Gateway capability or Service Task API
   -> agent-service.platform
   -> agent-service runtime state owner and reference adapters
-  -> agent-execution-engine and/or neutral engine port
+  -> agent-execution-engine through Execution Engine SPI
   -> agent-middleware for model, skill, memory, retrieval, prompt, and hook surfaces
-  -> agent-bus for ingress, S2C, cross-boundary A2A, federation, control, and rhythm
+  -> agent-bus for Platform Gateway governance, S2C, cross-boundary A2A,
+     federation, control, and rhythm signals
   -> observability, audit, cost attribution, and verification evidence
 ```
 
 For V1, `Task` is the unified server-side authoritative execution lifecycle
 state. It has the same semantic level as an A2A protocol task: it can be created
-or bound by a client-to-server request, or by an `agent-service` request to
-another `agent-service` through an A2A client. `agent-service` owns Task-level
-lifecycle and parent/child state. `agent-execution-engine` owns finer-grained
-execution state below the Task boundary, such as workflow node state or ReAct
-loop state.
+or bound by a client-to-server request, or by an `agent-service` instance request
+to another `agent-service` instance through A2A/federation control.
+
+An `agent-service` instance owns Task-level lifecycle and parent/child state for
+work created inside that instance. Cross-instance, cross-department,
+cross-deployment, or cross-trust-boundary collaboration uses `agent-bus` for
+A2A/federation control. The remote Task lifecycle remains owned by the remote
+`agent-service` instance; the local instance keeps the relationship reference,
+join state, and observability evidence. `agent-execution-engine` owns
+finer-grained execution state below the Task boundary, such as workflow node
+state or ReAct loop state.
 
 ## Deployment Variants
 
@@ -126,12 +144,17 @@ reactor artifacts, or Java packaging units. A logical module may contain several
 runtime units, adapters, services, deployable components, or development
 artifacts below L0.
 
+Future official openJiuwen implementation projects may use community project
+names, such as `agent-runtime-java` for `agent-service` and `agent-core-java` for
+`agent-execution-engine`. Those names describe implementation projects, not new
+L0 logical modules.
+
 | L0 Logical Module | Summary |
 |---|---|
 | `agent-client` | Client-side integration, SDK, local capability endpoint, cursor/callback/SSE consumption, and business-side capability boundary. |
-| `agent-service` | Server-side agent service boundary, Task lifecycle and hierarchy owner, service-side adapters, external realtime stream surfaces, and runtime query surfaces. |
+| `agent-service` | Server-side agent service boundary, Task lifecycle and hierarchy owner, Service Task API, service-side adapters, external realtime stream surfaces, and runtime query surfaces. |
 | `agent-execution-engine` | Execution engine domain for workflow, ReAct, planner, engine adapter, engine registry/envelope, and finer-grained execution state below Task. |
-| `agent-bus` | Access and interaction domain for ingress, S2C, A2A/federation, event/control/rhythm interaction, platform-centralized control, permission, and governance surfaces. |
+| `agent-bus` | Broad platform interaction governance domain for Platform Gateway governance, S2C, A2A/federation, routing, permission mediation, control, rhythm signals, data-reference envelopes, and narrower event/control transport units. |
 | `agent-middleware` | Agent middleware foundation domain for selectable and integrable memory, knowledge, sandbox, skill, tool, model, retrieval, prompt, advisor, and hook services. |
 | `agent-evolve` | Evolution-plane domain for governed export, learning/evaluation loops, optimization, and future ML pipeline integration. |
 

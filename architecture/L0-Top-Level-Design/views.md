@@ -1,9 +1,20 @@
 ---
-level: L0
-view: scenarios
-status: draft
-authority: "Consolidated L0 4+1 view map from archived L0 corpus, architecture/views/, and docs/architecture/l0/architecture-views/"
-source_of_truth: true
+level: L0-TLD
+TAG:
+  - 4+1
+  - logical-view
+  - development-view
+  - process-view
+  - physical-view
+  - scenarios-view
+  - architecture-fact
+status: 架构事实
+dependency:
+  - README.md
+  - overview.md
+  - boundaries.md
+  - constraints.md
+  - glossary.md
 ---
 
 # L0 4+1 Views
@@ -38,7 +49,8 @@ The system is an agent runtime platform with the following L0 logical concepts:
   state.
 - Session, context package, memory, retrieval, and knowledge boundaries.
 - Agent definition, planner, model gateway, skill, hook, and middleware surfaces.
-- S2C callback, A2A control, federation, data-reference path, and rhythm signals.
+- Platform Gateway governance, S2C callback, A2A control, federation,
+  data-reference path, and rhythm signals.
 - Trace, span, audit, cost attribution, and replay-safe evidence.
 - Policy, posture, capacity, sandbox, and idempotency controls.
 
@@ -69,8 +81,8 @@ Generated reactor facts, dependency BoMs, and Java starters are development or
 deployment artifacts. They must be assigned under the relevant logical module or
 build/deployment governance view; they are not additional L0 logical modules.
 
-L1 architecture lives under `architecture/docs/L1/`. L2 technical design lives
-under `architecture/docs/L2/`.
+L1 architecture lives under `architecture/L1-High-Level-Design/`. L2 technical
+design lives under `architecture/L2-Low-Level-Design/`.
 
 ## Process View
 
@@ -80,16 +92,22 @@ The top-level runtime process is:
 2. Entry processing binds tenant, actor, idempotency, posture, and trace context.
 3. The service-side runtime owner creates or locates the Task execution control
    aggregate.
-4. Execution is dispatched through engine/orchestration surfaces.
+4. The `agent-service` Task owner dispatches execution through the Execution
+   Engine SPI; the engine does not pull Tasks directly from bus or Platform
+   Gateway surfaces.
 5. Model, tool, memory, retrieval, prompt, and advisor work enters through
    middleware and hook surfaces.
-6. If local capability, approval, or cross-boundary collaboration is required,
-   the system uses S2C/Yield or A2A/federation control surfaces.
-7. Long waits become suspend/resume, not held physical connections or blocked
-   threads.
-8. External realtime output uses service streaming surfaces such as SSE; bus
-   control does not become token streaming.
-9. Large or sensitive payloads use data-reference paths rather than bus payloads.
+6. If local capability, approval, or cross-instance/cross-boundary
+   collaboration is required, the system uses S2C/Yield or A2A/federation
+   control surfaces.
+7. Long waits become `agent-service`-owned suspend/resume, not held physical
+   connections or blocked threads. Cross-instance wakeup or timing signals may
+   be governed by `agent-bus`.
+8. External realtime output uses service streaming surfaces such as SSE by
+   default; narrow event/control channels do not become token streaming.
+9. Large or sensitive payloads use data-reference paths rather than narrow
+   event/control channel payloads. `agent-bus` may govern the reference envelope,
+   routing metadata, and permission handoff.
 10. Trace, audit, metrics, and cost attribution evidence is emitted throughout.
 
 ## Physical View
@@ -100,15 +118,16 @@ The physical view is governed by deployment mode and trust boundary.
 |---|---|---|
 | Edge / client | Business application or integrating developer | SDK, local capability endpoint, cursor and stream consumption. |
 | Compute control | Platform or business-hosted service | `agent-service`, execution control, engine realization, middleware binding. |
-| Bus and state hub | Platform by default | Ingress, S2C, A2A, federation, rhythm, data-reference envelopes. |
+| Bus and interaction governance | Platform by default | Platform Gateway governance, S2C, A2A/federation, routing, permission mediation, rhythm signals, data-reference envelopes, and narrower event/control transport units. |
 | Middleware / adapters | Platform or configured provider | Model, skill, memory, retrieval, prompt, advisor and hook surfaces. |
 | Sandbox execution | Platform or trusted isolation provider | Untrusted generated code and unverified third-party tools run in isolated sandbox capacity, not in the normal compute-control process. |
 | Evolution | Platform | Governed export and future evolution pipeline integration. |
-| External data path | Customer, object store, provider, or third-party system | Large payloads and business data stay outside bus control messages. |
+| External data path | Customer, object store, provider, or third-party system | Large payloads and business data stay outside narrow event/control messages; `agent-bus` may govern the reference envelope and authorized handoff. |
 
 This refines the five-plane deployment proposal from the 2026-05-14 L0 review:
-edge access, compute/control, bus/state hub, sandbox execution, and evolution are
-separate physical concerns even when early delivery co-locates some of them.
+edge access, compute/control, bus/interaction governance, sandbox execution, and
+evolution are separate physical concerns even when early delivery co-locates
+some of them.
 
 Trust boundaries include:
 
@@ -116,7 +135,7 @@ Trust boundaries include:
 - C-Side to S-Side.
 - Parent to child execution boundary.
 - Task to skill permission boundary.
-- Cross-workflow or cross-service handoff.
+- Cross-workflow, cross-instance, or cross-boundary handoff.
 - Tenant-scoped storage and telemetry replay boundary.
 
 ## Scenarios View
@@ -128,7 +147,7 @@ draft candidates from `docs/architecture/l0/02-scenarios/` are:
 |---|---|---|
 | BA-001 Agent Handles Business Request | End-to-end request, context, tool, model, observability, and developer evidence. | candidate_promote |
 | BA-002 Human Approval Tool Call | Suspend/resume, S2C callback, approval, audit, and tool governance. | candidate_promote |
-| BA-003 Multi-Agent Delegation | Parent/child execution, same-service coordination, A2A/federation boundary, and Task tree. | candidate_promote |
+| BA-003 Multi-Agent Delegation | Parent/child execution, same-instance coordination, A2A/federation boundary, and Task tree. | candidate_promote |
 | S1 Create Task | Entry, idempotency, tenant, initial lifecycle state. | candidate_promote |
 | S2 Execute Agent Step | Engine dispatch and terminal or intermediate execution result. | candidate_promote |
 | S3 Build Context Package | Session, memory, retrieval, and context projection. | candidate_promote |
@@ -142,10 +161,10 @@ the architecture or version scope system.
 
 ## View Outputs
 
-The machine-readable L0 system context view is currently represented by
-`architecture/views/L0-system-context.dsl`.
+This branch does not keep a separate machine-readable L0 workspace authority.
+The L0 view model is recorded here as architecture fact.
 
 Rendered PlantUML and image exports under `docs/architecture/l0/architecture-views/`
 are historical draft delivery views. They may be useful visual references, but
-they should be regenerated from accepted architecture facts before becoming
-canonical.
+they should be regenerated from current architecture facts before being promoted
+back into `architecture/`.
