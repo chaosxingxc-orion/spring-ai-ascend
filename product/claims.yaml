@@ -152,7 +152,7 @@ claims:
       - contract: "docs/contracts/engine-envelope.v1.yaml"
       - contract: "docs/contracts/engine-hooks.v1.yaml"
       - contract: "docs/contracts/s2c-callback.v1.yaml"
-      - module: agent-execution-engine
+      - module: agent-runtime
     success_metric:
       name: distinct_engine_adapters_runnable_side_by_side
       target: ">= 3"

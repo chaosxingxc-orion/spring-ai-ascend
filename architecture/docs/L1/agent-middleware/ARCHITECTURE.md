@@ -103,8 +103,8 @@ The user has pinned the six L1 reactor modules as the grounding architecture and
 | Capability concept | Home in the six modules | Status |
 |---|---|---|
 | **Memory** | `spring-ai-ascend-graphmemory-starter` (SPI consumer) + `agent-service` (`GraphMemoryRepository` SPI surface per ADR-0082); tenant-scoped read/write filters land via THIS module's existing hooks `BEFORE_MEMORY_READ` / `AFTER_MEMORY_WRITE` | shipped (SPI) + W2 (filters) |
-| **Skills** | `agent-execution-engine` (skill registry + `ResilienceContract.resolve(tenant, skill)`) + `agent-service` (capacity governance via `SkillCapacityRegistry`); authz lands via THIS module's `BEFORE_TOOL_INVOCATION` hook | shipped (W1) |
-| **Sandbox** | `agent-execution-engine` (`SandboxExecutor` SPI) + `docs/governance/sandbox-policies.yaml` SSOT per Rule R-L; runtime refusal of over-wide grants deferred per Rule R-L.b | policy shipped, runtime W2 |
+| **Skills** | `agent-runtime` (skill registry + `ResilienceContract.resolve(tenant, skill)`) + `agent-service` (capacity governance via `SkillCapacityRegistry`); authz lands via THIS module's `BEFORE_TOOL_INVOCATION` hook | shipped (W1) |
+| **Sandbox** | `agent-runtime` (`SandboxExecutor` SPI) + `docs/governance/sandbox-policies.yaml` SSOT per Rule R-L; runtime refusal of over-wide grants deferred per Rule R-L.b | policy shipped, runtime W2 |
 | **Knowledge** | DEFERRED to W3+ — no active module owns Knowledge capability service today | deferred |
 
 The substantive insight (capability services are first-class concerns) is accepted. The structural solution (a new module called `agent-middleware`) is rejected. See ADR-0103 for full rationale.

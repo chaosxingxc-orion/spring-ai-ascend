@@ -29,7 +29,7 @@ independent modules in parallel; surefire runs JUnit classes concurrently within
 each fork. Add `-DjunitParallel=false` to debug intermittent test failures.
 
 For a fast inner loop, build just one module and its dependencies:
-`./mvnw -pl agent-execution-engine -am test -q` (see §7 for why this module is
+`./mvnw -pl agent-runtime -am test -q` (see §7 for why this module is
 especially quick).
 
 ## 3. Boot `agent-service`
@@ -266,11 +266,11 @@ Authority: CLAUDE.md Rule D-3 (Evidence-First Debug). The runbook tells you what
 FQN → trace ID → MDC slice → raw error → transition history) BEFORE you open
 `ARCHITECTURE.md`. Spec reading is allowed in step 6, after evidence is recorded.
 
-For library-mode pure-JUnit tests (`./mvnw -pl agent-execution-engine test`),
-the orchestration SPI module runs in under 2 seconds. Use this loop when you
-want sub-second feedback on the SPI value-type algebra. The orchestration SPI
-lives in `agent-execution-engine`; the run + idempotency entities live in
-`agent-service`; the server-to-client transport SPI lives in `agent-bus`.
+For library-mode pure-JUnit tests (`./mvnw -pl agent-runtime test`),
+the engine SPI module runs in under 2 seconds. Use this loop when you
+want sub-second feedback on the SPI value-type algebra. The engine SPI
+lives in `agent-runtime`; the run + idempotency entities (a design target) live in
+`agent-runtime`; the server-to-client transport SPI lives in `agent-bus`.
 
 If anything in this quickstart requires modifying platform source to make it
 work — file an issue tagged `decoupling-defect`. Rule R-A says: developers

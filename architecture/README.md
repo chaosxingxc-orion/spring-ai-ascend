@@ -84,7 +84,7 @@ architecture/
       agent-bus/                 # canonical L1 module directory
       agent-client/
       agent-evolve/
-      agent-execution-engine/
+      agent-runtime/
       agent-middleware/
       graphmemory-starter/
       agent-service/             # full per-view 4+1 directory shape

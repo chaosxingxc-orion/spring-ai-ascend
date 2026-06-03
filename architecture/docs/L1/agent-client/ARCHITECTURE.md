@@ -55,7 +55,7 @@ result checkpoints via Webhook.
   consolidated per ADR-0078; the transient `agent-runtime-core` module
   was dissolved per ADR-0088 with runs / idempotency relocated back to
   `agent-service`), heterogeneous engine selection (lives in
-  `agent-execution-engine`; the neutral orchestration/engine SPI is owned by
+  `agent-runtime`; the neutral orchestration/engine SPI is owned by
   `agent-bus` as `bus.spi.engine` per ADR-0158),
   bus channels (live in `agent-bus`).
 - **No-direct-link clause (rc13 — ADR-0089 / Rule R-I sub-clause .b):**
@@ -68,7 +68,7 @@ result checkpoints via Webhook.
   `forbidden_dependencies`. Promotion of the ingress contract from
   `design_only` to `runtime_enforced` is triggered by the first SDK release.
 - **Forbidden imports:** all compute_control plane modules
-  (`agent-service`, `agent-execution-engine`, `agent-middleware`) +
+  (`agent-service`, `agent-runtime`, `agent-middleware`) +
   `agent-evolve`. `agent-bus` is intentionally NOT forbidden — the SDK
   legitimately *consumes* the `bus.spi.ingress.IngressGateway` interface
   as its sole cross-plane entry point.
@@ -125,7 +125,7 @@ agent-client/
 ```
 
 Mode-A (Platform-Centric per ADR-0101): this module deploys on the business side only; everything else lives on platform.
-Mode-B (Business-Centric per ADR-0101): this module continues to live on the business side; agent-service + agent-execution-engine join it.
+Mode-B (Business-Centric per ADR-0101): this module continues to live on the business side; agent-service + agent-runtime join it.
 
 ## *SPI Interface Appendix* (Rule G-1.1.b — rc22 / ADR-0099)
 

@@ -554,8 +554,8 @@ capabilities:
     l0_decision: docs/adr/0112-engine-stateless-executor-value-based-yield.yaml
     implementation: null
     tests:
-      - planned: agent-execution-engine/src/test/java/com/huawei/ascend/engine/spi/InterruptSignalContractTest.java
-      - planned: agent-execution-engine/src/test/java/com/huawei/ascend/bus/spi/engine/NoCheckedExceptionInSpiArchTest.java
+      - planned: agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/spi/InterruptSignalContractTest.java
+      - planned: agent-runtime/src/test/java/com/huawei/ascend/bus/spi/engine/NoCheckedExceptionInSpiArchTest.java
     allowed_claim: "Current Java carrier state — StatelessEngine.execute returns synchronous StateDelta, and SuspendSignal remains the checked-exception suspension path. Design-forward direction per ADR-0112: introduce a parallel value-based interrupt API that carries nullable InterruptSignal on StateDelta, map A2A InterruptType (5 protocol-wire values) to SuspendReason (7 internal-DFA cases), then deprecate and remove checked suspension in later waves. Current implementation is not Mono<StateDelta>; that reactive/value-based shape is future work."
 
   hook_tie_break_determinism:

@@ -17,7 +17,6 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml ./
 COPY spring-ai-ascend-dependencies/pom.xml ./spring-ai-ascend-dependencies/
-COPY agent-execution-engine/pom.xml ./agent-execution-engine/
 COPY agent-middleware/pom.xml ./agent-middleware/
 COPY agent-bus/pom.xml ./agent-bus/
 COPY agent-client/pom.xml ./agent-client/
@@ -27,7 +26,6 @@ COPY spring-ai-ascend-graphmemory-starter/pom.xml ./spring-ai-ascend-graphmemory
 # Pre-fetch deps to leverage Docker layer cache.
 RUN mvn -B -ntp -pl agent-runtime -am dependency:go-offline -DskipTests
 COPY spring-ai-ascend-dependencies/ ./spring-ai-ascend-dependencies/
-COPY agent-execution-engine/src ./agent-execution-engine/src
 COPY agent-middleware/src ./agent-middleware/src
 COPY agent-bus/src ./agent-bus/src
 COPY agent-client/src ./agent-client/src

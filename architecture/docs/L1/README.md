@@ -27,7 +27,7 @@ Read this directory for "what is this module designed to do?" Read the surfaces 
 | `agent-bus` | [`agent-bus/`](agent-bus/README.md) | Bus & State Hub | active |
 | `agent-client` | [`agent-client/`](agent-client/README.md) | Edge Access | skeleton (W3+) |
 | `agent-evolve` | [`agent-evolve/`](agent-evolve/README.md) | Evolution | skeleton (W3+) |
-| `agent-execution-engine` | [`agent-execution-engine/`](agent-execution-engine/README.md) | Compute & Control | active (SPI + registry) |
+| `agent-runtime` | [`agent-runtime/`](agent-runtime/README.md) | Compute & Control | active (run-owning runtime) |
 | `agent-middleware` | [`agent-middleware/`](agent-middleware/README.md) | Compute & Control | active (SPI) |
 | `agent-service` | [`agent-service/`](agent-service/) | Compute & Control | active (rc55 4+1 per-view) |
 | `spring-ai-ascend-graphmemory-starter` | [`graphmemory-starter.md`](graphmemory-starter/README.md) | Bus & State Hub | active (in-memory ref impl) |
