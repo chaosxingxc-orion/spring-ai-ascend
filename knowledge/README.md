@@ -10,6 +10,12 @@ agents understand the repository. It is deliberately **outside the engineering m
 > *could* want to know. Conflating the two — making every piece of knowledge a binding precondition or a
 > gate — is the defect this system exists to undo. Knowledge is **available unless needed**; governance
 > **applies only when justified**.
+>
+> **Toward query-over-living-system.** The same move applies one level up to the
+> *governance record itself*: counts and projections (`baseline_metrics`, the
+> architecture graph) should be **derived from the living system**, not hand-synced
+> across surfaces — see `docs/reviews/2026-06-04-derive-baseline-metrics-design.zh.md`.
+> Knowledge is a *query capability over what is true now*, not a parallel corpus to keep in sync.
 
 ## What is "knowledge" here — two homes, one search
 

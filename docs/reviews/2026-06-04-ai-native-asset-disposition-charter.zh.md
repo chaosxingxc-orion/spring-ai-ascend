@@ -148,4 +148,23 @@ B 必须对自己也可证伪。它的成功**不是"产出了一份新规约"**
 
 > **若 B 做完没有任何文件被删、没有任何规则被拆、only 新增了文档——那么 B 失败了，它变成了它自己批判的东西。** 这是 B 给自己装的成本函数。
 
-— 完（B 篇）。批准后按 §10 分步执行。
+---
+
+## 12. 自检课正（2026-06-04 执行中发现 —— 覆盖 §4 / §10 / §11 的前提）
+
+执行时做了**仓库级**引用扫描（兜底纪律），**§4 的"孤儿 / 整对退役"前提被证伪**：
+
+- 团队的退役程序退的是**门禁规则**，不是**制品文件**。被点名的制品（skill-capacity / sandbox-policies / evolution-scope / bus-channels / competitive-baselines / evolution-modalities / deployment-loci）**仍被活语料库重度引用**——`docs/contracts/contract-catalog.md`、live `architecture/docs/L1/agent-service/*`、`samples/finance-loan-review`、`product/journey.md`、`deploy/` 模板、ADR-0101/0102。归档或删除会制造**数十处悬挂引用 = bug**。
+- phase contracts / `*-mode` 技能同理：`architecture-design` 28 处、`impl-mode` 42 处 live 引用（CLAUDE.md / CONTRIBUTING / ADR-0119 / PRODUCT.md / persona 文档 / rule-G-11 / dist/skills）。collapse = 制造 bug。
+- `structurizr-w6-sunset` 的 soak **跑到 2026-07-25**，非废弃。
+
+**结论：可安全删除/归档的"残骸" ≈ 0。** §11 的成功判据（"只新增文档 = 失败"）**其前提即错**——它假设存在可移除的承重外残骸，而这些制品其实是**语料承重**的。在 owner 的"自检无 bugs"约束下，正确动作恰恰是 **不删**。
+
+这反而是 **A 篇的硬验证**：架构月把 speculative 概念**织进了**文档语料，已**无法干净切除**。根治不是冒险大删，而是让**运行脊柱 + 派生记录**随时间成为权威（见 `2026-06-04-derive-baseline-metrics-design.zh.md`）。
+
+**本轮实际落地（全部 bug-free）**：
+- W1 `active_gate_checks` 35→32 全面对齐（6 面，grep 零残留）——团队退掉 Rule 82 后留在 main 的真实漂移。
+- 派生设计（design-only）+ 契约 triage 判据/标注（label-only）+ 知识 README 轻量收口。
+- **未执行**（自检判定会制造 bug）：W2/W3/W4/W8 的删除/归档/collapse。
+
+— 完（B 篇 + 自检课正）。
