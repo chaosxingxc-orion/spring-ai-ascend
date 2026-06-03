@@ -44,11 +44,11 @@ sha_candidate="$(git rev-parse --short HEAD 2>/dev/null || echo no-git)"
 
 declare -a manifest_probes=(
   "pom.xml|no Maven build manifest at repo root"
-  "agent-service/pom.xml|no Maven build manifest under agent-service/"
+  "agent-runtime/pom.xml|no Maven build manifest under agent-runtime/"
   "agent-execution-engine/pom.xml|no Maven build manifest under agent-execution-engine/"
 )
 declare -a source_probes=(
-  "agent-service/src/main/java|no source tree under agent-service/"
+  "agent-runtime/src/main/java|no source tree under agent-runtime/"
   "agent-execution-engine/src/main/java|no source tree under agent-execution-engine/"
 )
 missing_json=""
@@ -76,9 +76,9 @@ for entry in "${source_probes[@]}"; do
   fi
 done
 
-# Probe for a built JAR (any version under agent-service/target/).
+# Probe for a built JAR (any version under agent-runtime/target/).
 jar_present=false
-if compgen -G "agent-service/target/agent-service-*.jar" > /dev/null 2>&1; then
+if compgen -G "agent-runtime/target/agent-runtime-*.jar" > /dev/null 2>&1; then
   jar_present=true
 fi
 
@@ -88,7 +88,7 @@ if [[ "$manifests_present" == "false" || "$sources_present" == "false" ]]; then
   message="Rule 8 operator-shape smoke gate fails closed: pom.xml or src tree missing. Pre-cycle-13 state. Architecture-sync evidence does NOT substitute for Rule 8 evidence."
 elif [[ "$jar_present" == "false" ]]; then
   outcome="FAIL_NEEDS_BUILD"
-  message="Rule 8 operator-shape smoke gate fails closed: pom.xml + src present but no built JAR under agent-service/target/. Run 'mvn -B -pl agent-service -am package' to advance. Real Rule 8 flow (long-lived process + N>=3 real-dependency runs) remains a W4 deliverable."
+  message="Rule 8 operator-shape smoke gate fails closed: pom.xml + src present but no built JAR under agent-runtime/target/. Run 'mvn -B -pl agent-runtime -am package' to advance. Real Rule 8 flow (long-lived process + N>=3 real-dependency runs) remains a W4 deliverable."
 else
   outcome="FAIL_NEEDS_REAL_FLOW"
   message="Rule 8 operator-shape smoke gate fails closed: JAR exists but no real-flow run yet. Real Rule 8 flow (long-lived process + real dependencies + sequential N>=3 + lifecycle observability + cancellation round-trip + zero fallback) remains a W4 deliverable. Architecture-sync evidence does NOT substitute for Rule 8 evidence."

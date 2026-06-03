@@ -14,11 +14,8 @@ class RunRepositorySaveGuardTest {
 
     @Test
     void productionRunRepositorySaveCallsAreCreateOnlyOutsideRepositoryImplementation() throws IOException {
-        Path root = Path.of("").toAbsolutePath();
-        if (root.endsWith("agent-service")) {
-            root = root.getParent();
-        }
-        Path mainJava = root.resolve("agent-service/src/main/java");
+        // The Run/RunRepository runtime SDK lives in this module (agent-runtime) post-ADR-0159.
+        Path mainJava = Path.of("src/main/java").toAbsolutePath();
         List<String> violations = new ArrayList<>();
 
         try (var files = Files.walk(mainJava)) {

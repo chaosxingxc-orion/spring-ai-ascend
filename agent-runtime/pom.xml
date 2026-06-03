@@ -269,6 +269,17 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
       </plugin>
+      <!-- Repackage the bootable runtime app as a `boot`-classifier executable jar.
+           The main jar stays a plain library so agent-service (and other consumers)
+           can depend on agent-runtime without pulling the fat jar. -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <classifier>boot</classifier>
+          <mainClass>com.huawei.ascend.runtime.bootstrap.AgentServiceApplication</mainClass>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 </project>

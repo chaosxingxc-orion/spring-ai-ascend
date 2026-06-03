@@ -350,6 +350,10 @@
                 junit.jupiter.execution.parallel.config.fixed.max-pool-size=4
               </configurationParameters>
             </properties>
+            <!-- JDK 21 restricts dynamic Java-agent self-attachment; Mockito's inline
+                 mock maker (ByteBuddy agent) self-attaches at first mock and otherwise
+                 fails intermittently with 'Could not initialize plugin MockMaker'. -->
+            <argLine>-XX:+EnableDynamicAgentLoading</argLine>
           </configuration>
         </plugin>
         <!--
