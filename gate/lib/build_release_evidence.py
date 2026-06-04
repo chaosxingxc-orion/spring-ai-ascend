@@ -120,14 +120,21 @@ def count_adrs(root: Path) -> int:
     adr_dir = root / "docs" / "adr"
     if not adr_dir.is_dir():
         return 0
-    return len(
-        [
-            path
-            for path in adr_dir.iterdir()
-            if path.is_file()
-            and re.match(r"^[0-9]{4}-.*\.(yaml|md)$", path.name)
-        ]
-    )
+
+    def _count(directory: Path) -> int:
+        if not directory.is_dir():
+            return 0
+        return len(
+            [
+                path
+                for path in directory.iterdir()
+                if path.is_file()
+                and re.match(r"^[0-9]{4}-.*\.(yaml|md)$", path.name)
+            ]
+        )
+
+    # baseline_metrics.adr_count is "active .yaml + locked foundational .md"
+    return _count(adr_dir) + _count(adr_dir / "locked")
 
 
 def count_recurring_families(root: Path) -> int:

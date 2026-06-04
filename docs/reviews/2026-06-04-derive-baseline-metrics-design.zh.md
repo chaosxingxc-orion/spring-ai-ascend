@@ -1,7 +1,7 @@
 # 派生 baseline_metrics — 设计（design-only）
 
 Date: 2026-06-04
-Status: design / 待实现（owner 拨盘：派生本轮只设计不实现）
+Status: **IMPLEMENTED 2026-06-04** — `gate/lib/sync_baseline.py`（--check 守卫 + --write 修正，显式 confident-field allowlist）+ `count_adrs` 含 locked 修正 + CI `--check` 步（复活 Rule 82 守卫）。本轮实修 `enforcer_rows 88→41`。gate GREEN / self-tests 102/102 / --check exit 0。
 分支: `governance/ai-native-asset-disposition`
 前置: A 篇范式 + B 篇 charter（`docs/reviews/2026-06-04-ai-native-*.zh.md`）
 

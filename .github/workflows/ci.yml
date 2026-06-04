@@ -48,6 +48,13 @@ jobs:
       - name: Regenerate architecture graph
         run: python3 gate/build_architecture_graph.py
 
+      - name: Baseline metrics drift guard
+        # Resurrects the guard retired with Rule 82: the derivable baseline_metrics
+        # counts (active_gate_checks, enforcer_rows, adr_count, governing_principles,
+        # phase_contracts, recurring_defect_families) MUST equal what the living repo
+        # yields. Fails CI on drift; fix with `python3 gate/lib/sync_baseline.py --write`.
+        run: python3 gate/lib/sync_baseline.py --check
+
       - name: Shell syntax check (gate scripts)
         # bash -n on every gate/*.sh catches dropped braces / missing fi /
         # heredoc-EOF problems at CI time instead of at gate execution time.
