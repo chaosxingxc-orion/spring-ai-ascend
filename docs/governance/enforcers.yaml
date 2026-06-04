@@ -277,15 +277,6 @@
   asserts: "Positive + negative self-test fixtures for Rule R-D sub-clause .g. Positive: every public interface under */spi/* appears in catalog → pass. Negative: a synthetic public interface under */spi/* not in catalog → fail."
   product_claim: "PC-001"
 
-- id: E143
-  constraint_ref: "CLAUDE.md Rule R-I sub-clause .b (Edge↔Compute Ingress Routing); ADR-0089"
-  kind: archunit
-  level: L0
-  view: physical
-  artifact: agent-client/src/test/java/com/huawei/ascend/client/architecture/EdgeToComputeDirectLinkArchTest.java
-  asserts: "no class under com.huawei.ascend.client.. imports any class under com.huawei.ascend.{service,engine,middleware}.. — enforces Rule R-I.b at the bytecode level. Vacuous-but-armed at W1 (agent-client is skeleton). When the W3+ SDK lands, this test starts gating PRs that try direct compute_control plane access."
-  product_claim: "PC-002"
-
 - id: E144
   constraint_ref: "CLAUDE.md Rule R-I sub-clause .b (Edge↔Compute Ingress Routing); ADR-0089"
   kind: gate-script

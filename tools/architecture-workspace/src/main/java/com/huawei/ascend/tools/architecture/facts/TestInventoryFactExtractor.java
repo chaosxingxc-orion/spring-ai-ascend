@@ -52,10 +52,7 @@ public final class TestInventoryFactExtractor {
             "agent-service",
             "agent-bus",
             "agent-runtime",
-            "agent-middleware",
-            "agent-evolve",
-            "agent-client",
-            "spring-ai-ascend-graphmemory-starter");
+            "agent-middleware");
 
     private TestInventoryFactExtractor() {
     }

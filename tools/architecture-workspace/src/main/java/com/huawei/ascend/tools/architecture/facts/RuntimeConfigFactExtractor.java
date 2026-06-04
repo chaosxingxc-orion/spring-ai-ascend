@@ -37,10 +37,7 @@ public final class RuntimeConfigFactExtractor {
                 "agent-service",
                 "agent-bus",
                 "agent-runtime",
-                "agent-middleware",
-                "agent-evolve",
-                "agent-client",
-                "spring-ai-ascend-graphmemory-starter");
+                "agent-middleware");
 
         List<Map<String, Object>> facts = new ArrayList<>();
         for (String module : modules) {

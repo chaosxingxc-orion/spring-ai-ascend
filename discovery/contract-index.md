@@ -10,7 +10,7 @@ purpose: "Tier-2 progressive disclosure index — auto-loaded with summary lines
 
 - **schema_version**: 1
 - **last_updated**: 2026-05-28
-- **count**: 25
+- **count**: 30
 
 ## Usage
 
@@ -20,28 +20,33 @@ Load this index to locate contract schemas by name, purpose, or status. The full
 
 ## Index
 
-- [a2a-envelope.v1.yaml](docs/contracts/a2a-envelope.v1.yaml) — contract-layer adoption of the A2A (Agent-to-Agent) protocol envelope shape + Task state vocabulary. Contract-ONLY adoption per ADR-0100 Rejection 3 — NO SDK runtime dep added in agent-service — design_only — product_claim:placeholder
-- [agent-definition.v1.yaml](docs/contracts/agent-definition.v1.yaml) — AgentDefinition schema, version 1 — design_only — product_claim:placeholder
-- [agent-invoke-request.v1.yaml](docs/contracts/agent-invoke-request.v1.yaml) — contract between agent-service Reactive Orchestrator and the Execution Engine. Service is the Read-Modify-Write closure boundary; Engine is the Pure-Function compute boundary — schema_shipped — product_claim:placeholder
+- [a2a-envelope.v1.yaml](docs/contracts/a2a-envelope.v1.yaml) — contract-layer adoption of the A2A (Agent-to-Agent) protocol envelope shape + Task state vocabulary. Contract-ONLY adoption per ADR-0100 Rejection 3 — NO SDK runtime dep added in agent-service — design_only — product_claim:PC-002|PC-004
+- [access-intent.v1.yaml](docs/contracts/access-intent.v1.yaml) — AccessIntent inter-module data contract, version 1 — design_only — product_claim:PC-002
+- [agent-definition.v1.yaml](docs/contracts/agent-definition.v1.yaml) — AgentDefinition schema, version 1 — design_only — product_claim:PC-001
+- [agent-event.v1.yaml](docs/contracts/agent-event.v1.yaml) — AgentEvent stream emitted by ExecutorAdapter.execute, version 1 — design_only — product_claim:PC-004
+- [agent-invoke-request.v1.yaml](docs/contracts/agent-invoke-request.v1.yaml) — contract between agent-service Reactive Orchestrator and the Execution Engine. Service is the Read-Modify-Write closure boundary; Engine is the Pure-Function compute boundary — schema_shipped — product_claim:PC-001
 - [audit-trail.v1.yaml](docs/contracts/audit-trail.v1.yaml) — declare a regulator-grade, append-only audit-trail schema that captures every Run-level, tool-call-level, and model-invocation-level action a tenant's agent performs on this platform. The schema is designed for direct regulatory submissi... — design_only — product_claim:PC-003
-- [backpressure-request.v1.yaml](docs/contracts/backpressure-request.v1.yaml) — explicit backpressure request channel on the agent-bus control track (Rule R-E). Converts local-push backpressure signals from the Reactive Orchestrator (per ADR-0100 §2.2) into distributed- pull signals across the federation bus — design_only — product_claim:placeholder
-- [chat-advisor.v1.yaml](docs/contracts/chat-advisor.v1.yaml) — ChatAdvisor / AdvisedRequest / AdvisedResponse schema, version 1 — design_only — product_claim:placeholder
-- [engine-envelope.v1.yaml](docs/contracts/engine-envelope.v1.yaml) — Engine Envelope schema, version 1 — runtime_enforced — product_claim:placeholder
-- [engine-hooks.v1.yaml](docs/contracts/engine-hooks.v1.yaml) — Engine Lifecycle Hooks schema, version 1 — runtime_enforced — product_claim:placeholder
-- [federation-envelope.v1.yaml](docs/contracts/federation-envelope.v1.yaml) — cross-network wire shape for Mode B Business-Centric federation. Wraps the existing ingress-envelope.v1.yaml shape with federation routing metadata — design_only — product_claim:placeholder
+- [backpressure-request.v1.yaml](docs/contracts/backpressure-request.v1.yaml) — explicit backpressure request channel on the agent-bus control track (Rule R-E). Converts local-push backpressure signals from the Reactive Orchestrator (per ADR-0100 §2.2) into distributed- pull signals across the federation bus — design_only — product_claim:PC-003
+- [checkpoint-record.v1.yaml](docs/contracts/checkpoint-record.v1.yaml) — CheckpointRecord — STM-05 recoverable boundary marker, v1 — design_only — product_claim:PC-003
+- [config-snapshot-ref.v1.yaml](docs/contracts/config-snapshot-ref.v1.yaml) — ConfigSnapshotRef — immutable Run-time configuration binding reference, v1 — design_only — product_claim:PC-003
+- [control-event.v1.yaml](docs/contracts/control-event.v1.yaml) — ControlEvent IEQ-02 control-channel envelope, version 1 — design_only — product_claim:PC-003
+- [correlation-record.v1.yaml](docs/contracts/correlation-record.v1.yaml) — CorrelationRecord — cross-Run / remote-Agent handle, v1 — design_only — product_claim:PC-003
+- [cost-governance.v1.yaml](docs/contracts/cost-governance.v1.yaml) — declare the wire schema + enforcement semantics for per-tenant per-agent token budgets, the enforcement-mode taxonomy, and the spend reporting record. Without this contract, Persona-A cannot answer "what did business center X cost us thi... — design_only — product_claim:PC-003
+- [engine-envelope.v1.yaml](docs/contracts/engine-envelope.v1.yaml) — Engine Envelope schema, version 1 — runtime_enforced — product_claim:PC-004
+- [engine-hooks.v1.yaml](docs/contracts/engine-hooks.v1.yaml) — Engine Lifecycle Hooks schema, version 1 — runtime_enforced — product_claim:PC-004
+- [engine-port.v1.yaml](docs/contracts/engine-port.v1.yaml) — EnginePort wire contract — the transport-agnostic Service-to-Engine boundary, v1 — design_only — product_claim:PC-004
+- [error-class.v1.yaml](docs/contracts/error-class.v1.yaml) — ErrorClass — platform-wide error taxonomy enum, v1 — design_only — product_claim:PC-003
+- [execution-request.v1.yaml](docs/contracts/execution-request.v1.yaml) — ExecutionRequest carrier consumed by ExecutorAdapter.execute, version 1 — design_only — product_claim:PC-004
+- [governed-messages.v1.yaml](docs/contracts/governed-messages.v1.yaml) — GovernedMessages — M6 TTI-02 output (replaces v1-draft BuiltPrompt), v1 — design_only — product_claim:PC-003
 - [iam-bridge.v1.yaml](docs/contracts/iam-bridge.v1.yaml) — declare how the platform CONSUMES an enterprise IDP's OIDC token at the HTTP edge AND PROPAGATES the user's identity through agent execution to downstream business-system calls. The contract closes the Persona-F pain point: "Agent identi... — design_only — product_claim:PC-003
-- [ingress-envelope.v1.yaml](docs/contracts/ingress-envelope.v1.yaml) — Ingress Envelope schema, version 1 — design_only — product_claim:placeholder
-- [memory-store.v1.yaml](docs/contracts/memory-store.v1.yaml) — MemoryStore schema, version 1 — design_only — product_claim:placeholder
-- [model-invocation.v1.yaml](docs/contracts/model-invocation.v1.yaml) — ModelInvocation / ModelResponse schema, version 1 — design_only — product_claim:placeholder
-- [model-streaming.v1.yaml](docs/contracts/model-streaming.v1.yaml) — ModelResponseChunk / streaming-aware ModelGateway schema, version 1 — design_only — product_claim:placeholder
-- [openapi-v1.yaml](docs/contracts/openapi-v1.yaml) — spring-ai-ascend API v1 — unknown — product_claim:placeholder
-- [plan-projection.v1.yaml](docs/contracts/plan-projection.v1.yaml) — Plan Projection schema, version 1 — design_only — product_claim:placeholder
-- [plan.v1.yaml](docs/contracts/plan.v1.yaml) — Plan / PlanStep schema, version 1 — design_only — product_claim:placeholder
-- [planning-request.v1.yaml](docs/contracts/planning-request.v1.yaml) — PlanningRequest / PlanningResult schema, version 1 — design_only — product_claim:placeholder
-- [prompt-template.v1.yaml](docs/contracts/prompt-template.v1.yaml) — PromptTemplate / PromptTemplateSource schema, version 1 — design_only — product_claim:placeholder
-- [reflection-envelope.v1.yaml](docs/contracts/reflection-envelope.v1.yaml) — S2C envelope shape for online-evolution updates flowing from the cloud Slow Track (LLM-as-Judge) to the active agent's session/memory state. Carried over the existing agent-bus S2C transport (per ADR-0074) — design_only — product_claim:placeholder
-- [run-event.v1.yaml](docs/contracts/run-event.v1.yaml) — closes F-discriminator-without-discriminated-type for the EvolutionExport enum at agent-service/src/main/java/com/huawei/ascend/service/runtime/evolution/EvolutionExport.java whose package-info Javadoc declares it as discriminator for a... — design_only — product_claim:placeholder
-- [s2c-callback.v1.yaml](docs/contracts/s2c-callback.v1.yaml) — Server-to-Client (S2C) Capability Callback schema, version 1 — runtime_enforced — product_claim:placeholder
-- [skill-definition.v1.yaml](docs/contracts/skill-definition.v1.yaml) — SkillDefinition schema, version 1 — design_only — product_claim:placeholder
-- [structured-output.v1.yaml](docs/contracts/structured-output.v1.yaml) — StructuredOutputConverter<T> schema, version 1 — design_only — product_claim:placeholder
-- [vector-store.v1.yaml](docs/contracts/vector-store.v1.yaml) — VectorStore / Retriever / EmbeddingModel schema, version 1 — design_only — product_claim:placeholder
+- [intercept-request.v1.yaml](docs/contracts/intercept-request.v1.yaml) — InterceptRequest — TTI-01 unified intercept entry envelope, v1 — design_only — product_claim:PC-004
+- [interrupt-registration.v1.yaml](docs/contracts/interrupt-registration.v1.yaml) — InterruptRegistration — HITL interrupt site descriptor, v1 — design_only — product_claim:PC-003
+- [openapi-v1.yaml](docs/contracts/openapi-v1.yaml) — spring-ai-ascend API v1 — unknown — product_claim:PC-001|PC-003
+- [plan-projection.v1.yaml](docs/contracts/plan-projection.v1.yaml) — Plan Projection schema, version 1 — design_only — product_claim:PC-001
+- [plan.v1.yaml](docs/contracts/plan.v1.yaml) — Plan / PlanStep schema, version 1 — design_only — product_claim:PC-001
+- [planning-request.v1.yaml](docs/contracts/planning-request.v1.yaml) — PlanningRequest / PlanningResult schema, version 1 — design_only — product_claim:PC-001
+- [run-event.v1.yaml](docs/contracts/run-event.v1.yaml) — closes F-discriminator-without-discriminated-type for the EvolutionExport enum at agent-service/src/main/java/com/huawei/ascend/service/runtime/evolution/EvolutionExport.java whose package-info Javadoc declares it as discriminator for a... — design_only — product_claim:PC-001|PC-003
+- [s2c-callback.v1.yaml](docs/contracts/s2c-callback.v1.yaml) — Server-to-Client (S2C) Capability Callback schema, version 1 — runtime_enforced — product_claim:PC-004
+- [session-snapshot.v1.yaml](docs/contracts/session-snapshot.v1.yaml) — SessionSnapshot — STM-04 read projection, v1 — design_only — product_claim:PC-005
+- [tool-result.v1.yaml](docs/contracts/tool-result.v1.yaml) — ToolResult — normalised tool-invocation result, v1 — design_only — product_claim:PC-004
+- [work-item.v1.yaml](docs/contracts/work-item.v1.yaml) — WorkItem IEQ-03 data-channel envelope, version 1 — design_only — product_claim:PC-003

@@ -207,6 +207,7 @@ while IFS= read -r _mdf16; do
 done < <(find . -name '*.md' \
   ! -path './docs/archive/*' \
   ! -path './docs/logs/reviews/*' \
+  ! -path './docs/roadmap/*' \
   ! -path './docs/adr/*' \
   ! -path './third_party/*' \
   ! -path './target/*' \
