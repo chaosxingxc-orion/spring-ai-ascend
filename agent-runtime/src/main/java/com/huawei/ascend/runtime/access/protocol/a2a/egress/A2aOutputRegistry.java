@@ -27,7 +27,10 @@ public final class A2aOutputRegistry {
 
     public Runnable subscribe(A2aOutputHandle handle, Consumer<A2aOutput> subscriber) {
         subscribers.computeIfAbsent(handle, ignored -> new CopyOnWriteArrayList<>()).add(subscriber);
-        list(handle).forEach(subscriber);
+        List<A2aOutput> currentOutputs = list(handle);
+        if (currentOutputs.stream().noneMatch(A2aOutput::terminal)) {
+            currentOutputs.forEach(subscriber);
+        }
         return () -> subscribers.computeIfPresent(handle, (ignored, current) -> {
             current.remove(subscriber);
             return current.isEmpty() ? null : current;
