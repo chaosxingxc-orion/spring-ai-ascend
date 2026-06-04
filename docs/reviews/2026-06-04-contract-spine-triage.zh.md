@@ -19,3 +19,9 @@ Status: criterion + first-pass labels（**只标注，不删、不改 SPI 计数
 ## 精确化方法（后续）
 
 AST 扫 `agent-service` + `agent-runtime` 源码对契约类型的 import；交叉 `architecture-status.yaml` 的 `status:` 字段；按 e2e 测试覆盖回链。**speculative 的实际处置不在本轮**——按 A/B 范式，让脊柱拉动而非一次删清。
+
+## 验证（2026-06-04 仓库级 ref-scan）
+
+对全部 40 个契约做了仓库级引用扫描：**没有一个是零引用孤儿**。最少的（config-snapshot-ref / intercept-request / interrupt-registration / session-snapshot）也各有 ≥1 个非-catalog 的 live 引用（ADR / L1 文档 / 代码）；所谓 speculative 的（vector-store=17 · memory-store=12 · federation=6 · cost-governance=9 …）引用更多。
+
+**结论：契约层面没有可安全删除的对象**——删任意一个都会制造悬挂引用 = bug。这与治理制品的自检结论一致：架构月的过度规约已织入语料库，无法靠一次删除变"干净"。**精简只能由运行脊柱随时间拉动/淘汰（某契约 repo-wide refs 归零时才归档），不是一次性删除动作。**
