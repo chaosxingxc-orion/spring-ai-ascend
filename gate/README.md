@@ -60,9 +60,9 @@ Run the bash entrypoint from Git Bash / WSL / any POSIX shell on Windows.
 | `rls-baseline-grandfathered.txt` | Grandfathered Flyway migrations for Rule R-J.a (RLS retrofit deferred to W2 per CLAUDE-deferred.md 40.b). |
 | `log/` | Audit JSON files retained from earlier gate generations; the current canonical bash gate does not write here. |
 
-## Rule catalog (current — see `check_architecture_sync.sh` header for the canonical comment block)
+## Rule catalog (current — the `# Rule N — slug` body headers in `check_architecture_sync.sh`)
 
-The bash script's header comment is the single source of truth for the rule list. The previous markdown table in this README was retired in v2.0.0-rc2 to eliminate dual-truth drift (the rules-table-as-prose became another F-α "parity-claim without enforcer" instance per the second-pass review). To browse the rule list, open `gate/check_architecture_sync.sh` and read the comment block lines 1–119.
+The canonical rule list is the `# Rule N — slug` body headers in `gate/check_architecture_sync.sh` (what `check_parallel.sh` splits on and `gate/lib/build_release_evidence.py` counts). The previous markdown table here was retired in v2.0.0-rc2, and the numbered duplicate in the script header was removed in 2026-06 (it had drifted — it listed retired rules and omitted live ones) — both to keep a single source. To browse the rules: `grep -nE '^# Rule ' gate/check_architecture_sync.sh`.
 
 ## Self-test coverage
 
