@@ -6,16 +6,24 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  # Cancel stale PR runs when a newer commit is pushed to the same branch.
+  # This protects the runner pool from long Maven/gate attempts that are no
+  # longer merge candidates.
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    name: Maven build + integration tests
+  maven:
+    name: Maven verify
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
         with:
           # rc18 Wave 1 / ADR-0095: full history required for Gate Rule 111
           # (architecture_refresh_defect_family_re_eval_required) freshness
-          # check — yaml file's own git commit date vs latest refresh-signal
+          # check: yaml file's own git commit date vs latest refresh-signal
           # commit date. Shallow clone (default fetch-depth=1) fails the
           # rule per fix 1h (shallow-clone fail-closed, was silent pass).
           fetch-depth: 0
@@ -36,14 +44,42 @@ jobs:
         # 15-min forkedProcessTimeoutInSeconds safety net (see parent pom).
         run: ./mvnw -B -ntp --strict-checksums -Pquality verify
 
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: |
+            **/target/surefire-reports/
+            **/target/failsafe-reports/
+
+  architecture-gate:
+    name: Architecture gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # rc18 Wave 1 / ADR-0095: full history required for Gate Rule 111
+          # (architecture_refresh_defect_family_re_eval_required) freshness
+          # check: yaml file's own git commit date vs latest refresh-signal
+          # commit date. Shallow clone (default fetch-depth=1) fails the
+          # rule per fix 1h (shallow-clone fail-closed, was silent pass).
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: pip
+          cache-dependency-path: gate/requirements.txt
+
       - name: Install Python deps for architecture-graph generation
-        # Required by Rule 34 (architecture_graph_well_formed) — the gate
+        # Required by Rule 34 (architecture_graph_well_formed): the gate
         # checks gate/build_architecture_graph.py output exists. The graph
         # file (docs/governance/architecture-graph.yaml) is gitignored per
         # gate/README.md; regenerate on each CI run.
-        run: |
-          python3 -m pip install --upgrade pip
-          pip3 install -r gate/requirements.txt
+        run: python3 -m pip install -r gate/requirements.txt
 
       - name: Regenerate architecture graph
         run: python3 gate/build_architecture_graph.py
@@ -80,11 +116,18 @@ jobs:
       # agent-service/target/agent-service-*.jar is produced by mvn verify on CI
       # (post-Phase-C / ADR-0078; pre-Phase-C this was agent-platform/target/agent-platform-*.jar).
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-results
-          path: |
-            **/target/surefire-reports/
-            **/target/failsafe-reports/
+  build:
+    name: Maven build + integration tests
+    runs-on: ubuntu-latest
+    needs: [maven, architecture-gate]
+    if: always()
+    steps:
+      - name: Check required CI jobs
+        run: |
+          if [ "${{ needs.maven.result }}" != "success" ] || [ "${{ needs.architecture-gate.result }}" != "success" ]; then
+            echo "maven=${{ needs.maven.result }}"
+            echo "architecture-gate=${{ needs.architecture-gate.result }}"
+            exit 1
+          fi
+          echo "maven=${{ needs.maven.result }}"
+          echo "architecture-gate=${{ needs.architecture-gate.result }}"
