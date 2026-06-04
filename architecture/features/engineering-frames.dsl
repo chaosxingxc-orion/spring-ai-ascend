@@ -15,28 +15,6 @@
 
 // ---- agent-bus (bus_state plane) ----
 
-efIngressGateway = element "Ingress Gateway Frame" "EngineeringFrame" "Edge->compute_control ingress normalization and routing (IngressGateway, IngressEnvelope, IngressResponse)" "SAA EngineeringFrame" {
-    properties {
-        "saa.id" "EF-INGRESS-GATEWAY"
-        "saa.kind" "engineering_frame"
-        "saa.level" "L1"
-        "saa.view" "logical"
-        "saa.status" "shipped"
-        "saa.owner" "agent-bus"
-        "saa.sourceAdr" "ADR-0157"
-        "saa.structuralAxis" "true"
-    }
-}
-genModule_agent_bus -> efIngressGateway "module contains engineering frame" "SAA Relationship" {
-    properties {
-        "saa.rel" "contains"
-    }
-}
-efIngressGateway -> fpIngressEnvelope "frame anchors function point" "SAA Relationship" {
-    properties {
-        "saa.rel" "anchors"
-    }
-}
 
 efS2cTransport = element "S2C Transport Frame" "EngineeringFrame" "Server-to-client callback transport — S2cCallbackTransport, S2cCallbackEnvelope, capability invocation bound to suspend/resume" "SAA EngineeringFrame" {
     properties {
@@ -167,63 +145,12 @@ efHookSurface -> fpHookDispatch "frame anchors function point" "SAA Relationship
     }
 }
 
-efCapabilitySpi = element "Capability SPI Frame" "EngineeringFrame" "Cross-cutting capability SPI families — model gateway, skill/tool, memory, vector/retrieval/embedding, prompt/advisor" "SAA EngineeringFrame" {
-    properties {
-        "saa.id" "EF-CAPABILITY-SPI"
-        "saa.kind" "engineering_frame"
-        "saa.level" "L1"
-        "saa.view" "logical"
-        "saa.status" "design_only"
-        "saa.owner" "agent-middleware"
-        "saa.sourceAdr" "ADR-0157"
-        "saa.structuralAxis" "true"
-    }
-}
-genModule_agent_middleware -> efCapabilitySpi "module contains engineering frame" "SAA Relationship" {
-    properties {
-        "saa.rel" "contains"
-    }
-}
 
 // ---- agent-client (edge plane, skeleton) ----
 
-efClientIngressAdapter = element "Client Ingress Adapter Frame" "EngineeringFrame" "Edge SDK invocation + capability publication + cursor/SSE/webhook consumption (skeleton, W3+)" "SAA EngineeringFrame" {
-    properties {
-        "saa.id" "EF-CLIENT-INGRESS-ADAPTER"
-        "saa.kind" "engineering_frame"
-        "saa.level" "L1"
-        "saa.view" "logical"
-        "saa.status" "design_only"
-        "saa.owner" "agent-client"
-        "saa.sourceAdr" "ADR-0157"
-        "saa.structuralAxis" "true"
-    }
-}
-genModule_agent_client -> efClientIngressAdapter "module contains engineering frame" "SAA Relationship" {
-    properties {
-        "saa.rel" "contains"
-    }
-}
 
 // ---- agent-evolve (evolution plane, skeleton) ----
 
-efEvolutionExport = element "Evolution Export Frame" "EngineeringFrame" "RunEvent / trajectory export scope + online evaluation hooks (EvolutionExport discriminator, skeleton)" "SAA EngineeringFrame" {
-    properties {
-        "saa.id" "EF-EVOLUTION-EXPORT"
-        "saa.kind" "engineering_frame"
-        "saa.level" "L1"
-        "saa.view" "logical"
-        "saa.status" "design_only"
-        "saa.owner" "agent-evolve"
-        "saa.sourceAdr" "ADR-0157"
-        "saa.structuralAxis" "true"
-    }
-}
-genModule_agent_evolve -> efEvolutionExport "module contains engineering frame" "SAA Relationship" {
-    properties {
-        "saa.rel" "contains"
-    }
-}
 
 // ---- graphmemory auto-config ----
 // spring-ai-ascend-graphmemory-starter is NOT a governed reactor module (absent
@@ -232,28 +159,6 @@ genModule_agent_evolve -> efEvolutionExport "module contains engineering frame" 
 // the GraphMemoryRepository SPI the starter auto-wires; saa.owner below preserves
 // the starter as the frame's logical origin.
 
-efGraphmemoryAutoconfig = element "Graph Memory Auto-Config Frame" "EngineeringFrame" "Spring Boot starter auto-configuration wiring GraphMemoryRepository SPI to backend adapter (disabled by default)" "SAA EngineeringFrame" {
-    properties {
-        "saa.id" "EF-GRAPHMEMORY-AUTOCONFIG"
-        "saa.kind" "engineering_frame"
-        "saa.level" "L1"
-        "saa.view" "logical"
-        "saa.status" "design_only"
-        "saa.owner" "spring-ai-ascend-graphmemory-starter"
-        "saa.sourceAdr" "ADR-0157"
-        "saa.structuralAxis" "true"
-    }
-}
-genModule_agent_service -> efGraphmemoryAutoconfig "module contains engineering frame" "SAA Relationship" {
-    properties {
-        "saa.rel" "contains"
-    }
-}
-efGraphmemoryAutoconfig -> fpGraphMemoryStore "frame anchors function point" "SAA Relationship" {
-    properties {
-        "saa.rel" "anchors"
-    }
-}
 
 // ---- agent-service (compute_control plane) — frames re-tagged from ADR-0138 Layer
 //      features per ADR-0157; element declarations live in features/features.dsl. ----
@@ -403,17 +308,7 @@ featPostureBootstrap -> efAccessAdmission "feature traverses engineering frame" 
         "saa.rel" "traverses"
     }
 }
-featEdgeComputeIngress -> efIngressGateway "feature traverses engineering frame" "SAA Relationship" {
-    properties {
-        "saa.rel" "traverses"
-    }
-}
 featServerClientCallback -> efS2cTransport "feature traverses engineering frame" "SAA Relationship" {
-    properties {
-        "saa.rel" "traverses"
-    }
-}
-featGraphMemory -> efGraphmemoryAutoconfig "feature traverses engineering frame" "SAA Relationship" {
     properties {
         "saa.rel" "traverses"
     }
