@@ -35,12 +35,13 @@ def _count_glob(rel: str, pattern: str) -> int:
 
 # field -> canonical counter. ONLY fields with an unambiguous, source-of-truth
 # definition belong here. Deliberately EXCLUDED because their definition is not
-# yet settled enough to derive safely:
-#   active_engineering_rules (active vs active_advisory card-status nuance),
-#   phase_loading_skills (excludes formal-release-transaction.md),
-#   section_4_constraints, workspace_elements, workspace_relationships,
-#   feature_corpus_size, l1_modules_with_canonical_directory, maven_tests_green.
-# architecture_graph_nodes/edges are owned by gate Rule 106, not this tool.
+# yet settled enough to derive safely (a wrong counter writes a wrong baseline):
+#   phase_loading_skills (a curated subset: excludes formal-release-transaction.md),
+#   section_4_constraints (numbered-constraint parse), feature_corpus_size,
+#   l1_modules_with_canonical_directory, maven_tests_green (needs Maven reports),
+#   gate_executable_test_cases (needs a self-test harness run).
+# Owned by OTHER enforcers, so not duplicated here: architecture_graph_nodes/edges
+# (gate Rule 106), workspace_elements/relationships (check_workspace_baseline_parity.py).
 DERIVABLE = {
     "active_gate_checks": lambda: bre.count_gate_rules(ROOT),
     "enforcer_rows": lambda: bre.count_enforcers(ROOT),
@@ -48,6 +49,7 @@ DERIVABLE = {
     "active_governing_principles": lambda: _count_glob(
         "docs/governance/principles", "P-*.md"
     ),
+    "active_engineering_rules": lambda: bre.count_active_engineering_rules(ROOT),
     "phase_contracts": lambda: _count_glob("docs/governance/contracts", "*.md"),
     "recurring_defect_families": lambda: bre.count_recurring_families(ROOT),
 }

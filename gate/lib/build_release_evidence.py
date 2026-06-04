@@ -76,7 +76,17 @@ def baseline_metrics(root: Path) -> dict[str, Any]:
 
 
 def count_active_engineering_rules(root: Path) -> int:
-    return len(re.findall(r"^#### Rule ", read_text(root / "CLAUDE.md"), re.MULTILINE))
+    # active_engineering_rules = rule cards (docs/governance/rules/rule-*.md) whose
+    # status is active or active_advisory. Cards are the sole rule authority since
+    # 2026-05-28 (Rule 68/69), so this counts cards, not CLAUDE.md kernel headings.
+    rules_dir = root / "docs" / "governance" / "rules"
+    if not rules_dir.is_dir():
+        return 0
+    return sum(
+        1
+        for card in rules_dir.glob("rule-*.md")
+        if re.search(r"^status:\s*active", read_text(card), re.MULTILINE)
+    )
 
 
 def count_gate_rules(root: Path) -> int:
