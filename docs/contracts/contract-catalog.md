@@ -44,7 +44,6 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `EnginePort` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | shipped — neutral Service/Engine boundary contract; in-process realization `InProcessEnginePort` (agent-runtime) driven by SyncOrchestrator; networked realizations `RpcEnginePort` (Form 1, internal RPC) + `A2aEnginePort` (federation) are design_only EnginePort adapters in `com.huawei.ascend.runtime.orchestration` per ADR-0158 |
 | `DefinitionResolver` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | shipped — bidirectional bridge between the wire-form `DefinitionRef` and the runnable `ExecutorDefinition`; `resolve` is engine-facing, `referenceFor` is service-facing; reference impl `CompositeDefinitionResolver` (agent-service) per ADR-0158 |
 | `S2cCallbackTransport` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | shipped — W2.x; `InMemoryS2cCallbackTransport` reference (ADR-0074); relocated to agent-bus per ADR-0088 |
-| `IngressGateway` | `agent-bus` | `com.huawei.ascend.bus.spi.ingress` | shipped (SPI stub) — W1 design_only contract per ADR-0089; runtime binding W3+ with agent-client SDK |
 | `GraphMemoryRepository` | `agent-runtime` | `com.huawei.ascend.runtime.memory.spi` | shipped — interface only; Graphiti W1 reference (ADR-0034) |
 | `ResilienceContract` | `agent-runtime` | `com.huawei.ascend.runtime.resilience.spi` | shipped — W0 Resilience4j-backed impl (`DefaultSkillResilienceContract`); per-skill capacity via `YamlResilienceContract`; package home moved to `.spi` per ADR-0080 to align with Rules 32/77/78 — implementations stay in `runtime.resilience.*` |
 | `SkillCapacityRegistry` | `agent-runtime` | `com.huawei.ascend.runtime.resilience.spi` | shipped — W0 YAML-backed impl (`YamlSkillCapacityRegistry`, in `agent-service`); `ResilienceAutoConfiguration` exposes it as an `@ConditionalOnMissingBean` extension point. Consumed by `ResilienceContract.resolve(tenant, skill)` per ADR-0070 / ADR-0080 / ADR-0081 |
@@ -63,29 +62,9 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `ContextProjector` | `agent-runtime` | `com.huawei.ascend.runtime.session.spi` | implemented_unverified — Session-context projection SPI + `InMemoryContextProjector` reference impl exist and have focused tests; durable session projection remains deferred |
 | `TaskStateStore` | `agent-runtime` | `com.huawei.ascend.runtime.task.spi` | implemented_unverified — TaskControlState persistence SPI + tenant-scoped `InMemoryTaskStateStore` reference impl exist and have focused tests; JDBC/RLS implementation remains deferred |
 | `SlowTrackJudge` | `agent-evolve` | `com.huawei.ascend.evolve.online.spi` | rc26 design_only — LLM-as-Judge SPI for online evolution (ADR-0102); rc27 moved under .spi per Rule R-D.d |
-| `ReflectionEnvelopeRouter` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | rc26 design_only — S2C delivery of ReflectionEnvelope (ADR-0102); rc27 moved under .spi |
-| `FederationGateway` | `agent-bus` | `com.huawei.ascend.bus.spi.federation` | rc26 design_only — Mode B Business-Centric federation forwarding (ADR-0101); rc27 moved under .spi |
-| `ModelGateway` | `agent-middleware` | `com.huawei.ascend.middleware.model.spi` | rc43 design_only — tenant-scoped LLM invocation boundary (ADR-0121); reference adapter `SpringAiChatModelGateway` lands Wave C1 per ADR-0125 |
-| `Skill` | `agent-middleware` | `com.huawei.ascend.middleware.skill.spi` | rc43 design_only — unified Tool/Skill SPI with `SkillKind` discriminator (ADR-0127 + ADR-0122); reference adapter `SpringAiToolCallbackSkill` lands Wave C1 |
-| `SkillRegistry` | `agent-middleware` | `com.huawei.ascend.middleware.skill.spi` | rc43 design_only — tenant-scoped (tenantId, skillKey) index (ADR-0127) |
-| `MemoryStore` | `agent-middleware` | `com.huawei.ascend.middleware.memory.spi` | rc43 design_only — unified Memory<K,V> = MemoryReader + MemoryWriter parameterized by MemoryCategory (M1-M6) per ADR-0123 |
-| `MemoryReader` | `agent-middleware` | `com.huawei.ascend.middleware.memory.spi` | rc43 design_only — read-only half of MemoryStore (CQRS split per ADR-0123) |
-| `MemoryWriter` | `agent-middleware` | `com.huawei.ascend.middleware.memory.spi` | rc43 design_only — write-only half of MemoryStore (CQRS split per ADR-0123) |
-| `SemanticMemoryStore` | `agent-middleware` | `com.huawei.ascend.middleware.memory.spi` | rc43 design_only — M3 marker; requires `embeddingModelVersion` per write (ADR-0123) |
-| `KnowledgeMemoryStore` | `agent-middleware` | `com.huawei.ascend.middleware.memory.spi` | rc43 design_only — M5 marker; composes `VectorStore` + `Retriever` + `EmbeddingModel` (ADR-0123 + ADR-0124) |
-| `VectorStore` | `agent-middleware` | `com.huawei.ascend.middleware.vector.spi` | rc43 design_only — tenant-scoped vector storage + similarity search (ADR-0124); reference adapter `SpringAiVectorStore` lands Wave C1 |
-| `Retriever` | `agent-middleware` | `com.huawei.ascend.middleware.retrieval.spi` | rc43 design_only — composition layer over VectorStore(s) (ADR-0124); reference adapter `SpringAiDocumentRetriever` lands Wave C1 |
-| `EmbeddingModel` | `agent-middleware` | `com.huawei.ascend.middleware.embedding.spi` | rc43 design_only — text embedding boundary; `modelVersion()` feeds `MemoryMetadata.embeddingModelVersion` (ADR-0124 + ADR-0123) |
 | `Planner` | `agent-runtime` | `com.huawei.ascend.runtime.engine.planner.spi` | rc43 design_only — goal → Plan DAG generator (ADR-0126); engine-side because Plan output is engine-consumable; distinct from `plan-projection.v1.yaml` scheduler INPUT |
 | `Agent` | `agent-runtime` | `com.huawei.ascend.runtime.agent.spi` | rc43 design_only — first-class entity binding model + skills + memory + planner (ADR-0128); HTTP-edge customer registration surface |
 | `AgentRegistry` | `agent-runtime` | `com.huawei.ascend.runtime.agent.spi` | rc43 design_only — tenant-scoped (tenantId, agentId) index (ADR-0128) |
-| `StructuredOutputConverter` | `agent-middleware` | `com.huawei.ascend.middleware.model.spi` | rc51 design_only — generic `StructuredOutputConverter<T>` typed-bean extraction (ADR-0130); reference adapter `SpringAiBeanOutputConverterAdapter` lands in `agent-service.integration.springai` |
-| `PromptTemplate` | `agent-middleware` | `com.huawei.ascend.middleware.prompt.spi` | rc51 design_only — tenant-scoped prompt rendering with sealed `PromptTemplateSource` (ADR-0131); reference adapter `SpringAiPromptTemplateAdapter` |
-| `ChatAdvisor` | `agent-middleware` | `com.huawei.ascend.middleware.advisor.spi` | rc51 design_only — interceptor SPI around `ModelGateway.invoke` (ADR-0132); customer-facing extension surface that binds to `HookDispatcher` internally at W2 |
-| `AdvisorChain` | `agent-middleware` | `com.huawei.ascend.middleware.advisor.spi` | rc51 design_only — chain abstraction passed to `ChatAdvisor.aroundCall(...)` (ADR-0132) |
-| `StreamingChatAdvisor` | `agent-middleware` | `com.huawei.ascend.middleware.advisor.spi` | rc52 design_only — streaming sibling of `ChatAdvisor`; composes through same-package `AdvisedStreamChunk` (ADR-0132) |
-| `StreamingAdvisorChain` | `agent-middleware` | `com.huawei.ascend.middleware.advisor.spi` | rc52 design_only — continuation abstraction passed to `StreamingChatAdvisor.aroundStream(...)` (ADR-0132) |
-| `ConversationMemory` | `agent-middleware` | `com.huawei.ascend.middleware.memory.spi` | rc52 design_only — windowed FIFO + token-budget pruning variant `extends MemoryStore<String, ConversationWindow>`; default category `M2_EPISODIC` (ADR-0133) |
 | `ExecutorAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.executor.spi` | design_only — Layer 5a Engine Dispatch (ADR-0155) |
 | `PlatformChatClient` | `agent-runtime` | `com.huawei.ascend.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (Native + Third-party adapters consume) (ADR-0155) |
 | `PlatformToolCallback` | `agent-runtime` | `com.huawei.ascend.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
@@ -112,7 +91,6 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `Checkpointer` | run-scoped | implicit via `runId` uniqueness | unchanged (ADR-0027) |
 | `Orchestrator` | tenant-scoped | explicit `tenantId` arg in `run(runId, tenantId, …)` | unchanged |
 | `S2cCallbackTransport` | tenant-scoped | tenant resolved out-of-band via `S2cCallbackTransport` registry binding at the wrapping Run boundary, per ADR-0074 §Consequences (the `S2cCallbackEnvelope` Java record carries 8 components `{callbackId, serverRunId, capabilityRef, requestPayload, traceId, idempotencyKey, deadline, requestAttributes}` and does NOT include an in-band `tenantId` field); preferred fix per Rule R-C.c is to add `tenantId` to the Java record — deferred to impl-mode follow-up wave (AUD-2026-05-27 AUD-EVT-6 / family `F-cross-authority-tenant-scope-claim-without-field`) | unchanged — relocated to agent-bus per ADR-0088 |
-| `IngressGateway` | tenant-scoped | `IngressEnvelope.tenantId` field (Rule R-C.c, validated non-blank) | design_only at W1; promoted to runtime_enforced with W3+ SDK per ADR-0089 |
 | `GraphMemoryRepository` | tenant-scoped | explicit `tenantId` first arg on every method (Rule R-C, formerly Rule 11) | unchanged |
 | `ResilienceContract` | dual-surface: operation-policy + skill-capacity | W0+ `resolve(operationId)` (operation-policy routing; legacy axis) **and** W1.x Phase 9+ `resolve(tenant, skill)` (skill-capacity arbitration per ADR-0070, Rule R-K.b — formerly Rule 41.b) | Operation-policy axis only; the pre-ADR-0070 plan to extend the *operation* surface to `(tenantId, operationId)` is **superseded** by ADR-0070 / ADR-0081 — the skill axis is `(tenant, skill)`, NOT `(tenantId, operationId)`. The two axes MUST NOT be conflated. |
 | `SkillCapacityRegistry` | tenant-scoped | explicit `tenantId` arg on `tryAcquire(tenantId, skillKey)` / `release(tenantId, skillKey)` (Rule R-C compliant) | unchanged |
@@ -131,30 +109,12 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `DefinitionRef` | `agent-bus` (`...bus.spi.engine`) | Serializable capability-name reference; the wire-form of an `ExecutorDefinition` a remote engine resolves to its own definition (engine-port.v1.yaml) per ADR-0158 |
 | `SuspendSignal` | `agent-bus` (`...bus.spi.engine`) | Checked-exception interrupt primitive; carries `forClientCallback(...)` variant per ADR-0074 |
 | `S2cCallbackEnvelope` / `S2cCallbackResponse` | `agent-bus` (`...bus.spi.s2c`) | Six mandatory request fields per ADR-0074; relocated per ADR-0088 |
-| `IngressEnvelope` / `IngressResponse` / `IngressStatus` / `IngressRequestType` | `agent-bus` (`...bus.spi.ingress`) | C2S ingress envelope (6 required fields per ADR-0089); response carries Task Cursor (Rule R-F) on ACCEPTED RUN_CREATE |
 | `EngineRegistry` | `agent-runtime` (`...runtime.engine.runtime`) | Single authority for `resolve(envelope)` / `resolveByPayload(...)` (Rule R-M.a, formerly Rule 43); relocated from `service.runtime.engine` in rc14 per ADR-0090 |
 | `EngineEnvelope` | `agent-runtime` (`...runtime.engine.runtime`) | Request shape mirroring `engine-envelope.v1.yaml`; relocated from `service.runtime.engine` in rc14 per ADR-0090 |
 | `EngineMatchingException` | `agent-runtime` (`...runtime.engine.spi`) | Thrown by `EngineRegistry.resolve(...)` on engine-type mismatch (Rule R-M.b, formerly Rule 44) |
 | `HookPoint` | `agent-middleware` (`...middleware.spi`) | 10-value enum (before/after LLM/tool/memory + before_suspension + before_resume + on_error + on_yield); mirrors `engine-hooks.v1.yaml` |
 | `HookContext` | `agent-middleware` (`...middleware.spi`) | Hook invocation carrier record |
 | `HookOutcome` | `agent-middleware` (`...middleware.spi`) | Sealed: continue \| short_circuit \| fail |
-| `ModelFinishReason` | `agent-middleware` (`...middleware.model.spi`) | rc52 — closed enum for model termination (`STOP`, `LENGTH`, `TOOL_CALLS`, `CONTENT_FILTER`, `OTHER`); provider-native strings parsed before SPI entry (ADR-0121 / ADR-0134) |
-| `ModelResponseChunk` | `agent-middleware` (`...middleware.model.spi`) | rc51 — sealed streaming chunk: `ContentDelta` \| `ToolCallDelta` \| `Complete` (ADR-0129); terminal `Complete` carries the assembled `ModelResponse` |
-| `PromptTemplateSource` | `agent-middleware` (`...middleware.prompt.spi`) | rc51 — sealed prompt source: `InlineString` \| `ClasspathResource`; each carries a `PlaceholderSyntax` enum value (ADR-0131) |
-| `RenderedPrompt` | `agent-middleware` (`...middleware.prompt.spi`) | rc51 — record `(templateId, renderedText, variables)` returned by `PromptTemplate.render(...)` (ADR-0131) |
-| `AdvisedRequest` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — record `(tenantId, modelRequest, advisorContext)` passed along sync/stream advisor chains without model-SPI imports (ADR-0132) |
-| `AdvisedResponse` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — record `(tenantId, modelResponse, advisorContext)` returned along sync/stream advisor chains (ADR-0132) |
-| `AdvisedModelRequest` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — typed same-package model request carrier `(modelId, messages, tools, parameters, hookContext)` for advisors (ADR-0132) |
-| `AdvisedModelResponse` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — typed same-package model response carrier `(content, toolCalls, finishReason, usage, metadata)` for advisors (ADR-0132) |
-| `AdvisedMessage` / `AdvisedMessageRole` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — typed same-package message vocabulary for advisor payloads (ADR-0132) |
-| `AdvisedToolCall` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — typed same-package tool-call carrier for advisor payloads (ADR-0132) |
-| `AdvisedFinishReason` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — advisor-local finish reason enum mirroring model termination semantics without cross-SPI import (ADR-0132) |
-| `AdvisedUsage` | `agent-middleware` (`...middleware.advisor.spi`) | rc53 — advisor-local token usage carrier (ADR-0132) |
-| `AdvisedStreamChunk` | `agent-middleware` (`...middleware.advisor.spi`) | rc52 — sealed streaming-advisor chunk: `ContentDelta` \| `ToolCallDelta` \| `Complete` (ADR-0132) |
-| `ConversationRole` | `agent-middleware` (`...middleware.memory.spi`) | rc52 — role enum for conversation turns: `SYSTEM`, `USER`, `ASSISTANT`, `TOOL` (ADR-0133) |
-| `ConversationWindow` | `agent-middleware` (`...middleware.memory.spi`) | rc52 — record `(List<ConversationTurn> turns, Map metadata)` stored by `ConversationMemory` (ADR-0133) |
-| `ConversationTurn` | `agent-middleware` (`...middleware.memory.spi`) | rc52 — record `(ConversationRole role, String content, Instant observedAt, int tokenCount, Map metadata)` carried by `ConversationWindow` (ADR-0133) |
-| `RetrievedDocument` | `agent-middleware` (`...middleware.retrieval.spi`) | rc52 — same-package retrieval result carrier; replaces direct dependency on vector `Document` in `Retriever` (ADR-0124) |
 
 **Deferred / Promoted Design Names:**
 
@@ -253,7 +213,6 @@ SemVer from 1.0.0: PATCH=fix, MINOR=additive, MAJOR=breaking. Stable surface: st
 | `agent-middleware` | compute_control | Cross-cutting middleware SPI (`RuntimeMiddleware` + `HookDispatcher`) — ADR-0073 |
 | `agent-runtime` | compute_control | Run-owning runtime SDK: execution engine (`EngineRegistry` / `EngineEnvelope` / `ExecutorAdapter` SPI / hook bridge) + Run lifecycle + engine dispatch + session/task-control + access (A2A) + bootable runtime app + `InProcessEnginePort` realization of the neutral EnginePort boundary — ADR-0072 / ADR-0158 / ADR-0159 |
 | `agent-bus` | bus_state | Active cross-plane control surfaces: `bus.spi.ingress.IngressGateway` (ADR-0089) + `bus.spi.s2c.S2cCallbackTransport` (ADR-0074 + ADR-0088) + neutral orchestration/engine SPI `bus.spi.engine` (EnginePort + RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition + ExecutionContext; ADR-0158). Workflow primitives W2 per ADR-0050 |
-| `agent-client` | edge | Skeleton — W3+ per ADR-0049; cross-plane traffic locked to `bus.spi.ingress.IngressGateway` per ADR-0089 / Rule R-I.b |
 | `agent-evolve` | evolution | Skeleton — Python ML; Java adapter deferred |
 | `spring-ai-ascend-graphmemory-starter` | bus_state | Sidecar adapter (graphmemory SPI scaffold) — ADR-0034 |
 

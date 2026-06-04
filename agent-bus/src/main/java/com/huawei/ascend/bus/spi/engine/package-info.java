@@ -25,9 +25,8 @@
  * across the boundary; {@code java.util.concurrent.Flow} is part of {@code java.*}
  * and is allowed under the SPI-purity rule below.
  *
- * <p>Symmetry note: the bus plane owns the cross-plane control surfaces — C2S
- * ingress ({@code bus.spi.ingress}), S2C callback ({@code bus.spi.s2c}), A2A
- * federation ({@code bus.spi.federation}), and the engine boundary
+ * <p>Symmetry note: the bus plane owns the cross-plane control surfaces — the
+ * S2C callback ({@code bus.spi.s2c}) and the engine boundary
  * ({@code bus.spi.engine}). agent-service drives engines through this contract;
  * agent-runtime implements it. Neither module depends on the other.
  *

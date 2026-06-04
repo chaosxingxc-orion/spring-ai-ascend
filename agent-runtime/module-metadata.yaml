@@ -28,6 +28,4 @@ allowed_dependencies:
   - agent-bus              # engine registry consumes S2cCallbackTransport SPI from bus.spi.s2c per ADR-0088 (relocated from dissolved agent-runtime-core)
 forbidden_dependencies:
   - agent-service          # engine is upstream of agent-service; reverse direction forbidden
-  - agent-client
-  - agent-evolve
 deployment_plane: compute_control   # Rule R-I / P-I — engine runs in-process with the runtime kernel

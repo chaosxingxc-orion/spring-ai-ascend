@@ -7,11 +7,8 @@
  * (ownership move to agent-bus). Contract schema lives at
  * {@code docs/contracts/s2c-callback.v1.yaml}.
  *
- * <p>Symmetry note: the bus plane owns BOTH directions of cross-plane
- * traffic. C2S (client → server) flows through {@code bus.spi.ingress};
- * S2C (server → client) flows through this package. This makes
- * {@code agent-bus} the single cross-plane control surface in both
- * directions per Rule R-I sub-clause .b.
+ * <p>S2C (server → client) callback flows through this package — the bus
+ * plane's outbound cross-plane control surface.
  *
  * <p>SPI-pure per Rule R-D sub-clause .d: imports restricted to
  * {@code java.*} + same-spi-package siblings.
