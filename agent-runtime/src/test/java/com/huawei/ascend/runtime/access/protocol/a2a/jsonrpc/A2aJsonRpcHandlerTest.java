@@ -181,4 +181,28 @@ class A2aJsonRpcHandlerTest {
         assertThat(json).doesNotContain("\"error\"");
         assertThat(JSONRPCUtils.parseResponseEvent(json).hasMessage()).isTrue();
     }
+
+    @Test
+    void openStreamAcceptsSdkSendStreamingMessageMethodName() throws Exception {
+        A2aJsonRpcStreamExchange exchange = handler.openStream(objectMapper.writeValueAsString(Map.of(
+                "jsonrpc", "2.0",
+                "id", "request-stream",
+                "method", "SendStreamingMessage",
+                "params", Map.of(
+                        "message", Map.of(
+                                "role", "user",
+                                "kind", "message",
+                                "contextId", "session-1",
+                                "messageId", UUID.randomUUID().toString(),
+                                "metadata", Map.of(
+                                        "userId", "user-1",
+                                        "sessionId", "session-1"),
+                                "parts", List.of(Map.of(
+                                        "kind", "text",
+                                        "text", "ping")))))));
+
+        assertThat(exchange.id()).isEqualTo("request-stream");
+        assertThat(requestCaptor.getValue().userId()).isEqualTo("user-1");
+        assertThat(requestCaptor.getValue().input().get(0).text()).isEqualTo("ping");
+    }
 }

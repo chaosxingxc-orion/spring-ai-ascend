@@ -15,6 +15,7 @@ import com.huawei.ascend.runtime.access.protocol.async.AsyncQueueIngressAdapter;
 import com.huawei.ascend.runtime.access.protocol.async.AsyncQueueIngressPort;
 import com.huawei.ascend.runtime.access.protocol.async.AsyncQueueReplySink;
 import com.huawei.ascend.runtime.access.protocol.async.DefaultAsyncQueueReplySink;
+import com.huawei.ascend.runtime.bootstrap.AbstractRuntimeAgentHandler;
 import com.huawei.ascend.runtime.queue.QueueManager;
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +42,10 @@ public class AccessLayerConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(AgentCard.class)
-    AgentCard a2aAgentCard() {
+    AgentCard a2aAgentCard(Optional<AbstractRuntimeAgentHandler> runtimeAgent) {
+        if (runtimeAgent.isPresent()) {
+            return runtimeAgent.get().agentCard();
+        }
         AgentCapabilities capabilities = AgentCapabilities.builder()
                 .streaming(true)
                 .pushNotifications(true)

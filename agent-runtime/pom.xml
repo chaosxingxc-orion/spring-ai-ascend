@@ -6,7 +6,7 @@
   engine dispatch, session, task-control, internal event queue, access (A2A),
   and the bootable runtime application. Self-contained and independently bootable.
 
-  Authority: ADR-0159 (agent-runtime consolidation). Neutral EnginePort / orchestration
+  Historical note: ADR-0159 has been archived. Neutral EnginePort / orchestration
   SPI is consumed from agent-bus (bus.spi.engine); s2c SPI from agent-bus (bus.spi.s2c).
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -22,7 +22,7 @@
 
   <artifactId>agent-runtime</artifactId>
   <name>agent-runtime</name>
-  <description>Run-owning runtime SDK: execution engine + Run lifecycle + engine dispatch + session/task-control + access (A2A) + bootable runtime app (ADR-0159).</description>
+  <description>Run-owning runtime SDK: execution engine + Run lifecycle + engine dispatch + session/task-control + access (A2A) + bootable runtime app.</description>
 
   <dependencies>
     <!-- Sibling module: agent-bus (neutral EnginePort/orchestration SPI in bus.spi.engine; S2cCallbackTransport in bus.spi.s2c; IngressGateway in bus.spi.ingress). -->

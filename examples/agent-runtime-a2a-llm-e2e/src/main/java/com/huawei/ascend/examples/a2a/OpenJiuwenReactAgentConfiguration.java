@@ -1,8 +1,10 @@
 package com.huawei.ascend.examples.a2a;
 
-import com.huawei.ascend.runtime.dispatch.adapter.openjiuwen.OpenJiuwenAgentHandler;
+import com.huawei.ascend.runtime.bootstrap.AbstractRuntimeAgentHandler;
+import com.huawei.ascend.runtime.dispatch.adapter.openjiuwen.OpenJiuwenMessageConverter;
+import com.huawei.ascend.runtime.dispatch.adapter.openjiuwen.OpenJiuwenResultMapper;
 import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.dispatch.spi.AgentHandler;
+import com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.ReActAgent;
@@ -23,7 +25,7 @@ public class OpenJiuwenReactAgentConfiguration {
     static final String AGENT_ID = "openjiuwen-react-agent";
 
     @Bean
-    AgentHandler openJiuwenReactAgentHandler(
+    AbstractRuntimeAgentHandler openJiuwenReactAgentHandler(
             @Value("${sample.openjiuwen.model-provider:${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}}")
             String modelProvider,
             @Value("${sample.openjiuwen.api-key:${SAA_SAMPLE_LLM_API_KEY:sk-x00550472}}") String apiKey,
@@ -35,13 +37,15 @@ public class OpenJiuwenReactAgentConfiguration {
         return new SampleOpenJiuwenReactAgentHandler(modelProvider, apiKey, apiBase, modelName, sslVerify);
     }
 
-    static final class SampleOpenJiuwenReactAgentHandler extends OpenJiuwenAgentHandler {
+    static final class SampleOpenJiuwenReactAgentHandler extends AbstractRuntimeAgentHandler {
         private static final Logger LOGGER = LoggerFactory.getLogger(SampleOpenJiuwenReactAgentHandler.class);
         private static final String SYSTEM_PROMPT = """
                 You are a concise assistant exposed only through the A2A protocol.
                 If the user's message is exactly ping, reply exactly pong and nothing else.
                 For all other messages, reply to the user's message directly and briefly.
                 """;
+        private final OpenJiuwenMessageConverter messageConverter = new OpenJiuwenMessageConverter();
+        private final OpenJiuwenResultMapper resultMapper = new OpenJiuwenResultMapper();
 
         private final String modelProvider;
         private final String apiKey;
@@ -55,7 +59,7 @@ public class OpenJiuwenReactAgentConfiguration {
                 String apiBase,
                 String modelName,
                 boolean sslVerify) {
-            super(AGENT_ID);
+            super(AGENT_ID, AGENT_ID, "Sample openJiuwen ReAct agent hosted by agent-runtime.");
             this.modelProvider = modelProvider;
             this.apiKey = apiKey;
             this.apiBase = apiBase;
@@ -75,7 +79,7 @@ public class OpenJiuwenReactAgentConfiguration {
                         apiBase,
                         modelName);
                 ReActAgent agent = buildAgent();
-                Object input = toOpenJiuwenInput(context);
+                Object input = messageConverter.toOpenJiuwenInput(context);
                 Object result = Runner.runAgent(agent, input, null, null);
                 LOGGER.info("example openjiuwen execute finished tenantId={} sessionId={} taskId={} resultType={}",
                         context.getScope().tenantId(),
@@ -96,6 +100,18 @@ public class OpenJiuwenReactAgentConfiguration {
             }
         }
 
+        @Override
+        public AgentResultAdapter resultAdapter() {
+            return rawResults -> rawResults.map(rawResult -> {
+                if (rawResult instanceof Map<?, ?> map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> typed = (Map<String, Object>) map;
+                    return resultMapper.map(typed);
+                }
+                return resultMapper.map(Map.of("result_type", "answer", "output", String.valueOf(rawResult)));
+            });
+        }
+
         private ReActAgent buildAgent() {
             AgentCard card = AgentCard.builder()
                     .id(AGENT_ID)
@@ -113,6 +129,30 @@ public class OpenJiuwenReactAgentConfiguration {
             modelConfig.setMaxTokens(64);
             agent.configure(config);
             return agent;
+        }
+
+        private void safeRelease(AgentExecutionContext context) {
+            try {
+                Runner.release(context.getScope().taskId());
+            } catch (Exception ignored) {
+                // best-effort cleanup; release failures must not mask the result
+            }
+        }
+
+        private static String errorMessage(Throwable error) {
+            StringBuilder message = new StringBuilder();
+            Throwable cursor = error;
+            while (cursor != null) {
+                String part = cursor.getMessage();
+                if (part != null && !part.isBlank()) {
+                    if (!message.isEmpty()) {
+                        message.append(": ");
+                    }
+                    message.append(part);
+                }
+                cursor = cursor.getCause();
+            }
+            return message.isEmpty() ? error.getClass().getName() : message.toString();
         }
     }
 }

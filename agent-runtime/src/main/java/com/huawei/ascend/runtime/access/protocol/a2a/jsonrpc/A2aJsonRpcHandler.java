@@ -120,7 +120,6 @@ public final class A2aJsonRpcHandler {
         if (!"2.0".equals(text(root.get("jsonrpc")))) {
             throw new IllegalArgumentException("JSON-RPC version must be 2.0");
         }
-        validateStreamingRequest(body, methodName);
         A2aAcceptedResponse accepted = submit(toAgentRequest(root.get("params")));
         return new A2aJsonRpcStreamExchange(
                 id,
@@ -168,17 +167,6 @@ public final class A2aJsonRpcHandler {
             throws org.a2aproject.sdk.jsonrpc.common.json.JsonProcessingException {
         if (canonicalMethod.equals(methodName)) {
             JsonUtil.fromJson(body, requestType);
-        }
-    }
-
-    private void validateStreamingRequest(String body, String methodName) {
-        if (!METHOD_SEND_STREAMING_MESSAGE.equals(methodName)) {
-            return;
-        }
-        try {
-            JsonUtil.fromJson(body, SendStreamingMessageRequest.class);
-        } catch (org.a2aproject.sdk.jsonrpc.common.json.JsonProcessingException ex) {
-            throw new IllegalArgumentException(ex.getMessage(), ex);
         }
     }
 

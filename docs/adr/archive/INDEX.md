@@ -8,6 +8,7 @@ This file documents predecessor ADRs whose decisions have been consolidated into
 
 | Range | Wave / origin | Consolidated into |
 |---|---|---|
+| ADR-0159 | 2026-06-04 agent-runtime consolidation and service refounding draft | Archived after architecture review; current agent-runtime / agent-examples gateway sample direction is under `docs/logs/reviews/2026-06-04-agent-examples-a2a-runtime-registry-facade-proposal.cn.md` and ADR-0159 is not normative authority |
 | ADR-0019 | Pre-rc3 SuspendSignal sealed-checked-variant design | ADR-0078 (s2c.spi package move) + Rule 46 kernel |
 | ADR-0021–ADR-0027 | Pre-Phase-7 governance corpus (layered SPI taxonomy, atomicity contract, posture defaults) | Rules 25–32 + ADR-0068–ADR-0073 |
 | ADR-0059–ADR-0067 | W2.x Phase 7 audit response (engine contract, hooks, S2C, evolution scope, sandbox subsumption) | Rules 43–48 + ADR-0068 + ADR-0079 (T2.B2 engine extraction) |

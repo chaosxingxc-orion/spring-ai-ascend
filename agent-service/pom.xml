@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  agent-service: enterprise serviceization façade (skeleton).
+  agent-service: enterprise serviceization facade skeleton.
 
-  Registration and discovery layer that drives runtime-built Agent instances via
-  agent-runtime. The runtime SDK formerly hosted here lives in agent-runtime; this
-  module is a deliberately empty skeleton. The serviceization surface
-  (registration/discovery) is designed in a dedicated ADR.
+  The runtime SDK lives in agent-runtime. This module is a deliberately minimal
+  serviceization skeleton for future runtime-facing service contracts. Gateway
+  facade examples live under examples/agent-runtime-a2a-llm-e2e until a dedicated service
+  module decision is made.
 
-  Authority: ADR-0159 (agent-runtime consolidation).
+  ADR-0159 has been archived and is not normative authority for this module.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -22,10 +22,10 @@
 
   <artifactId>agent-service</artifactId>
   <name>agent-service</name>
-  <description>Enterprise serviceization façade (skeleton): registration/discovery driving runtime-built Agent instances via agent-runtime (ADR-0159).</description>
+  <description>Enterprise serviceization facade skeleton for future runtime-facing service contracts.</description>
 
   <dependencies>
-    <!-- The façade drives the runtime; dependency direction is service -> runtime. -->
+    <!-- The future facade drives the runtime; dependency direction is service -> runtime. -->
     <dependency>
       <groupId>com.huawei.ascend</groupId>
       <artifactId>agent-runtime</artifactId>

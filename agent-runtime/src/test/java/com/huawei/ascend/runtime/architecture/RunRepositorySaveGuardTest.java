@@ -14,7 +14,7 @@ class RunRepositorySaveGuardTest {
 
     @Test
     void productionRunRepositorySaveCallsAreCreateOnlyOutsideRepositoryImplementation() throws IOException {
-        // The Run/RunRepository runtime SDK lives in this module (agent-runtime) post-ADR-0159.
+        // The Run/RunRepository runtime SDK lives in this module (agent-runtime).
         Path mainJava = Path.of("src/main/java").toAbsolutePath();
         List<String> violations = new ArrayList<>();
 

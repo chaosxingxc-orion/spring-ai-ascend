@@ -1,17 +1,19 @@
 # Module metadata for agent-service.
 # Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
-# Authority: ADR-0159 (agent-runtime consolidation — agent-service re-founded as the serviceization façade skeleton).
+# ADR-0159 has been archived and is not normative authority for this module.
+# Gateway facade examples live under examples/agent-runtime-a2a-llm-e2e until a dedicated
+# service module decision is made.
 # Enforced by gate rule module_metadata_present_and_complete.
 
 module: agent-service
 kind: domain
 version: 0.1.0-SNAPSHOT
 semver_compatibility: 0.x
-description: "Enterprise serviceization façade (skeleton). Registration/discovery layer that drives runtime-built Agent instances via agent-runtime. The runtime SDK formerly hosted here lives in agent-runtime; the serviceization surface (registration/discovery) is designed in a dedicated ADR."
+description: "Enterprise serviceization facade skeleton. Runtime-facing service contracts are reserved here; Gateway facade examples live under examples/agent-runtime-a2a-llm-e2e."
 architecture_doc: architecture/docs/L1/agent-service/README.md
 dfx_doc: docs/dfx/agent-service.yaml
 spi_packages:
-  - com.huawei.ascend.service.spi   # placeholder; serviceization (registration/discovery) SPI lands in a dedicated ADR
+  - com.huawei.ascend.service.spi   # placeholder namespace for future serviceization SPIs
 allowed_dependencies:
   - agent-runtime    # engine SPI + orchestration SPI (RunMode, RunContext, SuspendSignal, ...) per ADR-0088
   - agent-bus                 # S2cCallbackTransport SPI + IngressGateway SPI per ADR-0088 + ADR-0089
@@ -20,4 +22,4 @@ forbidden_dependencies: []
 deployment_plane: compute_control
 deployment_loci:
   - platform_centric    # mode_a default per ADR-0101
-  - business_centric    # mode_b — agent-service co-deploys with agent-runtime on business side per ADR-0101
+  - business_centric    # mode_b - agent-service co-deploys with agent-runtime on business side per ADR-0101

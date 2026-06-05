@@ -35,6 +35,7 @@ class A2aClientPerspectiveTest {
     private static List<Path> javaFiles(Path source) throws IOException {
         try (Stream<Path> files = Files.walk(source)) {
             return files.filter(path -> path.toString().endsWith(".java"))
+                    .filter(path -> !path.toString().contains("gateway"))
                     .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         }
     }

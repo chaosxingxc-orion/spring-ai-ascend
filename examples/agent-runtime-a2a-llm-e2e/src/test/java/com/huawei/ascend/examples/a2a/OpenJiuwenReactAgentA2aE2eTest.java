@@ -2,6 +2,7 @@ package com.huawei.ascend.examples.a2a;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.net.URI;
 import java.time.Duration;
@@ -35,10 +36,15 @@ class OpenJiuwenReactAgentA2aE2eTest {
         SampleA2aClient client = new SampleA2aClient(URI.create("http://localhost:" + port), TIMEOUT);
 
         AgentCard agentCard = client.agentCard();
+        assertThat(agentCard.name()).isEqualTo(AGENT_ID);
+        assertThat(agentCard.description()).contains("openJiuwen ReAct agent");
         assertThat(agentCard.capabilities().streaming()).isTrue();
         assertThat(agentCard.supportedInterfaces())
                 .extracting(AgentInterface::protocolBinding, AgentInterface::url)
                 .contains(tuple(TransportProtocol.JSONRPC.asString(), "/a2a"));
+
+        assumeTrue(hasText(System.getenv("SAA_SAMPLE_LLM_API_KEY")),
+                "SAA_SAMPLE_LLM_API_KEY not set; skipping real openJiuwen ReAct agent E2E sample");
 
         String sessionId = "session-" + UUID.randomUUID();
         List<StreamingEventKind> events = client.streamMessage("sample-user", AGENT_ID, sessionId, "ping");
@@ -60,5 +66,9 @@ class OpenJiuwenReactAgentA2aE2eTest {
         return answer.strip()
                 .toLowerCase(Locale.ROOT)
                 .replaceFirst("[\\p{Punct}\\s]+$", "");
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

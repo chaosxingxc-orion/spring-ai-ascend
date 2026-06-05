@@ -22,6 +22,41 @@ This example verifies the intended boundary for the sample:
 
 The current automated E2E test passes and asserts the `ping -> pong` behavior.
 
+## Gateway Facade Sample
+
+This example module also contains a minimal Gateway facade sample under
+`com.huawei.ascend.examples.a2a.gateway`. It demonstrates how a platform layer
+can keep a registry of multiple single-agent runtime instances and expose a
+small HTTP facade for:
+
+- runtime self-registration, lease renewal, and deregistration
+- tenant-scoped agent listing and AgentCard lookup
+- route resolution by `tenantId` and `agentId`
+- a minimal A2A JSON-RPC forwarding endpoint for customer reference
+
+The facade sample is intentionally local and in-memory. It is a customer-facing
+example for pluggable gateway integration, not the production `agent-service`
+implementation.
+
+### Gateway DFX Reference Shape
+
+The Gateway facade sample is not a five-nines production gateway, but it now
+shows the minimum DFX shape expected from a customer-facing platform facade:
+
+- runtime registration records carry TTL / lease information
+- expired leases are marked `UNREACHABLE` and are no longer routable
+- cold, draining, unreachable, and at-capacity runtimes fail closed with clear
+  error codes
+- multiple runtime replicas are resolved through the same route view, and only
+  `READY` replicas can receive new traffic
+- the A2A forwarding endpoint returns trace headers for route resolution,
+  response start, total forwarding time, and selected runtime instance
+
+Production deployments must still add persistent or reconstructable registry
+state, runtime identity authentication, tenant-agent authorization, rate
+limiting, circuit breaking, multi-AZ deployment, same-city disaster recovery,
+cross-region recovery, SLA/SLO dashboards, and error-budget governance.
+
 ## Local LLM Defaults and Curl
 
 The example is configured for a local OpenAI-compatible gateway by default. The checked-in defaults are env-aware placeholders in `examples/agent-runtime-a2a-llm-e2e/src/main/resources/application.yaml`:
