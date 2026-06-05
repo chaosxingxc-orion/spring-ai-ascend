@@ -1,17 +1,21 @@
 package com.huawei.ascend.examples.a2a;
 
 import com.huawei.ascend.runtime.bootstrap.AbstractRuntimeAgentHandler;
+import com.huawei.ascend.runtime.common.InvocationRequest;
+import com.huawei.ascend.runtime.common.RunEvent;
+import com.huawei.ascend.runtime.common.RunEventType;
 import com.huawei.ascend.runtime.dispatch.adapter.openjiuwen.OpenJiuwenMessageConverter;
 import com.huawei.ascend.runtime.dispatch.adapter.openjiuwen.OpenJiuwenResultMapper;
 import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
 import com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter;
-import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
-import com.openjiuwen.core.runner.Runner;
-import com.openjiuwen.core.singleagent.ReActAgent;
-import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
-import com.openjiuwen.core.singleagent.schema.AgentCard;
+import com.huawei.ascend.runtime.engine.RunCoordinator;
+import com.huawei.ascend.runtime.engine.adapters.openjiuwen.OpenJiuwenAgentDriver;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Flow;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +41,13 @@ public class OpenJiuwenReactAgentConfiguration {
         return new SampleOpenJiuwenReactAgentHandler(modelProvider, apiKey, apiBase, modelName, sslVerify);
     }
 
+    /**
+     * W4 bridge: the legacy A2A access SPI ({@link AbstractRuntimeAgentHandler}) delegates the
+     * run to the NEW neutral engine core ({@link RunCoordinator} + {@link OpenJiuwenAgentDriver}),
+     * then surfaces the terminal {@link RunEvent} in the legacy result-map shape the A2A egress
+     * expects. This lets the existing real-A2A e2e harness verify the rebuilt core end-to-end
+     * (SDK-host A2A ping→pong) without re-implementing the transport.
+     */
     static final class SampleOpenJiuwenReactAgentHandler extends AbstractRuntimeAgentHandler {
         private static final Logger LOGGER = LoggerFactory.getLogger(SampleOpenJiuwenReactAgentHandler.class);
         private static final String SYSTEM_PROMPT = """
@@ -46,12 +57,7 @@ public class OpenJiuwenReactAgentConfiguration {
                 """;
         private final OpenJiuwenMessageConverter messageConverter = new OpenJiuwenMessageConverter();
         private final OpenJiuwenResultMapper resultMapper = new OpenJiuwenResultMapper();
-
-        private final String modelProvider;
-        private final String apiKey;
-        private final String apiBase;
-        private final String modelName;
-        private final boolean sslVerify;
+        private final OpenJiuwenAgentDriver driver;
 
         SampleOpenJiuwenReactAgentHandler(
                 String modelProvider,
@@ -60,43 +66,36 @@ public class OpenJiuwenReactAgentConfiguration {
                 String modelName,
                 boolean sslVerify) {
             super(AGENT_ID, AGENT_ID, "Sample openJiuwen ReAct agent hosted by agent-runtime.");
-            this.modelProvider = modelProvider;
-            this.apiKey = apiKey;
-            this.apiBase = apiBase;
-            this.modelName = modelName;
-            this.sslVerify = sslVerify;
+            this.driver = new OpenJiuwenAgentDriver(
+                    AGENT_ID, SYSTEM_PROMPT, modelProvider, apiKey, apiBase, modelName, sslVerify);
         }
 
         @Override
         public Stream<?> execute(AgentExecutionContext context) {
+            Object converted = messageConverter.toOpenJiuwenInput(context);
+            String query = converted instanceof Map<?, ?> map ? String.valueOf(map.get("query")) : "";
+            InvocationRequest request = new InvocationRequest(
+                    context.getScope().taskId(), AGENT_ID, context.getScope().sessionId(), query);
+            LOGGER.info("example openjiuwen (new engine core) start sessionId={} taskId={} provider/base/model via driver",
+                    context.getScope().sessionId(), context.getScope().taskId());
+            RunCoordinator coordinator = new RunCoordinator(driver);
+            coordinator.start();
             try {
-                LOGGER.info("example openjiuwen execute start tenantId={} sessionId={} taskId={} agentId={} provider={} apiBase={} model={}",
-                        context.getScope().tenantId(),
-                        context.getScope().sessionId(),
-                        context.getScope().taskId(),
-                        context.getScope().agentId(),
-                        modelProvider,
-                        apiBase,
-                        modelName);
-                ReActAgent agent = buildAgent();
-                Object input = messageConverter.toOpenJiuwenInput(context);
-                Object result = Runner.runAgent(agent, input, null, null);
-                LOGGER.info("example openjiuwen execute finished tenantId={} sessionId={} taskId={} resultType={}",
-                        context.getScope().tenantId(),
-                        context.getScope().sessionId(),
-                        context.getScope().taskId(),
-                        result == null ? "null" : result.getClass().getName());
-                return Stream.of(result);
-            } catch (Exception e) {
-                LOGGER.warn("example openjiuwen execute failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
-                        context.getScope().tenantId(),
-                        context.getScope().sessionId(),
-                        context.getScope().taskId(),
-                        e.getClass().getSimpleName(),
-                        errorMessage(e));
+                List<RunEvent> events = collect(coordinator.stream(request));
+                RunEvent terminal = events.isEmpty()
+                        ? RunEvent.failed(0, "empty run-event stream")
+                        : events.get(events.size() - 1);
+                String resultType = terminal.kind() == RunEventType.FAILED ? "error" : "answer";
+                String output = terminal.content() != null
+                        ? terminal.content()
+                        : (terminal.error() != null ? terminal.error() : "");
+                LOGGER.info("example openjiuwen (new engine core) finished sessionId={} taskId={} terminalKind={}",
+                        context.getScope().sessionId(), context.getScope().taskId(), terminal.kind());
+                return Stream.of(Map.of("result_type", resultType, "output", output));
+            } catch (RuntimeException e) {
+                LOGGER.warn("example openjiuwen (new engine core) failed sessionId={} taskId={} error={}",
+                        context.getScope().sessionId(), context.getScope().taskId(), errorMessage(e));
                 throw new IllegalStateException(errorMessage(e), e);
-            } finally {
-                safeRelease(context);
             }
         }
 
@@ -112,31 +111,36 @@ public class OpenJiuwenReactAgentConfiguration {
             });
         }
 
-        private ReActAgent buildAgent() {
-            AgentCard card = AgentCard.builder()
-                    .id(AGENT_ID)
-                    .name(AGENT_ID)
-                    .description("Example openJiuwen ReAct agent served by agent-runtime A2A.")
-                    .build();
-            ReActAgent agent = new ReActAgent(card);
-            ReActAgentConfig config = ReActAgentConfig.builder()
-                    .promptTemplate(List.of(Map.of("role", "system", "content", SYSTEM_PROMPT)))
-                    .maxIterations(3)
-                    .build()
-                    .configureModelClient(modelProvider, apiKey, apiBase, modelName, sslVerify);
-            ModelRequestConfig modelConfig = config.getModelConfigObj();
-            modelConfig.setTemperature(0.0);
-            modelConfig.setMaxTokens(64);
-            agent.configure(config);
-            return agent;
-        }
+        private static List<RunEvent> collect(Flow.Publisher<RunEvent> publisher) {
+            List<RunEvent> out = new ArrayList<>();
+            CountDownLatch done = new CountDownLatch(1);
+            publisher.subscribe(new Flow.Subscriber<RunEvent>() {
+                @Override
+                public void onSubscribe(Flow.Subscription subscription) {
+                    subscription.request(Long.MAX_VALUE);
+                }
 
-        private void safeRelease(AgentExecutionContext context) {
+                @Override
+                public void onNext(RunEvent item) {
+                    out.add(item);
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+                    done.countDown();
+                }
+
+                @Override
+                public void onComplete() {
+                    done.countDown();
+                }
+            });
             try {
-                Runner.release(context.getScope().taskId());
-            } catch (Exception ignored) {
-                // best-effort cleanup; release failures must not mask the result
+                done.await(90, TimeUnit.SECONDS);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
             }
+            return out;
         }
 
         private static String errorMessage(Throwable error) {
