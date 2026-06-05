@@ -40,7 +40,7 @@ public final class RunCoordinator {
 
     /** Execute the agent and return the neutral {@code RunEvent} stream. */
     public Flow.Publisher<RunEvent> stream(InvocationRequest request) {
-        Flow.Publisher<?> nativeStream = driver.invoke(request);
+        Object nativeStream = driver.invoke(request);
         return driver.outputConverter().convert(nativeStream);
     }
 }

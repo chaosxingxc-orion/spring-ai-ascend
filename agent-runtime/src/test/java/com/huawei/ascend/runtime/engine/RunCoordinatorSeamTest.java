@@ -38,9 +38,9 @@ class RunCoordinatorSeamTest {
             }
 
             @Override
-            public Flow.Publisher<?> invoke(InvocationRequest request) {
+            public Object invoke(InvocationRequest request) {
                 // opaque "framework-native" stream — the runtime never inspects it
-                return syncPublisher(List.of("pong"));
+                return List.of("pong");
             }
 
             @Override

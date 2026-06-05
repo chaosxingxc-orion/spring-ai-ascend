@@ -1,7 +1,6 @@
 package com.huawei.ascend.runtime.engine.spi;
 
 import com.huawei.ascend.runtime.common.InvocationRequest;
-import java.util.concurrent.Flow;
 
 /**
  * The single framework-neutral runtime SPI: a per-framework "driver" that runs one agent and
@@ -34,8 +33,13 @@ public interface AgentDriver {
 
     boolean isRunning();
 
-    /** Run the agent; returns a framework-native stream (turned neutral by {@link #outputConverter()}). */
-    Flow.Publisher<?> invoke(InvocationRequest request);
+    /**
+     * Run the agent; returns the framework's <em>native</em> stream as an opaque object
+     * (openjiuwen {@code Iterator}, reactive {@code Publisher}, langchain4j {@code TokenStream},
+     * langgraph4j {@code AsyncGenerator}, Dify SSE handle, ...). Only this driver's matching
+     * {@link #outputConverter()} understands it; the runtime never inspects the native type.
+     */
+    Object invoke(InvocationRequest request);
 
     /** Bridges this driver's native stream into the neutral {@code RunEvent} stream. */
     OutputConverter outputConverter();
