@@ -21,6 +21,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class InternalEventQueueTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(InternalEventQueueTest.class);
+    // Bound every verification so a regression that starves the consumer fails fast here
+    // instead of blocking the whole Surefire fork indefinitely.
+    private static final Duration VERIFY_TIMEOUT = Duration.ofSeconds(30);
 
     @Test
     void streamReceivesOfferedValuesAndCloseCompletesConsumer() {
@@ -30,7 +33,7 @@ class InternalEventQueueTest {
                 .then(() -> queue.offer("first"))
                 .expectNext("first")
                 .then(queue::close)
-                .verifyComplete();
+                .expectComplete().verify(VERIFY_TIMEOUT);
     }
 
     @Test
@@ -41,7 +44,7 @@ class InternalEventQueueTest {
 
         StepVerifier.create(queue.stream().take(1))
                 .expectNext("early")
-                .verifyComplete();
+                .expectComplete().verify(VERIFY_TIMEOUT);
     }
 
     @Test
@@ -54,7 +57,7 @@ class InternalEventQueueTest {
                         .hasMessageContaining("single consumer"))
                 .then(() -> queue.offer("first"))
                 .expectNext("first")
-                .verifyComplete();
+                .expectComplete().verify(VERIFY_TIMEOUT);
     }
 
     @Test
@@ -81,7 +84,7 @@ class InternalEventQueueTest {
         StepVerifier.create(queue.stream().take(producerCount * eventsPerProducer))
                 .then(start::countDown)
                 .expectNextCount(producerCount * eventsPerProducer)
-                .verifyComplete();
+                .expectComplete().verify(VERIFY_TIMEOUT);
 
         executor.shutdownNow();
     }
@@ -115,7 +118,7 @@ class InternalEventQueueTest {
                     assertThat(new HashSet<>(values)).hasSize(expectedEvents);
                     assertThat(values).contains(0, expectedEvents - 1);
                 })
-                .verifyComplete();
+                .expectComplete().verify(VERIFY_TIMEOUT);
 
         executor.shutdownNow();
     }
@@ -167,7 +170,7 @@ class InternalEventQueueTest {
                             latencyMicros.getMax());
                     assertThat(totalDurationMs).isLessThan(5_000L);
                 })
-                .verifyComplete();
+                .expectComplete().verify(VERIFY_TIMEOUT);
 
         executor.shutdownNow();
     }
@@ -181,7 +184,7 @@ class InternalEventQueueTest {
         assertThat(queue.size()).isEqualTo(1);
         StepVerifier.create(queue.stream().take(1))
                 .expectNext("first")
-                .verifyComplete();
+                .expectComplete().verify(VERIFY_TIMEOUT);
         assertThat(queue.size()).isZero();
     }
 
@@ -205,7 +208,7 @@ class InternalEventQueueTest {
                 .then(() -> queue.offer("late"))
                 .expectNext("late")
                 .thenCancel()
-                .verify();
+                .verify(VERIFY_TIMEOUT);
     }
 
     private record TimedEvent(int id, long createdNanos) {
