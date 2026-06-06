@@ -15,9 +15,6 @@ spi_packages:
   # the single I/O-boundary seam each framework adapter implements; framework-native
   # tool / memory / middleware stay inside the adapter.
   - com.huawei.ascend.runtime.engine.spi
-  # Engine dispatch SPI (AgentHandler / AgentResultAdapter / EngineQueueGateway /
-  # EngineCommandConsumer / AccessLayerClient / TaskControlClient) — relocated from agent-service.
-  - com.huawei.ascend.runtime.dispatch.spi
 allowed_dependencies:
   - agent-middleware       # engine references HookPoint enum + RuntimeMiddleware listener
   - agent-bus              # engine registry consumes S2cCallbackTransport SPI from bus.spi.s2c per ADR-0088 (relocated from dissolved agent-runtime-core)
