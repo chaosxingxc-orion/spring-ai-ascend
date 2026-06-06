@@ -36,12 +36,6 @@
       <artifactId>agent-middleware</artifactId>
     </dependency>
 
-    <!-- snakeyaml for envelope-schema parsing in EngineRegistry. -->
-    <dependency>
-      <groupId>org.yaml</groupId>
-      <artifactId>snakeyaml</artifactId>
-    </dependency>
-
     <!-- Web + actuator (northbound + bootable app). -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -248,20 +242,6 @@
     <resources>
       <resource>
         <directory>src/main/resources</directory>
-      </resource>
-      <!--
-        Bring canonical contract YAMLs onto the classpath for runtime
-        self-validation. EngineRegistry.readYaml() tries filesystem first,
-        then classpath fallback at "/docs/contracts/<name>.yaml".
-      -->
-      <resource>
-        <directory>${project.basedir}/../docs/contracts</directory>
-        <targetPath>docs/contracts</targetPath>
-        <includes>
-          <include>engine-envelope.v1.yaml</include>
-          <include>engine-hooks.v1.yaml</include>
-          <include>s2c-callback.v1.yaml</include>
-        </includes>
       </resource>
     </resources>
     <plugins>
