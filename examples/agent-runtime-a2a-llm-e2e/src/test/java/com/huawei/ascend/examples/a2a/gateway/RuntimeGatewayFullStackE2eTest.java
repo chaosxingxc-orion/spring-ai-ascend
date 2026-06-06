@@ -1,18 +1,20 @@
 package com.huawei.ascend.examples.a2a.gateway;
 
 import com.huawei.ascend.examples.a2a.gateway.config.RuntimeRegistryConfiguration;
-import com.huawei.ascend.runtime.bootstrap.AbstractRuntimeAgentHandler;
-import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.dispatch.spi.AgentExecutionResult;
-import com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter;
+import com.huawei.ascend.runtime.common.InvocationRequest;
+import com.huawei.ascend.runtime.common.RunEvent;
+import com.huawei.ascend.runtime.engine.spi.AbstractAgentDriver;
+import com.huawei.ascend.runtime.engine.spi.AgentDriver;
+import com.huawei.ascend.runtime.engine.spi.OutputConverter;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Stream;
+import java.util.concurrent.Flow;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.WebApplicationType;
@@ -175,28 +177,61 @@ class RuntimeGatewayFullStackE2eTest {
     static class TestRuntimeApplication {
 
         @Bean
-        AbstractRuntimeAgentHandler fullStackPingAgentHandler() {
-            return new AbstractRuntimeAgentHandler(AGENT, AGENT, "Full-stack ping Agent for gateway facade E2E.") {
+        AgentDriver fullStackPingAgentDriver() {
+            return new AbstractAgentDriver() {
                 @Override
-                public Stream<?> execute(AgentExecutionContext context) {
-                    waitForStreamSubscription();
-                    return Stream.of("pong");
+                public String name() {
+                    return AGENT;
                 }
 
                 @Override
-                public AgentResultAdapter resultAdapter() {
-                    return rawResults -> rawResults.map(raw -> AgentExecutionResult.completed(String.valueOf(raw)));
+                public String frameworkId() {
+                    return "stub";
                 }
 
-                private void waitForStreamSubscription() {
+                @Override
+                public Object invoke(InvocationRequest request) {
+                    // Wait so the SSE subscription is established before the (synchronous) output flows.
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
                         throw new IllegalStateException("Interrupted before producing the test response", ex);
                     }
+                    return List.of("pong");
+                }
+
+                @Override
+                public OutputConverter outputConverter() {
+                    return frameworkStream -> {
+                        List<?> items = frameworkStream instanceof List<?> list ? list : List.of();
+                        String text = items.isEmpty() ? "" : String.valueOf(items.get(0));
+                        return syncPublisher(List.of(RunEvent.accepted(), RunEvent.completed(1, text)));
+                    };
                 }
             };
+        }
+
+        private static Flow.Publisher<RunEvent> syncPublisher(List<RunEvent> items) {
+            return subscriber -> subscriber.onSubscribe(new Flow.Subscription() {
+                private int idx = 0;
+                private boolean cancelled = false;
+
+                @Override
+                public void request(long n) {
+                    while (n-- > 0 && idx < items.size() && !cancelled) {
+                        subscriber.onNext(items.get(idx++));
+                    }
+                    if (idx >= items.size() && !cancelled) {
+                        subscriber.onComplete();
+                    }
+                }
+
+                @Override
+                public void cancel() {
+                    cancelled = true;
+                }
+            });
         }
     }
 

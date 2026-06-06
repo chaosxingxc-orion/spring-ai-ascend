@@ -15,7 +15,7 @@ import com.huawei.ascend.runtime.access.protocol.async.AsyncQueueIngressAdapter;
 import com.huawei.ascend.runtime.access.protocol.async.AsyncQueueIngressPort;
 import com.huawei.ascend.runtime.access.protocol.async.AsyncQueueReplySink;
 import com.huawei.ascend.runtime.access.protocol.async.DefaultAsyncQueueReplySink;
-import com.huawei.ascend.runtime.bootstrap.AbstractRuntimeAgentHandler;
+import com.huawei.ascend.runtime.engine.spi.AgentDriver;
 import com.huawei.ascend.runtime.queue.QueueManager;
 import java.util.List;
 import java.util.Optional;
@@ -42,18 +42,18 @@ public class AccessLayerConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(AgentCard.class)
-    AgentCard a2aAgentCard(Optional<AbstractRuntimeAgentHandler> runtimeAgent) {
-        if (runtimeAgent.isPresent()) {
-            return runtimeAgent.get().agentCard();
-        }
+    AgentCard a2aAgentCard(org.springframework.beans.factory.ObjectProvider<AgentDriver> drivers) {
+        AgentDriver driver = drivers.getIfAvailable();
         AgentCapabilities capabilities = AgentCapabilities.builder()
                 .streaming(true)
                 .pushNotifications(true)
                 .extendedAgentCard(false)
                 .build();
         return AgentCard.builder()
-                .name("spring-ai-ascend-agent")
-                .description("A2A access layer for spring-ai-ascend agent runtime.")
+                .name(driver != null ? driver.name() : "spring-ai-ascend-agent")
+                .description(driver != null
+                        ? driver.description()
+                        : "A2A access layer for spring-ai-ascend agent runtime.")
                 .url("/a2a")
                 .version("0.1.0")
                 .provider(new AgentProvider("spring-ai-ascend", "http://localhost:8080"))

@@ -6,9 +6,9 @@ import com.huawei.ascend.runtime.dispatch.command.EngineCommandEventFactory;
 import com.huawei.ascend.runtime.dispatch.command.EngineCommandGateway;
 import com.huawei.ascend.runtime.dispatch.command.EngineCommandProcessor;
 import com.huawei.ascend.runtime.dispatch.command.InternalEngineCommandGateway;
-import com.huawei.ascend.runtime.dispatch.dispatch.AgentHandlerRegistry;
-import com.huawei.ascend.runtime.dispatch.dispatch.DefaultAgentHandlerRegistry;
 import com.huawei.ascend.runtime.dispatch.dispatch.EngineDispatcher;
+import com.huawei.ascend.runtime.engine.registry.AgentDriverRegistry;
+import com.huawei.ascend.runtime.engine.registry.DefaultAgentDriverRegistry;
 import com.huawei.ascend.runtime.dispatch.port.AccessLayerClient;
 import com.huawei.ascend.runtime.dispatch.port.TaskControlClient;
 import com.huawei.ascend.runtime.queue.QueueManager;
@@ -34,12 +34,12 @@ public class EngineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AgentHandlerRegistry agentHandlerRegistry(
-            org.springframework.beans.factory.ObjectProvider<com.huawei.ascend.runtime.dispatch.spi.AgentHandler> handlers) {
-        DefaultAgentHandlerRegistry registry = new DefaultAgentHandlerRegistry();
-        // Auto-register every AgentHandler bean by its agentId so framework
-        // integrators only need to publish a handler bean to plug in an agent.
-        handlers.orderedStream().forEach(handler -> registry.register(handler.agentId(), handler));
+    public AgentDriverRegistry agentDriverRegistry(
+            org.springframework.beans.factory.ObjectProvider<com.huawei.ascend.runtime.engine.spi.AgentDriver> drivers) {
+        DefaultAgentDriverRegistry registry = new DefaultAgentDriverRegistry();
+        // Auto-register every AgentDriver bean so framework integrators only need to
+        // publish a driver bean to plug an agent into the neutral execution core.
+        drivers.orderedStream().forEach(registry::register);
         return registry;
     }
 
@@ -70,7 +70,7 @@ public class EngineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public EngineDispatcher engineDispatcher(AgentHandlerRegistry registry,
+    public EngineDispatcher engineDispatcher(AgentDriverRegistry registry,
                                              TaskControlClient taskControlClient,
                                              AccessLayerClient accessLayerClient) {
         return new EngineDispatcher(registry, taskControlClient, accessLayerClient);

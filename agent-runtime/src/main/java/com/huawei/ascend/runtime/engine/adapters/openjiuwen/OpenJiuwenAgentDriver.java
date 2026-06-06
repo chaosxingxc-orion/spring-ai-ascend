@@ -57,6 +57,11 @@ public final class OpenJiuwenAgentDriver extends AbstractAgentDriver {
     }
 
     @Override
+    public String description() {
+        return "openJiuwen ReAct agent driven through the agent-runtime neutral SPI.";
+    }
+
+    @Override
     public String frameworkId() {
         return "openjiuwen";
     }
