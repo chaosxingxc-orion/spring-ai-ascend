@@ -7,8 +7,8 @@ import com.huawei.ascend.runtime.engine.command.EngineWorker;
 import com.huawei.ascend.runtime.engine.config.EngineAutoConfiguration;
 import com.huawei.ascend.runtime.queue.config.QueueAutoConfiguration;
 import com.huawei.ascend.runtime.session.config.SessionManageConfiguration;
-import com.huawei.ascend.runtime.taskcontrol.TaskControlService;
-import com.huawei.ascend.runtime.taskcontrol.config.TaskControlAutoConfiguration;
+import com.huawei.ascend.runtime.control.TaskControlService;
+import com.huawei.ascend.runtime.control.config.TaskControlAutoConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 

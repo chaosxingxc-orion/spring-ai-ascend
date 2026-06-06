@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.taskcontrol.test;
+package com.huawei.ascend.runtime.control.test;
 
 import com.huawei.ascend.runtime.engine.api.EngineExecutionApi;
 import com.huawei.ascend.runtime.engine.api.EnqueueEngineCancelRequest;
@@ -7,12 +7,12 @@ import com.huawei.ascend.runtime.engine.api.EnqueueEngineResumeRequest;
 import com.huawei.ascend.runtime.engine.api.EnqueueEngineStatus;
 import com.huawei.ascend.runtime.schema.AgentRequest;
 import com.huawei.ascend.runtime.schema.Message;
-import com.huawei.ascend.runtime.taskcontrol.Task;
-import com.huawei.ascend.runtime.taskcontrol.TaskControlService;
-import com.huawei.ascend.runtime.taskcontrol.TaskFailureCode;
-import com.huawei.ascend.runtime.taskcontrol.TaskState;
-import com.huawei.ascend.runtime.taskcontrol.WaitingReason;
-import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient;
+import com.huawei.ascend.runtime.control.Task;
+import com.huawei.ascend.runtime.control.TaskControlService;
+import com.huawei.ascend.runtime.control.TaskFailureCode;
+import com.huawei.ascend.runtime.control.TaskState;
+import com.huawei.ascend.runtime.control.WaitingReason;
+import com.huawei.ascend.runtime.control.api.TaskControlApi;
 import com.huawei.ascend.runtime.queue.QueueManager;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +36,7 @@ class TaskControlServiceWhiteboxTest {
 
     @Test
     void runTaskCreatesSessionQueueAndDispatchesExecution() {
-        TaskControlClient.TaskResult result = run("agent", "hello", "idem-1");
+        TaskControlApi.TaskResult result = run("agent", "hello", "idem-1");
 
         assertThat(result.accepted()).isTrue();
         assertThat(result.state()).isEqualTo(TaskState.CREATED);
@@ -49,19 +49,19 @@ class TaskControlServiceWhiteboxTest {
 
     @Test
     void markMethodsEnforceRevisionAndTransitionOrder() {
-        TaskControlClient.TaskResult created = run("agent", "hello", null);
+        TaskControlApi.TaskResult created = run("agent", "hello", null);
 
-        TaskControlClient.TaskResult running = service.markRunning(mark(created.taskId(), 1L, null, null, null))
+        TaskControlApi.TaskResult running = service.markRunning(mark(created.taskId(), 1L, null, null, null))
                 .toCompletableFuture().join();
-        TaskControlClient.TaskResult stale = service.markWaiting(mark(created.taskId(), 1L,
+        TaskControlApi.TaskResult stale = service.markWaiting(mark(created.taskId(), 1L,
                         WaitingReason.USER_INPUT, null, "need-city"))
                 .toCompletableFuture().join();
-        TaskControlClient.TaskResult waiting = service.markWaiting(mark(created.taskId(), 2L,
+        TaskControlApi.TaskResult waiting = service.markWaiting(mark(created.taskId(), 2L,
                         WaitingReason.USER_INPUT, null, "need-city"))
                 .toCompletableFuture().join();
-        TaskControlClient.TaskResult rerunning = service.markRunning(mark(created.taskId(), 3L, null, null, null))
+        TaskControlApi.TaskResult rerunning = service.markRunning(mark(created.taskId(), 3L, null, null, null))
                 .toCompletableFuture().join();
-        TaskControlClient.TaskResult done = service.markSucceeded(mark(created.taskId(), 4L, null, null, "done"))
+        TaskControlApi.TaskResult done = service.markSucceeded(mark(created.taskId(), 4L, null, null, "done"))
                 .toCompletableFuture().join();
 
         assertThat(running.state()).isEqualTo(TaskState.RUNNING);
@@ -75,14 +75,14 @@ class TaskControlServiceWhiteboxTest {
 
     @Test
     void resumeInputTargetsWaitingTaskAndCancelMakesNextRunCreateNewTask() {
-        TaskControlClient.TaskResult created = run("agent", "hello", null);
+        TaskControlApi.TaskResult created = run("agent", "hello", null);
         service.markRunning(mark(created.taskId(), 1L, null, null, null)).toCompletableFuture().join();
         service.markWaiting(mark(created.taskId(), 2L, WaitingReason.USER_INPUT, null, "need-city"))
                 .toCompletableFuture().join();
 
-        TaskControlClient.TaskResult resumed = resume(null, "agent", "beijing", null);
-        TaskControlClient.TaskResult cancelling = cancel(resumed.taskId(), "agent");
-        TaskControlClient.TaskResult next = run("agent", "new intent", null);
+        TaskControlApi.TaskResult resumed = resume(null, "agent", "beijing", null);
+        TaskControlApi.TaskResult cancelling = cancel(resumed.taskId(), "agent");
+        TaskControlApi.TaskResult next = run("agent", "new intent", null);
 
         assertThat(engine.resumes).hasSize(1);
         assertThat(resumed.taskId()).isEqualTo(created.taskId());
@@ -94,16 +94,16 @@ class TaskControlServiceWhiteboxTest {
 
     @Test
     void waitingTaskCanBeResumedAndCompleted() {
-        TaskControlClient.TaskResult created = run("agent", "weather", null);
+        TaskControlApi.TaskResult created = run("agent", "weather", null);
         service.markRunning(mark(created.taskId(), 1L, null, null, null)).toCompletableFuture().join();
-        TaskControlClient.TaskResult waiting = service.markWaiting(mark(created.taskId(), 2L,
+        TaskControlApi.TaskResult waiting = service.markWaiting(mark(created.taskId(), 2L,
                         WaitingReason.USER_INPUT, null, "need-city"))
                 .toCompletableFuture().join();
 
-        TaskControlClient.TaskResult resumed = resume(null, "agent", "beijing", null);
-        TaskControlClient.TaskResult running = service.markRunning(mark(created.taskId(), 3L, null, null, null))
+        TaskControlApi.TaskResult resumed = resume(null, "agent", "beijing", null);
+        TaskControlApi.TaskResult running = service.markRunning(mark(created.taskId(), 3L, null, null, null))
                 .toCompletableFuture().join();
-        TaskControlClient.TaskResult completed = service.markSucceeded(mark(created.taskId(), 4L,
+        TaskControlApi.TaskResult completed = service.markSucceeded(mark(created.taskId(), 4L,
                         null, null, "sunny"))
                 .toCompletableFuture().join();
 
@@ -118,10 +118,10 @@ class TaskControlServiceWhiteboxTest {
 
     @Test
     void runtimeCanMarkRunningTaskFailed() {
-        TaskControlClient.TaskResult created = run("agent", "fail later", null);
+        TaskControlApi.TaskResult created = run("agent", "fail later", null);
         service.markRunning(mark(created.taskId(), 1L, null, null, null)).toCompletableFuture().join();
 
-        TaskControlClient.TaskResult failed = service.markFailed(mark(created.taskId(), 2L,
+        TaskControlApi.TaskResult failed = service.markFailed(mark(created.taskId(), 2L,
                         null, TaskFailureCode.RUNTIME_ERROR, "boom"))
                 .toCompletableFuture().join();
         Task task = service.findTask("tenant", "session", created.taskId()).orElseThrow();
@@ -134,14 +134,14 @@ class TaskControlServiceWhiteboxTest {
 
     @Test
     void cancelFlowCanReachCancelledWhenRuntimeAcknowledgesIt() {
-        TaskControlClient.TaskResult created = run("agent", "cancel me", null);
+        TaskControlApi.TaskResult created = run("agent", "cancel me", null);
         service.markRunning(mark(created.taskId(), 1L, null, null, null)).toCompletableFuture().join();
 
-        TaskControlClient.TaskResult cancelling = cancel(created.taskId(), "agent");
-        TaskControlClient.TaskResult cancelled = service.markCancelled(mark(created.taskId(), 3L,
+        TaskControlApi.TaskResult cancelling = cancel(created.taskId(), "agent");
+        TaskControlApi.TaskResult cancelled = service.markCancelled(mark(created.taskId(), 3L,
                         null, TaskFailureCode.CANCELLED_BY_RUNTIME, "runtime-stopped"))
                 .toCompletableFuture().join();
-        TaskControlClient.TaskResult rejected = cancel(created.taskId(), "agent");
+        TaskControlApi.TaskResult rejected = cancel(created.taskId(), "agent");
 
         assertThat(cancelling.state()).isEqualTo(TaskState.CANCELLING);
         assertThat(engine.cancels).hasSize(1);
@@ -153,8 +153,8 @@ class TaskControlServiceWhiteboxTest {
 
     @Test
     void idempotencyKeyReturnsSameTaskResultWithoutSecondDispatch() {
-        TaskControlClient.TaskResult first = run("agent", "hello", "same-key");
-        TaskControlClient.TaskResult second = run("agent", "hello", "same-key");
+        TaskControlApi.TaskResult first = run("agent", "hello", "same-key");
+        TaskControlApi.TaskResult second = run("agent", "hello", "same-key");
 
         assertThat(second).isEqualTo(first);
         assertThat(engine.executions).hasSize(1);
@@ -163,18 +163,18 @@ class TaskControlServiceWhiteboxTest {
 
     @Test
     void idempotencyKeyDoesNotCollapseDifferentResumeTargets() {
-        TaskControlClient.TaskResult first = run("agent", "first", null);
+        TaskControlApi.TaskResult first = run("agent", "first", null);
         service.markRunning(mark(first.taskId(), 1L, null, null, null)).toCompletableFuture().join();
         service.markWaiting(mark(first.taskId(), 2L, WaitingReason.USER_INPUT, null, "need-first"))
                 .toCompletableFuture().join();
 
-        TaskControlClient.TaskResult second = run("agent", "second", null);
+        TaskControlApi.TaskResult second = run("agent", "second", null);
         service.markRunning(mark(second.taskId(), 1L, null, null, null)).toCompletableFuture().join();
         service.markWaiting(mark(second.taskId(), 2L, WaitingReason.USER_INPUT, null, "need-second"))
                 .toCompletableFuture().join();
 
-        TaskControlClient.TaskResult firstResume = resume(first.taskId(), "agent", "answer-first", "same-resume-key");
-        TaskControlClient.TaskResult secondResume = resume(second.taskId(), "agent", "answer-second", "same-resume-key");
+        TaskControlApi.TaskResult firstResume = resume(first.taskId(), "agent", "answer-first", "same-resume-key");
+        TaskControlApi.TaskResult secondResume = resume(second.taskId(), "agent", "answer-second", "same-resume-key");
 
         assertThat(firstResume.taskId()).isEqualTo(first.taskId());
         assertThat(secondResume.taskId()).isEqualTo(second.taskId());
@@ -185,7 +185,7 @@ class TaskControlServiceWhiteboxTest {
     void rejectedEngineDispatchMarksTaskFailed() {
         engine.status = EnqueueEngineStatus.FAILED;
 
-        TaskControlClient.TaskResult result = run("agent", "hello", null);
+        TaskControlApi.TaskResult result = run("agent", "hello", null);
         Task task = service.findTask("tenant", "session", result.taskId()).orElseThrow();
 
         assertThat(result.accepted()).isFalse();
@@ -193,19 +193,19 @@ class TaskControlServiceWhiteboxTest {
         assertThat(task.getFailureCode()).isEqualTo(TaskFailureCode.ENGINE_DISPATCH_REJECTED);
     }
 
-    private TaskControlClient.TaskResult run(String agentId, String input, String idempotencyKey) {
-        return service.run(new TaskControlClient.RunCommand(request(agentId, input, idempotencyKey)))
+    private TaskControlApi.TaskResult run(String agentId, String input, String idempotencyKey) {
+        return service.run(new TaskControlApi.RunCommand(request(agentId, input, idempotencyKey)))
                 .toCompletableFuture().join();
     }
 
-    private TaskControlClient.TaskResult resume(String taskId, String agentId, String input, String idempotencyKey) {
-        return service.resume(new TaskControlClient.ResumeCommand(taskId,
+    private TaskControlApi.TaskResult resume(String taskId, String agentId, String input, String idempotencyKey) {
+        return service.resume(new TaskControlApi.ResumeCommand(taskId,
                 request(agentId, input, idempotencyKey)))
                 .toCompletableFuture().join();
     }
 
-    private TaskControlClient.TaskResult cancel(String taskId, String agentId) {
-        return service.cancel(new TaskControlClient.CancelCommand(
+    private TaskControlApi.TaskResult cancel(String taskId, String agentId) {
+        return service.cancel(new TaskControlApi.CancelCommand(
                 "tenant",
                 "user",
                 agentId,
@@ -227,11 +227,11 @@ class TaskControlServiceWhiteboxTest {
                 Map.of("userId", "user"));
     }
 
-    private TaskControlClient.MarkTaskCommand mark(String taskId, long expectedRevision,
+    private TaskControlApi.MarkTaskCommand mark(String taskId, long expectedRevision,
                                                    WaitingReason waitingReason,
                                                    TaskFailureCode failureCode,
                                                    Object detail) {
-        return new TaskControlClient.MarkTaskCommand(
+        return new TaskControlApi.MarkTaskCommand(
                 "tenant",
                 "session",
                 taskId,

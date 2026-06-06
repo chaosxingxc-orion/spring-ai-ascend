@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.taskcontrol;
+package com.huawei.ascend.runtime.control;
 
 import com.huawei.ascend.runtime.queue.InternalEventQueue;
 import com.huawei.ascend.runtime.queue.QueueManager;

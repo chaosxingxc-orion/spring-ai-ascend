@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.taskcontrol;
+package com.huawei.ascend.runtime.control;
 
 import com.huawei.ascend.runtime.engine.event.EngineCancelledEvent;
 import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
@@ -6,7 +6,7 @@ import com.huawei.ascend.runtime.engine.event.EngineFailedEvent;
 import com.huawei.ascend.runtime.engine.event.EngineInterruptedEvent;
 import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.model.InterruptType;
-import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient.MarkTaskCommand;
+import com.huawei.ascend.runtime.control.api.TaskControlApi.MarkTaskCommand;
 
 import java.util.Map;
 import java.util.Objects;

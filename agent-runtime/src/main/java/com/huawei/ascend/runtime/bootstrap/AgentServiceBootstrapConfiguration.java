@@ -4,7 +4,7 @@ import com.huawei.ascend.runtime.access.api.NotificationPort;
 import com.huawei.ascend.runtime.access.core.AccessSubmissionService;
 import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
 import com.huawei.ascend.runtime.session.api.SessionManager;
-import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient;
+import com.huawei.ascend.runtime.control.api.TaskControlApi;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,7 +32,7 @@ public class AgentServiceBootstrapConfiguration {
     @Bean
     @ConditionalOnMissingBean(AccessSubmissionService.class)
     public AccessSubmissionService accessSubmissionService(
-            TaskControlClient taskControlClient,
+            TaskControlApi taskControlClient,
             SessionManager sessionManager) {
         return new AccessSubmissionService(taskControlClient, sessionManager);
     }

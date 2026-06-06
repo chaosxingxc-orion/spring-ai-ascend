@@ -39,7 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         properties = "spring.autoconfigure.exclude="
                 + "com.huawei.ascend.runtime.session.config.SessionManageConfiguration,"
                 + "com.huawei.ascend.runtime.queue.config.QueueAutoConfiguration,"
-                + "com.huawei.ascend.runtime.taskcontrol.config.TaskControlAutoConfiguration,"
+                + "com.huawei.ascend.runtime.control.config.TaskControlAutoConfiguration,"
                 + "com.huawei.ascend.runtime.bootstrap.AgentServiceBootstrapConfiguration,"
                 + "com.huawei.ascend.runtime.access.config.AccessLayerConfiguration,"
                 + "com.huawei.ascend.runtime.engine.config.EngineAutoConfiguration")

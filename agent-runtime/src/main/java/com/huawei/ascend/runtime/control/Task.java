@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.taskcontrol;
+package com.huawei.ascend.runtime.control;
 
 import java.time.Instant;
 import java.util.Objects;

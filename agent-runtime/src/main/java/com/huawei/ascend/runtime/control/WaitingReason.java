@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.taskcontrol;
+package com.huawei.ascend.runtime.control;
 
 /**
  * Structured reason attached to the single WAITING state.

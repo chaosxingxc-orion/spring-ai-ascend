@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.taskcontrol;
+package com.huawei.ascend.runtime.control;
 
 import com.huawei.ascend.runtime.engine.api.EngineExecutionApi;
 import com.huawei.ascend.runtime.engine.api.EnqueueEngineCancelRequest;
@@ -9,7 +9,7 @@ import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.model.EngineInput;
 import com.huawei.ascend.runtime.schema.AgentRequest;
 import com.huawei.ascend.runtime.schema.Message;
-import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient;
+import com.huawei.ascend.runtime.control.api.TaskControlApi;
 import com.huawei.ascend.runtime.queue.QueueManager;
 
 import java.time.Clock;
@@ -27,7 +27,7 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TaskControlService implements TaskControlClient {
+public class TaskControlService implements TaskControlApi {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TaskControlService.class);
 

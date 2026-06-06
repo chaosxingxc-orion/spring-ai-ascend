@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.taskcontrol;
+package com.huawei.ascend.runtime.control;
 
 /**
  * Task-Centric Control (TCC) owned main Task state set.

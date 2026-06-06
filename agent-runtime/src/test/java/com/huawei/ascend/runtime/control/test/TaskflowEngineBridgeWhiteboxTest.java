@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.taskcontrol.test;
+package com.huawei.ascend.runtime.control.test;
 
 import com.huawei.ascend.runtime.engine.api.DefaultEngineExecutionApi;
 import com.huawei.ascend.runtime.engine.api.EngineExecutionApi;
@@ -12,11 +12,11 @@ import com.huawei.ascend.runtime.engine.support.FakeInterruptingAgentRuntimeHand
 import com.huawei.ascend.runtime.engine.support.RecordingAccessLayerClient;
 import com.huawei.ascend.runtime.schema.AgentRequest;
 import com.huawei.ascend.runtime.schema.Message;
-import com.huawei.ascend.runtime.taskcontrol.EngineTaskControlAdapter;
-import com.huawei.ascend.runtime.taskcontrol.TaskControlService;
-import com.huawei.ascend.runtime.taskcontrol.TaskState;
-import com.huawei.ascend.runtime.taskcontrol.WaitingReason;
-import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient;
+import com.huawei.ascend.runtime.control.EngineTaskControlAdapter;
+import com.huawei.ascend.runtime.control.TaskControlService;
+import com.huawei.ascend.runtime.control.TaskState;
+import com.huawei.ascend.runtime.control.WaitingReason;
+import com.huawei.ascend.runtime.control.api.TaskControlApi;
 import com.huawei.ascend.runtime.queue.QueueManager;
 import org.junit.jupiter.api.Test;
 
@@ -46,14 +46,14 @@ class TaskflowEngineBridgeWhiteboxTest {
                 new EngineWorker(engineQueue, new EngineDispatcher(registry, adapter, access), Runnable::run);
         processor.start();
 
-        TaskControlClient.TaskResult waiting = tcc.run(new TaskControlClient.RunCommand(request("hello")))
+        TaskControlApi.TaskResult waiting = tcc.run(new TaskControlApi.RunCommand(request("hello")))
                 .toCompletableFuture().join();
 
         assertThat(waiting.state()).isEqualTo(TaskState.WAITING);
         assertThat(tcc.findTask("tenant", "session", waiting.taskId()).orElseThrow().getWaitingReason())
                 .isEqualTo(WaitingReason.USER_INPUT);
 
-        TaskControlClient.TaskResult completed = tcc.resume(new TaskControlClient.ResumeCommand(
+        TaskControlApi.TaskResult completed = tcc.resume(new TaskControlApi.ResumeCommand(
                         waiting.taskId(), request("yes")))
                 .toCompletableFuture().join();
 

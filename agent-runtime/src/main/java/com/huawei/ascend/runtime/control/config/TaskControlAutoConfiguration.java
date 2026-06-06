@@ -1,9 +1,9 @@
-package com.huawei.ascend.runtime.taskcontrol.config;
+package com.huawei.ascend.runtime.control.config;
 
 import com.huawei.ascend.runtime.engine.api.EngineExecutionApi;
 import com.huawei.ascend.runtime.queue.QueueManager;
-import com.huawei.ascend.runtime.taskcontrol.EngineTaskControlAdapter;
-import com.huawei.ascend.runtime.taskcontrol.TaskControlService;
+import com.huawei.ascend.runtime.control.EngineTaskControlAdapter;
+import com.huawei.ascend.runtime.control.TaskControlService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 public class TaskControlAutoConfiguration {
 
     @Bean
-    @ConditionalOnMissingBean(com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient.class)
+    @ConditionalOnMissingBean(com.huawei.ascend.runtime.control.api.TaskControlApi.class)
     public TaskControlService taskControlService(QueueManager queueManager,
                                                  ObjectProvider<EngineExecutionApi> engineDispatchApi) {
         return new TaskControlService(queueManager, engineDispatchApi::getIfAvailable, java.time.Clock.systemUTC());

@@ -1,9 +1,9 @@
-package com.huawei.ascend.runtime.taskcontrol.api;
+package com.huawei.ascend.runtime.control.api;
 
 import com.huawei.ascend.runtime.schema.AgentRequest;
-import com.huawei.ascend.runtime.taskcontrol.TaskFailureCode;
-import com.huawei.ascend.runtime.taskcontrol.TaskState;
-import com.huawei.ascend.runtime.taskcontrol.WaitingReason;
+import com.huawei.ascend.runtime.control.TaskFailureCode;
+import com.huawei.ascend.runtime.control.TaskState;
+import com.huawei.ascend.runtime.control.WaitingReason;
 
 import java.util.Map;
 import java.util.Objects;
@@ -17,7 +17,7 @@ import java.util.concurrent.CompletionStage;
  * state intent. Runtime code must not publish directly to, or consume directly
  * from, the Internal Event Queue (IEQ).
  */
-public interface TaskControlClient {
+public interface TaskControlApi {
 
     CompletionStage<TaskResult> run(RunCommand command);
 
