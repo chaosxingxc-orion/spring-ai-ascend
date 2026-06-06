@@ -1,0 +1,68 @@
+id: ADR-0160
+title: "Neutral execution core supersedes the dual-mode / EnginePort engine-contract mechanism — agent-runtime rebuilt on RunCoordinator / AgentDriver / OutputConverter"
+status: accepted
+product_claim: "PC-004"
+date: 2026-06-06
+level: L1
+view: development
+affects_level: L1
+affects_view: [logical, development]
+authors:
+  - chao
+relates_to:
+  - ADR-0158    # EnginePort transport-agnostic boundary — its deployment-forms + reactive-stream + engine-independence + PC-002/004 bindings are INHERITED; only its engine-contract mechanism (EnginePort/ExecutorAdapter/dual-mode/SuspendSignal) is superseded here
+  - ADR-0071    # Engine Contract Structural Wave umbrella (ADR-0072 Engine Envelope, ADR-0073 Engine Hooks) — the engine-contract clauses are superseded
+  - ADR-0126    # Planner SPI — the engine-side planner residue is retired
+  - ADR-0159    # archived agent-runtime consolidation — historical background
+context: |
+  The dual-mode execution-engine contract (GRAPH + AGENT_LOOP via ExecutorAdapter /
+  GraphExecutor / AgentLoopExecutor / EngineRegistry / EngineEnvelope), the EnginePort
+  neutral boundary with SuspendSignal-based suspend/resume, and the engine-side Planner SPI
+  were designed across ADR-0071/0072/0073/0126/0158 but, verified against the live repo
+  (grep, not prose), were NEVER wired into the active A2A execution path
+  (A2A -> access -> dispatch.EngineDispatcher -> dispatch.spi.AgentHandler -> openJiuwen).
+  They were unreached residue.
+
+  In parallel, the runtime was rebuilt around a single framework-neutral I/O-boundary seam,
+  aligned to the AgentScope-Runtime-Java handler/runner model and to the openJiuwen verbs
+  (invoke/stream/start/stop), and verified end to end with a real openJiuwen ReActAgent and a
+  real LLM (three deployment shapes: SDK-host / standalone-microservice A2A + gateway-fronted,
+  examples e2e 15/15 green).
+decision: |
+  1. Retire the dual-mode / EnginePort engine-contract MECHANISM: the agent-runtime executor
+     residue (runtime.engine.exec, runtime.engine.runtime, runtime.engine.planner.spi, and the
+     runtime.engine.spi engine-adapter interfaces ExecutorAdapter / GraphExecutor /
+     AgentLoopExecutor / EngineHookSurface / EngineMatchingException) is deleted as code.
+
+  2. Establish the NEUTRAL EXECUTION CORE as the engine base definition:
+     - common.RunEvent (RunEventType / RunPhase) — the neutral reactive output element;
+     - engine.spi.AgentDriver (+ AbstractAgentDriver) — the single per-framework SPI;
+     - engine.spi.OutputConverter — native-stream -> neutral RunEvent stream;
+     - engine.RunCoordinator — wraps one AgentDriver, emits Flow.Publisher<RunEvent>;
+     - engine.registry.AgentDriverRegistry — resolve by agent id / framework id;
+     - engine.adapters.<framework> — framework adapters (openJiuwen first); all framework-native
+       tool / memory / skill / MCP / middleware stay inside the adapter.
+
+  3. INHERIT from ADR-0158 (NOT retired): single-artifact / multiple-deployment-form packaging,
+     reactive streaming (Flow.Publisher), engine-must-not-depend-on-service, and the PC-002 /
+     PC-004 bindings. The neutral bus.spi.engine contract types remain in agent-bus as
+     historical surface and may be retired in a later pass.
+
+  4. Naming is differentiated from AgentScope (no 1:1 mirror), industry-common, and aligned to
+     openJiuwen verbs where possible.
+consequences: |
+  Positive
+  --------
+    * The runtime base definition now matches the verified, e2e-green implementation rather than
+      an unreached design.
+    * Multi-framework substrate (PC-004) is expressed by one neutral seam + per-framework
+      adapters; the runtime is never customised for any single framework.
+
+  Negative / cost
+  ---------------
+    * Transitional: the new core currently runs behind the legacy dispatch.spi.AgentHandler via a
+      thin bridge (R2 makes the access layer drive RunCoordinator directly and retires the old
+      dispatch path).
+    * The bus.spi.engine contract types + the engine-* design_only contracts
+      (engine-envelope / engine-hooks / execution-request / agent-event / plan) remain as
+      now-unreferenced surface; their retirement is a deferred governance pass.
