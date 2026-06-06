@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.bootstrap;
+package com.huawei.ascend.runtime.engine.spi;
 
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import java.util.List;
@@ -17,7 +17,7 @@ import org.a2aproject.sdk.spec.TransportProtocol;
  * at {@code /.well-known/agent-card.json}. This keeps the business integration
  * shape explicit: implement one runtime Agent handler, get one A2A Agent Card.
  */
-public abstract class AbstractRuntimeAgentHandler implements AgentRuntimeHandler {
+public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler {
 
     private final String agentId;
     private final String name;
@@ -25,11 +25,11 @@ public abstract class AbstractRuntimeAgentHandler implements AgentRuntimeHandler
     private final String version;
     private final String endpoint;
 
-    protected AbstractRuntimeAgentHandler(String agentId, String name, String description) {
+    protected AbstractAgentRuntimeHandler(String agentId, String name, String description) {
         this(agentId, name, description, "0.1.0", "/a2a");
     }
 
-    protected AbstractRuntimeAgentHandler(
+    protected AbstractAgentRuntimeHandler(
             String agentId, String name, String description, String version, String endpoint) {
         this.agentId = requireText(agentId, "agentId");
         this.name = requireText(name, "name");

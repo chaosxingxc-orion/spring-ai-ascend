@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.bootstrap;
+package com.huawei.ascend.runtime.engine.spi;
 
 import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
@@ -12,11 +12,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
-class AbstractRuntimeAgentHandlerTest {
+class AbstractAgentRuntimeHandlerTest {
 
     @Test
     void runtimeAgentIsAgentHandlerAndProvidesSingleAgentCardMetadata() {
-        AbstractRuntimeAgentHandler agent = new StubRuntimeAgent();
+        AbstractAgentRuntimeHandler agent = new StubRuntimeAgent();
 
         assertThat(agent).isInstanceOf(AgentRuntimeHandler.class);
         assertThat(agent.agentId()).isEqualTo("weather-agent");
@@ -37,7 +37,7 @@ class AbstractRuntimeAgentHandlerTest {
                 .hasMessageContaining("agentId");
     }
 
-    private static final class StubRuntimeAgent extends AbstractRuntimeAgentHandler {
+    private static final class StubRuntimeAgent extends AbstractAgentRuntimeHandler {
 
         private StubRuntimeAgent() {
             super("weather-agent", "Weather Agent", "Answers weather questions.");
@@ -54,7 +54,7 @@ class AbstractRuntimeAgentHandlerTest {
         }
     }
 
-    private static final class InvalidRuntimeAgent extends AbstractRuntimeAgentHandler {
+    private static final class InvalidRuntimeAgent extends AbstractAgentRuntimeHandler {
 
         private InvalidRuntimeAgent() {
             super(" ", "Invalid", "Invalid.");

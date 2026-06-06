@@ -1,6 +1,6 @@
 package com.huawei.ascend.examples.a2a;
 
-import com.huawei.ascend.runtime.bootstrap.AbstractRuntimeAgentHandler;
+import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenMessageAdapter;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenStreamAdapter;
 import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
@@ -25,7 +25,7 @@ public class OpenJiuwenReactAgentConfiguration {
     static final String AGENT_ID = "openjiuwen-react-agent";
 
     @Bean
-    AbstractRuntimeAgentHandler openJiuwenReactAgentHandler(
+    AbstractAgentRuntimeHandler openJiuwenReactAgentHandler(
             @Value("${sample.openjiuwen.model-provider:${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}}")
             String modelProvider,
             @Value("${sample.openjiuwen.api-key:${SAA_SAMPLE_LLM_API_KEY:sk-x00550472}}") String apiKey,
@@ -37,7 +37,7 @@ public class OpenJiuwenReactAgentConfiguration {
         return new SampleOpenJiuwenReactAgentHandler(modelProvider, apiKey, apiBase, modelName, sslVerify);
     }
 
-    static final class SampleOpenJiuwenReactAgentHandler extends AbstractRuntimeAgentHandler {
+    static final class SampleOpenJiuwenReactAgentHandler extends AbstractAgentRuntimeHandler {
         private static final Logger LOGGER = LoggerFactory.getLogger(SampleOpenJiuwenReactAgentHandler.class);
         private static final String SYSTEM_PROMPT = """
                 You are a concise assistant exposed only through the A2A protocol.

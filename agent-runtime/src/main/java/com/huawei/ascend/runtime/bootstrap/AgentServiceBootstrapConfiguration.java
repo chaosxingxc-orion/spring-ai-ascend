@@ -2,6 +2,7 @@ package com.huawei.ascend.runtime.bootstrap;
 
 import com.huawei.ascend.runtime.access.api.NotificationPort;
 import com.huawei.ascend.runtime.access.core.AccessSubmissionService;
+import com.huawei.ascend.runtime.access.output.EngineOutputSink;
 import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
 import com.huawei.ascend.runtime.session.api.SessionManager;
 import com.huawei.ascend.runtime.control.api.TaskControlApi;
@@ -15,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
  *
  * <ul>
  *   <li>{@link AccessSubmissionService} - inbound: access layer to task-centric-control.</li>
- *   <li>{@link AccessNotificationClient} - outbound: engine to access layer.</li>
+ *   <li>{@link EngineOutputSink} - outbound: engine to access layer.</li>
  * </ul>
  *
  * <p>The access, session, queue, task-control and engine modules each ship their
@@ -45,6 +46,6 @@ public class AgentServiceBootstrapConfiguration {
     @Bean
     @ConditionalOnMissingBean(AccessLayerClient.class)
     public AccessLayerClient accessNotificationClient(NotificationPort notificationPort) {
-        return new AccessNotificationClient(notificationPort);
+        return new EngineOutputSink(notificationPort);
     }
 }

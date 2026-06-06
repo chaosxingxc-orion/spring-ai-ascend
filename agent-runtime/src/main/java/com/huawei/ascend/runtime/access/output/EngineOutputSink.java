@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.bootstrap;
+package com.huawei.ascend.runtime.access.output;
 
 import com.huawei.ascend.runtime.access.api.NotificationPort;
 import com.huawei.ascend.runtime.access.model.AgentNotification;
@@ -37,13 +37,13 @@ import org.slf4j.LoggerFactory;
  * an interrupt requesting user input maps to {@link NotificationType#ACK}
  * (non-terminal) so the caller can supply more input.
  */
-public final class AccessNotificationClient implements AccessLayerClient {
+public final class EngineOutputSink implements AccessLayerClient {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AccessNotificationClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(EngineOutputSink.class);
 
     private final NotificationPort notificationPort;
 
-    public AccessNotificationClient(NotificationPort notificationPort) {
+    public EngineOutputSink(NotificationPort notificationPort) {
         this.notificationPort = Objects.requireNonNull(notificationPort, "notificationPort");
     }
 
