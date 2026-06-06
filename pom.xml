@@ -337,6 +337,13 @@
                  mock maker (ByteBuddy agent) self-attaches at first mock and otherwise
                  fails intermittently with 'Could not initialize plugin MockMaker'. -->
             <argLine>-XX:+EnableDynamicAgentLoading</argLine>
+            <!-- Safety net mirroring Failsafe below: a unit-test fork that deadlocks
+                 (e.g. two Spring contexts booting concurrently under
+                 classes.default=concurrent, which Spring Boot 4.0.5 is not thread-safe
+                 against) fails fast instead of hanging until the CI job wall-clock limit.
+                 The per-class @ResourceLock("spring-context-boot") is the primary cure;
+                 this bounds the blast radius of any context-booting class that forgets it. -->
+            <forkedProcessTimeoutInSeconds>900</forkedProcessTimeoutInSeconds>
           </configuration>
         </plugin>
         <!--

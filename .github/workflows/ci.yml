@@ -10,6 +10,9 @@ jobs:
   build:
     name: Maven build + integration tests
     runs-on: ubuntu-latest
+    # Hard ceiling so a deadlocked test fork can never burn a 6h runner. Normal
+    # runs finish in ~3min; this only ever trips on a hung JVM.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
         with:
