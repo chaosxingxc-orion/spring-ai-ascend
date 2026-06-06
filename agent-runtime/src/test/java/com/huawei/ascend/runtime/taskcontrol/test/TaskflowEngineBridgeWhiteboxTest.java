@@ -1,15 +1,15 @@
 package com.huawei.ascend.runtime.taskcontrol.test;
 
-import com.huawei.ascend.runtime.dispatch.api.DefaultEngineDispatchApi;
-import com.huawei.ascend.runtime.dispatch.api.EngineDispatchApi;
-import com.huawei.ascend.runtime.dispatch.command.EngineCommandEventFactory;
-import com.huawei.ascend.runtime.dispatch.command.EngineCommandProcessor;
-import com.huawei.ascend.runtime.dispatch.command.InternalEngineCommandGateway;
-import com.huawei.ascend.runtime.dispatch.dispatch.AgentHandlerRegistry;
-import com.huawei.ascend.runtime.dispatch.dispatch.DefaultAgentHandlerRegistry;
-import com.huawei.ascend.runtime.dispatch.dispatch.EngineDispatcher;
-import com.huawei.ascend.runtime.dispatch.support.FakeInterruptingAgentHandler;
-import com.huawei.ascend.runtime.dispatch.support.RecordingAccessLayerClient;
+import com.huawei.ascend.runtime.engine.api.DefaultEngineExecutionApi;
+import com.huawei.ascend.runtime.engine.api.EngineExecutionApi;
+import com.huawei.ascend.runtime.engine.command.EngineCommandEventFactory;
+import com.huawei.ascend.runtime.engine.command.EngineWorker;
+import com.huawei.ascend.runtime.engine.command.InternalEngineCommandGateway;
+import com.huawei.ascend.runtime.engine.AgentRuntimeHandlerRegistry;
+import com.huawei.ascend.runtime.engine.DefaultAgentRuntimeHandlerRegistry;
+import com.huawei.ascend.runtime.engine.EngineDispatcher;
+import com.huawei.ascend.runtime.engine.support.FakeInterruptingAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.support.RecordingAccessLayerClient;
 import com.huawei.ascend.runtime.schema.AgentRequest;
 import com.huawei.ascend.runtime.schema.Message;
 import com.huawei.ascend.runtime.taskcontrol.EngineTaskControlAdapter;
@@ -33,17 +33,17 @@ class TaskflowEngineBridgeWhiteboxTest {
     void executeWaitingResumeCompletionLoopUpdatesTccStateWithoutEngineOwningQueue() {
         QueueManager manager = new QueueManager();
         InternalEngineCommandGateway engineQueue = new InternalEngineCommandGateway(manager);
-        EngineDispatchApi dispatchApi = new DefaultEngineDispatchApi(new EngineCommandEventFactory(), engineQueue);
+        EngineExecutionApi dispatchApi = new DefaultEngineExecutionApi(new EngineCommandEventFactory(), engineQueue);
         TaskControlService tcc = new TaskControlService(
                 manager,
                 dispatchApi,
                 Clock.fixed(Instant.parse("2026-06-01T00:00:00Z"), ZoneOffset.UTC));
         EngineTaskControlAdapter adapter = new EngineTaskControlAdapter(tcc);
         RecordingAccessLayerClient access = new RecordingAccessLayerClient();
-        AgentHandlerRegistry registry = new DefaultAgentHandlerRegistry();
-        registry.register("echo-agent", new FakeInterruptingAgentHandler("echo-agent"));
-        EngineCommandProcessor processor =
-                new EngineCommandProcessor(engineQueue, new EngineDispatcher(registry, adapter, access), Runnable::run);
+        AgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();
+        registry.register("echo-agent", new FakeInterruptingAgentRuntimeHandler("echo-agent"));
+        EngineWorker processor =
+                new EngineWorker(engineQueue, new EngineDispatcher(registry, adapter, access), Runnable::run);
         processor.start();
 
         TaskControlClient.TaskResult waiting = tcc.run(new TaskControlClient.RunCommand(request("hello")))

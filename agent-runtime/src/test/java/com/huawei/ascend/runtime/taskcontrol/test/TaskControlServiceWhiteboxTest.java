@@ -1,10 +1,10 @@
 package com.huawei.ascend.runtime.taskcontrol.test;
 
-import com.huawei.ascend.runtime.dispatch.api.EngineDispatchApi;
-import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineCancelRequest;
-import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineExecutionRequest;
-import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineResumeRequest;
-import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineStatus;
+import com.huawei.ascend.runtime.engine.api.EngineExecutionApi;
+import com.huawei.ascend.runtime.engine.api.EnqueueEngineCancelRequest;
+import com.huawei.ascend.runtime.engine.api.EnqueueEngineExecutionRequest;
+import com.huawei.ascend.runtime.engine.api.EnqueueEngineResumeRequest;
+import com.huawei.ascend.runtime.engine.api.EnqueueEngineStatus;
 import com.huawei.ascend.runtime.schema.AgentRequest;
 import com.huawei.ascend.runtime.schema.Message;
 import com.huawei.ascend.runtime.taskcontrol.Task;
@@ -242,7 +242,7 @@ class TaskControlServiceWhiteboxTest {
                 Map.of());
     }
 
-    private static final class RecordingEngineDispatchApi implements EngineDispatchApi {
+    private static final class RecordingEngineDispatchApi implements EngineExecutionApi {
         private final List<EnqueueEngineExecutionRequest> executions = new ArrayList<>();
         private final List<EnqueueEngineResumeRequest> resumes = new ArrayList<>();
         private final List<EnqueueEngineCancelRequest> cancels = new ArrayList<>();

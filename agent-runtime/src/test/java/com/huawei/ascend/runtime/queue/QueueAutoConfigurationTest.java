@@ -2,9 +2,9 @@ package com.huawei.ascend.runtime.queue;
 
 import com.huawei.ascend.runtime.access.config.AccessLayerConfiguration;
 import com.huawei.ascend.runtime.bootstrap.AgentServiceBootstrapConfiguration;
-import com.huawei.ascend.runtime.dispatch.command.EngineCommandGateway;
-import com.huawei.ascend.runtime.dispatch.command.EngineCommandProcessor;
-import com.huawei.ascend.runtime.dispatch.config.EngineAutoConfiguration;
+import com.huawei.ascend.runtime.engine.command.EngineCommandGateway;
+import com.huawei.ascend.runtime.engine.command.EngineWorker;
+import com.huawei.ascend.runtime.engine.config.EngineAutoConfiguration;
 import com.huawei.ascend.runtime.queue.config.QueueAutoConfiguration;
 import com.huawei.ascend.runtime.session.config.SessionManageConfiguration;
 import com.huawei.ascend.runtime.taskcontrol.TaskControlService;
@@ -31,7 +31,7 @@ class QueueAutoConfigurationTest {
             assertThat(context).hasSingleBean(QueueManager.class);
             assertThat(context).hasSingleBean(TaskControlService.class);
             assertThat(context).hasSingleBean(EngineCommandGateway.class);
-            assertThat(context).hasSingleBean(EngineCommandProcessor.class);
+            assertThat(context).hasSingleBean(EngineWorker.class);
         });
     }
 }

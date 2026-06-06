@@ -1,12 +1,12 @@
 package com.huawei.ascend.runtime.taskcontrol;
 
-import com.huawei.ascend.runtime.dispatch.api.EngineDispatchApi;
-import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineCancelRequest;
-import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineExecutionRequest;
-import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineResumeRequest;
-import com.huawei.ascend.runtime.dispatch.api.EnqueueEngineStatus;
-import com.huawei.ascend.runtime.dispatch.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.dispatch.model.EngineInput;
+import com.huawei.ascend.runtime.engine.api.EngineExecutionApi;
+import com.huawei.ascend.runtime.engine.api.EnqueueEngineCancelRequest;
+import com.huawei.ascend.runtime.engine.api.EnqueueEngineExecutionRequest;
+import com.huawei.ascend.runtime.engine.api.EnqueueEngineResumeRequest;
+import com.huawei.ascend.runtime.engine.api.EnqueueEngineStatus;
+import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.model.EngineInput;
 import com.huawei.ascend.runtime.schema.AgentRequest;
 import com.huawei.ascend.runtime.schema.Message;
 import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient;
@@ -32,20 +32,20 @@ public class TaskControlService implements TaskControlClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(TaskControlService.class);
 
     private final TaskQueueRegistry taskQueues;
-    private final Supplier<EngineDispatchApi> engineDispatchApi;
+    private final Supplier<EngineExecutionApi> engineDispatchApi;
     private final Clock clock;
     private final ConcurrentMap<SessionKey, Object> sessionLocks = new ConcurrentHashMap<>();
     private final ConcurrentMap<IdempotencyKey, TaskResult> idempotencyResults = new ConcurrentHashMap<>();
 
-    public TaskControlService(QueueManager queueManager, EngineDispatchApi engineDispatchApi) {
+    public TaskControlService(QueueManager queueManager, EngineExecutionApi engineDispatchApi) {
         this(queueManager, () -> engineDispatchApi, Clock.systemUTC());
     }
 
-    public TaskControlService(QueueManager queueManager, EngineDispatchApi engineDispatchApi, Clock clock) {
+    public TaskControlService(QueueManager queueManager, EngineExecutionApi engineDispatchApi, Clock clock) {
         this(queueManager, () -> engineDispatchApi, clock);
     }
 
-    public TaskControlService(QueueManager queueManager, Supplier<EngineDispatchApi> engineDispatchApi, Clock clock) {
+    public TaskControlService(QueueManager queueManager, Supplier<EngineExecutionApi> engineDispatchApi, Clock clock) {
         this.taskQueues = new TaskQueueRegistry(queueManager);
         this.engineDispatchApi = Objects.requireNonNull(engineDispatchApi, "engineDispatchApi");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -399,8 +399,8 @@ public class TaskControlService implements TaskControlClient {
                 task.getTaskId(), task.getAgentId() == null ? "" : task.getAgentId());
     }
 
-    private EngineDispatchApi engineDispatchApi() {
-        EngineDispatchApi api = engineDispatchApi.get();
+    private EngineExecutionApi engineDispatchApi() {
+        EngineExecutionApi api = engineDispatchApi.get();
         if (api == null) {
             throw new IllegalStateException("engine dispatch api is not available");
         }

@@ -1,10 +1,10 @@
 package com.huawei.ascend.examples.a2a;
 
 import com.huawei.ascend.runtime.bootstrap.AbstractRuntimeAgentHandler;
-import com.huawei.ascend.runtime.dispatch.adapter.openjiuwen.OpenJiuwenMessageConverter;
-import com.huawei.ascend.runtime.dispatch.adapter.openjiuwen.OpenJiuwenResultMapper;
-import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenMessageAdapter;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenStreamAdapter;
+import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.ReActAgent;
@@ -44,8 +44,8 @@ public class OpenJiuwenReactAgentConfiguration {
                 If the user's message is exactly ping, reply exactly pong and nothing else.
                 For all other messages, reply to the user's message directly and briefly.
                 """;
-        private final OpenJiuwenMessageConverter messageConverter = new OpenJiuwenMessageConverter();
-        private final OpenJiuwenResultMapper resultMapper = new OpenJiuwenResultMapper();
+        private final OpenJiuwenMessageAdapter messageConverter = new OpenJiuwenMessageAdapter();
+        private final OpenJiuwenStreamAdapter resultMapper = new OpenJiuwenStreamAdapter();
 
         private final String modelProvider;
         private final String apiKey;
@@ -101,7 +101,7 @@ public class OpenJiuwenReactAgentConfiguration {
         }
 
         @Override
-        public AgentResultAdapter resultAdapter() {
+        public StreamAdapter resultAdapter() {
             return rawResults -> rawResults.map(rawResult -> {
                 if (rawResult instanceof Map<?, ?> map) {
                     @SuppressWarnings("unchecked")

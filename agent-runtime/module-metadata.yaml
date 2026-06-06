@@ -22,7 +22,7 @@ spi_packages:
   - com.huawei.ascend.runtime.engine.planner.spi
   # Engine dispatch SPI (AgentHandler / AgentResultAdapter / EngineQueueGateway /
   # EngineCommandConsumer / AccessLayerClient / TaskControlClient) — relocated from agent-service.
-  - com.huawei.ascend.runtime.dispatch.spi
+  - com.huawei.ascend.runtime.engine.spi
 allowed_dependencies:
   - agent-middleware       # engine references HookPoint enum + RuntimeMiddleware listener
   - agent-bus              # engine registry consumes S2cCallbackTransport SPI from bus.spi.s2c per ADR-0088 (relocated from dissolved agent-runtime-core)

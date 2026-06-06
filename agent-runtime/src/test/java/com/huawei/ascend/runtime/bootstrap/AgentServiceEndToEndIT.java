@@ -8,12 +8,12 @@ import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutput;
 import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputHandle;
 import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputRegistry;
 import com.huawei.ascend.runtime.access.protocol.a2a.jsonrpc.A2aJsonRpcHandler;
-import com.huawei.ascend.runtime.dispatch.config.EngineAutoConfiguration;
-import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.dispatch.model.InterruptType;
-import com.huawei.ascend.runtime.dispatch.spi.AgentExecutionResult;
-import com.huawei.ascend.runtime.dispatch.spi.AgentHandler;
-import com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter;
+import com.huawei.ascend.runtime.engine.config.EngineAutoConfiguration;
+import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.model.InterruptType;
+import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.huawei.ascend.runtime.queue.config.QueueAutoConfiguration;
 import com.huawei.ascend.runtime.schema.AgentRequest;
 import com.huawei.ascend.runtime.schema.Message;
@@ -426,27 +426,27 @@ class AgentServiceEndToEndIT {
     static class TestRuntime {
 
         @Bean
-        AgentHandler echoAgentHandler() {
+        AgentRuntimeHandler echoAgentHandler() {
             return new EchoAgentHandler();
         }
 
         @Bean
-        AgentHandler boomAgentHandler() {
+        AgentRuntimeHandler boomAgentHandler() {
             return new ThrowingAgentHandler();
         }
 
         @Bean
-        AgentHandler interruptingAgentHandler() {
+        AgentRuntimeHandler interruptingAgentHandler() {
             return new InterruptingAgentHandler();
         }
 
         @Bean
-        AgentHandler failedResultAgentHandler() {
+        AgentRuntimeHandler failedResultAgentHandler() {
             return new FailedResultAgentHandler();
         }
     }
 
-    static final class EchoAgentHandler implements AgentHandler {
+    static final class EchoAgentHandler implements AgentRuntimeHandler {
 
         @Override
         public String agentId() {
@@ -468,12 +468,12 @@ class AgentServiceEndToEndIT {
         }
 
         @Override
-        public AgentResultAdapter resultAdapter() {
+        public StreamAdapter resultAdapter() {
             return AgentServiceEndToEndIT::adaptRawResults;
         }
     }
 
-    static final class ThrowingAgentHandler implements AgentHandler {
+    static final class ThrowingAgentHandler implements AgentRuntimeHandler {
 
         @Override
         public String agentId() {
@@ -491,12 +491,12 @@ class AgentServiceEndToEndIT {
         }
 
         @Override
-        public AgentResultAdapter resultAdapter() {
+        public StreamAdapter resultAdapter() {
             return AgentServiceEndToEndIT::adaptRawResults;
         }
     }
 
-    static final class InterruptingAgentHandler implements AgentHandler {
+    static final class InterruptingAgentHandler implements AgentRuntimeHandler {
 
         @Override
         public String agentId() {
@@ -520,12 +520,12 @@ class AgentServiceEndToEndIT {
         }
 
         @Override
-        public AgentResultAdapter resultAdapter() {
+        public StreamAdapter resultAdapter() {
             return rawResults -> rawResults.map(result -> (AgentExecutionResult) result);
         }
     }
 
-    static final class FailedResultAgentHandler implements AgentHandler {
+    static final class FailedResultAgentHandler implements AgentRuntimeHandler {
 
         @Override
         public String agentId() {
@@ -543,7 +543,7 @@ class AgentServiceEndToEndIT {
         }
 
         @Override
-        public AgentResultAdapter resultAdapter() {
+        public StreamAdapter resultAdapter() {
             return rawResults -> rawResults.map(result -> (AgentExecutionResult) result);
         }
     }

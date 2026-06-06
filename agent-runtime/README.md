@@ -136,8 +136,8 @@ Useful starting points in this module include:
 
 Important Java extension points and related types include:
 
-- `com.huawei.ascend.runtime.dispatch.spi.AgentHandler` — runtime dispatch SPI for handling agent work inside `agent-runtime`
-- `com.huawei.ascend.runtime.dispatch.adapter.openjiuwen.OpenJiuwenAgentHandler` — built-in `AgentHandler` implementation used by the local OpenJiuwen example path
+- `com.huawei.ascend.runtime.engine.spi.AgentHandler` — runtime dispatch SPI for handling agent work inside `agent-runtime`
+- `com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentHandler` — built-in `AgentHandler` implementation used by the local OpenJiuwen example path
 - `org.a2aproject.sdk.spec.AgentCard` — A2A agent-card model exposed by the runtime discovery endpoint
 
 The example application shows the intended consumer shape from outside the module:

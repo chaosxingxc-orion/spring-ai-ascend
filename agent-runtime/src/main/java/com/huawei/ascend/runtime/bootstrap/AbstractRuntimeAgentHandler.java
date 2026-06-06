@@ -1,6 +1,6 @@
 package com.huawei.ascend.runtime.bootstrap;
 
-import com.huawei.ascend.runtime.dispatch.spi.AgentHandler;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import java.util.List;
 import java.util.Objects;
 import org.a2aproject.sdk.spec.AgentCapabilities;
@@ -13,11 +13,11 @@ import org.a2aproject.sdk.spec.TransportProtocol;
  * Base class for one business Agent hosted by one runtime instance.
  *
  * <p>Subclasses are normal Spring beans. The runtime auto-registers them as
- * {@link AgentHandler} implementations and exposes their A2A {@link AgentCard}
+ * {@link AgentRuntimeHandler} implementations and exposes their A2A {@link AgentCard}
  * at {@code /.well-known/agent-card.json}. This keeps the business integration
  * shape explicit: implement one runtime Agent handler, get one A2A Agent Card.
  */
-public abstract class AbstractRuntimeAgentHandler implements AgentHandler {
+public abstract class AbstractRuntimeAgentHandler implements AgentRuntimeHandler {
 
     private final String agentId;
     private final String name;

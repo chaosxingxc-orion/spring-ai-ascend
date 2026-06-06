@@ -2,7 +2,7 @@ package com.huawei.ascend.runtime.bootstrap;
 
 import com.huawei.ascend.runtime.access.api.NotificationPort;
 import com.huawei.ascend.runtime.access.core.AccessSubmissionService;
-import com.huawei.ascend.runtime.dispatch.port.AccessLayerClient;
+import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
 import com.huawei.ascend.runtime.session.api.SessionManager;
 import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;

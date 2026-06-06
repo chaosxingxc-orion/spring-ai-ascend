@@ -1,8 +1,8 @@
 package com.huawei.ascend.runtime.bootstrap;
 
-import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.dispatch.spi.AgentHandler;
-import com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter;
+import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.TransportProtocol;
@@ -18,7 +18,7 @@ class AbstractRuntimeAgentHandlerTest {
     void runtimeAgentIsAgentHandlerAndProvidesSingleAgentCardMetadata() {
         AbstractRuntimeAgentHandler agent = new StubRuntimeAgent();
 
-        assertThat(agent).isInstanceOf(AgentHandler.class);
+        assertThat(agent).isInstanceOf(AgentRuntimeHandler.class);
         assertThat(agent.agentId()).isEqualTo("weather-agent");
         assertThat(agent.isHealthy()).isTrue();
         assertThat(agent.agentCard().name()).isEqualTo("Weather Agent");
@@ -49,7 +49,7 @@ class AbstractRuntimeAgentHandlerTest {
         }
 
         @Override
-        public AgentResultAdapter resultAdapter() {
+        public StreamAdapter resultAdapter() {
             return rawResults -> Stream.empty();
         }
     }
@@ -66,7 +66,7 @@ class AbstractRuntimeAgentHandlerTest {
         }
 
         @Override
-        public AgentResultAdapter resultAdapter() {
+        public StreamAdapter resultAdapter() {
             return rawResults -> Stream.empty();
         }
     }

@@ -1,17 +1,17 @@
 package com.huawei.ascend.runtime.taskcontrol;
 
-import com.huawei.ascend.runtime.dispatch.event.EngineCancelledEvent;
-import com.huawei.ascend.runtime.dispatch.event.EngineCompletedEvent;
-import com.huawei.ascend.runtime.dispatch.event.EngineFailedEvent;
-import com.huawei.ascend.runtime.dispatch.event.EngineInterruptedEvent;
-import com.huawei.ascend.runtime.dispatch.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.dispatch.model.InterruptType;
+import com.huawei.ascend.runtime.engine.event.EngineCancelledEvent;
+import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
+import com.huawei.ascend.runtime.engine.event.EngineFailedEvent;
+import com.huawei.ascend.runtime.engine.event.EngineInterruptedEvent;
+import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.model.InterruptType;
 import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient.MarkTaskCommand;
 
 import java.util.Map;
 import java.util.Objects;
 
-public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.dispatch.port.TaskControlClient {
+public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engine.port.TaskControlClient {
 
     private final TaskControlService taskControlService;
 
