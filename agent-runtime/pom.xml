@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   agent-runtime: the run-owning runtime SDK developed against to drive Agent
-  instances built on heterogeneous agent frameworks. Owns the execution engine
-  (EngineRegistry / ExecutorAdapter SPI / InProcessEnginePort), Run lifecycle,
-  engine dispatch, session, task-control, internal event queue, access (A2A),
-  and the bootable runtime application. Self-contained and independently bootable.
+  instances built on heterogeneous agent frameworks. Owns the neutral execution core
+  (RunCoordinator + the AgentDriver / OutputConverter SPI + the RunEvent model +
+  AgentDriverRegistry + framework adapters), engine dispatch, Run lifecycle, session,
+  task-control, internal event queue, access (A2A), and the bootable runtime
+  application. Self-contained and independently bootable.
 
-  Historical note: ADR-0159 has been archived. Neutral EnginePort / orchestration
-  SPI is consumed from agent-bus (bus.spi.engine); s2c SPI from agent-bus (bus.spi.s2c).
+  Authority: ADR-0160 (neutral execution core supersedes the dual-mode / EnginePort contract).
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

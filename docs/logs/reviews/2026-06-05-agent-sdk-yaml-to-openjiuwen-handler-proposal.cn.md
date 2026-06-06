@@ -3,6 +3,8 @@
 > 形态：架构评审提案。本文把 `agent-sdk/agent-sdk设计方案.md` 从“实现设计说明”转换为“可供架构师 + 工程团队拍板的 proposal”。
 > 关联：`agent-sdk/agent-sdk设计方案.md`、`docs/logs/reviews/2026-06-05-agentsdk-scenario-agent-and-deploy-layering-proposal.cn.md`、`agent-runtime` 的 `AgentHandler` / `OpenJiuwenAgentHandler` 运行时契约。
 > 事实基线：已按 Rule G-15 先读 `architecture/facts/generated/`。本提案对 runtime 既有代码形态的事实引用以生成事实为准；对 `agent-sdk` 方案本身的描述来自当前设计稿和本次落地草案，生成事实尚未覆盖新增模块。
+>
+> **收窄（2026-06-06，ADR-0160 / `docs/logs/reviews/2026-06-06-agent-runtime-refactor-proposal.cn.md`）**：本提案假设的 `AgentHandler` / `OpenJiuwenAgentHandler` 运行时契约**已退役**，被中立 **`AgentDriver`**（`engine.spi.AgentDriver` + `OutputConverter` + `common.RunEvent`）取代。YAML→handler 转换层须**改为面向 `AgentDriver`**；YAML 装配出的 tool / skill / memory 交目标框架原生机制注册，**不**上 runtime 中立 SPI。其余分层主张仍适用。
 
 ---
 
