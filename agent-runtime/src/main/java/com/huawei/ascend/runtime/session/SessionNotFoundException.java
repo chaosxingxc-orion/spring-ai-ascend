@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.session.store.memory;
+package com.huawei.ascend.runtime.session;
 
 import com.huawei.ascend.runtime.session.model.SessionKey;
 

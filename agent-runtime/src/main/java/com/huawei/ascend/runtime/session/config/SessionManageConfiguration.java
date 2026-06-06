@@ -2,8 +2,8 @@ package com.huawei.ascend.runtime.session.config;
 
 import com.huawei.ascend.runtime.session.api.SessionManager;
 import com.huawei.ascend.runtime.session.core.SessionManagerImpl;
-import com.huawei.ascend.runtime.session.store.SessionStore;
-import com.huawei.ascend.runtime.session.store.SessionStoreFactory;
+import com.huawei.ascend.runtime.session.RuntimeSessionRepository;
+import com.huawei.ascend.runtime.session.RuntimeSessionRepositoryFactory;
 
 import java.time.Clock;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -23,20 +23,20 @@ public class SessionManageConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    SessionStoreFactory sessionStoreFactory(SessionManageProperties properties) {
-        return new DefaultSessionStoreFactory(properties);
+    RuntimeSessionRepositoryFactory sessionStoreFactory(SessionManageProperties properties) {
+        return new DefaultRuntimeSessionRepositoryFactory(properties);
     }
 
     @Bean
     @ConditionalOnMissingBean
-    SessionStore sessionStore(SessionStoreFactory factory) {
+    RuntimeSessionRepository sessionStore(RuntimeSessionRepositoryFactory factory) {
         return factory.create();
     }
 
     @Bean
     @ConditionalOnMissingBean
     SessionManager sessionManager(
-            SessionStore sessionStore,
+            RuntimeSessionRepository sessionStore,
             Clock sessionClock,
             SessionManageProperties properties) {
         return new SessionManagerImpl(sessionStore, sessionClock, properties.ttl());

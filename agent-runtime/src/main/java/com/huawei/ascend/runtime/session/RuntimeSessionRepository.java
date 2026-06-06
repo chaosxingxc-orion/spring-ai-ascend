@@ -1,11 +1,11 @@
-package com.huawei.ascend.runtime.session.store;
+package com.huawei.ascend.runtime.session;
 
 import com.huawei.ascend.runtime.session.model.Session;
 import com.huawei.ascend.runtime.session.model.SessionKey;
 
 import java.util.Optional;
 
-public interface SessionStore {
+public interface RuntimeSessionRepository {
     Optional<Session> find(SessionKey key);
 
     Session save(Session session);
