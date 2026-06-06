@@ -1,0 +1,16 @@
+# Module metadata for agent-runtime-spring-boot-starter-a2a.
+# Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
+# Authority: ADR-0066 + ADR-0160 (neutral execution core). Enforced by gate rule module_metadata_present_and_complete.
+
+module: agent-runtime-spring-boot-starter-a2a
+kind: starter            # platform | domain | starter | bom | sample
+version: 0.1.0-SNAPSHOT
+semver_compatibility: experimental
+description: "Microservice-mode starter: depend on this + publish one AgentDriver bean and agent-runtime auto-configuration stands up the neutral execution core (AgentDriverRegistry -> RunCoordinator) behind an A2A endpoint. Packaging-only aggregator over agent-runtime; the SDK-host and microservice modes share the same RunCoordinator core."
+architecture_doc: null   # starter has no architecture surface; README.md documents usage; agent-runtime is the architecture authority
+dfx_doc: null            # DFX is optional for kind:starter per Rule R-D sub-clause .a
+spi_packages: []
+allowed_dependencies:
+  - agent-runtime        # the run-owning runtime SDK whose auto-configuration this starter re-exports
+forbidden_dependencies: []
+deployment_plane: none   # Rule R-I / P-I — packaging-only aggregator; the runtime surface it pulls in lives in agent-runtime (compute_control)
