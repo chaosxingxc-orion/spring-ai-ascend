@@ -7,19 +7,14 @@ module: agent-runtime
 kind: domain             # platform | domain | starter | bom | sample
 version: 0.0.1-SNAPSHOT
 semver_compatibility: experimental
-description: "Run-owning runtime SDK developed against to drive Agent instances built on heterogeneous agent frameworks. Owns the execution engine (ExecutorAdapter / GraphExecutor / AgentLoopExecutor / EngineHookSurface in runtime.engine.spi; EngineRegistry / EngineEnvelope / InProcessEnginePort in runtime.engine.runtime; Planner in runtime.engine.planner.spi; reference executors in runtime.engine.exec), engine dispatch (runtime.dispatch), Run lifecycle, session, task-control, internal event queue, access (A2A), and the bootable runtime application. The neutral EnginePort / orchestration SPI it consumes lives in com.huawei.ascend.bus.spi.engine."
+description: "Run-owning runtime SDK developed against to drive Agent instances built on heterogeneous agent frameworks. Owns the neutral execution core (RunCoordinator + the AgentDriver / OutputConverter SPI + the RunEvent model in runtime.engine and runtime.engine.spi; framework adapters in runtime.engine.adapters; AgentDriverRegistry in runtime.engine.registry), engine dispatch (runtime.dispatch), Run lifecycle, session, task-control, internal event queue, access (A2A), and the bootable runtime application."
 architecture_doc: architecture/docs/L1/agent-runtime/README.md
 dfx_doc: docs/dfx/agent-runtime.yaml
 spi_packages:
-  # Engine-adapter SPI (ExecutorAdapter + GraphExecutor + AgentLoopExecutor +
-  # EngineHookSurface + EngineMatchingException) — the engine-internal plug-in
-  # surface. The neutral orchestration SPI it consumes (RunContext / ExecutorDefinition
-  # / SuspendSignal / Checkpointer / Orchestrator / RunMode / TraceContext) was
-  # relocated to com.huawei.ascend.bus.spi.engine per ADR-0158.
+  # Neutral framework-driver SPI (AgentDriver + AbstractAgentDriver + OutputConverter) —
+  # the single I/O-boundary seam each framework adapter implements; framework-native
+  # tool / memory / middleware stay inside the adapter.
   - com.huawei.ascend.runtime.engine.spi
-  # Planner SPI (Planner + Plan + PlanStep + PlanningRequest + PlanningResult +
-  # BranchPoint + LoopAnnotation + ...) — engine-side plan generator per ADR-0126.
-  - com.huawei.ascend.runtime.engine.planner.spi
   # Engine dispatch SPI (AgentHandler / AgentResultAdapter / EngineQueueGateway /
   # EngineCommandConsumer / AccessLayerClient / TaskControlClient) — relocated from agent-service.
   - com.huawei.ascend.runtime.dispatch.spi
