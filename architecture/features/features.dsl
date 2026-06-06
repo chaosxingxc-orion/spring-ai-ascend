@@ -220,7 +220,7 @@ featGraphMemory = element "Graph Memory" "Feature" "Tenant-scoped graph memory s
     }
 }
 
-featEngineDispatchAndHooks = element "Engine Dispatch and Hooks" "Feature" "Typed engine envelope dispatch + middleware hook events" "SAA Feature" {
+featEngineDispatchAndHooks = element "Engine Dispatch and Hooks" "Feature" "Neutral framework-driver dispatch on the rebuilt execution core (ADR-0160)" "SAA Feature" {
     properties {
         "saa.id" "FEAT-ENGINE-DISPATCH-AND-HOOKS"
         "saa.productClaim" "PC-004"
@@ -231,16 +231,16 @@ featEngineDispatchAndHooks = element "Engine Dispatch and Hooks" "Feature" "Type
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0088"
         "saa.capabilityDomain" "engine-contract"
-        "saa.synopsis" "Owns the engine boundary: every Run dispatch goes through EngineRegistry.resolve(envelope) against engine-envelope.v1.yaml; pattern-matching on ExecutorDefinition subtypes outside the registry is forbidden (Rule R-M.a). Cross-cutting policies (model gateway, tool authz, memory governance, tenant policy, quota, observability, sandbox routing, checkpoint, failure handling) are expressed as RuntimeMiddleware listening on canonical HookPoint events from engine-hooks.v1.yaml. The hook contract is the extension surface for new policies without modifying executors."
+        "saa.synopsis" "Owns the engine boundary on the rebuilt neutral execution core (ADR-0160): the access path drives EngineDispatcher, which resolves a per-agent AgentDriver from AgentDriverRegistry and runs it through RunCoordinator; the driver's OutputConverter turns the framework-native stream into the neutral RunEvent stream that flows back to the A2A egress. Each framework's tools / memory / middleware stay inside its adapter (engine.adapters.<framework>) so the runtime is never customised for one framework. Supersedes the retired EngineRegistry dual-mode dispatch + RuntimeMiddleware/HookPoint hook surface."
         "saa.aiBoundary.canModifyCode" "true"
         "saa.aiBoundary.canModifyContracts" "false"
         "saa.aiBoundary.allowedStatusTransitions" "shipped->deprecated"
         "saa.aiBoundary.requiresHumanReviewAt" "deprecated|removed"
         "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
-        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/engine|agent-runtime/src/main/java"
-        "saa.goals" "Typed engine dispatch + hook-based middleware|Versioned contracts at the boundary"
-        "saa.nonGoals" "Per-executor instanceof checks outside the registry"
-        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.engine.EngineRegistryIT|com.huawei.ascend.service.runtime.engine.HookDispatchTest"
+        "saa.devPaths" "agent-runtime/src/main/java/com/huawei/ascend/runtime/engine|agent-runtime/src/main/java/com/huawei/ascend/runtime/dispatch"
+        "saa.goals" "Neutral framework-driver dispatch via RunCoordinator|One I/O-boundary SPI (AgentDriver + OutputConverter) per framework adapter"
+        "saa.nonGoals" "Re-implementing framework-native tools / memory / middleware as runtime-neutral SPIs"
+        "saa.verificationTestFqns" "com.huawei.ascend.runtime.engine.adapters.openjiuwen.OpenJiuwenAgentDriverEngineE2eTest|com.huawei.ascend.runtime.engine.registry.AgentDriverRegistryTest"
         "saa.verificationCommands" "./mvnw -pl agent-service -am verify|./mvnw -pl agent-runtime -am verify"
     }
 }
