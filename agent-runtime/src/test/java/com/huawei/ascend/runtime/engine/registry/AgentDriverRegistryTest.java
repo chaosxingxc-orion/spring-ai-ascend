@@ -3,6 +3,7 @@ package com.huawei.ascend.runtime.engine.registry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.huawei.ascend.runtime.common.InvocationRequest;
@@ -34,6 +35,43 @@ class AgentDriverRegistryTest {
         assertTrue(openjiuwen.contains(weather) && openjiuwen.contains(ticket));
         assertEquals(1, registry.byFramework("dify").size());
         assertTrue(registry.byFramework("agentscope").isEmpty());
+    }
+
+    @Test
+    void rejectsNullDriver() {
+        AgentDriverRegistry registry = new DefaultAgentDriverRegistry();
+        assertThrows(IllegalArgumentException.class, () -> registry.register(null));
+    }
+
+    @Test
+    void rejectsBlankOrNullAgentId() {
+        AgentDriverRegistry registry = new DefaultAgentDriverRegistry();
+        assertThrows(IllegalArgumentException.class, () -> registry.register(stub("", "openjiuwen")));
+        assertThrows(IllegalArgumentException.class, () -> registry.register(stub("   ", "openjiuwen")));
+        assertThrows(IllegalArgumentException.class, () -> registry.register(stub(null, "openjiuwen")));
+    }
+
+    @Test
+    void rejectsBlankFrameworkId() {
+        AgentDriverRegistry registry = new DefaultAgentDriverRegistry();
+        assertThrows(IllegalArgumentException.class, () -> registry.register(stub("agent", " ")));
+        assertThrows(IllegalArgumentException.class, () -> registry.register(stub("agent", null)));
+    }
+
+    @Test
+    void rejectsDuplicateAgentIdFromADifferentDriver() {
+        AgentDriverRegistry registry = new DefaultAgentDriverRegistry();
+        registry.register(stub("dup", "openjiuwen"));
+        assertThrows(IllegalStateException.class, () -> registry.register(stub("dup", "dify")));
+    }
+
+    @Test
+    void allowsIdempotentReRegistrationOfSameInstance() {
+        AgentDriverRegistry registry = new DefaultAgentDriverRegistry();
+        AgentDriver driver = stub("idem", "openjiuwen");
+        registry.register(driver);
+        registry.register(driver);
+        assertSame(driver, registry.find("idem"));
     }
 
     private static AgentDriver stub(String agentId, String frameworkId) {

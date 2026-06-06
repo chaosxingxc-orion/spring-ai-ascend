@@ -15,7 +15,24 @@ public final class DefaultAgentDriverRegistry implements AgentDriverRegistry {
 
     @Override
     public void register(AgentDriver driver) {
-        byAgentId.put(driver.name(), driver);
+        if (driver == null) {
+            throw new IllegalArgumentException("AgentDriver must not be null");
+        }
+        String agentId = driver.name();
+        if (agentId == null || agentId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "AgentDriver.name() must not be blank: " + driver.getClass().getName());
+        }
+        if (driver.frameworkId() == null || driver.frameworkId().isBlank()) {
+            throw new IllegalArgumentException(
+                    "AgentDriver.frameworkId() must not be blank for agentId=" + agentId);
+        }
+        AgentDriver existing = byAgentId.putIfAbsent(agentId, driver);
+        if (existing != null && existing != driver) {
+            throw new IllegalStateException("duplicate AgentDriver agentId=" + agentId
+                    + " (existing=" + existing.getClass().getName()
+                    + ", new=" + driver.getClass().getName() + ")");
+        }
     }
 
     @Override

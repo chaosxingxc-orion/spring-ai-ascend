@@ -263,11 +263,6 @@
       </dependency>
       <dependency>
         <groupId>com.huawei.ascend</groupId>
-        <artifactId>agent-middleware</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-runtime</artifactId>
         <version>${project.version}</version>
       </dependency>

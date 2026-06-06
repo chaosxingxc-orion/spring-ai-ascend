@@ -43,7 +43,9 @@ public class AccessLayerConfiguration {
     @Bean
     @ConditionalOnMissingBean(AgentCard.class)
     AgentCard a2aAgentCard(org.springframework.beans.factory.ObjectProvider<AgentDriver> drivers) {
-        AgentDriver driver = drivers.getIfAvailable();
+        // Deterministic first driver — getIfAvailable() throws when more than one AgentDriver bean
+        // exists, which the multi-driver registry explicitly supports; orderedStream() honours @Order.
+        AgentDriver driver = drivers.orderedStream().findFirst().orElse(null);
         AgentCapabilities capabilities = AgentCapabilities.builder()
                 .streaming(true)
                 .pushNotifications(true)
