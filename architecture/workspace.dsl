@@ -84,17 +84,6 @@ workspace "Spring AI Ascend" "Architecture authority workspace (W8 — Structuri
                 }
             }
 
-            agentMiddleware = container "agent-middleware" "RuntimeMiddleware SPI + hook dispatch" "Java 21 / Maven" "SAA Module" {
-                properties {
-                    "saa.id" "MOD-AGENT-MIDDLEWARE"
-                    "saa.kind" "module"
-                    "saa.level" "L1"
-                    "saa.view" "development"
-                    "saa.status" "shipped"
-                    "saa.owner" "agent-middleware"
-                }
-            }
-
             agentEvolve = container "agent-evolve" "Evolution-plane boundary (skeleton; W3+)" "Java 21 / Maven" "SAA Module" {
                 properties {
                     "saa.id" "MOD-AGENT-EVOLVE"

@@ -16,8 +16,7 @@ spi_packages:
   # tool / memory / middleware stay inside the adapter.
   - com.huawei.ascend.runtime.engine.spi
 allowed_dependencies:
-  - agent-middleware       # engine references HookPoint enum + RuntimeMiddleware listener
-  - agent-bus              # engine registry consumes S2cCallbackTransport SPI from bus.spi.s2c per ADR-0088 (relocated from dissolved agent-runtime-core)
+  - agent-bus              # neutral bus.spi.engine / bus.spi.s2c / bus.spi.ingress surface (consumed via agent-bus)
 forbidden_dependencies:
   - agent-service          # engine is upstream of agent-service; reverse direction forbidden
 deployment_plane: compute_control   # Rule R-I / P-I — engine runs in-process with the runtime kernel

@@ -134,11 +134,6 @@ efHookSurface = element "Hook Surface Frame" "EngineeringFrame" "Runtime middlew
         "saa.structuralAxis" "true"
     }
 }
-genModule_agent_middleware -> efHookSurface "module contains engineering frame" "SAA Relationship" {
-    properties {
-        "saa.rel" "contains"
-    }
-}
 efHookSurface -> fpHookDispatch "frame anchors function point" "SAA Relationship" {
     properties {
         "saa.rel" "anchors"

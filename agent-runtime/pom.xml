@@ -30,11 +30,6 @@
       <groupId>com.huawei.ascend</groupId>
       <artifactId>agent-bus</artifactId>
     </dependency>
-    <!-- Sibling module: agent-middleware (HookPoint/RuntimeMiddleware/HookDispatcher + capability-tier SPIs). -->
-    <dependency>
-      <groupId>com.huawei.ascend</groupId>
-      <artifactId>agent-middleware</artifactId>
-    </dependency>
 
     <!-- Web + actuator (northbound + bootable app). -->
     <dependency>

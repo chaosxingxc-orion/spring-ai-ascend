@@ -350,13 +350,6 @@ agentRuntime -> fpEngineDispatch "implements EngineRegistry.resolve" "SAA Relati
 
     }
 }
-agentMiddleware -> fpHookDispatch "implements RuntimeMiddleware hook dispatch" "SAA Relationship" {
-    properties {
-
-        "saa.rel" "implements"
-
-    }
-}
 
 fpA2aMessageSend = element "A2A message/send" "FunctionPoint" "A2A JSON-RPC message/send entry (M1 AL-01 ingress)" "SAA FunctionPoint" {
     properties {
