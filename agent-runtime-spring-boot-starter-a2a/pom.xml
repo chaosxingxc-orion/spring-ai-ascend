@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  agent-runtime-spring-boot-starter-a2a: the microservice-mode starter.
+
+  Depend on this starter and publish a single com.huawei.ascend.runtime.engine.spi.AgentDriver
+  bean; agent-runtime's auto-configuration then stands up the neutral execution core
+  (AgentDriverRegistry -> RunCoordinator) behind an A2A access endpoint, turning any
+  heterogeneous-framework agent into a standalone A2A microservice. The SDK-host mode
+  (embed agent-runtime directly) and this microservice mode share the same RunCoordinator
+  core; only the packaging differs.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend</groupId>
+    <artifactId>spring-ai-ascend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>agent-runtime-spring-boot-starter-a2a</artifactId>
+  <name>agent-runtime-spring-boot-starter-a2a</name>
+  <description>Microservice-mode starter: add this + an AgentDriver bean to expose a heterogeneous agent as an A2A microservice on the neutral runtime core.</description>
+
+  <dependencies>
+    <!-- The run-owning runtime SDK: brings the neutral execution core + A2A access auto-configuration. -->
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-runtime</artifactId>
+    </dependency>
+  </dependencies>
+</project>

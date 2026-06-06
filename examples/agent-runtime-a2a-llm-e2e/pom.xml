@@ -27,7 +27,7 @@
   <dependencies>
     <dependency>
       <groupId>com.huawei.ascend</groupId>
-      <artifactId>agent-runtime</artifactId>
+      <artifactId>agent-runtime-spring-boot-starter-a2a</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
