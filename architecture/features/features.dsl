@@ -329,11 +329,6 @@ featEngineDispatchAndHooks -> fpEngineDispatch "engine feature contains dispatch
         "saa.rel" "requires"
     }
 }
-featEngineDispatchAndHooks -> fpHookDispatch "engine feature contains hook dispatch" "SAA Relationship" {
-    properties {
-        "saa.rel" "requires"
-    }
-}
 
 // =============================================================================
 // W4 — agent-service deep-dive feature catalog (rc55 per-layer features).

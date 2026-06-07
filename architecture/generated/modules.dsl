@@ -44,7 +44,7 @@ genModule_agent_service = element "agent-service" "Module" "Enterprise serviceiz
     }
 }
 
-genModule_spring_ai_ascend_dependencies = element "spring-ai-ascend-dependencies" "Module" "Bill of Materials — pins the reactor modules (agent-service, agent-runtime, agent-middleware, agent-bus) and OSS transitive dependency versions." "SAA Module" {
+genModule_spring_ai_ascend_dependencies = element "spring-ai-ascend-dependencies" "Module" "Bill of Materials — pins the reactor modules (agent-service, agent-runtime, agent-bus) and OSS transitive dependency versions." "SAA Module" {
     properties {
         "saa.id" "GEN-MOD-SPRING_AI_ASCEND_DEPENDENCIES"
         "saa.kind" "module_metadata"

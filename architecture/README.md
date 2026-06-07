@@ -65,7 +65,7 @@ contracts, accepted ADRs, or governance status ledgers.
 
 | Structurizr concept | Spring AI Ascend role |
 |---|---|
-| `softwareSystem` / `container` / `component` | L1 architecture structure (8 Maven modules + their components) |
+| `softwareSystem` / `container` / `component` | L1 architecture structure (4 Maven modules + their components) |
 | `element` + tags + properties | Feature / Capability / FunctionPoint instances (`SAA Capability`, `SAA Feature`, `SAA FunctionPoint` tags) |
 | `->` relationship + `saa.rel` property | dependency / implements / verifies / constrains / declares_spi / contains / decides edges |
 | `!docs docs` | imports `architecture/docs/` as the workspace's human-readable companion |
@@ -82,11 +82,7 @@ architecture/
     L1/
       README.md                  # L1 module index
       agent-bus/                 # canonical L1 module directory
-      agent-client/
-      agent-evolve/
       agent-runtime/
-      agent-middleware/
-      graphmemory-starter/
       agent-service/             # full per-view 4+1 directory shape
         README.md, architecture/docs/L0/ARCHITECTURE.md, logical.md, process.md, physical.md,
         development.md, scenarios.md, spi-appendix.md, features/, diagrams/

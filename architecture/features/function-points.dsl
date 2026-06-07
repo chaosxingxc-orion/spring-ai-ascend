@@ -234,21 +234,6 @@ fpEngineDispatch = element "Engine Dispatch" "FunctionPoint" "EngineRegistry.res
     }
 }
 
-fpHookDispatch = element "Hook Dispatch" "FunctionPoint" "RuntimeMiddleware listens on canonical HookPoint events (engine-hooks.v1.yaml; Rule R-M.c)" "SAA FunctionPoint" {
-    properties {
-        "saa.id" "FP-HOOK-DISPATCH"
-        "saa.kind" "function_point"
-        "saa.level" "L1"
-        "saa.view" "scenarios"
-        "saa.status" "shipped"
-        "saa.owner" "agent-middleware"
-        "saa.sourceAdr" "ADR-0073"
-        "saa.channel" "internal"
-        "saa.actor" "platform-runtime"
-        "saa.trigger" "internal-orchestration-event"
-    }
-}
-
 // Function-point ownership + verification relationships:
 //   capability -> function_point  (contains)
 //   module     -> function_point  (implements)
@@ -344,13 +329,6 @@ graphMemoryStarter -> fpGraphMemoryStore "auto-wires GraphMemoryRepository imple
     }
 }
 agentRuntime -> fpEngineDispatch "implements EngineRegistry.resolve" "SAA Relationship" {
-    properties {
-
-        "saa.rel" "implements"
-
-    }
-}
-agentMiddleware -> fpHookDispatch "implements RuntimeMiddleware hook dispatch" "SAA Relationship" {
     properties {
 
         "saa.rel" "implements"

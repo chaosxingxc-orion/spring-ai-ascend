@@ -57,6 +57,27 @@ state, runtime identity authentication, tenant-agent authorization, rate
 limiting, circuit breaking, multi-AZ deployment, same-city disaster recovery,
 cross-region recovery, SLA/SLO dashboards, and error-budget governance.
 
+## Quick start (config templates + scripts)
+
+Copy a template, fill it, and run — the env file is the only thing that differs
+between a local Ollama and a cloud OpenAI-compatible API; the command is identical:
+
+```bash
+cp .env.ollama.example .env        # or .env.openai-compatible.example, then edit
+bash scripts/test-e2e.sh .env      # installs agent-runtime + runs the E2E suite
+# Windows: ./scripts/test-e2e.ps1 -EnvFile .env
+```
+
+Templates (the `.env` you fill is gitignored; the `*.example` templates are tracked):
+
+- `.env.example` — every variable with inline docs.
+- `.env.ollama.example` — local Ollama via its OpenAI-compatible `/v1` surface (`gemma4:latest`).
+- `.env.openai-compatible.example` — a cloud OpenAI-compatible API (no real key committed).
+
+> The real-LLM e2e (`OpenJiuwenReactAgentA2aE2eTest`) only runs when
+> `SAA_SAMPLE_LLM_API_KEY` is non-blank. Without it, JUnit `assumeTrue()` **skips**
+> that branch after the agent-card assertions (the rest of the suite still runs).
+
 ## Local LLM Defaults and Curl
 
 The example is configured for a local OpenAI-compatible gateway by default. The checked-in defaults are env-aware placeholders in `examples/agent-runtime-a2a-llm-e2e/src/main/resources/application.yaml`:

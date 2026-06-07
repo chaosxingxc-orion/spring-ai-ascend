@@ -263,17 +263,9 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
       </plugin>
-      <!-- Repackage the bootable runtime app as a `boot`-classifier executable jar.
-           The main jar stays a plain library so agent-service (and other consumers)
-           can depend on agent-runtime without pulling the fat jar. -->
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-        <configuration>
-          <classifier>boot</classifier>
-          <mainClass>com.huawei.ascend.runtime.bootstrap.AgentRuntimeApplication</mainClass>
-        </configuration>
-      </plugin>
+      <!-- agent-runtime ships as a plain library: consumers embed the pure-Java entry
+           `app.RuntimeApp.create(handler).run(LocalA2aRuntimeHost.port(p))`. No executable
+           boot jar / Spring Boot repackage (the retired bootstrap main class is gone). -->
     </plugins>
   </build>
 </project>
