@@ -71,15 +71,15 @@ testTenantContextFilterIT = element "TenantContextFilterIT" "IntegrationTest" "J
     }
 }
 
-testEngineRegistryTest = element "EngineRegistryTest" "UnitTest" "EngineRegistry.resolve(envelope) — typed dispatch + EngineMatchingException on mismatch" "SAA Test" {
+testEngineDispatcherTest = element "EngineDispatcherTest" "UnitTest" "EngineDispatcher routes to the registered AgentRuntimeHandler by agentId; an unknown agentId converges to a terminal AGENT_ID_INVALID through the control authority" "SAA Test" {
     properties {
-        "saa.id" "TEST-ENGINEREGISTRY"
+        "saa.id" "TEST-ENGINEDISPATCHER"
         "saa.kind" "unit_test"
         "saa.level" "L1"
         "saa.view" "scenarios"
         "saa.status" "shipped"
         "saa.owner" "agent-runtime"
-        "saa.sourceFile" "agent-service/src/test/java/com/huawei/ascend/engine/runtime/EngineRegistryResolveTest.java"
+        "saa.sourceFile" "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/EngineDispatcherTest.java"
     }
 }
 
@@ -131,7 +131,7 @@ testTenantContextFilterIT -> fpTenantCrossCheck "verifies tenant cross-check" "S
 
     }
 }
-testEngineRegistryTest -> fpEngineDispatch "verifies engine dispatch" "SAA Relationship" {
+testEngineDispatcherTest -> fpEngineDispatch "verifies engine dispatch" "SAA Relationship" {
     properties {
 
         "saa.rel" "verifies"

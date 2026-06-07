@@ -219,7 +219,7 @@ fpGraphMemoryStore = element "Graph Memory Store" "FunctionPoint" "GraphMemoryRe
     }
 }
 
-fpEngineDispatch = element "Engine Dispatch" "FunctionPoint" "EngineRegistry.resolve(envelope) -> typed ExecutorAdapter dispatch via engine-envelope.v1.yaml (Rule R-M.a)" "SAA FunctionPoint" {
+fpEngineDispatch = element "Engine Dispatch" "FunctionPoint" "EngineDispatcher routes an EngineCommandEvent to the AgentRuntimeHandler registered for its agentId (via AgentRuntimeHandlerRegistry); single control authority; an unknown agentId converges to a terminal AGENT_ID_INVALID" "SAA FunctionPoint" {
     properties {
         "saa.id" "FP-ENGINE-DISPATCH"
         "saa.kind" "function_point"
@@ -328,7 +328,7 @@ graphMemoryStarter -> fpGraphMemoryStore "auto-wires GraphMemoryRepository imple
 
     }
 }
-agentRuntime -> fpEngineDispatch "implements EngineRegistry.resolve" "SAA Relationship" {
+agentRuntime -> fpEngineDispatch "implements EngineDispatcher + AgentRuntimeHandlerRegistry" "SAA Relationship" {
     properties {
 
         "saa.rel" "implements"

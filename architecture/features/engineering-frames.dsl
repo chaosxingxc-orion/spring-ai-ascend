@@ -97,9 +97,9 @@ genModule_agent_bus -> efOrchestrationSpi "module contains engineering frame" "S
 
 // ---- agent-runtime (compute_control plane) ----
 
-efEngineRegistry = element "Engine Registry Frame" "EngineeringFrame" "Engine contract surface — EngineRegistry strict matching, EngineEnvelope, ExecutorAdapter lifecycle, EngineHookSurface" "SAA EngineeringFrame" {
+efAgentRuntimeDispatch = element "AgentRuntime Engine Dispatch Frame" "EngineeringFrame" "Engine dispatch surface — EngineDispatcher routes EngineCommandEvent to the registered AgentRuntimeHandler (engine.spi) via AgentRuntimeHandlerRegistry; single control authority through TaskControlClient" "SAA EngineeringFrame" {
     properties {
-        "saa.id" "EF-ENGINE-REGISTRY"
+        "saa.id" "EF-AGENTRUNTIME-DISPATCH"
         "saa.kind" "engineering_frame"
         "saa.level" "L1"
         "saa.view" "logical"
@@ -109,12 +109,12 @@ efEngineRegistry = element "Engine Registry Frame" "EngineeringFrame" "Engine co
         "saa.structuralAxis" "true"
     }
 }
-genModule_agent_runtime -> efEngineRegistry "module contains engineering frame" "SAA Relationship" {
+genModule_agent_runtime -> efAgentRuntimeDispatch "module contains engineering frame" "SAA Relationship" {
     properties {
         "saa.rel" "contains"
     }
 }
-efEngineRegistry -> fpEngineDispatch "frame anchors function point" "SAA Relationship" {
+efAgentRuntimeDispatch -> fpEngineDispatch "frame anchors function point" "SAA Relationship" {
     properties {
         "saa.rel" "anchors"
     }
@@ -292,7 +292,7 @@ featEngineDispatchAndHooks -> efEngineDispatch "feature traverses engineering fr
         "saa.rel" "traverses"
     }
 }
-featEngineDispatchAndHooks -> efEngineRegistry "feature traverses engineering frame" "SAA Relationship" {
+featEngineDispatchAndHooks -> efAgentRuntimeDispatch "feature traverses engineering frame" "SAA Relationship" {
     properties {
         "saa.rel" "traverses"
     }

@@ -94,8 +94,8 @@ Schema-first domain contracts (Rule M-2.a, formerly Rule 48). Each YAML file is 
 
 | Contract | Path | Status | Authority |
 |---|---|---|---|
-| `engine-envelope.v1.yaml` | `docs/contracts/` | `runtime_enforced` | ADR-0072 (Rule R-M.a) |
-| `engine-hooks.v1.yaml` | `docs/contracts/` | `runtime_enforced` (delivery) | ADR-0073 (Rule R-M.c) |
+| `engine-envelope.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0072 — retired by the pure rebuild; design reference only (no EngineRegistry runtime) |
+| `engine-hooks.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0073 — retired by the pure rebuild; design reference only (no HookPoint/HookDispatcher runtime) |
 | `engine-port.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0158 (transport-agnostic Service/Engine boundary wire shape; in-process realization = the Java `EnginePort` interface; networked = internal-RPC + A2A) |
 | `s2c-callback.v1.yaml` | `docs/contracts/` | `runtime_enforced` | ADR-0074 (Rule R-M.d); java types in `agent-bus.bus.spi.s2c` per ADR-0088 |
 | `ingress-envelope.v1.yaml` | `docs/contracts/` | `design_only` | ADR-0089 (Rule R-I.b); runtime binding W3+ with agent-client SDK |

@@ -10,5 +10,5 @@ container springAiAscend "L1-Scenarios" "Scenarios view — anchor user/system s
     include *
     autoLayout lr
     title "Spring AI Ascend — L1 Scenarios View"
-    description "Anchor scenarios: S1 — Create Run (FEAT-RUN-LIFECYCLE-CONTROL: POST /v1/runs → IdempotencyHeaderFilter → EngineRegistry → 202 Accepted + Run handle). S2 — Cancel Run (FEAT-TENANT-ISOLATION: JWT.tenant cross-check + DFA transition → 200 / 409 / 404). S3 — S2C Callback (FEAT-SERVER-CLIENT-CALLBACK: agent-bus delivers S2cCallbackEnvelope; client response resumes Run via SuspendSignal.forClientCallback). S4 — Edge Ingress (FEAT-EDGE-COMPUTE-INGRESS: IngressEnvelope single hop via IngressGateway). S5 — Graph Memory Read (FEAT-GRAPH-MEMORY: tenant-scoped CRUD)."
+    description "Anchor scenarios: S1 — Create Run (FEAT-RUN-LIFECYCLE-CONTROL: POST /v1/runs → IdempotencyHeaderFilter → EngineDispatcher → 202 Accepted + Run handle). S2 — Cancel Run (FEAT-TENANT-ISOLATION: JWT.tenant cross-check + DFA transition → 200 / 409 / 404). S3 — S2C Callback (FEAT-SERVER-CLIENT-CALLBACK: agent-bus delivers S2cCallbackEnvelope; client response resumes Run via SuspendSignal.forClientCallback). S4 — Edge Ingress (FEAT-EDGE-COMPUTE-INGRESS: IngressEnvelope single hop via IngressGateway). S5 — Graph Memory Read (FEAT-GRAPH-MEMORY: tenant-scoped CRUD)."
 }

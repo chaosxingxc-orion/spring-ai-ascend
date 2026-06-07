@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  agent-runtime: the run-owning runtime SDK developed against to drive Agent
-  instances built on heterogeneous agent frameworks. Owns the execution engine
-  (EngineRegistry / ExecutorAdapter SPI / InProcessEnginePort), Run lifecycle,
-  engine dispatch, session, task-control, internal event queue, access (A2A),
-  and the bootable runtime application. Self-contained and independently bootable.
+  agent-runtime: the run-owning runtime SDK that drives Agent instances built on
+  heterogeneous agent frameworks through a single framework-neutral SPI
+  (engine.spi.AgentRuntimeHandler + StreamAdapter). Owns engine dispatch
+  (EngineDispatcher + AgentRuntimeHandlerRegistry), Run lifecycle, session,
+  task-centric control, internal event queue, access (A2A), and the pure-Java
+  embeddable entry app.RuntimeApp. Ships as a library.
 
   Historical note: ADR-0159 has been archived. Neutral EnginePort / orchestration
   SPI is consumed from agent-bus (bus.spi.engine); s2c SPI from agent-bus (bus.spi.s2c).
@@ -243,17 +244,13 @@
       <resource>
         <directory>src/main/resources</directory>
       </resource>
-      <!--
-        Bring canonical contract YAMLs onto the classpath for runtime
-        self-validation. EngineRegistry.readYaml() tries filesystem first,
-        then classpath fallback at "/docs/contracts/<name>.yaml".
-      -->
+      <!-- Bundle the S2C callback contract onto the classpath for the access layer.
+           (engine-envelope / engine-hooks are retired by the pure rebuild and are
+           no longer read or shipped on the runtime classpath.) -->
       <resource>
         <directory>${project.basedir}/../docs/contracts</directory>
         <targetPath>docs/contracts</targetPath>
         <includes>
-          <include>engine-envelope.v1.yaml</include>
-          <include>engine-hooks.v1.yaml</include>
           <include>s2c-callback.v1.yaml</include>
         </includes>
       </resource>

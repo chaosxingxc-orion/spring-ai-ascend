@@ -507,29 +507,6 @@ cap_helm_chart_skeleton = element "helm_chart_skeleton" "Capability" "L1 capabil
     }
 }
 
-cap_hook_safety_critical_carve_out = element "hook_safety_critical_carve_out" "Capability" "L1 capability mounted from architecture-status.yaml" "SAA Capability" {
-    properties {
-        "saa.id" "CAP-HOOK-SAFETY-CRITICAL-CARVE-OUT"
-        "saa.kind" "capability"
-        "saa.level" "L1"
-        "saa.view" "scenarios"
-        "saa.status" "accepted"
-        "saa.owner" "agent-middleware"
-        "saa.sourceAdr" "ADR-0064"
-    }
-}
-
-cap_hook_tie_break_determinism = element "hook_tie_break_determinism" "Capability" "L1 capability mounted from architecture-status.yaml" "SAA Capability" {
-    properties {
-        "saa.id" "CAP-HOOK-TIE-BREAK-DETERMINISM"
-        "saa.kind" "capability"
-        "saa.level" "L1"
-        "saa.view" "scenarios"
-        "saa.status" "accepted"
-        "saa.owner" "agent-middleware"
-        "saa.sourceAdr" "ADR-0064"
-    }
-}
 
 cap_hybrid_rag_bm25 = element "hybrid_rag_bm25" "Capability" "L1 capability mounted from architecture-status.yaml" "SAA Capability" {
     properties {
