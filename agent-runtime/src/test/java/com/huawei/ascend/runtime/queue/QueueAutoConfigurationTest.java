@@ -1,7 +1,7 @@
 package com.huawei.ascend.runtime.queue;
 
 import com.huawei.ascend.runtime.access.config.AccessLayerConfiguration;
-import com.huawei.ascend.runtime.bootstrap.AgentServiceBootstrapConfiguration;
+import com.huawei.ascend.runtime.app.RuntimeWiringConfiguration;
 import com.huawei.ascend.runtime.engine.command.EngineCommandGateway;
 import com.huawei.ascend.runtime.engine.command.EngineWorker;
 import com.huawei.ascend.runtime.engine.config.EngineAutoConfiguration;
@@ -22,7 +22,7 @@ class QueueAutoConfigurationTest {
                     TaskControlAutoConfiguration.class,
                     AccessLayerConfiguration.class,
                     SessionManageConfiguration.class,
-                    AgentServiceBootstrapConfiguration.class,
+                    RuntimeWiringConfiguration.class,
                     EngineAutoConfiguration.class);
 
     @Test

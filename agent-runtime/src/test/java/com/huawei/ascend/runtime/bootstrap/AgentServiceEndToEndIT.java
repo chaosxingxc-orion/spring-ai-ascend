@@ -2,6 +2,7 @@ package com.huawei.ascend.runtime.bootstrap;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huawei.ascend.runtime.app.RuntimeWiringConfiguration;
 import com.huawei.ascend.runtime.access.config.AccessLayerConfiguration;
 import com.huawei.ascend.runtime.access.core.AccessSubmissionService;
 import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutput;
@@ -418,7 +419,7 @@ class AgentServiceEndToEndIT {
     @Import({
             QueueAutoConfiguration.class,
             TaskControlAutoConfiguration.class,
-            AgentServiceBootstrapConfiguration.class,
+            RuntimeWiringConfiguration.class,
             AccessLayerConfiguration.class,
             SessionManageConfiguration.class,
             EngineAutoConfiguration.class

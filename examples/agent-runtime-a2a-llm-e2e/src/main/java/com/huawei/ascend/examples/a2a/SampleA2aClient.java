@@ -54,7 +54,13 @@ public final class SampleA2aClient {
                         }
                     },
                     error -> {
-                        failure.set(error);
+                        // The A2A SDK cancels the SSE subscription right after the terminal
+                        // event; that surfaces here as a CancellationException, which is normal
+                        // stream completion (incl. terminal FAILED runs), NOT a transport failure.
+                        // Only genuine transport/parse errors are recorded as failures.
+                        if (!causedByCancellation(error)) {
+                            failure.set(error);
+                        }
                         completed.countDown();
                     },
                     new ClientCallContext(Map.of(), Map.of()));
@@ -128,9 +134,21 @@ public final class SampleA2aClient {
                 .build();
     }
 
+    private static final java.util.Set<String> TERMINAL_RUN_STATUSES =
+            java.util.Set.of("completed", "failed", "cancelled");
+
     private static boolean isTerminal(StreamingEventKind event) {
-        if (event instanceof Message message) {
-            return "completed".equals(message.metadata().get("runStatus"));
+        if (event instanceof Message message && message.metadata() != null) {
+            return TERMINAL_RUN_STATUSES.contains(String.valueOf(message.metadata().get("runStatus")));
+        }
+        return false;
+    }
+
+    private static boolean causedByCancellation(Throwable error) {
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            if (t instanceof java.util.concurrent.CancellationException) {
+                return true;
+            }
         }
         return false;
     }

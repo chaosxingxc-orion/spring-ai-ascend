@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.bootstrap;
+package com.huawei.ascend.runtime.app;
 
 import com.huawei.ascend.runtime.access.api.NotificationPort;
 import com.huawei.ascend.runtime.access.core.AccessSubmissionService;
@@ -11,8 +11,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Bootstrap glue configuration: wires the cross-module seams that connect the
- * five independently-configured layers into one working runtime.
+ * Runtime wiring configuration: wires the cross-layer seams that connect the
+ * independently-configured layers into one working runtime.
  *
  * <ul>
  *   <li>{@link AccessSubmissionService} - inbound: access layer to task-centric-control.</li>
@@ -24,7 +24,7 @@ import org.springframework.context.annotation.Configuration;
  * deliberately live outside any single module because they bridge two of them.
  */
 @Configuration(proxyBeanMethods = false)
-public class AgentServiceBootstrapConfiguration {
+public class RuntimeWiringConfiguration {
 
     /**
      * Inbound seam. Access resolves the session before submitting to task

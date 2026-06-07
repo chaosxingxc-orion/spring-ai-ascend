@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                 + "com.huawei.ascend.runtime.session.config.SessionManageConfiguration,"
                 + "com.huawei.ascend.runtime.queue.config.QueueAutoConfiguration,"
                 + "com.huawei.ascend.runtime.control.config.TaskControlAutoConfiguration,"
-                + "com.huawei.ascend.runtime.bootstrap.AgentServiceBootstrapConfiguration,"
+                + "com.huawei.ascend.runtime.app.RuntimeWiringConfiguration,"
                 + "com.huawei.ascend.runtime.access.config.AccessLayerConfiguration,"
                 + "com.huawei.ascend.runtime.engine.config.EngineAutoConfiguration")
 class RuntimeRegistryHttpE2eTest {
