@@ -1,6 +1,7 @@
 package com.huawei.ascend.runtime.control.config;
 
 import com.huawei.ascend.runtime.engine.api.EngineExecutionApi;
+import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
 import com.huawei.ascend.runtime.queue.QueueManager;
 import com.huawei.ascend.runtime.control.EngineTaskControlAdapter;
 import com.huawei.ascend.runtime.control.TaskControlService;
@@ -21,7 +22,8 @@ public class TaskControlAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(com.huawei.ascend.runtime.engine.port.TaskControlClient.class)
-    public EngineTaskControlAdapter engineTaskControlAdapter(TaskControlService taskControlService) {
-        return new EngineTaskControlAdapter(taskControlService);
+    public EngineTaskControlAdapter engineTaskControlAdapter(TaskControlService taskControlService,
+                                                            AccessLayerClient accessLayerClient) {
+        return new EngineTaskControlAdapter(taskControlService, accessLayerClient);
     }
 }

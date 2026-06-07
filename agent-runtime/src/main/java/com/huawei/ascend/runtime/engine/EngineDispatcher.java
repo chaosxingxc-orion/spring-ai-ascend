@@ -11,8 +11,6 @@ import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
 import com.huawei.ascend.runtime.engine.event.EngineStartedEvent;
 import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.InterruptType;
-import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.port.TaskControlClient;
@@ -33,12 +31,10 @@ public class EngineDispatcher {
 
     private final AgentRuntimeHandlerRegistry registry;
     private final TaskControlClient taskControlClient;
-    private final AccessLayerClient accessLayerClient;
 
-    public EngineDispatcher(AgentRuntimeHandlerRegistry registry, TaskControlClient taskControlClient, AccessLayerClient accessLayerClient) {
+    public EngineDispatcher(AgentRuntimeHandlerRegistry registry, TaskControlClient taskControlClient) {
         this.registry = registry;
         this.taskControlClient = taskControlClient;
-        this.accessLayerClient = accessLayerClient;
     }
 
     public void dispatch(EngineCommandEvent command) {
@@ -141,21 +137,19 @@ public class EngineDispatcher {
                 scope.sessionId(),
                 scope.taskId(),
                 scope.agentId());
+        // Single outbound write: the engine reports every outcome to the control plane only.
+        // Control is the sole authority and fans out caller-facing egress (gated on acceptance),
+        // so authority and output are never written twice from here.
         if (event instanceof EngineStartedEvent) {
             taskControlClient.markRunning(scope);
         } else if (event instanceof EngineOutputEvent e) {
-            accessLayerClient.appendOutput(scope, e);
+            taskControlClient.appendOutput(scope, e);
         } else if (event instanceof EngineInterruptedEvent e) {
             taskControlClient.markWaiting(scope, e);
-            if (e.getInterruptType() != InterruptType.WAITING_CHILD_AGENT) {
-                accessLayerClient.requestUserInput(scope, e);
-            }
         } else if (event instanceof EngineCompletedEvent e) {
             taskControlClient.markSucceeded(scope, e);
-            accessLayerClient.completeOutput(scope, e);
         } else if (event instanceof EngineFailedEvent e) {
             taskControlClient.markFailed(scope, e);
-            accessLayerClient.failOutput(scope, e);
         } else if (event instanceof EngineCancelledEvent e) {
             taskControlClient.markCancelled(scope, e);
         } else if (event instanceof EngineAgentCallEvent) {

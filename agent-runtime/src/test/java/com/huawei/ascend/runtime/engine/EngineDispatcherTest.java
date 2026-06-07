@@ -11,7 +11,6 @@ import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
 import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.model.EngineInput;
-import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
@@ -34,35 +33,34 @@ class EngineDispatcherTest {
     }
 
     @Test
-    void dispatch_completedEvent_routesToMarkRunningSucceededAndCompleteOutput() {
+    void dispatch_completedEvent_routesMarkRunningAndSucceededToControlOnly() {
         TaskControlClient task = mock(TaskControlClient.class);
-        AccessLayerClient access = mock(AccessLayerClient.class);
         AgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();
         registry.register("echo-agent", new FakeAgentHandler(List.of(
                 Map.of("result_type", "answer", "output", "hi"))));
-        EngineDispatcher dispatcher = new EngineDispatcher(registry, task, access);
+        EngineDispatcher dispatcher = new EngineDispatcher(registry, task);
 
         dispatcher.dispatch(cmd());
 
+        // Single outbound write: the engine reports only to the control port; egress is the
+        // control plane's responsibility, so the engine never writes output directly.
         verify(task).markRunning(scope());
         verify(task).markSucceeded(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineCompletedEvent.class));
-        verify(access).completeOutput(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineCompletedEvent.class));
     }
 
     @Test
-    void dispatch_outputThenFailed_routesAppendOutputAndMarkFailed() {
+    void dispatch_outputThenFailed_routesAppendOutputAndMarkFailedToControlOnly() {
         TaskControlClient task = mock(TaskControlClient.class);
-        AccessLayerClient access = mock(AccessLayerClient.class);
         AgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();
         registry.register("echo-agent", new FakeAgentHandler(List.of(
                 Map.of("result_type", "output", "output", "partial"),
                 Map.of("result_type", "error", "error_code", "ERR", "output", "boom"))));
-        EngineDispatcher dispatcher = new EngineDispatcher(registry, task, access);
+        EngineDispatcher dispatcher = new EngineDispatcher(registry, task);
 
         dispatcher.dispatch(cmd());
 
         verify(task).markRunning(scope());
-        verify(access).appendOutput(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineOutputEvent.class));
+        verify(task).appendOutput(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineOutputEvent.class));
         verify(task).markFailed(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineFailedEvent.class));
     }
 

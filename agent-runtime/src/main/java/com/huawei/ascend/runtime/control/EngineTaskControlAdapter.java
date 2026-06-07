@@ -4,19 +4,31 @@ import com.huawei.ascend.runtime.engine.event.EngineCancelledEvent;
 import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
 import com.huawei.ascend.runtime.engine.event.EngineFailedEvent;
 import com.huawei.ascend.runtime.engine.event.EngineInterruptedEvent;
+import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
 import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.model.InterruptType;
+import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
 import com.huawei.ascend.runtime.control.api.TaskControlApi.MarkTaskCommand;
+import com.huawei.ascend.runtime.control.api.TaskControlApi.TaskResult;
 
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * The single authority on the engine's outbound port: every engine outcome is applied
+ * to {@link TaskControlService} (the authoritative task record) FIRST, and caller-facing
+ * egress is driven from here only when control ACCEPTED the transition. This makes the
+ * control plane the sole writer of authority and gates output on it — the engine never
+ * writes authority and output independently (no double-write of authority).
+ */
 public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engine.port.TaskControlClient {
 
     private final TaskControlService taskControlService;
+    private final AccessLayerClient accessLayerClient;
 
-    public EngineTaskControlAdapter(TaskControlService taskControlService) {
+    public EngineTaskControlAdapter(TaskControlService taskControlService, AccessLayerClient accessLayerClient) {
         this.taskControlService = Objects.requireNonNull(taskControlService, "taskControlService");
+        this.accessLayerClient = Objects.requireNonNull(accessLayerClient, "accessLayerClient");
     }
 
     @Override
@@ -25,18 +37,46 @@ public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engin
     }
 
     @Override
+    public void appendOutput(EngineExecutionScope scope, EngineOutputEvent event) {
+        // Streaming chunk: forward to egress only while control still considers the task live,
+        // so no output escapes after the authoritative task has terminated or is cancelling.
+        boolean live = taskControlService.findTask(scope.tenantId(), scope.sessionId(), scope.taskId())
+                .map(task -> !task.terminal() && task.getState() != TaskState.CANCELLING)
+                .orElse(false);
+        if (live) {
+            accessLayerClient.appendOutput(scope, event);
+        }
+    }
+
+    @Override
     public void markWaiting(EngineExecutionScope scope, EngineInterruptedEvent event) {
-        taskControlService.markWaiting(command(scope, waitingReason(event), null, event, Map.of())).toCompletableFuture().join();
+        TaskResult result = taskControlService
+                .markWaiting(command(scope, waitingReason(event), null, event, Map.of()))
+                .toCompletableFuture().join();
+        if (result.accepted()
+                && (event == null || event.getInterruptType() != InterruptType.WAITING_CHILD_AGENT)) {
+            accessLayerClient.requestUserInput(scope, event);
+        }
     }
 
     @Override
     public void markSucceeded(EngineExecutionScope scope, EngineCompletedEvent event) {
-        taskControlService.markSucceeded(command(scope, null, null, event, Map.of())).toCompletableFuture().join();
+        TaskResult result = taskControlService
+                .markSucceeded(command(scope, null, null, event, Map.of()))
+                .toCompletableFuture().join();
+        if (result.accepted()) {
+            accessLayerClient.completeOutput(scope, event);
+        }
     }
 
     @Override
     public void markFailed(EngineExecutionScope scope, EngineFailedEvent event) {
-        taskControlService.markFailed(command(scope, null, failureCode(event), event, Map.of())).toCompletableFuture().join();
+        TaskResult result = taskControlService
+                .markFailed(command(scope, null, failureCode(event), event, Map.of()))
+                .toCompletableFuture().join();
+        if (result.accepted()) {
+            accessLayerClient.failOutput(scope, event);
+        }
     }
 
     @Override

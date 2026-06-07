@@ -17,7 +17,6 @@ import com.huawei.ascend.runtime.engine.EngineDispatcher;
 import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.model.EngineInput;
 import com.huawei.ascend.runtime.engine.support.FakeInterruptingAgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.support.RecordingAccessLayerClient;
 import com.huawei.ascend.runtime.engine.support.RecordingTaskControlClient;
 import com.huawei.ascend.runtime.queue.QueueManager;
 import java.util.List;
@@ -34,19 +33,17 @@ import org.junit.jupiter.api.Test;
 class EngineClosedLoopIntegrationTest {
 
     private RecordingTaskControlClient taskControl;
-    private RecordingAccessLayerClient accessLayer;
     private InternalEngineCommandGateway gateway;
     private EngineExecutionApi api;
 
     @BeforeEach
     void setUp() {
         taskControl = new RecordingTaskControlClient();
-        accessLayer = new RecordingAccessLayerClient();
         AgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();
         registry.register("echo-agent", new FakeInterruptingAgentRuntimeHandler("echo-agent"));
 
         gateway = new InternalEngineCommandGateway(new QueueManager());
-        EngineDispatcher dispatcher = new EngineDispatcher(registry, taskControl, accessLayer);
+        EngineDispatcher dispatcher = new EngineDispatcher(registry, taskControl);
         EngineWorker processor = new EngineWorker(gateway, dispatcher, Runnable::run);
         processor.start();
         api = new DefaultEngineExecutionApi(new EngineCommandEventFactory(), gateway);
@@ -65,17 +62,17 @@ class EngineClosedLoopIntegrationTest {
         // First EXECUTE: the agent interrupts and waits for input.
         EnqueueEngineStatus first = api.enqueueExecution(new EnqueueEngineExecutionRequest(scope(), input()));
         assertThat(first).isEqualTo(EnqueueEngineStatus.SUCCESS);
+        // The engine reports only to the single control port — no direct access write.
         assertThat(taskControl.transitions).containsExactly("RUNNING:task-1", "WAITING:task-1");
-        assertThat(accessLayer.userInputRequests).hasSize(1);
-        assertThat(accessLayer.userInputRequests.get(0).getPrompt()).isEqualTo("Need your confirmation");
+        assertThat(taskControl.waiting).hasSize(1);
+        assertThat(taskControl.waiting.get(0).getPrompt()).isEqualTo("Need your confirmation");
 
-        // RESUME: the same agent now completes, streaming output then completion.
+        // RESUME: the same agent now streams output then completes — all reported to control only.
         api.enqueueResume(new EnqueueEngineResumeRequest(scope(), input()));
         assertThat(taskControl.transitions)
-                .containsExactly("RUNNING:task-1", "WAITING:task-1", "RUNNING:task-1", "SUCCEEDED:task-1");
-        assertThat(accessLayer.signals)
-                .containsExactly("REQUEST_INPUT:task-1", "APPEND:task-1", "COMPLETE:task-1");
-        assertThat(accessLayer.completed.get(0).getFinalOutput().getContent()).isEqualTo("final answer");
+                .containsExactly("RUNNING:task-1", "WAITING:task-1",
+                        "RUNNING:task-1", "APPEND:task-1", "SUCCEEDED:task-1");
+        assertThat(taskControl.succeeded.get(0).getFinalOutput().getContent()).isEqualTo("final answer");
     }
 
     @Test
@@ -84,6 +81,5 @@ class EngineClosedLoopIntegrationTest {
 
         assertThat(taskControl.transitions).containsExactly("CANCELLED:task-1");
         assertThat(taskControl.cancelled).hasSize(1);
-        assertThat(accessLayer.signals).isEmpty();
     }
 }

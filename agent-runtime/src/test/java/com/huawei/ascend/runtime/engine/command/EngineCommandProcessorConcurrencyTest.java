@@ -12,7 +12,6 @@ import com.huawei.ascend.runtime.engine.model.EngineInput;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
-import com.huawei.ascend.runtime.engine.support.RecordingAccessLayerClient;
 import com.huawei.ascend.runtime.engine.support.RecordingTaskControlClient;
 import com.huawei.ascend.runtime.queue.QueueManager;
 import java.util.List;
@@ -33,8 +32,7 @@ class EngineCommandProcessorConcurrencyTest {
         DefaultAgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();
         registry.register("blocking-agent", handler);
         InternalEngineCommandGateway gateway = new InternalEngineCommandGateway(new QueueManager());
-        EngineDispatcher dispatcher = new EngineDispatcher(
-                registry, new RecordingTaskControlClient(), new RecordingAccessLayerClient());
+        EngineDispatcher dispatcher = new EngineDispatcher(registry, new RecordingTaskControlClient());
         ExecutorService executor = Executors.newFixedThreadPool(2);
         EngineWorker processor = new EngineWorker(gateway, dispatcher, executor);
         DefaultEngineExecutionApi api = new DefaultEngineExecutionApi(new EngineCommandEventFactory(), gateway);

@@ -9,7 +9,6 @@ import com.huawei.ascend.runtime.engine.command.InternalEngineCommandGateway;
 import com.huawei.ascend.runtime.engine.AgentRuntimeHandlerRegistry;
 import com.huawei.ascend.runtime.engine.DefaultAgentRuntimeHandlerRegistry;
 import com.huawei.ascend.runtime.engine.EngineDispatcher;
-import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
 import com.huawei.ascend.runtime.engine.port.TaskControlClient;
 import com.huawei.ascend.runtime.queue.QueueManager;
 import java.util.concurrent.Executor;
@@ -71,9 +70,8 @@ public class EngineAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public EngineDispatcher engineDispatcher(AgentRuntimeHandlerRegistry registry,
-                                             TaskControlClient taskControlClient,
-                                             AccessLayerClient accessLayerClient) {
-        return new EngineDispatcher(registry, taskControlClient, accessLayerClient);
+                                             TaskControlClient taskControlClient) {
+        return new EngineDispatcher(registry, taskControlClient);
     }
 
     @Bean(initMethod = "start", destroyMethod = "stop")

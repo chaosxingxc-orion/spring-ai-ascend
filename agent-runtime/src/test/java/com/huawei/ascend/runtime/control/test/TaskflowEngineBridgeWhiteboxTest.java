@@ -38,12 +38,13 @@ class TaskflowEngineBridgeWhiteboxTest {
                 manager,
                 dispatchApi,
                 Clock.fixed(Instant.parse("2026-06-01T00:00:00Z"), ZoneOffset.UTC));
-        EngineTaskControlAdapter adapter = new EngineTaskControlAdapter(tcc);
         RecordingAccessLayerClient access = new RecordingAccessLayerClient();
+        // Single-write: the control adapter owns egress; the engine writes only to the adapter.
+        EngineTaskControlAdapter adapter = new EngineTaskControlAdapter(tcc, access);
         AgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();
         registry.register("echo-agent", new FakeInterruptingAgentRuntimeHandler("echo-agent"));
         EngineWorker processor =
-                new EngineWorker(engineQueue, new EngineDispatcher(registry, adapter, access), Runnable::run);
+                new EngineWorker(engineQueue, new EngineDispatcher(registry, adapter), Runnable::run);
         processor.start();
 
         TaskControlApi.TaskResult waiting = tcc.run(new TaskControlApi.RunCommand(request("hello")))
