@@ -51,8 +51,7 @@ public final class TestInventoryFactExtractor {
     private static final List<String> SCAN_MODULES = List.of(
             "agent-service",
             "agent-bus",
-            "agent-runtime",
-            "agent-middleware");
+            "agent-runtime");
 
     private TestInventoryFactExtractor() {
     }

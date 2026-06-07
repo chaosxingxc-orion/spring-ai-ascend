@@ -43,8 +43,7 @@ public final class CodeSymbolFactExtractor {
     private static final List<String> SCAN_MODULES = List.of(
             "agent-service",
             "agent-bus",
-            "agent-runtime",
-            "agent-middleware");
+            "agent-runtime");
 
     private CodeSymbolFactExtractor() {
     }

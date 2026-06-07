@@ -36,8 +36,7 @@ public final class RuntimeConfigFactExtractor {
         List<String> modules = List.of(
                 "agent-service",
                 "agent-bus",
-                "agent-runtime",
-                "agent-middleware");
+                "agent-runtime");
 
         List<Map<String, Object>> facts = new ArrayList<>();
         for (String module : modules) {
