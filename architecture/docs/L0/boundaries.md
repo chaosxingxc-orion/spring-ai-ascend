@@ -35,13 +35,9 @@ runtime architecture.
 | Module / Artifact | Classification | L0 Boundary Treatment |
 |---|---|---|
 | `agent-service` | Serviceization façade skeleton | Enterprise serviceization edge that drives `agent-runtime`-hosted Agent instances; registration/discovery deferred (ADR-0159). |
-| `agent-runtime` | Core runtime architecture module | Run-owning runtime kernel — engine, dispatch, access (A2A), session, task-control, queue, and the bootable runtime (ADR-0159). |
-| `agent-middleware` | Core runtime architecture module | Model, skill, memory, retrieval, prompt, advisor, runtime middleware, hook, and governance SPI boundary. |
+| `agent-runtime` | Core runtime architecture module | Run-owning runtime SDK — framework-neutral engine (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`; `EngineDispatcher`), access (A2A), session, task-centric control, internal queue, and the pure-Java entry `app.RuntimeApp` (ADR-0159). |
 | `agent-bus` | Core runtime architecture module | Bus/state hub plane, ingress, S2C, neutral engine port, A2A/federation, and three-track channel boundary. |
-| `agent-client` | Runtime component boundary | SDK, edge access, local capability endpoint, cursor/callback/SSE consumption. |
-| `agent-evolve` | Runtime component boundary | Evolution plane, governed export, future ML pipeline adapter. |
 | `spring-ai-ascend-dependencies` | Build artifact | BoM and dependency/version governance; not a primary runtime module. |
-| `spring-ai-ascend-graphmemory-starter` | Starter artifact | Adapter/starter packaging for GraphMemory; not a primary runtime control owner. |
 
 ## Responsibility Cards
 
@@ -80,21 +76,12 @@ Does not own:
 - Business tool/provider internals.
 - Default remote-service boundary to `agent-service`.
 
-### `agent-middleware`
+### `agent-middleware` (retired)
 
-Owns:
-
-- Runtime middleware and hook dispatch.
-- Model gateway, skill, memory, vector, retriever, embedding, prompt, and advisor
-  SPI boundaries.
-- Tool/model/memory policy, capacity, audit, and trace evidence shapes.
-
-Does not own:
-
-- Runtime lifecycle state.
-- Customer business state.
-- Direct provider telemetry as the only observability sink.
-- Cross-boundary A2A control transport.
+Retired in the agent-runtime pure rebuild — the module and its hook/middleware
+runtime were removed. Its planned model-gateway / skill / memory / retrieval /
+prompt / advisor capabilities are deferred product vision pending a new home (see
+`product/PRODUCT.md`); they are NOT in the current 4-module reactor.
 
 ### `agent-bus`
 

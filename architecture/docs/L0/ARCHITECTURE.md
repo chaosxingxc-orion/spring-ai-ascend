@@ -202,45 +202,27 @@ spring-ai-ascend/
         RunMode.java                           # engine type discriminator (GRAPH | AGENT_LOOP)
         ExecutorDefinition.java                # sealed: GraphDefinition | AgentLoopDefinition
 
-  agent-middleware/                            # NEW 2026-05-17: cross-cutting middleware (compute_control plane; ADR-0073)
-    pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-middleware.yaml
-    src/main/java/com/huawei/ascend/middleware/
-      HookDispatcher.java                      # moved here from agent-runtime/engine/ (T2.B1)
-      spi/                                     # moved here from agent-runtime/orchestration/spi/ (T2.B1)
-        HookPoint.java                         # 10-value enum mirroring docs/contracts/engine-hooks.v1.yaml (includes `on_yield` per ADR-0100)
-        HookContext.java
-        HookOutcome.java                       # sealed: Proceed | ShortCircuit | Fail
-        RuntimeMiddleware.java                 # @FunctionalInterface
-
-  agent-runtime/                      # run-owning runtime kernel (compute_control plane; ADR-0159 consolidation; engine per ADR-0072; EnginePort realization per ADR-0158)
+  agent-runtime/                      # run-owning runtime SDK (compute_control plane; ADR-0159). Ships as a library.
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-runtime.yaml
     src/main/java/com/huawei/ascend/runtime/
-      engine/spi/                              # ExecutorAdapter, GraphExecutor, AgentLoopExecutor, EngineHookSurface, EngineMatchingException (engine adapter SPI per ADR-0072)
-      engine/planner/spi/                      # Planner, Plan, PlanStep, PlanningRequest, ... (ADR-0126)
-      engine/runtime/                          # EngineRegistry, EngineEnvelope, InProcessEnginePort (realizes the neutral bus.spi.engine EnginePort)
-      engine/exec/                             # reference executors
-      dispatch/                                # AgentHandler, AgentResultAdapter (spi/) + AccessLayerClient, TaskControlClient (port/)
-      access/                                  # A2A protocol ingress: A2aJsonRpcController, A2aWellKnownAgentCardController
-      session/ taskcontrol/ queue/ schema/     # run-state coordination scaffolding
-      bootstrap/                               # AgentRuntimeApplication (bootable runtime app)
+      engine/spi/                              # AgentRuntimeHandler, StreamAdapter, AbstractAgentRuntimeHandler, AgentExecutionResult (framework-neutral runtime SPI)
+      engine/api/                              # EngineExecutionApi (inbound enqueue: execute / resume / cancel)
+      engine/command/                          # EngineWorker + internal command queue
+      engine/port/                             # TaskControlClient, AccessLayerClient (outbound; intra-service, not SPI)
+      engine/openjiuwen/                       # openJiuwen ReAct AgentRuntimeHandler adapter
+      engine/EngineDispatcher.java             # routes an EngineCommandEvent to the registered handler by agentId
+      access/                                  # A2A protocol ingress + egress: A2aJsonRpcController, A2aWellKnownAgentCardController, output registry
+      session/ control/ queue/ schema/         # session + task-centric control (single authority) + internal queue + response types
+      app/                                     # RuntimeApp / RuntimeHost / LocalA2aRuntimeHost + RuntimeWiringConfiguration
     # The neutral orchestration/engine SPI (Orchestrator, RunContext, SuspendSignal, Checkpointer,
-    # TraceContext, RunMode, ExecutorDefinition, ExecutionContext) stays in agent-bus under
-    # com.huawei.ascend.bus.spi.engine (ADR-0158); this module consumes it and realizes InProcessEnginePort.
-
-  agent-evolve/                                # NEW 2026-05-17: Java adapter skeleton for Python ML pipeline (evolution plane; ADR-0075)
-    pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-evolve.yaml
-    src/main/java/com/huawei/ascend/evolve/spi/  # placeholder SPI
+    # TraceContext, RunMode, ExecutorDefinition, ExecutionContext) lives in agent-bus under
+    # com.huawei.ascend.bus.spi.engine (ADR-0158); this module consumes it.
 
   agent-service/                               # Enterprise serviceization façade skeleton (ADR-0159) — registration/discovery deferred
     pom.xml + module-metadata.yaml + ARCHITECTURE.md companion + docs/dfx/agent-service.yaml
     src/main/java/com/huawei/ascend/service/
       spi/                                     # placeholder SPI (package-info); registration/discovery SPI lands in a later ADR.
                                                # All former platform/runtime/engine internals relocated to agent-runtime per ADR-0159.
-
-  spring-ai-ascend-graphmemory-starter/        # E2 adapter shell (Graphiti W1 ref per ADR-0034; auto-config disabled; full code W2)
-    src/main/java/com/huawei/ascend/runtime/graphmemory/
-      GraphMemoryAutoConfiguration.java
-      GraphMemoryProperties.java
 
 ```
 
@@ -258,17 +240,14 @@ runtime internals); it is unrelated to the long-dissolved `agent-runtime-core` s
 Module dependency direction (enforced by `ApiCompatibilityTest`, `RuntimeMustNotDependOnPlatformTest`, `OrchestrationSpiArchTest`, `MemorySpiArchTest`, `SpiPurityGeneralizedArchTest`, and `EdgeToComputeDirectLinkArchTest` ArchUnit rules — post-ADR-0078 + ADR-0088 + ADR-0089):
 
 ```
-agent-service  ────────────►  agent-runtime, agent-bus, agent-middleware,
-                              [Postgres / LLMs / sidecars]
+agent-service  ────────────►  agent-runtime, agent-bus, [Postgres / LLMs / sidecars]
 
-agent-runtime ───►  agent-bus (for bus.spi.engine neutral EnginePort + orchestration SPI per ADR-0158),
-                              agent-middleware, [externals — run-owning runtime kernel: runtime.engine.*
-                              + dispatch + access + session + task-control + InProcessEnginePort]
-
-agent-middleware  ────────►  [externals only — pure-Java SPI]
+agent-runtime ───►  agent-bus (for the neutral bus.spi.engine RunContext / SuspendSignal types per ADR-0158),
+                              [externals — framework-neutral engine (AgentRuntimeHandler) + EngineDispatcher
+                              + access (A2A) + session + task-centric control + app.RuntimeApp]
 
 agent-bus  ──────────────►  [externals only — pure-Java SPI;
-                              owns ingress + s2c cross-plane surfaces]
+                              owns ingress + s2c + neutral engine surfaces]
 
 agent-client  ────────────►  agent-bus.spi.ingress (sole cross-plane consumption per Rule R-I.b);
                               forbidden direct edges to compute_control plane (E143 + Rule 105)
