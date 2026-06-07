@@ -257,9 +257,11 @@ class under `com.huawei.ascend.service.platform..` (broad — enforced by
 `TenantContextHolder`) is preserved as defence-in-depth (enforced by
 `TenantPropagationPurityTest`). The HTTP edge MUST NOT import memory SPI or
 internal runtime impl packages (enforced by `PlatformImportsOnlyRuntimePublicApiTest`).
-SPI packages must avoid implementation and framework dependencies. The rc52
-strict rule applies to all `com.huawei.ascend.middleware..spi..` packages:
-they import only `java.*` plus same-package sibling carriers. Older non-
+SPI packages must avoid implementation and framework dependencies. The strict
+SPI-purity rule applies to the current SPI homes `com.huawei.ascend.bus.spi..`
+and `com.huawei.ascend.runtime.engine.spi..`: they import only `java.*` plus
+same-package sibling carriers. (The rc52 `com.huawei.ascend.middleware..spi..`
+sweep is historical — `agent-middleware` was retired by ADR-0159.) Older non-
 middleware SPI packages still carry documented legacy cross-package references
 listed in §3.7 and require a separate migration before the strict rule becomes
 repo-wide.
@@ -340,19 +342,21 @@ repo-wide.
    New glue must answer "why is this not a configuration of an existing OSS dep?"
    Glue LOC target ≤ 1 500 at W0 close.
 
-7. **SPI purity**: new agentic SPI surfaces default to strict package purity:
-   `com.huawei.ascend.middleware..spi..` imports only `java.*` plus same-package
-   sibling carriers. Cross-SPI dependency is not an allowed escape hatch for those
-   surfaces; adapter layers translate between packages. The rc52 corrective sweep
-   applies this strict rule to advisor, memory, model, vector, retrieval, prompt,
-   embedding, and skill middleware SPI packages and pins it in
-   `SpiPurityGeneralizedArchTest`.
+7. **SPI purity**: new SPI surfaces default to strict package purity. The current
+   SPI homes are `com.huawei.ascend.bus.spi..` (neutral engine / ingress / s2c) and
+   `com.huawei.ascend.runtime.engine.spi..` (`AgentRuntimeHandler` / `StreamAdapter`);
+   they import only `java.*` plus same-package sibling carriers. Cross-SPI dependency
+   is not an allowed escape hatch; adapter layers translate between packages.
+   (Historical: the rc52 corrective sweep applied this rule to the advisor / memory /
+   model / vector / retrieval / prompt / embedding / skill SPI packages of the
+   now-retired `agent-middleware` module — `SpiPurityGeneralizedArchTest`; those
+   packages no longer exist post-ADR-0159.)
 
-   Historical pre-rc52 SPI packages outside `agent-middleware` still contain
-   documented cross-package relationships that require a separately scoped
-   migration before the strict rule can become repo-wide: `agent-bus` federation
-   uses ingress envelopes; `agent-runtime.engine.spi` uses orchestration
-   carriers and `HookPoint`; `agent-service.agent.spi` exposes agent bindings to
+   Historical pre-rc52 SPI packages still contain documented cross-package
+   relationships that predate the strict rule: `agent-bus` federation
+   uses ingress envelopes; `agent-runtime.engine.spi` (now `AgentRuntimeHandler` /
+   `StreamAdapter`) consumes the neutral `bus.spi.engine` carriers;
+   `agent-service.agent.spi` exposes agent bindings to
    model/skill/memory/planner refs; `RunRepository` uses the runtime `Run` domain
    type. These are treated as legacy residuals, not precedent for new SPI design.
    No SPI may depend on Spring, Micrometer, OTel, platform web/security packages,

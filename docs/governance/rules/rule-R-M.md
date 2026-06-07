@@ -5,7 +5,7 @@ level: L1
 view: process
 principle_ref: P-M
 authority_refs: [ADR-0071, "ADR-0072 (retired)", "ADR-0073 (retired)", "ADR-0074 (retired)", ADR-0075, ADR-0077]
-enforcer_refs: [E73, E74, E75, E76, E78, E81, E82, E83, E84, E89, E90, E92, E113]
+enforcer_refs: [E73, E81, E82, E83, E84, E89, E90, E92, E113]  # E74/E75/E76/E78 removed: retired with the .b/.c envelope/registry/hook design (no current Java type or enforcers.yaml row)
 status: active
 product_claim: "PC-004"
 scope_phase: design
@@ -89,7 +89,7 @@ Authority: ADR-0072 / P-M. Part of the W2.x Engine Contract Structural Wave that
 
 ## Cross-references
 
-- Enforced by Gate Rule 55 (`engine_envelope_yaml_present_and_wellformed`, enforcer E76) and ArchUnit E74 (`EnginePayloadDispatchOnlyViaRegistryTest` — every concrete Orchestrator implementation depends on EngineRegistry).
+- RETIRED / historical (sub-clause .a is now `EngineDispatcher` → `AgentRuntimeHandler`): the envelope/registry design was formerly enforced by Gate Rule 55 (`engine_envelope_yaml_present_and_wellformed`, E76) + ArchUnit E74 (`EnginePayloadDispatchOnlyViaRegistryTest`). No current `EngineRegistry` Java type; `engine-envelope.v1.yaml` is `design_only`. Current dispatch is verified by `EngineDispatcherTest` / `EngineClosedLoopIntegrationTest`.
 - Strict construction-time membership validation for `EngineEnvelope` deferred to Rule M-2 sub-clause .a.c (re-introduction trigger: first envelope built outside the Spring-boot test harness).
 - Schema source: `docs/contracts/engine-envelope.v1.yaml`.
 - Companion rule: Rule R-M sub-clause .b ([`rule-R-M.md`](rule-R-M.md)) — Strict Engine Matching.
@@ -103,7 +103,7 @@ Authority: ADR-0072 / P-M. Part of the W2.x Engine Contract Structural Wave that
 
 ## Cross-references
 
-- Enforced by Gate Rule 56 (`engine_registry_covers_all_known_engines` — bidirectional yaml↔ENGINE_TYPE consistency, enforcer E77) and integration test E75 (`EngineMatchingStrictnessIT`).
+- RETIRED / historical: strict matching was formerly enforced by Gate Rule 56 (`engine_registry_covers_all_known_engines`, E77) + integration test E75 (`EngineMatchingStrictnessIT`). No current `EngineRegistry` / `ExecutorAdapter` / `EngineMatchingException` Java type.
 - Additional enforcer E88 (W2.x post-release closure work) tightens registry-boot validation.
 - Companion rule: Rule R-M sub-clause .a ([`rule-R-M.md`](rule-R-M.md)) — Engine Envelope Single Authority.
 - Companion rule: Rule R-C.2 sub-clause .b ([`rule-R-C.2.md`](rule-R-C.2.md)) — Run State Transition Validity (was Rule R-C.d pre-rc17 per ADR-0094; `engine_mismatch` is a legal RUNNING → FAILED transition).
@@ -123,7 +123,7 @@ At W2.x the dispatcher fires hooks and middlewares may return `HookOutcome.Fail`
 
 ## Cross-references
 
-- Enforced by Gate Rule 57 (`engine_hooks_yaml_present_and_wellformed` — bidirectional yaml↔HookPoint-enum consistency, enforcer E78), ArchUnit E79 (`EveryEngineDeclaresHookSurfaceTest`), integration test E80 (`RuntimeMiddlewareInterceptsHooksIT`).
+- RETIRED / historical: the hook surface was formerly enforced by Gate Rule 57 (`engine_hooks_yaml_present_and_wellformed`, E78), ArchUnit E79 (`EveryEngineDeclaresHookSurfaceTest`), integration test E80 (`RuntimeMiddlewareInterceptsHooksIT`). No current `HookPoint` / `RuntimeMiddleware` / `HookDispatcher` Java type; `engine-hooks.v1.yaml` is `design_only`.
 - W2.x Phase 2 ships SPI surface only; consumer hooks (TokenCounterHook, PiiRedactionHook, etc.) land in W2 Telemetry Vertical.
 - Run-state consumption of outcomes deferred per `CLAUDE-deferred.md` 45.b.
 - Schema source: `docs/contracts/engine-hooks.v1.yaml`.

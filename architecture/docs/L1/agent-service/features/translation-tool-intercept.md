@@ -8,6 +8,8 @@ authority: "Absorbed from docs/logs/reviews/2026-05-26-agent-service-module-capa
 
 # Translation & Tool-Intercept — Feature Inventory (AS-L1-F40..F47)
 
+> **STATUS — agent-runtime pure rebuild (ADR-0159):** `agent-service` is now a serviceization-facade **skeleton**; its former runtime is consolidated into **`agent-runtime`**. Wherever this document references `EngineRegistry` / `ExecutorAdapter` / `EngineEnvelope` / `EngineMatchingException` / `EngineHookSurface` / `HookPoint` / `RuntimeMiddleware` / `HookDispatcher` / `resolve(envelope)`, that engine/hook design is **RETIRED / design_only / historical** — no such Java type exists. The current shipped dispatch lives in `agent-runtime`: `EngineDispatcher` -> `AgentRuntimeHandler` (routed by `agentId` via `AgentRuntimeHandlerRegistry`; unknown `agentId` -> terminal `AGENT_ID_INVALID`; single `control` write authority; egress gated by `control`), verified by `EngineDispatcherTest` / `EngineClosedLoopIntegrationTest`. See Rule R-M and `architecture/docs/L1/agent-runtime/`.
+
 > Module: Translation & Tool-Intercept (Layer 5b per ADR-0140).
 > Sovereign for: context projection + prompt construction, context compaction boundary, model profile normalization, structured output + result interpretation, ChatAdvisor / tool shaping, client-hosted skill payload shaping, remote Agent payload normalization, tool / memory / retrieval invocation profile.
 > Does NOT own: Run aggregate state, runtime governance (Layer 4), engine dispatch (Layer 5a). ChatAdvisor lives here; RuntimeMiddleware lives in Layer 4 — they compose but are not interchangeable.

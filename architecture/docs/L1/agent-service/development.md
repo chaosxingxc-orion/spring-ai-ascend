@@ -8,6 +8,8 @@ authority: "ADR-0143 (rc55 — canonical 4+1 source moved here) + ADR-0078 (cons
 
 # agent-service — Development View
 
+> **STATUS — agent-runtime pure rebuild (ADR-0159):** `agent-service` is now a serviceization-facade **skeleton**; its former runtime is consolidated into **`agent-runtime`**. Wherever this document references `EngineRegistry` / `ExecutorAdapter` / `EngineEnvelope` / `EngineMatchingException` / `EngineHookSurface` / `HookPoint` / `RuntimeMiddleware` / `HookDispatcher` / `resolve(envelope)`, that engine/hook design is **RETIRED / design_only / historical** — no such Java type exists. The current shipped dispatch lives in `agent-runtime`: `EngineDispatcher` -> `AgentRuntimeHandler` (routed by `agentId` via `AgentRuntimeHandlerRegistry`; unknown `agentId` -> terminal `AGENT_ID_INVALID`; single `control` write authority; egress gated by `control`), verified by `EngineDispatcherTest` / `EngineClosedLoopIntegrationTest`. See Rule R-M and `architecture/docs/L1/agent-runtime/`.
+
 > Authoring source: rc53 review file §18 + `ARCHITECTURE.md` §12 (current Development View tree), ported in rc55 W5 with corrections:
 >
 > - **R7** + **ADR-0144**: §2 publishes the canonical Layer↔Package matrix unifying ADR-0100's 5-component package-structural decomposition with ADR-0138's 5-layer logical-view decomposition.

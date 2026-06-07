@@ -86,19 +86,19 @@ The example is configured for a local OpenAI-compatible gateway by default. The 
 sample:
   openjiuwen:
     model-provider: ${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}
-    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-x00550472}
+    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-local-placeholder}
     api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
     model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
     ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}
 ```
 
-The local default key `sk-x00550472` is intentionally allowed for this example.
+`sk-local-placeholder` is a **non-functional placeholder**, not a usable key: local gateways (Ollama) ignore the `Authorization` header, so any string works. For a real cloud OpenAI-compatible API, set `SAA_SAMPLE_LLM_API_KEY` to your own key.
 
 You can sanity-check the local gateway directly before starting the sample:
 
 ```bash
 curl http://localhost:4000/v1/models \
-  -H 'Authorization: Bearer sk-x00550472'
+  -H 'Authorization: Bearer sk-local-placeholder'
 ```
 
 If your gateway uses a different key, host, or model, override the environment variables described below.
