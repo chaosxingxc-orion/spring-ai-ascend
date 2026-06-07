@@ -1,6 +1,5 @@
 package com.huawei.ascend.runtime.engine.spi;
 
-import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import java.util.List;
 import java.util.Objects;
 import org.a2aproject.sdk.spec.AgentCapabilities;

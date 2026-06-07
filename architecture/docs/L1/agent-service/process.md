@@ -30,9 +30,9 @@ sequenceDiagram
     participant RR as L2: RunRepository  (single owner per ADR-0142)
     participant Orch as L4: Orchestrator
     participant DTR as L4: DualTrackRouter <i>(design_only — W2, ADR-0112)</i>
-    participant Reg as L5a: EngineRegistry
-    participant Exec as L5a: ExecutorAdapter
-    participant Mid as L4: RuntimeMiddleware chain  (HookPoint dispatch — Layer 4 EXCLUSIVE per ADR-0140)
+    participant Reg as agent-runtime: EngineDispatcher
+    participant Exec as agent-runtime: AgentRuntimeHandler
+    participant Mid as L4: RuntimeMiddleware chain  <i>(RETIRED / design_only — no current runtime per ADR-0159)</i>
     participant Queue as L3: Internal Event Queue <i>(design_only — ADR-0141)</i>
 
     Client->>GW: POST /v1/runs<br/>X-Tenant-Id, Idempotency-Key, JWT

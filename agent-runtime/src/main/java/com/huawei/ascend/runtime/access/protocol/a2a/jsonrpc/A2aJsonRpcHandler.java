@@ -32,7 +32,6 @@ import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskRequest;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendMessageRequest;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendMessageResponse;
-import org.a2aproject.sdk.jsonrpc.common.wrappers.SendStreamingMessageRequest;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendStreamingMessageResponse;
 import org.a2aproject.sdk.spec.InternalError;
 import org.a2aproject.sdk.spec.InvalidRequestError;

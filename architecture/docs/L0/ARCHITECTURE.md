@@ -292,18 +292,16 @@ repo-wide.
 ## 4. Architecture constraints
 
 1. **Dependency direction** (post-ADR-0159 — agent-runtime consolidation; supersedes
-   the post-ADR-0088 intermediate state): the Maven-level direction in the 8-module reactor
-   is
-   (a) `agent-service` (serviceization façade skeleton) depends on `agent-runtime` — the only
-   legal cross edge — to drive runtime-hosted Agent instances; registration/discovery SPI is
-   deferred per ADR-0159;
-   (b) `agent-runtime` (run-owning runtime kernel) depends on `agent-bus` (for `bus.spi.s2c`
-   consumed by the engine registry, and the neutral `bus.spi.engine` EnginePort it realizes via
-   `InProcessEnginePort`) and `agent-middleware` (for `HookPoint`), never on `agent-service`;
-   the neutral orchestration/engine SPI (EnginePort + RunMode + Checkpointer + RunContext +
-   SuspendSignal + ExecutorDefinition) lives in `agent-bus` under `bus.spi.engine` per ADR-0158
-   (transport-agnostic EnginePort boundary). ADR-0159 supersedes only ADR-0158 §Decision.5
-   (engine tenant-neutrality): the run-owning runtime owns Run/session/tenant while the port stays neutral;
+   the post-ADR-0088 intermediate state): the Maven-level direction in the 4-module reactor
+   (spring-ai-ascend-dependencies BoM, agent-bus, agent-runtime, agent-service) is
+   (a) `agent-service` (serviceization façade skeleton) depends on `agent-runtime` and `agent-bus`
+   to drive runtime-hosted Agent instances; registration/discovery SPI is deferred per ADR-0159;
+   (b) `agent-runtime` (run-owning runtime SDK) depends on `agent-bus` only (for the neutral
+   `bus.spi.engine` types — RunContext / SuspendSignal / Checkpointer / RunMode / ExecutorDefinition —
+   and `bus.spi.s2c`), never on `agent-service`; the engine runs in-process behind `EngineDispatcher`
+   (the former `InProcessEnginePort` realization was retired by the pure rebuild). ADR-0159
+   supersedes only ADR-0158 §Decision.5 (engine tenant-neutrality): the run-owning runtime owns
+   Run/session/tenant while the neutral SPI stays in `agent-bus`;
    (c) `agent-bus` depends on no inner peer — only `java.*` + minimal externals;
    (d) the Run domain kernel (`Run` / `RunStatus` / `RunStateMachine` / `RunRepository` /
    `IdempotencyRecord`) is owned by `agent-runtime` as a design target; its executable kernel is
@@ -425,8 +423,12 @@ repo-wide.
     MUST become named `CapabilityRegistry` entries resolved by name, not inline closures
     (`capability_registry_spi`, `executor_definition_serialization`).
 
-16. **Runtime Hook SPI.** Every LLM invocation, tool call, memory access, suspension, resume,
-    and error boundary flows through a hook chain. The canonical 10 hook positions (single
+16. **Runtime Hook SPI [RETIRED / design_only — agent-runtime pure rebuild, ADR-0159].** This
+    constraint described the pre-rebuild hook/middleware runtime, which was REMOVED: no `HookPoint`
+    / `RuntimeMiddleware` / `HookDispatcher` Java type exists and `docs/contracts/engine-hooks.v1.yaml`
+    is `design_only`. The text below is retained as design reference for a future hook vision, NOT a
+    current MUST. (Design vision:) every LLM invocation, tool call, memory access, suspension, resume,
+    and error boundary would flow through a hook chain. The canonical 10 hook positions (single
     source of truth: `docs/contracts/engine-hooks.v1.yaml`) are:
     `BEFORE_LLM_INVOCATION` / `AFTER_LLM_INVOCATION` /
     `BEFORE_TOOL_INVOCATION` / `AFTER_TOOL_INVOCATION` /
