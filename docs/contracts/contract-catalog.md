@@ -70,6 +70,9 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `PlatformToolCallback` | `agent-runtime` | `com.huawei.ascend.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
 | `PlatformMemoryProvider` | `agent-runtime` | `com.huawei.ascend.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (read-only STM-04 view) (ADR-0155) |
 | `PlatformRetriever` | `agent-runtime` | `com.huawei.ascend.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
+| `AgentRuntimeHandler` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — the single framework-neutral runtime SPI: runs one agent and surfaces its output (openJiuwen first); per the agent-runtime pure rebuild (Doc 2) |
+| `MessageAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts neutral input into a framework's native request |
+| `StreamAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts a framework's native result stream into the neutral execution-result stream |
 
 **SPI count by module (rc52 baseline + PR 92 absorption + ADR-0158 EnginePort + DefinitionResolver; sum = 47 matches headline):**
 
@@ -109,12 +112,6 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `DefinitionRef` | `agent-bus` (`...bus.spi.engine`) | Serializable capability-name reference; the wire-form of an `ExecutorDefinition` a remote engine resolves to its own definition (engine-port.v1.yaml) per ADR-0158 |
 | `SuspendSignal` | `agent-bus` (`...bus.spi.engine`) | Checked-exception interrupt primitive; carries `forClientCallback(...)` variant per ADR-0074 |
 | `S2cCallbackEnvelope` / `S2cCallbackResponse` | `agent-bus` (`...bus.spi.s2c`) | Six mandatory request fields per ADR-0074; relocated per ADR-0088 |
-| `EngineRegistry` | `agent-runtime` (`...runtime.engine.runtime`) | Single authority for `resolve(envelope)` / `resolveByPayload(...)` (Rule R-M.a, formerly Rule 43); relocated from `service.runtime.engine` in rc14 per ADR-0090 |
-| `EngineEnvelope` | `agent-runtime` (`...runtime.engine.runtime`) | Request shape mirroring `engine-envelope.v1.yaml`; relocated from `service.runtime.engine` in rc14 per ADR-0090 |
-| `EngineMatchingException` | `agent-runtime` (`...runtime.engine.spi`) | Thrown by `EngineRegistry.resolve(...)` on engine-type mismatch (Rule R-M.b, formerly Rule 44) |
-| `HookPoint` | `agent-middleware` (`...middleware.spi`) | 10-value enum (before/after LLM/tool/memory + before_suspension + before_resume + on_error + on_yield); mirrors `engine-hooks.v1.yaml` |
-| `HookContext` | `agent-middleware` (`...middleware.spi`) | Hook invocation carrier record |
-| `HookOutcome` | `agent-middleware` (`...middleware.spi`) | Sealed: continue \| short_circuit \| fail |
 
 **Deferred / Promoted Design Names:**
 
