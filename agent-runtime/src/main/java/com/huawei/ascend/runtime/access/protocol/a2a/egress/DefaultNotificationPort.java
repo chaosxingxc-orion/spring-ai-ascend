@@ -22,7 +22,8 @@ public final class DefaultNotificationPort implements NotificationPort {
     public void notify(AgentNotification notification) {
         Objects.requireNonNull(notification, "notification");
         long startedNanos = System.nanoTime();
-        A2aOutputHandle handle = new A2aOutputHandle(notification.tenantId(), notification.sessionId());
+        A2aOutputHandle handle = new A2aOutputHandle(
+                notification.tenantId(), notification.sessionId(), notification.taskId());
         outputRegistry.append(handle, outputMapper.toA2aOutput(notification));
         LOGGER.info("trace stage=a2a-egress-deliver tenantId={} sessionId={} taskId={} type={} status={} terminal={} durationMs={}",
                 notification.tenantId(),

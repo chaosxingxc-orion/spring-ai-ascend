@@ -82,4 +82,18 @@ class EngineClosedLoopIntegrationTest {
         assertThat(taskControl.transitions).containsExactly("CANCELLED:task-1");
         assertThat(taskControl.cancelled).hasSize(1);
     }
+
+    @Test
+    void unknownAgentId_convergesTheAcceptedTaskToTerminalFailureThroughControl() {
+        // A request for an agentId with no registered handler is still accepted + enqueued;
+        // the engine must converge it to a terminal FAILED via the single control authority
+        // (not let the worker thread throw out of dispatch() and leave the task hanging).
+        EngineExecutionScope unknown = new EngineExecutionScope("t", "u", "s", "task-x", "missing-agent");
+        EnqueueEngineStatus status = api.enqueueExecution(new EnqueueEngineExecutionRequest(unknown, input()));
+
+        assertThat(status).isEqualTo(EnqueueEngineStatus.SUCCESS);
+        assertThat(taskControl.transitions).containsExactly("RUNNING:task-x", "FAILED:task-x");
+        assertThat(taskControl.failed).hasSize(1);
+        assertThat(taskControl.failed.get(0).getErrorCode()).isEqualTo("AGENT_ID_INVALID");
+    }
 }

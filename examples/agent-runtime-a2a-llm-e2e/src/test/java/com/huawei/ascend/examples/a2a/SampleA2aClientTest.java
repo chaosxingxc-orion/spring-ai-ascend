@@ -87,4 +87,25 @@ class SampleA2aClientTest {
 
         assertThat(SampleA2aClient.textFrom(List.of(accepted, completed))).isEqualTo("pong");
     }
+
+    @Test
+    void recognizesEveryRuntimeTerminalRunStatusIncludingCanceledSpelling() {
+        // Wire values are RunStatus.wire() (lower-cased enum names): completed/failed/canceled/rejected.
+        assertThat(SampleA2aClient.isTerminal(messageWithRunStatus("completed"))).isTrue();
+        assertThat(SampleA2aClient.isTerminal(messageWithRunStatus("failed"))).isTrue();
+        assertThat(SampleA2aClient.isTerminal(messageWithRunStatus("canceled"))).isTrue();
+        assertThat(SampleA2aClient.isTerminal(messageWithRunStatus("rejected"))).isTrue();
+        // A paused/waiting run is not stream-terminal.
+        assertThat(SampleA2aClient.isTerminal(messageWithRunStatus("in_progress"))).isFalse();
+        assertThat(SampleA2aClient.isTerminal(messageWithRunStatus("incomplete"))).isFalse();
+    }
+
+    private static Message messageWithRunStatus(String runStatus) {
+        return Message.builder()
+                .role(Message.Role.ROLE_AGENT)
+                .messageId("message-" + runStatus)
+                .metadata(java.util.Map.of("runStatus", runStatus))
+                .parts(List.of(new TextPart("x")))
+                .build();
+    }
 }

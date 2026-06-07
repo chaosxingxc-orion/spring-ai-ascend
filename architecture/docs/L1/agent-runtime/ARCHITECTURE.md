@@ -67,12 +67,10 @@ in-process, RPC, and A2A transports without changing the runtime kernel.
 
 ### Dependency direction
 
-`agent-runtime → agent-bus` (neutral `bus.spi.engine` EnginePort + `bus.spi.s2c`
-callback transport consumed by the engine registry) and
-`agent-runtime → agent-middleware` (`HookPoint` enum + `RuntimeMiddleware`
-listener). Never `agent-runtime → agent-service`: the serviceization façade is
-downstream. `agent-service → agent-runtime` is the only legal cross edge
-(Rule 10 / ArchUnit); there is no reverse edge.
+`agent-runtime → agent-bus` (neutral `bus.spi.engine` RunContext / SuspendSignal
+vocabulary consumed by the engine). Never `agent-runtime → agent-service`: the
+serviceization façade is downstream. `agent-service → agent-runtime` is the only
+legal cross edge (Rule 10 / ArchUnit); there is no reverse edge.
 
 ## 0.4 Layered 4+1 view map
 
@@ -179,23 +177,15 @@ loci (`deployment_loci: [platform_centric, business_centric]`).
 
 | Interface FQN | SPI package | Purpose |
 |---|---|---|
-| `com.huawei.ascend.runtime.engine.spi.ExecutorAdapter` | `runtime.engine.spi` | Unified engine adapter contract |
-| `com.huawei.ascend.runtime.engine.spi.GraphExecutor` | `runtime.engine.spi` | Workflow-graph execution |
-| `com.huawei.ascend.runtime.engine.spi.AgentLoopExecutor` | `runtime.engine.spi` | ReAct-loop execution |
-| `com.huawei.ascend.runtime.engine.spi.EngineHookSurface` | `runtime.engine.spi` | Engine-side hook declaration (cooperates with `agent-middleware` HookPoint) |
-| `com.huawei.ascend.runtime.engine.spi.EngineMatchingException` | `runtime.engine.spi` | Throw on `engine_type` mismatch (Rule R-M.b) |
-| `com.huawei.ascend.runtime.engine.planner.spi.Planner` | `runtime.engine.planner.spi` | Engine-side plan generator (ADR-0126) |
-| `com.huawei.ascend.runtime.dispatch.spi.AgentHandler` | `runtime.dispatch.spi` | Engine dispatch entry for an accepted Run |
-| `com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter` | `runtime.dispatch.spi` | Adapt an engine result back into the dispatch outcome |
+| `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` | `runtime.engine.spi` | The single framework-neutral runtime SPI: run one agent, surface its output (openJiuwen adapter first) |
+| `com.huawei.ascend.runtime.engine.spi.StreamAdapter` | `runtime.engine.spi` | Adapt a framework's native result stream into the neutral `AgentExecutionResult` stream |
 
-Implementation homes (NOT SPI):
-- `com.huawei.ascend.runtime.engine.runtime.EngineRegistry` — the only authority
-  for `resolve(envelope)`; pattern-matching on `ExecutorDefinition` outside this
-  class is forbidden (Rule R-M.a).
-- `com.huawei.ascend.runtime.engine.runtime.EngineEnvelope` (record) — mirrors
-  `engine-envelope.v1.yaml`.
-- `com.huawei.ascend.runtime.engine.runtime.InProcessEnginePort` — in-process
-  realization of the neutral `bus.spi.engine.EnginePort`.
+Base class + carrier (NOT SPI interfaces):
+- `com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler` — convenience base for adapters.
+- `com.huawei.ascend.runtime.engine.spi.AgentExecutionResult` — neutral execution-result carrier.
+- Engine dispatch internals live under `runtime.engine` (`EngineDispatcher`, `EngineWorker`,
+  `engine.command.*`) behind the inbound `engine.api.EngineExecutionApi`; the outbound ports are
+  `engine.port.{TaskControlClient, AccessLayerClient}` — intra-service, not SPI.
 
 ## *L2 Constraint Linkage* (Rule G-1.1.c)
 

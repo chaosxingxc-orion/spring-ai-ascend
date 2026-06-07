@@ -30,7 +30,7 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). rc52 agent-middleware SPI packages import only `java.*` plus same-package sibling carriers; broader historical cross-package SPI residuals are documented in root `architecture/docs/L0/ARCHITECTURE.md §3.7` and must not be used as precedent for new SPI design. japicmp binary-compat from W1.
 
-**Active SPI interfaces (47 total):**
+**Active SPI interfaces (24 total):**
 
 (rc43 baseline: 19 pre-rc43 + 14 rc43 agentic-contract-surface SPI surfaces (Agent + AgentRegistry + ModelGateway + Skill + SkillRegistry + MemoryStore + MemoryReader + MemoryWriter + SemanticMemoryStore + KnowledgeMemoryStore + VectorStore + Retriever + EmbeddingModel + Planner) per ADR-0120 / ADR-0121 / ADR-0122 / ADR-0123 / ADR-0124 / ADR-0125 / ADR-0126 / ADR-0127 / ADR-0128. rc51 + 5 agentic-completeness SPI surfaces (StructuredOutputConverter + PromptTemplate + ChatAdvisor + AdvisorChain + ConversationMemory) per ADR-0129 / ADR-0130 / ADR-0131 / ADR-0132 / ADR-0133. rc51 also adds the `stream(...)` default method to the existing `ModelGateway` per ADR-0129 and supplements `model-invocation.v1.yaml` with the tool-call iteration loop per ADR-0134. ADR-0135 documents the deliberate decision not to add a separate `AgentSession` SPI.)
 
@@ -47,22 +47,9 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `GraphMemoryRepository` | `agent-runtime` | `com.huawei.ascend.runtime.memory.spi` | shipped — interface only; Graphiti W1 reference (ADR-0034) |
 | `ResilienceContract` | `agent-runtime` | `com.huawei.ascend.runtime.resilience.spi` | shipped — W0 Resilience4j-backed impl (`DefaultSkillResilienceContract`); per-skill capacity via `YamlResilienceContract`; package home moved to `.spi` per ADR-0080 to align with Rules 32/77/78 — implementations stay in `runtime.resilience.*` |
 | `SkillCapacityRegistry` | `agent-runtime` | `com.huawei.ascend.runtime.resilience.spi` | shipped — W0 YAML-backed impl (`YamlSkillCapacityRegistry`, in `agent-service`); `ResilienceAutoConfiguration` exposes it as an `@ConditionalOnMissingBean` extension point. Consumed by `ResilienceContract.resolve(tenant, skill)` per ADR-0070 / ADR-0080 / ADR-0081 |
-| `ExecutorAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — W2.x; reference adapters in `agent-service` (ADR-0072 / ADR-0088) |
-| `GraphExecutor` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`SequentialGraphExecutor`, in `agent-runtime`) |
-| `AgentLoopExecutor` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — `extends ExecutorAdapter`; W0 reference impl (`IterativeAgentLoopExecutor`, in `agent-runtime`) |
-| `EngineHookSurface` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — W2.x; bridge to `RuntimeMiddleware` (ADR-0073) |
-| `RuntimeMiddleware` | `agent-middleware` | `com.huawei.ascend.middleware.spi` | shipped — W2.x; `@FunctionalInterface` listener (ADR-0073) |
-| `EngineDispatchApi` | `agent-runtime` | `com.huawei.ascend.runtime.dispatch.api` | (internal) shipped — inbound async dispatch entry (execute / interrupt-resume / cancel) for task-centric-control to enqueue Agent execution; reference impl wired via `EngineAutoConfiguration`; intra-service contract; design authority: L1 engine model design doc |
-| `AgentHandler` | `agent-runtime` | `com.huawei.ascend.runtime.dispatch.spi` | (internal) shipped — engine→agent-framework outbound port driven by the openJiuwen adapter; intra-service contract; design authority: L1 engine model design doc §14 |
-| `AgentResultAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.dispatch.spi` | (internal) shipped — framework-specific agent-result mapper used by `AgentHandler` implementations to emit engine-neutral execution results; intra-service contract; design authority: L1 engine model design doc §14 |
-| `EngineQueueGateway` | `agent-runtime` | `com.huawei.ascend.runtime.dispatch.spi` | (internal) shipped — engine command queue port (`InMemoryEngineQueueGateway` reference impl); intra-service contract; design authority: L1 engine model design doc §11 |
-| `EngineCommandConsumer` | `agent-runtime` | `com.huawei.ascend.runtime.dispatch.spi` | (internal) shipped — subscriber callback for dequeued engine commands; intra-service contract; design authority: L1 engine model design doc §11 |
-| `AccessLayerClient` | `agent-runtime` | `com.huawei.ascend.runtime.dispatch.spi` | (internal) shipped — outbound port for engine→access-layer execution events (§13); intra-service contract; design authority: L1 engine model design doc |
-| `TaskControlClient` | `agent-runtime` | `com.huawei.ascend.runtime.dispatch.spi` | (internal) shipped — outbound port for engine→task-centric-control execution events (§13); intra-service contract; design authority: L1 engine model design doc |
 | `ContextProjector` | `agent-runtime` | `com.huawei.ascend.runtime.session.spi` | implemented_unverified — Session-context projection SPI + `InMemoryContextProjector` reference impl exist and have focused tests; durable session projection remains deferred |
 | `TaskStateStore` | `agent-runtime` | `com.huawei.ascend.runtime.task.spi` | implemented_unverified — TaskControlState persistence SPI + tenant-scoped `InMemoryTaskStateStore` reference impl exist and have focused tests; JDBC/RLS implementation remains deferred |
 | `SlowTrackJudge` | `agent-evolve` | `com.huawei.ascend.evolve.online.spi` | rc26 design_only — LLM-as-Judge SPI for online evolution (ADR-0102); rc27 moved under .spi per Rule R-D.d |
-| `Planner` | `agent-runtime` | `com.huawei.ascend.runtime.engine.planner.spi` | rc43 design_only — goal → Plan DAG generator (ADR-0126); engine-side because Plan output is engine-consumable; distinct from `plan-projection.v1.yaml` scheduler INPUT |
 | `Agent` | `agent-runtime` | `com.huawei.ascend.runtime.agent.spi` | rc43 design_only — first-class entity binding model + skills + memory + planner (ADR-0128); HTTP-edge customer registration surface |
 | `AgentRegistry` | `agent-runtime` | `com.huawei.ascend.runtime.agent.spi` | rc43 design_only — tenant-scoped (tenantId, agentId) index (ADR-0128) |
 | `ExecutorAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.executor.spi` | design_only — Layer 5a Engine Dispatch (ADR-0155) |
@@ -70,18 +57,16 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `PlatformToolCallback` | `agent-runtime` | `com.huawei.ascend.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
 | `PlatformMemoryProvider` | `agent-runtime` | `com.huawei.ascend.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (read-only STM-04 view) (ADR-0155) |
 | `PlatformRetriever` | `agent-runtime` | `com.huawei.ascend.runtime.intercept.spi` | design_only — Layer 5b Translation & Tool-Intercept (ADR-0155) |
-| `AgentRuntimeHandler` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — the single framework-neutral runtime SPI: runs one agent and surfaces its output (openJiuwen first); per the agent-runtime pure rebuild (Doc 2) |
-| `MessageAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts neutral input into a framework's native request |
-| `StreamAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts a framework's native result stream into the neutral execution-result stream |
+| `AgentRuntimeHandler` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — the single framework-neutral runtime SPI: runs one agent and surfaces its output (openJiuwen first); per the agent-runtime pure rebuild (Doc 2). Base class `AbstractAgentRuntimeHandler` + result carrier `AgentExecutionResult` ship alongside in the same package |
+| `StreamAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts a framework's native result stream into the neutral `AgentExecutionResult` stream |
 
-**SPI count by module (rc52 baseline + PR 92 absorption + ADR-0158 EnginePort + DefinitionResolver; sum = 47 matches headline):**
+**SPI count by module (shipped + design_only across the architecture-of-record; the shipped agent-runtime SPI surface is the framework-neutral `engine.spi` pair `AgentRuntimeHandler` + `StreamAdapter`):**
 
 | Module | SPI interfaces |
 |---|---|
 | `agent-service` | 0 — serviceization façade skeleton; registration/discovery SPI deferred to a dedicated ADR (ADR-0159) |
-| `agent-runtime` | 19 (`RunRepository`, `GraphMemoryRepository`, `ResilienceContract`, `SkillCapacityRegistry`, `StatelessEngine`, `ContextProjector`, `TaskStateStore`, `Agent`, `AgentRegistry`, `ExecutorAdapter`, `PlatformChatClient`, `PlatformToolCallback`, `PlatformMemoryProvider`, `PlatformRetriever`, `ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `Planner`) |
+| `agent-runtime` | 15 (`RunRepository`, `GraphMemoryRepository`, `ResilienceContract`, `SkillCapacityRegistry`, `ContextProjector`, `TaskStateStore`, `Agent`, `AgentRegistry`, `ExecutorAdapter`, `PlatformChatClient`, `PlatformToolCallback`, `PlatformMemoryProvider`, `PlatformRetriever`, `AgentRuntimeHandler`, `StreamAdapter`) |
 | `agent-bus` | 8 (`IngressGateway`, `S2cCallbackTransport`, `ReflectionEnvelopeRouter`, `FederationGateway`, `Checkpointer`, `Orchestrator`, `EnginePort`, `DefinitionResolver`) |
-| `agent-middleware` | 19 (`RuntimeMiddleware`, `ModelGateway`, `StructuredOutputConverter`, `Skill`, `SkillRegistry`, `MemoryStore`, `MemoryReader`, `MemoryWriter`, `SemanticMemoryStore`, `KnowledgeMemoryStore`, `ConversationMemory`, `VectorStore`, `Retriever`, `EmbeddingModel`, `PromptTemplate`, `ChatAdvisor`, `AdvisorChain`, `StreamingChatAdvisor`, `StreamingAdvisorChain`) |
 | `agent-evolve` | 1 (`SlowTrackJudge`) |
 | `agent-client` | 0 — consumer module; no SPI produced |
 | `spring-ai-ascend-graphmemory-starter` | 0 — sidecar adapter; no new SPI |
@@ -97,9 +82,7 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `GraphMemoryRepository` | tenant-scoped | explicit `tenantId` first arg on every method (Rule R-C, formerly Rule 11) | unchanged |
 | `ResilienceContract` | dual-surface: operation-policy + skill-capacity | W0+ `resolve(operationId)` (operation-policy routing; legacy axis) **and** W1.x Phase 9+ `resolve(tenant, skill)` (skill-capacity arbitration per ADR-0070, Rule R-K.b — formerly Rule 41.b) | Operation-policy axis only; the pre-ADR-0070 plan to extend the *operation* surface to `(tenantId, operationId)` is **superseded** by ADR-0070 / ADR-0081 — the skill axis is `(tenant, skill)`, NOT `(tenantId, operationId)`. The two axes MUST NOT be conflated. |
 | `SkillCapacityRegistry` | tenant-scoped | explicit `tenantId` arg on `tryAcquire(tenantId, skillKey)` / `release(tenantId, skillKey)` (Rule R-C compliant) | unchanged |
-| `ExecutorAdapter` / `GraphExecutor` / `AgentLoopExecutor` | tenant-scoped | via injected `RunContext.tenantId()` | unchanged |
-| `EngineHookSurface` | tenant-scoped | dispatches through `HookContext.tenantId()` | unchanged |
-| `RuntimeMiddleware` | tenant-scoped | `HookContext.tenantId()` on every callback | unchanged |
+| `AgentRuntimeHandler` | tenant-scoped | via `AgentExecutionContext` carrying `EngineExecutionScope.tenantId()` | unchanged |
 
 **Structural carriers (records / sealed interfaces / sealed status types / exceptions — not SPI interfaces but part of the contract surface):**
 
@@ -207,8 +190,7 @@ SemVer from 1.0.0: PATCH=fix, MINOR=additive, MAJOR=breaking. Stable surface: st
 | `spring-ai-ascend-parent` | none | Parent POM (not a reactor row by itself; declared via `<parent>`) |
 | `spring-ai-ascend-dependencies` | none | BoM (dependency management) |
 | `agent-service` | compute_control | Enterprise serviceization façade (skeleton) — registration/discovery driving runtime-built Agent instances via agent-runtime; the runtime SDK formerly hosted here was relocated to agent-runtime per ADR-0159 |
-| `agent-middleware` | compute_control | Cross-cutting middleware SPI (`RuntimeMiddleware` + `HookDispatcher`) — ADR-0073 |
-| `agent-runtime` | compute_control | Run-owning runtime SDK: execution engine (`EngineRegistry` / `EngineEnvelope` / `ExecutorAdapter` SPI / hook bridge) + Run lifecycle + engine dispatch + session/task-control + access (A2A) + bootable runtime app + `InProcessEnginePort` realization of the neutral EnginePort boundary — ADR-0072 / ADR-0158 / ADR-0159 |
+| `agent-runtime` | compute_control | Run-owning runtime SDK: framework-neutral engine (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`, openJiuwen adapter) + Run lifecycle + engine dispatch + session + task-centric control + internal event queue + access (A2A) + bootable runtime app (`app.RuntimeApp` / `LocalA2aRuntimeHost`); consumes the neutral `bus.spi.engine` boundary — ADR-0159 |
 | `agent-bus` | bus_state | Active cross-plane control surfaces: `bus.spi.ingress.IngressGateway` (ADR-0089) + `bus.spi.s2c.S2cCallbackTransport` (ADR-0074 + ADR-0088) + neutral orchestration/engine SPI `bus.spi.engine` (EnginePort + RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition + ExecutionContext; ADR-0158). Workflow primitives W2 per ADR-0050 |
 | `agent-evolve` | evolution | Skeleton — Python ML; Java adapter deferred |
 | `spring-ai-ascend-graphmemory-starter` | bus_state | Sidecar adapter (graphmemory SPI scaffold) — ADR-0034 |

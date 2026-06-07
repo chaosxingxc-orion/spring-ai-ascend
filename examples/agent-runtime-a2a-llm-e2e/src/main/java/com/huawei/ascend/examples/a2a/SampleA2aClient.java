@@ -134,10 +134,12 @@ public final class SampleA2aClient {
                 .build();
     }
 
+    // Match the runtime's canonical RunStatus.wire() terminal values (lower-cased enum names):
+    // completed / failed / canceled / rejected. "cancelled" is kept only as a defensive alias.
     private static final java.util.Set<String> TERMINAL_RUN_STATUSES =
-            java.util.Set.of("completed", "failed", "cancelled");
+            java.util.Set.of("completed", "failed", "canceled", "rejected", "cancelled");
 
-    private static boolean isTerminal(StreamingEventKind event) {
+    static boolean isTerminal(StreamingEventKind event) {
         if (event instanceof Message message && message.metadata() != null) {
             return TERMINAL_RUN_STATUSES.contains(String.valueOf(message.metadata().get("runStatus")));
         }

@@ -183,7 +183,7 @@ public final class A2aJsonRpcHandler {
     }
 
     private A2aOutputHandle outputHandle(A2aAcceptedResponse accepted) {
-        return new A2aOutputHandle(accepted.tenantId(), accepted.sessionId());
+        return new A2aOutputHandle(accepted.tenantId(), accepted.sessionId(), accepted.taskId());
     }
 
     private SendMessageResponse handleSend(Object id, JsonNode params) {
@@ -200,7 +200,7 @@ public final class A2aJsonRpcHandler {
     private GetTaskResponse handleGetTask(Object id, JsonNode params) {
         try {
             A2aTaskQueryParams query = toTaskQuery(params);
-            A2aOutputHandle handle = new A2aOutputHandle(query.tenantId(), query.sessionId());
+            A2aOutputHandle handle = new A2aOutputHandle(query.tenantId(), query.sessionId(), query.taskId());
             List<A2aOutput> outputs = outputRegistry.list(handle);
             return new GetTaskResponse(id, A2aTaskMapper.toTask(query, outputs));
         } catch (IllegalArgumentException ex) {

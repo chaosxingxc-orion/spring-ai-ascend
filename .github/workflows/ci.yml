@@ -10,6 +10,10 @@ jobs:
   build:
     name: Maven build + integration tests
     runs-on: ubuntu-latest
+    # Safety net for the documented Spring Boot 4 concurrent context-boot deadlock risk:
+    # bound the whole job so a stuck fork fails in minutes instead of burning the default
+    # ~6h runner allotment. Pairs with the per-fork forkedProcessTimeoutInSeconds in pom.xml.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
         with:

@@ -13,11 +13,16 @@ public final class A2aOutputRegistry {
             new ConcurrentHashMap<>();
 
     public void append(A2aOutputHandle handle, A2aOutput output) {
-        outputs.computeIfAbsent(handle, ignored -> new CopyOnWriteArrayList<>()).add(output);
-        subscribers.getOrDefault(handle, new CopyOnWriteArrayList<>())
-                .forEach(subscriber -> subscriber.accept(output));
-        if (output.terminal()) {
-            subscribers.remove(handle);
+        CopyOnWriteArrayList<A2aOutput> buffer = outputs.computeIfAbsent(handle, ignored -> new CopyOnWriteArrayList<>());
+        // Synchronize append against subscribe on the per-handle buffer so a subscription can
+        // never interleave between buffering an output and notifying current subscribers.
+        synchronized (buffer) {
+            buffer.add(output);
+            subscribers.getOrDefault(handle, new CopyOnWriteArrayList<>())
+                    .forEach(subscriber -> subscriber.accept(output));
+            if (output.terminal()) {
+                subscribers.remove(handle);
+            }
         }
     }
 
@@ -26,10 +31,20 @@ public final class A2aOutputRegistry {
     }
 
     public Runnable subscribe(A2aOutputHandle handle, Consumer<A2aOutput> subscriber) {
-        subscribers.computeIfAbsent(handle, ignored -> new CopyOnWriteArrayList<>()).add(subscriber);
-        List<A2aOutput> currentOutputs = list(handle);
-        if (currentOutputs.stream().noneMatch(A2aOutput::terminal)) {
-            currentOutputs.forEach(subscriber);
+        CopyOnWriteArrayList<A2aOutput> buffer = outputs.computeIfAbsent(handle, ignored -> new CopyOnWriteArrayList<>());
+        synchronized (buffer) {
+            // Replay everything already buffered for THIS task, including any terminal output, so a
+            // subscriber that arrives after the task already finished (fast task completing before the
+            // SSE subscription) still receives the terminal and completes instead of waiting forever.
+            // The handle is task-scoped, so a prior task's terminal cannot suppress this replay.
+            List<A2aOutput> replay = List.copyOf(buffer);
+            replay.forEach(subscriber);
+            if (replay.stream().anyMatch(A2aOutput::terminal)) {
+                return () -> { };
+            }
+            // Not yet terminal: register for future appends. append() holds the same monitor, so no
+            // output can slip between this replay and registration.
+            subscribers.computeIfAbsent(handle, ignored -> new CopyOnWriteArrayList<>()).add(subscriber);
         }
         return () -> subscribers.computeIfPresent(handle, (ignored, current) -> {
             current.remove(subscriber);

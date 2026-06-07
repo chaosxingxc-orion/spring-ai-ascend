@@ -76,7 +76,7 @@ class AgentServiceEndToEndIT {
         assertThat(accepted.path("taskId").asText()).isNotBlank();
         assertThat(accepted.path("metadata").path("tenantId").asText()).isEqualTo(TENANT);
 
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-1");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-1", accepted.path("taskId").asText());
         List<A2aOutput> outputs = awaitOutputs(handle);
 
         assertThat(outputs).isNotEmpty();
@@ -92,7 +92,7 @@ class AgentServiceEndToEndIT {
         JsonNode accepted = send(FAILING_AGENT, "session-err", "trigger failure");
         assertThat(accepted.path("metadata").path("accepted").asBoolean()).isTrue();
 
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-err");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-err", accepted.path("taskId").asText());
         List<A2aOutput> outputs = awaitOutputs(handle);
 
         assertThat(outputs).isNotEmpty();
@@ -107,7 +107,7 @@ class AgentServiceEndToEndIT {
         assertThat(accepted.path("metadata").path("accepted").asBoolean()).isTrue();
         assertThat(accepted.path("metadata").path("tenantId").asText()).isEqualTo(TENANT);
 
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-params");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-params", accepted.path("taskId").asText());
         List<A2aOutput> outputs = awaitOutputs(handle);
 
         assertThat(outputs).isNotEmpty();
@@ -120,7 +120,8 @@ class AgentServiceEndToEndIT {
         JsonNode firstTurn = send("session-multi", "first question");
         String firstTaskId = firstTurn.path("taskId").asText();
         awaitTaskState("session-multi", firstTaskId, TaskState.COMPLETED);
-        awaitOutputContaining(new A2aOutputHandle(TENANT, "session-multi"), "first question");
+        List<A2aOutput> firstOutputs =
+                awaitOutputContaining(new A2aOutputHandle(TENANT, "session-multi", firstTaskId), "first question");
 
         assertThat(sessionManager.get(TENANT, "session-multi")).hasValueSatisfying(session ->
                 assertThat(session.currentUserInput()).anyMatch(message -> "first question".equals(message.text())));
@@ -128,15 +129,19 @@ class AgentServiceEndToEndIT {
         JsonNode secondTurn = send("session-multi", "second question");
         String secondTaskId = secondTurn.path("taskId").asText();
         awaitTaskState("session-multi", secondTaskId, TaskState.COMPLETED);
-        List<A2aOutput> outputs = awaitOutputContaining(
-                new A2aOutputHandle(TENANT, "session-multi"),
+        List<A2aOutput> secondOutputs = awaitOutputContaining(
+                new A2aOutputHandle(TENANT, "session-multi", secondTaskId),
                 "second question");
 
         assertThat(firstTaskId).isNotBlank();
         assertThat(secondTaskId).isNotBlank();
         assertThat(secondTaskId).isNotEqualTo(firstTaskId);
-        assertThat(outputs).anyMatch(output -> String.valueOf(output.body()).contains("first question"));
-        assertThat(outputs).anyMatch(output -> String.valueOf(output.body()).contains("second question"));
+        // Task-scoped egress: each task's stream holds only its own turn's outputs, so a
+        // completed first turn cannot suppress or leak into the second turn's stream.
+        assertThat(firstOutputs).anyMatch(output -> String.valueOf(output.body()).contains("first question"));
+        assertThat(firstOutputs).noneMatch(output -> String.valueOf(output.body()).contains("second question"));
+        assertThat(secondOutputs).anyMatch(output -> String.valueOf(output.body()).contains("second question"));
+        assertThat(secondOutputs).noneMatch(output -> String.valueOf(output.body()).contains("first question"));
         assertThat(sessionManager.get(TENANT, "session-multi")).hasValueSatisfying(session -> {
             assertThat(session.sessionId()).isEqualTo("session-multi");
             assertThat(session.currentUserInput()).hasSize(1);
@@ -151,7 +156,7 @@ class AgentServiceEndToEndIT {
     void a2aInterruptedTaskCanBeResumedThroughAccessAndComplete() {
         JsonNode waitingAccepted = send(INTERRUPTING_AGENT, "session-wait", "weather");
         String taskId = waitingAccepted.path("taskId").asText();
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-wait");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-wait", taskId);
         List<A2aOutput> waitingOutputs = awaitAtLeastOutputs(handle, 1);
 
         assertThat(waitingAccepted.path("metadata").path("accepted").asBoolean()).isTrue();
@@ -182,7 +187,7 @@ class AgentServiceEndToEndIT {
     void aReturnedFailureResultStillRepliesWithATerminalError() {
         JsonNode accepted = send(RESULT_FAILING_AGENT, "session-failed-result", "return failure");
         String taskId = accepted.path("taskId").asText();
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-failed-result");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-failed-result", taskId);
         List<A2aOutput> outputs = awaitOutputs(handle);
 
         assertThat(accepted.path("metadata").path("accepted").asBoolean()).isTrue();
@@ -197,7 +202,7 @@ class AgentServiceEndToEndIT {
     void a2aCancelRequestCancelsTaskThroughTaskControlAndEngine() {
         JsonNode accepted = send(INTERRUPTING_AGENT, "session-cancel", "book ticket");
         String taskId = accepted.path("taskId").asText();
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-cancel");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-cancel", taskId);
         List<A2aOutput> outputs = awaitAtLeastOutputs(handle, 1);
         awaitTaskState("session-cancel", taskId, TaskState.WAITING);
 

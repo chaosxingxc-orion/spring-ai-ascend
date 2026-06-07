@@ -49,9 +49,24 @@ public class EngineDispatcher {
     }
 
     private void runHandler(EngineCommandEvent command) {
+        EngineExecutionScope scope = command.getScope();
+        route(new EngineStartedEvent(newId(), scope, Instant.now()));
+        AgentRuntimeHandler handler;
+        try {
+            handler = registry.findByAgentId(scope.agentId());
+        } catch (RuntimeException ex) {
+            // An unknown agentId must still converge the already-accepted task to a
+            // terminal outcome through the single control-plane authority — otherwise
+            // the task hangs non-terminal and the SSE caller waits forever. Resolution
+            // failures are an invalid-input failure, reported as AGENT_ID_INVALID.
+            LOGGER.warn("engine handler unresolved tenantId={} sessionId={} taskId={} agentId={} message={}",
+                    scope.tenantId(), scope.sessionId(), scope.taskId(), scope.agentId(), ex.getMessage());
+            route(new EngineFailedEvent(newId(), scope, Instant.now(), "AGENT_ID_INVALID",
+                    ex.getMessage() == null ? "no agent handler for agentId=" + scope.agentId() : ex.getMessage()));
+            return;
+        }
         long startedNanos = System.nanoTime();
-        AgentRuntimeHandler handler = registry.findByAgentId(command.getScope().agentId());
-        AgentExecutionContext context = new AgentExecutionContext(command.getScope(), command.getInput());
+        AgentExecutionContext context = new AgentExecutionContext(scope, command.getInput());
         LOGGER.info("engine handler start tenantId={} sessionId={} taskId={} agentId={} handler={} inputType={} inputMessages={}",
                 command.getScope().tenantId(),
                 command.getScope().sessionId(),
@@ -60,7 +75,6 @@ public class EngineDispatcher {
                 handler.getClass().getName(),
                 command.getInput().inputType(),
                 command.getInput().messages().size());
-        route(new EngineStartedEvent(newId(), command.getScope(), Instant.now()));
         try (Stream<?> rawResults = handler.execute(context);
                 Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(rawResults)) {
             results.peek(result -> LOGGER.info("engine handler result tenantId={} sessionId={} taskId={} agentId={} resultType={} outputLength={}",

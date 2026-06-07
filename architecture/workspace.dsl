@@ -11,7 +11,7 @@
 //          merged into the L1 corpus, `!docs` + `!adrs` directives wired.
 //
 // What this workspace carries (per ADR-0150):
-//   System / Container / Component     -> L1 architecture structure (8 Maven modules)
+//   System / Container / Component     -> L1 architecture structure (4 reactor modules + planned skeletons)
 //   Custom Element + Tags + Properties -> Feature / Capability / FunctionPoint instances
 //   Relationship + saa.rel             -> dependency / implements / verifies / constrains edges
 //   Documentation (!docs)              -> human-reviewable Markdown imported from architecture/docs/
@@ -81,17 +81,6 @@ workspace "Spring AI Ascend" "Architecture authority workspace (W8 — Structuri
                     "saa.view" "development"
                     "saa.status" "shipped"
                     "saa.owner" "agent-runtime"
-                }
-            }
-
-            agentMiddleware = container "agent-middleware" "RuntimeMiddleware SPI + hook dispatch" "Java 21 / Maven" "SAA Module" {
-                properties {
-                    "saa.id" "MOD-AGENT-MIDDLEWARE"
-                    "saa.kind" "module"
-                    "saa.level" "L1"
-                    "saa.view" "development"
-                    "saa.status" "shipped"
-                    "saa.owner" "agent-middleware"
                 }
             }
 
