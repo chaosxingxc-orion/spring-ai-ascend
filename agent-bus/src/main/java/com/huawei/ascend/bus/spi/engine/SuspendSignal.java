@@ -43,9 +43,9 @@ import java.util.Objects;
  *   <li>"InterruptSignal" ≡ {@code SuspendSignal} (this class)</li>
  *   <li>"InterruptReason" ≡ {@code SuspendReason} (sealed interface in
  *       {@code com.huawei.ascend.runtime.resilience.spi.SuspendReason})</li>
- *   <li>"Yield" / "ON_YIELD" ≡ {@code HookPoint.ON_YIELD} cooperative-scheduling
- *       hint (Authority: ADR-0100 §coexistence — does NOT trigger state-machine
- *       transition, coexists alongside SuspendSignal)</li>
+ *   <li>"Yield" / "ON_YIELD" ≡ a cooperative-scheduling yield hint (Authority:
+ *       ADR-0100 §coexistence — does NOT trigger a state-machine transition,
+ *       coexists alongside SuspendSignal)</li>
  * </ul>
  */
 public final class SuspendSignal extends Exception {

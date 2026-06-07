@@ -156,14 +156,12 @@ satisfied vacuously, and the runtime↔façade boundary is the Maven-module edge
 
 | Module | Plane (P-I) | Owner team | Maturity today |
 |--------|-------------|-----------|----------------|
-| `agent-client` | edge | AgentClient | skeleton (SDK; W3+ per ADR-0049). Cross-plane traffic locked to `com.huawei.ascend.bus.spi.ingress.IngressGateway` per ADR-0089 / Rule R-I.b. |
+| `agent-runtime` | compute_control | AgentRuntime | run-owning runtime SDK (ADR-0159) — framework-neutral engine (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`; `EngineDispatcher` + `AgentRuntimeHandlerRegistry`) + access (`runtime.access`, A2A) + session + task-centric control + internal queue + pure-Java entry `app.RuntimeApp` / `LocalA2aRuntimeHost`; consumes the neutral `bus.spi.engine` boundary. Ships as a library; Run domain kernel is a design target, impl deferred |
 | `agent-service` | compute_control | AgentService | serviceization façade skeleton (ADR-0159) — enterprise serviceization layer that will drive `agent-runtime`-hosted Agent instances via registration/discovery (deferred; single placeholder SPI today); all runtime internals relocated to `agent-runtime` |
-| `agent-middleware` | compute_control | Middleware | SPI extracted from `agent-service.runtime` (T2.B1, 2026-05-17) |
-| `agent-runtime` | compute_control | AgentRuntime | run-owning runtime kernel (ADR-0159) — engine (`runtime.engine.*`: ExecutorAdapter/GraphExecutor/AgentLoopExecutor/EngineRegistry/EngineEnvelope/Planner) + dispatch (`runtime.dispatch`) + access (`runtime.access`, A2A) + session + task-control + internal queue + bootable `AgentRuntimeApplication`; realizes the neutral EnginePort via `InProcessEnginePort` (ADR-0158). Run domain kernel is a design target, impl deferred |
 | `agent-bus` | bus_state | AgentBus | active SPI surfaces — `bus.spi.ingress` (IngressGateway per ADR-0089) + `bus.spi.s2c` (S2cCallbackTransport per ADR-0088) + `bus.spi.engine` (neutral EnginePort + orchestration SPI: RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition + ExecutionContext per ADR-0158). Workflow primitives + W2 channel impls per ADR-0050 |
-| `agent-evolve` | evolution | AgentEvolve | skeleton (Python ML; Java adapter deferred) |
 | `spring-ai-ascend-dependencies` | none | platform | shipped (BoM) |
-| `spring-ai-ascend-graphmemory-starter` | bus_state | AgentBus | shipped (graphmemory SPI scaffold; ADR-0034) |
+
+(The historical `agent-client` / `agent-middleware` / `agent-evolve` / `spring-ai-ascend-graphmemory-starter` modules are retired or never materialized and are NOT in the reactor.)
 
 Per-module `module-metadata.yaml` (Rule R-C.b), `ARCHITECTURE.md` (Rule G-1 sub-clause .a), and
 `docs/dfx/<module>.yaml` (Rule R-D sub-clause .a) carry the authoritative identity, layered-4+1 view,

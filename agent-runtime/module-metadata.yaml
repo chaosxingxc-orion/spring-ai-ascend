@@ -1,6 +1,6 @@
 # Module metadata for agent-runtime.
 # Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
-# Authority: ADR-0066 + ADR-0072 (Engine Envelope + Strict Matching) + ADR-0088 (agent-runtime-core dissolution).
+# Authority: ADR-0159 (agent-runtime consolidation / pure rebuild).
 # Enforced by gate rule module_metadata_present_and_complete.
 
 module: agent-runtime

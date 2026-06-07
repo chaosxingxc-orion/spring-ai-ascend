@@ -11,8 +11,7 @@ import java.util.UUID;
  *   - RunStatus transitions (PENDING → RUNNING → SUSPENDED → RUNNING → SUCCEEDED / FAILED)
  *   - child-run dispatch and result propagation
  *
- * Executors (GraphExecutor, AgentLoopExecutor) must not catch SuspendSignal.
- * Only the Orchestrator catches it.
+ * Engine handlers must not catch SuspendSignal. Only the Orchestrator catches it.
  */
 public interface Orchestrator {
 
