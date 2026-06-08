@@ -1,18 +1,16 @@
 package com.huawei.ascend.runtime.access.output;
 
 import com.huawei.ascend.runtime.access.api.NotificationPort;
-import com.huawei.ascend.runtime.access.model.AgentNotification;
-import com.huawei.ascend.runtime.access.model.AgentNotification.RunError;
-import com.huawei.ascend.runtime.access.model.NotificationType;
-import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineFailedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineInterruptedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.EngineOutput;
-import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
+import com.huawei.ascend.runtime.access.AgentNotification;
+import com.huawei.ascend.runtime.access.AgentNotification.RunError;
+import com.huawei.ascend.runtime.access.NotificationType;
+import com.huawei.ascend.runtime.engine.EngineEvent;
+import com.huawei.ascend.runtime.engine.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.EngineOutput;
+import com.huawei.ascend.runtime.engine.AccessLayerClient;
 import com.huawei.ascend.runtime.common.Message;
 import com.huawei.ascend.runtime.common.RunStatus;
+import com.huawei.ascend.runtime.common.Timing;
 
 import java.util.List;
 import java.util.Map;
@@ -25,11 +23,6 @@ import org.slf4j.LoggerFactory;
  * by translating engine execution events into access-layer
  * {@link AgentNotification}s and publishing them through the
  * {@link NotificationPort}.
- *
- * <p>This is the second seam the human review found missing. Because the engine
- * bean is {@code @ConditionalOnBean(AccessLayerClient.class)}, without this
- * implementation the engine never activated and output never returned to the
- * caller.
  *
  * <p>Type mapping: incremental output and successful completion both carry
  * model text, so they map to {@link NotificationType#LLM_RESULT} (completion is
@@ -48,31 +41,31 @@ public final class EngineOutputSink implements AccessLayerClient {
     }
 
     @Override
-    public void appendOutput(EngineExecutionScope scope, EngineOutputEvent event) {
-        EngineOutput output = event == null ? null : event.getOutput();
+    public void appendOutput(EngineExecutionScope scope, EngineEvent event) {
+        EngineOutput output = event == null ? null : event.output();
         boolean terminal = output != null && output.isFinalOutput();
         RunStatus status = terminal ? RunStatus.COMPLETED : RunStatus.IN_PROGRESS;
         publish(scope, NotificationType.LLM_RESULT, status, messages(text(output)), null, Map.of(), terminal);
     }
 
     @Override
-    public void completeOutput(EngineExecutionScope scope, EngineCompletedEvent event) {
-        EngineOutput output = event == null ? null : event.getFinalOutput();
+    public void completeOutput(EngineExecutionScope scope, EngineEvent event) {
+        EngineOutput output = event == null ? null : event.output();
         publish(scope, NotificationType.LLM_RESULT, RunStatus.COMPLETED,
                 messages(text(output)), null, Map.of(), true);
     }
 
     @Override
-    public void failOutput(EngineExecutionScope scope, EngineFailedEvent event) {
-        String code = event == null ? "UNKNOWN" : event.getErrorCode();
-        String message = event == null ? "" : event.getErrorMessage();
+    public void failOutput(EngineExecutionScope scope, EngineEvent event) {
+        String code = event == null ? "UNKNOWN" : event.errorCode();
+        String message = event == null ? "" : event.errorMessage();
         publish(scope, NotificationType.ERROR, RunStatus.FAILED,
                 List.of(), new RunError(code, message), Map.of(), true);
     }
 
     @Override
-    public void requestUserInput(EngineExecutionScope scope, EngineInterruptedEvent event) {
-        String prompt = event == null ? null : event.getPrompt();
+    public void requestUserInput(EngineExecutionScope scope, EngineEvent event) {
+        String prompt = event == null ? null : event.prompt();
         publish(scope, NotificationType.ACK, RunStatus.INCOMPLETE,
                 messages(prompt), null, Map.of("waitingReason", "USER_INPUT"), false);
     }
@@ -91,7 +84,7 @@ public final class EngineOutputSink implements AccessLayerClient {
                 type,
                 status,
                 terminal,
-                elapsedMs(startedNanos));
+                Timing.elapsedMs(startedNanos));
     }
 
     private static String text(EngineOutput output) {
@@ -100,9 +93,5 @@ public final class EngineOutputSink implements AccessLayerClient {
 
     private static List<Message> messages(String text) {
         return List.of(Message.assistant(text == null ? "" : text));
-    }
-
-    private static long elapsedMs(long startedNanos) {
-        return (System.nanoTime() - startedNanos) / 1_000_000L;
     }
 }

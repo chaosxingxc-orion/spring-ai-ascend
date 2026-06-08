@@ -1,8 +1,6 @@
 package com.huawei.ascend.runtime.engine.spi;
 
-import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
+import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.TransportProtocol;

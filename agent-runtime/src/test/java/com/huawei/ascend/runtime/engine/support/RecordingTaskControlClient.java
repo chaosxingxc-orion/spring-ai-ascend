@@ -1,12 +1,8 @@
 package com.huawei.ascend.runtime.engine.support;
 
-import com.huawei.ascend.runtime.engine.event.EngineCancelledEvent;
-import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineFailedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineInterruptedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.port.TaskControlClient;
+import com.huawei.ascend.runtime.engine.EngineEvent;
+import com.huawei.ascend.runtime.engine.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.TaskControlClient;
 import java.util.Collections;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,11 +15,11 @@ import java.util.List;
 public class RecordingTaskControlClient implements TaskControlClient {
 
     public final List<String> transitions = Collections.synchronizedList(new ArrayList<>());
-    public final List<EngineOutputEvent> outputs = Collections.synchronizedList(new ArrayList<>());
-    public final List<EngineCompletedEvent> succeeded = Collections.synchronizedList(new ArrayList<>());
-    public final List<EngineFailedEvent> failed = Collections.synchronizedList(new ArrayList<>());
-    public final List<EngineInterruptedEvent> waiting = Collections.synchronizedList(new ArrayList<>());
-    public final List<EngineCancelledEvent> cancelled = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineEvent> outputs = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineEvent> succeeded = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineEvent> failed = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineEvent> waiting = Collections.synchronizedList(new ArrayList<>());
+    public final List<EngineEvent> cancelled = Collections.synchronizedList(new ArrayList<>());
 
     @Override
     public void markRunning(EngineExecutionScope scope) {
@@ -31,31 +27,31 @@ public class RecordingTaskControlClient implements TaskControlClient {
     }
 
     @Override
-    public void appendOutput(EngineExecutionScope scope, EngineOutputEvent event) {
+    public void appendOutput(EngineExecutionScope scope, EngineEvent event) {
         transitions.add("APPEND:" + scope.taskId());
         outputs.add(event);
     }
 
     @Override
-    public void markWaiting(EngineExecutionScope scope, EngineInterruptedEvent event) {
+    public void markWaiting(EngineExecutionScope scope, EngineEvent event) {
         transitions.add("WAITING:" + scope.taskId());
         waiting.add(event);
     }
 
     @Override
-    public void markSucceeded(EngineExecutionScope scope, EngineCompletedEvent event) {
+    public void markSucceeded(EngineExecutionScope scope, EngineEvent event) {
         transitions.add("SUCCEEDED:" + scope.taskId());
         succeeded.add(event);
     }
 
     @Override
-    public void markFailed(EngineExecutionScope scope, EngineFailedEvent event) {
+    public void markFailed(EngineExecutionScope scope, EngineEvent event) {
         transitions.add("FAILED:" + scope.taskId());
         failed.add(event);
     }
 
     @Override
-    public void markCancelled(EngineExecutionScope scope, EngineCancelledEvent event) {
+    public void markCancelled(EngineExecutionScope scope, EngineEvent event) {
         transitions.add("CANCELLED:" + scope.taskId());
         cancelled.add(event);
     }

@@ -1,9 +1,9 @@
 package com.huawei.ascend.examples.a2a;
 
 import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.adapters.openjiuwen.OpenJiuwenMessageAdapter;
-import com.huawei.ascend.runtime.engine.adapters.openjiuwen.OpenJiuwenStreamAdapter;
-import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenMessageAdapter;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenStreamAdapter;
+import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.runner.Runner;

@@ -1,7 +1,7 @@
 package com.huawei.ascend.runtime.engine.api;
 
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.EngineInput;
+import com.huawei.ascend.runtime.engine.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.EngineInput;
 
 import java.util.Objects;
 

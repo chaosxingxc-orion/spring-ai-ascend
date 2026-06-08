@@ -1,5 +1,6 @@
 package com.huawei.ascend.runtime.engine;
 
+import com.huawei.ascend.runtime.common.Guards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import java.util.Map;
 import java.util.Objects;
@@ -14,7 +15,7 @@ public class DefaultAgentRuntimeHandlerRegistry implements AgentRuntimeHandlerRe
 
     @Override
     public void register(String agentId, AgentRuntimeHandler handler) {
-        String key = requireNonBlank(agentId, "agentId");
+        String key = Guards.requireNonBlank(agentId, "agentId");
         AgentRuntimeHandler previous = handlers.putIfAbsent(key, Objects.requireNonNull(handler, "handler"));
         if (previous != null) {
             throw new IllegalStateException("AgentRuntimeHandler already registered for agentId=" + key);
@@ -28,13 +29,5 @@ public class DefaultAgentRuntimeHandlerRegistry implements AgentRuntimeHandlerRe
             throw new IllegalStateException("No AgentRuntimeHandler registered for agentId=" + agentId);
         }
         return handler;
-    }
-
-    private static String requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

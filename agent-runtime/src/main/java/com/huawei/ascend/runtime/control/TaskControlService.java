@@ -5,10 +5,12 @@ import com.huawei.ascend.runtime.engine.api.EnqueueEngineCancelRequest;
 import com.huawei.ascend.runtime.engine.api.EnqueueEngineExecutionRequest;
 import com.huawei.ascend.runtime.engine.api.EnqueueEngineResumeRequest;
 import com.huawei.ascend.runtime.engine.api.EnqueueEngineStatus;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.EngineInput;
+import com.huawei.ascend.runtime.engine.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.EngineInput;
 import com.huawei.ascend.runtime.common.AgentRequest;
+import com.huawei.ascend.runtime.common.Guards;
 import com.huawei.ascend.runtime.common.Message;
+import com.huawei.ascend.runtime.common.Timing;
 import com.huawei.ascend.runtime.control.api.TaskControlApi;
 import com.huawei.ascend.runtime.queue.QueueManager;
 
@@ -153,7 +155,7 @@ public class TaskControlService implements TaskControlApi {
                 prepared.resume(),
                 result.accepted(),
                 result.state(),
-                elapsedMs(startedNanos));
+                Timing.elapsedMs(startedNanos));
         return result;
     }
 
@@ -200,7 +202,7 @@ public class TaskControlService implements TaskControlApi {
                     task.getAgentId(),
                     resume,
                     task.getState(),
-                    elapsedMs(startedNanos));
+                    Timing.elapsedMs(startedNanos));
             return new PreparedTaskResult(result(task, true, message), resume);
         }
     }
@@ -282,7 +284,7 @@ public class TaskControlService implements TaskControlApi {
                 task.getAgentId(),
                 resume,
                 status,
-                elapsedMs(startedNanos));
+                Timing.elapsedMs(startedNanos));
         return currentResult(task, true, resume ? "resume enqueued" : "execution enqueued");
     }
 
@@ -371,6 +373,21 @@ public class TaskControlService implements TaskControlApi {
         return tasks.max(Comparator.comparing(Task::getUpdatedAt).thenComparing(Task::getTaskId));
     }
 
+    /**
+     * The task state machine: whether {@code current -> next} is a legal transition.
+     * Three invariants drive the rules:
+     * <ul>
+     *   <li>a self-transition is always allowed, so a duplicated signal is idempotent
+     *       rather than an error;</li>
+     *   <li>terminal states (COMPLETED/FAILED/CANCELLED) are sinks — nothing leaves
+     *       them, which is what guarantees a finished task can never be revived;</li>
+     *   <li>CANCELLING is a one-way draining state reachable from any live state and
+     *       resolving only to CANCELLED (or FAILED if teardown itself fails), so a
+     *       cancel in flight can never be overtaken by a normal completion.</li>
+     * </ul>
+     * WAITING&lt;-&gt;RUNNING is the interrupt/resume cycle; PAUSED-&gt;RUNNING is resume
+     * after an external pause.
+     */
     private boolean allowed(TaskState current, TaskState next) {
         if (current == next) {
             return true;
@@ -449,18 +466,10 @@ public class TaskControlService implements TaskControlApi {
                 taskId, request.agentId(), action, request.idempotencyKey()));
     }
 
-    private static String requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
-    }
-
     private record SessionKey(String tenantId, String sessionId) {
         private SessionKey {
-            tenantId = requireNonBlank(tenantId, "tenantId");
-            sessionId = requireNonBlank(sessionId, "sessionId");
+            tenantId = Guards.requireNonBlank(tenantId, "tenantId");
+            sessionId = Guards.requireNonBlank(sessionId, "sessionId");
         }
     }
 
@@ -477,9 +486,5 @@ public class TaskControlService implements TaskControlApi {
         private PreparedTaskResult {
             task = Objects.requireNonNull(task, "task");
         }
-    }
-
-    private static long elapsedMs(long startedNanos) {
-        return (System.nanoTime() - startedNanos) / 1_000_000L;
     }
 }

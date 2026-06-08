@@ -1,13 +1,9 @@
 package com.huawei.ascend.runtime.control;
 
-import com.huawei.ascend.runtime.engine.event.EngineCancelledEvent;
-import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineFailedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineInterruptedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.InterruptType;
-import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
+import com.huawei.ascend.runtime.engine.AccessLayerClient;
+import com.huawei.ascend.runtime.engine.EngineEvent;
+import com.huawei.ascend.runtime.engine.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.InterruptType;
 import com.huawei.ascend.runtime.control.api.TaskControlApi.MarkTaskCommand;
 import com.huawei.ascend.runtime.control.api.TaskControlApi.TaskResult;
 
@@ -21,7 +17,7 @@ import java.util.Objects;
  * control plane the sole writer of authority and gates output on it — the engine never
  * writes authority and output independently (no double-write of authority).
  */
-public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engine.port.TaskControlClient {
+public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engine.TaskControlClient {
 
     private final TaskControlService taskControlService;
     private final AccessLayerClient accessLayerClient;
@@ -37,7 +33,7 @@ public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engin
     }
 
     @Override
-    public void appendOutput(EngineExecutionScope scope, EngineOutputEvent event) {
+    public void appendOutput(EngineExecutionScope scope, EngineEvent event) {
         // Streaming chunk: forward to egress only while control still considers the task live,
         // so no output escapes after the authoritative task has terminated or is cancelling.
         boolean live = taskControlService.findTask(scope.tenantId(), scope.sessionId(), scope.taskId())
@@ -49,18 +45,18 @@ public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engin
     }
 
     @Override
-    public void markWaiting(EngineExecutionScope scope, EngineInterruptedEvent event) {
+    public void markWaiting(EngineExecutionScope scope, EngineEvent event) {
         TaskResult result = taskControlService
                 .markWaiting(command(scope, waitingReason(event), null, event, Map.of()))
                 .toCompletableFuture().join();
         if (result.accepted()
-                && (event == null || event.getInterruptType() != InterruptType.WAITING_CHILD_AGENT)) {
+                && (event == null || event.interruptType() != InterruptType.WAITING_CHILD_AGENT)) {
             accessLayerClient.requestUserInput(scope, event);
         }
     }
 
     @Override
-    public void markSucceeded(EngineExecutionScope scope, EngineCompletedEvent event) {
+    public void markSucceeded(EngineExecutionScope scope, EngineEvent event) {
         TaskResult result = taskControlService
                 .markSucceeded(command(scope, null, null, event, Map.of()))
                 .toCompletableFuture().join();
@@ -70,7 +66,7 @@ public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engin
     }
 
     @Override
-    public void markFailed(EngineExecutionScope scope, EngineFailedEvent event) {
+    public void markFailed(EngineExecutionScope scope, EngineEvent event) {
         TaskResult result = taskControlService
                 .markFailed(command(scope, null, failureCode(event), event, Map.of()))
                 .toCompletableFuture().join();
@@ -80,7 +76,7 @@ public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engin
     }
 
     @Override
-    public void markCancelled(EngineExecutionScope scope, EngineCancelledEvent event) {
+    public void markCancelled(EngineExecutionScope scope, EngineEvent event) {
         taskControlService.markCancelled(command(scope, null, TaskFailureCode.CANCELLED_BY_RUNTIME, event, Map.of()))
                 .toCompletableFuture().join();
     }
@@ -93,23 +89,22 @@ public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engin
                 waitingReason, failureCode, detail, metadata);
     }
 
-    private WaitingReason waitingReason(EngineInterruptedEvent event) {
-        if (event == null || event.getInterruptType() == null) {
+    private WaitingReason waitingReason(EngineEvent event) {
+        if (event == null || event.interruptType() == null) {
             return WaitingReason.USER_INPUT;
         }
-        InterruptType type = event.getInterruptType();
-        return switch (type) {
+        return switch (event.interruptType()) {
             case HUMAN_INPUT -> WaitingReason.USER_INPUT;
             case APPROVAL -> WaitingReason.USER_CONFIRMATION;
             case WAITING_CHILD_AGENT -> WaitingReason.DEPENDENCY;
         };
     }
 
-    private TaskFailureCode failureCode(EngineFailedEvent event) {
-        if (event == null || event.getErrorCode() == null || event.getErrorCode().isBlank()) {
+    private TaskFailureCode failureCode(EngineEvent event) {
+        if (event == null || event.errorCode() == null || event.errorCode().isBlank()) {
             return TaskFailureCode.RUNTIME_ERROR;
         }
-        String normalized = event.getErrorCode().trim().toUpperCase();
+        String normalized = event.errorCode().trim().toUpperCase();
         return switch (normalized) {
             case "AGENT_ID_INVALID" -> TaskFailureCode.AGENT_ID_INVALID;
             case "OUT_OF_DOMAIN" -> TaskFailureCode.OUT_OF_DOMAIN;

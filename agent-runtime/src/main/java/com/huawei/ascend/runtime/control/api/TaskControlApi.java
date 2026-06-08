@@ -1,6 +1,7 @@
 package com.huawei.ascend.runtime.control.api;
 
 import com.huawei.ascend.runtime.common.AgentRequest;
+import com.huawei.ascend.runtime.common.Guards;
 import com.huawei.ascend.runtime.control.TaskFailureCode;
 import com.huawei.ascend.runtime.control.TaskState;
 import com.huawei.ascend.runtime.control.WaitingReason;
@@ -77,9 +78,9 @@ public interface TaskControlApi {
             Map<String, Object> metadata) {
 
         public CancelCommand {
-            tenantId = requireNonBlank(tenantId, "tenantId");
-            sessionId = requireNonBlank(sessionId, "sessionId");
-            taskId = requireNonBlank(taskId, "taskId");
+            tenantId = Guards.requireNonBlank(tenantId, "tenantId");
+            sessionId = Guards.requireNonBlank(sessionId, "sessionId");
+            taskId = Guards.requireNonBlank(taskId, "taskId");
             metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
         }
     }
@@ -95,9 +96,9 @@ public interface TaskControlApi {
             Map<String, Object> metadata) {
 
         public MarkTaskCommand {
-            tenantId = requireNonBlank(tenantId, "tenantId");
-            sessionId = requireNonBlank(sessionId, "sessionId");
-            taskId = requireNonBlank(taskId, "taskId");
+            tenantId = Guards.requireNonBlank(tenantId, "tenantId");
+            sessionId = Guards.requireNonBlank(sessionId, "sessionId");
+            taskId = Guards.requireNonBlank(taskId, "taskId");
             if (expectedRevision < 1L) {
                 throw new IllegalArgumentException("expectedRevision must be positive");
             }
@@ -115,21 +116,13 @@ public interface TaskControlApi {
             String message) {
 
         public TaskResult {
-            tenantId = requireNonBlank(tenantId, "tenantId");
-            sessionId = requireNonBlank(sessionId, "sessionId");
-            taskId = requireNonBlank(taskId, "taskId");
+            tenantId = Guards.requireNonBlank(tenantId, "tenantId");
+            sessionId = Guards.requireNonBlank(sessionId, "sessionId");
+            taskId = Guards.requireNonBlank(taskId, "taskId");
             Objects.requireNonNull(state, "state");
             if (revision < 1L) {
                 throw new IllegalArgumentException("revision must be positive");
             }
         }
-    }
-
-    private static String requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

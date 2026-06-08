@@ -1,7 +1,7 @@
 package com.huawei.ascend.runtime.session.api;
 
 import com.huawei.ascend.runtime.common.Message;
-import com.huawei.ascend.runtime.session.model.Session;
+import com.huawei.ascend.runtime.session.Session;
 
 import java.util.List;
 import java.util.Optional;
