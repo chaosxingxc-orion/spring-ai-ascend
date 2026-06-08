@@ -12,13 +12,13 @@ public interface TaskControlClient {
     void markRunning(EngineExecutionScope scope);
 
     /** Streaming output chunk; the control plane forwards it to egress while the task is still live. */
-    void appendOutput(EngineExecutionScope scope, EngineOutputEvent event);
+    void appendOutput(EngineExecutionScope scope, EngineEvent event);
 
-    void markWaiting(EngineExecutionScope scope, EngineInterruptedEvent event);
+    void markWaiting(EngineExecutionScope scope, EngineEvent event);
 
-    void markSucceeded(EngineExecutionScope scope, EngineCompletedEvent event);
+    void markSucceeded(EngineExecutionScope scope, EngineEvent event);
 
-    void markFailed(EngineExecutionScope scope, EngineFailedEvent event);
+    void markFailed(EngineExecutionScope scope, EngineEvent event);
 
-    void markCancelled(EngineExecutionScope scope, EngineCancelledEvent event);
+    void markCancelled(EngineExecutionScope scope, EngineEvent event);
 }

@@ -37,7 +37,7 @@ class EngineDispatcherTest {
         // Single outbound write: the engine reports only to the control port; egress is the
         // control plane's responsibility, so the engine never writes output directly.
         verify(task).markRunning(scope());
-        verify(task).markSucceeded(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineCompletedEvent.class));
+        verify(task).markSucceeded(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineEvent.class));
     }
 
     @Test
@@ -52,8 +52,8 @@ class EngineDispatcherTest {
         dispatcher.dispatch(cmd());
 
         verify(task).markRunning(scope());
-        verify(task).appendOutput(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineOutputEvent.class));
-        verify(task).markFailed(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineFailedEvent.class));
+        verify(task).appendOutput(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineEvent.class));
+        verify(task).markFailed(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineEvent.class));
     }
 
     @Test
