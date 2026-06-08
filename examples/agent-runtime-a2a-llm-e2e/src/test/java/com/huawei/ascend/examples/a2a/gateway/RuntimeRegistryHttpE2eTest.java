@@ -136,7 +136,7 @@ class RuntimeRegistryHttpE2eTest {
             assertThat(response.firstHeader("X-Agent-Examples-Route-Grant-Id")).isEqualTo(forwardedGrantId.get());
             assertThat(response.firstHeader("X-Agent-Examples-Route-Resolve-Ms")).isNotBlank();
             assertThat(response.firstHeader("X-Agent-Examples-First-Byte-Ms")).isNotBlank();
-            assertThat(response.firstHeader("X-Agent-Examples-Forward-Ms")).isNotBlank();
+            assertThat(response.firstHeader("X-Agent-Examples-Forward-Start-Ms")).isNotBlank();
             HttpJsonResponse telemetry = get("/v1/a2a-interactions?tenantId=" + tenant
                     + "&correlationId=corr-gateway&limit=10");
             assertThat(telemetry.status()).isEqualTo(HttpStatus.OK.value());
