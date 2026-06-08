@@ -8,6 +8,7 @@ import com.huawei.ascend.examples.a2a.gateway.model.GatewayErrorCode;
 import com.huawei.ascend.examples.a2a.gateway.model.GatewayHealthSnapshot;
 import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeAgentRegistration;
+import com.huawei.ascend.examples.a2a.gateway.model.RuntimeCapacitySnapshot;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeDeregisterResult;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeInstanceId;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeLeaseRenewal;
@@ -85,7 +86,7 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistrationApi, Ag
         int ready = 0;
         int unreachable = 0;
         for (RuntimeRecord record : records.values()) {
-            RuntimeState state = effectiveState(record);
+            RuntimeState state = effectiveRouteState(record);
             if (state == RuntimeState.READY) {
                 ready++;
             }
@@ -122,7 +123,7 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistrationApi, Ag
                         record.agentCard().name(),
                         record.version(),
                         record.a2aEndpoint(),
-                        effectiveState(record)))
+                        effectiveRouteState(record)))
                 .toList();
     }
 
@@ -135,9 +136,10 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistrationApi, Ag
                         record.agentId(),
                         record.runtimeInstanceId(),
                         record.a2aEndpoint(),
-                        record.state(),
+                        effectiveRouteState(record),
                         record.lastHeartbeatAt(),
-                        record.slaSnapshot()))
+                        record.slaSnapshot(),
+                        record.capacitySnapshot()))
                 .orElseThrow(() -> new AgentRouteNotFoundException(
                         "No READY runtime for tenantId=" + tenantId + ", agentId=" + agentId));
     }
@@ -158,12 +160,20 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistrationApi, Ag
                     "No registered runtime for tenantId=" + tenantId + ", agentId=" + agentId);
         }
         List<RuntimeRecord> ready = candidates.stream()
-                .filter(record -> record.state() == RuntimeState.READY)
+                .filter(record -> effectiveRouteState(record) == RuntimeState.READY)
+                .sorted(Comparator.<RuntimeRecord>comparingDouble(record -> record.capacitySnapshot().routeScore())
+                        .thenComparingLong(record -> record.capacitySnapshot().p95FirstTokenMs())
+                        .thenComparing(RuntimeRecord::lastHeartbeatAt, Comparator.reverseOrder())
+                        .thenComparing(record -> record.runtimeInstanceId().value()))
                 .toList();
         if (!ready.isEmpty()) {
             return ready;
         }
-        RuntimeState dominantState = candidates.get(0).state();
+        RuntimeState dominantState = candidates.stream()
+                .map(this::effectiveRouteState)
+                .filter(RuntimeState.AT_CAPACITY::equals)
+                .findFirst()
+                .orElse(effectiveRouteState(candidates.get(0)));
         throw new AgentRouteNotFoundException(errorCodeForState(dominantState),
                 "No READY runtime for tenantId=" + tenantId + ", agentId=" + agentId
                         + ", dominantState=" + dominantState);
@@ -179,6 +189,14 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistrationApi, Ag
             return RuntimeState.DEREGISTERED;
         }
         return record.expiresAt().isAfter(clock.instant()) ? record.state() : RuntimeState.UNREACHABLE;
+    }
+
+    private RuntimeState effectiveRouteState(RuntimeRecord record) {
+        RuntimeState state = effectiveState(record);
+        if (state == RuntimeState.READY && record.capacitySnapshot().atCapacity()) {
+            return RuntimeState.AT_CAPACITY;
+        }
+        return state;
     }
 
     private void refreshExpiredLeases() {
@@ -222,6 +240,7 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistrationApi, Ag
             Instant lastHeartbeatAt,
             Instant expiresAt,
             SlaSnapshot slaSnapshot,
+            RuntimeCapacitySnapshot capacitySnapshot,
             Map<String, Object> metadata) {
 
         private static RuntimeRecord from(RuntimeAgentRegistration registration, Instant now) {
@@ -238,6 +257,7 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistrationApi, Ag
                     now,
                     now.plus(registration.ttl()),
                     SlaSnapshot.empty(),
+                    registration.capacitySnapshot(),
                     registration.metadata());
         }
 
@@ -255,6 +275,7 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistrationApi, Ag
                     now,
                     now.plus(renewal.ttl()),
                     renewal.slaSnapshot(),
+                    renewal.capacitySnapshot(),
                     renewal.metadata());
         }
 
@@ -272,6 +293,7 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistrationApi, Ag
                     lastHeartbeatAt,
                     now,
                     slaSnapshot,
+                    capacitySnapshot,
                     metadata);
         }
     }

@@ -9,5 +9,6 @@ public record RuntimeRoute(
         URI a2aEndpoint,
         RuntimeState state,
         Instant lastHeartbeatAt,
-        SlaSnapshot slaSnapshot) {
+        SlaSnapshot slaSnapshot,
+        RuntimeCapacitySnapshot capacitySnapshot) {
 }

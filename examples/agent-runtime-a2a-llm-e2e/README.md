@@ -78,8 +78,14 @@ shows the minimum DFX shape expected from a customer-facing platform facade:
 - expired leases are marked `UNREACHABLE` and are no longer routable
 - cold, draining, unreachable, and at-capacity runtimes fail closed with clear
   error codes
+- runtime lease renewals can carry a `RuntimeCapacitySnapshot`; `READY`
+  runtimes whose task or LLM capacity is full are treated as `AT_CAPACITY` for
+  route selection
 - multiple runtime replicas are resolved through the same route view, and only
-  `READY` replicas can receive new traffic
+  healthy low-pressure `READY` replicas receive new traffic first
+- current routing is replica selection only: the sample does not create, stop,
+  scale out, or scale in runtime instances, and it does not implement a K8S HPA
+  or autoscaler control loop
 - the A2A forwarding endpoint returns trace headers for route resolution,
   response start, and selected runtime instance; total forwarding time is
   recorded in telemetry after the stream finishes
@@ -90,8 +96,9 @@ shows the minimum DFX shape expected from a customer-facing platform facade:
 
 Production deployments must still add persistent or reconstructable registry
 state, runtime identity authentication, tenant-agent authorization, rate
-limiting, circuit breaking, multi-AZ deployment, same-city disaster recovery,
-cross-region recovery, SLA/SLO dashboards, and error-budget governance.
+limiting, circuit breaking, dynamic scaling through K8S or an equivalent
+orchestrator, multi-AZ deployment, same-city disaster recovery, cross-region
+recovery, SLA/SLO dashboards, and error-budget governance.
 
 ## Quick start (config templates + scripts)
 

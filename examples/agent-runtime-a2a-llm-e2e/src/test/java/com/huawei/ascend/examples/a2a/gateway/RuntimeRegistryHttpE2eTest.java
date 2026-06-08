@@ -7,6 +7,7 @@ import com.huawei.ascend.examples.a2a.gateway.http.RuntimeRegistryController.Run
 import com.huawei.ascend.examples.a2a.gateway.model.AgentInteractionEvent;
 import com.huawei.ascend.examples.a2a.gateway.model.InboundA2aContext;
 import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
+import com.huawei.ascend.examples.a2a.gateway.model.RuntimeCapacitySnapshot;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeState;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -97,6 +98,74 @@ class RuntimeRegistryHttpE2eTest {
 
         assertThat(response.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE.value());
         assertThat(response.body().path("code").asText()).isEqualTo("RUNTIME_AT_CAPACITY");
+    }
+
+    @Test
+    void httpFacadeStopsRoutingRuntimeWhoseLlmCapacitySnapshotIsFull() {
+        String tenant = "tenant-http-llm-capacity";
+        register(tenant, "runtime-weather-llm", "weather-agent-llm", "http://runtime-weather-llm.local/a2a");
+
+        put(
+                "/v1/runtime-registrations/runtime-weather-llm/lease",
+                new RuntimeLeaseRenewalRequest(
+                        RuntimeState.READY,
+                        30,
+                        null,
+                        new RuntimeCapacitySnapshot(
+                                0,
+                                0,
+                                0,
+                                4,
+                                0,
+                                4,
+                                80,
+                                180,
+                                450,
+                                0,
+                                0,
+                                1.0,
+                                Instant.parse("2026-06-08T00:00:00Z")),
+                        Map.of("reason", "llm-saturated")));
+
+        HttpJsonResponse response = post(
+                "/v1/agents/weather-agent-llm/routes/resolve?tenantId=" + tenant,
+                new RoutingContext("session-llm-capacity", "corr-llm-capacity", Map.of("message", "ping")));
+
+        assertThat(response.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE.value());
+        assertThat(response.body().path("code").asText()).isEqualTo("RUNTIME_AT_CAPACITY");
+    }
+
+    @Test
+    void httpFacadeRouteResponseCarriesRuntimeCapacitySnapshot() {
+        String tenant = "tenant-http-capacity-route";
+        register(tenant, "runtime-weather-route", "weather-agent-route", "http://runtime-weather-route.local/a2a");
+
+        put(
+                "/v1/runtime-registrations/runtime-weather-route/lease",
+                new RuntimeLeaseRenewalRequest(
+                        RuntimeState.READY,
+                        30,
+                        null,
+                        new RuntimeCapacitySnapshot(
+                                1,
+                                0,
+                                8,
+                                2,
+                                0,
+                                8,
+                                40,
+                                100,
+                                250,
+                                0,
+                                0,
+                                0.25,
+                                Instant.parse("2026-06-08T00:00:01Z")),
+                        Map.of("reason", "healthy")));
+
+        JsonNode response = resolve(tenant, "weather-agent-route", "session-route", "corr-route", "ping");
+
+        assertThat(response.path("capacitySnapshot").path("llmInFlight").asInt()).isEqualTo(2);
+        assertThat(response.path("capacitySnapshot").path("p95FirstTokenMs").asLong()).isEqualTo(100);
     }
 
     @Test
