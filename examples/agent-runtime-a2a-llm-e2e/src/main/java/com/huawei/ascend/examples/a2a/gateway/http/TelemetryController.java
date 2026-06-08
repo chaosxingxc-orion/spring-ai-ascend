@@ -30,8 +30,9 @@ public final class TelemetryController {
     @GetMapping("/v1/a2a-interactions")
     public List<AgentInteractionEvent> query(
             @RequestParam(required = false) String tenantId,
-            @RequestParam(required = false) String correlationId) {
-        return telemetry.query(tenantId, correlationId);
+            @RequestParam(required = false) String correlationId,
+            @RequestParam(defaultValue = "100") int limit) {
+        return telemetry.query(tenantId, correlationId, Math.min(limit, 1_000));
     }
 
     @ExceptionHandler({IllegalArgumentException.class, NullPointerException.class})

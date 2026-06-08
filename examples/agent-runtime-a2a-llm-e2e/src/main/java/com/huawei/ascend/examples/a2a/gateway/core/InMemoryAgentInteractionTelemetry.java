@@ -36,11 +36,20 @@ public final class InMemoryAgentInteractionTelemetry implements AgentInteraction
     }
 
     @Override
-    public List<AgentInteractionEvent> query(String tenantId, String correlationId) {
+    public List<AgentInteractionEvent> query(String tenantId, String correlationId, int limit) {
+        if (limit <= 0) {
+            throw new IllegalArgumentException("limit must be positive");
+        }
         return events.stream()
                 .filter(event -> tenantId == null || tenantId.equals(event.tenantId()))
                 .filter(event -> correlationId == null || correlationId.equals(event.correlationId()))
+                .limit(limit)
                 .toList();
+    }
+
+    @Override
+    public long count() {
+        return eventCount.get();
     }
 
     private void trimOldest() {

@@ -512,7 +512,33 @@ sequenceDiagram
 | telemetry best effort 可能丢事件 | Medium | Open | 生产态需要 bounded buffer、retry 和关键安全事件单独审计通道。 |
 | examples 仍是北向入口可用性依赖 | Medium | Open | 本文只解决 runtime-to-runtime 链路对 examples 的强依赖，不解决用户入口 HA。 |
 
-## 17. Authority
+## 17. 2026-06-08 补充决议与后续 TODO
+
+### 17.1 本轮进入 examples sample 的最小闭环
+
+1. Gateway facade 北向转发入口在转发前签发短 TTL `RouteGrant`。
+2. Gateway facade 将 `grantId`、签名、tenant、source agent 作为请求头透传给目标 runtime。
+3. Gateway facade 使用流式响应体把 runtime A2A 响应回传给调用方，避免等待完整响应体落内存后再返回。
+4. Gateway facade 在响应体结束后记录一条 `A2A_GATEWAY_FORWARD_COMPLETED` telemetry 事件。
+5. Telemetry 查询接口增加 `limit`，默认 100，上限 1000。
+6. 增加 `/v1/gateway-health`，展示样例级注册表和 telemetry 事件计数。
+7. `SAA_SAMPLE_GATEWAY_ROUTE_GRANT_SECRET` / `sample.gateway.route-grant-secret` 成为 route-grant 签名 secret 的显式配置入口；默认值只用于本地样例。
+
+### 17.2 明确暂缓项
+
+1. tenant-agent 授权策略接口暂缓。该能力和 access 层鉴权、租户模型、客户侧 IAM/网关有耦合，需要与 access 负责人一起定义。
+2. runtime 注册身份校验暂缓。该能力会影响 runtime 自注册协议和 runtime 身份模型，需要与 runtime 负责人确认后再实现。
+3. 注册表线性扫描暂缓。当前 sample 保持简单内存实现；生产态应演进到 `tenantId -> agentId -> runtime replicas` 索引或外部 registry。
+
+### 17.3 后续刷新 TODO
+
+1. 增加 `RoutePolicy` / `AgentAccessAuthorizer` 的最小策略接口，并在 `RouteGrantService.resolveGrant` 前裁决。
+2. 增加 registry version / etag / delta discovery，避免 2w+ runtime 场景下全量拉取。
+3. 增加 `policyVersion` bump 或 revoke store，用于短 TTL 之外的主动撤权。
+4. 收敛错误响应模型：`errorCode`、`message`、`correlationId`、`retryable`、`latencyStage`。
+5. 将 `/v1/gateway-health` 的内存计数演进为正式 metrics / actuator / dashboard 入口。
+
+## 18. Authority
 
 - `docs/logs/reviews/2026-06-04-agent-examples-a2a-runtime-registry-facade-proposal.cn.md`：上一版多 runtime registry / Gateway facade sample proposal。
 - ADR-0016：A2A federation 和 AgentCard / registry 概念预留。

@@ -21,9 +21,11 @@ class InMemoryAgentInteractionTelemetryTest {
         telemetry.record(second);
         telemetry.record(third);
 
-        assertThat(telemetry.query("tenant-a", null)).containsExactly(first, second);
-        assertThat(telemetry.query("tenant-a", "corr-1")).containsExactly(first);
-        assertThat(telemetry.query(null, "corr-1")).containsExactly(first, third);
+        assertThat(telemetry.query("tenant-a", null, 10)).containsExactly(first, second);
+        assertThat(telemetry.query("tenant-a", "corr-1", 10)).containsExactly(first);
+        assertThat(telemetry.query(null, "corr-1", 10)).containsExactly(first, third);
+        assertThat(telemetry.query(null, null, 2)).containsExactly(first, second);
+        assertThat(telemetry.count()).isEqualTo(3);
     }
 
     @Test
@@ -37,7 +39,7 @@ class InMemoryAgentInteractionTelemetryTest {
         telemetry.record(second);
         telemetry.record(third);
 
-        assertThat(telemetry.query("tenant-a", null)).containsExactly(second, third);
+        assertThat(telemetry.query("tenant-a", null, 10)).containsExactly(second, third);
     }
 
     private static AgentInteractionEvent event(String eventId, String tenantId, String correlationId) {

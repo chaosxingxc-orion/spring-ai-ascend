@@ -7,6 +7,7 @@ import com.huawei.ascend.examples.a2a.gateway.model.AgentRouteNotFoundException;
 import com.huawei.ascend.examples.a2a.gateway.model.GatewayErrorCode;
 import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeAgentRegistration;
+import com.huawei.ascend.examples.a2a.gateway.model.RuntimeCapacitySnapshot;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeDeregisterResult;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeInstanceId;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeLeaseRenewal;
@@ -55,6 +56,7 @@ public final class RuntimeRegistryController {
                 request.healthEndpoint(),
                 request.version(),
                 Duration.ofSeconds(request.ttlSeconds()),
+                request.capacitySnapshot(),
                 request.metadata()));
     }
 
@@ -65,6 +67,7 @@ public final class RuntimeRegistryController {
                 request.state(),
                 Duration.ofSeconds(request.ttlSeconds()),
                 request.slaSnapshot(),
+                request.capacitySnapshot(),
                 request.metadata()));
     }
 
@@ -114,14 +117,38 @@ public final class RuntimeRegistryController {
             URI healthEndpoint,
             String version,
             long ttlSeconds,
+            RuntimeCapacitySnapshot capacitySnapshot,
             Map<String, Object> metadata) {
+
+        public RuntimeRegistrationRequest(
+                String runtimeInstanceId,
+                String tenantId,
+                String agentId,
+                AgentCard agentCard,
+                URI a2aEndpoint,
+                URI healthEndpoint,
+                String version,
+                long ttlSeconds,
+                Map<String, Object> metadata) {
+            this(runtimeInstanceId, tenantId, agentId, agentCard, a2aEndpoint, healthEndpoint, version, ttlSeconds,
+                    RuntimeCapacitySnapshot.empty(), metadata);
+        }
     }
 
     public record RuntimeLeaseRenewalRequest(
             RuntimeState state,
             long ttlSeconds,
             SlaSnapshot slaSnapshot,
+            RuntimeCapacitySnapshot capacitySnapshot,
             Map<String, Object> metadata) {
+
+        public RuntimeLeaseRenewalRequest(
+                RuntimeState state,
+                long ttlSeconds,
+                SlaSnapshot slaSnapshot,
+                Map<String, Object> metadata) {
+            this(state, ttlSeconds, slaSnapshot, RuntimeCapacitySnapshot.empty(), metadata);
+        }
     }
 
     public record ErrorResponse(String code, String message) {

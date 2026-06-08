@@ -5,6 +5,7 @@ import com.huawei.ascend.examples.a2a.gateway.model.AgentRouteNotFoundException;
 import com.huawei.ascend.examples.a2a.gateway.model.GatewayErrorCode;
 import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeAgentRegistration;
+import com.huawei.ascend.examples.a2a.gateway.model.RuntimeCapacitySnapshot;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeInstanceId;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeLeaseRenewal;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeState;
@@ -106,6 +107,52 @@ class InMemoryRuntimeRegistryTest {
     }
 
     @Test
+    void readyRuntimeWithFullLlmCapacityIsNotRoutable() {
+        InMemoryRuntimeRegistry registry = registryAt(NOW);
+        registry.register(registration("runtime-1", "agent-weather", Duration.ofSeconds(30)));
+        registry.renew(new RuntimeLeaseRenewal(
+                RuntimeInstanceId.of("runtime-1"),
+                RuntimeState.READY,
+                Duration.ofSeconds(30),
+                SlaSnapshot.empty(),
+                capacity(1, 0, 1, 1.0, 100),
+                Map.of("reason", "llm-saturated")));
+
+        assertThatThrownBy(() -> registry.resolveRoute("agent-weather", "tenant-a", RoutingContext.empty()))
+                .isInstanceOfSatisfying(AgentRouteNotFoundException.class,
+                        ex -> assertThat(ex.code()).isEqualTo(GatewayErrorCode.RUNTIME_AT_CAPACITY));
+        assertThat(registry.listAgents("tenant-a").getFirst().state()).isEqualTo(RuntimeState.AT_CAPACITY);
+        assertThat(registry.healthSnapshot(0).readyRuntimeCount()).isZero();
+    }
+
+    @Test
+    void routePrefersLowerPressureReadyRuntime() {
+        MutableClock clock = new MutableClock(NOW);
+        InMemoryRuntimeRegistry registry = new InMemoryRuntimeRegistry(clock);
+        registry.register(registration("runtime-hot", "agent-weather", Duration.ofSeconds(30)));
+        registry.register(registration("runtime-cool", "agent-weather", Duration.ofSeconds(30)));
+
+        registry.renew(new RuntimeLeaseRenewal(
+                RuntimeInstanceId.of("runtime-cool"),
+                RuntimeState.READY,
+                Duration.ofSeconds(30),
+                SlaSnapshot.empty(),
+                capacity(1, 0, 10, 0.1, 60),
+                Map.of()));
+        clock.set(NOW.plusSeconds(1));
+        registry.renew(new RuntimeLeaseRenewal(
+                RuntimeInstanceId.of("runtime-hot"),
+                RuntimeState.READY,
+                Duration.ofSeconds(30),
+                SlaSnapshot.empty(),
+                capacity(8, 1, 10, 0.9, 120),
+                Map.of()));
+
+        assertThat(registry.resolveRoute("agent-weather", "tenant-a", RoutingContext.empty()).runtimeInstanceId())
+                .isEqualTo(RuntimeInstanceId.of("runtime-cool"));
+    }
+
+    @Test
     void deregisterRemovesRuntimeFromRouteView() {
         InMemoryRuntimeRegistry registry = registryAt(NOW);
         registry.register(registration("runtime-1", "agent-weather", Duration.ofSeconds(30)));
@@ -153,6 +200,28 @@ class InMemoryRuntimeRegistryTest {
                         TransportProtocol.JSONRPC.asString(), "/a2a")))
                 .preferredTransport(TransportProtocol.JSONRPC.asString())
                 .build();
+    }
+
+    private static RuntimeCapacitySnapshot capacity(
+            int llmInFlight,
+            int llmQueueDepth,
+            int llmMaxConcurrency,
+            double estimatedLoad,
+            long p95FirstTokenMs) {
+        return new RuntimeCapacitySnapshot(
+                0,
+                0,
+                0,
+                llmInFlight,
+                llmQueueDepth,
+                llmMaxConcurrency,
+                50,
+                p95FirstTokenMs,
+                p95FirstTokenMs * 2,
+                0,
+                0,
+                estimatedLoad,
+                NOW);
     }
 
     private static final class MutableClock extends Clock {

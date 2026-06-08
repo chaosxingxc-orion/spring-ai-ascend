@@ -1,4 +1,4 @@
-# Agent Runtime A2A LLM E2E Example
+﻿# Agent Runtime A2A LLM E2E Example
 
 ## Purpose
 
@@ -57,11 +57,17 @@ The sample exposes these minimum HTTP endpoints:
 - `POST /v1/route-grants/resolve`
 - `POST /v1/route-grants/validate`
 - `POST /v1/a2a-interactions`
-- `GET /v1/a2a-interactions?tenantId=...&correlationId=...`
+- `GET /v1/a2a-interactions?tenantId=...&correlationId=...&limit=100`
+- `GET /v1/gateway-health`
 
 This keeps runtime caches small: runtimes cache scoped grants with TTL and
 policy version, not a full `tenantId x sourceAgentId x targetAgentId x replica`
 authorization table.
+
+The northbound gateway forwarding endpoint also issues a short-lived
+`RouteGrant`, forwards its id/signature as request headers, streams the runtime
+response back to the caller, and records one telemetry event when the response
+body finishes.
 
 ### Gateway DFX Reference Shape
 
@@ -72,27 +78,36 @@ shows the minimum DFX shape expected from a customer-facing platform facade:
 - expired leases are marked `UNREACHABLE` and are no longer routable
 - cold, draining, unreachable, and at-capacity runtimes fail closed with clear
   error codes
+- runtime lease renewals can carry a `RuntimeCapacitySnapshot`; `READY`
+  runtimes whose task or LLM capacity is full are treated as `AT_CAPACITY` for
+  route selection
 - multiple runtime replicas are resolved through the same route view, and only
-  `READY` replicas can receive new traffic
+  healthy low-pressure `READY` replicas receive new traffic first
+- current routing is replica selection only: the sample does not create, stop,
+  scale out, or scale in runtime instances, and it does not implement a K8S HPA
+  or autoscaler control loop
 - the A2A forwarding endpoint returns trace headers for route resolution,
-  response start, total forwarding time, and selected runtime instance
+  response start, and selected runtime instance; total forwarding time is
+  recorded in telemetry after the stream finishes
 - route grants are short-lived, tenant-scoped, method-scoped, and signed
 - A2A interaction telemetry carries correlation, route latency, first-byte
   latency, total latency, status, and selected runtime identity
+- `/v1/gateway-health` exposes a minimal registry and telemetry event count
 
 Production deployments must still add persistent or reconstructable registry
 state, runtime identity authentication, tenant-agent authorization, rate
-limiting, circuit breaking, multi-AZ deployment, same-city disaster recovery,
-cross-region recovery, SLA/SLO dashboards, and error-budget governance.
+limiting, circuit breaking, dynamic scaling through K8S or an equivalent
+orchestrator, multi-AZ deployment, same-city disaster recovery, cross-region
+recovery, SLA/SLO dashboards, and error-budget governance.
 
 ## Quick start (config templates + scripts)
 
-From `examples/agent-runtime-a2a-llm-e2e`, copy a template, fill it, and run through the helper script:
+Copy a template, fill it, and run; the env file is the only thing that differs
+between a local Ollama and a cloud OpenAI-compatible API; the command is identical:
 
 ```bash
-cp .env.openai-compatible.example .env   # or .env.ollama.example, then edit
-bash scripts/test-e2e.sh .env            # installs agent-runtime + runs the E2E suite
-# Windows: ./scripts/test-e2e.ps1 -EnvFile .env
+cp .env.ollama.example .env        # or .env.openai-compatible.example, then edit
+bash scripts/test-e2e.sh .env      # installs agent-runtime + runs the E2E suite
 ```
 
 For manual server verification, prefer the server helper script because it loads
@@ -105,9 +120,9 @@ bash scripts/run-server.sh .env
 
 Templates (the `.env` you fill is gitignored; the `*.example` templates are tracked):
 
-- `.env.example` — every variable with inline docs.
-- `.env.ollama.example` — local Ollama via its OpenAI-compatible `/v1` surface (`gemma4:latest`).
-- `.env.openai-compatible.example` — a cloud OpenAI-compatible API (no real key committed).
+- `.env.example`: every variable with inline docs.
+- `.env.ollama.example`: local Ollama via its OpenAI-compatible `/v1` surface (`gemma4:latest`).
+- `.env.openai-compatible.example`: a cloud OpenAI-compatible API (no real key committed).
 
 > `.env` is not loaded automatically by Maven or Spring Boot. The helper scripts
 > load it with shell sourcing before launching Maven. If you run `./mvnw ...
@@ -117,6 +132,11 @@ Templates (the `.env` you fill is gitignored; the `*.example` templates are trac
 > The real-LLM e2e (`OpenJiuwenReactAgentA2aE2eTest`) only runs when
 > `SAA_SAMPLE_LLM_API_KEY` is non-blank. Without it, JUnit `assumeTrue()` **skips**
 > that branch after the agent-card assertions (the rest of the suite still runs).
+
+The route-grant signer uses `SAA_SAMPLE_GATEWAY_ROUTE_GRANT_SECRET` or
+`sample.gateway.route-grant-secret`. The checked-in default is for local sample
+execution only; set a non-default secret before demonstrating cross-runtime
+authorization flows to other teams.
 
 ## Which Environment Values Are Effective?
 

@@ -7,5 +7,7 @@ public interface AgentInteractionTelemetry {
 
     AgentInteractionEvent record(AgentInteractionEvent event);
 
-    List<AgentInteractionEvent> query(String tenantId, String correlationId);
+    List<AgentInteractionEvent> query(String tenantId, String correlationId, int limit);
+
+    long count();
 }

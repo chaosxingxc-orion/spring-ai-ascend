@@ -9,6 +9,7 @@ import com.huawei.ascend.examples.a2a.gateway.core.InMemoryAgentInteractionTelem
 import com.huawei.ascend.examples.a2a.gateway.core.InMemoryRuntimeRegistry;
 import com.huawei.ascend.examples.a2a.gateway.core.RuntimeA2aGateway;
 import com.huawei.ascend.examples.a2a.gateway.http.A2aGatewayController;
+import com.huawei.ascend.examples.a2a.gateway.http.GatewayHealthController;
 import com.huawei.ascend.examples.a2a.gateway.http.RouteGrantController;
 import com.huawei.ascend.examples.a2a.gateway.http.RuntimeRegistryController;
 import com.huawei.ascend.examples.a2a.gateway.http.TelemetryController;
@@ -48,7 +49,7 @@ public class RuntimeRegistryConfiguration {
     @ConditionalOnMissingBean
     RouteGrantService routeGrantService(
             AgentDiscoveryApi discoveryApi,
-            @Value("${sample.gateway.route-grant-secret:agent-examples-local-route-grant-secret}") String secret) {
+            @Value("${sample.gateway.route-grant-secret:${SAA_SAMPLE_GATEWAY_ROUTE_GRANT_SECRET:agent-examples-local-route-grant-secret}}") String secret) {
         return new HmacRouteGrantService(discoveryApi, secret);
     }
 
@@ -68,8 +69,11 @@ public class RuntimeRegistryConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    A2aGatewayController a2aGatewayController(RuntimeA2aGateway gateway) {
-        return new A2aGatewayController(gateway);
+    A2aGatewayController a2aGatewayController(
+            RuntimeA2aGateway gateway,
+            RouteGrantService routeGrantService,
+            AgentInteractionTelemetry telemetry) {
+        return new A2aGatewayController(gateway, routeGrantService, telemetry);
     }
 
     @Bean
@@ -82,5 +86,13 @@ public class RuntimeRegistryConfiguration {
     @ConditionalOnMissingBean
     TelemetryController telemetryController(AgentInteractionTelemetry telemetry) {
         return new TelemetryController(telemetry);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    GatewayHealthController gatewayHealthController(
+            InMemoryRuntimeRegistry registry,
+            AgentInteractionTelemetry telemetry) {
+        return new GatewayHealthController(registry, telemetry);
     }
 }
