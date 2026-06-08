@@ -2,9 +2,9 @@ package com.huawei.ascend.runtime.control.test;
 
 import com.huawei.ascend.runtime.engine.api.DefaultEngineExecutionApi;
 import com.huawei.ascend.runtime.engine.api.EngineExecutionApi;
-import com.huawei.ascend.runtime.engine.command.EngineCommandEventFactory;
-import com.huawei.ascend.runtime.engine.command.EngineWorker;
-import com.huawei.ascend.runtime.engine.command.InternalEngineCommandGateway;
+import com.huawei.ascend.runtime.engine.EngineCommandEventFactory;
+import com.huawei.ascend.runtime.engine.EngineWorker;
+import com.huawei.ascend.runtime.engine.InternalEngineCommandGateway;
 import com.huawei.ascend.runtime.engine.AgentRuntimeHandlerRegistry;
 import com.huawei.ascend.runtime.engine.DefaultAgentRuntimeHandlerRegistry;
 import com.huawei.ascend.runtime.engine.EngineDispatcher;

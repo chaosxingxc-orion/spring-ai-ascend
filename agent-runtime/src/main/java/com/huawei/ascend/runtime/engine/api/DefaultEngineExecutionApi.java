@@ -1,8 +1,9 @@
 package com.huawei.ascend.runtime.engine.api;
 
-import com.huawei.ascend.runtime.engine.event.EngineCommandEvent;
-import com.huawei.ascend.runtime.engine.command.EngineCommandEventFactory;
-import com.huawei.ascend.runtime.engine.command.EngineCommandGateway;
+import com.huawei.ascend.runtime.common.Timing;
+import com.huawei.ascend.runtime.engine.EngineCommandEvent;
+import com.huawei.ascend.runtime.engine.EngineCommandEventFactory;
+import com.huawei.ascend.runtime.engine.EngineCommandGateway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,11 +48,7 @@ public class DefaultEngineExecutionApi implements EngineExecutionApi {
                 event.getScope().taskId(),
                 event.getScope().agentId(),
                 accepted,
-                elapsedMs(startedNanos));
+                Timing.elapsedMs(startedNanos));
         return accepted ? EnqueueEngineStatus.SUCCESS : EnqueueEngineStatus.FAILED;
-    }
-
-    private static long elapsedMs(long startedNanos) {
-        return (System.nanoTime() - startedNanos) / 1_000_000L;
     }
 }

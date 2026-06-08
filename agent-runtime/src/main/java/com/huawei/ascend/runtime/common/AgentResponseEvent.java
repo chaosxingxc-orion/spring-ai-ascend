@@ -18,15 +18,15 @@ public record AgentResponseEvent(
         Map<String, Object> metadata) {
 
     public AgentResponseEvent {
-        requestId = requireNonBlank(requestId, "requestId");
+        requestId = Guards.requireNonBlank(requestId, "requestId");
         if (sequence < 1L) {
             throw new IllegalArgumentException("sequence must be positive");
         }
         responseType = Objects.requireNonNull(responseType, "responseType");
-        tenantId = requireNonBlank(tenantId, "tenantId");
-        agentId = requireNonBlank(agentId, "agentId");
-        sessionId = requireNonBlank(sessionId, "sessionId");
-        taskId = requireNonBlank(taskId, "taskId");
+        tenantId = Guards.requireNonBlank(tenantId, "tenantId");
+        agentId = Guards.requireNonBlank(agentId, "agentId");
+        sessionId = Guards.requireNonBlank(sessionId, "sessionId");
+        taskId = Guards.requireNonBlank(taskId, "taskId");
         status = Objects.requireNonNull(status, "status");
         output = output == null ? "" : output;
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
@@ -62,13 +62,5 @@ public record AgentResponseEvent(
     public boolean terminal() {
         return responseType == ResponseType.FINAL || responseType == ResponseType.ERROR
                 || status == ResponseStatus.CANCELLED || status == ResponseStatus.INPUT_REQUIRED;
-    }
-
-    private static String requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

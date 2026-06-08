@@ -1,13 +1,13 @@
 package com.huawei.ascend.runtime.control;
 
-import com.huawei.ascend.runtime.engine.event.EngineCancelledEvent;
-import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineFailedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineInterruptedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.InterruptType;
-import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
+import com.huawei.ascend.runtime.engine.EngineCancelledEvent;
+import com.huawei.ascend.runtime.engine.EngineCompletedEvent;
+import com.huawei.ascend.runtime.engine.EngineFailedEvent;
+import com.huawei.ascend.runtime.engine.EngineInterruptedEvent;
+import com.huawei.ascend.runtime.engine.EngineOutputEvent;
+import com.huawei.ascend.runtime.engine.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.InterruptType;
+import com.huawei.ascend.runtime.engine.AccessLayerClient;
 import com.huawei.ascend.runtime.control.api.TaskControlApi.MarkTaskCommand;
 import com.huawei.ascend.runtime.control.api.TaskControlApi.TaskResult;
 
@@ -21,7 +21,7 @@ import java.util.Objects;
  * control plane the sole writer of authority and gates output on it — the engine never
  * writes authority and output independently (no double-write of authority).
  */
-public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engine.port.TaskControlClient {
+public class EngineTaskControlAdapter implements com.huawei.ascend.runtime.engine.TaskControlClient {
 
     private final TaskControlService taskControlService;
     private final AccessLayerClient accessLayerClient;

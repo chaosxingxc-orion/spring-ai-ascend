@@ -1,6 +1,5 @@
 package com.huawei.ascend.bus.spi.engine;
 
-import com.huawei.ascend.bus.spi.engine.RunMode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

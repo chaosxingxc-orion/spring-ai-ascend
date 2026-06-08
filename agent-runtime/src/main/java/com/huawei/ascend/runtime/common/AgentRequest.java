@@ -2,7 +2,6 @@ package com.huawei.ascend.runtime.common;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * Canonical inbound run request, the standard object every access protocol
@@ -34,8 +33,8 @@ public record AgentRequest(
         Map<String, Object> metadata) {
 
     public AgentRequest {
-        tenantId = requireNonBlank(tenantId, "tenantId");
-        agentId = requireNonBlank(agentId, "agentId");
+        tenantId = Guards.requireNonBlank(tenantId, "tenantId");
+        agentId = Guards.requireNonBlank(agentId, "agentId");
         sessionId = blankToNull(sessionId);
         input = input == null ? List.of() : List.copyOf(input);
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
@@ -50,14 +49,6 @@ public record AgentRequest(
             }
         }
         return input.isEmpty() ? "" : input.get(input.size() - 1).text();
-    }
-
-    private static String requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private static String blankToNull(String value) {

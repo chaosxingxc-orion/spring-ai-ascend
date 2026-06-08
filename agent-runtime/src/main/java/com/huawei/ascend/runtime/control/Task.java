@@ -1,5 +1,6 @@
 package com.huawei.ascend.runtime.control;
 
+import com.huawei.ascend.runtime.common.Guards;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -71,7 +72,7 @@ public class Task {
     }
 
     public void setTenantId(String tenantId) {
-        this.tenantId = requireNonBlank(tenantId, "tenantId");
+        this.tenantId = Guards.requireNonBlank(tenantId, "tenantId");
     }
 
     public String getSessionId() {
@@ -79,7 +80,7 @@ public class Task {
     }
 
     public void setSessionId(String sessionId) {
-        this.sessionId = requireNonBlank(sessionId, "sessionId");
+        this.sessionId = Guards.requireNonBlank(sessionId, "sessionId");
     }
 
     public String getTaskId() {
@@ -87,7 +88,7 @@ public class Task {
     }
 
     public void setTaskId(String taskId) {
-        this.taskId = requireNonBlank(taskId, "taskId");
+        this.taskId = Guards.requireNonBlank(taskId, "taskId");
     }
 
     public String getAgentId() {
@@ -155,13 +156,5 @@ public class Task {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
-    }
-
-    private static String requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

@@ -8,7 +8,7 @@ package com.huawei.ascend.runtime.common;
  * task-control layer keeps its own finer-grained internal {@code TaskState}
  * (e.g. {@code CREATED}, {@code CANCELLING}); this enum is what the access
  * layer surfaces to callers and what flows on the standard
- * {@link AgentResponse}.
+ * {@link AgentResponseEvent}.
  */
 public enum RunStatus {
     CREATED,

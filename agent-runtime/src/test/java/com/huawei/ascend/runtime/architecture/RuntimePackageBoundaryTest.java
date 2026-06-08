@@ -19,7 +19,7 @@ class RuntimePackageBoundaryTest {
     void openJiuwenAdapterLivesUnderEngineAdapters() {
         ArchRule rule = classes()
                 .that().resideInAPackage("..openjiuwen..")
-                .should().resideInAPackage("com.huawei.ascend.runtime.engine.adapters.openjiuwen..")
+                .should().resideInAPackage("com.huawei.ascend.runtime.engine.openjiuwen..")
                 .allowEmptyShould(false);
         rule.check(RUNTIME_CLASSES);
     }

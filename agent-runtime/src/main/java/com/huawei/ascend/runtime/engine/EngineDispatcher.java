@@ -1,18 +1,8 @@
 package com.huawei.ascend.runtime.engine;
 
-import com.huawei.ascend.runtime.engine.event.EngineCancelledEvent;
-import com.huawei.ascend.runtime.engine.event.EngineCommandEvent;
-import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineExecutionEvent;
-import com.huawei.ascend.runtime.engine.event.EngineFailedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineInterruptedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
-import com.huawei.ascend.runtime.engine.event.EngineStartedEvent;
-import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
+import com.huawei.ascend.runtime.common.Timing;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.port.TaskControlClient;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -94,7 +84,7 @@ public class EngineDispatcher {
                     command.getScope().agentId(),
                     command.getCommandType(),
                     handler.getClass().getName(),
-                    elapsedMs(startedNanos));
+                    Timing.elapsedMs(startedNanos));
         } catch (RuntimeException ex) {
             LOGGER.warn("engine handler failed tenantId={} sessionId={} taskId={} agentId={} errorClass={} message={}",
                     command.getScope().tenantId(),
@@ -121,7 +111,7 @@ public class EngineDispatcher {
                     command.getScope().agentId(),
                     command.getCommandType(),
                     handler.getClass().getName(),
-                    elapsedMs(startedNanos));
+                    Timing.elapsedMs(startedNanos));
         }
     }
 
@@ -170,9 +160,5 @@ public class EngineDispatcher {
 
     private static String newId() {
         return UUID.randomUUID().toString();
-    }
-
-    private static long elapsedMs(long startedNanos) {
-        return (System.nanoTime() - startedNanos) / 1_000_000L;
     }
 }

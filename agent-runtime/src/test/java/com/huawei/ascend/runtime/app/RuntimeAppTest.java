@@ -2,7 +2,7 @@ package com.huawei.ascend.runtime.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;

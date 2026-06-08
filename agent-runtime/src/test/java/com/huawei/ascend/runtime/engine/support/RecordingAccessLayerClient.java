@@ -1,11 +1,11 @@
 package com.huawei.ascend.runtime.engine.support;
 
-import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineFailedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineInterruptedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
+import com.huawei.ascend.runtime.engine.EngineCompletedEvent;
+import com.huawei.ascend.runtime.engine.EngineFailedEvent;
+import com.huawei.ascend.runtime.engine.EngineInterruptedEvent;
+import com.huawei.ascend.runtime.engine.EngineOutputEvent;
+import com.huawei.ascend.runtime.engine.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.AccessLayerClient;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

@@ -42,12 +42,12 @@ import static org.assertj.core.api.Assertions.assertThat;
         classes = RuntimeRegistryHttpE2eTest.TestServiceFacade.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "spring.autoconfigure.exclude="
-                + "com.huawei.ascend.runtime.session.config.SessionManageConfiguration,"
-                + "com.huawei.ascend.runtime.queue.config.QueueAutoConfiguration,"
-                + "com.huawei.ascend.runtime.control.config.TaskControlAutoConfiguration,"
+                + "com.huawei.ascend.runtime.session.SessionManageConfiguration,"
+                + "com.huawei.ascend.runtime.queue.QueueAutoConfiguration,"
+                + "com.huawei.ascend.runtime.control.TaskControlAutoConfiguration,"
                 + "com.huawei.ascend.runtime.app.RuntimeWiringConfiguration,"
-                + "com.huawei.ascend.runtime.access.config.AccessLayerConfiguration,"
-                + "com.huawei.ascend.runtime.engine.config.EngineAutoConfiguration")
+                + "com.huawei.ascend.runtime.access.AccessLayerConfiguration,"
+                + "com.huawei.ascend.runtime.engine.EngineAutoConfiguration")
 class RuntimeRegistryHttpE2eTest {
 
     @Value("${local.server.port}")

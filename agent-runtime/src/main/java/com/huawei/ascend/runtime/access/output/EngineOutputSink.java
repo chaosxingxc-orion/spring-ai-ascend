@@ -1,18 +1,19 @@
 package com.huawei.ascend.runtime.access.output;
 
 import com.huawei.ascend.runtime.access.api.NotificationPort;
-import com.huawei.ascend.runtime.access.model.AgentNotification;
-import com.huawei.ascend.runtime.access.model.AgentNotification.RunError;
-import com.huawei.ascend.runtime.access.model.NotificationType;
-import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineFailedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineInterruptedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.EngineOutput;
-import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
+import com.huawei.ascend.runtime.access.AgentNotification;
+import com.huawei.ascend.runtime.access.AgentNotification.RunError;
+import com.huawei.ascend.runtime.access.NotificationType;
+import com.huawei.ascend.runtime.engine.EngineCompletedEvent;
+import com.huawei.ascend.runtime.engine.EngineFailedEvent;
+import com.huawei.ascend.runtime.engine.EngineInterruptedEvent;
+import com.huawei.ascend.runtime.engine.EngineOutputEvent;
+import com.huawei.ascend.runtime.engine.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.EngineOutput;
+import com.huawei.ascend.runtime.engine.AccessLayerClient;
 import com.huawei.ascend.runtime.common.Message;
 import com.huawei.ascend.runtime.common.RunStatus;
+import com.huawei.ascend.runtime.common.Timing;
 
 import java.util.List;
 import java.util.Map;
@@ -91,7 +92,7 @@ public final class EngineOutputSink implements AccessLayerClient {
                 type,
                 status,
                 terminal,
-                elapsedMs(startedNanos));
+                Timing.elapsedMs(startedNanos));
     }
 
     private static String text(EngineOutput output) {
@@ -100,9 +101,5 @@ public final class EngineOutputSink implements AccessLayerClient {
 
     private static List<Message> messages(String text) {
         return List.of(Message.assistant(text == null ? "" : text));
-    }
-
-    private static long elapsedMs(long startedNanos) {
-        return (System.nanoTime() - startedNanos) / 1_000_000L;
     }
 }

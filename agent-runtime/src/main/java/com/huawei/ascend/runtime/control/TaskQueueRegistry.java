@@ -1,5 +1,6 @@
 package com.huawei.ascend.runtime.control;
 
+import com.huawei.ascend.runtime.common.Guards;
 import com.huawei.ascend.runtime.queue.InternalEventQueue;
 import com.huawei.ascend.runtime.queue.QueueManager;
 
@@ -71,16 +72,8 @@ final class TaskQueueRegistry {
 
     private record SessionKey(String tenantId, String sessionId) {
         private SessionKey {
-            tenantId = requireNonBlank(tenantId, "tenantId");
-            sessionId = requireNonBlank(sessionId, "sessionId");
+            tenantId = Guards.requireNonBlank(tenantId, "tenantId");
+            sessionId = Guards.requireNonBlank(sessionId, "sessionId");
         }
-    }
-
-    private static String requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }
