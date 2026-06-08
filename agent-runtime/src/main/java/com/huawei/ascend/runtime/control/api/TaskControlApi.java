@@ -1,6 +1,6 @@
 package com.huawei.ascend.runtime.control.api;
 
-import com.huawei.ascend.runtime.schema.AgentRequest;
+import com.huawei.ascend.runtime.common.AgentRequest;
 import com.huawei.ascend.runtime.control.TaskFailureCode;
 import com.huawei.ascend.runtime.control.TaskState;
 import com.huawei.ascend.runtime.control.WaitingReason;

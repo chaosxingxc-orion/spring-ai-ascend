@@ -10,7 +10,7 @@ import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutput;
 import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputHandle;
 import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputRegistry;
 import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aTaskMapper;
-import com.huawei.ascend.runtime.schema.AgentRequest;
+import com.huawei.ascend.runtime.common.AgentRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

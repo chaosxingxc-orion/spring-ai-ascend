@@ -1,9 +1,13 @@
 package com.huawei.ascend.examples.a2a.gateway;
 
 import com.huawei.ascend.examples.a2a.gateway.config.RuntimeRegistryConfiguration;
+import com.huawei.ascend.examples.a2a.gateway.http.RouteGrantController.ResolveGrantRequest;
 import com.huawei.ascend.examples.a2a.gateway.http.RuntimeRegistryController.RuntimeLeaseRenewalRequest;
 import com.huawei.ascend.examples.a2a.gateway.http.RuntimeRegistryController.RuntimeRegistrationRequest;
+import com.huawei.ascend.examples.a2a.gateway.model.AgentInteractionEvent;
+import com.huawei.ascend.examples.a2a.gateway.model.InboundA2aContext;
 import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
+import com.huawei.ascend.examples.a2a.gateway.model.RuntimeCapacitySnapshot;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeState;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -13,6 +17,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -96,14 +101,84 @@ class RuntimeRegistryHttpE2eTest {
     }
 
     @Test
+    void httpFacadeStopsRoutingRuntimeWhoseLlmCapacitySnapshotIsFull() {
+        String tenant = "tenant-http-llm-capacity";
+        register(tenant, "runtime-weather-llm", "weather-agent-llm", "http://runtime-weather-llm.local/a2a");
+
+        put(
+                "/v1/runtime-registrations/runtime-weather-llm/lease",
+                new RuntimeLeaseRenewalRequest(
+                        RuntimeState.READY,
+                        30,
+                        null,
+                        new RuntimeCapacitySnapshot(
+                                0,
+                                0,
+                                0,
+                                4,
+                                0,
+                                4,
+                                80,
+                                180,
+                                450,
+                                0,
+                                0,
+                                1.0,
+                                Instant.parse("2026-06-08T00:00:00Z")),
+                        Map.of("reason", "llm-saturated")));
+
+        HttpJsonResponse response = post(
+                "/v1/agents/weather-agent-llm/routes/resolve?tenantId=" + tenant,
+                new RoutingContext("session-llm-capacity", "corr-llm-capacity", Map.of("message", "ping")));
+
+        assertThat(response.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE.value());
+        assertThat(response.body().path("code").asText()).isEqualTo("RUNTIME_AT_CAPACITY");
+    }
+
+    @Test
+    void httpFacadeRouteResponseCarriesRuntimeCapacitySnapshot() {
+        String tenant = "tenant-http-capacity-route";
+        register(tenant, "runtime-weather-route", "weather-agent-route", "http://runtime-weather-route.local/a2a");
+
+        put(
+                "/v1/runtime-registrations/runtime-weather-route/lease",
+                new RuntimeLeaseRenewalRequest(
+                        RuntimeState.READY,
+                        30,
+                        null,
+                        new RuntimeCapacitySnapshot(
+                                1,
+                                0,
+                                8,
+                                2,
+                                0,
+                                8,
+                                40,
+                                100,
+                                250,
+                                0,
+                                0,
+                                0.25,
+                                Instant.parse("2026-06-08T00:00:01Z")),
+                        Map.of("reason", "healthy")));
+
+        JsonNode response = resolve(tenant, "weather-agent-route", "session-route", "corr-route", "ping");
+
+        assertThat(response.path("capacitySnapshot").path("llmInFlight").asInt()).isEqualTo(2);
+        assertThat(response.path("capacitySnapshot").path("p95FirstTokenMs").asLong()).isEqualTo(100);
+    }
+
+    @Test
     void gatewayFacadeForwardsA2aRequestToResolvedRuntime() throws IOException {
         String tenant = "tenant-http-gateway";
         AtomicReference<String> forwardedBody = new AtomicReference<>();
         AtomicReference<String> forwardedRuntime = new AtomicReference<>();
+        AtomicReference<String> forwardedGrantId = new AtomicReference<>();
         HttpServer runtime = HttpServer.create(new InetSocketAddress(0), 0);
         runtime.createContext("/a2a", exchange -> {
             forwardedBody.set(new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
             forwardedRuntime.set(exchange.getRequestHeaders().getFirst("X-Agent-Examples-Runtime-Instance"));
+            forwardedGrantId.set(exchange.getRequestHeaders().getFirst("X-Agent-Examples-Route-Grant-Id"));
             byte[] response = "{\"jsonrpc\":\"2.0\",\"id\":\"req-1\",\"result\":{\"ok\":true}}"
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
@@ -125,13 +200,96 @@ class RuntimeRegistryHttpE2eTest {
             assertThat(response.body().path("result").path("ok").asBoolean()).isTrue();
             assertThat(forwardedBody.get()).contains("\"method\":\"message/send\"");
             assertThat(forwardedRuntime.get()).isEqualTo("runtime-gateway-1");
+            assertThat(forwardedGrantId.get()).isNotBlank();
             assertThat(response.firstHeader("X-Agent-Examples-Runtime-Instance")).isEqualTo("runtime-gateway-1");
+            assertThat(response.firstHeader("X-Agent-Examples-Route-Grant-Id")).isEqualTo(forwardedGrantId.get());
             assertThat(response.firstHeader("X-Agent-Examples-Route-Resolve-Ms")).isNotBlank();
             assertThat(response.firstHeader("X-Agent-Examples-First-Byte-Ms")).isNotBlank();
-            assertThat(response.firstHeader("X-Agent-Examples-Forward-Ms")).isNotBlank();
+            assertThat(response.firstHeader("X-Agent-Examples-Forward-Start-Ms")).isNotBlank();
+            HttpJsonResponse telemetry = get("/v1/a2a-interactions?tenantId=" + tenant
+                    + "&correlationId=corr-gateway&limit=10");
+            assertThat(telemetry.status()).isEqualTo(HttpStatus.OK.value());
+            assertThat(telemetry.body()).hasSize(1);
+            assertThat(telemetry.body().get(0).path("grantId").asText()).isEqualTo(forwardedGrantId.get());
         } finally {
             runtime.stop(0);
         }
+    }
+
+    @Test
+    void httpFacadeIssuesValidRouteGrantAndRecordsA2aTelemetry() {
+        String tenant = "tenant-http-grant";
+        register(tenant, "runtime-target-1", "target-agent", "http://runtime-target-1.local/a2a");
+
+        HttpJsonResponse grantResponse = post(
+                "/v1/route-grants/resolve",
+                new ResolveGrantRequest(
+                        tenant,
+                        "source-agent",
+                        "target-agent",
+                        "message/stream",
+                        new RoutingContext("session-grant", "corr-grant", Map.of("reason", "east-west")),
+                        30,
+                        Map.of("client", "runtime-a")));
+
+        assertThat(grantResponse.status()).isEqualTo(HttpStatus.OK.value());
+        assertThat(grantResponse.body().path("grantId").asText()).isNotBlank();
+        assertThat(grantResponse.body().path("tenantId").asText()).isEqualTo(tenant);
+        assertThat(grantResponse.body().path("targetRuntimeId").path("value").asText()).isEqualTo("runtime-target-1");
+        assertThat(grantResponse.body().path("signature").asText()).isNotBlank();
+
+        HttpJsonResponse validationResponse = post(
+                "/v1/route-grants/validate",
+                Map.of(
+                        "grant", grantResponse.body(),
+                        "context", new InboundA2aContext(
+                                tenant,
+                                "source-agent",
+                                "target-agent",
+                                "message/stream")));
+
+        assertThat(validationResponse.status()).isEqualTo(HttpStatus.OK.value());
+        assertThat(validationResponse.body().path("accepted").asBoolean()).isTrue();
+
+        HttpJsonResponse recordResponse = post(
+                "/v1/a2a-interactions",
+                new AgentInteractionEvent(
+                        "event-grant-1",
+                        "A2A_CALL_FINISHED",
+                        Instant.parse("2026-06-05T00:00:00Z"),
+                        tenant,
+                        "runtime-source-1",
+                        "source-agent",
+                        "runtime-target-1",
+                        "target-agent",
+                        "session-grant",
+                        "task-grant",
+                        "corr-grant",
+                        "trace-grant",
+                        grantResponse.body().path("grantId").asText(),
+                        "message/stream",
+                        "OK",
+                        3,
+                        24,
+                        81,
+                        128,
+                        256,
+                        null,
+                        "sha256:sample",
+                        null,
+                        Map.of("sample", true)));
+        HttpJsonResponse queryResponse = get("/v1/a2a-interactions?tenantId=" + tenant + "&correlationId=corr-grant&limit=10");
+        HttpJsonResponse healthResponse = get("/v1/gateway-health");
+
+        assertThat(recordResponse.status()).isEqualTo(HttpStatus.OK.value());
+        assertThat(recordResponse.body().path("grantId").asText())
+                .isEqualTo(grantResponse.body().path("grantId").asText());
+        assertThat(queryResponse.status()).isEqualTo(HttpStatus.OK.value());
+        assertThat(queryResponse.body()).hasSize(1);
+        assertThat(queryResponse.body().get(0).path("eventType").asText()).isEqualTo("A2A_CALL_FINISHED");
+        assertThat(healthResponse.status()).isEqualTo(HttpStatus.OK.value());
+        assertThat(healthResponse.body().path("registeredRuntimeCount").asInt()).isGreaterThan(0);
+        assertThat(healthResponse.body().path("telemetryEventCount").asLong()).isGreaterThan(0);
     }
 
     private void register(String tenant, String runtimeId, String agentId, String endpoint) {

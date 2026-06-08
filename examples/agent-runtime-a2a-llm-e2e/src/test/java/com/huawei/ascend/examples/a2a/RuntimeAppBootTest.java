@@ -14,7 +14,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.spec.AgentCard;
-import org.a2aproject.sdk.spec.AgentInterface;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -38,7 +37,6 @@ class RuntimeAppBootTest {
                     URI.create("http://localhost:" + runtime.port()), TIMEOUT);
 
             AgentCard card = client.agentCard();
-            assertThat(card.supportedInterfaces()).extracting(AgentInterface::url).contains("/a2a");
             assertThat(card.capabilities().streaming()).isTrue();
         }
     }

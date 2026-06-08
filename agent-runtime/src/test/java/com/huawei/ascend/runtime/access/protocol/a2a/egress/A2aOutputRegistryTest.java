@@ -25,6 +25,17 @@ class A2aOutputRegistryTest {
     }
 
     @Test
+    void listPreservesTerminalOutputForReplayCompatibility() {
+        A2aOutputRegistry registry = new A2aOutputRegistry();
+        A2aOutputHandle handle = new A2aOutputHandle("tenant-1", "session-1", "task-1");
+        registry.append(handle, output("task-1", false));
+        registry.append(handle, output("task-1", true));
+
+        assertThat(registry.list(handle)).hasSize(2);
+        assertThat(registry.list(handle).get(1).terminal()).isTrue();
+    }
+
+    @Test
     void newSubscribersReplayOpenStreamOutputs() {
         A2aOutputRegistry registry = new A2aOutputRegistry();
         A2aOutputHandle handle = new A2aOutputHandle("tenant-1", "session-1", "task-1");
@@ -49,6 +60,43 @@ class A2aOutputRegistryTest {
 
         // Task-scoped handle: task-2's subscriber sees only task-2's output, unaffected by task-1's terminal.
         assertThat(replayed).extracting(A2aOutput::taskId).containsExactly("task-2");
+    }
+
+    @Test
+    void listAndSubscribeSeeSameTerminalReplayWhenBackedByOutputChannel() {
+        A2aOutputRegistry registry = new A2aOutputRegistry();
+        A2aOutputHandle handle = new A2aOutputHandle("tenant-1", "session-1", "task-1");
+        A2aOutput accepted = output("task-1", false);
+        A2aOutput terminal = output("task-1", true);
+
+        registry.append(handle, accepted);
+        registry.append(handle, terminal);
+
+        List<A2aOutput> listed = registry.list(handle);
+        List<A2aOutput> replayed = new ArrayList<>();
+        Runnable unsubscribe = registry.subscribe(handle, replayed::add);
+        unsubscribe.run();
+
+        assertThat(listed).containsExactly(accepted, terminal);
+        assertThat(replayed).containsExactly(accepted, terminal);
+    }
+
+    @Test
+    void postTerminalAppendDoesNotDivergeListAndReplay() {
+        A2aOutputRegistry registry = new A2aOutputRegistry();
+        A2aOutputHandle handle = new A2aOutputHandle("tenant-1", "session-1", "task-1");
+        A2aOutput terminal = output("task-1", true);
+        A2aOutput late = output("task-1", false);
+
+        registry.append(handle, terminal);
+        registry.append(handle, late);
+
+        List<A2aOutput> listed = registry.list(handle);
+        List<A2aOutput> replayed = new ArrayList<>();
+        registry.subscribe(handle, replayed::add);
+
+        assertThat(listed).containsExactly(terminal);
+        assertThat(replayed).containsExactly(terminal);
     }
 
     private static A2aOutput output(String taskId, boolean terminal) {

@@ -1,6 +1,6 @@
 package com.huawei.ascend.runtime.engine.model;
 
-import com.huawei.ascend.runtime.schema.Message;
+import com.huawei.ascend.runtime.common.Message;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;

@@ -16,7 +16,7 @@ import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputRegistry;
 import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aTaskMapper;
 import com.huawei.ascend.runtime.access.protocol.a2a.model.A2aAcceptedResponse;
 import com.huawei.ascend.runtime.access.protocol.a2a.model.A2aTaskQueryParams;
-import com.huawei.ascend.runtime.schema.AgentRequest;
+import com.huawei.ascend.runtime.common.AgentRequest;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -273,7 +273,7 @@ public final class A2aJsonRpcHandler {
                         properties.getDefaultAgentId(),
                         "A2A metadata.agentId"),
                 optionalSessionId(sessionId),
-                List.of(com.huawei.ascend.runtime.schema.Message.user(messageText(message))),
+                List.of(com.huawei.ascend.runtime.common.Message.user(messageText(message))),
                 text(metadata.get("idempotencyKey")),
                 requestMetadata);
     }

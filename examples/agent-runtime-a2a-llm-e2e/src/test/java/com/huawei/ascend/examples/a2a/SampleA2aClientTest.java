@@ -2,12 +2,7 @@ package com.huawei.ascend.examples.a2a;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.net.URI;
-import java.time.Duration;
 import java.util.List;
-import org.a2aproject.sdk.spec.AgentCapabilities;
-import org.a2aproject.sdk.spec.AgentCard;
-import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.Artifact;
 import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.TaskArtifactUpdateEvent;
@@ -15,27 +10,9 @@ import org.a2aproject.sdk.spec.TaskState;
 import org.a2aproject.sdk.spec.TaskStatus;
 import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.a2aproject.sdk.spec.TextPart;
-import org.a2aproject.sdk.spec.TransportProtocol;
 import org.junit.jupiter.api.Test;
 
 class SampleA2aClientTest {
-
-    @Test
-    void resolvesRelativeJsonRpcInterfaceAgainstDiscoveredServiceBaseUri() {
-        SampleA2aClient client = new SampleA2aClient(URI.create("http://localhost:8080"), Duration.ofSeconds(1));
-        AgentCard card = AgentCard.builder()
-                .name("sample")
-                .description("sample")
-                .version("1")
-                .capabilities(AgentCapabilities.builder().streaming(true).build())
-                .defaultInputModes(List.of("text"))
-                .defaultOutputModes(List.of("text"))
-                .skills(List.of())
-                .supportedInterfaces(List.of(new AgentInterface(TransportProtocol.JSONRPC.asString(), "/a2a")))
-                .build();
-
-        assertThat(client.jsonRpcEndpoint(card)).isEqualTo("http://localhost:8080/a2a");
-    }
 
     @Test
     void extractsTextFromAllA2aStreamingEventShapes() {

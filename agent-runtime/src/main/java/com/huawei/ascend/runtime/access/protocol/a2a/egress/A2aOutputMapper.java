@@ -2,6 +2,10 @@ package com.huawei.ascend.runtime.access.protocol.a2a.egress;
 
 import com.huawei.ascend.runtime.access.model.AgentNotification;
 import com.huawei.ascend.runtime.access.model.AgentNotification.RunError;
+import com.huawei.ascend.runtime.common.AgentResponseEvent;
+import com.huawei.ascend.runtime.common.ErrorInfo;
+import com.huawei.ascend.runtime.common.ResponseStatus;
+import com.huawei.ascend.runtime.common.ResponseType;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +47,60 @@ public final class A2aOutputMapper {
                 payload(notification),
                 notification.terminal(),
                 metadata);
+    }
+
+    public AgentResponseEvent toResponseEvent(AgentNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        String requestId = metadataValue(notification, "requestId", notification.taskId());
+        String userId = metadataValue(notification, "userId", "");
+        String agentId = metadataValue(notification, "agentId", "a2a");
+        if (notification.error() != null || notification.status() == com.huawei.ascend.runtime.common.RunStatus.FAILED
+                || notification.status() == com.huawei.ascend.runtime.common.RunStatus.REJECTED) {
+            RunError error = notification.error() == null
+                    ? new RunError(notification.status().wire(), outputText(notification))
+                    : notification.error();
+            return new AgentResponseEvent(
+                    requestId,
+                    1L,
+                    ResponseType.ERROR,
+                    notification.tenantId(),
+                    userId,
+                    agentId,
+                    notification.sessionId(),
+                    notification.taskId(),
+                    ResponseStatus.FAILED,
+                    "",
+                    new ErrorInfo(error.code(), error.message()),
+                    notification.metadata());
+        }
+        if (notification.terminal()) {
+            return new AgentResponseEvent(
+                    requestId,
+                    1L,
+                    ResponseType.FINAL,
+                    notification.tenantId(),
+                    userId,
+                    agentId,
+                    notification.sessionId(),
+                    notification.taskId(),
+                    responseStatus(notification),
+                    outputText(notification),
+                    null,
+                    notification.metadata());
+        }
+        return new AgentResponseEvent(
+                requestId,
+                1L,
+                ResponseType.DELTA,
+                notification.tenantId(),
+                userId,
+                agentId,
+                notification.sessionId(),
+                notification.taskId(),
+                ResponseStatus.RUNNING,
+                outputText(notification),
+                null,
+                notification.metadata());
     }
 
     private org.a2aproject.sdk.spec.StreamingEventKind toStreamingEvent(
@@ -103,7 +161,7 @@ public final class A2aOutputMapper {
             return "%s: %s".formatted(error.code(), error.message());
         }
         StringBuilder text = new StringBuilder();
-        for (com.huawei.ascend.runtime.schema.Message message : notification.output()) {
+        for (com.huawei.ascend.runtime.common.Message message : notification.output()) {
             text.append(message.text());
         }
         return text.toString();
@@ -115,6 +173,17 @@ public final class A2aOutputMapper {
             case FAILED, REJECTED -> TaskState.TASK_STATE_FAILED;
             case CANCELED -> TaskState.TASK_STATE_CANCELED;
             default -> notification.terminal() ? TaskState.TASK_STATE_COMPLETED : TaskState.TASK_STATE_WORKING;
+        };
+    }
+
+    private ResponseStatus responseStatus(AgentNotification notification) {
+        return switch (notification.status()) {
+            case CREATED, QUEUED -> ResponseStatus.ACCEPTED;
+            case IN_PROGRESS -> ResponseStatus.RUNNING;
+            case COMPLETED -> ResponseStatus.COMPLETED;
+            case INCOMPLETE -> ResponseStatus.INPUT_REQUIRED;
+            case CANCELED -> ResponseStatus.CANCELLED;
+            case FAILED, REJECTED, UNKNOWN -> ResponseStatus.FAILED;
         };
     }
 
@@ -135,5 +204,10 @@ public final class A2aOutputMapper {
 
     private String nullToId(String value) {
         return value == null || value.isBlank() ? UUID.randomUUID().toString() : value;
+    }
+
+    private String metadataValue(AgentNotification notification, String key, String fallback) {
+        Object value = notification.metadata().get(key);
+        return value == null || String.valueOf(value).isBlank() ? fallback : String.valueOf(value);
     }
 }

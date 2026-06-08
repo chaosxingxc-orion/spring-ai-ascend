@@ -6,6 +6,8 @@ import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -43,6 +45,29 @@ class RuntimeAppTest {
         assertThat(result).isSameAs(started);
         assertThat(result.port()).isEqualTo(4242);
         assertThat(seen.get().handler()).isSameAs(handler);
+    }
+
+    @Test
+    void localHostPortZeroOverridesConfiguredServerPort() throws IOException {
+        try (ServerSocket configuredPortSocket = new ServerSocket(0)) {
+            int configuredPort = configuredPortSocket.getLocalPort();
+            LocalA2aRuntimeHost host = new LocalA2aRuntimeHost(0,
+                    Map.of("server.port", configuredPort),
+                    "--spring.autoconfigure.exclude=" + testAutoConfigurationExcludes());
+
+            try (RunningRuntime runtime = RuntimeApp.create(new StubHandler()).run(host)) {
+                assertThat(runtime.port()).isPositive();
+                assertThat(runtime.port()).isNotEqualTo(configuredPort);
+            }
+        }
+    }
+
+    private static String testAutoConfigurationExcludes() {
+        return String.join(",",
+                "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
+                "org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration",
+                "org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration",
+                "io.github.resilience4j.springboot3.verifier.autoconfigure.SpringBoot3VerifierAutoConfiguration");
     }
 
     private static final class StubHandler implements AgentRuntimeHandler {

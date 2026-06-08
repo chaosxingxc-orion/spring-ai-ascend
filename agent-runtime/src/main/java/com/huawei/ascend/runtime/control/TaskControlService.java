@@ -7,8 +7,8 @@ import com.huawei.ascend.runtime.engine.api.EnqueueEngineResumeRequest;
 import com.huawei.ascend.runtime.engine.api.EnqueueEngineStatus;
 import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.model.EngineInput;
-import com.huawei.ascend.runtime.schema.AgentRequest;
-import com.huawei.ascend.runtime.schema.Message;
+import com.huawei.ascend.runtime.common.AgentRequest;
+import com.huawei.ascend.runtime.common.Message;
 import com.huawei.ascend.runtime.control.api.TaskControlApi;
 import com.huawei.ascend.runtime.queue.QueueManager;
 

@@ -1,6 +1,5 @@
 package com.huawei.ascend.runtime.app;
 
-import java.util.HashMap;
 import java.util.Map;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -21,9 +20,17 @@ import org.springframework.context.ConfigurableApplicationContext;
 public final class LocalA2aRuntimeHost implements RuntimeHost {
 
     private final int port;
+    private final Map<String, Object> defaultProperties;
+    private final String[] additionalArgs;
 
     private LocalA2aRuntimeHost(int port) {
+        this(port, Map.of());
+    }
+
+    LocalA2aRuntimeHost(int port, Map<String, Object> defaultProperties, String... additionalArgs) {
         this.port = port;
+        this.defaultProperties = defaultProperties == null ? Map.of() : Map.copyOf(defaultProperties);
+        this.additionalArgs = additionalArgs == null ? new String[0] : additionalArgs.clone();
     }
 
     /**
@@ -37,12 +44,13 @@ public final class LocalA2aRuntimeHost implements RuntimeHost {
     @Override
     public RunningRuntime start(RuntimeComponents components) {
         SpringApplication app = new SpringApplication(HostBoot.class);
-        Map<String, Object> properties = new HashMap<>();
-        properties.put("server.port", port);
-        app.setDefaultProperties(properties);
+        app.setDefaultProperties(defaultProperties);
         app.addInitializers(context -> context.getBeanFactory()
                 .registerSingleton("primaryAgentRuntimeHandler", components.handler()));
-        ConfigurableApplicationContext context = app.run();
+        String[] args = new String[additionalArgs.length + 1];
+        args[0] = "--server.port=" + port;
+        System.arraycopy(additionalArgs, 0, args, 1, additionalArgs.length);
+        ConfigurableApplicationContext context = app.run(args);
         int boundPort = ((WebServerApplicationContext) context).getWebServer().getPort();
         return new SpringRunningRuntime(context, boundPort);
     }

@@ -1,6 +1,5 @@
 package com.huawei.ascend.runtime.engine;
 
-import com.huawei.ascend.runtime.engine.event.EngineAgentCallEvent;
 import com.huawei.ascend.runtime.engine.event.EngineCancelledEvent;
 import com.huawei.ascend.runtime.engine.event.EngineCommandEvent;
 import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
@@ -166,9 +165,6 @@ public class EngineDispatcher {
             taskControlClient.markFailed(scope, e);
         } else if (event instanceof EngineCancelledEvent e) {
             taskControlClient.markCancelled(scope, e);
-        } else if (event instanceof EngineAgentCallEvent) {
-            // Agent-to-agent routing is handled from Phase 3 onward.
-            throw new UnsupportedOperationException("EngineAgentCallEvent routing not implemented in Phase 1");
         }
     }
 

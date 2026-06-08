@@ -2,9 +2,9 @@ package com.huawei.ascend.runtime.access.core;
 
 import com.huawei.ascend.runtime.access.model.AccessAcceptedResponse;
 import com.huawei.ascend.runtime.access.model.AccessCancelCommand;
-import com.huawei.ascend.runtime.schema.AgentRequest;
-import com.huawei.ascend.runtime.schema.Message;
-import com.huawei.ascend.runtime.schema.Role;
+import com.huawei.ascend.runtime.common.AgentRequest;
+import com.huawei.ascend.runtime.common.Message;
+import com.huawei.ascend.runtime.common.Role;
 import com.huawei.ascend.runtime.session.api.SessionManager;
 import com.huawei.ascend.runtime.session.model.Session;
 import com.huawei.ascend.runtime.control.api.TaskControlApi;

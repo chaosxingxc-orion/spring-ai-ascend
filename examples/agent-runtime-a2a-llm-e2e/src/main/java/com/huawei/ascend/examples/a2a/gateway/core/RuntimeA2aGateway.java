@@ -3,6 +3,7 @@ package com.huawei.ascend.examples.a2a.gateway.core;
 import com.huawei.ascend.examples.a2a.gateway.api.AgentDiscoveryApi;
 import com.huawei.ascend.examples.a2a.gateway.model.A2aGatewayForwardException;
 import com.huawei.ascend.examples.a2a.gateway.model.A2aGatewayResponse;
+import com.huawei.ascend.examples.a2a.gateway.model.A2aGatewayStreamResponse;
 import com.huawei.ascend.examples.a2a.gateway.model.RoutingContext;
 import com.huawei.ascend.examples.a2a.gateway.model.RuntimeRoute;
 import java.io.IOException;
@@ -77,6 +78,38 @@ public final class RuntimeA2aGateway {
                     forwardLatency,
                     route.runtimeInstanceId().value(),
                     responseBody);
+        } catch (IOException ex) {
+            throw new A2aGatewayForwardException("Failed to forward A2A request to " + route.a2aEndpoint(), ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new A2aGatewayForwardException("Interrupted while forwarding A2A request to " + route.a2aEndpoint(), ex);
+        }
+    }
+
+    public A2aGatewayStreamResponse forwardStreaming(
+            String agentId,
+            String tenantId,
+            RoutingContext routingContext,
+            byte[] body,
+            Map<String, List<String>> requestHeaders) {
+        Instant routeStart = Instant.now();
+        RuntimeRoute route = discoveryApi.resolveRoute(
+                agentId,
+                tenantId,
+                routingContext == null ? RoutingContext.empty() : routingContext);
+        Duration routeResolveLatency = Duration.between(routeStart, Instant.now());
+        HttpRequest request = buildForwardRequest(route, body, requestHeaders);
+        try {
+            Instant forwardStart = Instant.now();
+            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            Duration firstByteLatency = Duration.between(forwardStart, Instant.now());
+            return new A2aGatewayStreamResponse(
+                    response.statusCode(),
+                    response.headers().firstValue("content-type").orElse("application/json"),
+                    routeResolveLatency,
+                    firstByteLatency,
+                    route.runtimeInstanceId().value(),
+                    response.body());
         } catch (IOException ex) {
             throw new A2aGatewayForwardException("Failed to forward A2A request to " + route.a2aEndpoint(), ex);
         } catch (InterruptedException ex) {

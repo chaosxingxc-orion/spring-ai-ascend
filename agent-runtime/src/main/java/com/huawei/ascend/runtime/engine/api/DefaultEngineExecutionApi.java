@@ -7,10 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Default {@link EngineExecutionApi}: the inbound entry point for
- * task-centric-control. Each call builds a command event and publishes it onto
- * the engine queue, returning only the enqueue outcome — real execution status
- * is written back later through {@code TaskControlClient} (design §4, §7).
+ * Default engine dispatch API that publishes execution commands onto the engine
+ * command gateway.
  */
 public class DefaultEngineExecutionApi implements EngineExecutionApi {
 

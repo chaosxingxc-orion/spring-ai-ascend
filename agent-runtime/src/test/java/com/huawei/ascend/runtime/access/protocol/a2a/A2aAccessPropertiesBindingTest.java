@@ -17,12 +17,14 @@ class A2aAccessPropertiesBindingTest {
         contextRunner
                 .withPropertyValues(
                         "agent-runtime.access.a2a.default-tenant-id=tenant-from-runtime-prefix",
-                        "agent-runtime.access.a2a.default-agent-id=agent-from-runtime-prefix")
+                        "agent-runtime.access.a2a.default-agent-id=agent-from-runtime-prefix",
+                        "agent-runtime.access.a2a.public-base-url=https://agents.example.com/runtime-one")
                 .run(context -> {
                     A2aAccessProperties properties = context.getBean(A2aAccessProperties.class);
 
                     assertThat(properties.getDefaultTenantId()).isEqualTo("tenant-from-runtime-prefix");
                     assertThat(properties.getDefaultAgentId()).isEqualTo("agent-from-runtime-prefix");
+                    assertThat(properties.getPublicBaseUrl()).isEqualTo("https://agents.example.com/runtime-one");
                 });
     }
 

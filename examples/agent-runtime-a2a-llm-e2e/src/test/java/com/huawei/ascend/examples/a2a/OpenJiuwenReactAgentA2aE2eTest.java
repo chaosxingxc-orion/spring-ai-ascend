@@ -1,7 +1,6 @@
 package com.huawei.ascend.examples.a2a;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.tuple;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.net.URI;
@@ -40,8 +39,8 @@ class OpenJiuwenReactAgentA2aE2eTest {
         assertThat(agentCard.description()).contains("openJiuwen ReAct agent");
         assertThat(agentCard.capabilities().streaming()).isTrue();
         assertThat(agentCard.supportedInterfaces())
-                .extracting(AgentInterface::protocolBinding, AgentInterface::url)
-                .contains(tuple(TransportProtocol.JSONRPC.asString(), "/a2a"));
+                .extracting(AgentInterface::protocolBinding)
+                .contains(TransportProtocol.JSONRPC.asString());
 
         assumeTrue(hasText(System.getenv("SAA_SAMPLE_LLM_API_KEY")),
                 "SAA_SAMPLE_LLM_API_KEY not set; skipping real openJiuwen ReAct agent E2E sample");

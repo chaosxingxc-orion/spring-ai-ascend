@@ -11,8 +11,8 @@ import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
 import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.model.EngineOutput;
 import com.huawei.ascend.runtime.engine.port.AccessLayerClient;
-import com.huawei.ascend.runtime.schema.Message;
-import com.huawei.ascend.runtime.schema.RunStatus;
+import com.huawei.ascend.runtime.common.Message;
+import com.huawei.ascend.runtime.common.RunStatus;
 
 import java.util.List;
 import java.util.Map;

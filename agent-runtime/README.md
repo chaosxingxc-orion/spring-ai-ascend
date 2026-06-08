@@ -72,6 +72,12 @@ Current built-in properties are:
 
 - `agent-runtime.access.a2a.default-tenant-id`
 - `agent-runtime.access.a2a.default-agent-id`
+- `agent-runtime.access.a2a.public-base-url`
+
+`public-base-url` is the externally reachable runtime base URL used when
+publishing absolute A2A endpoint URLs in `/.well-known/agent-card.json`. If it is
+blank, the discovery controller derives a local base URL from the current HTTP
+request.
 
 The local example sets:
 
@@ -81,6 +87,7 @@ agent-runtime:
     a2a:
       default-tenant-id: sample-tenant
       default-agent-id: openjiuwen-react-agent
+      # public-base-url: https://agents.example.com/runtime-one
 ```
 
 ## Exposed A2A endpoints
@@ -141,7 +148,7 @@ Useful starting points in this module include:
 Important Java extension points and related types include:
 
 - `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` — framework-neutral runtime SPI for running an agent inside `agent-runtime` (with `StreamAdapter` + base `AbstractAgentRuntimeHandler`)
-- `com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler` — built-in `AgentRuntimeHandler` implementation used by the local OpenJiuwen example path
+- `com.huawei.ascend.runtime.engine.adapters.openjiuwen.OpenJiuwenAgentRuntimeHandler` — built-in `AgentRuntimeHandler` implementation used by the local OpenJiuwen example path
 - `org.a2aproject.sdk.spec.AgentCard` — A2A agent-card model exposed by the runtime discovery endpoint
 
 The example application shows the intended consumer shape from outside the module:

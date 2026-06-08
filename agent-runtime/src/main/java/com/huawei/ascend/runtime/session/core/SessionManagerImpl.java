@@ -1,6 +1,6 @@
 package com.huawei.ascend.runtime.session.core;
 
-import com.huawei.ascend.runtime.schema.Message;
+import com.huawei.ascend.runtime.common.Message;
 import com.huawei.ascend.runtime.session.api.SessionManager;
 import com.huawei.ascend.runtime.session.model.Session;
 import com.huawei.ascend.runtime.session.model.SessionKey;
