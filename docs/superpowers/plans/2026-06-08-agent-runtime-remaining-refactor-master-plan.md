@@ -65,7 +65,7 @@ Do not remove these mechanically. Remove only when the behavior has been moved a
 | 3 | Add strong control output sink boundary, keeping control as sole fan-out authority | `refactor(runtime): make control output fanout explicit` | Medium-high |
 | 4 | Stabilize session as `RuntimeSession` without broad persistence rewrite | `refactor(runtime): introduce runtime session model` | Medium |
 | 5 | Normalize engine request/callback names without changing execution behavior | `refactor(runtime): normalize engine command API names` | Medium |
-| 6 | Add engine service/provider skeletons only where used by adapter tests | `feat(runtime): add engine service provider seams` | Medium |
+| 6 | Add engine provider seams only where used by adapter tests | `feat(runtime): add engine provider seams` | Medium |
 | 7 | Improve openJiuwen adapter terminal release and streaming coverage | `fix(runtime): harden openJiuwen adapter lifecycle` | Medium |
 | 8 | Reduce package clutter and stale comments after behavior is stable | `refactor(runtime): flatten stable runtime packages` | Medium |
 | 9 | Decide schema/common migration with updated import count | `refactor(runtime): migrate schema primitives when localized` | High; do only if count is low |
@@ -466,31 +466,36 @@ git commit -m "refactor(runtime): normalize engine command API names"
 
 ---
 
-# Phase 6: Add Engine Service/Provider Seams
+# Phase 6: Add Engine Provider Seams
 
-**Goal:** Add minimal service/provider extension seams needed for future tool/memory/state/sandbox integration, without implementing full integrations prematurely.
+**Goal:** Add minimal provider extension seams needed for future tool/memory/state/sandbox integration, without introducing a separate `service` concept. If a capability is implemented, express it as a provider implementation.
 
 **Files:**
-- Create under `agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/service/`:
-  - `ToolService.java`
-  - `MemoryService.java`
-  - `StateService.java`
-  - `SandboxService.java`
-  - `AgentSessionHistoryService.java`
-- Create under `agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/spi/`:
+- Create under `agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/provider/`:
   - `ToolProvider.java`
   - `McpToolProvider.java`
   - `MemoryProvider.java`
   - `StateProvider.java`
   - `SandboxProvider.java`
-- Tests under `agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/service/`.
+  - `AgentSessionHistoryProvider.java`
+  - `InMemoryToolProviderRegistry.java` if a registry is needed by tests
+- Tests under `agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/provider/`.
 
 ## Design
 
-Keep skeletons useful but tiny. Example:
+Keep provider seams useful but tiny. Do not create `engine/service`. Example:
 
 ```java
-public final class ToolService {
+public interface ToolProvider {
+    String name();
+    ToolResult invoke(ToolInvocation invocation);
+}
+```
+
+If registry behavior is needed, name it as provider infrastructure, not service:
+
+```java
+public final class InMemoryToolProviderRegistry {
     private final Map<String, ToolProvider> providers = new ConcurrentHashMap<>();
     public void register(ToolProvider provider) { ... }
     public Optional<ToolProvider> find(String name) { ... }
@@ -501,22 +506,21 @@ Do not connect to openJiuwen tools yet unless a test requires it.
 
 ## Steps
 
-- [ ] Add tests for ToolService register/find and duplicate replacement/rejection.
-- [ ] Implement minimal provider interfaces and services.
-- [ ] Add these services to `AgentExecutionContext` only if needed by adapter tests. If adding to context causes wide churn, stop and split a new phase.
+- [ ] Add tests for provider registry register/find and duplicate replacement/rejection.
+- [ ] Implement minimal provider interfaces and provider registry implementation.
+- [ ] Add provider registry to `AgentExecutionContext` only if needed by adapter tests. If adding to context causes wide churn, stop and split a new phase.
 - [ ] Run:
 
 ```bash
-mvn -pl agent-runtime -Dtest='*ToolService*Test,*MemoryService*Test,*StateService*Test,*SandboxService*Test' test
+mvn -pl agent-runtime -Dtest='*Provider*Test,*ProviderRegistry*Test' test
 ```
 
 - [ ] Commit:
 
 ```bash
-git add agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/service \
-        agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/spi \
-        agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/service
-git commit -m "feat(runtime): add engine service provider seams"
+git add agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/provider \
+        agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/provider
+git commit -m "feat(runtime): add engine provider seams"
 ```
 
 ---
@@ -713,7 +717,7 @@ Next: <exact phase and expected commit>
 - A2A output replacement is planned first because coupling is localized.
 - `AgentResponseEvent` integration is planned before schema migration.
 - Control authority remains explicit.
-- Session, engine, services, adapter lifecycle, package cleanup, and schema migration are all covered.
+- Session, engine providers, adapter lifecycle, package cleanup, and schema migration are all covered.
 - Multiple local commits are built into each phase.
 
 ### Placeholder Scan
