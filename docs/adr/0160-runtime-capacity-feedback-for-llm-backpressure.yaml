@@ -1,0 +1,267 @@
+id: ADR-0160
+title: "Gateway facade route grants, runtime discovery scale, and LLM backpressure-aware Service routing"
+status: proposed
+product_claim: "PC-004"
+date: 2026-06-08
+level: L1
+view: logical
+affects_level: L1
+affects_view: [logical, development, process, physical]
+authors:
+  - EuphoriaYan
+  - Codex
+extends:
+  - ADR-0016    # A2A federation: AgentCard / registry / route surfaces
+  - ADR-0155    # agent-service L1 v1.2: internal module boundaries
+  - ADR-0158    # EnginePort / Service-Engine boundary neutrality
+relates_to:
+  - ADR-0052    # skill topology scheduler and capability bidding
+  - ADR-0061    # telemetry / observability lineage
+  - ADR-0074    # suspend-over-boundary callback pattern
+context: |
+  Recent agent-runtime and agent-examples work established a Gateway facade
+  sample that can register single-agent runtime instances, resolve routes by
+  tenant / agent, issue short-lived RouteGrants, forward A2A requests, stream
+  responses, and record telemetry.
+
+  The next architectural question is Service-level scheduling under LLM pressure.
+  The execution engine and AgentHandler own the actual model call, currently
+  inside the runtime / examples path. However, the Service / Gateway facade is
+  expected to govern routing and admission. Without a pressure signal crossing
+  the runtime boundary, Service can only observe coarse end-to-end failures and
+  cannot slow or reroute before user-facing latency degrades.
+
+  The design must avoid two failure modes:
+
+    1. Service directly invoking or inspecting LLM providers. That would couple
+       Service to OpenJiuwen / Spring AI / AgentScope / vendor SDK details and
+       violate the runtime boundary.
+    2. Engine hiding all LLM pressure. That leaves Service unable to make
+       routing, fail-fast, or admission decisions based on first-token latency,
+       provider 429s, model queue depth, or runtime saturation.
+
+  The same feedback model also has to cover A2A gateway decisions from the recent
+  agent-examples work:
+
+    * A2A northbound users should enter through a Gateway facade / examples
+      layer when a customer chooses to use the sample platform front door.
+    * East-west runtime-to-runtime calls should not force every payload through
+      the examples layer. Runtime-A asks the facade for discovery / RouteGrant,
+      then calls Runtime-B directly with signed grant and trace headers.
+    * Runtime-to-runtime telemetry is asynchronous and best effort; it must not
+      block the A2A data path.
+    * Runtime registration and route lookup must eventually handle tens of
+      thousands of runtime instances, many agents, and potentially millions of
+      tenants. A naive full tenant x agent x runtime permission table is not an
+      acceptable target architecture.
+
+  This problem is a composition of established patterns:
+
+    * Backpressure: downstream model pressure is fed upstream before overload
+      becomes unbounded queue growth.
+    * Admission Control: runtime and Service decide whether new work may enter.
+    * Circuit Breaker / Load Shedding: saturated or degraded runtime replicas are
+      removed from normal routing or fail fast with retry metadata.
+    * Bulkhead: runtime-local LLM concurrency is bounded so one tenant / model
+      path cannot consume all execution capacity.
+    * Health-aware Routing: Service selects runtime replicas using state and SLA
+      snapshots, not only reachability.
+    * Feedback Control Loop: runtime observes execution pressure, summarizes it
+      as capacity state, and Service adjusts routing / admission.
+    * Capability Token / Delegation Grant: RouteGrant is a short-lived,
+      tenant-scoped authorization token for runtime-to-runtime A2A calls.
+    * Service Registry / Discovery Cache: the facade owns the route view, while
+      runtimes may cache bounded, scoped grants and endpoints for availability.
+decision: |
+  Service MUST NOT directly own or call LLM providers as a scheduling shortcut.
+  Runtime remains the owner of model invocation and model-specific adapters.
+
+  The examples module is the first Gateway facade sample, not the production
+  Service runtime. It demonstrates the customer-replaceable front door:
+
+    * single-agent runtime instances register AgentCard, A2A endpoint, health,
+      lease, and capacity state;
+    * facade resolves tenant-scoped agent routes;
+    * facade may forward northbound A2A traffic for customers that want a
+      reference gateway;
+    * facade issues RouteGrant for east-west runtime-to-runtime A2A calls;
+    * source and target runtimes report asynchronous interaction telemetry.
+
+  Agent-examples MUST remain a sample / reference layer. It MUST NOT become the
+  mandatory east-west payload broker for all runtime-to-runtime calls.
+
+  RouteGrant is the default A2A delegation primitive:
+
+    RouteGrant
+      - grantId
+      - tenantId
+      - sourceAgentId
+      - targetAgentId
+      - targetRuntimeId
+      - a2aMethod
+      - expiresAt
+      - policyVersion
+      - signature
+
+  Runtime caches RouteGrant entries, not a full authorization matrix. Cache
+  entries are bounded by TTL, tenant, source agent, target agent, target runtime,
+  method, policy version, and capacity of the local cache. Endpoint visibility is
+  not sufficient authorization; target runtime MUST validate RouteGrant and fail
+  closed when grant validation fails.
+
+  Runtime MUST expose LLM pressure as an abstract capacity signal consumable by
+  Service / Gateway facade. The canonical shape is a RuntimeCapacitySnapshot,
+  carried through runtime lease renewal and optionally mirrored in request-level
+  telemetry:
+
+    RuntimeCapacitySnapshot
+      - runtimeInstanceId
+      - tenantId
+      - agentId
+      - state: READY | COLD | AT_CAPACITY | DRAINING | UNREACHABLE
+      - runningTasks / queuedTasks / maxConcurrentTasks
+      - llmInFlight / llmQueueDepth / llmMaxConcurrency
+      - p50FirstTokenMs / p95FirstTokenMs / p99FirstTokenMs
+      - recent429Count / recentTimeoutCount
+      - estimatedLoad
+      - observedAt
+
+  Runtime owns the measurement boundary:
+
+    AgentHandler -> model / LLM client
+      -> acquire local LLM admission permit
+      -> record queue wait
+      -> invoke model stream
+      -> record first-token latency
+      -> record completion / failure / 429 / timeout
+      -> update RuntimeCapacitySnapshot
+
+  Service owns the scheduling boundary:
+
+    RuntimeCapacitySnapshot / RuntimeLeaseRenewal
+      -> registry route view
+      -> route selection / fail fast / optional admission delay
+      -> user-facing A2A / gateway response
+
+  The scalable registry target is an indexed route view, not a linear scan:
+
+    tenantId
+      -> agentId
+        -> runtime replica set
+          -> runtime state / capacity / endpoint / version / lease
+
+  The first examples implementation may stay in-memory and simple, but the
+  production target MUST support:
+
+    * sharded registry storage or external discovery backend;
+    * delta discovery / etag / registry version for runtime-local cache refresh;
+    * bounded list APIs with limit / cursor;
+    * route selection by indexed tenantId + agentId;
+    * capacity-aware replica selection;
+    * asynchronous telemetry ingestion with bounded buffers;
+    * explicit fail-closed behavior for tenant mismatch, route grant mismatch,
+      missing agent, expired grant, unreachable runtime, and saturated runtime.
+
+  First implementation wave:
+
+    1. Runtime reports capacity through existing lease renewal / health state.
+       Existing RuntimeState.AT_CAPACITY is the minimum routing signal.
+    2. Service / Gateway facade filters AT_CAPACITY, COLD, DRAINING, and
+       UNREACHABLE runtime replicas from normal routing.
+    3. If all replicas are saturated, Service returns a clear
+       RUNTIME_AT_CAPACITY / retry-after style response instead of queueing
+       indefinitely.
+    4. Request-level telemetry records routeResolveMs, runtimeAdmissionMs when
+       available, llmFirstTokenMs when available, firstByteMs, totalMs, selected
+       runtime, and failure class.
+    5. Gateway facade northbound forwarding issues a short-lived RouteGrant and
+       passes grant id / signature / source agent / tenant headers downstream.
+    6. Telemetry list endpoints are bounded by a caller-visible limit.
+    7. Health endpoints expose minimal runtime counts and telemetry counters.
+
+  Later implementation waves MAY add:
+
+    * weighted routing by estimatedLoad / p95FirstTokenMs;
+    * half-open circuit-breaker recovery;
+    * tenant-scoped concurrency quotas;
+    * Service-side short admission queues with strict timeout budgets;
+    * provider fallback and model-pool selection;
+    * persisted capacity history for SLO / error-budget reporting.
+    * delta discovery and revoke / policyVersion propagation;
+    * indexed registry backend for 20k+ runtime and large tenant cardinality;
+    * tenant-agent authorization policy before RouteGrant issuance.
+
+  The queue/event-flow model remains unified: LLM pressure is represented as
+  capacity state and telemetry events within the same runtime-to-Service
+  interaction flow. It is not modelled as a separate synchronized control queue
+  and data queue.
+consequences: |
+  Positive
+  --------
+    * Service can make routing decisions based on model pressure without
+      depending on vendor-specific LLM APIs.
+    * Runtime keeps model invocation ownership and can support OpenJiuwen,
+      AgentScope, Spring AI, or future adapters behind one capacity vocabulary.
+    * Backpressure becomes proactive: Service can avoid saturated replicas before
+      the user observes long first-token latency.
+    * Existing examples/Gateway facade work can evolve incrementally because it
+      already has RuntimeState, lease renewal, SlaSnapshot, route resolution,
+      streaming telemetry, and clear error codes.
+
+  Negative / cost
+  ---------------
+    * Runtime implementers must instrument the LLM boundary. A runtime that does
+      not report capacity can only be routed by coarse health state.
+    * Capacity snapshots are eventually consistent. Service decisions may lag
+      sudden provider saturation unless request-level telemetry and lease
+      refresh cadence are tuned.
+    * Provider pressure semantics differ. 429, timeout, and first-token latency
+      must be normalized carefully to avoid treating all provider failures as
+      capacity failures.
+    * Service-side queuing remains deferred. Customers needing "never fail, wait"
+      semantics require a later admission queue design with cancellation,
+      idempotency, and timeout-budget handling.
+    * RouteGrant TTL is a trade-off. Longer TTL improves resilience during
+      facade outages but increases revocation delay; shorter TTL improves
+      security but increases dependency on facade availability.
+    * Large tenant / runtime cardinality makes full scans and full cache fan-out
+      unacceptable beyond the sample. The production route view requires
+      indexing, sharding, delta sync, and bounded APIs.
+    * Examples cannot honestly claim five-nines availability. It can only provide
+      a five-nines-friendly skeleton: leases, fail-closed routing, health,
+      telemetry, bounded reads, and clear deferred production requirements.
+
+  Rejected alternatives
+  ---------------------
+    * Service calls LLM directly: rejected because it violates runtime ownership
+      and couples Service to model providers.
+    * Service subscribes to engine-private internals: rejected because it creates
+      a fragile cross-module dependency. Runtime must summarize pressure through
+      a stable capacity contract.
+    * Unlimited Service queueing: rejected for the first wave because it hides
+      overload, consumes connection resources, and complicates cancellation.
+    * Runtime caches every endpoint for every tenant / agent: rejected because
+      it becomes too large at million-tenant and ten-thousand-agent scale and can
+      bypass tenant authorization.
+    * Every runtime-to-runtime A2A call synchronously asks examples for route
+      permission: rejected because examples becomes a hard east-west hot-path
+      dependency and hurts availability.
+    * Endpoint discovery as authorization: rejected because knowing a runtime
+      endpoint must not imply permission to call it.
+verification: |
+  Design verification for the first implementation wave:
+
+    * Unit tests: capacity snapshot state mapping from in-flight / queue depth /
+      recent errors to RuntimeState.
+    * Gateway tests: AT_CAPACITY runtime replicas are not selected; all-saturated
+      routes fail with RUNTIME_AT_CAPACITY and retry metadata.
+    * E2E smoke: streaming request records first-byte and total latency; when the
+      runtime reports AT_CAPACITY, the next route does not select it.
+    * Observability: telemetry includes enough stage data to separate Service
+      routing time, runtime admission time, and LLM first-token time.
+    * RouteGrant tests: valid grants pass; tenant / source / target / method /
+      expiration / signature mismatches fail closed.
+    * Scale-oriented contract tests: list and telemetry APIs enforce limit;
+      route lookup uses tenantId + agentId as the logical key; future registry
+      backends can replace the in-memory examples implementation without changing
+      the facade API shape.
