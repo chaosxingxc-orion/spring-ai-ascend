@@ -9,10 +9,10 @@ import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.model.EngineInput;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.io.ByteArrayOutputStream;
+import java.net.Authenticator;
 import java.net.CookieHandler;
 import java.net.ProxySelector;
 import java.net.URI;
-import java.net.Authenticator;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
@@ -72,6 +72,11 @@ class AgentScopeRuntimeClientHandlerTest {
     private static final class CapturingHttpClient extends HttpClient {
         private HttpRequest request;
         private String body;
+
+        @Override
+        public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
+            return sendAsync(request, responseBodyHandler).join();
+        }
 
         @Override
         public <T> CompletableFuture<HttpResponse<T>> sendAsync(
