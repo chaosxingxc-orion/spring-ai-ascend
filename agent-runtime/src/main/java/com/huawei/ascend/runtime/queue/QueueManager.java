@@ -1,5 +1,6 @@
 package com.huawei.ascend.runtime.queue;
 
+import com.huawei.ascend.runtime.common.Guards;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -17,7 +18,7 @@ public class QueueManager {
 
     public <T> InternalEventQueue<T> getOrCreate(String queueId, Class<T> payloadType) {
         Objects.requireNonNull(payloadType, "payloadType");
-        QueueEntry<?> entry = queuesById.compute(requireNonBlank(queueId, "queueId"), (id, existing) -> {
+        QueueEntry<?> entry = queuesById.compute(Guards.requireNonBlank(queueId, "queueId"), (id, existing) -> {
             if (existing == null) {
                 LOGGER.info("queue create queueId={} payloadType={}", id, payloadType.getSimpleName());
                 return new QueueEntry<>(payloadType, new InMemoryInternalEventQueue<>(id));
@@ -67,12 +68,4 @@ public class QueueManager {
 
     private record QueueEntry<T>(Class<T> payloadType, InternalEventQueue<T> queue) {
     };
-
-    private static String requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
-    }
 }

@@ -4,17 +4,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import com.huawei.ascend.runtime.engine.event.EngineCommandEvent;
-import com.huawei.ascend.runtime.engine.event.EngineCompletedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineFailedEvent;
-import com.huawei.ascend.runtime.engine.event.EngineOutputEvent;
-import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.EngineInput;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
-import com.huawei.ascend.runtime.engine.port.TaskControlClient;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +37,7 @@ class EngineDispatcherTest {
         // Single outbound write: the engine reports only to the control port; egress is the
         // control plane's responsibility, so the engine never writes output directly.
         verify(task).markRunning(scope());
-        verify(task).markSucceeded(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineCompletedEvent.class));
+        verify(task).markSucceeded(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineEvent.class));
     }
 
     @Test
@@ -60,8 +52,8 @@ class EngineDispatcherTest {
         dispatcher.dispatch(cmd());
 
         verify(task).markRunning(scope());
-        verify(task).appendOutput(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineOutputEvent.class));
-        verify(task).markFailed(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineFailedEvent.class));
+        verify(task).appendOutput(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineEvent.class));
+        verify(task).markFailed(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineEvent.class));
     }
 
     @Test

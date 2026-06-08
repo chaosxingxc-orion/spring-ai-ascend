@@ -1,5 +1,8 @@
 package com.huawei.ascend.runtime.queue;
 
+import com.huawei.ascend.runtime.common.Guards;
+import com.huawei.ascend.runtime.common.Timing;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
@@ -25,7 +28,7 @@ public final class InMemoryInternalEventQueue<T> implements InternalEventQueue<T
     private final AtomicBoolean closed = new AtomicBoolean();
 
     InMemoryInternalEventQueue(String queueId) {
-        this.queueId = requireNonBlank(queueId, "queueId");
+        this.queueId = Guards.requireNonBlank(queueId, "queueId");
         this.sink = Sinks.many().unicast().onBackpressureBuffer();
     }
 
@@ -58,7 +61,7 @@ public final class InMemoryInternalEventQueue<T> implements InternalEventQueue<T
         }
         if (result == Sinks.EmitResult.OK) {
             LOGGER.debug("trace stage=queue-offer queueId={} payloadType={} size={} durationMs={}",
-                    queueId, value.getClass().getSimpleName(), size.get(), elapsedMs(startedNanos));
+                    queueId, value.getClass().getSimpleName(), size.get(), Timing.elapsedMs(startedNanos));
             return;
         }
         size.decrementAndGet();
@@ -106,17 +109,5 @@ public final class InMemoryInternalEventQueue<T> implements InternalEventQueue<T
             }
             LOGGER.info("queue closed queueId={}", queueId);
         }
-    }
-
-    private static String requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
-    }
-
-    private static long elapsedMs(long startedNanos) {
-        return (System.nanoTime() - startedNanos) / 1_000_000L;
     }
 }

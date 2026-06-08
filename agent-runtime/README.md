@@ -142,8 +142,8 @@ The main Java-level integration pattern is:
 Useful starting points in this module include:
 
 - `com.huawei.ascend.runtime.app.RuntimeApp` / `com.huawei.ascend.runtime.app.LocalA2aRuntimeHost`
-- `com.huawei.ascend.runtime.access.protocol.a2a.A2aAccessProperties`
-- `com.huawei.ascend.runtime.access.config.AccessLayerConfiguration`
+- `com.huawei.ascend.runtime.access.a2a.A2aAccessProperties`
+- `com.huawei.ascend.runtime.access.AccessLayerConfiguration`
 
 Important Java extension points and related types include:
 

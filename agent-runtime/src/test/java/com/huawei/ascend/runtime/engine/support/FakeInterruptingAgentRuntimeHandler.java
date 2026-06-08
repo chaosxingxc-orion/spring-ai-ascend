@@ -1,7 +1,7 @@
 package com.huawei.ascend.runtime.engine.support;
 
-import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.model.InterruptType;
+import com.huawei.ascend.runtime.engine.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.InterruptType;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;

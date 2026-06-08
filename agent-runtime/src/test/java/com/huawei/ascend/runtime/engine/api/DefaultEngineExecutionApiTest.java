@@ -2,11 +2,11 @@ package com.huawei.ascend.runtime.engine.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.huawei.ascend.runtime.engine.command.EngineCommandEventFactory;
-import com.huawei.ascend.runtime.engine.command.EngineCommandGateway;
-import com.huawei.ascend.runtime.engine.event.EngineCommandEvent;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.EngineInput;
+import com.huawei.ascend.runtime.engine.EngineCommandEventFactory;
+import com.huawei.ascend.runtime.engine.EngineCommandGateway;
+import com.huawei.ascend.runtime.engine.EngineCommandEvent;
+import com.huawei.ascend.runtime.engine.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.EngineInput;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

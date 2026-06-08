@@ -1,7 +1,7 @@
 package com.huawei.ascend.runtime.engine.api;
 
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.EngineInput;
+import com.huawei.ascend.runtime.engine.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.EngineInput;
 
 import java.util.Objects;
 
@@ -19,7 +19,7 @@ import java.util.Objects;
  *   <li>External caller does not pass underlying execution framework type.</li>
  *   <li>External caller does not pass openJiuwen internal execution mode.</li>
  *   <li>{@code scope.agentId} must match a registered value in AgentRuntimeHandlerRegistry.</li>
- *   <li>If {@code agentId} is not found, EngineDispatcher generates EngineFailedEvent
+ *   <li>If {@code agentId} is not found, EngineDispatcher reports a FAILED EngineEvent
  *       and writes back to task-centric-control.</li>
  * </ul>
  *

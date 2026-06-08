@@ -78,8 +78,14 @@ shows the minimum DFX shape expected from a customer-facing platform facade:
 - expired leases are marked `UNREACHABLE` and are no longer routable
 - cold, draining, unreachable, and at-capacity runtimes fail closed with clear
   error codes
+- runtime lease renewals can carry a `RuntimeCapacitySnapshot`; `READY`
+  runtimes whose task or LLM capacity is full are treated as `AT_CAPACITY` for
+  route selection
 - multiple runtime replicas are resolved through the same route view, and only
-  `READY` replicas can receive new traffic
+  healthy low-pressure `READY` replicas receive new traffic first
+- current routing is replica selection only: the sample does not create, stop,
+  scale out, or scale in runtime instances, and it does not implement a K8S HPA
+  or autoscaler control loop
 - the A2A forwarding endpoint returns trace headers for route resolution,
   response start, and selected runtime instance; total forwarding time is
   recorded in telemetry after the stream finishes
@@ -90,8 +96,9 @@ shows the minimum DFX shape expected from a customer-facing platform facade:
 
 Production deployments must still add persistent or reconstructable registry
 state, runtime identity authentication, tenant-agent authorization, rate
-limiting, circuit breaking, multi-AZ deployment, same-city disaster recovery,
-cross-region recovery, SLA/SLO dashboards, and error-budget governance.
+limiting, circuit breaking, dynamic scaling through K8S or an equivalent
+orchestrator, multi-AZ deployment, same-city disaster recovery, cross-region
+recovery, SLA/SLO dashboards, and error-budget governance.
 
 ## Quick start (config templates + scripts)
 
@@ -103,11 +110,24 @@ cp .env.ollama.example .env        # or .env.openai-compatible.example, then edi
 bash scripts/test-e2e.sh .env      # installs agent-runtime + runs the E2E suite
 ```
 
+For manual server verification, prefer the server helper script because it loads
+the env file before starting Spring Boot:
+
+```bash
+bash scripts/run-server.sh .env
+# Windows: ./scripts/run-server.ps1 -EnvFile .env
+```
+
 Templates (the `.env` you fill is gitignored; the `*.example` templates are tracked):
 
 - `.env.example`: every variable with inline docs.
 - `.env.ollama.example`: local Ollama via its OpenAI-compatible `/v1` surface (`gemma4:latest`).
 - `.env.openai-compatible.example`: a cloud OpenAI-compatible API (no real key committed).
+
+> `.env` is not loaded automatically by Maven or Spring Boot. The helper scripts
+> load it with shell sourcing before launching Maven. If you run `./mvnw ...
+> spring-boot:run` directly, only variables already exported in your shell are
+> visible to the Java process.
 
 > The real-LLM e2e (`OpenJiuwenReactAgentA2aE2eTest`) only runs when
 > `SAA_SAMPLE_LLM_API_KEY` is non-blank. Without it, JUnit `assumeTrue()` **skips**
@@ -123,19 +143,17 @@ authorization flows to other teams.
 Maven and Spring Boot see the process environment at launch time. The effective
 values are:
 
-1. **Helper-script env file values**: `scripts/run-server.sh` and
+1. **Helper-script env file values** — `scripts/run-server.sh` and
    `scripts/test-e2e.sh` load the env file argument, defaulting to `.env` in this
    example directory. If the env file defines a variable, that value overrides a
    same-name variable that was already exported in the shell running the script.
-2. **Explicit shell environment**: when you run Maven directly, or when a helper
+2. **Explicit shell environment** — when you run Maven directly, or when a helper
    script loads an env file that does not define a variable, Maven sees variables
    already exported in the launching shell, for example `export SAA_SAMPLE_LLM_API_KEY=...`.
-3. **Spring Boot defaults**: if no environment variable is visible to the Java
+3. **Spring Boot defaults** — if no environment variable is visible to the Java
    process, the values in `src/main/resources/application.yaml` are used.
 
-## Local LLM Defaults and Curl
-
-The example is configured for a local OpenAI-compatible gateway by default. The checked-in defaults are env-aware placeholders in `examples/agent-runtime-a2a-llm-e2e/src/main/resources/application.yaml`:
+The checked-in defaults are placeholders for a local OpenAI-compatible gateway:
 
 ```yaml
 sample:
@@ -147,13 +165,36 @@ sample:
     ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}
 ```
 
-`sk-local-placeholder` is a **non-functional placeholder**, not a usable key: local gateways (Ollama) ignore the `Authorization` header, so any string works. For a real cloud OpenAI-compatible API, set `SAA_SAMPLE_LLM_API_KEY` to your own key.
+`sk-local-placeholder` is a **non-functional placeholder**, not a usable key:
+local gateways such as Ollama ignore the `Authorization` header, so any string
+works there. For a real cloud API or a local gateway that validates keys, set
+`SAA_SAMPLE_LLM_API_KEY` and start the server through `scripts/run-server.sh .env`
+or export the variable before running Maven.
 
-You can sanity-check the local gateway directly before starting the sample:
+Manual export alternative from the repository root:
+
+```bash
+set -a
+. ./examples/agent-runtime-a2a-llm-e2e/.env
+set +a
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml spring-boot:run
+```
+
+## Local LLM Defaults and Curl
+
+The example is configured for a local OpenAI-compatible gateway by default. You
+can sanity-check the local gateway directly before starting the sample:
 
 ```bash
 curl http://localhost:4000/v1/models \
   -H 'Authorization: Bearer sk-local-placeholder'
+```
+
+If your gateway validates keys, use the same key that you put in `.env`:
+
+```bash
+curl http://localhost:4000/v1/models \
+  -H "Authorization: Bearer ${SAA_SAMPLE_LLM_API_KEY}"
 ```
 
 If your gateway uses a different key, host, or model, override the environment variables described below.
@@ -168,7 +209,13 @@ agent-runtime:
     a2a:
       default-tenant-id: sample-tenant
       default-agent-id: openjiuwen-react-agent
+      # public-base-url: https://agents.example.com/runtime-one
 ```
+
+`public-base-url` is optional for local runs. When it is blank, the agent-card
+endpoint derives the base URL from the current HTTP request. In production, set
+it to the externally reachable runtime base URL so standard A2A clients receive
+absolute endpoint URLs that do not depend on local host/port inference.
 
 The example also recognizes these environment variables for the local LLM setup:
 
@@ -203,32 +250,38 @@ This example is outside the root Maven reactor, so install the runtime dependenc
 
 That makes the current `agent-runtime` snapshot available to `examples/agent-runtime-a2a-llm-e2e`.
 
+The server helper script performs this install step automatically before starting the server.
+
 ## Automated Test
 
-Run the example test module directly:
+Run the example test module directly through the helper script:
+
+```bash
+bash scripts/test-e2e.sh .env
+```
+
+The test starts the example application, calls it through the A2A client flow, and expects the visible response for `ping` to be `pong`.
+
+If you have already exported the required variables and want to run Maven directly:
 
 ```bash
 ./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test
 ```
 
-The test starts the example application, calls it through the A2A client flow, and expects the visible response for `ping` to be `pong`.
-
 ## Manual Verification
 
 1. Make sure your local OpenAI-compatible endpoint is reachable.
-2. Install the runtime dependency:
+2. Start the example server with the env-loading helper script:
 
 ```bash
-./mvnw -pl agent-runtime -am -DskipTests install
+bash scripts/run-server.sh .env
 ```
 
-3. Start the example server:
+The script loads `.env`, installs `agent-runtime`, and starts the Spring Boot server.
+If the server is already running, stop it first; changing `.env` does not update an
+already-running Java process.
 
-```bash
-./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml spring-boot:run
-```
-
-4. In another terminal, start the console client:
+3. In another terminal, start the console client:
 
 ```bash
 ./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml \
@@ -236,13 +289,13 @@ The test starts the example application, calls it through the A2A client flow, a
   -Dexec.mainClass=com.huawei.ascend.examples.a2a.A2aConsoleClientApplication
 ```
 
-5. At the prompt, enter:
+4. At the prompt, enter:
 
 ```text
 ping
 ```
 
-6. Confirm the printed response is `pong`.
+5. Confirm the printed response is `pong`.
 
 To target a different server, pass the base URL as the first argument:
 
@@ -311,6 +364,8 @@ Expected happy path:
 - The server starts but the model call fails.
   - Verify `SAA_SAMPLE_LLM_API_KEY`, `SAA_SAMPLE_OPENJIUWEN_API_BASE`, and `SAA_SAMPLE_LLM_MODEL`.
   - Confirm the local gateway responds to `curl http://localhost:4000/v1/models -H 'Authorization: Bearer ...'`.
+  - If the gateway succeeds with your real key but the sample fails with a placeholder-key symptom, stop the server and restart it with `bash scripts/run-server.sh .env`.
+  - If `/v1/models` succeeds but the sample still fails, test the gateway's `/v1/chat/completions` endpoint with the same key and model.
 
 - The console client cannot connect.
   - Confirm the server is running on `http://localhost:8080` or pass the correct base URL through `SAA_SAMPLE_A2A_BASE_URL` or the first CLI argument.

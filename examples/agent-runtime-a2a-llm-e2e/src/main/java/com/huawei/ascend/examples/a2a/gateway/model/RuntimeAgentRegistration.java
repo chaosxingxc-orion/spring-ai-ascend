@@ -15,6 +15,7 @@ public record RuntimeAgentRegistration(
         URI healthEndpoint,
         String version,
         Duration ttl,
+        RuntimeCapacitySnapshot capacitySnapshot,
         Map<String, Object> metadata) {
 
     public RuntimeAgentRegistration {
@@ -26,7 +27,22 @@ public record RuntimeAgentRegistration(
         healthEndpoint = Objects.requireNonNull(healthEndpoint, "healthEndpoint");
         version = required(version, "version");
         ttl = positive(ttl, "ttl");
+        capacitySnapshot = capacitySnapshot == null ? RuntimeCapacitySnapshot.empty() : capacitySnapshot;
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+    }
+
+    public RuntimeAgentRegistration(
+            RuntimeInstanceId runtimeInstanceId,
+            String tenantId,
+            String agentId,
+            AgentCard agentCard,
+            URI a2aEndpoint,
+            URI healthEndpoint,
+            String version,
+            Duration ttl,
+            Map<String, Object> metadata) {
+        this(runtimeInstanceId, tenantId, agentId, agentCard, a2aEndpoint, healthEndpoint, version, ttl,
+                RuntimeCapacitySnapshot.empty(), metadata);
     }
 
     private static String required(String value, String field) {

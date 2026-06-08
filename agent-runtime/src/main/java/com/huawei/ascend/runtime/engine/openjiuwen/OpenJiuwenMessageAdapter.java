@@ -1,8 +1,8 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
-import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.schema.Message;
-import com.huawei.ascend.runtime.schema.Role;
+import com.huawei.ascend.runtime.engine.AgentExecutionContext;
+import com.huawei.ascend.runtime.common.Message;
+import com.huawei.ascend.runtime.common.Role;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

@@ -43,15 +43,14 @@ stubbed to "fill the box" before the design phase exits.
 | Package | Role |
 |---|---|
 | `runtime.engine.spi` | framework-neutral runtime SPI: `AgentRuntimeHandler` (run one agent, surface its output), `StreamAdapter` (adapt a framework's native result stream into the neutral `AgentExecutionResult` stream), base `AbstractAgentRuntimeHandler`, carrier `AgentExecutionResult` |
-| `runtime.engine` | engine dispatch: `EngineDispatcher` (routes a command to the matched handler), `EngineWorker` + `engine.command.*` (internal command queue + worker) |
+| `runtime.engine` (root) | engine dispatch + internals all flattened into the root: `EngineDispatcher` (routes a command to the matched handler), `EngineWorker` (internal command worker), the command events (`EngineCommandEvent` / `EngineCommandEventFactory` / `EngineCommandGateway` / `InternalEngineCommandGateway`), `EngineExecutionScope`, `EngineInput` / `EngineOutput`, the single `EngineEvent` record + `EngineEventKind` enum, and the outbound ports `TaskControlClient` + `AccessLayerClient` (engine → control / access; intra-service, not SPI) |
 | `runtime.engine.api` | inbound `EngineExecutionApi` (enqueue execute / resume / cancel) |
-| `runtime.engine.port` | outbound ports `TaskControlClient` + `AccessLayerClient` (engine → control / access; intra-service, not SPI) |
 | `runtime.engine.openjiuwen` | the first concrete `AgentRuntimeHandler` adapter (openJiuwen ReAct) |
-| `runtime.access` | A2A protocol access layer (`A2aJsonRpcController`, `A2aWellKnownAgentCardController`, submission + egress/notification ports) |
+| `runtime.access` | A2A protocol access layer flattened into the root (`AccessSubmissionService`, `AccessLayerConfiguration`, `AgentNotification` egress/notification ports) with the wire-protocol controllers + mappers under `runtime.access.a2a` (`A2aJsonRpcController`, `A2aWellKnownAgentCardController`, …) |
 | `runtime.session` | session management (`RuntimeSessionRepository` + in-memory impl) |
 | `runtime.control` | task-centric control — the single run-lifecycle authority (`TaskControlApi`) |
 | `runtime.queue` | internal event queue |
-| `runtime.schema` | runtime schema / response types (`AgentRequest` / `AgentResponse` / `RunStatus`) |
+| `runtime.common` | shared runtime types (`AgentRequest` / `RunStatus`; live response model is the streaming `AgentResponseEvent` — the former monolithic `AgentResponse` model was deleted) |
 | `runtime.app` | framework-neutral bootable entry `RuntimeApp` / `RuntimeHost` + Spring-backed `LocalA2aRuntimeHost`; cross-layer wiring `RuntimeWiringConfiguration` |
 
 ### The neutral EnginePort stays in agent-bus
@@ -90,10 +89,13 @@ legal cross edge (Rule 10 / ArchUnit); there is no reverse edge.
 - **engine dispatch** (`runtime.engine`) — `EngineDispatcher` routes an accepted
   command to the handler registered for its `agentId` (an unknown `agentId`
   converges to a terminal `AGENT_ID_INVALID` through the control authority, never
-  a hung task); `EngineWorker` + `engine.command.*` drive it off the internal
-  queue behind the inbound `engine.api.EngineExecutionApi`;
-- the **access layer** (`runtime.access`) — A2A protocol ingress that hands work
-  to the runtime and streams output back (task-scoped egress);
+  a hung task); `EngineWorker` and the command-event types (`EngineCommandEvent`,
+  `EngineCommandGateway`, …) live in the engine root and drive it off the internal
+  queue behind the inbound `engine.api.EngineExecutionApi`; outcomes are emitted as
+  the single `EngineEvent` record discriminated by `EngineEventKind`;
+- the **access layer** (`runtime.access`) — A2A protocol ingress (controllers +
+  mappers under `runtime.access.a2a`) that hands work to the runtime and streams
+  output back (task-scoped egress);
 - **session / task-centric control / internal event queue** for run-state
   coordination — `control` is the single run-lifecycle authority and the only
   writer of caller-facing egress;
@@ -111,9 +113,12 @@ accepted command and runs it; resolution and execution are guarded so any failur
 
 ## 3. Single-write authority
 
-The engine reports every outcome to exactly one outbound port (`TaskControlClient`);
-`control` is the sole run-lifecycle authority and gates caller-facing egress on its
-own accepted transitions. The engine never writes egress directly.
+The engine reports every outcome to exactly one outbound port
+(`engine.TaskControlClient`); `control` is the sole run-lifecycle authority and gates
+caller-facing egress on its own accepted transitions. The engine never writes egress
+directly. Single-write authority: only on an ACCEPTED state transition does `control`
+fan caller-facing egress out through `engine.AccessLayerClient`, so each outcome is
+written exactly once — there is no double-write between the engine and the access layer.
 
 ## 4. Forbidden imports
 
@@ -138,20 +143,24 @@ Current namespace (`com.huawei.ascend.runtime.*`):
 ```text
 agent-runtime/
 └── src/main/java/com/huawei/ascend/runtime/
-    ├── engine/
+    ├── engine/                   # engine ROOT: EngineDispatcher (routes a command to
+    │   │                         #   the registered handler), EngineWorker, command events
+    │   │                         #   (EngineCommandEvent / EngineCommandGateway / …),
+    │   │                         #   EngineExecutionScope, EngineInput / EngineOutput,
+    │   │                         #   EngineEvent record + EngineEventKind enum, and the
+    │   │                         #   outbound ports TaskControlClient + AccessLayerClient
     │   ├── spi/                  # AgentRuntimeHandler, StreamAdapter,
     │   │                         #   AbstractAgentRuntimeHandler, AgentExecutionResult
     │   ├── api/                  # EngineExecutionApi (inbound enqueue)
-    │   ├── command/              # EngineWorker + internal command queue
-    │   ├── port/                 # TaskControlClient, AccessLayerClient (outbound)
-    │   ├── openjiuwen/           # openJiuwen ReAct AgentRuntimeHandler adapter
-    │   └── EngineDispatcher.java # routes a command to the registered handler
-    ├── access/                   # A2A protocol ingress + egress (A2aJsonRpcController,
-    │                             #   A2aWellKnownAgentCardController, output registry)
+    │   └── openjiuwen/           # openJiuwen ReAct AgentRuntimeHandler adapter
+    ├── access/                   # A2A protocol access ROOT (AccessSubmissionService,
+    │   └── a2a/                  #   AgentNotification egress) + wire controllers/mappers
+    │                             #   (A2aJsonRpcController, A2aWellKnownAgentCardController, …)
     ├── session/                  # session management (RuntimeSessionRepository)
     ├── control/                  # task-centric control (single lifecycle authority)
     ├── queue/                    # internal event queue
-    ├── schema/                   # runtime schema / response types
+    ├── common/                   # shared runtime types (AgentRequest / RunStatus /
+    │                             #   AgentResponseEvent; old AgentResponse model deleted)
     └── app/                      # RuntimeApp / RuntimeHost / LocalA2aRuntimeHost + RuntimeWiringConfiguration
 ```
 
@@ -179,9 +188,10 @@ loci (`deployment_loci: [platform_centric, business_centric]`).
 Base class + carrier (NOT SPI interfaces):
 - `com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler` — convenience base for adapters.
 - `com.huawei.ascend.runtime.engine.spi.AgentExecutionResult` — neutral execution-result carrier.
-- Engine dispatch internals live under `runtime.engine` (`EngineDispatcher`, `EngineWorker`,
-  `engine.command.*`) behind the inbound `engine.api.EngineExecutionApi`; the outbound ports are
-  `engine.port.{TaskControlClient, AccessLayerClient}` — intra-service, not SPI.
+- Engine dispatch internals live in the `runtime.engine` ROOT (`EngineDispatcher`, `EngineWorker`,
+  the command events `EngineCommandEvent` / `EngineCommandGateway`, `EngineEvent` + `EngineEventKind`)
+  behind the inbound `engine.api.EngineExecutionApi`; the outbound ports are
+  `engine.TaskControlClient` + `engine.AccessLayerClient` (engine root, not `engine.port`) — intra-service, not SPI.
 
 ## *L2 Constraint Linkage* (Rule G-1.1.c)
 

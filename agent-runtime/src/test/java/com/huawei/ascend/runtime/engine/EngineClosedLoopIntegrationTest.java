@@ -8,14 +8,6 @@ import com.huawei.ascend.runtime.engine.api.EnqueueEngineCancelRequest;
 import com.huawei.ascend.runtime.engine.api.EnqueueEngineExecutionRequest;
 import com.huawei.ascend.runtime.engine.api.EnqueueEngineResumeRequest;
 import com.huawei.ascend.runtime.engine.api.EnqueueEngineStatus;
-import com.huawei.ascend.runtime.engine.command.EngineCommandEventFactory;
-import com.huawei.ascend.runtime.engine.command.EngineWorker;
-import com.huawei.ascend.runtime.engine.command.InternalEngineCommandGateway;
-import com.huawei.ascend.runtime.engine.AgentRuntimeHandlerRegistry;
-import com.huawei.ascend.runtime.engine.DefaultAgentRuntimeHandlerRegistry;
-import com.huawei.ascend.runtime.engine.EngineDispatcher;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.EngineInput;
 import com.huawei.ascend.runtime.engine.support.FakeInterruptingAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.support.RecordingTaskControlClient;
 import com.huawei.ascend.runtime.queue.QueueManager;
@@ -65,14 +57,14 @@ class EngineClosedLoopIntegrationTest {
         // The engine reports only to the single control port — no direct access write.
         assertThat(taskControl.transitions).containsExactly("RUNNING:task-1", "WAITING:task-1");
         assertThat(taskControl.waiting).hasSize(1);
-        assertThat(taskControl.waiting.get(0).getPrompt()).isEqualTo("Need your confirmation");
+        assertThat(taskControl.waiting.get(0).prompt()).isEqualTo("Need your confirmation");
 
         // RESUME: the same agent now streams output then completes — all reported to control only.
         api.enqueueResume(new EnqueueEngineResumeRequest(scope(), input()));
         assertThat(taskControl.transitions)
                 .containsExactly("RUNNING:task-1", "WAITING:task-1",
                         "RUNNING:task-1", "APPEND:task-1", "SUCCEEDED:task-1");
-        assertThat(taskControl.succeeded.get(0).getFinalOutput().getContent()).isEqualTo("final answer");
+        assertThat(taskControl.succeeded.get(0).output().getContent()).isEqualTo("final answer");
     }
 
     @Test
@@ -94,6 +86,6 @@ class EngineClosedLoopIntegrationTest {
         assertThat(status).isEqualTo(EnqueueEngineStatus.SUCCESS);
         assertThat(taskControl.transitions).containsExactly("RUNNING:task-x", "FAILED:task-x");
         assertThat(taskControl.failed).hasSize(1);
-        assertThat(taskControl.failed.get(0).getErrorCode()).isEqualTo("AGENT_ID_INVALID");
+        assertThat(taskControl.failed.get(0).errorCode()).isEqualTo("AGENT_ID_INVALID");
     }
 }

@@ -94,6 +94,10 @@
       <artifactId>resilience4j-spring-boot3</artifactId>
       <optional>true</optional>
     </dependency>
+    <dependency>
+      <groupId>io.projectreactor</groupId>
+      <artifactId>reactor-core</artifactId>
+    </dependency>
 
     <!-- Caching (in-process). -->
     <dependency>

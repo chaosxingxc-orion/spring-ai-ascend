@@ -2,10 +2,10 @@ package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.EngineInput;
-import com.huawei.ascend.runtime.schema.Message;
+import com.huawei.ascend.runtime.engine.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.EngineExecutionScope;
+import com.huawei.ascend.runtime.engine.EngineInput;
+import com.huawei.ascend.runtime.common.Message;
 import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.stream.StreamMode;

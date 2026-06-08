@@ -3,17 +3,9 @@ package com.huawei.ascend.runtime.engine.api;
 /**
  * Engine dispatch API.
  *
- * <p>The sole inbound entry point for task-centric-control to call the engine.
- * Implemented by the engine, called by task-centric-control. Only responsible
- * for async enqueuing. Does not directly execute Agents. Does not directly
- * return real execution status. Real execution status is written back through
- * the outbound port {@code com.huawei.ascend.runtime.engine.port.TaskControlClient}.
- *
- * <p>This is an API (provided/inbound interface), not an SPI: the engine
- * implements it and external callers invoke it. See the engine model design
- * (§2.1 directional definition, §4 API definition) for the API/SPI taxonomy.
- *
- * <p>Design authority: {@code 2026-05-30-l1--agent-service-engine-model-design.md}.
+ * <p>The control layer calls this API to enqueue execution, resume, and cancel
+ * commands. The engine accepts or rejects enqueue only; execution progress is
+ * reported later through the control callback port.
  */
 public interface EngineExecutionApi {
 

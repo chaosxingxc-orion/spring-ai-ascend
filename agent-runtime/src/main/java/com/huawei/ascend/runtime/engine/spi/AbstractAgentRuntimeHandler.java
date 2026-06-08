@@ -1,7 +1,7 @@
 package com.huawei.ascend.runtime.engine.spi;
 
+import com.huawei.ascend.runtime.common.Guards;
 import java.util.List;
-import java.util.Objects;
 import org.a2aproject.sdk.spec.AgentCapabilities;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
@@ -30,11 +30,11 @@ public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler
 
     protected AbstractAgentRuntimeHandler(
             String agentId, String name, String description, String version, String endpoint) {
-        this.agentId = requireText(agentId, "agentId");
-        this.name = requireText(name, "name");
-        this.description = requireText(description, "description");
-        this.version = requireText(version, "version");
-        this.endpoint = requireText(endpoint, "endpoint");
+        this.agentId = Guards.requireNonBlank(agentId, "agentId");
+        this.name = Guards.requireNonBlank(name, "name");
+        this.description = Guards.requireNonBlank(description, "description");
+        this.version = Guards.requireNonBlank(version, "version");
+        this.endpoint = Guards.requireNonBlank(endpoint, "endpoint");
     }
 
     @Override
@@ -66,13 +66,5 @@ public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler
     @Override
     public boolean isHealthy() {
         return true;
-    }
-
-    private static String requireText(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

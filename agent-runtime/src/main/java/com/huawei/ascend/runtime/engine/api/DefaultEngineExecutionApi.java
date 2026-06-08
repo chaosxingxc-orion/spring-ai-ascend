@@ -1,16 +1,15 @@
 package com.huawei.ascend.runtime.engine.api;
 
-import com.huawei.ascend.runtime.engine.event.EngineCommandEvent;
-import com.huawei.ascend.runtime.engine.command.EngineCommandEventFactory;
-import com.huawei.ascend.runtime.engine.command.EngineCommandGateway;
+import com.huawei.ascend.runtime.common.Timing;
+import com.huawei.ascend.runtime.engine.EngineCommandEvent;
+import com.huawei.ascend.runtime.engine.EngineCommandEventFactory;
+import com.huawei.ascend.runtime.engine.EngineCommandGateway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Default {@link EngineExecutionApi}: the inbound entry point for
- * task-centric-control. Each call builds a command event and publishes it onto
- * the engine queue, returning only the enqueue outcome — real execution status
- * is written back later through {@code TaskControlClient} (design §4, §7).
+ * Default engine dispatch API that publishes execution commands onto the engine
+ * command gateway.
  */
 public class DefaultEngineExecutionApi implements EngineExecutionApi {
 
@@ -49,11 +48,7 @@ public class DefaultEngineExecutionApi implements EngineExecutionApi {
                 event.getScope().taskId(),
                 event.getScope().agentId(),
                 accepted,
-                elapsedMs(startedNanos));
+                Timing.elapsedMs(startedNanos));
         return accepted ? EnqueueEngineStatus.SUCCESS : EnqueueEngineStatus.FAILED;
-    }
-
-    private static long elapsedMs(long startedNanos) {
-        return (System.nanoTime() - startedNanos) / 1_000_000L;
     }
 }
