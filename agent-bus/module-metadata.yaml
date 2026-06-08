@@ -18,5 +18,4 @@ allowed_dependencies: []
 forbidden_dependencies:
   - agent-service           # bus is upstream of compute_control plane
   - agent-runtime
-  - agent-middleware
 deployment_plane: bus_state   # Rule R-I / P-I — Bus & State Hub plane

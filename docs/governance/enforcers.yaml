@@ -186,24 +186,6 @@
 # W1.x Phase 8 — Cursor Flow runtime activation (Rule R-F.b / ADR-0070)
 # ---------------------------------------------------------------------------
 
-- id: E74
-  constraint_ref: "CLAUDE.md Rule R-M sub-clause .a (Engine Envelope Single Authority); ADR-0072; P-M"
-  kind: archunit
-  level: L1
-  view: development
-  artifact: agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/runtime/EnginePayloadDispatchOnlyViaRegistryTest.java#every_orchestrator_implementation_depends_on_engine_registry
-  asserts: "every concrete Orchestrator implementation in agent-runtime/src/main depends on com.huawei.ascend.runtime.engine.runtime.EngineRegistry -- dispatch authority is centralised; pattern-matching on ExecutorDefinition subtypes outside the registry is the prohibited shape (the source-level instanceof scan is gate Rule 56's responsibility). Test path relocated rc14 per ADR-0090 (engine package semantic-home alignment); previously at agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/."
-  product_claim: "PC-004"
-
-- id: E79
-  constraint_ref: "CLAUDE.md Rule R-M sub-clause .c (Runtime-Owned Middleware via Engine Hooks); ADR-0073; P-M"
-  kind: archunit
-  level: L1
-  view: development
-  artifact: agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/runtime/EveryEngineDeclaresHookSurfaceTest.java#every_executor_adapter_exposes_hook_surface
-  asserts: "every concrete GraphExecutor / AgentLoopExecutor implementation under agent-runtime/src/main exposes a hookSurface() method (default empty allowed) -- structural pre-condition for the EngineHookSurface contract; allowEmptyShould(true) is intentional at W2.x while Phase 2 ships SPI surface only."
-  product_claim: "PC-004"
-
 - id: E81
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .d (S2C Callback Envelope + Lifecycle Bound); ADR-0074; P-M"
   kind: gate-script

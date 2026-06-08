@@ -2,26 +2,27 @@ package com.huawei.ascend.runtime.bootstrap;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huawei.ascend.runtime.app.RuntimeWiringConfiguration;
 import com.huawei.ascend.runtime.access.config.AccessLayerConfiguration;
 import com.huawei.ascend.runtime.access.core.AccessSubmissionService;
 import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutput;
 import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputHandle;
 import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputRegistry;
 import com.huawei.ascend.runtime.access.protocol.a2a.jsonrpc.A2aJsonRpcHandler;
-import com.huawei.ascend.runtime.dispatch.config.EngineAutoConfiguration;
-import com.huawei.ascend.runtime.dispatch.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.dispatch.model.InterruptType;
-import com.huawei.ascend.runtime.dispatch.spi.AgentExecutionResult;
-import com.huawei.ascend.runtime.dispatch.spi.AgentHandler;
-import com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter;
+import com.huawei.ascend.runtime.engine.config.EngineAutoConfiguration;
+import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.model.InterruptType;
+import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.huawei.ascend.runtime.queue.config.QueueAutoConfiguration;
 import com.huawei.ascend.runtime.schema.AgentRequest;
 import com.huawei.ascend.runtime.schema.Message;
 import com.huawei.ascend.runtime.session.api.SessionManager;
 import com.huawei.ascend.runtime.session.config.SessionManageConfiguration;
-import com.huawei.ascend.runtime.taskcontrol.TaskControlService;
-import com.huawei.ascend.runtime.taskcontrol.TaskState;
-import com.huawei.ascend.runtime.taskcontrol.config.TaskControlAutoConfiguration;
+import com.huawei.ascend.runtime.control.TaskControlService;
+import com.huawei.ascend.runtime.control.TaskState;
+import com.huawei.ascend.runtime.control.config.TaskControlAutoConfiguration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -75,7 +76,7 @@ class AgentServiceEndToEndIT {
         assertThat(accepted.path("taskId").asText()).isNotBlank();
         assertThat(accepted.path("metadata").path("tenantId").asText()).isEqualTo(TENANT);
 
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-1");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-1", accepted.path("taskId").asText());
         List<A2aOutput> outputs = awaitOutputs(handle);
 
         assertThat(outputs).isNotEmpty();
@@ -91,7 +92,7 @@ class AgentServiceEndToEndIT {
         JsonNode accepted = send(FAILING_AGENT, "session-err", "trigger failure");
         assertThat(accepted.path("metadata").path("accepted").asBoolean()).isTrue();
 
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-err");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-err", accepted.path("taskId").asText());
         List<A2aOutput> outputs = awaitOutputs(handle);
 
         assertThat(outputs).isNotEmpty();
@@ -106,7 +107,7 @@ class AgentServiceEndToEndIT {
         assertThat(accepted.path("metadata").path("accepted").asBoolean()).isTrue();
         assertThat(accepted.path("metadata").path("tenantId").asText()).isEqualTo(TENANT);
 
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-params");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-params", accepted.path("taskId").asText());
         List<A2aOutput> outputs = awaitOutputs(handle);
 
         assertThat(outputs).isNotEmpty();
@@ -119,7 +120,8 @@ class AgentServiceEndToEndIT {
         JsonNode firstTurn = send("session-multi", "first question");
         String firstTaskId = firstTurn.path("taskId").asText();
         awaitTaskState("session-multi", firstTaskId, TaskState.COMPLETED);
-        awaitOutputContaining(new A2aOutputHandle(TENANT, "session-multi"), "first question");
+        List<A2aOutput> firstOutputs =
+                awaitOutputContaining(new A2aOutputHandle(TENANT, "session-multi", firstTaskId), "first question");
 
         assertThat(sessionManager.get(TENANT, "session-multi")).hasValueSatisfying(session ->
                 assertThat(session.currentUserInput()).anyMatch(message -> "first question".equals(message.text())));
@@ -127,15 +129,19 @@ class AgentServiceEndToEndIT {
         JsonNode secondTurn = send("session-multi", "second question");
         String secondTaskId = secondTurn.path("taskId").asText();
         awaitTaskState("session-multi", secondTaskId, TaskState.COMPLETED);
-        List<A2aOutput> outputs = awaitOutputContaining(
-                new A2aOutputHandle(TENANT, "session-multi"),
+        List<A2aOutput> secondOutputs = awaitOutputContaining(
+                new A2aOutputHandle(TENANT, "session-multi", secondTaskId),
                 "second question");
 
         assertThat(firstTaskId).isNotBlank();
         assertThat(secondTaskId).isNotBlank();
         assertThat(secondTaskId).isNotEqualTo(firstTaskId);
-        assertThat(outputs).anyMatch(output -> String.valueOf(output.body()).contains("first question"));
-        assertThat(outputs).anyMatch(output -> String.valueOf(output.body()).contains("second question"));
+        // Task-scoped egress: each task's stream holds only its own turn's outputs, so a
+        // completed first turn cannot suppress or leak into the second turn's stream.
+        assertThat(firstOutputs).anyMatch(output -> String.valueOf(output.body()).contains("first question"));
+        assertThat(firstOutputs).noneMatch(output -> String.valueOf(output.body()).contains("second question"));
+        assertThat(secondOutputs).anyMatch(output -> String.valueOf(output.body()).contains("second question"));
+        assertThat(secondOutputs).noneMatch(output -> String.valueOf(output.body()).contains("first question"));
         assertThat(sessionManager.get(TENANT, "session-multi")).hasValueSatisfying(session -> {
             assertThat(session.sessionId()).isEqualTo("session-multi");
             assertThat(session.currentUserInput()).hasSize(1);
@@ -150,7 +156,7 @@ class AgentServiceEndToEndIT {
     void a2aInterruptedTaskCanBeResumedThroughAccessAndComplete() {
         JsonNode waitingAccepted = send(INTERRUPTING_AGENT, "session-wait", "weather");
         String taskId = waitingAccepted.path("taskId").asText();
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-wait");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-wait", taskId);
         List<A2aOutput> waitingOutputs = awaitAtLeastOutputs(handle, 1);
 
         assertThat(waitingAccepted.path("metadata").path("accepted").asBoolean()).isTrue();
@@ -181,7 +187,7 @@ class AgentServiceEndToEndIT {
     void aReturnedFailureResultStillRepliesWithATerminalError() {
         JsonNode accepted = send(RESULT_FAILING_AGENT, "session-failed-result", "return failure");
         String taskId = accepted.path("taskId").asText();
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-failed-result");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-failed-result", taskId);
         List<A2aOutput> outputs = awaitOutputs(handle);
 
         assertThat(accepted.path("metadata").path("accepted").asBoolean()).isTrue();
@@ -196,7 +202,7 @@ class AgentServiceEndToEndIT {
     void a2aCancelRequestCancelsTaskThroughTaskControlAndEngine() {
         JsonNode accepted = send(INTERRUPTING_AGENT, "session-cancel", "book ticket");
         String taskId = accepted.path("taskId").asText();
-        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-cancel");
+        A2aOutputHandle handle = new A2aOutputHandle(TENANT, "session-cancel", taskId);
         List<A2aOutput> outputs = awaitAtLeastOutputs(handle, 1);
         awaitTaskState("session-cancel", taskId, TaskState.WAITING);
 
@@ -418,7 +424,7 @@ class AgentServiceEndToEndIT {
     @Import({
             QueueAutoConfiguration.class,
             TaskControlAutoConfiguration.class,
-            AgentServiceBootstrapConfiguration.class,
+            RuntimeWiringConfiguration.class,
             AccessLayerConfiguration.class,
             SessionManageConfiguration.class,
             EngineAutoConfiguration.class
@@ -426,27 +432,27 @@ class AgentServiceEndToEndIT {
     static class TestRuntime {
 
         @Bean
-        AgentHandler echoAgentHandler() {
+        AgentRuntimeHandler echoAgentHandler() {
             return new EchoAgentHandler();
         }
 
         @Bean
-        AgentHandler boomAgentHandler() {
+        AgentRuntimeHandler boomAgentHandler() {
             return new ThrowingAgentHandler();
         }
 
         @Bean
-        AgentHandler interruptingAgentHandler() {
+        AgentRuntimeHandler interruptingAgentHandler() {
             return new InterruptingAgentHandler();
         }
 
         @Bean
-        AgentHandler failedResultAgentHandler() {
+        AgentRuntimeHandler failedResultAgentHandler() {
             return new FailedResultAgentHandler();
         }
     }
 
-    static final class EchoAgentHandler implements AgentHandler {
+    static final class EchoAgentHandler implements AgentRuntimeHandler {
 
         @Override
         public String agentId() {
@@ -468,12 +474,12 @@ class AgentServiceEndToEndIT {
         }
 
         @Override
-        public AgentResultAdapter resultAdapter() {
+        public StreamAdapter resultAdapter() {
             return AgentServiceEndToEndIT::adaptRawResults;
         }
     }
 
-    static final class ThrowingAgentHandler implements AgentHandler {
+    static final class ThrowingAgentHandler implements AgentRuntimeHandler {
 
         @Override
         public String agentId() {
@@ -491,12 +497,12 @@ class AgentServiceEndToEndIT {
         }
 
         @Override
-        public AgentResultAdapter resultAdapter() {
+        public StreamAdapter resultAdapter() {
             return AgentServiceEndToEndIT::adaptRawResults;
         }
     }
 
-    static final class InterruptingAgentHandler implements AgentHandler {
+    static final class InterruptingAgentHandler implements AgentRuntimeHandler {
 
         @Override
         public String agentId() {
@@ -520,12 +526,12 @@ class AgentServiceEndToEndIT {
         }
 
         @Override
-        public AgentResultAdapter resultAdapter() {
+        public StreamAdapter resultAdapter() {
             return rawResults -> rawResults.map(result -> (AgentExecutionResult) result);
         }
     }
 
-    static final class FailedResultAgentHandler implements AgentHandler {
+    static final class FailedResultAgentHandler implements AgentRuntimeHandler {
 
         @Override
         public String agentId() {
@@ -543,7 +549,7 @@ class AgentServiceEndToEndIT {
         }
 
         @Override
-        public AgentResultAdapter resultAdapter() {
+        public StreamAdapter resultAdapter() {
             return rawResults -> rawResults.map(result -> (AgentExecutionResult) result);
         }
     }

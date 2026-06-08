@@ -6,7 +6,7 @@ status: consolidated-run-owning-runtime
 freeze_id: null
 covers_views: [logical]
 spans_levels: [L1]
-authority: "ADR-0159 (agent-runtime consolidation + agent-service serviceization refounding; supersedes ADR-0158 §Decision.5 engine tenant-neutrality); ADR-0072 (Engine Envelope + Strict Matching); ADR-0126 (Planner SPI); Layer-0 principle P-M (Heterogeneous Engine Contract); Rule R-M.a (Engine Envelope Single Authority, formerly Rule 43), Rule R-M.b (Strict Engine Matching, formerly Rule 44)"
+authority: "ADR-0159 (agent-runtime consolidation + agent-service serviceization refounding; supersedes ADR-0158 §Decision.5 engine tenant-neutrality); Layer-0 principle P-M (Heterogeneous Engine Contract)"
 ---
 
 # agent-runtime — L1 architecture (run-owning runtime kernel)
@@ -42,96 +42,91 @@ stubbed to "fill the box" before the design phase exits.
 
 | Package | Role |
 |---|---|
-| `runtime.engine.spi` | engine-adapter SPI: `ExecutorAdapter`, `GraphExecutor`, `AgentLoopExecutor`, `EngineHookSurface`, `EngineMatchingException` |
-| `runtime.engine.planner.spi` | planner SPI (`Planner` / `Plan` / `PlanStep` / `PlanningRequest` / `PlanningResult` / `BranchPoint` / `LoopAnnotation`) per ADR-0126 |
-| `runtime.engine.runtime` | engine implementation home: `EngineRegistry` (single `resolve(envelope)` authority), `EngineEnvelope` (mirrors `engine-envelope.v1.yaml`), `InProcessEnginePort` (in-process realization of the neutral `EnginePort`) |
-| `runtime.engine.exec` | reference executors |
-| `runtime.dispatch` | engine dispatch: `AgentHandler` / `AgentResultAdapter` (SPI in `runtime.dispatch.spi`) + `AccessLayerClient` / `TaskControlClient` callback ports (`runtime.dispatch.port`) |
-| `runtime.access` | A2A protocol access layer (`A2aJsonRpcController`, `A2aWellKnownAgentCardController`, submission + notification ports) |
-| `runtime.session` | session management |
-| `runtime.taskcontrol` | task-centric control |
+| `runtime.engine.spi` | framework-neutral runtime SPI: `AgentRuntimeHandler` (run one agent, surface its output), `StreamAdapter` (adapt a framework's native result stream into the neutral `AgentExecutionResult` stream), base `AbstractAgentRuntimeHandler`, carrier `AgentExecutionResult` |
+| `runtime.engine` | engine dispatch: `EngineDispatcher` (routes a command to the matched handler), `EngineWorker` + `engine.command.*` (internal command queue + worker) |
+| `runtime.engine.api` | inbound `EngineExecutionApi` (enqueue execute / resume / cancel) |
+| `runtime.engine.port` | outbound ports `TaskControlClient` + `AccessLayerClient` (engine → control / access; intra-service, not SPI) |
+| `runtime.engine.openjiuwen` | the first concrete `AgentRuntimeHandler` adapter (openJiuwen ReAct) |
+| `runtime.access` | A2A protocol access layer (`A2aJsonRpcController`, `A2aWellKnownAgentCardController`, submission + egress/notification ports) |
+| `runtime.session` | session management (`RuntimeSessionRepository` + in-memory impl) |
+| `runtime.control` | task-centric control — the single run-lifecycle authority (`TaskControlApi`) |
 | `runtime.queue` | internal event queue |
-| `runtime.schema` | runtime schema / response types |
-| `runtime.bootstrap` | the bootable runtime application `AgentRuntimeApplication` |
+| `runtime.schema` | runtime schema / response types (`AgentRequest` / `AgentResponse` / `RunStatus`) |
+| `runtime.app` | framework-neutral bootable entry `RuntimeApp` / `RuntimeHost` + Spring-backed `LocalA2aRuntimeHost`; cross-layer wiring `RuntimeWiringConfiguration` |
 
 ### The neutral EnginePort stays in agent-bus
 
 The neutral orchestration/engine SPI (`Orchestrator`, `RunContext`,
 `SuspendSignal`, `Checkpointer`, `TraceContext`, `RunMode`,
 `ExecutorDefinition`, `ExecutionContext`) lives in **agent-bus** under
-`com.huawei.ascend.bus.spi.engine` (transport-agnostic EnginePort boundary,
-ADR-0158). `agent-runtime` **consumes** that vocabulary and **realizes** the
-port via `InProcessEnginePort`; it does not own the neutral SPI. Treating the
-engine as a real instance behind a neutral port is what lets a single Run cross
-in-process, RPC, and A2A transports without changing the runtime kernel.
+`com.huawei.ascend.bus.spi.engine` (transport-agnostic boundary, ADR-0158).
+`agent-runtime` **consumes** that vocabulary (e.g. `RunContext` / `SuspendSignal`);
+it does not own the neutral SPI.
 
 ### Dependency direction
 
-`agent-runtime → agent-bus` (neutral `bus.spi.engine` EnginePort + `bus.spi.s2c`
-callback transport consumed by the engine registry) and
-`agent-runtime → agent-middleware` (`HookPoint` enum + `RuntimeMiddleware`
-listener). Never `agent-runtime → agent-service`: the serviceization façade is
-downstream. `agent-service → agent-runtime` is the only legal cross edge
-(Rule 10 / ArchUnit); there is no reverse edge.
+`agent-runtime → agent-bus` (neutral `bus.spi.engine` RunContext / SuspendSignal
+vocabulary consumed by the engine). Never `agent-runtime → agent-service`: the
+serviceization façade is downstream. `agent-service → agent-runtime` is the only
+legal cross edge (Rule 10 / ArchUnit); there is no reverse edge.
 
 ## 0.4 Layered 4+1 view map
 
 | Section | View | Notes |
 |---|---|---|
 | §1 Role | logical | run-owning runtime kernel + heterogeneous engine contract surface |
-| §2 Envelope schema | logical | `docs/contracts/engine-envelope.v1.yaml` |
-| §3 Matching strictness | process | Rule R-M.b — `engine_type=X` is executed only by adapter X |
+| §2 Handler dispatch | logical | `AgentRuntimeHandler` registered per `agentId`; `EngineDispatcher` routes |
+| §3 Single-write authority | process | engine → one `TaskControlClient` port; `control` gates egress |
 
 ## 1. Role
 
 `agent-runtime` owns, as one self-contained runtime:
 
-- the **engine contract surface** — `EngineEnvelope` (execution-engine request
-  shape: `envelope_version`, `engine_type`, `payload_class_ref`, `schema_ref`),
-  `EngineRegistry` (single authority for `resolve(envelope)` /
-  `resolveByPayload(def)`; pattern-matching on `ExecutorDefinition` subtypes
-  OUTSIDE the registry is forbidden — Rule R-M.a), the `ExecutorAdapter` +
-  engine-type-specific executor SPIs (`GraphExecutor`, `AgentLoopExecutor`), and
-  the planner SPI (ADR-0126);
-- **engine dispatch** (`runtime.dispatch`) — routing an accepted Run to the
-  matched adapter, with the access-layer and task-control client ports;
+- the **framework-neutral runtime SPI** (`runtime.engine.spi`) —
+  `AgentRuntimeHandler` runs one agent and surfaces its output; `StreamAdapter`
+  adapts a framework's native result stream into the neutral `AgentExecutionResult`
+  stream; `AbstractAgentRuntimeHandler` is the convenience base. The first adapter
+  is `engine.openjiuwen` (openJiuwen ReAct);
+- **engine dispatch** (`runtime.engine`) — `EngineDispatcher` routes an accepted
+  command to the handler registered for its `agentId` (an unknown `agentId`
+  converges to a terminal `AGENT_ID_INVALID` through the control authority, never
+  a hung task); `EngineWorker` + `engine.command.*` drive it off the internal
+  queue behind the inbound `engine.api.EngineExecutionApi`;
 - the **access layer** (`runtime.access`) — A2A protocol ingress that hands work
-  to the runtime;
-- **session / task-control / internal event queue** scaffolding for run-state
-  coordination;
-- the **bootable application** (`AgentRuntimeApplication`) — boots the access +
-  bootstrap component scan; session, queue, task-control and engine contribute
-  through their `AutoConfiguration` imports.
+  to the runtime and streams output back (task-scoped egress);
+- **session / task-centric control / internal event queue** for run-state
+  coordination — `control` is the single run-lifecycle authority and the only
+  writer of caller-facing egress;
+- the **bootable application** (`runtime.app`) —
+  `RuntimeApp.create(handler).run(LocalA2aRuntimeHost.port(p))`; `RuntimeApp` /
+  `RuntimeHost` are Spring-free, Spring Boot is confined to `LocalA2aRuntimeHost`.
 
-## 2. Envelope schema (authority)
+## 2. Handler registration + dispatch
 
-`docs/contracts/engine-envelope.v1.yaml` is the single source of truth. The
-`EngineEnvelope` Java record mirrors the schema (required fields validated on
-construction). `known_engines` membership is enforced by
-`EngineRegistry.resolve(...)` + registry boot validation; constructor-level
-membership validation is deferred per Rule M-2.a.c (formerly Rule 48.c).
+Each agent is served by an `AgentRuntimeHandler` registered under its `agentId`
+in `AgentRuntimeHandlerRegistry`. `EngineDispatcher` resolves the handler for an
+accepted command and runs it; resolution and execution are guarded so any failure
+— including an unknown `agentId` — converges to a terminal outcome (errorCode
+`AGENT_ID_INVALID`) through the control authority rather than hanging the task.
 
-## 3. Strict matching (Rule R-M.b, formerly Rule 44)
+## 3. Single-write authority
 
-A Run with `engine_type=X` executes only on the adapter registered under `X`.
-Mismatch → `EngineMatchingException` → `Run.FAILED` with reason
-`engine_mismatch`. **No fallback policy.** No silent reinterpretation of payloads
-as another engine's configuration.
+The engine reports every outcome to exactly one outbound port (`TaskControlClient`);
+`control` is the sole run-lifecycle authority and gates caller-facing egress on its
+own accepted transitions. The engine never writes egress directly.
 
 ## 4. Forbidden imports
 
-`com.huawei.ascend.runtime.engine.spi.*` imports only `java.*` + `agent-middleware`
-SPI (for `HookPoint` reference) + the neutral `bus.spi.engine` carriers it
-consumes. Enforced by `SpiPurityGeneralizedArchTest` (E48). No SPI package
-imports Spring, Micrometer, OTel, or reference implementations.
+`com.huawei.ascend.runtime.engine.spi.*` imports only `java.*` + the neutral
+`bus.spi.engine` carriers it consumes. Enforced by `SpiPurityGeneralizedArchTest`
+(E48). No SPI package imports Spring, Micrometer, OTel, or reference implementations.
 
 ## Reading order for new contributors
 
 1. `module-metadata.yaml` — identity + dependency promises.
-2. `docs/contracts/engine-envelope.v1.yaml` — envelope schema.
-3. `docs/contracts/engine-hooks.v1.yaml` — hook surface this engine fires
-   (consumed via `agent-middleware`).
-4. ADR-0159 — consolidation + refounding authority; ADR-0072 — engine authority.
+2. `runtime.engine.spi.AgentRuntimeHandler` — the framework-neutral runtime SPI.
+3. `runtime.app.RuntimeApp` / `LocalA2aRuntimeHost` — the bootable entry.
+4. ADR-0159 — consolidation + refounding authority.
 5. `docs/dfx/agent-runtime.yaml` — Design-for-X declarations.
 
 ---
@@ -144,21 +139,20 @@ Current namespace (`com.huawei.ascend.runtime.*`):
 agent-runtime/
 └── src/main/java/com/huawei/ascend/runtime/
     ├── engine/
-    │   ├── spi/                  # ExecutorAdapter, GraphExecutor, AgentLoopExecutor,
-    │   │                         #   EngineHookSurface, EngineMatchingException
-    │   ├── planner/spi/          # Planner, Plan, PlanStep, PlanningRequest, ... (ADR-0126)
-    │   ├── runtime/              # EngineRegistry, EngineEnvelope, InProcessEnginePort
-    │   └── exec/                 # reference executors
-    ├── dispatch/                 # engine dispatch
-    │   ├── spi/                  #   AgentHandler, AgentResultAdapter
-    │   └── port/                 #   AccessLayerClient, TaskControlClient
-    ├── access/                   # A2A protocol ingress (A2aJsonRpcController,
-    │                             #   A2aWellKnownAgentCardController, submission/notification ports)
-    ├── session/                  # session management
-    ├── taskcontrol/              # task-centric control
+    │   ├── spi/                  # AgentRuntimeHandler, StreamAdapter,
+    │   │                         #   AbstractAgentRuntimeHandler, AgentExecutionResult
+    │   ├── api/                  # EngineExecutionApi (inbound enqueue)
+    │   ├── command/              # EngineWorker + internal command queue
+    │   ├── port/                 # TaskControlClient, AccessLayerClient (outbound)
+    │   ├── openjiuwen/           # openJiuwen ReAct AgentRuntimeHandler adapter
+    │   └── EngineDispatcher.java # routes a command to the registered handler
+    ├── access/                   # A2A protocol ingress + egress (A2aJsonRpcController,
+    │                             #   A2aWellKnownAgentCardController, output registry)
+    ├── session/                  # session management (RuntimeSessionRepository)
+    ├── control/                  # task-centric control (single lifecycle authority)
     ├── queue/                    # internal event queue
     ├── schema/                   # runtime schema / response types
-    └── bootstrap/                # AgentRuntimeApplication (bootable runtime app)
+    └── app/                      # RuntimeApp / RuntimeHost / LocalA2aRuntimeHost + RuntimeWiringConfiguration
 ```
 
 The neutral orchestration/engine SPI (`Orchestrator`, `RunContext`,
@@ -179,23 +173,15 @@ loci (`deployment_loci: [platform_centric, business_centric]`).
 
 | Interface FQN | SPI package | Purpose |
 |---|---|---|
-| `com.huawei.ascend.runtime.engine.spi.ExecutorAdapter` | `runtime.engine.spi` | Unified engine adapter contract |
-| `com.huawei.ascend.runtime.engine.spi.GraphExecutor` | `runtime.engine.spi` | Workflow-graph execution |
-| `com.huawei.ascend.runtime.engine.spi.AgentLoopExecutor` | `runtime.engine.spi` | ReAct-loop execution |
-| `com.huawei.ascend.runtime.engine.spi.EngineHookSurface` | `runtime.engine.spi` | Engine-side hook declaration (cooperates with `agent-middleware` HookPoint) |
-| `com.huawei.ascend.runtime.engine.spi.EngineMatchingException` | `runtime.engine.spi` | Throw on `engine_type` mismatch (Rule R-M.b) |
-| `com.huawei.ascend.runtime.engine.planner.spi.Planner` | `runtime.engine.planner.spi` | Engine-side plan generator (ADR-0126) |
-| `com.huawei.ascend.runtime.dispatch.spi.AgentHandler` | `runtime.dispatch.spi` | Engine dispatch entry for an accepted Run |
-| `com.huawei.ascend.runtime.dispatch.spi.AgentResultAdapter` | `runtime.dispatch.spi` | Adapt an engine result back into the dispatch outcome |
+| `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` | `runtime.engine.spi` | The single framework-neutral runtime SPI: run one agent, surface its output (openJiuwen adapter first) |
+| `com.huawei.ascend.runtime.engine.spi.StreamAdapter` | `runtime.engine.spi` | Adapt a framework's native result stream into the neutral `AgentExecutionResult` stream |
 
-Implementation homes (NOT SPI):
-- `com.huawei.ascend.runtime.engine.runtime.EngineRegistry` — the only authority
-  for `resolve(envelope)`; pattern-matching on `ExecutorDefinition` outside this
-  class is forbidden (Rule R-M.a).
-- `com.huawei.ascend.runtime.engine.runtime.EngineEnvelope` (record) — mirrors
-  `engine-envelope.v1.yaml`.
-- `com.huawei.ascend.runtime.engine.runtime.InProcessEnginePort` — in-process
-  realization of the neutral `bus.spi.engine.EnginePort`.
+Base class + carrier (NOT SPI interfaces):
+- `com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler` — convenience base for adapters.
+- `com.huawei.ascend.runtime.engine.spi.AgentExecutionResult` — neutral execution-result carrier.
+- Engine dispatch internals live under `runtime.engine` (`EngineDispatcher`, `EngineWorker`,
+  `engine.command.*`) behind the inbound `engine.api.EngineExecutionApi`; the outbound ports are
+  `engine.port.{TaskControlClient, AccessLayerClient}` — intra-service, not SPI.
 
 ## *L2 Constraint Linkage* (Rule G-1.1.c)
 

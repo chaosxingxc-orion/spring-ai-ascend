@@ -219,7 +219,7 @@ fpGraphMemoryStore = element "Graph Memory Store" "FunctionPoint" "GraphMemoryRe
     }
 }
 
-fpEngineDispatch = element "Engine Dispatch" "FunctionPoint" "EngineRegistry.resolve(envelope) -> typed ExecutorAdapter dispatch via engine-envelope.v1.yaml (Rule R-M.a)" "SAA FunctionPoint" {
+fpEngineDispatch = element "Engine Dispatch" "FunctionPoint" "EngineDispatcher routes an EngineCommandEvent to the AgentRuntimeHandler registered for its agentId (via AgentRuntimeHandlerRegistry); single control authority; an unknown agentId converges to a terminal AGENT_ID_INVALID" "SAA FunctionPoint" {
     properties {
         "saa.id" "FP-ENGINE-DISPATCH"
         "saa.kind" "function_point"
@@ -228,21 +228,6 @@ fpEngineDispatch = element "Engine Dispatch" "FunctionPoint" "EngineRegistry.res
         "saa.status" "shipped"
         "saa.owner" "agent-runtime"
         "saa.sourceAdr" "ADR-0140"
-        "saa.channel" "internal"
-        "saa.actor" "platform-runtime"
-        "saa.trigger" "internal-orchestration-event"
-    }
-}
-
-fpHookDispatch = element "Hook Dispatch" "FunctionPoint" "RuntimeMiddleware listens on canonical HookPoint events (engine-hooks.v1.yaml; Rule R-M.c)" "SAA FunctionPoint" {
-    properties {
-        "saa.id" "FP-HOOK-DISPATCH"
-        "saa.kind" "function_point"
-        "saa.level" "L1"
-        "saa.view" "scenarios"
-        "saa.status" "shipped"
-        "saa.owner" "agent-middleware"
-        "saa.sourceAdr" "ADR-0073"
         "saa.channel" "internal"
         "saa.actor" "platform-runtime"
         "saa.trigger" "internal-orchestration-event"
@@ -343,14 +328,7 @@ graphMemoryStarter -> fpGraphMemoryStore "auto-wires GraphMemoryRepository imple
 
     }
 }
-agentRuntime -> fpEngineDispatch "implements EngineRegistry.resolve" "SAA Relationship" {
-    properties {
-
-        "saa.rel" "implements"
-
-    }
-}
-agentMiddleware -> fpHookDispatch "implements RuntimeMiddleware hook dispatch" "SAA Relationship" {
+agentRuntime -> fpEngineDispatch "implements EngineDispatcher + AgentRuntimeHandlerRegistry" "SAA Relationship" {
     properties {
 
         "saa.rel" "implements"

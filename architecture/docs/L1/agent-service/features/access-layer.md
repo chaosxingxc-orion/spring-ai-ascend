@@ -8,6 +8,8 @@ authority: "Absorbed from docs/logs/reviews/2026-05-26-agent-service-module-capa
 
 # Access Layer — Feature Inventory (AS-L1-F01..F08 + F48..F51)
 
+> **STATUS — agent-runtime pure rebuild (ADR-0159):** `agent-service` is now a serviceization-facade **skeleton**; its former runtime is consolidated into **`agent-runtime`**. Wherever this document references `EngineRegistry` / `ExecutorAdapter` / `EngineEnvelope` / `EngineMatchingException` / `EngineHookSurface` / `HookPoint` / `RuntimeMiddleware` / `HookDispatcher` / `resolve(envelope)`, that engine/hook design is **RETIRED / design_only / historical** — no such Java type exists. The current shipped dispatch lives in `agent-runtime`: `EngineDispatcher` -> `AgentRuntimeHandler` (routed by `agentId` via `AgentRuntimeHandlerRegistry`; unknown `agentId` -> terminal `AGENT_ID_INVALID`; single `control` write authority; egress gated by `control`), verified by `EngineDispatcherTest` / `EngineClosedLoopIntegrationTest`. See Rule R-M and `architecture/docs/L1/agent-runtime/`.
+
 > Module: Access Layer (Layer 1 per ADR-0138).
 > Sovereign for: protocol convergence, tenant/auth/idempotency binding, client capability publication, cursor/cancel/resume/callback ingress.
 > Does NOT own: Run aggregate state, Task control state, Session context state, engine dispatch, model/tool translation.

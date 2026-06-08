@@ -39,11 +39,15 @@ That is the required first step for the local A2A example at:
 
 ## Boot entry point
 
-The bootable runtime entry point is:
+`agent-runtime` ships as a **library**; embed the framework-neutral entry:
 
-- `com.huawei.ascend.runtime.bootstrap.AgentRuntimeApplication`
+```java
+try (RunningRuntime runtime = RuntimeApp.create(handler).run(LocalA2aRuntimeHost.port(8080))) {
+    // serving A2A on runtime.port()
+}
+```
 
-The Spring Boot Maven plugin repackages an executable `boot` classifier jar while keeping the main artifact usable as a library dependency.
+`RuntimeApp` / `RuntimeHost` (`com.huawei.ascend.runtime.app`) carry no Spring Boot dependency; Spring Boot is confined to `LocalA2aRuntimeHost`. There is no executable boot-classifier jar.
 
 A minimal local launch path is to start an application that depends on `agent-runtime`, such as the example app:
 
@@ -130,14 +134,14 @@ The main Java-level integration pattern is:
 
 Useful starting points in this module include:
 
-- `com.huawei.ascend.runtime.bootstrap.AgentRuntimeApplication`
+- `com.huawei.ascend.runtime.app.RuntimeApp` / `com.huawei.ascend.runtime.app.LocalA2aRuntimeHost`
 - `com.huawei.ascend.runtime.access.protocol.a2a.A2aAccessProperties`
 - `com.huawei.ascend.runtime.access.config.AccessLayerConfiguration`
 
 Important Java extension points and related types include:
 
-- `com.huawei.ascend.runtime.dispatch.spi.AgentHandler` — runtime dispatch SPI for handling agent work inside `agent-runtime`
-- `com.huawei.ascend.runtime.dispatch.adapter.openjiuwen.OpenJiuwenAgentHandler` — built-in `AgentHandler` implementation used by the local OpenJiuwen example path
+- `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` — framework-neutral runtime SPI for running an agent inside `agent-runtime` (with `StreamAdapter` + base `AbstractAgentRuntimeHandler`)
+- `com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler` — built-in `AgentRuntimeHandler` implementation used by the local OpenJiuwen example path
 - `org.a2aproject.sdk.spec.AgentCard` — A2A agent-card model exposed by the runtime discovery endpoint
 
 The example application shows the intended consumer shape from outside the module:

@@ -4,16 +4,11 @@
 # Wave: W2.x Phase 2.
 # Driver review: docs/logs/reviews/2026-05-15-l0architecture-lucio It-wave-1-supplement-runtime-engine-contract.en.md (proposal §5).
 #
-# This file is the SINGLE SOURCE OF TRUTH for the canonical hook surface.
-# The Java enum com.huawei.ascend.middleware.spi.HookPoint mirrors the `hooks:`
-# list (one enum constant per ordered entry). Gate Rule 57 cross-checks the
-# two sides at build time so the schema and code never drift.
-#
-# NOTE (2026-05-17 six-module materialization PR): the enum was moved from
-# com.huawei.ascend.runtime.orchestration.spi.HookPoint to
-# com.huawei.ascend.middleware.spi.HookPoint along with the entire middleware
-# SPI surface. The schema (this file) is unchanged; only the Java location
-# moved. Gate Rule 57 implementation already follows the new path.
+# RETIRED by the agent-runtime pure rebuild: the middleware / hook surface
+# (HookPoint enum, RuntimeMiddleware, HookDispatcher) was removed — there is NO
+# current Java type mirroring this schema. Retained only as a design reference for
+# the design_only contracts that still cite it (cost-governance / audit-trail /
+# agent-invoke-request). NOT runtime-enforced and NOT shipped on any classpath.
 #
 # Self-enforced by gate Rule 57 (engine_hooks_yaml_present_and_wellformed).
 
@@ -25,8 +20,8 @@ authority: ADR-0073
 # hook DELIVERY runtime-enforced; outcome consumption (Fail -> Run.FAILED,
 # ShortCircuit -> engine bypass) is design_only at W2.x and deferred to W2
 # Telemetry Vertical per CLAUDE-deferred.md 45.b.
-status: runtime_enforced  # delivery
-outcome_consumption_status: design_only  # deferred to W2 per 45.b
+status: design_only  # retired in the pure rebuild (no HookPoint / HookDispatcher runtime)
+outcome_consumption_status: design_only
 
 # Canonical hook list. Order is significant — registered middlewares fire in
 # the order declared here for `before_*` hooks; `after_*` hooks fire in

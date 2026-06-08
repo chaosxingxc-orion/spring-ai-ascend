@@ -9,6 +9,8 @@ authority: "ADR-0151 (L1 Feature Registry canonical schema) + ADR-0152 (uniform 
 
 # `agent-service` — L1 Feature Catalog (9-section)
 
+> **STATUS — agent-runtime pure rebuild (ADR-0159):** `agent-service` is now a serviceization-facade **skeleton**; its former runtime is consolidated into **`agent-runtime`**. Wherever this document references `EngineRegistry` / `ExecutorAdapter` / `EngineEnvelope` / `EngineMatchingException` / `EngineHookSurface` / `HookPoint` / `RuntimeMiddleware` / `HookDispatcher` / `resolve(envelope)`, that engine/hook design is **RETIRED / design_only / historical** — no such Java type exists. The current shipped dispatch lives in `agent-runtime`: `EngineDispatcher` -> `AgentRuntimeHandler` (routed by `agentId` via `AgentRuntimeHandlerRegistry`; unknown `agentId` -> terminal `AGENT_ID_INVALID`; single `control` write authority; egress gated by `control`), verified by `EngineDispatcherTest` / `EngineClosedLoopIntegrationTest`. See Rule R-M and `architecture/docs/L1/agent-runtime/`.
+
 This catalog is the **rendered** human-readable view of the
 `agent-service`-owned features registered in
 [`architecture/features/features.dsl`](../../../../features/features.dsl).
@@ -105,7 +107,7 @@ full catalog, see
 
 ### `FEAT-ENGINE-DISPATCH-AND-HOOKS`
 
-Owns the engine boundary: every Run dispatch goes through EngineRegistry.resolve(envelope) against engine-envelope.v1.yaml; pattern-matching on ExecutorDefinition subtypes outside the registry is forbidden (Rule R-M.a). Cross-cutting policies (model gateway, tool authz, memory governance, tenant policy, quota, observability, sandbox routing, checkpoint, failure handling) are expressed as RuntimeMiddleware listening on canonical HookPoint events from engine-hooks.v1.yaml. The hook contract is the extension surface for new policies without modifying executors.
+Owns the engine dispatch boundary. **Current state (ADR-0159 pure rebuild):** the engine lives in `agent-runtime` — `EngineDispatcher` routes each accepted `EngineCommandEvent` to the `AgentRuntimeHandler` registered for its `agentId` (via `AgentRuntimeHandlerRegistry`); an unknown `agentId` converges to a terminal `AGENT_ID_INVALID`; the engine reports to a single `TaskControlClient` and `control` gates caller-facing egress. The pre-rebuild envelope-matching + `RuntimeMiddleware`/`HookPoint` hook design (`EngineRegistry.resolve(envelope)` against `engine-envelope.v1.yaml`; hooks from `engine-hooks.v1.yaml`) is RETIRED / `design_only` — no such Java type exists.
 
 ### `FEAT-IDEMPOTENCY-AND-REPLAY`
 
@@ -156,11 +158,11 @@ commands after auto-modifying the feature's owning code.
 ### `FEAT-ENGINE-DISPATCH-AND-HOOKS`
 
 **Verification test FQNs:**
-- `com.huawei.ascend.service.runtime.engine.EngineRegistryIT`
-- `com.huawei.ascend.service.runtime.engine.HookDispatchTest`
+- `com.huawei.ascend.runtime.engine.EngineDispatcherTest`
+- `com.huawei.ascend.runtime.engine.EngineClosedLoopIntegrationTest`
 
 **Verification commands:**
-- `./mvnw -pl agent-service -am verify`
+- `./mvnw -pl agent-runtime -am verify`
 - `./mvnw -pl agent-runtime -am verify`
 
 ### `FEAT-IDEMPOTENCY-AND-REPLAY`

@@ -58,6 +58,23 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.6.2</version>
       </plugin>
+      <!-- agent-runtime is a library (embeds app.RuntimeApp); the runnable artifact is
+           THIS openJiuwen A2A server. Repackage it as an executable Spring Boot jar so it
+           can be containerized (see the repo-root Dockerfile). -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>com.huawei.ascend.examples.a2a.OpenJiuwenA2aAgentRuntimeApplication</mainClass>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 </project>

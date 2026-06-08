@@ -15,9 +15,8 @@ dfx_doc: docs/dfx/agent-service.yaml
 spi_packages:
   - com.huawei.ascend.service.spi   # placeholder namespace for future serviceization SPIs
 allowed_dependencies:
-  - agent-runtime    # engine SPI + orchestration SPI (RunMode, RunContext, SuspendSignal, ...) per ADR-0088
-  - agent-bus                 # S2cCallbackTransport SPI + IngressGateway SPI per ADR-0088 + ADR-0089
-  - agent-middleware
+  - agent-runtime    # framework-neutral engine SPI (engine.spi.AgentRuntimeHandler / StreamAdapter)
+  - agent-bus                 # neutral bus.spi.engine + bus.spi.s2c SPIs
 forbidden_dependencies: []
 deployment_plane: compute_control
 deployment_loci:

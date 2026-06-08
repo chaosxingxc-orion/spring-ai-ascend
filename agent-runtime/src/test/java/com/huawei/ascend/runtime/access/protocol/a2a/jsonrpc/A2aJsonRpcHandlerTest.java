@@ -133,7 +133,7 @@ class A2aJsonRpcHandlerTest {
     void tasksGetUsesA2aWireValuesForTaskStatusAndMessageParts() throws Exception {
         Message message = A2aTaskMapper.agentMessage("session-1", "task-1", "pong", Map.of("type", "final_response"));
         outputRegistry.append(
-                new A2aOutputHandle("tenant-1", "session-1"),
+                new A2aOutputHandle("tenant-1", "session-1", "task-1"),
                 new A2aOutput(
                         "TaskStatus",
                         "task-1",

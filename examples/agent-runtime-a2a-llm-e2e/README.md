@@ -57,6 +57,27 @@ state, runtime identity authentication, tenant-agent authorization, rate
 limiting, circuit breaking, multi-AZ deployment, same-city disaster recovery,
 cross-region recovery, SLA/SLO dashboards, and error-budget governance.
 
+## Quick start (config templates + scripts)
+
+Copy a template, fill it, and run — the env file is the only thing that differs
+between a local Ollama and a cloud OpenAI-compatible API; the command is identical:
+
+```bash
+cp .env.ollama.example .env        # or .env.openai-compatible.example, then edit
+bash scripts/test-e2e.sh .env      # installs agent-runtime + runs the E2E suite
+# Windows: ./scripts/test-e2e.ps1 -EnvFile .env
+```
+
+Templates (the `.env` you fill is gitignored; the `*.example` templates are tracked):
+
+- `.env.example` — every variable with inline docs.
+- `.env.ollama.example` — local Ollama via its OpenAI-compatible `/v1` surface (`gemma4:latest`).
+- `.env.openai-compatible.example` — a cloud OpenAI-compatible API (no real key committed).
+
+> The real-LLM e2e (`OpenJiuwenReactAgentA2aE2eTest`) only runs when
+> `SAA_SAMPLE_LLM_API_KEY` is non-blank. Without it, JUnit `assumeTrue()` **skips**
+> that branch after the agent-card assertions (the rest of the suite still runs).
+
 ## Local LLM Defaults and Curl
 
 The example is configured for a local OpenAI-compatible gateway by default. The checked-in defaults are env-aware placeholders in `examples/agent-runtime-a2a-llm-e2e/src/main/resources/application.yaml`:
@@ -65,19 +86,19 @@ The example is configured for a local OpenAI-compatible gateway by default. The 
 sample:
   openjiuwen:
     model-provider: ${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}
-    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-x00550472}
+    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-local-placeholder}
     api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
     model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
     ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}
 ```
 
-The local default key `sk-x00550472` is intentionally allowed for this example.
+`sk-local-placeholder` is a **non-functional placeholder**, not a usable key: local gateways (Ollama) ignore the `Authorization` header, so any string works. For a real cloud OpenAI-compatible API, set `SAA_SAMPLE_LLM_API_KEY` to your own key.
 
 You can sanity-check the local gateway directly before starting the sample:
 
 ```bash
 curl http://localhost:4000/v1/models \
-  -H 'Authorization: Bearer sk-x00550472'
+  -H 'Authorization: Bearer sk-local-placeholder'
 ```
 
 If your gateway uses a different key, host, or model, override the environment variables described below.

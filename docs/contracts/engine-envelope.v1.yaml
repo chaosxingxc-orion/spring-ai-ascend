@@ -4,20 +4,13 @@
 # Wave: W2.x Phase 1.
 # Driver review: docs/logs/reviews/2026-05-15-l0architecture-lucio It-wave-1-supplement-runtime-engine-contract.en.md (proposal §3 + §4).
 #
-# This file is the SINGLE SOURCE OF TRUTH for what an EngineEnvelope is. The
-# Java record com.huawei.ascend.runtime.engine.runtime.EngineEnvelope (owned by
-# agent-runtime; relocated from com.huawei.ascend.service.runtime.engine
-# in rc14 per ADR-0090 — retires the ADR-0079 source-compat exception)
-# mirrors this schema and validates REQUIRED FIELDS (nullability, blanks) on
-# construction.
-# `known_engines` membership is enforced by EngineRegistry.resolve(...) and
-# registry boot validation (Phase 5 R2 pilot — runtime self-validation;
-# enforcer E84). Constructor-level membership validation is deferred to
-# Rule M-2.a.c (formerly Rule 48.c; see docs/CLAUDE-deferred.md — re-introduction trigger: first
-# envelope built outside the Spring-boot test harness). The runtime
-# EngineRegistry loads this file at boot and asserts:
-#   (a) every known_engines[].id has a registered ExecutorAdapter
-#   (b) every registered ExecutorAdapter's engineType() value is in known_engines
+# RETIRED by the agent-runtime pure rebuild. There is NO current Java type for
+# this schema — the EngineEnvelope record / EngineRegistry / ExecutorAdapter were
+# removed; dispatch is now EngineDispatcher -> AgentRuntimeHandler keyed by agentId
+# (engine.spi.AgentRuntimeHandler + StreamAdapter). This file is retained only as a
+# design reference for the design_only contracts that still cite it
+# (agent-invoke-request / cost-governance / audit-trail). It is NOT loaded or
+# enforced at runtime and is NOT shipped on the agent-runtime classpath.
 #
 # The envelope is intentionally SHALLOW (proposal §3.2): it provides metadata
 # for routing / governance / observability, NOT a universal DSL. The
@@ -30,11 +23,8 @@
 product_claim: "PC-004"
 
 schema: engine-envelope/v1
-# Post-review status label (plan G / §5 overdesign labels): the envelope
-# contract is runtime_enforced -- EngineRegistry validates known_engines
-# at boot (ADR-0076 R2 pilot, enforcer E84) and every dispatch goes through
-# EngineRegistry.resolve(envelope) (Rule R-M.a, formerly Rule 43; enforcer E74).
-status: runtime_enforced
+# Retired in the pure rebuild — not runtime-enforced (no EngineRegistry exists).
+status: design_only
 authority: ADR-0072
 
 required_fields:

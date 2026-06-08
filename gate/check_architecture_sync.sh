@@ -254,7 +254,7 @@ if [[ $_r16_fail -eq 0 ]]; then pass_rule "http_contract_w1_tenant_and_cancel_co
 # ---------------------------------------------------------------------------
 _r17_fail=0
 _catalog17='docs/contracts/contract-catalog.md'
-_known_spis=('RunRepository' 'Checkpointer' 'GraphMemoryRepository' 'ResilienceContract' 'Orchestrator' 'GraphExecutor' 'AgentLoopExecutor')
+_known_spis=('Checkpointer' 'Orchestrator' 'EnginePort' 'DefinitionResolver' 'S2cCallbackTransport' 'AgentRuntimeHandler' 'StreamAdapter')
 if [[ -f "$_catalog17" ]]; then
   for _spi in "${_known_spis[@]}"; do
     if ! grep -qF "$_spi" "$_catalog17" 2>/dev/null; then

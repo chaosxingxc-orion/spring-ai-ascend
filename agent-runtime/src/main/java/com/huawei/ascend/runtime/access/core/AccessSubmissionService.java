@@ -7,11 +7,11 @@ import com.huawei.ascend.runtime.schema.Message;
 import com.huawei.ascend.runtime.schema.Role;
 import com.huawei.ascend.runtime.session.api.SessionManager;
 import com.huawei.ascend.runtime.session.model.Session;
-import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient;
-import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient.CancelCommand;
-import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient.ResumeCommand;
-import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient.RunCommand;
-import com.huawei.ascend.runtime.taskcontrol.api.TaskControlClient.TaskResult;
+import com.huawei.ascend.runtime.control.api.TaskControlApi;
+import com.huawei.ascend.runtime.control.api.TaskControlApi.CancelCommand;
+import com.huawei.ascend.runtime.control.api.TaskControlApi.ResumeCommand;
+import com.huawei.ascend.runtime.control.api.TaskControlApi.RunCommand;
+import com.huawei.ascend.runtime.control.api.TaskControlApi.TaskResult;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
@@ -25,11 +25,11 @@ public final class AccessSubmissionService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AccessSubmissionService.class);
 
-    private final TaskControlClient taskControlClient;
+    private final TaskControlApi taskControlClient;
     private final SessionManager sessionManager;
 
     public AccessSubmissionService(
-            TaskControlClient taskControlClient,
+            TaskControlApi taskControlClient,
             SessionManager sessionManager) {
         this.taskControlClient = Objects.requireNonNull(taskControlClient, "taskControlClient");
         this.sessionManager = Objects.requireNonNull(sessionManager, "sessionManager");

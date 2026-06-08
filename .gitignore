@@ -29,6 +29,11 @@ desktop.ini
 
 # Logs + runtime state
 *.log
+# Rotated/compressed runtime run logs (e.g. logs/run/run.<date>.0.log.gz) — `*.log`
+# above misses the `.gz` suffix. Module run-log dirs only; keeps docs/logs/** tracked.
+**/logs/run/*.log*
+# Developer-filled env files (the `.env*.example` templates ARE tracked).
+.env
 # Note: bare `logs/` pattern removed 2026-05-19 — it incorrectly caught the
 # `docs/logs/` archive partition (which MUST be tracked: rule-migration-map.yaml,
 # governance-waves.md, migration-coverage-report.md, etc. per ADR-0086). Only

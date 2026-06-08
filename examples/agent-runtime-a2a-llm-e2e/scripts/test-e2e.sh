@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Load an env file, install agent-runtime into the local Maven repo, then run the
+# example A2A + openJiuwen E2E suite (incl. the real-LLM OpenJiuwenReactAgentA2aE2eTest
+# when SAA_SAMPLE_LLM_API_KEY is set).
+#
+# Usage: bash scripts/test-e2e.sh [env-file]   (default: .env)
+#   bash scripts/test-e2e.sh .env.ollama.example
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+ENV_FILE="${1:-$HERE/.env}"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a; . "$ENV_FILE"; set +a
+  echo "loaded env: $ENV_FILE  (provider=${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:-} apiBase=${SAA_SAMPLE_OPENJIUWEN_API_BASE:-} model=${SAA_SAMPLE_LLM_MODEL:-})"
+else
+  echo "env file not found: $ENV_FILE — using process env / application.yaml defaults"
+fi
+if [[ -z "${SAA_SAMPLE_LLM_API_KEY:-}" ]]; then
+  echo "WARNING: SAA_SAMPLE_LLM_API_KEY is blank — the real-LLM e2e branch will be SKIPPED (assumeTrue)."
+fi
+cd "$REPO"
+./mvnw -pl agent-runtime -am install -DskipTests -Dmaven.test.skip=true
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test

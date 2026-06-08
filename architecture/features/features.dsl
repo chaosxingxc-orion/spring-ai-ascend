@@ -231,17 +231,17 @@ featEngineDispatchAndHooks = element "Engine Dispatch and Hooks" "Feature" "Type
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0088"
         "saa.capabilityDomain" "engine-contract"
-        "saa.synopsis" "Owns the engine boundary: every Run dispatch goes through EngineRegistry.resolve(envelope) against engine-envelope.v1.yaml; pattern-matching on ExecutorDefinition subtypes outside the registry is forbidden (Rule R-M.a). Cross-cutting policies (model gateway, tool authz, memory governance, tenant policy, quota, observability, sandbox routing, checkpoint, failure handling) are expressed as RuntimeMiddleware listening on canonical HookPoint events from engine-hooks.v1.yaml. The hook contract is the extension surface for new policies without modifying executors."
+        "saa.synopsis" "Owns the engine dispatch boundary: EngineDispatcher routes each accepted EngineCommandEvent to the AgentRuntimeHandler registered for its agentId (AgentRuntimeHandlerRegistry); the engine reports every outcome to a single TaskControlClient port and control is the sole authority that gates caller-facing egress. The framework-neutral engine.spi (AgentRuntimeHandler + StreamAdapter) is the extension surface for new agent frameworks (openJiuwen adapter first); an unknown agentId converges to a terminal AGENT_ID_INVALID."
         "saa.aiBoundary.canModifyCode" "true"
         "saa.aiBoundary.canModifyContracts" "false"
         "saa.aiBoundary.allowedStatusTransitions" "shipped->deprecated"
         "saa.aiBoundary.requiresHumanReviewAt" "deprecated|removed"
         "saa.aiBoundary.sandboxPolicyRef" "docs/governance/sandbox-policies.yaml#default_policy"
-        "saa.devPaths" "agent-service/src/main/java/com/huawei/ascend/service/runtime/engine|agent-runtime/src/main/java"
-        "saa.goals" "Typed engine dispatch + hook-based middleware|Versioned contracts at the boundary"
-        "saa.nonGoals" "Per-executor instanceof checks outside the registry"
-        "saa.verificationTestFqns" "com.huawei.ascend.service.runtime.engine.EngineRegistryIT|com.huawei.ascend.service.runtime.engine.HookDispatchTest"
-        "saa.verificationCommands" "./mvnw -pl agent-service -am verify|./mvnw -pl agent-runtime -am verify"
+        "saa.devPaths" "agent-runtime/src/main/java/com/huawei/ascend/runtime/engine"
+        "saa.goals" "Framework-neutral dispatch to AgentRuntimeHandler|Single control-plane write authority gating egress"
+        "saa.nonGoals" "Re-introducing the retired EngineRegistry / ExecutorAdapter / envelope-matching island"
+        "saa.verificationTestFqns" "com.huawei.ascend.runtime.engine.EngineDispatcherTest|com.huawei.ascend.runtime.engine.EngineClosedLoopIntegrationTest"
+        "saa.verificationCommands" "./mvnw -pl agent-runtime -am verify"
     }
 }
 
@@ -329,11 +329,6 @@ featEngineDispatchAndHooks -> fpEngineDispatch "engine feature contains dispatch
         "saa.rel" "requires"
     }
 }
-featEngineDispatchAndHooks -> fpHookDispatch "engine feature contains hook dispatch" "SAA Relationship" {
-    properties {
-        "saa.rel" "requires"
-    }
-}
 
 // =============================================================================
 // W4 — agent-service deep-dive feature catalog (rc55 per-layer features).
@@ -367,7 +362,7 @@ efAccessAdmission = element "Access and Admission Frame" "EngineeringFrame" "Pro
     }
 }
 
-efEngineDispatch = element "Engine Dispatch Frame" "EngineeringFrame" "Engine adapter + executor dispatch (service-side)" "SAA EngineeringFrame" {
+efEngineDispatch = element "Engine Dispatch Frame" "EngineeringFrame" "Engine-adapter dispatch (agent-service Layer-4, design_only) — routes an accepted run to the framework-neutral AgentRuntimeHandler via the agent-runtime EngineDispatcher" "SAA EngineeringFrame" {
     properties {
         "saa.id" "EF-ENGINE-DISPATCH"
         "saa.kind" "engineering_frame"
@@ -378,7 +373,7 @@ efEngineDispatch = element "Engine Dispatch Frame" "EngineeringFrame" "Engine ad
         "saa.owner" "agent-service"
         "saa.sourceAdr" "ADR-0138|ADR-0155"
         "saa.capabilityDomain" "agent-service-engine-dispatch"
-        "saa.synopsis" "Layer 4 of the agent-service per-layer architecture (ADR-0138). Owns engine-adapter dispatch (EngineRegistry.resolve(envelope) → typed ExecutorAdapter) and the executor invocation pathway that drives the Run state machine. The deep-dive inventory lives at architecture/docs/L1/agent-service/features/engine-dispatch-execution.md. Cross-cutting policies expressed as RuntimeMiddleware hooks (see FEAT-ENGINE-DISPATCH-AND-HOOKS for the cross-module Engine Contract feature). + ADR-0155 v1.2 absorption adds F48-F65 design-only items."
+        "saa.synopsis" "Layer 4 of the agent-service per-layer architecture (ADR-0138), design_only. Engine-adapter dispatch routes an accepted run to the framework-neutral AgentRuntimeHandler (agent-runtime engine.spi) via EngineDispatcher + AgentRuntimeHandlerRegistry. The deep-dive inventory lives at architecture/docs/L1/agent-service/features/engine-dispatch-execution.md (see FEAT-ENGINE-DISPATCH-AND-HOOKS for the cross-module Engine Contract feature). + ADR-0155 v1.2 absorption adds F48-F65 design-only items."
         "saa.aiBoundary.canModifyCode" "true"
         "saa.aiBoundary.canModifyContracts" "false"
         "saa.aiBoundary.allowedStatusTransitions" "shipped->deprecated"

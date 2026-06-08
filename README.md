@@ -65,21 +65,16 @@ boot-and-first-run walkthrough is in [docs/quickstart.md](docs/quickstart.md).
 
 ## Architecture at a glance
 
-The runtime is split across **8 Maven modules**, each pinned to exactly one of
-five deployment planes so workloads with different runtime characteristics
-(latency-sensitive HTTP, throughput-heavy ML, untrusted sandbox code) never
-share infrastructure:
+The runtime ships as **4 Maven modules**, each pinned to a deployment plane so
+workloads with different runtime characteristics (latency-sensitive HTTP,
+throughput-heavy ML, untrusted sandbox code) never share infrastructure:
 
 | Module | Plane | What it does |
 |--------|-------|--------------|
-| `agent-client` | Edge Access | Client SDK surface (skeleton; W3+) |
-| `agent-runtime` | Compute & Control | Run-owning runtime SDK — execution engine (`EngineRegistry`, `EngineEnvelope`, `ExecutorAdapter` SPI), `Run` / `RunStateMachine`, engine dispatch, session/task-control, internal event queue, access (A2A), and the bootable runtime app |
+| `agent-runtime` | Compute & Control | Run-owning runtime SDK — framework-neutral engine (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`, openJiuwen adapter), `Run` lifecycle, engine dispatch, session, task-centric control, internal event queue, access (A2A), and the bootable runtime app (`app.RuntimeApp` / `LocalA2aRuntimeHost`) |
 | `agent-service` | Compute & Control | Enterprise serviceization façade (skeleton) — registration/discovery driving runtime-built Agent instances via agent-runtime (ADR-0159) |
-| `agent-middleware` | Compute & Control | `RuntimeMiddleware` SPI + hook dispatch |
-| `agent-bus` | Bus & State Hub | Cross-plane control surfaces (client→server ingress, server→client callback) |
-| `agent-evolve` | Evolution | ML / self-improvement pipeline (skeleton) |
+| `agent-bus` | Bus & State Hub | Cross-plane control surfaces (client→server ingress, server→client callback) + the neutral `bus.spi.engine` boundary |
 | `spring-ai-ascend-dependencies` | (build-time) | Bill of Materials |
-| `spring-ai-ascend-graphmemory-starter` | Bus & State Hub | Graph-memory auto-config starter |
 
 Each module declares its identity in `module-metadata.yaml`, its L1 design in
 `architecture/docs/L0/ARCHITECTURE.md`, and its five DFX dimensions in `docs/dfx/<module>.yaml`.

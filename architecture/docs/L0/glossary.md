@@ -33,8 +33,8 @@ the current L0 reading and flags pending vocabulary decisions.
 | Agent | Registered entity binding model, skills, memory, planner, prompt, and advisors for execution. | `agent-runtime` agent SPI | Orchestrator | accepted_direction |
 | Orchestrator | Runtime component that dispatches work, handles suspend/resume, and emits execution/state intent. | Engine/service/bus boundary per accepted ADRs | Lifecycle state owner | accepted_direction |
 | EnginePort | Neutral engine boundary assigned to `agent-bus` by ADR-0158. | `agent-bus` | Engine adapter implementation | accepted_current |
-| Engine adapter | Concrete execution adapter and registry/envelope behavior. | `agent-runtime` | Neutral bus-owned EnginePort | accepted_current |
-| RuntimeMiddleware | Cross-cutting middleware hook listener and dispatch surface. | `agent-middleware` | Provider implementation | accepted_current |
+| Engine adapter | Concrete framework adapter implementing `engine.spi.AgentRuntimeHandler` (+ `StreamAdapter`), dispatched by `EngineDispatcher` keyed by agentId. | `agent-runtime` | Neutral bus-owned EnginePort | accepted_current |
+| RuntimeMiddleware | Cross-cutting middleware hook listener — RETIRED in the agent-runtime pure rebuild (no current runtime; `agent-middleware` deleted). | (retired) | Provider implementation | pending_decision |
 | ModelGateway | Platform model invocation boundary. | `agent-middleware` model SPI | Direct Spring AI `ChatModel` use | accepted_direction |
 | Skill | Governed tool/skill execution unit. | `agent-middleware` skill SPI | Ungoverned business function call | accepted_direction |
 | Tool Gateway | Capability aggregate for skill authorization, capacity, audit, idempotency, and tool-call governance. | `agent-middleware` + `agent-service` integration | Independent reactor module | candidate_promote |

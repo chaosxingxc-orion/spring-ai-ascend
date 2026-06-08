@@ -5,13 +5,13 @@ level: L1
 view: process
 principle_ref: P-M
 authority_refs: [ADR-0071, "ADR-0072 (retired)", "ADR-0073 (retired)", "ADR-0074 (retired)", ADR-0075, ADR-0077]
-enforcer_refs: [E73, E74, E75, E76, E78, E81, E82, E83, E84, E89, E90, E92, E113]
+enforcer_refs: [E73, E81, E82, E83, E84, E89, E90, E92, E113]  # E74/E75/E76/E78 removed: retired with the .b/.c envelope/registry/hook design (no current Java type or enforcers.yaml row)
 status: active
 product_claim: "PC-004"
 scope_phase: design
 kernel_cap: 8
 kernel: |
-  **Every Run dispatch MUST go through `EngineRegistry.resolve(envelope)` against the `docs/contracts/engine-envelope.v1.yaml` schema; pattern-matching on `ExecutorDefinition` subtypes outside the registry is forbidden (sub-clause .a — Engine Envelope). A Run whose envelope declares `engine_type=X` MUST execute only via the `ExecutorAdapter` registered under X; mismatch raises `EngineMatchingException` and transitions the Run to FAILED with reason `engine_mismatch` (sub-clause .b — Strict Matching). Cross-cutting policies (model gateway, tool authz, memory governance, tenant policy, quota, observability, sandbox routing, checkpoint, failure handling) MUST be expressed as `RuntimeMiddleware` listening on canonical `HookPoint` events from `docs/contracts/engine-hooks.v1.yaml` (sub-clause .c — Hooks). Server-to-Client capability invocation goes through `S2cCallbackEnvelope` + `S2cCallbackTransport` SPI (under `com.huawei.ascend.bus.spi.s2c`, owned by `agent-bus` per ADR-0088); the waiting Run suspends via `SuspendSignal.forClientCallback(...)` checked variant; client responses validated against `docs/contracts/s2c-callback.v1.yaml` (sub-clause .d — S2C). Every emitted `RunEvent` declares an `EvolutionExport` value (`IN_SCOPE | OUT_OF_SCOPE | OPT_IN`); out-of-scope events MUST NOT be persisted by the evolution plane (sub-clause .e — Evolution Scope). The deleted Java type name `S2cCallbackSignal` MUST appear only inside paragraphs marked historical via tokens listed in `gate/historical-marker-vocabulary.txt` (sub-clause .f — Historical-Only).**
+  **Engine dispatch: `EngineDispatcher` routes each accepted `EngineCommandEvent` to the `AgentRuntimeHandler` registered for its `agentId` (via `AgentRuntimeHandlerRegistry`); an unknown `agentId` converges to a terminal failure with reason `AGENT_ID_INVALID`, and the engine reports every outcome to a single `TaskControlClient` port while `control` is the sole authority that gates caller-facing egress (sub-clause .a — Engine Dispatch). RETIRED (design_only — see `docs/contracts/engine-envelope.v1.yaml`): the pre-rebuild envelope-matching design (`EngineRegistry.resolve(envelope)`, typed `ExecutorAdapter` per `engine_type`, `EngineMatchingException`) has no current Java type (sub-clause .b — Strict Matching, historical). RETIRED (design_only — see `docs/contracts/engine-hooks.v1.yaml`): the pre-rebuild hook-middleware design (cross-cutting policies as `RuntimeMiddleware` listening on `HookPoint` events) has no current Java type (sub-clause .c — Hooks, historical). Server-to-Client capability invocation goes through `S2cCallbackEnvelope` + `S2cCallbackTransport` SPI (under `com.huawei.ascend.bus.spi.s2c`, owned by `agent-bus` per ADR-0088); the waiting Run suspends via `SuspendSignal.forClientCallback(...)` checked variant; client responses validated against `docs/contracts/s2c-callback.v1.yaml` (sub-clause .d — S2C). Every emitted `RunEvent` declares an `EvolutionExport` value (`IN_SCOPE | OUT_OF_SCOPE | OPT_IN`); out-of-scope events MUST NOT be persisted by the evolution plane (sub-clause .e — Evolution Scope). The deleted Java type name `S2cCallbackSignal` MUST appear only inside paragraphs marked historical via tokens listed in `gate/historical-marker-vocabulary.txt` (sub-clause .f — Historical-Only).**
 deferred_sub_clauses:
   - id: ".b.b"
     title: "Run.engineType Field Persistence [Deferred to W2]"
@@ -77,6 +77,8 @@ deferred_sub_clauses:
 
 Operationalises across 6 sub-clauses. See `## Sub-clauses` below for the per-sub-clause assertion + enforcer mapping. Authority: [ADR-0071, ADR-0072, ADR-0073, ADR-0074, ADR-0075, ADR-0077].
 
+> **Status (agent-runtime pure rebuild, ADR-0159):** sub-clause **.a** is rewritten to the current `EngineDispatcher` → `AgentRuntimeHandler` dispatch (routes by `agentId`; unknown `agentId` → terminal `AGENT_ID_INVALID`; single `control` write authority). Sub-clauses **.b (Strict Matching)** and **.c (Hooks)** are **RETIRED / design_only** — the `EngineRegistry` / `ExecutorAdapter` / `EngineEnvelope` / `EngineMatchingException` / `HookPoint` / `RuntimeMiddleware` / `HookDispatcher` Java types were removed and `docs/contracts/engine-envelope.v1.yaml` / `engine-hooks.v1.yaml` are `design_only`. The per-sub-clause "Enforced by Gate Rule 55/56/57 … EngineRegistry" notes and the `.b`/`.c` enforcers (E74, E75, E78) below describe that retired design and are historical. Sub-clauses **.d (S2C)**, **.e (Evolution Scope)**, **.f (Historical-Only)** remain active.
+
 ## Sub-clauses
 
 ### .a — (was sub-clause .a)
@@ -87,7 +89,7 @@ Authority: ADR-0072 / P-M. Part of the W2.x Engine Contract Structural Wave that
 
 ## Cross-references
 
-- Enforced by Gate Rule 55 (`engine_envelope_yaml_present_and_wellformed`, enforcer E76) and ArchUnit E74 (`EnginePayloadDispatchOnlyViaRegistryTest` — every concrete Orchestrator implementation depends on EngineRegistry).
+- RETIRED / historical (sub-clause .a is now `EngineDispatcher` → `AgentRuntimeHandler`): the envelope/registry design was formerly enforced by Gate Rule 55 (`engine_envelope_yaml_present_and_wellformed`, E76) + ArchUnit E74 (`EnginePayloadDispatchOnlyViaRegistryTest`). No current `EngineRegistry` Java type; `engine-envelope.v1.yaml` is `design_only`. Current dispatch is verified by `EngineDispatcherTest` / `EngineClosedLoopIntegrationTest`.
 - Strict construction-time membership validation for `EngineEnvelope` deferred to Rule M-2 sub-clause .a.c (re-introduction trigger: first envelope built outside the Spring-boot test harness).
 - Schema source: `docs/contracts/engine-envelope.v1.yaml`.
 - Companion rule: Rule R-M sub-clause .b ([`rule-R-M.md`](rule-R-M.md)) — Strict Engine Matching.
@@ -101,7 +103,7 @@ Authority: ADR-0072 / P-M. Part of the W2.x Engine Contract Structural Wave that
 
 ## Cross-references
 
-- Enforced by Gate Rule 56 (`engine_registry_covers_all_known_engines` — bidirectional yaml↔ENGINE_TYPE consistency, enforcer E77) and integration test E75 (`EngineMatchingStrictnessIT`).
+- RETIRED / historical: strict matching was formerly enforced by Gate Rule 56 (`engine_registry_covers_all_known_engines`, E77) + integration test E75 (`EngineMatchingStrictnessIT`). No current `EngineRegistry` / `ExecutorAdapter` / `EngineMatchingException` Java type.
 - Additional enforcer E88 (W2.x post-release closure work) tightens registry-boot validation.
 - Companion rule: Rule R-M sub-clause .a ([`rule-R-M.md`](rule-R-M.md)) — Engine Envelope Single Authority.
 - Companion rule: Rule R-C.2 sub-clause .b ([`rule-R-C.2.md`](rule-R-C.2.md)) — Run State Transition Validity (was Rule R-C.d pre-rc17 per ADR-0094; `engine_mismatch` is a legal RUNNING → FAILED transition).
@@ -121,7 +123,7 @@ At W2.x the dispatcher fires hooks and middlewares may return `HookOutcome.Fail`
 
 ## Cross-references
 
-- Enforced by Gate Rule 57 (`engine_hooks_yaml_present_and_wellformed` — bidirectional yaml↔HookPoint-enum consistency, enforcer E78), ArchUnit E79 (`EveryEngineDeclaresHookSurfaceTest`), integration test E80 (`RuntimeMiddlewareInterceptsHooksIT`).
+- RETIRED / historical: the hook surface was formerly enforced by Gate Rule 57 (`engine_hooks_yaml_present_and_wellformed`, E78), ArchUnit E79 (`EveryEngineDeclaresHookSurfaceTest`), integration test E80 (`RuntimeMiddlewareInterceptsHooksIT`). No current `HookPoint` / `RuntimeMiddleware` / `HookDispatcher` Java type; `engine-hooks.v1.yaml` is `design_only`.
 - W2.x Phase 2 ships SPI surface only; consumer hooks (TokenCounterHook, PiiRedactionHook, etc.) land in W2 Telemetry Vertical.
 - Run-state consumption of outcomes deferred per `CLAUDE-deferred.md` 45.b.
 - Schema source: `docs/contracts/engine-hooks.v1.yaml`.

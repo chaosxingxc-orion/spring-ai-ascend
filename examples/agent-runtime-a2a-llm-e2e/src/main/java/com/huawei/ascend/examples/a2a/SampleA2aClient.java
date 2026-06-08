@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.a2aproject.sdk.client.http.A2ACardResolver;
 import org.a2aproject.sdk.client.transport.jsonrpc.JSONRPCTransport;
@@ -43,6 +44,7 @@ public final class SampleA2aClient {
         List<StreamingEventKind> events = new ArrayList<>();
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<Throwable> failure = new AtomicReference<>();
+        AtomicBoolean sawTerminal = new AtomicBoolean(false);
         JSONRPCTransport transport = new JSONRPCTransport(jsonRpcEndpoint(card));
         try {
             transport.sendMessageStreaming(
@@ -50,11 +52,19 @@ public final class SampleA2aClient {
                     event -> {
                         events.add(event);
                         if (isTerminal(event)) {
+                            sawTerminal.set(true);
                             completed.countDown();
                         }
                     },
                     error -> {
-                        failure.set(error);
+                        // The A2A SDK cancels the SSE subscription right after the terminal
+                        // event; a CancellationException AFTER a terminal event is normal stream
+                        // completion (incl. terminal FAILED runs), NOT a transport failure. A
+                        // cancellation BEFORE any terminal event — or any other error — is a
+                        // genuine failure (partial stream / transport break).
+                        if (isFailureError(error, sawTerminal.get())) {
+                            failure.set(error);
+                        }
                         completed.countDown();
                     },
                     new ClientCallContext(Map.of(), Map.of()));
@@ -128,9 +138,32 @@ public final class SampleA2aClient {
                 .build();
     }
 
-    private static boolean isTerminal(StreamingEventKind event) {
-        if (event instanceof Message message) {
-            return "completed".equals(message.metadata().get("runStatus"));
+    // Match the runtime's canonical RunStatus.wire() terminal values (lower-cased enum names):
+    // completed / failed / canceled / rejected. "cancelled" is kept only as a defensive alias.
+    private static final java.util.Set<String> TERMINAL_RUN_STATUSES =
+            java.util.Set.of("completed", "failed", "canceled", "rejected", "cancelled");
+
+    static boolean isTerminal(StreamingEventKind event) {
+        if (event instanceof Message message && message.metadata() != null) {
+            return TERMINAL_RUN_STATUSES.contains(String.valueOf(message.metadata().get("runStatus")));
+        }
+        return false;
+    }
+
+    /**
+     * A streamed error is a real failure UNLESS it is a CancellationException that arrived
+     * AFTER a terminal event (the SDK's normal post-terminal SSE unsubscribe). A cancellation
+     * before any terminal event is a partial-stream transport failure that must be surfaced.
+     */
+    static boolean isFailureError(Throwable error, boolean sawTerminal) {
+        return !(causedByCancellation(error) && sawTerminal);
+    }
+
+    private static boolean causedByCancellation(Throwable error) {
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            if (t instanceof java.util.concurrent.CancellationException) {
+                return true;
+            }
         }
         return false;
     }

@@ -34,7 +34,6 @@
   <modules>
     <module>spring-ai-ascend-dependencies</module>
     <module>agent-bus</module>
-    <module>agent-middleware</module>
     <module>agent-runtime</module>
     <module>agent-service</module>
   </modules>
@@ -263,11 +262,6 @@
       </dependency>
       <dependency>
         <groupId>com.huawei.ascend</groupId>
-        <artifactId>agent-middleware</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-runtime</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -342,6 +336,9 @@
                  mock maker (ByteBuddy agent) self-attaches at first mock and otherwise
                  fails intermittently with 'Could not initialize plugin MockMaker'. -->
             <argLine>-XX:+EnableDynamicAgentLoading</argLine>
+            <!-- Safety net: a deadlocked or stuck unit-test fork fails fast instead of
+                 burning the whole CI runner allotment and stalling feedback for hours. -->
+            <forkedProcessTimeoutInSeconds>900</forkedProcessTimeoutInSeconds>
           </configuration>
         </plugin>
         <!--

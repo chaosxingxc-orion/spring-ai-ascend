@@ -11,12 +11,7 @@ import com.huawei.ascend.runtime.access.protocol.a2a.egress.A2aOutputRegistry;
 import com.huawei.ascend.runtime.access.protocol.a2a.egress.DefaultNotificationPort;
 import com.huawei.ascend.runtime.access.protocol.a2a.ingress.A2aJsonRpcController;
 import com.huawei.ascend.runtime.access.protocol.a2a.jsonrpc.A2aJsonRpcHandler;
-import com.huawei.ascend.runtime.access.protocol.async.AsyncQueueIngressAdapter;
-import com.huawei.ascend.runtime.access.protocol.async.AsyncQueueIngressPort;
-import com.huawei.ascend.runtime.access.protocol.async.AsyncQueueReplySink;
-import com.huawei.ascend.runtime.access.protocol.async.DefaultAsyncQueueReplySink;
-import com.huawei.ascend.runtime.bootstrap.AbstractRuntimeAgentHandler;
-import com.huawei.ascend.runtime.queue.QueueManager;
+import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
 import java.util.List;
 import java.util.Optional;
 import org.a2aproject.sdk.spec.AgentCapabilities;
@@ -24,7 +19,6 @@ import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.AgentProvider;
 import org.a2aproject.sdk.spec.TransportProtocol;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -42,7 +36,7 @@ public class AccessLayerConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(AgentCard.class)
-    AgentCard a2aAgentCard(Optional<AbstractRuntimeAgentHandler> runtimeAgent) {
+    AgentCard a2aAgentCard(Optional<AbstractAgentRuntimeHandler> runtimeAgent) {
         if (runtimeAgent.isPresent()) {
             return runtimeAgent.get().agentCard();
         }
@@ -106,20 +100,5 @@ public class AccessLayerConfiguration {
             A2aJsonRpcHandler handler,
             A2aOutputRegistry outputRegistry) {
         return new A2aJsonRpcController(handler, outputRegistry);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(AsyncQueueIngressPort.class)
-    AsyncQueueIngressPort asyncQueueIngressPort(
-            A2aJsonRpcHandler handler,
-            Optional<AsyncQueueReplySink> replySink) {
-        return new AsyncQueueIngressAdapter(handler, replySink);
-    }
-
-    @Bean
-    @ConditionalOnBean(QueueManager.class)
-    @ConditionalOnMissingBean(AsyncQueueReplySink.class)
-    AsyncQueueReplySink asyncQueueReplySink(QueueManager queueManager) {
-        return new DefaultAsyncQueueReplySink(queueManager);
     }
 }

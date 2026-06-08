@@ -4,7 +4,7 @@ import com.huawei.ascend.runtime.schema.Message;
 import com.huawei.ascend.runtime.session.api.SessionManager;
 import com.huawei.ascend.runtime.session.model.Session;
 import com.huawei.ascend.runtime.session.model.SessionKey;
-import com.huawei.ascend.runtime.session.store.SessionStore;
+import com.huawei.ascend.runtime.session.RuntimeSessionRepository;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -20,11 +20,11 @@ public final class SessionManagerImpl implements SessionManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SessionManagerImpl.class);
 
-    private final SessionStore sessionStore;
+    private final RuntimeSessionRepository sessionStore;
     private final Clock clock;
     private final Duration ttl;
 
-    public SessionManagerImpl(SessionStore sessionStore, Clock clock, Duration ttl) {
+    public SessionManagerImpl(RuntimeSessionRepository sessionStore, Clock clock, Duration ttl) {
         this.sessionStore = Objects.requireNonNull(sessionStore, "sessionStore");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.ttl = ttl;

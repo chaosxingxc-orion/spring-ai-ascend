@@ -1,14 +1,14 @@
 package com.huawei.ascend.runtime.queue;
 
 import com.huawei.ascend.runtime.access.config.AccessLayerConfiguration;
-import com.huawei.ascend.runtime.bootstrap.AgentServiceBootstrapConfiguration;
-import com.huawei.ascend.runtime.dispatch.command.EngineCommandGateway;
-import com.huawei.ascend.runtime.dispatch.command.EngineCommandProcessor;
-import com.huawei.ascend.runtime.dispatch.config.EngineAutoConfiguration;
+import com.huawei.ascend.runtime.app.RuntimeWiringConfiguration;
+import com.huawei.ascend.runtime.engine.command.EngineCommandGateway;
+import com.huawei.ascend.runtime.engine.command.EngineWorker;
+import com.huawei.ascend.runtime.engine.config.EngineAutoConfiguration;
 import com.huawei.ascend.runtime.queue.config.QueueAutoConfiguration;
 import com.huawei.ascend.runtime.session.config.SessionManageConfiguration;
-import com.huawei.ascend.runtime.taskcontrol.TaskControlService;
-import com.huawei.ascend.runtime.taskcontrol.config.TaskControlAutoConfiguration;
+import com.huawei.ascend.runtime.control.TaskControlService;
+import com.huawei.ascend.runtime.control.config.TaskControlAutoConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
@@ -22,7 +22,7 @@ class QueueAutoConfigurationTest {
                     TaskControlAutoConfiguration.class,
                     AccessLayerConfiguration.class,
                     SessionManageConfiguration.class,
-                    AgentServiceBootstrapConfiguration.class,
+                    RuntimeWiringConfiguration.class,
                     EngineAutoConfiguration.class);
 
     @Test
@@ -31,7 +31,7 @@ class QueueAutoConfigurationTest {
             assertThat(context).hasSingleBean(QueueManager.class);
             assertThat(context).hasSingleBean(TaskControlService.class);
             assertThat(context).hasSingleBean(EngineCommandGateway.class);
-            assertThat(context).hasSingleBean(EngineCommandProcessor.class);
+            assertThat(context).hasSingleBean(EngineWorker.class);
         });
     }
 }

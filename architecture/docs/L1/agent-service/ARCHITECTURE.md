@@ -11,6 +11,8 @@ authority: "ADR-0078 (agent-service consolidation) + ADR-0068 (Layered 4+1) + AD
 
 # agent-service — L1 architecture (2026-05-26 rc55 canonical materialization)
 
+> **STATUS — agent-runtime pure rebuild (ADR-0159):** `agent-service` is now a serviceization-facade **skeleton**; its former runtime is consolidated into **`agent-runtime`**. Wherever this document references `EngineRegistry` / `ExecutorAdapter` / `EngineEnvelope` / `EngineMatchingException` / `EngineHookSurface` / `HookPoint` / `RuntimeMiddleware` / `HookDispatcher` / `resolve(envelope)`, that engine/hook design is **RETIRED / design_only / historical** — no such Java type exists. The current shipped dispatch lives in `agent-runtime`: `EngineDispatcher` -> `AgentRuntimeHandler` (routed by `agentId` via `AgentRuntimeHandlerRegistry`; unknown `agentId` -> terminal `AGENT_ID_INVALID`; single `control` write authority; egress gated by `control`), verified by `EngineDispatcherTest` / `EngineClosedLoopIntegrationTest`. See Rule R-M and `architecture/docs/L1/agent-runtime/`.
+
 > Owner: AgentService team | Wave: W0..W3 | Maturity: shipped (post-Phase-C consolidation of agent-platform + agent-runtime + rc22 5-component decomposition + rc53 5-layer L1 4+1 ratification + rc55 canonical 4+1 materialization under `docs/architecture/l0/l1/agent-service/`)
 > Last refreshed: 2026-05-26 (rc55 — canonical 4+1 source moved to `docs/architecture/l0/l1/agent-service/` per ADR-0143; this file narrowed to scenarios-view-only with shipped-state grounding)
 > Governing rule: Rule R-C — Code-as-Contract (formerly Rule 28; ADR-0059 + ADR-0086 namespace ratchet).

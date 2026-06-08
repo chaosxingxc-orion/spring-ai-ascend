@@ -8,6 +8,8 @@ authority: "Absorbed from docs/logs/reviews/2026-05-26-agent-service-module-capa
 
 # Task-Centric Control Layer — Feature Inventory (AS-L1-F24..F32)
 
+> **STATUS — agent-runtime pure rebuild (ADR-0159):** `agent-service` is now a serviceization-facade **skeleton**; its former runtime is consolidated into **`agent-runtime`**. Wherever this document references `EngineRegistry` / `ExecutorAdapter` / `EngineEnvelope` / `EngineMatchingException` / `EngineHookSurface` / `HookPoint` / `RuntimeMiddleware` / `HookDispatcher` / `resolve(envelope)`, that engine/hook design is **RETIRED / design_only / historical** — no such Java type exists. The current shipped dispatch lives in `agent-runtime`: `EngineDispatcher` -> `AgentRuntimeHandler` (routed by `agentId` via `AgentRuntimeHandlerRegistry`; unknown `agentId` -> terminal `AGENT_ID_INVALID`; single `control` write authority; egress gated by `control`), verified by `EngineDispatcherTest` / `EngineClosedLoopIntegrationTest`. See Rule R-M and `architecture/docs/L1/agent-runtime/`.
+
 > Module: Task-Centric Control Layer (Layer 4 per ADR-0138).
 > Sovereign for: Orchestrator control loop, Fast/Slow Path decision, SuspendSignal/Resume semantics, RuntimeMiddleware governance, rollback/retry/attempt classification, cancel/complete race classification, client-hosted skill dispatch, sub-agent/third-party Agent join control, same-remote-invocation recovery.
 > Does NOT own: Run aggregate write path (Layer 4 invokes `RunRepository.updateIfNotTerminal(...)` — Layer 2 remains single writer per ADR-0142), engine internals, model/tool translation.

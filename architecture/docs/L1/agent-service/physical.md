@@ -8,6 +8,8 @@ authority: "ADR-0143 (rc55 — canonical 4+1 source moved here) + ADR-0078 (cons
 
 # agent-service — Physical View
 
+> **STATUS — agent-runtime pure rebuild (ADR-0159):** `agent-service` is now a serviceization-facade **skeleton**; its former runtime is consolidated into **`agent-runtime`**. Wherever this document references `EngineRegistry` / `ExecutorAdapter` / `EngineEnvelope` / `EngineMatchingException` / `EngineHookSurface` / `HookPoint` / `RuntimeMiddleware` / `HookDispatcher` / `resolve(envelope)`, that engine/hook design is **RETIRED / design_only / historical** — no such Java type exists. The current shipped dispatch lives in `agent-runtime`: `EngineDispatcher` -> `AgentRuntimeHandler` (routed by `agentId` via `AgentRuntimeHandlerRegistry`; unknown `agentId` -> terminal `AGENT_ID_INVALID`; single `control` write authority; egress gated by `control`), verified by `EngineDispatcherTest` / `EngineClosedLoopIntegrationTest`. See Rule R-M and `architecture/docs/L1/agent-runtime/`.
+
 > Authoring source: rc53 review file §17 (`docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`), ported in rc55 W4. The canonical bindings to `bus-channels.yaml` (Rule R-E), `sandbox-policies.yaml` (Rule R-L), and Flyway migrations under `agent-service/src/main/resources/db/migration/` are made explicit.
 
 ## 1. Five-Plane Deployment Mapping (Rule R-I)

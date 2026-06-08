@@ -199,7 +199,7 @@ families:
       reviewer scope was narrower than defect scope (rc10 meta-lesson;
       operationalised by Rule 110 META in rc16).
     surfaces:
-      - agent-*/ARCHITECTURE.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
       - docs/contracts/*.yaml
       - ops/**/*.{yaml,yml,tpl,md}
       - docs/quickstart.md
@@ -216,7 +216,7 @@ families:
       - Rule 103
       - Rule 109
       - Rule G-2.1
-      - Rule G-13 (rc42 W0 / ADR-0119) — forward-prevention link; module lists in release notes (W3), contract-catalog.md (W5), root ARCHITECTURE.md (W6), and L1 agent-*/ARCHITECTURE.md (W7) render from pom.xml — deleted module names cannot leak into rendered prose by construction.
+      - Rule G-13 (rc42 W0 / ADR-0119) — forward-prevention link; module lists in release notes (W3), contract-catalog.md (W5), root ARCHITECTURE.md (W6), and L1 architecture/docs/L1/*/ARCHITECTURE.md (W7) render from pom.xml — deleted module names cannot leak into rendered prose by construction.
     cleanup_status: structurally_addressed
     open_residual: |
       Rule G-2.1 (rc17) consolidates Rule 94/98/109 under one
@@ -265,7 +265,7 @@ families:
     surfaces:
       - docs/contracts/contract-catalog.md
       - docs/contracts/*.v1.yaml
-      - agent-*/ARCHITECTURE.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
       - "**/module-metadata.yaml"
     prevention_rules:
       - Rule 84
@@ -335,7 +335,7 @@ families:
       # reconciling baseline_metrics against the live projection/graph/extract outputs in
       # lockstep, so every authority surface agrees at one commit.
       # rc53 Wave 1: PR #71's L1 design draft disagrees with 3 authority surfaces — §3.3 Internal Event Queue (single-tier + 3 storage modes) contradicts bus-channels.yaml's three physically-isolated channels (Rule R-E); §3.1.2 "remote interrupt" via A2A contradicts s2c-callback.v1.yaml's S2cCallbackEnvelope-via-control-channel design (Rule R-M.d); §3.5 component names contradict contract-catalog.md SPI rows (EngineRegistry / ExecutorAdapter / RuntimeMiddleware / HookPoint). Closed at the design level by ADR-0136 vocabulary reconciliation + ADR-0138 5-layer L1 ratification with explicit name-mapping table.
-      # rc55: agent-service L1 canonical-materialization review found 5 in-doc cross-authority disagreements in agent-service/ARCHITECTURE.md alone: (M2) §0.4 "Until full 4+1 reorganisation lands" stale transition prose vs §0.5 rc53 4+1 ratification claim — the same doc says both "not yet reorganised" and "fully ratified"; (M3) `RunRepository.updateIfNotTerminal` wave-staging drift — review §4.2 says "existing W1 method" while ARCHITECTURE.md elsewhere says "abstract from rc39 per ADR-0118"; (M4) TaskRepository vs TaskStateStore naming inconsistency between ARCHITECTURE.md §11 prose and §11.2 SPI table + module-metadata.yaml; (M11) `docs/contracts/agent-invoke-request.v1.yaml` cited in §11.3 without verifying file exists on disk (verified absent); (R4) ADR-0136 §3 glossary aliases `ChatAdvisor` + `RuntimeMiddleware` as one "Shadow Tool Interceptor" mapping while they have different cardinality (per-ChatClient-call vs per-HookPoint-per-Run) and different scopes (model-call boundary vs hook-point boundary). Closed at the design level by ADR-0140..0145 + the rc55 L1 canonical materialization wave (docs/L1/agent-service/ replaces the §0.5 review-doc pointer).
+      # rc55: agent-service L1 canonical-materialization review found 5 in-doc cross-authority disagreements in agent-service/ARCHITECTURE.md alone: (M2) §0.4 "Until full 4+1 reorganisation lands" stale transition prose vs §0.5 rc53 4+1 ratification claim — the same doc says both "not yet reorganised" and "fully ratified"; (M3) `RunRepository.updateIfNotTerminal` wave-staging drift — review §4.2 says "existing W1 method" while ARCHITECTURE.md elsewhere says "abstract from rc39 per ADR-0118"; (M4) TaskRepository vs TaskStateStore naming inconsistency between ARCHITECTURE.md §11 prose and §11.2 SPI table + module-metadata.yaml; (M11) `docs/contracts/agent-invoke-request.v1.yaml` cited in §11.3 without verifying file exists on disk (verified absent); (R4) ADR-0136 §3 glossary aliases `ChatAdvisor` + `RuntimeMiddleware` as one "Shadow Tool Interceptor" mapping while they have different cardinality (per-ChatClient-call vs per-HookPoint-per-Run) and different scopes (model-call boundary vs hook-point boundary). Closed at the design level by ADR-0140..0145 + the rc55 L1 canonical materialization wave (architecture/docs/L1/agent-service/ replaces the §0.5 review-doc pointer).
       # rc55 PR #76 anchor corrective: the new interface-drift review initially cited a workspace-local L2 proposal file that was not part of the PR and anchored the stale POST /v1/runs 201 prose to the wrong agent-service/ARCHITECTURE.md line range. The review has been corrected to cite only PR-visible tracked surfaces and the actual stale 201 lines (166-167). This is the same cross-authority evidence-anchor class, not a new family.
     root_cause: |
       117+ single-surface prevention rules can all pass while the
@@ -574,19 +574,19 @@ families:
     surfaces:
       - CLAUDE.md kernel paragraphs
       - docs/governance/rules/*.md card kernels
-      - agent-*/ARCHITECTURE.md body text
+      - architecture/docs/L1/*/ARCHITECTURE.md body text
       - docs/logs/reviews/*.md (design proposals + 4+1 view drafts)
-      - docs/L1/**/*.md (per-view files when populated)
+      - architecture/docs/L1/**/*.md (per-view files when populated)
     prevention_rules:
       - Rule 99
       - Rule 108
       - "ADR-0138 §3 red-line c (rc53 — state-diagram annotation requirement on every deferred-transition arrow)"
       - "rc55 W3/W4/W5 view-authoring discipline — every diagram + every prose paragraph flanking a deferred-clause citation MUST carry an explicit `(WN-deferred: <cause>)` marker"
-      - "candidate gate-rule for Wave 5+ — Grep `docs/L1/**/*.md` + `agent-*/ARCHITECTURE.md` for present-tense terminal verbs (`transitions to`, `is cancelled`, `consumes`, `is suspended`) within ±5 lines of a deferred-clause citation (Rule X.<letter> mentioned in `docs/CLAUDE-deferred.md`); FAIL if found without `(WN-deferred)` marker"
+      - "candidate gate-rule for Wave 5+ — Grep `architecture/docs/L1/**/*.md` + `architecture/docs/L1/*/ARCHITECTURE.md` for present-tense terminal verbs (`transitions to`, `is cancelled`, `consumes`, `is suspended`) within ±5 lines of a deferred-clause citation (Rule X.<letter> mentioned in `docs/CLAUDE-deferred.md`); FAIL if found without `(WN-deferred)` marker"
     cleanup_status: monitoring
     open_residual: |
       rc55 W3/W4/W5 ships the explicit annotation discipline for
-      newly-authored docs/L1/agent-service/* files. The repo-wide
+      newly-authored architecture/docs/L1/agent-service/* files. The repo-wide
       sibling sweep in this wave's W0 audits other L1 docs for the
       same prose-pattern. Gate-rule candidate for W5+ would close
       the family structurally by automating the proximity check.
@@ -741,7 +741,7 @@ families:
     first_observed_rc: rc17
     last_observed_rc: rc55-pr77-consistency-review-followup
     occurrences: [rc17, rc18, rc19, rc20, rc21, rc22, rc27, rc28, rc29, rc30, rc40-agent-execution-engine-readiness-corrective, rc53-wave-1-agent-service-l1-4plus1-rewrite, rc55-oss-comparison-review-followup, rc55-capability-feature-review-followup, rc55-capability-feature-scenario-followup, rc55-pr77-consistency-review-followup]
-      # rc55 PR-77 consistency review wave-1 follow-up (merge-train Wave 0.2): external reviewer (yougq) found that the post-rc55 4+1 set in `docs/L1/agent-service/` still carries 7 cross-view + cross-doc grounding gaps — ERD vs prose cardinality contradiction (P1-1), method-signature drift across logical/process/physical for `RunRepository.updateIfNotTerminal` (P1-2), Task/Session PK type drift between logical ER and physical schema (P1-3), test-anchor pointing at non-existent `tenantMismatchReturns403` (P2-1), SSE marked W2-shipped vs OpenAPI W2-scope (P2-2), README frontmatter `covers_views` underclaim (P2-3), module-root `agent-service/ARCHITECTURE.md` retaining legacy `TaskRepository`/`tenantMismatchReturns403` terminology (P2-4). The first three findings (P1-1/P1-2/P1-3) seed a CANDIDATE NEW family `F-l1-view-set-internal-signature-drift` to be ratified in Wave 1A of the audit plan. Remaining four widen existing families (`F-shadow-corpus-prose-staleness`, `F-design-only-mechanism-shown-as-shipped`, `F-frontmatter-claim-body-mismatch`). Surface roster extended below to include the consistency-review file.
+      # rc55 PR-77 consistency review wave-1 follow-up (merge-train Wave 0.2): external reviewer (yougq) found that the post-rc55 4+1 set in `architecture/docs/L1/agent-service/` still carries 7 cross-view + cross-doc grounding gaps — ERD vs prose cardinality contradiction (P1-1), method-signature drift across logical/process/physical for `RunRepository.updateIfNotTerminal` (P1-2), Task/Session PK type drift between logical ER and physical schema (P1-3), test-anchor pointing at non-existent `tenantMismatchReturns403` (P2-1), SSE marked W2-shipped vs OpenAPI W2-scope (P2-2), README frontmatter `covers_views` underclaim (P2-3), module-root `agent-service/ARCHITECTURE.md` retaining legacy `TaskRepository`/`tenantMismatchReturns403` terminology (P2-4). The first three findings (P1-1/P1-2/P1-3) seed a CANDIDATE NEW family `F-l1-view-set-internal-signature-drift` to be ratified in Wave 1A of the audit plan. Remaining four widen existing families (`F-shadow-corpus-prose-staleness`, `F-design-only-mechanism-shown-as-shipped`, `F-frontmatter-claim-body-mismatch`). Surface roster extended below to include the consistency-review file.
       # rc55 capability-feature scenario follow-up: the rewritten Agent Service module capability list still under-decomposed enterprise Agent scenarios. Human review identified missing SSE/non-SSE/direct ingress, reconnect context recovery, context compaction, long-task continuation, mid-run execution switching, rollback-to-prior-state retry, same third-party Agent recovery after interruption, client-hosted skills, sub-agent delegation, and configuration ownership for model, third-party Agent, and client information. Closed in this branch by expanding the bilingual review into AS-SC01..AS-SC24, AS-L1-F01..AS-L1-F47, and module-owned recovery/configuration matrices.
       # rc55 capability-feature review follow-up: the first generated Agent Service module capability list overfit downstream design consumption by carrying L2-facing advice, artificial status labels, priority-first grouping, and weak scenario/data/control-flow closure. Closed in this branch by rewriting the bilingual review as a module-owned, S1-S5 scenario-anchored L1 decomposition with orthogonality and OSS-average capability checks.
       # rc55 OSS comparison review follow-up: the generated bilingual review preserved the OSS comparison conclusion but dropped source-level project-by-project non-equivalence, Layer 3 worker-contract, Layer 5 capability-discovery, and Session/Memory concurrency evidence. Closed in this branch by adding the original source as a review record and expanding both generated summaries.
@@ -778,7 +778,7 @@ families:
       Agent recovery, client-hosted skills, sub-agent delegation, and configuration
       ownership.
     surfaces:
-      - agent-*/ARCHITECTURE.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
       - docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-review.cn.md
       - docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-review.en.md
       - docs/logs/reviews/2026-05-26-agent-service-l1-oss-comparison-source.cn.md
@@ -1143,7 +1143,7 @@ families:
     surfaces:
       - docs/logs/reviews/*.md (design proposals + review responses)
       - docs/L2/*.md (when L2 directory is populated)
-      - agent-*/ARCHITECTURE.md (L1 architecture docs)
+      - architecture/docs/L1/*/ARCHITECTURE.md (L1 architecture docs)
       - docs/contracts/*.yaml (schema declarations)
     prevention_rules:
       - ADR-0136 (this wave — declares Run vs Task entity distinction + reaffirms tenantId as first-class field on each)
@@ -1182,7 +1182,7 @@ families:
       - docs/logs/reviews/*.md (esp. design proposals)
       - docs/L2/*.md (when populated)
       - docs/contracts/*.yaml (queue/bus schemas)
-      - agent-*/ARCHITECTURE.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
     prevention_rules:
       - ADR-0138 (this wave — §3 red-line "No single-tier internal queue + mode-based durability"; binds to bus-channels.yaml)
       - Rule R-E (Three-Track Channel Isolation — already enforces at runtime; this family adds upstream design-language enforcement)
@@ -1228,7 +1228,7 @@ families:
       - docs/logs/reviews/*.md (design proposals)
       - docs/L2/*.md
       - docs/adr/*.yaml (`context:` / `decision:` blocks)
-      - agent-*/ARCHITECTURE.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
     prevention_rules:
       - ADR-0139 (this wave — Fast-Path / Slow-Path narrowed semantics; explicit forbid of bypass-implying language)
       - Wave 2 Logical View narrowing prose (canonical L1 vocabulary)
@@ -1306,22 +1306,22 @@ families:
       `agent-service/ARCHITECTURE.md` §0.5 which names
       `docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.{en,cn}.md`
       as canonical. The fingerprint: any `agent-*/ARCHITECTURE.md`
-      or `docs/L1/**/*.md` containing a markdown link to
+      or `architecture/docs/L1/**/*.md` containing a markdown link to
       `docs/logs/reviews/.*\.md` where the words
       `canonical` / `authoritative` / `4+1 source` / `view source`
       appear within ±3 lines of the link.
     surfaces:
-      - agent-*/ARCHITECTURE.md
-      - docs/L1/**/*.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
+      - architecture/docs/L1/**/*.md
       - ARCHITECTURE.md (root)
     prevention_rules:
-      - "ADR-0143 (rc55 — review-log demotion + L1 canonical move; agent-service/ARCHITECTURE.md §0.5 rewritten to point at docs/L1/agent-service/{scenarios,logical,process,physical,development}.md)"
-      - "candidate gate-rule for Wave 5+ — Grep agent-*/ARCHITECTURE.md + docs/L1/**/*.md for markdown links to docs/logs/reviews/.*\\.md with the proximity words {canonical, authoritative, 4+1 source, view source} within ±3 lines"
+      - "ADR-0143 (rc55 — review-log demotion + L1 canonical move; agent-service/ARCHITECTURE.md §0.5 rewritten to point at architecture/docs/L1/agent-service/{scenarios,logical,process,physical,development}.md)"
+      - "candidate gate-rule for Wave 5+ — Grep architecture/docs/L1/*/ARCHITECTURE.md + architecture/docs/L1/**/*.md for markdown links to docs/logs/reviews/.*\\.md with the proximity words {canonical, authoritative, 4+1 source, view source} within ±3 lines"
     cleanup_status: monitoring
     open_residual: |
       ADR-0143 demotes the rc53 review file and rewrites the
       §0.5 pointer; the canonical 4+1 source now lives at
-      docs/L1/agent-service/ per the rc55 wave. Future review
+      architecture/docs/L1/agent-service/ per the rc55 wave. Future review
       files MUST NOT be promoted to "canonical" status again;
       gate-rule for proximity-based detection of canonical/
       authoritative wording near review-log hyperlinks is a
@@ -1351,14 +1351,14 @@ families:
       Symptom of treating logical-view as a free-typed prose
       surface rather than a discipline.
     surfaces:
-      - agent-*/ARCHITECTURE.md
-      - docs/L1/**/*.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
+      - architecture/docs/L1/**/*.md
       - docs/L2/**/*.md
       - docs/logs/reviews/*.md (design proposals authoring L1 views)
     prevention_rules:
       - "ADR-0140 (rc55 — Engine Adapter Layer split into 5a Engine Dispatch & Execution + 5b Translation & Tool-Intercept; RuntimeMiddleware exclusively in Layer 4 Control)"
       - "ADR-0142 (rc55 — Run aggregate single-owner: Manager layer owns the aggregate; Control layer holds typed reference + invokes RunRepository.updateIfNotTerminal)"
-      - "candidate gate-rule for Wave 5+ — pattern-match in agent-*/ARCHITECTURE.md + docs/L1/**/*.md for `Layer N` headings; count bullet items per layer; FAIL if ≥4 OR if same component name appears under ≥2 layers"
+      - "candidate gate-rule for Wave 5+ — pattern-match in architecture/docs/L1/*/ARCHITECTURE.md + architecture/docs/L1/**/*.md for `Layer N` headings; count bullet items per layer; FAIL if ≥4 OR if same component name appears under ≥2 layers"
     cleanup_status: monitoring
     open_residual: |
       The rc53 5-layer model (Access / Manager / Queue / Control /
@@ -1398,8 +1398,8 @@ families:
       logical / process / physical / development view section —
       §0.5 punts every non-scenarios view to the rc53 review file.
     surfaces:
-      - agent-*/ARCHITECTURE.md
-      - docs/L1/**/*.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
+      - architecture/docs/L1/**/*.md
       - docs/L2/**/*.md
       - ARCHITECTURE.md (root)
     prevention_rules:
@@ -1410,7 +1410,7 @@ families:
       rc55 W2 ships the structural fix for agent-service: the
       ARCHITECTURE.md frontmatter is corrected to `view: scenarios`
       + `covers_views: [scenarios]`, and the other 4 views live
-      under docs/L1/agent-service/{logical,process,physical,
+      under architecture/docs/L1/agent-service/{logical,process,physical,
       development}.md, each with its own per-view frontmatter.
       The repo-wide sibling sweep in this wave's W0 audits the
       other 5 modules' ARCHITECTURE.md for the same pattern.
@@ -1439,8 +1439,8 @@ families:
       Control/Adapter) per ADR-0138. Same scope, different
       decompositions, no mapping.
     surfaces:
-      - agent-*/ARCHITECTURE.md
-      - docs/L1/**/*.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
+      - architecture/docs/L1/**/*.md
       - docs/L2/**/*.md
     prevention_rules:
       - "ADR-0144 (rc55 — Layer↔Package Matrix: publishes the unified mapping table; declares 5-layer model as logical-view decomposition and 5-component model as package-structural decomposition; extends ADR-0100 + ADR-0138)"
@@ -1477,14 +1477,14 @@ families:
       shown dispatching without `design_only` marker (ADR-0112
       design_only at W1).
     surfaces:
-      - docs/L1/**/*.md
+      - architecture/docs/L1/**/*.md
       - docs/L2/**/*.md
       - docs/logs/reviews/*.md (design proposals)
-      - agent-*/ARCHITECTURE.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
     prevention_rules:
       - "ADR-0141 (rc55 — Internal Event Queue layer demoted to design_only sub-section per Rule R-E channel manifest; no peer-layer depiction without ADR + skeleton package)"
       - "rc55 W3/W4 view discipline — every Mermaid sequence / state / component diagram caption MUST carry `(design_only — ADR-NNNN)` for any mechanism whose contract is `status: design_only` OR whose Rule sub-clause is W2+ deferred"
-      - "candidate gate-rule for Wave 5+ — cross-reference parse: read `docs/contracts/*.v1.yaml` `status: design_only` entries → extract referenced types → grep `docs/L1/**/*.md` + `docs/L2/**/*.md` diagrams for those type names → FAIL if caption lacks `design_only` marker"
+      - "candidate gate-rule for Wave 5+ — cross-reference parse: read `docs/contracts/*.v1.yaml` `status: design_only` entries → extract referenced types → grep `architecture/docs/L1/**/*.md` + `docs/L2/**/*.md` diagrams for those type names → FAIL if caption lacks `design_only` marker"
     cleanup_status: monitoring
     open_residual: |
       ADR-0141 closes the Internal Event Queue case
@@ -1492,7 +1492,7 @@ families:
       annotation discipline is shipped in rc55 W4 process
       view. Gate-rule for contract-status-vs-diagram cross-
       reference is a W5+ candidate. Repo-wide sweep audits
-      every Mermaid diagram in docs/L1/** + docs/L2/** +
+      every Mermaid diagram in architecture/docs/L1/** + docs/L2/** +
       agent-*/ARCHITECTURE.md against the design_only
       contract list.
       2026-05-28 review: docs/logs/reviews/2026-05-28-agent-service-m1-m6-design-draft.cn.md
@@ -1661,7 +1661,7 @@ families:
       AwaitToolResult / RequiresApproval while Java permits AwaitChild /
       AwaitExternal / AwaitApproval (per user precedence the DOC wins →
       Java rename); (b) SuspendReason.AwaitChildren plural in
-      docs/L1/agent-service/process.md:171 and scenarios.md:83,85 vs Java
+      architecture/docs/L1/agent-service/process.md:171 and scenarios.md:83,85 vs Java
       singular AwaitChild; (c) RunRepository.updateIfNotTerminal(tid,
       runId, lambda) 3-arg signature cited in 6 lines of process.md and 3
       lines of physical.md vs actual 2-arg Java signature (PR77-P1-2);
@@ -1671,11 +1671,11 @@ families:
       G-2 path-truth because the type/method itself resolves — only the
       literal name is wrong.
     surfaces:
-      - docs/L1/**/*.md
+      - architecture/docs/L1/**/*.md
       - docs/logs/reviews/*.md
       - docs/adr/*.yaml
       - docs/contracts/contract-catalog.md
-      - agent-*/ARCHITECTURE.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
     prevention_rules:
       - "candidate gate-rule W5+ — for every HookPoint.<value> or SuspendReason.<value> or RunStatus.<value> or RunRepository.<method>( mention in active md/yaml, parse the Java type by codegraph_node and FAIL if the literal name does not match a declared member / method"
     cleanup_status: incomplete
@@ -1716,10 +1716,10 @@ families:
     surfaces:
       - agent-*/src/main/java/com/huawei/ascend/service/*/spi/*.java
       - agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/Run.java
-      - docs/L1/**/*.md
+      - architecture/docs/L1/**/*.md
       - docs/contracts/*.v1.yaml
     prevention_rules:
-      - "candidate gate-rule W5+ — for every Mermaid stateDiagram-v2 block in docs/L1/**/*.md referencing a Java enum, codegraph_search for validate(<EnumName>...) in the same module; FAIL if zero results"
+      - "candidate gate-rule W5+ — for every Mermaid stateDiagram-v2 block in architecture/docs/L1/**/*.md referencing a Java enum, codegraph_search for validate(<EnumName>...) in the same module; FAIL if zero results"
     cleanup_status: incomplete
     open_residual: |
       AUD-EVT-5 (Task.A2aState 5-state DFA has no Task.A2aStateMachine or
@@ -1788,7 +1788,7 @@ families:
       §2 only declares the platform-package record.
     surfaces:
       - agent-*/src/main/java/com/huawei/ascend/**/*.java
-      - docs/L1/**/spi-appendix.md
+      - architecture/docs/L1/**/spi-appendix.md
       - docs/contracts/contract-catalog.md
     prevention_rules:
       - "candidate gate-rule W5+ — for each Maven module, glob src/main/java/**/*.java → extract basenames → FAIL on any duplicate basename; allowlist file for legitimate cases (e.g. package-info.java)"
@@ -1824,8 +1824,8 @@ families:
       has 8 components and NONE is tenantId.
     surfaces:
       - docs/contracts/contract-catalog.md
-      - agent-*/ARCHITECTURE.md
-      - docs/L1/**/spi-appendix.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
+      - architecture/docs/L1/**/spi-appendix.md
     prevention_rules:
       - "candidate gate-rule W5+ — parse contract-catalog.md rows matching tenant-scoped.*<Carrier>.tenantId → resolve <Carrier> via codegraph_node → FAIL if the type has no tenantId record component / field"
     cleanup_status: incomplete
@@ -1854,8 +1854,8 @@ families:
       parity" sweep family.
     surfaces:
       - docs/governance/architecture-status.yaml#capabilities
-      - agent-*/ARCHITECTURE.md
-      - docs/L1/agent-service/*.md
+      - architecture/docs/L1/*/ARCHITECTURE.md
+      - architecture/docs/L1/agent-service/*.md
       - docs/governance/architecture-graph.yaml (capability nodes)
     prevention_rules:
       - "Rule G-1.b (Architecture Workspace Truth; amended W5 per ADR-0147)"
