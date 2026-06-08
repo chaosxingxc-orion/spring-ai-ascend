@@ -19,7 +19,8 @@
  * <p>Design authority:
  * {@code 2026-05-30-l1--agent-service-engine-model-design.md}.
  *
- * <p>Imports only {@code java.*} and
- * {@code com.huawei.ascend.runtime.engine.model} (execution scope and input carriers).
+ * <p>Imports only {@code java.*} and the engine root
+ * {@code com.huawei.ascend.runtime.engine} (the execution scope and input carrier
+ * types live in the engine root package).
  */
 package com.huawei.ascend.runtime.engine.api;
