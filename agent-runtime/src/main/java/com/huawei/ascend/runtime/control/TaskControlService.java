@@ -373,6 +373,21 @@ public class TaskControlService implements TaskControlApi {
         return tasks.max(Comparator.comparing(Task::getUpdatedAt).thenComparing(Task::getTaskId));
     }
 
+    /**
+     * The task state machine: whether {@code current -> next} is a legal transition.
+     * Three invariants drive the rules:
+     * <ul>
+     *   <li>a self-transition is always allowed, so a duplicated signal is idempotent
+     *       rather than an error;</li>
+     *   <li>terminal states (COMPLETED/FAILED/CANCELLED) are sinks — nothing leaves
+     *       them, which is what guarantees a finished task can never be revived;</li>
+     *   <li>CANCELLING is a one-way draining state reachable from any live state and
+     *       resolving only to CANCELLED (or FAILED if teardown itself fails), so a
+     *       cancel in flight can never be overtaken by a normal completion.</li>
+     * </ul>
+     * WAITING&lt;-&gt;RUNNING is the interrupt/resume cycle; PAUSED-&gt;RUNNING is resume
+     * after an external pause.
+     */
     private boolean allowed(TaskState current, TaskState next) {
         if (current == next) {
             return true;
