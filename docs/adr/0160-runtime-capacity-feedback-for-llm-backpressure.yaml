@@ -168,22 +168,28 @@ decision: |
        Existing RuntimeState.AT_CAPACITY is the minimum routing signal.
     2. Service / Gateway facade filters AT_CAPACITY, COLD, DRAINING, and
        UNREACHABLE runtime replicas from normal routing.
-    3. If all replicas are saturated, Service returns a clear
+    3. When multiple READY replicas exist for the same tenant / agent route,
+       the facade selects a low-pressure replica using the abstract capacity
+       snapshot. This is replica selection only: the first wave does not create,
+       stop, scale out, or scale in runtime instances.
+    4. If all replicas are saturated, Service returns a clear
        RUNTIME_AT_CAPACITY / retry-after style response instead of queueing
        indefinitely.
-    4. Request-level telemetry records routeResolveMs, runtimeAdmissionMs when
+    5. Request-level telemetry records routeResolveMs, runtimeAdmissionMs when
        available, llmFirstTokenMs when available, firstByteMs, totalMs, selected
        runtime, and failure class.
-    5. Gateway facade northbound forwarding issues a short-lived RouteGrant and
+    6. Gateway facade northbound forwarding issues a short-lived RouteGrant and
        passes grant id / signature / source agent / tenant headers downstream.
-    6. Telemetry list endpoints are bounded by a caller-visible limit.
-    7. Health endpoints expose minimal runtime counts and telemetry counters.
+    7. Telemetry list endpoints are bounded by a caller-visible limit.
+    8. Health endpoints expose minimal runtime counts and telemetry counters.
 
   Later implementation waves MAY add:
 
     * weighted routing by estimatedLoad / p95FirstTokenMs;
     * half-open circuit-breaker recovery;
     * tenant-scoped concurrency quotas;
+    * K8S HPA, KEDA, or equivalent orchestrator integration for dynamic runtime
+      scale-out / scale-in based on capacity history;
     * Service-side short admission queues with strict timeout budgets;
     * provider fallback and model-pool selection;
     * persisted capacity history for SLO / error-budget reporting.
