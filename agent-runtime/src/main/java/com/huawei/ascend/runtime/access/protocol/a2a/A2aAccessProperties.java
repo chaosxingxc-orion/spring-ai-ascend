@@ -7,6 +7,7 @@ public class A2aAccessProperties {
 
     private String defaultTenantId;
     private String defaultAgentId;
+    private String publicBaseUrl;
 
     public String getDefaultTenantId() {
         return defaultTenantId;
@@ -22,5 +23,13 @@ public class A2aAccessProperties {
 
     public void setDefaultAgentId(String defaultAgentId) {
         this.defaultAgentId = defaultAgentId;
+    }
+
+    public String getPublicBaseUrl() {
+        return publicBaseUrl;
+    }
+
+    public void setPublicBaseUrl(String publicBaseUrl) {
+        this.publicBaseUrl = publicBaseUrl;
     }
 }

@@ -14,7 +14,6 @@ import org.a2aproject.sdk.client.http.A2ACardResolver;
 import org.a2aproject.sdk.client.transport.jsonrpc.JSONRPCTransport;
 import org.a2aproject.sdk.client.transport.spi.interceptors.ClientCallContext;
 import org.a2aproject.sdk.spec.AgentCard;
-import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.MessageSendParams;
@@ -22,7 +21,6 @@ import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.a2aproject.sdk.spec.TaskArtifactUpdateEvent;
 import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.a2aproject.sdk.spec.TextPart;
-import org.a2aproject.sdk.spec.TransportProtocol;
 
 public final class SampleA2aClient {
 
@@ -45,7 +43,7 @@ public final class SampleA2aClient {
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<Throwable> failure = new AtomicReference<>();
         AtomicBoolean sawTerminal = new AtomicBoolean(false);
-        JSONRPCTransport transport = new JSONRPCTransport(jsonRpcEndpoint(card));
+        JSONRPCTransport transport = new JSONRPCTransport(card);
         try {
             transport.sendMessageStreaming(
                     messageSendParams(userId, agentId, sessionId, text),
@@ -78,19 +76,6 @@ public final class SampleA2aClient {
             throw new IllegalStateException("A2A stream failed", failure.get());
         }
         return List.copyOf(events);
-    }
-
-    String jsonRpcEndpoint(AgentCard card) {
-        String protocol = TransportProtocol.JSONRPC.asString();
-        String endpoint = card.supportedInterfaces().stream()
-                .filter(agentInterface -> protocol.equals(agentInterface.protocolBinding()))
-                .map(AgentInterface::url)
-                .findFirst()
-                .orElse(card.url());
-        if (endpoint == null || endpoint.isBlank()) {
-            throw new IllegalStateException("Agent card does not advertise a JSONRPC endpoint");
-        }
-        return baseUri.resolve(endpoint).toString();
     }
 
     public static String textFrom(List<StreamingEventKind> events) {

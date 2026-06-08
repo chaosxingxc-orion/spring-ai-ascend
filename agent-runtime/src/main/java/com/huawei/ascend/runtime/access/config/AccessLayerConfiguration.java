@@ -62,8 +62,10 @@ public class AccessLayerConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    A2aWellKnownAgentCardController a2aWellKnownAgentCardController(AgentCard agentCard) {
-        return new A2aWellKnownAgentCardController(agentCard);
+    A2aWellKnownAgentCardController a2aWellKnownAgentCardController(
+            AgentCard agentCard,
+            A2aAccessProperties properties) {
+        return new A2aWellKnownAgentCardController(agentCard, properties);
     }
 
     @Bean

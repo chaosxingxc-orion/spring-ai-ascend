@@ -72,6 +72,12 @@ Current built-in properties are:
 
 - `agent-runtime.access.a2a.default-tenant-id`
 - `agent-runtime.access.a2a.default-agent-id`
+- `agent-runtime.access.a2a.public-base-url`
+
+`public-base-url` is the externally reachable runtime base URL used when
+publishing absolute A2A endpoint URLs in `/.well-known/agent-card.json`. If it is
+blank, the discovery controller derives a local base URL from the current HTTP
+request.
 
 The local example sets:
 
@@ -81,6 +87,7 @@ agent-runtime:
     a2a:
       default-tenant-id: sample-tenant
       default-agent-id: openjiuwen-react-agent
+      # public-base-url: https://agents.example.com/runtime-one
 ```
 
 ## Exposed A2A endpoints
