@@ -1,0 +1,5 @@
+# 含真实 LLM Key，禁止提交（用 llm.properties.example 作模板）
+llm.properties
+
+# 本地调试输入，按需保留；如不想提交可取消下行注释
+# query.txt
