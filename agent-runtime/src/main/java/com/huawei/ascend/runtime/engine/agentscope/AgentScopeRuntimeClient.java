@@ -55,6 +55,8 @@ public final class AgentScopeRuntimeClient {
             return Stream.of(ioFailure(ex));
         }
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            // The error body is not an SSE stream; close it so the HTTP connection is released.
+            response.body().close();
             return Stream.of(Map.of(
                     "status", "error",
                     "error_code", "AGENTSCOPE_RUNTIME_HTTP_" + response.statusCode(),

@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Flow;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
@@ -109,6 +110,25 @@ class AgentScopeRuntimeClientHandlerTest {
         assertThat(results.getFirst().type()).isEqualTo(AgentExecutionResult.Type.FAILED);
         assertThat(results.getFirst().errorCode()).isEqualTo("AGENTSCOPE_RUNTIME_HTTP_599");
         assertThat(results.getFirst().errorMessage()).isEqualTo("AgentScope runtime returned HTTP 599");
+    }
+
+    @Test
+    void runtimeClientClosesResponseBodyOnNonSuccessStatus() {
+        AtomicBoolean bodyClosed = new AtomicBoolean(false);
+        Stream<String> responseBody = Stream.of("proxy timeout").onClose(() -> bodyClosed.set(true));
+        CapturingHttpClient httpClient = new CapturingHttpClient(503, responseBody);
+        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
+                httpClient,
+                new ObjectMapper(),
+                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
+        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst().type()).isEqualTo(AgentExecutionResult.Type.FAILED);
+        assertThat(results.getFirst().errorCode()).isEqualTo("AGENTSCOPE_RUNTIME_HTTP_503");
+        assertThat(bodyClosed).isTrue();
     }
 
     private static AgentExecutionContext context() {
