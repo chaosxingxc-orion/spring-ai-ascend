@@ -2,6 +2,8 @@ package com.huawei.ascend.runtime.engine;
 
 import com.huawei.ascend.runtime.engine.api.DefaultEngineExecutionApi;
 import com.huawei.ascend.runtime.engine.api.EngineExecutionApi;
+import com.huawei.ascend.runtime.engine.service.AgentStateStore;
+import com.huawei.ascend.runtime.engine.service.InMemoryAgentStateStore;
 import com.huawei.ascend.runtime.queue.QueueManager;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -48,6 +50,12 @@ public class EngineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    public AgentStateStore agentStateStore() {
+        return new InMemoryAgentStateStore();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public EngineExecutionApi engineDispatchApi(EngineCommandEventFactory commandEventFactory,
                                                EngineCommandGateway engineCommandGateway) {
         return new DefaultEngineExecutionApi(commandEventFactory, engineCommandGateway);
@@ -62,8 +70,9 @@ public class EngineAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public EngineDispatcher engineDispatcher(AgentRuntimeHandlerRegistry registry,
-                                             TaskControlClient taskControlClient) {
-        return new EngineDispatcher(registry, taskControlClient);
+                                             TaskControlClient taskControlClient,
+                                             AgentStateStore agentStateStore) {
+        return new EngineDispatcher(registry, taskControlClient, agentStateStore);
     }
 
     @Bean(initMethod = "start", destroyMethod = "stop")

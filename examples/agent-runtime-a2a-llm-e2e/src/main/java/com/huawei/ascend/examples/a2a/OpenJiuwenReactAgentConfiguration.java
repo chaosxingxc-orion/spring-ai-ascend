@@ -1,12 +1,10 @@
 package com.huawei.ascend.examples.a2a;
 
-import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenMessageAdapter;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenStreamAdapter;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.runner.Runner;
+import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.singleagent.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
@@ -26,7 +24,7 @@ public class OpenJiuwenReactAgentConfiguration {
     static final String AGENT_ID = "openjiuwen-react-agent";
 
     @Bean
-    AbstractAgentRuntimeHandler openJiuwenReactAgentHandler(
+    OpenJiuwenAgentRuntimeHandler openJiuwenReactAgentHandler(
             @Value("${sample.openjiuwen.model-provider:${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}}")
             String modelProvider,
             @Value("${sample.openjiuwen.api-key:${SAA_SAMPLE_LLM_API_KEY:sk-local-placeholder}}") String apiKey,
@@ -40,20 +38,17 @@ public class OpenJiuwenReactAgentConfiguration {
 
     @Bean
     org.a2aproject.sdk.spec.AgentCard sampleDefaultAgentCard(
-            @Qualifier("openJiuwenReactAgentHandler") AbstractAgentRuntimeHandler handler) {
+            @Qualifier("openJiuwenReactAgentHandler") OpenJiuwenAgentRuntimeHandler handler) {
         return handler.agentCard();
     }
 
-    static final class SampleOpenJiuwenReactAgentHandler extends AbstractAgentRuntimeHandler {
+    static final class SampleOpenJiuwenReactAgentHandler extends OpenJiuwenAgentRuntimeHandler {
         private static final Logger LOGGER = LoggerFactory.getLogger(SampleOpenJiuwenReactAgentHandler.class);
         private static final String SYSTEM_PROMPT = """
                 You are a concise assistant exposed only through the A2A protocol.
                 If the user's message is exactly ping, reply exactly pong and nothing else.
                 For all other messages, reply to the user's message directly and briefly.
                 """;
-        private final OpenJiuwenMessageAdapter messageConverter = new OpenJiuwenMessageAdapter();
-        private final OpenJiuwenStreamAdapter resultMapper = new OpenJiuwenStreamAdapter();
-
         private final String modelProvider;
         private final String apiKey;
         private final String apiBase;
@@ -66,7 +61,7 @@ public class OpenJiuwenReactAgentConfiguration {
                 String apiBase,
                 String modelName,
                 boolean sslVerify) {
-            super(AGENT_ID, AGENT_ID, "Sample openJiuwen ReAct agent hosted by agent-runtime.");
+            super(AGENT_ID, "Sample openJiuwen ReAct agent hosted by agent-runtime.");
             this.modelProvider = modelProvider;
             this.apiKey = apiKey;
             this.apiBase = apiBase;
@@ -75,7 +70,7 @@ public class OpenJiuwenReactAgentConfiguration {
         }
 
         @Override
-        public Stream<?> execute(AgentExecutionContext context) {
+        protected Stream<?> doExecute(AgentExecutionContext context) {
             try {
                 LOGGER.info("example openjiuwen execute start tenantId={} sessionId={} taskId={} agentId={} provider={} apiBase={} model={}",
                         context.getScope().tenantId(),
@@ -86,8 +81,9 @@ public class OpenJiuwenReactAgentConfiguration {
                         apiBase,
                         modelName);
                 ReActAgent agent = buildAgent();
-                Object input = messageConverter.toOpenJiuwenInput(context);
-                Object result = Runner.runAgent(agent, input, null, null);
+                AgentSessionApi session = openJiuwenSession(context, agent);
+                Object input = toOpenJiuwenInput(context);
+                Object result = Runner.runAgent(agent, input, session, null);
                 LOGGER.info("example openjiuwen execute finished tenantId={} sessionId={} taskId={} resultType={}",
                         context.getScope().tenantId(),
                         context.getScope().sessionId(),
@@ -107,18 +103,6 @@ public class OpenJiuwenReactAgentConfiguration {
             }
         }
 
-        @Override
-        public StreamAdapter resultAdapter() {
-            return rawResults -> rawResults.map(rawResult -> {
-                if (rawResult instanceof Map<?, ?> map) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> typed = (Map<String, Object>) map;
-                    return resultMapper.map(typed);
-                }
-                return resultMapper.map(Map.of("result_type", "answer", "output", String.valueOf(rawResult)));
-            });
-        }
-
         private ReActAgent buildAgent() {
             AgentCard card = AgentCard.builder()
                     .id(AGENT_ID)
@@ -136,30 +120,6 @@ public class OpenJiuwenReactAgentConfiguration {
             modelConfig.setMaxTokens(64);
             agent.configure(config);
             return agent;
-        }
-
-        private void safeRelease(AgentExecutionContext context) {
-            try {
-                Runner.release(context.getScope().taskId());
-            } catch (Exception ignored) {
-                // best-effort cleanup; release failures must not mask the result
-            }
-        }
-
-        private static String errorMessage(Throwable error) {
-            StringBuilder message = new StringBuilder();
-            Throwable cursor = error;
-            while (cursor != null) {
-                String part = cursor.getMessage();
-                if (part != null && !part.isBlank()) {
-                    if (!message.isEmpty()) {
-                        message.append(": ");
-                    }
-                    message.append(part);
-                }
-                cursor = cursor.getCause();
-            }
-            return message.isEmpty() ? error.getClass().getName() : message.toString();
         }
     }
 }

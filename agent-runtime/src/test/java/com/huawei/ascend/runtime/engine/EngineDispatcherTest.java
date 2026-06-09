@@ -1,15 +1,23 @@
 package com.huawei.ascend.runtime.engine;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AbstractStatefulAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
+import com.huawei.ascend.runtime.engine.service.AgentStateKey;
+import com.huawei.ascend.runtime.engine.service.AgentStateSnapshot;
+import com.huawei.ascend.runtime.engine.service.AgentStateStore;
+import com.huawei.ascend.runtime.engine.service.InMemoryAgentStateStore;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
@@ -54,6 +62,53 @@ class EngineDispatcherTest {
         verify(task).markRunning(scope());
         verify(task).appendOutput(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineEvent.class));
         verify(task).markFailed(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineEvent.class));
+    }
+
+    @Test
+    void dispatch_loadsAndSavesAgentStateAcrossTheSameTask() {
+        TaskControlClient task = mock(TaskControlClient.class);
+        InMemoryAgentStateStore stateStore = new InMemoryAgentStateStore();
+        StatefulAgentHandler handler = new StatefulAgentHandler();
+        AgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();
+        registry.register("echo-agent", handler);
+        EngineDispatcher dispatcher = new EngineDispatcher(registry, task, stateStore);
+
+        dispatcher.dispatch(cmd());
+        dispatcher.dispatch(cmd());
+
+        AgentStateKey key = AgentStateKey.from(scope());
+        assertThat(stateStore.load(key))
+                .map(snapshot -> snapshot.values().get("phase"))
+                .contains("resumed");
+    }
+
+    @Test
+    void dispatch_doesNotTurnCompletedTaskIntoFailedWhenStateExportHookFails() {
+        TaskControlClient task = mock(TaskControlClient.class);
+        AgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();
+        registry.register("echo-agent", new FailingExportHookHandler());
+        EngineDispatcher dispatcher = new EngineDispatcher(registry, task, new InMemoryAgentStateStore());
+
+        dispatcher.dispatch(cmd());
+
+        verify(task).markRunning(scope());
+        verify(task).markSucceeded(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineEvent.class));
+        verify(task, never()).markFailed(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineEvent.class));
+    }
+
+    @Test
+    void dispatch_failsClosedWhenAgentStateLoadFails() {
+        TaskControlClient task = mock(TaskControlClient.class);
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        AgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();
+        registry.register("echo-agent", handler);
+        EngineDispatcher dispatcher = new EngineDispatcher(registry, task, new FailingLoadStateStore());
+
+        dispatcher.dispatch(cmd());
+
+        verify(task).markRunning(scope());
+        verify(task).markFailed(org.mockito.ArgumentMatchers.eq(scope()), org.mockito.ArgumentMatchers.any(EngineEvent.class));
+        verify(handler, never()).execute(org.mockito.ArgumentMatchers.any(AgentExecutionContext.class));
     }
 
     @Test
@@ -108,6 +163,74 @@ class EngineDispatcherTest {
                 return AgentExecutionResult.output(output);
             }
             return AgentExecutionResult.failed(String.valueOf(result.get("error_code")), output);
+        }
+    }
+
+    static class StatefulAgentHandler extends AbstractStatefulAgentRuntimeHandler {
+        private Optional<String> phase = Optional.empty();
+
+        StatefulAgentHandler() {
+            super("echo-agent", "Echo Agent", "Echo agent with runtime state.");
+        }
+
+        @Override
+        protected void beforeExecute(AgentExecutionContext context) {
+            phase = context.getAgentState()
+                    .map(snapshot -> String.valueOf(snapshot.values().get("phase")));
+        }
+
+        @Override
+        protected Stream<?> doExecute(AgentExecutionContext context) {
+            return Stream.of(Map.of("result_type", "answer", "output", "ok"));
+        }
+
+        @Override
+        protected void afterExecute(AgentExecutionContext context) {
+            context.replaceAgentState(Map.of("phase", phase.isEmpty() ? "asked-location" : "resumed"));
+        }
+
+        @Override
+        public StreamAdapter resultAdapter() {
+            return raw -> raw.map(FakeAgentHandler::map);
+        }
+    }
+
+    static class FailingExportHookHandler extends AbstractStatefulAgentRuntimeHandler {
+
+        FailingExportHookHandler() {
+            super("echo-agent", "Echo Agent", "Echo agent with failing state export.");
+        }
+
+        @Override
+        protected Stream<?> doExecute(AgentExecutionContext context) {
+            return Stream.of(Map.of("result_type", "answer", "output", "ok"));
+        }
+
+        @Override
+        protected void afterExecute(AgentExecutionContext context) {
+            throw new IllegalStateException("export failed");
+        }
+
+        @Override
+        public StreamAdapter resultAdapter() {
+            return raw -> raw.map(FakeAgentHandler::map);
+        }
+    }
+
+    static class FailingLoadStateStore implements AgentStateStore {
+
+        @Override
+        public Optional<AgentStateSnapshot> load(AgentStateKey key) {
+            throw new IllegalStateException("load failed");
+        }
+
+        @Override
+        public AgentStateSnapshot save(AgentStateSnapshot snapshot) {
+            return snapshot;
+        }
+
+        @Override
+        public void delete(AgentStateKey key) {
         }
     }
 }
