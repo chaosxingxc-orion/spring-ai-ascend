@@ -36,6 +36,11 @@
       <version>0.1.7</version>
     </dependency>
     <dependency>
+      <groupId>io.agentscope</groupId>
+      <artifactId>agentscope</artifactId>
+      <version>1.0.12</version>
+    </dependency>
+    <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
       <version>4.33.2</version>

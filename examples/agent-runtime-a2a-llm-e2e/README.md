@@ -2,13 +2,13 @@
 
 ## Purpose
 
-This example shows how to run an `agent-runtime` application that exposes an A2A endpoint, hosts an openJiuwen ReAct agent behind that endpoint, and exercises it from an A2A client perspective only.
+This example shows how to run an `agent-runtime` application that exposes an A2A endpoint, hosts openJiuwen and AgentScope agents behind that endpoint, and exercises them from an A2A client perspective only.
 
 The example lives at `examples/agent-runtime-a2a-llm-e2e` and includes:
 
 - a Spring Boot server application: `com.huawei.ascend.examples.a2a.OpenJiuwenA2aAgentRuntimeApplication`
 - a console client: `com.huawei.ascend.examples.a2a.A2aConsoleClientApplication`
-- an automated end-to-end test that validates the A2A flow against a local OpenAI-compatible LLM gateway
+- automated end-to-end tests that validate the A2A flow against a local OpenAI-compatible LLM gateway
 
 ## What It Verifies
 
@@ -20,7 +20,11 @@ This example verifies the intended boundary for the sample:
 4. The client reads streamed A2A events until the run completes.
 5. A simple prompt of `ping` produces a final visible answer of `pong`.
 
-The current automated E2E test passes and asserts the `ping -> pong` behavior.
+The current automated E2E tests cover openJiuwen plus the three AgentScope integration paths:
+
+- `agentscope-react-agent`: AgentScope Java SDK ReAct agent.
+- `agentscope-harness-agent`: AgentScope SDK agent through the runtime Harness adapter.
+- `agentscope-runtime-agent`: AgentScope REST/SSE runtime client path, using the sample `/sample/agentscope/process` endpoint by default.
 
 ## Gateway Facade Sample
 
@@ -132,6 +136,8 @@ Templates (the `.env` you fill is gitignored; the `*.example` templates are trac
 > The real-LLM e2e (`OpenJiuwenReactAgentA2aE2eTest`) only runs when
 > `SAA_SAMPLE_LLM_API_KEY` is non-blank. Without it, JUnit `assumeTrue()` **skips**
 > that branch after the agent-card assertions (the rest of the suite still runs).
+> The AgentScope real-LLM e2e (`AgentScopeA2aE2eTest`) follows the same rule and
+> skips its three real-model branches when `SAA_SAMPLE_LLM_API_KEY` is blank.
 
 The route-grant signer uses `SAA_SAMPLE_GATEWAY_ROUTE_GRANT_SECRET` or
 `sample.gateway.route-grant-secret`. The checked-in default is for local sample
@@ -163,6 +169,15 @@ sample:
     api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
     model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
     ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}
+  agentscope:
+    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-local-placeholder}
+    api-base: ${SAA_SAMPLE_AGENTSCOPE_API_BASE:http://localhost:4000/v1}
+    endpoint-path: ${SAA_SAMPLE_AGENTSCOPE_ENDPOINT_PATH:/chat/completions}
+    model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
+    runtime:
+      base-url: ${SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL:self}
+      endpoint-path: ${SAA_SAMPLE_AGENTSCOPE_RUNTIME_ENDPOINT_PATH:/sample/agentscope/process}
+      embedded: ${SAA_SAMPLE_AGENTSCOPE_RUNTIME_EMBEDDED:true}
 ```
 
 `sk-local-placeholder` is a **non-functional placeholder**, not a usable key:
@@ -224,6 +239,11 @@ The example also recognizes these environment variables for the local LLM setup:
 - `SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER`
 - `SAA_SAMPLE_LLM_MODEL`
 - `SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY`
+- `SAA_SAMPLE_AGENTSCOPE_API_BASE`
+- `SAA_SAMPLE_AGENTSCOPE_ENDPOINT_PATH`
+- `SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL`
+- `SAA_SAMPLE_AGENTSCOPE_RUNTIME_ENDPOINT_PATH`
+- `SAA_SAMPLE_AGENTSCOPE_RUNTIME_EMBEDDED`
 
 The console client accepts either positional arguments or environment variables:
 
@@ -236,6 +256,7 @@ Example override:
 ```bash
 export SAA_SAMPLE_LLM_API_KEY="<your-key>"
 export SAA_SAMPLE_OPENJIUWEN_API_BASE="http://localhost:4000/v1"
+export SAA_SAMPLE_AGENTSCOPE_API_BASE="http://localhost:4000/v1"
 export SAA_SAMPLE_LLM_MODEL="gpt-5.4-mini"
 export SAA_SAMPLE_A2A_BASE_URL="http://localhost:18080"
 ```
@@ -260,7 +281,7 @@ Run the example test module directly through the helper script:
 bash scripts/test-e2e.sh .env
 ```
 
-The test starts the example application, calls it through the A2A client flow, and expects the visible response for `ping` to be `pong`.
+The tests start the example application, call it through the A2A client flow, and expect the visible response for `ping` to be `pong`. AgentScope SDK, Harness, and REST/SSE runtime tests all use the same real model settings; the REST/SSE path defaults to the embedded sample AgentScope runtime endpoint unless `SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL` points to an external customer runtime.
 
 If you have already exported the required variables and want to run Maven directly:
 
