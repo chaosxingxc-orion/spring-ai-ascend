@@ -20,22 +20,27 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
 @RestController
-@ConditionalOnProperty(prefix = "sample.agentscope.runtime", name = "embedded", havingValue = "true", matchIfMissing = true)
-final class SampleAgentScopeRuntimeController {
+@ConditionalOnProperty(
+        prefix = "sample.agentscope.retail-wealth.runtime",
+        name = "embedded",
+        havingValue = "true",
+        matchIfMissing = true)
+final class RetailWealthAdvisorRuntimeController {
 
     private final AgentScopeAgent agent;
 
-    SampleAgentScopeRuntimeController(@Qualifier("sampleAgentScopeAgent") AgentScopeAgent agent) {
+    RetailWealthAdvisorRuntimeController(@Qualifier("retailWealthAdvisorAgent") AgentScopeAgent agent) {
         this.agent = agent;
     }
 
     @PostMapping(
-            value = "/sample/agentscope/process",
+            value = RetailWealthAdvisorAgentScopeConfiguration.RUNTIME_ENDPOINT,
             produces = MediaType.TEXT_EVENT_STREAM_VALUE,
             consumes = MediaType.APPLICATION_JSON_VALUE)
     Flux<ServerSentEvent<Map<String, Object>>> process(
             @RequestHeader(name = "X-Tenant-Id", defaultValue = "sample-tenant") String tenantId,
-            @RequestHeader(name = "X-Agent-Id", defaultValue = AgentScopeE2eConfiguration.RUNTIME_AGENT_ID) String agentId,
+            @RequestHeader(name = "X-Agent-Id", defaultValue = RetailWealthAdvisorAgentScopeConfiguration.RUNTIME_AGENT_ID)
+            String agentId,
             @RequestHeader(name = "X-Task-Id", defaultValue = "sample-task") String taskId,
             @RequestBody Map<String, Object> body) {
         AgentScopeInvocation invocation = new AgentScopeInvocation(

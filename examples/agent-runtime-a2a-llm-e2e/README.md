@@ -19,12 +19,38 @@ This example verifies the intended boundary for the sample:
 3. The client sends a streaming JSON-RPC request to `/a2a`.
 4. The client reads streamed A2A events until the run completes.
 5. A simple prompt of `ping` produces a final visible answer of `pong`.
+6. A bank retail wealth advisor sample can produce an asset-allocation suggestion through the same A2A surface.
 
 The current automated E2E tests cover openJiuwen plus the three AgentScope integration paths:
 
 - `agentscope-react-agent`: AgentScope Java SDK ReAct agent.
 - `agentscope-harness-agent`: AgentScope SDK agent through the runtime Harness adapter.
 - `agentscope-runtime-agent`: AgentScope REST/SSE runtime client path, using the sample `/sample/agentscope/process` endpoint by default.
+- `agentscope-retail-wealth-advisor`: bank retail wealth advisor built as an AgentScope ReAct agent with sample skills.
+- `agentscope-retail-wealth-advisor-harness`: the same advisor through the runtime Harness adapter.
+- `agentscope-retail-wealth-advisor-runtime`: the same advisor through the AgentScope REST/SSE runtime client path, using `/sample/agentscope/retail-wealth/process` by default.
+
+## AgentScope Retail Wealth Advisor Sample
+
+The retail wealth advisor sample models a customer-owned AgentScope agent that a
+large bank's business engineering team could build with DianJin-style skills.
+It is intentionally kept inside the example module: `spring-ai-ascend` provides
+runtime governance, A2A, task state, and output distribution; the wealth-advisor
+logic belongs to the customer's AgentScope application.
+
+The sample registers local mock skills to stand in for customer-side systems:
+
+- customer profile and suitability lookup
+- current holdings lookup
+- market insight analysis
+- bank product-universe matching
+- allocation projection and stress-scenario calculation
+
+The sample product universe is bank-oriented: short-tenor wealth-management
+products, public funds, qualified-investor private funds, gold products, and ETF
+feeder funds. The sample does not recommend individual stocks or exchange-traded
+ETF products, and it always asks the model to include suitability and compliance
+reminders. These skills are demonstration fixtures only, not financial advice.
 
 ## Gateway Facade Sample
 
@@ -178,6 +204,11 @@ sample:
       base-url: ${SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL:self}
       endpoint-path: ${SAA_SAMPLE_AGENTSCOPE_RUNTIME_ENDPOINT_PATH:/sample/agentscope/process}
       embedded: ${SAA_SAMPLE_AGENTSCOPE_RUNTIME_EMBEDDED:true}
+    retail-wealth:
+      runtime:
+        base-url: ${SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_BASE_URL:self}
+        endpoint-path: ${SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_ENDPOINT_PATH:/sample/agentscope/retail-wealth/process}
+        embedded: ${SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_EMBEDDED:true}
 ```
 
 `sk-local-placeholder` is a **non-functional placeholder**, not a usable key:
@@ -244,6 +275,9 @@ The example also recognizes these environment variables for the local LLM setup:
 - `SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL`
 - `SAA_SAMPLE_AGENTSCOPE_RUNTIME_ENDPOINT_PATH`
 - `SAA_SAMPLE_AGENTSCOPE_RUNTIME_EMBEDDED`
+- `SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_BASE_URL`
+- `SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_ENDPOINT_PATH`
+- `SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_EMBEDDED`
 
 The console client accepts either positional arguments or environment variables:
 
@@ -281,7 +315,15 @@ Run the example test module directly through the helper script:
 bash scripts/test-e2e.sh .env
 ```
 
-The tests start the example application, call it through the A2A client flow, and expect the visible response for `ping` to be `pong`. AgentScope SDK, Harness, and REST/SSE runtime tests all use the same real model settings; the REST/SSE path defaults to the embedded sample AgentScope runtime endpoint unless `SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL` points to an external customer runtime.
+The tests start the example application and call it through the A2A client flow.
+The basic openJiuwen and AgentScope connectivity tests expect the visible
+response for `ping` to be `pong`. The retail wealth advisor tests send a bank
+relationship-manager prompt and expect a visible asset-allocation suggestion
+with customer profile, allocation, projection, risk, and compliance sections.
+AgentScope SDK, Harness, and REST/SSE runtime tests all use the same real model
+settings; the REST/SSE paths default to the embedded sample AgentScope runtime
+endpoints unless the corresponding `*_RUNTIME_BASE_URL` variable points to an
+external customer runtime.
 
 If you have already exported the required variables and want to run Maven directly:
 
