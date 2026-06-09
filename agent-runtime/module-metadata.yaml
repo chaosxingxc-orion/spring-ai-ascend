@@ -7,12 +7,12 @@ module: agent-runtime
 kind: domain             # platform | domain | starter | bom | sample
 version: 0.0.1-SNAPSHOT
 semver_compatibility: experimental
-description: "Run-owning runtime SDK that drives Agent instances built on heterogeneous agent frameworks through a single framework-neutral SPI (engine.spi.AgentRuntimeHandler + optional AgentCardProvider + MessageAdapter + StreamAdapter; openJiuwen adapter first). Owns engine dispatch + Run lifecycle + session + task-centric control + internal event queue + access (A2A) + the bootable runtime application."
+description: "Run-owning runtime SDK that drives Agent instances built on heterogeneous agent frameworks through a single framework-neutral SPI (engine.spi.AgentRuntimeHandler + optional AgentCardProvider + provider hooks + MessageAdapter + StreamAdapter; openJiuwen adapter first). Owns engine dispatch + Run lifecycle + session + task-centric control + internal event queue + access (A2A) + the bootable runtime application."
 architecture_doc: architecture/docs/L1/agent-runtime/README.md
 dfx_doc: docs/dfx/agent-runtime.yaml
 spi_packages:
   # Framework-neutral runtime SPI: AgentRuntimeHandler (+ optional AgentCardProvider
-  # and optional AbstractAgentRuntimeHandler), MessageAdapter, StreamAdapter — the
+  # and optional provider hooks), MessageAdapter, StreamAdapter — the
   # per-framework plug-in surface (openJiuwen first).
   - com.huawei.ascend.runtime.engine.spi
 allowed_dependencies:

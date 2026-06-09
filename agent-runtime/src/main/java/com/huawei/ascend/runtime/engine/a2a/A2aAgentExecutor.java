@@ -5,6 +5,7 @@ import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeProviderChain;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -45,8 +46,9 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
         String inputText = extractText(ctx);
         LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
+        AgentExecutionContext context = toExecutionContext(ctx);
 
-        try (Stream<?> raw = handler.execute(toExecutionContext(ctx));
+        try (Stream<?> raw = executeAgent(context);
              Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
 
             results.forEach(result -> {
@@ -65,6 +67,10 @@ public final class A2aAgentExecutor implements AgentExecutor {
             emitter.fail();
             LOG.info("[A2A] task state=FAILED taskId={}", taskId);
         }
+    }
+
+    private Stream<?> executeAgent(AgentExecutionContext context) {
+        return AgentRuntimeProviderChain.execute(handler, context);
     }
 
     @Override

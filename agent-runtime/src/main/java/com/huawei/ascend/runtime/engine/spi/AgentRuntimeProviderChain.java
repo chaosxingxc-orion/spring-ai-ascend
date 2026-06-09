@@ -11,14 +11,14 @@ import org.slf4j.LoggerFactory;
 /**
  * Executes an {@link AgentRuntimeHandler} together with its optional providers.
  *
- * <p>The dispatcher uses this helper so provider ordering and failure isolation
- * stay consistent across Agent framework adapters.
+ * <p>The runtime bridge uses this helper so provider ordering and failure
+ * isolation stay consistent across Agent framework adapters.
  */
-public final class AgentRuntimeProviders {
+public final class AgentRuntimeProviderChain {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AgentRuntimeProviders.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AgentRuntimeProviderChain.class);
 
-    private AgentRuntimeProviders() {
+    private AgentRuntimeProviderChain() {
     }
 
     public static Stream<?> execute(AgentRuntimeHandler handler, AgentExecutionContext context) {
