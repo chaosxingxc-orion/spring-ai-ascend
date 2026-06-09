@@ -4,7 +4,6 @@ import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.runner.Runner;
-import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.singleagent.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
@@ -61,7 +60,7 @@ public class OpenJiuwenReactAgentConfiguration {
                 String apiBase,
                 String modelName,
                 boolean sslVerify) {
-            super(AGENT_ID, "Sample openJiuwen ReAct agent hosted by agent-runtime.");
+            super(AGENT_ID);
             this.modelProvider = modelProvider;
             this.apiKey = apiKey;
             this.apiBase = apiBase;
@@ -81,9 +80,8 @@ public class OpenJiuwenReactAgentConfiguration {
                         apiBase,
                         modelName);
                 ReActAgent agent = buildAgent();
-                AgentSessionApi session = openJiuwenSession(context, agent);
                 Object input = toOpenJiuwenInput(context);
-                Object result = Runner.runAgent(agent, input, session, null);
+                Object result = Runner.runAgent(agent, input, openJiuwenConversationId(context), null);
                 LOGGER.info("example openjiuwen execute finished tenantId={} sessionId={} taskId={} resultType={}",
                         context.getScope().tenantId(),
                         context.getScope().sessionId(),
@@ -98,8 +96,6 @@ public class OpenJiuwenReactAgentConfiguration {
                         e.getClass().getSimpleName(),
                         errorMessage(e));
                 throw new IllegalStateException(errorMessage(e), e);
-            } finally {
-                safeRelease(context);
             }
         }
 

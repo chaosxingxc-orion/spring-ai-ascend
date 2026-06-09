@@ -15,7 +15,7 @@ class OpenJiuwenMessageAdapterTest {
     @Test
     void toOpenJiuwenInput_buildsQueryAndConversationId() {
         EngineExecutionScope scope = new EngineExecutionScope("t", "u", "s", "task-7", "echo-agent");
-        EngineInput input = new EngineInput("text", List.of(Message.user("你好")), Map.of());
+        EngineInput input = new EngineInput("text", List.of(Message.user("你好")), Map.of("agentStateKey", "biz-state-7"));
         AgentExecutionContext ctx = new AgentExecutionContext(scope, input);
 
         Object result = new OpenJiuwenMessageAdapter().toOpenJiuwenInput(ctx);
@@ -23,6 +23,6 @@ class OpenJiuwenMessageAdapterTest {
         assertThat(result).isInstanceOf(Map.class);
         Map<?, ?> map = (Map<?, ?>) result;
         assertThat(map.get("query")).isEqualTo("你好");
-        assertThat(map.get("conversation_id")).isEqualTo("task-7");
+        assertThat(map.get("conversation_id")).isEqualTo("biz-state-7");
     }
 }

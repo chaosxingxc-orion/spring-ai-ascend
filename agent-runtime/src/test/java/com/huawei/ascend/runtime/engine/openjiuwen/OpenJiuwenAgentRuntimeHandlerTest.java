@@ -28,7 +28,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
             public Stream<?> execute(AgentExecutionContext context) {
                 BaseAgent agent = new EchoBaseAgent();
                 Object input = toOpenJiuwenInput(context);
-                return Stream.of(Runner.runAgent(agent, input, openJiuwenSession(context, agent), null));
+                return Stream.of(Runner.runAgent(agent, input, openJiuwenConversationId(context), null));
             }
         };
 
@@ -43,13 +43,14 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     }
 
     @Test
-    void openJiuwenSessionStateFlowsThroughRuntimeAgentState() {
+    void openJiuwenCheckpointerRestoresByConversationId() {
+        Runner.release("task-1");
         OpenJiuwenAgentRuntimeHandler handler = new OpenJiuwenAgentRuntimeHandler("stateful-agent") {
             @Override
             public Stream<?> execute(AgentExecutionContext context) {
                 BaseAgent agent = new StatefulBaseAgent();
                 Object input = toOpenJiuwenInput(context);
-                return Stream.of(Runner.runAgent(agent, input, openJiuwenSession(context, agent), null));
+                return Stream.of(Runner.runAgent(agent, input, openJiuwenConversationId(context), null));
             }
         };
         AgentExecutionContext first = context("stateful-agent");
@@ -57,19 +58,13 @@ class OpenJiuwenAgentRuntimeHandlerTest {
             rawResults.toList();
         }
 
-        AgentExecutionContext second = new AgentExecutionContext(
-                first.getScope(),
-                first.getInput(),
-                first.getAgentStateKey(),
-                first.getAgentState().orElseThrow());
-        try (Stream<?> rawResults = AgentRuntimeProviders.execute(handler, second)) {
-            rawResults.toList();
+        try (Stream<?> rawResults = AgentRuntimeProviders.execute(handler, first)) {
+            var mapped = handler.resultAdapter().adapt(rawResults).toList();
+            assertThat(mapped).hasSize(1);
+            assertThat(mapped.get(0).output().getContent()).isEqualTo("turn: 2");
+        } finally {
+            Runner.release("task-1");
         }
-
-        Map<String, Object> openJiuwenState = openJiuwenState(second);
-        assertThat(openJiuwenGlobalState(openJiuwenState)).containsEntry("turn", 2);
-        assertThat(second.getAgentState().orElseThrow())
-                .containsEntry(OpenJiuwenAgentRuntimeHandler.STATE_SESSION_ID, "task-1");
     }
 
     private static AgentExecutionContext context() {
@@ -80,18 +75,6 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         EngineExecutionScope scope = new EngineExecutionScope("tenant", "user", "session", "task-1", agentId);
         EngineInput input = new EngineInput("text", List.of(Message.user("ping")), Map.of());
         return new AgentExecutionContext(scope, input);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> openJiuwenState(AgentExecutionContext context) {
-        return (Map<String, Object>) context.getAgentState()
-                .orElseThrow()
-                .get(OpenJiuwenAgentRuntimeHandler.STATE_VALUES);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> openJiuwenGlobalState(Map<String, Object> openJiuwenState) {
-        return (Map<String, Object>) openJiuwenState.get("global_state");
     }
 
     public static final class EchoBaseAgent extends BaseAgent {
