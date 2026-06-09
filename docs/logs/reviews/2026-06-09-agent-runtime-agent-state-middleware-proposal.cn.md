@@ -68,10 +68,11 @@ OpenJiuwenMessageAdapter
 
 OpenJiuwen Runner / Checkpointer
   sessionId = conversation_id
-  state = OpenJiuwen 自己的 agent / workflow / graph checkpoint
+  state backend = AgentStateStore-backed OpenJiuwen KV store
+  state value = OpenJiuwen 自己的 agent / workflow / graph checkpoint
 ```
 
-也就是说，业务方只需要保证 `agentStateKey` 稳定；OpenJiuwen 内部保存哪些字段、如何序列化、何时恢复，交给 OpenJiuwen 的 `RunnerConfig.checkpointerConfig` / `CheckpointerFactory` / `Runner.release(sessionId)` 处理。
+也就是说，业务方只需要保证 `agentStateKey` 稳定；OpenJiuwen 内部保存哪些字段、如何序列化、何时恢复，仍交给 OpenJiuwen 的 `Runner` / `PersistenceCheckpointer` 处理。runtime 负责提供 `BaseKVStore` adapter，把 OpenJiuwen checkpoint 最终落到 `AgentStateStore`。
 
 ### 4.2 AgentExecutionContext
 
@@ -130,7 +131,7 @@ OpenJiuwen Runner / Checkpointer
 
 ### 4.5 OpenJiuwen Native Checkpointer Bridge
 
-调研 OpenJiuwen 0.1.7 / 0.1.12 后，本轮修正为：OpenJiuwen adapter 不再手工调用 `AgentSessionApi.updateState(...)` 和 `dumpState()` 搬运状态，而是使用 OpenJiuwen 原生 Runner 生命周期。
+调研 OpenJiuwen 0.1.7 / 0.1.12 后，本轮修正为：OpenJiuwen adapter 不再手工调用 `AgentSessionApi.updateState(...)` 和 `dumpState()` 搬运状态，而是使用 OpenJiuwen 原生 Runner 生命周期；同时通过 `AgentStateStoreBackedOpenJiuwenKvStore` 把 OpenJiuwen `PersistenceCheckpointer` 的 KV 后端接入 runtime `AgentStateStore`。
 
 OpenJiuwen 文档与源码主线是：
 
@@ -139,13 +140,14 @@ OpenJiuwen 文档与源码主线是：
 - `AgentSessionApi.postRun()` 会调用 `postAgentExecute(...)` 保存 agent state。
 - `RunnerImpl` 会优先从输入 map 中读取 `conversation_id` 作为 session id；没有时才回退到 `default_session`。
 
-因此 runtime 的 OpenJiuwen adapter 只做三件事：
+因此 runtime 的 OpenJiuwen adapter 只做四件事：
 
 1. 把 `context.getAgentStateKey()` 写入 OpenJiuwen input 的 `conversation_id`。
 2. 对外提供 `openJiuwenConversationId(context)`，让子类调用 `Runner.runAgent(agent, input, conversationId, null)`。
-3. 不在每次执行 finally 中调用 `Runner.release(...)`；release 只代表会话结束或业务显式清理，否则会破坏多轮恢复。
+3. 提供 `OpenJiuwenAgentStateCheckpointers.installDefault(agentStateStore)`，让 OpenJiuwen checkpoint 通过 `PersistenceCheckpointer(BaseKVStore)` 保存到 runtime `AgentStateStore`。
+4. 不在每次执行 finally 中调用 `Runner.release(...)`；release 只代表会话结束或业务显式清理，否则会破坏多轮恢复。
 
-如果客户配置了 OpenJiuwen 持久化 checkpointer，状态落点由 OpenJiuwen 的 `RunnerConfig.checkpointerConfig` 决定；如果未配置，默认使用 OpenJiuwen 的进程内 checkpointer，适合本地样例和白盒测试。
+当前 sample 显式安装了 `AgentStateStore` 后端 checkpointer；如果客户自定义 OpenJiuwen `RunnerConfig.checkpointerConfig`，需要确认不会覆盖 runtime 安装的默认 checkpointer。生产态可以把 `AgentStateStore` 替换成 Redis/JDBC 等后端，OpenJiuwen adapter 不需要变化。
 
 ## 5. Failure Semantics
 
@@ -165,7 +167,8 @@ OpenJiuwen 文档与源码主线是：
 | Optional Agent Card provider | Implemented | `AgentCardProvider` 是可选能力；handler 不必强制实现 |
 | State provider marker | Implemented | `StateProvider` |
 | Store-free handler | Implemented | handler 只读写 `AgentExecutionContext` |
-| OpenJiuwen native checkpointer bridge | Implemented | 使用稳定 `conversation_id` 接入 OpenJiuwen `Runner` / `Checkpointer` |
+| OpenJiuwen native checkpointer bridge | Implemented | 使用稳定 `conversation_id` 接入 OpenJiuwen `Runner` / `PersistenceCheckpointer` |
+| OpenJiuwen checkpoint backed by AgentStateStore | Implemented | `AgentStateStoreBackedOpenJiuwenKvStore` + sample install default checkpointer |
 | Snapshot/revision | Deferred | 不在当前最小版本实现 |
 | Mem integration | Deferred | 后续作为独立 Provider 或 middleware 扩展 |
 
@@ -200,7 +203,7 @@ wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/d/repo/spring-ai-ascend && ./mvnw -pl a
 - Provider 可 restore/export state。
 - Provider before 失败时只清理已进入 Provider。
 - state load 失败 fail closed。
-- OpenJiuwen session state 可跨同一 `conversation_id` / `agentStateKey` 恢复，且不依赖 runtime 手工 `dumpState/updateState`。
+- OpenJiuwen session state 可跨同一 `conversation_id` / `agentStateKey` 恢复，且最终 checkpoint 写入 runtime `AgentStateStore`，不依赖 runtime 手工 `dumpState/updateState`。
 
 ## 10. Self-Audit
 
@@ -209,6 +212,6 @@ Open findings:
 - `AgentStateStore.save` 当前没有 CAS/fencing，后续 durable backend 必须补齐。
 - W1 save 失败只记录日志；生产态需要告警和补偿。
 - Mem 未实现，需要单独 proposal/PR。
-- OpenJiuwen 持久化能力依赖业务正确配置 `RunnerConfig.checkpointerConfig`；runtime 只负责传递稳定 `conversation_id`，不替 OpenJiuwen 选择存储后端。
+- OpenJiuwen checkpointer 当前通过进程内 `AgentStateStore` 打样；durable backend 需要由业务替换 `AgentStateStore` 实现。
 
 No ship-blocking finding for the W1 in-memory Agent State capability.

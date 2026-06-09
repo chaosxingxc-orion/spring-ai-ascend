@@ -1,9 +1,12 @@
 package com.huawei.ascend.examples.a2a;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentStateCheckpointers;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.service.AgentStateStore;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.runner.Runner;
+import com.openjiuwen.core.session.checkpointer.Checkpointer;
 import com.openjiuwen.core.singleagent.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
@@ -21,6 +24,11 @@ import org.springframework.context.annotation.Configuration;
 public class OpenJiuwenReactAgentConfiguration {
 
     static final String AGENT_ID = "openjiuwen-react-agent";
+
+    @Bean
+    Checkpointer openJiuwenAgentStateCheckpointer(AgentStateStore agentStateStore) {
+        return OpenJiuwenAgentStateCheckpointers.installDefault(agentStateStore);
+    }
 
     @Bean
     OpenJiuwenAgentRuntimeHandler openJiuwenReactAgentHandler(

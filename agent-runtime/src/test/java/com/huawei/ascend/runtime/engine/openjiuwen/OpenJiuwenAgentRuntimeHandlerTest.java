@@ -6,7 +6,10 @@ import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.EngineInput;
 import com.huawei.ascend.runtime.common.Message;
+import com.huawei.ascend.runtime.engine.service.InMemoryAgentStateStore;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeProviders;
+import com.openjiuwen.core.session.checkpointer.Checkpointer;
+import com.openjiuwen.core.session.checkpointer.CheckpointerFactory;
 import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.stream.StreamMode;
@@ -64,6 +67,41 @@ class OpenJiuwenAgentRuntimeHandlerTest {
             assertThat(mapped.get(0).output().getContent()).isEqualTo("turn: 2");
         } finally {
             Runner.release("task-1");
+        }
+    }
+
+    @Test
+    void openJiuwenCheckpointerCanPersistThroughRuntimeAgentStateStore() {
+        Checkpointer previous = CheckpointerFactory.getCheckpointer();
+        InMemoryAgentStateStore stateStore = new InMemoryAgentStateStore();
+        AgentStateStoreBackedOpenJiuwenKvStore kvStore = new AgentStateStoreBackedOpenJiuwenKvStore(stateStore);
+        CheckpointerFactory.setDefaultCheckpointer(new com.openjiuwen.core.session.checkpointer.PersistenceCheckpointer(
+                kvStore));
+        OpenJiuwenAgentRuntimeHandler handler = new OpenJiuwenAgentRuntimeHandler("stateful-agent") {
+            @Override
+            public Stream<?> execute(AgentExecutionContext context) {
+                BaseAgent agent = new StatefulBaseAgent();
+                Object input = toOpenJiuwenInput(context);
+                return Stream.of(Runner.runAgent(agent, input, openJiuwenConversationId(context), null));
+            }
+        };
+        AgentExecutionContext context = context("stateful-agent");
+        try {
+            CheckpointerFactory.getCheckpointer().release("task-1");
+            try (Stream<?> rawResults = AgentRuntimeProviders.execute(handler, context)) {
+                rawResults.toList();
+            }
+
+            assertThat(kvStore.getByPrefix("task-1:")).isNotEmpty();
+
+            try (Stream<?> rawResults = AgentRuntimeProviders.execute(handler, context)) {
+                var mapped = handler.resultAdapter().adapt(rawResults).toList();
+                assertThat(mapped).hasSize(1);
+                assertThat(mapped.get(0).output().getContent()).isEqualTo("turn: 2");
+            }
+        } finally {
+            CheckpointerFactory.getCheckpointer().release("task-1");
+            CheckpointerFactory.setDefaultCheckpointer(previous);
         }
     }
 
