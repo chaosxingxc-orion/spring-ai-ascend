@@ -5,46 +5,27 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import org.a2aproject.sdk.spec.AgentCard;
 
 /**
- * Base class for one business Agent hosted by one runtime instance.
+ * Convenience base class for one business Agent hosted by one runtime instance.
  *
  * <p>Subclasses are normal Spring beans. The runtime auto-registers them as
- * {@link AgentRuntimeHandler} implementations and exposes their A2A {@link AgentCard}
- * at {@code /.well-known/agent-card.json}. This keeps the business integration
- * shape explicit: implement one runtime Agent handler, get one A2A Agent Card.
+ * {@link AgentRuntimeHandler} implementations. A2A Agent Card metadata remains
+ * a separate optional capability supplied by {@link AgentCardProvider}, so
+ * execution behavior and public protocol metadata can evolve independently.
  */
-public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler, AgentCardProvider {
+public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler {
 
     private final String agentId;
-    private final String name;
-    private final String description;
-    private final String version;
-    private final String endpoint;
     private final List<AgentRuntimeProvider> providers = new ArrayList<>();
 
-    protected AbstractAgentRuntimeHandler(String agentId, String name, String description) {
-        this(agentId, name, description, "0.1.0", "/a2a");
-    }
-
-    protected AbstractAgentRuntimeHandler(
-            String agentId, String name, String description, String version, String endpoint) {
+    protected AbstractAgentRuntimeHandler(String agentId) {
         this.agentId = Guards.requireNonBlank(agentId, "agentId");
-        this.name = Guards.requireNonBlank(name, "name");
-        this.description = Guards.requireNonBlank(description, "description");
-        this.version = Guards.requireNonBlank(version, "version");
-        this.endpoint = Guards.requireNonBlank(endpoint, "endpoint");
     }
 
     @Override
     public final String agentId() {
         return agentId;
-    }
-
-    @Override
-    public final AgentCard agentCard() {
-        return AgentCards.create(name, description, version, endpoint);
     }
 
     @Override

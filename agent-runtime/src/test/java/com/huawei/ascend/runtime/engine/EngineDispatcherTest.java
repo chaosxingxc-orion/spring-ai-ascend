@@ -204,7 +204,7 @@ class EngineDispatcherTest {
         private Optional<String> phase = Optional.empty();
 
         StatefulAgentHandler() {
-            super("echo-agent", "Echo Agent", "Echo agent with runtime state.");
+            super("echo-agent");
             addRuntimeProvider(new AgentRuntimeProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
@@ -232,7 +232,7 @@ class EngineDispatcherTest {
     static class FailingExportHookHandler extends AbstractAgentRuntimeHandler {
 
         FailingExportHookHandler() {
-            super("echo-agent", "Echo Agent", "Echo agent with failing state export.");
+            super("echo-agent");
             addRuntimeProvider(new AgentRuntimeProvider() {
                 @Override
                 public void afterExecute(AgentExecutionContext context) {

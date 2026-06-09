@@ -63,7 +63,7 @@ class AgentRuntimeProviderTest {
         private boolean afterCalled;
 
         private StubAgent() {
-            super("agent", "Stateful Agent", "Stateful test agent.");
+            super("agent");
             addRuntimeProvider(new StateProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
@@ -93,7 +93,7 @@ class AgentRuntimeProviderTest {
         private final java.util.ArrayList<String> events = new java.util.ArrayList<>();
 
         private CompositeAgent() {
-            super("agent", "Composite Agent", "Composite test agent.");
+            super("agent");
             addRuntimeProvider(new StateProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
@@ -133,7 +133,7 @@ class AgentRuntimeProviderTest {
         private final java.util.ArrayList<String> events = new java.util.ArrayList<>();
 
         private BeforeFailureAgent() {
-            super("agent", "Before Failure Agent", "Before failure test agent.");
+            super("agent");
             addRuntimeProvider(new StateProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
