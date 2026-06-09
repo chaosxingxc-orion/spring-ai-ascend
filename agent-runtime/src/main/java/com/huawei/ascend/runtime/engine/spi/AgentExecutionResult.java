@@ -1,7 +1,5 @@
 package com.huawei.ascend.runtime.engine.spi;
 
-import com.huawei.ascend.runtime.engine.InterruptType;
-
 public final class AgentExecutionResult {
 
     public enum Type { OUTPUT, COMPLETED, FAILED, INTERRUPTED }
@@ -10,39 +8,36 @@ public final class AgentExecutionResult {
     private final String outputContent;
     private final String errorCode;
     private final String errorMessage;
-    private final InterruptType interruptType;
     private final String prompt;
 
     private AgentExecutionResult(Type type, String outputContent, String errorCode,
-                                  String errorMessage, InterruptType interruptType, String prompt) {
+                                  String errorMessage, String prompt) {
         this.type = type;
         this.outputContent = outputContent;
         this.errorCode = errorCode;
         this.errorMessage = errorMessage;
-        this.interruptType = interruptType;
         this.prompt = prompt;
     }
 
     public static AgentExecutionResult output(String content) {
-        return new AgentExecutionResult(Type.OUTPUT, content, null, null, null, null);
+        return new AgentExecutionResult(Type.OUTPUT, content, null, null, null);
     }
 
     public static AgentExecutionResult completed(String content) {
-        return new AgentExecutionResult(Type.COMPLETED, content, null, null, null, null);
+        return new AgentExecutionResult(Type.COMPLETED, content, null, null, null);
     }
 
     public static AgentExecutionResult failed(String errorCode, String errorMessage) {
-        return new AgentExecutionResult(Type.FAILED, null, errorCode, errorMessage, null, null);
+        return new AgentExecutionResult(Type.FAILED, null, errorCode, errorMessage, null);
     }
 
-    public static AgentExecutionResult interrupted(InterruptType interruptType, String prompt) {
-        return new AgentExecutionResult(Type.INTERRUPTED, null, null, null, interruptType, prompt);
+    public static AgentExecutionResult interrupted(String prompt) {
+        return new AgentExecutionResult(Type.INTERRUPTED, null, null, null, prompt);
     }
 
     public Type type() { return type; }
     public String outputContent() { return outputContent; }
     public String errorCode() { return errorCode; }
     public String errorMessage() { return errorMessage; }
-    public InterruptType interruptType() { return interruptType; }
     public String prompt() { return prompt; }
 }

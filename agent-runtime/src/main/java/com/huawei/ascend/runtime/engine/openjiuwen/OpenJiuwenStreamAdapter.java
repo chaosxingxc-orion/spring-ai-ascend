@@ -1,6 +1,6 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
-import com.huawei.ascend.runtime.engine.InterruptType;
+
 import java.util.Map;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import org.slf4j.Logger;
@@ -29,7 +29,7 @@ public class OpenJiuwenStreamAdapter {
             return AgentExecutionResult.completed(output);
         }
         if ("interrupt".equals(type)) {
-            return AgentExecutionResult.interrupted(InterruptType.HUMAN_INPUT, output);
+            return AgentExecutionResult.interrupted( output);
         }
         return AgentExecutionResult.failed(ERROR_CODE, output);
     }
