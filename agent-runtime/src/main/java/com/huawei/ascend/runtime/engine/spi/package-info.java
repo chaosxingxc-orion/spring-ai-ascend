@@ -2,9 +2,10 @@
  * Engine provider SPI surface.
  *
  * <p>This package is intentionally small: {@code AgentRuntimeHandler} is the
- * only interface that external agent providers implement. Providers that need
- * Agent State restore/export hooks may optionally extend
- * {@code AbstractStatefulAgentRuntimeHandler}; it does not own state storage.
+ * only interface that external agent providers implement. Providers can attach
+ * optional {@code AgentRuntimeExtension} capabilities through the base handler;
+ * {@code AbstractStatefulAgentRuntimeHandler} is a convenience wrapper for the
+ * Agent State restore/export extension and does not own state storage.
  * Engine inbound calls live in {@link com.huawei.ascend.runtime.engine.api};
  * the engine internal command runtime ({@code EngineCommand*},
  * {@code EngineWorker}) and the engine outbound clients to access/task-control

@@ -7,6 +7,7 @@ import com.huawei.ascend.runtime.engine.service.AgentStateStore;
 import com.huawei.ascend.runtime.engine.service.NoopAgentStateStore;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeExtensions;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -92,7 +93,7 @@ public class EngineDispatcher {
                 handler.getClass().getName(),
                 command.getInput().inputType(),
                 command.getInput().messages().size());
-        try (Stream<?> rawResults = handler.execute(context);
+        try (Stream<?> rawResults = AgentRuntimeExtensions.execute(handler, context);
                 Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(rawResults)) {
             results.peek(result -> LOGGER.info("engine handler result tenantId={} sessionId={} taskId={} agentId={} resultType={} outputLength={}",
                             scope.tenantId(),

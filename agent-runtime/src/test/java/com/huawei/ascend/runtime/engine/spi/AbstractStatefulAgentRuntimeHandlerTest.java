@@ -17,7 +17,7 @@ class AbstractStatefulAgentRuntimeHandlerTest {
         StubStatefulAgent agent = new StubStatefulAgent();
         AgentExecutionContext context = context();
 
-        try (Stream<?> results = agent.execute(context)) {
+        try (Stream<?> results = AgentRuntimeExtensions.execute(agent, context)) {
             assertThat(results.toList()).isEqualTo(List.of("ok"));
         }
 
@@ -26,6 +26,18 @@ class AbstractStatefulAgentRuntimeHandlerTest {
         assertThat(context.getAgentState())
                 .map(snapshot -> snapshot.values().get("phase"))
                 .contains("exported");
+    }
+
+    @Test
+    void handlerCanComposeMultipleExtensionsWithoutAnotherBaseClass() {
+        CompositeAgent agent = new CompositeAgent();
+        AgentExecutionContext context = context();
+
+        try (Stream<?> results = AgentRuntimeExtensions.execute(agent, context)) {
+            assertThat(results.toList()).isEqualTo(List.of("ok"));
+        }
+
+        assertThat(agent.events).containsExactly("state-before", "sandbox-before", "sandbox-after", "state-after");
     }
 
     private static AgentExecutionContext context() {
@@ -55,6 +67,46 @@ class AbstractStatefulAgentRuntimeHandlerTest {
         protected void afterExecute(AgentExecutionContext context) {
             afterCalled = true;
             context.replaceAgentState(Map.of("phase", "exported"));
+        }
+
+        @Override
+        public StreamAdapter resultAdapter() {
+            return rawResults -> Stream.empty();
+        }
+    }
+
+    private static final class CompositeAgent extends AbstractAgentRuntimeHandler {
+        private final java.util.ArrayList<String> events = new java.util.ArrayList<>();
+
+        private CompositeAgent() {
+            super("agent", "Composite Agent", "Composite test agent.");
+            addRuntimeExtension(new AgentRuntimeExtension() {
+                @Override
+                public void beforeExecute(AgentExecutionContext context) {
+                    events.add("state-before");
+                }
+
+                @Override
+                public void afterExecute(AgentExecutionContext context) {
+                    events.add("state-after");
+                }
+            });
+            addRuntimeExtension(new AgentRuntimeExtension() {
+                @Override
+                public void beforeExecute(AgentExecutionContext context) {
+                    events.add("sandbox-before");
+                }
+
+                @Override
+                public void afterExecute(AgentExecutionContext context) {
+                    events.add("sandbox-after");
+                }
+            });
+        }
+
+        @Override
+        public Stream<?> execute(AgentExecutionContext context) {
+            return Stream.of("ok");
         }
 
         @Override

@@ -6,6 +6,7 @@ import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.EngineInput;
 import com.huawei.ascend.runtime.common.Message;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeExtensions;
 import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.stream.StreamMode;
@@ -32,7 +33,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         };
 
         List<?> rawResults;
-        try (Stream<?> stream = handler.execute(context())) {
+        try (Stream<?> stream = AgentRuntimeExtensions.execute(handler, context())) {
             rawResults = stream.toList();
         }
         var results = handler.resultAdapter().adapt(rawResults.stream()).toList();
@@ -52,13 +53,13 @@ class OpenJiuwenAgentRuntimeHandlerTest {
             }
         };
         AgentExecutionContext first = context("stateful-agent");
-        try (Stream<?> rawResults = handler.execute(first)) {
+        try (Stream<?> rawResults = AgentRuntimeExtensions.execute(handler, first)) {
             rawResults.toList();
         }
 
         AgentExecutionContext second = new AgentExecutionContext(first.getScope(), first.getInput(),
                 first.getAgentState().orElseThrow());
-        try (Stream<?> rawResults = handler.execute(second)) {
+        try (Stream<?> rawResults = AgentRuntimeExtensions.execute(handler, second)) {
             rawResults.toList();
         }
 
