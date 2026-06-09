@@ -13,7 +13,7 @@ import com.huawei.ascend.runtime.engine.agentscope.AgentScopeRuntimeClient;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeRuntimeClientProperties;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeStreamAdapter;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.agent.Event;
@@ -62,7 +62,7 @@ public class AgentScopeE2eConfiguration {
     }
 
     @Bean
-    AbstractAgentRuntimeHandler agentScopeReactAgentHandler(AgentScopeAgent sampleAgentScopeAgent) {
+    AgentRuntimeHandler agentScopeReactAgentHandler(AgentScopeAgent sampleAgentScopeAgent) {
         return new AgentScopeAgentRuntimeHandler(
                 AGENT_ID,
                 AGENT_ID,
@@ -76,7 +76,7 @@ public class AgentScopeE2eConfiguration {
     }
 
     @Bean
-    AbstractAgentRuntimeHandler agentScopeHarnessAgentHandler(AgentScopeHarnessAgent sampleAgentScopeHarnessAgent) {
+    AgentRuntimeHandler agentScopeHarnessAgentHandler(AgentScopeHarnessAgent sampleAgentScopeHarnessAgent) {
         return new AgentScopeHarnessRuntimeHandler(
                 HARNESS_AGENT_ID,
                 HARNESS_AGENT_ID,
@@ -85,7 +85,7 @@ public class AgentScopeE2eConfiguration {
     }
 
     @Bean
-    AbstractAgentRuntimeHandler agentScopeRuntimeClientHandler(
+    AgentRuntimeHandler agentScopeRuntimeClientHandler(
             @Value("${sample.agentscope.runtime.base-url:${SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL:self}}")
             String baseUrl,
             @Value("${sample.agentscope.runtime.endpoint-path:${SAA_SAMPLE_AGENTSCOPE_RUNTIME_ENDPOINT_PATH:/sample/agentscope/process}}")
@@ -100,9 +100,10 @@ public class AgentScopeE2eConfiguration {
                 webServerContext);
     }
 
-    static final class SampleAgentScopeRuntimeClientHandler extends AbstractAgentRuntimeHandler {
+    static final class SampleAgentScopeRuntimeClientHandler implements AgentRuntimeHandler {
         private final AgentScopeMessageAdapter messageAdapter = new AgentScopeMessageAdapter();
         private final AgentScopeStreamAdapter streamAdapter = new AgentScopeStreamAdapter();
+        private final String agentId;
         private final String baseUrl;
         private final String endpointPath;
         private final WebServerApplicationContext webServerContext;
@@ -114,10 +115,22 @@ public class AgentScopeE2eConfiguration {
                 String baseUrl,
                 String endpointPath,
                 WebServerApplicationContext webServerContext) {
-            super(agentId, name, description);
+            this.agentId = Objects.requireNonNull(agentId, "agentId");
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(description, "description");
             this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl");
             this.endpointPath = Objects.requireNonNull(endpointPath, "endpointPath");
             this.webServerContext = Objects.requireNonNull(webServerContext, "webServerContext");
+        }
+
+        @Override
+        public String agentId() {
+            return agentId;
+        }
+
+        @Override
+        public boolean isHealthy() {
+            return true;
         }
 
         @Override

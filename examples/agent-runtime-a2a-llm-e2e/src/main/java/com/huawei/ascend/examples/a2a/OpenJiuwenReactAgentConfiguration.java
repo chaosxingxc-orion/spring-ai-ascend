@@ -4,6 +4,7 @@ import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentStateCheckpointers;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.service.AgentStateStore;
+import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.session.checkpointer.Checkpointer;
@@ -15,7 +16,6 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -44,9 +44,8 @@ public class OpenJiuwenReactAgentConfiguration {
     }
 
     @Bean
-    org.a2aproject.sdk.spec.AgentCard sampleDefaultAgentCard(
-            @Qualifier("openJiuwenReactAgentHandler") OpenJiuwenAgentRuntimeHandler handler) {
-        return handler.agentCard();
+    org.a2aproject.sdk.spec.AgentCard sampleDefaultAgentCard() {
+        return AgentCards.create(AGENT_ID, "Sample openJiuwen ReAct agent hosted by agent-runtime.");
     }
 
     static final class SampleOpenJiuwenReactAgentHandler extends OpenJiuwenAgentRuntimeHandler {
