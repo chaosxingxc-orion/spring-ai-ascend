@@ -103,10 +103,35 @@ class OpenJiuwenAgentRuntimeHandlerTest {
 
     @Test
     void openJiuwenRedisCheckpointerCanBeInstantiatedByUrlConfiguration() {
-        Checkpointer checkpointer = new RedisCheckpointer.Provider()
-                .create(Map.of("connection", Map.of("url", "redis://localhost:6379")));
+        Checkpointer checkpointer = OpenJiuwenCheckpointers.redis("redis://localhost:6379");
 
         assertThat(checkpointer).isInstanceOf(RedisCheckpointer.class);
+    }
+
+    @Test
+    void openJiuwenCheckpointerFactoryConfiguresInMemoryByDefault() {
+        Checkpointer previous = CheckpointerFactory.getCheckpointer();
+        try {
+            Checkpointer selected = OpenJiuwenCheckpointers.configureDefault("in-memory", "redis://localhost:6379");
+
+            assertThat(selected).isInstanceOf(InMemoryCheckpointer.class);
+            assertThat(CheckpointerFactory.getCheckpointer()).isSameAs(selected);
+        } finally {
+            CheckpointerFactory.setDefaultCheckpointer(previous);
+        }
+    }
+
+    @Test
+    void openJiuwenCheckpointerFactoryKeepsRedisOptionAvailable() {
+        Checkpointer previous = CheckpointerFactory.getCheckpointer();
+        try {
+            Checkpointer selected = OpenJiuwenCheckpointers.configureDefault("redis", "redis://localhost:6379");
+
+            assertThat(selected).isInstanceOf(RedisCheckpointer.class);
+            assertThat(CheckpointerFactory.getCheckpointer()).isSameAs(selected);
+        } finally {
+            CheckpointerFactory.setDefaultCheckpointer(previous);
+        }
     }
 
     private static AgentExecutionContext context() {

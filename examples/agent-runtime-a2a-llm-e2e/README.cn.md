@@ -235,8 +235,9 @@ export SAA_SAMPLE_LLM_MODEL="gpt-5.4-mini"
 export SAA_SAMPLE_A2A_BASE_URL="http://localhost:18080"
 ```
 
-OpenJiuwen 示例在配置阶段会同时创建两个原生 checkpointer 候选。默认路径使用
-`InMemoryCheckpointer`，便于本地 E2E；如果需要切到 Redis 路径，可以设置
+OpenJiuwen 示例通过 runtime 提供的 `OpenJiuwenCheckpointers` 工具类，在配置阶段
+同时创建两个原生 checkpointer 候选。默认路径使用 `InMemoryCheckpointer`，便于
+本地 E2E；如果需要切到 Redis 路径，可以设置
 `SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis`，并通过
 `SAA_SAMPLE_OPENJIUWEN_REDIS_URL` 指定 Redis URL。
 

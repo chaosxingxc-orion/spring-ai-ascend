@@ -150,7 +150,7 @@ OpenJiuwen 文档与源码主线是：
 2. 对外提供 `openJiuwenConversationId(context)`，让子类调用 `Runner.runAgent(agent, input, conversationId, null)`。
 3. 不在每次执行 finally 中调用 `Runner.release(...)`；release 只代表会话结束或业务显式清理，否则会破坏多轮恢复。
 
-当前 sample 在配置阶段同时实例化 `InMemoryCheckpointer` 和 `RedisCheckpointer` 两个 OpenJiuwen 原生 checkpointer 候选，默认通过 `CheckpointerFactory.setDefaultCheckpointer(...)` 选择 `InMemoryCheckpointer`，便于本地 E2E。需要演示持久化路径时，通过 `sample.openjiuwen.checkpointer=redis` / `SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis` 和 `sample.openjiuwen.redis-url` / `SAA_SAMPLE_OPENJIUWEN_REDIS_URL` 切换到 `RedisCheckpointer`；OpenJiuwen adapter 不需要变化。
+当前 runtime 提供 `OpenJiuwenCheckpointers` 小工具类，封装 OpenJiuwen 原生 checkpointer 的标准配置方式。sample 在配置阶段通过该工具类同时实例化 `InMemoryCheckpointer` 和 `RedisCheckpointer` 两个候选，默认通过 `CheckpointerFactory.setDefaultCheckpointer(...)` 选择 `InMemoryCheckpointer`，便于本地 E2E。需要演示持久化路径时，通过 `sample.openjiuwen.checkpointer=redis` / `SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis` 和 `sample.openjiuwen.redis-url` / `SAA_SAMPLE_OPENJIUWEN_REDIS_URL` 切换到 `RedisCheckpointer`；OpenJiuwen adapter 不需要变化。
 
 ## 5. Failure Semantics
 
@@ -171,7 +171,7 @@ OpenJiuwen 文档与源码主线是：
 | State provider marker | Implemented | `StateProvider`，用于可选生命周期桥接，不强制所有框架使用 |
 | Store-free handler | Implemented | handler 只读写 `AgentExecutionContext` |
 | OpenJiuwen native checkpointer configuration | Implemented | 使用稳定 `conversation_id` 接入 OpenJiuwen `Runner` / `Checkpointer` |
-| OpenJiuwen checkpointer direct setup | Implemented | sample 同时实例化 InMemory / Redis 候选，默认 set InMemory，可配置切换 Redis |
+| OpenJiuwen checkpointer direct setup | Implemented | `OpenJiuwenCheckpointers` 同时实例化 InMemory / Redis 候选，sample 默认 set InMemory，可配置切换 Redis |
 | Snapshot/revision | Deferred | 不在当前最小版本实现 |
 | Mem integration | Deferred | 后续作为独立 Provider 或 middleware 扩展 |
 
