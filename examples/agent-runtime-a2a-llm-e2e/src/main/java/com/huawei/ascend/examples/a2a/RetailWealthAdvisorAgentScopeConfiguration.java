@@ -13,7 +13,7 @@ import com.huawei.ascend.runtime.engine.agentscope.AgentScopeMessageAdapter;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeRuntimeClient;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeRuntimeClientProperties;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeStreamAdapter;
-import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.agent.Event;
@@ -82,7 +82,7 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
     }
 
     @Bean
-    AbstractAgentRuntimeHandler retailWealthAdvisorAgentHandler(
+    AgentRuntimeHandler retailWealthAdvisorAgentHandler(
             @Qualifier("retailWealthAdvisorAgent") AgentScopeAgent retailWealthAdvisorAgent) {
         return new AgentScopeAgentRuntimeHandler(
                 AGENT_ID,
@@ -98,7 +98,7 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
     }
 
     @Bean
-    AbstractAgentRuntimeHandler retailWealthAdvisorHarnessAgentHandler(
+    AgentRuntimeHandler retailWealthAdvisorHarnessAgentHandler(
             @Qualifier("retailWealthAdvisorHarnessAgent") AgentScopeHarnessAgent retailWealthAdvisorHarnessAgent) {
         return new AgentScopeHarnessRuntimeHandler(
                 HARNESS_AGENT_ID,
@@ -108,7 +108,7 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
     }
 
     @Bean
-    AbstractAgentRuntimeHandler retailWealthAdvisorRuntimeClientHandler(
+    AgentRuntimeHandler retailWealthAdvisorRuntimeClientHandler(
             @Value("${sample.agentscope.retail-wealth.runtime.base-url:${SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_BASE_URL:self}}")
             String baseUrl,
             @Value("${sample.agentscope.retail-wealth.runtime.endpoint-path:${SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_ENDPOINT_PATH:"
@@ -124,9 +124,10 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
                 webServerContext);
     }
 
-    static final class RetailWealthAdvisorRuntimeClientHandler extends AbstractAgentRuntimeHandler {
+    static final class RetailWealthAdvisorRuntimeClientHandler implements AgentRuntimeHandler {
         private final AgentScopeMessageAdapter messageAdapter = new AgentScopeMessageAdapter();
         private final AgentScopeStreamAdapter streamAdapter = new AgentScopeStreamAdapter();
+        private final String agentId;
         private final String baseUrl;
         private final String endpointPath;
         private final WebServerApplicationContext webServerContext;
@@ -138,10 +139,22 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
                 String baseUrl,
                 String endpointPath,
                 WebServerApplicationContext webServerContext) {
-            super(agentId, name, description);
+            this.agentId = Objects.requireNonNull(agentId, "agentId");
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(description, "description");
             this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl");
             this.endpointPath = Objects.requireNonNull(endpointPath, "endpointPath");
             this.webServerContext = Objects.requireNonNull(webServerContext, "webServerContext");
+        }
+
+        @Override
+        public String agentId() {
+            return agentId;
+        }
+
+        @Override
+        public boolean isHealthy() {
+            return true;
         }
 
         @Override

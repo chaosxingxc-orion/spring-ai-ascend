@@ -1,19 +1,20 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
+import com.huawei.ascend.runtime.common.Guards;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
-import com.openjiuwen.core.runner.Runner;
+import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Base class for openJiuwen {@link AgentRuntimeHandler} implementations. The concrete
- * handler owns how it builds and invokes its openJiuwen agent; this class only
- * provides the runtime-facing id, health default, and input/result mapping
- * helpers shared by openJiuwen handlers.
+ * handler owns how it builds and invokes its openJiuwen agent; this class
+ * provides the runtime-facing id plus input/result mapping helpers. openJiuwen
+ * session persistence is delegated to its native {@code conversation_id} and
+ * checkpointer mechanism.
  */
 public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandler {
 
@@ -31,20 +32,38 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
         this(agentId, messageConverter, new OpenJiuwenStreamAdapter());
     }
 
-    OpenJiuwenAgentRuntimeHandler(String agentId, OpenJiuwenMessageAdapter messageConverter, OpenJiuwenStreamAdapter resultMapper) {
-        this.agentId = agentId;
-        this.messageConverter = messageConverter;
-        this.resultMapper = resultMapper;
+    OpenJiuwenAgentRuntimeHandler(String agentId, OpenJiuwenMessageAdapter messageConverter,
+            OpenJiuwenStreamAdapter resultMapper) {
+        this.agentId = Guards.requireNonBlank(agentId, "agentId");
+        this.messageConverter = Objects.requireNonNull(messageConverter, "messageConverter");
+        this.resultMapper = Objects.requireNonNull(resultMapper, "resultMapper");
     }
 
     @Override
-    public String agentId() {
+    public final String agentId() {
         return agentId;
     }
 
     @Override
     public boolean isHealthy() {
         return true;
+    }
+
+    /**
+     * Returns the stable conversation id openJiuwen should use for native
+     * checkpointer restore/save. Subclasses pass this value as the Runner
+     * session id, or rely on {@link #toOpenJiuwenInput(AgentExecutionContext)}
+     * to place it in {@code conversation_id}.
+     */
+    protected String openJiuwenConversationId(AgentExecutionContext context) {
+        String conversationId = context.getAgentStateKey();
+        LOGGER.info("openjiuwen conversation resolve tenantId={} sessionId={} taskId={} agentId={} conversationId={}",
+                context.getScope().tenantId(),
+                context.getScope().sessionId(),
+                context.getScope().taskId(),
+                context.getScope().agentId(),
+                conversationId);
+        return conversationId;
     }
 
     protected Object toOpenJiuwenInput(AgentExecutionContext context) {
@@ -71,18 +90,6 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
             return resultMapper.map((Map<String, Object>) map);
         }
         return resultMapper.map(Map.of("result_type", "answer", "output", String.valueOf(rawResult)));
-    }
-
-    protected void safeRelease(AgentExecutionContext context) {
-        safeRelease(context.getScope());
-    }
-
-    protected void safeRelease(EngineExecutionScope scope) {
-        try {
-            Runner.release(scope.taskId());
-        } catch (Exception ignored) {
-            // best-effort cleanup; release failures must not mask the result
-        }
     }
 
     protected static String errorMessage(Throwable error) {

@@ -30,7 +30,7 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). SPI packages import only `java.*` plus same-package sibling carriers; broader historical cross-package SPI residuals are documented in root `architecture/docs/L0/ARCHITECTURE.md §3.7` and must not be used as precedent for new SPI design. japicmp binary-compat from W1.
 
-**Active SPI interfaces (10 total):**
+**Active SPI interfaces (13 total):**
 
 (rc43 baseline: 19 pre-rc43 + 14 rc43 agentic-contract-surface SPI surfaces (Agent + AgentRegistry + ModelGateway + Skill + SkillRegistry + MemoryStore + MemoryReader + MemoryWriter + SemanticMemoryStore + KnowledgeMemoryStore + VectorStore + Retriever + EmbeddingModel + Planner) per ADR-0120 / ADR-0121 / ADR-0122 / ADR-0123 / ADR-0124 / ADR-0125 / ADR-0126 / ADR-0127 / ADR-0128. rc51 + 5 agentic-completeness SPI surfaces (StructuredOutputConverter + PromptTemplate + ChatAdvisor + AdvisorChain + ConversationMemory) per ADR-0129 / ADR-0130 / ADR-0131 / ADR-0132 / ADR-0133. rc51 also adds the `stream(...)` default method to the existing `ModelGateway` per ADR-0129 and supplements `model-invocation.v1.yaml` with the tool-call iteration loop per ADR-0134. ADR-0135 documents the deliberate decision not to add a separate `AgentSession` SPI.)
 
@@ -44,14 +44,17 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `DefinitionResolver` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | shipped — bidirectional bridge between the wire-form `DefinitionRef` and the runnable `ExecutorDefinition`; `resolve` is engine-facing, `referenceFor` is service-facing; reference impl `CompositeDefinitionResolver` (agent-service) per ADR-0158 |
 | `S2cCallbackTransport` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | shipped — W2.x; `InMemoryS2cCallbackTransport` reference (ADR-0074); relocated to agent-bus per ADR-0088 |
 | `AgentRuntimeHandler` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — the single framework-neutral runtime SPI: runs one agent and surfaces its output through concrete adapters such as openJiuwen and AgentScope; per the agent-runtime pure rebuild (Doc 2). Base class `AbstractAgentRuntimeHandler` + result carrier `AgentExecutionResult` ship alongside in the same package |
+| `AgentCardProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — optional provider for the A2A Agent Card of one runtime-hosted business Agent; separated from `AgentRuntimeHandler` so card metadata can be supplied by a dedicated Bean or by a handler that chooses to implement both interfaces |
+| `AgentRuntimeProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — optional composable runtime capability hook for AgentRuntimeHandler; state restore/export, sandbox preparation, tool overrides, tracing, and future memory bridges attach here instead of creating stacked handler base classes |
+| `StateProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — provider specialization for framework state restore/export through AgentExecutionContext without requiring a dedicated stateful handler base class |
 | `StreamAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts a framework's native result stream into the neutral `AgentExecutionResult` stream |
 
-**SPI count by module (shipped surface; the agent-runtime SPI surface is the framework-neutral `engine.spi` pair `AgentRuntimeHandler` + `StreamAdapter`):**
+**SPI count by module (shipped surface; the agent-runtime SPI surface is the framework-neutral `engine.spi` set `AgentRuntimeHandler` + `AgentCardProvider` + `AgentRuntimeProvider` + `StateProvider` + `StreamAdapter`):**
 
 | Module | SPI interfaces |
 |---|---|
 | `agent-service` | 0 — serviceization façade skeleton; registration/discovery SPI deferred to a dedicated ADR (ADR-0159) |
-| `agent-runtime` | 2 (`AgentRuntimeHandler`, `StreamAdapter`) |
+| `agent-runtime` | 5 (`AgentRuntimeHandler`, `AgentCardProvider`, `AgentRuntimeProvider`, `StateProvider`, `StreamAdapter`) |
 | `agent-bus` | 8 (`IngressGateway`, `S2cCallbackTransport`, `ReflectionEnvelopeRouter`, `FederationGateway`, `Checkpointer`, `Orchestrator`, `EnginePort`, `DefinitionResolver`) |
 
 **Per-SPI tenant scope (canonical post-ADR-0044):**
@@ -62,6 +65,9 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `Orchestrator` | tenant-scoped | explicit `tenantId` arg in `run(runId, tenantId, …)` | unchanged |
 | `S2cCallbackTransport` | tenant-scoped | tenant resolved out-of-band via `S2cCallbackTransport` registry binding at the wrapping Run boundary, per ADR-0074 §Consequences (the `S2cCallbackEnvelope` Java record carries 8 components `{callbackId, serverRunId, capabilityRef, requestPayload, traceId, idempotencyKey, deadline, requestAttributes}` and does NOT include an in-band `tenantId` field); preferred fix per Rule R-C.c is to add `tenantId` to the Java record — deferred to impl-mode follow-up wave (AUD-2026-05-27 AUD-EVT-6 / family `F-cross-authority-tenant-scope-claim-without-field`) | unchanged — relocated to agent-bus per ADR-0088 |
 | `AgentRuntimeHandler` | tenant-scoped | via `AgentExecutionContext` carrying `EngineExecutionScope.tenantId()` | unchanged |
+| `AgentCardProvider` | tenant-scoped | the provided card belongs to the same one-Agent runtime instance selected by tenant/agent routing | unchanged |
+| `AgentRuntimeProvider` | tenant-scoped | via the same `AgentExecutionContext` passed to its `beforeExecute` / `afterExecute` hooks | unchanged |
+| `StateProvider` | tenant-scoped | via the same `AgentExecutionContext` passed to its `beforeExecute` / `afterExecute` hooks | unchanged |
 
 **Structural carriers (records / sealed interfaces / sealed status types / exceptions — not SPI interfaces but part of the contract surface):**
 

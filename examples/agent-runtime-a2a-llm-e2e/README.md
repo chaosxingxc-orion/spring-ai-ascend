@@ -195,6 +195,8 @@ sample:
     api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
     model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
     ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}
+    checkpointer: ${SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER:in-memory}
+    redis-url: ${SAA_SAMPLE_OPENJIUWEN_REDIS_URL:redis://localhost:6379}
   agentscope:
     api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-local-placeholder}
     api-base: ${SAA_SAMPLE_AGENTSCOPE_API_BASE:http://localhost:4000/v1}
@@ -270,6 +272,8 @@ The example also recognizes these environment variables for the local LLM setup:
 - `SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER`
 - `SAA_SAMPLE_LLM_MODEL`
 - `SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY`
+- `SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER`
+- `SAA_SAMPLE_OPENJIUWEN_REDIS_URL`
 - `SAA_SAMPLE_AGENTSCOPE_API_BASE`
 - `SAA_SAMPLE_AGENTSCOPE_ENDPOINT_PATH`
 - `SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL`
@@ -294,6 +298,12 @@ export SAA_SAMPLE_AGENTSCOPE_API_BASE="http://localhost:4000/v1"
 export SAA_SAMPLE_LLM_MODEL="gpt-5.4-mini"
 export SAA_SAMPLE_A2A_BASE_URL="http://localhost:18080"
 ```
+
+The openJiuwen sample creates both native checkpointer candidates during
+configuration. It sets `InMemoryCheckpointer` as the default path for local E2E
+runs. Set `SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis` and provide
+`SAA_SAMPLE_OPENJIUWEN_REDIS_URL` to switch the same runtime wiring to the
+openJiuwen `RedisCheckpointer` path.
 
 ## Install Runtime Dependencies
 

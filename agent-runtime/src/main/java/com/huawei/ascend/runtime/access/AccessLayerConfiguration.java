@@ -10,7 +10,7 @@ import com.huawei.ascend.runtime.access.a2a.A2aOutputRegistry;
 import com.huawei.ascend.runtime.access.a2a.DefaultNotificationPort;
 import com.huawei.ascend.runtime.access.a2a.A2aJsonRpcController;
 import com.huawei.ascend.runtime.access.a2a.A2aJsonRpcHandler;
-import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
 import java.util.List;
 import java.util.Optional;
 import org.a2aproject.sdk.spec.AgentCapabilities;
@@ -35,9 +35,9 @@ public class AccessLayerConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(AgentCard.class)
-    AgentCard a2aAgentCard(Optional<AbstractAgentRuntimeHandler> runtimeAgent) {
-        if (runtimeAgent.isPresent()) {
-            return runtimeAgent.get().agentCard();
+    AgentCard a2aAgentCard(Optional<AgentCardProvider> agentCardProvider) {
+        if (agentCardProvider.isPresent()) {
+            return agentCardProvider.get().agentCard();
         }
         AgentCapabilities capabilities = AgentCapabilities.builder()
                 .streaming(true)

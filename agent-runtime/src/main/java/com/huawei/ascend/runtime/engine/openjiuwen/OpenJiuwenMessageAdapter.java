@@ -10,15 +10,16 @@ import java.util.Map;
 /**
  * Converts an {@link AgentExecutionContext} into the input map openJiuwen's
  * {@code Runner.runAgent} expects. First version handles text messages only,
- * keying the last user message as {@code query} and the task id as
- * {@code conversation_id}. See engine model design §10.3.
+ * keying the last user message as {@code query} and the runtime state key as
+ * {@code conversation_id}. This lets openJiuwen's native checkpointer restore
+ * the same conversation across turns.
  */
 public class OpenJiuwenMessageAdapter {
 
     public Object toOpenJiuwenInput(AgentExecutionContext context) {
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("query", lastUserText(context));
-        input.put("conversation_id", context.getScope().taskId());
+        input.put("conversation_id", context.getAgentStateKey());
         return input;
     }
 
