@@ -60,7 +60,9 @@ public final class LocalA2aRuntimeHost implements RuntimeHost {
      * ({@code @Configuration} + A2A controllers); every other layer + the cross-layer wiring are
      * supplied by {@code META-INF/spring/...AutoConfiguration.imports}.
      */
-    @SpringBootApplication(scanBasePackages = "com.huawei.ascend.runtime.access")
+    @SpringBootApplication(scanBasePackages = {
+            "com.huawei.ascend.runtime.boot",
+            "com.huawei.ascend.runtime.access"})
     static class HostBoot {
     }
 

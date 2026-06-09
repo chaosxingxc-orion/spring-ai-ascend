@@ -1,5 +1,6 @@
 package com.huawei.ascend.runtime.boot;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.engine.AgentRuntimeHandlerRegistry;
 import com.huawei.ascend.runtime.engine.DefaultAgentRuntimeHandlerRegistry;
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
@@ -8,6 +9,8 @@ import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import org.a2aproject.sdk.server.config.A2AConfigProvider;
+import org.a2aproject.sdk.server.config.DefaultValuesConfigProvider;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
 import org.a2aproject.sdk.server.events.InMemoryQueueManager;
 import org.a2aproject.sdk.server.events.MainEventBus;
@@ -35,36 +38,48 @@ public class RuntimeAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public InMemoryTaskStore taskStore() {
+    public A2AConfigProvider a2aConfigProvider() {
+        return new DefaultValuesConfigProvider();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public InMemoryTaskStore a2aTaskStore() {
         return new InMemoryTaskStore();
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public PushNotificationConfigStore pushConfigStore() {
+    public PushNotificationConfigStore a2aPushConfigStore() {
         return new InMemoryPushNotificationConfigStore();
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public PushNotificationSender pushNotificationSender(PushNotificationConfigStore store) {
+    public PushNotificationSender a2aPushNotificationSender(PushNotificationConfigStore store) {
         return new BasePushNotificationSender(store);
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public QueueManager queueManager(InMemoryTaskStore store) {
+    public QueueManager a2aQueueManager(InMemoryTaskStore store) {
         return new InMemoryQueueManager(store, new MainEventBus());
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public MainEventBusProcessor mainEventBusProcessor(
+    public MainEventBusProcessor a2aMainEventBusProcessor(
             InMemoryTaskStore store, QueueManager queueManager,
             PushNotificationSender pushSender) {
         var p = new MainEventBusProcessor(new MainEventBus(), store, pushSender, queueManager);
         p.ensureStarted();
         return p;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 
     @Bean(destroyMethod = "shutdown")
@@ -84,7 +99,7 @@ public class RuntimeAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AgentExecutor agentExecutor(ObjectProvider<AgentRuntimeHandler> handlers) {
+    public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers) {
         AgentRuntimeHandler handler = handlers.orderedStream().findFirst()
                 .orElseThrow(() -> new IllegalStateException(
                         "No AgentRuntimeHandler bean registered"));
@@ -93,7 +108,7 @@ public class RuntimeAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public RequestHandler requestHandler(
+    public RequestHandler a2aRequestHandler(
             AgentExecutor agentExecutor, InMemoryTaskStore store,
             QueueManager queueManager, PushNotificationConfigStore pushStore,
             MainEventBusProcessor busProcessor, Executor runtimeExecutor) {
@@ -123,6 +138,7 @@ public class RuntimeAutoConfiguration {
                         .streaming(true).pushNotifications(true).build())
                 .defaultInputModes(List.of("text"))
                 .defaultOutputModes(List.of("text"))
+                .skills(List.of())
                 .supportedInterfaces(List.of(
                         new AgentInterface(TransportProtocol.JSONRPC.asString(), "/a2a")))
                 .build();
