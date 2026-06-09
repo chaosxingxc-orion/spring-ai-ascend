@@ -3,7 +3,7 @@ package com.huawei.ascend.runtime.engine.agentscope;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.huawei.ascend.runtime.common.Message;
+import org.a2aproject.sdk.spec.Message;
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -112,9 +112,13 @@ public final class AgentScopeRuntimeClient {
     private List<Map<String, Object>> input(List<Message> messages) {
         List<Map<String, Object>> result = new ArrayList<>();
         for (Message message : messages) {
+            StringBuilder text = new StringBuilder();
+            for (var part : message.parts()) {
+                if (part instanceof org.a2aproject.sdk.spec.TextPart tp) text.append(tp.text());
+            }
             result.add(Map.of(
-                    "role", message.role().wire(),
-                    "content", List.of(Map.of("type", "text", "text", message.text()))));
+                    "role", message.role().name(),
+                    "content", List.of(Map.of("type", "text", "text", text.toString()))));
         }
         return result;
     }

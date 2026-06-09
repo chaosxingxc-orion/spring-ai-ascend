@@ -1,6 +1,6 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
-import com.huawei.ascend.runtime.common.Message;
+import org.a2aproject.sdk.spec.Message;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.common.Timing;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
@@ -118,7 +118,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
     private AgentExecutionContext toExecutionContext(RequestContext ctx) {
         String text = extractText(ctx);
-        List<Message> messages = List.of(Message.user(text));
+        List<Message> messages = List.of(Message.builder().role(Message.Role.ROLE_USER).parts(java.util.List.of(new TextPart(text))).build());
         return new AgentExecutionContext(
                 new RuntimeIdentity(
                         metadata(ctx, "tenantId", "default"),

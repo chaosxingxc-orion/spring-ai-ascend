@@ -1,6 +1,6 @@
 package com.huawei.ascend.runtime.engine.agentscope;
 
-import com.huawei.ascend.runtime.common.Message;
+import org.a2aproject.sdk.spec.Message;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;

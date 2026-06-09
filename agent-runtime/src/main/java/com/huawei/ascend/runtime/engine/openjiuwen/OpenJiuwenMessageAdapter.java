@@ -1,19 +1,12 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.common.Message;
-import com.huawei.ascend.runtime.common.Role;
+import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.TextPart;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Converts an {@link AgentExecutionContext} into the input map openJiuwen's
- * {@code Runner.runAgent} expects. First version handles text messages only,
- * keying the last user message as {@code query} and the runtime state key as
- * {@code conversation_id}. This lets openJiuwen's native checkpointer restore
- * the same conversation across turns.
- */
 public class OpenJiuwenMessageAdapter {
 
     public Object toOpenJiuwenInput(AgentExecutionContext context) {
@@ -25,15 +18,26 @@ public class OpenJiuwenMessageAdapter {
 
     private String lastUserText(AgentExecutionContext context) {
         List<Message> messages = context.getInput() == null ? null : context.getInput().messages();
-        if (messages == null || messages.isEmpty()) {
-            return "";
-        }
+        if (messages == null || messages.isEmpty()) return "";
         for (int i = messages.size() - 1; i >= 0; i--) {
             Message message = messages.get(i);
-            if (message != null && message.role() == Role.USER) {
-                return message.text();
+            if (message != null && message.role() == Message.Role.ROLE_USER) {
+                return messageText(message);
             }
         }
-        return messages.get(messages.size() - 1).text();
+        return messageText(messages.get(messages.size() - 1));
+    }
+
+    /**
+     * Extracts concatenated text from A2A SDK Message parts. Replaces the former
+     * {@code common.Message.text()} method that iterated Content parts.
+     */
+    public static String messageText(Message msg) {
+        if (msg == null || msg.parts() == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (var part : msg.parts()) {
+            if (part instanceof TextPart tp) sb.append(tp.text());
+        }
+        return sb.toString();
     }
 }
