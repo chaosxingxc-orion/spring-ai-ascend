@@ -49,6 +49,13 @@ affects_artefact: ["agent-runtime/src/main/java/com/huawei/ascend/runtime/engine
 
 不再由 runtime 固定拼接 `tenantId + userId + sessionId + taskId + agentId`，也不再引入 `AgentStateSnapshot` / revision。并发 fencing、CAS、分布式一致性留给未来 durable backend 设计。
 
+本轮明确区分两类 key：
+
+- 业务自定义 key：`agentStateKey` / `stateKey`，用于决定 `AgentStateStore` 中这份状态的存取位置。业务可按订单、会话、流程实例或其他业务维度指定。
+- Adapter 内部 key：例如 OpenJiuwen bridge 使用的 `openjiuwen.sessionId` 与 `openjiuwen.state`。这些 key 是 OpenJiuwen adapter 的内部 envelope，不建议业务直接自定义或依赖。
+
+业务状态字段应由具体 Agent 框架在自己的 session state 中读写；runtime 只负责把框架状态整体装入 adapter envelope，再存入业务指定的 `agentStateKey` 下。
+
 ### 4.2 AgentExecutionContext
 
 `AgentExecutionContext` 增加：
@@ -111,6 +118,13 @@ OpenJiuwen 自身已经提供 `AgentSessionApi.updateState(...)` 和 `dumpState(
 - 执行前：`OpenJiuwenAgentRuntimeHandler.openJiuwenSession(...)` 从 context state 中读取 OpenJiuwen 状态，并调用 `session.updateState(...)`。
 - 执行后：内部 `OpenJiuwenStateProvider` 从当前 session 调用 `dumpState()`，再写回 `context.replaceAgentState(...)`。
 - OpenJiuwen handler 直接实现 `AgentRuntimeHandler`，不继承 runtime 基类，也不再继承额外 stateful 基类。
+
+OpenJiuwen bridge 当前固定使用两个内部 envelope key：
+
+- `openjiuwen.sessionId`：恢复 OpenJiuwen session id。
+- `openjiuwen.state`：保存 `AgentSessionApi.dumpState()` 导出的 OpenJiuwen 框架状态。
+
+这些 envelope key 与业务自定义 `agentStateKey` 不是同一层。业务方只决定外层存储 key；OpenJiuwen adapter 决定自己在 value map 中如何组织框架内部状态。后续如有客户需要替换 envelope，可通过新的 codec/provider 扩展点实现，不在本轮最小版本暴露可配置项。
 
 ## 5. Failure Semantics
 
