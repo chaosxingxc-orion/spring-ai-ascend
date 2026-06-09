@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.common.Message;
 import java.io.IOException;
 import java.net.http.HttpClient;
-import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
@@ -14,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
 
 public final class AgentScopeRuntimeClient {
@@ -48,9 +48,11 @@ public final class AgentScopeRuntimeClient {
                 .header("X-Task-Id", invocation.taskId())
                 .POST(HttpRequest.BodyPublishers.ofString(toJson(requestBody(invocation))))
                 .build();
-        HttpResponse<Stream<String>> response = send(request);
-        if (response.statusCode() == 599) {
-            return readEvents(response.body());
+        HttpResponse<Stream<String>> response;
+        try {
+            response = send(request);
+        } catch (RuntimeException ex) {
+            return Stream.of(ioFailure(ex));
         }
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             return Stream.of(Map.of(
@@ -71,57 +73,19 @@ public final class AgentScopeRuntimeClient {
     }
 
     private HttpResponse<Stream<String>> send(HttpRequest request) {
-        try {
-            return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofLines()).join();
-        } catch (RuntimeException ex) {
-            return syntheticFailure(ex);
-        }
+        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofLines()).join();
     }
 
-    private HttpResponse<Stream<String>> syntheticFailure(RuntimeException ex) {
-        return new HttpResponse<>() {
-            @Override
-            public int statusCode() {
-                return 599;
-            }
+    private static Map<String, Object> ioFailure(RuntimeException ex) {
+        return Map.of(
+                "status", "error",
+                "error_code", "AGENTSCOPE_RUNTIME_IO",
+                "message", failureMessage(ex));
+    }
 
-            @Override
-            public HttpRequest request() {
-                return null;
-            }
-
-            @Override
-            public java.util.Optional<HttpResponse<Stream<String>>> previousResponse() {
-                return java.util.Optional.empty();
-            }
-
-            @Override
-            public HttpHeaders headers() {
-                return HttpHeaders.of(Map.of(), (ignoredName, ignoredValue) -> true);
-            }
-
-            @Override
-            public Stream<String> body() {
-                String message = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
-                return Stream.of("data: {\"status\":\"error\",\"error_code\":\"AGENTSCOPE_RUNTIME_IO\",\"message\":\""
-                        + escapeJson(message) + "\"}");
-            }
-
-            @Override
-            public java.util.Optional<javax.net.ssl.SSLSession> sslSession() {
-                return java.util.Optional.empty();
-            }
-
-            @Override
-            public java.net.URI uri() {
-                return properties.endpoint();
-            }
-
-            @Override
-            public java.net.http.HttpClient.Version version() {
-                return java.net.http.HttpClient.Version.HTTP_1_1;
-            }
-        };
+    private static String failureMessage(RuntimeException ex) {
+        Throwable failure = ex instanceof CompletionException && ex.getCause() != null ? ex.getCause() : ex;
+        return failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
     }
 
     private Map<String, Object> requestBody(AgentScopeInvocation invocation) {
@@ -167,9 +131,5 @@ public final class AgentScopeRuntimeClient {
         } catch (IOException ex) {
             return Map.of("status", "output", "text", data);
         }
-    }
-
-    private static String escapeJson(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

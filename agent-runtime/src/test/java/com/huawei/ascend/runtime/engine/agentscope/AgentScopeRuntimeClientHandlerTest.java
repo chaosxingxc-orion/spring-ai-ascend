@@ -65,7 +65,7 @@ class AgentScopeRuntimeClientHandlerTest {
     @Test
     void runtimeClientPreservesIoFailureMessage() {
         AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
-                new FailingHttpClient(),
+                new FailingHttpClient(new IllegalStateException("connection refused")),
                 new ObjectMapper(),
                 new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
         AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
@@ -78,6 +78,39 @@ class AgentScopeRuntimeClientHandlerTest {
         assertThat(results.getFirst().errorMessage()).contains("connection refused");
     }
 
+    @Test
+    void runtimeClientPreservesIoFailureMessageWithControlCharacters() {
+        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
+                new FailingHttpClient(new IllegalStateException("connect failed\nssl alert \"bad\"")),
+                new ObjectMapper(),
+                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
+        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst().type()).isEqualTo(AgentExecutionResult.Type.FAILED);
+        assertThat(results.getFirst().errorCode()).isEqualTo("AGENTSCOPE_RUNTIME_IO");
+        assertThat(results.getFirst().errorMessage()).contains("connect failed\nssl alert \"bad\"");
+    }
+
+    @Test
+    void runtimeClientTreatsHttp599AsUpstreamHttpFailure() {
+        CapturingHttpClient httpClient = new CapturingHttpClient(599, Stream.of("proxy timeout"));
+        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
+                httpClient,
+                new ObjectMapper(),
+                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
+        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst().type()).isEqualTo(AgentExecutionResult.Type.FAILED);
+        assertThat(results.getFirst().errorCode()).isEqualTo("AGENTSCOPE_RUNTIME_HTTP_599");
+        assertThat(results.getFirst().errorMessage()).isEqualTo("AgentScope runtime returned HTTP 599");
+    }
+
     private static AgentExecutionContext context() {
         EngineExecutionScope scope = new EngineExecutionScope("tenant", "user", "session", "task", "agentscope-rest");
         EngineInput input = new EngineInput("USER_MESSAGE", List.of(Message.user("ping")), Map.of());
@@ -85,8 +118,22 @@ class AgentScopeRuntimeClientHandlerTest {
     }
 
     private static final class CapturingHttpClient extends HttpClient {
+        private final int responseStatusCode;
+        private final Stream<String> responseBody;
         private HttpRequest request;
         private String body;
+
+        private CapturingHttpClient() {
+            this(200, Stream.of(
+                    "data: {\"status\":\"in_progress\",\"type\":\"text\",\"text\":\"hel\"}",
+                    "",
+                    "data: {\"status\":\"completed\",\"output\":\"hello\"}"));
+        }
+
+        private CapturingHttpClient(int responseStatusCode, Stream<String> responseBody) {
+            this.responseStatusCode = responseStatusCode;
+            this.responseBody = responseBody;
+        }
 
         @Override
         public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
@@ -100,10 +147,7 @@ class AgentScopeRuntimeClientHandlerTest {
             this.request = request;
             this.body = body(request);
             @SuppressWarnings("unchecked")
-            HttpResponse<T> response = (HttpResponse<T>) new FixedResponse(request, Stream.of(
-                    "data: {\"status\":\"in_progress\",\"type\":\"text\",\"text\":\"hel\"}",
-                    "",
-                    "data: {\"status\":\"completed\",\"output\":\"hello\"}"));
+            HttpResponse<T> response = (HttpResponse<T>) new FixedResponse(request, responseBody, responseStatusCode);
             return CompletableFuture.completedFuture(response);
         }
 
@@ -168,16 +212,22 @@ class AgentScopeRuntimeClientHandlerTest {
     }
 
     private static final class FailingHttpClient extends HttpClient {
+        private final RuntimeException failure;
+
+        private FailingHttpClient(RuntimeException failure) {
+            this.failure = failure;
+        }
+
         @Override
         public <T> CompletableFuture<HttpResponse<T>> sendAsync(
                 HttpRequest request,
                 HttpResponse.BodyHandler<T> responseBodyHandler) {
-            throw new IllegalStateException("connection refused");
+            throw failure;
         }
 
         @Override
         public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
-            throw new IllegalStateException("connection refused");
+            throw failure;
         }
 
         @Override
@@ -267,12 +317,12 @@ class AgentScopeRuntimeClientHandlerTest {
         }
     }
 
-    private record FixedResponse(HttpRequest request, Stream<String> body)
+    private record FixedResponse(HttpRequest request, Stream<String> body, int statusCode)
             implements HttpResponse<Stream<String>> {
 
         @Override
         public int statusCode() {
-            return 200;
+            return statusCode;
         }
 
         @Override

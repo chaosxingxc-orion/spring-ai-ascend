@@ -35,22 +35,46 @@ public final class AgentScopeStreamAdapter implements StreamAdapter {
     private AgentExecutionResult mapMap(Map<?, ?> map) {
         String status = firstText(map, "status", "type", "event", "object");
         String text = firstText(map, "text", "output", "content", "delta");
-        String error = firstText(map, "error", "error_message", "message");
-        if (contains(status, "error") || contains(status, "fail") || contains(status, "exception")
-                || map.containsKey("error")) {
-            return AgentExecutionResult.failed(firstText(map, "error_code", "code"), error);
+        String explicitError = firstText(map, "error", "error_message");
+        String errorMessage = !explicitError.isBlank() ? explicitError : firstText(map, "message");
+        if (isFailureStatus(status) || !explicitError.isBlank()) {
+            return AgentExecutionResult.failed(firstText(map, "error_code", "code"), errorMessage);
         }
-        if (contains(status, "interrupt") || contains(status, "input_required") || contains(status, "human")) {
+        if (isInterruptStatus(status)) {
             return AgentExecutionResult.interrupted(InterruptType.HUMAN_INPUT, text);
         }
-        if (contains(status, "completed") || contains(status, "final")) {
+        if (isCompletedStatus(status)) {
             return AgentExecutionResult.completed(text);
         }
         return AgentExecutionResult.output(text);
     }
 
-    private static boolean contains(String value, String expected) {
-        return value != null && value.toLowerCase(java.util.Locale.ROOT).contains(expected);
+    private static boolean isFailureStatus(String value) {
+        String status = normalizeStatus(value);
+        return switch (status) {
+            case "error", "errored", "failed", "failure", "exception" -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean isInterruptStatus(String value) {
+        String status = normalizeStatus(value);
+        return switch (status) {
+            case "interrupt", "interrupted", "input_required", "requires_input", "human", "human_input" -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean isCompletedStatus(String value) {
+        String status = normalizeStatus(value);
+        return switch (status) {
+            case "completed", "complete", "final", "finished", "done", "success", "succeeded" -> true;
+            default -> false;
+        };
+    }
+
+    private static String normalizeStatus(String value) {
+        return value == null ? "" : value.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private static String firstText(Map<?, ?> map, String... keys) {

@@ -3,6 +3,7 @@ package com.huawei.ascend.runtime.engine.agentscope;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -46,5 +47,35 @@ class AgentScopeStreamAdapterTest {
         assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.FAILED);
         assertThat(result.errorCode()).isEqualTo("BAD");
         assertThat(result.errorMessage()).isEqualTo("boom");
+    }
+
+    @Test
+    void mapsInProgressEventWithNullErrorToOutputResult() {
+        Map<String, Object> event = new LinkedHashMap<>();
+        event.put("status", "in_progress");
+        event.put("error", null);
+        event.put("text", "hi");
+
+        AgentExecutionResult result = adapter.map(event);
+
+        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.OUTPUT);
+        assertThat(result.output().getContent()).isEqualTo("hi");
+    }
+
+    @Test
+    void doesNotTreatStatusSubstringsAsTerminalResults() {
+        for (String status : List.of(
+                "no_error",
+                "error_cleared",
+                "failover_ok",
+                "no_failures",
+                "exception_handled",
+                "semifinal",
+                "finalizing")) {
+            AgentExecutionResult result = adapter.map(Map.of("status", status, "text", "hi"));
+
+            assertThat(result.type()).as(status).isEqualTo(AgentExecutionResult.Type.OUTPUT);
+            assertThat(result.output().getContent()).as(status).isEqualTo("hi");
+        }
     }
 }
