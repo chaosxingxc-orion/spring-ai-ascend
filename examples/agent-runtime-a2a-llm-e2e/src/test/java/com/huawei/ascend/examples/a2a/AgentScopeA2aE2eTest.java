@@ -8,11 +8,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import org.a2aproject.sdk.spec.AgentCard;
-import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.StreamingEventKind;
-import org.a2aproject.sdk.spec.TransportProtocol;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
@@ -24,31 +21,38 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = OpenJiuwenA2aAgentRuntimeApplication.class)
-class OpenJiuwenReactAgentA2aE2eTest {
+class AgentScopeA2aE2eTest {
 
-    private static final Duration TIMEOUT = Duration.ofSeconds(45);
-    private static final String AGENT_ID = OpenJiuwenReactAgentConfiguration.AGENT_ID;
+    private static final Duration TIMEOUT = Duration.ofSeconds(60);
 
     @LocalServerPort
     private int port;
 
     @Test
-    void a2aClientCanStreamOpenJiuwenReactAgentThroughAgentRuntimeOnly() throws Exception {
+    void a2aClientCanStreamAgentScopeSdkAgentThroughAgentRuntimeOnly() throws Exception {
+        assumeRealLlmConfigured("AgentScope SDK agent");
+
+        assertAgentScopePathReturnsPong(AgentScopeE2eConfiguration.AGENT_ID);
+    }
+
+    @Test
+    void a2aClientCanStreamAgentScopeHarnessAgentThroughAgentRuntimeOnly() throws Exception {
+        assumeRealLlmConfigured("AgentScope Harness agent");
+
+        assertAgentScopePathReturnsPong(AgentScopeE2eConfiguration.HARNESS_AGENT_ID);
+    }
+
+    @Test
+    void a2aClientCanStreamAgentScopeRestRuntimeThroughAgentRuntimeOnly() throws Exception {
+        assumeRealLlmConfigured("AgentScope REST/SSE runtime");
+
+        assertAgentScopePathReturnsPong(AgentScopeE2eConfiguration.RUNTIME_AGENT_ID);
+    }
+
+    private void assertAgentScopePathReturnsPong(String agentId) throws Exception {
         SampleA2aClient client = new SampleA2aClient(URI.create("http://localhost:" + port), TIMEOUT);
-
-        AgentCard agentCard = client.agentCard();
-        assertThat(agentCard.name()).isEqualTo(AGENT_ID);
-        assertThat(agentCard.description()).contains("openJiuwen ReAct agent");
-        assertThat(agentCard.capabilities().streaming()).isTrue();
-        assertThat(agentCard.supportedInterfaces())
-                .extracting(AgentInterface::protocolBinding)
-                .contains(TransportProtocol.JSONRPC.asString());
-
-        assumeTrue(hasText(System.getenv("SAA_SAMPLE_LLM_API_KEY")),
-                "SAA_SAMPLE_LLM_API_KEY not set; skipping real openJiuwen ReAct agent E2E sample");
-
         String sessionId = "session-" + UUID.randomUUID();
-        List<StreamingEventKind> events = client.streamMessage("sample-user", AGENT_ID, sessionId, "ping");
+        List<StreamingEventKind> events = client.streamMessage("sample-user", agentId, sessionId, "ping");
         List<Message> messages = events.stream()
                 .filter(Message.class::isInstance)
                 .map(Message.class::cast)
@@ -61,6 +65,11 @@ class OpenJiuwenReactAgentA2aE2eTest {
                 .isEqualTo("completed"));
         assertThat(messages).allSatisfy(message -> assertThat(message.role()).isEqualTo(Message.Role.ROLE_AGENT));
         assertThat(normalizeAnswer(SampleA2aClient.textFrom(events))).isEqualTo("pong");
+    }
+
+    private static void assumeRealLlmConfigured(String sampleName) {
+        assumeTrue(hasText(System.getenv("SAA_SAMPLE_LLM_API_KEY")),
+                "SAA_SAMPLE_LLM_API_KEY not set; skipping real " + sampleName + " E2E sample");
     }
 
     private static String normalizeAnswer(String answer) {

@@ -149,6 +149,10 @@ Important Java extension points and related types include:
 
 - `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` — framework-neutral runtime SPI for running an agent inside `agent-runtime` (with `StreamAdapter` + base `AbstractAgentRuntimeHandler`)
 - `com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler` — built-in `AgentRuntimeHandler` implementation used by the local OpenJiuwen example path
+- `com.huawei.ascend.runtime.engine.agentscope.AgentScopeAgentRuntimeHandler` — built-in `AgentRuntimeHandler` implementation for an in-process AgentScope SDK agent
+- `com.huawei.ascend.runtime.engine.agentscope.AgentScopeHarnessRuntimeHandler` — built-in `AgentRuntimeHandler` implementation for an AgentScope Harness agent
+- `com.huawei.ascend.runtime.engine.agentscope.AgentScopeRuntimeClientHandler` — built-in `AgentRuntimeHandler` implementation for a remote AgentScope REST/SSE runtime
+- `com.huawei.ascend.runtime.engine.agentscope.AgentScopeRuntimeClientProperties` — endpoint configuration for the AgentScope REST/SSE runtime client
 - `org.a2aproject.sdk.spec.AgentCard` — A2A agent-card model exposed by the runtime discovery endpoint
 
 The example application shows the intended consumer shape from outside the module:

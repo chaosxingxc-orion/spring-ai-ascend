@@ -35,6 +35,7 @@ class RuntimePackageBoundaryTest {
                         "com.huawei.ascend.runtime.engine.api..",
                         "com.huawei.ascend.runtime.engine.spi..",
                         "com.huawei.ascend.runtime.engine.service..",
+                        "com.huawei.ascend.runtime.engine.agentscope..",
                         "com.huawei.ascend.runtime.engine.openjiuwen..")
                 .allowEmptyShould(false);
         rule.check(RUNTIME_CLASSES);
@@ -89,6 +90,15 @@ class RuntimePackageBoundaryTest {
         ArchRule rule = classes()
                 .that().resideInAPackage("..openjiuwen..")
                 .should().resideInAPackage("com.huawei.ascend.runtime.engine.openjiuwen..")
+                .allowEmptyShould(false);
+        rule.check(RUNTIME_CLASSES);
+    }
+
+    @Test
+    void agentScopeAdapterLivesUnderEngineAgentscope() {
+        ArchRule rule = classes()
+                .that().resideInAPackage("..agentscope..")
+                .should().resideInAPackage("com.huawei.ascend.runtime.engine.agentscope..")
                 .allowEmptyShould(false);
         rule.check(RUNTIME_CLASSES);
     }

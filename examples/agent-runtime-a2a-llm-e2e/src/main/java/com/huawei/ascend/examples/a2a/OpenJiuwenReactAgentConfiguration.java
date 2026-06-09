@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,6 +36,12 @@ public class OpenJiuwenReactAgentConfiguration {
             @Value("${sample.openjiuwen.ssl-verify:${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}}")
             boolean sslVerify) {
         return new SampleOpenJiuwenReactAgentHandler(modelProvider, apiKey, apiBase, modelName, sslVerify);
+    }
+
+    @Bean
+    org.a2aproject.sdk.spec.AgentCard sampleDefaultAgentCard(
+            @Qualifier("openJiuwenReactAgentHandler") AbstractAgentRuntimeHandler handler) {
+        return handler.agentCard();
     }
 
     static final class SampleOpenJiuwenReactAgentHandler extends AbstractAgentRuntimeHandler {
