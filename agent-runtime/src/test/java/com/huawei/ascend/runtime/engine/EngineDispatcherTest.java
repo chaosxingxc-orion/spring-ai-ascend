@@ -82,6 +82,41 @@ class EngineDispatcherTest {
     }
 
     @Test
+    void dispatch_acceptsLegacyStateKeyAliasForBusinessSuppliedStateKey() {
+        TaskControlClient task = mock(TaskControlClient.class);
+        InMemoryAgentStateStore stateStore = new InMemoryAgentStateStore();
+        AgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();
+        registry.register("echo-agent", new StatefulAgentHandler());
+        EngineDispatcher dispatcher = new EngineDispatcher(registry, task, stateStore);
+        EngineInput input = new EngineInput("text", List.of(), Map.of(
+                AgentExecutionContext.STATE_KEY_VARIABLE, "legacy-state-key"));
+        EngineCommandEvent command = new EngineCommandEvent("EXECUTE", scope(), input, Instant.EPOCH);
+
+        dispatcher.dispatch(command);
+
+        assertThat(stateStore.load("legacy-state-key"))
+                .map(state -> state.get("phase"))
+                .contains("asked-location");
+    }
+
+    @Test
+    void dispatch_fallsBackToTaskIdWhenNoBusinessStateKeyIsProvided() {
+        TaskControlClient task = mock(TaskControlClient.class);
+        InMemoryAgentStateStore stateStore = new InMemoryAgentStateStore();
+        AgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();
+        registry.register("echo-agent", new StatefulAgentHandler());
+        EngineDispatcher dispatcher = new EngineDispatcher(registry, task, stateStore);
+        EngineInput input = new EngineInput("text", List.of(), Map.of());
+        EngineCommandEvent command = new EngineCommandEvent("EXECUTE", scope(), input, Instant.EPOCH);
+
+        dispatcher.dispatch(command);
+
+        assertThat(stateStore.load("task-1"))
+                .map(state -> state.get("phase"))
+                .contains("asked-location");
+    }
+
+    @Test
     void dispatch_doesNotTurnCompletedTaskIntoFailedWhenStateExportHookFails() {
         TaskControlClient task = mock(TaskControlClient.class);
         AgentRuntimeHandlerRegistry registry = new DefaultAgentRuntimeHandlerRegistry();

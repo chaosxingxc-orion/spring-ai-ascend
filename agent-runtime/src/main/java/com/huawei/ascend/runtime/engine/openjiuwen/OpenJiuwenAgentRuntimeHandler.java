@@ -1,16 +1,21 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
+import com.huawei.ascend.runtime.common.Guards;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeProvider;
 import com.huawei.ascend.runtime.engine.spi.StateProvider;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.singleagent.BaseAgent;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,12 +25,14 @@ import org.slf4j.LoggerFactory;
  * provides the runtime-facing id, input/result mapping helpers, and the bridge
  * between runtime Agent State and openJiuwen {@link AgentSessionApi} state.
  */
-public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntimeHandler {
+public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenJiuwenAgentRuntimeHandler.class);
     static final String STATE_SESSION_ID = "openjiuwen.sessionId";
     static final String STATE_VALUES = "openjiuwen.state";
 
+    private final String agentId;
+    private final List<AgentRuntimeProvider> providers = new ArrayList<>();
     private final ThreadLocal<AgentSessionApi> currentSession = new ThreadLocal<>();
     private final OpenJiuwenMessageAdapter messageConverter;
     private final OpenJiuwenStreamAdapter resultMapper;
@@ -34,25 +41,31 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         this(agentId, new OpenJiuwenMessageAdapter());
     }
 
-    protected OpenJiuwenAgentRuntimeHandler(String agentId, String description) {
-        this(agentId, defaultName(agentId), description, new OpenJiuwenMessageAdapter(), new OpenJiuwenStreamAdapter());
-    }
-
     protected OpenJiuwenAgentRuntimeHandler(String agentId, OpenJiuwenMessageAdapter messageConverter) {
-        this(agentId, defaultName(agentId), defaultDescription(agentId), messageConverter, new OpenJiuwenStreamAdapter());
+        this(agentId, messageConverter, new OpenJiuwenStreamAdapter());
     }
 
     OpenJiuwenAgentRuntimeHandler(String agentId, OpenJiuwenMessageAdapter messageConverter,
             OpenJiuwenStreamAdapter resultMapper) {
-        this(agentId, defaultName(agentId), defaultDescription(agentId), messageConverter, resultMapper);
+        this.agentId = Guards.requireNonBlank(agentId, "agentId");
+        this.messageConverter = Objects.requireNonNull(messageConverter, "messageConverter");
+        this.resultMapper = Objects.requireNonNull(resultMapper, "resultMapper");
+        providers.add(new OpenJiuwenStateProvider());
     }
 
-    OpenJiuwenAgentRuntimeHandler(String agentId, String name, String description,
-            OpenJiuwenMessageAdapter messageConverter, OpenJiuwenStreamAdapter resultMapper) {
-        super(agentId, name, description);
-        this.messageConverter = messageConverter;
-        this.resultMapper = resultMapper;
-        addRuntimeProvider(new OpenJiuwenStateProvider());
+    @Override
+    public final String agentId() {
+        return agentId;
+    }
+
+    @Override
+    public boolean isHealthy() {
+        return true;
+    }
+
+    @Override
+    public final List<AgentRuntimeProvider> providers() {
+        return Collections.unmodifiableList(providers);
     }
 
     /**
@@ -129,14 +142,6 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             return text;
         }
         return fallback;
-    }
-
-    private static String defaultName(String agentId) {
-        return agentId;
-    }
-
-    private static String defaultDescription(String agentId) {
-        return "openJiuwen agent " + agentId;
     }
 
     private static Map<String, Object> stateMap(Object value) {

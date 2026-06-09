@@ -5,11 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import org.a2aproject.sdk.spec.AgentCapabilities;
 import org.a2aproject.sdk.spec.AgentCard;
-import org.a2aproject.sdk.spec.AgentInterface;
-import org.a2aproject.sdk.spec.AgentProvider;
-import org.a2aproject.sdk.spec.TransportProtocol;
 
 /**
  * Base class for one business Agent hosted by one runtime instance.
@@ -19,7 +15,7 @@ import org.a2aproject.sdk.spec.TransportProtocol;
  * at {@code /.well-known/agent-card.json}. This keeps the business integration
  * shape explicit: implement one runtime Agent handler, get one A2A Agent Card.
  */
-public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler {
+public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler, AgentCardProvider {
 
     private final String agentId;
     private final String name;
@@ -46,25 +42,9 @@ public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler
         return agentId;
     }
 
+    @Override
     public final AgentCard agentCard() {
-        AgentCapabilities capabilities = AgentCapabilities.builder()
-                .streaming(true)
-                .pushNotifications(true)
-                .extendedAgentCard(false)
-                .build();
-        return AgentCard.builder()
-                .name(name)
-                .description(description)
-                .url(endpoint)
-                .version(version)
-                .provider(new AgentProvider("spring-ai-ascend", "http://localhost:8080"))
-                .capabilities(capabilities)
-                .defaultInputModes(List.of("text"))
-                .defaultOutputModes(List.of("text", "artifact"))
-                .skills(List.of())
-                .supportedInterfaces(List.of(new AgentInterface(TransportProtocol.JSONRPC.asString(), endpoint)))
-                .preferredTransport(TransportProtocol.JSONRPC.asString())
-                .build();
+        return AgentCards.create(name, description, version, endpoint);
     }
 
     @Override

@@ -29,6 +29,7 @@ affects_artefact: ["agent-runtime/src/main/java/com/huawei/ascend/runtime/engine
 1. Agent 执行中断后，runtime 缺少一个统一位置保存和恢复框架无关的执行状态。
 2. 如果让每个 handler 自己持有 Store，会把状态存储细节泄漏到具体 Agent Adapter，破坏依赖倒置。
 3. 如果每加一个能力就新增 `AbstractXxxAgentRuntimeHandler`，后续 State、Mem、Sandbox、Tool Override 会形成深继承树。
+4. Agent Card 是 runtime 对外的协议元数据声明，不应强制每个业务 handler 通过继承基类或实现额外接口来获得。
 
 ## 4. Implemented Design
 
@@ -75,7 +76,8 @@ affects_artefact: ["agent-runtime/src/main/java/com/huawei/ascend/runtime/engine
 为避免深继承树，`AgentRuntimeHandler` 提供默认 `providers()`：
 
 - 普通 handler 默认返回空列表。
-- 继承 `AbstractAgentRuntimeHandler` 的 handler 可以在构造阶段通过 `addRuntimeProvider(...)` 注入多个能力。
+- handler 可以只实现 `AgentRuntimeHandler`；如果需要自定义 A2A Agent Card，再额外提供可选的 `AgentCardProvider` Bean。
+- 继承 `AbstractAgentRuntimeHandler` 的 handler 可以在构造阶段通过 `addRuntimeProvider(...)` 注入多个能力；直接实现接口的 handler 可以返回自己的 `providers()` 列表。
 - `AgentRuntimeProviders.execute(...)` 统一执行 Provider 链。
 - Provider 的 `beforeExecute(context)` 按注册顺序执行，`afterExecute(context)` 按反向顺序执行。
 - 如果某个 `beforeExecute(context)` 失败，只反向清理已经成功进入的 Provider，不执行 handler 本体。
@@ -84,8 +86,9 @@ affects_artefact: ["agent-runtime/src/main/java/com/huawei/ascend/runtime/engine
 
 - `AgentRuntimeProvider`：通用生命周期 Provider。
 - `StateProvider`：状态恢复/导出 Provider 标记，给 OpenJiuwen、未来 Mem 桥接和其他 Agent 框架打样。
+- `AgentCardProvider`：可选 Agent Card 声明 Provider。它不属于执行职责，OpenJiuwen handler 当前不强制实现它。
 
-本轮删除 `AbstractStatefulAgentRuntimeHandler`。需要状态的框架直接继承 `AbstractAgentRuntimeHandler` 或实现 `AgentRuntimeHandler`，然后注册自己的 `StateProvider`。
+本轮删除 `AbstractStatefulAgentRuntimeHandler`。需要状态的框架直接实现 `AgentRuntimeHandler`，或选择继承 `AbstractAgentRuntimeHandler`，然后注册自己的 `StateProvider`。
 
 ### 4.5 OpenJiuwen State Bridge
 
@@ -93,7 +96,7 @@ OpenJiuwen 自身已经提供 `AgentSessionApi.updateState(...)` 和 `dumpState(
 
 - 执行前：`OpenJiuwenAgentRuntimeHandler.openJiuwenSession(...)` 从 context state 中读取 OpenJiuwen 状态，并调用 `session.updateState(...)`。
 - 执行后：内部 `OpenJiuwenStateProvider` 从当前 session 调用 `dumpState()`，再写回 `context.replaceAgentState(...)`。
-- OpenJiuwen handler 直接继承 `AbstractAgentRuntimeHandler`，不再继承额外 stateful 基类。
+- OpenJiuwen handler 直接实现 `AgentRuntimeHandler`，不继承 runtime 基类，也不再继承额外 stateful 基类。
 
 ## 5. Failure Semantics
 
@@ -110,6 +113,7 @@ OpenJiuwen 自身已经提供 `AgentSessionApi.updateState(...)` 和 `dumpState(
 | Replaceable state store | Implemented | `AgentStateStore` + `InMemoryAgentStateStore` |
 | Dispatcher load/save | Implemented | Engine 统一拥有状态加载与保存时机 |
 | Composable runtime providers | Implemented | `AgentRuntimeProvider` + `AgentRuntimeProviders` |
+| Optional Agent Card provider | Implemented | `AgentCardProvider` 是可选能力；handler 不必强制实现 |
 | State provider marker | Implemented | `StateProvider` |
 | Store-free handler | Implemented | handler 只读写 `AgentExecutionContext` |
 | OpenJiuwen state bridge | Implemented | 使用 `AgentSessionApi.dumpState()/updateState(...)` |
@@ -119,7 +123,7 @@ OpenJiuwen 自身已经提供 `AgentSessionApi.updateState(...)` 和 `dumpState(
 ## 7. Open/Closed And Dependency Inversion Audit
 
 - 新存储后端通过实现 `AgentStateStore` 注入，不修改 `EngineDispatcher`。
-- 新 Agent 框架通过实现 `AgentRuntimeHandler` 或继承 `AbstractAgentRuntimeHandler` 接入。
+- 新 Agent 框架通过实现 `AgentRuntimeHandler` 接入执行面；如需自定义 A2A Agent Card，再额外提供 `AgentCardProvider`。
 - 新能力通过 `AgentRuntimeProvider` / `StateProvider` 注入，不新增层层叠加的抽象基类。
 - handler 依赖 `AgentExecutionContext` 这个抽象 carrier，不依赖具体 Store。
 - Store 不理解 OpenJiuwen、Mem、Sandbox 或业务状态结构。
@@ -143,6 +147,7 @@ wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/d/repo/spring-ai-ascend && ./mvnw -pl a
 覆盖点：
 
 - dispatcher 能按业务 state key 加载/保存 state。
+- dispatcher 能兼容 `stateKey` 旧别名，并在未提供业务 key 时 fallback 到 `taskId`。
 - Provider 可 restore/export state。
 - Provider before 失败时只清理已进入 Provider。
 - state load 失败 fail closed。
