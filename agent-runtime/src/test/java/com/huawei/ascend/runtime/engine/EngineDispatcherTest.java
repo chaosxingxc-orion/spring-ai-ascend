@@ -6,7 +6,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
@@ -200,12 +199,12 @@ class EngineDispatcherTest {
         }
     }
 
-    static class StatefulAgentHandler extends AbstractAgentRuntimeHandler {
+    static class StatefulAgentHandler implements AgentRuntimeHandler {
+        private final List<AgentRuntimeProvider> providers;
         private Optional<String> phase = Optional.empty();
 
         StatefulAgentHandler() {
-            super("echo-agent");
-            addRuntimeProvider(new AgentRuntimeProvider() {
+            providers = List.of(new AgentRuntimeProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
                     phase = context.getAgentState().map(state -> String.valueOf(state.get("phase")));
@@ -219,6 +218,21 @@ class EngineDispatcherTest {
         }
 
         @Override
+        public String agentId() {
+            return "echo-agent";
+        }
+
+        @Override
+        public boolean isHealthy() {
+            return true;
+        }
+
+        @Override
+        public List<AgentRuntimeProvider> providers() {
+            return providers;
+        }
+
+        @Override
         public Stream<?> execute(AgentExecutionContext context) {
             return Stream.of(Map.of("result_type", "answer", "output", "ok"));
         }
@@ -229,16 +243,31 @@ class EngineDispatcherTest {
         }
     }
 
-    static class FailingExportHookHandler extends AbstractAgentRuntimeHandler {
+    static class FailingExportHookHandler implements AgentRuntimeHandler {
+        private final List<AgentRuntimeProvider> providers;
 
         FailingExportHookHandler() {
-            super("echo-agent");
-            addRuntimeProvider(new AgentRuntimeProvider() {
+            providers = List.of(new AgentRuntimeProvider() {
                 @Override
                 public void afterExecute(AgentExecutionContext context) {
                     throw new IllegalStateException("export failed");
                 }
             });
+        }
+
+        @Override
+        public String agentId() {
+            return "echo-agent";
+        }
+
+        @Override
+        public boolean isHealthy() {
+            return true;
+        }
+
+        @Override
+        public List<AgentRuntimeProvider> providers() {
+            return providers;
         }
 
         @Override

@@ -3,10 +3,10 @@
  *
  * <p>This package is intentionally small: {@code AgentRuntimeHandler} executes
  * one business Agent, and {@code AgentCardProvider} supplies its public A2A
- * metadata. A concrete handler may implement both interfaces directly, but the
- * convenience base {@code AbstractAgentRuntimeHandler} intentionally covers
- * execution concerns only. Providers can attach optional
- * {@code AgentRuntimeProvider} capabilities through either approach.
+ * metadata. A concrete handler may implement both interfaces directly, but
+ * normal execution code should prefer {@code AgentRuntimeHandler} plus optional
+ * {@code AgentRuntimeProvider} composition over framework-specific inheritance
+ * trees.
  * {@code StateProvider} is the first provider specialization and
  * translates the neutral Agent State map into framework-native session state.
  * Engine inbound calls live in {@link com.huawei.ascend.runtime.engine.api};

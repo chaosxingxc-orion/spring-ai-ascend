@@ -58,13 +58,40 @@ class AgentRuntimeProviderTest {
         return new AgentExecutionContext(scope, new EngineInput("text", List.of(), Map.of()));
     }
 
-    private static final class StubAgent extends AbstractAgentRuntimeHandler {
+    private abstract static class TestAgent implements AgentRuntimeHandler {
+        private final java.util.ArrayList<AgentRuntimeProvider> providers = new java.util.ArrayList<>();
+
+        @Override
+        public String agentId() {
+            return "agent";
+        }
+
+        @Override
+        public boolean isHealthy() {
+            return true;
+        }
+
+        @Override
+        public List<AgentRuntimeProvider> providers() {
+            return List.copyOf(providers);
+        }
+
+        @Override
+        public StreamAdapter resultAdapter() {
+            return rawResults -> Stream.empty();
+        }
+
+        protected final void addProvider(AgentRuntimeProvider provider) {
+            providers.add(provider);
+        }
+    }
+
+    private static final class StubAgent extends TestAgent {
         private boolean beforeCalled;
         private boolean afterCalled;
 
         private StubAgent() {
-            super("agent");
-            addRuntimeProvider(new StateProvider() {
+            addProvider(new StateProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
                     beforeCalled = true;
@@ -82,19 +109,13 @@ class AgentRuntimeProviderTest {
         public Stream<?> execute(AgentExecutionContext context) {
             return Stream.of("ok");
         }
-
-        @Override
-        public StreamAdapter resultAdapter() {
-            return rawResults -> Stream.empty();
-        }
     }
 
-    private static final class CompositeAgent extends AbstractAgentRuntimeHandler {
+    private static final class CompositeAgent extends TestAgent {
         private final java.util.ArrayList<String> events = new java.util.ArrayList<>();
 
         private CompositeAgent() {
-            super("agent");
-            addRuntimeProvider(new StateProvider() {
+            addProvider(new StateProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
                     events.add("state-before");
@@ -105,7 +126,7 @@ class AgentRuntimeProviderTest {
                     events.add("state-after");
                 }
             });
-            addRuntimeProvider(new AgentRuntimeProvider() {
+            addProvider(new AgentRuntimeProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
                     events.add("sandbox-before");
@@ -122,19 +143,13 @@ class AgentRuntimeProviderTest {
         public Stream<?> execute(AgentExecutionContext context) {
             return Stream.of("ok");
         }
-
-        @Override
-        public StreamAdapter resultAdapter() {
-            return rawResults -> Stream.empty();
-        }
     }
 
-    private static final class BeforeFailureAgent extends AbstractAgentRuntimeHandler {
+    private static final class BeforeFailureAgent extends TestAgent {
         private final java.util.ArrayList<String> events = new java.util.ArrayList<>();
 
         private BeforeFailureAgent() {
-            super("agent");
-            addRuntimeProvider(new StateProvider() {
+            addProvider(new StateProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
                     events.add("state-before");
@@ -145,7 +160,7 @@ class AgentRuntimeProviderTest {
                     events.add("state-after");
                 }
             });
-            addRuntimeProvider(new AgentRuntimeProvider() {
+            addProvider(new AgentRuntimeProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
                     events.add("sandbox-before");
@@ -162,11 +177,6 @@ class AgentRuntimeProviderTest {
         @Override
         public Stream<?> execute(AgentExecutionContext context) {
             return Stream.of("should-not-run");
-        }
-
-        @Override
-        public StreamAdapter resultAdapter() {
-            return rawResults -> Stream.empty();
         }
     }
 }

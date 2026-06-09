@@ -101,7 +101,7 @@ OpenJiuwen Runner / Checkpointer
 
 - 普通 handler 默认返回空列表。
 - handler 可以只实现 `AgentRuntimeHandler`；如果需要自定义 A2A Agent Card，再额外提供可选的 `AgentCardProvider` Bean。
-- 继承 `AbstractAgentRuntimeHandler` 的 handler 可以在构造阶段通过 `addRuntimeProvider(...)` 注入多个能力；直接实现接口的 handler 可以返回自己的 `providers()` 列表。该基类只覆盖执行侧便利能力，不再实现 `AgentCardProvider`。
+- 需要能力扩展的 handler 直接重写 `providers()`，返回自己的 Provider 列表；生产侧不再提供共享抽象基类，避免为了便利方法形成新的继承入口。
 - `AgentRuntimeProviders.execute(...)` 统一执行 Provider 链。
 - Provider 的 `beforeExecute(context)` 按注册顺序执行，`afterExecute(context)` 按反向顺序执行。
 - 如果某个 `beforeExecute(context)` 失败，只反向清理已经成功进入的 Provider，不执行 handler 本体。
@@ -118,7 +118,7 @@ OpenJiuwen Runner / Checkpointer
 - OpenJiuwen handler 当前只实现 `AgentRuntimeHandler`，保持 adapter 关注执行和状态桥接。
 - Access 层优先使用可选 `AgentCardProvider` Bean；如果没有 provider，就使用默认 Agent Card。
 
-这个拆分给后续框架接入留出两条路径：简单业务方可以继承 `AbstractAgentRuntimeHandler` 复用 agent id 与 provider 组合能力；需要自定义 Agent Card 时，再额外提供 `AgentCardProvider` Bean 或直接实现该接口。复杂业务方可以把 handler、card provider、state provider 分别作为独立 Bean 组合起来。
+这个拆分给后续框架接入留出两条路径：简单业务方只实现 `AgentRuntimeHandler`，并在 `providers()` 中声明需要的状态、沙箱、工具覆盖等 Provider；需要自定义 Agent Card 时，再额外提供 `AgentCardProvider` Bean 或直接实现该接口。复杂业务方可以把 handler、card provider、state provider 分别作为独立 Bean 组合起来。
 
 当前公开 Provider：
 
@@ -126,7 +126,7 @@ OpenJiuwen Runner / Checkpointer
 - `StateProvider`：状态恢复/导出 Provider 标记，给 OpenJiuwen、未来 Mem 桥接和其他 Agent 框架打样。
 - `AgentCardProvider`：可选 Agent Card 声明 Provider。它不属于执行职责，OpenJiuwen handler 当前不强制实现它。
 
-本轮删除 `AbstractStatefulAgentRuntimeHandler`。需要状态的框架直接实现 `AgentRuntimeHandler`，或选择继承 `AbstractAgentRuntimeHandler`，然后注册自己的 `StateProvider`。
+本轮删除 `AbstractStatefulAgentRuntimeHandler`，并进一步删除只被测试使用的 `AbstractAgentRuntimeHandler`。需要状态的框架直接实现 `AgentRuntimeHandler`，然后通过 `providers()` 注册自己的 `StateProvider`。
 
 ### 4.5 OpenJiuwen Native Checkpointer Bridge
 
