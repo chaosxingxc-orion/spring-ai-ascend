@@ -63,8 +63,10 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
             - Do not recommend individual stocks or exchange-traded ETF products.
             - Never promise guaranteed returns.
             - Always include suitability and compliance reminders.
-            Return the answer in Chinese with these headings:
+            Return a concise Chinese report with exactly these headings:
             客户画像摘要、当前持仓诊断、市场观点摘要、建议资产配置、收益测算、风险提示、客户经理下一步动作、合规提示。
+            Keep each heading to one or two short bullets. Do not use markdown tables.
+            Finish the answer with the 合规提示 section.
             Use the provided skills before making the recommendation.
             """;
 
@@ -219,7 +221,7 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
             GenerateOptions options = GenerateOptions.builder()
                     .stream(true)
                     .temperature(0.1)
-                    .maxTokens(900)
+                    .maxTokens(1200)
                     .build();
             OpenAIChatModel model = OpenAIChatModel.builder()
                     .apiKey(apiKey)

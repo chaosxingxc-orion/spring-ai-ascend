@@ -15,10 +15,12 @@ import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.a2aproject.sdk.spec.TransportProtocol;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
 @Tag("e2e")
+@ResourceLock("real-llm")
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = OpenJiuwenA2aAgentRuntimeApplication.class)
