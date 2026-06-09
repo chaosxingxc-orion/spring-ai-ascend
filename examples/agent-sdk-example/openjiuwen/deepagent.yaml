@@ -1,0 +1,74 @@
+schema: ascend-agent/v1
+
+name: sdk-openjiuwen-deepagent-example-agent
+displayName: SDK OpenJiuwen DeepAgent Example Agent
+description: Demonstrates YAML to OpenJiuwen DeepAgent runtime handler with two tools and two skills.
+
+framework:
+  type: openjiuwen
+  agent: deepagent
+  options:
+    executeMode: openjiuwen
+    maxIterations: 8
+
+model:
+  provider: OpenAI
+  name: deepseek-chat
+  baseUrl: https://api.deepseek.com
+  apiKey:
+  sslVerify: true
+
+prompt:
+  system: |
+    你是一个订单分析 DeepAgent。
+    处理用户请求时，必须先调用 queryOrder 工具查询订单，再调用 calcDiscount 工具计算折扣。
+    你必须使用本地技能 order-analysis 和 report-writing 的要求组织结论。
+    最终回答必须明确写出 queryOrder、calcDiscount、order-analysis、report-writing。
+    最终回答必须列出两个工具返回的 proof 字段，并用简洁中文输出。
+
+skills:
+  sources:
+    - ../skills/order-analysis
+    - ../skills/report-writing
+
+tools:
+  - name: queryOrder
+    description: 查询本地示例订单状态，并证明 Java 函数已经被执行。
+    inputSchema:
+      type: object
+      properties:
+        orderId:
+          type: string
+      required:
+        - orderId
+    outputSchema:
+      type: object
+      properties:
+        status:
+          type: string
+        proof:
+          type: string
+    ref:
+      type: file
+      class: QueryOrderTool
+      method: query
+  - name: calcDiscount
+    description: 计算示例折扣，并证明 Java 函数已经被执行。
+    inputSchema:
+      type: object
+      properties:
+        amount:
+          type: number
+      required:
+        - amount
+    outputSchema:
+      type: object
+      properties:
+        discount:
+          type: number
+        proof:
+          type: string
+    ref:
+      type: file
+      class: CalcDiscountTool
+      method: calculate

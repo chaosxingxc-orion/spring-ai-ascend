@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend</groupId>
+    <artifactId>spring-ai-ascend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>agent-sdk</artifactId>
+  <name>agent-sdk</name>
+  <description>Lightweight customer SDK that converts agent YAML or framework instances into runtime AgentHandler instances.</description>
+
+  <properties>
+    <agent-runtime.version>0.1.0-SNAPSHOT</agent-runtime.version>
+    <openjiuwen.agent-core.version>0.1.7</openjiuwen.agent-core.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-runtime</artifactId>
+      <version>${agent-runtime.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.openjiuwen</groupId>
+      <artifactId>agent-core-java</artifactId>
+      <version>${openjiuwen.agent-core.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>
