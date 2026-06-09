@@ -70,7 +70,7 @@ public class OpenJiuwenReactAgentConfiguration {
         }
 
         @Override
-        protected Stream<?> doExecute(AgentExecutionContext context) {
+        public Stream<?> execute(AgentExecutionContext context) {
             try {
                 LOGGER.info("example openjiuwen execute start tenantId={} sessionId={} taskId={} agentId={} provider={} apiBase={} model={}",
                         context.getScope().tenantId(),

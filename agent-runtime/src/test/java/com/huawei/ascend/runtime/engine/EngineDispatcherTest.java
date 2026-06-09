@@ -6,12 +6,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.spi.AbstractStatefulAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
-import com.huawei.ascend.runtime.engine.service.AgentStateKey;
-import com.huawei.ascend.runtime.engine.service.AgentStateSnapshot;
 import com.huawei.ascend.runtime.engine.service.AgentStateStore;
 import com.huawei.ascend.runtime.engine.service.InMemoryAgentStateStore;
 import java.time.Instant;
@@ -28,7 +27,8 @@ class EngineDispatcherTest {
     }
 
     private EngineCommandEvent cmd() {
-        EngineInput in = new EngineInput("text", List.of(), Map.of());
+        EngineInput in = new EngineInput("text", List.of(), Map.of(
+                AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, "business-state-key"));
         return new EngineCommandEvent("EXECUTE", scope(), in, Instant.EPOCH);
     }
 
@@ -76,9 +76,8 @@ class EngineDispatcherTest {
         dispatcher.dispatch(cmd());
         dispatcher.dispatch(cmd());
 
-        AgentStateKey key = AgentStateKey.from(scope());
-        assertThat(stateStore.load(key))
-                .map(snapshot -> snapshot.values().get("phase"))
+        assertThat(stateStore.load("business-state-key"))
+                .map(state -> state.get("phase"))
                 .contains("resumed");
     }
 
@@ -166,27 +165,27 @@ class EngineDispatcherTest {
         }
     }
 
-    static class StatefulAgentHandler extends AbstractStatefulAgentRuntimeHandler {
+    static class StatefulAgentHandler extends AbstractAgentRuntimeHandler {
         private Optional<String> phase = Optional.empty();
 
         StatefulAgentHandler() {
             super("echo-agent", "Echo Agent", "Echo agent with runtime state.");
+            addRuntimeProvider(new AgentRuntimeProvider() {
+                @Override
+                public void beforeExecute(AgentExecutionContext context) {
+                    phase = context.getAgentState().map(state -> String.valueOf(state.get("phase")));
+                }
+
+                @Override
+                public void afterExecute(AgentExecutionContext context) {
+                    context.replaceAgentState(Map.of("phase", phase.isEmpty() ? "asked-location" : "resumed"));
+                }
+            });
         }
 
         @Override
-        protected void beforeExecute(AgentExecutionContext context) {
-            phase = context.getAgentState()
-                    .map(snapshot -> String.valueOf(snapshot.values().get("phase")));
-        }
-
-        @Override
-        protected Stream<?> doExecute(AgentExecutionContext context) {
+        public Stream<?> execute(AgentExecutionContext context) {
             return Stream.of(Map.of("result_type", "answer", "output", "ok"));
-        }
-
-        @Override
-        protected void afterExecute(AgentExecutionContext context) {
-            context.replaceAgentState(Map.of("phase", phase.isEmpty() ? "asked-location" : "resumed"));
         }
 
         @Override
@@ -195,20 +194,21 @@ class EngineDispatcherTest {
         }
     }
 
-    static class FailingExportHookHandler extends AbstractStatefulAgentRuntimeHandler {
+    static class FailingExportHookHandler extends AbstractAgentRuntimeHandler {
 
         FailingExportHookHandler() {
             super("echo-agent", "Echo Agent", "Echo agent with failing state export.");
+            addRuntimeProvider(new AgentRuntimeProvider() {
+                @Override
+                public void afterExecute(AgentExecutionContext context) {
+                    throw new IllegalStateException("export failed");
+                }
+            });
         }
 
         @Override
-        protected Stream<?> doExecute(AgentExecutionContext context) {
+        public Stream<?> execute(AgentExecutionContext context) {
             return Stream.of(Map.of("result_type", "answer", "output", "ok"));
-        }
-
-        @Override
-        protected void afterExecute(AgentExecutionContext context) {
-            throw new IllegalStateException("export failed");
         }
 
         @Override
@@ -220,17 +220,17 @@ class EngineDispatcherTest {
     static class FailingLoadStateStore implements AgentStateStore {
 
         @Override
-        public Optional<AgentStateSnapshot> load(AgentStateKey key) {
+        public Optional<Map<String, Object>> load(String key) {
             throw new IllegalStateException("load failed");
         }
 
         @Override
-        public AgentStateSnapshot save(AgentStateSnapshot snapshot) {
-            return snapshot;
+        public Map<String, Object> save(String key, Map<String, Object> state) {
+            return state;
         }
 
         @Override
-        public void delete(AgentStateKey key) {
+        public void delete(String key) {
         }
     }
 }

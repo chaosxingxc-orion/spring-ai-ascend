@@ -1,5 +1,6 @@
 package com.huawei.ascend.runtime.engine.service;
 
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -12,9 +13,9 @@ import java.util.Optional;
  */
 public interface AgentStateStore {
 
-    Optional<AgentStateSnapshot> load(AgentStateKey key);
+    Optional<Map<String, Object>> load(String key);
 
-    AgentStateSnapshot save(AgentStateSnapshot snapshot);
+    Map<String, Object> save(String key, Map<String, Object> state);
 
-    void delete(AgentStateKey key);
+    void delete(String key);
 }

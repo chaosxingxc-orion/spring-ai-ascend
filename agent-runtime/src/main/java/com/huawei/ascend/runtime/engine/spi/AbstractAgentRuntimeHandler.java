@@ -26,7 +26,7 @@ public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler
     private final String description;
     private final String version;
     private final String endpoint;
-    private final List<AgentRuntimeExtension> extensions = new ArrayList<>();
+    private final List<AgentRuntimeProvider> providers = new ArrayList<>();
 
     protected AbstractAgentRuntimeHandler(String agentId, String name, String description) {
         this(agentId, name, description, "0.1.0", "/a2a");
@@ -73,8 +73,8 @@ public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler
     }
 
     @Override
-    public final List<AgentRuntimeExtension> extensions() {
-        return Collections.unmodifiableList(extensions);
+    public final List<AgentRuntimeProvider> providers() {
+        return Collections.unmodifiableList(providers);
     }
 
     /**
@@ -84,7 +84,7 @@ public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler
      * features composable instead of forcing every capability into a new base
      * class.
      */
-    protected final void addRuntimeExtension(AgentRuntimeExtension extension) {
-        extensions.add(Objects.requireNonNull(extension, "extension"));
+    protected final void addRuntimeProvider(AgentRuntimeProvider provider) {
+        providers.add(Objects.requireNonNull(provider, "provider"));
     }
 }

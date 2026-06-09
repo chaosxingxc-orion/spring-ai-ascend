@@ -11,30 +11,30 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
-class AbstractStatefulAgentRuntimeHandlerTest {
+class AgentRuntimeProviderTest {
 
     @Test
-    void executeRunsRestoreHookBodyAndExportHookWithoutOwningStore() {
-        StubStatefulAgent agent = new StubStatefulAgent();
+    void providerCanRestoreAndExportStateWithoutOwningStore() {
+        StubAgent agent = new StubAgent();
         AgentExecutionContext context = context();
 
-        try (Stream<?> results = AgentRuntimeExtensions.execute(agent, context)) {
+        try (Stream<?> results = AgentRuntimeProviders.execute(agent, context)) {
             assertThat(results.toList()).isEqualTo(List.of("ok"));
         }
 
         assertThat(agent.beforeCalled).isTrue();
         assertThat(agent.afterCalled).isTrue();
         assertThat(context.getAgentState())
-                .map(snapshot -> snapshot.values().get("phase"))
+                .map(state -> state.get("phase"))
                 .contains("exported");
     }
 
     @Test
-    void handlerCanComposeMultipleExtensionsWithoutAnotherBaseClass() {
+    void handlerCanComposeMultipleProvidersWithoutAnotherBaseClass() {
         CompositeAgent agent = new CompositeAgent();
         AgentExecutionContext context = context();
 
-        try (Stream<?> results = AgentRuntimeExtensions.execute(agent, context)) {
+        try (Stream<?> results = AgentRuntimeProviders.execute(agent, context)) {
             assertThat(results.toList()).isEqualTo(List.of("ok"));
         }
 
@@ -42,11 +42,11 @@ class AbstractStatefulAgentRuntimeHandlerTest {
     }
 
     @Test
-    void beforeExecuteFailureCleansUpAlreadyEnteredExtensions() {
+    void beforeExecuteFailureCleansUpAlreadyEnteredProviders() {
         BeforeFailureAgent agent = new BeforeFailureAgent();
         AgentExecutionContext context = context();
 
-        assertThatThrownBy(() -> AgentRuntimeExtensions.execute(agent, context))
+        assertThatThrownBy(() -> AgentRuntimeProviders.execute(agent, context))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("sandbox denied");
 
@@ -58,28 +58,29 @@ class AbstractStatefulAgentRuntimeHandlerTest {
         return new AgentExecutionContext(scope, new EngineInput("text", List.of(), Map.of()));
     }
 
-    private static final class StubStatefulAgent extends AbstractStatefulAgentRuntimeHandler {
+    private static final class StubAgent extends AbstractAgentRuntimeHandler {
         private boolean beforeCalled;
         private boolean afterCalled;
 
-        private StubStatefulAgent() {
+        private StubAgent() {
             super("agent", "Stateful Agent", "Stateful test agent.");
+            addRuntimeProvider(new StateProvider() {
+                @Override
+                public void beforeExecute(AgentExecutionContext context) {
+                    beforeCalled = true;
+                }
+
+                @Override
+                public void afterExecute(AgentExecutionContext context) {
+                    afterCalled = true;
+                    context.replaceAgentState(Map.of("phase", "exported"));
+                }
+            });
         }
 
         @Override
-        protected void beforeExecute(AgentExecutionContext context) {
-            beforeCalled = true;
-        }
-
-        @Override
-        protected Stream<?> doExecute(AgentExecutionContext context) {
+        public Stream<?> execute(AgentExecutionContext context) {
             return Stream.of("ok");
-        }
-
-        @Override
-        protected void afterExecute(AgentExecutionContext context) {
-            afterCalled = true;
-            context.replaceAgentState(Map.of("phase", "exported"));
         }
 
         @Override
@@ -93,7 +94,7 @@ class AbstractStatefulAgentRuntimeHandlerTest {
 
         private CompositeAgent() {
             super("agent", "Composite Agent", "Composite test agent.");
-            addRuntimeExtension(new AgentRuntimeExtension() {
+            addRuntimeProvider(new StateProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
                     events.add("state-before");
@@ -104,7 +105,7 @@ class AbstractStatefulAgentRuntimeHandlerTest {
                     events.add("state-after");
                 }
             });
-            addRuntimeExtension(new AgentRuntimeExtension() {
+            addRuntimeProvider(new AgentRuntimeProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
                     events.add("sandbox-before");
@@ -133,7 +134,7 @@ class AbstractStatefulAgentRuntimeHandlerTest {
 
         private BeforeFailureAgent() {
             super("agent", "Before Failure Agent", "Before failure test agent.");
-            addRuntimeExtension(new AgentRuntimeExtension() {
+            addRuntimeProvider(new StateProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
                     events.add("state-before");
@@ -144,7 +145,7 @@ class AbstractStatefulAgentRuntimeHandlerTest {
                     events.add("state-after");
                 }
             });
-            addRuntimeExtension(new AgentRuntimeExtension() {
+            addRuntimeProvider(new AgentRuntimeProvider() {
                 @Override
                 public void beforeExecute(AgentExecutionContext context) {
                     events.add("sandbox-before");

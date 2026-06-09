@@ -2,21 +2,20 @@ package com.huawei.ascend.runtime.engine.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class InMemoryAgentStateStoreTest {
 
-    private static final AgentStateKey KEY = new AgentStateKey("tenant", "user", "session", "task", "agent");
+    private static final String KEY = "business-state-key";
 
     @Test
-    void saveLoadAndDeleteSnapshot() {
+    void saveLoadAndDeleteState() {
         InMemoryAgentStateStore store = new InMemoryAgentStateStore();
-        AgentStateSnapshot snapshot = new AgentStateSnapshot(KEY, 1, Map.of("phase", "waiting"), Instant.EPOCH);
+        Map<String, Object> state = Map.of("phase", "waiting");
 
-        assertThat(store.save(snapshot)).isEqualTo(snapshot);
-        assertThat(store.load(KEY)).contains(snapshot);
+        assertThat(store.save(KEY, state)).isEqualTo(state);
+        assertThat(store.load(KEY)).contains(state);
 
         store.delete(KEY);
 

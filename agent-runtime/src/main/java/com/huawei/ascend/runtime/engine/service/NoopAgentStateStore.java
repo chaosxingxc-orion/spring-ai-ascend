@@ -1,5 +1,6 @@
 package com.huawei.ascend.runtime.engine.service;
 
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -14,17 +15,17 @@ public final class NoopAgentStateStore implements AgentStateStore {
     }
 
     @Override
-    public Optional<AgentStateSnapshot> load(AgentStateKey key) {
+    public Optional<Map<String, Object>> load(String key) {
         return Optional.empty();
     }
 
     @Override
-    public AgentStateSnapshot save(AgentStateSnapshot snapshot) {
-        return snapshot;
+    public Map<String, Object> save(String key, Map<String, Object> state) {
+        return state;
     }
 
     @Override
-    public void delete(AgentStateKey key) {
+    public void delete(String key) {
         // No persisted state to remove.
     }
 }

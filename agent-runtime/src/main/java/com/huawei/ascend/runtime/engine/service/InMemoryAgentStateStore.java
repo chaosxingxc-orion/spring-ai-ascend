@@ -1,5 +1,7 @@
 package com.huawei.ascend.runtime.engine.service;
 
+import com.huawei.ascend.runtime.common.Guards;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,22 +16,23 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class InMemoryAgentStateStore implements AgentStateStore {
 
-    private final ConcurrentMap<AgentStateKey, AgentStateSnapshot> snapshots = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Map<String, Object>> states = new ConcurrentHashMap<>();
 
     @Override
-    public Optional<AgentStateSnapshot> load(AgentStateKey key) {
-        return Optional.ofNullable(snapshots.get(Objects.requireNonNull(key, "key")));
+    public Optional<Map<String, Object>> load(String key) {
+        return Optional.ofNullable(states.get(Guards.requireNonBlank(key, "key")));
     }
 
     @Override
-    public AgentStateSnapshot save(AgentStateSnapshot snapshot) {
-        Objects.requireNonNull(snapshot, "snapshot");
-        snapshots.put(snapshot.key(), snapshot);
-        return snapshot;
+    public Map<String, Object> save(String key, Map<String, Object> state) {
+        Guards.requireNonBlank(key, "key");
+        Map<String, Object> copy = Map.copyOf(Objects.requireNonNull(state, "state"));
+        states.put(key, copy);
+        return copy;
     }
 
     @Override
-    public void delete(AgentStateKey key) {
-        snapshots.remove(Objects.requireNonNull(key, "key"));
+    public void delete(String key) {
+        states.remove(Guards.requireNonBlank(key, "key"));
     }
 }

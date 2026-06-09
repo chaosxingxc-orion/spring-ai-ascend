@@ -6,7 +6,7 @@ import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.EngineInput;
 import com.huawei.ascend.runtime.common.Message;
-import com.huawei.ascend.runtime.engine.spi.AgentRuntimeExtensions;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeProviders;
 import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.stream.StreamMode;
@@ -25,7 +25,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     void subclassReturnsRawOpenJiuwenResultAndAdapterMapsIt() {
         OpenJiuwenAgentRuntimeHandler handler = new OpenJiuwenAgentRuntimeHandler("base-agent") {
             @Override
-            protected Stream<?> doExecute(AgentExecutionContext context) {
+            public Stream<?> execute(AgentExecutionContext context) {
                 BaseAgent agent = new EchoBaseAgent();
                 Object input = toOpenJiuwenInput(context);
                 return Stream.of(Runner.runAgent(agent, input, openJiuwenSession(context, agent), null));
@@ -33,7 +33,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         };
 
         List<?> rawResults;
-        try (Stream<?> stream = AgentRuntimeExtensions.execute(handler, context())) {
+        try (Stream<?> stream = AgentRuntimeProviders.execute(handler, context())) {
             rawResults = stream.toList();
         }
         var results = handler.resultAdapter().adapt(rawResults.stream()).toList();
@@ -46,26 +46,29 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     void openJiuwenSessionStateFlowsThroughRuntimeAgentState() {
         OpenJiuwenAgentRuntimeHandler handler = new OpenJiuwenAgentRuntimeHandler("stateful-agent") {
             @Override
-            protected Stream<?> doExecute(AgentExecutionContext context) {
+            public Stream<?> execute(AgentExecutionContext context) {
                 BaseAgent agent = new StatefulBaseAgent();
                 Object input = toOpenJiuwenInput(context);
                 return Stream.of(Runner.runAgent(agent, input, openJiuwenSession(context, agent), null));
             }
         };
         AgentExecutionContext first = context("stateful-agent");
-        try (Stream<?> rawResults = AgentRuntimeExtensions.execute(handler, first)) {
+        try (Stream<?> rawResults = AgentRuntimeProviders.execute(handler, first)) {
             rawResults.toList();
         }
 
-        AgentExecutionContext second = new AgentExecutionContext(first.getScope(), first.getInput(),
+        AgentExecutionContext second = new AgentExecutionContext(
+                first.getScope(),
+                first.getInput(),
+                first.getAgentStateKey(),
                 first.getAgentState().orElseThrow());
-        try (Stream<?> rawResults = AgentRuntimeExtensions.execute(handler, second)) {
+        try (Stream<?> rawResults = AgentRuntimeProviders.execute(handler, second)) {
             rawResults.toList();
         }
 
         Map<String, Object> openJiuwenState = openJiuwenState(second);
         assertThat(openJiuwenGlobalState(openJiuwenState)).containsEntry("turn", 2);
-        assertThat(second.getAgentState().orElseThrow().values())
+        assertThat(second.getAgentState().orElseThrow())
                 .containsEntry(OpenJiuwenAgentRuntimeHandler.STATE_SESSION_ID, "task-1");
     }
 
@@ -83,7 +86,6 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     private static Map<String, Object> openJiuwenState(AgentExecutionContext context) {
         return (Map<String, Object>) context.getAgentState()
                 .orElseThrow()
-                .values()
                 .get(OpenJiuwenAgentRuntimeHandler.STATE_VALUES);
     }
 

@@ -2,9 +2,9 @@ package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.service.AgentStateSnapshot;
-import com.huawei.ascend.runtime.engine.spi.AbstractStatefulAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.StateProvider;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.session.AgentSessionApi;
@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
  * provides the runtime-facing id, input/result mapping helpers, and the bridge
  * between runtime Agent State and openJiuwen {@link AgentSessionApi} state.
  */
-public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractStatefulAgentRuntimeHandler {
+public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntimeHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenJiuwenAgentRuntimeHandler.class);
     static final String STATE_SESSION_ID = "openjiuwen.sessionId";
@@ -52,35 +52,16 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractStatefulAgen
         super(agentId, name, description);
         this.messageConverter = messageConverter;
         this.resultMapper = resultMapper;
-    }
-
-    @Override
-    protected void beforeExecute(AgentExecutionContext context) {
-        currentSession.remove();
-    }
-
-    @Override
-    protected void afterExecute(AgentExecutionContext context) {
-        AgentSessionApi session = currentSession.get();
-        currentSession.remove();
-        if (session == null) {
-            return;
-        }
-        Map<String, Object> values = new LinkedHashMap<>(
-                context.getAgentState().map(AgentStateSnapshot::values).orElseGet(Map::of));
-        values.put(STATE_SESSION_ID, session.getSessionId());
-        values.put(STATE_VALUES, new LinkedHashMap<>(session.dumpState()));
-        context.replaceAgentState(values);
+        addRuntimeProvider(new OpenJiuwenStateProvider());
     }
 
     /**
      * Creates the openJiuwen session for the current execution from the runtime
-     * Agent State snapshot. Subclasses should pass the returned session to
+     * Agent State map. Subclasses should pass the returned session to
      * {@code Runner.runAgent(...)} or {@code Runner.runAgentStreaming(...)}.
      */
     protected AgentSessionApi openJiuwenSession(AgentExecutionContext context, BaseAgent agent) {
-        AgentStateSnapshot snapshot = context.getAgentState().orElse(null);
-        Map<String, Object> values = snapshot == null ? Map.of() : snapshot.values();
+        Map<String, Object> values = context.getAgentState().orElseGet(Map::of);
         String sessionId = stateString(values.get(STATE_SESSION_ID), context.getScope().taskId());
         AgentSessionApi session = AgentSessionApi.create(sessionId, Map.of(), agent == null ? null : agent.getCard());
         Map<String, Object> restoredState = openJiuwenGlobalState(values.get(STATE_VALUES));
@@ -95,6 +76,26 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractStatefulAgen
                 context.getScope().agentId(),
                 restoredState.keySet());
         return session;
+    }
+
+    private final class OpenJiuwenStateProvider implements StateProvider {
+        @Override
+        public void beforeExecute(AgentExecutionContext context) {
+            currentSession.remove();
+        }
+
+        @Override
+        public void afterExecute(AgentExecutionContext context) {
+            AgentSessionApi session = currentSession.get();
+            currentSession.remove();
+            if (session == null) {
+                return;
+            }
+            Map<String, Object> values = new LinkedHashMap<>(context.getAgentState().orElseGet(Map::of));
+            values.put(STATE_SESSION_ID, session.getSessionId());
+            values.put(STATE_VALUES, new LinkedHashMap<>(session.dumpState()));
+            context.replaceAgentState(values);
+        }
     }
 
     protected Object toOpenJiuwenInput(AgentExecutionContext context) {

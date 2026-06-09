@@ -3,14 +3,14 @@ package com.huawei.ascend.runtime.engine.spi;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 
 /**
- * Optional capability attached to an {@link AgentRuntimeHandler}.
+ * Optional provider attached to an {@link AgentRuntimeHandler}.
  *
- * <p>Extensions are deliberately small lifecycle hooks. They let agent
- * adapters compose features such as Agent State restore/export, sandbox
- * preparation, tool-call overrides, and tracing without creating a deep stack
- * of abstract base classes.
+ * <p>Providers are deliberately small lifecycle hooks. They let agent adapters
+ * compose features such as Agent State restore/export, sandbox preparation,
+ * tool-call overrides, and tracing without creating a deep stack of abstract
+ * base classes.
  */
-public interface AgentRuntimeExtension {
+public interface AgentRuntimeProvider {
 
     /** Prepare the execution context before the concrete handler runs. */
     default void beforeExecute(AgentExecutionContext context) {
@@ -20,4 +20,3 @@ public interface AgentRuntimeExtension {
     default void afterExecute(AgentExecutionContext context) {
     }
 }
-

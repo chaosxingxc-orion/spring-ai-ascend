@@ -1,13 +1,12 @@
 package com.huawei.ascend.runtime.engine;
 
 import com.huawei.ascend.runtime.common.Timing;
-import com.huawei.ascend.runtime.engine.service.AgentStateKey;
-import com.huawei.ascend.runtime.engine.service.AgentStateSnapshot;
 import com.huawei.ascend.runtime.engine.service.AgentStateStore;
 import com.huawei.ascend.runtime.engine.service.NoopAgentStateStore;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.spi.AgentRuntimeExtensions;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeProviders;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -68,10 +67,10 @@ public class EngineDispatcher {
             return;
         }
         long startedNanos = System.nanoTime();
-        AgentStateKey stateKey = AgentStateKey.from(scope);
-        Optional<AgentStateSnapshot> loadedState;
+        AgentExecutionContext context = new AgentExecutionContext(scope, command.getInput());
+        Optional<Map<String, Object>> loadedState;
         try {
-            loadedState = agentStateStore.load(stateKey);
+            loadedState = agentStateStore.load(context.getAgentStateKey());
         } catch (RuntimeException ex) {
             LOGGER.warn("engine agent state load failed tenantId={} sessionId={} taskId={} agentId={} errorClass={} message={}",
                     scope.tenantId(),
@@ -84,7 +83,7 @@ public class EngineDispatcher {
                     ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
             return;
         }
-        AgentExecutionContext context = new AgentExecutionContext(scope, command.getInput(), loadedState.orElse(null));
+        context.setAgentState(loadedState.orElse(null));
         LOGGER.info("engine handler start tenantId={} sessionId={} taskId={} agentId={} handler={} inputType={} inputMessages={}",
                 scope.tenantId(),
                 scope.sessionId(),
@@ -93,7 +92,7 @@ public class EngineDispatcher {
                 handler.getClass().getName(),
                 command.getInput().inputType(),
                 command.getInput().messages().size());
-        try (Stream<?> rawResults = AgentRuntimeExtensions.execute(handler, context);
+        try (Stream<?> rawResults = AgentRuntimeProviders.execute(handler, context);
                 Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(rawResults)) {
             results.peek(result -> LOGGER.info("engine handler result tenantId={} sessionId={} taskId={} agentId={} resultType={} outputLength={}",
                             scope.tenantId(),
@@ -141,9 +140,9 @@ public class EngineDispatcher {
     }
 
     private void saveAgentState(EngineExecutionScope scope, AgentExecutionContext context) {
-        context.getAgentState().ifPresent(snapshot -> {
+        context.getAgentState().ifPresent(state -> {
             try {
-                agentStateStore.save(snapshot);
+                agentStateStore.save(context.getAgentStateKey(), state);
             } catch (RuntimeException ex) {
                 LOGGER.warn("engine agent state save failed tenantId={} sessionId={} taskId={} agentId={} errorClass={} message={}",
                         scope.tenantId(),

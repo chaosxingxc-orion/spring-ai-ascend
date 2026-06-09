@@ -1,10 +1,10 @@
 /**
  * Engine-side middleware services.
  *
- * <p>These services are runtime APIs, not Agent framework SPIs. The first W1
- * service is Agent State: the engine loads a framework-neutral checkpoint before
- * invoking an {@code AgentRuntimeHandler}, and saves the checkpoint after the
- * handler finishes. This keeps interruption recovery close to execution while
- * keeping business state outside the runtime.
+ * <p>These services are runtime APIs, not Agent framework SPIs. Agent State
+ * lets the engine load a framework-neutral state map before invoking an
+ * {@code AgentRuntimeHandler}, and save it after the handler finishes. The key
+ * is supplied by business input so framework adapters do not hard-code tenant,
+ * session, or task layout into storage.
  */
 package com.huawei.ascend.runtime.engine.service;

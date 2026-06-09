@@ -21,13 +21,13 @@ public interface AgentRuntimeHandler {
     Stream<?> execute(AgentExecutionContext context);
 
     /**
-     * Optional runtime capabilities that decorate this handler.
+     * Optional runtime providers that decorate this handler.
      *
      * <p>The default keeps plain handlers lightweight. Handlers that need state,
      * sandbox, tool override, tracing, or similar features can opt in by returning
-     * extensions instead of growing another inheritance level.
+     * providers instead of growing another inheritance level.
      */
-    default List<AgentRuntimeExtension> extensions() {
+    default List<AgentRuntimeProvider> providers() {
         return List.of();
     }
 
