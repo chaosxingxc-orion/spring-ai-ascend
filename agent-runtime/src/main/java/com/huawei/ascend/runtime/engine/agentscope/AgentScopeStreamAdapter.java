@@ -36,7 +36,8 @@ public final class AgentScopeStreamAdapter implements StreamAdapter {
         String status = firstText(map, "status", "type", "event", "object");
         String text = firstText(map, "text", "output", "content", "delta");
         String error = firstText(map, "error", "error_message", "message");
-        if (contains(status, "error") || map.containsKey("error")) {
+        if (contains(status, "error") || contains(status, "fail") || contains(status, "exception")
+                || map.containsKey("error")) {
             return AgentExecutionResult.failed(firstText(map, "error_code", "code"), error);
         }
         if (contains(status, "interrupt") || contains(status, "input_required") || contains(status, "human")) {

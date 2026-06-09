@@ -30,4 +30,21 @@ class AgentScopeStreamAdapterTest {
         assertThat(results.get(2).errorCode()).isEqualTo("BAD");
         assertThat(results.get(3).prompt()).isEqualTo("city?");
     }
+
+    @Test
+    void mapsFailedStatusMapToFailedResult() {
+        AgentExecutionResult result = adapter.map(Map.of("status", "failed", "message", "boom"));
+
+        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.FAILED);
+        assertThat(result.errorMessage()).isEqualTo("boom");
+    }
+
+    @Test
+    void mapsFailureEventMapToFailedResult() {
+        AgentExecutionResult result = adapter.map(Map.of("event", "failure", "error_code", "BAD", "message", "boom"));
+
+        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.FAILED);
+        assertThat(result.errorCode()).isEqualTo("BAD");
+        assertThat(result.errorMessage()).isEqualTo("boom");
+    }
 }

@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Flow;
 import java.util.stream.Stream;
@@ -61,6 +60,22 @@ class AgentScopeRuntimeClientHandlerTest {
         assertThat(httpClient.body).contains("\"content\":[{");
         assertThat(httpClient.body).contains("\"type\":\"text\"");
         assertThat(httpClient.body).contains("\"text\":\"ping\"");
+    }
+
+    @Test
+    void runtimeClientPreservesIoFailureMessage() {
+        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
+                new FailingHttpClient(),
+                new ObjectMapper(),
+                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
+        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst().type()).isEqualTo(AgentExecutionResult.Type.FAILED);
+        assertThat(results.getFirst().errorCode()).isEqualTo("AGENTSCOPE_RUNTIME_IO");
+        assertThat(results.getFirst().errorMessage()).contains("connection refused");
     }
 
     private static AgentExecutionContext context() {
@@ -149,6 +164,73 @@ class AgentScopeRuntimeClientHandlerTest {
             return request.bodyPublisher()
                     .map(CapturingSubscriber::capture)
                     .orElse("");
+        }
+    }
+
+    private static final class FailingHttpClient extends HttpClient {
+        @Override
+        public <T> CompletableFuture<HttpResponse<T>> sendAsync(
+                HttpRequest request,
+                HttpResponse.BodyHandler<T> responseBodyHandler) {
+            throw new IllegalStateException("connection refused");
+        }
+
+        @Override
+        public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
+            throw new IllegalStateException("connection refused");
+        }
+
+        @Override
+        public <T> CompletableFuture<HttpResponse<T>> sendAsync(
+                HttpRequest request,
+                HttpResponse.BodyHandler<T> responseBodyHandler,
+                HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
+            return sendAsync(request, responseBodyHandler);
+        }
+
+        @Override
+        public Optional<CookieHandler> cookieHandler() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Duration> connectTimeout() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Redirect followRedirects() {
+            return Redirect.NEVER;
+        }
+
+        @Override
+        public Optional<ProxySelector> proxy() {
+            return Optional.empty();
+        }
+
+        @Override
+        public SSLContext sslContext() {
+            return null;
+        }
+
+        @Override
+        public SSLParameters sslParameters() {
+            return null;
+        }
+
+        @Override
+        public Optional<Authenticator> authenticator() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Version version() {
+            return Version.HTTP_1_1;
+        }
+
+        @Override
+        public Optional<Executor> executor() {
+            return Optional.empty();
         }
     }
 

@@ -49,13 +49,20 @@ public final class AgentScopeRuntimeClient {
                 .POST(HttpRequest.BodyPublishers.ofString(toJson(requestBody(invocation))))
                 .build();
         HttpResponse<Stream<String>> response = send(request);
+        if (response.statusCode() == 599) {
+            return readEvents(response.body());
+        }
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             return Stream.of(Map.of(
                     "status", "error",
                     "error_code", "AGENTSCOPE_RUNTIME_HTTP_" + response.statusCode(),
                     "message", "AgentScope runtime returned HTTP " + response.statusCode()));
         }
-        return response.body()
+        return readEvents(response.body());
+    }
+
+    private Stream<Map<String, Object>> readEvents(Stream<String> lines) {
+        return lines
                 .map(String::trim)
                 .filter(line -> line.startsWith("data:"))
                 .map(line -> line.substring("data:".length()).trim())

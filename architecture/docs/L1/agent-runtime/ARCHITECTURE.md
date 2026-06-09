@@ -45,7 +45,8 @@ stubbed to "fill the box" before the design phase exits.
 | `runtime.engine.spi` | framework-neutral runtime SPI: `AgentRuntimeHandler` (run one agent, surface its output), `StreamAdapter` (adapt a framework's native result stream into the neutral `AgentExecutionResult` stream), base `AbstractAgentRuntimeHandler`, carrier `AgentExecutionResult` |
 | `runtime.engine` (root) | engine dispatch + internals all flattened into the root: `EngineDispatcher` (routes a command to the matched handler), `EngineWorker` (internal command worker), the command events (`EngineCommandEvent` / `EngineCommandEventFactory` / `EngineCommandGateway` / `InternalEngineCommandGateway`), `EngineExecutionScope`, `EngineInput` / `EngineOutput`, the single `EngineEvent` record + `EngineEventKind` enum, and the outbound ports `TaskControlClient` + `AccessLayerClient` (engine → control / access; intra-service, not SPI) |
 | `runtime.engine.api` | inbound `EngineExecutionApi` (enqueue execute / resume / cancel) |
-| `runtime.engine.openjiuwen` | the first concrete `AgentRuntimeHandler` adapter (openJiuwen ReAct) |
+| `runtime.engine.openjiuwen` | concrete `AgentRuntimeHandler` adapter for openJiuwen ReAct agents |
+| `runtime.engine.agentscope` | concrete `AgentRuntimeHandler` adapters for AgentScope SDK, Harness, and REST/SSE runtime-client integration |
 | `runtime.access` | A2A protocol access layer flattened into the root (`AccessSubmissionService`, `AccessLayerConfiguration`, `AgentNotification` egress/notification ports) with the wire-protocol controllers + mappers under `runtime.access.a2a` (`A2aJsonRpcController`, `A2aWellKnownAgentCardController`, …) |
 | `runtime.session` | session management (`RuntimeSessionRepository` + in-memory impl) |
 | `runtime.control` | task-centric control — the single run-lifecycle authority (`TaskControlApi`) |
@@ -84,8 +85,9 @@ legal cross edge (Rule 10 / ArchUnit); there is no reverse edge.
 - the **framework-neutral runtime SPI** (`runtime.engine.spi`) —
   `AgentRuntimeHandler` runs one agent and surfaces its output; `StreamAdapter`
   adapts a framework's native result stream into the neutral `AgentExecutionResult`
-  stream; `AbstractAgentRuntimeHandler` is the convenience base. The first adapter
-  is `engine.openjiuwen` (openJiuwen ReAct);
+  stream; `AbstractAgentRuntimeHandler` is the convenience base. The shipped
+  adapters include `engine.openjiuwen` (openJiuwen ReAct) and
+  `engine.agentscope` (AgentScope SDK, Harness, and REST/SSE runtime client);
 - **engine dispatch** (`runtime.engine`) — `EngineDispatcher` routes an accepted
   command to the handler registered for its `agentId` (an unknown `agentId`
   converges to a terminal `AGENT_ID_INVALID` through the control authority, never
@@ -152,7 +154,8 @@ agent-runtime/
     │   ├── spi/                  # AgentRuntimeHandler, StreamAdapter,
     │   │                         #   AbstractAgentRuntimeHandler, AgentExecutionResult
     │   ├── api/                  # EngineExecutionApi (inbound enqueue)
-    │   └── openjiuwen/           # openJiuwen ReAct AgentRuntimeHandler adapter
+    │   ├── openjiuwen/           # openJiuwen ReAct AgentRuntimeHandler adapter
+    │   └── agentscope/           # AgentScope SDK / Harness / REST-SSE runtime adapters
     ├── access/                   # A2A protocol access ROOT (AccessSubmissionService,
     │   └── a2a/                  #   AgentNotification egress) + wire controllers/mappers
     │                             #   (A2aJsonRpcController, A2aWellKnownAgentCardController, …)
@@ -182,7 +185,7 @@ loci (`deployment_loci: [platform_centric, business_centric]`).
 
 | Interface FQN | SPI package | Purpose |
 |---|---|---|
-| `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` | `runtime.engine.spi` | The single framework-neutral runtime SPI: run one agent, surface its output (openJiuwen adapter first) |
+| `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` | `runtime.engine.spi` | The single framework-neutral runtime SPI: run one agent, surface its output through concrete adapters such as openJiuwen and AgentScope |
 | `com.huawei.ascend.runtime.engine.spi.StreamAdapter` | `runtime.engine.spi` | Adapt a framework's native result stream into the neutral `AgentExecutionResult` stream |
 
 Base class + carrier (NOT SPI interfaces):
