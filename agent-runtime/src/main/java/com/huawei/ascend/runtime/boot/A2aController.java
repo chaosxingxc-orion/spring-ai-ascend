@@ -16,9 +16,9 @@ import org.a2aproject.sdk.spec.TaskIdParams;
 import org.reactivestreams.FlowAdapters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,57 +26,64 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
 @RestController
-@ConditionalOnBean(RequestHandler.class)
 public class A2aController {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(A2aController.class);
 
-    private final RequestHandler requestHandler;
+    private final ObjectProvider<RequestHandler> requestHandlerProvider;
     private final ObjectMapper objectMapper;
 
-    public A2aController(RequestHandler requestHandler, ObjectMapper objectMapper) {
-        this.requestHandler = requestHandler;
+    public A2aController(ObjectProvider<RequestHandler> requestHandlerProvider, ObjectMapper objectMapper) {
+        this.requestHandlerProvider = requestHandlerProvider;
         this.objectMapper = objectMapper;
     }
 
-    // ── A2A JSON-RPC (agent card served by AgentCardController) ──
-
     @PostMapping(value = {"/a2a", "/a2a/"})
     public Object handle(@RequestBody String body) {
+        RequestHandler handler = requestHandlerProvider.getIfAvailable();
+        if (handler == null) {
+            LOGGER.warn("[A2A-ctrl] no RequestHandler available");
+            return ResponseEntity.status(503).body(
+                    error(null, "A2A request handler not available"));
+        }
         try {
             JsonNode root = objectMapper.readTree(body);
             String method = method(root);
             Object id = id(root);
-
+            LOGGER.info("[A2A-ctrl] request method={} id={}", method, id);
             if (method == null) {
                 return error(id, "Missing method");
             }
-
             return switch (method) {
-                case "message/stream" -> handleStream(id, root);
-                case "tasks/resubscribe" -> handleResubscribe(id, root);
-                default -> handleNonStream(id, root, method);
+                case "message/stream" -> handleStream(handler, id, root);
+                case "tasks/resubscribe" -> handleResubscribe(handler, id, root);
+                default -> handleNonStream(handler, id, root, method);
             };
         } catch (Exception e) {
-            LOGGER.error("A2A dispatch error", e);
+            LOGGER.error("[A2A-ctrl] dispatch error", e);
             return ResponseEntity.ok(error(null, e.getMessage()));
         }
     }
 
-    // ── Streaming ──
-
-    private SseEmitter handleStream(Object id, JsonNode root) {
+    private SseEmitter handleStream(RequestHandler handler, Object id, JsonNode root) {
         SseEmitter emitter = new SseEmitter(0L);
         try {
-            MessageSendParams params = objectMapper.treeToValue(
-                    root.get("params"), MessageSendParams.class);
-            Flow.Publisher<StreamingEventKind> publisher =
-                    requestHandler.onMessageSendStream(params, serverCallContext());
-            Flux<StreamingEventKind> flux = Flux.from(FlowAdapters.toPublisher(publisher));
-            flux.subscribe(
-                    event -> sendSse(emitter, id, event),
-                    error -> { sendSseError(emitter, id, error); emitter.complete(); },
-                    () -> emitter.complete());
+            MessageSendParams params = objectMapper.treeToValue(root.get("params"), MessageSendParams.class);
+            LOGGER.info("[A2A-ctrl] stream params msgRole={} taskId={} contextId={}",
+                    params.message() != null ? params.message().role() : "null",
+                    params.message() != null ? params.message().taskId() : "null",
+                    params.message() != null ? params.message().contextId() : "null");
+            Flow.Publisher<StreamingEventKind> publisher = handler.onMessageSendStream(params, serverCallContext());
+            Flux.from(FlowAdapters.toPublisher(publisher))
+                    .doOnSubscribe(s -> LOGGER.info("[A2A-ctrl] sse subscribed id={}", id))
+                    .doOnNext(event -> LOGGER.info("[A2A-ctrl] sse event id={} kind={}", id,
+                            event != null ? event.getClass().getSimpleName() : "null"))
+                    .doOnComplete(() -> LOGGER.info("[A2A-ctrl] sse complete id={}", id))
+                    .doOnError(e -> LOGGER.error("[A2A-ctrl] sse error id={}", id, e))
+                    .subscribe(
+                            event -> sendSse(emitter, id, event),
+                            error -> { sendSseError(emitter, id, error); emitter.complete(); },
+                            () -> emitter.complete());
         } catch (Exception e) {
             sendSseError(emitter, id, e);
             emitter.complete();
@@ -84,20 +91,23 @@ public class A2aController {
         return emitter;
     }
 
-    private SseEmitter handleResubscribe(Object id, JsonNode root) {
+    private SseEmitter handleResubscribe(RequestHandler handler, Object id, JsonNode root) {
         SseEmitter emitter = new SseEmitter(0L);
         try {
             JsonNode params = root.get("params");
-            TaskIdParams taskParams = new TaskIdParams(
-                    params.get("id").asText(),
+            TaskIdParams taskParams = new TaskIdParams(params.get("id").asText(),
                     params.has("tenant") ? params.get("tenant").asText() : null);
-            Flow.Publisher<StreamingEventKind> publisher =
-                    requestHandler.onSubscribeToTask(taskParams, serverCallContext());
-            Flux<StreamingEventKind> flux = Flux.from(FlowAdapters.toPublisher(publisher));
-            flux.subscribe(
-                    event -> sendSse(emitter, id, event),
-                    error -> { sendSseError(emitter, id, error); emitter.complete(); },
-                    () -> emitter.complete());
+            Flow.Publisher<StreamingEventKind> publisher = handler.onSubscribeToTask(taskParams, serverCallContext());
+            Flux.from(FlowAdapters.toPublisher(publisher))
+                    .doOnSubscribe(s -> LOGGER.info("[A2A-ctrl] sse subscribed id={}", id))
+                    .doOnNext(event -> LOGGER.info("[A2A-ctrl] sse event id={} kind={}", id,
+                            event != null ? event.getClass().getSimpleName() : "null"))
+                    .doOnComplete(() -> LOGGER.info("[A2A-ctrl] sse complete id={}", id))
+                    .doOnError(e -> LOGGER.error("[A2A-ctrl] sse error id={}", id, e))
+                    .subscribe(
+                            event -> sendSse(emitter, id, event),
+                            error -> { sendSseError(emitter, id, error); emitter.complete(); },
+                            () -> emitter.complete());
         } catch (Exception e) {
             sendSseError(emitter, id, e);
             emitter.complete();
@@ -105,28 +115,18 @@ public class A2aController {
         return emitter;
     }
 
-    // ── Non-streaming ──
-
-    private ResponseEntity<String> handleNonStream(Object id, JsonNode root, String method) {
+    private ResponseEntity<String> handleNonStream(RequestHandler handler, Object id, JsonNode root, String method) {
         try {
             Object result = switch (method) {
-                case "message/send" -> {
-                    MessageSendParams params = objectMapper.treeToValue(
-                            root.get("params"), MessageSendParams.class);
-                    yield requestHandler.onMessageSend(params, serverCallContext());
-                }
-                case "tasks/get" -> {
-                    String taskId = root.get("params").get("id").asText();
-                    yield requestHandler.onGetTask(
-                            new org.a2aproject.sdk.spec.TaskQueryParams(taskId),
-                            serverCallContext());
-                }
-                case "tasks/cancel" -> {
-                    String taskId = root.get("params").get("id").asText();
-                    yield requestHandler.onCancelTask(
-                            new org.a2aproject.sdk.spec.CancelTaskParams(taskId),
-                            serverCallContext());
-                }
+                case "message/send" -> handler.onMessageSend(
+                        objectMapper.treeToValue(root.get("params"), MessageSendParams.class),
+                        serverCallContext());
+                case "tasks/get" -> handler.onGetTask(
+                        new org.a2aproject.sdk.spec.TaskQueryParams(root.get("params").get("id").asText()),
+                        serverCallContext());
+                case "tasks/cancel" -> handler.onCancelTask(
+                        new org.a2aproject.sdk.spec.CancelTaskParams(root.get("params").get("id").asText()),
+                        serverCallContext());
                 default -> throw new IllegalArgumentException("Unknown method: " + method);
             };
             return ResponseEntity.ok(toJsonRpcResponse(id, result));
@@ -135,13 +135,10 @@ public class A2aController {
         }
     }
 
-    // ── Helpers ──
-
     private void sendSse(SseEmitter emitter, Object id, StreamingEventKind event) {
         try {
-            String data = objectMapper.writeValueAsString(
-                    new SendStreamingMessageResponse(id, event));
-            emitter.send(ServerSentEvent.builder().event("jsonrpc").data(data).build());
+            emitter.send(ServerSentEvent.builder().event("jsonrpc")
+                    .data(objectMapper.writeValueAsString(new SendStreamingMessageResponse(id, event))).build());
         } catch (IOException e) {
             emitter.completeWithError(e);
         }
@@ -149,49 +146,43 @@ public class A2aController {
 
     private void sendSseError(SseEmitter emitter, Object id, Throwable error) {
         try {
-            String data = objectMapper.writeValueAsString(
-                    new SendStreamingMessageResponse(id, new InternalError(error.getMessage())));
-            emitter.send(ServerSentEvent.builder().event("error").data(data).build());
-        } catch (IOException ignored) {
-        }
+            emitter.send(ServerSentEvent.builder().event("error")
+                    .data(objectMapper.writeValueAsString(
+                            new SendStreamingMessageResponse(id, new InternalError(error.getMessage())))).build());
+        } catch (IOException ignored) {}
     }
 
     private String toJsonRpcResponse(Object id, Object result) throws Exception {
-        Map<String, Object> response = new HashMap<>();
-        response.put("jsonrpc", "2.0");
-        response.put("id", id);
-        response.put("result", result);
-        return objectMapper.writeValueAsString(response);
+        Map<String, Object> r = new HashMap<>();
+        r.put("jsonrpc", "2.0"); r.put("id", id); r.put("result", result);
+        return objectMapper.writeValueAsString(r);
+    }
+
+    private String error(Object id, String message) {
+        return toJsonRpcError(id, message);
     }
 
     private String toJsonRpcError(Object id, String message) {
         try {
-            Map<String, Object> error = new HashMap<>();
-            error.put("code", -32603);
-            error.put("message", message);
-            Map<String, Object> response = new HashMap<>();
-            response.put("jsonrpc", "2.0");
-            response.put("id", id);
-            response.put("error", error);
-            return objectMapper.writeValueAsString(response);
+            Map<String, Object> err = new HashMap<>();
+            err.put("code", -32603);
+            err.put("message", message);
+            Map<String, Object> r = new HashMap<>();
+            r.put("jsonrpc", "2.0"); r.put("id", id); r.put("error", err);
+            return objectMapper.writeValueAsString(r);
         } catch (Exception e) {
             return "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32603,\"message\":\"internal\"}}";
         }
     }
 
     private String method(JsonNode root) {
-        JsonNode method = root.get("method");
-        return method == null ? null : method.asText();
+        JsonNode m = root.get("method");
+        return m == null ? null : m.asText();
     }
 
     private Object id(JsonNode root) {
-        JsonNode id = root.get("id");
-        return id == null || id.isNull() ? null :
-                id.isTextual() ? id.asText() : id.asInt();
-    }
-
-    private String error(Object id, String message) {
-        return toJsonRpcError(id, message);
+        JsonNode i = root.get("id");
+        return i == null || i.isNull() ? null : i.isTextual() ? i.asText() : i.asInt();
     }
 
     private static ServerCallContext serverCallContext() {

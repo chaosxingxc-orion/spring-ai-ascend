@@ -99,17 +99,28 @@ public class RuntimeAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(AgentRuntimeHandler.class)
     public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers) {
-        AgentRuntimeHandler handler = handlers.orderedStream().findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "No AgentRuntimeHandler bean registered"));
+        AgentRuntimeHandler handler = handlers.orderedStream().findFirst().orElse(null);
+        if (handler == null) {
+            return new NoopAgentExecutor();
+        }
         return new A2aAgentExecutor(handler);
+    }
+
+    /** No-op when no handler registered (gateway-only deployments). */
+    private static class NoopAgentExecutor implements AgentExecutor {
+        @Override public void execute(org.a2aproject.sdk.server.agentexecution.RequestContext ctx,
+                                       org.a2aproject.sdk.server.tasks.AgentEmitter emitter) {
+            emitter.fail();
+        }
+        @Override public void cancel(org.a2aproject.sdk.server.agentexecution.RequestContext ctx,
+                                      org.a2aproject.sdk.server.tasks.AgentEmitter emitter) {
+            emitter.cancel();
+        }
     }
 
     @Bean
     @ConditionalOnMissingBean
-    @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(AgentExecutor.class)
     public RequestHandler a2aRequestHandler(
             AgentExecutor agentExecutor, InMemoryTaskStore store,
             QueueManager queueManager, PushNotificationConfigStore pushStore,

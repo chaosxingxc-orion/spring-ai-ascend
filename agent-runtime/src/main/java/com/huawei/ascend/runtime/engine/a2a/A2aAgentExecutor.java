@@ -1,8 +1,10 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
+import com.huawei.ascend.runtime.common.Message;
+import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.Timing;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.EngineInput;
-import com.huawei.ascend.runtime.common.Message;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import java.util.List;
@@ -11,20 +13,13 @@ import java.util.stream.Stream;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
 import org.a2aproject.sdk.server.agentexecution.RequestContext;
 import org.a2aproject.sdk.server.tasks.AgentEmitter;
-import org.a2aproject.sdk.spec.A2AError;
 import org.a2aproject.sdk.spec.TextPart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Bridges A2A SDK {@link AgentExecutor} to our {@link AgentRuntimeHandler} SPI.
- * Each framework adapter (openjiuwen, agentscope, etc.) supplies a handler;
- * this class handles the A2A protocol concerns — context mapping, result routing,
- * agent-card discovery — so framework adapters focus only on agent execution.
- */
 public final class A2aAgentExecutor implements AgentExecutor {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(A2aAgentExecutor.class);
+    private static final Logger LOG = LoggerFactory.getLogger(A2aAgentExecutor.class);
 
     private final AgentRuntimeHandler handler;
 
@@ -33,50 +28,93 @@ public final class A2aAgentExecutor implements AgentExecutor {
     }
 
     @Override
-    public void execute(RequestContext ctx, AgentEmitter emitter) throws A2AError {
-        LOGGER.info("a2a execute start taskId={} agentId={}", ctx.getTaskId(), handler.agentId());
+    public void execute(RequestContext ctx, AgentEmitter emitter) {
+        long startedNanos = System.nanoTime();
+        String taskId = ctx.getTaskId();
+        String sessionId = ctx.getContextId();
+        String agentId = handler.agentId();
+        LOG.info("[A2A] execute start taskId={} sessionId={} agentId={}", taskId, sessionId, agentId);
+
+        // ── SUBMITTED → WORKING ──
         emitter.startWork();
+        LOG.info("[A2A] task state=WORKING taskId={}", taskId);
+
+        String inputText = extractText(ctx);
+        LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
 
         try (Stream<?> raw = handler.execute(toExecutionContext(ctx));
              Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
-            results.forEach(result -> route(result, emitter));
+
+            results.forEach(result -> {
+                LOG.info("[A2A] result taskId={} type={} outputChars={}",
+                        taskId, result.type(),
+                        result.output() != null && result.output().getContent() != null
+                                ? result.output().getContent().length() : 0);
+                route(result, emitter, taskId);
+            });
+            LOG.info("[A2A] execute finish taskId={} durationMs={}",
+                    taskId, Timing.elapsedMs(startedNanos));
+
         } catch (Exception e) {
-            LOGGER.error("a2a execute failed taskId={}", ctx.getTaskId(), e);
+            LOG.error("[A2A] execute failed taskId={} errorClass={} message={}",
+                    taskId, e.getClass().getSimpleName(), e.getMessage(), e);
             emitter.fail();
+            LOG.info("[A2A] task state=FAILED taskId={}", taskId);
         }
     }
 
     @Override
     public void cancel(RequestContext ctx, AgentEmitter emitter) {
+        LOG.info("[A2A] cancel requested taskId={}", ctx.getTaskId());
         emitter.cancel();
+        LOG.info("[A2A] task state=CANCELED taskId={}", ctx.getTaskId());
     }
 
-    private void route(AgentExecutionResult result, AgentEmitter emitter) {
+    private void route(AgentExecutionResult result, AgentEmitter emitter, String taskId) {
         switch (result.type()) {
             case OUTPUT -> {
-                if (result.output() != null && result.output().getContent() != null) {
-                    emitter.sendMessage(result.output().getContent());
-                }
+                String text = outputText(result);
+                LOG.info("[A2A] output stream taskId={} textChars={}", taskId, text.length());
+                emitter.sendMessage(text);
+                // state stays WORKING — more output may follow
             }
-            case COMPLETED -> emitter.complete();
+            case COMPLETED -> {
+                // Send final output THEN complete — COMPLETED result carries output text
+                String text = outputText(result);
+                if (!text.isBlank()) {
+                    LOG.info("[A2A] output final taskId={} textChars={}", taskId, text.length());
+                    emitter.sendMessage(text);
+                }
+                emitter.complete();
+                LOG.info("[A2A] task state=COMPLETED taskId={}", taskId);
+            }
             case FAILED -> {
                 String code = result.errorCode() == null ? "RUNTIME_ERROR" : result.errorCode();
                 String msg = result.errorMessage() == null ? code : result.errorMessage();
+                LOG.warn("[A2A] task state=FAILED taskId={} code={} message={}", taskId, code, msg);
                 emitter.fail();
             }
             case INTERRUPTED -> {
                 String prompt = result.prompt() == null ? "" : result.prompt();
-                emitter.sendMessage(prompt);
+                LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} prompt={}", taskId, prompt);
+                if (!prompt.isBlank()) {
+                    emitter.sendMessage(prompt);
+                }
                 emitter.requiresInput();
             }
         }
+    }
+
+    private static String outputText(AgentExecutionResult result) {
+        return result.output() != null && result.output().getContent() != null
+                ? result.output().getContent() : "";
     }
 
     private AgentExecutionContext toExecutionContext(RequestContext ctx) {
         String text = extractText(ctx);
         List<Message> messages = List.of(Message.user(text));
         return new AgentExecutionContext(
-                new com.huawei.ascend.runtime.common.RuntimeIdentity(
+                new RuntimeIdentity(
                         ctx.getTenant() != null ? ctx.getTenant() : "default",
                         metadata(ctx, "userId", "system"),
                         metadata(ctx, "agentId", handler.agentId()),
@@ -85,7 +123,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 new EngineInput("USER_MESSAGE", messages, Map.of()));
     }
 
-    private String extractText(RequestContext ctx) {
+    private static String extractText(RequestContext ctx) {
         if (ctx.getMessage() == null || ctx.getMessage().parts() == null) return "";
         return ctx.getMessage().parts().stream()
                 .filter(TextPart.class::isInstance)
