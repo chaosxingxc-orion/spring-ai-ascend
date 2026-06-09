@@ -2,10 +2,8 @@ package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import com.huawei.ascend.runtime.common.Guards;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
-import com.openjiuwen.core.runner.Runner;
 import java.util.Map;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -92,22 +90,6 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
             return resultMapper.map((Map<String, Object>) map);
         }
         return resultMapper.map(Map.of("result_type", "answer", "output", String.valueOf(rawResult)));
-    }
-
-    protected void safeRelease(AgentExecutionContext context) {
-        try {
-            Runner.release(context.getAgentStateKey());
-        } catch (Exception ignored) {
-            // best-effort cleanup; release failures must not mask the result
-        }
-    }
-
-    protected void safeRelease(EngineExecutionScope scope) {
-        try {
-            Runner.release(scope.taskId());
-        } catch (Exception ignored) {
-            // best-effort cleanup; release failures must not mask the result
-        }
     }
 
     protected static String errorMessage(Throwable error) {
