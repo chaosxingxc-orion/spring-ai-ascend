@@ -82,6 +82,20 @@ affects_artefact: ["agent-runtime/src/main/java/com/huawei/ascend/runtime/engine
 - Provider 的 `beforeExecute(context)` 按注册顺序执行，`afterExecute(context)` 按反向顺序执行。
 - 如果某个 `beforeExecute(context)` 失败，只反向清理已经成功进入的 Provider，不执行 handler 本体。
 
+核心点：**能力用组合，不用继承树**。
+
+### 4.4.1 Agent Card Metadata Split
+
+本轮主动把 Agent Card 声明从具体 handler 实现中摘出来。原因是：
+
+- `AgentRuntimeHandler` 的职责是执行一个业务 Agent。
+- `AgentCardProvider` 的职责是声明这个 runtime 对外暴露的 A2A 元数据。
+- 执行职责和协议元数据职责可以同时由一个类承担，但不应强制绑定。
+- OpenJiuwen handler 当前只实现 `AgentRuntimeHandler`，保持 adapter 关注执行和状态桥接。
+- Access 层优先使用可选 `AgentCardProvider` Bean；如果没有 provider，就使用默认 Agent Card。
+
+这个拆分给后续框架接入留出两条路径：简单业务方可以继承 `AbstractAgentRuntimeHandler` 复用默认 card 能力；复杂业务方可以把 handler、card provider、state provider 分别作为独立 Bean 组合起来。
+
 当前公开 Provider：
 
 - `AgentRuntimeProvider`：通用生命周期 Provider。
