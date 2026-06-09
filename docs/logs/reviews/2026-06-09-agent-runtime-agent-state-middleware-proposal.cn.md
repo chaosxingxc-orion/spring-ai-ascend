@@ -150,7 +150,7 @@ OpenJiuwen 文档与源码主线是：
 2. 对外提供 `openJiuwenConversationId(context)`，让子类调用 `Runner.runAgent(agent, input, conversationId, null)`。
 3. 不在每次执行 finally 中调用 `Runner.release(...)`；release 只代表会话结束或业务显式清理，否则会破坏多轮恢复。
 
-当前 sample 显式调用 `CheckpointerFactory.setDefaultCheckpointer(new InMemoryCheckpointer())`。生产态如需持久化，应按 OpenJiuwen 自身机制替换为 `RedisCheckpointer` 或其他 OpenJiuwen checkpointer；OpenJiuwen adapter 不需要变化。
+当前 sample 在配置阶段同时实例化 `InMemoryCheckpointer` 和 `RedisCheckpointer` 两个 OpenJiuwen 原生 checkpointer 候选，默认通过 `CheckpointerFactory.setDefaultCheckpointer(...)` 选择 `InMemoryCheckpointer`，便于本地 E2E。需要演示持久化路径时，通过 `sample.openjiuwen.checkpointer=redis` / `SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis` 和 `sample.openjiuwen.redis-url` / `SAA_SAMPLE_OPENJIUWEN_REDIS_URL` 切换到 `RedisCheckpointer`；OpenJiuwen adapter 不需要变化。
 
 ## 5. Failure Semantics
 
@@ -171,7 +171,7 @@ OpenJiuwen 文档与源码主线是：
 | State provider marker | Implemented | `StateProvider`，用于可选生命周期桥接，不强制所有框架使用 |
 | Store-free handler | Implemented | handler 只读写 `AgentExecutionContext` |
 | OpenJiuwen native checkpointer configuration | Implemented | 使用稳定 `conversation_id` 接入 OpenJiuwen `Runner` / `Checkpointer` |
-| OpenJiuwen checkpointer direct setup | Implemented | sample 直接 `CheckpointerFactory.setDefaultCheckpointer(new InMemoryCheckpointer())` |
+| OpenJiuwen checkpointer direct setup | Implemented | sample 同时实例化 InMemory / Redis 候选，默认 set InMemory，可配置切换 Redis |
 | Snapshot/revision | Deferred | 不在当前最小版本实现 |
 | Mem integration | Deferred | 后续作为独立 Provider 或 middleware 扩展 |
 
@@ -215,6 +215,6 @@ Open findings:
 - `AgentStateStore.save` 当前没有 CAS/fencing，后续 durable backend 必须补齐。
 - W1 save 失败只记录日志；生产态需要告警和补偿。
 - Mem 未实现，需要单独 proposal/PR。
-- OpenJiuwen sample 当前使用 `InMemoryCheckpointer` 打样；durable backend 需要由业务按 OpenJiuwen 标准方式切换到 `RedisCheckpointer` 等实现。
+- OpenJiuwen sample 默认使用 `InMemoryCheckpointer` 打样，同时保留 `RedisCheckpointer` 配置分支；生产态仍需业务提供真实 Redis 服务、连接安全与运维策略。
 
 No ship-blocking finding for the W1 in-memory Agent State capability.

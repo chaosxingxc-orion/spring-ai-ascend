@@ -2,20 +2,21 @@ package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.huawei.ascend.runtime.common.Message;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.EngineExecutionScope;
 import com.huawei.ascend.runtime.engine.EngineInput;
-import com.huawei.ascend.runtime.common.Message;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeProviders;
+import com.openjiuwen.core.runner.Runner;
+import com.openjiuwen.core.session.AgentSessionApi;
+import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.checkpointer.Checkpointer;
 import com.openjiuwen.core.session.checkpointer.CheckpointerFactory;
 import com.openjiuwen.core.session.checkpointer.InMemoryCheckpointer;
-import com.openjiuwen.core.session.AgentSessionApi;
-import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.stream.StreamMode;
-import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
+import com.openjiuwen.extensions.checkpointer.redis.RedisCheckpointer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -98,6 +99,14 @@ class OpenJiuwenAgentRuntimeHandlerTest {
             CheckpointerFactory.getCheckpointer().release("task-1");
             CheckpointerFactory.setDefaultCheckpointer(previous);
         }
+    }
+
+    @Test
+    void openJiuwenRedisCheckpointerCanBeInstantiatedByUrlConfiguration() {
+        Checkpointer checkpointer = new RedisCheckpointer.Provider()
+                .create(Map.of("connection", Map.of("url", "redis://localhost:6379")));
+
+        assertThat(checkpointer).isInstanceOf(RedisCheckpointer.class);
     }
 
     private static AgentExecutionContext context() {

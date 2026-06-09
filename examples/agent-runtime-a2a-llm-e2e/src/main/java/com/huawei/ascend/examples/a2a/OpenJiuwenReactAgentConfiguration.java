@@ -11,7 +11,9 @@ import com.openjiuwen.core.session.checkpointer.InMemoryCheckpointer;
 import com.openjiuwen.core.singleagent.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
+import com.openjiuwen.extensions.checkpointer.redis.RedisCheckpointer;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -26,10 +28,21 @@ public class OpenJiuwenReactAgentConfiguration {
     static final String AGENT_ID = "openjiuwen-react-agent";
 
     @Bean
-    Checkpointer openJiuwenCheckpointer() {
-        Checkpointer checkpointer = new InMemoryCheckpointer();
-        CheckpointerFactory.setDefaultCheckpointer(checkpointer);
-        return checkpointer;
+    Checkpointer openJiuwenCheckpointer(
+            @Value("${sample.openjiuwen.checkpointer:${SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER:in-memory}}")
+            String checkpointerType,
+            @Value("${sample.openjiuwen.redis-url:${SAA_SAMPLE_OPENJIUWEN_REDIS_URL:redis://localhost:6379}}")
+            String redisUrl) {
+        Checkpointer inMemoryCheckpointer = new InMemoryCheckpointer();
+        Checkpointer redisCheckpointer = new RedisCheckpointer.Provider()
+                .create(Map.of("connection", Map.of("url", redisUrl)));
+        Checkpointer selected = isRedisCheckpointer(checkpointerType) ? redisCheckpointer : inMemoryCheckpointer;
+        CheckpointerFactory.setDefaultCheckpointer(selected);
+        return selected;
+    }
+
+    private static boolean isRedisCheckpointer(String checkpointerType) {
+        return "redis".equals(String.valueOf(checkpointerType).trim().toLowerCase(Locale.ROOT));
     }
 
     @Bean
