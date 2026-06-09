@@ -56,6 +56,25 @@ affects_artefact: ["agent-runtime/src/main/java/com/huawei/ascend/runtime/engine
 
 业务状态字段应由具体 Agent 框架在自己的 session state 中读写；runtime 只负责把框架状态整体装入 adapter envelope，再存入业务指定的 `agentStateKey` 下。
 
+存储形状示例：
+
+```text
+AgentStateStore
+  key = 业务自定义 agentStateKey
+  value = {
+    "openjiuwen.sessionId": "...",        // OpenJiuwenAgentRuntimeHandler.STATE_SESSION_ID
+    "openjiuwen.state": {                 // OpenJiuwenAgentRuntimeHandler.STATE_VALUES
+       "global_state": {
+          "turn": 2,
+          "orderStatus": "...",
+          ...
+       }
+    }
+  }
+```
+
+`openjiuwen.sessionId` / `openjiuwen.state` 是 OpenJiuwen adapter 的 envelope 字段，用来把 `AgentSessionApi.getSessionId()` 和 `AgentSessionApi.dumpState()` 的结果保存进 runtime state。业务方不应直接修改这两个字段名；如果随意改名，下一次执行时 `openJiuwenSession(...)` 将无法找到旧 session id 或旧 state，也就无法调用 `session.updateState(...)` 恢复 OpenJiuwen 状态。
+
 ### 4.2 AgentExecutionContext
 
 `AgentExecutionContext` 增加：
