@@ -23,23 +23,40 @@ public final class AgentRuntimeExtensions {
 
     public static Stream<?> execute(AgentRuntimeHandler handler, AgentExecutionContext context) {
         List<AgentRuntimeExtension> extensions = List.copyOf(handler.extensions());
-        extensions.forEach(extension -> extension.beforeExecute(context));
+        int enteredExtensions = 0;
+        try {
+            for (AgentRuntimeExtension extension : extensions) {
+                extension.beforeExecute(context);
+                enteredExtensions++;
+            }
+        } catch (RuntimeException ex) {
+            closeEntered(extensions, context, enteredExtensions);
+            throw ex;
+        }
         AtomicBoolean closed = new AtomicBoolean(false);
         try {
             Stream<?> results = Objects.requireNonNull(handler.execute(context), "handler result stream");
-            return results.onClose(() -> closeOnce(extensions, context, closed));
+            return results.onClose(() -> closeOnce(extensions, context, extensions.size(), closed));
         } catch (RuntimeException ex) {
-            closeOnce(extensions, context, closed);
+            closeOnce(extensions, context, extensions.size(), closed);
             throw ex;
         }
     }
 
     private static void closeOnce(
-            List<AgentRuntimeExtension> extensions, AgentExecutionContext context, AtomicBoolean closed) {
+            List<AgentRuntimeExtension> extensions,
+            AgentExecutionContext context,
+            int enteredExtensions,
+            AtomicBoolean closed) {
         if (!closed.compareAndSet(false, true)) {
             return;
         }
-        for (int index = extensions.size() - 1; index >= 0; index--) {
+        closeEntered(extensions, context, enteredExtensions);
+    }
+
+    private static void closeEntered(
+            List<AgentRuntimeExtension> extensions, AgentExecutionContext context, int enteredExtensions) {
+        for (int index = enteredExtensions - 1; index >= 0; index--) {
             AgentRuntimeExtension extension = extensions.get(index);
             try {
                 extension.afterExecute(context);
@@ -56,4 +73,3 @@ public final class AgentRuntimeExtensions {
         }
     }
 }
-

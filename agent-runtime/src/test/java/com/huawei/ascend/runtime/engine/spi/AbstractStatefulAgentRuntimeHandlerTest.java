@@ -1,6 +1,7 @@
 package com.huawei.ascend.runtime.engine.spi;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.EngineExecutionScope;
@@ -38,6 +39,18 @@ class AbstractStatefulAgentRuntimeHandlerTest {
         }
 
         assertThat(agent.events).containsExactly("state-before", "sandbox-before", "sandbox-after", "state-after");
+    }
+
+    @Test
+    void beforeExecuteFailureCleansUpAlreadyEnteredExtensions() {
+        BeforeFailureAgent agent = new BeforeFailureAgent();
+        AgentExecutionContext context = context();
+
+        assertThatThrownBy(() -> AgentRuntimeExtensions.execute(agent, context))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("sandbox denied");
+
+        assertThat(agent.events).containsExactly("state-before", "sandbox-before", "state-after");
     }
 
     private static AgentExecutionContext context() {
@@ -107,6 +120,47 @@ class AbstractStatefulAgentRuntimeHandlerTest {
         @Override
         public Stream<?> execute(AgentExecutionContext context) {
             return Stream.of("ok");
+        }
+
+        @Override
+        public StreamAdapter resultAdapter() {
+            return rawResults -> Stream.empty();
+        }
+    }
+
+    private static final class BeforeFailureAgent extends AbstractAgentRuntimeHandler {
+        private final java.util.ArrayList<String> events = new java.util.ArrayList<>();
+
+        private BeforeFailureAgent() {
+            super("agent", "Before Failure Agent", "Before failure test agent.");
+            addRuntimeExtension(new AgentRuntimeExtension() {
+                @Override
+                public void beforeExecute(AgentExecutionContext context) {
+                    events.add("state-before");
+                }
+
+                @Override
+                public void afterExecute(AgentExecutionContext context) {
+                    events.add("state-after");
+                }
+            });
+            addRuntimeExtension(new AgentRuntimeExtension() {
+                @Override
+                public void beforeExecute(AgentExecutionContext context) {
+                    events.add("sandbox-before");
+                    throw new IllegalStateException("sandbox denied");
+                }
+
+                @Override
+                public void afterExecute(AgentExecutionContext context) {
+                    events.add("sandbox-after");
+                }
+            });
+        }
+
+        @Override
+        public Stream<?> execute(AgentExecutionContext context) {
+            return Stream.of("should-not-run");
         }
 
         @Override

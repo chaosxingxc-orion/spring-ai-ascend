@@ -80,6 +80,7 @@ state extension `afterExecute(context)` 挂在 `Stream.onClose()` 上，只有 d
 - 继承 `AbstractAgentRuntimeHandler` 的 handler 可以在构造阶段通过 `addRuntimeExtension(...)` set 进多个能力。
 - `EngineDispatcher` 通过 `AgentRuntimeExtensions.execute(handler, context)` 统一执行扩展链，保证能力顺序、流关闭和异常隔离一致。
 - extension 的 `beforeExecute(context)` 按注册顺序执行，`afterExecute(context)` 按反向顺序执行。
+- 如果某个 `beforeExecute(context)` 失败，运行时只反向清理已经成功进入的 extension，不执行 handler 本体，也不调用未进入 extension 的 `afterExecute(context)`。
 
 本轮新增的 `AbstractStatefulAgentRuntimeHandler` 不再把状态能力写死在继承链里，而是作为兼容和示例基类：它在构造时注册一个 Agent State extension，并继续暴露：
 
@@ -108,6 +109,7 @@ state extension `afterExecute(context)` 挂在 `Stream.onClose()` 上，只有 d
 | Composable runtime extensions | Implemented | `AgentRuntimeExtension` + `AgentRuntimeExtensions` 统一编排 |
 | Optional restore/export hooks | Implemented | `AbstractStatefulAgentRuntimeHandler` 通过 state extension 提供兼容样例 |
 | Store-free handler base class | Implemented | handler 基类不持有 store |
+| Extension enter/cleanup discipline | Implemented | before 失败时清理已进入能力，避免后续沙箱/工具能力泄漏资源 |
 | OpenJiuwen state bridge | Implemented | `OpenJiuwenAgentRuntimeHandler` 通过 `AgentSessionApi.dumpState()/updateState(...)` 在 runtime Agent State 中保存/恢复 OpenJiuwen 状态 |
 | State load fail closed | Implemented | 不执行 handler |
 | Export/save failure isolation | Implemented | 不制造双终态 |
