@@ -1,12 +1,15 @@
 package com.huawei.ascend.runtime.engine.agentscope;
 
+import com.huawei.ascend.runtime.common.Guards;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
+import java.util.Objects;
 import java.util.stream.Stream;
 
-abstract class AbstractAgentScopeRuntimeHandler extends AbstractAgentRuntimeHandler {
+abstract class AbstractAgentScopeRuntimeHandler implements AgentRuntimeHandler {
 
+    private final String agentId;
     private final AgentScopeMessageAdapter messageAdapter;
     private final AgentScopeStreamAdapter streamAdapter;
 
@@ -20,9 +23,21 @@ abstract class AbstractAgentScopeRuntimeHandler extends AbstractAgentRuntimeHand
             String description,
             AgentScopeMessageAdapter messageAdapter,
             AgentScopeStreamAdapter streamAdapter) {
-        super(agentId, name, description);
+        this.agentId = Guards.requireNonBlank(agentId, "agentId");
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(description, "description");
         this.messageAdapter = messageAdapter;
         this.streamAdapter = streamAdapter;
+    }
+
+    @Override
+    public final String agentId() {
+        return agentId;
+    }
+
+    @Override
+    public boolean isHealthy() {
+        return true;
     }
 
     @Override
