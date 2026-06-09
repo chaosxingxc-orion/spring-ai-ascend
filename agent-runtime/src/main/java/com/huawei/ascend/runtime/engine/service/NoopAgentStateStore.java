@@ -4,8 +4,13 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Agent state store used by legacy/manual dispatcher wiring that has not opted
- * into middleware state yet.
+ * Compatibility-only duplicate Agent state store for legacy/manual dispatcher
+ * wiring.
+ *
+ * <p>Spring runtime wiring uses {@link InMemoryAgentStateStore}, or a
+ * user-provided {@link AgentStateStore} bean. This no-op implementation is kept
+ * only so older tests and SDK code that still call the two-argument
+ * {@code EngineDispatcher} constructor do not need to opt into state storage.
  */
 public final class NoopAgentStateStore implements AgentStateStore {
 
