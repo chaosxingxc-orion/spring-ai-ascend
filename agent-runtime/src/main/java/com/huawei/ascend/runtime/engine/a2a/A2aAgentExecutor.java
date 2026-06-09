@@ -29,8 +29,13 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
     @Override
     public void execute(RequestContext ctx, AgentEmitter emitter) {
-        long startedNanos = System.nanoTime();
         String taskId = ctx.getTaskId();
+        if (handler == null) {
+            LOG.warn("[A2A] no handler registered taskId={}", taskId);
+            emitter.fail();
+            return;
+        }
+        long startedNanos = System.nanoTime();
         String sessionId = ctx.getContextId();
         String agentId = handler.agentId();
         LOG.info("[A2A] execute start taskId={} sessionId={} agentId={}", taskId, sessionId, agentId);
