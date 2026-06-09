@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  examples/travel/agent-hotel — 差旅多智能体系统中的"酒店规划子智能体"
+  v3：进程内函数调用模式。纯 Java 库，不依赖 agent-runtime / Spring Boot Web。
+  A2A 接入留到 agent-runtime 具备后再做（届时可新增 examples/travel/agent-hotel-a2a wrapper 模块）。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend</groupId>
+    <artifactId>spring-ai-ascend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>agent-hotel</artifactId>
+  <packaging>jar</packaging>
+  <name>spring-ai-ascend agent-hotel example</name>
+  <description>
+    Hotel planning sub-agent for the corporate travel multi-agent system.
+    Library jar: exposes a HotelPlanningAgent Java entry point driven by
+    function calls from a host process. Backed by an openJiuwen ReAct agent
+    and an in-memory mock hotel inventory covering 31 provincial-capital /
+    municipality cities. The A2A service form is deferred until agent-runtime
+    is ready.
+  </description>
+
+  <properties>
+    <enforcer.skip>true</enforcer.skip>
+    <!-- 用户指定 0.1.12；参考例子用的是 0.1.7，实现期需验证 API 兼容性 -->
+    <openjiuwen.agent-core.version>0.1.12</openjiuwen.agent-core.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.openjiuwen</groupId>
+      <artifactId>agent-core-java</artifactId>
+      <version>${openjiuwen.agent-core.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>4.33.2</version>
+    </dependency>
+    <!-- mock 数据 JSON 解析 -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <!-- 测试 -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

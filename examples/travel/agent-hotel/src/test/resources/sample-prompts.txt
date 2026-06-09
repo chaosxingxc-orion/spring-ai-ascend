@@ -1,0 +1,20 @@
+# Sample natural-language prompts for hand-testing HotelPlanningAgent.
+# Run via the SampleMain class: each non-blank, non-comment line is one chat() call.
+#
+# Typical business-trip — strict policy
+员工 zhang3 出差北京 2026-06-16 至 2026-06-18。差标：每晚不超过 800 元、最低 4 星、协议品牌 全季/亚朵/希尔顿欢朋。偏好：国贸附近，需要会议室。
+
+# Loose policy — only city + dates + a hint of district
+出差上海一周（2026-06-20 到 2026-06-27），住陆家嘴附近就行。
+
+# High-end, no price constraint
+我是 li4，下周三到周五去广州出差，希望住 5 星酒店，最好带行政酒廊。
+
+# Economy / tight budget
+便宜点：6 月 22 日去成都两晚，每晚 300 元以内，不太在乎品牌。
+
+# Missing city — model should ask
+帮我找下下个月出差住的酒店，预算 600。
+
+# Follow-up detail query — after a search, ask for room types
+第 1 家酒店的房型详情发我看看。
