@@ -35,16 +35,16 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
     }
 
     protected OpenJiuwenAgentRuntimeHandler(String agentId, String description) {
-        this(agentId, agentId, description, new OpenJiuwenMessageAdapter(), new OpenJiuwenStreamAdapter());
+        this(agentId, defaultName(agentId), description, new OpenJiuwenMessageAdapter(), new OpenJiuwenStreamAdapter());
     }
 
     protected OpenJiuwenAgentRuntimeHandler(String agentId, OpenJiuwenMessageAdapter messageConverter) {
-        this(agentId, agentId, "openJiuwen agent " + agentId, messageConverter, new OpenJiuwenStreamAdapter());
+        this(agentId, defaultName(agentId), defaultDescription(agentId), messageConverter, new OpenJiuwenStreamAdapter());
     }
 
     OpenJiuwenAgentRuntimeHandler(String agentId, OpenJiuwenMessageAdapter messageConverter,
             OpenJiuwenStreamAdapter resultMapper) {
-        this(agentId, agentId, "openJiuwen agent " + agentId, messageConverter, resultMapper);
+        this(agentId, defaultName(agentId), defaultDescription(agentId), messageConverter, resultMapper);
     }
 
     OpenJiuwenAgentRuntimeHandler(String agentId, String name, String description,
@@ -129,6 +129,14 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             return text;
         }
         return fallback;
+    }
+
+    private static String defaultName(String agentId) {
+        return agentId;
+    }
+
+    private static String defaultDescription(String agentId) {
+        return "openJiuwen agent " + agentId;
     }
 
     private static Map<String, Object> stateMap(Object value) {
