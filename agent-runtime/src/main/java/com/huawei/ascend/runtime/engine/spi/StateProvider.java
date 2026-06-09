@@ -1,11 +1,15 @@
 package com.huawei.ascend.runtime.engine.spi;
 
 /**
- * Marker provider for framework state restore/export.
+ * Marker provider for framework state restore/export when a framework needs a
+ * manual state bridge.
  *
- * <p>The runtime still stores state through the neutral Agent State store. A
- * concrete agent framework implements this provider when it needs to translate
- * that neutral map into its own session/checkpoint mechanism.
+ * <p>The runtime stores the neutral Agent State map through
+ * {@code AgentStateStore}. A concrete agent framework implements this provider
+ * only when it needs lifecycle hooks to translate that neutral map into its own
+ * execution state. Frameworks with a native checkpointer, such as OpenJiuwen,
+ * can instead wire the checkpointer backend to {@code AgentStateStore} and skip
+ * this provider for the main checkpoint path.
  */
 public interface StateProvider extends AgentRuntimeProvider {
 }

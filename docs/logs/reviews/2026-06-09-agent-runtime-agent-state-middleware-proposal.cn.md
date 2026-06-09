@@ -18,7 +18,7 @@ affects_artefact: ["agent-runtime/src/main/java/com/huawei/ascend/runtime/engine
 
 `agent-runtime` 已经通过 `AgentRuntimeHandler` 统一承载不同 Agent 框架，但此前 `AgentExecutionContext` 只有 `scope + input`，没有框架无关的执行状态恢复入口。
 
-本提案落地第一版 Agent State 中间件：runtime 统一加载和保存状态，具体 Agent Adapter 只通过可选 Provider 把框架内部状态导入/导出到 `AgentExecutionContext`。Provider 不持有 Store，Store 也不理解具体 Agent 框架。
+本提案落地第一版 Agent State 中间件：runtime 提供统一 `AgentStateStore` 与可选 Provider 生命周期。对具备原生 checkpoint 的框架，优先把其 checkpointer 后端接到 `AgentStateStore`；对缺少原生 checkpoint 的框架，才通过可选 Provider 把框架内部状态导入/导出到 `AgentExecutionContext`。Provider 不持有 Store，Store 也不理解具体 Agent 框架。
 
 ## 2. Scope Statement
 
@@ -26,7 +26,7 @@ affects_artefact: ["agent-runtime/src/main/java/com/huawei/ascend/runtime/engine
 
 ## 3. Root Cause / Strongest Interpretation
 
-1. Agent 执行中断后，runtime 缺少一个统一位置保存和恢复框架无关的执行状态。
+1. Agent 执行中断后，runtime 缺少一个统一位置承载框架 checkpoint 或框架无关执行状态。
 2. 如果让每个 handler 自己持有 Store，会把状态存储细节泄漏到具体 Agent Adapter，破坏依赖倒置。
 3. 如果每加一个能力就新增 `AbstractXxxAgentRuntimeHandler`，后续 State、Mem、Sandbox、Tool Override 会形成深继承树。
 4. Agent Card 是 runtime 对外的协议元数据声明，不应强制每个业务 handler 通过继承基类或实现额外接口来获得。
@@ -54,7 +54,7 @@ affects_artefact: ["agent-runtime/src/main/java/com/huawei/ascend/runtime/engine
 - 业务自定义 key：`agentStateKey` / `stateKey`，用于决定 `AgentStateStore` 中这份状态的存取位置。业务可按订单、会话、流程实例或其他业务维度指定。
 - Adapter 内部 key：由具体 Agent 框架自行定义。对 OpenJiuwen 来说，本轮改为优先使用其原生 `conversation_id + Checkpointer` 机制，不再由 runtime 手工定义 `openjiuwen.sessionId` / `openjiuwen.state` envelope。
 
-业务状态字段应由具体 Agent 框架在自己的 session state / checkpoint 中读写；runtime 只负责提供稳定的业务状态 key，并在框架没有原生 checkpoint 时才考虑通过 Provider 做轻量桥接。
+业务状态字段应由具体 Agent 框架在自己的 session state / checkpoint 中读写；runtime 只负责提供稳定的业务状态 key。OpenJiuwen 这类具备原生 checkpoint 的框架走 checkpointer 后端桥接；框架没有原生 checkpoint 时才考虑通过 Provider 做轻量桥接。
 
 OpenJiuwen 当前推荐形状：
 
@@ -86,7 +86,9 @@ OpenJiuwen Runner / Checkpointer
 
 ### 4.3 Dispatcher Load / Save
 
-`EngineDispatcher` 在执行 handler 前：
+`EngineDispatcher` 的 load/save 只面向 `AgentExecutionContext` 里的框架无关状态 map，主要服务手工桥接型 Provider。它不是 OpenJiuwen checkpoint 的主存取路径；OpenJiuwen 的主路径是 `Runner` / `PersistenceCheckpointer` / `AgentStateStoreBackedOpenJiuwenKvStore`。
+
+对需要手工桥接状态的框架，`EngineDispatcher` 在执行 handler 前：
 
 1. 从 `AgentExecutionContext` 解析 state key。
 2. 通过 `AgentStateStore.load(key)` 加载状态。
@@ -95,6 +97,8 @@ OpenJiuwen Runner / Checkpointer
 5. 在 stream close 后读取 context 状态，并通过 `AgentStateStore.save(key, state)` 保存。
 
 `save` 必须发生在 try-with-resources 之后，因为 Provider 的 `afterExecute(context)` 挂在 stream close 语义上；提前保存会保存旧状态或空状态。
+
+如果 handler / Provider 没有调用 `context.replaceAgentState(...)` 或 `setAgentState(...)`，dispatcher 不会额外保存 OpenJiuwen checkpoint。OpenJiuwen checkpoint 由其原生 checkpointer 在执行过程中自行保存到 runtime 提供的 KV 后端。
 
 ### 4.4 Provider Composition
 
@@ -124,10 +128,10 @@ OpenJiuwen Runner / Checkpointer
 当前公开 Provider：
 
 - `AgentRuntimeProvider`：通用生命周期 Provider。
-- `StateProvider`：状态恢复/导出 Provider 标记，给 OpenJiuwen、未来 Mem 桥接和其他 Agent 框架打样。
+- `StateProvider`：状态恢复/导出 Provider 标记，给缺少原生 checkpoint 的 Agent 框架或未来 Mem 辅助上下文打样；OpenJiuwen checkpoint 主路径不依赖它。
 - `AgentCardProvider`：可选 Agent Card 声明 Provider。它不属于执行职责，OpenJiuwen handler 当前不强制实现它。
 
-本轮删除 `AbstractStatefulAgentRuntimeHandler`，并进一步删除只被测试使用的 `AbstractAgentRuntimeHandler`。需要状态的框架直接实现 `AgentRuntimeHandler`，然后通过 `providers()` 注册自己的 `StateProvider`。
+本轮删除 `AbstractStatefulAgentRuntimeHandler`，并进一步删除只被测试使用的 `AbstractAgentRuntimeHandler`。需要手工桥接状态的框架直接实现 `AgentRuntimeHandler`，然后通过 `providers()` 注册自己的 `StateProvider`；具备原生 checkpoint 的框架优先接入自己的 checkpointer 后端。
 
 ### 4.5 OpenJiuwen Native Checkpointer Bridge
 
@@ -162,10 +166,10 @@ OpenJiuwen 文档与源码主线是：
 |---|---|---|
 | Business-supplied state key | Implemented | `agentStateKey` / `stateKey`，fallback `taskId` |
 | Replaceable state store | Implemented | `AgentStateStore` + `InMemoryAgentStateStore` |
-| Dispatcher load/save | Implemented | Engine 统一拥有状态加载与保存时机 |
+| Dispatcher load/save | Implemented | 面向手工桥接型 Provider 的框架无关 state map；OpenJiuwen checkpoint 不走这条主路径 |
 | Composable runtime providers | Implemented | `AgentRuntimeProvider` + `AgentRuntimeProviders` |
 | Optional Agent Card provider | Implemented | `AgentCardProvider` 是可选能力；handler 不必强制实现 |
-| State provider marker | Implemented | `StateProvider` |
+| State provider marker | Implemented | `StateProvider`，用于可选生命周期桥接，不强制所有框架使用 |
 | Store-free handler | Implemented | handler 只读写 `AgentExecutionContext` |
 | OpenJiuwen native checkpointer bridge | Implemented | 使用稳定 `conversation_id` 接入 OpenJiuwen `Runner` / `PersistenceCheckpointer` |
 | OpenJiuwen checkpoint backed by AgentStateStore | Implemented | `AgentStateStoreBackedOpenJiuwenKvStore` + sample install default checkpointer |
@@ -176,7 +180,7 @@ OpenJiuwen 文档与源码主线是：
 
 - 新存储后端通过实现 `AgentStateStore` 注入，不修改 `EngineDispatcher`。
 - 新 Agent 框架通过实现 `AgentRuntimeHandler` 接入执行面；如需自定义 A2A Agent Card，再额外提供 `AgentCardProvider`。
-- 新能力通过 `AgentRuntimeProvider` / `StateProvider` 注入，不新增层层叠加的抽象基类。
+- 新能力通过 `AgentRuntimeProvider` / `StateProvider` 注入，不新增层层叠加的抽象基类；具备原生 checkpoint 的框架可以直接把后端接到 `AgentStateStore`。
 - handler 依赖 `AgentExecutionContext` 这个抽象 carrier，不依赖具体 Store。
 - Store 不理解 OpenJiuwen、Mem、Sandbox 或业务状态结构。
 
@@ -186,7 +190,7 @@ Mem 不应复用 `AgentStateStore` 存正文记忆。后续建议：
 
 - Agent State 只保存 `memoryRef`、`checkpointRef`、`cursor` 等小对象。
 - Mem 的 compact、budget、vector retrieval、长期检索由 Mem backend 负责。
-- Mem 可以通过新的 Provider 读取/写入 context，不需要新增 `AbstractMemoryAgentRuntimeHandler`。
+- Mem 可以通过新的 Provider 读取/写入 context，不需要新增 `AbstractMemoryAgentRuntimeHandler`；如果未来 Mem 有自己的持久化后端，也应优先桥接后端而不是强迫所有 handler 手工搬运状态。
 
 ## 9. Verification Plan
 
@@ -200,7 +204,7 @@ wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/d/repo/spring-ai-ascend && ./mvnw -pl a
 
 - dispatcher 能按业务 state key 加载/保存 state。
 - dispatcher 能兼容 `stateKey` 旧别名，并在未提供业务 key 时 fallback 到 `taskId`。
-- Provider 可 restore/export state。
+- Provider 可 restore/export state，且该能力是可选手工桥接路径。
 - Provider before 失败时只清理已进入 Provider。
 - state load 失败 fail closed。
 - OpenJiuwen session state 可跨同一 `conversation_id` / `agentStateKey` 恢复，且最终 checkpoint 写入 runtime `AgentStateStore`，不依赖 runtime 手工 `dumpState/updateState`。

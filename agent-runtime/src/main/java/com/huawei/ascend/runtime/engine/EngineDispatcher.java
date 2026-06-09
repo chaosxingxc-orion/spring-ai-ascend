@@ -15,8 +15,8 @@ import org.slf4j.LoggerFactory;
 /**
  * Pulls the {@code AgentRuntimeHandler} for a command, runs it, and routes each
  * resulting {@link EngineEvent} to the control plane. The engine reports every
- * outcome through {@link TaskControlClient} only — the single outbound write —
- * and control fans caller-facing egress out from there.
+ * outcome through {@link TaskControlClient} only: the single outbound write.
+ * Control fans caller-facing egress out from there.
  */
 public class EngineDispatcher {
 
@@ -44,8 +44,9 @@ public class EngineDispatcher {
             cancel(command);
             return;
         }
-        // EXECUTE and RESUME both run the handler; on RESUME the underlying agent
-        // framework restores prior state by conversation id (design §12.2).
+        // EXECUTE and RESUME both run the handler. Framework-native state restore
+        // happens inside the selected handler/checkpointer when supported; Provider
+        // hooks remain the generic lifecycle extension.
         runHandler(command);
     }
 
@@ -57,7 +58,7 @@ public class EngineDispatcher {
             handler = registry.findByAgentId(scope.agentId());
         } catch (RuntimeException ex) {
             // An unknown agentId must still converge the already-accepted task to a
-            // terminal outcome through the single control-plane authority — otherwise
+            // terminal outcome through the single control-plane authority; otherwise
             // the task hangs non-terminal and the SSE caller waits forever. Resolution
             // failures are an invalid-input failure, reported as AGENT_ID_INVALID.
             LOGGER.warn("engine handler unresolved tenantId={} sessionId={} taskId={} agentId={} message={}",
