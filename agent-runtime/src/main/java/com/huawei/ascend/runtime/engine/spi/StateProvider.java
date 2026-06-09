@@ -8,8 +8,8 @@ package com.huawei.ascend.runtime.engine.spi;
  * {@code AgentStateStore}. A concrete agent framework implements this provider
  * only when it needs lifecycle hooks to translate that neutral map into its own
  * execution state. Frameworks with a native checkpointer, such as OpenJiuwen,
- * can instead wire the checkpointer backend to {@code AgentStateStore} and skip
- * this provider for the main checkpoint path.
+ * can instead use their own checkpointer configuration and skip this provider
+ * for the main checkpoint path.
  */
 public interface StateProvider extends AgentRuntimeProvider {
 }

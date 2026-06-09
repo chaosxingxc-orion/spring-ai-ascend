@@ -18,7 +18,7 @@ affects_artefact: ["agent-runtime/src/main/java/com/huawei/ascend/runtime/engine
 
 `agent-runtime` 已经通过 `AgentRuntimeHandler` 统一承载不同 Agent 框架，但此前 `AgentExecutionContext` 只有 `scope + input`，没有框架无关的执行状态恢复入口。
 
-本提案落地第一版 Agent State 中间件：runtime 提供统一 `AgentStateStore` 与可选 Provider 生命周期。对具备原生 checkpoint 的框架，优先把其 checkpointer 后端接到 `AgentStateStore`；对缺少原生 checkpoint 的框架，才通过可选 Provider 把框架内部状态导入/导出到 `AgentExecutionContext`。Provider 不持有 Store，Store 也不理解具体 Agent 框架。
+本提案落地第一版 Agent State 中间件：runtime 提供统一 `AgentStateStore` 与可选 Provider 生命周期。对 OpenJiuwen 这类已经提供原生 checkpointer 的框架，runtime 不再重写其持久化后端，只负责传入稳定 `conversation_id`，并在 sample 中直接配置 OpenJiuwen 自带 checkpointer。对缺少原生 checkpoint 的框架，才通过可选 Provider 把框架内部状态导入/导出到 `AgentExecutionContext`。Provider 不持有 Store，Store 也不理解具体 Agent 框架。
 
 ## 2. Scope Statement
 
@@ -54,7 +54,7 @@ affects_artefact: ["agent-runtime/src/main/java/com/huawei/ascend/runtime/engine
 - 业务自定义 key：`agentStateKey` / `stateKey`，用于决定 `AgentStateStore` 中这份状态的存取位置。业务可按订单、会话、流程实例或其他业务维度指定。
 - Adapter 内部 key：由具体 Agent 框架自行定义。对 OpenJiuwen 来说，本轮改为优先使用其原生 `conversation_id + Checkpointer` 机制，不再由 runtime 手工定义 `openjiuwen.sessionId` / `openjiuwen.state` envelope。
 
-业务状态字段应由具体 Agent 框架在自己的 session state / checkpoint 中读写；runtime 只负责提供稳定的业务状态 key。OpenJiuwen 这类具备原生 checkpoint 的框架走 checkpointer 后端桥接；框架没有原生 checkpoint 时才考虑通过 Provider 做轻量桥接。
+业务状态字段应由具体 Agent 框架在自己的 session state / checkpoint 中读写；runtime 只负责提供稳定的业务状态 key。OpenJiuwen 这类具备原生 checkpoint 的框架直接使用自身 `InMemoryCheckpointer` / `RedisCheckpointer` 等实现；框架没有原生 checkpoint 时才考虑通过 Provider 做轻量桥接。
 
 OpenJiuwen 当前推荐形状：
 
@@ -68,11 +68,11 @@ OpenJiuwenMessageAdapter
 
 OpenJiuwen Runner / Checkpointer
   sessionId = conversation_id
-  state backend = AgentStateStore-backed OpenJiuwen KV store
+  state backend = OpenJiuwen native Checkpointer, such as InMemoryCheckpointer / RedisCheckpointer
   state value = OpenJiuwen 自己的 agent / workflow / graph checkpoint
 ```
 
-也就是说，业务方只需要保证 `agentStateKey` 稳定；OpenJiuwen 内部保存哪些字段、如何序列化、何时恢复，仍交给 OpenJiuwen 的 `Runner` / `PersistenceCheckpointer` 处理。runtime 负责提供 `BaseKVStore` adapter，把 OpenJiuwen checkpoint 最终落到 `AgentStateStore`。
+也就是说，业务方只需要保证 `agentStateKey` 稳定；OpenJiuwen 内部保存哪些字段、如何序列化、何时恢复，仍交给 OpenJiuwen 的 `Runner` / `Checkpointer` 处理。runtime 不再提供 `BaseKVStore` adapter；需要持久化时由业务按 OpenJiuwen 标准方式选择 Redis 或其他 checkpointer。
 
 ### 4.2 AgentExecutionContext
 
@@ -86,7 +86,7 @@ OpenJiuwen Runner / Checkpointer
 
 ### 4.3 Dispatcher Load / Save
 
-`EngineDispatcher` 的 load/save 只面向 `AgentExecutionContext` 里的框架无关状态 map，主要服务手工桥接型 Provider。它不是 OpenJiuwen checkpoint 的主存取路径；OpenJiuwen 的主路径是 `Runner` / `PersistenceCheckpointer` / `AgentStateStoreBackedOpenJiuwenKvStore`。
+`EngineDispatcher` 的 load/save 只面向 `AgentExecutionContext` 里的框架无关状态 map，主要服务手工桥接型 Provider。它不是 OpenJiuwen checkpoint 的主存取路径；OpenJiuwen 的主路径是 `Runner` / OpenJiuwen 自带 `Checkpointer`。
 
 对需要手工桥接状态的框架，`EngineDispatcher` 在执行 handler 前：
 
@@ -133,9 +133,9 @@ OpenJiuwen Runner / Checkpointer
 
 本轮删除 `AbstractStatefulAgentRuntimeHandler`，并进一步删除只被测试使用的 `AbstractAgentRuntimeHandler`。需要手工桥接状态的框架直接实现 `AgentRuntimeHandler`，然后通过 `providers()` 注册自己的 `StateProvider`；具备原生 checkpoint 的框架优先接入自己的 checkpointer 后端。
 
-### 4.5 OpenJiuwen Native Checkpointer Bridge
+### 4.5 OpenJiuwen Native Checkpointer Configuration
 
-调研 OpenJiuwen 0.1.7 / 0.1.12 后，本轮修正为：OpenJiuwen adapter 不再手工调用 `AgentSessionApi.updateState(...)` 和 `dumpState()` 搬运状态，而是使用 OpenJiuwen 原生 Runner 生命周期；同时通过 `AgentStateStoreBackedOpenJiuwenKvStore` 把 OpenJiuwen `PersistenceCheckpointer` 的 KV 后端接入 runtime `AgentStateStore`。
+调研 OpenJiuwen 0.1.7 / 0.1.12 后，本轮修正为：OpenJiuwen adapter 不再手工调用 `AgentSessionApi.updateState(...)` 和 `dumpState()` 搬运状态，也不再维护 runtime 自己的 OpenJiuwen KV 后端适配层，而是使用 OpenJiuwen 原生 Runner / Checkpointer 生命周期。
 
 OpenJiuwen 文档与源码主线是：
 
@@ -144,14 +144,13 @@ OpenJiuwen 文档与源码主线是：
 - `AgentSessionApi.postRun()` 会调用 `postAgentExecute(...)` 保存 agent state。
 - `RunnerImpl` 会优先从输入 map 中读取 `conversation_id` 作为 session id；没有时才回退到 `default_session`。
 
-因此 runtime 的 OpenJiuwen adapter 只做四件事：
+因此 runtime 的 OpenJiuwen adapter 只做三件事：
 
 1. 把 `context.getAgentStateKey()` 写入 OpenJiuwen input 的 `conversation_id`。
 2. 对外提供 `openJiuwenConversationId(context)`，让子类调用 `Runner.runAgent(agent, input, conversationId, null)`。
-3. 提供 `OpenJiuwenAgentStateCheckpointers.installDefault(agentStateStore)`，让 OpenJiuwen checkpoint 通过 `PersistenceCheckpointer(BaseKVStore)` 保存到 runtime `AgentStateStore`。
-4. 不在每次执行 finally 中调用 `Runner.release(...)`；release 只代表会话结束或业务显式清理，否则会破坏多轮恢复。
+3. 不在每次执行 finally 中调用 `Runner.release(...)`；release 只代表会话结束或业务显式清理，否则会破坏多轮恢复。
 
-当前 sample 显式安装了 `AgentStateStore` 后端 checkpointer；如果客户自定义 OpenJiuwen `RunnerConfig.checkpointerConfig`，需要确认不会覆盖 runtime 安装的默认 checkpointer。生产态可以把 `AgentStateStore` 替换成 Redis/JDBC 等后端，OpenJiuwen adapter 不需要变化。
+当前 sample 显式调用 `CheckpointerFactory.setDefaultCheckpointer(new InMemoryCheckpointer())`。生产态如需持久化，应按 OpenJiuwen 自身机制替换为 `RedisCheckpointer` 或其他 OpenJiuwen checkpointer；OpenJiuwen adapter 不需要变化。
 
 ## 5. Failure Semantics
 
@@ -171,8 +170,8 @@ OpenJiuwen 文档与源码主线是：
 | Optional Agent Card provider | Implemented | `AgentCardProvider` 是可选能力；handler 不必强制实现 |
 | State provider marker | Implemented | `StateProvider`，用于可选生命周期桥接，不强制所有框架使用 |
 | Store-free handler | Implemented | handler 只读写 `AgentExecutionContext` |
-| OpenJiuwen native checkpointer bridge | Implemented | 使用稳定 `conversation_id` 接入 OpenJiuwen `Runner` / `PersistenceCheckpointer` |
-| OpenJiuwen checkpoint backed by AgentStateStore | Implemented | `AgentStateStoreBackedOpenJiuwenKvStore` + sample install default checkpointer |
+| OpenJiuwen native checkpointer configuration | Implemented | 使用稳定 `conversation_id` 接入 OpenJiuwen `Runner` / `Checkpointer` |
+| OpenJiuwen checkpointer direct setup | Implemented | sample 直接 `CheckpointerFactory.setDefaultCheckpointer(new InMemoryCheckpointer())` |
 | Snapshot/revision | Deferred | 不在当前最小版本实现 |
 | Mem integration | Deferred | 后续作为独立 Provider 或 middleware 扩展 |
 
@@ -180,7 +179,7 @@ OpenJiuwen 文档与源码主线是：
 
 - 新存储后端通过实现 `AgentStateStore` 注入，不修改 `EngineDispatcher`。
 - 新 Agent 框架通过实现 `AgentRuntimeHandler` 接入执行面；如需自定义 A2A Agent Card，再额外提供 `AgentCardProvider`。
-- 新能力通过 `AgentRuntimeProvider` / `StateProvider` 注入，不新增层层叠加的抽象基类；具备原生 checkpoint 的框架可以直接把后端接到 `AgentStateStore`。
+- 新能力通过 `AgentRuntimeProvider` / `StateProvider` 注入，不新增层层叠加的抽象基类；具备原生 checkpoint 的框架优先使用自己的 checkpointer 配置。
 - handler 依赖 `AgentExecutionContext` 这个抽象 carrier，不依赖具体 Store。
 - Store 不理解 OpenJiuwen、Mem、Sandbox 或业务状态结构。
 
@@ -207,7 +206,7 @@ wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/d/repo/spring-ai-ascend && ./mvnw -pl a
 - Provider 可 restore/export state，且该能力是可选手工桥接路径。
 - Provider before 失败时只清理已进入 Provider。
 - state load 失败 fail closed。
-- OpenJiuwen session state 可跨同一 `conversation_id` / `agentStateKey` 恢复，且最终 checkpoint 写入 runtime `AgentStateStore`，不依赖 runtime 手工 `dumpState/updateState`。
+- OpenJiuwen session state 可跨同一 `conversation_id` / `agentStateKey` 恢复，且依赖 OpenJiuwen 自带 checkpointer，不依赖 runtime 手工 `dumpState/updateState`。
 
 ## 10. Self-Audit
 
@@ -216,6 +215,6 @@ Open findings:
 - `AgentStateStore.save` 当前没有 CAS/fencing，后续 durable backend 必须补齐。
 - W1 save 失败只记录日志；生产态需要告警和补偿。
 - Mem 未实现，需要单独 proposal/PR。
-- OpenJiuwen checkpointer 当前通过进程内 `AgentStateStore` 打样；durable backend 需要由业务替换 `AgentStateStore` 实现。
+- OpenJiuwen sample 当前使用 `InMemoryCheckpointer` 打样；durable backend 需要由业务按 OpenJiuwen 标准方式切换到 `RedisCheckpointer` 等实现。
 
 No ship-blocking finding for the W1 in-memory Agent State capability.

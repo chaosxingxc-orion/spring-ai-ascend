@@ -9,8 +9,8 @@
  * trees.
  * {@code StateProvider} is an optional provider specialization for frameworks
  * that need a manual state bridge. Frameworks with native checkpointing can
- * wire their checkpoint backend to the runtime Agent State store without using
- * the provider as their main persistence path.
+ * use their own checkpointer configuration without using the provider as their
+ * main persistence path.
  * Engine inbound calls live in {@link com.huawei.ascend.runtime.engine.api};
  * the engine internal command runtime ({@code EngineCommand*},
  * {@code EngineWorker}) and the engine outbound clients to access/task-control
