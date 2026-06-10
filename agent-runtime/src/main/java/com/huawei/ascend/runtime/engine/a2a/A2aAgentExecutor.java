@@ -63,13 +63,24 @@ public final class A2aAgentExecutor implements AgentExecutor {
         try (Stream<?> raw = executeAgent(context);
              Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
 
+            AtomicBoolean terminalRouted = new AtomicBoolean(false);
             results.forEach(result -> {
                 LOG.info("[A2A] result taskId={} type={} outputChars={}",
                         taskId, result.type(),
                         result.outputContent() != null
                                 ? result.outputContent().length() : 0);
-                route(result, emitter, taskId, artifactId, firstArtifact);
+                if (route(result, emitter, taskId, artifactId, firstArtifact)) {
+                    terminalRouted.set(true);
+                }
             });
+            if (!terminalRouted.get()) {
+                // The handler stream drained without a terminal result (e.g. the
+                // upstream runtime replied with no events). DefaultRequestHandler
+                // never forces a terminal state, so finalize here or the task
+                // stays WORKING forever and polling clients hang.
+                LOG.warn("[A2A] result stream ended without terminal result taskId={} — completing", taskId);
+                emitter.complete();
+            }
             LOG.info("[A2A] execute finish taskId={} durationMs={}",
                     taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
 
@@ -99,8 +110,9 @@ public final class A2aAgentExecutor implements AgentExecutor {
         }
     }
 
-    private void route(AgentExecutionResult result, AgentEmitter emitter, String taskId,
-                       String artifactId, AtomicBoolean firstArtifact) {
+    /** Routes one result to the emitter; returns true when it put the task in a terminal state. */
+    private boolean route(AgentExecutionResult result, AgentEmitter emitter, String taskId,
+                          String artifactId, AtomicBoolean firstArtifact) {
         switch (result.type()) {
             case OUTPUT -> {
                 String text = outputText(result);
@@ -111,6 +123,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 emitter.addArtifact(List.<Part<?>>of(new TextPart(text)),
                         artifactId, "agent-response", null, append, false);
                 // state stays WORKING — more output may follow; the terminal status closes the stream
+                return false;
             }
             case COMPLETED -> {
                 String text = outputText(result);
@@ -121,6 +134,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
                     emitter.complete();
                 }
                 LOG.info("[A2A] task state=COMPLETED taskId={}", taskId);
+                return true;
             }
             case FAILED -> {
                 String code = result.errorCode() == null ? "RUNTIME_ERROR" : result.errorCode();
@@ -128,6 +142,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 LOG.warn("[A2A] task state=FAILED taskId={} code={} message={}", taskId, code, msg);
                 // Adapter-supplied codes pass through unchanged; retryability is unknown → conservative false.
                 emitter.fail(failureMessage(emitter, code, result.errorMessage(), false));
+                return true;
             }
             case INTERRUPTED -> {
                 String prompt = result.prompt() == null ? "" : result.prompt();
@@ -136,8 +151,10 @@ public final class A2aAgentExecutor implements AgentExecutor {
                     emitter.sendMessage(prompt);
                 }
                 emitter.requiresInput();
+                return true;
             }
         }
+        return false;
     }
 
     private static String outputText(AgentExecutionResult result) {

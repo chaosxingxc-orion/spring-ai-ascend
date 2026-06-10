@@ -43,6 +43,40 @@ class A2aAgentExecutorTest {
         assertThat(failureText(emitter)).isEqualTo("OUT_OF_DOMAIN: no skill for request");
     }
 
+    /**
+     * An empty handler stream (e.g. upstream replies 204, or 200 with only a [DONE]
+     * sentinel) must still finalize the task — otherwise it stays WORKING forever.
+     */
+    @Test
+    void emptyResultStream_finalizesTask() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.empty());
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.output("unreached"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler).execute(requestContext(), emitter);
+
+        verify(emitter).complete();
+    }
+
+    /** A stream of only OUTPUT results (no terminal COMPLETED/FAILED) must also finalize. */
+    @Test
+    void outputOnlyStream_finalizesTask() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object(), new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.output("chunk"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler).execute(requestContext(), emitter);
+
+        verify(emitter, times(2)).addArtifact(anyList(), anyString(), anyString(), any(), any(Boolean.class), any(Boolean.class));
+        verify(emitter).complete();
+    }
+
     /** An exception thrown during execution must also fail with a reason, not silently. */
     @Test
     void executionException_failsWithReason() {
