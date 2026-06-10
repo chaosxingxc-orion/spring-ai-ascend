@@ -21,6 +21,13 @@ import org.slf4j.LoggerFactory;
 
 public final class A2aAgentExecutor implements AgentExecutor {
 
+    /**
+     * Call-context state key under which the access layer publishes the
+     * transport-authenticated tenant. It outranks the client-self-declared
+     * params.tenant — a wire client must not be able to choose its tenant.
+     */
+    public static final String TENANT_STATE_KEY = "tenantId";
+
     private static final Logger LOG = LoggerFactory.getLogger(A2aAgentExecutor.class);
 
     /** Version of the structured-error payload carried on the failure DataPart/metadata. */
@@ -216,8 +223,15 @@ public final class A2aAgentExecutor implements AgentExecutor {
     }
 
     private static String metadata(RequestContext ctx, String key, String fallback) {
-        if ("tenantId".equals(key) && hasText(ctx.getTenant())) {
-            return ctx.getTenant();
+        if (TENANT_STATE_KEY.equals(key)) {
+            Object transportTenant = ctx.getCallContext() == null
+                    ? null : ctx.getCallContext().getState().get(TENANT_STATE_KEY);
+            if (hasText(transportTenant)) {
+                return String.valueOf(transportTenant);
+            }
+            if (hasText(ctx.getTenant())) {
+                return ctx.getTenant();
+            }
         }
         Map<String, Object> md = ctx.getMetadata();
         Object value = md == null ? null : md.get(key);

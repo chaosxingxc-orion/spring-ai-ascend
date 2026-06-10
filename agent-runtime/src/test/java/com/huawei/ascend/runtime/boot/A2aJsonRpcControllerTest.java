@@ -54,13 +54,13 @@ class A2aJsonRpcControllerTest {
 
     @Test
     void streamingResponseDataIsJsonRpcEventReadableByA2aSdkClient() throws Exception {
-        A2aJsonRpcController controller = new A2aJsonRpcController(new SingleEventRequestHandler());
+        A2aJsonRpcController controller = new A2aJsonRpcController(new SingleEventRequestHandler(), new RuntimeAccessProperties());
         String body = """
                 {"jsonrpc":"2.0","id":"request-1","method":"SendStreamingMessage","params":{"message":{"role":"ROLE_USER","parts":[{"text":"ping"}],"messageId":"message-1"}}}
                 """;
         A2ARequest<?> request = JSONRPCUtils.parseRequestBody(body, null);
 
-        StepVerifier.create(controller.handleStream(request))
+        StepVerifier.create(controller.handleStream(request, null))
                 .assertNext(event -> assertThat(sdkParsedPayload(event)).isEqualTo(StreamResponse.PayloadCase.MESSAGE))
                 .verifyComplete();
     }
@@ -68,17 +68,17 @@ class A2aJsonRpcControllerTest {
     @Test
     void blockingHandlerDispatchesPushNotificationConfigRequests() throws Exception {
         RecordingPushRequestHandler requestHandler = new RecordingPushRequestHandler();
-        A2aJsonRpcController controller = new A2aJsonRpcController(requestHandler);
+        A2aJsonRpcController controller = new A2aJsonRpcController(requestHandler, new RuntimeAccessProperties());
         TaskPushNotificationConfig config = new TaskPushNotificationConfig(
                 "push-1", "task-1", "http://localhost:19090/a2a/push", "token-1", null, null);
 
-        controller.handleBlocking(new CreateTaskPushNotificationConfigRequest("request-1", config));
+        controller.handleBlocking(new CreateTaskPushNotificationConfigRequest("request-1", config), null);
         controller.handleBlocking(new GetTaskPushNotificationConfigRequest(
-                "request-2", new GetTaskPushNotificationConfigParams("task-1", "push-1")));
+                "request-2", new GetTaskPushNotificationConfigParams("task-1", "push-1")), null);
         controller.handleBlocking(new ListTaskPushNotificationConfigsRequest(
-                "request-3", new ListTaskPushNotificationConfigsParams("task-1")));
+                "request-3", new ListTaskPushNotificationConfigsParams("task-1")), null);
         controller.handleBlocking(new DeleteTaskPushNotificationConfigRequest(
-                "request-4", new DeleteTaskPushNotificationConfigParams("task-1", "push-1")));
+                "request-4", new DeleteTaskPushNotificationConfigParams("task-1", "push-1")), null);
 
         assertThat(requestHandler.lastCreated.get()).isEqualTo(config);
         assertThat(requestHandler.lastGet.get()).isEqualTo(new GetTaskPushNotificationConfigParams("task-1", "push-1"));
@@ -98,9 +98,10 @@ class A2aJsonRpcControllerTest {
     /** A malformed request body must surface a JSON-RPC parse error, never a silent empty {}. */
     @Test
     void malformedRequestBodyReturnsJsonRpcParseErrorNotEmptyObject() throws Exception {
-        A2aJsonRpcController controller = new A2aJsonRpcController(new SingleEventRequestHandler());
+        A2aJsonRpcController controller =
+                new A2aJsonRpcController(new SingleEventRequestHandler(), new RuntimeAccessProperties());
 
-        Object response = controller.handle("{ this is not valid json ");
+        Object response = controller.handle("{ this is not valid json ", null);
 
         String json = (String) ((ResponseEntity<?>) response).getBody();
         assertThat(json).isNotEqualTo("{}");
@@ -113,12 +114,13 @@ class A2aJsonRpcControllerTest {
     /** An unknown JSON-RPC method must surface METHOD_NOT_FOUND, not a silent empty {}. */
     @Test
     void unknownMethodReturnsMethodNotFoundError() throws Exception {
-        A2aJsonRpcController controller = new A2aJsonRpcController(new SingleEventRequestHandler());
+        A2aJsonRpcController controller =
+                new A2aJsonRpcController(new SingleEventRequestHandler(), new RuntimeAccessProperties());
         String body = """
                 {"jsonrpc":"2.0","id":"req-unknown","method":"NoSuchMethod","params":{}}
                 """;
 
-        Object response = controller.handle(body);
+        Object response = controller.handle(body, null);
 
         String json = (String) ((ResponseEntity<?>) response).getBody();
         assertThat(json).isNotEqualTo("{}");
@@ -130,11 +132,11 @@ class A2aJsonRpcControllerTest {
 
     @Test
     void handlerA2aErrorAnswersJsonRpcErrorEchoingRequestId() {
-        A2aJsonRpcController controller = new A2aJsonRpcController(new FailingRequestHandler());
+        A2aJsonRpcController controller = new A2aJsonRpcController(new FailingRequestHandler(), new RuntimeAccessProperties());
 
         JsonNode root = blockingResponseJson(controller.handle("""
                 {"jsonrpc":"2.0","id":"request-9","method":"GetTask","params":{"id":"missing-task"}}
-                """));
+                """, null));
 
         assertThat(root.path("id").asText()).isEqualTo("request-9");
         assertThat(root.path("error").path("code").asInt()).isEqualTo(new TaskNotFoundError().getCode());
@@ -142,24 +144,52 @@ class A2aJsonRpcControllerTest {
 
     @Test
     void parsedButUndispatchedMethodAnswersMethodNotFound() {
-        A2aJsonRpcController controller = new A2aJsonRpcController(new SingleEventRequestHandler());
+        A2aJsonRpcController controller = new A2aJsonRpcController(new SingleEventRequestHandler(), new RuntimeAccessProperties());
 
         JsonNode root = blockingResponseJson(controller.handle("""
                 {"jsonrpc":"2.0","id":"request-10","method":"GetExtendedAgentCard","params":{}}
-                """));
+                """, null));
 
         assertThat(root.path("error").path("code").asInt()).isEqualTo(new MethodNotFoundError().getCode());
         assertThat(root.path("id").asText()).isEqualTo("request-10");
     }
 
     @Test
+    void tenantHeaderFlowsIntoServerCallContext() {
+        ListingRequestHandler handler = new ListingRequestHandler();
+        A2aJsonRpcController controller = new A2aJsonRpcController(handler, new RuntimeAccessProperties());
+
+        controller.handle("""
+                {"jsonrpc":"2.0","id":"list-2","method":"ListTasks","params":{}}
+                """, "  bank-7  ");
+
+        assertThat(handler.lastContext.get().getState())
+                .containsEntry(com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor.TENANT_STATE_KEY, "bank-7");
+    }
+
+    @Test
+    void missingTenantHeaderFallsBackToConfiguredDefault() {
+        ListingRequestHandler handler = new ListingRequestHandler();
+        RuntimeAccessProperties access = new RuntimeAccessProperties();
+        access.setDefaultTenantId("configured-tenant");
+        A2aJsonRpcController controller = new A2aJsonRpcController(handler, access);
+
+        controller.handle("""
+                {"jsonrpc":"2.0","id":"list-3","method":"ListTasks","params":{}}
+                """, null);
+
+        assertThat(handler.lastContext.get().getState())
+                .containsEntry(com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor.TENANT_STATE_KEY, "configured-tenant");
+    }
+
+    @Test
     void listTasksDispatchesToHandler() {
         ListingRequestHandler handler = new ListingRequestHandler();
-        A2aJsonRpcController controller = new A2aJsonRpcController(handler);
+        A2aJsonRpcController controller = new A2aJsonRpcController(handler, new RuntimeAccessProperties());
 
         JsonNode root = blockingResponseJson(controller.handle("""
                 {"jsonrpc":"2.0","id":"list-1","method":"ListTasks","params":{}}
-                """));
+                """, null));
 
         assertThat(handler.listed.get()).isTrue();
         assertThat(root.path("id").asText()).isEqualTo("list-1");
@@ -168,12 +198,12 @@ class A2aJsonRpcControllerTest {
 
     @Test
     void midStreamFailureEndsWithJsonRpcErrorFrame() throws Exception {
-        A2aJsonRpcController controller = new A2aJsonRpcController(new FailAfterFirstEventRequestHandler());
+        A2aJsonRpcController controller = new A2aJsonRpcController(new FailAfterFirstEventRequestHandler(), new RuntimeAccessProperties());
         A2ARequest<?> request = JSONRPCUtils.parseRequestBody("""
                 {"jsonrpc":"2.0","id":"stream-1","method":"SendStreamingMessage","params":{"message":{"role":"ROLE_USER","parts":[{"text":"ping"}],"messageId":"message-1"}}}
                 """, null);
 
-        StepVerifier.create(controller.handleStream(request))
+        StepVerifier.create(controller.handleStream(request, null))
                 .assertNext(event -> assertThat(sdkParsedPayload(event)).isEqualTo(StreamResponse.PayloadCase.MESSAGE))
                 .assertNext(event -> {
                     JsonNode root = dataJson(event);
@@ -186,9 +216,9 @@ class A2aJsonRpcControllerTest {
 
     @Test
     void sseParseFailureAnswersSingleErrorFrame() {
-        A2aJsonRpcController controller = new A2aJsonRpcController(new SingleEventRequestHandler());
+        A2aJsonRpcController controller = new A2aJsonRpcController(new SingleEventRequestHandler(), new RuntimeAccessProperties());
 
-        StepVerifier.create(controller.handleSse("{not json"))
+        StepVerifier.create(controller.handleSse("{not json", null))
                 .assertNext(event -> assertThat(dataJson(event).path("error").path("code").asInt())
                         .isEqualTo(new JSONParseError().getCode()))
                 .verifyComplete();
@@ -196,11 +226,11 @@ class A2aJsonRpcControllerTest {
 
     @Test
     void sseSynchronousA2aErrorAnswersSingleErrorFrame() {
-        A2aJsonRpcController controller = new A2aJsonRpcController(new FailingRequestHandler());
+        A2aJsonRpcController controller = new A2aJsonRpcController(new FailingRequestHandler(), new RuntimeAccessProperties());
 
         StepVerifier.create(controller.handleSse("""
                 {"jsonrpc":"2.0","id":"sub-1","method":"SubscribeToTask","params":{"id":"missing-task"}}
-                """))
+                """, null))
                 .assertNext(event -> {
                     JsonNode root = dataJson(event);
                     assertThat(root.path("error").path("code").asInt()).isEqualTo(new TaskNotFoundError().getCode());
@@ -253,11 +283,13 @@ class A2aJsonRpcControllerTest {
 
     private static final class ListingRequestHandler extends SingleEventRequestHandler {
         private final AtomicBoolean listed = new AtomicBoolean();
+        private final AtomicReference<ServerCallContext> lastContext = new AtomicReference<>();
 
         @Override
         public org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksResult onListTasks(
                 ListTasksParams params, ServerCallContext context) {
             listed.set(true);
+            lastContext.set(context);
             return new org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksResult(List.of());
         }
     }

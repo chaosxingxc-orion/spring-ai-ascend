@@ -3,6 +3,7 @@ package com.huawei.ascend.runtime.boot;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Flow;
+import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
 import org.a2aproject.sdk.grpc.utils.JSONRPCUtils;
 import org.a2aproject.sdk.jsonrpc.common.json.JsonMappingException;
 import org.a2aproject.sdk.jsonrpc.common.json.JsonProcessingException;
@@ -42,6 +43,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
@@ -49,20 +51,25 @@ import reactor.core.publisher.Flux;
 public class A2aJsonRpcController {
     private static final Logger log = LoggerFactory.getLogger(A2aJsonRpcController.class);
     private final RequestHandler handler;
+    private final RuntimeAccessProperties access;
 
-    public A2aJsonRpcController(RequestHandler handler) { this.handler = handler; }
+    public A2aJsonRpcController(RequestHandler handler, RuntimeAccessProperties access) {
+        this.handler = handler;
+        this.access = access;
+    }
 
     @PostMapping(value = {"/a2a", "/a2a/"}, produces = MediaType.APPLICATION_JSON_VALUE)
-    public Object handle(@RequestBody String body) {
+    public Object handle(@RequestBody String body,
+            @RequestHeader(name = "X-Tenant-Id", required = false) String tenantHeader) {
         Object id = null;
         try {
             A2ARequest<?> request = JSONRPCUtils.parseRequestBody(body, null);
             id = request.getId();
             log.info("[A2A] {} id={}", request.getMethod(), id);
             if (request instanceof SendStreamingMessageRequest || request instanceof SubscribeToTaskRequest) {
-                return handleStream(request);
+                return handleStream(request, tenantHeader);
             }
-            return handleBlocking(request);
+            return handleBlocking(request, tenantHeader);
         } catch (A2AError e) {
             // Protocol error raised by the SDK or the request handler — surface it with its own code.
             return errorResponse(id, ensureCode(e, A2AErrorCodes.INTERNAL));
@@ -83,7 +90,8 @@ public class A2aJsonRpcController {
     }
 
     @PostMapping(value = {"/a2a", "/a2a/"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> handleSse(@RequestBody String body) {
+    public Flux<ServerSentEvent<String>> handleSse(@RequestBody String body,
+            @RequestHeader(name = "X-Tenant-Id", required = false) String tenantHeader) {
         A2ARequest<?> request;
         try {
             request = JSONRPCUtils.parseRequestBody(body, null);
@@ -92,7 +100,7 @@ public class A2aJsonRpcController {
             return Flux.just(errorEvent(null, error(A2AErrorCodes.JSON_PARSE, e.getMessage())));
         }
         try {
-            return handleStream(request);
+            return handleStream(request, tenantHeader);
         } catch (A2AError e) {
             log.warn("[A2A] {} id={} failed code={} message={}",
                     request.getMethod(), request.getId(), e.getCode(), e.getMessage());
@@ -103,8 +111,8 @@ public class A2aJsonRpcController {
         }
     }
 
-    Flux<ServerSentEvent<String>> handleStream(A2ARequest<?> request) {
-        var ctx = serverContext();
+    Flux<ServerSentEvent<String>> handleStream(A2ARequest<?> request, String tenantHeader) {
+        var ctx = serverContext(tenantHeader);
         Object id = request.getId();
         Flow.Publisher<StreamingEventKind> publisher;
         if (request instanceof SubscribeToTaskRequest subscribe) {
@@ -128,8 +136,8 @@ public class A2aJsonRpcController {
                 });
     }
 
-    ResponseEntity<String> handleBlocking(A2ARequest<?> request) throws A2AError {
-        var ctx = serverContext();
+    ResponseEntity<String> handleBlocking(A2ARequest<?> request, String tenantHeader) throws A2AError {
+        var ctx = serverContext(tenantHeader);
         A2AResponse<?> response = switch (request) {
             case SendMessageRequest send ->
                     new SendMessageResponse(request.getId(), handler.onMessageSend(send.getParams(), ctx));
@@ -188,5 +196,13 @@ public class A2aJsonRpcController {
                 : new A2AError(fallback.code(), error.getMessage(), error.getDetails());
     }
 
-    private static ServerCallContext serverContext() { return new ServerCallContext(null, Map.of(), Set.of()); }
+    /**
+     * Transport-level tenant identity travels through the call-context state and
+     * takes precedence downstream over the client-self-declared params.tenant.
+     */
+    private ServerCallContext serverContext(String tenantHeader) {
+        String tenant = tenantHeader == null || tenantHeader.isBlank()
+                ? access.getDefaultTenantId() : tenantHeader.trim();
+        return new ServerCallContext(null, Map.of(A2aAgentExecutor.TENANT_STATE_KEY, tenant), Set.of());
+    }
 }

@@ -44,7 +44,8 @@ class A2aAgentExecutorTest {
         AgentEmitter emitter = newEmitter();
         new A2aAgentExecutor(handler).execute(ctx, emitter);
 
-        assertThat(failureText(emitter)).startsWith("RUNTIME_ERROR:");
+        // IllegalArgumentException on wire input classifies as INVALID_INPUT.
+        assertThat(failureText(emitter)).startsWith("INVALID_INPUT:");
     }
 
     /**
@@ -66,6 +67,28 @@ class A2aAgentExecutorTest {
                 ArgumentCaptor.forClass(com.huawei.ascend.runtime.engine.AgentExecutionContext.class);
         verify(handler).execute(captor.capture());
         assertThat(captor.getValue().getAgentStateKey()).isEqualTo("ctx-1");
+    }
+
+    /** The transport-authenticated tenant must outrank the client-self-declared params.tenant. */
+    @Test
+    void transportTenantOutranksClientDeclaredTenant() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        RequestContext ctx = requestContext();
+        when(ctx.getTenant()).thenReturn("client-declared");
+        when(ctx.getCallContext()).thenReturn(new org.a2aproject.sdk.server.ServerCallContext(
+                null, java.util.Map.of(A2aAgentExecutor.TENANT_STATE_KEY, "transport-tenant"), java.util.Set.of()));
+
+        new A2aAgentExecutor(handler).execute(ctx, newEmitter());
+
+        ArgumentCaptor<com.huawei.ascend.runtime.engine.AgentExecutionContext> captor =
+                ArgumentCaptor.forClass(com.huawei.ascend.runtime.engine.AgentExecutionContext.class);
+        verify(handler).execute(captor.capture());
+        assertThat(captor.getValue().getScope().tenantId()).isEqualTo("transport-tenant");
     }
 
     /** A FAILED result must surface its code+message to the A2A wire, not a bare fail(). */
