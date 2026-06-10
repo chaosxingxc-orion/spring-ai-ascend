@@ -8,19 +8,16 @@ import java.util.UUID;
 /**
  * Server-to-Client (S2C) capability invocation request envelope.
  *
- * <p>Schema authority: {@code docs/contracts/s2c-callback.v1.yaml#request}.
- * The Phase 3a cross-rule audit matrix (see
- * {@code docs/logs/reviews/2026-05-16-engine-contract-structural-response.en.md} §5.2)
- * defines six mandatory fields that MUST appear on every S2C envelope at every
- * layer (envelope class, transport SPI, response validator, integration test,
- * audit log). The record below validates the six on construction.
+ * <p>Schema authority: {@code docs/contracts/s2c-callback.v1.yaml#request},
+ * which defines six mandatory fields that MUST appear on every S2C envelope at
+ * every layer (envelope class, transport SPI, response validator, integration
+ * test, audit log). The record below validates the six on construction.
  *
- * <p>Lives in {@code com.huawei.ascend.bus.spi.s2c} (moved from the old
- * runtime S2C package per the cross-constraint audit) so the SPI literally imports
- * only {@code java.*} + same-spi-package siblings, restoring exact agreement
+ * <p>Lives in {@code com.huawei.ascend.bus.spi.s2c} so the SPI literally
+ * imports only {@code java.*} + same-spi-package siblings, in exact agreement
  * with the ARCHITECTURE.md SPI-purity prose.
  *
- * <p>Authority: ADR-0074; CLAUDE.md Rule 46 (S2C Callback Envelope + Lifecycle Bound).
+ * <p>Authority: ADR-0074.
  */
 // scope: process-internal — transport envelope; tenant resolved from callbackId via registry at the wrapping Run boundary (ADR-0074 §Consequences)
 public record S2cCallbackEnvelope(
@@ -49,9 +46,8 @@ public record S2cCallbackEnvelope(
 
     /**
      * Enforce the W3C trace-id schema literally: exactly 32 lowercase hex
-     * chars (0-9, a-f). Added in v2.0.0-rc3 per cross-constraint audit α-5 /
-     * P1-5 — prior code validated only {@code length() != 32} so the contract
-     * text "lowercase hex" was unenforced.
+     * chars (0-9, a-f) — a length-only check would let the contract text
+     * "lowercase hex" go unenforced.
      */
     static void requireLowerHex32(String value, String fieldName) {
         Objects.requireNonNull(value, fieldName + " is required");
