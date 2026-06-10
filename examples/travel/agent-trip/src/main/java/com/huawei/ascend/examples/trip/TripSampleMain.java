@@ -4,9 +4,8 @@
 
 package com.huawei.ascend.examples.trip;
 
-import com.huawei.ascend.examples.hotel.HotelPlanningAgent;
 import com.huawei.ascend.examples.trip.hotel.HotelPlannerClient;
-import com.huawei.ascend.examples.trip.hotel.LocalHotelPlannerClient;
+import com.huawei.ascend.examples.trip.hotel.ReflectiveHotelPlannerClient;
 import com.openjiuwen.core.runner.Runner;
 
 import java.io.PrintStream;
@@ -17,6 +16,8 @@ import java.util.Scanner;
 
 /**
  * 演示「主规划(入参) → 行程规划 ReAct → 酒店子智能体」串调（端到端真链路）。
+ * <p>酒店子智能体经 {@link ReflectiveHotelPlannerClient} <b>反射装配</b>：agent-trip 对 agent-hotel
+ * 无编译期依赖，agent-hotel 仅需在运行时 classpath（pom 中为 runtime scope）。
  * <p>行程规划的 plan_hotel 工具会触发酒店子智能体自己的 ReAct（ReAct 套 ReAct）。
  */
 public final class TripSampleMain {
@@ -29,14 +30,13 @@ public final class TripSampleMain {
         System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
 
         LlmConfig llm = LlmConfig.load();
-        // 1) 真实酒店子智能体（agent-hotel）+ 客户端；两个模块 LlmConfig 字段一致，直接映射
-        try (HotelPlanningAgent hotelAgent = new HotelPlanningAgent(toHotelLlm(llm))) {
-            HotelPlannerClient hotelClient = new LocalHotelPlannerClient(hotelAgent);
+        // 1) 反射装配酒店子智能体（不依赖 agent-hotel 编译期类型）+ 行程规划智能体
+        HotelPlannerClient hotelClient = new ReflectiveHotelPlannerClient(
+                llm.provider(), llm.apiKey(), llm.apiBase(), llm.modelName(), llm.sslVerify());
+        TripPlanningAgent tripAgent = new TripPlanningAgent(llm, hotelClient);
 
-            // 2) 行程规划智能体（ReAct 单体）
-            TripPlanningAgent tripAgent = new TripPlanningAgent(llm, hotelClient);
-
-            // 3) 输入来源优先级：命令行参数 > query.txt（UTF-8，推荐，避免控制台编码问题）> 交互输入
+        try {
+            // 2) 输入来源优先级：命令行参数 > query.txt（UTF-8，推荐，避免控制台编码问题）> 交互输入
             if (args.length > 0) {
                 System.out.println(tripAgent.chat(String.join(" ", args)));
                 return;
@@ -66,11 +66,5 @@ public final class TripSampleMain {
         } finally {
             Runner.stop();
         }
-    }
-
-    /** trip 的 LlmConfig 映射成 agent-hotel 的 LlmConfig（字段一一对应）。 */
-    private static com.huawei.ascend.examples.hotel.LlmConfig toHotelLlm(LlmConfig llm) {
-        return new com.huawei.ascend.examples.hotel.LlmConfig(
-                llm.provider(), llm.apiKey(), llm.apiBase(), llm.modelName(), llm.sslVerify());
     }
 }

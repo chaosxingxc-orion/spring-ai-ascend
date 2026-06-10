@@ -84,6 +84,14 @@ public class TripPlanningAgent {
 
     /** 唯一工具：酒店规划（调下游酒店子智能体）。包级可见，便于单测。 */
     Tool buildPlanHotelTool() {
+        return buildPlanHotelTool(hotelClient);
+    }
+
+    /**
+     * 唯一工具的静态构造版：把 {@code plan_hotel} 工具与酒店出站客户端解耦，
+     * 供 {@code TripPlanAgentBuilder} 等外部装配点复用（注册到自己构建的 ReActAgent 上）。
+     */
+    public static Tool buildPlanHotelTool(HotelPlannerClient hotelClient) {
         ToolCard card = ToolCard.builder()
                 .id("plan_hotel")
                 .name("plan_hotel")
@@ -101,8 +109,8 @@ public class TripPlanningAgent {
         return new LocalFunction(card, inputs -> hotelClient.plan(buildHotelNl(inputs)));
     }
 
-    /** 拼酒店子智能体 NL（纯自然语言 + 中文品牌名）。包级可见，便于单测。 */
-    static String buildHotelNl(Map<String, Object> in) {
+    /** 拼酒店子智能体 NL（纯自然语言 + 中文品牌名）。public static，便于单测与外部复用。 */
+    public static String buildHotelNl(Map<String, Object> in) {
         return """
                出差到 %s，%s 至 %s。
                %s

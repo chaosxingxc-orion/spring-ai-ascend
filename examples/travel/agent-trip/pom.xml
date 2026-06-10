@@ -5,12 +5,12 @@
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.huawei.ascend</groupId>
-    <artifactId>agent-trip</artifactId>
-    <version>0.1.0</version>
+    <groupId>com.huawei.ascend.examples</groupId>
+    <artifactId>agent-travel-trip</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>agent-trip</name>
+    <name>agent-travel-trip</name>
     <description>差旅行程规划智能体（ReAct 单体 + 唯一工具 plan_hotel）</description>
 
     <properties>
@@ -20,7 +20,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <agent-core-java.version>0.1.12</agent-core-java.version>
-        <agent-hotel.version>0.1.0-SNAPSHOT</agent-hotel.version>
+        <agent-travel-hotel.version>0.1.0-SNAPSHOT</agent-travel-hotel.version>
         <junit.version>5.10.2</junit.version>
     </properties>
 
@@ -32,11 +32,16 @@
             <version>${agent-core-java.version}</version>
         </dependency>
 
-        <!-- 酒店规划子智能体：需先在 spring-ai-ascend 执行 mvn -f examples/travel/agent-hotel/pom.xml -DskipTests install -->
+        <!--
+          酒店规划子智能体：runtime scope —— agent-trip 通过反射（ReflectiveHotelPlannerClient）
+          装配 agent-hotel，编译期不依赖其任何类型；仅运行时 classpath 需要它。
+          需先在 spring-ai-ascend 执行 mvn -f examples/travel/agent-hotel/pom.xml -DskipTests install
+        -->
         <dependency>
-            <groupId>com.huawei.ascend</groupId>
-            <artifactId>agent-hotel</artifactId>
-            <version>${agent-hotel.version}</version>
+            <groupId>com.huawei.ascend.examples</groupId>
+            <artifactId>agent-travel-hotel</artifactId>
+            <version>${agent-travel-hotel.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>

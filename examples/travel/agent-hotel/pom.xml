@@ -16,9 +16,10 @@
     <relativePath>../../../pom.xml</relativePath>
   </parent>
 
-  <artifactId>agent-hotel</artifactId>
+  <groupId>com.huawei.ascend.examples</groupId>
+  <artifactId>agent-travel-hotel</artifactId>
   <packaging>jar</packaging>
-  <name>spring-ai-ascend agent-hotel example</name>
+  <name>agent-travel-hotel</name>
   <description>
     Hotel planning sub-agent for the corporate travel multi-agent system.
     Library jar: exposes a HotelPlanningAgent Java entry point driven by
