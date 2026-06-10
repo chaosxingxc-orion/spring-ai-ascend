@@ -111,14 +111,6 @@ what the system is, which modules and state owners are allowed, which
 cross-cutting constraints cannot be violated, and which ADRs or generated facts
 are authoritative. This system lives under [`architecture/`](architecture/).
 
-The version scope system is organized from requirements to scenarios, L1 feature
-use cases, L2 function points, delivery slices, and acceptance plans. It answers
-what a version commits to deliver and how that scope is validated. This system
-lives under [`version-scope/`](version-scope/).
-
-Version scope documents may reference architecture facts and may request
-architecture changes, but they do not directly become architecture truth.
-
 ## Reading path
 
 Architecture truth starts in [`architecture/`](architecture/). The
