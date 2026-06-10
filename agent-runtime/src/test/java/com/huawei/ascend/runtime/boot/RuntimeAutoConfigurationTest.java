@@ -1,0 +1,90 @@
+package com.huawei.ascend.runtime.boot;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.concurrent.Executor;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksResult;
+import org.a2aproject.sdk.server.events.MainEventBusProcessor;
+import org.a2aproject.sdk.server.tasks.InMemoryTaskStore;
+import org.a2aproject.sdk.server.tasks.TaskStateProvider;
+import org.a2aproject.sdk.server.tasks.TaskStore;
+import org.a2aproject.sdk.spec.ListTasksParams;
+import org.a2aproject.sdk.spec.Task;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+class RuntimeAutoConfigurationTest {
+
+    private final ApplicationContextRunner runner = new ApplicationContextRunner();
+
+    /** A consumer-supplied durable TaskStore must replace the in-memory default, not coexist with it. */
+    @Test
+    void customTaskStoreSuppressesInMemoryDefault() {
+        runner.withUserConfiguration(CustomStoreConfiguration.class, RuntimeAutoConfiguration.class)
+                .run(ctx -> {
+                    assertThat(ctx).getBeans(TaskStore.class).hasSize(1);
+                    assertThat(ctx.getBean(TaskStore.class)).isInstanceOf(RecordingTaskStore.class);
+                });
+    }
+
+    /** The event-bus loop must run on the SDK's own daemon thread so a hosting JVM can exit. */
+    @Test
+    void eventBusProcessorRunsOnDaemonThread() {
+        runner.withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> {
+                    assertThat(ctx).hasSingleBean(MainEventBusProcessor.class);
+                    Thread processorThread = Thread.getAllStackTraces().keySet().stream()
+                            .filter(t -> t.getName().contains("MainEventBusProcessor"))
+                            .findFirst()
+                            .orElseThrow(() -> new AssertionError("processor thread not started"));
+                    assertThat(processorThread.isDaemon())
+                            .as("processor thread must be daemon or it blocks JVM exit")
+                            .isTrue();
+                });
+    }
+
+    /**
+     * No bean assignable to java.util.concurrent.Executor may be exposed: Spring Boot's
+     * applicationTaskExecutor backs off when one exists, silently disabling the
+     * application's default (virtual-thread) task executor.
+     */
+    @Test
+    void noBroadExecutorBeanExposed() {
+        runner.withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBeanNamesForType(Executor.class)).isEmpty());
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class CustomStoreConfiguration {
+        @Bean
+        TaskStore durableTaskStore() { return new RecordingTaskStore(); }
+
+        // InMemoryQueueManager needs a TaskStateProvider; a durable store would implement both.
+        @Bean
+        TaskStateProvider durableTaskStateProvider() {
+            return new TaskStateProvider() {
+                @Override
+                public boolean isTaskActive(String taskId) { return false; }
+
+                @Override
+                public boolean isTaskFinalized(String taskId) { return true; }
+            };
+        }
+    }
+
+    static final class RecordingTaskStore implements TaskStore {
+        @Override
+        public void save(Task task, boolean overwrite) { }
+
+        @Override
+        public Task get(String taskId) { return null; }
+
+        @Override
+        public void delete(String taskId) { }
+
+        @Override
+        public ListTasksResult list(ListTasksParams params) { return new ListTasksResult(java.util.List.of()); }
+    }
+}
