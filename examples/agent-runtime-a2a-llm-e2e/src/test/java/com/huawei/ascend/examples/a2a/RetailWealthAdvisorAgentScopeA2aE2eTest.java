@@ -19,7 +19,8 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 @ResourceLock("real-llm")
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = OpenJiuwenA2aAgentRuntimeApplication.class)
+        classes = OpenJiuwenA2aAgentRuntimeApplication.class,
+        properties = "sample.a2a.agent=retail-wealth-advisor")
 class RetailWealthAdvisorAgentScopeA2aE2eTest {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(90);

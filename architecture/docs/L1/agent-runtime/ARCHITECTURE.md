@@ -42,7 +42,7 @@ stubbed to "fill the box" before the design phase exits.
 
 | Package | Role |
 |---|---|
-| `runtime.engine.spi` | framework-neutral runtime SPI: `AgentRuntimeHandler` (run one agent, surface its output), `StreamAdapter` (adapt a framework's native result stream into the neutral `AgentExecutionResult` stream), optional `AgentCardProvider`, reserved `SetState` / `MemoryProvider`, carrier `AgentExecutionResult` |
+| `runtime.engine.spi` | framework-neutral runtime SPI: `AgentRuntimeHandler` (run one agent, surface its output), `StreamAdapter` (adapt a framework's native result stream into the neutral `AgentExecutionResult` stream), optional `AgentCardProvider`, reserved `MemoryProvider`, carrier `AgentExecutionResult` |
 | `runtime.engine` (root) | engine dispatch + internals all flattened into the root: `EngineDispatcher` (routes a command to the matched handler), `EngineWorker` (internal command worker), the command events (`EngineCommandEvent` / `EngineCommandEventFactory` / `EngineCommandGateway` / `InternalEngineCommandGateway`), `EngineExecutionScope`, `EngineInput` / `EngineOutput`, the single `EngineEvent` record + `EngineEventKind` enum, and the outbound ports `TaskControlClient` + `AccessLayerClient` (engine → control / access; intra-service, not SPI) |
 | `runtime.engine.api` | inbound `EngineExecutionApi` (enqueue execute / resume / cancel) |
 | `runtime.engine.openjiuwen` | concrete `AgentRuntimeHandler` adapter for openJiuwen ReAct agents |
@@ -152,7 +152,7 @@ agent-runtime/
     │   │                         #   EngineEvent record + EngineEventKind enum, and the
     │   │                         #   outbound ports TaskControlClient + AccessLayerClient
     │   ├── spi/                  # AgentRuntimeHandler, StreamAdapter,
-    │   │                         #   AgentCardProvider, SetState, MemoryProvider,
+    │   │                         #   AgentCardProvider, MemoryProvider,
     │   │                         #   AgentExecutionResult
     │   ├── api/                  # EngineExecutionApi (inbound enqueue)
     │   ├── openjiuwen/           # openJiuwen ReAct AgentRuntimeHandler adapter
@@ -189,8 +189,7 @@ loci (`deployment_loci: [platform_centric, business_centric]`).
 | `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` | `runtime.engine.spi` | The single framework-neutral runtime SPI: run one agent, surface its output through concrete adapters such as openJiuwen and AgentScope |
 | `com.huawei.ascend.runtime.engine.spi.StreamAdapter` | `runtime.engine.spi` | Adapt a framework's native result stream into the neutral `AgentExecutionResult` stream |
 | `com.huawei.ascend.runtime.engine.spi.AgentCardProvider` | `runtime.engine.spi` | Optional A2A Agent Card metadata provider for a runtime-hosted business Agent |
-| `com.huawei.ascend.runtime.engine.spi.SetState` | `runtime.engine.spi` | Reserved narrow state-write SPI for frameworks without native checkpointing |
-| `com.huawei.ascend.runtime.engine.spi.MemoryProvider` | `runtime.engine.spi` | Reserved narrow memory init/search SPI |
+| `com.huawei.ascend.runtime.engine.spi.MemoryProvider` | `runtime.engine.spi` | Reserved narrow memory init/search/save SPI |
 
 Carrier (NOT an SPI interface):
 - `com.huawei.ascend.runtime.engine.spi.AgentExecutionResult` — neutral execution-result carrier.

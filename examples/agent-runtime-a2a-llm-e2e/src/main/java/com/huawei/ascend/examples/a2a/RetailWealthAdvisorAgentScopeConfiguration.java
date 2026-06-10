@@ -42,11 +42,13 @@ import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.TextPart;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
+@ConditionalOnProperty(prefix = "sample.a2a", name = "agent", havingValue = "retail-wealth-advisor")
 public class RetailWealthAdvisorAgentScopeConfiguration {
 
     static final String AGENT_ID = "agentscope-retail-wealth-advisor";

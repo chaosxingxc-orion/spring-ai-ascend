@@ -33,11 +33,13 @@ import org.slf4j.LoggerFactory;
 import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.TextPart;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
+@ConditionalOnProperty(prefix = "sample.a2a", name = "agent", havingValue = "agentscope")
 public class AgentScopeE2eConfiguration {
 
     static final String AGENT_ID = "agentscope-react-agent";

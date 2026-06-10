@@ -1,22 +1,23 @@
-# agent-runtime 接口设计说明
+# agent-runtime 接口与状态中间件设计
 
-本文说明 `agent-runtime` 当前涉及的接口边界、SPI 语义，以及 A2A、OpenJiuwen adapter、状态与记忆预留点之间的模块交互。本文只解释当前代码形态，不替代 `ARCHITECTURE.md`、`docs/contracts/contract-catalog.md` 或生成事实文件。
+本文合并 `agent-runtime` 接口设计说明与 2026-06-09 Agent State 中间件提案，作为当前 L1 设计入口。生成事实仍以 `architecture/facts/generated/*.json` 为准；本文只解释当前代码边界、模块交互和后续扩展原则。
 
-## 1. 设计边界
+## 1. 设计目标
 
-`agent-runtime` 的核心职责是把一个业务 Agent 包装成可执行的 runtime 实例，并通过 A2A 协议暴露出去。当前设计遵循三条边界：
+`agent-runtime` 的职责是把一个业务 Agent 包装成单 Agent runtime，并通过 A2A 协议暴露执行能力。当前设计遵循四条边界：
 
-1. A2A 层只做协议转换、执行上下文构造、结果路由和任务状态映射。
+1. A2A 层只做协议桥接、上下文构造、结果发射和任务状态映射。
 2. `engine.spi` 只保留跨 Agent 框架稳定成立的窄接口。
-3. 具体 Agent 框架的装饰逻辑留在对应 adapter 内部，例如 OpenJiuwen 的 `Rail` 安装、`Runner.runAgent(...)` 调用和 checkpointer 会话语义。
+3. 具体 Agent 框架的执行、装饰、状态恢复和结果转换留在对应 adapter 内部。
+4. 框架已有原生 checkpoint / session / callback 机制时，runtime 优先桥接原生机制，不重复实现状态后端。
 
-因此，runtime 不提供通用的全局 provider chain，也不要求所有 Agent 框架继承同一个状态基类。
+这意味着 runtime 不提供全局 provider chain，也不要求所有 Agent 框架继承同一个抽象基类。新能力优先在具体 adapter 内组合；只有跨框架语义稳定后，才提升为公共 SPI。
 
-## 2. 核心 SPI
+## 2. 核心接口
 
 ### 2.1 `AgentRuntimeHandler`
 
-`AgentRuntimeHandler` 是最核心的执行 SPI。每个 handler 表示一个 runtime 实例中承载的一个业务 Agent。
+`AgentRuntimeHandler` 是执行 SPI。每个 handler 表示一个 runtime 实例承载的一个业务 Agent。
 
 ```java
 public interface AgentRuntimeHandler {
@@ -37,7 +38,7 @@ public interface AgentRuntimeHandler {
 - `execute(context)` 执行一次 Agent 调用，返回框架原生结果流。
 - `resultAdapter()` 把框架原生结果流转换成 runtime 中立的 `AgentExecutionResult`。
 
-`AgentRuntimeHandler` 不包含 provider 注册、状态存储、沙箱、工具覆盖等通用生命周期钩子。原因是这些能力在不同 Agent 框架里的原生扩展方式差异很大，强行统一会让 runtime 反向依赖具体框架语义。
+`AgentRuntimeHandler` 不承载通用 before/after provider、状态存储、沙箱或工具覆盖逻辑。这些能力在不同 Agent 框架中通常有原生扩展点，强行统一会让 runtime 反向依赖具体框架语义。
 
 ### 2.2 `StreamAdapter`
 
@@ -50,11 +51,11 @@ public interface StreamAdapter {
 }
 ```
 
-它的输入是框架原生结果，输出是 `AgentExecutionResult`。A2A 层只消费 `AgentExecutionResult`，不会理解 OpenJiuwen、AgentScope 或其他框架的内部结果结构。
+A2A 层只消费 `AgentExecutionResult`，不理解 OpenJiuwen 或其他框架的内部结果结构。
 
 ### 2.3 `AgentCardProvider`
 
-`AgentCardProvider` 是可选的 A2A Agent Card 元数据提供接口。
+`AgentCardProvider` 是可选的 A2A Agent Card 元数据 provider。
 
 ```java
 public interface AgentCardProvider {
@@ -62,28 +63,36 @@ public interface AgentCardProvider {
 }
 ```
 
-它与 `AgentRuntimeHandler` 分离，表示“执行 Agent”和“描述 Agent 的 A2A 元数据”是两种能力。业务方可以：
+它与 `AgentRuntimeHandler` 分离：
 
-- 只提供 `AgentRuntimeHandler`，使用默认 Agent Card；
-- 额外提供一个独立 `AgentCardProvider` Bean；
-- 或让同一个类同时实现 `AgentRuntimeHandler` 与 `AgentCardProvider`。
+- `AgentRuntimeHandler` 负责执行 Agent。
+- `AgentCardProvider` 负责声明对外暴露的 A2A 元数据。
 
-### 2.4 `SetState`
+业务方可以只提供 handler 使用默认 Agent Card，也可以额外提供独立 `AgentCardProvider` Bean。简单 Agent 不需要为了自定义执行而继承 Agent Card 基类。
 
-`SetState` 是预留的显式状态写入窄 SPI。
+### 2.4 `AgentExecutionContext`
 
-```java
-@FunctionalInterface
-public interface SetState {
-    void setState(AgentExecutionContext context, Map<String, Object> values);
-}
+`AgentExecutionContext` 是 A2A bridge 与框架 adapter 之间的轻量 carrier，包含：
+
+- `RuntimeIdentity scope`：`tenantId`、`userId`、`sessionId`、`taskId`、`agentId`。
+- `inputType` 与 A2A message 列表。
+- `variables`：调用侧传入的轻量变量。
+- `agentStateKey`：业务可控的稳定状态 key。
+- 可选 `agentState` map：给没有原生 checkpoint 的框架做轻量状态桥接。
+
+`agentStateKey` 解析顺序：
+
+```text
+variables["agentStateKey"]
+  -> variables["stateKey"]
+  -> fallback taskId
 ```
 
-它不是 OpenJiuwen 主路径。OpenJiuwen 优先使用自身 checkpointer 机制。`SetState` 面向没有原生 checkpoint 的 Agent 框架，用于在 adapter 内部把状态写回 runtime 上下文或调用方管理的状态存储。
+fallback 到 `taskId` 是有意设计：当用户跳出原任务并产生新 task 时，新 task 天然隔离状态；如果业务要跨多轮复用同一份状态，应显式传入稳定 `agentStateKey`。
 
 ### 2.5 `MemoryProvider`
 
-`MemoryProvider` 是预留的记忆初始化与检索窄 SPI。
+`MemoryProvider` 是预留的记忆初始化、检索与写回窄 SPI。
 
 ```java
 public interface MemoryProvider {
@@ -91,21 +100,26 @@ public interface MemoryProvider {
     }
 
     List<MemoryHit> search(AgentExecutionContext context, String query, int limit);
+
+    default void save(AgentExecutionContext context, List<MemoryRecord> records) {
+    }
 }
 ```
 
-当前只定义两个基础语义：
+它只定义 `init` / `search` / `save` 三个基础语义，不负责 compact、budget、向量索引、长期记忆治理或具体后端。后续 Mem 中间件可以在该接口基础上扩展，也可以由具体框架 adapter 直接组合自己的 Mem 能力。
 
-- `init(context)`：一次执行前初始化必要的记忆资源。
-- `search(context, query, limit)`：按当前执行上下文检索相关记忆片段。
+`MemoryRecord` 是 runtime 中立的 message-like 记录：
 
-它不是完整的 memory 产品契约，不负责 compact、budget、向量索引、长期记忆治理等复杂能力。后续 Mem 中间件可以在这个窄接口上扩展，而不要求 runtime 依赖某个具体后端。
+```java
+record MemoryRecord(String id, String role, String content, Map<String, Object> metadata) {
+}
+```
 
-## 3. A2A 层交互
+OpenJiuwen adapter 会在自己的包内把 OpenJiuwen `BaseMessage` 转换成 `MemoryRecord`。转换规则不放入公共 SPI，避免 AgentScope、OpenJiuwen 和后续框架互相污染。
+
+## 3. A2A 执行链路
 
 `A2aAgentExecutor` 是 A2A SDK 的 `AgentExecutor` 实现，负责把 A2A 请求桥接到 runtime handler。
-
-当前调用链如下：
 
 ```text
 A2A RequestContext
@@ -116,15 +130,15 @@ A2A RequestContext
   -> AgentEmitter task state / message output
 ```
 
-`A2aAgentExecutor` 做的事情：
+`A2aAgentExecutor` 做：
 
 - 从 A2A `RequestContext` 提取 `taskId`、`contextId`、消息文本与 metadata。
-- 构造 `AgentExecutionContext`，其中 `RuntimeIdentity` 携带 `tenantId`、`userId`、`sessionId`、`taskId`、`agentId`。
+- 构造 `AgentExecutionContext`。
 - 调用 `handler.execute(context)`。
 - 使用 `handler.resultAdapter()` 转换结果。
 - 将 `OUTPUT`、`COMPLETED`、`FAILED`、`INTERRUPTED` 映射为 A2A emitter 行为。
 
-`A2aAgentExecutor` 不做的事情：
+`A2aAgentExecutor` 不做：
 
 - 不创建具体 Agent。
 - 不安装 OpenJiuwen Rail。
@@ -134,52 +148,88 @@ A2A RequestContext
 
 这样可以避免 A2A 协议桥变成所有框架能力的集中点。
 
-## 4. OpenJiuwen Adapter 交互
+## 4. OpenJiuwen adapter
 
 OpenJiuwen 的框架适配收敛在 `runtime.engine.openjiuwen` 包内。
 
 ### 4.1 `OpenJiuwenAgentRuntimeHandler`
 
-`OpenJiuwenAgentRuntimeHandler` 实现 `AgentRuntimeHandler`，并把 OpenJiuwen 执行主流程固定下来：
+`OpenJiuwenAgentRuntimeHandler` 实现 `AgentRuntimeHandler`，固定 OpenJiuwen 执行主流程：
 
 ```text
 AgentExecutionContext
   -> createOpenJiuwenAgent(context)
-  -> runtimeRails(context)
+  -> openJiuwenRails(context)
   -> BaseAgent.registerRail(...)
   -> toOpenJiuwenInput(context)
   -> Runner.runAgent(agent, input, conversationId, null)
   -> OpenJiuwenStreamAdapter
 ```
 
-子类只需要实现：
+子类只需要实现具体 Agent 创建：
 
 ```java
 protected abstract BaseAgent createOpenJiuwenAgent(AgentExecutionContext context);
 ```
 
-也就是说，业务示例负责创建具体 `BaseAgent`，OpenJiuwen adapter 负责执行协议、rail 安装、输入转换、结果转换和错误映射。
+业务侧负责“如何创建和配置 OpenJiuwen 的 `BaseAgent`”；runtime adapter 负责执行协议、Rail 安装、输入转换、结果转换和错误映射。
 
-### 4.2 `OpenJiuwenRuntimeRail`
+### 4.2 OpenJiuwen Rail 扩展点
 
-`OpenJiuwenRuntimeRail` 是 runtime 自己安装到 OpenJiuwen Agent 上的固定 Rail。Wave 1 中它保持轻量，用作稳定扩展点。后续如果需要 runtime 统一注入状态辅助、工具覆盖、远端 A2A 调用观测或沙箱上下文，可以通过 OpenJiuwen 的 rail 机制扩展，而不是把这些逻辑放回 A2A 层。
+OpenJiuwen adapter 使用 OpenJiuwen 0.1.12 的 `BaseAgent.registerRail(...)` 与 `AgentRail` 作为框架本地扩展点。默认不安装 Rail；需要接入 Mem、工具治理或沙箱时，由子类覆盖 `openJiuwenRails(context)`，返回需要注册到 OpenJiuwen Agent 的 Rail。
+
+当前提供的内置 Rail 是 `OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail`。它是 OpenJiuwen 本地桥，不是公共 runtime SPI：
+
+- `beforeInvoke(...)` 调用 runtime 中立 `MemoryProvider.init(context)`。
+- `afterInvoke(...)` 从 OpenJiuwen callback context 中取出 `BaseMessage` 列表，转换成 `MemoryProvider.MemoryRecord`，再调用 `MemoryProvider.save(context, records)`。
+- OpenJiuwen `BaseMessage` 与 `MemoryRecord` 的转换由 `OpenJiuwenMemoryMessageAdapter` 负责，留在 `runtime.engine.openjiuwen` 包内。
+
+适合放入 Rail 的能力：
+
+- 模型调用前后的 trace、耗时采样和异常观测。
+- 工具调用前后的管控、沙箱校验和审计。
+- Mem 检索增强与执行后写回。
+- OpenJiuwen 原生 callback context 的轻量增强。
+
+不建议放入 Rail 的能力：
+
+- Agent 构造：仍由 `createOpenJiuwenAgent(context)` 负责。
+- `Runner.runAgent(...)` 调用：仍由 handler 负责。
+- `conversation_id / agentStateKey` 决策：仍由 handler / message adapter 负责。
+- Agent Card：属于启动期元数据，不是执行期生命周期 hook。
+- Checkpointer 配置：属于 OpenJiuwen runtime / sample wiring，不应在执行期 Rail 中切换全局状态后端。
+
+> 版本约束：本文按 OpenJiuwen `agent-core-java:0.1.12` 的 API 设计。0.1.12 仍提供 `BaseAgent.registerRail(...)`、`AgentRail`、`Runner.runAgent(...)` 与 `CheckpointerFactory`，因此当前 adapter 以这些 API 为边界；不要把其他分支上的新运行时模型当成本文依据。
 
 ### 4.3 `OpenJiuwenMessageAdapter`
 
-`OpenJiuwenMessageAdapter` 把 `AgentExecutionContext` 转成 OpenJiuwen input。关键点是 `conversation_id` 使用 `context.getAgentStateKey()`。
+`OpenJiuwenMessageAdapter` 把 `AgentExecutionContext` 转成 OpenJiuwen input。关键点是：
 
-语义：
+```text
+query = 最新用户输入
+conversation_id = context.getAgentStateKey()
+```
 
-- `agentStateKey` 是业务可控的稳定状态 key。
-- 如果业务未显式传入 `agentStateKey` / `stateKey`，runtime fallback 到 `taskId`。
-- 多轮对话需要复用同一个状态时，应由调用侧传入稳定 `agentStateKey`。
-- 用户跳出原任务、产生新 task 时，可以使用新的 state key，从而避免错误复用旧任务上下文。
+OpenJiuwen 自身通过 `conversation_id` 与原生 checkpointer 完成 session 保存和恢复。runtime 不在每次调用后手工 `dumpState()` / `updateState(...)` 搬运 OpenJiuwen 内部状态。
 
-OpenJiuwen 自身通过 `conversation_id` 与原生 checkpointer 完成 session 保存和恢复。runtime 不在每次调用后手工 dump/load OpenJiuwen 内部状态。
+### 4.4 OpenJiuwen native checkpointer
 
-### 4.4 `OpenJiuwenStreamAdapter`
+OpenJiuwen 的状态主路径是原生 Runner / Checkpointer：
 
-`OpenJiuwenStreamAdapter` 把 OpenJiuwen 返回的 map 结构转换成 `AgentExecutionResult`：
+```text
+AgentExecutionContext.getAgentStateKey()
+  -> OpenJiuwen input["conversation_id"]
+  -> Runner.runAgent(..., conversationId, ...)
+  -> OpenJiuwen Checkpointer restore/save
+```
+
+业务方只需要保证 `agentStateKey` 稳定。OpenJiuwen 内部保存哪些字段、如何序列化、何时恢复，交给 OpenJiuwen `Runner` / `Checkpointer` 处理。
+
+当前 sample 采用 OpenJiuwen 标准方式配置 checkpointer：默认使用 `InMemoryCheckpointer`，可通过配置切换到 `RedisCheckpointer`。OpenJiuwen adapter 不需要因为 checkpointer 后端变化而修改。
+
+### 4.5 `OpenJiuwenStreamAdapter`
+
+`OpenJiuwenStreamAdapter` 把 OpenJiuwen 返回的 map 结构转换为 `AgentExecutionResult`：
 
 - answer / output -> `OUTPUT` 或 `COMPLETED`
 - error -> `FAILED`
@@ -187,127 +237,23 @@ OpenJiuwen 自身通过 `conversation_id` 与原生 checkpointer 完成 session 
 
 A2A 层只处理转换后的 `AgentExecutionResult`，不直接理解 OpenJiuwen 原始结果。
 
-### 4.5 构建一个 OpenJiuwen Runtime Handler 时发生什么
+## 5. 状态与记忆原则
 
-业务侧通常在 Spring configuration 中声明一个 `OpenJiuwenAgentRuntimeHandler` Bean：
-
-```java
-@Bean
-OpenJiuwenAgentRuntimeHandler openJiuwenReactAgentHandler(...) {
-    return new SampleOpenJiuwenReactAgentHandler(...);
-}
-```
-
-`SampleOpenJiuwenReactAgentHandler` 继承 `OpenJiuwenAgentRuntimeHandler`，只实现具体 Agent 的创建逻辑：
-
-```java
-@Override
-protected BaseAgent createOpenJiuwenAgent(AgentExecutionContext context) {
-    ReActAgent agent = new ReActAgent(card);
-    agent.configure(config);
-    return agent;
-}
-```
-
-因此，业务侧只负责“如何创建和配置 OpenJiuwen 的 `BaseAgent`”。执行、输入转换、状态 key 传递、rail 安装和结果转换都由 runtime adapter 统一处理。
-
-完整链路如下：
-
-```text
-Spring Configuration
-  -> new SampleOpenJiuwenReactAgentHandler(...)
-  -> OpenJiuwenAgentRuntimeHandler(agentId)
-  -> A2A runtime wiring 注册为 AgentRuntimeHandler Bean
-  -> A2aAgentExecutor.execute(...)
-  -> handler.execute(context)
-  -> createOpenJiuwenAgent(context)
-  -> registerRail(...)
-  -> Runner.runAgent(...)
-```
-
-#### execute 注入
-
-`A2aAgentExecutor` 收到 A2A 请求后，会构造 `AgentExecutionContext`，然后直接调用：
-
-```java
-handler.execute(context);
-```
-
-对 OpenJiuwen 来说，`execute(context)` 在 `OpenJiuwenAgentRuntimeHandler` 中是固定流程：
-
-```text
-createOpenJiuwenAgent(context)
-  -> runtimeRails(context)
-  -> agent.registerRail(rail)
-  -> toOpenJiuwenInput(context)
-  -> runOpenJiuwenAgent(agent, input, openJiuwenConversationId(context))
-  -> Runner.runAgent(agent, input, conversationId, null)
-```
-
-这保证 A2A bridge 不需要知道 OpenJiuwen 的 `Runner`、`Rail` 或 checkpointer。
-
-#### state 注入
-
-OpenJiuwen 当前不通过 runtime 自己的 `AgentStateStore` 手工搬运状态，而是走 OpenJiuwen 原生 checkpointer：
-
-```text
-AgentExecutionContext.getAgentStateKey()
-  -> OpenJiuwenMessageAdapter 写入 input["conversation_id"]
-  -> OpenJiuwenAgentRuntimeHandler 传给 Runner.runAgent(..., conversationId, ...)
-  -> OpenJiuwen Runner / Checkpointer 自行恢复和保存
-```
-
-`agentStateKey` 的解析顺序是：
-
-```text
-variables["agentStateKey"]
-  -> variables["stateKey"]
-  -> fallback taskId
-```
-
-如果业务需要跨多轮复用状态，应显式传入稳定 `agentStateKey`。如果用户跳出原任务并创建新 task，fallback 到新 `taskId` 会自然隔离状态。
-
-#### mem 注入
-
-当前 OpenJiuwen adapter 还没有强制接入 Mem。`MemoryProvider` 只是 runtime 预留的窄 SPI：
-
-```java
-public interface MemoryProvider {
-    default void init(AgentExecutionContext context) {
-    }
-
-    List<MemoryHit> search(AgentExecutionContext context, String query, int limit);
-}
-```
-
-后续如果要把 Mem 接入 OpenJiuwen，推荐两种方式：
-
-1. 在 OpenJiuwen adapter 内部的 `runtimeRails(context)` 中注册一个带 Mem 能力的 Rail。
-2. 在具体 `createOpenJiuwenAgent(context)` 中，把 Mem 检索结果注入 OpenJiuwen Agent 的 prompt、tool 或 context 配置。
-
-Mem 不应放进 `A2aAgentExecutor`，也不应恢复成全局 provider chain。它应该作为 OpenJiuwen adapter 或具体业务 Agent 创建逻辑的一部分组合进去。
-
-## 5. 状态与记忆接口的使用原则
-
-当前状态设计分成两类：
+当前状态设计分为两类：
 
 1. 框架原生 checkpoint：优先使用，例如 OpenJiuwen。
 2. runtime 预留窄 SPI：给没有原生 checkpoint 或需要 runtime 辅助的框架使用。
 
-OpenJiuwen 当前推荐路径：
+不要把正文记忆、大 payload 或完整业务状态都塞进 `AgentExecutionContext`。`AgentExecutionContext` 更适合承载执行身份、输入消息、metadata、状态 key 或小型状态引用。完整状态后端、记忆压缩和检索策略应由对应中间件或框架后端负责。
 
-```text
-agentStateKey
-  -> OpenJiuwen conversation_id
-  -> OpenJiuwen Checkpointer
-  -> OpenJiuwen native restore/save
-```
+Mem 后续接入建议：
 
-`SetState` 与 `MemoryProvider` 当前不强制 OpenJiuwen 使用。它们的存在是为了后续接入其他 Agent 框架时有一个足够小的公共扩展点。
+- Mem 不复用 Agent State 后端存正文记忆。
+- Agent State 后端只保存 `memoryRef`、`checkpointRef`、`cursor` 等小对象；当前代码不再发布单独的 `AgentStateStore` 接口。
+- Mem 的 compact、budget、vector retrieval、长期检索由 Mem backend 负责。
+- OpenJiuwen 可优先通过 Rail 或具体 `createOpenJiuwenAgent(context)` 的 agent 配置接入 Mem。
 
-不要把正文记忆、大 payload 或完整业务状态都塞进 `AgentExecutionContext`。`AgentExecutionContext` 更适合承载执行身份、输入消息、metadata、状态 key 或引用。完整的状态后端、记忆压缩和检索策略应由对应中间件或框架后端负责。
-
-## 6. 模块间职责
+## 6. 模块职责
 
 | 模块 / 包 | 当前职责 | 不承担的职责 |
 |---|---|---|
@@ -317,29 +263,50 @@ agentStateKey
 | `runtime.engine.service` | 状态存储抽象和默认实现 | 不理解某个 Agent 框架的内部状态结构 |
 | `examples/*` | 提供具体业务 Agent 示例和配置 | 不定义 runtime 核心执行边界 |
 
-## 7. 接入新 Agent 框架的建议
+## 7. 接入新 Agent 框架
 
-新增一个 Agent 框架时，优先按以下顺序判断：
+新增 Agent 框架时，优先按以下顺序判断：
 
 1. 框架是否已有原生 checkpoint / session / state 机制。
-2. 框架是否已有类似 rail、middleware、callback、interceptor 的原生装饰机制。
+2. 框架是否已有 rail、middleware、callback、interceptor 等原生装饰机制。
 3. 框架结果如何映射到 `AgentExecutionResult`。
 4. 是否需要自定义 Agent Card。
-5. 是否需要使用 `SetState` 或 `MemoryProvider` 这种 runtime 预留窄 SPI。
+5. 是否需要使用 `MemoryProvider` 这类 runtime 预留窄 SPI。
 
 推荐形态：
 
-- 实现一个新的 `AgentRuntimeHandler`。
-- 提供一个对应的 `StreamAdapter`。
+- 实现新的 `AgentRuntimeHandler`。
+- 提供对应 `StreamAdapter`。
 - 如有框架原生装饰机制，装饰逻辑留在该框架 adapter 内部。
 - 如需自定义 A2A 元数据，额外提供 `AgentCardProvider`。
 - 只有当某个能力跨多个 Agent 框架稳定成立时，才考虑提升为新的 runtime SPI。
 
-## 8. 当前验证覆盖
+## 8. 失败语义
 
-当前接口边界由以下测试覆盖：
+- state load 失败：由具体 Provider / checkpointer fail closed，不调用 handler 或让框架返回明确失败。
+- handler 执行失败：转换成 `FAILED`，保持 A2A 单出口语义。
+- 执行后辅助写入失败：记录 warn，不把已经完成的任务反转成失败，避免双终态。
+- state save 失败：不覆盖业务执行结果；生产态后续需要告警、重试或补偿队列。
 
-- `OpenJiuwenAgentRuntimeHandlerTest`：验证 OpenJiuwen handler 会安装 runtime rail、使用稳定 `agentStateKey` 作为 conversation id，并能把 OpenJiuwen 异常映射为错误结果。
+## 9. 当前特性清单
+
+| Feature | Status | Notes |
+|---|---|---|
+| `AgentRuntimeHandler` 执行 SPI | Implemented | 单 Agent runtime 执行入口 |
+| `StreamAdapter` 结果转换 SPI | Implemented | 框架原生结果转 `AgentExecutionResult` |
+| `AgentCardProvider` 可选元数据 provider | Implemented | 执行职责和 Agent Card 声明分离 |
+| 业务自定义 state key | Implemented | `agentStateKey` / `stateKey`，fallback `taskId` |
+| `MemoryProvider` 预留 SPI | Implemented | 定义 `init` / `search` / `save` 基础语义 |
+| OpenJiuwen native checkpointer 桥接 | Implemented | 使用稳定 `conversation_id` |
+| OpenJiuwen Rail 扩展点 | Implemented | 默认不安装 Rail；可选 `MemoryRuntimeRail` 作为 Mem bridge |
+| Snapshot / revision / fencing | Deferred | durable backend 时补齐 |
+| Mem 正式集成 | Deferred | 后续单独设计和实现 |
+
+## 10. 验证
+
+当前接口边界主要由以下测试覆盖：
+
+- `OpenJiuwenAgentRuntimeHandlerTest`：验证 OpenJiuwen handler 默认不安装 Rail、子类可安装 `MemoryRuntimeRail`、使用稳定 `agentStateKey` 作为 conversation id、OpenJiuwen message 与 `MemoryRecord` 转换，以及异常结果映射。
 - `A2aJsonRpcControllerTest`：验证 A2A JSON-RPC 接入路径。
 - `RuntimeAppTest`：验证 runtime app 基础启动路径。
 

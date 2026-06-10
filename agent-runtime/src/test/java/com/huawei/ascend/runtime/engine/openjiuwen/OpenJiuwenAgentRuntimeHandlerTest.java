@@ -4,6 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
+import com.openjiuwen.core.foundation.llm.schema.AssistantMessage;
+import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
+import com.openjiuwen.core.foundation.llm.schema.SystemMessage;
+import com.openjiuwen.core.foundation.llm.schema.ToolMessage;
+import com.openjiuwen.core.foundation.llm.schema.UserMessage;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.stream.StreamMode;
 import com.openjiuwen.core.singleagent.BaseAgent;
@@ -20,18 +26,54 @@ import org.junit.jupiter.api.Test;
 class OpenJiuwenAgentRuntimeHandlerTest {
 
     @Test
-    void executeInstallsRuntimeRailAndUsesStableAgentStateConversationId() {
+    void executeUsesStableAgentStateConversationIdWithoutDefaultRail() {
         TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
         AgentExecutionContext context = context(Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, "order-42"));
 
         List<?> rawResults = handler.execute(context).toList();
 
         assertThat(rawResults).isEqualTo(List.of(Map.of("result_type", "answer", "output", "pong")));
-        assertThat(handler.agent.registeredRails).hasSize(1).first().isInstanceOf(OpenJiuwenRuntimeRail.class);
+        assertThat(handler.agent.registeredRails).isEmpty();
         assertThat(handler.capturedConversationId).isEqualTo("order-42");
         assertThat(handler.capturedInput)
                 .containsEntry("query", "ping")
                 .containsEntry("conversation_id", "order-42");
+    }
+
+    @Test
+    void executeInstallsOpenJiuwenRailsWhenSubclassOptsIn() {
+        AgentRail rail = new AgentRail() {
+        };
+        TestOpenJiuwenHandler handler = new RailOpenJiuwenHandler(rail);
+
+        handler.execute(context(Map.of())).toList();
+
+        assertThat(handler.agent.registeredRails).containsExactly(rail);
+    }
+
+    @Test
+    void memoryMessageAdapterConvertsOpenJiuwenMessagesBothWays() {
+        OpenJiuwenMemoryMessageAdapter adapter = new OpenJiuwenMemoryMessageAdapter();
+
+        List<MemoryProvider.MemoryRecord> records = adapter.toMemoryRecords(List.of(
+                new SystemMessage("system prompt", "system-name"),
+                new UserMessage("hello"),
+                new AssistantMessage("hi"),
+                new ToolMessage("tool result", "tool-call-1", "tool-name")));
+
+        assertThat(records)
+                .extracting(MemoryProvider.MemoryRecord::role)
+                .containsExactly("system", "user", "assistant", "tool");
+        assertThat(records.get(0).metadata()).containsEntry(OpenJiuwenMemoryMessageAdapter.METADATA_NAME, "system-name");
+        assertThat(records.get(3).metadata())
+                .containsEntry(OpenJiuwenMemoryMessageAdapter.METADATA_TOOL_CALL_ID, "tool-call-1")
+                .containsEntry(OpenJiuwenMemoryMessageAdapter.METADATA_NAME, "tool-name");
+
+        BaseMessage restored = adapter.toOpenJiuwenMessage(records.get(0));
+
+        assertThat(restored).isInstanceOf(SystemMessage.class);
+        assertThat(restored.getContentAsString()).isEqualTo("system prompt");
+        assertThat(restored.getName()).isEqualTo("system-name");
     }
 
     @Test
@@ -52,7 +94,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
                 "USER_MESSAGE", List.of(message), variables);
     }
 
-    private static final class TestOpenJiuwenHandler extends OpenJiuwenAgentRuntimeHandler {
+    private static class TestOpenJiuwenHandler extends OpenJiuwenAgentRuntimeHandler {
         private final RecordingAgent agent = new RecordingAgent();
         private Map<String, Object> capturedInput;
         private String capturedConversationId;
@@ -88,6 +130,19 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         @Override
         protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
             throw new IllegalStateException("boom");
+        }
+    }
+
+    private static final class RailOpenJiuwenHandler extends TestOpenJiuwenHandler {
+        private final AgentRail rail;
+
+        private RailOpenJiuwenHandler(AgentRail rail) {
+            this.rail = rail;
+        }
+
+        @Override
+        protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
+            return List.of(rail);
         }
     }
 

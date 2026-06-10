@@ -20,11 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
 @RestController
-@ConditionalOnProperty(
-        prefix = "sample.agentscope.retail-wealth.runtime",
-        name = "embedded",
-        havingValue = "true",
-        matchIfMissing = true)
+@ConditionalOnProperty(prefix = "sample.a2a", name = "agent", havingValue = "retail-wealth-advisor")
 final class RetailWealthAdvisorRuntimeController {
 
     private final AgentScopeAgent agent;

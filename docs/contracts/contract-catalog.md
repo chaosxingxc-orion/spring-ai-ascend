@@ -45,16 +45,15 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `S2cCallbackTransport` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | shipped — W2.x; `InMemoryS2cCallbackTransport` reference (ADR-0074); relocated to agent-bus per ADR-0088 |
 | `AgentRuntimeHandler` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — the single framework-neutral runtime SPI: runs one agent and surfaces its output through concrete adapters such as openJiuwen and AgentScope; per the agent-runtime pure rebuild (Doc 2). Result carrier `AgentExecutionResult` ships alongside in the same package |
 | `AgentCardProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — optional provider for the A2A Agent Card of one runtime-hosted business Agent; separated from `AgentRuntimeHandler` so card metadata can be supplied by a dedicated Bean or by a handler that chooses to implement both interfaces |
-| `SetState` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — reserved narrow state-write SPI for frameworks without native checkpointing; openJiuwen uses its native checkpointer path instead |
-| `MemoryProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — reserved narrow memory init/search SPI for future memory middleware integration; does not bind runtime to one memory backend |
+| `MemoryProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — reserved narrow memory init/search/save SPI for future memory middleware integration; does not bind runtime to one memory backend |
 | `StreamAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts a framework's native result stream into the neutral `AgentExecutionResult` stream |
 
-**SPI count by module (shipped surface; the agent-runtime SPI surface is the framework-neutral `engine.spi` set `AgentRuntimeHandler` + `AgentCardProvider` + `SetState` + `MemoryProvider` + `StreamAdapter`):**
+**SPI count by module (shipped surface; the agent-runtime SPI surface is the framework-neutral `engine.spi` set `AgentRuntimeHandler` + `AgentCardProvider` + `MemoryProvider` + `StreamAdapter`):**
 
 | Module | SPI interfaces |
 |---|---|
 | `agent-service` | 0 — serviceization façade skeleton; registration/discovery SPI deferred to a dedicated ADR (ADR-0159) |
-| `agent-runtime` | 5 (`AgentRuntimeHandler`, `AgentCardProvider`, `SetState`, `MemoryProvider`, `StreamAdapter`) |
+| `agent-runtime` | 4 (`AgentRuntimeHandler`, `AgentCardProvider`, `MemoryProvider`, `StreamAdapter`) |
 | `agent-bus` | 8 (`IngressGateway`, `S2cCallbackTransport`, `ReflectionEnvelopeRouter`, `FederationGateway`, `Checkpointer`, `Orchestrator`, `EnginePort`, `DefinitionResolver`) |
 
 **Per-SPI tenant scope (canonical post-ADR-0044):**
@@ -66,8 +65,7 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `S2cCallbackTransport` | tenant-scoped | tenant resolved out-of-band via `S2cCallbackTransport` registry binding at the wrapping Run boundary, per ADR-0074 §Consequences (the `S2cCallbackEnvelope` Java record carries 8 components `{callbackId, serverRunId, capabilityRef, requestPayload, traceId, idempotencyKey, deadline, requestAttributes}` and does NOT include an in-band `tenantId` field); preferred fix per Rule R-C.c is to add `tenantId` to the Java record — deferred to impl-mode follow-up wave (AUD-2026-05-27 AUD-EVT-6 / family `F-cross-authority-tenant-scope-claim-without-field`) | unchanged — relocated to agent-bus per ADR-0088 |
 | `AgentRuntimeHandler` | tenant-scoped | via `AgentExecutionContext` carrying `EngineExecutionScope.tenantId()` | unchanged |
 | `AgentCardProvider` | tenant-scoped | the provided card belongs to the same one-Agent runtime instance selected by tenant/agent routing | unchanged |
-| `SetState` | tenant-scoped | via the same `AgentExecutionContext` passed to framework adapters that choose explicit state writes | unchanged |
-| `MemoryProvider` | tenant-scoped | via the same `AgentExecutionContext` passed to memory init/search integrations | unchanged |
+| `MemoryProvider` | tenant-scoped | via the same `AgentExecutionContext` passed to memory init/search/save integrations | unchanged |
 
 **Structural carriers (records / sealed interfaces / sealed status types / exceptions — not SPI interfaces but part of the contract surface):**
 

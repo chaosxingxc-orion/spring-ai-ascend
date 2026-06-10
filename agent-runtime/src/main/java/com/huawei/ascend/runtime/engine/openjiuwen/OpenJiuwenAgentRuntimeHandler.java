@@ -2,9 +2,13 @@ package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
+import com.openjiuwen.core.context.ModelContext;
+import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
+import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import java.util.List;
 import java.util.Map;
@@ -86,13 +90,19 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
     protected abstract BaseAgent createOpenJiuwenAgent(AgentExecutionContext context);
 
     /**
-     * Runtime-owned rails installed on every openJiuwen agent before execution.
+     * Adapter-owned rails installed on every openJiuwen agent before execution.
      *
-     * <p>The default installs a no-op runtime rail as a stable extension point.
-     * Later waves can replace or extend this list without changing A2A execution.
+     * <p>The default installs no rails. Subclasses can opt in to openJiuwen-local
+     * decorations such as {@link MemoryRuntimeRail} without changing A2A
+     * execution or the framework-neutral runtime SPI.
      */
-    protected List<AgentRail> runtimeRails(AgentExecutionContext context) {
-        return List.of(new OpenJiuwenRuntimeRail());
+    protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
+        return List.of();
+    }
+
+    /** Create the default openJiuwen memory rail for subclasses that opt in. */
+    protected final MemoryRuntimeRail memoryRuntimeRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
+        return new MemoryRuntimeRail(context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
     }
 
     protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
@@ -128,7 +138,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
     }
 
     private void installRails(BaseAgent agent, AgentExecutionContext context) {
-        for (AgentRail rail : runtimeRails(context)) {
+        for (AgentRail rail : openJiuwenRails(context)) {
             if (rail != null) {
                 agent.registerRail(rail);
             }
@@ -164,5 +174,70 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
             cursor = cursor.getCause();
         }
         return message.isEmpty() ? error.getClass().getName() : message.toString();
+    }
+
+    /**
+     * Optional openJiuwen rail that bridges openJiuwen callback messages to a
+     * runtime-neutral {@link MemoryProvider}.
+     *
+     * <p>This class is intentionally openJiuwen-local. Other agent frameworks
+     * should use their own native callback/middleware mechanism rather than
+     * depending on openJiuwen's Rail API.
+     */
+    public static final class MemoryRuntimeRail extends AgentRail {
+        private final AgentExecutionContext executionContext;
+        private final MemoryProvider memoryProvider;
+        private final OpenJiuwenMemoryMessageAdapter memoryMessageAdapter;
+
+        MemoryRuntimeRail(AgentExecutionContext executionContext, MemoryProvider memoryProvider,
+                OpenJiuwenMemoryMessageAdapter memoryMessageAdapter) {
+            this.executionContext = Objects.requireNonNull(executionContext, "executionContext");
+            this.memoryProvider = Objects.requireNonNull(memoryProvider, "memoryProvider");
+            this.memoryMessageAdapter = Objects.requireNonNull(memoryMessageAdapter, "memoryMessageAdapter");
+        }
+
+        @Override
+        public void beforeInvoke(AgentCallbackContext callbackContext) {
+            try {
+                memoryProvider.init(executionContext);
+            } catch (RuntimeException error) {
+                LOGGER.warn("openjiuwen memory init failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
+                        executionContext.getScope().tenantId(),
+                        executionContext.getScope().sessionId(),
+                        executionContext.getScope().taskId(),
+                        error.getClass().getSimpleName(),
+                        errorMessage(error));
+            }
+        }
+
+        @Override
+        public void afterInvoke(AgentCallbackContext callbackContext) {
+            List<BaseMessage> messages = messages(callbackContext);
+            if (messages.isEmpty()) {
+                return;
+            }
+            try {
+                memoryProvider.save(executionContext, memoryMessageAdapter.toMemoryRecords(messages));
+            } catch (RuntimeException error) {
+                LOGGER.warn("openjiuwen memory save failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
+                        executionContext.getScope().tenantId(),
+                        executionContext.getScope().sessionId(),
+                        executionContext.getScope().taskId(),
+                        error.getClass().getSimpleName(),
+                        errorMessage(error));
+            }
+        }
+
+        private static List<BaseMessage> messages(AgentCallbackContext callbackContext) {
+            if (callbackContext == null) {
+                return List.of();
+            }
+            ModelContext modelContext = callbackContext.getContext();
+            if (modelContext == null) {
+                return List.of();
+            }
+            List<BaseMessage> messages = modelContext.getMessages();
+            return messages == null ? List.of() : messages;
+        }
     }
 }

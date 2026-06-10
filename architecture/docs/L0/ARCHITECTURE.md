@@ -202,7 +202,7 @@ spring-ai-ascend/
   agent-runtime/                      # run-owning runtime SDK (compute_control plane; ADR-0159). Ships as a library.
     pom.xml + module-metadata.yaml + ARCHITECTURE.md + docs/dfx/agent-runtime.yaml
     src/main/java/com/huawei/ascend/runtime/
-      engine/spi/                              # AgentRuntimeHandler, StreamAdapter, AgentCardProvider, SetState, MemoryProvider, AgentExecutionResult (framework-neutral runtime SPI)
+      engine/spi/                              # AgentRuntimeHandler, StreamAdapter, AgentCardProvider, MemoryProvider, AgentExecutionResult (framework-neutral runtime SPI)
       engine/api/                              # EngineExecutionApi (inbound enqueue: execute / resume / cancel)
       engine/command/                          # EngineWorker + internal command queue
       engine/port/                             # TaskControlClient, AccessLayerClient (outbound; intra-service, not SPI)

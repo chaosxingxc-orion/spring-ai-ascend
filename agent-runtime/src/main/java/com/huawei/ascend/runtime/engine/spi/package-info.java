@@ -5,8 +5,8 @@
  * one business Agent, and {@code AgentCardProvider} supplies its public A2A
  * metadata. A concrete handler may implement both interfaces directly, but
  * normal execution code should keep framework-specific decoration inside the
- * framework adapter. {@code SetState} and {@code MemoryProvider} are reserved
- * narrow SPIs for frameworks that need explicit state writes or memory lookup.
+ * framework adapter. {@code MemoryProvider} is a reserved narrow SPI for
+ * frameworks that need runtime-provided memory init/search/save integration.
  * Frameworks with native checkpointing can use their own checkpointer
  * configuration without going through these optional surfaces.
  * Engine inbound calls live in {@link com.huawei.ascend.runtime.engine.api};
