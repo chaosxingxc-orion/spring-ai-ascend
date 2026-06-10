@@ -344,7 +344,7 @@ The rc9 impl scanned 3 narrow surfaces; the rc11 widening flips the model to "sc
 
 **Surfaces that necessarily name the deleted modules** — `docs/governance/architecture-status.yaml` (allowed_claim narrative tracks wave history), `docs/governance/enforcers.yaml` (enforcer descriptions name what they check), `docs/governance/rule-history.md` (historical rule scope catalog), `docs/governance/principles/*` (principle cards reference deferred sub-clauses naming pre-Phase-C modules), `docs/governance/whitepaper-alignment-matrix.md`, `docs/governance/rules/rule-{87,93,94,98,33,37,21}.md` (rule cards about the leakage rule itself + retargeted-Rule-R-C.e/33/37 cards), `docs/telemetry/policy.md` (backward-compat metric tag), `docs/dfx/*` (DFX yaml descriptions naming subsumed prior artifacts), `agent-runtime-core/ARCHITECTURE.md` (kernel module names the legacy loop it broke), `perf/*` (perf docs name pre-Phase-C tests as W4 targets), `spring-ai-ascend-dependencies/module-metadata.yaml` (BoM description).
 
-**Rule-G-2.h domain (avoid duplicate-fail)** — `ops/*` and `docs/contracts/*` are Rule G-2 sub-clause .h's primary scope; Rule G-2 sub-clause .f skips them to prevent both rules failing on the same hit.
+**Rule-G-2.h domain (avoid duplicate-fail)** — `docs/contracts/*` is Rule G-2 sub-clause .h's primary scope; Rule G-2 sub-clause .f skips it to prevent both rules failing on the same hit.
 
 **Live contract** — `docs/contracts/openapi-v1.yaml` (carries `x-contract-owner` metadata; separate update plan).
 
@@ -450,7 +450,6 @@ Rule G-2 sub-clause .h reuses Rule G-2 sub-clause .f's word-boundary awk regex (
 
 The DIFFERENCE is file-discovery scope. Rule G-2 sub-clause .h scans:
 
-- `ops/**/*.yaml`, `ops/**/*.yml`, `ops/**/*.tpl` — operational infra (Helm charts, Kubernetes manifests)
 - `docs/contracts/*.yaml` — live API contracts (single-level, excludes versioned subdirectories like `docs/contracts/openapi-v1.yaml-pinned/` if they exist)
 - `**/module-metadata.yaml` (any depth ≤ 3, excludes `target/`, `.git/`, `docs/archive/`) — per-module metadata that often describes BoM contents, allowed/forbidden deps, etc.
 
