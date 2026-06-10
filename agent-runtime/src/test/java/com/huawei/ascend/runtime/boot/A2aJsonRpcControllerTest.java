@@ -2,6 +2,8 @@ package com.huawei.ascend.runtime.boot;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Flow;
@@ -19,6 +21,7 @@ import org.a2aproject.sdk.server.tasks.BasePushNotificationSender;
 import org.a2aproject.sdk.server.tasks.InMemoryPushNotificationConfigStore;
 import org.a2aproject.sdk.server.tasks.PushNotificationSender;
 import org.a2aproject.sdk.spec.A2AError;
+import org.a2aproject.sdk.spec.A2AErrorCodes;
 import org.a2aproject.sdk.spec.CancelTaskParams;
 import org.a2aproject.sdk.spec.DeleteTaskPushNotificationConfigParams;
 import org.a2aproject.sdk.spec.EventKind;
@@ -36,6 +39,7 @@ import org.a2aproject.sdk.spec.TaskPushNotificationConfig;
 import org.a2aproject.sdk.spec.TaskQueryParams;
 import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.test.StepVerifier;
 
@@ -82,6 +86,39 @@ class A2aJsonRpcControllerTest {
         PushNotificationSender sender = configuration.a2aPushSender(new InMemoryPushNotificationConfigStore());
 
         assertThat(sender).isInstanceOf(BasePushNotificationSender.class);
+    }
+
+    /** A malformed request body must surface a JSON-RPC parse error, never a silent empty {}. */
+    @Test
+    void malformedRequestBodyReturnsJsonRpcParseErrorNotEmptyObject() throws Exception {
+        A2aJsonRpcController controller = new A2aJsonRpcController(new SingleEventRequestHandler());
+
+        Object response = controller.handle("{ this is not valid json ");
+
+        String json = (String) ((ResponseEntity<?>) response).getBody();
+        assertThat(json).isNotEqualTo("{}");
+        JsonObject error = JsonParser.parseString(json).getAsJsonObject().getAsJsonObject("error");
+        assertThat(error).as("response must carry a JSON-RPC error object").isNotNull();
+        assertThat(error.get("code").getAsInt()).isEqualTo(A2AErrorCodes.JSON_PARSE.code());
+        assertThat(error.get("message").getAsString()).isNotBlank();
+    }
+
+    /** An unknown JSON-RPC method must surface METHOD_NOT_FOUND, not a silent empty {}. */
+    @Test
+    void unknownMethodReturnsMethodNotFoundError() throws Exception {
+        A2aJsonRpcController controller = new A2aJsonRpcController(new SingleEventRequestHandler());
+        String body = """
+                {"jsonrpc":"2.0","id":"req-unknown","method":"NoSuchMethod","params":{}}
+                """;
+
+        Object response = controller.handle(body);
+
+        String json = (String) ((ResponseEntity<?>) response).getBody();
+        assertThat(json).isNotEqualTo("{}");
+        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+        assertThat(obj.getAsJsonObject("error").get("code").getAsInt())
+                .isEqualTo(A2AErrorCodes.METHOD_NOT_FOUND.code());
+        assertThat(obj.get("id").getAsString()).as("request id must be echoed back").isEqualTo("req-unknown");
     }
 
     private static StreamResponse.PayloadCase sdkParsedPayload(ServerSentEvent<String> event) {

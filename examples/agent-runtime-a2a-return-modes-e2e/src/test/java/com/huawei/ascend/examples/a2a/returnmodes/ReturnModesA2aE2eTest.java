@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.a2aproject.sdk.spec.AgentCard;
+import org.a2aproject.sdk.spec.DataPart;
 import org.a2aproject.sdk.spec.EventKind;
 import org.a2aproject.sdk.spec.ListTaskPushNotificationConfigsResult;
 import org.a2aproject.sdk.spec.StreamingEventKind;
@@ -80,6 +81,31 @@ class ReturnModesA2aE2eTest {
         assertThat(inbox.awaitPayload(payload -> payload.contains("stream-part-1"), TIMEOUT.toSeconds(), TimeUnit.SECONDS))
                 .isTrue();
         assertThat(inbox.payloads()).anySatisfy(payload -> assertThat(payload).contains("stream-part-1"));
+    }
+
+    /** A turn whose agent throws must return a FAILED task carrying a structured, client-readable error. */
+    @Test
+    void failingTurnReturnsFailedTaskWithStructuredError() throws Exception {
+        ReturnModesA2aClient client = new ReturnModesA2aClient(baseUri(), TIMEOUT);
+
+        EventKind result = client.sendMessage("fail");
+
+        assertThat(result).isInstanceOf(Task.class);
+        Task task = (Task) result;
+        assertThat(task.status().state()).isEqualTo(TaskState.TASK_STATE_FAILED);
+        // Human-readable reason reaches the client...
+        assertThat(ReturnModesA2aClient.textFrom(result)).contains("INVALID_INPUT");
+        // ...and a machine-readable structured error (code + retryable) survives the A2A round-trip.
+        String structured = String.valueOf(structuredErrorData(task));
+        assertThat(structured).contains("INVALID_INPUT").contains("retryable");
+    }
+
+    private static Object structuredErrorData(Task task) {
+        return task.status().message().parts().stream()
+                .filter(DataPart.class::isInstance)
+                .map(part -> ((DataPart) part).data())
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("FAILED task carried no structured error DataPart"));
     }
 
     private URI baseUri() {

@@ -14,9 +14,11 @@ import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.server.agentexecution.RequestContext;
 import org.a2aproject.sdk.server.tasks.AgentEmitter;
+import org.a2aproject.sdk.spec.DataPart;
 import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.TextPart;
@@ -51,7 +53,54 @@ class A2aAgentExecutorTest {
         AgentEmitter emitter = newEmitter();
         new A2aAgentExecutor(handler).execute(requestContext(), emitter);
 
-        assertThat(failureText(emitter)).isEqualTo("RUNTIME_ERROR: boom");
+        // An unrecognised exception is classified INTERNAL by RuntimeErrorCode.
+        assertThat(failureText(emitter)).isEqualTo("INTERNAL: boom");
+    }
+
+    /** A thrown exception must reach the client as a machine-readable DataPart, not only free text. */
+    @Test
+    void executionException_carriesStructuredErrorDataPart() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenThrow(new IllegalArgumentException("missing slot"));
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler).execute(requestContext(), emitter);
+
+        Map<String, Object> data = failureData(emitter);
+        assertThat(data).containsEntry("code", "INVALID_INPUT");
+        assertThat(data).containsEntry("retryable", false);
+        assertThat(data).containsEntry("message", "missing slot");
+    }
+
+    /** A retryable failure (upstream unavailable) must surface retryable=true to the client. */
+    @Test
+    void executionException_marksUpstreamFailureRetryable() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenThrow(new RuntimeException(new java.io.IOException("conn reset")));
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler).execute(requestContext(), emitter);
+
+        Map<String, Object> data = failureData(emitter);
+        assertThat(data).containsEntry("code", "UPSTREAM_UNAVAILABLE");
+        assertThat(data).containsEntry("retryable", true);
+    }
+
+    /** No registered handler is a rejection, not a runtime failure: reject() with a reason, never a bare fail(). */
+    @Test
+    void noHandler_rejectsTaskWithReason() {
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(null).execute(requestContext(), emitter);
+
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(emitter).reject(captor.capture());
+        String text = captor.getValue().parts().stream()
+                .filter(TextPart.class::isInstance)
+                .map(p -> ((TextPart) p).text())
+                .reduce("", String::concat);
+        assertThat(text).contains("NO_HANDLER");
     }
 
     /** The lifecycle must announce SUBMITTED before WORKING, matching the A2A task lifecycle. */
@@ -124,5 +173,17 @@ class A2aAgentExecutorTest {
                 .filter(TextPart.class::isInstance)
                 .map(p -> ((TextPart) p).text())
                 .reduce("", String::concat);
+    }
+
+    /** Capture the structured error DataPart handed to fail(Message). */
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> failureData(AgentEmitter emitter) {
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(emitter).fail(captor.capture());
+        return captor.getValue().parts().stream()
+                .filter(DataPart.class::isInstance)
+                .map(p -> (Map<String, Object>) ((DataPart) p).data())
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("fail(Message) carried no structured DataPart"));
     }
 }

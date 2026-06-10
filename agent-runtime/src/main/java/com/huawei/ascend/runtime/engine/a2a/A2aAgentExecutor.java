@@ -5,6 +5,7 @@ import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -12,6 +13,7 @@ import java.util.stream.Stream;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
 import org.a2aproject.sdk.server.agentexecution.RequestContext;
 import org.a2aproject.sdk.server.tasks.AgentEmitter;
+import org.a2aproject.sdk.spec.DataPart;
 import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.TextPart;
 import org.slf4j.Logger;
@@ -20,6 +22,9 @@ import org.slf4j.LoggerFactory;
 public final class A2aAgentExecutor implements AgentExecutor {
 
     private static final Logger LOG = LoggerFactory.getLogger(A2aAgentExecutor.class);
+
+    /** Version of the structured-error payload carried on the failure DataPart/metadata. */
+    private static final String ERROR_SCHEMA_VERSION = "1";
 
     private final AgentRuntimeHandler handler;
 
@@ -32,7 +37,9 @@ public final class A2aAgentExecutor implements AgentExecutor {
         String taskId = ctx.getTaskId();
         if (handler == null) {
             LOG.warn("[A2A] no handler registered taskId={}", taskId);
-            emitter.fail();
+            emitter.reject(failureMessage(emitter, "NO_HANDLER",
+                    "no agent handler registered for this task", false));
+            LOG.info("[A2A] task state=REJECTED taskId={}", taskId);
             return;
         }
         long startedNanos = System.nanoTime();
@@ -67,10 +74,11 @@ public final class A2aAgentExecutor implements AgentExecutor {
                     taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
 
         } catch (Exception e) {
-            LOG.error("[A2A] execute failed taskId={} errorClass={} message={}",
-                    taskId, e.getClass().getSimpleName(), e.getMessage(), e);
+            RuntimeErrorCode code = RuntimeErrorCode.classify(e);
             String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            emitter.fail(failureMessage(emitter, "RUNTIME_ERROR", detail));
+            LOG.error("[A2A] execute failed taskId={} code={} errorClass={} message={}",
+                    taskId, code, e.getClass().getSimpleName(), e.getMessage(), e);
+            emitter.fail(failureMessage(emitter, code.name(), detail, code.retryable()));
             LOG.info("[A2A] task state=FAILED taskId={}", taskId);
         }
     }
@@ -81,9 +89,14 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
     @Override
     public void cancel(RequestContext ctx, AgentEmitter emitter) {
-        LOG.info("[A2A] cancel requested taskId={}", ctx.getTaskId());
-        emitter.cancel();
-        LOG.info("[A2A] task state=CANCELED taskId={}", ctx.getTaskId());
+        String taskId = ctx.getTaskId();
+        LOG.info("[A2A] cancel requested taskId={}", taskId);
+        try {
+            emitter.cancel();
+            LOG.info("[A2A] task state=CANCELED taskId={}", taskId);
+        } catch (Exception e) {
+            LOG.error("[A2A] cancel failed taskId={} message={}", taskId, e.getMessage(), e);
+        }
     }
 
     private void route(AgentExecutionResult result, AgentEmitter emitter, String taskId,
@@ -113,7 +126,8 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 String code = result.errorCode() == null ? "RUNTIME_ERROR" : result.errorCode();
                 String msg = result.errorMessage() == null ? code : result.errorMessage();
                 LOG.warn("[A2A] task state=FAILED taskId={} code={} message={}", taskId, code, msg);
-                emitter.fail(failureMessage(emitter, code, result.errorMessage()));
+                // Adapter-supplied codes pass through unchanged; retryability is unknown → conservative false.
+                emitter.fail(failureMessage(emitter, code, result.errorMessage(), false));
             }
             case INTERRUPTED -> {
                 String prompt = result.prompt() == null ? "" : result.prompt();
@@ -131,12 +145,23 @@ public final class A2aAgentExecutor implements AgentExecutor {
     }
 
     /**
-     * Builds an agent message carrying the failure reason so the A2A client sees
-     * why the task failed instead of a bare FAILED status with no detail.
+     * Builds an agent message carrying the failure both as human-readable text (a {@link TextPart})
+     * and as a machine-readable {@link DataPart} ({@code code}, {@code message}, {@code retryable},
+     * {@code schema_version}) so an A2A client can render the reason AND branch on it
+     * programmatically. The same structure is mirrored on the message metadata for clients that read
+     * {@code status.message.metadata} rather than the message parts.
      */
-    private static Message failureMessage(AgentEmitter emitter, String code, String detail) {
+    private static Message failureMessage(AgentEmitter emitter, String code, String detail, boolean retryable) {
+        String message = (detail == null || detail.isBlank()) ? code : detail;
         String text = (detail == null || detail.isBlank()) ? code : code + ": " + detail;
-        return emitter.newAgentMessage(List.<Part<?>>of(new TextPart(text)), null);
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("kind", "error");
+        error.put("code", code);
+        error.put("message", message);
+        error.put("retryable", retryable);
+        error.put("schema_version", ERROR_SCHEMA_VERSION);
+        List<Part<?>> parts = List.of(new TextPart(text), new DataPart(error));
+        return emitter.newAgentMessage(parts, Map.of("a2a.error", error));
     }
 
     private AgentExecutionContext toExecutionContext(RequestContext ctx) {

@@ -45,6 +45,11 @@ public class ReturnModesAgentConfiguration {
                     ? ""
                     : OpenJiuwenMessageAdapter.messageText(context.getMessages().getLast());
             String normalized = input.trim().toLowerCase(Locale.ROOT);
+            if (normalized.contains("fail")) {
+                // Mirror the common case: the agent simply throws. The runtime must translate this
+                // into a FAILED task carrying a structured, machine-readable error for the client.
+                throw new IllegalArgumentException("deliberate failure for return-mode verification");
+            }
             if (normalized.contains("stream")) {
                 return Stream.of(
                         AgentExecutionResult.output("stream-part-1 "),
