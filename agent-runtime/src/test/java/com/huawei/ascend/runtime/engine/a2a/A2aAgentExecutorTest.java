@@ -3,7 +3,10 @@ package com.huawei.ascend.runtime.engine.a2a;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,6 +22,7 @@ import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 class A2aAgentExecutorTest {
 
@@ -48,6 +52,50 @@ class A2aAgentExecutorTest {
         new A2aAgentExecutor(handler).execute(requestContext(), emitter);
 
         assertThat(failureText(emitter)).isEqualTo("RUNTIME_ERROR: boom");
+    }
+
+    /** The lifecycle must announce SUBMITTED before WORKING, matching the A2A task lifecycle. */
+    @Test
+    void submitPrecedesStartWork() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler).execute(requestContext(), emitter);
+
+        InOrder inOrder = inOrder(emitter);
+        inOrder.verify(emitter).submit();
+        inOrder.verify(emitter).startWork();
+    }
+
+    /** Streamed OUTPUT chunks must form one growing artifact: same id, append false→true, never last-chunk. */
+    @Test
+    void streamingOutputFormsSingleAppendingArtifact() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> Stream.of(
+                AgentExecutionResult.output("part-1 "),
+                AgentExecutionResult.output("part-2 "),
+                AgentExecutionResult.completed("done"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler).execute(requestContext(), emitter);
+
+        ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Boolean> appendCaptor = ArgumentCaptor.forClass(Boolean.class);
+        ArgumentCaptor<Boolean> lastChunkCaptor = ArgumentCaptor.forClass(Boolean.class);
+        verify(emitter, times(2)).addArtifact(
+                anyList(), idCaptor.capture(), anyString(), any(),
+                appendCaptor.capture(), lastChunkCaptor.capture());
+
+        assertThat(idCaptor.getAllValues()).containsExactly("task-1-response", "task-1-response");
+        assertThat(appendCaptor.getAllValues()).containsExactly(false, true);
+        assertThat(lastChunkCaptor.getAllValues()).containsOnly(false);
     }
 
     private static RequestContext requestContext() {
