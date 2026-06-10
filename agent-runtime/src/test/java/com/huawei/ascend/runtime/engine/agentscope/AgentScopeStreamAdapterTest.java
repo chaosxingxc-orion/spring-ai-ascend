@@ -63,6 +63,51 @@ class AgentScopeStreamAdapterTest {
     }
 
     @Test
+    void mapsRuntimeMessageEventWithNestedContentToOutput() {
+        AgentExecutionResult result = adapter.map(Map.of(
+                "object", "message",
+                "type", "message",
+                "status", "completed",
+                "role", "assistant",
+                "content", List.of(Map.of("object", "content", "type", "text", "text", "hello"))));
+
+        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.OUTPUT);
+        assertThat(result.outputContent()).isEqualTo("hello");
+    }
+
+    @Test
+    void mapsRuntimeResponseEventWithNestedOutputToCompleted() {
+        AgentExecutionResult result = adapter.map(Map.of(
+                "object", "response",
+                "status", "completed",
+                "output", List.of(Map.of(
+                        "role", "assistant",
+                        "content", List.of(Map.of("type", "text", "text", "hello"))))));
+
+        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.COMPLETED);
+        assertThat(result.outputContent()).isEqualTo("hello");
+    }
+
+    @Test
+    void treatsBooleanFalseErrorFieldAsAbsent() {
+        AgentExecutionResult result = adapter.map(Map.of("status", "in_progress", "error", false, "text", "hi"));
+
+        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.OUTPUT);
+        assertThat(result.outputContent()).isEqualTo("hi");
+    }
+
+    @Test
+    void extractsCodeAndMessageFromNestedErrorObject() {
+        AgentExecutionResult result = adapter.map(Map.of(
+                "status", "failed",
+                "error", Map.of("code", "E_UPSTREAM", "message", "boom")));
+
+        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.FAILED);
+        assertThat(result.errorCode()).isEqualTo("E_UPSTREAM");
+        assertThat(result.errorMessage()).isEqualTo("boom");
+    }
+
+    @Test
     void doesNotTreatStatusSubstringsAsTerminalResults() {
         for (String status : List.of(
                 "no_error",

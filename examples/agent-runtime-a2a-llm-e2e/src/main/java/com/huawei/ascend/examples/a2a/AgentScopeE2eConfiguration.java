@@ -31,7 +31,6 @@ import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
@@ -235,8 +234,8 @@ public class AgentScopeE2eConfiguration {
             for (Message message : invocation.messages()) {
                 messages.add(Msg.builder()
                         .name(name)
-                        .role(toAgentScopeRole(message.role()))
-                        .textContent(messageText(message))
+                        .role(AgentScopeWireMessages.toMsgRole(message))
+                        .textContent(AgentScopeWireMessages.text(message))
                         .metadata(Map.of(
                                 "tenantId", invocation.tenantId(),
                                 "sessionId", invocation.sessionId(),
@@ -278,26 +277,6 @@ public class AgentScopeE2eConfiguration {
                 results.add(AgentScopeEvent.completed(lastText));
             }
             return results.stream();
-        }
-
-        private MsgRole toAgentScopeRole(Message.Role role) {
-            if (role == Message.Role.ROLE_AGENT) {
-                return MsgRole.ASSISTANT;
-            }
-            return MsgRole.USER;
-        }
-
-        private static String messageText(Message message) {
-            if (message == null || message.parts() == null) {
-                return "";
-            }
-            StringBuilder text = new StringBuilder();
-            for (var part : message.parts()) {
-                if (part instanceof TextPart textPart) {
-                    text.append(textPart.text());
-                }
-            }
-            return text.toString();
         }
 
         private static String errorMessage(Throwable error) {

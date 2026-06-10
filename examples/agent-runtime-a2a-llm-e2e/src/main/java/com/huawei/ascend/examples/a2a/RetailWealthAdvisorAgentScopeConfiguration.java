@@ -35,11 +35,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -270,8 +270,8 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
             for (Message message : invocation.messages()) {
                 messages.add(Msg.builder()
                         .name(name)
-                        .role(toAgentScopeRole(message.role()))
-                        .textContent(messageText(message))
+                        .role(AgentScopeWireMessages.toMsgRole(message))
+                        .textContent(AgentScopeWireMessages.text(message))
                         .metadata(Map.of(
                                 "tenantId", invocation.tenantId(),
                                 "sessionId", invocation.sessionId(),
@@ -308,8 +308,8 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
 
         private String customerId(AgentScopeInvocation invocation) {
             String input = invocation.messages().stream()
-                    .map(RetailWealthAdvisorAgent::messageText)
-                    .reduce("", (left, right) -> left + "\n" + right);
+                    .map(AgentScopeWireMessages::text)
+                    .collect(Collectors.joining("\n"));
             Matcher matcher = CUSTOMER_ID_PATTERN.matcher(input);
             if (matcher.find()) {
                 return matcher.group(1).toUpperCase(Locale.ROOT);
@@ -345,26 +345,6 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
                 results.add(AgentScopeEvent.completed(lastText));
             }
             return results.stream();
-        }
-
-        private MsgRole toAgentScopeRole(Message.Role role) {
-            if (role == Message.Role.ROLE_AGENT) {
-                return MsgRole.ASSISTANT;
-            }
-            return MsgRole.USER;
-        }
-
-        private static String messageText(Message message) {
-            if (message == null || message.parts() == null) {
-                return "";
-            }
-            StringBuilder text = new StringBuilder();
-            for (var part : message.parts()) {
-                if (part instanceof TextPart textPart) {
-                    text.append(textPart.text());
-                }
-            }
-            return text.toString();
         }
 
         private static String errorMessage(Throwable error) {

@@ -1,8 +1,8 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
+import com.huawei.ascend.runtime.engine.a2a.Messages;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,11 +33,6 @@ public class OpenJiuwenMessageAdapter {
      * {@code common.Message.text()} method that iterated Content parts.
      */
     public static String messageText(Message msg) {
-        if (msg == null || msg.parts() == null) return "";
-        StringBuilder sb = new StringBuilder();
-        for (var part : msg.parts()) {
-            if (part instanceof TextPart tp) sb.append(tp.text());
-        }
-        return sb.toString();
+        return Messages.text(msg);
     }
 }
