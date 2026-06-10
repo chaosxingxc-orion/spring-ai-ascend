@@ -2,265 +2,333 @@
 level: L1
 view: process
 module: agent-service
-status: implemented
-authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
+status: active
+authority: "ADR-0143 (rc55 — canonical 4+1 source moved here) + ADR-0138 (rc53 — 5-layer L1 ratification) + ADR-0139 (rc53 — Fast/Slow Path narrowed semantics) + ADR-0142 (rc55 — Run aggregate single owner; Layer 4 invokes Layer 2 via RunRepository CAS) + ADR-0145 (rc55 — sealed RunEvent emissions per scenario)"
 ---
 
-# `agent-service` — 进程视图
+# agent-service — Process View
 
-## 1. 并发模型
+> **STATUS — agent-runtime pure rebuild (ADR-0159):** `agent-service` is now a serviceization-facade **skeleton**; its former runtime is consolidated into **`agent-runtime`**. Wherever this document references `EngineRegistry` / `ExecutorAdapter` / `EngineEnvelope` / `EngineMatchingException` / `EngineHookSurface` / `HookPoint` / `RuntimeMiddleware` / `HookDispatcher` / `resolve(envelope)`, that engine/hook design is **RETIRED / design_only / historical** — no such Java type exists. The current shipped dispatch lives in `agent-runtime`: `EngineDispatcher` -> `AgentRuntimeHandler` (routed by `agentId` via `AgentRuntimeHandlerRegistry`; unknown `agentId` -> terminal `AGENT_ID_INVALID`; single `control` write authority; egress gated by `control`), verified by `EngineDispatcherTest` / `EngineClosedLoopIntegrationTest`. See Rule R-M and `architecture/docs/L1/agent-runtime/`.
 
-### 1.1 线程架构
+> Authoring source: rc53 review file §16 (`docs/logs/reviews/2026-05-26-agent-service-l1-4plus1-rewrite-wave-1.en.md`), ported in rc55 W4 with corrections:
+>
+> - **R2** + **M7** (`F-design-only-mechanism-shown-as-shipped`): every diagram caption annotates `DualTrackRouter` / `SlowTrackJudge` / `service.queue` references as `(design_only — W2, ADR-0112 / ADR-0141)`.
+> - **O3** (cancel-race resolution): new P6 sequence diagram shows the LOSER's path (CAS no-op + post-CAS re-read + appropriate response code).
+> - **R3** + **ADR-0142** (Run aggregate single-owner): every Run state write shown as Layer 4 → `RunRepository.updateIfNotTerminal(tenantId, runId, λ)` invocation into Layer 2; Layer 4 NEVER calls `Run.withStatus(...)` directly.
+> - **M6** + **ADR-0145**: RunEvent emissions annotated on every state-transition arrow.
+> - **Cross-scenario invariants** from `scenarios.md` §6 (red lines) preserved in every sequence.
 
+## 1. P1 — Standard Synchronous Intake → State Machine → (optional) Suspend → Resume (covers S1 + S2)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Client (Web / App)
+    participant GW as L1: Access::Gateway
+    participant Trace as L1: TraceExtractFilter
+    participant TF as L1: TenantContextFilter + JwtTenantClaimCrossCheck
+    participant Idem as L1: IdempotencyHeaderFilter
+    participant Run as L1: RunController
+    participant RR as L2: RunRepository  (single owner per ADR-0142)
+    participant Orch as L4: Orchestrator
+    participant DTR as L4: DualTrackRouter <i>(design_only — W2, ADR-0112)</i>
+    participant Reg as agent-runtime: EngineDispatcher
+    participant Exec as agent-runtime: AgentRuntimeHandler
+    participant Mid as L4: RuntimeMiddleware chain  <i>(RETIRED / design_only — no current runtime per ADR-0159)</i>
+    participant Queue as L3: Internal Event Queue <i>(design_only — ADR-0141)</i>
+
+    Client->>GW: POST /v1/runs<br/>X-Tenant-Id, Idempotency-Key, JWT
+    GW->>Trace: filter chain
+    Trace->>TF: forward (originate trace_id if absent)
+    TF->>TF: bind tenantId (JWT claim cross-check per ADR-0040)
+    TF->>Idem: forward
+    Idem->>Idem: claimOrFind(tid, key, hash) — ADR-0057
+    alt Idempotency hit
+        Idem-->>Client: 409 idempotency_conflict OR 409 idempotency_body_drift<br/><i>(200 cached response branch is W2-design per ADR-0057 §2 — L1 stops at CLAIMED; AUD-IDEM-3)</i>
+    else fresh request
+        Idem->>Run: pass through
+        Run->>RR: save(Run with status=PENDING, tenantId=tid)<br/><i>create-only path per rc39 source-guard</i>
+        RR-->>Queue: <i>(when L3 lands)</i> publish RunCreatedEvent on data channel (ADR-0145; evolutionExport=IN_SCOPE)
+        RR-->>Run: Run record (PENDING)
+        Run->>Orch: dispatch(runId, envelope)
+        Orch->>DTR: judge(envelope, predicate)
+        alt Fast-Path eligible (S1)
+            DTR-->>Orch: FastPath
+            Orch->>RR: updateIfNotTerminal(runId, λ→RUNNING) — ATOMIC CAS per ADR-0142
+            RR->>RR: RunStateMachine.validate(PENDING, RUNNING) — atomic inside CAS
+            RR-->>Queue: <i>(when L3 lands)</i> publish RunStateTransitionEvent(PENDING→RUNNING) on data channel
+            RR-->>Orch: ok
+            Orch->>Reg: resolve(envelope)
+            Reg-->>Orch: ExecutorAdapter
+            Orch->>Exec: execute(runContext)
+            Exec->>Mid: emits HookPoint.before_llm (Layer 5a → Layer 4)
+            Mid->>Mid: dispatch chain
+            Mid-->>Exec: HookOutcome.Proceed
+            Exec-->>Orch: Result (no SuspendSignal)
+            Orch->>RR: updateIfNotTerminal(runId, λ→SUCCEEDED) — ATOMIC CAS
+            RR-->>Queue: <i>(when L3 lands)</i> publish RunStateTransitionEvent(RUNNING→SUCCEEDED) + TerminalTransitionEvent(SUCCEEDED)
+            Run-->>Client: 200 RunResponse
+        else Slow-Path required (S2)
+            DTR-->>Orch: SlowPath
+            Run-->>Client: 202 TaskCursor (Rule R-F)
+            Orch->>RR: updateIfNotTerminal(runId, λ→RUNNING) — ATOMIC CAS
+            Orch->>Reg: resolve(envelope)
+            Reg-->>Orch: ExecutorAdapter
+            Orch->>Exec: execute(runContext)
+            Exec->>Mid: emits HookPoint.before_tool
+            Mid-->>Exec: HookOutcome.Proceed
+            Exec--xOrch: throws SuspendSignal(parentNodeKey, ...)
+            Orch->>RR: updateIfNotTerminal(runId, λ→SUSPENDED) — ATOMIC CAS
+            RR-->>Queue: <i>(when L3 lands)</i> publish SuspendRequestedEvent + RunStateTransitionEvent(RUNNING→SUSPENDED) on control + data
+            Note over Orch,RR: Run is now suspended;<br/>Checkpointer persists snapshot.<br/>Client polls /v1/runs/{runId} (W1-shipped); SSE / Flux<RunEvent> / webhook callback are W2 scope per openapi-v1.yaml:289,295 (AUD-2026-05-27 PR77-P2-2).
+        end
+    end
 ```
-                          ┌──────────────────────────┐
-                          │   HTTP IO Threads         │
-                          │   (Tomcat/Netty)          │
-                          └──────────┬───────────────┘
-                                     │ 接收 A2A 请求
-                                     ▼
-                          ┌──────────────────────────┐
-                          │   A2aJsonRpcController   │
-                          │   (IO 线程)               │
-                          └──────────┬───────────────┘
-                                     │ 委托给 RequestHandler
-                                     ▼
-                          ┌──────────────────────────┐
-                          │   DefaultRequestHandler   │
-                          │   (IO 线程，同步路径)      │
-                          │   或 (IO 线程，异步投递)   │─── 投递到 MainEventBus
-                          └──────────┬───────────────┘
-                                     │
-              ┌──────────────────────┼──────────────────────┐
-              │                      │                      │
-              ▼                      ▼                      ▼
-    ┌─────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-    │  QueueManager   │  │  MainEventBus    │  │  InMemoryTask-   │
-    │  (同步/IO线程)   │  │  (同步发布)       │  │  Store           │
-    └────────┬────────┘  └────────┬─────────┘  │  (同步/IO线程)    │
-             │                    │             └──────────────────┘
-             │                    │
-             └────────┬───────────┘
-                      │ 事件投递
-                      ▼
-          ┌──────────────────────────┐
-          │  MainEventBusProcessor   │
-          │  (后台线程:               │
-          │   CachedThreadPool)      │
-          └──────────┬───────────────┘
-                     │ 调用 AgentExecutor.execute()
-                     ▼
-          ┌──────────────────────────┐
-          │  A2aAgentExecutor        │
-          │  (后台线程)               │
-          │  → AgentRuntimeHandler   │
-          │    .execute(context)     │
-          └──────────┬───────────────┘
-                     │ emitter 回调
-                     ▼
-          ┌──────────────────────────┐
-          │  AgentEmitter 回调通知    │
-          │  → MainEventBus 发布     │
-          │  → 最终 SSE 返回 IO 线程  │
-          └──────────────────────────┘
+
+## 2. P2 — Fast-Path / Slow-Path Decision Tree (covers S1 / S2 divergence)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Orch as L4: Orchestrator
+    participant DTR as L4: DualTrackRouter <i>(design_only — W2, ADR-0112)</i><br/>SlowTrackJudge implementation
+    participant RC as L2: Run record  (tenantId required, Rule R-C.2.a)
+    participant Cfg as L4: routing policy <i>(design_only — dual-track-routing-policy.yaml W2)</i>
+
+    Orch->>DTR: judge(runId, envelope, run)
+    DTR->>RC: read estimated_wall_clock + has_external_input + has_s2c_callback + has_a2a_collab + estimated_deployment_locus
+    RC-->>DTR: metadata
+    DTR->>Cfg: lookup tenant-policy thresholds
+    Cfg-->>DTR: { fast_path_wall_clock_max=5s, fast_path_forbidden_features=[s2c, a2a, cross_deployment] }
+    alt All fast-path predicates pass
+        DTR-->>Orch: FastPath
+        Note over Orch: Persistence shape: Run + Task metadata only.<br/>NO mandatory checkpoint/snapshot (ADR-0139).<br/>tenantId / RLS / reactive / SuspendSignal STILL apply (red line 4).
+    else Any predicate fails
+        DTR-->>Orch: SlowPath
+        Note over Orch: Persistence shape: + Checkpointer snapshots at every tool-call boundary.<br/>SuspendSignal flow + ResumeDispatcher active.
+    end
 ```
 
-### 1.2 线程安全保证
+## 3. P3 — Cancel During Execution + Re-auth + Cancel Race WINNER (covers S5 winner side)
 
-| 组件 | 线程安全策略 | 说明 |
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Client
+    participant Run as L1: RunController.cancel
+    participant TF as L1: TenantContextFilter
+    participant RR as L2: RunRepository  (CAS owner per ADR-0142)
+    participant SM as L2: RunStateMachine  (atomic inside CAS)
+    participant Queue as L3: Internal Event Queue <i>(design_only)</i>
+
+    Client->>Run: POST /v1/runs/{runId}/cancel<br/>X-Tenant-Id: tid_request, JWT
+    Run->>TF: filter chain (tenant binding)
+    TF->>Run: tenantId = tid_request
+    Run->>RR: findById(runId)
+    RR-->>Run: run (status=RUNNING, tenantId=tid_run)
+    alt tid_request != tid_run  (cross-tenant)
+        Run-->>Client: 404 not_found  (Rule R-J.b at W0;<br/>W1 widening to 403 tenant_mismatch + WARN audit deferred per ADR-0108)
+    else tid_request == tid_run
+        Run->>RR: updateIfNotTerminal(tid_request, runId, λ run → run.withStatus(CANCELLED)) — ATOMIC CAS
+        Note over RR: CAS WHERE status NOT IN (CANCELLED, SUCCEEDED, FAILED, EXPIRED)
+        RR->>SM: validate(RUNNING, CANCELLED)
+        SM-->>RR: ok (legal transition)
+        alt CAS succeeded (winner — this writer)
+            RR-->>Queue: <i>(when L3 lands)</i> publish CancelRequestedEvent(actor=jwt_sub) + RunStateTransitionEvent(RUNNING→CANCELLED) + TerminalTransitionEvent(CANCELLED)
+            RR-->>Run: cancelled
+            Run-->>Client: 200 (CANCELLED)
+        else CAS no-op (Run already in same-status terminal)
+            RR-->>Run: post-CAS Run = CANCELLED
+            RR-->>Queue: <i>(when L3 lands)</i> publish CancelRequestedEvent(actor=jwt_sub) [audit signal only; no state change]
+            Run-->>Client: 200 (idempotent — already CANCELLED)
+        else CAS rejected (Run in different terminal)
+            RR-->>Run: post-CAS Run = SUCCEEDED / FAILED / EXPIRED
+            RR-->>Queue: <i>(when L3 lands)</i> publish CancelRequestedEvent(actor=jwt_sub) [rejection audit signal]
+            Run-->>Client: 409 illegal_state_transition
+        end
+    end
+```
+
+#### P3 v1.2 amendment — CANCEL_RACE_RESOLVED reasons (ADR-0155 §6)
+
+When CANCEL_REQUESTED arrives concurrent with WORKITEM_DONE, M4 TCC-03 arbitrates:
+
+| Condition | Final state | RunEvent reason |
 |---|---|---|
-| `InMemoryAgentStateStore` | `ConcurrentHashMap` | 线程安全的原子操作，无需额外加锁 |
-| `InMemoryTaskStore`（A2A SDK） | A2A SDK 内部保证 | SDK 内部使用并发安全的数据结构 |
-| `InMemoryQueueManager`（A2A SDK） | A2A SDK 内部保证 | 队列操作线程安全 |
-| `MainEventBus`（A2A SDK） | A2A SDK 内部保证 | 发布-订阅模式天然线程安全 |
-| `AgentExecutionContext.replaceAgentState()` | volatile + 不可变 Map | 写入使用 volatile 保证可见性，Map.copyOf() 保证不可变 |
-| `AgentRuntimeProviderChain` | 无共享状态 | 每次调用创建新的 providers 列表副本（`List.copyOf()`），`AtomicBoolean` 保证 close 一次 |
+| Child Runs unsettled | wait → CANCEL_REQUESTED → CANCELLED | `CANCEL_RACE_RESOLVED_AS_CANCELLED` |
+| No children, final artifact present | COMPLETED | `CANCEL_RACE_RESOLVED_AS_COMPLETED` |
+| No children, partial artifact only | CANCELLED | `CANCEL_RACE_RESOLVED_AS_CANCELLED` |
 
-### 1.3 并发限制
+This is deterministic — the CAS engine never has to "guess" who arrived first; it inspects the in-flight envelope and applies the rule.
 
-```yaml
-app:
-  runs:
-    dispatch:
-      core-threads: 4       # 核心线程数
-      max-threads: 16       # 最大线程数
-      queue-capacity: 256   # 队列容量
-      rejection-policy: CALLER_RUNS  # 过载策略（调用者线程执行）
+## 4. P4 — A2A Peer Collaboration (covers S3)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Client
+    participant RunA as agent-service A: RunController
+    participant OrchA as agent-service A: L4 Orchestrator
+    participant ExecA as agent-service A: L5a ExecutorAdapter
+    participant RRA as agent-service A: L2 RunRepository
+    participant IngressA as agent-service A: L1 IngressGateway <i>(design_only — Rule R-I.b)</i>
+    participant Bus as agent-bus: 3-track channels  (Rule R-E)
+    participant IngressB as agent-service B: L1 IngressGateway
+    participant RunB as agent-service B: L4 Orchestrator
+    participant RRB as agent-service B: L2 RunRepository
+
+    Client->>RunA: POST /v1/runs (parent run)
+    RunA->>RRA: save(parentRun PENDING)
+    RunA->>OrchA: dispatch
+    OrchA->>RRA: updateIfNotTerminal(λ→RUNNING)
+    OrchA->>ExecA: execute
+    ExecA--xOrchA: throws SuspendSignal(child-run variant)<br/>(SuspendReason.AwaitChildRun — per ADR-0146 canonical naming; AUD-2026-05-27 SBL-NAME-1)
+    OrchA->>RRA: updateIfNotTerminal(λ→SUSPENDED)
+    Note over RRA: publish ChildRunSpawnedEvent + SuspendRequestedEvent + RunStateTransitionEvent(RUNNING→SUSPENDED)
+    OrchA->>IngressA: spawnChildOnPeer(parentRunId, childMode, childDef, tenantId)
+    IngressA->>Bus: publish on control channel (IngressEnvelope)
+    Bus->>IngressB: deliver (cross-tenant rejected at IngressB per Rule R-I.1)
+    IngressB->>RunB: createChildRun(envelope)
+    RunB->>RRB: save(childRun PENDING, parentRunId=A.runId, tenantId=…)
+    Note over RRB: publish RunCreatedEvent(parentRunId=A.runId)
+    RunB->>RunB: full execution lifecycle (S1 or S2)
+    RunB->>RRB: updateIfNotTerminal(λ→SUCCEEDED)
+    RunB->>Bus: publish ChildRunCompletedEvent on data channel
+    Bus->>IngressA: deliver
+    IngressA->>OrchA: childCompleted(childRunId, terminalStatus)
+    OrchA->>RRA: updateIfNotTerminal(λ→RUNNING)<br/>publish ResumeRequestedEvent(resumeCause=CHILD_COMPLETED)
+    OrchA->>ExecA: resume execution
+    ExecA-->>OrchA: Result
+    OrchA->>RRA: updateIfNotTerminal(λ→SUCCEEDED)
+    RunA-->>Client: 200 RunResponse (when polled; original 202 carries TaskCursor)
 ```
 
-- 默认拒绝策略为 `CALLER_RUNS`：队列满时由调用者线程执行，提供背压
-- Spring Boot 虚拟线程支持已开启（`spring.threads.virtual.enabled: true`），在高并发场景下降低线程开销
+## 5. P5 — S2C Client Callback (covers S4)
 
-## 2. 异步/同步边界
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as External Client
+    participant RunCtl as L1: RunController.resume <i>(W2-shipped)</i>
+    participant Orch as L4: Orchestrator
+    participant Exec as L5a: ExecutorAdapter
+    participant RR as L2: RunRepository
+    participant Trans as agent-bus: S2cCallbackTransport SPI<br/>(bus.spi.s2c — runtime_enforced per Rule R-M.d)
+    participant Bus as agent-bus: 3-track channels
 
-### 2.1 同步路径
+    Exec--xOrch: throws SuspendSignal.forClientCallback(parentNodeKey, S2cCallbackEnvelope)<br/>(ADR-0074 checked variant)
+    Orch->>Trans: publish(envelope, capability=s2c.client.callback)
+    Trans->>Bus: publish on CONTROL channel (highest priority, out-of-band)
+    Orch->>RR: updateIfNotTerminal(λ→SUSPENDED with SuspendReason.AwaitClientCallback)
+    Note over RR: publish S2cCallbackRequestedEvent (evolutionExport=OPT_IN — client-bound)<br/>+ SuspendRequestedEvent + RunStateTransitionEvent(RUNNING→SUSPENDED)
+    Bus->>Client: deliver envelope (via webhook / SSE / push transport)
 
-```
-A2A 请求 → A2aJsonRpcController.handle()
-    → RequestHandler.onMessageSend()     // 同步
-    → AgentExecutor.execute()            // 同步
-    → AgentRuntimeHandler.execute()      // 同步
-    → 返回结果 JSON                      // 同步应答
-```
+    Note over Client: Client resolves capability<br/>(user input, file access, etc.)
 
-适用于 `SendMessage`（非流式）、`GetTask`、`CancelTask`。
+    Client->>RunCtl: POST /v1/runs/{runId}/resume<br/>{ callbackId, response }
+    RunCtl->>Trans: validateResponseSchema(response, s2c-callback.v1.yaml#response)
+    alt schema-valid
+        Trans->>Bus: publish response on DATA channel (16 KiB inline cap per Rule R-E)
+        Bus->>Orch: deliver
+        Orch->>RR: updateIfNotTerminal(λ→RUNNING)
+        Note over RR: publish S2cCallbackCompletedEvent(outcome=SUCCESS) + ResumeRequestedEvent + RunStateTransitionEvent(SUSPENDED→RUNNING)
+        Orch->>Exec: resume with resumePayload injected (unwinds SuspendSignal.forClientCallback)
+        Exec-->>Orch: Result
+        Orch->>RR: updateIfNotTerminal(λ→SUCCEEDED)
+    else schema-invalid
+        Trans-->>RunCtl: validation_failed
+        RunCtl->>Orch: notifyResumeFailure(s2c_response_invalid)
+        Orch->>RR: updateIfNotTerminal(λ→FAILED with finalReason=s2c_response_invalid)
+        Note over RR: publish S2cCallbackCompletedEvent(outcome=SCHEMA_INVALID) + RunStateTransitionEvent(SUSPENDED→FAILED) + TerminalTransitionEvent(FAILED)
+        RunCtl-->>Client: 400 invalid_request
+    end
 
-### 2.2 异步路径（流式 SSE）
-
-```
-A2A 请求 → A2aJsonRpcController.handleSse()
-    → RequestHandler.onMessageSendStream()    // 返回 Flow.Publisher
-    → 转换为 Flux<ServerSentEvent>            // Reactor 桥接
-    → SSE 流式返回                            // 异步流
-```
-
-适用于 `SendStreamingMessage`、`SubscribeToTask`。
-
-**流式执行细节**：
-1. `MainEventBusProcessor` 在后台线程调用 `AgentExecutor.execute(ctx, emitter)`
-2. `A2aAgentExecutor` 通过 `AgentRuntimeProviderChain.execute(handler, context)` 获取 `Stream<?>`
-3. 结果流经 `StreamAdapter.adapt()` 转换为 `Stream<AgentExecutionResult>`
-4. 每个 result 通过 `emitter.sendMessage()` / `emitter.complete()` / `emitter.fail()` / `emitter.requiresInput()` 回调
-5. emitter 回调触发 `MainEventBus` 发布事件
-6. 事件通过 `MainEventBusProcessor` → `QueueManager` → `RequestHandler` 最终到达 SSE 流
-
-### 2.3 异步边界图
-
-```
-  IO 线程 (同步)          │     后台线程 (异步)        │    IO 线程 (SSE 流)
-                         │                            │
-  RequestHandler ────────┼──▶ MainEventBus.publish() ──▶ MainEventBusProcessor
-                         │                            │
-                         │                    AgentExecutor.execute()
-                         │                            │
-                         │                  AgentRuntimeHandler
-                         │                      .execute()
-                         │                            │
-                         │                     emitter 回调
-                         │                            │
-                         │              MainEventBus.publish()
-                         │                            │
-  SSE Flux ◀────────────┼────────────────────────────┘
-                         │
+    alt SuspendReason.AwaitClientCallback expires (client times out)
+        Note over Orch: deadline timer fires (Tick Engine rhythm channel)
+        Orch->>RR: updateIfNotTerminal(λ→FAILED with finalReason=s2c_callback_timeout)
+        Note over RR: publish S2cCallbackCompletedEvent(outcome=TIMEOUT) + TerminalTransitionEvent(FAILED)
+    end
 ```
 
-## 3. 执行流程
+## 6. P6 — Cancel Race LOSER Sequence (O3 — new in rc55)
 
-### 3.1 主流程：A2A 消息发送 → Agent 执行 → 应答
+> This sequence diagram closes the O3 audit finding in rc55 W0 sibling
+> sweep. The cancel-race winner (P3 above) is well-documented; the
+> loser side was implicit — what code path does the loser take, and
+> what response code does the user see? This diagram makes it explicit.
 
-```
-时间轴 ──────────────────────────────────────────────────────────────▶
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Client (cancel requester)
+    participant Run as L1: RunController.cancel
+    participant TF as L1: TenantContextFilter
+    participant RR as L2: RunRepository  (CAS owner per ADR-0142)
+    participant Orch as L4: Orchestrator  (concurrent terminal writer — the "winner")
 
-Client          Controller       RequestHandler    TaskStore    A2aAgentExecutor   AgentRuntimeHandler
-  │                 │                  │               │               │                │
-  │ POST /a2a       │                  │               │               │                │
-  │────────────────▶│                  │               │               │                │
-  │                 │                  │               │               │                │
-  │                 │ parseRequestBody │               │               │                │
-  │                 │─────────────────▶│               │               │                │
-  │                 │                  │               │               │                │
-  │                 │                  │ create Task   │               │                │
-  │                 │                  │──────────────▶│               │                │
-  │                 │                  │ (SUBMITTED)   │               │                │
-  │                 │                  │               │               │                │
-  │                 │                  │ publish event │               │                │
-  │                 │                  │───▶ MainEventBus              │                │
-  │                 │                  │               │               │                │
-  │                 │                  │   [MainEventBusProcessor 消费]                │
-  │                 │                  │               │               │                │
-  │                 │                  │               │  execute(ctx, emitter)         │
-  │                 │                  │               │──────────────▶│                │
-  │                 │                  │               │               │                │
-  │                 │                  │               │               │ toExecutionContext()
-  │                 │                  │               │               │                │
-  │                 │                  │               │               │ execute(context)
-  │                 │                  │               │               │───────────────▶│
-  │                 │                  │               │               │                │
-  │                 │                  │               │               │  Stream<?>     │
-  │                 │                  │               │               │◀───────────────│
-  │                 │                  │               │               │                │
-  │                 │                  │               │    resultAdapter().adapt(raw)  │
-  │                 │                  │               │               │                │
-  │                 │                  │               │  [遍历 AgentExecutionResult]   │
-  │                 │                  │               │               │                │
-  │                 │                  │               │  emitter.sendMessage(text)     │
-  │                 │                  │◀──────────────│               │                │
-  │                 │                  │               │               │                │
-  │                 │                  │ update Task   │               │                │
-  │                 │                  │ (WORKING)     │               │                │
-  │                 │                  │──────────────▶│               │                │
-  │                 │                  │               │               │                │
-  │  SSE: event     │                  │               │               │                │
-  │◀────────────────│                  │               │               │                │
-  │                 │                  │               │               │                │
-  │                 │                  │  [最终结果]   │               │                │
-  │                 │                  │  emitter.complete() / fail() │                │
-  │                 │                  │               │               │                │
-  │                 │                  │ update Task   │               │                │
-  │                 │                  │ (COMPLETED)   │               │                │
-  │                 │                  │──────────────▶│               │                │
-  │                 │                  │               │               │                │
-  │  SSE: final     │                  │               │               │                │
-  │◀────────────────│                  │               │               │                │
+    par Concurrent cancel-vs-complete race
+        Client->>Run: POST /v1/runs/{runId}/cancel
+        Run->>TF: tenant binding
+        Run->>RR: findById(runId)
+        RR-->>Run: run (status=RUNNING, tenantId=tid)
+    and
+        Note over Orch: Run completes successfully<br/>RIGHT BEFORE the cancel CAS attempt
+        Orch->>RR: updateIfNotTerminal(runId, λ→SUCCEEDED) — ATOMIC CAS
+        Note over RR: CAS WINS (status transitions RUNNING → SUCCEEDED)<br/>publish RunStateTransitionEvent + TerminalTransitionEvent
+        RR-->>Orch: ok
+    end
+
+    Note over RR: Cancel side's perspective: Run was RUNNING at findById,<br/>but the orchestrator's terminal CAS commits BEFORE the cancel's CAS.
+
+    Run->>RR: updateIfNotTerminal(runId, λ→CANCELLED) — ATOMIC CAS
+    Note over RR: CAS WHERE status NOT IN (CANCELLED, SUCCEEDED, FAILED, EXPIRED)<br/>**LOSES** because status is now SUCCEEDED.
+    RR->>RR: post-CAS re-read: status = SUCCEEDED  (not the requested CANCELLED)
+    RR-->>Run: outcome=CASMissedTerminal, post-CAS-status=SUCCEEDED
+
+    Run->>Run: classify outcome:<br/>requestedTransition=CANCELLED<br/>actualTerminal=SUCCEEDED<br/>requested != actual + actual is terminal<br/>=> 409 illegal_state_transition (S5(c))
+    Run-->>Client: 409 illegal_state_transition<br/>{error:{code:"illegal_state_transition", message:"Run already terminal: SUCCEEDED", details:{currentStatus:"SUCCEEDED"}}}
+
+    Note over Run: Audit signal: still emit CancelRequestedEvent<br/>(rejection audit per ADR-0145; outcome encoded in event payload)
 ```
 
-### 3.2 中断/恢复流程
+**Loser-side response code matrix** (cancel race outcomes — completes
+the §S5 outcome table in `scenarios.md`):
 
-```
-1. AgentRuntimeHandler 执行过程中需要人工输入:
-   → StreamAdapter 返回 AgentExecutionResult.interrupted(prompt)
-   → A2aAgentExecutor.route(): emitter.requiresInput()
-   → Task 状态推进到 INPUT_REQUIRED
-   → 客户端收到 SSE 事件（含 prompt）
+| Actual post-CAS terminal | Requested transition | Response code | Rationale |
+|---|---|---|---|
+| CANCELLED | CANCELLED | 200 | Idempotent — same-status terminal cancel |
+| SUCCEEDED | CANCELLED | 409 `illegal_state_transition` | Different-terminal cancel rejected |
+| FAILED | CANCELLED | 409 `illegal_state_transition` | Different-terminal cancel rejected |
+| EXPIRED | CANCELLED | 409 `illegal_state_transition` | Different-terminal cancel rejected |
 
-2. 客户端发送继续消息:
-   → POST /a2a with SendMessage (context_id = taskId)
-   → RequestHandler 识别为 resume
-   → AgentExecutor.execute() 再次调用
-   → AgentRuntimeHandler 从 AgentExecutionContext.getAgentState() 恢复上下文
-   → 继续执行
-```
+Note: every loser-side path still emits `CancelRequestedEvent`
+(per `docs/contracts/run-event.v1.yaml`) as a rejection audit signal,
+so downstream observability can count rejected cancels per tenant +
+correlate with concurrent orchestrator completions. The CAS no-op
+itself does NOT emit `RunStateTransitionEvent` (no transition
+happened); the `TerminalTransitionEvent` was already emitted by the
+winner's CAS.
 
-### 3.3 取消流程
+## 7. Cross-references
 
-```
-Client                Controller         RequestHandler      A2aAgentExecutor
-  │                       │                    │                    │
-  │ POST /a2a             │                    │                    │
-  │ (CancelTask)          │                    │                    │
-  │──────────────────────▶│                    │                    │
-  │                       │                    │                    │
-  │                       │ onCancelTask()     │                    │
-  │                       │───────────────────▶│                    │
-  │                       │                    │                    │
-  │                       │                    │ cancel(ctx, emitter)
-  │                       │                    │───────────────────▶│
-  │                       │                    │                    │
-  │                       │                    │   emitter.cancel() │
-  │                       │                    │◀───────────────────│
-  │                       │                    │                    │
-  │                       │                    │ Task → CANCELED    │
-  │                       │                    │                    │
-  │  Response (JSON)      │                    │                    │
-  │◀──────────────────────│                    │                    │
-```
-
-### 3.4 错误处理流程
-
-```
-AgentRuntimeHandler.execute() 抛出异常:
-  → AgentRuntimeProviderChain.closeEntered() 关闭已进入的 providers
-  → A2aAgentExecutor 捕获异常:
-      LOG.error("[A2A] execute failed ...")
-      emitter.fail()
-  → Task 状态推进到 FAILED
-  → 客户端收到失败通知
-
-AgentRuntimeProvider.beforeExecute() 抛出异常:
-  → AgentRuntimeProviderChain 关闭已进入的 providers，重新抛出异常
-  → A2aAgentExecutor 捕获 → emitter.fail()
-
-AgentRuntimeProvider.afterExecute() 抛出异常:
-  → AgentRuntimeProviderChain 捕获并 LOG.warn()，不中断主流程
-  → 其他 providers 的 afterExecute 继续执行
-```
+- Scenarios: each Pk sequence maps to a sibling Sk scenario in
+  [`scenarios.md`](scenarios.md). P3 and P6 together cover S5
+  (winner + loser).
+- Logical: layer numbering and component names come from
+  [`logical.md`](logical.md) §1 (5-layer diagram with ADR-0140
+  5a/5b split + ADR-0142 single-owner pinning).
+- Physical: cross-channel routing constraints (`control` / `data` /
+  `rhythm`) per [`physical.md`](physical.md) §3 (three-track bus
+  binding per Rule R-E + `bus-channels.yaml`).
+- Development: package homes for each participant in the sequences
+  per [`development.md`](development.md) §1 + §2 (layer↔package
+  matrix per ADR-0144).
+- RunEvent emissions: every state-transition arrow's emission set
+  cross-walks to [`logical.md`](logical.md) §7 (RunEvent sealed
+  hierarchy + scenario-coverage matrix) and
+<<<<<<<< HEAD:docs/architecture/l0/l1/agent-service/process.md
+  [`docs/contracts/run-event.v1.yaml`](../../../../docs/contracts/run-event.v1.yaml)
+========
+  [`docs/contracts/run-event.v1.yaml`](../../../../docs/contracts/run-event.v1.yaml)
+>>>>>>>> origin/main:architecture/docs/L1/agent-service/process.md
+  for variant field definitions.
