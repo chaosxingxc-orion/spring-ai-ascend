@@ -7,6 +7,7 @@ import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
 import org.a2aproject.sdk.server.agentexecution.RequestContext;
@@ -39,13 +40,18 @@ public final class A2aAgentExecutor implements AgentExecutor {
         String agentId = handler.agentId();
         LOG.info("[A2A] execute start taskId={} sessionId={} agentId={}", taskId, sessionId, agentId);
 
-        // ── SUBMITTED → WORKING ──
+        // ── (received) → SUBMITTED → WORKING ──
+        emitter.submit();
+        LOG.info("[A2A] task state=SUBMITTED taskId={}", taskId);
         emitter.startWork();
         LOG.info("[A2A] task state=WORKING taskId={}", taskId);
 
         String inputText = extractText(ctx);
         LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
         AgentExecutionContext context = toExecutionContext(ctx);
+        // Per-task local state (this bean is a shared singleton — never hoist to a field).
+        AtomicBoolean firstArtifact = new AtomicBoolean(true);
+        String artifactId = taskId + "-response";
 
         try (Stream<?> raw = executeAgent(context);
              Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
@@ -55,7 +61,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
                         taskId, result.type(),
                         result.outputContent() != null
                                 ? result.outputContent().length() : 0);
-                route(result, emitter, taskId);
+                route(result, emitter, taskId, artifactId, firstArtifact);
             });
             LOG.info("[A2A] execute finish taskId={} durationMs={}",
                     taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
@@ -80,13 +86,18 @@ public final class A2aAgentExecutor implements AgentExecutor {
         LOG.info("[A2A] task state=CANCELED taskId={}", ctx.getTaskId());
     }
 
-    private void route(AgentExecutionResult result, AgentEmitter emitter, String taskId) {
+    private void route(AgentExecutionResult result, AgentEmitter emitter, String taskId,
+                       String artifactId, AtomicBoolean firstArtifact) {
         switch (result.type()) {
             case OUTPUT -> {
                 String text = outputText(result);
                 LOG.info("[A2A] output stream taskId={} textChars={}", taskId, text.length());
-                emitter.addArtifact(List.<Part<?>>of(new TextPart(text)));
-                // state stays WORKING — more output may follow
+                // First chunk opens the artifact (append=false); later chunks append to the same
+                // artifactId so the stream forms one growing artifact rather than many fragments.
+                boolean append = !firstArtifact.getAndSet(false);
+                emitter.addArtifact(List.<Part<?>>of(new TextPart(text)),
+                        artifactId, "agent-response", null, append, false);
+                // state stays WORKING — more output may follow; the terminal status closes the stream
             }
             case COMPLETED -> {
                 String text = outputText(result);

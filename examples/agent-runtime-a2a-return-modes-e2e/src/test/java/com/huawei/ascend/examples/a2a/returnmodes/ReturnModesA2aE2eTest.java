@@ -13,6 +13,7 @@ import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.a2aproject.sdk.spec.Task;
 import org.a2aproject.sdk.spec.TaskPushNotificationConfig;
 import org.a2aproject.sdk.spec.TaskState;
+import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -49,6 +50,18 @@ class ReturnModesA2aE2eTest {
                 .contains("stream-part-1")
                 .contains("stream-part-2")
                 .contains("stream-done");
+
+        // The client must be notified of task start: collect lifecycle states seen on the stream
+        // from both Task snapshots and status-update events. SUBMITTED then WORKING must both appear.
+        List<TaskState> streamStates = new java.util.ArrayList<>();
+        for (StreamingEventKind e : streamEvents) {
+            if (e instanceof TaskStatusUpdateEvent s && s.status() != null) {
+                streamStates.add(s.status().state());
+            } else if (e instanceof Task t && t.status() != null) {
+                streamStates.add(t.status().state());
+            }
+        }
+        assertThat(streamStates).contains(TaskState.TASK_STATE_SUBMITTED, TaskState.TASK_STATE_WORKING);
 
         inbox.reset();
         String taskId = syncTask.id();
