@@ -352,13 +352,8 @@ memory_cap:
 # Cross-references — links into companion artefacts.
 # ---------------------------------------------------------------------------
 relates_to:
-  - product/PRODUCT.md                                # PC-003 + Persona-D authority
-  - product/claims.yaml                               # PC-003 success_metric definition
-  - product/personas.yaml                             # Persona-D daily_job + pain_points
   - docs/governance/competitive-baselines.yaml        # `performance` row references this file
   - docs/governance/skill-capacity.yaml               # per-skill capacity numbers consume the targets here
   - docs/governance/sandbox-policies.yaml             # `financial_default` cpu_cap + memory_cap sized against these targets
   - docs/contracts/contract-catalog.md                # §5 Telemetry contract — exporter surface that instruments these
   - docs/cross-cutting/non-functional-requirements.md # broader NFR canvas
-  - deploy/middle-office-reference/values.yaml        # 中台 reference Helm chart resources sized from these
-  - docs/adr/0155-product-authority-and-traceability.yaml # authority ADR

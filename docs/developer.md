@@ -8,8 +8,6 @@ You are the **primary developer-facing persona for v1.0** of `spring-ai-ascend`.
 
 `spring-ai-ascend` is an enterprise agent platform that lets you build agents the way you already build Spring services — config-driven, with Spring Boot starters, dependency-injected skills and models, ConfigurationProperties-validated config, full reuse of your existing Spring middleware (Data / Cloud / Security / Integration / Batch / Cache). The v1.0 release (2026-06-30) is hardened for **financial-industry production**: multi-tenant isolation enforced at the storage engine, identity delegation traceable end-to-end, immutable audit trail formatted for regulatory submission, sandbox enforcement that subsumes any logical permission grant.
 
-Authoritative product framing: `product/PRODUCT.md` (auto-loaded — you've already read it implicitly). Product claims registry: `product/claims.yaml`. Your persona definition: `product/personas.yaml` → Persona-C.
-
 ## What you do not need to learn
 
 - **You do NOT need to learn a new programming model.** Skills are Spring beans. Tools are typed POJOs. Config is `application.yaml`. DI works the way it always has.
@@ -46,10 +44,6 @@ curl -X POST http://localhost:8080/v1/runs \
 ```
 
 For the full step-by-step walkthrough of building the v1.0 reference agent (`loan-review-assistant`), see `examples/finance-loan-review/README.md` (lands in v1.0).
-
-## The 12 stages of an agent's life on this platform
-
-Read `product/journey.md` once. It walks Persona-C from discovery to evolution-loop closure in 12 stages. Stages 1-10 ship in v1.0; stages 11-12 (evolution) ship progressively in v1.5+.
 
 ## When you need to write code
 
@@ -88,7 +82,6 @@ If anything in steps 1-4 doesn't work for your use case, raise the issue in `/de
 - **Stuck on agent semantics**: `architecture/docs/L1/agent-service/scenarios.md`
 - **Stuck on the contract format**: `docs/contracts/<contract-name>.v1.yaml`
 - **Stuck on which rule applies**: invoke the right phase-contract skill — it tells you
-- **Stuck on the product framing**: `product/PRODUCT.md` (you've already read it)
 
 ## What you don't need to do today
 

@@ -134,7 +134,7 @@ MDC populates `tenant_id` (existing — `TenantContextFilter`), `trace_id` + `sp
 
 ## 9. Dashboards (W2)
 
-`ops/grafana-dashboards/`:
+Planned Grafana dashboards (W2):
 
 - `runs.json` — run volume, terminal outcome breakdown, latency p50/p95/p99.
 - `cost.json` — cost per tenant per model.
