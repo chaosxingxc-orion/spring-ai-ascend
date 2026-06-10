@@ -9,6 +9,7 @@ import com.huawei.ascend.runtime.idempotency.IdempotencyStore;
 import com.huawei.ascend.runtime.idempotency.InMemoryIdempotencyStore;
 import com.huawei.ascend.runtime.run.InMemoryRunRepository;
 import com.huawei.ascend.runtime.run.RunRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -93,9 +94,10 @@ public class RuntimeAutoConfiguration {
     public InMemoryRunRepository runRepository() { return new InMemoryRunRepository(); }
 
     @Bean
-    public FilterRegistrationBean<TraceParentFilter> traceParentFilter() {
+    public FilterRegistrationBean<TraceParentFilter> traceParentFilter(
+            ObjectProvider<MeterRegistry> meterRegistry) {
         FilterRegistrationBean<TraceParentFilter> registration =
-                new FilterRegistrationBean<>(new TraceParentFilter());
+                new FilterRegistrationBean<>(new TraceParentFilter(meterRegistry.getIfAvailable()));
         // Ahead of tenant auth (order 10) so even auth rejections carry a
         // correlatable trace_id in the MDC and a traceresponse header.
         registration.setOrder(5);

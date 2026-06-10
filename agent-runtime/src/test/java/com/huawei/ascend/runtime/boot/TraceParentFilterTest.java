@@ -2,6 +2,7 @@ package com.huawei.ascend.runtime.boot;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
@@ -71,6 +72,36 @@ class TraceParentFilterTest {
                     .isNotEqualTo(INBOUND_TRACE_ID)
                     .isNotEqualTo("0".repeat(32));
         }
+    }
+
+    @Test
+    void invalidTraceparentIncrementsInvalidCounter() throws Exception {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        TraceParentFilter metered = new TraceParentFilter(registry);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/a2a");
+        request.addHeader("traceparent", "garbage");
+
+        metered.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+
+        assertThat(registry.counter("springai_ascend_traceparent_invalid_total").count())
+                .isEqualTo(1.0);
+    }
+
+    @Test
+    void missingOrValidTraceparentDoesNotIncrementInvalidCounter() throws Exception {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        TraceParentFilter metered = new TraceParentFilter(registry);
+
+        MockHttpServletRequest absent = new MockHttpServletRequest("GET", "/a2a");
+        metered.doFilter(absent, new MockHttpServletResponse(), new MockFilterChain());
+
+        MockHttpServletRequest valid = new MockHttpServletRequest("POST", "/a2a");
+        valid.addHeader("traceparent",
+                "00-" + INBOUND_TRACE_ID + "-" + INBOUND_PARENT_ID + "-01");
+        metered.doFilter(valid, new MockHttpServletResponse(), new MockFilterChain());
+
+        assertThat(registry.counter("springai_ascend_traceparent_invalid_total").count())
+                .isEqualTo(0.0);
     }
 
     @Test

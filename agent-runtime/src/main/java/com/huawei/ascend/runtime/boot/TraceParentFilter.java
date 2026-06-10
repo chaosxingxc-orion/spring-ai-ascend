@@ -1,5 +1,7 @@
 package com.huawei.ascend.runtime.boot;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,16 +37,39 @@ public final class TraceParentFilter extends OncePerRequestFilter {
     static final String TRACEPARENT_HEADER = "traceparent";
     static final String TRACERESPONSE_HEADER = "traceresponse";
 
+    /** Counts inbound {@code traceparent} headers that were present but unparseable. */
+    static final String INVALID_TRACEPARENT_COUNTER = "springai_ascend_traceparent_invalid_total";
+
     private static final int TRACE_ID_HEX_CHARS = 32;
     private static final int SPAN_ID_HEX_CHARS = 16;
     /** {@code 00-} + 32 hex + {@code -} + 16 hex + {@code -} + 2 hex. */
     private static final int TRACEPARENT_LENGTH = 55;
 
+    /** Null when no MeterRegistry is available; the filter then runs unmetered. */
+    private final Counter invalidTraceparentCounter;
+
+    public TraceParentFilter() {
+        this(null);
+    }
+
+    public TraceParentFilter(MeterRegistry meterRegistry) {
+        this.invalidTraceparentCounter = meterRegistry == null ? null
+                : Counter.builder(INVALID_TRACEPARENT_COUNTER)
+                        .description("Inbound traceparent headers that were present but unparseable")
+                        .register(meterRegistry);
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
-        String traceId = extractTraceId(request.getHeader(TRACEPARENT_HEADER));
+        String header = request.getHeader(TRACEPARENT_HEADER);
+        String traceId = extractTraceId(header);
         if (traceId == null) {
+            // A missing header is normal trace origination; only a header that was
+            // sent but failed parsing signals a misbehaving client worth counting.
+            if (header != null && invalidTraceparentCounter != null) {
+                invalidTraceparentCounter.increment();
+            }
             traceId = randomLowerHex(TRACE_ID_HEX_CHARS);
         }
         String spanId = randomLowerHex(SPAN_ID_HEX_CHARS);
