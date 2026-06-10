@@ -103,7 +103,9 @@ public class RuntimeAutoConfiguration {
     public AgentCard a2aAgentCard(ObjectProvider<AgentCardProvider> cardProviders,
                                    ObjectProvider<AgentRuntimeHandler> handlers) {
         var cp = cardProviders.getIfAvailable();
-        if (cp != null) return cp.agentCard();
+        if (cp != null) {
+            return cp.agentCard();
+        }
         String name = handlers.orderedStream().map(AgentRuntimeHandler::agentId).findFirst().orElse("agent");
         return AgentCard.builder().name(name).description("agent-runtime").url("/a2a").version("0.1.0")
                 .provider(new AgentProvider("spring-ai-ascend", "http://localhost:8080"))
