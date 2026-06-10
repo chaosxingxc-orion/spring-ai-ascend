@@ -611,7 +611,7 @@ capabilities:
     l0_decision: docs/adr/0115-agent-service-l1-expansion-acceptance.yaml
     implementation: null
     tests: []
-    allowed_claim: "Design only — A2A as PROTOCOL surface (envelope shape + state transitions) per docs/contracts/a2a-envelope.v1.yaml (W2 NEW). a2a-java SDK is optional dep for protocol conformance testing in agent-bus test scope only. NOT bus substrate; NOT backpressure transport. Our agent-bus + Reactor + Run.status DFA remain canonical. Deferred to W2."
+    allowed_claim: "A2A as PROTOCOL surface (envelope shape + state transitions) per docs/contracts/a2a-envelope.v1.yaml. This agent-service boundary stays design-only: agent-service adds NO SDK dependency and maps internal RunState <-> A2A vocabulary at the contract edge. Distinct surface: agent-runtime hosts an inbound A2A server with the a2a-java SDK (org.a2aproject.sdk) as a runtime dependency (agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor.java) per the agent-runtime consolidation (ADR-0159). agent-bus + Reactor + Run.status DFA remain canonical; A2A is NOT bus substrate, NOT backpressure transport."
 
   shadow_tool_interceptor:
     status: design_only
