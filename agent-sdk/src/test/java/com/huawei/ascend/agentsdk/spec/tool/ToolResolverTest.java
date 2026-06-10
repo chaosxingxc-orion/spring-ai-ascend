@@ -31,6 +31,44 @@ class ToolResolverTest {
         assertThat(handle.methodName()).isEqualTo("query");
     }
 
+    /** Bare numbers are SECONDS — 30 must not silently become a 30 ms deadline. */
+    @Test
+    void timeoutBareNumberMeansSeconds() {
+        HttpExecutionHandle handle = resolveHttp(Map.of("url", "https://api.example.com", "timeout", 30));
+
+        assertThat(handle.timeout()).isEqualTo(java.time.Duration.ofSeconds(30));
+    }
+
+    @Test
+    void timeoutAcceptsHumanSuffixForms() {
+        assertThat(resolveHttp(Map.of("url", "https://api.example.com", "timeout", "45s")).timeout())
+                .isEqualTo(java.time.Duration.ofSeconds(45));
+        assertThat(resolveHttp(Map.of("url", "https://api.example.com", "timeout", "500ms")).timeout())
+                .isEqualTo(java.time.Duration.ofMillis(500));
+        assertThat(resolveHttp(Map.of("url", "https://api.example.com", "timeout", "2m")).timeout())
+                .isEqualTo(java.time.Duration.ofMinutes(2));
+        assertThat(resolveHttp(Map.of("url", "https://api.example.com", "timeout", "PT90S")).timeout())
+                .isEqualTo(java.time.Duration.ofSeconds(90));
+    }
+
+    @Test
+    void garbageTimeoutAndUrlFailWithValidationException() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> resolveHttp(Map.of("url", "https://api.example.com", "timeout", "soon")))
+                .isInstanceOf(com.huawei.ascend.agentsdk.support.ValidationException.class)
+                .hasMessageContaining("timeout");
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> resolveHttp(Map.of("url", "ht tp://broken url")))
+                .isInstanceOf(com.huawei.ascend.agentsdk.support.ValidationException.class)
+                .hasMessageContaining("url");
+    }
+
+    private static HttpExecutionHandle resolveHttp(Map<String, Object> attributes) {
+        ToolSpec spec = new ToolSpec(
+                "httpTool", "http tool", Map.of(), Map.of(), ToolRef.of("http", attributes), false);
+        return (HttpExecutionHandle) ((WrappableTool) new HttpToolResolver().resolve(spec)).executionHandle();
+    }
+
     @Test
     void javaFileResolverDoesNotRequirePathForExecution() {
         ToolSpec spec = new ToolSpec(
