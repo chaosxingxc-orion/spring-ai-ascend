@@ -1,4 +1,4 @@
-# agent-hotel — 酒店规划子智能体（设计稿 v3）
+﻿# agent-hotel — 酒店规划子智能体（设计稿 v3）
 
 > 状态：**设计稿 v3，待 review**。代码尚未落地。
 > 与 v2 差异（重要 pivot）：
@@ -32,7 +32,7 @@
 **Out of scope (v3)**
 - A2A endpoint（推迟到 `agent-runtime` 具备）
 - Spring Boot app shell / HTTP server / port
-- `agent-runtime` SPI 适配（`AbstractAgentRuntimeHandler` / `OpenJiuwenMessageAdapter` 等）
+- `agent-runtime` SPI 适配（`AgentRuntimeHandler` / `OpenJiuwenMessageAdapter` 等）
 - 真实酒店数据源
 - 与机票/高铁 agent 的同步联动
 - 订单创建/支付、取消改签
@@ -390,7 +390,7 @@ mvn -f examples/travel/agent-hotel/pom.xml exec:java \
 3. **🟡 模型客户端共享**：多 agent 共进程时，是否需要把 LLM HTTP 客户端（连接池/超时/重试）做成进程级共享而非每 agent 一份？v1 实现先各自一份，观测后再优化
 4. **A2A wrapper 合入时机**：等 `agent-runtime` 具备拉起服务的能力后，新增 `examples/travel/agent-hotel-a2a` 模块，里面只放：
    - `HotelAgentApplication`（Spring Boot 启动类）
-   - `HotelAgentHandler extends AbstractAgentRuntimeHandler`（薄壳，内部 delegate 给 `HotelPlanningAgent.chat(...)`）
+   - `HotelAgentHandler implements AgentRuntimeHandler`（薄壳，内部 delegate 给 `HotelPlanningAgent.chat(...)`）
    - 本模块的 `HotelPlanningAgent` 代码不动
 5. **协议品牌中英文**：mock 数据全中文，要求 trip planner 在 NL 里也用中文品牌名
 6. **多日多段行程**：本期只支持一段连续入住；"北京 2 天 + 上海 3 天"由 trip planner 拆成两次调用

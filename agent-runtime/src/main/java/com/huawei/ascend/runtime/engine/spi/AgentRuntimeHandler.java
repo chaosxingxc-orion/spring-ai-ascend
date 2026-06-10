@@ -1,7 +1,6 @@
 package com.huawei.ascend.runtime.engine.spi;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -19,17 +18,6 @@ public interface AgentRuntimeHandler {
 
     /** Run the agent for the given context, emitting framework-specific results. */
     Stream<?> execute(AgentExecutionContext context);
-
-    /**
-     * Optional runtime providers that decorate this handler.
-     *
-     * <p>The default keeps plain handlers lightweight. Handlers that need state,
-     * sandbox, tool override, tracing, or similar features can opt in by returning
-     * providers instead of growing another inheritance level.
-     */
-    default List<AgentRuntimeProvider> providers() {
-        return List.of();
-    }
 
     /** Adapter that maps framework-specific results to engine-neutral results. */
     StreamAdapter resultAdapter();

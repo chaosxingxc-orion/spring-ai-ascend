@@ -1,6 +1,5 @@
 package com.huawei.ascend.runtime.boot;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Flow;
@@ -8,9 +7,21 @@ import org.a2aproject.sdk.grpc.utils.JSONRPCUtils;
 import org.a2aproject.sdk.jsonrpc.common.json.JsonProcessingException;
 import org.a2aproject.sdk.jsonrpc.common.json.JsonUtil;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.A2ARequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.A2AResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskResponse;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.CreateTaskPushNotificationConfigRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.CreateTaskPushNotificationConfigResponse;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.DeleteTaskPushNotificationConfigRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.DeleteTaskPushNotificationConfigResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskResponse;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskPushNotificationConfigRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskPushNotificationConfigResponse;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTaskPushNotificationConfigsRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTaskPushNotificationConfigsResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendMessageRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.SendMessageResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendStreamingMessageResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendStreamingMessageRequest;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SubscribeToTaskRequest;
@@ -33,7 +44,6 @@ import reactor.core.publisher.Flux;
 public class A2aJsonRpcController {
     private static final Logger log = LoggerFactory.getLogger(A2aJsonRpcController.class);
     private final RequestHandler handler;
-    private final ObjectMapper mapper = new ObjectMapper();
 
     public A2aJsonRpcController(RequestHandler handler) { this.handler = handler; }
 
@@ -76,15 +86,27 @@ public class A2aJsonRpcController {
 
     ResponseEntity<String> handleBlocking(A2ARequest<?> request) throws A2AError {
         var ctx = serverContext();
-        Object result = switch (request) {
-            case SendMessageRequest send -> handler.onMessageSend(send.getParams(), ctx);
-            case GetTaskRequest get -> handler.onGetTask(get.getParams(), ctx);
-            case CancelTaskRequest cancel -> handler.onCancelTask(cancel.getParams(), ctx);
+        A2AResponse<?> response = switch (request) {
+            case SendMessageRequest send ->
+                    new SendMessageResponse(request.getId(), handler.onMessageSend(send.getParams(), ctx));
+            case GetTaskRequest get ->
+                    new GetTaskResponse(request.getId(), handler.onGetTask(get.getParams(), ctx));
+            case CancelTaskRequest cancel ->
+                    new CancelTaskResponse(request.getId(), handler.onCancelTask(cancel.getParams(), ctx));
+            case CreateTaskPushNotificationConfigRequest create -> new CreateTaskPushNotificationConfigResponse(
+                    request.getId(), handler.onCreateTaskPushNotificationConfig(create.getParams(), ctx));
+            case GetTaskPushNotificationConfigRequest get -> new GetTaskPushNotificationConfigResponse(
+                    request.getId(), handler.onGetTaskPushNotificationConfig(get.getParams(), ctx));
+            case ListTaskPushNotificationConfigsRequest list -> new ListTaskPushNotificationConfigsResponse(
+                    request.getId(), handler.onListTaskPushNotificationConfigs(list.getParams(), ctx));
+            case DeleteTaskPushNotificationConfigRequest delete -> {
+                handler.onDeleteTaskPushNotificationConfig(delete.getParams(), ctx);
+                yield new DeleteTaskPushNotificationConfigResponse(request.getId());
+            }
             default -> throw new IllegalArgumentException("Unknown: " + request.getMethod());
         };
         try {
-            String json = mapper.writeValueAsString(Map.of("jsonrpc","2.0","id",request.getId(),"result",result));
-            return ResponseEntity.ok(json);
+            return ResponseEntity.ok(JsonUtil.toJson(response));
         } catch (Exception e) {
             return ResponseEntity.ok("{}");
         }

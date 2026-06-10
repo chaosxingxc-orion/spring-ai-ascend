@@ -4,10 +4,10 @@ import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
-import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.session.checkpointer.Checkpointer;
 import com.openjiuwen.core.session.checkpointer.CheckpointerFactory;
 import com.openjiuwen.core.session.checkpointer.InMemoryCheckpointer;
+import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
@@ -15,9 +15,6 @@ import com.openjiuwen.extensions.checkpointer.redis.RedisCheckpointer;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Stream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -64,7 +61,6 @@ public class OpenJiuwenReactAgentConfiguration {
     }
 
     static final class SampleOpenJiuwenReactAgentHandler extends OpenJiuwenAgentRuntimeHandler {
-        private static final Logger LOGGER = LoggerFactory.getLogger(SampleOpenJiuwenReactAgentHandler.class);
         private static final String SYSTEM_PROMPT = """
                 You are a concise assistant exposed only through the A2A protocol.
                 If the user's message is exactly ping, reply exactly pong and nothing else.
@@ -91,37 +87,7 @@ public class OpenJiuwenReactAgentConfiguration {
         }
 
         @Override
-        public Stream<?> execute(AgentExecutionContext context) {
-            try {
-                LOGGER.info("example openjiuwen execute start tenantId={} sessionId={} taskId={} agentId={} provider={} apiBase={} model={}",
-                        context.getScope().tenantId(),
-                        context.getScope().sessionId(),
-                        context.getScope().taskId(),
-                        context.getScope().agentId(),
-                        modelProvider,
-                        apiBase,
-                        modelName);
-                ReActAgent agent = buildAgent();
-                Object input = toOpenJiuwenInput(context);
-                Object result = Runner.runAgent(agent, input, openJiuwenConversationId(context), null);
-                LOGGER.info("example openjiuwen execute finished tenantId={} sessionId={} taskId={} resultType={}",
-                        context.getScope().tenantId(),
-                        context.getScope().sessionId(),
-                        context.getScope().taskId(),
-                        result == null ? "null" : result.getClass().getName());
-                return Stream.of(result);
-            } catch (Exception e) {
-                LOGGER.warn("example openjiuwen execute failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
-                        context.getScope().tenantId(),
-                        context.getScope().sessionId(),
-                        context.getScope().taskId(),
-                        e.getClass().getSimpleName(),
-                        errorMessage(e));
-                throw new IllegalStateException(errorMessage(e), e);
-            }
-        }
-
-        private ReActAgent buildAgent() {
+        protected BaseAgent createOpenJiuwenAgent(AgentExecutionContext context) {
             AgentCard card = AgentCard.builder()
                     .id(AGENT_ID)
                     .name(AGENT_ID)
