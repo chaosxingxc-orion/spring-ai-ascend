@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  examples/travel/agent-hotel-a2a — agent-hotel 的 A2A 服务封装
+
+  把 agent-hotel 这个纯 Java 库托管到 agent-runtime 里，对外暴露
+  A2A JSON-RPC endpoint (/a2a)。HotelPlanningAgent.chat(String) 通过
+  HotelAgentHandler (extends OpenJiuwenAgentRuntimeHandler) 被 runtime
+  调用。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend</groupId>
+    <artifactId>spring-ai-ascend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>agent-hotel-a2a</artifactId>
+  <packaging>jar</packaging>
+  <name>spring-ai-ascend agent-hotel A2A wrapper</name>
+  <description>
+    Spring Boot wrapper that hosts the agent-hotel library as a runtime-managed
+    A2A service. Delegates HotelPlanningAgent.chat() inside an
+    OpenJiuwenAgentRuntimeHandler so the agent-runtime A2A JSON-RPC endpoint
+    auto-exposes the hotel planning sub-agent.
+  </description>
+
+  <properties>
+    <enforcer.skip>true</enforcer.skip>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-hotel</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-runtime</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>com.huawei.ascend.examples.hotel.a2a.HotelAgentApplication</mainClass>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
