@@ -110,10 +110,7 @@ public final class AgentYamlParser {
             }
             String scheme = value.substring(0, split);
             String rawValue = value.substring(split + 1);
-            Map<String, Object> attributes = new LinkedHashMap<>();
-            String key = "file".equals(scheme) ? "path" : "value";
-            attributes.put(key, "file".equals(scheme) ? resolvePath(yamlDir, rawValue).toString() : rawValue);
-            return new ToolRef(scheme, attributes);
+            return new ToolRef(scheme, shorthandAttributes(scheme, rawValue, value));
         }
         Map<String, Object> refMap = map(ref);
         String scheme = requiredString(refMap, "type");
@@ -123,6 +120,43 @@ public final class AgentYamlParser {
             attributes.put("path", resolvePath(yamlDir, string(attributes.get("path"))).toString());
         }
         return new ToolRef(scheme, attributes);
+    }
+
+    /**
+     * The string shorthand must produce the attribute keys the built-in resolvers
+     * actually read (class/method, url, server/tool) — anything else parses fine
+     * and then fails far away at agent build with an unrelated message.
+     */
+    private static Map<String, Object> shorthandAttributes(String scheme, String rawValue, String full) {
+        Map<String, Object> attributes = new LinkedHashMap<>();
+        switch (scheme) {
+            case "file" -> {
+                int hash = rawValue.indexOf('#');
+                if (hash <= 0 || hash == rawValue.length() - 1) {
+                    throw new ValidationException(
+                            "file: tool ref shorthand must be file:com.example.Class#method, got: " + full);
+                }
+                attributes.put("class", rawValue.substring(0, hash));
+                attributes.put("method", rawValue.substring(hash + 1));
+            }
+            case "http" -> {
+                if (rawValue.isBlank()) {
+                    throw new ValidationException("http: tool ref shorthand must be http:<url>, got: " + full);
+                }
+                attributes.put("url", rawValue);
+            }
+            case "mcp" -> {
+                int slash = rawValue.indexOf('/');
+                if (slash <= 0 || slash == rawValue.length() - 1) {
+                    throw new ValidationException(
+                            "mcp: tool ref shorthand must be mcp:server/tool, got: " + full);
+                }
+                attributes.put("server", rawValue.substring(0, slash));
+                attributes.put("tool", rawValue.substring(slash + 1));
+            }
+            default -> attributes.put("value", rawValue);
+        }
+        return attributes;
     }
 
     private static Path optionalPath(Object value, Path base) {
