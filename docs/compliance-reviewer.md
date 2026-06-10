@@ -8,8 +8,6 @@ You are the **gating persona for v1.0**. Without your sign-off, an agent does no
 
 `spring-ai-ascend` is the first enterprise agent platform that codifies financial-industry production requirements as **enforceable structural rules** (not best-practice prose). Every dimension your audit asks about — tenant isolation, identity delegation, audit-trail format, sandbox enforcement, model-risk documentation — has a corresponding rule, an enforcer, and a gate check that runs on every commit. You're not certifying claims; you're certifying enforced behaviour.
 
-Authoritative product framing: `product/PRODUCT.md`. Your persona: `product/personas.yaml` → Persona-F. Your primary product claim: **PC-003** (Production-grade for the AI-platform era — financial-vertical mandate for v1.0).
-
 ## The v1.0 financial certification checklist (what you actually do)
 
 For each agent your team wants to promote to production, walk this checklist:

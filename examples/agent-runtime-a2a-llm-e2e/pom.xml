@@ -22,6 +22,12 @@
 
   <properties>
     <enforcer.skip>true</enforcer.skip>
+    <!-- This mixed example keeps its source for reference, but its tests are no
+         longer the default A2A runtime verification surface. Use the dedicated
+         agent-runtime-a2a-openjiuwen-e2e module for single-runtime/single-agent
+         OpenJiuwen coverage. Override with -DskipTests=false when intentionally
+         exercising the legacy mixed sample. -->
+    <skipTests>true</skipTests>
   </properties>
 
   <dependencies>

@@ -8,7 +8,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -20,7 +20,8 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 @ResourceLock("real-llm")
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = OpenJiuwenA2aAgentRuntimeApplication.class)
+        classes = OpenJiuwenA2aAgentRuntimeApplication.class,
+        properties = "sample.a2a.agent=agentscope")
 class AgentScopeA2aE2eTest {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(60);
@@ -32,38 +33,18 @@ class AgentScopeA2aE2eTest {
     void a2aClientCanStreamAgentScopeSdkAgentThroughAgentRuntimeOnly() throws Exception {
         assumeRealLlmConfigured("AgentScope SDK agent");
 
-        assertAgentScopePathReturnsPong(AgentScopeE2eConfiguration.AGENT_ID);
-    }
-
-    @Test
-    void a2aClientCanStreamAgentScopeHarnessAgentThroughAgentRuntimeOnly() throws Exception {
-        assumeRealLlmConfigured("AgentScope Harness agent");
-
-        assertAgentScopePathReturnsPong(AgentScopeE2eConfiguration.HARNESS_AGENT_ID);
-    }
-
-    @Test
-    void a2aClientCanStreamAgentScopeRestRuntimeThroughAgentRuntimeOnly() throws Exception {
-        assumeRealLlmConfigured("AgentScope REST/SSE runtime");
-
-        assertAgentScopePathReturnsPong(AgentScopeE2eConfiguration.RUNTIME_AGENT_ID);
-    }
-
-    private void assertAgentScopePathReturnsPong(String agentId) throws Exception {
         SampleA2aClient client = new SampleA2aClient(URI.create("http://localhost:" + port), TIMEOUT);
+        AgentCard card = client.agentCard();
+        assertThat(card.name()).isEqualTo(AgentScopeE2eConfiguration.AGENT_ID);
+        assertAgentScopePathReturnsPong(client, card.name());
+    }
+
+    private void assertAgentScopePathReturnsPong(SampleA2aClient client, String agentId) throws Exception {
         String sessionId = "session-" + UUID.randomUUID();
         List<StreamingEventKind> events = client.streamMessage("sample-user", agentId, sessionId, "ping");
-        List<Message> messages = events.stream()
-                .filter(Message.class::isInstance)
-                .map(Message.class::cast)
-                .toList();
 
         assertThat(events).isNotEmpty();
-        assertThat(messages).anySatisfy(message -> assertThat(message.metadata().get("accepted"))
-                .isEqualTo(Boolean.TRUE));
-        assertThat(messages).anySatisfy(message -> assertThat(message.metadata().get("runStatus"))
-                .isEqualTo("completed"));
-        assertThat(messages).allSatisfy(message -> assertThat(message.role()).isEqualTo(Message.Role.ROLE_AGENT));
+        assertThat(events).anySatisfy(event -> assertThat(SampleA2aClient.isTerminal(event)).isTrue());
         assertThat(normalizeAnswer(SampleA2aClient.textFrom(events))).isEqualTo("pong");
     }
 

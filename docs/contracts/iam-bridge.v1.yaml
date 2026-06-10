@@ -1,7 +1,6 @@
 ---
 contract_id: iam-bridge.v1
 status: design_only
-product_claim: "PC-003"
 authority: "ADR-0156 (to be filed)"
 v1_0_ship_blocker: true
 target_persona: "Persona-F + Persona-D"

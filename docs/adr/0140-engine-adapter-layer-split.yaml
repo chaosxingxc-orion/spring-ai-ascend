@@ -16,7 +16,6 @@ id: ADR-0140
 # a follow-up impl-mode wave (not in the audit's PR scope).
 title: "Engine Adapter Layer split: Layer 5 in ADR-0138 5-layer model decomposes into Layer 5a (Engine Dispatch & Execution: EngineRegistry + ExecutorAdapter impls) and Layer 5b (Translation & Tool-Intercept: ContextProjector + PromptTemplate + StructuredOutputConverter + ChatAdvisor); RuntimeMiddleware moves exclusively into Layer 4 Control"
 status: accepted
-product_claim: "PC-004"
 date: 2026-05-26
 level: L1
 view: logical

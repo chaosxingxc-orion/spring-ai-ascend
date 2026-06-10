@@ -1,7 +1,6 @@
 id: ADR-0089
 title: "Edge-Plane Ingress Gateway Mandate — client → bus → server is the only allowed C2S topology"
 status: accepted
-product_claim: "PC-002"
 date: 2026-05-20
 level: L0
 view: physical

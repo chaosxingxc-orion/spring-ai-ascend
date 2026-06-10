@@ -26,8 +26,8 @@ class AgentScopeStreamAdapterTest {
                 AgentExecutionResult.Type.COMPLETED,
                 AgentExecutionResult.Type.FAILED,
                 AgentExecutionResult.Type.INTERRUPTED);
-        assertThat(results.get(0).output().getContent()).isEqualTo("hello");
-        assertThat(results.get(1).output().getContent()).isEqualTo("done");
+        assertThat(results.get(0).outputContent()).isEqualTo("hello");
+        assertThat(results.get(1).outputContent()).isEqualTo("done");
         assertThat(results.get(2).errorCode()).isEqualTo("BAD");
         assertThat(results.get(3).prompt()).isEqualTo("city?");
     }
@@ -59,7 +59,7 @@ class AgentScopeStreamAdapterTest {
         AgentExecutionResult result = adapter.map(event);
 
         assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.OUTPUT);
-        assertThat(result.output().getContent()).isEqualTo("hi");
+        assertThat(result.outputContent()).isEqualTo("hi");
     }
 
     @Test
@@ -75,7 +75,7 @@ class AgentScopeStreamAdapterTest {
             AgentExecutionResult result = adapter.map(Map.of("status", status, "text", "hi"));
 
             assertThat(result.type()).as(status).isEqualTo(AgentExecutionResult.Type.OUTPUT);
-            assertThat(result.output().getContent()).as(status).isEqualTo("hi");
+            assertThat(result.outputContent()).as(status).isEqualTo("hi");
         }
     }
 }

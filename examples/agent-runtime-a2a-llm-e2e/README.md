@@ -21,6 +21,13 @@ This example verifies the intended boundary for the sample:
 5. A simple prompt of `ping` produces a final visible answer of `pong`.
 6. A bank retail wealth advisor sample can produce an asset-allocation suggestion through the same A2A surface.
 
+The sample application can host one concrete sample agent at a time. Set
+`sample.a2a.agent` to select the active runtime:
+
+- `openjiuwen` (default): openJiuwen ReAct agent.
+- `agentscope`: AgentScope Java SDK ReAct agent.
+- `retail-wealth-advisor`: AgentScope retail wealth advisor sample.
+
 The current automated E2E tests cover openJiuwen plus the three AgentScope integration paths:
 
 - `agentscope-react-agent`: AgentScope Java SDK ReAct agent.

@@ -4,7 +4,7 @@
 # Path prefixes may end with `/` (directory match) or `.md`/`.yaml` (single file match).
 #
 # Authority: Authority-Surface Cleanup migration plan (2026-05-19) — Wave 2 externalisation.
-# Rule 98 has its OWN file-discovery scope (ops/, docs/contracts/, module-metadata.yaml)
+# Rule 98 has its OWN file-discovery scope (docs/contracts/, module-metadata.yaml)
 # and consumes only the marker file below, not this paths file.
 
 # Build artefacts / version control are skipped at find time, not via this file.
@@ -52,10 +52,9 @@ docs/governance/rules/rule-R-I.md
 docs/CLAUDE-deferred.md
 docs/quickstart.md
 
-# Telemetry / DFX / perf carry backward-compat names.
+# Telemetry / DFX carry backward-compat names.
 docs/telemetry/policy.md
 docs/dfx/
-perf/
 
 # Live contract w/ x-contract-owner metadata (separate update plan).
 docs/contracts/openapi-v1.yaml
@@ -70,8 +69,7 @@ spring-ai-ascend-dependencies/module-metadata.yaml
 # (Line retained as comment so historians can trace why rc12 listed it.)
 # agent-runtime-core/ARCHITECTURE.md  # REMOVED rc13 — module dissolved per ADR-0088
 
-# Rule-98 domain — avoid duplicate-fail by skipping ops/ and docs/contracts/ in Rule 94.
-ops/
+# Rule-98 domain — avoid duplicate-fail by skipping docs/contracts/ in Rule 94.
 docs/contracts/
 
 # Phase C competitive analyses (added 2026-05-28). These files legitimately quote
@@ -83,12 +81,5 @@ docs/competitive/
 # Phase 7 audit deliverables that reference rule history including deleted names.
 docs/governance/retired-rules-audit.md
 
-# Phase A Wave 5 (ADR-0156): Helm chart values reference "agent-platform" as a
-# Kubernetes taint/toleration VALUE (kunpeng.huawei.com/dedicated), not as a
-# Java module reference. The verbatim string overlaps with a deleted module
-# name but the semantic domain is K8s-scheduler-affinity, not Java packages.
-deploy/middle-office-reference/
-
-# Knowledge corpus + A2D delivery narrative — not current-tense name-policed.
-knowledge/
+# A2D delivery narrative — not current-tense name-policed.
 docs/architecture/

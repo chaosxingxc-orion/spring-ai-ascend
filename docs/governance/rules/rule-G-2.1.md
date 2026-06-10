@@ -15,14 +15,13 @@ scope_surfaces:
   - "agent-*/ARCHITECTURE.md"
   - "docs/governance/rules/rule-*.md"
   - "agent-*/src/test/java/**/*{Test,IT}.java Javadoc"
-  - "ops/**/*.{yaml,yml,tpl}"
   - "docs/contracts/*.yaml"
   - "**/module-metadata.yaml"
   - Dockerfile
   - ".github/workflows/*.yml"
   - "docs/**/*.puml"
 kernel: |
-  **Deleted-module-name leakage across the active corpus: `architecture-status.yaml#allowed_claim` text (sub-clause .a, from former G-2.e), every active `.md/.yaml/.yml/.java` outside historical-by-location exemptions (sub-clause .b, from former G-2.f), AND files under `ops/**/*.{yaml,yml,tpl,md}` / `docs/contracts/*.yaml` / `**/module-metadata.yaml` / Dockerfile / `.github/workflows/*.yml` / `docs/**/*.puml` (sub-clause .c, from former G-2.h + Rule 103) MUST NOT contain current-tense pre-Phase-C module names (`agent-platform`, `agent-runtime` with negative lookahead on `agent-runtime-core`) outside marker windows listed in `gate/active-corpus-name-exemption-markers.txt`; file-path exemptions in `gate/active-corpus-name-exemption-paths.txt`. Detection uses the word-boundary regex `\bagent-platform\b` OR (`\bagent-runtime\b` AND NOT `\bagent-runtime-core\b`) with ±3-line historical-marker scan.**
+  **Deleted-module-name leakage across the active corpus: `architecture-status.yaml#allowed_claim` text (sub-clause .a, from former G-2.e), every active `.md/.yaml/.yml/.java` outside historical-by-location exemptions (sub-clause .b, from former G-2.f), AND files under `docs/contracts/*.yaml` / `**/module-metadata.yaml` / Dockerfile / `.github/workflows/*.yml` / `docs/**/*.puml` (sub-clause .c, from former G-2.h + Rule 103) MUST NOT contain current-tense pre-Phase-C module names (`agent-platform`, `agent-runtime` with negative lookahead on `agent-runtime-core`) outside marker windows listed in `gate/active-corpus-name-exemption-markers.txt`; file-path exemptions in `gate/active-corpus-name-exemption-paths.txt`. Detection uses the word-boundary regex `\bagent-platform\b` OR (`\bagent-runtime\b` AND NOT `\bagent-runtime-core\b`) with ±3-line historical-marker scan.**
 ---
 
 # Rule G-2.1 — Deleted-Module Scope Prevention
@@ -99,8 +98,6 @@ exemption markers in `gate/active-corpus-name-exemption-markers.txt`.
 
 Scans the surfaces NOT covered by sub-clause .b:
 
-- `ops/**/*.{yaml,yml,tpl,md}` — operational infra (Helm charts, K8s
-  manifests, ops READMEs).
 - `docs/contracts/*.yaml` — live API contracts.
 - `**/module-metadata.yaml` (any depth ≤ 3) — per-module metadata.
 - `Dockerfile` — deploy entrypoint.

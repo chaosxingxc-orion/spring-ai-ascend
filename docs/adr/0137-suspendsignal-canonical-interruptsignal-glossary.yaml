@@ -1,7 +1,6 @@
 id: ADR-0137
 title: "SuspendSignal remains canonical; InterruptSignal / InterruptReason are L1 glossary synonyms only (no Java rename per ADR-0100 §rejected-framings)"
 status: accepted
-product_claim: "PC-003"
 date: 2026-05-26
 level: L1
 view: logical

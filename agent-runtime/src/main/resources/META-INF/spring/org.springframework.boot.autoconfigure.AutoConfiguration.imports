@@ -1,6 +1,1 @@
-com.huawei.ascend.runtime.session.SessionManageConfiguration
-com.huawei.ascend.runtime.queue.QueueAutoConfiguration
-com.huawei.ascend.runtime.control.TaskControlAutoConfiguration
-com.huawei.ascend.runtime.app.RuntimeWiringConfiguration
-com.huawei.ascend.runtime.access.AccessLayerConfiguration
-com.huawei.ascend.runtime.engine.EngineAutoConfiguration
+com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration

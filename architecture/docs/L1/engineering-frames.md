@@ -85,12 +85,11 @@ rather than silently reshaping the architecture.
 
 Read in this order so the durable anchor is understood before the demand list:
 
-1. `product/PRODUCT.md` + `product/claims.yaml` — intent and claims.
-2. `architecture/facts/generated/*.json` — ground-truth facts (Rule G-15).
-3. `architecture/workspace.dsl` — module topology + planes.
-4. **`architecture/docs/L1/engineering-frames.md` (this file) + `engineering-frames.dsl`** — the structural map.
-5. Per-module L1 docs.
-6. `architecture/features/function-points.dsl` — executable, verifiable behaviours.
+1. `architecture/facts/generated/*.json` — ground-truth facts (Rule G-15).
+2. `architecture/workspace.dsl` — module topology + planes.
+3. **`architecture/docs/L1/engineering-frames.md` (this file) + `engineering-frames.dsl`** — the structural map.
+4. Per-module L1 docs.
+5. `architecture/features/function-points.dsl` — executable, verifiable behaviours.
 7. `architecture/features/features.dsl` — value threads (Features) over the map.
 8. `docs/contracts/` — runtime promises.
 9. Code and tests.

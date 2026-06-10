@@ -7,7 +7,6 @@ principle_ref: P-M
 authority_refs: [ADR-0071, "ADR-0072 (retired)", "ADR-0073 (retired)", "ADR-0074 (retired)", ADR-0075, ADR-0077]
 enforcer_refs: [E73, E81, E82, E83, E84, E89, E90, E92, E113]  # E74/E75/E76/E78 removed: retired with the .b/.c envelope/registry/hook design (no current Java type or enforcers.yaml row)
 status: active
-product_claim: "PC-004"
 scope_phase: design
 kernel_cap: 8
 kernel: |

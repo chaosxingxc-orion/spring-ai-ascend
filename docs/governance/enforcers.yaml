@@ -47,7 +47,6 @@
   view: logical
   artifact: agent-runtime/src/main/resources/db/migration/V2__idempotency_dedup.sql
   asserts: "PRIMARY KEY (tenant_id, idempotency_key) prevents duplicate inserts at storage layer"
-  product_claim: "PC-001|PC-003"
 
 - id: E15
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §11 row E15"
@@ -56,7 +55,6 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#tenant_column_present
   asserts: "every CREATE TABLE under src/main/resources/db/migration/ has a tenant_id column"
-  product_claim: "PC-003"
 
 - id: E19
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §10"
@@ -65,7 +63,6 @@
   view: development
   artifact: gate/check_architecture_sync.sh#high_cardinality_tag_guard
   asserts: "no source registers Tag.of(\"run_id\"|\"idempotency_key\"|\"jwt_sub\"|\"body\", …) on a springai_ascend_* metric"
-  product_claim: "PC-003"
 
 - id: E20
   constraint_ref: "CLAUDE.md Rule R-C.a; architect guidance §9.3"
@@ -74,7 +71,6 @@
   view: development
   artifact: gate/check_architecture_sync.sh#no_secret_patterns
   asserts: "no AKIA/sk-/-----BEGIN PRIVATE KEY-----/etc. patterns in tracked files (allow-list inline-annotated)"
-  product_claim: "PC-003"
 
 - id: E26
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §13 out-of-scope"
@@ -83,7 +79,6 @@
   view: development
   artifact: gate/check_architecture_sync.sh#out_of_scope_name_guard
   asserts: "names LLMGateway/PostgresCheckpointer/SkillRegistry/HookChain/SpawnEnvelope/LogicalCallHandle/ConnectionLease/AdmissionDecision/BackpressureSignal/ChronosHydration/SandboxExecutor do not appear in agent-*/src/main/java"
-  product_claim: "PC-003"
 
 - id: E29
   constraint_ref: "CLAUDE.md Rule R-C.a; ADR-0059 §1"
@@ -92,7 +87,6 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#enforcers_yaml_wellformed
   asserts: "every row in this file has id+constraint_ref+kind+level+view+artifact+asserts; kind is one of the five legal values; level is L0|L1|L2; view is one of the five legal values"
-  product_claim: "PC-003"
 
 - id: E33
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §18.3 step 1; Phase K audit fix F6; ADR-0059"
@@ -101,7 +95,6 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#enforcer_artifact_paths_exist
   asserts: "every artifact: path in this file resolves to a real file on disk (strips #anchor suffix). Closes the gate-gap that let E12 ship pointing at a non-existent test."
-  product_claim: "PC-003"
 
 - id: E35
   constraint_ref: "CLAUDE.md Rule R-C.a; ADR-0060 §1; Phase L reviewer P0-2 root cause"
@@ -110,7 +103,6 @@
   view: scenarios
   artifact: gate/check_architecture_sync.sh#enforcer_artifact_paths_exist
   asserts: "every artifact: path#anchor in enforcers.yaml resolves to a real method (.java/.sh) or heading (.md) inside the target file; closes the gate gap where E5/E6/E24 shipped pointing at non-existent test methods."
-  product_claim: "PC-003"
 
 - id: E39
   constraint_ref: "CLAUDE.md Rule G-2 sub-clause .a; ARCHITECTURE.md §4 #54 (run_trace_session_identity_spi); ADR-0062"
@@ -137,7 +129,6 @@
   view: development
   artifact: gate/check_architecture_sync.sh#domain_module_has_spi_package
   asserts: "Every kind:domain module declares at least one entry under spi_packages: and each declared package resolves to a directory under <module>/src/main/java/."
-  product_claim: "PC-001"
 
 # --- W1 Layered-4+1 + Architecture-Graph wave (Rules 33-34; ADR-0068; §4 #64-#65) ---
 
@@ -180,7 +171,6 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#rls_for_new_tenant_tables
   asserts: "every Flyway migration creating a table with a tenant_id column either includes ENABLE ROW LEVEL SECURITY in the same file OR is listed in gate/rls-baseline-grandfathered.txt."
-  product_claim: "PC-003"
 
 # ---------------------------------------------------------------------------
 # W1.x Phase 8 — Cursor Flow runtime activation (Rule R-F.b / ADR-0070)
@@ -193,7 +183,6 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#s2c_callback_yaml_present_and_wellformed
   asserts: "docs/contracts/s2c-callback.v1.yaml exists; declares schema header, request: and response: blocks, the 6 mandatory request fields (callback_id, server_run_id, capability_ref, request_payload, trace_id, idempotency_key per Phase 3a audit §5.2), and outcome_values closed at {ok, error, timeout}."
-  product_claim: "PC-004"
 
 - id: E89
   constraint_ref: "CLAUDE.md Rule R-M sub-clause .d (S2C Callback) -- Phase 3a Cross-Rule Co-Design Audit Matrix freeze; ADR-0074; P-M"
@@ -202,7 +191,6 @@
   view: scenarios
   artifact: docs/logs/reviews/2026-05-16-engine-contract-structural-response.en.md
   asserts: "The Phase 3a section 5 Cross-Rule Co-Design Audit Matrix is referenced by ADR-0074 line 47 and CLAUDE.md Rule R-M sub-clause .d prose as the canonical Rules 20/35/38/41/42 interlock specification. Freeze invariant: this file MUST exist on disk; a future rename or split MUST update both anchors AND this enforcer row in the same PR. Today the assertion is structural (file exists); the matrix content itself is reviewed under PR review per Rule D-5 ship-gate posture."
-  product_claim: "PC-004"
 
 # ---------------------------------------------------------------------------
 # v2.0.0-rc1 post-release review response -- Rule R-M sub-clause .d FAILED-transition + R2 classpath fallback
@@ -215,7 +203,6 @@
   view: development
   artifact: gate/check_architecture_sync.sh#contract_spine_tenant_id_required
   asserts: "Every public record under agent-runtime/src/main/java/com/huawei/ascend/service/{runtime,task,session}/ declares a String tenantId component (relocated from agent-runtime-core per ADR-0088 rc13 dissolution; scope widened to task + session per rc34 audit closure). Process-internal opt-out via 'scope: process-internal' reason comment."
-  product_claim: "PC-001|PC-003"
 
 # ---------------------------------------------------------------------------
 # 2026-05-18 rc4 cross-constraint review response prevention wave — E116
@@ -248,7 +235,6 @@
   view: logical
   artifact: gate/check_architecture_sync.sh#spi_catalog_exhaustiveness
   asserts: "Every `public interface ...` declaration in a Java source file under any `*/spi/*` path (excluding `target/`) MUST appear in docs/contracts/contract-catalog.md as a backtick-wrapped interface name (either as an Active SPI table row OR explicitly marked `(internal)`). Closes rc8 post-corrective P1-2: SkillCapacityRegistry was public under .spi but missing from the catalog (11 total claimed)."
-  product_claim: "PC-001"
 
 - id: E132
   constraint_ref: "CLAUDE.md Rule R-D sub-clause .g (spi_catalog_exhaustiveness); ADR-0083"
@@ -257,7 +243,6 @@
   view: logical
   artifact: gate/test_architecture_sync_gate.sh#test_rule_95_spi_catalog_pos
   asserts: "Positive + negative self-test fixtures for Rule R-D sub-clause .g. Positive: every public interface under */spi/* appears in catalog → pass. Negative: a synthetic public interface under */spi/* not in catalog → fail."
-  product_claim: "PC-001"
 
 - id: E144
   constraint_ref: "CLAUDE.md Rule R-I sub-clause .b (Edge↔Compute Ingress Routing); ADR-0089"
@@ -266,7 +251,6 @@
   view: physical
   artifact: gate/check_architecture_sync.sh#edge_no_direct_compute_link
   asserts: "Rule 105 — for every agent-*/module-metadata.yaml whose deployment_plane is `edge`, NO .java file under <module>/src/main/java/**/*.java may carry an `import com.huawei.ascend.{service,engine,middleware}.*` line, AND NO file may construct a RestTemplate or WebClient targeting a host other than the bus ingress endpoint. Source-level guard complementing E143 (bytecode-level)."
-  product_claim: "PC-002"
 
 # ---------------------------------------------------------------------------
 # rc14 (2026-05-20) — Cross-Authority Parity wave (Rule G-8 / Rule 106).

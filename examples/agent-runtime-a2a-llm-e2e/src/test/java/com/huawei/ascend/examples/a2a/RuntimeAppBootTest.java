@@ -11,9 +11,11 @@ import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import java.net.URI;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.spec.AgentCard;
+import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -38,6 +40,20 @@ class RuntimeAppBootTest {
 
             AgentCard card = client.agentCard();
             assertThat(card.capabilities().streaming()).isTrue();
+        }
+    }
+
+    @Test
+    void runtimeAppStreamsMessageThroughA2aSdkClient() throws Exception {
+        try (RunningRuntime runtime = RuntimeApp.create(new StubHandler()).run(LocalA2aRuntimeHost.port(0))) {
+            SampleA2aClient client = new SampleA2aClient(
+                    URI.create("http://localhost:" + runtime.port()), TIMEOUT);
+
+            List<StreamingEventKind> events = client.streamMessage(
+                    "sample-user", "smoke-agent", "session-smoke", "ping");
+
+            assertThat(events).isNotEmpty();
+            assertThat(SampleA2aClient.textFrom(events)).contains("ok");
         }
     }
 

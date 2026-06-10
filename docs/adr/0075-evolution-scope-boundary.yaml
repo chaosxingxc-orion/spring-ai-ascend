@@ -1,7 +1,6 @@
 id: ADR-0075
 title: "Evolution Scope Boundary -- server-controlled evolution surface, fourth L1 expression of P-M"
 status: accepted
-product_claim: "PC-005"
 date: 2026-05-16
 level: L1
 view: logical

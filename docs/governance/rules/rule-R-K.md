@@ -7,7 +7,6 @@ principle_ref: P-K
 authority_refs: [ADR-0069, "ADR-0070 (retired)", ADR-0085]
 enforcer_refs: [E70, E73]
 status: active
-product_claim: "PC-003"
 scope_phase: design
 kernel_cap: 8
 kernel: |

@@ -1,6 +1,5 @@
 package com.huawei.ascend.runtime.engine.agentscope;
 
-import com.huawei.ascend.runtime.common.Guards;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
@@ -23,7 +22,8 @@ abstract class AbstractAgentScopeRuntimeHandler implements AgentRuntimeHandler {
             String description,
             AgentScopeMessageAdapter messageAdapter,
             AgentScopeStreamAdapter streamAdapter) {
-        this.agentId = Guards.requireNonBlank(agentId, "agentId");
+        org.springframework.util.Assert.hasText(agentId, "agentId must not be blank");
+        this.agentId = agentId;
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(description, "description");
         this.messageAdapter = messageAdapter;

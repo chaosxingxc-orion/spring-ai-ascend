@@ -2,14 +2,15 @@ package com.huawei.ascend.runtime.engine.agentscope;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.huawei.ascend.runtime.common.Message;
+import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.EngineInput;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.Part;
+import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 
 class AgentScopeRuntimeHandlerTest {
@@ -22,7 +23,8 @@ class AgentScopeRuntimeHandlerTest {
             assertThat(invocation.sessionId()).isEqualTo("session");
             assertThat(invocation.taskId()).isEqualTo("task");
             assertThat(invocation.agentId()).isEqualTo("agent-scope");
-            assertThat(invocation.messages()).extracting(Message::text).containsExactly("ping");
+            assertThat(invocation.messages()).extracting(AgentScopeRuntimeHandlerTest::messageText)
+                    .containsExactly("ping");
             return Stream.of(AgentScopeEvent.output("pong-"), AgentScopeEvent.completed("done"));
         });
 
@@ -30,8 +32,8 @@ class AgentScopeRuntimeHandlerTest {
 
         assertThat(results).extracting(AgentExecutionResult::type)
                 .containsExactly(AgentExecutionResult.Type.OUTPUT, AgentExecutionResult.Type.COMPLETED);
-        assertThat(results.get(0).output().getContent()).isEqualTo("pong-");
-        assertThat(results.get(1).output().getContent()).isEqualTo("done");
+        assertThat(results.get(0).outputContent()).isEqualTo("pong-");
+        assertThat(results.get(1).outputContent()).isEqualTo("done");
     }
 
     @Test
@@ -40,7 +42,9 @@ class AgentScopeRuntimeHandlerTest {
                 "harness-agent",
                 invocation -> Stream.of(AgentScopeEvent.interrupted("need approval")));
 
-        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context("harness-agent"))).toList();
+        List<AgentExecutionResult> results = handler.resultAdapter()
+                .adapt(handler.execute(context("harness-agent")))
+                .toList();
 
         assertThat(results).hasSize(1);
         assertThat(results.get(0).type()).isEqualTo(AgentExecutionResult.Type.INTERRUPTED);
@@ -52,8 +56,22 @@ class AgentScopeRuntimeHandlerTest {
     }
 
     private static AgentExecutionContext context(String agentId) {
-        EngineExecutionScope scope = new EngineExecutionScope("tenant", "user", "session", "task", agentId);
-        EngineInput input = new EngineInput("USER_MESSAGE", List.of(Message.user("ping")), Map.of("k", "v"));
-        return new AgentExecutionContext(scope, input);
+        RuntimeIdentity scope = new RuntimeIdentity("tenant", "user", "session", "task", agentId);
+        return new AgentExecutionContext(scope, "USER_MESSAGE", List.of(message(Message.Role.ROLE_USER, "ping")), Map.of());
+    }
+
+    private static Message message(Message.Role role, String text) {
+        return Message.builder()
+                .role(role)
+                .parts(List.<Part<?>>of(new TextPart(text)))
+                .build();
+    }
+
+    private static String messageText(Message message) {
+        return message.parts().stream()
+                .filter(TextPart.class::isInstance)
+                .map(TextPart.class::cast)
+                .map(TextPart::text)
+                .reduce("", String::concat);
     }
 }

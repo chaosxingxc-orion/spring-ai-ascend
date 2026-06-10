@@ -4,7 +4,6 @@
 # Wave: design_only; runtime_enforced when M3 IEQ ships the Java
 # envelope record + M4 control-channel consumer.
 
-product_claim: "PC-003"
 
 schema: control-event/v1
 authority: ADR-0155

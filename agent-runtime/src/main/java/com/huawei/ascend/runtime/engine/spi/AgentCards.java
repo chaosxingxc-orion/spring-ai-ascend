@@ -1,6 +1,5 @@
 package com.huawei.ascend.runtime.engine.spi;
 
-import com.huawei.ascend.runtime.common.Guards;
 import java.util.List;
 import org.a2aproject.sdk.spec.AgentCapabilities;
 import org.a2aproject.sdk.spec.AgentCard;
@@ -21,10 +20,10 @@ public final class AgentCards {
     }
 
     public static AgentCard create(String name, String description, String version, String endpoint) {
-        Guards.requireNonBlank(name, "name");
-        Guards.requireNonBlank(description, "description");
-        Guards.requireNonBlank(version, "version");
-        Guards.requireNonBlank(endpoint, "endpoint");
+        org.springframework.util.Assert.hasText(name, "name must not be blank");
+        org.springframework.util.Assert.hasText(description, "description must not be blank");
+        org.springframework.util.Assert.hasText(version, "version must not be blank");
+        org.springframework.util.Assert.hasText(endpoint, "endpoint must not be blank");
         AgentCapabilities capabilities = AgentCapabilities.builder()
                 .streaming(true)
                 .pushNotifications(true)

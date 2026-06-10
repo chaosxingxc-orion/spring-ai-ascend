@@ -1,7 +1,6 @@
 id: ADR-0071
 title: "Engine Contract Structural Wave — umbrella for ADR-0072..0075 + L0 principle P-M"
 status: accepted
-product_claim: "PC-004"
 date: 2026-05-16
 level: L0
 view: scenarios

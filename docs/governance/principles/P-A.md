@@ -5,7 +5,6 @@ level: L0
 view: development
 authority: "Layer 0 governing principle (CLAUDE.md)"
 enforced_by_rules: [R-A]   # formerly Rule 29 (numeric pre-ADR-0086)
-product_claim: "PC-001"
 kernel: |
   P-A — Business / Platform Decoupling + Developer Self-Service.
   Business code and Platform code are decoupled.

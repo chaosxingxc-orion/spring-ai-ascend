@@ -5,7 +5,6 @@ level: L0
 view: physical
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
 enforced_by_rules: [R-I]   # formerly Rule 39 (numeric pre-ADR-0086)
-product_claim: "PC-002"
 kernel: |
   P-I — Five-Plane Distributed Topology.
   Production deployment is divided into five physically isolated planes —

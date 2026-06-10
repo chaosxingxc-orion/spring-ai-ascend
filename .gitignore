@@ -83,7 +83,7 @@ __pycache__/
 .venv/
 venv/
 
-# Tier C: local source clones (gitignored; SHAs tracked in third_party/MANIFEST.md)
+# Tier C: local source clones (gitignored)
 third_party/*/
 third_party/**/
 

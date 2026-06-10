@@ -1,6 +1,5 @@
 ---
 file_id: PERF-V1-0-BASELINES
-product_claim: PC-003
 status: design_only
 authority: ADR-0156
 target_personas: ["Persona-D"]
@@ -29,10 +28,6 @@ v1_0_ship_blocker: true
 #   - Persona-D pain_points_today names "no posture-aware default model" and
 #     "cost reporting absent at the agent-instance granularity"; the targets
 #     below resolve both by attaching posture + granularity to every SLO.
-#   - The 中台-mode reference deployment (`deploy/middle-office-reference/`)
-#     sizes its Kubernetes resource requests + limits against these numbers
-#     — they are the upstream source for `resources:` blocks in those Helm
-#     templates, not a downstream observation of them.
 #
 # Promotion path: status flips from `design_only` to `runtime_enforced` when
 # Phase B wires the OTel + Prometheus exporters specified in
@@ -55,8 +50,8 @@ promotion_trigger: |
     2. The `PerfBaselineRegressionIT` integration tests that load this yaml at
        boot, scrape the live `/actuator/prometheus` endpoint after a fixed
        traffic profile, and FAIL if any target row's p95 is exceeded.
-    3. The Kunpeng+Ascend reference-hardware soak run captured at
-       `perf/baseline-<date>-kunpeng-ascend.md` with raw histograms attached.
+    3. The Kunpeng+Ascend reference-hardware soak run captured in a
+       `baseline-<date>-kunpeng-ascend.md` doc with raw histograms attached.
     4. The `regression_adr:` linkage from `docs/governance/competitive-baselines.yaml#performance`
        resolved to a concrete ADR rather than a `to be filed` placeholder.
   At that point each row's `instrumentation_status` flips to `wired` and the
@@ -111,7 +106,6 @@ run_admission:
     It MUST return a Task Cursor immediately and MUST NOT hold the connection
     while work executes. The latency target below covers cursor-issuance only,
     NOT downstream execution.
-  product_claim: PC-003
   target_persona: Persona-D
   metric:
     name: springai_ascend_runs_admit_seconds
@@ -129,7 +123,7 @@ run_admission:
   current_value: "N/A"
   measurement_status: "not-yet-instrumented; wired in Phase B"
   last_measured: null
-  regression_policy: "2x baseline rule per perf/README.md regression policy"
+  regression_policy: "2x baseline rule"
 
 # ---------------------------------------------------------------------------
 # Tool-call SLOs — per-skill latency targets.
@@ -144,7 +138,6 @@ tool_call:
     API class is the fastest; external API class crosses the bank's
     perimeter; model gateway class is provider-dependent and inherits from
     `model_invocation` below.
-  product_claim: PC-003
   target_persona: Persona-D
   metric:
     name: springai_ascend_tool_call_seconds
@@ -201,7 +194,6 @@ model_invocation:
     Persona-D (long first-token + fast streaming = bad UX for chat
     workloads; the inverse = good UX). Streaming token rate matters for
     chunked-output workloads (loan-narrative drafting, AML report).
-  product_claim: PC-003
   target_persona: Persona-D
   metric:
     name: springai_ascend_model_invoke_seconds
@@ -270,7 +262,6 @@ throughput:
     SLA declared above. A Run is "in-flight" when its status ∈ {ADMITTED,
     RUNNING, SUSPENDED_WAITING_S2C, SUSPENDED_RATE_LIMITED}. Terminal
     statuses (COMPLETED, FAILED, CANCELLED) are NOT counted.
-  product_claim: PC-003
   target_persona: Persona-D
   targets:
     concurrent_runs_per_instance: 100
@@ -300,7 +291,6 @@ tenant_isolation_overhead:
     + Persona-F need to know the cost; the target below is the upper
     bound on that cost relative to a `SET ROLE bypass_rls` baseline run
     against the same dataset.
-  product_claim: PC-003
   target_personas: ["Persona-D", "Persona-F"]
   targets:
     p95_latency_overhead_percent_max: 5
@@ -327,7 +317,6 @@ memory_cap:
     instance (per ADR-0128); a single tenant may have many agents, but
     each individual agent's resident footprint is bounded so capacity
     planning is linear.
-  product_claim: PC-003
   target_persona: Persona-D
   targets:
     resident_megabytes_p95: 512
@@ -352,13 +341,8 @@ memory_cap:
 # Cross-references — links into companion artefacts.
 # ---------------------------------------------------------------------------
 relates_to:
-  - product/PRODUCT.md                                # PC-003 + Persona-D authority
-  - product/claims.yaml                               # PC-003 success_metric definition
-  - product/personas.yaml                             # Persona-D daily_job + pain_points
   - docs/governance/competitive-baselines.yaml        # `performance` row references this file
   - docs/governance/skill-capacity.yaml               # per-skill capacity numbers consume the targets here
   - docs/governance/sandbox-policies.yaml             # `financial_default` cpu_cap + memory_cap sized against these targets
   - docs/contracts/contract-catalog.md                # §5 Telemetry contract — exporter surface that instruments these
   - docs/cross-cutting/non-functional-requirements.md # broader NFR canvas
-  - deploy/middle-office-reference/values.yaml        # 中台 reference Helm chart resources sized from these
-  - docs/adr/0155-product-authority-and-traceability.yaml # authority ADR

@@ -200,16 +200,15 @@ def write_adr_index():
     lines.append("")
     lines.append(f"schema_version: 1 | last_updated: 2026-05-28 | count: {len(adrs)}")
     lines.append("")
-    lines.append("Tier-2 progressive-disclosure index over the ADR corpus. Each row: id link, title, `status:`, `product_claim` (`PC-NNN`, `governance_infra`, or `placeholder` pending Wave-4 backfill). Sources: `docs/adr/*.yaml`, `docs/adr/*.md`, `docs/adr/locked/*.md`, `architecture/decisions/*` (precedence in that order on id collision).")
+    lines.append("Tier-2 progressive-disclosure index over the ADR corpus. Each row: id link, title, `status:`. Sources: `docs/adr/*.yaml`, `docs/adr/*.md`, `docs/adr/locked/*.md`, `architecture/decisions/*` (precedence in that order on id collision).")
     lines.append("")
     lines.append("## Index")
     lines.append("")
     for num in sorted(adrs.keys()):
-        idstr, rel, title, status, pc = adrs[num]
+        idstr, rel, title, status, _ = adrs[num]
         title_s = shorten_title(title, cap=80)
         status_s = re.sub(r"\s+", " ", status).strip()
-        pc_s = re.sub(r"\s+", " ", pc).strip()
-        lines.append(f"- [{idstr}]({rel}) — {title_s} — {status_s} — product_claim:{pc_s}")
+        lines.append(f"- [{idstr}]({rel}) — {title_s} — {status_s}")
     lines.append("")
     (DISCOVERY / "adr-index.md").write_text("\n".join(lines), encoding="utf-8")
     return len(adrs)
@@ -256,13 +255,11 @@ def collect_rules():
             rid = mm.group(1) if mm else p.stem
         title = yaml_scalar(fm, "title") or p.stem
         status = yaml_scalar(fm, "status") or "unknown"
-        pc = yaml_scalar(fm, "product_claim") or "placeholder"
         out.append({
             "id": rid,
             "path": p.relative_to(REPO).as_posix(),
             "title": title,
             "status": status,
-            "product_claim": pc,
         })
     out.sort(key=lambda r: rule_sort_key(r["id"]))
     return out
@@ -287,7 +284,7 @@ def write_rule_index():
     lines.append("")
     lines.append("## Usage")
     lines.append("")
-    lines.append("This file is a Tier-2 progressive-disclosure index over the governance rule cards under `docs/governance/rules/`. Each line names one rule by id (D-/G-/R-/M- namespace), its canonical card path, the rule's current `status:` value, and a `product_claim` tag — either an actual `PC-NNN` id, `governance_infra` (when the rule governs framework discipline rather than a product capability), or `placeholder` (Wave-4 backfill target).")
+    lines.append("This file is a Tier-2 progressive-disclosure index over the governance rule cards under `docs/governance/rules/`. Each line names one rule by id (D-/G-/R-/M- namespace), its canonical card path, and the rule's current `status:` value.")
     lines.append("")
     lines.append("Load this index to find rules by id, topic, or status without scanning every card. Each rule's full body (motivation, details, enforcers, exit criteria) lives behind the linked card and is loaded on demand by the `/design-mode`, `/impl-mode`, `/verify-mode`, `/commit-mode`, and `/review-mode` phase-contract skills declared in `CLAUDE.md`. Sort order: namespace (D, G, M, R) then numeric/letter suffix.")
     lines.append("")
@@ -296,8 +293,7 @@ def write_rule_index():
     for r in rules:
         title = re.sub(r"\s+", " ", r["title"]).strip()
         status = re.sub(r"\s+", " ", r["status"]).strip()
-        pc = re.sub(r"\s+", " ", r["product_claim"]).strip()
-        lines.append(f"- [Rule {r['id']}]({r['path']}) — {title} — {status} — product_claim:{pc}")
+        lines.append(f"- [Rule {r['id']}]({r['path']}) — {title} — {status}")
     lines.append("")
     (DISCOVERY / "rule-index.md").write_text("\n".join(lines), encoding="utf-8")
     return len(rules)
@@ -409,13 +405,11 @@ def collect_contracts():
         text = read(p)
         purpose = contract_purpose(text)
         status = contract_status(text)
-        pc = yaml_scalar(text, "product_claim") or "placeholder"
         out.append({
             "name": p.name,
             "path": p.relative_to(REPO).as_posix(),
             "purpose": purpose,
             "status": status,
-            "product_claim": pc,
         })
     return out
 
@@ -439,7 +433,7 @@ def write_contract_index():
     lines.append("")
     lines.append("## Usage")
     lines.append("")
-    lines.append("This file is a Tier-2 progressive-disclosure index over the runtime / SPI / protocol contract schemas under `docs/contracts/`. Each line names one schema file, its one-line purpose, its current `status:` (or `runtime_enforced:` derivative), and a `product_claim` tag — either an actual `PC-NNN` id, `governance_infra` (when the contract governs framework discipline rather than a product capability), or `placeholder` (Wave-4 backfill target).")
+    lines.append("This file is a Tier-2 progressive-disclosure index over the runtime / SPI / protocol contract schemas under `docs/contracts/`. Each line names one schema file, its one-line purpose, and its current `status:` (or `runtime_enforced:` derivative).")
     lines.append("")
     lines.append("Load this index to locate contract schemas by name, purpose, or status. The full schema body lives behind the linked file. Catalog cross-reference: `docs/contracts/contract-catalog.md`. Each contract's authority ADR is named in its leading comment block per Rule M-2 sub-clause .b.")
     lines.append("")
@@ -451,8 +445,7 @@ def write_contract_index():
         if len(purpose) > 240:
             purpose = purpose[:237].rstrip() + "..."
         status = re.sub(r"\s+", " ", c["status"]).strip()
-        pc = re.sub(r"\s+", " ", c["product_claim"]).strip()
-        lines.append(f"- [{c['name']}]({c['path']}) — {purpose} — {status} — product_claim:{pc}")
+        lines.append(f"- [{c['name']}]({c['path']}) — {purpose} — {status}")
     lines.append("")
     (DISCOVERY / "contract-index.md").write_text("\n".join(lines), encoding="utf-8")
     return len(contracts)

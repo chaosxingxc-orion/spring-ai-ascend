@@ -5,7 +5,6 @@ level: L0
 view: logical
 authority: "Layer 0 governing principle (CLAUDE.md); W2.x engine contract structural wave"
 enforced_by_rules: [R-M.a, R-M.b, R-M.c, R-M.d, R-M.e, M-2.a]   # formerly Rules 43, 44, 45, 46, 47, 48 (numeric pre-ADR-0086)
-product_claim: "PC-004"
 kernel: |
   P-M — Heterogeneous Engine Contract & Server-Sovereign Boundary.
   The platform supports heterogeneous execution engines through a structured

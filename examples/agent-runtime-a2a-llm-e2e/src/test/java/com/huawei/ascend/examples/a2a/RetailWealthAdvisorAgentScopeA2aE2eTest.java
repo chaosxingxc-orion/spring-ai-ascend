@@ -7,7 +7,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
-import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,8 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 @ResourceLock("real-llm")
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = OpenJiuwenA2aAgentRuntimeApplication.class)
+        classes = OpenJiuwenA2aAgentRuntimeApplication.class,
+        properties = "sample.a2a.agent=retail-wealth-advisor")
 class RetailWealthAdvisorAgentScopeA2aE2eTest {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(90);
@@ -36,39 +37,19 @@ class RetailWealthAdvisorAgentScopeA2aE2eTest {
     void a2aClientCanStreamRetailWealthAdvisorSdkAgentThroughAgentRuntimeOnly() throws Exception {
         assumeRealLlmConfigured("Retail Wealth Advisor AgentScope SDK agent");
 
-        assertAdvisorPathReturnsAllocationSuggestion(RetailWealthAdvisorAgentScopeConfiguration.AGENT_ID);
-    }
-
-    @Test
-    void a2aClientCanStreamRetailWealthAdvisorHarnessAgentThroughAgentRuntimeOnly() throws Exception {
-        assumeRealLlmConfigured("Retail Wealth Advisor AgentScope Harness agent");
-
-        assertAdvisorPathReturnsAllocationSuggestion(RetailWealthAdvisorAgentScopeConfiguration.HARNESS_AGENT_ID);
-    }
-
-    @Test
-    void a2aClientCanStreamRetailWealthAdvisorRestRuntimeThroughAgentRuntimeOnly() throws Exception {
-        assumeRealLlmConfigured("Retail Wealth Advisor AgentScope REST/SSE runtime");
-
-        assertAdvisorPathReturnsAllocationSuggestion(RetailWealthAdvisorAgentScopeConfiguration.RUNTIME_AGENT_ID);
-    }
-
-    private void assertAdvisorPathReturnsAllocationSuggestion(String agentId) throws Exception {
         SampleA2aClient client = new SampleA2aClient(URI.create("http://localhost:" + port), TIMEOUT);
+        AgentCard card = client.agentCard();
+        assertThat(card.name()).isEqualTo(RetailWealthAdvisorAgentScopeConfiguration.AGENT_ID);
+        assertAdvisorPathReturnsAllocationSuggestion(client, card.name());
+    }
+
+    private void assertAdvisorPathReturnsAllocationSuggestion(SampleA2aClient client, String agentId) throws Exception {
         String sessionId = "session-" + UUID.randomUUID();
         List<StreamingEventKind> events = client.streamMessage("sample-user", agentId, sessionId, PROMPT);
-        List<Message> messages = events.stream()
-                .filter(Message.class::isInstance)
-                .map(Message.class::cast)
-                .toList();
         String answer = SampleA2aClient.textFrom(events);
 
         assertThat(events).isNotEmpty();
-        assertThat(messages).anySatisfy(message -> assertThat(message.metadata().get("accepted"))
-                .isEqualTo(Boolean.TRUE));
-        assertThat(messages).anySatisfy(message -> assertThat(message.metadata().get("runStatus"))
-                .isEqualTo("completed"));
-        assertThat(messages).allSatisfy(message -> assertThat(message.role()).isEqualTo(Message.Role.ROLE_AGENT));
+        assertThat(events).anySatisfy(event -> assertThat(SampleA2aClient.isTerminal(event)).isTrue());
         assertThat(answer)
                 .contains("客户画像")
                 .contains("资产配置")

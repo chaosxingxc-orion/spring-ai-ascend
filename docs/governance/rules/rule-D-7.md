@@ -7,7 +7,6 @@ principle_ref: P-A
 authority_refs: []
 enforcer_refs: []
 status: active
-product_claim: "PC-003"
 scope_phase: design
 kernel_cap: 8
 kernel: |

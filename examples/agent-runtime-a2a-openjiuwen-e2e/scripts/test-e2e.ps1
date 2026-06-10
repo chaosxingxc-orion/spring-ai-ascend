@@ -1,0 +1,23 @@
+# Load an env file, install agent-runtime into the local Maven repo, then run
+# the single-runtime/single-openJiuwen-agent A2A E2E suite.
+#
+# Usage: ./scripts/test-e2e.ps1 [-EnvFile .env]
+#   ./scripts/test-e2e.ps1 -EnvFile .env.ollama.example
+param([string]$EnvFile = "$PSScriptRoot\..\.env")
+$ErrorActionPreference = 'Stop'
+$repo = (Resolve-Path "$PSScriptRoot\..\..\..").Path
+if (Test-Path $EnvFile) {
+    Get-Content $EnvFile | Where-Object { $_ -match '^\s*[^#].*=' } | ForEach-Object {
+        $k, $v = $_ -split '=', 2
+        [Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim(), 'Process')
+    }
+    Write-Host "loaded env: $EnvFile  (provider=$env:SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER apiBase=$env:SAA_SAMPLE_OPENJIUWEN_API_BASE model=$env:SAA_SAMPLE_LLM_MODEL)"
+} else {
+    Write-Host "env file not found: $EnvFile - using process env / application.yaml defaults"
+}
+if ([string]::IsNullOrWhiteSpace($env:SAA_SAMPLE_LLM_API_KEY)) {
+    Write-Host "WARNING: SAA_SAMPLE_LLM_API_KEY is blank - the real-LLM branch will be SKIPPED (assumeTrue)."
+}
+Set-Location $repo
+& ./mvnw -pl agent-runtime -am install -DskipTests -Dmaven.test.skip=true
+& ./mvnw -f examples/agent-runtime-a2a-openjiuwen-e2e/pom.xml test

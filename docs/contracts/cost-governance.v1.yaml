@@ -1,6 +1,5 @@
 ---
 contract_id: cost-governance.v1
-product_claim: PC-003
 status: design_only
 authority: ADR-0156
 target_personas: ["Persona-A", "Persona-B", "Persona-D"]

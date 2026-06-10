@@ -7,7 +7,6 @@ principle_ref: P-L
 authority_refs: [ADR-0069]
 enforcer_refs: [E71]
 status: active
-product_claim: "PC-003"
 scope_phase: design
 kernel_cap: 8
 kernel: |

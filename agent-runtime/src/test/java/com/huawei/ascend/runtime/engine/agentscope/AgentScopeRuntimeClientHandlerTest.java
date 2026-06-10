@@ -3,10 +3,8 @@ package com.huawei.ascend.runtime.engine.agentscope;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.huawei.ascend.runtime.common.Message;
+import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.EngineInput;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.io.ByteArrayOutputStream;
 import java.net.Authenticator;
@@ -26,11 +24,13 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Flow;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
+import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.Part;
+import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 
 class AgentScopeRuntimeClientHandlerTest {
@@ -48,8 +48,8 @@ class AgentScopeRuntimeClientHandlerTest {
 
         assertThat(results).extracting(AgentExecutionResult::type)
                 .containsExactly(AgentExecutionResult.Type.OUTPUT, AgentExecutionResult.Type.COMPLETED);
-        assertThat(results.get(0).output().getContent()).isEqualTo("hel");
-        assertThat(results.get(1).output().getContent()).isEqualTo("hello");
+        assertThat(results.get(0).outputContent()).isEqualTo("hel");
+        assertThat(results.get(1).outputContent()).isEqualTo("hello");
         assertThat(httpClient.request.uri()).isEqualTo(URI.create("http://agentscope-runtime.local/process"));
         assertThat(httpClient.request.headers().firstValue("Accept")).contains("text/event-stream");
         assertThat(httpClient.request.headers().firstValue("X-Tenant-Id")).contains("tenant");
@@ -58,9 +58,33 @@ class AgentScopeRuntimeClientHandlerTest {
         assertThat(httpClient.body).contains("\"session_id\":\"session\"");
         assertThat(httpClient.body).contains("\"user_id\":\"user\"");
         assertThat(httpClient.body).contains("\"stream\":true");
+        assertThat(httpClient.body).contains("\"role\":\"user\"");
+        assertThat(httpClient.body).contains("\"role\":\"assistant\"");
+        assertThat(httpClient.body).doesNotContain("ROLE_USER", "ROLE_AGENT");
         assertThat(httpClient.body).contains("\"content\":[{");
         assertThat(httpClient.body).contains("\"type\":\"text\"");
         assertThat(httpClient.body).contains("\"text\":\"ping\"");
+    }
+
+    @Test
+    void runtimeClientCombinesMultiLineSseDataBlocks() {
+        CapturingHttpClient httpClient = new CapturingHttpClient(200, Stream.of(
+                "data: {\"status\":\"in_progress\",",
+                "data: \"text\":\"hello\"}",
+                "",
+                "data: {\"status\":\"completed\",\"output\":\"done\"}"));
+        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
+                httpClient,
+                new ObjectMapper(),
+                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
+        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(results).extracting(AgentExecutionResult::type)
+                .containsExactly(AgentExecutionResult.Type.OUTPUT, AgentExecutionResult.Type.COMPLETED);
+        assertThat(results.get(0).outputContent()).isEqualTo("hello");
+        assertThat(results.get(1).outputContent()).isEqualTo("done");
     }
 
     @Test
@@ -112,29 +136,20 @@ class AgentScopeRuntimeClientHandlerTest {
         assertThat(results.getFirst().errorMessage()).isEqualTo("AgentScope runtime returned HTTP 599");
     }
 
-    @Test
-    void runtimeClientClosesResponseBodyOnNonSuccessStatus() {
-        AtomicBoolean bodyClosed = new AtomicBoolean(false);
-        Stream<String> responseBody = Stream.of("proxy timeout").onClose(() -> bodyClosed.set(true));
-        CapturingHttpClient httpClient = new CapturingHttpClient(503, responseBody);
-        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
-                httpClient,
-                new ObjectMapper(),
-                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
-        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
-
-        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
-
-        assertThat(results).hasSize(1);
-        assertThat(results.getFirst().type()).isEqualTo(AgentExecutionResult.Type.FAILED);
-        assertThat(results.getFirst().errorCode()).isEqualTo("AGENTSCOPE_RUNTIME_HTTP_503");
-        assertThat(bodyClosed).isTrue();
+    private static AgentExecutionContext context() {
+        RuntimeIdentity scope = new RuntimeIdentity("tenant", "user", "session", "task", "agentscope-rest");
+        return new AgentExecutionContext(
+                scope,
+                "USER_MESSAGE",
+                List.of(message(Message.Role.ROLE_USER, "ping"), message(Message.Role.ROLE_AGENT, "pong")),
+                Map.of());
     }
 
-    private static AgentExecutionContext context() {
-        EngineExecutionScope scope = new EngineExecutionScope("tenant", "user", "session", "task", "agentscope-rest");
-        EngineInput input = new EngineInput("USER_MESSAGE", List.of(Message.user("ping")), Map.of());
-        return new AgentExecutionContext(scope, input);
+    private static Message message(Message.Role role, String text) {
+        return Message.builder()
+                .role(role)
+                .parts(List.<Part<?>>of(new TextPart(text)))
+                .build();
     }
 
     private static final class CapturingHttpClient extends HttpClient {

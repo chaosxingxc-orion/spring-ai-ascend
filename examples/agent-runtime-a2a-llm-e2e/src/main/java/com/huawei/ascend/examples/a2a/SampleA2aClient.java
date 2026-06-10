@@ -19,6 +19,7 @@ import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.MessageSendParams;
 import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.a2aproject.sdk.spec.TaskArtifactUpdateEvent;
+import org.a2aproject.sdk.spec.TaskState;
 import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.a2aproject.sdk.spec.TextPart;
 
@@ -128,7 +129,16 @@ public final class SampleA2aClient {
     private static final java.util.Set<String> TERMINAL_RUN_STATUSES =
             java.util.Set.of("completed", "failed", "canceled", "rejected", "cancelled");
 
-    static boolean isTerminal(StreamingEventKind event) {
+    public static boolean isTerminal(StreamingEventKind event) {
+        if (event instanceof TaskStatusUpdateEvent statusEvent
+                && statusEvent.status() != null
+                && statusEvent.status().state() != null) {
+            TaskState state = statusEvent.status().state();
+            return state == TaskState.TASK_STATE_COMPLETED
+                    || state == TaskState.TASK_STATE_FAILED
+                    || state == TaskState.TASK_STATE_CANCELED
+                    || state == TaskState.TASK_STATE_REJECTED;
+        }
         if (event instanceof Message message && message.metadata() != null) {
             return TERMINAL_RUN_STATUSES.contains(String.valueOf(message.metadata().get("runStatus")));
         }
