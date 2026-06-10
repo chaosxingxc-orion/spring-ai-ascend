@@ -15,6 +15,7 @@ import org.a2aproject.sdk.server.events.MainEventBusProcessor;
 import org.a2aproject.sdk.server.events.QueueManager;
 import org.a2aproject.sdk.server.requesthandlers.DefaultRequestHandler;
 import org.a2aproject.sdk.server.requesthandlers.RequestHandler;
+import org.a2aproject.sdk.server.tasks.BasePushNotificationSender;
 import org.a2aproject.sdk.server.tasks.InMemoryPushNotificationConfigStore;
 import org.a2aproject.sdk.server.tasks.InMemoryTaskStore;
 import org.a2aproject.sdk.server.tasks.PushNotificationConfigStore;
@@ -46,9 +47,9 @@ public class RuntimeAutoConfiguration {
     public PushNotificationConfigStore a2aPushConfigStore() { return new InMemoryPushNotificationConfigStore(); }
 
     @Bean @ConditionalOnMissingBean
-    public PushNotificationSender a2aPushSender() {
-        return (event, task) -> log.debug("push notification task={} (no-op)",
-                task == null ? "<none>" : task.id());
+    public PushNotificationSender a2aPushSender(PushNotificationConfigStore store) {
+        log.info("A2A push notification sender enabled with {}", store.getClass().getSimpleName());
+        return new BasePushNotificationSender(store);
     }
 
     @Bean @ConditionalOnMissingBean
