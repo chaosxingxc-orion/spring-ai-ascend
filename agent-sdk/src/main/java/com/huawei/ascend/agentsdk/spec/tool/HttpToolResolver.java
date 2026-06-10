@@ -17,14 +17,14 @@ public final class HttpToolResolver implements ToolResolver {
     @Override
     public ResolvedTool resolve(ToolSpec spec) {
         Map<String, Object> attributes = spec.ref().attributes();
-        String url = required(attributes, "url");
-        String method = string(attributes.getOrDefault("method", "POST")).toUpperCase(Locale.ROOT);
+        String url = ToolRefAttributes.required(attributes, "url");
+        String method = ToolRefAttributes.string(attributes.getOrDefault("method", "POST")).toUpperCase(Locale.ROOT);
         HttpExecutionHandle handle = new HttpExecutionHandle(
                 uri(url),
                 method,
                 headers(attributes.get("headers")),
                 timeout(attributes.get("timeout")));
-        return new WrappableTool(descriptor(spec), handle);
+        return new WrappableTool(ToolRefAttributes.descriptor(spec), handle);
     }
 
     private static URI uri(String url) {
@@ -33,28 +33,6 @@ public final class HttpToolResolver implements ToolResolver {
         } catch (URISyntaxException e) {
             throw new ValidationException("Invalid http tool url: " + url, e);
         }
-    }
-
-    static ToolDescriptor descriptor(ToolSpec spec) {
-        if (spec.name() == null || spec.name().isBlank()) {
-            throw new ValidationException("Tool name is required for ref scheme: " + spec.ref().scheme());
-        }
-        if (spec.description() == null || spec.description().isBlank()) {
-            throw new ValidationException("Tool description is required: " + spec.name());
-        }
-        return new ToolDescriptor(spec.name(), spec.description(), spec.inputSchema(), spec.outputSchema());
-    }
-
-    static String required(Map<String, Object> attributes, String key) {
-        String value = string(attributes.get(key));
-        if (value == null || value.isBlank()) {
-            throw new ValidationException("Missing required tool ref attribute: " + key);
-        }
-        return value;
-    }
-
-    static String string(Object value) {
-        return value == null ? null : String.valueOf(value);
     }
 
     @SuppressWarnings("unchecked")
