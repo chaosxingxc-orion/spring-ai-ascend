@@ -1,9 +1,12 @@
 package com.huawei.ascend.runtime.boot;
 
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
+import com.huawei.ascend.runtime.engine.a2a.IdempotentRequestHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.idempotency.IdempotencyStore;
+import com.huawei.ascend.runtime.idempotency.InMemoryIdempotencyStore;
 import com.huawei.ascend.runtime.run.InMemoryRunRepository;
 import com.huawei.ascend.runtime.run.RunRepository;
 import java.util.concurrent.ExecutorService;
@@ -117,12 +120,18 @@ public class RuntimeAutoConfiguration {
         return new A2aAgentExecutor(registered.get(0), runRepository);
     }
 
+    @Bean @ConditionalOnMissingBean(IdempotencyStore.class)
+    public InMemoryIdempotencyStore idempotencyStore() { return new InMemoryIdempotencyStore(); }
+
     @Bean @ConditionalOnMissingBean
     public RequestHandler a2aRequestHandler(AgentExecutor agentExecutor, TaskStore store,
             QueueManager queueManager, PushNotificationConfigStore pushStore, MainEventBusProcessor eventBus,
-            A2aServerExecutor exec) {
-        return DefaultRequestHandler.create(agentExecutor, store, queueManager, pushStore, eventBus,
-                exec.executor(), exec.executor());
+            A2aServerExecutor exec, IdempotencyStore idempotencyStore) {
+        RequestHandler handler = DefaultRequestHandler.create(agentExecutor, store, queueManager, pushStore,
+                eventBus, exec.executor(), exec.executor());
+        // message/send is deduplicated by (tenant, messageId): retries replay the
+        // created task instead of running the agent twice (ADR-0027).
+        return new IdempotentRequestHandler(handler, idempotencyStore, store);
     }
 
     @Bean @ConditionalOnMissingBean
