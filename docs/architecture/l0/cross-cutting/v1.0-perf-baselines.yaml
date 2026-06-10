@@ -29,10 +29,6 @@ v1_0_ship_blocker: true
 #   - Persona-D pain_points_today names "no posture-aware default model" and
 #     "cost reporting absent at the agent-instance granularity"; the targets
 #     below resolve both by attaching posture + granularity to every SLO.
-#   - The 中台-mode reference deployment (`deploy/middle-office-reference/`)
-#     sizes its Kubernetes resource requests + limits against these numbers
-#     — they are the upstream source for `resources:` blocks in those Helm
-#     templates, not a downstream observation of them.
 #
 # Promotion path: status flips from `design_only` to `runtime_enforced` when
 # Phase B wires the OTel + Prometheus exporters specified in
@@ -55,8 +51,8 @@ promotion_trigger: |
     2. The `PerfBaselineRegressionIT` integration tests that load this yaml at
        boot, scrape the live `/actuator/prometheus` endpoint after a fixed
        traffic profile, and FAIL if any target row's p95 is exceeded.
-    3. The Kunpeng+Ascend reference-hardware soak run captured at
-       `perf/baseline-<date>-kunpeng-ascend.md` with raw histograms attached.
+    3. The Kunpeng+Ascend reference-hardware soak run captured in a
+       `baseline-<date>-kunpeng-ascend.md` doc with raw histograms attached.
     4. The `regression_adr:` linkage from `docs/governance/competitive-baselines.yaml#performance`
        resolved to a concrete ADR rather than a `to be filed` placeholder.
   At that point each row's `instrumentation_status` flips to `wired` and the
@@ -129,7 +125,7 @@ run_admission:
   current_value: "N/A"
   measurement_status: "not-yet-instrumented; wired in Phase B"
   last_measured: null
-  regression_policy: "2x baseline rule per perf/README.md regression policy"
+  regression_policy: "2x baseline rule"
 
 # ---------------------------------------------------------------------------
 # Tool-call SLOs — per-skill latency targets.

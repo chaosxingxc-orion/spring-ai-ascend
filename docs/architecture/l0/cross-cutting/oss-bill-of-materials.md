@@ -150,7 +150,7 @@ All Spring Boot 4.x transitive deps (Web, Security, Data JDBC, Actuator, Validat
 | Dep | Pinned | Channel | Notes |
 |---|---|---|---|
 | Apache Tika | `3.3.0` | Maven | Core + parsers-standard; U2 at W0 |
-| Docling-serve | pinned in third_party/MANIFEST.md | Tier C (REST sidecar) | Layout-aware PDF; evaluation-only (associated starter and SPI deleted in 2026-05-12 Occam pass; future activation requires new ADR) |
+| Docling-serve | local clone | Tier C (REST sidecar) | Layout-aware PDF; evaluation-only (associated starter and SPI deleted in 2026-05-12 Occam pass; future activation requires new ADR) |
 
 ### 4.6 langchain4j (not in scope; future research)
 
@@ -178,8 +178,8 @@ server, OPA daemon, observability stack, LLM provider APIs, MCP tool servers).
 
 For capabilities where the most-active OSS community lives in Python, the SDK
 exposes a stable Java SPI; an optional adapter starter implements that SPI as a
-thin REST client, and a docker-compose overlay in `ops/compose/` provisions the
-Python sidecar. Consumers opt in per deployment.
+thin REST client, and a docker-compose overlay provisions the Python sidecar.
+Consumers opt in per deployment.
 
 This model is validated by three reference projects (langchain4j, spring-ai-alibaba,
 agentscope-java), all of which ship as Maven Central libraries with zero mandatory
@@ -223,7 +223,7 @@ Seven SPIs (long-term memory, tool provider, layout parser, document source conn
 
 ## 7. Tier C: local source clones + Python OSS sidecars
 
-Tracked in `third_party/MANIFEST.md`. All entries gitignored; SHAs captured in the manifest.
+Local source clones are gitignored.
 
 ### Infrastructure servers (11)
 
@@ -300,7 +300,7 @@ The remaining reference projects (langchain4j, agentscope-java) are NOT on this 
 - **logstash-logback-encoder stuck at 8.0.** 9.0 is a major version jump; upgrade deferred to W1 evaluation.
 - **Graphiti selected as W1 reference sidecar (ADR-0034).** mem0 and Cognee are not selected. Future activation of either requires a dedicated ADR.
 - **langchain4j at U0.** BOM declared; no module depends on it yet. LangChain4j dispatch is excluded from L0 scope (see `ARCHITECTURE.md §1`); future activation requires a dedicated ADR.
-- **Python sidecar version drift.** Graphiti releases independently. Mitigated by SPI layer + `third_party/MANIFEST.md` SHA pinning.
+- **Python sidecar version drift.** Graphiti releases independently. Mitigated by SPI layer + pinned sidecar versions.
 - **springdoc 3.0.3 Boot 4 runtime behavior.** Compile-verified at W0; runtime auto-configuration verified in W1 IT tests.
 
 ## 12. References
@@ -308,7 +308,6 @@ The remaining reference projects (langchain4j, agentscope-java) are NOT on this 
 - `ARCHITECTURE.md` sec-2 (OSS component matrix)
 - `docs/architecture-v6.X.md` integration-model section
 - Active wave authority: `ARCHITECTURE.md §1 + docs/governance/architecture-status.yaml + docs/CLAUDE-deferred.md` (per ADR-0037)
-- `third_party/MANIFEST.md` (Tier C SHA manifest)
 - `docs/cross-cutting/sdk-versioning.md` (deprecation policy)
 - `docs/cross-cutting/dev-environment.md` (toolchain install guide)
 - Spring AI 2.0.0-M5 release notes (milestone)
