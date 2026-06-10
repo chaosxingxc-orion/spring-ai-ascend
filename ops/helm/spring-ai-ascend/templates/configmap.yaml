@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ .Release.Name }}-config
-data:
-  application.properties: |
-    app.posture={{ .Values.env.APP_POSTURE }}
-    management.endpoints.web.exposure.include=health,info,prometheus
-    management.endpoint.health.show-details=always

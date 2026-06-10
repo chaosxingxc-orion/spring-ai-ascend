@@ -35,30 +35,6 @@ gh --version
 ./mvnw -B -ntp verify
 ```
 
-## Run Tier C sidecars (optional)
-
-Python-community OSS sidecars are opt-in. Start any individual sidecar with its compose overlay:
-
-```sh
-# Long-term hierarchical memory (mem0):
-docker compose -f ops/compose/sidecar-mem0.yml up -d
-
-# Knowledge-graph memory (Graphiti):
-docker compose -f ops/compose/sidecar-graphmemory.yml up -d
-
-# Layout-aware PDF parsing (Docling-serve):
-docker compose -f ops/compose/sidecar-docling.yml up -d
-
-# RAGFlow alternate RAG platform (evaluation only; no SDK adapter):
-docker compose -f ops/compose/sidecar-ragflow.yml up -d
-```
-
-Clone Tier C source repos (needed only for local inspection or contribution):
-
-```sh
-sh third_party/clone-all.sh
-```
-
 ## Architecture gate
 
 ```sh

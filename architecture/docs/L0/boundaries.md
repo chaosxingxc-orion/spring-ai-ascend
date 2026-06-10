@@ -80,8 +80,8 @@ Does not own:
 
 Retired in the agent-runtime pure rebuild — the module and its hook/middleware
 runtime were removed. Its planned model-gateway / skill / memory / retrieval /
-prompt / advisor capabilities are deferred product vision pending a new home (see
-`product/PRODUCT.md`); they are NOT in the current 4-module reactor.
+prompt / advisor capabilities are deferred product vision pending a new home;
+they are NOT in the current 4-module reactor.
 
 ### `agent-bus`
 

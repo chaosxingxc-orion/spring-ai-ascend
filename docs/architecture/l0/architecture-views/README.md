@@ -36,32 +36,6 @@ Keeping L0 to these six blocks prevents lower-level protocol, implementation, sc
 | Process | `plantuml/l0/l0-process.puml` | `exports/svg/l0-process.svg` |
 | Physical | `plantuml/l0/l0-physical.puml` | `exports/svg/l0-physical.svg` |
 
-## Generate locally
-
-The renderer script uses Docker first and does not require a local Java or Graphviz installation.
-
-```bash
-bash scripts/render-architecture-views.sh
-```
-
-Generate both SVG and PNG:
-
-```bash
-bash scripts/render-architecture-views.sh --png
-```
-
-Validate rendering without modifying checked-in exports:
-
-```bash
-bash scripts/render-architecture-views.sh --check
-```
-
-The Docker image can be overridden when needed:
-
-```bash
-PLANTUML_DOCKER_IMAGE=plantuml/plantuml:latest bash scripts/render-architecture-views.sh
-```
-
 ## View exported diagrams
 
 Open the generated SVG files directly from `docs/architecture-views/exports/svg/` in a browser or in any SVG-capable documentation viewer. SVG exports are preferred because the six L0 core capability blocks include placeholder links to future L1 diagrams.
@@ -74,7 +48,6 @@ PNG exports, when generated, are written to `docs/architecture-views/exports/png
 - Keep shared style in `plantuml/common/theme.puml`.
 - Keep L1 drill-down placeholders in `plantuml/common/links.puml`.
 - Keep shared L0 names and descriptions in `plantuml/common/l0-elements.puml`.
-- Regenerate exports with `bash scripts/render-architecture-views.sh` after source changes.
 - Do not edit generated SVG or PNG files by hand.
 - Do not use draw.io, Mermaid, or hand-made images as the primary source.
 - Keep terminology aligned with the latest `ARCHITECTURE.md`, `docs/reviews`, and accepted meeting decisions.
@@ -113,10 +86,6 @@ When an L1 or L2 diagram is added:
 
 ## Gate
 
-An optional standalone gate is provided:
-
-```bash
-bash gate/check_architecture_views.sh
-```
-
-It checks required files, rejects disallowed diagram-source formats and lower-level L0 component promotion, verifies the six capability names, and invokes the renderer in `--check` mode.
+The view set is reviewed by hand against the L0 corpus; there is no standalone
+gate. Keep the six L0 capability names and the abstraction-level rules above
+when editing `.puml` sources.

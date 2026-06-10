@@ -2,7 +2,7 @@
 #
 # Per docs/cross-cutting/supply-chain-controls.md: distroless runtime + digest pin.
 # The :nonroot tag below should be replaced with a sha256 digest in CI before
-# release; see ops/runbooks/digest-pin.md (W2+).
+# release.
 #
 # Build stage uses the official Maven image (Java 21 + Maven 3.9). Runtime
 # stage is distroless Java 21.
