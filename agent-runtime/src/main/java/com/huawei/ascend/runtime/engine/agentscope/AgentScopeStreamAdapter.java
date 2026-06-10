@@ -1,6 +1,5 @@
 package com.huawei.ascend.runtime.engine.agentscope;
 
-
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import java.util.Map;
@@ -28,7 +27,7 @@ public final class AgentScopeStreamAdapter implements StreamAdapter {
             case OUTPUT -> AgentExecutionResult.output(event.text());
             case COMPLETED -> AgentExecutionResult.completed(event.text());
             case FAILED -> AgentExecutionResult.failed(event.errorCode(), event.errorMessage());
-            case INTERRUPTED -> AgentExecutionResult.interrupted( event.text());
+            case INTERRUPTED -> AgentExecutionResult.interrupted(event.text());
         };
     }
 
@@ -41,7 +40,7 @@ public final class AgentScopeStreamAdapter implements StreamAdapter {
             return AgentExecutionResult.failed(firstText(map, "error_code", "code"), errorMessage);
         }
         if (isInterruptStatus(status)) {
-            return AgentExecutionResult.interrupted( text);
+            return AgentExecutionResult.interrupted(text);
         }
         if (isCompletedStatus(status)) {
             return AgentExecutionResult.completed(text);

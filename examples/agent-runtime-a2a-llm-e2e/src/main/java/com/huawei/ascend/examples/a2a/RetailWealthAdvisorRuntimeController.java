@@ -1,7 +1,5 @@
 package com.huawei.ascend.examples.a2a;
 
-import com.huawei.ascend.runtime.common.Message;
-import com.huawei.ascend.runtime.common.Role;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeAgent;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeEvent;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeInvocation;
@@ -9,6 +7,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.TextPart;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
@@ -86,18 +86,31 @@ final class RetailWealthAdvisorRuntimeController {
 
     private List<Message> messages(Object rawInput) {
         if (!(rawInput instanceof List<?> list)) {
-            return List.of(Message.user(""));
+            return List.of(message(Message.Role.ROLE_USER, ""));
         }
         List<Message> result = new ArrayList<>();
         for (Object rawMessage : list) {
             if (!(rawMessage instanceof Map<?, ?> message)) {
                 continue;
             }
-            result.add(Message.ofText(
-                    Role.fromWire(text(message.get("role"), "user")),
-                    contentText(message.get("content"))));
+            result.add(message(role(message.get("role")), contentText(message.get("content"))));
         }
-        return result.isEmpty() ? List.of(Message.user("")) : List.copyOf(result);
+        return result.isEmpty() ? List.of(message(Message.Role.ROLE_USER, "")) : List.copyOf(result);
+    }
+
+    private Message message(Message.Role role, String text) {
+        return Message.builder()
+                .role(role)
+                .parts(List.of(new TextPart(text)))
+                .build();
+    }
+
+    private Message.Role role(Object raw) {
+        String value = text(raw, "user");
+        if ("assistant".equalsIgnoreCase(value) || "agent".equalsIgnoreCase(value)) {
+            return Message.Role.ROLE_AGENT;
+        }
+        return Message.Role.ROLE_USER;
     }
 
     private String contentText(Object content) {

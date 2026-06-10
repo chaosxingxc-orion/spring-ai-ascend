@@ -1,7 +1,5 @@
 package com.huawei.ascend.examples.a2a;
 
-import com.huawei.ascend.runtime.common.Message;
-import com.huawei.ascend.runtime.common.Role;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeAgent;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeAgentRuntimeHandler;
@@ -40,6 +38,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.TextPart;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
@@ -269,7 +269,7 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
                 messages.add(Msg.builder()
                         .name(name)
                         .role(toAgentScopeRole(message.role()))
-                        .textContent(message.text())
+                        .textContent(messageText(message))
                         .metadata(Map.of(
                                 "tenantId", invocation.tenantId(),
                                 "sessionId", invocation.sessionId(),
@@ -306,8 +306,7 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
 
         private String customerId(AgentScopeInvocation invocation) {
             String input = invocation.messages().stream()
-                    .map(Message::text)
-                    .filter(Objects::nonNull)
+                    .map(RetailWealthAdvisorAgent::messageText)
                     .reduce("", (left, right) -> left + "\n" + right);
             Matcher matcher = CUSTOMER_ID_PATTERN.matcher(input);
             if (matcher.find()) {
@@ -346,13 +345,24 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
             return results.stream();
         }
 
-        private MsgRole toAgentScopeRole(Role role) {
-            return switch (role) {
-                case ASSISTANT -> MsgRole.ASSISTANT;
-                case SYSTEM -> MsgRole.SYSTEM;
-                case TOOL -> MsgRole.TOOL;
-                case USER -> MsgRole.USER;
-            };
+        private MsgRole toAgentScopeRole(Message.Role role) {
+            if (role == Message.Role.ROLE_AGENT) {
+                return MsgRole.ASSISTANT;
+            }
+            return MsgRole.USER;
+        }
+
+        private static String messageText(Message message) {
+            if (message == null || message.parts() == null) {
+                return "";
+            }
+            StringBuilder text = new StringBuilder();
+            for (var part : message.parts()) {
+                if (part instanceof TextPart textPart) {
+                    text.append(textPart.text());
+                }
+            }
+            return text.toString();
         }
 
         private static String errorMessage(Throwable error) {

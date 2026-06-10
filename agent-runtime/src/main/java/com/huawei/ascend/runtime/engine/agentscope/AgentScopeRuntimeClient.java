@@ -4,17 +4,23 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.TextPart;
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.CompletionException;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public final class AgentScopeRuntimeClient {
 
@@ -66,12 +72,61 @@ public final class AgentScopeRuntimeClient {
     }
 
     private Stream<Map<String, Object>> readEvents(Stream<String> lines) {
-        return lines
-                .map(String::trim)
-                .filter(line -> line.startsWith("data:"))
-                .map(line -> line.substring("data:".length()).trim())
-                .filter(data -> !data.isBlank() && !"[DONE]".equals(data))
-                .map(this::readEvent);
+        Iterator<String> iterator = lines.iterator();
+        Spliterator<Map<String, Object>> spliterator =
+                new Spliterators.AbstractSpliterator<>(Long.MAX_VALUE, Spliterator.ORDERED | Spliterator.NONNULL) {
+                    private final StringBuilder data = new StringBuilder();
+                    private boolean hasData;
+
+                    @Override
+                    public boolean tryAdvance(Consumer<? super Map<String, Object>> action) {
+                        while (iterator.hasNext()) {
+                            String line = iterator.next();
+                            if (line.isBlank()) {
+                                Map<String, Object> event = nextEvent();
+                                if (event != null) {
+                                    action.accept(event);
+                                    return true;
+                                }
+                                continue;
+                            }
+                            if (line.startsWith("data:")) {
+                                appendData(line.substring("data:".length()));
+                            }
+                        }
+                        Map<String, Object> event = nextEvent();
+                        if (event != null) {
+                            action.accept(event);
+                            return true;
+                        }
+                        return false;
+                    }
+
+                    private void appendData(String value) {
+                        if (value.startsWith(" ")) {
+                            value = value.substring(1);
+                        }
+                        if (hasData) {
+                            data.append('\n');
+                        }
+                        data.append(value);
+                        hasData = true;
+                    }
+
+                    private Map<String, Object> nextEvent() {
+                        if (!hasData) {
+                            return null;
+                        }
+                        String eventData = data.toString();
+                        data.setLength(0);
+                        hasData = false;
+                        if (eventData.isBlank() || "[DONE]".equals(eventData.trim())) {
+                            return null;
+                        }
+                        return readEvent(eventData);
+                    }
+                };
+        return StreamSupport.stream(spliterator, false).onClose(lines::close);
     }
 
     private HttpResponse<Stream<String>> send(HttpRequest request) {
@@ -112,15 +167,34 @@ public final class AgentScopeRuntimeClient {
     private List<Map<String, Object>> input(List<Message> messages) {
         List<Map<String, Object>> result = new ArrayList<>();
         for (Message message : messages) {
-            StringBuilder text = new StringBuilder();
-            for (var part : message.parts()) {
-                if (part instanceof org.a2aproject.sdk.spec.TextPart tp) text.append(tp.text());
-            }
             result.add(Map.of(
-                    "role", message.role().name(),
-                    "content", List.of(Map.of("type", "text", "text", text.toString()))));
+                    "role", toAgentScopeRole(message),
+                    "content", List.of(Map.of("type", "text", "text", text(message)))));
         }
         return result;
+    }
+
+    private static String toAgentScopeRole(Message message) {
+        if (message == null || message.role() == null) {
+            return "user";
+        }
+        return switch (message.role()) {
+            case ROLE_AGENT -> "assistant";
+            case ROLE_USER, ROLE_UNSPECIFIED -> "user";
+        };
+    }
+
+    private static String text(Message message) {
+        if (message == null || message.parts() == null) {
+            return "";
+        }
+        StringBuilder text = new StringBuilder();
+        for (var part : message.parts()) {
+            if (part instanceof TextPart textPart) {
+                text.append(textPart.text());
+            }
+        }
+        return text.toString();
     }
 
     private String toJson(Map<String, Object> body) {
