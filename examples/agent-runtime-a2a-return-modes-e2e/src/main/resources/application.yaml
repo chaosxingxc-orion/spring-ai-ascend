@@ -1,0 +1,14 @@
+debug: false
+
+spring:
+  application:
+    name: agent-runtime-a2a-return-modes-e2e
+
+server:
+  port: ${SAA_RETURN_MODES_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

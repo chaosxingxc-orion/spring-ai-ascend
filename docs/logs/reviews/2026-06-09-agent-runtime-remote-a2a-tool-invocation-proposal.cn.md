@@ -31,6 +31,7 @@ affects_artefact:
 - control 仍是状态权威，远端调用生命周期先经过 `RemoteInvocationControl` 写 parent A2A task metadata/event。
 - 真正的 A2A client 只存在于 `access.a2a.A2aRemoteAgentOutboundAdapter` 内部，通过 `RemoteAgentOutboundPort` 隔离协议 I/O。
 - 远端 terminal result 只作为 tool result 回到 parent agent；只有 parent agent 的最终回答才成为 parent caller-visible final output。
+- 远端 SSE 在最终状态前吐出的 message/artifact 要作为 parent EventQueue 的远端过程事件投影给用户，但不能触发下一轮输入路由。
 - 远端 `input-required` 必须把远端 `status.message.parts` 投影到 parent A2A task，让用户能看到远端要求补充的信息；下一轮用户输入按 parent task metadata 路由回同一个 remote task/context。
 
 一句话定位：
@@ -83,6 +84,7 @@ Strongest interpretation：目标不是再加一条旁路 A2A client，而是让
 - OpenJiuwen agent 实例到 runtime handler adapter/factory。
 - `RemoteAgentInvocationService`、`RemoteInvocationControl`、`RemoteAgentOutboundPort` 的边界。
 - blocking / background 两种远端调用模式。
+- 远端 streaming message/artifact 到 parent A2A EventQueue 的过程事件投影规则。
 - 远端 `input-required` 到 parent task status message 的投影与下一轮 resume 分流。
 - 目标文件目录树与实现切片。
 
@@ -210,6 +212,25 @@ OpenJiuwen LLM tool_call
 `AUTO` 只能在 `DefaultRemoteAgentInvocationService` 内解析一次，解析后固化为 `BLOCKING` 或 `BACKGROUND`。不要把 `AUTO` 传到 `access.a2a`。
 
 ### 3.5 远端 input-required 的用户可见投影
+
+远端 `message/stream` 通常不是只在最后返回一个状态。远端 agent 可能先发送若干 message/artifact/status.message，最后才把 task 状态更新为 `TASK_STATE_INPUT_REQUIRED`。
+
+这些最终状态前的消息处理规则如下：
+
+| 远端 SSE 事件 | parent 映射 | 用户可见性 | 路由影响 |
+| --- | --- | --- | --- |
+| remote `TaskStatusUpdateEvent(WORKING, message)` | parent `TaskStatusUpdateEvent(WORKING, projected message)`，metadata 标记 `runtime.remoteEventRole=REMOTE_PROGRESS`。 | streaming 用户可见。 | 不设置 `waitingTarget`。 |
+| remote `TaskArtifactUpdateEvent` / assistant message | parent `TaskArtifactUpdateEvent`，metadata 标记 `REMOTE_PROGRESS`。 | streaming 用户可见。 | 不设置 `waitingTarget`。 |
+| remote `TASK_STATE_INPUT_REQUIRED(status.message)` | parent `TaskStatusUpdateEvent(INPUT_REQUIRED, projected message)`，更新 parent status 和 waiting metadata。 | 可见且需要用户回复。 | 设置 `waitingTarget=REMOTE_AGENT`。 |
+| remote `TASK_STATE_COMPLETED` | 生成 `RemoteAgentResult.Completed`，作为 tool result 交回 parent agent。 | 不直接作为 parent final output。 | 清理 remote waiting metadata。 |
+
+也就是说，最终 `INPUT_REQUIRED` 之前的消息会给 streaming 用户看，但语义是“远端过程事件”。它们不能让 parent task 进入 `INPUT_REQUIRED`，也不能让下一轮用户输入路由到远端。下一轮输入路由只能由最终 `TASK_STATE_INPUT_REQUIRED` 加 parent metadata 触发。
+
+去重与兜底规则：
+
+- 最终 `INPUT_REQUIRED.status.message` 是权威用户提示。
+- 如果最终 prompt 与最后一条远端过程消息相同，仍写 parent `INPUT_REQUIRED` status event；UI/egress 可用 `runtime.remoteMessageId` 或 `runtime.promptSourceEventId` 去重展示。
+- 如果远端最终 `INPUT_REQUIRED` 没有 `status.message`，可用最后一条用户可见远端过程消息作为 fallback prompt；若仍没有内容，再生成兜底 text message。
 
 远端 `TASK_STATE_INPUT_REQUIRED` 不只是状态，还携带用户需要看的 `status.message`。必须投影到 parent task：
 
@@ -394,6 +415,7 @@ agent-runtime/
 4. `RemoteAgentInvocationService` + `RemoteInvocationControl`。
 5. `A2aRemoteAgentOutboundAdapter.invoke(...)`。
 6. 覆盖 blocking 下的 terminal success、failure、timeout、input-required；input-required 必须写 parent task status message 并触发 OpenJiuwen 原生 interrupt。
+7. 覆盖远端 `message/stream` 中最终状态前的 message/artifact 投影：写 parent EventQueue 的 `REMOTE_PROGRESS` 事件，但不设置 remote waiting route。
 
 ### Phase 3 — Background + Remote Resume
 
@@ -418,6 +440,7 @@ agent-runtime/
 - OpenJiuwen remote tool/rail bridge 只调用 `RemoteAgentInvocationService`，不直接调用 A2A client，且不会由 rail 与占位 tool 双重触发远端调用。
 - `RemoteAgentOutboundPort` 可以用 fake 实现测试 engine/control；真实 A2A client 只在 `A2aRemoteAgentOutboundAdapter`。
 - remote tool call 会写 parent task metadata。
+- remote streaming message/artifact 会写 parent EventQueue 的远端过程事件，不会触发 `waitingTarget=REMOTE_AGENT`。
 - `TASK_STATE_INPUT_REQUIRED + runtime.waitingTarget=REMOTE_AGENT` 会路由到 `resumeRemoteInput(...)`。
 - remote input-required 的 `status.message.parts` 会投影到 parent `TaskStatusUpdateEvent` 和 parent task status。
 - remote terminal success 只作为 tool result，不直接写 parent completed。

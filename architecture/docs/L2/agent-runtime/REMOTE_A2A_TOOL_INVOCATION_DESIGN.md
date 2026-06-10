@@ -424,10 +424,39 @@ RemoteAgentDescriptor + local policy override + call args
 | --- | --- | --- | --- |
 | `COMPLETED` | `markSucceeded(...)` 保存 tool result，清理 remote waiting metadata。 | tool result 回到本地 agent，继续推理。 | 不直接看到远端结果，只看到 parent agent 最终输出。 |
 | `INPUT_REQUIRED` | `markInputRequired(...)` 写 parent `TASK_STATE_INPUT_REQUIRED`，保存 remote task/context，`waitingTarget=REMOTE_AGENT`，并把远端 status message 投影到 parent status message。 | 当前执行停止为 interrupted/waiting，不能继续让 LLM 编最终答案。 | 看到 parent task 的 input-required message。 |
-| `PROGRESS` | 默认只记录 metadata 或内部观察事件，不写 caller-visible artifact。 | 不恢复本地 agent。 | 默认不直接看到。 |
+| `PROGRESS` / streaming message | 写 parent `EventQueue`，标记为远端过程事件；不改变 parent 的最终输出语义。 | 不恢复本地 agent。 | streaming 调用方可看到；`tasks/get` 按 A2A task/event 能力看到历史或当前 working message。 |
 | `FAILED` | 默认保存 tool error；fatal policy 才写 parent `TASK_STATE_FAILED`。 | 非 fatal 时作为 tool error 恢复本地 agent。 | fatal 才直接看到失败。 |
 | `TIMEOUT` | 默认保存 tool error，可按 policy cancel remote task。 | 非 fatal 时作为 tool error 恢复本地 agent。 | fatal 才直接看到失败。 |
 | parent cancel | parent 写 `TASK_STATE_CANCELED`，传播 remote cancel。 | 停止本地执行。 | 看到取消。 |
+
+#### 远端 streaming 消息与最终状态
+
+远端 `message/stream` 场景下，远端 agent 可能先发若干 message/artifact/status.message，最后才把 task 状态更新为 `TASK_STATE_INPUT_REQUIRED`。这些中间消息不能丢，但也不能被当成 parent agent 的最终答案。
+
+处理原则：
+
+1. access.a2a outbound adapter 读取远端 SSE 事件后，先映射成 neutral remote event，再交给 `RemoteInvocationControl` 写 parent A2A `EventQueue`。
+2. 用户可见的远端 message/artifact 作为 parent 任务的“远端过程事件”发布，metadata 必须包含 `runtime.remoteInvocationId`、`runtime.remoteAgentId`、`runtime.remoteTaskId`、`runtime.remoteEventRole=REMOTE_PROGRESS`。
+3. parent task 在远端最终状态到达前保持 `TASK_STATE_WORKING`；中间 working message 可以作为 working status event 或 artifact event 出现在 stream 中，但不能设置 `waitingTarget=REMOTE_AGENT`。
+4. 只有远端最终 `TASK_STATE_INPUT_REQUIRED` 才能把 parent task 切到 `TASK_STATE_INPUT_REQUIRED`，并写 `runtime.waitingTarget=REMOTE_AGENT`。
+5. 只有 parent agent 消化远端 completed tool result 后生成的回答，才是 parent final output。
+
+事件映射：
+
+| 远端 SSE 事件 | parent 映射 | 用户可见性 | 备注 |
+| --- | --- | --- | --- |
+| remote `TaskStatusUpdateEvent(WORKING, message)` | parent `TaskStatusUpdateEvent(WORKING, projected message)`，metadata 标记 `REMOTE_PROGRESS`。 | 可见。 | 表示远端进度或阶段性说明，不触发用户输入路由。 |
+| remote `TaskArtifactUpdateEvent` / assistant message | parent `TaskArtifactUpdateEvent`，metadata 标记 `REMOTE_PROGRESS`。 | 可见。 | 可用于展示远端阶段性内容；不是 parent final artifact。 |
+| remote `TASK_STATE_INPUT_REQUIRED(status.message)` | parent `TaskStatusUpdateEvent(INPUT_REQUIRED, projected message)`，更新 parent status 和 waiting metadata。 | 可见且需要用户回复。 | 这是下一轮输入路由的唯一触发点。 |
+| remote `TASK_STATE_COMPLETED` | 生成 `RemoteAgentResult.Completed`，作为 tool result 交回 parent agent。 | 不直接作为 final output。 | 若 completed 前已有远端过程消息，保留为过程历史。 |
+| remote `FAILED/TIMEOUT/CANCELED` | 按 policy 写 tool error 或 parent failed/canceled。 | fatal 时可见。 | 非 fatal 时交给 parent agent 消化。 |
+
+去重规则：
+
+- 最终 `INPUT_REQUIRED.status.message` 是权威用户提示。
+- 如果最终 prompt 与最后一条远端过程消息语义相同，`markInputRequired(...)` 仍必须写 parent `INPUT_REQUIRED` status event；UI/egress 可根据 `runtime.remoteMessageId` 或 `runtime.promptSourceEventId` 去重展示。
+- 如果远端最终 `INPUT_REQUIRED` 没有 `status.message`，`A2aRemoteResultMapper` 可用最后一条用户可见远端过程消息作为 fallback prompt；若仍没有可用内容，再生成兜底 text message。
+- 中间过程消息不设置 `runtime.waitingTarget`，所以用户在最终状态前追加输入时，control 仍按 parent `WORKING` 处理：拒绝新输入或返回“仍在工作”。
 
 远端直接 `COMPLETED` 时：
 
@@ -601,7 +630,7 @@ remote completed after resume
 
 如果 OpenJiuwen 当前版本的某个 agent 类型没有可用的 tool interrupt resume 能力，v1 可退化为把远端 tool result 作为追加上下文重新调用本地 agent，但这个降级必须由 `engine.openjiuwen` 封装，不能泄漏到 access/control。对 ReActAgent，优先使用同一个 `sessionId` / `conversation_id` 加 `InteractiveInput.update(toolCallId, remoteToolResult)` 恢复。
 
-用户可见输出只遵循两类：parent agent 最终输出；或者为了继续任务必须让用户输入的 parent `INPUT_REQUIRED`。
+用户可见输出分三类，语义不能混用：远端过程事件只表示 remote agent 的阶段性输出；parent `INPUT_REQUIRED` 表示必须等待用户补充输入；parent agent 最终输出才表示本地任务完成。
 
 ## 实现切片
 
@@ -625,6 +654,7 @@ remote completed after resume
 6. 新增 `A2aRemoteAgentOutboundAdapter.invoke(...)`。
 7. 增加 OpenJiuwen tool injection hook、installer、`OpenJiuwenRemoteAgentInterruptRail`、agent-instance-to-handler adapter/factory，确保 ReActAgent v1 由 rail-first 发起远端调用，占位 tool 不重复调用。
 8. 覆盖 blocking 下的 `COMPLETED`、`FAILED`、`TIMEOUT`、`INPUT_REQUIRED`：其中 `INPUT_REQUIRED` 必须写 parent task status message，并触发 OpenJiuwen 原生 interrupt。
+9. 覆盖远端 `message/stream` 中最终状态前的 message/artifact 投影：写 parent EventQueue 的 `REMOTE_PROGRESS` 事件，但不设置 remote waiting route。
 
 ### Phase 3：Background + Remote Resume
 
@@ -762,6 +792,7 @@ agent-runtime/
 - engine output 写入 `TaskStatusUpdateEvent` / `TaskArtifactUpdateEvent`。
 - OpenJiuwen remote tool/rail bridge 只调用 `RemoteAgentInvocationService`，不直接调用 A2A client，且不会由 rail 与占位 tool 双重触发远端调用。
 - remote tool call 会写 parent task metadata。
+- remote streaming message/artifact 会写 parent EventQueue 的远端过程事件，不会触发 `waitingTarget=REMOTE_AGENT`。
 - `TASK_STATE_INPUT_REQUIRED + runtime.waitingTarget=REMOTE_AGENT` 会路由到 `resumeRemoteInput(...)`。
 - remote terminal success 只作为 tool result，不直接写 parent completed。
 - parent agent final answer 才写 `TASK_STATE_COMPLETED`。

@@ -85,7 +85,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
             case OUTPUT -> {
                 String text = outputText(result);
                 LOG.info("[A2A] output stream taskId={} textChars={}", taskId, text.length());
-                emitter.sendMessage(text);
+                emitter.addArtifact(List.<Part<?>>of(new TextPart(text)));
                 // state stays WORKING — more output may follow
             }
             case COMPLETED -> {
