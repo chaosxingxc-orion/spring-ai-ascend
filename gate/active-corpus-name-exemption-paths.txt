@@ -82,6 +82,5 @@ docs/competitive/
 # Phase 7 audit deliverables that reference rule history including deleted names.
 docs/governance/retired-rules-audit.md
 
-# Knowledge corpus + A2D delivery narrative — not current-tense name-policed.
-knowledge/
+# A2D delivery narrative — not current-tense name-policed.
 docs/architecture/

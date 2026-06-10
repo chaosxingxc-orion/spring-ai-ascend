@@ -29,9 +29,7 @@ The platform optimises four pillars:
   Spring Boot; a runnable quickstart reaches a first agent run with no
   platform-team hand-holding.
 - **Governance** — audit-grade evidence and posture-aware fail-closed defaults.
-  Governance (gates, ADRs, enforcers) constrains the engineering **main-path**;
-  the searchable **AI knowledge system** (`knowledge/`) sits outside it, kept
-  honest by advisory integrity scripts rather than blocking gates.
+  Governance (gates, ADRs, enforcers) constrains the engineering **main-path**.
 
 Measured baselines: [`docs/governance/competitive-baselines.yaml`](docs/governance/competitive-baselines.yaml).
 
