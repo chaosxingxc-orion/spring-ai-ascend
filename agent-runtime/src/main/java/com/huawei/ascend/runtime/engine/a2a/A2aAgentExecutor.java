@@ -213,15 +213,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
     }
 
     private static String extractText(RequestContext ctx) {
-        if (ctx.getMessage() == null || ctx.getMessage().parts() == null) {
-            return "";
-        }
-        return ctx.getMessage().parts().stream()
-                .filter(TextPart.class::isInstance)
-                .map(TextPart.class::cast)
-                .map(TextPart::text)
-                .reduce((a, b) -> a + "\n" + b)
-                .orElse("");
+        return Messages.text(ctx.getMessage());
     }
 
     private static String metadata(RequestContext ctx, String key, String fallback) {

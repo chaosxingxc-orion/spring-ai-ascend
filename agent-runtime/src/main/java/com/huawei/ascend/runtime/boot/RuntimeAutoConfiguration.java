@@ -2,8 +2,8 @@ package com.huawei.ascend.runtime.boot;
 
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
 import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
+import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -23,11 +23,7 @@ import org.a2aproject.sdk.server.tasks.PushNotificationConfigStore;
 import org.a2aproject.sdk.server.tasks.PushNotificationSender;
 import org.a2aproject.sdk.server.tasks.TaskStateProvider;
 import org.a2aproject.sdk.server.tasks.TaskStore;
-import org.a2aproject.sdk.spec.AgentCapabilities;
 import org.a2aproject.sdk.spec.AgentCard;
-import org.a2aproject.sdk.spec.AgentInterface;
-import org.a2aproject.sdk.spec.AgentProvider;
-import org.a2aproject.sdk.spec.TransportProtocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -88,7 +84,19 @@ public class RuntimeAutoConfiguration {
 
     @Bean @ConditionalOnMissingBean
     public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers) {
-        return new A2aAgentExecutor(handlers.orderedStream().findFirst().orElse(null));
+        var registered = handlers.orderedStream().toList();
+        if (registered.isEmpty()) {
+            // Tolerated so the A2A surface can boot for card discovery; every
+            // execution will be rejected until a handler bean is registered.
+            log.warn("No AgentRuntimeHandler registered — A2A executions will be rejected");
+            return new A2aAgentExecutor(null);
+        }
+        if (registered.size() > 1) {
+            log.warn("Multiple AgentRuntimeHandlers registered; using '{}', ignoring {}",
+                    registered.get(0).agentId(),
+                    registered.stream().skip(1).map(AgentRuntimeHandler::agentId).toList());
+        }
+        return new A2aAgentExecutor(registered.get(0));
     }
 
     @Bean @ConditionalOnMissingBean
@@ -107,11 +115,9 @@ public class RuntimeAutoConfiguration {
             return cp.agentCard();
         }
         String name = handlers.orderedStream().map(AgentRuntimeHandler::agentId).findFirst().orElse("agent");
-        return AgentCard.builder().name(name).description("agent-runtime").url("/a2a").version("0.1.0")
-                .provider(new AgentProvider("spring-ai-ascend", "http://localhost:8080"))
-                .capabilities(AgentCapabilities.builder().streaming(true).pushNotifications(true).build())
-                .defaultInputModes(List.of("text")).defaultOutputModes(List.of("text")).skills(List.of())
-                .supportedInterfaces(List.of(new AgentInterface(TransportProtocol.JSONRPC.asString(), "/a2a"))).build();
+        // AgentCards is the canonical default-card shape; a second inline copy here
+        // meant every card fix had to land twice.
+        return AgentCards.create(name, "agent-runtime");
     }
 
     /**

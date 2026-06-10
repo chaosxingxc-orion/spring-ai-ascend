@@ -17,14 +17,18 @@ public class OpenJiuwenMessageAdapter {
     }
 
     private String lastUserText(AgentExecutionContext context) {
-        List<Message> messages = context.getMessages().isEmpty() ? null : context.getMessages();
-        if (messages == null || messages.isEmpty()) return "";
+        List<Message> messages = context.getMessages();
+        if (messages.isEmpty()) {
+            return "";
+        }
         for (int i = messages.size() - 1; i >= 0; i--) {
             Message message = messages.get(i);
             if (message != null && message.role() == Message.Role.ROLE_USER) {
                 return messageText(message);
             }
         }
+        // No user turn at all — fall back to the newest message regardless of role
+        // so the agent still receives a query rather than an empty string.
         return messageText(messages.get(messages.size() - 1));
     }
 

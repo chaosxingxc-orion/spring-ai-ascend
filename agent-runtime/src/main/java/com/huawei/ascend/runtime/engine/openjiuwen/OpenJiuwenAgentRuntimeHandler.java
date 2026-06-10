@@ -154,6 +154,13 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
     private com.huawei.ascend.runtime.engine.spi.AgentExecutionResult mapRawResult(Object rawResult) {
         LOGGER.info("openjiuwen raw result received type={}",
                 rawResult == null ? "null" : rawResult.getClass().getName());
+        if (rawResult == null) {
+            // String.valueOf(null) would answer the client with the literal text
+            // "null" as a successful completion; a missing result is a failure.
+            return resultMapper.map(Map.of(
+                    "result_type", "error",
+                    "output", "openjiuwen runner returned no result"));
+        }
         if (rawResult instanceof Map<?, ?> map) {
             return resultMapper.map((Map<String, Object>) map);
         }

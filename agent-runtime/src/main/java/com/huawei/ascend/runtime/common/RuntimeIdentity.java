@@ -26,9 +26,18 @@ public record RuntimeIdentity(
         Objects.requireNonNull(userId, "userId");
         Objects.requireNonNull(sessionId, "sessionId");
         Objects.requireNonNull(agentId, "agentId");
-        if (tenantId.isBlank()) throw new IllegalArgumentException("tenantId must not be blank");
-        if (sessionId.isBlank()) throw new IllegalArgumentException("sessionId must not be blank");
-        if (agentId.isBlank()) throw new IllegalArgumentException("agentId must not be blank");
+        if (tenantId.isBlank()) {
+            throw new IllegalArgumentException("tenantId must not be blank");
+        }
+        if (userId.isBlank()) {
+            throw new IllegalArgumentException("userId must not be blank");
+        }
+        if (sessionId.isBlank()) {
+            throw new IllegalArgumentException("sessionId must not be blank");
+        }
+        if (agentId.isBlank()) {
+            throw new IllegalArgumentException("agentId must not be blank");
+        }
     }
 
     /** Copy with a different taskId. */
