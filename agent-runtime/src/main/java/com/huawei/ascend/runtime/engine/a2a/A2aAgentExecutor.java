@@ -53,33 +53,39 @@ public final class A2aAgentExecutor implements AgentExecutor {
         emitter.startWork();
         LOG.info("[A2A] task state=WORKING taskId={}", taskId);
 
-        String inputText = extractText(ctx);
-        LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
-        AgentExecutionContext context = toExecutionContext(ctx);
         // Per-task local state (this bean is a shared singleton — never hoist to a field).
         AtomicBoolean firstArtifact = new AtomicBoolean(true);
         String artifactId = taskId + "-response";
 
-        try (Stream<?> raw = executeAgent(context);
-             Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
+        // Everything after startWork must fail the task on error — context
+        // construction throws on wire-controllable input (blank/null ids), and
+        // an escape here would strand the task in WORKING forever.
+        try {
+            String inputText = extractText(ctx);
+            LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
+            AgentExecutionContext context = toExecutionContext(ctx, inputText);
 
-            AtomicBoolean terminalRouted = new AtomicBoolean(false);
-            results.forEach(result -> {
-                LOG.info("[A2A] result taskId={} type={} outputChars={}",
-                        taskId, result.type(),
-                        result.outputContent() != null
-                                ? result.outputContent().length() : 0);
-                if (route(result, emitter, taskId, artifactId, firstArtifact)) {
-                    terminalRouted.set(true);
+            try (Stream<?> raw = executeAgent(context);
+                 Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
+
+                AtomicBoolean terminalRouted = new AtomicBoolean(false);
+                results.forEach(result -> {
+                    LOG.info("[A2A] result taskId={} type={} outputChars={}",
+                            taskId, result.type(),
+                            result.outputContent() != null
+                                    ? result.outputContent().length() : 0);
+                    if (route(result, emitter, taskId, artifactId, firstArtifact)) {
+                        terminalRouted.set(true);
+                    }
+                });
+                if (!terminalRouted.get()) {
+                    // The handler stream drained without a terminal result (e.g. the
+                    // upstream runtime replied with no events). DefaultRequestHandler
+                    // never forces a terminal state, so finalize here or the task
+                    // stays WORKING forever and polling clients hang.
+                    LOG.warn("[A2A] result stream ended without terminal result taskId={} — completing", taskId);
+                    emitter.complete();
                 }
-            });
-            if (!terminalRouted.get()) {
-                // The handler stream drained without a terminal result (e.g. the
-                // upstream runtime replied with no events). DefaultRequestHandler
-                // never forces a terminal state, so finalize here or the task
-                // stays WORKING forever and polling clients hang.
-                LOG.warn("[A2A] result stream ended without terminal result taskId={} — completing", taskId);
-                emitter.complete();
             }
             LOG.info("[A2A] execute finish taskId={} durationMs={}",
                     taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
@@ -181,17 +187,22 @@ public final class A2aAgentExecutor implements AgentExecutor {
         return emitter.newAgentMessage(parts, Map.of("a2a.error", error));
     }
 
-    private AgentExecutionContext toExecutionContext(RequestContext ctx) {
-        String text = extractText(ctx);
+    private AgentExecutionContext toExecutionContext(RequestContext ctx, String text) {
         List<Message> messages = List.of(Message.builder().role(Message.Role.ROLE_USER).parts(java.util.List.of(new TextPart(text))).build());
+        String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
         return new AgentExecutionContext(
                 new RuntimeIdentity(
                         metadata(ctx, "tenantId", "default"),
                         metadata(ctx, "userId", "system"),
-                        ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId(),
+                        sessionId,
                         ctx.getTaskId(),
                         metadata(ctx, "agentId", handler.agentId())),
-                "USER_MESSAGE", messages, Map.of());
+                "USER_MESSAGE", messages,
+                // In A2A every message/send of a conversation opens a NEW task within
+                // the same contextId, so the framework conversation key must follow the
+                // session — keying it by taskId would start a fresh framework
+                // conversation each turn and checkpointer restore would never fire.
+                Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, sessionId));
     }
 
     private static String extractText(RequestContext ctx) {
