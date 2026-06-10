@@ -180,34 +180,6 @@ capabilities:
     tests: []
     note: "L0: SQL artifact present; runtime isolation tests @Disabled until W2 real Postgres migration. Advances to L1 when W2 removes @Disabled."
 
-  ops_runbooks_skeleton:
-    status: design_accepted
-    shipped: false
-    l0_decision: architecture/docs/L0/ARCHITECTURE.md
-    implementation:
-      - ops/runbooks/README.md
-      - ops/runbooks/dr.md
-      - ops/runbooks/rollback.md
-      - ops/runbooks/digest-pin.md
-      - ops/runbooks/total-credential-loss.md
-      - ops/runbooks/incident-response.md
-    tests: []
-    allowed_claim: "L0: 5 runbooks present with trigger/scope/procedure/verification sections."
-
-  helm_chart_skeleton:
-    status: design_accepted
-    shipped: false
-    l0_decision: architecture/docs/L0/ARCHITECTURE.md
-    implementation:
-      - ops/helm/spring-ai-ascend/Chart.yaml
-      - ops/helm/spring-ai-ascend/values.yaml
-      - ops/helm/spring-ai-ascend/templates/deployment.yaml
-      - ops/helm/spring-ai-ascend/templates/service.yaml
-      - ops/helm/spring-ai-ascend/templates/networkpolicy.yaml
-      - ops/helm/spring-ai-ascend/templates/configmap.yaml
-    tests: []
-    allowed_claim: "L0: Helm chart skeleton present; not deployment-tested. W4 deployment-tested."
-
   doctor_script:
     status: implemented_unverified
     shipped: false
@@ -228,17 +200,6 @@ capabilities:
       - docs/adr/
     tests: []
     allowed_claim: "52 per-file MADR 4.0 ADRs in docs/adr/ (0001–0052); README index present and refreshed 2026-05-13."
-
-  perf_evidence_path:
-    status: design_accepted
-    shipped: false
-    l0_decision: architecture/docs/L0/ARCHITECTURE.md
-    implementation:
-      - perf/README.md
-      - perf/baseline-2026-05-10.md
-      - perf/jmh/pom.xml
-    tests: []
-    allowed_claim: "L0: JMH skeleton + baseline doc present; no captured numbers (W4 cadence). Strategy and regression policy documented."
 
   agent_subject_identity:
     status: design_accepted
