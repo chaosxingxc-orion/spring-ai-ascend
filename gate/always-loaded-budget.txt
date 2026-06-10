@@ -117,7 +117,7 @@ CLAUDE.md=10000
 #   rule-index.md       52 entries   8195 bytes
 #   contract-index.md   25 entries   6506 bytes
 # adr-index.md ceiling raised from the originally-proposed 10000 to 30000:
-# the format spec (id link + title + status + product_claim) cannot fit
+# the format spec (id link + title + status) cannot fit
 # 150 rows in 10K — line average is ~150 bytes after clipping titles at 80
 # chars. Future shrink targets: ratchet down ~2K per cleanup wave as the
 # docs/adr/locked/ folder is pruned and obsolete ADRs are archived.

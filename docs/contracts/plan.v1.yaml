@@ -7,7 +7,6 @@
 # plan-projection.v1.yaml) is the per-step scheduler INPUT
 # derived from Plan + PlanStep.
 
-product_claim: "PC-001"
 
 schema: plan/v1
 status: design_only

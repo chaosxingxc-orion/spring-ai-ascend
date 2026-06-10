@@ -20,7 +20,6 @@
 # Self-enforced by gate Rule 55 (engine_envelope_yaml_present_and_wellformed)
 # and gate Rule 56 (engine_registry_covers_all_known_engines).
 
-product_claim: "PC-004"
 
 schema: engine-envelope/v1
 # Retired in the pure rebuild — not runtime-enforced (no EngineRegistry exists).

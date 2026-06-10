@@ -1,7 +1,6 @@
 id: ADR-0159
 title: "agent-runtime consolidation — the runtime SDK (today mislabelled agent-service) and the execution engine merge into one run-owning agent-runtime module; agent-service is re-founded as the enterprise serviceization façade"
 status: accepted
-product_claim: "PC-004"
 date: 2026-06-03
 level: L1
 view: development

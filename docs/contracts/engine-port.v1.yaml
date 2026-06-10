@@ -2,7 +2,6 @@
 #
 # Authority: ADR-0158 (Engine Boundary / EnginePort). Wave: design_only.
 
-product_claim: "PC-004"
 
 schema: engine-port/v1
 authority: ADR-0158

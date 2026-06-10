@@ -1,7 +1,6 @@
 id: ADR-0158
 title: "Engine Boundary (EnginePort) — transport-agnostic Service↔Engine contract absorbed into agent-bus for the three deployment forms"
 status: accepted
-product_claim: "PC-004"
 date: 2026-05-29
 level: L1
 view: development

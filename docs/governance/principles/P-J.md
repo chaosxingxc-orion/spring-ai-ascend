@@ -5,7 +5,6 @@ level: L0
 view: physical
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
 enforced_by_rules: [R-J]   # formerly Rule 40 (numeric pre-ADR-0086)
-product_claim: "PC-003"
 kernel: |
   P-J — Storage-Engine Tenant Isolation.
   Tenant isolation lives at the storage engine, not the application code.

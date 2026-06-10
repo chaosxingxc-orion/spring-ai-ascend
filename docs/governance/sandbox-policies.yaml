@@ -63,7 +63,6 @@ financial_default:
   wall_clock_cap_seconds: 60                          # Conservative: 1 minute per skill invocation
   pii_egress_to_model: false                          # No PII to LLM without explicit redaction
   syscall_allowlist: []                               # Per-deployment override
-  product_claim: "PC-003"
   target_persona: "Persona-F"
 
 # Per-skill overrides. Each explicitly widens the default policy and the

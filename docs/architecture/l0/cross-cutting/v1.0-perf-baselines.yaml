@@ -1,6 +1,5 @@
 ---
 file_id: PERF-V1-0-BASELINES
-product_claim: PC-003
 status: design_only
 authority: ADR-0156
 target_personas: ["Persona-D"]
@@ -107,7 +106,6 @@ run_admission:
     It MUST return a Task Cursor immediately and MUST NOT hold the connection
     while work executes. The latency target below covers cursor-issuance only,
     NOT downstream execution.
-  product_claim: PC-003
   target_persona: Persona-D
   metric:
     name: springai_ascend_runs_admit_seconds
@@ -140,7 +138,6 @@ tool_call:
     API class is the fastest; external API class crosses the bank's
     perimeter; model gateway class is provider-dependent and inherits from
     `model_invocation` below.
-  product_claim: PC-003
   target_persona: Persona-D
   metric:
     name: springai_ascend_tool_call_seconds
@@ -197,7 +194,6 @@ model_invocation:
     Persona-D (long first-token + fast streaming = bad UX for chat
     workloads; the inverse = good UX). Streaming token rate matters for
     chunked-output workloads (loan-narrative drafting, AML report).
-  product_claim: PC-003
   target_persona: Persona-D
   metric:
     name: springai_ascend_model_invoke_seconds
@@ -266,7 +262,6 @@ throughput:
     SLA declared above. A Run is "in-flight" when its status ∈ {ADMITTED,
     RUNNING, SUSPENDED_WAITING_S2C, SUSPENDED_RATE_LIMITED}. Terminal
     statuses (COMPLETED, FAILED, CANCELLED) are NOT counted.
-  product_claim: PC-003
   target_persona: Persona-D
   targets:
     concurrent_runs_per_instance: 100
@@ -296,7 +291,6 @@ tenant_isolation_overhead:
     + Persona-F need to know the cost; the target below is the upper
     bound on that cost relative to a `SET ROLE bypass_rls` baseline run
     against the same dataset.
-  product_claim: PC-003
   target_personas: ["Persona-D", "Persona-F"]
   targets:
     p95_latency_overhead_percent_max: 5
@@ -323,7 +317,6 @@ memory_cap:
     instance (per ADR-0128); a single tenant may have many agents, but
     each individual agent's resident footprint is bounded so capacity
     planning is linear.
-  product_claim: PC-003
   target_persona: Persona-D
   targets:
     resident_megabytes_p95: 512

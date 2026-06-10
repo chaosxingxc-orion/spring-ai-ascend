@@ -26,7 +26,6 @@ v1_0_financial_default_budget:
   monthly_input_tokens: 30_000_000
   monthly_output_tokens: 6_000_000
   enforcement_mode: block
-  product_claim: PC-003
 
 
 # Post-rc2 status label (gate Rule 62 `contract_yaml_declares_status`): this

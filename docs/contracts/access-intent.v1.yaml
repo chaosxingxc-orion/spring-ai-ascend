@@ -4,7 +4,6 @@
 # Wave: design_only at this commit; runtime_enforced when M1 Access
 # Layer's normalisation step ships the Java record carrier.
 
-product_claim: "PC-002"
 
 schema: access-intent/v1
 authority: ADR-0155

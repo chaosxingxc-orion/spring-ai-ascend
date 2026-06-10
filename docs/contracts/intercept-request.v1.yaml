@@ -3,7 +3,6 @@
 # Authority: ADR-0155.
 # Wave: design_only.
 
-product_claim: "PC-004"
 
 schema: intercept-request/v1
 authority: ADR-0155

@@ -5,7 +5,6 @@ level: L0
 view: scenarios
 authority: "Layer 0 governing principle (CLAUDE.md)"
 enforced_by_rules: [R-B]   # formerly Rule 30 (numeric pre-ADR-0086)
-product_claim: "PC-001|PC-002|PC-003|PC-005"
 kernel: |
   P-B — Four Competitive Pillars.
   Platform competitiveness rests on four continuously-improvable dimensions —

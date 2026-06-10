@@ -1,7 +1,6 @@
 id: ADR-0139
 title: "Fast-Path / Slow-Path narrowed semantics: Fast-Path = in-process reactive synchronous + tenantId/RLS preserved + metadata persistence mandatory; Slow-Path = persistent reactive + SuspendSignal + ResumeDispatcher; neither path may violate Rule R-G / R-H / R-J.a"
 status: accepted
-product_claim: "PC-003"
 date: 2026-05-26
 level: L1
 view: process
