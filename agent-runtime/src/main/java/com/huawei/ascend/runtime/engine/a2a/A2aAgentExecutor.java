@@ -255,9 +255,17 @@ public final class A2aAgentExecutor implements AgentExecutor {
             case INTERRUPTED -> {
                 String prompt = result.prompt() == null ? "" : result.prompt();
                 LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} prompt={}", taskId, prompt);
-                if (!prompt.isBlank()) {
-                    emitter.sendMessage(prompt);
-                }
+                // The A2A SDK drops the isFinal flag when building input-required
+                // status updates (the event builder is never told), so a streaming
+                // client never receives the suspension status and would hang to its
+                // timeout, losing the prompt. The platform convention therefore
+                // rides the prompt MESSAGE itself: runStatus=input-required
+                // metadata, mirroring the terminal runStatus message convention the
+                // client already understands. The non-final status update still
+                // follows for the task store and blocking callers.
+                String promptText = prompt.isBlank() ? "input required" : prompt;
+                emitter.sendMessage(List.of(new TextPart(promptText)),
+                        Map.of("runStatus", "input-required"));
                 emitter.requiresInput();
                 return true;
             }

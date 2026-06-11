@@ -1,6 +1,7 @@
 package com.huawei.ascend.runtime.app;
 
 import java.util.Map;
+import org.springframework.beans.BeansException;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
@@ -66,6 +67,16 @@ public final class LocalA2aRuntimeHost implements RuntimeHost {
 
     private record SpringRunningRuntime(ConfigurableApplicationContext context, int port)
             implements RunningRuntime {
+
+        @Override
+        public <T> T component(Class<T> type) {
+            try {
+                return context.getBean(type);
+            } catch (BeansException e) {
+                throw new IllegalStateException(
+                        "no unique runtime component of type " + type.getName(), e);
+            }
+        }
 
         @Override
         public void close() {

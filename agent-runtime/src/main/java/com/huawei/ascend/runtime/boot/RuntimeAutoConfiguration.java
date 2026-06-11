@@ -1,7 +1,9 @@
 package com.huawei.ascend.runtime.boot;
 
 import com.huawei.ascend.bus.knowledge.KnowledgeRegistry;
+import com.huawei.ascend.bus.memory.BusinessFactPublisher;
 import com.huawei.ascend.bus.memory.InMemorySessionMemoryStore;
+import com.huawei.ascend.bus.memory.RecordingBusinessFactPublisher;
 import com.huawei.ascend.bus.memory.SessionMemoryStore;
 import com.huawei.ascend.bus.messaging.AgentMessageBus;
 import com.huawei.ascend.bus.messaging.InMemoryAgentMessageBus;
@@ -147,13 +149,22 @@ public class RuntimeAutoConfiguration {
         return new InMemoryAgentMessageBus();
     }
 
+    @Bean @ConditionalOnMissingBean(BusinessFactPublisher.class)
+    public RecordingBusinessFactPublisher businessFactPublisher() {
+        // Reference emission log only — the platform never stores business
+        // facts; a real deployment overrides this bean with a C-side bridge.
+        return new RecordingBusinessFactPublisher();
+    }
+
     @Bean @ConditionalOnMissingBean
     public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers,
                                            RunRepository runRepository,
                                            SessionMemoryStore sessionMemoryStore,
                                            KnowledgeRegistry knowledgeRegistry,
-                                           AgentMessageBus agentMessageBus) {
-        var capabilities = new BusCapabilities(sessionMemoryStore, knowledgeRegistry, agentMessageBus);
+                                           AgentMessageBus agentMessageBus,
+                                           BusinessFactPublisher businessFactPublisher) {
+        var capabilities = new BusCapabilities(
+                sessionMemoryStore, knowledgeRegistry, agentMessageBus, businessFactPublisher);
         var registered = handlers.orderedStream().toList();
         if (registered.isEmpty()) {
             // Tolerated so the A2A surface can boot for card discovery; every

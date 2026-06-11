@@ -1,6 +1,7 @@
 package com.huawei.ascend.runtime.engine;
 
 import com.huawei.ascend.bus.knowledge.KnowledgeRegistry;
+import com.huawei.ascend.bus.memory.BusinessFactPublisher;
 import com.huawei.ascend.bus.memory.SessionMemoryStore;
 import com.huawei.ascend.bus.messaging.AgentMessageBus;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
@@ -85,6 +86,15 @@ public final class AgentExecutionContext {
     /** In-process inter-agent message bus, when wired. */
     public Optional<AgentMessageBus> getMessageBus() {
         return capabilities == null ? Optional.empty() : Optional.ofNullable(capabilities.messageBus());
+    }
+
+    /**
+     * Business-fact emission seam toward the C-side, when wired. Facts are
+     * emitted, never stored by the platform — the consumer behind the SPI
+     * decides what to do with each one.
+     */
+    public Optional<BusinessFactPublisher> getBusinessFacts() {
+        return capabilities == null ? Optional.empty() : Optional.ofNullable(capabilities.businessFacts());
     }
 
     /** Atomic replace — used by adapters for checkpoint state. */

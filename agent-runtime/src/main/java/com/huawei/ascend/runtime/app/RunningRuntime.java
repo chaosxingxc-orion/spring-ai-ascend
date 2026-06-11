@@ -9,6 +9,17 @@ public interface RunningRuntime extends AutoCloseable {
 
     int port();
 
+    /**
+     * The runtime component of the given type from the running host — the
+     * probing seam for diagnostics and tests that assert internal state (e.g.
+     * the {@code RunRepository} backing the run DFA). Implementations resolve
+     * it from whatever container the host assembled.
+     *
+     * @throws IllegalStateException when the host serves no unique component
+     *                               of that type
+     */
+    <T> T component(Class<T> type);
+
     @Override
     void close();
 }

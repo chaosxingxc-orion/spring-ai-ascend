@@ -32,6 +32,11 @@ class RuntimeAppTest {
             }
 
             @Override
+            public <T> T component(Class<T> type) {
+                throw new IllegalStateException("stub runtime hosts no components");
+            }
+
+            @Override
             public void close() {
             }
         };
