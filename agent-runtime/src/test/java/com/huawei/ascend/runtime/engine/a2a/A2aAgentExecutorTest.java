@@ -200,6 +200,85 @@ class A2aAgentExecutorTest {
         assertThat(text).contains("NO_HANDLER");
     }
 
+    /**
+     * While the runtime readiness gate is closed (boot not finished, or drain in
+     * progress) executions must be rejected retryable — the client may retry
+     * against this or another instance once it is ready.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void closedReadinessGate_rejectsExecutionRetryable() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler, () -> false).execute(requestContext(), emitter);
+
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(emitter).reject(captor.capture());
+        Map<String, Object> data = captor.getValue().parts().stream()
+                .filter(DataPart.class::isInstance)
+                .map(p -> (Map<String, Object>) ((DataPart) p).data())
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("reject(Message) carried no structured DataPart"));
+        assertThat(data).containsEntry("code", "RUNTIME_NOT_READY");
+        assertThat(data).containsEntry("retryable", true);
+        verify(handler, org.mockito.Mockito.never()).execute(any());
+    }
+
+    /** Cancel must reach the handler cooperatively even when nothing is in flight any more. */
+    @Test
+    void cancelNotifiesHandlerAndCancelsEmitter() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler).cancel(requestContext(), emitter);
+
+        verify(handler).cancel("task-1");
+        verify(emitter).cancel();
+    }
+
+    /**
+     * Cancel of an in-flight execution must close the handler's raw stream (tearing
+     * the transport) and the execute thread must NOT report the resulting teardown
+     * exception as a task failure — the task already reached CANCELED.
+     */
+    @Test
+    void cancelClosesInFlightStreamAndSuppressesTeardownFailure() throws Exception {
+        java.util.concurrent.CountDownLatch streamPulled = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch released = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicBoolean rawClosed = new java.util.concurrent.atomic.AtomicBoolean();
+
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.generate(() -> {
+            streamPulled.countDown();
+            try {
+                released.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            throw new IllegalStateException("transport torn down");
+        }).onClose(() -> rawClosed.set(true)));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.output("unreached"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        A2aAgentExecutor executor = new A2aAgentExecutor(handler);
+        AgentEmitter emitter = newEmitter();
+        Thread executeThread = new Thread(() -> executor.execute(requestContext(), emitter), "a2a-test-execute");
+        executeThread.start();
+        assertThat(streamPulled.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+
+        executor.cancel(requestContext(), emitter);
+        released.countDown();
+        executeThread.join(5_000);
+
+        assertThat(executeThread.isAlive()).isFalse();
+        assertThat(rawClosed).isTrue();
+        verify(handler).cancel("task-1");
+        verify(emitter).cancel();
+        verify(emitter, org.mockito.Mockito.never()).fail(any(Message.class));
+    }
+
     /** The lifecycle must announce SUBMITTED before WORKING, matching the A2A task lifecycle. */
     @Test
     void submitPrecedesStartWork() {

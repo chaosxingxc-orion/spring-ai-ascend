@@ -44,4 +44,9 @@ public final class LangGraphRuntimeClientHandler implements AgentRuntimeHandler 
     public StreamAdapter resultAdapter() {
         return streamAdapter;
     }
+
+    @Override
+    public void stop() {
+        client.close();
+    }
 }

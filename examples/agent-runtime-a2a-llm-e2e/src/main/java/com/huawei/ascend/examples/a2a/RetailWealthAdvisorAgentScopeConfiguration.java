@@ -129,6 +129,8 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
     static final class RetailWealthAdvisorRuntimeClientHandler implements AgentRuntimeHandler {
         private final AgentScopeMessageAdapter messageAdapter = new AgentScopeMessageAdapter();
         private final AgentScopeStreamAdapter streamAdapter = new AgentScopeStreamAdapter();
+        private final java.util.concurrent.atomic.AtomicReference<AgentScopeRuntimeClient> client =
+                new java.util.concurrent.atomic.AtomicReference<>();
         private final String agentId;
         private final String baseUrl;
         private final String endpointPath;
@@ -161,14 +163,39 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
 
         @Override
         public Stream<?> execute(AgentExecutionContext context) {
-            AgentScopeRuntimeClientProperties properties =
-                    new AgentScopeRuntimeClientProperties(resolveBaseUrl(), endpointPath);
-            return new AgentScopeRuntimeClient(properties).streamEvents(messageAdapter.toInvocation(context));
+            return client().streamEvents(messageAdapter.toInvocation(context));
         }
 
         @Override
         public StreamAdapter resultAdapter() {
             return streamAdapter;
+        }
+
+        @Override
+        public void stop() {
+            AgentScopeRuntimeClient existing = client.getAndSet(null);
+            if (existing != null) {
+                existing.close();
+            }
+        }
+
+        /**
+         * One client (one HTTP transport) for the handler's lifetime. Created on
+         * first execution — not in start() — because the "self" base URL needs
+         * the web server's bound port, which is only known once traffic flows.
+         */
+        private AgentScopeRuntimeClient client() {
+            AgentScopeRuntimeClient existing = client.get();
+            if (existing != null) {
+                return existing;
+            }
+            AgentScopeRuntimeClient created = new AgentScopeRuntimeClient(
+                    new AgentScopeRuntimeClientProperties(resolveBaseUrl(), endpointPath));
+            if (client.compareAndSet(null, created)) {
+                return created;
+            }
+            created.close();
+            return client.get();
         }
 
         private String resolveBaseUrl() {

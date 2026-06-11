@@ -34,9 +34,21 @@ public final class A2aAgentExecutor implements AgentExecutor {
     private static final String ERROR_SCHEMA_VERSION = "1";
 
     private final AgentRuntimeHandler handler;
+    private final java.util.function.BooleanSupplier readiness;
+    private final java.util.concurrent.ConcurrentHashMap<String, InFlightExecution> inFlight =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public A2aAgentExecutor(AgentRuntimeHandler handler) {
+        this(handler, () -> true);
+    }
+
+    public A2aAgentExecutor(AgentRuntimeHandler handler, java.util.function.BooleanSupplier readiness) {
         this.handler = handler;
+        this.readiness = java.util.Objects.requireNonNull(readiness, "readiness");
+    }
+
+    /** Cancel state for one in-flight execution: the handler's raw stream plus a torn-down marker. */
+    private record InFlightExecution(Stream<?> rawStream, AtomicBoolean cancelled) {
     }
 
     @Override
@@ -46,6 +58,16 @@ public final class A2aAgentExecutor implements AgentExecutor {
             LOG.warn("[A2A] no handler registered taskId={}", taskId);
             emitter.reject(failureMessage(emitter, "NO_HANDLER",
                     "no agent handler registered for this task", false));
+            LOG.info("[A2A] task state=REJECTED taskId={}", taskId);
+            return;
+        }
+        if (!readiness.getAsBoolean()) {
+            // Boot has not finished or a drain is in progress: the handler may be
+            // mid start/stop, so executing now could run against half-open
+            // resources. Retryable — the client may try again once ready.
+            LOG.warn("[A2A] runtime not ready taskId={}", taskId);
+            emitter.reject(failureMessage(emitter, "RUNTIME_NOT_READY",
+                    "runtime is not accepting executions", true));
             LOG.info("[A2A] task state=REJECTED taskId={}", taskId);
             return;
         }
@@ -67,6 +89,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
         // Everything after startWork must fail the task on error — context
         // construction throws on wire-controllable input (blank/null ids), and
         // an escape here would strand the task in WORKING forever.
+        InFlightExecution execution = null;
         try {
             String inputText = extractText(ctx);
             LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
@@ -75,6 +98,8 @@ public final class A2aAgentExecutor implements AgentExecutor {
             try (Stream<?> raw = executeAgent(context);
                  Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
 
+                execution = new InFlightExecution(raw, new AtomicBoolean(false));
+                inFlight.put(taskId, execution);
                 AtomicBoolean terminalRouted = new AtomicBoolean(false);
                 results.forEach(result -> {
                     LOG.info("[A2A] result taskId={} type={} outputChars={}",
@@ -93,11 +118,20 @@ public final class A2aAgentExecutor implements AgentExecutor {
                     LOG.warn("[A2A] result stream ended without terminal result taskId={} — completing", taskId);
                     emitter.complete();
                 }
+            } finally {
+                inFlight.remove(taskId, execution);
             }
             LOG.info("[A2A] execute finish taskId={} durationMs={}",
                     taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
 
         } catch (Exception e) {
+            if (execution != null && execution.cancelled().get()) {
+                // The cancel path already moved the task to CANCELED and tore the
+                // stream down; reporting the teardown as a failure would fight the
+                // terminal state the client just observed.
+                LOG.info("[A2A] execute torn down by cancel taskId={}", taskId);
+                return;
+            }
             RuntimeErrorCode code = RuntimeErrorCode.classify(e);
             String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             LOG.error("[A2A] execute failed taskId={} code={} errorClass={} message={}",
@@ -115,11 +149,27 @@ public final class A2aAgentExecutor implements AgentExecutor {
     public void cancel(RequestContext ctx, AgentEmitter emitter) {
         String taskId = ctx.getTaskId();
         LOG.info("[A2A] cancel requested taskId={}", taskId);
+        InFlightExecution execution = inFlight.get(taskId);
+        if (execution != null) {
+            execution.cancelled().set(true);
+        }
+        if (handler != null) {
+            try {
+                handler.cancel(taskId);
+            } catch (RuntimeException e) {
+                LOG.warn("[A2A] handler cancel failed taskId={} message={}", taskId, e.getMessage(), e);
+            }
+        }
         try {
             emitter.cancel();
             LOG.info("[A2A] task state=CANCELED taskId={}", taskId);
         } catch (Exception e) {
             LOG.error("[A2A] cancel failed taskId={} message={}", taskId, e.getMessage(), e);
+        }
+        if (execution != null) {
+            // Tear the transport down last so the CANCELED state has already
+            // landed when the execute thread observes the closed stream.
+            execution.rawStream().close();
         }
     }
 

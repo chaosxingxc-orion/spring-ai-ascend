@@ -135,6 +135,55 @@ class LangGraphRuntimeClientHandlerTest {
         assertThat(results.get(0).errorMessage()).isEqualTo("loop limit");
     }
 
+    /**
+     * stop() must release the SSE transport when the client owns it (created it
+     * itself) — the leak this fixes: an owned JDK HttpClient keeps selector
+     * threads alive until GC.
+     */
+    @Test
+    void stopClosesClientOwnedHttpTransport() {
+        java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
+        LangGraphRuntimeClient client = new LangGraphRuntimeClient(
+                closeRecordingHttpClient(closed),
+                new ObjectMapper(),
+                new LangGraphRuntimeClientProperties("http://langgraph.local", "wealth-advisor", "/runs/stream", Map.of()),
+                true);
+        LangGraphRuntimeClientHandler handler = new LangGraphRuntimeClientHandler("langgraph-advisor", client);
+
+        handler.stop();
+
+        assertThat(closed).isTrue();
+    }
+
+    /** A borrowed (injected) transport belongs to its injector and must survive close(). */
+    @Test
+    void closeLeavesBorrowedHttpTransportOpen() {
+        java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
+        LangGraphRuntimeClient client = new LangGraphRuntimeClient(
+                closeRecordingHttpClient(closed),
+                new ObjectMapper(),
+                new LangGraphRuntimeClientProperties("http://langgraph.local", "wealth-advisor", "/runs/stream", Map.of()));
+
+        client.close();
+
+        assertThat(closed).isFalse();
+    }
+
+    private static HttpClient closeRecordingHttpClient(java.util.concurrent.atomic.AtomicBoolean closed) {
+        return new TestHttpClient() {
+            @Override
+            public <T> CompletableFuture<HttpResponse<T>> sendAsync(
+                    HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
+                throw new UnsupportedOperationException("no request expected");
+            }
+
+            @Override
+            public void close() {
+                closed.set(true);
+            }
+        };
+    }
+
     private static LangGraphRuntimeClientHandler handler(HttpClient httpClient) {
         LangGraphRuntimeClient client = new LangGraphRuntimeClient(
                 httpClient,
