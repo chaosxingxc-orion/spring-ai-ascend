@@ -1,18 +1,23 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryDraft;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
 import com.openjiuwen.core.context.ModelContext;
 import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,11 +28,10 @@ import org.slf4j.LoggerFactory;
  * stable {@code conversation_id}. openJiuwen session persistence is delegated to
  * its native checkpointer mechanism.
  */
-public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandler {
+public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntimeHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenJiuwenAgentRuntimeHandler.class);
 
-    private final String agentId;
     private final OpenJiuwenMessageAdapter messageConverter;
     private final OpenJiuwenStreamAdapter resultMapper;
 
@@ -41,24 +45,28 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
 
     OpenJiuwenAgentRuntimeHandler(String agentId, OpenJiuwenMessageAdapter messageConverter,
             OpenJiuwenStreamAdapter resultMapper) {
-        org.springframework.util.Assert.hasText(agentId, "agentId must not be blank");
-        this.agentId = agentId;
+        super(agentId);
         this.messageConverter = Objects.requireNonNull(messageConverter, "messageConverter");
         this.resultMapper = Objects.requireNonNull(resultMapper, "resultMapper");
     }
 
+    /**
+     * openJiuwen taps native model-call callbacks (token usage, reasoning, finish reason) on top of
+     * the cross-framework core, so it advertises the model-call kinds. Without this, the optional
+     * tier would be dropped by the capability gate before the FULL-level gate is ever reached.
+     */
     @Override
-    public final String agentId() {
-        return agentId;
+    protected Set<Kind> supportedKinds() {
+        return EnumSet.of(
+                Kind.RUN_START, Kind.RUN_END,
+                Kind.MODEL_CALL_START, Kind.MODEL_CALL_END,
+                Kind.TOOL_CALL_START, Kind.TOOL_CALL_END,
+                Kind.ERROR);
     }
 
     @Override
-    public boolean isHealthy() {
-        return true;
-    }
-
-    @Override
-    public final java.util.stream.Stream<?> execute(AgentExecutionContext context) {
+    protected final java.util.stream.Stream<?> doExecute(AgentExecutionContext context,
+            TrajectoryEmitter trajectory) {
         try {
             LOGGER.info("openjiuwen execute start tenantId={} sessionId={} taskId={} agentId={}",
                     context.getScope().tenantId(),
@@ -67,6 +75,9 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
                     context.getScope().agentId());
             BaseAgent agent = Objects.requireNonNull(createOpenJiuwenAgent(context), "openJiuwen agent");
             installRails(agent, context);
+            if (trajectory != TrajectoryEmitter.NOOP) {
+                agent.registerRail(new OpenJiuwenTrajectoryRail(trajectory));
+            }
             Object input = toOpenJiuwenInput(context);
             Object result = runOpenJiuwenAgent(agent, input, openJiuwenConversationId(context));
             LOGGER.info("openjiuwen execute finished tenantId={} sessionId={} taskId={} resultType={}",
@@ -82,6 +93,9 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
                     context.getScope().taskId(),
                     error.getClass().getSimpleName(),
                     errorMessage(error));
+            // ERROR is a mandatory trajectory kind: surface the run-level failure northbound even though
+            // the failure is mapped to a result (not rethrown), so the trajectory is not silently truncated.
+            trajectory.emit(TrajectoryDraft.error(null, "OPENJIUWEN_RUN_ERROR", errorMessage(error), null, false));
             return java.util.stream.Stream.of(Map.of("result_type", "error", "output", errorMessage(error)));
         }
     }

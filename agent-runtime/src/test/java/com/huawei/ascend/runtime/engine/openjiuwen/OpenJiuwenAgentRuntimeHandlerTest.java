@@ -5,6 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryChannel;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryLevel;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
+import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.openjiuwen.core.foundation.llm.schema.AssistantMessage;
 import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
 import com.openjiuwen.core.foundation.llm.schema.SystemMessage;
@@ -13,15 +19,21 @@ import com.openjiuwen.core.foundation.llm.schema.UserMessage;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.stream.StreamMode;
 import com.openjiuwen.core.singleagent.BaseAgent;
+import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
+import com.openjiuwen.core.singleagent.rail.ModelCallInputs;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 class OpenJiuwenAgentRuntimeHandlerTest {
 
@@ -85,6 +97,55 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         assertThat(rawResults).isEqualTo(List.of(Map.of("result_type", "error", "output", "boom")));
     }
 
+    @Test
+    @Timeout(10)
+    void fullLevelEmitsOpenJiuwenModelCallTrajectory() throws Exception {
+        List<TrajectoryEvent> events = runWithTrajectory(new ModelCallingHandler(), TrajectoryLevel.FULL);
+
+        assertThat(events).extracting(TrajectoryEvent::kind)
+                .contains(Kind.MODEL_CALL_START, Kind.MODEL_CALL_END);
+    }
+
+    @Test
+    @Timeout(10)
+    void summaryLevelDropsOpenJiuwenModelCalls() throws Exception {
+        List<TrajectoryEvent> events = runWithTrajectory(new ModelCallingHandler(), TrajectoryLevel.SUMMARY);
+
+        assertThat(events).extracting(TrajectoryEvent::kind)
+                .contains(Kind.RUN_START, Kind.RUN_END)
+                .doesNotContain(Kind.MODEL_CALL_START, Kind.MODEL_CALL_END);
+    }
+
+    @Test
+    @Timeout(10)
+    void runLevelFailureEmitsErrorTrajectoryEvent() throws Exception {
+        // A run-level openJiuwen failure is mapped to an error result (not rethrown); it must still
+        // surface a mandatory ERROR trajectory event rather than a silently truncated trajectory.
+        List<TrajectoryEvent> events = runWithTrajectory(new FailingOpenJiuwenHandler(), TrajectoryLevel.SUMMARY);
+
+        TrajectoryEvent error = events.stream()
+                .filter(e -> e.kind() == Kind.ERROR).findFirst().orElseThrow();
+        assertThat(error.error().code()).isEqualTo("OPENJIUWEN_RUN_ERROR");
+        assertThat(error.error().message()).contains("boom");
+    }
+
+    /** Opens a trajectory channel at the given level, runs the handler, and returns the drained events. */
+    private static List<TrajectoryEvent> runWithTrajectory(OpenJiuwenAgentRuntimeHandler handler,
+            TrajectoryLevel level) throws InterruptedException {
+        AgentExecutionContext context = context(Map.of());
+        TrajectorySettings settings = new TrajectorySettings(
+                level, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        TrajectoryChannel channel = handler.openTrajectory(context, settings);
+        List<TrajectoryEvent> events = new CopyOnWriteArrayList<>();
+        Thread drainer = new Thread(() -> channel.drain().forEach(events::add));
+        drainer.start();
+        try (Stream<?> raw = handler.execute(context)) {
+            raw.forEach(x -> { });
+        }
+        drainer.join(3000);
+        return new ArrayList<>(events);
+    }
+
     private static AgentExecutionContext context(Map<String, Object> variables) {
         Message message = Message.builder()
                 .role(Message.Role.ROLE_USER)
@@ -143,6 +204,24 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         @Override
         protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
             return List.of(rail);
+        }
+    }
+
+    /** Fires openJiuwen's native model-call callbacks mid-run through the registered trajectory rail. */
+    private static final class ModelCallingHandler extends TestOpenJiuwenHandler {
+        @Override
+        protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
+            for (AgentRail rail : ((RecordingAgent) agent).registeredRails) {
+                if (rail instanceof OpenJiuwenTrajectoryRail trajectoryRail) {
+                    trajectoryRail.beforeModelCall(AgentCallbackContext.builder()
+                            .inputs(ModelCallInputs.builder().messages(List.of("a")).tools(List.of()).build())
+                            .build());
+                    trajectoryRail.afterModelCall(AgentCallbackContext.builder()
+                            .inputs(ModelCallInputs.builder().messages(List.of("a")).response("done").build())
+                            .build());
+                }
+            }
+            return Map.of("result_type", "answer", "output", "pong");
         }
     }
 

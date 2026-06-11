@@ -3,9 +3,14 @@ package com.huawei.ascend.runtime.boot;
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
 import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryLevel;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
+import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
+import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 import org.a2aproject.sdk.server.config.A2AConfigProvider;
 import org.a2aproject.sdk.server.config.DefaultValuesConfigProvider;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
@@ -30,10 +35,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 @Configuration(proxyBeanMethods = false)
+@EnableConfigurationProperties(TrajectoryProperties.class)
+@Import(TrajectoryOtelConfiguration.class)
 public class RuntimeAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(RuntimeAutoConfiguration.class);
 
@@ -75,8 +84,39 @@ public class RuntimeAutoConfiguration {
     public Executor a2aExecutor() { return Executors.newCachedThreadPool(); }
 
     @Bean @ConditionalOnMissingBean
-    public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers) {
-        return new A2aAgentExecutor(handlers.orderedStream().findFirst().orElse(null));
+    public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers,
+            Executor exec, TrajectoryProperties trajectoryProperties,
+            ObjectProvider<TrajectorySinkFactory> sinkFactories) {
+        AgentRuntimeHandler handler = handlers.orderedStream().findFirst().orElse(null);
+        return new A2aAgentExecutor(handler, exec, toTrajectorySettings(trajectoryProperties),
+                sinkFactories.orderedStream().toList());
+    }
+
+    static TrajectorySettings toTrajectorySettings(TrajectoryProperties properties) {
+        if (!properties.isEnabled()) {
+            return TrajectorySettings.off();
+        }
+        TrajectoryLevel level = TrajectoryLevel.from(properties.getDefaultLevel(), TrajectoryLevel.SUMMARY);
+        if (level == TrajectoryLevel.OFF) {
+            return TrajectorySettings.off();
+        }
+        return new TrajectorySettings(level, compileMaskPattern(properties.getMask().getKeyPattern()),
+                properties.getMask().getTruncateChars());
+    }
+
+    /**
+     * Compiles the configured mask pattern, falling back to the default on a bad regex. A masking
+     * typo must never crash boot, and must never degrade to a null pattern (which would silently
+     * disable key redaction) — it fails safe toward the default pattern, with a WARN.
+     */
+    private static Pattern compileMaskPattern(String pattern) {
+        try {
+            return Pattern.compile(pattern);
+        } catch (RuntimeException e) {
+            log.warn("invalid app.trajectory.mask.key-pattern '{}'; falling back to default ({})",
+                    pattern, e.getMessage());
+            return Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN);
+        }
     }
 
     @Bean @ConditionalOnMissingBean

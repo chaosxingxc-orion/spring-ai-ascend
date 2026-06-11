@@ -72,6 +72,18 @@ class RuntimePackageBoundaryTest {
     }
 
     @Test
+    void neutralEngineSpiStaysFrameworkAgnostic() {
+        // The northbound trajectory abstraction lives in engine.spi and must stay framework-neutral:
+        // native framework events are consumed only in the per-framework adapter (engine.openjiuwen),
+        // never leaked into the neutral SPI. Guards the owner-mandated abstraction boundary.
+        ArchRule rule = noClasses()
+                .that().resideInAPackage("..runtime.engine.spi..")
+                .should().dependOnClassesThat()
+                .resideInAnyPackage("com.openjiuwen..");
+        rule.check(RUNTIME_CLASSES);
+    }
+
+    @Test
     void commonDependsOnlyOnTheJdk() {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..runtime.common..")

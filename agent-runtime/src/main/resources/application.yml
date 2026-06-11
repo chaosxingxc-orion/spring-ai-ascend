@@ -98,12 +98,26 @@ logging:
     root: INFO
     com.huawei.ascend: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
+    # ctx/task carry the A2A contextId/taskId via MDC so one invocation's log lines are greppable.
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] [ctx=%X{contextId:-} task=%X{taskId:-}] - %msg%n"
 
 # Posture marker -- read at boot by PostureBootGuard (W0 lite; full guard in W1).
 app:
   posture: ${APP_POSTURE:dev}
   sha: ${APP_SHA:dev}
+  # Northbound trajectory observability. default-level OFF disables it; SUMMARY emits the
+  # mandatory core (run/tool/error); FULL adds model calls + reasoning. A request may override
+  # via the trajectory.level A2A metadata key.
+  trajectory:
+    enabled: true
+    default-level: ${APP_TRAJECTORY_LEVEL:SUMMARY}
+    mask:
+      truncate-chars: 256
+    # Optional OpenTelemetry span export of the trajectory (OTLP). Off by default; needs the
+    # optional OTel SDK on the classpath and a collector at otel.endpoint when enabled.
+    otel:
+      enabled: ${APP_TRAJECTORY_OTEL_ENABLED:false}
+      endpoint: ${APP_TRAJECTORY_OTEL_ENDPOINT:http://localhost:4317}
   # L1 idempotency dedup defaults (ADR-0057). research/prod inherit; dev may
   # override allow-in-memory=true to opt into the in-memory store when no
   # Postgres is available.

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Preserves Spring Boot's default console logging (driven by logging.pattern.console in
+  application.yml) and adds the trajectory JSONL replay track: every northbound trajectory
+  event is written as one JSON object to a dedicated file, keyed by taskId, so a single
+  invocation's trajectory can be reconstructed with `grep '"taskId":"..."' | jq -s 'sort_by(.seq)'`.
+  The file defaults under the system temp dir to avoid polluting the workspace during tests;
+  override with the LOG_PATH (logging.file.path) property for a real deployment.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <property name="TRAJECTORY_DIR" value="${LOG_PATH:-${java.io.tmpdir:-/tmp}}"/>
+    <property name="TRAJECTORY_FILE" value="${TRAJECTORY_DIR}/spring-ai-ascend-trajectory.jsonl"/>
+
+    <appender name="TRAJECTORY_JSONL" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${TRAJECTORY_FILE}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${TRAJECTORY_FILE}.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+    </appender>
+
+    <!-- additivity=false: trajectory JSON goes only to its own file, never the console. -->
+    <logger name="com.huawei.ascend.runtime.trajectory" level="INFO" additivity="false">
+        <appender-ref ref="TRAJECTORY_JSONL"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
