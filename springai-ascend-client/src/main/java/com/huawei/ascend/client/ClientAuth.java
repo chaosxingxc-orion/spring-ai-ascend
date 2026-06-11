@@ -38,6 +38,11 @@ public final class ClientAuth {
         return new ClientAuth(token, tenantId);
     }
 
+    /** The explicit tenant attribution; null when the JWT claim alone carries it. */
+    String tenantId() {
+        return tenantId;
+    }
+
     /** Headers for one call; insertion order kept for readable wire captures. */
     Map<String, String> headers() {
         String value = Objects.requireNonNull(token.get(), "JWT token supplier returned null");

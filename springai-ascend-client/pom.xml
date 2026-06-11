@@ -8,9 +8,10 @@
   outbound W3C traceparent propagation with traceresponse correlation, and
   auth helpers for the platform's JWT tenant cross-check ingress edges.
 
-  Main scope depends only on the JDK, the a2a client artifacts, and slf4j-api;
-  it must stay embeddable in customer applications without any platform server
-  module on the classpath (enforced by ClientPackageBoundaryTest).
+  Main scope depends only on the JDK, the a2a client artifacts, and slf4j-api
+  (plus optional OpenTelemetry confined to the telemetry package); it must stay
+  embeddable in customer applications without any platform server module on
+  the classpath (enforced by ClientPackageBoundaryTest).
 
   Authority: ADR-0162.
 -->
@@ -61,6 +62,29 @@
       <artifactId>slf4j-api</artifactId>
     </dependency>
 
+    <!-- OpenTelemetry: optional client-side business spans, confined to the
+         com.huawei.ascend.client.telemetry package (enforced by
+         ClientPackageBoundaryTest). No OTel type appears in any always-loaded
+         public signature: opentelemetry-api backs consumer-supplied SDKs via
+         OtelClientTelemetry; sdk + exporter-otlp exist only for the
+         class-presence-guarded ClientTelemetry.otlpHttp pipeline, so their
+         absence disables that one factory and nothing else. -->
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-exporter-otlp</artifactId>
+      <optional>true</optional>
+    </dependency>
+
     <!-- Test-only Spring Boot starter: AssertJ/JUnit aggregation. Main scope
          stays Spring-free (enforced by ClientPackageBoundaryTest). -->
     <dependency>
@@ -71,6 +95,11 @@
     <dependency>
       <groupId>com.tngtech.archunit</groupId>
       <artifactId>archunit-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk-testing</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

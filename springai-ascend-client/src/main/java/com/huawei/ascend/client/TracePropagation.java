@@ -5,11 +5,13 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Outbound W3C Trace Context (version 00) origination, dependency-free by
- * design: the first SDK slice deliberately carries no OpenTelemetry
- * dependency, so trace ids are generated here with JDK primitives. Each call
+ * design: this is the no-telemetry fallback, generating trace ids with JDK
+ * primitives so the default client path never needs OpenTelemetry. Each call
  * gets a fresh {@code traceparent} (new trace-id + span-id); the server edge
  * parses it and answers a {@code traceresponse} header that
- * {@link TraceCorrelation} surfaces back to the caller.
+ * {@link TraceCorrelation} surfaces back to the caller. With a
+ * {@code ClientTelemetry} configured, the outbound header is derived from the
+ * call's span instead and this mint is not consulted.
  */
 public final class TracePropagation {
 

@@ -1,5 +1,8 @@
 package com.huawei.ascend.client;
 
+import com.huawei.ascend.client.telemetry.ClientCallSpan;
+import com.huawei.ascend.client.telemetry.ClientTelemetry;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -36,7 +39,10 @@ import org.slf4j.LoggerFactory;
  *       events and classifies the SDK's post-terminal SSE cancellation as
  *       normal completion (see {@link A2aEvents});</li>
  *   <li>per-call W3C {@code traceparent} origination and {@code traceresponse}
- *       correlation surfaced on every {@link A2aResponse};</li>
+ *       correlation surfaced on every {@link A2aResponse}; with a
+ *       {@link ClientTelemetry} configured, the outbound header is derived
+ *       from that call's business span so wire trace and local span share
+ *       one trace-id;</li>
  *   <li>JWT bearer / {@code X-Tenant-Id} headers on every request, matching
  *       the platform's tenant cross-check ingress (ADR-0040).</li>
  * </ul>
@@ -52,6 +58,8 @@ public final class AscendA2aClient implements AutoCloseable {
     private final Duration timeout;
     private final ClientAuth auth;
     private final TracePropagation trace;
+    private final ClientTelemetry telemetry;
+    private final String serverAddress;
     private final HttpClient http;
     private final AtomicReference<AgentCard> cachedCard = new AtomicReference<>();
 
@@ -60,6 +68,8 @@ public final class AscendA2aClient implements AutoCloseable {
         this.timeout = builder.timeout;
         this.auth = builder.auth;
         this.trace = builder.trace;
+        this.telemetry = builder.telemetry;
+        this.serverAddress = hostOf(builder.baseUrl);
         this.http = HttpClient.newBuilder().connectTimeout(builder.timeout).build();
     }
 
@@ -92,7 +102,8 @@ public final class AscendA2aClient implements AutoCloseable {
     public A2aResponse sendText(SendSpec spec) {
         Objects.requireNonNull(spec, "spec");
         AgentCard card = agentCard();
-        String traceparent = trace.newTraceparent();
+        ClientCallSpan span = telemetry.startCall("send", spec, tenantId(), serverAddress);
+        String traceparent = outboundTraceparent(span);
         AtomicReference<String> traceresponse = new AtomicReference<>();
         JSONRPCTransport transport = newTransport(card, traceresponse);
         try {
@@ -100,7 +111,10 @@ public final class AscendA2aClient implements AutoCloseable {
                     messageSendParams(spec), callContext(traceparent));
             List<StreamingEventKind> events = result instanceof StreamingEventKind streaming
                     ? List.of(streaming) : List.of();
-            return response(events, traceparent, traceresponse.get());
+            return complete(span, events, traceparent, traceresponse.get());
+        } catch (RuntimeException e) {
+            fail(span, e, traceresponse.get());
+            throw e;
         } finally {
             transport.close();
         }
@@ -127,8 +141,23 @@ public final class AscendA2aClient implements AutoCloseable {
         Objects.requireNonNull(spec, "spec");
         Objects.requireNonNull(listener, "listener");
         AgentCard card = agentCard();
-        String traceparent = trace.newTraceparent();
+        ClientCallSpan span = telemetry.startCall("stream", spec, tenantId(), serverAddress);
+        String traceparent = outboundTraceparent(span);
         AtomicReference<String> traceresponse = new AtomicReference<>();
+        try {
+            List<StreamingEventKind> events = streamEvents(card, spec, listener, traceparent,
+                    traceresponse);
+            return complete(span, events, traceparent, traceresponse.get());
+        } catch (RuntimeException | InterruptedException e) {
+            fail(span, e, traceresponse.get());
+            throw e;
+        }
+    }
+
+    /** The streaming exchange itself: collect events until terminal/failure/timeout. */
+    private List<StreamingEventKind> streamEvents(AgentCard card, SendSpec spec,
+            Consumer<StreamingEventKind> listener, String traceparent,
+            AtomicReference<String> traceresponse) throws InterruptedException {
         List<StreamingEventKind> events = Collections.synchronizedList(new ArrayList<>());
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -161,11 +190,9 @@ public final class AscendA2aClient implements AutoCloseable {
         if (failure.get() != null) {
             throw new IllegalStateException("A2A stream failed", failure.get());
         }
-        List<StreamingEventKind> snapshot;
         synchronized (events) {
-            snapshot = List.copyOf(events);
+            return List.copyOf(events);
         }
-        return response(snapshot, traceparent, traceresponse.get());
     }
 
     @Override
@@ -176,6 +203,44 @@ public final class AscendA2aClient implements AutoCloseable {
         // hang on it. All successful calls complete before returning, so there
         // is nothing graceful shutdown would protect.
         http.shutdownNow();
+        // No-op unless the telemetry owns its pipeline (ClientTelemetry.otlpHttp):
+        // a consumer-supplied OpenTelemetry SDK is never shut down here.
+        telemetry.close();
+    }
+
+    /**
+     * The header that crosses the wire: the active span's trace context when
+     * telemetry originates one, otherwise this client's own per-call mint.
+     */
+    private String outboundTraceparent(ClientCallSpan span) {
+        String fromSpan = span.traceparent();
+        return fromSpan != null ? fromSpan : trace.newTraceparent();
+    }
+
+    private A2aResponse complete(ClientCallSpan span, List<StreamingEventKind> events,
+            String traceparent, String traceresponse) {
+        A2aResponse result = response(events, traceparent, traceresponse);
+        span.traceresponse(traceresponse);
+        span.succeed(events.stream().anyMatch(A2aEvents::isTerminal), result.text());
+        return result;
+    }
+
+    private static void fail(ClientCallSpan span, Throwable error, String traceresponse) {
+        span.traceresponse(traceresponse);
+        span.fail(error);
+    }
+
+    private String tenantId() {
+        return auth == null ? null : auth.tenantId();
+    }
+
+    /** Null (attribute omitted) rather than failing on an unparsable base URL. */
+    private static String hostOf(String baseUrl) {
+        try {
+            return URI.create(baseUrl).getHost();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private A2aResponse response(List<StreamingEventKind> events, String traceparent,
@@ -230,6 +295,7 @@ public final class AscendA2aClient implements AutoCloseable {
         private Duration timeout = Duration.ofSeconds(30);
         private ClientAuth auth;
         private TracePropagation trace = TracePropagation.sampled();
+        private ClientTelemetry telemetry = ClientTelemetry.noop();
 
         private Builder() {
         }
@@ -252,9 +318,23 @@ public final class AscendA2aClient implements AutoCloseable {
             return this;
         }
 
-        /** Optional; defaults to {@link TracePropagation#sampled()}. */
+        /**
+         * Optional; defaults to {@link TracePropagation#sampled()}. Used only
+         * for calls whose telemetry originates no trace context.
+         */
         public Builder tracePropagation(TracePropagation trace) {
             this.trace = Objects.requireNonNull(trace, "trace");
+            return this;
+        }
+
+        /**
+         * Optional; defaults to {@link ClientTelemetry#noop()} (no spans,
+         * unchanged behavior). The telemetry is closed with the client —
+         * harmless for span-only telemetry, and exactly what an owned
+         * {@link ClientTelemetry#otlpHttp} pipeline needs.
+         */
+        public Builder telemetry(ClientTelemetry telemetry) {
+            this.telemetry = Objects.requireNonNull(telemetry, "telemetry");
             return this;
         }
 

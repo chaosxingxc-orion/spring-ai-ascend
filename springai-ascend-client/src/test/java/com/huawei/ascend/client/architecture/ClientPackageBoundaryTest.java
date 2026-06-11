@@ -12,7 +12,9 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * Guards the client SDK's embeddability contract: main scope must drop into
  * any customer application, so it stays Spring-free and never depends on a
  * platform server module (the OSS a2a client + JDK + slf4j are the whole
- * dependency surface).
+ * required dependency surface). OpenTelemetry is the one optional addition,
+ * and it stays confined to the telemetry package so the always-loaded client
+ * classes never force OTel onto a consumer classpath.
  */
 class ClientPackageBoundaryTest {
 
@@ -26,6 +28,17 @@ class ClientPackageBoundaryTest {
                 .that().resideInAPackage("com.huawei.ascend.client..")
                 .should().dependOnClassesThat()
                 .resideInAPackage("org.springframework..")
+                .allowEmptyShould(false);
+        rule.check(CLIENT_CLASSES);
+    }
+
+    @Test
+    void openTelemetryStaysBehindTheTelemetryPackage() {
+        ArchRule rule = noClasses()
+                .that().resideInAPackage("com.huawei.ascend.client..")
+                .and().resideOutsideOfPackage("com.huawei.ascend.client.telemetry")
+                .should().dependOnClassesThat()
+                .resideInAPackage("io.opentelemetry..")
                 .allowEmptyShould(false);
         rule.check(CLIENT_CLASSES);
     }

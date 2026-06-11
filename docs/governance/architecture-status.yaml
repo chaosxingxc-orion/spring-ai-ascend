@@ -1069,15 +1069,16 @@ capabilities:
     allowed_claim: "Section 4 #53 invariant — Telemetry Vertical (Trace + Span + LlmCall) is a first-class cross-cutting concept in architecture/docs/L0/ARCHITECTURE.md §0.5.3. Every layer emits via TraceContext SPI or Hook SPI; direct emission forbidden. Full engine (OTel SDK + OTLP exporter + trace_store dual-write + Hook SPI un-deferred + LlmGateway GENERATION spans) lands at W2. See ADR-0061."
 
   client_sdk_observability_contract:
-    status: design_accepted
-    shipped: false
+    status: test_verified
+    shipped: true
     l0_decision: docs/adr/0162-w3-client-sdk-first-slice.yaml
     l2_documents: []
     implementation:
       - springai-ascend-client/src/main/java/com/huawei/ascend/client/
+      - springai-ascend-client/src/main/java/com/huawei/ascend/client/telemetry/
     tests:
       - springai-ascend-client/src/test/java/com/huawei/ascend/client/
-    allowed_claim: "W3 first slice shipped per ADR-0162: springai-ascend-client module (Java-only) — A2A facade (typed send/stream/card with the platform terminal-event + post-terminal-cancellation semantics), W3C traceparent propagation outbound, traceresponse correlation surfaced, JWT bearer + X-Tenant-Id auth helpers. The OBSERVABILITY half of the contract (business spans, OTLP/HTTP batching, posture=prod PII redaction) is NOT implemented — second slice; this entry stays design_accepted/not-shipped until it lands. Kotlin idioms follow-up; JS/Python W3+."
+    allowed_claim: "Shipped per ADR-0162 (Java-only): A2A facade (typed send/stream/card with the platform terminal-event + post-terminal-cancellation semantics), business CLIENT spans via the ClientTelemetry seam (Noop default; consumer-supplied OpenTelemetry or SDK-owned OTLP/HTTP pipeline with BatchSpanProcessor), outbound traceparent derived from the active span (random mint as no-telemetry fallback), traceresponse correlation surfaced on results and as span attribute, posture-aware sampling (dev=1.0/research=0.10/prod=0.01) with structural PII redaction in posture=prod, JWT bearer + X-Tenant-Id auth helpers. Kotlin idioms follow-up; JS/Python W3+."
 
   # --- Layer-0 Governing Principles (ADR-0064..0067; CLAUDE.md Rules 29-32; §4 #60-#63) ---
 

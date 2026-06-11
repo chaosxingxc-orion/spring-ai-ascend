@@ -15,7 +15,9 @@
  *       unsubscription, never a transport failure);</li>
  *   <li>outbound W3C {@code traceparent} propagation plus correlation with
  *       the {@code traceresponse} header the platform answers on every
- *       response;</li>
+ *       response — derived from the call's business span when the optional
+ *       {@code com.huawei.ascend.client.telemetry} observability is
+ *       configured;</li>
  *   <li>JWT bearer + {@code X-Tenant-Id} cross-check headers matching the
  *       platform's tenant authentication at both ingress edges (ADR-0040).</li>
  * </ul>
