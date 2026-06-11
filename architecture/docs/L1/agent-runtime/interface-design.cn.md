@@ -211,6 +211,8 @@ OpenJiuwen 原生 memory 接入优先使用 OpenJiuwen 0.1.12 的 external memor
 - Checkpointer 配置：属于 OpenJiuwen runtime / sample wiring，不应在执行期 Rail 中切换全局状态后端。
 
 > 版本约束：本文按 OpenJiuwen `agent-core-java:0.1.12` 的 API 设计。0.1.12 仍提供 `BaseAgent.registerRail(...)`、`AgentRail`、`Runner.runAgent(...)` 与 `CheckpointerFactory`，因此当前 adapter 以这些 API 为边界；不要把其他分支上的新运行时模型当成本文依据。
+>
+> Sample 约束：如果某个 examples 模块仍显式依赖 OpenJiuwen `agent-core-java:0.1.7`，则它与本文定义的 OpenJiuwen 0.1.12 native memory rail 不是同一条验证路径。该 sample 可以继续验证基础 A2A / AgentScope / OpenJiuwen ReAct 兼容路径，但不能用来证明 `openJiuwenExternalMemoryRail(...)` 可运行；启用该 rail 前应先把 sample 依赖升级到 0.1.12 或提供等价的 OpenJiuwen memory 包。
 
 ### 4.3 `OpenJiuwenMessageAdapter`
 
