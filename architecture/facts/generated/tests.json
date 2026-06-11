@@ -147,7 +147,7 @@
       "module" : "agent-runtime",
       "fqn" : "com.huawei.ascend.runtime.architecture.SpanTenantAttributeRequiredTest",
       "kind" : "test_class",
-      "test_methods" : [ "any_future_span_emitter_must_depend_on_RunContext()V", "no_span_emitter_exists_without_run_context_dependency()V" ],
+      "test_methods" : [ "any_future_span_emitter_must_depend_on_a_runtime_tenant_carrier()V", "no_span_emitter_exists_without_run_context_dependency()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/architecture/SpanTenantAttributeRequiredTest.java"
     }
   }, {
@@ -227,24 +227,8 @@
       "module" : "agent-runtime",
       "fqn" : "com.huawei.ascend.runtime.boot.RuntimeAutoConfigurationTest",
       "kind" : "test_class",
-      "test_methods" : [ "autoConfigurationLoadsWithoutActuatorOnClasspath()V", "customTaskStoreSuppressesInMemoryDefault()V", "disabledYieldsOff()V", "eventBusProcessorRunsOnDaemonThread()V", "fullLevelIsParsedWithMaskAndTruncate()V", "invalidMaskPatternFailsSafeToTheDefaultNotABootCrash()V", "noBroadExecutorBeanExposed()V", "offLevelYieldsOff()V", "unrecognizedLevelFallsBackToSummary()V" ],
+      "test_methods" : [ "autoConfigurationLoadsWithoutActuatorOnClasspath()V", "customTaskStoreSuppressesInMemoryDefault()V", "disabledYieldsOff()V", "enabledCarriesMaskAndTruncate()V", "eventBusProcessorRunsOnDaemonThread()V", "invalidMaskPatternFailsSafeToTheDefaultNotABootCrash()V", "noBroadExecutorBeanExposed()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/boot/RuntimeAutoConfigurationTest.java"
-    }
-  }, {
-    "fact_id" : "test/com-huawei-ascend-runtime-boot-runtimeremoteagentautoconfigurationtest",
-    "fact_kind" : "test",
-    "source_kind" : "test",
-    "source_path" : "agent-runtime/target/test-classes/com/huawei/ascend/runtime/boot/RuntimeRemoteAgentAutoConfigurationTest.class",
-    "source_symbol" : "com.huawei.ascend.runtime.boot.RuntimeRemoteAgentAutoConfigurationTest",
-    "extractor" : "tools/architecture-workspace#TestInventoryFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.boot.RuntimeRemoteAgentAutoConfigurationTest",
-      "kind" : "test_class",
-      "test_methods" : [ "remoteAgentCatalogCreationDoesNotRefreshSynchronously()V", "remoteAgentCatalogRefresherRunsOnBackgroundExecutor()V", "remoteAgentCatalogRefresherTriggersDiscoveryAfterStartup()V", "remoteAgentPropertiesExposeConfiguredUrls()V", "remoteAgentUrlPropertyWiresCatalogOutboundServiceAndExecutorSupport()V" ],
-      "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/boot/RuntimeRemoteAgentAutoConfigurationTest.java"
     }
   }, {
     "fact_id" : "test/com-huawei-ascend-runtime-engine-a2a-a2aagentexecutortest",
@@ -259,7 +243,7 @@
       "module" : "agent-runtime",
       "fqn" : "com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutorTest",
       "kind" : "test_class",
-      "test_methods" : [ "agentStateKeyFollowsContextIdAcrossTasks()V", "cancelClosesInFlightStreamAndSuppressesTeardownFailure()V", "cancelNotifiesHandlerAndCancelsEmitter()V", "cancelPropagatesToRemoteTaskWhenParentIsWaitingForRemoteAgent()V", "closedReadinessGate_rejectsExecutionRetryable()V", "emptyResultStream_finalizesTask()V", "executionException_carriesStructuredErrorDataPart()V", "executionException_failsWithReason()V", "executionException_marksUpstreamFailureRetryable()V", "failedResult_carriesErrorReasonToTheWire()V", "inputRequiredMetadataMergesRemoteResultMetadata()V", "malformedRequestContext_failsTaskInsteadOfStrandingWorking()V", "nestedRemoteInvocationAfterRemoteResumeFailsParentTask()V", "noHandler_rejectsTaskWithReason()V", "outputOnlyStream_finalizesTask()V", "remoteContinuationMissingRouteMetadataFailsWithoutCallingRemote()V", "remoteContinuationResumesExistingRemoteTaskWithoutCallingLocalHandlerFirst()V", "remoteInputRequiredDoesNotReenterLocalHandlerAndUsesNonFinalInputRequired()V", "remoteInvocationInvokesOutboundThenReentersLocalHandlerWithToolResult()V", "remoteInvocationWithoutTerminalResultReentersLocalHandlerWithToolError()V", "remoteProgressIsProjectedWhileOutboundInvocationIsStillRunning()V", "streamingOutputFormsSingleAppendingArtifact()V", "submitPrecedesStartWork()V", "trajectoryEnabled_drainsLifecycleEventsToTrajectoryLoggerWithMdc()V", "trajectoryNorthbound_deliversTrajectoryArtifactBeforeTerminal()V", "trajectory_noNorthboundByDefault()V", "transportTenantOutranksClientDeclaredTenant()V" ],
+      "test_methods" : [ "agentStateKeyFollowsContextIdAcrossTasks()V", "cancelClosesInFlightStreamAndSuppressesTeardownFailure()V", "cancelNotifiesHandlerAndCancelsEmitter()V", "cancelPropagatesToRemoteTaskWhenParentIsWaitingForRemoteAgent()V", "closedReadinessGate_rejectsExecutionRetryable()V", "emptyResultStream_finalizesTask()V", "executionException_carriesStructuredErrorDataPart()V", "executionException_failsWithReason()V", "executionException_marksUpstreamFailureRetryable()V", "failedResult_carriesErrorReasonToTheWire()V", "inputRequiredMetadataMergesRemoteResultMetadata()V", "malformedRequestContext_failsTaskInsteadOfStrandingWorking()V", "nestedRemoteInvocationAfterRemoteResumeFailsParentTask()V", "noHandler_rejectsTaskWithReason()V", "outputOnlyStream_finalizesTask()V", "remoteContinuationMissingRouteMetadataFailsWithoutCallingRemote()V", "remoteContinuationResumesExistingRemoteTaskWithoutCallingLocalHandlerFirst()V", "remoteInputRequiredDoesNotReenterLocalHandlerAndUsesNonFinalInputRequired()V", "remoteInvocationInvokesOutboundThenReentersLocalHandlerWithToolResult()V", "remoteInvocationWithoutTerminalResultReentersLocalHandlerWithToolError()V", "remoteProgressIsProjectedWhileOutboundInvocationIsStillRunning()V", "streamingOutputFormsSingleAppendingArtifact()V", "submitPrecedesStartWork()V", "trajectoryEnabled_feedsFactorySinksSynchronouslyWithCorrelation()V", "trajectoryLevelOffMetadataOptsTheRequestOut()V", "trajectoryNorthbound_deliversTrajectoryArtifactBeforeTerminal()V", "trajectory_noNorthboundByDefault()V", "transportTenantOutranksClientDeclaredTenant()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/a2a/A2aAgentExecutorTest.java"
     }
   }, {
@@ -339,7 +323,7 @@
       "module" : "agent-runtime",
       "fqn" : "com.huawei.ascend.runtime.engine.agentscope.AgentScopeRuntimeHandlerTest",
       "kind" : "test_class",
-      "test_methods" : [ "agentHandlerStreamsAgentScopeEventsThroughRuntimeResultModel()V", "fullLevelEmitsRunLifecycleWithProgressAndErrorFromAgentScopeStream()V", "harnessHandlerMapsHumanInputEventToRuntimeInterrupt()V", "summaryLevelDropsProgressButKeepsErrorAndLifecycle()V" ],
+      "test_methods" : [ "agentHandlerStreamsAgentScopeEventsThroughRuntimeResultModel()V", "enabledEmitsRunLifecycleWithProgressAndErrorFromAgentScopeStream()V", "harnessHandlerMapsHumanInputEventToRuntimeInterrupt()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/agentscope/AgentScopeRuntimeHandlerTest.java"
     }
   }, {
@@ -403,7 +387,7 @@
       "module" : "agent-runtime",
       "fqn" : "com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandlerTest",
       "kind" : "test_class",
-      "test_methods" : [ "executeFlattensStreamReturnedByOpenJiuwenRunner()V", "executeInstallsOpenJiuwenRailsWhenSubclassOptsIn()V", "executeInstallsRuntimeToolsAfterOpenJiuwenRailsBeforeRunningAgent()V", "executeMapsOpenJiuwenFailuresToErrorResultMap()V", "executeUsesStableAgentStateConversationIdWithoutDefaultRail()V", "fullLevelEmitsOpenJiuwenModelCallTrajectory()V", "memoryMessageAdapterConvertsOpenJiuwenMessagesBothWays()V", "resultAdapterPassesThroughAgentExecutionResult()V", "runLevelFailureEmitsErrorTrajectoryEvent()V", "summaryLevelDropsOpenJiuwenModelCalls()V" ],
+      "test_methods" : [ "enabledEmitsOpenJiuwenModelCallTrajectory()V", "executeFlattensStreamReturnedByOpenJiuwenRunner()V", "executeInstallsOpenJiuwenRailsWhenSubclassOptsIn()V", "executeInstallsRuntimeToolsAfterOpenJiuwenRailsBeforeRunningAgent()V", "executeMapsOpenJiuwenFailuresToErrorResultMap()V", "executeUsesStableAgentStateConversationIdWithoutDefaultRail()V", "memoryMessageAdapterConvertsOpenJiuwenMessagesBothWays()V", "resultAdapterPassesThroughAgentExecutionResult()V", "runLevelFailureEmitsErrorTrajectoryEvent()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/openjiuwen/OpenJiuwenAgentRuntimeHandlerTest.java"
     }
   }, {
@@ -455,22 +439,6 @@
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/openjiuwen/OpenJiuwenTrajectoryRailTest.java"
     }
   }, {
-    "fact_id" : "test/com-huawei-ascend-runtime-engine-service-remoteagentcatalogtest",
-    "fact_kind" : "test",
-    "source_kind" : "test",
-    "source_path" : "agent-runtime/target/test-classes/com/huawei/ascend/runtime/engine/service/RemoteAgentCatalogTest.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.service.RemoteAgentCatalogTest",
-    "extractor" : "tools/architecture-workspace#TestInventoryFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.service.RemoteAgentCatalogTest",
-      "kind" : "test_class",
-      "test_methods" : [ "differentRuntimeUrlsWithSameCardNameExposeDistinctRemoteToolsAndEndpoints()V", "equivalentRuntimeAndCardUrlsRegisterOnlyOneRemoteTool()V", "failedRefreshKeepsUrlPendingAndDoesNotExposeTool()V", "refreshDiscoversCardAndBuildsToolSpecAndEndpoint()V", "relativeJsonRpcEndpointIsResolvedAgainstConfiguredRuntimeUrl()V" ],
-      "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/service/RemoteAgentCatalogTest.java"
-    }
-  }, {
     "fact_id" : "test/com-huawei-ascend-runtime-engine-spi-abstractagentruntimehandlertest",
     "fact_kind" : "test",
     "source_kind" : "test",
@@ -483,7 +451,7 @@
       "module" : "agent-runtime",
       "fqn" : "com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandlerTest",
       "kind" : "test_class",
-      "test_methods" : [ "fullLevelEmitsLifecycleWithMonotonicSeqAndCorrelation()V", "fullLevelMasksSensitiveArgs()V", "offLevelEmitsNothing()V", "summaryLevelDropsOptionalTierModelCall()V", "unsupportedKindIsDroppedEvenAtFull()V" ],
+      "test_methods" : [ "disabledEmitsNothing()V", "enabledEmitsLifecycleWithMonotonicSeqAndCorrelation()V", "enabledMasksSensitiveArgs()V", "unsupportedKindIsDropped()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/spi/AbstractAgentRuntimeHandlerTest.java"
     }
   }, {
@@ -519,22 +487,6 @@
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/spi/CompositeTrajectorySinkTest.java"
     }
   }, {
-    "fact_id" : "test/com-huawei-ascend-runtime-engine-spi-queuetrajectorychanneltest",
-    "fact_kind" : "test",
-    "source_kind" : "test",
-    "source_path" : "agent-runtime/target/test-classes/com/huawei/ascend/runtime/engine/spi/QueueTrajectoryChannelTest.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.spi.QueueTrajectoryChannelTest",
-    "extractor" : "tools/architecture-workspace#TestInventoryFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.spi.QueueTrajectoryChannelTest",
-      "kind" : "test_class",
-      "test_methods" : [ "drainsPublishedEventsInOrderThenStopsAtClose()V", "noopChannelDrainsEmpty()V", "publishAfterCloseIsIgnoredAndDrainTerminates()V" ],
-      "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/spi/QueueTrajectoryChannelTest.java"
-    }
-  }, {
     "fact_id" : "test/com-huawei-ascend-runtime-engine-spi-stampingtrajectoryemittertest",
     "fact_kind" : "test",
     "source_kind" : "test",
@@ -547,7 +499,7 @@
       "module" : "agent-runtime",
       "fqn" : "com.huawei.ascend.runtime.engine.spi.StampingTrajectoryEmitterTest",
       "kind" : "test_class",
-      "test_methods" : [ "endsCarryDurationStartsDoNot()V", "filteredOptionalTierKeepsParentChainBalanced()V", "pointEventHangsOffOpenSpan()V", "spanPairsShareIdAndChainParents()V", "unbalancedEndIsToleratedAndStillStamps()V" ],
+      "test_methods" : [ "endsCarryDurationStartsDoNot()V", "filteredUnsupportedKindKeepsParentChainBalanced()V", "payloadsAreMaskedAndTruncated()V", "pointEventHangsOffOpenSpan()V", "spanPairsShareIdAndChainParents()V", "unbalancedEndIsToleratedAndStillStamps()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/spi/StampingTrajectoryEmitterTest.java"
     }
   }, {
@@ -567,22 +519,6 @@
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/spi/TrajectoryEventTest.java"
     }
   }, {
-    "fact_id" : "test/com-huawei-ascend-runtime-engine-spi-trajectoryleveltest",
-    "fact_kind" : "test",
-    "source_kind" : "test",
-    "source_path" : "agent-runtime/target/test-classes/com/huawei/ascend/runtime/engine/spi/TrajectoryLevelTest.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.spi.TrajectoryLevelTest",
-    "extractor" : "tools/architecture-workspace#TestInventoryFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.spi.TrajectoryLevelTest",
-      "kind" : "test_class",
-      "test_methods" : [ "nullOrBlankFallsBackToTheProvidedDefault()V", "parsesCaseInsensitivelyAndTrimmed()V", "unrecognizedValueFallsBackToTheProvidedDefault()V" ],
-      "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/spi/TrajectoryLevelTest.java"
-    }
-  }, {
     "fact_id" : "test/com-huawei-ascend-runtime-engine-spi-trajectorymaskingtest",
     "fact_kind" : "test",
     "source_kind" : "test",
@@ -595,8 +531,40 @@
       "module" : "agent-runtime",
       "fqn" : "com.huawei.ascend.runtime.engine.spi.TrajectoryMaskingTest",
       "kind" : "test_class",
-      "test_methods" : [ "redactsSensitiveMapKeysRecursively()V", "truncatesLongStringsOnlyAtSummary()V", "walksListsAndPassesScalars()V" ],
+      "test_methods" : [ "redactsSensitiveMapKeysRecursively()V", "truncatesLongStringsAtTheConfiguredBound()V", "walksListsAndPassesScalars()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/spi/TrajectoryMaskingTest.java"
+    }
+  }, {
+    "fact_id" : "test/com-huawei-ascend-service-remote-remoteagentautoconfigurationtest",
+    "fact_kind" : "test",
+    "source_kind" : "test",
+    "source_path" : "agent-service/target/test-classes/com/huawei/ascend/service/remote/RemoteAgentAutoConfigurationTest.class",
+    "source_symbol" : "com.huawei.ascend.service.remote.RemoteAgentAutoConfigurationTest",
+    "extractor" : "tools/architecture-workspace#TestInventoryFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-service",
+      "fqn" : "com.huawei.ascend.service.remote.RemoteAgentAutoConfigurationTest",
+      "kind" : "test_class",
+      "test_methods" : [ "remoteAgentCatalogCreationDoesNotRefreshSynchronously()V", "remoteAgentCatalogRefresherRunsOnBackgroundExecutor()V", "remoteAgentCatalogRefresherTriggersDiscoveryAfterStartup()V", "remoteAgentPropertiesExposeConfiguredUrls()V", "remoteAgentUrlPropertyWiresCatalogOutboundServiceAndExecutorSupport()V" ],
+      "source_file_guess" : "agent-service/src/test/java/com/huawei/ascend/service/remote/RemoteAgentAutoConfigurationTest.java"
+    }
+  }, {
+    "fact_id" : "test/com-huawei-ascend-service-remote-remoteagentcatalogtest",
+    "fact_kind" : "test",
+    "source_kind" : "test",
+    "source_path" : "agent-service/target/test-classes/com/huawei/ascend/service/remote/RemoteAgentCatalogTest.class",
+    "source_symbol" : "com.huawei.ascend.service.remote.RemoteAgentCatalogTest",
+    "extractor" : "tools/architecture-workspace#TestInventoryFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-service",
+      "fqn" : "com.huawei.ascend.service.remote.RemoteAgentCatalogTest",
+      "kind" : "test_class",
+      "test_methods" : [ "differentRuntimeUrlsWithSameCardNameExposeDistinctRemoteToolsAndEndpoints()V", "equivalentRuntimeAndCardUrlsRegisterOnlyOneRemoteTool()V", "failedRefreshKeepsUrlPendingAndDoesNotExposeTool()V", "refreshDiscoversCardAndBuildsToolSpecAndEndpoint()V", "relativeJsonRpcEndpointIsResolvedAgainstConfiguredRuntimeUrl()V" ],
+      "source_file_guess" : "agent-service/src/test/java/com/huawei/ascend/service/remote/RemoteAgentCatalogTest.java"
     }
   } ]
 }

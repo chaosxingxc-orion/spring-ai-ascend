@@ -780,48 +780,6 @@
       "public_methods" : [ "<init>(Ljava/util/List;Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;)V", "getPhase()I", "isRunning()Z", "start()V", "stop()V" ]
     }
   }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-boot-remoteagentproperties",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/boot/RemoteAgentProperties.class",
-    "source_symbol" : "com.huawei.ascend.runtime.boot.RemoteAgentProperties",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.boot.RemoteAgentProperties",
-      "kind" : "record",
-      "modifiers" : [ "public", "final" ],
-      "package" : "com.huawei.ascend.runtime.boot",
-      "super" : "java.lang.Record",
-      "interfaces" : [ ],
-      "annotations" : [ "org.springframework.boot.context.properties.ConfigurationProperties" ],
-      "public_methods" : [ "<init>(Ljava/util/List;)V", "equals(Ljava/lang/Object;)Z", "hashCode()I", "remoteAgents()Ljava/util/List;", "toString()Ljava/lang/String;", "urls()Ljava/util/List;" ],
-      "record_components" : [ "remoteAgents: Ljava/util/List;" ]
-    }
-  }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-boot-remoteagentproperties-remoteagent",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/boot/RemoteAgentProperties$RemoteAgent.class",
-    "source_symbol" : "com.huawei.ascend.runtime.boot.RemoteAgentProperties$RemoteAgent",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.boot.RemoteAgentProperties$RemoteAgent",
-      "kind" : "record",
-      "modifiers" : [ "public", "final" ],
-      "package" : "com.huawei.ascend.runtime.boot",
-      "super" : "java.lang.Record",
-      "interfaces" : [ ],
-      "annotations" : [ ],
-      "public_methods" : [ "<init>(Ljava/lang/String;)V", "equals(Ljava/lang/Object;)Z", "hashCode()I", "toString()Ljava/lang/String;", "url()Ljava/lang/String;" ],
-      "record_components" : [ "url: Ljava/lang/String;" ]
-    }
-  }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-boot-runtimeaccessproperties",
     "fact_kind" : "code_symbol",
     "source_kind" : "code",
@@ -859,7 +817,7 @@
       "super" : "java.lang.Object",
       "interfaces" : [ ],
       "annotations" : [ "org.springframework.boot.context.properties.EnableConfigurationProperties", "org.springframework.context.annotation.Configuration", "org.springframework.context.annotation.Import" ],
-      "public_methods" : [ "<init>()V", "a2aAgentCard(Lorg/springframework/beans/factory/ObjectProvider;Lorg/springframework/beans/factory/ObjectProvider;)Lorg/a2aproject/sdk/spec/AgentCard;", "a2aAgentExecutor(Lorg/springframework/beans/factory/ObjectProvider;Lorg/springframework/beans/factory/ObjectProvider;Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;Lcom/huawei/ascend/runtime/boot/TrajectoryProperties;Lorg/springframework/beans/factory/ObjectProvider;)Lorg/a2aproject/sdk/server/agentexecution/AgentExecutor;", "a2aConfigProvider()Lorg/a2aproject/sdk/server/config/A2AConfigProvider;", "a2aEventBus(Lorg/a2aproject/sdk/server/tasks/TaskStore;Lorg/a2aproject/sdk/server/events/QueueManager;Lorg/a2aproject/sdk/server/tasks/PushNotificationSender;Lorg/a2aproject/sdk/server/events/MainEventBus;)Lorg/a2aproject/sdk/server/events/MainEventBusProcessor;", "a2aMainEventBus()Lorg/a2aproject/sdk/server/events/MainEventBus;", "a2aPushConfigStore()Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;", "a2aPushSender(Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;)Lorg/a2aproject/sdk/server/tasks/PushNotificationSender;", "a2aQueueManager(Lorg/a2aproject/sdk/server/tasks/TaskStateProvider;Lorg/a2aproject/sdk/server/events/MainEventBus;)Lorg/a2aproject/sdk/server/events/QueueManager;", "a2aRequestHandler(Lorg/a2aproject/sdk/server/agentexecution/AgentExecutor;Lorg/a2aproject/sdk/server/tasks/TaskStore;Lorg/a2aproject/sdk/server/events/QueueManager;Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;Lorg/a2aproject/sdk/server/events/MainEventBusProcessor;Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;)Lorg/a2aproject/sdk/server/requesthandlers/RequestHandler;", "a2aServerExecutor()Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;", "a2aTaskStore()Lorg/a2aproject/sdk/server/tasks/InMemoryTaskStore;", "agentRuntimeLifecycle(Lorg/springframework/beans/factory/ObjectProvider;Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;)Lcom/huawei/ascend/runtime/boot/AgentRuntimeLifecycle;", "runtimeReadiness()Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;" ]
+      "public_methods" : [ "<init>()V", "a2aAgentCard(Lorg/springframework/beans/factory/ObjectProvider;Lorg/springframework/beans/factory/ObjectProvider;)Lorg/a2aproject/sdk/spec/AgentCard;", "a2aAgentExecutor(Lorg/springframework/beans/factory/ObjectProvider;Lorg/springframework/beans/factory/ObjectProvider;Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;Lcom/huawei/ascend/runtime/boot/TrajectoryProperties;Lorg/springframework/beans/factory/ObjectProvider;)Lorg/a2aproject/sdk/server/agentexecution/AgentExecutor;", "a2aConfigProvider()Lorg/a2aproject/sdk/server/config/A2AConfigProvider;", "a2aEventBus(Lorg/a2aproject/sdk/server/tasks/TaskStore;Lorg/a2aproject/sdk/server/events/QueueManager;Lorg/a2aproject/sdk/server/tasks/PushNotificationSender;Lorg/a2aproject/sdk/server/events/MainEventBus;)Lorg/a2aproject/sdk/server/events/MainEventBusProcessor;", "a2aMainEventBus()Lorg/a2aproject/sdk/server/events/MainEventBus;", "a2aPushConfigStore()Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;", "a2aPushSender(Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;)Lorg/a2aproject/sdk/server/tasks/PushNotificationSender;", "a2aQueueManager(Lorg/a2aproject/sdk/server/tasks/TaskStateProvider;Lorg/a2aproject/sdk/server/events/MainEventBus;)Lorg/a2aproject/sdk/server/events/QueueManager;", "a2aRequestHandler(Lorg/a2aproject/sdk/server/agentexecution/AgentExecutor;Lorg/a2aproject/sdk/server/tasks/TaskStore;Lorg/a2aproject/sdk/server/events/QueueManager;Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;Lorg/a2aproject/sdk/server/events/MainEventBusProcessor;Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;)Lorg/a2aproject/sdk/server/requesthandlers/RequestHandler;", "a2aServerExecutor()Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;", "a2aTaskStore()Lorg/a2aproject/sdk/server/tasks/InMemoryTaskStore;", "agentRuntimeLifecycle(Lorg/springframework/beans/factory/ObjectProvider;Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;)Lcom/huawei/ascend/runtime/boot/AgentRuntimeLifecycle;", "runtimeReadiness()Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-boot-runtimeautoconfiguration-a2aserverexecutor",
@@ -902,46 +860,6 @@
       "public_methods" : [ ]
     }
   }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-boot-runtimeautoconfiguration-remoteagentcatalogrefresher",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$RemoteAgentCatalogRefresher.class",
-    "source_symbol" : "com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration$RemoteAgentCatalogRefresher",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration$RemoteAgentCatalogRefresher",
-      "kind" : "class",
-      "modifiers" : [ "public", "final" ],
-      "package" : "com.huawei.ascend.runtime.boot",
-      "super" : "java.lang.Object",
-      "interfaces" : [ "org.springframework.context.SmartLifecycle" ],
-      "annotations" : [ ],
-      "public_methods" : [ "isRunning()Z", "start()V", "stop()V" ]
-    }
-  }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-boot-runtimeautoconfiguration-remoteagentconfiguration",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$RemoteAgentConfiguration.class",
-    "source_symbol" : "com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration$RemoteAgentConfiguration",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration$RemoteAgentConfiguration",
-      "kind" : "class",
-      "modifiers" : [ "public" ],
-      "package" : "com.huawei.ascend.runtime.boot",
-      "super" : "java.lang.Object",
-      "interfaces" : [ ],
-      "annotations" : [ "org.springframework.boot.autoconfigure.condition.ConditionalOnProperty", "org.springframework.boot.context.properties.EnableConfigurationProperties", "org.springframework.context.annotation.Configuration" ],
-      "public_methods" : [ "<init>()V", "a2aRemoteAgentOutboundAdapter(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentCatalog;)Lcom/huawei/ascend/runtime/engine/a2a/A2aRemoteAgentOutboundAdapter;", "a2aRemoteSupport(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentInvocationService;)Lcom/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor$RemoteSupport;", "openJiuwenRemoteToolInstaller(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentCatalog;Lorg/springframework/beans/factory/ObjectProvider;)Lcom/huawei/ascend/runtime/engine/openjiuwen/OpenJiuwenRemoteToolInstaller;", "remoteAgentCatalog(Lcom/huawei/ascend/runtime/boot/RemoteAgentProperties;)Lcom/huawei/ascend/runtime/engine/service/RemoteAgentCatalog;", "remoteAgentCatalogRefresher(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentCatalog;Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;)Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$RemoteAgentCatalogRefresher;", "remoteAgentInvocationService(Lcom/huawei/ascend/runtime/engine/a2a/A2aRemoteAgentOutboundAdapter;)Lcom/huawei/ascend/runtime/engine/service/RemoteAgentInvocationService;" ]
-    }
-  }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-boot-runtimereadiness",
     "fact_kind" : "code_symbol",
     "source_kind" : "code",
@@ -979,7 +897,7 @@
       "super" : "java.lang.Object",
       "interfaces" : [ ],
       "annotations" : [ "org.springframework.boot.context.properties.ConfigurationProperties" ],
-      "public_methods" : [ "<init>()V", "getDefaultLevel()Ljava/lang/String;", "getMask()Lcom/huawei/ascend/runtime/boot/TrajectoryProperties$Mask;", "getOtel()Lcom/huawei/ascend/runtime/boot/TrajectoryProperties$Otel;", "isEnabled()Z", "setDefaultLevel(Ljava/lang/String;)V", "setEnabled(Z)V" ]
+      "public_methods" : [ "<init>()V", "getMask()Lcom/huawei/ascend/runtime/boot/TrajectoryProperties$Mask;", "getOtel()Lcom/huawei/ascend/runtime/boot/TrajectoryProperties$Otel;", "isEnabled()Z", "setEnabled(Z)V" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-boot-trajectoryproperties-mask",
@@ -1060,7 +978,7 @@
       "super" : "java.lang.Object",
       "interfaces" : [ "org.a2aproject.sdk.server.agentexecution.AgentExecutor" ],
       "annotations" : [ ],
-      "public_methods" : [ "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;)V", "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;Lcom/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor$RemoteSupport;)V", "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;Lcom/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor$RemoteSupport;Ljava/util/function/BooleanSupplier;)V", "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;Lcom/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor$RemoteSupport;Ljava/util/function/BooleanSupplier;Ljava/util/concurrent/Executor;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;Ljava/util/List;)V", "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;Ljava/util/concurrent/Executor;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;)V", "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;Ljava/util/function/BooleanSupplier;)V", "cancel(Lorg/a2aproject/sdk/server/agentexecution/RequestContext;Lorg/a2aproject/sdk/server/tasks/AgentEmitter;)V", "execute(Lorg/a2aproject/sdk/server/agentexecution/RequestContext;Lorg/a2aproject/sdk/server/tasks/AgentEmitter;)V" ]
+      "public_methods" : [ "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;)V", "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;Lcom/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor$RemoteSupport;)V", "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;Lcom/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor$RemoteSupport;Ljava/util/function/BooleanSupplier;)V", "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;Lcom/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor$RemoteSupport;Ljava/util/function/BooleanSupplier;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;Ljava/util/List;)V", "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;Ljava/util/List;)V", "<init>(Lcom/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler;Ljava/util/function/BooleanSupplier;)V", "cancel(Lorg/a2aproject/sdk/server/agentexecution/RequestContext;Lorg/a2aproject/sdk/server/tasks/AgentEmitter;)V", "execute(Lorg/a2aproject/sdk/server/agentexecution/RequestContext;Lorg/a2aproject/sdk/server/tasks/AgentEmitter;)V" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-a2a-a2aagentexecutor-inflightexecution",
@@ -1104,48 +1022,6 @@
       "public_methods" : [ "<init>(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentInvocationService;)V", "forOutbound(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentInvocationService$OutboundPort;)Lcom/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor$RemoteSupport;" ]
     }
   }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-a2a-a2aagentexecutor-routedecision",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor$RouteDecision.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor$RouteDecision",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor$RouteDecision",
-      "kind" : "record",
-      "modifiers" : [ "final" ],
-      "package" : "com.huawei.ascend.runtime.engine.a2a",
-      "super" : "java.lang.Record",
-      "interfaces" : [ ],
-      "annotations" : [ ],
-      "public_methods" : [ "equals(Ljava/lang/Object;)Z", "hashCode()I", "remoteInvocation()Lcom/huawei/ascend/runtime/engine/spi/AgentExecutionResult$RemoteInvocation;", "stop()Z", "terminalAction()Ljava/lang/Runnable;", "terminalRouted()Z", "toString()Ljava/lang/String;" ],
-      "record_components" : [ "stop: Z", "remoteInvocation: Lcom/huawei/ascend/runtime/engine/spi/AgentExecutionResult$RemoteInvocation;", "terminalRouted: Z", "terminalAction: Ljava/lang/Runnable;" ]
-    }
-  }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-a2a-a2aagentexecutor-trajectorypipeline",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor$TrajectoryPipeline.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor$TrajectoryPipeline",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor$TrajectoryPipeline",
-      "kind" : "record",
-      "modifiers" : [ "final" ],
-      "package" : "com.huawei.ascend.runtime.engine.a2a",
-      "super" : "java.lang.Record",
-      "interfaces" : [ ],
-      "annotations" : [ ],
-      "public_methods" : [ "channel()Lcom/huawei/ascend/runtime/engine/spi/TrajectoryChannel;", "drain()Ljava/util/concurrent/CompletableFuture;", "equals(Ljava/lang/Object;)Z", "hashCode()I", "northbound()Lcom/huawei/ascend/runtime/engine/a2a/A2aNorthboundSink;", "toString()Ljava/lang/String;" ],
-      "record_components" : [ "channel: Lcom/huawei/ascend/runtime/engine/spi/TrajectoryChannel;", "northbound: Lcom/huawei/ascend/runtime/engine/a2a/A2aNorthboundSink;", "drain: Ljava/util/concurrent/CompletableFuture;" ]
-    }
-  }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-a2a-a2aparenttaskprojector-remoteoutcome",
     "fact_kind" : "code_symbol",
     "source_kind" : "code",
@@ -1184,7 +1060,69 @@
       "super" : "java.lang.Object",
       "interfaces" : [ "com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService$OutboundPort" ],
       "annotations" : [ ],
-      "public_methods" : [ "<init>(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentCatalog;)V", "cancel(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentInvocationService$RemoteTaskReference;)V", "invoke(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentInvocationService$RemoteAgentRequest;Ljava/util/function/Consumer;)Ljava/util/List;" ]
+      "public_methods" : [ "<init>(Lcom/huawei/ascend/runtime/engine/spi/RemoteAgentCatalogPort;)V", "cancel(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentInvocationService$RemoteTaskReference;)V", "invoke(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentInvocationService$RemoteAgentRequest;Ljava/util/function/Consumer;)Ljava/util/List;" ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-a2a-a2aremoteinvocationorchestrator-localresume",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/a2a/A2aRemoteInvocationOrchestrator$LocalResume.class",
+    "source_symbol" : "com.huawei.ascend.runtime.engine.a2a.A2aRemoteInvocationOrchestrator$LocalResume",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-runtime",
+      "fqn" : "com.huawei.ascend.runtime.engine.a2a.A2aRemoteInvocationOrchestrator$LocalResume",
+      "kind" : "interface",
+      "modifiers" : [ "abstract" ],
+      "package" : "com.huawei.ascend.runtime.engine.a2a",
+      "super" : "java.lang.Object",
+      "interfaces" : [ ],
+      "annotations" : [ "java.lang.FunctionalInterface" ],
+      "public_methods" : [ "consume(Lcom/huawei/ascend/runtime/engine/AgentExecutionContext;Lorg/a2aproject/sdk/server/tasks/AgentEmitter;Ljava/lang/String;Ljava/lang/String;Ljava/util/concurrent/atomic/AtomicBoolean;Ljava/util/concurrent/atomic/AtomicBoolean;)Lcom/huawei/ascend/runtime/engine/a2a/A2aResultRouter$RouteDecision;" ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-a2a-a2aresultrouter-routedecision",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/a2a/A2aResultRouter$RouteDecision.class",
+    "source_symbol" : "com.huawei.ascend.runtime.engine.a2a.A2aResultRouter$RouteDecision",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-runtime",
+      "fqn" : "com.huawei.ascend.runtime.engine.a2a.A2aResultRouter$RouteDecision",
+      "kind" : "record",
+      "modifiers" : [ "final" ],
+      "package" : "com.huawei.ascend.runtime.engine.a2a",
+      "super" : "java.lang.Record",
+      "interfaces" : [ ],
+      "annotations" : [ ],
+      "public_methods" : [ "equals(Ljava/lang/Object;)Z", "hashCode()I", "remoteInvocation()Lcom/huawei/ascend/runtime/engine/spi/AgentExecutionResult$RemoteInvocation;", "stop()Z", "terminalAction()Ljava/lang/Runnable;", "terminalRouted()Z", "toString()Ljava/lang/String;" ],
+      "record_components" : [ "stop: Z", "remoteInvocation: Lcom/huawei/ascend/runtime/engine/spi/AgentExecutionResult$RemoteInvocation;", "terminalRouted: Z", "terminalAction: Ljava/lang/Runnable;" ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-a2a-a2atrajectorysupport-trajectoryflow",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/a2a/A2aTrajectorySupport$TrajectoryFlow.class",
+    "source_symbol" : "com.huawei.ascend.runtime.engine.a2a.A2aTrajectorySupport$TrajectoryFlow",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-runtime",
+      "fqn" : "com.huawei.ascend.runtime.engine.a2a.A2aTrajectorySupport$TrajectoryFlow",
+      "kind" : "record",
+      "modifiers" : [ "final" ],
+      "package" : "com.huawei.ascend.runtime.engine.a2a",
+      "super" : "java.lang.Record",
+      "interfaces" : [ ],
+      "annotations" : [ ],
+      "public_methods" : [ "equals(Ljava/lang/Object;)Z", "hashCode()I", "northbound()Lcom/huawei/ascend/runtime/engine/a2a/A2aNorthboundSink;", "sink()Lcom/huawei/ascend/runtime/engine/spi/TrajectorySink;", "toString()Ljava/lang/String;" ],
+      "record_components" : [ "sink: Lcom/huawei/ascend/runtime/engine/spi/TrajectorySink;", "northbound: Lcom/huawei/ascend/runtime/engine/a2a/A2aNorthboundSink;" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-a2a-messages",
@@ -1264,7 +1202,7 @@
       "super" : "java.lang.Object",
       "interfaces" : [ ],
       "annotations" : [ ],
-      "public_methods" : [ "<init>(Lcom/huawei/ascend/runtime/common/RuntimeIdentity;Ljava/lang/String;Ljava/util/List;Ljava/util/Map;)V", "<init>(Lcom/huawei/ascend/runtime/common/RuntimeIdentity;Ljava/lang/String;Ljava/util/List;Ljava/util/Map;Ljava/lang/String;Ljava/util/Map;)V", "getAgentState()Ljava/util/Optional;", "getAgentStateKey()Ljava/lang/String;", "getInputType()Ljava/lang/String;", "getMessages()Ljava/util/List;", "getScope()Lcom/huawei/ascend/runtime/common/RuntimeIdentity;", "getTrajectoryRuntime()Lcom/huawei/ascend/runtime/engine/spi/TrajectoryRuntime;", "getVariables()Ljava/util/Map;", "replaceAgentState(Ljava/util/Map;)Ljava/util/Map;", "setTrajectoryRuntime(Lcom/huawei/ascend/runtime/engine/spi/TrajectoryRuntime;)V" ]
+      "public_methods" : [ "<init>(Lcom/huawei/ascend/runtime/common/RuntimeIdentity;Ljava/lang/String;Ljava/util/List;Ljava/util/Map;)V", "<init>(Lcom/huawei/ascend/runtime/common/RuntimeIdentity;Ljava/lang/String;Ljava/util/List;Ljava/util/Map;Ljava/lang/String;Ljava/util/Map;)V", "getAgentState()Ljava/util/Optional;", "getAgentStateKey()Ljava/lang/String;", "getInputType()Ljava/lang/String;", "getMessages()Ljava/util/List;", "getScope()Lcom/huawei/ascend/runtime/common/RuntimeIdentity;", "getTrajectoryEmitter()Lcom/huawei/ascend/runtime/engine/spi/TrajectoryEmitter;", "getVariables()Ljava/util/Map;", "replaceAgentState(Ljava/util/Map;)Ljava/util/Map;", "setTrajectoryEmitter(Lcom/huawei/ascend/runtime/engine/spi/TrajectoryEmitter;)V" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-agentscope-agentscopeagent",
@@ -1749,67 +1687,6 @@
       "public_methods" : [ "<init>()V", "map(Ljava/util/Map;)Lcom/huawei/ascend/runtime/engine/spi/AgentExecutionResult;" ]
     }
   }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-service-remoteagentcatalog",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/service/RemoteAgentCatalog.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog",
-      "kind" : "class",
-      "modifiers" : [ "public" ],
-      "package" : "com.huawei.ascend.runtime.engine.service",
-      "super" : "java.lang.Object",
-      "interfaces" : [ ],
-      "annotations" : [ ],
-      "public_methods" : [ "<init>(Ljava/util/List;)V", "availableToolSpecs()Ljava/util/List;", "endpoint(Ljava/lang/String;)Ljava/lang/String;", "pendingUrls()Ljava/util/List;", "refreshPending()V" ]
-    }
-  }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-service-remoteagentcatalog-entry",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/service/RemoteAgentCatalog$Entry.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog$Entry",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog$Entry",
-      "kind" : "class",
-      "modifiers" : [ "final" ],
-      "package" : "com.huawei.ascend.runtime.engine.service",
-      "super" : "java.lang.Object",
-      "interfaces" : [ ],
-      "annotations" : [ ],
-      "public_methods" : [ ]
-    }
-  }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-service-remoteagentcatalog-remoteagenttoolspec",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/service/RemoteAgentCatalog$RemoteAgentToolSpec.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog$RemoteAgentToolSpec",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog$RemoteAgentToolSpec",
-      "kind" : "record",
-      "modifiers" : [ "public", "final" ],
-      "package" : "com.huawei.ascend.runtime.engine.service",
-      "super" : "java.lang.Record",
-      "interfaces" : [ ],
-      "annotations" : [ ],
-      "public_methods" : [ "<init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;)V", "description()Ljava/lang/String;", "equals(Ljava/lang/Object;)Z", "hashCode()I", "inputSchema()Ljava/util/Map;", "remoteAgentId()Ljava/lang/String;", "toString()Ljava/lang/String;", "toolName()Ljava/lang/String;" ],
-      "record_components" : [ "remoteAgentId: Ljava/lang/String;", "toolName: Ljava/lang/String;", "description: Ljava/lang/String;", "inputSchema: Ljava/util/Map;" ]
-    }
-  }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-service-remoteagentinvocationservice",
     "fact_kind" : "code_symbol",
     "source_kind" : "code",
@@ -1971,7 +1848,7 @@
       "super" : "java.lang.Object",
       "interfaces" : [ "com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler", "com.huawei.ascend.runtime.engine.spi.TrajectorySource" ],
       "annotations" : [ ],
-      "public_methods" : [ "agentId()Ljava/lang/String;", "execute(Lcom/huawei/ascend/runtime/engine/AgentExecutionContext;)Ljava/util/stream/Stream;", "isHealthy()Z", "openTrajectory(Lcom/huawei/ascend/runtime/engine/AgentExecutionContext;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;)Lcom/huawei/ascend/runtime/engine/spi/TrajectoryChannel;" ]
+      "public_methods" : [ "agentId()Ljava/lang/String;", "execute(Lcom/huawei/ascend/runtime/engine/AgentExecutionContext;)Ljava/util/stream/Stream;", "isHealthy()Z", "openTrajectory(Lcom/huawei/ascend/runtime/engine/AgentExecutionContext;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySink;)V" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-agentcardprovider",
@@ -2177,24 +2054,45 @@
       "record_components" : [ "id: Ljava/lang/String;", "role: Ljava/lang/String;", "content: Ljava/lang/String;", "metadata: Ljava/util/Map;" ]
     }
   }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-queuetrajectorychannel",
+    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-remoteagentcatalogport",
     "fact_kind" : "code_symbol",
     "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/spi/QueueTrajectoryChannel.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.spi.QueueTrajectoryChannel",
+    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/spi/RemoteAgentCatalogPort.class",
+    "source_symbol" : "com.huawei.ascend.runtime.engine.spi.RemoteAgentCatalogPort",
     "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
     "extractor_version" : "0.1.0-SNAPSHOT",
     "repo_commit" : "0000000000000000000000000000000000000000",
     "observed_value" : {
       "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.spi.QueueTrajectoryChannel",
-      "kind" : "class",
-      "modifiers" : [ "public", "final" ],
+      "fqn" : "com.huawei.ascend.runtime.engine.spi.RemoteAgentCatalogPort",
+      "kind" : "interface",
+      "modifiers" : [ "public", "abstract" ],
       "package" : "com.huawei.ascend.runtime.engine.spi",
       "super" : "java.lang.Object",
-      "interfaces" : [ "com.huawei.ascend.runtime.engine.spi.TrajectoryChannel" ],
+      "interfaces" : [ ],
       "annotations" : [ ],
-      "public_methods" : [ "<init>()V", "close()V", "drain()Ljava/util/stream/Stream;", "publish(Lcom/huawei/ascend/runtime/engine/spi/TrajectoryEvent;)V" ]
+      "public_methods" : [ "availableToolSpecs()Ljava/util/List;", "endpoint(Ljava/lang/String;)Ljava/lang/String;", "pendingUrls()Ljava/util/List;", "refreshPending()V" ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-remoteagentcatalogport-remoteagenttoolspec",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/spi/RemoteAgentCatalogPort$RemoteAgentToolSpec.class",
+    "source_symbol" : "com.huawei.ascend.runtime.engine.spi.RemoteAgentCatalogPort$RemoteAgentToolSpec",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-runtime",
+      "fqn" : "com.huawei.ascend.runtime.engine.spi.RemoteAgentCatalogPort$RemoteAgentToolSpec",
+      "kind" : "record",
+      "modifiers" : [ "public", "final" ],
+      "package" : "com.huawei.ascend.runtime.engine.spi",
+      "super" : "java.lang.Record",
+      "interfaces" : [ ],
+      "annotations" : [ ],
+      "public_methods" : [ "<init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;)V", "description()Ljava/lang/String;", "equals(Ljava/lang/Object;)Z", "hashCode()I", "inputSchema()Ljava/util/Map;", "remoteAgentId()Ljava/lang/String;", "toString()Ljava/lang/String;", "toolName()Ljava/lang/String;" ],
+      "record_components" : [ "remoteAgentId: Ljava/lang/String;", "toolName: Ljava/lang/String;", "description: Ljava/lang/String;", "inputSchema: Ljava/util/Map;" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-stampingtrajectoryemitter",
@@ -2214,7 +2112,7 @@
       "super" : "java.lang.Object",
       "interfaces" : [ "com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter" ],
       "annotations" : [ ],
-      "public_methods" : [ "<init>(Lcom/huawei/ascend/runtime/engine/spi/TrajectoryChannel;Lcom/huawei/ascend/runtime/common/RuntimeIdentity;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;Ljava/util/Set;)V", "emit(Lcom/huawei/ascend/runtime/engine/spi/TrajectoryDraft;)V" ]
+      "public_methods" : [ "<init>(Lcom/huawei/ascend/runtime/engine/spi/TrajectorySink;Lcom/huawei/ascend/runtime/common/RuntimeIdentity;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;Ljava/util/Set;)V", "emit(Lcom/huawei/ascend/runtime/engine/spi/TrajectoryDraft;)V" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-stampingtrajectoryemitter-spanframe",
@@ -2277,26 +2175,6 @@
       "interfaces" : [ ],
       "annotations" : [ "java.lang.FunctionalInterface" ],
       "public_methods" : [ "adapt(Ljava/util/stream/Stream;)Ljava/util/stream/Stream;" ]
-    }
-  }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-trajectorychannel",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/spi/TrajectoryChannel.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.spi.TrajectoryChannel",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.spi.TrajectoryChannel",
-      "kind" : "interface",
-      "modifiers" : [ "public", "abstract" ],
-      "package" : "com.huawei.ascend.runtime.engine.spi",
-      "super" : "java.lang.Object",
-      "interfaces" : [ "java.lang.AutoCloseable" ],
-      "annotations" : [ ],
-      "public_methods" : [ "close()V", "drain()Ljava/util/stream/Stream;", "publish(Lcom/huawei/ascend/runtime/engine/spi/TrajectoryEvent;)V" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-trajectorydraft",
@@ -2423,26 +2301,6 @@
       "record_components" : [ "inputTokens: Ljava/lang/Integer;", "outputTokens: Ljava/lang/Integer;", "latencyMs: Ljava/lang/Double;", "model: Ljava/lang/String;" ]
     }
   }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-trajectorylevel",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/spi/TrajectoryLevel.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.spi.TrajectoryLevel",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.spi.TrajectoryLevel",
-      "kind" : "enum",
-      "modifiers" : [ "public", "final" ],
-      "package" : "com.huawei.ascend.runtime.engine.spi",
-      "super" : "java.lang.Enum",
-      "interfaces" : [ ],
-      "annotations" : [ ],
-      "public_methods" : [ "from(Ljava/lang/String;Lcom/huawei/ascend/runtime/engine/spi/TrajectoryLevel;)Lcom/huawei/ascend/runtime/engine/spi/TrajectoryLevel;", "valueOf(Ljava/lang/String;)Lcom/huawei/ascend/runtime/engine/spi/TrajectoryLevel;", "values()[Lcom/huawei/ascend/runtime/engine/spi/TrajectoryLevel;" ]
-    }
-  }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-trajectorymasking",
     "fact_kind" : "code_symbol",
     "source_kind" : "code",
@@ -2460,28 +2318,7 @@
       "super" : "java.lang.Object",
       "interfaces" : [ ],
       "annotations" : [ ],
-      "public_methods" : [ "mask(Ljava/lang/Object;Lcom/huawei/ascend/runtime/engine/spi/TrajectoryLevel;Ljava/util/regex/Pattern;I)Ljava/lang/Object;" ]
-    }
-  }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-trajectoryruntime",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/spi/TrajectoryRuntime.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.spi.TrajectoryRuntime",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.spi.TrajectoryRuntime",
-      "kind" : "record",
-      "modifiers" : [ "public", "final" ],
-      "package" : "com.huawei.ascend.runtime.engine.spi",
-      "super" : "java.lang.Record",
-      "interfaces" : [ ],
-      "annotations" : [ ],
-      "public_methods" : [ "<init>(Lcom/huawei/ascend/runtime/engine/spi/TrajectoryChannel;Lcom/huawei/ascend/runtime/engine/spi/TrajectoryEmitter;)V", "channel()Lcom/huawei/ascend/runtime/engine/spi/TrajectoryChannel;", "emitter()Lcom/huawei/ascend/runtime/engine/spi/TrajectoryEmitter;", "equals(Ljava/lang/Object;)Z", "hashCode()I", "toString()Ljava/lang/String;" ],
-      "record_components" : [ "channel: Lcom/huawei/ascend/runtime/engine/spi/TrajectoryChannel;", "emitter: Lcom/huawei/ascend/runtime/engine/spi/TrajectoryEmitter;" ]
+      "public_methods" : [ "mask(Ljava/lang/Object;Ljava/util/regex/Pattern;I)Ljava/lang/Object;" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-trajectorysettings",
@@ -2501,8 +2338,8 @@
       "super" : "java.lang.Record",
       "interfaces" : [ ],
       "annotations" : [ ],
-      "public_methods" : [ "<init>(Lcom/huawei/ascend/runtime/engine/spi/TrajectoryLevel;Ljava/util/regex/Pattern;I)V", "equals(Ljava/lang/Object;)Z", "hashCode()I", "level()Lcom/huawei/ascend/runtime/engine/spi/TrajectoryLevel;", "maskKeyPattern()Ljava/util/regex/Pattern;", "off()Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;", "toString()Ljava/lang/String;", "truncateChars()I" ],
-      "record_components" : [ "level: Lcom/huawei/ascend/runtime/engine/spi/TrajectoryLevel;", "maskKeyPattern: Ljava/util/regex/Pattern;", "truncateChars: I" ]
+      "public_methods" : [ "<init>(ZLjava/util/regex/Pattern;I)V", "enabled()Z", "equals(Ljava/lang/Object;)Z", "hashCode()I", "maskKeyPattern()Ljava/util/regex/Pattern;", "off()Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;", "toString()Ljava/lang/String;", "truncateChars()I" ],
+      "record_components" : [ "enabled: Z", "maskKeyPattern: Ljava/util/regex/Pattern;", "truncateChars: I" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-trajectorysink",
@@ -2562,7 +2399,149 @@
       "super" : "java.lang.Object",
       "interfaces" : [ ],
       "annotations" : [ ],
-      "public_methods" : [ "openTrajectory(Lcom/huawei/ascend/runtime/engine/AgentExecutionContext;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;)Lcom/huawei/ascend/runtime/engine/spi/TrajectoryChannel;" ]
+      "public_methods" : [ "openTrajectory(Lcom/huawei/ascend/runtime/engine/AgentExecutionContext;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySettings;Lcom/huawei/ascend/runtime/engine/spi/TrajectorySink;)V" ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-service-remote-remoteagentautoconfiguration",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-service/target/classes/com/huawei/ascend/service/remote/RemoteAgentAutoConfiguration.class",
+    "source_symbol" : "com.huawei.ascend.service.remote.RemoteAgentAutoConfiguration",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-service",
+      "fqn" : "com.huawei.ascend.service.remote.RemoteAgentAutoConfiguration",
+      "kind" : "class",
+      "modifiers" : [ "public" ],
+      "package" : "com.huawei.ascend.service.remote",
+      "super" : "java.lang.Object",
+      "interfaces" : [ ],
+      "annotations" : [ "org.springframework.boot.autoconfigure.condition.ConditionalOnProperty", "org.springframework.boot.context.properties.EnableConfigurationProperties", "org.springframework.context.annotation.Configuration" ],
+      "public_methods" : [ "<init>()V", "a2aRemoteAgentOutboundAdapter(Lcom/huawei/ascend/runtime/engine/spi/RemoteAgentCatalogPort;)Lcom/huawei/ascend/runtime/engine/a2a/A2aRemoteAgentOutboundAdapter;", "a2aRemoteSupport(Lcom/huawei/ascend/runtime/engine/service/RemoteAgentInvocationService;)Lcom/huawei/ascend/runtime/engine/a2a/A2aAgentExecutor$RemoteSupport;", "remoteAgentCatalog(Lcom/huawei/ascend/service/remote/RemoteAgentProperties;)Lcom/huawei/ascend/runtime/engine/spi/RemoteAgentCatalogPort;", "remoteAgentCatalogRefresher(Lcom/huawei/ascend/runtime/engine/spi/RemoteAgentCatalogPort;Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;)Lcom/huawei/ascend/service/remote/RemoteAgentCatalogRefresher;", "remoteAgentInvocationService(Lcom/huawei/ascend/runtime/engine/a2a/A2aRemoteAgentOutboundAdapter;)Lcom/huawei/ascend/runtime/engine/service/RemoteAgentInvocationService;" ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-service-remote-remoteagentautoconfiguration-openjiuwenremotetoolconfiguration",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-service/target/classes/com/huawei/ascend/service/remote/RemoteAgentAutoConfiguration$OpenJiuwenRemoteToolConfiguration.class",
+    "source_symbol" : "com.huawei.ascend.service.remote.RemoteAgentAutoConfiguration$OpenJiuwenRemoteToolConfiguration",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-service",
+      "fqn" : "com.huawei.ascend.service.remote.RemoteAgentAutoConfiguration$OpenJiuwenRemoteToolConfiguration",
+      "kind" : "class",
+      "modifiers" : [ ],
+      "package" : "com.huawei.ascend.service.remote",
+      "super" : "java.lang.Object",
+      "interfaces" : [ ],
+      "annotations" : [ "org.springframework.boot.autoconfigure.condition.ConditionalOnClass", "org.springframework.context.annotation.Configuration" ],
+      "public_methods" : [ ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-service-remote-remoteagentcatalog",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-service/target/classes/com/huawei/ascend/service/remote/RemoteAgentCatalog.class",
+    "source_symbol" : "com.huawei.ascend.service.remote.RemoteAgentCatalog",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-service",
+      "fqn" : "com.huawei.ascend.service.remote.RemoteAgentCatalog",
+      "kind" : "class",
+      "modifiers" : [ "public" ],
+      "package" : "com.huawei.ascend.service.remote",
+      "super" : "java.lang.Object",
+      "interfaces" : [ "com.huawei.ascend.runtime.engine.spi.RemoteAgentCatalogPort" ],
+      "annotations" : [ ],
+      "public_methods" : [ "<init>(Ljava/util/List;)V", "availableToolSpecs()Ljava/util/List;", "endpoint(Ljava/lang/String;)Ljava/lang/String;", "pendingUrls()Ljava/util/List;", "refreshPending()V" ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-service-remote-remoteagentcatalog-entry",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-service/target/classes/com/huawei/ascend/service/remote/RemoteAgentCatalog$Entry.class",
+    "source_symbol" : "com.huawei.ascend.service.remote.RemoteAgentCatalog$Entry",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-service",
+      "fqn" : "com.huawei.ascend.service.remote.RemoteAgentCatalog$Entry",
+      "kind" : "class",
+      "modifiers" : [ "final" ],
+      "package" : "com.huawei.ascend.service.remote",
+      "super" : "java.lang.Object",
+      "interfaces" : [ ],
+      "annotations" : [ ],
+      "public_methods" : [ ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-service-remote-remoteagentcatalogrefresher",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-service/target/classes/com/huawei/ascend/service/remote/RemoteAgentCatalogRefresher.class",
+    "source_symbol" : "com.huawei.ascend.service.remote.RemoteAgentCatalogRefresher",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-service",
+      "fqn" : "com.huawei.ascend.service.remote.RemoteAgentCatalogRefresher",
+      "kind" : "class",
+      "modifiers" : [ "public", "final" ],
+      "package" : "com.huawei.ascend.service.remote",
+      "super" : "java.lang.Object",
+      "interfaces" : [ "org.springframework.context.SmartLifecycle" ],
+      "annotations" : [ ],
+      "public_methods" : [ "isRunning()Z", "start()V", "stop()V" ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-service-remote-remoteagentproperties",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-service/target/classes/com/huawei/ascend/service/remote/RemoteAgentProperties.class",
+    "source_symbol" : "com.huawei.ascend.service.remote.RemoteAgentProperties",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-service",
+      "fqn" : "com.huawei.ascend.service.remote.RemoteAgentProperties",
+      "kind" : "record",
+      "modifiers" : [ "public", "final" ],
+      "package" : "com.huawei.ascend.service.remote",
+      "super" : "java.lang.Record",
+      "interfaces" : [ ],
+      "annotations" : [ "org.springframework.boot.context.properties.ConfigurationProperties" ],
+      "public_methods" : [ "<init>(Ljava/util/List;)V", "equals(Ljava/lang/Object;)Z", "hashCode()I", "remoteAgents()Ljava/util/List;", "toString()Ljava/lang/String;", "urls()Ljava/util/List;" ],
+      "record_components" : [ "remoteAgents: Ljava/util/List;" ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-service-remote-remoteagentproperties-remoteagent",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-service/target/classes/com/huawei/ascend/service/remote/RemoteAgentProperties$RemoteAgent.class",
+    "source_symbol" : "com.huawei.ascend.service.remote.RemoteAgentProperties$RemoteAgent",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-service",
+      "fqn" : "com.huawei.ascend.service.remote.RemoteAgentProperties$RemoteAgent",
+      "kind" : "record",
+      "modifiers" : [ "public", "final" ],
+      "package" : "com.huawei.ascend.service.remote",
+      "super" : "java.lang.Record",
+      "interfaces" : [ ],
+      "annotations" : [ ],
+      "public_methods" : [ "<init>(Ljava/lang/String;)V", "equals(Ljava/lang/Object;)Z", "hashCode()I", "toString()Ljava/lang/String;", "url()Ljava/lang/String;" ],
+      "record_components" : [ "url: Ljava/lang/String;" ]
     }
   } ]
 }

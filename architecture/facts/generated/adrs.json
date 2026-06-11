@@ -1048,5 +1048,28 @@
       "relates_to" : [ ],
       "supersedes" : [ ]
     }
+  }, {
+    "fact_id" : "adr/0162-remote-agent-discovery-to-service",
+    "fact_kind" : "adr",
+    "source_kind" : "adr",
+    "source_path" : "docs/adr/0162-remote-agent-discovery-to-service.yaml",
+    "source_symbol" : "ADR-0162",
+    "extractor" : "tools/architecture-workspace#AdrFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "id" : "ADR-0162",
+      "title" : "Remote-agent discovery moves to agent-service behind a runtime-owned port (first lift of the ADR-0159 registration/discovery deferral)",
+      "status" : "accepted",
+      "date" : 1781136000000,
+      "level" : "L1",
+      "view" : "development",
+      "affects_level" : "L1",
+      "affects_view" : [ "development", "logical" ],
+      "authors" : [ "chao" ],
+      "extends" : [ "ADR-0159" ],
+      "relates_to" : [ "ADR-0161" ],
+      "supersedes" : [ ]
+    }
   } ]
 }
