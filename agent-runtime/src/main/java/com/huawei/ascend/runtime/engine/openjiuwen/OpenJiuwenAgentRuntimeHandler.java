@@ -16,8 +16,7 @@ import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
+import com.openjiuwen.harness.rails.ExternalMemoryRail;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -164,31 +163,11 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
      * independent from OpenJiuwen memory package names.
      */
     protected final AgentRail openJiuwenExternalMemoryRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
-        try {
-            Class<?> providerType = Class.forName("com.openjiuwen.core.memory.external.MemoryProvider");
-            Class<?> adapterType = Class.forName(
-                    "com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenExternalMemoryProviderAdapter");
-            Constructor<?> adapterConstructor =
-                    adapterType.getDeclaredConstructor(AgentExecutionContext.class, MemoryProvider.class);
-            Object adapter = adapterConstructor.newInstance(context, memoryProvider);
-
-            Class<?> railType = Class.forName("com.openjiuwen.harness.rails.ExternalMemoryRail");
-            Constructor<?> railConstructor =
-                    railType.getConstructor(providerType, String.class, String.class, String.class);
-            return (AgentRail) railConstructor.newInstance(
-                    adapter,
-                    context.getScope().userId(),
-                    context.getAgentStateKey(),
-                    context.getScope().sessionId());
-        } catch (ClassNotFoundException error) {
-            throw new IllegalStateException(
-                    "OpenJiuwen native external memory rail requires OpenJiuwen memory classes on the classpath. "
-                            + "Use memoryRuntimeRail(...) for ReActAgent compatibility paths.",
-                    error);
-        } catch (NoSuchMethodException | InstantiationException | IllegalAccessException
-                 | InvocationTargetException error) {
-            throw new IllegalStateException("Failed to create OpenJiuwen native external memory rail", error);
-        }
+        return new ExternalMemoryRail(
+                new OpenJiuwenExternalMemoryProviderAdapter(context, memoryProvider),
+                context.getScope().userId(),
+                context.getAgentStateKey(),
+                context.getScope().sessionId());
     }
 
     protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
