@@ -3,12 +3,9 @@ package com.huawei.ascend.agentsdk.adapter;
 import com.huawei.ascend.agentsdk.spec.tool.ExecutionHandle;
 import com.huawei.ascend.agentsdk.spec.tool.HttpExecutionHandle;
 import com.huawei.ascend.agentsdk.spec.tool.JavaExecutionHandle;
-import com.huawei.ascend.agentsdk.spec.tool.McpExecutionHandle;
-import com.huawei.ascend.agentsdk.spec.tool.NativeTool;
 import com.huawei.ascend.agentsdk.spec.tool.ResolvedTool;
 import com.huawei.ascend.agentsdk.spec.tool.ToolDescriptor;
 import com.huawei.ascend.agentsdk.spec.tool.WrappableTool;
-import com.huawei.ascend.agentsdk.support.ToolExecutionException;
 import com.huawei.ascend.agentsdk.support.ValidationException;
 import com.openjiuwen.core.foundation.tool.Tool;
 import com.openjiuwen.core.foundation.tool.ToolCard;
@@ -16,7 +13,6 @@ import com.openjiuwen.core.foundation.tool.function.LocalFunction;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class OpenJiuwenToolMapper {
@@ -32,27 +28,17 @@ public final class OpenJiuwenToolMapper {
     }
 
     public Tool toTool(ResolvedTool resolvedTool) {
-        if (resolvedTool instanceof NativeTool nativeTool) {
-            if (nativeTool.tool() instanceof Tool tool) {
-                return tool;
-            }
-            throw new ValidationException("Native OpenJiuwen tool expected, got: "
-                    + (nativeTool.tool() == null ? "null" : nativeTool.tool().getClass().getName()));
-        }
         WrappableTool wrappable = (WrappableTool) resolvedTool;
         ToolCard card = card(wrappable.descriptor());
         return new LocalFunction(card, inputs -> invoke(wrappable.executionHandle(), inputs));
     }
 
     private ToolCard card(ToolDescriptor descriptor) {
-        Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("outputSchema", descriptor.outputSchema());
         return ToolCard.builder()
                 .id(descriptor.name())
                 .name(descriptor.name())
                 .description(descriptor.description())
                 .inputParams(descriptor.inputSchema())
-                .properties(properties)
                 .build();
     }
 
@@ -62,12 +48,6 @@ public final class OpenJiuwenToolMapper {
         }
         if (handle instanceof JavaExecutionHandle java) {
             return invokeJava(java, inputs);
-        }
-        if (handle instanceof McpExecutionHandle mcp) {
-            // Failing loudly beats echoing the request back as a fake success —
-            // the agent would otherwise hallucinate around the echo payload.
-            throw new ToolExecutionException("MCP tool execution is not implemented yet: tool '"
-                    + mcp.tool() + "' on server '" + mcp.server() + "' cannot run");
         }
         throw new ValidationException("Unsupported execution handle: " + handle);
     }
@@ -91,4 +71,3 @@ public final class OpenJiuwenToolMapper {
         }
     }
 }
-

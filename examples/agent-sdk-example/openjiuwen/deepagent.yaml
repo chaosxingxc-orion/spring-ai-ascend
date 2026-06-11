@@ -2,13 +2,12 @@ schema: ascend-agent/v1
 
 name: sdk-openjiuwen-deepagent-example-agent
 displayName: SDK OpenJiuwen DeepAgent Example Agent
-description: Demonstrates YAML to OpenJiuwen DeepAgent runtime handler with two tools and two skills.
+description: Demonstrates YAML to OpenJiuwen DeepAgent with three tools and two skills.
 
 framework:
   type: openjiuwen
   agent: deepagent
   options:
-    executeMode: openjiuwen
     maxIterations: 8
 
 model:
@@ -32,6 +31,19 @@ skills:
     - ../skills/report-writing
 
 tools:
+  - name: readFile
+    description: 读取本地 skill 文件内容，用于证明 SKILL.md 被真实读取。
+    inputSchema:
+      type: object
+      properties:
+        path:
+          type: string
+      required:
+        - path
+    ref:
+      type: file
+      class: com.huawei.ascend.agentsdk.example.tools.ReadFileTool
+      method: read
   - name: queryOrder
     description: 查询本地示例订单状态，并证明 Java 函数已经被执行。
     inputSchema:
@@ -41,16 +53,9 @@ tools:
           type: string
       required:
         - orderId
-    outputSchema:
-      type: object
-      properties:
-        status:
-          type: string
-        proof:
-          type: string
     ref:
       type: file
-      class: QueryOrderTool
+      class: com.huawei.ascend.agentsdk.example.tools.QueryOrderTool
       method: query
   - name: calcDiscount
     description: 计算示例折扣，并证明 Java 函数已经被执行。
@@ -61,14 +66,7 @@ tools:
           type: number
       required:
         - amount
-    outputSchema:
-      type: object
-      properties:
-        discount:
-          type: number
-        proof:
-          type: string
     ref:
       type: file
-      class: CalcDiscountTool
+      class: com.huawei.ascend.agentsdk.example.tools.CalcDiscountTool
       method: calculate

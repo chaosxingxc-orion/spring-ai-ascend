@@ -4,7 +4,6 @@ import java.nio.file.Path;
 
 public record SkillSourceSpec(
         String type,
-        Path path,
-        boolean localCache) {
+        Path path) {
 }
 

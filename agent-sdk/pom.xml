@@ -12,19 +12,13 @@
 
   <artifactId>agent-sdk</artifactId>
   <name>agent-sdk</name>
-  <description>Lightweight customer SDK that converts agent YAML or framework instances into runtime AgentHandler instances.</description>
+  <description>Lightweight customer SDK that converts YAML into OpenJiuwen agent instances.</description>
 
   <properties>
-    <agent-runtime.version>0.1.0-SNAPSHOT</agent-runtime.version>
-    <openjiuwen.agent-core.version>0.1.7</openjiuwen.agent-core.version>
+    <openjiuwen.agent-core.version>0.1.12</openjiuwen.agent-core.version>
   </properties>
 
   <dependencies>
-    <dependency>
-      <groupId>com.huawei.ascend</groupId>
-      <artifactId>agent-runtime</artifactId>
-      <version>${agent-runtime.version}</version>
-    </dependency>
     <dependency>
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>
@@ -38,14 +32,15 @@
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
     </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-annotations</artifactId>
-    </dependency>
 
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

@@ -4,8 +4,7 @@ import com.huawei.ascend.agentsdk.support.ValidationException;
 
 /**
  * Shared attribute/descriptor validation for the built-in resolvers. Lives in
- * its own type so the Java and MCP resolvers do not have to reach into the
- * HTTP resolver for neutral helpers.
+ * its own type so the Java and HTTP resolvers share neutral helpers.
  */
 final class ToolRefAttributes {
 
@@ -19,7 +18,7 @@ final class ToolRefAttributes {
         if (spec.description() == null || spec.description().isBlank()) {
             throw new ValidationException("Tool description is required: " + spec.name());
         }
-        return new ToolDescriptor(spec.name(), spec.description(), spec.inputSchema(), spec.outputSchema());
+        return new ToolDescriptor(spec.name(), spec.description(), spec.inputSchema());
     }
 
     static String required(java.util.Map<String, Object> attributes, String key) {

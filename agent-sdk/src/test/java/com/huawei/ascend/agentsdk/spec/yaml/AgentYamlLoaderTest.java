@@ -80,9 +80,6 @@ class AgentYamlLoaderTest {
                   - name: httpTool
                     description: http
                     ref: "http:https://api.example.com/orders"
-                  - name: mcpTool
-                    description: mcp
-                    ref: "mcp:inventory/lookup"
                 """);
 
         AgentSpec spec = new AgentYamlLoader().load(yaml);
@@ -92,9 +89,6 @@ class AgentYamlLoaderTest {
                 .containsEntry("method", "query");
         assertThat(spec.toolSpecs().get(1).ref().attributes())
                 .containsEntry("url", "https://api.example.com/orders");
-        assertThat(spec.toolSpecs().get(2).ref().attributes())
-                .containsEntry("server", "inventory")
-                .containsEntry("tool", "lookup");
     }
 
     @Test
@@ -222,4 +216,3 @@ class AgentYamlLoaderTest {
                 UUID.randomUUID().toString()));
     }
 }
-
