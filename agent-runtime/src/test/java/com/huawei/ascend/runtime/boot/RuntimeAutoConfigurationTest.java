@@ -14,6 +14,8 @@ import org.a2aproject.sdk.server.tasks.TaskStore;
 import org.a2aproject.sdk.spec.ListTasksParams;
 import org.a2aproject.sdk.spec.Task;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.health.contributor.HealthIndicator;
+import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -50,6 +52,22 @@ class RuntimeAutoConfigurationTest {
                     assertThat(processorThread.isDaemon())
                             .as("processor thread must be daemon or it blocks JVM exit")
                             .isTrue();
+                });
+    }
+
+    /**
+     * Actuator is an optional dependency: the auto-configuration must stay loadable
+     * (skipping the health contribution) in hosts without HealthIndicator on the
+     * classpath — a bean-method signature mentioning the indicator on the outer
+     * configuration class makes context startup throw NoClassDefFoundError there.
+     */
+    @Test
+    void autoConfigurationLoadsWithoutActuatorOnClasspath() {
+        runner.withClassLoader(new FilteredClassLoader(HealthIndicator.class))
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> {
+                    assertThat(ctx).hasNotFailed();
+                    assertThat(ctx).doesNotHaveBean("agentRuntimeHealthIndicator");
                 });
     }
 

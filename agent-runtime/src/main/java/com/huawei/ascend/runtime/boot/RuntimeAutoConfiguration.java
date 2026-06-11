@@ -38,6 +38,7 @@ import org.a2aproject.sdk.spec.AgentCard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -106,10 +107,23 @@ public class RuntimeAutoConfiguration {
         return new AgentRuntimeLifecycle(handlers.orderedStream().toList(), readiness);
     }
 
-    @Bean @ConditionalOnMissingBean
-    public AgentRuntimeHealthIndicator agentRuntimeHealthIndicator(ObjectProvider<AgentRuntimeHandler> handlers,
-            RuntimeReadiness readiness) {
-        return new AgentRuntimeHealthIndicator(handlers.orderedStream().toList(), readiness);
+    /**
+     * Isolated in a nested class because actuator is an optional dependency: a bean
+     * method on the outer class whose signature mentions {@link AgentRuntimeHealthIndicator}
+     * (which implements HealthIndicator) makes reflective introspection of the whole
+     * auto-configuration throw NoClassDefFoundError in hosts without actuator. The
+     * condition is evaluated from class metadata, so the nested class is never loaded
+     * unless HealthIndicator is present.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "org.springframework.boot.health.contributor.HealthIndicator")
+    static class HealthIndicatorConfiguration {
+
+        @Bean @ConditionalOnMissingBean
+        AgentRuntimeHealthIndicator agentRuntimeHealthIndicator(ObjectProvider<AgentRuntimeHandler> handlers,
+                RuntimeReadiness readiness) {
+            return new AgentRuntimeHealthIndicator(handlers.orderedStream().toList(), readiness);
+        }
     }
 
     @Bean @ConditionalOnMissingBean
