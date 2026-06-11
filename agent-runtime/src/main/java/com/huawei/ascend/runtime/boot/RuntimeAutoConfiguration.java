@@ -1,5 +1,11 @@
 package com.huawei.ascend.runtime.boot;
 
+import com.huawei.ascend.bus.knowledge.KnowledgeRegistry;
+import com.huawei.ascend.bus.memory.InMemorySessionMemoryStore;
+import com.huawei.ascend.bus.memory.SessionMemoryStore;
+import com.huawei.ascend.bus.messaging.AgentMessageBus;
+import com.huawei.ascend.bus.messaging.InMemoryAgentMessageBus;
+import com.huawei.ascend.runtime.engine.BusCapabilities;
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
 import com.huawei.ascend.runtime.engine.a2a.IdempotentRequestHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
@@ -123,22 +129,44 @@ public class RuntimeAutoConfiguration {
         return registration;
     }
 
+    @Bean @ConditionalOnMissingBean(SessionMemoryStore.class)
+    public InMemorySessionMemoryStore sessionMemoryStore() {
+        return new InMemorySessionMemoryStore();
+    }
+
+    @Bean @ConditionalOnMissingBean
+    public KnowledgeRegistry knowledgeRegistry() {
+        return new KnowledgeRegistry();
+    }
+
+    @Bean @ConditionalOnMissingBean(AgentMessageBus.class)
+    public InMemoryAgentMessageBus agentMessageBus() {
+        // AutoCloseable: Spring's inferred destroy callback invokes close() at
+        // context shutdown, stopping the dispatcher thread and rejecting
+        // further publishes — no explicit destroyMethod needed.
+        return new InMemoryAgentMessageBus();
+    }
+
     @Bean @ConditionalOnMissingBean
     public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers,
-                                           RunRepository runRepository) {
+                                           RunRepository runRepository,
+                                           SessionMemoryStore sessionMemoryStore,
+                                           KnowledgeRegistry knowledgeRegistry,
+                                           AgentMessageBus agentMessageBus) {
+        var capabilities = new BusCapabilities(sessionMemoryStore, knowledgeRegistry, agentMessageBus);
         var registered = handlers.orderedStream().toList();
         if (registered.isEmpty()) {
             // Tolerated so the A2A surface can boot for card discovery; every
             // execution will be rejected until a handler bean is registered.
             log.warn("No AgentRuntimeHandler registered — A2A executions will be rejected");
-            return new A2aAgentExecutor(null, runRepository);
+            return new A2aAgentExecutor(null, runRepository, capabilities);
         }
         if (registered.size() > 1) {
             log.warn("Multiple AgentRuntimeHandlers registered; using '{}', ignoring {}",
                     registered.get(0).agentId(),
                     registered.stream().skip(1).map(AgentRuntimeHandler::agentId).toList());
         }
-        return new A2aAgentExecutor(registered.get(0), runRepository);
+        return new A2aAgentExecutor(registered.get(0), runRepository, capabilities);
     }
 
     @Bean @ConditionalOnMissingBean(IdempotencyStore.class)

@@ -3,6 +3,7 @@ package com.huawei.ascend.runtime.engine.a2a;
 import org.a2aproject.sdk.spec.Message;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.BusCapabilities;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.run.Run;
@@ -40,9 +41,10 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
     private final AgentRuntimeHandler handler;
     private final RunRepository runRepository;
+    private final BusCapabilities capabilities;
 
     public A2aAgentExecutor(AgentRuntimeHandler handler) {
-        this(handler, null);
+        this(handler, null, null);
     }
 
     /**
@@ -51,8 +53,19 @@ public final class A2aAgentExecutor implements AgentExecutor {
      *                      the A2A task lifecycle
      */
     public A2aAgentExecutor(AgentRuntimeHandler handler, RunRepository runRepository) {
+        this(handler, runRepository, null);
+    }
+
+    /**
+     * @param capabilities when non-null, carried onto every execution context
+     *                     so handlers can reach session memory, the knowledge
+     *                     seam and the in-process message bus (ADR-0163)
+     */
+    public A2aAgentExecutor(AgentRuntimeHandler handler, RunRepository runRepository,
+                            BusCapabilities capabilities) {
         this.handler = handler;
         this.runRepository = runRepository;
+        this.capabilities = capabilities;
     }
 
     @Override
@@ -291,7 +304,8 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 // the same contextId, so the framework conversation key must follow the
                 // session — keying it by taskId would start a fresh framework
                 // conversation each turn and checkpointer restore would never fire.
-                Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, sessionId));
+                Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, sessionId),
+                capabilities);
     }
 
     private static String extractText(RequestContext ctx) {

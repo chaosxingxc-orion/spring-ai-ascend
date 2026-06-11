@@ -1,5 +1,8 @@
 package com.huawei.ascend.runtime.engine;
 
+import com.huawei.ascend.bus.knowledge.KnowledgeRegistry;
+import com.huawei.ascend.bus.memory.SessionMemoryStore;
+import com.huawei.ascend.bus.messaging.AgentMessageBus;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import java.util.List;
 import java.util.Map;
@@ -22,22 +25,39 @@ public final class AgentExecutionContext {
     private final List<Message> messages;
     private final Map<String, Object> variables;
     private final String agentStateKey;
+    private final BusCapabilities capabilities;
     private volatile Map<String, Object> agentState;
 
     public AgentExecutionContext(RuntimeIdentity scope, String inputType,
                                   List<Message> messages, Map<String, Object> variables) {
-        this(scope, inputType, messages, variables, resolveAgentStateKey(scope, variables), null);
+        this(scope, inputType, messages, variables, resolveAgentStateKey(scope, variables), null, null);
+    }
+
+    /**
+     * Dispatcher-side constructor carrying the optional agent-bus capability
+     * surfaces; handlers that ignore them behave exactly as before.
+     */
+    public AgentExecutionContext(RuntimeIdentity scope, String inputType, List<Message> messages,
+                                  Map<String, Object> variables, BusCapabilities capabilities) {
+        this(scope, inputType, messages, variables, resolveAgentStateKey(scope, variables), null, capabilities);
     }
 
     public AgentExecutionContext(RuntimeIdentity scope, String inputType, List<Message> messages,
                                   Map<String, Object> variables, String agentStateKey,
                                   Map<String, Object> agentState) {
+        this(scope, inputType, messages, variables, agentStateKey, agentState, null);
+    }
+
+    private AgentExecutionContext(RuntimeIdentity scope, String inputType, List<Message> messages,
+                                   Map<String, Object> variables, String agentStateKey,
+                                   Map<String, Object> agentState, BusCapabilities capabilities) {
         this.scope = scope;
         this.inputType = inputType != null ? inputType : "USER_MESSAGE";
         this.messages = messages != null ? List.copyOf(messages) : List.of();
         this.variables = variables != null ? Map.copyOf(variables) : Map.of();
         Assert.hasText(agentStateKey, "agentStateKey must not be blank");
         this.agentStateKey = agentStateKey;
+        this.capabilities = capabilities;
         this.agentState = agentState == null ? null : Map.copyOf(agentState);
     }
 
@@ -47,6 +67,25 @@ public final class AgentExecutionContext {
     public Map<String, Object> getVariables() { return variables; }
     public String getAgentStateKey() { return agentStateKey; }
     public Optional<Map<String, Object>> getAgentState() { return Optional.ofNullable(agentState); }
+
+    /** Platform S-side working memory, when the hosting application wires it. */
+    public Optional<SessionMemoryStore> getSessionMemory() {
+        return capabilities == null ? Optional.empty() : Optional.ofNullable(capabilities.sessionMemory());
+    }
+
+    /**
+     * Per-tenant knowledge-source registry, when wired. Fan-out retrieval is
+     * reached through it via
+     * {@code new CompositeKnowledgeSource(registry).retrieve(query)}.
+     */
+    public Optional<KnowledgeRegistry> getKnowledge() {
+        return capabilities == null ? Optional.empty() : Optional.ofNullable(capabilities.knowledge());
+    }
+
+    /** In-process inter-agent message bus, when wired. */
+    public Optional<AgentMessageBus> getMessageBus() {
+        return capabilities == null ? Optional.empty() : Optional.ofNullable(capabilities.messageBus());
+    }
 
     /** Atomic replace — used by adapters for checkpoint state. */
     public Map<String, Object> replaceAgentState(Map<String, Object> values) {

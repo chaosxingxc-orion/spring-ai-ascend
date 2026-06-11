@@ -20,6 +20,7 @@ import org.a2aproject.sdk.spec.AgentProvider;
 import org.a2aproject.sdk.spec.TransportProtocol;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -30,6 +31,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @ExtendWith(OutputCaptureExtension.class)
+// Isolated: the route-grant-secret WARN assertions read JVM-global captured
+// output; tests in other classes emitting the same WARN concurrently would
+// bleed into the no-warning assertion.
+@Isolated
 class AgentServiceAutoConfigurationTest {
 
     private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
