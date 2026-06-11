@@ -127,7 +127,7 @@ enforcer_E39 = element "E39" "Enforcer" "RunContext SPI exposes traceId() : Stri
         "saa.view" "logical"
         "saa.status" "shipped"
         "saa.owner" "architecture"
-        "saa.sourceFile" "agent-runtime/src/test/java/com/huawei/ascend/runtime/architecture/RunContextIdentityAccessorsTest.java"
+        "saa.sourceFile" "agent-bus/src/test/java/com/huawei/ascend/bus/architecture/RunContextIdentityAccessorsTest.java"
         "saa.enforcerId" "E39"
     }
 }

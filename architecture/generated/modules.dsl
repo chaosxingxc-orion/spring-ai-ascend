@@ -58,11 +58,6 @@ genModule_spring_ai_ascend_dependencies = element "spring-ai-ascend-dependencies
     }
 }
 
-genModule_agent_runtime -> genModule_agent_bus "module-metadata.yaml allowed dependency" "SAA Relationship" {
-    properties {
-        "saa.rel" "depends_on"
-    }
-}
 genModule_agent_service -> genModule_agent_bus "module-metadata.yaml allowed dependency" "SAA Relationship" {
     properties {
         "saa.rel" "depends_on"
