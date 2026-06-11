@@ -57,12 +57,37 @@
 
       <dependency>
         <groupId>com.huawei.ascend</groupId>
+        <artifactId>agent-bus</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>agent-runtime</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>agent-sdk</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-service</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
         <groupId>com.huawei.ascend</groupId>
-        <artifactId>agent-eval</artifactId>
+        <artifactId>agent-service-starter</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>springai-ascend-client</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>springai-ascend-client-kotlin</artifactId>
         <version>${project.version}</version>
       </dependency>
 
