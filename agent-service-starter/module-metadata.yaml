@@ -1,0 +1,20 @@
+# Module metadata for agent-service-starter.
+# Required by CLAUDE.md Rule R-C sub-clause .b (Independent Module Evolution).
+# Enforced by gate rule module_metadata_present_and_complete.
+
+module: agent-service-starter
+kind: starter            # platform | domain | starter | bom | sample
+version: 0.1.0-SNAPSHOT
+semver_compatibility: 0.x
+description: "Spring Boot edge for the agent-service serviceization facade: auto-configured registration/discovery/route-grant HTTP controllers over the Spring-free service SPI, plus the JWT tenant cross-check filter (agent-service.access.jwt.*) at the service ingress. agent-service itself stays Spring-free; this starter is the only Spring-aware layer."
+architecture_doc: architecture/docs/L1/agent-service/README.md   # the starter is agent-service's Spring edge; no separate L1 surface
+dfx_doc: docs/dfx/agent-service.yaml
+spi_packages: []         # starter exposes auto-configuration, not an SPI; the SPI lives in agent-service
+allowed_dependencies:
+  - agent-service    # the facade SPI + reference implementations this edge serves
+  - agent-runtime    # JwtTenantValidator (runtime.boot) — one validator for both ingress edges
+forbidden_dependencies: []
+deployment_plane: compute_control   # deploys in-process with the agent-service facade it fronts
+deployment_loci:
+  - platform_centric    # mode_a default per ADR-0101
+  - business_centric    # mode_b — co-deploys with agent-runtime on the business side per ADR-0101

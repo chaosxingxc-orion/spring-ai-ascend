@@ -7,7 +7,7 @@ module: agent-service
 kind: domain
 version: 0.1.0-SNAPSHOT
 semver_compatibility: 0.x
-description: "Enterprise serviceization facade: Spring-free registration/discovery/routing SPI (RuntimeRegistry lease/TTL state, tenant-scoped AgentDirectory, HMAC-signed RouteGrantService) with in-memory reference implementations and a byte-level A2A pass-through forwarder in service.core. HTTP/DI edges stay outside the module (example edge under examples/agent-runtime-a2a-llm-e2e)."
+description: "Enterprise serviceization facade: Spring-free registration/discovery/routing SPI (RuntimeRegistry lease/TTL state, tenant-scoped AgentDirectory, HMAC-signed RouteGrantService) with in-memory reference implementations and a byte-level A2A pass-through forwarder in service.core. HTTP/DI edges stay outside the module (Spring edge in agent-service-starter)."
 architecture_doc: architecture/docs/L1/agent-service/README.md
 dfx_doc: docs/dfx/agent-service.yaml
 spi_packages:

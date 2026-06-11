@@ -42,6 +42,13 @@
       <artifactId>agent-service</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!-- Spring edge of the facade: auto-configured registration/discovery/route-grant
+         controllers the sample's gateway endpoints (and E2E tests) ride on. -->
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-service-starter</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>
@@ -64,6 +71,11 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

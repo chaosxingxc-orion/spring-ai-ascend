@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  agent-service-starter: the Spring Boot edge of the agent-service facade.
+
+  agent-service carries the Spring-free registration/discovery/routing SPI and
+  reference implementations; this starter is the only Spring-aware layer. It
+  auto-configures the HTTP controllers over the service SPI and the JWT tenant
+  cross-check filter at the service ingress, with @ConditionalOnMissingBean
+  seams so deployments can swap any registry/directory/grant implementation.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend</groupId>
+    <artifactId>spring-ai-ascend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>agent-service-starter</artifactId>
+  <name>agent-service-starter</name>
+  <description>Spring Boot starter for the agent-service serviceization facade: auto-configured registration/discovery/route-grant HTTP edge plus JWT tenant cross-check at the service ingress.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-service</artifactId>
+    </dependency>
+    <!-- JwtTenantValidator (runtime.boot) keeps the tenant cross-check semantics
+         pinned by one validator on both the runtime and service ingress edges. -->
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-runtime</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

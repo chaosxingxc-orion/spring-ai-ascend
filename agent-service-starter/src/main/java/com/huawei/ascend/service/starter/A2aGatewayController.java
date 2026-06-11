@@ -1,7 +1,5 @@
-package com.huawei.ascend.examples.a2a.gateway.http;
+package com.huawei.ascend.service.starter;
 
-import com.huawei.ascend.examples.a2a.gateway.api.AgentInteractionTelemetry;
-import com.huawei.ascend.examples.a2a.gateway.model.AgentInteractionEvent;
 import com.huawei.ascend.service.core.A2aGatewayForwardException;
 import com.huawei.ascend.service.core.A2aGatewayStreamResponse;
 import com.huawei.ascend.service.core.RuntimeA2aGateway;
@@ -20,7 +18,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -39,15 +36,15 @@ public final class A2aGatewayController {
 
     private final RuntimeA2aGateway gateway;
     private final RouteGrantService routeGrantService;
-    private final AgentInteractionTelemetry telemetry;
+    private final A2aForwardObserver forwardObserver;
 
     public A2aGatewayController(
             RuntimeA2aGateway gateway,
             RouteGrantService routeGrantService,
-            AgentInteractionTelemetry telemetry) {
+            A2aForwardObserver forwardObserver) {
         this.gateway = Objects.requireNonNull(gateway, "gateway");
         this.routeGrantService = Objects.requireNonNull(routeGrantService, "routeGrantService");
-        this.telemetry = Objects.requireNonNull(telemetry, "telemetry");
+        this.forwardObserver = Objects.requireNonNull(forwardObserver, "forwardObserver");
     }
 
     @PostMapping(
@@ -88,9 +85,9 @@ public final class A2aGatewayController {
         responseHeaders.setContentType(MediaType.parseMediaType(response.contentType()));
         responseHeaders.set("X-Ascend-Runtime-Instance", response.runtimeInstanceId());
         responseHeaders.set("X-Ascend-Route-Grant-Id", grant.grantId());
-        responseHeaders.set("X-Agent-Examples-Route-Resolve-Ms", Long.toString(response.routeResolveLatency().toMillis()));
-        responseHeaders.set("X-Agent-Examples-First-Byte-Ms", Long.toString(response.firstByteLatency().toMillis()));
-        responseHeaders.set("X-Agent-Examples-Forward-Start-Ms", Long.toString(response.firstByteLatency().toMillis()));
+        responseHeaders.set("X-Ascend-Route-Resolve-Ms", Long.toString(response.routeResolveLatency().toMillis()));
+        responseHeaders.set("X-Ascend-First-Byte-Ms", Long.toString(response.firstByteLatency().toMillis()));
+        responseHeaders.set("X-Ascend-Forward-Start-Ms", Long.toString(response.firstByteLatency().toMillis()));
         StreamingResponseBody stream = output -> streamAndRecord(
                 response,
                 output,
@@ -156,31 +153,22 @@ public final class A2aGatewayController {
             errorCode = GatewayErrorCode.RUNTIME_UNREACHABLE.name();
             throw ex;
         } finally {
-            telemetry.record(new AgentInteractionEvent(
-                    "event-" + UUID.randomUUID(),
-                    "A2A_GATEWAY_FORWARD_COMPLETED",
-                    Instant.now(),
+            forwardObserver.onForwardCompleted(new A2aForwardObserver.A2aForwardCompletion(
                     grant.tenantId(),
-                    "agent-examples-gateway",
                     grant.sourceAgentId(),
-                    response.runtimeInstanceId(),
                     grant.targetAgentId(),
-                    sessionId,
-                    null,
-                    correlationId,
-                    null,
+                    response.runtimeInstanceId(),
                     grant.grantId(),
                     a2aMethod,
+                    sessionId,
+                    correlationId,
                     status,
-                    response.routeResolveLatency().toMillis(),
-                    response.firstByteLatency().toMillis(),
-                    Duration.between(requestStart, Instant.now()).toMillis(),
-                    requestBytes,
-                    responseBytes,
                     errorCode,
-                    null,
-                    null,
-                    Map.of("gatewayForward", true)));
+                    response.routeResolveLatency(),
+                    response.firstByteLatency(),
+                    Duration.between(requestStart, Instant.now()),
+                    requestBytes,
+                    responseBytes));
         }
     }
 }

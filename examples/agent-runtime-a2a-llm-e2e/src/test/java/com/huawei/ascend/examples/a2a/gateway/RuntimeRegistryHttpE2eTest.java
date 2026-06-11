@@ -1,10 +1,10 @@
 package com.huawei.ascend.examples.a2a.gateway;
 
-import com.huawei.ascend.examples.a2a.gateway.config.RuntimeRegistryConfiguration;
-import com.huawei.ascend.examples.a2a.gateway.http.RouteGrantController.ResolveGrantRequest;
-import com.huawei.ascend.examples.a2a.gateway.http.RuntimeRegistryController.RuntimeLeaseRenewalRequest;
-import com.huawei.ascend.examples.a2a.gateway.http.RuntimeRegistryController.RuntimeRegistrationRequest;
+import com.huawei.ascend.examples.a2a.gateway.config.GatewayTelemetryConfiguration;
 import com.huawei.ascend.examples.a2a.gateway.model.AgentInteractionEvent;
+import com.huawei.ascend.service.starter.RouteGrantController.ResolveGrantRequest;
+import com.huawei.ascend.service.starter.RuntimeRegistryController.RuntimeLeaseRenewalRequest;
+import com.huawei.ascend.service.starter.RuntimeRegistryController.RuntimeRegistrationRequest;
 import com.huawei.ascend.service.spi.discovery.RoutingContext;
 import com.huawei.ascend.service.spi.registry.RuntimeCapacitySnapshot;
 import com.huawei.ascend.service.spi.registry.RuntimeState;
@@ -203,9 +203,9 @@ class RuntimeRegistryHttpE2eTest {
             assertThat(forwardedGrantId.get()).isNotBlank();
             assertThat(response.firstHeader("X-Ascend-Runtime-Instance")).isEqualTo("runtime-gateway-1");
             assertThat(response.firstHeader("X-Ascend-Route-Grant-Id")).isEqualTo(forwardedGrantId.get());
-            assertThat(response.firstHeader("X-Agent-Examples-Route-Resolve-Ms")).isNotBlank();
-            assertThat(response.firstHeader("X-Agent-Examples-First-Byte-Ms")).isNotBlank();
-            assertThat(response.firstHeader("X-Agent-Examples-Forward-Start-Ms")).isNotBlank();
+            assertThat(response.firstHeader("X-Ascend-Route-Resolve-Ms")).isNotBlank();
+            assertThat(response.firstHeader("X-Ascend-First-Byte-Ms")).isNotBlank();
+            assertThat(response.firstHeader("X-Ascend-Forward-Start-Ms")).isNotBlank();
             HttpJsonResponse telemetry = get("/v1/a2a-interactions?tenantId=" + tenant
                     + "&correlationId=corr-gateway&limit=10");
             assertThat(telemetry.status()).isEqualTo(HttpStatus.OK.value());
@@ -385,7 +385,7 @@ class RuntimeRegistryHttpE2eTest {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @Import(RuntimeRegistryConfiguration.class)
+    @Import(GatewayTelemetryConfiguration.class)
     static class TestServiceFacade {
     }
 

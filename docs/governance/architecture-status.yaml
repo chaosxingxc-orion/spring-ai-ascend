@@ -75,14 +75,14 @@ strategic_decisions:
 
 # Source: root pom.xml <modules> list updated 2026-05-20 (rc13 wave)
 repository_counts:
-  note: "Canonical counts -- derived from root pom.xml <modules>. The agent-runtime pure rebuild (rollback of #138) returns the reactor to 4 modules: agent-runtime (run-owning runtime SDK; framework-neutral engine SPI + Run lifecycle + engine dispatch + session + task-centric control + A2A access + bootable app), agent-service (serviceization facade skeleton), agent-bus (neutral bus.spi.engine + bus.spi.s2c surfaces), spring-ai-ascend-dependencies (BoM). The historical agent-client / agent-middleware / agent-execution-engine / agent-evolve / agent-runtime-core modules are retired or never materialized and are NOT in the reactor."
-  reactor_modules: 4
+  note: "Canonical counts -- derived from root pom.xml <modules>. The reactor holds 6 modules: agent-runtime (run-owning runtime SDK; framework-neutral engine SPI + Run lifecycle + engine dispatch + session + task-centric control + A2A access + bootable app), agent-service (serviceization facade: Spring-free registration/discovery/routing SPI + reference impls), agent-service-starter (Spring Boot edge of the facade), agent-sdk (declarative agent definition SDK), agent-bus (neutral bus.spi.engine + bus.spi.s2c surfaces), spring-ai-ascend-dependencies (BoM). The historical agent-client / agent-middleware / agent-execution-engine / agent-evolve / agent-runtime-core modules are retired or never materialized and are NOT in the reactor."
+  reactor_modules: 6
   sdk_spi_starters: 0
   sidecar_adapter_starters: 1
   alternate_framework_profiles: 0
-  internal_modules: 3      # kind:domain/platform reactor modules excluding the BoM: agent-service + agent-bus + agent-runtime
+  internal_modules: 4      # kind:domain/platform reactor modules excluding the BoM and starter: agent-service + agent-bus + agent-runtime + agent-sdk
   bom_module: 1
-  total_reactor_modules: 4
+  total_reactor_modules: 6
   skeleton_modules: 0      # no skeleton-only modules in the reactor (agent-client / agent-evolve never materialized)
 
 capabilities:
@@ -1121,7 +1121,7 @@ capabilities:
       - spring-ai-ascend-dependencies/module-metadata.yaml
     tests:
       - gate/check_architecture_sync.sh
-    allowed_claim: "Section 4 #62 / Rule R-C.1 shipped at L1.x — each of the 4 reactor modules (`agent-service`, `agent-bus`, `agent-runtime`, `spring-ai-ascend-dependencies`) has a sibling module-metadata.yaml declaring module, kind (platform | domain | starter | bom | sample), version, semver_compatibility, architecture_doc, dfx_doc, spi_packages, allowed/forbidden_dependencies. Enforced by Gate Rule G-1 sub-clause .b module_metadata_present_and_complete + existing Gate Rule D-6 module_dep_direction + Rule G-8.c module topology parity (rc14). Runtime semver compatibility enforcement deferred per CLAUDE-deferred.md 31.b."
+    allowed_claim: "Section 4 #62 / Rule R-C.1 shipped at L1.x — each of the 6 reactor modules (`agent-service`, `agent-service-starter`, `agent-sdk`, `agent-bus`, `agent-runtime`, `spring-ai-ascend-dependencies`) has a sibling module-metadata.yaml declaring module, kind (platform | domain | starter | bom | sample), version, semver_compatibility, architecture_doc, dfx_doc, spi_packages, allowed/forbidden_dependencies. Enforced by Gate Rule G-1 sub-clause .b module_metadata_present_and_complete + existing Gate Rule D-6 module_dep_direction + Rule G-8.c module topology parity (rc14). Runtime semver compatibility enforcement deferred per CLAUDE-deferred.md 31.b."
 
   spi_dfx_tck_codesign:
     status: test_verified

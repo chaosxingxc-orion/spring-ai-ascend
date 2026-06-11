@@ -1,6 +1,5 @@
 package com.huawei.ascend.examples.a2a.gateway;
 
-import com.huawei.ascend.examples.a2a.gateway.config.RuntimeRegistryConfiguration;
 import com.huawei.ascend.service.spi.discovery.AgentDirectory;
 import com.huawei.ascend.service.spi.discovery.RoutingContext;
 import com.huawei.ascend.service.spi.registry.RuntimeAgentRegistration;
@@ -15,7 +14,9 @@ import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.AgentProvider;
 import org.a2aproject.sdk.spec.TransportProtocol;
+import com.huawei.ascend.service.starter.AgentServiceAutoConfiguration;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,7 +27,7 @@ class RuntimeRegistryPingPongE2eTest {
     private static final String AGENT = "ping-agent";
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withUserConfiguration(RuntimeRegistryConfiguration.class);
+            .withConfiguration(AutoConfigurations.of(AgentServiceAutoConfiguration.class));
 
     @Test
     void runtimeRegistrationCanBeDiscoveredAndRoutedByServiceFacade() {

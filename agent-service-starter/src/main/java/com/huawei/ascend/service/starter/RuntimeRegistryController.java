@@ -1,4 +1,4 @@
-package com.huawei.ascend.examples.a2a.gateway.http;
+package com.huawei.ascend.service.starter;
 
 import com.huawei.ascend.service.spi.AgentRouteNotFoundException;
 import com.huawei.ascend.service.spi.GatewayErrorCode;

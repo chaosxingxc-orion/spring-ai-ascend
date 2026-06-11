@@ -37,6 +37,7 @@
     <module>agent-runtime</module>
     <module>agent-sdk</module>
     <module>agent-service</module>
+    <module>agent-service-starter</module>
   </modules>
 
   <properties>
@@ -269,6 +270,11 @@
       <dependency>
         <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-service</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>agent-service-starter</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>
