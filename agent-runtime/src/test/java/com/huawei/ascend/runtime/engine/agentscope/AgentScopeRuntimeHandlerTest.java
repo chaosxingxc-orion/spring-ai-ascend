@@ -2,16 +2,26 @@ package com.huawei.ascend.runtime.engine.agentscope;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.huawei.ascend.runtime.engine.a2a.Messages;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryChannel;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryLevel;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
+import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 class AgentScopeRuntimeHandlerTest {
 
@@ -51,6 +61,55 @@ class AgentScopeRuntimeHandlerTest {
         assertThat(results.get(0).prompt()).isEqualTo("need approval");
     }
 
+    @Test
+    @Timeout(10)
+    void fullLevelEmitsRunLifecycleWithProgressAndErrorFromAgentScopeStream() throws Exception {
+        AgentScopeAgentRuntimeHandler handler = new AgentScopeAgentRuntimeHandler("agent-scope", invocation ->
+                Stream.of(AgentScopeEvent.output("pong-"), AgentScopeEvent.failed("X", "boom"),
+                        AgentScopeEvent.completed("done")));
+
+        List<TrajectoryEvent> events = runWithTrajectory(handler, TrajectoryLevel.FULL);
+
+        assertThat(events).extracting(TrajectoryEvent::kind)
+                .containsExactly(Kind.RUN_START, Kind.PROGRESS, Kind.ERROR, Kind.RUN_END);
+        assertThat(events).allSatisfy(e -> assertThat(e.tenantId()).isEqualTo("tenant"));
+        // The run span is the root; the error point event hangs off it.
+        TrajectoryEvent runStart = events.stream().filter(e -> e.kind() == Kind.RUN_START).findFirst().orElseThrow();
+        TrajectoryEvent error = events.stream().filter(e -> e.kind() == Kind.ERROR).findFirst().orElseThrow();
+        assertThat(runStart.parentSpanId()).isNull();
+        assertThat(error.parentSpanId()).isEqualTo(runStart.spanId());
+        assertThat(error.error().code()).isEqualTo("X");
+    }
+
+    @Test
+    @Timeout(10)
+    void summaryLevelDropsProgressButKeepsErrorAndLifecycle() throws Exception {
+        AgentScopeAgentRuntimeHandler handler = new AgentScopeAgentRuntimeHandler("agent-scope", invocation ->
+                Stream.of(AgentScopeEvent.output("pong-"), AgentScopeEvent.failed("X", "boom"),
+                        AgentScopeEvent.completed("done")));
+
+        List<TrajectoryEvent> events = runWithTrajectory(handler, TrajectoryLevel.SUMMARY);
+
+        assertThat(events).extracting(TrajectoryEvent::kind)
+                .containsExactly(Kind.RUN_START, Kind.ERROR, Kind.RUN_END);
+    }
+
+    private static List<TrajectoryEvent> runWithTrajectory(AgentScopeAgentRuntimeHandler handler,
+            TrajectoryLevel level) throws InterruptedException {
+        AgentExecutionContext context = context();
+        TrajectorySettings settings = new TrajectorySettings(level,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        TrajectoryChannel channel = handler.openTrajectory(context, settings);
+        List<TrajectoryEvent> events = new CopyOnWriteArrayList<>();
+        Thread drainer = new Thread(() -> channel.drain().forEach(events::add));
+        drainer.start();
+        try (Stream<?> raw = handler.execute(context)) {
+            raw.forEach(x -> { });
+        }
+        drainer.join(3000);
+        return new ArrayList<>(events);
+    }
+
     private static AgentExecutionContext context() {
         return context("agent-scope");
     }
@@ -63,15 +122,11 @@ class AgentScopeRuntimeHandlerTest {
     private static Message message(Message.Role role, String text) {
         return Message.builder()
                 .role(role)
-                .parts(List.<Part<?>>of(new TextPart(text)))
+                .parts(new TextPart(text))
                 .build();
     }
 
     private static String messageText(Message message) {
-        return message.parts().stream()
-                .filter(TextPart.class::isInstance)
-                .map(TextPart.class::cast)
-                .map(TextPart::text)
-                .reduce("", String::concat);
+        return Messages.text(message);
     }
 }

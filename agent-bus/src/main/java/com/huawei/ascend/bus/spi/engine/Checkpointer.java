@@ -6,18 +6,22 @@ import java.util.UUID;
 /**
  * Layer-3 (tier-internal) SPI for suspend-point persistence. Pure Java — no Spring imports.
  *
- * <p>W0 dev: in-memory {@code ConcurrentHashMap} ({@code InMemoryCheckpointer}).
- * Single-threaded; checkpoint write and RunRepository save are sequentially atomic on the same
- * call stack — see {@code SyncOrchestrator.executeLoop} javadoc.
+ * <p>This SPI is currently design-only: no implementation ships in this
+ * repository yet (consult {@code docs/contracts/engine-port.v1.yaml} for the
+ * contract status). The durability-tier plan it is designed against:
  *
- * <p>W2 Postgres: checkpoint bytes in {@code run_checkpoints} table (same DataSource as the
- * {@code runs} table). MUST be called inside the same {@code @Transactional} block as
- * {@code RunRepository.save(suspended)} to satisfy the suspension write atomicity contract
- * (ADR-0024). If the Checkpointer backend is non-DB (e.g. Redis), the transactional-outbox
- * pattern (ADR-0007) provides equivalent atomicity.
+ * <p>Dev tier: an in-memory map; checkpoint write and run save are sequentially
+ * atomic on the same call stack.
  *
- * <p>W4 Temporal: this SPI is bypassed entirely. {@code TemporalOrchestrator} does not call
- * {@code Checkpointer} — Temporal's workflow state machine is the durable record (ADR-0024).
+ * <p>Postgres tier: checkpoint bytes in a {@code run_checkpoints} table (same
+ * DataSource as the {@code runs} table). Save MUST happen inside the same
+ * {@code @Transactional} block as the suspended-run save to satisfy the
+ * suspension write atomicity contract (ADR-0024). If the Checkpointer backend
+ * is non-DB (e.g. Redis), the transactional-outbox pattern (ADR-0007) provides
+ * equivalent atomicity.
+ *
+ * <p>Temporal tier: this SPI is bypassed entirely — the workflow state machine
+ * is the durable record (ADR-0024).
  */
 public interface Checkpointer {
 

@@ -3,6 +3,7 @@ package com.huawei.ascend.examples.a2a;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentCards;
+import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.session.checkpointer.Checkpointer;
 import com.openjiuwen.core.session.checkpointer.CheckpointerFactory;
@@ -10,6 +11,7 @@ import com.openjiuwen.core.session.checkpointer.InMemoryCheckpointer;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
+import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
 import com.openjiuwen.extensions.checkpointer.redis.RedisCheckpointer;
 import java.util.List;
@@ -43,6 +45,11 @@ public class OpenJiuwenReactAgentConfiguration {
     }
 
     @Bean
+    MemoryProvider sampleMemoryProvider() {
+        return new InMemoryMemoryProvider();
+    }
+
+    @Bean
     OpenJiuwenAgentRuntimeHandler openJiuwenReactAgentHandler(
             @Value("${sample.openjiuwen.model-provider:${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}}")
             String modelProvider,
@@ -51,8 +58,10 @@ public class OpenJiuwenReactAgentConfiguration {
             String apiBase,
             @Value("${sample.openjiuwen.model-name:${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}}") String modelName,
             @Value("${sample.openjiuwen.ssl-verify:${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}}")
-            boolean sslVerify) {
-        return new SampleOpenJiuwenReactAgentHandler(modelProvider, apiKey, apiBase, modelName, sslVerify);
+            boolean sslVerify,
+            MemoryProvider memoryProvider) {
+        return new SampleOpenJiuwenReactAgentHandler(modelProvider, apiKey, apiBase, modelName, sslVerify,
+                memoryProvider);
     }
 
     @Bean
@@ -71,19 +80,29 @@ public class OpenJiuwenReactAgentConfiguration {
         private final String apiBase;
         private final String modelName;
         private final boolean sslVerify;
+        private final MemoryProvider memoryProvider;
 
         SampleOpenJiuwenReactAgentHandler(
                 String modelProvider,
                 String apiKey,
                 String apiBase,
                 String modelName,
-                boolean sslVerify) {
+                boolean sslVerify,
+                MemoryProvider memoryProvider) {
             super(AGENT_ID);
             this.modelProvider = modelProvider;
             this.apiKey = apiKey;
             this.apiBase = apiBase;
             this.modelName = modelName;
             this.sslVerify = sslVerify;
+            this.memoryProvider = memoryProvider;
+        }
+
+        @Override
+        protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
+            // This sample uses ReActAgent, so keep the compatibility rail. DeepAgent-style
+            // wiring can use openJiuwenExternalMemoryRail(...) for OpenJiuwen native memory.
+            return List.of(memoryRuntimeRail(context, memoryProvider));
         }
 
         @Override

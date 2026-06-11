@@ -1,18 +1,28 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryDraft;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
 import com.openjiuwen.core.context.ModelContext;
 import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
+import com.openjiuwen.core.foundation.llm.schema.SystemMessage;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
+import com.openjiuwen.harness.rails.ExternalMemoryRail;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,13 +33,13 @@ import org.slf4j.LoggerFactory;
  * stable {@code conversation_id}. openJiuwen session persistence is delegated to
  * its native checkpointer mechanism.
  */
-public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandler {
+public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntimeHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenJiuwenAgentRuntimeHandler.class);
 
-    private final String agentId;
     private final OpenJiuwenMessageAdapter messageConverter;
     private final OpenJiuwenStreamAdapter resultMapper;
+    private OpenJiuwenRemoteToolInstaller runtimeToolInstaller;
 
     protected OpenJiuwenAgentRuntimeHandler(String agentId) {
         this(agentId, new OpenJiuwenMessageAdapter());
@@ -41,24 +51,28 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
 
     OpenJiuwenAgentRuntimeHandler(String agentId, OpenJiuwenMessageAdapter messageConverter,
             OpenJiuwenStreamAdapter resultMapper) {
-        org.springframework.util.Assert.hasText(agentId, "agentId must not be blank");
-        this.agentId = agentId;
+        super(agentId);
         this.messageConverter = Objects.requireNonNull(messageConverter, "messageConverter");
         this.resultMapper = Objects.requireNonNull(resultMapper, "resultMapper");
     }
 
+    /**
+     * openJiuwen taps native model-call callbacks (token usage, reasoning, finish reason) on top of
+     * the cross-framework core, so it advertises the model-call kinds. Without this, the optional
+     * tier would be dropped by the capability gate before the FULL-level gate is ever reached.
+     */
     @Override
-    public final String agentId() {
-        return agentId;
+    protected Set<Kind> supportedKinds() {
+        return EnumSet.of(
+                Kind.RUN_START, Kind.RUN_END,
+                Kind.MODEL_CALL_START, Kind.MODEL_CALL_END,
+                Kind.TOOL_CALL_START, Kind.TOOL_CALL_END,
+                Kind.ERROR);
     }
 
     @Override
-    public boolean isHealthy() {
-        return true;
-    }
-
-    @Override
-    public final java.util.stream.Stream<?> execute(AgentExecutionContext context) {
+    protected final java.util.stream.Stream<?> doExecute(AgentExecutionContext context,
+            TrajectoryEmitter trajectory) {
         try {
             LOGGER.info("openjiuwen execute start tenantId={} sessionId={} taskId={} agentId={}",
                     context.getScope().tenantId(),
@@ -67,6 +81,10 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
                     context.getScope().agentId());
             BaseAgent agent = Objects.requireNonNull(createOpenJiuwenAgent(context), "openJiuwen agent");
             installRails(agent, context);
+            installRuntimeTools(agent, context);
+            if (trajectory != TrajectoryEmitter.NOOP) {
+                agent.registerRail(new OpenJiuwenTrajectoryRail(trajectory));
+            }
             Object input = toOpenJiuwenInput(context);
             Object result = runOpenJiuwenAgent(agent, input, openJiuwenConversationId(context));
             LOGGER.info("openjiuwen execute finished tenantId={} sessionId={} taskId={} resultType={}",
@@ -74,6 +92,9 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
                     context.getScope().sessionId(),
                     context.getScope().taskId(),
                     result == null ? "null" : result.getClass().getName());
+            if (result instanceof java.util.stream.Stream<?> stream) {
+                return stream;
+            }
             return java.util.stream.Stream.of(result);
         } catch (RuntimeException error) {
             LOGGER.warn("openjiuwen execute failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
@@ -82,6 +103,9 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
                     context.getScope().taskId(),
                     error.getClass().getSimpleName(),
                     errorMessage(error));
+            // ERROR is a mandatory trajectory kind: surface the run-level failure northbound even though
+            // the failure is mapped to a result (not rethrown), so the trajectory is not silently truncated.
+            trajectory.emit(TrajectoryDraft.error(null, "OPENJIUWEN_RUN_ERROR", errorMessage(error), null, false));
             return java.util.stream.Stream.of(Map.of("result_type", "error", "output", errorMessage(error)));
         }
     }
@@ -93,16 +117,57 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
      * Adapter-owned rails installed on every openJiuwen agent before execution.
      *
      * <p>The default installs no rails. Subclasses can opt in to openJiuwen-local
-     * decorations such as {@link MemoryRuntimeRail} without changing A2A
-     * execution or the framework-neutral runtime SPI.
+     * decorations such as OpenJiuwen's external memory rail or the ReActAgent
+     * compatibility {@link MemoryRuntimeRail} without changing A2A execution or
+     * the framework-neutral runtime SPI.
      */
     protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
         return List.of();
     }
 
-    /** Create the default openJiuwen memory rail for subclasses that opt in. */
+    /**
+     * Install runtime-owned tools on the concrete openJiuwen agent instance.
+     *
+     * <p>The default is intentionally empty. Runtime integrations such as remote
+     * A2A tool injection can use this hook without changing the concrete user's
+     * agent implementation.
+     */
+    protected void installRuntimeTools(BaseAgent agent, AgentExecutionContext context) {
+        if (runtimeToolInstaller != null) {
+            runtimeToolInstaller.install(agent, context);
+        }
+    }
+
+    public final void setRuntimeToolInstaller(OpenJiuwenRemoteToolInstaller runtimeToolInstaller) {
+        this.runtimeToolInstaller = runtimeToolInstaller;
+    }
+
+    /**
+     * Create the ReActAgent-compatible memory rail for subclasses that opt in.
+     *
+     * <p>Use {@link #openJiuwenExternalMemoryRail(AgentExecutionContext, MemoryProvider)}
+     * first when the concrete OpenJiuwen agent supports the native harness
+     * external-memory rail.
+     */
     protected final MemoryRuntimeRail memoryRuntimeRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
         return new MemoryRuntimeRail(context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+    }
+
+    /**
+     * Create an openJiuwen-native external memory rail backed by the runtime
+     * neutral {@link MemoryProvider}.
+     *
+     * <p>Prefer this hook when the concrete openJiuwen agent supports the
+     * harness external-memory rail. The OpenJiuwen memory API is intentionally
+     * hidden behind an adapter in this package so the public runtime SPI remains
+     * independent from OpenJiuwen memory package names.
+     */
+    protected final AgentRail openJiuwenExternalMemoryRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
+        return new ExternalMemoryRail(
+                new OpenJiuwenExternalMemoryProviderAdapter(context, memoryProvider),
+                context.getScope().userId(),
+                context.getAgentStateKey(),
+                context.getScope().sessionId());
     }
 
     protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
@@ -151,9 +216,17 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
     }
 
     @SuppressWarnings("unchecked")
-    private com.huawei.ascend.runtime.engine.spi.AgentExecutionResult mapRawResult(Object rawResult) {
+    private AgentExecutionResult mapRawResult(Object rawResult) {
         LOGGER.info("openjiuwen raw result received type={}",
                 rawResult == null ? "null" : rawResult.getClass().getName());
+        if (rawResult instanceof AgentExecutionResult result) {
+            return result;
+        }
+        if (rawResult == null) {
+            return resultMapper.map(Map.of(
+                    "result_type", "error",
+                    "output", "openjiuwen runner returned no result"));
+        }
         if (rawResult instanceof Map<?, ?> map) {
             return resultMapper.map((Map<String, Object>) map);
         }
@@ -185,6 +258,8 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
      * depending on openJiuwen's Rail API.
      */
     public static final class MemoryRuntimeRail extends AgentRail {
+        private static final int DEFAULT_MEMORY_SEARCH_LIMIT = 5;
+
         private final AgentExecutionContext executionContext;
         private final MemoryProvider memoryProvider;
         private final OpenJiuwenMemoryMessageAdapter memoryMessageAdapter;
@@ -208,6 +283,16 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
                         error.getClass().getSimpleName(),
                         errorMessage(error));
             }
+            try {
+                injectMemory(callbackContext);
+            } catch (RuntimeException error) {
+                LOGGER.warn("openjiuwen memory search inject failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
+                        executionContext.getScope().tenantId(),
+                        executionContext.getScope().sessionId(),
+                        executionContext.getScope().taskId(),
+                        error.getClass().getSimpleName(),
+                        errorMessage(error));
+            }
         }
 
         @Override
@@ -217,7 +302,12 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
                 return;
             }
             try {
-                memoryProvider.save(executionContext, memoryMessageAdapter.toMemoryRecords(messages));
+                List<MemoryProvider.MemoryRecord> records = memoryMessageAdapter.toMemoryRecords(messages).stream()
+                        .filter(record -> !"system".equals(record.role()))
+                        .toList();
+                if (!records.isEmpty()) {
+                    memoryProvider.save(executionContext, records);
+                }
             } catch (RuntimeException error) {
                 LOGGER.warn("openjiuwen memory save failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
                         executionContext.getScope().tenantId(),
@@ -238,6 +328,76 @@ public abstract class OpenJiuwenAgentRuntimeHandler implements AgentRuntimeHandl
             }
             List<BaseMessage> messages = modelContext.getMessages();
             return messages == null ? List.of() : messages;
+        }
+
+        private void injectMemory(AgentCallbackContext callbackContext) {
+            String query = latestUserInput();
+            if (query.isBlank()) {
+                return;
+            }
+            List<MemoryProvider.MemoryHit> hits =
+                    memoryProvider.search(executionContext, query, DEFAULT_MEMORY_SEARCH_LIMIT);
+            if (hits.isEmpty()) {
+                return;
+            }
+            ModelContext modelContext = callbackContext == null ? null : callbackContext.getContext();
+            if (modelContext == null) {
+                return;
+            }
+            mergeMemoryIntoSystemMessage(modelContext, formatMemoryBlock(hits));
+        }
+
+        private String latestUserInput() {
+            List<org.a2aproject.sdk.spec.Message> messages = executionContext.getMessages();
+            for (int i = messages.size() - 1; i >= 0; i--) {
+                org.a2aproject.sdk.spec.Message message = messages.get(i);
+                if (message != null && message.role() == org.a2aproject.sdk.spec.Message.Role.ROLE_USER) {
+                    return OpenJiuwenMessageAdapter.messageText(message);
+                }
+            }
+            return "";
+        }
+
+        private static String formatMemoryBlock(List<MemoryProvider.MemoryHit> hits) {
+            StringBuilder block = new StringBuilder("Relevant memory:\n");
+            for (MemoryProvider.MemoryHit hit : hits) {
+                if (hit != null && !hit.content().isBlank()) {
+                    block.append("- ").append(hit.content()).append('\n');
+                }
+            }
+            return block.toString().trim();
+        }
+
+        private static void mergeMemoryIntoSystemMessage(ModelContext modelContext, String memoryBlock) {
+            List<BaseMessage> currentMessages = modelContext.getMessages();
+            List<BaseMessage> updatedMessages =
+                    new ArrayList<>(currentMessages == null ? List.of() : currentMessages);
+            for (int i = 0; i < updatedMessages.size(); i++) {
+                BaseMessage message = updatedMessages.get(i);
+                if (isSystemMessage(message)) {
+                    updatedMessages.set(i, mergedSystemMessage(message, memoryBlock));
+                    modelContext.setMessages(updatedMessages, true);
+                    return;
+                }
+            }
+            updatedMessages.add(0, new SystemMessage(memoryBlock));
+            modelContext.setMessages(updatedMessages, true);
+        }
+
+        private static boolean isSystemMessage(BaseMessage message) {
+            return message instanceof SystemMessage
+                    || (message != null && "system".equalsIgnoreCase(message.getRole()));
+        }
+
+        private static SystemMessage mergedSystemMessage(BaseMessage original, String memoryBlock) {
+            String originalContent = original.getContentAsString();
+            String mergedContent = originalContent == null || originalContent.isBlank()
+                    ? memoryBlock
+                    : originalContent + "\n\n" + memoryBlock;
+            String name = original.getName();
+            return name == null || name.isBlank()
+                    ? new SystemMessage(mergedContent)
+                    : new SystemMessage(mergedContent, name);
         }
     }
 }

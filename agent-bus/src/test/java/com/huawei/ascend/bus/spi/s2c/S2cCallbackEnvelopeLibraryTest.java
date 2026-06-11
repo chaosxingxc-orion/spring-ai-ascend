@@ -157,11 +157,22 @@ class S2cCallbackEnvelopeLibraryTest {
     }
 
     @Test
-    void response_timeout_factory_carries_no_payload() {
+    void response_timeout_factory_carries_no_payload_and_no_fabricated_trace() {
         UUID cb = UUID.randomUUID();
-        S2cCallbackResponse r = S2cCallbackResponse.timeout(cb, VALID_TRACE_ID);
+        S2cCallbackResponse r = S2cCallbackResponse.timeout(cb);
         assertThat(r.outcome()).isEqualTo(S2cCallbackResponse.Outcome.TIMEOUT);
         assertThat(r.responsePayload()).isNull();
         assertThat(r.errorCode()).isNull();
+        // The client never responded — no client execution exists to correlate.
+        assertThat(r.clientTraceId()).isNull();
+    }
+
+    @Test
+    void response_rejects_error_fields_on_non_error_outcomes() {
+        UUID cb = UUID.randomUUID();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new S2cCallbackResponse(
+                        cb, S2cCallbackResponse.Outcome.OK, VALID_TRACE_ID, null, "E_X", null, Map.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("outcome=OK");
     }
 }

@@ -28,6 +28,7 @@ class RuntimePackageBoundaryTest {
                         "com.huawei.ascend.runtime.engine",
                         "com.huawei.ascend.runtime.engine.a2a..",
                         "com.huawei.ascend.runtime.engine.agentscope..",
+                        "com.huawei.ascend.runtime.engine.langgraph..",
                         "com.huawei.ascend.runtime.engine.openjiuwen..",
                         "com.huawei.ascend.runtime.engine.versatile..",
                         "com.huawei.ascend.runtime.engine.service..",
@@ -69,6 +70,18 @@ class RuntimePackageBoundaryTest {
                 .that().resideInAPackage("..agentscope..")
                 .should().resideInAPackage("com.huawei.ascend.runtime.engine.agentscope..")
                 .allowEmptyShould(false);
+        rule.check(RUNTIME_CLASSES);
+    }
+
+    @Test
+    void neutralEngineSpiStaysFrameworkAgnostic() {
+        // The northbound trajectory abstraction lives in engine.spi and must stay framework-neutral:
+        // native framework events are consumed only in the per-framework adapter (engine.openjiuwen),
+        // never leaked into the neutral SPI. Guards the owner-mandated abstraction boundary.
+        ArchRule rule = noClasses()
+                .that().resideInAPackage("..runtime.engine.spi..")
+                .should().dependOnClassesThat()
+                .resideInAnyPackage("com.openjiuwen..");
         rule.check(RUNTIME_CLASSES);
     }
 

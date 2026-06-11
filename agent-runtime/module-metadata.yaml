@@ -15,8 +15,7 @@ spi_packages:
   # MessageAdapter, StreamAdapter, and MemoryProvider - the
   # per-framework plug-in surface (openJiuwen first).
   - com.huawei.ascend.runtime.engine.spi
-allowed_dependencies:
-  - agent-bus              # consumes the neutral bus.spi.engine RunContext/SuspendSignal types
+allowed_dependencies: []   # no sibling-module dependencies; the only external protocol contract is the A2A SDK
 forbidden_dependencies:
   - agent-service          # engine is upstream of agent-service; reverse direction forbidden
 deployment_plane: compute_control   # Rule R-I / P-I - engine runs in-process with the runtime kernel

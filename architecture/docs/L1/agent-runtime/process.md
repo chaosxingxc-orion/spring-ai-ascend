@@ -247,20 +247,43 @@ Client                Controller         RequestHandler      A2aAgentExecutor
 
 ### 3.4 错误处理流程
 
+错误分两层，各走各的载体：协议层（请求本身有问题，无 Task）与任务层（执行失败）。
+
+**协议层（`A2aJsonRpcController`）**：请求无法解析 / 未知方法 / 非法参数时，不再静默返回
+`{}`，而是返回标准 JSON-RPC 错误响应 `A2AErrorResponse(id, A2AError)`，错误码取自
+`A2AErrorCodes`：
+
+- 畸形 JSON → `JSON_PARSE` (-32700)
+- 结构不匹配任何 A2A 请求 → `INVALID_REQUEST` (-32600)
+- 未知方法 → `METHOD_NOT_FOUND` (-32601)
+- handler 抛出的 `A2AError` → 原码透传；其余 → `INTERNAL` (-32603)
+
+**任务层（`A2aAgentExecutor`）**：
+
 ```
 AgentRuntimeHandler.execute() 抛出异常:
   → AgentRuntimeProviderChain.closeEntered() 关闭已进入的 providers
   → A2aAgentExecutor 捕获异常:
-      LOG.error("[A2A] execute failed ...")
-      emitter.fail()
+      RuntimeErrorCode.classify(e)        // 走 cause 链 → 稳定码 + retryable
+      LOG.error("[A2A] execute failed ... code=...")
+      emitter.fail(failureMessage(code, detail, retryable))
+  → 失败 Message 同时携带:
+      TextPart  "code: detail"                                  // 人读
+      DataPart  {kind, code, message, retryable, schema_version} // 机器可读
   → Task 状态推进到 FAILED
-  → 客户端收到失败通知
 
-AgentRuntimeProvider.beforeExecute() 抛出异常:
-  → AgentRuntimeProviderChain 关闭已进入的 providers，重新抛出异常
-  → A2aAgentExecutor 捕获 → emitter.fail()
+未注册 handler:
+  → emitter.reject(failureMessage("NO_HANDLER", ...))
+  → Task 状态推进到 REJECTED（前置拒绝，未进入 WORKING）
+
+adapter 产出的 FAILED 结果:
+  → errorCode 原样透传（不经分类器），retryable 保守为 false
 
 AgentRuntimeProvider.afterExecute() 抛出异常:
   → AgentRuntimeProviderChain 捕获并 LOG.warn()，不中断主流程
-  → 其他 providers 的 afterExecute 继续执行
 ```
+
+未捕获异常的稳定错误码集合：`INVALID_INPUT` / `TIMEOUT` / `UPSTREAM_UNAVAILABLE` /
+`CANCELLED` / `INTERNAL`，各带 `retryable` 标志，供 Client 编程式判别——这是 AgentScope
+纯文本任务级错误的超集。更丰富的执行轨迹面（步内 工具/推理/重试 事件）为前瞻设计，见
+`docs/logs/reviews/2026-06-10-a2a-error-flow-and-trajectory-observability.md`。

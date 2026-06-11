@@ -109,7 +109,7 @@
   kind: archunit
   level: L1
   view: logical
-  artifact: agent-runtime/src/test/java/com/huawei/ascend/runtime/architecture/RunContextIdentityAccessorsTest.java
+  artifact: agent-bus/src/test/java/com/huawei/ascend/bus/architecture/RunContextIdentityAccessorsTest.java
   asserts: "RunContext SPI exposes traceId() : String, spanId() : String, sessionId() : String, traceContext() : TraceContext accessors (L1.x mandatory shape per §4 #54)."
   governance_infra: true
 
