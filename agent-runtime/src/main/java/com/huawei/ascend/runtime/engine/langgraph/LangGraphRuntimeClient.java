@@ -34,7 +34,7 @@ import org.a2aproject.sdk.spec.Message;
  * emitted element is a map of {@code event} (name, possibly empty) and
  * {@code data} (the decoded JSON payload).
  */
-public final class LangGraphRuntimeClient {
+public final class LangGraphRuntimeClient implements AutoCloseable {
 
     static final String EVENT_KEY = "event";
     static final String DATA_KEY = "data";
@@ -42,18 +42,39 @@ public final class LangGraphRuntimeClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final LangGraphRuntimeClientProperties properties;
+    private final boolean ownsHttpClient;
 
     public LangGraphRuntimeClient(LangGraphRuntimeClientProperties properties) {
-        this(HttpClient.newHttpClient(), new ObjectMapper(), properties);
+        this(HttpClient.newHttpClient(), new ObjectMapper(), properties, true);
     }
 
     LangGraphRuntimeClient(
             HttpClient httpClient,
             ObjectMapper objectMapper,
             LangGraphRuntimeClientProperties properties) {
+        this(httpClient, objectMapper, properties, false);
+    }
+
+    LangGraphRuntimeClient(
+            HttpClient httpClient,
+            ObjectMapper objectMapper,
+            LangGraphRuntimeClientProperties properties,
+            boolean ownsHttpClient) {
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.properties = Objects.requireNonNull(properties, "properties");
+        this.ownsHttpClient = ownsHttpClient;
+    }
+
+    /**
+     * Releases the HTTP transport if this client created it; an injected
+     * transport belongs to its injector and is left open.
+     */
+    @Override
+    public void close() {
+        if (ownsHttpClient) {
+            httpClient.close();
+        }
     }
 
     public Stream<Map<String, Object>> streamEvents(AgentExecutionContext context) {

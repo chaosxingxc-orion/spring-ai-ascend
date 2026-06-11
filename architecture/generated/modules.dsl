@@ -16,7 +16,7 @@ genModule_agent_bus = element "agent-bus" "Module" "Bus & State Hub plane — ow
     }
 }
 
-genModule_agent_runtime = element "agent-runtime" "Module" "Run-owning runtime SDK that drives Agent instances built on heterogeneous agent frameworks through a single framework-neutral SPI (engine.spi.AgentRuntimeHandler + MessageAdapter + StreamAdapter; o..." "SAA Module" {
+genModule_agent_runtime = element "agent-runtime" "Module" "Run-owning runtime SDK that drives Agent instances built on heterogeneous agent frameworks through a single framework-neutral SPI (engine.spi.AgentRuntimeHandler + optional AgentCardProvider + Mess..." "SAA Module" {
     properties {
         "saa.id" "GEN-MOD-AGENT_RUNTIME"
         "saa.kind" "module_metadata"

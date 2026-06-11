@@ -178,6 +178,37 @@ class AgentScopeRuntimeClientHandlerTest {
         assertThat(results.getFirst().errorMessage()).isEqualTo("AgentScope runtime returned HTTP 599");
     }
 
+    /**
+     * stop() must release the SSE transport when the client owns it (created it
+     * itself); a borrowed transport belongs to its injector and survives.
+     */
+    @Test
+    void stopClosesClientOwnedHttpTransport() {
+        java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
+        HttpClient recording = new TestHttpClient() {
+            @Override
+            public <T> CompletableFuture<HttpResponse<T>> sendAsync(
+                    HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
+                throw new UnsupportedOperationException("no request expected");
+            }
+
+            @Override
+            public void close() {
+                closed.set(true);
+            }
+        };
+        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
+                recording,
+                new ObjectMapper(),
+                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"),
+                true);
+        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+
+        handler.stop();
+
+        assertThat(closed).isTrue();
+    }
+
     private static AgentScopeRuntimeClientHandler handler(HttpClient httpClient) {
         AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
                 httpClient,

@@ -52,26 +52,39 @@ public final class A2aAgentExecutor implements AgentExecutor {
     private static final String ERROR_SCHEMA_VERSION = "1";
 
     private final AgentRuntimeHandler handler;
+    private final java.util.function.BooleanSupplier readiness;
+    private final java.util.concurrent.ConcurrentHashMap<String, InFlightExecution> inFlight =
+            new java.util.concurrent.ConcurrentHashMap<>();
     private final Executor trajectoryExecutor;
     private final TrajectorySettings defaultTrajectorySettings;
     private final List<TrajectorySinkFactory> sinkFactories;
 
     public A2aAgentExecutor(AgentRuntimeHandler handler) {
-        this(handler, null, TrajectorySettings.off(), List.of());
+        this(handler, () -> true, null, TrajectorySettings.off(), List.of());
+    }
+
+    public A2aAgentExecutor(AgentRuntimeHandler handler, java.util.function.BooleanSupplier readiness) {
+        this(handler, readiness, null, TrajectorySettings.off(), List.of());
     }
 
     public A2aAgentExecutor(AgentRuntimeHandler handler, Executor trajectoryExecutor,
             TrajectorySettings defaultTrajectorySettings) {
-        this(handler, trajectoryExecutor, defaultTrajectorySettings, List.of());
+        this(handler, () -> true, trajectoryExecutor, defaultTrajectorySettings, List.of());
     }
 
-    public A2aAgentExecutor(AgentRuntimeHandler handler, Executor trajectoryExecutor,
-            TrajectorySettings defaultTrajectorySettings, List<TrajectorySinkFactory> sinkFactories) {
+    public A2aAgentExecutor(AgentRuntimeHandler handler, java.util.function.BooleanSupplier readiness,
+            Executor trajectoryExecutor, TrajectorySettings defaultTrajectorySettings,
+            List<TrajectorySinkFactory> sinkFactories) {
         this.handler = handler;
+        this.readiness = java.util.Objects.requireNonNull(readiness, "readiness");
         this.trajectoryExecutor = trajectoryExecutor;
         this.defaultTrajectorySettings =
                 defaultTrajectorySettings != null ? defaultTrajectorySettings : TrajectorySettings.off();
         this.sinkFactories = sinkFactories != null ? List.copyOf(sinkFactories) : List.of();
+    }
+
+    /** Cancel state for one in-flight execution: the handler's raw stream plus a torn-down marker. */
+    private record InFlightExecution(Stream<?> rawStream, AtomicBoolean cancelled) {
     }
 
     @Override
@@ -84,12 +97,23 @@ public final class A2aAgentExecutor implements AgentExecutor {
             LOG.info("[A2A] task state=REJECTED taskId={}", taskId);
             return;
         }
+        if (!readiness.getAsBoolean()) {
+            // Boot has not finished or a drain is in progress: the handler may be
+            // mid start/stop, so executing now could run against half-open
+            // resources. Retryable — the client may try again once ready.
+            LOG.warn("[A2A] runtime not ready taskId={}", taskId);
+            emitter.reject(failureMessage(emitter, "RUNTIME_NOT_READY",
+                    "runtime is not accepting executions", true));
+            LOG.info("[A2A] task state=REJECTED taskId={}", taskId);
+            return;
+        }
         long startedNanos = System.nanoTime();
         String sessionId = ctx.getContextId();
         String agentId = handler.agentId();
         MDC.put(MDC_CONTEXT_ID, sessionId != null ? sessionId : "");
         MDC.put(MDC_TASK_ID, taskId != null ? taskId : "");
         TrajectoryChannel channel = TrajectoryChannel.NOOP;
+        InFlightExecution execution = null;
         try {
             LOG.info("[A2A] execute start taskId={} sessionId={} agentId={}", taskId, sessionId, agentId);
 
@@ -113,6 +137,8 @@ public final class A2aAgentExecutor implements AgentExecutor {
             try (Stream<?> raw = executeAgent(context);
                  Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
 
+                execution = new InFlightExecution(raw, new AtomicBoolean(false));
+                inFlight.put(taskId, execution);
                 AtomicReference<Runnable> terminal = new AtomicReference<>();
                 results.forEach(result -> {
                     LOG.info("[A2A] result taskId={} type={} outputChars={}",
@@ -141,8 +167,14 @@ public final class A2aAgentExecutor implements AgentExecutor {
                     LOG.warn("[A2A] result stream ended without terminal result taskId={} — completing", taskId);
                     emitter.complete();
                 }
-
             } catch (Exception e) {
+                if (execution != null && execution.cancelled().get()) {
+                    // The cancel path already moved the task to CANCELED and tore the
+                    // stream down; reporting the teardown as a failure would fight the
+                    // terminal state the client just observed.
+                    LOG.info("[A2A] execute torn down by cancel taskId={}", taskId);
+                    return;
+                }
                 RuntimeErrorCode code = RuntimeErrorCode.classify(e);
                 String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
                 LOG.error("[A2A] execute failed taskId={} code={} errorClass={} message={}",
@@ -150,6 +182,8 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 deliverNorthbound(northbound, channel, pipeline.drain(), emitter, trajectoryArtifactId, taskId);
                 emitter.fail(failureMessage(emitter, code.name(), detail, code.retryable()));
                 LOG.info("[A2A] task state=FAILED taskId={}", taskId);
+            } finally {
+                inFlight.remove(taskId, execution);
             }
         } catch (Exception e) {
             // A throw during setup (submit/startWork/context build/openTrajectory) — outside the inner
@@ -285,11 +319,27 @@ public final class A2aAgentExecutor implements AgentExecutor {
     public void cancel(RequestContext ctx, AgentEmitter emitter) {
         String taskId = ctx.getTaskId();
         LOG.info("[A2A] cancel requested taskId={}", taskId);
+        InFlightExecution execution = inFlight.get(taskId);
+        if (execution != null) {
+            execution.cancelled().set(true);
+        }
+        if (handler != null) {
+            try {
+                handler.cancel(taskId);
+            } catch (RuntimeException e) {
+                LOG.warn("[A2A] handler cancel failed taskId={} message={}", taskId, e.getMessage(), e);
+            }
+        }
         try {
             emitter.cancel();
             LOG.info("[A2A] task state=CANCELED taskId={}", taskId);
         } catch (Exception e) {
             LOG.error("[A2A] cancel failed taskId={} message={}", taskId, e.getMessage(), e);
+        }
+        if (execution != null) {
+            // Tear the transport down last so the CANCELED state has already
+            // landed when the execute thread observes the closed stream.
+            execution.rawStream().close();
         }
     }
 

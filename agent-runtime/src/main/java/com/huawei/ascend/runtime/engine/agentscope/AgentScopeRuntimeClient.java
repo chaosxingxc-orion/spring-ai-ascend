@@ -26,7 +26,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public final class AgentScopeRuntimeClient {
+public final class AgentScopeRuntimeClient implements AutoCloseable {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
@@ -34,18 +34,39 @@ public final class AgentScopeRuntimeClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final AgentScopeRuntimeClientProperties properties;
+    private final boolean ownsHttpClient;
 
     public AgentScopeRuntimeClient(AgentScopeRuntimeClientProperties properties) {
-        this(HttpClient.newHttpClient(), new ObjectMapper(), properties);
+        this(HttpClient.newHttpClient(), new ObjectMapper(), properties, true);
     }
 
     AgentScopeRuntimeClient(
             HttpClient httpClient,
             ObjectMapper objectMapper,
             AgentScopeRuntimeClientProperties properties) {
+        this(httpClient, objectMapper, properties, false);
+    }
+
+    AgentScopeRuntimeClient(
+            HttpClient httpClient,
+            ObjectMapper objectMapper,
+            AgentScopeRuntimeClientProperties properties,
+            boolean ownsHttpClient) {
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.properties = Objects.requireNonNull(properties, "properties");
+        this.ownsHttpClient = ownsHttpClient;
+    }
+
+    /**
+     * Releases the HTTP transport if this client created it; an injected
+     * transport belongs to its injector and is left open.
+     */
+    @Override
+    public void close() {
+        if (ownsHttpClient) {
+            httpClient.close();
+        }
     }
 
     public Stream<Map<String, Object>> streamEvents(AgentScopeInvocation invocation) {
