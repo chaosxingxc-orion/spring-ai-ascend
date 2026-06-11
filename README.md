@@ -163,7 +163,7 @@ These 7 surfaces present **distinct slices**: workspace (structure) → constrai
 ## Where to go next (cross-links beyond the Reading path)
 
 - [docs/contracts/](docs/contracts/) — full contract corpus (each contract has authority ADR + enforcer).
-- [docs/adr/README.md](docs/adr/README.md) — full Architecture Decision Records corpus (the canonical count lives in docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics; currently 65 active+locked ADRs but only the baseline_metrics number is authoritative).
+- [docs/adr/README.md](docs/adr/README.md) — full Architecture Decision Records corpus (the canonical count lives in docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics; currently 66 active+locked ADRs but only the baseline_metrics number is authoritative).
 - [docs/governance/architecture-status.yaml](docs/governance/architecture-status.yaml) — per-capability shipped/deferred ledger.
 - [docs/governance/SESSION-START-CONTEXT.md](docs/governance/SESSION-START-CONTEXT.md) — same Reading path, expressed as an always-load table for AI sessions.
 
@@ -178,7 +178,7 @@ design contracts. Per-capability detail is the single source of truth in
 
 A Code-as-Contract gate keeps the documentation and the code in lockstep and
 fails closed on drift. Its current baseline:
-**65 §4 constraints · 65 ADRs · 32 active gate rules · 102 gate self-tests**,
+**65 §4 constraints · 66 ADRs · 32 active gate rules · 102 gate self-tests**,
 plus 13 Layer-0 governing principles, 53 active engineering rules, 41 enforcer
 rows, and a 381-node / 573-edge architecture graph — all maintained in
 [`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](docs/governance/architecture-status.yaml)
