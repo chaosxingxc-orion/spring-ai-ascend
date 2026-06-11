@@ -7,20 +7,36 @@
     "repo_commit" : "0000000000000000000000000000000000000000"
   },
   "facts" : [ {
+    "fact_id" : "test/com-huawei-ascend-bus-architecture-runcontextidentityaccessorstest",
+    "fact_kind" : "test",
+    "source_kind" : "test",
+    "source_path" : "agent-bus/target/test-classes/com/huawei/ascend/bus/architecture/RunContextIdentityAccessorsTest.class",
+    "source_symbol" : "com.huawei.ascend.bus.architecture.RunContextIdentityAccessorsTest",
+    "extractor" : "tools/architecture-workspace#TestInventoryFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-bus",
+      "fqn" : "com.huawei.ascend.bus.architecture.RunContextIdentityAccessorsTest",
+      "kind" : "test_class",
+      "test_methods" : [ "runContext_exposes_sessionId_returning_String()V", "runContext_exposes_spanId_returning_String()V", "runContext_exposes_traceContext_returning_TraceContext()V", "runContext_exposes_traceId_returning_String()V", "traceContext_returnType_is_pure_Java()V" ],
+      "source_file_guess" : "agent-bus/src/test/java/com/huawei/ascend/bus/architecture/RunContextIdentityAccessorsTest.java"
+    }
+  }, {
     "fact_id" : "test/com-huawei-ascend-bus-spi-engine-suspendsignallibrarytest",
     "fact_kind" : "test",
     "source_kind" : "test",
-    "source_path" : "agent-runtime/target/test-classes/com/huawei/ascend/bus/spi/engine/SuspendSignalLibraryTest.class",
+    "source_path" : "agent-bus/target/test-classes/com/huawei/ascend/bus/spi/engine/SuspendSignalLibraryTest.class",
     "source_symbol" : "com.huawei.ascend.bus.spi.engine.SuspendSignalLibraryTest",
     "extractor" : "tools/architecture-workspace#TestInventoryFactExtractor",
     "extractor_version" : "0.1.0-SNAPSHOT",
     "repo_commit" : "0000000000000000000000000000000000000000",
     "observed_value" : {
-      "module" : "agent-runtime",
+      "module" : "agent-bus",
       "fqn" : "com.huawei.ascend.bus.spi.engine.SuspendSignalLibraryTest",
       "kind" : "test_class",
       "test_methods" : [ "child_run_constructor_accepts_null_resume_payload()V", "child_run_constructor_requires_child_def()V", "child_run_constructor_requires_child_mode()V", "child_run_constructor_requires_parent_node_key()V", "client_callback_factory_produces_signal_with_distinguishable_shape()V", "client_callback_factory_requires_envelope()V", "client_callback_factory_requires_parent_node_key()V", "executor_definition_graph_node_list_survives_construction()V", "message_includes_parent_node_key_for_evidence_capture()V", "suspend_signal_is_checked_exception()V" ],
-      "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/bus/spi/engine/SuspendSignalLibraryTest.java"
+      "source_file_guess" : "agent-bus/src/test/java/com/huawei/ascend/bus/spi/engine/SuspendSignalLibraryTest.java"
     }
   }, {
     "fact_id" : "test/com-huawei-ascend-bus-spi-engine-suspendsignaltest",
@@ -85,22 +101,6 @@
       "kind" : "test_class",
       "test_methods" : [ "examples_must_not_import_spring_ai_advisor_or_prompt_template_directly()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/architecture/AudienceBExtensionSeamsArchTest.java"
-    }
-  }, {
-    "fact_id" : "test/com-huawei-ascend-runtime-architecture-runcontextidentityaccessorstest",
-    "fact_kind" : "test",
-    "source_kind" : "test",
-    "source_path" : "agent-runtime/target/test-classes/com/huawei/ascend/runtime/architecture/RunContextIdentityAccessorsTest.class",
-    "source_symbol" : "com.huawei.ascend.runtime.architecture.RunContextIdentityAccessorsTest",
-    "extractor" : "tools/architecture-workspace#TestInventoryFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.architecture.RunContextIdentityAccessorsTest",
-      "kind" : "test_class",
-      "test_methods" : [ "runContext_exposes_sessionId_returning_String()V", "runContext_exposes_spanId_returning_String()V", "runContext_exposes_traceContext_returning_TraceContext()V", "runContext_exposes_traceId_returning_String()V", "traceContext_returnType_is_pure_Java()V" ],
-      "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/architecture/RunContextIdentityAccessorsTest.java"
     }
   }, {
     "fact_id" : "test/com-huawei-ascend-runtime-architecture-runrepositorysaveguardtest",
@@ -227,7 +227,7 @@
       "module" : "agent-runtime",
       "fqn" : "com.huawei.ascend.runtime.boot.RuntimeAutoConfigurationTest",
       "kind" : "test_class",
-      "test_methods" : [ "customTaskStoreSuppressesInMemoryDefault()V", "disabledYieldsOff()V", "eventBusProcessorRunsOnDaemonThread()V", "fullLevelIsParsedWithMaskAndTruncate()V", "invalidMaskPatternFailsSafeToTheDefaultNotABootCrash()V", "noBroadExecutorBeanExposed()V", "offLevelYieldsOff()V", "unrecognizedLevelFallsBackToSummary()V" ],
+      "test_methods" : [ "autoConfigurationLoadsWithoutActuatorOnClasspath()V", "customTaskStoreSuppressesInMemoryDefault()V", "disabledYieldsOff()V", "eventBusProcessorRunsOnDaemonThread()V", "fullLevelIsParsedWithMaskAndTruncate()V", "invalidMaskPatternFailsSafeToTheDefaultNotABootCrash()V", "noBroadExecutorBeanExposed()V", "offLevelYieldsOff()V", "unrecognizedLevelFallsBackToSummary()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/boot/RuntimeAutoConfigurationTest.java"
     }
   }, {

@@ -46,7 +46,7 @@
       "semver_compatibility" : "experimental",
       "deployment_plane" : "compute_control",
       "spi_packages" : [ "com.huawei.ascend.runtime.engine.spi" ],
-      "allowed_dependencies" : [ "agent-bus" ],
+      "allowed_dependencies" : [ ],
       "forbidden_dependencies" : [ "agent-service" ],
       "architecture_doc" : "architecture/docs/L1/agent-runtime/README.md",
       "dfx_doc" : "docs/dfx/agent-runtime.yaml",

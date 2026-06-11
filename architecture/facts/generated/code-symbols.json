@@ -859,7 +859,7 @@
       "super" : "java.lang.Object",
       "interfaces" : [ ],
       "annotations" : [ "org.springframework.boot.context.properties.EnableConfigurationProperties", "org.springframework.context.annotation.Configuration", "org.springframework.context.annotation.Import" ],
-      "public_methods" : [ "<init>()V", "a2aAgentCard(Lorg/springframework/beans/factory/ObjectProvider;Lorg/springframework/beans/factory/ObjectProvider;)Lorg/a2aproject/sdk/spec/AgentCard;", "a2aAgentExecutor(Lorg/springframework/beans/factory/ObjectProvider;Lorg/springframework/beans/factory/ObjectProvider;Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;Lcom/huawei/ascend/runtime/boot/TrajectoryProperties;Lorg/springframework/beans/factory/ObjectProvider;)Lorg/a2aproject/sdk/server/agentexecution/AgentExecutor;", "a2aConfigProvider()Lorg/a2aproject/sdk/server/config/A2AConfigProvider;", "a2aEventBus(Lorg/a2aproject/sdk/server/tasks/TaskStore;Lorg/a2aproject/sdk/server/events/QueueManager;Lorg/a2aproject/sdk/server/tasks/PushNotificationSender;Lorg/a2aproject/sdk/server/events/MainEventBus;)Lorg/a2aproject/sdk/server/events/MainEventBusProcessor;", "a2aMainEventBus()Lorg/a2aproject/sdk/server/events/MainEventBus;", "a2aPushConfigStore()Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;", "a2aPushSender(Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;)Lorg/a2aproject/sdk/server/tasks/PushNotificationSender;", "a2aQueueManager(Lorg/a2aproject/sdk/server/tasks/TaskStateProvider;Lorg/a2aproject/sdk/server/events/MainEventBus;)Lorg/a2aproject/sdk/server/events/QueueManager;", "a2aRequestHandler(Lorg/a2aproject/sdk/server/agentexecution/AgentExecutor;Lorg/a2aproject/sdk/server/tasks/TaskStore;Lorg/a2aproject/sdk/server/events/QueueManager;Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;Lorg/a2aproject/sdk/server/events/MainEventBusProcessor;Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;)Lorg/a2aproject/sdk/server/requesthandlers/RequestHandler;", "a2aServerExecutor()Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;", "a2aTaskStore()Lorg/a2aproject/sdk/server/tasks/InMemoryTaskStore;", "agentRuntimeHealthIndicator(Lorg/springframework/beans/factory/ObjectProvider;Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;)Lcom/huawei/ascend/runtime/boot/AgentRuntimeHealthIndicator;", "agentRuntimeLifecycle(Lorg/springframework/beans/factory/ObjectProvider;Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;)Lcom/huawei/ascend/runtime/boot/AgentRuntimeLifecycle;", "runtimeReadiness()Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;" ]
+      "public_methods" : [ "<init>()V", "a2aAgentCard(Lorg/springframework/beans/factory/ObjectProvider;Lorg/springframework/beans/factory/ObjectProvider;)Lorg/a2aproject/sdk/spec/AgentCard;", "a2aAgentExecutor(Lorg/springframework/beans/factory/ObjectProvider;Lorg/springframework/beans/factory/ObjectProvider;Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;Lcom/huawei/ascend/runtime/boot/TrajectoryProperties;Lorg/springframework/beans/factory/ObjectProvider;)Lorg/a2aproject/sdk/server/agentexecution/AgentExecutor;", "a2aConfigProvider()Lorg/a2aproject/sdk/server/config/A2AConfigProvider;", "a2aEventBus(Lorg/a2aproject/sdk/server/tasks/TaskStore;Lorg/a2aproject/sdk/server/events/QueueManager;Lorg/a2aproject/sdk/server/tasks/PushNotificationSender;Lorg/a2aproject/sdk/server/events/MainEventBus;)Lorg/a2aproject/sdk/server/events/MainEventBusProcessor;", "a2aMainEventBus()Lorg/a2aproject/sdk/server/events/MainEventBus;", "a2aPushConfigStore()Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;", "a2aPushSender(Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;)Lorg/a2aproject/sdk/server/tasks/PushNotificationSender;", "a2aQueueManager(Lorg/a2aproject/sdk/server/tasks/TaskStateProvider;Lorg/a2aproject/sdk/server/events/MainEventBus;)Lorg/a2aproject/sdk/server/events/QueueManager;", "a2aRequestHandler(Lorg/a2aproject/sdk/server/agentexecution/AgentExecutor;Lorg/a2aproject/sdk/server/tasks/TaskStore;Lorg/a2aproject/sdk/server/events/QueueManager;Lorg/a2aproject/sdk/server/tasks/PushNotificationConfigStore;Lorg/a2aproject/sdk/server/events/MainEventBusProcessor;Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;)Lorg/a2aproject/sdk/server/requesthandlers/RequestHandler;", "a2aServerExecutor()Lcom/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$A2aServerExecutor;", "a2aTaskStore()Lorg/a2aproject/sdk/server/tasks/InMemoryTaskStore;", "agentRuntimeLifecycle(Lorg/springframework/beans/factory/ObjectProvider;Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;)Lcom/huawei/ascend/runtime/boot/AgentRuntimeLifecycle;", "runtimeReadiness()Lcom/huawei/ascend/runtime/boot/RuntimeReadiness;" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-boot-runtimeautoconfiguration-a2aserverexecutor",
@@ -880,6 +880,26 @@
       "interfaces" : [ "java.lang.AutoCloseable" ],
       "annotations" : [ ],
       "public_methods" : [ "<init>()V", "close()V", "executor()Ljava/util/concurrent/ExecutorService;" ]
+    }
+  }, {
+    "fact_id" : "code-symbol/com-huawei-ascend-runtime-boot-runtimeautoconfiguration-healthindicatorconfiguration",
+    "fact_kind" : "code_symbol",
+    "source_kind" : "code",
+    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/boot/RuntimeAutoConfiguration$HealthIndicatorConfiguration.class",
+    "source_symbol" : "com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration$HealthIndicatorConfiguration",
+    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
+    "extractor_version" : "0.1.0-SNAPSHOT",
+    "repo_commit" : "0000000000000000000000000000000000000000",
+    "observed_value" : {
+      "module" : "agent-runtime",
+      "fqn" : "com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration$HealthIndicatorConfiguration",
+      "kind" : "class",
+      "modifiers" : [ ],
+      "package" : "com.huawei.ascend.runtime.boot",
+      "super" : "java.lang.Object",
+      "interfaces" : [ ],
+      "annotations" : [ "org.springframework.boot.autoconfigure.condition.ConditionalOnClass", "org.springframework.context.annotation.Configuration" ],
+      "public_methods" : [ ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-boot-runtimeautoconfiguration-remoteagentcatalogrefresher",
@@ -2155,26 +2175,6 @@
       "annotations" : [ ],
       "public_methods" : [ "<init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;)V", "content()Ljava/lang/String;", "equals(Ljava/lang/Object;)Z", "hashCode()I", "id()Ljava/lang/String;", "metadata()Ljava/util/Map;", "role()Ljava/lang/String;", "toString()Ljava/lang/String;" ],
       "record_components" : [ "id: Ljava/lang/String;", "role: Ljava/lang/String;", "content: Ljava/lang/String;", "metadata: Ljava/util/Map;" ]
-    }
-  }, {
-    "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-nooptrajectorychannel",
-    "fact_kind" : "code_symbol",
-    "source_kind" : "code",
-    "source_path" : "agent-runtime/target/classes/com/huawei/ascend/runtime/engine/spi/NoopTrajectoryChannel.class",
-    "source_symbol" : "com.huawei.ascend.runtime.engine.spi.NoopTrajectoryChannel",
-    "extractor" : "tools/architecture-workspace#CodeSymbolFactExtractor",
-    "extractor_version" : "0.1.0-SNAPSHOT",
-    "repo_commit" : "0000000000000000000000000000000000000000",
-    "observed_value" : {
-      "module" : "agent-runtime",
-      "fqn" : "com.huawei.ascend.runtime.engine.spi.NoopTrajectoryChannel",
-      "kind" : "class",
-      "modifiers" : [ "public", "final" ],
-      "package" : "com.huawei.ascend.runtime.engine.spi",
-      "super" : "java.lang.Object",
-      "interfaces" : [ "com.huawei.ascend.runtime.engine.spi.TrajectoryChannel" ],
-      "annotations" : [ ],
-      "public_methods" : [ "<init>()V", "close()V", "drain()Ljava/util/stream/Stream;", "publish(Lcom/huawei/ascend/runtime/engine/spi/TrajectoryEvent;)V" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-queuetrajectorychannel",
