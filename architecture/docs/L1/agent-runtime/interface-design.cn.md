@@ -1,17 +1,24 @@
-# agent-runtime 鎺ュ彛涓庣姸鎬佷腑闂翠欢璁捐
+# agent-runtime 接口与状态中间件设计
 
-鏈枃鍚堝苟 `agent-runtime` 鎺ュ彛璁捐璇存槑涓?2026-06-09 Agent State 涓棿浠舵彁妗堬紝浣滀负褰撳墠 L1 璁捐鍏ュ彛銆傜敓鎴愪簨瀹炰粛浠?`architecture/facts/generated/*.json` 涓哄噯锛涙湰鏂囧彧瑙ｉ噴褰撳墠浠ｇ爜杈圭晫銆佹ā鍧椾氦浜掑拰鍚庣画鎵╁睍鍘熷垯銆?
-## 1. 璁捐鐩爣
+本文合并 `agent-runtime` 接口设计说明与 2026-06-09 Agent State 中间件提案，作为当前 L1 设计入口。生成事实仍以 `architecture/facts/generated/*.json` 为准；本文只解释当前代码边界、模块交互和后续扩展原则。
 
-`agent-runtime` 鐨勮亴璐ｆ槸鎶婁竴涓笟鍔?Agent 鍖呰鎴愬崟 Agent runtime锛屽苟閫氳繃 A2A 鍗忚鏆撮湶鎵ц鑳藉姏銆傚綋鍓嶈璁￠伒寰洓鏉¤竟鐣岋細
+## 1. 设计目标
 
-1. A2A 灞傚彧鍋氬崗璁ˉ鎺ャ€佷笂涓嬫枃鏋勯€犮€佺粨鏋滃彂灏勫拰浠诲姟鐘舵€佹槧灏勩€?2. `engine.spi` 鍙繚鐣欒法 Agent 妗嗘灦绋冲畾鎴愮珛鐨勭獎鎺ュ彛銆?3. 鍏蜂綋 Agent 妗嗘灦鐨勬墽琛屻€佽楗般€佺姸鎬佹仮澶嶅拰缁撴灉杞崲鐣欏湪瀵瑰簲 adapter 鍐呴儴銆?4. 妗嗘灦宸叉湁鍘熺敓 checkpoint / session / callback 鏈哄埗鏃讹紝runtime 浼樺厛妗ユ帴鍘熺敓鏈哄埗锛屼笉閲嶅瀹炵幇鐘舵€佸悗绔€?
-杩欐剰鍛崇潃 runtime 涓嶆彁渚涘叏灞€ provider chain锛屼篃涓嶈姹傛墍鏈?Agent 妗嗘灦缁ф壙鍚屼竴涓娊璞″熀绫汇€傛柊鑳藉姏浼樺厛鍦ㄥ叿浣?adapter 鍐呯粍鍚堬紱鍙湁璺ㄦ鏋惰涔夌ǔ瀹氬悗锛屾墠鎻愬崌涓哄叕鍏?SPI銆?
-## 2. 鏍稿績鎺ュ彛
+`agent-runtime` 的职责是把一个业务 Agent 包装成单 Agent runtime，并通过 A2A 协议暴露执行能力。当前设计遵循四条边界：
+
+1. A2A 层只做协议桥接、上下文构造、结果发射和任务状态映射。
+2. `engine.spi` 只保留跨 Agent 框架稳定成立的窄接口。
+3. 具体 Agent 框架的执行、装饰、状态恢复和结果转换留在对应 adapter 内部。
+4. 框架已有原生 checkpoint / session / callback 机制时，runtime 优先桥接原生机制，不重复实现状态后端。
+
+这意味着 runtime 不提供全局 provider chain，也不要求所有 Agent 框架继承同一个抽象基类。新能力优先在具体 adapter 内组合；只有跨框架语义稳定后，才提升为公共 SPI。
+
+## 2. 核心接口
 
 ### 2.1 `AgentRuntimeHandler`
 
-`AgentRuntimeHandler` 鏄墽琛?SPI銆傛瘡涓?handler 琛ㄧず涓€涓?runtime 瀹炰緥鎵胯浇鐨勪竴涓笟鍔?Agent銆?
+`AgentRuntimeHandler` 是执行 SPI。每个 handler 表示一个 runtime 实例承载的一个业务 Agent。
+
 ```java
 public interface AgentRuntimeHandler {
     String agentId();
@@ -24,12 +31,19 @@ public interface AgentRuntimeHandler {
 }
 ```
 
-璇箟锛?
-- `agentId()` 杩斿洖璇?handler 鏈嶅姟鐨勪笟鍔?Agent 鏍囪瘑銆?- `isHealthy()` 琛ㄧず褰撳墠 handler 鏄惁鍙帴娴侀噺銆?- `execute(context)` 鎵ц涓€娆?Agent 璋冪敤锛岃繑鍥炴鏋跺師鐢熺粨鏋滄祦銆?- `resultAdapter()` 鎶婃鏋跺師鐢熺粨鏋滄祦杞崲鎴?runtime 涓珛鐨?`AgentExecutionResult`銆?
-`AgentRuntimeHandler` 涓嶆壙杞介€氱敤 before/after provider銆佺姸鎬佸瓨鍌ㄣ€佹矙绠辨垨宸ュ叿瑕嗙洊閫昏緫銆傝繖浜涜兘鍔涘湪涓嶅悓 Agent 妗嗘灦涓€氬父鏈夊師鐢熸墿灞曠偣锛屽己琛岀粺涓€浼氳 runtime 鍙嶅悜渚濊禆鍏蜂綋妗嗘灦璇箟銆?
+语义：
+
+- `agentId()` 返回该 handler 服务的业务 Agent 标识。
+- `isHealthy()` 表示当前 handler 是否可接流量。
+- `execute(context)` 执行一次 Agent 调用，返回框架原生结果流。
+- `resultAdapter()` 把框架原生结果流转换成 runtime 中立的 `AgentExecutionResult`。
+
+`AgentRuntimeHandler` 不承载通用 before/after provider、状态存储、沙箱或工具覆盖逻辑。这些能力在不同 Agent 框架中通常有原生扩展点，强行统一会让 runtime 反向依赖具体框架语义。
+
 ### 2.2 `StreamAdapter`
 
-`StreamAdapter` 鏄粨鏋滆浆鎹?SPI銆?
+`StreamAdapter` 是结果转换 SPI。
+
 ```java
 @FunctionalInterface
 public interface StreamAdapter {
@@ -37,35 +51,49 @@ public interface StreamAdapter {
 }
 ```
 
-A2A 灞傚彧娑堣垂 `AgentExecutionResult`锛屼笉鐞嗚В OpenJiuwen 鎴栧叾浠栨鏋剁殑鍐呴儴缁撴灉缁撴瀯銆?
+A2A 层只消费 `AgentExecutionResult`，不理解 OpenJiuwen 或其他框架的内部结果结构。
+
 ### 2.3 `AgentCardProvider`
 
-`AgentCardProvider` 鏄彲閫夌殑 A2A Agent Card 鍏冩暟鎹?provider銆?
+`AgentCardProvider` 是可选的 A2A Agent Card 元数据 provider。
+
 ```java
 public interface AgentCardProvider {
     AgentCard agentCard();
 }
 ```
 
-瀹冧笌 `AgentRuntimeHandler` 鍒嗙锛?
-- `AgentRuntimeHandler` 璐熻矗鎵ц Agent銆?- `AgentCardProvider` 璐熻矗澹版槑瀵瑰鏆撮湶鐨?A2A 鍏冩暟鎹€?
-涓氬姟鏂瑰彲浠ュ彧鎻愪緵 handler 浣跨敤榛樿 Agent Card锛屼篃鍙互棰濆鎻愪緵鐙珛 `AgentCardProvider` Bean銆傜畝鍗?Agent 涓嶉渶瑕佷负浜嗚嚜瀹氫箟鎵ц鑰岀户鎵?Agent Card 鍩虹被銆?
+它与 `AgentRuntimeHandler` 分离：
+
+- `AgentRuntimeHandler` 负责执行 Agent。
+- `AgentCardProvider` 负责声明对外暴露的 A2A 元数据。
+
+业务方可以只提供 handler 使用默认 Agent Card，也可以额外提供独立 `AgentCardProvider` Bean。简单 Agent 不需要为了自定义执行而继承 Agent Card 基类。
+
 ### 2.4 `AgentExecutionContext`
 
-`AgentExecutionContext` 鏄?A2A bridge 涓庢鏋?adapter 涔嬮棿鐨勮交閲?carrier锛屽寘鍚細
+`AgentExecutionContext` 是 A2A bridge 与框架 adapter 之间的轻量 carrier，包含：
 
-- `RuntimeIdentity scope`锛歚tenantId`銆乣userId`銆乣sessionId`銆乣taskId`銆乣agentId`銆?- `inputType` 涓?A2A message 鍒楄〃銆?- `variables`锛氳皟鐢ㄤ晶浼犲叆鐨勮交閲忓彉閲忋€?- `agentStateKey`锛氫笟鍔″彲鎺х殑绋冲畾鐘舵€?key銆?- 鍙€?`agentState` map锛氱粰娌℃湁鍘熺敓 checkpoint 鐨勬鏋跺仛杞婚噺鐘舵€佹ˉ鎺ャ€?
-`agentStateKey` 瑙ｆ瀽椤哄簭锛?
+- `RuntimeIdentity scope`：`tenantId`、`userId`、`sessionId`、`taskId`、`agentId`。
+- `inputType` 与 A2A message 列表。
+- `variables`：调用侧传入的轻量变量。
+- `agentStateKey`：业务可控的稳定状态 key。
+- 可选 `agentState` map：给没有原生 checkpoint 的框架做轻量状态桥接。
+
+`agentStateKey` 解析顺序：
+
 ```text
 variables["agentStateKey"]
   -> variables["stateKey"]
   -> fallback taskId
 ```
 
-fallback 鍒?`taskId` 鏄湁鎰忚璁★細褰撶敤鎴疯烦鍑哄師浠诲姟骞朵骇鐢熸柊 task 鏃讹紝鏂?task 澶╃劧闅旂鐘舵€侊紱濡傛灉涓氬姟瑕佽法澶氳疆澶嶇敤鍚屼竴浠界姸鎬侊紝搴旀樉寮忎紶鍏ョǔ瀹?`agentStateKey`銆?
+fallback 到 `taskId` 是有意设计：当用户跳出原任务并产生新 task 时，新 task 天然隔离状态；如果业务要跨多轮复用同一份状态，应显式传入稳定 `agentStateKey`。
+
 ### 2.5 `MemoryProvider`
 
-`MemoryProvider` 鏄鐣欑殑璁板繂鍒濆鍖栥€佹绱笌鍐欏洖绐?SPI銆?
+`MemoryProvider` 是预留的记忆初始化、检索与写回窄 SPI。
+
 ```java
 public interface MemoryProvider {
     default void init(AgentExecutionContext context) {
@@ -75,21 +103,31 @@ public interface MemoryProvider {
 
     default void save(AgentExecutionContext context, List<MemoryRecord> records) {
     }
+
+    record MemoryHit(String id, String content, Double score, Map<String, Object> metadata) {
+    }
 }
 ```
 
-瀹冨彧瀹氫箟 `init` / `search` / `save` 涓変釜鍩虹璇箟锛屼笉璐熻矗 compact銆乥udget銆佸悜閲忕储寮曘€侀暱鏈熻蹇嗘不鐞嗘垨鍏蜂綋鍚庣銆傚悗缁?Mem 涓棿浠跺彲浠ュ湪璇ユ帴鍙ｅ熀纭€涓婃墿灞曪紝涔熷彲浠ョ敱鍏蜂綋妗嗘灦 adapter 鐩存帴缁勫悎鑷繁鐨?Mem 鑳藉姏銆?
-瀵?OpenJiuwen锛屼紭鍏堝鐢?OpenJiuwen 鑷繁鐨?memory 鏈哄埗銆俽untime 鍏叡灞傚彧淇濈暀 `MemoryProvider` 杩欑粍绐?SPI锛汷penJiuwen 鍘熺敓 memory 鐨勫叿浣撴帴鍏ュ簲鐣欏湪 `runtime.engine.openjiuwen` 鍖呮垨涓氬姟 wiring 涓紝绛?OpenJiuwen 0.1.12 渚濊禆鍗囩骇瀹屾垚鍚庡啀鍗曠嫭瀹炵幇瀵瑰簲 adapter锛岄伩鍏嶅湪鍏叡 SPI 涓粦瀹?OpenJiuwen memory 鍖呭悕銆?
-`MemoryRecord` 鏄?runtime 涓珛鐨?message-like 璁板綍锛?
+它只定义 `init` / `search` / `save` 三个基础语义，不负责 compact、budget、向量索引、长期记忆治理或具体后端。后续 Mem 中间件可以在该接口基础上扩展，也可以由具体框架 adapter 直接组合自己的 Mem 能力。
+
+`MemoryHit.score` 是可选字段。Mem0 / OpenJiuwen 这类后端可以返回分数，AgentScope 风格或规则型检索后端也可以不返回分数；`search(...)` 的返回顺序才是 runtime 注入上下文时的主要相关性顺序。公共 SPI 不要求不同 memory 后端的分数可比较，也不要求没有分数的后端伪造 `0.0`。
+
+对 OpenJiuwen，优先复用 OpenJiuwen 自己的 memory 机制。runtime 公共层只保留 `MemoryProvider` 这组窄 SPI；OpenJiuwen 原生 memory 的具体接入应留在 `runtime.engine.openjiuwen` 包或业务 wiring 中，等 OpenJiuwen 0.1.12 依赖升级完成后再单独实现对应 adapter，避免在公共 SPI 中绑定 OpenJiuwen memory 包名。
+
+`MemoryRecord` 是 runtime 中立的 message-like 记录：
+
 ```java
 record MemoryRecord(String id, String role, String content, Map<String, Object> metadata) {
 }
 ```
 
-OpenJiuwen adapter 浼氬湪鑷繁鐨勫寘鍐呮妸 OpenJiuwen `BaseMessage` 杞崲鎴?`MemoryRecord`銆傝浆鎹㈣鍒欎笉鏀惧叆鍏叡 SPI锛岄伩鍏?AgentScope銆丱penJiuwen 鍜屽悗缁鏋朵簰鐩告薄鏌撱€?
-## 3. A2A 鎵ц閾捐矾
+OpenJiuwen adapter 会在自己的包内把 OpenJiuwen `BaseMessage` 转换成 `MemoryRecord`。转换规则不放入公共 SPI，避免 AgentScope、OpenJiuwen 和后续框架互相污染。
 
-`A2aAgentExecutor` 鏄?A2A SDK 鐨?`AgentExecutor` 瀹炵幇锛岃礋璐ｆ妸 A2A 璇锋眰妗ユ帴鍒?runtime handler銆?
+## 3. A2A 执行链路
+
+`A2aAgentExecutor` 是 A2A SDK 的 `AgentExecutor` 实现，负责把 A2A 请求桥接到 runtime handler。
+
 ```text
 A2A RequestContext
   -> A2aAgentExecutor.execute(...)
@@ -99,18 +137,31 @@ A2A RequestContext
   -> AgentEmitter task state / message output
 ```
 
-`A2aAgentExecutor` 鍋氾細
+`A2aAgentExecutor` 做：
 
-- 浠?A2A `RequestContext` 鎻愬彇 `taskId`銆乣contextId`銆佹秷鎭枃鏈笌 metadata銆?- 鏋勯€?`AgentExecutionContext`銆?- 璋冪敤 `handler.execute(context)`銆?- 浣跨敤 `handler.resultAdapter()` 杞崲缁撴灉銆?- 灏?`OUTPUT`銆乣COMPLETED`銆乣FAILED`銆乣INTERRUPTED` 鏄犲皠涓?A2A emitter 琛屼负銆?
-`A2aAgentExecutor` 涓嶅仛锛?
-- 涓嶅垱寤哄叿浣?Agent銆?- 涓嶅畨瑁?OpenJiuwen Rail銆?- 涓嶇悊瑙?OpenJiuwen checkpointer銆?- 涓嶆寔鏈夌姸鎬佸瓨鍌ㄣ€?- 涓嶆壙杞介€氱敤 provider chain銆?
-杩欐牱鍙互閬垮厤 A2A 鍗忚妗ュ彉鎴愭墍鏈夋鏋惰兘鍔涚殑闆嗕腑鐐广€?
+- 从 A2A `RequestContext` 提取 `taskId`、`contextId`、消息文本与 metadata。
+- 构造 `AgentExecutionContext`。
+- 调用 `handler.execute(context)`。
+- 使用 `handler.resultAdapter()` 转换结果。
+- 将 `OUTPUT`、`COMPLETED`、`FAILED`、`INTERRUPTED` 映射为 A2A emitter 行为。
+
+`A2aAgentExecutor` 不做：
+
+- 不创建具体 Agent。
+- 不安装 OpenJiuwen Rail。
+- 不理解 OpenJiuwen checkpointer。
+- 不持有状态存储。
+- 不承载通用 provider chain。
+
+这样可以避免 A2A 协议桥变成所有框架能力的集中点。
+
 ## 4. OpenJiuwen adapter
 
-OpenJiuwen 鐨勬鏋堕€傞厤鏀舵暃鍦?`runtime.engine.openjiuwen` 鍖呭唴銆?
+OpenJiuwen 的框架适配收敛在 `runtime.engine.openjiuwen` 包内。
+
 ### 4.1 `OpenJiuwenAgentRuntimeHandler`
 
-`OpenJiuwenAgentRuntimeHandler` 瀹炵幇 `AgentRuntimeHandler`锛屽浐瀹?OpenJiuwen 鎵ц涓绘祦绋嬶細
+`OpenJiuwenAgentRuntimeHandler` 实现 `AgentRuntimeHandler`，固定 OpenJiuwen 执行主流程：
 
 ```text
 AgentExecutionContext
@@ -122,35 +173,58 @@ AgentExecutionContext
   -> OpenJiuwenStreamAdapter
 ```
 
-瀛愮被鍙渶瑕佸疄鐜板叿浣?Agent 鍒涘缓锛?
+子类只需要实现具体 Agent 创建：
+
 ```java
 protected abstract BaseAgent createOpenJiuwenAgent(AgentExecutionContext context);
 ```
 
-涓氬姟渚ц礋璐ｂ€滃浣曞垱寤哄拰閰嶇疆 OpenJiuwen 鐨?`BaseAgent`鈥濓紱runtime adapter 璐熻矗鎵ц鍗忚銆丷ail 瀹夎銆佽緭鍏ヨ浆鎹€佺粨鏋滆浆鎹㈠拰閿欒鏄犲皠銆?
-### 4.2 OpenJiuwen Rail 鎵╁睍鐐?
-OpenJiuwen adapter 浣跨敤 OpenJiuwen 0.1.12 鐨?`BaseAgent.registerRail(...)` 涓?`AgentRail` 浣滀负妗嗘灦鏈湴鎵╁睍鐐广€傞粯璁や笉瀹夎 Rail锛涢渶瑕佹帴鍏?Mem銆佸伐鍏锋不鐞嗘垨娌欑鏃讹紝鐢卞瓙绫昏鐩?`openJiuwenRails(context)`锛岃繑鍥為渶瑕佹敞鍐屽埌 OpenJiuwen Agent 鐨?Rail銆?
-褰撳墠鎻愪緵鐨勫唴缃?Rail 鏄?`OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail`銆傚畠鏄?OpenJiuwen 鏈湴妗ワ紝涓嶆槸鍏叡 runtime SPI锛?
-- `beforeInvoke(...)` 璋冪敤 runtime 涓珛 `MemoryProvider.init(context)`銆?- `beforeInvoke(...)` 浣跨敤鏈€鏂扮敤鎴疯緭鍏ヨ皟鐢?`MemoryProvider.search(context, query, limit)`锛屽苟鎶婃绱㈢粨鏋滀綔涓?OpenJiuwen `SystemMessage` 娉ㄥ叆褰撳墠 `ModelContext`銆?- `afterInvoke(...)` 浠?OpenJiuwen callback context 涓彇鍑?`BaseMessage` 鍒楄〃锛岃浆鎹㈡垚 `MemoryProvider.MemoryRecord`锛屽啀璋冪敤 `MemoryProvider.save(context, records)`銆?- OpenJiuwen `BaseMessage` 涓?`MemoryRecord` 鐨勮浆鎹㈢敱 `OpenJiuwenMemoryMessageAdapter` 璐熻矗锛岀暀鍦?`runtime.engine.openjiuwen` 鍖呭唴銆?
-閫傚悎鏀惧叆 Rail 鐨勮兘鍔涳細
+业务侧负责“如何创建和配置 OpenJiuwen 的 `BaseAgent`”；runtime adapter 负责执行协议、Rail 安装、输入转换、结果转换和错误映射。
 
-- 妯″瀷璋冪敤鍓嶅悗鐨?trace銆佽€楁椂閲囨牱鍜屽紓甯歌娴嬨€?- 宸ュ叿璋冪敤鍓嶅悗鐨勭鎺с€佹矙绠辨牎楠屽拰瀹¤銆?- Mem 妫€绱㈠寮轰笌鎵ц鍚庡啓鍥炪€?- OpenJiuwen 鍘熺敓 callback context 鐨勮交閲忓寮恒€?
-涓嶅缓璁斁鍏?Rail 鐨勮兘鍔涳細
+### 4.2 OpenJiuwen Rail 扩展点
 
-- Agent 鏋勯€狅細浠嶇敱 `createOpenJiuwenAgent(context)` 璐熻矗銆?- `Runner.runAgent(...)` 璋冪敤锛氫粛鐢?handler 璐熻矗銆?- `conversation_id / agentStateKey` 鍐崇瓥锛氫粛鐢?handler / message adapter 璐熻矗銆?- Agent Card锛氬睘浜庡惎鍔ㄦ湡鍏冩暟鎹紝涓嶆槸鎵ц鏈熺敓鍛藉懆鏈?hook銆?- Checkpointer 閰嶇疆锛氬睘浜?OpenJiuwen runtime / sample wiring锛屼笉搴斿湪鎵ц鏈?Rail 涓垏鎹㈠叏灞€鐘舵€佸悗绔€?
-> 鐗堟湰绾︽潫锛氭湰鏂囨寜 OpenJiuwen `agent-core-java:0.1.12` 鐨?API 璁捐銆?.1.12 浠嶆彁渚?`BaseAgent.registerRail(...)`銆乣AgentRail`銆乣Runner.runAgent(...)` 涓?`CheckpointerFactory`锛屽洜姝ゅ綋鍓?adapter 浠ヨ繖浜?API 涓鸿竟鐣岋紱涓嶈鎶婂叾浠栧垎鏀笂鐨勬柊杩愯鏃舵ā鍨嬪綋鎴愭湰鏂囦緷鎹€?
+OpenJiuwen adapter 使用 OpenJiuwen 0.1.12 的 `BaseAgent.registerRail(...)` 与 `AgentRail` 作为框架本地扩展点。默认不安装 Rail；需要接入 Mem、工具治理或沙箱时，由子类覆盖 `openJiuwenRails(context)`，返回需要注册到 OpenJiuwen Agent 的 Rail。
+
+当前提供的内置 Rail 是 `OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail`。它是 OpenJiuwen 本地桥，不是公共 runtime SPI：
+
+- `beforeInvoke(...)` 调用 runtime 中立 `MemoryProvider.init(context)`。
+- `beforeInvoke(...)` 使用最新用户输入调用 `MemoryProvider.search(context, query, limit)`，并把检索结果合并进 OpenJiuwen `ModelContext` 的 system prompt；如果当前上下文已经有 `SystemMessage`，只合并内容，不额外新增第二个 system prompt。
+- `afterInvoke(...)` 从 OpenJiuwen callback context 中取出 `BaseMessage` 列表，过滤执行期 system prompt 后转换成 `MemoryProvider.MemoryRecord`，再调用 `MemoryProvider.save(context, records)`，避免把注入的记忆块反向写回记忆。
+- OpenJiuwen `BaseMessage` 与 `MemoryRecord` 的转换由 `OpenJiuwenMemoryMessageAdapter` 负责，留在 `runtime.engine.openjiuwen` 包内。
+- `InMemoryMemoryProvider` 是 examples 内的轻量实现，按 `agentStateKey` 做最小隔离；生产 memory 后端、向量召回、压缩和跨租户治理仍由具体 `MemoryProvider` 实现负责。
+
+适合放入 Rail 的能力：
+
+- 模型调用前后的 trace、耗时采样和异常观测。
+- 工具调用前后的管控、沙箱校验和审计。
+- Mem 检索增强与执行后写回。
+- OpenJiuwen 原生 callback context 的轻量增强。
+
+不建议放入 Rail 的能力：
+
+- Agent 构造：仍由 `createOpenJiuwenAgent(context)` 负责。
+- `Runner.runAgent(...)` 调用：仍由 handler 负责。
+- `conversation_id / agentStateKey` 决策：仍由 handler / message adapter 负责。
+- Agent Card：属于启动期元数据，不是执行期生命周期 hook。
+- Checkpointer 配置：属于 OpenJiuwen runtime / sample wiring，不应在执行期 Rail 中切换全局状态后端。
+
+> 版本约束：本文按 OpenJiuwen `agent-core-java:0.1.12` 的 API 设计。0.1.12 仍提供 `BaseAgent.registerRail(...)`、`AgentRail`、`Runner.runAgent(...)` 与 `CheckpointerFactory`，因此当前 adapter 以这些 API 为边界；不要把其他分支上的新运行时模型当成本文依据。
+
 ### 4.3 `OpenJiuwenMessageAdapter`
 
-`OpenJiuwenMessageAdapter` 鎶?`AgentExecutionContext` 杞垚 OpenJiuwen input銆傚叧閿偣鏄細
+`OpenJiuwenMessageAdapter` 把 `AgentExecutionContext` 转成 OpenJiuwen input。关键点是：
 
 ```text
-query = 鏈€鏂扮敤鎴疯緭鍏?conversation_id = context.getAgentStateKey()
+query = 最新用户输入
+conversation_id = context.getAgentStateKey()
 ```
 
-OpenJiuwen 鑷韩閫氳繃 `conversation_id` 涓庡師鐢?checkpointer 瀹屾垚 session 淇濆瓨鍜屾仮澶嶃€俽untime 涓嶅湪姣忔璋冪敤鍚庢墜宸?`dumpState()` / `updateState(...)` 鎼繍 OpenJiuwen 鍐呴儴鐘舵€併€?
+OpenJiuwen 自身通过 `conversation_id` 与原生 checkpointer 完成 session 保存和恢复。runtime 不在每次调用后手工 `dumpState()` / `updateState(...)` 搬运 OpenJiuwen 内部状态。
+
 ### 4.4 OpenJiuwen native checkpointer
 
-OpenJiuwen 鐨勭姸鎬佷富璺緞鏄師鐢?Runner / Checkpointer锛?
+OpenJiuwen 的状态主路径是原生 Runner / Checkpointer：
+
 ```text
 AgentExecutionContext.getAgentStateKey()
   -> OpenJiuwen input["conversation_id"]
@@ -158,70 +232,100 @@ AgentExecutionContext.getAgentStateKey()
   -> OpenJiuwen Checkpointer restore/save
 ```
 
-涓氬姟鏂瑰彧闇€瑕佷繚璇?`agentStateKey` 绋冲畾銆侽penJiuwen 鍐呴儴淇濆瓨鍝簺瀛楁銆佸浣曞簭鍒楀寲銆佷綍鏃舵仮澶嶏紝浜ょ粰 OpenJiuwen `Runner` / `Checkpointer` 澶勭悊銆?
-褰撳墠 sample 閲囩敤 OpenJiuwen 鏍囧噯鏂瑰紡閰嶇疆 checkpointer锛氶粯璁や娇鐢?`InMemoryCheckpointer`锛屽彲閫氳繃閰嶇疆鍒囨崲鍒?`RedisCheckpointer`銆侽penJiuwen adapter 涓嶉渶瑕佸洜涓?checkpointer 鍚庣鍙樺寲鑰屼慨鏀广€?
+业务方只需要保证 `agentStateKey` 稳定。OpenJiuwen 内部保存哪些字段、如何序列化、何时恢复，交给 OpenJiuwen `Runner` / `Checkpointer` 处理。
+
+当前 sample 采用 OpenJiuwen 标准方式配置 checkpointer：默认使用 `InMemoryCheckpointer`，可通过配置切换到 `RedisCheckpointer`。OpenJiuwen adapter 不需要因为 checkpointer 后端变化而修改。
+
 ### 4.5 `OpenJiuwenStreamAdapter`
 
-`OpenJiuwenStreamAdapter` 鎶?OpenJiuwen 杩斿洖鐨?map 缁撴瀯杞崲涓?`AgentExecutionResult`锛?
-- answer / output -> `OUTPUT` 鎴?`COMPLETED`
+`OpenJiuwenStreamAdapter` 把 OpenJiuwen 返回的 map 结构转换为 `AgentExecutionResult`：
+
+- answer / output -> `OUTPUT` 或 `COMPLETED`
 - error -> `FAILED`
 - interrupt / input required -> `INTERRUPTED`
 
-A2A 灞傚彧澶勭悊杞崲鍚庣殑 `AgentExecutionResult`锛屼笉鐩存帴鐞嗚В OpenJiuwen 鍘熷缁撴灉銆?
-## 5. 鐘舵€佷笌璁板繂鍘熷垯
+A2A 层只处理转换后的 `AgentExecutionResult`，不直接理解 OpenJiuwen 原始结果。
 
-褰撳墠鐘舵€佽璁″垎涓轰袱绫伙細
+## 5. 状态与记忆原则
 
-1. 妗嗘灦鍘熺敓 checkpoint锛氫紭鍏堜娇鐢紝渚嬪 OpenJiuwen銆?2. runtime 棰勭暀绐?SPI锛氱粰娌℃湁鍘熺敓 checkpoint 鎴栭渶瑕?runtime 杈呭姪鐨勬鏋朵娇鐢ㄣ€?
-涓嶈鎶婃鏂囪蹇嗐€佸ぇ payload 鎴栧畬鏁翠笟鍔＄姸鎬侀兘濉炶繘 `AgentExecutionContext`銆俙AgentExecutionContext` 鏇撮€傚悎鎵胯浇鎵ц韬唤銆佽緭鍏ユ秷鎭€乵etadata銆佺姸鎬?key 鎴栧皬鍨嬬姸鎬佸紩鐢ㄣ€傚畬鏁寸姸鎬佸悗绔€佽蹇嗗帇缂╁拰妫€绱㈢瓥鐣ュ簲鐢卞搴斾腑闂翠欢鎴栨鏋跺悗绔礋璐ｃ€?
-Mem 鍚庣画鎺ュ叆寤鸿锛?
-- Mem 涓嶅鐢?Agent State 鍚庣瀛樻鏂囪蹇嗐€?- Agent State 鍚庣鍙繚瀛?`memoryRef`銆乣checkpointRef`銆乣cursor` 绛夊皬瀵硅薄锛涘綋鍓嶄唬鐮佷笉鍐嶅彂甯冨崟鐙殑 `AgentStateStore` 鎺ュ彛銆?- Mem 鐨?compact銆乥udget銆乿ector retrieval銆侀暱鏈熸绱㈢敱 Mem backend 璐熻矗銆?- OpenJiuwen 鍙紭鍏堥€氳繃 Rail 鎴栧叿浣?`createOpenJiuwenAgent(context)` 鐨?agent 閰嶇疆鎺ュ叆 Mem銆?
-## 6. 妯″潡鑱岃矗
+当前状态设计分为两类：
 
-| 妯″潡 / 鍖?| 褰撳墠鑱岃矗 | 涓嶆壙鎷呯殑鑱岃矗 |
+1. 框架原生 checkpoint：优先使用，例如 OpenJiuwen。
+2. runtime 预留窄 SPI：给没有原生 checkpoint 或需要 runtime 辅助的框架使用。
+
+不要把正文记忆、大 payload 或完整业务状态都塞进 `AgentExecutionContext`。`AgentExecutionContext` 更适合承载执行身份、输入消息、metadata、状态 key 或小型状态引用。完整状态后端、记忆压缩和检索策略应由对应中间件或框架后端负责。
+
+Mem 后续接入建议：
+
+- Mem 不复用 Agent State 后端存正文记忆。
+- Agent State 后端只保存 `memoryRef`、`checkpointRef`、`cursor` 等小对象；当前代码不再发布单独的 `AgentStateStore` 接口。
+- Mem 的 compact、budget、vector retrieval、长期检索由 Mem backend 负责。
+- OpenJiuwen 可优先通过 Rail 或具体 `createOpenJiuwenAgent(context)` 的 agent 配置接入 Mem。
+
+## 6. 模块职责
+
+| 模块 / 包 | 当前职责 | 不承担的职责 |
 |---|---|---|
-| `runtime.engine.a2a` | A2A 璇锋眰鎺ュ叆銆佷笂涓嬫枃鏋勯€犮€佺粨鏋滄槧灏勫埌 emitter | 涓嶅垱寤哄叿浣?Agent锛屼笉瀹夎妗嗘灦瑁呴グ锛屼笉绠＄悊鐘舵€佸瓨鍌?|
-| `runtime.engine.spi` | 瀹氫箟璺?Agent 妗嗘灦绋冲畾鎴愮珛鐨勭獎 SPI | 涓嶆斁鍏蜂綋妗嗘灦瀹炵幇锛屼笉鎵胯浇 provider chain |
-| `runtime.engine.openjiuwen` | OpenJiuwen adapter銆丄gent 鍒涘缓鍏ュ彛銆丷ail 瀹夎銆丷unner 璋冪敤銆佽緭鍏?杈撳嚭杞崲 | 涓嶈姹傚叾浠栨鏋跺鐢?OpenJiuwen 鏈哄埗 |
-| `runtime.engine.service` | 鐘舵€佸瓨鍌ㄦ娊璞″拰榛樿瀹炵幇 | 涓嶇悊瑙ｆ煇涓?Agent 妗嗘灦鐨勫唴閮ㄧ姸鎬佺粨鏋?|
-| `examples/*` | 鎻愪緵鍏蜂綋涓氬姟 Agent 绀轰緥鍜岄厤缃?| 涓嶅畾涔?runtime 鏍稿績鎵ц杈圭晫 |
+| `runtime.engine.a2a` | A2A 请求接入、上下文构造、结果映射到 emitter | 不创建具体 Agent，不安装框架装饰，不管理状态存储 |
+| `runtime.engine.spi` | 定义跨 Agent 框架稳定成立的窄 SPI | 不放具体框架实现，不承载 provider chain |
+| `runtime.engine.openjiuwen` | OpenJiuwen adapter、Agent 创建入口、Rail 安装、Runner 调用、输入/输出转换 | 不要求其他框架复用 OpenJiuwen 机制 |
+| `runtime.engine.service` | 状态存储抽象和默认实现 | 不理解某个 Agent 框架的内部状态结构 |
+| `examples/*` | 提供具体业务 Agent 示例、配置和样例 provider 实现 | 不定义 runtime 核心执行边界 |
 
-## 7. 鎺ュ叆鏂?Agent 妗嗘灦
+## 7. 接入新 Agent 框架
 
-鏂板 Agent 妗嗘灦鏃讹紝浼樺厛鎸変互涓嬮『搴忓垽鏂細
+新增 Agent 框架时，优先按以下顺序判断：
 
-1. 妗嗘灦鏄惁宸叉湁鍘熺敓 checkpoint / session / state 鏈哄埗銆?2. 妗嗘灦鏄惁宸叉湁 rail銆乵iddleware銆乧allback銆乮nterceptor 绛夊師鐢熻楗版満鍒躲€?3. 妗嗘灦缁撴灉濡備綍鏄犲皠鍒?`AgentExecutionResult`銆?4. 鏄惁闇€瑕佽嚜瀹氫箟 Agent Card銆?5. 鏄惁闇€瑕佷娇鐢?`MemoryProvider` 杩欑被 runtime 棰勭暀绐?SPI銆?
-鎺ㄨ崘褰㈡€侊細
+1. 框架是否已有原生 checkpoint / session / state 机制。
+2. 框架是否已有 rail、middleware、callback、interceptor 等原生装饰机制。
+3. 框架结果如何映射到 `AgentExecutionResult`。
+4. 是否需要自定义 Agent Card。
+5. 是否需要使用 `MemoryProvider` 这类 runtime 预留窄 SPI。
 
-- 瀹炵幇鏂扮殑 `AgentRuntimeHandler`銆?- 鎻愪緵瀵瑰簲 `StreamAdapter`銆?- 濡傛湁妗嗘灦鍘熺敓瑁呴グ鏈哄埗锛岃楗伴€昏緫鐣欏湪璇ユ鏋?adapter 鍐呴儴銆?- 濡傞渶鑷畾涔?A2A 鍏冩暟鎹紝棰濆鎻愪緵 `AgentCardProvider`銆?- 鍙湁褰撴煇涓兘鍔涜法澶氫釜 Agent 妗嗘灦绋冲畾鎴愮珛鏃讹紝鎵嶈€冭檻鎻愬崌涓烘柊鐨?runtime SPI銆?
-## 8. 澶辫触璇箟
+推荐形态：
 
-- state load 澶辫触锛氱敱鍏蜂綋 Provider / checkpointer fail closed锛屼笉璋冪敤 handler 鎴栬妗嗘灦杩斿洖鏄庣‘澶辫触銆?- handler 鎵ц澶辫触锛氳浆鎹㈡垚 `FAILED`锛屼繚鎸?A2A 鍗曞嚭鍙ｈ涔夈€?- 鎵ц鍚庤緟鍔╁啓鍏ュけ璐ワ細璁板綍 warn锛屼笉鎶婂凡缁忓畬鎴愮殑浠诲姟鍙嶈浆鎴愬け璐ワ紝閬垮厤鍙岀粓鎬併€?- state save 澶辫触锛氫笉瑕嗙洊涓氬姟鎵ц缁撴灉锛涚敓浜ф€佸悗缁渶瑕佸憡璀︺€侀噸璇曟垨琛ュ伩闃熷垪銆?
-## 9. 褰撳墠鐗规€ф竻鍗?
+- 实现新的 `AgentRuntimeHandler`。
+- 提供对应 `StreamAdapter`。
+- 如有框架原生装饰机制，装饰逻辑留在该框架 adapter 内部。
+- 如需自定义 A2A 元数据，额外提供 `AgentCardProvider`。
+- 只有当某个能力跨多个 Agent 框架稳定成立时，才考虑提升为新的 runtime SPI。
+
+## 8. 失败语义
+
+- state load 失败：由具体 Provider / checkpointer fail closed，不调用 handler 或让框架返回明确失败。
+- handler 执行失败：转换成 `FAILED`，保持 A2A 单出口语义。
+- 执行后辅助写入失败：记录 warn，不把已经完成的任务反转成失败，避免双终态。
+- state save 失败：不覆盖业务执行结果；生产态后续需要告警、重试或补偿队列。
+
+## 9. 当前特性清单
+
 | Feature | Status | Notes |
 |---|---|---|
-| `AgentRuntimeHandler` 鎵ц SPI | Implemented | 鍗?Agent runtime 鎵ц鍏ュ彛 |
-| `StreamAdapter` 缁撴灉杞崲 SPI | Implemented | 妗嗘灦鍘熺敓缁撴灉杞?`AgentExecutionResult` |
-| `AgentCardProvider` 鍙€夊厓鏁版嵁 provider | Implemented | 鎵ц鑱岃矗鍜?Agent Card 澹版槑鍒嗙 |
-| 涓氬姟鑷畾涔?state key | Implemented | `agentStateKey` / `stateKey`锛宖allback `taskId` |
-| `MemoryProvider` 棰勭暀 SPI | Implemented | 瀹氫箟 `init` / `search` / `save` 鍩虹璇箟 |
-| OpenJiuwen native checkpointer 妗ユ帴 | Implemented | 浣跨敤绋冲畾 `conversation_id` |
-| OpenJiuwen Rail 鎵╁睍鐐?| Implemented | 榛樿涓嶅畨瑁?Rail锛涘彲閫?`MemoryRuntimeRail` 鏀寔 memory search 娉ㄥ叆涓庢墽琛屽悗鍐欏洖 |
-| Snapshot / revision / fencing | Deferred | durable backend 鏃惰ˉ榻?|
-| Mem 姝ｅ紡闆嗘垚 | Deferred | 鍚庣画鍗曠嫭璁捐鍜屽疄鐜?|
+| `AgentRuntimeHandler` 执行 SPI | Implemented | 单 Agent runtime 执行入口 |
+| `StreamAdapter` 结果转换 SPI | Implemented | 框架原生结果转 `AgentExecutionResult` |
+| `AgentCardProvider` 可选元数据 provider | Implemented | 执行职责和 Agent Card 声明分离 |
+| 业务自定义 state key | Implemented | `agentStateKey` / `stateKey`，fallback `taskId` |
+| `MemoryProvider` 预留 SPI | Implemented | 定义 `init` / `search` / `save` 基础语义 |
+| OpenJiuwen native checkpointer 桥接 | Implemented | 使用稳定 `conversation_id` |
+| OpenJiuwen Rail 扩展点 | Implemented | 默认不安装 Rail；可选 `MemoryRuntimeRail` 支持 memory search 注入与执行后写回 |
+| Snapshot / revision / fencing | Deferred | durable backend 时补齐 |
+| Mem 正式集成 | Deferred | 后续单独设计和实现 |
 
-## 10. 楠岃瘉
+## 10. 验证
 
-褰撳墠鎺ュ彛杈圭晫涓昏鐢变互涓嬫祴璇曡鐩栵細
+当前接口边界主要由以下测试覆盖：
 
-- `OpenJiuwenAgentRuntimeHandlerTest`锛氶獙璇?OpenJiuwen handler 榛樿涓嶅畨瑁?Rail銆佸瓙绫诲彲瀹夎 `MemoryRuntimeRail`銆佷娇鐢ㄧǔ瀹?`agentStateKey` 浣滀负 conversation id銆丱penJiuwen message 涓?`MemoryRecord` 杞崲锛屼互鍙婂紓甯哥粨鏋滄槧灏勩€?- `A2aJsonRpcControllerTest`锛氶獙璇?A2A JSON-RPC 鎺ュ叆璺緞銆?- `RuntimeAppTest`锛氶獙璇?runtime app 鍩虹鍚姩璺緞銆?
-鎺ㄨ崘鏈€灏忛獙璇佸懡浠わ細
+- `OpenJiuwenAgentRuntimeHandlerTest`：验证 OpenJiuwen handler 默认不安装 Rail、子类可安装 `MemoryRuntimeRail`、使用稳定 `agentStateKey` 作为 conversation id、OpenJiuwen message 与 `MemoryRecord` 转换，以及异常结果映射。
+- `A2aJsonRpcControllerTest`：验证 A2A JSON-RPC 接入路径。
+- `RuntimeAppTest`：验证 runtime app 基础启动路径。
+
+推荐最小验证命令：
 
 ```bash
 wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/d/repo/spring-ai-ascend && ./mvnw -pl agent-runtime -Dtest=OpenJiuwenAgentRuntimeHandlerTest,A2aJsonRpcControllerTest,RuntimeAppTest test'
 ```
 
-濡傛灉鎺ュ彛銆佸绾︽垨 architecture facts 鍙戠敓鍙樺寲锛岃繕闇€瑕佽繍琛岋細
+如果接口、契约或 architecture facts 发生变化，还需要运行：
 
 ```bash
 wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/d/repo/spring-ai-ascend && ./mvnw -f tools/architecture-workspace/pom.xml exec:java@extract-facts'

@@ -149,7 +149,7 @@ Important Java extension points and related types include:
 
 - `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` - framework-neutral runtime SPI for running an agent inside `agent-runtime` (with `StreamAdapter`; keep framework-specific decoration inside each adapter)
 - `com.huawei.ascend.runtime.engine.spi.AgentCardProvider` - optional A2A Agent Card metadata provider; keep this separate when the execution handler should stay focused on framework execution and state bridge logic
-- `com.huawei.ascend.runtime.engine.spi.MemoryProvider` - reserved narrow SPI for frameworks that need runtime-provided memory init/search/save integration
+- `com.huawei.ascend.runtime.engine.spi.MemoryProvider` - reserved narrow SPI for frameworks that need runtime-provided memory init/search/save integration; memory hit scores are optional and hit order is the relevance contract
 - `com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler` - built-in `AgentRuntimeHandler` implementation used by the local OpenJiuwen example path
 - `com.huawei.ascend.runtime.engine.agentscope.AgentScopeAgentRuntimeHandler` - built-in `AgentRuntimeHandler` implementation for an in-process AgentScope SDK agent
 - `com.huawei.ascend.runtime.engine.agentscope.AgentScopeHarnessRuntimeHandler` - built-in `AgentRuntimeHandler` implementation for an AgentScope Harness agent

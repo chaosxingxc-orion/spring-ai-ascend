@@ -16,6 +16,7 @@ import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -345,7 +346,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         private static void mergeMemoryIntoSystemMessage(ModelContext modelContext, String memoryBlock) {
             List<BaseMessage> currentMessages = modelContext.getMessages();
             List<BaseMessage> updatedMessages =
-                    new java.util.ArrayList<>(currentMessages == null ? List.of() : currentMessages);
+                    new ArrayList<>(currentMessages == null ? List.of() : currentMessages);
             for (int i = 0; i < updatedMessages.size(); i++) {
                 BaseMessage message = updatedMessages.get(i);
                 if (isSystemMessage(message)) {
