@@ -19,7 +19,7 @@ suspend fun AscendA2aClient.sendTextSuspending(spec: SendSpec): A2aResponse =
 /**
  * [AscendA2aClient.streamText] as a suspending call; [listener] observes
  * every event as it arrives, on the IO worker thread. Cancelling the
- * coroutine interrupts the client's blocking wait for the terminal event
+ * coroutine interrupts the client's blocking wait for the turn-ending event
  * (the Java client honors the interrupt and rethrows it), surfacing as a
  * [kotlinx.coroutines.CancellationException].
  */

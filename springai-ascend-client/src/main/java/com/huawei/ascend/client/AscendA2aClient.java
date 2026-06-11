@@ -35,9 +35,10 @@ import org.slf4j.LoggerFactory;
  * protocol client leaves to every caller:
  *
  * <ul>
- *   <li>blocking send/stream that completes on the platform's terminal
- *       events and classifies the SDK's post-terminal SSE cancellation as
- *       normal completion (see {@link A2aEvents});</li>
+ *   <li>blocking send/stream that completes on the platform's turn-ending
+ *       events — run-terminal, or input/auth-required when the agent pauses
+ *       for the caller — and classifies the SDK's post-turn-end SSE
+ *       cancellation as normal completion (see {@link A2aEvents});</li>
  *   <li>per-call W3C {@code traceparent} origination and {@code traceresponse}
  *       correlation surfaced on every {@link A2aResponse}; with a
  *       {@link ClientTelemetry} configured, the outbound header is derived
@@ -128,13 +129,17 @@ public final class AscendA2aClient implements AutoCloseable {
     /**
      * Streaming send (JSON-RPC {@code SendStreamingMessage} over SSE):
      * {@code listener} observes every event as it arrives; the call blocks
-     * until a terminal event (or classified failure), then returns the
-     * aggregate. Failure classification: any transport error before a
-     * terminal event — including a premature SSE cancellation — fails the
-     * call; the SDK's normal post-terminal cancellation does not.
+     * until a turn-ending event (or classified failure), then returns the
+     * aggregate. A turn ends on a run-terminal event OR an input-required /
+     * auth-required status — the runtime keeps a suspended run's stream open,
+     * so the agent's prompt must return to the caller instead of timing out;
+     * {@link A2aResponse#awaitingInput()} tells the two apart. Failure
+     * classification: any transport error before a turn-ending event —
+     * including a premature SSE cancellation — fails the call; the normal
+     * post-turn-end cancellation does not.
      *
      * @throws IllegalStateException when the stream fails or does not reach a
-     *                               terminal event within the configured timeout
+     *                               turn-ending event within the configured timeout
      */
     public A2aResponse streamText(SendSpec spec, Consumer<StreamingEventKind> listener)
             throws InterruptedException {
@@ -154,14 +159,14 @@ public final class AscendA2aClient implements AutoCloseable {
         }
     }
 
-    /** The streaming exchange itself: collect events until terminal/failure/timeout. */
+    /** The streaming exchange itself: collect events until turn-end/failure/timeout. */
     private List<StreamingEventKind> streamEvents(AgentCard card, SendSpec spec,
             Consumer<StreamingEventKind> listener, String traceparent,
             AtomicReference<String> traceresponse) throws InterruptedException {
         List<StreamingEventKind> events = Collections.synchronizedList(new ArrayList<>());
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<Throwable> failure = new AtomicReference<>();
-        AtomicBoolean sawTerminal = new AtomicBoolean(false);
+        AtomicBoolean sawTurnEnd = new AtomicBoolean(false);
         JSONRPCTransport transport = newTransport(card, traceresponse);
         try {
             transport.sendMessageStreaming(
@@ -169,13 +174,13 @@ public final class AscendA2aClient implements AutoCloseable {
                     event -> {
                         events.add(event);
                         listener.accept(event);
-                        if (A2aEvents.isTerminal(event)) {
-                            sawTerminal.set(true);
+                        if (A2aEvents.isTurnEnding(event)) {
+                            sawTurnEnd.set(true);
                             completed.countDown();
                         }
                     },
                     error -> {
-                        if (A2aEvents.isFailureError(error, sawTerminal.get())) {
+                        if (A2aEvents.isFailureError(error, sawTurnEnd.get())) {
                             failure.set(error);
                         }
                         completed.countDown();

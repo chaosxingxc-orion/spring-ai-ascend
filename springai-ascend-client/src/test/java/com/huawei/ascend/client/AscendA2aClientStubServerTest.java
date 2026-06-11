@@ -74,6 +74,39 @@ class AscendA2aClientStubServerTest {
     }
 
     @Test
+    void streamTextReturnsPromptPromptlyWhenAgentRequiresInput() throws Exception {
+        // Human-in-the-loop: the runtime answers with a prompt message plus a
+        // NON-final input-required status and keeps the SSE stream open for
+        // the suspended run. The turn must end on that status — waiting for a
+        // run-terminal event would block until the timeout and lose the prompt.
+        server.streamInputRequiredAndStayOpen();
+        try (AscendA2aClient client = newClient()) {
+            long start = System.nanoTime();
+            A2aResponse response = client.streamText(
+                    SendSpec.of("stub-agent", "session-1", "user-1", "transfer money"));
+            Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
+
+            assertThat(response.text()).isEqualTo("Which account should I use?");
+            assertThat(response.awaitingInput()).isTrue();
+            assertThat(response.events())
+                    .anySatisfy(event -> assertThat(A2aEvents.isAwaitingInput(event)).isTrue())
+                    .noneSatisfy(event -> assertThat(A2aEvents.isTerminal(event)).isTrue());
+            // Promptly: well under the 10s stream-completion timeout.
+            assertThat(elapsed).isLessThan(Duration.ofSeconds(5));
+        }
+    }
+
+    @Test
+    void streamTextDoesNotReportAwaitingInputForACompletedRun() throws Exception {
+        try (AscendA2aClient client = newClient()) {
+            A2aResponse response = client.streamText(
+                    SendSpec.of("stub-agent", "session-1", "user-1", "ping"));
+
+            assertThat(response.awaitingInput()).isFalse();
+        }
+    }
+
+    @Test
     void agentCardIsFetchedWithAuthAndTraceHeaders() throws Exception {
         try (AscendA2aClient client = newClient()) {
             AgentCard card = client.agentCard();

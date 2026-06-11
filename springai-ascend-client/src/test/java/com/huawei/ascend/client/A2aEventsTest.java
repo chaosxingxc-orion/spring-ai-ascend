@@ -152,6 +152,47 @@ class A2aEventsTest {
     }
 
     @Test
+    void inputAndAuthRequiredEndTheTurnWithoutEndingTheRun() {
+        // The runtime's INTERRUPTED route emits a NON-final input-required
+        // status update and keeps the SSE stream open for the suspended run:
+        // the stream must complete on it (turn-ending) while the run itself
+        // is not terminal.
+        TaskStatusUpdateEvent inputRequired = statusUpdate(TaskState.TASK_STATE_INPUT_REQUIRED);
+        TaskStatusUpdateEvent authRequired = statusUpdate(TaskState.TASK_STATE_AUTH_REQUIRED);
+        TaskStatusUpdateEvent working = statusUpdate(TaskState.TASK_STATE_WORKING);
+        TaskStatusUpdateEvent completed = statusUpdate(TaskState.TASK_STATE_COMPLETED);
+
+        assertThat(A2aEvents.isAwaitingInput(inputRequired)).isTrue();
+        assertThat(A2aEvents.isAwaitingInput(authRequired)).isTrue();
+        assertThat(A2aEvents.isTurnEnding(inputRequired)).isTrue();
+        assertThat(A2aEvents.isTurnEnding(authRequired)).isTrue();
+        assertThat(A2aEvents.isTerminal(inputRequired)).isFalse();
+        assertThat(A2aEvents.isTerminal(authRequired)).isFalse();
+
+        assertThat(A2aEvents.isTurnEnding(working)).isFalse();
+        assertThat(A2aEvents.isAwaitingInput(working)).isFalse();
+        assertThat(A2aEvents.isTurnEnding(completed)).isTrue();
+        assertThat(A2aEvents.isAwaitingInput(completed)).isFalse();
+    }
+
+    @Test
+    void recognizesAwaitingInputOnTaskSnapshot() {
+        // The non-streaming SendMessage path answers a Task snapshot; an
+        // input-required snapshot must read as awaiting input there too.
+        Task inputRequired = new Task(
+                "task-1",
+                "session-1",
+                new TaskStatus(TaskState.TASK_STATE_INPUT_REQUIRED, null, null),
+                List.of(),
+                List.of(),
+                Map.of());
+
+        assertThat(A2aEvents.isAwaitingInput(inputRequired)).isTrue();
+        assertThat(A2aEvents.isTurnEnding(inputRequired)).isTrue();
+        assertThat(A2aEvents.isTerminal(inputRequired)).isFalse();
+    }
+
+    @Test
     void cancellationIsNormalCompletionOnlyAfterTerminalEvent() {
         CancellationException cancel = new CancellationException("sse unsubscribed");
         // Post-terminal cancellation (the SDK's normal unsubscribe) is NOT a failure.
@@ -162,6 +203,14 @@ class A2aEventsTest {
         assertThat(A2aEvents.isFailureError(new RuntimeException("io", cancel), true)).isFalse();
         // Any non-cancellation error is always a failure, even after a terminal event.
         assertThat(A2aEvents.isFailureError(new RuntimeException("transport reset"), true)).isTrue();
+    }
+
+    private static TaskStatusUpdateEvent statusUpdate(TaskState state) {
+        return new TaskStatusUpdateEvent(
+                "task-1",
+                new TaskStatus(state, null, null),
+                "session-1",
+                Map.of());
     }
 
     private static Message messageWithRunStatus(String runStatus) {

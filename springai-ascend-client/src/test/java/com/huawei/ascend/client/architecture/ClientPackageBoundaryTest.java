@@ -13,8 +13,9 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * any customer application, so it stays Spring-free and never depends on a
  * platform server module (the OSS a2a client + JDK + slf4j are the whole
  * required dependency surface). OpenTelemetry is the one optional addition,
- * and it stays confined to the telemetry package so the always-loaded client
- * classes never force OTel onto a consumer classpath.
+ * and it stays confined to the OTel-backed telemetry implementations so the
+ * always-loaded client classes — including the telemetry SPI surface those
+ * classes pull in — never force OTel onto a consumer classpath.
  */
 class ClientPackageBoundaryTest {
 
@@ -33,10 +34,19 @@ class ClientPackageBoundaryTest {
     }
 
     @Test
-    void openTelemetryStaysBehindTheTelemetryPackage() {
+    void openTelemetryStaysBehindTheOtelBackedImplementations() {
+        // Pins the pom's embeddability promise class-by-class, not merely
+        // package-by-package: the always-loaded telemetry surface
+        // (ClientTelemetry, ClientCallSpan, NoopClientTelemetry, Posture)
+        // loads in every customer app — AscendA2aClient touches it on every
+        // call — so it must stay as OTel-free as the root package. Only the
+        // two OTel-backed implementations (and their nested classes) may
+        // depend on io.opentelemetry; everything else is denied by default,
+        // including telemetry classes added later.
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.huawei.ascend.client..")
-                .and().resideOutsideOfPackage("com.huawei.ascend.client.telemetry")
+                .and().haveNameNotMatching(
+                        "com\\.huawei\\.ascend\\.client\\.telemetry\\.(Otel|Otlp)ClientTelemetry(\\$.*)?")
                 .should().dependOnClassesThat()
                 .resideInAPackage("io.opentelemetry..")
                 .allowEmptyShould(false);

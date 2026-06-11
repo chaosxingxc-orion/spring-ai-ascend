@@ -19,4 +19,15 @@ public record A2aResponse(String text, List<StreamingEventKind> events, TraceCor
     public A2aResponse {
         events = events == null ? List.of() : List.copyOf(events);
     }
+
+    /**
+     * True when this turn ended because the agent suspended the run waiting
+     * on the caller (an A2A {@code input-required} / {@code auth-required}
+     * state): {@link #text()} is the agent's prompt, and the caller is
+     * expected to answer it in a follow-up send on the same session. False
+     * for a run that actually finished.
+     */
+    public boolean awaitingInput() {
+        return events.stream().anyMatch(A2aEvents::isAwaitingInput);
+    }
 }

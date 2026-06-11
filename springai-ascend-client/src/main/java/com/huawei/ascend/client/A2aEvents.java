@@ -67,6 +67,37 @@ public final class A2aEvents {
     }
 
     /**
+     * True when this event ends the current turn: either the run is over
+     * ({@link #isTerminal}) or the agent paused to wait on the caller
+     * ({@link #isAwaitingInput}). The streaming client completes on this —
+     * after an input-required / auth-required status the runtime keeps the
+     * SSE stream open for the rest of the suspended run, so waiting for a
+     * run-terminal event would block until the timeout and lose the prompt
+     * the agent just sent.
+     */
+    public static boolean isTurnEnding(StreamingEventKind event) {
+        return isTerminal(event) || isAwaitingInput(event);
+    }
+
+    /**
+     * True when this event suspends the run waiting on the caller — an A2A
+     * {@code input-required} or {@code auth-required} task state (on a status
+     * update or a {@code Task} snapshot). The turn is over but the run is NOT
+     * terminal: the caller is expected to answer the agent's prompt in a
+     * follow-up send.
+     */
+    public static boolean isAwaitingInput(StreamingEventKind event) {
+        if (event instanceof TaskStatusUpdateEvent statusEvent
+                && statusEvent.status() != null) {
+            return isAwaitingInputState(statusEvent.status().state());
+        }
+        if (event instanceof Task task && task.status() != null) {
+            return isAwaitingInputState(task.status().state());
+        }
+        return false;
+    }
+
+    /**
      * True when this event ends the run. The runtime signals termination two
      * ways — a final A2A {@code TaskStatusUpdateEvent} state, or a
      * {@code Message} carrying a terminal {@code runStatus} metadata value.
@@ -93,13 +124,16 @@ public final class A2aEvents {
 
     /**
      * A streamed error is a real failure UNLESS it is a CancellationException
-     * that arrived AFTER a terminal event (the A2A SDK's normal post-terminal
-     * SSE unsubscribe — it cancels the subscription right after the terminal
-     * event, including for terminal FAILED runs). A cancellation before any
-     * terminal event is a partial-stream transport failure that must surface.
+     * that arrived AFTER a turn-ending event: the A2A SDK's normal
+     * post-terminal SSE unsubscribe (it cancels the subscription right after
+     * the terminal event, including for terminal FAILED runs), or the
+     * client's own unsubscribe after an awaiting-input status (the runtime
+     * keeps a suspended run's stream open, so the client must hang up). A
+     * cancellation before any turn-ending event is a partial-stream transport
+     * failure that must surface.
      */
-    static boolean isFailureError(Throwable error, boolean sawTerminal) {
-        return !(causedByCancellation(error) && sawTerminal);
+    static boolean isFailureError(Throwable error, boolean sawTurnEnd) {
+        return !(causedByCancellation(error) && sawTurnEnd);
     }
 
     private static boolean isFinalState(TaskState state) {
@@ -107,6 +141,11 @@ public final class A2aEvents {
                 || state == TaskState.TASK_STATE_FAILED
                 || state == TaskState.TASK_STATE_CANCELED
                 || state == TaskState.TASK_STATE_REJECTED;
+    }
+
+    private static boolean isAwaitingInputState(TaskState state) {
+        return state == TaskState.TASK_STATE_INPUT_REQUIRED
+                || state == TaskState.TASK_STATE_AUTH_REQUIRED;
     }
 
     private static boolean causedByCancellation(Throwable error) {

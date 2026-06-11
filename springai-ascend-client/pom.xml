@@ -63,9 +63,9 @@
     </dependency>
 
     <!-- OpenTelemetry: optional client-side business spans, confined to the
-         com.huawei.ascend.client.telemetry package (enforced by
-         ClientPackageBoundaryTest). No OTel type appears in any always-loaded
-         public signature: opentelemetry-api backs consumer-supplied SDKs via
+         OTel-backed implementations in com.huawei.ascend.client.telemetry
+         (enforced by ClientPackageBoundaryTest). No OTel type appears in any
+         always-loaded class: opentelemetry-api backs consumer-supplied SDKs via
          OtelClientTelemetry; sdk + exporter-otlp exist only for the
          class-presence-guarded ClientTelemetry.otlpHttp pipeline, so their
          absence disables that one factory and nothing else. -->

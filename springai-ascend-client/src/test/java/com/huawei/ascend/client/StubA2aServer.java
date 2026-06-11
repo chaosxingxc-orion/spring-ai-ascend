@@ -18,6 +18,9 @@ import org.a2aproject.sdk.spec.AgentCapabilities;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.TaskState;
+import org.a2aproject.sdk.spec.TaskStatus;
+import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.a2aproject.sdk.spec.TextPart;
 import org.a2aproject.sdk.spec.TransportProtocol;
 
@@ -42,6 +45,8 @@ final class StubA2aServer implements AutoCloseable {
     /** Last-seen request headers per path, captured off the wire. */
     private final Map<String, Map<String, String>> recordedHeaders = new ConcurrentHashMap<>();
     private volatile boolean failJsonRpc;
+    private volatile boolean streamInputRequired;
+    private volatile HttpExchange openSseExchange;
 
     StubA2aServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
@@ -65,8 +70,23 @@ final class StubA2aServer implements AutoCloseable {
         failJsonRpc = true;
     }
 
+    /**
+     * From now on, SSE streams end the turn with a human-in-the-loop pause:
+     * ack, the agent's prompt message, then a non-final
+     * {@code input-required} status update — and the stream stays OPEN, like
+     * the real runtime, which holds a suspended run's stream until the user
+     * answers. A client waiting for a run-terminal event would hang here.
+     */
+    void streamInputRequiredAndStayOpen() {
+        streamInputRequired = true;
+    }
+
     @Override
     public void close() {
+        HttpExchange open = openSseExchange;
+        if (open != null) {
+            open.close();
+        }
         server.stop(0);
     }
 
@@ -110,6 +130,18 @@ final class StubA2aServer implements AutoCloseable {
         exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
         exchange.getResponseHeaders().set("traceresponse", TRACERESPONSE);
         exchange.sendResponseHeaders(200, 0);
+        if (streamInputRequired) {
+            // No try-with-resources: the suspended-run stream must stay open.
+            openSseExchange = exchange;
+            OutputStream out = exchange.getResponseBody();
+            writeSseEvent(out, JSONRPCUtils.toJsonRPCResultResponse(
+                    requestId, ProtoUtils.ToProto.taskOrMessageStream(acceptedAck())));
+            writeSseEvent(out, JSONRPCUtils.toJsonRPCResultResponse(
+                    requestId, ProtoUtils.ToProto.taskOrMessageStream(promptMessage())));
+            writeSseEvent(out, JSONRPCUtils.toJsonRPCResultResponse(
+                    requestId, ProtoUtils.ToProto.taskOrMessageStream(inputRequiredStatus())));
+            return;
+        }
         try (OutputStream out = exchange.getResponseBody()) {
             writeSseEvent(out, JSONRPCUtils.toJsonRPCResultResponse(
                     requestId, ProtoUtils.ToProto.taskOrMessageStream(acceptedAck())));
@@ -148,6 +180,24 @@ final class StubA2aServer implements AutoCloseable {
                 .metadata(Map.of("runStatus", "completed"))
                 .parts(List.of(new TextPart("pong")))
                 .build();
+    }
+
+    /** The agent's question to the user, as the runtime's INTERRUPTED route emits it. */
+    private static Message promptMessage() {
+        return Message.builder()
+                .role(Message.Role.ROLE_AGENT)
+                .messageId("prompt-1")
+                .parts(List.of(new TextPart("Which account should I use?")))
+                .build();
+    }
+
+    /** Non-final input-required status, as the runtime's requiresInput() emits it. */
+    private static TaskStatusUpdateEvent inputRequiredStatus() {
+        return new TaskStatusUpdateEvent(
+                "task-1",
+                new TaskStatus(TaskState.TASK_STATE_INPUT_REQUIRED, null, null),
+                "session-1",
+                Map.of());
     }
 
     private static String requestId(String body) {
