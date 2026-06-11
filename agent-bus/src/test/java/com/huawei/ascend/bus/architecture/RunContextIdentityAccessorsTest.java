@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.architecture;
+package com.huawei.ascend.bus.architecture;
 
 import com.huawei.ascend.bus.spi.engine.RunContext;
 import com.huawei.ascend.bus.spi.engine.TraceContext;

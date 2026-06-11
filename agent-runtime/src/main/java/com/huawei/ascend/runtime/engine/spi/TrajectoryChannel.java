@@ -11,7 +11,22 @@ import java.util.stream.Stream;
 public interface TrajectoryChannel extends AutoCloseable {
 
     /** A channel that swallows publishes and drains empty — used when trajectory is OFF. */
-    TrajectoryChannel NOOP = new NoopTrajectoryChannel();
+    TrajectoryChannel NOOP = new TrajectoryChannel() {
+        @Override
+        public void publish(TrajectoryEvent event) {
+            // intentionally discarded
+        }
+
+        @Override
+        public Stream<TrajectoryEvent> drain() {
+            return Stream.empty();
+        }
+
+        @Override
+        public void close() {
+            // nothing to release
+        }
+    };
 
     void publish(TrajectoryEvent event);
 

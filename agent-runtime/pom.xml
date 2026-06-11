@@ -2,13 +2,10 @@
 <!--
   agent-runtime: the run-owning runtime SDK that drives Agent instances built on
   heterogeneous agent frameworks through a single framework-neutral SPI
-  (engine.spi.AgentRuntimeHandler + StreamAdapter). Owns engine dispatch
-  (EngineDispatcher + AgentRuntimeHandlerRegistry), Run lifecycle, session,
-  task-centric control, internal event queue, access (A2A), and the pure-Java
-  embeddable entry app.RuntimeApp. Ships as a library.
-
-  Historical note: ADR-0159 has been archived. Neutral EnginePort / orchestration
-  SPI is consumed from agent-bus (bus.spi.engine); s2c SPI from agent-bus (bus.spi.s2c).
+  (engine.spi.AgentRuntimeHandler + StreamAdapter). Owns the runtime execute flow,
+  trajectory observability, remote A2A tool invocation, access (A2A), and the
+  pure-Java embeddable entry app.RuntimeApp. Ships as a library. Its only external
+  protocol contract is the A2A SDK.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -26,11 +23,6 @@
   <description>Run-owning runtime SDK: execution engine + Run lifecycle + engine dispatch + session/task-control + access (A2A) + bootable runtime app.</description>
 
   <dependencies>
-    <!-- Sibling module: agent-bus (neutral EnginePort/orchestration SPI in bus.spi.engine; S2cCallbackTransport in bus.spi.s2c; IngressGateway in bus.spi.ingress). -->
-    <dependency>
-      <groupId>com.huawei.ascend</groupId>
-      <artifactId>agent-bus</artifactId>
-    </dependency>
     <!-- snakeyaml for envelope-schema parsing. -->
     <dependency>
       <groupId>org.yaml</groupId>
