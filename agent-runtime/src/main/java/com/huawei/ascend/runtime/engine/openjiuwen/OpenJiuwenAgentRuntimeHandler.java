@@ -11,6 +11,7 @@ import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
 import com.openjiuwen.core.context.ModelContext;
 import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
+import com.openjiuwen.core.foundation.llm.schema.SystemMessage;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
@@ -231,6 +232,8 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
      * depending on openJiuwen's Rail API.
      */
     public static final class MemoryRuntimeRail extends AgentRail {
+        private static final int DEFAULT_MEMORY_SEARCH_LIMIT = 5;
+
         private final AgentExecutionContext executionContext;
         private final MemoryProvider memoryProvider;
         private final OpenJiuwenMemoryMessageAdapter memoryMessageAdapter;
@@ -254,6 +257,16 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
                         error.getClass().getSimpleName(),
                         errorMessage(error));
             }
+            try {
+                injectMemory(callbackContext);
+            } catch (RuntimeException error) {
+                LOGGER.warn("openjiuwen memory search inject failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
+                        executionContext.getScope().tenantId(),
+                        executionContext.getScope().sessionId(),
+                        executionContext.getScope().taskId(),
+                        error.getClass().getSimpleName(),
+                        errorMessage(error));
+            }
         }
 
         @Override
@@ -263,7 +276,12 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
                 return;
             }
             try {
-                memoryProvider.save(executionContext, memoryMessageAdapter.toMemoryRecords(messages));
+                List<MemoryProvider.MemoryRecord> records = memoryMessageAdapter.toMemoryRecords(messages).stream()
+                        .filter(record -> !"system".equals(record.role()))
+                        .toList();
+                if (!records.isEmpty()) {
+                    memoryProvider.save(executionContext, records);
+                }
             } catch (RuntimeException error) {
                 LOGGER.warn("openjiuwen memory save failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
                         executionContext.getScope().tenantId(),
@@ -284,6 +302,76 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             }
             List<BaseMessage> messages = modelContext.getMessages();
             return messages == null ? List.of() : messages;
+        }
+
+        private void injectMemory(AgentCallbackContext callbackContext) {
+            String query = latestUserInput();
+            if (query.isBlank()) {
+                return;
+            }
+            List<MemoryProvider.MemoryHit> hits =
+                    memoryProvider.search(executionContext, query, DEFAULT_MEMORY_SEARCH_LIMIT);
+            if (hits.isEmpty()) {
+                return;
+            }
+            ModelContext modelContext = callbackContext == null ? null : callbackContext.getContext();
+            if (modelContext == null) {
+                return;
+            }
+            mergeMemoryIntoSystemMessage(modelContext, formatMemoryBlock(hits));
+        }
+
+        private String latestUserInput() {
+            List<org.a2aproject.sdk.spec.Message> messages = executionContext.getMessages();
+            for (int i = messages.size() - 1; i >= 0; i--) {
+                org.a2aproject.sdk.spec.Message message = messages.get(i);
+                if (message != null && message.role() == org.a2aproject.sdk.spec.Message.Role.ROLE_USER) {
+                    return OpenJiuwenMessageAdapter.messageText(message);
+                }
+            }
+            return "";
+        }
+
+        private static String formatMemoryBlock(List<MemoryProvider.MemoryHit> hits) {
+            StringBuilder block = new StringBuilder("Relevant memory:\n");
+            for (MemoryProvider.MemoryHit hit : hits) {
+                if (hit != null && !hit.content().isBlank()) {
+                    block.append("- ").append(hit.content()).append('\n');
+                }
+            }
+            return block.toString().trim();
+        }
+
+        private static void mergeMemoryIntoSystemMessage(ModelContext modelContext, String memoryBlock) {
+            List<BaseMessage> currentMessages = modelContext.getMessages();
+            List<BaseMessage> updatedMessages =
+                    new java.util.ArrayList<>(currentMessages == null ? List.of() : currentMessages);
+            for (int i = 0; i < updatedMessages.size(); i++) {
+                BaseMessage message = updatedMessages.get(i);
+                if (isSystemMessage(message)) {
+                    updatedMessages.set(i, mergedSystemMessage(message, memoryBlock));
+                    modelContext.setMessages(updatedMessages, true);
+                    return;
+                }
+            }
+            updatedMessages.add(0, new SystemMessage(memoryBlock));
+            modelContext.setMessages(updatedMessages, true);
+        }
+
+        private static boolean isSystemMessage(BaseMessage message) {
+            return message instanceof SystemMessage
+                    || (message != null && "system".equalsIgnoreCase(message.getRole()));
+        }
+
+        private static SystemMessage mergedSystemMessage(BaseMessage original, String memoryBlock) {
+            String originalContent = original.getContentAsString();
+            String mergedContent = originalContent == null || originalContent.isBlank()
+                    ? memoryBlock
+                    : originalContent + "\n\n" + memoryBlock;
+            String name = original.getName();
+            return name == null || name.isBlank()
+                    ? new SystemMessage(mergedContent)
+                    : new SystemMessage(mergedContent, name);
         }
     }
 }

@@ -12,11 +12,17 @@ import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryLevel;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
+import com.openjiuwen.core.context.ContextStats;
+import com.openjiuwen.core.context.ContextWindow;
+import com.openjiuwen.core.context.ModelContext;
+import com.openjiuwen.core.context.TokenCounter;
 import com.openjiuwen.core.foundation.llm.schema.AssistantMessage;
 import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
 import com.openjiuwen.core.foundation.llm.schema.SystemMessage;
 import com.openjiuwen.core.foundation.llm.schema.ToolMessage;
 import com.openjiuwen.core.foundation.llm.schema.UserMessage;
+import com.openjiuwen.core.foundation.tool.Tool;
+import com.openjiuwen.core.foundation.tool.ToolInfo;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.stream.StreamMode;
 import com.openjiuwen.core.singleagent.BaseAgent;
@@ -102,6 +108,80 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         assertThat(restored).isInstanceOf(SystemMessage.class);
         assertThat(restored.getContentAsString()).isEqualTo("system prompt");
         assertThat(restored.getName()).isEqualTo("system-name");
+    }
+
+    @Test
+    void memoryRuntimeRailInjectsSearchResultsIntoOpenJiuwenContext() {
+        AgentExecutionContext context = context(Map.of());
+        FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
+        OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail rail =
+                new OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail(
+                        context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+        RecordingModelContext modelContext = new RecordingModelContext();
+
+        rail.beforeInvoke(AgentCallbackContext.builder().context(modelContext).build());
+
+        assertThat(memoryProvider.initialized).isTrue();
+        assertThat(memoryProvider.searchedQuery).isEqualTo("ping");
+        assertThat(modelContext.messages)
+                .singleElement()
+                .satisfies(message -> assertThat(message.getContentAsString()).contains("remembered ping"));
+    }
+
+    @Test
+    void memoryRuntimeRailMergesSearchResultsIntoExistingSystemMessage() {
+        AgentExecutionContext context = context(Map.of());
+        FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
+        OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail rail =
+                new OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail(
+                        context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+        RecordingModelContext modelContext = new RecordingModelContext();
+        modelContext.setMessages(List.of(new SystemMessage("existing system prompt")), true);
+
+        rail.beforeInvoke(AgentCallbackContext.builder().context(modelContext).build());
+
+        assertThat(modelContext.messages)
+                .singleElement()
+                .satisfies(message -> assertThat(message.getContentAsString())
+                        .contains("existing system prompt")
+                        .contains("remembered ping"));
+    }
+
+    @Test
+    void memoryRuntimeRailAcceptsHitsWithoutScore() {
+        AgentExecutionContext context = context(Map.of());
+        FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
+        memoryProvider.score = null;
+        OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail rail =
+                new OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail(
+                        context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+        RecordingModelContext modelContext = new RecordingModelContext();
+
+        rail.beforeInvoke(AgentCallbackContext.builder().context(modelContext).build());
+
+        assertThat(modelContext.messages)
+                .singleElement()
+                .satisfies(message -> assertThat(message.getContentAsString()).contains("remembered ping"));
+    }
+
+    @Test
+    void memoryRuntimeRailDoesNotSaveSystemPromptBackToMemory() {
+        AgentExecutionContext context = context(Map.of());
+        FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
+        OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail rail =
+                new OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail(
+                        context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+        RecordingModelContext modelContext = new RecordingModelContext();
+        modelContext.setMessages(List.of(new SystemMessage("runtime memory"), new UserMessage("hello")), true);
+
+        rail.afterInvoke(AgentCallbackContext.builder().context(modelContext).build());
+
+        assertThat(memoryProvider.savedRecords)
+                .singleElement()
+                .satisfies(record -> {
+                    assertThat(record.role()).isEqualTo("user");
+                    assertThat(record.content()).isEqualTo("hello");
+                });
     }
 
     @Test
@@ -306,6 +386,100 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
             installedBeforeRun = runtimeToolInstalled;
             return super.runOpenJiuwenAgent(agent, input, conversationId);
+        }
+    }
+
+    private static final class FakeMemoryProvider implements MemoryProvider {
+        private boolean initialized;
+        private String searchedQuery;
+        private List<MemoryRecord> savedRecords = List.of();
+        private Double score = 0.9;
+
+        @Override
+        public void init(AgentExecutionContext context) {
+            initialized = true;
+        }
+
+        @Override
+        public List<MemoryHit> search(AgentExecutionContext context, String query, int limit) {
+            searchedQuery = query;
+            return List.of(new MemoryHit("m1", "remembered " + query, score, Map.of()));
+        }
+
+        @Override
+        public void save(AgentExecutionContext context, List<MemoryRecord> records) {
+            savedRecords = records;
+        }
+    }
+
+    private static final class RecordingModelContext extends ModelContext {
+        private final List<BaseMessage> messages = new ArrayList<>();
+
+        @Override
+        public int size() {
+            return messages.size();
+        }
+
+        @Override
+        public List<BaseMessage> getMessages(Integer size, boolean withHistory) {
+            return List.copyOf(messages);
+        }
+
+        @Override
+        public void setMessages(List<BaseMessage> messages, boolean withHistory) {
+            this.messages.clear();
+            this.messages.addAll(messages);
+        }
+
+        @Override
+        public List<BaseMessage> popMessages(int size, boolean withHistory) {
+            return List.of();
+        }
+
+        @Override
+        public void clearMessages(boolean withHistory) {
+            messages.clear();
+        }
+
+        @Override
+        public List<BaseMessage> addMessages(List<BaseMessage> messages) {
+            this.messages.addAll(messages);
+            return List.copyOf(this.messages);
+        }
+
+        @Override
+        public ContextWindow getContextWindow(
+                List<BaseMessage> systemMessages,
+                List<ToolInfo> tools,
+                Integer windowSize,
+                Integer dialogueRound,
+                Map<String, Object> kwargs) {
+            return null;
+        }
+
+        @Override
+        public ContextStats statistic() {
+            return null;
+        }
+
+        @Override
+        public String sessionId() {
+            return "test-session";
+        }
+
+        @Override
+        public String contextId() {
+            return "test-context";
+        }
+
+        @Override
+        public TokenCounter tokenCounter() {
+            return null;
+        }
+
+        @Override
+        public Tool reloaderTool() {
+            return null;
         }
     }
 

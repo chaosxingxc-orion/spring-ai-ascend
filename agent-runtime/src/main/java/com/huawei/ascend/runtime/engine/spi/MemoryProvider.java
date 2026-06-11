@@ -26,10 +26,23 @@ public interface MemoryProvider {
     default void save(AgentExecutionContext context, List<MemoryRecord> records) {
     }
 
-    /** One memory search hit returned by a provider. */
-    record MemoryHit(String id, String content, double score, Map<String, Object> metadata) {
+    /**
+     * One memory search hit returned by a provider.
+     *
+     * <p>{@code score} is optional because memory backends do not expose a
+     * comparable relevance score consistently. Providers should still return
+     * hits in relevance order; callers must not require {@code score} to be
+     * present.
+     */
+    record MemoryHit(String id, String content, Double score, Map<String, Object> metadata) {
         public MemoryHit {
+            content = content == null ? "" : content;
             metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+        }
+
+        /** Returns true when the backend provided a relevance score. */
+        public boolean hasScore() {
+            return score != null;
         }
     }
 
