@@ -90,6 +90,60 @@ class LlmGatewayAutoConfigurationTest {
                 });
     }
 
+    /** Upstream calls are time-bounded by default: connect fast-fails, responses get LLM-scale slack. */
+    @Test
+    void upstreamTimeoutsHaveSaneDefaults() {
+        runner.withPropertyValues("agent-runtime.llm.gateway.enabled=true")
+                .run(ctx -> {
+                    LlmGatewayProperties properties = ctx.getBean(LlmGatewayProperties.class);
+                    assertThat(properties.getConnectTimeout())
+                            .isEqualTo(java.time.Duration.ofSeconds(5));
+                    assertThat(properties.getRequestTimeout())
+                            .isEqualTo(java.time.Duration.ofSeconds(120));
+                });
+    }
+
+    /** Slow models are accommodated deliberately, through configuration. */
+    @Test
+    void upstreamTimeoutsBindFromProperties() {
+        runner.withPropertyValues(
+                "agent-runtime.llm.gateway.enabled=true",
+                "agent-runtime.llm.gateway.connect-timeout=3s",
+                "agent-runtime.llm.gateway.request-timeout=45s")
+                .run(ctx -> {
+                    LlmGatewayProperties properties = ctx.getBean(LlmGatewayProperties.class);
+                    assertThat(properties.getConnectTimeout())
+                            .isEqualTo(java.time.Duration.ofSeconds(3));
+                    assertThat(properties.getRequestTimeout())
+                            .isEqualTo(java.time.Duration.ofSeconds(45));
+                });
+    }
+
+    /** A broken alias entry fails deployment startup naming the property — never a request-time 500. */
+    @Test
+    void aliasMissingBaseUrlFailsStartupNamingTheExactProperty() {
+        runner.withPropertyValues(
+                "agent-runtime.llm.gateway.enabled=true",
+                "agent-runtime.llm.gateway.aliases.team-default.api-key=sk-real")
+                .run(ctx -> {
+                    assertThat(ctx).hasFailed();
+                    assertThat(ctx.getStartupFailure()).hasStackTraceContaining(
+                            "agent-runtime.llm.gateway.aliases.team-default.base-url");
+                });
+    }
+
+    @Test
+    void aliasMissingApiKeyFailsStartupNamingTheExactProperty() {
+        runner.withPropertyValues(
+                "agent-runtime.llm.gateway.enabled=true",
+                "agent-runtime.llm.gateway.aliases.team-default.base-url=http://upstream.test/v1")
+                .run(ctx -> {
+                    assertThat(ctx).hasFailed();
+                    assertThat(ctx.getStartupFailure()).hasStackTraceContaining(
+                            "agent-runtime.llm.gateway.aliases.team-default.api-key");
+                });
+    }
+
     /** An OpenTelemetry bean upgrades the span sink from the Noop default to the OTel bridge. */
     @Test
     void openTelemetryBeanSelectsOtelSinkOverNoopDefault() {

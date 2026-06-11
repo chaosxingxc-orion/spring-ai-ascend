@@ -201,7 +201,7 @@ public class A2aJsonRpcController {
     /**
      * Transport-level tenant identity travels through the call-context state and
      * takes precedence downstream over the client-self-declared params.tenant.
-     * Precedence: JWT-authenticated tenant (when the W1 auth filter ran) >
+     * Precedence: JWT-authenticated tenant (when the tenant auth filter ran) >
      * X-Tenant-Id header > configured default.
      */
     private ServerCallContext serverContext(String tenantHeader) {

@@ -8,13 +8,33 @@ import java.util.Optional;
  * Resolves a caller-facing model alias to its configured upstream route. The alias
  * indirection is the gateway's whole adoption mechanism: agents name a platform
  * alias, and only this registry knows the real base URL, credential and pricing.
+ *
+ * <p>Alias entries are validated at construction so a misconfigured routing table
+ * fails the deployment at startup, naming the exact property — never at request
+ * time, where a missing key would surface as an unexplained 500 to an agent
+ * developer who cannot see the gateway's configuration.
  */
 public final class ModelAliasRegistry {
+
+    private static final String ALIAS_PROPERTY_PREFIX = "agent-runtime.llm.gateway.aliases.";
 
     private final Map<String, LlmGatewayProperties.Upstream> aliases;
 
     public ModelAliasRegistry(LlmGatewayProperties properties) {
+        properties.getAliases().forEach(ModelAliasRegistry::validateAlias);
         this.aliases = Map.copyOf(properties.getAliases());
+    }
+
+    private static void validateAlias(String alias, LlmGatewayProperties.Upstream upstream) {
+        if (upstream.getBaseUrl() == null || upstream.getBaseUrl().isBlank()) {
+            throw new IllegalStateException(
+                    ALIAS_PROPERTY_PREFIX + alias + ".base-url is required and must not be blank");
+        }
+        if (upstream.getApiKey() == null) {
+            throw new IllegalStateException(ALIAS_PROPERTY_PREFIX + alias
+                    + ".api-key is required — set it to an empty string for an upstream"
+                    + " that takes no authentication");
+        }
     }
 
     public Optional<Route> resolve(String alias) {

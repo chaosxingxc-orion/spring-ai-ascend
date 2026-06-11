@@ -21,7 +21,7 @@ public class RuntimeAccessProperties {
     public Jwt getJwt() { return jwt; }
 
     /**
-     * W1 tenant authentication (cross-check model, ADR-0040). Disabled by
+     * Tenant authentication (cross-check model, ADR-0040). Disabled by
      * default until a deployment provisions the shared secret; when enabled,
      * every /a2a request must carry a verifying HS256 bearer token whose
      * tenant_id claim matches any X-Tenant-Id header present.

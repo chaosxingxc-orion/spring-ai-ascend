@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Idempotent {@code message/send} (W1 contract, ADR-0027 adapted to the A2A
+ * Idempotent {@code message/send} (idempotency contract, ADR-0027 adapted to the A2A
  * surface): the messageId is the idempotency key, scoped by tenant. A retry of
  * a completed send replays the current state of the task it created instead of
  * executing the agent twice; a concurrent duplicate while the original is

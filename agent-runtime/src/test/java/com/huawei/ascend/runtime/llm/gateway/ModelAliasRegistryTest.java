@@ -1,6 +1,8 @@
 package com.huawei.ascend.runtime.llm.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 import com.huawei.ascend.runtime.llm.gateway.spi.LlmTokenUsage;
 import org.junit.jupiter.api.Test;
@@ -60,6 +62,57 @@ class ModelAliasRegistryTest {
         Double cost = registry().costUsd("finance-chat", new LlmTokenUsage(1_000_000, 2_000_000, false));
 
         assertThat(cost).isEqualTo(0.15 + 2 * 0.60);
+    }
+
+    /** Misconfiguration must fail deployment startup naming the exact property, not 500 at request time. */
+    @Test
+    void aliasWithoutBaseUrlFailsConstructionNamingTheProperty() {
+        LlmGatewayProperties properties = new LlmGatewayProperties();
+        LlmGatewayProperties.Upstream upstream = new LlmGatewayProperties.Upstream();
+        upstream.setApiKey("sk-real");
+        properties.getAliases().put("team-default", upstream);
+
+        assertThatIllegalStateException()
+                .isThrownBy(() -> new ModelAliasRegistry(properties))
+                .withMessageContaining("agent-runtime.llm.gateway.aliases.team-default.base-url");
+    }
+
+    @Test
+    void aliasWithBlankBaseUrlFailsConstruction() {
+        LlmGatewayProperties properties = new LlmGatewayProperties();
+        LlmGatewayProperties.Upstream upstream = new LlmGatewayProperties.Upstream();
+        upstream.setBaseUrl("   ");
+        upstream.setApiKey("sk-real");
+        properties.getAliases().put("team-default", upstream);
+
+        assertThatIllegalStateException()
+                .isThrownBy(() -> new ModelAliasRegistry(properties))
+                .withMessageContaining("agent-runtime.llm.gateway.aliases.team-default.base-url");
+    }
+
+    /** A null api-key would otherwise go on the wire as the literal "Bearer null". */
+    @Test
+    void aliasWithoutApiKeyFailsConstructionNamingTheProperty() {
+        LlmGatewayProperties properties = new LlmGatewayProperties();
+        LlmGatewayProperties.Upstream upstream = new LlmGatewayProperties.Upstream();
+        upstream.setBaseUrl("http://localhost:11434/v1");
+        properties.getAliases().put("team-default", upstream);
+
+        assertThatIllegalStateException()
+                .isThrownBy(() -> new ModelAliasRegistry(properties))
+                .withMessageContaining("agent-runtime.llm.gateway.aliases.team-default.api-key");
+    }
+
+    /** Explicit empty api-key is the documented opt-in for no-auth local upstreams. */
+    @Test
+    void explicitlyEmptyApiKeyIsAcceptedAsNoAuthUpstream() {
+        LlmGatewayProperties properties = new LlmGatewayProperties();
+        LlmGatewayProperties.Upstream upstream = new LlmGatewayProperties.Upstream();
+        upstream.setBaseUrl("http://localhost:11434/v1");
+        upstream.setApiKey("");
+        properties.getAliases().put("local-model", upstream);
+
+        assertThatCode(() -> new ModelAliasRegistry(properties)).doesNotThrowAnyException();
     }
 
     @Test

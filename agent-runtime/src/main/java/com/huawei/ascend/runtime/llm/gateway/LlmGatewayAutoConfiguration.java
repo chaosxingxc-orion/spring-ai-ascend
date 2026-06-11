@@ -40,8 +40,9 @@ public class LlmGatewayAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(UpstreamModelClient.class)
-    public RestClientUpstreamModelClient llmUpstreamModelClient() {
-        return new RestClientUpstreamModelClient();
+    public RestClientUpstreamModelClient llmUpstreamModelClient(LlmGatewayProperties properties) {
+        return new RestClientUpstreamModelClient(
+                properties.getConnectTimeout(), properties.getRequestTimeout());
     }
 
     @Bean

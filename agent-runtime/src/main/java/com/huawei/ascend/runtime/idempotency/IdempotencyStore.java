@@ -3,8 +3,8 @@ package com.huawei.ascend.runtime.idempotency;
 import java.util.Optional;
 
 /**
- * Tenant-scoped claim/replay store for idempotent request handling (W1
- * contract, ADR-0027): the first request claims its key and proceeds; a
+ * Tenant-scoped claim/replay store for idempotent request handling
+ * (idempotency contract, ADR-0027): the first request claims its key and proceeds; a
  * retry of a completed request replays the recorded result reference; a
  * concurrent duplicate of an in-flight request is rejected by the caller.
  */

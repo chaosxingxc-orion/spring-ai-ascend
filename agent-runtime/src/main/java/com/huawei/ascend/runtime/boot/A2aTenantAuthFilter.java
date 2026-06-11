@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * W1 tenant authentication at the A2A ingress (cross-check model, ADR-0040):
+ * Tenant authentication at the A2A ingress (cross-check model, ADR-0040):
  * the request MUST carry {@code Authorization: Bearer <jwt>} whose HS256
  * signature verifies and whose {@code tenant_id} claim, when an
  * {@code X-Tenant-Id} header is also present, MUST match it. The validated
@@ -18,7 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * attribute, which the controller prefers over the raw header.
  *
  * <p>Only active when {@code agent-runtime.access.a2a.jwt.enabled=true};
- * disabled deployments keep the header-attribution-only W0 behavior.
+ * disabled deployments keep the header-attribution-only behavior.
  */
 public final class A2aTenantAuthFilter extends OncePerRequestFilter {
 

@@ -40,7 +40,16 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Boots the A2A runtime kernel (request handler, event-bus processor, task
+ * store, A2A endpoints). Auto-activates in any application carrying
+ * agent-runtime on the classpath; facade-only deployments (e.g. an
+ * agent-service-starter app that depends on agent-runtime solely for the
+ * shared JWT validator) opt out with {@code agent-runtime.enabled=false}
+ * instead of excluding individual configurations.
+ */
 @Configuration(proxyBeanMethods = false)
+@ConditionalOnProperty(name = "agent-runtime.enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(RuntimeAccessProperties.class)
 public class RuntimeAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(RuntimeAutoConfiguration.class);

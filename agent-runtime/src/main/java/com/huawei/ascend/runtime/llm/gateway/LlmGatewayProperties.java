@@ -1,5 +1,6 @@
 package com.huawei.ascend.runtime.llm.gateway;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -20,6 +21,18 @@ public class LlmGatewayProperties {
     /** Minted token string → the (tenant, agent) identity it was provisioned for. */
     private Map<String, MintedToken> tokens = new LinkedHashMap<>();
 
+    /** TCP connect timeout for reaching an upstream provider, on both forwarding paths. */
+    private Duration connectTimeout = Duration.ofSeconds(5);
+
+    /**
+     * Upstream response timeout. LLM completions routinely take tens of seconds,
+     * hence the generous default. On the buffered path it bounds the whole
+     * exchange; on the streaming path it bounds time-to-response-headers only —
+     * an SSE body may legitimately relay for longer than any fixed bound, so the
+     * relay itself is left unbounded by design.
+     */
+    private Duration requestTimeout = Duration.ofSeconds(120);
+
     public boolean isEnabled() { return enabled; }
 
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -32,13 +45,25 @@ public class LlmGatewayProperties {
 
     public void setTokens(Map<String, MintedToken> tokens) { this.tokens = tokens; }
 
+    public Duration getConnectTimeout() { return connectTimeout; }
+
+    public void setConnectTimeout(Duration connectTimeout) { this.connectTimeout = connectTimeout; }
+
+    public Duration getRequestTimeout() { return requestTimeout; }
+
+    public void setRequestTimeout(Duration requestTimeout) { this.requestTimeout = requestTimeout; }
+
     /** One OpenAI-compatible upstream behind a model alias. */
     public static class Upstream {
 
         /** OpenAI-compatible API root including the version segment, e.g. {@code https://api.openai.com/v1}. */
         private String baseUrl;
 
-        /** Real provider credential, sent upstream as {@code Authorization: Bearer …}. */
+        /**
+         * Real provider credential, sent upstream as {@code Authorization: Bearer …}.
+         * Required; an explicitly empty value declares a no-auth upstream (e.g. a
+         * local model server) and omits the Authorization header entirely.
+         */
         private String apiKey;
 
         /** Provider label carried into telemetry ({@code gen_ai.system}, meter tag). */

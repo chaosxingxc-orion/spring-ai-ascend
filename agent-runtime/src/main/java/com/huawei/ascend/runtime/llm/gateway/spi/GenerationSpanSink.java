@@ -24,7 +24,9 @@ public interface GenerationSpanSink {
      * @param costUsd            call cost ({@code langfuse.cost_usd}); null when the
      *                           alias has no pricing — the attribute is omitted, not zeroed
      * @param latencyMs          upstream latency ({@code langfuse.latency_ms})
-     * @param tenantId           tenant attribution ({@code tenant.id})
+     * @param tenantId           tenant attribution ({@code tenant.id}); never null/blank —
+     *                           a GENERATION record without its tenant cannot be
+     *                           constructed, so every sink receives an attributable span
      */
     record GenerationSpan(
             String genAiSystem,
@@ -34,5 +36,11 @@ public interface GenerationSpanSink {
             Double costUsd,
             long latencyMs,
             String tenantId) {
+
+        public GenerationSpan {
+            if (tenantId == null || tenantId.isBlank()) {
+                throw new IllegalArgumentException("tenantId must not be null or blank");
+            }
+        }
     }
 }
