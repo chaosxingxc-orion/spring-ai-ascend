@@ -1,0 +1,165 @@
+id: ADR-0161
+title: "AgentRuntimeHandler full lifecycle — three-scope model (handler service lifecycle via SPI defaults + host-driven readiness gate, per-execution cancel-through, owns-vs-borrows resource release) aligned to AgentScope Runtime / LangGraph / ADK source evidence"
+status: accepted
+date: 2026-06-11
+level: L1
+view: development
+affects_level: L1
+affects_view: [development, process]
+authors:
+  - chao
+extends:
+  - ADR-0159    # agent-runtime consolidation — established engine.spi.AgentRuntimeHandler as the single framework-neutral runtime SPI; this ADR completes its lifecycle surface
+relates_to: []
+supersedes: []
+context: |
+  agent-runtime is about to integrate middleware services on four axes
+  (memory/session services, sandbox/tool services, remote runtime services,
+  general infrastructure middleware), and the framework-neutral
+  `engine.spi.AgentRuntimeHandler` had no lifecycle surface to anchor that
+  integration. A source-evidence review (seven framework source trees, every
+  claim adversarially re-verified against the cited files) established:
+
+    1. DEAD HEALTH. `isHealthy()` was declared on the SPI but had ZERO callers
+       anywhere in the repo; every implementation returned constant `true`;
+       spring-boot-starter-actuator was on the agent-runtime classpath with no
+       HealthIndicator; the L1 interface design documented the intent ("是否可
+       接流量") with no mechanism behind it.
+
+    2. UNRELEASED RESOURCES. `AgentScopeRuntimeClient` and
+       `LangGraphRuntimeClient` each created a `java.net.http.HttpClient` in
+       their public constructors that nothing ever closed; the a2a-llm e2e
+       example handlers constructed a NEW client (hence a new HTTP transport)
+       on EVERY execute(); `A2aServerExecutor.close()` used `shutdownNow()`,
+       interrupting in-flight executions on shutdown.
+
+    3. CANCEL DID NOT REACH THE HANDLER. `A2aAgentExecutor.cancel()` only
+       called `emitter.cancel()`; the handler and its in-flight result stream
+       were never told.
+
+  Industry evidence (source-verified, not documentation-derived):
+
+    * agentscope-runtime-java — the only direct counterpart SPI,
+      `io.agentscope.runtime.adapters.AgentHandler`, declares exactly
+      `void start(); void stop(); boolean isHealthy()`; its `Runner` gates
+      every streamQuery on a volatile readiness flag flipped around handler
+      start/stop, driven by Spring ApplicationListeners on
+      ContextRefreshedEvent/ContextClosedEvent. Two anti-patterns observed:
+      its generic middleware `ServiceManager` (ordered start, rollback,
+      aggregate health) has ZERO instantiations — dead scaffolding; and its
+      start listener swallows handler-start failures, producing a
+      serving-but-permanently-unready zombie server.
+    * agentscope-java — agents have NO start (build-once = ready);
+      teardown is `AutoCloseable.close()`; process-level drain is a
+      `GracefulShutdownManager` (drain + state checkpoint + bounded forced
+      interrupt); cancellation is cooperative `interrupt(Msg)`.
+    * langgraph4j — `CompiledGraph` has no lifecycle; every DB checkpoint
+      saver (Postgres/Redis/MySQL/Oracle/DynamoDB/CockroachDB) holds a
+      DataSource or client with NO close() anywhere in the library (the
+      Redis saver can self-create an unreachable connection pool) — proof
+      that an adapter wrapping a lifecycle-free framework must own the
+      DISPOSE phase itself.
+    * langgraph (Python) — three independent lifecycle planes: stateless
+      definition / per-run scoped context (enter = restore from checkpoint,
+      exit = flush + park) / injected resources with an explicit
+      owns-vs-borrows split (`from_conn_string` factory owns and closes;
+      constructor-injected is borrowed); graceful shutdown is a cooperative
+      drain token checked at step boundaries that persists state and raises
+      a typed resumable exception.
+    * adk-python — construct-injected services, run-per-invocation,
+      `Runner.close()` once (closes toolsets/plugins it collected, NOT the
+      injected services — the owner closes those); server binds Runner
+      disposal to the ASGI lifespan.
+    * spring-ai-alibaba — zero SmartLifecycle/DisposableBean/HealthIndicator
+      in the whole tree; Nacos agent-card registration is correctly gated on
+      ApplicationReadyEvent but has NO deregistration path; the A2A
+      `GraphAgentExecutor.cancel()` is an empty body. The latter two are
+      gaps this ADR explicitly avoids copying.
+decision: |
+  Lifecycle lands in THREE separate scopes, not one start/stop monolith.
+
+    1. HANDLER SERVICE SCOPE — SPI default methods, host-driven.
+       `AgentRuntimeHandler` gains `default void start()` (open owned
+       long-lived resources; throwing fails runtime startup), `default void
+       stop()` (release what start opened, called after dispatch has
+       stopped), and `default void cancel(String taskId)` (cooperative
+       per-execution interrupt). All default to no-ops: every existing
+       handler remains a valid implementation, and the SPI stays
+       framework-neutral (no Spring types). The HOST drives the lifecycle:
+       `boot.AgentRuntimeLifecycle` (a SmartLifecycle bean at phase 0, below
+       the web-server phases) starts every registered handler before traffic
+       and stops them in reverse order after traffic drains, owning a
+       `boot.RuntimeReadiness` gate. Handler start failure FAILS context
+       refresh after rolling back already-started handlers — the deliberate
+       inverse of agentscope-runtime-java's swallow-and-serve zombie.
+       Stop failures are logged and swallowed so every handler gets its
+       release attempt.
+
+    2. EXECUTION SCOPE — readiness gate + cancel-through.
+       `A2aAgentExecutor` rejects executions with a structured retryable
+       `RUNTIME_NOT_READY` failure while the readiness gate is closed (boot
+       or drain window). It registers each in-flight raw result stream by
+       taskId; cancel() now (a) marks the execution cancelled, (b) calls
+       `handler.cancel(taskId)` for frameworks with native interrupts,
+       (c) cancels the emitter (terminal CANCELED), and (d) closes the raw
+       stream to tear the transport — and the execute thread suppresses the
+       resulting teardown exception instead of overwriting CANCELED with a
+       spurious FAILED. `A2aServerExecutor.close()` becomes a two-stage
+       drain (shutdown + bounded awaitTermination + shutdownNow fallback).
+
+    3. MIDDLEWARE/RESOURCE SCOPE — owns-vs-borrows release rule.
+       A component releases ONLY what it created; injected collaborators
+       belong to their injector. `AgentScopeRuntimeClient` and
+       `LangGraphRuntimeClient` implement AutoCloseable with an
+       `ownsHttpClient` flag (public constructor self-creates => owns;
+       injected => borrowed, left open); their handlers override `stop()`
+       to close the client. `isHealthy()` gets its first real consumers:
+       `boot.AgentRuntimeHealthIndicator` (UP / OUT_OF_SERVICE while gate
+       closed / DOWN when a started handler degrades, one detail per
+       agentId) plus the executor readiness gate.
+
+  Explicit NON-decisions, recorded so they are not re-litigated wave by wave:
+
+    * NO middleware ServiceManager/orchestrator — the direct counterpart's
+      equivalent died unused; middleware services are Spring beans whose
+      lifecycle the container owns, composed by the handler that uses them.
+    * NO registration/deregistration in the runtime SPI — registry announce
+      and lease/heartbeat belong to the management plane (AgentService);
+      the gateway example's lease registry is the in-repo reference shape.
+    * `MemoryProvider` is UNCHANGED — its per-execution init/search/save
+      surface is orthogonal; a service-level dispose counterpart lands with
+      the first real memory middleware, owned per the rule above.
+    * agent-sdk's global openJiuwen tool registration (no unregister path)
+      is a known follow-up for the agent-sdk owners; the SPI default no-op
+      stop() keeps it harmless here.
+consequences: |
+  POSITIVE.
+    * Middleware integration now has a defined anchor per scope: connect in
+      start(), serve gated on readiness, release in stop(), per-execution
+      teardown via the stream + cancel(taskId).
+    * The two known HTTP-transport leaks are closed; the per-execute client
+      construction in the e2e examples is replaced by one cached client
+      closed in stop().
+    * Shutdown is a real drain: gate closes (new work rejected retryable),
+      web server stops accepting, in-flight executions get a bounded grace,
+      handlers release in reverse order.
+    * isHealthy() is load-bearing: actuator health shows per-agent state and
+      the gate keeps half-open handlers from serving.
+  NEGATIVE / accepted.
+    * The SPI grows three methods (all default no-ops); implementations that
+      manage resources must now decide ownership explicitly.
+    * cancel(taskId) is cooperative only — a framework with no native
+      interrupt still runs its execution to completion server-side; the
+      transport teardown bounds what the client observes.
+    * The readiness gate is per-process, not per-handler; a multi-handler
+      runtime drains as one unit (matches the one-serving-handler wiring of
+      RuntimeAutoConfiguration today).
+  EVIDENCE BASIS. Survey + adversarial verification performed 2026-06-11
+  over local source trees: spring-ai-ascend (this repo),
+  agentscope-runtime-java, agentscope-java, langgraph4j, langgraph (Python),
+  adk-python, spring-ai-alibaba. Key counterpart citation:
+  agentscope-runtime-java engine-core
+  io/agentscope/runtime/adapters/AgentHandler.java (start/stop/isHealthy),
+  engine/Runner.java (volatile readiness gate),
+  lifecycle/RunnerStartListener.java + RunnerShutdownListener.java
+  (context-event driving), shared/ServiceManager.java (dead scaffolding).

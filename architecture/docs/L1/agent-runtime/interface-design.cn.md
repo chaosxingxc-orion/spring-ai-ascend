@@ -28,15 +28,33 @@ public interface AgentRuntimeHandler {
     Stream<?> execute(AgentExecutionContext context);
 
     StreamAdapter resultAdapter();
+
+    default void start() {}
+
+    default void stop() {}
+
+    default void cancel(String taskId) {}
 }
 ```
 
 语义：
 
 - `agentId()` 返回该 handler 服务的业务 Agent 标识。
-- `isHealthy()` 表示当前 handler 是否可接流量。
+- `isHealthy()` 表示当前 handler 是否可接流量；由 runtime 健康面
+  （`boot.AgentRuntimeHealthIndicator`）与就绪门禁消费（ADR-0161）。
 - `execute(context)` 执行一次 Agent 调用，返回框架原生结果流。
 - `resultAdapter()` 把框架原生结果流转换成 runtime 中立的 `AgentExecutionResult`。
+- `start()` 打开 handler 自有的长生命资源；由宿主（`boot.AgentRuntimeLifecycle`，
+  SmartLifecycle，phase 低于 web server）在接流量之前调用；抛异常即启动失败
+  （fail-fast，不允许"已服务但永远不就绪"的僵尸态）。
+- `stop()` 在宿主停止派发新执行之后调用，按注册逆序释放 `start()` 打开的资源；
+  所有权规则为 owns-vs-borrows——只释放自己创建的，注入的协作对象归注入方。
+- `cancel(taskId)` 协作式取消一次在飞执行；有原生中断的框架在此传导，宿主
+  （`A2aAgentExecutor`）同时关闭该执行的原生结果流以撕开传输层。
+
+生命周期三 scope（ADR-0161）：handler 服务级（上述 start/stop/health）、执行级
+（execute 结果流 try-with-resources + cancel 贯通 + 未就绪期 `RUNTIME_NOT_READY`
+可重试拒绝）、中间件/资源级（容器持有服务 bean 生命周期，handler 只组合自己拥有的）。
 
 `AgentRuntimeHandler` 不承载通用 before/after provider、状态存储、沙箱或工具覆盖逻辑。这些能力在不同 Agent 框架中通常有原生扩展点，强行统一会让 runtime 反向依赖具体框架语义。
 
