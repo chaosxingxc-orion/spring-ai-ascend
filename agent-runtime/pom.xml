@@ -177,6 +177,14 @@
       <groupId>org.a2aproject.sdk</groupId>
       <artifactId>a2a-java-sdk-server-common</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-client-transport-jsonrpc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-http-client</artifactId>
+    </dependency>
 
     <!-- Boot 4 + springdoc 3.0.3 transitively requires YAMLFactory at boot. -->
     <dependency>
@@ -188,7 +196,7 @@
     <dependency>
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>
-      <version>0.1.7</version>
+      <version>0.1.12</version>
       <optional>true</optional>
     </dependency>
 

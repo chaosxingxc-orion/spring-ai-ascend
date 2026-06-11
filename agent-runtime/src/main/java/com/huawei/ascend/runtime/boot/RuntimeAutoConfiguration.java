@@ -1,6 +1,11 @@
 package com.huawei.ascend.runtime.boot;
 
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
+import com.huawei.ascend.runtime.engine.a2a.A2aRemoteAgentOutboundAdapter;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenRemoteToolInstaller;
+import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
+import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
@@ -10,11 +15,12 @@ import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
+import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
 import org.a2aproject.sdk.server.config.A2AConfigProvider;
 import org.a2aproject.sdk.server.config.DefaultValuesConfigProvider;
-import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
 import org.a2aproject.sdk.server.events.InMemoryQueueManager;
 import org.a2aproject.sdk.server.events.MainEventBus;
 import org.a2aproject.sdk.server.events.MainEventBusProcessor;
@@ -33,7 +39,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -48,7 +56,7 @@ public class RuntimeAutoConfiguration {
     public A2AConfigProvider a2aConfigProvider() {
         // Field-injected into DefaultRequestHandler (@Inject) and read by its
         // @PostConstruct initConfig(), which resolves the blocking-send timeouts
-        // (a2a.blocking.agent.timeout.seconds) — override this bean to tune them.
+        // (a2a.blocking.agent.timeout.seconds) - override this bean to tune them.
         return new DefaultValuesConfigProvider();
     }
 
@@ -106,21 +114,23 @@ public class RuntimeAutoConfiguration {
 
     @Bean @ConditionalOnMissingBean
     public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers,
+            ObjectProvider<A2aAgentExecutor.RemoteSupport> remoteSupport,
             RuntimeReadiness readiness, A2aServerExecutor exec, TrajectoryProperties trajectoryProperties,
             ObjectProvider<TrajectorySinkFactory> sinkFactories) {
         var registered = handlers.orderedStream().toList();
+        A2aAgentExecutor.RemoteSupport support = remoteSupport.getIfAvailable();
         if (registered.isEmpty()) {
             // Tolerated so the A2A surface can boot for card discovery; every
             // execution will be rejected until a handler bean is registered.
-            log.warn("No AgentRuntimeHandler registered — A2A executions will be rejected");
-            return new A2aAgentExecutor(null, readiness::isReady);
+            log.warn("No AgentRuntimeHandler registered - A2A executions will be rejected");
+            return new A2aAgentExecutor(null, support, readiness::isReady);
         }
         if (registered.size() > 1) {
             log.warn("Multiple AgentRuntimeHandlers registered; using '{}', ignoring {}",
                     registered.get(0).agentId(),
                     registered.stream().skip(1).map(AgentRuntimeHandler::agentId).toList());
         }
-        return new A2aAgentExecutor(registered.get(0), readiness::isReady, exec.executor(),
+        return new A2aAgentExecutor(registered.get(0), support, readiness::isReady, exec.executor(),
                 toTrajectorySettings(trajectoryProperties), sinkFactories.orderedStream().toList());
     }
 
@@ -173,6 +183,53 @@ public class RuntimeAutoConfiguration {
     }
 
     /**
+     * Remote A2A wiring, activated only when at least one remote agent URL is
+     * configured. Grouping the remote beans under one guarded nested configuration
+     * keeps the {@code @ConditionalOnProperty} guard in a single place instead of
+     * repeating it on every remote bean.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnProperty(prefix = "agent-runtime.remote-agents.0", name = "url")
+    @EnableConfigurationProperties(RemoteAgentProperties.class)
+    public static class RemoteAgentConfiguration {
+
+        @Bean @ConditionalOnMissingBean
+        public RemoteAgentCatalog remoteAgentCatalog(RemoteAgentProperties properties) {
+            return new RemoteAgentCatalog(properties.urls());
+        }
+
+        @Bean @ConditionalOnMissingBean
+        public A2aRemoteAgentOutboundAdapter a2aRemoteAgentOutboundAdapter(RemoteAgentCatalog catalog) {
+            return new A2aRemoteAgentOutboundAdapter(catalog);
+        }
+
+        @Bean @ConditionalOnMissingBean
+        public RemoteAgentInvocationService remoteAgentInvocationService(A2aRemoteAgentOutboundAdapter outboundAdapter) {
+            return new RemoteAgentInvocationService(outboundAdapter);
+        }
+
+        @Bean @ConditionalOnMissingBean
+        public A2aAgentExecutor.RemoteSupport a2aRemoteSupport(RemoteAgentInvocationService invocationService) {
+            return new A2aAgentExecutor.RemoteSupport(invocationService);
+        }
+
+        @Bean @ConditionalOnMissingBean
+        public OpenJiuwenRemoteToolInstaller openJiuwenRemoteToolInstaller(RemoteAgentCatalog catalog,
+                ObjectProvider<OpenJiuwenAgentRuntimeHandler> handlers) {
+            OpenJiuwenRemoteToolInstaller installer =
+                    new OpenJiuwenRemoteToolInstaller(catalog::availableToolSpecs);
+            handlers.orderedStream().forEach(handler -> handler.setRuntimeToolInstaller(installer));
+            return installer;
+        }
+
+        @Bean @ConditionalOnMissingBean
+        public RemoteAgentCatalogRefresher remoteAgentCatalogRefresher(RemoteAgentCatalog catalog,
+                A2aServerExecutor executor) {
+            return new RemoteAgentCatalogRefresher(catalog, executor.executor());
+        }
+    }
+
+    /**
      * Holder for the pool that runs A2A agent executions. Deliberately NOT exposed
      * as a {@code java.util.concurrent.Executor} bean: Spring Boot's
      * applicationTaskExecutor backs off when any Executor bean exists, so a broad
@@ -204,6 +261,50 @@ public class RuntimeAutoConfiguration {
                 executor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
+        }
+    }
+
+    public static final class RemoteAgentCatalogRefresher implements SmartLifecycle {
+        private final RemoteAgentCatalog catalog;
+        private final ExecutorService executor;
+        private final AtomicBoolean running = new AtomicBoolean();
+
+        RemoteAgentCatalogRefresher(RemoteAgentCatalog catalog, ExecutorService executor) {
+            this.catalog = catalog;
+            this.executor = executor;
+        }
+
+        @Override
+        public void start() {
+            if (running.compareAndSet(false, true)) {
+                executor.execute(this::run);
+            }
+        }
+
+        void refreshOnce() {
+            catalog.refreshPending();
+        }
+
+        private void run() {
+            while (running.get()) {
+                refreshOnce();
+                try {
+                    Thread.sleep(5_000L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    running.set(false);
+                }
+            }
+        }
+
+        @Override
+        public void stop() {
+            running.set(false);
+        }
+
+        @Override
+        public boolean isRunning() {
+            return running.get();
         }
     }
 }

@@ -17,6 +17,9 @@ public final class AgentExecutionContext {
 
     public static final String AGENT_STATE_KEY_VARIABLE = "agentStateKey";
     public static final String STATE_KEY_VARIABLE = "stateKey";
+    public static final String INPUT_TYPE_REMOTE_RESUME = "REMOTE_RESUME";
+    public static final String REMOTE_TOOL_CALL_ID_VARIABLE = "runtime.remoteToolCallId";
+    public static final String REMOTE_TOOL_RESULT_VARIABLE = "runtime.remoteToolResult";
 
     private final RuntimeIdentity scope;
     private final String inputType;
