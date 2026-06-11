@@ -33,7 +33,6 @@ public final class AgentYamlParser {
         Map<String, Object> options = mapOrEmpty(framework.get("options"));
         ModelSpec modelSpec = model(mapOrEmpty(root.get("model")));
         PromptSpec promptSpec = prompt(mapOrEmpty(root.get("prompt")));
-        Path cacheRoot = optionalPath(root.get("cacheRoot"), yamlDir);
         List<SkillSourceSpec> skillSources = skillSources(mapOrEmpty(root.get("skills")), yamlDir);
         List<SkillSpec> skillSpecs = new SkillSourceLoader().load(skillSources);
         List<ToolSpec> toolSpecs = toolSpecs(listOrEmpty(root.get("tools")), yamlDir);
@@ -42,14 +41,11 @@ public final class AgentYamlParser {
                 name,
                 displayName,
                 description,
-                mapOrEmpty(root.get("metadata")),
-                cacheRoot,
                 frameworkType,
                 agentType,
                 options,
                 modelSpec,
                 promptSpec,
-                skillSources,
                 skillSpecs,
                 toolSpecs);
     }
@@ -73,14 +69,13 @@ public final class AgentYamlParser {
         List<SkillSourceSpec> result = new ArrayList<>();
         for (Object source : sources) {
             if (source instanceof String path) {
-                result.add(new SkillSourceSpec("filesystem", resolvePath(yamlDir, path), false));
+                result.add(new SkillSourceSpec("filesystem", resolvePath(yamlDir, path)));
             } else {
                 Map<String, Object> sourceMap = map(source);
                 String type = defaultString(string(sourceMap.get("type")), "filesystem");
                 result.add(new SkillSourceSpec(
                         type,
-                        resolvePath(yamlDir, requiredString(sourceMap, "path")),
-                        booleanValue(sourceMap.get("localCache"), false, "skills.sources[].localCache")));
+                        resolvePath(yamlDir, requiredString(sourceMap, "path"))));
             }
         }
         return List.copyOf(result);
@@ -105,9 +100,7 @@ public final class AgentYamlParser {
                     name,
                     requiredString(toolMap, "description", "tools[].description (tool: " + name + ")"),
                     mapOrEmpty(toolMap.get("inputSchema")),
-                    mapOrEmpty(toolMap.get("outputSchema")),
-                    ref,
-                    booleanValue(toolMap.get("localCache"), false, "tools[].localCache")));
+                    ref));
         }
         return List.copyOf(result);
     }
@@ -126,9 +119,6 @@ public final class AgentYamlParser {
         String scheme = requiredString(refMap, "type");
         Map<String, Object> attributes = new LinkedHashMap<>(refMap);
         attributes.remove("type");
-        if ("file".equals(scheme) && attributes.containsKey("path")) {
-            attributes.put("path", resolvePath(yamlDir, string(attributes.get("path"))).toString());
-        }
         return new ToolRef(scheme, attributes);
     }
 
@@ -155,23 +145,9 @@ public final class AgentYamlParser {
                 }
                 attributes.put("url", rawValue);
             }
-            case "mcp" -> {
-                int slash = rawValue.indexOf('/');
-                if (slash <= 0 || slash == rawValue.length() - 1) {
-                    throw new ValidationException(
-                            "mcp: tool ref shorthand must be mcp:server/tool, got: " + full);
-                }
-                attributes.put("server", rawValue.substring(0, slash));
-                attributes.put("tool", rawValue.substring(slash + 1));
-            }
             default -> attributes.put("value", rawValue);
         }
         return attributes;
-    }
-
-    private static Path optionalPath(Object value, Path base) {
-        String text = string(value);
-        return text == null || text.isBlank() ? null : resolvePath(base, text);
     }
 
     private static Path resolvePath(Path base, String value) {
@@ -268,4 +244,3 @@ public final class AgentYamlParser {
         return Map.copyOf(result);
     }
 }
-

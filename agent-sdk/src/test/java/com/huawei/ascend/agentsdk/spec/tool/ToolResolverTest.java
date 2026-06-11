@@ -1,6 +1,7 @@
 package com.huawei.ascend.agentsdk.spec.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -13,11 +14,9 @@ class ToolResolverTest {
                 "inventoryLookup",
                 "lookup inventory",
                 Map.of("type", "object"),
-                Map.of("type", "object"),
                 ToolRef.of("file", Map.of(
                         "class", "example.OrderTools",
-                        "method", "query")),
-                false);
+                        "method", "query")));
 
         ResolvedTool resolved = new JavaFileToolResolver().resolve(spec);
 
@@ -65,7 +64,7 @@ class ToolResolverTest {
 
     private static HttpExecutionHandle resolveHttp(Map<String, Object> attributes) {
         ToolSpec spec = new ToolSpec(
-                "httpTool", "http tool", Map.of(), Map.of(), ToolRef.of("http", attributes), false);
+                "httpTool", "http tool", Map.of(), ToolRef.of("http", attributes));
         return (HttpExecutionHandle) ((WrappableTool) new HttpToolResolver().resolve(spec)).executionHandle();
     }
 
@@ -75,11 +74,9 @@ class ToolResolverTest {
                 "inventoryLookup",
                 "lookup inventory",
                 Map.of("type", "object"),
-                Map.of("type", "object"),
                 ToolRef.of("file", Map.of(
                         "class", "example.OrderTools",
-                        "method", "query")),
-                false);
+                        "method", "query")));
 
         ResolvedTool resolved = new JavaFileToolResolver().resolve(spec);
 
@@ -88,5 +85,20 @@ class ToolResolverTest {
         assertThat(handle.className()).isEqualTo("example.OrderTools");
         assertThat(handle.methodName()).isEqualTo("query");
     }
-}
 
+    @Test
+    void javaFileResolverRejectsPathBecauseExecutionUsesClasspathClassAndMethod() {
+        ToolSpec spec = new ToolSpec(
+                "inventoryLookup",
+                "lookup inventory",
+                Map.of("type", "object"),
+                ToolRef.of("file", Map.of(
+                        "path", "./tools/OrderTools.java",
+                        "class", "example.OrderTools",
+                        "method", "query")));
+
+        assertThatThrownBy(() -> new JavaFileToolResolver().resolve(spec))
+                .isInstanceOf(UnsupportedToolRefException.class)
+                .hasMessageContaining("does not support path");
+    }
+}

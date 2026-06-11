@@ -2,64 +2,39 @@ package com.huawei.ascend.agentsdk.factory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.huawei.ascend.agentsdk.adapter.deepagent.OpenJiuwenDeepAgentHandlerAdapter;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.openjiuwen.core.foundation.tool.Tool;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.ReActAgent;
+import com.openjiuwen.harness.deep_agent.DeepAgent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-class AgentHandlerFactoryTest {
+class AgentFactoryTest {
 
     @Test
-    void exposesYamlToReactAgentThenReactAgentToHandlerSteps() throws Exception {
+    void convertsYamlToReactAgent() throws Exception {
         TestYaml yaml = exampleYaml("react");
 
-        ReActAgent agent = AgentHandlerFactory.toReactAgent(yaml.path());
-        AgentRuntimeHandler handler = AgentHandlerFactory.toHandler(yaml.agentId(), agent);
+        ReActAgent agent = AgentFactory.toReactAgent(yaml.path());
 
         assertThat(agent).isInstanceOf(ReActAgent.class);
-        assertThat(handler).isInstanceOf(OpenJiuwenAgentRuntimeHandler.class);
-        assertThat(handler.agentId()).isEqualTo(yaml.agentId());
+        assertThat(agent.getCard().getId()).isEqualTo(yaml.agentId());
         assertRegisteredTools(yaml);
     }
 
     @Test
-    void exposesYamlToDeepAgentThenDeepAgentToHandlerSteps() throws Exception {
+    void convertsYamlToDeepAgent() throws Exception {
         TestYaml yaml = exampleYaml("deepagent");
 
-        Object agent = AgentHandlerFactory.toDeepAgent(yaml.path());
-        AgentRuntimeHandler handler = AgentHandlerFactory.toHandler(yaml.agentId(), agent);
+        DeepAgent agent = AgentFactory.toDeepAgent(yaml.path());
 
-        assertThat(agent).isNotNull();
-        assertThat(handler).isInstanceOf(OpenJiuwenDeepAgentHandlerAdapter.class);
-        assertThat(handler.agentId()).isEqualTo(yaml.agentId());
-    }
-
-    @Test
-    void fromYamlComposesReactAgentCreationAndHandlerWrapping() throws Exception {
-        TestYaml yaml = exampleYaml("react");
-
-        AgentRuntimeHandler handler = AgentHandlerFactory.fromYaml(yaml.path());
-
-        assertThat(handler).isInstanceOf(OpenJiuwenAgentRuntimeHandler.class);
-        assertThat(handler.agentId()).isEqualTo(yaml.agentId());
-        assertRegisteredTools(yaml);
-    }
-
-    @Test
-    void fromYamlComposesDeepAgentCreationAndHandlerWrapping() throws Exception {
-        TestYaml yaml = exampleYaml("deepagent");
-
-        AgentRuntimeHandler handler = AgentHandlerFactory.fromYaml(yaml.path());
-
-        assertThat(handler).isInstanceOf(OpenJiuwenDeepAgentHandlerAdapter.class);
-        assertThat(handler.agentId()).isEqualTo(yaml.agentId());
+        assertThat(agent.getCard().getId()).isEqualTo(yaml.agentId());
+        assertThat(agent.getConfig().getTools()).hasSize(2);
+        assertThat(agent.getConfig().getSkillDirectories())
+                .containsExactly(yaml.skillsRoot().toAbsolutePath().normalize().toString());
     }
 
     private TestYaml exampleYaml(String agentType) throws Exception {
@@ -81,7 +56,7 @@ class AgentHandlerFactoryTest {
                   type: openjiuwen
                   agent: %s
                   options:
-                    executeMode: sdk-proof
+                    maxIterations: 3
                 model:
                   provider: openai-compatible
                   name: deepseek-chat
@@ -118,11 +93,11 @@ class AgentHandlerFactoryTest {
                 secondToolName,
                 TestTools.class.getName()));
 
-        return new TestYaml(yaml, agentId, firstToolName, secondToolName);
+        return new TestYaml(yaml, agentId, firstToolName, secondToolName, tempDir.resolve("skills"));
     }
 
     private static Path testDirectory(String agentType) throws Exception {
-        return Files.createDirectories(Path.of("target", "agent-handler-factory-test", agentType,
+        return Files.createDirectories(Path.of("target", "agent-factory-test", agentType,
                 UUID.randomUUID().toString()));
     }
 
@@ -146,7 +121,6 @@ class AgentHandlerFactoryTest {
         }
     }
 
-    private record TestYaml(Path path, String agentId, String firstToolName, String secondToolName) {
+    private record TestYaml(Path path, String agentId, String firstToolName, String secondToolName, Path skillsRoot) {
     }
 }
-
