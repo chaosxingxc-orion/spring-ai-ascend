@@ -2,6 +2,7 @@ package com.huawei.ascend.service.starter;
 
 import com.huawei.ascend.service.core.HmacRouteGrantService;
 import com.huawei.ascend.service.core.InMemoryRuntimeRegistry;
+import com.huawei.ascend.service.core.MaskedAgentDirectory;
 import com.huawei.ascend.service.core.RuntimeA2aGateway;
 import com.huawei.ascend.service.spi.discovery.AgentDirectory;
 import com.huawei.ascend.service.spi.registry.RuntimeRegistry;
@@ -57,12 +58,25 @@ public class AgentServiceAutoConfiguration {
         return A2aForwardObserver.noop();
     }
 
+    /**
+     * The controller's directory view is wrapped — never registered as a
+     * second {@link AgentDirectory} bean — so by-type injection stays unique
+     * and {@link RuntimeA2aGateway} keeps the unmasked directory it needs to
+     * reach real runtime endpoints. With {@code agent-service.public-base-url}
+     * set, served agent cards carry the gateway-fronted route instead of
+     * back-end topology; unset keeps cards verbatim.
+     */
     @Bean
     @ConditionalOnMissingBean
     RuntimeRegistryController runtimeRegistryController(
             RuntimeRegistry runtimeRegistry,
-            AgentDirectory directory) {
-        return new RuntimeRegistryController(runtimeRegistry, directory);
+            AgentDirectory directory,
+            AgentServiceProperties properties) {
+        String publicBaseUrl = properties.getPublicBaseUrl();
+        AgentDirectory controllerView = publicBaseUrl == null || publicBaseUrl.isBlank()
+                ? directory
+                : new MaskedAgentDirectory(directory, publicBaseUrl);
+        return new RuntimeRegistryController(runtimeRegistry, controllerView);
     }
 
     @Bean

@@ -18,7 +18,10 @@ import com.huawei.ascend.service.spi.registry.RuntimeState;
 import com.huawei.ascend.service.spi.registry.SlaSnapshot;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -31,11 +34,38 @@ import org.a2aproject.sdk.spec.AgentCard;
  * observed as UNREACHABLE; AT_CAPACITY is derived from the capacity snapshot at
  * query time, never stored. Candidate filtering is tenant-first, then agent —
  * tenant isolation is structural, not a policy flag.
+ *
+ * <p>Route selection is sticky per session: when the {@code RoutingContext}
+ * carries a non-blank sessionId, the first resolution pins
+ * (tenant, agent, session) to the chosen instance and later resolutions return
+ * that instance while it is still registered, lease-alive and READY; otherwise
+ * the resolution re-picks among healthy candidates and re-pins. Pins are
+ * dropped on deregister and lease expiry, and the pin map is capped at
+ * {@link #MAX_SESSION_PINS} entries with oldest-pin eviction so abandoned
+ * sessions can never grow memory unboundedly.
  */
 public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDirectory {
 
+    /**
+     * Upper bound on concurrently tracked session pins. Evicting the oldest
+     * pin merely costs that session one re-pick, so a modest cap is safe.
+     */
+    static final int MAX_SESSION_PINS = 10_000;
+
     private final Clock clock;
     private final ConcurrentHashMap<RuntimeInstanceId, RuntimeRecord> records = new ConcurrentHashMap<>();
+
+    /**
+     * Insertion-ordered so the eldest pin is the eviction victim; all view
+     * iteration synchronizes on the map per {@link Collections#synchronizedMap}.
+     */
+    private final Map<SessionKey, RuntimeInstanceId> sessionPins =
+            Collections.synchronizedMap(new LinkedHashMap<>() {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<SessionKey, RuntimeInstanceId> eldest) {
+                    return size() > MAX_SESSION_PINS;
+                }
+            });
 
     public InMemoryRuntimeRegistry() {
         this(Clock.systemUTC());
@@ -91,6 +121,7 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDire
         Objects.requireNonNull(runtimeInstanceId, "runtimeInstanceId");
         refreshExpiredLeases();
         RuntimeRecord removed = records.remove(runtimeInstanceId);
+        dropPinsFor(runtimeInstanceId);
         return new RuntimeDeregisterResult(runtimeInstanceId, RuntimeState.DEREGISTERED, removed != null);
     }
 
@@ -143,18 +174,39 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDire
     @Override
     public RuntimeRoute resolveRoute(String agentId, String tenantId, RoutingContext routingContext) {
         refreshExpiredLeases();
-        return eligibleRoutes(agentId, tenantId).stream()
-                .findFirst()
-                .map(record -> new RuntimeRoute(
-                        record.agentId(),
-                        record.runtimeInstanceId(),
-                        record.a2aEndpoint(),
-                        effectiveRouteState(record),
-                        record.lastHeartbeatAt(),
-                        record.slaSnapshot(),
-                        record.capacitySnapshot()))
-                .orElseThrow(() -> new AgentRouteNotFoundException(
-                        "No READY runtime for tenantId=" + tenantId + ", agentId=" + agentId));
+        RuntimeRecord record = selectForSession(eligibleRoutes(agentId, tenantId), routingContext);
+        return new RuntimeRoute(
+                record.agentId(),
+                record.runtimeInstanceId(),
+                record.a2aEndpoint(),
+                effectiveRouteState(record),
+                record.lastHeartbeatAt(),
+                record.slaSnapshot(),
+                record.capacitySnapshot());
+    }
+
+    /**
+     * Honors an existing session pin only while the pinned instance is still
+     * among the READY candidates; a dead pin is silently replaced by the
+     * score-best pick so a session survives instance loss with one re-pin.
+     */
+    private RuntimeRecord selectForSession(List<RuntimeRecord> ready, RoutingContext routingContext) {
+        RuntimeRecord best = ready.get(0);
+        String sessionId = routingContext == null ? null : routingContext.sessionId();
+        if (sessionId == null || sessionId.isBlank()) {
+            return best;
+        }
+        SessionKey key = new SessionKey(best.tenantId(), best.agentId(), sessionId.trim());
+        RuntimeInstanceId pinnedId = sessionPins.get(key);
+        if (pinnedId != null) {
+            for (RuntimeRecord candidate : ready) {
+                if (candidate.runtimeInstanceId().equals(pinnedId)) {
+                    return candidate;
+                }
+            }
+        }
+        sessionPins.put(key, best.runtimeInstanceId());
+        return best;
     }
 
     private List<RuntimeRecord> eligibleRoutes(String agentId, String tenantId) {
@@ -214,13 +266,22 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDire
 
     private void refreshExpiredLeases() {
         Instant now = clock.instant();
+        List<RuntimeInstanceId> expired = new ArrayList<>();
         records.replaceAll((id, record) -> {
             RuntimeState effective = effectiveState(record);
             if (effective == RuntimeState.UNREACHABLE && record.state() != RuntimeState.UNREACHABLE) {
+                expired.add(id);
                 return record.withState(RuntimeState.UNREACHABLE, now);
             }
             return record;
         });
+        expired.forEach(this::dropPinsFor);
+    }
+
+    private void dropPinsFor(RuntimeInstanceId runtimeInstanceId) {
+        synchronized (sessionPins) {
+            sessionPins.values().removeIf(runtimeInstanceId::equals);
+        }
     }
 
     private GatewayErrorCode errorCodeForState(RuntimeState state) {
@@ -238,6 +299,9 @@ public final class InMemoryRuntimeRegistry implements RuntimeRegistry, AgentDire
             throw new IllegalArgumentException(field + " is required");
         }
         return value.trim();
+    }
+
+    private record SessionKey(String tenantId, String agentId, String sessionId) {
     }
 
     private record RuntimeRecord(

@@ -6,7 +6,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Settings for the agent-service Spring edge. {@code enabled} switches the
  * whole auto-configuration off; {@code routeGrantSecret} signs HMAC route
  * grants and must be provisioned per deployment (the default only serves
- * local development).
+ * local development); {@code publicBaseUrl}, when set, masks agent-card
+ * endpoints behind the gateway-fronted route so served cards never leak
+ * back-end runtime topology (empty keeps cards verbatim).
  */
 @ConfigurationProperties("agent-service")
 public class AgentServiceProperties {
@@ -14,6 +16,8 @@ public class AgentServiceProperties {
     private boolean enabled = true;
 
     private String routeGrantSecret = "agent-service-local-route-grant-secret";
+
+    private String publicBaseUrl = "";
 
     private final Access access = new Access();
 
@@ -24,6 +28,10 @@ public class AgentServiceProperties {
     public String getRouteGrantSecret() { return routeGrantSecret; }
 
     public void setRouteGrantSecret(String routeGrantSecret) { this.routeGrantSecret = routeGrantSecret; }
+
+    public String getPublicBaseUrl() { return publicBaseUrl; }
+
+    public void setPublicBaseUrl(String publicBaseUrl) { this.publicBaseUrl = publicBaseUrl; }
 
     public Access getAccess() { return access; }
 
