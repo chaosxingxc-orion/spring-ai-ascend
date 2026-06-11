@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.langgraph;
+package com.huawei.ascend.examples.langgraph;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -61,6 +61,8 @@ class LangGraphRuntimeClientHandlerTest {
         assertThat(httpClient.request.headers().firstValue("Accept")).contains("text/event-stream");
         assertThat(httpClient.request.headers().firstValue("X-Tenant-Id")).contains("tenant");
         assertThat(httpClient.request.headers().firstValue("X-Api-Key")).contains("key-1");
+        // A hung upstream must not wedge the task forever: time-to-headers is bounded.
+        assertThat(httpClient.request.timeout()).contains(Duration.ofSeconds(60));
 
         JsonNode body = new ObjectMapper().readTree(httpClient.body);
         assertThat(body.get("assistant_id").asText()).isEqualTo("wealth-advisor");
@@ -119,20 +121,27 @@ class LangGraphRuntimeClientHandlerTest {
         assertThat(results.get(1).errorMessage()).contains("stream reset");
     }
 
+    /**
+     * A data block that partially parses keeps the decoded events but must
+     * surface the corrupt remainder as a structured failure — the dropped tail
+     * may have been the terminal, and silence would drain into a false
+     * COMPLETED.
+     */
     @Test
-    void runtimeErrorEventFailsTheRun() {
+    void partiallyParsedDataBlockSurfacesStructuredParseFailure() {
         CapturingHttpClient httpClient = new CapturingHttpClient(200, List.of(
-                "event: error",
-                "data: {\"error\":\"GraphRecursionError\",\"message\":\"loop limit\"}",
+                "event: values",
+                "data: {\"messages\":[{\"type\":\"ai\",\"content\":\"par\"}]}",
+                "data: {\"messages\":[{\"type\":\"ai\",\"content\":\"partial\"}],",
                 ""));
         LangGraphRuntimeClientHandler handler = handler(httpClient);
 
         List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
 
-        assertThat(results).hasSize(1);
-        assertThat(results.get(0).type()).isEqualTo(AgentExecutionResult.Type.FAILED);
-        assertThat(results.get(0).errorCode()).isEqualTo("GraphRecursionError");
-        assertThat(results.get(0).errorMessage()).isEqualTo("loop limit");
+        assertThat(results).extracting(AgentExecutionResult::type)
+                .containsExactly(AgentExecutionResult.Type.OUTPUT, AgentExecutionResult.Type.FAILED);
+        assertThat(results.get(0).outputContent()).isEqualTo("par");
+        assertThat(results.get(1).errorCode()).isEqualTo("LANGGRAPH_RUNTIME_PARSE");
     }
 
     /**

@@ -197,8 +197,12 @@ public class A2aJsonRpcController {
     }
 
     /**
-     * Transport-level tenant identity travels through the call-context state and
-     * takes precedence downstream over the client-self-declared params.tenant.
+     * The raw {@code X-Tenant-Id} header travels through the call-context state
+     * and takes precedence downstream over the client-self-declared
+     * params.tenant. The runtime performs no authentication of its own: in any
+     * multi-tenant deployment a fronting gateway must strip the header from
+     * client traffic and re-inject it after authenticating the caller, otherwise
+     * the header is as client-controlled as params.tenant.
      */
     private ServerCallContext serverContext(String tenantHeader) {
         String tenant = tenantHeader == null || tenantHeader.isBlank()

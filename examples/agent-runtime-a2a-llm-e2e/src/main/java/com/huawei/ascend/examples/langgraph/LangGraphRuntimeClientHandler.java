@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.langgraph;
+package com.huawei.ascend.examples.langgraph;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
@@ -10,6 +10,9 @@ import java.util.stream.Stream;
  * Hosts a remote LangGraph-served agent (LangGraph Platform / langgraph-api)
  * behind the framework-neutral runtime SPI, the LangGraph sibling of
  * {@code AgentScopeRuntimeClientHandler}.
+ *
+ * <p>Sample code: not part of the shipped agent-runtime adapter surface; see
+ * {@link LangGraphRuntimeClient}.
  */
 public final class LangGraphRuntimeClientHandler implements AgentRuntimeHandler {
 

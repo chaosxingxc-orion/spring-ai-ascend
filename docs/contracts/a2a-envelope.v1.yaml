@@ -92,6 +92,22 @@ non_goals: |
   - Replacing internal RunState with A2A task_state (the internal DFA stays canonical).
   - Cross-tenant A2A federation (separate ADR if pursued).
 
+# Trust boundaries (agent-runtime /a2a ingress)
+trust_boundaries: |
+  - Tenant identity: the agent-runtime A2A server resolves the tenant from the
+    X-Tenant-Id request header, which outranks the client-self-declared
+    params.tenant but is NOT authenticated by the runtime itself. Multi-tenant
+    deployments MUST front the /a2a ingress with a gateway that authenticates
+    callers and strips/re-injects X-Tenant-Id; absent such a gateway the header
+    is as client-controlled as params.tenant. Binding the tenant to an
+    authenticated principal (OIDC/JWT) is deferred hardening, not a shipped
+    property.
+  - Message semantics: the shipped execute path forwards only the TextParts of
+    the inbound message to the framework adapter (newline-joined, re-issued as
+    a single user-role message). DataPart/FilePart payloads, per-part metadata,
+    and the inbound wire role are not forwarded; non-text parts are dropped
+    with a WARN log. Structured multi-part pass-through is future scope.
+
 # Schema evolution
 schema_evolution:
   policy: additive_only

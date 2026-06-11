@@ -179,6 +179,38 @@ class AgentScopeRuntimeClientHandlerTest {
     }
 
     /**
+     * A data block that partially parses keeps the decoded events but must
+     * surface the corrupt remainder as a structured failure — the dropped tail
+     * may have been the terminal, and silence would drain into a false
+     * COMPLETED.
+     */
+    @Test
+    void runtimeClientSurfacesPartiallyParsedDataBlockAsStructuredFailure() {
+        CapturingHttpClient httpClient = new CapturingHttpClient(200, List.of(
+                "data: {\"status\":\"in_progress\",\"type\":\"text\",\"text\":\"partial\"}",
+                "data: {\"status\":\"failed\",\"error\":"));
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(results).extracting(AgentExecutionResult::type)
+                .containsExactly(AgentExecutionResult.Type.OUTPUT, AgentExecutionResult.Type.FAILED);
+        assertThat(results.get(0).outputContent()).isEqualTo("partial");
+        assertThat(results.get(1).errorCode()).isEqualTo("AGENTSCOPE_RUNTIME_PARSE");
+    }
+
+    /** A hung upstream must not wedge the task forever: time-to-headers is bounded. */
+    @Test
+    void runtimeClientRequestCarriesHeaderTimeout() {
+        CapturingHttpClient httpClient = new CapturingHttpClient();
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
+
+        handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(httpClient.request.timeout()).contains(Duration.ofSeconds(60));
+    }
+
+    /**
      * stop() must release the SSE transport when the client owns it (created it
      * itself); a borrowed transport belongs to its injector and survives.
      */

@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.langgraph;
+package com.huawei.ascend.examples.langgraph;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,6 +33,32 @@ class LangGraphStreamAdapterTest {
                 AgentExecutionResult.Type.COMPLETED);
         assertThat(results.get(0).outputContent()).isEqualTo("Hello");
         assertThat(results.get(1).outputContent()).isEqualTo(", world");
+    }
+
+    /**
+     * With the checkpointer restoring conversation state, a follow-up turn's
+     * first values snapshot echoes the prior turn's answer as the newest
+     * assistant message — history behind the latest human message must not
+     * replay as fresh OUTPUT.
+     */
+    @Test
+    void followUpTurnDoesNotReplayThePriorAnswer() {
+        List<AgentExecutionResult> results = adapter.adapt(Stream.of(
+                event("values", Map.of("messages", List.of(
+                        Map.of("type", "human", "content", "hi"),
+                        Map.of("type", "ai", "content", "Hello, world"),
+                        Map.of("type", "human", "content", "and again?")))),
+                event("values", Map.of("messages", List.of(
+                        Map.of("type", "human", "content", "hi"),
+                        Map.of("type", "ai", "content", "Hello, world"),
+                        Map.of("type", "human", "content", "and again?"),
+                        Map.of("type", "ai", "content", "Hello again")))),
+                event("end", null))).toList();
+
+        assertThat(results).extracting(AgentExecutionResult::type).containsExactly(
+                AgentExecutionResult.Type.OUTPUT,
+                AgentExecutionResult.Type.COMPLETED);
+        assertThat(results.get(0).outputContent()).isEqualTo("Hello again");
     }
 
     @Test

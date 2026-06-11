@@ -262,11 +262,20 @@ bash scripts/test-e2e.sh .env
 
 测试会启动示例应用，并通过 A2A 客户端流程调用它。基础 openJiuwen 和 AgentScope 连通性测试期望 `ping` 的可见响应是 `pong`。零售财富助手测试发送客户经理场景提示，并期望可见响应包含客户画像、资产配置、收益测算、风险提示和合规提示。AgentScope SDK、Harness、REST/SSE runtime 测试使用同一套真实模型配置；REST/SSE 路径默认回环到示例内置 AgentScope runtime endpoint，也可以通过对应的 `*_RUNTIME_BASE_URL` 指向客户环境中的外部 runtime。
 
-如果你已经手工 export 所需变量，也可以直接运行 Maven：
+如果你已经手工 export 所需变量，也可以直接运行 Maven（模块 pom 默认
+`skipTests=true`，必须显式覆盖）：
 
 ```bash
-./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test -DskipTests=false
 ```
+
+## LangGraph 远程 runtime 样例（非 shipped）
+
+`src/main/java/com/huawei/ascend/examples/langgraph/` 提供一个面向远程
+LangGraph runtime（LangGraph Platform / langgraph-api）的 `AgentRuntimeHandler`
+样例实现，演示如何把第三个框架适配到中立 runtime SPI 之后。它不属于 shipped
+的 agent-runtime 适配器面（openJiuwen + AgentScope）；如需转正，需要补授权 ADR
+以及 L1/contract-catalog 联动。其单元测试随本模块测试套件一起运行。
 
 ## 手工验证
 

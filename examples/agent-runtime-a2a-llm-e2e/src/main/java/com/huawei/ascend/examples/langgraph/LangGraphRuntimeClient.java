@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.langgraph;
+package com.huawei.ascend.examples.langgraph;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.MappingIterator;
@@ -33,6 +33,11 @@ import org.a2aproject.sdk.spec.Message;
  * (metadata / values / messages partial / updates / error / end), so each
  * emitted element is a map of {@code event} (name, possibly empty) and
  * {@code data} (the decoded JSON payload).
+ *
+ * <p>Sample code: this adapter lives in the example module and is NOT part of
+ * the shipped agent-runtime adapter surface (which is openJiuwen + AgentScope);
+ * promoting it requires an authorizing ADR plus the L1/contract-catalog
+ * lockstep.
  */
 public final class LangGraphRuntimeClient implements AutoCloseable {
 
@@ -45,7 +50,8 @@ public final class LangGraphRuntimeClient implements AutoCloseable {
     private final boolean ownsHttpClient;
 
     public LangGraphRuntimeClient(LangGraphRuntimeClientProperties properties) {
-        this(HttpClient.newHttpClient(), new ObjectMapper(), properties, true);
+        this(HttpClient.newBuilder().connectTimeout(properties.connectTimeout()).build(),
+                new ObjectMapper(), properties, true);
     }
 
     LangGraphRuntimeClient(
@@ -88,6 +94,9 @@ public final class LangGraphRuntimeClient implements AutoCloseable {
                 .header("X-Task-Id", scope.taskId());
         properties.headers().forEach(builder::header);
         HttpRequest request = builder
+                // Bounds time-to-response-headers only; the SSE body streams unbounded
+                // and stays cancellable through the raw stream's close().
+                .timeout(properties.requestTimeout())
                 .POST(HttpRequest.BodyPublishers.ofString(toJson(requestBody(context, scope))))
                 .build();
         HttpResponse<Stream<String>> response;
@@ -263,6 +272,14 @@ public final class LangGraphRuntimeClient implements AutoCloseable {
             if (events.isEmpty()) {
                 return List.of(data);
             }
+            // The corrupt remainder of a partially-parsed block may hold the terminal
+            // event; surfacing a structured error keeps the failure visible instead of
+            // letting the stream drain into a false COMPLETED.
+            events.add(Map.of(
+                    "error", "LANGGRAPH_RUNTIME_PARSE",
+                    "message", "malformed SSE data block remainder dropped after "
+                            + events.size() + " parsed event(s): "
+                            + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage())));
         }
         return events;
     }

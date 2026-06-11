@@ -342,11 +342,22 @@ settings; the REST/SSE paths default to the embedded sample AgentScope runtime
 endpoints unless the corresponding `*_RUNTIME_BASE_URL` variable points to an
 external customer runtime.
 
-If you have already exported the required variables and want to run Maven directly:
+If you have already exported the required variables and want to run Maven directly
+(the module pom defaults `skipTests=true`, so the override is required):
 
 ```bash
-./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test -DskipTests=false
 ```
+
+## LangGraph remote-runtime sample (not shipped)
+
+`src/main/java/com/huawei/ascend/examples/langgraph/` hosts a sample
+`AgentRuntimeHandler` implementation that fronts a remote LangGraph runtime
+(LangGraph Platform / langgraph-api) over SSE. It demonstrates how to adapt a
+third framework behind the neutral runtime SPI, but it is NOT part of the
+shipped agent-runtime adapter surface (openJiuwen + AgentScope); promoting it
+requires an authorizing ADR plus the L1/contract-catalog lockstep. Its unit
+tests run with the rest of this module's suite.
 
 ## Manual Verification
 

@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.langgraph;
+package com.huawei.ascend.examples.langgraph;
 
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
@@ -102,17 +102,30 @@ public final class LangGraphStreamAdapter implements StreamAdapter {
             if (data instanceof Map<?, ?> map) {
                 Object messages = map.get("messages");
                 if (messages instanceof List<?> list) {
-                    return lastAssistantMessageText(list);
+                    return currentTurnAssistantText(list);
                 }
                 return contentText(map.get("content"));
             }
             return "";
         }
 
-        private static String lastAssistantMessageText(List<?> messages) {
+        /**
+         * The trailing assistant message of the CURRENT turn only. With the
+         * checkpointer restoring conversation state, the first values snapshot of
+         * a follow-up turn echoes the prior turn's answer as the newest assistant
+         * message before any new generation; an assistant message that sits
+         * before the latest human message is history and must not be replayed as
+         * fresh OUTPUT.
+         */
+        private static String currentTurnAssistantText(List<?> messages) {
             for (int i = messages.size() - 1; i >= 0; i--) {
-                if (messages.get(i) instanceof Map<?, ?> message && isAssistant(message)) {
-                    return contentText(message.get("content"));
+                if (messages.get(i) instanceof Map<?, ?> message) {
+                    if (isAssistant(message)) {
+                        return contentText(message.get("content"));
+                    }
+                    if (isHuman(message)) {
+                        return "";
+                    }
                 }
             }
             return "";
@@ -122,6 +135,12 @@ public final class LangGraphStreamAdapter implements StreamAdapter {
             String type = normalize(message.get("type"));
             String role = normalize(message.get("role"));
             return type.startsWith("ai") || "assistant".equals(role);
+        }
+
+        private static boolean isHuman(Map<?, ?> message) {
+            String type = normalize(message.get("type"));
+            String role = normalize(message.get("role"));
+            return type.startsWith("human") || "user".equals(role);
         }
 
         /** LangChain message content is a string or a list of typed parts. */

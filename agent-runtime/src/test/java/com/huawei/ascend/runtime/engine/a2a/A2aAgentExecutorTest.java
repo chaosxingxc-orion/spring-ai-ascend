@@ -296,6 +296,45 @@ class A2aAgentExecutorTest {
         verify(emitter, org.mockito.Mockito.never()).fail(any(Message.class));
     }
 
+    /**
+     * A cancel that lands while the handler is still connecting (before it has
+     * returned a stream) must still reach the cancelled flag: the execute
+     * thread then tears its own stream down instead of streaming results into
+     * the CANCELED task and misreporting the teardown as INTERNAL.
+     */
+    @Test
+    void cancelDuringHandlerConnect_isNotLost() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        java.util.concurrent.atomic.AtomicBoolean consumed = new java.util.concurrent.atomic.AtomicBoolean();
+        StreamAdapter adapter = raw -> raw.map(o -> {
+            consumed.set(true);
+            return AgentExecutionResult.completed("late");
+        });
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        java.util.concurrent.atomic.AtomicReference<A2aAgentExecutor> executorRef =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        RequestContext ctx = requestContext();
+        AgentEmitter cancelEmitter = newEmitter();
+        when(handler.execute(any())).thenAnswer(inv -> {
+            // The cancel request arrives while the handler is still connecting.
+            executorRef.get().cancel(ctx, cancelEmitter);
+            return Stream.of(new Object());
+        });
+
+        A2aAgentExecutor executor = new A2aAgentExecutor(handler);
+        executorRef.set(executor);
+        AgentEmitter executeEmitter = newEmitter();
+        executor.execute(ctx, executeEmitter);
+
+        verify(cancelEmitter).cancel();
+        verify(handler).cancel("task-1");
+        assertThat(consumed).as("no result may stream into the CANCELED task").isFalse();
+        verify(executeEmitter, org.mockito.Mockito.never()).fail(any(Message.class));
+        verify(executeEmitter, org.mockito.Mockito.never()).complete();
+    }
+
     /** The lifecycle must announce SUBMITTED before WORKING, matching the A2A task lifecycle. */
     @Test
     void submitPrecedesStartWork() {

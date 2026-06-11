@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
@@ -39,9 +40,12 @@ import org.slf4j.MDC;
 public final class A2aAgentExecutor implements AgentExecutor {
 
     /**
-     * Call-context state key under which the access layer publishes the
-     * transport-authenticated tenant. It outranks the client-self-declared
-     * params.tenant - a wire client must not be able to choose its tenant.
+     * Call-context state key under which the access layer publishes the tenant
+     * taken from the {@code X-Tenant-Id} request header. It outranks the
+     * client-self-declared params.tenant, but the runtime does NOT authenticate
+     * it: the value is only trustworthy when a fronting gateway strips and
+     * re-injects the header after authenticating the caller. Without such a
+     * gateway every wire client chooses its own tenant.
      */
     public static final String TENANT_STATE_KEY = "tenantId";
 
@@ -90,8 +94,12 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 handler != null ? handler.agentId() : null);
     }
 
-    /** Cancel state for one in-flight execution: the handler's raw stream plus a torn-down marker. */
-    private record InFlightExecution(Stream<?> rawStream, AtomicBoolean cancelled) {
+    /**
+     * Cancel state for one in-flight execution. The stream slot is empty while the
+     * handler is still connecting; a cancel in that window sets the flag and the
+     * execute thread tears its own stream down once the handler returns it.
+     */
+    private record InFlightExecution(AtomicReference<Stream<?>> rawStream, AtomicBoolean cancelled) {
     }
 
     @Override
@@ -217,8 +225,13 @@ public final class A2aAgentExecutor implements AgentExecutor {
         }
         if (execution != null) {
             // Tear the transport down last so the CANCELED state has already
-            // landed when the execute thread observes the closed stream.
-            execution.rawStream().close();
+            // landed when the execute thread observes the closed stream. A null
+            // slot means the handler is still connecting; the execute thread
+            // observes the cancelled flag and closes the stream itself.
+            Stream<?> raw = execution.rawStream().get();
+            if (raw != null) {
+                raw.close();
+            }
         }
     }
 
@@ -230,13 +243,15 @@ public final class A2aAgentExecutor implements AgentExecutor {
     private RouteDecision consumeHandler(AgentExecutionContext context, AgentEmitter emitter, String taskId,
             String artifactId, AtomicBoolean firstArtifact, boolean remoteInvocationAllowed,
             AtomicBoolean cancelled) {
-        InFlightExecution execution = null;
+        // Registered before handler.execute() so a cancel landing during a slow
+        // connect still reaches the cancelled flag instead of vanishing.
+        InFlightExecution execution = new InFlightExecution(new AtomicReference<>(), cancelled);
+        inFlight.put(taskId, execution);
         try (Stream<?> raw = handler.execute(context);
              Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
-            execution = new InFlightExecution(raw, cancelled);
-            inFlight.put(taskId, execution);
+            execution.rawStream().set(raw);
             Iterator<AgentExecutionResult> iterator = results.iterator();
-            while (iterator.hasNext()) {
+            while (!cancelled.get() && iterator.hasNext()) {
                 AgentExecutionResult result = iterator.next();
                 LOG.info("[A2A] result taskId={} type={} outputChars={}",
                         taskId, result.type(),
@@ -247,16 +262,16 @@ public final class A2aAgentExecutor implements AgentExecutor {
                     return decision;
                 }
             }
-            return RouteDecision.drained();
+            // A cancel observed here already moved the task to CANCELED; emitting
+            // a drained-completion would fight the terminal the client just saw.
+            return cancelled.get() ? RouteDecision.terminal() : RouteDecision.drained();
         } catch (RuntimeException e) {
             if (cancelled.get()) {
                 return RouteDecision.terminal();
             }
             throw e;
         } finally {
-            if (execution != null) {
-                inFlight.remove(taskId, execution);
-            }
+            inFlight.remove(taskId, execution);
         }
     }
 
@@ -303,13 +318,27 @@ public final class A2aAgentExecutor implements AgentExecutor {
     }
 
     private static String extractText(RequestContext ctx) {
-        return Messages.text(ctx.getMessage());
+        Message message = ctx.getMessage();
+        if (message != null && message.parts() != null) {
+            // Only text parts are mapped onto the execution context; dropping the
+            // rest silently would let a data-only message degrade into an empty
+            // query with nothing in the logs to explain it.
+            List<String> dropped = message.parts().stream()
+                    .filter(part -> !(part instanceof TextPart))
+                    .map(part -> part.getClass().getSimpleName())
+                    .toList();
+            if (!dropped.isEmpty()) {
+                LOG.warn("[A2A] non-text message parts dropped taskId={} kinds={}", ctx.getTaskId(), dropped);
+            }
+        }
+        return Messages.text(message);
     }
 
     /**
      * Canonical request-context value resolution shared with {@link A2aParentTaskProjector}
      * so the remote-resume re-entry resolves the same tenant as the first local segment.
-     * For the tenant key the transport-authenticated tenant outranks client-declared metadata.
+     * For the tenant key the header-derived call-context tenant outranks client-declared
+     * metadata; see {@link #TENANT_STATE_KEY} for the trust precondition.
      */
     static String metadata(RequestContext ctx, String key, String fallback) {
         if (TENANT_STATE_KEY.equals(key)) {

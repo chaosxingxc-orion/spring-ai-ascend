@@ -37,7 +37,8 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
     private final boolean ownsHttpClient;
 
     public AgentScopeRuntimeClient(AgentScopeRuntimeClientProperties properties) {
-        this(HttpClient.newHttpClient(), new ObjectMapper(), properties, true);
+        this(HttpClient.newBuilder().connectTimeout(properties.connectTimeout()).build(),
+                new ObjectMapper(), properties, true);
     }
 
     AgentScopeRuntimeClient(
@@ -77,6 +78,9 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
                 .header("X-Tenant-Id", invocation.tenantId())
                 .header("X-Agent-Id", invocation.agentId())
                 .header("X-Task-Id", invocation.taskId())
+                // Bounds time-to-response-headers only; the SSE body streams unbounded
+                // and stays cancellable through the raw stream's close().
+                .timeout(properties.requestTimeout())
                 .POST(HttpRequest.BodyPublishers.ofString(toJson(requestBody(invocation))))
                 .build();
         HttpResponse<Stream<String>> response;
@@ -247,6 +251,15 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
             if (events.isEmpty()) {
                 return List.of(Map.of("status", "output", "text", data));
             }
+            // The corrupt remainder of a partially-parsed block may hold the terminal
+            // event; surfacing a structured error keeps the failure visible instead of
+            // letting the stream drain into a false COMPLETED.
+            events.add(Map.of(
+                    "status", "error",
+                    "error_code", "AGENTSCOPE_RUNTIME_PARSE",
+                    "message", "malformed SSE data block remainder dropped after "
+                            + events.size() + " parsed event(s): "
+                            + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage())));
         }
         return events;
     }
