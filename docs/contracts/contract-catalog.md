@@ -48,6 +48,8 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `MemoryProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — reserved narrow memory init/search/save SPI for future memory middleware integration; does not bind runtime to one memory backend |
 | `StreamAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts a framework's native result stream into the neutral `AgentExecutionResult` stream |
 
+Trajectory observability plumbing — `TrajectoryEmitter`, `TrajectoryChannel`, `TrajectorySource`, `TrajectorySink`, `TrajectorySinkFactory` — is (internal): per-invocation, emit-only telemetry seams between the runtime executor and the adapter bases (events are never read back; the runtime stays the source of truth). These interfaces live in `engine.spi` for package-boundary reasons but are not part of the shipped SPI surface, which remains the four rows above.
+
 **SPI count by module (shipped surface; the agent-runtime SPI surface is the framework-neutral `engine.spi` set `AgentRuntimeHandler` + `AgentCardProvider` + `MemoryProvider` + `StreamAdapter`):**
 
 | Module | SPI interfaces |
