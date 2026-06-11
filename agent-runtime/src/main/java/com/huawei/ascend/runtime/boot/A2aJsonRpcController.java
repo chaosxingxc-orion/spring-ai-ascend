@@ -3,6 +3,7 @@ package com.huawei.ascend.runtime.boot;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Flow;
+import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
 import org.a2aproject.sdk.grpc.utils.JSONRPCUtils;
 import org.a2aproject.sdk.jsonrpc.common.json.JsonMappingException;
 import org.a2aproject.sdk.jsonrpc.common.json.JsonProcessingException;
@@ -22,6 +23,8 @@ import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskPushNotificationConfigR
 import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskPushNotificationConfigResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTaskPushNotificationConfigsRequest;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTaskPushNotificationConfigsResponse;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendMessageRequest;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendMessageResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendStreamingMessageResponse;
@@ -40,6 +43,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
@@ -47,20 +51,25 @@ import reactor.core.publisher.Flux;
 public class A2aJsonRpcController {
     private static final Logger log = LoggerFactory.getLogger(A2aJsonRpcController.class);
     private final RequestHandler handler;
+    private final RuntimeAccessProperties access;
 
-    public A2aJsonRpcController(RequestHandler handler) { this.handler = handler; }
+    public A2aJsonRpcController(RequestHandler handler, RuntimeAccessProperties access) {
+        this.handler = handler;
+        this.access = access;
+    }
 
     @PostMapping(value = {"/a2a", "/a2a/"}, produces = MediaType.APPLICATION_JSON_VALUE)
-    public Object handle(@RequestBody String body) {
+    public Object handle(@RequestBody String body,
+            @RequestHeader(name = "X-Tenant-Id", required = false) String tenantHeader) {
         Object id = null;
         try {
             A2ARequest<?> request = JSONRPCUtils.parseRequestBody(body, null);
             id = request.getId();
             log.info("[A2A] {} id={}", request.getMethod(), id);
             if (request instanceof SendStreamingMessageRequest || request instanceof SubscribeToTaskRequest) {
-                return handleStream(request);
+                return handleStream(request, tenantHeader);
             }
-            return handleBlocking(request);
+            return handleBlocking(request, tenantHeader);
         } catch (A2AError e) {
             // Protocol error raised by the SDK or the request handler — surface it with its own code.
             return errorResponse(id, ensureCode(e, A2AErrorCodes.INTERNAL));
@@ -81,32 +90,61 @@ public class A2aJsonRpcController {
     }
 
     @PostMapping(value = {"/a2a", "/a2a/"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> handleSse(@RequestBody String body) throws Exception {
-        return handleStream(JSONRPCUtils.parseRequestBody(body, null));
+    public Flux<ServerSentEvent<String>> handleSse(@RequestBody String body,
+            @RequestHeader(name = "X-Tenant-Id", required = false) String tenantHeader) {
+        A2ARequest<?> request;
+        try {
+            request = JSONRPCUtils.parseRequestBody(body, null);
+        } catch (Exception e) {
+            log.warn("[A2A] stream request parse failed: {}", e.getMessage());
+            return Flux.just(errorEvent(null, error(A2AErrorCodes.JSON_PARSE, e.getMessage())));
+        }
+        try {
+            return handleStream(request, tenantHeader);
+        } catch (A2AError e) {
+            log.warn("[A2A] {} id={} failed code={} message={}",
+                    request.getMethod(), request.getId(), e.getCode(), e.getMessage());
+            return Flux.just(errorEvent(request.getId(), ensureCode(e, A2AErrorCodes.INTERNAL)));
+        } catch (Exception e) {
+            log.error("[A2A] {} id={} failed", request.getMethod(), request.getId(), e);
+            return Flux.just(errorEvent(request.getId(), error(A2AErrorCodes.INTERNAL, e.getMessage())));
+        }
     }
 
-    Flux<ServerSentEvent<String>> handleStream(A2ARequest<?> request) throws A2AError {
-        var ctx = serverContext();
+    Flux<ServerSentEvent<String>> handleStream(A2ARequest<?> request, String tenantHeader) {
+        var ctx = serverContext(tenantHeader);
+        Object id = request.getId();
         Flow.Publisher<StreamingEventKind> publisher;
         if (request instanceof SubscribeToTaskRequest subscribe) {
             publisher = handler.onSubscribeToTask(subscribe.getParams(), ctx);
         } else if (request instanceof SendStreamingMessageRequest send) {
             publisher = handler.onMessageSendStream(send.getParams(), ctx);
         } else {
-            throw new IllegalArgumentException("Unknown streaming request: " + request.getMethod());
+            throw error(A2AErrorCodes.METHOD_NOT_FOUND, "Unknown streaming request: " + request.getMethod());
         }
         return Flux.from(FlowAdapters.toPublisher(publisher))
                 .map(evt -> ServerSentEvent.<String>builder().event("jsonrpc")
-                        .data(streamingResponseJson(request.getId(), evt)).build());
+                        .data(streamingResponseJson(id, evt)).build())
+                // A mid-stream failure must end with a JSON-RPC error frame, not a bare
+                // transport drop — clients cannot otherwise tell agent failure from network loss.
+                .onErrorResume(e -> {
+                    log.error("[A2A] stream failed id={}", id, e);
+                    A2AError fault = e instanceof A2AError a2aError
+                            ? ensureCode(a2aError, A2AErrorCodes.INTERNAL)
+                            : error(A2AErrorCodes.INTERNAL, e.getMessage());
+                    return Flux.just(errorEvent(id, fault));
+                });
     }
 
-    ResponseEntity<String> handleBlocking(A2ARequest<?> request) throws A2AError {
-        var ctx = serverContext();
+    ResponseEntity<String> handleBlocking(A2ARequest<?> request, String tenantHeader) throws A2AError {
+        var ctx = serverContext(tenantHeader);
         A2AResponse<?> response = switch (request) {
             case SendMessageRequest send ->
                     new SendMessageResponse(request.getId(), handler.onMessageSend(send.getParams(), ctx));
             case GetTaskRequest get ->
                     new GetTaskResponse(request.getId(), handler.onGetTask(get.getParams(), ctx));
+            case ListTasksRequest list ->
+                    new ListTasksResponse(request.getId(), handler.onListTasks(list.getParams(), ctx));
             case CancelTaskRequest cancel ->
                     new CancelTaskResponse(request.getId(), handler.onCancelTask(cancel.getParams(), ctx));
             case CreateTaskPushNotificationConfigRequest create -> new CreateTaskPushNotificationConfigResponse(
@@ -119,11 +157,12 @@ public class A2aJsonRpcController {
                 handler.onDeleteTaskPushNotificationConfig(delete.getParams(), ctx);
                 yield new DeleteTaskPushNotificationConfigResponse(request.getId());
             }
-            default -> throw new IllegalArgumentException("Unknown: " + request.getMethod());
+            default -> throw error(A2AErrorCodes.METHOD_NOT_FOUND, "Unknown: " + request.getMethod());
         };
         try {
             return ResponseEntity.ok(JsonUtil.toJson(response));
         } catch (Exception e) {
+            log.error("[A2A] response serialization failed id={}", request.getId(), e);
             return errorResponse(request.getId(),
                     error(A2AErrorCodes.INTERNAL, "failed to serialize A2A response: " + e.getMessage()));
         }
@@ -141,6 +180,11 @@ public class A2aJsonRpcController {
         return ResponseEntity.ok(JSONRPCUtils.toJsonRPCErrorResponse(id, error));
     }
 
+    private static ServerSentEvent<String> errorEvent(Object id, A2AError error) {
+        return ServerSentEvent.<String>builder().event("jsonrpc")
+                .data(JSONRPCUtils.toJsonRPCErrorResponse(id, error)).build();
+    }
+
     private static A2AError error(A2AErrorCodes code, String message) {
         return new A2AError(code.code(), message, null);
     }
@@ -152,5 +196,13 @@ public class A2aJsonRpcController {
                 : new A2AError(fallback.code(), error.getMessage(), error.getDetails());
     }
 
-    private static ServerCallContext serverContext() { return new ServerCallContext(null, Map.of(), Set.of()); }
+    /**
+     * Transport-level tenant identity travels through the call-context state and
+     * takes precedence downstream over the client-self-declared params.tenant.
+     */
+    private ServerCallContext serverContext(String tenantHeader) {
+        String tenant = tenantHeader == null || tenantHeader.isBlank()
+                ? access.getDefaultTenantId() : tenantHeader.trim();
+        return new ServerCallContext(null, Map.of(A2aAgentExecutor.TENANT_STATE_KEY, tenant), Set.of());
+    }
 }

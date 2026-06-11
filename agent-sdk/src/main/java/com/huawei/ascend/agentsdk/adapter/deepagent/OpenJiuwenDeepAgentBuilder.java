@@ -30,11 +30,11 @@ public final class OpenJiuwenDeepAgentBuilder {
                 .toList();
 
         /*
-         * Temporary CI unblock:
-         * com.openjiuwen:agent-core-java:0.1.12 currently available to CI does not expose
-         * com.openjiuwen.harness.deep_agent.DeepAgent and related DeepAgentConfig classes.
-         * Restore the real DeepAgent construction here after OpenJiuwen publishes a jar
-         * that contains those APIs.
+         * Temporary CI unblock: the com.openjiuwen:agent-core-java version this
+         * module builds against (see openjiuwen.agent-core.version in the pom)
+         * does not expose com.openjiuwen.harness.deep_agent.DeepAgent and the
+         * related DeepAgentConfig classes. Restore the real DeepAgent
+         * construction here once OpenJiuwen publishes a jar containing them.
          */
         return new DeepAgentPlaceholder(
                 spec.name(),

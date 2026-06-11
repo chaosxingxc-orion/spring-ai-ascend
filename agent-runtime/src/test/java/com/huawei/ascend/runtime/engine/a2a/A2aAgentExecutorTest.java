@@ -41,6 +41,69 @@ import org.mockito.InOrder;
 
 class A2aAgentExecutorTest {
 
+    /**
+     * Context construction throws on wire-controllable input (blank contextId →
+     * blank sessionId). That must FAIL the task — an escape after startWork
+     * strands it in WORKING forever.
+     */
+    @Test
+    void malformedRequestContext_failsTaskInsteadOfStrandingWorking() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        RequestContext ctx = mock(RequestContext.class);
+        when(ctx.getTaskId()).thenReturn("task-1");
+        when(ctx.getContextId()).thenReturn("   ");
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler).execute(ctx, emitter);
+
+        // IllegalArgumentException on wire input classifies as INVALID_INPUT.
+        assertThat(failureText(emitter)).startsWith("INVALID_INPUT:");
+    }
+
+    /**
+     * The framework conversation key must follow the A2A contextId (session), not the
+     * taskId: every message/send opens a new task in the same context, so a task-keyed
+     * conversation would reset framework checkpointer state on every turn.
+     */
+    @Test
+    void agentStateKeyFollowsContextIdAcrossTasks() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        new A2aAgentExecutor(handler).execute(requestContext(), newEmitter());
+
+        ArgumentCaptor<com.huawei.ascend.runtime.engine.AgentExecutionContext> captor =
+                ArgumentCaptor.forClass(com.huawei.ascend.runtime.engine.AgentExecutionContext.class);
+        verify(handler).execute(captor.capture());
+        assertThat(captor.getValue().getAgentStateKey()).isEqualTo("ctx-1");
+    }
+
+    /** The transport-authenticated tenant must outrank the client-self-declared params.tenant. */
+    @Test
+    void transportTenantOutranksClientDeclaredTenant() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        RequestContext ctx = requestContext();
+        when(ctx.getTenant()).thenReturn("client-declared");
+        when(ctx.getCallContext()).thenReturn(new org.a2aproject.sdk.server.ServerCallContext(
+                null, java.util.Map.of(A2aAgentExecutor.TENANT_STATE_KEY, "transport-tenant"), java.util.Set.of()));
+
+        new A2aAgentExecutor(handler).execute(ctx, newEmitter());
+
+        ArgumentCaptor<com.huawei.ascend.runtime.engine.AgentExecutionContext> captor =
+                ArgumentCaptor.forClass(com.huawei.ascend.runtime.engine.AgentExecutionContext.class);
+        verify(handler).execute(captor.capture());
+        assertThat(captor.getValue().getScope().tenantId()).isEqualTo("transport-tenant");
+    }
+
     /** A FAILED result must surface its code+message to the A2A wire, not a bare fail(). */
     @Test
     void failedResult_carriesErrorReasonToTheWire() {
@@ -54,6 +117,40 @@ class A2aAgentExecutorTest {
         new A2aAgentExecutor(handler).execute(requestContext(), emitter);
 
         assertThat(failureText(emitter)).isEqualTo("OUT_OF_DOMAIN: no skill for request");
+    }
+
+    /**
+     * An empty handler stream (e.g. upstream replies 204, or 200 with only a [DONE]
+     * sentinel) must still finalize the task — otherwise it stays WORKING forever.
+     */
+    @Test
+    void emptyResultStream_finalizesTask() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.empty());
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.output("unreached"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler).execute(requestContext(), emitter);
+
+        verify(emitter).complete();
+    }
+
+    /** A stream of only OUTPUT results (no terminal COMPLETED/FAILED) must also finalize. */
+    @Test
+    void outputOnlyStream_finalizesTask() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object(), new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.output("chunk"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler).execute(requestContext(), emitter);
+
+        verify(emitter, times(2)).addArtifact(anyList(), anyString(), anyString(), any(), any(Boolean.class), any(Boolean.class));
+        verify(emitter).complete();
     }
 
     /** An exception thrown during execution must also fail with a reason, not silently. */

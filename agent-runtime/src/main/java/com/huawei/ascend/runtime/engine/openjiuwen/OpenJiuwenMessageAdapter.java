@@ -1,8 +1,8 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
+import com.huawei.ascend.runtime.engine.a2a.Messages;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,14 +17,18 @@ public class OpenJiuwenMessageAdapter {
     }
 
     private String lastUserText(AgentExecutionContext context) {
-        List<Message> messages = context.getMessages().isEmpty() ? null : context.getMessages();
-        if (messages == null || messages.isEmpty()) return "";
+        List<Message> messages = context.getMessages();
+        if (messages.isEmpty()) {
+            return "";
+        }
         for (int i = messages.size() - 1; i >= 0; i--) {
             Message message = messages.get(i);
             if (message != null && message.role() == Message.Role.ROLE_USER) {
                 return messageText(message);
             }
         }
+        // No user turn at all — fall back to the newest message regardless of role
+        // so the agent still receives a query rather than an empty string.
         return messageText(messages.get(messages.size() - 1));
     }
 
@@ -33,11 +37,6 @@ public class OpenJiuwenMessageAdapter {
      * {@code common.Message.text()} method that iterated Content parts.
      */
     public static String messageText(Message msg) {
-        if (msg == null || msg.parts() == null) return "";
-        StringBuilder sb = new StringBuilder();
-        for (var part : msg.parts()) {
-            if (part instanceof TextPart tp) sb.append(tp.text());
-        }
-        return sb.toString();
+        return Messages.text(msg);
     }
 }

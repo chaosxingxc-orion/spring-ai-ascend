@@ -2,7 +2,8 @@ package com.huawei.ascend.agentsdk.factory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.huawei.ascend.runtime.engine.adapters.openjiuwen.OpenJiuwenAgentRuntimeHandler;
+import com.huawei.ascend.agentsdk.adapter.deepagent.OpenJiuwenDeepAgentHandlerAdapter;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.openjiuwen.core.foundation.tool.Tool;
 import com.openjiuwen.core.runner.Runner;
@@ -36,7 +37,7 @@ class AgentHandlerFactoryTest {
         AgentRuntimeHandler handler = AgentHandlerFactory.toHandler(yaml.agentId(), agent);
 
         assertThat(agent).isNotNull();
-        assertThat(handler).isInstanceOf(OpenJiuwenAgentRuntimeHandler.class);
+        assertThat(handler).isInstanceOf(OpenJiuwenDeepAgentHandlerAdapter.class);
         assertThat(handler.agentId()).isEqualTo(yaml.agentId());
     }
 
@@ -57,7 +58,7 @@ class AgentHandlerFactoryTest {
 
         AgentRuntimeHandler handler = AgentHandlerFactory.fromYaml(yaml.path());
 
-        assertThat(handler).isInstanceOf(OpenJiuwenAgentRuntimeHandler.class);
+        assertThat(handler).isInstanceOf(OpenJiuwenDeepAgentHandlerAdapter.class);
         assertThat(handler.agentId()).isEqualTo(yaml.agentId());
     }
 

@@ -2,6 +2,7 @@ package com.huawei.ascend.runtime.engine.agentscope;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.huawei.ascend.runtime.engine.a2a.Messages;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
@@ -18,7 +19,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -122,15 +122,11 @@ class AgentScopeRuntimeHandlerTest {
     private static Message message(Message.Role role, String text) {
         return Message.builder()
                 .role(role)
-                .parts(List.<Part<?>>of(new TextPart(text)))
+                .parts(new TextPart(text))
                 .build();
     }
 
     private static String messageText(Message message) {
-        return message.parts().stream()
-                .filter(TextPart.class::isInstance)
-                .map(TextPart.class::cast)
-                .map(TextPart::text)
-                .reduce("", String::concat);
+        return Messages.text(message);
     }
 }

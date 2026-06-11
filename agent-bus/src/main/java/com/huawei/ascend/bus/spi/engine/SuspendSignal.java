@@ -7,13 +7,11 @@ import java.util.Objects;
  *
  * <p>Two flavours, both caught only by the Orchestrator:
  * <ul>
- *   <li><b>Child-run suspension</b> (legacy, W0+): construct with
+ *   <li><b>Child-run suspension</b>: construct with
  *   {@code (parentNodeKey, resumePayload, childMode, childDef)}. The
  *   orchestrator persists checkpoint, marks parent SUSPENDED, and dispatches
  *   the child run.</li>
- *   <li><b>S2C client-callback suspension</b> (W2.x Phase 3, ADR-0074;
- *   refactored from parallel unchecked S2cCallbackSignal to this checked
- *   variant in v2.0.0-rc3 per cross-constraint audit α-2 / β-5): build via
+ *   <li><b>S2C client-callback suspension</b> (Authority: ADR-0074): build via
  *   {@link #forClientCallback(String, Object)} where the {@code envelope}
  *   argument MUST be an instance of
  *   {@code com.huawei.ascend.bus.spi.s2c.S2cCallbackEnvelope} (typed as
@@ -58,7 +56,11 @@ public final class SuspendSignal extends Exception {
                                                   // is com.huawei.ascend.bus.spi.s2c.S2cCallbackEnvelope.
                                                   // Orchestrators in non-spi packages cast it.
 
-    /** Child-run constructor (legacy, W0+). All four args required. */
+    /**
+     * Child-run constructor. {@code parentNodeKey}, {@code childMode}, and
+     * {@code childDef} are required; {@code resumePayload} MAY be null when the
+     * suspension carries no payload to restore.
+     */
     public SuspendSignal(String parentNodeKey, Object resumePayload,
                          RunMode childMode, ExecutorDefinition childDef) {
         super("Suspend requested at node: " + parentNodeKey);
@@ -70,12 +72,11 @@ public final class SuspendSignal extends Exception {
     }
 
     /**
-     * S2C client-callback factory (W2.x Phase 3, ADR-0074).
+     * S2C client-callback factory. Authority: ADR-0074.
      *
      * <p>{@code envelope} must be an instance of
-     * {@code com.huawei.ascend.bus.spi.s2c.S2cCallbackEnvelope} (relocated
-     * from {@code com.huawei.ascend.runtime.s2c} in v2.0.0-rc3 per α-4 / β-2);
-     * typed as Object here to preserve orchestration.spi purity (E3 archunit).
+     * {@code com.huawei.ascend.bus.spi.s2c.S2cCallbackEnvelope}; typed as
+     * Object here to preserve orchestration.spi purity (E3 archunit).
      * Orchestrators cast in non-spi packages.
      */
     public static SuspendSignal forClientCallback(String parentNodeKey, Object envelope) {
@@ -96,7 +97,7 @@ public final class SuspendSignal extends Exception {
     public RunMode childMode() { return childMode; }
     public ExecutorDefinition childDef() { return childDef; }
 
-    /** True when this signal carries an S2C client callback (W2.x Phase 3). */
+    /** True when this signal carries an S2C client callback. */
     public boolean isClientCallback() { return clientCallback != null; }
 
     /**

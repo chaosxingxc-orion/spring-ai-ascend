@@ -12,10 +12,10 @@ public final class McpToolResolver implements ToolResolver {
     public ResolvedTool resolve(ToolSpec spec) {
         Map<String, Object> attributes = spec.ref().attributes();
         return new WrappableTool(
-                HttpToolResolver.descriptor(spec),
+                ToolRefAttributes.descriptor(spec),
                 new McpExecutionHandle(
-                        HttpToolResolver.required(attributes, "server"),
-                        HttpToolResolver.required(attributes, "tool")));
+                        ToolRefAttributes.required(attributes, "server"),
+                        ToolRefAttributes.required(attributes, "tool")));
     }
 }
 
