@@ -6,22 +6,19 @@ import com.huawei.ascend.runtime.engine.a2a.Messages;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
-import com.huawei.ascend.runtime.engine.spi.TrajectoryChannel;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
-import com.huawei.ascend.runtime.engine.spi.TrajectoryLevel;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
+import com.huawei.ascend.runtime.engine.spi.TrajectorySink;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 
 class AgentScopeRuntimeHandlerTest {
 
@@ -62,13 +59,12 @@ class AgentScopeRuntimeHandlerTest {
     }
 
     @Test
-    @Timeout(10)
-    void fullLevelEmitsRunLifecycleWithProgressAndErrorFromAgentScopeStream() throws Exception {
+    void enabledEmitsRunLifecycleWithProgressAndErrorFromAgentScopeStream() {
         AgentScopeAgentRuntimeHandler handler = new AgentScopeAgentRuntimeHandler("agent-scope", invocation ->
                 Stream.of(AgentScopeEvent.output("pong-"), AgentScopeEvent.failed("X", "boom"),
                         AgentScopeEvent.completed("done")));
 
-        List<TrajectoryEvent> events = runWithTrajectory(handler, TrajectoryLevel.FULL);
+        List<TrajectoryEvent> events = runWithTrajectory(handler);
 
         assertThat(events).extracting(TrajectoryEvent::kind)
                 .containsExactly(Kind.RUN_START, Kind.PROGRESS, Kind.ERROR, Kind.RUN_END);
@@ -81,33 +77,16 @@ class AgentScopeRuntimeHandlerTest {
         assertThat(error.error().code()).isEqualTo("X");
     }
 
-    @Test
-    @Timeout(10)
-    void summaryLevelDropsProgressButKeepsErrorAndLifecycle() throws Exception {
-        AgentScopeAgentRuntimeHandler handler = new AgentScopeAgentRuntimeHandler("agent-scope", invocation ->
-                Stream.of(AgentScopeEvent.output("pong-"), AgentScopeEvent.failed("X", "boom"),
-                        AgentScopeEvent.completed("done")));
-
-        List<TrajectoryEvent> events = runWithTrajectory(handler, TrajectoryLevel.SUMMARY);
-
-        assertThat(events).extracting(TrajectoryEvent::kind)
-                .containsExactly(Kind.RUN_START, Kind.ERROR, Kind.RUN_END);
-    }
-
-    private static List<TrajectoryEvent> runWithTrajectory(AgentScopeAgentRuntimeHandler handler,
-            TrajectoryLevel level) throws InterruptedException {
+    private static List<TrajectoryEvent> runWithTrajectory(AgentScopeAgentRuntimeHandler handler) {
         AgentExecutionContext context = context();
-        TrajectorySettings settings = new TrajectorySettings(level,
+        TrajectorySettings settings = new TrajectorySettings(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
-        TrajectoryChannel channel = handler.openTrajectory(context, settings);
-        List<TrajectoryEvent> events = new CopyOnWriteArrayList<>();
-        Thread drainer = new Thread(() -> channel.drain().forEach(events::add));
-        drainer.start();
+        List<TrajectoryEvent> events = new ArrayList<>();
+        handler.openTrajectory(context, settings, (TrajectorySink) events::add);
         try (Stream<?> raw = handler.execute(context)) {
             raw.forEach(x -> { });
         }
-        drainer.join(3000);
-        return new ArrayList<>(events);
+        return events;
     }
 
     private static AgentExecutionContext context() {

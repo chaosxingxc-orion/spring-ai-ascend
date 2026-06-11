@@ -15,7 +15,7 @@ class TrajectoryMaskingTest {
     void redactsSensitiveMapKeysRecursively() {
         Object masked = TrajectoryMasking.mask(
                 Map.of("apiKey", "abc", "nested", Map.of("password", "p", "name", "ok")),
-                TrajectoryLevel.FULL, KEYS, 256);
+                KEYS, 256);
         assertThat(masked).isInstanceOf(Map.class);
         Map<?, ?> out = (Map<?, ?>) masked;
         assertThat(out.get("apiKey")).isEqualTo("***");
@@ -24,23 +24,23 @@ class TrajectoryMaskingTest {
     }
 
     @Test
-    void truncatesLongStringsOnlyAtSummary() {
+    void truncatesLongStringsAtTheConfiguredBound() {
         String longText = "x".repeat(300);
-        Object summary = TrajectoryMasking.mask(longText, TrajectoryLevel.SUMMARY, KEYS, 256);
-        assertThat((String) summary).startsWith("x".repeat(256)).contains("(300)");
+        Object truncated = TrajectoryMasking.mask(longText, KEYS, 256);
+        assertThat((String) truncated).startsWith("x".repeat(256)).contains("(300)");
 
-        Object full = TrajectoryMasking.mask(longText, TrajectoryLevel.FULL, KEYS, 256);
-        assertThat(full).isEqualTo(longText);
+        Object unbounded = TrajectoryMasking.mask(longText, KEYS, 0);
+        assertThat(unbounded).isEqualTo(longText);
     }
 
     @Test
     void walksListsAndPassesScalars() {
-        Object masked = TrajectoryMasking.mask(List.of("a", Map.of("token", "t")), TrajectoryLevel.FULL, KEYS, 256);
+        Object masked = TrajectoryMasking.mask(List.of("a", Map.of("token", "t")), KEYS, 256);
         assertThat(masked).isInstanceOf(List.class);
         List<?> out = (List<?>) masked;
         assertThat(out.get(0)).isEqualTo("a");
         assertThat(((Map<?, ?>) out.get(1)).get("token")).isEqualTo("***");
-        assertThat(TrajectoryMasking.mask(42, TrajectoryLevel.SUMMARY, KEYS, 256)).isEqualTo(42);
-        assertThat(TrajectoryMasking.mask(null, TrajectoryLevel.FULL, KEYS, 256)).isNull();
+        assertThat(TrajectoryMasking.mask(42, KEYS, 256)).isEqualTo(42);
+        assertThat(TrajectoryMasking.mask(null, KEYS, 256)).isNull();
     }
 }

@@ -1,7 +1,7 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
 import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
+import com.huawei.ascend.runtime.engine.spi.RemoteAgentCatalogPort;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +39,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
     // invocations and input-required continuations instead of rebuilt on every call.
     private final Map<String, ClientTransport> transportCache = new ConcurrentHashMap<>();
 
-    public A2aRemoteAgentOutboundAdapter(RemoteAgentCatalog catalog) {
+    public A2aRemoteAgentOutboundAdapter(RemoteAgentCatalogPort catalog) {
         this(remoteAgentId -> {
             String endpoint = catalog.endpoint(remoteAgentId);
             return endpoint == null || endpoint.isBlank() ? null : new JSONRPCTransport(endpoint);

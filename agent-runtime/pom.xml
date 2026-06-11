@@ -122,12 +122,6 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- Logback JSON encoder — used by the trajectory JSONL replay track. -->
-    <dependency>
-      <groupId>net.logstash.logback</groupId>
-      <artifactId>logstash-logback-encoder</artifactId>
-    </dependency>
-
     <!-- OpenTelemetry: optional trajectory span export (activated by app.trajectory.otel.enabled).
          Optional so the OTel classpath is required only when a deployment turns export on. -->
     <dependency>

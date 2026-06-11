@@ -9,8 +9,8 @@ import org.springframework.util.Assert;
 
 /**
  * Base for framework adapters that emit a standardized northbound trajectory. It owns
- * the cross-framework behavior — correlation/seq stamping, detail level, masking,
- * the {@code RUN_START → … → RUN_END} lifecycle, and capability-based graceful
+ * the cross-framework behavior — correlation/seq stamping, masking, the
+ * {@code RUN_START → … → RUN_END} lifecycle, and capability-based graceful
  * degradation — so each adapter only maps its native events to {@link TrajectoryDraft}s
  * inside {@link #doExecute}. Extending this is optional: the {@code execute} contract
  * is unchanged, and a handler that does not extend it simply emits no trajectory.
@@ -35,28 +35,22 @@ public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler
     }
 
     @Override
-    public final TrajectoryChannel openTrajectory(AgentExecutionContext context, TrajectorySettings settings) {
-        if (settings == null || settings.level() == TrajectoryLevel.OFF) {
-            return TrajectoryChannel.NOOP;
+    public final void openTrajectory(AgentExecutionContext context, TrajectorySettings settings,
+            TrajectorySink sink) {
+        if (settings == null || !settings.enabled() || sink == null) {
+            return;
         }
-        TrajectoryChannel channel = new QueueTrajectoryChannel();
-        TrajectoryEmitter emitter =
-                new StampingTrajectoryEmitter(channel, context.getScope(), settings, supportedKinds());
-        context.setTrajectoryRuntime(new TrajectoryRuntime(channel, emitter));
-        return channel;
+        context.setTrajectoryEmitter(
+                new StampingTrajectoryEmitter(sink, context.getScope(), settings, supportedKinds()));
     }
 
     @Override
     public final Stream<?> execute(AgentExecutionContext context) {
-        TrajectoryRuntime runtime = context.getTrajectoryRuntime();
-        TrajectoryEmitter emitter = runtime != null ? runtime.emitter() : TrajectoryEmitter.NOOP;
+        TrajectoryEmitter emitter = context.getTrajectoryEmitter();
         AtomicBoolean ended = new AtomicBoolean(false);
         Runnable end = () -> {
             if (ended.compareAndSet(false, true)) {
                 emitter.emit(TrajectoryDraft.runEnd());
-                if (runtime != null) {
-                    runtime.channel().close();
-                }
             }
         };
         emitter.emit(TrajectoryDraft.runStart());

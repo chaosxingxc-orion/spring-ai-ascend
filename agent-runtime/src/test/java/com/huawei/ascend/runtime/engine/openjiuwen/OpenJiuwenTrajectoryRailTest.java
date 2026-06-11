@@ -3,13 +3,11 @@ package com.huawei.ascend.runtime.engine.openjiuwen;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
-import com.huawei.ascend.runtime.engine.spi.QueueTrajectoryChannel;
 import com.huawei.ascend.runtime.engine.spi.StampingTrajectoryEmitter;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryDraft;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
-import com.huawei.ascend.runtime.engine.spi.TrajectoryLevel;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
@@ -90,11 +88,11 @@ class OpenJiuwenTrajectoryRailTest {
     /** End-to-end guard for the masking bypass: a secret-named tool-arg key is redacted northbound. */
     @Test
     void toolArgsAreMaskedWhenStampedThroughTheEmitter() {
-        QueueTrajectoryChannel channel = new QueueTrajectoryChannel();
+        List<TrajectoryEvent> events = new ArrayList<>();
         TrajectorySettings settings = new TrajectorySettings(
-                TrajectoryLevel.SUMMARY, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         TrajectoryEmitter stamping = new StampingTrajectoryEmitter(
-                channel, new RuntimeIdentity("t", "u", "s", "task", "a"), settings,
+                events::add, new RuntimeIdentity("t", "u", "s", "task", "a"), settings,
                 EnumSet.of(Kind.TOOL_CALL_START, Kind.TOOL_CALL_END));
         OpenJiuwenTrajectoryRail maskingRail = new OpenJiuwenTrajectoryRail(stamping);
 
@@ -102,9 +100,7 @@ class OpenJiuwenTrajectoryRailTest {
                 .inputs(ToolCallInputs.builder().toolName("search")
                         .toolArgs(Map.of("q", "hi", "apiKey", "secret")).build())
                 .build());
-        channel.close();
 
-        List<TrajectoryEvent> events = channel.drain().toList();
         assertThat(events).hasSize(1);
         Map<?, ?> args = (Map<?, ?>) events.get(0).args();
         assertThat(args.get("apiKey")).isEqualTo("***");

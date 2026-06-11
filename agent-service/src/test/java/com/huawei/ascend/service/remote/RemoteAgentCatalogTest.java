@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.service;
+package com.huawei.ascend.service.remote;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

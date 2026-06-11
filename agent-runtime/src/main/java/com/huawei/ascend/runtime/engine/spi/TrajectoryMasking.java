@@ -6,9 +6,9 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * Redacts sensitive map keys and (at SUMMARY) truncates long string leaves before a
- * trajectory payload leaves the process. Applied uniformly in the runtime so every
- * framework adapter gets identical redaction without implementing it themselves.
+ * Redacts sensitive map keys and truncates long string leaves before a trajectory
+ * payload leaves the process. Applied uniformly in the runtime so every framework
+ * adapter gets identical redaction without implementing it themselves.
  */
 public final class TrajectoryMasking {
 
@@ -20,7 +20,7 @@ public final class TrajectoryMasking {
     private TrajectoryMasking() {
     }
 
-    public static Object mask(Object value, TrajectoryLevel level, Pattern keyPattern, int truncateChars) {
+    public static Object mask(Object value, Pattern keyPattern, int truncateChars) {
         if (value == null) {
             return null;
         }
@@ -31,17 +31,17 @@ public final class TrajectoryMasking {
                 if (keyPattern != null && keyPattern.matcher(key).find()) {
                     out.put(key, REDACTED);
                 } else {
-                    out.put(key, mask(entry.getValue(), level, keyPattern, truncateChars));
+                    out.put(key, mask(entry.getValue(), keyPattern, truncateChars));
                 }
             }
             return out;
         }
         if (value instanceof List<?> list) {
-            return list.stream().map(v -> mask(v, level, keyPattern, truncateChars)).toList();
+            return list.stream().map(v -> mask(v, keyPattern, truncateChars)).toList();
         }
         if (value instanceof CharSequence text) {
             String s = text.toString();
-            if (level == TrajectoryLevel.SUMMARY && truncateChars > 0 && s.length() > truncateChars) {
+            if (truncateChars > 0 && s.length() > truncateChars) {
                 return s.substring(0, truncateChars) + "…(" + s.length() + ")";
             }
             return s;

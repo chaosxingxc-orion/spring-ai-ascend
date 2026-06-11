@@ -4,25 +4,19 @@ import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Configuration for northbound trajectory observability. {@code default-level} sets
- * the baseline detail (OFF/SUMMARY/FULL); a request may override it via the
- * {@code trajectory.level} A2A metadata key.
+ * Configuration for northbound trajectory observability. {@code enabled} is the only
+ * switch; a request may opt out via the {@code trajectory.level=off} A2A metadata key.
  */
 @ConfigurationProperties(prefix = "app.trajectory")
 public class TrajectoryProperties {
 
     private boolean enabled = true;
-    private String defaultLevel = "SUMMARY";
     private final Mask mask = new Mask();
     private final Otel otel = new Otel();
 
     public boolean isEnabled() { return enabled; }
 
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
-
-    public String getDefaultLevel() { return defaultLevel; }
-
-    public void setDefaultLevel(String defaultLevel) { this.defaultLevel = defaultLevel; }
 
     public Mask getMask() { return mask; }
 

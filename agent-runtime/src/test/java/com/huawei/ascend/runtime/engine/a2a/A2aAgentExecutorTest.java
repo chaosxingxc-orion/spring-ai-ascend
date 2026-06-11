@@ -11,8 +11,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
@@ -21,15 +19,13 @@ import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryDraft;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
-import com.huawei.ascend.runtime.engine.spi.TrajectoryLevel;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
+import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
@@ -45,17 +41,9 @@ import org.a2aproject.sdk.spec.TaskStatus;
 import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
-/**
- * Isolated because the trajectory tests attach a ListAppender to the JVM-global logback
- * logger {@code com.huawei.ascend.runtime.trajectory}: a concurrently booting Spring
- * context (RuntimeAppTest et al.) re-initializes the logging system, and that
- * LoggerContext reset detaches programmatically attached appenders mid-test.
- */
-@Isolated
 class A2aAgentExecutorTest {
 
     /**
@@ -353,96 +341,80 @@ class A2aAgentExecutorTest {
     }
 
     /**
-     * With trajectory enabled, the executor opens a per-invocation channel, drains it on the
-     * supplied executor, and fans lifecycle events to the dedicated JSONL trajectory logger —
-     * each carrying the invocation's contextId/taskId propagated to the drain thread via MDC.
+     * With trajectory enabled, the executor wires the factory sinks and the handler feeds them
+     * synchronously — every lifecycle event arrives with full correlation before execute returns.
      */
     @Test
-    void trajectoryEnabled_drainsLifecycleEventsToTrajectoryLoggerWithMdc() throws Exception {
-        ch.qos.logback.classic.Logger trajLogger = (ch.qos.logback.classic.Logger)
-                org.slf4j.LoggerFactory.getLogger("com.huawei.ascend.runtime.trajectory");
-        ListAppender<ILoggingEvent> appender = new ListAppender<>();
-        appender.start();
-        trajLogger.addAppender(appender);
-        ExecutorService exec = Executors.newSingleThreadExecutor();
-        try {
-            TrajectorySettings settings = new TrajectorySettings(TrajectoryLevel.SUMMARY,
-                    Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
-            AgentEmitter emitter = newEmitter();
+    void trajectoryEnabled_feedsFactorySinksSynchronouslyWithCorrelation() {
+        TrajectorySettings settings = new TrajectorySettings(true,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        List<TrajectoryEvent> events = new ArrayList<>();
+        TrajectorySinkFactory factory = () -> events::add;
+        AgentEmitter emitter = newEmitter();
 
-            new A2aAgentExecutor(new ToolEmittingHandler(), exec, settings).execute(requestContext(), emitter);
+        new A2aAgentExecutor(new ToolEmittingHandler(), settings, List.of(factory))
+                .execute(requestContext(), emitter);
 
-            exec.shutdown();
-            assertThat(exec.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
-
-            assertThat(appender.list).isNotEmpty();
-            assertThat(appender.list).allSatisfy(e -> assertThat(e.getMDCPropertyMap())
-                    .containsEntry("taskId", "task-1").containsEntry("contextId", "ctx-1"));
-            List<String> kinds = appender.list.stream()
-                    .map(ILoggingEvent::getArgumentArray)
-                    .filter(java.util.Objects::nonNull)
-                    .flatMap(java.util.Arrays::stream)
-                    .map(String::valueOf)
-                    .filter(s -> s.startsWith("kind="))
-                    .map(s -> s.substring("kind=".length()))
-                    .toList();
-            assertThat(kinds).contains("RUN_START", "TOOL_CALL_START", "RUN_END");
-        } finally {
-            trajLogger.detachAppender(appender);
-            exec.shutdownNow();
-        }
+        assertThat(events).isNotEmpty();
+        assertThat(events).allSatisfy(e -> {
+            assertThat(e.taskId()).isEqualTo("task-1");
+            assertThat(e.contextId()).isEqualTo("ctx-1");
+        });
+        assertThat(events).extracting(e -> String.valueOf(e.kind()))
+                .contains("RUN_START", "TOOL_CALL_START", "RUN_END");
     }
 
     /** When the request opts in, the trajectory is delivered to the caller as a second artifact, before terminal. */
     @Test
-    void trajectoryNorthbound_deliversTrajectoryArtifactBeforeTerminal() throws Exception {
-        ExecutorService exec = Executors.newSingleThreadExecutor();
-        try {
-            TrajectorySettings settings = new TrajectorySettings(TrajectoryLevel.SUMMARY,
-                    Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
-            AgentEmitter emitter = newEmitter();
-            RequestContext ctx = requestContext();
-            when(ctx.getMetadata()).thenReturn(Map.of("trajectory.northbound", "true"));
+    void trajectoryNorthbound_deliversTrajectoryArtifactBeforeTerminal() {
+        TrajectorySettings settings = new TrajectorySettings(true,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        AgentEmitter emitter = newEmitter();
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of("trajectory.northbound", "true"));
 
-            new A2aAgentExecutor(new ToolEmittingHandler(), exec, settings).execute(ctx, emitter);
+        new A2aAgentExecutor(new ToolEmittingHandler(), settings, List.of()).execute(ctx, emitter);
 
-            exec.shutdown();
-            assertThat(exec.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        ArgumentCaptor<List> partsCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
+        verify(emitter).addArtifact(partsCaptor.capture(), idCaptor.capture(), anyString(), any(), any(), any());
+        assertThat(idCaptor.getValue()).isEqualTo("task-1-trajectory");
+        assertThat(partsCaptor.getValue()).isNotEmpty().allMatch(p -> p instanceof DataPart);
 
-            ArgumentCaptor<List> partsCaptor = ArgumentCaptor.forClass(List.class);
-            ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
-            verify(emitter).addArtifact(partsCaptor.capture(), idCaptor.capture(), anyString(), any(), any(), any());
-            assertThat(idCaptor.getValue()).isEqualTo("task-1-trajectory");
-            assertThat(partsCaptor.getValue()).isNotEmpty().allMatch(p -> p instanceof DataPart);
-
-            // The trajectory artifact lands before the answer's terminal completion.
-            InOrder order = inOrder(emitter);
-            order.verify(emitter).addArtifact(anyList(), anyString(), anyString(), any(), any(), any());
-            order.verify(emitter).complete(any());
-        } finally {
-            exec.shutdownNow();
-        }
+        // The trajectory artifact lands before the answer's terminal completion.
+        InOrder order = inOrder(emitter);
+        order.verify(emitter).addArtifact(anyList(), anyString(), anyString(), any(), any(), any());
+        order.verify(emitter).complete(any());
     }
 
-    /** Without the opt-in, the caller gets no trajectory artifact — only the answer terminal. */
+    /** Without the opt-in (and with no factory sinks), the caller gets no trajectory artifact. */
     @Test
-    void trajectory_noNorthboundByDefault() throws Exception {
-        ExecutorService exec = Executors.newSingleThreadExecutor();
-        try {
-            TrajectorySettings settings = new TrajectorySettings(TrajectoryLevel.SUMMARY,
-                    Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
-            AgentEmitter emitter = newEmitter();
+    void trajectory_noNorthboundByDefault() {
+        TrajectorySettings settings = new TrajectorySettings(true,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        AgentEmitter emitter = newEmitter();
 
-            new A2aAgentExecutor(new ToolEmittingHandler(), exec, settings).execute(requestContext(), emitter);
+        new A2aAgentExecutor(new ToolEmittingHandler(), settings, List.of()).execute(requestContext(), emitter);
 
-            exec.shutdown();
-            assertThat(exec.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        verify(emitter, org.mockito.Mockito.never()).addArtifact(any(), anyString(), anyString(), any(), any(), any());
+        verify(emitter).complete(any());
+    }
 
-            verify(emitter, org.mockito.Mockito.never()).addArtifact(any(), anyString(), anyString(), any(), any(), any());
-            verify(emitter).complete(any());
-        } finally {
-            exec.shutdownNow();
-        }
+    /** A request can opt a single call out via the legacy trajectory.level=off metadata key. */
+    @Test
+    void trajectoryLevelOffMetadataOptsTheRequestOut() {
+        TrajectorySettings settings = new TrajectorySettings(true,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        List<TrajectoryEvent> events = new ArrayList<>();
+        TrajectorySinkFactory factory = () -> events::add;
+        AgentEmitter emitter = newEmitter();
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of("trajectory.level", "off"));
+
+        new A2aAgentExecutor(new ToolEmittingHandler(), settings, List.of(factory)).execute(ctx, emitter);
+
+        assertThat(events).isEmpty();
+        verify(emitter).complete(any());
     }
 
     @Test

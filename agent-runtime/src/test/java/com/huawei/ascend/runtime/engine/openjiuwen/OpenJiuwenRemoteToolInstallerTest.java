@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
+import com.huawei.ascend.runtime.engine.spi.RemoteAgentCatalogPort;
 import com.openjiuwen.core.foundation.llm.schema.ToolCall;
 import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.session.Session;
@@ -30,7 +30,7 @@ class OpenJiuwenRemoteToolInstallerTest {
     @Test
     void installsRemoteToolCardAndInterruptRailOnAgentInstance() {
         RecordingAgent agent = new RecordingAgent();
-        RemoteAgentCatalog.RemoteAgentToolSpec spec = toolSpec();
+        RemoteAgentCatalogPort.RemoteAgentToolSpec spec = toolSpec();
         OpenJiuwenRemoteToolInstaller installer = new OpenJiuwenRemoteToolInstaller(() -> List.of(spec));
 
         installer.install(agent, context());
@@ -46,7 +46,7 @@ class OpenJiuwenRemoteToolInstallerTest {
 
     @Test
     void railConvertsRemoteToolCallToInterruptContext() {
-        RemoteAgentCatalog.RemoteAgentToolSpec spec = toolSpec();
+        RemoteAgentCatalogPort.RemoteAgentToolSpec spec = toolSpec();
         AgentExecutionContext context = context();
         OpenJiuwenRemoteAgentInterruptRail rail =
                 new OpenJiuwenRemoteAgentInterruptRail(context, List.of(spec));
@@ -82,7 +82,7 @@ class OpenJiuwenRemoteToolInstallerTest {
 
     @Test
     void railTurnsRemoteResumeInputIntoSyntheticToolResult() {
-        RemoteAgentCatalog.RemoteAgentToolSpec spec = toolSpec();
+        RemoteAgentCatalogPort.RemoteAgentToolSpec spec = toolSpec();
         OpenJiuwenRemoteAgentInterruptRail rail =
                 new OpenJiuwenRemoteAgentInterruptRail(context(), List.of(spec));
         ToolCall toolCall = ToolCall.builder()
@@ -114,8 +114,8 @@ class OpenJiuwenRemoteToolInstallerTest {
         assertThat(inputs.getToolMsg().getContent()).isEqualTo("{\"ok\":true}");
     }
 
-    private static RemoteAgentCatalog.RemoteAgentToolSpec toolSpec() {
-        return new RemoteAgentCatalog.RemoteAgentToolSpec(
+    private static RemoteAgentCatalogPort.RemoteAgentToolSpec toolSpec() {
+        return new RemoteAgentCatalogPort.RemoteAgentToolSpec(
                 "remote-planner",
                 "a2a_remote_remote_planner",
                 "Remote Planner\nPlans trips",

@@ -1,7 +1,7 @@
 package com.huawei.ascend.runtime.engine;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
-import com.huawei.ascend.runtime.engine.spi.TrajectoryRuntime;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,8 +27,8 @@ public final class AgentExecutionContext {
     private final Map<String, Object> variables;
     private final String agentStateKey;
     private volatile Map<String, Object> agentState;
-    /** Per-invocation trajectory wiring; null until a TrajectorySource handler opens it. */
-    private volatile TrajectoryRuntime trajectoryRuntime;
+    /** Per-invocation trajectory emitter; NOOP until a TrajectorySource handler opens it. */
+    private volatile TrajectoryEmitter trajectoryEmitter = TrajectoryEmitter.NOOP;
 
     public AgentExecutionContext(RuntimeIdentity scope, String inputType,
                                   List<Message> messages, Map<String, Object> variables) {
@@ -61,10 +61,10 @@ public final class AgentExecutionContext {
         return next;
     }
 
-    public TrajectoryRuntime getTrajectoryRuntime() { return trajectoryRuntime; }
+    public TrajectoryEmitter getTrajectoryEmitter() { return trajectoryEmitter; }
 
-    public void setTrajectoryRuntime(TrajectoryRuntime trajectoryRuntime) {
-        this.trajectoryRuntime = trajectoryRuntime;
+    public void setTrajectoryEmitter(TrajectoryEmitter trajectoryEmitter) {
+        this.trajectoryEmitter = trajectoryEmitter != null ? trajectoryEmitter : TrajectoryEmitter.NOOP;
     }
 
     private static String resolveAgentStateKey(RuntimeIdentity scope, Map<String, Object> variables) {

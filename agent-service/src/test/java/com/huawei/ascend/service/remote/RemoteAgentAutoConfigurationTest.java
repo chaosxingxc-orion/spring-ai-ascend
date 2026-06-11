@@ -1,14 +1,15 @@
-package com.huawei.ascend.runtime.boot;
+package com.huawei.ascend.service.remote;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
 import com.huawei.ascend.runtime.engine.a2a.A2aRemoteAgentOutboundAdapter;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenRemoteToolInstaller;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
 import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.RemoteAgentCatalogPort;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -25,10 +26,12 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-class RuntimeRemoteAgentAutoConfigurationTest {
+/** The service plane owns remote-agent discovery; these tests pin its wiring and refresh behavior. */
+class RemoteAgentAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(RuntimeAutoConfiguration.class));
+            .withConfiguration(AutoConfigurations.of(
+                    RuntimeAutoConfiguration.class, RemoteAgentAutoConfiguration.class));
 
     @Test
     void remoteAgentUrlPropertyWiresCatalogOutboundServiceAndExecutorSupport() {
@@ -36,7 +39,7 @@ class RuntimeRemoteAgentAutoConfigurationTest {
                 .withUserConfiguration(SimpleHandlerConfiguration.class)
                 .withPropertyValues("agent-runtime.remote-agents[0].url=http://localhost:18081")
                 .run(context -> {
-                    assertThat(context).hasSingleBean(RemoteAgentCatalog.class);
+                    assertThat(context).hasSingleBean(RemoteAgentCatalogPort.class);
                     assertThat(context).hasSingleBean(A2aRemoteAgentOutboundAdapter.class);
                     assertThat(context).hasSingleBean(RemoteAgentInvocationService.class);
                     assertThat(context).hasSingleBean(OpenJiuwenRemoteToolInstaller.class);
@@ -51,8 +54,7 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         RecordingCatalog catalog = new RecordingCatalog();
         RecordingExecutorService executor = new RecordingExecutorService();
 
-        RuntimeAutoConfiguration.RemoteAgentCatalogRefresher refresher =
-                new RuntimeAutoConfiguration.RemoteAgentCatalogRefresher(catalog, executor);
+        RemoteAgentCatalogRefresher refresher = new RemoteAgentCatalogRefresher(catalog, executor);
 
         refresher.start();
 
@@ -67,14 +69,13 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         HttpServer server = cardServer();
         server.start();
         try {
-            RuntimeAutoConfiguration.RemoteAgentConfiguration configuration =
-                    new RuntimeAutoConfiguration.RemoteAgentConfiguration();
+            RemoteAgentAutoConfiguration configuration = new RemoteAgentAutoConfiguration();
             RemoteAgentProperties properties =
                     new RemoteAgentProperties(List.of(
                             new RemoteAgentProperties.RemoteAgent(
                                     "http://localhost:" + server.getAddress().getPort())));
 
-            RemoteAgentCatalog catalog = configuration.remoteAgentCatalog(properties);
+            RemoteAgentCatalogPort catalog = configuration.remoteAgentCatalog(properties);
 
             assertThat(catalog.availableToolSpecs()).isEmpty();
             assertThat(catalog.pendingUrls()).containsExactly(
@@ -122,17 +123,15 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         HttpServer server = cardServer();
         server.start();
         try {
-            RuntimeAutoConfiguration.RemoteAgentConfiguration configuration =
-                    new RuntimeAutoConfiguration.RemoteAgentConfiguration();
+            RemoteAgentAutoConfiguration configuration = new RemoteAgentAutoConfiguration();
             RemoteAgentProperties properties =
                     new RemoteAgentProperties(List.of(
                             new RemoteAgentProperties.RemoteAgent(
                                     "http://localhost:" + server.getAddress().getPort())));
-            RemoteAgentCatalog catalog = configuration.remoteAgentCatalog(properties);
+            RemoteAgentCatalogPort catalog = configuration.remoteAgentCatalog(properties);
 
             ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
-            RuntimeAutoConfiguration.RemoteAgentCatalogRefresher refresher =
-                    new RuntimeAutoConfiguration.RemoteAgentCatalogRefresher(catalog, executor);
+            RemoteAgentCatalogRefresher refresher = new RemoteAgentCatalogRefresher(catalog, executor);
             refresher.refreshOnce();
             executor.shutdownNow();
 
@@ -144,13 +143,12 @@ class RuntimeRemoteAgentAutoConfigurationTest {
 
     @Test
     void remoteAgentPropertiesExposeConfiguredUrls() {
-        RuntimeAutoConfiguration.RemoteAgentConfiguration configuration =
-                new RuntimeAutoConfiguration.RemoteAgentConfiguration();
+        RemoteAgentAutoConfiguration configuration = new RemoteAgentAutoConfiguration();
         RemoteAgentProperties properties =
                 new RemoteAgentProperties(List.of(
                         new RemoteAgentProperties.RemoteAgent("http://localhost:18081")));
 
-        RemoteAgentCatalog catalog = configuration.remoteAgentCatalog(properties);
+        RemoteAgentCatalogPort catalog = configuration.remoteAgentCatalog(properties);
 
         assertThat(catalog.availableToolSpecs()).isEmpty();
         assertThat(catalog.pendingUrls()).containsExactly("http://localhost:18081");

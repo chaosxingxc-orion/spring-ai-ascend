@@ -1,21 +1,14 @@
 package com.huawei.ascend.runtime.boot;
 
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
-import com.huawei.ascend.runtime.engine.a2a.A2aRemoteAgentOutboundAdapter;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenRemoteToolInstaller;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.spi.TrajectoryLevel;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
@@ -40,9 +33,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -129,7 +120,7 @@ public class RuntimeAutoConfiguration {
     @Bean @ConditionalOnMissingBean
     public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers,
             ObjectProvider<A2aAgentExecutor.RemoteSupport> remoteSupport,
-            RuntimeReadiness readiness, A2aServerExecutor exec, TrajectoryProperties trajectoryProperties,
+            RuntimeReadiness readiness, TrajectoryProperties trajectoryProperties,
             ObjectProvider<TrajectorySinkFactory> sinkFactories) {
         var registered = handlers.orderedStream().toList();
         A2aAgentExecutor.RemoteSupport support = remoteSupport.getIfAvailable();
@@ -144,7 +135,7 @@ public class RuntimeAutoConfiguration {
                     registered.get(0).agentId(),
                     registered.stream().skip(1).map(AgentRuntimeHandler::agentId).toList());
         }
-        return new A2aAgentExecutor(registered.get(0), support, readiness::isReady, exec.executor(),
+        return new A2aAgentExecutor(registered.get(0), support, readiness::isReady,
                 toTrajectorySettings(trajectoryProperties), sinkFactories.orderedStream().toList());
     }
 
@@ -152,11 +143,7 @@ public class RuntimeAutoConfiguration {
         if (!properties.isEnabled()) {
             return TrajectorySettings.off();
         }
-        TrajectoryLevel level = TrajectoryLevel.from(properties.getDefaultLevel(), TrajectoryLevel.SUMMARY);
-        if (level == TrajectoryLevel.OFF) {
-            return TrajectorySettings.off();
-        }
-        return new TrajectorySettings(level, compileMaskPattern(properties.getMask().getKeyPattern()),
+        return new TrajectorySettings(true, compileMaskPattern(properties.getMask().getKeyPattern()),
                 properties.getMask().getTruncateChars());
     }
 
@@ -197,53 +184,6 @@ public class RuntimeAutoConfiguration {
     }
 
     /**
-     * Remote A2A wiring, activated only when at least one remote agent URL is
-     * configured. Grouping the remote beans under one guarded nested configuration
-     * keeps the {@code @ConditionalOnProperty} guard in a single place instead of
-     * repeating it on every remote bean.
-     */
-    @Configuration(proxyBeanMethods = false)
-    @ConditionalOnProperty(prefix = "agent-runtime.remote-agents.0", name = "url")
-    @EnableConfigurationProperties(RemoteAgentProperties.class)
-    public static class RemoteAgentConfiguration {
-
-        @Bean @ConditionalOnMissingBean
-        public RemoteAgentCatalog remoteAgentCatalog(RemoteAgentProperties properties) {
-            return new RemoteAgentCatalog(properties.urls());
-        }
-
-        @Bean @ConditionalOnMissingBean
-        public A2aRemoteAgentOutboundAdapter a2aRemoteAgentOutboundAdapter(RemoteAgentCatalog catalog) {
-            return new A2aRemoteAgentOutboundAdapter(catalog);
-        }
-
-        @Bean @ConditionalOnMissingBean
-        public RemoteAgentInvocationService remoteAgentInvocationService(A2aRemoteAgentOutboundAdapter outboundAdapter) {
-            return new RemoteAgentInvocationService(outboundAdapter);
-        }
-
-        @Bean @ConditionalOnMissingBean
-        public A2aAgentExecutor.RemoteSupport a2aRemoteSupport(RemoteAgentInvocationService invocationService) {
-            return new A2aAgentExecutor.RemoteSupport(invocationService);
-        }
-
-        @Bean @ConditionalOnMissingBean
-        public OpenJiuwenRemoteToolInstaller openJiuwenRemoteToolInstaller(RemoteAgentCatalog catalog,
-                ObjectProvider<OpenJiuwenAgentRuntimeHandler> handlers) {
-            OpenJiuwenRemoteToolInstaller installer =
-                    new OpenJiuwenRemoteToolInstaller(catalog::availableToolSpecs);
-            handlers.orderedStream().forEach(handler -> handler.setRuntimeToolInstaller(installer));
-            return installer;
-        }
-
-        @Bean @ConditionalOnMissingBean
-        public RemoteAgentCatalogRefresher remoteAgentCatalogRefresher(RemoteAgentCatalog catalog,
-                A2aServerExecutor executor) {
-            return new RemoteAgentCatalogRefresher(catalog, executor.executor());
-        }
-    }
-
-    /**
      * Holder for the pool that runs A2A agent executions. Deliberately NOT exposed
      * as a {@code java.util.concurrent.Executor} bean: Spring Boot's
      * applicationTaskExecutor backs off when any Executor bean exists, so a broad
@@ -275,50 +215,6 @@ public class RuntimeAutoConfiguration {
                 executor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
-        }
-    }
-
-    public static final class RemoteAgentCatalogRefresher implements SmartLifecycle {
-        private final RemoteAgentCatalog catalog;
-        private final ExecutorService executor;
-        private final AtomicBoolean running = new AtomicBoolean();
-
-        RemoteAgentCatalogRefresher(RemoteAgentCatalog catalog, ExecutorService executor) {
-            this.catalog = catalog;
-            this.executor = executor;
-        }
-
-        @Override
-        public void start() {
-            if (running.compareAndSet(false, true)) {
-                executor.execute(this::run);
-            }
-        }
-
-        void refreshOnce() {
-            catalog.refreshPending();
-        }
-
-        private void run() {
-            while (running.get()) {
-                refreshOnce();
-                try {
-                    Thread.sleep(5_000L);
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    running.set(false);
-                }
-            }
-        }
-
-        @Override
-        public void stop() {
-            running.set(false);
-        }
-
-        @Override
-        public boolean isRunning() {
-            return running.get();
         }
     }
 }

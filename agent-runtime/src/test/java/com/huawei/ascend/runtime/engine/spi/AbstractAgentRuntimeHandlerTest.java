@@ -10,11 +10,9 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 
 class AbstractAgentRuntimeHandlerTest {
 
@@ -38,7 +36,7 @@ class AbstractAgentRuntimeHandlerTest {
         }
     }
 
-    /** Only supports the mandatory core; a model call must be dropped even at FULL. */
+    /** Only supports the mandatory core; a model call must be dropped. */
     private static final class CoreOnlyHandler extends AbstractAgentRuntimeHandler {
         CoreOnlyHandler() { super("agent"); }
 
@@ -55,29 +53,31 @@ class AbstractAgentRuntimeHandlerTest {
         }
     }
 
-    private static List<TrajectoryEvent> run(AbstractAgentRuntimeHandler handler, TrajectoryLevel level)
-            throws InterruptedException {
+    /** Collects accepted events synchronously on the emitting thread. */
+    private static final class CapturingSink implements TrajectorySink {
+        final List<TrajectoryEvent> events = new ArrayList<>();
+
+        @Override public void accept(TrajectoryEvent event) { events.add(event); }
+    }
+
+    private static List<TrajectoryEvent> run(AbstractAgentRuntimeHandler handler, boolean enabled) {
         AgentExecutionContext context = new AgentExecutionContext(
                 new RuntimeIdentity("tenant", "user", "sess", "task1", "agent"),
                 "USER_MESSAGE", List.of(), Map.of());
-        TrajectorySettings settings = level == TrajectoryLevel.OFF
-                ? TrajectorySettings.off()
-                : new TrajectorySettings(level, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
-        TrajectoryChannel channel = handler.openTrajectory(context, settings);
-        List<TrajectoryEvent> events = new CopyOnWriteArrayList<>();
-        Thread drainer = new Thread(() -> channel.drain().forEach(events::add));
-        drainer.start();
+        TrajectorySettings settings = enabled
+                ? new TrajectorySettings(true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256)
+                : TrajectorySettings.off();
+        CapturingSink sink = new CapturingSink();
+        handler.openTrajectory(context, settings, sink);
         try (Stream<?> raw = handler.execute(context)) {
             raw.forEach(x -> { });
         }
-        drainer.join(3000);
-        return new ArrayList<>(events);
+        return sink.events;
     }
 
     @Test
-    @Timeout(10)
-    void fullLevelEmitsLifecycleWithMonotonicSeqAndCorrelation() throws Exception {
-        List<TrajectoryEvent> events = run(new FullHandler(), TrajectoryLevel.FULL);
+    void enabledEmitsLifecycleWithMonotonicSeqAndCorrelation() {
+        List<TrajectoryEvent> events = run(new FullHandler(), true);
         assertThat(events).extracting(TrajectoryEvent::kind).containsExactly(
                 Kind.RUN_START, Kind.TOOL_CALL_START, Kind.MODEL_CALL_START, Kind.RUN_END);
         assertThat(events).extracting(TrajectoryEvent::seq).containsExactly(0L, 1L, 2L, 3L);
@@ -89,9 +89,8 @@ class AbstractAgentRuntimeHandlerTest {
     }
 
     @Test
-    @Timeout(10)
-    void fullLevelMasksSensitiveArgs() throws Exception {
-        List<TrajectoryEvent> events = run(new FullHandler(), TrajectoryLevel.FULL);
+    void enabledMasksSensitiveArgs() {
+        List<TrajectoryEvent> events = run(new FullHandler(), true);
         TrajectoryEvent toolStart = events.stream()
                 .filter(e -> e.kind() == Kind.TOOL_CALL_START).findFirst().orElseThrow();
         assertThat(toolStart.args()).isInstanceOf(Map.class);
@@ -101,23 +100,13 @@ class AbstractAgentRuntimeHandlerTest {
     }
 
     @Test
-    @Timeout(10)
-    void summaryLevelDropsOptionalTierModelCall() throws Exception {
-        List<TrajectoryEvent> events = run(new FullHandler(), TrajectoryLevel.SUMMARY);
-        assertThat(events).extracting(TrajectoryEvent::kind)
-                .containsExactly(Kind.RUN_START, Kind.TOOL_CALL_START, Kind.RUN_END);
+    void disabledEmitsNothing() {
+        assertThat(run(new FullHandler(), false)).isEmpty();
     }
 
     @Test
-    @Timeout(10)
-    void offLevelEmitsNothing() throws Exception {
-        assertThat(run(new FullHandler(), TrajectoryLevel.OFF)).isEmpty();
-    }
-
-    @Test
-    @Timeout(10)
-    void unsupportedKindIsDroppedEvenAtFull() throws Exception {
-        List<TrajectoryEvent> events = run(new CoreOnlyHandler(), TrajectoryLevel.FULL);
+    void unsupportedKindIsDropped() {
+        List<TrajectoryEvent> events = run(new CoreOnlyHandler(), true);
         assertThat(events).extracting(TrajectoryEvent::kind)
                 .containsExactly(Kind.RUN_START, Kind.TOOL_CALL_START, Kind.RUN_END);
     }

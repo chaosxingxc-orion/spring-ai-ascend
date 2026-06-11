@@ -8,41 +8,41 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Turns adapter-supplied {@link TrajectoryDraft}s into fully-stamped
- * {@link TrajectoryEvent}s: assigns a monotonic {@code seq}, the {@code contextId}/
+ * {@link TrajectoryEvent}s — assigns a monotonic {@code seq}, the {@code contextId}/
  * {@code taskId} correlation, the {@code traceId}/{@code spanId}/{@code parentSpanId}
  * span tree, wall-clock {@code tsEpochMillis}/{@code durationMs}, and the schema
- * version; drops kinds the handler does not support or that the detail level excludes;
- * and masks payloads. One instance per invocation — its mutable {@code seq} and span
- * stack are never shared across calls.
+ * version; drops kinds the handler does not support; masks payloads — and hands each
+ * event synchronously to the sink. One instance per invocation.
+ *
+ * <p>{@code emit} is synchronized: emission normally happens on the execute thread,
+ * but a framework may fire callbacks from its own worker (openJiuwen's streaming mode
+ * runs rails on a spawned thread), and the seq counter and span stack must observe a
+ * single total order either way.
  *
  * <p>Span ids are derived from a per-invocation stack so adapters keep emitting only
  * {@code _START}/{@code _END}/point drafts: a {@code _START} pushes a child of the
  * current open span, the matching {@code _END} reuses that span's id and reports its
  * duration, and a point event hangs off the nearest open span. The stack is maintained
- * for <i>every</i> draft, even a level-filtered one, so dropping an optional-tier span
- * never desyncs the parent chain of the events that publish.
+ * for <i>every</i> draft, even a capability-filtered one, so dropping an unsupported
+ * span never desyncs the parent chain of the events that publish.
  */
 public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
 
-    private static final Set<Kind> OPTIONAL_TIER =
-            Set.of(Kind.MODEL_CALL_START, Kind.MODEL_CALL_END, Kind.REASONING, Kind.PROGRESS);
-
-    private final TrajectoryChannel channel;
+    private final TrajectorySink sink;
     private final String tenantId;
     private final String contextId;
     private final String taskId;
     private final TrajectorySettings settings;
     private final Set<Kind> supportedKinds;
-    private final AtomicLong seq = new AtomicLong(0L);
+    private long seq;
     private final Deque<SpanFrame> spanStack = new ArrayDeque<>();
 
-    public StampingTrajectoryEmitter(TrajectoryChannel channel, RuntimeIdentity scope,
+    public StampingTrajectoryEmitter(TrajectorySink sink, RuntimeIdentity scope,
             TrajectorySettings settings, Set<Kind> supportedKinds) {
-        this.channel = channel;
+        this.sink = sink;
         this.tenantId = scope != null ? scope.tenantId() : null;
         this.contextId = scope != null ? scope.sessionId() : null;
         this.taskId = scope != null ? scope.taskId() : null;
@@ -51,28 +51,28 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
     }
 
     @Override
-    public void emit(TrajectoryDraft draft) {
+    public synchronized void emit(TrajectoryDraft draft) {
         if (draft == null) {
             return;
         }
         Kind kind = draft.kind();
-        boolean publish = allows(kind);
+        boolean publish = kind != null && supportedKinds.contains(kind);
         long now = System.currentTimeMillis();
         // Maintain the span stack for every draft, even a filtered one, so a dropped
-        // optional-tier span never desyncs the parent chain of what does publish.
+        // unsupported span never desyncs the parent chain of what does publish.
         SpanInfo span = computeSpan(kind, publish, now);
         if (!publish) {
             return;
         }
-        Object args = TrajectoryMasking.mask(draft.args(), settings.level(),
+        Object args = TrajectoryMasking.mask(draft.args(),
                 settings.maskKeyPattern(), settings.truncateChars());
-        Object result = TrajectoryMasking.mask(draft.result(), settings.level(),
+        Object result = TrajectoryMasking.mask(draft.result(),
                 settings.maskKeyPattern(), settings.truncateChars());
-        Object reasoning = TrajectoryMasking.mask(draft.reasoning(), settings.level(),
+        Object reasoning = TrajectoryMasking.mask(draft.reasoning(),
                 settings.maskKeyPattern(), settings.truncateChars());
         ErrorInfo error = maskError(draft.error());
-        channel.publish(new TrajectoryEvent(
-                seq.getAndIncrement(),
+        sink.accept(new TrajectoryEvent(
+                seq++,
                 kind,
                 now,
                 span.durationMs(),
@@ -103,6 +103,9 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
      * later event resolves its parent. Never throws — trajectory must not break the run.
      */
     private SpanInfo computeSpan(Kind kind, boolean published, long now) {
+        if (kind == null) {
+            return new SpanInfo(newSpanId(), currentPublishedSpanId(), null);
+        }
         return switch (kind) {
             case RUN_START, MODEL_CALL_START, TOOL_CALL_START -> {
                 String parent = currentPublishedSpanId();
@@ -121,7 +124,7 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
         };
     }
 
-    /** Nearest open span that was itself emitted — skips level-filtered ancestors. */
+    /** Nearest open span that was itself emitted — skips capability-filtered ancestors. */
     private String currentPublishedSpanId() {
         for (SpanFrame frame : spanStack) {
             if (frame.published()) {
@@ -173,16 +176,8 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
         if (error == null || error.message() == null) {
             return error;
         }
-        Object masked = TrajectoryMasking.mask(error.message(), settings.level(),
+        Object masked = TrajectoryMasking.mask(error.message(),
                 settings.maskKeyPattern(), settings.truncateChars());
         return new ErrorInfo(error.code(), masked != null ? String.valueOf(masked) : null);
-    }
-
-    private boolean allows(Kind kind) {
-        if (kind == null || !supportedKinds.contains(kind)) {
-            return false;
-        }
-        // Optional tier (model calls, reasoning) only at FULL detail.
-        return settings.level() == TrajectoryLevel.FULL || !OPTIONAL_TIER.contains(kind);
     }
 }

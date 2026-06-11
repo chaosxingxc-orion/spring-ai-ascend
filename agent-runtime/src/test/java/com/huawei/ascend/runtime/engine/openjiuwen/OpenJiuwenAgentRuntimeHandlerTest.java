@@ -6,12 +6,11 @@ import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
-import com.huawei.ascend.runtime.engine.spi.TrajectoryChannel;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
-import com.huawei.ascend.runtime.engine.spi.TrajectoryLevel;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
+import com.huawei.ascend.runtime.engine.spi.TrajectorySink;
 import com.openjiuwen.core.context.ContextStats;
 import com.openjiuwen.core.context.ContextWindow;
 import com.openjiuwen.core.context.ModelContext;
@@ -228,30 +227,18 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     }
 
     @Test
-    @Timeout(10)
-    void fullLevelEmitsOpenJiuwenModelCallTrajectory() throws Exception {
-        List<TrajectoryEvent> events = runWithTrajectory(new ModelCallingHandler(), TrajectoryLevel.FULL);
+    void enabledEmitsOpenJiuwenModelCallTrajectory() {
+        List<TrajectoryEvent> events = runWithTrajectory(new ModelCallingHandler());
 
         assertThat(events).extracting(TrajectoryEvent::kind)
                 .contains(Kind.MODEL_CALL_START, Kind.MODEL_CALL_END);
     }
 
     @Test
-    @Timeout(10)
-    void summaryLevelDropsOpenJiuwenModelCalls() throws Exception {
-        List<TrajectoryEvent> events = runWithTrajectory(new ModelCallingHandler(), TrajectoryLevel.SUMMARY);
-
-        assertThat(events).extracting(TrajectoryEvent::kind)
-                .contains(Kind.RUN_START, Kind.RUN_END)
-                .doesNotContain(Kind.MODEL_CALL_START, Kind.MODEL_CALL_END);
-    }
-
-    @Test
-    @Timeout(10)
-    void runLevelFailureEmitsErrorTrajectoryEvent() throws Exception {
+    void runLevelFailureEmitsErrorTrajectoryEvent() {
         // A run-level openJiuwen failure is mapped to an error result (not rethrown); it must still
         // surface a mandatory ERROR trajectory event rather than a silently truncated trajectory.
-        List<TrajectoryEvent> events = runWithTrajectory(new FailingOpenJiuwenHandler(), TrajectoryLevel.SUMMARY);
+        List<TrajectoryEvent> events = runWithTrajectory(new FailingOpenJiuwenHandler());
 
         TrajectoryEvent error = events.stream()
                 .filter(e -> e.kind() == Kind.ERROR).findFirst().orElseThrow();
@@ -259,21 +246,17 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         assertThat(error.error().message()).contains("boom");
     }
 
-    /** Opens a trajectory channel at the given level, runs the handler, and returns the drained events. */
-    private static List<TrajectoryEvent> runWithTrajectory(OpenJiuwenAgentRuntimeHandler handler,
-            TrajectoryLevel level) throws InterruptedException {
+    /** Opens the trajectory with a synchronous capturing sink, runs the handler, returns the events. */
+    private static List<TrajectoryEvent> runWithTrajectory(OpenJiuwenAgentRuntimeHandler handler) {
         AgentExecutionContext context = context(Map.of());
         TrajectorySettings settings = new TrajectorySettings(
-                level, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
-        TrajectoryChannel channel = handler.openTrajectory(context, settings);
-        List<TrajectoryEvent> events = new CopyOnWriteArrayList<>();
-        Thread drainer = new Thread(() -> channel.drain().forEach(events::add));
-        drainer.start();
+                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        List<TrajectoryEvent> events = new ArrayList<>();
+        handler.openTrajectory(context, settings, (TrajectorySink) events::add);
         try (Stream<?> raw = handler.execute(context)) {
             raw.forEach(x -> { });
         }
-        drainer.join(3000);
-        return new ArrayList<>(events);
+        return events;
     }
 
     @Test
