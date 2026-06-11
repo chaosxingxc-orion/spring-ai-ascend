@@ -31,15 +31,6 @@
       <artifactId>agent-runtime</artifactId>
     </dependency>
 
-    <!-- openJiuwen is optional in agent-runtime; the wiring tests for the openJiuwen
-         remote-tool installer need it on the test classpath. -->
-    <dependency>
-      <groupId>com.openjiuwen</groupId>
-      <artifactId>agent-core-java</artifactId>
-      <version>0.1.12</version>
-      <scope>test</scope>
-    </dependency>
-
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>

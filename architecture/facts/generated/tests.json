@@ -131,7 +131,7 @@
       "module" : "agent-runtime",
       "fqn" : "com.huawei.ascend.runtime.architecture.RuntimePackageBoundaryTest",
       "kind" : "test_class",
-      "test_methods" : [ "agentScopeAdapterLivesUnderEngineAgentscope()V", "appHasNoSubpackages()V", "bootIsFlat()V", "commonDependsOnlyOnTheJdk()V", "engineHasAllowedSubpackagesOnly()V", "neutralEngineSpiStaysFrameworkAgnostic()V", "openJiuwenAdapterLivesUnderEngineOpenjiuwen()V" ],
+      "test_methods" : [ "agentScopeAdapterLivesUnderEngineAgentscope()V", "appHasNoSubpackages()V", "bootIsFlat()V", "commonDependsOnlyOnTheJdk()V", "engineHasAllowedSubpackagesOnly()V", "engineSpiDependsOnlyOnContractSafePackages()V", "neutralEngineSpiStaysFrameworkAgnostic()V", "openJiuwenAdapterLivesUnderEngineOpenjiuwen()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/architecture/RuntimePackageBoundaryTest.java"
     }
   }, {
@@ -387,7 +387,7 @@
       "module" : "agent-runtime",
       "fqn" : "com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandlerTest",
       "kind" : "test_class",
-      "test_methods" : [ "enabledEmitsOpenJiuwenModelCallTrajectory()V", "executeFlattensStreamReturnedByOpenJiuwenRunner()V", "executeInstallsOpenJiuwenRailsWhenSubclassOptsIn()V", "executeInstallsRuntimeToolsAfterOpenJiuwenRailsBeforeRunningAgent()V", "executeMapsOpenJiuwenFailuresToErrorResultMap()V", "executeUsesStableAgentStateConversationIdWithoutDefaultRail()V", "memoryMessageAdapterConvertsOpenJiuwenMessagesBothWays()V", "resultAdapterPassesThroughAgentExecutionResult()V", "runLevelFailureEmitsErrorTrajectoryEvent()V" ],
+      "test_methods" : [ "enabledEmitsOpenJiuwenModelCallTrajectory()V", "executeFlattensStreamReturnedByOpenJiuwenRunner()V", "executeInstallsOpenJiuwenRailsWhenSubclassOptsIn()V", "executeInstallsRuntimeToolsAfterOpenJiuwenRailsBeforeRunningAgent()V", "executeMapsOpenJiuwenFailuresToErrorResultMap()V", "executeUsesStableAgentStateConversationIdWithoutDefaultRail()V", "memoryMessageAdapterConvertsOpenJiuwenMessagesBothWays()V", "memoryRuntimeRailAcceptsHitsWithoutScore()V", "memoryRuntimeRailDoesNotSaveSystemPromptBackToMemory()V", "memoryRuntimeRailInjectsSearchResultsIntoOpenJiuwenContext()V", "memoryRuntimeRailMergesSearchResultsIntoExistingSystemMessage()V", "openJiuwenExternalMemoryProviderAdapterDelegatesToRuntimeMemoryProvider()V", "openJiuwenExternalMemoryRailUsesNativeOpenJiuwenRailType()V", "resultAdapterPassesThroughAgentExecutionResult()V", "runLevelFailureEmitsErrorTrajectoryEvent()V" ],
       "source_file_guess" : "agent-runtime/src/test/java/com/huawei/ascend/runtime/engine/openjiuwen/OpenJiuwenAgentRuntimeHandlerTest.java"
     }
   }, {

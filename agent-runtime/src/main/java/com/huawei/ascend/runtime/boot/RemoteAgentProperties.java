@@ -1,13 +1,8 @@
-package com.huawei.ascend.service.remote;
+package com.huawei.ascend.runtime.boot;
 
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * Remote-agent topology configuration. Keeps the historical {@code agent-runtime.remote-agents}
- * prefix so existing deployments keep working, but the topology is service-plane configuration:
- * the runtime consumes the resolved catalog, never the raw URL list.
- */
 @ConfigurationProperties(prefix = "agent-runtime")
 public record RemoteAgentProperties(List<RemoteAgent> remoteAgents) {
 

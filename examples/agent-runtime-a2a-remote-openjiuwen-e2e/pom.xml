@@ -26,12 +26,6 @@
       <artifactId>agent-runtime</artifactId>
       <version>${project.version}</version>
     </dependency>
-    <!-- Remote-agent discovery (the catalog) is a service-plane capability. -->
-    <dependency>
-      <groupId>com.huawei.ascend</groupId>
-      <artifactId>agent-service</artifactId>
-      <version>${project.version}</version>
-    </dependency>
     <dependency>
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>

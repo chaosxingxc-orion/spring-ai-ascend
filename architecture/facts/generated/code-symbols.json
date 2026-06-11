@@ -2029,8 +2029,8 @@
       "super" : "java.lang.Record",
       "interfaces" : [ ],
       "annotations" : [ ],
-      "public_methods" : [ "<init>(Ljava/lang/String;Ljava/lang/String;DLjava/util/Map;)V", "content()Ljava/lang/String;", "equals(Ljava/lang/Object;)Z", "hashCode()I", "id()Ljava/lang/String;", "metadata()Ljava/util/Map;", "score()D", "toString()Ljava/lang/String;" ],
-      "record_components" : [ "id: Ljava/lang/String;", "content: Ljava/lang/String;", "score: D", "metadata: Ljava/util/Map;" ]
+      "public_methods" : [ "<init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Double;Ljava/util/Map;)V", "content()Ljava/lang/String;", "equals(Ljava/lang/Object;)Z", "hasScore()Z", "hashCode()I", "id()Ljava/lang/String;", "metadata()Ljava/util/Map;", "score()Ljava/lang/Double;", "toString()Ljava/lang/String;" ],
+      "record_components" : [ "id: Ljava/lang/String;", "content: Ljava/lang/String;", "score: Ljava/lang/Double;", "metadata: Ljava/util/Map;" ]
     }
   }, {
     "fact_id" : "code-symbol/com-huawei-ascend-runtime-engine-spi-memoryprovider-memoryrecord",

@@ -1,6 +1,5 @@
-package com.huawei.ascend.service.remote;
+package com.huawei.ascend.runtime.engine.service;
 
-import com.huawei.ascend.runtime.engine.spi.RemoteAgentCatalogPort;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -18,14 +17,7 @@ import org.a2aproject.sdk.spec.AgentSkill;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Registration/discovery of remote A2A runtimes for the service plane: fetches and caches
- * the agent card behind each configured URL, derives stable remote agent ids (with
- * multi-instance de-duplication), and projects each resolved runtime as a tool spec. The
- * runtime consumes the resolved view through {@link RemoteAgentCatalogPort}; it never owns
- * discovery itself.
- */
-public class RemoteAgentCatalog implements RemoteAgentCatalogPort {
+public class RemoteAgentCatalog {
     private static final Logger LOG = LoggerFactory.getLogger(RemoteAgentCatalog.class);
 
     private final Map<String, Entry> entries = new LinkedHashMap<>();
@@ -43,8 +35,7 @@ public class RemoteAgentCatalog implements RemoteAgentCatalogPort {
                 .forEach(url -> entries.putIfAbsent(canonicalRuntimeKey(url), new Entry(url)));
     }
 
-    @Override
-    public synchronized void refreshPending() {
+    public void refreshPending() {
         for (Entry entry : entries.values()) {
             if (entry.available()) {
                 continue;
@@ -65,24 +56,21 @@ public class RemoteAgentCatalog implements RemoteAgentCatalogPort {
         rebuildToolSpecs();
     }
 
-    @Override
-    public synchronized List<RemoteAgentToolSpec> availableToolSpecs() {
+    public List<RemoteAgentToolSpec> availableToolSpecs() {
         return entries.values().stream()
                 .filter(Entry::available)
                 .map(entry -> entry.spec)
                 .toList();
     }
 
-    @Override
-    public synchronized List<String> pendingUrls() {
+    public List<String> pendingUrls() {
         return entries.values().stream()
                 .filter(entry -> !entry.available())
                 .map(entry -> entry.url)
                 .toList();
     }
 
-    @Override
-    public synchronized String endpoint(String remoteAgentId) {
+    public String endpoint(String remoteAgentId) {
         return entries.values().stream()
                 .filter(Entry::available)
                 .filter(entry -> entry.remoteAgentId.equals(remoteAgentId))
@@ -205,6 +193,13 @@ public class RemoteAgentCatalog implements RemoteAgentCatalogPort {
         }
         String base = hasText(baseUrl) && baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
         return URI.create(base).resolve(uri).toString();
+    }
+
+    public record RemoteAgentToolSpec(
+            String remoteAgentId,
+            String toolName,
+            String description,
+            Map<String, Object> inputSchema) {
     }
 
     private static final class Entry {
