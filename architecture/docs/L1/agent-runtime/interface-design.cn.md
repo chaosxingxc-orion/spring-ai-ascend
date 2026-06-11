@@ -1,4 +1,4 @@
-﻿# agent-runtime 鎺ュ彛涓庣姸鎬佷腑闂翠欢璁捐
+# agent-runtime 鎺ュ彛涓庣姸鎬佷腑闂翠欢璁捐
 
 鏈枃鍚堝苟 `agent-runtime` 鎺ュ彛璁捐璇存槑涓?2026-06-09 Agent State 涓棿浠舵彁妗堬紝浣滀负褰撳墠 L1 璁捐鍏ュ彛銆傜敓鎴愪簨瀹炰粛浠?`architecture/facts/generated/*.json` 涓哄噯锛涙湰鏂囧彧瑙ｉ噴褰撳墠浠ｇ爜杈圭晫銆佹ā鍧椾氦浜掑拰鍚庣画鎵╁睍鍘熷垯銆?
 ## 1. 璁捐鐩爣
@@ -21,22 +21,11 @@ public interface AgentRuntimeHandler {
     Stream<?> execute(AgentExecutionContext context);
 
     StreamAdapter resultAdapter();
-
-    default void start() {}
-
-    default void stop() {}
-
-    default void cancel(String taskId) {}
 }
 ```
 
 璇箟锛?
-- `agentId()` 杩斿洖璇?handler 鏈嶅姟鐨勪笟鍔?Agent 鏍囪瘑銆?- `isHealthy()` 琛ㄧず褰撳墠 handler 鏄惁鍙帴娴侀噺锛涚敱 runtime 鍋ュ悍闈?  锛坄boot.AgentRuntimeHealthIndicator`锛変笌灏辩华闂ㄧ娑堣垂锛圓DR-0161锛夈€?- `execute(context)` 鎵ц涓€娆?Agent 璋冪敤锛岃繑鍥炴鏋跺師鐢熺粨鏋滄祦銆?- `resultAdapter()` 鎶婃鏋跺師鐢熺粨鏋滄祦杞崲鎴?runtime 涓珛鐨?`AgentExecutionResult`銆?- `start()` 鎵撳紑 handler 鑷湁鐨勯暱鐢熷懡璧勬簮锛涚敱瀹夸富锛坄boot.AgentRuntimeLifecycle`锛?  SmartLifecycle锛宲hase 浣庝簬 web server锛夊湪鎺ユ祦閲忎箣鍓嶈皟鐢紱鎶涘紓甯稿嵆鍚姩澶辫触
-  锛坒ail-fast锛屼笉鍏佽"宸叉湇鍔′絾姘歌繙涓嶅氨缁?鐨勫兊灏告€侊級銆?- `stop()` 鍦ㄥ涓诲仠姝㈡淳鍙戞柊鎵ц涔嬪悗璋冪敤锛屾寜娉ㄥ唽閫嗗簭閲婃斁 `start()` 鎵撳紑鐨勮祫婧愶紱
-  鎵€鏈夋潈瑙勫垯涓?owns-vs-borrows鈥斺€斿彧閲婃斁鑷繁鍒涘缓鐨勶紝娉ㄥ叆鐨勫崗浣滃璞″綊娉ㄥ叆鏂广€?- `cancel(taskId)` 鍗忎綔寮忓彇娑堜竴娆″湪椋炴墽琛岋紱鏈夊師鐢熶腑鏂殑妗嗘灦鍦ㄦ浼犲锛屽涓?  锛坄A2aAgentExecutor`锛夊悓鏃跺叧闂鎵ц鐨勫師鐢熺粨鏋滄祦浠ユ挄寮€浼犺緭灞傘€?
-鐢熷懡鍛ㄦ湡涓?scope锛圓DR-0161锛夛細handler 鏈嶅姟绾э紙涓婅堪 start/stop/health锛夈€佹墽琛岀骇
-锛坋xecute 缁撴灉娴?try-with-resources + cancel 璐€?+ 鏈氨缁湡 `RUNTIME_NOT_READY`
-鍙噸璇曟嫆缁濓級銆佷腑闂翠欢/璧勬簮绾э紙瀹瑰櫒鎸佹湁鏈嶅姟 bean 鐢熷懡鍛ㄦ湡锛宧andler 鍙粍鍚堣嚜宸辨嫢鏈夌殑锛夈€?
+- `agentId()` 杩斿洖璇?handler 鏈嶅姟鐨勪笟鍔?Agent 鏍囪瘑銆?- `isHealthy()` 琛ㄧず褰撳墠 handler 鏄惁鍙帴娴侀噺銆?- `execute(context)` 鎵ц涓€娆?Agent 璋冪敤锛岃繑鍥炴鏋跺師鐢熺粨鏋滄祦銆?- `resultAdapter()` 鎶婃鏋跺師鐢熺粨鏋滄祦杞崲鎴?runtime 涓珛鐨?`AgentExecutionResult`銆?
 `AgentRuntimeHandler` 涓嶆壙杞介€氱敤 before/after provider銆佺姸鎬佸瓨鍌ㄣ€佹矙绠辨垨宸ュ叿瑕嗙洊閫昏緫銆傝繖浜涜兘鍔涘湪涓嶅悓 Agent 妗嗘灦涓€氬父鏈夊師鐢熸墿灞曠偣锛屽己琛岀粺涓€浼氳 runtime 鍙嶅悜渚濊禆鍏蜂綋妗嗘灦璇箟銆?
 ### 2.2 `StreamAdapter`
 
@@ -90,7 +79,7 @@ public interface MemoryProvider {
 ```
 
 瀹冨彧瀹氫箟 `init` / `search` / `save` 涓変釜鍩虹璇箟锛屼笉璐熻矗 compact銆乥udget銆佸悜閲忕储寮曘€侀暱鏈熻蹇嗘不鐞嗘垨鍏蜂綋鍚庣銆傚悗缁?Mem 涓棿浠跺彲浠ュ湪璇ユ帴鍙ｅ熀纭€涓婃墿灞曪紝涔熷彲浠ョ敱鍏蜂綋妗嗘灦 adapter 鐩存帴缁勫悎鑷繁鐨?Mem 鑳藉姏銆?
-榛樿 scope 浼氫紶鍏?`user_id`銆乣scope_id`銆乣session_id`锛屼絾杩欐槸 adapter 鐨勯粯璁ゆ槧灏勶紝涓嶆槸骞冲彴寮哄埗鏍煎紡锛涗笟鍔″彲浠ラ€氳繃 `ScopeMapper` 鎸夎嚜宸辩殑 tenant銆佺敤鎴枫€丄gent 鍜屼細璇濊鍒欑敓鎴?OpenJiuwen 鎵€闇€鍙傛暟銆?
+瀵?OpenJiuwen锛屼紭鍏堝鐢?OpenJiuwen 鑷繁鐨?memory 鏈哄埗銆俽untime 鍏叡灞傚彧淇濈暀 `MemoryProvider` 杩欑粍绐?SPI锛汷penJiuwen 鍘熺敓 memory 鐨勫叿浣撴帴鍏ュ簲鐣欏湪 `runtime.engine.openjiuwen` 鍖呮垨涓氬姟 wiring 涓紝绛?OpenJiuwen 0.1.12 渚濊禆鍗囩骇瀹屾垚鍚庡啀鍗曠嫭瀹炵幇瀵瑰簲 adapter锛岄伩鍏嶅湪鍏叡 SPI 涓粦瀹?OpenJiuwen memory 鍖呭悕銆?
 `MemoryRecord` 鏄?runtime 涓珛鐨?message-like 璁板綍锛?
 ```java
 record MemoryRecord(String id, String role, String content, Map<String, Object> metadata) {
@@ -216,7 +205,6 @@ Mem 鍚庣画鎺ュ叆寤鸿锛?
 | `AgentCardProvider` 鍙€夊厓鏁版嵁 provider | Implemented | 鎵ц鑱岃矗鍜?Agent Card 澹版槑鍒嗙 |
 | 涓氬姟鑷畾涔?state key | Implemented | `agentStateKey` / `stateKey`锛宖allback `taskId` |
 | `MemoryProvider` 棰勭暀 SPI | Implemented | 瀹氫箟 `init` / `search` / `save` 鍩虹璇箟 |
-| OpenJiuwen 鍘熺敓 MemoryProvider adapter | Implemented | 鐩存帴鍩轰簬 OpenJiuwen 0.1.12 `MemoryProvider`锛屾ˉ鎺?`initialize` / `prefetch` / `syncTurn` |
 | OpenJiuwen native checkpointer 妗ユ帴 | Implemented | 浣跨敤绋冲畾 `conversation_id` |
 | OpenJiuwen Rail 鎵╁睍鐐?| Implemented | 榛樿涓嶅畨瑁?Rail锛涘彲閫?`MemoryRuntimeRail` 鏀寔 memory search 娉ㄥ叆涓庢墽琛屽悗鍐欏洖 |
 | Snapshot / revision / fencing | Deferred | durable backend 鏃惰ˉ榻?|
