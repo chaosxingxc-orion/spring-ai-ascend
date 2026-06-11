@@ -1,7 +1,6 @@
 id: ADR-0146
 title: "SuspendReason taxonomy canonical alignment to 2026-05-22 expansion-proposal-response mapping table: ratifies the 6-variant set {AwaitClientCallback, AwaitChildRun, AwaitToolResult, AwaitTimer, RequiresApproval, RateLimited} as the L1 authority; reconciles prior naming drift across ADR-0019 (AwaitChildren / AwaitExternal / AwaitApproval), ADR-0070 (AwaitChild), ADR-0074 (AwaitClientCallback canonical), and ADR-0112 Part B mapping table (ChildRun / AwaitTool / AwaitApproval); applies the audit's user-directive precedence rule (doc > ADR) to settle the drift"
 status: accepted
-product_claim: "PC-003"
 date: 2026-05-27
 level: L1
 view: logical

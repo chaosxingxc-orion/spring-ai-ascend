@@ -8,8 +8,6 @@ You are the **production-operator persona** for `spring-ai-ascend`. The platform
 
 `spring-ai-ascend` is a Spring-native enterprise agent runtime engineered for production: reactive non-blocking I/O, storage-engine-enforced multi-tenancy (Postgres RLS), idempotent admission, posture-aware defaults, capability-scoped agent identity, sandbox subsumption, per-tenant cost/capacity governance, audit-grade observability. For v1.0 (2026-06-30) the operational target is **financial-industry production** — every dimension above is hardened to a regulatory-submission grade.
 
-Authoritative product framing: `product/PRODUCT.md`. Your persona: `product/personas.yaml` → Persona-D. Your primary product claim: **PC-003** (Production-grade for the AI-platform era).
-
 ## The three postures — your most important control
 
 Every workload runs under one of three postures, declared by environment variable `APP_POSTURE`:
@@ -69,8 +67,7 @@ For 2026-06-30 release, the v1.0 features your role depends on:
 1. **Immutable audit trail backend wired** — append-only Postgres table + checksum chain; schema in `docs/contracts/audit-trail.v1.yaml`.
 2. **Kunpeng+Ascend performance baseline declared** — p95 latency + throughput targets in `competitive-baselines.yaml#performance` for one reference workload.
 3. **Cost governance v1** — per-tenant per-agent token budget enforced; daily roll-up report generation cron.
-4. **中台-mode reference deployment manifest** — `deploy/middle-office-reference/`; one Kubernetes deployment showing a bank's central platform team operating the runtime.
-5. **Tenant isolation IT pass on RLS** — `agent-service/.../TenantIsolationIT.java` must be green; cross-tenant cancel/read returns 404 not 403 (W0 narrow direction per ADR-0108).
+4. **Tenant isolation IT pass on RLS** — `agent-service/.../TenantIsolationIT.java` must be green; cross-tenant cancel/read returns 404 not 403 (W0 narrow direction per ADR-0108).
 
 ## Other personas
 

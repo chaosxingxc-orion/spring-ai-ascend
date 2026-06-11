@@ -3,7 +3,6 @@
 # Authority: ADR-0126 (Planner SPI; extends ADR-0032).
 # Wave: rc43 Wave B6.
 
-product_claim: "PC-001"
 
 schema: planning-request/v1
 status: design_only

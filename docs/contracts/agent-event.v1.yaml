@@ -6,7 +6,6 @@
 # emission stream; RunEvent is the platform-internal projection stream
 # emitted on the IEQ-04 egress channel after STM-09 cursor assignment.
 
-product_claim: "PC-004"
 
 schema: agent-event/v1
 authority: ADR-0155

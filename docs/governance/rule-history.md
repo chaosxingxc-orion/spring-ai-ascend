@@ -131,6 +131,21 @@ Authority documents: `docs/logs/reviews/2026-05-18-l0-rc7-post-corrective-archit
 
 ## Retired-rule notes
 
+### Rules G-16..G-21 — ProductClaim traceability block
+
+Retired with the design-month corpus wind-down: the product authority
+(`product/PRODUCT.md`, `claims.yaml`, `personas.yaml`, `journey.md`) and the
+AI-knowledge corpus (`knowledge/`) were deleted, so the rules that policed the
+`ProductClaim → … → Rule/Enforcer` value-axis traceability have no subject —
+G-16 (ProductClaim Referential Integrity), G-17 (No Orphan Artefacts), G-18
+(Traceability Chain Completeness), G-19 (Auto-Load Tier Integrity), G-20
+(Governance-Infra Honesty), G-21 (ProductClaim Placeholder Decreasing). None
+were wired into the executable gate (no `# Rule` header, no enforcer row, no
+self-test), so retirement is card-only: the six rule cards and their
+`discovery/rule-index.md` rows were removed. The remaining `product_claim:` /
+`PC-NNN` references across ADR and rule-card frontmatter are now inert metadata
+(no active rule validates them).
+
 ### Rule 12 — Maturity L0–L4
 
 Originally a four-step maturity ladder (`L0` design → `L1` impl → `L2` tested →

@@ -1,15 +1,15 @@
 package com.huawei.ascend.agentsdk.example;
 
-import com.huawei.ascend.runtime.engine.handler.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.model.EngineExecutionScope;
-import com.huawei.ascend.runtime.engine.model.EngineInput;
+import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
-import com.huawei.ascend.runtime.common.Message;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.TextPart;
 
 final class OpenJiuwenExampleSupport {
     private OpenJiuwenExampleSupport() {
@@ -71,17 +71,19 @@ final class OpenJiuwenExampleSupport {
     }
 
     private static AgentExecutionContext executionContext(String agentId, String userInput) {
-        EngineExecutionScope scope =
-                new EngineExecutionScope("example-tenant", "example-user", "example-session", "example-task", agentId);
-        EngineInput input = new EngineInput("text", List.of(Message.user(userInput)), Map.of());
-        return new AgentExecutionContext(scope, input);
+        RuntimeIdentity scope =
+                new RuntimeIdentity("example-tenant", "example-user", "example-session", "example-task", agentId);
+        Message message = Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .parts(new TextPart(userInput))
+                .build();
+        return new AgentExecutionContext(scope, "USER_MESSAGE", List.of(message), Map.of());
     }
 
     private static void printResult(AgentExecutionResult result) {
         System.out.println("type: " + result.type());
-        if (result.output() != null) {
-            System.out.println("output: " + result.output().getContent());
-            System.out.println("final: " + result.output().isFinalOutput());
+        if (result.outputContent() != null) {
+            System.out.println("output: " + result.outputContent());
         }
         if (result.errorMessage() != null) {
             System.out.println("error: " + result.errorCode() + " " + result.errorMessage());

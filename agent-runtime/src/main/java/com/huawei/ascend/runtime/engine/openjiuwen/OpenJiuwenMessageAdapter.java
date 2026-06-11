@@ -1,38 +1,42 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
+import com.huawei.ascend.runtime.engine.a2a.Messages;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.common.Message;
-import com.huawei.ascend.runtime.common.Role;
+import org.a2aproject.sdk.spec.Message;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Converts an {@link AgentExecutionContext} into the input map openJiuwen's
- * {@code Runner.runAgent} expects. First version handles text messages only,
- * keying the last user message as {@code query} and the task id as
- * {@code conversation_id}. See engine model design §10.3.
- */
 public class OpenJiuwenMessageAdapter {
 
     public Object toOpenJiuwenInput(AgentExecutionContext context) {
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("query", lastUserText(context));
-        input.put("conversation_id", context.getScope().taskId());
+        input.put("conversation_id", context.getAgentStateKey());
         return input;
     }
 
     private String lastUserText(AgentExecutionContext context) {
-        List<Message> messages = context.getInput() == null ? null : context.getInput().messages();
-        if (messages == null || messages.isEmpty()) {
+        List<Message> messages = context.getMessages();
+        if (messages.isEmpty()) {
             return "";
         }
         for (int i = messages.size() - 1; i >= 0; i--) {
             Message message = messages.get(i);
-            if (message != null && message.role() == Role.USER) {
-                return message.text();
+            if (message != null && message.role() == Message.Role.ROLE_USER) {
+                return messageText(message);
             }
         }
-        return messages.get(messages.size() - 1).text();
+        // No user turn at all — fall back to the newest message regardless of role
+        // so the agent still receives a query rather than an empty string.
+        return messageText(messages.get(messages.size() - 1));
+    }
+
+    /**
+     * Extracts concatenated text from A2A SDK Message parts. Replaces the former
+     * {@code common.Message.text()} method that iterated Content parts.
+     */
+    public static String messageText(Message msg) {
+        return Messages.text(msg);
     }
 }

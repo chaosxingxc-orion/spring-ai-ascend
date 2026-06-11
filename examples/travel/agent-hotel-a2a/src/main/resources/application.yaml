@@ -1,0 +1,17 @@
+# agent-hotel-a2a — Spring Boot wrapper hosting agent-hotel under agent-runtime.
+# 真实 LLM 凭据从环境变量读，本地默认仅用于启动占位（必须由部署方覆盖）。
+server:
+  port: 8081
+
+hotel-agent:
+  llm:
+    provider:   ${LLM_PROVIDER:OpenAI}
+    api-key:    ${LLM_API_KEY:sk-local-placeholder}
+    api-base:   ${LLM_API_BASE:http://localhost:4000/v1}
+    model-name: ${LLM_MODEL:gpt-4o-mini}
+    ssl-verify: ${LLM_SSL_VERIFY:false}
+
+logging:
+  level:
+    com.huawei.ascend.examples.hotel: INFO
+    com.huawei.ascend.runtime: INFO

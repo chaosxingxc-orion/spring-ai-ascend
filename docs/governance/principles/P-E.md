@@ -5,7 +5,6 @@ level: L0
 view: physical
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
 enforced_by_rules: [R-E]   # formerly Rule 35 (numeric pre-ADR-0086)
-product_claim: "PC-002"
 kernel: |
   P-E — Multi-Track Bus Physical Channel Isolation.
   Cross-service internal communication is sliced into three physically

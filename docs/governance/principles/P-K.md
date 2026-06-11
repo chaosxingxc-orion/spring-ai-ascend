@@ -5,7 +5,6 @@ level: L0
 view: physical
 authority: "Layer 0 governing principle (CLAUDE.md); LucioIT W1 L0 §6-§7"
 enforced_by_rules: [R-K]   # formerly Rule 41 (numeric pre-ADR-0086)
-product_claim: "PC-003"
 kernel: |
   P-K — Skill-Dimensional Resource Arbitration.
   A 2D defence net — Tenant Quota × Global Skill Capacity — protects the

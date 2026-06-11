@@ -29,9 +29,7 @@ The platform optimises four pillars:
   Spring Boot; a runnable quickstart reaches a first agent run with no
   platform-team hand-holding.
 - **Governance** — audit-grade evidence and posture-aware fail-closed defaults.
-  Governance (gates, ADRs, enforcers) constrains the engineering **main-path**;
-  the searchable **AI knowledge system** (`knowledge/`) sits outside it, kept
-  honest by advisory integrity scripts rather than blocking gates.
+  Governance (gates, ADRs, enforcers) constrains the engineering **main-path**.
 
 Measured baselines: [`docs/governance/competitive-baselines.yaml`](docs/governance/competitive-baselines.yaml).
 
@@ -110,14 +108,6 @@ The architecture fact system is organized by L0/L1/L2 and 4+1 views. It answers
 what the system is, which modules and state owners are allowed, which
 cross-cutting constraints cannot be violated, and which ADRs or generated facts
 are authoritative. This system lives under [`architecture/`](architecture/).
-
-The version scope system is organized from requirements to scenarios, L1 feature
-use cases, L2 function points, delivery slices, and acceptance plans. It answers
-what a version commits to deliver and how that scope is validated. This system
-lives under [`version-scope/`](version-scope/).
-
-Version scope documents may reference architecture facts and may request
-architecture changes, but they do not directly become architecture truth.
 
 ## Reading path
 

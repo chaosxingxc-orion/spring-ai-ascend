@@ -8,20 +8,17 @@ import java.util.concurrent.CompletionStage;
  * <p>Implementations carry the {@link S2cCallbackEnvelope} request out to the
  * client and return a {@link CompletionStage} that completes with the
  * {@link S2cCallbackResponse}. The actual wire format is implementation-defined
- * (webhook POST, SSE push, WebSocket, gRPC, etc.); only the in-memory reference
- * implementation
- * {@link com.huawei.ascend.runtime.s2c.InMemoryS2cCallbackTransport}
- * ships at W2.x. Production transports land in W3.
+ * (webhook POST, SSE push, WebSocket, gRPC, etc.). This SPI is currently
+ * design-only: no implementation ships in this repository yet — consult
+ * {@code docs/contracts/s2c-callback.v1.yaml} for the contract status before
+ * designing against it.
  *
  * <p>Implementations MUST NOT block the calling thread; they MUST honor the
- * Reactive / Virtual Threads boundary of Rule 37 (Reactive External I/O).
- * At W2.x SyncOrchestrator blocks on the returned CompletionStage as part of
- * its single-threaded recursion; W2's async orchestrator will use proper
- * non-blocking composition.
+ * Reactive External I/O rule (Rule R-G).
  *
  * <p>Pure Java - no Spring imports.
  *
- * <p>Authority: ADR-0074; CLAUDE.md Rule 46.
+ * <p>Authority: ADR-0074.
  */
 public interface S2cCallbackTransport {
 

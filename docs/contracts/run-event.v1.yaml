@@ -19,7 +19,6 @@
 #   S4 S2C Client Callback             -> + S2cCallbackRequested, S2cCallbackCompleted
 #   S5 Cancel During Execution         -> + CancelRequested
 
-product_claim: "PC-001|PC-003"
 
 schema: run-event/v1
 authority: ADR-0145

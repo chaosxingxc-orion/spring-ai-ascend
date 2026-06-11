@@ -154,26 +154,11 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- MCP Java SDK + A2A SDK. -->
-    <dependency>
-      <groupId>io.modelcontextprotocol.sdk</groupId>
-      <artifactId>mcp</artifactId>
-    </dependency>
+    <!-- A2A SDK: the protocol reference server (request handler, task store, event queue)
+         the runtime drives as its protocol substrate. -->
     <dependency>
       <groupId>org.a2aproject.sdk</groupId>
       <artifactId>a2a-java-sdk-server-common</artifactId>
-    </dependency>
-
-    <!-- Temporal Java SDK. -->
-    <dependency>
-      <groupId>io.temporal</groupId>
-      <artifactId>temporal-sdk</artifactId>
-    </dependency>
-
-    <!-- Apache Tika for the document-parser tool. -->
-    <dependency>
-      <groupId>org.apache.tika</groupId>
-      <artifactId>tika-core</artifactId>
     </dependency>
 
     <!-- Boot 4 + springdoc 3.0.3 transitively requires YAMLFactory at boot. -->
@@ -199,11 +184,6 @@
     <dependency>
       <groupId>org.springframework.security</groupId>
       <artifactId>spring-security-test</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.temporal</groupId>
-      <artifactId>temporal-testing</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

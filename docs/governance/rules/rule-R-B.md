@@ -7,7 +7,6 @@ principle_ref: P-B
 authority_refs: [ADR-0065]
 enforcer_refs: [E50, E51]
 status: active
-product_claim: "PC-001|PC-002|PC-003|PC-005"
 scope_phase: commit
 kernel_cap: 8
 kernel: |

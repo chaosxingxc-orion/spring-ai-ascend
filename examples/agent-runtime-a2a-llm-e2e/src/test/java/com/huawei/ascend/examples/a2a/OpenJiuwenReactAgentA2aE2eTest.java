@@ -10,18 +10,20 @@ import java.util.Locale;
 import java.util.UUID;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
-import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.a2aproject.sdk.spec.TransportProtocol;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
 @Tag("e2e")
+@ResourceLock("real-llm")
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = OpenJiuwenA2aAgentRuntimeApplication.class)
+        classes = OpenJiuwenA2aAgentRuntimeApplication.class,
+        properties = "sample.a2a.agent=openjiuwen")
 class OpenJiuwenReactAgentA2aE2eTest {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(45);
@@ -47,17 +49,9 @@ class OpenJiuwenReactAgentA2aE2eTest {
 
         String sessionId = "session-" + UUID.randomUUID();
         List<StreamingEventKind> events = client.streamMessage("sample-user", AGENT_ID, sessionId, "ping");
-        List<Message> messages = events.stream()
-                .filter(Message.class::isInstance)
-                .map(Message.class::cast)
-                .toList();
 
         assertThat(events).isNotEmpty();
-        assertThat(messages).anySatisfy(message -> assertThat(message.metadata().get("accepted"))
-                .isEqualTo(Boolean.TRUE));
-        assertThat(messages).anySatisfy(message -> assertThat(message.metadata().get("runStatus"))
-                .isEqualTo("completed"));
-        assertThat(messages).allSatisfy(message -> assertThat(message.role()).isEqualTo(Message.Role.ROLE_AGENT));
+        assertThat(events).anySatisfy(event -> assertThat(SampleA2aClient.isTerminal(event)).isTrue());
         assertThat(normalizeAnswer(SampleA2aClient.textFrom(events))).isEqualTo("pong");
     }
 

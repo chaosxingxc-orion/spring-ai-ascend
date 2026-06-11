@@ -32,7 +32,6 @@
 # admit against the SkillResourceMatrix and tenant quota. Without this
 # projection, planner output and capacity arbitration are unjoinable.
 
-product_claim: "PC-001"
 
 schema: plan-projection/v1
 status: design_only

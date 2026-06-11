@@ -9,7 +9,6 @@ enforcer_refs: [E2, E4, E9, E11]
 status: active
 scope_phase: impl
 kernel_cap: 8
-product_claim: "PC-001|PC-003"
 scope_surfaces:
   - "agent-service/src/main/java/com/huawei/ascend/service/runtime/runs/**/*.java"
   - "agent-service/src/main/java/com/huawei/ascend/service/runtime/idempotency/**/*.java"

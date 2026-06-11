@@ -1,35 +1,66 @@
 package com.huawei.ascend.runtime.engine;
 
+import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.a2aproject.sdk.spec.Message;
+import org.springframework.util.Assert;
 
 /**
- * The context handed to an {@code AgentRuntimeHandler} for a single execution: the
- * scope (who/what is running) plus the input. See engine model design §9.2.
+ * Minimal execution context — the contract between the A2A SDK bridge and
+ * framework adapters. Deliberately decoupled from A2A SDK's heavy
+ * {@code RequestContext} (which carries Task, Message, ServerCallContext etc.).
  */
-public class AgentExecutionContext {
-    private EngineExecutionScope scope;
-    private EngineInput input;
+public final class AgentExecutionContext {
 
-    public AgentExecutionContext() {
+    public static final String AGENT_STATE_KEY_VARIABLE = "agentStateKey";
+    public static final String STATE_KEY_VARIABLE = "stateKey";
+
+    private final RuntimeIdentity scope;
+    private final String inputType;
+    private final List<Message> messages;
+    private final Map<String, Object> variables;
+    private final String agentStateKey;
+    private volatile Map<String, Object> agentState;
+
+    public AgentExecutionContext(RuntimeIdentity scope, String inputType,
+                                  List<Message> messages, Map<String, Object> variables) {
+        this(scope, inputType, messages, variables, resolveAgentStateKey(scope, variables), null);
     }
 
-    public AgentExecutionContext(EngineExecutionScope scope, EngineInput input) {
+    public AgentExecutionContext(RuntimeIdentity scope, String inputType, List<Message> messages,
+                                  Map<String, Object> variables, String agentStateKey,
+                                  Map<String, Object> agentState) {
         this.scope = scope;
-        this.input = input;
+        this.inputType = inputType != null ? inputType : "USER_MESSAGE";
+        this.messages = messages != null ? List.copyOf(messages) : List.of();
+        this.variables = variables != null ? Map.copyOf(variables) : Map.of();
+        Assert.hasText(agentStateKey, "agentStateKey must not be blank");
+        this.agentStateKey = agentStateKey;
+        this.agentState = agentState == null ? null : Map.copyOf(agentState);
     }
 
-    public EngineExecutionScope getScope() {
-        return scope;
+    public RuntimeIdentity getScope() { return scope; }
+    public String getInputType() { return inputType; }
+    public List<Message> getMessages() { return messages; }
+    public Map<String, Object> getVariables() { return variables; }
+    public String getAgentStateKey() { return agentStateKey; }
+    public Optional<Map<String, Object>> getAgentState() { return Optional.ofNullable(agentState); }
+
+    /** Atomic replace — used by adapters for checkpoint state. */
+    public Map<String, Object> replaceAgentState(Map<String, Object> values) {
+        Map<String, Object> next = Map.copyOf(values);
+        this.agentState = next;
+        return next;
     }
 
-    public void setScope(EngineExecutionScope scope) {
-        this.scope = scope;
-    }
-
-    public EngineInput getInput() {
-        return input;
-    }
-
-    public void setInput(EngineInput input) {
-        this.input = input;
+    private static String resolveAgentStateKey(RuntimeIdentity scope, Map<String, Object> variables) {
+        Object explicit = variables != null ? variables.get(AGENT_STATE_KEY_VARIABLE) : null;
+        if (!(explicit instanceof String t) || t.isBlank())
+            explicit = variables != null ? variables.get(STATE_KEY_VARIABLE) : null;
+        if (explicit instanceof String t && !t.isBlank()) return t;
+        if (scope == null) throw new IllegalArgumentException("agentStateKey must be provided");
+        return scope.taskId();
     }
 }

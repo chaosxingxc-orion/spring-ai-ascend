@@ -2,13 +2,13 @@
 
 ## 目的
 
-本示例演示如何启动一个 `agent-runtime` 应用：它暴露 A2A 端点，在端点后托管一个 openJiuwen ReAct agent，并只从 A2A 客户端视角验证整条链路。
+本示例演示如何启动一个 `agent-runtime` 应用：它暴露 A2A 端点，在端点后托管 openJiuwen 和 AgentScope agent，并只从 A2A 客户端视角验证整条链路。
 
 示例位于 `examples/agent-runtime-a2a-llm-e2e`，包含：
 
 - Spring Boot 服务端：`com.huawei.ascend.examples.a2a.OpenJiuwenA2aAgentRuntimeApplication`
 - 控制台客户端：`com.huawei.ascend.examples.a2a.A2aConsoleClientApplication`
-- 一个端到端测试：通过本地 OpenAI-compatible LLM gateway 验证 A2A 流程
+- 端到端测试：通过本地 OpenAI-compatible LLM gateway 验证 A2A 流程
 
 ## 验证内容
 
@@ -19,8 +19,30 @@
 3. 客户端向 `/a2a` 发送 streaming JSON-RPC 请求。
 4. 客户端读取 A2A 流式事件，直到运行完成。
 5. 输入 `ping` 时，最终可见回答是 `pong`。
+6. 银行零售财富助手样例通过同一个 A2A surface 产出资产配置建议。
 
-当前自动化 E2E 测试断言 `ping -> pong` 行为。
+当前自动化 E2E 测试覆盖 openJiuwen 以及三种 AgentScope 接入路径：
+
+- `agentscope-react-agent`：AgentScope Java SDK ReAct agent。
+- `agentscope-harness-agent`：通过 runtime Harness adapter 包装 AgentScope SDK agent。
+- `agentscope-runtime-agent`：AgentScope REST/SSE runtime client 路径，默认使用示例内置的 `/sample/agentscope/process` endpoint。
+- `agentscope-retail-wealth-advisor`：基于 AgentScope ReAct agent 和示例 skills 的银行零售财富助手。
+- `agentscope-retail-wealth-advisor-harness`：同一个助手通过 runtime Harness adapter 接入。
+- `agentscope-retail-wealth-advisor-runtime`：同一个助手通过 AgentScope REST/SSE runtime client 接入，默认使用 `/sample/agentscope/retail-wealth/process`。
+
+## AgentScope 零售财富助手样例
+
+零售财富助手样例模拟客户侧已经用 AgentScope 构建好的 agent：大型银行的业务研发中心用类似点金 skills 的方式组合行内系统和金融能力，给客户经理生成资产配置建议。该样例故意放在 example 模块内：`spring-ai-ascend` 负责运行时治理、A2A、任务状态和输出分发；财富助手业务逻辑属于客户侧 AgentScope 应用。
+
+样例注册了本地 mock skills，用来代表客户环境里的能力：
+
+- 客户画像与适当性查询
+- 当前持仓查询
+- 行情观点分析
+- 银行产品池匹配
+- 资产配置收益测算和压力场景测算
+
+样例产品池保持银行财富管理语境：短期限理财产品、公募基金、合格投资者私募基金、黄金产品、ETF 联接基金。样例不推荐个股或场内 ETF，并要求模型输出适当性和合规提示。这些 skills 只用于演示，不构成金融建议。
 
 ## Gateway Facade 示例
 
@@ -95,6 +117,7 @@ bash scripts/run-server.sh .env
 > `.env` 不会被 Maven 或 Spring Boot 自动加载。helper 脚本会先 source env 文件，再启动 Maven。如果直接运行 `./mvnw ... spring-boot:run`，Java 进程只能看到当前 shell 已经 export 的变量。
 
 > 真实 LLM E2E 测试 `OpenJiuwenReactAgentA2aE2eTest` 只有在 `SAA_SAMPLE_LLM_API_KEY` 非空时才运行。未设置时，JUnit `assumeTrue()` 会在 agent-card 断言后跳过真实 LLM 分支；suite 中其他部分仍会运行。
+> AgentScope 真实 LLM E2E 测试 `AgentScopeA2aE2eTest` 沿用同样规则：`SAA_SAMPLE_LLM_API_KEY` 为空时跳过三条真实模型分支。
 
 ## 哪些环境变量会真正生效？
 
@@ -114,6 +137,22 @@ sample:
     api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
     model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
     ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}
+    checkpointer: ${SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER:in-memory}
+    redis-url: ${SAA_SAMPLE_OPENJIUWEN_REDIS_URL:redis://localhost:6379}
+  agentscope:
+    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-local-placeholder}
+    api-base: ${SAA_SAMPLE_AGENTSCOPE_API_BASE:http://localhost:4000/v1}
+    endpoint-path: ${SAA_SAMPLE_AGENTSCOPE_ENDPOINT_PATH:/chat/completions}
+    model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
+    runtime:
+      base-url: ${SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL:self}
+      endpoint-path: ${SAA_SAMPLE_AGENTSCOPE_RUNTIME_ENDPOINT_PATH:/sample/agentscope/process}
+      embedded: ${SAA_SAMPLE_AGENTSCOPE_RUNTIME_EMBEDDED:true}
+    retail-wealth:
+      runtime:
+        base-url: ${SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_BASE_URL:self}
+        endpoint-path: ${SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_ENDPOINT_PATH:/sample/agentscope/retail-wealth/process}
+        embedded: ${SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_EMBEDDED:true}
 ```
 
 `sk-local-placeholder` 是**不可用占位 key**，不是实际 key。Ollama 这类本地 gateway 通常忽略 `Authorization` header，所以任意字符串都可用；如果你使用云端 API 或会校验 key 的本地 gateway，请设置 `SAA_SAMPLE_LLM_API_KEY`，并通过 `scripts/run-server.sh .env` 启动，或在运行 Maven 前手工 export。
@@ -169,6 +208,16 @@ LLM 相关变量：
 - `SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER`
 - `SAA_SAMPLE_LLM_MODEL`
 - `SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY`
+- `SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER`
+- `SAA_SAMPLE_OPENJIUWEN_REDIS_URL`
+- `SAA_SAMPLE_AGENTSCOPE_API_BASE`
+- `SAA_SAMPLE_AGENTSCOPE_ENDPOINT_PATH`
+- `SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL`
+- `SAA_SAMPLE_AGENTSCOPE_RUNTIME_ENDPOINT_PATH`
+- `SAA_SAMPLE_AGENTSCOPE_RUNTIME_EMBEDDED`
+- `SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_BASE_URL`
+- `SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_ENDPOINT_PATH`
+- `SAA_SAMPLE_RETAIL_WEALTH_RUNTIME_EMBEDDED`
 
 控制台客户端支持位置参数或环境变量：
 
@@ -181,9 +230,15 @@ LLM 相关变量：
 ```bash
 export SAA_SAMPLE_LLM_API_KEY="<your-key>"
 export SAA_SAMPLE_OPENJIUWEN_API_BASE="http://localhost:4000/v1"
+export SAA_SAMPLE_AGENTSCOPE_API_BASE="http://localhost:4000/v1"
 export SAA_SAMPLE_LLM_MODEL="gpt-5.4-mini"
 export SAA_SAMPLE_A2A_BASE_URL="http://localhost:18080"
 ```
+
+OpenJiuwen 示例在配置阶段会同时创建两个原生 checkpointer 候选。默认路径使用
+`InMemoryCheckpointer`，便于本地 E2E；如果需要切到 Redis 路径，可以设置
+`SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis`，并通过
+`SAA_SAMPLE_OPENJIUWEN_REDIS_URL` 指定 Redis URL。
 
 ## 安装 runtime 依赖
 
@@ -205,7 +260,7 @@ export SAA_SAMPLE_A2A_BASE_URL="http://localhost:18080"
 bash scripts/test-e2e.sh .env
 ```
 
-测试会启动示例应用，通过 A2A 客户端流程调用它，并期望 `ping` 的可见响应是 `pong`。
+测试会启动示例应用，并通过 A2A 客户端流程调用它。基础 openJiuwen 和 AgentScope 连通性测试期望 `ping` 的可见响应是 `pong`。零售财富助手测试发送客户经理场景提示，并期望可见响应包含客户画像、资产配置、收益测算、风险提示和合规提示。AgentScope SDK、Harness、REST/SSE runtime 测试使用同一套真实模型配置；REST/SSE 路径默认回环到示例内置 AgentScope runtime endpoint，也可以通过对应的 `*_RUNTIME_BASE_URL` 指向客户环境中的外部 runtime。
 
 如果你已经手工 export 所需变量，也可以直接运行 Maven：
 

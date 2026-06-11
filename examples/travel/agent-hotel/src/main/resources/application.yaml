@@ -1,0 +1,11 @@
+# LLM 配置模板（仅供宿主进程参考；本模块自身不主动加载此文件）。
+# 宿主进程负责读取配置并构造 LlmConfig，再传给 HotelPlanningAgent 构造器。
+# 字段语义与 OpenJiuwen ReActAgentConfig.configureModelClient 对齐。
+
+hotel-agent:
+  llm:
+    provider:   ${LLM_PROVIDER:openai}
+    api-key:    ${LLM_API_KEY:sk-local-placeholder}
+    api-base:   ${LLM_API_BASE:http://localhost:4000/v1}
+    model-name: ${LLM_MODEL:gpt-4o-mini}
+    ssl-verify: ${LLM_SSL_VERIFY:false}

@@ -78,6 +78,23 @@ class SampleA2aClientTest {
     }
 
     @Test
+    void recognizesFinalA2aTaskStatusUpdateAsTerminal() {
+        TaskStatusUpdateEvent completed = new TaskStatusUpdateEvent(
+                "task-1",
+                new TaskStatus(TaskState.TASK_STATE_COMPLETED, null, null),
+                "session-1",
+                java.util.Map.of());
+        TaskStatusUpdateEvent working = new TaskStatusUpdateEvent(
+                "task-1",
+                new TaskStatus(TaskState.TASK_STATE_WORKING, null, null),
+                "session-1",
+                java.util.Map.of());
+
+        assertThat(SampleA2aClient.isTerminal(completed)).isTrue();
+        assertThat(SampleA2aClient.isTerminal(working)).isFalse();
+    }
+
+    @Test
     void cancellationIsNormalCompletionOnlyAfterTerminalEvent() {
         java.util.concurrent.CancellationException cancel =
                 new java.util.concurrent.CancellationException("sse unsubscribed");
