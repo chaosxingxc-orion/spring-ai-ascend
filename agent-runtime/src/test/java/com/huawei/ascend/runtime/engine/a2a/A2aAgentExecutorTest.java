@@ -36,9 +36,17 @@ import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
+/**
+ * Isolated because the trajectory tests attach a ListAppender to the JVM-global logback
+ * logger {@code com.huawei.ascend.runtime.trajectory}: a concurrently booting Spring
+ * context (RuntimeAppTest et al.) re-initializes the logging system, and that
+ * LoggerContext reset detaches programmatically attached appenders mid-test.
+ */
+@Isolated
 class A2aAgentExecutorTest {
 
     /**
