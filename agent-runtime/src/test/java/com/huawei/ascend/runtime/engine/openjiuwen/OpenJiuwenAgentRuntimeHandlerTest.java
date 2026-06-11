@@ -30,6 +30,7 @@ import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.core.singleagent.rail.ModelCallInputs;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
+import com.openjiuwen.harness.rails.ExternalMemoryRail;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -185,6 +186,39 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     }
 
     @Test
+    void openJiuwenExternalMemoryProviderAdapterDelegatesToRuntimeMemoryProvider() {
+        AgentExecutionContext context = context(Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, "order-42"));
+        FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
+        OpenJiuwenExternalMemoryProviderAdapter adapter =
+                new OpenJiuwenExternalMemoryProviderAdapter(context, memoryProvider);
+
+        adapter.initialize(Map.of("scope_id", "order-42"));
+        String prefetch = adapter.prefetch("ping", Map.of("scope_id", "order-42"));
+        adapter.syncTurn("hello", "world", Map.of("scope_id", "order-42"));
+
+        assertThat(adapter.getName()).isEqualTo("runtime_memory");
+        assertThat(adapter.isInitialized()).isTrue();
+        assertThat(memoryProvider.initialized).isTrue();
+        assertThat(memoryProvider.searchedQuery).isEqualTo("ping");
+        assertThat(prefetch).contains("remembered ping");
+        assertThat(memoryProvider.savedRecords)
+                .extracting(MemoryProvider.MemoryRecord::role)
+                .containsExactly("user", "assistant");
+        assertThat(memoryProvider.savedRecords)
+                .extracting(MemoryProvider.MemoryRecord::content)
+                .containsExactly("hello", "world");
+    }
+
+    @Test
+    void openJiuwenExternalMemoryRailUsesNativeOpenJiuwenRailType() {
+        TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
+
+        AgentRail rail = handler.nativeMemoryRail(context(Map.of()), new FakeMemoryProvider());
+
+        assertThat(rail).isInstanceOf(ExternalMemoryRail.class);
+    }
+
+    @Test
     void executeMapsOpenJiuwenFailuresToErrorResultMap() {
         FailingOpenJiuwenHandler handler = new FailingOpenJiuwenHandler();
 
@@ -281,6 +315,10 @@ class OpenJiuwenAgentRuntimeHandlerTest {
 
         private TestOpenJiuwenHandler() {
             super("agent");
+        }
+
+        private AgentRail nativeMemoryRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
+            return openJiuwenExternalMemoryRail(context, memoryProvider);
         }
 
         @Override

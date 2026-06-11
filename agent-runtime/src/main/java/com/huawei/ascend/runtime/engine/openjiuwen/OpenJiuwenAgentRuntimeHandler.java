@@ -16,6 +16,7 @@ import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
+import com.openjiuwen.harness.rails.ExternalMemoryRail;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -116,8 +117,9 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
      * Adapter-owned rails installed on every openJiuwen agent before execution.
      *
      * <p>The default installs no rails. Subclasses can opt in to openJiuwen-local
-     * decorations such as {@link MemoryRuntimeRail} without changing A2A
-     * execution or the framework-neutral runtime SPI.
+     * decorations such as OpenJiuwen's external memory rail or the ReActAgent
+     * compatibility {@link MemoryRuntimeRail} without changing A2A execution or
+     * the framework-neutral runtime SPI.
      */
     protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
         return List.of();
@@ -140,9 +142,32 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         this.runtimeToolInstaller = runtimeToolInstaller;
     }
 
-    /** Create the default openJiuwen memory rail for subclasses that opt in. */
+    /**
+     * Create the ReActAgent-compatible memory rail for subclasses that opt in.
+     *
+     * <p>Use {@link #openJiuwenExternalMemoryRail(AgentExecutionContext, MemoryProvider)}
+     * first when the concrete OpenJiuwen agent supports the native harness
+     * external-memory rail.
+     */
     protected final MemoryRuntimeRail memoryRuntimeRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
         return new MemoryRuntimeRail(context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+    }
+
+    /**
+     * Create an openJiuwen-native external memory rail backed by the runtime
+     * neutral {@link MemoryProvider}.
+     *
+     * <p>Prefer this hook when the concrete openJiuwen agent supports the
+     * harness external-memory rail. The OpenJiuwen memory API is intentionally
+     * hidden behind an adapter in this package so the public runtime SPI remains
+     * independent from OpenJiuwen memory package names.
+     */
+    protected final AgentRail openJiuwenExternalMemoryRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
+        return new ExternalMemoryRail(
+                new OpenJiuwenExternalMemoryProviderAdapter(context, memoryProvider),
+                context.getScope().userId(),
+                context.getAgentStateKey(),
+                context.getScope().sessionId());
     }
 
     protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {

@@ -185,7 +185,9 @@ protected abstract BaseAgent createOpenJiuwenAgent(AgentExecutionContext context
 
 OpenJiuwen adapter 使用 OpenJiuwen 0.1.12 的 `BaseAgent.registerRail(...)` 与 `AgentRail` 作为框架本地扩展点。默认不安装 Rail；需要接入 Mem、工具治理或沙箱时，由子类覆盖 `openJiuwenRails(context)`，返回需要注册到 OpenJiuwen Agent 的 Rail。
 
-当前提供的内置 Rail 是 `OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail`。它是 OpenJiuwen 本地桥，不是公共 runtime SPI：
+OpenJiuwen 原生 memory 接入优先使用 OpenJiuwen 0.1.12 的 external memory rail。`OpenJiuwenAgentRuntimeHandler.openJiuwenExternalMemoryRail(...)` 会把 runtime 中立 `MemoryProvider` 适配成 OpenJiuwen 的 external memory provider，再交给 `ExternalMemoryRail` 处理 prefetch、工具声明和执行后同步。这个适配器只放在 `runtime.engine.openjiuwen` 包内；如果 OpenJiuwen 后续把 memory 模块拆成独立仓，只需要替换该包内适配代码，公共 `engine.spi.MemoryProvider` 不绑定 OpenJiuwen memory 包名。
+
+同时，当前还保留 `OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail` 作为 OpenJiuwen 本地兼容桥。它不是公共 runtime SPI，主要用于普通 ReActAgent 或不完整支持 harness external-memory rail 的路径：
 
 - `beforeInvoke(...)` 调用 runtime 中立 `MemoryProvider.init(context)`。
 - `beforeInvoke(...)` 使用最新用户输入调用 `MemoryProvider.search(context, query, limit)`，并把检索结果合并进 OpenJiuwen `ModelContext` 的 system prompt；如果当前上下文已经有 `SystemMessage`，只合并内容，不额外新增第二个 system prompt。

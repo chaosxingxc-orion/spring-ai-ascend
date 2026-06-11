@@ -100,6 +100,8 @@ public class OpenJiuwenReactAgentConfiguration {
 
         @Override
         protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
+            // This sample uses ReActAgent, so keep the compatibility rail. DeepAgent-style
+            // wiring can use openJiuwenExternalMemoryRail(...) for OpenJiuwen native memory.
             return List.of(memoryRuntimeRail(context, memoryProvider));
         }
 

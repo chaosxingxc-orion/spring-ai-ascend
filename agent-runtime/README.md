@@ -162,6 +162,8 @@ The example application shows the intended consumer shape from outside the modul
 - app boot class: `com.huawei.ascend.examples.a2a.OpenJiuwenA2aAgentRuntimeApplication`
 - console client: `com.huawei.ascend.examples.a2a.A2aConsoleClientApplication`
 
+For OpenJiuwen memory integration, prefer OpenJiuwen's native memory hooks when the concrete agent supports them. The runtime keeps only the narrow `MemoryProvider` SPI; the adapter that maps it to OpenJiuwen external memory semantics lives under `runtime.engine.openjiuwen`, so future OpenJiuwen memory module splits do not leak into the public runtime SPI.
+
 ## Local example: test, start, client
 
 The local end-to-end example lives at:
