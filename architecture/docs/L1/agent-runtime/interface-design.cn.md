@@ -190,7 +190,7 @@ OpenJiuwen 原生 memory 接入优先使用 OpenJiuwen 0.1.12 的 external memor
 同时，当前还保留 `OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail` 作为 OpenJiuwen 本地兼容桥。它不是公共 runtime SPI，主要用于普通 ReActAgent 或不完整支持 harness external-memory rail 的路径：
 
 - `beforeInvoke(...)` 调用 runtime 中立 `MemoryProvider.init(context)`。
-- `beforeInvoke(...)` 使用最新用户输入调用 `MemoryProvider.search(context, query, limit)`，并把检索结果作为自然语言 system note 合并进 OpenJiuwen `ModelContext` 的 system prompt；如果当前上下文已经有 `SystemMessage`，只合并内容，不额外新增第二个 system prompt。兼容桥不再向 LLM 暴露用于剥离的 XML 技术标记。
+- `beforeInvoke(...)` 使用最新用户输入调用 `MemoryProvider.search(context, query, limit)`，并把检索结果作为自然语言 system note 合并进 OpenJiuwen `ModelContext` 的 system prompt；如果当前上下文已经有 `SystemMessage`，只合并内容，不额外新增第二个 system prompt。
 - `afterInvoke(...)` 从 OpenJiuwen callback context 中取出 `BaseMessage` 列表，但只把干净的 `user` / `assistant` turn 转换成 `MemoryProvider.MemoryRecord` 并调用 `MemoryProvider.save(context, records)`。业务已有的 system prompt、runtime 注入的 memory note、tool 消息都不进入长期记忆写回；长期记忆的抽取、压缩、去重仍由具体 `MemoryProvider` 负责。
 - OpenJiuwen `BaseMessage` 与 `MemoryRecord` 的转换由 `OpenJiuwenMemoryMessageAdapter` 负责，留在 `runtime.engine.openjiuwen` 包内。
 - `InMemoryMemoryProvider` 是 examples 内的轻量实现，按 `agentStateKey` 做最小隔离；生产 memory 后端、向量召回、压缩和跨租户治理仍由具体 `MemoryProvider` 实现负责。
