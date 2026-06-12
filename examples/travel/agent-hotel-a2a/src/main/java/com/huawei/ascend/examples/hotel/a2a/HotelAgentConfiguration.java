@@ -6,7 +6,7 @@ package com.huawei.ascend.examples.hotel.a2a;
 
 import com.huawei.ascend.examples.hotel.HotelPlanningAgent;
 import com.huawei.ascend.examples.hotel.LlmConfig;
-import com.huawei.ascend.runtime.engine.spi.AgentCards;
+import com.huawei.ascend.runtime.engine.a2a.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.springframework.beans.factory.annotation.Value;

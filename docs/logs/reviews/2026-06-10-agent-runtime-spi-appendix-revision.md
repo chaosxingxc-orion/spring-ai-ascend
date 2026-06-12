@@ -21,7 +21,7 @@ authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 | `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` | interface | Agent 框架与引擎之间的唯一解耦面，执行一个 Agent 并输出框架无关的结果流 | 每个 agentId 注册一个实例，随 Runtime 生命周期存在 |
 | `com.huawei.ascend.runtime.engine.spi.AgentRuntimeProvider` | interface | 可选生命周期钩子，在 handler 执行前后注入逻辑（状态恢复、沙箱准备、工具覆盖、追踪等） | 每次 execute 调用时通过 `handler.providers()` 获取列表，无状态 |
 | `com.huawei.ascend.runtime.engine.spi.StreamAdapter` | @FunctionalInterface | 将框架原生结果流映射为引擎中立的 `Stream<AgentExecutionResult>` | 由 handler 提供，每次 execute 后调用 |
-| `com.huawei.ascend.runtime.engine.spi.AgentCardProvider` | interface | 为运行时托管的业务 Agent 提供 A2A Agent Card 元数据 | 可选 Bean，与 handler 生命周期分离 |
+| `com.huawei.ascend.runtime.engine.a2a.AgentCardProvider` | interface | 为运行时托管的业务 Agent 提供 A2A Agent Card 元数据 | 可选 Bean，与 handler 生命周期分离 |
 | `com.huawei.ascend.runtime.engine.spi.StateProvider` | interface | 标记接口（继承 `AgentRuntimeProvider`），需要手动状态桥接的框架实现 | 作为 provider 的一种，通过 `handler.providers()` 返回 |
 
 ### 1.2 辅助类与值对象（非 SPI 接口，但属于 SPI 包）
@@ -30,7 +30,7 @@ authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 |---|---|---|
 | `com.huawei.ascend.runtime.engine.spi.AgentExecutionResult` | final class | 引擎中立的执行结果值对象，4 种语义：`OUTPUT` / `COMPLETED` / `FAILED` / `INTERRUPTED` |
 | `com.huawei.ascend.runtime.engine.spi.AgentRuntimeProviderChain` | final class | 工具类：按序执行所有 providers 的 `beforeExecute` → handler.execute() → 逆序执行 `afterExecute`，保证失败隔离 |
-| `com.huawei.ascend.runtime.engine.spi.AgentCards` | final class | 默认 A2A Agent Card 工厂方法 |
+| `com.huawei.ascend.runtime.engine.a2a.AgentCards` | final class | 默认 A2A Agent Card 工厂方法 |
 
 ## 2. 接口详细规范
 
