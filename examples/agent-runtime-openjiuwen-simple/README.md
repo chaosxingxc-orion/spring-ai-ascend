@@ -179,8 +179,8 @@ public class MyApplication {
 | `sample.openjiuwen.api-base` | `http://localhost:4000/v1` | LLM API 地址 |
 | `sample.openjiuwen.model-name` | `gpt-5.4-mini` | 模型名称 |
 | `sample.openjiuwen.ssl-verify` | `true` | SSL 证书校验 |
-| `agent-runtime.access.a2a.agent-card.name` | handler.agentId() | A2A AgentCard 名称 |
-| `agent-runtime.access.a2a.agent-card.description` | `agent-runtime` | A2A AgentCard 描述 |
+| `agent-runtime.access.a2a.agent-card.name` | `openjiuwen-simple-agent` | A2A AgentCard 名称 |
+| `agent-runtime.access.a2a.agent-card.description` | 示例描述 | A2A AgentCard 描述 |
 | `agent-runtime.access.a2a.agent-card.version` | `0.1.0` | 版本号 |
 | `agent-runtime.access.a2a.agent-card.organization` | `spring-ai-ascend` | 组织名 |
 | `agent-runtime.access.a2a.agent-card.organization-url` | `http://localhost:8080` | 组织 URL |

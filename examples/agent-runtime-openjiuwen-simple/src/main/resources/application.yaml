@@ -34,9 +34,9 @@ agent-runtime:
       # draws a sensible default. Leave the entire block out to auto-generate
       # a card from handler.agentId().
       agent-card:
-        # name: openjiuwen-simple-agent          # defaults to handler.agentId()
-        # description: A minimal openJiuwen agent # defaults to "agent-runtime"
-        # version: "0.1.0"                       # defaults to "0.1.0"
+        name: openjiuwen-simple-agent
+        description: A minimal openJiuwen ReAct agent hosted by agent-runtime.
+        version: "0.1.0"
         # organization: spring-ai-ascend         # defaults to "spring-ai-ascend"
         # organization-url: http://localhost:8080 # defaults to "http://localhost:8080"
         # endpoint: /a2a                         # defaults to "/a2a"
