@@ -18,6 +18,7 @@
 | [handler-spi.md](handler-spi.md) | 实现自定义 AgentRuntimeHandler |
 | [openjiuwen-adapter.md](openjiuwen-adapter.md) | 挂载 openJiuwen ReActAgent 或 DeepAgent |
 | [versatile-adapter.md](versatile-adapter.md) | 通过 REST 代理接入远端 Agent 服务 |
+| [remote-invocation.md](remote-invocation.md) | Agent 通过 A2A 协议调用其他 Agent 作为工具 |
 | [communication-models.md](communication-models.md) | 同步/流式/异步三种通讯模式及响应类型 |
 | [middleware-services.md](middleware-services.md) | MemoryProvider SPI 与 Agent State 持久化 |
 | [agent-card-configuration.md](agent-card-configuration.md) | 配置 A2A Agent 发现卡片 |
@@ -32,6 +33,7 @@
 | 创建新的 Agent 适配器 | [adapter-overview.md](adapter-overview.md) → [handler-spi.md](handler-spi.md) → 对应框架文档 |
 | 挂载 openJiuwen Agent | [openjiuwen-adapter.md](openjiuwen-adapter.md) |
 | 代理远端 REST Agent | [versatile-adapter.md](versatile-adapter.md) |
+| Agent 调用其他 A2A Agent | [remote-invocation.md](remote-invocation.md) |
 | 选择同步/流式/异步模式 | [communication-models.md](communication-models.md) |
 | 理解 A2A 流式事件 | [communication-models.md](communication-models.md) → [a2a-endpoints.md](a2a-endpoints.md) |
 | 添加会话记忆 | [middleware-services.md](middleware-services.md) |
