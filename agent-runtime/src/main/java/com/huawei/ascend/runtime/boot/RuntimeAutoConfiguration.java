@@ -129,9 +129,11 @@ public class RuntimeAutoConfiguration {
             return new A2aAgentExecutor(null, invocationService, readiness::isReady);
         }
         if (registered.size() > 1) {
-            log.warn("Multiple AgentRuntimeHandlers registered; using '{}', ignoring {}",
-                    registered.get(0).agentId(),
-                    registered.stream().skip(1).map(AgentRuntimeHandler::agentId).toList());
+            throw new IllegalStateException(
+                    "Multiple AgentRuntimeHandler beans registered but the runtime hosts exactly one agent."
+                    + " Found: " + registered.stream().map(AgentRuntimeHandler::agentId).toList()
+                    + ". Register exactly one AgentRuntimeHandler bean, or split agents into separate"
+                    + " runtime instances.");
         }
         return new A2aAgentExecutor(registered.get(0), invocationService, readiness::isReady,
                 toTrajectorySettings(trajectoryProperties), sinkFactories.orderedStream().toList());

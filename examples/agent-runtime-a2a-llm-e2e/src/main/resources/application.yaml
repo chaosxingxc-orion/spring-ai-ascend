@@ -4,19 +4,11 @@ agent-runtime:
   access:
     a2a:
       default-tenant-id: sample-tenant
-      default-agent-id: openjiuwen-react-agent
+      default-agent-id: agentscope-react-agent
 
 sample:
-  openjiuwen:
-    model-provider: ${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}
-    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-local-placeholder}
-    api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
-    model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
-    ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}
-    checkpointer: ${SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER:in-memory}
-    redis-url: ${SAA_SAMPLE_OPENJIUWEN_REDIS_URL:redis://localhost:6379}
   agentscope:
-    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-local-placeholder}
+    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-local-dev-key}
     api-base: ${SAA_SAMPLE_AGENTSCOPE_API_BASE:http://localhost:4000/v1}
     endpoint-path: ${SAA_SAMPLE_AGENTSCOPE_ENDPOINT_PATH:/chat/completions}
     model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}

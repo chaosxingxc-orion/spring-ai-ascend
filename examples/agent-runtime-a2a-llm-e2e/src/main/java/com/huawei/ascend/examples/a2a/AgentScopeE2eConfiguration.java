@@ -3,16 +3,8 @@ package com.huawei.ascend.examples.a2a;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeAgent;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeEvent;
-import com.huawei.ascend.runtime.engine.agentscope.AgentScopeHarnessAgent;
-import com.huawei.ascend.runtime.engine.agentscope.AgentScopeHarnessRuntimeHandler;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeInvocation;
-import com.huawei.ascend.runtime.engine.agentscope.AgentScopeMessageAdapter;
-import com.huawei.ascend.runtime.engine.agentscope.AgentScopeRuntimeClient;
-import com.huawei.ascend.runtime.engine.agentscope.AgentScopeRuntimeClientProperties;
-import com.huawei.ascend.runtime.engine.agentscope.AgentScopeStreamAdapter;
-import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.agent.Event;
 import io.agentscope.core.agent.EventType;
@@ -33,17 +25,14 @@ import org.slf4j.LoggerFactory;
 import org.a2aproject.sdk.spec.Message;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(prefix = "sample.a2a", name = "agent", havingValue = "agentscope")
+@ConditionalOnProperty(prefix = "sample.a2a", name = "agent", havingValue = "agentscope", matchIfMissing = true)
 public class AgentScopeE2eConfiguration {
 
     static final String AGENT_ID = "agentscope-react-agent";
-    static final String HARNESS_AGENT_ID = "agentscope-harness-agent";
-    static final String RUNTIME_AGENT_ID = "agentscope-runtime-agent";
 
     private static final String SYSTEM_PROMPT = """
             You are a concise assistant exposed only through the A2A protocol.
@@ -71,116 +60,6 @@ public class AgentScopeE2eConfiguration {
                 sampleAgentScopeAgent);
     }
 
-    @Bean
-    AgentScopeHarnessAgent sampleAgentScopeHarnessAgent(AgentScopeAgent sampleAgentScopeAgent) {
-        return new SampleAgentScopeHarnessAgent(sampleAgentScopeAgent);
-    }
-
-    @Bean
-    AgentRuntimeHandler agentScopeHarnessAgentHandler(AgentScopeHarnessAgent sampleAgentScopeHarnessAgent) {
-        return new AgentScopeHarnessRuntimeHandler(
-                HARNESS_AGENT_ID,
-                HARNESS_AGENT_ID,
-                "Sample AgentScope Harness agent hosted by agent-runtime.",
-                sampleAgentScopeHarnessAgent);
-    }
-
-    @Bean
-    AgentRuntimeHandler agentScopeRuntimeClientHandler(
-            @Value("${sample.agentscope.runtime.base-url:${SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL:self}}")
-            String baseUrl,
-            @Value("${sample.agentscope.runtime.endpoint-path:${SAA_SAMPLE_AGENTSCOPE_RUNTIME_ENDPOINT_PATH:/sample/agentscope/process}}")
-            String endpointPath,
-            WebServerApplicationContext webServerContext) {
-        return new SampleAgentScopeRuntimeClientHandler(
-                RUNTIME_AGENT_ID,
-                RUNTIME_AGENT_ID,
-                "Sample AgentScope REST/SSE runtime client hosted by agent-runtime.",
-                baseUrl,
-                endpointPath,
-                webServerContext);
-    }
-
-    static final class SampleAgentScopeRuntimeClientHandler implements AgentRuntimeHandler {
-        private final AgentScopeMessageAdapter messageAdapter = new AgentScopeMessageAdapter();
-        private final AgentScopeStreamAdapter streamAdapter = new AgentScopeStreamAdapter();
-        private final java.util.concurrent.atomic.AtomicReference<AgentScopeRuntimeClient> client =
-                new java.util.concurrent.atomic.AtomicReference<>();
-        private final String agentId;
-        private final String baseUrl;
-        private final String endpointPath;
-        private final WebServerApplicationContext webServerContext;
-
-        SampleAgentScopeRuntimeClientHandler(
-                String agentId,
-                String name,
-                String description,
-                String baseUrl,
-                String endpointPath,
-                WebServerApplicationContext webServerContext) {
-            this.agentId = Objects.requireNonNull(agentId, "agentId");
-            Objects.requireNonNull(name, "name");
-            Objects.requireNonNull(description, "description");
-            this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl");
-            this.endpointPath = Objects.requireNonNull(endpointPath, "endpointPath");
-            this.webServerContext = Objects.requireNonNull(webServerContext, "webServerContext");
-        }
-
-        @Override
-        public String agentId() {
-            return agentId;
-        }
-
-        @Override
-        public boolean isHealthy() {
-            return true;
-        }
-
-        @Override
-        public Stream<?> execute(AgentExecutionContext context) {
-            return client().streamEvents(messageAdapter.toInvocation(context));
-        }
-
-        @Override
-        public StreamAdapter resultAdapter() {
-            return streamAdapter;
-        }
-
-        @Override
-        public void stop() {
-            AgentScopeRuntimeClient existing = client.getAndSet(null);
-            if (existing != null) {
-                existing.close();
-            }
-        }
-
-        /**
-         * One client (one HTTP transport) for the handler's lifetime. Created on
-         * first execution — not in start() — because the "self" base URL needs
-         * the web server's bound port, which is only known once traffic flows.
-         */
-        private AgentScopeRuntimeClient client() {
-            AgentScopeRuntimeClient existing = client.get();
-            if (existing != null) {
-                return existing;
-            }
-            AgentScopeRuntimeClient created = new AgentScopeRuntimeClient(
-                    new AgentScopeRuntimeClientProperties(resolveBaseUrl(), endpointPath));
-            if (client.compareAndSet(null, created)) {
-                return created;
-            }
-            created.close();
-            return client.get();
-        }
-
-        private String resolveBaseUrl() {
-            if (!"self".equalsIgnoreCase(baseUrl)) {
-                return baseUrl;
-            }
-            int port = webServerContext.getWebServer().getPort();
-            return "http://localhost:" + port;
-        }
-    }
 
     static final class SampleAgentScopeSdkAgent implements AgentScopeAgent {
         private static final Logger LOGGER = LoggerFactory.getLogger(SampleAgentScopeSdkAgent.class);
@@ -323,32 +202,4 @@ public class AgentScopeE2eConfiguration {
         }
     }
 
-    static final class SampleAgentScopeHarnessAgent implements AgentScopeHarnessAgent {
-        private final AgentScopeAgent delegate;
-
-        SampleAgentScopeHarnessAgent(AgentScopeAgent delegate) {
-            this.delegate = Objects.requireNonNull(delegate, "delegate");
-        }
-
-        @Override
-        public Stream<AgentScopeEvent> streamEvents(AgentScopeInvocation invocation) {
-            AgentScopeInvocation harnessedInvocation = new AgentScopeInvocation(
-                    invocation.tenantId(),
-                    invocation.userId(),
-                    invocation.sessionId(),
-                    invocation.taskId(),
-                    invocation.agentId(),
-                    invocation.inputType(),
-                    invocation.messages(),
-                    invocation.variables(),
-                    withHarnessMetadata(invocation.metadata()));
-            return delegate.streamEvents(harnessedInvocation);
-        }
-
-        private Map<String, Object> withHarnessMetadata(Map<String, Object> metadata) {
-            java.util.LinkedHashMap<String, Object> result = new java.util.LinkedHashMap<>(metadata);
-            result.put("agentscopeHarness", Boolean.TRUE);
-            return Map.copyOf(result);
-        }
-    }
 }

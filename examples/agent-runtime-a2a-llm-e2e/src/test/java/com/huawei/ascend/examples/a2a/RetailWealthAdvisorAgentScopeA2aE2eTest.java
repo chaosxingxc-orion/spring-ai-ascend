@@ -19,7 +19,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 @ResourceLock("real-llm")
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = OpenJiuwenA2aAgentRuntimeApplication.class,
+        classes = A2aAgentRuntimeApplication.class,
         properties = "sample.a2a.agent=retail-wealth-advisor")
 class RetailWealthAdvisorAgentScopeA2aE2eTest {
 

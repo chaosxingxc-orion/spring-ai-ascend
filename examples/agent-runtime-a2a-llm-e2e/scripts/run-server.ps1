@@ -1,4 +1,4 @@
-# Load an env file, install agent-runtime, then start the example A2A + openJiuwen server.
+# Load an env file, install agent-runtime, then start the example A2A + AgentScope server.
 # Usage: ./scripts/run-server.ps1 [-EnvFile .env]
 param([string]$EnvFile = "$PSScriptRoot\..\.env")
 $ErrorActionPreference = 'Stop'
@@ -8,7 +8,7 @@ if (Test-Path $EnvFile) {
         $k, $v = $_ -split '=', 2
         [Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim(), 'Process')
     }
-    Write-Host "loaded env: $EnvFile  (provider=$env:SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER apiBase=$env:SAA_SAMPLE_OPENJIUWEN_API_BASE model=$env:SAA_SAMPLE_LLM_MODEL)"
+    Write-Host "loaded env: $EnvFile  (apiBase=$env:SAA_SAMPLE_AGENTSCOPE_API_BASE model=$env:SAA_SAMPLE_LLM_MODEL)"
 } else {
     Write-Host "env file not found: $EnvFile - using application.yaml defaults"
 }

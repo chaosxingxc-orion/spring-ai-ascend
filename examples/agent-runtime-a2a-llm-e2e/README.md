@@ -1,12 +1,12 @@
-﻿# Agent Runtime A2A LLM E2E Example
+# Agent Runtime A2A LLM E2E Example
 
 ## Purpose
 
-This example shows how to run an `agent-runtime` application that exposes an A2A endpoint, hosts openJiuwen and AgentScope agents behind that endpoint, and exercises them from an A2A client perspective only.
+This example shows how to run an `agent-runtime` application that exposes an A2A endpoint, hosts AgentScope SDK agents behind that endpoint, and exercises them from an A2A client perspective only.
 
 The example lives at `examples/agent-runtime-a2a-llm-e2e` and includes:
 
-- a Spring Boot server application: `com.huawei.ascend.examples.a2a.OpenJiuwenA2aAgentRuntimeApplication`
+- a Spring Boot server application: `com.huawei.ascend.examples.a2a.A2aAgentRuntimeApplication`
 - a console client: `com.huawei.ascend.examples.a2a.A2aConsoleClientApplication`
 - automated end-to-end tests that validate the A2A flow against a local OpenAI-compatible LLM gateway
 
@@ -21,26 +21,22 @@ This example verifies the intended boundary for the sample:
 5. A simple prompt of `ping` produces a final visible answer of `pong`.
 6. A bank retail wealth advisor sample can produce an asset-allocation suggestion through the same A2A surface.
 
-The sample application can host one concrete sample agent at a time. Set
-`sample.a2a.agent` to select the active runtime:
+## Selecting the Active Agent
 
-- `openjiuwen` (default): openJiuwen ReAct agent.
-- `agentscope`: AgentScope Java SDK ReAct agent.
-- `retail-wealth-advisor`: AgentScope retail wealth advisor sample.
+The runtime hosts exactly **one** agent per process. Set `sample.a2a.agent` to select the active runtime:
 
-The current automated E2E tests cover openJiuwen plus the three AgentScope integration paths:
+- `agentscope` (default): AgentScope Java SDK ReAct agent.
+- `retail-wealth-advisor`: AgentScope retail wealth advisor sample with mock bank-side skills.
+
+The current automated E2E tests cover both profiles:
 
 - `agentscope-react-agent`: AgentScope Java SDK ReAct agent.
-- `agentscope-harness-agent`: AgentScope SDK agent through the runtime Harness adapter.
-- `agentscope-runtime-agent`: AgentScope REST/SSE runtime client path, using the sample `/sample/agentscope/process` endpoint by default.
 - `agentscope-retail-wealth-advisor`: bank retail wealth advisor built as an AgentScope ReAct agent with sample skills.
-- `agentscope-retail-wealth-advisor-harness`: the same advisor through the runtime Harness adapter.
-- `agentscope-retail-wealth-advisor-runtime`: the same advisor through the AgentScope REST/SSE runtime client path, using `/sample/agentscope/retail-wealth/process` by default.
 
 ## AgentScope Retail Wealth Advisor Sample
 
 The retail wealth advisor sample models a customer-owned AgentScope agent that a
-large bank's business engineering team could build with DianJin-style skills.
+large bank's business engineering team could build with bank-side skills.
 It is intentionally kept inside the example module: `spring-ai-ascend` provides
 runtime governance, A2A, task state, and output distribution; the wealth-advisor
 logic belongs to the customer's AgentScope application.
@@ -58,84 +54,6 @@ products, public funds, qualified-investor private funds, gold products, and ETF
 feeder funds. The sample does not recommend individual stocks or exchange-traded
 ETF products, and it always asks the model to include suitability and compliance
 reminders. These skills are demonstration fixtures only, not financial advice.
-
-## Gateway Facade Sample
-
-This example module also contains a minimal Gateway facade sample under
-`com.huawei.ascend.examples.a2a.gateway`. It demonstrates how a platform layer
-can keep a registry of multiple single-agent runtime instances and expose a
-small HTTP facade for:
-
-- runtime self-registration, lease renewal, and deregistration
-- tenant-scoped agent listing and AgentCard lookup
-- route resolution by `tenantId` and `agentId`
-- a minimal A2A JSON-RPC forwarding endpoint for customer reference
-- tenant-scoped `RouteGrant` issuing and validation for runtime-to-runtime A2A calls
-- asynchronous A2A interaction telemetry record/query APIs
-
-The facade sample is intentionally local and in-memory. It is a customer-facing
-example for pluggable gateway integration, not the production `agent-service`
-implementation.
-
-### Runtime-to-Runtime Discovery and Telemetry
-
-For east-west runtime calls, the sample keeps the examples layer as the
-discovery, route-policy, and observability authority without forcing every
-runtime-to-runtime payload through the examples data plane:
-
-1. source runtime asks the facade for a short-lived `RouteGrant`
-2. facade resolves a healthy target runtime and signs the grant
-3. source runtime can call the target runtime A2A endpoint directly
-4. target runtime can validate the grant before accepting the call
-5. source and target runtimes can asynchronously report interaction telemetry
-
-The sample exposes these minimum HTTP endpoints:
-
-- `POST /v1/route-grants/resolve`
-- `POST /v1/route-grants/validate`
-- `POST /v1/a2a-interactions`
-- `GET /v1/a2a-interactions?tenantId=...&correlationId=...&limit=100`
-- `GET /v1/gateway-health`
-
-This keeps runtime caches small: runtimes cache scoped grants with TTL and
-policy version, not a full `tenantId x sourceAgentId x targetAgentId x replica`
-authorization table.
-
-The northbound gateway forwarding endpoint also issues a short-lived
-`RouteGrant`, forwards its id/signature as request headers, streams the runtime
-response back to the caller, and records one telemetry event when the response
-body finishes.
-
-### Gateway DFX Reference Shape
-
-The Gateway facade sample is not a five-nines production gateway, but it now
-shows the minimum DFX shape expected from a customer-facing platform facade:
-
-- runtime registration records carry TTL / lease information
-- expired leases are marked `UNREACHABLE` and are no longer routable
-- cold, draining, unreachable, and at-capacity runtimes fail closed with clear
-  error codes
-- runtime lease renewals can carry a `RuntimeCapacitySnapshot`; `READY`
-  runtimes whose task or LLM capacity is full are treated as `AT_CAPACITY` for
-  route selection
-- multiple runtime replicas are resolved through the same route view, and only
-  healthy low-pressure `READY` replicas receive new traffic first
-- current routing is replica selection only: the sample does not create, stop,
-  scale out, or scale in runtime instances, and it does not implement a K8S HPA
-  or autoscaler control loop
-- the A2A forwarding endpoint returns trace headers for route resolution,
-  response start, and selected runtime instance; total forwarding time is
-  recorded in telemetry after the stream finishes
-- route grants are short-lived, tenant-scoped, method-scoped, and signed
-- A2A interaction telemetry carries correlation, route latency, first-byte
-  latency, total latency, status, and selected runtime identity
-- `/v1/gateway-health` exposes a minimal registry and telemetry event count
-
-Production deployments must still add persistent or reconstructable registry
-state, runtime identity authentication, tenant-agent authorization, rate
-limiting, circuit breaking, dynamic scaling through K8S or an equivalent
-orchestrator, multi-AZ deployment, same-city disaster recovery, cross-region
-recovery, SLA/SLO dashboards, and error-budget governance.
 
 ## Quick start (config templates + scripts)
 
@@ -166,16 +84,9 @@ Templates (the `.env` you fill is gitignored; the `*.example` templates are trac
 > spring-boot:run` directly, only variables already exported in your shell are
 > visible to the Java process.
 
-> The real-LLM e2e (`OpenJiuwenReactAgentA2aE2eTest`) only runs when
-> `SAA_SAMPLE_LLM_API_KEY` is non-blank. Without it, JUnit `assumeTrue()` **skips**
-> that branch after the agent-card assertions (the rest of the suite still runs).
-> The AgentScope real-LLM e2e (`AgentScopeA2aE2eTest`) follows the same rule and
-> skips its three real-model branches when `SAA_SAMPLE_LLM_API_KEY` is blank.
-
-The route-grant signer uses `SAA_SAMPLE_GATEWAY_ROUTE_GRANT_SECRET` or
-`sample.gateway.route-grant-secret`. The checked-in default is for local sample
-execution only; set a non-default secret before demonstrating cross-runtime
-authorization flows to other teams.
+> The real-LLM E2E tests only run when `SAA_SAMPLE_LLM_API_KEY` is non-blank.
+> Without it, JUnit `assumeTrue()` **skips** the real-LLM branch after the
+> agent-card assertions (the rest of the suite still runs).
 
 ## Which Environment Values Are Effective?
 
@@ -196,14 +107,6 @@ The checked-in defaults are placeholders for a local OpenAI-compatible gateway:
 
 ```yaml
 sample:
-  openjiuwen:
-    model-provider: ${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}
-    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-local-placeholder}
-    api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
-    model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
-    ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}
-    checkpointer: ${SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER:in-memory}
-    redis-url: ${SAA_SAMPLE_OPENJIUWEN_REDIS_URL:redis://localhost:6379}
   agentscope:
     api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-local-placeholder}
     api-base: ${SAA_SAMPLE_AGENTSCOPE_API_BASE:http://localhost:4000/v1}
@@ -263,7 +166,7 @@ agent-runtime:
   access:
     a2a:
       default-tenant-id: sample-tenant
-      default-agent-id: openjiuwen-react-agent
+      default-agent-id: agentscope-react-agent
       # public-base-url: https://agents.example.com/runtime-one
 ```
 
@@ -275,16 +178,7 @@ absolute endpoint URLs that do not depend on local host/port inference.
 The example also recognizes these environment variables for the local LLM setup:
 
 - `SAA_SAMPLE_LLM_API_KEY`
-- `SAA_SAMPLE_OPENJIUWEN_API_BASE`
-- `SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER`
 - `SAA_SAMPLE_LLM_MODEL`
-- `SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY`
-- `SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER`
-- `SAA_SAMPLE_OPENJIUWEN_REDIS_URL`
-- `SAA_SAMPLE_MEM0_BASE_URL`
-- `SAA_SAMPLE_MEM0_API_KEY`
-- `SAA_SAMPLE_MEM0_API_MODE`
-- `SAA_SAMPLE_MEM0_INFER_ON_SAVE`
 - `SAA_SAMPLE_AGENTSCOPE_API_BASE`
 - `SAA_SAMPLE_AGENTSCOPE_ENDPOINT_PATH`
 - `SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL`
@@ -297,143 +191,17 @@ The example also recognizes these environment variables for the local LLM setup:
 The console client accepts either positional arguments or environment variables:
 
 - arg 1 or `SAA_SAMPLE_A2A_BASE_URL`: A2A server base URL, default `http://localhost:8080`
-- arg 2 or `SAA_SAMPLE_AGENT_ID`: agent id, default `openjiuwen-react-agent`
+- arg 2 or `SAA_SAMPLE_AGENT_ID`: agent id, default `agentscope-react-agent`
 - arg 3 or `SAA_SAMPLE_USER_ID`: user id, default `manual-user`
 
 Example override:
 
 ```bash
 export SAA_SAMPLE_LLM_API_KEY="<your-key>"
-export SAA_SAMPLE_OPENJIUWEN_API_BASE="http://localhost:4000/v1"
 export SAA_SAMPLE_AGENTSCOPE_API_BASE="http://localhost:4000/v1"
 export SAA_SAMPLE_LLM_MODEL="gpt-5.4-mini"
 export SAA_SAMPLE_A2A_BASE_URL="http://localhost:18080"
 ```
-
-The openJiuwen sample configures the native checkpointer at startup through the
-runtime OpenJiuwen checkpointer configurer. It sets `InMemoryCheckpointer` as
-the default path for local E2E runs. Set
-`SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis` and provide
-`SAA_SAMPLE_OPENJIUWEN_REDIS_URL` to create and install the openJiuwen
-`RedisCheckpointer` path.
-
-The sample memory provider defaults to the local in-memory implementation. Set
-`sample.memory.provider=mem0` or `SAA_SAMPLE_MEMORY_PROVIDER=mem0` to use the
-example Mem0 REST provider. It defaults to Mem0 OSS REST paths (`/search` and
-`/memories`) for locally deployed Mem0; set `SAA_SAMPLE_MEM0_API_MODE=platform`
-to use Mem0 platform-style `/v3/memories/...` paths.
-
-```bash
-export SAA_SAMPLE_MEMORY_PROVIDER=mem0
-export SAA_SAMPLE_MEM0_BASE_URL="http://localhost:8000"
-export SAA_SAMPLE_MEM0_API_MODE="oss"
-export SAA_SAMPLE_MEM0_INFER_ON_SAVE=false
-```
-
-## External Dependency Smoke Tests
-
-The module includes two optional dependency smoke-test setups for the openJiuwen
-paths that are not required by the default in-memory E2E suite:
-
-- Redis checkpointer: validates the openJiuwen `RedisCheckpointer` wiring.
-- Mem0 REST memory: validates that the example `Mem0RestMemoryProvider` can talk
-  to a real Mem0 REST service backed by pgvector.
-
-These scripts are Linux/WSL oriented. They use local Docker containers and keep
-the production code unchanged.
-
-### Redis Checkpointer
-
-Start Redis with a mainland-friendly default image:
-
-```bash
-cd examples/agent-runtime-a2a-llm-e2e
-bash scripts/start-redis-checkpointer.sh
-```
-
-Run the openJiuwen real-LLM E2E against the Redis checkpointer path:
-
-```bash
-export SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis
-export SAA_SAMPLE_OPENJIUWEN_REDIS_URL=redis://localhost:6379
-export SAA_SAMPLE_OPENJIUWEN_API_BASE=https://api.deepseek.com/v1
-export SAA_SAMPLE_AGENTSCOPE_API_BASE=https://api.deepseek.com/v1
-export SAA_SAMPLE_LLM_MODEL=deepseek-v4-flash
-export SAA_SAMPLE_LLM_API_KEY="<your-key>"
-
-../../mvnw -f pom.xml -DskipTests=false \
-  -Dtest=OpenJiuwenReactAgentA2aE2eTest test
-```
-
-Stop Redis when finished:
-
-```bash
-bash scripts/stop-redis-checkpointer.sh
-```
-
-### Mem0 REST Memory Provider
-
-Start a local Mem0 REST stack:
-
-```bash
-cd examples/agent-runtime-a2a-llm-e2e
-bash scripts/start-mem0-rest.sh
-```
-
-The script intentionally avoids relying on the public `mem0-api-server` image.
-It clones Mem0, builds a local server image, builds a local PostgreSQL 17 image
-with `pgvector`, runs `alembic upgrade head`, and performs `/memories` plus
-`/search` smoke requests. If `SAA_MEM0_OPENAI_BASE_URL` is unset, the script
-starts `scripts/fake-openai-compatible.py` so the smoke test does not need a
-real embedding provider.
-
-Default local outputs:
-
-```bash
-export SAA_SAMPLE_MEMORY_PROVIDER=mem0
-export SAA_SAMPLE_MEM0_BASE_URL=http://localhost:8000
-export SAA_SAMPLE_MEM0_API_MODE=oss
-export SAA_SAMPLE_MEM0_INFER_ON_SAVE=false
-```
-
-Run the provider tests:
-
-```bash
-../../mvnw -f pom.xml -DskipTests=false \
-  -Dtest=Mem0RestMemoryProviderTest test
-```
-
-Run the openJiuwen A2A E2E with the Mem0 provider selected:
-
-```bash
-export SAA_SAMPLE_MEMORY_PROVIDER=mem0
-export SAA_SAMPLE_MEM0_BASE_URL=http://localhost:8000
-export SAA_SAMPLE_MEM0_API_MODE=oss
-export SAA_SAMPLE_MEM0_INFER_ON_SAVE=false
-export SAA_SAMPLE_OPENJIUWEN_API_BASE=https://api.deepseek.com/v1
-export SAA_SAMPLE_AGENTSCOPE_API_BASE=https://api.deepseek.com/v1
-export SAA_SAMPLE_LLM_MODEL=deepseek-v4-flash
-export SAA_SAMPLE_LLM_API_KEY="<your-key>"
-
-../../mvnw -f pom.xml -DskipTests=false \
-  -Dtest=OpenJiuwenReactAgentA2aE2eTest test
-```
-
-Stop the Mem0 stack when finished:
-
-```bash
-bash scripts/stop-mem0-rest.sh
-```
-
-Notes:
-
-- The first Mem0 build can be slow because it installs Python dependencies and
-  builds a pgvector-enabled PostgreSQL image.
-- The Mem0 REST server does not expose `/api/health` in the current upstream
-  source. The script waits for `/openapi.json`.
-- The smoke test confirms Mem0 returns scored search results; production memory
-  deployments should still configure a real embedding provider, authentication,
-  retention, and tenant isolation.
 
 ## Install Runtime Dependencies
 
@@ -456,14 +224,10 @@ bash scripts/test-e2e.sh .env
 ```
 
 The tests start the example application and call it through the A2A client flow.
-The basic openJiuwen and AgentScope connectivity tests expect the visible
-response for `ping` to be `pong`. The retail wealth advisor tests send a bank
-relationship-manager prompt and expect a visible asset-allocation suggestion
-with customer profile, allocation, projection, risk, and compliance sections.
-AgentScope SDK, Harness, and REST/SSE runtime tests all use the same real model
-settings; the REST/SSE paths default to the embedded sample AgentScope runtime
-endpoints unless the corresponding `*_RUNTIME_BASE_URL` variable points to an
-external customer runtime.
+The basic AgentScope connectivity test expects the visible response for `ping`
+to be `pong`. The retail wealth advisor test sends a bank relationship-manager
+prompt and expects a visible asset-allocation suggestion with customer profile,
+allocation, projection, risk, and compliance sections.
 
 If you have already exported the required variables and want to run Maven directly
 (the module pom defaults `skipTests=true`, so the override is required):
@@ -478,24 +242,179 @@ If you have already exported the required variables and want to run Maven direct
 `AgentRuntimeHandler` implementation that fronts a remote LangGraph runtime
 (LangGraph Platform / langgraph-api) over SSE. It demonstrates how to adapt a
 third framework behind the neutral runtime SPI, but it is NOT part of the
-shipped agent-runtime adapter surface (openJiuwen + AgentScope); promoting it
-requires an authorizing ADR plus the L1/contract-catalog lockstep. Its unit
-tests run with the rest of this module's suite.
+shipped agent-runtime adapter surface; promoting it requires an authorizing ADR
+plus the L1/contract-catalog lockstep. Its unit tests run with the rest of this
+module's suite.
 
 ## Manual Verification
 
-1. Make sure your local OpenAI-compatible endpoint is reachable.
-2. Start the example server with the env-loading helper script:
+### Prerequisite: install agent-runtime
+
+The example module is outside the root Maven reactor. Install the runtime once:
 
 ```bash
-bash scripts/run-server.sh .env
+./mvnw -pl agent-runtime -am -DskipTests install
 ```
 
-The script loads `.env`, installs `agent-runtime`, and starts the Spring Boot server.
-If the server is already running, stop it first; changing `.env` does not update an
-already-running Java process.
+(The helper scripts do this automatically.)
 
-3. In another terminal, start the console client:
+---
+
+### Way A — Script-based startup (recommended)
+
+The helper script loads your `.env` file and installs dependencies automatically.
+**Use this if you want a single command that "just works".**
+
+#### Start the server
+
+```bash
+# Default agent (Agentscope ReAct, ping → pong)
+bash scripts/run-server.sh .env
+
+# Retail wealth advisor (asset allocation suggestions)
+bash scripts/run-server.sh .env retail-wealth-advisor
+```
+
+| Argument | Required | Default | Description |
+|---|---|---|---|
+| env-file | yes | `.env` | Path to environment file |
+| agent-profile | no | `agentscope` | `agentscope` or `retail-wealth-advisor` |
+
+#### Switch agent
+
+Stop the current server (Ctrl+C), then restart with a different profile:
+
+```bash
+# From agentscope → retail-wealth-advisor
+bash scripts/run-server.sh .env retail-wealth-advisor
+
+# From retail-wealth-advisor → agentscope
+bash scripts/run-server.sh .env agentscope
+```
+
+The script sources `.env` every time — API keys are always inherited.
+
+---
+
+### Way B — Raw command-line startup
+
+Use this when you need full control over Maven arguments, JVM options, or the port.
+
+**Important:** Maven does NOT read `.env` files. You must export environment
+variables before running `mvn`, or the application falls back to
+`application.yaml` defaults (which use placeholder keys).
+
+#### 1. Export environment variables
+
+```bash
+set -a
+source .env
+set +a
+```
+
+Or export manually:
+
+```bash
+export SAA_SAMPLE_LLM_API_KEY="sk-your-key"
+export SAA_SAMPLE_AGENTSCOPE_API_BASE="http://localhost:4000/v1"
+export SAA_SAMPLE_LLM_MODEL="gpt-5.4-mini"
+```
+
+#### 2. Start the server
+
+```bash
+# Default agent (agentscope-react-agent)
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml spring-boot:run
+
+# Retail wealth advisor
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml spring-boot:run \
+  -Dspring-boot.run.arguments="--sample.a2a.agent=retail-wealth-advisor"
+
+# Custom port
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml spring-boot:run \
+  -Dspring-boot.run.arguments="--server.port=18080 --sample.a2a.agent=retail-wealth-advisor"
+```
+
+#### Switch agent
+
+Stop (Ctrl+C), then run the `mvn` command for the target profile.
+Remember to export env vars again if you opened a new terminal.
+
+---
+
+### Verify with curl (works for both Way A and Way B)
+
+Once the server is running on `http://localhost:8080`:
+
+**Agent card:**
+
+```bash
+curl -s http://localhost:8080/.well-known/agent-card.json | python3 -m json.tool | grep name
+# agentscope-react-agent        (default)
+# agentscope-retail-wealth-advisor  (retail-wealth-advisor profile)
+```
+
+**Ping → pong (Agentscope ReAct agent):**
+
+```bash
+curl -s -N -X POST http://localhost:8080/a2a \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "SendStreamingMessage",
+    "id": "1",
+    "params": {
+      "message": {
+        "role": "ROLE_USER",
+        "messageId": "msg-001",
+        "contextId": "session-1",
+        "metadata": {
+          "userId": "test-user",
+          "agentId": "agentscope-react-agent",
+          "sessionId": "session-1"
+        },
+        "parts": [{"text": "ping"}]
+      }
+    }
+  }' --no-buffer
+```
+
+Expected: last SSE event contains `"text":"pong"`.
+
+**Asset allocation suggestion (retail wealth advisor):**
+
+```bash
+curl -s -N -X POST http://localhost:8080/a2a \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "SendStreamingMessage",
+    "id": "1",
+    "params": {
+      "message": {
+        "role": "ROLE_USER",
+        "messageId": "msg-001",
+        "contextId": "session-2",
+        "metadata": {
+          "userId": "test-user",
+          "agentId": "agentscope-retail-wealth-advisor",
+          "sessionId": "session-2"
+        },
+        "parts": [{"text": "请为客户 BANK-CUST-001 生成一份稳健型资产配置建议。"}]
+      }
+    }
+  }' --no-buffer
+```
+
+Expected: completed response contains 客户画像摘要, 建议资产配置, 收益测算, 风险提示, 合规提示.
+
+---
+
+### Interactive console client
+
+In another terminal (with the server still running):
 
 ```bash
 ./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml \
@@ -503,63 +422,31 @@ already-running Java process.
   -Dexec.mainClass=com.huawei.ascend.examples.a2a.A2aConsoleClientApplication
 ```
 
-4. At the prompt, enter:
+Type `ping` → expect `pong`. Type `exit` to quit.
 
-```text
-ping
-```
-
-5. Confirm the printed response is `pong`.
-
-To target a different server, pass the base URL as the first argument:
+To target a different server or agent:
 
 ```bash
+# Via CLI arguments:  <base-url> <agent-id> <user-id>
 ./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml \
   exec:java \
   -Dexec.mainClass=com.huawei.ascend.examples.a2a.A2aConsoleClientApplication \
-  -Dexec.args="http://localhost:18080"
+  -Dexec.args="http://localhost:18080 agentscope-retail-wealth-advisor manual-user"
+
+# Via environment variables
+export SAA_SAMPLE_A2A_BASE_URL="http://localhost:18080"
+export SAA_SAMPLE_AGENT_ID="agentscope-retail-wealth-advisor"
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml \
+  exec:java \
+  -Dexec.mainClass=com.huawei.ascend.examples.a2a.A2aConsoleClientApplication
 ```
 
-You can also verify the A2A surface directly with curl after the server starts.
+### Agent profiles summary
 
-Check the agent card:
-
-```bash
-curl http://localhost:8080/.well-known/agent-card.json
-```
-
-Send a streaming JSON-RPC request to `/a2a`:
-
-```bash
-curl http://localhost:8080/a2a \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: text/event-stream' \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": "manual-1",
-    "method": "message/stream",
-    "params": {
-      "message": {
-        "role": "user",
-        "messageId": "manual-message-1",
-        "contextId": "manual-session-1",
-        "metadata": {
-          "userId": "manual-user",
-          "agentId": "openjiuwen-react-agent",
-          "sessionId": "manual-session-1"
-        },
-        "parts": [
-          {
-            "kind": "text",
-            "text": "ping"
-          }
-        ]
-      }
-    }
-  }'
-```
-
-The SSE stream should include an accepted event and then a completed response whose user-visible text is `pong`.
+| Profile | Agent ID | Behavior |
+|---|---|---|
+| `agentscope` (default) | `agentscope-react-agent` | ReAct agent, replies `pong` to `ping` |
+| `retail-wealth-advisor` | `agentscope-retail-wealth-advisor` | Bank retail wealth advisor with mock skills |
 
 ## Expected Ping/Pong
 
@@ -576,7 +463,7 @@ Expected happy path:
   - Run `./mvnw -pl agent-runtime -am -DskipTests install` first.
 
 - The server starts but the model call fails.
-  - Verify `SAA_SAMPLE_LLM_API_KEY`, `SAA_SAMPLE_OPENJIUWEN_API_BASE`, and `SAA_SAMPLE_LLM_MODEL`.
+  - Verify `SAA_SAMPLE_LLM_API_KEY`, `SAA_SAMPLE_AGENTSCOPE_API_BASE`, and `SAA_SAMPLE_LLM_MODEL`.
   - Confirm the local gateway responds to `curl http://localhost:4000/v1/models -H 'Authorization: Bearer ...'`.
   - If the gateway succeeds with your real key but the sample fails with a placeholder-key symptom, stop the server and restart it with `bash scripts/run-server.sh .env`.
   - If `/v1/models` succeeds but the sample still fails, test the gateway's `/v1/chat/completions` endpoint with the same key and model.
@@ -588,5 +475,5 @@ Expected happy path:
   - Check that the stream reaches a completed event.
   - Re-run the automated test to validate the expected `ping -> pong` path.
 
-- TLS or certificate problems against a local gateway.
-  - Check `SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY`; the local default is `false` for this sample.
+- Port conflict (8080 already in use).
+  - Override the port: `./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml spring-boot:run -Dspring-boot.run.arguments="--server.port=18080"`

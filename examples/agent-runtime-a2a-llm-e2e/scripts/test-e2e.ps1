@@ -1,6 +1,6 @@
 # Load an env file, install agent-runtime into the local Maven repo, then run the
-# example A2A + openJiuwen E2E suite (incl. the real-LLM OpenJiuwenReactAgentA2aE2eTest
-# when SAA_SAMPLE_LLM_API_KEY is set).
+# example A2A + AgentScope E2E suite (real-LLM tests run when SAA_SAMPLE_LLM_API_KEY
+# is set).
 #
 # Usage: ./scripts/test-e2e.ps1 [-EnvFile .env]
 #   ./scripts/test-e2e.ps1 -EnvFile .env.ollama.example
@@ -12,7 +12,7 @@ if (Test-Path $EnvFile) {
         $k, $v = $_ -split '=', 2
         [Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim(), 'Process')
     }
-    Write-Host "loaded env: $EnvFile  (provider=$env:SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER apiBase=$env:SAA_SAMPLE_OPENJIUWEN_API_BASE model=$env:SAA_SAMPLE_LLM_MODEL)"
+    Write-Host "loaded env: $EnvFile  (apiBase=$env:SAA_SAMPLE_AGENTSCOPE_API_BASE model=$env:SAA_SAMPLE_LLM_MODEL)"
 } else {
     Write-Host "env file not found: $EnvFile - using process env / application.yaml defaults"
 }
