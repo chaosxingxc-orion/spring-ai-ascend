@@ -2,12 +2,12 @@ package com.huawei.ascend.runtime.boot;
 
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
 import com.huawei.ascend.runtime.engine.a2a.A2aRemoteAgentOutboundAdapter;
+import com.huawei.ascend.runtime.engine.a2a.AgentCardProvider;
+import com.huawei.ascend.runtime.engine.a2a.AgentCards;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenRemoteToolInstaller;
 import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
 import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
-import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
-import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;

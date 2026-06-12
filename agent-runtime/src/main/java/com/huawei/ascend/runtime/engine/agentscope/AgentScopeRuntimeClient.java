@@ -4,8 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.huawei.ascend.runtime.engine.a2a.Messages;
-import org.a2aproject.sdk.spec.Message;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.http.HttpClient;
@@ -210,18 +209,18 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
         return body;
     }
 
-    private List<Map<String, Object>> input(List<Message> messages) {
+    private List<Map<String, Object>> input(List<RuntimeMessage> messages) {
         List<Map<String, Object>> result = new ArrayList<>();
-        for (Message message : messages) {
+        for (RuntimeMessage message : messages) {
             result.add(Map.of(
                     "role", toAgentScopeRole(message.role()),
-                    "content", List.of(Map.of("type", "text", "text", Messages.text(message)))));
+                    "content", List.of(Map.of("type", "text", "text", message.text()))));
         }
         return result;
     }
 
-    private static String toAgentScopeRole(Message.Role role) {
-        return role == Message.Role.ROLE_AGENT ? "assistant" : "user";
+    private static String toAgentScopeRole(RuntimeMessage.Role role) {
+        return role == RuntimeMessage.Role.AGENT ? "assistant" : "user";
     }
 
     private String toJson(Map<String, Object> body) {

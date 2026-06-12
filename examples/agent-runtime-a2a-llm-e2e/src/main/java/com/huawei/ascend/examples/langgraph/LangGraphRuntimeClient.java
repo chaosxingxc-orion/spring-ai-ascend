@@ -4,8 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.a2a.Messages;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.http.HttpClient;
@@ -25,7 +25,6 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.a2aproject.sdk.spec.Message;
 
 /**
  * Streams a run against a remote LangGraph runtime over SSE. Unlike the
@@ -240,12 +239,12 @@ public final class LangGraphRuntimeClient implements AutoCloseable {
         return body;
     }
 
-    private List<Map<String, Object>> input(List<Message> messages) {
+    private List<Map<String, Object>> input(List<RuntimeMessage> messages) {
         List<Map<String, Object>> result = new ArrayList<>();
-        for (Message message : messages) {
+        for (RuntimeMessage message : messages) {
             result.add(Map.of(
-                    "role", message.role() == Message.Role.ROLE_AGENT ? "assistant" : "user",
-                    "content", Messages.text(message)));
+                    "role", message.role() == RuntimeMessage.Role.AGENT ? "assistant" : "user",
+                    "content", message.text()));
         }
         return result;
     }

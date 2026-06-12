@@ -1,6 +1,6 @@
 package com.huawei.ascend.runtime.boot;
 
-import com.huawei.ascend.runtime.engine.a2a.OtelSpanSinkFactory;
+import com.huawei.ascend.runtime.engine.otel.OtelSpanSinkFactory;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;

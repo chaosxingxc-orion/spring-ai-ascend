@@ -348,14 +348,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         }
 
         private String latestUserInput() {
-            List<org.a2aproject.sdk.spec.Message> messages = executionContext.getMessages();
-            for (int i = messages.size() - 1; i >= 0; i--) {
-                org.a2aproject.sdk.spec.Message message = messages.get(i);
-                if (message != null && message.role() == org.a2aproject.sdk.spec.Message.Role.ROLE_USER) {
-                    return OpenJiuwenMessageAdapter.messageText(message);
-                }
-            }
-            return "";
+            return executionContext.lastUserText();
         }
 
         private static String formatMemoryBlock(List<MemoryProvider.MemoryHit> hits) {

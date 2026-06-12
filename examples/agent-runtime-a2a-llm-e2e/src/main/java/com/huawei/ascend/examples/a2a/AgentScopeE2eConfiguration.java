@@ -10,6 +10,7 @@ import com.huawei.ascend.runtime.engine.agentscope.AgentScopeMessageAdapter;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeRuntimeClient;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeRuntimeClientProperties;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeStreamAdapter;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
@@ -30,7 +31,6 @@ import java.util.Objects;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.a2aproject.sdk.spec.Message;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
@@ -258,11 +258,11 @@ public class AgentScopeE2eConfiguration {
 
         private List<Msg> toAgentScopeMessages(AgentScopeInvocation invocation) {
             List<Msg> messages = new ArrayList<>();
-            for (Message message : invocation.messages()) {
+            for (RuntimeMessage message : invocation.messages()) {
                 messages.add(Msg.builder()
                         .name(name)
                         .role(AgentScopeWireMessages.toMsgRole(message))
-                        .textContent(AgentScopeWireMessages.text(message))
+                        .textContent(message.text())
                         .metadata(Map.of(
                                 "tenantId", invocation.tenantId(),
                                 "sessionId", invocation.sessionId(),

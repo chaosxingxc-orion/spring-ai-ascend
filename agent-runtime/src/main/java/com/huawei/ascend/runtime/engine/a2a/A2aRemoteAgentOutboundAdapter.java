@@ -150,7 +150,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         if (event instanceof Message message) {
             return new RemoteAgentInvocationService.RemoteAgentResult(
                     RemoteAgentInvocationService.RemoteAgentResult.Type.MESSAGE,
-                    messageText(message),
+                    wireText(message),
                     message.taskId(),
                     message.contextId(),
                     message.metadata());
@@ -174,7 +174,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
     private static RemoteAgentInvocationService.RemoteAgentResult statusResult(
             TaskStatus status, String taskId, String contextId, Map<String, Object> metadata) {
         TaskState state = status == null ? null : status.state();
-        String text = status == null ? "" : messageText(status.message());
+        String text = status == null ? "" : wireText(status.message());
         if (state == TaskState.TASK_STATE_INPUT_REQUIRED) {
             return new RemoteAgentInvocationService.RemoteAgentResult(
                     RemoteAgentInvocationService.RemoteAgentResult.Type.INPUT_REQUIRED,
@@ -225,7 +225,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         return false;
     }
 
-    private static String messageText(Message message) {
+    private static String wireText(Message message) {
         return message == null ? "" : partsText(message.parts());
     }
 

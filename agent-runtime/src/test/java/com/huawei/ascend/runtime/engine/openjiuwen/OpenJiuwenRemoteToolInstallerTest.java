@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
 import com.openjiuwen.core.foundation.llm.schema.ToolCall;
@@ -21,8 +22,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 
 class OpenJiuwenRemoteToolInstallerTest {
@@ -129,7 +128,7 @@ class OpenJiuwenRemoteToolInstallerTest {
         return new AgentExecutionContext(
                 new RuntimeIdentity("tenant", "user", "ctx-1", "task-1", "agent-a"),
                 "USER_MESSAGE",
-                List.of(Message.builder().role(Message.Role.ROLE_USER).parts(List.of(new TextPart("start"))).build()),
+                List.of(RuntimeMessage.user("start")),
                 Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, "conversation-1"));
     }
 

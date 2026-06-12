@@ -116,8 +116,8 @@ Agent 执行结果类型驱动 task 状态推进：
 | `A2A SDK RequestHandler` | 协议请求分发器，将 A2A 请求转换为内部调用 |
 
 **设计决策**：
-- A2A 是当前唯一的外部协议实现，但 `AgentExecutionContext` 和 `RuntimeIdentity` 作为内部标准数据对象，与 A2A 协议解耦
-- 接入层将 A2A 的 `RequestContext` 转换为 `AgentExecutionContext`（通过 `A2aAgentExecutor.toExecutionContext()`）
+- A2A 是当前唯一的外部协议实现；`AgentExecutionContext`、`RuntimeMessage`、`RuntimeIdentity` 作为内部标准数据对象不引用任何 `org.a2aproject` 类型（该断言由 `RuntimePackageBoundaryTest` 的禁止式规则强制，测试为唯一权威）
+- 接入层将 A2A 的 `RequestContext` 转换为 `AgentExecutionContext`（通过 `A2aAgentExecutor.toExecutionContext()`），消息在桥层就地降解为中立 `RuntimeMessage`
 - 流式应答通过 `AgentEmitter` 回调接口实现，支持 `sendMessage` / `complete` / `fail` / `requiresInput` 四种事件
 
 #### session-task-manager（会话-任务管理器）
@@ -192,7 +192,7 @@ Agent 执行结果类型驱动 task 状态推进：
 **设计决策**：
 - `AgentRuntimeHandler` 是引擎与框架之间的唯一 SPI：一个 Agent ID 对应一个 Handler
 - 框架适配器通过组合（`AgentRuntimeProvider`）而非深层继承来扩展功能
-- `AgentExecutionContext` 刻意与 A2A SDK 的 `RequestContext` 解耦，保证框架适配器不依赖 A2A 协议
+- `AgentExecutionContext` 刻意与 A2A SDK 的 `RequestContext` 解耦，消息以中立 `RuntimeMessage` 承载；"框架适配器不依赖 A2A 协议"不是口头承诺而是可执行断言——`RuntimePackageBoundaryTest` 禁止 engine 根包 / engine.spi / common / 框架适配器包依赖 `org.a2aproject..`，并禁止框架适配器依赖协议桥包 `engine.a2a`
 - `A2aAgentExecutor` 是 A2A 接入与 engine SPI 之间的胶水层：将 `RequestContext` 转为 `AgentExecutionContext`，将 `AgentExecutionResult` 转为 `AgentEmitter` 回调
 - 当前实现了 openJiuwen 和 AgentScope 两个框架的适配器
 

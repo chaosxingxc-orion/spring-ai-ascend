@@ -1,6 +1,7 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.A2aResultRouter.RouteDecision;
 import com.huawei.ascend.runtime.engine.a2a.A2aTrajectorySupport.TrajectoryFlow;
@@ -296,10 +297,9 @@ public final class A2aAgentExecutor implements AgentExecutor {
     }
 
     private AgentExecutionContext toExecutionContext(RequestContext ctx, String text) {
-        List<Message> messages = List.of(Message.builder()
-                .role(Message.Role.ROLE_USER)
-                .parts(List.<Part<?>>of(new TextPart(text)))
-                .build());
+        // The wire Message is reduced to its text right here: the protocol-neutral
+        // RuntimeMessage is the only message type that crosses into the SPI.
+        List<RuntimeMessage> messages = List.of(RuntimeMessage.user(text));
         String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
         return new AgentExecutionContext(
                 new RuntimeIdentity(
