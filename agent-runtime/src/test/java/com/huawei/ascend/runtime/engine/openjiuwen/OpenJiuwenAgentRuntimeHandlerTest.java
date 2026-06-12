@@ -125,7 +125,9 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         assertThat(memoryProvider.searchedQuery).isEqualTo("ping");
         assertThat(modelContext.messages)
                 .singleElement()
-                .satisfies(message -> assertThat(message.getContentAsString()).contains("remembered ping"));
+                .satisfies(message -> assertThat(message.getContentAsString())
+                        .contains("remembered ping")
+                        .doesNotContain("runtime-memory-context"));
     }
 
     @Test
@@ -165,14 +167,15 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     }
 
     @Test
-    void memoryRuntimeRailDoesNotSaveSystemPromptBackToMemory() {
+    void memoryRuntimeRailDoesNotSaveInjectedRuntimeMemoryBackToMemory() {
         AgentExecutionContext context = context(Map.of());
         FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
         OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail rail =
                 new OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail(
                         context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
         RecordingModelContext modelContext = new RecordingModelContext();
-        modelContext.setMessages(List.of(new SystemMessage("runtime memory"), new UserMessage("hello")), true);
+        rail.beforeInvoke(AgentCallbackContext.builder().context(modelContext).build());
+        modelContext.messages.add(new UserMessage("hello"));
 
         rail.afterInvoke(AgentCallbackContext.builder().context(modelContext).build());
 
@@ -181,6 +184,31 @@ class OpenJiuwenAgentRuntimeHandlerTest {
                 .satisfies(record -> {
                     assertThat(record.role()).isEqualTo("user");
                     assertThat(record.content()).isEqualTo("hello");
+                });
+    }
+
+    @Test
+    void memoryRuntimeRailPreservesBusinessSystemPromptWhenSaving() {
+        AgentExecutionContext context = context(Map.of());
+        FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
+        OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail rail =
+                new OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail(
+                        context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+        RecordingModelContext modelContext = new RecordingModelContext();
+        modelContext.setMessages(List.of(new SystemMessage("business policy: keep order status")), true);
+
+        rail.beforeInvoke(AgentCallbackContext.builder().context(modelContext).build());
+        rail.afterInvoke(AgentCallbackContext.builder().context(modelContext).build());
+
+        assertThat(memoryProvider.savedRecords)
+                .singleElement()
+                .satisfies(record -> {
+                    assertThat(record.role()).isEqualTo("system");
+                    assertThat(record.content())
+                            .isEqualTo("business policy: keep order status")
+                            .doesNotContain("remembered ping")
+                            .doesNotContain("System note")
+                            .doesNotContain("runtime-memory-context");
                 });
     }
 

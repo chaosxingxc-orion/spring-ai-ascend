@@ -1,5 +1,6 @@
 package com.huawei.ascend.examples.a2a;
 
+import com.huawei.ascend.examples.a2a.memory.Mem0RestMemoryProvider;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentCards;
@@ -47,8 +48,23 @@ public class OpenJiuwenReactAgentConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = "sample.memory", name = "provider", havingValue = "in-memory", matchIfMissing = true)
     MemoryProvider sampleMemoryProvider() {
         return new InMemoryMemoryProvider();
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "sample.memory", name = "provider", havingValue = "mem0")
+    MemoryProvider sampleMem0MemoryProvider(
+            @Value("${sample.mem0.base-url:${SAA_SAMPLE_MEM0_BASE_URL:http://localhost:8000}}")
+            String baseUrl,
+            @Value("${sample.mem0.api-key:${SAA_SAMPLE_MEM0_API_KEY:}}")
+            String apiKey,
+            @Value("${sample.mem0.infer-on-save:${SAA_SAMPLE_MEM0_INFER_ON_SAVE:false}}")
+            boolean inferOnSave,
+            @Value("${sample.mem0.api-mode:${SAA_SAMPLE_MEM0_API_MODE:oss}}")
+            String apiMode) {
+        return new Mem0RestMemoryProvider(baseUrl, apiKey, inferOnSave, apiMode);
     }
 
     @Bean

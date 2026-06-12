@@ -281,6 +281,10 @@ The example also recognizes these environment variables for the local LLM setup:
 - `SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY`
 - `SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER`
 - `SAA_SAMPLE_OPENJIUWEN_REDIS_URL`
+- `SAA_SAMPLE_MEM0_BASE_URL`
+- `SAA_SAMPLE_MEM0_API_KEY`
+- `SAA_SAMPLE_MEM0_API_MODE`
+- `SAA_SAMPLE_MEM0_INFER_ON_SAVE`
 - `SAA_SAMPLE_AGENTSCOPE_API_BASE`
 - `SAA_SAMPLE_AGENTSCOPE_ENDPOINT_PATH`
 - `SAA_SAMPLE_AGENTSCOPE_RUNTIME_BASE_URL`
@@ -311,6 +315,124 @@ configuration. It sets `InMemoryCheckpointer` as the default path for local E2E
 runs. Set `SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis` and provide
 `SAA_SAMPLE_OPENJIUWEN_REDIS_URL` to switch the same runtime wiring to the
 openJiuwen `RedisCheckpointer` path.
+
+The sample memory provider defaults to the local in-memory implementation. Set
+`sample.memory.provider=mem0` or `SAA_SAMPLE_MEMORY_PROVIDER=mem0` to use the
+example Mem0 REST provider. It defaults to Mem0 OSS REST paths (`/search` and
+`/memories`) for locally deployed Mem0; set `SAA_SAMPLE_MEM0_API_MODE=platform`
+to use Mem0 platform-style `/v3/memories/...` paths.
+
+```bash
+export SAA_SAMPLE_MEMORY_PROVIDER=mem0
+export SAA_SAMPLE_MEM0_BASE_URL="http://localhost:8000"
+export SAA_SAMPLE_MEM0_API_MODE="oss"
+export SAA_SAMPLE_MEM0_INFER_ON_SAVE=false
+```
+
+## External Dependency Smoke Tests
+
+The module includes two optional dependency smoke-test setups for the openJiuwen
+paths that are not required by the default in-memory E2E suite:
+
+- Redis checkpointer: validates the openJiuwen `RedisCheckpointer` wiring.
+- Mem0 REST memory: validates that the example `Mem0RestMemoryProvider` can talk
+  to a real Mem0 REST service backed by pgvector.
+
+These scripts are Linux/WSL oriented. They use local Docker containers and keep
+the production code unchanged.
+
+### Redis Checkpointer
+
+Start Redis with a mainland-friendly default image:
+
+```bash
+cd examples/agent-runtime-a2a-llm-e2e
+bash scripts/start-redis-checkpointer.sh
+```
+
+Run the openJiuwen real-LLM E2E against the Redis checkpointer path:
+
+```bash
+export SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis
+export SAA_SAMPLE_OPENJIUWEN_REDIS_URL=redis://localhost:6379
+export SAA_SAMPLE_OPENJIUWEN_API_BASE=https://api.deepseek.com/v1
+export SAA_SAMPLE_AGENTSCOPE_API_BASE=https://api.deepseek.com/v1
+export SAA_SAMPLE_LLM_MODEL=deepseek-v4-flash
+export SAA_SAMPLE_LLM_API_KEY="<your-key>"
+
+../../mvnw -f pom.xml -DskipTests=false \
+  -Dtest=OpenJiuwenReactAgentA2aE2eTest test
+```
+
+Stop Redis when finished:
+
+```bash
+bash scripts/stop-redis-checkpointer.sh
+```
+
+### Mem0 REST Memory Provider
+
+Start a local Mem0 REST stack:
+
+```bash
+cd examples/agent-runtime-a2a-llm-e2e
+bash scripts/start-mem0-rest.sh
+```
+
+The script intentionally avoids relying on the public `mem0-api-server` image.
+It clones Mem0, builds a local server image, builds a local PostgreSQL 17 image
+with `pgvector`, runs `alembic upgrade head`, and performs `/memories` plus
+`/search` smoke requests. If `SAA_MEM0_OPENAI_BASE_URL` is unset, the script
+starts `scripts/fake-openai-compatible.py` so the smoke test does not need a
+real embedding provider.
+
+Default local outputs:
+
+```bash
+export SAA_SAMPLE_MEMORY_PROVIDER=mem0
+export SAA_SAMPLE_MEM0_BASE_URL=http://localhost:8000
+export SAA_SAMPLE_MEM0_API_MODE=oss
+export SAA_SAMPLE_MEM0_INFER_ON_SAVE=false
+```
+
+Run the provider tests:
+
+```bash
+../../mvnw -f pom.xml -DskipTests=false \
+  -Dtest=Mem0RestMemoryProviderTest test
+```
+
+Run the openJiuwen A2A E2E with the Mem0 provider selected:
+
+```bash
+export SAA_SAMPLE_MEMORY_PROVIDER=mem0
+export SAA_SAMPLE_MEM0_BASE_URL=http://localhost:8000
+export SAA_SAMPLE_MEM0_API_MODE=oss
+export SAA_SAMPLE_MEM0_INFER_ON_SAVE=false
+export SAA_SAMPLE_OPENJIUWEN_API_BASE=https://api.deepseek.com/v1
+export SAA_SAMPLE_AGENTSCOPE_API_BASE=https://api.deepseek.com/v1
+export SAA_SAMPLE_LLM_MODEL=deepseek-v4-flash
+export SAA_SAMPLE_LLM_API_KEY="<your-key>"
+
+../../mvnw -f pom.xml -DskipTests=false \
+  -Dtest=OpenJiuwenReactAgentA2aE2eTest test
+```
+
+Stop the Mem0 stack when finished:
+
+```bash
+bash scripts/stop-mem0-rest.sh
+```
+
+Notes:
+
+- The first Mem0 build can be slow because it installs Python dependencies and
+  builds a pgvector-enabled PostgreSQL image.
+- The Mem0 REST server does not expose `/api/health` in the current upstream
+  source. The script waits for `/openapi.json`.
+- The smoke test confirms Mem0 returns scored search results; production memory
+  deployments should still configure a real embedding provider, authentication,
+  retention, and tenant isolation.
 
 ## Install Runtime Dependencies
 
