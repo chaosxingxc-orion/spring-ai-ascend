@@ -34,7 +34,10 @@ public final class AgentCards {
                 .description(description)
                 .url(endpoint)
                 .version(version)
-                .provider(new AgentProvider("spring-ai-ascend", "http://localhost:8080"))
+                // Blank provider URL: the discovery controller rewrites it to the
+                // published base (public-base-url or request-derived) at serve time,
+                // so the default card never leaks a hardcoded host.
+                .provider(new AgentProvider("spring-ai-ascend", ""))
                 .capabilities(capabilities)
                 .defaultInputModes(List.of("text"))
                 .defaultOutputModes(List.of("text", "artifact"))

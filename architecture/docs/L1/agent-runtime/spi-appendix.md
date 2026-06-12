@@ -93,7 +93,6 @@ public interface AgentRuntimeProvider {
 - 实现必须是线程安全的（多个 task 可能并发使用同一 provider 实例）
 
 **典型实现场景**：
-- `StateProvider`：从 `AgentStateStore` 恢复 state 到 `context`（before），执行后将 context state 写回（after）
 - `SandboxProvider`：准备沙箱环境（before），清理沙箱（after）
 - `ToolOverrideProvider`：根据租户/场景注入或覆盖工具配置（before）
 - `TracingProvider`：注入 trace context（before），结束 span（after）
@@ -172,10 +171,10 @@ public interface StateProvider extends AgentRuntimeProvider { }
 
 | FQN | 类型 | 语义 |
 |---|---|---|
-| `com.huawei.ascend.runtime.engine.service.AgentStateStore` | interface | Agent 状态持久化接口：`load(key)` / `save(key, state)` / `delete(key)` |
-| `com.huawei.ascend.runtime.engine.service.InMemoryAgentStateStore` | class | 基于 `ConcurrentHashMap` 的内存实现，W1 阶段默认 |
+| `com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog` | class | 远端 runtime 的 agent-card 目录：解析/刷新部署配置声明的远端 URL，暴露可用工具规格 |
+| `com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService` | class | 经 outbound adapter 调用远端 agent 的服务入口 |
 
-`AgentStateStore` 不是 Agent 框架 SPI：框架适配器通过 `AgentExecutionContext.getAgentState()` / `replaceAgentState()` 读写状态，而 store 实现可以后续从内存迁移到 Redis、JDBC 或其他持久化后端。
+这两个类不是 Agent 框架 SPI：它们支撑 remote A2A 工具调用编排。Agent 自身的 checkpoint 状态委托各框架的 checkpointer，runtime 不提供状态持久化接口；框架适配器可经 `AgentExecutionContext.getAgentState()` / `replaceAgentState()` 在执行上下文内传递小型状态引用。
 
 ## 4. A2A SDK 提供的非自有接口
 

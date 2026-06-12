@@ -38,16 +38,14 @@ import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+// Isolation: this test exercises the gateway facade only — exclude the
+// agent-runtime dependency's auto-configuration so no A2A server stack
+// (engine wiring, /a2a controllers, agent card) boots alongside the facade.
 @SpringBootTest(
         classes = RuntimeRegistryHttpE2eTest.TestServiceFacade.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "spring.autoconfigure.exclude="
-                + "com.huawei.ascend.runtime.session.SessionManageConfiguration,"
-                + "com.huawei.ascend.runtime.queue.QueueAutoConfiguration,"
-                + "com.huawei.ascend.runtime.control.TaskControlAutoConfiguration,"
-                + "com.huawei.ascend.runtime.app.RuntimeWiringConfiguration,"
-                + "com.huawei.ascend.runtime.access.AccessLayerConfiguration,"
-                + "com.huawei.ascend.runtime.engine.EngineAutoConfiguration")
+                + "com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration")
 class RuntimeRegistryHttpE2eTest {
 
     @Value("${local.server.port}")

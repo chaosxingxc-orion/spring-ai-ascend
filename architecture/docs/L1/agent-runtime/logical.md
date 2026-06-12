@@ -38,7 +38,7 @@ authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 │       ▼                 ▼                      ▼                     │
 │  ┌──────────────────────────────────────────────────┐               │
 │  │      会话-任务管理器                               │               │
-│  │  (AgentStateStore + A2A SDK InMemoryTaskStore)    │               │
+│  │        (A2A SDK InMemoryTaskStore)                │               │
 │  └──────────────────────────────────────────────────┘               │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -122,21 +122,18 @@ Agent 执行结果类型驱动 task 状态推进：
 
 #### session-task-manager（会话-任务管理器）
 
-**包**：`runtime.engine.service` + A2A SDK `InMemoryTaskStore`
+**包**：A2A SDK `InMemoryTaskStore` 等存储设施
 
 **核心类**：
 | 类 | 职责 |
 |---|---|
-| `AgentStateStore` | Agent 状态持久化接口：`load(key)` / `save(key, state)` / `delete(key)` |
-| `InMemoryAgentStateStore` | 基于 `ConcurrentHashMap` 的内存实现 |
 | `InMemoryTaskStore`（A2A SDK） | Task 对象的 CRUD 存储 |
 | `InMemoryPushNotificationConfigStore`（A2A SDK） | 推送通知配置存储 |
 
 **设计决策**：
 - 会话层定位为业务数据"集散地"：存储不耦合业务逻辑，只提供数据存取接口
-- 接口设计遵循开闭原则：`AgentStateStore` 定义最小契约，通过接口扩展而非修改来支持新能力
-- InMemory 作为第一版实现，未来可替换为 Redis / JDBC 分布式实现
-- Task 的存储使用 A2A SDK 的 `InMemoryTaskStore`，Agent 自有状态使用 `AgentStateStore`
+- InMemory 作为第一版实现，未来可替换为 Redis / JDBC 分布式实现（`@ConditionalOnMissingBean` 替换 bean）
+- Task 的存储使用 A2A SDK 的 `InMemoryTaskStore`；Agent 自有 checkpoint 状态委托各框架自身的 checkpointer，runtime 不持久化
 
 #### internal-event-queue（内部事件队列）
 
@@ -182,7 +179,7 @@ Agent 执行结果类型驱动 task 状态推进：
 | `AgentRuntimeHandler` | Agent 框架与引擎之间的 SPI 解耦面 |
 | `AgentRuntimeProvider` | 可选的生命周期钩子（before/after execute） |
 | `AgentRuntimeProviderChain` | 按序执行 providers + handler，保证失败隔离 |
-| `AgentExecutionResult` | 引擎中立的结果载体（4 种类型） |
+| `AgentExecutionResult` | 引擎中立的结果载体（5 种类型） |
 | `StreamAdapter` | 框架结果 → 中立结果流的转换器 |
 | `AgentCardProvider` | A2A Agent Card 供应接口 |
 | `AgentCards` | 默认 Agent Card 工厂方法 |

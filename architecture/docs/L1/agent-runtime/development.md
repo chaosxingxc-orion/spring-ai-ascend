@@ -69,10 +69,9 @@ agent-runtime/
         │   ├── AgentScopeHarnessAgent.java             # AgentScope Harness Agent 接口
         │   └── AgentScopeRuntimeClientProperties.java  # Client 配置属性
         │
-        └── service/                  # 引擎侧中间件服务（运行时 API，非 SPI）
-            ├── AgentStateStore.java        # Agent 状态持久化接口: load()/save()/delete()
-            ├── InMemoryAgentStateStore.java # ConcurrentHashMap 实现
-            └── package-info.java
+        └── service/                  # 引擎侧服务（运行时 API，非 SPI）
+            ├── RemoteAgentCatalog.java           # 远端 runtime agent-card 目录（解析/刷新/工具规格）
+            └── RemoteAgentInvocationService.java # 远端 agent A2A 调用服务
 ```
 
 ## 2. 模块依赖
@@ -85,11 +84,6 @@ agent-runtime/
     <dependency>
         <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-bus</artifactId>
-    </dependency>
-    <!-- YAML 解析 -->
-    <dependency>
-        <groupId>org.yaml</groupId>
-        <artifactId>snakeyaml</artifactId>
     </dependency>
     <!-- Web + Actuator (northbound + bootable app) -->
     <!-- A2A SDK (org.a2aproject.sdk) 系列依赖 -->
@@ -145,7 +139,7 @@ agent-runtime/
 | `AgentRuntimeHandler` | interface | Agent 执行的唯一 SPI：一个 Agent ID 对应一个 Handler |
 | `AgentRuntimeProvider` | interface | 可选生命周期钩子，通过组合扩展功能 |
 | `AgentRuntimeProviderChain` | final class | 统一编排 handlers + providers 的执行和失败隔离 |
-| `AgentExecutionResult` | final class | 中立执行结果，4 种类型（OUTPUT/COMPLETED/FAILED/INTERRUPTED） |
+| `AgentExecutionResult` | final class | 中立执行结果，5 种类型（OUTPUT/COMPLETED/FAILED/INTERRUPTED/REMOTE_INVOCATION） |
 | `StreamAdapter` | @FunctionalInterface | 框架结果 → 中立结果流的类型转换 |
 | `AgentCardProvider` | interface | 将 Agent 执行与 A2A 元数据描述分离 |
 | `AgentCards` | final class | 默认 Agent Card 工厂，减少样板代码 |

@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  agent-runtime: the run-owning runtime SDK that drives Agent instances built on
-  heterogeneous agent frameworks through a single framework-neutral SPI
-  (engine.spi.AgentRuntimeHandler + StreamAdapter). Owns the runtime execute flow,
-  trajectory observability, remote A2A tool invocation, access (A2A), and the
-  pure-Java embeddable entry app.RuntimeApp. Ships as a library. Its only external
-  protocol contract is the A2A SDK.
+  agent-runtime: the framework-neutral agent-hosting runtime SDK that drives Agent
+  instances built on heterogeneous agent frameworks through a single SPI
+  (engine.spi.AgentRuntimeHandler + StreamAdapter) and bridges them to the A2A
+  protocol. Task lifecycle, task store, and the internal event queue come from the
+  A2A SDK's in-memory facilities (replaceable via @ConditionalOnMissingBean);
+  session persistence is delegated to each framework's own checkpointer. Owns
+  trajectory observability, remote A2A tool invocation, the northbound A2A access
+  surface, and the pure-Java embeddable entry app.RuntimeApp. Ships as a library.
+  Its only external protocol contract is the A2A SDK.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -20,15 +23,9 @@
 
   <artifactId>agent-runtime</artifactId>
   <name>agent-runtime</name>
-  <description>Run-owning runtime SDK: execution engine + Run lifecycle + engine dispatch + session/task-control + access (A2A) + bootable runtime app.</description>
+  <description>Framework-neutral agent-hosting runtime SDK: AgentRuntimeHandler SPI + A2A SDK bridge (task lifecycle/store/queue from the SDK's replaceable in-memory facilities; session persistence delegated to framework checkpointers) + trajectory observability + remote A2A tool invocation + northbound A2A access + embeddable entry app.RuntimeApp.</description>
 
   <dependencies>
-    <!-- snakeyaml for envelope-schema parsing. -->
-    <dependency>
-      <groupId>org.yaml</groupId>
-      <artifactId>snakeyaml</artifactId>
-    </dependency>
-
     <!-- Web + actuator (northbound + bootable app). -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -42,30 +39,6 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
-    </dependency>
-
-    <!-- Persistence: JDBC + Postgres + Flyway. -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-jdbc</artifactId>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
-      <scope>runtime</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-flyway</artifactId>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-database-postgresql</artifactId>
-      <scope>runtime</scope>
-      <optional>true</optional>
     </dependency>
 
     <!-- Security: OAuth2 resource server (JWT). -->

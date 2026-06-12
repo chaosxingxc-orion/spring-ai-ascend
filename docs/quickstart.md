@@ -269,8 +269,9 @@ FQN → trace ID → MDC slice → raw error → transition history) BEFORE you 
 For library-mode pure-JUnit tests (`./mvnw -pl agent-runtime test`),
 the engine SPI module runs in under 2 seconds. Use this loop when you
 want sub-second feedback on the SPI value-type algebra. The engine SPI
-lives in `agent-runtime`; the run + idempotency entities (a design target) live in
-`agent-runtime`; the server-to-client transport SPI lives in `agent-bus`.
+lives in `agent-runtime`; the run + idempotency entities are an `agent-service`
+design target (not yet implemented); the server-to-client transport SPI lives in
+`agent-bus`.
 
 If anything in this quickstart requires modifying platform source to make it
 work — file an issue tagged `decoupling-defect`. Rule R-A says: developers

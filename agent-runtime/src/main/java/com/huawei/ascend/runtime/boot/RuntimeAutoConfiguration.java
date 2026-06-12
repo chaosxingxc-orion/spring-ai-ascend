@@ -12,6 +12,7 @@ import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,6 +41,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
@@ -180,15 +182,50 @@ public class RuntimeAutoConfiguration {
 
     @Bean @ConditionalOnMissingBean
     public AgentCard a2aAgentCard(ObjectProvider<AgentCardProvider> cardProviders,
-                                   ObjectProvider<AgentRuntimeHandler> handlers) {
+                                   ObjectProvider<AgentRuntimeHandler> handlers,
+                                   RuntimeAccessProperties access) {
         var cp = cardProviders.getIfAvailable();
         if (cp != null) {
             return cp.agentCard();
         }
-        String name = handlers.orderedStream().map(AgentRuntimeHandler::agentId).findFirst().orElse("agent");
+        List<String> agentIds = handlers.orderedStream().map(AgentRuntimeHandler::agentId).toList();
+        String configured = access.getDefaultAgentId();
+        String name;
+        if (configured != null && !configured.isBlank() && agentIds.contains(configured.trim())) {
+            name = configured.trim();
+        } else {
+            if (configured != null && !configured.isBlank()) {
+                log.warn("agent-runtime.access.a2a.default-agent-id '{}' matches no registered handler;"
+                        + " available agent ids: {}", configured.trim(), agentIds);
+            }
+            name = agentIds.isEmpty() ? "agent" : agentIds.get(0);
+        }
         // AgentCards is the canonical default-card shape; a second inline copy here
         // meant every card fix had to land twice.
         return AgentCards.create(name, "agent-runtime");
+    }
+
+    /**
+     * Registers the northbound HTTP surface for hosts that only depend on the jar:
+     * without these bean methods a pure-dependency host boots with the full engine
+     * wired but every northbound route silently 404s, because the controllers are
+     * plain {@code @RestController} classes that only component scanning would find.
+     * Hosts that do scan {@code runtime.boot} get the same beans by stereotype; the
+     * {@code @ConditionalOnMissingBean} guards keep the two paths from colliding.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    static class NorthboundControllerConfiguration {
+
+        @Bean @ConditionalOnMissingBean
+        A2aJsonRpcController a2aJsonRpcController(RequestHandler handler, RuntimeAccessProperties access) {
+            return new A2aJsonRpcController(handler, access);
+        }
+
+        @Bean @ConditionalOnMissingBean
+        AgentCardController agentCardController(AgentCard agentCard, RuntimeAccessProperties access) {
+            return new AgentCardController(agentCard, access);
+        }
     }
 
     /**

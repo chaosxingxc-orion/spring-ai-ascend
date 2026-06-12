@@ -1,6 +1,6 @@
 # agent-runtime
 
-`agent-runtime` is the run-owning runtime SDK for hosting agents behind a standard A2A interface. It packages the execution engine, run lifecycle, dispatch, session and task-control flow, the internal event queue, and the bootable Spring Boot runtime application into one module.
+`agent-runtime` is a framework-neutral runtime SDK for hosting agents behind a standard A2A interface: a handler SPI (`AgentRuntimeHandler` + `StreamAdapter`) bridged onto the A2A SDK. Task lifecycle, the task store, and the internal event queue are provided by the A2A SDK's in-memory facilities and are replaceable via `@ConditionalOnMissingBean`; session persistence is delegated to each framework's own checkpointer. The module also ships the northbound A2A access layer and an embeddable boot entry.
 
 ## What runtime is
 
@@ -24,6 +24,22 @@ Use `agent-runtime` when you need to:
 - wire runtime execution, task flow, and output streaming together
 
 `agent-service` is downstream of `agent-runtime`, not the other way around. `agent-service` is a separate serviceization facade that can sit on top of the runtime rather than the runtime owning serviceization concerns. Keep runtime-hosting concerns, A2A ingress/egress, and boot wiring in `agent-runtime`.
+
+## What runtime does NOT own
+
+- **Run record / recovery / idempotency** — the authoritative `Run` record and its
+  state machine, crash recovery, and idempotent dispatch belong to `agent-service`
+  (a design target there; not yet implemented). The runtime only exposes the A2A
+  task view derived from execution.
+- **Durable session state** — the runtime keeps no session store of its own;
+  conversational state persistence is delegated to the hosted framework's
+  checkpointer (e.g. openJiuwen `conversation_id`).
+- **Durable task storage** — the default `TaskStore`/queue are the A2A SDK's
+  in-memory implementations; a host needing durability replaces those beans.
+
+See the module's L1 scope statement in
+[`architecture/docs/L1/agent-runtime/ARCHITECTURE.md`](../architecture/docs/L1/agent-runtime/ARCHITECTURE.md)
+(§ Out of scope at L1) for the extension directions that stay outside this module.
 
 ## Install
 
@@ -130,20 +146,60 @@ Notes on behavior:
 - `tasks/cancel` sends a cancel command into the runtime.
 - `message/stream` uses HTTP/SSE and streams JSON-RPC events back to the caller.
 
+## Deployment notes
+
+### Behind a reverse proxy
+
+When `public-base-url` is not set, the agent-card endpoint derives its base URL
+from the current HTTP request. Behind a reverse proxy that base is the pod-local
+address unless the host honors `X-Forwarded-Proto` / `X-Forwarded-Host`:
+
+```yaml
+server:
+  forward-headers-strategy: framework
+```
+
+This registers spring-web's `ForwardedHeaderFilter` (already on the classpath).
+`LocalA2aRuntimeHost` sets this strategy by default (overridable through its
+default properties); applications that boot the runtime themselves must set it
+explicitly — or set `public-base-url`, which wins over any request derivation.
+
+### Tenant header trust
+
+The runtime performs no request authentication. The `X-Tenant-Id` header is
+honored as-is: in any multi-tenant deployment a fronting gateway must
+authenticate callers and strip/re-inject `X-Tenant-Id`, otherwise the header is
+client-controlled. Requests without the header are attributed to
+`agent-runtime.access.a2a.default-tenant-id`.
+
+### Logging
+
+The library ships no logging configuration; the host application owns it. The
+runtime puts the A2A `contextId`/`taskId` into the SLF4J MDC — include them in
+the host's log pattern to make one invocation's lines greppable, e.g.:
+
+```
+%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] [ctx=%X{contextId:-} task=%X{taskId:-}] - %msg%n
+```
+
 ## Java extension points
 
 The main Java-level integration pattern is:
 
 1. build or wire an agent in your application
 2. depend on `agent-runtime`
-3. boot a Spring application that includes runtime configuration
-4. expose the agent through the runtime A2A surface
+3. boot a Spring application — the module's auto-configuration
+   (`com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration`) wires the engine
+   AND registers the northbound controllers (`/a2a` + agent card), so no
+   component scan of runtime packages (`scanBasePackages`) is required
+4. expose the agent through the runtime A2A surface by declaring your
+   `AgentRuntimeHandler` bean
 
 Useful starting points in this module include:
 
 - `com.huawei.ascend.runtime.app.RuntimeApp` / `com.huawei.ascend.runtime.app.LocalA2aRuntimeHost`
-- `com.huawei.ascend.runtime.access.a2a.A2aAccessProperties`
-- `com.huawei.ascend.runtime.access.AccessLayerConfiguration`
+- `com.huawei.ascend.runtime.boot.RuntimeAccessProperties`
+- `com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration`
 
 Important Java extension points and related types include:
 

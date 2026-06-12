@@ -8,6 +8,10 @@ import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -51,9 +55,7 @@ class RuntimeAppTest {
     void localHostPortZeroOverridesConfiguredServerPort() throws IOException {
         try (ServerSocket configuredPortSocket = new ServerSocket(0)) {
             int configuredPort = configuredPortSocket.getLocalPort();
-            LocalA2aRuntimeHost host = new LocalA2aRuntimeHost(0,
-                    Map.of("server.port", configuredPort),
-                    "--spring.autoconfigure.exclude=" + testAutoConfigurationExcludes());
+            LocalA2aRuntimeHost host = new LocalA2aRuntimeHost(0, Map.of("server.port", configuredPort));
 
             try (RunningRuntime runtime = RuntimeApp.create(new StubHandler()).run(host)) {
                 assertThat(runtime.port()).isPositive();
@@ -70,9 +72,7 @@ class RuntimeAppTest {
     @Test
     void localHostDrivesHandlerLifecycleAroundServing() {
         LifecycleRecordingHandler handler = new LifecycleRecordingHandler();
-        LocalA2aRuntimeHost host = new LocalA2aRuntimeHost(0,
-                Map.of(),
-                "--spring.autoconfigure.exclude=" + testAutoConfigurationExcludes());
+        LocalA2aRuntimeHost host = new LocalA2aRuntimeHost(0, Map.of());
 
         try (RunningRuntime runtime = RuntimeApp.create(handler).run(host)) {
             assertThat(runtime.port()).isPositive();
@@ -80,6 +80,32 @@ class RuntimeAppTest {
             assertThat(handler.stopped).isFalse();
         }
         assertThat(handler.stopped).isTrue();
+    }
+
+    /**
+     * The host defaults {@code server.forward-headers-strategy=framework}, so a
+     * runtime behind a reverse proxy publishes card URLs from X-Forwarded-* instead
+     * of its local bind address. Proven end to end: a card request carrying the
+     * forwarded headers must come back with the proxy's base URL.
+     */
+    @Test
+    void localHostHonorsForwardedHeadersOnTheCardEndpointByDefault() throws IOException, InterruptedException {
+        LocalA2aRuntimeHost host = new LocalA2aRuntimeHost(0, Map.of());
+
+        try (RunningRuntime runtime = RuntimeApp.create(new StubHandler()).run(host)) {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:" + runtime.port() + "/.well-known/agent-card.json"))
+                    .header("X-Forwarded-Proto", "https")
+                    .header("X-Forwarded-Host", "edge.example.com")
+                    .GET()
+                    .build();
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(response.body()).contains("https://edge.example.com/a2a");
+            assertThat(response.body()).doesNotContain("localhost:" + runtime.port());
+        }
     }
 
     private static final class LifecycleRecordingHandler extends StubHandler {
@@ -95,14 +121,6 @@ class RuntimeAppTest {
         public void stop() {
             stopped = true;
         }
-    }
-
-    private static String testAutoConfigurationExcludes() {
-        return String.join(",",
-                "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
-                "org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration",
-                "org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration",
-                "io.github.resilience4j.springboot3.verifier.autoconfigure.SpringBoot3VerifierAutoConfiguration");
     }
 
     private static class StubHandler implements AgentRuntimeHandler {
