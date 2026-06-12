@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.a2a.client;
+package com.huawei.ascend.runtime.engine.a2a;
 
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.util.List;

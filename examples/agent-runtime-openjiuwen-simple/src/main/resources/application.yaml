@@ -1,0 +1,63 @@
+# ── Spring Boot ──
+debug: false
+
+spring:
+  application:
+    name: agent-runtime-openjiuwen-simple
+
+# ── Server ──
+server:
+  port: ${SAA_SIMPLE_PORT:8080}
+  shutdown: graceful
+
+# ── Actuator ──
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# ── agent-runtime A2A access ──
+# public-base-url: set this when the runtime is behind a reverse proxy or
+# load balancer and the auto-detected local URL in /.well-known/agent-card.json
+# is not reachable by external A2A clients.
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: openjiuwen-simple-agent
+      # public-base-url: https://agents.example.com/runtime-simple
+
+      # ── Agent Card metadata (all fields optional) ──
+      # When name is set, the runtime builds the A2A agent card from these
+      # values instead of deriving them from the handler. Every unset field
+      # draws a sensible default. Leave the entire block out to auto-generate
+      # a card from handler.agentId().
+      agent-card:
+        name: openjiuwen-simple-agent
+        description: A minimal openJiuwen ReAct agent hosted by agent-runtime.
+        version: "0.1.0"
+        # organization: spring-ai-ascend         # defaults to "spring-ai-ascend"
+        # organization-url: http://localhost:8080 # defaults to "http://localhost:8080"
+        # endpoint: /a2a                         # defaults to "/a2a"
+
+# ── Logging ──
+logging:
+  level:
+    root: INFO
+    com.huawei.ascend: INFO
+
+# ── openJiuwen LLM connection ──
+# Override via environment variables or command-line -D flags.
+sample:
+  openjiuwen:
+    # Model provider: openai, ollama, openai-compatible, etc.
+    model-provider: ${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}
+    # LLM API key
+    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-x00550472}
+    # LLM API base URL (e.g. http://localhost:4000/v1 for litellm proxy)
+    api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
+    # Model name
+    model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
+    # SSL certificate verification
+    ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:true}

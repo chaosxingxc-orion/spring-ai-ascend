@@ -164,9 +164,30 @@ The example application shows the intended consumer shape from outside the modul
 
 For OpenJiuwen memory integration, prefer OpenJiuwen's native memory hooks when the concrete agent supports them. The runtime keeps only the narrow `MemoryProvider` SPI; the adapter that maps it to OpenJiuwen external memory semantics lives under `runtime.engine.openjiuwen`, so future OpenJiuwen memory module splits do not leak into the public runtime SPI.
 
+## Developer guides
+
+Per-feature reference documentation lives under [`docs/guides/`](docs/guides/).
+Each guide is self-contained and AI-readable — read the one relevant to your task.
+
+| Guide | When to read |
+|---|---|
+| [handler-spi.md](docs/guides/handler-spi.md) | Implementing a custom AgentRuntimeHandler |
+| [openjiuwen-adapter.md](docs/guides/openjiuwen-adapter.md) | Hosting an openJiuwen agent (ReActAgent / DeepAgent) |
+| [agent-card-configuration.md](docs/guides/agent-card-configuration.md) | Configuring the A2A agent discovery card |
+| [a2a-endpoints.md](docs/guides/a2a-endpoints.md) | Understanding the A2A JSON-RPC protocol surface |
+| [configuration-properties.md](docs/guides/configuration-properties.md) | Complete application.yaml property reference |
+
+## Quick start — minimal integration
+
+The simplest integration example is:
+
+- `examples/agent-runtime-openjiuwen-simple` — minimal openJiuwen ReActAgent, three-step integration, no extra dependencies
+
+That example is the recommended starting point for developers learning to host an agent in agent-runtime. It contains detailed inline comments and a step-by-step README.
+
 ## Local example: test, start, client
 
-The local end-to-end example lives at:
+The full-featured end-to-end example lives at:
 
 - `examples/agent-runtime-a2a-llm-e2e`
 

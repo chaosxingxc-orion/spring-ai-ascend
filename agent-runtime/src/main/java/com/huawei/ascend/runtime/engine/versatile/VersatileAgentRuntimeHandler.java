@@ -1,8 +1,8 @@
 package com.huawei.ascend.runtime.engine.versatile;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
-import com.huawei.ascend.runtime.engine.spi.AgentCards;
+import com.huawei.ascend.runtime.engine.a2a.AgentCardProvider;
+import com.huawei.ascend.runtime.engine.a2a.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import java.util.Map;

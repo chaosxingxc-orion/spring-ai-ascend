@@ -2,7 +2,6 @@ package com.huawei.ascend.runtime.engine.a2a;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.A2aResultRouter.RouteDecision;
-import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;

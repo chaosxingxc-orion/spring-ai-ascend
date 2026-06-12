@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.a2a.client;
+package com.huawei.ascend.runtime.engine.a2a;
 
 import java.net.URI;
 import java.util.ArrayList;

@@ -1,2 +1,2 @@
 com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration
-com.huawei.ascend.runtime.engine.a2a.client.A2aClientAutoConfiguration
+com.huawei.ascend.runtime.engine.a2a.A2aClientAutoConfiguration

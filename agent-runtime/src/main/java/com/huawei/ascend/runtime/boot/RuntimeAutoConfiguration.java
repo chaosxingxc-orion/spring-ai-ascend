@@ -2,8 +2,6 @@ package com.huawei.ascend.runtime.boot;
 
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
 import com.huawei.ascend.runtime.engine.a2a.RemoteSupport;
-import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
-import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
@@ -28,7 +26,6 @@ import org.a2aproject.sdk.server.tasks.PushNotificationConfigStore;
 import org.a2aproject.sdk.server.tasks.PushNotificationSender;
 import org.a2aproject.sdk.server.tasks.TaskStateProvider;
 import org.a2aproject.sdk.server.tasks.TaskStore;
-import org.a2aproject.sdk.spec.AgentCard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -169,19 +166,6 @@ public class RuntimeAutoConfiguration {
             A2aServerExecutor exec) {
         return DefaultRequestHandler.create(agentExecutor, store, queueManager, pushStore, eventBus,
                 exec.executor(), exec.executor());
-    }
-
-    @Bean @ConditionalOnMissingBean
-    public AgentCard a2aAgentCard(ObjectProvider<AgentCardProvider> cardProviders,
-                                   ObjectProvider<AgentRuntimeHandler> handlers) {
-        var cp = cardProviders.getIfAvailable();
-        if (cp != null) {
-            return cp.agentCard();
-        }
-        String name = handlers.orderedStream().map(AgentRuntimeHandler::agentId).findFirst().orElse("agent");
-        // AgentCards is the canonical default-card shape; a second inline copy here
-        // meant every card fix had to land twice.
-        return AgentCards.create(name, "agent-runtime");
     }
 
     /**

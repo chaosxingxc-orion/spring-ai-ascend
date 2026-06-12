@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.spi;
+package com.huawei.ascend.runtime.engine.a2a;
 
 import java.util.List;
 import org.a2aproject.sdk.spec.AgentCapabilities;

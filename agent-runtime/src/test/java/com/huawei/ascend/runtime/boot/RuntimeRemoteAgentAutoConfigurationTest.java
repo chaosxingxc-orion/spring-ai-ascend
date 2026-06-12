@@ -4,11 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
-import com.huawei.ascend.runtime.engine.a2a.client.A2aClientAutoConfiguration;
-import com.huawei.ascend.runtime.engine.a2a.client.A2aRemoteAgentOutboundAdapter;
-import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentCardCache;
-import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentInvocationService;
-import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentProperties;
+import com.huawei.ascend.runtime.engine.a2a.A2aClientAutoConfiguration;
+import com.huawei.ascend.runtime.engine.a2a.A2aRemoteAgentOutboundAdapter;
+import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
+import com.huawei.ascend.runtime.engine.a2a.RemoteAgentInvocationService;
+import com.huawei.ascend.runtime.engine.a2a.RemoteAgentProperties;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.sun.net.httpserver.HttpServer;
@@ -52,8 +52,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         RecordingCardCache cache = new RecordingCardCache();
         RecordingExecutorService executor = new RecordingExecutorService();
 
-        A2aClientAutoConfiguration.RemoteAgentCardCacheRefresher refresher =
-                new A2aClientAutoConfiguration.RemoteAgentCardCacheRefresher(cache, executor);
+        A2aClientAutoConfiguration.RemoteConfiguration.RemoteAgentCardCacheRefresher refresher =
+                new A2aClientAutoConfiguration.RemoteConfiguration.RemoteAgentCardCacheRefresher(cache, executor);
 
         refresher.start();
 
@@ -68,8 +68,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         HttpServer server = cardServer();
         server.start();
         try {
-            A2aClientAutoConfiguration configuration =
-                    new A2aClientAutoConfiguration();
+            A2aClientAutoConfiguration.RemoteConfiguration configuration =
+                    new A2aClientAutoConfiguration.RemoteConfiguration();
             RemoteAgentProperties properties =
                     new RemoteAgentProperties(List.of(
                             new RemoteAgentProperties.RemoteAgent(
@@ -123,8 +123,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         HttpServer server = cardServer();
         server.start();
         try {
-            A2aClientAutoConfiguration configuration =
-                    new A2aClientAutoConfiguration();
+            A2aClientAutoConfiguration.RemoteConfiguration configuration =
+                    new A2aClientAutoConfiguration.RemoteConfiguration();
             RemoteAgentProperties properties =
                     new RemoteAgentProperties(List.of(
                             new RemoteAgentProperties.RemoteAgent(
@@ -132,8 +132,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
             RemoteAgentCardCache cache = configuration.remoteAgentCardCache(properties);
 
             ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
-            A2aClientAutoConfiguration.RemoteAgentCardCacheRefresher refresher =
-                    new A2aClientAutoConfiguration.RemoteAgentCardCacheRefresher(cache, executor);
+            A2aClientAutoConfiguration.RemoteConfiguration.RemoteAgentCardCacheRefresher refresher =
+                    new A2aClientAutoConfiguration.RemoteConfiguration.RemoteAgentCardCacheRefresher(cache, executor);
             refresher.refreshOnce();
             executor.shutdownNow();
 
@@ -145,8 +145,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
 
     @Test
     void remoteAgentPropertiesExposeConfiguredUrls() {
-        A2aClientAutoConfiguration configuration =
-                new A2aClientAutoConfiguration();
+        A2aClientAutoConfiguration.RemoteConfiguration configuration =
+                new A2aClientAutoConfiguration.RemoteConfiguration();
         RemoteAgentProperties properties =
                 new RemoteAgentProperties(List.of(
                         new RemoteAgentProperties.RemoteAgent("http://localhost:18081")));
