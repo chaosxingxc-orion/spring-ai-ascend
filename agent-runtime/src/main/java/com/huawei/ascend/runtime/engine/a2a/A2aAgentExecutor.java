@@ -4,7 +4,7 @@ import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.A2aResultRouter.RouteDecision;
 import com.huawei.ascend.runtime.engine.a2a.A2aTrajectorySupport.TrajectoryFlow;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
+import com.huawei.ascend.runtime.engine.a2a.client.RemoteSupport;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
@@ -384,19 +384,4 @@ public final class A2aAgentExecutor implements AgentExecutor {
         return value != null && !String.valueOf(value).isBlank();
     }
 
-    public static final class RemoteSupport {
-        private final RemoteAgentInvocationService invocationService;
-
-        public RemoteSupport(RemoteAgentInvocationService invocationService) {
-            this.invocationService = Objects.requireNonNull(invocationService, "invocationService");
-        }
-
-        public static RemoteSupport forOutbound(RemoteAgentInvocationService.OutboundPort outboundPort) {
-            return new RemoteSupport(new RemoteAgentInvocationService(outboundPort));
-        }
-
-        RemoteAgentInvocationService invocationService() {
-            return invocationService;
-        }
-    }
 }

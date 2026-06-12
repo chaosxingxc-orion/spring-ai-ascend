@@ -2,7 +2,7 @@ package com.huawei.ascend.runtime.engine.a2a;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.A2aResultRouter.RouteDecision;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
+import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,6 +49,8 @@ final class A2aRemoteInvocationOrchestrator {
                     "remote A2A invocation is not configured", false));
             return;
         }
+        LOG.info("[A2A] remote tool invocation start taskId={} toolName={} remoteAgentId={} toolCallId={}",
+                taskId, invocation.toolName(), invocation.remoteAgentId(), invocation.toolCallId());
         List<RemoteAgentInvocationService.RemoteAgentResult> results =
                 invocationService.invoke(invocation,
                         result -> parentProjector.projectRemoteProgress(result, emitter));
@@ -71,6 +73,8 @@ final class A2aRemoteInvocationOrchestrator {
                     emitter, "REMOTE_ROUTE_METADATA_MISSING", error.getMessage(), false));
             return;
         }
+        LOG.info("[A2A] remote tool invocation resume taskId={} remoteAgentId={} remoteTaskId={} toolCallId={}",
+                taskId, route.remoteAgentId(), route.remoteTaskId(), route.toolCallId());
         List<RemoteAgentInvocationService.RemoteAgentResult> results =
                 invocationService.resumeRemoteInput(route, Messages.text(ctx.getMessage()),
                         result -> parentProjector.projectRemoteProgress(result, emitter));
@@ -105,8 +109,13 @@ final class A2aRemoteInvocationOrchestrator {
         A2aParentTaskProjector.RemoteOutcome outcome =
                 parentProjector.projectRemoteOutcome(invocation, results, emitter);
         if (outcome.waitingForRemoteInput()) {
+            LOG.info("[A2A] remote tool invocation waiting-for-input taskId={} remoteAgentId={} toolCallId={}",
+                    taskId, invocation.remoteAgentId(), invocation.toolCallId());
             return;
         }
+        LOG.info("[A2A] remote tool invocation complete taskId={} remoteAgentId={} toolCallId={} resultLen={}",
+                taskId, invocation.remoteAgentId(), invocation.toolCallId(),
+                outcome.toolResult() != null ? outcome.toolResult().length() : 0);
         AgentExecutionContext resumeContext =
                 parentProjector.remoteResumeContext(requestContext, agentId, invocation, outcome.toolResult());
         RouteDecision decision = resume.consume(resumeContext, emitter, taskId, artifactId, firstArtifact,

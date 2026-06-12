@@ -1,0 +1,12 @@
+# ── Agent B: standalone mock agent (no LLM, no remote agents) ──
+# Activate with: --spring.profiles.active=agent-b
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: remote-b
+
+sample:
+  remote-openjiuwen:
+    role: b

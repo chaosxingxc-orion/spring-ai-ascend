@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.boot;
+package com.huawei.ascend.runtime.engine.a2a.client;
 
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;

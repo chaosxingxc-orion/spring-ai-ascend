@@ -1,7 +1,7 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
+import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentCardCache;
 import com.openjiuwen.core.foundation.tool.Tool;
 import com.openjiuwen.core.foundation.tool.ToolCard;
 import com.openjiuwen.core.runner.Runner;
@@ -17,20 +17,20 @@ import org.slf4j.LoggerFactory;
 public final class OpenJiuwenRemoteToolInstaller {
     private static final Logger LOG = LoggerFactory.getLogger(OpenJiuwenRemoteToolInstaller.class);
 
-    private final Supplier<List<RemoteAgentCatalog.RemoteAgentToolSpec>> toolSpecs;
+    private final Supplier<List<RemoteAgentCardCache.RemoteAgentToolSpec>> toolSpecs;
 
-    public OpenJiuwenRemoteToolInstaller(Supplier<List<RemoteAgentCatalog.RemoteAgentToolSpec>> toolSpecs) {
+    public OpenJiuwenRemoteToolInstaller(Supplier<List<RemoteAgentCardCache.RemoteAgentToolSpec>> toolSpecs) {
         this.toolSpecs = Objects.requireNonNull(toolSpecs, "toolSpecs");
     }
 
     public void install(BaseAgent agent, AgentExecutionContext context) {
         Objects.requireNonNull(agent, "agent");
         Objects.requireNonNull(context, "context");
-        List<RemoteAgentCatalog.RemoteAgentToolSpec> specs = toolSpecs.get();
+        List<RemoteAgentCardCache.RemoteAgentToolSpec> specs = toolSpecs.get();
         if (specs == null || specs.isEmpty()) {
             return;
         }
-        for (RemoteAgentCatalog.RemoteAgentToolSpec spec : specs) {
+        for (RemoteAgentCardCache.RemoteAgentToolSpec spec : specs) {
             Tool tool = new PlaceholderRemoteAgentTool(toCard(spec));
             Runner.resourceMgr().addTool(tool, agent.getCard().getId(), true);
             if (agent.getAbilityManager().get(spec.toolName()) == null) {
@@ -41,7 +41,7 @@ public final class OpenJiuwenRemoteToolInstaller {
         LOG.info("installed {} remote A2A tool(s) into openjiuwen agent={}", specs.size(), agent.getCard().getId());
     }
 
-    private static ToolCard toCard(RemoteAgentCatalog.RemoteAgentToolSpec spec) {
+    private static ToolCard toCard(RemoteAgentCardCache.RemoteAgentToolSpec spec) {
         return ToolCard.builder()
                 .id(spec.toolName())
                 .name(spec.toolName())

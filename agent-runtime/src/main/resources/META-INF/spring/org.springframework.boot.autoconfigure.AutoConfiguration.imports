@@ -1,1 +1,2 @@
 com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration
+com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenRemoteToolAutoConfiguration

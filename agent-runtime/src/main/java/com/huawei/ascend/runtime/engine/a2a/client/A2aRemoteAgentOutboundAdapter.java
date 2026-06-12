@@ -1,16 +1,14 @@
-package com.huawei.ascend.runtime.engine.a2a;
+package com.huawei.ascend.runtime.engine.a2a.client;
 
-import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -29,28 +27,38 @@ import org.a2aproject.sdk.spec.TaskState;
 import org.a2aproject.sdk.spec.TaskStatus;
 import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.a2aproject.sdk.spec.TextPart;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+/**
+ * A2A JSON-RPC transport adapter that implements {@link RemoteAgentInvocationService.OutboundPort}.
+ *
+ * <p>One transport (and its underlying HTTP client) is cached per remote agent endpoint
+ * and reused across invocations. Each invocation is a blocking streaming call with
+ * a configurable timeout. Messages and artifacts received from the remote are forwarded
+ * to the caller via the {@code eventConsumer} callback so the framework can project
+ * progress onto the parent task without waiting for the remote invocation to complete.
+ */
 public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocationService.OutboundPort {
+    private static final Logger LOG = LoggerFactory.getLogger(A2aRemoteAgentOutboundAdapter.class);
     private static final Duration DEFAULT_STREAM_TIMEOUT = Duration.ofSeconds(60);
 
     private final Function<String, ClientTransport> transportFactory;
     private final Duration streamTimeout;
-    // One transport (and its underlying HTTP client) per remote agent, reused across
-    // invocations and input-required continuations instead of rebuilt on every call.
     private final Map<String, ClientTransport> transportCache = new ConcurrentHashMap<>();
 
-    public A2aRemoteAgentOutboundAdapter(RemoteAgentCatalog catalog) {
+    public A2aRemoteAgentOutboundAdapter(RemoteAgentCardCache cardCache) {
         this(remoteAgentId -> {
-            String endpoint = catalog.endpoint(remoteAgentId);
+            String endpoint = cardCache.endpoint(remoteAgentId);
             return endpoint == null || endpoint.isBlank() ? null : new JSONRPCTransport(endpoint);
         }, DEFAULT_STREAM_TIMEOUT);
     }
 
-    A2aRemoteAgentOutboundAdapter(Function<String, ClientTransport> transportFactory) {
+    public A2aRemoteAgentOutboundAdapter(Function<String, ClientTransport> transportFactory) {
         this(transportFactory, DEFAULT_STREAM_TIMEOUT);
     }
 
-    A2aRemoteAgentOutboundAdapter(Function<String, ClientTransport> transportFactory, Duration streamTimeout) {
+    public A2aRemoteAgentOutboundAdapter(Function<String, ClientTransport> transportFactory, Duration streamTimeout) {
         this.transportFactory = Objects.requireNonNull(transportFactory, "transportFactory");
         this.streamTimeout = streamTimeout == null ? DEFAULT_STREAM_TIMEOUT : streamTimeout;
     }
@@ -59,8 +67,12 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
     public List<RemoteAgentInvocationService.RemoteAgentResult> invoke(
             RemoteAgentInvocationService.RemoteAgentRequest request,
             Consumer<RemoteAgentInvocationService.RemoteAgentResult> eventConsumer) {
-        ClientTransport transport = transport(request.remoteAgentId());
+        LOG.info("remote agent invocation start remoteAgentId={} remoteTaskId={} messageLen={}",
+                request.remoteAgentId(), request.remoteTaskId(), request.message().length());
+        ClientTransport transport = obtainTransport(request.remoteAgentId());
         if (transport == null) {
+            LOG.warn("remote agent invocation rejected: no transport for remoteAgentId={}",
+                    request.remoteAgentId());
             return List.of(RemoteAgentInvocationService.RemoteAgentResult.failed(
                     "No A2A transport for remote agent " + request.remoteAgentId()));
         }
@@ -111,19 +123,24 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         if (reference == null || reference.remoteAgentId() == null || reference.remoteTaskId() == null) {
             return;
         }
-        ClientTransport transport = transport(reference.remoteAgentId());
+        ClientTransport transport = obtainTransport(reference.remoteAgentId());
         if (transport != null) {
             transport.cancelTask(CancelTaskParams.builder().id(reference.remoteTaskId()).build(), null);
         }
     }
 
-    private ClientTransport transport(String remoteAgentId) {
+    private ClientTransport obtainTransport(String remoteAgentId) {
         if (remoteAgentId == null) {
             return null;
         }
-        // computeIfAbsent does not store a null result, so an endpoint that is not yet
-        // resolvable stays uncached and is retried on the next call.
-        return transportCache.computeIfAbsent(remoteAgentId, transportFactory::apply);
+        ClientTransport transport = transportCache.computeIfAbsent(remoteAgentId, id -> {
+            LOG.info("remote agent transport created remoteAgentId={}", id);
+            return transportFactory.apply(id);
+        });
+        if (transport == null) {
+            LOG.warn("remote agent transport factory returned null for remoteAgentId={}", remoteAgentId);
+        }
+        return transport;
     }
 
     private static MessageSendParams toParams(RemoteAgentInvocationService.RemoteAgentRequest request) {
@@ -178,26 +195,17 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         if (state == TaskState.TASK_STATE_INPUT_REQUIRED) {
             return new RemoteAgentInvocationService.RemoteAgentResult(
                     RemoteAgentInvocationService.RemoteAgentResult.Type.INPUT_REQUIRED,
-                    text,
-                    taskId,
-                    contextId,
-                    metadata);
+                    text, taskId, contextId, metadata);
         }
         if (state == TaskState.TASK_STATE_COMPLETED) {
             return new RemoteAgentInvocationService.RemoteAgentResult(
                     RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
-                    text,
-                    taskId,
-                    contextId,
-                    metadata);
+                    text, taskId, contextId, metadata);
         }
         if (state != null && state.isFinal()) {
             return new RemoteAgentInvocationService.RemoteAgentResult(
                     RemoteAgentInvocationService.RemoteAgentResult.Type.FAILED,
-                    text,
-                    taskId,
-                    contextId,
-                    metadata);
+                    text, taskId, contextId, metadata);
         }
         return null;
     }

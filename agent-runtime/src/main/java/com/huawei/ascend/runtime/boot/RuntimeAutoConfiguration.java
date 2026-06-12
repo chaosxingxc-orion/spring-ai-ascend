@@ -1,17 +1,17 @@
 package com.huawei.ascend.runtime.boot;
 
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
-import com.huawei.ascend.runtime.engine.a2a.A2aRemoteAgentOutboundAdapter;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenRemoteToolInstaller;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
+import com.huawei.ascend.runtime.engine.a2a.client.A2aRemoteAgentOutboundAdapter;
+import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentCardCache;
+import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
+import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentProperties;
+import com.huawei.ascend.runtime.engine.a2a.client.RemoteSupport;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -127,11 +127,11 @@ public class RuntimeAutoConfiguration {
 
     @Bean @ConditionalOnMissingBean
     public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers,
-            ObjectProvider<A2aAgentExecutor.RemoteSupport> remoteSupport,
+            ObjectProvider<RemoteSupport> remoteSupport,
             RuntimeReadiness readiness, TrajectoryProperties trajectoryProperties,
             ObjectProvider<TrajectorySinkFactory> sinkFactories) {
         var registered = handlers.orderedStream().toList();
-        A2aAgentExecutor.RemoteSupport support = remoteSupport.getIfAvailable();
+        RemoteSupport support = remoteSupport.getIfAvailable();
         if (registered.isEmpty()) {
             // Tolerated so the A2A surface can boot for card discovery; every
             // execution will be rejected until a handler bean is registered.
@@ -206,53 +206,31 @@ public class RuntimeAutoConfiguration {
     public static class RemoteAgentConfiguration {
 
         @Bean @ConditionalOnMissingBean
-        public RemoteAgentCatalog remoteAgentCatalog(RemoteAgentProperties properties) {
-            return new RemoteAgentCatalog(properties.urls());
+        public RemoteAgentCardCache remoteAgentCardCache(RemoteAgentProperties properties) {
+            return new RemoteAgentCardCache(properties.urls());
         }
 
         @Bean @ConditionalOnMissingBean
-        public A2aRemoteAgentOutboundAdapter a2aRemoteAgentOutboundAdapter(RemoteAgentCatalog catalog) {
-            return new A2aRemoteAgentOutboundAdapter(catalog);
+        public A2aRemoteAgentOutboundAdapter a2aRemoteAgentOutboundAdapter(RemoteAgentCardCache cardCache) {
+            return new A2aRemoteAgentOutboundAdapter(cardCache);
         }
 
         @Bean @ConditionalOnMissingBean
-        public RemoteAgentInvocationService remoteAgentInvocationService(A2aRemoteAgentOutboundAdapter outboundAdapter) {
+        public RemoteAgentInvocationService remoteAgentInvocationService(
+                A2aRemoteAgentOutboundAdapter outboundAdapter) {
             return new RemoteAgentInvocationService(outboundAdapter);
         }
 
         @Bean @ConditionalOnMissingBean
-        public A2aAgentExecutor.RemoteSupport a2aRemoteSupport(RemoteAgentInvocationService invocationService) {
-            return new A2aAgentExecutor.RemoteSupport(invocationService);
+        public RemoteSupport a2aRemoteSupport(
+                RemoteAgentInvocationService invocationService) {
+            return new RemoteSupport(invocationService);
         }
 
         @Bean @ConditionalOnMissingBean
-        public RemoteAgentCatalogRefresher remoteAgentCatalogRefresher(RemoteAgentCatalog catalog,
-                A2aServerExecutor executor) {
-            return new RemoteAgentCatalogRefresher(catalog, executor.executor());
-        }
-
-        /**
-         * Isolated in a nested class because the openJiuwen framework is an optional dependency:
-         * a bean method whose signature mentions openJiuwen-typed classes makes reflective
-         * introspection of the enclosing configuration throw NoClassDefFoundError in hosts
-         * without the framework. The condition is evaluated from class metadata, so this nested
-         * class is never loaded unless openJiuwen is present. The remote-agents property guard is
-         * REPEATED here because classpath scanning registers nested configuration classes
-         * independently of the enclosing class — the outer @ConditionalOnProperty does not cascade.
-         */
-        @Configuration(proxyBeanMethods = false)
-        @ConditionalOnProperty(prefix = "agent-runtime.remote-agents.0", name = "url")
-        @ConditionalOnClass(name = "com.openjiuwen.core.singleagent.BaseAgent")
-        public static class OpenJiuwenRemoteToolConfiguration {
-
-            @Bean @ConditionalOnMissingBean
-            public OpenJiuwenRemoteToolInstaller openJiuwenRemoteToolInstaller(RemoteAgentCatalog catalog,
-                    ObjectProvider<OpenJiuwenAgentRuntimeHandler> handlers) {
-                OpenJiuwenRemoteToolInstaller installer =
-                        new OpenJiuwenRemoteToolInstaller(catalog::availableToolSpecs);
-                handlers.orderedStream().forEach(handler -> handler.setRuntimeToolInstaller(installer));
-                return installer;
-            }
+        public RemoteAgentCardCacheRefresher remoteAgentCardCacheRefresher(
+                RemoteAgentCardCache cardCache, A2aServerExecutor executor) {
+            return new RemoteAgentCardCacheRefresher(cardCache, executor.executor());
         }
     }
 
@@ -291,26 +269,29 @@ public class RuntimeAutoConfiguration {
         }
     }
 
-    /** Polls the catalog so remote runtimes that boot later (or restart) become callable without a redeploy. */
-    public static final class RemoteAgentCatalogRefresher implements SmartLifecycle {
-        private final RemoteAgentCatalog catalog;
+    /** Polls the card cache so remote runtimes that boot later (or restart) become callable without a redeploy. */
+    public static final class RemoteAgentCardCacheRefresher implements SmartLifecycle {
+        private static final Logger LOG = LoggerFactory.getLogger(RemoteAgentCardCacheRefresher.class);
+
+        private final RemoteAgentCardCache cardCache;
         private final ExecutorService executor;
         private final AtomicBoolean running = new AtomicBoolean();
 
-        RemoteAgentCatalogRefresher(RemoteAgentCatalog catalog, ExecutorService executor) {
-            this.catalog = catalog;
+        RemoteAgentCardCacheRefresher(RemoteAgentCardCache cardCache, ExecutorService executor) {
+            this.cardCache = cardCache;
             this.executor = executor;
         }
 
         @Override
         public void start() {
             if (running.compareAndSet(false, true)) {
+                LOG.info("remote agent card cache refresher started intervalMs=5000");
                 executor.execute(this::run);
             }
         }
 
         void refreshOnce() {
-            catalog.refreshPending();
+            cardCache.refreshPending();
         }
 
         private void run() {
@@ -327,6 +308,7 @@ public class RuntimeAutoConfiguration {
 
         @Override
         public void stop() {
+            LOG.info("remote agent card cache refresher stopping");
             running.set(false);
         }
 

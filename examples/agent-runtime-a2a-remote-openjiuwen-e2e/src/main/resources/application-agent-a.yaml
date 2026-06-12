@@ -1,0 +1,23 @@
+# ── Agent A: LLM-driven ReActAgent that discovers and calls remote Agent B ──
+# Activate with: --spring.profiles.active=agent-a
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: local-a
+  # Agent A discovers Agent B via its A2A agent card.
+  # Override with --agent-runtime.remote-agents[0].url=<url> if Agent B is elsewhere.
+  remote-agents:
+    - url: http://localhost:18082
+
+sample:
+  remote-openjiuwen:
+    role: a
+    agent-a:
+      llm:
+        model-provider: ${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}
+        api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-x00550472}
+        api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
+        model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
+        ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}
