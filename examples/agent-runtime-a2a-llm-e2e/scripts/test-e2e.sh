@@ -20,4 +20,12 @@ if [[ -z "${SAA_SAMPLE_LLM_API_KEY:-}" ]]; then
 fi
 cd "$REPO"
 ./mvnw -pl agent-runtime -am install -DskipTests -Dmaven.test.skip=true
-./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test
+# The example pom defaults skipTests=true for reactor hygiene; this script's whole
+# purpose is to run the suite, so the override is mandatory here.
+LOG_FILE="$(mktemp)"
+trap 'rm -f "$LOG_FILE"' EXIT
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test -DskipTests=false | tee "$LOG_FILE"
+if grep -q "Tests are skipped." "$LOG_FILE"; then
+  echo "ERROR: surefire skipped the tests — the E2E suite did not run." >&2
+  exit 1
+fi

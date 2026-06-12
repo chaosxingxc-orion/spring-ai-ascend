@@ -25,12 +25,11 @@ resilience:
   reference_rule: "Rule 43 (Engine Envelope Single Authority) + Rule 44 (Strict Engine Matching)"
 
 availability:
-  health_endpoints: []
-  readiness_signal: "library-internal — readiness = engine registry boot self-validation OK"
+  health_endpoints:
+    - "actuator health via boot.AgentRuntimeHealthIndicator — UP / OUT_OF_SERVICE (readiness gate closed) / DOWN (started handler reports unhealthy), one detail per agentId (Authority: ADR-0161)"
+  readiness_signal: "boot.RuntimeReadiness gate owned by boot.AgentRuntimeLifecycle (SmartLifecycle phase 0): open only between AgentRuntimeHandler.start() of every registered handler and their reverse-order stop(); A2aAgentExecutor rejects executions retryable (RUNTIME_NOT_READY) while closed"
   startup_failure_modes:
-    - "known_engines id with no registered adapter — IllegalStateException at boot (E84 EngineRegistry.validateAgainstSchema)"
-    - "engine_type X registered but absent from known_engines — IllegalStateException at boot"
-    - "engine-envelope.v1.yaml mismatch vs ENGINE_TYPE constants — gate Rule 56 fails CI"
+    - "AgentRuntimeHandler.start() throws — context refresh aborts after rolling back already-started handlers (fail-fast; no serving-but-unready zombie)"
 
 vulnerability:
   scan_tooling: "manual review at L1; automated CVE/SCA deferred per CLAUDE-deferred.md 32.d"

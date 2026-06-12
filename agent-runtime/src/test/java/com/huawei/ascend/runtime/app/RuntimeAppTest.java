@@ -62,6 +62,41 @@ class RuntimeAppTest {
         }
     }
 
+    /**
+     * The host-registered handler (a manual singleton, not a component-scanned
+     * bean) must still ride the runtime lifecycle: started before the runtime
+     * serves and stopped when it closes.
+     */
+    @Test
+    void localHostDrivesHandlerLifecycleAroundServing() {
+        LifecycleRecordingHandler handler = new LifecycleRecordingHandler();
+        LocalA2aRuntimeHost host = new LocalA2aRuntimeHost(0,
+                Map.of(),
+                "--spring.autoconfigure.exclude=" + testAutoConfigurationExcludes());
+
+        try (RunningRuntime runtime = RuntimeApp.create(handler).run(host)) {
+            assertThat(runtime.port()).isPositive();
+            assertThat(handler.started).isTrue();
+            assertThat(handler.stopped).isFalse();
+        }
+        assertThat(handler.stopped).isTrue();
+    }
+
+    private static final class LifecycleRecordingHandler extends StubHandler {
+        private volatile boolean started;
+        private volatile boolean stopped;
+
+        @Override
+        public void start() {
+            started = true;
+        }
+
+        @Override
+        public void stop() {
+            stopped = true;
+        }
+    }
+
     private static String testAutoConfigurationExcludes() {
         return String.join(",",
                 "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
@@ -70,7 +105,7 @@ class RuntimeAppTest {
                 "io.github.resilience4j.springboot3.verifier.autoconfigure.SpringBoot3VerifierAutoConfiguration");
     }
 
-    private static final class StubHandler implements AgentRuntimeHandler {
+    private static class StubHandler implements AgentRuntimeHandler {
         @Override
         public String agentId() {
             return "stub";

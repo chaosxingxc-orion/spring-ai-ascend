@@ -13,15 +13,10 @@ import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
 
 public final class OpenJiuwenReactAgentBuilder {
-    private static final Map<ReActAgent, RuntimeMetadata> RUNTIME_METADATA =
-            Collections.synchronizedMap(new WeakHashMap<>());
-
     private final List<ToolResolver> toolResolvers;
     private final OpenJiuwenToolMapper toolMapper = new OpenJiuwenToolMapper();
     private final OpenJiuwenSkillMapper skillMapper = new OpenJiuwenSkillMapper();
@@ -29,10 +24,6 @@ public final class OpenJiuwenReactAgentBuilder {
 
     public OpenJiuwenReactAgentBuilder(List<ToolResolver> toolResolvers) {
         this.toolResolvers = List.copyOf(toolResolvers);
-    }
-
-    public OpenJiuwenReactAgentHandlerAdapter build(AgentSpec spec) {
-        return toHandler(spec.name(), buildAgent(spec));
     }
 
     public ReActAgent buildAgent(AgentSpec spec) {
@@ -60,19 +51,7 @@ public final class OpenJiuwenReactAgentBuilder {
         for (String skillDirectory : skillMapper.toSkillDirectories(spec.skillSpecs())) {
             agent.registerSkill(skillDirectory);
         }
-        RUNTIME_METADATA.put(agent, new RuntimeMetadata(
-                "sdk-proof".equalsIgnoreCase(options.executeMode()),
-                new OpenJiuwenRuntimeProof(spec, tools)));
         return agent;
-    }
-
-    public static OpenJiuwenReactAgentHandlerAdapter toHandler(String agentId, ReActAgent agent) {
-        RuntimeMetadata metadata = RUNTIME_METADATA.get(agent);
-        return new OpenJiuwenReactAgentHandlerAdapter(
-                agentId,
-                agent,
-                metadata != null && metadata.proofMode(),
-                metadata == null ? null : metadata.proof());
     }
 
     private ResolvedTool resolveTool(ToolSpec toolSpec) {
@@ -89,9 +68,6 @@ public final class OpenJiuwenReactAgentBuilder {
             agent.getAbilityManager().add(tool.getCard());
             Runner.resourceMgr().addTool(tool, agentId);
         }
-    }
-
-    private record RuntimeMetadata(boolean proofMode, OpenJiuwenRuntimeProof proof) {
     }
 }
 

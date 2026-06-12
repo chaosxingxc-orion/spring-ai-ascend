@@ -11,10 +11,13 @@ public final class JavaFileToolResolver implements ToolResolver {
     @Override
     public ResolvedTool resolve(ToolSpec spec) {
         Map<String, Object> attributes = spec.ref().attributes();
+        if (attributes.containsKey("path")) {
+            throw new UnsupportedToolRefException("file tool ref does not support path; use class and method");
+        }
         return new WrappableTool(
-                HttpToolResolver.descriptor(spec),
+                ToolRefAttributes.descriptor(spec),
                 new JavaExecutionHandle(
-                        HttpToolResolver.required(attributes, "class"),
-                        HttpToolResolver.required(attributes, "method")));
+                        ToolRefAttributes.required(attributes, "class"),
+                        ToolRefAttributes.required(attributes, "method")));
     }
 }

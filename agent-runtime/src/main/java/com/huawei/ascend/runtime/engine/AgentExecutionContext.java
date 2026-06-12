@@ -1,6 +1,7 @@
 package com.huawei.ascend.runtime.engine;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,6 +17,9 @@ public final class AgentExecutionContext {
 
     public static final String AGENT_STATE_KEY_VARIABLE = "agentStateKey";
     public static final String STATE_KEY_VARIABLE = "stateKey";
+    public static final String INPUT_TYPE_REMOTE_RESUME = "REMOTE_RESUME";
+    public static final String REMOTE_TOOL_CALL_ID_VARIABLE = "runtime.remoteToolCallId";
+    public static final String REMOTE_TOOL_RESULT_VARIABLE = "runtime.remoteToolResult";
 
     private final RuntimeIdentity scope;
     private final String inputType;
@@ -23,6 +27,8 @@ public final class AgentExecutionContext {
     private final Map<String, Object> variables;
     private final String agentStateKey;
     private volatile Map<String, Object> agentState;
+    /** Per-invocation trajectory emitter; NOOP until a TrajectorySource handler opens it. */
+    private volatile TrajectoryEmitter trajectoryEmitter = TrajectoryEmitter.NOOP;
 
     public AgentExecutionContext(RuntimeIdentity scope, String inputType,
                                   List<Message> messages, Map<String, Object> variables) {
@@ -53,6 +59,12 @@ public final class AgentExecutionContext {
         Map<String, Object> next = Map.copyOf(values);
         this.agentState = next;
         return next;
+    }
+
+    public TrajectoryEmitter getTrajectoryEmitter() { return trajectoryEmitter; }
+
+    public void setTrajectoryEmitter(TrajectoryEmitter trajectoryEmitter) {
+        this.trajectoryEmitter = trajectoryEmitter != null ? trajectoryEmitter : TrajectoryEmitter.NOOP;
     }
 
     private static String resolveAgentStateKey(RuntimeIdentity scope, Map<String, Object> variables) {

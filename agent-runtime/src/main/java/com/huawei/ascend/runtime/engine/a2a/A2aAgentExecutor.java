@@ -1,29 +1,105 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
-import org.a2aproject.sdk.spec.Message;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.a2a.A2aResultRouter.RouteDecision;
+import com.huawei.ascend.runtime.engine.a2a.A2aTrajectorySupport.TrajectoryFlow;
+import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
+import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
 import org.a2aproject.sdk.server.agentexecution.RequestContext;
 import org.a2aproject.sdk.server.tasks.AgentEmitter;
+import org.a2aproject.sdk.spec.DataPart;
+import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.TextPart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
+/**
+ * Bridges the A2A SDK's {@link AgentExecutor} to the {@link AgentRuntimeHandler} SPI: owns the
+ * task lifecycle states, the readiness gate, in-flight registration for cancel-through, and the
+ * consumption of the handler's result stream. Trajectory wiring, result routing, and remote-tool
+ * orchestration are delegated to package-private collaborators invoked synchronously on the
+ * execute thread; the single-writer {@link AgentEmitter} is only ever passed down, never stored.
+ */
 public final class A2aAgentExecutor implements AgentExecutor {
 
+    /**
+     * Call-context state key under which the access layer publishes the tenant
+     * taken from the {@code X-Tenant-Id} request header. It outranks the
+     * client-self-declared params.tenant, but the runtime does NOT authenticate
+     * it: the value is only trustworthy when a fronting gateway strips and
+     * re-injects the header after authenticating the caller. Without such a
+     * gateway every wire client chooses its own tenant.
+     */
+    public static final String TENANT_STATE_KEY = "tenantId";
+
     private static final Logger LOG = LoggerFactory.getLogger(A2aAgentExecutor.class);
+    private static final String MDC_CONTEXT_ID = "contextId";
+    private static final String MDC_TASK_ID = "taskId";
+
+    /** Version of the structured-error payload carried on the failure DataPart/metadata. */
+    private static final String ERROR_SCHEMA_VERSION = "1";
 
     private final AgentRuntimeHandler handler;
+    private final BooleanSupplier readiness;
+    private final A2aTrajectorySupport trajectory;
+    private final A2aRemoteInvocationOrchestrator remote;
+    private final ConcurrentHashMap<String, InFlightExecution> inFlight = new ConcurrentHashMap<>();
 
     public A2aAgentExecutor(AgentRuntimeHandler handler) {
+        this(handler, null, () -> true, TrajectorySettings.off(), List.of());
+    }
+
+    public A2aAgentExecutor(AgentRuntimeHandler handler, RemoteSupport remoteSupport) {
+        this(handler, remoteSupport, () -> true, TrajectorySettings.off(), List.of());
+    }
+
+    public A2aAgentExecutor(AgentRuntimeHandler handler, BooleanSupplier readiness) {
+        this(handler, null, readiness, TrajectorySettings.off(), List.of());
+    }
+
+    public A2aAgentExecutor(AgentRuntimeHandler handler, RemoteSupport remoteSupport, BooleanSupplier readiness) {
+        this(handler, remoteSupport, readiness, TrajectorySettings.off(), List.of());
+    }
+
+    public A2aAgentExecutor(AgentRuntimeHandler handler, TrajectorySettings defaultTrajectorySettings,
+            List<TrajectorySinkFactory> sinkFactories) {
+        this(handler, null, () -> true, defaultTrajectorySettings, sinkFactories);
+    }
+
+    public A2aAgentExecutor(AgentRuntimeHandler handler, RemoteSupport remoteSupport, BooleanSupplier readiness,
+            TrajectorySettings defaultTrajectorySettings, List<TrajectorySinkFactory> sinkFactories) {
         this.handler = handler;
+        this.readiness = Objects.requireNonNull(readiness, "readiness");
+        this.trajectory = new A2aTrajectorySupport(defaultTrajectorySettings, sinkFactories);
+        this.remote = new A2aRemoteInvocationOrchestrator(
+                remoteSupport != null ? remoteSupport.invocationService() : null,
+                new A2aParentTaskProjector(),
+                handler != null ? handler.agentId() : null);
+    }
+
+    /**
+     * Cancel state for one in-flight execution. The stream slot is empty while the
+     * handler is still connecting; a cancel in that window sets the flag and the
+     * execute thread tears its own stream down once the handler returns it.
+     */
+    private record InFlightExecution(AtomicReference<Stream<?>> rawStream, AtomicBoolean cancelled) {
     }
 
     @Override
@@ -31,129 +107,249 @@ public final class A2aAgentExecutor implements AgentExecutor {
         String taskId = ctx.getTaskId();
         if (handler == null) {
             LOG.warn("[A2A] no handler registered taskId={}", taskId);
-            emitter.fail();
+            emitter.reject(failureMessage(emitter, "NO_HANDLER",
+                    "no agent handler registered for this task", false));
+            LOG.info("[A2A] task state=REJECTED taskId={}", taskId);
+            return;
+        }
+        if (!readiness.getAsBoolean()) {
+            // Boot has not finished or a drain is in progress: the handler may be
+            // mid start/stop, so executing now could run against half-open
+            // resources. Retryable - the client may try again once ready.
+            LOG.warn("[A2A] runtime not ready taskId={}", taskId);
+            emitter.reject(failureMessage(emitter, "RUNTIME_NOT_READY",
+                    "runtime is not accepting executions", true));
+            LOG.info("[A2A] task state=REJECTED taskId={}", taskId);
             return;
         }
         long startedNanos = System.nanoTime();
         String sessionId = ctx.getContextId();
         String agentId = handler.agentId();
-        LOG.info("[A2A] execute start taskId={} sessionId={} agentId={}", taskId, sessionId, agentId);
+        MDC.put(MDC_CONTEXT_ID, sessionId != null ? sessionId : "");
+        MDC.put(MDC_TASK_ID, taskId != null ? taskId : "");
+        // Per-task local state (this bean is a shared singleton - never hoist to a field).
+        AtomicBoolean firstArtifact = new AtomicBoolean(true);
+        String artifactId = taskId + "-response";
+        String trajectoryArtifactId = taskId + "-trajectory";
+        AtomicBoolean cancelled = new AtomicBoolean(false);
+        TrajectoryFlow flow = TrajectoryFlow.NONE;
+        try {
+            LOG.info("[A2A] execute start taskId={} sessionId={} agentId={}", taskId, sessionId, agentId);
 
-        // ── SUBMITTED → WORKING ──
-        emitter.startWork();
-        LOG.info("[A2A] task state=WORKING taskId={}", taskId);
+            // -- (received) -> SUBMITTED -> WORKING --
+            emitter.submit();
+            LOG.info("[A2A] task state=SUBMITTED taskId={}", taskId);
+            emitter.startWork();
+            LOG.info("[A2A] task state=WORKING taskId={}", taskId);
 
-        String inputText = extractText(ctx);
-        LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
-        AgentExecutionContext context = toExecutionContext(ctx);
+            String inputText = extractText(ctx);
+            LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
 
-        try (Stream<?> raw = executeAgent(context);
-             Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
+            if (remote.isRemoteContinuation(ctx)) {
+                remote.continueRemote(ctx, emitter, taskId, artifactId, firstArtifact, cancelled,
+                        this::consumeForResume);
+                LOG.info("[A2A] execute finish taskId={} durationMs={}",
+                        taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
+                return;
+            }
 
-            results.forEach(result -> {
-                LOG.info("[A2A] result taskId={} type={} outputChars={}",
-                        taskId, result.type(),
-                        result.outputContent() != null
-                                ? result.outputContent().length() : 0);
-                route(result, emitter, taskId);
-            });
+            AgentExecutionContext context = toExecutionContext(ctx, inputText);
+            flow = trajectory.open(ctx, context, handler);
+
+            RouteDecision decision = consumeHandler(context, emitter, taskId, artifactId, firstArtifact, true,
+                    cancelled);
+
+            // The full trajectory (through RUN_END) is only complete now; deliver it to the caller
+            // before the answer's terminal so it lands while the task can still accept artifacts.
+            A2aTrajectorySupport.deliverNorthbound(flow, emitter, trajectoryArtifactId, taskId);
+
+            if (decision.remoteInvocation() != null) {
+                remote.invokeRemote(ctx, decision.remoteInvocation(), emitter, taskId, artifactId,
+                        firstArtifact, cancelled, this::consumeForResume);
+            } else if (decision.terminalAction() != null) {
+                decision.terminalAction().run();
+            } else if (!decision.terminalRouted()) {
+                A2aResultRouter.completeDrainedStream(taskId, emitter);
+            }
+
             LOG.info("[A2A] execute finish taskId={} durationMs={}",
                     taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
 
         } catch (Exception e) {
-            LOG.error("[A2A] execute failed taskId={} errorClass={} message={}",
-                    taskId, e.getClass().getSimpleName(), e.getMessage(), e);
+            if (cancelled.get()) {
+                // The cancel path already moved the task to CANCELED and tore the
+                // stream down; reporting the teardown as a failure would fight the
+                // terminal state the client just observed.
+                LOG.info("[A2A] execute torn down by cancel taskId={}", taskId);
+                return;
+            }
+            RuntimeErrorCode code = RuntimeErrorCode.classify(e);
             String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            emitter.fail(failureMessage(emitter, "RUNTIME_ERROR", detail));
-            LOG.info("[A2A] task state=FAILED taskId={}", taskId);
+            LOG.error("[A2A] execute failed taskId={} code={} errorClass={} message={}",
+                    taskId, code, e.getClass().getSimpleName(), e.getMessage(), e);
+            A2aTrajectorySupport.deliverNorthbound(flow, emitter, trajectoryArtifactId, taskId);
+            try {
+                emitter.fail(failureMessage(emitter, code.name(), detail, code.retryable()));
+                LOG.info("[A2A] task state=FAILED taskId={}", taskId);
+            } catch (RuntimeException ignored) {
+                LOG.warn("[A2A] could not emit terminal failure taskId={}", taskId);
+            }
+        } finally {
+            A2aTrajectorySupport.closeQuietly(flow, taskId);
+            MDC.remove(MDC_CONTEXT_ID);
+            MDC.remove(MDC_TASK_ID);
         }
-    }
-
-    private Stream<?> executeAgent(AgentExecutionContext context) {
-        return handler.execute(context);
     }
 
     @Override
     public void cancel(RequestContext ctx, AgentEmitter emitter) {
-        LOG.info("[A2A] cancel requested taskId={}", ctx.getTaskId());
-        emitter.cancel();
-        LOG.info("[A2A] task state=CANCELED taskId={}", ctx.getTaskId());
-    }
-
-    private void route(AgentExecutionResult result, AgentEmitter emitter, String taskId) {
-        switch (result.type()) {
-            case OUTPUT -> {
-                String text = outputText(result);
-                LOG.info("[A2A] output stream taskId={} textChars={}", taskId, text.length());
-                emitter.addArtifact(List.<Part<?>>of(new TextPart(text)));
-                // state stays WORKING — more output may follow
+        String taskId = ctx.getTaskId();
+        LOG.info("[A2A] cancel requested taskId={}", taskId);
+        InFlightExecution execution = inFlight.get(taskId);
+        if (execution != null) {
+            execution.cancelled().set(true);
+        }
+        if (handler != null) {
+            try {
+                handler.cancel(taskId);
+            } catch (RuntimeException e) {
+                LOG.warn("[A2A] handler cancel failed taskId={} message={}", taskId, e.getMessage(), e);
             }
-            case COMPLETED -> {
-                String text = outputText(result);
-                if (!text.isBlank()) {
-                    LOG.info("[A2A] complete with final output taskId={} textChars={}", taskId, text.length());
-                    emitter.complete(emitter.newAgentMessage(List.<Part<?>>of(new TextPart(text)), null));
-                } else {
-                    emitter.complete();
-                }
-                LOG.info("[A2A] task state=COMPLETED taskId={}", taskId);
-            }
-            case FAILED -> {
-                String code = result.errorCode() == null ? "RUNTIME_ERROR" : result.errorCode();
-                String msg = result.errorMessage() == null ? code : result.errorMessage();
-                LOG.warn("[A2A] task state=FAILED taskId={} code={} message={}", taskId, code, msg);
-                emitter.fail(failureMessage(emitter, code, result.errorMessage()));
-            }
-            case INTERRUPTED -> {
-                String prompt = result.prompt() == null ? "" : result.prompt();
-                LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} prompt={}", taskId, prompt);
-                if (!prompt.isBlank()) {
-                    emitter.sendMessage(prompt);
-                }
-                emitter.requiresInput();
+        }
+        try {
+            emitter.cancel();
+            remote.propagateCancel(ctx, taskId);
+            LOG.info("[A2A] task state=CANCELED taskId={}", taskId);
+        } catch (Exception e) {
+            LOG.error("[A2A] cancel failed taskId={} message={}", taskId, e.getMessage(), e);
+        }
+        if (execution != null) {
+            // Tear the transport down last so the CANCELED state has already
+            // landed when the execute thread observes the closed stream. A null
+            // slot means the handler is still connecting; the execute thread
+            // observes the cancelled flag and closes the stream itself.
+            Stream<?> raw = execution.rawStream().get();
+            if (raw != null) {
+                raw.close();
             }
         }
     }
 
-    private static String outputText(AgentExecutionResult result) {
-        return result.outputContent() != null ? result.outputContent() : "";
+    private RouteDecision consumeForResume(AgentExecutionContext resumeContext, AgentEmitter emitter,
+            String taskId, String artifactId, AtomicBoolean firstArtifact, AtomicBoolean cancelled) {
+        return consumeHandler(resumeContext, emitter, taskId, artifactId, firstArtifact, false, cancelled);
+    }
+
+    private RouteDecision consumeHandler(AgentExecutionContext context, AgentEmitter emitter, String taskId,
+            String artifactId, AtomicBoolean firstArtifact, boolean remoteInvocationAllowed,
+            AtomicBoolean cancelled) {
+        // Registered before handler.execute() so a cancel landing during a slow
+        // connect still reaches the cancelled flag instead of vanishing.
+        InFlightExecution execution = new InFlightExecution(new AtomicReference<>(), cancelled);
+        inFlight.put(taskId, execution);
+        try (Stream<?> raw = handler.execute(context);
+             Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
+            execution.rawStream().set(raw);
+            Iterator<AgentExecutionResult> iterator = results.iterator();
+            while (!cancelled.get() && iterator.hasNext()) {
+                AgentExecutionResult result = iterator.next();
+                LOG.info("[A2A] result taskId={} type={} outputChars={}",
+                        taskId, result.type(),
+                        result.outputContent() != null ? result.outputContent().length() : 0);
+                RouteDecision decision = A2aResultRouter.route(result, emitter, taskId, artifactId,
+                        firstArtifact, remoteInvocationAllowed);
+                if (decision.stop()) {
+                    return decision;
+                }
+            }
+            // A cancel observed here already moved the task to CANCELED; emitting
+            // a drained-completion would fight the terminal the client just saw.
+            return cancelled.get() ? RouteDecision.terminal() : RouteDecision.drained();
+        } catch (RuntimeException e) {
+            if (cancelled.get()) {
+                return RouteDecision.terminal();
+            }
+            throw e;
+        } finally {
+            inFlight.remove(taskId, execution);
+        }
     }
 
     /**
-     * Builds an agent message carrying the failure reason so the A2A client sees
-     * why the task failed instead of a bare FAILED status with no detail.
+     * Builds an agent message carrying the failure both as human-readable text (a {@link TextPart})
+     * and as a machine-readable {@link DataPart} ({@code code}, {@code message}, {@code retryable},
+     * {@code schema_version}) so an A2A client can render the reason and branch on it
+     * programmatically. The same structure is mirrored on the message metadata for clients that read
+     * {@code status.message.metadata} rather than the message parts.
      */
-    private static Message failureMessage(AgentEmitter emitter, String code, String detail) {
+    static Message failureMessage(AgentEmitter emitter, String code, String detail, boolean retryable) {
+        String message = (detail == null || detail.isBlank()) ? code : detail;
         String text = (detail == null || detail.isBlank()) ? code : code + ": " + detail;
-        return emitter.newAgentMessage(List.<Part<?>>of(new TextPart(text)), null);
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("kind", "error");
+        error.put("code", code);
+        error.put("message", message);
+        error.put("retryable", retryable);
+        error.put("schema_version", ERROR_SCHEMA_VERSION);
+        List<Part<?>> parts = List.of(new TextPart(text), new DataPart(error));
+        return emitter.newAgentMessage(parts, Map.of("a2a.error", error));
     }
 
-    private AgentExecutionContext toExecutionContext(RequestContext ctx) {
-        String text = extractText(ctx);
-        List<Message> messages = List.of(Message.builder().role(Message.Role.ROLE_USER).parts(java.util.List.of(new TextPart(text))).build());
+    private AgentExecutionContext toExecutionContext(RequestContext ctx, String text) {
+        List<Message> messages = List.of(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .parts(List.<Part<?>>of(new TextPart(text)))
+                .build());
+        String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
         return new AgentExecutionContext(
                 new RuntimeIdentity(
                         metadata(ctx, "tenantId", "default"),
                         metadata(ctx, "userId", "system"),
-                        ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId(),
+                        sessionId,
                         ctx.getTaskId(),
                         metadata(ctx, "agentId", handler.agentId())),
-                "USER_MESSAGE", messages, Map.of());
+                "USER_MESSAGE",
+                messages,
+                // In A2A every message/send of a conversation opens a NEW task within
+                // the same contextId, so the framework conversation key must follow the
+                // session - keying it by taskId would start a fresh framework
+                // conversation each turn and checkpointer restore would never fire.
+                Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, sessionId));
     }
 
     private static String extractText(RequestContext ctx) {
-        if (ctx.getMessage() == null || ctx.getMessage().parts() == null) return "";
-        return ctx.getMessage().parts().stream()
-                .filter(TextPart.class::isInstance)
-                .map(TextPart.class::cast)
-                .map(TextPart::text)
-                .reduce((a, b) -> a + "\n" + b)
-                .orElse("");
+        Message message = ctx.getMessage();
+        if (message != null && message.parts() != null) {
+            // Only text parts are mapped onto the execution context; dropping the
+            // rest silently would let a data-only message degrade into an empty
+            // query with nothing in the logs to explain it.
+            List<String> dropped = message.parts().stream()
+                    .filter(part -> !(part instanceof TextPart))
+                    .map(part -> part.getClass().getSimpleName())
+                    .toList();
+            if (!dropped.isEmpty()) {
+                LOG.warn("[A2A] non-text message parts dropped taskId={} kinds={}", ctx.getTaskId(), dropped);
+            }
+        }
+        return Messages.text(message);
     }
 
-    private static String metadata(RequestContext ctx, String key, String fallback) {
-        if ("tenantId".equals(key) && hasText(ctx.getTenant())) {
-            return ctx.getTenant();
+    /**
+     * Canonical request-context value resolution shared with {@link A2aParentTaskProjector}
+     * so the remote-resume re-entry resolves the same tenant as the first local segment.
+     * For the tenant key the header-derived call-context tenant outranks client-declared
+     * metadata; see {@link #TENANT_STATE_KEY} for the trust precondition.
+     */
+    static String metadata(RequestContext ctx, String key, String fallback) {
+        if (TENANT_STATE_KEY.equals(key)) {
+            Object transportTenant = ctx.getCallContext() == null
+                    ? null : ctx.getCallContext().getState().get(TENANT_STATE_KEY);
+            if (hasText(transportTenant)) {
+                return String.valueOf(transportTenant);
+            }
+            if (hasText(ctx.getTenant())) {
+                return ctx.getTenant();
+            }
         }
         Map<String, Object> md = ctx.getMetadata();
         Object value = md == null ? null : md.get(key);
@@ -162,5 +358,21 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
     private static boolean hasText(Object value) {
         return value != null && !String.valueOf(value).isBlank();
+    }
+
+    public static final class RemoteSupport {
+        private final RemoteAgentInvocationService invocationService;
+
+        public RemoteSupport(RemoteAgentInvocationService invocationService) {
+            this.invocationService = Objects.requireNonNull(invocationService, "invocationService");
+        }
+
+        public static RemoteSupport forOutbound(RemoteAgentInvocationService.OutboundPort outboundPort) {
+            return new RemoteSupport(new RemoteAgentInvocationService(outboundPort));
+        }
+
+        RemoteAgentInvocationService invocationService() {
+            return invocationService;
+        }
     }
 }

@@ -8,8 +8,10 @@
 # ADR-0100 Rejection 3 — NO SDK runtime dep added in agent-service.
 #
 # The mapping below allows internal RunState ↔ A2A state vocabulary
-# translation at the contract boundary; A2A interoperability is
-# achieved via mapping, not by importing an A2A SDK.
+# translation at the contract boundary; at this agent-service boundary
+# A2A interoperability is achieved via mapping rather than by importing
+# the SDK (agent-runtime imports the a2a-java SDK for its A2A server —
+# see non_goals).
 
 
 schema: a2a-envelope/v1
@@ -37,6 +39,9 @@ task_states:
   failed:
     description: Task finished with error.
     internal_run_state_hint: FAILED
+  canceled:
+    description: Task was canceled before reaching success or failure.
+    internal_run_state_hint: CANCELLED
 
 # Envelope shape
 envelope_fields:
@@ -54,7 +59,7 @@ envelope_fields:
     description: A2A agent identifier (separate from internal AgentSubject if/when introduced).
   task_state:
     type: enum
-    values: [submitted, working, input_required, completed, failed]
+    values: [submitted, working, input_required, completed, failed, canceled]
     required: true
   payload:
     type: object
@@ -78,13 +83,30 @@ mapping:
     - RUNNING → working
     - SUSPENDED (any reason) → input_required (if AwaitClientCallback) | working (otherwise)
     - SUCCEEDED → completed
-    - FAILED | EXPIRED | CANCELLED → failed
+    - CANCELLED → canceled
+    - FAILED | EXPIRED → failed
 
 # Non-goals
 non_goals: |
-  - Importing the a2a-java SDK as a Maven dependency (rejected per ADR-0100 Rejection 3).
+  - Importing the a2a-java SDK as a Maven dependency into agent-service (rejected per ADR-0100 Rejection 3). agent-runtime DOES depend on the a2a-java SDK for its inbound A2A server (A2aAgentExecutor) per ADR-0159 — a distinct surface from this agent-service mapping contract.
   - Replacing internal RunState with A2A task_state (the internal DFA stays canonical).
   - Cross-tenant A2A federation (separate ADR if pursued).
+
+# Trust boundaries (agent-runtime /a2a ingress)
+trust_boundaries: |
+  - Tenant identity: the agent-runtime A2A server resolves the tenant from the
+    X-Tenant-Id request header, which outranks the client-self-declared
+    params.tenant but is NOT authenticated by the runtime itself. Multi-tenant
+    deployments MUST front the /a2a ingress with a gateway that authenticates
+    callers and strips/re-injects X-Tenant-Id; absent such a gateway the header
+    is as client-controlled as params.tenant. Binding the tenant to an
+    authenticated principal (OIDC/JWT) is deferred hardening, not a shipped
+    property.
+  - Message semantics: the shipped execute path forwards only the TextParts of
+    the inbound message to the framework adapter (newline-joined, re-issued as
+    a single user-role message). DataPart/FilePart payloads, per-part metadata,
+    and the inbound wire role are not forwarded; non-text parts are dropped
+    with a WARN log. Structured multi-part pass-through is future scope.
 
 # Schema evolution
 schema_evolution:

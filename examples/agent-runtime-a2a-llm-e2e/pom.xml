@@ -39,7 +39,10 @@
     <dependency>
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>
-      <version>0.1.7</version>
+      <!-- Must match the version agent-runtime compiles against (its dep is
+           <optional>); 0.1.12 carries memory.external.MemoryProvider, which the
+           openJiuwen handler needs at boot. -->
+      <version>0.1.12</version>
     </dependency>
     <dependency>
       <groupId>io.agentscope</groupId>

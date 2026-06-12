@@ -7,12 +7,14 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.a2aproject.sdk.spec.AgentCard;
+import org.a2aproject.sdk.spec.DataPart;
 import org.a2aproject.sdk.spec.EventKind;
 import org.a2aproject.sdk.spec.ListTaskPushNotificationConfigsResult;
 import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.a2aproject.sdk.spec.Task;
 import org.a2aproject.sdk.spec.TaskPushNotificationConfig;
 import org.a2aproject.sdk.spec.TaskState;
+import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -50,6 +52,18 @@ class ReturnModesA2aE2eTest {
                 .contains("stream-part-2")
                 .contains("stream-done");
 
+        // The client must be notified of task start: collect lifecycle states seen on the stream
+        // from both Task snapshots and status-update events. SUBMITTED then WORKING must both appear.
+        List<TaskState> streamStates = new java.util.ArrayList<>();
+        for (StreamingEventKind e : streamEvents) {
+            if (e instanceof TaskStatusUpdateEvent s && s.status() != null) {
+                streamStates.add(s.status().state());
+            } else if (e instanceof Task t && t.status() != null) {
+                streamStates.add(t.status().state());
+            }
+        }
+        assertThat(streamStates).contains(TaskState.TASK_STATE_SUBMITTED, TaskState.TASK_STATE_WORKING);
+
         inbox.reset();
         String taskId = syncTask.id();
         String callbackUrl = baseUri() + "/test/push-notifications";
@@ -67,6 +81,31 @@ class ReturnModesA2aE2eTest {
         assertThat(inbox.awaitPayload(payload -> payload.contains("stream-part-1"), TIMEOUT.toSeconds(), TimeUnit.SECONDS))
                 .isTrue();
         assertThat(inbox.payloads()).anySatisfy(payload -> assertThat(payload).contains("stream-part-1"));
+    }
+
+    /** A turn whose agent throws must return a FAILED task carrying a structured, client-readable error. */
+    @Test
+    void failingTurnReturnsFailedTaskWithStructuredError() throws Exception {
+        ReturnModesA2aClient client = new ReturnModesA2aClient(baseUri(), TIMEOUT);
+
+        EventKind result = client.sendMessage("fail");
+
+        assertThat(result).isInstanceOf(Task.class);
+        Task task = (Task) result;
+        assertThat(task.status().state()).isEqualTo(TaskState.TASK_STATE_FAILED);
+        // Human-readable reason reaches the client...
+        assertThat(ReturnModesA2aClient.textFrom(result)).contains("INVALID_INPUT");
+        // ...and a machine-readable structured error (code + retryable) survives the A2A round-trip.
+        String structured = String.valueOf(structuredErrorData(task));
+        assertThat(structured).contains("INVALID_INPUT").contains("retryable");
+    }
+
+    private static Object structuredErrorData(Task task) {
+        return task.status().message().parts().stream()
+                .filter(DataPart.class::isInstance)
+                .map(part -> ((DataPart) part).data())
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("FAILED task carried no structured error DataPart"));
     }
 
     private URI baseUri() {

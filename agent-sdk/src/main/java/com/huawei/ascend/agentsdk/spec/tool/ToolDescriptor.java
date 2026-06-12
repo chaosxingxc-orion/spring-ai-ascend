@@ -5,12 +5,10 @@ import java.util.Map;
 public record ToolDescriptor(
         String name,
         String description,
-        Map<String, Object> inputSchema,
-        Map<String, Object> outputSchema) {
+        Map<String, Object> inputSchema) {
 
     public ToolDescriptor {
         inputSchema = inputSchema == null ? Map.of() : Map.copyOf(inputSchema);
-        outputSchema = outputSchema == null ? Map.of() : Map.copyOf(outputSchema);
     }
 }
 

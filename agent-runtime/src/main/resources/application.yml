@@ -86,24 +86,36 @@ springdoc:
   swagger-ui:
     path: /swagger-ui
 
-# L1: oauth2-resource-server JWT validation (ADR-0056).
-# `dev` posture boots clean with no `app.auth.*` set (permit list + denyAll for the rest);
-# `research`/`prod` require `app.auth.issuer`, `jwks-uri`, `audience` and `PostureBootGuard`
-# (ADR-0058) aborts startup if any are missing.
-# Set `app.auth.dev-local-mode=true` AND `app.posture=dev` to wire a local-keypair decoder
-# from classpath `auth/dev-jwk.json` (test fixture; never enable outside dev).
+# The runtime ships NO request authentication: the security starters in the pom are
+# optional and unconfigured, and the X-Tenant-Id header is honored as-is. Multi-tenant
+# deployments must front the /a2a ingress with a gateway that authenticates callers and
+# strips/re-injects X-Tenant-Id; see docs/contracts/a2a-envelope.v1.yaml.
 
 logging:
   level:
     root: INFO
     com.huawei.ascend: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
+    # ctx/task carry the A2A contextId/taskId via MDC so one invocation's log lines are greppable.
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] [ctx=%X{contextId:-} task=%X{taskId:-}] - %msg%n"
 
 # Posture marker -- read at boot by PostureBootGuard (W0 lite; full guard in W1).
 app:
   posture: ${APP_POSTURE:dev}
   sha: ${APP_SHA:dev}
+  # Northbound trajectory observability. default-level OFF disables it; SUMMARY emits the
+  # mandatory core (run/tool/error); FULL adds model calls + reasoning. A request may override
+  # via the trajectory.level A2A metadata key.
+  trajectory:
+    enabled: true
+    default-level: ${APP_TRAJECTORY_LEVEL:SUMMARY}
+    mask:
+      truncate-chars: 256
+    # Optional OpenTelemetry span export of the trajectory (OTLP). Off by default; needs the
+    # optional OTel SDK on the classpath and a collector at otel.endpoint when enabled.
+    otel:
+      enabled: ${APP_TRAJECTORY_OTEL_ENABLED:false}
+      endpoint: ${APP_TRAJECTORY_OTEL_ENDPOINT:http://localhost:4317}
   # L1 idempotency dedup defaults (ADR-0057). research/prod inherit; dev may
   # override allow-in-memory=true to opt into the in-memory store when no
   # Postgres is available.

@@ -32,6 +32,19 @@ public sealed interface ExecutorDefinition
             }
             nodes = Map.copyOf(nodes);
             edges = Map.copyOf(edges);
+            // Referential integrity at construction — a dangling key would otherwise
+            // surface mid-run as a missing node on a live graph.
+            if (!nodes.containsKey(startNode)) {
+                throw new IllegalArgumentException("startNode is not a node key: " + startNode);
+            }
+            for (Map.Entry<String, String> edge : edges.entrySet()) {
+                if (!nodes.containsKey(edge.getKey())) {
+                    throw new IllegalArgumentException("edge source is not a node key: " + edge.getKey());
+                }
+                if (!nodes.containsKey(edge.getValue())) {
+                    throw new IllegalArgumentException("edge target is not a node key: " + edge.getValue());
+                }
+            }
         }
     }
 

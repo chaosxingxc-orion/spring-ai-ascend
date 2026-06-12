@@ -2,11 +2,14 @@ package com.huawei.ascend.runtime.engine.agentscope;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.Authenticator;
 import java.net.CookieHandler;
 import java.net.ProxySelector;
@@ -24,25 +27,21 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Flow;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
 import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 
 class AgentScopeRuntimeClientHandlerTest {
 
     @Test
-    void runtimeClientHandlerPostsAgentScopeRequestAndMapsSseResponse() {
+    void runtimeClientHandlerPostsAgentScopeRequestAndMapsSseResponse() throws Exception {
         CapturingHttpClient httpClient = new CapturingHttpClient();
-        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
-                httpClient,
-                new ObjectMapper(),
-                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
-        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
 
         List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
 
@@ -55,29 +54,28 @@ class AgentScopeRuntimeClientHandlerTest {
         assertThat(httpClient.request.headers().firstValue("X-Tenant-Id")).contains("tenant");
         assertThat(httpClient.request.headers().firstValue("X-Agent-Id")).contains("agentscope-rest");
         assertThat(httpClient.request.headers().firstValue("X-Task-Id")).contains("task");
-        assertThat(httpClient.body).contains("\"session_id\":\"session\"");
-        assertThat(httpClient.body).contains("\"user_id\":\"user\"");
-        assertThat(httpClient.body).contains("\"stream\":true");
-        assertThat(httpClient.body).contains("\"role\":\"user\"");
-        assertThat(httpClient.body).contains("\"role\":\"assistant\"");
-        assertThat(httpClient.body).doesNotContain("ROLE_USER", "ROLE_AGENT");
-        assertThat(httpClient.body).contains("\"content\":[{");
-        assertThat(httpClient.body).contains("\"type\":\"text\"");
-        assertThat(httpClient.body).contains("\"text\":\"ping\"");
+
+        JsonNode body = new ObjectMapper().readTree(httpClient.body);
+        assertThat(body.get("session_id").asText()).isEqualTo("session");
+        assertThat(body.get("user_id").asText()).isEqualTo("user");
+        assertThat(body.get("stream").asBoolean()).isTrue();
+        JsonNode input = body.get("input");
+        assertThat(input).hasSize(2);
+        assertThat(input.get(0).get("role").asText()).isEqualTo("user");
+        assertThat(input.get(0).get("content").get(0).get("type").asText()).isEqualTo("text");
+        assertThat(input.get(0).get("content").get(0).get("text").asText()).isEqualTo("ping");
+        assertThat(input.get(1).get("role").asText()).isEqualTo("assistant");
+        assertThat(input.get(1).get("content").get(0).get("text").asText()).isEqualTo("pong");
     }
 
     @Test
     void runtimeClientCombinesMultiLineSseDataBlocks() {
-        CapturingHttpClient httpClient = new CapturingHttpClient(200, Stream.of(
+        CapturingHttpClient httpClient = new CapturingHttpClient(200, List.of(
                 "data: {\"status\":\"in_progress\",",
                 "data: \"text\":\"hello\"}",
                 "",
                 "data: {\"status\":\"completed\",\"output\":\"done\"}"));
-        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
-                httpClient,
-                new ObjectMapper(),
-                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
-        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
 
         List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
 
@@ -88,12 +86,63 @@ class AgentScopeRuntimeClientHandlerTest {
     }
 
     @Test
+    void runtimeClientSplitsBareNewlineFramedEvents() {
+        CapturingHttpClient httpClient = new CapturingHttpClient(200, List.of(
+                "data: {\"status\":\"in_progress\",\"type\":\"text\",\"text\":\"a\"}",
+                "data: {\"status\":\"completed\",\"output\":\"done\"}"));
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(results).extracting(AgentExecutionResult::type)
+                .containsExactly(AgentExecutionResult.Type.OUTPUT, AgentExecutionResult.Type.COMPLETED);
+        assertThat(results.get(0).outputContent()).isEqualTo("a");
+        assertThat(results.get(1).outputContent()).isEqualTo("done");
+    }
+
+    @Test
+    void runtimeClientSkipsNullDataEvents() {
+        CapturingHttpClient httpClient = new CapturingHttpClient(200, List.of(
+                "data: null",
+                "",
+                "data: {\"status\":\"completed\",\"output\":\"done\"}"));
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst().type()).isEqualTo(AgentExecutionResult.Type.COMPLETED);
+        assertThat(results.getFirst().outputContent()).isEqualTo("done");
+    }
+
+    @Test
+    void runtimeClientMapsMidStreamFailureToStructuredError() {
+        Supplier<Stream<String>> failingBody = () -> Stream.of(
+                        "data: {\"status\":\"in_progress\",\"type\":\"text\",\"text\":\"partial\"}",
+                        "",
+                        "FAIL")
+                .map(line -> {
+                    if ("FAIL".equals(line)) {
+                        throw new UncheckedIOException(new IOException("connection reset by peer"));
+                    }
+                    return line;
+                });
+        CapturingHttpClient httpClient = new CapturingHttpClient(200, failingBody);
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(results).extracting(AgentExecutionResult::type)
+                .containsExactly(AgentExecutionResult.Type.OUTPUT, AgentExecutionResult.Type.FAILED);
+        assertThat(results.get(0).outputContent()).isEqualTo("partial");
+        assertThat(results.get(1).errorCode()).isEqualTo("AGENTSCOPE_RUNTIME_IO");
+        assertThat(results.get(1).errorMessage()).isEqualTo("connection reset by peer");
+    }
+
+    @Test
     void runtimeClientPreservesIoFailureMessage() {
-        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
-                new FailingHttpClient(new IllegalStateException("connection refused")),
-                new ObjectMapper(),
-                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
-        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+        AgentScopeRuntimeClientHandler handler =
+                handler(new FailingHttpClient(new IllegalStateException("connection refused")));
 
         List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
 
@@ -105,11 +154,8 @@ class AgentScopeRuntimeClientHandlerTest {
 
     @Test
     void runtimeClientPreservesIoFailureMessageWithControlCharacters() {
-        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
-                new FailingHttpClient(new IllegalStateException("connect failed\nssl alert \"bad\"")),
-                new ObjectMapper(),
-                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
-        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+        AgentScopeRuntimeClientHandler handler =
+                handler(new FailingHttpClient(new IllegalStateException("connect failed\nssl alert \"bad\"")));
 
         List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
 
@@ -121,12 +167,8 @@ class AgentScopeRuntimeClientHandlerTest {
 
     @Test
     void runtimeClientTreatsHttp599AsUpstreamHttpFailure() {
-        CapturingHttpClient httpClient = new CapturingHttpClient(599, Stream.of("proxy timeout"));
-        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
-                httpClient,
-                new ObjectMapper(),
-                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
-        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+        CapturingHttpClient httpClient = new CapturingHttpClient(599, List.of("proxy timeout"));
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
 
         List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
 
@@ -134,6 +176,77 @@ class AgentScopeRuntimeClientHandlerTest {
         assertThat(results.getFirst().type()).isEqualTo(AgentExecutionResult.Type.FAILED);
         assertThat(results.getFirst().errorCode()).isEqualTo("AGENTSCOPE_RUNTIME_HTTP_599");
         assertThat(results.getFirst().errorMessage()).isEqualTo("AgentScope runtime returned HTTP 599");
+    }
+
+    /**
+     * A data block that partially parses keeps the decoded events but must
+     * surface the corrupt remainder as a structured failure — the dropped tail
+     * may have been the terminal, and silence would drain into a false
+     * COMPLETED.
+     */
+    @Test
+    void runtimeClientSurfacesPartiallyParsedDataBlockAsStructuredFailure() {
+        CapturingHttpClient httpClient = new CapturingHttpClient(200, List.of(
+                "data: {\"status\":\"in_progress\",\"type\":\"text\",\"text\":\"partial\"}",
+                "data: {\"status\":\"failed\",\"error\":"));
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(results).extracting(AgentExecutionResult::type)
+                .containsExactly(AgentExecutionResult.Type.OUTPUT, AgentExecutionResult.Type.FAILED);
+        assertThat(results.get(0).outputContent()).isEqualTo("partial");
+        assertThat(results.get(1).errorCode()).isEqualTo("AGENTSCOPE_RUNTIME_PARSE");
+    }
+
+    /** A hung upstream must not wedge the task forever: time-to-headers is bounded. */
+    @Test
+    void runtimeClientRequestCarriesHeaderTimeout() {
+        CapturingHttpClient httpClient = new CapturingHttpClient();
+        AgentScopeRuntimeClientHandler handler = handler(httpClient);
+
+        handler.resultAdapter().adapt(handler.execute(context())).toList();
+
+        assertThat(httpClient.request.timeout()).contains(Duration.ofSeconds(60));
+    }
+
+    /**
+     * stop() must release the SSE transport when the client owns it (created it
+     * itself); a borrowed transport belongs to its injector and survives.
+     */
+    @Test
+    void stopClosesClientOwnedHttpTransport() {
+        java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
+        HttpClient recording = new TestHttpClient() {
+            @Override
+            public <T> CompletableFuture<HttpResponse<T>> sendAsync(
+                    HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
+                throw new UnsupportedOperationException("no request expected");
+            }
+
+            @Override
+            public void close() {
+                closed.set(true);
+            }
+        };
+        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
+                recording,
+                new ObjectMapper(),
+                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"),
+                true);
+        AgentScopeRuntimeClientHandler handler = new AgentScopeRuntimeClientHandler("agentscope-rest", client);
+
+        handler.stop();
+
+        assertThat(closed).isTrue();
+    }
+
+    private static AgentScopeRuntimeClientHandler handler(HttpClient httpClient) {
+        AgentScopeRuntimeClient client = new AgentScopeRuntimeClient(
+                httpClient,
+                new ObjectMapper(),
+                new AgentScopeRuntimeClientProperties("http://agentscope-runtime.local", "/process"));
+        return new AgentScopeRuntimeClientHandler("agentscope-rest", client);
     }
 
     private static AgentExecutionContext context() {
@@ -148,31 +261,92 @@ class AgentScopeRuntimeClientHandlerTest {
     private static Message message(Message.Role role, String text) {
         return Message.builder()
                 .role(role)
-                .parts(List.<Part<?>>of(new TextPart(text)))
+                .parts(new TextPart(text))
                 .build();
     }
 
-    private static final class CapturingHttpClient extends HttpClient {
+    /** Shared no-op scaffolding for the HttpClient fakes below. */
+    private abstract static class TestHttpClient extends HttpClient {
+
+        @Override
+        public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
+            return sendAsync(request, responseBodyHandler).join();
+        }
+
+        @Override
+        public <T> CompletableFuture<HttpResponse<T>> sendAsync(
+                HttpRequest request,
+                HttpResponse.BodyHandler<T> responseBodyHandler,
+                HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
+            return sendAsync(request, responseBodyHandler);
+        }
+
+        @Override
+        public Optional<CookieHandler> cookieHandler() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Duration> connectTimeout() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Redirect followRedirects() {
+            return Redirect.NEVER;
+        }
+
+        @Override
+        public Optional<ProxySelector> proxy() {
+            return Optional.empty();
+        }
+
+        @Override
+        public SSLContext sslContext() {
+            return null;
+        }
+
+        @Override
+        public SSLParameters sslParameters() {
+            return null;
+        }
+
+        @Override
+        public Optional<Authenticator> authenticator() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Version version() {
+            return Version.HTTP_1_1;
+        }
+
+        @Override
+        public Optional<Executor> executor() {
+            return Optional.empty();
+        }
+    }
+
+    private static final class CapturingHttpClient extends TestHttpClient {
         private final int responseStatusCode;
-        private final Stream<String> responseBody;
+        private final Supplier<Stream<String>> responseBody;
         private HttpRequest request;
         private String body;
 
         private CapturingHttpClient() {
-            this(200, Stream.of(
+            this(200, List.of(
                     "data: {\"status\":\"in_progress\",\"type\":\"text\",\"text\":\"hel\"}",
                     "",
                     "data: {\"status\":\"completed\",\"output\":\"hello\"}"));
         }
 
-        private CapturingHttpClient(int responseStatusCode, Stream<String> responseBody) {
-            this.responseStatusCode = responseStatusCode;
-            this.responseBody = responseBody;
+        private CapturingHttpClient(int responseStatusCode, List<String> responseLines) {
+            this(responseStatusCode, responseLines::stream);
         }
 
-        @Override
-        public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
-            return sendAsync(request, responseBodyHandler).join();
+        private CapturingHttpClient(int responseStatusCode, Supplier<Stream<String>> responseBody) {
+            this.responseStatusCode = responseStatusCode;
+            this.responseBody = responseBody;
         }
 
         @Override
@@ -186,59 +360,6 @@ class AgentScopeRuntimeClientHandlerTest {
             return CompletableFuture.completedFuture(response);
         }
 
-        @Override
-        public <T> CompletableFuture<HttpResponse<T>> sendAsync(
-                HttpRequest request,
-                HttpResponse.BodyHandler<T> responseBodyHandler,
-                HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
-            return sendAsync(request, responseBodyHandler);
-        }
-
-        @Override
-        public Optional<CookieHandler> cookieHandler() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<Duration> connectTimeout() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Redirect followRedirects() {
-            return Redirect.NEVER;
-        }
-
-        @Override
-        public Optional<ProxySelector> proxy() {
-            return Optional.empty();
-        }
-
-        @Override
-        public SSLContext sslContext() {
-            return null;
-        }
-
-        @Override
-        public SSLParameters sslParameters() {
-            return null;
-        }
-
-        @Override
-        public Optional<Authenticator> authenticator() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Version version() {
-            return Version.HTTP_1_1;
-        }
-
-        @Override
-        public Optional<Executor> executor() {
-            return Optional.empty();
-        }
-
         private static String body(HttpRequest request) {
             return request.bodyPublisher()
                     .map(CapturingSubscriber::capture)
@@ -246,7 +367,7 @@ class AgentScopeRuntimeClientHandlerTest {
         }
     }
 
-    private static final class FailingHttpClient extends HttpClient {
+    private static final class FailingHttpClient extends TestHttpClient {
         private final RuntimeException failure;
 
         private FailingHttpClient(RuntimeException failure) {
@@ -257,65 +378,9 @@ class AgentScopeRuntimeClientHandlerTest {
         public <T> CompletableFuture<HttpResponse<T>> sendAsync(
                 HttpRequest request,
                 HttpResponse.BodyHandler<T> responseBodyHandler) {
-            throw failure;
-        }
-
-        @Override
-        public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
-            throw failure;
-        }
-
-        @Override
-        public <T> CompletableFuture<HttpResponse<T>> sendAsync(
-                HttpRequest request,
-                HttpResponse.BodyHandler<T> responseBodyHandler,
-                HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
-            return sendAsync(request, responseBodyHandler);
-        }
-
-        @Override
-        public Optional<CookieHandler> cookieHandler() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<Duration> connectTimeout() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Redirect followRedirects() {
-            return Redirect.NEVER;
-        }
-
-        @Override
-        public Optional<ProxySelector> proxy() {
-            return Optional.empty();
-        }
-
-        @Override
-        public SSLContext sslContext() {
-            return null;
-        }
-
-        @Override
-        public SSLParameters sslParameters() {
-            return null;
-        }
-
-        @Override
-        public Optional<Authenticator> authenticator() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Version version() {
-            return Version.HTTP_1_1;
-        }
-
-        @Override
-        public Optional<Executor> executor() {
-            return Optional.empty();
+            // Real HttpClient surfaces connection failures through the future, so
+            // production join() sees a CompletionException wrapping this cause.
+            return CompletableFuture.failedFuture(failure);
         }
     }
 
@@ -352,8 +417,13 @@ class AgentScopeRuntimeClientHandlerTest {
         }
     }
 
-    private record FixedResponse(HttpRequest request, Stream<String> body, int statusCode)
+    private record FixedResponse(HttpRequest request, Supplier<Stream<String>> bodySupplier, int statusCode)
             implements HttpResponse<Stream<String>> {
+
+        @Override
+        public Stream<String> body() {
+            return bodySupplier.get();
+        }
 
         @Override
         public int statusCode() {

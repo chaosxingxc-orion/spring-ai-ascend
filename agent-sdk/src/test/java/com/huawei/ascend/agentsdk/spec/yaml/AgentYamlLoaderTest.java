@@ -59,6 +59,136 @@ class AgentYamlLoaderTest {
     }
 
     @Test
+    void stringShorthandRefsEmitTheKeysTheBuiltInResolversRead() throws Exception {
+        Path tempDir = testDirectory("shorthand");
+        Path yaml = tempDir.resolve("agent.yaml");
+        Files.writeString(yaml, """
+                schema: ascend-agent/v1
+                name: shorthand-agent
+                description: Shorthand agent
+                framework:
+                  type: openjiuwen
+                  agent: react
+                model:
+                  name: deepseek-chat
+                  baseUrl: http://localhost
+                  apiKey: secret
+                tools:
+                  - name: javaTool
+                    description: java
+                    ref: "file:example.OrderTools#query"
+                  - name: httpTool
+                    description: http
+                    ref: "http:https://api.example.com/orders"
+                """);
+
+        AgentSpec spec = new AgentYamlLoader().load(yaml);
+
+        assertThat(spec.toolSpecs().get(0).ref().attributes())
+                .containsEntry("class", "example.OrderTools")
+                .containsEntry("method", "query");
+        assertThat(spec.toolSpecs().get(1).ref().attributes())
+                .containsEntry("url", "https://api.example.com/orders");
+    }
+
+    @Test
+    void malformedStringShorthandFailsAtLoadWithSyntaxHint() throws Exception {
+        Path tempDir = testDirectory("shorthand-bad");
+        Path yaml = tempDir.resolve("agent.yaml");
+        Files.writeString(yaml, """
+                schema: ascend-agent/v1
+                name: bad-agent
+                description: Bad agent
+                framework:
+                  type: openjiuwen
+                  agent: react
+                model:
+                  name: deepseek-chat
+                  baseUrl: http://localhost
+                  apiKey: secret
+                tools:
+                  - name: javaTool
+                    description: java
+                    ref: "file:./tools/order.java"
+                """);
+
+        assertThatThrownBy(() -> new AgentYamlLoader().load(yaml))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("file:com.example.Class#method");
+    }
+
+    @Test
+    void duplicateToolNamesAreRejected() throws Exception {
+        Path tempDir = testDirectory("dup-tools");
+        Path yaml = tempDir.resolve("agent.yaml");
+        Files.writeString(yaml, """
+                schema: ascend-agent/v1
+                name: dup-agent
+                description: Dup agent
+                framework:
+                  type: openjiuwen
+                  agent: react
+                model:
+                  name: deepseek-chat
+                  baseUrl: http://localhost
+                  apiKey: secret
+                tools:
+                  - name: lookup
+                    description: first
+                    ref: "http:https://api.example.com/a"
+                  - name: lookup
+                    description: second
+                    ref: "http:https://api.example.com/b"
+                """);
+
+        assertThatThrownBy(() -> new AgentYamlLoader().load(yaml))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Duplicate tool name: lookup");
+    }
+
+    @Test
+    void missingFrameworkSectionIsNamedInTheError() throws Exception {
+        Path tempDir = testDirectory("no-framework");
+        Path yaml = tempDir.resolve("agent.yaml");
+        Files.writeString(yaml, """
+                schema: ascend-agent/v1
+                name: no-framework-agent
+                description: No framework
+                model:
+                  name: deepseek-chat
+                  baseUrl: http://localhost
+                  apiKey: secret
+                """);
+
+        assertThatThrownBy(() -> new AgentYamlLoader().load(yaml))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("framework");
+    }
+
+    @Test
+    void nonBooleanSslVerifyIsRejectedNotSilentlyFalse() throws Exception {
+        Path tempDir = testDirectory("bad-bool");
+        Path yaml = tempDir.resolve("agent.yaml");
+        Files.writeString(yaml, """
+                schema: ascend-agent/v1
+                name: bad-bool-agent
+                description: Bad bool
+                framework:
+                  type: openjiuwen
+                  agent: react
+                model:
+                  name: deepseek-chat
+                  baseUrl: http://localhost
+                  apiKey: secret
+                  sslVerify: enabled
+                """);
+
+        assertThatThrownBy(() -> new AgentYamlLoader().load(yaml))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("sslVerify");
+    }
+
+    @Test
     void rejectsMissingEnvironmentVariable() throws Exception {
         Path tempDir = testDirectory("rejects-missing-env");
         Path yaml = tempDir.resolve("agent.yaml");
@@ -86,4 +216,3 @@ class AgentYamlLoaderTest {
                 UUID.randomUUID().toString()));
     }
 }
-

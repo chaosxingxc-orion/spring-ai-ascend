@@ -25,4 +25,9 @@ public final class AgentScopeRuntimeClientHandler extends AbstractAgentScopeRunt
     protected Stream<?> streamAgentScopeEvents(AgentScopeInvocation invocation) {
         return client.streamEvents(invocation);
     }
+
+    @Override
+    public void stop() {
+        client.close();
+    }
 }

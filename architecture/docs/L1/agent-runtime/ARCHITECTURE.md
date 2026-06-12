@@ -1,210 +1,344 @@
 ---
 level: L1
-view: logical
+view: architecture-overview
 module: agent-runtime
-status: consolidated-run-owning-runtime
+status: implemented
 freeze_id: null
-covers_views: [logical]
+covers_views: [logical, development, process, physical]
 spans_levels: [L1]
-authority: "ADR-0159 (agent-runtime consolidation + agent-service serviceization refounding; supersedes ADR-0158 §Decision.5 engine tenant-neutrality); Layer-0 principle P-M (Heterogeneous Engine Contract)"
+authority: "ADR-0159 (agent-runtime consolidation + agent-service serviceization refounding)"
 ---
 
-# agent-runtime — L1 architecture (run-owning runtime kernel)
+# agent-runtime — L1 架构总览
 
-> Owner: AgentRuntime team | Plane: compute_control | Maturity: design-phase scaffolding — engine + dispatch + access + session/task-control SPI surfaces; Run domain impl deferred
+> 所属团队: AgentRuntime | 平面: compute_control | 成熟度: 已实现（基于开源 A2A SDK）
 
-## Status
+## 状态
 
-`agent-runtime` is the **run-owning runtime SDK**: the self-contained,
-independently-bootable runtime that developers integrate against to drive
-Agent instances built on heterogeneous agent frameworks. Per **ADR-0159**
-it consolidates the former `agent-execution-engine` (whose module identity is
-dissolved) with the runtime internals of the former `agent-service` —
-everything except the serviceization façade, which remains in `agent-service`.
-The package root is `com.huawei.ascend.runtime.*`.
+`agent-runtime` 是 **run-owning runtime SDK**：一个自包含、可独立启动的运行时，开发者通过集成它来驱动基于异构 Agent 框架构建的 Agent 实例。根据 **ADR-0159**，它合并了原 `agent-execution-engine`（其模块身份已解散）与原 `agent-service` 的运行时内部组件——除了 serviceization 外观层保留在 `agent-service` 中。包根路径为 `com.huawei.ascend.runtime.*`。
 
-ADR-0159 supersedes only **ADR-0158 §Decision.5** (engine tenant-neutrality):
-as the full run-owning runtime, `agent-runtime` owns Run / session / tenant.
-The neutral execution **port** stays transport-agnostic and homed in `agent-bus`
-(see below); only the claim that the engine must itself be tenant-neutral is
-withdrawn.
+当前实现以开源 **A2A SDK**（`org.a2aproject.sdk`）替代了原自定义的 5 层实现，但逻辑上仍然遵循 5 层架构模型。A2A SDK 提供了 JSON-RPC 协议接入、任务存储、事件总线、队列管理等基础设施，`agent-runtime` 在其上构建了框架无关的 Agent 执行 SPI 和具体的 Agent 框架适配器。
 
-**Design-phase note.** The repository is intentionally in the design phase.
-This module ships SPI surfaces, `@Configuration` / `AutoConfiguration` wiring,
-and protocol-access scaffolding. The Run domain kernel
-(`Run` / `RunStateMachine` / `IdempotencyRecord` persistence) is a **design
-target, not yet materialized** — its contract is fixed by the L0 §4 constraint
-corpus (#9 dual-mode runtime, #11 northbound handoff, #20 RunStatus DFA, …) and
-the executable kernel lands in a later implementation phase. It MUST NOT be
-stubbed to "fill the box" before the design phase exits.
+## 0.5 Canonical L1 4+1 View 源文件
 
-### What lives in this module
+agent-runtime 的 4+1 视图由 5 个 per-view 文件 + 1 个 SPI 附录组成（与 agent-service 的 per-view 机制对齐，ADR-0152）：
 
-| Package | Role |
-|---|---|
-| `runtime.engine.spi` | framework-neutral runtime SPI: `AgentRuntimeHandler` (run one agent, surface its output), `StreamAdapter` (adapt a framework's native result stream into the neutral `AgentExecutionResult` stream), optional `AgentCardProvider`, reserved `MemoryProvider`, carrier `AgentExecutionResult` |
-| `runtime.engine` (root) | engine dispatch + internals all flattened into the root: `EngineDispatcher` (routes a command to the matched handler), `EngineWorker` (internal command worker), the command events (`EngineCommandEvent` / `EngineCommandEventFactory` / `EngineCommandGateway` / `InternalEngineCommandGateway`), `EngineExecutionScope`, `EngineInput` / `EngineOutput`, the single `EngineEvent` record + `EngineEventKind` enum, and the outbound ports `TaskControlClient` + `AccessLayerClient` (engine → control / access; intra-service, not SPI) |
-| `runtime.engine.api` | inbound `EngineExecutionApi` (enqueue execute / resume / cancel) |
-| `runtime.engine.openjiuwen` | concrete `AgentRuntimeHandler` adapter for openJiuwen ReAct agents |
-| `runtime.engine.agentscope` | concrete `AgentRuntimeHandler` adapters for AgentScope SDK, Harness, and REST/SSE runtime-client integration |
-| `runtime.access` | A2A protocol access layer flattened into the root (`AccessSubmissionService`, `AccessLayerConfiguration`, `AgentNotification` egress/notification ports) with the wire-protocol controllers + mappers under `runtime.access.a2a` (`A2aJsonRpcController`, `A2aWellKnownAgentCardController`, …) |
-| `runtime.session` | session management (`RuntimeSessionRepository` + in-memory impl) |
-| `runtime.control` | task-centric control — the single run-lifecycle authority (`TaskControlApi`) |
-| `runtime.queue` | internal event queue |
-| `runtime.common` | shared runtime types (`AgentRequest` / `RunStatus`; live response model is the streaming `AgentResponseEvent` — the former monolithic `AgentResponse` model was deleted) |
-| `runtime.app` | framework-neutral bootable entry `RuntimeApp` / `RuntimeHost` + Spring-backed `LocalA2aRuntimeHost`; cross-layer wiring `RuntimeWiringConfiguration` |
+- **架构总览（本文）:** [`ARCHITECTURE.md`](ARCHITECTURE.md) — 模块目的、组件清单、5 层架构、依赖、公共契约、测试、范围
+- **逻辑视图:** [`logical.md`](logical.md) — 领域模型、内部划分、5 层层间交互
+- **物理视图:** [`physical.md`](physical.md) — 部署平面、拓扑、资源模型
+- **进程视图:** [`process.md`](process.md) — 线程模型、同步/异步边界、执行时序
+- **开发视图:** [`development.md`](development.md) — 包结构树、模块依赖图、SPI 设计原则、自动装配
+- **SPI 附录:** [`spi-appendix.md`](spi-appendix.md) — 5 个 SPI 接口 + 3 个辅助类的完整契约 + A2A SDK 消费的 10 个外部接口
 
-### The neutral EnginePort stays in agent-bus
+## 1. Purpose
 
-The neutral orchestration/engine SPI (`Orchestrator`, `RunContext`,
-`SuspendSignal`, `Checkpointer`, `TraceContext`, `RunMode`,
-`ExecutorDefinition`, `ExecutionContext`) lives in **agent-bus** under
-`com.huawei.ascend.bus.spi.engine` (transport-agnostic boundary, ADR-0158).
-`agent-runtime` **consumes** that vocabulary (e.g. `RunContext` / `SuspendSignal`);
-it does not own the neutral SPI.
+`agent-runtime` 是 **run-owning runtime kernel**：提供可嵌入的 Agent 执行运行时，通过框架无关的 SPI（`AgentRuntimeHandler`）驱动异构 Agent 框架（openJiuwen、AgentScope 等）构建的 Agent 实例。它拥有：
 
-### Dependency direction
+- **框架无关的运行时 SPI**：`AgentRuntimeHandler` 是引擎与 Agent 框架之间的唯一解耦面
+- **A2A 协议接入**：通过开源 A2A SDK 实现 JSON-RPC over HTTP 接入
+- **Task 生命周期管理**：由 A2A SDK 提供的 task 状态机
+- **内部事件队列**：A2A SDK 提供的异步事件传递基础设施
+- **可嵌入的启动入口**：`RuntimeApp` 纯 Java API + Spring Boot 自动装配两种方式
 
-`agent-runtime → agent-bus` (neutral `bus.spi.engine` RunContext / SuspendSignal
-vocabulary consumed by the engine). Never `agent-runtime → agent-service`: the
-serviceization façade is downstream. `agent-service → agent-runtime` is the only
-legal cross edge (Rule 10 / ArchUnit); there is no reverse edge.
+## 2. Shipped components
 
-## 0.4 Layered 4+1 view map
+> 路径约定：所有 Java 路径根为 `agent-runtime/src/main/java/com/huawei/ascend/runtime/...`。中立编排/引擎 SPI 位于 `agent-bus`（`bus.spi.engine`，ADR-0158）。
 
-| Section | View | Notes |
+### 2.A 引擎 SPI 层（`runtime.engine.spi`）
+
+框架无关的运行时 SPI 接口，零外部依赖（仅 `java.*` + `bus.spi.engine` 中立载体）：
+
+| 类型 | 种类 | 语义 | 状态 |
+|---|---|---|---|
+| `AgentRuntimeHandler` | interface | Agent 执行 SPI：`agentId()` / `isHealthy()` / `execute()` / `resultAdapter()` | shipped |
+| `AgentRuntimeProvider` | interface | 可选生命周期钩子：`beforeExecute()` / `afterExecute()` | shipped |
+| `AgentRuntimeProviderChain` | final class | Handler + providers 编排 + 失败隔离 | shipped |
+| `AgentExecutionResult` | final class | 4 种结果类型：OUTPUT / COMPLETED / FAILED / INTERRUPTED | shipped |
+| `StreamAdapter` | @FunctionalInterface | 框架结果 → 中立结果流的转换器 | shipped |
+| `AgentCardProvider` | interface | A2A Agent Card 供应接口 | shipped |
+| `AgentCards` | final class | 默认 Agent Card 工厂方法 | shipped |
+| `StateProvider` | interface | 继承 AgentRuntimeProvider，框架手动状态桥接标记 | shipped |
+
+### 2.B A2A SDK 桥接层（`runtime.engine.a2a`）
+
+| 类型 | 种类 | 语义 | 状态 |
+|---|---|---|---|
+| `A2aAgentExecutor` | final class | 实现 A2A SDK 的 `AgentExecutor`，将 A2A 协议桥接到 `AgentRuntimeHandler` SPI | shipped |
+
+### 2.C Agent 框架适配器
+
+#### openJiuwen（`runtime.engine.openjiuwen`）
+
+| 类型 | 语义 | 状态 |
 |---|---|---|
-| §1 Role | logical | run-owning runtime kernel + heterogeneous engine contract surface |
-| §2 Handler dispatch | logical | `AgentRuntimeHandler` registered per `agentId`; `EngineDispatcher` routes |
-| §3 Single-write authority | process | engine → one `TaskControlClient` port; `control` gates egress |
+| `OpenJiuwenAgentRuntimeHandler` | 抽象基类，提供 runtime 侧的 agentId + 输入/结果映射辅助方法 | shipped |
+| `OpenJiuwenMessageAdapter` | `AgentExecutionContext` → openJiuwen 输入（query + conversation_id） | shipped |
+| `OpenJiuwenStreamAdapter` | openJiuwen 结果（answer/error/interrupt） → `AgentExecutionResult` | shipped |
 
-## 1. Role
+#### AgentScope（`runtime.engine.agentscope`）
 
-`agent-runtime` owns, as one self-contained runtime:
+| 类型 | 语义 | 状态 |
+|---|---|---|
+| `AbstractAgentScopeRuntimeHandler` | 抽象基类 | shipped |
+| `AgentScopeAgentRuntimeHandler` | 本地 AgentScope Agent 处理器 | shipped |
+| `AgentScopeRuntimeClientHandler` | 远程 AgentScope runtime client 处理器 | shipped |
+| `AgentScopeHarnessRuntimeHandler` | AgentScope Harness 处理器 | shipped |
+| `AgentScopeStreamAdapter` | AgentScope 结果 → `AgentExecutionResult` | shipped |
+| `AgentScopeMessageAdapter` | `AgentExecutionContext` → AgentScope 调用输入 | shipped |
 
-- the **framework-neutral runtime SPI** (`runtime.engine.spi`) —
-  `AgentRuntimeHandler` runs one agent and surfaces its output; `StreamAdapter`
-  adapts a framework's native result stream into the neutral `AgentExecutionResult`
-  stream; framework-specific decoration stays inside each adapter. The shipped
-  adapters include `engine.openjiuwen` (openJiuwen ReAct) and
-  `engine.agentscope` (AgentScope SDK, Harness, and REST/SSE runtime client);
-- **engine dispatch** (`runtime.engine`) — `EngineDispatcher` routes an accepted
-  command to the handler registered for its `agentId` (an unknown `agentId`
-  converges to a terminal `AGENT_ID_INVALID` through the control authority, never
-  a hung task); `EngineWorker` and the command-event types (`EngineCommandEvent`,
-  `EngineCommandGateway`, …) live in the engine root and drive it off the internal
-  queue behind the inbound `engine.api.EngineExecutionApi`; outcomes are emitted as
-  the single `EngineEvent` record discriminated by `EngineEventKind`;
-- the **access layer** (`runtime.access`) — A2A protocol ingress (controllers +
-  mappers under `runtime.access.a2a`) that hands work to the runtime and streams
-  output back (task-scoped egress);
-- **session / task-centric control / internal event queue** for run-state
-  coordination — `control` is the single run-lifecycle authority and the only
-  writer of caller-facing egress;
-- the **bootable application** (`runtime.app`) —
-  `RuntimeApp.create(handler).run(LocalA2aRuntimeHost.port(p))`; `RuntimeApp` /
-  `RuntimeHost` are Spring-free, Spring Boot is confined to `LocalA2aRuntimeHost`.
+### 2.D Engine 中间件服务（`runtime.engine.service`）
 
-## 2. Handler registration + dispatch
+> 注意：以下服务是 engine 层为托管的 **业务 Agent 实例**提供的基础能力（状态保存中间件），不是 agent-runtime 自身 5 层架构的组成部分。它们属于 engine 层对 Agent 实例的"工具箱"服务。
 
-Each agent is served by an `AgentRuntimeHandler` registered under its `agentId`
-in `AgentRuntimeHandlerRegistry`. `EngineDispatcher` resolves the handler for an
-accepted command and runs it; resolution and execution are guarded so any failure
-— including an unknown `agentId` — converges to a terminal outcome (errorCode
-`AGENT_ID_INVALID`) through the control authority rather than hanging the task.
+| 类型 | 语义 | 状态 |
+|---|---|---|
+| `AgentStateStore` | Agent 状态持久化接口：`load()` / `save()` / `delete()` | shipped |
+| `InMemoryAgentStateStore` | 基于 `ConcurrentHashMap` 的内存实现 | shipped |
 
-## 3. Single-write authority
+### 2.E 接入与启动层
 
-The engine reports every outcome to exactly one outbound port
-(`engine.TaskControlClient`); `control` is the sole run-lifecycle authority and gates
-caller-facing egress on its own accepted transitions. The engine never writes egress
-directly. Single-write authority: only on an ACCEPTED state transition does `control`
-fan caller-facing egress out through `engine.AccessLayerClient`, so each outcome is
-written exactly once — there is no double-write between the engine and the access layer.
+#### Spring Boot 自动配置（`runtime.boot`）
 
-## 4. Forbidden imports
+| 类型 | 语义 | 状态 |
+|---|---|---|
+| `RuntimeAutoConfiguration` | 装配 A2A SDK 组件（TaskStore / EventBus / QueueManager / RequestHandler / AgentExecutor）+ AgentCard bean | shipped |
+| `A2aJsonRpcController` | `/a2a` JSON-RPC 端点（SendMessage / GetTask / CancelTask / Streaming / Subscribe） | shipped |
+| `AgentCardController` | `/.well-known/agent-card.json` + `/.well-known/agent.json` 端点 | shipped |
 
-`com.huawei.ascend.runtime.engine.spi.*` imports only `java.*` + the neutral
-`bus.spi.engine` carriers it consumes. Enforced by `SpiPurityGeneralizedArchTest`
-(E48). No SPI package imports Spring, Micrometer, OTel, or reference implementations.
+#### 可嵌入启动入口（`runtime.app`）
 
-## Reading order for new contributors
+| 类型 | 语义 | 状态 |
+|---|---|---|
+| `RuntimeApp` | 纯 Java 入口：`RuntimeApp.create(handler).run(host)` | shipped |
+| `RuntimeHost` | 框架无关的 runtime host SPI | shipped |
+| `LocalA2aRuntimeHost` | Spring Boot host 实现（唯一的 Spring 依赖点） | shipped |
+| `RunningRuntime` | 运行时句柄，支持 try-with-resources | shipped |
+| `RuntimeComponents` | 组件容器 record（holder for handler + future service injections） | shipped |
 
-1. `module-metadata.yaml` — identity + dependency promises.
-2. `runtime.engine.spi.AgentRuntimeHandler` — the framework-neutral runtime SPI.
-3. `runtime.app.RuntimeApp` / `LocalA2aRuntimeHost` — the bootable entry.
-4. ADR-0159 — consolidation + refounding authority.
-5. `docs/dfx/agent-runtime.yaml` — Design-for-X declarations.
+#### 共享类型（`runtime.common`）
 
----
+| 类型 | 语义 | 状态 |
+|---|---|---|
+| `RuntimeIdentity` | record(tenantId, userId, sessionId, taskId, agentId) | shipped |
 
-## 5. Development View (Rule G-1.1.a)
+### 2.F A2A SDK 提供的组件（非 agent-runtime 拥有，由 RuntimeAutoConfiguration 装配）
 
-Current namespace (`com.huawei.ascend.runtime.*`):
+| 组件 | 来源 | 角色 | 对应 5 层 |
+|---|---|---|---|
+| `InMemoryTaskStore` | A2A SDK | Task 对象 CRUD 存储 | session-task-manager |
+| `InMemoryPushNotificationConfigStore` | A2A SDK | 推送通知配置存储 | session-task-manager |
+| `MainEventBus` | A2A SDK | 内部事件发布-订阅总线 | internal-event-queue |
+| `InMemoryQueueManager` | A2A SDK | 任务队列管理器 | internal-event-queue |
+| `MainEventBusProcessor` | A2A SDK | 后台线程消费事件 → 推动状态机 → 调用 AgentExecutor | internal-event-queue / task-centric-control |
+| `DefaultRequestHandler` | A2A SDK | 处理所有 A2A 请求，管理 Task 生命周期 | task-centric-control |
 
-```text
-agent-runtime/
-└── src/main/java/com/huawei/ascend/runtime/
-    ├── engine/                   # engine ROOT: EngineDispatcher (routes a command to
-    │   │                         #   the registered handler), EngineWorker, command events
-    │   │                         #   (EngineCommandEvent / EngineCommandGateway / …),
-    │   │                         #   EngineExecutionScope, EngineInput / EngineOutput,
-    │   │                         #   EngineEvent record + EngineEventKind enum, and the
-    │   │                         #   outbound ports TaskControlClient + AccessLayerClient
-    │   ├── spi/                  # AgentRuntimeHandler, StreamAdapter,
-    │   │                         #   AgentCardProvider, MemoryProvider,
-    │   │                         #   AgentExecutionResult
-    │   ├── api/                  # EngineExecutionApi (inbound enqueue)
-    │   ├── openjiuwen/           # openJiuwen ReAct AgentRuntimeHandler adapter
-    │   └── agentscope/           # AgentScope SDK / Harness / REST-SSE runtime adapters
-    ├── access/                   # A2A protocol access ROOT (AccessSubmissionService,
-    │   └── a2a/                  #   AgentNotification egress) + wire controllers/mappers
-    │                             #   (A2aJsonRpcController, A2aWellKnownAgentCardController, …)
-    ├── session/                  # session management (RuntimeSessionRepository)
-    ├── control/                  # task-centric control (single lifecycle authority)
-    ├── queue/                    # internal event queue
-    ├── common/                   # shared runtime types (AgentRequest / RunStatus /
-    │                             #   AgentResponseEvent; old AgentResponse model deleted)
-    └── app/                      # RuntimeApp / RuntimeHost / LocalA2aRuntimeHost + RuntimeWiringConfiguration
+## 3. Sub-package layering invariant
+
+**`runtime.app` 不依赖 Spring Boot**（仅 `LocalA2aRuntimeHost` 例外，作为唯一的 Spring 实现）。**`runtime.engine.spi` 不依赖 Spring、Micrometer、OTel 或任何参考实现**，由 `SpiPurityGeneralizedArchTest`（E48）强制执行。
+
+`agent-runtime → agent-bus`（消费中立 `bus.spi.engine` 词汇）。绝不允许 `agent-runtime → agent-service`。`agent-service → agent-runtime` 是唯一合法的跨模块边（Rule 10 / ArchUnit）。
+
+## 4. OSS dependencies
+
+| 依赖 | 角色 | 侧 |
+|---|---|---|
+| A2A SDK (`org.a2aproject.sdk`) | JSON-RPC 协议、Task 存储、事件总线、队列管理、RequestHandler | 核心 |
+| Spring Boot (starter-web) | HTTP 服务器（仅 `LocalA2aRuntimeHost` + `boot/`） | 接入 |
+| Spring Boot AutoConfiguration | SPI 机制用于自动装配 | 接入 |
+| Spring Security (optional) | 由 A2A SDK 消费 | 接入 |
+| Reactor (WebFlux) | SSE 流式应答的 Flux 桥接 | 接入 |
+| Jackson | JSON 序列化 | 接入 |
+| SLF4J | 日志（结构化 key=value 格式） | 全局 |
+| agent-bus | 中立 EnginePort / 编排 SPI 词汇 | 核心 |
+
+## 5. Public contract
+
+- **A2A 协议**: JSON-RPC over HTTP at `/a2a`（由 A2A SDK 的 `RequestHandler` 提供标准实现）
+  - `SendMessage` — 同步发送消息（非流式）
+  - `SendStreamingMessage` — 流式发送消息
+  - `GetTask` — 查询 Task 状态
+  - `CancelTask` — 取消 Task
+  - `SubscribeToTask` — 订阅 Task 事件流
+- **Agent Card 发现**: `/.well-known/agent-card.json`（GET → `AgentCard` JSON）
+- **Agent Card 兼容路径**: `/.well-known/agent.json`
+- **SPI**: `AgentRuntimeHandler` 是业务方必须实现的唯一接口
+  - `agentId()` — 返回此 handler 服务的唯一 Agent ID
+  - `execute(AgentExecutionContext)` — 执行 Agent，返回框架原生结果流
+  - `resultAdapter()` — 返回 `StreamAdapter`，将框架结果映射为 `AgentExecutionResult`
+- **Agent State**: `AgentStateStore` 是可选依赖——业务 Agent 需要 checkpoint 时使用
+- **Agent Card 自定义**: 可选实现 `AgentCardProvider` 自定义元数据，否则自动从 `AgentRuntimeHandler.agentId()` 生成默认 Card
+
+## 6. 5 层逻辑架构
+
+当前实现通过开源 A2A SDK 达成了以下 5 层架构。
+
+### 6.1 access-layer（接入层）
+
+**对应代码**：`runtime.boot.A2aJsonRpcController` + `runtime.boot.AgentCardController` + A2A SDK 的 `RequestHandler` / `DefaultRequestHandler`
+
+**职责**：
+- 对外接入与用户可见输出通道。当前只实现 A2A 接入（JSON-RPC over HTTP），收到请求后转换为服务内部的标准对象（`AgentExecutionContext`）
+- 对外暴露 `/.well-known/agent-card.json` 用于 Agent 发现
+- 将请求任务通过 task-centric-control 暴露的 API 插入异步任务队列，等待 task 分发处理
+- 内部为每个请求独立维护一条数据队列（由 A2A SDK 的 `InMemoryQueueManager` + `MainEventBus` 提供），订阅队列数据，将内部数据转换为外部应答格式
+- 维护每次请求的接入和退出状态，定义通用事件（`OUTPUT` / `COMPLETED` / `FAILED` / `INTERRUPTED`），保证用户请求正常响应、资源无泄漏、无异常
+
+**扩展设计原则**：接入层定义了内部数据标准（`RuntimeIdentity` + `AgentExecutionContext`），允许扩展多种不同入口数据转换（当前只实现 A2A 默认最小集）。应答格式抽象允许用户自定义适配层，当前只实现一种默认最小集（JSON-RPC streaming/non-streaming）。
+
+### 6.2 session-task-manager（会话-任务管理器）
+
+**对应代码**：A2A SDK 的 `InMemoryTaskStore` + `InMemoryPushNotificationConfigStore` + `InMemoryQueueManager`（由 `RuntimeAutoConfiguration` 装配）
+
+**职责**：
+- 作为 agent-runtime 自身的**会话与任务数据管理层**，负责 Task 对象生命周期中涉及的存储和队列管理
+- **Session 管理**：A2A SDK 内部的 `contextId`（即 `sessionId`）作为会话标识，在执行上下文中贯穿整个 Task 生命周期。会话作为业务数据的"集散地"，当前实现为 InMemory，设计上预留了分布式扩展点——未来如需分布式部署，只需将 A2A SDK 的 Storage 实现替换为分布式版本
+- **Task 存储**：`InMemoryTaskStore` 负责 Task 的 CRUD 操作（由 A2A SDK 提供标准实现）
+- **推送通知配置存储**：`InMemoryPushNotificationConfigStore` 负责推送通知配置的持久化
+- **队列管理**：`InMemoryQueueManager` 管理 Task 与事件的队列关系
+
+**区分：engine 中间件服务 `AgentStateStore`**
+
+> `runtime.engine.service.AgentStateStore` 及其实现 `InMemoryAgentStateStore` **不属于** agent-runtime 的 session-task-manager 层。它们是 engine 层为托管的**业务 Agent 实例**提供的状态持久化中间件——Agent 在 execute() 过程中可以读写自己的 checkpoint state（通过 `AgentExecutionContext.getAgentState()` / `replaceAgentState()`）。这类服务类似于数据库为应用程序提供的数据存储能力，是 engine 对外（对 Agent）暴露的"工具箱"服务，而非 runtime 自身的会话管理基础设施。
+>
+> 两者的关系：
+> - session-task-manager（A2A SDK）→ 管理"runtime 层面的 Task/Session"——Task 状态机、Task 与事件队列的关系
+> - AgentStateStore（engine 中间件）→ 管理"业务 Agent 实例层面的 state"——Agent 执行过程中的 checkpoint 数据
+
+**设计原则**：A2A SDK 提供了标准的 `TaskStore` 和 `QueueManager` 接口，允许替换 InMemory 实现为 Redis、JDBC 等分布式实现。通过接口隔离，agent-runtime 自身的会话管理层对扩展开放、对修改关闭。
+
+### 6.3 internal-event-queue（内部事件队列）
+
+**对应代码**：A2A SDK 的 `MainEventBus` + `InMemoryQueueManager` + `MainEventBusProcessor`（由 `RuntimeAutoConfiguration` 装配）
+
+**职责**：
+- 负责服务内部异步事件传递的基础设施
+- 它是一个**无业务语义**的事件队列，提供基础的发布-订阅和队列管理能力，供业务模块（task-centric-control）实例化使用
+- `MainEventBus` 作为事件总线，提供 publish / subscribe 的基础能力
+- `InMemoryQueueManager` 管理 Task 与事件队列的映射关系
+- `MainEventBusProcessor` 在后台线程（`Executor`）消费事件，驱动后续的状态推进和 engine 调用
+- `RuntimeAutoConfiguration` 作为工厂类和管理类装配这些组件，增强维护能力
+
+### 6.4 task-centric-control（任务中心控制层）
+
+**对应代码**：A2A SDK 的 `DefaultRequestHandler` + `MainEventBusProcessor`（由 `RuntimeAutoConfiguration` 装配）
+
+**职责**：
+- 负责任务生命周期控制、状态机推进（SUBMITTED → WORKING → COMPLETED / FAILED / CANCELED，以及 INPUT_REQUIRED 中断/恢复）、父子 task 编排、中断/恢复/取消等控制逻辑
+- 暴露 API 供 access-layer 调用（`RequestHandler` 的 `onMessageSend` / `onMessageSendStream` / `onGetTask` / `onCancelTask` / `onSubscribeToTask`）
+- 模块内部维护 task queue 实例（`InMemoryQueueManager`），提供的 API 方便调用者塞入 task event，自身侦听 event 处理 task 状态跃迁
+- `MainEventBusProcessor` 在后台消费事件：识别需要执行 engine 的事件 → 调用 `AgentExecutor.execute(ctx, emitter)`
+- A2A SDK 的 `DefaultRequestHandler` 实现了完整的 task 生命周期管理
+
+**状态机**：
+```
+SUBMITTED ──▶ WORKING ──▶ COMPLETED
+                 │
+                 ├──▶ FAILED
+                 │
+                 ├──▶ CANCELED
+                 │
+                 └──▶ INPUT_REQUIRED ──▶ WORKING (resume)
 ```
 
-The neutral orchestration/engine SPI (`Orchestrator`, `RunContext`,
-`SuspendSignal`, `Checkpointer`, `TraceContext`, `RunMode`,
-`ExecutorDefinition`, `ExecutionContext`) lives in **agent-bus** under
-`com.huawei.ascend.bus.spi.engine`; this module realizes the `EnginePort`
-boundary rather than owning the SPI vocabulary.
+### 6.5 engine（引擎层）
 
-Deployment loci (ADR-0101): `agent-runtime` is location-agnostic — same SPI,
-same engine envelope — and supports both platform-centric and business-centric
-loci (`deployment_loci: [platform_centric, business_centric]`).
+**对应代码**：`runtime.engine.spi.AgentRuntimeHandler` + `runtime.engine.a2a.A2aAgentExecutor` + `runtime.engine.openjiuwen.*` + `runtime.engine.agentscope.*` + `runtime.engine.service.*`
 
-## *SPI Interface Appendix* (Rule G-1.1.b)
+**职责**：
+- 负责 Agent 执行调度与具体 Agent 框架适配
+- 接收 task-centric-control 的最小执行请求（通过 `A2aAgentExecutor.execute(ctx, emitter)`），入队后消费
+- 目前实现 openJiuwen 和 AgentScope 两种适配器（最小实现，后续可按需扩展）
+- `AgentRuntimeHandler` SPI 是框架与引擎之间的唯一接口：`agentId()` / `isHealthy()` / `execute(AgentExecutionContext)` / `resultAdapter()`
+- `AgentRuntimeProvider` 提供可选的生命周期钩子（`beforeExecute` / `afterExecute`），支持 Agent State 恢复/导出、沙箱准备、工具调用覆盖等组合能力
+- `AgentRuntimeProviderChain` 统一执行 handler + providers 的编排和失败隔离
+- **engine 中间件服务**（`runtime.engine.service`）：`AgentStateStore` 是 engine 为托管的 Agent 实例提供的状态持久化能力——Agent 在执行过程中可以通过 `AgentExecutionContext.getAgentState()` 读取 checkpoint，通过 `replaceAgentState()` 写入 checkpoint。这与 runtime 自身的 session-task-manager 层是不同层面的关注点
 
-`agent-runtime` produces three internal SPI packages (cross-validated against
-`module-metadata.yaml#spi_packages`, `docs/contracts/contract-catalog.md`,
-`docs/dfx/agent-runtime.yaml`):
+**数据流**：access-layer 接入 → task（task-centric-control 管理状态）→ engine（AgentRuntimeHandler 执行）→ 结果流经 A2A SDK 回到 access-layer 应答
 
-| Interface FQN | SPI package | Purpose |
-|---|---|---|
-| `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` | `runtime.engine.spi` | The single framework-neutral runtime SPI: run one agent, surface its output through concrete adapters such as openJiuwen and AgentScope |
-| `com.huawei.ascend.runtime.engine.spi.StreamAdapter` | `runtime.engine.spi` | Adapt a framework's native result stream into the neutral `AgentExecutionResult` stream |
-| `com.huawei.ascend.runtime.engine.spi.AgentCardProvider` | `runtime.engine.spi` | Optional A2A Agent Card metadata provider for a runtime-hosted business Agent |
-| `com.huawei.ascend.runtime.engine.spi.MemoryProvider` | `runtime.engine.spi` | Reserved narrow memory init/search/save SPI |
+## 7. 框架无关的 SPI 设计
 
-Carrier (NOT an SPI interface):
-- `com.huawei.ascend.runtime.engine.spi.AgentExecutionResult` — neutral execution-result carrier.
-- Engine dispatch internals live in the `runtime.engine` ROOT (`EngineDispatcher`, `EngineWorker`,
-  the command events `EngineCommandEvent` / `EngineCommandGateway`, `EngineEvent` + `EngineEventKind`)
-  behind the inbound `engine.api.EngineExecutionApi`; the outbound ports are
-  `engine.TaskControlClient` + `engine.AccessLayerClient` (engine root, not `engine.port`) — intra-service, not SPI.
+### AgentRuntimeHandler
 
-## *L2 Constraint Linkage* (Rule G-1.1.c)
+引擎与具体 Agent 框架之间的唯一解耦面：
 
-Vacuously green at design phase. The Run-kernel implementation phase (RunStatus
-DFA, idempotency claim/replay, suspend/resume durability per L0 §4 #9/#11/#20)
-will produce an L2 design; when authored it MUST include Boundary Contracts.
+```java
+public interface AgentRuntimeHandler {
+    String agentId();          // 此 handler 服务的 agent ID
+    boolean isHealthy();       // 健康检查
+    Stream<?> execute(AgentExecutionContext context);  // 执行 agent
+    default List<AgentRuntimeProvider> providers() { return List.of(); }  // 可选生命周期钩子
+    StreamAdapter resultAdapter();  // 结果适配器
+}
+```
 
-## Deployment loci
+### AgentExecutionResult
 
-`deployment_loci: [platform_centric, business_centric]` — the runtime is
-location-agnostic; it supports both loci behind the same engine envelope.
+中立的执行结果类型，四种语义：
+- `OUTPUT` — 中间输出（流式输出的一个片段）
+- `COMPLETED` — 最终完成（可带最终输出文本）
+- `FAILED` — 执行失败（带 errorCode + errorMessage）
+- `INTERRUPTED` — 需要人工输入（带 prompt 提示文本）
+
+### AgentRuntimeProvider
+
+可组合的生命周期钩子，替代深层继承：
+- `beforeExecute(context)` — 在 handler 执行前准备上下文
+- `afterExecute(context)` — 在结果流结束后导出副作用
+
+### StreamAdapter
+
+函数式接口，将框架原生结果流映射为 `Stream<AgentExecutionResult>`。
+
+## 8. 启动与嵌入
+
+`agent-runtime` 提供两级入口：
+
+**纯 Java 嵌入**（无 Spring 依赖）：
+```java
+try (RunningRuntime runtime = RuntimeApp.create(handler).run(LocalA2aRuntimeHost.port(8080))) {
+    // 在 runtime.port() 上提供 A2A 服务
+}
+```
+
+**Spring Boot 自动装配**：
+`RuntimeAutoConfiguration` 通过 `META-INF/spring/...AutoConfiguration.imports` 自动装配所有 A2A SDK 组件：`InMemoryTaskStore`、`MainEventBus`、`QueueManager`、`DefaultRequestHandler`、`A2aAgentExecutor` 等。业务方只需提供一个 `AgentRuntimeHandler` Bean（和可选的 `AgentCardProvider`），运行时即自动可用。
+
+## 9. 测试
+
+### L1 shipped tests（全部绿色）
+
+| 测试 | 层 | 断言 | 侧 |
+|---|---|---|---|
+| `RuntimeAppTest` | Unit | `RuntimeApp.create(handler).run(host)` 启动和关闭 | app |
+| `A2aJsonRpcControllerTest` | Unit | JSON-RPC 端点请求解析和响应 | boot |
+| `AgentRuntimeProviderChainTest` | Unit | Provider 编排顺序、before/after 执行、异常隔离 | engine.spi |
+| `SuspendSignalLibraryTest` | Unit | agent-bus SuspendSignal 类型可用性 | engine |
+| `SpanTenantAttributeRequiredTest` | ArchUnit | span 声明 tenant.id 属性（预埋 W2） | architecture |
+| `RunRepositorySaveGuardTest` | ArchUnit | Run 存储访问守卫 | architecture |
+| `RunContextIdentityAccessorsTest` | ArchUnit | RunContext 暴露 traceId/spanId/sessionId | architecture |
+| `AudienceBExtensionSeamsArchTest` | ArchUnit | Audience B 扩展接缝检查 | architecture |
+| `RuntimePackageBoundaryTest` | ArchUnit | 包边界纯度检查 | architecture |
+
+## 10. Out of scope at L1
+
+- **分布式 Task/Session 存储**：当前 InMemory 实现。Redis、JDBC 替换为未来扩展方向
+- **多协议接入**：当前仅 A2A JSON-RPC。gRPC、WebSocket 等协议接入为未来扩展方向
+- **Agent 框架适配器扩展**：当前仅 openJiuwen + AgentScope。其他 Agent 框架适配器按需添加
+- **Telemetry / Metrics**：当前仅 SLF4J 结构化日志。Micrometer 指标 + OTel 追踪为未来扩展方向
+- **沙箱 / 工具覆盖 / 安全策略**：通过 `AgentRuntimeProvider` SPI 预留了扩展点，具体实现未包含
+
+## 11. 部署位面
+
+`deployment_loci: [platform_centric, business_centric]` — 运行时与部署位置无关，同一套 engine envelope 支持两种位面。
+
+---
+
+## 新贡献者阅读顺序
+
+1. `module-metadata.yaml` — 模块身份与依赖承诺
+2. `runtime.engine.spi.AgentRuntimeHandler` — 框架无关的运行时 SPI
+3. `runtime.engine.a2a.A2aAgentExecutor` — A2A SDK 桥接实现
+4. `runtime.app.RuntimeApp` / `LocalA2aRuntimeHost` — 可启动入口
+5. `runtime.boot.RuntimeAutoConfiguration` — Spring Boot 自动装配
+6. ADR-0159 — 整合与重定位权威
+7. `docs/dfx/agent-runtime.yaml` — Design-for-X 声明

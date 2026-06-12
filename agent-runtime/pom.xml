@@ -2,13 +2,10 @@
 <!--
   agent-runtime: the run-owning runtime SDK that drives Agent instances built on
   heterogeneous agent frameworks through a single framework-neutral SPI
-  (engine.spi.AgentRuntimeHandler + StreamAdapter). Owns engine dispatch
-  (EngineDispatcher + AgentRuntimeHandlerRegistry), Run lifecycle, session,
-  task-centric control, internal event queue, access (A2A), and the pure-Java
-  embeddable entry app.RuntimeApp. Ships as a library.
-
-  Historical note: ADR-0159 has been archived. Neutral EnginePort / orchestration
-  SPI is consumed from agent-bus (bus.spi.engine); s2c SPI from agent-bus (bus.spi.s2c).
+  (engine.spi.AgentRuntimeHandler + StreamAdapter). Owns the runtime execute flow,
+  trajectory observability, remote A2A tool invocation, access (A2A), and the
+  pure-Java embeddable entry app.RuntimeApp. Ships as a library. Its only external
+  protocol contract is the A2A SDK.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -26,11 +23,6 @@
   <description>Run-owning runtime SDK: execution engine + Run lifecycle + engine dispatch + session/task-control + access (A2A) + bootable runtime app.</description>
 
   <dependencies>
-    <!-- Sibling module: agent-bus (neutral EnginePort/orchestration SPI in bus.spi.engine; S2cCallbackTransport in bus.spi.s2c; IngressGateway in bus.spi.ingress). -->
-    <dependency>
-      <groupId>com.huawei.ascend</groupId>
-      <artifactId>agent-bus</artifactId>
-    </dependency>
     <!-- snakeyaml for envelope-schema parsing. -->
     <dependency>
       <groupId>org.yaml</groupId>
@@ -130,10 +122,21 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- Logback JSON. -->
+    <!-- OpenTelemetry: optional trajectory span export (activated by app.trajectory.otel.enabled).
+         Optional so the OTel classpath is required only when a deployment turns export on. -->
     <dependency>
-      <groupId>net.logstash.logback</groupId>
-      <artifactId>logstash-logback-encoder</artifactId>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-exporter-otlp</artifactId>
       <optional>true</optional>
     </dependency>
 
@@ -160,6 +163,14 @@
       <groupId>org.a2aproject.sdk</groupId>
       <artifactId>a2a-java-sdk-server-common</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-client-transport-jsonrpc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-http-client</artifactId>
+    </dependency>
 
     <!-- Boot 4 + springdoc 3.0.3 transitively requires YAMLFactory at boot. -->
     <dependency>
@@ -171,7 +182,7 @@
     <dependency>
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>
-      <version>0.1.7</version>
+      <version>0.1.12</version>
       <optional>true</optional>
     </dependency>
 
@@ -179,6 +190,11 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk-testing</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

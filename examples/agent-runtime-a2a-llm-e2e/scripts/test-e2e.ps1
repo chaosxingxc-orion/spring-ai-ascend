@@ -21,4 +21,13 @@ if ([string]::IsNullOrWhiteSpace($env:SAA_SAMPLE_LLM_API_KEY)) {
 }
 Set-Location $repo
 & ./mvnw -pl agent-runtime -am install -DskipTests -Dmaven.test.skip=true
-& ./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test
+# The example pom defaults skipTests=true for reactor hygiene; this script's whole
+# purpose is to run the suite, so the override is mandatory here.
+& ./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test "-DskipTests=false" | Tee-Object -Variable mvnLog | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+if ($mvnLog -match 'Tests are skipped\.') {
+    Write-Error "surefire skipped the tests - the E2E suite did not run."
+    exit 1
+}
