@@ -1,10 +1,9 @@
 # AgentRuntimeHandler SPI
 
-The core SPI for hosting an agent inside agent-runtime. Implement this interface
-(or extend a framework-specific base class) to make your agent routable through
-the A2A JSON-RPC endpoint.
+在 agent-runtime 中托管 Agent 的核心 SPI。实现此接口（或继承框架专用基类），
+即可通过 A2A JSON-RPC 端点访问你的 Agent。
 
-## Interface
+## 接口定义
 
 ```java
 package com.huawei.ascend.runtime.engine.spi;
@@ -19,27 +18,27 @@ public interface AgentRuntimeHandler {
 }
 ```
 
-## Contract
+## 契约说明
 
-| Method | Required | Purpose |
+| 方法 | 必选 | 用途 |
 |---|---|---|
-| `agentId()` | yes | Stable unique identifier. Must match the A2A routing key. |
-| `isHealthy()` | yes | Health gate called before every execution and by the health indicator. |
-| `doExecute()` | yes | Core execution. Receives context + trajectory emitter; returns a `Stream<?>` of framework-native results. |
-| `resultAdapter()` | yes | Returns a `StreamAdapter` that maps the `Stream<?>` from `doExecute()` to `AgentExecutionResult` stream. |
-| `start()` | no | Lifecycle hook — called when the runtime is ready. |
-| `stop()` | no | Lifecycle hook — called on shutdown. |
+| `agentId()` | 是 | 稳定唯一标识，必须与 A2A 路由键一致 |
+| `isHealthy()` | 是 | 每次执行前和健康检查端点调用 |
+| `doExecute()` | 是 | 核心执行。接收执行上下文 + 轨迹发射器，返回 `Stream<?>` 框架原生结果 |
+| `resultAdapter()` | 是 | 返回 `StreamAdapter`，将 `doExecute()` 的 `Stream<?>` 映射为 `AgentExecutionResult` 流 |
+| `start()` | 否 | 生命周期——runtime 就绪时调用 |
+| `stop()` | 否 | 生命周期——关闭时调用 |
 
 ## AgentExecutionContext
 
-Available from `doExecute()`:
+从 `doExecute()` 获取：
 
-| Method | Returns | Description |
+| 方法 | 返回值 | 说明 |
 |---|---|---|
 | `getScope()` | `ExecutionScope` | tenantId, sessionId, taskId, agentId, userId |
-| `getMessages()` | `List<Message>` | A2A messages from the request |
-| `getInputType()` | `String` | Input mode (e.g. "text") |
-| `getAgentStateKey()` | `String` | Stable key for agent-scoped state (conversation_id) |
+| `getMessages()` | `List<Message>` | 请求中的 A2A 消息列表 |
+| `getInputType()` | `String` | 输入模式（如 "text"） |
+| `getAgentStateKey()` | `String` | Agent 作用域稳定键（对应 conversation_id） |
 
 ## StreamAdapter
 
@@ -50,13 +49,13 @@ public interface StreamAdapter {
 }
 ```
 
-Maps framework-native results (e.g. openJiuwen `InteractionOutput`, AgentScope
-events) to framework-neutral `AgentExecutionResult` objects. The runtime chains
-this adapter after `doExecute()`.
+将框架原生结果（如 openJiuwen `InteractionOutput`、AgentScope 事件）映射为
+框架中立的 `AgentExecutionResult` 对象。Runtime 在 `doExecute()` 之后链式
+调用此适配器。
 
-## Implementation patterns
+## 实现模式
 
-### Pattern A: extend a framework base class (recommended)
+### 模式 A：继承框架基类（推荐）
 
 ```java
 public class MyHandler extends OpenJiuwenAgentRuntimeHandler {
@@ -64,15 +63,14 @@ public class MyHandler extends OpenJiuwenAgentRuntimeHandler {
 
     @Override
     protected BaseAgent createOpenJiuwenAgent(AgentExecutionContext ctx) {
-        // build and return your openJiuwen agent
+        // 构建并返回你的 openJiuwen Agent
     }
 }
 ```
 
-The base class handles message conversion, streaming, and result mapping.
-You only implement agent creation.
+基类已处理消息转换、流式输出和结果映射。你只需实现 Agent 创建。
 
-### Pattern B: implement the SPI directly
+### 模式 B：直接实现 SPI
 
 ```java
 public class MyHandler implements AgentRuntimeHandler, AgentCardProvider {
@@ -81,7 +79,7 @@ public class MyHandler implements AgentRuntimeHandler, AgentCardProvider {
 
     @Override
     public Stream<?> doExecute(AgentExecutionContext ctx, TrajectoryEmitter t) {
-        // custom execution logic, return Stream of results
+        // 自定义执行逻辑，返回结果的 Stream
     }
 
     @Override
@@ -91,31 +89,30 @@ public class MyHandler implements AgentRuntimeHandler, AgentCardProvider {
 }
 ```
 
-## Lifecycle
+## 生命周期
 
-1. Spring creates all `AgentRuntimeHandler` beans
-2. `AgentRuntimeLifecycle` calls `start()` on each when the runtime is ready
-3. `A2aAgentExecutor` picks the first handler (by `@Order`) for execution
-4. On shutdown, `stop()` is called on each handler
+1. Spring 创建所有 `AgentRuntimeHandler` Bean
+2. Runtime 就绪后，`AgentRuntimeLifecycle` 调用每个 Handler 的 `start()`
+3. `A2aAgentExecutor` 选取第一个 Handler（按 `@Order` 排序）用于执行
+4. 关闭时，每个 Handler 的 `stop()` 被调用
 
-## Health
+## 健康检查
 
-The `AgentRuntimeHealthIndicator` calls `isHealthy()` on every registered
-handler. If any handler reports unhealthy, the health endpoint reflects it.
+`AgentRuntimeHealthIndicator` 调用每个已注册 Handler 的 `isHealthy()`。
+任意 Handler 报告不健康时，健康端点会反映该状态。
 
-## Related types
+## 相关类型
 
-| Type | Package | Purpose |
+| 类型 | 包 | 用途 |
 |---|---|---|
-| `AbstractAgentRuntimeHandler` | `engine.spi` | Base class with agentId + trajectory support |
-| `OpenJiuwenAgentRuntimeHandler` | `engine.openjiuwen` | Base class for openJiuwen agents |
-| `AgentExecutionResult` | `engine.spi` | Framework-neutral result (answer/error/interrupt/remoteInvocation) |
-| `TrajectoryEmitter` | `engine.spi` | Observability: emit run/tool/model-call events |
-| `AgentCardProvider` | `engine.spi` | Optional: supply A2A AgentCard metadata |
-```
+| `AbstractAgentRuntimeHandler` | `engine.spi` | 基类，内置 agentId + trajectory 支持 |
+| `OpenJiuwenAgentRuntimeHandler` | `engine.openjiuwen` | openJiuwen Agent 基类 |
+| `AgentExecutionResult` | `engine.spi` | 框架中立的结果（answer/error/interrupt/remoteInvocation） |
+| `TrajectoryEmitter` | `engine.spi` | 可观测性：发射 run/tool/model-call 事件 |
+| `AgentCardProvider` | `engine.spi` | 可选：提供 A2A AgentCard 元数据 |
 
-## Discovery
+## 多 Handler 处理
 
-Multiple handler beans are tolerated — the runtime uses the first one (by
-`@Order`) and logs a warning about ignored handlers. To serve multiple agents,
-each needs its own runtime instance (separate process / port).
+允许多个 Handler Bean 共存——runtime 使用第一个（按 `@Order` 排序），
+并记录警告，忽略其余 Handler。如需服务多个 Agent，每个 Agent 需要
+各自的 runtime 实例（独立进程/端口）。

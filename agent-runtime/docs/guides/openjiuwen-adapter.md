@@ -1,10 +1,10 @@
-# openJiuwen Agent Adapter
+# openJiuwen Agent 适配器
 
-How to host an openJiuwen agent (ReActAgent or DeepAgent) inside agent-runtime.
+如何在 agent-runtime 中托管 openJiuwen Agent（ReActAgent 或 DeepAgent）。
 
-## Quick start (3 steps)
+## 快速开始（三步）
 
-### Step 1 — Extend OpenJiuwenAgentRuntimeHandler
+### 第一步 — 继承 OpenJiuwenAgentRuntimeHandler
 
 ```java
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
@@ -18,32 +18,32 @@ public class MyHandler extends OpenJiuwenAgentRuntimeHandler {
 
     @Override
     protected BaseAgent createOpenJiuwenAgent(AgentExecutionContext context) {
-        // Step 2 goes here
+        // 第二步在此实现
     }
 }
 ```
 
-### Step 2 — Implement createOpenJiuwenAgent()
+### 第二步 — 实现 createOpenJiuwenAgent()
 
 ```java
 @Override
 protected BaseAgent createOpenJiuwenAgent(AgentExecutionContext context) {
-    // 2a. Create openJiuwen AgentCard (NOT the A2A one)
+    // 2a. 创建 openJiuwen AgentCard（注意：不是 A2A 的那个 AgentCard）
     AgentCard card = AgentCard.builder()
         .id("my-agent-id")
         .name("My Agent")
         .description("...")
         .build();
 
-    // 2b. Create ReActAgent with system prompt and model config
+    // 2b. 创建 ReActAgent，配置 system prompt 和 model client
     ReActAgent agent = new ReActAgent(card);
     ReActAgentConfig config = ReActAgentConfig.builder()
-        .promptTemplate(List.of(Map.of("role", "system", "content", "You are a helpful assistant.")))
+        .promptTemplate(List.of(Map.of("role", "system", "content", "你是一个有用的助手。")))
         .maxIterations(5)
         .build()
         .configureModelClient("openai", apiKey, apiBase, modelName, true);
 
-    // 2c. Optionally tune model parameters
+    // 2c. 可选：调整模型参数
     config.getModelConfigObj().setTemperature(0.7);
     config.getModelConfigObj().setMaxTokens(1024);
 
@@ -52,7 +52,7 @@ protected BaseAgent createOpenJiuwenAgent(AgentExecutionContext context) {
 }
 ```
 
-### Step 3 — Register as Spring Bean
+### 第三步 — 注册为 Spring Bean
 
 ```java
 @Configuration(proxyBeanMethods = false)
@@ -68,20 +68,19 @@ public class MyConfiguration {
 }
 ```
 
-That's the only required bean. The runtime auto-generates the A2A AgentCard.
+只需注册这一个 Bean。Runtime 自动从 handler 的 `agentId` 生成 A2A AgentCard。
 
-## Model providers
+## 模型提供商
 
-The `configureModelClient(provider, apiKey, apiBase, modelName, sslVerify)`
-method accepts:
+`configureModelClient(provider, apiKey, apiBase, modelName, sslVerify)` 支持的 provider：
 
-| Provider | api-base example |
+| provider | api-base 示例 |
 |---|---|
 | `openai` | `https://api.openai.com/v1` |
 | `ollama` | `http://localhost:11434/v1` |
-| `openai-compatible` | `http://localhost:4000/v1` (litellm proxy) |
+| `openai-compatible` | `http://localhost:4000/v1`（litellm 代理） |
 
-## Agent types
+## Agent 类型
 
 ### ReActAgent
 
@@ -89,7 +88,7 @@ method accepts:
 ReActAgent agent = new ReActAgent(card);
 ReActAgentConfig config = ReActAgentConfig.builder()
     .promptTemplate(List.of(Map.of("role", "system", "content", systemPrompt)))
-    .maxIterations(5)          // max ReAct loop iterations
+    .maxIterations(5)          // ReAct 循环最大迭代次数
     .build()
     .configureModelClient(...);
 agent.configure(config);
@@ -99,16 +98,15 @@ agent.configure(config);
 
 ```java
 DeepAgent agent = new DeepAgent(card);
-// DeepAgent uses its own configuration builder
+// DeepAgent 使用自己的配置构建器
 agent.configure(deepAgentConfig);
 ```
 
-## Memory integration
+## 记忆集成
 
-openJiuwen agents can use the runtime's `MemoryProvider` SPI for
-conversation memory.
+openJiuwen Agent 可以使用 runtime 的 `MemoryProvider` SPI 实现对话记忆。
 
-### ReActAgent (memory rail)
+### ReActAgent（MemoryRuntimeRail）
 
 ```java
 @Override
@@ -117,7 +115,7 @@ protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
 }
 ```
 
-### DeepAgent (external memory rail)
+### DeepAgent（ExternalMemoryRail）
 
 ```java
 @Override
@@ -126,11 +124,11 @@ protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
 }
 ```
 
-See [Memory Integration](memory-integration.md) for details.
+详见[中间件服务](middleware-services.md)。
 
-## Session persistence (checkpointer)
+## 会话持久化（Checkpointer）
 
-openJiuwen checkpointer persists agent session state:
+openJiuwen checkpointer 持久化 Agent 会话状态：
 
 ```java
 @Bean
@@ -141,26 +139,25 @@ Checkpointer checkpointer() {
 }
 ```
 
-For Redis-backed persistence:
+Redis 持久化：
 
 ```java
 Checkpointer cp = new RedisCheckpointer.Provider()
     .create(Map.of("connection", Map.of("url", "redis://localhost:6379")));
 ```
 
-## Remote A2A tools
+## 远端 A2A 工具
 
-Agents can call other A2A agents as tools. The runtime's
-`OpenJiuwenRemoteToolInstaller` discovers remote tool specs from A2A agent
-cards and registers them as openJiuwen `Tool` instances.
+Agent 可以将其他 A2A Agent 作为工具调用。Runtime 的
+`OpenJiuwenRemoteToolInstaller` 从 A2A Agent Card 发现远端工具规格，
+并将其注册为 openJiuwen `Tool` 实例。
 
 ```java
-// Injected automatically by RuntimeAutoConfiguration when a
-// RemoteSupport bean is present.
+// 当 RemoteSupport Bean 存在时，RuntimeAutoConfiguration 自动注入
 handler.setRuntimeToolInstaller(remoteToolInstaller);
 ```
 
-## Configuration reference
+## 配置参考
 
 ```yaml
 sample:
@@ -169,13 +166,13 @@ sample:
     api-key: sk-xxx                  # LLM API key
     api-base: http://localhost:4000/v1
     model-name: gpt-5.4-mini
-    ssl-verify: true                 # TLS certificate verification
+    ssl-verify: true                 # TLS 证书校验
     checkpointer: in-memory          # in-memory | redis
     redis-url: redis://localhost:6379
 ```
 
-## Related
+## 相关
 
-- Example: `examples/agent-runtime-openjiuwen-simple/`
-- Source: `agent-runtime/src/main/java/.../engine/openjiuwen/`
-- SPI: [AgentRuntimeHandler SPI](handler-spi.md)
+- 示例：`examples/agent-runtime-openjiuwen-simple/`
+- 源码：`agent-runtime/src/main/java/.../engine/openjiuwen/`
+- SPI：[AgentRuntimeHandler SPI](handler-spi.md)
