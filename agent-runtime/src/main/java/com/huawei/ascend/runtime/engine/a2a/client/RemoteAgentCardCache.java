@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.service;
+package com.huawei.ascend.runtime.engine.a2a.client;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -17,33 +17,52 @@ import org.a2aproject.sdk.spec.AgentSkill;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class RemoteAgentCatalog {
-    private static final Logger LOG = LoggerFactory.getLogger(RemoteAgentCatalog.class);
+/**
+ * Reads remote A2A agent URLs from configuration, resolves their agent cards,
+ * and caches the derived tool specs locally. Failed endpoints are retried on
+ * each refresh cycle; cards for endpoints that become unreachable are evicted.
+ * No long-lived connections — the card resolver is called once per refresh
+ * and the underlying HTTP client is released.
+ */
+public class RemoteAgentCardCache {
+    private static final Logger LOG = LoggerFactory.getLogger(RemoteAgentCardCache.class);
 
     private final Map<String, Entry> entries = new LinkedHashMap<>();
     private final Function<String, AgentCard> cardResolver;
 
-    public RemoteAgentCatalog(List<String> urls) {
+    public RemoteAgentCardCache(List<String> urls) {
         this(urls, url -> new A2ACardResolver(url).getAgentCard());
     }
 
-    RemoteAgentCatalog(List<String> urls, Function<String, AgentCard> cardResolver) {
+    RemoteAgentCardCache(List<String> urls, Function<String, AgentCard> cardResolver) {
         this.cardResolver = Objects.requireNonNull(cardResolver, "cardResolver");
         Set<String> unique = new LinkedHashSet<>(urls == null ? List.of() : urls);
         unique.stream()
                 .filter(url -> url != null && !url.isBlank())
-                .forEach(url -> entries.putIfAbsent(canonicalRuntimeKey(url), new Entry(url)));
+                .forEach(url -> entries.putIfAbsent(canonicalKey(url), new Entry(url)));
+        LOG.info("remote agent card cache initialized configuredUrls={} uniqueUrls={}",
+                urls == null ? 0 : urls.size(), entries.size());
     }
 
-    public void refreshPending() {
+    /** Attempt to resolve cards for every endpoint that is not yet available. */
+    public void refresh() {
+        int pending = pendingCount();
+        if (pending == 0) {
+            return;
+        }
+        LOG.info("remote agent card refresh starting pendingUrls={} totalUrls={}", pending, entries.size());
+        int succeeded = 0;
+        int failed = 0;
         for (Entry entry : entries.values()) {
             if (entry.available()) {
                 continue;
             }
             try {
+                LOG.info("remote agent card resolving url={}", entry.url);
                 AgentCard card = cardResolver.apply(entry.url);
                 entry.card = card;
-                entry.endpoint = endpoint(card, entry.url);
+                entry.endpoint = resolveEndpoint(card, entry.url);
+                succeeded++;
             } catch (RuntimeException error) {
                 LOG.warn("remote agent card refresh failed url={} errorClass={} message={}",
                         entry.url, error.getClass().getSimpleName(), error.getMessage());
@@ -51,9 +70,21 @@ public class RemoteAgentCatalog {
                 entry.remoteAgentId = null;
                 entry.spec = null;
                 entry.endpoint = null;
+                failed++;
             }
         }
         rebuildToolSpecs();
+        LOG.info("remote agent card refresh complete succeeded={} failed={} availableTools={}",
+                succeeded, failed, availableToolSpecs().size());
+    }
+
+    /** Attempt to re-resolve cards that previously failed. */
+    public void refreshPending() {
+        refresh();
+    }
+
+    private int pendingCount() {
+        return (int) entries.values().stream().filter(entry -> !entry.available()).count();
     }
 
     public List<RemoteAgentToolSpec> availableToolSpecs() {
@@ -91,6 +122,9 @@ public class RemoteAgentCatalog {
         Map<String, Integer> seen = new LinkedHashMap<>();
         for (Entry entry : entries.values()) {
             if (entry.card == null || entry.endpoint == null) {
+                if (entry.remoteAgentId != null) {
+                    LOG.info("remote agent card evicted url={} previousAgentId={}", entry.url, entry.remoteAgentId);
+                }
                 entry.remoteAgentId = null;
                 entry.spec = null;
                 continue;
@@ -100,10 +134,12 @@ public class RemoteAgentCatalog {
             String remoteAgentId = count == 1 ? baseId : baseId + "-" + count;
             entry.remoteAgentId = remoteAgentId;
             entry.spec = toSpec(entry.card, remoteAgentId);
+            LOG.info("remote agent card resolved url={} agentId={} toolName={} endpoint={}",
+                    entry.url, remoteAgentId, entry.spec.toolName(), entry.endpoint);
         }
     }
 
-    private static String endpoint(AgentCard card, String configuredUrl) {
+    private static String resolveEndpoint(AgentCard card, String configuredUrl) {
         if (card.supportedInterfaces() != null) {
             for (AgentInterface agentInterface : card.supportedInterfaces()) {
                 if (agentInterface != null && isJsonRpc(agentInterface.protocolBinding())
@@ -161,7 +197,7 @@ public class RemoteAgentCatalog {
         return value != null && !value.isBlank();
     }
 
-    private static String canonicalRuntimeKey(String url) {
+    private static String canonicalKey(String url) {
         URI uri = URI.create(url.trim());
         String path = uri.getPath();
         if (path == null || path.isBlank() || "/".equals(path)) {

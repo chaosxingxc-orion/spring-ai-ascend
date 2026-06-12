@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.service;
+package com.huawei.ascend.runtime.engine.a2a.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -10,11 +10,11 @@ import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.AgentSkill;
 import org.junit.jupiter.api.Test;
 
-class RemoteAgentCatalogTest {
+class RemoteAgentCardCacheTest {
 
     @Test
     void refreshDiscoversCardAndBuildsToolSpecAndEndpoint() {
-        RemoteAgentCatalog catalog = new RemoteAgentCatalog(List.of("http://remote-runtime"),
+        RemoteAgentCardCache cache = new RemoteAgentCardCache(List.of("http://remote-runtime"),
                 url -> AgentCard.builder()
                         .name("Remote Planner")
                         .description("Plans trips")
@@ -32,32 +32,32 @@ class RemoteAgentCatalogTest {
                         .defaultOutputModes(List.of("text"))
                         .build());
 
-        catalog.refreshPending();
+        cache.refreshPending();
 
-        assertThat(catalog.availableToolSpecs()).hasSize(1);
-        RemoteAgentCatalog.RemoteAgentToolSpec spec = catalog.availableToolSpecs().get(0);
+        assertThat(cache.availableToolSpecs()).hasSize(1);
+        RemoteAgentCardCache.RemoteAgentToolSpec spec = cache.availableToolSpecs().get(0);
         assertThat(spec.remoteAgentId()).isEqualTo("remote-planner");
         assertThat(spec.toolName()).isEqualTo("a2a_remote_remote_planner");
         assertThat(spec.description()).contains("Remote Planner", "Plans trips", "Create a step-by-step plan");
         assertThat(spec.inputSchema()).containsEntry("type", "object");
-        assertThat(catalog.endpoint("remote-planner")).isEqualTo("http://remote-runtime/a2a");
+        assertThat(cache.endpoint("remote-planner")).isEqualTo("http://remote-runtime/a2a");
     }
 
     @Test
     void failedRefreshKeepsUrlPendingAndDoesNotExposeTool() {
-        RemoteAgentCatalog catalog = new RemoteAgentCatalog(List.of("http://missing"), url -> {
+        RemoteAgentCardCache cache = new RemoteAgentCardCache(List.of("http://missing"), url -> {
             throw new IllegalStateException("not ready");
         });
 
-        catalog.refreshPending();
+        cache.refreshPending();
 
-        assertThat(catalog.availableToolSpecs()).isEmpty();
-        assertThat(catalog.pendingUrls()).containsExactly("http://missing");
+        assertThat(cache.availableToolSpecs()).isEmpty();
+        assertThat(cache.pendingUrls()).containsExactly("http://missing");
     }
 
     @Test
     void relativeJsonRpcEndpointIsResolvedAgainstConfiguredRuntimeUrl() {
-        RemoteAgentCatalog catalog = new RemoteAgentCatalog(List.of("http://remote-runtime"),
+        RemoteAgentCardCache cache = new RemoteAgentCardCache(List.of("http://remote-runtime"),
                 url -> AgentCard.builder()
                         .name("Remote B")
                         .description("Remote B")
@@ -75,14 +75,14 @@ class RemoteAgentCatalogTest {
                         .defaultOutputModes(List.of("text"))
                         .build());
 
-        catalog.refreshPending();
+        cache.refreshPending();
 
-        assertThat(catalog.endpoint("remote-b")).isEqualTo("http://remote-runtime/a2a");
+        assertThat(cache.endpoint("remote-b")).isEqualTo("http://remote-runtime/a2a");
     }
 
     @Test
     void equivalentRuntimeAndCardUrlsRegisterOnlyOneRemoteTool() {
-        RemoteAgentCatalog catalog = new RemoteAgentCatalog(List.of(
+        RemoteAgentCardCache cache = new RemoteAgentCardCache(List.of(
                 "http://remote-runtime",
                 "http://remote-runtime/",
                 "http://remote-runtime/.well-known/agent-card.json"),
@@ -103,27 +103,27 @@ class RemoteAgentCatalogTest {
                         .defaultOutputModes(List.of("text"))
                         .build());
 
-        catalog.refreshPending();
+        cache.refreshPending();
 
-        assertThat(catalog.availableToolSpecs()).hasSize(1);
-        assertThat(catalog.pendingUrls()).isEmpty();
+        assertThat(cache.availableToolSpecs()).hasSize(1);
+        assertThat(cache.pendingUrls()).isEmpty();
     }
 
     @Test
     void differentRuntimeUrlsWithSameCardNameExposeDistinctRemoteToolsAndEndpoints() {
-        RemoteAgentCatalog catalog = new RemoteAgentCatalog(List.of("http://remote-a", "http://remote-b"),
+        RemoteAgentCardCache cache = new RemoteAgentCardCache(List.of("http://remote-a", "http://remote-b"),
                 url -> remoteCard("Shared Remote", url + "/a2a"));
 
-        catalog.refreshPending();
+        cache.refreshPending();
 
-        assertThat(catalog.availableToolSpecs())
-                .extracting(RemoteAgentCatalog.RemoteAgentToolSpec::remoteAgentId)
+        assertThat(cache.availableToolSpecs())
+                .extracting(RemoteAgentCardCache.RemoteAgentToolSpec::remoteAgentId)
                 .containsExactly("shared-remote", "shared-remote-2");
-        assertThat(catalog.availableToolSpecs())
-                .extracting(RemoteAgentCatalog.RemoteAgentToolSpec::toolName)
+        assertThat(cache.availableToolSpecs())
+                .extracting(RemoteAgentCardCache.RemoteAgentToolSpec::toolName)
                 .containsExactly("a2a_remote_shared_remote", "a2a_remote_shared_remote_2");
-        assertThat(catalog.endpoint("shared-remote")).isEqualTo("http://remote-a/a2a");
-        assertThat(catalog.endpoint("shared-remote-2")).isEqualTo("http://remote-b/a2a");
+        assertThat(cache.endpoint("shared-remote")).isEqualTo("http://remote-a/a2a");
+        assertThat(cache.endpoint("shared-remote-2")).isEqualTo("http://remote-b/a2a");
     }
 
     private static AgentCard remoteCard(String name, String endpoint) {

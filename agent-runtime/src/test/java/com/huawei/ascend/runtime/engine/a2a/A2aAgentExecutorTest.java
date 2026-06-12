@@ -16,7 +16,8 @@ import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
+import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentInvocationService;
+import com.huawei.ascend.runtime.engine.a2a.RemoteSupport;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryDraft;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
@@ -478,7 +479,7 @@ class A2aAgentExecutorTest {
                 remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED, "remote done")));
 
         AgentEmitter emitter = newEmitter();
-        new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound))
+        new A2aAgentExecutor(handler, RemoteSupport.forOutbound(outbound))
                 .execute(requestContext(), emitter);
 
         assertThat(outbound.requests).hasSize(1);
@@ -523,7 +524,7 @@ class A2aAgentExecutorTest {
             }
         };
 
-        new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound))
+        new A2aAgentExecutor(handler, RemoteSupport.forOutbound(outbound))
                 .execute(requestContext(), emitter);
 
         verify(emitter).complete(any(Message.class));
@@ -547,7 +548,7 @@ class A2aAgentExecutorTest {
                         Map.of())));
 
         AgentEmitter emitter = newEmitter();
-        new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound))
+        new A2aAgentExecutor(handler, RemoteSupport.forOutbound(outbound))
                 .execute(requestContext(), emitter);
 
         ArgumentCaptor<TaskStatusUpdateEvent> eventCaptor = ArgumentCaptor.forClass(TaskStatusUpdateEvent.class);
@@ -585,7 +586,7 @@ class A2aAgentExecutorTest {
                 remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.MESSAGE, "remote progress only")));
 
         AgentEmitter emitter = newEmitter();
-        new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound))
+        new A2aAgentExecutor(handler, RemoteSupport.forOutbound(outbound))
                 .execute(requestContext(), emitter);
 
         verify(emitter).complete(any(Message.class));
@@ -608,7 +609,7 @@ class A2aAgentExecutorTest {
                 remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED, "remote final")));
 
         AgentEmitter emitter = newEmitter();
-        new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound))
+        new A2aAgentExecutor(handler, RemoteSupport.forOutbound(outbound))
                 .execute(remoteContinuationContext(), emitter);
 
         assertThat(outbound.requests).hasSize(1);
@@ -638,7 +639,7 @@ class A2aAgentExecutorTest {
                 Map.of("runtime.waitingTarget", "REMOTE_AGENT")));
         AgentEmitter emitter = newEmitter();
 
-        new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound))
+        new A2aAgentExecutor(handler, RemoteSupport.forOutbound(outbound))
                 .execute(ctx, emitter);
 
         assertThat(outbound.requests).isEmpty();
@@ -663,7 +664,7 @@ class A2aAgentExecutorTest {
                 remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED, "remote final")));
 
         AgentEmitter emitter = newEmitter();
-        new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound))
+        new A2aAgentExecutor(handler, RemoteSupport.forOutbound(outbound))
                 .execute(remoteContinuationContext(), emitter);
 
         assertThat(outbound.requests).hasSize(1);
@@ -689,7 +690,7 @@ class A2aAgentExecutorTest {
                         Map.of("remote.promptVersion", "v2"))));
 
         AgentEmitter emitter = newEmitter();
-        new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound))
+        new A2aAgentExecutor(handler, RemoteSupport.forOutbound(outbound))
                 .execute(requestContext(), emitter);
 
         ArgumentCaptor<TaskStatusUpdateEvent> eventCaptor = ArgumentCaptor.forClass(TaskStatusUpdateEvent.class);
@@ -707,7 +708,7 @@ class A2aAgentExecutorTest {
         RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of());
 
         AgentEmitter emitter = newEmitter();
-        new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound))
+        new A2aAgentExecutor(handler, RemoteSupport.forOutbound(outbound))
                 .cancel(remoteContinuationContext(), emitter);
 
         verify(emitter).cancel();

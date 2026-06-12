@@ -2,7 +2,8 @@ package com.huawei.ascend.runtime.engine.a2a;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
+import com.huawei.ascend.runtime.engine.a2a.client.A2aRemoteAgentOutboundAdapter;
+import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentInvocationService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

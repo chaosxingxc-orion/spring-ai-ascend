@@ -1,0 +1,39 @@
+debug: false
+
+spring:
+  application:
+    name: agent-runtime-a2a-versatile-e2e
+
+server:
+  port: ${SAA_VERSATILE_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# ── Versatile remote service configuration ──
+versatile:
+  url: ${VERSATILE_URL:http://7.213.200.213:3001/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}}
+  timeout: 30s
+
+  url-variables:
+    project_id: ${VERSATILE_PROJECT_ID:mock_project_id}
+    agent_id: ${VERSATILE_AGENT_ID:fb723468-c8ca-424b-a95f-a3e74b37e090}
+
+  query-params:
+    type: ${VERSATILE_QUERY_TYPE:controller}
+    workspace_id: ${VERSATILE_WORKSPACE_ID:10}
+
+  headers:
+    content-type: "application/json"
+    stream: "true"
+
+  passthrough-headers:
+    - x-invoke-mode
+    - x-language
+
+  input-metadata-keys:
+    - intent
+    - wap_userName
