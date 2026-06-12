@@ -198,7 +198,7 @@ The library ships no logging configuration; the host application owns it.
 
 - `contextId` — the A2A conversation/session
 - `taskId` — one call
-- `tenantId` — the owning tenant (transport-authenticated value outranks client-declared)
+- `tenantId` — the owning tenant (header-derived value outranks client-declared; see *Tenant header trust*)
 - `agentId` — the handler that served the call
 
 `agent-runtime` is consumed as a library, so the keys only become visible when the **host application's** logging pattern renders them. Recommended pattern fragment (keep all four keys; the convention is `ctx=… task=… tenant=… agent=…`):

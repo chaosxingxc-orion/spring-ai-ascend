@@ -189,7 +189,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
                     lastNonNull(received, RemoteAgentInvocationService.RemoteAgentResult::remoteContextId)));
         } catch (RuntimeException ex) {
             LOG.warn("remote task cancel after stream timeout failed remoteAgentId={} remoteTaskId={} message={}",
-                    remoteAgentId, remoteTaskId, ex.getMessage());
+                    remoteAgentId, remoteTaskId, A2aLogMasking.mask(ex.getMessage()));
         }
     }
 
@@ -232,7 +232,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
             transport.close();
         } catch (RuntimeException ex) {
             LOG.warn("stale remote transport close failed remoteAgentId={} message={}",
-                    remoteAgentId, ex.getMessage());
+                    remoteAgentId, A2aLogMasking.mask(ex.getMessage()));
         }
     }
 
@@ -260,7 +260,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         if (event instanceof Message message) {
             return new RemoteAgentInvocationService.RemoteAgentResult(
                     RemoteAgentInvocationService.RemoteAgentResult.Type.MESSAGE,
-                    wireText(message),
+                    Messages.text(message),
                     message.taskId(),
                     message.contextId(),
                     message.metadata());
@@ -269,7 +269,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
             Artifact artifact = artifactUpdate.artifact();
             return new RemoteAgentInvocationService.RemoteAgentResult(
                     RemoteAgentInvocationService.RemoteAgentResult.Type.ARTIFACT,
-                    artifact == null ? "" : partsText(artifact.parts()),
+                    artifact == null ? "" : Messages.text(artifact.parts()),
                     artifactUpdate.taskId(),
                     artifactUpdate.contextId(),
                     artifactUpdate.metadata());
@@ -284,7 +284,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
     private static RemoteAgentInvocationService.RemoteAgentResult statusResult(
             TaskStatus status, String taskId, String contextId, Map<String, Object> metadata) {
         TaskState state = status == null ? null : status.state();
-        String text = status == null ? "" : wireText(status.message());
+        String text = status == null ? "" : Messages.text(status.message());
         if (state == TaskState.TASK_STATE_INPUT_REQUIRED) {
             return new RemoteAgentInvocationService.RemoteAgentResult(
                     RemoteAgentInvocationService.RemoteAgentResult.Type.INPUT_REQUIRED,
@@ -333,21 +333,6 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
             }
         }
         return false;
-    }
-
-    private static String wireText(Message message) {
-        return message == null ? "" : partsText(message.parts());
-    }
-
-    private static String partsText(List<Part<?>> parts) {
-        if (parts == null) {
-            return "";
-        }
-        return parts.stream()
-                .filter(TextPart.class::isInstance)
-                .map(TextPart.class::cast)
-                .map(TextPart::text)
-                .reduce("", String::concat);
     }
 
     private static boolean hasText(String value) {

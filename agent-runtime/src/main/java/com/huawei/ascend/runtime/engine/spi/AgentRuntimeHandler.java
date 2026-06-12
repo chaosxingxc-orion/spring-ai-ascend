@@ -49,9 +49,14 @@ public interface AgentRuntimeHandler {
     }
 
     /**
-     * Cooperatively cancel one in-flight execution. Frameworks with a native
-     * interrupt should propagate it; the default is a no-op because the host
-     * also tears down the execution's result stream on cancel.
+     * Cooperatively cancel one in-flight execution. The host also tears down
+     * the execution's result stream on cancel, but that teardown only
+     * interrupts a lazily produced (incremental) stream: a handler whose
+     * {@link #execute} computes the full result synchronously before wrapping
+     * it in a stream MUST override this and propagate the framework's native
+     * interrupt — otherwise a cancel only flips the task's outward state while
+     * the background computation runs to completion. The default no-op is
+     * adequate only for lazy-stream handlers.
      */
     default void cancel(String taskId) {
     }

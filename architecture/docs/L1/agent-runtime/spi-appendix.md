@@ -190,7 +190,7 @@ public interface StateProvider extends AgentRuntimeProvider { }
 | `org.a2aproject.sdk.server.events.QueueManager` | interface | 任务队列管理 | `RuntimeAutoConfiguration` 装配 |
 | `org.a2aproject.sdk.server.tasks.InMemoryTaskStore` | class | Task 内存存储 | `RuntimeAutoConfiguration` 装配 |
 | `org.a2aproject.sdk.server.requesthandlers.DefaultRequestHandler` | class | 默认 RequestHandler 实现 | `RuntimeAutoConfiguration` 装配 |
-| `org.a2aproject.sdk.spec.AgentCard` | class | A2A Agent Card 模型 | `AgentCardController` + `engine.a2a` 的 `AgentCards` / `AgentCardProvider` 使用 |
+| `org.a2aproject.sdk.spec.AgentCard` | class | A2A Agent Card 模型 | `AgentCardController` + `engine.a2a` 的 `AgentCards` / `AgentCardProvider` + `engine.service` 的 `RemoteAgentCatalog`（远端卡解析）使用 |
 | `org.a2aproject.sdk.spec.Task` | class | A2A Task 模型 | 通过 A2A SDK 内部使用 |
 | `org.a2aproject.sdk.spec.Message` | class | A2A Message 模型 | 仅 `engine.a2a` 协议桥内部消费（`A2aAgentExecutor` / `Messages`）；SPI 侧消息载体是中立的 `common.RuntimeMessage` |
 

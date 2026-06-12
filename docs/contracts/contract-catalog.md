@@ -44,7 +44,7 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `DefinitionResolver` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | shipped — bidirectional bridge between the wire-form `DefinitionRef` and the runnable `ExecutorDefinition`; `resolve` is engine-facing, `referenceFor` is service-facing; reference impl `CompositeDefinitionResolver` (agent-service) per ADR-0158 |
 | `S2cCallbackTransport` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | shipped — W2.x; `InMemoryS2cCallbackTransport` reference (ADR-0074); relocated to agent-bus per ADR-0088 |
 | `AgentRuntimeHandler` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — the single framework-neutral runtime SPI: runs one agent and surfaces its output through concrete adapters such as openJiuwen and AgentScope; per the agent-runtime pure rebuild (Doc 2). Carries the handler service lifecycle as default methods (`start()`/`stop()` driven by the host SmartLifecycle around the serving window, cooperative `cancel(taskId)`, `isHealthy()` consumed by the runtime health indicator + readiness gate) — Authority: ADR-0161. Result carrier `AgentExecutionResult` ships alongside in the same package |
-| `AgentCardProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — optional provider for the A2A Agent Card of one runtime-hosted business Agent; separated from `AgentRuntimeHandler` so card metadata can be supplied by a dedicated Bean or by a handler that chooses to implement both interfaces |
+| `AgentCardProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.a2a` | shipped — optional provider for the A2A Agent Card of one runtime-hosted business Agent; lives in the A2A protocol-bridge package, not the neutral SPI package (the Agent Card is A2A protocol metadata); separated from `AgentRuntimeHandler` so card metadata can be supplied by a dedicated Bean or by a handler that chooses to implement both interfaces |
 | `MemoryProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — reserved narrow memory init/search/save SPI for future memory middleware integration; does not bind runtime to one memory backend |
 | `StreamAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts a framework's native result stream into the neutral `AgentExecutionResult` stream |
 
@@ -78,7 +78,7 @@ Schema v2 per-event `DataPart` fields (serialized by `A2aNorthboundSink`; `attem
 | `reasoning` | string \| null | Masked + truncated free-text reasoning |
 | `schemaVersion` | string | `"2"` = `TrajectoryEvent.SCHEMA_VERSION` |
 
-**SPI count by module (shipped surface; the agent-runtime SPI surface is the framework-neutral `engine.spi` set `AgentRuntimeHandler` + `AgentCardProvider` + `MemoryProvider` + `StreamAdapter`):**
+**SPI count by module (shipped surface; the agent-runtime SPI surface is `AgentRuntimeHandler` + `MemoryProvider` + `StreamAdapter` in the framework-neutral `engine.spi` package plus `AgentCardProvider` in the `engine.a2a` protocol-bridge package):**
 
 | Module | SPI interfaces |
 |---|---|

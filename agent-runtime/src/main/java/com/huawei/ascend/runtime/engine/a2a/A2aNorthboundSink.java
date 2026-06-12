@@ -19,8 +19,8 @@ import org.slf4j.LoggerFactory;
  * Opt-in northbound delivery of the trajectory to the A2A caller. The A2A {@link AgentEmitter}
  * is single-writer and may be touched only on the execute thread, so the drain thread merely
  * {@link #accept(TrajectoryEvent) buffers} already-masked events here; the execute thread later
- * {@link #flush(AgentEmitter, String) drains} the buffer into a dedicated {@code -trajectory}
- * artifact stream, distinct from the answer's {@code -response} stream.
+ * {@link #flush(AgentEmitter, String, boolean) drains} the buffer into a dedicated
+ * {@code -trajectory} artifact stream, distinct from the answer's {@code -response} stream.
  *
  * <p>Best-effort with bounded memory: at most {@value #CAPACITY} events are buffered per
  * invocation, and a full buffer sheds load rather than blocking the run. Shedding is never
@@ -56,8 +56,14 @@ final class A2aNorthboundSink implements TrajectorySink {
         }
     }
 
-    /** Drains the buffer into one closing {@code -trajectory} artifact. Execute-thread only. */
-    void flush(AgentEmitter emitter, String artifactId) {
+    /**
+     * Drains the buffer into one closing {@code -trajectory} artifact. Execute-thread only.
+     * {@code append} must be true when the task already carries this artifact from an earlier
+     * leg (a continuation after a remote INPUT_REQUIRED park): the SDK replaces an existing
+     * artifact on {@code append=false}, which would silently erase the parked leg's events
+     * from the task snapshot.
+     */
+    void flush(AgentEmitter emitter, String artifactId, boolean append) {
         List<TrajectoryEvent> events = new ArrayList<>();
         buffer.drainTo(events);
         if (events.isEmpty()) {
@@ -71,7 +77,7 @@ final class A2aNorthboundSink implements TrajectorySink {
         if (droppedCount > 0) {
             parts.add(new DataPart(Map.of("kind", "TRUNCATED", "droppedCount", droppedCount)));
         }
-        emitter.addArtifact(parts, artifactId, "agent-trajectory", null, false, true);
+        emitter.addArtifact(parts, artifactId, "agent-trajectory", null, append, true);
     }
 
     private static boolean isTerminal(TrajectoryEvent.Kind kind) {

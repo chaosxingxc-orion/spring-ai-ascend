@@ -23,9 +23,11 @@ import java.util.stream.Stream;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
 import org.a2aproject.sdk.server.agentexecution.RequestContext;
 import org.a2aproject.sdk.server.tasks.AgentEmitter;
+import org.a2aproject.sdk.spec.Artifact;
 import org.a2aproject.sdk.spec.DataPart;
 import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.Part;
+import org.a2aproject.sdk.spec.Task;
 import org.a2aproject.sdk.spec.TextPart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -133,9 +135,15 @@ public final class A2aAgentExecutor implements AgentExecutor {
         MDC.put(MDC_TENANT_ID, metadata(ctx, TENANT_STATE_KEY, "default"));
         MDC.put(MDC_AGENT_ID, agentId != null ? agentId : "");
         // Per-task local state (this bean is a shared singleton - never hoist to a field).
-        AtomicBoolean firstArtifact = new AtomicBoolean(true);
+        // A continuation leg (task parked on remote INPUT_REQUIRED) re-enters execute with
+        // artifacts the first leg already flushed; the SDK replaces an existing artifact on
+        // append=false, so both streams must append when their artifact is already on the
+        // task snapshot — and must not append when it is absent (an append to a missing
+        // artifact drops the chunk).
         String artifactId = taskId + "-response";
         String trajectoryArtifactId = taskId + "-trajectory";
+        AtomicBoolean firstArtifact = new AtomicBoolean(!hasArtifact(ctx.getTask(), artifactId));
+        boolean appendTrajectory = hasArtifact(ctx.getTask(), trajectoryArtifactId);
         AtomicBoolean cancelled = new AtomicBoolean(false);
         // Holder, not a local: the resume legs re-open the flow from inside the remote
         // orchestration callback, and the catch/finally must see the latest wiring.
@@ -143,8 +151,8 @@ public final class A2aAgentExecutor implements AgentExecutor {
         // Northbound delivery is deferred until the run converges (including any remote
         // legs) so the artifact carries the resume legs through their RUN_END; it must
         // still land before the terminal state while the task can accept artifacts.
-        Runnable northboundDelivery = () ->
-                A2aTrajectorySupport.deliverNorthbound(flowRef.get(), emitter, trajectoryArtifactId, taskId);
+        Runnable northboundDelivery = () -> A2aTrajectorySupport.deliverNorthbound(
+                flowRef.get(), emitter, trajectoryArtifactId, taskId, appendTrajectory);
         try {
             LOG.info("[A2A] execute start taskId={} sessionId={} agentId={}", taskId, sessionId, agentId);
 
@@ -404,6 +412,19 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
     private static boolean hasText(Object value) {
         return value != null && !String.valueOf(value).isBlank();
+    }
+
+    /** Whether the task snapshot already carries an artifact with this id (flushed by an earlier leg). */
+    static boolean hasArtifact(Task task, String artifactId) {
+        if (task == null || task.artifacts() == null) {
+            return false;
+        }
+        for (Artifact artifact : task.artifacts()) {
+            if (artifact != null && artifactId.equals(artifact.artifactId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static final class RemoteSupport {

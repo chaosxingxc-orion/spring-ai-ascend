@@ -120,9 +120,11 @@ class RuntimePackageBoundaryTest {
     @Test
     void protocolNeutralPackagesAreA2aSdkFree() {
         // Executable form of the L1 neutrality assertion (logical.md): the SPI,
-        // the neutral context in the engine root, common, and the framework
-        // adapters never see A2A wire types — only the protocol bridge
-        // (engine.a2a) and boot wiring may touch org.a2aproject.
+        // the neutral context in the engine root, engine.otel, common, and the
+        // framework adapters never see A2A wire types. The packages allowed to
+        // touch org.a2aproject are the protocol bridge (engine.a2a), boot
+        // wiring, and engine.service — the latter restricted to the SDK's
+        // card-resolution slice (client + spec) by the companion rule below.
         ArchRule rule = noClasses()
                 .that().resideInAnyPackage(
                         "com.huawei.ascend.runtime.engine",
@@ -133,6 +135,26 @@ class RuntimePackageBoundaryTest {
                         "com.huawei.ascend.runtime.engine.openjiuwen..")
                 .should().dependOnClassesThat()
                 .resideInAnyPackage("org.a2aproject..")
+                .allowEmptyShould(false);
+        rule.check(RUNTIME_CLASSES);
+    }
+
+    @Test
+    void engineServiceTouchesOnlyA2aCardResolutionSlice() {
+        // engine.service wraps remote-agent card resolution behind neutral
+        // facades the framework adapters may consume without seeing the bridge.
+        // Its protocol surface is pinned to the SDK's card-resolution slice
+        // (client + spec); jsonrpc/grpc/server machinery must not seep in.
+        ArchRule rule = classes()
+                .that().resideInAPackage("..runtime.engine.service..")
+                .should().onlyDependOnClassesThat()
+                .resideInAnyPackage(
+                        "com.huawei.ascend.runtime.engine.service..",
+                        "com.huawei.ascend.runtime.engine.spi..",
+                        "java..",
+                        "org.slf4j..",
+                        "org.a2aproject.sdk.client..",
+                        "org.a2aproject.sdk.spec..")
                 .allowEmptyShould(false);
         rule.check(RUNTIME_CLASSES);
     }

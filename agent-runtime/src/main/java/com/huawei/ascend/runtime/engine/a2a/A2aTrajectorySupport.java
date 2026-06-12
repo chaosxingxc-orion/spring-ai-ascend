@@ -99,15 +99,17 @@ final class A2aTrajectorySupport {
     /**
      * When the caller opted into northbound trajectory, flush the buffered events as the
      * {@code -trajectory} artifact — on the execute thread, the only thread allowed to touch the
-     * single-writer emitter. A failure here must never break the answer: it degrades to no
-     * northbound trajectory.
+     * single-writer emitter. {@code append} carries whether the task already holds this artifact
+     * from a leg flushed before a remote INPUT_REQUIRED park. A failure here must never break
+     * the answer: it degrades to no northbound trajectory.
      */
-    static void deliverNorthbound(TrajectoryFlow flow, AgentEmitter emitter, String artifactId, String taskId) {
+    static void deliverNorthbound(TrajectoryFlow flow, AgentEmitter emitter, String artifactId, String taskId,
+            boolean append) {
         if (flow.northbound() == null) {
             return;
         }
         try {
-            flow.northbound().flush(emitter, artifactId);
+            flow.northbound().flush(emitter, artifactId, append);
         } catch (Exception e) {
             LOG.warn("[A2A] northbound trajectory delivery failed taskId={} message={}",
                     taskId, A2aLogMasking.mask(e.getMessage()));

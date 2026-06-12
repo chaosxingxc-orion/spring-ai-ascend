@@ -159,7 +159,7 @@ final class A2aRemoteInvocationOrchestrator {
                     lastNonNull(results, RemoteAgentInvocationService.RemoteAgentResult::remoteContextId)));
         } catch (RuntimeException error) {
             LOG.warn("[A2A] remote cancel after local cancel failed taskId={} errorClass={} message={}",
-                    taskId, error.getClass().getSimpleName(), error.getMessage());
+                    taskId, error.getClass().getSimpleName(), A2aLogMasking.mask(error.getMessage()));
         }
     }
 

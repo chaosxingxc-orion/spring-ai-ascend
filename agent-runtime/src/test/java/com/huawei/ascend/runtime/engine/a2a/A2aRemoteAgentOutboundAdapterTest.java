@@ -72,6 +72,46 @@ class A2aRemoteAgentOutboundAdapterTest {
         assertThat(results.get(2).text()).isEqualTo("need more");
     }
 
+    /**
+     * Multiple text parts in one remote event are distinct paragraphs: every
+     * mapped result (message, artifact, status) must surface them through the
+     * canonical newline-joined extraction, not glued word-to-word.
+     */
+    @Test
+    void multiTextPartEventsAreNewlineJoinedNotConcatenated() {
+        Message twoPartMessage = Message.builder()
+                .role(Message.Role.ROLE_AGENT)
+                .taskId("remote-task-1")
+                .contextId("remote-ctx-1")
+                .parts(List.<Part<?>>of(new TextPart("a"), new TextPart("b")))
+                .build();
+        RecordingTransport transport = new RecordingTransport(List.of(
+                twoPartMessage,
+                TaskArtifactUpdateEvent.builder()
+                        .taskId("remote-task-1")
+                        .contextId("remote-ctx-1")
+                        .artifact(Artifact.builder()
+                                .artifactId("artifact-1")
+                                .parts(List.<Part<?>>of(new TextPart("a"), new TextPart("b")))
+                                .build())
+                        .build(),
+                TaskStatusUpdateEvent.builder()
+                        .taskId("remote-task-1")
+                        .contextId("remote-ctx-1")
+                        .status(new TaskStatus(TaskState.TASK_STATE_COMPLETED, twoPartMessage, null))
+                        .build()));
+        A2aRemoteAgentOutboundAdapter adapter = new A2aRemoteAgentOutboundAdapter(id -> transport);
+
+        List<RemoteAgentInvocationService.RemoteAgentResult> results = adapter.invoke(
+                new RemoteAgentInvocationService.RemoteAgentRequest(
+                        "remote-agent", null, null, "tool-call-1", "parent-task", "parent-ctx",
+                        "conversation-1", "hello", Map.of()),
+                null);
+
+        assertThat(results).extracting(RemoteAgentInvocationService.RemoteAgentResult::text)
+                .containsExactly("a\nb", "a\nb", "a\nb");
+    }
+
     @Test
     void resumeIncludesExistingRemoteTaskAndMapsCompletedStatus() {
         RecordingTransport transport = new RecordingTransport(List.of(

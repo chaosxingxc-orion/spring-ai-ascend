@@ -56,7 +56,7 @@ class A2aNorthboundSinkTest {
         }
 
         AgentEmitter emitter = mock(AgentEmitter.class);
-        sink.flush(emitter, "task-1-trajectory");
+        sink.flush(emitter, "task-1-trajectory", false);
 
         ArgumentCaptor<List> partsCaptor = ArgumentCaptor.forClass(List.class);
         verify(emitter).addArtifact(partsCaptor.capture(), eq("task-1-trajectory"), eq("agent-trajectory"),
@@ -84,7 +84,7 @@ class A2aNorthboundSinkTest {
         sink.accept(event(CAPACITY, Kind.RUN_END));
 
         AgentEmitter emitter = mock(AgentEmitter.class);
-        sink.flush(emitter, "task-1-trajectory");
+        sink.flush(emitter, "task-1-trajectory", false);
 
         ArgumentCaptor<List> partsCaptor = ArgumentCaptor.forClass(List.class);
         verify(emitter).addArtifact(partsCaptor.capture(), eq("task-1-trajectory"), eq("agent-trajectory"),
@@ -108,7 +108,7 @@ class A2aNorthboundSinkTest {
         sink.accept(event(1, Kind.RUN_END));
 
         AgentEmitter emitter = mock(AgentEmitter.class);
-        sink.flush(emitter, "task-1-trajectory");
+        sink.flush(emitter, "task-1-trajectory", false);
 
         ArgumentCaptor<List> partsCaptor = ArgumentCaptor.forClass(List.class);
         verify(emitter).addArtifact(partsCaptor.capture(), eq("task-1-trajectory"), eq("agent-trajectory"),

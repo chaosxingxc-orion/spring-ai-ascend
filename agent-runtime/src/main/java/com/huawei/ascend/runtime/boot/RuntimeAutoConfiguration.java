@@ -302,8 +302,16 @@ public class RuntimeAutoConfiguration {
      * applicationTaskExecutor backs off when any Executor bean exists, so a broad
      * Executor bean here would silently disable the application's default task
      * executor (including the virtual-thread executor) or vice versa.
+     *
+     * <p>The drain runs in the {@link SmartLifecycle} stop phases, not at bean
+     * destroy: Spring finishes every lifecycle {@code stop()} — including the
+     * phase-0 {@link AgentRuntimeLifecycle} that calls {@code handler.stop()} —
+     * before any destroy callback, so a destroy-time drain would let in-flight
+     * executions run against handlers whose resources are already released.
+     * Stop order by phase: web server stops accepting requests, this drain
+     * waits out the in-flight executions, then the handlers release.
      */
-    public static final class A2aServerExecutor implements AutoCloseable {
+    public static final class A2aServerExecutor implements SmartLifecycle, AutoCloseable {
         private static final AtomicInteger THREAD_SEQ = new AtomicInteger();
         private static final java.time.Duration DRAIN_GRACE = java.time.Duration.ofSeconds(10);
         private final ExecutorService executor = Executors.newCachedThreadPool(runnable -> {
@@ -311,11 +319,48 @@ public class RuntimeAutoConfiguration {
             thread.setDaemon(true);
             return thread;
         });
+        private volatile boolean running;
 
         public ExecutorService executor() { return executor; }
 
         @Override
+        public void start() {
+            // Participating in start is what makes the container call stop()
+            // during the lifecycle stop phases.
+            running = true;
+        }
+
+        @Override
+        public void stop() {
+            running = false;
+            drain();
+        }
+
+        @Override
+        public boolean isRunning() {
+            return running;
+        }
+
+        @Override
+        public int getPhase() {
+            // Above AgentRuntimeLifecycle (phase 0) and below the web-server
+            // phases, so on shutdown the drain runs after dispatch stopped and
+            // before the handlers release their resources.
+            return 1024;
+        }
+
+        @Override
         public void close() {
+            // Fallback for non-lifecycle usage (direct construction, plain bean
+            // destroy); after a lifecycle stop() the pool is already terminated
+            // and this returns immediately.
+            drain();
+        }
+
+        private void drain() {
+            if (executor.isTerminated()) {
+                return;
+            }
             // Drain, don't interrupt: dispatch upstream has already stopped, so
             // in-flight executions get a grace window to finish before the
             // force-stop fallback.
@@ -341,6 +386,7 @@ public class RuntimeAutoConfiguration {
         private final RemoteAgentCatalog catalog;
         private final ExecutorService executor;
         private final AtomicBoolean running = new AtomicBoolean();
+        private volatile java.util.concurrent.Future<?> refreshLoop;
 
         RemoteAgentCatalogRefresher(RemoteAgentCatalog catalog, ExecutorService executor) {
             this.catalog = catalog;
@@ -350,7 +396,7 @@ public class RuntimeAutoConfiguration {
         @Override
         public void start() {
             if (running.compareAndSet(false, true)) {
-                executor.execute(this::run);
+                refreshLoop = executor.submit(this::run);
             }
         }
 
@@ -373,6 +419,12 @@ public class RuntimeAutoConfiguration {
         @Override
         public void stop() {
             running.set(false);
+            // The loop sleeps up to 5s between refreshes on the shared pool;
+            // interrupt it so it does not hold the pool drain for that long.
+            java.util.concurrent.Future<?> loop = refreshLoop;
+            if (loop != null) {
+                loop.cancel(true);
+            }
         }
 
         @Override
