@@ -16,7 +16,7 @@ import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
-import com.openjiuwen.harness.rails.ExternalMemoryRail;
+import com.openjiuwen.harness.rails.memory.ExternalMemoryRail;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;

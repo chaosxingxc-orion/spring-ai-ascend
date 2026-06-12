@@ -31,14 +31,6 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Install vendored OpenJiuwen agent-core-java
-        # Temporary CI bridge until com.openjiuwen:agent-core-java:0.1.12 is
-        # available from an authenticated or public Maven repository.
-        run: |
-          ./mvnw -B -ntp -N org.apache.maven.plugins:maven-install-plugin:3.1.3:install-file \
-            -Dfile=third_party/openjiuwen/agent-core-java-0.1.12.jar \
-            -DpomFile=third_party/openjiuwen/agent-core-java-0.1.12.pom
-
       - name: Maven verify (compile + unit + integration tests)
         # NOTE: no -T 1C here. Spring Boot 4.0.5 is not thread-safe at
         # SpringApplication.run() init; -T 1C boots module ITs concurrently in

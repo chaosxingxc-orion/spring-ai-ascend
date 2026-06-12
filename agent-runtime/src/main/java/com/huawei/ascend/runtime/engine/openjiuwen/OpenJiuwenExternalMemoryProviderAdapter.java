@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * OpenJiuwen-local adapter from the runtime-neutral {@link MemoryProvider} to
@@ -15,7 +16,7 @@ import java.util.Objects;
  * later moves memory to a split module, only this adapter and the OpenJiuwen
  * wiring should change; the runtime SPI must remain OpenJiuwen-free.
  */
-final class OpenJiuwenExternalMemoryProviderAdapter implements com.openjiuwen.core.memory.external.MemoryProvider {
+final class OpenJiuwenExternalMemoryProviderAdapter extends com.openjiuwen.core.memory.external.MemoryProvider {
 
     private static final int DEFAULT_PREFETCH_LIMIT = 5;
     private static final String PROVIDER_NAME = "runtime_memory";
@@ -37,7 +38,7 @@ final class OpenJiuwenExternalMemoryProviderAdapter implements com.openjiuwen.co
     }
 
     @Override
-    public String getName() {
+    public String name() {
         return PROVIDER_NAME;
     }
 
@@ -47,9 +48,10 @@ final class OpenJiuwenExternalMemoryProviderAdapter implements com.openjiuwen.co
     }
 
     @Override
-    public void initialize(Map<String, Object> scope) {
+    public CompletableFuture<Void> initialize(Map<String, Object> scope) {
         delegate.init(context);
         initialized = true;
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -58,18 +60,18 @@ final class OpenJiuwenExternalMemoryProviderAdapter implements com.openjiuwen.co
     }
 
     @Override
-    public String handleToolCall(String toolName, Map<String, Object> arguments) {
-        return "{\"error\":\"runtime memory provider exposes no OpenJiuwen memory tools\"}";
+    public CompletableFuture<String> handleToolCall(String toolName, Map<String, Object> arguments) {
+        return CompletableFuture.completedFuture("{\"error\":\"runtime memory provider exposes no OpenJiuwen memory tools\"}");
     }
 
     @Override
-    public String prefetch(String query, Map<String, Object> scope) {
+    public CompletableFuture<String> prefetch(String query, Map<String, Object> scope) {
         if (query == null || query.isBlank()) {
-            return "";
+            return CompletableFuture.completedFuture("");
         }
         List<MemoryProvider.MemoryHit> hits = delegate.search(context, query, prefetchLimit);
         if (hits.isEmpty()) {
-            return "";
+            return CompletableFuture.completedFuture("");
         }
         StringBuilder builder = new StringBuilder();
         for (MemoryProvider.MemoryHit hit : hits) {
@@ -80,11 +82,11 @@ final class OpenJiuwenExternalMemoryProviderAdapter implements com.openjiuwen.co
                 builder.append("- ").append(hit.content());
             }
         }
-        return builder.toString();
+        return CompletableFuture.completedFuture(builder.toString());
     }
 
     @Override
-    public void syncTurn(String userMessage, String assistantMessage, Map<String, Object> scope) {
+    public CompletableFuture<Void> syncTurn(String userMessage, String assistantMessage, Map<String, Object> scope) {
         List<MemoryProvider.MemoryRecord> records = new ArrayList<>();
         if (hasText(userMessage)) {
             records.add(new MemoryProvider.MemoryRecord(null, "user", userMessage, Map.of("source", SOURCE)));
@@ -95,6 +97,7 @@ final class OpenJiuwenExternalMemoryProviderAdapter implements com.openjiuwen.co
         if (!records.isEmpty()) {
             delegate.save(context, records);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

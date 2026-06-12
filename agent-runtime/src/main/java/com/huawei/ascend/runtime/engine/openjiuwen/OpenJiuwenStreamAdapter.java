@@ -5,7 +5,7 @@ import java.util.Map;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.openjiuwen.core.session.interaction.InteractionOutput;
 import com.openjiuwen.core.session.stream.OutputSchema;
-import com.openjiuwen.core.singleagent.interrupt.InterruptRequest;
+import com.openjiuwen.core.single_agent.interrupt.InterruptRequest;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,8 +55,8 @@ public class OpenJiuwenStreamAdapter {
         for (Object item : states) {
             Object payload = item instanceof OutputSchema outputSchema ? outputSchema.getPayload() : item;
             Object value = payload instanceof InteractionOutput interactionOutput ? interactionOutput.getValue() : payload;
-            if (value instanceof InterruptRequest request && isRemoteInvocation(request.getContext())) {
-                return request.getContext();
+            if (value instanceof InterruptRequest request && isRemoteInvocation(request.getPayloadSchema())) {
+                return request.getPayloadSchema();
             }
         }
         return Map.of();

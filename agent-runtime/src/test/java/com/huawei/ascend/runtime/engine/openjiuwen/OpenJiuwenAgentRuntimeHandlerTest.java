@@ -29,7 +29,7 @@ import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.core.singleagent.rail.ModelCallInputs;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
-import com.openjiuwen.harness.rails.ExternalMemoryRail;
+import com.openjiuwen.harness.rails.memory.ExternalMemoryRail;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -211,11 +211,11 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         OpenJiuwenExternalMemoryProviderAdapter adapter =
                 new OpenJiuwenExternalMemoryProviderAdapter(context, memoryProvider);
 
-        adapter.initialize(Map.of("scope_id", "order-42"));
-        String prefetch = adapter.prefetch("ping", Map.of("scope_id", "order-42"));
-        adapter.syncTurn("hello", "world", Map.of("scope_id", "order-42"));
+        adapter.initialize(Map.of("scope_id", "order-42")).join();
+        String prefetch = adapter.prefetch("ping", Map.of("scope_id", "order-42")).join();
+        adapter.syncTurn("hello", "world", Map.of("scope_id", "order-42")).join();
 
-        assertThat(adapter.getName()).isEqualTo("runtime_memory");
+        assertThat(adapter.name()).isEqualTo("runtime_memory");
         assertThat(adapter.isInitialized()).isTrue();
         assertThat(memoryProvider.initialized).isTrue();
         assertThat(memoryProvider.searchedQuery).isEqualTo("ping");

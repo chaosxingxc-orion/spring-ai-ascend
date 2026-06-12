@@ -1,22 +1,17 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
 import com.openjiuwen.core.foundation.llm.schema.ToolCall;
-import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.interaction.InteractiveInput;
 import com.openjiuwen.core.session.stream.StreamMode;
 import com.openjiuwen.core.singleagent.BaseAgent;
-import com.openjiuwen.core.singleagent.interrupt.ToolInterruptException;
-import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
-import com.openjiuwen.core.singleagent.rail.ToolCallInputs;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
+import com.openjiuwen.harness.rails.interrupt.InterruptDecision;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -55,19 +50,14 @@ class OpenJiuwenRemoteToolInstallerTest {
                 .name("a2a_remote_remote_planner")
                 .arguments("{\"message\":\"hello remote\"}")
                 .build();
-        AgentCallbackContext callbackContext = AgentCallbackContext.builder()
-                .session(AgentSessionApi.create("session-1", null, null))
-                .inputs(ToolCallInputs.builder()
-                        .toolCall(toolCall)
-                        .toolName("a2a_remote_remote_planner")
-                        .toolArgs(toolCall.getArguments())
-                        .build())
-                .build();
+        InterruptDecision decision = rail.resolveInterrupt(null, toolCall, null, Map.of());
 
-        ToolInterruptException error = assertThrows(ToolInterruptException.class,
-                () -> rail.beforeToolCall(callbackContext));
-
-        assertThat(error.getRequest().getContext())
+        assertThat(decision).isInstanceOf(InterruptDecision.InterruptResult.class);
+        Object request = ((InterruptDecision.InterruptResult) decision).getRequest();
+        assertThat(request).isInstanceOf(com.openjiuwen.core.single_agent.interrupt.InterruptRequest.class);
+        Map<String, Object> payloadSchema =
+                ((com.openjiuwen.core.single_agent.interrupt.InterruptRequest) request).getPayloadSchema();
+        assertThat(payloadSchema)
                 .containsEntry("runtime.remote.kind", "REMOTE_AGENT_INVOCATION")
                 .containsEntry("runtime.remote.agentId", "remote-planner")
                 .containsEntry("runtime.remote.toolName", "a2a_remote_remote_planner")
@@ -75,8 +65,7 @@ class OpenJiuwenRemoteToolInstallerTest {
                 .containsEntry("runtime.remote.parentTaskId", "task-1")
                 .containsEntry("runtime.remote.parentContextId", "ctx-1")
                 .containsEntry("runtime.remote.localConversationId", "conversation-1");
-        Map<String, Object> arguments =
-                (Map<String, Object>) error.getRequest().getContext().get("runtime.remote.arguments");
+        Map<String, Object> arguments = (Map<String, Object>) payloadSchema.get("runtime.remote.arguments");
         assertThat(arguments).containsEntry("message", "hello remote");
     }
 
@@ -90,28 +79,13 @@ class OpenJiuwenRemoteToolInstallerTest {
                 .name("a2a_remote_remote_planner")
                 .arguments("{\"message\":\"hello remote\"}")
                 .build();
-        ToolCallInputs inputs = ToolCallInputs.builder()
-                .toolCall(toolCall)
-                .toolName("a2a_remote_remote_planner")
-                .toolArgs(toolCall.getArguments())
-                .build();
         InteractiveInput resumeInput = new InteractiveInput();
         resumeInput.update("tool-call-1", "{\"ok\":true}");
-        AgentCallbackContext callbackContext = AgentCallbackContext.builder()
-                .session(AgentSessionApi.create("session-1", null, null))
-                .inputs(inputs)
-                .extra(new java.util.LinkedHashMap<>(Map.of(
-                        com.openjiuwen.core.singleagent.interrupt.ToolInterruptionState.RESUME_USER_INPUT_KEY,
-                        resumeInput)))
-                .build();
 
-        rail.beforeToolCall(callbackContext);
+        InterruptDecision decision = rail.resolveInterrupt(null, toolCall, resumeInput, Map.of());
 
-        assertThat(callbackContext.getExtra()).containsEntry("_skip_tool", Boolean.TRUE);
-        assertThat(inputs.getToolResult()).isEqualTo("{\"ok\":true}");
-        assertThat(inputs.getToolMsg()).isNotNull();
-        assertThat(inputs.getToolMsg().getToolCallId()).isEqualTo("tool-call-1");
-        assertThat(inputs.getToolMsg().getContent()).isEqualTo("{\"ok\":true}");
+        assertThat(decision).isInstanceOf(InterruptDecision.RejectResult.class);
+        assertThat(((InterruptDecision.RejectResult) decision).getToolResult()).contains("{\"ok\":true}");
     }
 
     private static RemoteAgentCardCache.RemoteAgentToolSpec toolSpec() {

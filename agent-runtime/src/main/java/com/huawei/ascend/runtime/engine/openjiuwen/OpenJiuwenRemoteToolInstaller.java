@@ -32,7 +32,7 @@ public final class OpenJiuwenRemoteToolInstaller {
         }
         for (RemoteAgentCardCache.RemoteAgentToolSpec spec : specs) {
             Tool tool = new PlaceholderRemoteAgentTool(toCard(spec));
-            Runner.resourceMgr().addTool(tool, agent.getCard().getId(), true);
+            Runner.resourceMgr().addTool(tool, agent.getCard().getId());
             if (agent.getAbilityManager().get(spec.toolName()) == null) {
                 agent.getAbilityManager().add(tool.getCard());
             }

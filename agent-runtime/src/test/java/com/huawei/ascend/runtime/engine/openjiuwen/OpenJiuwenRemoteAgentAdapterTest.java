@@ -8,7 +8,7 @@ import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.openjiuwen.core.session.interaction.InteractionOutput;
 import com.openjiuwen.core.session.interaction.InteractiveInput;
 import com.openjiuwen.core.session.stream.OutputSchema;
-import com.openjiuwen.core.singleagent.interrupt.ToolCallInterruptRequest;
+import com.openjiuwen.core.single_agent.interrupt.ToolCallInterruptRequest;
 import java.util.List;
 import java.util.Map;
 import org.a2aproject.sdk.spec.Message;
@@ -61,10 +61,9 @@ class OpenJiuwenRemoteAgentAdapterTest {
     @Test
     void streamAdapterMapsOpenJiuwenInterruptStateToRemoteInvocation() {
         ToolCallInterruptRequest request = new ToolCallInterruptRequest();
-        request.setInterruptId("tool-call-1");
         request.setToolCallId("tool-call-1");
         request.setToolName("a2a_remote_remote_agent");
-        request.setContext(Map.of(
+        request.setPayloadSchema(Map.of(
                 "runtime.remote.kind", "REMOTE_AGENT_INVOCATION",
                 "runtime.remote.agentId", "remote-agent",
                 "runtime.remote.toolName", "a2a_remote_remote_agent",
