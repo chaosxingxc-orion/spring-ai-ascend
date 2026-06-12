@@ -58,11 +58,11 @@ remains closed.
 
 | # | Family ID | Title | RC Occurrences | Cleanup |
 |---|---|---|---:|---|
-| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 16 (engineport-frame-authority-convergence moved 8 baselines in lockstep after the ADR-0158 EnginePort/EngineeringFrame regen) | ⚠️ partial |
+| 1 | F-numeric-drift | Numeric Drift Across Authority Surfaces | 17 (agent-runtime-outside-in-hardening — retiring schema enforcer E13 moved enforcer_rows/graph/workspace baselines in lockstep with the regenerated projections) | ⚠️ partial |
 | 2 | F-deleted-module-name-leakage | Deleted-Module-Name Leakage After Refactor | 6 | ✅ structurally addressed (rc17) |
 | 3 | F-authority-surface-path-drift | Authority-Surface Path Drift After Refactor | 11 (engineport-frame-authority-convergence — old engine.orchestration.spi re-homed to bus.spi.engine per ADR-0158; authority-surface lag) | ⚠️ partial |
 | 4 | F-kernel-vs-implementation-drift | Prevention Rule Kernel vs Implementation Drift | 6 (rc6, rc7, rc11, rc15, rc35-second-pass, rc36) | ⚠️ partial |
-| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 17 (engineport-frame-authority-convergence — generated facts/contract/product/workspace surfaces divergent at the d66749b engine-boundary merge tip; reconciled by regenerating all derived surfaces from single edited sources) | ✅ structurally addressed (Rule 122/123/124 added for proposal documents; rc55 adds ADR-0140..0145 L1 canonical materialization closure) |
+| 5 | F-cross-authority-agreement | Cross-Authority Surface Disagreement | 18 (agent-runtime-outside-in-hardening — L1 logical.md asserted adapter protocol-neutrality while RuntimePackageBoundaryTest whitelisted the A2A spec dependency the code exercised; closed by the neutral RuntimeMessage carrier + inverting the ArchUnit whitelist into a prohibition) | ✅ structurally addressed (Rule 122/123/124 added for proposal documents; rc55 adds ADR-0140..0145 L1 canonical materialization closure) |
 | 6 | F-deferred-clause-orphan | CLAUDE-deferred.md Orphan | 4 (rc12, rc15, rc16, rc36) | ⚠️ partial |
 | 7 | F-shadow-corpus-prose-staleness | Shadow Corpus Prose Staleness (gate/rules/) | 6 | ⚠️ partial |
 | 8 | F-terminal-verb-overclaim | Active Kernel Terminal Verb vs Deferred Decision | 5 (rc55 reopen — agent-service/ARCHITECTURE.md §runtime/resilience present-tense prose flanking deferred Rule R-K.c citation) | 🟡 monitoring (rc55 reopens from `closed` because the rc15 + rc53 closures did not cover narrative prose within agent-*/ARCHITECTURE.md flanking deferred-clause citations; cool-down required: 3 subsequent waves) |
@@ -1661,9 +1661,9 @@ Open residual: W6.a..W6.d sub-waves + W7 retirements are gated by post-W5 soak (
 
 **Status: partial** (Wave 1 of the Fact-Layer plan ships the structural foundation; real extractors land Waves 2-4; FunctionPoint thicker schema lands W5; sunset of grandfathered factual `saa.*` fields runs W6; promotion to `closed` requires one release cycle with zero new occurrences plus Rule G-15.c blocking plus the 2026-07-31 sunset date passing.)
 
-First observed: rc5. Last observed: post-W5 L1 Feature Registry (the 2026-05-27 expert review for AI-unbiased L1 understanding identifies the same pattern at the function-point / FEAT- level).
+First observed: rc5. Last observed: agent-runtime-outside-in-hardening (2026-06-12 — README documented config keys with no `@ConfigurationProperties` binding; README/pom/module-metadata still carried the retired run-owning narrative; quickstart/L1 referenced deleted classes and an undeclared agent-bus dependency; contract-catalog placed `AgentCardProvider` in the wrong package; the runtime library jar shipped the previous module generation's `application.yml`/`logback-spring.xml`/Flyway migrations with dead config keys).
 
-Occurrences: rc5, rc7, rc12, rc14, rc15, rc17, rc18, rc19, rc35, rc40, rc48, rc54, rc55, post-W5 L1 Feature Registry.
+Occurrences: rc5, rc7, rc12, rc14, rc15, rc17, rc18, rc19, rc35, rc40, rc48, rc54, rc55, post-W5 L1 Feature Registry, pr-172-176-177-postmerge-closure, agent-runtime-outside-in-hardening.
 
 Root cause: factual claims about code shape (`saa.devPaths`, `saa.verificationTestFqns`, `saa.verificationCommands`, `saa.sourceFile`, contract-catalog SPI counts, ModelGateway authority text, root `ARCHITECTURE.md` module counts) are hand-authored as prose or DSL string properties. The code that owns these facts (Java SPI interfaces, OpenAPI operations, test classes, `pom.xml` module list) moves on its own cadence. Without a deterministic extractor binding the two, the hand-authored layer drifts on every refactor — `F-numeric-drift` recurred 14+ times rc5 through rc40; `F-deleted-module-name-leakage` required two waves of sweeping; the 2026-05-27 expert review for L1 Feature Registry identifies the same pattern at the function-point / FEAT- level (`function-points.dsl` carries only thin metadata; `features.dsl` hand-authors test FQNs that should resolve from a test extractor).
 
