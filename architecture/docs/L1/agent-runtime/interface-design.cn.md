@@ -240,7 +240,12 @@ AgentExecutionContext.getAgentStateKey()
 
 业务方只需要保证 `agentStateKey` 稳定。OpenJiuwen 内部保存哪些字段、如何序列化、何时恢复，交给 OpenJiuwen `Runner` / `Checkpointer` 处理。
 
-当前 sample 采用 OpenJiuwen 标准方式配置 checkpointer：默认使用 `InMemoryCheckpointer`，可通过配置切换到 `RedisCheckpointer`。OpenJiuwen adapter 不需要因为 checkpointer 后端变化而修改。
+当前 OpenJiuwen adapter 提供 `OpenJiuwenCheckpointerConfigurer` 作为启动期配置入口：
+
+- `setDefault(Checkpointer)`：业务 wiring 自行创建 OpenJiuwen 原生 checkpointer，并交给 runtime.engine.openjiuwen 包统一设置到 `CheckpointerFactory`。
+- `setInMemoryDefault()`：本地开发和轻量 E2E 使用的默认路径。
+
+该入口只属于 OpenJiuwen adapter，不进入公共 `engine.spi`。Redis、持久化或业务自定义 checkpointer 都应在业务 / examples wiring 中实例化，然后通过 `setDefault(...)` 注册；不要在每次 `execute(...)` 或每个请求里切换全局 checkpointer。
 
 ### 4.5 `OpenJiuwenStreamAdapter`
 

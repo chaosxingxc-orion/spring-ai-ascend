@@ -310,11 +310,12 @@ export SAA_SAMPLE_LLM_MODEL="gpt-5.4-mini"
 export SAA_SAMPLE_A2A_BASE_URL="http://localhost:18080"
 ```
 
-The openJiuwen sample creates both native checkpointer candidates during
-configuration. It sets `InMemoryCheckpointer` as the default path for local E2E
-runs. Set `SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis` and provide
-`SAA_SAMPLE_OPENJIUWEN_REDIS_URL` to switch the same runtime wiring to the
-openJiuwen `RedisCheckpointer` path.
+The openJiuwen sample configures the native checkpointer at startup through the
+runtime OpenJiuwen checkpointer configurer. It sets `InMemoryCheckpointer` as
+the default path for local E2E runs. Set
+`SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER=redis` and provide
+`SAA_SAMPLE_OPENJIUWEN_REDIS_URL` to create and install the openJiuwen
+`RedisCheckpointer` path.
 
 The sample memory provider defaults to the local in-memory implementation. Set
 `sample.memory.provider=mem0` or `SAA_SAMPLE_MEMORY_PROVIDER=mem0` to use the

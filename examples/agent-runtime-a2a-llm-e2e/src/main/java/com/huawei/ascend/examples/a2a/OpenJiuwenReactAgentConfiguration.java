@@ -3,12 +3,11 @@ package com.huawei.ascend.examples.a2a;
 import com.huawei.ascend.examples.a2a.memory.Mem0RestMemoryProvider;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenCheckpointerConfigurer;
 import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
 import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.session.checkpointer.Checkpointer;
-import com.openjiuwen.core.session.checkpointer.CheckpointerFactory;
-import com.openjiuwen.core.session.checkpointer.InMemoryCheckpointer;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
@@ -35,12 +34,12 @@ public class OpenJiuwenReactAgentConfiguration {
             String checkpointerType,
             @Value("${sample.openjiuwen.redis-url:${SAA_SAMPLE_OPENJIUWEN_REDIS_URL:redis://localhost:6379}}")
             String redisUrl) {
-        Checkpointer inMemoryCheckpointer = new InMemoryCheckpointer();
+        if (!isRedisCheckpointer(checkpointerType)) {
+            return OpenJiuwenCheckpointerConfigurer.setInMemoryDefault();
+        }
         Checkpointer redisCheckpointer = new RedisCheckpointer.Provider()
                 .create(Map.of("connection", Map.of("url", redisUrl)));
-        Checkpointer selected = isRedisCheckpointer(checkpointerType) ? redisCheckpointer : inMemoryCheckpointer;
-        CheckpointerFactory.setDefaultCheckpointer(selected);
-        return selected;
+        return OpenJiuwenCheckpointerConfigurer.setDefault(redisCheckpointer);
     }
 
     private static boolean isRedisCheckpointer(String checkpointerType) {
