@@ -172,15 +172,41 @@ authenticate callers and strip/re-inject `X-Tenant-Id`, otherwise the header is
 client-controlled. Requests without the header are attributed to
 `agent-runtime.access.a2a.default-tenant-id`.
 
-### Logging
+## Operations: log correlation and trajectory delivery
 
-The library ships no logging configuration; the host application owns it. The
-runtime puts the A2A `contextId`/`taskId` into the SLF4J MDC — include them in
-the host's log pattern to make one invocation's lines greppable, e.g.:
+The library ships no logging configuration; the host application owns it.
 
+### MDC correlation keys
+
+`A2aAgentExecutor` scopes four MDC keys around every A2A execution and clears them when the execution finishes:
+
+- `contextId` — the A2A conversation/session
+- `taskId` — one call
+- `tenantId` — the owning tenant (transport-authenticated value outranks client-declared)
+- `agentId` — the handler that served the call
+
+`agent-runtime` is consumed as a library, so the keys only become visible when the **host application's** logging pattern renders them. Recommended pattern fragment (keep all four keys; the convention is `ctx=… task=… tenant=… agent=…`):
+
+```yaml
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] ctx=%X{contextId} task=%X{taskId} tenant=%X{tenantId} agent=%X{agentId} %logger{36} - %msg%n"
 ```
-%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] [ctx=%X{contextId:-} task=%X{taskId:-}] - %msg%n
+
+or as a reusable logback include fragment (`logback-agent-runtime-correlation.xml` in the host app, pulled in with `<include resource="…"/>`):
+
+```xml
+<included>
+  <property name="AGENT_RUNTIME_CORRELATION"
+            value="ctx=%X{contextId} task=%X{taskId} tenant=%X{tenantId} agent=%X{agentId}"/>
+</included>
 ```
+
+MDC is thread-local: framework worker threads (e.g. streaming rails) do not inherit it, which is why trajectory sink WARN lines inline their correlation ids themselves instead of relying on the pattern. There are no `traceId`/`spanId` MDC keys — span correlation lives on the trajectory events.
+
+### Northbound trajectory buffer cap
+
+Opt-in northbound trajectory delivery (`trajectory.northbound=true` request metadata) buffers at most **10,000 events per invocation** and sheds load beyond that instead of blocking the run. Shedding is visible to the caller: the flushed `agent-trajectory` artifact ends with a `{kind: "TRUNCATED", droppedCount: N}` data part, and the last slots are reserved for the terminal kinds (`RUN_END`/`ERROR`) so a cut trajectory still closes with its outcome. The wire contract lives in `docs/contracts/contract-catalog.md` (*Northbound trajectory wire contract*).
 
 ## Java extension points
 

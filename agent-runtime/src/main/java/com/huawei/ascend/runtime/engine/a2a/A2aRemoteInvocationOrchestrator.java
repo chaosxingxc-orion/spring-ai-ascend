@@ -43,8 +43,9 @@ final class A2aRemoteInvocationOrchestrator {
 
     void invokeRemote(RequestContext requestContext, AgentExecutionResult.RemoteInvocation invocation,
             AgentEmitter emitter, String taskId, String artifactId, AtomicBoolean firstArtifact,
-            AtomicBoolean cancelled, LocalResume resume) {
+            AtomicBoolean cancelled, LocalResume resume, Runnable beforeTerminal) {
         if (invocationService == null) {
+            beforeTerminal.run();
             emitter.fail(A2aAgentExecutor.failureMessage(emitter, "REMOTE_NOT_CONFIGURED",
                     "remote A2A invocation is not configured", false));
             return;
@@ -53,12 +54,13 @@ final class A2aRemoteInvocationOrchestrator {
                 invocationService.invoke(invocation,
                         result -> parentProjector.projectRemoteProgress(result, emitter));
         handleRemoteResults(requestContext, invocation, results, emitter, taskId, artifactId, firstArtifact,
-                cancelled, resume);
+                cancelled, resume, beforeTerminal);
     }
 
     void continueRemote(RequestContext ctx, AgentEmitter emitter, String taskId, String artifactId,
-            AtomicBoolean firstArtifact, AtomicBoolean cancelled, LocalResume resume) {
+            AtomicBoolean firstArtifact, AtomicBoolean cancelled, LocalResume resume, Runnable beforeTerminal) {
         if (invocationService == null) {
+            beforeTerminal.run();
             emitter.fail(A2aAgentExecutor.failureMessage(emitter, "REMOTE_NOT_CONFIGURED",
                     "remote A2A invocation is not configured", false));
             return;
@@ -67,6 +69,7 @@ final class A2aRemoteInvocationOrchestrator {
         try {
             route = parentProjector.remoteRoute(ctx.getTask());
         } catch (IllegalArgumentException error) {
+            beforeTerminal.run();
             emitter.fail(A2aAgentExecutor.failureMessage(
                     emitter, "REMOTE_ROUTE_METADATA_MISSING", error.getMessage(), false));
             return;
@@ -76,7 +79,7 @@ final class A2aRemoteInvocationOrchestrator {
                         result -> parentProjector.projectRemoteProgress(result, emitter));
         AgentExecutionResult.RemoteInvocation invocation = parentProjector.remoteInvocation(route);
         handleRemoteResults(ctx, invocation, results, emitter, taskId, artifactId, firstArtifact, cancelled,
-                resume);
+                resume, beforeTerminal);
     }
 
     /** Propagates a local cancel to the remote task a continuation is parked on. Best-effort. */
@@ -90,7 +93,7 @@ final class A2aRemoteInvocationOrchestrator {
                     route.remoteAgentId(), route.remoteTaskId(), route.remoteContextId()));
         } catch (RuntimeException error) {
             LOG.warn("[A2A] remote cancel propagation failed taskId={} errorClass={} message={}",
-                    taskId, error.getClass().getSimpleName(), error.getMessage());
+                    taskId, error.getClass().getSimpleName(), A2aLogMasking.mask(error.getMessage()));
         }
     }
 
@@ -101,16 +104,23 @@ final class A2aRemoteInvocationOrchestrator {
     private void handleRemoteResults(RequestContext requestContext,
             AgentExecutionResult.RemoteInvocation invocation,
             List<RemoteAgentInvocationService.RemoteAgentResult> results, AgentEmitter emitter, String taskId,
-            String artifactId, AtomicBoolean firstArtifact, AtomicBoolean cancelled, LocalResume resume) {
+            String artifactId, AtomicBoolean firstArtifact, AtomicBoolean cancelled, LocalResume resume,
+            Runnable beforeTerminal) {
         A2aParentTaskProjector.RemoteOutcome outcome =
                 parentProjector.projectRemoteOutcome(invocation, results, emitter);
         if (outcome.waitingForRemoteInput()) {
+            // The task parks on remote INPUT_REQUIRED and this invocation's sinks close on
+            // return — flush what this leg collected or it is lost before the continuation.
+            beforeTerminal.run();
             return;
         }
         AgentExecutionContext resumeContext =
                 parentProjector.remoteResumeContext(requestContext, agentId, invocation, outcome.toolResult());
         RouteDecision decision = resume.consume(resumeContext, emitter, taskId, artifactId, firstArtifact,
                 cancelled);
+        // The trajectory now spans every leg through the resume's RUN_END; deliver it
+        // northbound while the task can still accept artifacts, before the terminal lands.
+        beforeTerminal.run();
         if (decision.terminalAction() != null) {
             decision.terminalAction().run();
         } else if (!decision.terminalRouted()) {

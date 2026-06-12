@@ -53,6 +53,8 @@ public final class A2aAgentExecutor implements AgentExecutor {
     private static final Logger LOG = LoggerFactory.getLogger(A2aAgentExecutor.class);
     private static final String MDC_CONTEXT_ID = "contextId";
     private static final String MDC_TASK_ID = "taskId";
+    private static final String MDC_TENANT_ID = "tenantId";
+    private static final String MDC_AGENT_ID = "agentId";
 
     /** Version of the structured-error payload carried on the failure DataPart/metadata. */
     private static final String ERROR_SCHEMA_VERSION = "1";
@@ -128,12 +130,21 @@ public final class A2aAgentExecutor implements AgentExecutor {
         String agentId = handler.agentId();
         MDC.put(MDC_CONTEXT_ID, sessionId != null ? sessionId : "");
         MDC.put(MDC_TASK_ID, taskId != null ? taskId : "");
+        MDC.put(MDC_TENANT_ID, metadata(ctx, TENANT_STATE_KEY, "default"));
+        MDC.put(MDC_AGENT_ID, agentId != null ? agentId : "");
         // Per-task local state (this bean is a shared singleton - never hoist to a field).
         AtomicBoolean firstArtifact = new AtomicBoolean(true);
         String artifactId = taskId + "-response";
         String trajectoryArtifactId = taskId + "-trajectory";
         AtomicBoolean cancelled = new AtomicBoolean(false);
-        TrajectoryFlow flow = TrajectoryFlow.NONE;
+        // Holder, not a local: the resume legs re-open the flow from inside the remote
+        // orchestration callback, and the catch/finally must see the latest wiring.
+        AtomicReference<TrajectoryFlow> flowRef = new AtomicReference<>(TrajectoryFlow.NONE);
+        // Northbound delivery is deferred until the run converges (including any remote
+        // legs) so the artifact carries the resume legs through their RUN_END; it must
+        // still land before the terminal state while the task can accept artifacts.
+        Runnable northboundDelivery = () ->
+                A2aTrajectorySupport.deliverNorthbound(flowRef.get(), emitter, trajectoryArtifactId, taskId);
         try {
             LOG.info("[A2A] execute start taskId={} sessionId={} agentId={}", taskId, sessionId, agentId);
 
@@ -148,29 +159,32 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
             if (remote.isRemoteContinuation(ctx)) {
                 remote.continueRemote(ctx, emitter, taskId, artifactId, firstArtifact, cancelled,
-                        this::consumeForResume);
+                        resumeConsumer(ctx, flowRef), northboundDelivery);
                 LOG.info("[A2A] execute finish taskId={} durationMs={}",
                         taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
                 return;
             }
 
             AgentExecutionContext context = toExecutionContext(ctx, inputText);
-            flow = trajectory.open(ctx, context, handler);
+            flowRef.set(trajectory.open(ctx, context, handler));
 
             RouteDecision decision = consumeHandler(context, emitter, taskId, artifactId, firstArtifact, true,
                     cancelled);
 
-            // The full trajectory (through RUN_END) is only complete now; deliver it to the caller
-            // before the answer's terminal so it lands while the task can still accept artifacts.
-            A2aTrajectorySupport.deliverNorthbound(flow, emitter, trajectoryArtifactId, taskId);
-
             if (decision.remoteInvocation() != null) {
+                // The orchestrator runs the northbound delivery itself, after the remote leg
+                // and the local resume converge — flushing here would cut the artifact short.
                 remote.invokeRemote(ctx, decision.remoteInvocation(), emitter, taskId, artifactId,
-                        firstArtifact, cancelled, this::consumeForResume);
-            } else if (decision.terminalAction() != null) {
-                decision.terminalAction().run();
-            } else if (!decision.terminalRouted()) {
-                A2aResultRouter.completeDrainedStream(taskId, emitter);
+                        firstArtifact, cancelled, resumeConsumer(ctx, flowRef), northboundDelivery);
+            } else {
+                // The full trajectory (through RUN_END) is only complete now; deliver it to the caller
+                // before the answer's terminal so it lands while the task can still accept artifacts.
+                northboundDelivery.run();
+                if (decision.terminalAction() != null) {
+                    decision.terminalAction().run();
+                } else if (!decision.terminalRouted()) {
+                    A2aResultRouter.completeDrainedStream(taskId, emitter);
+                }
             }
 
             LOG.info("[A2A] execute finish taskId={} durationMs={}",
@@ -187,8 +201,8 @@ public final class A2aAgentExecutor implements AgentExecutor {
             RuntimeErrorCode code = RuntimeErrorCode.classify(e);
             String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             LOG.error("[A2A] execute failed taskId={} code={} errorClass={} message={}",
-                    taskId, code, e.getClass().getSimpleName(), e.getMessage(), e);
-            A2aTrajectorySupport.deliverNorthbound(flow, emitter, trajectoryArtifactId, taskId);
+                    taskId, code, e.getClass().getSimpleName(), A2aLogMasking.mask(e.getMessage()), e);
+            northboundDelivery.run();
             try {
                 emitter.fail(failureMessage(emitter, code.name(), detail, code.retryable()));
                 LOG.info("[A2A] task state=FAILED taskId={}", taskId);
@@ -196,9 +210,11 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 LOG.warn("[A2A] could not emit terminal failure taskId={}", taskId);
             }
         } finally {
-            A2aTrajectorySupport.closeQuietly(flow, taskId);
+            A2aTrajectorySupport.closeQuietly(flowRef.get(), taskId);
             MDC.remove(MDC_CONTEXT_ID);
             MDC.remove(MDC_TASK_ID);
+            MDC.remove(MDC_TENANT_ID);
+            MDC.remove(MDC_AGENT_ID);
         }
     }
 
@@ -214,7 +230,8 @@ public final class A2aAgentExecutor implements AgentExecutor {
             try {
                 handler.cancel(taskId);
             } catch (RuntimeException e) {
-                LOG.warn("[A2A] handler cancel failed taskId={} message={}", taskId, e.getMessage(), e);
+                LOG.warn("[A2A] handler cancel failed taskId={} message={}",
+                        taskId, A2aLogMasking.mask(e.getMessage()), e);
             }
         }
         try {
@@ -222,7 +239,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
             remote.propagateCancel(ctx, taskId);
             LOG.info("[A2A] task state=CANCELED taskId={}", taskId);
         } catch (Exception e) {
-            LOG.error("[A2A] cancel failed taskId={} message={}", taskId, e.getMessage(), e);
+            LOG.error("[A2A] cancel failed taskId={} message={}", taskId, A2aLogMasking.mask(e.getMessage()), e);
         }
         if (execution != null) {
             // Tear the transport down last so the CANCELED state has already
@@ -236,9 +253,18 @@ public final class A2aAgentExecutor implements AgentExecutor {
         }
     }
 
-    private RouteDecision consumeForResume(AgentExecutionContext resumeContext, AgentEmitter emitter,
-            String taskId, String artifactId, AtomicBoolean firstArtifact, AtomicBoolean cancelled) {
-        return consumeHandler(resumeContext, emitter, taskId, artifactId, firstArtifact, false, cancelled);
+    /**
+     * Local re-entry after a remote leg. The resume context is freshly built, so its
+     * trajectory emitter defaults to NOOP — without re-opening, the entire second half
+     * of the run (and the handler's rail registration that keys off a non-NOOP emitter)
+     * would silently vanish from every sink.
+     */
+    private A2aRemoteInvocationOrchestrator.LocalResume resumeConsumer(RequestContext ctx,
+            AtomicReference<TrajectoryFlow> flowRef) {
+        return (resumeContext, emitter, taskId, artifactId, firstArtifact, cancelled) -> {
+            flowRef.set(trajectory.openForResume(ctx, resumeContext, handler, flowRef.get()));
+            return consumeHandler(resumeContext, emitter, taskId, artifactId, firstArtifact, false, cancelled);
+        };
     }
 
     private RouteDecision consumeHandler(AgentExecutionContext context, AgentEmitter emitter, String taskId,

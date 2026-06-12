@@ -456,6 +456,110 @@ class A2aAgentExecutorTest {
         verify(emitter).complete(any());
     }
 
+    /**
+     * Logs are the first triage surface in a multi-tenant deployment: every line inside the
+     * execute window must be attributable to tenant+agent, not only to context+task, and the
+     * keys must not leak into the next task served by the same pooled thread.
+     */
+    @Test
+    void executeScopesFourMdcKeysAndClearsThemAfter() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        java.util.concurrent.atomic.AtomicReference<Map<String, String>> mdcDuringExecute =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        when(handler.execute(any())).thenAnswer(inv -> {
+            mdcDuringExecute.set(org.slf4j.MDC.getCopyOfContextMap());
+            return Stream.of(new Object());
+        });
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        new A2aAgentExecutor(handler).execute(requestContext(), newEmitter());
+
+        assertThat(mdcDuringExecute.get())
+                .containsEntry("contextId", "ctx-1")
+                .containsEntry("taskId", "task-1")
+                .containsEntry("tenantId", "tenant-a")
+                .containsEntry("agentId", "agent-x")
+                .doesNotContainKeys("traceId", "spanId");
+        assertThat(org.slf4j.MDC.get("contextId")).isNull();
+        assertThat(org.slf4j.MDC.get("taskId")).isNull();
+        assertThat(org.slf4j.MDC.get("tenantId")).isNull();
+        assertThat(org.slf4j.MDC.get("agentId")).isNull();
+    }
+
+    /**
+     * A run that goes through a remote tool leg must not lose the second half of its
+     * trajectory: the northbound artifact spans both legs and closes with the resume
+     * leg's RUN_END, and it still lands before the answer's terminal state.
+     */
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void remoteResumeLeg_isCapturedInNorthboundTrajectoryClosedByRunEnd() {
+        TrajectorySettings settings = new TrajectorySettings(true,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        RemoteRequestingTrajectoryHandler handler = new RemoteRequestingTrajectoryHandler();
+        RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of(
+                remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED, "remote done")));
+        AgentEmitter emitter = newEmitter();
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of("trajectory.northbound", "true"));
+
+        new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound), () -> true,
+                settings, List.of()).execute(ctx, emitter);
+
+        ArgumentCaptor<List> partsCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
+        verify(emitter).addArtifact(partsCaptor.capture(), idCaptor.capture(), anyString(), any(), any(), any());
+        assertThat(idCaptor.getValue()).isEqualTo("task-1-trajectory");
+        List<String> kinds = ((List<?>) partsCaptor.getValue()).stream()
+                .map(p -> String.valueOf(((Map<String, Object>) ((DataPart) p).data()).get("kind")))
+                .toList();
+        assertThat(kinds).as("both legs emit their lifecycle").filteredOn("RUN_START"::equals).hasSize(2);
+        assertThat(kinds.get(kinds.size() - 1)).isEqualTo("RUN_END");
+
+        // Both legs ran with a live emitter — the resume leg's NOOP default would have
+        // silently skipped rail registration and dropped every resume-leg event.
+        assertThat(handler.legEmitters).hasSize(2).allMatch(e -> e != TrajectoryEmitter.NOOP);
+
+        InOrder order = inOrder(emitter);
+        order.verify(emitter).addArtifact(anyList(), anyString(), anyString(), any(), any(), any());
+        order.verify(emitter).complete(any(Message.class));
+    }
+
+    /**
+     * A continuation request (task parked on remote INPUT_REQUIRED, user follow-up arrives)
+     * is a fresh invocation with no prior flow: its northbound opt-in must open a trajectory
+     * for the resume leg instead of being silently ignored.
+     */
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void remoteContinuation_withNorthboundOptIn_deliversResumeLegTrajectoryArtifact() {
+        TrajectorySettings settings = new TrajectorySettings(true,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        RemoteRequestingTrajectoryHandler handler = new RemoteRequestingTrajectoryHandler();
+        RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of(
+                remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED, "remote final")));
+        AgentEmitter emitter = newEmitter();
+        RequestContext ctx = remoteContinuationContext();
+        when(ctx.getMetadata()).thenReturn(Map.of("trajectory.northbound", "true"));
+
+        new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound), () -> true,
+                settings, List.of()).execute(ctx, emitter);
+
+        ArgumentCaptor<List> partsCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
+        verify(emitter).addArtifact(partsCaptor.capture(), idCaptor.capture(), anyString(), any(), any(), any());
+        assertThat(idCaptor.getValue()).isEqualTo("task-1-trajectory");
+        List<String> kinds = ((List<?>) partsCaptor.getValue()).stream()
+                .map(p -> String.valueOf(((Map<String, Object>) ((DataPart) p).data()).get("kind")))
+                .toList();
+        assertThat(kinds).isNotEmpty().contains("RUN_START");
+        assertThat(kinds.get(kinds.size() - 1)).isEqualTo("RUN_END");
+        assertThat(handler.legEmitters).hasSize(1).allMatch(e -> e != TrajectoryEmitter.NOOP);
+        verify(emitter).complete(any(Message.class));
+    }
+
     @Test
     void remoteInvocationInvokesOutboundThenReentersLocalHandlerWithToolResult() {
         AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
@@ -791,6 +895,33 @@ class A2aAgentExecutorTest {
         @Override
         public StreamAdapter resultAdapter() {
             return raw -> raw.map(o -> AgentExecutionResult.completed(String.valueOf(o)));
+        }
+    }
+
+    /**
+     * A trajectory-source handler whose first leg requests a remote tool and whose resume
+     * leg completes; records the emitter each leg ran with.
+     */
+    private static final class RemoteRequestingTrajectoryHandler extends AbstractAgentRuntimeHandler {
+        private final List<TrajectoryEmitter> legEmitters = new ArrayList<>();
+
+        private RemoteRequestingTrajectoryHandler() {
+            super("agent-x");
+        }
+
+        @Override
+        protected Stream<?> doExecute(AgentExecutionContext context, TrajectoryEmitter trajectory) {
+            legEmitters.add(trajectory);
+            return Stream.of("REMOTE_RESUME".equals(context.getInputType()) ? "resumed" : "remote");
+        }
+
+        @Override
+        public StreamAdapter resultAdapter() {
+            return raw -> raw.map(value -> "remote".equals(value)
+                    ? AgentExecutionResult.remoteInvocation(new AgentExecutionResult.RemoteInvocation(
+                            "remote-agent", "a2a_remote_remote_agent", "tool-call-1",
+                            "task-1", "ctx-1", "conversation-1", Map.of("message", "hello remote")))
+                    : AgentExecutionResult.completed("local final after remote"));
         }
     }
 
