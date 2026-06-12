@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
+import com.huawei.ascend.runtime.engine.a2a.client.A2aClientAutoConfiguration;
 import com.huawei.ascend.runtime.engine.a2a.client.A2aRemoteAgentOutboundAdapter;
 import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentCardCache;
 import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentInvocationService;
@@ -28,7 +29,8 @@ import org.springframework.context.annotation.Configuration;
 class RuntimeRemoteAgentAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(RuntimeAutoConfiguration.class));
+            .withConfiguration(AutoConfigurations.of(RuntimeAutoConfiguration.class,
+                    A2aClientAutoConfiguration.class));
 
     @Test
     void remoteAgentUrlPropertyWiresCardCacheOutboundServiceAndExecutorSupport() {
@@ -50,8 +52,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         RecordingCardCache cache = new RecordingCardCache();
         RecordingExecutorService executor = new RecordingExecutorService();
 
-        RuntimeAutoConfiguration.RemoteAgentCardCacheRefresher refresher =
-                new RuntimeAutoConfiguration.RemoteAgentCardCacheRefresher(cache, executor);
+        A2aClientAutoConfiguration.RemoteAgentCardCacheRefresher refresher =
+                new A2aClientAutoConfiguration.RemoteAgentCardCacheRefresher(cache, executor);
 
         refresher.start();
 
@@ -66,8 +68,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         HttpServer server = cardServer();
         server.start();
         try {
-            RuntimeAutoConfiguration.RemoteAgentConfiguration configuration =
-                    new RuntimeAutoConfiguration.RemoteAgentConfiguration();
+            A2aClientAutoConfiguration configuration =
+                    new A2aClientAutoConfiguration();
             RemoteAgentProperties properties =
                     new RemoteAgentProperties(List.of(
                             new RemoteAgentProperties.RemoteAgent(
@@ -121,8 +123,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         HttpServer server = cardServer();
         server.start();
         try {
-            RuntimeAutoConfiguration.RemoteAgentConfiguration configuration =
-                    new RuntimeAutoConfiguration.RemoteAgentConfiguration();
+            A2aClientAutoConfiguration configuration =
+                    new A2aClientAutoConfiguration();
             RemoteAgentProperties properties =
                     new RemoteAgentProperties(List.of(
                             new RemoteAgentProperties.RemoteAgent(
@@ -130,8 +132,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
             RemoteAgentCardCache cache = configuration.remoteAgentCardCache(properties);
 
             ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
-            RuntimeAutoConfiguration.RemoteAgentCardCacheRefresher refresher =
-                    new RuntimeAutoConfiguration.RemoteAgentCardCacheRefresher(cache, executor);
+            A2aClientAutoConfiguration.RemoteAgentCardCacheRefresher refresher =
+                    new A2aClientAutoConfiguration.RemoteAgentCardCacheRefresher(cache, executor);
             refresher.refreshOnce();
             executor.shutdownNow();
 
@@ -143,8 +145,8 @@ class RuntimeRemoteAgentAutoConfigurationTest {
 
     @Test
     void remoteAgentPropertiesExposeConfiguredUrls() {
-        RuntimeAutoConfiguration.RemoteAgentConfiguration configuration =
-                new RuntimeAutoConfiguration.RemoteAgentConfiguration();
+        A2aClientAutoConfiguration configuration =
+                new A2aClientAutoConfiguration();
         RemoteAgentProperties properties =
                 new RemoteAgentProperties(List.of(
                         new RemoteAgentProperties.RemoteAgent("http://localhost:18081")));

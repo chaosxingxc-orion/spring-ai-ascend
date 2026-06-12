@@ -1,20 +1,15 @@
 package com.huawei.ascend.runtime.boot;
 
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
-import com.huawei.ascend.runtime.engine.a2a.client.A2aRemoteAgentOutboundAdapter;
-import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentCardCache;
-import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentInvocationService;
+import com.huawei.ascend.runtime.engine.a2a.RemoteSupport;
 import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
-import com.huawei.ascend.runtime.engine.a2a.client.RemoteAgentProperties;
-import com.huawei.ascend.runtime.engine.a2a.client.RemoteSupport;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
@@ -39,9 +34,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -192,54 +185,15 @@ public class RuntimeAutoConfiguration {
     }
 
     /**
-     * Remote A2A wiring, activated only when at least one remote agent URL is
-     * configured in the runtime's own deployment file: the runtime perceives the
-     * remote agents it can call as tools through {@code agent-runtime.remote-agents},
-     * the same way any service declares its outbound dependencies. Grouping the
-     * remote beans under one guarded nested configuration keeps the
-     * {@code @ConditionalOnProperty} guard in a single place instead of
-     * repeating it on every remote bean.
-     */
-    @Configuration(proxyBeanMethods = false)
-    @ConditionalOnProperty(prefix = "agent-runtime.remote-agents.0", name = "url")
-    @EnableConfigurationProperties(RemoteAgentProperties.class)
-    public static class RemoteAgentConfiguration {
-
-        @Bean @ConditionalOnMissingBean
-        public RemoteAgentCardCache remoteAgentCardCache(RemoteAgentProperties properties) {
-            return new RemoteAgentCardCache(properties.urls());
-        }
-
-        @Bean @ConditionalOnMissingBean
-        public A2aRemoteAgentOutboundAdapter a2aRemoteAgentOutboundAdapter(RemoteAgentCardCache cardCache) {
-            return new A2aRemoteAgentOutboundAdapter(cardCache);
-        }
-
-        @Bean @ConditionalOnMissingBean
-        public RemoteAgentInvocationService remoteAgentInvocationService(
-                A2aRemoteAgentOutboundAdapter outboundAdapter) {
-            return new RemoteAgentInvocationService(outboundAdapter);
-        }
-
-        @Bean @ConditionalOnMissingBean
-        public RemoteSupport a2aRemoteSupport(
-                RemoteAgentInvocationService invocationService) {
-            return new RemoteSupport(invocationService);
-        }
-
-        @Bean @ConditionalOnMissingBean
-        public RemoteAgentCardCacheRefresher remoteAgentCardCacheRefresher(
-                RemoteAgentCardCache cardCache, A2aServerExecutor executor) {
-            return new RemoteAgentCardCacheRefresher(cardCache, executor.executor());
-        }
-    }
-
-    /**
      * Holder for the pool that runs A2A agent executions. Deliberately NOT exposed
-     * as a {@code java.util.concurrent.Executor} bean: Spring Boot's
+     * as a {@code java.util.concurrent.Executor} bean directly: Spring Boot's
      * applicationTaskExecutor backs off when any Executor bean exists, so a broad
      * Executor bean here would silently disable the application's default task
-     * executor (including the virtual-thread executor) or vice versa.
+     * executor (including the virtual-thread executor) or vice versa. Instead,
+     * {@link #a2aServerExecutorService(A2aServerExecutor)} exposes only the
+     * {@code ExecutorService} with a narrow qualifier so downstream consumers
+     * (e.g. the remote card cache refresher) can inject it without depending on
+     * this package.
      */
     public static final class A2aServerExecutor implements AutoCloseable {
         private static final AtomicInteger THREAD_SEQ = new AtomicInteger();
@@ -269,52 +223,4 @@ public class RuntimeAutoConfiguration {
         }
     }
 
-    /** Polls the card cache so remote runtimes that boot later (or restart) become callable without a redeploy. */
-    public static final class RemoteAgentCardCacheRefresher implements SmartLifecycle {
-        private static final Logger LOG = LoggerFactory.getLogger(RemoteAgentCardCacheRefresher.class);
-
-        private final RemoteAgentCardCache cardCache;
-        private final ExecutorService executor;
-        private final AtomicBoolean running = new AtomicBoolean();
-
-        RemoteAgentCardCacheRefresher(RemoteAgentCardCache cardCache, ExecutorService executor) {
-            this.cardCache = cardCache;
-            this.executor = executor;
-        }
-
-        @Override
-        public void start() {
-            if (running.compareAndSet(false, true)) {
-                LOG.info("remote agent card cache refresher started intervalMs=5000");
-                executor.execute(this::run);
-            }
-        }
-
-        void refreshOnce() {
-            cardCache.refreshPending();
-        }
-
-        private void run() {
-            while (running.get()) {
-                refreshOnce();
-                try {
-                    Thread.sleep(5_000L);
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    running.set(false);
-                }
-            }
-        }
-
-        @Override
-        public void stop() {
-            LOG.info("remote agent card cache refresher stopping");
-            running.set(false);
-        }
-
-        @Override
-        public boolean isRunning() {
-            return running.get();
-        }
-    }
 }
