@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.boot;
+package com.huawei.ascend.runtime.engine.a2a;
 
 import java.util.List;
 import org.a2aproject.sdk.spec.AgentCapabilities;
@@ -67,7 +67,7 @@ public class AgentCardProperties {
     public void setEndpoint(String endpoint) { this.endpoint = endpoint; }
 
     /** Returns {@code true} when the user explicitly configured a card name. */
-    boolean hasExplicitName() {
+    public boolean hasExplicitName() {
         return name != null && !name.isBlank();
     }
 
