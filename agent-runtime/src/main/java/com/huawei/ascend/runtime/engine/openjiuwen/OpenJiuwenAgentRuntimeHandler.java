@@ -263,7 +263,6 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         private final AgentExecutionContext executionContext;
         private final MemoryProvider memoryProvider;
         private final OpenJiuwenMemoryMessageAdapter memoryMessageAdapter;
-        private String injectedMemoryBlock = "";
 
         MemoryRuntimeRail(AgentExecutionContext executionContext, MemoryProvider memoryProvider,
                 OpenJiuwenMemoryMessageAdapter memoryMessageAdapter) {
@@ -304,7 +303,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             }
             try {
                 List<MemoryProvider.MemoryRecord> records = messages.stream()
-                        .map(this::toMemoryRecordWithoutInjectedRuntimeMemory)
+                        .map(this::toLongTermMemoryRecord)
                         .filter(Objects::nonNull)
                         .toList();
                 if (!records.isEmpty()) {
@@ -346,20 +345,15 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             if (modelContext == null) {
                 return;
             }
-            injectedMemoryBlock = runtimeMemoryBlock(formatMemoryBlock(hits));
-            mergeMemoryIntoSystemMessage(modelContext, injectedMemoryBlock);
+            mergeMemoryIntoSystemMessage(modelContext, runtimeMemoryBlock(formatMemoryBlock(hits)));
         }
 
-        private MemoryProvider.MemoryRecord toMemoryRecordWithoutInjectedRuntimeMemory(BaseMessage message) {
+        private MemoryProvider.MemoryRecord toLongTermMemoryRecord(BaseMessage message) {
             MemoryProvider.MemoryRecord record = memoryMessageAdapter.toMemoryRecord(message);
-            if (!isSystemMessage(message)) {
+            if (isLongTermTurnRole(record.role()) && hasText(record.content())) {
                 return record;
             }
-            String cleaned = stripInjectedRuntimeMemory(record.content());
-            if (cleaned.isBlank()) {
-                return null;
-            }
-            return new MemoryProvider.MemoryRecord(record.id(), record.role(), cleaned, record.metadata());
+            return null;
         }
 
         private String latestUserInput() {
@@ -404,14 +398,12 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
                     + memoryBlock;
         }
 
-        private String stripInjectedRuntimeMemory(String content) {
-            if (content == null || content.isBlank()) {
-                return "";
-            }
-            if (injectedMemoryBlock.isBlank()) {
-                return content.trim();
-            }
-            return content.replace(injectedMemoryBlock, "").trim();
+        private static boolean isLongTermTurnRole(String role) {
+            return "user".equalsIgnoreCase(role) || "assistant".equalsIgnoreCase(role);
+        }
+
+        private static boolean hasText(String value) {
+            return value != null && !value.isBlank();
         }
 
         private static boolean isSystemMessage(BaseMessage message) {

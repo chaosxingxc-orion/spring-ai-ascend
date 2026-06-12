@@ -176,19 +176,20 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         RecordingModelContext modelContext = new RecordingModelContext();
         rail.beforeInvoke(AgentCallbackContext.builder().context(modelContext).build());
         modelContext.messages.add(new UserMessage("hello"));
+        modelContext.messages.add(new AssistantMessage("world"));
 
         rail.afterInvoke(AgentCallbackContext.builder().context(modelContext).build());
 
         assertThat(memoryProvider.savedRecords)
-                .singleElement()
-                .satisfies(record -> {
-                    assertThat(record.role()).isEqualTo("user");
-                    assertThat(record.content()).isEqualTo("hello");
-                });
+                .extracting(MemoryProvider.MemoryRecord::role)
+                .containsExactly("user", "assistant");
+        assertThat(memoryProvider.savedRecords)
+                .extracting(MemoryProvider.MemoryRecord::content)
+                .containsExactly("hello", "world");
     }
 
     @Test
-    void memoryRuntimeRailPreservesBusinessSystemPromptWhenSaving() {
+    void memoryRuntimeRailDoesNotSaveSystemPromptToLongTermMemory() {
         AgentExecutionContext context = context(Map.of());
         FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
         OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail rail =
@@ -200,16 +201,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         rail.beforeInvoke(AgentCallbackContext.builder().context(modelContext).build());
         rail.afterInvoke(AgentCallbackContext.builder().context(modelContext).build());
 
-        assertThat(memoryProvider.savedRecords)
-                .singleElement()
-                .satisfies(record -> {
-                    assertThat(record.role()).isEqualTo("system");
-                    assertThat(record.content())
-                            .isEqualTo("business policy: keep order status")
-                            .doesNotContain("remembered ping")
-                            .doesNotContain("System note")
-                            .doesNotContain("runtime-memory-context");
-                });
+        assertThat(memoryProvider.savedRecords).isEmpty();
     }
 
     @Test
