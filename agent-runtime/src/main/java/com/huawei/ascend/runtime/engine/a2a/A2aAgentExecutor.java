@@ -4,7 +4,6 @@ import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.A2aResultRouter.RouteDecision;
 import com.huawei.ascend.runtime.engine.a2a.A2aTrajectorySupport.TrajectoryFlow;
-import com.huawei.ascend.runtime.engine.a2a.RemoteSupport;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
@@ -66,16 +65,17 @@ public final class A2aAgentExecutor implements AgentExecutor {
         this(handler, null, () -> true, TrajectorySettings.off(), List.of());
     }
 
-    public A2aAgentExecutor(AgentRuntimeHandler handler, RemoteSupport remoteSupport) {
-        this(handler, remoteSupport, () -> true, TrajectorySettings.off(), List.of());
+    public A2aAgentExecutor(AgentRuntimeHandler handler, RemoteAgentInvocationService remoteInvocationService) {
+        this(handler, remoteInvocationService, () -> true, TrajectorySettings.off(), List.of());
     }
 
     public A2aAgentExecutor(AgentRuntimeHandler handler, BooleanSupplier readiness) {
         this(handler, null, readiness, TrajectorySettings.off(), List.of());
     }
 
-    public A2aAgentExecutor(AgentRuntimeHandler handler, RemoteSupport remoteSupport, BooleanSupplier readiness) {
-        this(handler, remoteSupport, readiness, TrajectorySettings.off(), List.of());
+    public A2aAgentExecutor(AgentRuntimeHandler handler, RemoteAgentInvocationService remoteInvocationService,
+            BooleanSupplier readiness) {
+        this(handler, remoteInvocationService, readiness, TrajectorySettings.off(), List.of());
     }
 
     public A2aAgentExecutor(AgentRuntimeHandler handler, TrajectorySettings defaultTrajectorySettings,
@@ -83,13 +83,14 @@ public final class A2aAgentExecutor implements AgentExecutor {
         this(handler, null, () -> true, defaultTrajectorySettings, sinkFactories);
     }
 
-    public A2aAgentExecutor(AgentRuntimeHandler handler, RemoteSupport remoteSupport, BooleanSupplier readiness,
-            TrajectorySettings defaultTrajectorySettings, List<TrajectorySinkFactory> sinkFactories) {
+    public A2aAgentExecutor(AgentRuntimeHandler handler, RemoteAgentInvocationService remoteInvocationService,
+            BooleanSupplier readiness, TrajectorySettings defaultTrajectorySettings,
+            List<TrajectorySinkFactory> sinkFactories) {
         this.handler = handler;
         this.readiness = Objects.requireNonNull(readiness, "readiness");
         this.trajectory = new A2aTrajectorySupport(defaultTrajectorySettings, sinkFactories);
         this.remote = new A2aRemoteInvocationOrchestrator(
-                remoteSupport != null ? remoteSupport.invocationService() : null,
+                remoteInvocationService,
                 new A2aParentTaskProjector(),
                 handler != null ? handler.agentId() : null);
     }

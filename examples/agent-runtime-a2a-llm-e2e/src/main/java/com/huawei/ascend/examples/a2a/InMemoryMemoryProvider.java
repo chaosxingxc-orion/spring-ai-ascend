@@ -36,7 +36,7 @@ final class InMemoryMemoryProvider implements MemoryProvider {
         return recordsByStateKey.getOrDefault(scopeKey(context), new CopyOnWriteArrayList<>()).stream()
                 .filter(record -> hasText(record.content()))
                 .map(record -> toHit(record, normalizedQuery))
-                .filter(hit -> hit.score() != null && hit.score() > 0.0)
+                .filter(hit -> hit.score() > 0.0)
                 .sorted(Comparator.comparingDouble(InMemoryMemoryProvider::scoreOrLowest).reversed())
                 .limit(limit)
                 .toList();
@@ -81,7 +81,7 @@ final class InMemoryMemoryProvider implements MemoryProvider {
     }
 
     private static double scoreOrLowest(MemoryHit hit) {
-        return hit.score() == null ? Double.NEGATIVE_INFINITY : hit.score();
+        return hit.score();
     }
 
     private static MemoryRecord stableRecord(MemoryRecord record) {

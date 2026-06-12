@@ -33,7 +33,7 @@ class RuntimeRemoteAgentAutoConfigurationTest {
                     A2aClientAutoConfiguration.class));
 
     @Test
-    void remoteAgentUrlPropertyWiresCardCacheOutboundServiceAndExecutorSupport() {
+    void remoteAgentUrlPropertyWiresCardCacheOutboundServiceAndExecutorInvocationService() {
         contextRunner
                 .withUserConfiguration(SimpleHandlerConfiguration.class)
                 .withPropertyValues("agent-runtime.remote-agents[0].url=http://localhost:18081")

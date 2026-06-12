@@ -1,7 +1,7 @@
 package com.huawei.ascend.runtime.boot;
 
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
-import com.huawei.ascend.runtime.engine.a2a.RemoteSupport;
+import com.huawei.ascend.runtime.engine.a2a.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
@@ -117,23 +117,23 @@ public class RuntimeAutoConfiguration {
 
     @Bean @ConditionalOnMissingBean
     public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers,
-            ObjectProvider<RemoteSupport> remoteSupport,
+            ObjectProvider<RemoteAgentInvocationService> remoteInvocationService,
             RuntimeReadiness readiness, TrajectoryProperties trajectoryProperties,
             ObjectProvider<TrajectorySinkFactory> sinkFactories) {
         var registered = handlers.orderedStream().toList();
-        RemoteSupport support = remoteSupport.getIfAvailable();
+        RemoteAgentInvocationService invocationService = remoteInvocationService.getIfAvailable();
         if (registered.isEmpty()) {
             // Tolerated so the A2A surface can boot for card discovery; every
             // execution will be rejected until a handler bean is registered.
             log.warn("No AgentRuntimeHandler registered - A2A executions will be rejected");
-            return new A2aAgentExecutor(null, support, readiness::isReady);
+            return new A2aAgentExecutor(null, invocationService, readiness::isReady);
         }
         if (registered.size() > 1) {
             log.warn("Multiple AgentRuntimeHandlers registered; using '{}', ignoring {}",
                     registered.get(0).agentId(),
                     registered.stream().skip(1).map(AgentRuntimeHandler::agentId).toList());
         }
-        return new A2aAgentExecutor(registered.get(0), support, readiness::isReady,
+        return new A2aAgentExecutor(registered.get(0), invocationService, readiness::isReady,
                 toTrajectorySettings(trajectoryProperties), sinkFactories.orderedStream().toList());
     }
 

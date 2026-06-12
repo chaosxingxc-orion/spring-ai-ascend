@@ -78,12 +78,6 @@ public class A2aClientAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean
-        public RemoteSupport a2aRemoteSupport(RemoteAgentInvocationService invocationService) {
-            return new RemoteSupport(invocationService);
-        }
-
-        @Bean
-        @ConditionalOnMissingBean
         public RemoteAgentCardCacheRefresher remoteAgentCardCacheRefresher(RemoteAgentCardCache cardCache) {
             return new RemoteAgentCardCacheRefresher(cardCache, cardCacheRefreshExecutor());
         }
