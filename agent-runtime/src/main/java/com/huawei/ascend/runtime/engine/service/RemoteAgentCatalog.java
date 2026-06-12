@@ -1,7 +1,10 @@
 package com.huawei.ascend.runtime.engine.service;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,64 +20,112 @@ import org.a2aproject.sdk.spec.AgentSkill;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Catalog of the remote A2A runtimes this runtime can call as tools.
+ *
+ * <p>Thread-safety model: a background refresher writes, execution threads read.
+ * Entries are immutable snapshots and the whole map is replaced through a single
+ * volatile write at the end of {@link #refresh()}, so every reader
+ * ({@link #availableToolSpecs()}, {@link #pendingUrls()}, {@link #endpoint(String)},
+ * {@link #streamTimeout(String)}) observes either the previous or the next
+ * complete snapshot — never a torn combination of old and new fields — and never
+ * blocks on in-flight card fetches.
+ */
 public class RemoteAgentCatalog {
     private static final Logger LOG = LoggerFactory.getLogger(RemoteAgentCatalog.class);
 
-    private final Map<String, Entry> entries = new LinkedHashMap<>();
     private final Function<String, AgentCard> cardResolver;
+    private volatile Map<String, Entry> entries;
 
     public RemoteAgentCatalog(List<String> urls) {
-        this(urls, url -> new A2ACardResolver(url).getAgentCard());
+        this(urls, Map.of());
+    }
+
+    public RemoteAgentCatalog(List<String> urls, Map<String, Duration> streamTimeoutsByUrl) {
+        this(urls, streamTimeoutsByUrl, url -> new A2ACardResolver(url).getAgentCard());
     }
 
     RemoteAgentCatalog(List<String> urls, Function<String, AgentCard> cardResolver) {
+        this(urls, Map.of(), cardResolver);
+    }
+
+    RemoteAgentCatalog(List<String> urls, Map<String, Duration> streamTimeoutsByUrl,
+            Function<String, AgentCard> cardResolver) {
         this.cardResolver = Objects.requireNonNull(cardResolver, "cardResolver");
+        Map<String, Duration> timeouts = streamTimeoutsByUrl == null ? Map.of() : streamTimeoutsByUrl;
         Set<String> unique = new LinkedHashSet<>(urls == null ? List.of() : urls);
+        Map<String, Entry> initial = new LinkedHashMap<>();
         unique.stream()
                 .filter(url -> url != null && !url.isBlank())
-                .forEach(url -> entries.putIfAbsent(canonicalRuntimeKey(url), new Entry(url)));
+                .forEach(url -> initial.putIfAbsent(canonicalRuntimeKey(url), Entry.pending(url, timeouts.get(url))));
+        this.entries = Collections.unmodifiableMap(initial);
     }
 
-    public void refreshPending() {
-        for (Entry entry : entries.values()) {
-            if (entry.available()) {
-                continue;
-            }
+    /**
+     * Full refresh: re-resolves the card of every configured url, pending or
+     * available, so card/endpoint changes on a live remote propagate without a
+     * redeploy. A failed re-resolve keeps an already-available entry serving its
+     * last good card (degraded but callable); a never-resolved entry stays
+     * pending. Synchronized so concurrent refreshes cannot interleave their
+     * read-allocate-write of sticky ids; readers are not blocked — they keep
+     * reading the previous volatile snapshot until the new one is published.
+     */
+    public synchronized void refresh() {
+        Map<String, Entry> next = new LinkedHashMap<>();
+        for (Map.Entry<String, Entry> mapEntry : entries.entrySet()) {
+            Entry entry = mapEntry.getValue();
+            Entry refreshed;
             try {
-                AgentCard card = cardResolver.apply(entry.url);
-                entry.card = card;
-                entry.endpoint = endpoint(card, entry.url);
+                AgentCard card = cardResolver.apply(entry.url());
+                refreshed = entry.withCard(card, endpoint(card, entry.url()));
             } catch (RuntimeException error) {
                 LOG.warn("remote agent card refresh failed url={} errorClass={} message={}",
-                        entry.url, error.getClass().getSimpleName(), error.getMessage());
-                entry.card = null;
-                entry.remoteAgentId = null;
-                entry.spec = null;
-                entry.endpoint = null;
+                        entry.url(), error.getClass().getSimpleName(), error.getMessage());
+                refreshed = entry;
             }
+            next.put(mapEntry.getKey(), refreshed);
         }
-        rebuildToolSpecs();
+        rebuildToolSpecs(next);
+        entries = Collections.unmodifiableMap(next);
     }
 
+    /** Reads the current volatile snapshot; see the class comment for the visibility model. */
     public List<RemoteAgentToolSpec> availableToolSpecs() {
         return entries.values().stream()
                 .filter(Entry::available)
-                .map(entry -> entry.spec)
+                .map(Entry::spec)
                 .toList();
     }
 
+    /** Reads the current volatile snapshot; see the class comment for the visibility model. */
     public List<String> pendingUrls() {
         return entries.values().stream()
                 .filter(entry -> !entry.available())
-                .map(entry -> entry.url)
+                .map(Entry::url)
                 .toList();
     }
 
+    /** Reads the current volatile snapshot; see the class comment for the visibility model. */
     public String endpoint(String remoteAgentId) {
         return entries.values().stream()
                 .filter(Entry::available)
-                .filter(entry -> entry.remoteAgentId.equals(remoteAgentId))
-                .map(entry -> entry.endpoint)
+                .filter(entry -> entry.remoteAgentId().equals(remoteAgentId))
+                .map(Entry::endpoint)
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Configured stream timeout for one available remote agent, or null when the
+     * agent is unknown or carries no explicit timeout. Reads the current volatile
+     * snapshot; see the class comment for the visibility model.
+     */
+    public Duration streamTimeout(String remoteAgentId) {
+        return entries.values().stream()
+                .filter(Entry::available)
+                .filter(entry -> entry.remoteAgentId().equals(remoteAgentId))
+                .map(Entry::streamTimeout)
+                .filter(Objects::nonNull)
                 .findFirst()
                 .orElse(null);
     }
@@ -87,19 +138,43 @@ public class RemoteAgentCatalog {
                 inputSchema());
     }
 
-    private void rebuildToolSpecs() {
-        Map<String, Integer> seen = new LinkedHashMap<>();
-        for (Entry entry : entries.values()) {
-            if (entry.card == null || entry.endpoint == null) {
-                entry.remoteAgentId = null;
-                entry.spec = null;
+    /**
+     * Assigns remoteAgentIds sticky: an id allocated to an entry never changes on
+     * later refreshes, because transport caches and parked tasks' route metadata
+     * key on it — re-deduplicating by iteration order would silently re-route
+     * them. Newly available entries only take suffixes that are still free.
+     * The tool spec itself is rebuilt every time so a changed card propagates.
+     */
+    private static void rebuildToolSpecs(Map<String, Entry> next) {
+        Set<String> taken = new HashSet<>();
+        for (Entry entry : next.values()) {
+            if (entry.resolved() && entry.remoteAgentId() != null) {
+                taken.add(entry.remoteAgentId());
+            }
+        }
+        for (Map.Entry<String, Entry> mapEntry : next.entrySet()) {
+            Entry entry = mapEntry.getValue();
+            if (!entry.resolved()) {
                 continue;
             }
-            String baseId = normalize(entry.card.name());
-            int count = seen.merge(baseId, 1, Integer::sum);
-            String remoteAgentId = count == 1 ? baseId : baseId + "-" + count;
-            entry.remoteAgentId = remoteAgentId;
-            entry.spec = toSpec(entry.card, remoteAgentId);
+            String remoteAgentId = entry.remoteAgentId();
+            if (remoteAgentId == null) {
+                remoteAgentId = allocateId(normalize(entry.card().name()), taken);
+                taken.add(remoteAgentId);
+            }
+            mapEntry.setValue(entry.withAssignment(remoteAgentId, toSpec(entry.card(), remoteAgentId)));
+        }
+    }
+
+    private static String allocateId(String baseId, Set<String> taken) {
+        if (!taken.contains(baseId)) {
+            return baseId;
+        }
+        for (int count = 2; ; count++) {
+            String candidate = baseId + "-" + count;
+            if (!taken.contains(candidate)) {
+                return candidate;
+            }
         }
     }
 
@@ -202,19 +277,33 @@ public class RemoteAgentCatalog {
             Map<String, Object> inputSchema) {
     }
 
-    private static final class Entry {
-        private final String url;
-        private AgentCard card;
-        private String remoteAgentId;
-        private RemoteAgentToolSpec spec;
-        private String endpoint;
+    /** Immutable snapshot of one configured remote; refresh replaces, never mutates. */
+    private record Entry(
+            String url,
+            Duration streamTimeout,
+            AgentCard card,
+            String endpoint,
+            String remoteAgentId,
+            RemoteAgentToolSpec spec) {
 
-        private Entry(String url) {
-            this.url = url;
+        static Entry pending(String url, Duration streamTimeout) {
+            return new Entry(url, streamTimeout, null, null, null, null);
         }
 
-        private boolean available() {
-            return card != null && remoteAgentId != null && spec != null && endpoint != null;
+        Entry withCard(AgentCard card, String endpoint) {
+            return new Entry(url, streamTimeout, card, endpoint, remoteAgentId, spec);
+        }
+
+        Entry withAssignment(String remoteAgentId, RemoteAgentToolSpec spec) {
+            return new Entry(url, streamTimeout, card, endpoint, remoteAgentId, spec);
+        }
+
+        boolean resolved() {
+            return card != null && endpoint != null;
+        }
+
+        boolean available() {
+            return resolved() && remoteAgentId != null && spec != null;
         }
     }
 }

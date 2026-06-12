@@ -158,8 +158,9 @@ public final class A2aAgentExecutor implements AgentExecutor {
             LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
 
             if (remote.isRemoteContinuation(ctx)) {
-                remote.continueRemote(ctx, emitter, taskId, artifactId, firstArtifact, cancelled,
-                        resumeConsumer(ctx, flowRef), northboundDelivery);
+                runRemoteSegment(taskId, cancelled,
+                        () -> remote.continueRemote(ctx, emitter, taskId, artifactId, firstArtifact, cancelled,
+                                resumeConsumer(ctx, flowRef), northboundDelivery));
                 LOG.info("[A2A] execute finish taskId={} durationMs={}",
                         taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
                 return;
@@ -174,8 +175,9 @@ public final class A2aAgentExecutor implements AgentExecutor {
             if (decision.remoteInvocation() != null) {
                 // The orchestrator runs the northbound delivery itself, after the remote leg
                 // and the local resume converge — flushing here would cut the artifact short.
-                remote.invokeRemote(ctx, decision.remoteInvocation(), emitter, taskId, artifactId,
-                        firstArtifact, cancelled, resumeConsumer(ctx, flowRef), northboundDelivery);
+                runRemoteSegment(taskId, cancelled,
+                        () -> remote.invokeRemote(ctx, decision.remoteInvocation(), emitter, taskId, artifactId,
+                                firstArtifact, cancelled, resumeConsumer(ctx, flowRef), northboundDelivery));
             } else {
                 // The full trajectory (through RUN_END) is only complete now; deliver it to the caller
                 // before the answer's terminal so it lands while the task can still accept artifacts.
@@ -265,6 +267,24 @@ public final class A2aAgentExecutor implements AgentExecutor {
             flowRef.set(trajectory.openForResume(ctx, resumeContext, handler, flowRef.get()));
             return consumeHandler(resumeContext, emitter, taskId, artifactId, firstArtifact, false, cancelled);
         };
+    }
+
+    /**
+     * Keeps the task registered in-flight across a remote A2A leg. The local
+     * registration in {@link #consumeHandler} ends when the handler stream drains,
+     * but the outbound remote call happens after that — a cancel landing in that
+     * window must still find the cancelled flag, or the remote return would re-run
+     * the local handler against an already-CANCELED task. The placeholder carries
+     * no stream slot; the cancel path tolerates the empty slot.
+     */
+    private void runRemoteSegment(String taskId, AtomicBoolean cancelled, Runnable remoteSegment) {
+        InFlightExecution execution = new InFlightExecution(new AtomicReference<>(), cancelled);
+        inFlight.put(taskId, execution);
+        try {
+            remoteSegment.run();
+        } finally {
+            inFlight.remove(taskId, execution);
+        }
     }
 
     private RouteDecision consumeHandler(AgentExecutionContext context, AgentEmitter emitter, String taskId,

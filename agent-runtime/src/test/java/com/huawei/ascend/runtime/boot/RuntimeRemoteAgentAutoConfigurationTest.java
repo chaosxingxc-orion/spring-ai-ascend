@@ -47,6 +47,24 @@ class RuntimeRemoteAgentAutoConfigurationTest {
     }
 
     @Test
+    void remoteAgentStreamTimeoutPropertyBindsPerEntry() {
+        contextRunner
+                .withUserConfiguration(SimpleHandlerConfiguration.class)
+                .withPropertyValues(
+                        "agent-runtime.remote-agents[0].url=http://localhost:18081",
+                        "agent-runtime.remote-agents[0].stream-timeout=120s",
+                        "agent-runtime.remote-agents[1].url=http://localhost:18082")
+                .run(context -> {
+                    RemoteAgentProperties properties = context.getBean(RemoteAgentProperties.class);
+                    assertThat(properties.urls())
+                            .containsExactly("http://localhost:18081", "http://localhost:18082");
+                    assertThat(properties.streamTimeouts())
+                            .containsExactly(java.util.Map.entry("http://localhost:18081",
+                                    java.time.Duration.ofSeconds(120)));
+                });
+    }
+
+    @Test
     void remoteAgentCatalogRefresherRunsOnBackgroundExecutor() {
         RecordingCatalog catalog = new RecordingCatalog();
         RecordingExecutorService executor = new RecordingExecutorService();
@@ -72,7 +90,7 @@ class RuntimeRemoteAgentAutoConfigurationTest {
             RemoteAgentProperties properties =
                     new RemoteAgentProperties(List.of(
                             new RemoteAgentProperties.RemoteAgent(
-                                    "http://localhost:" + server.getAddress().getPort())));
+                                    "http://localhost:" + server.getAddress().getPort(), null)));
 
             RemoteAgentCatalog catalog = configuration.remoteAgentCatalog(properties);
 
@@ -127,7 +145,7 @@ class RuntimeRemoteAgentAutoConfigurationTest {
             RemoteAgentProperties properties =
                     new RemoteAgentProperties(List.of(
                             new RemoteAgentProperties.RemoteAgent(
-                                    "http://localhost:" + server.getAddress().getPort())));
+                                    "http://localhost:" + server.getAddress().getPort(), null)));
             RemoteAgentCatalog catalog = configuration.remoteAgentCatalog(properties);
 
             ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -148,7 +166,7 @@ class RuntimeRemoteAgentAutoConfigurationTest {
                 new RuntimeAutoConfiguration.RemoteAgentConfiguration();
         RemoteAgentProperties properties =
                 new RemoteAgentProperties(List.of(
-                        new RemoteAgentProperties.RemoteAgent("http://localhost:18081")));
+                        new RemoteAgentProperties.RemoteAgent("http://localhost:18081", null)));
 
         RemoteAgentCatalog catalog = configuration.remoteAgentCatalog(properties);
 
@@ -228,7 +246,7 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         }
 
         @Override
-        public void refreshPending() {
+        public void refresh() {
             refreshCount++;
         }
     }

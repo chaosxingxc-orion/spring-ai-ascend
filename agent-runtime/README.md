@@ -106,6 +106,22 @@ agent-runtime:
       # public-base-url: https://agents.example.com/runtime-one
 ```
 
+## Remote A2A agents
+
+The runtime can call other A2A runtimes as tools. Remote agents are declared in the runtime's own deployment file under `agent-runtime.remote-agents`:
+
+```yaml
+agent-runtime:
+  remote-agents:
+    - url: http://remote-runtime:18082
+      stream-timeout: 120s   # optional, default 60s
+```
+
+- `url` is the remote runtime base URL (or its agent-card URL). The card is discovered in the background and re-checked on a fixed 5-second interval, so a remote that boots later becomes callable without a redeploy and card/endpoint changes propagate; a failed re-check keeps the last good card.
+- `stream-timeout` caps one streaming invocation of that remote agent. On expiry the runtime keeps the results already received, appends a failed result carrying the stable code `REMOTE_TIMEOUT` (retryable), and best-effort cancels the remote task.
+
+When the actuator health endpoint is active, the runtime health detail includes a `remoteAgents` node with the catalog state (`available` / `pending` counts and the pending URLs). Pending remotes never degrade the overall health status; the detail exists for operator visibility only.
+
 ## Exposed A2A endpoints
 
 The runtime exposes a standard agent card plus a JSON-RPC A2A endpoint.

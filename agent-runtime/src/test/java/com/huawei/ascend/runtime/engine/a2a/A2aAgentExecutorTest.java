@@ -804,6 +804,62 @@ class A2aAgentExecutorTest {
                 .containsEntry("remote.promptVersion", "v2");
     }
 
+    /**
+     * A cancel landing while the outbound remote leg is still running (after the
+     * local stream drained, before the remote returned) must reach the cancelled
+     * flag: the remote return must not re-enter the local handler against the
+     * CANCELED task, the terminal must not be overwritten, and the remote task
+     * gets a best-effort cancel.
+     */
+    @Test
+    void cancelDuringRemoteSegmentSkipsLocalResumeAndCancelsRemoteTask() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of("remote"));
+        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> AgentExecutionResult.remoteInvocation(
+                new AgentExecutionResult.RemoteInvocation(
+                        "remote-agent", "a2a_remote_remote_agent", "tool-call-1",
+                        "task-1", "ctx-1", "conversation-1", Map.of("message", "hello remote")))));
+
+        RequestContext ctx = requestContext();
+        AgentEmitter cancelEmitter = newEmitter();
+        java.util.concurrent.atomic.AtomicReference<A2aAgentExecutor> executorRef =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        List<RemoteAgentInvocationService.RemoteTaskReference> canceled = new ArrayList<>();
+        RemoteAgentInvocationService.OutboundPort outbound = new RemoteAgentInvocationService.OutboundPort() {
+            @Override
+            public List<RemoteAgentInvocationService.RemoteAgentResult> invoke(
+                    RemoteAgentInvocationService.RemoteAgentRequest request,
+                    Consumer<RemoteAgentInvocationService.RemoteAgentResult> eventConsumer) {
+                // The cancel request lands while the remote leg is still running.
+                executorRef.get().cancel(ctx, cancelEmitter);
+                return List.of(new RemoteAgentInvocationService.RemoteAgentResult(
+                        RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                        "remote done", "remote-task-1", "remote-ctx-1", Map.of()));
+            }
+
+            @Override
+            public void cancel(RemoteAgentInvocationService.RemoteTaskReference reference) {
+                canceled.add(reference);
+            }
+        };
+
+        A2aAgentExecutor executor =
+                new A2aAgentExecutor(handler, A2aAgentExecutor.RemoteSupport.forOutbound(outbound));
+        executorRef.set(executor);
+        AgentEmitter executeEmitter = newEmitter();
+        executor.execute(ctx, executeEmitter);
+
+        verify(cancelEmitter).cancel();
+        verify(handler, times(1)).execute(any());
+        verify(executeEmitter, org.mockito.Mockito.never()).complete();
+        verify(executeEmitter, org.mockito.Mockito.never()).complete(any(Message.class));
+        verify(executeEmitter, org.mockito.Mockito.never()).fail(any(Message.class));
+        assertThat(canceled).hasSize(1);
+        assertThat(canceled.get(0).remoteAgentId()).isEqualTo("remote-agent");
+        assertThat(canceled.get(0).remoteTaskId()).isEqualTo("remote-task-1");
+    }
+
     @Test
     void cancelPropagatesToRemoteTaskWhenParentIsWaitingForRemoteAgent() {
         AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);

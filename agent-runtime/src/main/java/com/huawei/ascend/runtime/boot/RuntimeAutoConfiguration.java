@@ -122,8 +122,9 @@ public class RuntimeAutoConfiguration {
 
         @Bean @ConditionalOnMissingBean
         AgentRuntimeHealthIndicator agentRuntimeHealthIndicator(ObjectProvider<AgentRuntimeHandler> handlers,
-                RuntimeReadiness readiness) {
-            return new AgentRuntimeHealthIndicator(handlers.orderedStream().toList(), readiness);
+                RuntimeReadiness readiness, ObjectProvider<RemoteAgentCatalog> remoteAgentCatalog) {
+            return new AgentRuntimeHealthIndicator(handlers.orderedStream().toList(), readiness,
+                    remoteAgentCatalog.getIfAvailable());
         }
     }
 
@@ -244,11 +245,13 @@ public class RuntimeAutoConfiguration {
 
         @Bean @ConditionalOnMissingBean
         public RemoteAgentCatalog remoteAgentCatalog(RemoteAgentProperties properties) {
-            return new RemoteAgentCatalog(properties.urls());
+            return new RemoteAgentCatalog(properties.urls(), properties.streamTimeouts());
         }
 
         @Bean @ConditionalOnMissingBean
         public A2aRemoteAgentOutboundAdapter a2aRemoteAgentOutboundAdapter(RemoteAgentCatalog catalog) {
+            // The catalog carries the per-remote configured stream timeout alongside
+            // the endpoint, so this constructor resolves both per remoteAgentId.
             return new A2aRemoteAgentOutboundAdapter(catalog);
         }
 
@@ -328,7 +331,12 @@ public class RuntimeAutoConfiguration {
         }
     }
 
-    /** Polls the catalog so remote runtimes that boot later (or restart) become callable without a redeploy. */
+    /**
+     * Polls the catalog on a fixed interval so remote runtimes that boot later (or
+     * restart) become callable without a redeploy, and so card/endpoint changes on
+     * already-available remotes propagate (the catalog re-resolves every entry and
+     * keeps the last good card when a re-resolve fails).
+     */
     public static final class RemoteAgentCatalogRefresher implements SmartLifecycle {
         private final RemoteAgentCatalog catalog;
         private final ExecutorService executor;
@@ -347,7 +355,7 @@ public class RuntimeAutoConfiguration {
         }
 
         void refreshOnce() {
-            catalog.refreshPending();
+            catalog.refresh();
         }
 
         private void run() {
