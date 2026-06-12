@@ -34,13 +34,17 @@ public class OpenJiuwenReactAgentConfiguration {
         if (!isRedisCheckpointer(checkpointerType)) {
             return OpenJiuwenCheckpointerConfigurer.setInMemoryDefault();
         }
-        Checkpointer redisCheckpointer = new RedisCheckpointer.Provider()
-                .create(Map.of("connection", Map.of("url", redisUrl)));
-        return OpenJiuwenCheckpointerConfigurer.setDefault(redisCheckpointer);
+        return setRedisCheckpointer(redisUrl);
     }
 
     private static boolean isRedisCheckpointer(String checkpointerType) {
         return "redis".equals(String.valueOf(checkpointerType).trim().toLowerCase(Locale.ROOT));
+    }
+
+    private static Checkpointer setRedisCheckpointer(String redisUrl) {
+        Checkpointer redisCheckpointer = new RedisCheckpointer.Provider()
+                .create(Map.of("connection", Map.of("url", redisUrl)));
+        return OpenJiuwenCheckpointerConfigurer.setDefault(redisCheckpointer);
     }
 
     @Bean
