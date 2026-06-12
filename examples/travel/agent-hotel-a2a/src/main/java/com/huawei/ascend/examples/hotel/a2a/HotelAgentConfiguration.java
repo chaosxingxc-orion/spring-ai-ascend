@@ -6,8 +6,8 @@ package com.huawei.ascend.examples.hotel.a2a;
 
 import com.huawei.ascend.examples.hotel.HotelPlanningAgent;
 import com.huawei.ascend.examples.hotel.LlmConfig;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentCards;
+import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -38,7 +38,7 @@ public class HotelAgentConfiguration {
     }
 
     @Bean
-    OpenJiuwenAgentRuntimeHandler hotelAgentHandler(HotelPlanningAgent agent) {
+    AgentRuntimeHandler hotelAgentHandler(HotelPlanningAgent agent) {
         return new HotelAgentHandler(AGENT_ID, agent);
     }
 
