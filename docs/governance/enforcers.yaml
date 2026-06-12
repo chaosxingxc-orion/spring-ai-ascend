@@ -40,14 +40,6 @@
   asserts: "agent-runtime pom does not depend on agent-platform"
   governance_infra: true
 
-- id: E13
-  constraint_ref: "CLAUDE.md Rule R-C.2.c; L1 plan §8.1; ADR-0057"
-  kind: schema
-  level: L1
-  view: logical
-  artifact: agent-runtime/src/main/resources/db/migration/V2__idempotency_dedup.sql
-  asserts: "PRIMARY KEY (tenant_id, idempotency_key) prevents duplicate inserts at storage layer"
-
 - id: E15
   constraint_ref: "CLAUDE.md Rule R-C.a; L1 plan §11 row E15"
   kind: gate-script

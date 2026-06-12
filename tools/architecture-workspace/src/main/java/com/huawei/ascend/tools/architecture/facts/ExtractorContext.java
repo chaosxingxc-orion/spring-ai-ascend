@@ -12,10 +12,12 @@ import java.util.Locale;
  * stable provenance (Rule G-15.b).
  *
  * <p>{@code repoCommit} is read at construction time from the git plumbing
- * inside {@code .git/HEAD}. If the workspace isn't a git checkout (e.g.,
- * test fixture), a deterministic fallback of "0" * 40 is used; the gate
- * accepts any 40-char lowercase hex string, so the fallback keeps the
- * schema happy without falsely claiming a real commit.
+ * inside the resolved git dir's {@code HEAD}. Linked worktrees (where
+ * {@code .git} is a file carrying a {@code gitdir:} pointer, and shared refs
+ * live in the {@code commondir}) are followed. If the workspace isn't a git
+ * checkout (e.g., test fixture), a deterministic fallback of "0" * 40 is
+ * used; the gate accepts any 40-char lowercase hex string, so the fallback
+ * keeps the schema happy without falsely claiming a real commit.
  */
 public final class ExtractorContext {
 
@@ -51,13 +53,21 @@ public final class ExtractorContext {
     }
 
     private static String readRepoCommit(Path repoRoot) throws IOException {
-        Path headFile = repoRoot.resolve(".git").resolve("HEAD");
+        Path gitDir = resolveGitDir(repoRoot);
+        if (gitDir == null) {
+            return FALLBACK_COMMIT;
+        }
+        Path headFile = gitDir.resolve("HEAD");
         if (!Files.isRegularFile(headFile)) {
             return FALLBACK_COMMIT;
         }
         String head = Files.readString(headFile, StandardCharsets.UTF_8).trim();
         if (head.startsWith("ref: ")) {
-            Path refFile = repoRoot.resolve(".git").resolve(head.substring(5).trim());
+            // Shared refs (refs/heads/*, packed-refs) live in the common dir; in a
+            // plain checkout that IS the git dir, in a linked worktree it is the
+            // directory named by the gitdir's `commondir` file.
+            Path commonDir = resolveCommonDir(gitDir);
+            Path refFile = commonDir.resolve(head.substring(5).trim());
             if (Files.isRegularFile(refFile)) {
                 String sha = Files.readString(refFile, StandardCharsets.UTF_8).trim().toLowerCase(Locale.ROOT);
                 if (sha.matches("^[0-9a-f]{40}$")) {
@@ -65,7 +75,7 @@ public final class ExtractorContext {
                 }
             }
             // packed-refs fallback — minimal parser for the single-line entry case.
-            Path packedRefs = repoRoot.resolve(".git").resolve("packed-refs");
+            Path packedRefs = commonDir.resolve("packed-refs");
             if (Files.isRegularFile(packedRefs)) {
                 String target = head.substring(5).trim();
                 for (String line : Files.readAllLines(packedRefs, StandardCharsets.UTF_8)) {
@@ -90,5 +100,36 @@ public final class ExtractorContext {
             return detached;
         }
         return FALLBACK_COMMIT;
+    }
+
+    /**
+     * A plain checkout has a {@code .git} directory; a linked worktree has a
+     * {@code .git} FILE whose single line points at the per-worktree git dir.
+     */
+    private static Path resolveGitDir(Path repoRoot) throws IOException {
+        Path dotGit = repoRoot.resolve(".git");
+        if (Files.isDirectory(dotGit)) {
+            return dotGit;
+        }
+        if (!Files.isRegularFile(dotGit)) {
+            return null;
+        }
+        String content = Files.readString(dotGit, StandardCharsets.UTF_8).trim();
+        if (!content.startsWith("gitdir:")) {
+            return null;
+        }
+        Path pointed = Path.of(content.substring("gitdir:".length()).trim());
+        Path gitDir = pointed.isAbsolute() ? pointed : repoRoot.resolve(pointed).normalize();
+        return Files.isDirectory(gitDir) ? gitDir : null;
+    }
+
+    private static Path resolveCommonDir(Path gitDir) throws IOException {
+        Path commonDirFile = gitDir.resolve("commondir");
+        if (!Files.isRegularFile(commonDirFile)) {
+            return gitDir;
+        }
+        Path pointed = Path.of(Files.readString(commonDirFile, StandardCharsets.UTF_8).trim());
+        Path commonDir = pointed.isAbsolute() ? pointed : gitDir.resolve(pointed).normalize();
+        return Files.isDirectory(commonDir) ? commonDir : gitDir;
     }
 }

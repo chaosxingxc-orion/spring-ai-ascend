@@ -2,7 +2,7 @@ package com.huawei.ascend.runtime.boot;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.huawei.ascend.runtime.engine.spi.AgentCards;
+import com.huawei.ascend.runtime.engine.a2a.AgentCards;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
 import org.junit.jupiter.api.Test;
