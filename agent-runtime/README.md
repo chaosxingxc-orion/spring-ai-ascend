@@ -159,8 +159,12 @@ Important Java extension points and related types include:
 
 The example application shows the intended consumer shape from outside the module:
 
-- app boot class: `com.huawei.ascend.examples.a2a.OpenJiuwenA2aAgentRuntimeApplication`
+- app boot class: `com.huawei.ascend.examples.a2a.A2aAgentRuntimeApplication`
 - console client: `com.huawei.ascend.examples.a2a.A2aConsoleClientApplication`
+
+The dedicated OpenJiuwen A2A E2E example lives separately at
+`examples/agent-runtime-a2a-openjiuwen-e2e` and uses
+`com.huawei.ascend.examples.a2a.OpenJiuwenA2aAgentRuntimeApplication`.
 
 For OpenJiuwen memory integration, prefer OpenJiuwen's native memory hooks when the concrete agent supports them. The runtime keeps only the narrow `MemoryProvider` SPI; the adapter that maps it to OpenJiuwen external memory semantics lives under `runtime.engine.openjiuwen`, so future OpenJiuwen memory module splits do not leak into the public runtime SPI.
 
@@ -203,7 +207,7 @@ Then run the example-module test:
 
 ```bash
 export SAA_SAMPLE_LLM_API_KEY=sk-x00550472
-./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml clean test -DskipTests=false
 ```
 
 If needed, also override the local gateway settings:

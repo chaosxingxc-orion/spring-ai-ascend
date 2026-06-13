@@ -233,7 +233,7 @@ If you have already exported the required variables and want to run Maven direct
 (the module pom defaults `skipTests=true`, so the override is required):
 
 ```bash
-./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test -DskipTests=false
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml clean test -DskipTests=false
 ```
 
 ## LangGraph remote-runtime sample (not shipped)
