@@ -86,10 +86,6 @@ venv/
 # Tier C: local source clones (gitignored)
 third_party/*/
 third_party/**/
-!third_party/openjiuwen/
-!third_party/openjiuwen/agent-core-java-0.1.12.jar
-!third_party/openjiuwen/agent-core-java-0.1.12.pom
-!third_party/openjiuwen/README.md
 
 # Architecture artifacts
 docs/delivery/*.json

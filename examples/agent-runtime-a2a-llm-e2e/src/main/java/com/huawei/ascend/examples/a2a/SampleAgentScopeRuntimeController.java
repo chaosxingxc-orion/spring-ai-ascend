@@ -34,7 +34,7 @@ final class SampleAgentScopeRuntimeController {
             consumes = MediaType.APPLICATION_JSON_VALUE)
     Flux<ServerSentEvent<Map<String, Object>>> process(
             @RequestHeader(name = "X-Tenant-Id", defaultValue = "sample-tenant") String tenantId,
-            @RequestHeader(name = "X-Agent-Id", defaultValue = AgentScopeE2eConfiguration.RUNTIME_AGENT_ID) String agentId,
+            @RequestHeader(name = "X-Agent-Id", defaultValue = AgentScopeE2eConfiguration.AGENT_ID) String agentId,
             @RequestHeader(name = "X-Task-Id", defaultValue = "sample-task") String taskId,
             @RequestBody Map<String, Object> body) {
         AgentScopeInvocation invocation = new AgentScopeInvocation(

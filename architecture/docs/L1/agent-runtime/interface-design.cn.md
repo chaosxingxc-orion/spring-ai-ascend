@@ -190,10 +190,12 @@ OpenJiuwen 原生 memory 接入优先使用 OpenJiuwen 0.1.12 的 external memor
 同时，当前还保留 `OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail` 作为 OpenJiuwen 本地兼容桥。它不是公共 runtime SPI，主要用于普通 ReActAgent 或不完整支持 harness external-memory rail 的路径：
 
 - `beforeInvoke(...)` 调用 runtime 中立 `MemoryProvider.init(context)`。
-- `beforeInvoke(...)` 使用最新用户输入调用 `MemoryProvider.search(context, query, limit)`，并把检索结果合并进 OpenJiuwen `ModelContext` 的 system prompt；如果当前上下文已经有 `SystemMessage`，只合并内容，不额外新增第二个 system prompt。
-- `afterInvoke(...)` 从 OpenJiuwen callback context 中取出 `BaseMessage` 列表，过滤执行期 system prompt 后转换成 `MemoryProvider.MemoryRecord`，再调用 `MemoryProvider.save(context, records)`，避免把注入的记忆块反向写回记忆。
+- `beforeInvoke(...)` 使用最新用户输入调用 `MemoryProvider.search(context, query, limit)`，并把检索结果作为自然语言 system note 合并进 OpenJiuwen `ModelContext` 的 system prompt；如果当前上下文已经有 `SystemMessage`，只合并内容，不额外新增第二个 system prompt。
+- `afterInvoke(...)` 从 OpenJiuwen callback context 中取出 `BaseMessage` 列表，但只把干净的 `user` / `assistant` turn 转换成 `MemoryProvider.MemoryRecord` 并调用 `MemoryProvider.save(context, records)`。业务已有的 system prompt、runtime 注入的 memory note、tool 消息都不进入长期记忆写回；长期记忆的抽取、压缩、去重仍由具体 `MemoryProvider` 负责。
 - OpenJiuwen `BaseMessage` 与 `MemoryRecord` 的转换由 `OpenJiuwenMemoryMessageAdapter` 负责，留在 `runtime.engine.openjiuwen` 包内。
 - `InMemoryMemoryProvider` 是 examples 内的轻量实现，按 `agentStateKey` 做最小隔离；生产 memory 后端、向量召回、压缩和跨租户治理仍由具体 `MemoryProvider` 实现负责。
+
+兼容桥的 system prompt 处理只是兜底路径。优先路径仍是 OpenJiuwen 0.1.12 原生 external memory rail：OpenJiuwen 自己用 provider 的 `systemPromptBlock()`、`prefetch(...)` 与 `syncTurn(...)` 管理 memory prompt、检索片段和执行后同步，runtime 只提供窄 `MemoryProvider` 适配，不把 OpenJiuwen 的 prompt template / memory 包名提升到公共 SPI。
 
 适合放入 Rail 的能力：
 
@@ -238,7 +240,12 @@ AgentExecutionContext.getAgentStateKey()
 
 业务方只需要保证 `agentStateKey` 稳定。OpenJiuwen 内部保存哪些字段、如何序列化、何时恢复，交给 OpenJiuwen `Runner` / `Checkpointer` 处理。
 
-当前 sample 采用 OpenJiuwen 标准方式配置 checkpointer：默认使用 `InMemoryCheckpointer`，可通过配置切换到 `RedisCheckpointer`。OpenJiuwen adapter 不需要因为 checkpointer 后端变化而修改。
+当前 OpenJiuwen adapter 提供 `OpenJiuwenCheckpointerConfigurer` 作为启动期配置入口：
+
+- `setDefault(Checkpointer)`：业务 wiring 自行创建 OpenJiuwen 原生 checkpointer，并交给 runtime.engine.openjiuwen 包统一设置到 `CheckpointerFactory`。
+- `setInMemoryDefault()`：本地开发和轻量 E2E 使用的默认路径。
+
+该入口只属于 OpenJiuwen adapter，不进入公共 `engine.spi`。Redis、持久化或业务自定义 checkpointer 都应在业务 / examples wiring 中实例化，然后通过 `setDefault(...)` 注册；不要在每次 `execute(...)` 或每个请求里切换全局 checkpointer。
 
 ### 4.5 `OpenJiuwenStreamAdapter`
 

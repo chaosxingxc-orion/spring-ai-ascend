@@ -29,17 +29,15 @@ public class OpenJiuwenStreamAdapter {
                 type,
                 output.length(),
                 result == null ? "null" : result.keySet());
-        if ("interrupt".equals(type)) {
-            Map<String, Object> remoteContext = remoteContext(result);
-            if (isRemoteInvocation(remoteContext)) {
-                return AgentExecutionResult.remoteInvocation(remoteInvocation(remoteContext));
-            }
-        }
         if ("answer".equals(type)) {
             return AgentExecutionResult.completed(output);
         }
         if ("interrupt".equals(type)) {
-            return AgentExecutionResult.interrupted( output);
+            Map<String, Object> remoteContext = remoteContext(result);
+            if (isRemoteInvocation(remoteContext)) {
+                return AgentExecutionResult.interrupted(remoteInvocation(remoteContext));
+            }
+            return AgentExecutionResult.interrupted(output);
         }
         return AgentExecutionResult.failed(ERROR_CODE, output);
     }

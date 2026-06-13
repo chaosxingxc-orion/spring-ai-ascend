@@ -117,21 +117,23 @@ class RuntimeAutoConfigurationTest {
         assertThat(settings.maskKeyPattern().pattern()).isEqualTo(TrajectoryMasking.DEFAULT_KEY_PATTERN);
     }
 
-    /** The configured default-agent-id selects whose card the discovery endpoint serves. */
+    /**
+     * The configured default-agent-id pins the served card to the hosted handler.
+     * The runtime hosts exactly one agent (the executor rejects multiple handlers
+     * at boot), so the key's job is validate-and-name, not multi-handler routing.
+     */
     @Test
-    void defaultAgentIdSelectsTheCardHandlerAmongMultiple() {
+    void defaultAgentIdMatchingTheHostedHandlerNamesTheCard() {
         runner.withBean("handlerA", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
-                .withBean("handlerB", AgentRuntimeHandler.class, () -> new NamedHandler("agent-b"))
-                .withPropertyValues("agent-runtime.access.a2a.default-agent-id=agent-b")
+                .withPropertyValues("agent-runtime.access.a2a.default-agent-id=agent-a")
                 .withUserConfiguration(RuntimeAutoConfiguration.class)
-                .run(ctx -> assertThat(ctx.getBean(AgentCard.class).name()).isEqualTo("agent-b"));
+                .run(ctx -> assertThat(ctx.getBean(AgentCard.class).name()).isEqualTo("agent-a"));
     }
 
-    /** Unset default-agent-id keeps the existing behavior: first registered handler wins. */
+    /** Unset default-agent-id keeps the existing behavior: the hosted handler names the card. */
     @Test
-    void unsetDefaultAgentIdFallsBackToTheFirstHandler() {
+    void unsetDefaultAgentIdFallsBackToTheHostedHandler() {
         runner.withBean("handlerA", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
-                .withBean("handlerB", AgentRuntimeHandler.class, () -> new NamedHandler("agent-b"))
                 .withUserConfiguration(RuntimeAutoConfiguration.class)
                 .run(ctx -> assertThat(ctx.getBean(AgentCard.class).name()).isEqualTo("agent-a"));
     }
@@ -140,13 +142,12 @@ class RuntimeAutoConfigurationTest {
     @Test
     void mismatchedDefaultAgentIdWarnsWithConfiguredValueAndAvailableIds(CapturedOutput output) {
         runner.withBean("handlerA", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
-                .withBean("handlerB", AgentRuntimeHandler.class, () -> new NamedHandler("agent-b"))
                 .withPropertyValues("agent-runtime.access.a2a.default-agent-id=agent-typo")
                 .withUserConfiguration(RuntimeAutoConfiguration.class)
                 .run(ctx -> {
                     assertThat(ctx.getBean(AgentCard.class).name()).isEqualTo("agent-a");
                     assertThat(output).contains("default-agent-id 'agent-typo' matches no registered handler");
-                    assertThat(output).contains("agent-a", "agent-b");
+                    assertThat(output).contains("agent-a");
                 });
     }
 

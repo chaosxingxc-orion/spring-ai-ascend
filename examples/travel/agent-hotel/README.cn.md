@@ -45,7 +45,7 @@
 | 项 | 值 |
 |---|---|
 | 模块路径 | [examples/travel/agent-hotel/](.) |
-| groupId : artifactId | `com.huawei.ascend : agent-hotel` |
+| groupId : artifactId | `com.huawei.ascend.examples : agent-travel-hotel` |
 | parent | `spring-ai-ascend-parent` |
 | packaging | **jar（库，无 spring-boot-maven-plugin repackage）** |
 | 入口类 | `com.huawei.ascend.examples.hotel.HotelPlanningAgent` |
@@ -362,8 +362,8 @@ mvn -f examples/travel/agent-hotel/pom.xml exec:java \
 
 # 宿主进程的 pom.xml 引用
 <dependency>
-  <groupId>com.huawei.ascend</groupId>
-  <artifactId>agent-hotel</artifactId>
+  <groupId>com.huawei.ascend.examples</groupId>
+  <artifactId>agent-travel-hotel</artifactId>
   <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```

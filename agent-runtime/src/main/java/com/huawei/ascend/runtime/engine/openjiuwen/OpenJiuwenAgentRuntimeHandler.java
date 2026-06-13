@@ -306,8 +306,9 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
                 return;
             }
             try {
-                List<MemoryProvider.MemoryRecord> records = memoryMessageAdapter.toMemoryRecords(messages).stream()
-                        .filter(record -> !"system".equals(record.role()))
+                List<MemoryProvider.MemoryRecord> records = messages.stream()
+                        .map(this::toLongTermMemoryRecord)
+                        .filter(Objects::nonNull)
                         .toList();
                 if (!records.isEmpty()) {
                     memoryProvider.save(executionContext, records);
@@ -348,7 +349,15 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             if (modelContext == null) {
                 return;
             }
-            mergeMemoryIntoSystemMessage(modelContext, formatMemoryBlock(hits));
+            mergeMemoryIntoSystemMessage(modelContext, runtimeMemoryBlock(formatMemoryBlock(hits)));
+        }
+
+        private MemoryProvider.MemoryRecord toLongTermMemoryRecord(BaseMessage message) {
+            MemoryProvider.MemoryRecord record = memoryMessageAdapter.toMemoryRecord(message);
+            if (isLongTermTurnRole(record.role()) && hasText(record.content())) {
+                return record;
+            }
+            return null;
         }
 
         private String latestUserInput() {
@@ -379,6 +388,19 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             }
             updatedMessages.add(0, new SystemMessage(memoryBlock));
             modelContext.setMessages(updatedMessages, true);
+        }
+
+        private static String runtimeMemoryBlock(String memoryBlock) {
+            return "[System note: recalled memory context from runtime memory, not new user input.]\n\n"
+                    + memoryBlock;
+        }
+
+        private static boolean isLongTermTurnRole(String role) {
+            return "user".equalsIgnoreCase(role) || "assistant".equalsIgnoreCase(role);
+        }
+
+        private static boolean hasText(String value) {
+            return value != null && !value.isBlank();
         }
 
         private static boolean isSystemMessage(BaseMessage message) {

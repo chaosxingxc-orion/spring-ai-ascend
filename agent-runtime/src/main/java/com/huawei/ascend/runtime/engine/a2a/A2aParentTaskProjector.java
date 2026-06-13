@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -18,9 +17,12 @@ import org.a2aproject.sdk.spec.Task;
 import org.a2aproject.sdk.spec.TaskState;
 import org.a2aproject.sdk.spec.TaskStatus;
 import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.a2aproject.sdk.spec.TextPart;
 
 final class A2aParentTaskProjector {
+    private static final Logger LOG = LoggerFactory.getLogger(A2aParentTaskProjector.class);
     private static final String WAITING_TARGET_REMOTE_AGENT = "REMOTE_AGENT";
     private static final String REMOTE_TERMINAL_RESULT_MISSING = "{\"error\":\"REMOTE_TERMINAL_RESULT_MISSING\"}";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -95,18 +97,25 @@ final class A2aParentTaskProjector {
                     // Progress is projected by the outbound callback while the remote stream is still open.
                 }
                 case INPUT_REQUIRED -> {
+                    LOG.info("[A2A] remote outcome=input_required remoteAgentId={} remoteTaskId={}",
+                            invocation.remoteAgentId(), result.remoteTaskId());
                     requireRemoteInput(invocation, result, emitter);
                     return RemoteOutcome.waitForInput();
                 }
                 case COMPLETED -> {
+                    LOG.info("[A2A] remote outcome=completed remoteAgentId={} resultLen={}",
+                            invocation.remoteAgentId(), result.text() != null ? result.text().length() : 0);
                     return RemoteOutcome.resumeWith(safeText(result.text()));
                 }
                 case FAILED -> {
+                    LOG.warn("[A2A] remote outcome=failed remoteAgentId={} error={}",
+                            invocation.remoteAgentId(), safeText(result.text()));
                     return RemoteOutcome.resumeWith(
                             errorJson(safeText(result.text()), result.metadata().get("code")));
                 }
             }
         }
+        LOG.warn("[A2A] remote outcome=no-terminal-result remoteAgentId={}", invocation.remoteAgentId());
         return RemoteOutcome.resumeWith(REMOTE_TERMINAL_RESULT_MISSING);
     }
 

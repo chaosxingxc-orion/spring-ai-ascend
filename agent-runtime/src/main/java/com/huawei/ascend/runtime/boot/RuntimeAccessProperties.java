@@ -9,9 +9,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   <li>{@code defaultTenantId} — the tenant attributed to requests that carry no
  *       {@code X-Tenant-Id} header; single-tenant deployments set it once instead of
  *       sending the header.</li>
- *   <li>{@code defaultAgentId} — when several {@code AgentRuntimeHandler} beans are
- *       registered, selects whose agent card the discovery endpoint serves; blank
- *       falls back to the first registered handler.</li>
+ *   <li>{@code defaultAgentId} — pins the agent id the discovery endpoint serves
+ *       and warns when it matches no registered handler (the runtime hosts exactly
+ *       one agent); blank falls back to the hosted handler's id.</li>
  *   <li>{@code publicBaseUrl} — externally reachable base URL (scheme + host +
  *       optional path prefix) used when publishing absolute URLs in the agent card;
  *       blank derives the base from the current HTTP request instead.</li>

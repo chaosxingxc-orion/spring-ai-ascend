@@ -93,6 +93,16 @@ final class A2aResultRouter {
                 });
             }
             case INTERRUPTED -> {
+                if (result.interruptPayload() instanceof AgentExecutionResult.RemoteAgentInterrupt remote) {
+                    if (!remoteInvocationAllowed) {
+                        return RouteDecision.terminal(() -> emitter.fail(A2aAgentExecutor.failureMessage(
+                                emitter,
+                                "NESTED_REMOTE_INVOCATION_UNSUPPORTED",
+                                "remote A2A invocation after REMOTE_RESUME is not supported",
+                                false)));
+                    }
+                    return RouteDecision.remote(remote.remoteInvocation());
+                }
                 String prompt = result.prompt() == null ? "" : result.prompt();
                 return RouteDecision.terminal(() -> {
                     LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} promptChars={}", taskId, prompt.length());
@@ -101,16 +111,6 @@ final class A2aResultRouter {
                             : emitter.newAgentMessage(List.<Part<?>>of(new TextPart(prompt)), null);
                     emitter.requiresInput(message, false);
                 });
-            }
-            case REMOTE_INVOCATION -> {
-                if (!remoteInvocationAllowed) {
-                    return RouteDecision.terminal(() -> emitter.fail(A2aAgentExecutor.failureMessage(
-                            emitter,
-                            "NESTED_REMOTE_INVOCATION_UNSUPPORTED",
-                            "remote A2A invocation after REMOTE_RESUME is not supported",
-                            false)));
-                }
-                return RouteDecision.remote(result.remoteInvocation());
             }
         }
         throw new IllegalStateException("Unsupported result type: " + result.type());

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Load an env file, install agent-runtime into the local Maven repo, then run the
-# example A2A + openJiuwen E2E suite (incl. the real-LLM OpenJiuwenReactAgentA2aE2eTest
-# when SAA_SAMPLE_LLM_API_KEY is set).
+# example A2A + AgentScope E2E suite (real-LLM tests run when SAA_SAMPLE_LLM_API_KEY
+# is set).
 #
 # Usage: bash scripts/test-e2e.sh [env-file]   (default: .env)
 #   bash scripts/test-e2e.sh .env.ollama.example
@@ -11,7 +11,7 @@ REPO="$(cd "$HERE/../.." && pwd)"
 ENV_FILE="${1:-$HERE/.env}"
 if [[ -f "$ENV_FILE" ]]; then
   set -a; . "$ENV_FILE"; set +a
-  echo "loaded env: $ENV_FILE  (provider=${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:-} apiBase=${SAA_SAMPLE_OPENJIUWEN_API_BASE:-} model=${SAA_SAMPLE_LLM_MODEL:-})"
+  echo "loaded env: $ENV_FILE  (apiBase=${SAA_SAMPLE_AGENTSCOPE_API_BASE:-} model=${SAA_SAMPLE_LLM_MODEL:-})"
 else
   echo "env file not found: $ENV_FILE — using process env / application.yaml defaults"
 fi

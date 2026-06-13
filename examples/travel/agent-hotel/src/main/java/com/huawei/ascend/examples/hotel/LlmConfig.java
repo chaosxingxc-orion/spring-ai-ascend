@@ -34,7 +34,7 @@ public record LlmConfig(
     public static final String DEFAULT_MODEL = "deepseek-v4-pro";
 
     /** Default api-key placeholder; tests will override or skip. */
-    public static final String DEFAULT_API_KEY_PLACEHOLDER = "sk-fMd7tWQbGmovD62pZ6ZkeA";
+    public static final String DEFAULT_API_KEY_PLACEHOLDER = "xxxxxxxx";
 
     /**
      * Build configuration from environment variables. Keys mirror those in

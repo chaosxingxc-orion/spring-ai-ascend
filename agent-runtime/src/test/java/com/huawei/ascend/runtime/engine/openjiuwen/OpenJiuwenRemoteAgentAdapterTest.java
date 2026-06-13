@@ -51,7 +51,9 @@ class OpenJiuwenRemoteAgentAdapterTest {
                 "runtime.remote.localConversationId", "conversation-1",
                 "runtime.remote.arguments", Map.of("message", "hello remote")));
 
-        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.REMOTE_INVOCATION);
+        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.INTERRUPTED);
+        assertThat(result.interruptPayload())
+                .isInstanceOf(AgentExecutionResult.RemoteAgentInterrupt.class);
         assertThat(result.remoteInvocation().remoteAgentId()).isEqualTo("remote-agent");
         assertThat(result.remoteInvocation().toolCallId()).isEqualTo("tool-call-1");
         assertThat(result.remoteInvocation().arguments()).containsEntry("message", "hello remote");
@@ -78,9 +80,24 @@ class OpenJiuwenRemoteAgentAdapterTest {
                 "state", List.of(new OutputSchema("interaction", 0,
                         new InteractionOutput("tool-call-1", request)))));
 
-        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.REMOTE_INVOCATION);
+        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.INTERRUPTED);
+        assertThat(result.interruptPayload())
+                .isInstanceOf(AgentExecutionResult.RemoteAgentInterrupt.class);
         assertThat(result.remoteInvocation().remoteAgentId()).isEqualTo("remote-agent");
         assertThat(result.remoteInvocation().parentTaskId()).isEqualTo("task-1");
         assertThat(result.remoteInvocation().arguments()).containsEntry("message", "hello remote");
+    }
+
+    @Test
+    void streamAdapterMapsPlainOpenJiuwenInterruptToUserInputInterrupt() {
+        AgentExecutionResult result = new OpenJiuwenStreamAdapter().map(Map.of(
+                "result_type", "interrupt",
+                "output", "please provide more input"));
+
+        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.INTERRUPTED);
+        assertThat(result.interruptPayload())
+                .isInstanceOf(AgentExecutionResult.UserInputInterrupt.class);
+        assertThat(result.prompt()).isEqualTo("please provide more input");
+        assertThat(result.remoteInvocation()).isNull();
     }
 }

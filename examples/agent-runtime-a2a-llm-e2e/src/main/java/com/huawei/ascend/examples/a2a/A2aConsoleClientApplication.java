@@ -9,7 +9,7 @@ public final class A2aConsoleClientApplication {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(60);
     private static final String DEFAULT_BASE_URL = "http://localhost:8080";
-    private static final String DEFAULT_AGENT_ID = "openjiuwen-react-agent";
+    private static final String DEFAULT_AGENT_ID = "agentscope-react-agent";
     private static final String DEFAULT_USER_ID = "manual-user";
 
     private A2aConsoleClientApplication() {

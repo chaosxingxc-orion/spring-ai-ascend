@@ -1,12 +1,12 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
+import com.huawei.ascend.runtime.engine.spi.RemoteAgentToolSpec;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
 import com.openjiuwen.core.foundation.llm.schema.ToolCall;
 import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.session.Session;
@@ -29,7 +29,7 @@ class OpenJiuwenRemoteToolInstallerTest {
     @Test
     void installsRemoteToolCardAndInterruptRailOnAgentInstance() {
         RecordingAgent agent = new RecordingAgent();
-        RemoteAgentCatalog.RemoteAgentToolSpec spec = toolSpec();
+        RemoteAgentToolSpec spec = toolSpec();
         OpenJiuwenRemoteToolInstaller installer = new OpenJiuwenRemoteToolInstaller(() -> List.of(spec));
 
         installer.install(agent, context());
@@ -45,7 +45,7 @@ class OpenJiuwenRemoteToolInstallerTest {
 
     @Test
     void railConvertsRemoteToolCallToInterruptContext() {
-        RemoteAgentCatalog.RemoteAgentToolSpec spec = toolSpec();
+        RemoteAgentToolSpec spec = toolSpec();
         AgentExecutionContext context = context();
         OpenJiuwenRemoteAgentInterruptRail rail =
                 new OpenJiuwenRemoteAgentInterruptRail(context, List.of(spec));
@@ -81,7 +81,7 @@ class OpenJiuwenRemoteToolInstallerTest {
 
     @Test
     void railTurnsRemoteResumeInputIntoSyntheticToolResult() {
-        RemoteAgentCatalog.RemoteAgentToolSpec spec = toolSpec();
+        RemoteAgentToolSpec spec = toolSpec();
         OpenJiuwenRemoteAgentInterruptRail rail =
                 new OpenJiuwenRemoteAgentInterruptRail(context(), List.of(spec));
         ToolCall toolCall = ToolCall.builder()
@@ -113,8 +113,8 @@ class OpenJiuwenRemoteToolInstallerTest {
         assertThat(inputs.getToolMsg().getContent()).isEqualTo("{\"ok\":true}");
     }
 
-    private static RemoteAgentCatalog.RemoteAgentToolSpec toolSpec() {
-        return new RemoteAgentCatalog.RemoteAgentToolSpec(
+    private static RemoteAgentToolSpec toolSpec() {
+        return new RemoteAgentToolSpec(
                 "remote-planner",
                 "a2a_remote_remote_planner",
                 "Remote Planner\nPlans trips",

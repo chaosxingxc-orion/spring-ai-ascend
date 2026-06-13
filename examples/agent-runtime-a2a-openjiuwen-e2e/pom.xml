@@ -34,10 +34,10 @@
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>
       <!-- Must match the version agent-runtime compiles against (its dep is
-           <optional>); 0.1.12 carries memory.external.MemoryProvider, which the
-           openJiuwen handler needs at boot — 0.1.7 lacks it and the context
+           <optional>); 0.1.12-jdk17 carries memory.external.MemoryProvider, which
+           the openJiuwen handler needs at boot — 0.1.7 lacks it and the context
            fails with NoClassDefFoundError. -->
-      <version>0.1.12</version>
+      <version>0.1.12-jdk17</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>

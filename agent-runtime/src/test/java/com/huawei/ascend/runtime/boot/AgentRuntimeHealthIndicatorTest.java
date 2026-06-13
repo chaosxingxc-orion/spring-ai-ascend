@@ -4,8 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
+import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.RemoteAgentToolSpec;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -62,7 +63,7 @@ class AgentRuntimeHealthIndicatorTest {
         when(handler.agentId()).thenReturn("agent-x");
         when(handler.isHealthy()).thenReturn(true);
         readiness.markReady();
-        RemoteAgentCatalog catalog = new RemoteAgentCatalog(List.of("http://remote-pending")) {
+        RemoteAgentCardCache catalog = new RemoteAgentCardCache(List.of("http://remote-pending")) {
             @Override
             public List<RemoteAgentToolSpec> availableToolSpecs() {
                 return List.of(new RemoteAgentToolSpec(
@@ -88,7 +89,7 @@ class AgentRuntimeHealthIndicatorTest {
         when(handler.agentId()).thenReturn("agent-x");
         when(handler.isHealthy()).thenReturn(true);
         readiness.markReady();
-        RemoteAgentCatalog catalog = new RemoteAgentCatalog(List.of("http://remote-pending"));
+        RemoteAgentCardCache catalog = new RemoteAgentCardCache(List.of("http://remote-pending"));
 
         Health health = new AgentRuntimeHealthIndicator(List.of(handler), readiness, catalog).health();
 

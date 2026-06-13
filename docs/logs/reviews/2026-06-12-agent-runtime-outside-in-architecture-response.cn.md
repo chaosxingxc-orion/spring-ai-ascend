@@ -160,6 +160,17 @@ affects_artefact:
 - 修复波反向验证：ArchUnit 新规则以临时探针证明"会红"后回退探针；pom 死依赖逐个 grep 零消费实证（唯一 org.springframework.ai 命中是 ArchUnit 规则里的包名字符串）。
 - G-9 台账：无新 family（41 不变）；登记 `F-hand-authored-factual-drift`、`F-cross-authority-agreement`、`F-numeric-drift` 三处复发（yaml+md 平价，UTC 日期）。
 
+### 7.1 合并收口（2026-06-13，main 前进至 c09732e6 后的语义合并）
+
+波次完成后 main 又前进了一个平行重构窗口（#194 a2a remote client 重构、#192 versatile REST 适配器、#173 travel mainplan、#208 llm-e2e 清理、agent-core 0.1.12-jdk17 切换），与本分支在 35 个文件上重叠。按"main 结构为骨架、硬化语义重移植"完成合并：
+
+- **同向收敛**：双方独立把 AgentCardProvider/AgentCards 从 spi 归位 engine.a2a（同一 #182 评审意见的两次响应）——HD-10 裁决被上游独立佐证。
+- **重移植**：RemoteAgentCatalog 的硬化实现体（volatile 不可变快照、全量刷新保留 last-good card、sticky id、per-remote stream-timeout）落入 main 命名的 `RemoteAgentCardCache`；remote 装配落位 main 的 `A2aClientAutoConfiguration`（refresher 改全量刷新）；W4 的超时 best-effort cancel / `REMOTE_TIMEOUT` 码 / 单写 emitter / 端点失效重建 transport 全部保留在 main 的 `obtainTransport` 命名下。
+- **随 main 收敛**：`RemoteSupport` 包装移除（executor 直收 `RemoteAgentInvocationService`）；`REMOTE_INVOCATION` 结果类型并入 `INTERRUPTED` + `RemoteAgentInterrupt` payload（嵌套远程调用守卫保留）；`default-agent-id` 在 main 的"runtime 恰好托管一个 agent"硬化下收窄为校验+WARN+命名语义（多 handler 选择场景已不可达）。
+- **新增收口**：`RemoteAgentToolSpec` 从卡缓存嵌套类抽至 `engine.spi`（openjiuwen 适配器不再触及 a2a 桥，ArchUnit 禁止规则原样保持）；main 的 versatile 适配器与 Mem0 测试适配 `RuntimeMessage` SPI；`AgentCardProperties.createAgentCard` 委托 `AgentCards` 工厂（消除第二份卡片拷贝及其 localhost provider URL 回归）；guides 三处 RemoteSupport/旧 SPI 措辞对齐。
+- **合并后验证**：agent-runtime **258/0**（含 main 侧 versatile/checkpointer 新测试）；根 reactor BUILD SUCCESS；全部 example 模块编译通过——唯 `examples/agent-sdk-example` 在 main 上即有 `com.openjiuwen.harness.deep_agent` 缺包（本分支零接触，非本合并引入）；openjiuwen e2e 套件 BUILD SUCCESS（7 tests，真 LLM 用例因本地无 LLM 端点 1 skip；上文 7/0/0/0 为波次期全跑记录）；llm e2e 套件随 #208 清理缩减（openjiuwen 样例与 registry 测试移除），本轮为编译级验证。
+- **基线再锁**：graph **267/433**（合并树上再生成实测；按两侧 delta 手算的 264/430 被实测驳回——再次印证 NEVER hand-computed）；workspace 364/200 不变；maven_tests_green 按公式重测 **323**（agent-runtime 258 + agent-bus 32 + tools 33，含 main 侧新测试）；事实层（architecture/facts/generated/）在合并树重提取，FactLayerByteIdentityIT 复绿。
+
 ---
 
 ## 8. 对 §10 决议请求的回应

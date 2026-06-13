@@ -16,9 +16,10 @@
     <relativePath>../../../pom.xml</relativePath>
   </parent>
 
-  <artifactId>agent-hotel</artifactId>
+  <groupId>com.huawei.ascend.examples</groupId>
+  <artifactId>agent-travel-hotel</artifactId>
   <packaging>jar</packaging>
-  <name>spring-ai-ascend agent-hotel example</name>
+  <name>agent-travel-hotel</name>
   <description>
     Hotel planning sub-agent for the corporate travel multi-agent system.
     Library jar: exposes a HotelPlanningAgent Java entry point driven by
@@ -31,7 +32,7 @@
   <properties>
     <enforcer.skip>true</enforcer.skip>
     <!-- 用户指定 0.1.12；参考例子用的是 0.1.7，实现期需验证 API 兼容性 -->
-    <openjiuwen.agent-core.version>0.1.12</openjiuwen.agent-core.version>
+    <openjiuwen.agent-core.version>0.1.12-jdk17</openjiuwen.agent-core.version>
   </properties>
 
   <dependencies>

@@ -1,0 +1,8 @@
+# LLM 连接配置模板。复制为同目录下的 llm.properties 并填入真实值。
+# llm.properties 已被 .gitignore 忽略，不会提交，避免泄露 Key。
+# 同名环境变量优先级更高，可临时覆盖此文件的值。
+LLM_PROVIDER=openai
+LLM_API_KEY=sk-xxx
+LLM_API_BASE=https://api.deepseek.com
+LLM_MODEL=deepseek-chat
+LLM_SSL_VERIFY=false

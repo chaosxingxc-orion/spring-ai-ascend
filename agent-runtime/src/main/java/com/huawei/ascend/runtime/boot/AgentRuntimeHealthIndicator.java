@@ -1,6 +1,6 @@
 package com.huawei.ascend.runtime.boot;
 
-import com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog;
+import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import java.util.List;
 import java.util.Map;
@@ -21,14 +21,14 @@ public final class AgentRuntimeHealthIndicator implements HealthIndicator {
 
     private final List<AgentRuntimeHandler> handlers;
     private final RuntimeReadiness readiness;
-    private final RemoteAgentCatalog remoteAgentCatalog;
+    private final RemoteAgentCardCache remoteAgentCatalog;
 
     public AgentRuntimeHealthIndicator(List<AgentRuntimeHandler> handlers, RuntimeReadiness readiness) {
         this(handlers, readiness, null);
     }
 
     public AgentRuntimeHealthIndicator(List<AgentRuntimeHandler> handlers, RuntimeReadiness readiness,
-            RemoteAgentCatalog remoteAgentCatalog) {
+            RemoteAgentCardCache remoteAgentCatalog) {
         this.handlers = List.copyOf(Objects.requireNonNull(handlers, "handlers"));
         this.readiness = Objects.requireNonNull(readiness, "readiness");
         this.remoteAgentCatalog = remoteAgentCatalog;

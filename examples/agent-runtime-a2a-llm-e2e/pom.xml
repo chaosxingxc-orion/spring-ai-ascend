@@ -15,18 +15,15 @@
   <packaging>jar</packaging>
   <name>spring-ai-ascend agent-runtime A2A LLM E2E example</name>
   <description>
-    End-to-end example that starts agent-runtime, hosts an openJiuwen ReActAgent,
-    calls it only through the A2A JSON-RPC HTTP endpoint, and verifies a real
-    OpenAI-compatible local LLM response.
+    End-to-end example that starts agent-runtime with AgentScope SDK agents
+    (ReAct and Retail Wealth Advisor), calls them only through the A2A JSON-RPC
+    HTTP endpoint, and verifies real OpenAI-compatible local LLM responses.
   </description>
 
   <properties>
     <enforcer.skip>true</enforcer.skip>
-    <!-- This mixed example keeps its source for reference, but its tests are no
-         longer the default A2A runtime verification surface. Use the dedicated
-         agent-runtime-a2a-openjiuwen-e2e module for single-runtime/single-agent
-         OpenJiuwen coverage. Override with -DskipTests=false when intentionally
-         exercising the legacy mixed sample. -->
+    <!-- E2E tests require a real LLM (SAA_SAMPLE_LLM_API_KEY). Override with
+         -DskipTests=false to exercise them when a real LLM is available. -->
     <skipTests>true</skipTests>
   </properties>
 
@@ -35,14 +32,6 @@
       <groupId>com.huawei.ascend</groupId>
       <artifactId>agent-runtime</artifactId>
       <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.openjiuwen</groupId>
-      <artifactId>agent-core-java</artifactId>
-      <!-- Must match the version agent-runtime compiles against (its dep is
-           <optional>); 0.1.12 carries memory.external.MemoryProvider, which the
-           openJiuwen handler needs at boot. -->
-      <version>0.1.12</version>
     </dependency>
     <dependency>
       <groupId>io.agentscope</groupId>
@@ -72,14 +61,14 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.6.2</version>
       </plugin>
-      <!-- agent-runtime is a library (embeds app.RuntimeApp); the runnable artifact is
-           THIS openJiuwen A2A server. Repackage it as an executable Spring Boot jar so it
-           can be containerized (see the repo-root Dockerfile). -->
+      <!-- agent-runtime is a library (embeds app.RuntimeApp); repackage this
+           example as an executable Spring Boot jar so it can be containerized
+           (see the repo-root Dockerfile). -->
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
-          <mainClass>com.huawei.ascend.examples.a2a.OpenJiuwenA2aAgentRuntimeApplication</mainClass>
+          <mainClass>com.huawei.ascend.examples.a2a.A2aAgentRuntimeApplication</mainClass>
         </configuration>
         <executions>
           <execution>
