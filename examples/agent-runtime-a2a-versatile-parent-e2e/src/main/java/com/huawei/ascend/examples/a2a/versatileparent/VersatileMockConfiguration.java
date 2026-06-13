@@ -36,12 +36,13 @@ public class VersatileMockConfiguration {
         server.start();
         WireMock.configureFor(PORT);
 
+        // First request → hotels_info WITHOUT End → child emits INTERRUPTED
         WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/.*/agents/.*/conversations/.*"))
                 .inScenario(SCENARIO).whenScenarioStateIs(Scenario.STARTED)
                 .withQueryParam("type", WireMock.equalTo("controller"))
                 .willReturn(WireMock.aResponse().withStatus(200)
                         .withHeader("Content-Type", "text/event-stream; charset=utf-8")
-                        .withBody(VersatileMockSse.hotelsInfo()))
+                        .withBody(VersatileMockSse.hotelsInfoNoEnd()))
                 .willSetStateTo(STATE_FIRST_DONE));
 
         WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/.*/agents/.*/conversations/.*"))

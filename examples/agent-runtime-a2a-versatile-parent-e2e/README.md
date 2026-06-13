@@ -316,13 +316,14 @@ remote tool invocation start taskId=... toolName=a2a_remote_versatile_child
 
 本示例包含一个基于 WireMock 的 Versatile API 模拟服务 `VersatileMockService`，可以完全不依赖外部 Versatile REST API 运行 E2E 测试。
 
-**Mock 行为：**
+**Mock 行为（默认中断流程）：**
 
 | 轮次 | Mock 响应 | child 结果 |
 |------|----------|-----------|
-| 第一轮 | `hotels_info` 事件 + End | COMPLETED（酒店列表） |
-| 第一轮（interrupt 模式） | `hotels_info` 事件（无 End） | INPUT_REQUIRED |
-| 第二轮 | `hotel_book_success` 事件 + End | COMPLETED（含 ticket 提取） |
+| 第一轮 | `hotels_info` 事件（无 End） | INPUT_REQUIRED（等待用户选择酒店） |
+| 第二轮 | `hotel_book_success` 事件 + End | COMPLETED（含 ticket 提取，返回 LLM） |
+
+JUnit 测试可按需切换：`stubBookingFlow()`（第一轮也带 End → COMPLETED）或 `stubInterruptFlow()`（默认）。
 
 **运行测试：**
 
