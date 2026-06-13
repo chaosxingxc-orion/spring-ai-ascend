@@ -11,10 +11,10 @@
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
-  <artifactId>agent-runtime-a2a-remote-openjiuwen-e2e-example</artifactId>
+  <artifactId>agent-runtime-a2a-remote-agent-tool-e2e-example</artifactId>
   <packaging>jar</packaging>
-  <name>spring-ai-ascend agent-runtime remote A2A openJiuwen E2E example</name>
-  <description>Two agent-runtime instances where an OpenJiuwen 0.1.12 agent calls another runtime as a remote A2A tool.</description>
+  <name>spring-ai-ascend agent-runtime remote A2A agent tool E2E example</name>
+  <description>Two agent-runtime instances where an OpenJiuwen 0.1.12 agent calls a remote A2A agent as a local tool.</description>
 
   <properties>
     <enforcer.skip>true</enforcer.skip>
@@ -57,7 +57,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
-          <mainClass>com.huawei.ascend.examples.a2a.remoteopenjiuwen.RemoteOpenJiuwenA2aApplication</mainClass>
+          <mainClass>com.huawei.ascend.examples.a2a.remoteagenttool.RemoteA2aToolInvocationApplication</mainClass>
         </configuration>
       </plugin>
     </plugins>

@@ -1,4 +1,4 @@
-package com.huawei.ascend.examples.a2a.remoteopenjiuwen;
+package com.huawei.ascend.examples.a2a.remoteagenttool;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
@@ -17,25 +17,29 @@ import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.AgentProvider;
 import org.a2aproject.sdk.spec.AgentSkill;
 import org.a2aproject.sdk.spec.TransportProtocol;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(name = "sample.remote-openjiuwen.role", havingValue = "b")
-public class AgentBConfiguration {
-    static final String AGENT_ID = "remote-b";
+@ConditionalOnProperty(name = "sample.remote-agent-tool.role", havingValue = "remote")
+public class RemoteA2aAgentConfiguration {
+    private static final Logger LOG = LoggerFactory.getLogger(RemoteA2aAgentConfiguration.class);
+
+    static final String AGENT_ID = "remote-a2a-agent";
 
     @Bean
-    AgentRuntimeHandler agentBHandler() {
-        return new AgentBHandler();
+    AgentRuntimeHandler remoteA2aAgentHandler() {
+        return new RemoteAgentHandler();
     }
 
     @Bean
-    AgentCard agentBCard() {
+    AgentCard remoteA2aAgentCard() {
         return AgentCard.builder()
                 .name(AGENT_ID)
-                .description("Remote OpenJiuwen 0.1.12 demo agent B. It streams progress, asks for one more input, then completes.")
+                .description("Remote OpenJiuwen 0.1.12 demo agent. It streams progress, asks for one more input, then completes.")
                 .url("/a2a")
                 .version("0.1.0")
                 .provider(new AgentProvider("spring-ai-ascend", "http://localhost:18082"))
@@ -43,8 +47,8 @@ public class AgentBConfiguration {
                 .defaultInputModes(java.util.List.of("text"))
                 .defaultOutputModes(java.util.List.of("text"))
                 .skills(java.util.List.of(AgentSkill.builder()
-                        .id("remote-b-dialog")
-                        .name("Remote B dialog")
+                        .id("remote-a2a-dialog")
+                        .name("Remote agent dialog")
                         .description("Streams two progress messages, requests user input, then streams two more messages and completes.")
                         .tags(java.util.List.of("remote", "input-required", "streaming"))
                         .build()))
@@ -52,14 +56,14 @@ public class AgentBConfiguration {
                 .build();
     }
 
-    private static final class AgentBHandler extends OpenJiuwenAgentRuntimeHandler {
+    private static final class RemoteAgentHandler extends OpenJiuwenAgentRuntimeHandler {
         // Remembers which remote conversations have already produced their first turn,
         // so the second turn on the same remote task/context completes regardless of the
         // user's follow-up wording. The demo no longer keys completion off magic keywords.
         private static final java.util.Set<String> STARTED_CONVERSATIONS =
                 java.util.concurrent.ConcurrentHashMap.newKeySet();
 
-        private AgentBHandler() {
+        private RemoteAgentHandler() {
             super(AGENT_ID);
         }
 
@@ -71,19 +75,32 @@ public class AgentBConfiguration {
         }
 
         @Override
+        protected Object toOpenJiuwenInput(AgentExecutionContext context) {
+            String conversationId = context.getAgentStateKey();
+            boolean firstTurn = !STARTED_CONVERSATIONS.contains(conversationId);
+            LOG.info("remote-agent received message taskId={} conversationId={} turn={} messages={} text={}",
+                    context.getScope().taskId(),
+                    conversationId,
+                    firstTurn ? "first" : "continuation",
+                    context.getMessages().size(),
+                    context.lastUserText());
+            return super.toOpenJiuwenInput(context);
+        }
+
+        @Override
         protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
             boolean firstTurn = STARTED_CONVERSATIONS.add(conversationId);
             if (firstTurn) {
                 return Stream.of(
-                        AgentExecutionResult.output("AgentB first stream message 1: remote task started. "),
-                        AgentExecutionResult.output("AgentB first stream message 2: more detail is needed. "),
-                        AgentExecutionResult.interrupted("AgentB needs one more user input. "
+                        AgentExecutionResult.output("Remote agent first stream message 1: remote task started. "),
+                        AgentExecutionResult.output("Remote agent first stream message 2: more detail is needed. "),
+                        AgentExecutionResult.interrupted("Remote agent needs one more user input. "
                                 + "Send a follow-up message with the same parent taskId/contextId."));
             }
             return Stream.of(
-                    AgentExecutionResult.output("AgentB second stream message 1: received user follow-up. "),
-                    AgentExecutionResult.output("AgentB second stream message 2: preparing final answer. "),
-                    AgentExecutionResult.completed("AgentB completed after the second user input."));
+                    AgentExecutionResult.output("Remote agent second stream message 1: received user follow-up. "),
+                    AgentExecutionResult.output("Remote agent second stream message 2: preparing final answer. "),
+                    AgentExecutionResult.completed("Remote agent completed after the second user input."));
         }
     }
 
@@ -92,7 +109,7 @@ public class AgentBConfiguration {
             super(com.openjiuwen.core.singleagent.schema.AgentCard.builder()
                     .id(AGENT_ID)
                     .name(AGENT_ID)
-                    .description("Demo OpenJiuwen 0.1.12 agent B")
+                    .description("Demo OpenJiuwen 0.1.12 remote agent")
                     .build());
         }
 

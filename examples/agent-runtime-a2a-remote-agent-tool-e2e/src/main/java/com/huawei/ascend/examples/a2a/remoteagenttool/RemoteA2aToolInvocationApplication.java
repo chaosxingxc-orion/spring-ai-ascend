@@ -1,14 +1,14 @@
-package com.huawei.ascend.examples.a2a.remoteopenjiuwen;
+package com.huawei.ascend.examples.a2a.remoteagenttool;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication(scanBasePackages = {
-        "com.huawei.ascend.examples.a2a.remoteopenjiuwen",
+        "com.huawei.ascend.examples.a2a.remoteagenttool",
         "com.huawei.ascend.runtime.boot"})
-public class RemoteOpenJiuwenA2aApplication {
+public class RemoteA2aToolInvocationApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(RemoteOpenJiuwenA2aApplication.class, args);
+        SpringApplication.run(RemoteA2aToolInvocationApplication.class, args);
     }
 }

@@ -1,0 +1,7 @@
+# Common settings for both local-agent and remote-agent profiles.
+# Activate one profile: --spring.profiles.active=local-agent | remote-agent
+
+debug: false
+
+server:
+  port: ${SERVER_PORT:0}

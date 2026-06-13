@@ -1,4 +1,4 @@
-package com.huawei.ascend.examples.a2a.remoteopenjiuwen;
+package com.huawei.ascend.examples.a2a.remoteagenttool;
 
 import java.net.URI;
 import java.time.Duration;
@@ -23,12 +23,12 @@ import org.a2aproject.sdk.spec.TaskState;
 import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.a2aproject.sdk.spec.TextPart;
 
-public final class SampleA2aClient {
+public final class A2aStreamingTestClient {
 
     private final URI baseUri;
     private final Duration timeout;
 
-    public SampleA2aClient(URI baseUri, Duration timeout) {
+    public A2aStreamingTestClient(URI baseUri, Duration timeout) {
         this.baseUri = baseUri;
         this.timeout = timeout;
     }

@@ -1,4 +1,4 @@
-package com.huawei.ascend.examples.a2a.remoteopenjiuwen;
+package com.huawei.ascend.examples.a2a.remoteagenttool;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.AgentCards;
@@ -16,48 +16,48 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(name = "sample.remote-openjiuwen.role", havingValue = "a")
-public class AgentAConfiguration {
-    static final String AGENT_ID = "local-a";
+@ConditionalOnProperty(name = "sample.remote-agent-tool.role", havingValue = "local")
+public class LocalOpenJiuwenAgentConfiguration {
+    static final String AGENT_ID = "local-openjiuwen";
 
     private static final String SYSTEM_PROMPT = """
-            You are AgentA in a remote A2A tool invocation demo.
-            The runtime may provide a tool named a2a_remote_remote_b.
-            When the user asks you to call the remote AgentB, use the a2a_remote_remote_b tool
+            You are the local OpenJiuwen agent in a remote A2A tool invocation demo.
+            The runtime may provide a tool named a2a_remote_remote_a2a_agent.
+            When the user asks you to call the remote A2A agent, use the a2a_remote_remote_a2a_agent tool
             with a JSON argument containing a message field:
-            {"message": "start remote-b streaming input-required demo"}
+            {"message": "start remote A2A streaming input-required demo"}
             After the tool result is returned, summarize it briefly for the user.
             """;
 
     @Bean
-    OpenJiuwenAgentRuntimeHandler agentAHandler(
-            @Value("${sample.remote-openjiuwen.agent-a.llm.model-provider:${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}}")
+    OpenJiuwenAgentRuntimeHandler localOpenJiuwenAgentHandler(
+            @Value("${sample.remote-agent-tool.local-agent.llm.model-provider:${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}}")
             String modelProvider,
-            @Value("${sample.remote-openjiuwen.agent-a.llm.api-key:${SAA_SAMPLE_LLM_API_KEY:}}")
+            @Value("${sample.remote-agent-tool.local-agent.llm.api-key:${SAA_SAMPLE_LLM_API_KEY:}}")
             String apiKey,
-            @Value("${sample.remote-openjiuwen.agent-a.llm.api-base:${SAA_SAMPLE_OPENJIUWEN_API_BASE:}}")
+            @Value("${sample.remote-agent-tool.local-agent.llm.api-base:${SAA_SAMPLE_OPENJIUWEN_API_BASE:}}")
             String apiBase,
-            @Value("${sample.remote-openjiuwen.agent-a.llm.model-name:${SAA_SAMPLE_LLM_MODEL:deepseek-chat}}")
+            @Value("${sample.remote-agent-tool.local-agent.llm.model-name:${SAA_SAMPLE_LLM_MODEL:deepseek-chat}}")
             String modelName,
-            @Value("${sample.remote-openjiuwen.agent-a.llm.ssl-verify:${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:true}}")
+            @Value("${sample.remote-agent-tool.local-agent.llm.ssl-verify:${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:true}}")
             boolean sslVerify) {
-        return new AgentAHandler(modelProvider, apiKey, apiBase, modelName, sslVerify);
+        return new LocalAgentHandler(modelProvider, apiKey, apiBase, modelName, sslVerify);
     }
 
     @Bean
-    org.a2aproject.sdk.spec.AgentCard agentACard() {
+    org.a2aproject.sdk.spec.AgentCard localOpenJiuwenAgentCard() {
         return AgentCards.create(AGENT_ID,
-                "Local LLM-driven OpenJiuwen ReActAgent that calls remote AgentB as an A2A tool.");
+                "Local LLM-driven OpenJiuwen ReActAgent that calls the remote A2A agent as a tool.");
     }
 
-    private static final class AgentAHandler extends OpenJiuwenAgentRuntimeHandler {
+    private static final class LocalAgentHandler extends OpenJiuwenAgentRuntimeHandler {
         private final String modelProvider;
         private final String apiKey;
         private final String apiBase;
         private final String modelName;
         private final boolean sslVerify;
 
-        private AgentAHandler(String modelProvider, String apiKey, String apiBase, String modelName,
+        private LocalAgentHandler(String modelProvider, String apiKey, String apiBase, String modelName,
                 boolean sslVerify) {
             super(AGENT_ID);
             this.modelProvider = modelProvider;
@@ -72,7 +72,7 @@ public class AgentAConfiguration {
             AgentCard card = AgentCard.builder()
                     .id(AGENT_ID)
                     .name(AGENT_ID)
-                    .description("LLM-driven AgentA that lets OpenJiuwen choose the remote AgentB tool.")
+                    .description("LLM-driven local agent that lets OpenJiuwen choose the remote A2A agent tool.")
                     .build();
             ReActAgent agent = new ReActAgent(card);
             ReActAgentConfig config = ReActAgentConfig.builder()

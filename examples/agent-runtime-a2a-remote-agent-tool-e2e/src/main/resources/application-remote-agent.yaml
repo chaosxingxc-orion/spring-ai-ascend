@@ -1,0 +1,12 @@
+# Remote A2A agent. It is a standalone mock agent with no LLM and no remote dependencies.
+# Activate with: --spring.profiles.active=remote-agent
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: remote-a2a-agent
+
+sample:
+  remote-agent-tool:
+    role: remote
