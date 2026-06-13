@@ -77,13 +77,11 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
         if (!publish) {
             return;
         }
-        Object args = TrajectoryMasking.mask(draft.args(),
-                settings.maskKeyPattern(), settings.truncateChars());
-        Object result = TrajectoryMasking.mask(draft.result(),
-                settings.maskKeyPattern(), settings.truncateChars());
-        Object reasoning = TrajectoryMasking.mask(draft.reasoning(),
-                settings.maskKeyPattern(), settings.truncateChars());
-        ErrorInfo error = maskError(draft.error());
+        String kindName = String.valueOf(kind);
+        Object args = redact(kindName, "args", draft.args());
+        Object result = redact(kindName, "result", draft.result());
+        Object reasoning = redact(kindName, "reasoning", draft.reasoning());
+        ErrorInfo error = maskError(kindName, draft.error());
         sink.accept(new TrajectoryEvent(
                 seq++,
                 kind,
@@ -197,13 +195,24 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
         return isAlwaysKept(kind) || keptInvocation;
     }
 
+    /**
+     * Routes one payload slot through the configured {@link Redactor} when present, or
+     * falls back to {@link TrajectoryMasking#mask} — preserving the default behaviour when
+     * no custom redactor is wired.
+     */
+    private Object redact(String eventKind, String fieldPath, Object value) {
+        if (settings.redactor() != null) {
+            return settings.redactor().redact(eventKind, fieldPath, value);
+        }
+        return TrajectoryMasking.mask(value, settings.maskKeyPattern(), settings.truncateChars());
+    }
+
     /** Free-text error messages can embed secrets; run the message through the same masker. */
-    private ErrorInfo maskError(ErrorInfo error) {
+    private ErrorInfo maskError(String eventKind, ErrorInfo error) {
         if (error == null || error.message() == null) {
             return error;
         }
-        Object masked = TrajectoryMasking.mask(error.message(),
-                settings.maskKeyPattern(), settings.truncateChars());
+        Object masked = redact(eventKind, "error.message", error.message());
         return new ErrorInfo(error.code(), masked != null ? String.valueOf(masked) : null, error.category());
     }
 }

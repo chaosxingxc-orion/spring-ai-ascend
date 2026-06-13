@@ -6,6 +6,7 @@ import com.huawei.ascend.runtime.engine.a2a.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.Redactor;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
@@ -128,7 +129,8 @@ public class RuntimeAutoConfiguration {
     public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers,
             ObjectProvider<RemoteAgentInvocationService> remoteInvocationService,
             RuntimeReadiness readiness, TrajectoryProperties trajectoryProperties,
-            ObjectProvider<TrajectorySinkFactory> sinkFactories) {
+            ObjectProvider<TrajectorySinkFactory> sinkFactories,
+            ObjectProvider<Redactor> redactorProvider) {
         var registered = handlers.orderedStream().toList();
         RemoteAgentInvocationService invocationService = remoteInvocationService.getIfAvailable();
         if (registered.isEmpty()) {
@@ -145,15 +147,20 @@ public class RuntimeAutoConfiguration {
                     + " runtime instances.");
         }
         return new A2aAgentExecutor(registered.get(0), invocationService, readiness::isReady,
-                toTrajectorySettings(trajectoryProperties), sinkFactories.orderedStream().toList());
+                toTrajectorySettings(trajectoryProperties, redactorProvider.getIfAvailable()),
+                sinkFactories.orderedStream().toList());
     }
 
     static TrajectorySettings toTrajectorySettings(TrajectoryProperties properties) {
+        return toTrajectorySettings(properties, null);
+    }
+
+    static TrajectorySettings toTrajectorySettings(TrajectoryProperties properties, Redactor redactor) {
         if (!properties.isEnabled()) {
             return TrajectorySettings.off();
         }
         return new TrajectorySettings(true, compileMaskPattern(properties.getMask().getKeyPattern()),
-                properties.getMask().getTruncateChars(), properties.getSampleRate());
+                properties.getMask().getTruncateChars(), properties.getSampleRate(), redactor);
     }
 
     /**

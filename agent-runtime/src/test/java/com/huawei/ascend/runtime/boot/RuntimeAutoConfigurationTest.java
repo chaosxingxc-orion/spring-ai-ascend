@@ -5,9 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.Redactor;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
+import com.huawei.ascend.runtime.engine.spi.ValueRecognizingRedactor;
 import java.util.concurrent.Executor;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksResult;
@@ -130,6 +132,36 @@ class RuntimeAutoConfigurationTest {
         TrajectorySettings settings = RuntimeAutoConfiguration.toTrajectorySettings(properties);
         // Never crashes, never degrades to a null pattern (which would silently disable redaction).
         assertThat(settings.maskKeyPattern().pattern()).isEqualTo(TrajectoryMasking.DEFAULT_KEY_PATTERN);
+    }
+
+    /** Default settings (no Redactor bean) must carry a null redactor — the fallback key-name path. */
+    @Test
+    void defaultSettingsHasNullRedactor() {
+        TrajectoryProperties properties = new TrajectoryProperties();
+        TrajectorySettings settings = RuntimeAutoConfiguration.toTrajectorySettings(properties);
+        assertThat(settings.redactor()).isNull();
+    }
+
+    /** A provided Redactor bean is wired into the settings returned for an enabled trajectory. */
+    @Test
+    void providedRedactorBeanIsWiredIntoSettings() {
+        TrajectoryProperties properties = new TrajectoryProperties();
+        Redactor supplied = new ValueRecognizingRedactor(
+                java.util.regex.Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        TrajectorySettings settings = RuntimeAutoConfiguration.toTrajectorySettings(properties, supplied);
+        assertThat(settings.redactor()).isSameAs(supplied);
+    }
+
+    /** Even when trajectory is disabled the redactor field stays null (off() factory). */
+    @Test
+    void disabledSettingsAlwaysHasNullRedactor() {
+        TrajectoryProperties properties = new TrajectoryProperties();
+        properties.setEnabled(false);
+        Redactor supplied = new ValueRecognizingRedactor(
+                java.util.regex.Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        TrajectorySettings settings = RuntimeAutoConfiguration.toTrajectorySettings(properties, supplied);
+        // off() is returned when disabled; its redactor is null regardless of argument.
+        assertThat(settings.redactor()).isNull();
     }
 
     /**

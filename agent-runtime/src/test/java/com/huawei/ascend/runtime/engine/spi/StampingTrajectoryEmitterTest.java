@@ -225,7 +225,7 @@ class StampingTrajectoryEmitterTest {
     void sampleRateZeroDropsInnerKindsButKeepsSkeletonAndErrors() {
         CapturingSink sink = new CapturingSink();
         TrajectorySettings settings = new TrajectorySettings(
-                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 0.0);
+                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 0.0, null);
         StampingTrajectoryEmitter emitter = new StampingTrajectoryEmitter(
                 sink, SCOPE, settings, EnumSet.allOf(Kind.class));
 
@@ -249,7 +249,7 @@ class StampingTrajectoryEmitterTest {
     void sampleRateOneEmitsAllKinds() {
         CapturingSink sink = new CapturingSink();
         TrajectorySettings settings = new TrajectorySettings(
-                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 1.0);
+                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 1.0, null);
         StampingTrajectoryEmitter emitter = new StampingTrajectoryEmitter(
                 sink, SCOPE, settings, EnumSet.allOf(Kind.class));
 
@@ -272,7 +272,7 @@ class StampingTrajectoryEmitterTest {
     void sampleRateZeroSpanStackRemainsBalancedForAlwaysKeptEvents() {
         CapturingSink sink = new CapturingSink();
         TrajectorySettings settings = new TrajectorySettings(
-                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 0.0);
+                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 0.0, null);
         StampingTrajectoryEmitter emitter = new StampingTrajectoryEmitter(
                 sink, SCOPE, settings, EnumSet.allOf(Kind.class));
 
@@ -288,5 +288,56 @@ class StampingTrajectoryEmitterTest {
         TrajectoryEvent runEnd = first(sink.events, Kind.RUN_END);
         assertThat(runEnd.spanId()).isEqualTo(runStart.spanId());
         assertThat(runEnd.parentSpanId()).isNull();
+    }
+
+    /**
+     * With a {@link ValueRecognizingRedactor} configured, a tool-call arg carrying a
+     * Luhn-valid card number under an innocuous key must be redacted in the stamped event.
+     */
+    @Test
+    void configuredValueRedactorMasksCardNumberUnderNonSensitiveKey() {
+        CapturingSink sink = new CapturingSink();
+        Redactor valueRedactor = new ValueRecognizingRedactor(
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        TrajectorySettings settings = new TrajectorySettings(
+                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 1.0,
+                valueRedactor);
+        StampingTrajectoryEmitter emitter = new StampingTrajectoryEmitter(
+                sink, SCOPE, settings, EnumSet.allOf(Kind.class));
+
+        // "payment" is not a sensitive key name, but the value is a Luhn-valid card number.
+        emitter.emit(TrajectoryDraft.toolCallStart("charge",
+                java.util.Map.of("payment", "4111111111111111", "amount", "99")));
+
+        TrajectoryEvent event = first(sink.events, Kind.TOOL_CALL_START);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> args = (java.util.Map<String, Object>) event.args();
+        assertThat(args.get("payment")).isEqualTo("***");
+        assertThat(args.get("amount")).isEqualTo("99");
+    }
+
+    /**
+     * With NO redactor (the default), behaviour is byte-identical to the existing key-name
+     * masking: a card number under an innocuous key is NOT masked.
+     */
+    @Test
+    void defaultNoRedactorLeavesCardNumberUnderInnocentKeyUnmasked() {
+        CapturingSink sink = new CapturingSink();
+        // settings.redactor() == null → falls back to TrajectoryMasking.mask
+        TrajectorySettings settings = TrajectorySettings.basic(
+                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        StampingTrajectoryEmitter emitter = new StampingTrajectoryEmitter(
+                sink, SCOPE, settings, EnumSet.allOf(Kind.class));
+
+        emitter.emit(TrajectoryDraft.toolCallStart("charge",
+                java.util.Map.of("payment", "4111111111111111", "amount", "99")));
+
+        TrajectoryEvent event = first(sink.events, Kind.TOOL_CALL_START);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> args = (java.util.Map<String, Object>) event.args();
+        // Default path: key-name masking only — card number is NOT masked
+        assertThat(args.get("payment")).isEqualTo("4111111111111111");
+        // Sensitive key names still masked even on the default path
+        assertThat(args.get("amount")).isEqualTo("99");
     }
 }

@@ -28,7 +28,7 @@ class TrajectorySettingsTest {
     @Test
     void fourArgConstructorCarriesSampleRate() {
         TrajectorySettings settings = new TrajectorySettings(
-                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 0.5);
+                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 0.5, null);
         assertThat(settings.sampleRate()).isEqualTo(0.5);
     }
 }
