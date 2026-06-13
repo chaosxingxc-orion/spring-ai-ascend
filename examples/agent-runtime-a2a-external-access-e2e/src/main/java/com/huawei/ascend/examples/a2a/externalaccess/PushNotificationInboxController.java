@@ -1,4 +1,4 @@
-package com.huawei.ascend.examples.a2a.returnmodes;
+package com.huawei.ascend.examples.a2a.externalaccess;
 
 import java.util.List;
 import org.springframework.http.ResponseEntity;

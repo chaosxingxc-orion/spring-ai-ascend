@@ -1,4 +1,4 @@
-package com.huawei.ascend.examples.a2a.returnmodes;
+package com.huawei.ascend.examples.a2a.externalaccess;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.AgentCards;
@@ -6,18 +6,20 @@ import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
-public class ReturnModesAgentConfiguration {
+public class A2aExternalAccessAgentConfiguration {
 
-    public static final String AGENT_ID = "return-modes-agent";
+    public static final String AGENT_ID = "external-access-agent";
 
     @Bean
     AgentRuntimeHandler returnModesAgentRuntimeHandler() {
-        return new DeterministicReturnModesHandler();
+        return new DeterministicExternalAccessHandler();
     }
 
     @Bean
@@ -25,8 +27,9 @@ public class ReturnModesAgentConfiguration {
         return AgentCards.create(AGENT_ID, "Deterministic agent for A2A return mode verification.");
     }
 
-    private static final class DeterministicReturnModesHandler implements AgentRuntimeHandler {
+    private static final class DeterministicExternalAccessHandler implements AgentRuntimeHandler {
         private static final StreamAdapter ADAPTER = rawResults -> rawResults.map(AgentExecutionResult.class::cast);
+        private final Set<String> cancelledTasks = ConcurrentHashMap.newKeySet();
 
         @Override
         public String agentId() {
@@ -53,6 +56,15 @@ public class ReturnModesAgentConfiguration {
                         AgentExecutionResult.output("stream-part-2 "),
                         AgentExecutionResult.completed("stream-done"));
             }
+            if (normalized.contains("slow")) {
+                String taskId = context.getScope().taskId();
+                return Stream.generate(() -> {
+                    sleepQuietly(100);
+                    return AgentExecutionResult.output(cancelledTasks.contains(taskId)
+                            ? "slow-cancel-observed "
+                            : "slow-chunk ");
+                });
+            }
             if (normalized.contains("input")) {
                 return Stream.of(AgentExecutionResult.interrupted("please provide more input"));
             }
@@ -62,6 +74,19 @@ public class ReturnModesAgentConfiguration {
         @Override
         public StreamAdapter resultAdapter() {
             return ADAPTER;
+        }
+
+        @Override
+        public void cancel(String taskId) {
+            cancelledTasks.add(taskId);
+        }
+
+        private static void sleepQuietly(long millis) {
+            try {
+                Thread.sleep(millis);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 }

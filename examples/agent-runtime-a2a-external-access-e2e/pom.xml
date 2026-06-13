@@ -11,10 +11,10 @@
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
-  <artifactId>agent-runtime-a2a-return-modes-e2e-example</artifactId>
+  <artifactId>agent-runtime-a2a-external-access-e2e-example</artifactId>
   <packaging>jar</packaging>
-  <name>spring-ai-ascend agent-runtime A2A return modes E2E example</name>
-  <description>Example verifying A2A synchronous, streaming, and push notification return modes.</description>
+  <name>spring-ai-ascend agent-runtime A2A external access E2E example</name>
+  <description>Example verifying A2A external access methods and return semantics.</description>
 
   <properties>
     <enforcer.skip>true</enforcer.skip>
@@ -63,7 +63,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
-          <mainClass>com.huawei.ascend.examples.a2a.returnmodes.ReturnModesA2aRuntimeApplication</mainClass>
+          <mainClass>com.huawei.ascend.examples.a2a.externalaccess.A2aExternalAccessRuntimeApplication</mainClass>
         </configuration>
         <executions>
           <execution>

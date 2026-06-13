@@ -2,10 +2,10 @@ debug: false
 
 spring:
   application:
-    name: agent-runtime-a2a-return-modes-e2e
+    name: agent-runtime-a2a-external-access-e2e
 
 server:
-  port: ${SAA_RETURN_MODES_PORT:8080}
+  port: ${SAA_EXTERNAL_ACCESS_PORT:8080}
 
 management:
   endpoints:
