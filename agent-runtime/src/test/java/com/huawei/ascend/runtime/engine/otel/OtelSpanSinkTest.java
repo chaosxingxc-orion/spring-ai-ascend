@@ -167,6 +167,37 @@ class OtelSpanSinkTest {
         assertThat(model.getAttributes().get(GEN_AI_FINISH_REASONS)).isNull();
     }
 
+    @Test
+    void modelCallFirstToken_underOpenParent_addsFirstTokenEventOnParent() {
+        InMemorySpanExporter exporter = InMemorySpanExporter.create();
+        Tracer tracer = tracerFor(exporter);
+        OtelSpanSink sink = new OtelSpanSink(tracer);
+
+        sink.onOpen("ctx1", "task1");
+        sink.accept(ev(0, Kind.RUN_START, 1000, null, "run", null, null, null));
+        sink.accept(ev(1, Kind.MODEL_CALL_FIRST_TOKEN, 1050, null, "ft1", "run", null, null));
+        sink.accept(ev(2, Kind.RUN_END, 1200, 200L, "run", null, null, null));
+        sink.onClose();
+
+        SpanData run = byName(exporter.getFinishedSpanItems(), "agent.run");
+        assertThat(run.getEvents()).extracting(e -> e.getName()).contains("gen_ai.first_token");
+    }
+
+    @Test
+    void modelCallFirstToken_noOpenParent_noThrow() {
+        InMemorySpanExporter exporter = InMemorySpanExporter.create();
+        Tracer tracer = tracerFor(exporter);
+        OtelSpanSink sink = new OtelSpanSink(tracer);
+
+        sink.onOpen("ctx1", "task1");
+        // parentSpanId is null — no open parent span — must be a no-op, not throw.
+        sink.accept(ev(0, Kind.MODEL_CALL_FIRST_TOKEN, 1000, null, "ft1", null, null, null));
+        sink.onClose();
+
+        // No spans were exported (no open/close), just verify no exception was thrown.
+        assertThat(exporter.getFinishedSpanItems()).isEmpty();
+    }
+
     private static SdkTracerProvider buildProvider(InMemorySpanExporter exporter) {
         return SdkTracerProvider.builder()
                 .addSpanProcessor(SimpleSpanProcessor.create(exporter))

@@ -14,6 +14,23 @@ class TrajectoryEventTest {
     }
 
     @Test
+    void modelCallFirstTokenIsNotInMandatoryKinds() {
+        assertThat(TrajectoryEvent.MANDATORY_KINDS).doesNotContain(Kind.MODEL_CALL_FIRST_TOKEN);
+    }
+
+    @Test
+    void modelCallFirstTokenDraftHasCorrectKind() {
+        TrajectoryDraft draft = TrajectoryDraft.modelCallFirstToken();
+        assertThat(draft.kind()).isEqualTo(Kind.MODEL_CALL_FIRST_TOKEN);
+        assertThat(draft.object()).isEqualTo("model_call");
+        assertThat(draft.name()).isNull();
+        assertThat(draft.args()).isNull();
+        assertThat(draft.result()).isNull();
+        assertThat(draft.usage()).isNull();
+        assertThat(draft.finishReason()).isNull();
+    }
+
+    @Test
     void draftFactoriesCarryTheRightKindAndPayload() {
         assertThat(TrajectoryDraft.runStart().kind()).isEqualTo(Kind.RUN_START);
         assertThat(TrajectoryDraft.runEnd().kind()).isEqualTo(Kind.RUN_END);

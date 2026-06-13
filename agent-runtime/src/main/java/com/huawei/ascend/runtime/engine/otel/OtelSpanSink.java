@@ -54,6 +54,7 @@ final class OtelSpanSink implements TrajectorySink {
             case RUN_END, MODEL_CALL_END, TOOL_CALL_END -> closeSpan(event);
             case ERROR -> addPointEvent(event, true);
             case REASONING, PROGRESS -> addPointEvent(event, false);
+            case MODEL_CALL_FIRST_TOKEN -> addFirstTokenEvent(event);
         }
     }
 
@@ -99,6 +100,14 @@ final class OtelSpanSink implements TrajectorySink {
                 parent.setAttribute(GEN_AI_ERROR_TYPE, event.error().category().wireValue());
             }
         }
+    }
+
+    private void addFirstTokenEvent(TrajectoryEvent event) {
+        Span parent = event.parentSpanId() != null ? openSpans.get(event.parentSpanId()) : null;
+        if (parent == null) {
+            return;
+        }
+        parent.addEvent("gen_ai.first_token");
     }
 
     private void applyAttributes(Span span, TrajectoryEvent event) {

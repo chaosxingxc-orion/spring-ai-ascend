@@ -66,6 +66,7 @@ public record TrajectoryEvent(
         RUN_END,
         MODEL_CALL_START,
         MODEL_CALL_END,
+        MODEL_CALL_FIRST_TOKEN,
         TOOL_CALL_START,
         TOOL_CALL_END,
         REASONING,

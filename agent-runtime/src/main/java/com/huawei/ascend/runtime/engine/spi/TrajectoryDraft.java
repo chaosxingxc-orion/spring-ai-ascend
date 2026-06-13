@@ -44,6 +44,11 @@ public record TrajectoryDraft(
         return new TrajectoryDraft(Kind.MODEL_CALL_END, "model_call", null, null, null, usage, null, null, null, reasoning, finishReason);
     }
 
+    /** Marker point event for the first model output token observed in a streaming invocation. */
+    public static TrajectoryDraft modelCallFirstToken() {
+        return new TrajectoryDraft(Kind.MODEL_CALL_FIRST_TOKEN, "model_call", null, null, null, null, null, null, null, null, null);
+    }
+
     public static TrajectoryDraft reasoning(String text) {
         return new TrajectoryDraft(Kind.REASONING, "reasoning", null, null, null, null, null, null, null, text, null);
     }

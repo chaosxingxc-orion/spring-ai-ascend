@@ -66,7 +66,7 @@ class AgentScopeRuntimeHandlerTest {
         List<TrajectoryEvent> events = runWithTrajectory(handler);
 
         assertThat(events).extracting(TrajectoryEvent::kind)
-                .containsExactly(Kind.RUN_START, Kind.PROGRESS, Kind.ERROR, Kind.RUN_END);
+                .containsExactly(Kind.RUN_START, Kind.MODEL_CALL_FIRST_TOKEN, Kind.PROGRESS, Kind.ERROR, Kind.RUN_END);
         assertThat(events).allSatisfy(e -> assertThat(e.tenantId()).isEqualTo("tenant"));
         // The run span is the root; the error point event hangs off it.
         TrajectoryEvent runStart = events.stream().filter(e -> e.kind() == Kind.RUN_START).findFirst().orElseThrow();
@@ -74,6 +74,39 @@ class AgentScopeRuntimeHandlerTest {
         assertThat(runStart.parentSpanId()).isNull();
         assertThat(error.parentSpanId()).isEqualTo(runStart.spanId());
         assertThat(error.error().code()).isEqualTo("X");
+    }
+
+    @Test
+    void firstNonBlankOutputEmitsModelCallFirstTokenThenProgress() {
+        AgentScopeAgentRuntimeHandler handler = new AgentScopeAgentRuntimeHandler("agent-scope", invocation ->
+                Stream.of(AgentScopeEvent.output("first"), AgentScopeEvent.output("second"),
+                        AgentScopeEvent.completed("done")));
+
+        List<TrajectoryEvent> events = runWithTrajectory(handler);
+
+        // Exactly one MODEL_CALL_FIRST_TOKEN, emitted before the first PROGRESS.
+        assertThat(events).extracting(TrajectoryEvent::kind)
+                .containsExactly(Kind.RUN_START, Kind.MODEL_CALL_FIRST_TOKEN, Kind.PROGRESS,
+                        Kind.PROGRESS, Kind.RUN_END);
+        // The first-token event precedes the first progress event in seq order.
+        long firstTokenSeq = events.stream()
+                .filter(e -> e.kind() == Kind.MODEL_CALL_FIRST_TOKEN).findFirst().orElseThrow().seq();
+        long firstProgressSeq = events.stream()
+                .filter(e -> e.kind() == Kind.PROGRESS).findFirst().orElseThrow().seq();
+        assertThat(firstTokenSeq).isLessThan(firstProgressSeq);
+    }
+
+    @Test
+    void blankOutputDoesNotTriggerFirstToken() {
+        AgentScopeAgentRuntimeHandler handler = new AgentScopeAgentRuntimeHandler("agent-scope", invocation ->
+                Stream.of(AgentScopeEvent.output("  "), AgentScopeEvent.output("real"),
+                        AgentScopeEvent.completed("done")));
+
+        List<TrajectoryEvent> events = runWithTrajectory(handler);
+
+        // Blank delta is suppressed; MODEL_CALL_FIRST_TOKEN fires on "real".
+        assertThat(events).extracting(TrajectoryEvent::kind)
+                .containsExactly(Kind.RUN_START, Kind.MODEL_CALL_FIRST_TOKEN, Kind.PROGRESS, Kind.RUN_END);
     }
 
     @Test
