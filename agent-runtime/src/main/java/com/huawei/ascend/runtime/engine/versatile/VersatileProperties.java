@@ -76,18 +76,34 @@ public class VersatileProperties {
     private String resultNodeType;
 
     /**
-     * Result extraction rules: SSE event name → JSON pointer path within
-     * the event payload. When a matching SSE event arrives the adapter
-     * navigates to the specified path (dot-separated, e.g.
-     * {@code data.ticket}) and holds the extracted value until the next
-     * End ({@code node_type=End} or {@code end} event), then emits it as
-     * the {@code COMPLETED} LLM result instead of the cache content.
+     * Result extraction rules. Each rule has two intuitive fields:
+     * <ul>
+     *   <li><b>match</b> — a keyword matched against the raw SSE line.
+     *       When the line contains this string the rule fires.</li>
+     *   <li><b>get</b> — a key to search for in the parsed JSON tree
+     *       (deep / nested search). The first occurrence's value is held
+     *       until the next End node, then emitted as the
+     *       {@code COMPLETED} LLM result.</li>
+     * </ul>
      *
-     * <p>Example: {@code hotel_book_success → data.ticket} captures the
-     * booking confirmation from a versatile workflow and feeds it back to
-     * the calling LLM.
+     * <p>Example:
+     * <pre>{@code
+     * result-extractions:
+     *   - match: hotel_book_success
+     *     get: ticket
+     * }</pre>
      */
-    private Map<String, String> resultExtractions = new LinkedHashMap<>();
+    private List<ResultExtraction> resultExtractions = new java.util.ArrayList<>();
+
+    public static class ResultExtraction {
+        private String match;
+        private String get;
+
+        public String getMatch() { return match; }
+        public void setMatch(String match) { this.match = match; }
+        public String getGet() { return get; }
+        public void setGet(String get) { this.get = get; }
+    }
 
     // ── Derived accessors ──
 
@@ -146,8 +162,8 @@ public class VersatileProperties {
     public String getResultNodeType() { return resultNodeType; }
     public void setResultNodeType(String resultNodeType) { this.resultNodeType = resultNodeType; }
 
-    public Map<String, String> getResultExtractions() { return resultExtractions; }
-    public void setResultExtractions(Map<String, String> resultExtractions) {
-        this.resultExtractions = resultExtractions != null ? resultExtractions : new LinkedHashMap<>();
+    public List<ResultExtraction> getResultExtractions() { return resultExtractions; }
+    public void setResultExtractions(List<ResultExtraction> resultExtractions) {
+        this.resultExtractions = resultExtractions != null ? resultExtractions : new java.util.ArrayList<>();
     }
 }

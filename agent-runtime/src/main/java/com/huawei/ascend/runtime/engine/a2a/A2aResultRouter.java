@@ -63,12 +63,13 @@ final class A2aResultRouter {
         switch (result.type()) {
             case OUTPUT -> {
                 String text = outputText(result);
-                LOG.info("[A2A] output stream taskId={} textChars={} target={}", taskId, text.length(), target);
+                LOG.info("[A2A] output stream taskId={} textChars={} text={} target={}", taskId, text.length(), text, target);
                 if (target == AgentExecutionResult.Target.USER
                         || target == AgentExecutionResult.Target.BOTH) {
                     boolean append = !firstArtifact.getAndSet(false);
+                    Map<String, Object> artifactMd = Map.of("a2a.target", target.name());
                     emitter.addArtifact(List.<Part<?>>of(new TextPart(text)),
-                            artifactId, "agent-response", null, append, false);
+                            artifactId, "agent-response", artifactMd, append, false);
                 }
                 return RouteDecision.continueRoute();
             }
@@ -79,8 +80,8 @@ final class A2aResultRouter {
                 Map<String, Object> completeMetadata = Map.of("a2a.target", target.name());
                 return RouteDecision.terminal(() -> {
                     if (showToUser && !text.isBlank()) {
-                        LOG.info("[A2A] complete with final output taskId={} textChars={} target={}",
-                                taskId, text.length(), target);
+                        LOG.info("[A2A] complete with final output taskId={} textChars={} text={} target={}",
+                                taskId, text.length(), text, target);
                     } else if (!showToUser) {
                         LOG.info("[A2A] complete target=LLM — final content not shown to user taskId={}",
                                 taskId);

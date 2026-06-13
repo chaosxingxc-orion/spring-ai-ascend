@@ -164,7 +164,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
             LOG.info("[A2A] task state=WORKING taskId={}", taskId);
 
             String inputText = extractText(ctx);
-            LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
+            LOG.info("[A2A] input parsed taskId={} textChars={} inputText={}", taskId, inputText.length(), inputText);
 
             if (remote.isRemoteContinuation(ctx)) {
                 runRemoteSegment(taskId, cancelled,
@@ -309,9 +309,10 @@ public final class A2aAgentExecutor implements AgentExecutor {
             Iterator<AgentExecutionResult> iterator = results.iterator();
             while (!cancelled.get() && iterator.hasNext()) {
                 AgentExecutionResult result = iterator.next();
+                String outputContent = result.outputContent();
                 LOG.info("[A2A] result taskId={} type={} outputChars={}",
                         taskId, result.type(),
-                        result.outputContent() != null ? result.outputContent().length() : 0);
+                        outputContent != null ? outputContent.length() : 0);
                 RouteDecision decision = A2aResultRouter.route(result, emitter, taskId, artifactId,
                         firstArtifact, remoteInvocationAllowed);
                 if (decision.stop()) {

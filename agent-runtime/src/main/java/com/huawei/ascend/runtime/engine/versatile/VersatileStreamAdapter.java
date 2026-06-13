@@ -64,26 +64,18 @@ public class VersatileStreamAdapter implements StreamAdapter {
             "workflow_started", "node_started", "node_finished");
 
     private final String resultNodeType;
-    /** Pre-split extraction paths: event name → path segments. */
-    private final Map<String, String[]> resultExtractionPaths;
+    private final List<VersatileProperties.ResultExtraction> resultExtractions;
 
     /** Backward-compatible no-arg constructor (resultNodeType = null → merge all). */
     public VersatileStreamAdapter() {
         this.resultNodeType = null;
-        this.resultExtractionPaths = Map.of();
+        this.resultExtractions = List.of();
     }
 
     public VersatileStreamAdapter(VersatileProperties properties) {
         this.resultNodeType = properties != null ? properties.getResultNodeType() : null;
-        Map<String, String> rules = properties != null ? properties.getResultExtractions() : null;
-        if (rules != null && !rules.isEmpty()) {
-            this.resultExtractionPaths = rules.entrySet().stream()
-                    .collect(java.util.stream.Collectors.toUnmodifiableMap(
-                            Map.Entry::getKey,
-                            e -> e.getValue().split("\\.")));
-        } else {
-            this.resultExtractionPaths = Map.of();
-        }
+        this.resultExtractions = properties != null && properties.getResultExtractions() != null
+                ? List.copyOf(properties.getResultExtractions()) : List.of();
     }
 
     @Override
@@ -149,7 +141,7 @@ public class VersatileStreamAdapter implements StreamAdapter {
                 case "exception" -> handleException(data);
                 case "end" -> handleStreamTermination(cache, extracted, hasEnd);
                 case "connection_closed" -> handleStreamTermination(cache, extracted, hasEnd);
-                default -> handleUnknownEvent(line, event, data, extracted);
+                default -> handleUnknownEvent(line, event, json, data, extracted);
             };
         } catch (Exception e) {
             LOG.warn("versatile sse parse skipped: {}",
@@ -222,15 +214,21 @@ public class VersatileStreamAdapter implements StreamAdapter {
     // ── Unknown event → passthrough or extraction ──
 
     private AgentExecutionResult handleUnknownEvent(String rawLine, String event,
-            Map<String, Object> data, Map<String, Object> extracted) {
-        // Check result extraction rules first
-        if (!resultExtractionPaths.isEmpty() && data != null) {
-            String[] pathSegments = resultExtractionPaths.get(event);
-            if (pathSegments != null) {
-                Object value = resolveJsonPath(data, pathSegments);
+            Map<String, Object> json, Map<String, Object> data, Map<String, Object> extracted) {
+        // Check result extraction rules first. Each rule has:
+        //   match — a keyword looked for anywhere in the raw SSE line
+        //   get   — a key searched deeply in the parsed JSON tree
+        if (!resultExtractions.isEmpty() && json != null) {
+            for (VersatileProperties.ResultExtraction rule : resultExtractions) {
+                String match = rule.getMatch();
+                if (match == null || match.isBlank()) continue;
+                if (!rawLine.contains(match)) continue;
+                String getKey = rule.getGet();
+                if (getKey == null || getKey.isBlank()) continue;
+                Object value = deepFind(json, getKey);
                 if (value != null) {
-                    extracted.put(event, value);
-                    LOG.info("versatile extracted result event={}", event);
+                    extracted.put(match, value);
+                    LOG.info("versatile extracted result match='{}' get='{}'", match, getKey);
                     return null; // held until End
                 }
             }
@@ -302,25 +300,34 @@ public class VersatileStreamAdapter implements StreamAdapter {
     // ── Result extraction helpers ──
 
     /**
-     * Navigates pre-split path segments into a nested map (e.g.
-     * {@code ["data","ticket"] → root.get("data").get("ticket")}).
-     * Paths are split once at construction time.
+     * Searches the JSON tree for a key (depth-first) and returns the first
+     * matching value. This avoids forcing the user to specify a fixed path —
+     * they only need to know the key name, not where it sits in the tree.
      */
-    private static Object resolveJsonPath(Map<String, Object> root, String[] segments) {
-        if (root == null || segments == null) {
+    @SuppressWarnings("unchecked")
+    private static Object deepFind(Map<String, Object> root, String key) {
+        if (root == null || key == null) {
             return null;
         }
-        Object current = root;
-        for (String segment : segments) {
-            if (!(current instanceof Map<?, ?> map)) {
-                return null;
-            }
-            current = map.get(segment);
-            if (current == null) {
-                return null;
+        // Check current level first
+        if (root.containsKey(key)) {
+            return root.get(key);
+        }
+        // Recurse into nested maps and lists
+        for (Object value : root.values()) {
+            if (value instanceof Map<?, ?> map) {
+                Object found = deepFind((Map<String, Object>) map, key);
+                if (found != null) return found;
+            } else if (value instanceof List<?> list) {
+                for (Object item : list) {
+                    if (item instanceof Map<?, ?> map) {
+                        Object found = deepFind((Map<String, Object>) map, key);
+                        if (found != null) return found;
+                    }
+                }
             }
         }
-        return current;
+        return null;
     }
 
     /**

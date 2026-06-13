@@ -1,5 +1,7 @@
 package com.huawei.ascend.runtime.engine.versatile;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -47,6 +49,8 @@ import org.slf4j.LoggerFactory;
 public class VersatileMessageAdapter {
 
     private static final Logger LOG = LoggerFactory.getLogger(VersatileMessageAdapter.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
     static final String STRUCTURED_KEY = "versatile";
     private static final String STRUCTURED_HEADERS = "headers";
@@ -170,6 +174,32 @@ public class VersatileMessageAdapter {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> extractInputs(AgentExecutionContext context) {
+        // Primary: parse the A2A message text as JSON and extract "inputs".
+        // This is the unified path — both the LLM tool-call round (the interrupt
+        // rail stores the LLM's tool call arguments, which the A2A layer serialises
+        // to JSON text) and the remote-continuation round (the user sends
+        // versatile-format JSON in parts[0].text) arrive here.
+        String rawText = context.lastUserText();
+        if (rawText != null && !rawText.isBlank()) {
+            try {
+                Map<String, Object> parsed = OBJECT_MAPPER.readValue(rawText, MAP_TYPE);
+                Object inputs = parsed.get("inputs");
+                if (inputs instanceof Map<?, ?> map) {
+                    Map<String, Object> result = new LinkedHashMap<>();
+                    for (var entry : map.entrySet()) {
+                        if (entry.getValue() != null) {
+                            result.put(String.valueOf(entry.getKey()), entry.getValue());
+                        }
+                    }
+                    LOG.info("versatile inputs extracted from message text keys={}", result.keySet());
+                    return result;
+                }
+            } catch (Exception ignored) {
+                LOG.debug("versatile message text is not valid JSON — trying vars fallback");
+            }
+        }
+        // Fallback: inputs embedded in context variables (legacy path — kept for
+        // backward compatibility with callers that embed inputs in A2A metadata).
         Map<String, Object> vars = context.getVariables();
         if (vars != null) {
             Object inputs = vars.get("inputs");
@@ -180,6 +210,7 @@ public class VersatileMessageAdapter {
                         result.put(String.valueOf(entry.getKey()), entry.getValue());
                     }
                 }
+                LOG.info("versatile inputs extracted from context vars keys={}", result.keySet());
                 return result;
             }
         }

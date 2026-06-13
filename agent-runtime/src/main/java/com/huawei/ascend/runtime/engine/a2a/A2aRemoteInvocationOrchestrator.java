@@ -4,6 +4,7 @@ import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.A2aResultRouter.RouteDecision;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.a2aproject.sdk.server.agentexecution.RequestContext;
 import org.a2aproject.sdk.server.tasks.AgentEmitter;
@@ -51,8 +52,9 @@ final class A2aRemoteInvocationOrchestrator {
         }
         LOG.info("[A2A] remote tool invocation start taskId={} toolName={} remoteAgentId={} toolCallId={}",
                 taskId, invocation.toolName(), invocation.remoteAgentId(), invocation.toolCallId());
+        Map<String, Object> requestMetadata = messageMetadata(requestContext);
         List<RemoteAgentInvocationService.RemoteAgentResult> results =
-                invocationService.invoke(invocation,
+                invocationService.invoke(invocation, requestMetadata,
                         result -> {
                             // A cancel may land while the remote stream is still open; the
                             // task is then CANCELED and must not receive progress artifacts.
@@ -83,8 +85,10 @@ final class A2aRemoteInvocationOrchestrator {
         }
         LOG.info("[A2A] remote tool invocation resume taskId={} remoteAgentId={} remoteTaskId={} toolCallId={}",
                 taskId, route.remoteAgentId(), route.remoteTaskId(), route.toolCallId());
+        Map<String, Object> requestMetadata = messageMetadata(ctx);
         List<RemoteAgentInvocationService.RemoteAgentResult> results =
                 invocationService.resumeRemoteInput(route, Messages.text(ctx.getMessage()),
+                        requestMetadata,
                         result -> {
                             if (!cancelled.get()) {
                                 parentProjector.projectRemoteProgress(result, emitter);
@@ -182,5 +186,19 @@ final class A2aRemoteInvocationOrchestrator {
             }
         }
         return null;
+    }
+
+    /**
+     * Extracts the caller's A2A message metadata so it can be forwarded to the
+     * remote agent. Returns an empty map when the message or its metadata is null.
+     */
+    private static Map<String, Object> messageMetadata(RequestContext ctx) {
+        if (ctx.getMessage() != null) {
+            Map<String, Object> md = ctx.getMessage().metadata();
+            if (md != null) {
+                return md;
+            }
+        }
+        return Map.of();
     }
 }

@@ -39,4 +39,5 @@ versatile:
     - wap_userName
 
   result-extractions:
-    hotel_book_success: data.ticket
+    - match: hotel_book_success
+      get: ticket

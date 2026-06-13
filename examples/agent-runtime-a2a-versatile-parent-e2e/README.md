@@ -169,10 +169,19 @@ curl -s -X POST http://localhost:18080/a2a \
 1. SSE 流中看到 `TaskArtifactUpdateEvent` — 透传 Versatile 返回的酒店列表（hotels_info）
 2. 最终状态 `TASK_STATE_INPUT_REQUIRED`，父任务记录远端 task/context 路由信息，等待用户选择酒店
 
-记录第一轮返回的父任务 `taskId`，第二轮必须带上它；只复用 `contextId` 会创建新的父任务，无法续写同一个 Versatile 远端任务。
+保存第一轮 SSE 输出，从中提取 `taskId` 和酒店名，用于第二轮：
 
 ```bash
-TASK_ID="<第一轮 SSE 中 statusUpdate.taskId 或 artifactUpdate.taskId 的值>"
+# 将第一轮的所有 SSE 输出保存到文件（也可以用 tee 同时输出到终端）
+curl ... --no-buffer > /tmp/round1.sse
+
+# 提取 TASK_ID（第一个 taskId 即为父任务 ID）
+TASK_ID=$(grep -o '"taskId":"[^"]*"' /tmp/round1.sse | head -1 | cut -d'"' -f4)
+echo "TASK_ID=$TASK_ID"
+
+# 从酒店列表中提取一个真实酒店名（SSE 输出中转义了引号，用 -P 匹配）
+HOTEL_NAME=$(grep -oP "hotel_name\\\\?\":\\\\?\"\K[^\"\\\\]+" /tmp/round1.sse | head -1)
+echo "HOTEL_NAME=$HOTEL_NAME"
 ```
 
 **关键验证点** — 主 Agent 日志中检查 LLM 封装出了正确的 JSON `query`：
@@ -189,7 +198,9 @@ versatile body query extracted chars=xxx
 
 #### 5.2 第二轮 — 确认预订
 
-用相同 `contextId`，发送酒店选择（用户选定"美居宾馆"）：
+第二轮携带相同 `taskId` 发送，系统识别为 remote continuation，**直接路由到远端子 Agent**（不经主 Agent LLM）。因此 `parts[0].text` 需按 Versatile 子 Agent 的输入格式填写。
+
+酒店名使用第一轮输出中提取到的真实名称（`$HOTEL_NAME`），不要用不存在的酒店名：
 
 ```bash
 curl -s -X POST http://localhost:18080/a2a \
@@ -217,7 +228,7 @@ curl -s -X POST http://localhost:18080/a2a \
           }
         },
         "taskId": "'"$TASK_ID"'",
-        "parts": [{"text": "帮我选美居宾馆"}]
+        "parts": [{"text": "{\"inputs\":{\"query\":\"{\\\"hotel_name\\\":\\\"'"$HOTEL_NAME"'\\\"}\",\"intent\":\"LATEST\",\"wap_userName\":\"张三\"}}"}]
       }
     }
   }' --no-buffer
@@ -225,28 +236,33 @@ curl -s -X POST http://localhost:18080/a2a \
 
 **预期行为**：
 1. SSE 流中 `TASK_STATE_COMPLETED`
-2. LLM 回复包含预订确认信息：酒店名称、订单号、日期、价格
+2. 回复包含预订确认信息：酒店名称、订单号、日期、价格
 
-**关键验证点** — 主 Agent 日志中 LLM 封装第二轮的 `intent` 为 `"LATEST"`：
+**关键验证点**：
+1. 主 Agent 日志中走 `remote continuation` 路径（`[A2A] remote tool invocation resume`），**不经过** LLM 的 tool call
+2. 远端 Versatile 收到的 body 为 `{"inputs":{"query":"{\"hotel_name\":\"美居宾馆\"}","intent":"LATEST",...}}`
 
-```
-Executing tool: a2a_remote_versatile_child with args: {"query":"{\"hotel_name\":\"美居宾馆\"}","intent":"LATEST"}
-```
-
-#### 5.3 验证结果提取（hotel_book_success → data.ticket）
+#### 5.3 验证结果提取
 
 子 Agent 的 `application-versatile.yaml` 中配置了提取规则：
 
 ```yaml
 versatile:
   result-extractions:
-    hotel_book_success: data.ticket
+    - match: hotel_book_success
+      get: ticket
 ```
 
-当 Versatile REST API 返回 `hotel_book_success` 事件时，adapter 从 `data.ticket` 路径提取预订确认数据，缓存到 `node_type=End` 后作为 COMPLETED(LLM) 的结果返回给主 Agent。主 Agent 日志中可验证：
+**配置含义**：
+- `match` — 匹配 SSE 行中任意位置包含的关键字（不限于 event 名）
+- `get` — 在 JSON 树中深度搜索该 key，找到后返回其值
+
+当 Versatile 返回的 SSE 行包含 `hotel_book_success` 且 JSON 中找到 `ticket` key 时，提取 ticket 值，缓存到 `node_type=End` 后作为 COMPLETED(LLM) 的结果返回给主 Agent。
+
+主 Agent 日志中可验证：
 
 ```
-versatile extracted result event=hotel_book_success path=data.ticket
+versatile extracted result match='hotel_book_success' get='ticket'
 ```
 
 ---
@@ -286,7 +302,7 @@ remote tool invocation start taskId=... toolName=a2a_remote_versatile_child
 | 2 | **LLM 按 skill 封装 JSON** | 日志 `Executing tool: a2a_remote_versatile_child with args: {"query":"{\"...\"}","intent":"..."}` |
 | 3 | **两轮 intent 切换** | 第一轮 `intent=订酒店`，第二轮 `intent=LATEST` |
 | 4 | **酒店列表透传** | SSE artifact 中出现 `hotels_info` 事件 |
-| 5 | **预订结果提取** | `versatile extracted result event=hotel_book_success path=data.ticket` |
+| 5 | **预订结果提取** | `versatile extracted result match='hotel_book_success' get='ticket'` |
 | 6 | **LLM 最终总结** | COMPLETED 消息包含酒店名、订单号、日期、价格 |
 | 7 | **Remote Agent 配置** | `output.default-target=USER` + `completion-target=LLM` 生效 |
 
