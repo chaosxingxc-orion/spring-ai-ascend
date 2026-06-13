@@ -10,6 +10,8 @@ import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.a2aproject.sdk.spec.TransportProtocol;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
@@ -20,34 +22,34 @@ import org.springframework.context.ConfigurableApplicationContext;
  * End-to-end test: Main parent (OpenJiuwen LLM) calls versatile child agent
  * via A2A remote tool, with interruption detection and resume.
  *
- * <p>The versatile child starts first on a random port. The main parent starts
- * second with the child's URL configured as a remote agent. The runtime discovers
- * the child's A2A card, injects it as a tool into the parent's OpenJiuwen
- * ReActAgent, and the LLM chooses to invoke it.
+ * <p>Uses a {@link VersatileMockService} (WireMock) to simulate the Versatile
+ * REST API, so tests run offline without an external service dependency.
  *
- * <p>The real-LLM test requires {@code SAA_SAMPLE_LLM_API_KEY} and is skipped
+ * <p>The real-LLM tests require {@code SAA_SAMPLE_LLM_API_KEY} and are skipped
  * otherwise.
- *
- * <h3>Test scenarios</h3>
- * <ol>
- *   <li><b>Agent card discovery:</b> Both agents' cards are discoverable
- *       via {@code /.well-known/agent-card.json}.</li>
- *   <li><b>Parent calls child:</b> Parent LLM invokes the versatile child
- *       tool; child streams intermediate output to user (target=USER);
- *       child caches output; child detects End node and returns final
- *       assembled result (target=LLM); parent LLM receives tool result
- *       and summarizes.</li>
- *   <li><b>Interruption on connection loss:</b> When the versatile HTTP
- *       connection closes without an End node, the child emits INTERRUPTED;
- *       the parent task enters INPUT_REQUIRED; client resumes with same
- *       taskId; request is routed directly to child (skipping LLM).</li>
- * </ol>
  */
 @Tag("e2e")
 @ResourceLock("real-llm")
 class VersatileParentA2eE2eTest {
 
     private static final Duration CLIENT_TIMEOUT = Duration.ofSeconds(90);
+
+    private VersatileMockService versatileMock;
+
+    @BeforeEach
+    void setUp() {
+        versatileMock = new VersatileMockService();
+        versatileMock.start();
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (versatileMock != null) {
+            versatileMock.stop();
+        }
+    }
+
+    // ── Card discovery (no LLM needed) ──
 
     @Test
     void agentCardIsDiscoverable() throws Exception {
@@ -78,26 +80,26 @@ class VersatileParentA2eE2eTest {
         }
     }
 
+    // ── LLM-driven tests (use mock versatile API) ──
+
     @Test
     void llmParentInvokesVersatileChildViaA2aTool() throws Exception {
         assumeTrue(hasText(System.getenv("SAA_SAMPLE_LLM_API_KEY")),
-                "SAA_SAMPLE_LLM_API_KEY not set; skipping real-LLM remote A2A e2e test");
+                "SAA_SAMPLE_LLM_API_KEY not set; skipping real-LLM test");
 
-        // Start versatile child
+        versatileMock.stubBookingFlow();
+
         try (ConfigurableApplicationContext child = startRuntime("versatile")) {
             int childPort = port(child);
 
-            // Start main parent, pointing to child
             try (ConfigurableApplicationContext main = startRuntime("main",
                     "agent-runtime.remote-agents[0].url=http://localhost:" + childPort)) {
 
-                // Verify parent card
                 VersatileParentA2aClient client = new VersatileParentA2aClient(
                         URI.create("http://localhost:" + port(main)), CLIENT_TIMEOUT);
                 AgentCard card = client.agentCard();
                 assertThat(card.name()).isEqualTo(MainAgentConfiguration.AGENT_ID);
 
-                // Ask parent to call versatile child
                 List<StreamingEventKind> events = client.streamMessage(
                         "sample-user",
                         MainAgentConfiguration.AGENT_ID,
@@ -115,24 +117,16 @@ class VersatileParentA2eE2eTest {
         }
     }
 
-    /**
-     * Tests the interruption scenario: the versatile child responds to a
-     * request, the HTTP connection closes before End, the task enters
-     * INPUT_REQUIRED, and the client resumes with the same taskId.
-     *
-     * <p>This test requires a real versatile endpoint that can be interrupted.
-     * When the versatile endpoint is not available, this test is skipped.
-     */
     @Test
     void versatileInterruptionAndResume() throws Exception {
         assumeTrue(hasText(System.getenv("SAA_SAMPLE_LLM_API_KEY")),
                 "SAA_SAMPLE_LLM_API_KEY not set; skipping real-LLM test");
 
-        // Start versatile child
+        versatileMock.stubInterruptFlow();
+
         try (ConfigurableApplicationContext child = startRuntime("versatile")) {
             int childPort = port(child);
 
-            // Start main parent
             try (ConfigurableApplicationContext main = startRuntime("main",
                     "agent-runtime.remote-agents[0].url=http://localhost:" + childPort)) {
 
@@ -141,7 +135,6 @@ class VersatileParentA2eE2eTest {
 
                 String sessionId = "ctx-interrupt-e2e-" + System.currentTimeMillis();
 
-                // First request — may result in INPUT_REQUIRED if versatile interrupts
                 List<StreamingEventKind> firstEvents = client.streamMessage(
                         "sample-user",
                         MainAgentConfiguration.AGENT_ID,
@@ -152,7 +145,6 @@ class VersatileParentA2eE2eTest {
                 assertThat(firstEvents).isNotEmpty();
 
                 if (VersatileParentA2aClient.isInputRequired(firstEvents)) {
-                    // Interruption occurred — resume with same taskId
                     String taskId = VersatileParentA2aClient.firstTaskId(firstEvents);
                     assertThat(taskId).isNotBlank();
 
@@ -171,10 +163,17 @@ class VersatileParentA2eE2eTest {
         }
     }
 
-    private static ConfigurableApplicationContext startRuntime(String profile, String... extraProperties) {
+    // ── Helpers ──
+
+    private ConfigurableApplicationContext startRuntime(String profile, String... extraProperties) {
         java.util.List<String> args = new java.util.ArrayList<>();
         args.add("--server.port=0");
         args.add("--spring.profiles.active=" + profile);
+        // Point the versatile child to the per-test WireMock server (random port)
+        // and disable the embedded mock that would clash with it.
+        args.add("--versatile.mock.embedded=false");
+        args.add("--versatile.url=http://localhost:" + versatileMock.port()
+                + "/v1/mock_project_id/agents/mock_agent/conversations/{conversation_id}");
         for (String property : extraProperties) {
             args.add(property.startsWith("--") ? property : "--" + property);
         }

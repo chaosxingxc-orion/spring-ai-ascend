@@ -15,7 +15,7 @@ agent-runtime:
       default-agent-id: versatile-child
 
 versatile:
-  url: ${VERSATILE_URL:http://7.213.200.213:3001/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}}
+  url: ${VERSATILE_URL:http://localhost:18083/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}}
   timeout: 30s
 
   url-variables:
