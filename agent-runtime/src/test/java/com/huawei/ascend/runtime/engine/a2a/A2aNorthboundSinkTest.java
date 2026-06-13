@@ -160,16 +160,16 @@ class A2aNorthboundSinkTest {
 
     private static TrajectoryEvent event(long seq, Kind kind) {
         return new TrajectoryEvent(seq, kind, 0L, null, "task-1", "span", null, "tenant", "ctx-1", "task-1",
-                "run", null, null, null, null, null, null, null, null, null, null, null, "2");
+                "run", null, null, null, null, null, null, null, null, null, null, null, "3");
     }
 
     private static TrajectoryEvent eventWithFinishReason(long seq, Kind kind, String finishReason) {
         return new TrajectoryEvent(seq, kind, 0L, null, "task-1", "span", null, "tenant", "ctx-1", "task-1",
-                "run", null, null, null, null, null, null, null, null, finishReason, null, null, "2");
+                "run", null, null, null, null, null, null, null, null, finishReason, null, null, "3");
     }
 
     private static TrajectoryEvent eventWithParentIds(long seq, Kind kind, String parentTaskId, String parentTraceId) {
         return new TrajectoryEvent(seq, kind, 0L, null, "task-1", "span", null, "tenant", "ctx-1", "task-1",
-                "run", null, null, null, null, null, null, null, null, null, parentTaskId, parentTraceId, "2");
+                "run", null, null, null, null, null, null, null, null, null, parentTaskId, parentTraceId, "3");
     }
 }

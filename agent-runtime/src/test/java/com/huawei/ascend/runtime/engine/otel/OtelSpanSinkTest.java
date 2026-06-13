@@ -37,14 +37,14 @@ class OtelSpanSinkTest {
     private static TrajectoryEvent ev(long seq, Kind kind, long ts, Long dur, String spanId, String parent,
             String name, Usage usage) {
         return new TrajectoryEvent(seq, kind, ts, dur, "task1", spanId, parent, "t1", "ctx1", "task1",
-                "obj", name, null, null, usage, null, null, null, null, null, null, null, "2");
+                "obj", name, null, null, usage, null, null, null, null, null, null, null, "3");
     }
 
     /** Extended helper that also accepts finishReason and error. */
     private static TrajectoryEvent evFull(long seq, Kind kind, long ts, Long dur, String spanId, String parent,
             String name, Usage usage, String finishReason, ErrorInfo error) {
         return new TrajectoryEvent(seq, kind, ts, dur, "task1", spanId, parent, "t1", "ctx1", "task1",
-                "obj", name, null, null, usage, null, null, error, null, finishReason, null, null, "2");
+                "obj", name, null, null, usage, null, null, error, null, finishReason, null, null, "3");
     }
 
     @Test
@@ -204,7 +204,7 @@ class OtelSpanSinkTest {
     private static TrajectoryEvent evWithParents(long seq, Kind kind, long ts, String spanId,
             String parentTaskId, String parentTraceId) {
         return new TrajectoryEvent(seq, kind, ts, null, "task1", spanId, null, "t1", "ctx1", "task1",
-                "obj", null, null, null, null, null, null, null, null, null, parentTaskId, parentTraceId, "2");
+                "obj", null, null, null, null, null, null, null, null, null, parentTaskId, parentTraceId, "3");
     }
 
     @Test

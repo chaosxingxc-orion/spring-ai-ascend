@@ -67,7 +67,7 @@ public record TrajectoryEvent(
      * {@code agent-trajectory} artifact name) is the "Northbound trajectory wire contract"
      * entry in {@code docs/contracts/contract-catalog.md}; bump both in lockstep.
      */
-    public static final String SCHEMA_VERSION = "2";
+    public static final String SCHEMA_VERSION = "3";
 
     public enum Kind {
         RUN_START,

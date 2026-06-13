@@ -52,7 +52,7 @@ Trajectory observability plumbing — `TrajectoryEmitter`, `TrajectorySource`, `
 
 **Northbound trajectory wire contract (A2A):**
 
-Source of truth for the payload version: `TrajectoryEvent.SCHEMA_VERSION` (`agent-runtime`, `com.huawei.ascend.runtime.engine.spi`) — currently `"2"`; the constant's javadoc links back to this entry and both bump in lockstep. Enforced by `A2aAgentExecutorTest` (northbound delivery + opt-in/opt-out) and `A2aNorthboundSinkTest` (truncation marker + terminal retention).
+Source of truth for the payload version: `TrajectoryEvent.SCHEMA_VERSION` (`agent-runtime`, `com.huawei.ascend.runtime.engine.spi`) — currently `"3"`; the constant's javadoc links back to this entry and both bump in lockstep. Enforced by `A2aAgentExecutorTest` (northbound delivery + opt-in/opt-out) and `A2aNorthboundSinkTest` (truncation marker + terminal retention).
 
 | Wire surface | Value | Semantics |
 |---|---|---|
@@ -61,22 +61,24 @@ Source of truth for the payload version: `TrajectoryEvent.SCHEMA_VERSION` (`agen
 | Artifact name `agent-trajectory` (artifactId `<taskId>-trajectory`) | one closing artifact of `DataPart`s | The buffered, masked trajectory of the whole run (including remote resume/continuation legs through their `RUN_END`), delivered on the execute thread before the task's terminal state; distinct from the answer's `agent-response` / `<taskId>-response` stream |
 | Truncation marker | `{kind: "TRUNCATED", droppedCount: N}` | Appended as the artifact's final `DataPart` when the per-invocation buffer (10,000 events) shed load; the last 16 slots are reserved for terminal kinds (`RUN_END`/`ERROR`) so a cut trajectory still closes with its outcome |
 
-Schema v2 per-event `DataPart` fields (serialized by `A2aNorthboundSink`; `attempt`/`retryable` exist on the Java record but are not serialized northbound):
+Schema v3 per-event `DataPart` fields (serialized by `A2aNorthboundSink`; `attempt`/`retryable` exist on the Java record but are not serialized northbound):
 
 | Field | Type | Notes |
 |---|---|---|
 | `seq` | long | Monotonic step order per leg, assigned by the runtime |
-| `kind` | string | `RUN_START` `RUN_END` `MODEL_CALL_START` `MODEL_CALL_END` `TOOL_CALL_START` `TOOL_CALL_END` `REASONING` `ERROR` `PROGRESS` |
+| `kind` | string | `RUN_START` `RUN_END` `MODEL_CALL_START` `MODEL_CALL_END` `MODEL_CALL_FIRST_TOKEN` `TOOL_CALL_START` `TOOL_CALL_END` `REASONING` `ERROR` `PROGRESS` |
 | `tsEpochMillis` | long | Event wall-clock time |
 | `durationMs` | long \| null | Elapsed on `_END` events; null on `_START`/point kinds |
 | `traceId` / `spanId` / `parentSpanId` | string \| null | Span-tree correlation (`traceId` = `taskId`); pair `_START`/`_END` by `spanId` |
 | `tenantId` / `contextId` / `taskId` | string | Layered correlation: owning tenant → conversation/session → one call |
 | `object` / `name` | string \| null | Subject of the step (e.g. tool or model name) |
-| `args` / `result` | object \| null | Masked + truncated payloads (`TrajectoryMasking`) |
-| `usage` | object \| null | Token/latency/model telemetry aligned to OpenTelemetry `gen_ai.usage.*` |
-| `error` | object \| null | `{code, message}`; message masked |
+| `args` / `result` | object \| null | Masked + truncated payloads (`TrajectoryMasking`); may be a `payload_ref://` URI when over-threshold ref-ization is enabled |
+| `usage` | object \| null | Token/latency/model telemetry aligned to OpenTelemetry `gen_ai.usage.*`: `{inputTokens, outputTokens, latencyMs, model, provider, inputCostUsd, outputCostUsd}`; `provider` maps to OTel `gen_ai.system`; `inputCostUsd`/`outputCostUsd` support FinOps accounting (nullable, populated by enrichment) |
+| `error` | object \| null | `{code, message, category}`; message masked; `category` is an OTel-aligned `ErrorCategory` (never null — use `UNKNOWN` when unmapped) |
 | `reasoning` | string \| null | Masked + truncated free-text reasoning |
-| `schemaVersion` | string | `"2"` = `TrajectoryEvent.SCHEMA_VERSION` |
+| `finishReason` | string \| null | Model finish reason (OTel `gen_ai.response.finish_reasons`); populated on `MODEL_CALL_END` when the framework exposes it |
+| `parentTaskId` / `parentTraceId` | string \| null | Cross-run linkage: task and trace ids of the invoking parent agent; null for top-level runs |
+| `schemaVersion` | string | `"3"` = `TrajectoryEvent.SCHEMA_VERSION` |
 
 **SPI count by module (shipped surface; the agent-runtime SPI surface is `AgentRuntimeHandler` + `MemoryProvider` + `StreamAdapter` in the framework-neutral `engine.spi` package plus `AgentCardProvider` in the `engine.a2a` protocol-bridge package):**
 
