@@ -44,7 +44,7 @@ class OpenJiuwenRemoteAgentAdapterTest {
                 "result_type", "interrupt",
                 "runtime.remote.kind", "REMOTE_AGENT_INVOCATION",
                 "runtime.remote.agentId", "remote-agent",
-                "runtime.remote.toolName", "a2a_remote_remote_agent",
+                "runtime.remote.toolName", "remote-agent",
                 "runtime.remote.toolCallId", "tool-call-1",
                 "runtime.remote.parentTaskId", "task-1",
                 "runtime.remote.parentContextId", "ctx-1",
@@ -64,11 +64,11 @@ class OpenJiuwenRemoteAgentAdapterTest {
         ToolCallInterruptRequest request = new ToolCallInterruptRequest();
         request.setInterruptId("tool-call-1");
         request.setToolCallId("tool-call-1");
-        request.setToolName("a2a_remote_remote_agent");
+        request.setToolName("remote-agent");
         request.setContext(Map.of(
                 "runtime.remote.kind", "REMOTE_AGENT_INVOCATION",
                 "runtime.remote.agentId", "remote-agent",
-                "runtime.remote.toolName", "a2a_remote_remote_agent",
+                "runtime.remote.toolName", "remote-agent",
                 "runtime.remote.toolCallId", "tool-call-1",
                 "runtime.remote.parentTaskId", "task-1",
                 "runtime.remote.parentContextId", "ctx-1",

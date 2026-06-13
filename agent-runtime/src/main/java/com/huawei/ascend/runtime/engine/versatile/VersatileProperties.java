@@ -75,6 +75,20 @@ public class VersatileProperties {
      */
     private String resultNodeType;
 
+    /**
+     * Result extraction rules: SSE event name → JSON pointer path within
+     * the event payload. When a matching SSE event arrives the adapter
+     * navigates to the specified path (dot-separated, e.g.
+     * {@code data.ticket}) and holds the extracted value until the next
+     * End ({@code node_type=End} or {@code end} event), then emits it as
+     * the {@code COMPLETED} LLM result instead of the cache content.
+     *
+     * <p>Example: {@code hotel_book_success → data.ticket} captures the
+     * booking confirmation from a versatile workflow and feeds it back to
+     * the calling LLM.
+     */
+    private Map<String, String> resultExtractions = new LinkedHashMap<>();
+
     // ── Derived accessors ──
 
     /**
@@ -131,4 +145,9 @@ public class VersatileProperties {
 
     public String getResultNodeType() { return resultNodeType; }
     public void setResultNodeType(String resultNodeType) { this.resultNodeType = resultNodeType; }
+
+    public Map<String, String> getResultExtractions() { return resultExtractions; }
+    public void setResultExtractions(Map<String, String> resultExtractions) {
+        this.resultExtractions = resultExtractions != null ? resultExtractions : new LinkedHashMap<>();
+    }
 }

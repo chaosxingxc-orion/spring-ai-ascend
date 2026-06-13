@@ -81,9 +81,12 @@ public class VersatileMessageAdapter {
         if (structuredQuery.isEmpty()) {
             return baseUrl;
         }
-        // Append URL-encoded structured query params (override config query-params)
-        StringBuilder sb = new StringBuilder(baseUrl);
-        boolean first = !baseUrl.contains("?");
+        // Structured query params override config query-params: strip the
+        // query string from the resolved URL and rebuild from structured only.
+        int queryIndex = baseUrl.indexOf('?');
+        String baseWithoutQuery = queryIndex >= 0 ? baseUrl.substring(0, queryIndex) : baseUrl;
+        StringBuilder sb = new StringBuilder(baseWithoutQuery);
+        boolean first = true;
         for (var entry : structuredQuery.entrySet()) {
             sb.append(first ? '?' : '&');
             sb.append(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8));
@@ -145,40 +148,42 @@ public class VersatileMessageAdapter {
         Map<String, Object> vars = context.getVariables();
         LOG.info("versatile context vars keys={} hasVersatileKey={}",
                 vars.keySet(), vars.containsKey(STRUCTURED_KEY));
-        String query = context.lastUserText();
-        LOG.info("versatile body query extracted chars={}", query.length());
 
-        Map<String, Object> inputs = new LinkedHashMap<>();
-        inputs.put("query", query);
-
-        // Structured versatile.inputs (high priority — user-specified contract)
+        // Body = the "inputs" object directly as received from the remote
+        // side (LLM assembled it per the versatile-request skill contract).
+        // Merge in any framework-injected versatile.inputs metadata fields
+        // (e.g. wap_userName) that the LLM does not need to know about.
+        Map<String, Object> inputs = extractInputs(context);
         Map<String, Object> structuredInputs = structuredInputs(context);
         if (!structuredInputs.isEmpty()) {
-            inputs.putAll(structuredInputs);
-            LOG.info("versatile structured inputs applied: {}", structuredInputs.keySet());
-        }
-
-        // Flat metadata (low priority — catch-all for backward compat).
-        // Structured inputs override flat metadata on key collision because
-        // they are put first.
-        Map<String, Object> a2aMetadata = context.getVariables();
-        if (a2aMetadata != null) {
-            for (var entry : a2aMetadata.entrySet()) {
-                String key = entry.getKey();
-                if (isPassthroughHeader(key)) continue;
-                if (STRUCTURED_KEY.equals(key)) continue;
-                if (AgentExecutionContext.AGENT_STATE_KEY_VARIABLE.equals(key)
-                        || key.startsWith("runtime.")) continue;
-                if ("query".equals(key)) continue;
-                if (entry.getValue() != null) {
-                    inputs.putIfAbsent(key, entry.getValue());
-                }
+            for (var entry : structuredInputs.entrySet()) {
+                inputs.putIfAbsent(entry.getKey(), entry.getValue());
             }
+            LOG.info("versatile structured inputs merged: {}", structuredInputs.keySet());
         }
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("inputs", inputs);
+        LOG.info("versatile body input keys={}", inputs.keySet());
         return body;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> extractInputs(AgentExecutionContext context) {
+        Map<String, Object> vars = context.getVariables();
+        if (vars != null) {
+            Object inputs = vars.get("inputs");
+            if (inputs instanceof Map<?, ?> map) {
+                Map<String, Object> result = new LinkedHashMap<>();
+                for (var entry : map.entrySet()) {
+                    if (entry.getValue() != null) {
+                        result.put(String.valueOf(entry.getKey()), entry.getValue());
+                    }
+                }
+                return result;
+            }
+        }
+        return new LinkedHashMap<>();
     }
 
     // ── Structured metadata accessors ──
@@ -207,12 +212,6 @@ public class VersatileMessageAdapter {
     }
 
     // ── Helpers ──
-
-    private boolean isPassthroughHeader(String key) {
-        List<String> passthroughKeys = properties.getPassthroughHeaders();
-        return passthroughKeys != null && passthroughKeys.contains(key);
-    }
-
 
     private static String toHeaderName(String key) {
         if (key == null) {

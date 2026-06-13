@@ -37,3 +37,6 @@ versatile:
   input-metadata-keys:
     - intent
     - wap_userName
+
+  result-extractions:
+    hotel_book_success: data.ticket

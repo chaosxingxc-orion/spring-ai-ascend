@@ -81,26 +81,26 @@ final class A2aResultRouter {
                     if (showToUser && !text.isBlank()) {
                         LOG.info("[A2A] complete with final output taskId={} textChars={} target={}",
                                 taskId, text.length(), target);
-                        emitter.complete(emitter.newAgentMessage(
-                                List.<Part<?>>of(new TextPart(text)), completeMetadata));
-                    } else {
-                        if (!showToUser) {
-                            LOG.info("[A2A] complete target=LLM — final content not shown to user taskId={}",
-                                    taskId);
-                        }
-                        emitter.complete(emitter.newAgentMessage(
-                                List.<Part<?>>of(), completeMetadata));
+                    } else if (!showToUser) {
+                        LOG.info("[A2A] complete target=LLM — final content not shown to user taskId={}",
+                                taskId);
                     }
-                    LOG.info("[A2A] task state=COMPLETED taskId={}", taskId);
+                    // Always include a TextPart — the A2A SDK Message constructor
+                    // rejects an empty parts list (IllegalArgumentException:
+                    // Parts cannot be empty) even when the target is LLM and
+                    // the text is intentionally blank.
+                    emitter.complete(emitter.newAgentMessage(
+                            List.<Part<?>>of(new TextPart(text)), completeMetadata));
+                    LOG.info("[A2A] task state=COMPLETED taskId={} target={} textLen={} metadata={}",
+                            taskId, target, text.length(), completeMetadata);
                 });
             }
             case FAILED -> {
                 String code = result.errorCode() == null ? "RUNTIME_ERROR" : result.errorCode();
                 String msg = result.errorMessage() == null ? code : result.errorMessage();
                 return RouteDecision.terminal(() -> {
-                    LOG.warn("[A2A] task state=FAILED taskId={} code={} message={}",
-                            taskId, code, A2aLogMasking.mask(msg));
-                    // Adapter-supplied codes pass through unchanged; retryability is unknown -> conservative false.
+                    LOG.warn("[A2A] task state=FAILED taskId={} code={} message={} target={}",
+                            taskId, code, A2aLogMasking.mask(msg), target);
                     emitter.fail(A2aAgentExecutor.failureMessage(emitter, code, result.errorMessage(), false));
                 });
             }
@@ -119,12 +119,15 @@ final class A2aResultRouter {
                 return RouteDecision.terminal(() -> {
                     LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} prompt={} target={}",
                             taskId, prompt, target);
+                    Map<String, Object> inputReqMetadata = Map.of("a2a.target", target.name());
                     boolean showPrompt = target == AgentExecutionResult.Target.USER
                             || target == AgentExecutionResult.Target.BOTH;
-                    Message message = (showPrompt && !prompt.isBlank())
-                            ? emitter.newAgentMessage(List.<Part<?>>of(new TextPart(prompt)), null)
-                            : null;
-                    emitter.requiresInput(message, false);
+                    String userPrompt = (showPrompt && !prompt.isBlank()) ? prompt : "";
+                    emitter.requiresInput(
+                            emitter.newAgentMessage(
+                                    List.<Part<?>>of(new TextPart(userPrompt)),
+                                    inputReqMetadata),
+                            true);
                 });
             }
         }

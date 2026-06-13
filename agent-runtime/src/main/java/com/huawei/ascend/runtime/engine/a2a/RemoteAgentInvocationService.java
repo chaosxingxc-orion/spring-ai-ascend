@@ -59,8 +59,12 @@ public final class RemoteAgentInvocationService {
         }
 
         static RemoteAgentRequest from(AgentExecutionResult.RemoteInvocation invocation) {
-            Map<String, Object> args = invocation.arguments();
-            Object message = args.get("message");
+            Map<String, Object> args = new java.util.LinkedHashMap<>(invocation.arguments());
+            // "message" is an internal convention: the interrupt rail injects
+            // the user's original text so the outbound A2A request has a
+            // non-empty TextPart. Strip it from the metadata before it reaches
+            // the child agent — it is not an A2A standard field.
+            Object message = args.remove("message");
             return new RemoteAgentRequest(
                     invocation.remoteAgentId(),
                     null,

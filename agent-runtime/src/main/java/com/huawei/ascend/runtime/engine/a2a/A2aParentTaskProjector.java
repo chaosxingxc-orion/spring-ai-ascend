@@ -15,8 +15,6 @@ import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.Task;
 import org.a2aproject.sdk.spec.TaskState;
-import org.a2aproject.sdk.spec.TaskStatus;
-import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.a2aproject.sdk.spec.TextPart;
@@ -71,6 +69,9 @@ final class A2aParentTaskProjector {
         if (result == null) {
             return;
         }
+        LOG.info("[A2A] remote progress type={} target={} textLen={}",
+                result.type(), result.target(),
+                result.text() != null ? result.text().length() : 0);
         // Only forward to end-user when target is USER or BOTH (LLM-only stays internal)
         AgentExecutionResult.Target target = result.target();
         if (target == AgentExecutionResult.Target.LLM) {
@@ -85,13 +86,13 @@ final class A2aParentTaskProjector {
 
     void requireRemoteInput(AgentExecutionResult.RemoteInvocation invocation,
             RemoteAgentInvocationService.RemoteAgentResult result, AgentEmitter emitter) {
-        Message message = emitter.newAgentMessage(List.<Part<?>>of(new TextPart(safeText(result.text()))), null);
-        emitter.emitEvent(TaskStatusUpdateEvent.builder()
-                .taskId(emitter.getTaskId())
-                .contextId(emitter.getContextId())
-                .status(new TaskStatus(TaskState.TASK_STATE_INPUT_REQUIRED, message, null))
-                .metadata(remoteMetadata(invocation, result))
-                .build());
+        Map<String, Object> metadata = remoteMetadata(invocation, result);
+        // Mark this as a USER-targeted interruption so the parent projector
+        // forwards the prompt to the end user, not the LLM.
+        metadata.put("a2a.target", AgentExecutionResult.Target.USER.name());
+        Message message = emitter.newAgentMessage(
+                List.<Part<?>>of(new TextPart(safeText(result.text()))), metadata);
+        emitter.requiresInput(message, true);
     }
 
     RemoteOutcome projectRemoteOutcome(AgentExecutionResult.RemoteInvocation invocation,

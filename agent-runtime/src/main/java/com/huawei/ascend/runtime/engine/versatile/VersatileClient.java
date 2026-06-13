@@ -125,11 +125,12 @@ public class VersatileClient {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         if (!line.isEmpty()) {
-                            LOG.debug("versatile sse line len={}", line.length());
+                            LOG.info("versatile sse received: {}", line);
                             safeOffer(queue, line);
                         }
                     }
                     // Normal EOF — emit connection_closed before poison
+                    LOG.info("versatile sse stream ended normally — injecting connection_closed");
                     safeOffer(queue, CONNECTION_CLOSED_EVENT);
                 }
             } catch (Exception e) {

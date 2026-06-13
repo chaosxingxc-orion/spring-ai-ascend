@@ -101,7 +101,7 @@ public final class VersatileAgentRuntimeHandler implements AgentRuntimeHandler, 
     /**
      * Creates the A2A AgentCard with skills that describe the versatile
      * tool contract. The card name is used by {@code RemoteAgentCardCache}
-     * to derive the tool name (e.g. {@code a2a_remote_<normalized-name>}).
+     * to derive the tool name (the remote agent id itself).
      * The skill description tells the parent LLM how to invoke this agent
      * with JSON arguments.
      */

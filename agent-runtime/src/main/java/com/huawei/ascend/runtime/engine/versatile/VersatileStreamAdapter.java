@@ -64,14 +64,26 @@ public class VersatileStreamAdapter implements StreamAdapter {
             "workflow_started", "node_started", "node_finished");
 
     private final String resultNodeType;
+    /** Pre-split extraction paths: event name → path segments. */
+    private final Map<String, String[]> resultExtractionPaths;
 
     /** Backward-compatible no-arg constructor (resultNodeType = null → merge all). */
     public VersatileStreamAdapter() {
         this.resultNodeType = null;
+        this.resultExtractionPaths = Map.of();
     }
 
     public VersatileStreamAdapter(VersatileProperties properties) {
         this.resultNodeType = properties != null ? properties.getResultNodeType() : null;
+        Map<String, String> rules = properties != null ? properties.getResultExtractions() : null;
+        if (rules != null && !rules.isEmpty()) {
+            this.resultExtractionPaths = rules.entrySet().stream()
+                    .collect(java.util.stream.Collectors.toUnmodifiableMap(
+                            Map.Entry::getKey,
+                            e -> e.getValue().split("\\.")));
+        } else {
+            this.resultExtractionPaths = Map.of();
+        }
     }
 
     @Override
@@ -79,13 +91,14 @@ public class VersatileStreamAdapter implements StreamAdapter {
         final Map<String, List<String>> cache = new LinkedHashMap<>();
         final boolean[] hasEnd = {false};
         final boolean[] done = {false};
+        final Map<String, Object> extracted = new LinkedHashMap<>();
         final Iterator<?> it = rawResults.iterator();
 
         return Stream.generate(() -> {
             if (done[0]) return null;
             while (it.hasNext()) {
                 Object raw = it.next();
-                AgentExecutionResult result = mapLine(raw, cache, hasEnd);
+                AgentExecutionResult result = mapLine(raw, cache, hasEnd, extracted);
                 if (result != null) {
                     if (isTerminal(result.type())) {
                         done[0] = true;
@@ -105,7 +118,9 @@ public class VersatileStreamAdapter implements StreamAdapter {
 
     // ── Per-line mapping ──
 
-    private AgentExecutionResult mapLine(Object raw, Map<String, List<String>> cache, boolean[] hasEnd) {
+    @SuppressWarnings("unchecked")
+    private AgentExecutionResult mapLine(Object raw, Map<String, List<String>> cache,
+            boolean[] hasEnd, Map<String, Object> extracted) {
         if (raw == null) return null;
         String line = String.valueOf(raw).trim();
         if (line.isEmpty()) return null;
@@ -118,7 +133,6 @@ public class VersatileStreamAdapter implements StreamAdapter {
         }
 
         try {
-            @SuppressWarnings("unchecked")
             Map<String, Object> json = (Map<String, Object>) MAPPER.readValue(jsonStr, Map.class);
             if (json == null) return null;
 
@@ -127,16 +141,15 @@ public class VersatileStreamAdapter implements StreamAdapter {
 
             if (CONTROL_EVENTS.contains(event)) return null;
 
-            @SuppressWarnings("unchecked")
             Map<String, Object> data = (Map<String, Object>) json.get("data");
 
             return switch (event) {
                 case "message" -> handleMessage(data, cache, hasEnd);
-                case "workflow_finished" -> handleWorkflowFinished(data, cache);
+                case "workflow_finished" -> handleWorkflowFinished(data, cache, extracted);
                 case "exception" -> handleException(data);
-                case "end" -> handleEnd(cache);
-                case "connection_closed" -> handleConnectionClosed(hasEnd);
-                default -> handleUnknownEvent(line, event, data);
+                case "end" -> handleStreamTermination(cache, extracted, hasEnd);
+                case "connection_closed" -> handleStreamTermination(cache, extracted, hasEnd);
+                default -> handleUnknownEvent(line, event, data, extracted);
             };
         } catch (Exception e) {
             LOG.warn("versatile sse parse skipped: {}",
@@ -168,16 +181,35 @@ public class VersatileStreamAdapter implements StreamAdapter {
     }
 
     private AgentExecutionResult handleWorkflowFinished(Map<String, Object> data,
-            Map<String, List<String>> cache) {
-        String content = extractWorkflowContent(data);
-        // Merge with cache — workflow_finished may carry additional outputs
-        String finalContent = assembleFinalContent(cache, content);
-        return AgentExecutionResult.completed(finalContent, AgentExecutionResult.Target.LLM);
+            Map<String, List<String>> cache, Map<String, Object> extracted) {
+        return completeFromCacheOrExtraction(cache, extracted, extractWorkflowContent(data));
     }
 
-    private AgentExecutionResult handleEnd(Map<String, List<String>> cache) {
-        String finalContent = assembleFinalContent(cache, null);
-        return AgentExecutionResult.completed(finalContent, AgentExecutionResult.Target.LLM);
+    /**
+     * Unified termination for both the SSE {@code end} event and the
+     * client-injected {@code connection_closed} marker. When a
+     * {@code message(node_type=End)} was observed before termination
+     * the stream completes normally; otherwise it is an interruption —
+     * the workflow needs another round of input.
+     */
+    private AgentExecutionResult handleStreamTermination(
+            Map<String, List<String>> cache, Map<String, Object> extracted, boolean[] hasEnd) {
+        if (hasEnd[0]) {
+            return completeFromCacheOrExtraction(cache, extracted, null);
+        }
+        LOG.info("versatile stream ended without End node_type — emitting INTERRUPTED");
+        return AgentExecutionResult.interrupted("", AgentExecutionResult.Target.USER);
+    }
+
+    /** Tries extraction first; falls back to cache-assembled content. */
+    private AgentExecutionResult completeFromCacheOrExtraction(
+            Map<String, List<String>> cache, Map<String, Object> extracted, String extraContent) {
+        String extractedContent = drainExtracted(extracted);
+        if (!extractedContent.isEmpty()) {
+            return AgentExecutionResult.completed(extractedContent, AgentExecutionResult.Target.LLM);
+        }
+        return AgentExecutionResult.completed(
+                assembleFinalContent(cache, extraContent), AgentExecutionResult.Target.LLM);
     }
 
     private AgentExecutionResult handleException(Map<String, Object> data) {
@@ -187,22 +219,23 @@ public class VersatileStreamAdapter implements StreamAdapter {
         return AgentExecutionResult.failed(ERROR_CODE_PREFIX + code, message);
     }
 
-    private AgentExecutionResult handleConnectionClosed(boolean[] hasEnd) {
-        if (hasEnd[0]) {
-            // Normal close after End — nothing extra to emit
-            LOG.debug("versatile connection_closed after End — stream complete");
-            return null;
+    // ── Unknown event → passthrough or extraction ──
+
+    private AgentExecutionResult handleUnknownEvent(String rawLine, String event,
+            Map<String, Object> data, Map<String, Object> extracted) {
+        // Check result extraction rules first
+        if (!resultExtractionPaths.isEmpty() && data != null) {
+            String[] pathSegments = resultExtractionPaths.get(event);
+            if (pathSegments != null) {
+                Object value = resolveJsonPath(data, pathSegments);
+                if (value != null) {
+                    extracted.put(event, value);
+                    LOG.info("versatile extracted result event={}", event);
+                    return null; // held until End
+                }
+            }
         }
-        // Stream closed without End → interruption
-        LOG.info("versatile connection_closed without End — emitting INTERRUPTED");
-        return AgentExecutionResult.interrupted(
-                "Versatile connection closed before completion. Send a follow-up message to resume.",
-                AgentExecutionResult.Target.USER);
-    }
-
-    // ── Unknown event → raw passthrough ──
-
-    private AgentExecutionResult handleUnknownEvent(String rawLine, String event, Map<String, Object> data) {
+        // Passthrough: unknown events without extraction rules
         if (data == null || data.isEmpty()) {
             LOG.debug("versatile unknown event '{}' with empty data — filtering", event);
             return null;
@@ -221,28 +254,16 @@ public class VersatileStreamAdapter implements StreamAdapter {
      * @param extraContent additional content from workflow_finished outputs (may be empty/null)
      */
     private String assembleFinalContent(Map<String, List<String>> cache, String extraContent) {
-        List<String> selectedLines;
-
-        if (resultNodeType != null && !resultNodeType.isBlank()) {
-            // Filter cache to matching node_type (case-insensitive)
-            selectedLines = new ArrayList<>();
-            for (var entry : cache.entrySet()) {
-                if (entry.getKey().equalsIgnoreCase(resultNodeType)) {
-                    selectedLines.addAll(entry.getValue());
-                }
-            }
-        } else {
-            // Merge all cached content in insertion order
-            selectedLines = new ArrayList<>();
-            for (List<String> lines : cache.values()) {
-                selectedLines.addAll(lines);
-            }
-        }
-
         StringBuilder sb = new StringBuilder();
-        for (String line : selectedLines) {
-            if (!sb.isEmpty()) sb.append('\n');
-            sb.append(line);
+        for (var entry : cache.entrySet()) {
+            if (resultNodeType != null && !resultNodeType.isBlank()
+                    && !entry.getKey().equalsIgnoreCase(resultNodeType)) {
+                continue;
+            }
+            for (String line : entry.getValue()) {
+                if (!sb.isEmpty()) sb.append('\n');
+                sb.append(line);
+            }
         }
         if (extraContent != null && !extraContent.isBlank()) {
             if (!sb.isEmpty()) sb.append('\n');
@@ -276,5 +297,49 @@ public class VersatileStreamAdapter implements StreamAdapter {
 
     private static String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    // ── Result extraction helpers ──
+
+    /**
+     * Navigates pre-split path segments into a nested map (e.g.
+     * {@code ["data","ticket"] → root.get("data").get("ticket")}).
+     * Paths are split once at construction time.
+     */
+    private static Object resolveJsonPath(Map<String, Object> root, String[] segments) {
+        if (root == null || segments == null) {
+            return null;
+        }
+        Object current = root;
+        for (String segment : segments) {
+            if (!(current instanceof Map<?, ?> map)) {
+                return null;
+            }
+            current = map.get(segment);
+            if (current == null) {
+                return null;
+            }
+        }
+        return current;
+    }
+
+    /**
+     * Serializes all accumulated extracted content as a JSON string and
+     * empties the accumulator. Returns the JSON, or empty string when
+     * nothing was extracted.
+     */
+    private static String drainExtracted(Map<String, Object> extracted) {
+        if (extracted.isEmpty()) {
+            return "";
+        }
+        try {
+            String json = MAPPER.writeValueAsString(extracted);
+            extracted.clear();
+            return json;
+        } catch (Exception e) {
+            LOG.warn("versatile failed to serialize extracted content: {}", e.getMessage());
+            extracted.clear();
+            return "";
+        }
     }
 }

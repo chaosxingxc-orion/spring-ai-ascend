@@ -62,10 +62,13 @@ class VersatileMessageAdapterTest {
     }
 
     @Test
-    void buildsBodyWithQueryAndMetadataFields() {
+    void buildsBodyFromLlmProvidedInputs() {
         VersatileMessageAdapter adapter = new VersatileMessageAdapter(properties());
-        AgentExecutionContext ctx = context("conv-1", "预订酒店",
-                Map.of("intent", "LATEST", "wap_userName", "张三"));
+        // LLM passes the complete "inputs" object per the skill contract.
+        // wap_userName comes from versatile.inputs metadata (framework-injected).
+        AgentExecutionContext ctx = context("conv-1", "任何文本",
+                Map.of("inputs", Map.of("query", "预订酒店", "intent", "LATEST"),
+                        "versatile", Map.of("inputs", Map.of("wap_userName", "张三"))));
 
         VersatileHttpRequest req = adapter.toRequest(ctx);
 
@@ -77,7 +80,7 @@ class VersatileMessageAdapterTest {
     }
 
     @Test
-    void omitsMissingMetadataKeysFromBody() {
+    void bodyInputsEmptyWhenNoInputsKeyProvided() {
         VersatileMessageAdapter adapter = new VersatileMessageAdapter(properties());
         AgentExecutionContext ctx = context("conv-1", "查询", Map.of());
 
@@ -85,7 +88,7 @@ class VersatileMessageAdapterTest {
 
         @SuppressWarnings("unchecked")
         Map<String, Object> inputs = (Map<String, Object>) req.body().get("inputs");
-        assertThat(inputs).containsOnlyKeys("query");
+        assertThat(inputs).isEmpty();
     }
 
     @Test
@@ -104,10 +107,12 @@ class VersatileMessageAdapterTest {
     }
 
     @Test
-    void extractsLastUserMessageAsQuery() {
+    void extractsQueryFromLlmProvidedInputs() {
         VersatileMessageAdapter adapter = new VersatileMessageAdapter(properties());
         AgentExecutionContext ctx = context("conv-1",
-                "{\"person_name\":\"李四\",\"checkin_date\":\"2026-03-30\"}", Map.of());
+                "任何文本",
+                Map.of("inputs", Map.of("query",
+                        "{\"person_name\":\"李四\",\"checkin_date\":\"2026-03-30\"}")));
 
         VersatileHttpRequest req = adapter.toRequest(ctx);
 

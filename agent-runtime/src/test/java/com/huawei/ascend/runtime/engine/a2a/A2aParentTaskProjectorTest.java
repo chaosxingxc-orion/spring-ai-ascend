@@ -52,7 +52,7 @@ class A2aParentTaskProjectorTest {
 
     private static AgentExecutionResult.RemoteInvocation invocation() {
         return new AgentExecutionResult.RemoteInvocation(
-                "remote-agent", "a2a_remote_remote_agent", "tool-call-1",
+                "remote-agent", "remote-agent", "tool-call-1",
                 "task-1", "ctx-1", "conversation-1", Map.of("message", "hello"));
     }
 }

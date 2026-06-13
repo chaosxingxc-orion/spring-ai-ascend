@@ -64,6 +64,15 @@ public final class OpenJiuwenRemoteAgentInterruptRail extends BaseInterruptRail 
         // needed to reconstruct the target REST call. Tool call arguments
         // take priority over context variables on key collision.
         Map<String, Object> mergedArgs = mergeMetadata(executionContext, arguments(toolCall));
+        // The LLM's tool call arguments are the canonical message for the
+        // outbound A2A request — this works uniformly for both Versatile
+        // ({"inputs":{...}}) and plain A2A agents ({"param":"val",...}).
+        // RemoteAgentRequest.from() strips "message" from the metadata so
+        // it only appears in the A2A message parts, not in child variables.
+        String rawArgs = toolCall != null ? toolCall.getArguments() : null;
+        if (rawArgs != null && !rawArgs.isBlank()) {
+            mergedArgs.putIfAbsent("message", rawArgs);
+        }
         context.put("runtime.remote.arguments", mergedArgs);
         return interrupt(InterruptRequest.builder()
                 .message("Remote agent invocation requested: " + spec.toolName())

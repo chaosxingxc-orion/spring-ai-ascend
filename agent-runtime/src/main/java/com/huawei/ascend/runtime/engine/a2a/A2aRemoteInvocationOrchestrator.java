@@ -130,11 +130,13 @@ final class A2aRemoteInvocationOrchestrator {
         A2aParentTaskProjector.RemoteOutcome outcome =
                 parentProjector.projectRemoteOutcome(invocation, results, emitter);
         if (outcome.waitingForRemoteInput()) {
+            // The task parks on remote INPUT_REQUIRED. Deliver the
+            // trajectory BEFORE the terminal requiresInput closes the
+            // emitter so the artifact lands while the task can still
+            // accept artifacts.
+            beforeTerminal.run();
             LOG.info("[A2A] remote tool invocation waiting-for-input taskId={} remoteAgentId={} toolCallId={}",
                     taskId, invocation.remoteAgentId(), invocation.toolCallId());
-            // The task parks on remote INPUT_REQUIRED and this invocation's sinks close on
-            // return — flush what this leg collected or it is lost before the continuation.
-            beforeTerminal.run();
             return;
         }
         LOG.info("[A2A] remote tool invocation complete taskId={} remoteAgentId={} toolCallId={} resultLen={}",

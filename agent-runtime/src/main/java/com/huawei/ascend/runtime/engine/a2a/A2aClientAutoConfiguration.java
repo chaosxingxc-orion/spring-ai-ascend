@@ -109,17 +109,23 @@ public class A2aClientAutoConfiguration {
     // ── Card cache refresher ──
 
     /**
-     * Polls the card cache on a fixed interval so remote runtimes that boot later
-     * (or restart) become callable without a redeploy, and so card/endpoint changes
-     * on already-available remotes propagate (the cache re-resolves every entry and
-     * keeps the last good card when a re-resolve fails).
+     * Polls the card cache with an adaptive interval: every 10 s while any
+     * remote is not yet reachable, backing off to 10 min once all configured
+     * remotes have been resolved. This keeps log noise low in steady state
+     * while retrying quickly when an agent boots later or is temporarily down.
      */
     public static final class RemoteAgentCardCacheRefresher implements SmartLifecycle {
         private static final Logger LOG = LoggerFactory.getLogger(RemoteAgentCardCacheRefresher.class);
 
+        private static final long FAST_RETRY_MS = 10_000L;
+        private static final long KEEPALIVE_MS = 600_000L;
+        /** Jitter fraction applied to avoid thundering-herd on remote agents. */
+        private static final double JITTER_FRACTION = 0.1;
+
         private final RemoteAgentCardCache cardCache;
         private final ExecutorService executor;
         private final AtomicBoolean running = new AtomicBoolean();
+        private long backoffMs = FAST_RETRY_MS;
 
         public RemoteAgentCardCacheRefresher(RemoteAgentCardCache cardCache, ExecutorService executor) {
             this.cardCache = cardCache;
@@ -129,7 +135,8 @@ public class A2aClientAutoConfiguration {
         @Override
         public void start() {
             if (running.compareAndSet(false, true)) {
-                LOG.info("remote agent card cache refresher started intervalMs=5000");
+                LOG.info("remote agent card cache refresher started fastRetryMs={} keepaliveMs={}",
+                        FAST_RETRY_MS, KEEPALIVE_MS);
                 executor.execute(this::run);
             }
         }
@@ -140,9 +147,21 @@ public class A2aClientAutoConfiguration {
 
         private void run() {
             while (running.get()) {
-                refreshOnce();
+                boolean allSucceeded = cardCache.refresh();
+                long delay;
+                if (allSucceeded) {
+                    backoffMs = FAST_RETRY_MS;
+                    delay = KEEPALIVE_MS;
+                } else {
+                    delay = backoffMs;
+                    backoffMs = Math.min(backoffMs * 2, KEEPALIVE_MS);
+                }
+                // Add ±JITTER_FRACTION/2 to avoid thundering herd
+                delay = jitter(delay);
+                LOG.debug("remote agent card refresh {} nextRefreshIn={}s",
+                        allSucceeded ? "succeeded" : "failed", delay / 1000);
                 try {
-                    Thread.sleep(5_000L);
+                    Thread.sleep(delay);
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                     running.set(false);
@@ -150,11 +169,16 @@ public class A2aClientAutoConfiguration {
             }
         }
 
+        private static long jitter(long base) {
+            double range = base * JITTER_FRACTION;
+            return base + (long) (range * (Math.random() - 0.5) * 2);
+        }
+
         @Override
         public void stop() {
             LOG.info("remote agent card cache refresher stopping");
             running.set(false);
-            // The loop sleeps up to 5s between refreshes; interrupt it so shutdown
+            // The loop may be sleeping up to 10 min; interrupt it so shutdown
             // does not wait out the sleep.
             executor.shutdownNow();
         }

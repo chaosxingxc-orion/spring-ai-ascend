@@ -57,12 +57,25 @@ class VersatileStreamAdapterTest {
     }
 
     @Test
-    void mapsEndEventToCompleted() {
+    void mapsEndEventToInterruptedWhenNoEndNodeType() {
+        // Bare "end" without a preceding message(node_type=End) → INTERRUPTED
         List<AgentExecutionResult> results = adapt(
                 "data:{\"event\":\"end\",\"data\":{}}");
 
         assertThat(results).hasSize(1);
-        assertThat(results.get(0).type()).isEqualTo(AgentExecutionResult.Type.COMPLETED);
+        assertThat(results.get(0).type()).isEqualTo(AgentExecutionResult.Type.INTERRUPTED);
+    }
+
+    @Test
+    void mapsEndEventAfterEndNodeTypeToCompleted() {
+        // message(node_type=End) before "end" → COMPLETED
+        List<AgentExecutionResult> results = adapt(
+                "data:{\"event\":\"message\",\"data\":{\"node_type\":\"End\",\"text\":\"OK\"}}",
+                "data:{\"event\":\"end\",\"data\":{}}");
+
+        assertThat(results).hasSize(2);
+        assertThat(results.get(0).type()).isEqualTo(AgentExecutionResult.Type.OUTPUT);
+        assertThat(results.get(1).type()).isEqualTo(AgentExecutionResult.Type.COMPLETED);
     }
 
     @Test
@@ -112,6 +125,7 @@ class VersatileStreamAdapterTest {
     @Test
     void stripsDataPrefixAndHandlesRawSse() {
         List<AgentExecutionResult> results = adapt(
+                "data:{\"event\":\"message\",\"data\":{\"node_type\":\"End\"}}",
                 "data:{\"event\":\"end\",\"data\":{}}");
 
         assertThat(results).hasSize(1);
@@ -122,6 +136,7 @@ class VersatileStreamAdapterTest {
     void skipsUnparseableLines() {
         List<AgentExecutionResult> results = adapt(
                 "not-json-at-all",
+                "data:{\"event\":\"message\",\"data\":{\"node_type\":\"End\"}}",
                 "data:{\"event\":\"end\",\"data\":{}}");
 
         assertThat(results).hasSize(1);

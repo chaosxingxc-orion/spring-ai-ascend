@@ -33,9 +33,9 @@ class OpenJiuwenRemoteToolInstallerTest {
 
         installer.install(agent, context());
 
-        assertThat(agent.getAbilityManager().get("a2a_remote_remote_planner")).isNotNull();
+        assertThat(agent.getAbilityManager().get("remote-planner")).isNotNull();
         assertThat(agent.getAbilityManager().listToolInfo())
-                .anySatisfy(info -> assertThat(info.getName()).isEqualTo("a2a_remote_remote_planner"));
+                .anySatisfy(info -> assertThat(info.getName()).isEqualTo("remote-planner"));
         assertThat(agent.registeredRails)
                 .hasSize(1)
                 .first()
@@ -50,7 +50,7 @@ class OpenJiuwenRemoteToolInstallerTest {
                 new OpenJiuwenRemoteAgentInterruptRail(context, List.of(spec));
         ToolCall toolCall = ToolCall.builder()
                 .id("tool-call-1")
-                .name("a2a_remote_remote_planner")
+                .name("remote-planner")
                 .arguments("{\"message\":\"hello remote\"}")
                 .build();
         InterruptDecision decision = rail.resolveInterrupt(null, toolCall, null);
@@ -63,7 +63,7 @@ class OpenJiuwenRemoteToolInstallerTest {
         assertThat(irContext)
                 .containsEntry("runtime.remote.kind", "REMOTE_AGENT_INVOCATION")
                 .containsEntry("runtime.remote.agentId", "remote-planner")
-                .containsEntry("runtime.remote.toolName", "a2a_remote_remote_planner")
+                .containsEntry("runtime.remote.toolName", "remote-planner")
                 .containsEntry("runtime.remote.toolCallId", "tool-call-1")
                 .containsEntry("runtime.remote.parentTaskId", "task-1")
                 .containsEntry("runtime.remote.parentContextId", "ctx-1")
@@ -80,7 +80,7 @@ class OpenJiuwenRemoteToolInstallerTest {
                 new OpenJiuwenRemoteAgentInterruptRail(context(), List.of(spec));
         ToolCall toolCall = ToolCall.builder()
                 .id("tool-call-1")
-                .name("a2a_remote_remote_planner")
+                .name("remote-planner")
                 .arguments("{\"message\":\"hello remote\"}")
                 .build();
         InteractiveInput resumeInput = new InteractiveInput();
@@ -95,7 +95,7 @@ class OpenJiuwenRemoteToolInstallerTest {
     private static RemoteAgentToolSpec toolSpec() {
         return new RemoteAgentToolSpec(
                 "remote-planner",
-                "a2a_remote_remote_planner",
+                "remote-planner",
                 "Remote Planner\nPlans trips",
                 Map.of(
                         "type", "object",

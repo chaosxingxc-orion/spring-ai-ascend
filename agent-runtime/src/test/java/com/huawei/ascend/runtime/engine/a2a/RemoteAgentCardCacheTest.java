@@ -41,8 +41,8 @@ class RemoteAgentCardCacheTest {
         assertThat(catalog.availableToolSpecs()).hasSize(1);
         RemoteAgentToolSpec spec = catalog.availableToolSpecs().get(0);
         assertThat(spec.remoteAgentId()).isEqualTo("remote-planner");
-        assertThat(spec.toolName()).isEqualTo("a2a_remote_remote_planner");
-        assertThat(spec.description()).contains("Remote Planner", "Plans trips", "Create a step-by-step plan");
+        assertThat(spec.toolName()).isEqualTo("remote-planner");
+        assertThat(spec.description()).contains("Create a step-by-step plan");
         assertThat(spec.inputSchema()).containsEntry("type", "object");
         assertThat(catalog.endpoint("remote-planner")).isEqualTo("http://remote-runtime/a2a");
     }
@@ -125,7 +125,7 @@ class RemoteAgentCardCacheTest {
                 .containsExactly("shared-remote", "shared-remote-2");
         assertThat(catalog.availableToolSpecs())
                 .extracting(RemoteAgentToolSpec::toolName)
-                .containsExactly("a2a_remote_shared_remote", "a2a_remote_shared_remote_2");
+                .containsExactly("shared-remote", "shared-remote-2");
         assertThat(catalog.endpoint("shared-remote")).isEqualTo("http://remote-a/a2a");
         assertThat(catalog.endpoint("shared-remote-2")).isEqualTo("http://remote-b/a2a");
     }
