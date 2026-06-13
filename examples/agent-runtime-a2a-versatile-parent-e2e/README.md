@@ -106,7 +106,9 @@ export SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY=false
 
 ### 步骤 4：手工启动双进程验证（核心验证）
 
-两个 profile 已预设固定端口。
+默认配置（`versatile.url=http://localhost:18083`）已指向本地 mock 服务。子 Agent 启动时会通过 `VersatileMockConfiguration` 自动在端口 18083 启动内嵌 WireMock，无需额外终端。
+
+如需使用外部 Versatile 服务，添加 `--versatile.mock.enabled=false --versatile.url=<外部URL>`。
 
 #### 终端 1 — 启动 Versatile 子 Agent（端口 18082）
 
@@ -114,6 +116,8 @@ export SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY=false
 cd examples/agent-runtime-a2a-versatile-parent-e2e
 mvn spring-boot:run -Dspring-boot.run.profiles=versatile
 ```
+
+日志出现 `Versatile mock server started on port 18083` 表示 mock 已就绪。
 
 #### 终端 2 — 启动主 Agent（OpenJiuwen LLM，端口 18080）
 
@@ -305,6 +309,42 @@ remote tool invocation start taskId=... toolName=a2a_remote_versatile_child
 | 5 | **预订结果提取** | `versatile extracted result match='hotel_book_success' get='ticket'` |
 | 6 | **LLM 最终总结** | COMPLETED 消息包含酒店名、订单号、日期、价格 |
 | 7 | **Remote Agent 配置** | `output.default-target=USER` + `completion-target=LLM` 生效 |
+
+---
+
+## Mock 测试（离线，无需外部 Versatile 服务）
+
+本示例包含一个基于 WireMock 的 Versatile API 模拟服务 `VersatileMockService`，可以完全不依赖外部 Versatile REST API 运行 E2E 测试。
+
+**Mock 行为：**
+
+| 轮次 | Mock 响应 | child 结果 |
+|------|----------|-----------|
+| 第一轮 | `hotels_info` 事件 + End | COMPLETED（酒店列表） |
+| 第一轮（interrupt 模式） | `hotels_info` 事件（无 End） | INPUT_REQUIRED |
+| 第二轮 | `hotel_book_success` 事件 + End | COMPLETED（含 ticket 提取） |
+
+**运行测试：**
+
+```bash
+cd examples/agent-runtime-a2a-versatile-parent-e2e
+
+# 需要 LLM（API Key 已配置）
+SAA_SAMPLE_LLM_API_KEY=sk-x00550472 SAA_SAMPLE_LLM_MODEL=gpt-5.4-mini mvn test
+
+# 无 LLM — card discovery 测试仍可运行，LLM 测试自动跳过
+mvn test
+```
+
+**Mock 架构：**
+```
+JUnit @BeforeEach → VersatileMockService.start()   (随机端口)
+                 → --versatile.url=http://localhost:{mockPort}/...
+                 → child 连接 mock 而非真实 API
+JUnit @AfterEach  → VersatileMockService.stop()
+```
+
+测试不依赖外部 `http://7.213.200.213:3001`，可以在任何网络环境运行。
 
 ---
 
