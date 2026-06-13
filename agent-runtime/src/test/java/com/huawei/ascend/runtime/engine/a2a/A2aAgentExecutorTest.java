@@ -697,7 +697,7 @@ class A2aAgentExecutorTest {
                 .execute(requestContext(), emitter);
 
         assertThat(outbound.requests).hasSize(1);
-        assertThat(outbound.requests.get(0).message()).isEqualTo("hello remote");
+        assertThat(outbound.requests.get(0).message()).isEqualTo("{\"message\":\"hello remote\"}");
         verify(emitter).complete(any(Message.class));
     }
 
