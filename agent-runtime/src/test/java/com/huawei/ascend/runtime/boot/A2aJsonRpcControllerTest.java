@@ -44,6 +44,9 @@ import org.a2aproject.sdk.spec.Task;
 import org.a2aproject.sdk.spec.TaskIdParams;
 import org.a2aproject.sdk.spec.TaskPushNotificationConfig;
 import org.a2aproject.sdk.spec.TaskQueryParams;
+import org.a2aproject.sdk.spec.TaskState;
+import org.a2aproject.sdk.spec.TaskStatus;
+import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
@@ -215,6 +218,35 @@ class A2aJsonRpcControllerTest {
     }
 
     @Test
+    void sendStreamingMessageCompletesCurrentResponseOnInputRequired() throws Exception {
+        A2aJsonRpcController controller =
+                new A2aJsonRpcController(new InputRequiredThenCompletedRequestHandler(), new RuntimeAccessProperties());
+        A2ARequest<?> request = JSONRPCUtils.parseRequestBody("""
+                {"jsonrpc":"2.0","id":"stream-input","method":"SendStreamingMessage","params":{"message":{"role":"ROLE_USER","parts":[{"text":"ping"}],"messageId":"message-1"}}}
+                """, null);
+
+        StepVerifier.create(controller.handleStream(request, null))
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_WORKING"))
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_INPUT_REQUIRED"))
+                .verifyComplete();
+    }
+
+    @Test
+    void subscribeToTaskKeepsStreamingAfterInputRequired() throws Exception {
+        A2aJsonRpcController controller =
+                new A2aJsonRpcController(new InputRequiredThenCompletedRequestHandler(), new RuntimeAccessProperties());
+        A2ARequest<?> request = JSONRPCUtils.parseRequestBody("""
+                {"jsonrpc":"2.0","id":"sub-input","method":"SubscribeToTask","params":{"id":"task-1"}}
+                """, null);
+
+        StepVerifier.create(controller.handleStream(request, null))
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_WORKING"))
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_INPUT_REQUIRED"))
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_COMPLETED"))
+                .verifyComplete();
+    }
+
+    @Test
     void sseParseFailureAnswersSingleErrorFrame() {
         A2aJsonRpcController controller = new A2aJsonRpcController(new SingleEventRequestHandler(), new RuntimeAccessProperties());
 
@@ -269,6 +301,10 @@ class A2aJsonRpcControllerTest {
         }
     }
 
+    private static String statusState(ServerSentEvent<String> event) {
+        return dataJson(event).path("result").path("statusUpdate").path("status").path("state").asText();
+    }
+
     private static final class FailingRequestHandler extends SingleEventRequestHandler {
         @Override
         public Task onGetTask(TaskQueryParams params, ServerCallContext context) throws A2AError {
@@ -316,6 +352,47 @@ class A2aJsonRpcControllerTest {
                 subscriber.onNext(message);
                 subscriber.onError(new RuntimeException("boom"));
             };
+        }
+    }
+
+    private static final class InputRequiredThenCompletedRequestHandler extends SingleEventRequestHandler {
+        @Override
+        public Flow.Publisher<StreamingEventKind> onMessageSendStream(
+                MessageSendParams params, ServerCallContext context) {
+            return statusPublisher();
+        }
+
+        @Override
+        public Flow.Publisher<StreamingEventKind> onSubscribeToTask(TaskIdParams params, ServerCallContext context) {
+            return statusPublisher();
+        }
+
+        private static Flow.Publisher<StreamingEventKind> statusPublisher() {
+            List<StreamingEventKind> events = List.of(
+                    status(TaskState.TASK_STATE_WORKING),
+                    status(TaskState.TASK_STATE_INPUT_REQUIRED),
+                    status(TaskState.TASK_STATE_COMPLETED));
+            return subscriber -> {
+                subscriber.onSubscribe(new Flow.Subscription() {
+                    @Override
+                    public void request(long n) {
+                    }
+
+                    @Override
+                    public void cancel() {
+                    }
+                });
+                events.forEach(subscriber::onNext);
+                subscriber.onComplete();
+            };
+        }
+
+        private static TaskStatusUpdateEvent status(TaskState state) {
+            return TaskStatusUpdateEvent.builder()
+                    .taskId("task-1")
+                    .contextId("ctx-1")
+                    .status(new TaskStatus(state))
+                    .build();
         }
     }
 

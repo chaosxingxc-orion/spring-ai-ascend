@@ -35,6 +35,8 @@ import org.a2aproject.sdk.server.requesthandlers.RequestHandler;
 import org.a2aproject.sdk.spec.A2AError;
 import org.a2aproject.sdk.spec.A2AErrorCodes;
 import org.a2aproject.sdk.spec.StreamingEventKind;
+import org.a2aproject.sdk.spec.TaskState;
+import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.reactivestreams.FlowAdapters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -122,7 +124,11 @@ public class A2aJsonRpcController {
         } else {
             throw error(A2AErrorCodes.METHOD_NOT_FOUND, "Unknown streaming request: " + request.getMethod());
         }
-        return Flux.from(FlowAdapters.toPublisher(publisher))
+        Flux<StreamingEventKind> events = Flux.from(FlowAdapters.toPublisher(publisher));
+        if (request instanceof SendStreamingMessageRequest) {
+            events = events.takeUntil(A2aJsonRpcController::isInputRequired);
+        }
+        return events
                 .map(evt -> ServerSentEvent.<String>builder().event("jsonrpc")
                         .data(streamingResponseJson(id, evt)).build())
                 // A mid-stream failure must end with a JSON-RPC error frame, not a bare
@@ -174,6 +180,12 @@ public class A2aJsonRpcController {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Failed to serialize A2A stream event", e);
         }
+    }
+
+    private static boolean isInputRequired(StreamingEventKind event) {
+        return event instanceof TaskStatusUpdateEvent statusUpdate
+                && statusUpdate.status() != null
+                && statusUpdate.status().state() == TaskState.TASK_STATE_INPUT_REQUIRED;
     }
 
     private static ResponseEntity<String> errorResponse(Object id, A2AError error) {

@@ -126,7 +126,11 @@ endpoint=http://localhost:18082/a2a
 curl http://localhost:18081/.well-known/agent-card.json
 ```
 
-### 第三步：第一轮请求，触发远端 tool 并进入 INPUT_REQUIRED
+完成上面两个服务启动后，下面两种手动验证方式二选一即可。`curl/PowerShell` 方式适合检查原始 A2A 报文，交互式客户端方式适合完整跑通两轮闭环。
+
+### 方式 A：使用 curl/PowerShell 报文验证两轮调用
+
+第一轮请求会触发 local-agent 调用远端 tool，并进入 `INPUT_REQUIRED`。
 
 Bash:
 
@@ -143,7 +147,11 @@ curl http://localhost:18081/a2a \
         "role": "ROLE_USER",
         "messageId": "msg-1",
         "contextId": "ctx-remote-agent-tool-1",
-        "metadata": {"userId": "manual-user", "agentId": "local-openjiuwen"},
+        "metadata": {
+          "userId": "manual-user",
+          "agentId": "local-openjiuwen",
+          "sessionId": "ctx-remote-agent-tool-1"
+        },
         "parts": [{"text": "Please call the remote A2A agent to run the streaming input-required demo."}]
       }
     }
@@ -153,7 +161,9 @@ curl http://localhost:18081/a2a \
 PowerShell:
 
 ```powershell
-$body = @'
+$SESSION_ID = "ctx-remote-agent-tool-1"
+$jsonPath = "$env:TEMP\a2a-remote-agent-tool-request-1.json"
+$body = @"
 {
   "jsonrpc": "2.0",
   "id": "1",
@@ -162,18 +172,28 @@ $body = @'
     "message": {
       "role": "ROLE_USER",
       "messageId": "msg-1",
-      "contextId": "ctx-remote-agent-tool-1",
-      "metadata": {"userId": "manual-user", "agentId": "local-openjiuwen"},
-      "parts": [{"text": "Please call the remote A2A agent to run the streaming input-required demo."}]
+      "contextId": "$SESSION_ID",
+      "metadata": {
+        "userId": "manual-user",
+        "agentId": "local-openjiuwen",
+        "sessionId": "$SESSION_ID"
+      },
+      "parts": [
+        {
+          "text": "Please call the remote A2A agent to run the streaming input-required demo."
+        }
+      ]
     }
   }
 }
-'@
+"@
 
-curl.exe http://localhost:18081/a2a `
+[System.IO.File]::WriteAllText($jsonPath, $body, [System.Text.UTF8Encoding]::new($false))
+
+curl.exe -s -N -X POST "http://localhost:18081/a2a" `
   -H "Content-Type: application/json" `
   -H "Accept: text/event-stream" `
-  --data-raw $body
+  --data-binary "@$jsonPath"
 ```
 
 预期：
@@ -182,9 +202,82 @@ curl.exe http://localhost:18081/a2a `
 - parent task 进入 `TASK_STATE_INPUT_REQUIRED`。
 - 返回事件里能看到本地 parent `taskId`，下一轮续写需要复用这个 `taskId` 和同一个 `contextId`。
 
-### 第四步：第二轮续写，完成远端并回灌 Local OpenJiuwen Agent
+第二轮请求需要把第一轮返回的 parent `taskId` 填到 `message.taskId`，`contextId` 继续使用同一个会话值。下面示例里的 `$PARENT_TASK_ID` 需要替换成第一轮 `statusUpdate.taskId`。
 
-推荐使用交互式客户端完成第二轮。它会在收到 `INPUT_REQUIRED` 后记录 parent `taskId`，下一条输入自动带上该 taskId。
+Bash:
+
+```bash
+PARENT_TASK_ID="replace-with-first-round-parent-task-id"
+
+curl http://localhost:18081/a2a \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "2",
+    "method": "SendStreamingMessage",
+    "params": {
+      "message": {
+        "role": "ROLE_USER",
+        "messageId": "msg-2",
+        "contextId": "ctx-remote-agent-tool-1",
+        "taskId": "'"$PARENT_TASK_ID"'",
+        "metadata": {
+          "userId": "manual-user",
+          "agentId": "local-openjiuwen",
+          "sessionId": "ctx-remote-agent-tool-1"
+        },
+        "parts": [{"text": "Here is the follow-up input for the remote agent."}]
+      }
+    }
+  }'
+```
+
+PowerShell:
+
+```powershell
+$SESSION_ID = "ctx-remote-agent-tool-1"
+$PARENT_TASK_ID = "replace-with-first-round-parent-task-id"
+$jsonPath = "$env:TEMP\a2a-remote-agent-tool-request-2.json"
+$body = @"
+{
+  "jsonrpc": "2.0",
+  "id": "2",
+  "method": "SendStreamingMessage",
+  "params": {
+    "message": {
+      "role": "ROLE_USER",
+      "messageId": "msg-2",
+      "contextId": "$SESSION_ID",
+      "taskId": "$PARENT_TASK_ID",
+      "metadata": {
+        "userId": "manual-user",
+        "agentId": "local-openjiuwen",
+        "sessionId": "$SESSION_ID"
+      },
+      "parts": [
+        {
+          "text": "Here is the follow-up input for the remote agent."
+        }
+      ]
+    }
+  }
+}
+"@
+
+[System.IO.File]::WriteAllText($jsonPath, $body, [System.Text.UTF8Encoding]::new($false))
+
+curl.exe -s -N -X POST "http://localhost:18081/a2a" `
+  -H "Content-Type: application/json" `
+  -H "Accept: text/event-stream" `
+  --data-binary "@$jsonPath"
+```
+
+预期第二轮能看到 `Remote agent second stream message`；随后 remote-agent completed 文本被作为 tool result 回灌给 local-agent，最终由 local-agent 输出摘要，并使 parent task `TASK_STATE_COMPLETED`。
+
+### 方式 B：使用交互式客户端验证两轮调用
+
+交互式客户端会在收到 `INPUT_REQUIRED` 后记录 parent `taskId`，下一条输入自动带上该 taskId，因此更适合验证完整两轮闭环。
 
 Bash:
 
