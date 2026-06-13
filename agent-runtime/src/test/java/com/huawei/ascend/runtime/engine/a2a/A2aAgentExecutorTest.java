@@ -386,7 +386,7 @@ class A2aAgentExecutorTest {
      */
     @Test
     void trajectoryEnabled_feedsFactorySinksSynchronouslyWithCorrelation() {
-        TrajectorySettings settings = new TrajectorySettings(true,
+        TrajectorySettings settings = TrajectorySettings.basic(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         List<TrajectoryEvent> events = new ArrayList<>();
         TrajectorySinkFactory factory = () -> events::add;
@@ -407,7 +407,7 @@ class A2aAgentExecutorTest {
     /** When the request opts in, the trajectory is delivered to the caller as a second artifact, before terminal. */
     @Test
     void trajectoryNorthbound_deliversTrajectoryArtifactBeforeTerminal() {
-        TrajectorySettings settings = new TrajectorySettings(true,
+        TrajectorySettings settings = TrajectorySettings.basic(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         AgentEmitter emitter = newEmitter();
         RequestContext ctx = requestContext();
@@ -430,7 +430,7 @@ class A2aAgentExecutorTest {
     /** Without the opt-in (and with no factory sinks), the caller gets no trajectory artifact. */
     @Test
     void trajectory_noNorthboundByDefault() {
-        TrajectorySettings settings = new TrajectorySettings(true,
+        TrajectorySettings settings = TrajectorySettings.basic(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         AgentEmitter emitter = newEmitter();
 
@@ -443,7 +443,7 @@ class A2aAgentExecutorTest {
     /** A request can opt a single call out via the legacy trajectory.level=off metadata key. */
     @Test
     void trajectoryLevelOffMetadataOptsTheRequestOut() {
-        TrajectorySettings settings = new TrajectorySettings(true,
+        TrajectorySettings settings = TrajectorySettings.basic(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         List<TrajectoryEvent> events = new ArrayList<>();
         TrajectorySinkFactory factory = () -> events::add;
@@ -497,7 +497,7 @@ class A2aAgentExecutorTest {
     @Test
     @SuppressWarnings({"unchecked", "rawtypes"})
     void remoteResumeLeg_isCapturedInNorthboundTrajectoryClosedByRunEnd() {
-        TrajectorySettings settings = new TrajectorySettings(true,
+        TrajectorySettings settings = TrajectorySettings.basic(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         RemoteRequestingTrajectoryHandler handler = new RemoteRequestingTrajectoryHandler();
         RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of(
@@ -536,7 +536,7 @@ class A2aAgentExecutorTest {
     @Test
     @SuppressWarnings({"unchecked", "rawtypes"})
     void remoteContinuation_withNorthboundOptIn_deliversResumeLegTrajectoryArtifact() {
-        TrajectorySettings settings = new TrajectorySettings(true,
+        TrajectorySettings settings = TrajectorySettings.basic(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         RemoteRequestingTrajectoryHandler handler = new RemoteRequestingTrajectoryHandler();
         RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of(
@@ -568,7 +568,7 @@ class A2aAgentExecutorTest {
      */
     @Test
     void remoteContinuation_trajectoryFlushAppendsWhenParkedTaskAlreadyCarriesTheArtifact() {
-        TrajectorySettings settings = new TrajectorySettings(true,
+        TrajectorySettings settings = TrajectorySettings.basic(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         RemoteRequestingTrajectoryHandler handler = new RemoteRequestingTrajectoryHandler();
         RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of(
@@ -598,7 +598,7 @@ class A2aAgentExecutorTest {
      */
     @Test
     void remoteContinuation_trajectoryFlushOpensArtifactWhenParkedTaskCarriesNone() {
-        TrajectorySettings settings = new TrajectorySettings(true,
+        TrajectorySettings settings = TrajectorySettings.basic(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         RemoteRequestingTrajectoryHandler handler = new RemoteRequestingTrajectoryHandler();
         RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of(

@@ -39,6 +39,7 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
     private final String parentTraceId;
     private final TrajectorySettings settings;
     private final Set<Kind> supportedKinds;
+    private final boolean keptInvocation;
     private long seq;
     private final Deque<SpanFrame> spanStack = new ArrayDeque<>();
 
@@ -58,6 +59,8 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
         this.parentTraceId = parentTraceId;
         this.settings = settings;
         this.supportedKinds = supportedKinds;
+        this.keptInvocation = settings.sampleRate() >= 1.0
+                || ThreadLocalRandom.current().nextDouble() < settings.sampleRate();
     }
 
     @Override
@@ -66,7 +69,7 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
             return;
         }
         Kind kind = draft.kind();
-        boolean publish = kind != null && supportedKinds.contains(kind);
+        boolean publish = kind != null && supportedKinds.contains(kind) && samplingAllows(kind);
         long now = System.currentTimeMillis();
         // Maintain the span stack for every draft, even a filtered one, so a dropped
         // unsupported span never desyncs the parent chain of what does publish.
@@ -183,6 +186,16 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
     private record SpanFrame(String spanId, String parentSpanId, long startMillis, Kind startKind, boolean published) {}
 
     private record SpanInfo(String spanId, String parentSpanId, Long durationMs) {}
+
+    /** RUN_START, RUN_END, and ERROR are always emitted regardless of the sample roll. */
+    private static boolean isAlwaysKept(Kind kind) {
+        return kind == Kind.RUN_START || kind == Kind.RUN_END || kind == Kind.ERROR;
+    }
+
+    /** Returns true when the kind should be published under the current sampling decision. */
+    private boolean samplingAllows(Kind kind) {
+        return isAlwaysKept(kind) || keptInvocation;
+    }
 
     /** Free-text error messages can embed secrets; run the message through the same masker. */
     private ErrorInfo maskError(ErrorInfo error) {

@@ -92,7 +92,7 @@ class OpenJiuwenTrajectoryRailTest {
     @Test
     void toolArgsAreMaskedWhenStampedThroughTheEmitter() {
         List<TrajectoryEvent> events = new ArrayList<>();
-        TrajectorySettings settings = new TrajectorySettings(
+        TrajectorySettings settings = TrajectorySettings.basic(
                 true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         TrajectoryEmitter stamping = new StampingTrajectoryEmitter(
                 events::add, new RuntimeIdentity("t", "u", "s", "task", "a"), settings,

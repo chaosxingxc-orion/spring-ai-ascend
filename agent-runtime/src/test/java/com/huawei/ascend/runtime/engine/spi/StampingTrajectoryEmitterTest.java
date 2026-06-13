@@ -26,7 +26,7 @@ class StampingTrajectoryEmitterTest {
 
     private static StampingTrajectoryEmitter emitter(CapturingSink sink, Set<Kind> kinds) {
         TrajectorySettings settings =
-                new TrajectorySettings(true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+                TrajectorySettings.basic(true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         return new StampingTrajectoryEmitter(sink, SCOPE, settings, kinds);
     }
 
@@ -143,7 +143,7 @@ class StampingTrajectoryEmitterTest {
     @Test
     void maskErrorPreservesCategory() {
         CapturingSink sink = new CapturingSink();
-        TrajectorySettings settings = new TrajectorySettings(true,
+        TrajectorySettings settings = TrajectorySettings.basic(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         StampingTrajectoryEmitter emitter =
                 new StampingTrajectoryEmitter(sink, SCOPE, settings, EnumSet.allOf(Kind.class));
@@ -175,7 +175,7 @@ class StampingTrajectoryEmitterTest {
     @Test
     void payloadsAreMaskedAndTruncated() {
         CapturingSink sink = new CapturingSink();
-        TrajectorySettings settings = new TrajectorySettings(true,
+        TrajectorySettings settings = TrajectorySettings.basic(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 8);
         StampingTrajectoryEmitter emitter =
                 new StampingTrajectoryEmitter(sink, SCOPE, settings, EnumSet.allOf(Kind.class));
@@ -194,7 +194,7 @@ class StampingTrajectoryEmitterTest {
     void parentLinkageIsStampedOntoEveryEvent() {
         CapturingSink sink = new CapturingSink();
         TrajectorySettings settings =
-                new TrajectorySettings(true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+                TrajectorySettings.basic(true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         StampingTrajectoryEmitter emitter = new StampingTrajectoryEmitter(
                 sink, SCOPE, settings, EnumSet.allOf(Kind.class), "parent-task-99", "parent-trace-77");
 
@@ -219,5 +219,71 @@ class StampingTrajectoryEmitterTest {
         assertThat(sink.events).hasSize(1);
         assertThat(sink.events.get(0).parentTaskId()).isNull();
         assertThat(sink.events.get(0).parentTraceId()).isNull();
+    }
+
+    @Test
+    void sampleRateZeroDropsInnerKindsButKeepsSkeletonAndErrors() {
+        CapturingSink sink = new CapturingSink();
+        TrajectorySettings settings = new TrajectorySettings(
+                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 0.0);
+        StampingTrajectoryEmitter emitter = new StampingTrajectoryEmitter(
+                sink, SCOPE, settings, EnumSet.allOf(Kind.class));
+
+        emitter.emit(TrajectoryDraft.runStart());
+        emitter.emit(TrajectoryDraft.modelCallStart("in"));
+        emitter.emit(TrajectoryDraft.toolCallStart("search", "q"));
+        emitter.emit(TrajectoryDraft.toolCallEnd("search", "r"));
+        emitter.emit(TrajectoryDraft.modelCallEnd(null, "stop", null));
+        emitter.emit(TrajectoryDraft.reasoning("thinking"));
+        emitter.emit(TrajectoryDraft.error(null, "ERR", "oops", ErrorCategory.UNKNOWN, 1, false));
+        emitter.emit(TrajectoryDraft.runEnd());
+
+        assertThat(sink.events).extracting(TrajectoryEvent::kind)
+                .containsExactly(Kind.RUN_START, Kind.ERROR, Kind.RUN_END);
+    }
+
+    @Test
+    void sampleRateOneEmitsAllKinds() {
+        CapturingSink sink = new CapturingSink();
+        TrajectorySettings settings = new TrajectorySettings(
+                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 1.0);
+        StampingTrajectoryEmitter emitter = new StampingTrajectoryEmitter(
+                sink, SCOPE, settings, EnumSet.allOf(Kind.class));
+
+        emitter.emit(TrajectoryDraft.runStart());
+        emitter.emit(TrajectoryDraft.modelCallStart("in"));
+        emitter.emit(TrajectoryDraft.toolCallStart("search", "q"));
+        emitter.emit(TrajectoryDraft.toolCallEnd("search", "r"));
+        emitter.emit(TrajectoryDraft.modelCallEnd(null, "stop", null));
+        emitter.emit(TrajectoryDraft.reasoning("thinking"));
+        emitter.emit(TrajectoryDraft.error(null, "ERR", "oops", ErrorCategory.UNKNOWN, 1, false));
+        emitter.emit(TrajectoryDraft.runEnd());
+
+        assertThat(sink.events).extracting(TrajectoryEvent::kind).containsExactly(
+                Kind.RUN_START, Kind.MODEL_CALL_START, Kind.TOOL_CALL_START,
+                Kind.TOOL_CALL_END, Kind.MODEL_CALL_END, Kind.REASONING,
+                Kind.ERROR, Kind.RUN_END);
+    }
+
+    @Test
+    void sampleRateZeroSpanStackRemainsBalancedForAlwaysKeptEvents() {
+        CapturingSink sink = new CapturingSink();
+        TrajectorySettings settings = new TrajectorySettings(
+                true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256, 0.0);
+        StampingTrajectoryEmitter emitter = new StampingTrajectoryEmitter(
+                sink, SCOPE, settings, EnumSet.allOf(Kind.class));
+
+        emitter.emit(TrajectoryDraft.runStart());
+        emitter.emit(TrajectoryDraft.toolCallStart("search", "q")); // dropped, stack still maintained
+        emitter.emit(TrajectoryDraft.toolCallEnd("search", "r"));   // dropped
+        emitter.emit(TrajectoryDraft.runEnd());
+
+        // Only always-kept events published; RUN_END must still carry null parent (root span).
+        assertThat(sink.events).extracting(TrajectoryEvent::kind)
+                .containsExactly(Kind.RUN_START, Kind.RUN_END);
+        TrajectoryEvent runStart = first(sink.events, Kind.RUN_START);
+        TrajectoryEvent runEnd = first(sink.events, Kind.RUN_END);
+        assertThat(runEnd.spanId()).isEqualTo(runStart.spanId());
+        assertThat(runEnd.parentSpanId()).isNull();
     }
 }

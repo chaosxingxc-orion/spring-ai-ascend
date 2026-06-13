@@ -65,7 +65,7 @@ class AbstractAgentRuntimeHandlerTest {
                 new RuntimeIdentity("tenant", "user", "sess", "task1", "agent"),
                 "USER_MESSAGE", List.of(), Map.of());
         TrajectorySettings settings = enabled
-                ? new TrajectorySettings(true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256)
+                ? TrajectorySettings.basic(true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256)
                 : TrajectorySettings.off();
         CapturingSink sink = new CapturingSink();
         handler.openTrajectory(context, settings, sink);

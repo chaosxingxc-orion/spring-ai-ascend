@@ -146,7 +146,7 @@ class AgentScopeRuntimeHandlerTest {
 
     private static List<TrajectoryEvent> runWithTrajectory(AgentScopeAgentRuntimeHandler handler) {
         AgentExecutionContext context = context();
-        TrajectorySettings settings = new TrajectorySettings(true,
+        TrajectorySettings settings = TrajectorySettings.basic(true,
                 Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         List<TrajectoryEvent> events = new ArrayList<>();
         handler.openTrajectory(context, settings, (TrajectorySink) events::add);

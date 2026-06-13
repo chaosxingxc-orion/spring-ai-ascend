@@ -270,7 +270,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     /** Opens the trajectory with a synchronous capturing sink, runs the handler, returns the events. */
     private static List<TrajectoryEvent> runWithTrajectory(OpenJiuwenAgentRuntimeHandler handler) {
         AgentExecutionContext context = context(Map.of());
-        TrajectorySettings settings = new TrajectorySettings(
+        TrajectorySettings settings = TrajectorySettings.basic(
                 true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
         List<TrajectoryEvent> events = new ArrayList<>();
         handler.openTrajectory(context, settings, (TrajectorySink) events::add);

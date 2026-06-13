@@ -109,6 +109,21 @@ class RuntimeAutoConfigurationTest {
     }
 
     @Test
+    void enabledCarriesSampleRateDefaultOne() {
+        TrajectoryProperties properties = new TrajectoryProperties();
+        TrajectorySettings settings = RuntimeAutoConfiguration.toTrajectorySettings(properties);
+        assertThat(settings.sampleRate()).isEqualTo(1.0);
+    }
+
+    @Test
+    void configuredSampleRateFlowsIntoSettings() {
+        TrajectoryProperties properties = new TrajectoryProperties();
+        properties.setSampleRate(0.25);
+        TrajectorySettings settings = RuntimeAutoConfiguration.toTrajectorySettings(properties);
+        assertThat(settings.sampleRate()).isEqualTo(0.25);
+    }
+
+    @Test
     void invalidMaskPatternFailsSafeToTheDefaultNotABootCrash() {
         TrajectoryProperties properties = new TrajectoryProperties();
         properties.getMask().setKeyPattern("(unbalanced");

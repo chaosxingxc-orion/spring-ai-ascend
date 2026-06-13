@@ -11,12 +11,19 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class TrajectoryProperties {
 
     private boolean enabled = true;
+    private double sampleRate = 1.0;
     private final Mask mask = new Mask();
     private final Otel otel = new Otel();
 
     public boolean isEnabled() { return enabled; }
 
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public double getSampleRate() { return sampleRate; }
+
+    public void setSampleRate(double sampleRate) {
+        this.sampleRate = Math.max(0.0, Math.min(1.0, sampleRate));
+    }
 
     public Mask getMask() { return mask; }
 

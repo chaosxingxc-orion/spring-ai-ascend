@@ -153,7 +153,7 @@ public class RuntimeAutoConfiguration {
             return TrajectorySettings.off();
         }
         return new TrajectorySettings(true, compileMaskPattern(properties.getMask().getKeyPattern()),
-                properties.getMask().getTruncateChars());
+                properties.getMask().getTruncateChars(), properties.getSampleRate());
     }
 
     /**
