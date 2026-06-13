@@ -904,16 +904,16 @@ Accept: application/json
 | `A2aJsonRpcControllerTest#blockingHandlerDispatchesPushNotificationConfigRequests` | push config 的 create/get/list/delete 请求进入 SDK handler。 |
 | `A2aJsonRpcControllerTest#defaultPushNotificationSenderUsesA2aSdkBaseSender` | 默认 push sender 是 A2A SDK `BasePushNotificationSender`。 |
 
-示例客户端验证位于 `examples/agent-runtime-a2a-llm-e2e`，需要该示例模块依赖可解析后单独运行：
+AgentScope/LangGraph 示例客户端验证位于 `examples/agent-runtime-a2a-llm-e2e`，需要该示例模块依赖可解析后单独运行：
 
 ```bash
 ./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml -Dtest=SampleA2aClientTest test
 ```
 
-示例端到端验证需要真实 LLM key 环境变量：
+OpenJiuwen 端到端验证位于独立示例模块 `examples/agent-runtime-a2a-openjiuwen-e2e`，需要真实 LLM key 环境变量：
 
 ```bash
-SAA_SAMPLE_LLM_API_KEY=... ./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml -Dtest=OpenJiuwenReactAgentA2aE2eTest test
+SAA_SAMPLE_LLM_API_KEY=... ./mvnw -f examples/agent-runtime-a2a-openjiuwen-e2e/pom.xml -Dtest=OpenJiuwenReactAgentA2aE2eTest test
 ```
 
 示例验证覆盖点：
@@ -921,4 +921,4 @@ SAA_SAMPLE_LLM_API_KEY=... ./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml 
 | 测试 | 覆盖 |
 |---|---|
 | `SampleA2aClientTest` | 示例客户端从 message/status/artifact 三类 streaming event 提取文本，并正确识别 terminal。 |
-| `OpenJiuwenReactAgentA2aE2eTest` | 端到端读取 Agent Card，通过 A2A streaming 调用本地 OpenJiuwen runtime。该测试需要真实 LLM key 环境变量。 |
+| `OpenJiuwenReactAgentA2aE2eTest` | 在 `agent-runtime-a2a-openjiuwen-e2e` 中端到端读取 Agent Card，通过 A2A streaming 调用本地 OpenJiuwen runtime。该测试需要真实 LLM key 环境变量。 |
