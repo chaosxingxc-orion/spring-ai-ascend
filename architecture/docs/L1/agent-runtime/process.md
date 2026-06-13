@@ -69,7 +69,6 @@ authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 
 | 组件 | 线程安全策略 | 说明 |
 |---|---|---|
-| `InMemoryAgentStateStore` | `ConcurrentHashMap` | 线程安全的原子操作，无需额外加锁 |
 | `InMemoryTaskStore`（A2A SDK） | A2A SDK 内部保证 | SDK 内部使用并发安全的数据结构 |
 | `InMemoryQueueManager`（A2A SDK） | A2A SDK 内部保证 | 队列操作线程安全 |
 | `MainEventBus`（A2A SDK） | A2A SDK 内部保证 | 发布-订阅模式天然线程安全 |
@@ -78,18 +77,10 @@ authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 
 ### 1.3 并发限制
 
-```yaml
-app:
-  runs:
-    dispatch:
-      core-threads: 4       # 核心线程数
-      max-threads: 16       # 最大线程数
-      queue-capacity: 256   # 队列容量
-      rejection-policy: CALLER_RUNS  # 过载策略（调用者线程执行）
-```
+Agent 执行派发由 `RuntimeAutoConfiguration.A2aServerExecutor` 承担：`Executors.newCachedThreadPool()`（daemon 线程，按需创建、无上限、无队列），无专用配置键。关闭时先 `shutdown()` 排水（10s 宽限）等待在途执行结束，超时再 `shutdownNow()` 强停。
 
-- 默认拒绝策略为 `CALLER_RUNS`：队列满时由调用者线程执行，提供背压
-- Spring Boot 虚拟线程支持已开启（`spring.threads.virtual.enabled: true`），在高并发场景下降低线程开销
+- cached pool 无界：并发上限由上游接入（HTTP 容器线程）与宿主资源决定，库内不做背压
+- Spring Boot 虚拟线程为宿主可选项（`spring.threads.virtual.enabled: true`，库不预置），在高并发场景下降低线程开销
 
 ## 2. 异步/同步边界
 

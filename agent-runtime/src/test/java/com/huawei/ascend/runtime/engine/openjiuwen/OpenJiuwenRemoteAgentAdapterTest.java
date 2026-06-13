@@ -3,6 +3,7 @@ package com.huawei.ascend.runtime.engine.openjiuwen;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.openjiuwen.core.session.interaction.InteractionOutput;
@@ -11,8 +12,6 @@ import com.openjiuwen.core.session.stream.OutputSchema;
 import com.openjiuwen.core.singleagent.interrupt.ToolCallInterruptRequest;
 import java.util.List;
 import java.util.Map;
-import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 
 class OpenJiuwenRemoteAgentAdapterTest {
@@ -22,7 +21,7 @@ class OpenJiuwenRemoteAgentAdapterTest {
         AgentExecutionContext context = new AgentExecutionContext(
                 new RuntimeIdentity("tenant", "user", "session", "task", "agent"),
                 AgentExecutionContext.INPUT_TYPE_REMOTE_RESUME,
-                List.of(Message.builder().role(Message.Role.ROLE_USER).parts(List.of(new TextPart("ignored"))).build()),
+                List.of(RuntimeMessage.user("ignored")),
                 Map.of(
                         AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, "conversation-1",
                         AgentExecutionContext.REMOTE_TOOL_CALL_ID_VARIABLE, "tool-call-1",

@@ -4,12 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -35,11 +34,7 @@ class VersatileMessageAdapterTest {
             String sessionId, String userText, Map<String, Object> variables) {
         RuntimeIdentity scope = new RuntimeIdentity(
                 "default", "test-user", sessionId, "task-001", "versatile-agent");
-        List<Message> messages = List.of(
-                Message.builder()
-                        .role(Message.Role.ROLE_USER)
-                        .parts(List.of(new TextPart(userText)))
-                        .build());
+        List<RuntimeMessage> messages = List.of(RuntimeMessage.user(userText));
         return new AgentExecutionContext(scope, "USER_MESSAGE", messages, variables);
     }
 

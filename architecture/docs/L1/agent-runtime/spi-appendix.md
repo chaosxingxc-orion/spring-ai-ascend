@@ -21,8 +21,9 @@ authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 | `com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler` | interface | Agent 框架与引擎之间的唯一解耦面，执行一个 Agent 并输出框架无关的结果流 | 每个 agentId 注册一个实例，随 Runtime 生命周期存在 |
 | `com.huawei.ascend.runtime.engine.spi.AgentRuntimeProvider` | interface | 可选生命周期钩子，在 handler 执行前后注入逻辑（状态恢复、沙箱准备、工具覆盖、追踪等） | 每次 execute 调用时通过 `handler.providers()` 获取列表，无状态 |
 | `com.huawei.ascend.runtime.engine.spi.StreamAdapter` | @FunctionalInterface | 将框架原生结果流映射为引擎中立的 `Stream<AgentExecutionResult>` | 由 handler 提供，每次 execute 后调用 |
-| `com.huawei.ascend.runtime.engine.a2a.AgentCardProvider` | interface | 为运行时托管的业务 Agent 提供 A2A Agent Card 元数据 | 可选 Bean，与 handler 生命周期分离 |
 | `com.huawei.ascend.runtime.engine.spi.StateProvider` | interface | 标记接口（继承 `AgentRuntimeProvider`），需要手动状态桥接的框架实现 | 作为 provider 的一种，通过 `handler.providers()` 返回 |
+
+Agent Card 供应接口 `AgentCardProvider` 与默认工厂 `AgentCards` 属于 A2A 协议元数据，位于协议桥包 `com.huawei.ascend.runtime.engine.a2a`（见 §2.5），不属于中立 SPI 包。
 
 ### 1.2 辅助类与值对象（非 SPI 接口，但属于 SPI 包）
 
@@ -30,7 +31,7 @@ authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 |---|---|---|
 | `com.huawei.ascend.runtime.engine.spi.AgentExecutionResult` | final class | 引擎中立的执行结果值对象，4 种语义：`OUTPUT` / `COMPLETED` / `FAILED` / `INTERRUPTED` |
 | `com.huawei.ascend.runtime.engine.spi.AgentRuntimeProviderChain` | final class | 工具类：按序执行所有 providers 的 `beforeExecute` → handler.execute() → 逆序执行 `afterExecute`，保证失败隔离 |
-| `com.huawei.ascend.runtime.engine.a2a.AgentCards` | final class | 默认 A2A Agent Card 工厂方法 |
+| `com.huawei.ascend.runtime.common.RuntimeMessage` | record | 协议中立的消息载体（`role` / `text` / `metadata`），SPI 输入模型的唯一消息类型；`AgentExecutionContext.lastUserText()` 提供规范的文本抽取 |
 
 ## 2. 接口详细规范
 
@@ -93,7 +94,6 @@ public interface AgentRuntimeProvider {
 - 实现必须是线程安全的（多个 task 可能并发使用同一 provider 实例）
 
 **典型实现场景**：
-- `StateProvider`：从 `AgentStateStore` 恢复 state 到 `context`（before），执行后将 context state 写回（after）
 - `SandboxProvider`：准备沙箱环境（before），清理沙箱（after）
 - `ToolOverrideProvider`：根据租户/场景注入或覆盖工具配置（before）
 - `TracingProvider`：注入 trace context（before），结束 span（after）
@@ -144,7 +144,7 @@ public final class AgentExecutionResult {
 | `FAILED` | `emitter.fail()` | FAILED | 执行失败，携带 errorCode + errorMessage |
 | `INTERRUPTED` | `emitter.requiresInput()` | INPUT_REQUIRED | 需要人工输入，prompt 文本作为提示 |
 
-### 2.5 AgentCardProvider
+### 2.5 AgentCardProvider（位于 `engine.a2a`，非中立 SPI）
 
 ```java
 public interface AgentCardProvider {
@@ -153,7 +153,7 @@ public interface AgentCardProvider {
 }
 ```
 
-**设计理由**：将 Agent Card（A2A 元数据描述）与 `AgentRuntimeHandler`（Agent 执行逻辑）分离。一个运行时可以分别提供 Card 和 Handler 作为独立 Bean，也可以在具体业务 handler 中同时实现两个接口。
+**设计理由**：将 Agent Card（A2A 元数据描述）与 `AgentRuntimeHandler`（Agent 执行逻辑）分离。一个运行时可以分别提供 Card 和 Handler 作为独立 Bean，也可以在具体业务 handler 中同时实现两个接口。Agent Card 本质是 A2A 协议元数据，提供自定义 Card 的业务方依赖 A2A spec 类型是语义本身的要求，因此 `AgentCardProvider` 与 `AgentCards` 落位协议桥包 `com.huawei.ascend.runtime.engine.a2a`，而非中立 SPI 包。
 
 ### 2.6 StateProvider
 
@@ -172,10 +172,10 @@ public interface StateProvider extends AgentRuntimeProvider { }
 
 | FQN | 类型 | 语义 |
 |---|---|---|
-| `com.huawei.ascend.runtime.engine.service.AgentStateStore` | interface | Agent 状态持久化接口：`load(key)` / `save(key, state)` / `delete(key)` |
-| `com.huawei.ascend.runtime.engine.service.InMemoryAgentStateStore` | class | 基于 `ConcurrentHashMap` 的内存实现，W1 阶段默认 |
+| `com.huawei.ascend.runtime.engine.service.RemoteAgentCatalog` | class | 远端 runtime 的 agent-card 目录：解析/刷新部署配置声明的远端 URL，暴露可用工具规格 |
+| `com.huawei.ascend.runtime.engine.service.RemoteAgentInvocationService` | class | 经 outbound adapter 调用远端 agent 的服务入口 |
 
-`AgentStateStore` 不是 Agent 框架 SPI：框架适配器通过 `AgentExecutionContext.getAgentState()` / `replaceAgentState()` 读写状态，而 store 实现可以后续从内存迁移到 Redis、JDBC 或其他持久化后端。
+这两个类不是 Agent 框架 SPI：它们支撑 remote A2A 工具调用编排。Agent 自身的 checkpoint 状态委托各框架的 checkpointer，runtime 不提供状态持久化接口；框架适配器可经 `AgentExecutionContext.getAgentState()` / `replaceAgentState()` 在执行上下文内传递小型状态引用。
 
 ## 4. A2A SDK 提供的非自有接口
 
@@ -190,21 +190,15 @@ public interface StateProvider extends AgentRuntimeProvider { }
 | `org.a2aproject.sdk.server.events.QueueManager` | interface | 任务队列管理 | `RuntimeAutoConfiguration` 装配 |
 | `org.a2aproject.sdk.server.tasks.InMemoryTaskStore` | class | Task 内存存储 | `RuntimeAutoConfiguration` 装配 |
 | `org.a2aproject.sdk.server.requesthandlers.DefaultRequestHandler` | class | 默认 RequestHandler 实现 | `RuntimeAutoConfiguration` 装配 |
-| `org.a2aproject.sdk.spec.AgentCard` | class | A2A Agent Card 模型 | `AgentCardController` + `AgentCards` 使用 |
+| `org.a2aproject.sdk.spec.AgentCard` | class | A2A Agent Card 模型 | `AgentCardController` + `engine.a2a` 的 `AgentCards` / `AgentCardProvider` + `engine.service` 的 `RemoteAgentCatalog`（远端卡解析）使用 |
 | `org.a2aproject.sdk.spec.Task` | class | A2A Task 模型 | 通过 A2A SDK 内部使用 |
-| `org.a2aproject.sdk.spec.Message` | class | A2A Message 模型 | `AgentExecutionContext` 中作为消息载体 |
+| `org.a2aproject.sdk.spec.Message` | class | A2A Message 模型 | 仅 `engine.a2a` 协议桥内部消费（`A2aAgentExecutor` / `Messages`）；SPI 侧消息载体是中立的 `common.RuntimeMessage` |
 
 ## 5. SPI 纯度约束
 
-`com.huawei.ascend.runtime.engine.spi.*` 包只能导入以下来源的类型：
-- `java.*`（JDK 标准库）
-- `com.huawei.ascend.bus.spi.engine`（agent-bus 提供的中立 EnginePort 词汇）
-- `org.a2aproject.sdk.spec`（A2A 规范模型，仅 `AgentCardProvider` / `AgentCards` 使用）
+约束的唯一权威是可执行守卫 `RuntimePackageBoundaryTest`（`agent-runtime/src/test/java/com/huawei/ascend/runtime/architecture/`），本节只是其摘要；二者不一致时以测试为准：
 
-SPI 包不导入：
-- Spring Framework 任何类型
-- Micrometer / OTel 任何类型
-- A2A SDK 实现层类型（`server.*`、`jsonrpc.*`）
-- 任何参考实现或适配器
-
-此约束由 `SpiPurityGeneralizedArchTest`（E48）在构建时强制执行。
+- 白名单规则（`engineSpiDependsOnlyOnContractSafePackages`）：`engine.spi` 只能依赖 `engine.spi` 自身、engine 根包（`AgentExecutionContext`）、`common`（`RuntimeIdentity` / `RuntimeMessage`）、`java.*`、`org.slf4j`、`org.springframework.util`
+- 禁止式规则（`protocolNeutralPackagesAreA2aSdkFree`）：engine 根包 / `engine.spi` / `engine.otel` / `common` / 框架适配器包（`engine.agentscope`、`engine.openjiuwen`）不得依赖 `org.a2aproject..` 任何类型（含 `sdk.spec`）
+- 禁止式规则（`frameworkAdaptersDoNotDependOnTheA2aBridge`）：框架适配器包不得依赖协议桥包 `engine.a2a`
+- 禁止式规则（`a2aServerMachineryStaysInBridgeAndBoot`）：`org.a2aproject.sdk.server..` 重型机械只允许 `engine.a2a` 与 `boot` 依赖

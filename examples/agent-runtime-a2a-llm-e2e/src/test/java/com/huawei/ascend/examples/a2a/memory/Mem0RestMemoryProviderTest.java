@@ -3,6 +3,7 @@ package com.huawei.ascend.examples.a2a.memory;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
 import com.sun.net.httpserver.HttpExchange;
@@ -13,8 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -98,11 +97,8 @@ class Mem0RestMemoryProviderTest {
     }
 
     private static AgentExecutionContext context() {
-        Message message = Message.builder()
-                .role(Message.Role.ROLE_USER)
-                .parts(List.of(new TextPart("ping")))
-                .build();
         return new AgentExecutionContext(new RuntimeIdentity("tenant", "user", "session", "task", "agent"),
-                "USER_MESSAGE", List.of(message), Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, "state"));
+                "USER_MESSAGE", List.of(RuntimeMessage.user("ping")),
+                Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, "state"));
     }
 }

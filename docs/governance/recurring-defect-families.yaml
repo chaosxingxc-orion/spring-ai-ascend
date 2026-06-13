@@ -61,7 +61,8 @@ schema_version: 1
 # scope; rename deferred as a separate decision); agent-evolve MILD-DRIFT (metadata description vs L1
 # active status; minor). No new family (count stays 41); F-authority-surface-path-drift recurrence
 # for the agent-service->agent-runtime SPI re-home closed in the contract catalog.
-last_updated: 2026-06-11  # pr-172-176-177-postmerge-closure: post-merge workflow review of PRs #172/#176/#177 (16 confirmed / 1 already-fixed / 0 rejected). One recurrence recorded against F-hand-authored-factual-drift (two-adapter exhaustive claims vs shipped engine.langgraph; false transport-authenticated javadoc; phantom auth machinery in application.yml). No new family (count stays 41): the remaining confirmed findings are single-surface code defects (missing HTTP timeouts, cancel pre-registration window, SSE parse-tail swallow, multi-turn replay) closed in-wave with tests, not cross-wave recurring classes.
+last_updated: 2026-06-13  # agent-runtime-outside-in-hardening (merge closure 2026-06-13: semantic merge with main's parallel a2a remote-client restructure #194 / versatile adapter #192 re-landed the wave on main's structure; merged-tree baselines re-locked from live regeneration — graph 267/433, maven_tests_green 323): re-evaluated all 41 families against the adversarially-verified outside-in review response (A2A access config truth-up + library-artifact cleanup, protocol-neutral RuntimeMessage SPI, MDC/OTel observability closure, remote A2A timeout/cancel/catalog hardening + shared SSE decoder, stop-phase drain, dead-dependency removal). No new family (count stays 41): the remote-invocation production-surface gaps are a first observation, recorded in the review response, not yet a recurring class. Records RECURRENCES against F-hand-authored-factual-drift (README/quickstart/L1/contract-catalog/module-metadata config-key + FQN + positioning drift; service-era application.yml/logback/migrations shipped inside the runtime library jar), F-cross-authority-agreement (L1 logical.md asserted adapter protocol-neutrality while RuntimePackageBoundaryTest whitelisted the A2A spec dependency the code exercised — three authority surfaces pairwise disagreeing), and F-numeric-drift (schema enforcer E13 retirement moved enforcer_rows/graph/workspace baselines in lockstep).
+# 2026-06-11 pr-172-176-177-postmerge-closure: post-merge workflow review of PRs #172/#176/#177 (16 confirmed / 1 already-fixed / 0 rejected). One recurrence recorded against F-hand-authored-factual-drift (two-adapter exhaustive claims vs shipped engine.langgraph; false transport-authenticated javadoc; phantom auth machinery in application.yml). No new family (count stays 41): the remaining confirmed findings are single-surface code defects (missing HTTP timeouts, cancel pre-registration window, SSE parse-tail swallow, multi-turn replay) closed in-wave with tests, not cross-wave recurring classes.
 # engineport-frame-authority-convergence (2026-05-29): MERGE-of-PR #93 (agent-service L1 v1.2 — ADR-0155 + family F-agent-service-internal-boundary-drift) and PR #94 (AI progressive learning curve — ADR-0156 product authority + traceability + G-16..G-21 + Phase 7 CLAUDE-deferred.md elimination + family F-acceptance-evidence-misses-target-branch). Both branches bumped baselines independently; post-merge baselines reconciled to live recount. Phase-B convergence (feature/phase-b-convergence) advanced F-agent-service-internal-boundary-drift: PR-93's 14 orphan contracts + ADR-0155 product-claim-bound, orphans 15→0 / placeholders 8→0, and Rules G-17/G-18/G-20 promoted advisory→BLOCKING (G-21 placeholder=0 trigger met). Branch feature/dev-posture-run-execution recorded a component-level recurrence of F-half-built-state-machine (AsyncRunDispatcher shipped with only the NoOp producer in the running app; orchestrating producer materialized for dev posture).
 # rc54 corrective publication refresh: rc53 findings were classified before repair and mapped to existing F-agentic-contract-composition-gap + F-placeholder-leaks-into-active-corpus. No new problem type was registered; family count remained 20. rc54 closed the cited composition gaps with AgentDefinition.advisorBindings, same-package typed advisor carriers, shared advisor-model-hook-order/v1, constructor-owned planner/skill invariants, Rule 129 composition truth, and Rule 127 current-placeholder guard. Prior rc53 notes retained below.
 # rc35-second-pass wave (same PR follow-up commits, after rc35-correctness-batch): a second round of 4 parallel adversarial reviewers (correctness + adversarial + gate-script-consistency + doc-coherence) ran against the rc35-correctness-batch tip and found that several of the rc35 first-pass closures were incomplete in scope. (a) The cancel-vs-complete race guard in SyncOrchestrator (rc35 first pass) was applied ONLY at the three terminal SUCCEEDED/FAILED save sites; five sibling non-terminal save sites (PENDING→RUNNING at run() entry; RUNNING→SUSPENDED at S2C suspend + child suspend; SUSPENDED→RUNNING at S2C resume + child resume) remained blind puts that silently overwrote a parallel CANCELLED with RUNNING/SUSPENDED — same family pattern, sibling surfaces. (b) ADR-0108's "common base shared with Rule R-J .b" wording claimed cross-authority parity that didn't hold — Rule R-J .b's pre-existing cancel-state-transition MDC `{ runId, fromStatus, toStatus, actor, occurredAt }` shares only `occurredAt` with the new tenant-mismatch base `{ surface, reason, occurredAt }`. (c) S2C envelope deadline was honoured unconditionally in resolveCallTimeoutMillis with no clamp against the orchestrator's configured s2cCallTimeout ceiling — a client-supplied 1h deadline defeated the 30s default. (d) check_parallel.sh + extract_rules.sh + check_architecture_sync.sh + 8 sibling rule files used the regex `^# Rule [0-9]+[a-z]? (—|--) ` which silently skipped dotted sub-clause headers `# Rule 24.c` / `# Rule 29.c`; both rule bodies were absorbed into Rule 11's chunk and attributed there in NDJSON timing + Rule 72 regression detection — and the "132 == 132" serial/parallel parity check at Rule G-5.a was vacuously true because BOTH sides used the same broken regex. Headers were always there since rc1; only attribution moved. (e) check_architecture_sync.sh used 10 bare `python3 - <<PYEOF` invocations (Rules 23/25/28j/28k/37/63/68/78/80/94) that silently fell through to vacuous PASS with `python3: not found` on Windows hosts where only `python` exists; CI on Ubuntu was green because python3 exists there. Same fail-open pattern, different surface. (f) check_recurring_families.sh inverted the corpus-wide python preference (python before python3) so on Python-2-as-`python` systems the rc19 validator would crash with SyntaxError. (g) R-038 + R-042 both rewrote docs/governance/architecture-graph.yaml under xargs -P concurrently with R-040/041/097/106 readers — read-during-write race; closed by atomic temp-file + os.replace in build_architecture_graph.py. (h) emit_contract_tables.sh wrote 6 hardcoded /tmp/contract-tables-<phase>.md paths with no PID + check_architecture_sync.sh + rule-099.sh used /tmp/_r99_hits.$$ — concurrent gate runs would clobber. All eight closed across Commits A/B/C of this same PR. Pattern reinforcement (BOTH passes): rc35's first-pass discipline ("found 8 bugs in parallel, fixed all") still leaves the cited bugs's SIBLINGS unfound; the second-pass adversarial review systematically constructed sibling scenarios and found 8 more. Lesson: a wave is not complete when the cited bugs are fixed — it's complete when the sibling-scenario sweep returns empty.
@@ -118,8 +119,18 @@ families:
   - id: F-numeric-drift
     title: Numeric Drift Across Authority Surfaces
     first_observed_rc: rc5
-    last_observed_rc: engineport-frame-authority-convergence-2026-05-29
-    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective, engineport-frame-authority-convergence-2026-05-29]
+    last_observed_rc: agent-runtime-outside-in-hardening
+    occurrences: [rc5, rc6, rc7, rc8, rc9, rc10, rc12, rc14, rc15, pr57, rc36, rc37, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective, engineport-frame-authority-convergence-2026-05-29, agent-runtime-outside-in-hardening]
+      # agent-runtime-outside-in-hardening (2026-06-12, merge closure 2026-06-13): retiring
+      # schema enforcer row E13 (its artifact — the service-era V2 idempotency migration — left
+      # the runtime library jar with the artifact cleanup) moved enforcer_rows 38→37 and the
+      # pre-merge baselines to 266/432/364; merging main's parallel a2a.client flatten and
+      # versatile-adapter window re-landed the merged-tree graph at 267/433 (live regeneration;
+      # a hand-composed 264/430 was refuted by the regen — the NEVER-hand-computed discipline
+      # held), workspace stayed 364/200, and maven_tests_green re-measured 323 (agent-runtime
+      # 258 incl. main's versatile/checkpointer tests + agent-bus 32 + tools 33). All values
+      # taken from the regenerated projection/graph and the WSL verify evidence, reconciled in
+      # architecture-status.yaml baseline_metrics + allowed_claim in the same wave.
       # engineport-frame-authority-convergence (2026-05-29): the ADR-0158 engine-boundary
       # wave (EnginePort neutral boundary + EngineeringFrame re-home + 5 new gate rules
       # G-22..G-26) moved eight baseline_metrics in lockstep — active_gate_checks 152→157,
@@ -323,8 +334,16 @@ families:
   - id: F-cross-authority-agreement
     title: Cross-Authority Surface Disagreement
     first_observed_rc: rc14
-    last_observed_rc: engineport-frame-authority-convergence-2026-05-29
-    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective, rc53-wave-1-agent-service-l1-4plus1-rewrite, rc55-agent-service-l1-canonical-materialization, rc55-pr76-interface-review-anchor-corrective, engineport-frame-authority-convergence-2026-05-29]
+    last_observed_rc: agent-runtime-outside-in-hardening
+    occurrences: [rc14, rc15, rc16, rc33, rc34, rc34-follow-up, rc34-merge-train, rc35-correctness-batch, rc35-second-pass, rc35-second-pass-ci-corrective, rc36, rc39-formal-release-transaction, rc40-agent-execution-engine-readiness-corrective, rc53-wave-1-agent-service-l1-4plus1-rewrite, rc55-agent-service-l1-canonical-materialization, rc55-pr76-interface-review-anchor-corrective, engineport-frame-authority-convergence-2026-05-29, agent-runtime-outside-in-hardening]
+      # agent-runtime-outside-in-hardening (2026-06-12): three authority surfaces pairwise
+      # disagreed on the handler SPI's protocol neutrality — L1 logical.md asserted framework
+      # adapters do not depend on the A2A protocol, RuntimePackageBoundaryTest whitelisted
+      # org.a2aproject.sdk.spec for the neutral packages, and the code shipped spec.Message
+      # through AgentExecutionContext into all three adapters. Closed by making the code match
+      # the L1 assertion (neutral RuntimeMessage carrier) and inverting the ArchUnit whitelist
+      # into a prohibition, so the guard now enforces the documented invariant instead of
+      # codifying its violation.
       # engineport-frame-authority-convergence (2026-05-29): at the ADR-0158 merge tip
       # (d66749b) the generated authority surfaces had diverged from one another — the
       # extracted facts (code-symbols.json / tests.json), contract-catalog.md, product
@@ -1874,8 +1893,17 @@ families:
   - id: F-hand-authored-factual-drift
     title: "Hand-authored factual fields (devPaths, test FQNs, verification commands, SPI counts) drift from code/contracts/tests"
     first_observed_rc: rc5
-    last_observed_rc: pr-172-176-177-postmerge-closure
-    occurrences: [rc5, rc7, rc12, rc14, rc15, rc17, rc18, rc19, rc35, rc40, rc48, rc54, rc55, post-W5-L1-feature-registry, pr-172-176-177-postmerge-closure]
+    last_observed_rc: agent-runtime-outside-in-hardening
+    occurrences: [rc5, rc7, rc12, rc14, rc15, rc17, rc18, rc19, rc35, rc40, rc48, rc54, rc55, post-W5-L1-feature-registry, pr-172-176-177-postmerge-closure, agent-runtime-outside-in-hardening]
+      # agent-runtime-outside-in-hardening (2026-06-12): the outside-in review's adversarial
+      # verification confirmed README documented config keys (default-agent-id/public-base-url)
+      # with no @ConfigurationProperties binding, README/pom/module-metadata still carrying the
+      # retired run-owning narrative, quickstart/L1 referencing deleted classes and an agent-bus
+      # dependency the pom does not declare, contract-catalog placing AgentCardProvider in the
+      # wrong package, and the runtime library jar shipping the previous module generation's
+      # application.yml/logback-spring.xml/Flyway migrations with dead config keys. Closed by
+      # implementing the documented keys, stripping the service-era artifacts, and truthing up
+      # README/quickstart/L1/catalog/module-metadata in one wave.
     root_cause: |
       Factual claims about code shape (saa.devPaths, saa.verificationTestFqns,
       saa.verificationCommands, saa.sourceFile, contract-catalog SPI counts,

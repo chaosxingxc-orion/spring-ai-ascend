@@ -86,7 +86,8 @@ final class A2aResultRouter {
                 String code = result.errorCode() == null ? "RUNTIME_ERROR" : result.errorCode();
                 String msg = result.errorMessage() == null ? code : result.errorMessage();
                 return RouteDecision.terminal(() -> {
-                    LOG.warn("[A2A] task state=FAILED taskId={} code={} message={}", taskId, code, msg);
+                    LOG.warn("[A2A] task state=FAILED taskId={} code={} message={}",
+                            taskId, code, A2aLogMasking.mask(msg));
                     // Adapter-supplied codes pass through unchanged; retryability is unknown -> conservative false.
                     emitter.fail(A2aAgentExecutor.failureMessage(emitter, code, result.errorMessage(), false));
                 });
@@ -104,7 +105,7 @@ final class A2aResultRouter {
                 }
                 String prompt = result.prompt() == null ? "" : result.prompt();
                 return RouteDecision.terminal(() -> {
-                    LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} prompt={}", taskId, prompt);
+                    LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} promptChars={}", taskId, prompt.length());
                     Message message = prompt.isBlank()
                             ? null
                             : emitter.newAgentMessage(List.<Part<?>>of(new TextPart(prompt)), null);

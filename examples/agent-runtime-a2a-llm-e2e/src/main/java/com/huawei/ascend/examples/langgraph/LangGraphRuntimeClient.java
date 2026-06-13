@@ -4,28 +4,19 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.a2a.Messages;
+import com.huawei.ascend.runtime.engine.SseEventDecoder;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.concurrent.CompletionException;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-import org.a2aproject.sdk.spec.Message;
 
 /**
  * Streams a run against a remote LangGraph runtime over SSE. Unlike the
@@ -116,88 +107,20 @@ public final class LangGraphRuntimeClient implements AutoCloseable {
     }
 
     private Stream<Map<String, Object>> readEvents(Stream<String> lines) {
-        Iterator<String> iterator = lines.iterator();
-        Spliterator<Map<String, Object>> spliterator =
-                new Spliterators.AbstractSpliterator<>(Long.MAX_VALUE, Spliterator.ORDERED | Spliterator.NONNULL) {
-                    private final StringBuilder data = new StringBuilder();
-                    private final Deque<Map<String, Object>> pending = new ArrayDeque<>();
-                    private String eventName = "";
-                    private boolean hasData;
-                    private boolean terminated;
-
-                    @Override
-                    public boolean tryAdvance(Consumer<? super Map<String, Object>> action) {
-                        while (true) {
-                            Map<String, Object> event = pending.poll();
-                            if (event != null) {
-                                action.accept(event);
-                                return true;
-                            }
-                            if (terminated) {
-                                return false;
-                            }
-                            String line;
-                            try {
-                                if (!iterator.hasNext()) {
-                                    terminated = true;
-                                    flush();
-                                    continue;
-                                }
-                                line = iterator.next();
-                            } catch (RuntimeException ex) {
-                                // A mid-stream disconnect surfaces as a structured failure event,
-                                // matching the connect-time LANGGRAPH_RUNTIME_IO path.
-                                terminated = true;
-                                action.accept(ioFailure(ex));
-                                return true;
-                            }
-                            if (line.isBlank()) {
-                                flush();
-                            } else if (line.startsWith("event:")) {
-                                eventName = line.substring("event:".length()).trim();
-                            } else if (line.startsWith("data:")) {
-                                appendData(line.substring("data:".length()));
-                            }
-                        }
+        // LangGraph frames carry meaningful event: names, and an end frame may carry
+        // no data line at all — still a real event, so data-less named frames are kept.
+        return SseEventDecoder.frames(lines, true, true)
+                .flatMap(frame -> {
+                    if (frame.failure() != null) {
+                        return Stream.of(ioFailure(frame.failure()));
                     }
-
-                    private void appendData(String value) {
-                        if (value.startsWith(" ")) {
-                            value = value.substring(1);
-                        }
-                        if (hasData) {
-                            data.append('\n');
-                        }
-                        data.append(value);
-                        hasData = true;
+                    String name = frame.name();
+                    String sentinel = frame.data() == null ? "" : frame.data().trim();
+                    if (sentinel.isEmpty() || "[DONE]".equals(sentinel) || "null".equals(sentinel)) {
+                        return name.isBlank() ? Stream.empty() : Stream.of(event(name, null));
                     }
-
-                    private void flush() {
-                        String name = eventName;
-                        eventName = "";
-                        if (!hasData) {
-                            // An end frame may carry no data line at all — still a real event.
-                            if (!name.isBlank()) {
-                                pending.add(event(name, null));
-                            }
-                            return;
-                        }
-                        String eventData = data.toString();
-                        data.setLength(0);
-                        hasData = false;
-                        String sentinel = eventData.trim();
-                        if (sentinel.isEmpty() || "[DONE]".equals(sentinel) || "null".equals(sentinel)) {
-                            if (!name.isBlank()) {
-                                pending.add(event(name, null));
-                            }
-                            return;
-                        }
-                        for (Object payload : readEventBlock(eventData)) {
-                            pending.add(event(name, payload));
-                        }
-                    }
-                };
-        return StreamSupport.stream(spliterator, false).onClose(lines::close);
+                    return readEventBlock(frame.data()).stream().map(payload -> event(name, payload));
+                });
     }
 
     private static Map<String, Object> event(String name, Object payload) {
@@ -212,16 +135,7 @@ public final class LangGraphRuntimeClient implements AutoCloseable {
     }
 
     private static Map<String, Object> ioFailure(RuntimeException ex) {
-        return errorEvent("LANGGRAPH_RUNTIME_IO", failureMessage(ex));
-    }
-
-    private static String failureMessage(RuntimeException ex) {
-        Throwable failure = ex;
-        while ((failure instanceof CompletionException || failure instanceof UncheckedIOException)
-                && failure.getCause() != null) {
-            failure = failure.getCause();
-        }
-        return failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
+        return errorEvent("LANGGRAPH_RUNTIME_IO", SseEventDecoder.failureMessage(ex));
     }
 
     private Map<String, Object> requestBody(AgentExecutionContext context, RuntimeIdentity scope) {
@@ -240,12 +154,12 @@ public final class LangGraphRuntimeClient implements AutoCloseable {
         return body;
     }
 
-    private List<Map<String, Object>> input(List<Message> messages) {
+    private List<Map<String, Object>> input(List<RuntimeMessage> messages) {
         List<Map<String, Object>> result = new ArrayList<>();
-        for (Message message : messages) {
+        for (RuntimeMessage message : messages) {
             result.add(Map.of(
-                    "role", message.role() == Message.Role.ROLE_AGENT ? "assistant" : "user",
-                    "content", Messages.text(message)));
+                    "role", message.role() == RuntimeMessage.Role.AGENT ? "assistant" : "user",
+                    "content", message.text()));
         }
         return result;
     }

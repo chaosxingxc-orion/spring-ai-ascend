@@ -81,10 +81,10 @@ or 409 `idempotency_body_drift` (different hash) via
 
 - `JdbcIdempotencyStore` (default when DataSource present) — INSERT …
   ON CONFLICT (tenant_id, idempotency_key) DO NOTHING; SELECT on
-  collision. Flyway `V2__idempotency_dedup.sql` (now under
-  `agent-service/src/main/resources/db/migration/`) adds the table with
-  a PRIMARY KEY composite (schema-layer enforcer E13) and a CHECK
-  constraint on `status` (CLAIMED|COMPLETED|FAILED).
+  collision. The dedup table — PRIMARY KEY composite plus a CHECK
+  constraint on `status` (CLAIMED|COMPLETED|FAILED) — is a design
+  target; its Flyway migration ships with the agent-service
+  implementation wave (no migration exists in the repo today).
 - `InMemoryIdempotencyStore` — `ConcurrentHashMap`. Registered ONLY
   when `app.posture=dev` AND `app.idempotency.allow-in-memory=true`.
 
@@ -95,8 +95,9 @@ Status transitions (CLAIMED → COMPLETED/FAILED) and response replay are
 W2 work; L1 returns 409 for any duplicate and recovers via
 `expires_at` TTL.
 
-Enforcer rows: E12 (durability), E13 (schema), E14 (body-drift),
-E22 (allow-in-memory matrix).
+Enforcer rows: E12 (durability), E14 (body-drift),
+E22 (allow-in-memory matrix); the schema-layer dedup enforcer lands
+together with the migration.
 
 #### platform / auth -- JWT validation (L1, ADR-0056)
 

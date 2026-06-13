@@ -1,5 +1,6 @@
 package com.huawei.ascend.examples.a2a;
 
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeAgent;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeEvent;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeInvocation;
@@ -7,7 +8,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.a2aproject.sdk.spec.Message;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
@@ -79,11 +79,11 @@ final class RetailWealthAdvisorRuntimeController {
         return result;
     }
 
-    private List<Message> messages(Object rawInput) {
+    private List<RuntimeMessage> messages(Object rawInput) {
         if (!(rawInput instanceof List<?> list)) {
             return List.of(AgentScopeWireMessages.message(null, ""));
         }
-        List<Message> result = new ArrayList<>();
+        List<RuntimeMessage> result = new ArrayList<>();
         for (Object rawMessage : list) {
             if (!(rawMessage instanceof Map<?, ?> message)) {
                 continue;

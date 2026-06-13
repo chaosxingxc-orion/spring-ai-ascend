@@ -6,19 +6,22 @@ package com.huawei.ascend.examples.hotel.a2a;
 
 import com.huawei.ascend.examples.hotel.HotelPlanningAgent;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.a2a.Messages;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
-import java.util.List;
 import java.util.stream.Stream;
-import org.a2aproject.sdk.spec.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Plain SPI handler: the hotel agent answers one blocking chat call, so it
+ * needs neither the openJiuwen adapter lifecycle nor any protocol types — it
+ * consumes only the neutral execution context.
+ */
 final class HotelAgentHandler implements AgentRuntimeHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HotelAgentHandler.class);
+    private static final StreamAdapter ADAPTER = rawResults -> rawResults.map(AgentExecutionResult.class::cast);
 
     private final String agentId;
     private final HotelPlanningAgent agent;
@@ -40,32 +43,44 @@ final class HotelAgentHandler implements AgentRuntimeHandler {
 
     @Override
     public Stream<?> execute(AgentExecutionContext context) {
-        String query = extractLastUserText(context);
+        String query = context.lastUserText();
         LOGGER.info("hotel a2a execute tenantId={} sessionId={} taskId={} queryLength={}",
                 context.getScope().tenantId(),
                 context.getScope().sessionId(),
                 context.getScope().taskId(),
                 query.length());
-        String markdown = agent.chat(query);
-        return Stream.of(markdown);
+        try {
+            String markdown = agent.chat(query);
+            return Stream.of(AgentExecutionResult.completed(markdown));
+        } catch (Exception e) {
+            LOGGER.warn("hotel a2a execute failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
+                    context.getScope().tenantId(),
+                    context.getScope().sessionId(),
+                    context.getScope().taskId(),
+                    e.getClass().getSimpleName(),
+                    errorMessage(e));
+            throw new IllegalStateException(errorMessage(e), e);
+        }
     }
 
     @Override
     public StreamAdapter resultAdapter() {
-        return raw -> raw.map(r -> AgentExecutionResult.completed(String.valueOf(r)));
+        return ADAPTER;
     }
 
-    private static String extractLastUserText(AgentExecutionContext context) {
-        List<Message> messages = context.getMessages();
-        if (messages.isEmpty()) {
-            return "";
-        }
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            Message m = messages.get(i);
-            if (m != null && m.role() == Message.Role.ROLE_USER) {
-                return Messages.text(m);
+    private static String errorMessage(Throwable error) {
+        StringBuilder message = new StringBuilder();
+        Throwable cursor = error;
+        while (cursor != null) {
+            String part = cursor.getMessage();
+            if (part != null && !part.isBlank()) {
+                if (!message.isEmpty()) {
+                    message.append(": ");
+                }
+                message.append(part);
             }
+            cursor = cursor.getCause();
         }
-        return Messages.text(messages.get(messages.size() - 1));
+        return message.isEmpty() ? error.getClass().getName() : message.toString();
     }
 }

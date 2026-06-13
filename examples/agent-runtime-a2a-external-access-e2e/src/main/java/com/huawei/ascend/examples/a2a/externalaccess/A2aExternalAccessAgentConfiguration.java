@@ -2,7 +2,6 @@ package com.huawei.ascend.examples.a2a.externalaccess;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.AgentCards;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenMessageAdapter;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
@@ -44,9 +43,7 @@ public class A2aExternalAccessAgentConfiguration {
 
         @Override
         public Stream<?> execute(AgentExecutionContext context) {
-            String input = context.getMessages().isEmpty()
-                    ? ""
-                    : OpenJiuwenMessageAdapter.messageText(context.getMessages().getLast());
+            String input = context.lastUserText();
             String normalized = input.trim().toLowerCase(Locale.ROOT);
             if (normalized.contains("fail")) {
                 // Mirror the common case: the agent simply throws. The runtime must translate this

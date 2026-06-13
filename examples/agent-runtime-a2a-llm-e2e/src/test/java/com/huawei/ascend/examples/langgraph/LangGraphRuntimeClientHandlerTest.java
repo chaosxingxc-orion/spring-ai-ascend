@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.io.ByteArrayOutputStream;
@@ -32,9 +33,6 @@ import java.util.stream.Stream;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
-import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.Part;
-import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 
 class LangGraphRuntimeClientHandlerTest {
@@ -206,11 +204,7 @@ class LangGraphRuntimeClientHandlerTest {
         return new AgentExecutionContext(
                 new RuntimeIdentity("tenant", "user", "session", "task", "langgraph-advisor"),
                 "USER_MESSAGE",
-                List.of(
-                        Message.builder().role(Message.Role.ROLE_USER)
-                                .parts(List.<Part<?>>of(new TextPart("ping"))).build(),
-                        Message.builder().role(Message.Role.ROLE_AGENT)
-                                .parts(List.<Part<?>>of(new TextPart("pong"))).build()),
+                List.of(RuntimeMessage.user("ping"), RuntimeMessage.agent("pong")),
                 Map.of());
     }
 

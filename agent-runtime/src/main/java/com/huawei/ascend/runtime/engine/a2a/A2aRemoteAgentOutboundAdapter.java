@@ -10,6 +10,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -40,18 +41,26 @@ import org.slf4j.LoggerFactory;
  * progress onto the parent task without waiting for the remote invocation to complete.
  */
 public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocationService.OutboundPort {
+    /** Stable, programmatically matchable error code carried on the timeout result's metadata. */
+    public static final String REMOTE_TIMEOUT_CODE = "REMOTE_TIMEOUT";
+
     private static final Logger LOG = LoggerFactory.getLogger(A2aRemoteAgentOutboundAdapter.class);
     private static final Duration DEFAULT_STREAM_TIMEOUT = Duration.ofSeconds(60);
 
-    private final Function<String, ClientTransport> transportFactory;
-    private final Duration streamTimeout;
-    private final Map<String, ClientTransport> transportCache = new ConcurrentHashMap<>();
+    private final Function<String, String> endpointResolver;
+    private final Function<String, ClientTransport> transportBuilder;
+    private final Function<String, Duration> streamTimeoutResolver;
+    // One transport (and its underlying HTTP client) per remote agent, reused across
+    // invocations and input-required continuations instead of rebuilt on every call.
+    // The cached endpoint is compared on every lookup so a card/endpoint change
+    // observed by the card cache rebuilds the transport instead of calling the old host.
+    private final Map<String, CachedTransport> transportCache = new ConcurrentHashMap<>();
+
+    private record CachedTransport(String endpoint, ClientTransport transport) {
+    }
 
     public A2aRemoteAgentOutboundAdapter(RemoteAgentCardCache cardCache) {
-        this(remoteAgentId -> {
-            String endpoint = cardCache.endpoint(remoteAgentId);
-            return endpoint == null || endpoint.isBlank() ? null : new JSONRPCTransport(endpoint);
-        }, DEFAULT_STREAM_TIMEOUT);
+        this(cardCache::endpoint, JSONRPCTransport::new, cardCache::streamTimeout);
     }
 
     public A2aRemoteAgentOutboundAdapter(Function<String, ClientTransport> transportFactory) {
@@ -59,8 +68,17 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
     }
 
     public A2aRemoteAgentOutboundAdapter(Function<String, ClientTransport> transportFactory, Duration streamTimeout) {
-        this.transportFactory = Objects.requireNonNull(transportFactory, "transportFactory");
-        this.streamTimeout = streamTimeout == null ? DEFAULT_STREAM_TIMEOUT : streamTimeout;
+        // Test seam keyed by remoteAgentId: the id doubles as the cached endpoint,
+        // so the cache never invalidates and the factory sees the id unchanged.
+        this(Function.identity(), transportFactory, remoteAgentId -> streamTimeout);
+    }
+
+    A2aRemoteAgentOutboundAdapter(Function<String, String> endpointResolver,
+            Function<String, ClientTransport> transportBuilder,
+            Function<String, Duration> streamTimeoutResolver) {
+        this.endpointResolver = Objects.requireNonNull(endpointResolver, "endpointResolver");
+        this.transportBuilder = Objects.requireNonNull(transportBuilder, "transportBuilder");
+        this.streamTimeoutResolver = Objects.requireNonNull(streamTimeoutResolver, "streamTimeoutResolver");
     }
 
     @Override
@@ -79,11 +97,24 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         List<RemoteAgentInvocationService.RemoteAgentResult> results = new ArrayList<>();
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
+        // Latch for late events: the SDK exposes no per-stream close handle, so after
+        // a terminal/timeout return the callback can still fire on its own thread.
+        // Every event runs under the gate and is dropped once closed, so a late event
+        // never reaches the single-writer emitter (via eventConsumer) and never races
+        // the result snapshot taken on the invoking thread.
+        AtomicBoolean closed = new AtomicBoolean();
+        Object gate = new Object();
         try {
             transport.sendMessageStreaming(toParams(request),
                     event -> {
                         RemoteAgentInvocationService.RemoteAgentResult result = toResult(event);
-                        if (result != null) {
+                        if (result == null) {
+                            return;
+                        }
+                        synchronized (gate) {
+                            if (closed.get()) {
+                                return;
+                            }
                             results.add(result);
                             if (eventConsumer != null) {
                                 eventConsumer.accept(result);
@@ -100,19 +131,35 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
                         completed.countDown();
                     },
                     null);
-            if (!completed.await(streamTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
-                return List.of(RemoteAgentInvocationService.RemoteAgentResult.failed("remote A2A stream timed out"));
+            boolean finished = completed.await(
+                    effectiveStreamTimeout(request.remoteAgentId()).toMillis(), TimeUnit.MILLISECONDS);
+            List<RemoteAgentInvocationService.RemoteAgentResult> received = closeAndSnapshot(gate, closed, results);
+            if (!finished) {
+                // Results received before the deadline were already projected to the
+                // caller, so dropping them now would contradict what the caller saw;
+                // keep them and append a classified failure. The remote task would
+                // otherwise keep running as an orphan — best-effort cancel it.
+                cancelAfterTimeout(request.remoteAgentId(), received);
+                List<RemoteAgentInvocationService.RemoteAgentResult> timedOut = new ArrayList<>(received);
+                timedOut.add(new RemoteAgentInvocationService.RemoteAgentResult(
+                        RemoteAgentInvocationService.RemoteAgentResult.Type.FAILED,
+                        "remote A2A stream timed out",
+                        lastNonNull(received, RemoteAgentInvocationService.RemoteAgentResult::remoteTaskId),
+                        lastNonNull(received, RemoteAgentInvocationService.RemoteAgentResult::remoteContextId),
+                        Map.of("code", REMOTE_TIMEOUT_CODE, "retryable", true)));
+                return List.copyOf(timedOut);
             }
             if (error.get() != null) {
-                if (hasRemoteTerminal(results) && causedByCancellation(error.get())) {
-                    return List.copyOf(results);
+                if (hasRemoteTerminal(received) && causedByCancellation(error.get())) {
+                    return received;
                 }
                 return List.of(RemoteAgentInvocationService.RemoteAgentResult.failed(error.get().getMessage()));
             }
-            return List.copyOf(results);
+            return received;
         } catch (Exception ex) {
-            if (hasRemoteTerminal(results) && causedByCancellation(ex)) {
-                return List.copyOf(results);
+            List<RemoteAgentInvocationService.RemoteAgentResult> received = closeAndSnapshot(gate, closed, results);
+            if (hasRemoteTerminal(received) && causedByCancellation(ex)) {
+                return received;
             }
             return List.of(RemoteAgentInvocationService.RemoteAgentResult.failed(ex.getMessage()));
         }
@@ -129,18 +176,75 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         }
     }
 
+    Duration effectiveStreamTimeout(String remoteAgentId) {
+        Duration configured = streamTimeoutResolver.apply(remoteAgentId);
+        return configured == null ? DEFAULT_STREAM_TIMEOUT : configured;
+    }
+
+    private static List<RemoteAgentInvocationService.RemoteAgentResult> closeAndSnapshot(Object gate,
+            AtomicBoolean closed, List<RemoteAgentInvocationService.RemoteAgentResult> results) {
+        synchronized (gate) {
+            closed.set(true);
+            return List.copyOf(results);
+        }
+    }
+
+    private void cancelAfterTimeout(String remoteAgentId,
+            List<RemoteAgentInvocationService.RemoteAgentResult> received) {
+        String remoteTaskId = lastNonNull(received, RemoteAgentInvocationService.RemoteAgentResult::remoteTaskId);
+        if (remoteTaskId == null) {
+            return;
+        }
+        try {
+            cancel(new RemoteAgentInvocationService.RemoteTaskReference(remoteAgentId, remoteTaskId,
+                    lastNonNull(received, RemoteAgentInvocationService.RemoteAgentResult::remoteContextId)));
+        } catch (RuntimeException ex) {
+            LOG.warn("remote task cancel after stream timeout failed remoteAgentId={} remoteTaskId={} message={}",
+                    remoteAgentId, remoteTaskId, A2aLogMasking.mask(ex.getMessage()));
+        }
+    }
+
+    private static String lastNonNull(List<RemoteAgentInvocationService.RemoteAgentResult> results,
+            Function<RemoteAgentInvocationService.RemoteAgentResult, String> extractor) {
+        for (int i = results.size() - 1; i >= 0; i--) {
+            String value = extractor.apply(results.get(i));
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
     private ClientTransport obtainTransport(String remoteAgentId) {
         if (remoteAgentId == null) {
             return null;
         }
-        ClientTransport transport = transportCache.computeIfAbsent(remoteAgentId, id -> {
-            LOG.info("remote agent transport created remoteAgentId={}", id);
-            return transportFactory.apply(id);
-        });
-        if (transport == null) {
-            LOG.warn("remote agent transport factory returned null for remoteAgentId={}", remoteAgentId);
+        String endpoint = endpointResolver.apply(remoteAgentId);
+        if (endpoint == null || endpoint.isBlank()) {
+            return null;
         }
-        return transport;
+        // compute() removes the mapping when the builder yields null, so an endpoint
+        // that is not yet resolvable stays uncached and is retried on the next call.
+        CachedTransport cached = transportCache.compute(remoteAgentId, (id, existing) -> {
+            if (existing != null && existing.endpoint().equals(endpoint)) {
+                return existing;
+            }
+            if (existing != null) {
+                closeQuietly(id, existing.transport());
+            }
+            ClientTransport created = transportBuilder.apply(endpoint);
+            return created == null ? null : new CachedTransport(endpoint, created);
+        });
+        return cached == null ? null : cached.transport();
+    }
+
+    private static void closeQuietly(String remoteAgentId, ClientTransport transport) {
+        try {
+            transport.close();
+        } catch (RuntimeException ex) {
+            LOG.warn("stale remote transport close failed remoteAgentId={} message={}",
+                    remoteAgentId, A2aLogMasking.mask(ex.getMessage()));
+        }
     }
 
     private static MessageSendParams toParams(RemoteAgentInvocationService.RemoteAgentRequest request) {
@@ -167,7 +271,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         if (event instanceof Message message) {
             return new RemoteAgentInvocationService.RemoteAgentResult(
                     RemoteAgentInvocationService.RemoteAgentResult.Type.MESSAGE,
-                    messageText(message),
+                    Messages.text(message),
                     message.taskId(),
                     message.contextId(),
                     message.metadata());
@@ -176,7 +280,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
             Artifact artifact = artifactUpdate.artifact();
             return new RemoteAgentInvocationService.RemoteAgentResult(
                     RemoteAgentInvocationService.RemoteAgentResult.Type.ARTIFACT,
-                    artifact == null ? "" : partsText(artifact.parts()),
+                    artifact == null ? "" : Messages.text(artifact.parts()),
                     artifactUpdate.taskId(),
                     artifactUpdate.contextId(),
                     artifactUpdate.metadata());
@@ -191,7 +295,7 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
     private static RemoteAgentInvocationService.RemoteAgentResult statusResult(
             TaskStatus status, String taskId, String contextId, Map<String, Object> metadata) {
         TaskState state = status == null ? null : status.state();
-        String text = status == null ? "" : messageText(status.message());
+        String text = status == null ? "" : Messages.text(status.message());
         if (state == TaskState.TASK_STATE_INPUT_REQUIRED) {
             return new RemoteAgentInvocationService.RemoteAgentResult(
                     RemoteAgentInvocationService.RemoteAgentResult.Type.INPUT_REQUIRED,
@@ -231,21 +335,6 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
             }
         }
         return false;
-    }
-
-    private static String messageText(Message message) {
-        return message == null ? "" : partsText(message.parts());
-    }
-
-    private static String partsText(List<Part<?>> parts) {
-        if (parts == null) {
-            return "";
-        }
-        return parts.stream()
-                .filter(TextPart.class::isInstance)
-                .map(TextPart.class::cast)
-                .map(TextPart::text)
-                .reduce("", String::concat);
     }
 
     private static boolean hasText(String value) {

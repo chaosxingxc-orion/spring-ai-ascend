@@ -49,4 +49,32 @@ class CompositeTrajectorySinkTest {
         assertThat(good.closed).isTrue();
         assertThat(good.events).extracting(TrajectoryEvent::seq).containsExactly(0L, 1L);
     }
+
+    /**
+     * A sink failure is exactly the moment the log must say whose run was affected; emission
+     * may run on a framework worker thread, so the WARN inlines the correlation keys handed
+     * over at onOpen instead of relying on the executor's thread-local MDC.
+     */
+    @Test
+    void sinkFailureWarnInlinesCorrelationKeysWithoutMdc() {
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(CompositeTrajectorySink.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            CompositeTrajectorySink composite = new CompositeTrajectorySink(List.of(new ThrowingSink()));
+            composite.onOpen("ctx", "task");
+            composite.accept(event(0));
+            composite.onClose();
+
+            assertThat(appender.list).isNotEmpty().allSatisfy(event ->
+                    assertThat(event.getFormattedMessage())
+                            .contains("contextId=ctx")
+                            .contains("taskId=task"));
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
 }

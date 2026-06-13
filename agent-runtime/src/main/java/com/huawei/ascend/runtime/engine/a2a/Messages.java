@@ -1,6 +1,8 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
+import java.util.List;
 import org.a2aproject.sdk.spec.Message;
+import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.TextPart;
 
 /**
@@ -20,11 +22,19 @@ public final class Messages {
      * with divergent join semantics.
      */
     public static String text(Message message) {
-        if (message == null || message.parts() == null) {
+        return message == null ? "" : text(message.parts());
+    }
+
+    /**
+     * Part-list form of {@link #text(Message)} for wire carriers that hold parts
+     * without a {@link Message} envelope (e.g. artifacts); same join semantics.
+     */
+    public static String text(List<Part<?>> parts) {
+        if (parts == null) {
             return "";
         }
         StringBuilder text = new StringBuilder();
-        for (var part : message.parts()) {
+        for (var part : parts) {
             if (part instanceof TextPart textPart) {
                 if (!text.isEmpty()) {
                     text.append('\n');

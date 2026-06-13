@@ -153,7 +153,7 @@ Agent 可以将其他 A2A Agent 作为工具调用。Runtime 的
 并将其注册为 openJiuwen `Tool` 实例。
 
 ```java
-// 当 RemoteSupport Bean 存在时，RuntimeAutoConfiguration 自动注入
+// 当 agent-runtime.remote-agents[0].url 配置存在时，A2aClientAutoConfiguration 自动注入
 handler.setRuntimeToolInstaller(remoteToolInstaller);
 ```
 

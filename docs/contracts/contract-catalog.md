@@ -44,13 +44,41 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `DefinitionResolver` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | shipped — bidirectional bridge between the wire-form `DefinitionRef` and the runnable `ExecutorDefinition`; `resolve` is engine-facing, `referenceFor` is service-facing; reference impl `CompositeDefinitionResolver` (agent-service) per ADR-0158 |
 | `S2cCallbackTransport` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | shipped — W2.x; `InMemoryS2cCallbackTransport` reference (ADR-0074); relocated to agent-bus per ADR-0088 |
 | `AgentRuntimeHandler` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — the single framework-neutral runtime SPI: runs one agent and surfaces its output through concrete adapters such as openJiuwen and AgentScope; per the agent-runtime pure rebuild (Doc 2). Carries the handler service lifecycle as default methods (`start()`/`stop()` driven by the host SmartLifecycle around the serving window, cooperative `cancel(taskId)`, `isHealthy()` consumed by the runtime health indicator + readiness gate) — Authority: ADR-0161. Result carrier `AgentExecutionResult` ships alongside in the same package |
-| `AgentCardProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — optional provider for the A2A Agent Card of one runtime-hosted business Agent; separated from `AgentRuntimeHandler` so card metadata can be supplied by a dedicated Bean or by a handler that chooses to implement both interfaces |
+| `AgentCardProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.a2a` | shipped — optional provider for the A2A Agent Card of one runtime-hosted business Agent; lives in the A2A protocol-bridge package, not the neutral SPI package (the Agent Card is A2A protocol metadata); separated from `AgentRuntimeHandler` so card metadata can be supplied by a dedicated Bean or by a handler that chooses to implement both interfaces |
 | `MemoryProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — reserved narrow memory init/search/save SPI for future memory middleware integration; does not bind runtime to one memory backend |
 | `StreamAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts a framework's native result stream into the neutral `AgentExecutionResult` stream |
 
-Trajectory observability plumbing — `TrajectoryEmitter`, `TrajectorySource`, `TrajectorySink`, `TrajectorySinkFactory` — is (internal): per-invocation, emit-only telemetry seams between the runtime executor and the adapter bases (events are never read back; the runtime stays the source of truth). These interfaces live in `engine.spi` for package-boundary reasons but are not part of the shipped SPI surface.
+Trajectory observability plumbing — `TrajectoryEmitter`, `TrajectorySource`, `TrajectorySink`, `TrajectorySinkFactory` — is internal **as a Java seam only**: per-invocation, emit-only telemetry interfaces between the runtime executor and the adapter bases (events are never read back; the runtime stays the source of truth). These interfaces live in `engine.spi` for package-boundary reasons but are not part of the shipped SPI surface. The trajectory's **wire surface is NOT internal**: the A2A metadata keys, the artifact name, and the event payload shape cross the process boundary to A2A callers and are a published contract — see *Northbound trajectory wire contract* below.
 
-**SPI count by module (shipped surface; the agent-runtime SPI surface is the framework-neutral `engine.spi` set `AgentRuntimeHandler` + `AgentCardProvider` + `MemoryProvider` + `StreamAdapter`):**
+**Northbound trajectory wire contract (A2A):**
+
+Source of truth for the payload version: `TrajectoryEvent.SCHEMA_VERSION` (`agent-runtime`, `com.huawei.ascend.runtime.engine.spi`) — currently `"2"`; the constant's javadoc links back to this entry and both bump in lockstep. Enforced by `A2aAgentExecutorTest` (northbound delivery + opt-in/opt-out) and `A2aNorthboundSinkTest` (truncation marker + terminal retention).
+
+| Wire surface | Value | Semantics |
+|---|---|---|
+| Request metadata key `trajectory.level` | `off` \| anything else | Per-request opt-out; historical OFF/SUMMARY/FULL senders keep working — any value other than `off` means enabled (server default applies) |
+| Request metadata key `trajectory.northbound` | `true` / absent | Opt-in to northbound delivery of the trajectory as a second artifact stream |
+| Artifact name `agent-trajectory` (artifactId `<taskId>-trajectory`) | one closing artifact of `DataPart`s | The buffered, masked trajectory of the whole run (including remote resume/continuation legs through their `RUN_END`), delivered on the execute thread before the task's terminal state; distinct from the answer's `agent-response` / `<taskId>-response` stream |
+| Truncation marker | `{kind: "TRUNCATED", droppedCount: N}` | Appended as the artifact's final `DataPart` when the per-invocation buffer (10,000 events) shed load; the last 16 slots are reserved for terminal kinds (`RUN_END`/`ERROR`) so a cut trajectory still closes with its outcome |
+
+Schema v2 per-event `DataPart` fields (serialized by `A2aNorthboundSink`; `attempt`/`retryable` exist on the Java record but are not serialized northbound):
+
+| Field | Type | Notes |
+|---|---|---|
+| `seq` | long | Monotonic step order per leg, assigned by the runtime |
+| `kind` | string | `RUN_START` `RUN_END` `MODEL_CALL_START` `MODEL_CALL_END` `TOOL_CALL_START` `TOOL_CALL_END` `REASONING` `ERROR` `PROGRESS` |
+| `tsEpochMillis` | long | Event wall-clock time |
+| `durationMs` | long \| null | Elapsed on `_END` events; null on `_START`/point kinds |
+| `traceId` / `spanId` / `parentSpanId` | string \| null | Span-tree correlation (`traceId` = `taskId`); pair `_START`/`_END` by `spanId` |
+| `tenantId` / `contextId` / `taskId` | string | Layered correlation: owning tenant → conversation/session → one call |
+| `object` / `name` | string \| null | Subject of the step (e.g. tool or model name) |
+| `args` / `result` | object \| null | Masked + truncated payloads (`TrajectoryMasking`) |
+| `usage` | object \| null | Token/latency/model telemetry aligned to OpenTelemetry `gen_ai.usage.*` |
+| `error` | object \| null | `{code, message}`; message masked |
+| `reasoning` | string \| null | Masked + truncated free-text reasoning |
+| `schemaVersion` | string | `"2"` = `TrajectoryEvent.SCHEMA_VERSION` |
+
+**SPI count by module (shipped surface; the agent-runtime SPI surface is `AgentRuntimeHandler` + `MemoryProvider` + `StreamAdapter` in the framework-neutral `engine.spi` package plus `AgentCardProvider` in the `engine.a2a` protocol-bridge package):**
 
 | Module | SPI interfaces |
 |---|---|
@@ -175,7 +203,7 @@ SemVer from 1.0.0: PATCH=fix, MINOR=additive, MAJOR=breaking. Stable surface: st
 | `spring-ai-ascend-parent` | none | Parent POM (not a reactor row by itself; declared via `<parent>`) |
 | `spring-ai-ascend-dependencies` | none | BoM (dependency management) |
 | `agent-service` | compute_control | Enterprise serviceization façade (skeleton) — registration/discovery driving runtime-built Agent instances via agent-runtime; the runtime SDK formerly hosted here was relocated to agent-runtime per ADR-0159 |
-| `agent-runtime` | compute_control | Run-owning runtime SDK: framework-neutral engine (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`, openJiuwen and AgentScope adapters) + trajectory observability + remote A2A tool invocation + access (A2A) + bootable runtime app (`app.RuntimeApp` / `LocalA2aRuntimeHost`); its only external protocol contract is the A2A SDK — ADR-0159. W0 inbound A2A message semantics are text-only (TextParts forwarded; non-text parts dropped with a WARN; see `a2a-envelope.v1.yaml` trust_boundaries) |
+| `agent-runtime` | compute_control | Framework-neutral agent-hosting runtime SDK: handler SPI + A2A SDK bridge (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`, openJiuwen and AgentScope adapters; task lifecycle/store/queue come from the A2A SDK's in-memory facilities, replaceable via `@ConditionalOnMissingBean`; session persistence delegated to framework checkpointers; Run record/recovery/idempotency stay with `agent-service` per ADR-0088) + trajectory observability + remote A2A tool invocation + access (A2A) + embeddable runtime entry (`app.RuntimeApp` / `LocalA2aRuntimeHost`); its only external protocol contract is the A2A SDK — ADR-0159. W0 inbound A2A message semantics are text-only (TextParts forwarded; non-text parts dropped with a WARN; see `a2a-envelope.v1.yaml` trust_boundaries) |
 | `agent-bus` | bus_state | Active cross-plane control surfaces: `bus.spi.ingress.IngressGateway` (ADR-0089) + `bus.spi.s2c.S2cCallbackTransport` (ADR-0074 + ADR-0088) + neutral orchestration/engine SPI `bus.spi.engine` (EnginePort + RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition + ExecutionContext; ADR-0158). Workflow primitives W2 per ADR-0050 |
 
 **Module history (rc12 → rc13 reactor count: 9 → 8)**

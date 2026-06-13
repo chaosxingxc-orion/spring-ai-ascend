@@ -2,8 +2,8 @@ package com.huawei.ascend.runtime.engine.agentscope;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.huawei.ascend.runtime.engine.a2a.Messages;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
@@ -16,8 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 
 class AgentScopeRuntimeHandlerTest {
@@ -30,7 +28,7 @@ class AgentScopeRuntimeHandlerTest {
             assertThat(invocation.sessionId()).isEqualTo("session");
             assertThat(invocation.taskId()).isEqualTo("task");
             assertThat(invocation.agentId()).isEqualTo("agent-scope");
-            assertThat(invocation.messages()).extracting(AgentScopeRuntimeHandlerTest::messageText)
+            assertThat(invocation.messages()).extracting(RuntimeMessage::text)
                     .containsExactly("ping");
             return Stream.of(AgentScopeEvent.output("pong-"), AgentScopeEvent.completed("done"));
         });
@@ -95,17 +93,6 @@ class AgentScopeRuntimeHandlerTest {
 
     private static AgentExecutionContext context(String agentId) {
         RuntimeIdentity scope = new RuntimeIdentity("tenant", "user", "session", "task", agentId);
-        return new AgentExecutionContext(scope, "USER_MESSAGE", List.of(message(Message.Role.ROLE_USER, "ping")), Map.of());
-    }
-
-    private static Message message(Message.Role role, String text) {
-        return Message.builder()
-                .role(role)
-                .parts(new TextPart(text))
-                .build();
-    }
-
-    private static String messageText(Message message) {
-        return Messages.text(message);
+        return new AgentExecutionContext(scope, "USER_MESSAGE", List.of(RuntimeMessage.user("ping")), Map.of());
     }
 }

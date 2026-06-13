@@ -1,11 +1,12 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
+import com.huawei.ascend.runtime.engine.spi.RemoteAgentToolSpec;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
 import com.openjiuwen.core.foundation.llm.schema.ToolCall;
 import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.session.Session;
@@ -21,8 +22,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 
 class OpenJiuwenRemoteToolInstallerTest {
@@ -30,7 +29,7 @@ class OpenJiuwenRemoteToolInstallerTest {
     @Test
     void installsRemoteToolCardAndInterruptRailOnAgentInstance() {
         RecordingAgent agent = new RecordingAgent();
-        RemoteAgentCardCache.RemoteAgentToolSpec spec = toolSpec();
+        RemoteAgentToolSpec spec = toolSpec();
         OpenJiuwenRemoteToolInstaller installer = new OpenJiuwenRemoteToolInstaller(() -> List.of(spec));
 
         installer.install(agent, context());
@@ -46,7 +45,7 @@ class OpenJiuwenRemoteToolInstallerTest {
 
     @Test
     void railConvertsRemoteToolCallToInterruptContext() {
-        RemoteAgentCardCache.RemoteAgentToolSpec spec = toolSpec();
+        RemoteAgentToolSpec spec = toolSpec();
         AgentExecutionContext context = context();
         OpenJiuwenRemoteAgentInterruptRail rail =
                 new OpenJiuwenRemoteAgentInterruptRail(context, List.of(spec));
@@ -82,7 +81,7 @@ class OpenJiuwenRemoteToolInstallerTest {
 
     @Test
     void railTurnsRemoteResumeInputIntoSyntheticToolResult() {
-        RemoteAgentCardCache.RemoteAgentToolSpec spec = toolSpec();
+        RemoteAgentToolSpec spec = toolSpec();
         OpenJiuwenRemoteAgentInterruptRail rail =
                 new OpenJiuwenRemoteAgentInterruptRail(context(), List.of(spec));
         ToolCall toolCall = ToolCall.builder()
@@ -114,8 +113,8 @@ class OpenJiuwenRemoteToolInstallerTest {
         assertThat(inputs.getToolMsg().getContent()).isEqualTo("{\"ok\":true}");
     }
 
-    private static RemoteAgentCardCache.RemoteAgentToolSpec toolSpec() {
-        return new RemoteAgentCardCache.RemoteAgentToolSpec(
+    private static RemoteAgentToolSpec toolSpec() {
+        return new RemoteAgentToolSpec(
                 "remote-planner",
                 "a2a_remote_remote_planner",
                 "Remote Planner\nPlans trips",
@@ -129,7 +128,7 @@ class OpenJiuwenRemoteToolInstallerTest {
         return new AgentExecutionContext(
                 new RuntimeIdentity("tenant", "user", "ctx-1", "task-1", "agent-a"),
                 "USER_MESSAGE",
-                List.of(Message.builder().role(Message.Role.ROLE_USER).parts(List.of(new TextPart("start"))).build()),
+                List.of(RuntimeMessage.user("start")),
                 Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, "conversation-1"));
     }
 

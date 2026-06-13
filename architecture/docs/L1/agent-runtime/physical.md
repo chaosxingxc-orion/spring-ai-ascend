@@ -48,7 +48,6 @@ authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 │  │                 │                          │ │
 │  │  ┌──────────────▼───────────────────────┐ │ │
 │  │  │  AgentRuntimeHandler (SPI)           │ │ │
-│  │  │  + InMemoryAgentStateStore           │ │ │
 │  │  │  + openJiuwen / AgentScope adapters  │ │ │
 │  │  └──────────────────────────────────────┘ │ │
 │  └──────────────────────────────────────────┘ │
@@ -82,7 +81,6 @@ authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 │  ├─ InMemoryTaskStore                    │
 │  ├─ InMemoryQueueManager                 │
 │  ├─ MainEventBus                        │
-│  ├─ InMemoryAgentStateStore             │
 │  └─ 后台线程池 (CachedThreadPool)         │
 └─────────────────────────────────────────┘
 ```
@@ -116,7 +114,6 @@ authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 ```
 
 当前版本采用 InMemory 实现，所有组件运行在单进程内。分布式扩展点：
-- `AgentStateStore` → Redis / JDBC 实现
 - `InMemoryTaskStore`（A2A SDK）→ 替换为分布式 TaskStore 实现
 - `InMemoryQueueManager`（A2A SDK）→ 替换为基于消息队列的实现
 - `MainEventBus`（A2A SDK）→ 替换为分布式事件总线
@@ -128,28 +125,16 @@ authority: "ADR-0152 (Uniform L1 per-view mechanism + L0 mounting)"
 | 组件 | 线程 | 说明 |
 |---|---|---|
 | HTTP 请求处理 | Tomcat/Netty IO 线程池 | A2A JSON-RPC 接入 |
-| `MainEventBusProcessor` | 单后台线程（`CachedThreadPool` 分配） | 异步消费事件队列 |
-| Agent 执行 | 调用者线程（当前）或独立线程池 | `AgentRuntimeHandler.execute()` 同步执行 |
-| `RuntimeAutoConfiguration.a2aExecutor()` | `Executors.newCachedThreadPool()` | A2A SDK 内部任务使用的线程池 |
+| `MainEventBusProcessor` | SDK 自有 daemon 线程 | 异步消费事件队列，不阻塞 JVM 退出 |
+| Agent 执行 | `A2aServerExecutor` 线程池 | `AgentRuntimeHandler.execute()` 在派发线程上执行 |
+| `RuntimeAutoConfiguration.A2aServerExecutor` | `Executors.newCachedThreadPool()`（daemon 线程） | A2A SDK 任务派发线程池；无界 cached pool，无专用配置键；关闭时先排水（10s 宽限）再强停 |
 
-**线程配置**（`application.yml`）：
-```yaml
-app:
-  runs:
-    dispatch:
-      core-threads: 4
-      max-threads: 16
-      queue-capacity: 256
-      rejection-policy: CALLER_RUNS
-```
-
-**虚拟线程**：`spring.threads.virtual.enabled: true` 开启 Java 21 虚拟线程支持。
+**虚拟线程**：宿主应用可自行设置 `spring.threads.virtual.enabled: true` 开启 Java 21 虚拟线程支持（库不预置）。
 
 ### 3.2 内存估算（单实例 InMemory 模式）
 
 | 组件 | 内存占用特征 | 说明 |
 |---|---|---|
-| `InMemoryAgentStateStore` | 每个 Agent 状态的 Map 大小 × state 数 | 取决于业务 state 的量，典型每个 state < 10KB |
 | `InMemoryTaskStore`（A2A SDK） | Task 对象 × 活跃 task 数 | 每个 Task 包括 metadata、messages、status 等 |
 | `InMemoryQueueManager`（A2A SDK） | 事件队列中的待处理事件数 | 取决于并发 task 数和消息速率 |
 | `MainEventBus`（A2A SDK） | 订阅者注册 + 事件缓存 | 常量大小 |
@@ -157,15 +142,13 @@ app:
 **容量参考**：
 - 单实例支持 ~1000 并发 Task（InMemory 模式）
 - 每个 Task 平均 5-50KB 内存
-- Agent State 按需存储，非活跃 state 可考虑 LRU 淘汰
 
 ### 3.3 存储接口替换
 
-当前 InMemory 实现通过接口隔离，支持热替换为分布式实现：
+当前 InMemory 实现通过 A2A SDK 的存储接口隔离，宿主以 `@ConditionalOnMissingBean` 替换 bean 即可换为分布式实现：
 
 ```
-AgentStateStore (接口)
-    ├── InMemoryAgentStateStore (当前: ConcurrentHashMap)
-    ├── RedisAgentStateStore (未来: Redis)
-    └── JdbcAgentStateStore (未来: JDBC)
+TaskStore (A2A SDK 接口)
+    ├── InMemoryTaskStore (当前默认)
+    └── 分布式实现 (未来: Redis / JDBC，由宿主提供 bean)
 ```

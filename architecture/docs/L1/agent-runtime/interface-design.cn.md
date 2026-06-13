@@ -269,7 +269,7 @@ A2A 层只处理转换后的 `AgentExecutionResult`，不直接理解 OpenJiuwen
 Mem 后续接入建议：
 
 - Mem 不复用 Agent State 后端存正文记忆。
-- Agent State 后端只保存 `memoryRef`、`checkpointRef`、`cursor` 等小对象；当前代码不再发布单独的 `AgentStateStore` 接口。
+- Agent State 后端只保存 `memoryRef`、`checkpointRef`、`cursor` 等小对象；当前代码不再发布单独的 Agent 状态存储公共接口。
 - Mem 的 compact、budget、vector retrieval、长期检索由 Mem backend 负责。
 - OpenJiuwen 可优先通过 Rail 或具体 `createOpenJiuwenAgent(context)` 的 agent 配置接入 Mem。
 

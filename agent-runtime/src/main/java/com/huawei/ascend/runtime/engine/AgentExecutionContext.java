@@ -1,17 +1,19 @@
 package com.huawei.ascend.runtime.engine;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.a2aproject.sdk.spec.Message;
 import org.springframework.util.Assert;
 
 /**
- * Minimal execution context — the contract between the A2A SDK bridge and
+ * Minimal execution context — the contract between the protocol bridge and
  * framework adapters. Deliberately decoupled from A2A SDK's heavy
- * {@code RequestContext} (which carries Task, Message, ServerCallContext etc.).
+ * {@code RequestContext}; messages are carried as protocol-neutral
+ * {@link RuntimeMessage}s so adapters and business handlers never see wire
+ * types.
  */
 public final class AgentExecutionContext {
 
@@ -23,7 +25,7 @@ public final class AgentExecutionContext {
 
     private final RuntimeIdentity scope;
     private final String inputType;
-    private final List<Message> messages;
+    private final List<RuntimeMessage> messages;
     private final Map<String, Object> variables;
     private final String agentStateKey;
     private volatile Map<String, Object> agentState;
@@ -31,11 +33,11 @@ public final class AgentExecutionContext {
     private volatile TrajectoryEmitter trajectoryEmitter = TrajectoryEmitter.NOOP;
 
     public AgentExecutionContext(RuntimeIdentity scope, String inputType,
-                                  List<Message> messages, Map<String, Object> variables) {
+                                  List<RuntimeMessage> messages, Map<String, Object> variables) {
         this(scope, inputType, messages, variables, resolveAgentStateKey(scope, variables), null);
     }
 
-    public AgentExecutionContext(RuntimeIdentity scope, String inputType, List<Message> messages,
+    public AgentExecutionContext(RuntimeIdentity scope, String inputType, List<RuntimeMessage> messages,
                                   Map<String, Object> variables, String agentStateKey,
                                   Map<String, Object> agentState) {
         this.scope = scope;
@@ -49,10 +51,27 @@ public final class AgentExecutionContext {
 
     public RuntimeIdentity getScope() { return scope; }
     public String getInputType() { return inputType; }
-    public List<Message> getMessages() { return messages; }
+    public List<RuntimeMessage> getMessages() { return messages; }
     public Map<String, Object> getVariables() { return variables; }
     public String getAgentStateKey() { return agentStateKey; }
     public Optional<Map<String, Object>> getAgentState() { return Optional.ofNullable(agentState); }
+
+    /**
+     * Latest user-authored text. When no user turn exists at all, falls back to
+     * the newest message regardless of role so the agent still receives a query
+     * rather than an empty string; empty only when there are no messages. This
+     * is the single canonical extraction — adapters and handlers must not
+     * re-implement the role scan.
+     */
+    public String lastUserText() {
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            RuntimeMessage message = messages.get(i);
+            if (message.role() == RuntimeMessage.Role.USER) {
+                return message.text();
+            }
+        }
+        return messages.isEmpty() ? "" : messages.get(messages.size() - 1).text();
+    }
 
     /** Atomic replace — used by adapters for checkpoint state. */
     public Map<String, Object> replaceAgentState(Map<String, Object> values) {

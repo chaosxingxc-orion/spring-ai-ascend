@@ -51,7 +51,12 @@ public record TrajectoryEvent(
         String reasoning,
         String schemaVersion) {
 
-    /** Current trajectory contract version; bump in lockstep with the published schema. */
+    /**
+     * Current trajectory wire-contract version. The published schema (per-field wire table,
+     * the {@code trajectory.level}/{@code trajectory.northbound} A2A metadata keys, and the
+     * {@code agent-trajectory} artifact name) is the "Northbound trajectory wire contract"
+     * entry in {@code docs/contracts/contract-catalog.md}; bump both in lockstep.
+     */
     public static final String SCHEMA_VERSION = "2";
 
     public enum Kind {

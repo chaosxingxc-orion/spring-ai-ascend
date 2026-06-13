@@ -38,4 +38,4 @@ ARCHITECTURE.md|2026-09-30|SkillTrustTier (VETTED | UNTRUSTED) at §4 #27 / line
 ARCHITECTURE.md|2026-12-31|RunScope discriminator (STEP_LOCAL | SWARM) at §4 #29 / line 429 — Run hierarchy contract, retrofit at W4 planner toolset
 ARCHITECTURE.md|2026-09-30|AdmissionDecision (Accepted | Delayed | Rejected | Yielded) at §4 #52 / line 719 — Long-Connection Containment contract (ADR-0050), retrofit at W2
 ARCHITECTURE.md|2026-09-30|BackpressureSignal (LOCAL_SATURATION | SKILL_SATURATION | TENANT_QUOTA_EXCEEDED | SHUTDOWN) at §4 #52 / line 721 — Long-Connection Containment contract (ADR-0050), retrofit at W2
-agent-service/ARCHITECTURE.md|2027-12-31|IdempotencyRecord status CHECK constraint (CLAIMED|COMPLETED|FAILED) at line 84 — schema-layer enforcer E13 already authoritative; prose is cross-reference
+agent-service/ARCHITECTURE.md|2027-12-31|IdempotencyRecord status CHECK constraint (CLAIMED|COMPLETED|FAILED) at line 84 — design-target prose; the schema-layer dedup migration ships with the agent-service implementation wave

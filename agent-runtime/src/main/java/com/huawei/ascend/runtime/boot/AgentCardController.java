@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
+import org.a2aproject.sdk.spec.AgentProvider;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,9 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AgentCardController {
 
     private final AgentCard agentCard;
+    private final RuntimeAccessProperties access;
 
-    public AgentCardController(AgentCard agentCard) {
+    public AgentCardController(AgentCard agentCard, RuntimeAccessProperties access) {
         this.agentCard = agentCard;
+        this.access = access;
     }
 
     @GetMapping(value = "/.well-known/agent-card.json", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -32,13 +35,12 @@ public class AgentCardController {
     }
 
     private AgentCard resolveUrls(AgentCard card, HttpServletRequest request) {
-        // Honors X-Forwarded-* when a ForwardedHeaderFilter is registered (it rewrites
-        // the request facade); raw scheme/host otherwise.
-        final String base = request.getScheme() + "://" + request.getServerName()
-                + (request.getServerPort() != 80 && request.getServerPort() != 443
-                        ? ":" + request.getServerPort() : "");
+        final String base = resolveBase(request);
         return AgentCard.builder(card)
                 .url(resolveUrl(base, card.url()))
+                .provider(card.provider() == null ? null
+                        : new AgentProvider(card.provider().organization(),
+                                resolveUrl(base, card.provider().url())))
                 .supportedInterfaces(card.supportedInterfaces() == null ? List.of() :
                         card.supportedInterfaces().stream()
                                 .map(i -> new AgentInterface(
@@ -47,6 +49,24 @@ public class AgentCardController {
                                         i.tenant(), i.protocolVersion()))
                                 .toList())
                 .build();
+    }
+
+    /**
+     * A configured {@code agent-runtime.access.a2a.public-base-url} wins (it may carry
+     * a path prefix added by a fronting proxy); otherwise the base is derived from the
+     * current request. The request-derived path honors {@code X-Forwarded-*} only when
+     * the host sets {@code server.forward-headers-strategy=framework} so spring-web's
+     * ForwardedHeaderFilter rewrites the request facade.
+     */
+    private String resolveBase(HttpServletRequest request) {
+        String configured = access.getPublicBaseUrl();
+        if (configured != null && !configured.isBlank()) {
+            String trimmed = configured.trim();
+            return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
+        }
+        return request.getScheme() + "://" + request.getServerName()
+                + (request.getServerPort() != 80 && request.getServerPort() != 443
+                        ? ":" + request.getServerPort() : "");
     }
 
     private static String resolveUrl(String base, String path) {

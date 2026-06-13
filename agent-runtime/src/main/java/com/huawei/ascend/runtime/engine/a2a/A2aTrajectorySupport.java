@@ -76,19 +76,43 @@ final class A2aTrajectorySupport {
     }
 
     /**
+     * Wires the trajectory for a remote resume/continuation leg. A continuation request
+     * arrives with no flow yet — open a fresh one; a same-invocation resume (remote tool
+     * returned) reuses the already-open sink fan-out so the resume leg's events land in
+     * the same northbound buffer and exporter sinks, and the sink stays bracketed by one
+     * onOpen/onClose pair. Either way the handler re-stamps an emitter onto the freshly
+     * built resume context, whose emitter would otherwise stay NOOP.
+     */
+    TrajectoryFlow openForResume(RequestContext ctx, AgentExecutionContext resumeContext,
+            AgentRuntimeHandler handler, TrajectoryFlow current) {
+        if (current.sink() == null) {
+            return open(ctx, resumeContext, handler);
+        }
+        if (handler instanceof TrajectorySource source) {
+            TrajectorySettings settings =
+                    resolveSettings(A2aAgentExecutor.metadata(ctx, TRAJECTORY_LEVEL_METADATA, null));
+            source.openTrajectory(resumeContext, settings, current.sink());
+        }
+        return current;
+    }
+
+    /**
      * When the caller opted into northbound trajectory, flush the buffered events as the
      * {@code -trajectory} artifact — on the execute thread, the only thread allowed to touch the
-     * single-writer emitter. A failure here must never break the answer: it degrades to no
-     * northbound trajectory.
+     * single-writer emitter. {@code append} carries whether the task already holds this artifact
+     * from a leg flushed before a remote INPUT_REQUIRED park. A failure here must never break
+     * the answer: it degrades to no northbound trajectory.
      */
-    static void deliverNorthbound(TrajectoryFlow flow, AgentEmitter emitter, String artifactId, String taskId) {
+    static void deliverNorthbound(TrajectoryFlow flow, AgentEmitter emitter, String artifactId, String taskId,
+            boolean append) {
         if (flow.northbound() == null) {
             return;
         }
         try {
-            flow.northbound().flush(emitter, artifactId);
+            flow.northbound().flush(emitter, artifactId, append);
         } catch (Exception e) {
-            LOG.warn("[A2A] northbound trajectory delivery failed taskId={} message={}", taskId, e.getMessage());
+            LOG.warn("[A2A] northbound trajectory delivery failed taskId={} message={}",
+                    taskId, A2aLogMasking.mask(e.getMessage()));
         }
     }
 
@@ -99,7 +123,8 @@ final class A2aTrajectorySupport {
         try {
             flow.sink().onClose();
         } catch (RuntimeException e) {
-            LOG.warn("[A2A] trajectory sink close failed taskId={} message={}", taskId, e.getMessage());
+            LOG.warn("[A2A] trajectory sink close failed taskId={} message={}",
+                    taskId, A2aLogMasking.mask(e.getMessage()));
         }
     }
 

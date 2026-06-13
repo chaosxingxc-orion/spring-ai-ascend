@@ -7,13 +7,12 @@ module: agent-runtime
 kind: domain             # platform | domain | starter | bom | sample
 version: 0.0.1-SNAPSHOT
 semver_compatibility: experimental
-description: "Run-owning runtime SDK that drives Agent instances built on heterogeneous agent frameworks through a single framework-neutral SPI (engine.spi.AgentRuntimeHandler + optional AgentCardProvider + MessageAdapter + StreamAdapter + narrow MemoryProvider SPI; openJiuwen adapter first). Owns engine dispatch + Run lifecycle + session + task-centric control + internal event queue + access (A2A) + the bootable runtime application."
+description: "Framework-neutral agent-hosting runtime SDK: AgentRuntimeHandler SPI + A2A SDK bridge (task lifecycle/store/queue from the SDK's replaceable in-memory facilities; session persistence delegated to framework checkpointers) + trajectory observability + remote A2A tool invocation + northbound A2A access + embeddable entry app.RuntimeApp"
 architecture_doc: architecture/docs/L1/agent-runtime/README.md
 dfx_doc: docs/dfx/agent-runtime.yaml
 spi_packages:
-  # Framework-neutral runtime SPI: AgentRuntimeHandler, optional AgentCardProvider,
-  # MessageAdapter, StreamAdapter, and MemoryProvider - the
-  # per-framework plug-in surface (openJiuwen first).
+  # Framework-neutral runtime SPI: AgentRuntimeHandler, StreamAdapter, and
+  # MemoryProvider - the per-framework plug-in surface (openJiuwen first).
   - com.huawei.ascend.runtime.engine.spi
 allowed_dependencies: []   # no sibling-module dependencies; the only external protocol contract is the A2A SDK
 forbidden_dependencies:

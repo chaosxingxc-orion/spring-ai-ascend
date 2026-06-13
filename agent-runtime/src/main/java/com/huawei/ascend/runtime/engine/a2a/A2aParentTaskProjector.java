@@ -1,9 +1,12 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.a2aproject.sdk.server.agentexecution.RequestContext;
@@ -22,6 +25,7 @@ final class A2aParentTaskProjector {
     private static final Logger LOG = LoggerFactory.getLogger(A2aParentTaskProjector.class);
     private static final String WAITING_TARGET_REMOTE_AGENT = "REMOTE_AGENT";
     private static final String REMOTE_TERMINAL_RESULT_MISSING = "{\"error\":\"REMOTE_TERMINAL_RESULT_MISSING\"}";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     boolean isRemoteContinuation(RequestContext ctx) {
         Task task = ctx.getTask();
@@ -106,7 +110,8 @@ final class A2aParentTaskProjector {
                 case FAILED -> {
                     LOG.warn("[A2A] remote outcome=failed remoteAgentId={} error={}",
                             invocation.remoteAgentId(), safeText(result.text()));
-                    return RemoteOutcome.resumeWith(errorJson(safeText(result.text())));
+                    return RemoteOutcome.resumeWith(
+                            errorJson(safeText(result.text()), result.metadata().get("code")));
                 }
             }
         }
@@ -159,12 +164,24 @@ final class A2aParentTaskProjector {
         return text == null ? "" : text;
     }
 
-    private static String errorJson(String text) {
-        return "{\"error\":\"" + escapeJson(text) + "\"}";
-    }
-
-    private static String escapeJson(String text) {
-        return text.replace("\\", "\\\\").replace("\"", "\\\"");
+    /**
+     * Serializes the remote failure into the tool-result JSON via Jackson so error
+     * text with control characters or quotes stays parseable downstream; a stable
+     * {@code code} from the remote result metadata is passed through so the caller
+     * can branch on it (e.g. a timeout) instead of matching free text.
+     */
+    private static String errorJson(String text, Object code) {
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("error", text);
+        if (code != null) {
+            error.put("code", String.valueOf(code));
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(error);
+        } catch (JsonProcessingException e) {
+            // A map of strings cannot fail to serialize; surface loudly if it ever does.
+            throw new IllegalStateException("failed to serialize remote error result", e);
+        }
     }
 
     private static String string(Map<String, Object> metadata, String key) {

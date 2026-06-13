@@ -5,8 +5,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,7 +81,7 @@ public class VersatileMessageAdapter {
     // ── Body assembly ──
 
     private Map<String, Object> buildBody(AgentExecutionContext context) {
-        String query = lastUserText(context);
+        String query = context.lastUserText();
         LOG.info("versatile body query extracted chars={}", query.length());
 
         Map<String, Object> inputs = new LinkedHashMap<>();
@@ -107,33 +105,6 @@ public class VersatileMessageAdapter {
     }
 
     // ── Helpers ──
-
-    static String lastUserText(AgentExecutionContext context) {
-        List<Message> messages = context.getMessages();
-        if (messages == null || messages.isEmpty()) {
-            return "";
-        }
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            Message message = messages.get(i);
-            if (message != null && message.role() == Message.Role.ROLE_USER) {
-                return messageText(message);
-            }
-        }
-        return messageText(messages.get(messages.size() - 1));
-    }
-
-    private static String messageText(Message msg) {
-        if (msg == null || msg.parts() == null) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        for (var part : msg.parts()) {
-            if (part instanceof TextPart tp) {
-                sb.append(tp.text());
-            }
-        }
-        return sb.toString();
-    }
 
     private static String toHeaderName(String key) {
         if (key == null) {

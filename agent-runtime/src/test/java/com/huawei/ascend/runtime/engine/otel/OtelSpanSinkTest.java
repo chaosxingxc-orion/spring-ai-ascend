@@ -1,4 +1,4 @@
-package com.huawei.ascend.runtime.engine.a2a;
+package com.huawei.ascend.runtime.engine.otel;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

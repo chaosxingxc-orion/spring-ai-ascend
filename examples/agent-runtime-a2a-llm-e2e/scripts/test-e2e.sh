@@ -13,10 +13,10 @@ if [[ -f "$ENV_FILE" ]]; then
   set -a; . "$ENV_FILE"; set +a
   echo "loaded env: $ENV_FILE  (apiBase=${SAA_SAMPLE_AGENTSCOPE_API_BASE:-} model=${SAA_SAMPLE_LLM_MODEL:-})"
 else
-  echo "env file not found: $ENV_FILE — using process env / application.yaml defaults"
+  echo "env file not found: $ENV_FILE - using process env / application.yaml defaults"
 fi
 if [[ -z "${SAA_SAMPLE_LLM_API_KEY:-}" ]]; then
-  echo "WARNING: SAA_SAMPLE_LLM_API_KEY is blank — the real-LLM e2e branch will be SKIPPED (assumeTrue)."
+  echo "WARNING: SAA_SAMPLE_LLM_API_KEY is blank - the real-LLM e2e branch will be SKIPPED (assumeTrue)."
 fi
 cd "$REPO"
 ./mvnw -pl agent-runtime -am install -DskipTests -Dmaven.test.skip=true
@@ -24,8 +24,8 @@ cd "$REPO"
 # purpose is to run the suite, so the override is mandatory here.
 LOG_FILE="$(mktemp)"
 trap 'rm -f "$LOG_FILE"' EXIT
-./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml test -DskipTests=false | tee "$LOG_FILE"
+./mvnw -f examples/agent-runtime-a2a-llm-e2e/pom.xml clean test -DskipTests=false | tee "$LOG_FILE"
 if grep -q "Tests are skipped." "$LOG_FILE"; then
-  echo "ERROR: surefire skipped the tests — the E2E suite did not run." >&2
+  echo "ERROR: surefire skipped the tests - the E2E suite did not run." >&2
   exit 1
 fi

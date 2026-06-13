@@ -11,5 +11,8 @@
 #
 # Authority: ADR-0069 (L0 ironclad rules); CLAUDE-deferred.md 40.b
 # (W2 trigger: ship V3 migration enabling RLS on idempotency_dedup).
-
-agent-runtime/src/main/resources/db/migration/V2__idempotency_dedup.sql
+#
+# (empty) — the formerly grandfathered V2__idempotency_dedup.sql was removed
+# together with the rest of the dead db/migration scripts that the
+# agent-runtime library jar wrongly shipped; no Flyway migration exists in
+# the repo today, so there is nothing to grandfather.

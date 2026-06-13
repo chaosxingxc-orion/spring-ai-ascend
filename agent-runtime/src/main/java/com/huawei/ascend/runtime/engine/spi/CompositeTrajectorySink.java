@@ -14,6 +14,11 @@ public final class CompositeTrajectorySink implements TrajectorySink {
     private static final Logger LOG = LoggerFactory.getLogger(CompositeTrajectorySink.class);
 
     private final List<TrajectorySink> sinks;
+    // Retained from onOpen and inlined into the failure WARN: emission may run on a
+    // framework worker thread where the executor's MDC is not visible, and a sink
+    // failure is exactly the moment the log must still say whose run was affected.
+    private volatile String contextId = "";
+    private volatile String taskId = "";
 
     public CompositeTrajectorySink(List<TrajectorySink> sinks) {
         this.sinks = List.copyOf(sinks);
@@ -21,6 +26,8 @@ public final class CompositeTrajectorySink implements TrajectorySink {
 
     @Override
     public void onOpen(String contextId, String taskId) {
+        this.contextId = contextId != null ? contextId : "";
+        this.taskId = taskId != null ? taskId : "";
         for (TrajectorySink sink : sinks) {
             safe(sink, () -> sink.onOpen(contextId, taskId));
         }
@@ -40,12 +47,13 @@ public final class CompositeTrajectorySink implements TrajectorySink {
         }
     }
 
-    private static void safe(TrajectorySink sink, Runnable action) {
+    private void safe(TrajectorySink sink, Runnable action) {
         try {
             action.run();
         } catch (RuntimeException e) {
-            LOG.warn("trajectory sink failed sink={} errorClass={} message={}",
-                    sink.getClass().getSimpleName(), e.getClass().getSimpleName(), e.getMessage());
+            LOG.warn("trajectory sink failed contextId={} taskId={} sink={} errorClass={} message={}",
+                    contextId, taskId, sink.getClass().getSimpleName(),
+                    e.getClass().getSimpleName(), e.getMessage());
         }
     }
 }

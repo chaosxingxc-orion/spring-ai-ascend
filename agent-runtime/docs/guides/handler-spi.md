@@ -36,7 +36,7 @@ public interface AgentRuntimeHandler {
 | 方法 | 返回值 | 说明 |
 |---|---|---|
 | `getScope()` | `ExecutionScope` | tenantId, sessionId, taskId, agentId, userId |
-| `getMessages()` | `List<Message>` | 请求中的 A2A 消息列表 |
+| `getMessages()` | `List<RuntimeMessage>` | 协议中立的会话消息列表（`role` / `text` / `metadata`）；`lastUserText()` 提供规范的最近用户文本抽取 |
 | `getInputType()` | `String` | 输入模式（如 "text"） |
 | `getAgentStateKey()` | `String` | Agent 作用域稳定键（对应 conversation_id） |
 

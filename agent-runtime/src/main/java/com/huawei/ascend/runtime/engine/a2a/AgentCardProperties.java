@@ -1,11 +1,7 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
-import java.util.List;
-import org.a2aproject.sdk.spec.AgentCapabilities;
 import org.a2aproject.sdk.spec.AgentCard;
-import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.AgentProvider;
-import org.a2aproject.sdk.spec.TransportProtocol;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -42,7 +38,12 @@ public class AgentCardProperties {
     /** Organization name in the card's provider block. Defaults to {@code "spring-ai-ascend"}. */
     private String organization;
 
-    /** Organization URL in the card's provider block. Defaults to {@code "http://localhost:8080"}. */
+    /**
+     * Organization URL in the card's provider block. Defaults to blank, which the
+     * discovery controller rewrites to the published base (public-base-url or
+     * request-derived) at serve time, so the default card never leaks a
+     * hardcoded host.
+     */
     private String organizationUrl;
 
     /** A2A endpoint path. Defaults to {@code "/a2a"}. */
@@ -73,34 +74,26 @@ public class AgentCardProperties {
 
     /**
      * Build an {@link AgentCard} using this properties object's values for
-     * any set fields, with sensible defaults for unset fields.
+     * any set fields, with sensible defaults for unset fields. Delegates to
+     * {@link AgentCards} for the canonical card shape — a second inline copy
+     * here meant every card fix had to land twice.
      *
      * @param name the card name (non-blank; supplied by the caller)
      */
     public AgentCard createAgentCard(String name) {
-        String resolvedDescription = blankToDefault(description, "agent-runtime");
-        String resolvedVersion = blankToDefault(version, "0.1.0");
-        String resolvedEndpoint = blankToDefault(endpoint, "/a2a");
-        String resolvedOrg = blankToDefault(organization, "spring-ai-ascend");
-        String resolvedOrgUrl = blankToDefault(organizationUrl, "http://localhost:8080");
-
-        AgentCapabilities capabilities = AgentCapabilities.builder()
-                .streaming(true)
-                .pushNotifications(true)
-                .extendedAgentCard(false)
-                .build();
-        return AgentCard.builder()
-                .name(name)
-                .description(resolvedDescription)
-                .url(resolvedEndpoint)
-                .version(resolvedVersion)
-                .provider(new AgentProvider(resolvedOrg, resolvedOrgUrl))
-                .capabilities(capabilities)
-                .defaultInputModes(List.of("text"))
-                .defaultOutputModes(List.of("text", "artifact"))
-                .skills(List.of())
-                .supportedInterfaces(List.of(new AgentInterface(TransportProtocol.JSONRPC.asString(), resolvedEndpoint)))
-                .preferredTransport(TransportProtocol.JSONRPC.asString())
+        AgentCard card = AgentCards.create(name,
+                blankToDefault(description, "agent-runtime"),
+                blankToDefault(version, "0.1.0"),
+                blankToDefault(endpoint, "/a2a"));
+        boolean hasOrganization = organization != null && !organization.isBlank();
+        boolean hasOrganizationUrl = organizationUrl != null && !organizationUrl.isBlank();
+        if (!hasOrganization && !hasOrganizationUrl) {
+            return card;
+        }
+        return AgentCard.builder(card)
+                .provider(new AgentProvider(
+                        blankToDefault(organization, "spring-ai-ascend"),
+                        blankToDefault(organizationUrl, "")))
                 .build();
     }
 

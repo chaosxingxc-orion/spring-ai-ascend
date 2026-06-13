@@ -32,6 +32,10 @@ import org.slf4j.LoggerFactory;
  * runtime-facing execute flow, rail installation, input/result mapping, and
  * stable {@code conversation_id}. openJiuwen session persistence is delegated to
  * its native checkpointer mechanism.
+ *
+ * <p>{@code runOpenJiuwenAgent} is a synchronous call: the result is fully
+ * computed before it is wrapped in a stream, so a cancel does not interrupt an
+ * in-progress run — it only stops the host from consuming the finished result.
  */
 public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntimeHandler {
 
@@ -357,14 +361,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         }
 
         private String latestUserInput() {
-            List<org.a2aproject.sdk.spec.Message> messages = executionContext.getMessages();
-            for (int i = messages.size() - 1; i >= 0; i--) {
-                org.a2aproject.sdk.spec.Message message = messages.get(i);
-                if (message != null && message.role() == org.a2aproject.sdk.spec.Message.Role.ROLE_USER) {
-                    return OpenJiuwenMessageAdapter.messageText(message);
-                }
-            }
-            return "";
+            return executionContext.lastUserText();
         }
 
         private static String formatMemoryBlock(List<MemoryProvider.MemoryHit> hits) {

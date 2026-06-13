@@ -3,7 +3,7 @@ package com.huawei.ascend.runtime.engine.openjiuwen;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
+import com.huawei.ascend.runtime.engine.spi.RemoteAgentToolSpec;
 import com.openjiuwen.core.foundation.llm.schema.ToolCall;
 import com.openjiuwen.core.singleagent.interrupt.InterruptRequest;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
@@ -24,16 +24,16 @@ public final class OpenJiuwenRemoteAgentInterruptRail extends BaseInterruptRail 
     };
 
     private final AgentExecutionContext executionContext;
-    private final Map<String, RemoteAgentCardCache.RemoteAgentToolSpec> specsByToolName;
+    private final Map<String, RemoteAgentToolSpec> specsByToolName;
 
     public OpenJiuwenRemoteAgentInterruptRail(AgentExecutionContext executionContext,
-            List<RemoteAgentCardCache.RemoteAgentToolSpec> toolSpecs) {
+            List<RemoteAgentToolSpec> toolSpecs) {
         super(toolNames(toolSpecs));
         this.executionContext = Objects.requireNonNull(executionContext, "executionContext");
-        this.specsByToolName = (toolSpecs == null ? List.<RemoteAgentCardCache.RemoteAgentToolSpec>of() : toolSpecs)
+        this.specsByToolName = (toolSpecs == null ? List.<RemoteAgentToolSpec>of() : toolSpecs)
                 .stream()
                 .collect(Collectors.toMap(
-                        RemoteAgentCardCache.RemoteAgentToolSpec::toolName,
+                        RemoteAgentToolSpec::toolName,
                         Function.identity(),
                         (left, right) -> left,
                         LinkedHashMap::new));
@@ -42,7 +42,7 @@ public final class OpenJiuwenRemoteAgentInterruptRail extends BaseInterruptRail 
     @Override
     protected InterruptDecision resolveInterrupt(AgentCallbackContext ctx, ToolCall toolCall, Object userInput) {
         String toolName = toolCall == null ? "" : toolCall.getName();
-        RemoteAgentCardCache.RemoteAgentToolSpec spec = specsByToolName.get(toolName);
+        RemoteAgentToolSpec spec = specsByToolName.get(toolName);
         if (spec == null) {
             return approve();
         }
@@ -66,10 +66,10 @@ public final class OpenJiuwenRemoteAgentInterruptRail extends BaseInterruptRail 
                 .build());
     }
 
-    private static List<String> toolNames(List<RemoteAgentCardCache.RemoteAgentToolSpec> toolSpecs) {
-        return (toolSpecs == null ? List.<RemoteAgentCardCache.RemoteAgentToolSpec>of() : toolSpecs)
+    private static List<String> toolNames(List<RemoteAgentToolSpec> toolSpecs) {
+        return (toolSpecs == null ? List.<RemoteAgentToolSpec>of() : toolSpecs)
                 .stream()
-                .map(RemoteAgentCardCache.RemoteAgentToolSpec::toolName)
+                .map(RemoteAgentToolSpec::toolName)
                 .toList();
     }
 

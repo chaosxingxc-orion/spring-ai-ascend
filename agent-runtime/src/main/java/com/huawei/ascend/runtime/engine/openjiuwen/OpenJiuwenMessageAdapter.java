@@ -1,11 +1,8 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
-import com.huawei.ascend.runtime.engine.a2a.Messages;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.openjiuwen.core.session.interaction.InteractiveInput;
-import org.a2aproject.sdk.spec.Message;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 public class OpenJiuwenMessageAdapter {
@@ -15,7 +12,7 @@ public class OpenJiuwenMessageAdapter {
             return remoteResumeInput(context);
         }
         Map<String, Object> input = new LinkedHashMap<>();
-        input.put("query", lastUserText(context));
+        input.put("query", context.lastUserText());
         input.put("conversation_id", context.getAgentStateKey());
         return input;
     }
@@ -29,29 +26,5 @@ public class OpenJiuwenMessageAdapter {
         input.put("query", interactiveInput);
         input.put("conversation_id", context.getAgentStateKey());
         return input;
-    }
-
-    private String lastUserText(AgentExecutionContext context) {
-        List<Message> messages = context.getMessages();
-        if (messages.isEmpty()) {
-            return "";
-        }
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            Message message = messages.get(i);
-            if (message != null && message.role() == Message.Role.ROLE_USER) {
-                return messageText(message);
-            }
-        }
-        // No user turn at all — fall back to the newest message regardless of role
-        // so the agent still receives a query rather than an empty string.
-        return messageText(messages.get(messages.size() - 1));
-    }
-
-    /**
-     * Extracts concatenated text from A2A SDK Message parts. Replaces the former
-     * {@code common.Message.text()} method that iterated Content parts.
-     */
-    public static String messageText(Message msg) {
-        return Messages.text(msg);
     }
 }

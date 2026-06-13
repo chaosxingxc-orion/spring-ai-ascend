@@ -29,6 +29,7 @@ class RuntimePackageBoundaryTest {
                         "com.huawei.ascend.runtime.engine.a2a..",
                         "com.huawei.ascend.runtime.engine.agentscope..",
                         "com.huawei.ascend.runtime.engine.openjiuwen..",
+                        "com.huawei.ascend.runtime.engine.otel..",
                         "com.huawei.ascend.runtime.engine.versatile..",
                         "com.huawei.ascend.runtime.engine.spi..")
                 .allowEmptyShould(false);
@@ -99,28 +100,72 @@ class RuntimePackageBoundaryTest {
                         "com.huawei.ascend.runtime.common",
                         "java..",
                         "org.slf4j..",
-                        "org.springframework.util",
-                        "org.a2aproject.sdk.spec..")
+                        "org.springframework.util")
                 .allowEmptyShould(false);
         rule.check(RUNTIME_CLASSES);
     }
 
     @Test
     void commonDependsOnlyOnTheJdk() {
-        ArchRule rule = noClasses()
+        ArchRule rule = classes()
                 .that().resideInAPackage("..runtime.common..")
-                .should().dependOnClassesThat()
+                .should().onlyDependOnClassesThat()
                 .resideInAnyPackage(
-                        "..runtime.access..",
-                        "..runtime.session..",
-                        "..runtime.queue..",
-                        "..runtime.control..",
-                        "..runtime.engine..",
-                        "..runtime.app..",
-                        "..runtime.boot..",
-                        "org.springframework..",
-                        "org.a2aproject..",
-                        "com.openjiuwen..");
+                        "com.huawei.ascend.runtime.common..",
+                        "java..")
+                .allowEmptyShould(false);
+        rule.check(RUNTIME_CLASSES);
+    }
+
+    @Test
+    void protocolNeutralPackagesAreA2aSdkFree() {
+        // Executable form of the L1 neutrality assertion (logical.md): the SPI,
+        // the neutral context in the engine root, engine.otel, common, and the
+        // framework adapters never see A2A wire types. The packages allowed to
+        // touch org.a2aproject are the protocol bridge (engine.a2a), boot
+        // wiring, and the versatile REST adapter (which provides its own A2A
+        // card metadata).
+        ArchRule rule = noClasses()
+                .that().resideInAnyPackage(
+                        "com.huawei.ascend.runtime.engine",
+                        "com.huawei.ascend.runtime.engine.spi..",
+                        "com.huawei.ascend.runtime.engine.otel..",
+                        "com.huawei.ascend.runtime.common..",
+                        "com.huawei.ascend.runtime.engine.agentscope..",
+                        "com.huawei.ascend.runtime.engine.openjiuwen..")
+                .should().dependOnClassesThat()
+                .resideInAnyPackage("org.a2aproject..")
+                .allowEmptyShould(false);
+        rule.check(RUNTIME_CLASSES);
+    }
+
+    @Test
+    void frameworkAdaptersDoNotDependOnTheA2aBridge() {
+        // Adapters consume the neutral SPI only; a convenience import of bridge
+        // machinery (executor, Messages, projector) would silently re-couple
+        // them to the protocol layer.
+        ArchRule rule = noClasses()
+                .that().resideInAnyPackage(
+                        "com.huawei.ascend.runtime.engine.agentscope..",
+                        "com.huawei.ascend.runtime.engine.openjiuwen..")
+                .should().dependOnClassesThat()
+                .resideInAnyPackage("com.huawei.ascend.runtime.engine.a2a..")
+                .allowEmptyShould(false);
+        rule.check(RUNTIME_CLASSES);
+    }
+
+    @Test
+    void a2aServerMachineryStaysInBridgeAndBoot() {
+        // The heavy A2A server machinery (RequestContext, AgentEmitter, task
+        // stores, request handlers) is confined to the protocol bridge and the
+        // boot wiring; everything else consumes the neutral SPI.
+        ArchRule rule = noClasses()
+                .that().resideOutsideOfPackages(
+                        "com.huawei.ascend.runtime.engine.a2a..",
+                        "com.huawei.ascend.runtime.boot..")
+                .should().dependOnClassesThat()
+                .resideInAnyPackage("org.a2aproject.sdk.server..")
+                .allowEmptyShould(false);
         rule.check(RUNTIME_CLASSES);
     }
 }

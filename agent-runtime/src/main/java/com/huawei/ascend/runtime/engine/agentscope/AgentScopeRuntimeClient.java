@@ -4,27 +4,18 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.huawei.ascend.runtime.engine.a2a.Messages;
-import org.a2aproject.sdk.spec.Message;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
+import com.huawei.ascend.runtime.engine.SseEventDecoder;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.concurrent.CompletionException;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 public final class AgentScopeRuntimeClient implements AutoCloseable {
 
@@ -101,74 +92,19 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
     }
 
     private Stream<Map<String, Object>> readEvents(Stream<String> lines) {
-        Iterator<String> iterator = lines.iterator();
-        Spliterator<Map<String, Object>> spliterator =
-                new Spliterators.AbstractSpliterator<>(Long.MAX_VALUE, Spliterator.ORDERED | Spliterator.NONNULL) {
-                    private final StringBuilder data = new StringBuilder();
-                    private final Deque<Map<String, Object>> pending = new ArrayDeque<>();
-                    private boolean hasData;
-                    private boolean terminated;
-
-                    @Override
-                    public boolean tryAdvance(Consumer<? super Map<String, Object>> action) {
-                        while (true) {
-                            Map<String, Object> event = pending.poll();
-                            if (event != null) {
-                                action.accept(event);
-                                return true;
-                            }
-                            if (terminated) {
-                                return false;
-                            }
-                            String line;
-                            try {
-                                if (!iterator.hasNext()) {
-                                    terminated = true;
-                                    flush();
-                                    continue;
-                                }
-                                line = iterator.next();
-                            } catch (RuntimeException ex) {
-                                // A connection dropped mid-stream must surface as a structured
-                                // failure event, matching the connect-time AGENTSCOPE_RUNTIME_IO path.
-                                terminated = true;
-                                action.accept(ioFailure(ex));
-                                return true;
-                            }
-                            if (line.isBlank()) {
-                                flush();
-                            } else if (line.startsWith("data:")) {
-                                appendData(line.substring("data:".length()));
-                            }
-                        }
+        // AgentScope's dialect carries no meaningful event: names, so frames are
+        // decoded data-only and data-less frames are dropped.
+        return SseEventDecoder.frames(lines, false, false)
+                .flatMap(frame -> {
+                    if (frame.failure() != null) {
+                        return Stream.of(ioFailure(frame.failure()));
                     }
-
-                    private void appendData(String value) {
-                        if (value.startsWith(" ")) {
-                            value = value.substring(1);
-                        }
-                        if (hasData) {
-                            data.append('\n');
-                        }
-                        data.append(value);
-                        hasData = true;
+                    String sentinel = frame.data().trim();
+                    if (sentinel.isEmpty() || "[DONE]".equals(sentinel) || "null".equals(sentinel)) {
+                        return Stream.empty();
                     }
-
-                    private void flush() {
-                        if (!hasData) {
-                            return;
-                        }
-                        String eventData = data.toString();
-                        data.setLength(0);
-                        hasData = false;
-                        String sentinel = eventData.trim();
-                        if (sentinel.isEmpty() || "[DONE]".equals(sentinel) || "null".equals(sentinel)) {
-                            return;
-                        }
-                        pending.addAll(readEventBlock(eventData));
-                    }
-                };
-        return StreamSupport.stream(spliterator, false).onClose(lines::close);
+                    return readEventBlock(frame.data()).stream();
+                });
     }
 
     private HttpResponse<Stream<String>> send(HttpRequest request) {
@@ -179,16 +115,7 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
         return Map.of(
                 "status", "error",
                 "error_code", "AGENTSCOPE_RUNTIME_IO",
-                "message", failureMessage(ex));
-    }
-
-    private static String failureMessage(RuntimeException ex) {
-        Throwable failure = ex;
-        while ((failure instanceof CompletionException || failure instanceof UncheckedIOException)
-                && failure.getCause() != null) {
-            failure = failure.getCause();
-        }
-        return failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
+                "message", SseEventDecoder.failureMessage(ex));
     }
 
     private Map<String, Object> requestBody(AgentScopeInvocation invocation) {
@@ -210,18 +137,18 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
         return body;
     }
 
-    private List<Map<String, Object>> input(List<Message> messages) {
+    private List<Map<String, Object>> input(List<RuntimeMessage> messages) {
         List<Map<String, Object>> result = new ArrayList<>();
-        for (Message message : messages) {
+        for (RuntimeMessage message : messages) {
             result.add(Map.of(
                     "role", toAgentScopeRole(message.role()),
-                    "content", List.of(Map.of("type", "text", "text", Messages.text(message)))));
+                    "content", List.of(Map.of("type", "text", "text", message.text()))));
         }
         return result;
     }
 
-    private static String toAgentScopeRole(Message.Role role) {
-        return role == Message.Role.ROLE_AGENT ? "assistant" : "user";
+    private static String toAgentScopeRole(RuntimeMessage.Role role) {
+        return role == RuntimeMessage.Role.AGENT ? "assistant" : "user";
     }
 
     private String toJson(Map<String, Object> body) {

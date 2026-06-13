@@ -3,6 +3,7 @@ package com.huawei.ascend.runtime.engine.openjiuwen;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
@@ -37,8 +38,6 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import org.a2aproject.sdk.spec.Message;
-import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -303,12 +302,8 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     }
 
     private static AgentExecutionContext context(Map<String, Object> variables) {
-        Message message = Message.builder()
-                .role(Message.Role.ROLE_USER)
-                .parts(List.of(new TextPart("ping")))
-                .build();
         return new AgentExecutionContext(new RuntimeIdentity("tenant", "user", "session", "task", "agent"),
-                "USER_MESSAGE", List.of(message), variables);
+                "USER_MESSAGE", List.of(RuntimeMessage.user("ping")), variables);
     }
 
     private static class TestOpenJiuwenHandler extends OpenJiuwenAgentRuntimeHandler {

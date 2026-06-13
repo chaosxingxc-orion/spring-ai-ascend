@@ -150,12 +150,10 @@ protected BaseAgent createOpenJiuwenAgent(AgentExecutionContext context) {
 
 ```
 ┌──────────────────────────────────────────┐
-│ A2aClientAutoConfiguration               │
-│   └─ RemoteConfiguration（条件激活）      │
-│       ├─ RemoteAgentCardCache            │ 缓存所有远端 Agent Card
-│       ├─ A2aRemoteAgentOutboundAdapter   │ 发送 A2A 请求到指定远端
-│       ├─ RemoteAgentInvocationService    │ 路由调用到具体远端 Agent
-│       └─ RemoteSupport                   │ 供 A2aAgentExecutor 使用
+│ A2aClientAutoConfiguration（条件激活）    │
+│   ├─ RemoteAgentCardCache                │ 缓存所有远端 Agent Card（全量刷新，sticky id）
+│   ├─ A2aRemoteAgentOutboundAdapter       │ 发送 A2A 请求到指定远端（按端点缓存 transport）
+│   └─ RemoteAgentInvocationService        │ 路由调用到具体远端 Agent，注入 A2aAgentExecutor
 ├──────────────────────────────────────────┤
 │ OpenJiuwenRemoteToolInstaller            │ 汇总所有远端 tool 并安装
 └──────────────────────────────────────────┘

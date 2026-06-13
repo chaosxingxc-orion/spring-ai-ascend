@@ -1,12 +1,14 @@
 package com.huawei.ascend.runtime.engine.agentscope;
 
-import org.a2aproject.sdk.spec.Message;
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 /**
- * Framework-neutral invocation handed to AgentScope SDK or runtime-client bridges.
+ * Invocation handed to AgentScope SDK or runtime-client bridges. Carries only
+ * runtime-native types ({@link RuntimeMessage} as the message model), so
+ * AgentScope-side consumers never depend on a wire protocol.
  */
 public record AgentScopeInvocation(
         String tenantId,
@@ -15,7 +17,7 @@ public record AgentScopeInvocation(
         String taskId,
         String agentId,
         String inputType,
-        List<Message> messages,
+        List<RuntimeMessage> messages,
         Map<String, Object> variables,
         Map<String, Object> metadata) {
 

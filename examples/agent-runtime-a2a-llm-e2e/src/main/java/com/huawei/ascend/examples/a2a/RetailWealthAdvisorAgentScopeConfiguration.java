@@ -1,5 +1,6 @@
 package com.huawei.ascend.examples.a2a;
 
+import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeAgent;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.agentscope.AgentScopeEvent;
@@ -30,7 +31,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.a2aproject.sdk.spec.Message;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -169,11 +169,11 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
                     .role(MsgRole.SYSTEM)
                     .textContent(skillSnapshot(customerId))
                     .build());
-            for (Message message : invocation.messages()) {
+            for (RuntimeMessage message : invocation.messages()) {
                 messages.add(Msg.builder()
                         .name(name)
                         .role(AgentScopeWireMessages.toMsgRole(message))
-                        .textContent(AgentScopeWireMessages.text(message))
+                        .textContent(message.text())
                         .metadata(Map.of(
                                 "tenantId", invocation.tenantId(),
                                 "sessionId", invocation.sessionId(),
@@ -210,7 +210,7 @@ public class RetailWealthAdvisorAgentScopeConfiguration {
 
         private String customerId(AgentScopeInvocation invocation) {
             String input = invocation.messages().stream()
-                    .map(AgentScopeWireMessages::text)
+                    .map(RuntimeMessage::text)
                     .collect(Collectors.joining("\n"));
             Matcher matcher = CUSTOMER_ID_PATTERN.matcher(input);
             if (matcher.find()) {
