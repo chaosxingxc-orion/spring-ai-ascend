@@ -37,9 +37,9 @@ public final class A2aAgentCardMapper {
     /**
      * Maps a neutral {@link AgentCardDescriptor} to a wire-ready {@link AgentCard}.
      *
-     * <p>Blank/null fields draw the same production-safe defaults that
-     * {@link AgentCards#create} applied before this mapper existed, ensuring
-     * behaviour-preserving output for all callers that do not set optional fields.
+     * <p>Blank/null fields draw fail-safe defaults: streaming=false, push=false,
+     * outputModes=["text"]. The boot configuration populates these from the
+     * registered handler's declared metadata before calling this method.
      */
     public static AgentCard toAgentCard(AgentCardDescriptor d) {
         String version = blankToDefault(d.version(), "0.1.0");
@@ -50,8 +50,7 @@ public final class A2aAgentCardMapper {
         AgentCapabilities capabilities = toCapabilities(d);
 
         List<String> inputModes = d.defaultInputModes().isEmpty() ? List.of("text") : d.defaultInputModes();
-        List<String> outputModes = d.defaultOutputModes().isEmpty()
-                ? List.of("text", "artifact") : d.defaultOutputModes();
+        List<String> outputModes = d.defaultOutputModes().isEmpty() ? List.of("text") : d.defaultOutputModes();
 
         List<AgentSkill> skills = d.skills().stream()
                 .map(A2aAgentCardMapper::toSkill)
@@ -106,9 +105,10 @@ public final class A2aAgentCardMapper {
 
     private static AgentCapabilities toCapabilities(AgentCardDescriptor d) {
         if (d.capabilities() == null) {
+            // Fail-safe: no capabilities declared means none advertised.
             return AgentCapabilities.builder()
-                    .streaming(true)
-                    .pushNotifications(true)
+                    .streaming(false)
+                    .pushNotifications(false)
                     .extendedAgentCard(false)
                     .build();
         }
@@ -155,11 +155,13 @@ public final class A2aAgentCardMapper {
     private static List<AgentInterface> buildInterfaces(String endpoint,
             List<AgentInterfaceDescriptor> additional) {
         var interfaces = new java.util.ArrayList<AgentInterface>();
+        // The 2-arg constructor sets protocolVersion = AgentInterface.CURRENT_PROTOCOL_VERSION automatically.
         interfaces.add(new AgentInterface(TransportProtocol.JSONRPC.asString(), endpoint));
         for (AgentInterfaceDescriptor extra : additional) {
             if (extra.protocolVersion() != null) {
+                // 4-arg: (protocolBinding, url, tenant="", protocolVersion) — tenant required non-null.
                 interfaces.add(new AgentInterface(extra.protocolBinding(), extra.path(),
-                        extra.protocolVersion()));
+                        "", extra.protocolVersion()));
             } else {
                 interfaces.add(new AgentInterface(extra.protocolBinding(), extra.path()));
             }

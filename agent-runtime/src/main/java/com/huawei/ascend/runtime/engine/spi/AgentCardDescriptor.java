@@ -47,8 +47,12 @@ public record AgentCardDescriptor(
 
     /**
      * Minimal entry-point: name and description are required; every other field
-     * gets its default (version {@code "0.1.0"}, endpoint {@code "/a2a"},
-     * provider {@code "spring-ai-ascend"}, capabilities streaming+push on).
+     * gets its fail-safe default (version {@code "0.1.0"}, endpoint {@code "/a2a"},
+     * provider {@code "spring-ai-ascend"}, capabilities streaming=false/push=false,
+     * outputModes=["text"]).
+     *
+     * <p>The boot configuration overrides capabilities and modes from the registered
+     * handler's declared metadata, so the descriptor default is intentionally conservative.
      */
     public static AgentCardDescriptor of(String name, String description) {
         return new AgentCardDescriptor(
@@ -63,7 +67,7 @@ public record AgentCardDescriptor(
                 null,
                 AgentCapabilitiesDescriptor.defaults(),
                 List.of("text"),
-                List.of("text", "artifact"),
+                List.of("text"),
                 null,
                 null,
                 null,

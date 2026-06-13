@@ -139,6 +139,14 @@
     <resources>
       <resource>
         <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
+      <!-- Maven-filtered build metadata: agent-runtime-build.properties carries
+           ${project.version} so the agent card can advertise the actual build version
+           rather than the hardcoded "0.1.0" fallback. -->
+      <resource>
+        <directory>src/main/resources-filtered</directory>
+        <filtering>true</filtering>
       </resource>
       <!-- Bundle the S2C callback contract onto the classpath for the access layer.
            (engine-envelope / engine-hooks are retired by the pure rebuild and are

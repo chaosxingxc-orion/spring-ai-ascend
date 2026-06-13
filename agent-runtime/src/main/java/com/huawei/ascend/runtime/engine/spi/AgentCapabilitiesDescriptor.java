@@ -11,9 +11,14 @@ public record AgentCapabilitiesDescriptor(
         boolean pushNotifications,
         boolean extendedAgentCard) {
 
-    /** Default capabilities: streaming on, pushNotifications on, extended off (matching the current default card). */
+    /**
+     * Fail-safe capability baseline: streaming off, pushNotifications off, extended off.
+     * A handler opts in by overriding {@link AgentRuntimeHandler#supportsStreaming()} or by
+     * supplying a durable {@code PushNotificationConfigStore} bean. This default prevents
+     * the card from advertising capabilities the handler does not actually provide.
+     */
     public static AgentCapabilitiesDescriptor defaults() {
-        return new AgentCapabilitiesDescriptor(true, true, false);
+        return new AgentCapabilitiesDescriptor(false, false, false);
     }
 
     /** All flags false — useful as an explicit zero baseline. */

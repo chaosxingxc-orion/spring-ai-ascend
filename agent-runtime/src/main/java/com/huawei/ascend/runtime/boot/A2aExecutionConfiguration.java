@@ -3,7 +3,10 @@ package com.huawei.ascend.runtime.boot;
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentCardMapper;
 import com.huawei.ascend.runtime.engine.a2a.A2aAgentExecutor;
 import com.huawei.ascend.runtime.engine.a2a.AgentCards;
+import com.huawei.ascend.runtime.engine.a2a.BuildVersion;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentInvocationService;
+import com.huawei.ascend.runtime.engine.spi.AgentCapabilitiesDescriptor;
+import com.huawei.ascend.runtime.engine.spi.AgentCardDescriptor;
 import com.huawei.ascend.runtime.engine.spi.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.Redactor;
@@ -14,6 +17,7 @@ import org.a2aproject.sdk.server.events.MainEventBusProcessor;
 import org.a2aproject.sdk.server.events.QueueManager;
 import org.a2aproject.sdk.server.requesthandlers.DefaultRequestHandler;
 import org.a2aproject.sdk.server.requesthandlers.RequestHandler;
+import org.a2aproject.sdk.server.tasks.InMemoryPushNotificationConfigStore;
 import org.a2aproject.sdk.server.tasks.PushNotificationConfigStore;
 import org.a2aproject.sdk.server.tasks.TaskStore;
 import org.a2aproject.sdk.spec.AgentCard;
@@ -74,38 +78,80 @@ class A2aExecutionConfiguration {
      * configured {@code default-agent-id} selects among registered handlers (with
      * a WARN when it matches none), then the first registered handler. When an
      * {@link AgentCardProvider} bean is present, its descriptor is mapped to wire
-     * via {@link A2aAgentCardMapper}; otherwise the card is built from
-     * {@link AgentCards#defaultDescriptor(String, String, String, String, String, String)}.
+     * via {@link A2aAgentCardMapper}; otherwise the card is built from handler-declared
+     * metadata ({@code supportsStreaming()}, {@code skills()}, {@code defaultOutputModes()})
+     * combined with push-store durability detection and the build version.
+     *
+     * <p>Capability honesty rules:
+     * <ul>
+     *   <li>{@code capabilities.streaming}: derived from the registered handler's
+     *       {@link AgentRuntimeHandler#supportsStreaming()} (default false).</li>
+     *   <li>{@code capabilities.pushNotifications}: true only when the configured
+     *       {@code PushNotificationConfigStore} is NOT the in-memory default
+     *       (durable replacement signals cross-instance push support).</li>
+     *   <li>{@code defaultOutputModes}: derived from the handler's
+     *       {@link AgentRuntimeHandler#defaultOutputModes()} (default ["text"]).</li>
+     * </ul>
      */
     @Bean @ConditionalOnMissingBean
     public AgentCard a2aAgentCard(ObjectProvider<AgentCardProvider> cardProviders,
                                    ObjectProvider<AgentRuntimeHandler> handlers,
+                                   PushNotificationConfigStore pushStore,
                                    RuntimeAccessProperties access,
                                    AgentCardProperties cardProperties) {
         var cp = cardProviders.getIfAvailable();
         if (cp != null) {
             return A2aAgentCardMapper.toAgentCard(cp.describe());
         }
+
+        // Resolve the card name from YAML, configured default-agent-id, or first handler.
         String name;
+        AgentRuntimeHandler handler = null;
         if (cardProperties.hasExplicitName()) {
             name = cardProperties.getName();
         } else {
-            List<String> agentIds = handlers.orderedStream().map(AgentRuntimeHandler::agentId).toList();
+            List<AgentRuntimeHandler> registered = handlers.orderedStream().toList();
+            List<String> agentIds = registered.stream().map(AgentRuntimeHandler::agentId).toList();
             String configured = access.getDefaultAgentId();
             if (configured != null && !configured.isBlank() && agentIds.contains(configured.trim())) {
                 name = configured.trim();
+                handler = registered.stream()
+                        .filter(h -> h.agentId().equals(name))
+                        .findFirst().orElse(null);
             } else {
                 if (configured != null && !configured.isBlank()) {
                     log.warn("agent-runtime.access.a2a.default-agent-id '{}' matches no registered handler;"
                             + " available agent ids: {}", configured.trim(), agentIds);
                 }
                 name = agentIds.isEmpty() ? "agent" : agentIds.get(0);
+                handler = registered.isEmpty() ? null : registered.get(0);
             }
         }
-        return A2aAgentCardMapper.toAgentCard(AgentCards.defaultDescriptor(name,
-                cardProperties.getDescription(), cardProperties.getVersion(),
+
+        // Derive version: YAML override wins; fall back to build version.
+        String version = (cardProperties.getVersion() != null && !cardProperties.getVersion().isBlank())
+                ? cardProperties.getVersion()
+                : BuildVersion.resolve();
+
+        // Capability honesty: streaming from handler, push from store durability.
+        boolean streaming = handler != null && handler.supportsStreaming();
+        boolean pushNotifications = !(pushStore instanceof InMemoryPushNotificationConfigStore);
+        AgentCapabilitiesDescriptor caps = new AgentCapabilitiesDescriptor(streaming, pushNotifications, false);
+
+        // Skills and output modes from handler (empty / ["text"] when no handler).
+        List<com.huawei.ascend.runtime.engine.spi.AgentSkillDescriptor> skills =
+                handler != null ? handler.skills() : List.of();
+        List<String> outputModes = handler != null ? handler.defaultOutputModes() : List.of("text");
+
+        AgentCardDescriptor descriptor = AgentCards.defaultDescriptor(name,
+                cardProperties.getDescription(), version,
                 cardProperties.getEndpoint(), cardProperties.getOrganization(),
-                cardProperties.getOrganizationUrl()));
+                cardProperties.getOrganizationUrl())
+                .withCapabilities(caps)
+                .withSkills(skills)
+                .withDefaultOutputModes(outputModes);
+
+        return A2aAgentCardMapper.toAgentCard(descriptor);
     }
 
     /**

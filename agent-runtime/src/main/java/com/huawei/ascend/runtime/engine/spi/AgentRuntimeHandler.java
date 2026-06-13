@@ -1,6 +1,7 @@
 package com.huawei.ascend.runtime.engine.spi;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -13,6 +14,11 @@ import java.util.stream.Stream;
  * executions; both default to no-ops so stateless handlers need not care.
  * {@link #isHealthy()} is consumed by the host's health surface and its
  * readiness gate — a handler that cannot serve must return {@code false}.
+ *
+ * <p>Card-metadata defaults: {@link #supportsStreaming()}, {@link #skills()},
+ * and {@link #defaultOutputModes()} drive the agent card's capability and
+ * mode declarations. Fail-safe defaults are used (streaming=false, no skills,
+ * outputModes=["text"]); a handler opts in by overriding the relevant method.
  */
 public interface AgentRuntimeHandler {
 
@@ -30,6 +36,36 @@ public interface AgentRuntimeHandler {
 
     /** Adapter that maps framework-specific results to engine-neutral results. */
     StreamAdapter resultAdapter();
+
+    /**
+     * Whether this handler produces a true streaming response (multiple
+     * incremental chunks before the final result). The default is {@code false}
+     * because a handler that returns a single completed result wrapped in
+     * {@link Stream#of} is NOT streaming by the A2A protocol definition.
+     * Override to return {@code true} only when {@link #execute} genuinely
+     * emits multiple chunks incrementally.
+     */
+    default boolean supportsStreaming() {
+        return false;
+    }
+
+    /**
+     * The skills this agent exposes in its card. The default is an empty list
+     * (no skills declared). Override to advertise specific skills so A2A clients
+     * can discover what this agent is capable of.
+     */
+    default List<AgentSkillDescriptor> skills() {
+        return List.of();
+    }
+
+    /**
+     * The output MIME types this handler produces. The default is {@code ["text"]}
+     * (plain text only). Override to include {@code "artifact"} or other types
+     * if this handler emits binary artifacts or data files alongside text.
+     */
+    default List<String> defaultOutputModes() {
+        return List.of("text");
+    }
 
     /**
      * Open the long-lived resources this handler owns (clients, registrations).

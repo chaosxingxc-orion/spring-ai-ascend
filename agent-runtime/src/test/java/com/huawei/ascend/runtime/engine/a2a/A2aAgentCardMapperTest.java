@@ -22,42 +22,51 @@ import org.junit.jupiter.api.Test;
 class A2aAgentCardMapperTest {
 
     @Test
-    void defaultDescriptorMatchesLegacyCreateOutput() {
-        // The default descriptor must produce a card identical to the old AgentCards.create(name, desc).
+    void defaultDescriptorProducesHonestCard() {
+        // The default descriptor now uses fail-safe defaults (streaming=false, push=false, outputModes=["text"]).
+        // AgentCards.create still exists for backward-compatibility call sites; both now share the same defaults.
         AgentCardDescriptor descriptor = AgentCardDescriptor.of("sample-agent", "agent-runtime");
-
         AgentCard fromDescriptor = A2aAgentCardMapper.toAgentCard(descriptor);
-        AgentCard fromLegacy = AgentCards.create("sample-agent", "agent-runtime");
 
-        assertThat(fromDescriptor.name()).isEqualTo(fromLegacy.name());
-        assertThat(fromDescriptor.description()).isEqualTo(fromLegacy.description());
-        assertThat(fromDescriptor.version()).isEqualTo(fromLegacy.version());
-        assertThat(fromDescriptor.url()).isEqualTo(fromLegacy.url());
-        assertThat(fromDescriptor.provider().organization()).isEqualTo(fromLegacy.provider().organization());
-        assertThat(fromDescriptor.provider().url()).isEqualTo(fromLegacy.provider().url());
-        assertThat(fromDescriptor.capabilities().streaming()).isEqualTo(fromLegacy.capabilities().streaming());
-        assertThat(fromDescriptor.capabilities().pushNotifications())
-                .isEqualTo(fromLegacy.capabilities().pushNotifications());
-        assertThat(fromDescriptor.capabilities().extendedAgentCard())
-                .isEqualTo(fromLegacy.capabilities().extendedAgentCard());
-        assertThat(fromDescriptor.defaultInputModes()).isEqualTo(fromLegacy.defaultInputModes());
-        assertThat(fromDescriptor.defaultOutputModes()).isEqualTo(fromLegacy.defaultOutputModes());
-        assertThat(fromDescriptor.skills()).isEqualTo(fromLegacy.skills());
-        assertThat(fromDescriptor.preferredTransport()).isEqualTo(fromLegacy.preferredTransport());
-        assertThat(fromDescriptor.supportedInterfaces()).hasSize(fromLegacy.supportedInterfaces().size());
-        assertThat(fromDescriptor.supportedInterfaces().get(0).url())
-                .isEqualTo(fromLegacy.supportedInterfaces().get(0).url());
-        assertThat(fromDescriptor.supportedInterfaces().get(0).protocolBinding())
-                .isEqualTo(fromLegacy.supportedInterfaces().get(0).protocolBinding());
+        assertThat(fromDescriptor.name()).isEqualTo("sample-agent");
+        assertThat(fromDescriptor.description()).isEqualTo("agent-runtime");
+        assertThat(fromDescriptor.version()).isEqualTo("0.1.0");
+        assertThat(fromDescriptor.url()).isEqualTo("/a2a");
+        assertThat(fromDescriptor.provider().organization()).isEqualTo("spring-ai-ascend");
+        assertThat(fromDescriptor.capabilities().streaming()).isFalse();
+        assertThat(fromDescriptor.capabilities().pushNotifications()).isFalse();
+        assertThat(fromDescriptor.defaultInputModes()).containsExactly("text");
+        assertThat(fromDescriptor.defaultOutputModes()).containsExactly("text");
+        assertThat(fromDescriptor.skills()).isEmpty();
+        assertThat(fromDescriptor.preferredTransport()).isEqualTo(TransportProtocol.JSONRPC.asString());
     }
 
     @Test
-    void mappedCardHasDefaultCapabilities() {
+    void mappedCardHasFailSafeCapabilitiesByDefault() {
+        // Intentional honest-default change (#229/#230): streaming=false, push=false.
         AgentCard card = A2aAgentCardMapper.toAgentCard(AgentCardDescriptor.of("a", "b"));
 
-        assertThat(card.capabilities().streaming()).isTrue();
-        assertThat(card.capabilities().pushNotifications()).isTrue();
+        assertThat(card.capabilities().streaming()).isFalse();
+        assertThat(card.capabilities().pushNotifications()).isFalse();
         assertThat(card.capabilities().extendedAgentCard()).isFalse();
+    }
+
+    @Test
+    void explicitStreamingTrueFlowsThrough() {
+        AgentCardDescriptor d = AgentCardDescriptor.of("a", "b")
+                .withCapabilities(new AgentCapabilitiesDescriptor(true, false, false));
+        AgentCard card = A2aAgentCardMapper.toAgentCard(d);
+
+        assertThat(card.capabilities().streaming()).isTrue();
+    }
+
+    @Test
+    void explicitPushNotificationsTrueFlowsThrough() {
+        AgentCardDescriptor d = AgentCardDescriptor.of("a", "b")
+                .withCapabilities(new AgentCapabilitiesDescriptor(false, true, false));
+        AgentCard card = A2aAgentCardMapper.toAgentCard(d);
+
+        assertThat(card.capabilities().pushNotifications()).isTrue();
     }
 
     @Test
@@ -68,8 +77,18 @@ class A2aAgentCardMapperTest {
     }
 
     @Test
-    void mappedCardHasDefaultOutputModes() {
+    void mappedCardHasFailSafeOutputModesByDefault() {
+        // Intentional honest-default change (#233): defaultOutputModes defaults to ["text"].
         AgentCard card = A2aAgentCardMapper.toAgentCard(AgentCardDescriptor.of("a", "b"));
+
+        assertThat(card.defaultOutputModes()).containsExactly("text");
+    }
+
+    @Test
+    void artifactOutputModeFlowsThroughWhenExplicitlySet() {
+        AgentCardDescriptor d = AgentCardDescriptor.of("a", "b")
+                .withDefaultOutputModes(List.of("text", "artifact"));
+        AgentCard card = A2aAgentCardMapper.toAgentCard(d);
 
         assertThat(card.defaultOutputModes()).containsExactly("text", "artifact");
     }
@@ -205,5 +224,60 @@ class A2aAgentCardMapperTest {
         AgentCard card = A2aAgentCardMapper.toAgentCard(AgentCardDescriptor.of("a", "b"));
 
         assertThat(card.skills()).isEmpty();
+    }
+
+    // --- New tests for E2 (#229/#230/#231/#232/#233) ---
+
+    @Test
+    void primaryJsonRpcInterfaceHasNonNullProtocolVersion() {
+        // The 2-arg AgentInterface constructor automatically sets protocolVersion=CURRENT_PROTOCOL_VERSION.
+        AgentCard card = A2aAgentCardMapper.toAgentCard(AgentCardDescriptor.of("a", "b"));
+
+        AgentInterface primary = card.supportedInterfaces().get(0);
+        assertThat(primary.protocolVersion())
+                .as("primary JSONRPC interface must carry a non-null protocolVersion")
+                .isNotNull()
+                .isNotBlank();
+    }
+
+    @Test
+    void additionalInterfaceWithExplicitProtocolVersionSetsProtocolVersionNotTenant() {
+        // The 4-arg ctor AgentInterface(binding, url, tenant=null, protocolVersion) is used for
+        // additional interfaces when protocolVersion is declared — it must land in protocolVersion(),
+        // not in tenant().
+        AgentInterfaceDescriptor extra = new AgentInterfaceDescriptor("HTTP_JSON", "/a2a/http", "0.9");
+        AgentCardDescriptor d = AgentCardDescriptor.of("a", "b")
+                .withCapabilities(AgentCapabilitiesDescriptor.none());
+        d = new AgentCardDescriptor(
+                d.name(), d.description(), d.version(), d.endpoint(),
+                d.providerOrganization(), d.providerUrl(),
+                d.documentationUrl(), d.iconUrl(), d.protocolVersion(),
+                d.capabilities(),
+                d.defaultInputModes(), d.defaultOutputModes(),
+                d.skills(), d.securitySchemes(), d.securityRequirements(),
+                List.of(extra), d.signatures());
+
+        AgentCard card = A2aAgentCardMapper.toAgentCard(d);
+
+        AgentInterface additional = card.supportedInterfaces().get(1);
+        assertThat(additional.protocolBinding()).isEqualTo("HTTP_JSON");
+        assertThat(additional.protocolVersion()).isEqualTo("0.9");
+        // tenant is set to "" (empty string) because the 4-arg SDK ctor requires non-null tenant.
+    }
+
+    @Test
+    void nullCapabilitiesDescriptorMapsToFailSafeDefaults() {
+        // When capabilities is null in the descriptor the mapper must apply fail-safe defaults.
+        AgentCardDescriptor d = new AgentCardDescriptor(
+                "a", "b", "0.1.0", "/a2a", "spring-ai-ascend", "",
+                null, null, null,
+                null,   // null capabilities
+                List.of("text"), List.of("text"),
+                null, null, null, null, null);
+
+        AgentCard card = A2aAgentCardMapper.toAgentCard(d);
+
+        assertThat(card.capabilities().streaming()).isFalse();
+        assertThat(card.capabilities().pushNotifications()).isFalse();
     }
 }

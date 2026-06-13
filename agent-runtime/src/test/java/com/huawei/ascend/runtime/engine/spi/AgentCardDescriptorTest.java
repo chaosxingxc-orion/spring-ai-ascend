@@ -26,9 +26,11 @@ class AgentCardDescriptorTest {
     void ofSetsDefaultCapabilities() {
         AgentCardDescriptor d = AgentCardDescriptor.of("agent", "desc");
 
+        // Intentional fail-safe change (#229/#230): capabilities default to false.
+        // The boot configuration overrides these from the registered handler's metadata.
         assertThat(d.capabilities()).isNotNull();
-        assertThat(d.capabilities().streaming()).isTrue();
-        assertThat(d.capabilities().pushNotifications()).isTrue();
+        assertThat(d.capabilities().streaming()).isFalse();
+        assertThat(d.capabilities().pushNotifications()).isFalse();
         assertThat(d.capabilities().extendedAgentCard()).isFalse();
     }
 
@@ -36,8 +38,10 @@ class AgentCardDescriptorTest {
     void ofSetsDefaultModes() {
         AgentCardDescriptor d = AgentCardDescriptor.of("agent", "desc");
 
+        // Intentional fail-safe change (#233): defaultOutputModes defaults to ["text"].
+        // Handlers that emit artifacts override defaultOutputModes() to add "artifact".
         assertThat(d.defaultInputModes()).containsExactly("text");
-        assertThat(d.defaultOutputModes()).containsExactly("text", "artifact");
+        assertThat(d.defaultOutputModes()).containsExactly("text");
     }
 
     @Test
@@ -105,10 +109,28 @@ class AgentCardDescriptorTest {
     }
 
     @Test
-    void agentCapabilitiesDescriptorDefaultsMatchCurrentWireDefaults() {
+    void agentCapabilitiesDescriptorDefaultsAreFalseSafe() {
         AgentCapabilitiesDescriptor caps = AgentCapabilitiesDescriptor.defaults();
 
-        // These must stay true to preserve backward-compatible wire output.
+        // Intentional fail-safe change (#229/#230): defaults are false; handlers opt in.
+        assertThat(caps.streaming()).isFalse();
+        assertThat(caps.pushNotifications()).isFalse();
+        assertThat(caps.extendedAgentCard()).isFalse();
+    }
+
+    @Test
+    void agentCapabilitiesDescriptorNoneAlsoAllFalse() {
+        AgentCapabilitiesDescriptor none = AgentCapabilitiesDescriptor.none();
+
+        assertThat(none.streaming()).isFalse();
+        assertThat(none.pushNotifications()).isFalse();
+        assertThat(none.extendedAgentCard()).isFalse();
+    }
+
+    @Test
+    void agentCapabilitiesDescriptorCanBeExplicitlyEnabled() {
+        AgentCapabilitiesDescriptor caps = new AgentCapabilitiesDescriptor(true, true, false);
+
         assertThat(caps.streaming()).isTrue();
         assertThat(caps.pushNotifications()).isTrue();
         assertThat(caps.extendedAgentCard()).isFalse();

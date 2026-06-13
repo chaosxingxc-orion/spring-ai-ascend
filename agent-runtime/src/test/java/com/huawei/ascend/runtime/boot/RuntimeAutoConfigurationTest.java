@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.AgentSkillDescriptor;
 import com.huawei.ascend.runtime.engine.spi.LocalFsPayloadRefStore;
 import com.huawei.ascend.runtime.engine.spi.Redactor;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
@@ -17,6 +18,8 @@ import java.util.stream.Stream;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksResult;
 import org.a2aproject.sdk.server.events.MainEventBusProcessor;
 import org.a2aproject.sdk.server.tasks.InMemoryTaskStore;
+import org.a2aproject.sdk.server.tasks.InMemoryPushNotificationConfigStore;
+import org.a2aproject.sdk.server.tasks.PushNotificationConfigStore;
 import org.a2aproject.sdk.server.tasks.TaskStateProvider;
 import org.a2aproject.sdk.server.tasks.TaskStore;
 import org.a2aproject.sdk.spec.AgentCard;
@@ -261,6 +264,76 @@ class RuntimeAutoConfigurationTest {
                 });
     }
 
+    // --- Capability-honesty tests (#229/#230/#231/#233) ---
+
+    /** Default handler (no override) must produce streaming=false on the card (#229). */
+    @Test
+    void defaultHandlerProducesStreamingFalseOnCard() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBean(AgentCard.class)
+                        .capabilities().streaming()).isFalse());
+    }
+
+    /** A handler that overrides supportsStreaming()=true must produce streaming=true on the card (#229). */
+    @Test
+    void streamingHandlerProducesStreamingTrueOnCard() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new StreamingHandler("agent-s"))
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBean(AgentCard.class)
+                        .capabilities().streaming()).isTrue());
+    }
+
+    /** In-memory push store (the default) must produce pushNotifications=false on the card (#230). */
+    @Test
+    void inMemoryPushStoreProducesPushFalseOnCard() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBean(AgentCard.class)
+                        .capabilities().pushNotifications()).isFalse());
+    }
+
+    /** A durable push store (not InMemoryPushNotificationConfigStore) must produce pushNotifications=true (#230). */
+    @Test
+    void durablePushStoreProducesPushTrueOnCard() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
+                .withBean("durablePushStore", PushNotificationConfigStore.class,
+                        () -> new DurablePushNotificationConfigStore())
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBean(AgentCard.class)
+                        .capabilities().pushNotifications()).isTrue());
+    }
+
+    /** A handler that declares skills must have them surfaced on the card (#231). */
+    @Test
+    void handlerWithSkillsPopulatesCardSkills() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new HandlerWithSkills("agent-b"))
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> {
+                    AgentCard card = ctx.getBean(AgentCard.class);
+                    assertThat(card.skills()).hasSize(1);
+                    assertThat(card.skills().get(0).id()).isEqualTo("skill-1");
+                });
+    }
+
+    /** Default handler (no override) must produce outputModes=["text"] on the card (#233). */
+    @Test
+    void defaultHandlerProducesTextOnlyOutputModes() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBean(AgentCard.class)
+                        .defaultOutputModes()).containsExactly("text"));
+    }
+
+    /** A handler overriding defaultOutputModes to include "artifact" must surface on the card (#233). */
+    @Test
+    void handlerWithArtifactOutputModePopulatesCardOutputModes() {
+        runner.withBean("h", AgentRuntimeHandler.class, () -> new ArtifactOutputHandler("agent-c"))
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBean(AgentCard.class)
+                        .defaultOutputModes()).containsExactlyInAnyOrder("text", "artifact"));
+    }
+
     /** Stand-in for the component-scan path: user-declared controller beans of the same types. */
     @Configuration(proxyBeanMethods = false)
     static class ScannedControllersConfiguration {
@@ -275,7 +348,7 @@ class RuntimeAutoConfigurationTest {
         }
     }
 
-    static final class NamedHandler implements AgentRuntimeHandler {
+    static class NamedHandler implements AgentRuntimeHandler {
         private final String agentId;
 
         NamedHandler(String agentId) {
@@ -295,6 +368,50 @@ class RuntimeAutoConfigurationTest {
         public StreamAdapter resultAdapter() {
             return rawResults -> rawResults.map(raw -> AgentExecutionResult.completed("ok"));
         }
+    }
+
+    /** Handler that declares supportsStreaming()=true for #229 tests. */
+    static final class StreamingHandler extends NamedHandler {
+        StreamingHandler(String agentId) { super(agentId); }
+
+        @Override
+        public boolean supportsStreaming() { return true; }
+    }
+
+    /** Handler that declares skills for #231 tests. */
+    static final class HandlerWithSkills extends NamedHandler {
+        HandlerWithSkills(String agentId) { super(agentId); }
+
+        @Override
+        public List<AgentSkillDescriptor> skills() {
+            return List.of(AgentSkillDescriptor.of("skill-1", "Skill One", "Does stuff"));
+        }
+    }
+
+    /** Handler that declares artifact output mode for #233 tests. */
+    static final class ArtifactOutputHandler extends NamedHandler {
+        ArtifactOutputHandler(String agentId) { super(agentId); }
+
+        @Override
+        public List<String> defaultOutputModes() { return List.of("text", "artifact"); }
+    }
+
+    /** Stub durable push store (not InMemoryPushNotificationConfigStore) for #230 tests. */
+    static final class DurablePushNotificationConfigStore implements PushNotificationConfigStore {
+        @Override
+        public org.a2aproject.sdk.spec.TaskPushNotificationConfig setInfo(
+                org.a2aproject.sdk.spec.TaskPushNotificationConfig config) {
+            return config;
+        }
+
+        @Override
+        public org.a2aproject.sdk.spec.ListTaskPushNotificationConfigsResult getInfo(
+                org.a2aproject.sdk.spec.ListTaskPushNotificationConfigsParams params) {
+            return new org.a2aproject.sdk.spec.ListTaskPushNotificationConfigsResult(java.util.List.of());
+        }
+
+        @Override
+        public void deleteInfo(String taskId, String pushNotificationConfigId) { }
     }
 
     @Configuration(proxyBeanMethods = false)
