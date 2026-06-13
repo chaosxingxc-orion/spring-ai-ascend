@@ -35,8 +35,8 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.huawei.ascend</groupId>
-      <artifactId>agent-hotel</artifactId>
+      <groupId>com.huawei.ascend.examples</groupId>
+      <artifactId>agent-travel-hotel</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
