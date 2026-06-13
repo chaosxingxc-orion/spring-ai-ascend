@@ -37,12 +37,15 @@ public final class AgentScopeStreamAdapter implements StreamAdapter {
     }
 
     private AgentExecutionResult mapMap(Map<?, ?> map) {
-        String rawStatus = firstText(map, "status", "type", "event", "object");
+        // The authoritative status lives under "status"; type/event/object are structural
+        // hints used only as a fallback for classification, never as a status to warn about.
+        String statusField = firstText(map, "status");
+        String rawStatus = !statusField.isBlank() ? statusField : firstText(map, "type", "event", "object");
         String text = textValue(firstNonNull(map, "text", "output", "content", "delta"));
         Object error = firstNonNull(map, "error", "error_message");
         String explicitError = errorText(error);
 
-        AgentScopeStatus status = resolveStatus(rawStatus, map);
+        AgentScopeStatus status = resolveStatus(rawStatus, statusField, map);
 
         if (status == AgentScopeStatus.FAILURE || !explicitError.isBlank()) {
             String errorMessage = !explicitError.isBlank() ? explicitError : firstText(map, "message");
@@ -58,17 +61,17 @@ public final class AgentScopeStreamAdapter implements StreamAdapter {
     }
 
     /**
-     * Resolves the wire status string to its {@link AgentScopeStatus} category.
-     * Emits a WARN when a non-blank status is not in the recognized set so
-     * new upstream statuses are visible rather than silently falling through
-     * to the OUTPUT default.
+     * Resolves the wire status string to its {@link AgentScopeStatus} category. Emits a WARN
+     * only when an explicit {@code "status"} field carries an unrecognized value, so a NEW
+     * upstream terminal/interrupt status is visible instead of silently classified as OUTPUT —
+     * without spamming on the per-chunk structural hints (type/object) of normal output deltas.
      */
-    private static AgentScopeStatus resolveStatus(String rawStatus, Map<?, ?> map) {
+    private static AgentScopeStatus resolveStatus(String rawStatus, String statusField, Map<?, ?> map) {
         AgentScopeStatus status = AgentScopeStatus.fromWire(rawStatus);
-        if (status == AgentScopeStatus.UNKNOWN && rawStatus != null && !rawStatus.isBlank()) {
+        if (status == AgentScopeStatus.UNKNOWN && statusField != null && !statusField.isBlank()) {
             String contextId = String.valueOf(firstNonNull(map, "task_id", "context_id", "id"));
             log.warn("Unrecognized AgentScope status '{}' (context={}); treating as OUTPUT",
-                    rawStatus, contextId);
+                    statusField, contextId);
         }
         return status;
     }
