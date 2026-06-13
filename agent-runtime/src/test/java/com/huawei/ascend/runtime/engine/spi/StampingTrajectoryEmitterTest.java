@@ -240,6 +240,9 @@ class StampingTrajectoryEmitterTest {
 
         assertThat(sink.events).extracting(TrajectoryEvent::kind)
                 .containsExactly(Kind.RUN_START, Kind.ERROR, Kind.RUN_END);
+        // The always-kept ERROR resolves its parent past the dropped inner spans to the RUN span.
+        assertThat(first(sink.events, Kind.ERROR).parentSpanId())
+                .isEqualTo(first(sink.events, Kind.RUN_START).spanId());
     }
 
     @Test
