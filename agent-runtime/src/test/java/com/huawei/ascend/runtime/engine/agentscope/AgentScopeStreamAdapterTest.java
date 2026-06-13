@@ -123,4 +123,59 @@ class AgentScopeStreamAdapterTest {
             assertThat(result.outputContent()).as(status).isEqualTo("hi");
         }
     }
+
+    // --- AgentScopeStatus.fromWire coverage ---
+
+    @Test
+    void fromWireClassifiesAllFailureStrings() {
+        for (String s : List.of("error", "errored", "failed", "failure", "exception")) {
+            assertThat(AgentScopeStatus.fromWire(s)).as(s).isEqualTo(AgentScopeStatus.FAILURE);
+        }
+    }
+
+    @Test
+    void fromWireClassifiesAllInterruptStrings() {
+        for (String s : List.of(
+                "interrupt", "interrupted", "input_required", "requires_input", "human", "human_input")) {
+            assertThat(AgentScopeStatus.fromWire(s)).as(s).isEqualTo(AgentScopeStatus.INTERRUPT);
+        }
+    }
+
+    @Test
+    void fromWireClassifiesAllCompletedStrings() {
+        for (String s : List.of("completed", "complete", "final", "finished", "done", "success", "succeeded")) {
+            assertThat(AgentScopeStatus.fromWire(s)).as(s).isEqualTo(AgentScopeStatus.COMPLETED);
+        }
+    }
+
+    @Test
+    void fromWireIsCaseAndWhitespaceInsensitive() {
+        assertThat(AgentScopeStatus.fromWire("  FAILED  ")).isEqualTo(AgentScopeStatus.FAILURE);
+        assertThat(AgentScopeStatus.fromWire("Completed")).isEqualTo(AgentScopeStatus.COMPLETED);
+        assertThat(AgentScopeStatus.fromWire("INTERRUPT")).isEqualTo(AgentScopeStatus.INTERRUPT);
+    }
+
+    @Test
+    void fromWireReturnsUnknownForUnrecognizedNonBlankStatus() {
+        assertThat(AgentScopeStatus.fromWire("weird_new_state")).isEqualTo(AgentScopeStatus.UNKNOWN);
+        assertThat(AgentScopeStatus.fromWire("pending")).isEqualTo(AgentScopeStatus.UNKNOWN);
+        assertThat(AgentScopeStatus.fromWire("in_progress")).isEqualTo(AgentScopeStatus.UNKNOWN);
+    }
+
+    @Test
+    void fromWireReturnsUnknownForNullOrBlank() {
+        assertThat(AgentScopeStatus.fromWire(null)).isEqualTo(AgentScopeStatus.UNKNOWN);
+        assertThat(AgentScopeStatus.fromWire("")).isEqualTo(AgentScopeStatus.UNKNOWN);
+        assertThat(AgentScopeStatus.fromWire("   ")).isEqualTo(AgentScopeStatus.UNKNOWN);
+    }
+
+    @Test
+    void unknownStatusClassifiesToOutputSafeDefault() {
+        // An unrecognized status must fall through to OUTPUT — the safe default —
+        // so no signal is lost and the call is still surfaced to the caller.
+        AgentExecutionResult result = adapter.map(Map.of("status", "weird_new_state", "text", "payload"));
+
+        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.OUTPUT);
+        assertThat(result.outputContent()).isEqualTo("payload");
+    }
 }

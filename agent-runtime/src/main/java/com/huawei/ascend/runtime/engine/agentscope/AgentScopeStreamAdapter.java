@@ -5,8 +5,12 @@ import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class AgentScopeStreamAdapter implements StreamAdapter {
+
+    private static final Logger log = LoggerFactory.getLogger(AgentScopeStreamAdapter.class);
 
     @Override
     public Stream<AgentExecutionResult> adapt(Stream<?> rawResults) {
@@ -33,21 +37,40 @@ public final class AgentScopeStreamAdapter implements StreamAdapter {
     }
 
     private AgentExecutionResult mapMap(Map<?, ?> map) {
-        String status = firstText(map, "status", "type", "event", "object");
+        String rawStatus = firstText(map, "status", "type", "event", "object");
         String text = textValue(firstNonNull(map, "text", "output", "content", "delta"));
         Object error = firstNonNull(map, "error", "error_message");
         String explicitError = errorText(error);
-        if (isFailureStatus(status) || !explicitError.isBlank()) {
+
+        AgentScopeStatus status = resolveStatus(rawStatus, map);
+
+        if (status == AgentScopeStatus.FAILURE || !explicitError.isBlank()) {
             String errorMessage = !explicitError.isBlank() ? explicitError : firstText(map, "message");
             return AgentExecutionResult.failed(errorCode(map, error), errorMessage);
         }
-        if (isInterruptStatus(status)) {
+        if (status == AgentScopeStatus.INTERRUPT) {
             return AgentExecutionResult.interrupted(text);
         }
-        if (isCompletedStatus(status) && !isMessageLevelEvent(map)) {
+        if (status == AgentScopeStatus.COMPLETED && !isMessageLevelEvent(map)) {
             return AgentExecutionResult.completed(text);
         }
         return AgentExecutionResult.output(text);
+    }
+
+    /**
+     * Resolves the wire status string to its {@link AgentScopeStatus} category.
+     * Emits a WARN when a non-blank status is not in the recognized set so
+     * new upstream statuses are visible rather than silently falling through
+     * to the OUTPUT default.
+     */
+    private static AgentScopeStatus resolveStatus(String rawStatus, Map<?, ?> map) {
+        AgentScopeStatus status = AgentScopeStatus.fromWire(rawStatus);
+        if (status == AgentScopeStatus.UNKNOWN && rawStatus != null && !rawStatus.isBlank()) {
+            String contextId = String.valueOf(firstNonNull(map, "task_id", "context_id", "id"));
+            log.warn("Unrecognized AgentScope status '{}' (context={}); treating as OUTPUT",
+                    rawStatus, contextId);
+        }
+        return status;
     }
 
     /**
@@ -58,7 +81,8 @@ public final class AgentScopeStreamAdapter implements StreamAdapter {
      * complete the whole execution.
      */
     private static boolean isMessageLevelEvent(Map<?, ?> map) {
-        String object = normalizeStatus(firstText(map, "object"));
+        String raw = firstText(map, "object");
+        String object = raw == null ? "" : raw.trim().toLowerCase(java.util.Locale.ROOT);
         return "message".equals(object) || "content".equals(object);
     }
 
@@ -110,34 +134,6 @@ public final class AgentScopeStreamAdapter implements StreamAdapter {
             }
         }
         return null;
-    }
-
-    private static boolean isFailureStatus(String value) {
-        String status = normalizeStatus(value);
-        return switch (status) {
-            case "error", "errored", "failed", "failure", "exception" -> true;
-            default -> false;
-        };
-    }
-
-    private static boolean isInterruptStatus(String value) {
-        String status = normalizeStatus(value);
-        return switch (status) {
-            case "interrupt", "interrupted", "input_required", "requires_input", "human", "human_input" -> true;
-            default -> false;
-        };
-    }
-
-    private static boolean isCompletedStatus(String value) {
-        String status = normalizeStatus(value);
-        return switch (status) {
-            case "completed", "complete", "final", "finished", "done", "success", "succeeded" -> true;
-            default -> false;
-        };
-    }
-
-    private static String normalizeStatus(String value) {
-        return value == null ? "" : value.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private static String firstText(Map<?, ?> map, String... keys) {
