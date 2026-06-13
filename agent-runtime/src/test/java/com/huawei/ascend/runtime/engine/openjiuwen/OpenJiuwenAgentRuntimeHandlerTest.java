@@ -26,6 +26,7 @@ import com.openjiuwen.core.foundation.tool.schema.ToolInfo;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.stream.StreamMode;
 import com.openjiuwen.core.singleagent.BaseAgent;
+import com.openjiuwen.core.singleagent.ReActAgent;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.core.singleagent.rail.ModelCallInputs;
@@ -146,6 +147,46 @@ class OpenJiuwenAgentRuntimeHandlerTest {
                 .satisfies(message -> assertThat(message.getContentAsString())
                         .contains("existing system prompt")
                         .contains("remembered ping"));
+    }
+
+    @Test
+    void memoryRuntimeRailInjectsSearchResultsIntoRealReActPromptBuilder() {
+        AgentExecutionContext context = context(Map.of());
+        FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
+        OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail rail =
+                new OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail(
+                        context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+        ReActAgent reactAgent = new ReActAgent(
+                AgentCard.builder().id("agent").name("agent").description("test").build());
+        RecordingModelContext modelContext = new RecordingModelContext();
+
+        rail.beforeInvoke(AgentCallbackContext.builder()
+                .agent(reactAgent)
+                .context(modelContext)
+                .build());
+
+        assertThat(reactAgent.getPromptBuilder().build())
+                .contains("remembered ping")
+                .contains("recalled memory context from runtime memory");
+        assertThat(modelContext.messages).isEmpty();
+    }
+
+    @Test
+    void memoryRuntimeRailClearsRealReActPromptBuilderWhenNoMemoryHits() {
+        AgentExecutionContext context = context(Map.of());
+        FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
+        OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail rail =
+                new OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail(
+                        context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+        ReActAgent reactAgent = new ReActAgent(
+                AgentCard.builder().id("agent").name("agent").description("test").build());
+        AgentCallbackContext callbackContext = AgentCallbackContext.builder().agent(reactAgent).build();
+
+        rail.beforeInvoke(callbackContext);
+        memoryProvider.returnHits = false;
+        rail.beforeInvoke(callbackContext);
+
+        assertThat(reactAgent.getPromptBuilder().build()).doesNotContain("remembered ping");
     }
 
     @Test
@@ -430,6 +471,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         private String searchedQuery;
         private List<MemoryRecord> savedRecords = List.of();
         private Double score = 0.9;
+        private boolean returnHits = true;
 
         @Override
         public void init(AgentExecutionContext context) {
@@ -439,6 +481,9 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         @Override
         public List<MemoryHit> search(AgentExecutionContext context, String query, int limit) {
             searchedQuery = query;
+            if (!returnHits) {
+                return List.of();
+            }
             return List.of(new MemoryHit("m1", "remembered " + query, score, Map.of()));
         }
 

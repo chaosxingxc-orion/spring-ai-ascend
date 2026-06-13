@@ -14,6 +14,7 @@ import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
 import com.openjiuwen.core.foundation.llm.schema.SystemMessage;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
+import com.openjiuwen.core.singleagent.agents.ReActAgent;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.harness.rails.ExternalMemoryRail;
@@ -263,6 +264,8 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
      */
     public static final class MemoryRuntimeRail extends AgentRail {
         private static final int DEFAULT_MEMORY_SEARCH_LIMIT = 5;
+        private static final String MEMORY_SECTION_NAME = "runtime_long_term_memory";
+        private static final int MEMORY_SECTION_PRIORITY = 50;
 
         private final AgentExecutionContext executionContext;
         private final MemoryProvider memoryProvider;
@@ -338,18 +341,23 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         private void injectMemory(AgentCallbackContext callbackContext) {
             String query = latestUserInput();
             if (query.isBlank()) {
+                clearPromptBuilderMemory(callbackContext);
                 return;
             }
             List<MemoryProvider.MemoryHit> hits =
                     memoryProvider.search(executionContext, query, DEFAULT_MEMORY_SEARCH_LIMIT);
             if (hits.isEmpty()) {
+                clearPromptBuilderMemory(callbackContext);
+                return;
+            }
+            String memoryBlock = runtimeMemoryBlock(formatMemoryBlock(hits));
+            if (mergeMemoryIntoPromptBuilder(callbackContext, memoryBlock)) {
                 return;
             }
             ModelContext modelContext = callbackContext == null ? null : callbackContext.getContext();
-            if (modelContext == null) {
-                return;
+            if (modelContext != null) {
+                mergeMemoryIntoSystemMessage(modelContext, memoryBlock);
             }
-            mergeMemoryIntoSystemMessage(modelContext, runtimeMemoryBlock(formatMemoryBlock(hits)));
         }
 
         private MemoryProvider.MemoryRecord toLongTermMemoryRecord(BaseMessage message) {
@@ -388,6 +396,28 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             }
             updatedMessages.add(0, new SystemMessage(memoryBlock));
             modelContext.setMessages(updatedMessages, true);
+        }
+
+        private static boolean mergeMemoryIntoPromptBuilder(AgentCallbackContext callbackContext, String memoryBlock) {
+            ReActAgent reactAgent = reactAgent(callbackContext);
+            if (reactAgent == null) {
+                return false;
+            }
+            reactAgent.addPromptBuilderSection(MEMORY_SECTION_NAME, memoryBlock, MEMORY_SECTION_PRIORITY);
+            return true;
+        }
+
+        private static void clearPromptBuilderMemory(AgentCallbackContext callbackContext) {
+            ReActAgent reactAgent = reactAgent(callbackContext);
+            if (reactAgent != null) {
+                // OpenJiuwen treats blank section content as removeSection(name).
+                reactAgent.addPromptBuilderSection(MEMORY_SECTION_NAME, "", MEMORY_SECTION_PRIORITY);
+            }
+        }
+
+        private static ReActAgent reactAgent(AgentCallbackContext callbackContext) {
+            Object agent = callbackContext == null ? null : callbackContext.getAgent();
+            return agent instanceof ReActAgent reactAgent ? reactAgent : null;
         }
 
         private static String runtimeMemoryBlock(String memoryBlock) {
