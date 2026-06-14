@@ -119,3 +119,13 @@ Agent 注册与发现的完整设计态契约见 [`ICD-Agent-Registry-Discovery`
 - forwarding envelope 有载荷时只携带 `payloadRef`（条件必填，MI5-003 方案 B；纯控制消息可省略）、不携带 payload body；大载荷走 data reference path，不进 event / control channel。
 - runtime-to-runtime 消息不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
 - Stage 4 只定义转发语义和 harness 断言，不实现运行态转发底座、不新增 mailbox / queue / DLQ / replay 运行态存储。
+
+## 9. C3 转发运行态最小骨架（Stage 7）
+
+Stage 7 按 Stage 6 裁决，落地 C3（database outbox / inbox）的最小可测运行态骨架。运行态契约见 [`ICD-Agent-Bus-Forwarding-Runtime`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)，L2 技术设计见 [`forwarding-outbox-inbox.md`](../../L2/agent-bus/forwarding-outbox-inbox.md)。逻辑落点：
+
+- 发送方持久 outbox：唯一键 `(tenantId, messageId)`，幂等 enqueue，状态机驱动 `PENDING → DISPATCHING → {ACKED | RETRY_SCHEDULED → DISPATCHING | DLQ | EXPIRED}`。
+- 接收方持久 inbox：去重键 `(tenantId, messageId, consumerServiceId)`，重复到达返回 `DUPLICATE_SUPPRESSED` 不变更，`RECEIVED → {CONSUMED | REJECTED}`。
+- envelope 强制 tenant 隔离（`tenantId == routeHandle.tenantScope`，违例 `tenant_mismatch`）与 `payloadRef` 条件必填（MI5-003 方案 B：DATA_BEARING 必填、CONTROL_ONLY 可选）。
+- outbox / inbox / dispatcher 以端口接口表达，broker-agnostic / persistence-agnostic；真实持久化与交付绑定 deferred 到 Stage 8。非生产 in-memory 测试替身仅用于语义验证。
+- 不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。

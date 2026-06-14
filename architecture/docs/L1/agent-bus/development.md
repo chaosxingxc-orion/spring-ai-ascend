@@ -15,14 +15,22 @@ status: draft
 agent-bus/
   module-metadata.yaml
   pom.xml
-  src/main/java/com/huawei/ascend/bus/spi/
-    engine/
-    federation/
-    ingress/
-    s2c/
-  src/test/java/com/huawei/ascend/bus/spi/
-    engine/
-    s2c/
+  src/main/java/com/huawei/ascend/bus/
+    forwarding/
+      spi/        # C3 转发运行态领域模型 + 端口（Stage 7，纯 Java）
+      runtime/    # C3 转发状态机（Stage 7，纯 Java）
+    spi/
+      engine/
+      federation/
+      ingress/
+      s2c/
+  src/test/java/com/huawei/ascend/bus/
+    forwarding/
+      test/       # in-memory 测试替身（non-production）
+    architecture/  # contract + purity harness
+    spi/
+      engine/
+      s2c/
 ```
 
 > 命名说明：本文架构语义（所有权）使用 L0 逻辑名 `agent-runtime`（当前实现/兼容落点：`agent-service`）；forbidden dependencies 列表与 runtime 构造点引用保留当前 artifact 名。完整映射见 [`README.md`](README.md)「命名说明」。
@@ -35,6 +43,8 @@ agent-bus/
 | `bus.spi.s2c` | S2C callback envelope、response、transport、reflection router | SPI 已存在，S2C tenant 已迁移，runtime 构造点待后续波次 |
 | `bus.spi.federation` | 跨网络 federation gateway | SPI 已存在，运行时实现待定 |
 | `bus.spi.engine` | service-engine 中立执行边界和相关基础类型 | SPI 已存在，被 engine/service 消费 |
+| `bus.forwarding.spi` | C3 转发运行态领域模型（envelope / route handle / status / failure code / receipt）+ outbox / inbox / dispatcher 端口 | 纯 Java 领域模型 + 端口已落地（Stage 7），真实持久化 deferred Stage 8 |
+| `bus.forwarding.runtime` | C3 转发状态机（outbox / inbox 转换表） | 纯 Java 状态机已落地（Stage 7），运行态绑定 deferred Stage 8 |
 
 ## 3. 依赖规则
 
@@ -61,6 +71,8 @@ agent-bus/
 | ingress 测试 | 暂缺 | 需要补 required fields、trace、tenant、response status |
 | federation 测试 | 暂缺 | 需要补 broker-agnostic 和 ingress carrier type |
 | reflection 测试 | 暂缺 | 需要决定 map validator 或 typed record |
+| `AgentBusForwardingRuntimeContractTest` | C3 outbox / inbox 记录字段、唯一键、去重键、禁止字段、状态机、失败码 | 7 契约（方法名镜像 ICD）+ 8 行为，已 green |
+| `AgentBusForwardingSpiPurityTest` | forwarding 生产代码纯 Java（无 Spring / JDBC / broker client） | 10 纯度 + 1 活跃度守卫，已 green |
 
 ## 5. 生成物边界
 
@@ -94,3 +106,22 @@ Stage 2 已完成的迁移（commit `d894f494`）：
 - downstream 文档与治理模板的剩余同步。
 
 本迁移已通知所有冲突方（CN-001..CN-007）；不改变 `agent-runtime` 对 Task lifecycle 的所有权。
+
+## 7. C3 转发运行态最小骨架（Stage 7）
+
+Stage 6 裁决采用 **C3（database outbox / inbox）** 作为类 MQ 转发的生产候选路径（裁决见 [`agent-bus-forwarding-runtime-decision`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)）。Stage 7 交付 C3 的最小可测运行态骨架。
+
+**已落地（生产代码，纯 Java）：**
+
+- `bus.forwarding.spi`：领域模型 `ForwardingEnvelope`（强制 tenant 隔离 + `payloadRef` 条件必填）、`ForwardingRouteHandle`、`ForwardingMessageId`、`ForwardingStatus`（outbox / inbox 终态枚举）、`ForwardingFailureCode`（7 个 wire 失败码）、`ForwardingReceipt`；端口 `ForwardingOutboxPort` / `ForwardingInboxPort` / `ForwardingDispatcher`。
+- `bus.forwarding.runtime`：纯状态机 `ForwardingStateMachine`（outbox `ENQUEUE → PENDING → DISPATCHING → {ACKED | RETRY_SCHEDULED → DISPATCHING | DLQ | EXPIRED}`、inbox `ARRIVE_NEW → RECEIVED → {CONSUMED | REJECTED}`，非法迁移抛 `IllegalStateTransitionException`）。
+
+**仅测试夹具（non-production）：**
+
+- `bus.forwarding.test`：`InMemoryForwardingOutbox` / `InMemoryForwardingInbox` / `InMemoryForwardingDispatcher`，HashMap 支撑，验证端口语义。明确标注 non-production，真实持久化实现为 Stage 8。
+
+**Stage 7 边界（与 Stage 4 / 6 一致，强化）：**
+
+- 生产代码不引入 concrete broker / MQ / JDBC driver（由 `AgentBusForwardingSpiPurityTest` ArchUnit 强制）。
+- 不改变远端 Task lifecycle owner；不写 Task execution state；不携带 payload body / token stream / physical endpoint。
+- 真实持久化（JDBC migration、polling、lease）、交付编排（dispatcher → receiver transport）、broker 传输绑定均 deferred 到 Stage 8。

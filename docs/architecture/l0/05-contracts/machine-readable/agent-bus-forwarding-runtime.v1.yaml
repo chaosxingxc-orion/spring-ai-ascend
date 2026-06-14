@@ -1,0 +1,184 @@
+contract: Agent-Bus-Forwarding-Runtime
+status: draft
+version: v1
+provider: agent-bus
+consumer: agent-runtime
+candidate: C3-database-outbox-inbox
+description: "agent-bus 类 MQ 转发的运行态承载（C3 outbox/inbox）record schema：durable、可审计、tenant-scoped、broker-agnostic。Stage 7 只交付 schema 草案 + 端口 + 状态机 + harness；真实持久化（JDBC/migration/polling/lease/并发抢占）是 Stage 8。"
+authority:
+  icd_design: ICD-agent-bus-forwarding.md
+  l2: architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md
+  decision: docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md
+outbox_record:
+  description: "发送端 durable queue record；承载一条 forwarding 消息从入队到终态（ACKED/DLQ/EXPIRED）。"
+  required:
+    - field: tenantId
+      type: string
+      mutable: false
+      owner: caller-and-discovery-tenant-scope
+      pii: tenant-identifier-audit-retained
+      rule: R-C.c
+      constraint: non-blank; must equal routeHandle tenantScope
+    - field: messageId
+      type: string
+      mutable: false
+      owner: forwarding-substrate
+      pii: opaque-no-redact
+      constraint: non-blank
+    - field: sourceServiceId
+      type: string
+      mutable: false
+      owner: caller
+      pii: service-identifier-audit-retained
+    - field: targetServiceId
+      type: string
+      mutable: false
+      owner: discovery-via-routeHandle
+      pii: service-identifier-audit-retained
+      constraint: from Stage 3 discovery, not a physical endpoint
+    - field: routeHandle
+      type: string
+      mutable: false
+      owner: discovery
+      pii: opaque-no-redact
+      constraint: opaque; encapsulates endpoint/topic/routeKey; never expose physical endpoint
+    - field: status
+      type: enum
+      enum: [PENDING, DISPATCHING, ACKED, RETRY_SCHEDULED, DLQ, EXPIRED]
+      mutable: true
+      owner: dispatcher-state-machine
+      pii: enum-no-redact
+    - field: attemptCount
+      type: integer
+      mutable: true
+      owner: dispatcher
+      pii: count-no-redact
+      constraint: starts at 0; increments on each RETRY
+    - field: createdAt
+      type: epoch-millis
+      mutable: false
+      owner: substrate
+      pii: timestamp-no-redact
+    - field: updatedAt
+      type: epoch-millis
+      mutable: true
+      owner: substrate
+      pii: timestamp-no-redact
+  conditional:
+    - field: payloadRef
+      type: string
+      mutable: false
+      owner: caller
+      pii: reference-no-inline-body
+      required_when: payloadPolicy == DATA_BEARING
+      rule: MI5-003-option-B
+      constraint: payload follows data reference path; optional for CONTROL_ONLY
+    - field: nextAttemptAt
+      type: epoch-millis
+      mutable: true
+      owner: dispatcher
+      pii: timestamp-no-redact
+      required_when: status == RETRY_SCHEDULED
+    - field: lastFailureCode
+      type: enum
+      enum: [route_not_found, tenant_mismatch, delivery_timeout, receiver_unavailable, backpressure_rejected, duplicate_suppressed, payload_ref_invalid]
+      mutable: true
+      owner: dispatcher
+      pii: enum-no-redact
+      required_when: status in [RETRY_SCHEDULED, DLQ, EXPIRED]
+      nullable_when: status == ACKED
+  unique_key: [tenantId, messageId]
+inbox_record:
+  description: "接收端去重 / 幂等 / 审计 record。"
+  required:
+    - field: tenantId
+      type: string
+      mutable: false
+      owner: receiver-validation
+      pii: tenant-identifier-audit-retained
+      rule: R-C.c
+      constraint: must equal message envelope tenantId
+    - field: messageId
+      type: string
+      mutable: false
+      owner: forwarding-substrate
+      pii: opaque-no-redact
+      constraint: non-blank
+    - field: consumerServiceId
+      type: string
+      mutable: false
+      owner: receiver
+      pii: service-identifier-audit-retained
+      constraint: distinct consumers dedup independently
+    - field: status
+      type: enum
+      enum: [RECEIVED, DUPLICATE_SUPPRESSED, CONSUMED, REJECTED]
+      mutable: true
+      owner: inbox-state-machine
+      pii: enum-no-redact
+    - field: receivedAt
+      type: epoch-millis
+      mutable: false
+      owner: inbox
+      pii: timestamp-no-redact
+  conditional:
+    - field: consumedAt
+      type: epoch-millis
+      mutable: true
+      owner: receiver
+      pii: timestamp-no-redact
+      required_when: status == CONSUMED
+    - field: failureCode
+      type: enum
+      enum: [tenant_mismatch, payload_ref_invalid, duplicate_suppressed]
+      mutable: true
+      owner: inbox
+      pii: enum-no-redact
+      required_when: status in [REJECTED, DUPLICATE_SUPPRESSED]
+  dedup_key: [tenantId, messageId, consumerServiceId]
+forbidden_fields:
+  - payload_body
+  - token_stream
+  - task_execution_state
+  - physical_endpoint
+forbidden_fields_note: "outbox/inbox record 始终不得包含 payload body / token stream / Task execution state / 物理 endpoint；大载荷走 payloadRef data reference path；转发方只持 opaque routeHandle。"
+state_machine:
+  authority: architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md#4
+  outbox_terminal: [ACKED, DLQ, EXPIRED]
+  inbox_terminal: [DUPLICATE_SUPPRESSED, CONSUMED, REJECTED]
+  illegal_transition: throws IllegalStateTransitionException
+failure_codes:
+  non_retryable:
+    - route_not_found
+    - tenant_mismatch
+    - payload_ref_invalid
+  retryable:
+    - delivery_timeout
+    - receiver_unavailable
+    - backpressure_rejected
+  dedup:
+    - duplicate_suppressed
+tenant_isolation:
+  tenant_id_mandatory: true
+  cross_tenant_query: explicit_failure
+  cross_tenant_fallback: forbidden
+  rule: R-C.c
+lifecycle_ownership:
+  bus_writes_task_execution_state: false
+  changes_remote_task_owner: false
+broker_posture: broker-agnostic
+stage7_scope:
+  delivers: [schema-draft, port-interfaces, state-machine, harness, in-memory-test-double]
+  not_delivers: [jdbc-driver, real-db-implementation, migration, polling, lease, concurrent-claim, real-delivery-binding]
+  next_stage: Stage-8
+compatibility:
+  additive_fields_allowed: true
+  breaking_change_requires_adr: true
+contract_tests:
+  - forwarding_runtime_outbox_record_has_required_fields
+  - forwarding_runtime_inbox_record_has_required_fields
+  - forwarding_runtime_outbox_unique_key_is_tenant_and_message_id
+  - forwarding_runtime_inbox_dedup_key_includes_consumer
+  - forwarding_runtime_forbids_payload_body_token_stream_task_state_endpoint
+  - forwarding_runtime_status_values_match_l2_state_machine
+  - forwarding_runtime_failure_codes_cover_l2_semantics

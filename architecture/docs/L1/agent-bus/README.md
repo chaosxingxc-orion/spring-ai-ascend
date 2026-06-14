@@ -76,6 +76,16 @@ Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Ag
 - runtime-to-runtime 消息不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
 - Stage 4 只定义转发语义和 harness 断言，不实现运行态转发底座、不新增 mailbox / queue / DLQ / replay 运行态存储。
 
+## C3 转发运行态最小骨架（Stage 7）
+
+Stage 7 按 Stage 6 裁决采用 **C3（database outbox / inbox）** 作为类 MQ 转发的生产候选路径，交付 C3 的最小可测运行态骨架（非完整持久化实现）。运行态契约见 [`ICD-Agent-Bus-Forwarding-Runtime`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)，L2 技术设计见 [`forwarding-outbox-inbox.md`](../../L2/agent-bus/forwarding-outbox-inbox.md)。Stage 7 边界：
+
+- 落地纯 Java 领域模型与端口：`ForwardingEnvelope` / `ForwardingRouteHandle` / `ForwardingMessageId` / `ForwardingStatus` / `ForwardingFailureCode` / `ForwardingReceipt`，以及 `ForwardingOutboxPort` / `ForwardingInboxPort` / `ForwardingDispatcher` 三个端口和纯状态机 `ForwardingStateMachine`。
+- envelope 强制 tenant 隔离（`tenantId` 必须等于 `routeHandle.tenantScope`，违例报 `tenant_mismatch`）与 MI5-003 方案 B 的 `payloadRef` 条件必填（DATA_BEARING 必填、CONTROL_ONLY 可选）；envelope / receipt 不携带 payload body / token stream / Task execution state / physical endpoint。
+- 生产代码（`com.huawei.ascend.bus.forwarding{,.spi,.runtime}`）保持纯 Java：不依赖 Spring / JDBC / broker client / HTTP / 序列化框架（由 `AgentBusForwardingSpiPurityTest` ArchUnit 强制）。
+- 持久化 / 交付绑定的真实实现（JDBC 驱动、migration、polling、lease、broker transport）deferred 到 Stage 8；Stage 7 仅提供非生产 in-memory 测试替身验证端口语义。
+- 不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
+
 ## 阶段记录
 
 - Stage 1 harness 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-harness.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-harness.md)。
@@ -95,4 +105,4 @@ Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Ag
 - 为本目录生成 graphify 输入和漂移检查 manifest。
 - Stage 5 运行态候选方案评审：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md)（候选评审，不绑定产品；Stage 4 设计态契约见上方「类 MQ 转发契约」章节）。
 - Stage 6 运行态候选裁决：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)（H2/H3 裁决记录，draft 待裁决；裁决前不写生产代码，实现等待裁决；Stage 6 计划见上方「阶段记录」）。
-- Stage 7 建议进入 C3 database outbox / inbox 的较大批次：裁决落位、L2 技术设计、schema 草案、代码骨架、状态机和 harness 同步推进；计划见上方「阶段记录」。
+- Stage 7 C3 转发运行态最小骨架已落地（领域模型 + 端口 + 状态机 + in-memory 测试替身 + harness，115 tests green）；真实持久化 / 交付绑定 deferred 到 Stage 8。

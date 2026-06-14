@@ -1,141 +1,109 @@
 ---
 artifact_type: a2d_review_packet
 version: "agent-bus-forwarding-runtime-decision"
-status: draft
-source_plan: "docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage5-review-and-stage6-plan.md"
+status: "adopted-c3-pending-final-confirmation"
+source_plan: "docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage6-review-and-stage7-plan.md"
+source_stage6_plan: "docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage5-review-and-stage6-plan.md"
 source_candidates: "docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md"
 source_icd: "docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md"
 source_l1: "architecture/docs/L1/agent-bus/README.md"
 target_module: agent-bus
 ---
 
-# agent-bus 运行态转发候选方案裁决（Stage 6 H2/H3）
+# agent-bus 运行态转发候选方案裁决（Stage 6 H2/H3 → Stage 7 落位）
 
 ## 0. 文档状态与裁决前提
 
-**当前状态：draft — 等待 H2/H3 裁决。**
+**当前状态：默认采用 C3（database outbox / inbox），待 H2/H3 最终确认。**
 
-本文档是 Stage 6（运行态候选裁决与最小实现切片设计）的裁决记录入口。Stage 5 评审包（[`candidates`](agent-bus-forwarding-runtime-candidates.md)）已暴露 5 候选的 trade-off、推荐方向与 rejection criteria，但**未下裁决**。Stage 6 计划（§4、§6）明确：在 H2/H3 正式裁决前，施工智能体不得写生产 runtime 代码，本文档停在 draft。
+本文档是 Stage 6（运行态候选裁决）的裁决记录，并被 Stage 7 计划（[`stage6-review-and-stage7-plan`](../delivery-projections/agent-bus-stage6-review-and-stage7-plan.md) §0）正式推进落位：Stage 6 的 draft 作为裁决入口已被接受为收口输入；Stage 7 不再生成「等待裁决」文档，而是按 Stage 5 推荐方向默认采用 **C3 database outbox / inbox** 作为生产候选路径，并解锁最小运行态实现。
 
-裁决权威方：**H2/H3**（架构治理 / 人类决策）。本文档在 H2/H3 给出裁决前，只承载「待裁决字段 + 推荐输入 + 禁止范围」，不构成裁决。
+裁决权威方仍为 **H2/H3**（架构治理 / 人类决策）。Stage 7 计划 §0 的落位逻辑是「若人类没有反对，默认按 Stage 5 推荐采用 C3」—— 这是默认裁决，不是绕过 H2/H3：若 H2/H3 在最终确认时反对 C3，则回退本文档状态、撤回 Stage 7 生产代码、回到分支式计划态。在 H2/H3 最终确认前，Stage 7 生产代码受 §4 许可范围与 §6 禁止范围双向约束。
 
-回应「Stage 6 是不是应该写代码」的疑问（Stage 6 计划 MI6-003）：Stage 6 的职责是**先裁决、再（可能）施工**，不是默认写代码。是否写生产代码是裁决项之一（见 §4），在裁决为「否」或「未裁决」时，本阶段产出的是裁决记录与分支式实现计划，不是生产代码。真正开始写代码的最早时机是 Stage 7（Stage 6 计划 §7）。
+回应「Stage 6 是否应该写代码」（Stage 6 计划 MI6-003）：Stage 6 本身是裁决关卡、不写代码（已收口）；Stage 7 在 C3 默认裁决下开始铺最小运行态实现路径，代码最早在此出现。
 
-## 1. 待裁决项
+## 1. 裁决项
 
-| 裁决项 | 当前状态 | 必须回答 |
+| 裁决项 | 裁决 | 说明 |
 |---|---|---|
-| 采用候选 | **待 H2/H3 裁决** | C1 / C2 / C3 / C4 / C5，或组合。 |
-| 是否允许写生产代码 | **否（无裁决）** | 是 / 否；若否，本阶段仅产出实现计划。 |
-| 最小实现范围 | 待裁决（分支式候选范围见 §5） | SPI / in-memory runtime / outbox schema / adapter shell / harness。 |
-| 验收标准 | 待裁决 | 哪些测试、哪些文档、哪些漂移检查。 |
+| 采用候选 | **C3 database outbox / inbox（默认）** | Stage 7 计划 §0 落位；durable、审计强、tenant 行级隔离清楚、可能复用现有 DB、运维轻（见 [`candidates §6.2`](agent-bus-forwarding-runtime-candidates.md)）。 |
+| 是否允许写生产代码 | **是（仅 C3 最小范围）** | 允许最小领域模型、端口接口、状态机、schema 草案、harness；不允许完整调度器接入真实服务调用链（见 §4）。 |
+| 最小实现范围 | C3 最小骨架（Stage 7 切片 2-5） | L2 技术设计、outbox/inbox schema 草案、`com.huawei.ascend.bus.forwarding{,.spi,.runtime}` 骨架、状态机与契约 harness、L1 同步。 |
+| 验收标准 | Stage 7 计划 §4 | C3 决策不再阻塞；L2 可投影 schema/接口/测试；最小骨架有单测/harness 覆盖关键规则；不引入 broker/MQ 依赖；不改 Task ownership；不绕 routeHandle；不放 payload body。 |
 
-## 2. 采用候选（待裁决）
+**本裁决不再是「待裁决导致不得推进」的阻塞状态**：默认采用 C3 已解锁 Stage 7 最小实现路径。
 
-**当前：无裁决。**
+## 2. 采用候选
 
-Stage 5 评审包给出的**非裁决性质推荐**（[`candidates §6.2`](agent-bus-forwarding-runtime-candidates.md)）作为 H2/H3 聚焦输入：
+**采用 C3 — database outbox / inbox（默认生产候选路径）。**
 
-| 角色 | 候选 | 说明 |
-|---|---|---|
-| 默认推荐（非裁决） | C3 database outbox / inbox | durable、审计强、tenant 行级隔离清楚、可能复用现有 DB、运维轻。 |
-| 备选早期实验 | C1 in-memory dispatcher | 仅本地开发 / 非 durable 原型，不作为生产候选。 |
-| 暂不推荐 | C5 hybrid | 复杂度过高，不适合最小切片。 |
+理由（与 Stage 5 [`candidates §6.2`](agent-bus-forwarding-runtime-candidates.md) 推荐一致）：
 
-> 以上是推荐输入，**不是采用裁决**。采用哪个候选由 H2/H3 在此章节正式填入。
+- **durable**：outbox/inbox 表提供跨进程可靠投递与重启不丢，满足生产转发底座最低要求。
+- **审计强**：行级 record（tenantId + messageId + status + attemptCount + lastFailureCode）天然可审计、可 replay。
+- **tenant 隔离清楚**：registry key 强制 `tenantId`（Stage 3）的隔离在 outbox/inbox 上延续为行级 `tenantId` + 唯一约束，跨 tenant fallback 在查询/投递层显式失败。
+- **可能复用现有 DB**：不强制引入新基础设施（broker 运维），与当前阶段「最小切片、最小新增生产依赖」一致。
+- **broker-agnostic**：outbox/inbox 是承载语义，不绑定具体 broker/MQ 产品；未来若需要 external broker（C4），可在 outbox dispatcher 与 broker adapter 之间加一层，不推翻 C3 骨架。
 
-## 3. 不采用候选及原因（待裁决）
+C1 in-memory dispatcher 仅保留为**本地非 durable 替身 / 测试替身**，不作生产底座。
 
-**当前：无裁决。** H2/H3 应据 [`candidates §6.2 rejection criteria`](agent-bus-forwarding-runtime-candidates.md) 判定每个候选的不可接受条件是否命中：
+## 3. 不采用候选及原因
 
-| 候选 | 不可接受条件（命中即不采用） |
+| 候选 | 不采用原因（命中 rejection criteria） |
 |---|---|
-| C1 | 需要跨进程可靠投递、重启不丢消息、或生产审计。 |
-| C2 | 需要跨实例一致路由或 durable replay。 |
-| C3 | 系统没有可复用 DB，或 DB 压力不能接受 polling / outbox。 |
-| C4 | 团队无法承担 broker 运维，或当前阶段禁止新增生产依赖。 |
-| C5 | 处于最小切片阶段，复杂度超过收益。 |
-
-H2/H3 裁决后，在此章节明确「不采用 X，因为命中 rejection criteria Y」。
+| C1 in-memory dispatcher | 不满足跨进程可靠投递、重启不丢消息、生产审计；仅作为本地非持久化实验 / 测试替身保留，不作生产底座。 |
+| C2 runtime-local queue | 不满足跨实例一致路由与 durable replay；runtime-local 状态在实例失效后丢失，不满足转发底座最低 durable 要求。 |
+| C4 external broker（Kafka / NATS / RocketMQ / RabbitMQ） | 引入 broker 运维与产品绑定，当前阶段过重；C3 outbox/inbox 已满足最小切片收益，broker adapter 可作为 Stage 8+ 的可选上层，不进 Stage 7 最小骨架。 |
+| C5 hybrid | 复杂度超过最小切片收益；当前阶段不需要在 outbox 与 broker 之间做混合编排。 |
 
 ## 4. 是否允许写生产代码
 
-**当前裁决：否 —— 无 H2/H3 裁决，本阶段不得写生产 runtime 代码。**
+**裁决：是 —— 仅 C3 最小范围。**
 
-依 Stage 6 计划 §6：在裁决前不得写生产 runtime dispatcher、不得引入 broker / MQ 生产依赖、不得新增 outbox / inbox / DLQ / replay store。
+Stage 7 允许写生产代码的范围（正向许可）：
 
-允许的「非生产代码」产物（本阶段 draft 可产出）：
+- `agent-bus` 内的 forwarding runtime 领域模型、端口接口、状态机。
+- outbox / inbox schema 草案（machine-readable yaml）与 L2 技术设计。
+- in-memory test double（**仅**测试替身 / 本地非持久化实验，放在 test source set 或明确标注 non-production）。
+- 状态机与契约 harness / 单元测试。
 
-- 裁决记录文档（本文档）。
-- 分支式最小实现切片**计划**（§5），不展开生产实现。
-- L1 同步（标注「实现等待裁决」）。
+Stage 7 **不允许**写生产代码的范围（反向禁止）：
 
-裁决后按分支激活（见 §5）：
+- **不引入**具体 broker / MQ client（Kafka / RabbitMQ / RocketMQ / NATS）。
+- **不引入** JDBC driver / 具体 ORM / 真实数据库实现（C3 持久化实现是 Stage 8；Stage 7 若发现 C3 需真实 DB 才能表达，停在端口接口与状态机，见 Stage 7 计划 §5）。
+- **不接入**完整调度器到真实服务调用链。
+- **不写** Task execution state。
+- **不绕过** Stage 3 discovery 的 `routeHandle`。
+- **不放** payload body / token stream 进 forwarding envelope（`payloadRef` 条件必填，MI5-003 方案 B）。
 
-| 若裁决 | 允许写生产代码 |
-|---|---|
-| C1 in-memory dispatcher | 最小 `ForwardingDispatcher` 接口 + in-memory 实现 + 单模块测试（见 §5.1）。 |
-| C3 database outbox / inbox | **先**写 L2 技术设计 / schema / state machine harness；是否写生产代码需**单独**裁决（见 §5.2）。 |
-| C4 external broker | **先**写 broker adapter SPI + dependency quarantine 设计；不直接引入具体 broker client（见 §5.3）。 |
-| 无裁决 / 未裁决 | **不得**写生产代码。 |
+允许范围与禁止范围同时存在，且均可被 review（§6 与 Stage 7 计划 §3/§4）。
 
-## 5. 最小实现范围（分支式候选计划，待裁决激活）
+## 5. 最小实现范围（C3 已激活）
 
-以下三个分支对应 Stage 6 计划切片 2 的最小实现计划，**全部待 H2/H3 裁决后激活**；裁决前不展开生产实现。
+C3 分支已由本裁决激活。Stage 7 的最小实现切片（见 Stage 7 计划 §3）：
 
-### 5.1 若采用 C1：in-memory dispatcher
+- **切片 2 L2 技术设计**：`architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md` —— 组件边界、状态机、幂等键、租户隔离、失败语义。
+- **切片 3 契约与 schema**：`ICD-agent-bus-forwarding-runtime.md` + `machine-readable/agent-bus-forwarding-runtime.v1.yaml` —— outbox/inbox record 字段、唯一约束、禁止字段。
+- **切片 4 代码骨架**：`com.huawei.ascend.bus.forwarding{,.spi,.runtime}` —— `ForwardingEnvelope` / `ForwardingMessageId` / `ForwardingStatus` / `ForwardingFailureCode` / `ForwardingReceipt` / `ForwardingDispatcher` / `ForwardingOutboxPort` / `ForwardingInboxPort` / `ForwardingStateMachine` / `ForwardingRouteHandle`。
+- **切片 5 harness 与测试**：tenant mismatch / routeHandle missing / payload body rejected / payloadRef missing / duplicate suppressed / 正常路径 / 重试路径 / DLQ / 不写 Task state / SPI 无 DB 依赖。
+- **切片 6 L1 同步**：README / logical / process / development / features。
 
-允许计划：
-
-- 新增最小 `ForwardingDispatcher` 接口。
-- 新增 in-memory 实现。
-- 新增 envelope carrier 类型或复用设计态字段。
-- 单模块测试：tenant mismatch、routeHandle missing、backpressure rejected、duplicate suppressed。
-
-禁止：
-
-- durable DLQ。
-- broker client。
-- 跨模块 runtime 绑定。
-
-### 5.2 若采用 C3：database outbox / inbox
-
-允许计划：
-
-- 先写 L2 技术设计。
-- 定义 outbox / inbox state machine。
-- 定义 schema 草案和 migration plan。
-- 增加 schema / harness 测试计划。
-
-是否写生产代码需**单独**裁决。
-
-### 5.3 若采用 C4：external broker
-
-允许计划：
-
-- 先写 broker adapter SPI。
-- 定义 dependency quarantine。
-- 定义产品选择评分矩阵。
-- 不直接引入 Kafka / NATS / RocketMQ / RabbitMQ client。
-
-### 5.4 若未裁决
-
-全部分支停在计划态，不产出生产代码；L1 标注「实现等待裁决」。
+真实持久化实现（JDBC / 具体 DB schema migration / polling / lease / 并发抢占）**不在 Stage 7**，作为 **Stage 8** 处理（Stage 7 计划 §6）。
 
 ## 6. 禁止范围
 
-### 6.1 无 H2/H3 裁决前（当前状态适用）
+### 6.1 Stage 7 生产代码许可的边界（C3 裁决下适用）
 
-第六阶段在无裁决前**不得**（Stage 6 计划 §6）：
+即使已裁决 C3，Stage 7 仍**不得**：
 
-- 写生产 runtime dispatcher。
-- 引入 broker / MQ 生产依赖。
-- 新增 outbox / inbox / DLQ / replay store。
-- 改 Task lifecycle owner。
-- 让 `agent-bus` 写 Task execution state。
+- 引入具体 broker / MQ client。
+- 引入 JDBC driver / 真实数据库实现（停在端口接口 + 状态机）。
+- 让完整调度器接入真实服务调用链。
+- 写生产 runtime dispatcher 的真实投递（dispatcher 接口 + 状态机允许；真实投递绑定是 Stage 8）。
+- 改 Task lifecycle owner / 让 `agent-bus` 写 Task execution state。
 - 绕过 `routeHandle`。
 
-### 6.2 即使有 H2/H3 裁决，也始终不得
+### 6.2 始终不得（即使后续 Stage 裁决也不变）
 
 - 用某个产品能力反向修改 Stage 4 的 broker-agnostic 语义。
 - 把大对象正文或 token stream 放入 forwarding envelope（`payloadRef` 条件必填，MI5-003 方案 B）。
@@ -147,20 +115,23 @@ H2/H3 裁决后，在此章节明确「不采用 X，因为命中 rejection crit
 
 | Owner | 通知事项 |
 |---|---|
-| H2/H3 | 本文等待裁决：采用候选 / 是否允许写生产代码 / 验收标准。 |
-| agent-bus 模块负责人 | Stage 6 停在 draft，裁决前不写生产代码；裁决后按 §5 分支激活。 |
-| `agent-runtime`（当前实现落点：`agent-service`）owner | 转发底座不改变 Task lifecycle owner；runtime 构造点 / outbox owner（若 C3）落点需协调，但 Task execution state 仍归 runtime。 |
+| H2/H3 | 本文档已默认采用 C3（Stage 7 计划 §0 落位），待最终确认；若反对 C3，回退状态并撤回 Stage 7 生产代码。 |
+| agent-bus 模块负责人 | C3 已解锁最小运行态实现；Stage 7 按 §5 切片执行；真实持久化是 Stage 8。 |
+| `agent-runtime`（当前实现落点：`agent-service`）owner | 转发底座不改变 Task lifecycle owner；outbox owner 落点（若 Stage 8 接真实 DB）需协调，但 Task execution state 仍归 runtime。 |
 | `agent-core`（当前实现落点：`agent-execution-engine`）owner | 转发底座不触及 engine 执行边界，无 owner 变更。 |
 
 ## 8. 后续
 
-- H2/H3 裁决后：把本文档从 draft 升为裁决，填入采用候选 / 不采用候选 / 是否允许生产代码 / 验收标准，并据 §5 激活对应分支。
-- 若裁决允许生产代码：进入 **Stage 7 最小运行态实现**，受本裁决约束（Stage 6 计划 §7）。
-- 若裁决 C3 且需 schema：补 L2 技术设计与 migration plan，再单独裁决是否写生产代码。
+- H2/H3 最终确认 C3：本文档状态升为 `adopted-c3`，Stage 7 生产代码保留。
+- H2/H3 反对 C3：本文档回退 draft，撤回 Stage 7 生产代码，回到 §5 分支式计划态。
+- Stage 8：真实持久化实现（JDBC / migration / polling / lease / 并发抢占 / backpressure 参数 / 是否独立 adapter module / 接入 agent-runtime 受控调用路径）。
 
 相关文档：
 
 - Stage 5 候选评审：[`agent-bus-forwarding-runtime-candidates`](agent-bus-forwarding-runtime-candidates.md)。
 - Stage 6 计划：[`agent-bus-stage5-review-and-stage6-plan`](../delivery-projections/agent-bus-stage5-review-and-stage6-plan.md)。
+- Stage 7 计划：[`agent-bus-stage6-review-and-stage7-plan`](../delivery-projections/agent-bus-stage6-review-and-stage7-plan.md)。
+- Stage 7 L2 设计：[`forwarding-outbox-inbox`](../../../../architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md)。
+- Stage 7 runtime 契约：[`ICD-Agent-Bus-Forwarding-Runtime`](../../05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)。
 - 设计态契约：[`ICD-Agent-Bus-Forwarding`](../../05-contracts/human-readable/ICD-agent-bus-forwarding.md)（HD4）。
 - L1 入口：[`agent-bus L1 README`](../../../../architecture/docs/L1/agent-bus/README.md)。

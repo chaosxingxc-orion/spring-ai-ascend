@@ -31,7 +31,7 @@ H2 已接受 `agent-bus` 内部分为两个逻辑子模块：
 
 | 目标态能力 | 职责 | 当前状态 |
 |---|---|---|
-| 类 MQ 转发底座 | 提供跨 runtime 的异步转发、队列/主题抽象、correlation、ack/retry、backpressure、DLQ/replay、ordering/fairness 等运行时语义。 | 设计态；Stage 4 已形成 broker-agnostic 转发语义 ICD（[`ICD-Agent-Bus-Forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)），消费 Stage 3 route handle；当前没有 broker 绑定或 runtime 实现。 |
+| 类 MQ 转发底座 | 提供跨 runtime 的异步转发、队列/主题抽象、correlation、ack/retry、backpressure、DLQ/replay、ordering/fairness 等运行时语义。 | C3 最小骨架（Stage 7）；Stage 4 broker-agnostic 转发语义 ICD（[`ICD-Agent-Bus-Forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)）+ Stage 7 C3 运行态契约（[`ICD-Agent-Bus-Forwarding-Runtime`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)）；Stage 7 已落纯 Java 领域模型 / 端口 / 状态机 + 非生产 in-memory 测试替身，真实持久化 / broker 绑定 deferred Stage 8。 |
 | Agent 注册与发现 | 维护运行时路由所需的 agent/service/capability 注册发现索引，包括实例、租户、能力、版本、region、endpoint、health、负载等路由元数据。 | 设计态；当前没有注册表实现或发现 API。 |
 
 这里的注册发现只服务于运行时路由和治理，不拥有 agent 的业务定义、Task 生命周期或执行状态。
