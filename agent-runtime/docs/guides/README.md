@@ -2,49 +2,44 @@
 
 按特性分类的开发参考文档，每份文档独立成文，按需阅读。
 
-## 使用方式
-
-**AI Agent（Claude、Copilot 等）：** 在编写代码前，根据当前任务阅读对应文档。
-每份文档定义了合约、模式和配置面。
-
-**开发者：** 从快速开始示例（`examples/agent-runtime-openjiuwen-simple/`）
-入手，需要了解某个特性的细节时再查阅对应文档。
-
 ## 文档目录
 
 | 文档 | 阅读场景 |
-|---|---|
-| [adapter-overview.md](adapter-overview.md) | 了解 OpenJiuwen / AgentScope / Versatile 三种适配器及选型 |
-| [handler-spi.md](handler-spi.md) | 实现自定义 AgentRuntimeHandler |
-| [openjiuwen-adapter.md](openjiuwen-adapter.md) | 挂载 openJiuwen ReActAgent 或 DeepAgent |
-| [versatile-adapter.md](versatile-adapter.md) | 通过 REST 代理接入远端 Agent 服务 |
+|------|---------|
+| [handler-spi.md](handler-spi.md) | 实现自定义 AgentRuntimeHandler、选择适配器 |
+| [openjiuwen-adapter.md](openjiuwen-adapter.md) | 挂载 openJiuwen ReActAgent |
+| [agentscope-adapter.md](agentscope-adapter.md) | 挂载 AgentScope Agent |
+| [versatile-adapter.md](versatile-adapter.md) | 通过 REST 代理接入远端 Agent、编写 SKILL.md |
+| [a2a-endpoints.md](a2a-endpoints.md) | A2A 协议调用：通讯模式、Methods、Java SDK 客户端 |
+| [agent-card-configuration.md](agent-card-configuration.md) | 配置 A2A Agent 发现卡片（skills/capabilities） |
+| [memory-services.md](memory-services.md) | MemoryProvider SPI 与 OpenJiuwen 记忆集成 |
+| [state-persistence.md](state-persistence.md) | Agent 执行状态 Checkpoint 持久化 |
 | [remote-invocation.md](remote-invocation.md) | Agent 通过 A2A 协议调用其他 Agent 作为工具 |
-| [communication-models.md](communication-models.md) | 同步/流式/异步三种通讯模式及响应类型 |
-| [middleware-services.md](middleware-services.md) | MemoryProvider SPI 与 Agent State 持久化 |
-| [agent-card-configuration.md](agent-card-configuration.md) | 配置 A2A Agent 发现卡片 |
-| [a2a-endpoints.md](a2a-endpoints.md) | A2A JSON-RPC 协议面：方法、SSE、错误码 |
-| [configuration-properties.md](configuration-properties.md) | 全部 application.yaml 配置项参考 |
+| [trajectory-observability.md](trajectory-observability.md) | 执行轨迹记录与敏感信息掩码 |
+| [operations-guide.md](operations-guide.md) | 生命周期管理、健康检查、日志诊断、嵌入式部署 |
+| [configuration-properties.md](configuration-properties.md) | 全部 application.yaml 配置项与行为说明 |
 
 ## 按任务速查
 
 | 我想... | 阅读 |
-|---|---|
-| 了解适配器全景 | [adapter-overview.md](adapter-overview.md) |
-| 创建新的 Agent 适配器 | [adapter-overview.md](adapter-overview.md) → [handler-spi.md](handler-spi.md) → 对应框架文档 |
+|--------|------|
+| 创建新的 Agent 适配器 | [handler-spi.md](handler-spi.md) → 对应框架文档 |
 | 挂载 openJiuwen Agent | [openjiuwen-adapter.md](openjiuwen-adapter.md) |
+| 挂载 AgentScope Agent | [agentscope-adapter.md](agentscope-adapter.md) |
 | 代理远端 REST Agent | [versatile-adapter.md](versatile-adapter.md) |
-| Agent 调用其他 A2A Agent | [remote-invocation.md](remote-invocation.md) |
-| 选择同步/流式/异步模式 | [communication-models.md](communication-models.md) |
-| 理解 A2A 流式事件 | [communication-models.md](communication-models.md) → [a2a-endpoints.md](a2a-endpoints.md) |
-| 添加会话记忆 | [middleware-services.md](middleware-services.md) |
-| 持久化 Agent 状态 | [middleware-services.md](middleware-services.md#agent-state-persistence-checkpointer) |
-| 修改 AgentCard 名称/描述 | [agent-card-configuration.md](agent-card-configuration.md) |
 | 用 curl 调用 Agent | [a2a-endpoints.md](a2a-endpoints.md) |
+| 用 Java SDK 调用 Agent | [a2a-endpoints.md](a2a-endpoints.md) §5 |
+| Agent 调用其他 A2A Agent | [remote-invocation.md](remote-invocation.md) |
+| 添加会话记忆 | [memory-services.md](memory-services.md) |
+| 持久化 Agent 状态 | [state-persistence.md](state-persistence.md) |
+| 理解轨迹事件 | [trajectory-observability.md](trajectory-observability.md) |
+| 修改 AgentCard 名称/描述 | [agent-card-configuration.md](agent-card-configuration.md) |
+| 编写 SKILL.md 引导 LLM | [versatile-adapter.md](versatile-adapter.md) §SKILL.md 最佳实践 |
 | 查找配置项 | [configuration-properties.md](configuration-properties.md) |
-| SSE 断线重连 | [a2a-endpoints.md](a2a-endpoints.md#tasksresubscribe-subscribetotask-reconnect) |
+| 配置健康检查/优雅停机 | [operations-guide.md](operations-guide.md) |
 
 ## 相关
 
 - 快速开始示例：`examples/agent-runtime-openjiuwen-simple/`
-- 模块 README：`agent-runtime/README.md`
-- 架构文档：`architecture/docs/L0/ARCHITECTURE.md`
+- 设计文档：`architecture/docs/L2/agent-runtime/`
+- 发布特性清单：`architecture/docs/L1/agent-runtime/features/agent-runtime-release-features.cn.md`
