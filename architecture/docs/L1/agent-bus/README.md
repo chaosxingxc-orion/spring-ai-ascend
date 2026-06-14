@@ -86,6 +86,7 @@ Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Ag
 - Stage 3 收口评审与 Stage 4 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage3-close-review-and-stage4-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage3-close-review-and-stage4-plan.md)。
 - Stage 4 评审与 Stage 5 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage4-review-and-stage5-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage4-review-and-stage5-plan.md)。
 - Stage 5 评审与 Stage 6 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage5-review-and-stage6-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage5-review-and-stage6-plan.md)。
+- Stage 6 评审与 Stage 7 大批次计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage6-review-and-stage7-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage6-review-and-stage7-plan.md)。
 
 ## 后续工作
 
@@ -94,3 +95,4 @@ Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Ag
 - 为本目录生成 graphify 输入和漂移检查 manifest。
 - Stage 5 运行态候选方案评审：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md)（候选评审，不绑定产品；Stage 4 设计态契约见上方「类 MQ 转发契约」章节）。
 - Stage 6 运行态候选裁决：见 [`../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md`](../../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)（H2/H3 裁决记录，draft 待裁决；裁决前不写生产代码，实现等待裁决；Stage 6 计划见上方「阶段记录」）。
+- Stage 7 建议进入 C3 database outbox / inbox 的较大批次：裁决落位、L2 技术设计、schema 草案、代码骨架、状态机和 harness 同步推进；计划见上方「阶段记录」。
