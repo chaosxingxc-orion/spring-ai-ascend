@@ -66,7 +66,17 @@ Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Ag
 - discovery 返回 opaque route handle，不携带 Task execution state。
 - Stage 3 只定义接口和 harness 断言，不实现 runtime registry（持久化选择 deferred）。
 
-## 后续工作
+## 类 MQ 转发契约（Stage 4 设计态）
+
+类 MQ 转发底座的完整设计态契约见 [`ICD-Agent-Bus-Forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)。Stage 4 边界（HD4）：
+
+- 转发语义 broker-agnostic：不绑定具体 broker / MQ 产品，产品选择 deferred 到 Stage 5。
+- forwarding envelope 通过 `routeHandle` 消费 Stage 3 discovery result，不直接暴露或绕过物理 endpoint。
+- forwarding envelope 只携带 `payloadRef`，不携带 payload body / token stream / Task execution state；大载荷走 data reference path。
+- runtime-to-runtime 消息不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
+- Stage 4 只定义转发语义和 harness 断言，不实现运行态转发底座、不新增 mailbox / queue / DLQ / replay 运行态存储。
+
+## 阶段记录
 
 - Stage 1 harness 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-harness.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-harness.md)。
 - Stage 1 评审与 Stage 2 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-review-and-stage2-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-review-and-stage2-plan.md)。
@@ -74,6 +84,10 @@ Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Ag
 - Stage 1 follow-up 评审与 Stage 3 执行计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-followups-review-and-stage3-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-followups-review-and-stage3-plan.md)。
 - Stage 3 评审与后续收口计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage3-review-and-followup-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage3-review-and-followup-plan.md)。
 - Stage 3 收口评审与 Stage 4 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage3-close-review-and-stage4-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage3-close-review-and-stage4-plan.md)。
+
+## 后续工作
+
 - 补齐 S2C tenant 迁移后的 runtime-side construction binding / schema validation / downstream 文档同步。
 - 为 ingress、federation、reflection 增加契约测试计划。
 - 为本目录生成 graphify 输入和漂移检查 manifest。
+- Stage 4 类 MQ 转发语义：见 [`../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)（设计态，broker-agnostic）。

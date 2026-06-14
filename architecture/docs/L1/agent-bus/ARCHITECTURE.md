@@ -31,7 +31,7 @@ H2 已接受 `agent-bus` 内部分为两个逻辑子模块：
 
 | 目标态能力 | 职责 | 当前状态 |
 |---|---|---|
-| 类 MQ 转发底座 | 提供跨 service 的异步转发、队列/主题抽象、correlation、ack/retry、backpressure、DLQ/replay、ordering/fairness 等运行时语义。 | 设计态；当前没有 broker 绑定或 runtime 实现。 |
+| 类 MQ 转发底座 | 提供跨 runtime 的异步转发、队列/主题抽象、correlation、ack/retry、backpressure、DLQ/replay、ordering/fairness 等运行时语义。 | 设计态；Stage 4 已形成 broker-agnostic 转发语义 ICD（[`ICD-Agent-Bus-Forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)），消费 Stage 3 route handle；当前没有 broker 绑定或 runtime 实现。 |
 | Agent 注册与发现 | 维护运行时路由所需的 agent/service/capability 注册发现索引，包括实例、租户、能力、版本、region、endpoint、health、负载等路由元数据。 | 设计态；当前没有注册表实现或发现 API。 |
 
 这里的注册发现只服务于运行时路由和治理，不拥有 agent 的业务定义、Task 生命周期或执行状态。
@@ -52,12 +52,12 @@ W2 workflow primitives 只保留设计态，不进入自动实现范围。它们
 | 边界 | 规则 |
 |---|---|
 | Task 生命周期 | `agent-runtime` 拥有，`agent-bus` 不直接写 Task execution state。 |
-| Service 与 Engine | `EnginePort` 是中立边界；service 驱动，execution engine 实现，bus 提供 SPI home。 |
-| Client 到 Service | `agent-client` 不直接依赖 compute_control 内部模块；通过 `IngressGateway` 进入。 |
-| Service 到 Client | 通过 `S2cCallbackTransport` 派发 S2C callback；envelope 必须显式携带 `tenantId`（Stage 2 契约层已迁移）。 |
-| Service 到 Service | 由真 bus 负责跨服务调用治理；当前以 federation/reflection 等 SPI 和契约事实表达。 |
+| Runtime 与 Core | `EnginePort` 是中立边界；`agent-runtime` 驱动，`agent-core` 实现，bus 提供 SPI home。 |
+| Client 到 Runtime | `agent-client` 不直接依赖 compute_control 内部模块；通过 `IngressGateway` 进入。 |
+| Runtime 到 Client | 通过 `S2cCallbackTransport` 派发 S2C callback；envelope 必须显式携带 `tenantId`（Stage 2 契约层已迁移）。 |
+| Runtime 到 Runtime | 由真 bus 负责跨服务调用治理；当前以 federation/reflection 等 SPI 和契约事实表达；类 MQ 转发语义（Stage 4 设计态）消费 Stage 3 route handle，不改远端 Task lifecycle owner，大载荷走 data reference path（见 [`ICD-Agent-Bus-Forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)）。 |
 | 物理 bus | broker、ordering、DLQ、mailbox fairness 等运行时实现未进入当前切片。 |
-| 注册发现 | 真 bus 目标态需要 agent/service/capability 注册发现；当前只记录为设计态，不进入 Stage 1 harness。 |
+| 注册发现 | 真 bus 目标态需要 agent/service/capability 注册发现；已在 Stage 3 形成设计态 ICD 与 harness；仍不进入 runtime 实现。 |
 
 ## 5. 当前事实来源
 

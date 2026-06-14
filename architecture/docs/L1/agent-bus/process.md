@@ -55,7 +55,7 @@ status: draft
 - response schema invalid：service 拒绝恢复，并记录失败原因。
 - transport failure：应通过 returned stage 异常完成，而不是在 transport 中同步抛出。
 
-## 4. Service 与 Engine 流程
+## 4. Runtime 与 Core 流程
 
 | 步骤 | 参与者 | 动作 |
 |---|---|---|
@@ -93,7 +93,7 @@ Mailbox、admission、backpressure、sleep、wakeup、tick 当前只保留设计
 
 ## 7. 真 bus 目标态流程：类 MQ 转发
 
-真 bus 的 service-to-service 调用目标态应包含一个类似 MQ 的转发底座，但 L1 不绑定具体产品。
+真 bus 的 runtime-to-runtime 调用目标态应包含一个类似 MQ 的转发底座，但 L1 不绑定具体产品。
 
 目标态流程：
 
@@ -118,8 +118,9 @@ Mailbox、admission、backpressure、sleep、wakeup、tick 当前只保留设计
 当前状态：
 
 - 以上内容都是设计态。
-- Stage 1 harness 不实现这些能力。
+- 类 MQ 转发底座仍为设计态；broker 产品选择与 runtime 实现 deferred。Stage 4 起草 broker-agnostic 转发语义 ICD 与设计态 harness（见 [`ICD-agent-bus-forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)），不绑定具体产品 runtime。
 - 进入实现前需要独立 H2/H3 决策和 harness 计划。
+- forwarding envelope 只携带 `payloadRef`（不携带 payload body / token stream / Task execution state），通过 `routeHandle` 消费 Stage 3 discovery，不改变远端 Task lifecycle owner（见 forwarding ICD）。
 
 ## 8. 真 bus 目标态流程：Agent 注册与发现
 
@@ -156,8 +157,8 @@ Agent 注册与发现是 service-to-service 路由的前置能力。它回答“
 | 断言 | 证据 |
 |---|---|
 | C2S 必须经过 `IngressGateway`。 | client 模块依赖规则和 ingress SPI。 |
-| S2C 必须经过 `S2cCallbackTransport`。 | service L1 场景和 S2C SPI。 |
-| Task 状态只由 service 生命周期层更新。 | L0 boundaries 状态矩阵。 |
+| S2C 必须经过 `S2cCallbackTransport`。 | runtime L1 场景和 S2C SPI。 |
+| Task 状态只由 runtime 生命周期层更新。 | L0 boundaries 状态矩阵。 |
 | Engine terminal event 必须唯一且最后发出。 | `EnginePort` 契约和后续 harness。 |
 | S2C envelope 必须携带 `tenantId`（契约层已迁移，Stage 2）。 | `s2c-callback.v1.yaml` required fields 与 Stage 2 迁移记录。 |
 | 真 bus 转发底座进入实现前必须先定义 ack/retry/DLQ/ordering/backpressure。 | 后续 H2/H3 评审。 |

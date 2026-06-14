@@ -109,3 +109,13 @@ Agent 注册与发现的完整设计态契约见 [`ICD-Agent-Registry-Discovery`
 - 每个 entry 携带 `contractVersion` 与 `capabilityVersion`；version mismatch 有显式 result 状态。
 - lease/TTL + optional health metadata；unhealthy target 仍可见但显式标注。
 - Stage 3 只定义接口和 harness 断言，不实现 runtime registry（durable/memory/外部 discovery 系统的选择 deferred）。
+
+## 8. 类 MQ 转发契约（Stage 4 设计态）
+
+类 MQ 转发底座的完整设计态契约见 [`ICD-Agent-Bus-Forwarding`](../../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)。核心边界（HD4）：
+
+- 转发语义 broker-agnostic：不绑定具体 broker / MQ 产品，产品选择 deferred 到 Stage 5。
+- forwarding envelope 通过 `routeHandle` 消费 Stage 3 的 discovery result，不直接暴露或绕过物理 endpoint。
+- forwarding envelope 只携带 `payloadRef`，不携带 payload body；大载荷走 data reference path，不进 event / control channel。
+- runtime-to-runtime 消息不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
+- Stage 4 只定义转发语义和 harness 断言，不实现运行态转发底座、不新增 mailbox / queue / DLQ / replay 运行态存储。
