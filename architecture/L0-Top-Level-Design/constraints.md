@@ -109,7 +109,7 @@ module contributors to integrate agents without platform-team intervention.
 - Generated architecture fragments are not hand-edited.
 - Capability aggregates do not become modules without module admission and ADR
   support.
-- Heterogeneous execution frameworks are integrated through `agent-execution-engine`
+- Heterogeneous execution frameworks are integrated through `agent-core`
   adapters and the Execution Engine SPI; they do not redefine lifecycle state
   ownership or bypass platform governance.
 
@@ -118,14 +118,14 @@ module contributors to integrate agents without platform-team intervention.
 - Entry must bind tenant, actor, idempotency, posture, and trace.
 - Runtime lifecycle transition must go through the sanctioned service/runtime
   owner path.
-- Task dispatch to `agent-execution-engine` must go through `agent-service`; the
+- Task dispatch to `agent-core` must go through `agent-runtime`; the
   engine must not pull Tasks directly from bus, broker, external queue, or
   Platform Gateway surfaces.
 - Engine behavior returns intents or execution results; it does not bypass the
   lifecycle owner.
 - Middleware surfaces enforce model, tool, memory, retrieval, prompt, and hook
   governance.
-- Child work inside one `agent-service` instance is not outsourced to the bus.
+- Child work inside one `agent-runtime` instance is not outsourced to the bus.
 - Cross-instance, cross-department, cross-deployment, or cross-trust-boundary
   A2A control is mediated by bus/federation contracts.
 
