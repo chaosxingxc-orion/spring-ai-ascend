@@ -1,131 +1,129 @@
----
-formal_release: true
-release_candidate_branch: release/v0.1.0
-release_candidate_commit: TBD-after-verification
-status: formal-release-candidate
----
-
-# agent-runtime v0.1.0 — Release Notes
+# agent-runtime v0.1.0 Release Notes
 
 > Release date: 2026-06-14
-> Release engineer: TBD
+> Version: v0.1.0
 > Artifact: `agent-runtime-0.1.0.jar`
-> Feature baseline: `architecture/docs/L1/agent-runtime/features/agent-runtime-release-features.cn.md`
 
-## Release Decision
+---
 
-- **Decision**: ship
-- **Branch**: `release/v0.1.0`
-- **Commit**: TBD (frozen after `mvn verify` passes)
-- **Scope**: agent-runtime module only (`agent-sdk` and `agent-service` are in planning)
+## 一、v0.1.0 发布特性
 
-## Architecture Baseline at Release
+本次发布为 agent-runtime 首个功能版本，提供框架中立的 Agent 托管运行时能力。
 
-| Metric | Value |
-|--------|-------|
-| Active engineering rules | 7 (D-1–D-5, D-9, G-7) |
-| Active ADRs | 163 (ADR-0001–ADR-0163) |
-| Active gate rules | 32 (all GREEN on release commit) |
-| Maven tests | 90+ (all GREEN) |
-| Architecture graph nodes | 265 |
-| Architecture graph edges | 431 |
-| recurring_defect_families | 41 |
+### 1. 异构 Agent 框架兼容
 
-## What Shipped
+通过统一的 `AgentRuntimeHandler` SPI 接入三种 Agent 框架，上层 A2A 协议层无需感知底层差异。
 
-### 1. Heterogeneous Agent Framework Compatibility
+- **OpenJiuwen 适配器**：进程内直接调用，Rails 注入机制（轨迹追踪、远程工具中断、记忆注入），支持 InMemory / SQLite Checkpoint
+- **AgentScope 适配器**：三种运行模式（本地 Agent、Harness Agent、远程 SSE 客户端），错误码自动映射
+- **Versatile REST 代理适配器**：协议转换代理，URL 模板、Header 透传、结果提取规则引擎
 
-Ten commits across Phases 1–4 of the `agent-runtime` module consolidation (ADR-0159).
+### 2. 中间件解耦 — Memory / State
 
-**1.1 OpenJiuwen Adapter**
-- In-process invocation via `openjiuwen-agent-core-java`
-- Rails injection: trajectory tracking (`OpenJiuwenTrajectoryRail`), remote tool interrupt (`OpenJiuwenRemoteAgentInterruptRail`), memory injection (`MemoryRuntimeRail`)
-- Checkpoint persistence: InMemory / SQLite via `CheckpointerFactory`
-- ReActAgent support; Workflow not yet supported
+通用基础设施能力以可注入、可替换的中间件形式统一提供。
 
-**1.2 AgentScope Adapter**
-- Three modes: local SDK Agent, Harness Agent, remote SSE client
-- Error code mapping to standard `RuntimeErrorCode` classification
-- Checkpoint and Memory not yet supported
+- **Memory 服务**：框架无关的 `MemoryProvider` SPI，预置 OpenJiuwen 记忆集成
+- **State 持久化**：OpenJiuwen Checkpoint（InMemory / SQLite），通过 `CheckpointerFactory` 全局配置
 
-**1.3 Versatile REST Proxy Adapter**
-- Protocol-translation proxy: A2A JSON-RPC ↔ remote REST/SSE
-- URL templates with placeholder substitution, two-level header passthrough, result extraction rules (match keyword → deep-find key)
-- Interrupt detection for two-round remote continuation
+### 3. S2C 通讯模型 + A2A 协议
 
-**1.4 Adapter Abstraction Layer**
-- `AgentRuntimeHandler` SPI: `execute()`, `cancel()`, `resultAdapter()`
-- `AgentExecutionResult`: OUTPUT / COMPLETED / FAILED / INTERRUPTED
-- `AbstractAgentRuntimeHandler` base class with trajectory lifecycle
+- **阻塞请求-响应**：`SendMessage`，A2A 层收集 Stream 后一次性返回 JSON
+- **流式 SSE**：`SendStreamingMessage`，支持 `SubscribeToTask` 断线重连
+- **异步**：`GetTask` / `CancelTask` / `ListTasks`，完整 Task 生命周期
+- **A2A Methods**：6 种方法全覆盖 + Agent Card 端点 + YAML 驱动 AgentCard 配置
 
-### 2. Middleware Services — Memory & State
+### 4. 轨迹可观测性
 
-**2.1 Memory Service**
-- `MemoryProvider` SPI: `search(userId, sessionId, query, limit)` + `save(userId, sessionId, records)`
-- Pre-built OpenJiuwen memory integration: auto-retrieve before invocation, auto-save after
-- Current limitation: injected only at round start, no mid-round retrieval
+框架中立的执行轨迹系统，记录模型调用、工具调用、错误等事件。
 
-**2.2 State Persistence**
-- OpenJiuwen Checkpoint via `CheckpointerFactory` (InMemory / SQLite)
-- AgentScope Checkpoint not yet supported
+- 事件模型：8 种 Kind 类型（RUN、MODEL_CALL、TOOL_CALL、ERROR、PROGRESS）
+- 敏感信息掩码：可配置正则 + 截断阈值
+- Adapter 覆盖矩阵：OpenJiuwen（5 种）+ AgentScope（4 种）
 
-### 3. S2C Communication Models + A2A Protocol
+### 5. 远程 Agent 编排
 
-**3.1 Three Communication Models**
-- Blocking: `SendMessage` — A2A layer collects Handler Stream → single JSON response
-- Streaming: `SendStreamingMessage` — SSE push with terminal-state closure, `SubscribeToTask` reconnection
-- Async: `GetTask` / `CancelTask` / `ListTasks` — full Task lifecycle
+作为 A2A 客户端接入和调用其他 A2A Agent。
 
-**3.2 A2A Methods**
-- Six methods: `SendMessage`, `SendStreamingMessage`, `GetTask`, `CancelTask`, `ListTasks`, `SubscribeToTask`
-- Push notification config CRUD endpoints (SDK components assembled, push not yet activated)
+- YAML 配置远程端点，自动拉取 Agent Card 并缓存
+- 自适应刷新：10s 快速重试 → 600s 保活 → 指数退避
+- Card Skills → RemoteAgentToolSpec → 自动注入本地 Agent Tool
+- 中断-续接流水线：远程 INPUT_REQUIRED → 父 Task 挂起 → 用户输入 → 恢复
 
-**3.3 Agent Card Discovery**
-- `GET /.well-known/agent-card.json` + `/.well-known/agent.json`
-- YAML-driven card auto-generation with skills and capabilities declaration
-- `AgentCardProvider` SPI for programmatic card metadata
+### 6. 运维就绪
 
-### 4. Trajectory Observability
+- 生命周期管理（start → serve → stop → drain）、优雅停机、就绪门控
+- Actuator 健康检查、MDC 日志关联、RuntimeErrorCode 错误分类
+- RuntimeApp 嵌入式部署 API
 
-- Framework-neutral event model: 8 `Kind` types (RUN, MODEL_CALL, TOOL_CALL, ERROR, PROGRESS)
-- `StampingTrajectoryEmitter`: automatic seq, span tree nesting, wall-clock timestamps
-- `TrajectoryMasking`: configurable regex-based sensitive field redaction
-- Adapter coverage: OpenJiuwen (5 kinds), AgentScope (4 kinds)
-- Parent-child trace linking via `parentTaskId`/`parentTraceId`
+---
 
-### 5. Remote Agent Orchestration (A2A Southbound)
+## 二、下一迭代计划（v0.2.0 候选）
 
-- YAML-configured remote A2A endpoints (`agent-runtime.remote-agents`)
-- Adaptive Card cache: 10s fast retry → 600s keepalive → exponential backoff
-- Remote tool injection: Card skills → `RemoteAgentToolSpec` → OpenJiuwen Tool
-- Interrupt-resume pipeline: remote `INPUT_REQUIRED` → parent Task suspension → user input → continuation
-- Cancel cascading to remote tasks
+### agent-runtime 能力补齐
 
-### 6. Operations
+- OpenJiuwen Workflow 适配
+- MCP (Model Context Protocol) 协议接入
+- 完善日志轨迹记录，提供生产环境最佳实践
+- 支持自研记忆服务
 
-- Lifecycle: start → serve → stop → drain with graceful shutdown and readiness gate
-- Health: Actuator Health Indicator per Handler (UP / OFF_OF_SERVICE / DOWN)
-- Diagnostics: MDC logging (contextId, taskId, tenantId, agentId), `RuntimeErrorCode` classification
-- Embedded deployment: `RuntimeApp.create(handler).run(host)` API (Spring Boot only)
+### agent-sdk — YAML 配置驱动 Agent 生成
 
-## Documentation Shipped
+- 模型配置：YAML 声明 LLM 连接信息
+- 提示词配置：支持文件引用和环境变量注入
+- 工具配置：支持 HTTP 接口工具和本地 Java 方法工具
+- 技能配置：自动加载技能描述文件
+- 与 runtime 集成：YAML 定义的 Agent 自动注册为 Handler
+- 启动校验：schema 正确性和工具可达性
 
-| Layer | Location | Count |
-|-------|----------|-------|
-| L1 Feature checklist | `architecture/docs/L1/agent-runtime/features/` | 2 docs |
-| L2 Design docs | `architecture/docs/L2/agent-runtime/` | 5 docs |
-| Developer guides | `agent-runtime/docs/guides/` | 12 docs |
-| E2E Examples | `examples/agent-runtime-*/` | 11 projects |
+### agent-service — 开箱即用的 Agent 平台服务
 
-## Known Limitations
+- 一键部署：一个 Spring Boot 应用启动即用
+- YAML 驱动：配置文件声明 Agent，无需编写 Java 代码
+- Agent 管理 API：Agent 列表、状态查询、启停控制
 
-| Limitation | Impact |
-|------------|--------|
-| No MCP protocol support | Cannot connect to MCP tool ecosystem |
-| No gRPC transport (HTTP+SSE only) | Higher latency for high-throughput scenarios |
-| AgentScope: no Checkpoint, no Memory | AgentScope agents are stateless |
-| OpenJiuwen: cancel only stops consumption, not LLM call | Long-running LLM calls cannot be truly interrupted |
-| Only Spring Boot deployment | No non-Spring-Boot RuntimeHost implementation |
-| Remote agent: no dynamic discovery | Remote endpoints must be statically configured in YAML |
+---
 
-Full ⬜ list: `architecture/docs/L1/agent-runtime/features/agent-runtime-release-features.cn.md`
+## 三、贡献者
+
+### agent-runtime 模块
+
+| 贡献者 | Commits |
+|--------|---------|
+| Chao Xing | 52 |
+| chaosxingxc-orion | 19 |
+| yougq | 14 |
+| x00209170 | 10 |
+| Kevin-708090 | 10 |
+| Euphoria Yan | 7 |
+| yansuqing | 2 |
+| Suqing Yan | 1 |
+| Kevin Hu | 1 |
+
+### Examples 模块
+
+| 贡献者 | Commits |
+|--------|---------|
+| yougq | 26 |
+| x00209170 | 10 |
+| chaosxingxc-orion | 10 |
+| yansuqing | 8 |
+| Euphoria Yan | 8 |
+| xuefanfan-cmd | 6 |
+| Kevin-708090 | 4 |
+| Chao Xing | 1 |
+| Kevin Hu | 1 |
+| nickylba | 1 |
+| caikongerbanhzz-ui | 1 |
+
+### 文档
+
+| 贡献者 | Commits |
+|--------|---------|
+| Chao Xing | 52 |
+| chaosxingxc-orion | 20 |
+| yougq | 17 |
+| x00209170 | 8 |
+| yansuqing | 7 |
+| Euphoria Yan | 7 |
+| LucioIT | 4 |
+| Kevin-708090 | 4 |
