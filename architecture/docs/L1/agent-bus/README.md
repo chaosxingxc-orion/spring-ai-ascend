@@ -48,6 +48,7 @@ covers_views: [logical, process, development, physical, scenarios]
 
 - Stage 1 harness 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-harness.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-harness.md)。
 - Stage 1 评审与 Stage 2 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-review-and-stage2-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage1-review-and-stage2-plan.md)。
+- Stage 2 评审与 Stage 3 计划：[`../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage2-review-and-stage3-plan.md`](../../../../docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage2-review-and-stage3-plan.md)。
 - 把 S2C tenant 迁移通知记录转成独立 delivery projection。
 - 为 ingress、federation、reflection 增加契约测试计划。
 - 为本目录生成 graphify 输入和漂移检查 manifest。
