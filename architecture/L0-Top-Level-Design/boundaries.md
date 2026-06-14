@@ -2,11 +2,11 @@
 level: L0-TLD
 TAG:
   - boundaries
-  - development-view
+  - logical-view
   - modules
   - state-ownership
   - architecture-fact
-status: 架构事实
+status: active
 dependency:
   - README.md
   - overview.md
@@ -15,327 +15,119 @@ dependency:
   - glossary.md
 ---
 
-# L0 Boundaries
+# L0 架构模块边界
 
-## Purpose
+## 目的
 
-This document defines L0 logical module admission, logical module responsibility
-boundaries, downstream artifact treatment, and state ownership rules.
+本文档描述 L0 架构中定义的六个 L1 层级逻辑模块边界：`agent-client`、`agent-runtime`、`agent-core`、`agent-bus`、`agent-middleware` 和 `agent-evolve`。
 
-It intentionally combines module boundaries and state ownership because most
-high-risk architecture conflicts are writer-boundary conflicts.
+本文档只回答 L0 层面的边界问题：每个逻辑模块负责什么业务逻辑，拥有或维护哪些数据对象与状态对象，以及在系统行为中承担什么边界职责。具体 SPI、API、包结构、部署单元、数据库表、消息主题、错误码和重试参数由 L1/L2 架构或实现设计承载。
 
-## Module Admission Rules
+## 六大逻辑模块总览
 
-L0 admits only top-level logical modules. These modules correspond to future L1
-architecture domains and must not be inferred from reactor artifacts, Java
-packaging, starter mechanics, or individual runtime process boundaries.
-
-L0 distinguishes three concerns:
-
-| Concern | Meaning |
+| L0 逻辑模块 | 边界定位 |
 |---|---|
-| L0 logical module | A top-level domain boundary that groups responsibilities by architecture meaning and becomes a future L1 domain. |
-| Runtime unit | A service, adapter, gateway, registry, bus, sandbox, memory service, skill service, or other deployable/operational unit inside a logical module. |
-| Development/deployment artifact | A BoM, starter, adapter scaffold, generated module fact, or packaging unit owned by the appropriate L1/L2 development or deployment view. |
+| `agent-client` | 业务接入与客户端集成边界，负责客户端调用、本地能力承载和服务流消费。 |
+| `agent-runtime` | 服务端运行时边界，负责 Task 生命周期、服务侧状态归属和运行时接入。 |
+| `agent-core` | 智能体开发与执行组件边界，负责 workflow / agent-loop 等可组合执行能力。 |
+| `agent-bus` | 全局交互治理与总线边界，负责跨边界控制、路由、联邦协作和节奏信号治理。 |
+| `agent-middleware` | 智能体基础中间件边界，负责模型、记忆、知识、工具、沙箱、提示词等可插拔能力。 |
+| `agent-evolve` | 异步演进与数据反馈边界，负责评估、学习反馈、优化和受治理导出。 |
 
-Code facts and module metadata describe reactor identity. They do not decide L0
-logical module admission.
-
-## Logical Module and Implementation Project Naming
-
-L0 uses architecture-domain names for logical modules. These names are stable
-within this L0 package even when future implementation projects, repositories,
-or community artifacts use different names.
-
-| L0 Logical Module | Future Official Implementation Project |
-|---|---|
-| `agent-service` | openJiuwen `agent-runtime-java` |
-| `agent-execution-engine` | openJiuwen `agent-core-java` |
-
-The current repository may keep the six L0 module names as top-level directories
-for temporary code, architecture work, or consolidation. Future repository
-splits under the openJiuwen community can implement these L0 modules with
-community project names, but those implementation names do not replace the L0
-logical module names.
-
-Historical proposal names such as `Agent Runtime`, `Agent Core`,
-`agent-runtime-java`, or `agent-core-java` should be read as implementation or
-community-project naming. They must not be used to infer new L0 domains or move
-responsibilities without an ADR-backed architecture change.
-
-## L0 Logical Module Classification
-
-| Logical Module | L0 Boundary Treatment |
-|---|---|
-| `agent-client` | Client-side integration and local capability boundary. |
-| `agent-service` | Server-side agent service boundary and Task lifecycle owner. |
-| `agent-execution-engine` | Execution engine domain and finer-grained execution state owner below Task. |
-| `agent-bus` | Broad platform interaction governance domain, including Platform Gateway governance, S2C, A2A/federation, routing, permission mediation, rhythm signals, data-reference envelopes, and narrower event/control transport units. |
-| `agent-middleware` | Agent middleware foundation domain for selectable and integrable intelligent middleware services. |
-| `agent-evolve` | Evolution-plane domain for governed learning, evaluation, optimization, and export loops. |
-
-`spring-ai-ascend-dependencies`, `spring-ai-ascend-graphmemory-starter`, and
-similar artifacts are not L0 logical modules. Dependency BoMs belong in the
-development view of the owning domain or build governance. Starters belong in
-the deployment/integration view of the domain they package or adapt.
-
-## Responsibility Cards
-
-### `agent-service`
-
-Owns:
-
-- HTTP-facing service boundary.
-- Tenant, auth, idempotency, and trace entry behavior.
-- Task execution lifecycle and Task hierarchy state.
-- Service Task API surfaces such as create task, query task, stream task, cancel
-  task, and Task lifecycle operations.
-- Service-side reference adapters.
-- Service-to-engine orchestration entry, Task-to-execution invocation, and
-  extensible anti-corruption assembly for engine adapters.
-- Query and external realtime stream surfaces such as SSE.
-- Parent/child execution relationship and join behavior inside the same
-  `agent-service` instance.
-
-Does not own:
-
-- Bus physical channels.
-- Platform-level ingress governance surfaces assigned to `agent-bus` L1/L2,
-  such as cross-service routing or A2A/S2C ingress mediation.
-- Execution engine implementation, engine-internal execution state, or
-  heterogeneous framework semantics.
-- Model, skill, memory, vector, prompt, or advisor global SPI semantics.
-- Customer business facts or customer data-source permission models.
-- Cross-boundary A2A private connections that bypass bus governance.
-
-### `agent-execution-engine`
-
-Owns:
-
-- Execution Engine SPI: the service-to-engine invocation boundary used by
-  `agent-service` to execute Tasks.
-- The official openJiuwen execution engine implementation.
-- Heterogeneous execution engine adapter domain, including adapter contracts,
-  registry/envelope surfaces, and translation to the Execution Engine SPI.
-- Execution dispatch, planner, and orchestration algorithms assigned to the
-  execution engine boundary.
-- Finer-grained execution state below the Task boundary, such as workflow node
-  execution state and ReAct loop state.
-- Conversion of execution results into state-transition intent, tool intent,
-  context request, suspend request, child-work intent, or terminal result.
-
-Does not own:
-
-- HTTP ingress.
-- Direct writes to runtime lifecycle state outside the sanctioned owner path.
-- Business tool/provider internals.
-- Default remote-service boundary to `agent-service`.
-
-## Service-To-Engine Dependency Rule
-
-`agent-service` depends on `agent-execution-engine` through the Execution Engine
-SPI. `agent-service` owns Task-level lifecycle and state management.
-`agent-execution-engine` owns the execution algorithm and engine-internal
-execution state below the Task boundary; it does not own Task lifecycle state.
-
-The Execution Engine SPI belongs to `agent-execution-engine` as the provider
-boundary. The official provider is the openJiuwen execution engine. Heterogeneous
-agent frameworks are integrated by engine adapters that translate those
-frameworks into the Execution Engine SPI.
-
-`agent-service` may provide extension points, registry assembly, routing, and
-anti-corruption entry points needed for runtime compatibility with existing
-agents. Framework-specific translation and framework dependency knowledge must
-not move into the `agent-service` core.
-
-`agent-execution-engine` must not pull Tasks directly from `agent-bus`, brokers,
-external queues, or Platform Gateway surfaces. Task admission, dispatch, resume,
-cancellation, and lifecycle visibility enter through `agent-service`.
-`agent-execution-engine` receives execution requests through the Execution Engine
-SPI and returns execution results or intents to the service owner.
-
-### `agent-middleware`
-
-Owns:
-
-- The agent middleware foundation domain.
-- Selectable and integrable services such as memory, knowledge, sandbox, skill,
-  tool, model, retrieval, prompt, advisor, and hook services.
-- Middleware SPI boundaries and the policy, capacity, audit, and trace evidence
-  shapes around those services.
-
-Does not own:
-
-- Runtime lifecycle state.
-- Customer business state.
-- Direct provider telemetry as the only observability sink.
-- Cross-boundary A2A control transport.
-
-### `agent-bus`
-
-Owns:
-
-- The broad access, interaction, and collaboration governance domain.
-- Runtime units such as registry, event bus, Platform Gateway, permission
-  center, S2C callback, cross-instance A2A/federation, control channel,
-  data-reference envelope, and rhythm channel surfaces when assigned by
-  lower-level design.
-- Platform-centralized control, permission, interaction, and governance surfaces
-  for cross-boundary collaboration.
-- Platform-level ingress governance, including authentication pre-check, tenant
-  routing, cross-service routing, traffic governance, A2A/S2C ingress, and
-  permission mediation, when assigned by L1/L2 design.
-- Governance of data-reference envelopes, including routing metadata, permission
-  mediation, and authorized consumer handoff.
-- Cross-instance or cross-boundary rhythm signals, wakeup routing, timeout
-  signals, and schedule governance when assigned by L1/L2 design.
-
-Does not own:
-
-- Multi-agent coordination inside a single `agent-service` instance.
-- Runtime lifecycle state.
-- Service Task API surfaces such as create task, query task, stream task, cancel
-  task, and Task lifecycle operations.
-- Task-level suspend/resume state, deadline state, or sleep ownership inside an
-  `agent-service` instance.
-- Large payload or multimodal object transport through narrow event/control
-  channels.
-- Token-by-token external stream through narrow event/control channels.
-- Microservice gateway business orchestration.
+## 模块边界详述
 
 ### `agent-client`
 
-Owns:
+**业务逻辑职责（负责什么、不负责什么）**
 
-- SDK packaging and developer-facing request/response convenience.
-- Client-side cursor, callback, and service stream consumption.
-- Local capability endpoint for local tools, context, memory, retrieval, and
-  approval UI.
+`agent-client` 面向业务应用、终端应用和集成开发者，承载客户端侧接入、调用封装、本地能力端点、审批交互和服务端实时输出消费。它是 C-Side 与平台运行时之间的业务接入边界。
 
-Does not own:
+`agent-client` 不负责通用智能体编排、服务端生命周期管理、平台级审计写入、跨实例 A2A 控制、模型/记忆/工具全局治理，也不依赖 `agent-runtime`、`agent-core` 或 `agent-middleware` 的内部实现细节。
 
-- Server-side lifecycle state.
-- Platform audit or trace mutation.
-- Direct dependency on service, engine, or middleware internals.
+**数据与状态对象归属（持有什么，不持有什么）**
+
+`agent-client` 拥有客户端调用引用、本地调用句柄、SSE/stream 消费游标、本地能力引用、本地回调上下文和客户端侧持久化进度。它可以保存业务侧授权引用或本地能力执行结果，但不拥有服务端 Task 生命周期状态。
+
+**行为边界概述（面向谁，暴露什么）**
+
+`agent-client` 面向业务应用、终端应用、集成开发者和 `agent-runtime` 暴露客户端接入与本地能力边界。对业务侧，它暴露提交意图、持有调用引用、消费服务流和接收回调的能力；对平台侧，它暴露本地工具、本地检索、本地审批 UI 等 C-Side 能力端点，并只返回经过治理的执行结果、授权引用或回调结果。
+
+### `agent-runtime`
+
+**业务逻辑职责（负责什么、不负责什么）**
+
+`agent-runtime` 是服务端智能体运行时边界，负责承接服务端请求、创建和维护 Task 生命周期、管理 Task 层级关系、维持运行时查询与实时输出表面，并协调执行组件、中间件、总线和客户端能力。
+
+`agent-runtime` 不负责客户端业务事实、客户细粒度权限模型、模型/记忆/工具 provider 内部状态、跨边界控制总线物理通道、跨实例 A2A 私有通道，也不拥有 `agent-core` 的组件内部执行状态。
+
+**数据与状态对象归属（持有什么，不持有什么）**
+
+`agent-runtime` 拥有 Task、Task tree、Task lifecycle state、Task hierarchy、Session / Context shell、Agent definition 的服务侧注册与运行入口、服务端恢复 checkpoint、挂起/恢复游标、服务流引用和运行时查询引用。它是服务端 Task 生命周期的权威 owner。
+
+**行为边界概述（面向谁，暴露什么）**
+
+`agent-runtime` 面向 `agent-client`、`agent-core`、`agent-middleware`、`agent-bus` 和运行时治理能力暴露服务端 Task 生命周期边界。对客户端和业务入口，它暴露 Task 创建、查询、取消、恢复和服务流表面；对执行组件，它暴露受治理的执行入口和状态意图接收边界；对中间件和总线，它暴露上下文组装、工具治理、跨边界协作和运行时证据交接所需的服务侧协调表面。
+
+### `agent-core`
+
+**业务逻辑职责（负责什么、不负责什么）**
+
+`agent-core` 是面向开发者的智能体开发与执行组件边界，提供 workflow、agent-loop、planner、node、tool、hook 等可组合执行能力。它描述智能体如何执行，但不成为服务端生命周期 owner。
+
+`agent-core` 不负责 HTTP 入口、租户治理、服务端 Task 准入、Task 状态写入、跨边界路由、平台审计最终写入、模型/工具 provider 内部治理，也不得直接从 bus、broker、外部队列或 Platform Gateway 表面拉取 Task。
+
+**数据与状态对象归属（持有什么，不持有什么）**
+
+`agent-core` 拥有 workflow 图、节点定义、ReAct loop 内部步骤、planner 状态、组件内部执行状态、执行组件产生的结果或意图，以及开发者可组合的执行组件元数据。它拥有 Task 边界以下的细粒度执行状态，但不拥有 Task 生命周期状态。
+
+**行为边界概述（面向谁，暴露什么）**
+
+`agent-core` 面向智能体开发者、`agent-runtime` 和异构智能体框架适配实现暴露智能体执行组件边界。对开发者，它暴露 workflow、agent-loop、planner、node、tool、hook 等可组合执行组件；对 `agent-runtime`，它暴露受治理执行入口和执行结果/意图返回边界；对异构框架，它暴露可被适配纳入的执行组件模型，而不暴露服务端生命周期写入面。
+
+### `agent-bus`
+
+**业务逻辑职责（负责什么、不负责什么）**
+
+`agent-bus` 是全局交互治理与总线边界，负责跨实例、跨部门、跨部署、跨信任边界的控制协作。它治理跨边界通信关系，而不是拥有每个服务实例内部的生命周期状态。
+
+`agent-bus` 不负责单个 `agent-runtime` 实例内部的多智能体协调，不直接修改 Task hierarchy 或 Task lifecycle state，不承载 token-by-token 服务流、大对象正文、多模态正文或客户敏感数据正文，也不做微服务网关层面的业务编排。
+
+**数据与状态对象归属（持有什么，不持有什么）**
+
+`agent-bus` 拥有跨边界路由引用、A2A / federation 控制命令、S2C 回调引用、数据引用信封、权限中介上下文、节奏信号、唤醒信号、超时信号和事件/控制通道元数据。它不拥有 Task lifecycle state 或 Task sleep state。
+
+**行为边界概述（面向谁，暴露什么）**
+
+`agent-bus` 面向多个 `agent-runtime` 实例、`agent-client` 回调端点、平台治理能力和跨信任边界参与方暴露全局交互治理边界。它暴露 A2A / federation 控制、S2C 回调治理、跨边界路由、权限中介、数据引用信封和节奏信号等控制表面；它只暴露控制、引用、路由和节奏语义，不暴露服务端 Task 生命周期写入面或大载荷数据传输面。
+
+### `agent-middleware`
+
+**业务逻辑职责（负责什么、不负责什么）**
+
+`agent-middleware` 是智能体基础中间件边界，承载模型、记忆、知识、检索、技能、工具、沙箱、提示词、advisor 和运行时 hook 等可插拔能力。它为执行过程提供能力，但不成为执行生命周期 owner。
+
+`agent-middleware` 不拥有 Task 生命周期状态，不绕过 `agent-runtime` 写服务端状态，不承载跨边界 A2A 控制传输，不把 provider 直连遥测作为唯一可观测性来源，也不拥有客户业务状态。
+
+**数据与状态对象归属（持有什么，不持有什么）**
+
+`agent-middleware` 拥有或代理 Memory、Knowledge、Retrieval index、Model route、Skill / Tool definition、Sandbox execution context、Prompt asset、Advisor rule、RuntimeMiddleware evidence 等中间件能力对象。外部 provider 的数据状态仍归 provider 或客户系统所有。
+
+**行为边界概述（面向谁，暴露什么）**
+
+`agent-middleware` 面向 `agent-runtime`、`agent-core`、平台治理能力和外部 provider 暴露智能体中间件能力边界。它暴露模型调用、记忆、知识检索、技能/工具、沙箱、提示词、advisor 和运行时 hook 等可插拔能力，同时暴露策略、容量、审计和证据产出的治理表面；它不向外暴露 Task 生命周期写入面。
 
 ### `agent-evolve`
 
-Owns:
+**业务逻辑职责（负责什么、不负责什么）**
 
-- Evolution-plane boundary.
-- Governed export contract and future Java adapter shell for ML pipelines.
+`agent-evolve` 是异步演进与数据反馈平面，负责基于受治理运行证据进行评估、学习、优化和反馈。它用于提升系统长期质量，而不是参与主请求同步执行。
 
-Does not own:
+`agent-evolve` 不同步阻塞主执行路径，不直接修改运行时生命周期状态，不绕过导出治理抽取客户业务数据，不在主请求链路中执行重型评分、训练、图谱构建或调优任务。
 
-- Main request execution path.
-- Runtime lifecycle mutation.
-- Business data extraction outside export governance.
+**数据与状态对象归属（持有什么，不持有什么）**
 
-## Capability Aggregates Are Not Modules
+`agent-evolve` 拥有受治理导出任务、评估样本、评分结果、离线分析结果、提示词/知识优化建议、训练或评估数据集引用、演进任务状态和未来 ML Pipeline 适配引用。它消费的是经过治理的证据或导出数据。
 
-The following names may appear in scenarios, capability maps, and contracts, but
-they are not accepted as independent reactor modules by L0:
+**行为边界概述（面向谁，暴露什么）**
 
-- Platform Gateway / Gateway capability.
-- Workflow.
-- Context Engine.
-- Tool Gateway.
-- Runtime Governance.
-- Observability.
-- Capability Placement.
-- A2A / Federation.
-
-Each aggregate must map to one or more L0 logical modules plus concrete L1/L2
-runtime units and contracts before implementation.
-
-## Downstream Artifact Rule
-
-L0 logical modules are not inferred from build or framework mechanics.
-
-- A dependency BoM such as `spring-ai-ascend-dependencies` is a development-view
-  or build-governance artifact for version alignment. It does not become a
-  logical module.
-- A Java starter such as `spring-ai-ascend-graphmemory-starter` is an
-  integration/deployment packaging mechanism for auto-configuration or adapter
-  bootstrap. It belongs under the logical module whose capability it packages.
-- A runtime unit may be split, merged, or packaged differently across deployment
-  variants without changing the L0 logical module boundary.
-
-## State Ownership Rules
-
-Every state must have:
-
-- One semantic owner.
-- A bounded writer path.
-- Known readers.
-- Forbidden writers.
-- Replay and audit expectations when relevant.
-
-Any new writer or second lifecycle owner is an L0 architecture change.
-
-## Core State Matrix
-
-| State | Owner | Allowed Writers | Forbidden Writers | Status |
-|---|---|---|---|---|
-| Task execution state | `agent-service` Task lifecycle owner | `agent-service` controlled lifecycle entry | Platform Gateway, bus, engine adapter direct writes, middleware, client, provider adapters | accepted |
-| Task hierarchy | Local `agent-service` instance relationship owner plus observability | Same-instance parent/child creation, or accepted cross-instance federation result reference | Bus direct hierarchy mutation, engine adapter, remote service direct local lifecycle mutation | accepted |
-| Engine-internal execution state | `agent-execution-engine` | Engine execution loop, workflow node executor, ReAct loop executor, or sanctioned engine adapter path | Platform Gateway, bus, middleware, client, provider adapters, direct service lifecycle writers | accepted |
-| Client invocation reference | `agent-client` local handle plus `agent-service` query/reference surface | `agent-service` creates authoritative mapping; client stores local reference | Any writer treating it as independent server lifecycle state | accepted |
-| Session state | `agent-service` session/context shell | Session owner and approved context projection paths | Memory owner, tool gateway, business agent direct platform mutation | candidate_promote |
-| Memory / knowledge state | `agent-middleware` memory SPI and external memory provider boundary | Memory store writer or configured adapter | Runtime lifecycle state owner; hidden engine context builder | accepted_direction |
-| Workflow checkpoint | Checkpointer SPI implementation under runtime governance | Orchestrator/checkpointer sanctioned path | Platform Gateway, tool gateway, client | accepted_direction |
-| Context package | Context capability across service and middleware | Context projector / retrieval / memory pipeline | Platform Gateway, lifecycle state store | candidate_promote |
-| Tool call record | Middleware governance plus service integration | Skill wrapper / runtime middleware / audit writer | Business agent direct external call bypassing governance | candidate_promote |
-| Approval state | Service + bus callback governance | Approval callback handler / S2C transport path | Tool implementation direct write | candidate_promote |
-| Trace / span / event | Telemetry vertical | TraceContext, hook chain, runtime event emitter | Provider adapter direct sink bypass | accepted_direction |
-| Audit record | Platform audit writer | Append-only audit writer | Business code overwriting platform records | accepted_direction |
-| Business state | External business system | Business system owner | Agent runtime platform | accepted_direction |
-| Tenant / policy state | Runtime governance / identity and policy owner | Auth/policy owner | Skill implementation bypass | accepted_direction |
-
-## Task Vocabulary Rule
-
-For V1, Task is the unified server-side authoritative execution lifecycle state.
-This Task aligns with the A2A protocol task semantics: it can be created or
-bound by a client-to-server request, or by an `agent-service` instance request
-to another `agent-service` instance through A2A/federation control.
-
-An `agent-service` instance owns Task-level lifecycle state, Task hierarchy,
-parent/child relationships, joins, terminal states, and query surfaces for Tasks
-created inside that instance. Cross-instance, cross-department, cross-deployment,
-or cross-trust-boundary collaboration uses `agent-bus` for A2A/federation
-control. The remote Task lifecycle remains owned by the remote `agent-service`
-instance; the local instance records the relationship reference, join state, and
-observability evidence.
-
-`agent-execution-engine` owns finer-grained execution state below the Task
-boundary, including workflow node execution state and ReAct loop state.
-
-Task-level long waits, suspend/resume state, deadlines, and next-wake cursors are
-owned by the relevant `agent-service` instance. `agent-bus` may provide
-cross-instance or cross-boundary rhythm signals, wakeup routing, timeout
-signals, and schedule governance, but a bus-level tick engine must not become the
-owner of per-service Task sleep state unless a future ADR changes the lifecycle
-owner boundary.
-
-Historical Run-based terms such as Run, RunRepository, RunStatus, RunContext, or
-run tree may appear in archived documents or implementation-history references.
-They are not L0 canonical lifecycle vocabulary and must not introduce a second
-server-side state owner.
-
-## Boundary Conflict Escalation
-
-Open an L0 decision item when a change:
-
-- Adds a lifecycle-state writer.
-- Moves the Execution Engine SPI out of the `agent-execution-engine` boundary.
-- Treats a capability aggregate as a new module.
-- Moves business facts into platform state.
-- Makes narrow event/control channels carry large payloads or token streams.
-- Changes whether same-instance multi-agent coordination is owned by
-  `agent-service`, or whether cross-instance A2A/federation control is mediated
-  by `agent-bus`.
-- Lets `agent-execution-engine` pull Tasks directly from bus, broker, external
-  queue, or Platform Gateway surfaces.
-- Moves Service Task API ownership or Task-level sleep ownership from
-  `agent-service` to `agent-bus`.
+`agent-evolve` 面向平台治理者、评估/训练任务、知识与提示词优化流程以及未来 ML Pipeline 暴露异步演进边界。它暴露受治理证据消费、离线评估、评分分析、优化建议、数据集引用和演进任务状态等反馈表面；它的输出以建议、资产变更候选或离线结果形式返回治理流程，而不直接暴露主请求同步执行面。
