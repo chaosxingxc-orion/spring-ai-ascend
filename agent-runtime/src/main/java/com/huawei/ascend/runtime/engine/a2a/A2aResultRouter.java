@@ -63,7 +63,7 @@ final class A2aResultRouter {
         switch (result.type()) {
             case OUTPUT -> {
                 String text = outputText(result);
-                LOG.info("[A2A] output stream taskId={} textChars={} text={} target={}", taskId, text.length(), text, target);
+                LOG.info("[A2A] output stream taskId={} textChars={} target={}", taskId, text.length(), target);
                 if (target == AgentExecutionResult.Target.USER
                         || target == AgentExecutionResult.Target.BOTH) {
                     boolean append = !firstArtifact.getAndSet(false);
@@ -80,8 +80,8 @@ final class A2aResultRouter {
                 Map<String, Object> completeMetadata = Map.of("a2a.target", target.name());
                 return RouteDecision.terminal(() -> {
                     if (showToUser && !text.isBlank()) {
-                        LOG.info("[A2A] complete with final output taskId={} textChars={} text={} target={}",
-                                taskId, text.length(), text, target);
+                        LOG.info("[A2A] complete with final output taskId={} textChars={} target={}",
+                                taskId, text.length(), target);
                     } else if (!showToUser) {
                         LOG.info("[A2A] complete target=LLM — final content not shown to user taskId={}",
                                 taskId);
@@ -118,8 +118,8 @@ final class A2aResultRouter {
                 }
                 String prompt = result.prompt() == null ? "" : result.prompt();
                 return RouteDecision.terminal(() -> {
-                    LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} prompt={} target={}",
-                            taskId, prompt, target);
+                    LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} promptChars={} target={}",
+                            taskId, prompt.length(), target);
                     Map<String, Object> inputReqMetadata = Map.of("a2a.target", target.name());
                     boolean showPrompt = target == AgentExecutionResult.Target.USER
                             || target == AgentExecutionResult.Target.BOTH;

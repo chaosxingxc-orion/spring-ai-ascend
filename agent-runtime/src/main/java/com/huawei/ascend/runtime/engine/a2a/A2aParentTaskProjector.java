@@ -107,10 +107,9 @@ final class A2aParentTaskProjector {
             return;
         }
         String text = result.text();
-        LOG.info("[A2A] remote progress type={} target={} textLen={} text={}",
+        LOG.info("[A2A] remote progress type={} target={} textLen={}",
                 result.type(), result.target(),
-                text != null ? text.length() : 0,
-                text);
+                text != null ? text.length() : 0);
         // Only forward to end-user when target is USER or BOTH (LLM-only stays internal)
         AgentExecutionResult.Target target = result.target();
         if (target == AgentExecutionResult.Target.LLM) {

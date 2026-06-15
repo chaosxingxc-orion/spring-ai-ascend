@@ -87,8 +87,9 @@ public final class A2aRemoteAgentOutboundAdapter
     public List<RemoteAgentInvocationService.RemoteAgentResult> invoke(
             RemoteAgentInvocationService.RemoteAgentRequest request,
             Consumer<RemoteAgentInvocationService.RemoteAgentResult> eventConsumer) {
-        LOG.info("remote agent invocation start remoteAgentId={} remoteTaskId={} message={}",
-                request.remoteAgentId(), request.remoteTaskId(), request.message());
+        LOG.info("remote agent invocation start remoteAgentId={} remoteTaskId={} messageLen={}",
+                request.remoteAgentId(), request.remoteTaskId(),
+                request.message() != null ? request.message().length() : 0);
         ClientTransport transport = obtainTransport(request.remoteAgentId());
         if (transport == null) {
             LOG.warn("remote agent invocation rejected: no transport for remoteAgentId={}",
