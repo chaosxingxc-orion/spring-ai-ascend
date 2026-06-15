@@ -20,7 +20,7 @@ class VersatileMessageAdapterTest {
 
     private static VersatileProperties properties() {
         VersatileProperties props = new VersatileProperties();
-        props.setUrl("http://7.213.200.213:3001/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}");
+        props.setUrl("http://localhost:3001/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}");
         props.setUrlVariables(Map.of("project_id", "mock_project_id", "agent_id", "agent-001"));
         props.setQueryParams(Map.of("type", "controller", "workspace_id", "10"));
         props.setHeaders(Map.of("content-type", "application/json", "stream", "true"));
@@ -46,7 +46,7 @@ class VersatileMessageAdapterTest {
         VersatileHttpRequest req = adapter.toRequest(ctx);
 
         assertThat(req.url())
-                .startsWith("http://7.213.200.213:3001/v1/mock_project_id/agents/agent-001/conversations/conv-123?")
+                .startsWith("http://localhost:3001/v1/mock_project_id/agents/agent-001/conversations/conv-123?")
                 .contains("type=controller")
                 .contains("workspace_id=10");
     }
