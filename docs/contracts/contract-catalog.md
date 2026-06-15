@@ -72,7 +72,7 @@ Schema v3 per-event `DataPart` fields (serialized by `A2aNorthboundSink` and, id
 | `traceId` / `spanId` / `parentSpanId` | string \| null | Span-tree correlation (`traceId` = `taskId`); pair `_START`/`_END` by `spanId` |
 | `tenantId` / `contextId` / `taskId` | string | Layered correlation: owning tenant → conversation/session → one call |
 | `object` / `name` | string \| null | Subject of the step (e.g. tool or model name) |
-| `args` / `result` | object \| null | Masked + truncated payloads (`TrajectoryMasking`) |
+| `args` / `result` | object \| null | Masked + truncated payloads (`TrajectoryMasking`); when a payload exceeds `truncateChars` and `PayloadRefStore` is configured, replaced by `{"payload_ref": "payload_ref://<sha256>"}` |
 | `usage` | object \| null | `{inputTokens, outputTokens, latencyMs, model, provider, costMicros}` aligned to OpenTelemetry `gen_ai.usage.*`; `provider` = `gen_ai.system`, `costMicros` = computed token cost in millionths of a currency unit |
 | `error` | object \| null | `{code, message, category}`; message masked; `code` is free-text, `category` is the stable `ErrorCategory` aligned to `gen_ai.error.type` |
 | `reasoning` | string \| null | Masked + truncated free-text reasoning |
@@ -85,7 +85,7 @@ Schema v3 per-event `DataPart` fields (serialized by `A2aNorthboundSink` and, id
 | Module | SPI interfaces |
 |---|---|
 | `agent-service` | 0 — serviceization façade skeleton; registration/discovery SPI deferred to a dedicated ADR (ADR-0159) |
-| `agent-runtime` | 4 (`AgentRuntimeHandler`, `AgentCardProvider`, `MemoryProvider`, `StreamAdapter`) |
+| `agent-runtime` | 5 (`AgentRuntimeHandler`, `AgentCardProvider`, `MemoryProvider`, `StreamAdapter`, `PayloadRefStore`) |
 | `agent-bus` | 8 (`IngressGateway`, `S2cCallbackTransport`, `ReflectionEnvelopeRouter`, `FederationGateway`, `Checkpointer`, `Orchestrator`, `EnginePort`, `DefinitionResolver`) |
 
 **Per-SPI tenant scope (canonical post-ADR-0044):**
