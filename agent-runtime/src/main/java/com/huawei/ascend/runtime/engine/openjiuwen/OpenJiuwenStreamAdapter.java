@@ -20,9 +20,11 @@ public class OpenJiuwenStreamAdapter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenJiuwenStreamAdapter.class);
 
+    private static final String OPENJIUWEN_INTERACTION_TYPE = "__interaction__";
+
     static final String ERROR_CODE = "OPENJIUWEN_ERROR";
 
-    public AgentExecutionResult map(Map<String, Object> result) {
+    private AgentExecutionResult mapPayload(Map<String, Object> result) {
         String type = result == null ? null : asString(result.get("result_type"));
         String output = result == null ? "" : asString(result.get("output"));
         LOGGER.info("openjiuwen result map resultType={} outputLength={} keys={}",
@@ -49,17 +51,24 @@ public class OpenJiuwenStreamAdapter {
         Object payload = chunk.getPayload();
         String type = chunk.getType();
         if ("llm_output".equals(type)) {
-            String content = payload instanceof Map<?, ?> map ? asString(map.get("content")) : asString(payload);
-            return content.isBlank() ? null : AgentExecutionResult.output(content);
+            Object content = payload instanceof Map<?, ?> map ? map.get("content") : payload;
+            if (content instanceof InteractionOutput) {
+                return mapInteraction(content);
+            }
+            if (payload instanceof Map<?, ?> map && !map.containsKey("content")) {
+                return null;
+            }
+            String text = asString(content);
+            return text.isBlank() ? null : AgentExecutionResult.output(text);
         }
         if ("llm_usage".equals(type) || "llm_reasoning".equals(type) || "custom".equals(type)) {
             return null;
         }
-        if ("interaction".equals(type)) {
+        if (OPENJIUWEN_INTERACTION_TYPE.equals(type)) {
             return mapInteraction(payload);
         }
         if (payload instanceof Map<?, ?> map) {
-            return map(normalizeMap(map));
+            return mapPayload(normalizeMap(map));
         }
         if ("answer".equals(type)) {
             return AgentExecutionResult.completed(asString(payload));

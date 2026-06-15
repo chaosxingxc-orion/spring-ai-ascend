@@ -335,12 +335,17 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     }
 
     @Test
-    void executeMapsOpenJiuwenFailuresToErrorResultMap() {
+    void executeMapsOpenJiuwenFailuresToFailedResult() {
         FailingOpenJiuwenHandler handler = new FailingOpenJiuwenHandler();
 
         List<?> rawResults = handler.execute(context(Map.of())).toList();
 
-        assertThat(rawResults).isEqualTo(List.of(Map.of("result_type", "error", "output", "boom")));
+        assertThat(rawResults).singleElement()
+                .isInstanceOfSatisfying(AgentExecutionResult.class, result -> {
+                    assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.FAILED);
+                    assertThat(result.errorCode()).isEqualTo("OPENJIUWEN_RUN_ERROR");
+                    assertThat(result.errorMessage()).isEqualTo("boom");
+                });
     }
 
     @Test
@@ -432,7 +437,7 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         List<AgentExecutionResult> results = handler.resultAdapter().adapt(Stream.of(
                 new OutputSchema("llm_usage", 0, Map.of("tokens", 1)),
                 new OutputSchema("error", 0, Map.of("result_type", "error", "output", "boom")),
-                new OutputSchema("interaction", 0, new InteractionOutput("question", "need input")))).toList();
+                new OutputSchema("__interaction__", 0, new InteractionOutput("question", "need input")))).toList();
 
         assertThat(results).extracting(AgentExecutionResult::type)
                 .containsExactly(AgentExecutionResult.Type.FAILED, AgentExecutionResult.Type.INTERRUPTED);
@@ -467,6 +472,36 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     }
 
     @Test
+    void resultAdapterMapsOpenJiuwenLlmOutputInteractionContentToRemoteInvocation() {
+        TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
+        ToolCallInterruptRequest request = remoteInterruptRequest();
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(Stream.of(
+                new OutputSchema("llm_output", 0, Map.of(
+                        "content", new InteractionOutput("tool-call-1", request))))).toList();
+
+        assertThat(results).extracting(AgentExecutionResult::type)
+                .containsExactly(AgentExecutionResult.Type.INTERRUPTED);
+        assertThat(results.get(0).remoteInvocation().remoteAgentId()).isEqualTo("remote-agent");
+        assertThat(results.get(0).remoteInvocation().arguments()).containsEntry("message", "hello remote");
+    }
+
+    @Test
+    void resultAdapterMapsOpenJiuwenInteractionMarkerToRemoteInvocation() {
+        TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
+        ToolCallInterruptRequest request = remoteInterruptRequest();
+
+        List<AgentExecutionResult> results = handler.resultAdapter().adapt(Stream.of(
+                new OutputSchema("__interaction__", 0,
+                        new InteractionOutput("tool-call-1", request)))).toList();
+
+        assertThat(results).extracting(AgentExecutionResult::type)
+                .containsExactly(AgentExecutionResult.Type.INTERRUPTED);
+        assertThat(results.get(0).remoteInvocation().remoteAgentId()).isEqualTo("remote-agent");
+        assertThat(results.get(0).remoteInvocation().arguments()).containsEntry("message", "hello remote");
+    }
+
+    @Test
     void resultAdapterPassesThroughAgentExecutionResult() {
         TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
 
@@ -483,6 +518,23 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     private static AgentExecutionContext context(Map<String, Object> variables) {
         return new AgentExecutionContext(new RuntimeIdentity("tenant", "user", "session", "task", "agent"),
                 "USER_MESSAGE", List.of(RuntimeMessage.user("ping")), variables);
+    }
+
+    private static ToolCallInterruptRequest remoteInterruptRequest() {
+        ToolCallInterruptRequest request = new ToolCallInterruptRequest();
+        request.setInterruptId("tool-call-1");
+        request.setToolCallId("tool-call-1");
+        request.setToolName("remote-agent");
+        request.setContext(Map.of(
+                "runtime.remote.kind", "REMOTE_AGENT_INVOCATION",
+                "runtime.remote.agentId", "remote-agent",
+                "runtime.remote.toolName", "remote-agent",
+                "runtime.remote.toolCallId", "tool-call-1",
+                "runtime.remote.parentTaskId", "task-1",
+                "runtime.remote.parentContextId", "ctx-1",
+                "runtime.remote.localConversationId", "conversation-1",
+                "runtime.remote.arguments", Map.of("message", "hello remote")));
+        return request;
     }
 
     private static void ensureMemoryModelFactoryRegistered() {

@@ -122,7 +122,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             // ERROR is a mandatory trajectory kind: surface the run-level failure northbound even though
             // the failure is mapped to a result (not rethrown), so the trajectory is not silently truncated.
             trajectory.emit(TrajectoryDraft.error(null, "OPENJIUWEN_RUN_ERROR", errorMessage(error), null, false));
-            return java.util.stream.Stream.of(Map.of("result_type", "error", "output", errorMessage(error)));
+            return java.util.stream.Stream.of(AgentExecutionResult.failed("OPENJIUWEN_RUN_ERROR", errorMessage(error)));
         }
     }
 
@@ -236,7 +236,6 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         return rawResults -> rawResults.map(this::mapRawResult).filter(Objects::nonNull);
     }
 
-    @SuppressWarnings("unchecked")
     private AgentExecutionResult mapRawResult(Object rawResult) {
         LOGGER.info("openjiuwen raw result received type={}",
                 rawResult == null ? "null" : rawResult.getClass().getName());
@@ -244,12 +243,8 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             return result;
         }
         if (rawResult == null) {
-            return resultMapper.map(Map.of(
-                    "result_type", "error",
-                    "output", "openjiuwen runner returned no result"));
-        }
-        if (rawResult instanceof Map<?, ?> map) {
-            return resultMapper.map((Map<String, Object>) map);
+            return AgentExecutionResult.failed(
+                    OpenJiuwenStreamAdapter.ERROR_CODE, "openjiuwen runner returned no result");
         }
         if (rawResult instanceof OutputSchema chunk) {
             return resultMapper.map(chunk);
@@ -257,7 +252,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         if (rawResult instanceof InteractionOutput interactionOutput) {
             return resultMapper.map(interactionOutput);
         }
-        return resultMapper.map(Map.of("result_type", "answer", "output", String.valueOf(rawResult)));
+        return AgentExecutionResult.output(String.valueOf(rawResult));
     }
 
     protected static String errorMessage(Throwable error) {

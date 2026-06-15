@@ -43,6 +43,10 @@ class RemoteAgentCardCacheTest {
         assertThat(spec.toolName()).isEqualTo("remote-planner");
         assertThat(spec.description()).contains("Create a step-by-step plan");
         assertThat(spec.inputSchema()).containsEntry("type", "object");
+        assertThat(spec.inputSchema()).containsEntry("required", List.of("message"));
+        Object properties = spec.inputSchema().get("properties");
+        assertThat(properties).isInstanceOf(Map.class);
+        assertThat(((Map<?, ?>) properties).containsKey("message")).isTrue();
         assertThat(catalog.endpoint("remote-planner")).isEqualTo("http://remote-runtime/a2a");
     }
 

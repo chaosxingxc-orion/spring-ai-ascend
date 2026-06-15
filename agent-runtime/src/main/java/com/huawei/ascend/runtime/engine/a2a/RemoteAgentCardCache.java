@@ -236,15 +236,19 @@ public class RemoteAgentCardCache {
     }
 
     /**
-     * Returns an open input schema that accepts arbitrary key-value pairs.
-     * The remote agent's skill descriptions (from its AgentCard) tell the
-     * LLM which specific fields to extract; the schema stays open so the
-     * LLM can pass whatever business parameters the workflow needs.
+     * Returns the common remote-A2A tool envelope. The outbound adapter serializes
+     * the tool arguments as the child A2A message text, so a message field must be
+     * visible to the LLM instead of relying on description-only prompting. Extra
+     * properties stay open for remote-agent-specific business fields.
      */
     private static Map<String, Object> inputSchema() {
         return Map.of(
                 "type", "object",
-                "properties", Map.of(),
+                "properties", Map.of(
+                        "message", Map.of(
+                                "type", "string",
+                                "description", "Message text to send to the remote A2A agent.")),
+                "required", List.of("message"),
                 "additionalProperties", true);
     }
 
