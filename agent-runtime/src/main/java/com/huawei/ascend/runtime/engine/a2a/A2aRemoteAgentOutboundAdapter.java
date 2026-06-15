@@ -41,7 +41,8 @@ import org.slf4j.LoggerFactory;
  * to the caller via the {@code eventConsumer} callback so the framework can project
  * progress onto the parent task without waiting for the remote invocation to complete.
  */
-public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocationService.OutboundPort {
+public final class A2aRemoteAgentOutboundAdapter
+        implements RemoteAgentInvocationService.OutboundPort, AutoCloseable {
     /** Stable, programmatically matchable error code carried on the timeout result's metadata. */
     public static final String REMOTE_TIMEOUT_CODE = "REMOTE_TIMEOUT";
 
@@ -175,6 +176,12 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         if (transport != null) {
             transport.cancelTask(CancelTaskParams.builder().id(reference.remoteTaskId()).build(), null);
         }
+    }
+
+    @Override
+    public void close() {
+        transportCache.forEach((id, cached) -> closeQuietly(id, cached.transport()));
+        transportCache.clear();
     }
 
     Duration effectiveStreamTimeout(String remoteAgentId) {
