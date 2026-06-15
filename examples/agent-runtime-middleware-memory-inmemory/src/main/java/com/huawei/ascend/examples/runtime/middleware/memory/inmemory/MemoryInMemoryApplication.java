@@ -13,8 +13,6 @@ import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -53,10 +51,8 @@ class MemoryInMemoryConfiguration {
             @Value("${sample.openjiuwen.ssl-verify:${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:false}}")
             boolean sslVerify,
             InMemoryMemoryProvider memoryProvider) {
-        SampleMemoryOpenJiuwenHandler handler =
-                new SampleMemoryOpenJiuwenHandler(AGENT_ID, modelProvider, apiKey, apiBase, modelName, sslVerify);
-        handler.setOpenJiuwenRailFactories(handler.buildMemoryRailFactories(memoryProvider));
-        return handler;
+        return new SampleMemoryOpenJiuwenHandler(
+                AGENT_ID, modelProvider, apiKey, apiBase, modelName, sslVerify, memoryProvider);
     }
 }
 
@@ -122,7 +118,7 @@ final class SampleMemoryOpenJiuwenHandler extends OpenJiuwenAgentRuntimeHandler 
     private final String apiBase;
     private final String modelName;
     private final boolean sslVerify;
-    private List<Function<AgentExecutionContext, AgentRail>> railFactories = List.of();
+    private final MemoryProvider memoryProvider;
 
     SampleMemoryOpenJiuwenHandler(
             String agentId,
@@ -130,7 +126,8 @@ final class SampleMemoryOpenJiuwenHandler extends OpenJiuwenAgentRuntimeHandler 
             String apiKey,
             String apiBase,
             String modelName,
-            boolean sslVerify) {
+            boolean sslVerify,
+            MemoryProvider memoryProvider) {
         super(agentId);
         this.agentId = agentId;
         this.modelProvider = modelProvider;
@@ -138,23 +135,12 @@ final class SampleMemoryOpenJiuwenHandler extends OpenJiuwenAgentRuntimeHandler 
         this.apiBase = apiBase;
         this.modelName = modelName;
         this.sslVerify = sslVerify;
-    }
-
-    void setOpenJiuwenRailFactories(List<Function<AgentExecutionContext, AgentRail>> railFactories) {
-        this.railFactories = List.copyOf(Objects.requireNonNull(railFactories, "railFactories"));
-    }
-
-    List<Function<AgentExecutionContext, AgentRail>> buildMemoryRailFactories(MemoryProvider provider) {
-        return List.of(context -> memoryRail(context, provider));
-    }
-
-    AgentRail memoryRail(AgentExecutionContext context, MemoryProvider provider) {
-        return memoryRuntimeRail(context, provider);
+        this.memoryProvider = memoryProvider;
     }
 
     @Override
     protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
-        return railFactories.stream().map(factory -> factory.apply(context)).toList();
+        return List.of(memoryRuntimeRail(context, memoryProvider));
     }
 
     @Override

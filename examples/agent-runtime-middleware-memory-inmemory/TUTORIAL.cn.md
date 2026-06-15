@@ -120,18 +120,18 @@ curl -s 'http://localhost:18081/sample/memory/records?stateKey=demo-user'
 关键代码在：
 
 - `MemoryInMemoryApplication.java`
-- `SampleMemoryOpenJiuwenHandler#setOpenJiuwenRailFactories(...)`
-- `SampleMemoryOpenJiuwenHandler#buildMemoryRailFactories(...)`
-- `SampleMemoryOpenJiuwenHandler#memoryRail(...)`
+- `SampleMemoryOpenJiuwenHandler#openJiuwenRails(...)`
 - `InMemoryMemoryProvider`
 
-用户侧要复用这个模式时，核心动作是：
+用户侧要复用这个模式时，核心动作是让 handler 持有 `MemoryProvider`，并在每次执行时基于当前 `AgentExecutionContext` 创建 memory rail：
 
 ```java
-handler.setOpenJiuwenRailFactories(handler.buildMemoryRailFactories(memoryProvider));
+protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
+    return List.of(memoryRuntimeRail(context, memoryProvider));
+}
 ```
 
-样例不 override `runOpenJiuwenAgent(...)`；handler 执行仍走 `OpenJiuwenAgentRuntimeHandler` 默认 Runner。业务侧只负责拿到自己的 handler，并在执行前把 rails 设置进去。
+样例不 override `runOpenJiuwenAgent(...)`；handler 执行仍走 `OpenJiuwenAgentRuntimeHandler` 默认 Runner。业务侧只负责把自己的 `MemoryProvider` 接到 handler 上。
 
 ---
 

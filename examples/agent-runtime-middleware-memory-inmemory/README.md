@@ -31,6 +31,6 @@ http://localhost:18081
 
 ## 设计要点
 
-- 样例通过 `SampleMemoryOpenJiuwenHandler#setOpenJiuwenRailFactories(...)` 预设 OpenJiuwen rail。
-- `buildMemoryRailFactories(...)` 负责构建 rails，`setOpenJiuwenRailFactories(...)` 负责把 rails 设置到 handler；执行时不 override `runOpenJiuwenAgent(...)`，仍走 OpenJiuwen 默认 Runner。
+- 样例 handler 直接持有 `MemoryProvider`，并在 `openJiuwenRails(context)` 中注册唯一的 memory rail。
+- 执行时不 override `runOpenJiuwenAgent(...)`，仍走 OpenJiuwen 默认 Runner。
 - `InMemoryMemoryProvider` 只放在 example 中，用于端到端验证；生产环境应替换成企业自己的长期记忆服务。

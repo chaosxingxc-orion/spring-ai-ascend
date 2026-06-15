@@ -38,8 +38,8 @@ class MemoryMem0ExampleTest {
                 System.getenv("SAA_SAMPLE_LLM_API_KEY"),
                 envOrDefault("SAA_SAMPLE_OPENJIUWEN_API_BASE", "https://api.deepseek.com"),
                 envOrDefault("SAA_SAMPLE_LLM_MODEL", "deepseek-chat"),
-                Boolean.parseBoolean(envOrDefault("SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY", "false")));
-        handler.setOpenJiuwenRailFactories(handler.buildMemoryRailFactories(provider));
+                Boolean.parseBoolean(envOrDefault("SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY", "false")),
+                provider);
 
         List<?> rawResults = handler.execute(context).toList();
 
