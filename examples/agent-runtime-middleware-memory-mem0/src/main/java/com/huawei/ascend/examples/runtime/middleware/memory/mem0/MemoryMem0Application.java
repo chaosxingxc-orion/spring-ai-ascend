@@ -142,7 +142,13 @@ final class SampleMem0OpenJiuwenHandler extends OpenJiuwenAgentRuntimeHandler {
 
     @Override
     protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
-        return List.of(memoryRuntimeRail(context, memoryProvider));
+        // OpenJiuwenAgentRuntimeHandler#doExecute calls installRails(...),
+        // which registers each returned rail on the concrete OpenJiuwen agent.
+        return List.of(createMemoryRail(context));
+    }
+
+    private AgentRail createMemoryRail(AgentExecutionContext context) {
+        return memoryRuntimeRail(context, memoryProvider);
     }
 
     @Override
