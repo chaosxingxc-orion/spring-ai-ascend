@@ -1,0 +1,43 @@
+# A declarative financial agent — no Java. Drop a file like this in
+# financial/src/main/resources/agents/ and it is served over A2A automatically,
+# and runnable in the playground (./play.sh credit-card-advisor [--mock]).
+
+id: credit-card-advisor
+description: 信用卡智能客服 — 查询账单、解读消费、协助分期
+
+prompt: >-
+  你是某银行的信用卡智能客服。用简洁、准确的中文回答客户关于信用卡账单、消费、分期、还款的问题。
+  涉及具体金额、利率、额度时,必须通过后端工具查询,绝不凭空编造数字。
+  你只提供信息与办理引导;真正动账的操作需经过审批通道。
+
+# Low temperature, deterministic; raise the model via env if you have one.
+model:
+  provider: openai
+  apiKey: ${BANK_LLM_API_KEY:sk-local-placeholder}
+  apiBase: ${BANK_LLM_API_BASE:http://localhost:4000/v1}
+  modelName: ${BANK_LLM_MODEL:gpt-5.4-mini}
+  sslVerify: true
+
+# Attach the input-compliance guardrail; block at HIGH+ (fail-closed).
+compliance:
+  level: high
+
+# Declarative backend tools — the agent reads real numbers, never invents them.
+tools:
+  - name: query_bill
+    description: 查询指定信用卡的当期账单
+    http:
+      method: GET
+      url: ${BANK_API_BASE:http://localhost:9/api}/cards/{cardId}/bill
+    inputSchema:
+      type: object
+      properties:
+        cardId: { type: string, description: 信用卡号后四位 }
+      required: [cardId]
+
+# Human approval for sensitive actions (here: large repayment).
+approvals:
+  - tools: [repay]
+    message: 大额还款需经理复核
+    amountOver: 50000
+    amountField: amount

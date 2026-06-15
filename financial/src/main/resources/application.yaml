@@ -1,0 +1,44 @@
+# ── Spring Boot ──
+spring:
+  application:
+    name: financial-agents
+
+server:
+  port: ${BANK_AGENT_PORT:8080}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# ── spring-ai-ascend A2A runtime (platform) access config ──
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: ${BANK_TENANT_ID:demo-bank}
+      default-agent-id: financial-advisor-agent
+      # IMPORTANT (security): the runtime does NOT authenticate the X-Tenant-Id
+      # header. In a real deployment this endpoint MUST sit behind an
+      # authenticating gateway that strips the client header and re-injects a
+      # verified tenant. Do not expose /a2a directly to untrusted clients.
+      agent-card:
+        name: financial-advisor-agent
+        description: Read-only bank financial advisor assistant hosted by spring-ai-ascend.
+        version: "0.1.0"
+
+logging:
+  level:
+    root: INFO
+    com.bank.financial: INFO
+    com.huawei.ascend: INFO
+
+# ── LLM connection (override via env / -D) ──
+financial:
+  llm:
+    model-provider: ${BANK_LLM_PROVIDER:openai}
+    api-key: ${BANK_LLM_API_KEY:sk-local-placeholder}
+    api-base: ${BANK_LLM_API_BASE:http://localhost:4000/v1}
+    model-name: ${BANK_LLM_MODEL:gpt-5.4-mini}
+    ssl-verify: ${BANK_LLM_SSL_VERIFY:true}
