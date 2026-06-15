@@ -8,6 +8,7 @@ import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -33,7 +34,9 @@ import org.slf4j.LoggerFactory;
  * example's scorer) does not work for Chinese where there are no word boundaries,
  * so a paraphrased question like 「上次在北京住的是哪家」 would not recall a saved
  * 「已为您预订北京 BJ-001 酒店」. Character bigrams catch the shared 「北京」/「酒店」/「住」
- * pairs without a Chinese-aware tokenizer.
+ * pairs without a Chinese-aware tokenizer. Low-score records are still returned
+ * as fallback candidates instead of producing an empty recall; higher scores
+ * still rank first, and equal scores keep the most recent records first.
  *
  * <p>This is intentionally NOT a production memory backend: storage is lost on
  * process restart, and scoring is text-only with no embeddings.
@@ -73,13 +76,9 @@ public final class HotelInMemoryMemoryProvider implements MemoryProvider {
         }
         String normalizedQuery = normalize(query);
         Set<String> queryBigrams = bigrams(normalizedQuery);
-        List<MemoryHit> hits = recordsByUser.getOrDefault(key, new CopyOnWriteArrayList<>()).stream()
-                .filter(record -> hasText(record.content()))
-                .map(record -> toHit(record, normalizedQuery, queryBigrams))
-                .filter(HotelInMemoryMemoryProvider::isPositiveScore)
-                .sorted(Comparator.comparingDouble(HotelInMemoryMemoryProvider::scoreOrLowest).reversed())
-                .limit(limit)
-                .toList();
+        CopyOnWriteArrayList<MemoryRecord> scopedRecords =
+                recordsByUser.getOrDefault(key, new CopyOnWriteArrayList<>());
+        List<MemoryHit> hits = rankedHits(scopedRecords, normalizedQuery, queryBigrams, limit);
         LOG.info("[HOTEL-MEM] search scopeKey={} returned {} hits", key, hits.size());
         return hits;
     }
@@ -151,9 +150,23 @@ public final class HotelInMemoryMemoryProvider implements MemoryProvider {
         return result;
     }
 
-    private static boolean isPositiveScore(MemoryHit hit) {
-        Double score = hit.score();
-        return score != null && score > 0.0;
+    private static List<MemoryHit> rankedHits(List<MemoryRecord> records, String normalizedQuery,
+            Set<String> queryBigrams, int limit) {
+        if (limit <= 0 || records == null || records.isEmpty()) {
+            return List.of();
+        }
+        List<MemoryHit> candidates = new ArrayList<>();
+        for (int index = records.size() - 1; index >= 0; index--) {
+            MemoryRecord record = records.get(index);
+            if (record == null || !hasText(record.content())) {
+                continue;
+            }
+            candidates.add(toHit(record, normalizedQuery, queryBigrams));
+        }
+        return candidates.stream()
+                .sorted(Comparator.comparingDouble(HotelInMemoryMemoryProvider::scoreOrLowest).reversed())
+                .limit(limit)
+                .toList();
     }
 
     private static double scoreOrLowest(MemoryHit hit) {

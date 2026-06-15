@@ -113,6 +113,26 @@ class HotelAgentHandlerTest {
         }
     }
 
+    @Test
+    void searchReturnsRecentMemoryWhenTextSimilarityMisses() {
+        HotelInMemoryMemoryProvider memoryProvider = new HotelInMemoryMemoryProvider();
+        AgentExecutionContext firstTurn = context("\u5317\u4eac\u56fd\u8d38600\u4ee5\u5185\u4e09\u661f\u9152\u5e97");
+        memoryProvider.init(firstTurn);
+        memoryProvider.save(firstTurn, List.of(new MemoryRecord(
+                "memory-1",
+                "assistant",
+                "\u57ce\u5e02\u5317\u4eac\uff0c\u4ef7\u683c600\u4ee5\u5185\uff0c\u56fd\u8d38\u9644\u8fd1\uff0c\u4e09\u661f\u4ee5\u4e0a",
+                Map.of())));
+
+        AgentExecutionContext recallTurn = context(
+                "\u8fd8\u662f\u6309\u4e4b\u524d\u7684\u9700\u6c42\uff0c\u6362\u62106\u670825\u65e5\u5165\u4f4f");
+
+        assertThat(memoryProvider.search(recallTurn,
+                "\u8fd8\u662f\u6309\u4e4b\u524d\u7684\u9700\u6c42\uff0c\u6362\u62106\u670825\u65e5\u5165\u4f4f", 5))
+                .extracting(MemoryProvider.MemoryHit::content)
+                .contains("\u57ce\u5e02\u5317\u4eac\uff0c\u4ef7\u683c600\u4ee5\u5185\uff0c\u56fd\u8d38\u9644\u8fd1\uff0c\u4e09\u661f\u4ee5\u4e0a");
+    }
+
     private static AgentExecutionContext context(String userText) {
         return new AgentExecutionContext(new RuntimeIdentity("tenant", "user", "session", "task", "hotel-planning-agent"),
                 "USER_MESSAGE", List.of(RuntimeMessage.user(userText)), Map.of());
