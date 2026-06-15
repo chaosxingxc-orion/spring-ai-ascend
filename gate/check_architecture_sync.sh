@@ -89,6 +89,16 @@ fi
 if [[ -f "$repo_root/gate/lib/scan_cache.sh" ]]; then
   # shellcheck source=gate/lib/scan_cache.sh
   source "$repo_root/gate/lib/scan_cache.sh"
+  # The serial gate runs all rules in ONE bash process, so the scan-cache
+  # variables are accessible as shell variables without being exported.
+  # Removing them from the exported environment prevents the total env size
+  # from exceeding ARG_MAX, which would cause every external command (grep,
+  # awk, sort, python3) spawned by a rule to fail with E2BIG.
+  # The parallel runner (check_parallel.sh) writes its own GATE_SCAN_CACHE_FILE
+  # and does NOT rely on these exported names, so this export -n is safe.
+  export -n _SCAN_MODULE_METADATA _SCAN_ACTIVE_DOCS _SCAN_MIGRATION_SQL \
+            _SCAN_AGENT_JAVA_MAIN _SCAN_SHIPPED_ROWS _SCAN_ENFORCERS_TSV \
+            _SCAN_RULE_CARDS _SCAN_ADR_YAMLS _SCAN_GIT_SHA _SCAN_GIT_LATEST_DATE
 fi
 if [[ -f "$repo_root/gate/lib/latest_release.sh" ]]; then
   # shellcheck source=gate/lib/latest_release.sh

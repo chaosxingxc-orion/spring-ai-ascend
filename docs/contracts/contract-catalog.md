@@ -30,7 +30,7 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). SPI packages import only `java.*` plus same-package sibling carriers; broader historical cross-package SPI residuals are documented in root `architecture/docs/L0/ARCHITECTURE.md §3.7` and must not be used as precedent for new SPI design. japicmp binary-compat from W1.
 
-**Active SPI interfaces (12 total):**
+**Active SPI interfaces (13 total):**
 
 (rc43 baseline: 19 pre-rc43 + 14 rc43 agentic-contract-surface SPI surfaces (Agent + AgentRegistry + ModelGateway + Skill + SkillRegistry + MemoryStore + MemoryReader + MemoryWriter + SemanticMemoryStore + KnowledgeMemoryStore + VectorStore + Retriever + EmbeddingModel + Planner) per ADR-0120 / ADR-0121 / ADR-0122 / ADR-0123 / ADR-0124 / ADR-0125 / ADR-0126 / ADR-0127 / ADR-0128. rc51 + 5 agentic-completeness SPI surfaces (StructuredOutputConverter + PromptTemplate + ChatAdvisor + AdvisorChain + ConversationMemory) per ADR-0129 / ADR-0130 / ADR-0131 / ADR-0132 / ADR-0133. rc51 also adds the `stream(...)` default method to the existing `ModelGateway` per ADR-0129 and supplements `model-invocation.v1.yaml` with the tool-call iteration loop per ADR-0134. ADR-0135 documents the deliberate decision not to add a separate `AgentSession` SPI.)
 
@@ -48,7 +48,9 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `MemoryProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — reserved narrow memory init/search/save SPI for future memory middleware integration; does not bind runtime to one memory backend |
 | `StreamAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts a framework's native result stream into the neutral `AgentExecutionResult` stream |
 
-Trajectory observability plumbing — `TrajectoryEmitter`, `TrajectorySource`, `TrajectorySink`, `TrajectorySinkFactory` — is internal **as a Java seam only**: per-invocation, emit-only telemetry interfaces between the runtime executor and the adapter bases (events are never read back; the runtime stays the source of truth). These interfaces live in `engine.spi` for package-boundary reasons but are not part of the shipped SPI surface. The trajectory's **wire surface is NOT internal**: the A2A metadata keys, the artifact name, and the event payload shape cross the process boundary to A2A callers and are a published contract — see *Northbound trajectory wire contract* below.
+Trajectory observability plumbing — `TrajectoryEmitter`, `TrajectorySource`, `TrajectorySink`, `TrajectorySinkFactory` — is internal **(internal)** as a Java seam only: per-invocation, emit-only telemetry interfaces between the runtime executor and the adapter bases (events are never read back; the runtime stays the source of truth). These interfaces live in `engine.spi` for package-boundary reasons but are not part of the shipped SPI surface. The trajectory's **wire surface is NOT internal**: the A2A metadata keys, the artifact name, and the event payload shape cross the process boundary to A2A callers and are a published contract — see *Northbound trajectory wire contract* below.
+
+Trajectory-enrichment hooks `Redactor` and `CostCalculator` in `engine.spi` are **(internal)** post-emit enrichment points: they operate within the single emitter `synchronized` block and are never shipped as a public extension SPI — callers configure them only through `TrajectoryProperties` / `RuntimeAutoConfiguration`. Similarly `PayloadRefStore` in `engine.spi` is **(internal)** as a trajectory-emission-side write-only store: it is wired exclusively from `RuntimeAutoConfiguration` and exposes no public extension point beyond the same-package boot layer.
 
 **Northbound trajectory wire contract (A2A):**
 
