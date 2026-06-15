@@ -34,7 +34,7 @@ public final class VersatileParentA2aClient {
     }
 
     public AgentCard agentCard() throws Exception {
-        return new A2ACardResolver(baseUri.toString()).getAgentCard();
+        return A2ACardResolver.builder().baseUrl(baseUri.toString()).build().getAgentCard();
     }
 
     public List<StreamingEventKind> streamMessage(String userId, String agentId, String sessionId,

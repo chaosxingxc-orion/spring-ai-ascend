@@ -23,7 +23,6 @@ class RemoteAgentCardCacheTest {
                         .name("Remote Planner")
                         .description("Plans trips")
                         .version("1")
-                        .url("http://remote-runtime/a2a")
                         .supportedInterfaces(List.of(new AgentInterface("JSONRPC", "http://remote-runtime/a2a")))
                         .capabilities(AgentCapabilities.builder().streaming(true).build())
                         .skills(List.of(AgentSkill.builder()
@@ -66,7 +65,7 @@ class RemoteAgentCardCacheTest {
                         .name("Remote B")
                         .description("Remote B")
                         .version("1")
-                        .url("/a2a")
+                        .url("/legacy-a2a")
                         .supportedInterfaces(List.of(new AgentInterface("JSONRPC", "/a2a")))
                         .capabilities(AgentCapabilities.builder().streaming(true).build())
                         .skills(List.of(AgentSkill.builder()
@@ -94,7 +93,6 @@ class RemoteAgentCardCacheTest {
                         .name("Remote B")
                         .description("Remote B")
                         .version("1")
-                        .url("/a2a")
                         .supportedInterfaces(List.of(new AgentInterface("JSONRPC", "/a2a")))
                         .capabilities(AgentCapabilities.builder().streaming(true).build())
                         .skills(List.of(AgentSkill.builder()
@@ -214,12 +212,38 @@ class RemoteAgentCardCacheTest {
         assertThat(catalog.streamTimeout("unknown")).isNull();
     }
 
+    @Test
+    void cardUrlIsUsedOnlyWhenJsonRpcSupportedInterfaceIsAbsent() {
+        RemoteAgentCardCache catalog = new RemoteAgentCardCache(List.of("http://remote-legacy"),
+                url -> AgentCard.builder()
+                        .name("Legacy Remote")
+                        .description("Legacy Remote")
+                        .version("1")
+                        .url("/a2a")
+                        .supportedInterfaces(List.of(new AgentInterface("GRPC", "/grpc")))
+                        .capabilities(AgentCapabilities.builder().streaming(true).build())
+                        .skills(List.of(AgentSkill.builder()
+                                .id("legacy")
+                                .name("Legacy")
+                                .description("Legacy skill")
+                                .tags(List.of("remote"))
+                                .build()))
+                        .defaultInputModes(List.of("text"))
+                        .defaultOutputModes(List.of("text"))
+                        .build());
+
+        boolean refreshed = catalog.refresh();
+
+        assertThat(refreshed).isTrue();
+        assertThat(catalog.endpoint("legacy-remote")).isEqualTo("http://remote-legacy/a2a");
+        assertThat(catalog.pendingUrls()).isEmpty();
+    }
+
     private static AgentCard remoteCard(String name, String endpoint) {
         return AgentCard.builder()
                 .name(name)
                 .description(name)
                 .version("1")
-                .url(endpoint)
                 .supportedInterfaces(List.of(new AgentInterface("JSONRPC", endpoint)))
                 .capabilities(AgentCapabilities.builder().streaming(true).build())
                 .skills(List.of(AgentSkill.builder()

@@ -110,7 +110,6 @@ public final class VersatileAgentRuntimeHandler implements AgentRuntimeHandler, 
         return AgentCard.builder()
                 .name(name)
                 .description(description)
-                .url("/a2a")
                 .version("0.1.0")
                 .provider(new AgentProvider("spring-ai-ascend", "http://localhost:18082"))
                 .capabilities(AgentCapabilities.builder()

@@ -50,7 +50,7 @@
     <spring-cloud.version>2025.1.1</spring-cloud.version>
     <temporal.version>1.35.0</temporal.version>
     <mcp.version>1.0.0</mcp.version>
-    <a2a-sdk.version>1.0.0.CR1</a2a-sdk.version>
+    <a2a-sdk.version>1.0.0.Final</a2a-sdk.version>
     <langchain4j.version>1.14.1</langchain4j.version>
     <resilience4j.version>2.4.0</resilience4j.version>
     <caffeine.version>3.2.4</caffeine.version>

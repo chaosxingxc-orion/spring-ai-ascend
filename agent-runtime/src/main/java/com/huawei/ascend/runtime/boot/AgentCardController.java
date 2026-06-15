@@ -37,7 +37,7 @@ public class AgentCardController {
     private AgentCard resolveUrls(AgentCard card, HttpServletRequest request) {
         final String base = resolveBase(request);
         return AgentCard.builder(card)
-                .url(resolveUrl(base, card.url()))
+                .url(card.url() == null || card.url().isBlank() ? null : resolveUrl(base, card.url()))
                 .provider(card.provider() == null ? null
                         : new AgentProvider(card.provider().organization(),
                                 resolveUrl(base, card.provider().url())))

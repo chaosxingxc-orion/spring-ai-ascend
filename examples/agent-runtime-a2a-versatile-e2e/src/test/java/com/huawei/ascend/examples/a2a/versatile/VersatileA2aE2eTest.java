@@ -65,10 +65,10 @@ class VersatileA2aE2eTest {
     @Test
     void agentCardIsDiscoverable() throws Exception {
         URI baseUri = baseUri();
-        AgentCard card = new A2ACardResolver(baseUri.toString()).getAgentCard();
+        AgentCard card = A2ACardResolver.builder().baseUrl(baseUri.toString()).build().getAgentCard();
         assertThat(card.name()).isEqualTo("Versatile Agent");
         LOG.info("Agent card: name={} streaming={} url={}",
-                card.name(), card.capabilities().streaming(), card.url());
+                card.name(), card.capabilities().streaming(), card.supportedInterfaces().get(0).url());
     }
 
     /**
@@ -80,8 +80,8 @@ class VersatileA2aE2eTest {
     @Test
     void streamToVersatileAndPrintAllEvents() throws Exception {
         URI baseUri = baseUri();
-        AgentCard card = new A2ACardResolver(baseUri.toString()).getAgentCard();
-        LOG.info("=== Versatile service target: {} ===", card.url());
+        AgentCard card = A2ACardResolver.builder().baseUrl(baseUri.toString()).build().getAgentCard();
+        LOG.info("=== Versatile service target: {} ===", card.supportedInterfaces().get(0).url());
 
         JSONRPCTransport transport = new JSONRPCTransport(card);
         List<StreamingEventKind> events = new ArrayList<>();

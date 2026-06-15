@@ -61,7 +61,6 @@ public class VersatileAgentConfiguration {
                 .description("Remote versatile workflow agent. Receives A2A requests, "
                         + "reconstructs the target REST call from structured metadata, "
                         + "streams SSE events, and supports interruption/resume.")
-                .url("/a2a")
                 .version("0.1.0")
                 .provider(new AgentProvider("spring-ai-ascend", "http://localhost:18082"))
                 .capabilities(AgentCapabilities.builder()

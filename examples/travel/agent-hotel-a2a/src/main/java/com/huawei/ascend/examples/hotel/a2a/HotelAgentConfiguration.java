@@ -100,7 +100,6 @@ public class HotelAgentConfiguration {
                 .description("Corporate-travel hotel planning sub-agent. Given a destination city, "
                         + "check-in / check-out dates and optional star / price / brand filters, "
                         + "returns a markdown comparison of recommended hotels with rooms and prices.")
-                .url("/a2a")
                 .version("0.1.0")
                 .provider(new AgentProvider("spring-ai-ascend", ""))
                 .capabilities(AgentCapabilities.builder()
@@ -139,7 +138,6 @@ public class HotelAgentConfiguration {
                                 .build()))
                 .supportedInterfaces(List.of(
                         new AgentInterface(TransportProtocol.JSONRPC.asString(), "/a2a")))
-                .preferredTransport(TransportProtocol.JSONRPC.asString())
                 .build();
     }
 }

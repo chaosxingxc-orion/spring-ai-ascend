@@ -18,7 +18,7 @@
 
   <properties>
     <enforcer.skip>true</enforcer.skip>
-    <a2a.sdk.version>1.0.0.CR1</a2a.sdk.version>
+    <a2a.sdk.version>1.0.0.Final</a2a.sdk.version>
   </properties>
 
   <dependencies>

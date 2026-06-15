@@ -51,7 +51,7 @@ public final class ManualVersatileClient {
             String base = scanner.nextLine().trim();
             if (base.isEmpty()) base = "http://localhost:8080";
 
-            AgentCard card = new A2ACardResolver(base).getAgentCard();
+            AgentCard card = A2ACardResolver.builder().baseUrl(base).build().getAgentCard();
             System.out.println("Connected: " + card.name() + " | streaming=" + card.capabilities().streaming());
 
             // ── URL line — entered once ──

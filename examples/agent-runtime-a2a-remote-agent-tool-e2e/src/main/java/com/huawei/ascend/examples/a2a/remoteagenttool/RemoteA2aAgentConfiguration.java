@@ -40,7 +40,6 @@ public class RemoteA2aAgentConfiguration {
         return AgentCard.builder()
                 .name(AGENT_ID)
                 .description("Remote OpenJiuwen 0.1.12 demo agent. It streams progress, asks for one more input, then completes.")
-                .url("/a2a")
                 .version("0.1.0")
                 .provider(new AgentProvider("spring-ai-ascend", "http://localhost:18082"))
                 .capabilities(AgentCapabilities.builder().streaming(true).pushNotifications(false).build())
