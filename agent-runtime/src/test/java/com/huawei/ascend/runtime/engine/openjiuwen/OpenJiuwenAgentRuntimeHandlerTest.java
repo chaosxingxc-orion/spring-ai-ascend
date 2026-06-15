@@ -16,17 +16,28 @@ import com.openjiuwen.core.context.ContextStats;
 import com.openjiuwen.core.context.ContextWindow;
 import com.openjiuwen.core.context.ModelContext;
 import com.openjiuwen.core.context.token.TokenCounter;
+import com.openjiuwen.core.foundation.llm.Model;
+import com.openjiuwen.core.foundation.llm.model_clients.BaseModelClient;
+import com.openjiuwen.core.foundation.llm.output_parsers.BaseOutputParser;
 import com.openjiuwen.core.foundation.llm.schema.AssistantMessage;
+import com.openjiuwen.core.foundation.llm.schema.AssistantMessageChunk;
+import com.openjiuwen.core.foundation.llm.schema.AudioGenerationResponse;
 import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
+import com.openjiuwen.core.foundation.llm.schema.ImageGenerationResponse;
+import com.openjiuwen.core.foundation.llm.schema.ModelClientConfig;
+import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
 import com.openjiuwen.core.foundation.llm.schema.SystemMessage;
 import com.openjiuwen.core.foundation.llm.schema.ToolMessage;
 import com.openjiuwen.core.foundation.llm.schema.UserMessage;
+import com.openjiuwen.core.foundation.llm.schema.VideoGenerationResponse;
 import com.openjiuwen.core.foundation.tool.Tool;
 import com.openjiuwen.core.foundation.tool.schema.ToolInfo;
+import com.openjiuwen.core.session.AgentSessionApi;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.stream.StreamMode;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.ReActAgent;
+import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.core.singleagent.rail.ModelCallInputs;
@@ -37,12 +48,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 class OpenJiuwenAgentRuntimeHandlerTest {
+    private static final String MEMORY_MODEL_PROVIDER = "RuntimeMemoryRailPromptBuilderTestProvider";
+    private static final AtomicBoolean MEMORY_MODEL_FACTORY_REGISTERED = new AtomicBoolean(false);
 
     @Test
     void executeUsesStableAgentStateConversationIdWithoutDefaultRail() {
@@ -169,6 +183,42 @@ class OpenJiuwenAgentRuntimeHandlerTest {
                 .contains("remembered ping")
                 .contains("recalled memory context from runtime memory");
         assertThat(modelContext.messages).isEmpty();
+    }
+
+    @Test
+    void memoryRuntimeRailReachesRealReActAgentModelInput() {
+        ensureMemoryModelFactoryRegistered();
+        CapturingModelClient.capturedMessages.clear();
+        CapturingModelClient.capturedRawMessages = null;
+        AgentExecutionContext context = context(Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, "order-42"));
+        FakeMemoryProvider memoryProvider = new FakeMemoryProvider();
+        OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail rail =
+                new OpenJiuwenAgentRuntimeHandler.MemoryRuntimeRail(
+                        context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+        ReActAgent reactAgent = new ReActAgent(
+                AgentCard.builder().id("agent").name("agent").description("test").build());
+        ReActAgentConfig config = ReActAgentConfig.builder()
+                .promptTemplate(List.of(Map.of("role", "system", "content", "base system prompt")))
+                .maxIterations(1)
+                .build()
+                .configureModelClient(MEMORY_MODEL_PROVIDER, "key", "http://localhost", "fake-model", false);
+        reactAgent.configure(config);
+        reactAgent.registerRail(rail);
+
+        Iterator<Object> output = reactAgent.stream(
+                Map.of("query", "ping", "conversation_id", "order-42"),
+                AgentSessionApi.create("order-42", null, reactAgent.getCard()),
+                List.of(StreamMode.OUTPUT));
+        output.forEachRemaining(ignored -> { });
+
+        assertThat(CapturingModelClient.capturedRawMessages).isNotNull();
+        assertThat(CapturingModelClient.capturedMessages).isNotEmpty();
+        assertThat(CapturingModelClient.capturedMessages)
+                .anySatisfy(message -> assertThat(message.getContentAsString())
+                        .contains("base system prompt")
+                        .contains("remembered ping")
+                        .contains("recalled memory context from runtime memory")
+                        .doesNotContain("runtime_long_term_memory"));
     }
 
     @Test
@@ -345,6 +395,22 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     private static AgentExecutionContext context(Map<String, Object> variables) {
         return new AgentExecutionContext(new RuntimeIdentity("tenant", "user", "session", "task", "agent"),
                 "USER_MESSAGE", List.of(RuntimeMessage.user("ping")), variables);
+    }
+
+    private static void ensureMemoryModelFactoryRegistered() {
+        if (MEMORY_MODEL_FACTORY_REGISTERED.compareAndSet(false, true)) {
+            Model.registerFactory(new Model.ModelClientFactory() {
+                @Override
+                public String providerName() {
+                    return MEMORY_MODEL_PROVIDER;
+                }
+
+                @Override
+                public BaseModelClient create(ModelRequestConfig modelConfig, ModelClientConfig clientConfig) {
+                    return new CapturingModelClient(modelConfig, clientConfig);
+                }
+            });
+        }
     }
 
     private static class TestOpenJiuwenHandler extends OpenJiuwenAgentRuntimeHandler {
@@ -561,6 +627,94 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         @Override
         public Tool reloaderTool() {
             return null;
+        }
+    }
+
+    private static final class CapturingModelClient extends BaseModelClient {
+        private static final List<BaseMessage> capturedMessages = new CopyOnWriteArrayList<>();
+        private static Object capturedRawMessages;
+
+        private CapturingModelClient(ModelRequestConfig modelConfig, ModelClientConfig clientConfig) {
+            super(modelConfig, clientConfig);
+        }
+
+        @Override
+        public AssistantMessage invoke(
+                Object messages,
+                Object tools,
+                Float temperature,
+                Float topP,
+                String model,
+                Integer maxTokens,
+                String stop,
+                BaseOutputParser outputParser,
+                Float timeout,
+                Map<String, Object> kwargs) {
+            capturedMessages.clear();
+            capturedRawMessages = messages;
+            if (messages instanceof List<?> list) {
+                list.stream()
+                        .filter(BaseMessage.class::isInstance)
+                        .map(BaseMessage.class::cast)
+                        .forEach(capturedMessages::add);
+            }
+            return new AssistantMessage("pong");
+        }
+
+        @Override
+        public Iterator<AssistantMessageChunk> stream(
+                Object messages,
+                Object tools,
+                Float temperature,
+                Float topP,
+                String model,
+                Integer maxTokens,
+                String stop,
+                BaseOutputParser outputParser,
+                Float timeout,
+                Map<String, Object> kwargs) {
+            return List.<AssistantMessageChunk>of().iterator();
+        }
+
+        @Override
+        public ImageGenerationResponse generateImage(
+                List<UserMessage> messages,
+                String model,
+                String size,
+                String negativePrompt,
+                int n,
+                boolean promptExtend,
+                boolean watermark,
+                int seed,
+                Map<String, Object> kwargs) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public AudioGenerationResponse generateSpeech(
+                List<UserMessage> messages,
+                String model,
+                String voice,
+                String languageType,
+                Map<String, Object> kwargs) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public VideoGenerationResponse generateVideo(
+                List<UserMessage> messages,
+                String imgUrl,
+                String audioUrl,
+                String model,
+                String size,
+                String resolution,
+                int duration,
+                boolean promptExtend,
+                boolean watermark,
+                String negativePrompt,
+                Integer seed,
+                Map<String, Object> kwargs) {
+            throw new UnsupportedOperationException();
         }
     }
 
