@@ -146,6 +146,11 @@ public final class A2aAgentExecutor implements AgentExecutor {
         AtomicBoolean firstArtifact = new AtomicBoolean(!hasArtifact(ctx.getTask(), artifactId));
         boolean appendTrajectory = hasArtifact(ctx.getTask(), trajectoryArtifactId);
         AtomicBoolean cancelled = new AtomicBoolean(false);
+        // Registered before any handler/remote work so cancel() always finds the flag,
+        // even in the window between consumeHandler stream drain and runRemoteSegment
+        // registration — the window the old per-method inFlight.put/remove created.
+        InFlightExecution execution = new InFlightExecution(new AtomicReference<>(), cancelled);
+        inFlight.put(taskId, execution);
         // Holder, not a local: the resume legs re-open the flow from inside the remote
         // orchestration callback, and the catch/finally must see the latest wiring.
         AtomicReference<TrajectoryFlow> flowRef = new AtomicReference<>(TrajectoryFlow.NONE);
@@ -169,7 +174,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
             if (remote.isRemoteContinuation(ctx)) {
                 runRemoteSegment(taskId, cancelled,
                         () -> remote.continueRemote(ctx, emitter, taskId, artifactId, firstArtifact, cancelled,
-                                resumeConsumer(ctx, flowRef), northboundDelivery));
+                                resumeConsumer(ctx, flowRef, execution), northboundDelivery), execution);
                 LOG.info("[A2A] execute finish (remote continuation) taskId={} durationMs={}",
                         taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
                 return;
@@ -179,14 +184,15 @@ public final class A2aAgentExecutor implements AgentExecutor {
             flowRef.set(trajectory.open(ctx, context, handler));
 
             RouteDecision decision = consumeHandler(context, emitter, taskId, artifactId, firstArtifact, true,
-                    cancelled);
+                    cancelled, execution);
 
             if (decision.remoteInvocation() != null) {
                 // The orchestrator runs the northbound delivery itself, after the remote leg
                 // and the local resume converge — flushing here would cut the artifact short.
                 runRemoteSegment(taskId, cancelled,
                         () -> remote.invokeRemote(ctx, decision.remoteInvocation(), emitter, taskId, artifactId,
-                                firstArtifact, cancelled, resumeConsumer(ctx, flowRef), northboundDelivery));
+                                firstArtifact, cancelled, resumeConsumer(ctx, flowRef, execution), northboundDelivery),
+                        execution);
             } else {
                 // The full trajectory (through RUN_END) is only complete now; deliver it to the caller
                 // before the answer's terminal so it lands while the task can still accept artifacts.
@@ -221,6 +227,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 LOG.warn("[A2A] could not emit terminal failure taskId={}", taskId);
             }
         } finally {
+            inFlight.remove(taskId, execution);
             A2aTrajectorySupport.closeQuietly(flowRef.get(), taskId);
             MDC.remove(MDC_CONTEXT_ID);
             MDC.remove(MDC_TASK_ID);
@@ -271,10 +278,11 @@ public final class A2aAgentExecutor implements AgentExecutor {
      * would silently vanish from every sink.
      */
     private A2aRemoteInvocationOrchestrator.LocalResume resumeConsumer(RequestContext ctx,
-            AtomicReference<TrajectoryFlow> flowRef) {
+            AtomicReference<TrajectoryFlow> flowRef, InFlightExecution execution) {
         return (resumeContext, emitter, taskId, artifactId, firstArtifact, cancelled) -> {
             flowRef.set(trajectory.openForResume(ctx, resumeContext, handler, flowRef.get()));
-            return consumeHandler(resumeContext, emitter, taskId, artifactId, firstArtifact, false, cancelled);
+            return consumeHandler(resumeContext, emitter, taskId, artifactId, firstArtifact, false,
+                    cancelled, execution);
         };
     }
 
@@ -286,23 +294,18 @@ public final class A2aAgentExecutor implements AgentExecutor {
      * the local handler against an already-CANCELED task. The placeholder carries
      * no stream slot; the cancel path tolerates the empty slot.
      */
-    private void runRemoteSegment(String taskId, AtomicBoolean cancelled, Runnable remoteSegment) {
-        InFlightExecution execution = new InFlightExecution(new AtomicReference<>(), cancelled);
-        inFlight.put(taskId, execution);
+    private void runRemoteSegment(String taskId, AtomicBoolean cancelled, Runnable remoteSegment,
+            InFlightExecution execution) {
         try {
             remoteSegment.run();
         } finally {
-            inFlight.remove(taskId, execution);
+            // in-flight registration is owned by execute(); we just run the segment.
         }
     }
 
     private RouteDecision consumeHandler(AgentExecutionContext context, AgentEmitter emitter, String taskId,
             String artifactId, AtomicBoolean firstArtifact, boolean remoteInvocationAllowed,
-            AtomicBoolean cancelled) {
-        // Registered before handler.execute() so a cancel landing during a slow
-        // connect still reaches the cancelled flag instead of vanishing.
-        InFlightExecution execution = new InFlightExecution(new AtomicReference<>(), cancelled);
-        inFlight.put(taskId, execution);
+            AtomicBoolean cancelled, InFlightExecution execution) {
         try (Stream<?> raw = handler.execute(context);
              Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
             execution.rawStream().set(raw);
@@ -333,7 +336,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
             }
             throw e;
         } finally {
-            inFlight.remove(taskId, execution);
+            // in-flight registration is owned by execute(); cleaned up there.
         }
     }
 
