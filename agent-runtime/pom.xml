@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  agent-runtime: the framework-neutral agent-hosting runtime SDK that drives Agent
+  instances built on heterogeneous agent frameworks through a single SPI
+  (engine.spi.AgentRuntimeHandler + StreamAdapter) and bridges them to the A2A
+  protocol. Task lifecycle, task store, and the internal event queue come from the
+  A2A SDK's in-memory facilities (replaceable via @ConditionalOnMissingBean);
+  session persistence is delegated to each framework's own checkpointer. Owns
+  trajectory observability, remote A2A tool invocation, the northbound A2A access
+  surface, and the pure-Java embeddable entry app.RuntimeApp. Ships as a library.
+  Its only external protocol contract is the A2A SDK.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend</groupId>
+    <artifactId>spring-ai-ascend-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>agent-runtime</artifactId>
+  <name>agent-runtime</name>
+  <description>Framework-neutral agent-hosting runtime SDK: AgentRuntimeHandler SPI + A2A SDK bridge (task lifecycle/store/queue from the SDK's replaceable in-memory facilities; session persistence delegated to framework checkpointers) + trajectory observability + remote A2A tool invocation + northbound A2A access + embeddable entry app.RuntimeApp.</description>
+
+  <dependencies>
+    <!-- Web + actuator (northbound + bootable app). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.projectreactor</groupId>
+      <artifactId>reactor-core</artifactId>
+    </dependency>
+
+    <!-- OpenTelemetry: optional trajectory span export (activated by app.trajectory.otel.enabled).
+         Optional so the OTel classpath is required only when a deployment turns export on. -->
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-exporter-otlp</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- A2A SDK: the protocol reference server (request handler, task store, event queue)
+         the runtime drives as its protocol substrate. -->
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-server-common</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-client-transport-jsonrpc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-http-client</artifactId>
+    </dependency>
+
+    <!-- openJiuwen agent-core-java: the agent framework the engine adapter drives. -->
+    <dependency>
+      <groupId>com.openjiuwen</groupId>
+      <artifactId>agent-core-java</artifactId>
+      <version>0.1.12-jdk17</version>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- ====== Test scope ====== -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk-testing</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock-standalone</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>rest-assured</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.github.resilience4j</groupId>
+      <artifactId>resilience4j-circuitbreaker</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.projectreactor</groupId>
+      <artifactId>reactor-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <!-- Bundle the S2C callback contract onto the classpath for the access layer.
+           (engine-envelope / engine-hooks are retired by the pure rebuild and are
+           no longer read or shipped on the runtime classpath.) -->
+      <resource>
+        <directory>${project.basedir}/../docs/contracts</directory>
+        <targetPath>docs/contracts</targetPath>
+        <includes>
+          <include>s2c-callback.v1.yaml</include>
+        </includes>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+      </plugin>
+      <!-- agent-runtime ships as a plain library: consumers embed the pure-Java entry
+           `app.RuntimeApp.create(handler).run(LocalA2aRuntimeHost.port(p))`. No executable
+           boot jar / Spring Boot repackage (the retired bootstrap main class is gone). -->
+    </plugins>
+  </build>
+</project>

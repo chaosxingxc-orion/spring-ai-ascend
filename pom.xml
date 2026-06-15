@@ -18,7 +18,7 @@
 
   <groupId>com.huawei.ascend</groupId>
   <artifactId>spring-ai-ascend-parent</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.2.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>spring-ai-ascend parent</name>
@@ -38,7 +38,7 @@
     <module>agent-middleware</module>
     <module>agent-execution-engine</module>
     <module>agent-evolve</module>
-    <module>agent-service</module>
+    <module>agent-runtime</module>
   </modules>
 
   <properties>
@@ -285,7 +285,7 @@
       </dependency>
       <dependency>
         <groupId>com.huawei.ascend</groupId>
-        <artifactId>agent-service</artifactId>
+        <artifactId>agent-runtime</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

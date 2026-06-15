@@ -1,6 +1,0 @@
-com.huawei.ascend.service.session.config.SessionManageConfiguration
-com.huawei.ascend.service.queue.config.QueueAutoConfiguration
-com.huawei.ascend.service.taskcontrol.config.TaskControlAutoConfiguration
-com.huawei.ascend.service.bootstrap.AgentServiceBootstrapConfiguration
-com.huawei.ascend.service.access.config.AccessLayerConfiguration
-com.huawei.ascend.service.engine.config.EngineAutoConfiguration
