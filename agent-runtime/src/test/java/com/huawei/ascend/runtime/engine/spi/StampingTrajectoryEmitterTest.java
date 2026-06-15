@@ -292,6 +292,48 @@ class StampingTrajectoryEmitterTest {
     }
 
     @Test
+    void payloadRefStoreExternalizesOversizedString() {
+        CapturingSink sink = new CapturingSink();
+        // Store that captures what was put
+        java.util.List<String> stored = new java.util.ArrayList<>();
+        PayloadRefStore refStore = payload -> { stored.add(payload); return "payload_ref://sha256abc"; };
+        TrajectorySettings settings = new TrajectorySettings(true,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 8, 1.0,
+                Redactor.NONE, CostCalculator.NONE, refStore);
+        StampingTrajectoryEmitter emitter =
+                new StampingTrajectoryEmitter(sink, SCOPE, settings, EnumSet.allOf(Kind.class));
+
+        // String longer than truncateChars=8 should be externalized, not truncated
+        emitter.emit(TrajectoryDraft.toolCallStart("x", "a very long argument string"));
+
+        TrajectoryEvent event = first(sink.events, Kind.TOOL_CALL_START);
+        // payload_ref map replaces the oversized string
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> refMap = (java.util.Map<String, Object>) event.args();
+        assertThat(refMap).containsKey("payload_ref");
+        assertThat(refMap.get("payload_ref")).isEqualTo("payload_ref://sha256abc");
+        assertThat(stored).hasSize(1).contains("a very long argument string");
+    }
+
+    @Test
+    void payloadRefStoreFallsBackToTruncationOnWriteFailure() {
+        CapturingSink sink = new CapturingSink();
+        PayloadRefStore failingStore = payload -> { throw new java.io.UncheckedIOException(
+                new java.io.IOException("disk full")); };
+        TrajectorySettings settings = new TrajectorySettings(true,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 8, 1.0,
+                Redactor.NONE, CostCalculator.NONE, failingStore);
+        StampingTrajectoryEmitter emitter =
+                new StampingTrajectoryEmitter(sink, SCOPE, settings, EnumSet.allOf(Kind.class));
+
+        emitter.emit(TrajectoryDraft.toolCallStart("x", "a very long argument string that exceeds 8 chars"));
+
+        // Store write failed: should fall back to normal truncation (not crash)
+        TrajectoryEvent event = first(sink.events, Kind.TOOL_CALL_START);
+        assertThat(String.valueOf(event.args())).startsWith("a very l").contains("…(");
+    }
+
+    @Test
     void faultyCostCalculatorFailsSafePreservingOriginalUsage() {
         CapturingSink sink = new CapturingSink();
         CostCalculator faultyCalc = usage -> { throw new RuntimeException("calc broke"); };

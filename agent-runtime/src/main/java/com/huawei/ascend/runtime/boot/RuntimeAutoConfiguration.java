@@ -8,10 +8,12 @@ import com.huawei.ascend.runtime.engine.a2a.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.CostCalculator;
 import com.huawei.ascend.runtime.engine.spi.PatternRedactor;
+import com.huawei.ascend.runtime.engine.spi.PayloadRefStore;
 import com.huawei.ascend.runtime.engine.spi.Redactor;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -159,8 +161,12 @@ public class RuntimeAutoConfiguration {
         CostCalculator costCalculator = properties.getPricing().isEnabled()
                 ? new TableCostCalculator(properties.getPricing().getModels())
                 : CostCalculator.NONE;
+        PayloadRefStore payloadRefStore = properties.getPayloadRef().isEnabled()
+                ? new LocalFsPayloadRefStore(Path.of(properties.getPayloadRef().getDirectory()))
+                : null;
         return new TrajectorySettings(true, compileMaskPattern(properties.getMask().getKeyPattern()),
-                properties.getMask().getTruncateChars(), properties.getSampleRate(), redactor, costCalculator);
+                properties.getMask().getTruncateChars(), properties.getSampleRate(),
+                redactor, costCalculator, payloadRefStore);
     }
 
     /**

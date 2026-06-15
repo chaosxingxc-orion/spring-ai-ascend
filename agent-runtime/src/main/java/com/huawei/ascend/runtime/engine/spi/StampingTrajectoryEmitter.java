@@ -6,6 +6,7 @@ import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -75,12 +76,9 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
         if (!publish) {
             return;
         }
-        Object args = redact(TrajectoryMasking.mask(draft.args(),
-                settings.maskKeyPattern(), settings.truncateChars()));
-        Object result = redact(TrajectoryMasking.mask(draft.result(),
-                settings.maskKeyPattern(), settings.truncateChars()));
-        Object reasoning = redact(TrajectoryMasking.mask(draft.reasoning(),
-                settings.maskKeyPattern(), settings.truncateChars()));
+        Object args = externalizeOrMask(draft.args());
+        Object result = externalizeOrMask(draft.result());
+        Object reasoning = externalizeOrMask(draft.reasoning());
         ErrorInfo error = maskError(draft.error());
         TrajectoryEvent.Usage usage = enrichUsage(draft.usage());
         sink.accept(new TrajectoryEvent(
@@ -198,14 +196,39 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
 
     private record SpanInfo(String spanId, String parentSpanId, Long durationMs) {}
 
-    /** Free-text error messages can embed secrets; run the message through the same masker. */
+    /** Free-text error messages can embed secrets; run the message through the same masker/externalizer. */
     private ErrorInfo maskError(ErrorInfo error) {
         if (error == null || error.message() == null) {
             return error;
         }
-        Object masked = redact(TrajectoryMasking.mask(error.message(),
-                settings.maskKeyPattern(), settings.truncateChars()));
-        return new ErrorInfo(error.code(), masked != null ? String.valueOf(masked) : null, error.category());
+        Object processed = externalizeOrMask(error.message());
+        String processedStr = processed != null ? String.valueOf(processed) : null;
+        return new ErrorInfo(error.code(), processedStr, error.category());
+    }
+
+    /**
+     * Externalizes oversized string payloads via {@link PayloadRefStore} (when configured),
+     * then applies key masking + value redaction on the remainder. For non-string values or
+     * when the store is null, falls through to normal mask → truncate → redact. Fail-safe
+     * on store write failure: falls back to truncation rather than failing the run.
+     */
+    private Object externalizeOrMask(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        PayloadRefStore store = settings != null ? settings.payloadRefStore() : null;
+        if (store != null && raw instanceof CharSequence cs) {
+            String s = cs.toString();
+            if (settings.truncateChars() > 0 && s.length() > settings.truncateChars()) {
+                try {
+                    return Map.of("payload_ref", store.put(s));
+                } catch (RuntimeException ignored) {
+                    // Store write failed: fall through to truncation
+                }
+            }
+        }
+        return redact(TrajectoryMasking.mask(raw, settings != null ? settings.maskKeyPattern() : null,
+                settings != null ? settings.truncateChars() : 0));
     }
 
     /** Value-level redaction on top of key masking; fail-closed so a faulty redactor cannot leak. */

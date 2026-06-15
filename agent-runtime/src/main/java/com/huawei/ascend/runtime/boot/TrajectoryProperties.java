@@ -19,6 +19,7 @@ public class TrajectoryProperties {
     private final Log log = new Log();
     private final Redact redact = new Redact();
     private final Pricing pricing = new Pricing();
+    private final PayloadRef payloadRef = new PayloadRef();
 
     public boolean isEnabled() { return enabled; }
 
@@ -37,6 +38,8 @@ public class TrajectoryProperties {
     public Redact getRedact() { return redact; }
 
     public Pricing getPricing() { return pricing; }
+
+    public PayloadRef getPayloadRef() { return payloadRef; }
 
     public static class Mask {
         private String keyPattern = TrajectoryMasking.DEFAULT_KEY_PATTERN;
@@ -118,5 +121,23 @@ public class TrajectoryProperties {
                 this.outputMicrosPerToken = outputMicrosPerToken;
             }
         }
+    }
+
+    /**
+     * Write-only externalization of oversized string payloads. When enabled, payload strings
+     * longer than {@code app.trajectory.mask.truncate-chars} are written to {@code directory}
+     * and replaced by a {@code payload_ref://sha256} reference in the event. Off by default.
+     */
+    public static class PayloadRef {
+        private boolean enabled = false;
+        private String directory = System.getProperty("java.io.tmpdir") + "/trajectory-payloads";
+
+        public boolean isEnabled() { return enabled; }
+
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public String getDirectory() { return directory; }
+
+        public void setDirectory(String directory) { this.directory = directory; }
     }
 }
