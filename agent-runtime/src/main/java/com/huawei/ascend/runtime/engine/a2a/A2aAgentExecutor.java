@@ -171,6 +171,14 @@ public final class A2aAgentExecutor implements AgentExecutor {
             String inputText = extractText(ctx);
             LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
 
+            if (inputText.isBlank() && !remote.isRemoteContinuation(ctx)) {
+                LOG.warn("[A2A] rejecting task with empty query taskId={}", taskId);
+                emitter.fail(failureMessage(emitter, "INVALID_INPUT",
+                        "message contains no text content", false));
+                LOG.info("[A2A] task state=FAILED taskId={}", taskId);
+                return;
+            }
+
             if (remote.isRemoteContinuation(ctx)) {
                 runRemoteSegment(taskId, cancelled,
                         () -> remote.continueRemote(ctx, emitter, taskId, artifactId, firstArtifact, cancelled,
