@@ -58,6 +58,36 @@ This proposal does not define:
 - sandbox provider execution details;
 - external DLP/prompt-injection vendor integration.
 
+### 2.1 Design Boundary
+
+This document defines the neutral runtime-to-policy contract. It does not implement the policy engine or prove that current runtime paths already call the contract.
+
+| Boundary question | In scope | Out of scope |
+|---|---|---|
+| What is the goal? | Define `SecurityDecisionPort`, `SecurityEvaluationRequest`, `CapabilityTarget`, `SecurityDecision`, `DecisionType`, and `ActionType`. | Define policy authoring, approval persistence, sandbox provider APIs, IAM/JWT, or vendor scanners. |
+| Where does the contract live? | A neutral runtime-side port and DTO vocabulary that can be wired by application assembly. | Runtime importing `agent-service` implementation classes or provider SDKs. |
+| What does the port decide? | Whether a concrete, scoped, pre-side-effect action is allowed, denied, routed, suspended, audited, or degraded. | Global user identity, long-lived authorization grants, UI decisions, or remote internal framework state. |
+| What is trusted input? | Runtime-owned context plus trusted ingress identity and redacted capability evidence. | Model text, raw request headers, framework permission flags, or remote metadata as trusted policy facts. |
+| What is the implementation status? | Proposed contract and verification gates. | A claim that mainline already enforces these decisions on every adapter path. |
+
+### 2.2 This Design Does / Does Not
+
+This design does:
+
+- keep the security contract small, versioned, and independent of policy implementation;
+- require adapters to evaluate before delegated side effects whenever enforcement is claimed;
+- require high-risk actions to fail closed when policy is missing, timed out, or returns unknown decisions;
+- classify framework-native allow/ask/deny/bypass signals as evidence to map into requests;
+- require ArchUnit coverage that preserves the runtime/service dependency direction.
+
+This design does not:
+
+- define the deployer-readable permission matrix or profile presets;
+- define approval lifecycle, audit retention, or durable store schema;
+- authorize multi-tenant production behavior without a trusted identity source;
+- sandbox a remote runtime or control its internal tools;
+- convert `TrajectoryEvent` into a policy decision object.
+
 ## 3. Root Cause / Strongest Interpretation (Rule D-1)
 
 1. **Observed failure / motivation:** without a neutral decision contract, each adapter could make local safety decisions, producing inconsistent behavior across OpenJiuwen, AgentScope, A2A, Versatile, SDK tools, memory, sandbox, and file/API/MCP paths.

@@ -61,6 +61,36 @@ This proposal does not define:
 - approval UI pages or timeline product surfaces;
 - concrete database tables, beyond required durability semantics.
 
+### 2.1 Design Boundary
+
+This document defines approval and audit semantics for decisions that already require suspension or audit. It does not decide which action needs approval; that belongs to the capability policy and security decision chain.
+
+| Boundary question | In scope | Out of scope |
+|---|---|---|
+| What is the goal? | Define approval refs, security decision events, audit receipts, pause/resume semantics, redaction, and failure behavior. | Define policy matching, IAM/JWT, sandbox providers, UI pages, or concrete DB migration files. |
+| What is approval truth? | Repository-owned approval records and audit receipts keyed by trusted refs. | A2A `INPUT_REQUIRED`, framework interrupt callbacks, push notifications, model text, or remote workflow state as approval truth. |
+| Where does execution park? | Before the side effect when `SecurityDecision` requires approval or audit reservation. | After a side effect has already started, unless only telemetry/audit evidence is being recorded. |
+| What is durable? | Approval state, audit receipts, redacted payload refs, decision refs, and outcome refs in host/service-owned storage. | Raw prompts, tool args/results, sandbox output, API bodies, remote Agent Card text, or PII inline by default. |
+| What is the implementation status? | Proposed contracts, event kinds, and state-machine tests. | A claim that mainline runtime already persists approvals, audit receipts, or security events. |
+
+### 2.2 This Design Does / Does Not
+
+This design does:
+
+- separate security events from operational `TrajectoryEvent` telemetry;
+- require audit reserve before high-risk pre-side-effect execution when policy requires it;
+- require approval resume to re-check policy, expiry, idempotency, and delegation envelope;
+- require `INPUT_REQUIRED` namespace separation across approval, remote A2A, Versatile, and sandbox waits;
+- require redaction-before-persist for audit and security-event payload references.
+
+This design does not:
+
+- let a human approval expand capability scope, tenant scope, or delegation envelope;
+- store raw interaction content by default;
+- turn remote/framework pause states into repository approval state;
+- define a product approval UI;
+- let `agent-runtime` own durable audit storage by default.
+
 ## 3. Root Cause / Strongest Interpretation (Rule D-1)
 
 1. **Observed failure / motivation:** the parent decision chain can return `SUSPEND_FOR_APPROVAL`, but without an approval/audit contract the runtime cannot park, resume, expire, cancel, or prove whether an action ran after authorization.

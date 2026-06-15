@@ -38,7 +38,7 @@ affects_artefact:
 # Agent Runtime Sandbox Governance L2 Proposal
 
 > **Date:** 2026-06-14
-> **Baseline:** `origin/main` at `29d421c6` plus the companion security decision-chain proposals listed above.
+> **Baseline:** `origin/main` at `88de3e37` (2026-06-15, after #266) plus the companion security decision-chain proposals listed above.
 > **Scope:** sandbox governance, broker/provider boundary, runtime adapter touchpoints, resilience profiles, and verification.
 > **Non-goal:** this proposal does not redesign `agent-runtime`, `AgentRuntimeHandler`, OpenJiuwen, AgentScope, A2A, or Versatile. It defines sandbox-related capabilities under the current repository architecture.
 
@@ -73,6 +73,36 @@ The most important shift from earlier sandbox drafts is that sandbox is no longe
 - `capability-permissions.yaml` scopes sandbox profiles, provider classes, network, file transfer, and fallback.
 - approval/audit contracts decide when sandbox execution must be parked, redacted, audited, or denied.
 - A2A remote tools and Versatile workflows are not assumed to be deeply sandboxed just because they are remote.
+
+### 1.1 Design Boundary
+
+This document defines sandbox governance and integration boundaries. It does not make the current runtime sandboxed, and it does not make sandbox isolation a replacement for authorization.
+
+| Boundary question | In scope | Out of scope |
+|---|---|---|
+| What is the goal? | Define the `SandboxGateway` runtime port, broker/provider boundary, sandbox profiles, tenant trust preconditions, failover rules, and verification gates. | Implement every provider, redesign runtime, add a new northbound sandbox protocol, or embed provider SDKs in `agent-runtime`. |
+| Who calls sandbox? | Runtime-owned wrappers/adapters call `SandboxGateway` after `SecurityDecisionPort` decides sandbox routing. | Agent frameworks directly choosing provider SDKs or bypassing repository policy, quota, audit, and tenant checks. |
+| What can sandbox enforce? | Local/coarse workspace isolation and pre-action tool/code/file/network paths where wrappers or hooks exist. | Remote internal tools, opaque framework side effects, or post-action-only hooks as enforceable R4/R5 controls. |
+| What trust is required? | Trusted ingress or verified claims for tenant/user/session/task before research/prod sandbox acquire. | Raw headers, Agent Card metadata, model output, or remote sandbox claims as local proof. |
+| What is the implementation status? | Proposed contracts, module boundaries, rollout waves, and tests. | Runtime-enforced sandbox behavior before `SandboxGateway`, fake/local implementation, policy integration, and negative tests land. |
+
+### 1.2 This Design Does / Does Not
+
+This design does:
+
+- keep `agent-runtime` provider-neutral through `SandboxGateway` and neutral DTOs;
+- place broker/provider routing, quota, health, retry, failover, and durable audit outside runtime;
+- require sandbox routing to follow policy, approval, audit, and tenant-trust decisions;
+- require endpoint-level treatment for A2A remote and Versatile, with certified remote evidence only when explicitly scoped;
+- require fail-closed behavior for high-risk actions when sandbox, identity, audit, or policy is unavailable.
+
+This design does not:
+
+- allow sandbox to bypass deny rules, least-agency scope, or approval/audit obligations;
+- claim local control over remote runtime internals;
+- permit production local fallback without explicit risk marking and policy allowance;
+- introduce a second northbound runtime protocol beside A2A task/result/error semantics;
+- make Kubernetes, E2B, OpenSandbox, Docker, or jiuwenbox dependencies of `agent-runtime`.
 
 ## 2. Current Repo Alignment
 
@@ -614,6 +644,6 @@ E2E tests:
 
 ## Authority
 
-- Latest mainline runtime shape: `origin/main` at `29d421c6`.
+- Latest mainline runtime shape: `origin/main` at `88de3e37` (2026-06-15, after #266).
 - Companion security decision chain proposals define policy, decision, approval, audit, and least-agency boundaries.
 - Earlier sandbox proposals remain useful background, but this document is the current L2 sandbox governance proposal.

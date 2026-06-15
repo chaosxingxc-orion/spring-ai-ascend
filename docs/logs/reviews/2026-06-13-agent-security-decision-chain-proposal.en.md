@@ -79,6 +79,37 @@ This proposal does not define:
 - concrete vendor integration for DLP or content-safety checks;
 - a session security timeline UI.
 
+### 2.1 Design Boundary
+
+This document is a security-chain target design. It is not evidence that the current mainline already enforces the chain.
+
+| Boundary question | In scope | Out of scope |
+|---|---|---|
+| What is the goal? | Define the repository-owned decision chain, vocabulary, guard placement, fail-closed posture, and rollout order. | Ship a complete policy engine, approval store, sandbox broker, or UI in this proposal. |
+| Where does enforcement attach? | Current runtime seams: `AgentRuntimeHandler` wrapper, OpenJiuwen rail, AgentScope wrapper, SDK tool executor, A2A outbound/catalog guards, Versatile workflow guard, memory/state guards, and sandbox gateway. | A new runtime framework, a hidden multi-handler router, or a revived `agent-middleware` hook chain. |
+| Who owns policy truth? | Repository/deployer policy behind `SecurityDecisionPort`, backed by capability policy, redlines, approval, audit, and tenant posture. | Native framework permission modes, model output, Agent Card text, remote workflow metadata, or sandbox-provider claims as final authority. |
+| What identity is trusted? | Trusted gateway or verified claims that map tenant/user/session/task into runtime context. | Raw `X-Tenant-Id`, client-declared metadata, model-supplied tenant values, or remote framework metadata as production trust roots. |
+| How much remote control is claimed? | Endpoint-level admission, scope, timeout, fallback, audit, and certified-evidence checks for A2A/Versatile/remote runtimes. | Control over remote internal tools, memory, sandbox, or framework side effects unless a certified, scoped contract proves it. |
+| What is the implementation status? | Proposed contracts and tests to make future behavior `runtime_enforced`. | Claiming current runtime enforcement before schemas, Java ports, guards, and negative tests land. |
+
+### 2.2 This Design Does / Does Not
+
+This design does:
+
+- establish a single repository-owned decision sequence before high-risk side effects;
+- define where L2 contract, permission, approval/audit, and sandbox proposals fit;
+- require fail-closed behavior when policy, tenant trust, audit, or required approval is unavailable;
+- require `INPUT_REQUIRED` and other pause/resume states to carry trusted waiting-target namespaces;
+- require remote and framework-native permission signals to be treated as evidence, not final authorization.
+
+This design does not:
+
+- authenticate callers or implement JWT/OIDC; that is an ingress/IAM prerequisite;
+- make sandbox isolation a substitute for authorization, approval, audit, or tenant trust;
+- let approval expand the original delegation envelope or least-agency scope;
+- allow `agent-runtime` to depend on `agent-service` implementation classes;
+- make opaque framework-internal side effects safe if they cannot be intercepted before the side effect.
+
 ## 3. Root Cause / Strongest Interpretation (Rule D-1)
 
 1. **Observed failure / motivation:** the repository contains multiple security requirements and signals, but high-risk tool/model/memory/sandbox/file/API/MCP/A2A/remote-tool-catalog/Versatile/business actions do not yet pass through one unified executable and auditable decision chain.

@@ -65,6 +65,36 @@ This proposal does not define:
 - sandbox provider APIs;
 - a new runtime framework or `agent-middleware`.
 
+### 2.1 Design Boundary
+
+This document defines desired capability permission policy. It does not make the current runtime enforce that policy until the policy loader, decision port, adapter guards, and tests land.
+
+| Boundary question | In scope | Out of scope |
+|---|---|---|
+| What is the goal? | Define capability kinds, permission modes, risk axes, scopes, profiles, and SDK declarations for deployer-readable policy. | Define the final security decision wire contract, approval/audit lifecycle, sandbox provider lifecycle, or IAM. |
+| What does policy classify? | Tool, file, API, MCP, A2A, remote catalog, Versatile, sandbox, memory, model, state, and business-action capability requests. | Unobservable opaque framework-internal side effects as enforceable unless a wrapper/proxy/pre-action hook exists. |
+| What is the enforcement handoff? | Policy produces desired authorization mode and scope evidence that `SecurityDecisionPort` consumes. | Adapters directly treating YAML as final authorization without the decision contract and fail-closed behavior. |
+| What is trusted input? | Declared capability specs, trusted runtime context, policy version, and trusted identity posture. | Model-generated tool descriptions, raw Agent Card text, raw `X-Tenant-Id`, or framework-native allow modes as final policy truth. |
+| What is the implementation status? | Contract-defined policy vocabulary and rollout plan. | Runtime-enforced profile behavior before schema validation, loader, port integration, and negative tests exist. |
+
+### 2.2 This Design Does / Does Not
+
+This design does:
+
+- define a default-deny, scope-aware, profile-driven capability policy model;
+- require unknown or under-declared high-risk capabilities to deny or suspend by profile;
+- keep `agent-sdk` declarations independent of `agent-service`;
+- map remote A2A and Versatile to endpoint-level capability scopes;
+- require policy to preserve least-agency and tenant/session/task scope.
+
+This design does not:
+
+- authenticate the tenant/user/session that the policy evaluates;
+- approve out-of-envelope actions or turn human approval into scope expansion;
+- claim that remote runtimes enforce local policy internally;
+- treat sandbox routing as permission to bypass deny rules;
+- require all native framework capabilities to be supported on day one.
+
 ## 3. Root Cause / Strongest Interpretation (Rule D-1)
 
 1. **Observed failure / motivation:** high-risk capabilities can be invoked through tool, file, API, MCP, A2A, remote tool catalog, Versatile workflow, sandbox, memory, and business adapters, but there is no unified deployer-readable permission matrix.
