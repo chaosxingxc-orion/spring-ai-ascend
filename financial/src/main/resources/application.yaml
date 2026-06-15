@@ -28,11 +28,24 @@ agent-runtime:
         description: Read-only bank financial advisor assistant hosted by spring-ai-ascend.
         version: "0.1.0"
 
+# ── Observability ──
+# Distributed tracing export (off by default). Turn on with OTEL_ENABLED=true and
+# run financial/ops/docker-compose.yml (Jaeger) to see traces at http://localhost:16686.
+app:
+  trajectory:
+    otel:
+      enabled: ${OTEL_ENABLED:false}
+      endpoint: ${OTEL_ENDPOINT:http://localhost:4317}
+
 logging:
   level:
     root: INFO
     com.bank.financial: INFO
     com.huawei.ascend: INFO
+    financial.audit: INFO          # domain audit trail (point at an audit sink in prod)
+  pattern:
+    # Correlate every log line with the platform's per-request ids.
+    console: "%d{HH:mm:ss.SSS} %-5level [trace=%X{runId:-} tenant=%X{tenantId:-}] %logger{36} - %msg%n"
 
 # ── LLM connection (override via env / -D) ──
 financial:

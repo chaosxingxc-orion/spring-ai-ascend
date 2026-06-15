@@ -1,5 +1,6 @@
 package com.bank.financial.kit;
 
+import com.bank.financial.kit.obs.ObservabilityRail;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
@@ -101,6 +102,8 @@ public abstract class AbstractFinancialAgentHandler extends OpenJiuwenAgentRunti
     @Override
     protected final List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
         List<AgentRail> rails = new ArrayList<>();
+        // Every financial agent gets observability + domain audit for free.
+        rails.add(new ObservabilityRail(agentId(), context.getScope().tenantId()));
         rails.addAll(complianceRails(context));
         rails.addAll(approvalRails(context));
         return rails;

@@ -116,6 +116,26 @@ public final class Playground {
                 lg.setLevel(ch.qos.logback.classic.Level.OFF);
                 lg.setAdditive(false);
             }
+            // Keep the domain audit trail visible in the playground (no timestamp →
+            // survives play.sh's log filter), so you can SEE the 🧾 events locally too.
+            ch.qos.logback.classic.LoggerContext lc =
+                    (ch.qos.logback.classic.LoggerContext) org.slf4j.LoggerFactory.getILoggerFactory();
+            ch.qos.logback.classic.encoder.PatternLayoutEncoder enc =
+                    new ch.qos.logback.classic.encoder.PatternLayoutEncoder();
+            enc.setContext(lc);
+            enc.setPattern("%msg%n");
+            enc.start();
+            ch.qos.logback.core.ConsoleAppender<ch.qos.logback.classic.spi.ILoggingEvent> ap =
+                    new ch.qos.logback.core.ConsoleAppender<>();
+            ap.setContext(lc);
+            ap.setEncoder(enc);
+            ap.start();
+            ch.qos.logback.classic.Logger audit = (ch.qos.logback.classic.Logger)
+                    org.slf4j.LoggerFactory.getLogger("financial.audit");
+            audit.detachAndStopAllAppenders();
+            audit.addAppender(ap);
+            audit.setLevel(ch.qos.logback.classic.Level.INFO);
+            audit.setAdditive(false);
         } catch (Throwable ignored) {
             // not logback (or unavailable) — the play.sh grep filter is the backstop
         }
