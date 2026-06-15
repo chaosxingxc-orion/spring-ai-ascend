@@ -31,6 +31,10 @@ http://localhost:18081
 
 ## 设计要点
 
+- `/sample/memory/ask` 请求体里的 `text` 是本轮用户输入；样例会把它包装成 `RuntimeMessage.user(text)`，
+  最终由 `OpenJiuwenMessageAdapter` 转成 OpenJiuwen Runner 的 `query`。
+- `createOpenJiuwenAgent(...)` 中的 promptTemplate 只是 system prompt，用来约束样例 Agent 的回答方式，
+  不是用户输入。
 - 样例 handler 直接持有 `MemoryProvider`，并在 `openJiuwenRails(context)` 中注册唯一的 memory rail。
 - 执行时不 override `runOpenJiuwenAgent(...)`，仍走 OpenJiuwen 默认 Runner。
 - `InMemoryMemoryProvider` 只放在 example 中，用于端到端验证；生产环境应替换成企业自己的长期记忆服务。
