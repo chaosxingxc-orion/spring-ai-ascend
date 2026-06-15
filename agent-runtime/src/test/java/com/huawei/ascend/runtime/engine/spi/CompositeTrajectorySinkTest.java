@@ -12,7 +12,7 @@ class CompositeTrajectorySinkTest {
 
     private static TrajectoryEvent event(long seq) {
         return new TrajectoryEvent(seq, Kind.RUN_START, 0L, null, "task", "span", null, "tenant", "ctx", "task",
-                "run", null, null, null, null, null, null, null, null, null, "2");
+                "run", null, null, null, null, null, null, null, null, null, null, null, "2");
     }
 
     private static final class RecordingSink implements TrajectorySink {

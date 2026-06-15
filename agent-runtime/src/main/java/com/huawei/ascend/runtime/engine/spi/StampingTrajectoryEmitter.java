@@ -35,6 +35,8 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
     private final String tenantId;
     private final String contextId;
     private final String taskId;
+    private final String parentTaskId;
+    private final String parentTraceId;
     private final TrajectorySettings settings;
     private final Set<Kind> supportedKinds;
     private final boolean sampled;
@@ -47,6 +49,9 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
         this.tenantId = scope != null ? scope.tenantId() : null;
         this.contextId = scope != null ? scope.sessionId() : null;
         this.taskId = scope != null ? scope.taskId() : null;
+        this.parentTaskId = scope != null ? scope.parentTaskId() : null;
+        // traceId == taskId in this model, so the parent's traceId is its taskId.
+        this.parentTraceId = this.parentTaskId;
         this.settings = settings;
         this.supportedKinds = supportedKinds;
         // Head sampling: one Bernoulli draw decides the whole invocation, so a sampled-out run
@@ -98,6 +103,8 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
                 error,
                 reasoning != null ? String.valueOf(reasoning) : null,
                 draft.finishReason(),
+                parentTaskId,
+                parentTraceId,
                 TrajectoryEvent.SCHEMA_VERSION));
     }
 

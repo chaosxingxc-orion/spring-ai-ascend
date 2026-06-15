@@ -39,7 +39,7 @@ class OtelSpanSinkTest {
     private static TrajectoryEvent ev(long seq, Kind kind, long ts, Long dur, String spanId, String parent,
             String name, Usage usage, String finishReason) {
         return new TrajectoryEvent(seq, kind, ts, dur, "task1", spanId, parent, "t1", "ctx1", "task1",
-                "obj", name, null, null, usage, null, null, null, null, finishReason, "2");
+                "obj", name, null, null, usage, null, null, null, null, finishReason, null, null, "2");
     }
 
     @Test
@@ -107,7 +107,7 @@ class OtelSpanSinkTest {
         sink.accept(new TrajectoryEvent(1, Kind.ERROR, 1100, null, "task1", "err", "run", "t1", "ctx1", "task1",
                 "error", null, null, null, null, null, true,
                 new TrajectoryEvent.ErrorInfo("OJ_MODEL", "boom", TrajectoryEvent.ErrorCategory.TIMEOUT),
-                null, null, "2"));
+                null, null, null, null, "2"));
         sink.accept(ev(2, Kind.RUN_END, 1200, 200L, "run", null, null, null));
         sink.onClose();
 
@@ -139,7 +139,8 @@ class OtelSpanSinkTest {
 
     private static TrajectoryEvent firstTokenEvent(long seq, String parentSpanId, long ts, Long ttftMs) {
         return new TrajectoryEvent(seq, Kind.MODEL_CALL_FIRST_TOKEN, ts, ttftMs, "task1", "ft", parentSpanId,
-                "t1", "ctx1", "task1", "first_token", null, null, null, null, null, null, null, null, null, "2");
+                "t1", "ctx1", "task1", "first_token", null, null, null, null, null, null, null, null, null,
+                null, null, "2");
     }
 
     private static SpanData byName(List<SpanData> spans, String name) {

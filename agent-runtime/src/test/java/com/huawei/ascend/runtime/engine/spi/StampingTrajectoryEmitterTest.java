@@ -205,4 +205,34 @@ class StampingTrajectoryEmitterTest {
         assertThat(sink.events).extracting(TrajectoryEvent::kind)
                 .containsExactly(Kind.RUN_START, Kind.RUN_END);
     }
+
+    @Test
+    void parentLinkageFromScopeIsStampedOnEveryEvent() {
+        CapturingSink sink = new CapturingSink();
+        RuntimeIdentity child = SCOPE.withParent("parent-task", "parent-ctx");
+        StampingTrajectoryEmitter emitter = new StampingTrajectoryEmitter(sink, child,
+                new TrajectorySettings(true, Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256),
+                EnumSet.allOf(Kind.class));
+
+        emitter.emit(TrajectoryDraft.runStart());
+        emitter.emit(TrajectoryDraft.runEnd());
+
+        // traceId == taskId in this model, so parentTraceId == parentTaskId.
+        assertThat(sink.events).isNotEmpty().allSatisfy(e -> {
+            assertThat(e.parentTaskId()).isEqualTo("parent-task");
+            assertThat(e.parentTraceId()).isEqualTo("parent-task");
+        });
+    }
+
+    @Test
+    void rootScopeHasNoParentLinkage() {
+        CapturingSink sink = new CapturingSink();
+        StampingTrajectoryEmitter emitter = emitter(sink, EnumSet.allOf(Kind.class));
+
+        emitter.emit(TrajectoryDraft.runStart());
+
+        TrajectoryEvent runStart = first(sink.events, Kind.RUN_START);
+        assertThat(runStart.parentTaskId()).isNull();
+        assertThat(runStart.parentTraceId()).isNull();
+    }
 }

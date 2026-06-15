@@ -39,6 +39,10 @@ final class OtelSpanSink implements TrajectorySink {
             AttributeKey.doubleKey("gen_ai.server.time_to_first_token");
     private static final AttributeKey<String> TRAJECTORY_SPAN_ID = AttributeKey.stringKey("trajectory.span_id");
     private static final AttributeKey<String> TRAJECTORY_TRACE_ID = AttributeKey.stringKey("trajectory.trace_id");
+    private static final AttributeKey<String> TRAJECTORY_PARENT_TASK_ID =
+            AttributeKey.stringKey("trajectory.parent_task_id");
+    private static final AttributeKey<String> TRAJECTORY_PARENT_TRACE_ID =
+            AttributeKey.stringKey("trajectory.parent_trace_id");
 
     private final Tracer tracer;
     private final Map<String, Span> openSpans = new HashMap<>();
@@ -123,6 +127,15 @@ final class OtelSpanSink implements TrajectorySink {
         }
         if (event.spanId() != null) {
             span.setAttribute(TRAJECTORY_SPAN_ID, event.spanId());
+        }
+        // Cross-run linkage to the caller (carried as attributes; our taskId-based ids are not
+        // valid W3C trace ids, so we do not forge a remote SpanContext — a consumer correlates
+        // by these attributes instead).
+        if (event.parentTaskId() != null) {
+            span.setAttribute(TRAJECTORY_PARENT_TASK_ID, event.parentTaskId());
+        }
+        if (event.parentTraceId() != null) {
+            span.setAttribute(TRAJECTORY_PARENT_TRACE_ID, event.parentTraceId());
         }
         switch (event.kind()) {
             case MODEL_CALL_START -> span.setAttribute(GEN_AI_OPERATION, "chat");

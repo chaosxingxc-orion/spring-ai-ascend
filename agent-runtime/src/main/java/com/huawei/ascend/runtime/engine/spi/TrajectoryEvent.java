@@ -54,6 +54,8 @@ public record TrajectoryEvent(
         ErrorInfo error,
         String reasoning,
         String finishReason,
+        String parentTaskId,
+        String parentTraceId,
         String schemaVersion) {
 
     /**

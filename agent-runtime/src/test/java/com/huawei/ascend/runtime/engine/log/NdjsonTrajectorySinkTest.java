@@ -61,7 +61,7 @@ class NdjsonTrajectorySinkTest {
         sink.accept(new TrajectoryEvent(7L, Kind.MODEL_CALL_END, 1700L, 42L, "trace-1", "span-1", "parent-1",
                 "tenant-1", "ctx-1", "task-1", "model_call", "gpt", Map.of("q", "hi"), "answer",
                 new Usage(10, 20, 5.0, "gpt", "openai", 1500L), 1, true,
-                new ErrorInfo("OJ", "boom", ErrorCategory.TIMEOUT), "thinking", "stop", "3"));
+                new ErrorInfo("OJ", "boom", ErrorCategory.TIMEOUT), "thinking", "stop", "ptask", "ptask", "3"));
 
         assertThat(appender.list).hasSize(1);
         Map<String, Object> json = parsed(0);
@@ -73,7 +73,8 @@ class NdjsonTrajectorySinkTest {
                 .containsEntry("contextId", "ctx-1").containsEntry("taskId", "task-1")
                 .containsEntry("object", "model_call").containsEntry("name", "gpt")
                 .containsEntry("result", "answer").containsEntry("reasoning", "thinking")
-                .containsEntry("finishReason", "stop").containsEntry("schemaVersion", "3");
+                .containsEntry("finishReason", "stop").containsEntry("parentTaskId", "ptask")
+                .containsEntry("parentTraceId", "ptask").containsEntry("schemaVersion", "3");
         assertThat(nested(json, "usage")).containsEntry("provider", "openai").containsEntry("costMicros", 1500);
         assertThat(nested(json, "error")).containsEntry("category", "TIMEOUT");
         // attempt/retryable stay on the Java record but are never serialized northbound.
@@ -83,19 +84,20 @@ class NdjsonTrajectorySinkTest {
     @Test
     void omitsNullFields() throws Exception {
         sink.accept(new TrajectoryEvent(0L, Kind.RUN_START, 1000L, null, "t", "s", null, "tenant", "ctx", "task",
-                "run", null, null, null, null, null, null, null, null, null, "3"));
+                "run", null, null, null, null, null, null, null, null, null, null, null, "3"));
 
         Map<String, Object> json = parsed(0);
         assertThat(json).containsKeys("seq", "kind", "tsEpochMillis", "traceId", "spanId", "tenantId",
                 "contextId", "taskId", "object", "schemaVersion");
         assertThat(json).doesNotContainKeys("durationMs", "parentSpanId", "name", "args", "result",
-                "usage", "error", "reasoning", "finishReason");
+                "usage", "error", "reasoning", "finishReason", "parentTaskId", "parentTraceId");
     }
 
     @Test
     void serializationFailureIsSwallowedAndNeverReachesTheStream() {
         TrajectoryEvent bad = new TrajectoryEvent(1L, Kind.TOOL_CALL_START, 1L, null, "t", "s", null, "tenant",
-                "ctx", "task", "tool_call", "x", new Exploding(), null, null, null, null, null, null, null, "3");
+                "ctx", "task", "tool_call", "x", new Exploding(), null, null, null, null, null, null, null,
+                null, null, "3");
         assertThatCode(() -> sink.accept(bad)).doesNotThrowAnyException();
         assertThat(appender.list).isEmpty();
     }

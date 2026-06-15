@@ -77,6 +77,7 @@ Schema v3 per-event `DataPart` fields (serialized by `A2aNorthboundSink` and, id
 | `error` | object \| null | `{code, message, category}`; message masked; `code` is free-text, `category` is the stable `ErrorCategory` aligned to `gen_ai.error.type` |
 | `reasoning` | string \| null | Masked + truncated free-text reasoning |
 | `finishReason` | string \| null | Model completion reason (= `gen_ai.response.finish_reasons`); populated on `MODEL_CALL_END` |
+| `parentTaskId` / `parentTraceId` | string \| null | Cross-run linkage to the caller's run (the caller's `taskId`; `traceId` = `taskId` so the two are equal); null for a root run, populated from inbound A2A `parentTaskId`/`parentContextId` metadata |
 | `schemaVersion` | string | `"3"` = `TrajectoryEvent.SCHEMA_VERSION` |
 
 **SPI count by module (shipped surface; the agent-runtime SPI surface is `AgentRuntimeHandler` + `MemoryProvider` + `StreamAdapter` in the framework-neutral `engine.spi` package plus `AgentCardProvider` in the `engine.a2a` protocol-bridge package):**
