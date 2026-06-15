@@ -53,7 +53,14 @@ final class HotelMem0MemoryProvider implements MemoryProvider {
     private final boolean inferOnSave;
 
     HotelMem0MemoryProvider(String baseUrl, String apiKey, boolean inferOnSave) {
-        this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build(),
+        // Pin HTTP/1.1: JDK HttpClient defaults to HTTP/2 and emits an "Upgrade: h2c"
+        // preface on cleartext POSTs. uvicorn (mem0-wrapper) only speaks HTTP/1.1 and
+        // mis-parses the upgraded request as a body-less POST, yielding a 422 with
+        // {"loc":["body"],"input":null}. HTTP/1.1 round-trips cleanly with uvicorn.
+        this(HttpClient.newBuilder()
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .connectTimeout(Duration.ofSeconds(10))
+                        .build(),
                 baseUrl, apiKey, inferOnSave);
     }
 
