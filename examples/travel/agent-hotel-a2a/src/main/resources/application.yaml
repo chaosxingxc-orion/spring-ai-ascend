@@ -9,7 +9,7 @@ hotel-agent:
     api-key:    ${LLM_API_KEY:sk-local-placeholder}
     api-base:   ${LLM_API_BASE:http://localhost:4000/v1}
     model-name: ${LLM_MODEL:gpt-4o-mini}
-    ssl-verify: ${LLM_SSL_VERIFY:false}
+    ssl-verify: ${LLM_SSL_VERIFY:true}
   # Long-term memory is partitioned by tenantId:userId so a booking made in one
   # A2A call can be recalled from a later call by the same user. Default is the
   # process-local in-memory provider; set hotel-agent.memory.provider=mem0 to
