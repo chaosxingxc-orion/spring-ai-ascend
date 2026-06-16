@@ -168,7 +168,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
      * independent from OpenJiuwen memory package names.
      */
     protected final AgentRail openJiuwenExternalMemoryRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
-        return new ExternalMemoryRail(
+        return createExternalMemoryRail(
                 new OpenJiuwenExternalMemoryProviderAdapter(context, memoryProvider),
                 context.getScope().userId(),
                 context.getAgentStateKey(),
@@ -252,6 +252,24 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             cursor = cursor.getCause();
         }
         return message.isEmpty() ? error.getClass().getName() : message.toString();
+    }
+
+    private static AgentRail createExternalMemoryRail(
+            com.openjiuwen.core.memory.external.MemoryProvider memoryProvider,
+            String userId,
+            String scopeId,
+            String sessionId) {
+        return ExternalMemoryRailHolder.create(memoryProvider, userId, scopeId, sessionId);
+    }
+
+    private static final class ExternalMemoryRailHolder {
+        private static AgentRail create(
+                com.openjiuwen.core.memory.external.MemoryProvider memoryProvider,
+                String userId,
+                String scopeId,
+                String sessionId) {
+            return new ExternalMemoryRail(memoryProvider, userId, scopeId, sessionId);
+        }
     }
 
     /**
