@@ -1,0 +1,21 @@
+{
+  "jsonrpc": "2.0",
+  "id": "trip-r1",
+  "method": "SendMessage",
+  "params": {
+    "message": {
+      "role": "ROLE_USER",
+      "messageId": "msg-r1",
+      "contextId": "session-trip-memory-1",
+      "metadata": {
+        "userId": "manual-user",
+        "agentId": "trip-planning-agent"
+      },
+      "parts": [
+        {
+          "text": "我 6 月 16 日到 18 日去北京出差，差标每晚 8000 元、2 星，偏好国贸附近，协议品牌全季/亚朵"
+        }
+      ]
+    }
+  }
+}

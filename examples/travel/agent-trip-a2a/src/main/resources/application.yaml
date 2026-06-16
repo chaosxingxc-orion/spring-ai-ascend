@@ -1,0 +1,40 @@
+debug: false
+
+spring:
+  application:
+    name: agent-trip-a2a
+
+server:
+  port: 13001
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: travel-tenant
+      default-agent-id: trip-planning-agent
+  # Remote hotel agent (agent-hotel-a2a). Base URL only — do not append /a2a.
+  remote-agents:
+    - url: ${HOTEL_A2A_BASE_URL:http://localhost:8081}
+
+trip-agent:
+  checkpointer: in-memory
+  llm:
+    model-provider: ${LLM_PROVIDER:openai}
+    api-key:        ${LLM_API_KEY:}
+    api-base:       ${LLM_API_BASE:http://localhost:4000/v1}
+    model-name:     ${LLM_MODEL:gpt-4o-mini}
+    ssl-verify:     ${LLM_SSL_VERIFY:false}
+    max-iterations: 5
+
+logging:
+  level:
+    root: INFO
+    com.huawei.ascend.examples.trip: INFO
+    com.huawei.ascend.runtime: INFO
