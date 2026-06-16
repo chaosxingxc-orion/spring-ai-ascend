@@ -360,12 +360,24 @@ public final class A2aExternalAccessClient {
         return Map.of("message", message, "configuration", configuration);
     }
 
+    /**
+     * Extracts the task id from a GetTask/CancelTask response (flat: result.id)
+     * or a SendMessage response (nested: result.task.id).
+     */
     static String taskIdFrom(JsonNode root) {
-        return root.path("result").path("task").path("id").asText();
+        JsonNode nested = root.path("result").path("task").path("id");
+        if (nested.isTextual()) return nested.asText();
+        return root.path("result").path("id").asText();
     }
 
+    /**
+     * Extracts the task state from a GetTask/CancelTask response (flat: result.status.state)
+     * or a SendMessage response (nested: result.task.status.state).
+     */
     static String taskStateFrom(JsonNode root) {
-        return root.path("result").path("task").path("status").path("state").asText();
+        JsonNode nested = root.path("result").path("task").path("status").path("state");
+        if (nested.isTextual()) return nested.asText();
+        return root.path("result").path("status").path("state").asText();
     }
 
     static String textFrom(JsonNode root) {
