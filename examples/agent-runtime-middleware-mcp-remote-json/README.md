@@ -28,6 +28,21 @@ examples/agent-runtime-middleware-mcp-remote-json/mcp-servers.example.json
 }
 ```
 
+同时也兼容常见的 MCP 客户端配置写法：
+
+```json
+{
+  "mcpServers": {
+    "howtocook-mcp": {
+      "type": "sse",
+      "url": "https://mcp.api-inference.modelscope.net/136ad5a3226b4d/sse"
+    }
+  }
+}
+```
+
+其中对象 key 会作为 `serverId`，`type` 会映射到 runtime 的 `transport`。
+
 把 `url` 换成真实远端 MCP Server 地址即可。需要鉴权时，可在 `headers` 中加入静态 header；生产级动态鉴权建议自定义 `McpProvider`。
 
 ## 快速启动

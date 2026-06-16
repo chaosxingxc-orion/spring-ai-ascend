@@ -61,6 +61,21 @@ examples/agent-runtime-middleware-mcp-remote-json/mcp-servers.example.json
 }
 ```
 
+本样例也兼容常见的 MCP 客户端配置格式。例如 ModelScope SSE MCP Server 可以写成：
+
+```json
+{
+  "mcpServers": {
+    "howtocook-mcp": {
+      "type": "sse",
+      "url": "https://mcp.api-inference.modelscope.net/136ad5a3226b4d/sse"
+    }
+  }
+}
+```
+
+这里的 `howtocook-mcp` 会作为 runtime 的 `serverId`，`type: "sse"` 会映射为 runtime MCP transport。SSE Server 会先返回 `endpoint` 事件，runtime 再向该 endpoint 发送 JSON-RPC 请求。
+
 如果你有真实远端 MCP Server，只需要把 `url` 改成远端地址。需要静态鉴权时，可以加入：
 
 ```json

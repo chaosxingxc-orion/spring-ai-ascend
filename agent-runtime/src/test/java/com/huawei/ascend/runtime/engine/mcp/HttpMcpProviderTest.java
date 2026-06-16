@@ -10,11 +10,16 @@ import com.huawei.ascend.runtime.engine.spi.McpToolResult;
 import com.huawei.ascend.runtime.engine.spi.McpToolSpec;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -48,6 +53,21 @@ class HttpMcpProviderTest {
         assertThat(result.content())
                 .singleElement()
                 .satisfies(item -> assertThat(item).containsEntry("text", "12:00:00"));
+        assertThat(result.structuredContent()).isEqualTo(Map.of("time", "12:00:00"));
+    }
+
+    @Test
+    void listsAndCallsToolsThroughSseTransport() throws Exception {
+        startSseServer();
+        McpProperties properties = properties(serverUrl("/sse"), Map.of());
+        properties.getServers().getFirst().setTransport("sse");
+        HttpMcpProvider provider = new HttpMcpProvider(properties, objectMapper);
+
+        List<McpToolSpec> tools = provider.listTools(context());
+        McpToolResult result = provider.callTool(context(), "local-time", "get_current_time", Map.of());
+
+        assertThat(tools).extracting(McpToolSpec::name).containsExactly("get_current_time");
+        assertThat(result.isError()).isFalse();
         assertThat(result.structuredContent()).isEqualTo(Map.of("time", "12:00:00"));
     }
 
@@ -112,8 +132,81 @@ class HttpMcpProviderTest {
         server.start();
     }
 
+    private void startSseServer() throws IOException {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.setExecutor(Executors.newCachedThreadPool());
+        AtomicReference<OutputStream> sseOutput = new AtomicReference<>();
+        CountDownLatch connected = new CountDownLatch(1);
+        CountDownLatch keepOpen = new CountDownLatch(1);
+        server.createContext("/sse", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
+            exchange.sendResponseHeaders(200, 0);
+            OutputStream output = exchange.getResponseBody();
+            sseOutput.set(output);
+            writeSse(output, "endpoint", "/messages");
+            connected.countDown();
+            try {
+                keepOpen.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        server.createContext("/messages", exchange -> {
+            try {
+                try {
+                    assertThat(connected.await(2, TimeUnit.SECONDS)).isTrue();
+                } catch (InterruptedException error) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException(error);
+                }
+                Map<?, ?> request = objectMapper.readValue(exchange.getRequestBody(), Map.class);
+                Object id = request.get("id");
+                String method = String.valueOf(request.get("method"));
+                if ("notifications/initialized".equals(method)) {
+                    exchange.sendResponseHeaders(202, -1);
+                    return;
+                }
+                Map<String, Object> response = switch (method) {
+                    case "initialize" -> response(id, Map.of(
+                            "protocolVersion", "2025-06-18",
+                            "capabilities", Map.of("tools", Map.of("listChanged", false))));
+                    case "tools/list" -> response(id, Map.of("tools", List.of(Map.of(
+                            "name", "get_current_time",
+                            "title", "Current time",
+                            "description", "Return current time",
+                            "inputSchema", Map.of("type", "object", "properties", Map.of())))));
+                    case "tools/call" -> response(id, Map.of(
+                            "content", List.of(Map.of("type", "text", "text", "12:00:00")),
+                            "structuredContent", Map.of("time", "12:00:00"),
+                            "isError", false));
+                    default -> Map.of("jsonrpc", "2.0", "id", id,
+                            "error", Map.of("code", -32601, "message", "method not found"));
+                };
+                writeSse(sseOutput.get(), "message", objectMapper.writeValueAsString(response));
+                exchange.sendResponseHeaders(202, -1);
+            } finally {
+                exchange.close();
+            }
+        });
+        server.start();
+    }
+
+    private static Map<String, Object> response(Object id, Map<String, Object> result) {
+        return Map.of("jsonrpc", "2.0", "id", id, "result", result);
+    }
+
+    private static void writeSse(OutputStream output, String event, String data) throws IOException {
+        output.write(("event: " + event + "\n").getBytes(StandardCharsets.UTF_8));
+        output.write(("data: " + data + "\n\n").getBytes(StandardCharsets.UTF_8));
+        output.flush();
+    }
+
     private String serverUrl() {
-        return "http://127.0.0.1:" + server.getAddress().getPort() + "/mcp";
+        return serverUrl("/mcp");
+    }
+
+    private String serverUrl(String path) {
+        return "http://127.0.0.1:" + server.getAddress().getPort() + path;
     }
 
     private static McpProperties properties(String url, Map<String, String> headers) {

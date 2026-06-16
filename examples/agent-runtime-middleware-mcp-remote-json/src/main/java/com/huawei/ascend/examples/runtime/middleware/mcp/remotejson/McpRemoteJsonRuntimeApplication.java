@@ -123,26 +123,37 @@ final class RemoteMcpServerConfigLoader {
         Map<String, Object> root = objectMapper.readValue(Files.readString(configFile), MAP_TYPE);
         McpProperties properties = new McpProperties();
         Object servers = root.get("servers");
-        if (!(servers instanceof List<?> serverList)) {
-            return properties;
+        if (servers instanceof List<?> serverList) {
+            for (Object item : serverList) {
+                if (!(item instanceof Map<?, ?> map)) {
+                    continue;
+                }
+                properties.getServers().add(toServer((Map<String, Object>) map, "remote-mcp"));
+            }
         }
-        for (Object item : serverList) {
-            if (!(item instanceof Map<?, ?> map)) {
-                continue;
+        Object mcpServers = root.get("mcpServers");
+        if (mcpServers instanceof Map<?, ?> serverMapById) {
+            for (Map.Entry<?, ?> entry : serverMapById.entrySet()) {
+                if (!(entry.getValue() instanceof Map<?, ?> map)) {
+                    continue;
+                }
+                properties.getServers().add(toServer((Map<String, Object>) map, String.valueOf(entry.getKey())));
             }
-            Map<String, Object> serverMap = (Map<String, Object>) map;
-            McpProperties.Server server = new McpProperties.Server();
-            server.setServerId(stringValue(serverMap.get("serverId"), "remote-mcp"));
-            server.setUrl(stringValue(serverMap.get("url"), ""));
-            server.setTransport(stringValue(serverMap.get("transport"), "streamable-http"));
-            server.setHeaders(stringMap(serverMap.get("headers")));
-            String requestTimeout = stringValue(serverMap.get("requestTimeout"), "");
-            if (!requestTimeout.isBlank()) {
-                server.setRequestTimeout(Duration.parse(requestTimeout));
-            }
-            properties.getServers().add(server);
         }
         return properties;
+    }
+
+    private static McpProperties.Server toServer(Map<String, Object> serverMap, String fallbackServerId) {
+        McpProperties.Server server = new McpProperties.Server();
+        server.setServerId(stringValue(serverMap.get("serverId"), fallbackServerId));
+        server.setUrl(stringValue(serverMap.get("url"), ""));
+        server.setTransport(stringValue(serverMap.get("transport"), stringValue(serverMap.get("type"), "streamable-http")));
+        server.setHeaders(stringMap(serverMap.get("headers")));
+        String requestTimeout = stringValue(serverMap.get("requestTimeout"), "");
+        if (!requestTimeout.isBlank()) {
+            server.setRequestTimeout(Duration.parse(requestTimeout));
+        }
+        return server;
     }
 
     private static String stringValue(Object value, String fallback) {

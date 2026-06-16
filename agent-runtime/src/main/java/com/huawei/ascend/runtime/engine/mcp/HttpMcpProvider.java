@@ -2,6 +2,7 @@ package com.huawei.ascend.runtime.engine.mcp;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huawei.ascend.runtime.engine.SseEventDecoder;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.McpProvider;
 import com.huawei.ascend.runtime.engine.spi.McpToolResult;
@@ -18,7 +19,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +38,7 @@ public final class HttpMcpProvider implements McpProvider {
     private final HttpClient httpClient;
     private final Map<String, ServerEndpoint> serversById;
     private final Set<String> initializedServers = ConcurrentHashMap.newKeySet();
+    private final Map<String, SseSession> sseSessions = new ConcurrentHashMap<>();
     private final AtomicLong nextRequestId = new AtomicLong(1L);
 
     public HttpMcpProvider(McpProperties properties, ObjectMapper objectMapper) {
@@ -96,6 +102,7 @@ public final class HttpMcpProvider implements McpProvider {
                         "protocolVersion", "2025-06-18",
                         "capabilities", Map.of(),
                         "clientInfo", Map.of("name", "spring-ai-ascend-agent-runtime", "version", "0.1")));
+                notify(server, "notifications/initialized");
                 LOG.info("mcp server initialized serverId={} transport={}", server.serverId(), server.transport());
             } catch (RuntimeException error) {
                 initializedServers.remove(server.serverId());
@@ -105,17 +112,43 @@ public final class HttpMcpProvider implements McpProvider {
     }
 
     private Map<String, Object> request(ServerEndpoint server, String method, Map<String, Object> params) {
-        String requestBody;
+        long requestId = nextRequestId.getAndIncrement();
+        String requestBody = jsonRpcBody(method, requestId, params);
+
+        if (isSse(server)) {
+            return sseRequest(server, requestId, requestBody);
+        }
+
+        return httpRequest(server, requestBody);
+    }
+
+    private void notify(ServerEndpoint server, String method) {
+        String requestBody = jsonRpcBody(method, null, null);
+        if (isSse(server)) {
+            sseNotify(server, requestBody);
+            return;
+        }
+        httpNotify(server, requestBody);
+    }
+
+    private String jsonRpcBody(String method, Long requestId, Map<String, Object> params) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("jsonrpc", "2.0");
+        if (requestId != null) {
+            body.put("id", requestId);
+        }
+        body.put("method", method);
+        if (params != null) {
+            body.put("params", params);
+        }
         try {
-            requestBody = objectMapper.writeValueAsString(Map.of(
-                    "jsonrpc", "2.0",
-                    "id", nextRequestId.getAndIncrement(),
-                    "method", method,
-                    "params", params));
+            return objectMapper.writeValueAsString(body);
         } catch (IOException error) {
             throw new McpRequestException("MCP_BAD_RESPONSE", error.getMessage(), error);
         }
+    }
 
+    private Map<String, Object> httpRequest(ServerEndpoint server, String requestBody) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(server.url()))
                 .timeout(server.requestTimeout())
@@ -151,6 +184,122 @@ public final class HttpMcpProvider implements McpProvider {
         }
     }
 
+    private void httpNotify(ServerEndpoint server, String requestBody) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(server.url()))
+                .timeout(server.requestTimeout())
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json, text/event-stream")
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody));
+        server.headers().forEach(builder::header);
+        sendNotificationRequest(server, builder);
+    }
+
+    private Map<String, Object> sseRequest(ServerEndpoint server, long requestId, String requestBody) {
+        SseSession session = sseSessions.computeIfAbsent(server.serverId(), ignored -> openSseSession(server));
+        CompletableFuture<String> responseFuture = session.register(requestId);
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(session.endpointUrl()))
+                .timeout(server.requestTimeout())
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json, text/event-stream")
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody));
+        server.headers().forEach(builder::header);
+
+        try {
+            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 401 || response.statusCode() == 403) {
+                throw new McpRequestException("MCP_AUTH_FAILED",
+                        "MCP server rejected authentication for serverId=" + server.serverId());
+            }
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new McpRequestException("MCP_SERVER_UNAVAILABLE",
+                        "MCP server returned HTTP " + response.statusCode() + " for serverId=" + server.serverId());
+            }
+            String body = response.body() == null ? "" : response.body().trim();
+            if (hasInlineJsonRpcBody(body)) {
+                return parseJsonRpcResult(server, body);
+            }
+            String sseBody = responseFuture.get(server.requestTimeout().toMillis(), TimeUnit.MILLISECONDS);
+            return parseJsonRpcResult(server, sseBody);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new McpRequestException("MCP_TOOL_TIMEOUT", error.getMessage(), error);
+        } catch (TimeoutException error) {
+            throw new McpRequestException("MCP_TOOL_TIMEOUT",
+                    "Timed out waiting for MCP SSE response for serverId=" + server.serverId(), error);
+        } catch (McpRequestException error) {
+            throw error;
+        } catch (Exception error) {
+            Throwable cause = error instanceof CompletionException && error.getCause() != null
+                    ? error.getCause()
+                    : error;
+            throw new McpRequestException("MCP_BAD_RESPONSE", cause.getMessage(), cause);
+        } finally {
+            session.unregister(requestId);
+        }
+    }
+
+    private void sseNotify(ServerEndpoint server, String requestBody) {
+        SseSession session = sseSessions.computeIfAbsent(server.serverId(), ignored -> openSseSession(server));
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(session.endpointUrl()))
+                .timeout(server.requestTimeout())
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json, text/event-stream")
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody));
+        server.headers().forEach(builder::header);
+        sendNotificationRequest(server, builder);
+    }
+
+    private void sendNotificationRequest(ServerEndpoint server, HttpRequest.Builder builder) {
+        try {
+            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 401 || response.statusCode() == 403) {
+                throw new McpRequestException("MCP_AUTH_FAILED",
+                        "MCP server rejected authentication for serverId=" + server.serverId());
+            }
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new McpRequestException("MCP_SERVER_UNAVAILABLE",
+                        "MCP server returned HTTP " + response.statusCode() + " for serverId=" + server.serverId());
+            }
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new McpRequestException("MCP_TOOL_TIMEOUT", error.getMessage(), error);
+        } catch (IOException error) {
+            throw new McpRequestException("MCP_SERVER_UNAVAILABLE", error.getMessage(), error);
+        }
+    }
+
+    private SseSession openSseSession(ServerEndpoint server) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(server.url()))
+                .timeout(server.requestTimeout())
+                .header("Accept", "text/event-stream")
+                .GET();
+        server.headers().forEach(builder::header);
+        try {
+            HttpResponse<java.util.stream.Stream<String>> response =
+                    httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofLines());
+            if (response.statusCode() == 401 || response.statusCode() == 403) {
+                throw new McpRequestException("MCP_AUTH_FAILED",
+                        "MCP server rejected authentication for serverId=" + server.serverId());
+            }
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new McpRequestException("MCP_SERVER_UNAVAILABLE",
+                        "MCP server returned HTTP " + response.statusCode() + " for serverId=" + server.serverId());
+            }
+            SseSession session = new SseSession(server, response.body());
+            session.start();
+            return session;
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new McpRequestException("MCP_TOOL_TIMEOUT", error.getMessage(), error);
+        } catch (IOException error) {
+            throw new McpRequestException("MCP_SERVER_UNAVAILABLE", error.getMessage(), error);
+        }
+    }
+
     private Map<String, Object> parseJsonRpcResult(ServerEndpoint server, String responseBody) throws IOException {
         String json = extractJson(responseBody);
         Map<String, Object> response = objectMapper.readValue(json, MAP_TYPE);
@@ -171,6 +320,14 @@ public final class HttpMcpProvider implements McpProvider {
         return stringObjectMap(resultMap);
     }
 
+    private static boolean hasInlineJsonRpcBody(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return false;
+        }
+        String body = responseBody.trim();
+        return body.startsWith("{") || body.startsWith("event:") || body.startsWith("data:");
+    }
+
     private static String extractJson(String responseBody) {
         String body = responseBody == null ? "" : responseBody.trim();
         if (!body.startsWith("event:") && !body.startsWith("data:")) {
@@ -186,6 +343,11 @@ public final class HttpMcpProvider implements McpProvider {
             }
         }
         return data.toString();
+    }
+
+    private static boolean isSse(ServerEndpoint server) {
+        String transport = server.transport() == null ? "" : server.transport().trim().toLowerCase();
+        return "sse".equals(transport);
     }
 
     private static McpToolSpec toToolSpec(ServerEndpoint server, Map<String, Object> tool) {
@@ -305,6 +467,111 @@ public final class HttpMcpProvider implements McpProvider {
             String transport,
             Duration requestTimeout,
             Map<String, String> headers) {
+    }
+
+    private final class SseSession {
+        private final ServerEndpoint server;
+        private final java.util.stream.Stream<String> lines;
+        private final CompletableFuture<String> endpoint = new CompletableFuture<>();
+        private final Map<Long, CompletableFuture<String>> pending = new ConcurrentHashMap<>();
+        private volatile String endpointUrl;
+
+        SseSession(ServerEndpoint server, java.util.stream.Stream<String> lines) {
+            this.server = server;
+            this.lines = lines;
+        }
+
+        void start() {
+            Thread reader = new Thread(this::readLoop, "mcp-sse-" + server.serverId());
+            reader.setDaemon(true);
+            reader.start();
+            try {
+                this.endpointUrl = endpoint.get(server.requestTimeout().toMillis(), TimeUnit.MILLISECONDS);
+                LOG.info("mcp sse session established serverId={} endpoint={}", server.serverId(), endpointUrl);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                throw new McpRequestException("MCP_TOOL_TIMEOUT", error.getMessage(), error);
+            } catch (TimeoutException error) {
+                throw new McpRequestException("MCP_TOOL_TIMEOUT",
+                        "Timed out waiting for MCP SSE endpoint for serverId=" + server.serverId(), error);
+            } catch (Exception error) {
+                Throwable cause = error instanceof CompletionException && error.getCause() != null
+                        ? error.getCause()
+                        : error;
+                throw new McpRequestException("MCP_SERVER_UNAVAILABLE", cause.getMessage(), cause);
+            }
+        }
+
+        CompletableFuture<String> register(long requestId) {
+            CompletableFuture<String> future = new CompletableFuture<>();
+            pending.put(requestId, future);
+            return future;
+        }
+
+        void unregister(long requestId) {
+            pending.remove(requestId);
+        }
+
+        String endpointUrl() {
+            return endpointUrl;
+        }
+
+        private void readLoop() {
+            try (java.util.stream.Stream<SseEventDecoder.SseFrame> frames =
+                         SseEventDecoder.frames(lines, true, false)) {
+                frames.forEach(this::handleFrame);
+            } catch (RuntimeException error) {
+                failAll(error);
+            } finally {
+                failAll(new McpRequestException("MCP_SERVER_UNAVAILABLE",
+                        "MCP SSE stream closed for serverId=" + server.serverId()));
+                sseSessions.remove(server.serverId(), this);
+            }
+        }
+
+        private void handleFrame(SseEventDecoder.SseFrame frame) {
+            if (frame.failure() != null) {
+                failAll(frame.failure());
+                return;
+            }
+            if ("endpoint".equals(frame.name())) {
+                endpoint.complete(resolveEndpoint(frame.data()));
+                return;
+            }
+            if (frame.data() == null || frame.data().isBlank()) {
+                return;
+            }
+            try {
+                Map<String, Object> response = objectMapper.readValue(frame.data(), MAP_TYPE);
+                Object id = response.get("id");
+                if (id == null) {
+                    return;
+                }
+                long requestId = Long.parseLong(String.valueOf(id));
+                CompletableFuture<String> future = pending.remove(requestId);
+                if (future != null) {
+                    future.complete(frame.data());
+                }
+            } catch (Exception error) {
+                LOG.debug("ignored non-json MCP SSE frame serverId={} eventName={} data={}",
+                        server.serverId(), frame.name(), frame.data());
+            }
+        }
+
+        private String resolveEndpoint(String data) {
+            String endpointPath = data == null ? "" : data.trim();
+            if (endpointPath.isBlank()) {
+                throw new McpRequestException("MCP_BAD_RESPONSE",
+                        "MCP SSE endpoint frame is blank for serverId=" + server.serverId());
+            }
+            return URI.create(server.url()).resolve(endpointPath).toString();
+        }
+
+        private void failAll(Throwable error) {
+            endpoint.completeExceptionally(error);
+            pending.values().forEach(future -> future.completeExceptionally(error));
+            pending.clear();
+        }
     }
 
     private static final class McpRequestException extends RuntimeException {

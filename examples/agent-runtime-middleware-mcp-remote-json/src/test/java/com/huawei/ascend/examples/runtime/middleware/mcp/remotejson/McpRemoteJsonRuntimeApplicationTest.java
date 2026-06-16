@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.engine.mcp.HttpMcpProvider;
+import com.huawei.ascend.runtime.engine.mcp.McpProperties;
 import com.huawei.ascend.runtime.engine.spi.McpToolResult;
 import com.huawei.ascend.runtime.engine.spi.McpToolSpec;
 import com.sun.net.httpserver.HttpServer;
@@ -47,12 +48,37 @@ class McpRemoteJsonRuntimeApplicationTest {
         }
     }
 
+    @Test
+    void mcpServersConfigUsesObjectKeyAsServerIdAndTypeAsTransport() throws Exception {
+        Path configFile = tempDir.resolve("modelscope-mcp-servers.json");
+        Files.writeString(configFile, JSON.writeValueAsString(Map.of(
+                "mcpServers", Map.of(
+                        "howtocook-mcp", Map.of(
+                                "type", "sse",
+                                "url", "https://mcp.api-inference.modelscope.net/136ad5a3226b4d/sse")))));
+
+        McpProperties properties = RemoteMcpServerConfigLoader.load(configFile, JSON);
+
+        assertThat(properties.getServers())
+                .singleElement()
+                .satisfies(server -> {
+                    assertThat(server.getServerId()).isEqualTo("howtocook-mcp");
+                    assertThat(server.getTransport()).isEqualTo("sse");
+                    assertThat(server.getUrl()).isEqualTo("https://mcp.api-inference.modelscope.net/136ad5a3226b4d/sse");
+                });
+    }
+
     private static HttpServer startMcpServer() throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/mcp", exchange -> {
             Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
             Object id = request.get("id");
             String method = String.valueOf(request.get("method"));
+            if ("notifications/initialized".equals(method)) {
+                exchange.sendResponseHeaders(202, -1);
+                exchange.close();
+                return;
+            }
             Map<String, Object> response = switch (method) {
                 case "initialize" -> response(id, Map.of(
                         "protocolVersion", "2025-06-18",
