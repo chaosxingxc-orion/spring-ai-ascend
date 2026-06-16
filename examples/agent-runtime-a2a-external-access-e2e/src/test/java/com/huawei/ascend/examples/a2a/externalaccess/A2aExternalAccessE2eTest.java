@@ -79,8 +79,9 @@ class A2aExternalAccessE2eTest {
         assertThat(A2aExternalAccessClient.taskIdsFromList(tasks)).contains(syncTask.id(), inputTask.id());
 
         JsonNode slowTask = client.sendMessageReturnImmediatelyJson("slow");
-        String slowTaskId = A2aExternalAccessClient.taskIdFrom(slowTask);
-        assertThat(A2aExternalAccessClient.taskStateFrom(slowTask)).isIn("TASK_STATE_SUBMITTED", "TASK_STATE_WORKING");
+        String slowTaskId = A2aExternalAccessClient.sendMessageTaskIdFrom(slowTask);
+        assertThat(A2aExternalAccessClient.sendMessageTaskStateFrom(slowTask))
+                .isIn("TASK_STATE_SUBMITTED", "TASK_STATE_WORKING");
         List<StreamingEventKind> subscriptionEvents = client.subscribeToTask(slowTaskId);
         assertThat(subscriptionEvents).isNotEmpty();
         JsonNode canceled = client.cancelTask(slowTaskId);

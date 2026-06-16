@@ -1,0 +1,69 @@
+# ── Spring Boot ──
+spring:
+  application:
+    name: financial-agents
+
+server:
+  port: ${BANK_AGENT_PORT:8080}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+      group:
+        # Model reachability gates readiness (don't route traffic if the LLM is down),
+        # but not liveness (don't restart the pod for an upstream outage).
+        readiness:
+          include: readinessState,modelEndpoint
+        liveness:
+          include: livenessState
+
+# ── spring-ai-ascend A2A runtime (platform) access config ──
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: ${BANK_TENANT_ID:demo-bank}
+      default-agent-id: ${FINANCIAL_AGENT:retail-wealth-advisor}
+      # IMPORTANT (security): the runtime does NOT authenticate the X-Tenant-Id
+      # header. In a real deployment this endpoint MUST sit behind an
+      # authenticating gateway that strips the client header and re-injects a
+      # verified tenant. Do not expose /a2a directly to untrusted clients.
+      # Agent card is auto-derived from the hosted handler (see financial.agent).
+
+# ── Observability ──
+# Distributed tracing export (off by default). Turn on with OTEL_ENABLED=true and
+# run financial/ops/docker-compose.yml (Jaeger) to see traces at http://localhost:16686.
+app:
+  trajectory:
+    otel:
+      enabled: ${OTEL_ENABLED:false}
+      endpoint: ${OTEL_ENDPOINT:http://localhost:4317}
+
+logging:
+  level:
+    root: INFO
+    com.bank.financial: INFO
+    com.huawei.ascend: INFO
+    financial.audit: INFO          # domain audit trail (point at an audit sink in prod)
+  pattern:
+    # Correlate every log line with the platform's per-request ids.
+    console: "%d{HH:mm:ss.SSS} %-5level [trace=%X{runId:-} tenant=%X{tenantId:-}] %logger{36} - %msg%n"
+
+# ── Which agent this instance hosts (one agent per runtime instance) ──
+# Deploy multiple agents by running multiple instances with different values.
+financial:
+  agent: ${FINANCIAL_AGENT:retail-wealth-advisor}
+  # ── LLM connection (override via env / -D) ──
+  llm:
+    model-provider: ${BANK_LLM_PROVIDER:openai}
+    api-key: ${BANK_LLM_API_KEY:sk-local-placeholder}
+    api-base: ${BANK_LLM_API_BASE:http://localhost:4000/v1}
+    model-name: ${BANK_LLM_MODEL:gpt-5.4-mini}
+    ssl-verify: ${BANK_LLM_SSL_VERIFY:true}

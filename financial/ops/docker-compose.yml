@@ -1,0 +1,16 @@
+# Local observability stack for developing/debugging financial agents.
+#   docker compose -f financial/ops/docker-compose.yml up -d
+# Then run an agent with OTel on:
+#   OTEL_ENABLED=true OTEL_ENDPOINT=http://localhost:4317 \
+#     BANK_LLM_* ... ./mvnw -f financial/pom.xml spring-boot:run
+# View distributed traces (per request, across A2A hops) at http://localhost:16686
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    container_name: financial-jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC (matches OTEL_ENDPOINT)
+      - "4318:4318"     # OTLP HTTP

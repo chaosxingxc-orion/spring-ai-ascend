@@ -34,7 +34,7 @@
 - 单程出差示例："{traveler_name}从上海到北京出差，出发日期是2026年8月2日。"
 
 ### 第5步：调用行程规划智能体
-调用 {dispatch_tool_name} 工具，传入包含出差需求描述的 message 字段
+调用 {dispatch_tool_name} 工具，传入包含出差需求描述的 remoteInput 字段
 
 ### 第6步：任务总结
 对返回结果生成三层输出：

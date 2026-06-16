@@ -376,6 +376,14 @@ public final class A2aExternalAccessClient {
         return root.path("result").path("status").path("state").asText();
     }
 
+    static String sendMessageTaskIdFrom(JsonNode root) {
+        return root.path("result").path("task").path("id").asText();
+    }
+
+    static String sendMessageTaskStateFrom(JsonNode root) {
+        return root.path("result").path("task").path("status").path("state").asText();
+    }
+
     static String textFrom(JsonNode root) {
         StringBuilder text = new StringBuilder();
         JsonNode task = root.path("result");

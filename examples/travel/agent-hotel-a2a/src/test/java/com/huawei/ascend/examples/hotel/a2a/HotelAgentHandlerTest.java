@@ -58,17 +58,18 @@ class HotelAgentHandlerTest {
                 new LlmConfig(HOTEL_MODEL_PROVIDER, "key", "http://localhost", "fake-model", false))) {
             HotelAgentHandler handler = new HotelAgentHandler("hotel-planning-agent", agent, memoryProvider);
 
-            List<?> rawResults;
-            try (Stream<?> raw = handler.execute(context)) {
-                rawResults = raw.toList();
+            List<AgentExecutionResult> results;
+            try (Stream<?> raw = handler.execute(context);
+                 Stream<AgentExecutionResult> adapted = handler.resultAdapter().adapt(raw)) {
+                results = adapted.toList();
             }
 
-            assertThat(rawResults)
+            assertThat(results)
                     .singleElement()
-                    .isInstanceOfSatisfying(AgentExecutionResult.class, result -> assertThat(result.outputContent())
+                    .satisfies(result -> assertThat(result.outputContent())
                             .contains("酒店推荐完成"));
             assertThat(CapturingModelClient.capturedMessages)
-                    .anySatisfy(message -> assertThat(message.getContentAsString())
+                    .anySatisfy(message -> assertThat(CapturingModelClient.capturedContent())
                             .contains("Relevant memory:")
                             .contains("用户上次在北京偏好国贸附近的酒店")
                             .contains("帮我找北京酒店"));
@@ -154,6 +155,12 @@ class HotelAgentHandlerTest {
 
     private static final class CapturingModelClient extends BaseModelClient {
         private static final List<BaseMessage> capturedMessages = new CopyOnWriteArrayList<>();
+
+        private static String capturedContent() {
+            return capturedMessages.stream()
+                    .map(BaseMessage::getContentAsString)
+                    .reduce("", (left, right) -> left + "\n" + right);
+        }
 
         private CapturingModelClient(ModelRequestConfig modelConfig, ModelClientConfig clientConfig) {
             super(modelConfig, clientConfig);

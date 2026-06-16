@@ -18,7 +18,7 @@
 1. 启动一个嵌入式 Spring Boot runtime。
 2. 通过 `/.well-known/agent-card.json` 发现 AgentCard。
 3. 确认 AgentCard 名称是 `openjiuwen-react-agent`，且声明支持 JSON-RPC streaming。
-4. 如果 `SAA_SAMPLE_LLM_API_KEY` 非空，则通过 A2A SDK `message/stream` 发送 `ping`。
+4. 如果 `SAA_SAMPLE_LLM_API_KEY` 非空，则通过 A2A SDK streaming 调用发送 `ping`。
 5. 客户端消费 SSE stream，直到 SDK `TaskStatusUpdateEvent` 或 runtime 兼容事件进入终态。
 6. 最终用户可见文本应为 `pong`。
 
@@ -197,10 +197,10 @@ curl http://localhost:8080/a2a \
   -d '{
     "jsonrpc": "2.0",
     "id": "manual-1",
-    "method": "message/stream",
+    "method": "SendStreamingMessage",
     "params": {
       "message": {
-        "role": "user",
+        "role": "ROLE_USER",
         "messageId": "manual-message-1",
         "contextId": "manual-session-1",
         "metadata": {
@@ -210,7 +210,6 @@ curl http://localhost:8080/a2a \
         },
         "parts": [
           {
-            "kind": "text",
             "text": "ping"
           }
         ]
@@ -223,14 +222,13 @@ curl http://localhost:8080/a2a \
 
 A2A 输入是一个 JSON-RPC 2.0 请求：
 
-- `method`：`message/stream`，表示请求服务端以 SSE stream 返回消息执行结果。
-- `params.message.role`：`user`，表示调用方输入。
+- `method`：`SendStreamingMessage`，表示请求服务端以 SSE stream 返回消息执行结果。
+- `params.message.role`：`ROLE_USER`，表示调用方输入。
 - `params.message.messageId`：调用方生成的消息 ID。
 - `params.message.contextId`：会话 ID，同一会话可复用。
 - `params.message.metadata.userId`：示例用户 ID。
 - `params.message.metadata.agentId`：目标 agent，本示例固定为 `openjiuwen-react-agent`。
 - `params.message.metadata.sessionId`：runtime 侧会话 ID。
-- `params.message.parts[0].kind`：`text`。
 - `params.message.parts[0].text`：用户输入文本，本示例 happy path 使用 `ping`。
 
 OpenJiuwen 配置中的 system prompt 明确要求：如果用户消息正好是 `ping`，则只回答 `pong`。

@@ -75,22 +75,33 @@ public final class SampleA2aClient {
     }
 
     public static String textFrom(List<StreamingEventKind> events) {
-        StringBuilder result = new StringBuilder();
+        StringBuilder finalText = new StringBuilder();
+        StringBuilder streamingText = new StringBuilder();
         for (StreamingEventKind event : events) {
             if (event instanceof Message message) {
                 if (message.metadata() == null || !Boolean.TRUE.equals(message.metadata().get("accepted"))) {
-                    result.append(textFromParts(message.parts()));
+                    String text = textFromParts(message.parts());
+                    if (isTerminal(message)) {
+                        finalText.append(text);
+                    } else {
+                        streamingText.append(text);
+                    }
                 }
             } else if (event instanceof TaskStatusUpdateEvent statusEvent
                     && statusEvent.status() != null
                     && statusEvent.status().message() != null) {
-                result.append(textFromParts(statusEvent.status().message().parts()));
+                String text = textFromParts(statusEvent.status().message().parts());
+                if (isTerminal(statusEvent)) {
+                    finalText.append(text);
+                } else {
+                    streamingText.append(text);
+                }
             } else if (event instanceof TaskArtifactUpdateEvent artifactEvent
                     && artifactEvent.artifact() != null) {
-                result.append(textFromParts(artifactEvent.artifact().parts()));
+                streamingText.append(textFromParts(artifactEvent.artifact().parts()));
             }
         }
-        return result.toString();
+        return !finalText.isEmpty() ? finalText.toString() : streamingText.toString();
     }
 
     private static String textFromParts(List<Part<?>> parts) {

@@ -1,0 +1,182 @@
+# NOTE: ADR-STYLE DESIGN-DECISION RECORD under docs/logs/ (gate-excluded), NOT a
+# governed ADR yet, and deliberately NOT numbered 0162 — that number is RETIRED
+# (an overturned remote-agent-discovery ADR; see architecture-status.yaml).
+# a2a-shared-memory is an orphan middleware module not yet in the
+# architecture-of-record, so this decision stays out of the governed docs/adr/
+# corpus until promoted with the full integration under "governance_followups"
+# (graph registration, dfx, contract-catalog, baseline adr_count, next free
+# number = 0163).
+id: A2A-SHARED-MEMORY-DESIGN-DECISION
+title: "A2A multi-agent shared memory — two-layer (run-scoped blackboard + cross-run experience) as an independent middleware kit on the A2A contextId, with a pluggable backend SPI (MemOpt engine optional, later)"
+status: design-record (pending governed-ADR promotion)
+date: 2026-06-16
+level: L1
+view: development
+affects_level: L1
+affects_view: [development, process]
+authors:
+  - kevin
+extends: []
+relates_to:
+  - ADR-0161   # AgentRuntimeHandler lifecycle — noted MemoryProvider's service-level counterpart lands "with the first real memory middleware"; A2A shared memory is a memory middleware, kept independent of the platform.
+supersedes: []
+context: |
+  Two gaps motivate this ADR.
+
+    1. COLLABORATION CARRIES NO SHARED KNOWLEDGE. The A2A multi-agent
+       collaboration routes sub-tasks (distribute / hand-over / reclaim /
+       validate) and passes each task's payload, but agents accumulate no shared
+       context: when a task hands over A -> B, B loses what A concluded, and a
+       conclusion one agent discovers is invisible to the others. Hand-over and
+       distribution move work, not knowledge.
+
+    2. NO MEMORY SHARED ACROSS AGENTS / RUNS. The runtime `MemoryProvider` SPI is
+       scoped to a single user/agent execution. There is no place for memory
+       shared ACROSS the agents of one collaboration, nor for collaboration
+       experience that persists ACROSS runs.
+
+  Constraints the design must hold:
+    * Runtime (production), not developer-time, memory.
+    * Bank scale: shared/experience memory must isolate per tenant; experience
+      must never leak a customer's private data across collaborations.
+    * Must not couple the platform to any one memory backend, and must build on
+      `main` WITHOUT depending on the (separately-merging) collaboration engine.
+    * Delivered as MIDDLEWARE in the project's `kit` paradigm (the A2A shared
+      memory is itself a kit; a heavier enterprise memory engine — "MemOpt" — is
+      a SEPARATE kit middleware that can sit behind it as a backend, later).
+
+  Prior art in-repo: the example `DoushuaiRestMemoryProvider` demonstrates the
+  consumption shape we reuse — a thin, resilient client (fail-open + scope) over
+  a small contract to an out-of-process memory engine.
+decision: |
+  Build A2A shared memory as an INDEPENDENT middleware kit module
+  `a2a-shared-memory/` (sibling to `agent-runtime`, package
+  `com.huawei.ascend.a2a.memory`), in the `kit` paradigm (mirroring
+  `financial/kit`: a facade + composable rails + safe defaults + a PLUGGABLE
+  backend SPI). It binds to A2A agents through the agent-runtime A2A context; it
+  does NOT depend on MemOpt or on the collaboration engine. Decisions locked with
+  the requirement owner 2026-06-16:
+
+    1. TWO LAYERS.
+       (a) Run-scoped blackboard (working memory) — shared context the agents of
+           one collaboration read/write while it runs; key = tenantId + the A2A
+           contextId (surfaced on the runtime as RuntimeIdentity.sessionId()).
+       (b) Cross-run experience memory — distilled, durable "what collaboration
+           patterns/conclusions worked", recalled by future collaborations;
+           key = tenantId + signature, where signature = capability-set +
+           task-type. NOT keyed by user.
+
+    2. OWNERSHIP WRITE MODEL (non-equal access). A blackboard key is owned by the
+       agent that first wrote it (writerAgentId). Only the owner may write/update
+       it; every participant may read (subject to capability scope). A non-owner
+       write is rejected. After hand-over A -> B, B writes its OWN new keys; A's
+       keys stay read-only (A's conclusions are immutable to B).
+
+    3. CONFLICT = APPEND-LOG + PROVENANCE, with IDEMPOTENT writes. Each write
+       appends (value, writerAgentId, version, ts); reads return latest by default
+       and can pull history. Nothing is silently overwritten — auditable. A write
+       may carry an idempotency key so a RETRIED hand-over/dispatch does not
+       double-append (returns the prior entry).
+
+    3a. BACKPRESSURE. A BoundedSharedMemoryStore decorator caps concurrent
+       in-flight ops; under overload it sheds (BackpressureRejectedException) and
+       reports to the observer rather than piling unbounded load onto the engine —
+       the negative-feedback the resilience requirement asks for. The server-side
+       rate-limit half belongs to the closed engine (deployment).
+
+    4. EXPERIENCE IS PII-STRIPPED. Cross-run experience is tenant-shared, so the
+       distillation MUST strip user PII before record — it retains
+       collaboration-pattern knowledge only, never a customer's private data.
+
+    5. EXPERIENCE DISTILLATION TRIGGER = the collaboration coordinator's run-end
+       hook (it has the whole-run view). The kit exposes a hook SPI; the
+       collaboration engine calls it. Dependency points collaboration -> shared
+       memory, never the reverse, so the kit stays independent and builds without
+       the (separately-merging) collaboration module.
+
+    6. A2A BINDING. Agents reach the blackboard via the A2A contextId: a thin
+       support class (`A2aSharedMemory.forContext(AgentExecutionContext, store)`)
+       keys the blackboard by RuntimeIdentity.sessionId()+tenantId and attributes
+       writes to RuntimeIdentity.agentId(). This is the ONLY place that touches
+       agent-runtime (provided scope); the kit core stays agent-neutral.
+
+    7. PLUGGABLE BACKEND SPI. The kit defines a `SharedMemoryStore` SPI and ships
+       a default in-process implementation (offline-eval-able, scales to
+       thousands of concurrent collaborations over one partitioned store — see
+       ScaleTest). Any other backend (e.g. redis, or the MemOpt engine) may
+       implement the same SPI WITHOUT changing the kit or the agents. This design
+       does NOT prescribe how a backend is deployed (in-process, remote, or
+       containerised) — that is a per-backend decision.
+
+    8. MEMOPT IS A SEPARATE TASK (not this deliverable). MemOpt is one possible
+       backend behind `SharedMemoryStore`; its packaging and deployment (its own
+       kit, persistence, IP-protection model) are decided in the MemOpt task. This
+       A2A shared-memory design deliberately carries NO containerisation /
+       transport / deployment assumptions for it — the kit neither contains nor
+       depends on MemOpt.
+
+    9. AUTHORITY = MemoryPrincipal, NOT the runtime (colleague review). Access
+       authority is an authenticated MemoryPrincipal (tenant + user + agent),
+       established at the edge/service boundary and forwarded inward; agent-runtime
+       is only a BEARER, never the authority. The memory module's MAIN code has
+       ZERO dependency on agent-runtime; mapping a runtime context to a
+       MemoryPrincipal + A2A contextId is the caller's job (test-scope helper).
+       tenant = isolation; user = private-memory authority (agent acts on the
+       user's behalf); agent = shared-key ownership label.
+
+   10. TEAM INTERACTION RECORD + READ-ATTRIBUTION (who did what to whom). Each
+       agent writes only its own conclusions, so the interaction edges are captured
+       separately: `get` auto-records a READ dependency edge (reader→owner/key);
+       the Coordinator records DISPATCH/HANDOVER/VALIDATE/OUTCOME. `interactions()`
+       returns the collaboration graph — the team memory no single agent holds.
+
+   11. OWNER-UNAVAILABLE = SUPERSEDE, NOT MUTATE. A non-owner may not mutate a key,
+       but may `supersede` it (privileged, e.g. owner down): appends a new version,
+       transfers ownership, preserves the prior owner's history, and records the
+       supersession. "What was done (memory)" stays immutable; "who can do it now"
+       is live health/routing (reclaim + health-aware routing in the collab engine).
+
+   12. EXPERIENCE FRESHNESS. Cross-run experience stays fresh: re-confirming a
+       lesson refreshes (reinforcement + recency) instead of duplicating; usefulness
+       feedback (`reinforce`) ranks proven lessons up; recall ranks by similarity →
+       reinforcement → recency; per-tenant bounded eviction lets stale, unreinforced
+       lessons decay out. (Plus idempotent writes and bounded-concurrency
+       backpressure on the blackboard.)
+
+  Phasing: (1) THIS design — A2A shared-memory kit (two-layer + ownership +
+  append-log + PII + hook + A2A binding + in-process backend + dual-mode
+  observability), eval-able offline; (2) collaboration engine integration via the
+  run-end hook (lands when that engine merges); (3) any remote/persistent backend
+  (redis / MemOpt) behind the SharedMemoryStore SPI — backend-defined, separate.
+consequences: |
+  POSITIVE.
+    * Collaboration becomes genuinely collaborative: agents share conclusions
+      within a run (by A2A contextId) and reuse experience across runs, enriching
+      hand-over / distribution / reclaim / validation.
+    * The shared-memory capability is a self-contained middleware kit: builds on
+      `main`, independent of both MemOpt and the collaboration engine; integrates
+      with each through a one-way SPI/hook.
+    * Per-tenant isolation + PII-stripped experience keep a bank-scale,
+      multi-tenant deployment private; cost levers are composable rails.
+    * The pluggable backend SPI keeps the door open for redis / the closed MemOpt
+      engine without touching agents or the kit.
+
+  NEGATIVE / accepted.
+    * A new module + a new SPI surface to own and version.
+    * Cross-run experience adds a distillation + PII-scrubbing step whose recall
+      quality depends on the signature definition (capability-set + task-type),
+      which will need tuning against real collaborations.
+    * Ownership + append-log raise storage cost vs last-writer; accepted for
+      auditability.
+    * Real over-the-A2A-wire sharing is exercised by a booted no-LLM agent driven
+      over the actual A2A JSON-RPC wire (A2aSharedMemoryWireTest: PUT/GET share by
+      contextId, ownership DENIED, cross-context isolation); a two-runtime e2e and
+      true distributed (cross-process/sharded) scale remain follow-ups. Economy is
+      quantified by a deterministic eval (~67% fewer derivations); the in-process
+      hot path benchmarks ~1.3M ops/s. Module: 38/38 tests.
+
+  GOVERNANCE FOLLOW-UPS (before proposed -> accepted as a governed architecture
+  change): register `a2a-shared-memory` in the architecture graph, add
+  `docs/dfx/a2a-shared-memory.yaml` (five DFX dimensions), declare the kit/SPI in
+  `module-metadata.yaml#spi_packages` + `docs/contracts/contract-catalog.md`, and
+  pass gates G-1 / G-2 / G-8.
