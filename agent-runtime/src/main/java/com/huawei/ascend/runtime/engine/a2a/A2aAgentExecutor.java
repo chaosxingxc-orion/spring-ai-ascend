@@ -41,14 +41,7 @@ import org.slf4j.MDC;
  */
 public final class A2aAgentExecutor implements AgentExecutor {
 
-    /**
-     * Call-context state key under which the access layer publishes the tenant
-     * taken from the {@code X-Tenant-Id} request header. It outranks the
-     * client-self-declared params.tenant, but the runtime does NOT authenticate
-     * it: the value is only trustworthy when a fronting gateway strips and
-     * re-injects the header after authenticating the caller. Without such a
-     * gateway every wire client chooses its own tenant.
-     */
+    /** Request-level metadata key for the ordinary tenant passthrough value. */
     public static final String TENANT_STATE_KEY = "tenantId";
 
     private static final Logger LOG = LoggerFactory.getLogger(A2aAgentExecutor.class);
@@ -56,6 +49,11 @@ public final class A2aAgentExecutor implements AgentExecutor {
     private static final String MDC_TASK_ID = "taskId";
     private static final String MDC_TENANT_ID = "tenantId";
     private static final String MDC_AGENT_ID = "agentId";
+    private static final String USER_ID_METADATA = "userId";
+    private static final String AGENT_ID_METADATA = "agentId";
+    private static final String MEMORY_SCOPE_METADATA = "memoryScope";
+    private static final String CORRELATION_ID_METADATA = "correlationId";
+    private static final String TRACE_ID_METADATA = "traceId";
 
     /** Version of the structured-error payload carried on the failure DataPart/metadata. */
     private static final String ERROR_SCHEMA_VERSION = "1";
@@ -376,40 +374,54 @@ public final class A2aAgentExecutor implements AgentExecutor {
         return new AgentExecutionContext(
                 new RuntimeIdentity(
                         metadata(ctx, "tenantId", "default"),
-                        metadata(ctx, "userId", "system"),
+                        metadata(ctx, USER_ID_METADATA, "system"),
                         sessionId,
                         ctx.getTaskId(),
-                        metadata(ctx, "agentId", handler.agentId())),
+                        metadata(ctx, AGENT_ID_METADATA, handler.agentId())),
                 "USER_MESSAGE",
                 messages,
-                // Merge A2A message metadata into variables so adapters (versatile, etc.)
-                // can access business fields like intent, wap_userName without changing
-                // the neutral AgentExecutionContext contract.
                 mergeVariables(ctx));
     }
 
     /**
-     * Merge A2A request and message metadata into an immutable variables map,
-     * preserving the framework {@link AgentExecutionContext#AGENT_STATE_KEY_VARIABLE}.
-     * Message-level metadata (e.g. {@code intent}, {@code wap_userName}) takes
-     * precedence over request-level metadata on key collision.
+     * Merge A2A request and message metadata into an immutable variables map.
+     * Request-level metadata owns runtime fields. Message-level metadata remains
+     * available for business adapter fields, but never overwrites request-level
+     * runtime identity or middleware scope.
      */
-    private static Map<String, Object> mergeVariables(RequestContext ctx) {
+    private Map<String, Object> mergeVariables(RequestContext ctx) {
         java.util.LinkedHashMap<String, Object> vars = new java.util.LinkedHashMap<>();
-        // Request-level metadata (low priority)
         Map<String, Object> requestMd = ctx.getMetadata();
         if (requestMd != null) {
             vars.putAll(requestMd);
         }
-        // Message-level metadata (high priority — business fields)
+
         if (ctx.getMessage() != null) {
             Map<String, Object> messageMd = ctx.getMessage().metadata();
             if (messageMd != null) {
-                vars.putAll(messageMd);
+                messageMd.forEach(vars::putIfAbsent);
             }
         }
         String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
-        vars.put(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, sessionId);
+        String tenantId = metadata(ctx, TENANT_STATE_KEY, "default");
+        String userId = metadata(ctx, USER_ID_METADATA, "system");
+        String agentId = metadata(ctx, AGENT_ID_METADATA, handler.agentId());
+        String agentStateKey = metadata(ctx, AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, null);
+        if (!hasText(agentStateKey)) {
+            agentStateKey = metadata(ctx, AgentExecutionContext.STATE_KEY_VARIABLE, null);
+        }
+        if (!hasText(agentStateKey)) {
+            agentStateKey = defaultAgentStateKey(tenantId, agentId, sessionId);
+        }
+        vars.put(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, agentStateKey);
+        vars.putIfAbsent(MEMORY_SCOPE_METADATA, defaultMemoryScope(tenantId, userId));
+        vars.putIfAbsent(CORRELATION_ID_METADATA, firstText(
+                metadata(ctx, CORRELATION_ID_METADATA, null),
+                ctx.getMessage() != null ? ctx.getMessage().messageId() : null,
+                ctx.getTaskId()));
+        vars.putIfAbsent(TRACE_ID_METADATA, firstText(
+                metadata(ctx, TRACE_ID_METADATA, null),
+                asString(vars.get(CORRELATION_ID_METADATA))));
         Map<String, Object> merged = Map.copyOf(vars);
         LOG.info("[A2A] request received taskId={} sessionId={} textLen={} metadataKeys={}",
                 ctx.getTaskId(), sessionId,
@@ -436,29 +448,49 @@ public final class A2aAgentExecutor implements AgentExecutor {
     }
 
     /**
-     * Canonical request-context value resolution shared with {@link A2aParentTaskProjector}
-     * so the remote-resume re-entry resolves the same tenant as the first local segment.
-     * For the tenant key the header-derived call-context tenant outranks client-declared
-     * metadata; see {@link #TENANT_STATE_KEY} for the trust precondition.
+     * Canonical request-context value resolution shared with {@link A2aParentTaskProjector}.
+     * Request-level metadata is authoritative; message-level metadata is a temporary legacy
+     * fallback only.
      */
     static String metadata(RequestContext ctx, String key, String fallback) {
-        if (TENANT_STATE_KEY.equals(key)) {
-            Object transportTenant = ctx.getCallContext() == null
-                    ? null : ctx.getCallContext().getState().get(TENANT_STATE_KEY);
-            if (hasText(transportTenant)) {
-                return String.valueOf(transportTenant);
-            }
-            if (hasText(ctx.getTenant())) {
-                return ctx.getTenant();
-            }
-        }
         Map<String, Object> md = ctx.getMetadata();
         Object value = md == null ? null : md.get(key);
-        return hasText(value) ? String.valueOf(value) : fallback;
+        if (hasText(value)) {
+            return String.valueOf(value);
+        }
+        Message message = ctx.getMessage();
+        Map<String, Object> messageMd = message == null ? null : message.metadata();
+        value = messageMd == null ? null : messageMd.get(key);
+        if (hasText(value)) {
+            LOG.warn("[A2A] legacy message metadata fallback used key={} taskId={}", key, ctx.getTaskId());
+            return String.valueOf(value);
+        }
+        return fallback;
     }
 
     private static boolean hasText(Object value) {
         return value != null && !String.valueOf(value).isBlank();
+    }
+
+    private static String defaultAgentStateKey(String tenantId, String agentId, String sessionId) {
+        return "state:" + tenantId + ":" + agentId + ":" + sessionId;
+    }
+
+    private static String defaultMemoryScope(String tenantId, String userId) {
+        return "memory:" + tenantId + ":" + userId;
+    }
+
+    private static String firstText(String... values) {
+        for (String value : values) {
+            if (hasText(value)) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private static String asString(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 
     /** Whether the task snapshot already carries an artifact with this id (flushed by an earlier leg). */

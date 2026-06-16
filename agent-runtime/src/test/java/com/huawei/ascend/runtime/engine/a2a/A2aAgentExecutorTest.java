@@ -67,12 +67,11 @@ class A2aAgentExecutorTest {
     }
 
     /**
-     * The framework conversation key must follow the A2A contextId (session), not the
-     * taskId: every message/send opens a new task in the same context, so a task-keyed
-     * conversation would reset framework checkpointer state on every turn.
+     * The framework conversation key is derived from tenant + agent + A2A contextId
+     * when the caller does not pass an explicit agentStateKey.
      */
     @Test
-    void agentStateKeyFollowsContextIdAcrossTasks() {
+    void agentStateKeyDefaultsToTenantAgentAndContextId() {
         AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
         when(handler.agentId()).thenReturn("agent-x");
         when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
@@ -84,12 +83,12 @@ class A2aAgentExecutorTest {
         ArgumentCaptor<com.huawei.ascend.runtime.engine.AgentExecutionContext> captor =
                 ArgumentCaptor.forClass(com.huawei.ascend.runtime.engine.AgentExecutionContext.class);
         verify(handler).execute(captor.capture());
-        assertThat(captor.getValue().getAgentStateKey()).isEqualTo("ctx-1");
+        assertThat(captor.getValue().getAgentStateKey()).isEqualTo("state:tenant-a:agent-x:ctx-1");
     }
 
-    /** The header-derived call-context tenant must outrank the client-self-declared params.tenant. */
+    /** Request-level metadata is the tenant contract; transport/header tenant is not special. */
     @Test
-    void transportTenantOutranksClientDeclaredTenant() {
+    void requestMetadataTenantOutranksTransportAndParamsTenant() {
         AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
         when(handler.agentId()).thenReturn("agent-x");
         when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
@@ -98,6 +97,10 @@ class A2aAgentExecutorTest {
 
         RequestContext ctx = requestContext();
         when(ctx.getTenant()).thenReturn("client-declared");
+        when(ctx.getMetadata()).thenReturn(Map.of(
+                "tenantId", "request-tenant",
+                "userId", "user-a",
+                "agentId", "agent-x"));
         when(ctx.getCallContext()).thenReturn(new org.a2aproject.sdk.server.ServerCallContext(
                 null, java.util.Map.of(A2aAgentExecutor.TENANT_STATE_KEY, "transport-tenant"), java.util.Set.of()));
 
@@ -106,7 +109,70 @@ class A2aAgentExecutorTest {
         ArgumentCaptor<com.huawei.ascend.runtime.engine.AgentExecutionContext> captor =
                 ArgumentCaptor.forClass(com.huawei.ascend.runtime.engine.AgentExecutionContext.class);
         verify(handler).execute(captor.capture());
-        assertThat(captor.getValue().getScope().tenantId()).isEqualTo("transport-tenant");
+        assertThat(captor.getValue().getScope().tenantId()).isEqualTo("request-tenant");
+    }
+
+    @Test
+    void legacyMessageMetadataOnlyBackfillsMissingRuntimeMetadata() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("handler-agent");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of("tenantId", "request-tenant"));
+        when(ctx.getMessage()).thenReturn(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .parts(List.<Part<?>>of(new TextPart("hi")))
+                .metadata(Map.of(
+                        "tenantId", "message-tenant",
+                        "userId", "legacy-user",
+                        "agentId", "legacy-agent",
+                        "agentStateKey", "legacy-state",
+                        "intent", "book-hotel"))
+                .build());
+
+        new A2aAgentExecutor(handler).execute(ctx, newEmitter());
+
+        ArgumentCaptor<com.huawei.ascend.runtime.engine.AgentExecutionContext> captor =
+                ArgumentCaptor.forClass(com.huawei.ascend.runtime.engine.AgentExecutionContext.class);
+        verify(handler).execute(captor.capture());
+        AgentExecutionContext context = captor.getValue();
+        assertThat(context.getScope().tenantId()).isEqualTo("request-tenant");
+        assertThat(context.getScope().userId()).isEqualTo("legacy-user");
+        assertThat(context.getScope().agentId()).isEqualTo("legacy-agent");
+        assertThat(context.getAgentStateKey()).isEqualTo("legacy-state");
+        assertThat(context.getVariables())
+                .containsEntry("tenantId", "request-tenant")
+                .containsEntry("userId", "legacy-user")
+                .containsEntry("agentId", "legacy-agent")
+                .containsEntry("intent", "book-hotel");
+    }
+
+    @Test
+    void requestMetadataCanSetAgentStateKeyAndMemoryScopeExplicitly() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of(
+                "tenantId", "tenant-a",
+                "userId", "user-a",
+                "agentId", "agent-x",
+                "agentStateKey", "state-explicit",
+                "memoryScope", "memory-explicit"));
+
+        new A2aAgentExecutor(handler).execute(ctx, newEmitter());
+
+        ArgumentCaptor<com.huawei.ascend.runtime.engine.AgentExecutionContext> captor =
+                ArgumentCaptor.forClass(com.huawei.ascend.runtime.engine.AgentExecutionContext.class);
+        verify(handler).execute(captor.capture());
+        assertThat(captor.getValue().getAgentStateKey()).isEqualTo("state-explicit");
+        assertThat(captor.getValue().getVariables()).containsEntry("memoryScope", "memory-explicit");
     }
 
     /** A FAILED result must surface its code+message to the A2A wire, not a bare fail(). */
@@ -991,7 +1057,10 @@ class A2aAgentExecutorTest {
         when(ctx.getTaskId()).thenReturn("task-1");
         when(ctx.getContextId()).thenReturn("ctx-1");
         when(ctx.getTenant()).thenReturn("tenant-a");
-        when(ctx.getMetadata()).thenReturn(Map.of("userId", "user-a", "agentId", "agent-x"));
+        when(ctx.getMetadata()).thenReturn(Map.of(
+                "tenantId", "tenant-a",
+                "userId", "user-a",
+                "agentId", "agent-x"));
         when(ctx.getMessage()).thenReturn(
                 Message.builder().role(Message.Role.ROLE_USER).parts(List.<Part<?>>of(new TextPart("hi"))).build());
         return ctx;
