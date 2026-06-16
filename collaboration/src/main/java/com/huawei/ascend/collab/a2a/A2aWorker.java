@@ -4,12 +4,22 @@ import com.huawei.ascend.collab.core.SubTask;
 import com.huawei.ascend.collab.core.TaskToken;
 import com.huawei.ascend.collab.core.WorkResult;
 import com.huawei.ascend.collab.core.Worker;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.a2aproject.sdk.client.http.A2ACardResolver;
+import org.a2aproject.sdk.client.http.JdkA2AHttpClient;
 import org.a2aproject.sdk.client.transport.jsonrpc.JSONRPCTransport;
 import org.a2aproject.sdk.client.transport.spi.ClientTransport;
 import org.a2aproject.sdk.client.transport.spi.interceptors.ClientCallContext;
@@ -23,6 +33,7 @@ import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.Task;
 import org.a2aproject.sdk.spec.TaskState;
 import org.a2aproject.sdk.spec.TextPart;
+import org.a2aproject.sdk.util.Utils;
 
 /**
  * Bridges the collaboration engine to a real A2A agent: the
@@ -39,6 +50,13 @@ import org.a2aproject.sdk.spec.TextPart;
  * credential; the tenant rides the {@code X-Tenant-Id} header (not
  * {@code MessageSendParams.tenant()}, which would route to a tenant-scoped URL).
  * On a correlated response this worker re-presents the issued token.
+ *
+ * <p><b>Robustness.</b> The call's wall-clock time is bounded by {@code timeoutMs}
+ * (connect timeout on the HTTP client + a per-call timed wait); a hung remote
+ * yields a {@link WorkResult.Status#TIMEOUT} the coordinator reclaims rather than
+ * blocking forever. Because a reclaim re-dispatches the same work, the remote agent
+ * MUST treat {@code task.token.idempotencyKey} (carried in metadata, stable across a
+ * task's redispatch lineage) as a dedupe key to avoid double execution.
  */
 public final class A2aWorker implements Worker {
 
@@ -46,6 +64,13 @@ public final class A2aWorker implements Worker {
     public static final String MK_TASK = "task.token.task";
     public static final String MK_IDEM = "task.token.idempotencyKey";
     public static final String MK_DEADLINE = "task.token.deadlineEpochMs";
+
+    /** Daemon pool that bounds a blocking A2A call's wall-clock time (see {@link #execute}). */
+    private static final ExecutorService CALL_POOL = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "a2a-worker-call");
+        t.setDaemon(true);
+        return t;
+    });
 
     private final String id;
     private final Set<String> capabilities;
@@ -65,8 +90,12 @@ public final class A2aWorker implements Worker {
         this.capabilities = Set.copyOf(capabilities);
         this.timeoutMs = timeoutMs;
         try {
-            AgentCard card = A2ACardResolver.builder().baseUrl(baseUrl).build().getAgentCard();
-            this.transport = new JSONRPCTransport(card);
+            // A connect-timeout-bounded HTTP client so an unreachable agent fails fast
+            // (the read side is additionally bounded per-call in execute()).
+            JdkA2AHttpClient http = new JdkA2AHttpClient(HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofMillis(timeoutMs)).build());
+            AgentCard card = A2ACardResolver.builder().baseUrl(baseUrl).httpClient(http).build().getAgentCard();
+            this.transport = new JSONRPCTransport(http, card, Utils.getFavoriteInterface(card), List.of());
         } catch (Throwable e) {
             throw new IllegalStateException(
                     "failed to resolve A2A agent card at " + baseUrl + ": " + e.getMessage(), e);
@@ -114,8 +143,22 @@ public final class A2aWorker implements Worker {
             ClientCallContext ctx = new ClientCallContext(Map.of(),
                     Map.of("X-Tenant-Id", token.tenantId()));
 
-            EventKind result = transport.sendMessage(params, ctx);
-            return map(task, token, result);
+            // Bound the blocking call's wall-clock time: the runtime read side has no
+            // request timeout, so a hung remote would otherwise block the coordinator
+            // forever. On timeout we abandon and report TIMEOUT (the coordinator reclaims).
+            Future<EventKind> call = CALL_POOL.submit(() -> transport.sendMessage(params, ctx));
+            try {
+                EventKind result = call.get(timeoutMs, TimeUnit.MILLISECONDS);
+                return map(task, token, result);
+            } catch (TimeoutException te) {
+                call.cancel(true);
+                return WorkResult.timeout(task.id(), token, id);
+            }
+        } catch (CompletionException | java.util.concurrent.ExecutionException ee) {
+            Throwable cause = ee.getCause() == null ? ee : ee.getCause();
+            return WorkResult.failed(task.id(), token, id,
+                    "a2a error: " + cause.getClass().getSimpleName()
+                            + (cause.getMessage() == null ? "" : ": " + cause.getMessage()));
         } catch (Throwable t) {
             return WorkResult.failed(task.id(), token, id,
                     "a2a error: " + t.getClass().getSimpleName()

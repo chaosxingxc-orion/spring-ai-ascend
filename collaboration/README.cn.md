@@ -19,6 +19,19 @@
 
 `Worker` 是 SPI:`sim/ScriptedWorker`(确定性、可脚本化,含对抗行为如伪造令牌/空输出)用于评测;`a2a/A2aWorker`(下述)桥接真实 A2A agent。
 
+### 反压 & token 经济性(`CoordinatorConfig`)
+
+生产部署用 `CoordinatorConfig` 打开守护策略(默认全关,保证评测确定性):
+
+| 旋钮 | 作用 | 为什么重要 |
+|---|---|---|
+| `withBackoff(exponentialBackoff(base, cap))` | reclaim 重试前指数退避 | **负反馈**:agent 故障时不被零间隔重试打爆 |
+| `withMaxDispatches(n)` | 整批次 (重)分发次数上限 | **token 经济**:每次分发都驱动真实 LLM,无界重派直接放大花销;预算耗尽后剩余任务**快速失败**而非各烧满 maxAttempts |
+| `withMaxConcurrency(n)` | `runConcurrent` 在途任务硬上限(有界队列 + caller-runs) | **反压**:生产者超出线程池时被节流,而非把无界任务堆到堆上 |
+| `withDedupe(true)` | 同 `(capability,payload)` 的重复子任务复用已完成结果 | **token 经济**:fan-out 里的重复工作零额外 token |
+
+`A2aWorker` 的阻塞调用受 `timeoutMs` 约束(HTTP connect 超时 + 每次调用限时等待):远端卡死返回 `TIMEOUT` 由协调器回收,不会永久阻塞。**因 reclaim 会重派同一工作,远端 agent 必须用 `task.token.idempotencyKey` 去重以防双执行。**
+
 ## 评测套件(`eval/`)—— 评测任务编制 + 评测集生成
 
 - **`EvalSetGenerator`**:生成 11 个场景的评测集(happy/分发/交接/回收成功/回收耗尽/伪造令牌/缺令牌/校验失败/人审/无 worker/混合),每个声明**预期每任务状态 + 必须出现的协作事件**。

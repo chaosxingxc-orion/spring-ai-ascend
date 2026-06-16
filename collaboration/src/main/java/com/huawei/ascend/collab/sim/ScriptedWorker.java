@@ -58,6 +58,11 @@ public final class ScriptedWorker implements Worker {
         return new ScriptedWorker(id, Set.of(capability), Behavior.FLAKY_THEN_OK, null, failuresBeforeOk);
     }
 
+    /** Number of times this worker was dispatched to — lets tests assert dedupe/budget effects. */
+    public int calls() {
+        return calls.get();
+    }
+
     @Override
     public String id() {
         return id;
