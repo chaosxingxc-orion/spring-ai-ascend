@@ -362,13 +362,18 @@ public final class A2aAgentExecutor implements AgentExecutor {
         // RuntimeMessage is the only message type that crosses into the SPI.
         List<RuntimeMessage> messages = List.of(RuntimeMessage.user(text));
         String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
+        // Cross-run linkage: a calling agent declares its run as the parent via inbound metadata,
+        // so this sub-agent's trajectory references the caller. Both null for a root run.
+        RuntimeIdentity scope = new RuntimeIdentity(
+                metadata(ctx, "tenantId", "default"),
+                metadata(ctx, "userId", "system"),
+                sessionId,
+                ctx.getTaskId(),
+                metadata(ctx, "agentId", handler.agentId()),
+                metadata(ctx, "parentTaskId", null),
+                metadata(ctx, "parentContextId", null));
         return new AgentExecutionContext(
-                new RuntimeIdentity(
-                        metadata(ctx, "tenantId", "default"),
-                        metadata(ctx, "userId", "system"),
-                        sessionId,
-                        ctx.getTaskId(),
-                        metadata(ctx, "agentId", handler.agentId())),
+                scope,
                 "USER_MESSAGE",
                 messages,
                 // Merge A2A message metadata into variables so adapters (versatile, etc.)

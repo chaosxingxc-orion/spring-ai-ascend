@@ -8,6 +8,7 @@ import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryDraft;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.ErrorCategory;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
 import com.openjiuwen.core.context.ModelContext;
 import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
@@ -110,7 +111,8 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
                     errorMessage(error));
             // ERROR is a mandatory trajectory kind: surface the run-level failure northbound even though
             // the failure is mapped to a result (not rethrown), so the trajectory is not silently truncated.
-            trajectory.emit(TrajectoryDraft.error(null, "OPENJIUWEN_RUN_ERROR", errorMessage(error), null, false));
+            trajectory.emit(TrajectoryDraft.error(null, "OPENJIUWEN_RUN_ERROR", errorMessage(error),
+                    ErrorCategory.classify(error), null, false));
             return java.util.stream.Stream.of(Map.of("result_type", "error", "output", errorMessage(error)));
         }
     }

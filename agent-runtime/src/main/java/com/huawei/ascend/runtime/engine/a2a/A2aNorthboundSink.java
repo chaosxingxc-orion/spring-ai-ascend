@@ -1,9 +1,9 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEventJson;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySink;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -85,25 +85,6 @@ final class A2aNorthboundSink implements TrajectorySink {
     }
 
     private static Map<String, Object> toMap(TrajectoryEvent e) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("seq", e.seq());
-        m.put("kind", String.valueOf(e.kind()));
-        m.put("tsEpochMillis", e.tsEpochMillis());
-        m.put("durationMs", e.durationMs());
-        m.put("traceId", e.traceId());
-        m.put("spanId", e.spanId());
-        m.put("parentSpanId", e.parentSpanId());
-        m.put("tenantId", e.tenantId());
-        m.put("contextId", e.contextId());
-        m.put("taskId", e.taskId());
-        m.put("object", e.object());
-        m.put("name", e.name());
-        m.put("args", e.args());
-        m.put("result", e.result());
-        m.put("usage", e.usage());
-        m.put("error", e.error());
-        m.put("reasoning", e.reasoning());
-        m.put("schemaVersion", e.schemaVersion());
-        return m;
+        return TrajectoryEventJson.toMap(e);
     }
 }

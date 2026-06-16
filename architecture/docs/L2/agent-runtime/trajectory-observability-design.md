@@ -49,11 +49,14 @@
 | 掩码规则可配置 | ✅ | `app.trajectory.mask.key-pattern` + `truncate-chars` |
 | 多 Sink 扇出 | ✅ | `CompositeTrajectorySink`，故障隔离 |
 | 父-子链路追踪 | ✅ | parentTaskId / parentTraceId 传递 |
-| TTFT 观测 | ⬜ | `MODEL_CALL_FIRST_TOKEN` 枚举存在，无 Adapter 发射 |
-| REASONING 记录 | ⬜ | reasoning 内容嵌入 MODEL_CALL_END，无独立事件 |
-| 采样率控制 | ⬜ | 无代码 |
-| 大载荷外置存储 | ⬜ | 无代码 |
-| 自定义脱敏逻辑注入 | ⬜ | Redactor SPI 未定义 |
+| TTFT 观测 | ✅ | `MODEL_CALL_FIRST_TOKEN` point 事件，AgentScope 流式首 delta 发射 |
+| REASONING 记录 | ✅ | `TrajectoryDraft.reasoning(...)` 独立事件，REASONING Kind |
+| 采样率控制 | ✅ | 头部 Bernoulli 采样（`app.trajectory.sample-rate`），整条轨迹 in/out |
+| 大载荷外置存储 | ✅ | `PayloadRefStore` SPI + `LocalFsPayloadRefStore`；`payload_ref://sha256` 取代截断 |
+| 自定义脱敏逻辑注入 | ✅ | `Redactor` SPI + `PatternRedactor`（Luhn/SSN/GPS）；`CostCalculator` SPI + `TableCostCalculator` |
+| NDJSON 结构化日志轨道 | ✅ | `NdjsonTrajectorySink`（专用 Logger，单行 JSON，与 A2A 共享同一 schema v3） |
+| OTLP gen_ai.* 属性 | ✅ | gen_ai.system / finish_reasons / error.type / server.time_to_first_token |
+| 跨 run 父链路 | ✅ | parentTaskId / parentTraceId 从 A2A inbound metadata 读入并盖章于每事件 |
 
 ### 2.2 显式排除
 

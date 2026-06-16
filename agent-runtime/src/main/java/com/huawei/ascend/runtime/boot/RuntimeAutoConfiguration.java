@@ -6,9 +6,14 @@ import com.huawei.ascend.runtime.engine.a2a.AgentCardProvider;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.spi.CostCalculator;
+import com.huawei.ascend.runtime.engine.spi.PatternRedactor;
+import com.huawei.ascend.runtime.engine.spi.PayloadRefStore;
+import com.huawei.ascend.runtime.engine.spi.Redactor;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import com.huawei.ascend.runtime.engine.spi.TrajectorySinkFactory;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,7 +51,7 @@ import org.springframework.context.annotation.Import;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({RuntimeAccessProperties.class, TrajectoryProperties.class,
         AgentCardProperties.class})
-@Import(TrajectoryOtelConfiguration.class)
+@Import({TrajectoryOtelConfiguration.class, TrajectoryLogConfiguration.class})
 public class RuntimeAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(RuntimeAutoConfiguration.class);
 
@@ -152,8 +157,16 @@ public class RuntimeAutoConfiguration {
         if (!properties.isEnabled()) {
             return TrajectorySettings.off();
         }
+        Redactor redactor = properties.getRedact().isEnabled() ? new PatternRedactor() : Redactor.NONE;
+        CostCalculator costCalculator = properties.getPricing().isEnabled()
+                ? new TableCostCalculator(properties.getPricing().getModels())
+                : CostCalculator.NONE;
+        PayloadRefStore payloadRefStore = properties.getPayloadRef().isEnabled()
+                ? new LocalFsPayloadRefStore(Path.of(properties.getPayloadRef().getDirectory()))
+                : null;
         return new TrajectorySettings(true, compileMaskPattern(properties.getMask().getKeyPattern()),
-                properties.getMask().getTruncateChars());
+                properties.getMask().getTruncateChars(), properties.getSampleRate(),
+                redactor, costCalculator, payloadRefStore);
     }
 
     /**

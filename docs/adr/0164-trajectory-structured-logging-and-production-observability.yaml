@@ -1,0 +1,156 @@
+id: ADR-0164
+title: "Trajectory structured logging + production collection/storage/query best practices — graduate the dual-plane trajectory proposal to an emit-only two-rail (NDJSON log + OTLP GenAI span) architecture, complete the GenAI semantic-convention enrichment, and deliver external-OSS observability recipes"
+status: accepted
+date: 2026-06-15
+level: L1
+view: development
+affects_level: L1
+affects_view: [development, process]
+authors:
+  - chao
+extends:
+  - ADR-0161    # handler three-scope lifecycle — start/stop anchors the trajectory sinks and the readiness gate the emitter rides; this ADR adds the observability surface on top of that lifecycle
+relates_to:
+  - ADR-0158    # transport-agnostic engine boundary — trajectory is northbound telemetry on that boundary, never a return channel
+supersedes: []
+context: |
+  v0.1.0 shipped a framework-neutral, EMIT-ONLY trajectory subsystem:
+  `engine.spi.TrajectoryEvent` (neutral event record, SCHEMA_VERSION "2"),
+  `StampingTrajectoryEmitter` (monotonic seq + correlation + span tree +
+  synchronous key-name masking), the pluggable `TrajectorySink` /
+  `TrajectorySinkFactory` / `CompositeTrajectorySink` fan-out, an OTLP
+  `OtelSpanSink` (gen_ai.* + tenant.id), and an in-band A2A `-trajectory`
+  artifact sink. The v0.1.0 release notes (§5.3) list seven deferred items
+  and nine open issues (#197–#205) capture the concrete gaps:
+
+    * #197 Usage has no `provider`; OtelSpanSink emits no `gen_ai.system`.
+    * #198 Usage has no token-cost field (FinOps/billing aggregation).
+    * #199 error is an unstructured string code; no `gen_ai.error.type`.
+    * #200 finish_reason is captured but mis-stored in the `result` slot of
+      `TrajectoryDraft.modelCallEnd`; never reaches a `finishReason` field
+      nor `gen_ai.response.finish_reasons`.
+    * #201 streaming has no first-token timing point (TTFT unobservable).
+    * #202 large prompt/completion content is truncated and dropped; no
+      externalization reference.
+    * #203 no sampling hook.
+    * #204 sub-agent legs carry parent ids for payload ROUTING only; the
+      trajectory span tree never records `parentTaskId`/`parentTraceId`, so
+      cross-run traces cannot be linked.
+    * #205 masking is key-name regex only; no value-level detection.
+
+  The v0.2.0 feature requirement (architecture/docs/L1/agent-runtime/features/
+  agent-runtime-next-iteration-features.cn.md §1.2) is: "输出结构化轨迹日志，
+  提供生产环境下的轨迹收集、存储和查询最佳实践". This ADR graduates the
+  forward-looking proposal in docs/logs/reviews/2026-06-10-a2a-error-flow-and-
+  trajectory-observability.md (which committed to becoming a formal ADR once
+  the seam is implemented).
+
+  Source-evidence reviewed (local trees under D:/ai-research/agent-platforms-survey):
+    * agentscope / agentscope-runtime-java — fine-grained event taxonomy
+      (Event{sequence_number, object, status, error}), reactive streaming, and
+      OpenTelemetry GenAI semantic conventions (gen_ai.*). No first-party
+      observability DB in the runtime; emission is streamed to external
+      consumers.
+    * langgraph4j — observability is OpenTelemetry (TracerHolder/MeterHolder +
+      baggage) plus a StreamTransformer async-lane model for decoupled
+      mutation (PII redaction, cost lookup). Its Postgres/Redis/etc. savers are
+      STATE-CHECKPOINT persistence for resumption — a DIFFERENT concern from
+      observability trajectory, deliberately NOT conflated here.
+
+  Architecture red lines reaffirmed (2026-06-10 §5): trajectory is emit-only
+  telemetry, NEVER read back; the runtime stays the single source of truth; no
+  business projection; maximize OSS reuse (zero self-invented store/query that
+  OSS observability backends already provide).
+decision: |
+  Trajectory observability is delivered as TWO emission rails over ONE neutral
+  event contract, plus external-OSS best-practice documentation. No first-party
+  persistence or query surface is built in the runtime or service.
+
+    1. TWO EMISSION RAILS, ONE CONTRACT.
+       * OTLP GenAI span rail (`engine.otel.OtelSpanSink`, existing) — completed
+         to the GenAI semantic conventions: `gen_ai.system` (provider),
+         `gen_ai.response.finish_reasons`, `gen_ai.error.type`, and a
+         first-token (TTFT) span attribute. Cost is intentionally NOT a span
+         attribute.
+       * NDJSON structured-log rail (`engine.log.NdjsonTrajectorySink`, new) —
+         one JSON object per `TrajectoryEvent` to a dedicated logger
+         (`com.huawei.ascend.runtime.trajectory`), field-for-field identical to
+         the A2A northbound `DataPart` map and the contract catalog wire table.
+         Zero new runtime dependencies (Jackson/Logback already present); the
+         sink serializes `event.schemaVersion()` and never re-masks (masking is
+         already applied upstream in the emitter).
+       The two rails correlate by the shared `traceId`/`spanId` the OTel sink
+       already exports as `trajectory.trace_id`/`trajectory.span_id` attributes.
+
+    2. COLLECTION / STORAGE / QUERY = EXTERNAL OSS + BEST-PRACTICE DOCS.
+       A production runbook documents wiring our OTLP into an OpenTelemetry
+       Collector (→ Jaeger/Tempo/ClickHouse, Langfuse/Phoenix) and our NDJSON
+       into a log agent (→ ELK/Loki), with retention/sampling guidance and a
+       query/dashboard cookbook (trace by taskId/contextId/tenantId; token/cost
+       aggregation; error rate; latency percentiles; TTFT). The runtime owns
+       NONE of this storage. A first-party DB+REST query surface is explicitly
+       REJECTED (it would cross all three red lines).
+
+    3. EVENT-MODEL ENRICHMENT (additive; single schema bump).
+       `TrajectoryEvent.SCHEMA_VERSION` goes "2" → "3" exactly once, in lockstep
+       with the docs/contracts/contract-catalog.md "Northbound trajectory wire
+       contract" table, which reserves all new rows at once: `usage.provider`,
+       `usage.costMicros`, `error.category` (a new `ErrorCategory` enum aligned
+       to `gen_ai.error.type`), `finishReason`, a new point Kind
+       `MODEL_CALL_FIRST_TOKEN` (not mandatory-tier), and
+       `parentTaskId`/`parentTraceId`. Every change is a new optional field or
+       new enum value; v2 consumers tolerate v3. The mis-stored finish_reason
+       (#200) is corrected: `TrajectoryDraft.modelCallEnd` takes a typed
+       `finishReason` rather than overloading the `result` slot.
+
+    4. EXPENSIVE WORK OFF THE HOT PATH.
+       Value-level redaction (#205) and cost lookup (#198) run in a new
+       single-consumer `AsyncEnrichingSink` (bounded queue, shed-on-overflow,
+       fail-closed) that wraps the fan-out — NEVER inside the synchronized
+       `emit()`. Pipeline order: key-name mask (sync, emitter) → value redact
+       (async) → large-payload externalize (async) → fan-out. New SPIs are
+       justified only where the existing seams cannot express the capability:
+       `Redactor` (value-level detection, orthogonal to key-name
+       `TrajectoryMasking`) and `PayloadRefStore` (#202, write-only/put-only —
+       returns an opaque reference, the runtime NEVER reads it back; resolution
+       is the external consumer's job, preserving the emit-only red line).
+       `CostCalculator` is a config-driven internal class, NOT an SPI (YAGNI).
+
+    5. SAMPLING is per-invocation Bernoulli decided at emitter construction
+       (whole-trajectory in or out, so span trees never tear), gated before the
+       lock body. No sampler SPI.
+
+  Explicit NON-decisions:
+    * NO first-party trajectory store, repository, or query API.
+    * NO S3/custom PayloadRefStore implementation in v0.2.0 — local-FS
+      reference impl only; remote stores are a documented extension point.
+    * NO dynamic pricing SPI — a config price table covers #197/#198.
+    * State-checkpoint persistence (framework resumption) is out of scope and
+      must not be conflated with observability trajectory.
+consequences: |
+  POSITIVE.
+    * The structured-log mandate is met without new dependencies; operators get
+      two correlated rails feeding any OSS observability stack.
+    * GenAI semantic-convention parity (provider/cost/error.type/finish_reasons/
+      TTFT) makes our trajectory consumable by Langfuse/Phoenix/LangSmith with
+      zero translation.
+    * Redaction and cost enrichment leave the synchronized emit() hot path.
+    * Cross-run traces link via parent ids; sub-agent legs nest under callers.
+    * The emit-only / no-projection / OSS-reuse red lines stay intact; payload
+      externalization is write-only.
+  NEGATIVE / accepted.
+    * The wire contract grows (one additive v2→v3 bump); consumers wanting the
+      new fields must read schemaVersion.
+    * Two new SPIs (`Redactor`, `PayloadRefStore`) and one async sink enlarge
+      the surface; defaults are no-op/off so the hot path is unchanged when the
+      features are disabled.
+    * The async lane introduces an ordered single-consumer queue with
+      shed-on-overflow — trajectory remains best-effort, never back-pressuring
+      the run.
+  EVIDENCE BASIS. Source survey 2026-06 over local trees: this repo
+  (agent-runtime engine.spi/otel/a2a/openjiuwen), agentscope +
+  agentscope-runtime-java (event shape + gen_ai conventions), langgraph4j
+  (OTel + StreamTransformer async lanes + checkpoint savers). Current-code
+  facts verified: TrajectoryDraft.modelCallEnd mis-stores finish_reason in the
+  result slot; StampingTrajectoryEmitter.emit is synchronized; parent ids exist
+  for routing but not in the span tree.

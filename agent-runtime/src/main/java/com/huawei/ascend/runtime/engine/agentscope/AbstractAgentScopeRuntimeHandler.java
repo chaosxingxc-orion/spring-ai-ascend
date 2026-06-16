@@ -6,10 +6,12 @@ import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryDraft;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.ErrorCategory;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 /**
@@ -50,13 +52,14 @@ abstract class AbstractAgentScopeRuntimeHandler extends AbstractAgentRuntimeHand
     @Override
     protected Set<Kind> supportedKinds() {
         return EnumSet.of(Kind.RUN_START, Kind.RUN_END, Kind.TOOL_CALL_START, Kind.TOOL_CALL_END,
-                Kind.ERROR, Kind.PROGRESS);
+                Kind.ERROR, Kind.PROGRESS, Kind.MODEL_CALL_FIRST_TOKEN);
     }
 
     @Override
     protected final Stream<?> doExecute(AgentExecutionContext context, TrajectoryEmitter trajectory) {
         Stream<?> raw = streamAgentScopeEvents(messageAdapter.toInvocation(context));
-        return raw.peek(event -> emitTrajectory(event, trajectory));
+        AtomicBoolean firstTokenSeen = new AtomicBoolean(false);
+        return raw.peek(event -> emitTrajectory(event, trajectory, firstTokenSeen));
     }
 
     /**
@@ -64,17 +67,22 @@ abstract class AbstractAgentScopeRuntimeHandler extends AbstractAgentRuntimeHand
      * uses — so trajectory and results never diverge — and maps it to a neutral draft.
      * COMPLETED/INTERRUPTED emit no inner event: the base owns the terminal RUN_END.
      */
-    private void emitTrajectory(Object rawEvent, TrajectoryEmitter trajectory) {
+    private void emitTrajectory(Object rawEvent, TrajectoryEmitter trajectory, AtomicBoolean firstTokenSeen) {
         AgentExecutionResult result = streamAdapter.map(rawEvent);
         switch (result.type()) {
             case OUTPUT -> {
                 String text = result.outputContent();
                 if (text != null && !text.isBlank()) {
+                    // The first non-blank streamed output delta marks time-to-first-token.
+                    if (firstTokenSeen.compareAndSet(false, true)) {
+                        trajectory.emit(TrajectoryDraft.firstToken());
+                    }
                     trajectory.emit(TrajectoryDraft.progress(text));
                 }
             }
             case FAILED -> trajectory.emit(
-                    TrajectoryDraft.error(null, result.errorCode(), result.errorMessage(), null, false));
+                    TrajectoryDraft.error(null, result.errorCode(), result.errorMessage(),
+                            ErrorCategory.UNKNOWN, null, false));
             default -> { }
         }
     }

@@ -24,7 +24,7 @@ covers: [agent-runtime, agent-sdk, agent-service]
 
 - OpenJiuwen Workflow 适配：支持多步骤 Workflow Agent 的创建和执行
 - MCP (Model Context Protocol) 协议接入：新增 MCP Adapter，支持 MCP 工具的发现和调用，连接 Agent 到外部工具生态
-- 完善日志轨迹记录：输出结构化轨迹日志，提供生产环境下的轨迹收集、存储和查询最佳实践
+- ✅ 完善日志轨迹记录：输出结构化轨迹日志，提供生产环境下的轨迹收集、存储和查询最佳实践（v0.2.0 已交付：NDJSON sink + OTLP 属性补齐 + TTFT + 采样 + 父链路 + Redactor + CostCalculator + PayloadRefStore + ADR-0164 + 生产 Runbook）
 - 支持自研记忆服务：提供记忆服务的标准接入方式，支持短期会话记忆和长期记忆检索，按用户和会话隔离
 
 ---

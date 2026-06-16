@@ -64,8 +64,9 @@ class AgentScopeRuntimeHandlerTest {
 
         List<TrajectoryEvent> events = runWithTrajectory(handler);
 
+        // The first streamed output delta also emits the time-to-first-token marker.
         assertThat(events).extracting(TrajectoryEvent::kind)
-                .containsExactly(Kind.RUN_START, Kind.PROGRESS, Kind.ERROR, Kind.RUN_END);
+                .containsExactly(Kind.RUN_START, Kind.MODEL_CALL_FIRST_TOKEN, Kind.PROGRESS, Kind.ERROR, Kind.RUN_END);
         assertThat(events).allSatisfy(e -> assertThat(e.tenantId()).isEqualTo("tenant"));
         // The run span is the root; the error point event hangs off it.
         TrajectoryEvent runStart = events.stream().filter(e -> e.kind() == Kind.RUN_START).findFirst().orElseThrow();
@@ -73,6 +74,24 @@ class AgentScopeRuntimeHandlerTest {
         assertThat(runStart.parentSpanId()).isNull();
         assertThat(error.parentSpanId()).isEqualTo(runStart.spanId());
         assertThat(error.error().code()).isEqualTo("X");
+    }
+
+    @Test
+    void firstOutputDeltaEmitsExactlyOneFirstTokenMarkerCarryingTtft() {
+        AgentScopeAgentRuntimeHandler handler = new AgentScopeAgentRuntimeHandler("agent-scope", invocation ->
+                Stream.of(AgentScopeEvent.output("a"), AgentScopeEvent.output("b"), AgentScopeEvent.completed("done")));
+
+        List<TrajectoryEvent> events = runWithTrajectory(handler);
+
+        assertThat(events).extracting(TrajectoryEvent::kind)
+                .containsExactly(Kind.RUN_START, Kind.MODEL_CALL_FIRST_TOKEN, Kind.PROGRESS, Kind.PROGRESS,
+                        Kind.RUN_END);
+        assertThat(events).filteredOn(e -> e.kind() == Kind.MODEL_CALL_FIRST_TOKEN).hasSize(1);
+        TrajectoryEvent runStart = events.stream().filter(e -> e.kind() == Kind.RUN_START).findFirst().orElseThrow();
+        TrajectoryEvent firstToken = events.stream()
+                .filter(e -> e.kind() == Kind.MODEL_CALL_FIRST_TOKEN).findFirst().orElseThrow();
+        assertThat(firstToken.parentSpanId()).isEqualTo(runStart.spanId());
+        assertThat(firstToken.durationMs()).isNotNull().isGreaterThanOrEqualTo(0L);
     }
 
     private static List<TrajectoryEvent> runWithTrajectory(AgentScopeAgentRuntimeHandler handler) {

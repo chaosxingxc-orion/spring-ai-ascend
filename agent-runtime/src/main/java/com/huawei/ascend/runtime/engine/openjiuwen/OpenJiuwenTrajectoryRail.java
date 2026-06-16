@@ -3,6 +3,7 @@ package com.huawei.ascend.runtime.engine.openjiuwen;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryDraft;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
+import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.ErrorCategory;
 import com.openjiuwen.core.foundation.llm.schema.AssistantMessage;
 import com.openjiuwen.core.foundation.llm.schema.UsageMetadata;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
@@ -73,6 +74,7 @@ final class OpenJiuwenTrajectoryRail extends AgentRail {
     public void onModelException(AgentCallbackContext context) {
         safe(() -> trajectory.emit(TrajectoryDraft.error(null, MODEL_ERROR_CODE,
                 OpenJiuwenAgentRuntimeHandler.errorMessage(context.getException()),
+                ErrorCategory.classify(context.getException()),
                 context.getRetryAttempt(), true)));
     }
 
@@ -115,6 +117,7 @@ final class OpenJiuwenTrajectoryRail extends AgentRail {
             String toolName = context.getInputs() instanceof ToolCallInputs inputs ? inputs.getToolName() : null;
             trajectory.emit(TrajectoryDraft.error(toolName, TOOL_ERROR_CODE,
                     OpenJiuwenAgentRuntimeHandler.errorMessage(context.getException()),
+                    ErrorCategory.classify(context.getException()),
                     context.getRetryAttempt(), true));
         });
     }
@@ -125,8 +128,10 @@ final class OpenJiuwenTrajectoryRail extends AgentRail {
         }
         // openJiuwen reports totalLatency in seconds; normalize to milliseconds.
         Double latencyMs = usage.getTotalLatency() > 0 ? usage.getTotalLatency() * 1000.0 : null;
+        // provider/costMicros are filled off the hot path (cost is a price-table lookup, not
+        // framework data); the rail stays synchronous and cheap.
         return new TrajectoryEvent.Usage(
-                usage.getInputTokens(), usage.getOutputTokens(), latencyMs, usage.getModelName());
+                usage.getInputTokens(), usage.getOutputTokens(), latencyMs, usage.getModelName(), null, null);
     }
 
     private static void safe(Runnable action) {

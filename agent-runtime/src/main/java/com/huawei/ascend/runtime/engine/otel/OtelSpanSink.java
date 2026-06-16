@@ -9,6 +9,7 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -30,8 +31,18 @@ final class OtelSpanSink implements TrajectorySink {
     private static final AttributeKey<Long> GEN_AI_INPUT_TOKENS = AttributeKey.longKey("gen_ai.usage.input_tokens");
     private static final AttributeKey<Long> GEN_AI_OUTPUT_TOKENS = AttributeKey.longKey("gen_ai.usage.output_tokens");
     private static final AttributeKey<String> GEN_AI_TOOL_NAME = AttributeKey.stringKey("gen_ai.tool.name");
+    private static final AttributeKey<String> GEN_AI_SYSTEM = AttributeKey.stringKey("gen_ai.system");
+    private static final AttributeKey<List<String>> GEN_AI_FINISH_REASONS =
+            AttributeKey.stringArrayKey("gen_ai.response.finish_reasons");
+    private static final AttributeKey<String> GEN_AI_ERROR_TYPE = AttributeKey.stringKey("gen_ai.error.type");
+    private static final AttributeKey<Double> GEN_AI_TTFT =
+            AttributeKey.doubleKey("gen_ai.server.time_to_first_token");
     private static final AttributeKey<String> TRAJECTORY_SPAN_ID = AttributeKey.stringKey("trajectory.span_id");
     private static final AttributeKey<String> TRAJECTORY_TRACE_ID = AttributeKey.stringKey("trajectory.trace_id");
+    private static final AttributeKey<String> TRAJECTORY_PARENT_TASK_ID =
+            AttributeKey.stringKey("trajectory.parent_task_id");
+    private static final AttributeKey<String> TRAJECTORY_PARENT_TRACE_ID =
+            AttributeKey.stringKey("trajectory.parent_trace_id");
 
     private final Tracer tracer;
     private final Map<String, Span> openSpans = new HashMap<>();
@@ -47,6 +58,7 @@ final class OtelSpanSink implements TrajectorySink {
             case RUN_END, MODEL_CALL_END, TOOL_CALL_END -> closeSpan(event);
             case ERROR -> addPointEvent(event, true);
             case REASONING, PROGRESS -> addPointEvent(event, false);
+            case MODEL_CALL_FIRST_TOKEN -> addFirstToken(event);
         }
     }
 
@@ -74,6 +86,9 @@ final class OtelSpanSink implements TrajectorySink {
             return; // unbalanced end — nothing open to close
         }
         applyUsage(span, event);
+        if (event.finishReason() != null) {
+            span.setAttribute(GEN_AI_FINISH_REASONS, List.of(event.finishReason()));
+        }
         span.end(event.tsEpochMillis(), TimeUnit.MILLISECONDS);
     }
 
@@ -85,6 +100,21 @@ final class OtelSpanSink implements TrajectorySink {
         parent.addEvent(String.valueOf(event.kind()).toLowerCase(Locale.ROOT));
         if (isError) {
             parent.setStatus(StatusCode.ERROR, errorMessage(event));
+            if (event.error() != null && event.error().category() != null) {
+                parent.setAttribute(GEN_AI_ERROR_TYPE, event.error().category().name().toLowerCase(Locale.ROOT));
+            }
+        }
+    }
+
+    private void addFirstToken(TrajectoryEvent event) {
+        Span parent = event.parentSpanId() != null ? openSpans.get(event.parentSpanId()) : null;
+        if (parent == null) {
+            return;
+        }
+        parent.addEvent("gen_ai.first_token");
+        if (event.durationMs() != null) {
+            // OTel convention records time-to-first-token in seconds.
+            parent.setAttribute(GEN_AI_TTFT, event.durationMs() / 1000.0);
         }
     }
 
@@ -97,6 +127,15 @@ final class OtelSpanSink implements TrajectorySink {
         }
         if (event.spanId() != null) {
             span.setAttribute(TRAJECTORY_SPAN_ID, event.spanId());
+        }
+        // Cross-run linkage to the caller (carried as attributes; our taskId-based ids are not
+        // valid W3C trace ids, so we do not forge a remote SpanContext — a consumer correlates
+        // by these attributes instead).
+        if (event.parentTaskId() != null) {
+            span.setAttribute(TRAJECTORY_PARENT_TASK_ID, event.parentTaskId());
+        }
+        if (event.parentTraceId() != null) {
+            span.setAttribute(TRAJECTORY_PARENT_TRACE_ID, event.parentTraceId());
         }
         switch (event.kind()) {
             case MODEL_CALL_START -> span.setAttribute(GEN_AI_OPERATION, "chat");
@@ -118,6 +157,9 @@ final class OtelSpanSink implements TrajectorySink {
         }
         if (usage.model() != null) {
             span.setAttribute(GEN_AI_MODEL, usage.model());
+        }
+        if (usage.provider() != null) {
+            span.setAttribute(GEN_AI_SYSTEM, usage.provider());
         }
         if (usage.inputTokens() != null) {
             span.setAttribute(GEN_AI_INPUT_TOKENS, usage.inputTokens().longValue());

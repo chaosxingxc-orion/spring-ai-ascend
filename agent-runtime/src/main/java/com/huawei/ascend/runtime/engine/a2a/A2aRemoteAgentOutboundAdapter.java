@@ -3,6 +3,7 @@ package com.huawei.ascend.runtime.engine.a2a;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -261,8 +262,28 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         }
         return MessageSendParams.builder()
                 .message(message.build())
-                .metadata(request.arguments())
+                .metadata(withParentLinkage(request))
                 .build();
+    }
+
+    /**
+     * Propagates the caller's run as cross-run parent linkage on the outbound A2A metadata, so the
+     * remote sub-agent's trajectory can reference this run. Returns the request metadata unchanged
+     * when there is no parent (a root invocation).
+     */
+    private static Map<String, Object> withParentLinkage(
+            RemoteAgentInvocationService.RemoteAgentRequest request) {
+        if (!hasText(request.parentTaskId()) && !hasText(request.parentContextId())) {
+            return request.arguments();
+        }
+        Map<String, Object> metadata = new LinkedHashMap<>(request.arguments());
+        if (hasText(request.parentTaskId())) {
+            metadata.put("parentTaskId", request.parentTaskId());
+        }
+        if (hasText(request.parentContextId())) {
+            metadata.put("parentContextId", request.parentContextId());
+        }
+        return metadata;
     }
 
     private static RemoteAgentInvocationService.RemoteAgentResult toResult(StreamingEventKind event) {

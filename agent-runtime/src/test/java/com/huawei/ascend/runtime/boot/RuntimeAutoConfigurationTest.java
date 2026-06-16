@@ -241,6 +241,60 @@ class RuntimeAutoConfigurationTest {
         }
     }
 
+    @Test
+    void redactEnabledWiresPatternRedactor() {
+        TrajectoryProperties properties = new TrajectoryProperties();
+        properties.getRedact().setEnabled(true);
+        TrajectorySettings settings = RuntimeAutoConfiguration.toTrajectorySettings(properties);
+        // PatternRedactor must replace a Luhn-valid card number
+        Object result = settings.redactor().redact("pay 4111 1111 1111 1111 ok");
+        assertThat(String.valueOf(result)).doesNotContain("4111 1111 1111 1111");
+        assertThat(String.valueOf(result)).contains("***");
+    }
+
+    @Test
+    void redactDisabledWiresNoneRedactor() {
+        TrajectoryProperties properties = new TrajectoryProperties();
+        properties.getRedact().setEnabled(false);
+        TrajectorySettings settings = RuntimeAutoConfiguration.toTrajectorySettings(properties);
+        // NONE redactor: leaves content untouched
+        String sensitive = "4111 1111 1111 1111";
+        assertThat(String.valueOf(settings.redactor().redact(sensitive))).isEqualTo(sensitive);
+    }
+
+    @Test
+    void pricingEnabledWiresTableCostCalculator() {
+        TrajectoryProperties properties = new TrajectoryProperties();
+        properties.getPricing().setEnabled(true);
+        var model = new TrajectoryProperties.Pricing.Model();
+        model.setProvider("openai");
+        model.setInputMicrosPerToken(5L);
+        model.setOutputMicrosPerToken(15L);
+        properties.getPricing().getModels().put("gpt-4o", model);
+
+        TrajectorySettings settings = RuntimeAutoConfiguration.toTrajectorySettings(properties);
+
+        com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Usage raw =
+                new com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Usage(
+                        1000, 500, null, "gpt-4o", null, null);
+        com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Usage enriched =
+                settings.costCalculator().enrich(raw);
+        assertThat(enriched.provider()).isEqualTo("openai");
+        assertThat(enriched.costMicros()).isEqualTo(1000 * 5L + 500 * 15L);
+    }
+
+    @Test
+    void pricingDisabledWiresNoneCostCalculator() {
+        TrajectoryProperties properties = new TrajectoryProperties();
+        properties.getPricing().setEnabled(false);
+        TrajectorySettings settings = RuntimeAutoConfiguration.toTrajectorySettings(properties);
+        com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Usage raw =
+                new com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Usage(
+                        100, 50, null, "gpt-4o", null, null);
+        // NONE calculator: returns the same object unchanged
+        assertThat(settings.costCalculator().enrich(raw)).isSameAs(raw);
+    }
+
     static final class RecordingTaskStore implements TaskStore {
         @Override
         public void save(Task task, boolean overwrite) { }

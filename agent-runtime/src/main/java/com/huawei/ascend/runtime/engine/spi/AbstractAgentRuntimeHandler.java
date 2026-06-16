@@ -59,7 +59,8 @@ public abstract class AbstractAgentRuntimeHandler implements AgentRuntimeHandler
             return raw.onClose(end);
         } catch (RuntimeException e) {
             emitter.emit(TrajectoryDraft.error(null, "RUNTIME_ERROR",
-                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName(), null, false));
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName(),
+                    TrajectoryEvent.ErrorCategory.classify(e), null, false));
             end.run();
             throw e;
         }

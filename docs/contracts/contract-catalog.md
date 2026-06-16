@@ -30,7 +30,7 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). SPI packages import only `java.*` plus same-package sibling carriers; broader historical cross-package SPI residuals are documented in root `architecture/docs/L0/ARCHITECTURE.md §3.7` and must not be used as precedent for new SPI design. japicmp binary-compat from W1.
 
-**Active SPI interfaces (12 total):**
+**Active SPI interfaces (13 total):**
 
 (rc43 baseline: 19 pre-rc43 + 14 rc43 agentic-contract-surface SPI surfaces (Agent + AgentRegistry + ModelGateway + Skill + SkillRegistry + MemoryStore + MemoryReader + MemoryWriter + SemanticMemoryStore + KnowledgeMemoryStore + VectorStore + Retriever + EmbeddingModel + Planner) per ADR-0120 / ADR-0121 / ADR-0122 / ADR-0123 / ADR-0124 / ADR-0125 / ADR-0126 / ADR-0127 / ADR-0128. rc51 + 5 agentic-completeness SPI surfaces (StructuredOutputConverter + PromptTemplate + ChatAdvisor + AdvisorChain + ConversationMemory) per ADR-0129 / ADR-0130 / ADR-0131 / ADR-0132 / ADR-0133. rc51 also adds the `stream(...)` default method to the existing `ModelGateway` per ADR-0129 and supplements `model-invocation.v1.yaml` with the tool-call iteration loop per ADR-0134. ADR-0135 documents the deliberate decision not to add a separate `AgentSession` SPI.)
 
@@ -48,11 +48,13 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 | `MemoryProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — reserved narrow memory init/search/save SPI for future memory middleware integration; does not bind runtime to one memory backend |
 | `StreamAdapter` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — adapts a framework's native result stream into the neutral `AgentExecutionResult` stream |
 
-Trajectory observability plumbing — `TrajectoryEmitter`, `TrajectorySource`, `TrajectorySink`, `TrajectorySinkFactory` — is internal **as a Java seam only**: per-invocation, emit-only telemetry interfaces between the runtime executor and the adapter bases (events are never read back; the runtime stays the source of truth). These interfaces live in `engine.spi` for package-boundary reasons but are not part of the shipped SPI surface. The trajectory's **wire surface is NOT internal**: the A2A metadata keys, the artifact name, and the event payload shape cross the process boundary to A2A callers and are a published contract — see *Northbound trajectory wire contract* below.
+Trajectory observability plumbing — `TrajectoryEmitter`, `TrajectorySource`, `TrajectorySink`, `TrajectorySinkFactory` — is internal **(internal)** as a Java seam only: per-invocation, emit-only telemetry interfaces between the runtime executor and the adapter bases (events are never read back; the runtime stays the source of truth). These interfaces live in `engine.spi` for package-boundary reasons but are not part of the shipped SPI surface. The trajectory's **wire surface is NOT internal**: the A2A metadata keys, the artifact name, and the event payload shape cross the process boundary to A2A callers and are a published contract — see *Northbound trajectory wire contract* below.
+
+Trajectory-enrichment hooks `Redactor` and `CostCalculator` in `engine.spi` are **(internal)** post-emit enrichment points: they operate within the single emitter `synchronized` block and are never shipped as a public extension SPI — callers configure them only through `TrajectoryProperties` / `RuntimeAutoConfiguration`. Similarly `PayloadRefStore` in `engine.spi` is **(internal)** as a trajectory-emission-side write-only store: it is wired exclusively from `RuntimeAutoConfiguration` and exposes no public extension point beyond the same-package boot layer.
 
 **Northbound trajectory wire contract (A2A):**
 
-Source of truth for the payload version: `TrajectoryEvent.SCHEMA_VERSION` (`agent-runtime`, `com.huawei.ascend.runtime.engine.spi`) — currently `"2"`; the constant's javadoc links back to this entry and both bump in lockstep. Enforced by `A2aAgentExecutorTest` (northbound delivery + opt-in/opt-out) and `A2aNorthboundSinkTest` (truncation marker + terminal retention).
+Source of truth for the payload version: `TrajectoryEvent.SCHEMA_VERSION` (`agent-runtime`, `com.huawei.ascend.runtime.engine.spi`) — currently `"3"`; the constant's javadoc links back to this entry and both bump in lockstep. Enforced by `A2aAgentExecutorTest` (northbound delivery + opt-in/opt-out) and `A2aNorthboundSinkTest` (truncation marker + terminal retention).
 
 | Wire surface | Value | Semantics |
 |---|---|---|
@@ -61,29 +63,31 @@ Source of truth for the payload version: `TrajectoryEvent.SCHEMA_VERSION` (`agen
 | Artifact name `agent-trajectory` (artifactId `<taskId>-trajectory`) | one closing artifact of `DataPart`s | The buffered, masked trajectory of the whole run (including remote resume/continuation legs through their `RUN_END`), delivered on the execute thread before the task's terminal state; distinct from the answer's `agent-response` / `<taskId>-response` stream |
 | Truncation marker | `{kind: "TRUNCATED", droppedCount: N}` | Appended as the artifact's final `DataPart` when the per-invocation buffer (10,000 events) shed load; the last 16 slots are reserved for terminal kinds (`RUN_END`/`ERROR`) so a cut trajectory still closes with its outcome |
 
-Schema v2 per-event `DataPart` fields (serialized by `A2aNorthboundSink`; `attempt`/`retryable` exist on the Java record but are not serialized northbound):
+Schema v3 per-event `DataPart` fields (serialized by `A2aNorthboundSink` and, identically, by the NDJSON structured-log rail `NdjsonTrajectorySink`; `attempt`/`retryable` exist on the Java record but are not serialized northbound):
 
 | Field | Type | Notes |
 |---|---|---|
 | `seq` | long | Monotonic step order per leg, assigned by the runtime |
-| `kind` | string | `RUN_START` `RUN_END` `MODEL_CALL_START` `MODEL_CALL_END` `TOOL_CALL_START` `TOOL_CALL_END` `REASONING` `ERROR` `PROGRESS` |
+| `kind` | string | `RUN_START` `RUN_END` `MODEL_CALL_START` `MODEL_CALL_END` `MODEL_CALL_FIRST_TOKEN` `TOOL_CALL_START` `TOOL_CALL_END` `REASONING` `ERROR` `PROGRESS` |
 | `tsEpochMillis` | long | Event wall-clock time |
-| `durationMs` | long \| null | Elapsed on `_END` events; null on `_START`/point kinds |
+| `durationMs` | long \| null | Elapsed on `_END` events; time-to-first-token on `MODEL_CALL_FIRST_TOKEN`; null on `_START` / other point kinds |
 | `traceId` / `spanId` / `parentSpanId` | string \| null | Span-tree correlation (`traceId` = `taskId`); pair `_START`/`_END` by `spanId` |
 | `tenantId` / `contextId` / `taskId` | string | Layered correlation: owning tenant → conversation/session → one call |
 | `object` / `name` | string \| null | Subject of the step (e.g. tool or model name) |
-| `args` / `result` | object \| null | Masked + truncated payloads (`TrajectoryMasking`) |
-| `usage` | object \| null | Token/latency/model telemetry aligned to OpenTelemetry `gen_ai.usage.*` |
-| `error` | object \| null | `{code, message}`; message masked |
+| `args` / `result` | object \| null | Masked + truncated payloads (`TrajectoryMasking`); when a payload exceeds `truncateChars` and `PayloadRefStore` is configured, replaced by `{"payload_ref": "payload_ref://<sha256>"}` |
+| `usage` | object \| null | `{inputTokens, outputTokens, latencyMs, model, provider, costMicros}` aligned to OpenTelemetry `gen_ai.usage.*`; `provider` = `gen_ai.system`, `costMicros` = computed token cost in millionths of a currency unit |
+| `error` | object \| null | `{code, message, category}`; message masked; `code` is free-text, `category` is the stable `ErrorCategory` aligned to `gen_ai.error.type` |
 | `reasoning` | string \| null | Masked + truncated free-text reasoning |
-| `schemaVersion` | string | `"2"` = `TrajectoryEvent.SCHEMA_VERSION` |
+| `finishReason` | string \| null | Model completion reason (= `gen_ai.response.finish_reasons`); populated on `MODEL_CALL_END` |
+| `parentTaskId` / `parentTraceId` | string \| null | Cross-run linkage to the caller's run (the caller's `taskId`; `traceId` = `taskId` so the two are equal); null for a root run, populated from inbound A2A `parentTaskId`/`parentContextId` metadata |
+| `schemaVersion` | string | `"3"` = `TrajectoryEvent.SCHEMA_VERSION` |
 
 **SPI count by module (shipped surface; the agent-runtime SPI surface is `AgentRuntimeHandler` + `MemoryProvider` + `StreamAdapter` in the framework-neutral `engine.spi` package plus `AgentCardProvider` in the `engine.a2a` protocol-bridge package):**
 
 | Module | SPI interfaces |
 |---|---|
 | `agent-service` | 0 — serviceization façade skeleton; registration/discovery SPI deferred to a dedicated ADR (ADR-0159) |
-| `agent-runtime` | 4 (`AgentRuntimeHandler`, `AgentCardProvider`, `MemoryProvider`, `StreamAdapter`) |
+| `agent-runtime` | 5 (`AgentRuntimeHandler`, `AgentCardProvider`, `MemoryProvider`, `StreamAdapter`, `PayloadRefStore`) |
 | `agent-bus` | 8 (`IngressGateway`, `S2cCallbackTransport`, `ReflectionEnvelopeRouter`, `FederationGateway`, `Checkpointer`, `Orchestrator`, `EnginePort`, `DefinitionResolver`) |
 
 **Per-SPI tenant scope (canonical post-ADR-0044):**

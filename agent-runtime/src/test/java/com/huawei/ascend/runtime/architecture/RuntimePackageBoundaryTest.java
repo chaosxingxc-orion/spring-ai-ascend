@@ -28,6 +28,7 @@ class RuntimePackageBoundaryTest {
                         "com.huawei.ascend.runtime.engine",
                         "com.huawei.ascend.runtime.engine.a2a..",
                         "com.huawei.ascend.runtime.engine.agentscope..",
+                        "com.huawei.ascend.runtime.engine.log..",
                         "com.huawei.ascend.runtime.engine.openjiuwen..",
                         "com.huawei.ascend.runtime.engine.otel..",
                         "com.huawei.ascend.runtime.engine.versatile..",

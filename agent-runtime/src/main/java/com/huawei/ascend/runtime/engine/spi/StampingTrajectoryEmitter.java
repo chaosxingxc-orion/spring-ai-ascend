@@ -6,6 +6,7 @@ import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -35,8 +36,11 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
     private final String tenantId;
     private final String contextId;
     private final String taskId;
+    private final String parentTaskId;
+    private final String parentTraceId;
     private final TrajectorySettings settings;
     private final Set<Kind> supportedKinds;
+    private final boolean sampled;
     private long seq;
     private final Deque<SpanFrame> spanStack = new ArrayDeque<>();
 
@@ -46,13 +50,21 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
         this.tenantId = scope != null ? scope.tenantId() : null;
         this.contextId = scope != null ? scope.sessionId() : null;
         this.taskId = scope != null ? scope.taskId() : null;
+        this.parentTaskId = scope != null ? scope.parentTaskId() : null;
+        // traceId == taskId in this model, so the parent's traceId is its taskId.
+        this.parentTraceId = this.parentTaskId;
         this.settings = settings;
         this.supportedKinds = supportedKinds;
+        // Head sampling: one Bernoulli draw decides the whole invocation, so a sampled-out run
+        // drops every event (no torn span trees) and a kept run is complete. sampleRate >= 1.0
+        // short-circuits the RNG for the common full-trajectory case.
+        this.sampled = settings == null || settings.sampleRate() >= 1.0
+                || ThreadLocalRandom.current().nextDouble() < settings.sampleRate();
     }
 
     @Override
     public synchronized void emit(TrajectoryDraft draft) {
-        if (draft == null) {
+        if (draft == null || !sampled) {
             return;
         }
         Kind kind = draft.kind();
@@ -64,13 +76,11 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
         if (!publish) {
             return;
         }
-        Object args = TrajectoryMasking.mask(draft.args(),
-                settings.maskKeyPattern(), settings.truncateChars());
-        Object result = TrajectoryMasking.mask(draft.result(),
-                settings.maskKeyPattern(), settings.truncateChars());
-        Object reasoning = TrajectoryMasking.mask(draft.reasoning(),
-                settings.maskKeyPattern(), settings.truncateChars());
+        Object args = externalizeOrMask(draft.args());
+        Object result = externalizeOrMask(draft.result());
+        Object reasoning = externalizeOrMask(draft.reasoning());
         ErrorInfo error = maskError(draft.error());
+        TrajectoryEvent.Usage usage = enrichUsage(draft.usage());
         sink.accept(new TrajectoryEvent(
                 seq++,
                 kind,
@@ -86,11 +96,14 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
                 draft.name(),
                 args,
                 result,
-                draft.usage(),
+                usage,
                 draft.attempt(),
                 draft.retryable(),
                 error,
                 reasoning != null ? String.valueOf(reasoning) : null,
+                draft.finishReason(),
+                parentTaskId,
+                parentTraceId,
                 TrajectoryEvent.SCHEMA_VERSION));
     }
 
@@ -120,18 +133,30 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
                 }
                 yield new SpanInfo(newSpanId(), currentPublishedSpanId(), null);
             }
+            case MODEL_CALL_FIRST_TOKEN -> {
+                // Point event whose durationMs carries the time-to-first-token, measured from
+                // the enclosing open span's start (the model call, or the run when no model span).
+                SpanFrame enclosing = nearestPublishedFrame();
+                yield new SpanInfo(newSpanId(), enclosing != null ? enclosing.spanId() : null,
+                        enclosing != null ? now - enclosing.startMillis() : null);
+            }
             default -> new SpanInfo(newSpanId(), currentPublishedSpanId(), null);
         };
     }
 
     /** Nearest open span that was itself emitted — skips capability-filtered ancestors. */
-    private String currentPublishedSpanId() {
+    private SpanFrame nearestPublishedFrame() {
         for (SpanFrame frame : spanStack) {
             if (frame.published()) {
-                return frame.spanId();
+                return frame;
             }
         }
         return null;
+    }
+
+    private String currentPublishedSpanId() {
+        SpanFrame frame = nearestPublishedFrame();
+        return frame != null ? frame.spanId() : null;
     }
 
     /** Pops the matching open START (top first, else nearest below) — tolerant of unbalanced ends. */
@@ -171,13 +196,62 @@ public final class StampingTrajectoryEmitter implements TrajectoryEmitter {
 
     private record SpanInfo(String spanId, String parentSpanId, Long durationMs) {}
 
-    /** Free-text error messages can embed secrets; run the message through the same masker. */
+    /** Free-text error messages can embed secrets; run the message through the same masker/externalizer. */
     private ErrorInfo maskError(ErrorInfo error) {
         if (error == null || error.message() == null) {
             return error;
         }
-        Object masked = TrajectoryMasking.mask(error.message(),
-                settings.maskKeyPattern(), settings.truncateChars());
-        return new ErrorInfo(error.code(), masked != null ? String.valueOf(masked) : null);
+        Object processed = externalizeOrMask(error.message());
+        String processedStr = processed != null ? String.valueOf(processed) : null;
+        return new ErrorInfo(error.code(), processedStr, error.category());
+    }
+
+    /**
+     * Externalizes oversized string payloads via {@link PayloadRefStore} (when configured),
+     * then applies key masking + value redaction on the remainder. For non-string values or
+     * when the store is null, falls through to normal mask → truncate → redact. Fail-safe
+     * on store write failure: falls back to truncation rather than failing the run.
+     */
+    private Object externalizeOrMask(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        PayloadRefStore store = settings != null ? settings.payloadRefStore() : null;
+        if (store != null && raw instanceof CharSequence cs) {
+            String s = cs.toString();
+            if (settings.truncateChars() > 0 && s.length() > settings.truncateChars()) {
+                try {
+                    return Map.of("payload_ref", store.put(s));
+                } catch (RuntimeException ignored) {
+                    // Store write failed: fall through to truncation
+                }
+            }
+        }
+        return redact(TrajectoryMasking.mask(raw, settings != null ? settings.maskKeyPattern() : null,
+                settings != null ? settings.truncateChars() : 0));
+    }
+
+    /** Value-level redaction on top of key masking; fail-closed so a faulty redactor cannot leak. */
+    private Object redact(Object masked) {
+        if (masked == null) {
+            return null;
+        }
+        try {
+            return settings.redactor().redact(masked);
+        } catch (RuntimeException e) {
+            return Redactor.REDACTED;
+        }
+    }
+
+    /** Fill model-call provider/cost; a faulty calculator leaves the usage untouched. */
+    private TrajectoryEvent.Usage enrichUsage(TrajectoryEvent.Usage usage) {
+        if (usage == null) {
+            return null;
+        }
+        try {
+            return settings.costCalculator().enrich(usage);
+        } catch (RuntimeException e) {
+            return usage;
+        }
     }
 }
