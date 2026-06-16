@@ -124,7 +124,7 @@ exp.recall(collaborationSignature, limit);
 ```
 经验层**按 tenantId + 任务签名(能力组合/任务类型)**索引,**不按 user**;是协作域的长期记忆,区别于 per-user。
 
-### 4.3 横切 memory rails(企业级电池,kit 内置兜)
+### 4.3 横切 memory rails(开箱即用的企业级能力,kit 内置兜底)
 | Rail | 职责 |
 |---|---|
 | `ScopeIsolationRail` | 每次调用强制带 tenantId+userId;隔离不可绕过 |
