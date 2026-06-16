@@ -76,6 +76,9 @@
     <!-- Test parallelization toggle (T1.1). Override with -DjunitParallel=false
          to debug suspected concurrency-related test failures. -->
     <junitParallel>true</junitParallel>
+
+    <!-- Private repository host (override with -Dlocalmvn.host=newip:newport). -->
+    <localmvn.host>127.0.0.1:8081</localmvn.host>
   </properties>
 
   <dependencyManagement>
@@ -295,6 +298,14 @@
   </dependencyManagement>
 
   <repositories>
+    <!-- Private repository (group of releases + snapshots). -->
+    <repository>
+      <id>spring-ai-ascend-public</id>
+      <name>Spring AI Ascend Public Repository</name>
+      <url>http://${localmvn.host}/repository/spring-ai-ascend-public/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>true</enabled></snapshots>
+    </repository>
     <!-- Spring Milestones for Spring AI 2.0-M5 (not yet on Maven Central). -->
     <repository>
       <id>spring-milestones</id>
@@ -312,6 +323,19 @@
       <snapshots><enabled>false</enabled></snapshots>
     </pluginRepository>
   </pluginRepositories>
+
+  <distributionManagement>
+    <repository>
+      <id>spring-ai-ascend-releases</id>
+      <name>Spring AI Ascend Releases</name>
+      <url>http://${localmvn.host}/repository/spring-ai-ascend-releases/</url>
+    </repository>
+    <snapshotRepository>
+      <id>spring-ai-ascend-snapshots</id>
+      <name>Spring AI Ascend Snapshots</name>
+      <url>http://${localmvn.host}/repository/spring-ai-ascend-snapshots/</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <build>
     <pluginManagement>

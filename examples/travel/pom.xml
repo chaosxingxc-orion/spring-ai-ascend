@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  examples/travel parent + aggregator POM.
+
+  Fully decoupled from the repository root: it inherits only the standard
+  spring-boot-starter-parent (resolved from m2 / Maven Central) and resolves
+  com.huawei.ascend:agent-runtime plus the openJiuwen agent framework from the
+  local m2 repo. There is no <relativePath> back to the root pom and no
+  dependency on spring-ai-ascend-parent.
+
+  It is both an inheritance parent (provides groupId/version/dependency
+  management for the six sub-modules) and a reactor aggregator (so the whole
+  example set builds with `mvn -f examples/travel/pom.xml <goal>`).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.0.5</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.huawei.ascend.examples</groupId>
+  <artifactId>travel-parent</artifactId>
+  <version>0.2.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>spring-ai-ascend travel examples parent</name>
+  <description>
+    Parent + aggregator for the corporate-travel example set: the library
+    agents (agent-hotel, agent-travel-mainplan, agent-trip) and their A2A
+    runtime wrappers (agent-hotel-a2a, agent-travel-mainplan-a2a,
+    agent-trip-a2a). Resolves agent-runtime from m2; carries no link to the
+    repository root.
+  </description>
+
+  <properties>
+    <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <!-- Released artifacts consumed from the local m2 repo. Pinned explicitly
+         (never ${project.version}) so they never resolve to these examples'
+         own 0.1.0-SNAPSHOT version, which is absent from m2. -->
+    <ascend.runtime.version>0.2.0-SNAPSHOT</ascend.runtime.version>
+    <!-- openJiuwen agent framework is external and not in the Spring Boot BOM. -->
+    <openjiuwen.agent-core.version>0.1.12-jdk17</openjiuwen.agent-core.version>
+    <!-- protobuf 4.x is required by a2a-sdk's generated classes (see dependencyManagement). -->
+    <protobuf.version>4.33.2</protobuf.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- agent-runtime: published release in m2. The Spring Boot BOM already
+           manages spring-boot-starter-web/test, jackson, junit, etc., so only
+           the artifacts Boot does NOT manage are declared here. -->
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>agent-runtime</artifactId>
+        <version>${ascend.runtime.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.openjiuwen</groupId>
+        <artifactId>agent-core-java</artifactId>
+        <version>${openjiuwen.agent-core.version}</version>
+      </dependency>
+
+      <!-- Pin protobuf to 4.x: agent-runtime → a2a-sdk ships protoc-generated
+           classes (e.g. AgentCard) whose <clinit> reference internal types that
+           only exist in protobuf 4.x (RuntimeVersion$RuntimeDomain). The Spring
+           Boot BOM does not manage protobuf-java, so without this pin grpc's
+           transitive protobuf-java 3.25.5 wins and the generated classes throw
+           NoClassDefFoundError at runtime. -->
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>${protobuf.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java-util</artifactId>
+        <version>${protobuf.version}</version>
+      </dependency>
+
+      <!-- Sibling example libraries share the examples' own version. -->
+      <dependency>
+        <groupId>com.huawei.ascend.examples</groupId>
+        <artifactId>agent-travel-hotel</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend.examples</groupId>
+        <artifactId>agent-travel-trip</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <!-- spring-ai 2.0-M5 and the a2a-sdk CR artifacts (pulled transitively via
+       agent-runtime) are not on Maven Central. The local cache and the
+       settings.xml mirror already cover these; this declaration is a
+       portability safety net for a clean cache and does not conflict with the
+       mirror. Spring Boot 4.0.5 itself is GA. -->
+  <repositories>
+    <repository>
+      <id>spring-milestones</id>
+      <name>Spring Milestones</name>
+      <url>https://repo.spring.io/milestone</url>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+  </repositories>
+
+  <modules>
+    <module>agent-hotel</module>
+    <module>agent-travel-mainplan</module>
+    <module>agent-trip</module>
+    <module>agent-hotel-a2a</module>
+    <module>agent-travel-mainplan-a2a</module>
+    <module>agent-trip-a2a</module>
+  </modules>
+</project>

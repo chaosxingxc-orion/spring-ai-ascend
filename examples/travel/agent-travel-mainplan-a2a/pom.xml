@@ -11,26 +11,34 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>agent-trip-a2a</artifactId>
+  <artifactId>agent-travel-mainplan-a2a</artifactId>
   <packaging>jar</packaging>
-  <name>spring-ai-ascend agent-trip a2a</name>
+  <name>spring-ai-ascend agent-travel-mainplan-a2a example</name>
   <description>
-    Refactored trip planning agent: single Spring Boot module hosting openJiuwen ReAct
-    on agent-runtime with A2A exposure. Replaces agent-trip + agent-trip-a2a when complete.
+    Spring Boot wrapper that hosts the Travel Main Plan Agent as a runtime-managed
+    A2A service. Uses AgentRuntimeHandler to expose the ReActAgent
+    through the A2A JSON-RPC endpoint. agent-runtime resolves from m2 (0.1.0).
   </description>
 
   <dependencies>
+    <!-- agent-runtime version managed by travel-parent → 0.1.0 from m2. -->
     <dependency>
       <groupId>com.huawei.ascend</groupId>
       <artifactId>agent-runtime</artifactId>
     </dependency>
+    <!-- openJiuwen agent framework version managed by travel-parent. -->
     <dependency>
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>
     </dependency>
+    <!-- jackson + web/test versions managed by Spring Boot BOM. -->
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -46,15 +54,10 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>3.6.2</version>
-      </plugin>
-      <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
-          <mainClass>com.huawei.ascend.examples.trip.a2a.TripAgentApplication</mainClass>
+          <mainClass>com.huawei.ascend.examples.travel.mainplan.a2a.MainPlanAgentApplication</mainClass>
         </configuration>
         <executions>
           <execution>
