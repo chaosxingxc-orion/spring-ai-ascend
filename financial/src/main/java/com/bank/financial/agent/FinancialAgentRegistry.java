@@ -6,6 +6,7 @@ import com.bank.financial.kit.DeclarativeFinancialAgentHandler;
 import com.bank.financial.kit.ModelConnection;
 import com.bank.financial.kit.spec.AgentDefinition;
 import com.bank.financial.kit.spec.AgentDefinitionLoader;
+import com.bank.financial.research.ResearchReportAgent;
 import com.bank.financial.templates.AmlScreeningAgent;
 import com.bank.financial.templates.CreditCardServicingAgent;
 import com.bank.financial.templates.DepositAdvisorAgent;
@@ -45,6 +46,8 @@ public final class FinancialAgentRegistry {
         JAVA.put(RetailWealthAdvisorAgent.ID, () -> new RetailWealthAdvisorAgent(ModelConnection.forTier("smart")));
         JAVA.put(PrivateBankingRmCopilotAgent.ID,
                 () -> new PrivateBankingRmCopilotAgent(ModelConnection.forTier("smart")));
+        // Multi-agent research-report engine (facade over the research/ orchestration).
+        JAVA.put(ResearchReportAgent.ID, () -> new ResearchReportAgent(ModelConnection.forTier("smart")));
     }
 
     private FinancialAgentRegistry() {
