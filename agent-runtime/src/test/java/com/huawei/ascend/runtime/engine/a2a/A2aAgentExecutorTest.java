@@ -763,8 +763,55 @@ class A2aAgentExecutorTest {
                 .execute(requestContext(), emitter);
 
         assertThat(outbound.requests).hasSize(1);
-        assertThat(outbound.requests.get(0).message()).isEqualTo("hello remote");
+        RemoteAgentInvocationService.RemoteAgentRequest request = outbound.requests.get(0);
+        assertThat(request.message()).isEqualTo("hello remote");
+        assertThat(request.arguments())
+                .containsEntry("tenantId", "tenant-a")
+                .containsEntry("userId", "user-a")
+                .containsEntry("agentId", "agent-x");
         verify(emitter).complete(any(Message.class));
+    }
+
+    @Test
+    void remoteInvocationForwardsRequestMetadataAndDoesNotLetMessageMetadataOverwriteIt() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of("remote"));
+        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> remoteInterrupt(
+                new AgentExecutionResult.RemoteInvocation(
+                        "remote-agent", "remote-agent", "tool-call-1",
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "hello remote")))));
+        RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of(
+                remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED, "remote done")));
+
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of(
+                "tenantId", "tenant-a",
+                "userId", "user-a",
+                "agentId", "agent-x",
+                "memoryScope", "memory:tenant-a:user-a"));
+        when(ctx.getMessage()).thenReturn(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .parts(List.<Part<?>>of(new TextPart("hi")))
+                .metadata(Map.of(
+                        "tenantId", "message-tenant",
+                        "userId", "message-user",
+                        "intent", "book-hotel"))
+                .build());
+
+        new A2aAgentExecutor(handler, new RemoteAgentInvocationService(outbound))
+                .execute(ctx, newEmitter());
+
+        assertThat(outbound.requests).hasSize(1);
+        assertThat(outbound.requests.get(0).arguments())
+                .containsEntry("tenantId", "tenant-a")
+                .containsEntry("userId", "user-a")
+                .containsEntry("agentId", "agent-x")
+                .containsEntry("memoryScope", "memory:tenant-a:user-a")
+                .containsEntry("intent", "book-hotel");
+        assertThat(outbound.requests.get(0).arguments())
+                .doesNotContainEntry("tenantId", "message-tenant")
+                .doesNotContainEntry("userId", "message-user");
     }
 
     @Test
@@ -897,6 +944,10 @@ class A2aAgentExecutorTest {
         assertThat(request.remoteContextId()).isEqualTo("remote-ctx-1");
         assertThat(request.toolCallId()).isEqualTo("tool-call-1");
         assertThat(request.message()).isEqualTo("user follow-up");
+        assertThat(request.arguments())
+                .containsEntry("tenantId", "tenant-a")
+                .containsEntry("userId", "user-a")
+                .containsEntry("agentId", "agent-x");
         verify(emitter).complete(any(Message.class));
     }
 
