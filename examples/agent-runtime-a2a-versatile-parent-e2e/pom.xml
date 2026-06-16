@@ -29,7 +29,7 @@
     <dependency>
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>
-      <version>0.1.12</version>
+      <version>${openjiuwen.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>
