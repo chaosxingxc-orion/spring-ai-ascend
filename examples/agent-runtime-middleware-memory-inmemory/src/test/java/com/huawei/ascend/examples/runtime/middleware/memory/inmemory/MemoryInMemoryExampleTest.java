@@ -7,12 +7,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -49,7 +52,9 @@ class MemoryInMemoryExampleTest {
         assertThat(provider.records(greenTeaUserContext))
                 .extracting(MemoryProvider.MemoryRecord::content)
                 .contains("the user prefers green tea", "What drink does the user prefer?");
-        assertThat(judgeAnswer(agentOutputs)).contains("PASS");
+        String agentAnswer = renderAgentAnswer(agentOutputs);
+        assertThat(agentAnswer).containsIgnoringCase("green tea");
+        assertThat(judgeAnswer(agentAnswer)).contains("PASS");
     }
 
     private static MemoryProvider.MemoryRecord record(String content) {
@@ -65,8 +70,60 @@ class MemoryInMemoryExampleTest {
         return hasText(value) ? value : fallback;
     }
 
-    private static String judgeAnswer(List<?> agentOutputs) throws Exception {
-        String agentAnswer = agentOutputs.toString();
+    private static String renderAgentAnswer(List<?> agentOutputs) {
+        return agentOutputs.stream()
+                .map(MemoryInMemoryExampleTest::renderOutput)
+                .filter(MemoryInMemoryExampleTest::hasText)
+                .collect(Collectors.joining("\n"));
+    }
+
+    private static String renderOutput(Object output) {
+        if (output == null) {
+            return "";
+        }
+        if (output instanceof CharSequence text) {
+            return text.toString();
+        }
+        for (String methodName : List.of("content", "getContent", "text", "getText", "output", "getOutput")) {
+            String value = invokeTextAccessor(output, methodName);
+            if (hasText(value)) {
+                return value;
+            }
+        }
+        for (String fieldName : List.of("payload", "content", "text", "output")) {
+            String value = readTextField(output, fieldName);
+            if (hasText(value)) {
+                return value;
+            }
+        }
+        return String.valueOf(output);
+    }
+
+    private static String invokeTextAccessor(Object output, String methodName) {
+        try {
+            Method method = output.getClass().getMethod(methodName);
+            if (method.getParameterCount() != 0) {
+                return "";
+            }
+            Object value = method.invoke(output);
+            return value instanceof CharSequence text ? text.toString() : String.valueOf(value);
+        } catch (ReflectiveOperationException | SecurityException ignored) {
+            return "";
+        }
+    }
+
+    private static String readTextField(Object output, String fieldName) {
+        try {
+            Field field = output.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            Object value = field.get(output);
+            return value instanceof CharSequence text ? text.toString() : String.valueOf(value);
+        } catch (ReflectiveOperationException | SecurityException ignored) {
+            return "";
+        }
+    }
+
+    private static String judgeAnswer(String agentAnswer) throws Exception {
         Map<String, Object> judgeRequest = Map.of(
                 "model", envOrDefault("SAA_SAMPLE_LLM_MODEL", "deepseek-chat"),
                 "temperature", 0,
