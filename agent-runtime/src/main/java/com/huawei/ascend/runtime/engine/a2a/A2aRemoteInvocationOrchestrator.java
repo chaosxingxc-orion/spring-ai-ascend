@@ -193,18 +193,7 @@ final class A2aRemoteInvocationOrchestrator {
      * remote agent. Message metadata is retained as a legacy/business fallback,
      * but it must not overwrite request-level runtime metadata.
      */
-    private static Map<String, Object> outboundMetadata(RequestContext ctx) {
-        java.util.LinkedHashMap<String, Object> metadata = new java.util.LinkedHashMap<>();
-        Map<String, Object> requestMd = ctx.getMetadata();
-        if (requestMd != null) {
-            metadata.putAll(requestMd);
-        }
-        if (ctx.getMessage() != null) {
-            Map<String, Object> md = ctx.getMessage().metadata();
-            if (md != null) {
-                md.forEach(metadata::putIfAbsent);
-            }
-        }
-        return Map.copyOf(metadata);
+    private Map<String, Object> outboundMetadata(RequestContext ctx) {
+        return A2aAgentExecutor.normalizedMetadata(ctx, agentId);
     }
 }

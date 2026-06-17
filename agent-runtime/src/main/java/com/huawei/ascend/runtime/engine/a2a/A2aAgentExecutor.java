@@ -390,6 +390,16 @@ public final class A2aAgentExecutor implements AgentExecutor {
      * runtime identity or middleware scope.
      */
     private Map<String, Object> mergeVariables(RequestContext ctx) {
+        Map<String, Object> merged = normalizedMetadata(ctx, handler.agentId());
+        String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
+        LOG.info("[A2A] request received taskId={} sessionId={} textLen={} metadataKeys={}",
+                ctx.getTaskId(), sessionId,
+                ctx.getMessage() != null ? Messages.text(ctx.getMessage()).length() : 0,
+                merged.keySet());
+        return merged;
+    }
+
+    static Map<String, Object> normalizedMetadata(RequestContext ctx, String handlerAgentId) {
         java.util.LinkedHashMap<String, Object> vars = new java.util.LinkedHashMap<>();
         Map<String, Object> requestMd = ctx.getMetadata();
         if (requestMd != null) {
@@ -405,7 +415,10 @@ public final class A2aAgentExecutor implements AgentExecutor {
         String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
         String tenantId = metadata(ctx, TENANT_STATE_KEY, "default");
         String userId = metadata(ctx, USER_ID_METADATA, "system");
-        String agentId = metadata(ctx, AGENT_ID_METADATA, handler.agentId());
+        String agentId = metadata(ctx, AGENT_ID_METADATA, handlerAgentId);
+        putIfBlank(vars, TENANT_STATE_KEY, tenantId);
+        putIfBlank(vars, USER_ID_METADATA, userId);
+        putIfBlank(vars, AGENT_ID_METADATA, agentId);
         String agentStateKey = metadata(ctx, AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, null);
         if (!hasText(agentStateKey)) {
             agentStateKey = metadata(ctx, AgentExecutionContext.STATE_KEY_VARIABLE, null);
@@ -414,20 +427,15 @@ public final class A2aAgentExecutor implements AgentExecutor {
             agentStateKey = defaultAgentStateKey(tenantId, agentId, sessionId);
         }
         vars.put(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, agentStateKey);
-        vars.putIfAbsent(MEMORY_SCOPE_METADATA, defaultMemoryScope(tenantId, userId));
-        vars.putIfAbsent(CORRELATION_ID_METADATA, firstText(
+        putIfBlank(vars, MEMORY_SCOPE_METADATA, defaultMemoryScope(tenantId, userId));
+        putIfBlank(vars, CORRELATION_ID_METADATA, firstText(
                 metadata(ctx, CORRELATION_ID_METADATA, null),
                 ctx.getMessage() != null ? ctx.getMessage().messageId() : null,
                 ctx.getTaskId()));
-        vars.putIfAbsent(TRACE_ID_METADATA, firstText(
+        putIfBlank(vars, TRACE_ID_METADATA, firstText(
                 metadata(ctx, TRACE_ID_METADATA, null),
                 asString(vars.get(CORRELATION_ID_METADATA))));
-        Map<String, Object> merged = Map.copyOf(vars);
-        LOG.info("[A2A] request received taskId={} sessionId={} textLen={} metadataKeys={}",
-                ctx.getTaskId(), sessionId,
-                ctx.getMessage() != null ? Messages.text(ctx.getMessage()).length() : 0,
-                merged.keySet());
-        return merged;
+        return Map.copyOf(vars);
     }
 
     private static String extractText(RequestContext ctx) {
@@ -478,6 +486,12 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
     private static String defaultMemoryScope(String tenantId, String userId) {
         return "memory:" + tenantId + ":" + userId;
+    }
+
+    private static void putIfBlank(Map<String, Object> values, String key, String value) {
+        if (!hasText(values.get(key))) {
+            values.put(key, value);
+        }
     }
 
     private static String firstText(String... values) {

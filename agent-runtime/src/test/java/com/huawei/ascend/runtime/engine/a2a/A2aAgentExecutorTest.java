@@ -86,6 +86,33 @@ class A2aAgentExecutorTest {
         assertThat(captor.getValue().getAgentStateKey()).isEqualTo("state:tenant-a:agent-x:ctx-1");
     }
 
+    @Test
+    void missingTenantStillBuildsDefaultRuntimeMetadata() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of());
+
+        new A2aAgentExecutor(handler).execute(ctx, newEmitter());
+
+        ArgumentCaptor<AgentExecutionContext> captor = ArgumentCaptor.forClass(AgentExecutionContext.class);
+        verify(handler).execute(captor.capture());
+        AgentExecutionContext context = captor.getValue();
+        assertThat(context.getScope().tenantId()).isEqualTo("default");
+        assertThat(context.getScope().userId()).isEqualTo("system");
+        assertThat(context.getScope().agentId()).isEqualTo("agent-x");
+        assertThat(context.getAgentStateKey()).isEqualTo("state:default:agent-x:ctx-1");
+        assertThat(context.getVariables())
+                .containsEntry("tenantId", "default")
+                .containsEntry("userId", "system")
+                .containsEntry("agentId", "agent-x")
+                .containsEntry("memoryScope", "memory:default:system");
+    }
+
     /** Request-level metadata is the tenant contract; transport/header tenant is not special. */
     @Test
     void requestMetadataTenantOutranksTransportAndParamsTenant() {
@@ -812,6 +839,33 @@ class A2aAgentExecutorTest {
         assertThat(outbound.requests.get(0).arguments())
                 .doesNotContainEntry("tenantId", "message-tenant")
                 .doesNotContainEntry("userId", "message-user");
+    }
+
+    @Test
+    void remoteInvocationForwardsDefaultRuntimeMetadataWhenTenantMissing() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of("remote"));
+        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> remoteInterrupt(
+                new AgentExecutionResult.RemoteInvocation(
+                        "remote-agent", "remote-agent", "tool-call-1",
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "hello remote")))));
+        RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of(
+                remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED, "remote done")));
+
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of());
+
+        new A2aAgentExecutor(handler, new RemoteAgentInvocationService(outbound))
+                .execute(ctx, newEmitter());
+
+        assertThat(outbound.requests).hasSize(1);
+        assertThat(outbound.requests.get(0).arguments())
+                .containsEntry("tenantId", "default")
+                .containsEntry("userId", "system")
+                .containsEntry("agentId", "agent-x")
+                .containsEntry("agentStateKey", "state:default:agent-x:ctx-1")
+                .containsEntry("memoryScope", "memory:default:system");
     }
 
     @Test
