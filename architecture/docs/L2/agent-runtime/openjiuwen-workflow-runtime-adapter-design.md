@@ -93,11 +93,13 @@ public abstract class OpenJiuwenWorkflowAgentRuntimeHandler
      */
     protected abstract Workflow createOpenJiuwenWorkflow(AgentExecutionContext context);
 
-    /** 返回此 Workflow 对外暴露的 skills（用于 Agent Card 生成和邻接发现）。 */
-    protected List<Skill> openJiuwenWorkflowSkills() { return List.of(); }
-
-    // 基类管理的字段
-    // - sessionId → WorkflowSessionApi 映射（按 context.agentStateKey 恢复）
+    // 基类管理的内部状态:
+    // - sessionId → 按 context.agentStateKey 关联，初次执行创建，恢复时复用
+    // - 当前 Workflow 实例引用（每次 execute() 通过 createOpenJiuwenWorkflow() 重建）
+    //
+    // Skills 声明: 不在 Handler 层——沿用已有模式，通过 YAML 配置:
+    //   agent-runtime.access.a2a.agent-card.skills
+    // 与 ReActAgent 一致，skills 是 Agent Card 元数据，不是 Workflow 结构的一部分。
 }
 ```
 
@@ -187,97 +189,284 @@ AgentRuntimeHandler            AbstractAgentRuntimeHandler
 
 ## 4. 核心设计
 
-### 4.1 Workflow 执行流程
+### 4.1 中断捕获机制
+
+Workflow 中断由 QuestionerComponent 在 Workflow 图引擎内部触发。完整链路：
 
 ```
-A2A 请求到达
+QuestionerExecutable.invoke()
+  │
+  ├─ state.handleEvent(START_EVENT) → START → USER_INTERACT
+  ├─ session.interact(questionText)           // NodeSessionApi
+  │     └─ WorkflowInteraction.waitUserInputs()
+  │           ├─ 写 OutputSchema(type="__interaction__", payload=InteractionOutput)
+  │           │     到 graph output stream
+  │           └─ throw GraphInterrupt          // 中断信号
   │
   ▼
-A2aAgentExecutor
+Vertex.doAtomicInvoke() (line 205)
+  ├─ catch RuntimeException → unwrap GraphInterrupt
+  ├─ 保存 checkpoint: session.saveCheckpoint(graphState)
+  └─ re-throw GraphInterrupt
   │
-  ├─ handler.execute(context) → Stream<?> raw
-  │     │
-  │     ▼ OpenJiuwenWorkflowAgentRuntimeHandler.doExecute()
-  │     ├─ createOpenJiuwenWorkflow(context) → Workflow  (每次执行构建新实例)
-  │     ├─ 初始化 WorkflowSessionApi(sessionId)
-  │     ├─ 构造初始 inputs: Map.of("query", context.userMessage.text)
-  │     │
-  │     ├─ while(true):
-  │     │    output = workflow.invoke(currentInputs, session, null)
-  │     │    │
-  │     │    ├─ COMPLETED  → emit OUTPUT chunk + COMPLETED → break
-  │     │    ├─ INPUT_REQUIRED
-  │     │    │    ├─ 提取 InteractionOutput → UserInputInterrupt
-  │     │    │    ├─ 保存 currentInputs + sessionId 到 handler 状态
-  │     │    │    └─ emit INTERRUPTED → return (Stream 关闭)
-  │     │    └─ ERROR → emit FAILED → break
-  │     │
-  │     └─ return Stream<WorkflowOutput>
+  ▼
+PregelGraph 引擎
+  ├─ catch GraphInterrupt → 停止 super-step 迭代
+  ├─ graphState 已通过 Checkpointer 持久化
+  └─ 组装 WorkflowOutput(state=INPUT_REQUIRED, result=[OutputSchema(interaction)])
   │
-  └─ handler.resultAdapter().adapt(raw) → Stream<AgentExecutionResult>
+  ▼ 返回到 Handler
 ```
 
-**关键点**：初次执行时，`while(true)` 循环在 `INPUT_REQUIRED` 处退出并关闭 Stream。恢复时，runtime 用同一个 `sessionId` 再次调用 `execute()`，Handler 识别恢复场景（`context.inputType == REMOTE_RESUME`），跳过 Workflow 构建（或构建相同拓扑），直接用 `InteractiveInput` 继续 `while(true)` 循环。
+**Handler 层的捕获代码**（`doExecute()` 核心循环）：
 
-### 4.2 中断-续接流程
+```java
+@Override
+protected Stream<?> doExecute(AgentExecutionContext context, TrajectoryEmitter trajectory) {
+    String sessionId = context.agentStateKey();  // 稳定标识
+    WorkflowSessionApi session = new WorkflowSessionApi(null, sessionId, Map.of());
+    Workflow workflow = createOpenJiuwenWorkflow(context);
 
-```
-第一轮: 用户发送文章
-  │
-  ▼
-execute(context) → Workflow.invoke(inputs, newSession(sessionId), null)
-  │
-  ├─ [analyze LLM]    → 输出 chunk 到 Stream
-  ├─ [search Tool]    → 输出 chunk 到 Stream
-  ├─ [summarize LLM]  → 输出 chunk 到 Stream
-  ├─ [confirm Questioner] → session.interact() → GraphInterrupt
-  │
-  ▼
-WorkflowOutput(state=INPUT_REQUIRED)
-  │
-  ▼ OpenJiuwenWorkflowStreamAdapter
-  ├─ 提取 InteractionOutput{id="confirm", value="审核摘要: yes/no"}
-  ├─ new UserInputInterrupt(prompt="审核摘要: yes/no", nodeId="confirm")
-  └─ emit INTERRUPTED(payload=userInputInterrupt)
-  │
-  ▼ A2A 层
-  ├─ Task → INPUT_REQUIRED
-  └─ 保存 runtime.waitingTarget = USER
-     runtime.workflowSessionId = sessionId
-     runtime.interruptedNodeId = "confirm"
+    Object nextInputs = Map.of("query", context.userMessage().text());
 
-第二轮: 用户输入 "yes"
-  │
-  ▼ A2A 层
-  ├─ 识别 runtime.waitingTarget = USER (非 REMOTE_AGENT)
-  ├─ 构造 AgentExecutionContext:
-  │     inputType = INPUT_TYPE_REMOTE_RESUME  (复用现有常量)
-  │     variables = { userInput: "yes" }
-  │
-  ▼
-execute(context) → 识别 context.inputType == REMOTE_RESUME
-  │
-  ├─ 不调用 createOpenJiuwenWorkflow()（或构建相同拓扑，Checkpointer 负责状态恢复）
-  ├─ 构造 InteractiveInput:
-  │     resumeInputs.update("confirm", Map.of("answer", "yes"))
-  ├─ workflow.invoke(resumeInputs, sameSession(sessionId), null)
-  │     → Checkpointer 恢复 confirm 节点的 QuestionerState
-  │     → QuestionerState: USER_INTERACT → END
-  │     → 继续执行后续节点 [finalize LLM] → [End]
-  │
-  ▼
-WorkflowOutput(state=COMPLETED)
-  │
-  ▼ emit COMPLETED(finalResult)
+    while (true) {
+        WorkflowOutput output = workflow.invoke(nextInputs, session, null);
+
+        switch (output.getState()) {
+            case COMPLETED:
+                trajectory.emit(TrajectoryEvent.WORKFLOW_COMPLETED);
+                return Stream.of(output);  // StreamAdapter 后续映射为 COMPLETED
+
+            case INPUT_REQUIRED: {
+                // 提取 Questioner 产出的 InteractionOutput
+                InteractionOutput interaction = extractInteraction(output);
+                String nodeId = interaction.getId();      // "confirm"
+                String prompt = interaction.getValue().toString();  // "审核摘要: yes/no"
+
+                // 保存恢复上下文到 handler 实例字段
+                this.pendingResume = new WorkflowResumeContext(
+                    sessionId, nodeId, workflow
+                );
+
+                // 构造 runtime 中断载荷
+                UserInputInterrupt interrupt = new UserInputInterrupt(
+                    prompt,
+                    Map.of("nodeId", nodeId, "sessionId", sessionId)
+                );
+
+                trajectory.emit(TrajectoryEvent.WORKFLOW_INTERRUPTED, nodeId);
+                return Stream.of(interrupt);  // StreamAdapter 映射为 INTERRUPTED
+            }
+
+            case ERROR:
+                trajectory.emit(TrajectoryEvent.ERROR);
+                return Stream.of(output);  // StreamAdapter 映射为 FAILED
+        }
+    }
+}
 ```
 
-**关键设计决策**：续接时复用 `AgentExecutionContext.INPUT_TYPE_REMOTE_RESUME`（原用于远程 A2A 中断恢复），语义上扩展为"所有需要恢复执行的中断"。不新增 `INPUT_TYPE_WORKFLOW_RESUME` 以保持 A2A 层的通用性。
+### 4.2 中断 → A2A 协议映射
 
-**Checkpointer 角色**：
-- 初次执行：Workflow 到达 Questioner 节点 → `session.interact()` → `GraphInterrupt` → Checkpointer 保存整个图状态（各节点状态、边、中间结果）
-- 恢复执行：`Workflow.invoke(resumeInputs, sameSession, null)` → 图引擎从 Checkpointer 恢复状态 → Questioner 节点从 `QuestionerState.USER_INTERACT` 恢复 → 消费 `InteractiveInput` → 继续后续节点
+这是从 Workflow 层中断到对端收到 A2A 中断事件的完整映射链：
 
-### 4.3 邻接 Agent 互调
+```
+Handler.doExecute() 返回 INTERRUPTED 信号
+  │
+  ▼
+OpenJiuwenWorkflowStreamAdapter.adapt(rawStream)
+  │
+  ├─ 检测到 UserInputInterrupt 实例
+  └─ return AgentExecutionResult.interrupted(userInputInterrupt)
+       │
+       ▼
+A2aAgentExecutor (agent-runtime A2A 层，已存在)
+  │
+  ├─ case INTERRUPTED:
+  │     if (payload instanceof UserInputInterrupt ui) {
+  │         // 更新 Task 状态为 INPUT_REQUIRED
+  │         task.transition(INPUT_REQUIRED);
+  │         // 保存 resume 路由信息到 Task metadata
+  │         task.metadata.put("runtime.waitingTarget", "USER");
+  │         task.metadata.put("runtime.interruptNodeId", ui.nodeId());
+  │         task.metadata.put("runtime.workflowSessionId", ui.metadata().get("sessionId"));
+  │
+  │         // 通过 A2A SDK 发送中断事件
+  │         emitter.emit(TaskStatusUpdateEvent(
+  │             taskId,
+  │             TaskState.INPUT_REQUIRED,
+  │             message = Message(role=AGENT, parts=[TextPart(ui.prompt())])
+  │         ));
+  │     }
+  │
+  ▼
+A2A JSON-RPC Transport → SSE → 对端 A2A Client
+  │
+  └─ 对端收到:
+       event: task-status-update
+       data: {"taskId":"...", "state":"INPUT_REQUIRED",
+              "message":{"parts":[{"text":"审核摘要: yes/no"}]}}
+```
+
+**映射不变量**：
+- `WorkflowExecutionState.INPUT_REQUIRED` → `AgentExecutionResult.Type.INTERRUPTED` → A2A `TaskState.INPUT_REQUIRED`
+- `InteractionOutput.id` → `runtime.interruptNodeId` metadata
+- `WorkflowSessionApi.sessionId` → `runtime.workflowSessionId` metadata
+- `InteractionOutput.value` → A2A `Message.parts[0].text`（用户看到的提示）
+
+### 4.3 中断恢复 — Runtime 框架必须做的事
+
+恢复时，runtime 的处理分两个阶段：**A2A 层路由**（已有，需扩展）和 **Handler 层执行**（新增）。
+
+#### 阶段 1：A2A 层 — 路由到正确的恢复路径
+
+```
+对端 A2A Client 发送用户输入
+  │
+  ▼ POST /a2a
+  {
+    "method": "SendStreamingMessage",
+    "params": {
+      "message": {
+        "role": "ROLE_USER",
+        "taskId": "<与被中断 Task 相同>",
+        "parts": [{"text": "yes"}]
+      }
+    }
+  }
+  │
+  ▼
+A2aAgentExecutor (扩展点)
+  │
+  ├─ 查找 Task: taskStore.get(message.taskId)
+  ├─ 判断 Task 状态:
+  │     if (task.state == INPUT_REQUIRED) {
+  │         // 读取 resume 路由信息
+  │         String waitingTarget = task.metadata.get("runtime.waitingTarget");
+  │
+  │         if ("USER".equals(waitingTarget)) {
+  │             // Workflow 用户输入恢复路径
+  │             AgentExecutionContext resumeCtx = AgentExecutionContext.builder()
+  │                 .inputType(INPUT_TYPE_REMOTE_RESUME)   // 复用现有常量
+  │                 .userMessage(userMessage)
+  │                 .taskId(message.taskId)
+  │                 .metadata(Map.of(
+  │                     "resume.sessionId", task.metadata.get("runtime.workflowSessionId"),
+  │                     "resume.nodeId", task.metadata.get("runtime.interruptNodeId"),
+  │                     "resume.userInput", message.parts.get(0).text
+  │                 ))
+  │                 .build();
+  │
+  │             // 重新进入 handler.execute()
+  │             handler.execute(resumeCtx);
+  │         }
+  │         // else if ("REMOTE_AGENT".equals(waitingTarget)) { ...已有逻辑... }
+  │     }
+```
+
+#### 阶段 2：Handler 层 — 构造 InteractiveInput 恢复 Workflow
+
+```java
+// OpenJiuwenWorkflowAgentRuntimeHandler.execute() 的 resume 分支
+@Override
+protected Stream<?> doExecute(AgentExecutionContext context, TrajectoryEmitter trajectory) {
+
+    // 判断是否为恢复执行
+    if (INPUT_TYPE_REMOTE_RESUME.equals(context.inputType())) {
+        // ── 恢复路径 ──
+        String sessionId = context.metadata().get("resume.sessionId");
+        String nodeId = context.metadata().get("resume.nodeId");
+        String userInput = context.metadata().get("resume.userInput");
+
+        WorkflowSessionApi session = new WorkflowSessionApi(null, sessionId, Map.of());
+        Workflow workflow = createOpenJiuwenWorkflow(context);
+
+        // 构造 InteractiveInput — nodeId 精确指向被中断的 Questioner 节点
+        InteractiveInput resumeInput = new InteractiveInput();
+        resumeInput.update(nodeId, Map.of("answer", userInput));
+
+        trajectory.emit(TrajectoryEvent.WORKFLOW_RESUMED, nodeId);
+
+        // 重新进入 invoke 循环
+        return resumeLoop(workflow, resumeInput, session, trajectory);
+
+    } else {
+        // ── 初次执行路径（见 4.1）──
+        ...
+    }
+}
+```
+
+**恢复后 Workflow 引擎的行为**：
+1. `workflow.invoke(resumeInput, session, null)` → 图引擎从 Checkpointer 恢复 graphState
+2. 找到被中断的 confirm 节点 → `QuestionerState.loadFromSession()` 恢复为 `USER_INTERACT` 状态
+3. `NodeSessionApi.interact()` 不再阻塞（已有 `InteractiveInput` 在 session 中）→ 返回用户输入 `"yes"`
+4. `QuestionerState.handleEvent(USER_INTERACT_EVENT)` → `END`
+5. 图引擎继续执行后续节点 finalize → End
+
+### 4.4 正确性保证
+
+中断恢复的正确性依赖三个不变量的严格维护：
+
+#### 4.4.1 Session ID 稳定性
+
+```
+初次执行:  sessionId = context.agentStateKey()    // 由 runtime 根据 tenantId+userId+agentId 生成
+           workflow.invoke(inputs, new WorkflowSessionApi(null, sessionId, ...), null)
+           → Checkpointer 以 sessionId 为 key 保存 graphState
+
+恢复执行:  sessionId = task.metadata.get("runtime.workflowSessionId")
+             // ↑ 从 A2A Task metadata 取回，保证与初次执行一致
+           workflow.invoke(resumeInput, new WorkflowSessionApi(null, sessionId, ...), null)
+           → Checkpointer 以 sessionId 为 key 查找到 graphState → 恢复
+```
+
+**保证手段**：
+- 初次执行时，`context.agentStateKey()` 是稳定标识（同一租户/用户/Agent 组合不变）
+- A2A 层将 sessionId 写入 Task metadata，随 A2A 协议往返
+- 恢复时从 metadata 取回，不经用户或客户端传递（防止篡改）
+- 如果 metadata 中 sessionId 缺失或与 Task 不匹配 → 返回 FAILED
+
+#### 4.4.2 Checkpointer 原子性
+
+```
+GraphInterrupt 抛出前:
+  ├─ session.saveCheckpoint(graphState) 已完成
+  └─ 所有节点状态（QuestionerState, LLMExecutableState, ...）已序列化
+
+GraphInterrupt 抛出后:
+  ├─ PregelGraph 停止 super-step 迭代
+  ├─ 图状态已持久化，即使进程重启也不丢失
+  └─ WorkflowOutput 从 graph output stream 收集已产生的 OutputSchema
+```
+
+**保证手段**：`Vertex.doAtomicInvoke()` 在 catch GraphInterrupt 后、re-throw 前调用 `session.saveCheckpoint()`。这是 OpenJiuwen 图引擎的原子保证——在中断信号传出之前，状态必定已落盘。
+
+#### 4.4.3 Resume 幂等性
+
+```
+第一次 resume: workflow.invoke(interactiveInput, session, null)
+  → Checkpointer 恢复 graphState → QuestionerState(USER_INTERACT)
+  → 消费 InteractiveInput → QuestionerState(END) → 继续执行 → COMPLETED
+  → Checkpointer 保存新的 graphState（已完成）
+
+第二次 resume（错误重试）: workflow.invoke(interactiveInput, session, null)
+  → Checkpointer 恢复 graphState → QuestionerState(END) / 已完成
+  → 图引擎发现所有节点已完成 → 直接返回 COMPLETED（相同结果）
+```
+
+**保证手段**：OpenJiuwen Checkpointer 在每次 `invoke()` 完成后保存最新状态。重复 resume 从同一个已完成状态恢复，产生相同结果。不依赖 Handler 层去重。
+
+#### 4.4.4 不变量验证清单
+
+| 不变量 | 验证点 | 违规处理 |
+|--------|--------|---------|
+| sessionId 非空 | Handler 初次执行和恢复入口 | 抛出 `IllegalStateException` → FAILED |
+| nodeId 匹配 Questioner 节点 | InteractiveInput.update(nodeId, ...) | OpenJiuwen 忽略未注册 nodeId 的 input → 流程卡住，最终超时 |
+| taskId 非空 | A2A 层恢复路由 | 无法查找 Task → 返回 `TASK_NOT_FOUND` 错误 |
+| context.inputType 正确 | Handler resume 分支入口 | 走错分支 → Workflow 从头执行 → 结果不正确，但不产生副作用 |
+
+### 4.5 邻接 Agent 互调
 
 Workflow Agent 作为被调用方（被其他 Agent 作为远程 Tool 调用）时，完整的调用链：
 
@@ -336,7 +525,7 @@ agent-runtime:
             description: 审核文章：分析→搜索→摘要→人工确认→输出
 ```
 
-### 4.4 轨迹观测
+### 4.6 轨迹观测
 
 Workflow 执行过程产生以下轨迹事件：
 
@@ -348,6 +537,41 @@ Workflow 执行过程产生以下轨迹事件：
 | `WORKFLOW_RESUMED` | Workflow 恢复执行 | `{nodeId, resumedFromState}` |
 
 实现方案：新增 `OpenJiuwenWorkflowTrajectoryRail`（或扩展现有 `OpenJiuwenTrajectoryRail`），在 Workflow 执行循环中，每步 `invoke()` 返回后发射对应事件。
+
+### 4.7 Checkpointer 共享 — 与 ReActAgent Handler 复用
+
+Workflow Handler 和 ReActAgent Handler 共享同一套 Checkpointer 基础设施。
+
+**为什么可以共享**：
+- `OpenJiuwenCheckpointerConfigurer` 是全局静态配置（`static setDefault(Checkpointer)`），设置一次即对所有 OpenJiuwen 执行路径生效
+- `Runner.runAgent()` 和 `Workflow.invoke()` 底层都通过 `WorkflowSession` / `NodeSessionApi` 访问 Checkpointer
+- Checkpointer 按 `sessionId` 分区——不同 session 的状态互不干扰，Workflow 和 ReActAgent 的 session 天然不同
+- Checkpointer 接口是通用的 key-value 状态存储（`save(sessionId, state)` / `load(sessionId)`），不关心存储的是 ReActAgent 的 conversation history 还是 Workflow 的 graphState
+
+**配置方式**（与 ReActAgent 完全一致）：
+
+```java
+// 全局配置 — 对所有 OpenJiuwen handler 生效（ReActAgent + Workflow）
+OpenJiuwenCheckpointerConfigurer.setInMemoryDefault();
+// 或 Redis:
+// OpenJiuwenCheckpointerConfigurer.setDefault(new RedisCheckpointer(config));
+```
+
+**共享范围**：
+```
+OpenJiuwenCheckpointerConfigurer (全局)
+  │
+  ├─ ReActAgent Handler
+  │     └─ Runner.runAgent() → AgentSession(sessionId) → Checkpointer
+  │
+  └─ Workflow Handler
+        └─ Workflow.invoke() → WorkflowSessionApi(sessionId) → Checkpointer
+```
+
+**不需要做的事**：
+- 不需要为 Workflow 单独配置 Checkpointer
+- 不需要在处理 Workflow 中断时手动调用 `save()` / `load()`——图引擎自动完成
+- 不需要担心 Workflow session 和 ReActAgent session 的 key 冲突——`sessionId` 前缀不同（ReActAgent 用 `conversation_id`，Workflow 用 `context.agentStateKey()`）
 
 ---
 
@@ -441,10 +665,7 @@ public class ReviewerHandler extends OpenJiuwenWorkflowAgentRuntimeHandler {
         return wf;
     }
 
-    @Override
-    protected List<Skill> openJiuwenWorkflowSkills() {
-        return List.of(new Skill("review_article", "审核文章内容", ...));
-    }
+    // Skills 通过 YAML 配置声明（见第 5 章），不在 Java 代码中定义。
 }
 
 // Step 2: 注册为 Spring Bean
