@@ -43,7 +43,10 @@ public final class ThematicWriterAgent implements ThematicSubAgent {
         if (ctx.tryModelCall()) {
             try {
                 body = ctx.model().generate(new ReportModel.ModelTask(
-                        "writer", "撰写「" + title + "」章节,机构口径、结论先行、回链总体评级。", brief, 600));
+                        "writer",
+                        "撰写「" + title + "」章节,约 400-600 字:结论先行,展开完整逻辑链,"
+                                + "给出正反两面与关键风险,回链板块总体评级;只可引用简报中的规范数字,不得新增数字。",
+                        brief, 600));
             } catch (RuntimeException e) {
                 ctx.degraded("writer:" + id, e.getMessage());
                 body = "(本节模型生成失败,降级为事实摘要)\n" + brief;

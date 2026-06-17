@@ -11,6 +11,7 @@ import com.bank.financial.research.engine.ResearchReportEngine;
 import com.bank.financial.research.thematic.ThematicReportEngine;
 import com.bank.financial.research.model.OpenJiuwenReportModel;
 import com.bank.financial.research.model.ReportModel;
+import com.bank.financial.research.model.RetryReportModel;
 import com.bank.financial.research.model.ScriptedReportModel;
 import com.bank.financial.research.model.TimeoutReportModel;
 import com.huawei.ascend.a2a.memory.obs.CompositeMemoryObserver;
@@ -47,11 +48,9 @@ public final class ResearchReports {
     public static ResearchReportEngine fromEnv(long asOfEpochMs) {
         ResearchDataSource source = dataSourceFromEnv(asOfEpochMs);
         DataIngestionService ingestion = new DataIngestionService(source, FreshnessPolicy.days(envInt("RESEARCH_FRESHNESS_DAYS", 90)));
-        // Live model is bounded by a hard per-call timeout so a stuck LLM can't hang a run.
-        ReportModel model = liveModel()
-                ? new TimeoutReportModel(new OpenJiuwenReportModel(ModelConnection.forTier("smart")),
-                        Duration.ofSeconds(envInt("RESEARCH_MODEL_TIMEOUT_S", 60)))
-                : new ScriptedReportModel();
+        // Live model = retry(timeout(llm)): hard per-call timeout so a stuck LLM can't
+        // hang a run, wrapped in bounded backoff retry for transient connect/rate errors.
+        ReportModel model = liveModel() ? liveModel(ModelConnection.forTier("smart")) : new ScriptedReportModel();
         // One instrumentation surface: routine ops via Slf4j (DEBUG), metrics via Micrometer.
         MemoryObserver observer = CompositeMemoryObserver.of(
                 new Slf4jMemoryObserver(false), new MicrometerMemoryObserver());
@@ -78,13 +77,19 @@ public final class ResearchReports {
 
     /** Thematic engine with the env-driven live model (data still from the scenario stub). */
     public static ThematicReportEngine thematicFromEnv(long asOfEpochMs) {
-        ReportModel model = liveModel()
-                ? new TimeoutReportModel(new OpenJiuwenReportModel(ModelConnection.forTier("smart")),
-                        Duration.ofSeconds(envInt("RESEARCH_MODEL_TIMEOUT_S", 60)))
-                : new ScriptedReportModel();
+        ReportModel model = liveModel() ? liveModel(ModelConnection.forTier("smart")) : new ScriptedReportModel();
         return new ThematicReportEngine(
                 new StubThematicDataSource(asOfEpochMs), model, null,
                 CompositeMemoryObserver.of(new Slf4jMemoryObserver(false), new MicrometerMemoryObserver()), null);
+    }
+
+    /** Production live model: retry(timeout(openJiuwen)) — bounded latency + transient-failure backoff. */
+    private static ReportModel liveModel(ModelConnection conn) {
+        return new RetryReportModel(
+                new TimeoutReportModel(new OpenJiuwenReportModel(conn),
+                        Duration.ofSeconds(envInt("RESEARCH_MODEL_TIMEOUT_S", 60))),
+                envInt("RESEARCH_MODEL_RETRIES", 3),
+                envInt("RESEARCH_MODEL_BACKOFF_MS", 1500));
     }
 
     static boolean liveModel() {
