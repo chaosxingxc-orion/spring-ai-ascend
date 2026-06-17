@@ -137,6 +137,9 @@ public final class ArticleSummarizerWorkflow {
                 .maxTokens(maxTokens)
                 .build();
 
+        Map<String, Object> textResponseFormat = Map.of("type", "text");
+        Map<String, Object> textOutputConfig = Map.of("text", Map.of("type", "string"));
+
         // -- LLM 1: analyze article topic --
         LLMCompConfig analyzeConfig = new LLMCompConfig();
         analyzeConfig.setModelClientConfig(clientConfig);
@@ -144,6 +147,8 @@ public final class ArticleSummarizerWorkflow {
         analyzeConfig.setSystemPromptTemplate(new SystemMessage(
                 "你是一个专业的内容分析师。请用简洁的语言总结以下文章的主题和关键信息点。"));
         analyzeConfig.setUserPromptTemplate(new UserMessage("{{article}}"));
+        analyzeConfig.setResponseFormat(textResponseFormat);
+        analyzeConfig.setOutputConfig(textOutputConfig);
 
         // -- LLM 2: generate summary (receives analysis + search results) --
         LLMCompConfig summarizeConfig = new LLMCompConfig();
@@ -153,6 +158,8 @@ public final class ArticleSummarizerWorkflow {
                 "你是一个专业的摘要撰写者。请根据文章分析和搜索结果，生成一段200字以内的中文摘要。"));
         summarizeConfig.setUserPromptTemplate(new UserMessage(
                 "文章分析: {{analysis}}\n\n搜索结果: {{search_results}}"));
+        summarizeConfig.setResponseFormat(textResponseFormat);
+        summarizeConfig.setOutputConfig(textOutputConfig);
 
         // -- LLM 3: finalize based on human confirmation --
         LLMCompConfig finalizeConfig = new LLMCompConfig();
@@ -163,6 +170,8 @@ public final class ArticleSummarizerWorkflow {
                         + "如果审批通过，输出最终摘要。如果被驳回，回复驳回说明。"));
         finalizeConfig.setUserPromptTemplate(new UserMessage(
                 "摘要: {{summary}}\n\n人工审核反馈: {{confirmation}}"));
+        finalizeConfig.setResponseFormat(textResponseFormat);
+        finalizeConfig.setOutputConfig(textOutputConfig);
 
         // -- Tool: mock search --
         ToolComponentConfig toolCfg = new ToolComponentConfig();
@@ -175,6 +184,7 @@ public final class ArticleSummarizerWorkflow {
         qConfig.setModelClientConfig(clientConfig);
         qConfig.setModelConfig(requestConfig);
         qConfig.setResponseType("reply_directly");
+        qConfig.setExtractFieldsFromResponse(false);
         qConfig.setQuestionContent(
                 "请审核以上摘要质量。输入 'yes' 批准，'no' 驳回并附原因。");
 
@@ -207,7 +217,7 @@ public final class ArticleSummarizerWorkflow {
 
         wf.addWorkflowComp("finalize", new LLMComponent(finalizeConfig),
                 Map.of("summary", "${summarize.text}",
-                       "confirmation", "${confirm.text}"), null);
+                       "confirmation", "${confirm.user_response}"), null);
 
         wf.setEndComp("end", new End(),
                 Map.of("result", "${finalize.text}"), null);
@@ -245,9 +255,22 @@ public final class ArticleSummarizerWorkflow {
                         System.out.println("║  " + prompt);
                         System.out.println("╚══════════════════════════════════════════╝");
                         System.out.print(">>> 请输入回复: ");
+                        System.out.flush();
 
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-                        String userResponse = reader.readLine();
+                        String userResponse;
+                        java.io.Console console = System.console();
+                        if (console != null) {
+                            userResponse = console.readLine();
+                        } else {
+                            // Fallback for exec:java where System.console() may be null
+                            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+                            userResponse = reader.readLine();
+                        }
+
+                        if (userResponse == null || userResponse.isBlank()) {
+                            userResponse = "yes"; // default approve
+                            System.out.println("(默认: yes)");
+                        }
 
                         resumeInputs.update(nodeId, Map.of("answer", userResponse));
                         System.out.println();
@@ -260,6 +283,7 @@ public final class ArticleSummarizerWorkflow {
 
     // ── Result display ───────────────────────────────────────────────
 
+    @SuppressWarnings("unchecked")
     static void displayResult(WorkflowOutput output) {
         System.out.println();
         System.out.println("═══════════════════════════════════════════");
@@ -267,19 +291,43 @@ public final class ArticleSummarizerWorkflow {
         System.out.println("═══════════════════════════════════════════");
 
         Object result = output.getResult();
-        if (result instanceof List<?> chunks) {
-            for (Object chunk : chunks) {
-                if (chunk instanceof OutputSchema schema
-                        && "text".equals(schema.getType())) {
-                    System.out.println(schema.getPayload());
-                } else {
-                    System.out.println(chunk);
-                }
-            }
+        String text = extractResultText(result);
+        if (text != null) {
+            System.out.println(text);
         } else {
             System.out.println(result);
         }
         System.out.println("═══════════════════════════════════════════");
+    }
+
+    @SuppressWarnings("unchecked")
+    static String extractResultText(Object result) {
+        // Case 1: End node wraps in Map {output: {result: "..."}}
+        if (result instanceof Map<?, ?> m) {
+            Object output = m.get("output");
+            if (output instanceof Map<?, ?> outputMap) {
+                Object text = outputMap.values().stream().findFirst().orElse(null);
+                if (text instanceof String s) return s;
+            }
+        }
+        // Case 2: List of OutputSchema chunks
+        if (result instanceof List<?> chunks) {
+            for (Object chunk : chunks) {
+                if (chunk instanceof OutputSchema schema) {
+                    Object payload = schema.getPayload();
+                    if (payload instanceof Map<?, ?> pm) {
+                        // End wraps as {output: {key: "value"}}
+                        Object output = pm.get("output");
+                        if (output instanceof Map<?, ?> outputMap) {
+                            Object text = outputMap.values().stream().findFirst().orElse(null);
+                            if (text instanceof String s) return s;
+                        }
+                    }
+                    if (payload instanceof String s) return s;
+                }
+            }
+        }
+        return null;
     }
 
     // ── Config loading ───────────────────────────────────────────────
