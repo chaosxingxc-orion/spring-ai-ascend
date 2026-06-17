@@ -100,6 +100,7 @@ curl -s -X POST http://localhost:8081/a2a \
   -H "Accept: text/event-stream" \
   -d '{
     "jsonrpc": "2.0",
+    "id": "req-001",
     "method": "SendStreamingMessage",
     "params": {
       "message": {
@@ -138,6 +139,7 @@ curl -s -X POST http://localhost:8081/a2a \
   -H "Accept: text/event-stream" \
   -d '{
     "jsonrpc": "2.0",
+    "id": "req-001",
     "method": "SendStreamingMessage",
     "params": {
       "message": {
@@ -204,7 +206,7 @@ mvn spring-boot:run -f examples/agent-runtime-a2a-openjiuwen-workflow/pom.xml
 # 第一轮
 curl -s -X POST http://localhost:8080/a2a \
   -H "Content-Type: application/json" -H "Accept: text/event-stream" \
-  -d '{"jsonrpc":"2.0","method":"SendStreamingMessage","params":{"message":{
+  -d '{"jsonrpc":"2.0","id":"req-001","method":"SendStreamingMessage","params":{"message":{
     "role":"ROLE_USER","messageId":"m1","contextId":"c1",
     "metadata":{"userId":"u1","agentId":"questioner-workflow","sessionId":"s1"},
     "parts":[{"text":"启动"}]}}}'
@@ -213,7 +215,7 @@ curl -s -X POST http://localhost:8080/a2a \
 # 第二轮（替换 taskId）
 curl -s -X POST http://localhost:8080/a2a \
   -H "Content-Type: application/json" -H "Accept: text/event-stream" \
-  -d '{"jsonrpc":"2.0","method":"SendStreamingMessage","params":{"message":{
+  -d '{"jsonrpc":"2.0","id":"req-001","method":"SendStreamingMessage","params":{"message":{
     "role":"ROLE_USER","messageId":"m2","taskId":"<TASK_ID>","contextId":"c1",
     "metadata":{"userId":"u1","agentId":"questioner-workflow","sessionId":"s1"},
     "parts":[{"text":"2"}]}}}'

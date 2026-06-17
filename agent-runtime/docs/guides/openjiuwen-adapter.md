@@ -203,7 +203,7 @@ public class AgentConfig {
 | 限制 | 影响 | 替代 |
 |------|------|------|
 | cancel 仅阻止结果消费，不中断 LLM 调用 | 长时间 LLM 调用无法真正取消 | 使用 AgentScope 或 Versatile Adapter |
-| 仅支持 ReActAgent，不支持 Workflow | 多步工作流不可用 | 使用 Versatile 代理 Workflow 引擎 |
+| 仅支持 ReActAgent | Workflow 场景使用独立 Adapter | [OpenJiuwen Workflow Adapter](openjiuwen-workflow-adapter.md) |
 | DeepAgent 不完善 | 不可用于生产 | — |
 | streaming 执行依赖底层模型客户端取消能力 | cancel 后底层 LLM 是否立即停止取决于 OpenJiuwen/模型客户端 | — |
 
