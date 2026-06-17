@@ -1,10 +1,18 @@
 # MemOpt 企业级记忆 —— kit 范式 + 闭源引擎(形态 C)设计稿
 
 > **⚠️ 已重构(2026-06-16)**:与需求方对齐后,架构调整为**两层 kit**——
-> **A2A 共享记忆**是独立中间件 kit(模块 `a2a-shared-memory/`,本次已落地,27/27),
-> **MemOpt** 退化为其**可插拔后端之一**(form C 闭源引擎 + gRPC,属后续后端阶段)。
+> **A2A 共享记忆**是独立中间件 kit(模块 `a2a-shared-memory/`,本次已落地),
+> **MemOpt** 退化为其**可插拔后端之一**(闭源引擎,属后续后端阶段)。
 > 本文中"MemOpt 承载 A2A 共享记忆"的旧表述以 **[the a2a-shared-memory design decision](2026-06-16-a2a-shared-memory-design-decision.yaml)** 为准。
-> 本文保留为设计推演历史;形态 C / gRPC / 闭源引擎部分迁移到 MemOpt 后端阶段。
+>
+> **⚠️ 最终交付决策(2026-06-16,本文下方推演中已被取代的点)**:MemOpt 后端阶段
+> 最终落地为 **闭源容器镜像 + 现有 HTTP `/v1` 契约**(`a2a-shared-memory-memopt` kit
+> 即该镜像的瘦 HTTP 客户端,见其 README + MemOpt 仓库 `docs/DEPLOY_CONTAINER.md`)。
+> 因此下方**两条"已确认决策"已被推翻,以本横幅为准**:
+> - 第 6 条"引擎 Java 重写"→ **取消**:MemOpt 仍为 **Python**,以镜像交付(不开源源码),不重写。
+> - 第 11 条"传输 = gRPC 为主"→ **取消**:传输用**现有 HTTP `/v1`**(可选 bearer token + TLS);
+>   gRPC / mTLS / protobuf 仅为本文推演,**未采纳**。
+> 本文其余内容保留为设计推演历史。
 
 状态:草案(设计评审稿,未进架构-of-record;已被上方重构说明与 the a2a-shared-memory design decision 取代主体)。
 日期:2026-06-16
