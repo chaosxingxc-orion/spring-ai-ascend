@@ -371,16 +371,17 @@ public final class A2aAgentExecutor implements AgentExecutor {
         // RuntimeMessage is the only message type that crosses into the SPI.
         List<RuntimeMessage> messages = List.of(RuntimeMessage.user(text));
         String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
+        Map<String, Object> variables = mergeVariables(ctx);
         return new AgentExecutionContext(
                 new RuntimeIdentity(
-                        metadata(ctx, "tenantId", "default"),
-                        metadata(ctx, USER_ID_METADATA, "system"),
+                        asString(variables.get(TENANT_STATE_KEY)),
+                        asString(variables.get(USER_ID_METADATA)),
                         sessionId,
                         ctx.getTaskId(),
-                        metadata(ctx, AGENT_ID_METADATA, handler.agentId())),
+                        asString(variables.get(AGENT_ID_METADATA))),
                 "USER_MESSAGE",
                 messages,
-                mergeVariables(ctx));
+                variables);
     }
 
     /**
