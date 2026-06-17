@@ -11,7 +11,14 @@ import com.openjiuwen.core.workflow.component.Start;
 import com.openjiuwen.core.workflow.component.llm.QuestionerComponent;
 import com.openjiuwen.core.workflow.component.llm.QuestionerConfig;
 
+import java.util.List;
 import java.util.Map;
+import org.a2aproject.sdk.spec.AgentCapabilities;
+import org.a2aproject.sdk.spec.AgentCard;
+import org.a2aproject.sdk.spec.AgentInterface;
+import org.a2aproject.sdk.spec.AgentProvider;
+import org.a2aproject.sdk.spec.AgentSkill;
+import org.a2aproject.sdk.spec.TransportProtocol;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,6 +43,27 @@ public class QuestionerWorkflowConfiguration {
      * The question asked by the Questioner — fixed, no LLM needed.
      */
     static final String QUESTION = "请问1+1等于几？";
+
+    @Bean
+    AgentCard questionerWorkflowAgentCard() {
+        return AgentCard.builder()
+                .name(AGENT_ID)
+                .description("提问器 Workflow Agent — 提一个固定问题，等待答案，回显答案并确认正确")
+                .version("1.0")
+                .provider(new AgentProvider("spring-ai-ascend", ""))
+                .capabilities(AgentCapabilities.builder()
+                        .streaming(true).pushNotifications(true).extendedAgentCard(false).build())
+                .defaultInputModes(List.of("text"))
+                .defaultOutputModes(List.of("text", "artifact"))
+                .skills(List.of(AgentSkill.builder()
+                        .id("ask_question")
+                        .name("ask_question")
+                        .description("向用户提一个问题（1+1等于几？），等待用户回答后回显答案并确认正确")
+                        .build()))
+                .supportedInterfaces(List.of(
+                        new AgentInterface(TransportProtocol.JSONRPC.asString(), "/a2a")))
+                .build();
+    }
 
     @Bean
     OpenJiuwenWorkflowAgentRuntimeHandler questionerWorkflowHandler(
