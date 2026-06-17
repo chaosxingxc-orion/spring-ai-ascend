@@ -52,10 +52,9 @@ import java.util.UUID;
 public final class ArticleSummarizerWorkflow {
 
     private static final String SAMPLE_ARTICLE =
-            "人工智能在医疗领域的应用正在快速发展。近日，某研究团队开发了一款基于深度学习的"
-                    + "医学影像诊断系统，据称在肺部CT影像分析中的准确率达到了96.8%，超过了资深放射科医生的平均水平。"
-                    + "该系统使用了超过100万张标注影像进行训练，能够在3秒内完成一次完整的肺部CT扫描分析。"
-                    + "研究团队表示，该系统目前已在三家医院进入临床试验阶段。";
+            "AI医疗影像获突破：基于深度学习的肺部CT诊断系统准确率达96.8%，"
+                    + "超资深放射科医生平均水平。系统用100万+张标注影像训练，3秒内完成扫描分析，"
+                    + "已在三家医院进入临床试验。";
 
     private ArticleSummarizerWorkflow() {}
 
@@ -67,7 +66,7 @@ public final class ArticleSummarizerWorkflow {
         String apiBase = props.getProperty("model.api-base", "http://localhost:4000/v1");
         String modelName = props.getProperty("model.name", "gpt-4");
         double temperature = Double.parseDouble(props.getProperty("model.temperature", "0.7"));
-        int maxTokens = Integer.parseInt(props.getProperty("model.max-tokens", "1024"));
+        int maxTokens = Integer.parseInt(props.getProperty("model.max-tokens", "256"));
         boolean verifySsl = Boolean.parseBoolean(props.getProperty("model.ssl-verify", "true"));
 
         System.out.println("=== OpenJiuwen Workflow 独立示例 ===");
@@ -144,8 +143,7 @@ public final class ArticleSummarizerWorkflow {
         LLMCompConfig analyzeConfig = new LLMCompConfig();
         analyzeConfig.setModelClientConfig(clientConfig);
         analyzeConfig.setModelConfig(requestConfig);
-        analyzeConfig.setSystemPromptTemplate(new SystemMessage(
-                "你是一个专业的内容分析师。请用简洁的语言总结以下文章的主题和关键信息点。"));
+        analyzeConfig.setSystemPromptTemplate(new SystemMessage("总结文章主题和关键信息点。"));
         analyzeConfig.setUserPromptTemplate(new UserMessage("{{article}}"));
         analyzeConfig.setResponseFormat(textResponseFormat);
         analyzeConfig.setOutputConfig(textOutputConfig);
@@ -154,8 +152,7 @@ public final class ArticleSummarizerWorkflow {
         LLMCompConfig summarizeConfig = new LLMCompConfig();
         summarizeConfig.setModelClientConfig(clientConfig);
         summarizeConfig.setModelConfig(requestConfig);
-        summarizeConfig.setSystemPromptTemplate(new SystemMessage(
-                "你是一个专业的摘要撰写者。请根据文章分析和搜索结果，生成一段200字以内的中文摘要。"));
+        summarizeConfig.setSystemPromptTemplate(new SystemMessage("根据分析和搜索结果，生成200字以内的中文摘要。"));
         summarizeConfig.setUserPromptTemplate(new UserMessage(
                 "文章分析: {{analysis}}\n\n搜索结果: {{search_results}}"));
         summarizeConfig.setResponseFormat(textResponseFormat);
@@ -165,9 +162,7 @@ public final class ArticleSummarizerWorkflow {
         LLMCompConfig finalizeConfig = new LLMCompConfig();
         finalizeConfig.setModelClientConfig(clientConfig);
         finalizeConfig.setModelConfig(requestConfig);
-        finalizeConfig.setSystemPromptTemplate(new SystemMessage(
-                "你是一个专业的编辑。根据人工审核反馈，生成最终输出。"
-                        + "如果审批通过，输出最终摘要。如果被驳回，回复驳回说明。"));
+        finalizeConfig.setSystemPromptTemplate(new SystemMessage("根据人工审核反馈输出最终结果。通过则输出摘要，驳回则输出驳回说明。"));
         finalizeConfig.setUserPromptTemplate(new UserMessage(
                 "摘要: {{summary}}\n\n人工审核反馈: {{confirmation}}"));
         finalizeConfig.setResponseFormat(textResponseFormat);
@@ -185,8 +180,7 @@ public final class ArticleSummarizerWorkflow {
         qConfig.setModelConfig(requestConfig);
         qConfig.setResponseType("reply_directly");
         qConfig.setExtractFieldsFromResponse(false);
-        qConfig.setQuestionContent(
-                "请审核以上摘要质量。输入 'yes' 批准，'no' 驳回并附原因。");
+        qConfig.setQuestionContent("审核摘要: yes=通过, no=驳回");
 
         // -- Build DAG --
         WorkflowCard card = WorkflowCard.builder()
