@@ -59,7 +59,7 @@ public class QuestionerWorkflowConfiguration {
                 .skills(List.of(AgentSkill.builder()
                         .id("ask_question")
                         .name("ask_question")
-                        .description("向用户提一个问题（1+1等于几？），等待用户回答后回显答案并确认正确")
+                        .description("提问器工具。调用此工具会向用户提一个问题，等待用户回答后返回结果。输入应为简短的指令如"提一个问题"，无需提供具体问题内容。")
                         .tags(List.of())
                         .build()))
                 .supportedInterfaces(List.of(

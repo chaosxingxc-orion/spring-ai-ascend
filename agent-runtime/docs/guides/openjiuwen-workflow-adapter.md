@@ -181,7 +181,7 @@ agent-runtime:
         skills:
           - id: ask_question
             name: ask_question
-            description: 向用户提一个问题并等待回答
+            description: 提问器工具。调用此工具会向用户提一个问题，等待用户回答后返回结果。输入应为简短的指令如"提一个问题"，无需提供具体问题内容
 ```
 
 或通过 Java 注册带 skills 的 AgentCard Bean（当 YAML 不支持 skills 时）：
@@ -193,7 +193,7 @@ agent-runtime:
         .description("...")
         .skills(List.of(AgentSkill.builder()
             .id("ask_question").name("ask_question")
-            .description("向用户提一个问题并等待回答")
+            .description("提问器工具。调用此工具会向用户提一个问题，等待用户回答后返回结果。输入应为简短的指令如"提一个问题"，无需提供具体问题内容")
             .tags(List.of()).build()))
         // ...其他字段
         .build();
@@ -252,7 +252,7 @@ public class QuestionerWorkflowConfiguration {
             .description("提问器 Workflow Agent")
             .skills(List.of(AgentSkill.builder()
                 .id("ask_question").name("ask_question")
-                .description("向用户提一个问题并等待回答")
+                .description("提问器工具。调用此工具会向用户提一个问题，等待用户回答后返回结果。输入应为简短的指令如"提一个问题"，无需提供具体问题内容")
                 .tags(List.of()).build()))
             // ...
             .build();

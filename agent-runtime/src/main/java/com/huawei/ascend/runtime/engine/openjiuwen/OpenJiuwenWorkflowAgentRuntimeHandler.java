@@ -127,6 +127,7 @@ public abstract class OpenJiuwenWorkflowAgentRuntimeHandler
             private Object nextItem;
             private boolean done;
             private OutputSchema pendingInteraction;
+            private final StringBuilder accumulatedText = new StringBuilder();
 
             @Override
             public boolean hasNext() {
@@ -153,14 +154,18 @@ public abstract class OpenJiuwenWorkflowAgentRuntimeHandler
                 }
                 try {
                     if (!upstreamHasNextSafely()) {
-                        // Stream drained normally
-                        LOGGER.info("Workflow completed (stream) sessionId={}", sessionId);
-                        nextItem = new WorkflowOutput(null,
+                        // Stream drained normally — use accumulated text as result
+                        LOGGER.info("Workflow completed (stream) sessionId={} textLen={}",
+                                sessionId, accumulatedText.length());
+                        nextItem = new WorkflowOutput(
+                                accumulatedText.toString(),
                                 WorkflowExecutionState.COMPLETED);
                         done = true;
                         return true;
                     }
                     WorkflowChunk chunk = upstreamNextSafely();
+                    // Accumulate text from each chunk for the final COMPLETED result
+                    accumulateChunkText(chunk);
                     if (isInteractionChunk(chunk)) {
                         // Hold the interaction chunk; the next read will throw GraphInterrupt
                         pendingInteraction = (OutputSchema) chunk;
@@ -193,6 +198,22 @@ public abstract class OpenJiuwenWorkflowAgentRuntimeHandler
                     nextItem = new WorkflowOutput(errMsg, WorkflowExecutionState.ERROR);
                     done = true;
                     return true;
+                }
+            }
+
+            private void accumulateChunkText(WorkflowChunk chunk) {
+                if (chunk instanceof OutputSchema schema) {
+                    Object payload = schema.getPayload();
+                    if (payload instanceof String s) {
+                        accumulatedText.append(s);
+                    } else if (payload instanceof Map<?, ?> m) {
+                        Object out = m.get("output");
+                        if (out instanceof Map<?, ?> outputMap) {
+                            outputMap.values().forEach(v -> {
+                                if (v instanceof String s) accumulatedText.append(s);
+                            });
+                        }
+                    }
                 }
             }
 
