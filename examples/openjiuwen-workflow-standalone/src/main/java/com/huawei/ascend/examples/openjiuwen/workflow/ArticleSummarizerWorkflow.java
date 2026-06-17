@@ -114,7 +114,7 @@ public final class ArticleSummarizerWorkflow {
 
             if (output.getState() == WorkflowExecutionState.ERROR) {
                 System.err.println("工作流执行出错: " + output.getResult());
-                break;
+                System.exit(1);
             }
         }
     }
@@ -298,6 +298,11 @@ public final class ArticleSummarizerWorkflow {
             System.out.println(result);
         }
         System.out.println("═══════════════════════════════════════════");
+        System.out.println();
+        System.out.println("工作流执行完毕，程序退出。");
+
+        // OpenJiuwen's TaskExecutorPool uses non-daemon threads; explicit exit required.
+        System.exit(0);
     }
 
     @SuppressWarnings("unchecked")
