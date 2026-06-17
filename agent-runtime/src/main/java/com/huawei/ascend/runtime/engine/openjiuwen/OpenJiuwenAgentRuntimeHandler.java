@@ -1,12 +1,8 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
-import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
-import com.huawei.ascend.runtime.engine.spi.TrajectoryDraft;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
 import com.openjiuwen.core.context.ModelContext;
@@ -24,11 +20,8 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Spliterator;
 import java.util.Set;
-import java.util.Spliterators;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,12 +36,10 @@ import org.slf4j.LoggerFactory;
  * maps standard {@link OutputSchema} chunks into the framework-neutral result
  * stream.
  */
-public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntimeHandler {
+public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractOpenJiuwenRuntimeSupport {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenJiuwenAgentRuntimeHandler.class);
 
-    private final OpenJiuwenMessageAdapter messageConverter;
-    private final OpenJiuwenStreamAdapter resultMapper;
     private OpenJiuwenRemoteToolInstaller runtimeToolInstaller;
 
     protected OpenJiuwenAgentRuntimeHandler(String agentId) {
@@ -61,9 +52,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
 
     OpenJiuwenAgentRuntimeHandler(String agentId, OpenJiuwenMessageAdapter messageConverter,
             OpenJiuwenStreamAdapter resultMapper) {
-        super(agentId);
-        this.messageConverter = Objects.requireNonNull(messageConverter, "messageConverter");
-        this.resultMapper = Objects.requireNonNull(resultMapper, "resultMapper");
+        super(agentId, messageConverter, resultMapper);
     }
 
     /**
@@ -103,22 +92,9 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
                     context.getScope().sessionId(),
                     context.getScope().taskId(),
                     result == null ? "null" : result.getClass().getName());
-            if (result == null) {
-                return java.util.stream.Stream.of((Object) null);
-            }
-            return java.util.stream.StreamSupport.stream(
-                    Spliterators.spliteratorUnknownSize(result, Spliterator.ORDERED), false);
+            return flattenIterator(result);
         } catch (RuntimeException error) {
-            LOGGER.warn("openjiuwen execute failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
-                    context.getScope().tenantId(),
-                    context.getScope().sessionId(),
-                    context.getScope().taskId(),
-                    error.getClass().getSimpleName(),
-                    errorMessage(error));
-            // ERROR is a mandatory trajectory kind: surface the run-level failure northbound even though
-            // the failure is mapped to a result (not rethrown), so the trajectory is not silently truncated.
-            trajectory.emit(TrajectoryDraft.error(null, "OPENJIUWEN_RUN_ERROR", errorMessage(error), null, false));
-            return java.util.stream.Stream.of(AgentExecutionResult.failed("OPENJIUWEN_RUN_ERROR", errorMessage(error)));
+            return failedResult(context, trajectory, error);
         }
     }
 
@@ -191,77 +167,12 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         return List.of(StreamMode.OUTPUT);
     }
 
-    /**
-     * Returns the stable conversation id openJiuwen should use for native
-     * checkpointer restore/save. Subclasses pass this value as the Runner
-     * session id, or rely on {@link #toOpenJiuwenInput(AgentExecutionContext)}
-     * to place it in {@code conversation_id}.
-     */
-    protected String openJiuwenConversationId(AgentExecutionContext context) {
-        String conversationId = context.getAgentStateKey();
-        LOGGER.info("openjiuwen conversation resolve tenantId={} sessionId={} taskId={} agentId={} conversationId={}",
-                context.getScope().tenantId(),
-                context.getScope().sessionId(),
-                context.getScope().taskId(),
-                context.getScope().agentId(),
-                conversationId);
-        return conversationId;
-    }
-
-    protected Object toOpenJiuwenInput(AgentExecutionContext context) {
-        LOGGER.info("openjiuwen input convert tenantId={} sessionId={} taskId={} agentId={} inputType={} messages={}",
-                context.getScope().tenantId(),
-                context.getScope().sessionId(),
-                context.getScope().taskId(),
-                context.getScope().agentId(),
-                context.getInputType(),
-                context.getMessages().size());
-        return messageConverter.toOpenJiuwenInput(context);
-    }
-
     private void installRails(BaseAgent agent, AgentExecutionContext context) {
         for (AgentRail rail : openJiuwenRails(context)) {
             if (rail != null) {
                 agent.registerRail(rail);
             }
         }
-    }
-
-    @Override
-    public StreamAdapter resultAdapter() {
-        return rawResults -> rawResults.map(this::mapRawResult).filter(Objects::nonNull);
-    }
-
-    private AgentExecutionResult mapRawResult(Object rawResult) {
-        LOGGER.info("openjiuwen raw result received type={}",
-                rawResult == null ? "null" : rawResult.getClass().getName());
-        if (rawResult instanceof AgentExecutionResult result) {
-            return result;
-        }
-        if (rawResult == null) {
-            return AgentExecutionResult.failed(
-                    OpenJiuwenStreamAdapter.ERROR_CODE, "openjiuwen runner returned no result");
-        }
-        if (rawResult instanceof OutputSchema chunk) {
-            return resultMapper.map(chunk);
-        }
-        return AgentExecutionResult.output(String.valueOf(rawResult));
-    }
-
-    protected static String errorMessage(Throwable error) {
-        StringBuilder message = new StringBuilder();
-        Throwable cursor = error;
-        while (cursor != null) {
-            String part = cursor.getMessage();
-            if (part != null && !part.isBlank()) {
-                if (!message.isEmpty()) {
-                    message.append(": ");
-                }
-                message.append(part);
-            }
-            cursor = cursor.getCause();
-        }
-        return message.isEmpty() ? error.getClass().getName() : message.toString();
     }
 
     private static AgentRail createExternalMemoryRail(

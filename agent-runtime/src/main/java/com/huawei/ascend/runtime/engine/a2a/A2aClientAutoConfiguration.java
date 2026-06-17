@@ -1,6 +1,7 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenDeepAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenRemoteToolInstaller;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -89,18 +90,26 @@ public class A2aClientAutoConfiguration {
         @ConditionalOnMissingBean
         public OpenJiuwenRemoteToolInstaller openJiuwenRemoteToolInstaller(
                 RemoteAgentCardCache cardCache,
-                ObjectProvider<OpenJiuwenAgentRuntimeHandler> handlers) {
+                ObjectProvider<OpenJiuwenAgentRuntimeHandler> handlers,
+                ObjectProvider<OpenJiuwenDeepAgentRuntimeHandler> deepHandlers) {
             OpenJiuwenRemoteToolInstaller installer =
                     new OpenJiuwenRemoteToolInstaller(cardCache::availableToolSpecs);
-            int count = 0;
+            int reactCount = 0;
             for (OpenJiuwenAgentRuntimeHandler handler : handlers.orderedStream().toList()) {
                 handler.setRuntimeToolInstaller(installer);
-                count++;
+                reactCount++;
                 LOG.info("installed remote tool installer into openjiuwen handler agentId={}",
                         handler.agentId());
             }
-            if (count == 0) {
-                LOG.warn("remote tool installer created but no OpenJiuwenAgentRuntimeHandler beans found");
+            int deepCount = 0;
+            for (OpenJiuwenDeepAgentRuntimeHandler handler : deepHandlers.orderedStream().toList()) {
+                handler.setRuntimeToolInstaller(installer);
+                deepCount++;
+                LOG.info("installed remote tool installer into openjiuwen deepagent handler agentId={}",
+                        handler.agentId());
+            }
+            if (reactCount == 0 && deepCount == 0) {
+                LOG.warn("remote tool installer created but no OpenJiuwen runtime handler beans found");
             }
             return installer;
         }
