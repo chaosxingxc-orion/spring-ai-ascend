@@ -11,16 +11,24 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>openjiuwen-workflow-standalone-example</artifactId>
+    <artifactId>agent-runtime-a2a-openjiuwen-workflow-e2e-example</artifactId>
     <packaging>jar</packaging>
-    <name>OpenJiuwen Workflow Standalone Example</name>
-    <description>Standalone demo of OpenJiuwen multi-step DAG workflow with human-in-the-loop interrupt/resume</description>
+    <name>OpenJiuwen Workflow A2A E2E Example</name>
+    <description>
+        E2E demo of OpenJiuwen Workflow Agent exposed via A2A with human-in-the-loop interrupt/resume.
+        Demonstrates main ReActAgent calling WorkflowAgent as a remote tool.
+    </description>
 
     <properties>
         <enforcer.skip>true</enforcer.skip>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.huawei.ascend</groupId>
+            <artifactId>agent-runtime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.openjiuwen</groupId>
             <artifactId>agent-core-java</artifactId>
@@ -31,26 +39,24 @@
             <artifactId>protobuf-java</artifactId>
             <version>4.33.2</version>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.6.2</version>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>com.huawei.ascend.examples.openjiuwen.workflow.ArticleSummarizerWorkflow</mainClass>
-                    <systemProperties>
-                        <systemProperty>
-                            <key>logback.statusListenerClass</key>
-                            <value>ch.qos.logback.core.status.NopStatusListener</value>
-                        </systemProperty>
-                        <systemProperty>
-                            <key>slf4j.internal.verbosity</key>
-                            <value>ERROR</value>
-                        </systemProperty>
-                    </systemProperties>
+                    <mainClass>com.huawei.ascend.examples.a2a.workflow.QuestionerWorkflowApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>
