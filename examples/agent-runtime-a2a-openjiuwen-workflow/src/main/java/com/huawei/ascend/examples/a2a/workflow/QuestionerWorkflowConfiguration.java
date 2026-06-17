@@ -59,6 +59,7 @@ public class QuestionerWorkflowConfiguration {
                         .id("ask_question")
                         .name("ask_question")
                         .description("向用户提一个问题（1+1等于几？），等待用户回答后回显答案并确认正确")
+                        .tags(List.of())
                         .build()))
                 .supportedInterfaces(List.of(
                         new AgentInterface(TransportProtocol.JSONRPC.asString(), "/a2a")))
