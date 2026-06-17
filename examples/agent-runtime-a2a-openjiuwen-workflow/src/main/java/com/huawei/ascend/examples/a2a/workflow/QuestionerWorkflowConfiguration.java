@@ -35,6 +35,7 @@ import org.springframework.context.annotation.Configuration;
  * input, then the End node echoes the answer back via template rendering.
  */
 @Configuration(proxyBeanMethods = false)
+@org.springframework.context.annotation.Profile("!main")
 public class QuestionerWorkflowConfiguration {
 
     static final String AGENT_ID = "questioner-workflow";
