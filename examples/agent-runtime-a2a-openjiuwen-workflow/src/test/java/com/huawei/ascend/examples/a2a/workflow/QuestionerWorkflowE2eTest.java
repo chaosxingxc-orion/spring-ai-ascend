@@ -48,7 +48,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = QuestionerWorkflowApplication.class)
 @Tag("manual")
-@EnabledIfEnvironmentVariable(named = "SAA_LLM_API_KEY")
+@EnabledIfEnvironmentVariable(named = "SAA_LLM_API_KEY", matches = ".+")
 class QuestionerWorkflowE2eTest {
 
     @LocalServerPort
@@ -224,19 +224,18 @@ class QuestionerWorkflowE2eTest {
         private static MessageSendParams buildParams(
                 String userId, String agentId, String sessionId,
                 String taskId, String text) {
-            Message.MessageBuilder msgBuilder = Message.builder()
+            Message message = Message.builder()
                     .role(Message.Role.ROLE_USER)
                     .messageId(UUID.randomUUID().toString())
+                    .taskId(taskId)
                     .contextId(sessionId)
                     .metadata(Map.of(
                             "userId", userId,
                             "agentId", agentId,
                             "sessionId", sessionId))
-                    .parts(List.of(new TextPart(text)));
-            if (taskId != null) {
-                msgBuilder.taskId(taskId);
-            }
-            return MessageSendParams.builder().message(msgBuilder.build()).build();
+                    .parts(List.of(new TextPart(text)))
+                    .build();
+            return MessageSendParams.builder().message(message).build();
         }
 
         private static boolean isTerminal(StreamingEventKind event) {
