@@ -1,0 +1,32 @@
+# ── Main ReActAgent — "main" profile ────────────────────────────────
+# Run:  mvn spring-boot:run -f examples/.../pom.xml -Dspring-boot.run.profiles=main
+# This agent uses an LLM to decide when to call the Questioner Workflow
+# Agent as a remote tool. The Workflow Agent must already be running
+# on the port configured below.
+
+server:
+  port: ${SAA_MAIN_PORT:8081}
+  shutdown: graceful
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: main-react-agent
+      agent-card:
+        name: main-react-agent
+        description: 主控 ReActAgent — 通过 LLM 决策调用提问器 Workflow Agent
+        version: "1.0"
+
+  # Remote agent: points to the Questioner Workflow Agent
+  remote-agents:
+    - url: ${SAA_WORKFLOW_URL:http://localhost:8080}
+      stream-timeout: 60s
+      output:
+        default-target: USER
+        completion-target: LLM
+
+logging:
+  level:
+    root: WARN
+    com.huawei.ascend: INFO

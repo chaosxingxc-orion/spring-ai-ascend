@@ -8,6 +8,7 @@
 |------|---------|
 | [handler-spi.md](handler-spi.md) | 实现自定义 AgentRuntimeHandler、选择适配器 |
 | [openjiuwen-adapter.md](openjiuwen-adapter.md) | 挂载 openJiuwen ReActAgent |
+| [openjiuwen-workflow-adapter.md](openjiuwen-workflow-adapter.md) | 挂载 openJiuwen Workflow Agent（DAG + 中断/恢复） |
 | [agentscope-adapter.md](agentscope-adapter.md) | 挂载 AgentScope Agent |
 | [versatile-adapter.md](versatile-adapter.md) | 通过 REST 代理接入远端 Agent、编写 SKILL.md |
 | [a2a-endpoints.md](a2a-endpoints.md) | A2A 协议调用：通讯模式、Methods、Java SDK 客户端 |
@@ -25,6 +26,7 @@
 |--------|------|
 | 创建新的 Agent 适配器 | [handler-spi.md](handler-spi.md) → 对应框架文档 |
 | 挂载 openJiuwen Agent | [openjiuwen-adapter.md](openjiuwen-adapter.md) |
+| 挂载 openJiuwen Workflow | [openjiuwen-workflow-adapter.md](openjiuwen-workflow-adapter.md) |
 | 挂载 AgentScope Agent | [agentscope-adapter.md](agentscope-adapter.md) |
 | 代理远端 REST Agent | [versatile-adapter.md](versatile-adapter.md) |
 | 用 curl 调用 Agent | [a2a-endpoints.md](a2a-endpoints.md) |
