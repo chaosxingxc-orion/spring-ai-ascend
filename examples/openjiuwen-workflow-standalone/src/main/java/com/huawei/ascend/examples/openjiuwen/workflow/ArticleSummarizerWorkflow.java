@@ -210,7 +210,7 @@ public final class ArticleSummarizerWorkflow {
 
         wf.addWorkflowComp("summarize", new LLMComponent(summarizeConfig),
                 Map.of("analysis", "${analyze.text}",
-                       "search_results", "${search.text}"), null);
+                       "search_results", "${search.data}"), null);
 
         wf.addWorkflowComp("confirm", new QuestionerComponent(qConfig),
                 Map.of("summary", "${summarize.text}"), null);
