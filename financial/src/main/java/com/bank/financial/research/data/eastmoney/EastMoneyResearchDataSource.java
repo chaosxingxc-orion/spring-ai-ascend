@@ -6,6 +6,7 @@ import com.bank.financial.research.data.ResearchDataSource;
 import com.bank.financial.research.data.SourceType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -48,7 +49,8 @@ public final class EastMoneyResearchDataSource implements ResearchDataSource {
     public EastMoneyResearchDataSource(long asOfEpochMs, Duration connectTimeout, Duration requestTimeout) {
         this.asOfEpochMs = asOfEpochMs;
         this.requestTimeout = requestTimeout;
-        this.http = HttpClient.newBuilder().connectTimeout(connectTimeout).build();
+        this.http = HttpClient.newBuilder().connectTimeout(connectTimeout)
+                .proxy(ProxySelector.getDefault()).build();
     }
 
     @Override

@@ -110,8 +110,10 @@ public final class FundReportEngine {
         FundCriticAgent critic = new FundCriticAgent();
         safe(ctx, writer, progress, "writer", 6);
         emit(progress, "critic", "running", 7);
+        List<String> criticBefore = new ArrayList<>(ctx.blackboardKeys());
         List<String> findings = reviewSafe(ctx, critic);
         emit(progress, "critic", "done", 7);
+        emitDone(progress, ctx, "critic", criticBefore);
         int rounds = 0;
         while (!findings.isEmpty() && rounds < request.budget().maxCriticRounds() && ctx.withinTime()) {
             rounds++;
@@ -121,6 +123,7 @@ public final class FundReportEngine {
 
         FundComplianceAgent compliance = new FundComplianceAgent();
         emit(progress, "compliance", "running", 8);
+        List<String> complianceBefore = new ArrayList<>(ctx.blackboardKeys());
         List<String> notes;
         try {
             notes = compliance.notes(ctx);
@@ -130,6 +133,7 @@ public final class FundReportEngine {
             notes = List.of("披露生成失败,需人工补充。");
         }
         emit(progress, "compliance", "done", 8);
+        emitDone(progress, ctx, "compliance", complianceBefore);
 
         FundReport report = assemble(ctx, rounds, findings, notes);
         ctx.memory("lead-manager").recordOutcome("fund report assembled: " + report.overallRating());
@@ -146,12 +150,30 @@ public final class FundReportEngine {
 
     private void safe(FundContext ctx, FundSubAgent agent, PipelineProgress progress, String role, int index) {
         emit(progress, role, "running", index);
+        List<String> before = new ArrayList<>(ctx.blackboardKeys());
         try {
             agent.contribute(ctx);
         } catch (RuntimeException e) {
             ctx.degraded(agent.role(), e.getMessage());
         }
         emit(progress, role, "done", index);
+        emitDone(progress, ctx, role, before);
+    }
+
+    /** Diff the blackboard against {@code before} and report newly-written key→value pairs. Fault-isolated. */
+    private void emitDone(PipelineProgress progress, FundContext ctx, String role, List<String> before) {
+        try {
+            java.util.Map<String, String> wrote = new java.util.LinkedHashMap<>();
+            Set<String> seen = new java.util.HashSet<>(before);
+            for (String key : ctx.blackboardKeys()) {
+                if (!seen.contains(key)) {
+                    wrote.put(key, ctx.latest(key).orElse(""));
+                }
+            }
+            progress.onAgentDone(role, wrote);
+        } catch (RuntimeException ignored) {
+            // progress reporting must never affect the run
+        }
     }
 
     private void safeNoEmit(FundContext ctx, FundSubAgent agent) {

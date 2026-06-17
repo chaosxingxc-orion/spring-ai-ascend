@@ -7,6 +7,7 @@ import com.bank.financial.research.data.ResearchDataSource;
 import com.bank.financial.research.data.SourceType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -45,7 +46,8 @@ public final class EastMoneyFundDataSource implements FundDataSource {
         this.asOfEpochMs = asOfEpochMs;
         this.pageSize = pageSize;
         this.requestTimeout = requestTimeout;
-        this.http = HttpClient.newBuilder().connectTimeout(connectTimeout).build();
+        this.http = HttpClient.newBuilder().connectTimeout(connectTimeout)
+                .proxy(ProxySelector.getDefault()).build();
     }
 
     @Override

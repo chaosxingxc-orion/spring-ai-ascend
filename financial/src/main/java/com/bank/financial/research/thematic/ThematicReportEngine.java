@@ -2,6 +2,7 @@ package com.bank.financial.research.thematic;
 
 import com.bank.financial.research.data.ThematicData;
 import com.bank.financial.research.data.ThematicDataSource;
+import com.bank.financial.research.engine.PipelineProgress;
 import com.bank.financial.research.engine.ReportRequest;
 import com.bank.financial.research.engine.ReportSection;
 import com.bank.financial.research.engine.ResearchReport;
@@ -65,12 +66,19 @@ public final class ThematicReportEngine {
     }
 
     public ThematicReport generate(ReportRequest request) {
+        return generate(request, PipelineProgress.NOOP);
+    }
+
+    public ThematicReport generate(ReportRequest request, PipelineProgress progress) {
+        if (progress == null) {
+            progress = PipelineProgress.NOOP;
+        }
         Timer.Sample sample = Timer.start(Metrics.globalRegistry);
         boolean ok = false;
         log.info("thematic-report start run={} theme={} model={}",
                 request.collaborationId(), request.ticker(), model.name());
         try {
-            ThematicReport r = doGenerate(request);
+            ThematicReport r = doGenerate(request, progress);
             ok = true;
             log.info("thematic-report done run={} rating={} score={} degraded={}",
                     request.collaborationId(), r.overallRating(), r.overallScore(), r.metadata().degradations().size());
@@ -81,7 +89,7 @@ public final class ThematicReportEngine {
         }
     }
 
-    private ThematicReport doGenerate(ReportRequest request) {
+    private ThematicReport doGenerate(ReportRequest request, PipelineProgress progress) {
         ThematicData.Dataset dataset = source.load(request.ticker(), request.asOfEpochMs());
         SharedMemoryStore store = new InMemorySharedMemoryStore();
         ThematicContext ctx = new ThematicContext(request, dataset, model, store, observer, clock);
@@ -99,26 +107,29 @@ public final class ThematicReportEngine {
             ctx.degraded("experience:recall", e.getMessage());
         }
 
-        safe(ctx, new ThematicPlannerAgent());
-        safe(ctx, new MacroIngestionAgent());
-        safe(ctx, new SectorImpactAgent());
-        safe(ctx, new StrategyManagerAgent());
+        safe(ctx, new ThematicPlannerAgent(), progress);
+        safe(ctx, new MacroIngestionAgent(), progress);
+        safe(ctx, new SectorImpactAgent(), progress);
+        safe(ctx, new StrategyManagerAgent(), progress);
         ctx.memory("lead-manager").recordHandover("writer", "sector view set");
 
         ThematicWriterAgent writer = new ThematicWriterAgent();
         ThematicCriticAgent critic = new ThematicCriticAgent();
-        safe(ctx, writer);
+        safe(ctx, writer, progress);
+        List<String> criticBefore = new ArrayList<>(ctx.blackboardKeys());
         List<String> findings = reviewSafe(ctx, critic);
+        emitDone(progress, ctx, "critic", criticBefore);
         int rounds = 0;
         while (!findings.isEmpty() && rounds < request.budget().maxCriticRounds() && ctx.withinTime()) {
             rounds++;
-            safe(ctx, writer);
+            safe(ctx, writer, progress);
             findings = reviewSafe(ctx, critic);
         }
 
         ThematicComplianceAgent compliance = new ThematicComplianceAgent();
         List<String> notes;
         List<String> gaps;
+        List<String> complianceBefore = new ArrayList<>(ctx.blackboardKeys());
         try {
             notes = compliance.notes(ctx);
             gaps = compliance.dataGaps(ctx);
@@ -128,6 +139,7 @@ public final class ThematicReportEngine {
             notes = List.of("披露生成失败,需人工补充。");
             gaps = List.of();
         }
+        emitDone(progress, ctx, "compliance", complianceBefore);
 
         ThematicReport report = assemble(ctx, rounds, findings, notes, gaps);
         ctx.memory("lead-manager").recordOutcome("thematic report assembled: " + report.overallRating());
@@ -142,14 +154,32 @@ public final class ThematicReportEngine {
         return report;
     }
 
-    private void safe(ThematicContext ctx, ThematicSubAgent agent) {
+    private void safe(ThematicContext ctx, ThematicSubAgent agent, PipelineProgress progress) {
         long t0 = ctx.now();
+        List<String> before = new ArrayList<>(ctx.blackboardKeys());
         try {
             agent.contribute(ctx);
             log.debug("thematic-report phase ok run={} role={} ms={}",
                     ctx.request().collaborationId(), agent.role(), ctx.now() - t0);
         } catch (RuntimeException e) {
             ctx.degraded(agent.role(), e.getMessage());
+        }
+        emitDone(progress, ctx, agent.role(), before);
+    }
+
+    /** Diff the blackboard against {@code before} and report newly-written key→value pairs. Fault-isolated. */
+    private void emitDone(PipelineProgress progress, ThematicContext ctx, String role, List<String> before) {
+        try {
+            java.util.Map<String, String> wrote = new java.util.LinkedHashMap<>();
+            Set<String> seen = new java.util.HashSet<>(before);
+            for (String key : ctx.blackboardKeys()) {
+                if (!seen.contains(key)) {
+                    wrote.put(key, ctx.latest(key).orElse(""));
+                }
+            }
+            progress.onAgentDone(role, wrote);
+        } catch (RuntimeException ignored) {
+            // progress reporting must never affect the run
         }
     }
 

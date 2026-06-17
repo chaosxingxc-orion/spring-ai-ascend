@@ -126,20 +126,32 @@ public final class ResearchWebServer {
 
             long now = System.currentTimeMillis();
 
-            // progress callback: one SSE line per agent transition (+ optional pacing)
-            PipelineProgress progress = (role, state, index, total) -> {
-                Map<String, Object> data = new LinkedHashMap<>();
-                data.put("role", role);
-                data.put("state", state);
-                data.put("index", index);
-                data.put("total", total);
-                send(out, "agent", data);
-                if ("running".equals(state) && pace > 0) {
-                    try {
-                        Thread.sleep(pace);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
+            // progress callback: one SSE line per agent transition (+ optional pacing),
+            // plus an "agent-detail" line carrying the keys this agent wrote to the blackboard
+            PipelineProgress progress = new PipelineProgress() {
+                @Override
+                public void onAgent(String role, String state, int index, int total) {
+                    Map<String, Object> data = new LinkedHashMap<>();
+                    data.put("role", role);
+                    data.put("state", state);
+                    data.put("index", index);
+                    data.put("total", total);
+                    send(out, "agent", data);
+                    if ("running".equals(state) && pace > 0) {
+                        try {
+                            Thread.sleep(pace);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
                     }
+                }
+
+                @Override
+                public void onAgentDone(String role, Map<String, String> wrote) {
+                    Map<String, Object> data = new LinkedHashMap<>();
+                    data.put("role", role);
+                    data.put("wrote", wrote);
+                    send(out, "agent-detail", data);
                 }
             };
 
@@ -331,14 +343,40 @@ public final class ResearchWebServer {
               .chips{display:flex;flex-wrap:wrap;gap:8px}
               .chip{display:flex;align-items:center;gap:6px;background:var(--panel2);
                 border:1px solid var(--border);border-radius:20px;padding:6px 13px;font-size:12.5px;
-                color:var(--muted);transition:.2s}
+                color:var(--muted);transition:.2s;cursor:pointer}
               .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--border)}
+              .chip .rolename{font-variant-numeric:tabular-nums;opacity:.75;font-size:11px}
               .chip.running{color:var(--txt);border-color:var(--pulse);
                 animation:pulse 1s ease-in-out infinite}
               .chip.running .dot{background:var(--pulse)}
               .chip.done{color:var(--green);border-color:var(--green);background:var(--green-bg)}
               .chip.done .dot{background:var(--green)}
               .chip.done .dot::after{content:"";}
+              .chip .freed{font-size:10px;color:var(--muted);background:rgba(139,148,158,.15);
+                border-radius:8px;padding:1px 6px;margin-left:2px}
+              .chip.open{border-color:var(--accent)}
+              .chip-detail{margin-top:8px;background:var(--panel2);border:1px solid var(--border);
+                border-radius:8px;padding:10px 12px;font-size:12px}
+              .chip-detail .kv{display:flex;gap:8px;padding:3px 0;border-bottom:1px dashed var(--border)}
+              .chip-detail .kv:last-child{border-bottom:none}
+              .chip-detail .k{color:var(--accent);font-weight:600;min-width:130px;
+                word-break:break-all}
+              .chip-detail .v{color:#c9d1d9;word-break:break-all}
+              .chip-detail .none{color:var(--muted)}
+              /* shared blackboard table */
+              .bbtable{width:100%;border-collapse:collapse;font-size:12px}
+              .bbtable th,.bbtable td{text-align:left;padding:6px 9px;
+                border-bottom:1px solid var(--border);vertical-align:top}
+              .bbtable th{color:var(--muted);font-weight:600;text-transform:uppercase;
+                letter-spacing:.4px;font-size:11px}
+              .bbtable td.k{color:var(--accent);font-weight:600;word-break:break-all}
+              .bbtable td.v{color:#c9d1d9;word-break:break-all}
+              .bbtable td.owner{color:var(--muted)}
+              .bbtable .owner-tag{background:var(--panel2);border:1px solid var(--border);
+                border-radius:12px;padding:2px 9px;font-size:11px;white-space:nowrap}
+              .bb-empty{color:var(--muted);text-align:center;padding:22px 0;font-size:12px}
+              .lifecycle{margin-top:12px;font-size:12px;color:var(--green);
+                border-top:1px solid var(--border);padding-top:10px}
               @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.4)}
                 50%{box-shadow:0 0 0 5px rgba(245,158,11,0)}}
               .badges{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
@@ -399,6 +437,14 @@ public final class ResearchWebServer {
                     <span class="count" id="count">运行中 0 · 完成 0 / 9</span>
                   </div>
                   <div class="chips" id="chips"></div>
+                  <div id="lifecycle"></div>
+                </div>
+                <div class="card">
+                  <div class="pipe-head">
+                    <h2 style="margin:0">共享黑板 / Shared Memory</h2>
+                    <span class="count" id="bbcount">0 条</span>
+                  </div>
+                  <div id="blackboard"><div class="bb-empty">运行后将实时累积各智能体写入的共享记忆 ——</div></div>
                 </div>
                 <div class="card">
                   <h2>报告预览</h2>
@@ -436,14 +482,62 @@ public final class ResearchWebServer {
               renderSources();
 
               var chipEl={}, total=0;
+              var agentWrote={};   // role -> {key:value,...} accumulated from agent-detail
+              var board={};        // key -> {value, owner} live shared blackboard
               function buildChips(agents){
                 var c=document.getElementById('chips'); c.innerHTML=''; chipEl={}; total=agents.length;
                 agents.forEach(function(a){
-                  var d=document.createElement('div'); d.className='chip';
-                  d.innerHTML='<span class="dot"></span>'+a.label;
+                  var d=document.createElement('div'); d.className='chip'; d.dataset.role=a.role;
+                  d.innerHTML='<span class="dot"></span><span class="rolename">'+esc(a.role)+
+                    '</span> · '+esc(a.label);
+                  d.addEventListener('click',function(){ toggleChip(a.role); });
                   c.appendChild(d); chipEl[a.role]=d;
                 });
                 recount();
+              }
+              function toggleChip(role){
+                var c=document.getElementById('chips');
+                var existing=document.getElementById('detail-'+cssId(role));
+                if(existing){ existing.parentNode.removeChild(existing);
+                  if(chipEl[role]) chipEl[role].classList.remove('open'); return; }
+                // close any other open detail (single-open)
+                Array.prototype.forEach.call(c.querySelectorAll('.chip-detail'),function(x){
+                  x.parentNode.removeChild(x); });
+                Array.prototype.forEach.call(c.querySelectorAll('.chip.open'),function(x){
+                  x.classList.remove('open'); });
+                var det=document.createElement('div'); det.className='chip-detail';
+                det.id='detail-'+cssId(role); det.style.flexBasis='100%';
+                var wrote=agentWrote[role]||{}; var keys=Object.keys(wrote);
+                if(keys.length===0){
+                  det.innerHTML='<div class="none">该智能体本次未向黑板写入新键(或尚未执行)。</div>';
+                } else {
+                  det.innerHTML=keys.map(function(k){
+                    return '<div class="kv"><span class="k">'+esc(k)+'</span>'+
+                      '<span class="v">'+esc(trunc(wrote[k]))+'</span></div>'; }).join('');
+                }
+                if(chipEl[role]){ chipEl[role].classList.add('open');
+                  // insert right after the chip so it reads inline
+                  if(chipEl[role].nextSibling){ c.insertBefore(det,chipEl[role].nextSibling); }
+                  else { c.appendChild(det); }
+                }
+              }
+              function cssId(s){ return String(s).replace(/[^a-zA-Z0-9_-]/g,'_'); }
+              function trunc(s){ s=String(s==null?'':s); return s.length>80?s.slice(0,80)+'…':s; }
+              function renderBoard(){
+                var keys=Object.keys(board);
+                document.getElementById('bbcount').textContent=keys.length+' 条';
+                var box=document.getElementById('blackboard');
+                if(keys.length===0){
+                  box.innerHTML='<div class="bb-empty">运行后将实时累积各智能体写入的共享记忆 ——</div>';
+                  return;
+                }
+                var rows=keys.map(function(k){
+                  return '<tr><td class="k">'+esc(k)+'</td>'+
+                    '<td class="v">'+esc(trunc(board[k].value))+'</td>'+
+                    '<td class="owner"><span class="owner-tag">'+esc(board[k].owner)+'</span></td></tr>';
+                }).join('');
+                box.innerHTML='<table class="bbtable"><thead><tr><th>键 Key</th>'+
+                  '<th>值 Value</th><th>写入方 Owner</th></tr></thead><tbody>'+rows+'</tbody></table>';
               }
               function recount(){
                 var running=0,done=0;
@@ -461,7 +555,10 @@ public final class ResearchWebServer {
               go.addEventListener('click',function(){
                 if(es){es.close();}
                 document.getElementById('chips').innerHTML=''; chipEl={}; total=0;
+                agentWrote={}; board={};
                 document.getElementById('count').textContent='运行中 0 · 完成 0 / 0';
+                document.getElementById('lifecycle').innerHTML='';
+                renderBoard();
                 document.getElementById('badges').innerHTML='';
                 document.getElementById('note').textContent='';
                 document.getElementById('preview').innerHTML='<div class="empty">流水线运行中 ——</div>';
@@ -475,6 +572,19 @@ public final class ResearchWebServer {
                   var d=JSON.parse(e.data), el=chipEl[d.role]; if(!el) return;
                   el.classList.remove('running','done');
                   el.classList.add(d.state==='done'?'done':'running'); recount();
+                });
+                es.addEventListener('agent-detail',function(e){
+                  var d=JSON.parse(e.data); if(!d||!d.role) return;
+                  var wrote=d.wrote||{};
+                  agentWrote[d.role]=Object.assign(agentWrote[d.role]||{},wrote);
+                  Object.keys(wrote).forEach(function(k){
+                    board[k]={value:wrote[k],owner:d.role};
+                  });
+                  renderBoard();
+                  // if this agent's detail panel is open, refresh it live
+                  if(chipEl[d.role]&&chipEl[d.role].classList.contains('open')){
+                    toggleChip(d.role); toggleChip(d.role);
+                  }
                 });
                 es.addEventListener('note',function(e){
                   document.getElementById('note').textContent=JSON.parse(e.data).message||'';
@@ -495,7 +605,23 @@ public final class ResearchWebServer {
                   var msg='连接中断'; try{ if(e.data){ msg=JSON.parse(e.data).message||msg; } }catch(_){}
                   document.getElementById('note').textContent='出错:'+msg; finish();
                 });
-                es.addEventListener('done',function(){ finish(); });
+                es.addEventListener('done',function(){
+                  var n=0;
+                  Object.keys(chipEl).forEach(function(k){
+                    var el=chipEl[k];
+                    if(el.className.indexOf('done')>=0){
+                      n++;
+                      if(!el.querySelector('.freed')){
+                        var b=document.createElement('span'); b.className='freed';
+                        b.textContent='已释放'; el.appendChild(b);
+                      }
+                    }
+                  });
+                  document.getElementById('lifecycle').innerHTML=
+                    '<div class="lifecycle">✓ '+n+
+                    ' 个智能体已执行并释放(无状态);运行内共享黑板已归档为跨运行经验(Experience)</div>';
+                  finish();
+                });
               });
               function finish(){ if(es){es.close();es=null;} go.disabled=false; go.textContent='生成研报'; }
               function esc(s){

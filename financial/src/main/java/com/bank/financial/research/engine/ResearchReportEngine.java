@@ -140,8 +140,10 @@ public final class ResearchReportEngine {
         // first pass (index 7/8) and not re-incremented across rounds.
         safe(ctx, writer, progress, "writer", 7);
         emit(progress, "critic", "running", 8);
+        List<String> criticBefore = new ArrayList<>(ctx.blackboardKeys());
         List<String> findings = reviewSafe(ctx, critic);
         emit(progress, "critic", "done", 8);
+        emitDone(progress, ctx, "critic", criticBefore);
         int rounds = 0;
         while (!findings.isEmpty() && rounds < request.budget().maxCriticRounds() && ctx.withinTime()) {
             rounds++;
@@ -156,6 +158,7 @@ public final class ResearchReportEngine {
         List<String> complianceNotes;
         List<String> dataGaps;
         emit(progress, "compliance", "running", 9);
+        List<String> complianceBefore = new ArrayList<>(ctx.blackboardKeys());
         try {
             complianceNotes = compliance.notes(ctx);
             dataGaps = compliance.dataGaps(ctx);
@@ -166,6 +169,7 @@ public final class ResearchReportEngine {
             dataGaps = List.of();
         }
         emit(progress, "compliance", "done", 9);
+        emitDone(progress, ctx, "compliance", complianceBefore);
 
         // ── ASSEMBLE from the blackboard ──────────────────────────────────────
         ResearchReport report = assemble(ctx, rounds, findings, complianceNotes, dataGaps);
@@ -188,8 +192,26 @@ public final class ResearchReportEngine {
     private void safe(ReportContext ctx, com.bank.financial.research.agent.ReportSubAgent agent,
             PipelineProgress progress, String role, int index) {
         emit(progress, role, "running", index);
+        List<String> before = new ArrayList<>(ctx.blackboardKeys());
         safe(ctx, agent);
         emit(progress, role, "done", index);
+        emitDone(progress, ctx, role, before);
+    }
+
+    /** Diff the blackboard against {@code before} and report newly-written key→value pairs. Fault-isolated. */
+    private void emitDone(PipelineProgress progress, ReportContext ctx, String role, List<String> before) {
+        try {
+            java.util.Map<String, String> wrote = new java.util.LinkedHashMap<>();
+            Set<String> seen = new java.util.HashSet<>(before);
+            for (String key : ctx.blackboardKeys()) {
+                if (!seen.contains(key)) {
+                    wrote.put(key, ctx.latest(key).orElse(""));
+                }
+            }
+            progress.onAgentDone(role, wrote);
+        } catch (RuntimeException ignored) {
+            // progress reporting must never affect the run
+        }
     }
 
     /** Emit one progress event. Fault-isolated: a callback failure never affects the run. */

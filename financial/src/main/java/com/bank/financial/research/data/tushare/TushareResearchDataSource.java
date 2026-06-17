@@ -7,6 +7,7 @@ import com.bank.financial.research.data.SourceType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -57,7 +58,8 @@ public final class TushareResearchDataSource implements ResearchDataSource {
     public TushareResearchDataSource(String tokenOrNull, long asOfEpochMs) {
         this.token = tokenOrNull;
         this.asOfEpochMs = asOfEpochMs;
-        this.http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
+        this.http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT)
+                .proxy(ProxySelector.getDefault()).build();
     }
 
     @Override
