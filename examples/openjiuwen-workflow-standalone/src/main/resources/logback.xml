@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="false">
+    <!--
+      Suppress OpenJiuwen graph ERROR logs for normal GraphInterrupt behavior.
+      The QuestionerComponent throws GraphInterrupt to suspend execution,
+      but Vertex.java logs it at ERROR level (it catches RuntimeException,
+      unwraps GraphInterrupt for the engine, but logs before re-throwing).
+     -->
+    <logger name="graph" level="OFF" />
+    <logger name="session" level="OFF" />
+    <logger name="llm" level="OFF" />
+
+    <!-- Keep only WARN+ from OpenJiuwen internals -->
+    <root level="WARN">
+        <appender-ref ref="CONSOLE" />
+    </root>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+</configuration>
