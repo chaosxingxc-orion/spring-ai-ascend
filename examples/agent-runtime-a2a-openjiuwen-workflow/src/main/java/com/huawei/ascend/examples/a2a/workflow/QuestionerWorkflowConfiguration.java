@@ -43,7 +43,7 @@ public class QuestionerWorkflowConfiguration {
             @Value("${sample.openjiuwen.api-key:sk-local-placeholder}") String apiKey,
             @Value("${sample.openjiuwen.api-base:http://localhost:4000/v1}") String apiBase,
             @Value("${sample.openjiuwen.model-name:gpt-5.4-mini}") String modelName,
-            @Value("${sample.openjiuwen.ssl-verify:false}") boolean sslVerify) {
+            @Value("${sample.openjiuwen.ssl-verify:true}") boolean sslVerify) {
 
         return new QuestionerHandler(modelProvider, apiKey, apiBase, modelName, sslVerify);
     }

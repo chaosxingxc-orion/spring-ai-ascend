@@ -20,7 +20,7 @@ sample:
     api-key: ${SAA_LLM_API_KEY:sk-local-placeholder}
     api-base: ${SAA_LLM_API_BASE:http://localhost:4000/v1}
     model-name: ${SAA_LLM_MODEL:gpt-5.4-mini}
-    ssl-verify: ${SAA_OPENJIUWEN_SSL_VERIFY:false}
+    ssl-verify: ${SAA_OPENJIUWEN_SSL_VERIFY:true}
 
 logging:
   level:
