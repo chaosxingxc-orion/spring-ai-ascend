@@ -1,4 +1,4 @@
-package com.huawei.ascend.examples.a2a.workflow.main;
+package com.huawei.ascend.examples.a2a.workflow;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
