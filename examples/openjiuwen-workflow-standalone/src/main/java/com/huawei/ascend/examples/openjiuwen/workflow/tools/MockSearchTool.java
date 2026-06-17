@@ -35,14 +35,10 @@ public final class MockSearchTool {
 
         return new LocalFunction(card, inputs -> {
             String query = (String) inputs.getOrDefault("query", "");
-            return Map.of(
-                    "results", "关于「" + query + "」的搜索结果（模拟）：\n"
-                            + "1. 该话题在近期被广泛讨论，相关文章数量持续增长。\n"
-                            + "2. 专家指出该领域正处于快速发展阶段。\n"
-                            + "3. 多个权威来源确认了相关信息的基本准确性。",
-                    "source_count", 3,
-                    "status", "success"
-            );
+            return "关于「" + query + "」的搜索结果（模拟）：\n"
+                    + "1. 该话题在近期被广泛讨论，相关文章数量持续增长。\n"
+                    + "2. 专家指出该领域正处于快速发展阶段。\n"
+                    + "3. 多个权威来源确认了相关信息的基本准确性。";
         });
     }
 }
