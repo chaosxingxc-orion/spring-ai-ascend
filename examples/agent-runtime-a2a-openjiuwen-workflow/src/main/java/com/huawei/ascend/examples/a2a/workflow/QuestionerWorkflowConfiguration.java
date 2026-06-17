@@ -135,10 +135,8 @@ public class QuestionerWorkflowConfiguration {
             wf.addWorkflowComp("ask", new QuestionerComponent(qCfg),
                     Map.of("summary", "${start.query}"), null);
 
-            // End renders template with user_response from Questioner output
-            End end = new End(Map.of("responseTemplate",
-                    "你的答案是{{user_response}}，回答正确！"));
-            wf.setEndComp("end", end,
+            // End passes through the user's answer — no template, just data relay
+            wf.setEndComp("end", new End(),
                     Map.of("answer", "${ask.user_response}"), null);
 
             wf.addConnection("start", "ask");

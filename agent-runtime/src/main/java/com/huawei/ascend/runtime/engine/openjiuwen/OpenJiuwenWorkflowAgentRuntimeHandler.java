@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 /**
@@ -54,7 +55,8 @@ public abstract class OpenJiuwenWorkflowAgentRuntimeHandler
         }
     }
 
-    private WorkflowResumeContext pendingResume;
+    /** Per-agentStateKey resume state. Key = context.agentStateKey(). */
+    private final Map<String, WorkflowResumeContext> pendingResumes = new ConcurrentHashMap<>();
 
     protected OpenJiuwenWorkflowAgentRuntimeHandler(String agentId) {
         super(agentId);
@@ -86,17 +88,12 @@ public abstract class OpenJiuwenWorkflowAgentRuntimeHandler
         String sessionId;
         Object nextInputs;
 
-        if (AgentExecutionContext.INPUT_TYPE_REMOTE_RESUME.equals(context.getInputType())) {
+        WorkflowResumeContext resume = pendingResumes.remove(context.getAgentStateKey());
+        if (resume != null) {
             // ── Resume path ──────────────────────────────────────────
-            if (pendingResume == null) {
-                LOGGER.warn("Resume requested but no pending interrupt for agent={}", agentId());
-                return Stream.of(AgentExecutionResult.failed(
-                        "WORKFLOW_RESUME_ERROR", "no pending interrupt to resume"));
-            }
-            sessionId = pendingResume.sessionId;
-            String nodeId = pendingResume.interruptedNodeId;
+            sessionId = resume.sessionId;
+            String nodeId = resume.interruptedNodeId;
             String userInput = context.lastUserText();
-            pendingResume = null;
 
             InteractiveInput resumeInput = new InteractiveInput();
             resumeInput.update(nodeId, Map.of("answer", userInput));
@@ -124,7 +121,8 @@ public abstract class OpenJiuwenWorkflowAgentRuntimeHandler
 
             if (output.getState() == WorkflowExecutionState.INPUT_REQUIRED) {
                 String nodeId = OpenJiuwenWorkflowStreamAdapter.extractNodeId(output);
-                pendingResume = new WorkflowResumeContext(sessionId, nodeId);
+                pendingResumes.put(context.getAgentStateKey(),
+                        new WorkflowResumeContext(sessionId, nodeId));
                 LOGGER.info("Workflow interrupted sessionId={} nodeId={}", sessionId, nodeId);
                 return Stream.of(output);
             }
