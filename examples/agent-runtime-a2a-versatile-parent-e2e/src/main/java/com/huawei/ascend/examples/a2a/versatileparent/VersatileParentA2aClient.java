@@ -139,15 +139,14 @@ public final class VersatileParentA2aClient {
                 .role(Message.Role.ROLE_USER)
                 .messageId(UUID.randomUUID().toString())
                 .contextId(sessionId)
-                .metadata(Map.of(
-                        "userId", userId,
-                        "agentId", agentId,
-                        "sessionId", sessionId))
                 .parts(List.of(new TextPart(text)));
         if (taskId != null && !taskId.isBlank()) {
             message.taskId(taskId);
         }
         return MessageSendParams.builder()
+                .metadata(Map.of(
+                        "userId", userId,
+                        "agentId", agentId))
                 .message(message.build())
                 .build();
     }

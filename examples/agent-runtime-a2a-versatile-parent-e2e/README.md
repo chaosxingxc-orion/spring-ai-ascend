@@ -147,22 +147,21 @@ curl -s -X POST http://localhost:18080/a2a \
     "method": "SendStreamingMessage",
     "id": "1",
     "params": {
+      "metadata": {
+        "userId": "test-user",
+        "agentId": "main-parent",
+        "versatile": {
+          "headers": {},
+          "query": {
+            "type": "controller",
+            "workspace_id": "10"
+          }
+        }
+      },
       "message": {
         "role": "ROLE_USER",
         "messageId": "msg-001",
         "contextId": "'"$SESSION_ID"'",
-        "metadata": {
-          "userId": "test-user",
-          "agentId": "main-parent",
-          "sessionId": "'"$SESSION_ID"'",
-          "versatile": {
-            "headers": {},
-            "query": {
-              "type": "controller",
-              "workspace_id": "10"
-            }
-          }
-        },
         "parts": [{"text": "请帮我预订一家北京的酒店，3月30日入住，4月3日退房，我叫李四。"}]
       }
     }
@@ -215,22 +214,21 @@ curl -s -X POST http://localhost:18080/a2a \
     "method": "SendStreamingMessage",
     "id": "2",
     "params": {
+      "metadata": {
+        "userId": "test-user",
+        "agentId": "main-parent",
+        "versatile": {
+          "headers": {},
+          "query": {
+            "type": "controller",
+            "workspace_id": "10"
+          }
+        }
+      },
       "message": {
         "role": "ROLE_USER",
         "messageId": "msg-002",
         "contextId": "'"$SESSION_ID"'",
-        "metadata": {
-          "userId": "test-user",
-          "agentId": "main-parent",
-          "sessionId": "'"$SESSION_ID"'",
-          "versatile": {
-            "headers": {},
-            "query": {
-              "type": "controller",
-              "workspace_id": "10"
-            }
-          }
-        },
         "taskId": "'"$TASK_ID"'",
         "parts": [{"text": "{\"inputs\":{\"query\":\"{\\\"hotel_name\\\":\\\"'"$HOTEL_NAME"'\\\"}\",\"intent\":\"LATEST\",\"wap_userName\":\"张三\"}}"}]
       }

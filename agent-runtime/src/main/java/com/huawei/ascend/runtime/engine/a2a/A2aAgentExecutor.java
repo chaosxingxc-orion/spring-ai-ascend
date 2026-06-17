@@ -49,11 +49,11 @@ public final class A2aAgentExecutor implements AgentExecutor {
     private static final String MDC_TASK_ID = "taskId";
     private static final String MDC_TENANT_ID = "tenantId";
     private static final String MDC_AGENT_ID = "agentId";
-    private static final String USER_ID_METADATA = "userId";
-    private static final String AGENT_ID_METADATA = "agentId";
-    private static final String MEMORY_SCOPE_METADATA = "memoryScope";
-    private static final String CORRELATION_ID_METADATA = "correlationId";
-    private static final String TRACE_ID_METADATA = "traceId";
+    private static final String USER_ID_METADATA_KEY = "userId";
+    private static final String AGENT_ID_METADATA_KEY = "agentId";
+    private static final String MEMORY_SCOPE_METADATA_KEY = "memoryScope";
+    private static final String CORRELATION_ID_METADATA_KEY = "correlationId";
+    private static final String TRACE_ID_METADATA_KEY = "traceId";
 
     /** Version of the structured-error payload carried on the failure DataPart/metadata. */
     private static final String ERROR_SCHEMA_VERSION = "1";
@@ -375,10 +375,10 @@ public final class A2aAgentExecutor implements AgentExecutor {
         return new AgentExecutionContext(
                 new RuntimeIdentity(
                         asString(variables.get(TENANT_STATE_KEY)),
-                        asString(variables.get(USER_ID_METADATA)),
+                        asString(variables.get(USER_ID_METADATA_KEY)),
                         sessionId,
                         ctx.getTaskId(),
-                        asString(variables.get(AGENT_ID_METADATA))),
+                        asString(variables.get(AGENT_ID_METADATA_KEY))),
                 "USER_MESSAGE",
                 messages,
                 variables);
@@ -406,36 +406,26 @@ public final class A2aAgentExecutor implements AgentExecutor {
         if (requestMd != null) {
             vars.putAll(requestMd);
         }
-
-        if (ctx.getMessage() != null) {
-            Map<String, Object> messageMd = ctx.getMessage().metadata();
-            if (messageMd != null) {
-                messageMd.forEach(vars::putIfAbsent);
-            }
-        }
         String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
         String tenantId = metadata(ctx, TENANT_STATE_KEY, "default");
-        String userId = metadata(ctx, USER_ID_METADATA, "system");
-        String agentId = metadata(ctx, AGENT_ID_METADATA, handlerAgentId);
+        String userId = metadata(ctx, USER_ID_METADATA_KEY, "system");
+        String agentId = metadata(ctx, AGENT_ID_METADATA_KEY, handlerAgentId);
         putIfBlank(vars, TENANT_STATE_KEY, tenantId);
-        putIfBlank(vars, USER_ID_METADATA, userId);
-        putIfBlank(vars, AGENT_ID_METADATA, agentId);
+        putIfBlank(vars, USER_ID_METADATA_KEY, userId);
+        putIfBlank(vars, AGENT_ID_METADATA_KEY, agentId);
         String agentStateKey = metadata(ctx, AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, null);
-        if (!hasText(agentStateKey)) {
-            agentStateKey = metadata(ctx, AgentExecutionContext.STATE_KEY_VARIABLE, null);
-        }
         if (!hasText(agentStateKey)) {
             agentStateKey = defaultAgentStateKey(tenantId, agentId, sessionId);
         }
         vars.put(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, agentStateKey);
-        putIfBlank(vars, MEMORY_SCOPE_METADATA, defaultMemoryScope(tenantId, userId));
-        putIfBlank(vars, CORRELATION_ID_METADATA, firstText(
-                metadata(ctx, CORRELATION_ID_METADATA, null),
+        putIfBlank(vars, MEMORY_SCOPE_METADATA_KEY, defaultMemoryScope(tenantId, userId));
+        putIfBlank(vars, CORRELATION_ID_METADATA_KEY, firstText(
+                metadata(ctx, CORRELATION_ID_METADATA_KEY, null),
                 ctx.getMessage() != null ? ctx.getMessage().messageId() : null,
                 ctx.getTaskId()));
-        putIfBlank(vars, TRACE_ID_METADATA, firstText(
-                metadata(ctx, TRACE_ID_METADATA, null),
-                asString(vars.get(CORRELATION_ID_METADATA))));
+        putIfBlank(vars, TRACE_ID_METADATA_KEY, firstText(
+                metadata(ctx, TRACE_ID_METADATA_KEY, null),
+                asString(vars.get(CORRELATION_ID_METADATA_KEY))));
         return Map.copyOf(vars);
     }
 
@@ -458,20 +448,13 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
     /**
      * Canonical request-context value resolution shared with {@link A2aParentTaskProjector}.
-     * Request-level metadata is authoritative; message-level metadata is a temporary legacy
-     * fallback only.
+     * Request-level metadata is the only runtime metadata source. Message metadata belongs to the
+     * message body and is intentionally ignored by runtime identity, state, memory, and trajectory.
      */
     static String metadata(RequestContext ctx, String key, String fallback) {
         Map<String, Object> md = ctx.getMetadata();
         Object value = md == null ? null : md.get(key);
         if (hasText(value)) {
-            return String.valueOf(value);
-        }
-        Message message = ctx.getMessage();
-        Map<String, Object> messageMd = message == null ? null : message.metadata();
-        value = messageMd == null ? null : messageMd.get(key);
-        if (hasText(value)) {
-            LOG.warn("[A2A] legacy message metadata fallback used key={} taskId={}", key, ctx.getTaskId());
             return String.valueOf(value);
         }
         return fallback;

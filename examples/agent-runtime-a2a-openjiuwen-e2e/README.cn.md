@@ -199,15 +199,14 @@ curl http://localhost:8080/a2a \
     "id": "manual-1",
     "method": "SendStreamingMessage",
     "params": {
+      "metadata": {
+        "userId": "manual-user",
+        "agentId": "openjiuwen-react-agent"
+      },
       "message": {
         "role": "ROLE_USER",
         "messageId": "manual-message-1",
         "contextId": "manual-session-1",
-        "metadata": {
-          "userId": "manual-user",
-          "agentId": "openjiuwen-react-agent",
-          "sessionId": "manual-session-1"
-        },
         "parts": [
           {
             "text": "ping"
@@ -226,9 +225,8 @@ A2A 输入是一个 JSON-RPC 2.0 请求：
 - `params.message.role`：`ROLE_USER`，表示调用方输入。
 - `params.message.messageId`：调用方生成的消息 ID。
 - `params.message.contextId`：会话 ID，同一会话可复用。
-- `params.message.metadata.userId`：示例用户 ID。
-- `params.message.metadata.agentId`：目标 agent，本示例固定为 `openjiuwen-react-agent`。
-- `params.message.metadata.sessionId`：runtime 侧会话 ID。
+- `params.metadata.userId`：示例用户 ID。
+- `params.metadata.agentId`：目标 agent，本示例固定为 `openjiuwen-react-agent`。
 - `params.message.parts[0].text`：用户输入文本，本示例 happy path 使用 `ping`。
 
 OpenJiuwen 配置中的 system prompt 明确要求：如果用户消息正好是 `ping`，则只回答 `pong`。
@@ -249,7 +247,7 @@ happy path 的最终用户可见文本是：
 pong
 ```
 
-自动化测试不会依赖旧的 message metadata 判断终态，而是优先按 A2A SDK 的 stream event 判断是否终止，然后从 `Message`、`TaskStatusUpdateEvent.status.message` 和 `TaskArtifactUpdateEvent.artifact` 中抽取文本。
+自动化测试不会依赖message metadata 判断终态，而是优先按 A2A SDK 的 stream event 判断是否终止，然后从 `Message`、`TaskStatusUpdateEvent.status.message` 和 `TaskArtifactUpdateEvent.artifact` 中抽取文本。
 
 ## 排错
 

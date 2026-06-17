@@ -140,7 +140,7 @@ class A2aAgentExecutorTest {
     }
 
     @Test
-    void legacyMessageMetadataOnlyBackfillsMissingRuntimeMetadata() {
+    void messageMetadataDoesNotBackfillRuntimeMetadata() {
         AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
         when(handler.agentId()).thenReturn("handler-agent");
         when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
@@ -167,14 +167,14 @@ class A2aAgentExecutorTest {
         verify(handler).execute(captor.capture());
         AgentExecutionContext context = captor.getValue();
         assertThat(context.getScope().tenantId()).isEqualTo("request-tenant");
-        assertThat(context.getScope().userId()).isEqualTo("legacy-user");
-        assertThat(context.getScope().agentId()).isEqualTo("legacy-agent");
-        assertThat(context.getAgentStateKey()).isEqualTo("legacy-state");
+        assertThat(context.getScope().userId()).isEqualTo("system");
+        assertThat(context.getScope().agentId()).isEqualTo("handler-agent");
+        assertThat(context.getAgentStateKey()).isEqualTo("state:request-tenant:handler-agent:ctx-1");
         assertThat(context.getVariables())
                 .containsEntry("tenantId", "request-tenant")
-                .containsEntry("userId", "legacy-user")
-                .containsEntry("agentId", "legacy-agent")
-                .containsEntry("intent", "book-hotel");
+                .containsEntry("userId", "system")
+                .containsEntry("agentId", "handler-agent")
+                .doesNotContainKey("intent");
     }
 
     @Test
@@ -834,11 +834,11 @@ class A2aAgentExecutorTest {
                 .containsEntry("tenantId", "tenant-a")
                 .containsEntry("userId", "user-a")
                 .containsEntry("agentId", "agent-x")
-                .containsEntry("memoryScope", "memory:tenant-a:user-a")
-                .containsEntry("intent", "book-hotel");
+                .containsEntry("memoryScope", "memory:tenant-a:user-a");
         assertThat(outbound.requests.get(0).arguments())
                 .doesNotContainEntry("tenantId", "message-tenant")
-                .doesNotContainEntry("userId", "message-user");
+                .doesNotContainEntry("userId", "message-user")
+                .doesNotContainKey("intent");
     }
 
     @Test
