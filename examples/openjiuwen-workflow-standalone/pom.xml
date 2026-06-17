@@ -41,6 +41,16 @@
                 <version>3.6.2</version>
                 <configuration>
                     <mainClass>com.huawei.ascend.examples.openjiuwen.workflow.ArticleSummarizerWorkflow</mainClass>
+                    <systemProperties>
+                        <systemProperty>
+                            <key>logback.statusListenerClass</key>
+                            <value>ch.qos.logback.core.status.NopStatusListener</value>
+                        </systemProperty>
+                        <systemProperty>
+                            <key>slf4j.internal.verbosity</key>
+                            <value>ERROR</value>
+                        </systemProperty>
+                    </systemProperties>
                 </configuration>
             </plugin>
         </plugins>
