@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication(scanBasePackages = {
         "com.huawei.ascend.examples.a2a.workflow",
+        "com.huawei.ascend.examples.a2a.workflow.main",
         "com.huawei.ascend.runtime.boot"})
 public class QuestionerWorkflowApplication {
 

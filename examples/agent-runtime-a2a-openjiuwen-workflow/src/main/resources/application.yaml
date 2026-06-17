@@ -1,7 +1,12 @@
+# ── Workflow Agent (提问器) — default profile ──────────────────────
+# Run:  mvn spring-boot:run -f examples/.../pom.xml
+# The Questioner Workflow is exposed as the default agent at :8080.
+# A neighboring ReActAgent can discover it via remote-agents config.
+
 debug: false
 
 server:
-  port: ${SAA_QUESTIONER_PORT:8080}
+  port: ${SAA_WORKFLOW_PORT:8080}
   shutdown: graceful
 
 agent-runtime:
@@ -13,6 +18,10 @@ agent-runtime:
         name: questioner-workflow
         description: 提问器 Workflow Agent — 提一个固定问题，等待答案，回显答案并确认正确
         version: "1.0"
+        skills:
+          - id: ask_question
+            name: ask_question
+            description: 向用户提一个问题（1+1等于几？），等待用户回答后回显答案并确认正确
 
 sample:
   openjiuwen:

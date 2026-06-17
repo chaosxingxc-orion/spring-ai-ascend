@@ -1,9 +1,16 @@
 # OpenJiuwen Workflow Agent — A2A E2E 示例
 
 基于 agent-runtime 托管 OpenJiuwen Workflow Agent，通过 A2A 协议暴露，
-演示多步骤 DAG + 人工确认中断/恢复。
+演示：**主 ReActAgent (LLM) 调用 Workflow Agent (提问器) → 中断 → 用户输入 → 恢复 → 完成**。
 
-## 场景：提问器 (Questioner Workflow)
+## 架构
+
+```
+用户 ──A2A──▶ Main ReActAgent (:8081) ──remote A2A──▶ Questioner Workflow Agent (:8080)
+              (LLM 决策调用工具)                        (Questioner 中断/恢复)
+```
+
+## 场景：提问器
 
 ```
 [Start] → [Questioner: "1+1等于几?"] → [End: "你的答案是XX，回答正确!"]
@@ -11,97 +18,7 @@
 
 - **Questioner 节点**：固定提问，不使用 LLM。挂起等待用户输入。
 - **End 节点**：模板渲染用户答案，输出确认信息。
-
-## 快速开始
-
-### 前置条件
-
-- JDK 21+
-- 已安装 agent-runtime: `mvn install -DskipTests -f pom.xml`
-
-### 启动
-
-```bash
-mvn spring-boot:run -f examples/agent-runtime-a2a-openjiuwen-workflow/pom.xml
-```
-
-### 通过 A2A 调用
-
-```bash
-# 第一轮：发送消息，触发 Questioner 中断
-curl -s -X POST http://localhost:8080/a2a \
-  -H "Content-Type: application/json" \
-  -H "Accept: text/event-stream" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "SendStreamingMessage",
-    "params": {
-      "message": {
-        "role": "ROLE_USER",
-        "messageId": "msg-001",
-        "contextId": "ctx-1",
-        "metadata": {"userId":"u1","agentId":"questioner-workflow","sessionId":"s1"},
-        "parts": [{"text": "启动"}]
-      }
-    }
-  }'
-
-# 预期：收到 INPUT_REQUIRED 状态 + 问题文本 "请问1+1等于几？"
-# 记下响应中的 taskId
-
-# 第二轮：发送答案，恢复执行
-curl -s -X POST http://localhost:8080/a2a \
-  -H "Content-Type: application/json" \
-  -H "Accept: text/event-stream" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "SendStreamingMessage",
-    "params": {
-      "message": {
-        "role": "ROLE_USER",
-        "messageId": "msg-002",
-        "taskId": "<上一轮的 taskId>",
-        "contextId": "ctx-1",
-        "metadata": {"userId":"u1","agentId":"questioner-workflow","sessionId":"s1"},
-        "parts": [{"text": "2"}]
-      }
-    }
-  }'
-
-# 预期：收到 COMPLETED 状态 + "你的答案是2，回答正确！"
-```
-
-## 如何配对主 Agent（ReActAgent）
-
-此 Workflow Agent 可被其他 ReActAgent 通过 A2A 远程工具调用。
-
-### 主 Agent 配置
-
-在主 Agent 的 `application.yaml` 中添加：
-
-```yaml
-agent-runtime:
-  remote-agents:
-    - url: http://localhost:8080    # 指向此 Workflow Agent
-```
-
-主 Agent 的 LLM 将看到名为 `questioner-workflow` 的远程工具，
-可以在推理过程中调用它来向用户提问。
-
-### 配对流程
-
-```
-用户 → 主Agent(ReActAgent + LLM)
-         │
-         ├─ LLM 决定调用 questioner 工具
-         ├─ A2A → 提问器 Workflow Agent
-         │         ├─ Questioner 中断
-         │         └─ INPUT_REQUIRED → 传播回用户
-         │
-用户输入 → 主Agent A2A 层转发 → Workflow 恢复
-         │
-         └─ Workflow COMPLETED → toolResult → LLM 总结 → 最终回复
-```
+- **Main ReActAgent**：LLM 决策调用 `ask_question` 远程工具。
 
 ## 项目结构
 
@@ -112,12 +29,98 @@ agent-runtime-a2a-openjiuwen-workflow/
 └── src/
     ├── main/java/.../workflow/
     │   ├── QuestionerWorkflowApplication.java       # Spring Boot 入口
-    │   └── QuestionerWorkflowConfiguration.java     # Workflow Handler + Bean 注册
+    │   ├── QuestionerWorkflowConfiguration.java     # Workflow Handler + AgentCard (含 skills)
+    │   └── main/
+    │       └── MainAgentConfiguration.java          # Main ReActAgent Handler (@Profile("main"))
     ├── main/resources/
-    │   └── application.yaml                         # 配置
+    │   ├── application.yaml                         # Workflow Agent 配置（默认 profile）
+    │   └── application-main.yaml                    # Main ReActAgent 配置（main profile）
     └── test/java/.../workflow/
         └── QuestionerWorkflowE2eTest.java           # E2E 测试：A2A 中断/恢复
 ```
+
+## 快速开始
+
+### 前置条件
+
+- JDK 21+
+- 已安装 agent-runtime: `mvn install -DskipTests -f pom.xml`
+
+### 方式一：仅启动 Workflow Agent（验证中断/恢复）
+
+```bash
+# 终端 1：启动提问器 Workflow Agent (:8080)
+mvn spring-boot:run -f examples/agent-runtime-a2a-openjiuwen-workflow/pom.xml
+
+# 终端 2：直接调用（两轮）
+# 第一轮 — 触发中断
+curl -s -X POST http://localhost:8080/a2a \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"jsonrpc":"2.0","method":"SendStreamingMessage","params":{"message":{
+    "role":"ROLE_USER","messageId":"m1","contextId":"c1",
+    "metadata":{"userId":"u1","agentId":"questioner-workflow","sessionId":"s1"},
+    "parts":[{"text":"启动"}]}}}'
+# → INPUT_REQUIRED + "请问1+1等于几？"
+# 记下返回的 taskId
+
+# 第二轮 — 输入答案恢复
+curl -s -X POST http://localhost:8080/a2a \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"jsonrpc":"2.0","method":"SendStreamingMessage","params":{"message":{
+    "role":"ROLE_USER","messageId":"m2","taskId":"<上一轮的taskId>","contextId":"c1",
+    "metadata":{"userId":"u1","agentId":"questioner-workflow","sessionId":"s1"},
+    "parts":[{"text":"2"}]}}}'
+# → COMPLETED + "你的答案是2，回答正确！"
+```
+
+### 方式二：主 Agent 调用 Workflow Agent（完整 LLM 决策场景）
+
+```bash
+# 终端 1：启动提问器 Workflow Agent (:8080)
+mvn spring-boot:run -f examples/agent-runtime-a2a-openjiuwen-workflow/pom.xml
+
+# 终端 2：启动主 ReActAgent (:8081)，指向 Workflow Agent
+mvn spring-boot:run -f examples/agent-runtime-a2a-openjiuwen-workflow/pom.xml \
+  -Dspring-boot.run.profiles=main
+
+# 终端 3：对主 Agent 说话
+curl -s -X POST http://localhost:8081/a2a \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"jsonrpc":"2.0","method":"SendStreamingMessage","params":{"message":{
+    "role":"ROLE_USER","messageId":"m1","contextId":"c1",
+    "metadata":{"userId":"u1","agentId":"main-react-agent","sessionId":"s1"},
+    "parts":[{"text":"帮我提个问题"}]}}}'
+
+# 主 Agent 的 LLM 自动调用 ask_question 远程工具
+# → Workflow Agent 被调用 → Questioner 中断 → 传播回终端 3
+# → 用户输入答案 → 继续执行 → 最终输出含 "回答正确"
+```
+
+## 配置说明
+
+| 文件 | 用途 | Agent | Port |
+|------|------|-------|------|
+| `application.yaml` | 默认 profile | Workflow Agent (提问器) | 8080 |
+| `application-main.yaml` | main profile | Main ReActAgent | 8081 |
+
+### Workflow Agent 的 Agent Card 声明了 skills
+
+```yaml
+agent-runtime:
+  access:
+    a2a:
+      agent-card:
+        skills:
+          - id: ask_question
+            name: ask_question
+            description: 向用户提一个问题，等待用户回答后回显答案并确认正确
+```
+
+邻接 Agent 配置 `remote-agents` 指向 `http://localhost:8080`，启动时自动拉取 Card，
+发现 `ask_question` skill 并安装为本地 Tool。
 
 ## E2E 测试
 
@@ -135,11 +138,7 @@ mvn test -f examples/agent-runtime-a2a-openjiuwen-workflow/pom.xml \
 
 ## Key API（runtime adapter）
 
-此示例依赖 `agent-runtime` 中新增的两个类：
-
 | 类 | 职责 |
 |----|------|
 | `OpenJiuwenWorkflowAgentRuntimeHandler` | Workflow Agent 抽象基类，继承 `AbstractAgentRuntimeHandler` |
 | `OpenJiuwenWorkflowStreamAdapter` | `WorkflowOutput` → `AgentExecutionResult` 映射 |
-
-用户只需继承 handler、实现 `createOpenJiuwenWorkflow()`、注册为 Spring Bean 即可。
