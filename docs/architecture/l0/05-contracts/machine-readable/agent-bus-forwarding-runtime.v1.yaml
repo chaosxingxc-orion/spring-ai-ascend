@@ -4,7 +4,7 @@ version: v1
 provider: agent-bus
 consumer: agent-runtime
 candidate: C3-database-outbox-inbox
-description: "agent-bus 类 MQ 转发的运行态承载（C3 outbox/inbox）record schema：durable、可审计、tenant-scoped、broker-agnostic。Stage 7–11 交付 schema + 端口 + 状态机 + lease-safe + dispatch-loop + runtime-completion；Stage 12 落地真实持久化（Postgres JDBC adapter + Flyway migration + RLS）。transport / 真实投递绑定仍 deferred。"
+description: "agent-bus 类 MQ 转发的运行态承载（C3 outbox/inbox）record schema：durable、可审计、tenant-scoped、broker-agnostic。Stage 7–11 交付 schema + 端口 + 状态机 + lease-safe + dispatch-loop + runtime-completion；Stage 12 落地真实持久化（Postgres JDBC adapter + Flyway migration + RLS）；Stage 13 完成 transport 投递模型候选评审（T1-T4 × 8 维度，T3 consumer-pull over DB 非裁决推荐）。真实投递绑定仍 deferred（待 H2/H3 裁决 push / pull / MQ）。"
 authority:
   icd_design: ICD-agent-bus-forwarding.md
   l2: architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md
@@ -216,7 +216,12 @@ stage12_scope:
   delivers: [postgres-jdbc-adapter-spring-jdbc, flyway-migration-v1, rls-defence-in-depth, real-sql-verification]
   not_delivers: [concrete-broker-mq, real-delivery-binding, real-scheduler-thread-pool]
   path: real-persistence  # §6.1 "no JDBC" lifted by Stage 12 H2/H3; agent-bus becomes a Spring module; ArchUnit confines Spring/JDBC to persistence.jdbc subpackage; §6.2 unchanged
-  next_stage: Stage-13-plus-or-transport-review-packet
+  next_stage: Stage-13-completed
+stage13_scope:
+  delivers: [transport-delivery-model-candidates-review, t1-dispatcher-push-sync-rpc, t2-dispatcher-push-broker, t3-consumer-pull-db, t4-c3-broker-hybrid, scoring-matrix-4x8, backpressure-root-cause-analysis, non-decision-recommendation-t3, deliver-retry-policy-subitem]
+  not_delivers: [production-code, transport-implementation, broker-binding, §6.2-lift]
+  nature: decision-review  # 裁决阶段、无生产代码（性质同 Stage 5）；4 投递模型候选 × 8 维度评分矩阵；核心结论「反压内核=消费方控速，MQ 只是载体之一」；T3 consumer-pull over DB 作为非裁决推荐（唯一不破 §6.2 的强反压候选，复用 Stage 12 claim/lease/SKIP LOCKED/RLS）；deliver 异常重投策略拆为可独立先行子项
+  next_stage: Stage-14-plus-or-h2h3-transport-decision
 compatibility:
   additive_fields_allowed: true
   breaking_change_requires_adr: true

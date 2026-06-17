@@ -91,14 +91,15 @@ outbox / inbox record **始终不得**包含：
 
 outbox / inbox 状态机的完整迁移表（含触发条件、终态、失败码）见 [`L2 forwarding-outbox-inbox §4`](../../../../architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md)。本 ICD 不重复迁移表，只锁定 record schema；状态机由 `ForwardingStateMachine`（runtime 包，纯函数）裁决，端口实现调用状态机后持久化。
 
-## 边界（Stage 7 / Stage 8 / Stage 9 / Stage 10 / Stage 11 / Stage 12）
+## 边界（Stage 7 / Stage 8 / Stage 9 / Stage 10 / Stage 11 / Stage 12 / Stage 13）
 
 - Stage 7：schema 草案、端口接口、状态机、harness、in-memory test double。
 - Stage 8：record 模型、claim / lease 端口、dispatcher worker skeleton、schema / migration 草案（DDL 草稿，**未执行**）、in-memory lease harness。
 - Stage 9：lease-owner guarded mutation、lease 生命周期闭环、record 条件不变量（Java 构造器 + DDL CHECK + harness）、failure-code classification、claim / state-update SQL contract、in-memory lease-guard harness。
 - Stage 10：worker lease 异常恢复（catch `ForwardingLeaseException` + skip，`DispatchTickResult.skipped` 计数自洽可观测）、lease 续约契约（`DispatchLeasePolicy`，deliver 前按阈值 renew，失败同 skip）、dispatch 调度责任（`ForwardingDispatchLoop` 骨架，`TickSource` / `IdleStrategy` 注入，无 scheduler / 线程 / 时钟）。
 - Stage 11：runtime-completion——lease 续约触发时机改读注入 `EpochClock`（真实墙钟，使自然 loop 下耗时 deliver 接近 lease TTL 时续约能触发，MI11-001）、`deliver` 非 lease `RuntimeException` 兜底为 `skipped`（record 留 DISPATCHING 待重投，不丢消息；契约：真实 transport 绑定应把网络 / 超时 / 反序列化异常映射为 `ForwardingDeliveryResult`，**不应抛**非 lease 异常，MI11-002）、`runOnce` 异常契约（仅入参非法 fail-fast，`ForwardingDispatchLoop` 传播，MI11-003）。worker 通过注入 `EpochClock` 获取时间；loop 本身仍无 clock。
-- Stage 12：real persistence —— **打破路径 B**：Postgres JDBC adapter（Spring JDBC，`JdbcForwardingOutbox` / `JdbcForwardingInbox` / `ForwardingSqlCodec`；claim §7.1 `FOR UPDATE SKIP LOCKED RETURNING` / lease-guarded §7.2 `WHERE` + 0 行分类 / reclaim / renew / release 过期语义）+ Flyway migration `V1__create_agent_bus_forwarding_outbox_inbox.sql`（MI9-006 全部 CHECK + `ix_outbox_claim_due` 索引 + §7.3 RLS fail-closed）+ real-SQL 验证（embedded-postgres PG 16.2 in-process，§7.4，17 tests green）。§6.1「不引入 JDBC driver」由 Stage 12 H2/H3 裁决**解除**；adapter + migration 归属 = agent-bus 自有，agent-bus 从纯 Java 模块变为 Spring 模块（ArchUnit 把 Spring/JDBC 限制在 `persistence.jdbc` 子包）。**仍 deferred**：transport / 真实投递绑定（push vs pull / 是否引 MQ / C3+broker hybrid，独立 H2/H3 议题）。
+- Stage 12：real persistence —— **打破路径 B**：Postgres JDBC adapter（Spring JDBC，`JdbcForwardingOutbox` / `JdbcForwardingInbox` / `ForwardingSqlCodec`；claim §7.1 `FOR UPDATE SKIP LOCKED RETURNING` / lease-guarded §7.2 `WHERE` + 0 行分类 / reclaim / renew / release 过期语义）+ Flyway migration `V1__create_agent_bus_forwarding_outbox_inbox.sql`（MI9-006 全部 CHECK + `ix_outbox_claim_due` 索引 + §7.3 RLS fail-closed）+ real-SQL 验证（embedded-postgres PG 16.2 in-process，§7.4，17 tests green）。§6.1「不引入 JDBC driver」由 Stage 12 H2/H3 裁决**解除**；adapter + migration 归属 = agent-bus 自有，agent-bus 从纯 Java 模块变为 Spring 模块（ArchUnit 把 Spring/JDBC 限制在 `persistence.jdbc` 子包）。**transport 投递模型已在 Stage 13 完成候选评审**（见下 Stage 13 条），真实投递绑定仍 deferred（待 H2/H3 最终裁决 push / pull / MQ）。
+- Stage 13：transport / 投递模型候选评审（裁决阶段、无生产代码）—— 比较 T1 dispatcher-push over sync RPC / T2 dispatcher-push over broker / T3 consumer-pull over DB / T4 C3+broker hybrid 四候选 × 8 维度（[`transport-candidates`](../../10-governance/review-packets/agent-bus-forwarding-runtime-transport-candidates.md)）；核心结论「反压诉求内核 = 消费方控速 / 速率解耦，MQ 只是满足该内核的载体之一」，T3 consumer-pull over DB 是唯一不破 `§6.2` 的强反压候选（复用 Stage 12 claim / lease / `SKIP LOCKED` / RLS），作为非裁决推荐进入 H2/H3。deliver 异常重投策略（退避 / attemptCount 上限 / 熔断）拆为可独立先行的子项。**最终 push / pull / MQ 裁决由 H2/H3 做**；选 T2 / T4 需解除 `§6.2` 引 MQ。
 - **不引入** broker / MQ client（broker-agnostic；C4 是后续阶段可选上层）。
 - 不改 Task lifecycle owner；不绕 routeHandle；不放 payload body / token stream；不暴露物理 endpoint。
 
@@ -137,5 +138,5 @@ harness 方法名逐字镜像本节，防 ICD / harness 漂移（同 Stage 4 约
 
 - ~~真实 JDBC adapter + Flyway migration 归属~~ —— **Stage 12 已裁决**：agent-bus 自有 + Spring JDBC + Postgres + 启用 RLS（[`decision §4/§8`](../../10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)）；adapter / migration 已落地，real-SQL 验证 17 tests green（§7.4）。
 - ~~数据库产品确认 + 是否启用 Postgres RLS~~ —— **Stage 12 已裁决**：Postgres + 启用 RLS 纵深防御（§7.3，含 fail-closed）。
-- transport / 投递模型（push vs pull / 是否引 MQ / C3+broker hybrid）—— 独立 H2/H3 议题，拆出 Stage 12；可能需 review packet 复议 C3 dispatcher-push 模型（反压诉求）。
+- transport / 投递模型（push vs pull / 是否引 MQ / C3+broker hybrid）—— **Stage 13 已产出候选评审**（[`transport-candidates`](../../10-governance/review-packets/agent-bus-forwarding-runtime-transport-candidates.md)，T1-T4 × 8 维度，T3 consumer-pull over DB 作为非裁决推荐）；最终 push / pull / MQ 裁决待 H2/H3（选 T2 / T4 需解除 `§6.2` 引 MQ）。deliver 异常重投策略（退避 / attemptCount 上限 / 熔断）可独立先行。
 - lease TTL 默认值、polling cadence、并发 worker 分片、backpressure 阈值、`ForwardingDispatchLoop` 接真实 scheduler —— 运维化 / 生产化阶段。
