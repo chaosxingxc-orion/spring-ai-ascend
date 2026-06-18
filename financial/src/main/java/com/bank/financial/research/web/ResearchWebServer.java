@@ -488,26 +488,17 @@ public final class ResearchWebServer {
             <body>
             <header>
               <h1>研报生成 · 多智能体引擎</h1>
-              <div class="sub">宏观政策 / 行业主题 / 基金 / 债券 · 专家智能体共享黑板协作 · GLM-5.2 真实文笔或离线脚本</div>
             </header>
             <div class="wrap">
               <!-- LEFT: config -->
               <div class="card">
                 <h2>配置</h2>
                 <div class="field">
-                  <label>① 标的(单选)</label>
+                  <label>标的(单选)</label>
                   <label class="opt"><input type="radio" name="subject" value="fund" checked/> 基金 / FOF</label>
                   <label class="opt"><input type="radio" name="subject" value="bond"/> 债券 / 固收</label>
-                  <label class="opt"><input type="radio" name="subject" value="none"/> 无特定标的(纯宏观·策略)</label>
                   <input type="text" id="code" value="110020" autocomplete="off" style="margin-top:6px"/>
                   <div id="codehint" style="font-size:11px;color:var(--muted);margin-top:5px;"></div>
-                </div>
-                <div class="field">
-                  <label>② 分析维度(可多选,叠加到标的)</label>
-                  <label class="opt"><input type="checkbox" name="lens" value="macro"/> 宏观与政策</label>
-                  <label class="opt"><input type="checkbox" name="lens" value="industry"/> 行业主题</label>
-                  <label class="opt"><input type="checkbox" name="lens" value="sector"/> 板块策略</label>
-                  <label class="opt"><input type="checkbox" name="lens" value="global"/> 全球影响(定性·待接海外源)</label>
                 </div>
                 <div class="field">
                   <label>数据源</label>
@@ -515,7 +506,7 @@ public final class ResearchWebServer {
                   <label class="opt"><input type="radio" name="source" value="offline"/> 离线(桩/快照)</label>
                 </div>
                 <div class="field">
-                  <label>③ 生成模型</label>
+                  <label>生成模型</label>
                   <label class="opt"><input type="radio" name="model" value="deepseek" checked/> DeepSeek-V4-Flash(较快,推荐)</label>
                   <label class="opt"><input type="radio" name="model" value="glm-air"/> GLM-4.5-air(真实但较慢)</label>
                   <label class="opt"><input type="radio" name="model" value="script"/> 桩(离线秒出)</label>
@@ -715,15 +706,8 @@ public final class ResearchWebServer {
                 var source=document.querySelector('input[name=source]:checked').value;
                 var model=document.querySelector('input[name=model]:checked').value;
                 var code=encodeURIComponent(document.getElementById('code').value||'');
-                var lenses=[];
-                Array.prototype.forEach.call(document.querySelectorAll('input[name=lens]:checked'),
-                  function(c){ lenses.push(c.value); });
-                if(subject==='none' && lenses.length===0){
-                  document.getElementById('note').textContent='请至少勾选一个分析维度,或选择一个标的。';
-                  finish(); return;
-                }
                 es=new EventSource('/api/run?subject='+subject+'&code='+code+'&source='+source+
-                  '&model='+model+'&lenses='+encodeURIComponent(lenses.join(','))+'&pace='+pace.value);
+                  '&model='+model+'&lenses=&pace='+pace.value);
                 es.addEventListener('tick',function(e){
                   var s=Math.round((JSON.parse(e.data).elapsedMs||0)/1000);
                   go.textContent='生成中… '+s+'s'; document.title='('+s+'s) 研报生成';
