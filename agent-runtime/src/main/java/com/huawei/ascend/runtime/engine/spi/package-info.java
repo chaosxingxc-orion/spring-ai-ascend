@@ -14,7 +14,9 @@
  * frameworks that need runtime-provided memory init/search/save integration.
  * {@code SkillHubProvider} is a reserved narrow SPI for progressive skill
  * discovery/loading; concrete framework adapters decide how to install those
- * skills. Frameworks with native checkpointing can use their own checkpointer
+ * skills. {@code McpProvider} is the matching narrow SPI for MCP tool discovery
+ * and tool invocation; concrete framework adapters own how those tools are
+ * installed. Frameworks with native checkpointing can use their own checkpointer
  * configuration without going through these optional surfaces.
  */
 package com.huawei.ascend.runtime.engine.spi;

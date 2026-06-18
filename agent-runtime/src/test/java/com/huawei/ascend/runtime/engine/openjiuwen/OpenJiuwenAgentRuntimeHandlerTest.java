@@ -7,6 +7,9 @@ import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
+import com.huawei.ascend.runtime.engine.spi.McpProvider;
+import com.huawei.ascend.runtime.engine.spi.McpToolResult;
+import com.huawei.ascend.runtime.engine.spi.McpToolSpec;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryMasking;
@@ -104,6 +107,18 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         assertThat(handler.agent.registeredRails).containsExactly(frameworkRail, runtimeRail);
         assertThat(handler.runtimeToolInstalled).isTrue();
         assertThat(handler.installedBeforeRun).isTrue();
+    }
+
+    @Test
+    void executeInstallsConfiguredMcpToolInstaller() {
+        TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
+        FakeMcpProvider provider = new FakeMcpProvider();
+        handler.setMcpToolInstaller(new OpenJiuwenMcpToolInstaller(provider));
+
+        handler.execute(context(Map.of())).toList();
+
+        assertThat(provider.listed).isTrue();
+        assertThat(handler.agent.getAbilityManager().get("get_current_time")).isNotNull();
     }
 
     @Test
@@ -742,6 +757,35 @@ class OpenJiuwenAgentRuntimeHandlerTest {
         @Override
         public void save(AgentExecutionContext context, List<MemoryRecord> records) {
             savedRecords = records;
+        }
+    }
+
+    private static final class FakeMcpProvider implements McpProvider {
+        private boolean listed;
+
+        @Override
+        public List<McpToolSpec> listTools(AgentExecutionContext context) {
+            listed = true;
+            return List.of(new McpToolSpec(
+                    "local-time",
+                    "get_current_time",
+                    "Current time",
+                    "Return current time",
+                    Map.of("type", "object", "properties", Map.of()),
+                    Map.of(),
+                    Map.of(),
+                    Map.of(),
+                    Map.of()));
+        }
+
+        @Override
+        public McpToolResult callTool(AgentExecutionContext context, String serverId, String name,
+                Map<String, Object> arguments) {
+            return McpToolResult.success(
+                    List.of(Map.of("type", "text", "text", "12:00:00")),
+                    Map.of("time", "12:00:00"),
+                    Map.of(),
+                    Map.of("serverId", serverId, "toolName", name));
         }
     }
 

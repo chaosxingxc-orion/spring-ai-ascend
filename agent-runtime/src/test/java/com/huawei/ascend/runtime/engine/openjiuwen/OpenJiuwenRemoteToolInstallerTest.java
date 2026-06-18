@@ -14,9 +14,12 @@ import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.interrupt.InterruptRequest;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
+import com.openjiuwen.harness.deep_agent.DeepAgent;
 import com.openjiuwen.harness.rails.interrupt.InterruptDecision;
 import com.openjiuwen.harness.rails.interrupt.InterruptResult;
 import com.openjiuwen.harness.rails.interrupt.RejectResult;
+import com.openjiuwen.harness.schema.config.DeepAgentConfig;
+import com.openjiuwen.harness.workspace.Workspace;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -40,6 +43,23 @@ class OpenJiuwenRemoteToolInstallerTest {
                 .hasSize(1)
                 .first()
                 .isInstanceOf(OpenJiuwenRemoteAgentInterruptRail.class);
+    }
+
+    @Test
+    void installsRemoteToolCardAndInterruptRailOnDeepAgentHarness() {
+        DeepAgent agent = new DeepAgent(
+                AgentCard.builder().id("deep-agent").name("deep-agent").description("test").build(),
+                DeepAgentConfig.builder().enableTaskLoop(true).build(),
+                Workspace.builder().rootPath("./target/deep-agent-installer-test").build());
+        RemoteAgentToolSpec spec = toolSpec();
+        OpenJiuwenRemoteToolInstaller installer = new OpenJiuwenRemoteToolInstaller(() -> List.of(spec));
+
+        installer.install(agent, context());
+
+        assertThat(agent.getRegisteredTools()).hasSize(1);
+        assertThat(agent.getAgent().getAbilityManager().get("remote-planner")).isNotNull();
+        assertThat(agent.getAgent().getAbilityManager().listToolInfo())
+                .anySatisfy(info -> assertThat(info.getName()).isEqualTo("remote-planner"));
     }
 
     @Test

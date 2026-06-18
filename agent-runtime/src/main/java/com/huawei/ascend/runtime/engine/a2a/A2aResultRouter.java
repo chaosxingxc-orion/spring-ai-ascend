@@ -58,7 +58,7 @@ final class A2aResultRouter {
      * flushed, so the trajectory artifact lands before the task reaches its terminal state.
      */
     static RouteDecision route(AgentExecutionResult result, AgentEmitter emitter, String taskId,
-            String artifactId, AtomicBoolean firstArtifact, boolean remoteInvocationAllowed) {
+            String artifactId, AtomicBoolean firstArtifact) {
         AgentExecutionResult.Target target = result.target();
         switch (result.type()) {
             case OUTPUT -> {
@@ -107,13 +107,6 @@ final class A2aResultRouter {
             }
             case INTERRUPTED -> {
                 if (result.interruptPayload() instanceof AgentExecutionResult.RemoteAgentInterrupt remote) {
-                    if (!remoteInvocationAllowed) {
-                        return RouteDecision.terminal(() -> emitter.fail(A2aAgentExecutor.failureMessage(
-                                emitter,
-                                "NESTED_REMOTE_INVOCATION_UNSUPPORTED",
-                                "remote A2A invocation after REMOTE_RESUME is not supported",
-                                false)));
-                    }
                     return RouteDecision.remote(remote.remoteInvocation());
                 }
                 String prompt = result.prompt() == null ? "" : result.prompt();
