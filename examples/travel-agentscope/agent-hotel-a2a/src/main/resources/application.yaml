@@ -1,0 +1,18 @@
+# agent-hotel-agentscope-a2a — Spring Boot wrapper hosting the AgentScope-flavored
+# hotel agent under agent-runtime. LLM credentials default to env vars; local
+# placeholders only serve to start the JVM.
+server:
+  port: 8082
+
+hotel-agent:
+  llm:
+    api-key:       ${LLM_API_KEY:sk-local-placeholder}
+    api-base:      ${LLM_API_BASE:http://localhost:4000/v1}
+    endpoint-path: ${LLM_ENDPOINT_PATH:/chat/completions}
+    model-name:    ${LLM_MODEL:gpt-4o-mini}
+
+logging:
+  level:
+    com.huawei.ascend.examples.agentscope.hotel: INFO
+    com.huawei.ascend.runtime: INFO
+    io.agentscope: INFO
