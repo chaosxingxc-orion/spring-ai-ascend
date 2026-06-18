@@ -2,74 +2,54 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.huawei.ascend.examples</groupId>
+    <parent>
+        <groupId>com.huawei.ascend.examples</groupId>
+        <artifactId>travel-parent</artifactId>
+        <version>0.2.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
     <artifactId>agent-travel-trip</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>agent-travel-trip</name>
     <description>差旅行程规划智能体（ReAct 单体 + 唯一工具 plan_hotel）</description>
 
-    <properties>
-        <java.version>21</java.version>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-
-        <agent-core-java.version>0.1.12-jdk17</agent-core-java.version>
-        <agent-travel-hotel.version>0.1.0-SNAPSHOT</agent-travel-hotel.version>
-        <junit.version>5.10.2</junit.version>
-    </properties>
-
     <dependencies>
-        <!-- openJiuwen agent 框架：需先在 agent-core-java 仓执行 mvn install -DskipTests -->
+        <!-- openJiuwen agent 框架（version 由 travel-parent 管理）。 -->
         <dependency>
             <groupId>com.openjiuwen</groupId>
             <artifactId>agent-core-java</artifactId>
-            <version>${agent-core-java.version}</version>
         </dependency>
 
         <!--
           酒店规划子智能体：runtime scope —— agent-trip 通过反射（ReflectiveHotelPlannerClient）
           装配 agent-hotel，编译期不依赖其任何类型；仅运行时 classpath 需要它。
-          需先在 spring-ai-ascend 执行 mvn -f examples/travel/agent-hotel/pom.xml -DskipTests install
+          version 由 travel-parent 管理为 ${project.version}（与本模块同为 0.1.0-SNAPSHOT）。
         -->
         <dependency>
             <groupId>com.huawei.ascend.examples</groupId>
             <artifactId>agent-travel-hotel</artifactId>
-            <version>${agent-travel-hotel.version}</version>
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Test (version managed by Spring Boot BOM). -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.12.1</version>
-                <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                    <parameters>true</parameters>
-                </configuration>
-            </plugin>
-
             <!-- 单元测试：*Test，CI 无 LLM Key 也能跑 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
                 <configuration>
                     <includes>
                         <include>**/*Test.java</include>
@@ -81,7 +61,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.2.5</version>
                 <executions>
                     <execution>
                         <goals>

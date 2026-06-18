@@ -15,11 +15,11 @@ import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.Part;
 import org.a2aproject.sdk.spec.Task;
 import org.a2aproject.sdk.spec.TaskState;
-import org.a2aproject.sdk.spec.TaskStatus;
-import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.a2aproject.sdk.spec.TextPart;
+import org.a2aproject.sdk.spec.TaskStatus;
+import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 
 final class A2aParentTaskProjector {
     private static final Logger LOG = LoggerFactory.getLogger(A2aParentTaskProjector.class);
@@ -31,15 +31,31 @@ final class A2aParentTaskProjector {
         Task task = ctx.getTask();
         if (task == null || task.status() == null
                 || task.status().state() != TaskState.TASK_STATE_INPUT_REQUIRED) {
+            LOG.info("[A2A] remote continuation check: no — task={} state={}",
+                    task != null ? task.id() : "null",
+                    task != null && task.status() != null ? task.status().state() : "null");
             return false;
         }
-        Map<String, Object> metadata = task.metadata();
-        return metadata != null
-                && WAITING_TARGET_REMOTE_AGENT.equals(String.valueOf(metadata.get("runtime.waitingTarget")));
+        Map<String, Object> taskMd = task.metadata();
+        Map<String, Object> msgMd = task.status().message() != null
+                ? task.status().message().metadata() : null;
+        // Check task-level metadata first (populated by the follow-up
+        // TaskStatusUpdateEvent with event-level metadata emitted in
+        // requireRemoteInput), then fall back to status-message metadata.
+        boolean parked = WAITING_TARGET_REMOTE_AGENT.equals(
+                String.valueOf(taskMd != null ? taskMd.get("runtime.waitingTarget") : null))
+                || WAITING_TARGET_REMOTE_AGENT.equals(
+                        String.valueOf(msgMd != null ? msgMd.get("runtime.waitingTarget") : null));
+        LOG.info("[A2A] remote continuation check: taskId={} state={} taskMdHasWaitingTarget={} msgMdHasWaitingTarget={} matched={}",
+                task.id(), task.status().state(),
+                taskMd != null && taskMd.containsKey("runtime.waitingTarget"),
+                msgMd != null && msgMd.containsKey("runtime.waitingTarget"),
+                parked);
+        return parked;
     }
 
     RemoteAgentInvocationService.RemoteRoute remoteRoute(Task task) {
-        Map<String, Object> metadata = task.metadata() == null ? Map.of() : task.metadata();
+        Map<String, Object> metadata = routeMetadata(task);
         requireRouteMetadata(metadata,
                 "runtime.remoteAgentId",
                 "runtime.remoteTaskId",
@@ -54,6 +70,25 @@ final class A2aParentTaskProjector {
                 task.id(),
                 task.contextId(),
                 string(metadata, "runtime.localConversationId"));
+    }
+
+    /**
+     * Returns the route metadata from the task, checking task-level metadata
+     * first (set via event-level metadata on the save-path TaskStatusUpdateEvent),
+     * then status-message metadata as a fallback.
+     */
+    private static Map<String, Object> routeMetadata(Task task) {
+        Map<String, Object> taskMd = task.metadata();
+        if (taskMd != null && hasText(taskMd.get("runtime.waitingTarget"))) {
+            return taskMd;
+        }
+        if (task.status() != null && task.status().message() != null) {
+            Map<String, Object> md = task.status().message().metadata();
+            if (md != null && !md.isEmpty()) {
+                return md;
+            }
+        }
+        return taskMd == null ? Map.of() : taskMd;
     }
 
     AgentExecutionResult.RemoteInvocation remoteInvocation(RemoteAgentInvocationService.RemoteRoute route) {
@@ -71,6 +106,15 @@ final class A2aParentTaskProjector {
         if (result == null) {
             return;
         }
+        String text = result.text();
+        LOG.info("[A2A] remote progress type={} target={} textLen={}",
+                result.type(), result.target(),
+                text != null ? text.length() : 0);
+        // Only forward to end-user when target is USER or BOTH (LLM-only stays internal)
+        AgentExecutionResult.Target target = result.target();
+        if (target == AgentExecutionResult.Target.LLM) {
+            return;
+        }
         if ((result.type() == RemoteAgentInvocationService.RemoteAgentResult.Type.MESSAGE
                 || result.type() == RemoteAgentInvocationService.RemoteAgentResult.Type.ARTIFACT)
                 && result.text() != null && !result.text().isBlank()) {
@@ -80,13 +124,32 @@ final class A2aParentTaskProjector {
 
     void requireRemoteInput(AgentExecutionResult.RemoteInvocation invocation,
             RemoteAgentInvocationService.RemoteAgentResult result, AgentEmitter emitter) {
-        Message message = emitter.newAgentMessage(List.<Part<?>>of(new TextPart(safeText(result.text()))), null);
-        emitter.emitEvent(TaskStatusUpdateEvent.builder()
-                .taskId(emitter.getTaskId())
-                .contextId(emitter.getContextId())
+        Map<String, Object> metadata = remoteMetadata(invocation, result);
+        // Mark this as a USER-targeted interruption so the parent projector
+        // forwards the prompt to the end user, not the LLM.
+        metadata.put("a2a.target", AgentExecutionResult.Target.USER.name());
+        Message message = emitter.newAgentMessage(
+                List.<Part<?>>of(new TextPart(safeText(result.text()))), metadata);
+        emitter.requiresInput(message, false);
+
+        // The A2A SDK's AgentEmitter.updateStatus() creates a TaskStatusUpdateEvent
+        // without event-level metadata — only the status message carries metadata,
+        // and TaskManager.saveTaskEvent() does not propagate message metadata to
+        // task-level metadata. Emit a second, save-path-only TaskStatusUpdateEvent
+        // whose event-level metadata IS the route info so that TaskManager merges
+        // it into task.metadata() on persistence. This event arrives after the
+        // requiresInput event in the EventQueue, so the ResultAggregator has
+        // already observed the interrupt and the stream is draining; it does not
+        // affect the client-visible SSE stream.
+        TaskStatusUpdateEvent savePathEvent = TaskStatusUpdateEvent.builder()
+                .taskId(invocation.parentTaskId())
+                .contextId(invocation.parentContextId())
                 .status(new TaskStatus(TaskState.TASK_STATE_INPUT_REQUIRED, message, null))
-                .metadata(remoteMetadata(invocation, result))
-                .build());
+                .metadata(metadata)
+                .build();
+        emitter.emitEvent(savePathEvent);
+        LOG.info("[A2A] remote route metadata save-path event emitted taskId={} metadataKeys={}",
+                invocation.parentTaskId(), metadata.keySet());
     }
 
     RemoteOutcome projectRemoteOutcome(AgentExecutionResult.RemoteInvocation invocation,
@@ -103,9 +166,23 @@ final class A2aParentTaskProjector {
                     return RemoteOutcome.waitForInput();
                 }
                 case COMPLETED -> {
-                    LOG.info("[A2A] remote outcome=completed remoteAgentId={} resultLen={}",
-                            invocation.remoteAgentId(), result.text() != null ? result.text().length() : 0);
-                    return RemoteOutcome.resumeWith(safeText(result.text()));
+                    AgentExecutionResult.Target target = result.target();
+                    String text = safeText(result.text());
+                    LOG.info("[A2A] remote outcome=completed remoteAgentId={} resultLen={} target={}",
+                            invocation.remoteAgentId(), text.length(), target);
+                    // target=USER: show to user, empty tool result for LLM
+                    // target=LLM: tool result for LLM, don't show to user
+                    // target=BOTH: both
+                    if (target == AgentExecutionResult.Target.USER
+                            || target == AgentExecutionResult.Target.BOTH) {
+                        if (!text.isBlank()) {
+                            emitter.addArtifact(List.<Part<?>>of(new TextPart(text)));
+                        }
+                    }
+                    if (target == AgentExecutionResult.Target.USER) {
+                        return RemoteOutcome.resumeWith("");
+                    }
+                    return RemoteOutcome.resumeWith(text);
                 }
                 case FAILED -> {
                     LOG.warn("[A2A] remote outcome=failed remoteAgentId={} error={}",
@@ -121,17 +198,18 @@ final class A2aParentTaskProjector {
 
     AgentExecutionContext remoteResumeContext(RequestContext requestContext, String handlerAgentId,
             AgentExecutionResult.RemoteInvocation invocation, String toolResult) {
-        Map<String, Object> variables = Map.of(
-                AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, invocation.localConversationId(),
-                AgentExecutionContext.REMOTE_TOOL_CALL_ID_VARIABLE, invocation.toolCallId(),
-                AgentExecutionContext.REMOTE_TOOL_RESULT_VARIABLE, toolResult);
+        Map<String, Object> runtimeMetadata = A2aAgentExecutor.normalizedMetadata(requestContext, handlerAgentId);
+        Map<String, Object> variables = new LinkedHashMap<>(runtimeMetadata);
+        variables.put(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, invocation.localConversationId());
+        variables.put(AgentExecutionContext.REMOTE_TOOL_CALL_ID_VARIABLE, invocation.toolCallId());
+        variables.put(AgentExecutionContext.REMOTE_TOOL_RESULT_VARIABLE, toolResult);
         return new AgentExecutionContext(
                 new RuntimeIdentity(
-                        A2aAgentExecutor.metadata(requestContext, A2aAgentExecutor.TENANT_STATE_KEY, "default"),
-                        A2aAgentExecutor.metadata(requestContext, "userId", "system"),
+                        string(runtimeMetadata, A2aAgentExecutor.TENANT_STATE_KEY),
+                        string(runtimeMetadata, "userId"),
                         invocation.parentContextId(),
                         invocation.parentTaskId(),
-                        A2aAgentExecutor.metadata(requestContext, "agentId", handlerAgentId)),
+                        string(runtimeMetadata, "agentId")),
                 AgentExecutionContext.INPUT_TYPE_REMOTE_RESUME,
                 List.of(),
                 variables,

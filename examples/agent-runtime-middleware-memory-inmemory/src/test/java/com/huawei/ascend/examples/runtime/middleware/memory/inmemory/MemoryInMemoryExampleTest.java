@@ -1,201 +1,166 @@
 package com.huawei.ascend.examples.runtime.middleware.memory.inmemory;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenAgentRuntimeHandler;
-import com.openjiuwen.core.context.ContextStats;
-import com.openjiuwen.core.context.ContextWindow;
-import com.openjiuwen.core.context.ModelContext;
-import com.openjiuwen.core.context.token.TokenCounter;
-import com.openjiuwen.core.foundation.llm.schema.AssistantMessage;
-import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
-import com.openjiuwen.core.foundation.llm.schema.SystemMessage;
-import com.openjiuwen.core.foundation.llm.schema.UserMessage;
-import com.openjiuwen.core.foundation.tool.Tool;
-import com.openjiuwen.core.foundation.tool.schema.ToolInfo;
-import com.openjiuwen.core.session.Session;
-import com.openjiuwen.core.session.stream.StreamMode;
-import com.openjiuwen.core.singleagent.BaseAgent;
-import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
-import com.openjiuwen.core.singleagent.rail.AgentRail;
-import com.openjiuwen.core.singleagent.schema.AgentCard;
-import java.util.ArrayList;
-import java.util.Iterator;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("manual")
 class MemoryInMemoryExampleTest {
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final HttpClient HTTP = HttpClient.newHttpClient();
 
     @Test
-    void inMemoryMemoryProviderWorksThroughOpenJiuwenHandlerExecution() {
+    void inMemoryMemoryProviderWorksThroughOpenJiuwenHandlerExecution() throws Exception {
+        assumeTrue(hasText(System.getenv("SAA_SAMPLE_LLM_API_KEY")),
+                "Set SAA_SAMPLE_LLM_API_KEY to run the real LLM example");
         InMemoryMemoryProvider provider = new InMemoryMemoryProvider();
-        AgentExecutionContext first = MiddlewareTestFixtures.context("memory-state-a");
-        AgentExecutionContext second = MiddlewareTestFixtures.context("memory-state-b");
+        AgentExecutionContext greenTeaUserContext = MiddlewareTestFixtures.context("memory-state-a");
+        AgentExecutionContext coffeeUserContext = MiddlewareTestFixtures.context("memory-state-b");
+        provider.save(greenTeaUserContext, List.of(record("the user prefers green tea")));
+        provider.save(coffeeUserContext, List.of(record("the user prefers black coffee")));
+        SampleMemoryOpenJiuwenHandler handler = new SampleMemoryOpenJiuwenHandler(
+                "openjiuwen-simple-agent",
+                envOrDefault("SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER", "openai"),
+                System.getenv("SAA_SAMPLE_LLM_API_KEY"),
+                envOrDefault("SAA_SAMPLE_OPENJIUWEN_API_BASE", "https://api.deepseek.com"),
+                envOrDefault("SAA_SAMPLE_LLM_MODEL", "deepseek-chat"),
+                Boolean.parseBoolean(envOrDefault("SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY", "false")),
+                provider);
 
-        provider.init(first);
-        provider.init(second);
-        provider.save(first, List.of(new MemoryProvider.MemoryRecord(null, "assistant",
-                "the user prefers green tea", Map.of("source", "test"))));
-        provider.save(second, List.of(new MemoryProvider.MemoryRecord(null, "assistant",
-                "the user prefers black coffee", Map.of("source", "test"))));
+        List<?> agentOutputs = handler.execute(greenTeaUserContext).toList();
 
-        MemoryEnabledHandler handler = new MemoryEnabledHandler(provider);
-
-        List<?> rawResults = handler.execute(first).toList();
-
-        assertThat(rawResults).singleElement().isEqualTo(Map.of("result_type", "answer", "output", "pong"));
-        assertThat(handler.agent.registeredRails).hasSize(1);
-        assertThat(provider.search(first, "black coffee", 3)).isEmpty();
-        assertThat(provider.records(first))
-                .extracting(MemoryProvider.MemoryRecord::content)
-                .contains("the user prefers green tea", "green tea", "pong");
-        assertThat(provider.search(first, "green tea", 3))
+        assertThat(agentOutputs).isNotEmpty();
+        assertThat(provider.search(greenTeaUserContext, "black coffee", 3)).isEmpty();
+        assertThat(provider.search(greenTeaUserContext, "green tea", 3))
                 .first()
                 .satisfies(hit -> assertThat(hit.content()).contains("green tea"));
+        assertThat(provider.records(greenTeaUserContext))
+                .extracting(MemoryProvider.MemoryRecord::content)
+                .contains("the user prefers green tea", "What drink does the user prefer?");
+        String agentAnswer = renderAgentAnswer(agentOutputs);
+        assertThat(agentAnswer).containsIgnoringCase("green tea");
+        assertThat(judgeAnswer(agentAnswer)).contains("PASS");
     }
 
-    private static final class MemoryEnabledHandler extends OpenJiuwenAgentRuntimeHandler {
-        private final InMemoryMemoryProvider provider;
-        private final RecordingAgent agent = new RecordingAgent();
+    private static MemoryProvider.MemoryRecord record(String content) {
+        return new MemoryProvider.MemoryRecord(null, "assistant", content, Map.of("source", "test"));
+    }
 
-        private MemoryEnabledHandler(InMemoryMemoryProvider provider) {
-            super("openjiuwen-simple-agent");
-            this.provider = provider;
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static String envOrDefault(String key, String fallback) {
+        String value = System.getenv(key);
+        return hasText(value) ? value : fallback;
+    }
+
+    private static String renderAgentAnswer(List<?> agentOutputs) {
+        return agentOutputs.stream()
+                .map(MemoryInMemoryExampleTest::renderOutput)
+                .filter(MemoryInMemoryExampleTest::hasText)
+                .collect(Collectors.joining("\n"));
+    }
+
+    private static String renderOutput(Object output) {
+        if (output == null) {
+            return "";
         }
-
-        @Override
-        protected List<AgentRail> openJiuwenRails(AgentExecutionContext context) {
-            return List.of(memoryRuntimeRail(context, provider));
+        if (output instanceof CharSequence text) {
+            return text.toString();
         }
-
-        @Override
-        protected BaseAgent createOpenJiuwenAgent(AgentExecutionContext context) {
-            return agent;
-        }
-
-        @Override
-        protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
-            RecordingModelContext modelContext = new RecordingModelContext();
-            modelContext.setMessages(List.of(
-                    new SystemMessage("business policy: keep original system prompt"),
-                    new UserMessage("green tea"),
-                    new AssistantMessage("pong")), true);
-            AgentCallbackContext callbackContext = AgentCallbackContext.builder()
-                    .context(modelContext)
-                    .build();
-            for (AgentRail rail : ((RecordingAgent) agent).registeredRails) {
-                rail.beforeInvoke(callbackContext);
-                rail.afterInvoke(callbackContext);
+        for (String methodName : List.of("content", "getContent", "text", "getText", "output", "getOutput")) {
+            String value = invokeTextAccessor(output, methodName);
+            if (hasText(value)) {
+                return value;
             }
-            return Map.of("result_type", "answer", "output", "pong");
+        }
+        for (String fieldName : List.of("payload", "content", "text", "output")) {
+            String value = readTextField(output, fieldName);
+            if (hasText(value)) {
+                return value;
+            }
+        }
+        return String.valueOf(output);
+    }
+
+    private static String invokeTextAccessor(Object output, String methodName) {
+        try {
+            Method method = output.getClass().getMethod(methodName);
+            if (method.getParameterCount() != 0) {
+                return "";
+            }
+            Object value = method.invoke(output);
+            return value instanceof CharSequence text ? text.toString() : String.valueOf(value);
+        } catch (ReflectiveOperationException | SecurityException ignored) {
+            return "";
         }
     }
 
-    private static final class RecordingAgent extends BaseAgent {
-        private final List<AgentRail> registeredRails = new ArrayList<>();
-
-        private RecordingAgent() {
-            super(AgentCard.builder().id("agent").name("agent").description("test").build());
-        }
-
-        @Override
-        public BaseAgent configure(Object config) {
-            return this;
-        }
-
-        @Override
-        public Object getConfig() {
-            return null;
-        }
-
-        @Override
-        public BaseAgent registerRail(AgentRail rail) {
-            registeredRails.add(rail);
-            return this;
-        }
-
-        @Override
-        public Object invoke(Object input, Session session) {
-            return null;
-        }
-
-        @Override
-        public Iterator<Object> stream(Object input, Session session, List<StreamMode> streamModes) {
-            return List.of().iterator();
+    private static String readTextField(Object output, String fieldName) {
+        try {
+            Field field = output.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            Object value = field.get(output);
+            return value instanceof CharSequence text ? text.toString() : String.valueOf(value);
+        } catch (ReflectiveOperationException | SecurityException ignored) {
+            return "";
         }
     }
 
-    private static final class RecordingModelContext extends ModelContext {
-        private final List<BaseMessage> messages = new ArrayList<>();
+    private static String judgeAnswer(String agentAnswer) throws Exception {
+        Map<String, Object> judgeRequest = Map.of(
+                "model", envOrDefault("SAA_SAMPLE_LLM_MODEL", "deepseek-chat"),
+                "temperature", 0,
+                "max_tokens", 16,
+                "messages", List.of(
+                        Map.of("role", "system", "content",
+                                "You are a strict test judge. Reply exactly PASS or FAIL."),
+                        Map.of("role", "user", "content", """
+                                The memory says: the user prefers green tea.
+                                The user asked about their preference.
+                                Does the answer correctly use the memory and identify green tea as the preference?
 
-        @Override
-        public int size() {
-            return messages.size();
-        }
+                                Answer:
+                                %s
+                                """.formatted(agentAnswer))));
+        HttpRequest judgeHttpRequest = HttpRequest.newBuilder()
+                .uri(URI.create(chatCompletionsUrl(envOrDefault(
+                        "SAA_SAMPLE_OPENJIUWEN_API_BASE", "https://api.deepseek.com"))))
+                .header("Authorization", "Bearer " + System.getenv("SAA_SAMPLE_LLM_API_KEY"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(judgeRequest)))
+                .build();
+        HttpResponse<String> judgeResponse = HTTP.send(judgeHttpRequest, HttpResponse.BodyHandlers.ofString());
+        assertThat(judgeResponse.statusCode()).isBetween(200, 299);
+        JsonNode judgeContent = JSON.readTree(judgeResponse.body())
+                .path("choices")
+                .path(0)
+                .path("message")
+                .path("content");
+        return judgeContent.asText();
+    }
 
-        @Override
-        public List<BaseMessage> getMessages(Integer size, boolean withHistory) {
-            return List.copyOf(messages);
+    private static String chatCompletionsUrl(String apiBase) {
+        String normalized = String.valueOf(apiBase).replaceAll("/+$", "");
+        if (normalized.endsWith("/chat/completions")) {
+            return normalized;
         }
-
-        @Override
-        public void setMessages(List<BaseMessage> messages, boolean withHistory) {
-            this.messages.clear();
-            this.messages.addAll(messages);
-        }
-
-        @Override
-        public List<BaseMessage> popMessages(int size, boolean withHistory) {
-            return List.of();
-        }
-
-        @Override
-        public void clearMessages(boolean withHistory) {
-            messages.clear();
-        }
-
-        @Override
-        public List<BaseMessage> addMessages(List<BaseMessage> messages) {
-            this.messages.addAll(messages);
-            return List.copyOf(this.messages);
-        }
-
-        @Override
-        public ContextWindow getContextWindow(
-                List<BaseMessage> systemMessages,
-                List<ToolInfo> tools,
-                Integer windowSize,
-                Integer dialogueRound,
-                Map<String, Object> kwargs) {
-            return null;
-        }
-
-        @Override
-        public ContextStats statistic() {
-            return null;
-        }
-
-        @Override
-        public String sessionId() {
-            return "test-session";
-        }
-
-        @Override
-        public String contextId() {
-            return "test-context";
-        }
-
-        @Override
-        public TokenCounter tokenCounter() {
-            return null;
-        }
-
-        @Override
-        public Tool reloaderTool() {
-            return null;
-        }
+        return normalized + "/chat/completions";
     }
 }

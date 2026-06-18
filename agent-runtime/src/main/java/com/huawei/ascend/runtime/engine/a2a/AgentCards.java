@@ -32,7 +32,6 @@ public final class AgentCards {
         return AgentCard.builder()
                 .name(name)
                 .description(description)
-                .url(endpoint)
                 .version(version)
                 // Blank provider URL: the discovery controller rewrites it to the
                 // published base (public-base-url or request-derived) at serve time,
@@ -43,7 +42,6 @@ public final class AgentCards {
                 .defaultOutputModes(List.of("text", "artifact"))
                 .skills(List.of())
                 .supportedInterfaces(List.of(new AgentInterface(TransportProtocol.JSONRPC.asString(), endpoint)))
-                .preferredTransport(TransportProtocol.JSONRPC.asString())
                 .build();
     }
 }

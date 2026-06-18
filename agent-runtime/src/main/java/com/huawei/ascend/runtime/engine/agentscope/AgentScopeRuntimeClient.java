@@ -79,6 +79,11 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
             response = send(request);
         } catch (RuntimeException ex) {
             return Stream.of(ioFailure(ex));
+        } catch (IOException ex) {
+            return Stream.of(ioFailure(new RuntimeException(ex)));
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return Stream.of(ioFailure(new RuntimeException("interrupted", ex)));
         }
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             // The error body is not an SSE stream; close it so the HTTP connection is released.
@@ -107,8 +112,9 @@ public final class AgentScopeRuntimeClient implements AutoCloseable {
                 });
     }
 
-    private HttpResponse<Stream<String>> send(HttpRequest request) {
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofLines()).join();
+    private HttpResponse<Stream<String>> send(HttpRequest request)
+            throws IOException, InterruptedException {
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofLines());
     }
 
     private static Map<String, Object> ioFailure(RuntimeException ex) {

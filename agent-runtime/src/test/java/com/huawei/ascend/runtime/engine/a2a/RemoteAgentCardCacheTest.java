@@ -23,7 +23,6 @@ class RemoteAgentCardCacheTest {
                         .name("Remote Planner")
                         .description("Plans trips")
                         .version("1")
-                        .url("http://remote-runtime/a2a")
                         .supportedInterfaces(List.of(new AgentInterface("JSONRPC", "http://remote-runtime/a2a")))
                         .capabilities(AgentCapabilities.builder().streaming(true).build())
                         .skills(List.of(AgentSkill.builder()
@@ -41,9 +40,13 @@ class RemoteAgentCardCacheTest {
         assertThat(catalog.availableToolSpecs()).hasSize(1);
         RemoteAgentToolSpec spec = catalog.availableToolSpecs().get(0);
         assertThat(spec.remoteAgentId()).isEqualTo("remote-planner");
-        assertThat(spec.toolName()).isEqualTo("a2a_remote_remote_planner");
-        assertThat(spec.description()).contains("Remote Planner", "Plans trips", "Create a step-by-step plan");
+        assertThat(spec.toolName()).isEqualTo("remote-planner");
+        assertThat(spec.description()).contains("Create a step-by-step plan");
         assertThat(spec.inputSchema()).containsEntry("type", "object");
+        assertThat(spec.inputSchema()).containsEntry("required", List.of("remoteInput"));
+        Object properties = spec.inputSchema().get("properties");
+        assertThat(properties).isInstanceOf(Map.class);
+        assertThat(((Map<?, ?>) properties).containsKey("remoteInput")).isTrue();
         assertThat(catalog.endpoint("remote-planner")).isEqualTo("http://remote-runtime/a2a");
     }
 
@@ -66,7 +69,7 @@ class RemoteAgentCardCacheTest {
                         .name("Remote B")
                         .description("Remote B")
                         .version("1")
-                        .url("/a2a")
+                        .url("/legacy-a2a")
                         .supportedInterfaces(List.of(new AgentInterface("JSONRPC", "/a2a")))
                         .capabilities(AgentCapabilities.builder().streaming(true).build())
                         .skills(List.of(AgentSkill.builder()
@@ -94,7 +97,6 @@ class RemoteAgentCardCacheTest {
                         .name("Remote B")
                         .description("Remote B")
                         .version("1")
-                        .url("/a2a")
                         .supportedInterfaces(List.of(new AgentInterface("JSONRPC", "/a2a")))
                         .capabilities(AgentCapabilities.builder().streaming(true).build())
                         .skills(List.of(AgentSkill.builder()
@@ -125,7 +127,7 @@ class RemoteAgentCardCacheTest {
                 .containsExactly("shared-remote", "shared-remote-2");
         assertThat(catalog.availableToolSpecs())
                 .extracting(RemoteAgentToolSpec::toolName)
-                .containsExactly("a2a_remote_shared_remote", "a2a_remote_shared_remote_2");
+                .containsExactly("shared-remote", "shared-remote-2");
         assertThat(catalog.endpoint("shared-remote")).isEqualTo("http://remote-a/a2a");
         assertThat(catalog.endpoint("shared-remote-2")).isEqualTo("http://remote-b/a2a");
     }
@@ -214,12 +216,38 @@ class RemoteAgentCardCacheTest {
         assertThat(catalog.streamTimeout("unknown")).isNull();
     }
 
+    @Test
+    void cardUrlIsUsedOnlyWhenJsonRpcSupportedInterfaceIsAbsent() {
+        RemoteAgentCardCache catalog = new RemoteAgentCardCache(List.of("http://remote-legacy"),
+                url -> AgentCard.builder()
+                        .name("Legacy Remote")
+                        .description("Legacy Remote")
+                        .version("1")
+                        .url("/a2a")
+                        .supportedInterfaces(List.of(new AgentInterface("GRPC", "/grpc")))
+                        .capabilities(AgentCapabilities.builder().streaming(true).build())
+                        .skills(List.of(AgentSkill.builder()
+                                .id("legacy")
+                                .name("Legacy")
+                                .description("Legacy skill")
+                                .tags(List.of("remote"))
+                                .build()))
+                        .defaultInputModes(List.of("text"))
+                        .defaultOutputModes(List.of("text"))
+                        .build());
+
+        boolean refreshed = catalog.refresh();
+
+        assertThat(refreshed).isTrue();
+        assertThat(catalog.endpoint("legacy-remote")).isEqualTo("http://remote-legacy/a2a");
+        assertThat(catalog.pendingUrls()).isEmpty();
+    }
+
     private static AgentCard remoteCard(String name, String endpoint) {
         return AgentCard.builder()
                 .name(name)
                 .description(name)
                 .version("1")
-                .url(endpoint)
                 .supportedInterfaces(List.of(new AgentInterface("JSONRPC", endpoint)))
                 .capabilities(AgentCapabilities.builder().streaming(true).build())
                 .skills(List.of(AgentSkill.builder()

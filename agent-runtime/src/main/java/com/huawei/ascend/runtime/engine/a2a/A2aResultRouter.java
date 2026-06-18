@@ -2,6 +2,7 @@ package com.huawei.ascend.runtime.engine.a2a;
 
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.a2aproject.sdk.server.tasks.AgentEmitter;
 import org.a2aproject.sdk.spec.Message;
@@ -57,59 +58,70 @@ final class A2aResultRouter {
      * flushed, so the trajectory artifact lands before the task reaches its terminal state.
      */
     static RouteDecision route(AgentExecutionResult result, AgentEmitter emitter, String taskId,
-            String artifactId, AtomicBoolean firstArtifact, boolean remoteInvocationAllowed) {
+            String artifactId, AtomicBoolean firstArtifact) {
+        AgentExecutionResult.Target target = result.target();
         switch (result.type()) {
             case OUTPUT -> {
                 String text = outputText(result);
-                LOG.info("[A2A] output stream taskId={} textChars={}", taskId, text.length());
-                // First chunk opens the artifact (append=false); later chunks append to the same
-                // artifactId so the stream forms one growing artifact rather than many fragments.
-                boolean append = !firstArtifact.getAndSet(false);
-                emitter.addArtifact(List.<Part<?>>of(new TextPart(text)),
-                        artifactId, "agent-response", null, append, false);
-                // state stays WORKING - more output may follow; the terminal status closes the stream
+                LOG.info("[A2A] output stream taskId={} textChars={} target={}", taskId, text.length(), target);
+                if (target == AgentExecutionResult.Target.USER
+                        || target == AgentExecutionResult.Target.BOTH) {
+                    boolean append = !firstArtifact.getAndSet(false);
+                    Map<String, Object> artifactMd = Map.of("a2a.target", target.name());
+                    emitter.addArtifact(List.<Part<?>>of(new TextPart(text)),
+                            artifactId, "agent-response", artifactMd, append, false);
+                }
                 return RouteDecision.continueRoute();
             }
             case COMPLETED -> {
                 String text = outputText(result);
+                boolean showToUser = target == AgentExecutionResult.Target.USER
+                        || target == AgentExecutionResult.Target.BOTH;
+                Map<String, Object> completeMetadata = Map.of("a2a.target", target.name());
                 return RouteDecision.terminal(() -> {
-                    if (!text.isBlank()) {
-                        LOG.info("[A2A] complete with final output taskId={} textChars={}", taskId, text.length());
-                        emitter.complete(emitter.newAgentMessage(List.<Part<?>>of(new TextPart(text)), null));
-                    } else {
-                        emitter.complete();
+                    if (showToUser && !text.isBlank()) {
+                        LOG.info("[A2A] complete with final output taskId={} textChars={} target={}",
+                                taskId, text.length(), target);
+                    } else if (!showToUser) {
+                        LOG.info("[A2A] complete target=LLM — final content not shown to user taskId={}",
+                                taskId);
                     }
-                    LOG.info("[A2A] task state=COMPLETED taskId={}", taskId);
+                    // Always include a TextPart — the A2A SDK Message constructor
+                    // rejects an empty parts list (IllegalArgumentException:
+                    // Parts cannot be empty) even when the target is LLM and
+                    // the text is intentionally blank.
+                    emitter.complete(emitter.newAgentMessage(
+                            List.<Part<?>>of(new TextPart(text)), completeMetadata));
+                    LOG.info("[A2A] task state=COMPLETED taskId={} target={} textLen={} metadata={}",
+                            taskId, target, text.length(), completeMetadata);
                 });
             }
             case FAILED -> {
                 String code = result.errorCode() == null ? "RUNTIME_ERROR" : result.errorCode();
                 String msg = result.errorMessage() == null ? code : result.errorMessage();
                 return RouteDecision.terminal(() -> {
-                    LOG.warn("[A2A] task state=FAILED taskId={} code={} message={}",
-                            taskId, code, A2aLogMasking.mask(msg));
-                    // Adapter-supplied codes pass through unchanged; retryability is unknown -> conservative false.
+                    LOG.warn("[A2A] task state=FAILED taskId={} code={} message={} target={}",
+                            taskId, code, A2aLogMasking.mask(msg), target);
                     emitter.fail(A2aAgentExecutor.failureMessage(emitter, code, result.errorMessage(), false));
                 });
             }
             case INTERRUPTED -> {
                 if (result.interruptPayload() instanceof AgentExecutionResult.RemoteAgentInterrupt remote) {
-                    if (!remoteInvocationAllowed) {
-                        return RouteDecision.terminal(() -> emitter.fail(A2aAgentExecutor.failureMessage(
-                                emitter,
-                                "NESTED_REMOTE_INVOCATION_UNSUPPORTED",
-                                "remote A2A invocation after REMOTE_RESUME is not supported",
-                                false)));
-                    }
                     return RouteDecision.remote(remote.remoteInvocation());
                 }
                 String prompt = result.prompt() == null ? "" : result.prompt();
                 return RouteDecision.terminal(() -> {
-                    LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} promptChars={}", taskId, prompt.length());
-                    Message message = prompt.isBlank()
-                            ? null
-                            : emitter.newAgentMessage(List.<Part<?>>of(new TextPart(prompt)), null);
-                    emitter.requiresInput(message, false);
+                    LOG.info("[A2A] task state=INPUT_REQUIRED taskId={} promptChars={} target={}",
+                            taskId, prompt.length(), target);
+                    Map<String, Object> inputReqMetadata = Map.of("a2a.target", target.name());
+                    boolean showPrompt = target == AgentExecutionResult.Target.USER
+                            || target == AgentExecutionResult.Target.BOTH;
+                    String userPrompt = (showPrompt && !prompt.isBlank()) ? prompt : "";
+                    emitter.requiresInput(
+                            emitter.newAgentMessage(
+                                    List.<Part<?>>of(new TextPart(userPrompt)),
+                                    inputReqMetadata),
+                            true);
                 });
             }
         }

@@ -31,10 +31,10 @@ public class VersatileProperties {
      * other {@code {placeholder}} values come from {@link #urlVariables}.
      *
      * <p>Examples:
-     * <pre>{@code https://100.93.15.185:30001/v1/0/agent-manager/workflows/{workflow_id}/conversations/{conversation_id}}
-     * {@code http://7.213.200.213:3001/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}}</pre>
+     * <pre>{@code https://localhost:30001/v1/0/agent-manager/workflows/{workflow_id}/conversations/{conversation_id}}
+     * {@code http://localhost:3001/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}}</pre>
      */
-    private String url = "https://100.93.15.185:30001/v1/0/agent-manager/workflows/{workflow_id}/conversations/{conversation_id}";
+    private String url = "https://localhost:30001/v1/0/agent-manager/workflows/{workflow_id}/conversations/{conversation_id}";
 
     /** HTTP connect / read timeout. */
     private Duration timeout = Duration.ofSeconds(30);
@@ -66,6 +66,44 @@ public class VersatileProperties {
      * body's {@code inputs} map (alongside the mandatory {@code query}).
      */
     private List<String> inputMetadataKeys = List.of();
+
+    /**
+     * When set, only the cached content for the given node_type is used as
+     * the final completion result. When unset (default), all cached output
+     * across all node types is merged. Case-insensitive match against the
+     * {@code node_type} field in SSE message data.
+     */
+    private String resultNodeType;
+
+    /**
+     * Result extraction rules. Each rule has two intuitive fields:
+     * <ul>
+     *   <li><b>match</b> — a keyword matched against the raw SSE line.
+     *       When the line contains this string the rule fires.</li>
+     *   <li><b>get</b> — a key to search for in the parsed JSON tree
+     *       (deep / nested search). The first occurrence's value is held
+     *       until the next End node, then emitted as the
+     *       {@code COMPLETED} LLM result.</li>
+     * </ul>
+     *
+     * <p>Example:
+     * <pre>{@code
+     * result-extractions:
+     *   - match: hotel_book_success
+     *     get: ticket
+     * }</pre>
+     */
+    private List<ResultExtraction> resultExtractions = new java.util.ArrayList<>();
+
+    public static class ResultExtraction {
+        private String match;
+        private String get;
+
+        public String getMatch() { return match; }
+        public void setMatch(String match) { this.match = match; }
+        public String getGet() { return get; }
+        public void setGet(String get) { this.get = get; }
+    }
 
     // ── Derived accessors ──
 
@@ -120,4 +158,12 @@ public class VersatileProperties {
 
     public List<String> getInputMetadataKeys() { return inputMetadataKeys; }
     public void setInputMetadataKeys(List<String> inputMetadataKeys) { this.inputMetadataKeys = inputMetadataKeys; }
+
+    public String getResultNodeType() { return resultNodeType; }
+    public void setResultNodeType(String resultNodeType) { this.resultNodeType = resultNodeType; }
+
+    public List<ResultExtraction> getResultExtractions() { return resultExtractions; }
+    public void setResultExtractions(List<ResultExtraction> resultExtractions) {
+        this.resultExtractions = resultExtractions != null ? resultExtractions : new java.util.ArrayList<>();
+    }
 }

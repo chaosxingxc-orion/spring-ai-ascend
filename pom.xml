@@ -18,7 +18,7 @@
 
   <groupId>com.huawei.ascend</groupId>
   <artifactId>spring-ai-ascend-parent</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.2.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>spring-ai-ascend parent</name>
@@ -50,7 +50,8 @@
     <spring-cloud.version>2025.1.1</spring-cloud.version>
     <temporal.version>1.35.0</temporal.version>
     <mcp.version>1.0.0</mcp.version>
-    <a2a-sdk.version>1.0.0.CR1</a2a-sdk.version>
+    <a2a-sdk.version>1.0.0.Final</a2a-sdk.version>
+    <openjiuwen.version>0.1.12-jdk17</openjiuwen.version>
     <langchain4j.version>1.14.1</langchain4j.version>
     <resilience4j.version>2.4.0</resilience4j.version>
     <caffeine.version>3.2.4</caffeine.version>
@@ -75,6 +76,9 @@
     <!-- Test parallelization toggle (T1.1). Override with -DjunitParallel=false
          to debug suspected concurrency-related test failures. -->
     <junitParallel>true</junitParallel>
+
+    <!-- Private repository host (override with -Dlocalmvn.host=newip:newport). -->
+    <localmvn.host>127.0.0.1:8081</localmvn.host>
   </properties>
 
   <dependencyManagement>
@@ -294,6 +298,14 @@
   </dependencyManagement>
 
   <repositories>
+    <!-- Private repository (group of releases + snapshots). -->
+    <repository>
+      <id>spring-ai-ascend-public</id>
+      <name>Spring AI Ascend Public Repository</name>
+      <url>http://${localmvn.host}/repository/spring-ai-ascend-public/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>true</enabled></snapshots>
+    </repository>
     <!-- Spring Milestones for Spring AI 2.0-M5 (not yet on Maven Central). -->
     <repository>
       <id>spring-milestones</id>
@@ -311,6 +323,19 @@
       <snapshots><enabled>false</enabled></snapshots>
     </pluginRepository>
   </pluginRepositories>
+
+  <distributionManagement>
+    <repository>
+      <id>spring-ai-ascend-releases</id>
+      <name>Spring AI Ascend Releases</name>
+      <url>http://${localmvn.host}/repository/spring-ai-ascend-releases/</url>
+    </repository>
+    <snapshotRepository>
+      <id>spring-ai-ascend-snapshots</id>
+      <name>Spring AI Ascend Snapshots</name>
+      <url>http://${localmvn.host}/repository/spring-ai-ascend-snapshots/</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <build>
     <pluginManagement>

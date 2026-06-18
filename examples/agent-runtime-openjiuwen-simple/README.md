@@ -69,15 +69,14 @@ curl -s -X POST http://localhost:8080/a2a \
     "method": "SendStreamingMessage",
     "id": "1",
     "params": {
+      "metadata": {
+        "userId": "test-user",
+        "agentId": "openjiuwen-simple-agent"
+      },
       "message": {
         "role": "ROLE_USER",
         "messageId": "msg-001",
         "contextId": "'"$SESSION_ID"'",
-        "metadata": {
-          "userId": "test-user",
-          "agentId": "openjiuwen-simple-agent",
-          "sessionId": "'"$SESSION_ID"'"
-        },
         "parts": [{"text": "你好，请介绍一下自己"}]
       }
     }

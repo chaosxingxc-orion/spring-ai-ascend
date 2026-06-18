@@ -1,7 +1,7 @@
 # Contract Catalog
 
 > Single source of truth for all public contracts in the spring-ai-ascend platform.
-> Version: 0.1.0-SNAPSHOT | Last refreshed: 2026-05-28 (PR 92 absorption — added 14 design_only YAML schemas + 5 design_only SPI interfaces per ADR-0155)
+> Version: 0.2.0-SNAPSHOT | Last refreshed: 2026-06-15 (PR 92 absorption — added 14 design_only YAML schemas + 5 design_only SPI interfaces per ADR-0155)
 
 ## Rhetorical stance
 
@@ -18,7 +18,7 @@ Each contract in this catalog has at least one **authority ADR** (the decision t
 
 ## 1. HTTP API contracts
 
-Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prometheus` (no auth headers). Shipped W1 routes: `POST /v1/runs` (202 + TaskCursor per Rule R-F Cursor Flow), `GET /v1/runs/{id}`, `POST /v1/runs/{id}/cancel` (200/404/409 for run-owner semantics; 403 only for JWT/header tenant mismatch today) — all require `X-Tenant-Id`; POST routes also require `Idempotency-Key`; W1 adds JWT `tenant_id` claim cross-check against `X-Tenant-Id` (ADR-0040). Implementation: `agent-service/src/main/java/.../web/runs/RunController.java`. Full per-route spec: [http-api-contracts.md](http-api-contracts.md) + `docs/contracts/openapi-v1.yaml`. (rc12 K-ζ updated these rows from prior `Planned W1` per rc11 review P2-1; Rule 104 `openapi_implemented_route_catalog_truth` prevents recurrence.)
+Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prometheus` (no auth headers). The `/v1/runs` REST family (`POST /v1/runs`, `GET /v1/runs/{id}`, `POST /v1/runs/{id}/cancel`) was removed by ADR-0159 consolidation — agent-service is a skeleton façade and the real HTTP surface is A2A JSON-RPC (see `A2aJsonRpcController`).
 
 **API conventions** (absorbed from `api-conventions.md`): URL major-versioned (`/v1/`); plural nouns; RFC 7807 `application/problem+json` errors with stable `code`; cursor pagination (`?limit=20&cursor=`); `GET`=200, POST-create=201, async=202, DELETE=204; `Idempotency-Key` required on POST/PUT/PATCH in research/prod; `OpenApiContractIT` snapshot-tests spec; SSE streaming reserved W3+.
 
@@ -30,7 +30,7 @@ Stable W0 routes: `GET /v1/health`, `GET /actuator/health`, `GET /actuator/prome
 
 SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime data MUST carry tenant scope (via explicit `tenantId` argument or `RunContext.tenantId()`). SPI packages import only `java.*` plus same-package sibling carriers; broader historical cross-package SPI residuals are documented in root `architecture/docs/L0/ARCHITECTURE.md §3.7` and must not be used as precedent for new SPI design. japicmp binary-compat from W1.
 
-**Active SPI interfaces (12 total):**
+**Active SPI interfaces (9 total):**
 
 (rc43 baseline: 19 pre-rc43 + 14 rc43 agentic-contract-surface SPI surfaces (Agent + AgentRegistry + ModelGateway + Skill + SkillRegistry + MemoryStore + MemoryReader + MemoryWriter + SemanticMemoryStore + KnowledgeMemoryStore + VectorStore + Retriever + EmbeddingModel + Planner) per ADR-0120 / ADR-0121 / ADR-0122 / ADR-0123 / ADR-0124 / ADR-0125 / ADR-0126 / ADR-0127 / ADR-0128. rc51 + 5 agentic-completeness SPI surfaces (StructuredOutputConverter + PromptTemplate + ChatAdvisor + AdvisorChain + ConversationMemory) per ADR-0129 / ADR-0130 / ADR-0131 / ADR-0132 / ADR-0133. rc51 also adds the `stream(...)` default method to the existing `ModelGateway` per ADR-0129 and supplements `model-invocation.v1.yaml` with the tool-call iteration loop per ADR-0134. ADR-0135 documents the deliberate decision not to add a separate `AgentSession` SPI.)
 
@@ -38,11 +38,11 @@ SPI impls: thread-safe, no null returns. SPIs that process tenant-owned runtime 
 
 | Interface | Module | Package | Status |
 |---|---|---|---|
-| `Checkpointer` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | shipped — W0 in-memory impl (`InMemoryCheckpointer`, in `agent-service`); relocated to the neutral engine contract per ADR-0158 |
-| `Orchestrator` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | shipped — W0 reference impl (`SyncOrchestrator`, in `agent-service`); relocated to the neutral engine contract per ADR-0158 |
-| `EnginePort` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | shipped — neutral Service/Engine boundary contract; all realizations (in-process, `RpcEnginePort` Form 1 internal RPC, `A2aEnginePort` federation) are design_only adapters owned by agent-service per ADR-0158; agent-runtime does not consume this SPI |
-| `DefinitionResolver` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | shipped — bidirectional bridge between the wire-form `DefinitionRef` and the runnable `ExecutorDefinition`; `resolve` is engine-facing, `referenceFor` is service-facing; reference impl `CompositeDefinitionResolver` (agent-service) per ADR-0158 |
-| `S2cCallbackTransport` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | shipped — W2.x; `InMemoryS2cCallbackTransport` reference (ADR-0074); relocated to agent-bus per ADR-0088 |
+| `Checkpointer` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | interface exists in agent-bus; implementations removed by ADR-0159 consolidation |
+| `Orchestrator` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | interface exists in agent-bus; implementations removed by ADR-0159 consolidation |
+| `EnginePort` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | interface exists in agent-bus; realizations removed by ADR-0159 consolidation |
+| `DefinitionResolver` | `agent-bus` | `com.huawei.ascend.bus.spi.engine` | interface exists in agent-bus; implementations removed by ADR-0159 consolidation |
+| `S2cCallbackTransport` | `agent-bus` | `com.huawei.ascend.bus.spi.s2c` | interface exists in agent-bus; implementations removed by ADR-0159 consolidation |
 | `AgentRuntimeHandler` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — the single framework-neutral runtime SPI: runs one agent and surfaces its output through concrete adapters such as openJiuwen and AgentScope; per the agent-runtime pure rebuild (Doc 2). Carries the handler service lifecycle as default methods (`start()`/`stop()` driven by the host SmartLifecycle around the serving window, cooperative `cancel(taskId)`, `isHealthy()` consumed by the runtime health indicator + readiness gate) — Authority: ADR-0161. Result carrier `AgentExecutionResult` ships alongside in the same package |
 | `AgentCardProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.a2a` | shipped — optional provider for the A2A Agent Card of one runtime-hosted business Agent; lives in the A2A protocol-bridge package, not the neutral SPI package (the Agent Card is A2A protocol metadata); separated from `AgentRuntimeHandler` so card metadata can be supplied by a dedicated Bean or by a handler that chooses to implement both interfaces |
 | `MemoryProvider` | `agent-runtime` | `com.huawei.ascend.runtime.engine.spi` | shipped — reserved narrow memory init/search/save SPI for future memory middleware integration; does not bind runtime to one memory backend |
@@ -84,7 +84,7 @@ Schema v2 per-event `DataPart` fields (serialized by `A2aNorthboundSink`; `attem
 |---|---|
 | `agent-service` | 0 — serviceization façade skeleton; registration/discovery SPI deferred to a dedicated ADR (ADR-0159) |
 | `agent-runtime` | 4 (`AgentRuntimeHandler`, `AgentCardProvider`, `MemoryProvider`, `StreamAdapter`) |
-| `agent-bus` | 8 (`IngressGateway`, `S2cCallbackTransport`, `ReflectionEnvelopeRouter`, `FederationGateway`, `Checkpointer`, `Orchestrator`, `EnginePort`, `DefinitionResolver`) |
+| `agent-bus` | 5 (`Checkpointer`, `Orchestrator`, `EnginePort`, `DefinitionResolver`, `S2cCallbackTransport`) |
 
 **Per-SPI tenant scope (canonical post-ADR-0044):**
 
@@ -196,7 +196,7 @@ SemVer from 1.0.0: PATCH=fix, MINOR=additive, MAJOR=breaking. Stable surface: st
 
 ## 7. Maven BoM
 
-`com.huawei.ascend:spring-ai-ascend-dependencies:0.1.0-SNAPSHOT` — active reactor modules (8 per `architecture-status.yaml#repository_counts.reactor_modules`):
+`com.huawei.ascend:spring-ai-ascend-dependencies:0.2.0-SNAPSHOT` — active reactor modules (4 per `architecture-status.yaml#repository_counts.reactor_modules`):
 
 | Artifact | Plane (P-I) | Status |
 |---|---|---|
@@ -204,7 +204,7 @@ SemVer from 1.0.0: PATCH=fix, MINOR=additive, MAJOR=breaking. Stable surface: st
 | `spring-ai-ascend-dependencies` | none | BoM (dependency management) |
 | `agent-service` | compute_control | Enterprise serviceization façade (skeleton) — registration/discovery driving runtime-built Agent instances via agent-runtime; the runtime SDK formerly hosted here was relocated to agent-runtime per ADR-0159 |
 | `agent-runtime` | compute_control | Framework-neutral agent-hosting runtime SDK: handler SPI + A2A SDK bridge (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`, openJiuwen and AgentScope adapters; task lifecycle/store/queue come from the A2A SDK's in-memory facilities, replaceable via `@ConditionalOnMissingBean`; session persistence delegated to framework checkpointers; Run record/recovery/idempotency stay with `agent-service` per ADR-0088) + trajectory observability + remote A2A tool invocation + access (A2A) + embeddable runtime entry (`app.RuntimeApp` / `LocalA2aRuntimeHost`); its only external protocol contract is the A2A SDK — ADR-0159. W0 inbound A2A message semantics are text-only (TextParts forwarded; non-text parts dropped with a WARN; see `a2a-envelope.v1.yaml` trust_boundaries) |
-| `agent-bus` | bus_state | Active cross-plane control surfaces: `bus.spi.ingress.IngressGateway` (ADR-0089) + `bus.spi.s2c.S2cCallbackTransport` (ADR-0074 + ADR-0088) + neutral orchestration/engine SPI `bus.spi.engine` (EnginePort + RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition + ExecutionContext; ADR-0158). Workflow primitives W2 per ADR-0050 |
+| `agent-bus` | bus_state | Active cross-plane control surfaces: `bus.spi.s2c.S2cCallbackTransport` (ADR-0074 + ADR-0088) + neutral orchestration/engine SPI `bus.spi.engine` (EnginePort + RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition + ExecutionContext; ADR-0158). The `bus.spi.ingress` package was removed by ADR-0159 consolidation. Workflow primitives W2 per ADR-0050 |
 
 **Module history (rc12 → rc13 reactor count: 9 → 8)**
 

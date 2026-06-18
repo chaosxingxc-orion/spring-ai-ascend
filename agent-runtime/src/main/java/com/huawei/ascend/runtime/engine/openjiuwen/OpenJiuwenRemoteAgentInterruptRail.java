@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.spi.RemoteAgentToolSpec;
 import com.openjiuwen.core.foundation.llm.schema.ToolCall;
+import com.openjiuwen.core.session.interaction.InteractiveInput;
 import com.openjiuwen.core.singleagent.interrupt.InterruptRequest;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.harness.rails.interrupt.BaseInterruptRail;
@@ -46,10 +47,10 @@ public final class OpenJiuwenRemoteAgentInterruptRail extends BaseInterruptRail 
         if (spec == null) {
             return approve();
         }
-        if (userInput != null) {
-            return reject(userInput);
-        }
         String toolCallId = toolCall != null && toolCall.getId() != null ? toolCall.getId() : toolName;
+        if (userInput != null) {
+            return reject(resumeToolResult(toolCallId, userInput));
+        }
         Map<String, Object> context = new LinkedHashMap<>();
         context.put("runtime.remote.kind", REMOTE_KIND);
         context.put("runtime.remote.agentId", spec.remoteAgentId());
@@ -58,12 +59,21 @@ public final class OpenJiuwenRemoteAgentInterruptRail extends BaseInterruptRail 
         context.put("runtime.remote.parentTaskId", executionContext.getScope().taskId());
         context.put("runtime.remote.parentContextId", executionContext.getScope().sessionId());
         context.put("runtime.remote.localConversationId", executionContext.getAgentStateKey());
+        // The LLM's remoteInput tool argument is the canonical outbound A2A
+        // message text. The A2A layer forwards request metadata separately.
         context.put("runtime.remote.arguments", arguments(toolCall));
         return interrupt(InterruptRequest.builder()
-                .interruptId(toolCallId)
                 .message("Remote agent invocation requested: " + spec.toolName())
                 .context(context)
                 .build());
+    }
+
+    private static Object resumeToolResult(String toolCallId, Object userInput) {
+        if (userInput instanceof InteractiveInput interactiveInput) {
+            Object value = interactiveInput.getUserInputs().get(toolCallId);
+            return value == null ? userInput : value;
+        }
+        return userInput;
     }
 
     private static List<String> toolNames(List<RemoteAgentToolSpec> toolSpecs) {
@@ -81,7 +91,7 @@ public final class OpenJiuwenRemoteAgentInterruptRail extends BaseInterruptRail 
         try {
             return OBJECT_MAPPER.readValue(rawArguments, MAP_TYPE);
         } catch (Exception ignored) {
-            return Map.of("message", rawArguments);
+            return Map.of("remoteInput", rawArguments);
         }
     }
 }

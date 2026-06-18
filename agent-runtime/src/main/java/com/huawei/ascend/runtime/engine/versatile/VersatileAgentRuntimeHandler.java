@@ -2,13 +2,18 @@ package com.huawei.ascend.runtime.engine.versatile;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.AgentCardProvider;
-import com.huawei.ascend.runtime.engine.a2a.AgentCards;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
+import org.a2aproject.sdk.spec.AgentCapabilities;
 import org.a2aproject.sdk.spec.AgentCard;
+import org.a2aproject.sdk.spec.AgentInterface;
+import org.a2aproject.sdk.spec.AgentProvider;
+import org.a2aproject.sdk.spec.AgentSkill;
+import org.a2aproject.sdk.spec.TransportProtocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,11 +23,25 @@ import org.slf4j.LoggerFactory;
  * {@link com.huawei.ascend.runtime.engine.spi.AgentExecutionResult} objects.
  *
  * <p>Implements both {@link AgentRuntimeHandler} (execution) and
- * {@link AgentCardProvider} (A2A discovery metadata).
+ * {@link AgentCardProvider} (A2A discovery metadata). The card includes
+ * skills that describe the versatile tool contract so parent LLM agents
+ * know how to invoke it.
  */
 public final class VersatileAgentRuntimeHandler implements AgentRuntimeHandler, AgentCardProvider {
 
     private static final Logger LOG = LoggerFactory.getLogger(VersatileAgentRuntimeHandler.class);
+
+    private static final String SKILL_ID = "versatile-workflow-proxy";
+    private static final String SKILL_NAME = "Versatile workflow proxy";
+    private static final String SKILL_DESCRIPTION = """
+            Call this tool to invoke a remote workflow via the Versatile engine.
+            Pass a JSON object whose keys and values are the business parameters
+            required by the target workflow. Every entry becomes an input field
+            of the workflow request.
+
+            Example:
+            {"field_name_1": "value_1", "field_name_2": "value_2", ...}
+            """;
 
     private final String agentId;
     private final String name;
@@ -79,8 +98,34 @@ public final class VersatileAgentRuntimeHandler implements AgentRuntimeHandler, 
         return streamAdapter;
     }
 
+    /**
+     * Creates the A2A AgentCard with skills that describe the versatile
+     * tool contract. The card name is used by {@code RemoteAgentCardCache}
+     * to derive the tool name (the remote agent id itself).
+     * The skill description tells the parent LLM how to invoke this agent
+     * with JSON arguments.
+     */
     @Override
     public AgentCard agentCard() {
-        return AgentCards.create(name, description, "0.1.0", "/a2a");
+        return AgentCard.builder()
+                .name(name)
+                .description(description)
+                .version("0.1.0")
+                .provider(new AgentProvider("spring-ai-ascend", "http://localhost:18082"))
+                .capabilities(AgentCapabilities.builder()
+                        .streaming(true)
+                        .pushNotifications(false)
+                        .build())
+                .defaultInputModes(List.of("text"))
+                .defaultOutputModes(List.of("text"))
+                .skills(List.of(AgentSkill.builder()
+                        .id(SKILL_ID)
+                        .name(SKILL_NAME)
+                        .description(SKILL_DESCRIPTION)
+                        .tags(List.of("versatile", "sse", "streaming", "workflow", "interruption"))
+                        .build()))
+                .supportedInterfaces(List.of(new AgentInterface(
+                        TransportProtocol.JSONRPC.asString(), "/a2a")))
+                .build();
     }
 }

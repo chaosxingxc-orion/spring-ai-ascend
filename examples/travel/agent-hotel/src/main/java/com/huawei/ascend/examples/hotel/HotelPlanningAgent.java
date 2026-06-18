@@ -11,11 +11,11 @@ import com.huawei.ascend.examples.hotel.tool.HotelSearchTool;
 import com.openjiuwen.core.foundation.tool.Tool;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.runner.base.TagMatchStrategy;
+import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -24,18 +24,23 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Entry point for the hotel-planning sub-agent.
  *
- * <p>Construct once per host process — the underlying {@link MockHotelInventory},
- * {@link ReActAgent} and openJiuwen tool registrations are reused across calls. Each call
- * to {@link #chat(String)} runs one fresh ReAct loop with a unique conversation id and
- * releases its session resources before returning, so calls remain stateless.
+ * <p>Construct once per host process — the underlying {@link MockHotelInventory} and
+ * openJiuwen tool registrations are reused across calls. Each call to
+ * {@link #chat(String)} runs one fresh ReAct loop with a unique conversation id and
+ * releases its session resources before returning.
  *
- * <p>Thread safety: {@link #chat(String)} is safe to call from multiple threads — openJiuwen
- * isolates per-call state inside the {@link Runner}. The inventory and ReAct agent
- * instances are effectively immutable after construction.
+ * <p>The ReAct agent is intentionally built per invocation by {@link #newBaseAgent()}.
+ * Sharing one ReActAgent across calls would accumulate registered rails (memory,
+ * trajectory) on every invocation, which the runtime-side OpenJiuwen handler installs
+ * fresh each time.
+ *
+ * <p>Thread safety: {@link #chat(String)} is safe to call from multiple threads — each
+ * call builds its own agent against the shared inventory and tool instances. The
+ * tools and inventory are effectively immutable after construction.
  *
  * <p>Lifecycle: callers may invoke {@link #close()} on shutdown to remove the registered
- * tools from the global {@link Runner} and stop the runner worker pool. Closing is
- * optional in single-process runs but recommended in tests.
+ * tools from the global {@link Runner}. Closing is optional in single-process runs but
+ * recommended in tests.
  */
 public final class HotelPlanningAgent implements AutoCloseable {
 
@@ -44,7 +49,7 @@ public final class HotelPlanningAgent implements AutoCloseable {
     private static final AtomicLong INSTANCE_COUNTER = new AtomicLong();
 
     private final String agentId;
-    private final ReActAgent agent;
+    private final LlmConfig llm;
     private final Tool searchTool;
     private final Tool detailTool;
     private final MockHotelInventory inventory;
@@ -55,25 +60,46 @@ public final class HotelPlanningAgent implements AutoCloseable {
 
     /** Visible for tests that want to inject a tailored inventory. */
     public HotelPlanningAgent(LlmConfig llm, MockHotelInventory inventory) {
-        Objects.requireNonNull(llm, "llm");
+        this.llm = Objects.requireNonNull(llm, "llm");
         this.inventory = Objects.requireNonNull(inventory, "inventory");
 
         // Per-instance agent id so multiple hotel agents (or hotel+flight+train) in the same
         // process don't fight over the global Runner's tag-to-tool index.
         this.agentId = AGENT_ID_PREFIX + INSTANCE_COUNTER.incrementAndGet();
 
+        this.searchTool = new HotelSearchTool(inventory);
+        this.detailTool = new HotelDetailTool(inventory);
+        registerTool(searchTool);
+        registerTool(detailTool);
+    }
+
+    /** Stable agent id used as the tool tag in the global Runner registry. */
+    public String agentId() {
+        return agentId;
+    }
+
+    /**
+     * Build a fresh, fully-configured openJiuwen ReAct agent that the runtime can
+     * decorate with rails (memory / trajectory) for this invocation. The returned
+     * agent already knows about {@code hotel_search} / {@code hotel_detail} through
+     * the global Runner registry, so the caller only needs to drive
+     * {@code Runner.runAgent}.
+     */
+    public BaseAgent newBaseAgent() {
         AgentCard card = AgentCard.builder()
                 .id(agentId)
                 .name(agentId)
                 .description("差旅多智能体系统中的酒店规划子智能体（ReAct + 内存 mock 数据）")
                 .build();
-
-        this.agent = new ReActAgent(card);
-
+        ReActAgent agent = new ReActAgent(card);
+        // Do NOT set ReActAgentConfig.promptTemplate(...): that overrides
+        // ReActAgent's SystemPromptBuilder wholesale, which makes the runtime
+        // memory rail's addPromptBuilderSection(...) silently no-op (the
+        // assembled system message ignores the builder when a fixed template
+        // is configured). Instead, register hotel rules as a high-priority
+        // builder section so the memory rail's section (priority 50) can
+        // co-exist on the same prompt assembly path.
         ReActAgentConfig config = ReActAgentConfig.builder()
-                .promptTemplate(List.of(Map.of(
-                        "role", "system",
-                        "content", SystemPromptBuilder.build())))
                 .maxIterations(MAX_ITERATIONS)
                 .build()
                 .configureModelClient(
@@ -83,11 +109,12 @@ public final class HotelPlanningAgent implements AutoCloseable {
                         llm.modelName(),
                         llm.sslVerify());
         agent.configure(config);
-
-        this.searchTool = new HotelSearchTool(inventory);
-        this.detailTool = new HotelDetailTool(inventory);
-        registerTool(searchTool);
-        registerTool(detailTool);
+        // Priority 20 places hotel rules just after the agent identity section
+        // (priority 10) and before the runtime memory section (priority 50).
+        agent.addPromptBuilderSection("hotel_business_rules", SystemPromptBuilder.build(), 20);
+        agent.getAbilityManager().add(searchTool.getCard());
+        agent.getAbilityManager().add(detailTool.getCard());
+        return agent;
     }
 
     /**
@@ -100,6 +127,7 @@ public final class HotelPlanningAgent implements AutoCloseable {
     public String chat(String userMessage) {
         Objects.requireNonNull(userMessage, "userMessage");
         String conversationId = agentId + "-" + UUID.randomUUID();
+        BaseAgent agent = newBaseAgent();
         try {
             Object raw = Runner.runAgent(
                     agent,
@@ -113,7 +141,7 @@ public final class HotelPlanningAgent implements AutoCloseable {
     }
 
     /**
-     * Unregister this agent's tools and stop the global Runner. Idempotent; safe to skip in
+     * Unregister this agent's tools from the global Runner. Idempotent; safe to skip in
      * short-lived processes.
      */
     @Override
@@ -147,7 +175,6 @@ public final class HotelPlanningAgent implements AutoCloseable {
             // expected on first registration
         }
         Runner.resourceMgr().addTool(tool, agentId);
-        agent.getAbilityManager().add(tool.getCard());
     }
 
     @SuppressWarnings("unchecked")

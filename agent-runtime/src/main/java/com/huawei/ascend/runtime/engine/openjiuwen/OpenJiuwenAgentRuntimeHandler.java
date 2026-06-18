@@ -13,16 +13,22 @@ import com.openjiuwen.core.context.ModelContext;
 import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
 import com.openjiuwen.core.foundation.llm.schema.SystemMessage;
 import com.openjiuwen.core.runner.Runner;
+import com.openjiuwen.core.session.stream.OutputSchema;
+import com.openjiuwen.core.session.stream.StreamMode;
 import com.openjiuwen.core.singleagent.BaseAgent;
+import com.openjiuwen.core.singleagent.agents.ReActAgent;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.harness.rails.ExternalMemoryRail;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Spliterator;
 import java.util.Set;
+import java.util.Spliterators;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,9 +39,9 @@ import org.slf4j.LoggerFactory;
  * stable {@code conversation_id}. openJiuwen session persistence is delegated to
  * its native checkpointer mechanism.
  *
- * <p>{@code runOpenJiuwenAgent} is a synchronous call: the result is fully
- * computed before it is wrapped in a stream, so a cancel does not interrupt an
- * in-progress run — it only stops the host from consuming the finished result.
+ * <p>The runtime always executes through openJiuwen's streaming runner and
+ * maps standard {@link OutputSchema} chunks into the framework-neutral result
+ * stream.
  */
 public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntimeHandler {
 
@@ -90,16 +96,18 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
                 agent.registerRail(new OpenJiuwenTrajectoryRail(trajectory));
             }
             Object input = toOpenJiuwenInput(context);
-            Object result = runOpenJiuwenAgent(agent, input, openJiuwenConversationId(context));
+            Iterator<Object> result = runOpenJiuwenAgentStreaming(
+                    agent, input, openJiuwenConversationId(context), openJiuwenStreamModes(context));
             LOGGER.info("openjiuwen execute finished tenantId={} sessionId={} taskId={} resultType={}",
                     context.getScope().tenantId(),
                     context.getScope().sessionId(),
                     context.getScope().taskId(),
                     result == null ? "null" : result.getClass().getName());
-            if (result instanceof java.util.stream.Stream<?> stream) {
-                return stream;
+            if (result == null) {
+                return java.util.stream.Stream.of((Object) null);
             }
-            return java.util.stream.Stream.of(result);
+            return java.util.stream.StreamSupport.stream(
+                    Spliterators.spliteratorUnknownSize(result, Spliterator.ORDERED), false);
         } catch (RuntimeException error) {
             LOGGER.warn("openjiuwen execute failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
                     context.getScope().tenantId(),
@@ -110,7 +118,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             // ERROR is a mandatory trajectory kind: surface the run-level failure northbound even though
             // the failure is mapped to a result (not rethrown), so the trajectory is not silently truncated.
             trajectory.emit(TrajectoryDraft.error(null, "OPENJIUWEN_RUN_ERROR", errorMessage(error), null, false));
-            return java.util.stream.Stream.of(Map.of("result_type", "error", "output", errorMessage(error)));
+            return java.util.stream.Stream.of(AgentExecutionResult.failed("OPENJIUWEN_RUN_ERROR", errorMessage(error)));
         }
     }
 
@@ -167,15 +175,20 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
      * independent from OpenJiuwen memory package names.
      */
     protected final AgentRail openJiuwenExternalMemoryRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
-        return new ExternalMemoryRail(
+        return createExternalMemoryRail(
                 new OpenJiuwenExternalMemoryProviderAdapter(context, memoryProvider),
                 context.getScope().userId(),
                 context.getAgentStateKey(),
                 context.getScope().sessionId());
     }
 
-    protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
-        return Runner.runAgent(agent, input, conversationId, null);
+    protected Iterator<Object> runOpenJiuwenAgentStreaming(BaseAgent agent, Object input, String conversationId,
+            List<StreamMode> streamModes) {
+        return Runner.runAgentStreaming(agent, input, conversationId, null, streamModes);
+    }
+
+    protected List<StreamMode> openJiuwenStreamModes(AgentExecutionContext context) {
+        return List.of(StreamMode.OUTPUT);
     }
 
     /**
@@ -216,10 +229,9 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
 
     @Override
     public StreamAdapter resultAdapter() {
-        return rawResults -> rawResults.map(this::mapRawResult);
+        return rawResults -> rawResults.map(this::mapRawResult).filter(Objects::nonNull);
     }
 
-    @SuppressWarnings("unchecked")
     private AgentExecutionResult mapRawResult(Object rawResult) {
         LOGGER.info("openjiuwen raw result received type={}",
                 rawResult == null ? "null" : rawResult.getClass().getName());
@@ -227,14 +239,13 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             return result;
         }
         if (rawResult == null) {
-            return resultMapper.map(Map.of(
-                    "result_type", "error",
-                    "output", "openjiuwen runner returned no result"));
+            return AgentExecutionResult.failed(
+                    OpenJiuwenStreamAdapter.ERROR_CODE, "openjiuwen runner returned no result");
         }
-        if (rawResult instanceof Map<?, ?> map) {
-            return resultMapper.map((Map<String, Object>) map);
+        if (rawResult instanceof OutputSchema chunk) {
+            return resultMapper.map(chunk);
         }
-        return resultMapper.map(Map.of("result_type", "answer", "output", String.valueOf(rawResult)));
+        return AgentExecutionResult.output(String.valueOf(rawResult));
     }
 
     protected static String errorMessage(Throwable error) {
@@ -253,6 +264,24 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         return message.isEmpty() ? error.getClass().getName() : message.toString();
     }
 
+    private static AgentRail createExternalMemoryRail(
+            com.openjiuwen.core.memory.external.MemoryProvider memoryProvider,
+            String userId,
+            String scopeId,
+            String sessionId) {
+        return ExternalMemoryRailHolder.create(memoryProvider, userId, scopeId, sessionId);
+    }
+
+    private static final class ExternalMemoryRailHolder {
+        private static AgentRail create(
+                com.openjiuwen.core.memory.external.MemoryProvider memoryProvider,
+                String userId,
+                String scopeId,
+                String sessionId) {
+            return new ExternalMemoryRail(memoryProvider, userId, scopeId, sessionId);
+        }
+    }
+
     /**
      * Optional openJiuwen rail that bridges openJiuwen callback messages to a
      * runtime-neutral {@link MemoryProvider}.
@@ -263,6 +292,8 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
      */
     public static final class MemoryRuntimeRail extends AgentRail {
         private static final int DEFAULT_MEMORY_SEARCH_LIMIT = 5;
+        private static final String MEMORY_SECTION_NAME = "runtime_long_term_memory";
+        private static final int MEMORY_SECTION_PRIORITY = 50;
 
         private final AgentExecutionContext executionContext;
         private final MemoryProvider memoryProvider;
@@ -338,18 +369,29 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         private void injectMemory(AgentCallbackContext callbackContext) {
             String query = latestUserInput();
             if (query.isBlank()) {
+                clearPromptBuilderMemory(callbackContext);
                 return;
             }
             List<MemoryProvider.MemoryHit> hits =
                     memoryProvider.search(executionContext, query, DEFAULT_MEMORY_SEARCH_LIMIT);
             if (hits.isEmpty()) {
+                clearPromptBuilderMemory(callbackContext);
+                return;
+            }
+            String memoryBlock = runtimeMemoryBlock(formatMemoryBlock(hits));
+            if (mergeMemoryIntoPromptBuilder(callbackContext, memoryBlock)) {
                 return;
             }
             ModelContext modelContext = callbackContext == null ? null : callbackContext.getContext();
-            if (modelContext == null) {
+            if (modelContext != null) {
+                mergeMemoryIntoSystemMessage(modelContext, memoryBlock);
                 return;
             }
-            mergeMemoryIntoSystemMessage(modelContext, runtimeMemoryBlock(formatMemoryBlock(hits)));
+            LOGGER.warn("openjiuwen memory inject skipped tenantId={} sessionId={} taskId={} reason=no_react_agent_or_model_context callbackAgentType={}",
+                    executionContext.getScope().tenantId(),
+                    executionContext.getScope().sessionId(),
+                    executionContext.getScope().taskId(),
+                    callbackAgentType(callbackContext));
         }
 
         private MemoryProvider.MemoryRecord toLongTermMemoryRecord(BaseMessage message) {
@@ -388,6 +430,33 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             }
             updatedMessages.add(0, new SystemMessage(memoryBlock));
             modelContext.setMessages(updatedMessages, true);
+        }
+
+        private static boolean mergeMemoryIntoPromptBuilder(AgentCallbackContext callbackContext, String memoryBlock) {
+            ReActAgent reactAgent = reactAgent(callbackContext);
+            if (reactAgent == null) {
+                return false;
+            }
+            reactAgent.addPromptBuilderSection(MEMORY_SECTION_NAME, memoryBlock, MEMORY_SECTION_PRIORITY);
+            return true;
+        }
+
+        private static void clearPromptBuilderMemory(AgentCallbackContext callbackContext) {
+            ReActAgent reactAgent = reactAgent(callbackContext);
+            if (reactAgent != null) {
+                // OpenJiuwen treats blank section content as removeSection(name).
+                reactAgent.addPromptBuilderSection(MEMORY_SECTION_NAME, "", MEMORY_SECTION_PRIORITY);
+            }
+        }
+
+        private static ReActAgent reactAgent(AgentCallbackContext callbackContext) {
+            Object agent = callbackContext == null ? null : callbackContext.getAgent();
+            return agent instanceof ReActAgent reactAgent ? reactAgent : null;
+        }
+
+        private static String callbackAgentType(AgentCallbackContext callbackContext) {
+            Object agent = callbackContext == null ? null : callbackContext.getAgent();
+            return agent == null ? "null" : agent.getClass().getName();
         }
 
         private static String runtimeMemoryBlock(String memoryBlock) {

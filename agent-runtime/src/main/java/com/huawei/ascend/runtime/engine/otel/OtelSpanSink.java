@@ -8,7 +8,7 @@ import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +34,7 @@ final class OtelSpanSink implements TrajectorySink {
     private static final AttributeKey<String> TRAJECTORY_TRACE_ID = AttributeKey.stringKey("trajectory.trace_id");
 
     private final Tracer tracer;
-    private final Map<String, Span> openSpans = new HashMap<>();
+    private final Map<String, Span> openSpans = new ConcurrentHashMap<>();
 
     OtelSpanSink(Tracer tracer) {
         this.tracer = tracer;

@@ -47,7 +47,7 @@ final class OpenJiuwenExternalMemoryProviderAdapter implements com.openjiuwen.co
     }
 
     @Override
-    public void initialize(Map<String, Object> scope) {
+    public void initialize(Map<String, Object> scope) throws Exception {
         delegate.init(context);
         initialized = true;
     }
@@ -58,12 +58,12 @@ final class OpenJiuwenExternalMemoryProviderAdapter implements com.openjiuwen.co
     }
 
     @Override
-    public String handleToolCall(String toolName, Map<String, Object> arguments) {
+    public String handleToolCall(String toolName, Map<String, Object> arguments) throws Exception {
         return "{\"error\":\"runtime memory provider exposes no OpenJiuwen memory tools\"}";
     }
 
     @Override
-    public String prefetch(String query, Map<String, Object> scope) {
+    public String prefetch(String query, Map<String, Object> scope) throws Exception {
         if (query == null || query.isBlank()) {
             return "";
         }
@@ -84,7 +84,7 @@ final class OpenJiuwenExternalMemoryProviderAdapter implements com.openjiuwen.co
     }
 
     @Override
-    public void syncTurn(String userMessage, String assistantMessage, Map<String, Object> scope) {
+    public void syncTurn(String userMessage, String assistantMessage, Map<String, Object> scope) throws Exception {
         List<MemoryProvider.MemoryRecord> records = new ArrayList<>();
         if (hasText(userMessage)) {
             records.add(new MemoryProvider.MemoryRecord(null, "user", userMessage, Map.of("source", SOURCE)));

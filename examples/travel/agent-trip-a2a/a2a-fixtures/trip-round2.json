@@ -1,0 +1,21 @@
+{
+  "jsonrpc": "2.0",
+  "id": "trip-r2",
+  "method": "SendMessage",
+  "params": {
+    "message": {
+      "role": "ROLE_USER",
+      "messageId": "msg-r2",
+      "contextId": "session-trip-memory-1",
+      "metadata": {
+        "userId": "manual-user",
+        "agentId": "trip-planning-agent"
+      },
+      "parts": [
+        {
+          "text": "改成住朝阳那边，不要国贸了，其他差标不变"
+        }
+      ]
+    }
+  }
+}

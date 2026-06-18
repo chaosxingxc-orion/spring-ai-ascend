@@ -39,7 +39,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
  *
  * <h3>Quick start — against the real versatile instance</h3>
  * <pre>
- * VERSATILE_HOST=7.213.200.213 VERSATILE_PORT=3001 VERSATILE_SSL=false \
+ * VERSATILE_HOST=localhost VERSATILE_PORT=3001 VERSATILE_SSL=false \
  * VERSATILE_URL_TEMPLATE="/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}" \
  * VERSATILE_PROJECT_ID="mock_project_id" \
  * VERSATILE_AGENT_ID="fb723468-c8ca-424b-a95f-a3e74b37e090" \
@@ -65,10 +65,10 @@ class VersatileA2aE2eTest {
     @Test
     void agentCardIsDiscoverable() throws Exception {
         URI baseUri = baseUri();
-        AgentCard card = new A2ACardResolver(baseUri.toString()).getAgentCard();
+        AgentCard card = A2ACardResolver.builder().baseUrl(baseUri.toString()).build().getAgentCard();
         assertThat(card.name()).isEqualTo("Versatile Agent");
         LOG.info("Agent card: name={} streaming={} url={}",
-                card.name(), card.capabilities().streaming(), card.url());
+                card.name(), card.capabilities().streaming(), card.supportedInterfaces().get(0).url());
     }
 
     /**
@@ -80,8 +80,8 @@ class VersatileA2aE2eTest {
     @Test
     void streamToVersatileAndPrintAllEvents() throws Exception {
         URI baseUri = baseUri();
-        AgentCard card = new A2ACardResolver(baseUri.toString()).getAgentCard();
-        LOG.info("=== Versatile service target: {} ===", card.url());
+        AgentCard card = A2ACardResolver.builder().baseUrl(baseUri.toString()).build().getAgentCard();
+        LOG.info("=== Versatile service target: {} ===", card.supportedInterfaces().get(0).url());
 
         JSONRPCTransport transport = new JSONRPCTransport(card);
         List<StreamingEventKind> events = new ArrayList<>();

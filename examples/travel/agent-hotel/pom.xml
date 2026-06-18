@@ -10,13 +10,12 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.huawei.ascend</groupId>
-    <artifactId>spring-ai-ascend-parent</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
-    <relativePath>../../../pom.xml</relativePath>
+    <groupId>com.huawei.ascend.examples</groupId>
+    <artifactId>travel-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <groupId>com.huawei.ascend.examples</groupId>
   <artifactId>agent-travel-hotel</artifactId>
   <packaging>jar</packaging>
   <name>agent-travel-hotel</name>
@@ -29,29 +28,22 @@
     is ready.
   </description>
 
-  <properties>
-    <enforcer.skip>true</enforcer.skip>
-    <!-- 用户指定 0.1.12；参考例子用的是 0.1.7，实现期需验证 API 兼容性 -->
-    <openjiuwen.agent-core.version>0.1.12-jdk17</openjiuwen.agent-core.version>
-  </properties>
-
   <dependencies>
+    <!-- openJiuwen agent framework + protobuf versions managed by travel-parent. -->
     <dependency>
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>
-      <version>${openjiuwen.agent-core.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <version>4.33.2</version>
     </dependency>
-    <!-- mock 数据 JSON 解析 -->
+    <!-- mock 数据 JSON 解析 (jackson version managed by Spring Boot BOM). -->
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
     </dependency>
-    <!-- 测试 -->
+    <!-- 测试 (versions managed by Spring Boot BOM). -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>

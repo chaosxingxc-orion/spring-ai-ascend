@@ -9,15 +9,19 @@ import com.google.gson.JsonParser;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Flow;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.a2aproject.sdk.grpc.StreamResponse;
 import org.a2aproject.sdk.grpc.utils.JSONRPCUtils;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.A2ARequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.CreateTaskPushNotificationConfigRequest;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.DeleteTaskPushNotificationConfigRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskPushNotificationConfigRequest;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTaskPushNotificationConfigsRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.SendMessageResponse;
 import org.a2aproject.sdk.server.ServerCallContext;
 import org.a2aproject.sdk.server.requesthandlers.RequestHandler;
 import org.a2aproject.sdk.server.tasks.BasePushNotificationSender;
@@ -44,6 +48,9 @@ import org.a2aproject.sdk.spec.Task;
 import org.a2aproject.sdk.spec.TaskIdParams;
 import org.a2aproject.sdk.spec.TaskPushNotificationConfig;
 import org.a2aproject.sdk.spec.TaskQueryParams;
+import org.a2aproject.sdk.spec.TaskState;
+import org.a2aproject.sdk.spec.TaskStatus;
+import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
 import org.a2aproject.sdk.spec.TextPart;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
@@ -197,6 +204,70 @@ class A2aJsonRpcControllerTest {
     }
 
     @Test
+    void getTaskReturnsProtoNakedTaskReadableByA2aSdkClient() throws Exception {
+        A2aJsonRpcController controller =
+                new A2aJsonRpcController(new TaskLookupRequestHandler(), new RuntimeAccessProperties());
+
+        Object response = controller.handle("""
+                {"jsonrpc":"2.0","id":"get-1","method":"GetTask","params":{"id":"task-1"}}
+                """, null);
+
+        String json = (String) ((ResponseEntity<?>) response).getBody();
+        JsonNode root = readTree(json);
+        assertThat(root.path("id").asText()).isEqualTo("get-1");
+        assertThat(root.path("result").path("id").asText()).isEqualTo("task-1");
+        assertThat(root.path("result").has("task"))
+                .as("GetTask returns proto Task directly; only SendMessage/stream payloads use result.task")
+                .isFalse();
+
+        GetTaskResponse parsed = (GetTaskResponse) JSONRPCUtils.parseResponseBody(json, "GetTask");
+        assertThat(parsed.getResult().id()).isEqualTo("task-1");
+    }
+
+    @Test
+    void cancelTaskReturnsProtoNakedTaskReadableByA2aSdkClient() throws Exception {
+        A2aJsonRpcController controller =
+                new A2aJsonRpcController(new TaskLookupRequestHandler(), new RuntimeAccessProperties());
+
+        Object response = controller.handle("""
+                {"jsonrpc":"2.0","id":"cancel-1","method":"CancelTask","params":{"id":"task-1"}}
+                """, null);
+
+        String json = (String) ((ResponseEntity<?>) response).getBody();
+        JsonNode root = readTree(json);
+        assertThat(root.path("id").asText()).isEqualTo("cancel-1");
+        assertThat(root.path("result").path("id").asText()).isEqualTo("task-1");
+        assertThat(root.path("result").has("task"))
+                .as("CancelTask returns proto Task directly; only SendMessage/stream payloads use result.task")
+                .isFalse();
+
+        CancelTaskResponse parsed = (CancelTaskResponse) JSONRPCUtils.parseResponseBody(json, "CancelTask");
+        assertThat(parsed.getResult().id()).isEqualTo("task-1");
+    }
+
+    @Test
+    void sendMessageBlockingKeepsProtoPayloadWrapperReadableByA2aSdkClient() throws Exception {
+        A2aJsonRpcController controller =
+                new A2aJsonRpcController(new BlockingMessageRequestHandler(), new RuntimeAccessProperties());
+
+        Object response = controller.handle("""
+                {"jsonrpc":"2.0","id":"send-1","method":"SendMessage","params":{"message":{"role":"ROLE_USER","parts":[{"text":"ping"}],"messageId":"message-1"}}}
+                """, null);
+
+        String json = (String) ((ResponseEntity<?>) response).getBody();
+        JsonNode root = readTree(json);
+        assertThat(root.path("id").asText()).isEqualTo("send-1");
+        assertThat(root.path("result").path("message").path("messageId").asText()).isEqualTo("message-2");
+        assertThat(root.path("result").has("message")).isTrue();
+        assertThat(root.path("result").has("id"))
+                .as("SendMessage returns proto SendMessageResponse oneof payload, not a naked Message")
+                .isFalse();
+
+        SendMessageResponse parsed = (SendMessageResponse) JSONRPCUtils.parseResponseBody(json, "SendMessage");
+        assertThat(((Message) parsed.getResult()).messageId()).isEqualTo("message-2");
+    }
+
+    @Test
     void midStreamFailureEndsWithJsonRpcErrorFrame() throws Exception {
         A2aJsonRpcController controller = new A2aJsonRpcController(new FailAfterFirstEventRequestHandler(), new RuntimeAccessProperties());
         A2ARequest<?> request = JSONRPCUtils.parseRequestBody("""
@@ -211,6 +282,51 @@ class A2aJsonRpcControllerTest {
                             .isEqualTo(new InternalError("boom").getCode());
                     assertThat(root.path("id").asText()).isEqualTo("stream-1");
                 })
+                .verifyComplete();
+    }
+
+    @Test
+    void sendStreamingMessageCompletesCurrentResponseOnInputRequired() throws Exception {
+        A2aJsonRpcController controller =
+                new A2aJsonRpcController(new InputRequiredThenCompletedRequestHandler(), new RuntimeAccessProperties());
+        A2ARequest<?> request = JSONRPCUtils.parseRequestBody("""
+                {"jsonrpc":"2.0","id":"stream-input","method":"SendStreamingMessage","params":{"message":{"role":"ROLE_USER","parts":[{"text":"ping"}],"messageId":"message-1"}}}
+                """, null);
+
+        StepVerifier.create(controller.handleStream(request, null))
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_WORKING"))
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_INPUT_REQUIRED"))
+                .verifyComplete();
+    }
+
+    @Test
+    void sseBridgeRequestsA2aPublisherUnboundedEvenWhenHttpConsumerRequestsOneFrame() throws Exception {
+        RecordingDemandRequestHandler requestHandler = new RecordingDemandRequestHandler();
+        A2aJsonRpcController controller = new A2aJsonRpcController(requestHandler, new RuntimeAccessProperties());
+        String body = """
+                {"jsonrpc":"2.0","id":"stream-demand","method":"SendStreamingMessage","params":{"message":{"role":"ROLE_USER","parts":[{"text":"ping"}],"messageId":"message-1"}}}
+                """;
+
+        StepVerifier.create(controller.handleSse(body, null), 0)
+                .thenRequest(1)
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_WORKING"))
+                .then(() -> assertThat(requestHandler.firstDemand.get()).isEqualTo(Long.MAX_VALUE))
+                .thenCancel()
+                .verify();
+    }
+
+    @Test
+    void subscribeToTaskKeepsStreamingAfterInputRequired() throws Exception {
+        A2aJsonRpcController controller =
+                new A2aJsonRpcController(new InputRequiredThenCompletedRequestHandler(), new RuntimeAccessProperties());
+        A2ARequest<?> request = JSONRPCUtils.parseRequestBody("""
+                {"jsonrpc":"2.0","id":"sub-input","method":"SubscribeToTask","params":{"id":"task-1"}}
+                """, null);
+
+        StepVerifier.create(controller.handleStream(request, null))
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_WORKING"))
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_INPUT_REQUIRED"))
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_COMPLETED"))
                 .verifyComplete();
     }
 
@@ -269,6 +385,10 @@ class A2aJsonRpcControllerTest {
         }
     }
 
+    private static String statusState(ServerSentEvent<String> event) {
+        return dataJson(event).path("result").path("statusUpdate").path("status").path("state").asText();
+    }
+
     private static final class FailingRequestHandler extends SingleEventRequestHandler {
         @Override
         public Task onGetTask(TaskQueryParams params, ServerCallContext context) throws A2AError {
@@ -294,6 +414,38 @@ class A2aJsonRpcControllerTest {
         }
     }
 
+    private static final class TaskLookupRequestHandler extends SingleEventRequestHandler {
+        @Override
+        public Task onGetTask(TaskQueryParams params, ServerCallContext context) {
+            return task(params.id());
+        }
+
+        @Override
+        public Task onCancelTask(CancelTaskParams params, ServerCallContext context) {
+            return task(params.id());
+        }
+
+        private static Task task(String id) {
+            return Task.builder()
+                    .id(id)
+                    .contextId("ctx-1")
+                    .status(new TaskStatus(TaskState.TASK_STATE_COMPLETED))
+                    .metadata(Map.of("source", "test"))
+                    .build();
+        }
+    }
+
+    private static final class BlockingMessageRequestHandler extends SingleEventRequestHandler {
+        @Override
+        public EventKind onMessageSend(MessageSendParams params, ServerCallContext context) {
+            return Message.builder()
+                    .role(Message.Role.ROLE_AGENT)
+                    .messageId("message-2")
+                    .parts(List.<Part<?>>of(new TextPart("pong")))
+                    .build();
+        }
+    }
+
     private static final class FailAfterFirstEventRequestHandler extends SingleEventRequestHandler {
         @Override
         public Flow.Publisher<StreamingEventKind> onMessageSendStream(
@@ -316,6 +468,71 @@ class A2aJsonRpcControllerTest {
                 subscriber.onNext(message);
                 subscriber.onError(new RuntimeException("boom"));
             };
+        }
+    }
+
+    private static final class InputRequiredThenCompletedRequestHandler extends SingleEventRequestHandler {
+        @Override
+        public Flow.Publisher<StreamingEventKind> onMessageSendStream(
+                MessageSendParams params, ServerCallContext context) {
+            return statusPublisher();
+        }
+
+        @Override
+        public Flow.Publisher<StreamingEventKind> onSubscribeToTask(TaskIdParams params, ServerCallContext context) {
+            return statusPublisher();
+        }
+
+        private static Flow.Publisher<StreamingEventKind> statusPublisher() {
+            List<StreamingEventKind> events = List.of(
+                    status(TaskState.TASK_STATE_WORKING),
+                    status(TaskState.TASK_STATE_INPUT_REQUIRED),
+                    status(TaskState.TASK_STATE_COMPLETED));
+            return subscriber -> {
+                subscriber.onSubscribe(new Flow.Subscription() {
+                    @Override
+                    public void request(long n) {
+                    }
+
+                    @Override
+                    public void cancel() {
+                    }
+                });
+                events.forEach(subscriber::onNext);
+                subscriber.onComplete();
+            };
+        }
+
+        private static TaskStatusUpdateEvent status(TaskState state) {
+            return TaskStatusUpdateEvent.builder()
+                    .taskId("task-1")
+                    .contextId("ctx-1")
+                    .status(new TaskStatus(state))
+                    .build();
+        }
+    }
+
+    private static final class RecordingDemandRequestHandler extends SingleEventRequestHandler {
+        private final AtomicLong firstDemand = new AtomicLong();
+
+        @Override
+        public Flow.Publisher<StreamingEventKind> onMessageSendStream(
+                MessageSendParams params, ServerCallContext context) {
+            return subscriber -> subscriber.onSubscribe(new Flow.Subscription() {
+                @Override
+                public void request(long n) {
+                    firstDemand.compareAndSet(0, n);
+                    subscriber.onNext(TaskStatusUpdateEvent.builder()
+                            .taskId("task-1")
+                            .contextId("ctx-1")
+                            .status(new TaskStatus(TaskState.TASK_STATE_WORKING))
+                            .build());
+                }
+
+                @Override
+                public void cancel() {
+                }
+            });
         }
     }
 

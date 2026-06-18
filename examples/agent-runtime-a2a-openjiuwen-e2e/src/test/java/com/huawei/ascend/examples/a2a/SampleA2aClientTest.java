@@ -28,7 +28,7 @@ class SampleA2aClientTest {
                 .build();
         TaskStatusUpdateEvent status = new TaskStatusUpdateEvent(
                 "task-1",
-                new TaskStatus(TaskState.TASK_STATE_COMPLETED, statusMessage, null),
+                new TaskStatus(TaskState.TASK_STATE_WORKING, statusMessage, null),
                 "session-1",
                 java.util.Map.of());
         Artifact artifact = Artifact.builder()
@@ -63,6 +63,45 @@ class SampleA2aClientTest {
                 .build();
 
         assertThat(SampleA2aClient.textFrom(List.of(accepted, completed))).isEqualTo("pong");
+    }
+
+    @Test
+    void prefersTerminalStatusMessageOverStreamingArtifactDeltas() {
+        Artifact firstDelta = Artifact.builder()
+                .artifactId("artifact-1")
+                .parts(List.of(new TextPart("p")))
+                .build();
+        TaskArtifactUpdateEvent firstArtifact = new TaskArtifactUpdateEvent(
+                "task-1",
+                firstDelta,
+                "session-1",
+                Boolean.FALSE,
+                Boolean.FALSE,
+                java.util.Map.of());
+        Artifact secondDelta = Artifact.builder()
+                .artifactId("artifact-1")
+                .parts(List.of(new TextPart("ong")))
+                .build();
+        TaskArtifactUpdateEvent secondArtifact = new TaskArtifactUpdateEvent(
+                "task-1",
+                secondDelta,
+                "session-1",
+                Boolean.TRUE,
+                Boolean.FALSE,
+                java.util.Map.of());
+        Message finalMessage = Message.builder()
+                .role(Message.Role.ROLE_AGENT)
+                .messageId("message-completed")
+                .parts(List.of(new TextPart("pong")))
+                .build();
+        TaskStatusUpdateEvent completed = new TaskStatusUpdateEvent(
+                "task-1",
+                new TaskStatus(TaskState.TASK_STATE_COMPLETED, finalMessage, null),
+                "session-1",
+                java.util.Map.of());
+
+        assertThat(SampleA2aClient.textFrom(List.of(firstArtifact, secondArtifact, completed)))
+                .isEqualTo("pong");
     }
 
     @Test

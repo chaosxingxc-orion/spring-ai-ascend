@@ -247,8 +247,9 @@ class RuntimeRemoteAgentAutoConfigurationTest {
         }
 
         @Override
-        public void refresh() {
+        public boolean refresh() {
             refreshCount++;
+            return true;
         }
     }
 }

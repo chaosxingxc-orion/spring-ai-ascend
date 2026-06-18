@@ -1,0 +1,50 @@
+# Enable the MemOpt engine (closed image) + its NATS bus, so the A2A shared-memory
+# EXPERIENCE layer can use it as a persistent, semantic backend.
+#
+# The MemOpt image is PULLED, not built here — its Python source + Dockerfile live in
+# the separate MemOpt repo (closed). Point MEMOPT_IMAGE at your registry tag.
+#   cp .env.example .env   # fill MEMOPT_IMAGE + GATEWAY_*
+#   ./enable-memopt.sh     # or: docker compose up -d
+
+name: memopt
+
+services:
+  nats:
+    image: nats:2.10-alpine
+    command: ["-p", "4222", "-m", "8222"]
+    restart: unless-stopped
+
+  memopt:
+    # Pulled from a PRIVATE registry (set MEMOPT_IMAGE in .env; `docker login` first).
+    # TEMP default = personal GHCR namespace (org package-create not yet granted);
+    # move to ghcr.io/chaosxingxc-orion/memopt once it is. Override for Harbor too.
+    image: ${MEMOPT_IMAGE:-ghcr.io/kevin-708090/memopt:0.0.1}
+    depends_on:
+      - nats
+    environment:
+      NATS_URL: nats://nats:4222
+      MEMOPT_FACADE_HOST: 0.0.0.0
+      MEMOPT_FACADE_PORT: "8077"
+      MEMOPT_FACADE_AUTOBOOT: "true"
+      # --- required: the LLM gateway the engine's agents call (no secrets in this file) ---
+      GATEWAY_BASE_URL: ${GATEWAY_BASE_URL:?set GATEWAY_BASE_URL in .env}
+      GATEWAY_API_KEY: ${GATEWAY_API_KEY:?set GATEWAY_API_KEY in .env}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:?set DEFAULT_MODEL in .env}
+      CHROMA_EMBEDDING_MODEL: ${CHROMA_EMBEDDING_MODEL:-}
+      MEMOPT_JUDGE_MODEL: ${MEMOPT_JUDGE_MODEL:-}
+      # --- optional: gate /v1/* behind a bearer token (the A2A kit must send the same) ---
+      MEMOPT_FACADE_AUTH_TOKEN: ${MEMOPT_FACADE_AUTH_TOKEN:-}
+    ports:
+      - "${MEMOPT_PORT:-8077}:8077"
+    volumes:
+      - memopt_chroma:/app/chroma
+      - memopt_data:/app/data
+      - memopt_state:/app/state
+      - memopt_memory:/app/memory
+    restart: unless-stopped
+
+volumes:
+  memopt_chroma:
+  memopt_data:
+  memopt_state:
+  memopt_memory:

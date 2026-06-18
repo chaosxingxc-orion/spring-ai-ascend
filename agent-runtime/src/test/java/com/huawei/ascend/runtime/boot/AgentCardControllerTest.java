@@ -37,7 +37,7 @@ class AgentCardControllerTest {
 
         AgentCard card = controller.agentCard(request("http", "internal-pod", 8080));
 
-        assertThat(card.url()).isEqualTo("https://agents.example.com/runtime-one/a2a");
+        assertThat(card.url()).isNull();
         assertThat(card.provider().url()).isEqualTo("https://agents.example.com/runtime-one");
         assertThat(card.supportedInterfaces())
                 .extracting(AgentInterface::url)
@@ -51,7 +51,9 @@ class AgentCardControllerTest {
 
         AgentCard card = controller.agentCard(request("http", "localhost", 8080));
 
-        assertThat(card.url()).isEqualTo("https://agents.example.com/runtime-one/a2a");
+        assertThat(card.supportedInterfaces())
+                .extracting(AgentInterface::url)
+                .containsExactly("https://agents.example.com/runtime-one/a2a");
         assertThat(card.provider().url()).isEqualTo("https://agents.example.com/runtime-one");
     }
 
@@ -61,7 +63,7 @@ class AgentCardControllerTest {
 
         AgentCard card = controller.agentCard(request("http", "edge.internal", 9090));
 
-        assertThat(card.url()).isEqualTo("http://edge.internal:9090/a2a");
+        assertThat(card.url()).isNull();
         assertThat(card.provider().url()).isEqualTo("http://edge.internal:9090");
         assertThat(card.supportedInterfaces())
                 .extracting(AgentInterface::url)
@@ -75,12 +77,14 @@ class AgentCardControllerTest {
 
         AgentCard card = controller.agentCard(request("https", "agents.example.com", 443));
 
-        assertThat(card.url()).isEqualTo("https://agents.example.com/a2a");
+        assertThat(card.supportedInterfaces())
+                .extracting(AgentInterface::url)
+                .containsExactly("https://agents.example.com/a2a");
         assertThat(card.provider().url()).isEqualTo("https://agents.example.com");
     }
 
     @Test
-    void absoluteCardUrlsAreLeftUntouched() {
+    void legacyAgentCardLeavesAbsoluteTopLevelUrlsUntouched() {
         RuntimeAccessProperties access = new RuntimeAccessProperties();
         access.setPublicBaseUrl("https://agents.example.com/runtime-one");
         AgentCard absolute = AgentCard.builder(AgentCards.create("sample-agent", "agent-runtime"))
@@ -88,14 +92,13 @@ class AgentCardControllerTest {
                 .build();
         AgentCardController controller = new AgentCardController(absolute, access);
 
-        AgentCard card = controller.agentCard(request("http", "localhost", 8080));
+        AgentCard card = controller.agentCardLegacy(request("http", "localhost", 8080));
 
         assertThat(card.url()).isEqualTo("https://elsewhere.example.com/a2a");
     }
 
     private static java.util.List<String> cardUrls(AgentCard card) {
         java.util.List<String> urls = new java.util.ArrayList<>();
-        urls.add(card.url());
         urls.add(card.provider().url());
         card.supportedInterfaces().forEach(i -> urls.add(i.url()));
         return urls;

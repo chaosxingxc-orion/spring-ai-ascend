@@ -7,7 +7,7 @@
   <parent>
     <groupId>com.huawei.ascend</groupId>
     <artifactId>spring-ai-ascend-parent</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
@@ -22,7 +22,7 @@
 
   <properties>
     <enforcer.skip>true</enforcer.skip>
-    <a2a.sdk.version>1.0.0.CR1</a2a.sdk.version>
+    <a2a.sdk.version>1.0.0.Final</a2a.sdk.version>
   </properties>
 
   <dependencies>

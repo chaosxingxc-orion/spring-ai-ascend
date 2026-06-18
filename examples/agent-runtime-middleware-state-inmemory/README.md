@@ -1,56 +1,32 @@
-# agent-runtime middleware state InMemory example
+# Agent Runtime Agent State InMemory Example
 
-这个样例验证「中间件解耦」下的 Agent State 本地持久化路径：
-业务侧通过 `OpenJiuwenCheckpointerConfigurer.setInMemoryDefault()` 选择
-OpenJiuwen 原生 `InMemoryCheckpointer`，`agent-runtime` 公共层不感知具体后端。
+本样例验证 OpenJiuwen Checkpointer 的 InMemory 形态。它代表短期状态或会话 checkpoint 的最小使用方式：用户启动常驻服务，通过 curl 保存、查询、释放 state。
 
-## 配置方式
+完整 step by step 教程见：[TUTORIAL.cn.md](TUTORIAL.cn.md)。
 
-适用场景：
-
-- 本地开发、单元验证、临时端到端验证。
-- 不需要跨进程恢复 Agent State。
-- 不希望引入 Redis、数据库等外部依赖。
-
-核心配置点：
-
-```java
-Checkpointer checkpointer = OpenJiuwenCheckpointerConfigurer.setInMemoryDefault();
-```
-
-这行代码会把 OpenJiuwen 默认 checkpointer 设置为 `InMemoryCheckpointer`。
-业务代码只需要保证后续 OpenJiuwen 执行使用稳定的 `conversation_id`。在
-`agent-runtime` 的 OpenJiuwen 适配层中，这个值来自
-`AgentExecutionContext#getAgentStateKey()`。
-
-测试团队检查点：
-
-- `preAgentExecute(...)` 能按 session id 创建或恢复 OpenJiuwen session。
-- `postAgentExecute(...)` 能把本轮状态写回 checkpointer。
-- `sessionExists(sessionId)` 在保存后返回 `true`。
-- `release(sessionId)` 后状态被清理。
-
-## Run
+## 快速启动
 
 ```bash
-./mvnw -f examples/agent-runtime-middleware-state-inmemory/pom.xml test
+./mvnw -f examples/agent-runtime-middleware-state-inmemory/pom.xml spring-boot:run
 ```
 
-## 端到端链路
+默认监听：
 
 ```text
-OpenJiuwenCheckpointerConfigurer.setInMemoryDefault()
-  -> AgentSessionApi(sessionId)
-  -> checkpointer.preAgentExecute(...)
-  -> session.updateState(...)
-  -> checkpointer.postAgentExecute(...)
-  -> checkpointer.sessionExists(sessionId)
-  -> checkpointer.release(sessionId)
+http://localhost:18083
 ```
 
-## Scope
+## 主要接口
 
-- 无外部依赖。
-- 验证 `preAgentExecute -> postAgentExecute -> release` 的一轮
-  OpenJiuwen `AgentSessionApi` 状态持久化链路。
-- 不引入脚本；所有运行方式写在 README 中。
+| 接口 | 用途 |
+|---|---|
+| `POST /sample/state/save` | 保存一次 OpenJiuwen session checkpoint |
+| `GET /sample/state/exists?stateKey=demo-state` | 查询 checkpoint 是否存在 |
+| `GET /sample/state/load?stateKey=demo-state` | 用新的 session 读取并验证 checkpoint 内容 |
+| `DELETE /sample/state/{stateKey}` | 释放 checkpoint |
+
+## 设计要点
+
+- `openJiuwenCheckpointer` Bean 在 Spring 容器启动时初始化。
+- 样例通过 `OpenJiuwenCheckpointerConfigurer.setInMemoryDefault()` 把 OpenJiuwen 默认 checkpointer 设置为 InMemory。
+- InMemory 适合本地开发和功能验证；生产环境通常应使用 Redis 或其他可恢复后端。

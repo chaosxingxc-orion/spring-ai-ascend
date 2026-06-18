@@ -1,0 +1,43 @@
+# ── Versatile child agent profile ──
+# Activate with: --spring.profiles.active=versatile
+
+server:
+  port: 18082
+
+sample:
+  versatile-parent:
+    role: versatile
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: versatile-child
+
+versatile:
+  url: ${VERSATILE_URL:http://localhost:18083/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}}
+  timeout: 30s
+
+  url-variables:
+    project_id: ${VERSATILE_PROJECT_ID:mock_project_id}
+    agent_id: ${VERSATILE_AGENT_ID:fb723468-c8ca-424b-a95f-a3e74b37e090}
+
+  query-params:
+    type: ${VERSATILE_QUERY_TYPE:controller}
+    workspace_id: ${VERSATILE_WORKSPACE_ID:10}
+
+  headers:
+    content-type: "application/json"
+    stream: "true"
+
+  passthrough-headers:
+    - x-invoke-mode
+    - x-language
+
+  input-metadata-keys:
+    - intent
+    - wap_userName
+
+  result-extractions:
+    - match: hotel_book_success
+      get: ticket

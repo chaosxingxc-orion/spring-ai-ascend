@@ -2,6 +2,7 @@ package com.huawei.ascend.runtime.engine.a2a;
 
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.common.RuntimeMessage;
+import com.huawei.ascend.runtime.boot.AgentRuntimeProperties;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.a2a.A2aResultRouter.RouteDecision;
 import com.huawei.ascend.runtime.engine.a2a.A2aTrajectorySupport.TrajectoryFlow;
@@ -41,14 +42,7 @@ import org.slf4j.MDC;
  */
 public final class A2aAgentExecutor implements AgentExecutor {
 
-    /**
-     * Call-context state key under which the access layer publishes the tenant
-     * taken from the {@code X-Tenant-Id} request header. It outranks the
-     * client-self-declared params.tenant, but the runtime does NOT authenticate
-     * it: the value is only trustworthy when a fronting gateway strips and
-     * re-injects the header after authenticating the caller. Without such a
-     * gateway every wire client chooses its own tenant.
-     */
+    /** Request-level metadata key for the ordinary tenant passthrough value. */
     public static final String TENANT_STATE_KEY = "tenantId";
 
     private static final Logger LOG = LoggerFactory.getLogger(A2aAgentExecutor.class);
@@ -56,6 +50,11 @@ public final class A2aAgentExecutor implements AgentExecutor {
     private static final String MDC_TASK_ID = "taskId";
     private static final String MDC_TENANT_ID = "tenantId";
     private static final String MDC_AGENT_ID = "agentId";
+    private static final String USER_ID_METADATA_KEY = "userId";
+    private static final String AGENT_ID_METADATA_KEY = "agentId";
+    private static final String MEMORY_SCOPE_METADATA_KEY = "memoryScope";
+    private static final String CORRELATION_ID_METADATA_KEY = "correlationId";
+    private static final String TRACE_ID_METADATA_KEY = "traceId";
 
     /** Version of the structured-error payload carried on the failure DataPart/metadata. */
     private static final String ERROR_SCHEMA_VERSION = "1";
@@ -91,13 +90,21 @@ public final class A2aAgentExecutor implements AgentExecutor {
     public A2aAgentExecutor(AgentRuntimeHandler handler, RemoteAgentInvocationService remoteInvocationService,
             BooleanSupplier readiness, TrajectorySettings defaultTrajectorySettings,
             List<TrajectorySinkFactory> sinkFactories) {
+        this(handler, remoteInvocationService, readiness, defaultTrajectorySettings, sinkFactories,
+                AgentRuntimeProperties.DEFAULT_REMOTE_INVOCATION_MAX_LEGS);
+    }
+
+    public A2aAgentExecutor(AgentRuntimeHandler handler, RemoteAgentInvocationService remoteInvocationService,
+            BooleanSupplier readiness, TrajectorySettings defaultTrajectorySettings,
+            List<TrajectorySinkFactory> sinkFactories, int maxRemoteLegs) {
         this.handler = handler;
         this.readiness = Objects.requireNonNull(readiness, "readiness");
         this.trajectory = new A2aTrajectorySupport(defaultTrajectorySettings, sinkFactories);
         this.remote = new A2aRemoteInvocationOrchestrator(
                 remoteInvocationService,
                 new A2aParentTaskProjector(),
-                handler != null ? handler.agentId() : null);
+                handler != null ? handler.agentId() : null,
+                maxRemoteLegs);
     }
 
     /**
@@ -139,13 +146,17 @@ public final class A2aAgentExecutor implements AgentExecutor {
         // A continuation leg (task parked on remote INPUT_REQUIRED) re-enters execute with
         // artifacts the first leg already flushed; the SDK replaces an existing artifact on
         // append=false, so both streams must append when their artifact is already on the
-        // task snapshot — and must not append when it is absent (an append to a missing
+        // task snapshot, and must not append when it is absent (an append to a missing
         // artifact drops the chunk).
         String artifactId = taskId + "-response";
         String trajectoryArtifactId = taskId + "-trajectory";
         AtomicBoolean firstArtifact = new AtomicBoolean(!hasArtifact(ctx.getTask(), artifactId));
         boolean appendTrajectory = hasArtifact(ctx.getTask(), trajectoryArtifactId);
         AtomicBoolean cancelled = new AtomicBoolean(false);
+        // Registered before any handler/remote work so cancel() always finds the flag,
+        // including after the local handler stream drains and before a remote leg completes.
+        InFlightExecution execution = new InFlightExecution(new AtomicReference<>(), cancelled);
+        inFlight.put(taskId, execution);
         // Holder, not a local: the resume legs re-open the flow from inside the remote
         // orchestration callback, and the catch/finally must see the latest wiring.
         AtomicReference<TrajectoryFlow> flowRef = new AtomicReference<>(TrajectoryFlow.NONE);
@@ -166,11 +177,18 @@ public final class A2aAgentExecutor implements AgentExecutor {
             String inputText = extractText(ctx);
             LOG.info("[A2A] input parsed taskId={} textChars={}", taskId, inputText.length());
 
+            if (inputText.isBlank() && !remote.isRemoteContinuation(ctx)) {
+                LOG.warn("[A2A] rejecting task with empty query taskId={}", taskId);
+                emitter.fail(failureMessage(emitter, "INVALID_INPUT",
+                        "message contains no text content", false));
+                LOG.info("[A2A] task state=FAILED taskId={}", taskId);
+                return;
+            }
+
             if (remote.isRemoteContinuation(ctx)) {
-                runRemoteSegment(taskId, cancelled,
-                        () -> remote.continueRemote(ctx, emitter, taskId, artifactId, firstArtifact, cancelled,
-                                resumeConsumer(ctx, flowRef), northboundDelivery));
-                LOG.info("[A2A] execute finish taskId={} durationMs={}",
+                remote.continueRemote(ctx, emitter, taskId, artifactId, firstArtifact, cancelled,
+                        resumeConsumer(ctx, flowRef, execution), northboundDelivery);
+                LOG.info("[A2A] execute finish (remote continuation) taskId={} durationMs={}",
                         taskId, (System.nanoTime() - startedNanos) / 1_000_000L);
                 return;
             }
@@ -178,15 +196,14 @@ public final class A2aAgentExecutor implements AgentExecutor {
             AgentExecutionContext context = toExecutionContext(ctx, inputText);
             flowRef.set(trajectory.open(ctx, context, handler));
 
-            RouteDecision decision = consumeHandler(context, emitter, taskId, artifactId, firstArtifact, true,
-                    cancelled);
+            RouteDecision decision = consumeHandler(context, emitter, taskId, artifactId, firstArtifact,
+                    cancelled, execution);
 
             if (decision.remoteInvocation() != null) {
                 // The orchestrator runs the northbound delivery itself, after the remote leg
-                // and the local resume converge — flushing here would cut the artifact short.
-                runRemoteSegment(taskId, cancelled,
-                        () -> remote.invokeRemote(ctx, decision.remoteInvocation(), emitter, taskId, artifactId,
-                                firstArtifact, cancelled, resumeConsumer(ctx, flowRef), northboundDelivery));
+                // and the local resume converge; flushing here would cut the artifact short.
+                remote.invokeRemote(ctx, decision.remoteInvocation(), emitter, taskId, artifactId,
+                        firstArtifact, cancelled, resumeConsumer(ctx, flowRef, execution), northboundDelivery);
             } else {
                 // The full trajectory (through RUN_END) is only complete now; deliver it to the caller
                 // before the answer's terminal so it lands while the task can still accept artifacts.
@@ -221,6 +238,7 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 LOG.warn("[A2A] could not emit terminal failure taskId={}", taskId);
             }
         } finally {
+            inFlight.remove(taskId, execution);
             A2aTrajectorySupport.closeQuietly(flowRef.get(), taskId);
             MDC.remove(MDC_CONTEXT_ID);
             MDC.remove(MDC_TASK_ID);
@@ -266,68 +284,52 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
     /**
      * Local re-entry after a remote leg. The resume context is freshly built, so its
-     * trajectory emitter defaults to NOOP — without re-opening, the entire second half
+     * trajectory emitter defaults to NOOP; without re-opening, the entire second half
      * of the run (and the handler's rail registration that keys off a non-NOOP emitter)
      * would silently vanish from every sink.
      */
     private A2aRemoteInvocationOrchestrator.LocalResume resumeConsumer(RequestContext ctx,
-            AtomicReference<TrajectoryFlow> flowRef) {
+            AtomicReference<TrajectoryFlow> flowRef, InFlightExecution execution) {
         return (resumeContext, emitter, taskId, artifactId, firstArtifact, cancelled) -> {
             flowRef.set(trajectory.openForResume(ctx, resumeContext, handler, flowRef.get()));
-            return consumeHandler(resumeContext, emitter, taskId, artifactId, firstArtifact, false, cancelled);
+            return consumeHandler(resumeContext, emitter, taskId, artifactId, firstArtifact,
+                    cancelled, execution);
         };
     }
 
-    /**
-     * Keeps the task registered in-flight across a remote A2A leg. The local
-     * registration in {@link #consumeHandler} ends when the handler stream drains,
-     * but the outbound remote call happens after that — a cancel landing in that
-     * window must still find the cancelled flag, or the remote return would re-run
-     * the local handler against an already-CANCELED task. The placeholder carries
-     * no stream slot; the cancel path tolerates the empty slot.
-     */
-    private void runRemoteSegment(String taskId, AtomicBoolean cancelled, Runnable remoteSegment) {
-        InFlightExecution execution = new InFlightExecution(new AtomicReference<>(), cancelled);
-        inFlight.put(taskId, execution);
-        try {
-            remoteSegment.run();
-        } finally {
-            inFlight.remove(taskId, execution);
-        }
-    }
-
     private RouteDecision consumeHandler(AgentExecutionContext context, AgentEmitter emitter, String taskId,
-            String artifactId, AtomicBoolean firstArtifact, boolean remoteInvocationAllowed,
-            AtomicBoolean cancelled) {
-        // Registered before handler.execute() so a cancel landing during a slow
-        // connect still reaches the cancelled flag instead of vanishing.
-        InFlightExecution execution = new InFlightExecution(new AtomicReference<>(), cancelled);
-        inFlight.put(taskId, execution);
+            String artifactId, AtomicBoolean firstArtifact, AtomicBoolean cancelled, InFlightExecution execution) {
         try (Stream<?> raw = handler.execute(context);
              Stream<AgentExecutionResult> results = handler.resultAdapter().adapt(raw)) {
             execution.rawStream().set(raw);
             Iterator<AgentExecutionResult> iterator = results.iterator();
             while (!cancelled.get() && iterator.hasNext()) {
                 AgentExecutionResult result = iterator.next();
+                String outputContent = result.outputContent();
                 LOG.info("[A2A] result taskId={} type={} outputChars={}",
                         taskId, result.type(),
-                        result.outputContent() != null ? result.outputContent().length() : 0);
+                        outputContent != null ? outputContent.length() : 0);
                 RouteDecision decision = A2aResultRouter.route(result, emitter, taskId, artifactId,
-                        firstArtifact, remoteInvocationAllowed);
+                        firstArtifact);
                 if (decision.stop()) {
                     return decision;
                 }
             }
             // A cancel observed here already moved the task to CANCELED; emitting
             // a drained-completion would fight the terminal the client just saw.
-            return cancelled.get() ? RouteDecision.terminal() : RouteDecision.drained();
+            if (cancelled.get()) {
+                LOG.info("[A2A] handler stream cancelled taskId={}", taskId);
+                return RouteDecision.terminal();
+            }
+            LOG.info("[A2A] handler stream drained without terminal; falling back to complete taskId={}", taskId);
+            return RouteDecision.drained();
         } catch (RuntimeException e) {
             if (cancelled.get()) {
                 return RouteDecision.terminal();
             }
             throw e;
         } finally {
-            inFlight.remove(taskId, execution);
+            // in-flight registration is owned by execute(); cleaned up there.
         }
     }
 
@@ -356,43 +358,61 @@ public final class A2aAgentExecutor implements AgentExecutor {
         // RuntimeMessage is the only message type that crosses into the SPI.
         List<RuntimeMessage> messages = List.of(RuntimeMessage.user(text));
         String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
+        Map<String, Object> variables = mergeVariables(ctx);
         return new AgentExecutionContext(
                 new RuntimeIdentity(
-                        metadata(ctx, "tenantId", "default"),
-                        metadata(ctx, "userId", "system"),
+                        asString(variables.get(TENANT_STATE_KEY)),
+                        asString(variables.get(USER_ID_METADATA_KEY)),
                         sessionId,
                         ctx.getTaskId(),
-                        metadata(ctx, "agentId", handler.agentId())),
+                        asString(variables.get(AGENT_ID_METADATA_KEY))),
                 "USER_MESSAGE",
                 messages,
-                // Merge A2A message metadata into variables so adapters (versatile, etc.)
-                // can access business fields like intent, wap_userName without changing
-                // the neutral AgentExecutionContext contract.
-                mergeVariables(ctx));
+                variables);
     }
 
     /**
-     * Merge A2A request and message metadata into an immutable variables map,
-     * preserving the framework {@link AgentExecutionContext#AGENT_STATE_KEY_VARIABLE}.
-     * Message-level metadata (e.g. {@code intent}, {@code wap_userName}) takes
-     * precedence over request-level metadata on key collision.
+     * Merge A2A request and message metadata into an immutable variables map.
+     * Request-level metadata owns runtime fields. Message-level metadata remains
+     * available for business adapter fields, but never overwrites request-level
+     * runtime identity or middleware scope.
      */
-    private static Map<String, Object> mergeVariables(RequestContext ctx) {
+    private Map<String, Object> mergeVariables(RequestContext ctx) {
+        Map<String, Object> merged = normalizedMetadata(ctx, handler.agentId());
+        String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
+        LOG.info("[A2A] request received taskId={} sessionId={} textLen={} metadataKeys={}",
+                ctx.getTaskId(), sessionId,
+                ctx.getMessage() != null ? Messages.text(ctx.getMessage()).length() : 0,
+                merged.keySet());
+        return merged;
+    }
+
+    static Map<String, Object> normalizedMetadata(RequestContext ctx, String handlerAgentId) {
         java.util.LinkedHashMap<String, Object> vars = new java.util.LinkedHashMap<>();
-        // Request-level metadata (low priority)
         Map<String, Object> requestMd = ctx.getMetadata();
         if (requestMd != null) {
             vars.putAll(requestMd);
         }
-        // Message-level metadata (high priority — business fields)
-        if (ctx.getMessage() != null) {
-            Map<String, Object> messageMd = ctx.getMessage().metadata();
-            if (messageMd != null) {
-                vars.putAll(messageMd);
-            }
-        }
         String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
-        vars.put(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, sessionId);
+        String tenantId = metadata(ctx, TENANT_STATE_KEY, "default");
+        String userId = metadata(ctx, USER_ID_METADATA_KEY, "system");
+        String agentId = metadata(ctx, AGENT_ID_METADATA_KEY, handlerAgentId);
+        putIfBlank(vars, TENANT_STATE_KEY, tenantId);
+        putIfBlank(vars, USER_ID_METADATA_KEY, userId);
+        putIfBlank(vars, AGENT_ID_METADATA_KEY, agentId);
+        String agentStateKey = metadata(ctx, AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, null);
+        if (!hasText(agentStateKey)) {
+            agentStateKey = defaultAgentStateKey(tenantId, agentId, sessionId);
+        }
+        vars.put(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, agentStateKey);
+        putIfBlank(vars, MEMORY_SCOPE_METADATA_KEY, defaultMemoryScope(tenantId, userId));
+        putIfBlank(vars, CORRELATION_ID_METADATA_KEY, firstText(
+                metadata(ctx, CORRELATION_ID_METADATA_KEY, null),
+                ctx.getMessage() != null ? ctx.getMessage().messageId() : null,
+                ctx.getTaskId()));
+        putIfBlank(vars, TRACE_ID_METADATA_KEY, firstText(
+                metadata(ctx, TRACE_ID_METADATA_KEY, null),
+                asString(vars.get(CORRELATION_ID_METADATA_KEY))));
         return Map.copyOf(vars);
     }
 
@@ -414,29 +434,48 @@ public final class A2aAgentExecutor implements AgentExecutor {
     }
 
     /**
-     * Canonical request-context value resolution shared with {@link A2aParentTaskProjector}
-     * so the remote-resume re-entry resolves the same tenant as the first local segment.
-     * For the tenant key the header-derived call-context tenant outranks client-declared
-     * metadata; see {@link #TENANT_STATE_KEY} for the trust precondition.
+     * Canonical request-context value resolution shared with {@link A2aParentTaskProjector}.
+     * Request-level metadata is the only runtime metadata source. Message metadata belongs to the
+     * message body and is intentionally ignored by runtime identity, state, memory, and trajectory.
      */
     static String metadata(RequestContext ctx, String key, String fallback) {
-        if (TENANT_STATE_KEY.equals(key)) {
-            Object transportTenant = ctx.getCallContext() == null
-                    ? null : ctx.getCallContext().getState().get(TENANT_STATE_KEY);
-            if (hasText(transportTenant)) {
-                return String.valueOf(transportTenant);
-            }
-            if (hasText(ctx.getTenant())) {
-                return ctx.getTenant();
-            }
-        }
         Map<String, Object> md = ctx.getMetadata();
         Object value = md == null ? null : md.get(key);
-        return hasText(value) ? String.valueOf(value) : fallback;
+        if (hasText(value)) {
+            return String.valueOf(value);
+        }
+        return fallback;
     }
 
     private static boolean hasText(Object value) {
         return value != null && !String.valueOf(value).isBlank();
+    }
+
+    private static String defaultAgentStateKey(String tenantId, String agentId, String sessionId) {
+        return "state:" + tenantId + ":" + agentId + ":" + sessionId;
+    }
+
+    private static String defaultMemoryScope(String tenantId, String userId) {
+        return "memory:" + tenantId + ":" + userId;
+    }
+
+    private static void putIfBlank(Map<String, Object> values, String key, String value) {
+        if (!hasText(values.get(key))) {
+            values.put(key, value);
+        }
+    }
+
+    private static String firstText(String... values) {
+        for (String value : values) {
+            if (hasText(value)) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private static String asString(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 
     /** Whether the task snapshot already carries an artifact with this id (flushed by an earlier leg). */

@@ -1,7 +1,0 @@
-# ── Common settings for both Agent A and Agent B ──
-# Activate the desired profile: --spring.profiles.active=agent-a | agent-b
-
-debug: false
-
-server:
-  port: ${SERVER_PORT:0}

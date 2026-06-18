@@ -131,8 +131,8 @@ Content-Type: application/json
 | `params.message.parts` | 是 | 当前 runtime 只把 `TextPart.text` 映射给 handler |
 | `params.message.parts[].text` | 是 | 示例 agent 根据这里的文本关键字决定返回 |
 | `params.message.contextId` | 否 | 会作为会话上下文；不填时 SDK/runtime 可用 task id 兜底 |
-| `params.message.metadata.userId` | 否 | 不填时 runtime 兜底为 `system` |
-| `params.message.metadata.agentId` | 否 | 不填时 runtime 兜底为当前 handler 的 agent id |
+| `params.metadata.userId` | 否 | 不填时 runtime 兜底为 `system` |
+| `params.metadata.agentId` | 否 | 不填时 runtime 兜底为当前 handler 的 agent id |
 | `params.configuration.returnImmediately` | 否 | `SendMessage` 可用；`true` 时尽快返回当前 task 快照 |
 | `params.configuration.taskPushNotificationConfig` | 否 | 可在当前 `SendStreamingMessage` 中携带 callback |
 | `params.configuration.taskPushNotificationConfig.id` | 建议填 | push config id |
@@ -175,14 +175,14 @@ curl.exe -sS "$Base/.well-known/agent-card.json"
   "id": "stream-1",
   "method": "SendStreamingMessage",
   "params": {
+    "metadata": {
+      "userId": "manual-user",
+      "agentId": "external-access-agent"
+    },
     "message": {
       "role": "ROLE_USER",
       "messageId": "msg-stream-1",
       "contextId": "ctx-stream-1",
-      "metadata": {
-        "userId": "manual-user",
-        "agentId": "external-access-agent"
-      },
       "parts": [
         { "text": "stream" }
       ]
@@ -208,14 +208,14 @@ curl.exe -N "$Base/a2a" `
   "id": "push-stream-1",
   "method": "SendStreamingMessage",
   "params": {
+    "metadata": {
+      "userId": "manual-user",
+      "agentId": "external-access-agent"
+    },
     "message": {
       "role": "ROLE_USER",
       "messageId": "msg-push-stream-1",
       "contextId": "ctx-push-stream-1",
-      "metadata": {
-        "userId": "manual-user",
-        "agentId": "external-access-agent"
-      },
       "parts": [
         { "text": "stream" }
       ]
@@ -259,14 +259,14 @@ powershell -ExecutionPolicy Bypass -File examples\agent-runtime-a2a-external-acc
   "id": "sync-1",
   "method": "SendMessage",
   "params": {
+    "metadata": {
+      "userId": "manual-user",
+      "agentId": "external-access-agent"
+    },
     "message": {
       "role": "ROLE_USER",
       "messageId": "msg-sync-1",
       "contextId": "ctx-sync-1",
-      "metadata": {
-        "userId": "manual-user",
-        "agentId": "external-access-agent"
-      },
       "parts": [
         { "text": "sync" }
       ]
@@ -291,6 +291,10 @@ curl.exe -sS "$Base/a2a" `
   "id": "input-1",
   "method": "SendMessage",
   "params": {
+    "metadata": {
+      "userId": "manual-user",
+      "agentId": "external-access-agent"
+    },
     "message": {
       "role": "ROLE_USER",
       "messageId": "msg-input-1",
@@ -319,6 +323,10 @@ curl.exe -sS "$Base/a2a" `
   "id": "fail-1",
   "method": "SendMessage",
   "params": {
+    "metadata": {
+      "userId": "manual-user",
+      "agentId": "external-access-agent"
+    },
     "message": {
       "role": "ROLE_USER",
       "messageId": "msg-fail-1",
@@ -347,6 +355,10 @@ curl.exe -sS "$Base/a2a" `
   "id": "slow-1",
   "method": "SendMessage",
   "params": {
+    "metadata": {
+      "userId": "manual-user",
+      "agentId": "external-access-agent"
+    },
     "message": {
       "role": "ROLE_USER",
       "messageId": "msg-slow-1",

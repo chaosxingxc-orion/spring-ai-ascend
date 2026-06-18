@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    Bank-customer workspace. This is NOT a spring-ai-ascend platform module:
+    it does not inherit the platform reactor parent and is not listed in the
+    root <modules>. It consumes the platform the way an external customer does
+    — depending on the published com.huawei.ascend:agent-runtime artifact and
+    building independently with `mvn -f financial/pom.xml ...`.
+
+    Principle: the platform (agent-runtime / agent-bus / agent-service + the
+    reactor pom + governance) is never modified from here. All financial domain
+    code lives under this directory.
+  -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.0.5</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.bank</groupId>
+  <artifactId>financial-agents</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+  <name>financial-agents</name>
+  <description>Bank financial agents built on the spring-ai-ascend platform (A2A runtime).</description>
+
+  <properties>
+    <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <ascend.version>0.2.0-SNAPSHOT</ascend.version>
+    <openjiuwen.agent-core.version>0.1.12-jdk17</openjiuwen.agent-core.version>
+  </properties>
+
+  <dependencies>
+    <!-- The platform: A2A runtime that hosts our agents. -->
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-runtime</artifactId>
+      <version>${ascend.version}</version>
+    </dependency>
+
+    <!-- The agent framework the runtime's openJiuwen engine adapts. -->
+    <dependency>
+      <groupId>com.openjiuwen</groupId>
+      <artifactId>agent-core-java</artifactId>
+      <version>${openjiuwen.agent-core.version}</version>
+    </dependency>
+
+    <!-- A2A transport needs protobuf at runtime. -->
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>4.33.2</version>
+    </dependency>
+
+    <!-- OpenTelemetry export: the platform's OTel sink is optional, so a consuming
+         app must bring the exporter to enable distributed tracing (app.trajectory.otel.enabled).
+         Versions are managed by spring-boot-starter-parent (opentelemetry.version). -->
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-exporter-otlp</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- Metrics + health for ops: /actuator/prometheus, readiness probes. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <!-- Runs the local playground CLI (com.bank.financial.playground.Playground). -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.6.2</version>
+      </plugin>
+    </plugins>
+  </build>
+
+  <repositories>
+    <!-- Spring AI 2.0-M5 (a platform transitive) is not yet on Maven Central. -->
+    <repository>
+      <id>spring-milestones</id>
+      <name>Spring Milestones</name>
+      <url>https://repo.spring.io/milestone</url>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+  </repositories>
+</project>

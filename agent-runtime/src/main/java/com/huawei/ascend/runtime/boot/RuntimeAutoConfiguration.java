@@ -45,7 +45,7 @@ import org.springframework.context.annotation.Import;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({RuntimeAccessProperties.class, TrajectoryProperties.class,
-        AgentCardProperties.class})
+        AgentCardProperties.class, AgentRuntimeProperties.class})
 @Import(TrajectoryOtelConfiguration.class)
 public class RuntimeAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(RuntimeAutoConfiguration.class);
@@ -128,14 +128,18 @@ public class RuntimeAutoConfiguration {
     public AgentExecutor a2aAgentExecutor(ObjectProvider<AgentRuntimeHandler> handlers,
             ObjectProvider<RemoteAgentInvocationService> remoteInvocationService,
             RuntimeReadiness readiness, TrajectoryProperties trajectoryProperties,
-            ObjectProvider<TrajectorySinkFactory> sinkFactories) {
+            ObjectProvider<TrajectorySinkFactory> sinkFactories,
+            AgentRuntimeProperties agentRuntimeProperties) {
         var registered = handlers.orderedStream().toList();
         RemoteAgentInvocationService invocationService = remoteInvocationService.getIfAvailable();
+        int maxRemoteLegs = agentRuntimeProperties.getRemoteInvocation().getMaxLegs();
         if (registered.isEmpty()) {
             // Tolerated so the A2A surface can boot for card discovery; every
             // execution will be rejected until a handler bean is registered.
             log.warn("No AgentRuntimeHandler registered - A2A executions will be rejected");
-            return new A2aAgentExecutor(null, invocationService, readiness::isReady);
+            return new A2aAgentExecutor(null, invocationService, readiness::isReady,
+                    toTrajectorySettings(trajectoryProperties), sinkFactories.orderedStream().toList(),
+                    maxRemoteLegs);
         }
         if (registered.size() > 1) {
             throw new IllegalStateException(
@@ -145,7 +149,8 @@ public class RuntimeAutoConfiguration {
                     + " runtime instances.");
         }
         return new A2aAgentExecutor(registered.get(0), invocationService, readiness::isReady,
-                toTrajectorySettings(trajectoryProperties), sinkFactories.orderedStream().toList());
+                toTrajectorySettings(trajectoryProperties), sinkFactories.orderedStream().toList(),
+                maxRemoteLegs);
     }
 
     static TrajectorySettings toTrajectorySettings(TrajectoryProperties properties) {

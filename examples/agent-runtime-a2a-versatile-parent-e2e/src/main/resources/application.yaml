@@ -1,0 +1,13 @@
+# ── Common settings ──
+# Activate: --spring.profiles.active=versatile | main
+#
+# Profile-specific ports:
+#   versatile → 18082 (child agent)
+#   main      → 18080 (parent agent — calls child at localhost:18082)
+#
+# Override via SERVER_PORT env var or --server.port=<port>.
+
+debug: false
+
+server:
+  port: ${SERVER_PORT:0}

@@ -5,7 +5,7 @@
 
 module: agent-runtime
 kind: domain             # platform | domain | starter | bom | sample
-version: 0.0.1-SNAPSHOT
+version: 0.2.0-SNAPSHOT
 semver_compatibility: experimental
 description: "Framework-neutral agent-hosting runtime SDK: AgentRuntimeHandler SPI + A2A SDK bridge (task lifecycle/store/queue from the SDK's replaceable in-memory facilities; session persistence delegated to framework checkpointers) + trajectory observability + remote A2A tool invocation + northbound A2A access + embeddable entry app.RuntimeApp"
 architecture_doc: architecture/docs/L1/agent-runtime/README.md

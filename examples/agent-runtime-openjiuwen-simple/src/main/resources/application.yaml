@@ -54,7 +54,7 @@ sample:
     # Model provider: openai, ollama, openai-compatible, etc.
     model-provider: ${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}
     # LLM API key
-    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-x00550472}
+    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-your-api-key-here}
     # LLM API base URL (e.g. http://localhost:4000/v1 for litellm proxy)
     api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
     # Model name

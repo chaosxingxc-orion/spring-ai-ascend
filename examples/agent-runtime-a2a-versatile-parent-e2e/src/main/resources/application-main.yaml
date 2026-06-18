@@ -1,0 +1,26 @@
+# ── Main (parent) OpenJiuwen LLM agent profile ──
+# Activate with: --spring.profiles.active=main
+
+server:
+  port: 18080
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: main-parent
+  remote-agents:
+    - url: http://localhost:18082
+      output:
+        default-target: USER
+        completion-target: LLM
+
+sample:
+  versatile-parent:
+    role: main
+    llm:
+      model-provider: ${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}
+      api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-your-api-key-here}
+      api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
+      model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
+      ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:true}

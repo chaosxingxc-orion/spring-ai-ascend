@@ -111,11 +111,12 @@ References: §4 #53–#59, ADR-0061/0062/0063, `docs/telemetry/policy.md`.
 
 ## 2. Module layout
 
-### Eight-module post-ADR-0159 state (2026-06-03 — agent-runtime consolidation)
+### Four-module post-ADR-0159 state (2026-06-03 — agent-runtime consolidation)
 
-The reactor declares **8 modules** today: six L0 team-facing substantive
-modules (AgentClient, AgentService, AgentMiddleware, AgentRuntime,
-AgentBus, AgentEvolve) + the BoM + the graphmemory starter. The arc that
+The reactor declares **4 modules** today: `agent-runtime`, `agent-service`,
+`agent-bus`, and the `spring-ai-ascend-dependencies` BoM. Historical modules
+(`agent-client`, `agent-middleware`, `agent-evolve`, `graphmemory-starter`)
+were retired or never materialized and are NOT in the reactor. The arc that
 brought us here: pre-Phase-C `agent-platform` + the original `agent-runtime`
 were **consolidated** into `agent-service` per **ADR-0078** (2026-05-18); the
 shared kernel was extracted then dissolved (ADR-0079 / ADR-0088) and the neutral
@@ -145,10 +146,10 @@ enterprise serviceization façade. Module count is unchanged —
   to agent-bus, and `agent-runtime` consumes it directly (the engine runs in-process
   behind `EngineDispatcher`; the former `InProcessEnginePort` realization was retired
   by the pure rebuild) while owning the full run-owning runtime SDK (ADR-0159).
-- The 3 S2C transport types into **agent-bus** under `com.huawei.ascend.bus.spi.s2c` —
-  pairing with the **new** `IngressGateway` SPI in `com.huawei.ascend.bus.spi.ingress`
-  (**ADR-0089**, 2026-05-20) so the Bus & State Hub plane owns the entirety of
-  cross-plane traffic in both directions (C2S and S2C).
+- The S2C transport types into **agent-bus** under `com.huawei.ascend.bus.spi.s2c`
+  (ADR-0074 + ADR-0088). The `bus.spi.ingress` package (C2S) was removed by
+  ADR-0159 consolidation; cross-plane C2S traffic now flows through the A2A
+  JSON-RPC controller in agent-runtime.
 
 After ADR-0159 `agent-service` carries no runtime internals; the former
 `service.runtime -> service.platform` sub-package invariant (Rule R-C.e) is now
@@ -159,7 +160,7 @@ satisfied vacuously, and the runtime↔façade boundary is the Maven-module edge
 |--------|-------------|-----------|----------------|
 | `agent-runtime` | compute_control | AgentRuntime | run-owning runtime SDK (ADR-0159) — framework-neutral engine (`engine.spi.AgentRuntimeHandler` + `StreamAdapter`; `EngineDispatcher` + `AgentRuntimeHandlerRegistry`) + access (`runtime.access`, A2A) + session + task-centric control + internal queue + pure-Java entry `app.RuntimeApp` / `LocalA2aRuntimeHost`; consumes the neutral `bus.spi.engine` boundary. Ships as a library; Run domain kernel is a design target, impl deferred |
 | `agent-service` | compute_control | AgentService | serviceization façade skeleton (ADR-0159) — enterprise serviceization layer that will drive `agent-runtime`-hosted Agent instances via registration/discovery (deferred; single placeholder SPI today); all runtime internals relocated to `agent-runtime` |
-| `agent-bus` | bus_state | AgentBus | active SPI surfaces — `bus.spi.ingress` (IngressGateway per ADR-0089) + `bus.spi.s2c` (S2cCallbackTransport per ADR-0088) + `bus.spi.engine` (neutral EnginePort + orchestration SPI: RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition + ExecutionContext per ADR-0158). Workflow primitives + W2 channel impls per ADR-0050 |
+| `agent-bus` | bus_state | AgentBus | active SPI surfaces — `bus.spi.s2c` (S2cCallbackTransport per ADR-0088) + `bus.spi.engine` (neutral EnginePort + orchestration SPI: RunMode + Checkpointer + Orchestrator + RunContext + SuspendSignal + TraceContext + ExecutorDefinition + ExecutionContext per ADR-0158). The `bus.spi.ingress` package was removed by ADR-0159 consolidation. Workflow primitives + W2 channel impls per ADR-0050 |
 | `spring-ai-ascend-dependencies` | none | platform | shipped (BoM) |
 
 (The historical `agent-client` / `agent-middleware` / `agent-evolve` / `spring-ai-ascend-graphmemory-starter` modules are retired or never materialized and are NOT in the reactor.)

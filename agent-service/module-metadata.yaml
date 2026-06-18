@@ -7,7 +7,7 @@
 
 module: agent-service
 kind: domain
-version: 0.1.0-SNAPSHOT
+version: 0.2.0-SNAPSHOT
 semver_compatibility: 0.x
 description: "Enterprise serviceization facade skeleton. Runtime-facing service contracts are reserved here; Gateway facade examples live under examples/agent-runtime-a2a-llm-e2e."
 architecture_doc: architecture/docs/L1/agent-service/README.md

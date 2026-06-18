@@ -67,7 +67,7 @@ class AgentRuntimeHealthIndicatorTest {
             @Override
             public List<RemoteAgentToolSpec> availableToolSpecs() {
                 return List.of(new RemoteAgentToolSpec(
-                        "remote-b", "a2a_remote_remote_b", "Remote B", Map.of()));
+                        "remote-b", "remote-b", "Remote B", Map.of()));
             }
         };
 

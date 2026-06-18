@@ -43,7 +43,7 @@ public class RemoteAgentCardCache {
     }
 
     public RemoteAgentCardCache(List<String> urls, Map<String, Duration> streamTimeoutsByUrl) {
-        this(urls, streamTimeoutsByUrl, url -> new A2ACardResolver(url).getAgentCard());
+        this(urls, streamTimeoutsByUrl, url -> A2ACardResolver.builder().baseUrl(url).build().getAgentCard());
     }
 
     RemoteAgentCardCache(List<String> urls, Function<String, AgentCard> cardResolver) {
@@ -71,8 +71,16 @@ public class RemoteAgentCardCache {
      * read-allocate-write of sticky ids; readers are not blocked — they keep
      * reading the previous volatile snapshot until the new one is published.
      */
-    public synchronized void refresh() {
+    /**
+     * Full refresh: re-resolves the card of every configured url.
+     *
+     * @return true when every configured url resolved successfully;
+     *         false when at least one refresh attempt failed (the entry
+     *         keeps its last good data, degraded but callable)
+     */
+    public synchronized boolean refresh() {
         Map<String, Entry> next = new LinkedHashMap<>();
+        boolean allSucceeded = true;
         for (Map.Entry<String, Entry> mapEntry : entries.entrySet()) {
             Entry entry = mapEntry.getValue();
             Entry refreshed;
@@ -83,11 +91,13 @@ public class RemoteAgentCardCache {
                 LOG.warn("remote agent card refresh failed url={} errorClass={} message={}",
                         entry.url(), error.getClass().getSimpleName(), error.getMessage());
                 refreshed = entry;
+                allSucceeded = false;
             }
             next.put(mapEntry.getKey(), refreshed);
         }
         rebuildToolSpecs(next);
         entries = Collections.unmodifiableMap(next);
+        return allSucceeded;
     }
 
     /** Reads the current volatile snapshot; see the class comment for the visibility model. */
@@ -131,11 +141,11 @@ public class RemoteAgentCardCache {
                 .orElse(null);
     }
 
-    private static RemoteAgentToolSpec toSpec(AgentCard card, String remoteAgentId) {
+    private static RemoteAgentToolSpec toSpec(String remoteAgentId, String desc) {
         return new RemoteAgentToolSpec(
                 remoteAgentId,
-                "a2a_remote_" + remoteAgentId.replace('-', '_'),
-                description(card),
+                remoteAgentId,
+                desc,
                 inputSchema());
     }
 
@@ -158,12 +168,18 @@ public class RemoteAgentCardCache {
             if (!entry.resolved()) {
                 continue;
             }
+            // An agent without published skills has no callable tool contract.
+            // The LLM would not know how to invoke it — skip tool registration.
+            String desc = description(entry.card());
+            if (desc.isEmpty()) {
+                continue;
+            }
             String remoteAgentId = entry.remoteAgentId();
             if (remoteAgentId == null) {
                 remoteAgentId = allocateId(normalize(entry.card().name()), taken);
                 taken.add(remoteAgentId);
             }
-            mapEntry.setValue(entry.withAssignment(remoteAgentId, toSpec(entry.card(), remoteAgentId)));
+            mapEntry.setValue(entry.withAssignment(remoteAgentId, toSpec(remoteAgentId, desc)));
         }
     }
 
@@ -196,14 +212,16 @@ public class RemoteAgentCardCache {
                 && protocolBinding.replace("_", "").replace("-", "").equalsIgnoreCase("JSONRPC");
     }
 
+    /**
+     * Build the tool description for the LLM from the card's published skills.
+     *
+     * <p>Only skill descriptions are used — they define the tool contract
+     * (how to invoke, what parameters to pass). The card-level name and
+     * description are infrastructure metadata that would confuse the LLM.
+     * When an agent publishes no skills it is not exposed as a callable tool.
+     */
     private static String description(AgentCard card) {
         List<String> parts = new ArrayList<>();
-        if (hasText(card.name())) {
-            parts.add(card.name());
-        }
-        if (hasText(card.description())) {
-            parts.add(card.description());
-        }
         if (card.skills() != null) {
             for (AgentSkill skill : card.skills()) {
                 if (skill != null && hasText(skill.description())) {
@@ -211,17 +229,27 @@ public class RemoteAgentCardCache {
                 }
             }
         }
-        return String.join("\n", parts);
+        String result = String.join("\n", parts);
+        LOG.info("remote agent tool description assembled name={} skillsCount={} totalChars={}\n{}",
+                card.name(), card.skills() != null ? card.skills().size() : 0, result.length(), result);
+        return result;
     }
 
+    /**
+     * Returns the common remote-A2A tool envelope. The remoteInput value becomes
+     * the child A2A message text, so the field must be visible to the LLM instead
+     * of relying on description-only prompting. Extra properties stay open for
+     * remote-agent-specific business fields.
+     */
     private static Map<String, Object> inputSchema() {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
-                        "message", Map.of(
+                        "remoteInput", Map.of(
                                 "type", "string",
-                                "description", "Input message sent to the remote A2A runtime.")),
-                "required", List.of("message"));
+                                "description", "Text to send as the remote A2A user message.")),
+                "required", List.of("remoteInput"),
+                "additionalProperties", true);
     }
 
     private static String normalize(String value) {

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    MemOpt-backed middleware for the a2a-shared-memory kit. Implements the kit's
+    ExperienceStore SPI over the MemOpt engine's framework-neutral HTTP facade
+    (/v1/memory/save|search), giving A2A cross-run experience PERSISTENT, semantic
+    memory backed by MemOpt's GAM engine. MemOpt itself is delivered as a CLOSED
+    CONTAINER IMAGE (customers run the image, not the Python source); this module
+    is the thin HTTP client to it (JDK HttpClient + Jackson, optional bearer token
+    + TLS for the network boundary), speaking only the versioned /v1 contract.
+    Orphan module (not in root reactor), depends on a2a-shared-memory.
+  -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.0.5</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.huawei.ascend</groupId>
+  <artifactId>a2a-shared-memory-memopt</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+  <name>a2a-shared-memory-memopt</name>
+  <description>MemOpt-backed ExperienceStore for the a2a-shared-memory kit, over MemOpt's HTTP facade (persistent cross-run experience).</description>
+
+  <properties>
+    <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>a2a-shared-memory</artifactId>
+      <version>0.1.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

@@ -1,0 +1,309 @@
+[ {
+  "name" : "happy-path",
+  "description" : "单任务,单 worker,直接完成",
+  "tasks" : [ {
+    "id" : "t1",
+    "capability" : "summarize",
+    "payload" : "doc",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  } ],
+  "workers" : [ {
+    "id" : "w-sum",
+    "capabilities" : [ "summarize" ],
+    "behavior" : "COMPLETE",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  } ],
+  "expectedOutcomes" : {
+    "t1" : "COMPLETED"
+  },
+  "requiredEvents" : [ "DISPATCH", "VALIDATE_OK", "COMPLETE" ]
+}, {
+  "name" : "fan-out-distribution",
+  "description" : "多任务分发到不同 capability 的 worker",
+  "tasks" : [ {
+    "id" : "t1",
+    "capability" : "summarize",
+    "payload" : "d1",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  }, {
+    "id" : "t2",
+    "capability" : "translate",
+    "payload" : "d2",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  }, {
+    "id" : "t3",
+    "capability" : "summarize",
+    "payload" : "d3",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  } ],
+  "workers" : [ {
+    "id" : "w-sum-a",
+    "capabilities" : [ "summarize" ],
+    "behavior" : "COMPLETE",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  }, {
+    "id" : "w-sum-b",
+    "capabilities" : [ "summarize" ],
+    "behavior" : "COMPLETE",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  }, {
+    "id" : "w-tr",
+    "capabilities" : [ "translate" ],
+    "behavior" : "COMPLETE",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  } ],
+  "expectedOutcomes" : {
+    "t1" : "COMPLETED",
+    "t2" : "COMPLETED",
+    "t3" : "COMPLETED"
+  },
+  "requiredEvents" : [ "DISPATCH", "COMPLETE" ]
+}, {
+  "name" : "hand-over",
+  "description" : "worker 把任务交接给另一 capability,再完成",
+  "tasks" : [ {
+    "id" : "t1",
+    "capability" : "triage",
+    "payload" : "case",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  } ],
+  "workers" : [ {
+    "id" : "w-triage",
+    "capabilities" : [ "triage" ],
+    "behavior" : "HANDOVER",
+    "handoverTarget" : "specialist",
+    "flakyFailures" : 0
+  }, {
+    "id" : "w-spec",
+    "capabilities" : [ "specialist" ],
+    "behavior" : "COMPLETE",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  } ],
+  "expectedOutcomes" : {
+    "t1" : "COMPLETED"
+  },
+  "requiredEvents" : [ "DISPATCH", "HANDOVER", "COMPLETE" ]
+}, {
+  "name" : "reclaim-then-succeed",
+  "description" : "前两次失败被回收重派,第三次成功(maxAttempts=3)",
+  "tasks" : [ {
+    "id" : "t1",
+    "capability" : "summarize",
+    "payload" : "doc",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  } ],
+  "workers" : [ {
+    "id" : "w-flaky",
+    "capabilities" : [ "summarize" ],
+    "behavior" : "FLAKY_THEN_OK",
+    "handoverTarget" : null,
+    "flakyFailures" : 2
+  } ],
+  "expectedOutcomes" : {
+    "t1" : "COMPLETED"
+  },
+  "requiredEvents" : [ "RECLAIM", "COMPLETE" ]
+}, {
+  "name" : "reclaim-exhausted",
+  "description" : "始终失败,回收重派耗尽 maxAttempts → FAILED",
+  "tasks" : [ {
+    "id" : "t1",
+    "capability" : "summarize",
+    "payload" : "doc",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  } ],
+  "workers" : [ {
+    "id" : "w-bad",
+    "capabilities" : [ "summarize" ],
+    "behavior" : "FAIL",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  } ],
+  "expectedOutcomes" : {
+    "t1" : "FAILED"
+  },
+  "requiredEvents" : [ "RECLAIM", "FAIL" ]
+}, {
+  "name" : "forged-token-rejected",
+  "description" : "worker 回传伪造令牌 → 令牌校验拒绝",
+  "tasks" : [ {
+    "id" : "t1",
+    "capability" : "summarize",
+    "payload" : "doc",
+    "maxAttempts" : 1,
+    "ttlMs" : 30000
+  } ],
+  "workers" : [ {
+    "id" : "w-evil",
+    "capabilities" : [ "summarize" ],
+    "behavior" : "BAD_TOKEN",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  } ],
+  "expectedOutcomes" : {
+    "t1" : "REJECTED"
+  },
+  "requiredEvents" : [ "TOKEN_REJECT", "FAIL" ]
+}, {
+  "name" : "absent-token-rejected",
+  "description" : "worker 不回传令牌 → 拒绝",
+  "tasks" : [ {
+    "id" : "t1",
+    "capability" : "summarize",
+    "payload" : "doc",
+    "maxAttempts" : 1,
+    "ttlMs" : 30000
+  } ],
+  "workers" : [ {
+    "id" : "w-no-tok",
+    "capabilities" : [ "summarize" ],
+    "behavior" : "NO_TOKEN",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  } ],
+  "expectedOutcomes" : {
+    "t1" : "REJECTED"
+  },
+  "requiredEvents" : [ "TOKEN_REJECT" ]
+}, {
+  "name" : "validation-fail-reclaim",
+  "description" : "空输出未过校验 → 回收;无更多 worker 则 FAILED",
+  "tasks" : [ {
+    "id" : "t1",
+    "capability" : "summarize",
+    "payload" : "doc",
+    "maxAttempts" : 2,
+    "ttlMs" : 30000
+  } ],
+  "workers" : [ {
+    "id" : "w-empty",
+    "capabilities" : [ "summarize" ],
+    "behavior" : "EMPTY_OUTPUT",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  } ],
+  "expectedOutcomes" : {
+    "t1" : "FAILED"
+  },
+  "requiredEvents" : [ "VALIDATE_FAIL", "RECLAIM" ]
+}, {
+  "name" : "input-required",
+  "description" : "worker 需要人工输入 → 批处理无法解决,标记 INPUT_REQUIRED",
+  "tasks" : [ {
+    "id" : "t1",
+    "capability" : "approve",
+    "payload" : "transfer",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  } ],
+  "workers" : [ {
+    "id" : "w-appr",
+    "capabilities" : [ "approve" ],
+    "behavior" : "INPUT_REQUIRED",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  } ],
+  "expectedOutcomes" : {
+    "t1" : "INPUT_REQUIRED"
+  },
+  "requiredEvents" : [ "INPUT_REQUIRED" ]
+}, {
+  "name" : "no-capable-worker",
+  "description" : "无 worker 能处理该 capability → FAILED",
+  "tasks" : [ {
+    "id" : "t1",
+    "capability" : "exotic",
+    "payload" : "x",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  } ],
+  "workers" : [ {
+    "id" : "w-sum",
+    "capabilities" : [ "summarize" ],
+    "behavior" : "COMPLETE",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  } ],
+  "expectedOutcomes" : {
+    "t1" : "FAILED"
+  },
+  "requiredEvents" : [ "NO_WORKER" ]
+}, {
+  "name" : "mixed-batch",
+  "description" : "混合:完成 + 交接完成 + 伪造令牌拒绝 + 重试成功",
+  "tasks" : [ {
+    "id" : "t1",
+    "capability" : "summarize",
+    "payload" : "d1",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  }, {
+    "id" : "t2",
+    "capability" : "triage",
+    "payload" : "case",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  }, {
+    "id" : "t3",
+    "capability" : "translate",
+    "payload" : "d3",
+    "maxAttempts" : 1,
+    "ttlMs" : 30000
+  }, {
+    "id" : "t4",
+    "capability" : "score",
+    "payload" : "x",
+    "maxAttempts" : 3,
+    "ttlMs" : 30000
+  } ],
+  "workers" : [ {
+    "id" : "w-sum",
+    "capabilities" : [ "summarize" ],
+    "behavior" : "COMPLETE",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  }, {
+    "id" : "w-triage",
+    "capabilities" : [ "triage" ],
+    "behavior" : "HANDOVER",
+    "handoverTarget" : "specialist",
+    "flakyFailures" : 0
+  }, {
+    "id" : "w-spec",
+    "capabilities" : [ "specialist" ],
+    "behavior" : "COMPLETE",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  }, {
+    "id" : "w-tr-evil",
+    "capabilities" : [ "translate" ],
+    "behavior" : "BAD_TOKEN",
+    "handoverTarget" : null,
+    "flakyFailures" : 0
+  }, {
+    "id" : "w-score",
+    "capabilities" : [ "score" ],
+    "behavior" : "FLAKY_THEN_OK",
+    "handoverTarget" : null,
+    "flakyFailures" : 1
+  } ],
+  "expectedOutcomes" : {
+    "t1" : "COMPLETED",
+    "t2" : "COMPLETED",
+    "t3" : "REJECTED",
+    "t4" : "COMPLETED"
+  },
+  "requiredEvents" : [ "HANDOVER", "TOKEN_REJECT", "RECLAIM", "COMPLETE" ]
+} ]

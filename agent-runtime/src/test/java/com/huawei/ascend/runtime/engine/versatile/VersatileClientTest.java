@@ -84,6 +84,8 @@ class VersatileClientTest {
         assertThat(lines).contains(
                 "data:{\"event\":\"message\",\"data\":{\"text\":\"hello\"}}",
                 "data:{\"event\":\"end\",\"data\":{}}");
+        // connection_closed event injected at normal EOF
+        assertThat(lines).anyMatch(line -> line.contains("connection_closed"));
     }
 
     @Test
@@ -116,10 +118,12 @@ class VersatileClientTest {
 
         List<String> lines = client.stream(req).toList();
 
-        assertThat(lines).hasSize(3);
+        // 3 SSE lines + 1 connection_closed injected at normal EOF
+        assertThat(lines).hasSize(4);
         assertThat(lines.get(0)).contains("\"text\":\"chunk1\"");
         assertThat(lines.get(1)).contains("\"text\":\"chunk2\"");
         assertThat(lines.get(2)).contains("\"event\":\"end\"");
+        assertThat(lines.get(3)).contains("connection_closed");
     }
 
     @Test
@@ -133,7 +137,8 @@ class VersatileClientTest {
                 Map.of("inputs", Map.of("query", "test")));
 
         List<String> lines = client.stream(req).toList();
-        assertThat(lines).hasSize(1);
+        // 1 SSE line (end) + 1 connection_closed
+        assertThat(lines).hasSize(2);
     }
 
     // ── Error paths ──

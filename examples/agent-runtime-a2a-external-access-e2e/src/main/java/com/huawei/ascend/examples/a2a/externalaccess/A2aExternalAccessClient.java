@@ -49,7 +49,7 @@ public final class A2aExternalAccessClient {
     }
 
     public AgentCard agentCard() throws Exception {
-        return new A2ACardResolver(baseUri.toString()).getAgentCard();
+        return A2ACardResolver.builder().baseUrl(baseUri.toString()).build().getAgentCard();
     }
 
     public EventKind sendMessage(String text) throws Exception {
@@ -360,18 +360,35 @@ public final class A2aExternalAccessClient {
         return Map.of("message", message, "configuration", configuration);
     }
 
+    /**
+     * Extracts the task id from a GetTask/CancelTask response.
+     * A2A 1.0.0 serializes these responses as a naked Task in result.
+     */
     static String taskIdFrom(JsonNode root) {
+        return root.path("result").path("id").asText();
+    }
+
+    /**
+     * Extracts the task state from a GetTask/CancelTask response.
+     * A2A 1.0.0 serializes these responses as a naked Task in result.
+     */
+    static String taskStateFrom(JsonNode root) {
+        return root.path("result").path("status").path("state").asText();
+    }
+
+    static String sendMessageTaskIdFrom(JsonNode root) {
         return root.path("result").path("task").path("id").asText();
     }
 
-    static String taskStateFrom(JsonNode root) {
+    static String sendMessageTaskStateFrom(JsonNode root) {
         return root.path("result").path("task").path("status").path("state").asText();
     }
 
     static String textFrom(JsonNode root) {
         StringBuilder text = new StringBuilder();
-        appendTextParts(root.path("result").path("task").path("status").path("message").path("parts"), text);
-        JsonNode artifacts = root.path("result").path("task").path("artifacts");
+        JsonNode task = root.path("result");
+        appendTextParts(task.path("status").path("message").path("parts"), text);
+        JsonNode artifacts = task.path("artifacts");
         if (artifacts.isArray()) {
             artifacts.forEach(artifact -> appendTextParts(artifact.path("parts"), text));
         }
@@ -399,15 +416,7 @@ public final class A2aExternalAccessClient {
     }
 
     private static String taskIdFromTaskNode(JsonNode task) {
-        JsonNode direct = task.path("id");
-        if (direct.isTextual()) {
-            return direct.asText();
-        }
-        JsonNode wrapped = task.path("task").path("id");
-        if (wrapped.isTextual()) {
-            return wrapped.asText();
-        }
-        return "";
+        return task.path("id").asText();
     }
 
     private static boolean isTerminalJson(JsonNode root) {
