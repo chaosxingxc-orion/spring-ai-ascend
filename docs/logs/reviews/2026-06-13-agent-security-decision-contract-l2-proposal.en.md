@@ -24,6 +24,23 @@ affects_artefact:
 > **Scope:** neutral security decision contract and the runtime-to-policy-engine boundary.
 > **Review order:** this L2 proposal should be reviewed after the L1 security decision chain direction is validated, as an implementation-boundary refinement under that L1 direction.
 
+## 0. Latest Main Alignment And Unsuitable Parts (2026-06-18)
+
+This refresh is aligned to `origin/main@61fae167` (merge PR #301). The contract must now represent bounded chained remote A2A after `REMOTE_RESUME`, not only a single outbound remote invocation.
+
+Key adjustments:
+
+- `SecurityEvaluationRequest` needs trusted metadata fields for A2A remote chains: `metadataTrustSource`, `requestMetadata`, `remoteInvocationChainId`, `remoteLegIndex`, and `maxRemoteLegs`.
+- `A2aRemoteAgentTarget` needs remote task/context/tool correlation: `remoteTaskId`, `remoteContextId`, `toolCallId`, `remoteInvocationChainId`, `remoteLegIndex`, and `maxRemoteLegs`.
+- `REMOTE_INVOCATION_LIMIT_EXCEEDED` must be a policy-visible reason/outcome, not only an orchestration error.
+- Raw A2A metadata remains evidence. It is trusted only when sourced from runtime-owned or host-validated metadata, not from model text or remote self-assertion.
+
+Unsuitable old assumptions:
+
+- Do not model `A2A_REMOTE_AGENT_CALL` as one isolated action without parent-chain context.
+- Do not let remote metadata become tenant/user/session policy truth unless the source is trusted.
+- Do not treat max remote legs as only reliability configuration; it is also a least-agency budget.
+
 ## 1. Background
 
 The parent proposal needs one unified executable decision point across tool, file, API, MCP, remote tool catalog, A2A remote agent, Versatile workflow, memory, sandbox, model, egress, and business actions. This L2 proposal defines that decision contract.
@@ -179,6 +196,11 @@ public record SecurityEvaluationRequest(
         String posture,
         String policyProfile,
         String delegationEnvelopeRef,
+        String metadataTrustSource,
+        String remoteInvocationChainId,
+        Integer remoteLegIndex,
+        Integer maxRemoteLegs,
+        Map<String, Object> requestMetadata,
         Instant requestedAt) {
 }
 ```
@@ -194,6 +216,9 @@ Rules:
 - `policyProfile` carries the deployer-selected preset such as `strict_allowlist`, `review_unknown`, `scoped_allowlist`, `least_agency_scoped`, or `regulated_prod`;
 - `delegationEnvelopeRef` points to the least-agency boundary used for this decision; it is not an NLU classification id;
 - `policyProfile` is also the deployer-selected autonomous-delegation preset; R2+ research/prod requests without a valid envelope fail closed.
+- `metadataTrustSource` identifies whether request metadata came from trusted ingress, host-validated runtime state, remote A2A metadata, or untrusted model/tool output;
+- `remoteInvocationChainId`, `remoteLegIndex`, and `maxRemoteLegs` are required for bounded remote A2A chains and must fail closed when absent or outside policy for `A2A_REMOTE_AGENT_CALL`;
+- `requestMetadata` carries small, redacted, policy-relevant metadata only; raw request metadata is not trusted or persisted by default.
 
 ### 4.6 CapabilityTarget
 
@@ -238,6 +263,12 @@ public record A2aRemoteAgentTarget(
         String remoteAgentId,
         String capability,
         URI endpoint,
+        String remoteTaskId,
+        String remoteContextId,
+        String toolCallId,
+        String remoteInvocationChainId,
+        Integer remoteLegIndex,
+        Integer maxRemoteLegs,
         Set<String> declaredSkills) implements CapabilityTarget {
 }
 
@@ -282,6 +313,8 @@ public record AgentStateTarget(
 ```
 
 The target object must describe the resource that policy needs, without leaking full payloads. For generated remote tools and Versatile workflow calls, the target must include enough catalog and parameter-shape metadata for policy to decide before the LLM-facing tool or REST call is admitted. Open schemas are allowed only when paired with explicit parameter policy and redacted preview hashing.
+
+For bounded remote A2A, the target also identifies the concrete remote leg. `remoteInvocationChainId` groups all remote legs under the parent task, `remoteLegIndex` orders the leg, and `maxRemoteLegs` records the runtime budget that policy must not exceed. If the runtime emits `REMOTE_INVOCATION_LIMIT_EXCEEDED`, the decision/event/audit path records it as the reason code for denying or terminating the next leg.
 
 ### 4.7 SecurityDecision
 
@@ -495,6 +528,7 @@ Rules:
 - [ ] `AgentStateActionTypeMappingTest`: InMemory/Redis/OpenJiuwen checkpointer read/write/release maps to state actions.
 - [ ] `FrameworkPermissionEvidenceMappingTest`: AgentScope/OpenJiuwen/JiuwenSwarm allow/ask/deny/bypass/disabled/override is mapped as evidence, not final decision.
 - [ ] `RemoteToolCatalogTargetMappingTest`: generated remote A2A tool specs include endpoint, card hash, open schema flag, and declared skill names before admission.
+- [ ] `A2aRemoteChainSecurityDecisionTest`: bounded remote A2A requests include metadata trust source, chain id, leg index, max legs, tool call id, and remote task/context refs; requests beyond `maxRemoteLegs` produce `REMOTE_INVOCATION_LIMIT_EXCEEDED`.
 - [ ] `VersatileWorkflowTargetMappingTest`: Versatile URL variables, query/header keys, input keys, and result extraction rules map to `VersatileWorkflowTarget`.
 - [ ] `InputRequiredContinuationTargetTest`: remote continuation and approval resume requests carry distinct trusted target metadata.
 - [ ] `OpaqueFrameworkSideEffectDenyTest`: opaque high-risk framework side effects are denied in research/prod.
@@ -530,3 +564,4 @@ Freeze impact:
 - Capability policy L2: `2026-06-13-agent-capability-permission-policy-l2-proposal.en.md`.
 - Current runtime SPI: `AgentRuntimeHandler`.
 - Current architecture boundary: runtime owns execution/adapters; service owns serviceized policy and durable state.
+- `origin/main@61fae167`: latest refreshed main baseline for bounded chained remote A2A semantics.

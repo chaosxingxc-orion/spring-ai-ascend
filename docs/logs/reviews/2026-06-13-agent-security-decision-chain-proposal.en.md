@@ -19,9 +19,12 @@ affects_artefact:
   - agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/agentscope
   - agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/a2a
   - agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/versatile
-  - agent-service-security-policy
-  - agent-security-control-plane-events
-  - graphmemory-starter-security-guard
+  - docs/contracts/security-approval.v1.yaml
+  - docs/contracts/security-decision-event.v1.yaml
+  - docs/contracts/audit-trail.v1.yaml
+  - a2a-shared-memory/src/main/java/com/huawei/ascend/a2a/memory
+  - collaboration/src/main/java/com/huawei/ascend/collab
+  - financial/src/main/java/com/bank/financial
 ---
 
 # Agent Security Decision Chain Proposal
@@ -32,6 +35,35 @@ affects_artefact:
 > **Input analysis:** `docs/reports/2026-06-13-agent-security-design-recommendations.zh.md`
 > **Boundary:** this proposal does not redesign `agent-runtime`, `AgentRuntimeHandler`, OpenJiuwen, AgentScope, or sandbox architecture. It defines how security decisions are embedded into the current repository architecture.
 > **Review order:** this PR should be reviewed top-down: first validate the L1 security decision chain direction, then review the three L2 proposals as implementation-boundary refinements under that L1 direction.
+
+## 0. Latest Main Alignment And Unsuitable Parts (2026-06-18)
+
+This refresh is aligned to `origin/main@61fae167` (merge PR #301, bounded chained remote A2A after `REMOTE_RESUME`). The root reactor still declares only `spring-ai-ascend-dependencies`, `agent-bus`, `agent-runtime`, and `agent-service`. The repository now also contains `agent-sdk/`, `a2a-shared-memory/`, `a2a-shared-memory-memopt/`, `collaboration/`, and `financial/`, but those directories are not yet root-reactor modules.
+
+| Earlier assumption / landing point | Latest main state | Proposal adjustment |
+|---|---|---|
+| Use `graphmemory-starter-security-guard` as a primary landing point | Graphmemory starter remains retired/reserved sidecar territory; main has no such active starter module | Do not use it as a primary landing point. Memory safety should first target `MemoryProvider` and optional `a2a-shared-memory` shared/experience-store guards. |
+| Treat `agent-sdk` as an already governed main path | `agent-sdk/` exists with code and POM, but is not aggregated by the root reactor and has no module metadata | Keep it as a candidate SDK seam; before runtime-enforced claims, decide whether it joins root reactor/module governance. |
+| Treat `collaboration` and `financial` as mandatory platform paths | Both exist in main, but look like example/domain workspaces outside the root reactor | Use them as policy fixtures and industry validation samples, not mandatory platform dependencies. |
+| Cover one `A2A_REMOTE_AGENT` call | Main now supports request-level A2A metadata, `remoteInput`, remote stream timeout/cancel handling, and bounded chained remote A2A legs after `REMOTE_RESUME` | Explicitly govern A2A metadata, tenant propagation, `toolCallId`/remote task correlation, chain depth, `max-legs`, and fallback equivalence. |
+| Expand `TrajectoryEvent` into the security fact source | The contract catalog still treats trajectory as telemetry; `audit-trail.v1.yaml` remains design-only | Keep paired `SecurityDecisionEvent` and audit receipts instead of turning trajectory into security truth. |
+
+Parts that should no longer move forward unchanged:
+
+- Do not use virtual landing points such as `agent-service-security-policy`, `agent-security-control-plane-events`, or `graphmemory-starter-security-guard`. Use explicit contract files, an `agent-runtime` port, an `agent-service` policy facade, and optional `a2a-shared-memory` / `collaboration` / `financial` validation paths.
+- Do not describe `agent-sdk`, `a2a-shared-memory`, `collaboration`, or `financial` as already governed mainline paths. They are candidate integration points or example validation surfaces until root POM, module metadata, architecture facts, and contract catalog are updated.
+- Do not claim deep local control over remote A2A or Versatile internals. This repository can enforce outbound endpoint/capability/metadata/tenant/fallback policy and treat remote sandbox claims as evidence unless certified receipts exist.
+
+### 0.1 2026-06-18 Main Delta: Bounded Chained Remote A2A
+
+After `origin/main@61fae167`, remote A2A is no longer a fixed "one remote call plus one local resume" shape. `A2aRemoteInvocationOrchestrator` can execute multiple remote legs serially within the same parent task, bounded by `agent-runtime.remote-invocation.max-legs`; when the limit is exceeded, the parent task returns `REMOTE_INVOCATION_LIMIT_EXCEEDED`.
+
+The security chain must therefore treat `A2A_REMOTE_AGENT` as a bounded chain, not a single capability call:
+
+- every remote leg carries `remoteInvocationChainId`, `remoteLegIndex`, `toolCallId`, remote task/context refs, tenant/session/task refs, and metadata trust source;
+- `max-legs` is a security budget, not only a reliability setting;
+- policy must prevent a model from bypassing single-call allowlists through repeated remote resume;
+- cancel, timeout, fallback, approval, and audit records must be per leg while still replaying the whole parent-task chain.
 
 ## 1. Background
 
@@ -165,6 +197,7 @@ The current mainline runtime already treats external agent and workflow systems 
 - OpenJiuwen can receive those remote tool specs through the runtime-owned installer and interrupt rail.
 - Versatile Adapter converts A2A message text and metadata into REST/SSE workflow calls.
 - `INPUT_REQUIRED` may mean remote workflow continuation, remote agent continuation, or a future security approval pause.
+- Remote A2A may continue after `REMOTE_RESUME` as a bounded chain of remote legs under `agent-runtime.remote-invocation.max-legs`.
 
 These capabilities strengthen the need for a repository-owned security chain. Remote Agent Card skills, Versatile workflow calls, A2A metadata/header forwarding, and remote continuation state are not trusted policy by themselves. They are capability descriptions and transport signals that must be admitted, scoped, audited, and, when needed, parked by this repository before side effects occur.
 
@@ -205,7 +238,7 @@ flowchart LR
 | A2A northbound guard | admission and capability decisions for Agent Card, `SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`, and push config entry points | runtime-enforced + A2A protocol tests |
 | OpenJiuwen security rail | maps OpenJiuwen native model/tool callbacks to security evaluation request and evidence | enforce only when pre-action blocking is possible; otherwise telemetry/audit only |
 | AgentScope security wrapper | maps AgentScope event/harness/client calls to the unified decision model | implemented when the path is governed |
-| A2A remote outbound guard | decorates remote invocation outbound port with endpoint, capability, tenant, and audit policy | runtime-enforced + negative tests |
+| A2A remote outbound guard | decorates remote invocation outbound port with endpoint, capability, tenant, metadata trust source, chain id, leg index, `max-legs`, and audit policy | runtime-enforced + negative tests |
 | memory guard | protects memory read/write data scope and poisoning/write policy | runtime-enforced + memory tests |
 | agent-state guard | protects OpenJiuwen/InMemory/Redis checkpointer read/write/release and tenant/session key scope | runtime-enforced + state adapter/provider tests |
 | `agent-service` policy engine | loads redlines, capability permissions, tenant posture, approval state, and returns decisions | serviceized policy + policy tests |
@@ -446,7 +479,7 @@ FALLBACK
 | Agent-state guard | framework checkpointer adapter | checkpoint read/write/release and tenant/session key scope |
 | Sandbox guard | sandbox gateway/provider path | sandbox acquire/execute/release decision and fail-closed behavior |
 | Remote tool catalog guard | `runtime.engine.a2a.RemoteAgentCardCache` / framework tool installer | remote Agent Card endpoint, skill-derived tool description, generated tool name, open input schema, card refresh drift |
-| Remote A2A guard | `runtime.engine.a2a` outbound decorator | endpoint policy, capability label, tenant, audit |
+| Remote A2A guard | `runtime.engine.a2a` outbound decorator | endpoint policy, capability label, tenant, metadata trust source, chain id, leg index, `max-legs`, per-leg audit |
 | Versatile workflow guard | `runtime.engine.versatile` | URL template variables, structured query/header forwarding, `inputs` body fields, result extraction, continuation semantics |
 | Trajectory/security event sink guard | runtime sink/exporter | masking and decision event emission |
 
@@ -577,6 +610,7 @@ This proposal is above the sandbox proposal:
 | `BashSandboxDecisionIT` | shell execution requested | routed to sandbox or suspended for approval |
 | `SandboxUnavailableNoLocalFallbackIT` | R4/R5 sandbox unavailable | prod fails closed |
 | `RemoteAgentPolicyIT` | remote A2A endpoint lacks allowed capability label | remote invocation denied |
+| `A2aRemoteChainPolicyIT` | remote A2A resumes into multiple bounded legs | each leg carries chain refs, enforces `max-legs`, and emits per-leg decision/audit refs |
 | `SessionSecurityTimelineIT` | full run includes model/tool/security events | taskId reconstructs policy decisions and action refs |
 
 ### 6.3 Red-Team Corpus
@@ -654,3 +688,4 @@ Turn scenarios from `docs/trustworthy/ai-risk-control-map.md` into executable fi
 - `docs/contracts/contract-catalog.md`: current contract authority.
 - `agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/spi/AgentRuntimeHandler.java`: current framework-neutral runtime SPI.
 - `agent-runtime/src/main/java/com/huawei/ascend/runtime/engine/spi/TrajectoryEvent.java`: current trajectory event contract.
+- `origin/main@61fae167`: latest refreshed main baseline for bounded chained remote A2A semantics.

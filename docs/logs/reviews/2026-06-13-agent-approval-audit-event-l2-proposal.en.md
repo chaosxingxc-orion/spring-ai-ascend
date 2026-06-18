@@ -25,6 +25,23 @@ affects_artefact:
 > **Scope:** approval suspension, security-event stream, audit receipt, and runtime resume behavior.
 > **Review order:** this L2 proposal should be reviewed after the L1 security decision chain direction is validated, as an implementation-boundary refinement under that L1 direction.
 
+## 0. Latest Main Alignment And Unsuitable Parts (2026-06-18)
+
+This refresh is aligned to `origin/main@61fae167` (merge PR #301). The approval/audit design must now represent bounded chained remote A2A after `REMOTE_RESUME`.
+
+Key adjustments:
+
+- A parent task may include multiple remote A2A legs; approval and audit refs must bind to the concrete leg, not only the parent task.
+- Security events and audit receipts need `remoteInvocationChainId`, `remoteLegIndex`, `toolCallId`, `remoteTaskId`, and `remoteContextId` when the decision concerns `A2A_REMOTE_AGENT_CALL`.
+- `REMOTE_INVOCATION_LIMIT_EXCEEDED` emits a security decision event and audit receipt when policy/audit is required, so replay shows why the next leg was denied or terminated.
+- A2A `INPUT_REQUIRED` remains a transport-visible state. Approval truth stays in `security-approval.v1.yaml`.
+
+Unsuitable old assumptions:
+
+- Do not treat a remote A2A continuation as approval truth.
+- Do not attach one broad approval to an entire unbounded remote chain.
+- Do not let approval expand the remote chain budget, delegation envelope, or per-leg capability allowlist.
+
 ## 1. Background
 
 The security decision chain cannot rely only on `allow` and `deny`. High-risk capability invocation often needs a third state: park the action, wait for human or controlled approval, resume if granted, and return a typed denial if denied or expired.
@@ -35,7 +52,7 @@ The design must preserve current repository constraints:
 
 - `TrajectoryEvent` is runtime telemetry and its v2 event-kind set is currently closed;
 - `agent-bus` already owns S2C callback primitives;
-- `agent-runtime` owns A2A execution and agent framework adapters;
+- `agent-runtime` owns A2A execution, bounded remote continuation metadata, and agent framework adapters;
 - `agent-service` can own serviceized approval state and durable audit implementation;
 - the retired `agent-middleware` must not be reintroduced as a runtime dependency.
 
@@ -122,6 +139,11 @@ The two streams correlate by:
 - `securityEvaluationRequestId`
 - `decisionId`
 - `auditRef`
+- `remoteInvocationChainId`
+- `remoteLegIndex`
+- `toolCallId`
+- `remoteTaskId`
+- `remoteContextId`
 
 This avoids breaking the current trajectory enum and OTel sink while enabling a full session security timeline.
 
@@ -308,10 +330,10 @@ Approval and audit state are repository-owned. AgentScope, OpenJiuwen, and A2A m
 | Framework / path | Native pause/resume shape | Repository-owned behavior |
 |---|---|---|
 | OpenJiuwen tool callback / interrupt | may expose tool callbacks or interrupt-like results | high-risk action must be parked before side effect; `approvalRef` / `auditRef` are created by this repository |
-| OpenJiuwen remote tool path | remote tool may expose interrupt or remote invocation metadata | outbound A2A approval remains correlated by `taskId` / `toolCallId` / `decisionId` |
+| OpenJiuwen remote tool path | remote tool may expose interrupt or remote invocation metadata | outbound A2A approval remains correlated by `taskId` / `toolCallId` / `decisionId` / chain-leg refs |
 | AgentScope local/harness adapter | `AgentScopeEvent.interrupted(...)` and stream events can express interruption | adapter maps interruption to repository approval or typed denial only when security decision says so |
 | AgentScope remote runtime client | external runtime may expose stream event only and not repository approval semantics | repository must pause before remote runtime call if approval is required |
-| A2A remote invocation | remote task can return `INPUT_REQUIRED` and continue later | repository approval may map to A2A input-required state, but result remains in `security-approval.v1.yaml` |
+| A2A remote invocation | remote task can return `INPUT_REQUIRED`, then `REMOTE_RESUME` can trigger another bounded remote leg | repository approval may map to A2A input-required state for one concrete chain leg, but result remains in `security-approval.v1.yaml` |
 | A2A northbound task | external clients may observe `TASK_STATE_INPUT_REQUIRED` or a parked task snapshot | this is transport/product state only; approval lifecycle, expiry, denial, and resume are owned by repository approval records |
 | SDK Java/HTTP tool mapper | no native HITL, but invocation is under repository adapter control | strongest place to park before side effect and resume after approval |
 
@@ -329,11 +351,25 @@ The current runtime can use `INPUT_REQUIRED` for several different waiting state
 
 | Waiting state | Required namespace | Required refs |
 |---|---|---|
-| remote A2A agent continuation | `runtime.waitingTarget=remote_agent` | `runtime.remoteAgentId`, `runtime.remoteTaskId`, `runtime.remoteContextId`, `runtime.toolCallId` |
+| remote A2A agent continuation | `runtime.waitingTarget=remote_agent` | `runtime.remoteAgentId`, `runtime.remoteTaskId`, `runtime.remoteContextId`, `runtime.toolCallId`, `runtime.remoteInvocationChainId`, `runtime.remoteLegIndex` |
 | Versatile workflow continuation | `runtime.waitingTarget=versatile_workflow` | `workflowId`, `conversationId`, scoped continuation metadata |
 | repository security approval | `security.waitingTarget=approval` | `approvalRef`, `decisionId`, `auditRef`, `delegationEnvelopeRef` |
 
 Runtime must reject resume attempts when the waiting target is absent, ambiguous, or supplied only by untrusted model/tool output. Transport-visible `INPUT_REQUIRED` is a carrier. Repository-owned approval records and security events are the source of truth.
+
+#### Bounded Remote A2A Approval And Audit Correlation
+
+When `REMOTE_RESUME` triggers another remote A2A leg, approval and audit records must identify the exact leg:
+
+| Field | Purpose |
+|---|---|
+| `remoteInvocationChainId` | groups every remote leg under the same parent task |
+| `remoteLegIndex` | orders the concrete remote leg and supports `max-legs` enforcement |
+| `toolCallId` | correlates the local generated remote tool call with the remote task |
+| `remoteTaskId` / `remoteContextId` | points to the remote A2A task/context visible over transport |
+| `maxRemoteLegs` | records the chain budget that approval cannot expand |
+
+If policy requires approval for one remote leg, the approval covers only that leg and its in-envelope scope. A later remote leg must be re-evaluated and, if required, receive its own approval/audit refs. When the chain limit is exceeded, runtime emits `REMOTE_INVOCATION_LIMIT_EXCEEDED` as a security event reason code and, where required, commits an audit receipt for the denied/terminated leg.
 
 #### Approval Boundary Under Least Agency
 
@@ -492,6 +528,7 @@ capability-permissions.yaml activeProfile=review_unknown or regulated_prod
 - [ ] `AuditCommitRecoveryTest`: post-action audit commit failure creates recovery record and alert.
 - [ ] `A2aApprovalInputRequiredTest`: approval-required decision maps to a parked A2A-visible state.
 - [ ] `A2aInputRequiredNotApprovalTruthTest`: A2A `INPUT_REQUIRED`, SSE, and push callback carry approval refs but cannot replace the approval record.
+- [ ] `A2aRemoteChainApprovalAuditTest`: each bounded remote leg records `remoteInvocationChainId`, `remoteLegIndex`, `toolCallId`, remote task/context refs, approval/audit refs, and `REMOTE_INVOCATION_LIMIT_EXCEEDED` when the chain budget is exceeded.
 - [ ] `InputRequiredNamespaceSeparationTest`: remote-agent continuation, Versatile continuation, and security approval cannot resume through each other's metadata namespace.
 - [ ] `RemoteToolCatalogAuditRedactionTest`: remote Agent Card skill text and generated tool schema produce hash/redacted summaries rather than raw audit payloads.
 - [ ] `VersatileAuditRedactionTest`: headers, query, inputs, and result extraction snippets are classified, redacted, and recorded by key/hash rather than raw payload.
@@ -526,3 +563,4 @@ Freeze impact:
 - ADR-0074: S2C callback contract.
 - ADR-0156: audit trail design authority.
 - Current runtime structure: `agent-runtime` owns execution/adapters; `agent-service` owns serviceized policy and durable state; `agent-bus` owns S2C/engine contracts.
+- `origin/main@61fae167`: latest refreshed main baseline for bounded chained remote A2A semantics.

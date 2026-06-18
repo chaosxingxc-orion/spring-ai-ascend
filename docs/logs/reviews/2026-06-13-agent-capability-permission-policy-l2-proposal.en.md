@@ -26,20 +26,38 @@ affects_artefact:
 > **Scope:** capability permission declarations, allowlist baseline, scope policy, profile presets, and runtime enforcement handoff.
 > **Review order:** this L2 proposal should be reviewed after the L1 security decision chain direction is validated, as an implementation-boundary refinement under that L1 direction.
 
+## 0. Latest Main Alignment And Unsuitable Parts (2026-06-18)
+
+This refresh is aligned to `origin/main@61fae167` (merge PR #301). The policy must account for bounded chained remote A2A after `REMOTE_RESUME`, plus the newly present but not root-reactor-governed `agent-sdk/`, `a2a-shared-memory/`, `collaboration/`, and `financial/` directories.
+
+Key adjustments:
+
+- `A2A_REMOTE_AGENT` scope must include metadata trust source, remote task/context/tool correlation, `remoteInvocationChainId`, `remoteLegIndex`, `maxRemoteLegs`, and per-leg capability allowlists.
+- `maxRemoteLegs` is a permission budget and least-agency boundary, not only an orchestration timeout/safety valve.
+- `WORKER_DELEGATION` is useful for collaboration-style coordinator/worker/subtask flows, but it should remain an optional policy kind until the collaboration module is formalized in root reactor/module metadata.
+- `MEMORY` scope should cover shared-memory ownership and poisoning protections, with `a2a-shared-memory` treated as an optional validation surface until module governance is finalized.
+- `agent-sdk` specs are candidate seams; the proposal must not claim they are already root-reactor governed.
+
+Unsuitable old assumptions:
+
+- Do not describe remote A2A permission as only "allowedSkills + tenant propagation + timeout".
+- Do not treat remote Agent Card metadata, model-supplied metadata, or remote metadata as trusted tenant/session policy facts.
+- Do not require `collaboration` or `financial` as platform dependencies; use them as fixtures or domain verification examples.
+
 ## 1. Background
 
 The parent proposal defines the overall security chain: security redlines -> capability risk declarations -> permission policy -> `SecurityDecisionPort` -> runtime guard -> trajectory/security-event/audit. This L2 proposal focuses only on the permission policy layer.
 
 Permission cannot cover tool calls only. High-risk runtime actions may come from tools, file reads/writes, HTTP/API calls, MCP, A2A remote agents, sandbox, memory, model calls, or business actions. They are all capability invocations with different resource types.
 
-The current main branch already has:
+The current main branch already has these candidate seams:
 
 - `SkillSpec` and `ToolSpec` in `agent-sdk`;
 - OpenJiuwen, AgentScope, remote A2A adapters, and trajectory emission in `agent-runtime`;
 - `agent-service` as the serviceization facade;
 - no active `agent-middleware` reactor module.
 
-Therefore, this design extends the current `agent-sdk` and `agent-runtime` seams. It does not depend on the retired `agent-middleware` hook chain.
+Therefore, this design extends the current `agent-sdk` and `agent-runtime` seams. Because `agent-sdk/` is not yet aggregated by the root reactor, SDK changes stay proposal-level until module governance catches up. The design does not depend on the retired `agent-middleware` hook chain.
 
 ## 2. Scope Statement
 
@@ -128,11 +146,12 @@ The allowlist answers whether the capability may be considered. Scope policy ans
 | `MCP` | MCP server tool/resource/prompt | indirect tool and data access |
 | `A2A_NORTHBOUND` | Agent Card, SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask, SubscribeToTask, push config | external access, task visibility, cancel/subscribe, push callback egress |
 | `REMOTE_TOOL_CATALOG` | remote Agent Card to generated tool catalog admission | prompt/tool injection, untrusted remote metadata, open schema drift |
-| `A2A_REMOTE_AGENT` | A2A remote agent capability | cross-agent trust and tenant propagation |
+| `A2A_REMOTE_AGENT` | A2A remote agent capability | cross-agent trust, tenant propagation, metadata spoofing, remote task/context/tool correlation, chain-budget exhaustion |
 | `VERSATILE_WORKFLOW` | Versatile Adapter REST/SSE workflow call | metadata/header forwarding, open business inputs, continuation ambiguity |
 | `RUNTIME_CONTROL` | `start`, `stop`, `isHealthy`, `cancel(taskId)` on runtime/handler surfaces | availability manipulation, cross-task interruption, health visibility |
 | `SANDBOX` | sandbox acquire/execute/file transfer | code execution and isolation |
 | `MEMORY` | memory read/write/retrieval | data leakage or memory poisoning |
+| `WORKER_DELEGATION` | collaboration coordinator, worker, subtask, or domain-agent delegation | hidden agency expansion, cross-agent scope drift, subtask fanout |
 | `AGENT_STATE` | framework checkpointer, Redis/InMemory state, release | session-state leakage, tenant crossover, recovery pollution |
 | `MODEL` | model invocation/fallback | data exposure and policy bypass |
 | `BUSINESS_ACTION` | payment, approval, customer export, production change | regulated side effect |
@@ -260,6 +279,10 @@ capabilities:
       a2a:
         allowedSkills: ["quote"]
         requireTenantPropagation: true
+        metadataTrustSources: ["trusted-ingress", "host-validated"]
+        requireRemoteCorrelation: true
+        maxRemoteLegs: 3
+        perLegCapabilityAllowlist: ["quote-agent.ask", "risk-agent.score"]
         maxTimeoutMs: 30000
 
   - selector:
@@ -501,11 +524,12 @@ This is not the final decision. It is a capability-specific input that later map
 | `McpScope` | server id, tool names, resource schemes, dynamic discovery flag, result limit |
 | `A2aNorthboundScope` | methods, agent-card visibility, task read/list/cancel/subscribe, push callback hosts, includeArtifacts |
 | `RemoteToolCatalogScope` | allowed card hosts, required card hash, generated tool name policy, open-schema allowance, skill-description size and deny patterns |
-| `A2aScope` | remote agent id, allowed skills/capabilities, tenant propagation, timeout |
+| `A2aScope` | remote agent id, allowed skills/capabilities, tenant propagation, metadata trust source, remote task/context/tool correlation, chain id, leg index, max remote legs, per-leg allowlist, timeout |
 | `VersatileWorkflowScope` | workflow id, URL variables, query/header allowlists, denied headers, input keys, payload limit, result extraction keys, continuation namespace |
 | `RuntimeControlScope` | lifecycle methods, own-task cancel scope, admin-only start/stop, health detail visibility |
 | `SandboxScope` | sandbox profile, network profile, filesystem transfer limits |
 | `MemoryScope` | memory kind, tenant/session bounds, read/write, retention, poisoning checks |
+| `WorkerDelegationScope` | coordinator id, worker id, subtask kind, allowed child capabilities, fanout budget, tenant/session/task boundary |
 | `AgentStateScope` | checkpointer kind, tenant/session key pattern, read/write/release, retention, cleanup policy |
 | `ModelScope` | model id/provider, prompt data class, fallback equivalence |
 | `BusinessScope` | action name, regulated role, dual-control, amount/threshold |
@@ -542,7 +566,7 @@ Rules:
 - OpenJiuwen tools keep their native representation, but mapping must preserve `capabilityKind`, `capability`, `resourceRef`, `action`, and security spec.
 - AgentScope wrappers follow the same rule; AgentScope does not need to understand this repository's policy language.
 - Remote Agent Card skills must pass `REMOTE_TOOL_CATALOG` admission before they become OpenJiuwen or AgentScope-visible tool specs. A discovered card is metadata, not authorization.
-- A2A remote tools are treated as `A2A_REMOTE_AGENT` plus capability label. They do not bypass permission policy.
+- A2A remote tools are treated as `A2A_REMOTE_AGENT` plus capability label, metadata namespace, runtime chain budget, and concrete remote task/context/tool correlation. They do not bypass permission policy.
 - Versatile Adapter calls are treated as `VERSATILE_WORKFLOW` plus API egress. Structured `headers`, `query`, and `inputs` are allowed only when they match `VersatileWorkflowScope`; body flexibility is not a policy bypass.
 - MCP dynamic discovery is denied by default unless policy explicitly allows the server and discovered tool/resource class.
 - If a tool's internal file/API access is runtime-observable, create a separate FILE/API request. If not observable, it must be pre-declared by the enclosing tool.
@@ -626,6 +650,10 @@ AgentScope / OpenJiuwen / JiuwenSwarm least-privilege mechanisms do not block th
 - [ ] `A2aNorthboundPermissionScopeTest`: unauthorized Agent Card, task read/list/cancel/subscribe, push config, and includeArtifacts are rejected.
 - [ ] `RemoteToolCatalogAdmissionPolicyTest`: remote Agent Card endpoint, card hash, generated tool name, skill description, and open schema are checked before tool exposure.
 - [ ] `A2aPermissionScopeTest`: unauthorized remote agent/capability is rejected and tenant propagation is required.
+- [ ] `A2aMetadataTrustScopeTest`: untrusted model/tool/remote metadata cannot supply tenant/session policy facts or bypass metadata namespace checks.
+- [ ] `A2aRemoteChainScopeTest`: `remoteInvocationChainId`, `remoteLegIndex`, `maxRemoteLegs`, and per-leg allowlists are enforced for bounded chained remote A2A.
+- [ ] `WorkerDelegationScopeTest`: collaboration worker/subtask delegation cannot exceed coordinator scope, fanout budget, or tenant/session/task boundary.
+- [ ] `SharedMemoryOwnershipScopeTest`: shared-memory reads/writes enforce owner, tenant/session, retention, and poisoning policy.
 - [ ] `VersatileWorkflowPermissionScopeTest`: URL variables, query keys, headers, inputs, payload size, result extraction, and continuation namespace are scoped.
 - [ ] `OpenRemoteToolSchemaRequiresParameterPolicyTest`: generated remote tools with `additionalProperties=true` are denied unless a parameter policy exists.
 - [ ] `PushCallbackEgressPolicyTest`: push callback URL must match the egress allowlist; private-network or unknown hosts are rejected.
@@ -663,3 +691,4 @@ Freeze impact:
 - Parent proposal: `2026-06-13-agent-security-decision-chain-proposal.en.md`.
 - L0 module facts: active modules are `agent-runtime`, `agent-service`, `agent-bus`, and BoM; historical `agent-middleware` is not the target module.
 - Contract catalog: current `agent-runtime` SPI surface includes `AgentRuntimeHandler`, `StreamAdapter`, `AgentCardProvider`, and `MemoryProvider`.
+- `origin/main@61fae167`: latest refreshed main baseline for bounded chained remote A2A semantics.

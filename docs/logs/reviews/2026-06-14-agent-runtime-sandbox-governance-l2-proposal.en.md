@@ -38,9 +38,27 @@ affects_artefact:
 # Agent Runtime Sandbox Governance L2 Proposal
 
 > **Date:** 2026-06-14
-> **Baseline:** `origin/main` at `88de3e37` (2026-06-15, after #266) plus the companion security decision-chain proposals listed above.
+> **Baseline:** `origin/main` at `61fae167` (2026-06-18, after #301) plus the companion security decision-chain proposals listed above.
 > **Scope:** sandbox governance, broker/provider boundary, runtime adapter touchpoints, resilience profiles, and verification.
 > **Non-goal:** this proposal does not redesign `agent-runtime`, `AgentRuntimeHandler`, OpenJiuwen, AgentScope, A2A, or Versatile. It defines sandbox-related capabilities under the current repository architecture.
+
+## 0. Latest Main Alignment And Unsuitable Parts (2026-06-18)
+
+This refresh is aligned to `origin/main@61fae167` (merge PR #301). Remote A2A is no longer accurately described as a static single-layer remote call path. Main now supports bounded chained remote legs after `REMOTE_RESUME`, constrained by `agent-runtime.remote-invocation.max-legs` and terminated with `REMOTE_INVOCATION_LIMIT_EXCEEDED` when the chain budget is exceeded.
+
+Sandbox-specific adjustments:
+
+- Remote A2A sandbox policy is still endpoint-level unless certified remote sandbox evidence exists, but it must now carry `remoteInvocationChainId`, `remoteLegIndex`, `toolCallId`, remote task/context refs, metadata trust source, and max-leg budget.
+- The sandbox design must not rely on a "no nested call" invariant. The truthful invariant is "bounded remote chain with explicit max-leg policy".
+- `REMOTE_INVOCATION_LIMIT_EXCEEDED` is a sandbox/security governance event when a denied next leg would otherwise request remote execution.
+- `agent-sdk/`, `a2a-shared-memory/`, `collaboration/`, and `financial/` are useful candidate validation surfaces, but not root-reactor-governed mandatory sandbox modules.
+
+Unsuitable old assumptions:
+
+- Do not describe remote orchestration as only single-layer.
+- Do not claim local sandbox control over remote internals.
+- Do not treat remote sandbox claims as proof unless certified and scoped.
+- Do not let sandbox fallback expand the remote chain budget or delegation envelope.
 
 ## 1. Executive Summary
 
@@ -49,7 +67,7 @@ The current mainline is converging on a runtime that owns cross-framework invoca
 - OpenJiuwen and AgentScope remain native execution frameworks.
 - A2A is the only northbound protocol exposed by runtime; blocking, SSE, and async task query are A2A method choices.
 - A2A remote agents are discovered through Agent Cards and exposed as runtime-managed tool specs.
-- Remote Agent orchestration is static-YAML driven, single-layer, and currently installed into OpenJiuwen as the caller-side tool path.
+- Remote Agent orchestration is static YAML / Agent Card / runtime remote invocation metadata driven, and current main supports bounded chained remote legs after `REMOTE_RESUME`.
 - Versatile Adapter maps A2A message text and metadata into REST/SSE workflow calls.
 - Middleware services are currently memory/state abstractions; sandbox must be a governed execution capability, not a generic middleware shortcut.
 - `INPUT_REQUIRED` now has multiple transport meanings: remote A2A continuation, Versatile workflow continuation, and possible future security approval.
@@ -119,7 +137,7 @@ This proposal uses only current `origin/main` architecture as authority:
 | OpenJiuwen adapter | Use OpenJiuwen-local rail/hook for pre-action tool/code/file/network interception when available. |
 | AgentScope adapter family | Use AgentScope-native SDK/Harness hooks or adapter wrapper; if no pre-action hook exists, only whole-run gating is truthful. Current remote-tool caller support is not equivalent to OpenJiuwen. |
 | A2A remote agent invocation | Decorate `RemoteAgentInvocationService` / `A2aRemoteAgentOutboundAdapter`; do not claim control over remote internals. |
-| Remote Agent Card tool catalog | Treat discovered skills/tool specs as metadata requiring catalog admission, not as trusted authorization. Static YAML, card cache, timeout, and nested-call limits remain owned by remote orchestration. |
+| Remote Agent Card tool catalog | Treat discovered skills/tool specs as metadata requiring catalog admission, not as trusted authorization. Static YAML, card cache, timeout, metadata trust, and bounded chain limits remain owned by remote orchestration policy. |
 | Versatile Adapter | Enforce endpoint/header/query/input/result-extraction policy before REST/SSE calls; do not claim deep sandbox inside the remote workflow. |
 | `TrajectoryEvent` | Operational telemetry. Security decisions and audit receipts remain paired security events or audit refs. |
 
@@ -188,7 +206,7 @@ Key boundaries:
 | OpenJiuwen local rail | Intercept pre-action tool/code/file/network calls and map them to sandbox execution | Enforce only when the rail is pre-action and blocking |
 | AgentScope local hook | Use SDK/Harness hook or adapter wrapper for high-risk tool/code/file/network calls | If hook is post-action only, high-risk paths must be denied or proxied; do not assume OpenJiuwen remote-tool semantics |
 | agent-sdk tool executor | Wrap `http:` and future high-risk tools with security decision and optional sandbox execution | Direct network/file/process calls must not bypass policy |
-| A2A remote outbound | Enforce endpoint/capability/tenant/fallback policy; optionally require certified remote sandbox evidence | Does not control remote internal tools; respects static YAML, timeout, cancel, and no-nested-call behavior |
+| A2A remote outbound | Enforce endpoint/capability/tenant/metadata/fallback policy; optionally require certified remote sandbox evidence | Does not control remote internal tools; respects static YAML, timeout, cancel, and bounded `max-legs` chain behavior |
 | Remote Agent Card catalog | Admit generated remote tools before exposing them to a caller adapter | Card skills are prompt/tool metadata, not trust; current mainline caller-side installation is OpenJiuwen-oriented |
 | Versatile workflow | Enforce URL template, query, header, input, result extraction, timeout, continuation namespace | Does not sandbox remote internal workflow execution |
 
@@ -593,6 +611,8 @@ Runtime tests:
 - `SingleHandlerSandboxPolicyTest`: sandbox policy is bound to the selected runtime handler/deployment, not a hidden multi-handler router.
 - `SdkToolSandboxGuardTest`: HTTP/file/process tool paths are routed or denied by policy.
 - `A2aRemoteSandboxEvidenceTest`: remote sandbox claims are evidence only unless certified.
+- `SandboxA2aMetadataTrustTest`: remote chain metadata includes chain id, leg index, tool call id, remote task/context refs, and trusted metadata source before sandbox evidence is accepted.
+- `SandboxA2aRemoteChainBudgetTest`: remote sandbox policy cannot exceed `max-legs`; attempts beyond budget produce `REMOTE_INVOCATION_LIMIT_EXCEEDED`.
 - `RemoteToolStaticCatalogPolicyTest`: static YAML/card-cache remote tools require catalog admission before exposure.
 - `VersatileSandboxPolicyHookTest`: header/query/input/result extraction policy is enforced before REST call.
 - `InputRequiredNamespaceSandboxTest`: sandbox wait state cannot resume remote or approval state.
@@ -610,7 +630,7 @@ E2E tests:
 - local fake provider dev flow;
 - jiuwenbox/OpenJiuwen high-risk tool flow;
 - OpenSandbox or K8s pool execution flow;
-- A2A parent calling remote agent where remote internal sandbox is not trusted as local proof;
+- A2A parent calling bounded remote agent legs where remote internal sandbox is not trusted as local proof;
 - Versatile workflow call with scoped metadata and redacted audit.
 
 ## 21. Rollout
@@ -644,6 +664,6 @@ E2E tests:
 
 ## Authority
 
-- Latest mainline runtime shape: `origin/main` at `88de3e37` (2026-06-15, after #266).
+- Latest mainline runtime shape: `origin/main` at `61fae167` (2026-06-18, after #301).
 - Companion security decision chain proposals define policy, decision, approval, audit, and least-agency boundaries.
 - Earlier sandbox proposals remain useful background, but this document is the current L2 sandbox governance proposal.
