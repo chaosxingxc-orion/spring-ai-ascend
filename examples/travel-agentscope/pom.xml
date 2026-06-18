@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  examples/travel-agentscope parent + aggregator POM.
+
+  Mirrors examples/travel/pom.xml but targets the AgentScope core SDK
+  (io.agentscope:agentscope-core) instead of the openJiuwen agent framework.
+  The agent library + a2a wrapper pair (agent-hotel, agent-hotel-a2a) is a
+  port of examples/travel/agent-hotel{,-a2a} to AgentScope, demonstrating that
+  an AgentScope-built agent can be hosted by agent-runtime via the
+  AgentScopeAgentRuntimeHandler bridge.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.0.5</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.huawei.ascend.examples</groupId>
+  <artifactId>travel-agentscope-parent</artifactId>
+  <version>0.2.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>spring-ai-ascend travel-agentscope examples parent</name>
+  <description>
+    Parent + aggregator for the AgentScope-flavored travel example set: the
+    library agent (agent-hotel, built on io.agentscope:agentscope-core) and
+    its A2A runtime wrapper (agent-hotel-a2a, hosted by agent-runtime via
+    AgentScopeAgentRuntimeHandler). Resolves agent-runtime and agentscope-core
+    from the local m2 repo.
+  </description>
+
+  <properties>
+    <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <ascend.runtime.version>0.2.0-SNAPSHOT</ascend.runtime.version>
+    <agentscope.core.version>1.0.12</agentscope.core.version>
+    <!-- protobuf 4.x is required by a2a-sdk's generated classes; see travel-parent pom for the rationale. -->
+    <protobuf.version>4.33.2</protobuf.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>agent-runtime</artifactId>
+        <version>${ascend.runtime.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.agentscope</groupId>
+        <artifactId>agentscope-core</artifactId>
+        <version>${agentscope.core.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>${protobuf.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java-util</artifactId>
+        <version>${protobuf.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.huawei.ascend.examples</groupId>
+        <artifactId>agent-travel-agentscope-hotel</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <repositories>
+    <repository>
+      <id>spring-milestones</id>
+      <name>Spring Milestones</name>
+      <url>https://repo.spring.io/milestone</url>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+  </repositories>
+
+  <modules>
+    <module>agent-hotel</module>
+    <module>agent-hotel-a2a</module>
+  </modules>
+</project>
