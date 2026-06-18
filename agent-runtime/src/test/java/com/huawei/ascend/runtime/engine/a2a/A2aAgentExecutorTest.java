@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -621,6 +622,40 @@ class A2aAgentExecutorTest {
         order.verify(emitter).complete(any(Message.class));
     }
 
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void multiRemoteLegs_areCapturedInNorthboundTrajectoryBeforeTerminal() {
+        TrajectorySettings settings = new TrajectorySettings(true,
+                Pattern.compile(TrajectoryMasking.DEFAULT_KEY_PATTERN), 256);
+        MultiRemoteTrajectoryHandler handler = new MultiRemoteTrajectoryHandler();
+        QueuedRemoteOutbound outbound = new QueuedRemoteOutbound(List.of(
+                List.of(remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                        "first remote final")),
+                List.of(remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                        "second remote final"))));
+        AgentEmitter emitter = newEmitter();
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of("trajectory.northbound", "true"));
+
+        new A2aAgentExecutor(handler, new RemoteAgentInvocationService(outbound), () -> true,
+                settings, List.of()).execute(ctx, emitter);
+
+        ArgumentCaptor<List> partsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(emitter, times(1)).addArtifact(partsCaptor.capture(), eq("task-1-trajectory"),
+                anyString(), any(), any(), any());
+        List<String> kinds = ((List<?>) partsCaptor.getValue()).stream()
+                .map(p -> String.valueOf(((Map<String, Object>) ((DataPart) p).data()).get("kind")))
+                .toList();
+        assertThat(kinds).filteredOn("RUN_START"::equals).hasSize(3);
+        assertThat(kinds).filteredOn("RUN_END"::equals).hasSize(3);
+        assertThat(kinds.get(kinds.size() - 1)).isEqualTo("RUN_END");
+        assertThat(handler.legEmitters).hasSize(3).allMatch(e -> e != TrajectoryEmitter.NOOP);
+
+        InOrder order = inOrder(emitter);
+        order.verify(emitter).addArtifact(anyList(), eq("task-1-trajectory"), anyString(), any(), any(), any());
+        order.verify(emitter).complete(any(Message.class));
+    }
+
     /**
      * A continuation request (task parked on remote INPUT_REQUIRED, user follow-up arrives)
      * is a fresh invocation with no prior flow: its northbound opt-in must open a trajectory
@@ -803,11 +838,15 @@ class A2aAgentExecutorTest {
     void remoteInvocationForwardsRequestMetadataAndDoesNotLetMessageMetadataOverwriteIt() {
         AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
         when(handler.agentId()).thenReturn("agent-x");
-        when(handler.execute(any())).thenAnswer(inv -> Stream.of("remote"));
-        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> remoteInterrupt(
-                new AgentExecutionResult.RemoteInvocation(
+        when(handler.execute(any())).thenAnswer(inv -> {
+            AgentExecutionContext context = inv.getArgument(0);
+            return Stream.of("REMOTE_RESUME".equals(context.getInputType()) ? "resumed" : "remote");
+        });
+        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> "remote".equals(value)
+                ? remoteInterrupt(new AgentExecutionResult.RemoteInvocation(
                         "remote-agent", "remote-agent", "tool-call-1",
-                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "hello remote")))));
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "hello remote")))
+                : AgentExecutionResult.completed("local final")));
         RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of(
                 remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED, "remote done")));
 
@@ -845,11 +884,15 @@ class A2aAgentExecutorTest {
     void remoteInvocationForwardsDefaultRuntimeMetadataWhenTenantMissing() {
         AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
         when(handler.agentId()).thenReturn("agent-x");
-        when(handler.execute(any())).thenAnswer(inv -> Stream.of("remote"));
-        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> remoteInterrupt(
-                new AgentExecutionResult.RemoteInvocation(
+        when(handler.execute(any())).thenAnswer(inv -> {
+            AgentExecutionContext context = inv.getArgument(0);
+            return Stream.of("REMOTE_RESUME".equals(context.getInputType()) ? "resumed" : "remote");
+        });
+        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> "remote".equals(value)
+                ? remoteInterrupt(new AgentExecutionResult.RemoteInvocation(
                         "remote-agent", "remote-agent", "tool-call-1",
-                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "hello remote")))));
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "hello remote")))
+                : AgentExecutionResult.completed("local final")));
         RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of(
                 remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED, "remote done")));
 
@@ -1030,29 +1073,153 @@ class A2aAgentExecutorTest {
     }
 
     @Test
-    void nestedRemoteInvocationAfterRemoteResumeFailsParentTask() {
+    void remoteInvocationAfterContinuationRemoteResumeInvokesNextRemoteAndCompletes() {
         AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
         when(handler.agentId()).thenReturn("agent-x");
-        when(handler.execute(any())).thenAnswer(inv -> Stream.of("resumed"));
-        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> remoteInterrupt(
-                new AgentExecutionResult.RemoteInvocation(
-                        "remote-agent-2",
-                        "remote-agent-2",
-                        "tool-call-2",
-                        "task-1",
-                        "ctx-1",
-                        "conversation-1",
-                        Map.of("remoteInput", "nested")))));
-        RecordingRemoteOutbound outbound = new RecordingRemoteOutbound(List.of(
-                remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED, "remote final")));
+        AtomicInteger handlerCalls = new AtomicInteger();
+        when(handler.execute(any())).thenAnswer(inv -> {
+            AgentExecutionContext context = inv.getArgument(0);
+            assertThat(context.getInputType()).isEqualTo("REMOTE_RESUME");
+            assertThat(context.getVariables()).containsEntry("runtime.remoteToolResult",
+                    handlerCalls.get() == 0 ? "first remote final" : "second remote final");
+            return Stream.of(handlerCalls.getAndIncrement() == 0 ? "second-remote" : "final");
+        });
+        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> "second-remote".equals(value)
+                ? remoteInterrupt(new AgentExecutionResult.RemoteInvocation(
+                        "remote-agent-2", "remote-agent-2", "tool-call-2",
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "nested")))
+                : AgentExecutionResult.completed("local final")));
+        QueuedRemoteOutbound outbound = new QueuedRemoteOutbound(List.of(
+                List.of(remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                        "first remote final")),
+                List.of(remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                        "second remote final"))));
 
         AgentEmitter emitter = newEmitter();
         new A2aAgentExecutor(handler, new RemoteAgentInvocationService(outbound))
                 .execute(remoteContinuationContext(), emitter);
 
+        assertThat(outbound.requests).hasSize(2);
+        assertThat(outbound.requests.get(0).remoteAgentId()).isEqualTo("remote-agent");
+        assertThat(outbound.requests.get(0).remoteTaskId()).isEqualTo("remote-task-1");
+        assertThat(outbound.requests.get(1).remoteAgentId()).isEqualTo("remote-agent-2");
+        assertThat(outbound.requests.get(1).remoteTaskId()).isNull();
+        assertThat(outbound.requests.get(1).message()).isEqualTo("nested");
+        verify(emitter).complete(any(Message.class));
+        verify(emitter, org.mockito.Mockito.never()).fail(any(Message.class));
+    }
+
+    @Test
+    void remoteInvocationAfterInitialRemoteResumeInvokesNextRemoteAndCompletes() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        AtomicInteger handlerCalls = new AtomicInteger();
+        when(handler.execute(any())).thenAnswer(inv -> {
+            AgentExecutionContext context = inv.getArgument(0);
+            int call = handlerCalls.getAndIncrement();
+            if (call == 0) {
+                assertThat(context.getInputType()).isEqualTo("USER_MESSAGE");
+                return Stream.of("first-remote");
+            }
+            assertThat(context.getInputType()).isEqualTo("REMOTE_RESUME");
+            assertThat(context.getVariables()).containsEntry("runtime.remoteToolResult",
+                    call == 1 ? "first remote final" : "second remote final");
+            return Stream.of(call == 1 ? "second-remote" : "final");
+        });
+        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> {
+            if ("first-remote".equals(value)) {
+                return remoteInterrupt(new AgentExecutionResult.RemoteInvocation(
+                        "remote-agent-1", "remote-agent-1", "tool-call-1",
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "first")));
+            }
+            if ("second-remote".equals(value)) {
+                return remoteInterrupt(new AgentExecutionResult.RemoteInvocation(
+                        "remote-agent-2", "remote-agent-2", "tool-call-2",
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "second")));
+            }
+            return AgentExecutionResult.completed("local final");
+        }));
+        QueuedRemoteOutbound outbound = new QueuedRemoteOutbound(List.of(
+                List.of(remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                        "first remote final")),
+                List.of(remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                        "second remote final"))));
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler, new RemoteAgentInvocationService(outbound))
+                .execute(requestContext(), emitter);
+
+        assertThat(outbound.requests).extracting(RemoteAgentInvocationService.RemoteAgentRequest::remoteAgentId)
+                .containsExactly("remote-agent-1", "remote-agent-2");
+        assertThat(outbound.requests).extracting(RemoteAgentInvocationService.RemoteAgentRequest::message)
+                .containsExactly("first", "second");
+        verify(handler, times(3)).execute(any());
+        verify(emitter).complete(any(Message.class));
+        verify(emitter, org.mockito.Mockito.never()).fail(any(Message.class));
+    }
+
+    @Test
+    void remoteInvocationAfterRemoteResumeStopsAtMaxLegs() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        AtomicInteger calls = new AtomicInteger();
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of("remote-" + calls.incrementAndGet()));
+        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> remoteInterrupt(
+                new AgentExecutionResult.RemoteInvocation(
+                        "remote-agent", "remote-agent", "tool-call-" + value,
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", value)))));
+        QueuedRemoteOutbound outbound = new QueuedRemoteOutbound(List.of(
+                List.of(remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                        "first remote final")),
+                List.of(remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                        "second remote final"))));
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler, new RemoteAgentInvocationService(outbound), () -> true,
+                TrajectorySettings.off(), List.of(), 1).execute(requestContext(), emitter);
+
         assertThat(outbound.requests).hasSize(1);
         assertThat(failureText(emitter))
-                .isEqualTo("NESTED_REMOTE_INVOCATION_UNSUPPORTED: remote A2A invocation after REMOTE_RESUME is not supported");
+                .isEqualTo("REMOTE_INVOCATION_LIMIT_EXCEEDED: remote A2A invocation exceeded max legs");
+    }
+
+    @Test
+    void remoteInvocationAfterRemoteResumeCanParkOnInputRequired() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        AtomicInteger handlerCalls = new AtomicInteger();
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(handlerCalls.getAndIncrement() == 0
+                ? "first-remote" : "second-remote"));
+        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> "first-remote".equals(value)
+                ? remoteInterrupt(new AgentExecutionResult.RemoteInvocation(
+                        "remote-agent-1", "remote-agent-1", "tool-call-1",
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "first")))
+                : remoteInterrupt(new AgentExecutionResult.RemoteInvocation(
+                        "remote-agent-2", "remote-agent-2", "tool-call-2",
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "second")))));
+        QueuedRemoteOutbound outbound = new QueuedRemoteOutbound(List.of(
+                List.of(remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                        "first remote final")),
+                List.of(new RemoteAgentInvocationService.RemoteAgentResult(
+                        RemoteAgentInvocationService.RemoteAgentResult.Type.INPUT_REQUIRED,
+                        "second remote asks",
+                        "remote-task-2",
+                        "remote-ctx-2",
+                        Map.of()))));
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler, new RemoteAgentInvocationService(outbound))
+                .execute(requestContext(), emitter);
+
+        ArgumentCaptor<Message> msgCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(emitter).requiresInput(msgCaptor.capture(), eq(false));
+        assertThat(outbound.requests).extracting(RemoteAgentInvocationService.RemoteAgentRequest::remoteAgentId)
+                .containsExactly("remote-agent-1", "remote-agent-2");
+        assertThat(msgCaptor.getValue().metadata())
+                .containsEntry("runtime.remoteAgentId", "remote-agent-2")
+                .containsEntry("runtime.remoteTaskId", "remote-task-2")
+                .containsEntry("runtime.remoteContextId", "remote-ctx-2")
+                .containsEntry("runtime.toolCallId", "tool-call-2");
     }
 
     @Test
@@ -1138,6 +1305,75 @@ class A2aAgentExecutorTest {
         assertThat(canceled).hasSize(1);
         assertThat(canceled.get(0).remoteAgentId()).isEqualTo("remote-agent");
         assertThat(canceled.get(0).remoteTaskId()).isEqualTo("remote-task-1");
+    }
+
+    @Test
+    void cancelDuringSecondRemoteLegCancelsActiveRemoteTaskBestEffort() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        AtomicInteger calls = new AtomicInteger();
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(calls.getAndIncrement() == 0
+                ? "first-remote" : "second-remote"));
+        when(handler.resultAdapter()).thenReturn(raw -> raw.map(value -> "first-remote".equals(value)
+                ? remoteInterrupt(new AgentExecutionResult.RemoteInvocation(
+                        "remote-agent-1", "remote-agent-1", "tool-call-1",
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "first")))
+                : remoteInterrupt(new AgentExecutionResult.RemoteInvocation(
+                        "remote-agent-2", "remote-agent-2", "tool-call-2",
+                        "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "second")))));
+
+        RequestContext ctx = requestContext();
+        AgentEmitter cancelEmitter = newEmitter();
+        java.util.concurrent.atomic.AtomicReference<A2aAgentExecutor> executorRef =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        List<RemoteAgentInvocationService.RemoteTaskReference> canceled = new ArrayList<>();
+        RemoteAgentInvocationService.OutboundPort outbound = new RemoteAgentInvocationService.OutboundPort() {
+            private int remoteCalls;
+
+            @Override
+            public List<RemoteAgentInvocationService.RemoteAgentResult> invoke(
+                    RemoteAgentInvocationService.RemoteAgentRequest request,
+                    Consumer<RemoteAgentInvocationService.RemoteAgentResult> eventConsumer) {
+                remoteCalls++;
+                if (remoteCalls == 1) {
+                    return List.of(remoteResult(RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                            "first remote final"));
+                }
+                eventConsumer.accept(new RemoteAgentInvocationService.RemoteAgentResult(
+                        RemoteAgentInvocationService.RemoteAgentResult.Type.MESSAGE,
+                        "second remote progress",
+                        "remote-task-2",
+                        "remote-ctx-2",
+                        Map.of()));
+                executorRef.get().cancel(ctx, cancelEmitter);
+                return List.of(new RemoteAgentInvocationService.RemoteAgentResult(
+                        RemoteAgentInvocationService.RemoteAgentResult.Type.COMPLETED,
+                        "second remote final",
+                        "remote-task-2",
+                        "remote-ctx-2",
+                        Map.of()));
+            }
+
+            @Override
+            public void cancel(RemoteAgentInvocationService.RemoteTaskReference reference) {
+                canceled.add(reference);
+            }
+        };
+
+        A2aAgentExecutor executor =
+                new A2aAgentExecutor(handler, new RemoteAgentInvocationService(outbound));
+        executorRef.set(executor);
+        AgentEmitter executeEmitter = newEmitter();
+        executor.execute(ctx, executeEmitter);
+
+        verify(cancelEmitter).cancel();
+        verify(handler, times(2)).execute(any());
+        verify(executeEmitter, org.mockito.Mockito.never()).complete(any(Message.class));
+        verify(executeEmitter, org.mockito.Mockito.never()).fail(any(Message.class));
+        assertThat(canceled).hasSize(1);
+        assertThat(canceled.get(0).remoteAgentId()).isEqualTo("remote-agent-2");
+        assertThat(canceled.get(0).remoteTaskId()).isEqualTo("remote-task-2");
+        assertThat(canceled.get(0).remoteContextId()).isEqualTo("remote-ctx-2");
     }
 
     @Test
@@ -1280,6 +1516,42 @@ class A2aAgentExecutorTest {
         }
     }
 
+    private static final class MultiRemoteTrajectoryHandler extends AbstractAgentRuntimeHandler {
+        private final List<TrajectoryEmitter> legEmitters = new ArrayList<>();
+        private int call;
+
+        private MultiRemoteTrajectoryHandler() {
+            super("agent-x");
+        }
+
+        @Override
+        protected Stream<?> doExecute(AgentExecutionContext context, TrajectoryEmitter trajectory) {
+            legEmitters.add(trajectory);
+            return Stream.of(switch (call++) {
+                case 0 -> "remote-1";
+                case 1 -> "remote-2";
+                default -> "final";
+            });
+        }
+
+        @Override
+        public StreamAdapter resultAdapter() {
+            return raw -> raw.map(value -> {
+                if ("remote-1".equals(value)) {
+                    return AgentExecutionResult.interrupted(new AgentExecutionResult.RemoteInvocation(
+                            "remote-agent-1", "remote-agent-1", "tool-call-1",
+                            "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "first")));
+                }
+                if ("remote-2".equals(value)) {
+                    return AgentExecutionResult.interrupted(new AgentExecutionResult.RemoteInvocation(
+                            "remote-agent-2", "remote-agent-2", "tool-call-2",
+                            "task-1", "ctx-1", "conversation-1", Map.of("remoteInput", "second")));
+                }
+                return AgentExecutionResult.completed("local final");
+            });
+        }
+    }
+
     /** Capture the structured error DataPart handed to fail(Message). */
     @SuppressWarnings("unchecked")
     private static Map<String, Object> failureData(AgentEmitter emitter) {
@@ -1306,6 +1578,33 @@ class A2aAgentExecutorTest {
                 RemoteAgentInvocationService.RemoteAgentRequest request,
                 Consumer<RemoteAgentInvocationService.RemoteAgentResult> eventConsumer) {
             requests.add(request);
+            if (eventConsumer != null) {
+                results.forEach(eventConsumer);
+            }
+            return results;
+        }
+
+        @Override
+        public void cancel(RemoteAgentInvocationService.RemoteTaskReference reference) {
+            canceled.add(reference);
+        }
+    }
+
+    private static final class QueuedRemoteOutbound implements RemoteAgentInvocationService.OutboundPort {
+        private final List<List<RemoteAgentInvocationService.RemoteAgentResult>> queuedResults;
+        private final List<RemoteAgentInvocationService.RemoteAgentRequest> requests = new ArrayList<>();
+        private final List<RemoteAgentInvocationService.RemoteTaskReference> canceled = new ArrayList<>();
+
+        private QueuedRemoteOutbound(List<List<RemoteAgentInvocationService.RemoteAgentResult>> queuedResults) {
+            this.queuedResults = new ArrayList<>(queuedResults);
+        }
+
+        @Override
+        public List<RemoteAgentInvocationService.RemoteAgentResult> invoke(
+                RemoteAgentInvocationService.RemoteAgentRequest request,
+                Consumer<RemoteAgentInvocationService.RemoteAgentResult> eventConsumer) {
+            requests.add(request);
+            List<RemoteAgentInvocationService.RemoteAgentResult> results = queuedResults.remove(0);
             if (eventConsumer != null) {
                 results.forEach(eventConsumer);
             }

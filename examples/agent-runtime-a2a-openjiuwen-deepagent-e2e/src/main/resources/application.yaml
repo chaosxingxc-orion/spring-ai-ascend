@@ -1,0 +1,18 @@
+debug: false
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: openjiuwen-deep-agent
+
+sample:
+  openjiuwen:
+    model-provider: ${SAA_SAMPLE_OPENJIUWEN_MODEL_PROVIDER:openai}
+    api-key: ${SAA_SAMPLE_LLM_API_KEY:sk-local-placeholder}
+    api-base: ${SAA_SAMPLE_OPENJIUWEN_API_BASE:http://localhost:4000/v1}
+    model-name: ${SAA_SAMPLE_LLM_MODEL:gpt-5.4-mini}
+    ssl-verify: ${SAA_SAMPLE_OPENJIUWEN_SSL_VERIFY:true}
+    checkpointer: ${SAA_SAMPLE_OPENJIUWEN_CHECKPOINTER:in-memory}
+    redis-url: ${SAA_SAMPLE_OPENJIUWEN_REDIS_URL:redis://localhost:6379}
+    workspace-path: ${SAA_SAMPLE_OPENJIUWEN_WORKSPACE_PATH:./target/deepagent-workspace}

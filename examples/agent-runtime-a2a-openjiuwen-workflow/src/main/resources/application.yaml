@@ -1,0 +1,37 @@
+# ── Workflow Agent (提问器) — default profile ──────────────────────
+# Run:  mvn spring-boot:run -f examples/.../pom.xml
+# The Questioner Workflow is exposed as the default agent at :8080.
+# A neighboring ReActAgent can discover it via remote-agents config.
+
+debug: false
+
+server:
+  port: ${SAA_WORKFLOW_PORT:8080}
+  shutdown: graceful
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: questioner-workflow
+      agent-card:
+        name: questioner-workflow
+        description: 提问器 Workflow Agent — 提一个固定问题，等待答案，回显答案并确认正确
+        version: "1.0"
+        skills:
+          - id: ask_question
+            name: ask_question
+            description: 提问器工具。调用此工具会向用户提一个问题，等待用户回答后返回结果。输入应为简短的指令如"提一个问题"，无需提供具体问题内容。
+
+sample:
+  openjiuwen:
+    model-provider: ${SAA_MODEL_PROVIDER:openai}
+    api-key: ${SAA_LLM_API_KEY:sk-local-placeholder}
+    api-base: ${SAA_LLM_API_BASE:http://localhost:4000/v1}
+    model-name: ${SAA_LLM_MODEL:gpt-5.4-mini}
+    ssl-verify: ${SAA_OPENJIUWEN_SSL_VERIFY:true}
+
+logging:
+  level:
+    root: WARN
+    com.huawei.ascend: INFO

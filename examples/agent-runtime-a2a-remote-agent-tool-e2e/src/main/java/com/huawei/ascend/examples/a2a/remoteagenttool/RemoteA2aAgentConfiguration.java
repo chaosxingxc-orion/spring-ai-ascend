@@ -74,22 +74,13 @@ public class RemoteA2aAgentConfiguration {
         }
 
         @Override
-        protected Object toOpenJiuwenInput(AgentExecutionContext context) {
-            String conversationId = context.getAgentStateKey();
-            boolean firstTurn = !STARTED_CONVERSATIONS.contains(conversationId);
-            LOG.info("remote-agent received message taskId={} conversationId={} turn={} messages={} text={}",
-                    context.getScope().taskId(),
-                    conversationId,
-                    firstTurn ? "first" : "continuation",
-                    context.getMessages().size(),
-                    context.lastUserText());
-            return super.toOpenJiuwenInput(context);
-        }
-
-        @Override
         protected Iterator<Object> runOpenJiuwenAgentStreaming(BaseAgent agent, Object input, String conversationId,
                 List<StreamMode> streamModes) {
             boolean firstTurn = STARTED_CONVERSATIONS.add(conversationId);
+            LOG.info("remote-agent received message conversationId={} turn={} inputType={}",
+                    conversationId,
+                    firstTurn ? "first" : "continuation",
+                    input == null ? "null" : input.getClass().getName());
             if (firstTurn) {
                 return Stream.<Object>of(
                         AgentExecutionResult.output("Remote agent first stream message 1: remote task started. "),

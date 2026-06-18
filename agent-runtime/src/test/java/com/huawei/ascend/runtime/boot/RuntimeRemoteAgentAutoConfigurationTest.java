@@ -9,9 +9,14 @@ import com.huawei.ascend.runtime.engine.a2a.A2aRemoteAgentOutboundAdapter;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentCardCache;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentInvocationService;
 import com.huawei.ascend.runtime.engine.a2a.RemoteAgentProperties;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenDeepAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenRemoteToolInstaller;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
+import com.openjiuwen.harness.deep_agent.DeepAgent;
+import com.openjiuwen.core.singleagent.schema.AgentCard;
+import com.openjiuwen.harness.schema.config.DeepAgentConfig;
+import com.openjiuwen.harness.workspace.Workspace;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -46,6 +51,25 @@ class RuntimeRemoteAgentAutoConfigurationTest {
                     assertThat(context).hasSingleBean(org.a2aproject.sdk.server.agentexecution.AgentExecutor.class);
                     assertThat(context.getBean(org.a2aproject.sdk.server.agentexecution.AgentExecutor.class))
                             .isInstanceOf(A2aAgentExecutor.class);
+                });
+    }
+
+    @Test
+    void remoteAgentToolInstallerIsInjectedIntoDeepAgentHandlers() {
+        contextRunner
+                .withUserConfiguration(DeepAgentHandlerConfiguration.class)
+                .withPropertyValues("agent-runtime.remote-agents[0].url=http://localhost:18081")
+                .run(context -> {
+                    assertThat(context).hasSingleBean(OpenJiuwenRemoteToolInstaller.class);
+                    DeepAgentHandler handler = context.getBean(DeepAgentHandler.class);
+                    handler.execute(new AgentExecutionContext(
+                            new com.huawei.ascend.runtime.common.RuntimeIdentity(
+                                    "tenant", "user", "session", "task", "deep-agent"),
+                            "USER_MESSAGE",
+                            List.of(com.huawei.ascend.runtime.common.RuntimeMessage.user("ping")),
+                            java.util.Map.of())).close();
+
+                    assertThat(handler.installRuntimeToolsCalled).isTrue();
                 });
     }
 
@@ -200,6 +224,44 @@ class RuntimeRemoteAgentAutoConfigurationTest {
                             com.huawei.ascend.runtime.engine.spi.AgentExecutionResult.completed(""));
                 }
             };
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class DeepAgentHandlerConfiguration {
+        @Bean
+        DeepAgentHandler deepAgentHandler() {
+            return new DeepAgentHandler();
+        }
+    }
+
+    static final class DeepAgentHandler extends OpenJiuwenDeepAgentRuntimeHandler {
+        private boolean installRuntimeToolsCalled;
+
+        private DeepAgentHandler() {
+            super("deep-agent");
+        }
+
+        @Override
+        protected DeepAgent createOpenJiuwenDeepAgent(AgentExecutionContext context) {
+            return new DeepAgent(
+                    AgentCard.builder().id("deep-agent").name("deep-agent").description("test").build(),
+                    DeepAgentConfig.builder().enableTaskLoop(true).build(),
+                    Workspace.builder().rootPath("./target/deep-agent-autoconfig-test").build()) {
+                @Override
+                public java.util.Iterator<Object> stream(
+                        java.util.Map<String, Object> inputs,
+                        com.openjiuwen.core.session.AgentSessionApi session,
+                        java.util.List<com.openjiuwen.core.session.stream.StreamMode> streamModes) {
+                    return java.util.List.of().iterator();
+                }
+            };
+        }
+
+        @Override
+        protected void installRuntimeTools(DeepAgent agent, AgentExecutionContext context) {
+            installRuntimeToolsCalled = true;
+            super.installRuntimeTools(agent, context);
         }
     }
 
