@@ -1,0 +1,9 @@
+{
+  "name": "a2d",
+  "description": "A2D (Architecture to Delivery) 工具链 — 步骤 3 架构更新稿生成与渲染、步骤 8 基线固化,以 4+1 为枢纽的两闸门模型。渲染器把结构化 4+1 数据变成静态审阅 HTML。",
+  "version": "0.1.0",
+  "author": { "name": "spring-ai-ascend" },
+  "license": "Apache-2.0",
+  "keywords": ["a2d", "architecture", "4+1", "baseline", "governance", "review"],
+  "skills": ["./skills/arch-update-draft", "./skills/baseline-freeze"]
+}

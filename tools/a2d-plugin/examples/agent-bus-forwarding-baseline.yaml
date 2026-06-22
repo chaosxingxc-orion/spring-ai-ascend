@@ -1,0 +1,167 @@
+# A2D 步骤 8 基线固化样例:agent-bus 转发运行时基线 v1
+# 内容来自真实 review-packets + Stage 12-15 落地事实(见 git log / memory)。
+# 用途:本地试跑 renderer,验证 4+1 数据模型 + 渲染链路端到端可用。
+version: agent-bus-forwarding-runtime-v1
+title: agent-bus 转发运行时 4+1 基线
+status: reviewed
+generated_at: 2026-06-22
+scope: >
+  类 MQ 转发内核(agent-bus)的运行态:持久化(Postgres)、claim/lease 投递循环、
+  重投策略(retry policy)、delivery transport(A2A HTTP adapter)。覆盖 Stage 12-15
+  已落地范围;真实 agent-runtime 端到端集成与生产载体部署为结转项。
+
+source_packets:
+  - docs/architecture/l0/10-governance/review-packets/agent-bus-architecture-review-draft.md
+  - docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md
+  - docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md
+  - docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-transport-candidates.md
+
+views:
+  logical:
+    summary: >
+      C-side(business_app)写消息到 agent-bus,经 ForwardingOutbox 持久化后由
+      ForwardingDispatchLoop 订阅投递,经 ForwardingDeliveryPort 抽象端口落到具体
+      transport(A2A HTTP adapter),消费方 agent-runtime 从 ForwardingInbox 收取。
+    risks:
+      - delivery 端口抽象与具体 transport(A2A)耦合度需持续守护,避免抽象泄漏
+      - ForwardingRetryPolicy 的重投时机策略与 transport 实现解耦(separation of concerns)
+  development:
+    summary: >
+      纯 Java 生产代码 + Postgres 持久化子包。ArchUnit 守护纯度:Spring/JDBC 圈进
+      persistence.jdbc 子包,业务内核保持框架无关。
+    allowed_dependencies:
+      - agent-bus 内核 → Spring JDBC(仅 persistence.jdbc 子包)
+      - ForwardingRetryPolicy → overflow-safe 指数退避(纯算子,无 I/O)
+      - A2aForwardingDeliveryPort → A2A HTTP SDK
+    forbidden_dependencies:
+      - agent-bus 内核不得直接 import Flyway(迁移归 persistence.jdbc/资源)
+      - 业务内核不得依赖 System::currentTimeMillis(注入 EpochClock,ArchUnit 强制)
+      - runtime 不得在 deliver 的非 lease 路径抛出未捕获 RuntimeException
+    risks:
+      - ArchUnit 纯度 trip-wire 范围随子包扩张需复核
+  process:
+    summary: >
+      ForwardingDispatchLoop 以 TickSource 驱动 runOnce:claim 未投递记录 → 续约 lease
+      → deliver → 按结果 ack/nack。无内嵌 scheduler,IdleStrategy 注入。
+    runtime_flows:
+      - claimDue 取代 findRetryable:SELECT FOR UPDATE SKIP LOCKED 取一条 PENDING
+      - 续约 DispatchLeasePolicy:deliver 前 renew,防止并发重复投递
+      - deliver 成功 → markDelivered;deliver 失败分类 → RETRY/重投/SKIP
+      - attemptCount 耗尽 → 进 DLQ,不留悬挂记录
+    failure_paths:
+      - deliver 抛非 lease RuntimeException → 兜底 skipped,留 DISPATCHING 待重投(不丢消息)
+      - lease 过期 → record 回 PENDING,由下一轮 claim 重新拾取
+      - worker tick 抛异常 → try-catch 恢复 + DispatchTickResult.skipped 自洽,不让 loop 死
+      - 自然 loop 永不触发续约 bug → 注入 EpochClock 修复(自然时钟难以测试)
+    risks:
+      - DispatchTickResult.skipped 路径的幂等性依赖 lease 闭环,跨实例重启边界需对账
+  physical:
+    summary: >
+      持久化载体 Postgres;agent-bus 自有 Spring JDBC adapter;迁移 Flyway V1;
+      多租户用 RLS(行级安全)隔离。real-SQL 验证载体用 Zonky embedded-postgres。
+    deployment_impact:
+      - Postgres schema V1:ForwardingOutbox / ForwardingInbox / Lease 三表 + DDL CHECK
+      - Flyway V1 migration 落 DDL + RLS 策略
+      - RLS:tenant_id 带内字段(R-C.c),session 变量设租户上下文
+      - adapter 不依赖具体载体生产可切:embedded-postgres(测)↔ 生产 PG ↔ Testcontainers
+    boundaries:
+      - 租户边界:RLS 行级隔离,无跨租户查询
+      - 数据边界:outbox(sender)/inbox(receiver)分表,claim/lease 闭环不跨表
+      - 凭证边界:PG 连接凭证由部署注入,agent-bus 不持有明文
+      - 网络边界:A2A HTTP adapter 出站,需出站策略与超时配置
+    risks:
+      - embedded-postgres 验证 ≠ 生产载体验证,连接池/超时生产参数待定
+  scenario:
+    scenarios:
+      - id: SC-001
+        actor: business_app(C-side)
+        flow: 写 outbox → dispatch loop claim → deliver via A2A → agent-runtime inbox
+        supported_by: ForwardingDispatchLoop + A2aForwardingDeliveryPort
+        contract: ForwardingDeliveryPort
+        harness: real-SQL contract test(embedded-postgres)
+        status: accepted
+      - id: SC-002
+        actor: ForwardingDispatchLoop
+        flow: deliver 失败 → 分类 → RETRY → 退避后重投
+        supported_by: ForwardingRetryPolicy
+        contract: overflow-safe 指数退避
+        harness: Stage 14 行为测试(5 个)
+        status: accepted
+      - id: SC-003
+        actor: ForwardingDispatchLoop
+        flow: lease 过期 → record 回 PENDING → 下轮 claim 重拾
+        supported_by: DispatchLeasePolicy + claim/lease
+        contract: lease-owner guarded mutation
+        harness: Stage 9 lease-safe contract test
+        status: accepted
+      - id: SC-004
+        actor: ForwardingDispatchLoop
+        flow: attemptCount 耗尽 → 进 DLQ,不留悬挂
+        supported_by: ForwardingRetryPolicy(exhausted→DLQ)
+        contract: retry policy 端口
+        harness: Stage 14 exhausted→DLQ 测试
+        status: accepted
+      - id: SC-005
+        actor: agent-runtime(receiver)
+        flow: A2A HTTP adapter 投递 → agent-runtime 收取处理
+        supported_by: A2aForwardingDeliveryPort + ForwardingEndpointResolver
+        contract: ForwardingDeliveryPort(A2A 实现)
+        harness: in-memory 替身(真实 agent-runtime 未跑通)
+        status: draft
+
+elements:
+  - {id: E-001, view: logical, type: module, name: agent-bus, owner: arch, responsibility: 类 MQ 转发内核,source_fact: l0-logical.puml, status: accepted}
+  - {id: E-002, view: logical, type: state, name: ForwardingOutbox, owner: arch, responsibility: sender 侧持久化,PENDING→DISPATCHING→DELIVERED,source_fact: forwarding-runtime-decision.md, status: accepted}
+  - {id: E-003, view: logical, type: state, name: ForwardingInbox, owner: arch, responsibility: receiver 侧持久化,source_fact: forwarding-runtime-decision.md, status: accepted}
+  - {id: E-004, view: logical, type: state, name: Lease, owner: arch, responsibility: claim/续约,owner-guarded mutation,source_fact: forwarding-runtime-decision.md, status: accepted}
+  - {id: E-005, view: logical, type: contract, name: ForwardingRetryPolicy, owner: arch, responsibility: 重投时机(退避/attemptCount/熔断),source_fact: Stage 14, status: accepted}
+  - {id: E-006, view: logical, type: contract, name: ForwardingDeliveryPort, owner: arch, responsibility: delivery 抽象端口,source_fact: Stage 8, status: accepted}
+  - {id: E-007, view: development, type: module, name: A2aForwardingDeliveryPort, owner: arch, responsibility: A2A HTTP transport adapter,source_fact: Stage 15, status: draft}
+  - {id: E-008, view: development, type: contract, name: ForwardingEndpointResolver, owner: arch, responsibility: endpoint 解析,source_fact: Stage 15, status: draft}
+  - {id: E-009, view: development, type: module, name: JdbcForwardingOutbox/Inbox, owner: arch, responsibility: Postgres JDBC adapter,source_fact: Stage 12, status: accepted}
+  - {id: E-010, view: process, type: module, name: ForwardingDispatchLoop, owner: arch, responsibility: dispatch worker(TickSource+IdleStrategy,无 scheduler),source_fact: Stage 10, status: accepted}
+  - {id: E-011, view: physical, type: deployment-plane, name: Postgres, owner: ops, responsibility: 持久化载体,source_fact: Stage 12, status: accepted}
+  - {id: E-012, view: physical, type: deployment-plane, name: Flyway V1 migration, owner: ops, responsibility: DDL + RLS 迁移,source_fact: Stage 12, status: accepted}
+  - {id: E-013, view: physical, type: deployment-plane, name: RLS, owner: ops, responsibility: tenant 行级隔离,source_fact: Stage 12, status: accepted}
+  - {id: E-014, view: logical, type: actor, name: agent-runtime, owner: arch, responsibility: receiver 消费方,source_fact: l0-logical.puml, status: accepted}
+  - {id: E-015, view: logical, type: actor, name: business_app, owner: business, responsibility: C-side 消息生产方,source_fact: l0-logical.puml, status: accepted}
+
+relationships:
+  - {id: R-001, view: logical, from: E-015, to: E-002, relation_type: writes, direction: one-way, sync_async: sync, contract_state: outbox PENDING, source_fact: SC-001}
+  - {id: R-002, view: process, from: E-010, to: E-002, relation_type: reads, direction: one-way, sync_async: sync, contract_state: claimDue SKIP LOCKED, source_fact: SC-001}
+  - {id: R-003, view: process, from: E-010, to: E-006, relation_type: calls, direction: one-way, sync_async: sync, contract_state: deliver, source_fact: SC-001}
+  - {id: R-004, view: development, from: E-007, to: E-014, relation_type: calls, direction: one-way, sync_async: async, contract_state: A2A HTTP, source_fact: SC-005}
+  - {id: R-005, view: development, from: E-007, to: E-008, relation_type: calls, direction: one-way, sync_async: sync, contract_state: endpoint resolve, source_fact: Stage 15}
+  - {id: R-006, view: process, from: E-005, to: E-002, relation_type: verifies, direction: one-way, sync_async: none, contract_state: 重投时机/退避, source_fact: Stage 14}
+  - {id: R-007, view: logical, from: E-014, to: E-003, relation_type: reads, direction: one-way, sync_async: sync, contract_state: inbox 收取, source_fact: SC-005}
+  - {id: R-008, view: physical, from: E-009, to: E-011, relation_type: deploys, direction: one-way, sync_async: none, contract_state: JDBC adapter, source_fact: Stage 12}
+  - {id: R-009, view: physical, from: E-012, to: E-011, relation_type: deploys, direction: one-way, sync_async: none, contract_state: V1 schema, source_fact: Stage 12}
+  - {id: R-010, view: physical, from: E-011, to: E-013, relation_type: owns, direction: one-way, sync_async: none, contract_state: tenant 隔离, source_fact: Stage 12}
+  - {id: R-011, view: logical, from: E-001, to: E-002, relation_type: owns, direction: one-way, sync_async: none, contract_state: 内核组件, source_fact: l0-logical.puml}
+  - {id: R-012, view: logical, from: E-001, to: E-010, relation_type: owns, direction: one-way, sync_async: none, contract_state: 内核组件, source_fact: Stage 10}
+
+accepted_facts:
+  - {id: AF-001, fact: 持久化载体裁决为 Postgres(Stage 12),source: agent-bus-forwarding-runtime-decision.md}
+  - {id: AF-002, fact: agent-bus 自有 Spring JDBC adapter(非共用 JdbcTemplate),source: Stage 12}
+  - {id: AF-003, fact: 迁移用 Flyway V1,DDL 含 CHECK 约束,source: Stage 12}
+  - {id: AF-004, fact: 多租户用 RLS 行级安全,tenant_id 带内字段(R-C.c),source: Stage 12}
+  - {id: AF-005, fact: real-SQL 载体用 Zonky embedded-postgres(adapter 不依赖载体可切),source: Stage 12}
+  - {id: AF-006, fact: 反压内核 = 消费方控速,MQ 只是载体之一(transport 评审核心结论),source: agent-bus-forwarding-runtime-transport-candidates.md}
+  - {id: AF-007, fact: ForwardingRetryPolicy 用 overflow-safe 指数退避(动态 shift 上限 62−highestSetBit(base)),source: Stage 14}
+  - {id: AF-008, fact: attemptCount 耗尽 → DLQ,重投策略与 delivery binding 解耦(separation of concerns),source: Stage 14}
+  - {id: AF-009, fact: delivery 端口 ForwardingDeliveryPort 由 A2A HTTP adapter 实现(Stage 15),source: Stage 15}
+  - {id: AF-010, fact: deny-by-default 校验:deferred 必须有 owner + 后续入口,source: baseline-rw}
+
+deferred:
+  - {id: DF-001, item: 真实 agent-runtime 端到端投递集成(SC-005 当前停在 in-memory 替身), owner: arch, trigger: agent-runtime 暴露可投递的 A2A endpoint, next_entry: H3 transport 集成议题}
+  - {id: DF-002, item: REMOTE_TASK_FAILED 等 A2A 失败码分类细化(MI9-004 未全覆盖), owner: arch, trigger: A2A 错误语义稳定, next_entry: A2A 错误码契约裁决}
+  - {id: DF-003, item: A2A HTTP adapter 连接池/超时/重试生产参数, owner: ops, trigger: 生产部署前, next_entry: 部署配置切片}
+  - {id: DF-004, item: 熔断器(circuit breaker)接入 retry policy, owner: arch, trigger: 超时/失败率可观测, next_entry: Stage 14 熔断裁决子项}
+  - {id: DF-005, item: puml→SVG 渲染管线(当前 review HTML 仅链接 .puml 源), owner: tooling, trigger: review-packet 需要内嵌图示, next_entry: build-plan §9 Q5}
+  - {id: DF-006, item: T1-T4 transport 候选最终裁决(当前 consumer-pull over DB 为不破 §6.2 的强反压候选,未最终闭环), owner: arch, trigger: 真实负载与 agent-runtime 能力明确, next_entry: H3 transport 裁决}
+
+release_risk:
+  - {id: RR-001, risk: transport 裁决未闭环(T1-T4 候选评审完成但未最终选定 push/pull/MQ), level: L2, mitigation: consumer-pull over DB 复用 Stage 12 claim/lease 作为不破 §6.2 的强反压候选,裁决前内核已可用}
+  - {id: RR-002, risk: 真实 JDBC 仅在 embedded-postgres 验证,生产 PG 未跑通, level: L2, mitigation: adapter 不依赖具体载体,生产部署可切 Testcontainers 或真实 PG 验证}
+  - {id: RR-003, risk: 端到端投递尚未跑通真实 agent-runtime(SC-005 draft), level: L3, mitigation: delivery 端口抽象已就位,A2A adapter 可替换;集成前内核逻辑由 real-SQL + 行为测试覆盖}
+  - {id: RR-004, risk: ArchUnit 纯度 trip-wire 范围随子包扩张, level: L1, mitigation: Spring/JDBC 已圈进 persistence.jdbc,持续在 CI 守护}

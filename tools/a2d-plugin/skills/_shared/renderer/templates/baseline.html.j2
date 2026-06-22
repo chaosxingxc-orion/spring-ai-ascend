@@ -1,0 +1,300 @@
+{# 4+1 基线审阅 HTML 模板(full 模式)。
+   视觉沿用 a2d-expanded-flow.html 色板;布局针对 4+1 基线内容(五视图卡片 + 元素/关系事实表 + accepted/deferred/risk)。
+   输入变量:baseline(dict)、title(str)、mode(str)。 #}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} — 4+1 基线</title>
+  <style>
+    :root {
+      --paper: #f7f4ed;
+      --ink: #172033;
+      --muted: #657184;
+      --line: #d7d0c4;
+      --panel: #ffffff;
+      --blue: #2454d6;
+      --blue-soft: #e5ecff;
+      --green: #0f7c59;
+      --green-soft: #ddf4ea;
+      --amber: #a86200;
+      --amber-soft: #fff0d2;
+      --red: #bd3434;
+      --red-soft: #f8dddd;
+      --violet: #6548bf;
+      --violet-soft: #eae4ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      line-height: 1.55;
+    }
+    header {
+      padding: 34px 48px 26px;
+      background: linear-gradient(180deg, #ffffff 0%, var(--paper) 100%);
+      border-bottom: 1px solid var(--line);
+    }
+    .kicker {
+      display: inline-flex; align-items: center; gap: 10px;
+      color: var(--blue); font-size: 13px; font-weight: 700; margin-bottom: 12px;
+    }
+    .kicker::before {
+      content: ""; display: inline-block; width: 32px; height: 4px; background: var(--blue);
+    }
+    h1 { margin: 0; font-size: clamp(26px, 3.2vw, 40px); line-height: 1.15; max-width: 1040px; }
+    .subtitle { margin: 16px 0 0; color: var(--muted); font-size: 16px; }
+    .subtitle code { background: var(--blue-soft); color: var(--blue); padding: 1px 6px; border-radius: 3px; font-size: 14px; }
+    .scope { margin: 12px 0 0; color: var(--ink); font-size: 15px; max-width: 980px; }
+    .badge {
+      display: inline-block; padding: 2px 10px; border-radius: 11px;
+      font-size: 12px; font-weight: 700; letter-spacing: .3px;
+    }
+    .badge-accepted { background: var(--green-soft); color: var(--green); }
+    .badge-draft { background: var(--amber-soft); color: var(--amber); }
+    .badge-reviewed { background: var(--blue-soft); color: var(--blue); }
+    .badge-superseded { background: var(--red-soft); color: var(--red); }
+    main { padding: 28px 48px 56px; max-width: 1240px; margin: 0 auto; }
+    .section { margin-bottom: 36px; }
+    .section > h2 {
+      font-size: 20px; margin: 0 0 16px; padding-bottom: 8px;
+      border-bottom: 2px solid var(--line); color: var(--ink);
+    }
+    .overview {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 8px;
+    }
+    .stat {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+      padding: 18px 20px; display: flex; flex-direction: column; gap: 4px;
+    }
+    .stat .num { font-size: 30px; font-weight: 800; line-height: 1; }
+    .stat .lbl { font-size: 13px; color: var(--muted); }
+    .stat-green { border-left: 5px solid var(--green); }
+    .stat-green .num { color: var(--green); }
+    .stat-amber { border-left: 5px solid var(--amber); }
+    .stat-amber .num { color: var(--amber); }
+    .stat-red { border-left: 5px solid var(--red); }
+    .stat-red .num { color: var(--red); }
+    .stat-blue { border-left: 5px solid var(--blue); }
+    .stat-blue .num { color: var(--blue); }
+    .sources { margin: 0; padding-left: 20px; }
+    .sources code { background: var(--paper); border: 1px solid var(--line); padding: 1px 6px; border-radius: 3px; font-size: 13px; }
+    .view-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .view-card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px;
+    }
+    .view-card h3 { margin: 0 0 10px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+    .vtag { font-size: 11px; color: var(--muted); background: var(--paper); padding: 1px 7px; border-radius: 8px; font-weight: 600; }
+    .vsummary { margin: 0 0 10px; font-size: 14px; }
+    .vempty { margin: 0; color: var(--muted); font-style: italic; font-size: 14px; }
+    .vfield { margin: 8px 0; }
+    .vflabel { display: inline-block; font-size: 12px; font-weight: 700; color: var(--violet); margin-bottom: 3px; }
+    .vfield ul { margin: 0; padding-left: 20px; }
+    .vfield li { font-size: 13.5px; margin: 2px 0; }
+    .vfield.forbidden .vflabel { color: var(--red); }
+    table.grid {
+      width: 100%; border-collapse: collapse; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 13.5px;
+    }
+    table.grid th, table.grid td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+    table.grid th { background: #f1ece1; font-weight: 700; font-size: 12.5px; color: var(--ink); }
+    table.grid tr:last-child td { border-bottom: none; }
+    table.grid td code { background: var(--paper); padding: 1px 5px; border-radius: 3px; font-size: 12.5px; }
+    table.mini { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+    table.mini th, table.mini td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+    table.mini th { background: var(--paper); font-size: 11.5px; color: var(--muted); }
+    .arrow { color: var(--muted); }
+    .l3 { color: var(--red); font-weight: 700; }
+    .l2 { color: var(--amber); font-weight: 700; }
+    .l1 { color: var(--green); font-weight: 700; }
+    .note {
+      background: var(--blue-soft); border-left: 4px solid var(--blue); padding: 12px 16px;
+      border-radius: 0 8px 8px 0; font-size: 14px; margin: 12px 0;
+    }
+    footer {
+      padding: 24px 48px; border-top: 1px solid var(--line); color: var(--muted);
+      font-size: 13px; text-align: center;
+    }
+    footer code { background: var(--paper); padding: 1px 5px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="kicker">4+1 架构基线 · A2D 步骤 8(基线固化)</div>
+    <h1>{{ title }}</h1>
+    <p class="subtitle">
+      <span class="badge badge-{{ baseline.status }}">{{ baseline.status }}</span>
+      版本 <code>{{ baseline.version }}</code>
+      {% if baseline.generated_at %}· 生成于 {{ baseline.generated_at }}{% endif %}
+    </p>
+    {% if baseline.scope %}<p class="scope">{{ baseline.scope }}</p>{% endif %}
+  </header>
+
+  <main>
+    {# ── 概览 ── #}
+    <section class="section">
+      <div class="overview">
+        <div class="stat stat-green"><span class="num">{{ (baseline.accepted_facts or []) | length }}</span><span class="lbl">accepted facts</span></div>
+        <div class="stat stat-amber"><span class="num">{{ (baseline.deferred or []) | length }}</span><span class="lbl">deferred 项</span></div>
+        <div class="stat stat-red"><span class="num">{{ (baseline.release_risk or []) | length }}</span><span class="lbl">release risk</span></div>
+        <div class="stat stat-blue"><span class="num">{{ (baseline.elements or []) | length }}</span><span class="lbl">elements / {{ (baseline.relationships or []) | length }} rel</span></div>
+      </div>
+    </section>
+
+    {% if baseline.source_packets %}
+    <section class="section">
+      <h2>来源评审包</h2>
+      <ul class="sources">
+        {% for s in baseline.source_packets %}<li><code>{{ s }}</code></li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {# ── 五视图 ── #}
+    <section class="section">
+      <h2>4+1 视图</h2>
+      <div class="view-grid">
+        {% for vkey, vlabel in [('logical','逻辑视图'),('development','开发视图'),('process','进程视图'),('physical','物理视图'),('scenario','场景视图')] %}
+          {% set v = (baseline.views or {}).get(vkey) %}
+          <article class="view-card">
+            <h3>{{ vlabel }} <span class="vtag">{{ vkey }}</span></h3>
+            {% if not v %}
+              <p class="vempty">未定义</p>
+            {% else %}
+              {% if v.summary %}<p class="vsummary">{{ v.summary }}</p>{% endif %}
+              {% if vkey == 'development' %}
+                {% if v.allowed_dependencies %}<div class="vfield"><span class="vflabel">允许依赖</span><ul>{% for x in v.allowed_dependencies %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+                {% if v.forbidden_dependencies %}<div class="vfield forbidden"><span class="vflabel">禁止依赖</span><ul>{% for x in v.forbidden_dependencies %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+              {% elif vkey == 'process' %}
+                {% if v.runtime_flows %}<div class="vfield"><span class="vflabel">运行时流程</span><ul>{% for x in v.runtime_flows %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+                {% if v.failure_paths %}<div class="vfield"><span class="vflabel">失败 / 重试 / 取消路径</span><ul>{% for x in v.failure_paths %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+              {% elif vkey == 'physical' %}
+                {% if v.deployment_impact %}<div class="vfield"><span class="vflabel">部署影响</span><ul>{% for x in v.deployment_impact %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+                {% if v.boundaries %}<div class="vfield"><span class="vflabel">数据 / 租户 / 凭证 / 网络边界</span><ul>{% for x in v.boundaries %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+              {% elif vkey == 'scenario' %}
+                {% if v.scenarios %}
+                <table class="mini">
+                  <thead><tr><th>ID</th><th>Actor</th><th>Flow</th><th>支撑</th><th>契约</th><th>harness</th><th>状态</th></tr></thead>
+                  <tbody>
+                  {% for s in v.scenarios %}
+                    <tr><td>{{ s.id }}</td><td>{{ s.actor }}</td><td>{{ s.flow }}</td><td>{{ s.supported_by }}</td><td>{{ s.contract }}</td><td>{{ s.harness }}</td><td><span class="badge badge-{{ s.status }}">{{ s.status }}</span></td></tr>
+                  {% endfor %}
+                  </tbody>
+                </table>
+                {% endif %}
+              {% endif %}
+              {% if v.risks %}<div class="vfield forbidden"><span class="vflabel">评审风险</span><ul>{% for x in v.risks %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    {# ── 元素事实表 ── #}
+    {% if baseline.elements %}
+    <section class="section">
+      <h2>元素事实表 <span class="vtag">对应 review-packet §3.1</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>视图</th><th>类型</th><th>名称</th><th>owner</th><th>职责</th><th>来源</th><th>状态</th></tr></thead>
+        <tbody>
+        {% for el in baseline.elements %}
+          <tr>
+            <td><code>{{ el.id }}</code></td>
+            <td>{{ el.view }}</td><td>{{ el.type }}</td><td>{{ el.name }}</td>
+            <td>{{ el.owner or '—' }}</td><td>{{ el.responsibility or '—' }}</td>
+            <td>{{ el.source_fact or '—' }}</td>
+            <td><span class="badge badge-{{ el.status }}">{{ el.status }}</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+    {# ── 关系事实表 ── #}
+    {% if baseline.relationships %}
+    <section class="section">
+      <h2>关系事实表 <span class="vtag">对应 review-packet §3.2</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>视图</th><th>from</th><th></th><th>to</th><th>关系</th><th>方向</th><th>同步</th><th>契约/状态</th></tr></thead>
+        <tbody>
+        {% for rel in baseline.relationships %}
+          <tr>
+            <td><code>{{ rel.id }}</code></td><td>{{ rel.view }}</td>
+            <td><code>{{ rel.from }}</code></td>
+            <td class="arrow">→</td>
+            <td><code>{{ rel.to }}</code></td>
+            <td>{{ rel.relation_type }}</td><td>{{ rel.direction or '—' }}</td><td>{{ rel.sync_async or '—' }}</td>
+            <td>{{ rel.contract_state or '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+    {# ── accepted facts ── #}
+    {% if baseline.accepted_facts %}
+    <section class="section">
+      <h2>已接受事实 <span class="vtag">accepted</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>事实</th><th>来源</th></tr></thead>
+        <tbody>
+        {% for af in baseline.accepted_facts %}
+          <tr><td><code>{{ af.id }}</code></td><td>{{ af.fact }}</td><td>{{ af.source or '—' }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+    {# ── deferred ── #}
+    {% if baseline.deferred %}
+    <section class="section">
+      <h2>结转项 <span class="vtag">deferred · 必须有 owner + 后续入口</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>事项</th><th>owner</th><th>触发条件</th><th>后续入口</th></tr></thead>
+        <tbody>
+        {% for d in baseline.deferred %}
+          <tr><td><code>{{ d.id }}</code></td><td>{{ d.item }}</td><td>{{ d.owner }}</td><td>{{ d.trigger }}</td><td>{{ d.next_entry }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+    {# ── release risk ── #}
+    {% if baseline.release_risk %}
+    <section class="section">
+      <h2>发布风险 <span class="vtag">release risk</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>风险</th><th>等级</th><th>缓解</th></tr></thead>
+        <tbody>
+        {% for r in baseline.release_risk %}
+          <tr>
+            <td><code>{{ r.id }}</code></td><td>{{ r.risk }}</td>
+            <td><span class="{{ r.level | lower }}">{{ r.level }}</span></td>
+            <td>{{ r.mitigation or '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+    <div class="note">
+      <strong>读法:</strong>本页是 4+1 基线的静态审阅视图。元素表/关系表对应
+      <code>review-packets/_TEMPLATE.md §3</code>,accepted/deferred/risk 对应 §9。
+      deferred 项必须带 owner 和后续入口——没有后续入口的结转等于丢失。
+    </div>
+  </main>
+
+  <footer>
+    A2D 4+1 基线 · <code>{{ baseline.version }}</code> · 由 <code>a2d-plugin renderer</code> 渲染 ·
+    deny-by-default 校验由 <code>baseline-rw</code> 守护
+  </footer>
+</body>
+</html>

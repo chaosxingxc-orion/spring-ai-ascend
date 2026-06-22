@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>agent-bus 转发运行时 4+1 基线 — 4+1 基线</title>
+  <style>
+    :root {
+      --paper: #f7f4ed;
+      --ink: #172033;
+      --muted: #657184;
+      --line: #d7d0c4;
+      --panel: #ffffff;
+      --blue: #2454d6;
+      --blue-soft: #e5ecff;
+      --green: #0f7c59;
+      --green-soft: #ddf4ea;
+      --amber: #a86200;
+      --amber-soft: #fff0d2;
+      --red: #bd3434;
+      --red-soft: #f8dddd;
+      --violet: #6548bf;
+      --violet-soft: #eae4ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      line-height: 1.55;
+    }
+    header {
+      padding: 34px 48px 26px;
+      background: linear-gradient(180deg, #ffffff 0%, var(--paper) 100%);
+      border-bottom: 1px solid var(--line);
+    }
+    .kicker {
+      display: inline-flex; align-items: center; gap: 10px;
+      color: var(--blue); font-size: 13px; font-weight: 700; margin-bottom: 12px;
+    }
+    .kicker::before {
+      content: ""; display: inline-block; width: 32px; height: 4px; background: var(--blue);
+    }
+    h1 { margin: 0; font-size: clamp(26px, 3.2vw, 40px); line-height: 1.15; max-width: 1040px; }
+    .subtitle { margin: 16px 0 0; color: var(--muted); font-size: 16px; }
+    .subtitle code { background: var(--blue-soft); color: var(--blue); padding: 1px 6px; border-radius: 3px; font-size: 14px; }
+    .scope { margin: 12px 0 0; color: var(--ink); font-size: 15px; max-width: 980px; }
+    .badge {
+      display: inline-block; padding: 2px 10px; border-radius: 11px;
+      font-size: 12px; font-weight: 700; letter-spacing: .3px;
+    }
+    .badge-accepted { background: var(--green-soft); color: var(--green); }
+    .badge-draft { background: var(--amber-soft); color: var(--amber); }
+    .badge-reviewed { background: var(--blue-soft); color: var(--blue); }
+    .badge-superseded { background: var(--red-soft); color: var(--red); }
+    main { padding: 28px 48px 56px; max-width: 1240px; margin: 0 auto; }
+    .section { margin-bottom: 36px; }
+    .section > h2 {
+      font-size: 20px; margin: 0 0 16px; padding-bottom: 8px;
+      border-bottom: 2px solid var(--line); color: var(--ink);
+    }
+    .overview {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 8px;
+    }
+    .stat {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+      padding: 18px 20px; display: flex; flex-direction: column; gap: 4px;
+    }
+    .stat .num { font-size: 30px; font-weight: 800; line-height: 1; }
+    .stat .lbl { font-size: 13px; color: var(--muted); }
+    .stat-green { border-left: 5px solid var(--green); }
+    .stat-green .num { color: var(--green); }
+    .stat-amber { border-left: 5px solid var(--amber); }
+    .stat-amber .num { color: var(--amber); }
+    .stat-red { border-left: 5px solid var(--red); }
+    .stat-red .num { color: var(--red); }
+    .stat-blue { border-left: 5px solid var(--blue); }
+    .stat-blue .num { color: var(--blue); }
+    .sources { margin: 0; padding-left: 20px; }
+    .sources code { background: var(--paper); border: 1px solid var(--line); padding: 1px 6px; border-radius: 3px; font-size: 13px; }
+    .view-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .view-card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px;
+    }
+    .view-card h3 { margin: 0 0 10px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+    .vtag { font-size: 11px; color: var(--muted); background: var(--paper); padding: 1px 7px; border-radius: 8px; font-weight: 600; }
+    .vsummary { margin: 0 0 10px; font-size: 14px; }
+    .vempty { margin: 0; color: var(--muted); font-style: italic; font-size: 14px; }
+    .vfield { margin: 8px 0; }
+    .vflabel { display: inline-block; font-size: 12px; font-weight: 700; color: var(--violet); margin-bottom: 3px; }
+    .vfield ul { margin: 0; padding-left: 20px; }
+    .vfield li { font-size: 13.5px; margin: 2px 0; }
+    .vfield.forbidden .vflabel { color: var(--red); }
+    table.grid {
+      width: 100%; border-collapse: collapse; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 13.5px;
+    }
+    table.grid th, table.grid td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+    table.grid th { background: #f1ece1; font-weight: 700; font-size: 12.5px; color: var(--ink); }
+    table.grid tr:last-child td { border-bottom: none; }
+    table.grid td code { background: var(--paper); padding: 1px 5px; border-radius: 3px; font-size: 12.5px; }
+    table.mini { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+    table.mini th, table.mini td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+    table.mini th { background: var(--paper); font-size: 11.5px; color: var(--muted); }
+    .arrow { color: var(--muted); }
+    .l3 { color: var(--red); font-weight: 700; }
+    .l2 { color: var(--amber); font-weight: 700; }
+    .l1 { color: var(--green); font-weight: 700; }
+    .note {
+      background: var(--blue-soft); border-left: 4px solid var(--blue); padding: 12px 16px;
+      border-radius: 0 8px 8px 0; font-size: 14px; margin: 12px 0;
+    }
+    footer {
+      padding: 24px 48px; border-top: 1px solid var(--line); color: var(--muted);
+      font-size: 13px; text-align: center;
+    }
+    footer code { background: var(--paper); padding: 1px 5px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="kicker">4+1 架构基线 · A2D 步骤 8(基线固化)</div>
+    <h1>agent-bus 转发运行时 4+1 基线</h1>
+    <p class="subtitle">
+      <span class="badge badge-reviewed">reviewed</span>
+      版本 <code>agent-bus-forwarding-runtime-v1</code>
+· 生成于 2026-06-22    </p>
+<p class="scope">类 MQ 转发内核(agent-bus)的运行态:持久化(Postgres)、claim/lease 投递循环、 重投策略(retry policy)、delivery transport(A2A HTTP adapter)。覆盖 Stage 12-15 已落地范围;真实 agent-runtime 端到端集成与生产载体部署为结转项。
+</p>  </header>
+
+  <main>
+    <section class="section">
+      <div class="overview">
+        <div class="stat stat-green"><span class="num">10</span><span class="lbl">accepted facts</span></div>
+        <div class="stat stat-amber"><span class="num">6</span><span class="lbl">deferred 项</span></div>
+        <div class="stat stat-red"><span class="num">4</span><span class="lbl">release risk</span></div>
+        <div class="stat stat-blue"><span class="num">15</span><span class="lbl">elements / 12 rel</span></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>来源评审包</h2>
+      <ul class="sources">
+<li><code>docs/architecture/l0/10-governance/review-packets/agent-bus-architecture-review-draft.md</code></li><li><code>docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-candidates.md</code></li><li><code>docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md</code></li><li><code>docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-transport-candidates.md</code></li>      </ul>
+    </section>
+
+    <section class="section">
+      <h2>4+1 视图</h2>
+      <div class="view-grid">
+          <article class="view-card">
+            <h3>逻辑视图 <span class="vtag">logical</span></h3>
+<p class="vsummary">C-side(business_app)写消息到 agent-bus,经 ForwardingOutbox 持久化后由 ForwardingDispatchLoop 订阅投递,经 ForwardingDeliveryPort 抽象端口落到具体 transport(A2A HTTP adapter),消费方 agent-runtime 从 ForwardingInbox 收取。
+</p><div class="vfield forbidden"><span class="vflabel">评审风险</span><ul><li>delivery 端口抽象与具体 transport(A2A)耦合度需持续守护,避免抽象泄漏</li><li>ForwardingRetryPolicy 的重投时机策略与 transport 实现解耦(separation of concerns)</li></ul></div>          </article>
+          <article class="view-card">
+            <h3>开发视图 <span class="vtag">development</span></h3>
+<p class="vsummary">纯 Java 生产代码 + Postgres 持久化子包。ArchUnit 守护纯度:Spring/JDBC 圈进 persistence.jdbc 子包,业务内核保持框架无关。
+</p><div class="vfield"><span class="vflabel">允许依赖</span><ul><li>agent-bus 内核 → Spring JDBC(仅 persistence.jdbc 子包)</li><li>ForwardingRetryPolicy → overflow-safe 指数退避(纯算子,无 I/O)</li><li>A2aForwardingDeliveryPort → A2A HTTP SDK</li></ul></div><div class="vfield forbidden"><span class="vflabel">禁止依赖</span><ul><li>agent-bus 内核不得直接 import Flyway(迁移归 persistence.jdbc/资源)</li><li>业务内核不得依赖 System::currentTimeMillis(注入 EpochClock,ArchUnit 强制)</li><li>runtime 不得在 deliver 的非 lease 路径抛出未捕获 RuntimeException</li></ul></div><div class="vfield forbidden"><span class="vflabel">评审风险</span><ul><li>ArchUnit 纯度 trip-wire 范围随子包扩张需复核</li></ul></div>          </article>
+          <article class="view-card">
+            <h3>进程视图 <span class="vtag">process</span></h3>
+<p class="vsummary">ForwardingDispatchLoop 以 TickSource 驱动 runOnce:claim 未投递记录 → 续约 lease → deliver → 按结果 ack/nack。无内嵌 scheduler,IdleStrategy 注入。
+</p><div class="vfield"><span class="vflabel">运行时流程</span><ul><li>claimDue 取代 findRetryable:SELECT FOR UPDATE SKIP LOCKED 取一条 PENDING</li><li>续约 DispatchLeasePolicy:deliver 前 renew,防止并发重复投递</li><li>deliver 成功 → markDelivered;deliver 失败分类 → RETRY/重投/SKIP</li><li>attemptCount 耗尽 → 进 DLQ,不留悬挂记录</li></ul></div><div class="vfield"><span class="vflabel">失败 / 重试 / 取消路径</span><ul><li>deliver 抛非 lease RuntimeException → 兜底 skipped,留 DISPATCHING 待重投(不丢消息)</li><li>lease 过期 → record 回 PENDING,由下一轮 claim 重新拾取</li><li>worker tick 抛异常 → try-catch 恢复 + DispatchTickResult.skipped 自洽,不让 loop 死</li><li>自然 loop 永不触发续约 bug → 注入 EpochClock 修复(自然时钟难以测试)</li></ul></div><div class="vfield forbidden"><span class="vflabel">评审风险</span><ul><li>DispatchTickResult.skipped 路径的幂等性依赖 lease 闭环,跨实例重启边界需对账</li></ul></div>          </article>
+          <article class="view-card">
+            <h3>物理视图 <span class="vtag">physical</span></h3>
+<p class="vsummary">持久化载体 Postgres;agent-bus 自有 Spring JDBC adapter;迁移 Flyway V1; 多租户用 RLS(行级安全)隔离。real-SQL 验证载体用 Zonky embedded-postgres。
+</p><div class="vfield"><span class="vflabel">部署影响</span><ul><li>Postgres schema V1:ForwardingOutbox / ForwardingInbox / Lease 三表 + DDL CHECK</li><li>Flyway V1 migration 落 DDL + RLS 策略</li><li>RLS:tenant_id 带内字段(R-C.c),session 变量设租户上下文</li><li>adapter 不依赖具体载体生产可切:embedded-postgres(测)↔ 生产 PG ↔ Testcontainers</li></ul></div><div class="vfield"><span class="vflabel">数据 / 租户 / 凭证 / 网络边界</span><ul><li>租户边界:RLS 行级隔离,无跨租户查询</li><li>数据边界:outbox(sender)/inbox(receiver)分表,claim/lease 闭环不跨表</li><li>凭证边界:PG 连接凭证由部署注入,agent-bus 不持有明文</li><li>网络边界:A2A HTTP adapter 出站,需出站策略与超时配置</li></ul></div><div class="vfield forbidden"><span class="vflabel">评审风险</span><ul><li>embedded-postgres 验证 ≠ 生产载体验证,连接池/超时生产参数待定</li></ul></div>          </article>
+          <article class="view-card">
+            <h3>场景视图 <span class="vtag">scenario</span></h3>
+                <table class="mini">
+                  <thead><tr><th>ID</th><th>Actor</th><th>Flow</th><th>支撑</th><th>契约</th><th>harness</th><th>状态</th></tr></thead>
+                  <tbody>
+                    <tr><td>SC-001</td><td>business_app(C-side)</td><td>写 outbox → dispatch loop claim → deliver via A2A → agent-runtime inbox</td><td>ForwardingDispatchLoop + A2aForwardingDeliveryPort</td><td>ForwardingDeliveryPort</td><td>real-SQL contract test(embedded-postgres)</td><td><span class="badge badge-accepted">accepted</span></td></tr>
+                    <tr><td>SC-002</td><td>ForwardingDispatchLoop</td><td>deliver 失败 → 分类 → RETRY → 退避后重投</td><td>ForwardingRetryPolicy</td><td>overflow-safe 指数退避</td><td>Stage 14 行为测试(5 个)</td><td><span class="badge badge-accepted">accepted</span></td></tr>
+                    <tr><td>SC-003</td><td>ForwardingDispatchLoop</td><td>lease 过期 → record 回 PENDING → 下轮 claim 重拾</td><td>DispatchLeasePolicy + claim/lease</td><td>lease-owner guarded mutation</td><td>Stage 9 lease-safe contract test</td><td><span class="badge badge-accepted">accepted</span></td></tr>
+                    <tr><td>SC-004</td><td>ForwardingDispatchLoop</td><td>attemptCount 耗尽 → 进 DLQ,不留悬挂</td><td>ForwardingRetryPolicy(exhausted→DLQ)</td><td>retry policy 端口</td><td>Stage 14 exhausted→DLQ 测试</td><td><span class="badge badge-accepted">accepted</span></td></tr>
+                    <tr><td>SC-005</td><td>agent-runtime(receiver)</td><td>A2A HTTP adapter 投递 → agent-runtime 收取处理</td><td>A2aForwardingDeliveryPort + ForwardingEndpointResolver</td><td>ForwardingDeliveryPort(A2A 实现)</td><td>in-memory 替身(真实 agent-runtime 未跑通)</td><td><span class="badge badge-draft">draft</span></td></tr>
+                  </tbody>
+                </table>
+          </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>元素事实表 <span class="vtag">对应 review-packet §3.1</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>视图</th><th>类型</th><th>名称</th><th>owner</th><th>职责</th><th>来源</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>E-001</code></td>
+            <td>logical</td><td>module</td><td>agent-bus</td>
+            <td>arch</td><td>类 MQ 转发内核</td>
+            <td>l0-logical.puml</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-002</code></td>
+            <td>logical</td><td>state</td><td>ForwardingOutbox</td>
+            <td>arch</td><td>sender 侧持久化</td>
+            <td>forwarding-runtime-decision.md</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-003</code></td>
+            <td>logical</td><td>state</td><td>ForwardingInbox</td>
+            <td>arch</td><td>receiver 侧持久化</td>
+            <td>forwarding-runtime-decision.md</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-004</code></td>
+            <td>logical</td><td>state</td><td>Lease</td>
+            <td>arch</td><td>claim/续约</td>
+            <td>forwarding-runtime-decision.md</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-005</code></td>
+            <td>logical</td><td>contract</td><td>ForwardingRetryPolicy</td>
+            <td>arch</td><td>重投时机(退避/attemptCount/熔断)</td>
+            <td>Stage 14</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-006</code></td>
+            <td>logical</td><td>contract</td><td>ForwardingDeliveryPort</td>
+            <td>arch</td><td>delivery 抽象端口</td>
+            <td>Stage 8</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-007</code></td>
+            <td>development</td><td>module</td><td>A2aForwardingDeliveryPort</td>
+            <td>arch</td><td>A2A HTTP transport adapter</td>
+            <td>Stage 15</td>
+            <td><span class="badge badge-draft">draft</span></td>
+          </tr>
+          <tr>
+            <td><code>E-008</code></td>
+            <td>development</td><td>contract</td><td>ForwardingEndpointResolver</td>
+            <td>arch</td><td>endpoint 解析</td>
+            <td>Stage 15</td>
+            <td><span class="badge badge-draft">draft</span></td>
+          </tr>
+          <tr>
+            <td><code>E-009</code></td>
+            <td>development</td><td>module</td><td>JdbcForwardingOutbox/Inbox</td>
+            <td>arch</td><td>Postgres JDBC adapter</td>
+            <td>Stage 12</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-010</code></td>
+            <td>process</td><td>module</td><td>ForwardingDispatchLoop</td>
+            <td>arch</td><td>dispatch worker(TickSource+IdleStrategy</td>
+            <td>Stage 10</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-011</code></td>
+            <td>physical</td><td>deployment-plane</td><td>Postgres</td>
+            <td>ops</td><td>持久化载体</td>
+            <td>Stage 12</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-012</code></td>
+            <td>physical</td><td>deployment-plane</td><td>Flyway V1 migration</td>
+            <td>ops</td><td>DDL + RLS 迁移</td>
+            <td>Stage 12</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-013</code></td>
+            <td>physical</td><td>deployment-plane</td><td>RLS</td>
+            <td>ops</td><td>tenant 行级隔离</td>
+            <td>Stage 12</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-014</code></td>
+            <td>logical</td><td>actor</td><td>agent-runtime</td>
+            <td>arch</td><td>receiver 消费方</td>
+            <td>l0-logical.puml</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+          <tr>
+            <td><code>E-015</code></td>
+            <td>logical</td><td>actor</td><td>business_app</td>
+            <td>business</td><td>C-side 消息生产方</td>
+            <td>l0-logical.puml</td>
+            <td><span class="badge badge-accepted">accepted</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>关系事实表 <span class="vtag">对应 review-packet §3.2</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>视图</th><th>from</th><th></th><th>to</th><th>关系</th><th>方向</th><th>同步</th><th>契约/状态</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>R-001</code></td><td>logical</td>
+            <td><code>E-015</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-002</code></td>
+            <td>writes</td><td>one-way</td><td>sync</td>
+            <td>outbox PENDING</td>
+          </tr>
+          <tr>
+            <td><code>R-002</code></td><td>process</td>
+            <td><code>E-010</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-002</code></td>
+            <td>reads</td><td>one-way</td><td>sync</td>
+            <td>claimDue SKIP LOCKED</td>
+          </tr>
+          <tr>
+            <td><code>R-003</code></td><td>process</td>
+            <td><code>E-010</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-006</code></td>
+            <td>calls</td><td>one-way</td><td>sync</td>
+            <td>deliver</td>
+          </tr>
+          <tr>
+            <td><code>R-004</code></td><td>development</td>
+            <td><code>E-007</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-014</code></td>
+            <td>calls</td><td>one-way</td><td>async</td>
+            <td>A2A HTTP</td>
+          </tr>
+          <tr>
+            <td><code>R-005</code></td><td>development</td>
+            <td><code>E-007</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-008</code></td>
+            <td>calls</td><td>one-way</td><td>sync</td>
+            <td>endpoint resolve</td>
+          </tr>
+          <tr>
+            <td><code>R-006</code></td><td>process</td>
+            <td><code>E-005</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-002</code></td>
+            <td>verifies</td><td>one-way</td><td>none</td>
+            <td>重投时机/退避</td>
+          </tr>
+          <tr>
+            <td><code>R-007</code></td><td>logical</td>
+            <td><code>E-014</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-003</code></td>
+            <td>reads</td><td>one-way</td><td>sync</td>
+            <td>inbox 收取</td>
+          </tr>
+          <tr>
+            <td><code>R-008</code></td><td>physical</td>
+            <td><code>E-009</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-011</code></td>
+            <td>deploys</td><td>one-way</td><td>none</td>
+            <td>JDBC adapter</td>
+          </tr>
+          <tr>
+            <td><code>R-009</code></td><td>physical</td>
+            <td><code>E-012</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-011</code></td>
+            <td>deploys</td><td>one-way</td><td>none</td>
+            <td>V1 schema</td>
+          </tr>
+          <tr>
+            <td><code>R-010</code></td><td>physical</td>
+            <td><code>E-011</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-013</code></td>
+            <td>owns</td><td>one-way</td><td>none</td>
+            <td>tenant 隔离</td>
+          </tr>
+          <tr>
+            <td><code>R-011</code></td><td>logical</td>
+            <td><code>E-001</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-002</code></td>
+            <td>owns</td><td>one-way</td><td>none</td>
+            <td>内核组件</td>
+          </tr>
+          <tr>
+            <td><code>R-012</code></td><td>logical</td>
+            <td><code>E-001</code></td>
+            <td class="arrow">→</td>
+            <td><code>E-010</code></td>
+            <td>owns</td><td>one-way</td><td>none</td>
+            <td>内核组件</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>已接受事实 <span class="vtag">accepted</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>事实</th><th>来源</th></tr></thead>
+        <tbody>
+          <tr><td><code>AF-001</code></td><td>持久化载体裁决为 Postgres(Stage 12)</td><td>agent-bus-forwarding-runtime-decision.md</td></tr>
+          <tr><td><code>AF-002</code></td><td>agent-bus 自有 Spring JDBC adapter(非共用 JdbcTemplate)</td><td>Stage 12</td></tr>
+          <tr><td><code>AF-003</code></td><td>迁移用 Flyway V1</td><td>Stage 12</td></tr>
+          <tr><td><code>AF-004</code></td><td>多租户用 RLS 行级安全</td><td>Stage 12</td></tr>
+          <tr><td><code>AF-005</code></td><td>real-SQL 载体用 Zonky embedded-postgres(adapter 不依赖载体可切)</td><td>Stage 12</td></tr>
+          <tr><td><code>AF-006</code></td><td>反压内核 = 消费方控速</td><td>agent-bus-forwarding-runtime-transport-candidates.md</td></tr>
+          <tr><td><code>AF-007</code></td><td>ForwardingRetryPolicy 用 overflow-safe 指数退避(动态 shift 上限 62−highestSetBit(base))</td><td>Stage 14</td></tr>
+          <tr><td><code>AF-008</code></td><td>attemptCount 耗尽 → DLQ</td><td>Stage 14</td></tr>
+          <tr><td><code>AF-009</code></td><td>delivery 端口 ForwardingDeliveryPort 由 A2A HTTP adapter 实现(Stage 15)</td><td>Stage 15</td></tr>
+          <tr><td><code>AF-010</code></td><td>deny-by-default 校验:deferred 必须有 owner + 后续入口</td><td>baseline-rw</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>结转项 <span class="vtag">deferred · 必须有 owner + 后续入口</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>事项</th><th>owner</th><th>触发条件</th><th>后续入口</th></tr></thead>
+        <tbody>
+          <tr><td><code>DF-001</code></td><td>真实 agent-runtime 端到端投递集成(SC-005 当前停在 in-memory 替身)</td><td>arch</td><td>agent-runtime 暴露可投递的 A2A endpoint</td><td>H3 transport 集成议题</td></tr>
+          <tr><td><code>DF-002</code></td><td>REMOTE_TASK_FAILED 等 A2A 失败码分类细化(MI9-004 未全覆盖)</td><td>arch</td><td>A2A 错误语义稳定</td><td>A2A 错误码契约裁决</td></tr>
+          <tr><td><code>DF-003</code></td><td>A2A HTTP adapter 连接池/超时/重试生产参数</td><td>ops</td><td>生产部署前</td><td>部署配置切片</td></tr>
+          <tr><td><code>DF-004</code></td><td>熔断器(circuit breaker)接入 retry policy</td><td>arch</td><td>超时/失败率可观测</td><td>Stage 14 熔断裁决子项</td></tr>
+          <tr><td><code>DF-005</code></td><td>puml→SVG 渲染管线(当前 review HTML 仅链接 .puml 源)</td><td>tooling</td><td>review-packet 需要内嵌图示</td><td>build-plan §9 Q5</td></tr>
+          <tr><td><code>DF-006</code></td><td>T1-T4 transport 候选最终裁决(当前 consumer-pull over DB 为不破 §6.2 的强反压候选</td><td>arch</td><td>真实负载与 agent-runtime 能力明确</td><td>H3 transport 裁决</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>发布风险 <span class="vtag">release risk</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>风险</th><th>等级</th><th>缓解</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>RR-001</code></td><td>transport 裁决未闭环(T1-T4 候选评审完成但未最终选定 push/pull/MQ)</td>
+            <td><span class="l2">L2</span></td>
+            <td>consumer-pull over DB 复用 Stage 12 claim/lease 作为不破 §6.2 的强反压候选</td>
+          </tr>
+          <tr>
+            <td><code>RR-002</code></td><td>真实 JDBC 仅在 embedded-postgres 验证</td>
+            <td><span class="l2">L2</span></td>
+            <td>adapter 不依赖具体载体</td>
+          </tr>
+          <tr>
+            <td><code>RR-003</code></td><td>端到端投递尚未跑通真实 agent-runtime(SC-005 draft)</td>
+            <td><span class="l3">L3</span></td>
+            <td>delivery 端口抽象已就位</td>
+          </tr>
+          <tr>
+            <td><code>RR-004</code></td><td>ArchUnit 纯度 trip-wire 范围随子包扩张</td>
+            <td><span class="l1">L1</span></td>
+            <td>Spring/JDBC 已圈进 persistence.jdbc</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="note">
+      <strong>读法:</strong>本页是 4+1 基线的静态审阅视图。元素表/关系表对应
+      <code>review-packets/_TEMPLATE.md §3</code>,accepted/deferred/risk 对应 §9。
+      deferred 项必须带 owner 和后续入口——没有后续入口的结转等于丢失。
+    </div>
+  </main>
+
+  <footer>
+    A2D 4+1 基线 · <code>agent-bus-forwarding-runtime-v1</code> · 由 <code>a2d-plugin renderer</code> 渲染 ·
+    deny-by-default 校验由 <code>baseline-rw</code> 守护
+  </footer>
+</body>
+</html>
