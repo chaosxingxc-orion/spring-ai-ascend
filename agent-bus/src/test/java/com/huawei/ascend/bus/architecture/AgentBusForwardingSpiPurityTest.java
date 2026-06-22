@@ -17,10 +17,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * worker and loop only — no Spring, no JDBC, no broker client. Stage 12 (decision
  * §4 permit) licenses Spring JDBC inside ONE subpackage —
  * {@code com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc} — so the
- * Spring / JDBC / javax.sql rules below exempt that adapter package; everything
- * else (ports, state machine, worker, loop) stays pure Java. §6.2 always-forbids
- * concrete broker / MQ, Task state, payload body everywhere (those rules are NOT
- * exempted). Transport / real delivery binding is split out of Stage 12.
+ * Spring / JDBC / javax.sql rules below exempt that adapter package. Stage 15
+ * (decision §6.1 item 4 lifted to scaffold level) licenses the A2A SDK inside ONE
+ * more subpackage — {@code com.huawei.ascend.bus.forwarding.runtime.transport.a2a}
+ * — so the A2A rule below exempts that adapter package. Everything else (ports,
+ * state machine, worker, loop) stays pure Java. §6.2 always-forbids concrete
+ * broker / MQ, Task state, payload body everywhere (those rules are NOT exempted
+ * — A2A is HTTP JSON-RPC, not Kafka / RabbitMQ / NATS).
  *
  * <p>One {@code @Test} per forbidden technology so a violation reports the exact
  * offending dependency. Test classes are excluded — the rule constrains the
@@ -133,6 +136,18 @@ class AgentBusForwardingSpiPurityTest {
                 .should().dependOnClassesThat().resideInAPackage("io.netty..")
                 .because("forwarding substrate is transport-agnostic; Netty is a network runtime, "
                        + "never a Stage 7 contract-surface dependency.")
+                .check(FORWARDING);
+    }
+
+    @Test
+    void forwarding_core_does_not_import_a2a_outside_transport_adapter() {
+        noClasses().that().resideInAPackage("com.huawei.ascend.bus.forwarding..")
+                .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.transport.a2a..")
+                .should().dependOnClassesThat().resideInAPackage("org.a2aproject..")
+                .because("Stage 15: the A2A SDK client is licensed only inside the transport.a2a "
+                       + "adapter subpackage; the forwarding ports / state machine / worker / loop "
+                       + "stay transport-agnostic (decision §6.1 item 4 lifted to scaffold level, "
+                       + "§6.2 unchanged — A2A is HTTP JSON-RPC, not a concrete broker / MQ).")
                 .check(FORWARDING);
     }
 

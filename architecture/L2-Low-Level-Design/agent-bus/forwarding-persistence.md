@@ -444,6 +444,65 @@ Stage 14 DoD 自检：
 - ✓ **158 tests green**（Stage 12 的 153 + 5 个 Stage 14 行为测试），ArchUnit 纯度 green。
 - ✓ §6.2 不变：不引入 transport / broker / scheduler；不写 Task state；不跨 tenant fallback；不放 payload body。
 
+## 16. Stage 15 决策（真实投递绑定 PoC：A2A transport adapter）
+
+Stage 15（无 MI 编号，对应 Stage 14 评审后用户提出的「确认 C3 转发能否与 main 分支的 agent-runtime 对接」诉求）落地 `ForwardingDeliveryPort.deliver` 的**真实 transport 实现** —— 此前一直用 `InMemoryForwardingDelivery` fake，从未证明 agent-bus 能真把一条消息投递到远程 agent-runtime。PoC 用 A2A HTTP transport adapter 证明对接在技术上可行，**不裁决** Stage 13 的 push / pull / MQ 哲学张力（仍 H2/H3）。**`§6.1` 第 4 项「真实投递绑定 deferred」由 Stage 15 解除**；**`§6.2` 始终不得项不变**（A2A 是 HTTP JSON-RPC，非 concrete broker / MQ）。
+
+### 16.1 `A2aForwardingDeliveryPort`（A2A SDK `JSONRPCTransport`）
+
+落地于 `transport.a2a` 子包（A2A SDK 圈进该子包，与 Stage 12 Spring / JDBC 圈进 `persistence.jdbc` 同范式），照搬 main 分支 `A2aRemoteAgentOutboundAdapter` 的 streaming 模式：
+
+- **per-endpoint `JSONRPCTransport` 缓存**（`ConcurrentHashMap`，`computeIfAbsent`）—— 照 `A2aRemoteAgentOutboundAdapter.obtainTransport`；PoC 不处理 endpoint churn / close-on-rebuild（生产生命周期 deferred）。
+- **`sendMessageStreaming(params, eventConsumer, errorConsumer, context)` + `CountDownLatch.await(streamTimeoutMillis)`** 阻塞等终态事件。
+- **终态映射**（`terminalStateOf` 提取 `Task` / `TaskStatusUpdateEvent` → `TaskState`，`isFinal() || isInterrupted()` 镜像 `A2aJsonRpcController#isStreamTerminating`）：
+
+  | A2A 远程 Task 状态 | 映射 |
+  |---|---|
+  | COMPLETED / INPUT_REQUIRED | `acked()`（投递成功 + 远程到达；INPUT_REQUIRED 的精确半完成态语义 deferred） |
+  | FAILED / CANCELED / REJECTED / AUTH_REQUIRED（`isFinal && !COMPLETED` / 中断） | `retry(RECEIVER_UNAVAILABLE)`（保守重试；理想 `REMOTE_TASK_FAILED` non-retryable 码 deferred，避免 Stage 9 classification / DDL / ICD 连锁） |
+  | 流内 `errorConsumer` 触发（无前置终态） | `retry(RECEIVER_UNAVAILABLE)`（连接级失败） |
+  | `await` 超时（未到终态） | `retry(DELIVERY_TIMEOUT)` |
+  | `sendMessageStreaming` 同步抛 `RuntimeException`（含 `A2AClientException`） | `retry(RECEIVER_UNAVAILABLE)`（MI11-002 契约：`deliver` 不抛非 lease 异常） |
+
+### 16.2 `ForwardingEndpointResolver`（解开 routeHandle opaque，HD4 不破）
+
+`ForwardingRouteHandle(value, tenantScope)` 完全 opaque，**HD4 硬约束：deliver 不得自行 unwrap**。引入注入端口（与 `ForwardingRetryPolicy` / `DispatchLeasePolicy` / `EpochClock` 同层范式）：
+
+- `Optional<String> resolve(ForwardingRouteHandle handle)` —— 空 = 路由解析失败 → `dlq(ROUTE_NOT_FOUND)`。
+- 默认 `MapEndpointResolver`（`routeHandle.value → base URL`，测试里指向 MockWebServer URL）；**生产实现由 Stage 3 registry 提供，deferred**。
+
+### 16.3 同步等完成语义（= Stage 13 T1 dispatcher-push over sync RPC）
+
+Stage 15 范围决策：deliver 等 Task 到终态才 ACKED（镜像 main 的 `A2aRemoteAgentOutboundAdapter` streaming 阻塞模式）。这是 Stage 13 的 T1 dispatcher-push over sync RPC 投递模型的具体落地，**不裁决** T1（同步 push）vs C3 异步转发的哲学张力 —— PoC 只证明对接可行，最终 push / pull / MQ 投递模型裁决仍 H2/H3。
+
+### 16.4 tenant + payload 语义（§6.2 守恒）
+
+- **tenant（R-C.c 跨租户连续性）**：`ClientCallContext` 携带 `X-Tenant-Id` header（`Map.of(properties.tenantHeaderName(), record.tenantId())`），对齐 `A2aJsonRpcController @RequestHeader(name="X-Tenant-Id")`。
+- **payload（§6.2 不破）**：`payloadRef` 走 `MessageSendParams.metadata`（A2A 扩展位）；`TextPart` 仅载 routing descriptor（`"agent-bus forwarded message " + messageId`），**绝不放 payload body / token stream**。
+
+### 16.5 MockWebServer 契约验证 + 线上格式对称性（test）
+
+5 场景 harness（`A2aForwardingDeliveryPortMockWebServerTest`）：COMPLETED→ACKED（+ 断言 `X-Tenant-Id` header + body 含 `SendStreamingMessage`）/ 流超时→DELIVERY_TIMEOUT / 远程 FAILED→RECEIVER_UNAVAILABLE / 连接错误（`SocketPolicy.DISCONNECT_AFTER_REQUEST`）→RECEIVER_UNAVAILABLE / resolver 空→ROUTE_NOT_FOUND。
+
+**线上格式对称性**（核心 PoC 价值）：harness 用 A2A SDK 自身序列化器 `JsonUtil.toJson(new SendStreamingMessageResponse(id, event))` 产出 SSE `event:jsonrpc\ndata:<json>` 帧 —— 与 agent-runtime `A2aJsonRpcController` 的 `ServerSentEvent.event("jsonrpc").data(streamingResponseJson(id, evt))` **逐字节一致**。即真实 `JSONRPCTransport` 客户端解析的字节 == 真实 agent-runtime 响应（同 Stage 12 embedded-postgres「用测试载体验证真实协议代码」哲学，非 agent-runtime 自测用的 `RecordingTransport` fake）。
+
+**SDK 行为发现**：HTTP 4xx / 5xx（如 503）**不被当错误** —— A2A SDK 把非 2xx 视为静默空 SSE 流（无事件、连接正常关闭、`errorConsumer` 从不触发）→ deliver 阻塞到 `DELIVERY_TIMEOUT`。真正的 socket 断开才触发 `onFailure → errorConsumer → RECEIVER_UNAVAILABLE`。故「连接错误」场景用 `SocketPolicy.DISCONNECT_AFTER_REQUEST`（真 socket 断开）而非 HTTP 503。
+
+### 16.6 ArchUnit（子包豁免）
+
+`AgentBusForwardingSpiPurityTest` 新增 `forwarding_core_does_not_import_a2a_outside_transport_adapter`：`org.a2aproject` 仅允许在 `transport.a2a` 子包内依赖，转发核心（ports / 状态机 / worker / loop）保持 transport-agnostic。全局规则（netty / jackson / servlet / kafka / nats / hikari / reactor）实测不退化（A2A SDK 公共 API 不暴露这些）。`AgentBusForwardingRuntimeContractTest` 的 §6.2 文本扫描（`readForwardingProductionSources`）同步排除 `transport/a2a` 子树（`TaskStatus` 仅用于解析远程 A2A 事件，从不写进 record）。
+
+Stage 15 DoD 自检：
+
+- ✓ `A2aForwardingDeliveryPort implements ForwardingDeliveryPort`（真实 A2A transport binding，圈进 `transport.a2a`）。
+- ✓ `ForwardingEndpointResolver` 注入端口 + `MapEndpointResolver` 默认实现（HD4 不破，routeHandle 保持 opaque）。
+- ✓ 同步等完成语义（T1），终态映射覆盖成功 / 超时 / 远程失败 / 连接错误 / 路由解析失败，`deliver` 不抛非 lease 异常（MI11-002）。
+- ✓ 线上格式对称性（SDK 自身序列化器产出 agent-runtime 逐字节一致的 SSE 帧）。
+- ✓ tenant（R-C.c header）+ payload（metadata 扩展位，无 payload body）。
+- ✓ **164 tests green**（Stage 14 的 158 + 5 MockWebServer 场景），ArchUnit 纯度 green（`org.a2aproject` 圈进 `transport.a2a`，§6.2 文本扫描豁免）。
+- ✓ §6.2 不变：A2A 是 HTTP JSON-RPC 非 concrete broker / MQ；不写 Task execution state；不跨 tenant fallback；不放 payload body / token stream；不绕 routeHandle。
+- ✓ **deferred**：真实 agent-runtime 端到端拉起验证（受 runtime 构建坑阻塞）、`REMOTE_TASK_FAILED` non-retryable 码、registry 集成的 resolver 生产实现、连接池治理 / `ForwardingCircuitBreaker` 接入 worker、最终 push / pull / MQ 投递模型裁决（H2/H3）。
+
 相关文档：
 
 - C3 运行态 L2：[`forwarding-outbox-inbox`](forwarding-outbox-inbox.md)（组件 / 状态机 / 失败语义）。

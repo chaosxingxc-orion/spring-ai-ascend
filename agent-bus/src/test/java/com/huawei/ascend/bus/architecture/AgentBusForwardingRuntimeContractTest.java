@@ -335,7 +335,10 @@ class AgentBusForwardingRuntimeContractTest {
                 .as("forwarding production code: no payload body field, no Task execution state, "
                   + "no concrete broker / MQ client (decision §6.2 — always forbidden). JDBC is "
                   + "now licensed for the persistence.jdbc adapter (Stage 12); its package-level "
-                  + "confinement is enforced by AgentBusForwardingSpiPurityTest, not this scan.")
+                  + "confinement is enforced by AgentBusForwardingSpiPurityTest, not this scan. "
+                  + "Stage 15 likewise excludes runtime.transport.a2a — that adapter parses the "
+                  + "remote A2A wire format (Task / TaskStatus) to map a remote Task lifecycle onto "
+                  + "ForwardingDeliveryResult; it never stores Task state on the outbox record.")
                 .allSatisfy(src -> assertThat(src)
                         .doesNotContain("payloadBody", "payload_body")
                         .doesNotContain("TaskExecutionState", "TaskExecution", "TaskStatus")
@@ -711,7 +714,8 @@ class AgentBusForwardingRuntimeContractTest {
                 .as("forwarding production code stays free of Task state and concrete broker / "
                   + "MQ client (decision §6.2 — always forbidden). JDBC is licensed only for the "
                   + "persistence.jdbc adapter (Stage 12); package-level confinement is enforced "
-                  + "by AgentBusForwardingSpiPurityTest.")
+                  + "by AgentBusForwardingSpiPurityTest. Stage 15 excludes runtime.transport.a2a "
+                  + "(A2A wire-format parser; never stores Task state on the record).")
                 .allSatisfy(src -> assertThat(src)
                         .doesNotContain("TaskExecutionState", "TaskExecution", "TaskStatus")
                         .doesNotContain("org.apache.kafka", "com.rabbitmq",
@@ -1206,8 +1210,19 @@ class AgentBusForwardingRuntimeContractTest {
 
     private static List<String> readForwardingProductionSources() throws IOException {
         Path root = Path.of("src/main/java/com/huawei/ascend/bus/forwarding");
+        // Stage 15: the A2A transport adapter (runtime/transport/a2a) parses the
+        // remote A2A wire format and legitimately references the SDK's Task /
+        // TaskStatus types to map a remote Task lifecycle onto
+        // ForwardingDeliveryResult — it does NOT store Task state on the outbox
+        // record (§6.2 still holds for the forwarding core: ports, state machine,
+        // worker, loop, record). Excluded from this §6.2 text scan, mirroring how
+        // AgentBusForwardingSpiPurityTest confines org.a2aproject to that subpackage
+        // (and how JDBC is confined to persistence.jdbc, Stage 12).
+        Path a2aTransportAdapter =
+                Path.of("src/main/java/com/huawei/ascend/bus/forwarding/runtime/transport/a2a");
         try (Stream<Path> walk = Files.walk(root)) {
             return walk.filter(p -> p.toString().endsWith(".java"))
+                    .filter(p -> !p.startsWith(a2aTransportAdapter))
                     .map(AgentBusForwardingRuntimeContractTest::readStringUnchecked)
                     .toList();
         }

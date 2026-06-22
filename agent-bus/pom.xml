@@ -57,6 +57,33 @@
       <scope>runtime</scope>
     </dependency>
 
+    <!--
+      Stage 15 (decision §6.1 item 4 lifted): real transport binding — A2A JSON-RPC
+      client. §6.1 "no real delivery binding" lifted to scaffold level (A2A HTTP
+      transport adapter + MockWebServer contract verification); §6.2 unchanged (A2A
+      is HTTP JSON-RPC, not a concrete broker / MQ — Kafka / RabbitMQ / NATS stay
+      forbidden). The A2A SDK client surface is ArchUnit-confined to
+      com.huawei.ascend.bus.forwarding.runtime.transport.a2a (see
+      AgentBusForwardingSpiPurityTest); forwarding ports / state machine / worker /
+      loop stay transport-agnostic.
+
+      Versions explicit: root pom dependencyManagement covers only
+      a2a-java-sdk-server-common; the two client transport artifacts are not in any
+      imported BOM, so ${a2a-sdk.version} (pinned at the parent) is referenced here
+      rather than relying on management (mirrors how agent-runtime/pom.xml intends
+      these but must avoid its version-missing pre-existing hazard, per build env).
+    -->
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-client-transport-jsonrpc</artifactId>
+      <version>${a2a-sdk.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.a2aproject.sdk</groupId>
+      <artifactId>a2a-java-sdk-http-client</artifactId>
+      <version>${a2a-sdk.version}</version>
+    </dependency>
+
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
@@ -65,6 +92,21 @@
     <dependency>
       <groupId>com.tngtech.archunit</groupId>
       <artifactId>archunit-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      Stage 15: MockWebServer simulates agent-runtime's /a2a JSON-RPC + SSE
+      endpoint for contract verification — same "verify real protocol code against
+      an in-process server" philosophy as Stage 12's embedded-postgres. Avoids
+      pulling up the real agent-runtime (which carries its own build hazards).
+      Version explicit: not reliably covered by spring-boot-dependencies BOM
+      management; 4.12.0 matches the okhttp already on the classpath
+      (pulled by a2a-java-sdk-http-client).
+    -->
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>mockwebserver</artifactId>
+      <version>4.12.0</version>
       <scope>test</scope>
     </dependency>
     <!--

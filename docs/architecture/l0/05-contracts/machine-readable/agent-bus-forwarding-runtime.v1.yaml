@@ -4,7 +4,7 @@ version: v1
 provider: agent-bus
 consumer: agent-runtime
 candidate: C3-database-outbox-inbox
-description: "agent-bus 类 MQ 转发的运行态承载（C3 outbox/inbox）record schema：durable、可审计、tenant-scoped、broker-agnostic。Stage 7–11 交付 schema + 端口 + 状态机 + lease-safe + dispatch-loop + runtime-completion；Stage 12 落地真实持久化（Postgres JDBC adapter + Flyway migration + RLS）；Stage 13 完成 transport 投递模型候选评审（T1-T4 × 8 维度，T3 consumer-pull over DB 非裁决推荐）；Stage 14 落地 deliver 重投策略先行（retry policy 端口 + overflow-safe 指数退避 + exhausted→DLQ + 熔断端口 deferred，§6.2 不变）。真实投递绑定仍 deferred（待 H2/H3 裁决 push / pull / MQ）。"
+description: "agent-bus 类 MQ 转发的运行态承载（C3 outbox/inbox）record schema：durable、可审计、tenant-scoped、broker-agnostic。Stage 7–11 交付 schema + 端口 + 状态机 + lease-safe + dispatch-loop + runtime-completion；Stage 12 落地真实持久化（Postgres JDBC adapter + Flyway migration + RLS）；Stage 13 完成 transport 投递模型候选评审（T1-T4 × 8 维度，T3 consumer-pull over DB 非裁决推荐）；Stage 14 落地 deliver 重投策略先行（retry policy 端口 + overflow-safe 指数退避 + exhausted→DLQ + 熔断端口 deferred，§6.2 不变）；Stage 15 落地真实投递绑定 PoC（A2A HTTP transport adapter，A2aForwardingDeliveryPort 消费 agent-runtime /a2a，同步等完成 = T1，§6.1 第 4 项解除、§6.2 不变）。最终 push / pull / MQ 裁决仍 deferred（待 H2/H3）。"
 authority:
   icd_design: ICD-agent-bus-forwarding.md
   l2: architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md
@@ -227,6 +227,11 @@ stage14_scope:
   not_delivers: [transport-implementation, broker-binding, circuit-breaker-wired-to-worker, real-scheduler-thread-pool]
   path: B  # transport-independent: retry timing does not depend on push/pull/MQ (Stage 13 undecided); no transport/broker/scheduler introduced; §6.2 unchanged
   next_stage: Stage-15-plus-or-h2h3-transport-decision
+stage15_scope:
+  delivers: [a2a-http-transport-adapter, forwarding-endpoint-resolver-port, map-endpoint-resolver-default, a2a-forwarding-properties, synchronous-wait-for-completion-t1, wire-format-symmetry-mockwebserver-contract, terminal-state-mapping]
+  not_delivers: [concrete-broker-mq, remote-task-failed-non-retryable-code, real-agent-runtime-end-to-end, registry-integrated-resolver, connection-pool-governance, circuit-breaker-wired-to-worker, final-push-pull-mq-decision]
+  path: real-delivery-binding-poc  # §6.1 item 4 "real delivery binding deferred" lifted by Stage 15; A2A SDK confined to transport.a2a subpackage (same confinement pattern as Stage 12 persistence.jdbc); synchronous-wait-for-completion = Stage 13 T1 dispatcher-push over sync RPC (mirrors main A2aRemoteAgentOutboundAdapter); §6.2 unchanged (A2A is HTTP JSON-RPC, not a concrete broker/MQ)
+  next_stage: Stage-16-plus-or-h2h3-transport-decision
 compatibility:
   additive_fields_allowed: true
   breaking_change_requires_adr: true
