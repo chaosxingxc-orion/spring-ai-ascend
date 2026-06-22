@@ -1,0 +1,216 @@
+{# delta 模式(step 3 架构更新稿)审阅 HTML。
+   与 baseline.html.j2(full)共享数据模型,差异:聚焦变更——
+   变更摘要置顶、元素/关系表只详列 change≠unchanged 的项并着色。
+   change:added=绿 / modified=黄 / removed=红(删除线)/ unchanged=灰(省略)。
+   额外变量:change_counts(dict)。 #}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} — 架构更新稿</title>
+  <style>
+    :root {
+      --paper: #f7f4ed; --ink: #172033; --muted: #657184; --line: #d7d0c4; --panel: #ffffff;
+      --blue: #2454d6; --blue-soft: #e5ecff;
+      --green: #0f7c59; --green-soft: #ddf4ea;
+      --amber: #a86200; --amber-soft: #fff0d2;
+      --red: #bd3434; --red-soft: #f8dddd;
+      --violet: #6548bf; --violet-soft: #eae4ff;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink);
+      font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", Arial, sans-serif; line-height: 1.55; }
+    header { padding: 34px 48px 26px; background: linear-gradient(180deg,#fff 0%,var(--paper) 100%); border-bottom: 1px solid var(--line); }
+    .kicker { display:inline-flex; align-items:center; gap:10px; color:var(--amber); font-size:13px; font-weight:700; margin-bottom:12px; }
+    .kicker::before { content:""; display:inline-block; width:32px; height:4px; background:var(--amber); }
+    h1 { margin:0; font-size:clamp(26px,3.2vw,40px); line-height:1.15; max-width:1040px; }
+    .subtitle { margin:16px 0 0; color:var(--muted); font-size:16px; }
+    .subtitle code { background:var(--amber-soft); color:var(--amber); padding:1px 6px; border-radius:3px; font-size:14px; }
+    .scope { margin:12px 0 0; color:var(--ink); font-size:15px; max-width:980px; }
+    .badge { display:inline-block; padding:2px 10px; border-radius:11px; font-size:12px; font-weight:700; }
+    .badge-accepted{background:var(--green-soft);color:var(--green);} .badge-draft{background:var(--amber-soft);color:var(--amber);}
+    .badge-reviewed{background:var(--blue-soft);color:var(--blue);} .badge-superseded{background:var(--red-soft);color:var(--red);}
+    main { padding:28px 48px 56px; max-width:1240px; margin:0 auto; }
+    .section { margin-bottom:36px; }
+    .section > h2 { font-size:20px; margin:0 0 16px; padding-bottom:8px; border-bottom:2px solid var(--line); }
+    .section > h2 .vtag { margin-left:8px; }
+    .delta-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:8px; }
+    .dstat { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px 20px; }
+    .dstat .num { font-size:30px; font-weight:800; line-height:1; }
+    .dstat .lbl { font-size:13px; color:var(--muted); margin-top:4px; display:block; }
+    .dstat.added { border-left:5px solid var(--green); } .dstat.added .num{color:var(--green);}
+    .dstat.modified { border-left:5px solid var(--amber); } .dstat.modified .num{color:var(--amber);}
+    .dstat.removed { border-left:5px solid var(--red); } .dstat.removed .num{color:var(--red);}
+    .dstat.unchanged { border-left:5px solid var(--muted); } .dstat.unchanged .num{color:var(--muted);}
+    .chip { display:inline-block; padding:1px 7px; border-radius:8px; font-size:11px; font-weight:700; }
+    .chip-added{background:var(--green-soft);color:var(--green);} .chip-modified{background:var(--amber-soft);color:var(--amber);}
+    .chip-removed{background:var(--red-soft);color:var(--red);} .chip-unchanged{background:var(--paper);color:var(--muted);}
+    table.grid { width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden; font-size:13.5px; }
+    table.grid th, table.grid td { padding:9px 12px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top; }
+    table.grid th { background:#f1ece1; font-weight:700; font-size:12.5px; }
+    table.grid tr:last-child td { border-bottom:none; }
+    table.grid td code { background:var(--paper); padding:1px 5px; border-radius:3px; font-size:12.5px; }
+    tr.ch-added { background:var(--green-soft); } tr.ch-added td:first-child{box-shadow:inset 4px 0 0 var(--green);}
+    tr.ch-modified { background:var(--amber-soft); } tr.ch-modified td:first-child{box-shadow:inset 4px 0 0 var(--amber);}
+    tr.ch-removed { background:var(--red-soft); } tr.ch-removed td { text-decoration:line-through; opacity:.85; } tr.ch-removed td:first-child{box-shadow:inset 4px 0 0 var(--red);}
+    .arrow { color:var(--muted); }
+    .l3{color:var(--red);font-weight:700;} .l2{color:var(--amber);font-weight:700;} .l1{color:var(--green);font-weight:700;}
+    .vtag { font-size:11px; color:var(--muted); background:var(--paper); padding:1px 7px; border-radius:8px; font-weight:600; }
+    .empty-hint { color:var(--muted); font-style:italic; font-size:14px; margin:0; }
+    .diagram { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:12px 0; }
+    .diagram figcaption { font-weight:700; font-size:14px; margin-bottom:8px; }
+    .diagram figcaption code { background:var(--paper); padding:1px 5px; border-radius:3px; font-size:12px; font-weight:400; }
+    .svg-wrap { background:#fff; padding:12px; border-radius:6px; overflow:auto; text-align:center; }
+    .svg-wrap svg { max-width:100%; height:auto; }
+    .diagram pre { background:var(--paper); padding:10px; border-radius:6px; font-size:12px; overflow:auto; max-height:380px; margin:8px 0 0; white-space:pre-wrap; }
+    .diagram summary { cursor:pointer; font-size:13px; color:var(--muted); }
+    .diagram .missing { color:var(--red); font-size:13px; margin:0; }
+    .note { background:var(--amber-soft); border-left:4px solid var(--amber); padding:12px 16px; border-radius:0 8px 8px 0; font-size:14px; margin:12px 0; }
+    footer { padding:24px 48px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; text-align:center; }
+    footer code { background:var(--paper); padding:1px 5px; border-radius:3px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="kicker">架构更新稿 · A2D 步骤 3(闸门 1 前)</div>
+    <h1>{{ title }}</h1>
+    <p class="subtitle">
+      <span class="badge badge-{{ baseline.status }}">{{ baseline.status }}</span>
+      版本 <code>{{ baseline.version }}</code>
+      {% if baseline.generated_at %}· 生成于 {{ baseline.generated_at }}{% endif %}
+      · 这是提案(打算改什么),非固化基线
+    </p>
+    {% if baseline.scope %}<p class="scope">{{ baseline.scope }}</p>{% endif %}
+  </header>
+
+  <main>
+    {# ── 变更摘要 ── #}
+    <section class="section">
+      <div class="delta-summary">
+        <div class="dstat added"><span class="num">{{ change_counts.added }}</span><span class="lbl">新增 added</span></div>
+        <div class="dstat modified"><span class="num">{{ change_counts.modified }}</span><span class="lbl">修改 modified</span></div>
+        <div class="dstat removed"><span class="num">{{ change_counts.removed }}</span><span class="lbl">废弃 removed</span></div>
+        <div class="dstat unchanged"><span class="num">{{ change_counts.unchanged + change_counts.unspecified }}</span><span class="lbl">未变 unchanged</span></div>
+      </div>
+    </section>
+
+    {# ── 架构图(SVG 优先,缺则内嵌 .puml 源)── #}
+    {% if diagrams %}
+    <section class="section">
+      <h2>架构图 <span class="vtag">{{ diagrams|length }} 张 · SVG 优先,缺则内嵌 .puml 源</span></h2>
+      {% for d in diagrams %}
+      <figure class="diagram">
+        <figcaption>{{ d.caption }} <code>{{ d.path }}</code></figcaption>
+        {% if d.svg %}
+          <div class="svg-wrap">{{ d.svg|safe }}</div>
+        {% elif d.missing %}
+          <p class="missing">⚠ 找不到图源 {{ d.path }}(路径相对仓库根)</p>
+        {% else %}
+          <details><summary>.puml 源 · 本地无 plantuml 未渲染 SVG,命令:<code>plantuml -tsvg {{ d.path }}</code></summary><pre>{{ d.source }}</pre></details>
+        {% endif %}
+      </figure>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    {# ── 变更元素(只列 change≠unchanged)── #}
+    {% set changed_els = (baseline.elements or []) | selectattr('change') | rejectattr('change','==','unchanged') | list %}
+    <section class="section">
+      <h2>变更元素 <span class="vtag">{{ changed_els|length }} 项</span></h2>
+      {% if changed_els %}
+      <table class="grid">
+        <thead><tr><th>变更</th><th>ID</th><th>视图</th><th>类型</th><th>名称</th><th>职责</th><th>状态</th></tr></thead>
+        <tbody>
+        {% for el in changed_els %}
+          <tr class="ch-{{ el.change }}">
+            <td><span class="chip chip-{{ el.change }}">{{ el.change }}</span></td>
+            <td><code>{{ el.id }}</code></td><td>{{ el.view }}</td><td>{{ el.type }}</td><td>{{ el.name }}</td>
+            <td>{{ el.responsibility or '—' }}</td><td><span class="badge badge-{{ el.status }}">{{ el.status }}</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty-hint">本轮无元素变更标注(元素 change 字段未设)。步骤 3 应对本轮要动的能力块/状态/契约逐项标 change。</p>
+      {% endif %}
+    </section>
+
+    {# ── 变更关系 ── #}
+    {% set changed_rels = (baseline.relationships or []) | selectattr('change') | rejectattr('change','==','unchanged') | list %}
+    <section class="section">
+      <h2>变更关系 <span class="vtag">{{ changed_rels|length }} 项</span></h2>
+      {% if changed_rels %}
+      <table class="grid">
+        <thead><tr><th>变更</th><th>ID</th><th>视图</th><th>from</th><th></th><th>to</th><th>关系</th><th>同步</th></tr></thead>
+        <tbody>
+        {% for rel in changed_rels %}
+          <tr class="ch-{{ rel.change }}">
+            <td><span class="chip chip-{{ rel.change }}">{{ rel.change }}</span></td>
+            <td><code>{{ rel.id }}</code></td><td>{{ rel.view }}</td>
+            <td><code>{{ rel.from }}</code></td><td class="arrow">→</td><td><code>{{ rel.to }}</code></td>
+            <td>{{ rel.relation_type }}</td><td>{{ rel.sync_async or '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty-hint">本轮无关系变更标注。</p>
+      {% endif %}
+    </section>
+
+    {# ── 新增 accepted_facts(本轮打算落地的,标 added)── #}
+    {% set new_facts = (baseline.accepted_facts or []) | selectattr('change','==','added') | list %}
+    {% if new_facts %}
+    <section class="section">
+      <h2>本轮拟接受事实 <span class="vtag">{{ new_facts|length }} 项 · 注意:step3 是提案,这些尚未落地</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>事实</th><th>来源</th></tr></thead>
+        <tbody>
+        {% for af in new_facts %}<tr class="ch-added"><td><code>{{ af.id }}</code></td><td>{{ af.fact }}</td><td>{{ af.source or '—' }}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+    {# ── deferred(全显:step3 常打开新结转)── #}
+    {% if baseline.deferred %}
+    <section class="section">
+      <h2>结转项 <span class="vtag">deferred · 每项必须有 owner + 后续入口</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>事项</th><th>owner</th><th>触发条件</th><th>后续入口</th></tr></thead>
+        <tbody>
+        {% for d in baseline.deferred %}<tr><td><code>{{ d.id }}</code></td><td>{{ d.item }}</td><td>{{ d.owner }}</td><td>{{ d.trigger }}</td><td>{{ d.next_entry }}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+    {# ── release_risk(全显)── #}
+    {% if baseline.release_risk %}
+    <section class="section">
+      <h2>发布风险 <span class="vtag">release risk</span></h2>
+      <table class="grid">
+        <thead><tr><th>ID</th><th>风险</th><th>等级</th><th>缓解</th></tr></thead>
+        <tbody>
+        {% for r in baseline.release_risk %}
+          <tr><td><code>{{ r.id }}</code></td><td>{{ r.risk }}</td><td><span class="{{ r.level|lower }}">{{ r.level }}</span></td><td>{{ r.mitigation or '—' }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+    <div class="note">
+      <strong>读法:</strong>这是步骤 3 架构更新稿(delta 视图),只详列本轮<span class="chip chip-added">added</span>
+      <span class="chip chip-modified">modified</span> <span class="chip chip-removed">removed</span> 的元素与关系。
+      未标注 change 的视为本轮不动。过闸门 1 后进入步骤 4 派生切片;
+      实现并验证后,步骤 8 baseline-freeze 把 change 落实为 accepted 并清空变更标注。
+    </div>
+  </main>
+
+  <footer>
+    A2D 架构更新稿(delta)· <code>{{ baseline.version }}</code> · 由 <code>a2d-plugin renderer --mode delta</code> 渲染
+  </footer>
+</body>
+</html>

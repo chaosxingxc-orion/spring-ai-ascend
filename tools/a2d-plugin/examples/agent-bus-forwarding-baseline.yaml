@@ -165,3 +165,10 @@ release_risk:
   - {id: RR-002, risk: 真实 JDBC 仅在 embedded-postgres 验证,生产 PG 未跑通, level: L2, mitigation: adapter 不依赖具体载体,生产部署可切 Testcontainers 或真实 PG 验证}
   - {id: RR-003, risk: 端到端投递尚未跑通真实 agent-runtime(SC-005 draft), level: L3, mitigation: delivery 端口抽象已就位,A2A adapter 可替换;集成前内核逻辑由 real-SQL + 行为测试覆盖}
   - {id: RR-004, risk: ArchUnit 纯度 trip-wire 范围随子包扩张, level: L1, mitigation: Spring/JDBC 已圈进 persistence.jdbc,持续在 CI 守护}
+
+diagrams:                      # 审阅 HTML 内嵌架构图(同名 .svg 存在则嵌入,否则内嵌 .puml 源)
+  - {path: docs/architecture/l0/architecture-views/plantuml/l0/l0-logical.puml, caption: 逻辑视图(l0)}
+  - {path: docs/architecture/l0/architecture-views/plantuml/l0/l0-development.puml, caption: 开发视图(l0)}
+  - {path: docs/architecture/l0/architecture-views/plantuml/l0/l0-process.puml, caption: 进程视图(l0)}
+  - {path: docs/architecture/l0/architecture-views/plantuml/l0/l0-physical.puml, caption: 物理视图(l0)}
+  - {path: docs/architecture/l0/architecture-views/plantuml/l0/l0-scenario.puml, caption: 场景视图(l0)}

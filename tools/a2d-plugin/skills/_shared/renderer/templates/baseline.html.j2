@@ -110,6 +110,14 @@
     .l3 { color: var(--red); font-weight: 700; }
     .l2 { color: var(--amber); font-weight: 700; }
     .l1 { color: var(--green); font-weight: 700; }
+    .diagram { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:12px 0; }
+    .diagram figcaption { font-weight:700; font-size:14px; margin-bottom:8px; }
+    .diagram figcaption code { background:var(--paper); padding:1px 5px; border-radius:3px; font-size:12px; font-weight:400; }
+    .svg-wrap { background:#fff; padding:12px; border-radius:6px; overflow:auto; text-align:center; }
+    .svg-wrap svg { max-width:100%; height:auto; }
+    .diagram pre { background:var(--paper); padding:10px; border-radius:6px; font-size:12px; overflow:auto; max-height:380px; margin:8px 0 0; white-space:pre-wrap; }
+    .diagram summary { cursor:pointer; font-size:13px; color:var(--muted); }
+    .diagram .missing { color:var(--red); font-size:13px; margin:0; }
     .note {
       background: var(--blue-soft); border-left: 4px solid var(--blue); padding: 12px 16px;
       border-radius: 0 8px 8px 0; font-size: 14px; margin: 12px 0;
@@ -192,6 +200,25 @@
         {% endfor %}
       </div>
     </section>
+
+    {# ── 架构图(SVG 优先,缺则内嵌 .puml 源)── #}
+    {% if diagrams %}
+    <section class="section">
+      <h2>架构图 <span class="vtag">{{ diagrams|length }} 张 · SVG 优先,缺则内嵌 .puml 源</span></h2>
+      {% for d in diagrams %}
+      <figure class="diagram">
+        <figcaption>{{ d.caption }} <code>{{ d.path }}</code></figcaption>
+        {% if d.svg %}
+          <div class="svg-wrap">{{ d.svg|safe }}</div>
+        {% elif d.missing %}
+          <p class="missing">⚠ 找不到图源 {{ d.path }}(路径相对仓库根)</p>
+        {% else %}
+          <details><summary>.puml 源 · 本地无 plantuml 未渲染 SVG,命令:<code>plantuml -tsvg {{ d.path }}</code></summary><pre>{{ d.source }}</pre></details>
+        {% endif %}
+      </figure>
+      {% endfor %}
+    </section>
+    {% endif %}
 
     {# ── 元素事实表 ── #}
     {% if baseline.elements %}

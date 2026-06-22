@@ -17,6 +17,7 @@ import baseline  # noqa: E402
 import render as renderer  # noqa: E402
 
 SAMPLE = _PLUGIN / "examples" / "agent-bus-forwarding-baseline.yaml"
+DELTA = _PLUGIN / "examples" / "agent-bus-a2a-connpool-update.yaml"
 
 
 def test_load_sample():
@@ -88,6 +89,64 @@ def test_save_roundtrip_rejects_invalid():
         raise AssertionError("save 应拒绝坏数据")
     except ValueError:
         pass  # 预期
+
+
+def test_change_enum_validation():
+    """非法 change 值必须被拒。"""
+    data = baseline.load(SAMPLE)
+    data["elements"][0]["change"] = "created"  # 非法
+    errors = baseline.validate(data)
+    assert any("change" in e for e in errors)
+
+
+def test_validate_delta_sample_passes():
+    errors = baseline.validate(baseline.load(DELTA))
+    assert errors == [], "delta 样例应通过校验:\n  - " + "\n  - ".join(errors)
+
+
+def test_change_counts():
+    counts = baseline.change_counts(baseline.load(DELTA))
+    assert counts["added"] == 3      # E-016 + R-013 + AF-011
+    assert counts["modified"] == 3   # E-007 + E-008 + R-004
+    assert counts["removed"] == 0
+    assert counts["unchanged"] == 3  # E-001 + E-006 + E-014
+
+
+def test_render_delta_filters_and_colors():
+    """delta 模式:变更摘要计数 + 只详列变更项 + change 着色 + 无泄漏。"""
+    data = baseline.load(DELTA)
+    html = renderer.render(data, mode="delta")
+    assert "chip-added" in html and "chip-modified" in html  # 着色类
+    assert "E-016" in html   # added 元素出现
+    assert "R-013" in html   # added 关系出现
+    assert "AF-011" in html  # added 拟接受事实出现
+    for token in ("{{", "}}", "{%", "%}"):
+        assert token not in html
+
+
+def test_diagrams_missing_path_rejected():
+    """diagrams 项缺 path 必须被拒。"""
+    data = baseline.load(SAMPLE)
+    data["diagrams"] = [{"caption": "无路径"}]
+    errors = baseline.validate(data)
+    assert any("diagrams" in e and "path" in e for e in errors)
+
+
+def test_render_diagrams_source_fallback():
+    """full 渲染含 diagrams 区;本地无 SVG 时走源码块分支(显示渲染命令)。"""
+    data = baseline.load(SAMPLE)
+    html = renderer.render(data, mode="full", base_dir=SAMPLE.parent)
+    assert "架构图" in html
+    assert "l0-logical.puml" in html
+    assert "plantuml -tsvg" in html  # 源码块分支的渲染命令提示
+
+
+def test_render_diagrams_missing_file():
+    """引用不存在的图源 → missing 提示,不崩。"""
+    data = baseline.load(SAMPLE)
+    data["diagrams"] = [{"path": "does/not/exist.puml", "caption": "假图"}]
+    html = renderer.render(data, mode="full", base_dir=SAMPLE.parent)
+    assert "找不到图源" in html
 
 
 def _run_all():

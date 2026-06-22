@@ -107,6 +107,14 @@
     .l3 { color: var(--red); font-weight: 700; }
     .l2 { color: var(--amber); font-weight: 700; }
     .l1 { color: var(--green); font-weight: 700; }
+    .diagram { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:12px 0; }
+    .diagram figcaption { font-weight:700; font-size:14px; margin-bottom:8px; }
+    .diagram figcaption code { background:var(--paper); padding:1px 5px; border-radius:3px; font-size:12px; font-weight:400; }
+    .svg-wrap { background:#fff; padding:12px; border-radius:6px; overflow:auto; text-align:center; }
+    .svg-wrap svg { max-width:100%; height:auto; }
+    .diagram pre { background:var(--paper); padding:10px; border-radius:6px; font-size:12px; overflow:auto; max-height:380px; margin:8px 0 0; white-space:pre-wrap; }
+    .diagram summary { cursor:pointer; font-size:13px; color:var(--muted); }
+    .diagram .missing { color:var(--red); font-size:13px; margin:0; }
     .note {
       background: var(--blue-soft); border-left: 4px solid var(--blue); padding: 12px 16px;
       border-radius: 0 8px 8px 0; font-size: 14px; margin: 12px 0;
@@ -178,6 +186,324 @@
                 </table>
           </article>
       </div>
+    </section>
+
+    <section class="section">
+      <h2>架构图 <span class="vtag">5 张 · SVG 优先,缺则内嵌 .puml 源</span></h2>
+      <figure class="diagram">
+        <figcaption>逻辑视图(l0) <code>docs/architecture/l0/architecture-views/plantuml/l0/l0-logical.puml</code></figcaption>
+          <details><summary>.puml 源 · 本地无 plantuml 未渲染 SVG,命令:<code>plantuml -tsvg docs/architecture/l0/architecture-views/plantuml/l0/l0-logical.puml</code></summary><pre>@startuml l0-logical
+!include ../common/theme.puml
+!include ../common/links.puml
+!include ../common/l0-elements.puml
+
+title L0 Logical View - Six Core Capability Blocks and C/S Boundary
+
+System_Boundary(c_side, &#34;C-Side: business-owned authority&#34;) {
+  System_Ext(business_app, $BUSINESS_APP_NAME, &#34;Owns business goals, rules, facts, ontology, and degradation authority.&#34;, $tags=&#34;C-Side&#34;)
+  Container(agent_client, $AGENT_CLIENT_NAME, &#34;Client capability&#34;, $AGENT_CLIENT_DESC, $tags=&#34;C-Side&#34;, $link=$L1_AGENT_CLIENT)
+}
+
+System_Boundary(s_side, &#34;S-Side: spring-ai-ascend platform capability boundary&#34;) {
+  Container(agent_service, $AGENT_SERVICE_NAME, &#34;Service boundary&#34;, $AGENT_SERVICE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_SERVICE)
+  Container(exec_engine, $EXECUTION_ENGINE_NAME, &#34;Execution capability&#34;, $EXECUTION_ENGINE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_EXECUTION_ENGINE)
+  Container(agent_bus, $AGENT_BUS_NAME, &#34;Coordination capability&#34;, $AGENT_BUS_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_BUS)
+  Container(agent_middleware, $AGENT_MIDDLEWARE_NAME, &#34;Shared infrastructure capability&#34;, $AGENT_MIDDLEWARE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_MIDDLEWARE)
+  Container(evolution, $EVOLUTION_NAME, &#34;Improvement capability&#34;, $EVOLUTION_DESC, $tags=&#34;S-Side&#34;, $link=$L1_EVOLUTION)
+}
+
+Rel(business_app, agent_client, &#34;uses for enterprise agent access&#34;)
+Rel(agent_client, agent_service, &#34;sends business tasks and receives observable task state&#34;)
+Rel(agent_service, exec_engine, &#34;coordinates and dispatches execution&#34;)
+Rel(exec_engine, agent_service, &#34;reports progress, terminal state, and resumable handoff&#34;)
+Rel(agent_service, agent_bus, &#34;coordinates cross-service work&#34;)
+Rel(exec_engine, agent_bus, &#34;emits events and receives collaboration signals&#34;)
+Rel(agent_service, agent_middleware, &#34;uses memory, skill, sandbox, knowledge, trace, and governance services&#34;)
+Rel(exec_engine, agent_middleware, &#34;uses execution-time shared capabilities&#34;)
+Rel(agent_bus, evolution, &#34;publishes operational and shadow traffic asynchronously&#34;, $tags=&#34;async&#34;)
+Rel(evolution, agent_service, &#34;feeds capability improvement candidates&#34;, $tags=&#34;async&#34;)
+Rel(evolution, agent_middleware, &#34;feeds policy, prompt, skill, and knowledge optimization candidates&#34;, $tags=&#34;async&#34;)
+
+note bottom of c_side
+Business ontology and facts remain C-Side owned by default.
+The S-Side may emit candidate updates, but does not own business truth by default.
+end note
+
+note bottom of s_side
+Runtime trajectory, execution state, and governance state are platform concerns.
+L1/L2 protocol objects, concrete interfaces, state machines, and schedulers are not promoted to L0 components.
+end note
+
+legend right
+|= Element rule |= Meaning |
+| Six internal containers | The only L0 first-class capability blocks inside spring-ai-ascend. |
+| Notes | Carry C/S ownership and lower-level mechanism constraints without adding L0 components. |
+| SVG links | Each core block reserves a future L1 drill-down target. |
+endlegend
+@enduml
+</pre></details>
+      </figure>
+      <figure class="diagram">
+        <figcaption>开发视图(l0) <code>docs/architecture/l0/architecture-views/plantuml/l0/l0-development.puml</code></figcaption>
+          <details><summary>.puml 源 · 本地无 plantuml 未渲染 SVG,命令:<code>plantuml -tsvg docs/architecture/l0/architecture-views/plantuml/l0/l0-development.puml</code></summary><pre>@startuml l0-development
+!include ../common/theme.puml
+!include ../common/links.puml
+!include ../common/l0-elements.puml
+
+title L0 Development View - Repository Modules Supporting the Six Capabilities
+
+&#39; rc13 (ADR-0088): rewritten to current 8-module reactor — Phase C consolidated
+&#39; agent-platform + agent-runtime into agent-service per ADR-0078; ADR-0079
+&#39; transiently extracted agent-runtime-core; rc13 dissolved agent-runtime-core
+&#39; per ADR-0088 and redistributed its sources back to agent-service (runs +
+&#39; idempotency) + agent-bus (bus.spi.s2c). ADR-0158 then re-homed the neutral
+&#39; orchestration/engine SPI to agent-bus (bus.spi.engine: EnginePort + RunMode +
+&#39; orchestration types). Paired with ADR-0089 which adds agent-bus
+&#39; bus.spi.ingress.IngressGateway as the C2S cross-plane control surface.
+
+System_Boundary(repo, &#34;Current repository modules&#34;) {
+  Container(agent_service, &#34;agent-service&#34;, &#34;Maven module&#34;, &#34;Northbound HTTP facade + Spring Boot bootstrap + tenant filter + idempotency + posture gate + reference orchestrator wiring + Run/RunStateMachine/IdempotencyRecord entities + memory/resilience/runs SPIs (rc13 re-consolidation per ADR-0088).&#34;, $tags=&#34;S-Side&#34;)
+  Container(agent_execution_engine, &#34;agent-execution-engine&#34;, &#34;Maven module&#34;, &#34;Execution adapter SPI (engine.spi: ExecutorAdapter / EngineRegistry / EngineEnvelope) + InProcessEnginePort realization of the neutral EnginePort boundary (ADR-0158).&#34;, $tags=&#34;S-Side&#34;)
+  Container(agent_middleware_module, &#34;agent-middleware&#34;, &#34;Maven module&#34;, &#34;Runtime-owned cross-cutting middleware SPI (HookPoint / RuntimeMiddleware / HookContext / HookOutcome / HookDispatcher) per ADR-0073.&#34;, $tags=&#34;S-Side&#34;)
+  Container(agent_bus_module, &#34;agent-bus&#34;, &#34;Maven module&#34;, &#34;Bus &amp; State Hub plane — cross-plane control surfaces in BOTH directions: bus.spi.ingress.IngressGateway (ADR-0089) + bus.spi.s2c.S2cCallbackTransport (ADR-0074 + ADR-0088) + neutral orchestration/engine SPI bus.spi.engine (EnginePort / RunMode / Checkpointer / Orchestrator / RunContext / SuspendSignal / TraceContext / ExecutorDefinition / ExecutionContext per ADR-0158). Workflow primitives W2 per ADR-0050.&#34;, $tags=&#34;S-Side&#34;)
+  Container(agent_client_module, &#34;agent-client&#34;, &#34;Maven module&#34;, &#34;Edge Access plane skeleton (AgentClient SDK + Task Cursor consumer + SSE/Webhook receiver). W3+ per ADR-0049. Cross-plane traffic locked to bus.spi.ingress.IngressGateway per ADR-0089 / Rule R-I.b.&#34;, $tags=&#34;C-Side&#34;)
+  Container(agent_evolve_module, &#34;agent-evolve&#34;, &#34;Maven module&#34;, &#34;Evolution plane Java-side adapter skeleton. Bulk implementation deferred per ADR-0075.&#34;, $tags=&#34;S-Side&#34;)
+  Container(dependencies_bom, &#34;spring-ai-ascend-dependencies&#34;, &#34;Maven BOM&#34;, &#34;Dependency pinning and build alignment across the eight reactor modules.&#34;, $tags=&#34;Governance&#34;)
+  Container(graphmemory, &#34;spring-ai-ascend-graphmemory-starter&#34;, &#34;Spring starter&#34;, &#34;Graph memory starter and adapter shell.&#34;, $tags=&#34;S-Side&#34;)
+}
+
+System_Boundary(l0_caps, &#34;L0 capability labels&#34;) {
+  Container(agent_client, $AGENT_CLIENT_NAME, &#34;Capability&#34;, $AGENT_CLIENT_DESC, $tags=&#34;C-Side&#34;, $link=$L1_AGENT_CLIENT)
+  Container(agent_service_cap, $AGENT_SERVICE_NAME, &#34;Capability&#34;, $AGENT_SERVICE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_SERVICE)
+  Container(exec_engine, $EXECUTION_ENGINE_NAME, &#34;Capability&#34;, $EXECUTION_ENGINE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_EXECUTION_ENGINE)
+  Container(agent_bus, $AGENT_BUS_NAME, &#34;Capability&#34;, $AGENT_BUS_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_BUS)
+  Container(agent_middleware, $AGENT_MIDDLEWARE_NAME, &#34;Capability&#34;, $AGENT_MIDDLEWARE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_MIDDLEWARE)
+  Container(evolution, $EVOLUTION_NAME, &#34;Capability&#34;, $EVOLUTION_DESC, $tags=&#34;S-Side&#34;, $link=$L1_EVOLUTION)
+}
+
+Rel(agent_service, agent_service_cap, &#34;implements the northbound HTTP edge + runtime wiring + runs/idempotency entities&#34;)
+Rel(agent_execution_engine, exec_engine, &#34;implements execution adapter SPI + orchestration SPI&#34;)
+Rel(agent_middleware_module, agent_middleware, &#34;implements runtime-owned cross-cutting middleware SPI&#34;)
+Rel(agent_bus_module, agent_bus, &#34;owns ingress (C2S) + s2c (S2C) cross-plane control surfaces&#34;)
+Rel(agent_client_module, agent_client, &#34;skeleton for Edge Access SDK; consumes bus.spi.ingress.IngressGateway&#34;)
+Rel(agent_evolve_module, evolution, &#34;Java adapter shell for evolution plane&#34;)
+Rel(graphmemory, agent_middleware, &#34;contributes memory adapter shell&#34;)
+Rel(dependencies_bom, agent_service, &#34;pins dependency versions&#34;)
+Rel(dependencies_bom, agent_execution_engine, &#34;pins dependency versions&#34;)
+Rel(dependencies_bom, agent_middleware_module, &#34;pins dependency versions&#34;)
+Rel(dependencies_bom, agent_bus_module, &#34;pins dependency versions&#34;)
+Rel(dependencies_bom, agent_client_module, &#34;pins dependency versions&#34;)
+Rel(dependencies_bom, agent_evolve_module, &#34;pins dependency versions&#34;)
+Rel(dependencies_bom, graphmemory, &#34;pins dependency versions&#34;)
+
+note bottom of repo
+Development red lines:
+- Core/runtime contracts do not depend on business applications.
+- Core/runtime contracts do not directly bind to concrete middleware implementations.
+- Middleware implementations are injected through service/runtime adapters.
+- The evolution layer is isolated from the Java service/execution path through bus or serialized contracts.
+- Edge plane (agent-client) MUST NOT directly import compute_control plane production code; cross-plane traffic flows through agent-bus.spi.ingress.IngressGateway (Rule R-I.b / ADR-0089).
+- This view stays at module direction, not class or interface internals.
+- Pre-Phase-C modules agent-platform/agent-runtime consolidated per ADR-0078; transient agent-runtime-core dissolved per rc13 ADR-0088.
+end note
+
+legend right
+|= Tag |= Meaning |
+| Current repository modules | Code that exists today (8-module reactor post-ADR-0088). |
+| L0 capability labels | Architectural names used by the top-level diagrams. |
+endlegend
+@enduml
+</pre></details>
+      </figure>
+      <figure class="diagram">
+        <figcaption>进程视图(l0) <code>docs/architecture/l0/architecture-views/plantuml/l0/l0-process.puml</code></figcaption>
+          <details><summary>.puml 源 · 本地无 plantuml 未渲染 SVG,命令:<code>plantuml -tsvg docs/architecture/l0/architecture-views/plantuml/l0/l0-process.puml</code></summary><pre>@startuml l0-process
+!include ../common/theme.puml
+!include ../common/links.puml
+!include ../common/l0-elements.puml
+
+title L0 Process View - Asynchronous Long-Running Task Lifecycle
+
+Person(operator, $BUSINESS_OPERATOR_NAME, &#34;Keeps business authority.&#34;, $tags=&#34;C-Side&#34;)
+System_Ext(business_app, $BUSINESS_APP_NAME, &#34;Public task-driving interface.&#34;, $tags=&#34;C-Side&#34;)
+Container(agent_client, $AGENT_CLIENT_NAME, &#34;SDK / API facade&#34;, $AGENT_CLIENT_DESC, $tags=&#34;C-Side&#34;, $link=$L1_AGENT_CLIENT)
+Container(agent_service, $AGENT_SERVICE_NAME, &#34;Enterprise service boundary&#34;, $AGENT_SERVICE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_SERVICE)
+Container(exec_engine, $EXECUTION_ENGINE_NAME, &#34;Execution capability&#34;, $EXECUTION_ENGINE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_EXECUTION_ENGINE)
+Container(agent_middleware, $AGENT_MIDDLEWARE_NAME, &#34;Shared capability layer&#34;, $AGENT_MIDDLEWARE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_MIDDLEWARE)
+Container(agent_bus, $AGENT_BUS_NAME, &#34;Coordination hub&#34;, $AGENT_BUS_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_BUS)
+Container(evolution, $EVOLUTION_NAME, &#34;Improvement loop&#34;, $EVOLUTION_DESC, $tags=&#34;S-Side&#34;, $link=$L1_EVOLUTION)
+
+Rel(operator, business_app, &#34;initiates and reviews work&#34;)
+Rel_D(business_app, agent_client, &#34;invokes platform access&#34;)
+Rel_D(agent_client, agent_service, &#34;submits long-running task&#34;)
+Rel_D(agent_service, exec_engine, &#34;accepts and dispatches execution&#34;)
+Rel_D(exec_engine, exec_engine, &#34;performs Workflow or AgentLoop style work&#34;)
+Rel_D(exec_engine, agent_middleware, &#34;uses memory, skill, sandbox, knowledge, trace, or governance capability when needed&#34;)
+Rel_D(agent_service, agent_middleware, &#34;uses policy, tenant, and service governance capabilities&#34;)
+Rel_D(exec_engine, agent_bus, &#34;emits collaboration events and receives coordination signals&#34;)
+Rel_D(agent_service, agent_bus, &#34;coordinates cross-agent and cross-service communication&#34;)
+Rel_D(agent_bus, evolution, &#34;publishes operational and shadow traffic asynchronously&#34;, $tags=&#34;async&#34;)
+Rel_D(evolution, agent_service, &#34;feeds improvement candidates without blocking online execution&#34;, $tags=&#34;async&#34;)
+Rel_U(agent_service, agent_client, &#34;returns progress, intermediate state, completion, or resumable handoff&#34;)
+Rel_U(agent_client, business_app, &#34;surfaces observable task state&#34;)
+Rel_U(business_app, operator, &#34;keeps business authority over outcomes&#34;)
+
+note right of agent_service
+L0 process mechanisms:
+- asynchronous long-running execution;
+- interruptible and resumable lifecycle;
+- non-blocking resource release for waits;
+- cross-service coordination;
+- asynchronous evolution feedback.
+Lower-level pull, pressure, channel, and protocol details are refined in L1/L2.
+end note
+
+legend right
+|= Relation style |= Meaning |
+| Solid process arrows | Macro online task path. |
+| Dashed purple arrows | Asynchronous feedback path. |
+| Self relation | Execution style is named without expanding internal engine components. |
+endlegend
+@enduml
+</pre></details>
+      </figure>
+      <figure class="diagram">
+        <figcaption>物理视图(l0) <code>docs/architecture/l0/architecture-views/plantuml/l0/l0-physical.puml</code></figcaption>
+          <details><summary>.puml 源 · 本地无 plantuml 未渲染 SVG,命令:<code>plantuml -tsvg docs/architecture/l0/architecture-views/plantuml/l0/l0-physical.puml</code></summary><pre>@startuml l0-physical
+!include ../common/theme.puml
+!include ../common/links.puml
+!include ../common/l0-elements.puml
+
+title L0 Physical View - Production Deployment Planes and Isolation Boundaries
+
+Deployment_Node(edge_plane, &#34;Edge Access Plane&#34;, &#34;Lightweight and stateless&#34;) {
+  Container(business_app, $BUSINESS_APP_NAME, &#34;Business servers / terminals&#34;, &#34;Enterprise entry points that own business context.&#34;, $tags=&#34;C-Side&#34;)
+  Container(agent_client, $AGENT_CLIENT_NAME, &#34;Client capability&#34;, $AGENT_CLIENT_DESC, $tags=&#34;C-Side&#34;, $link=$L1_AGENT_CLIENT)
+}
+
+Deployment_Node(compute_plane, &#34;Compute &amp; Control Plane&#34;, &#34;Horizontally scalable service compute&#34;) {
+  Container(agent_service, $AGENT_SERVICE_NAME, &#34;Enterprise service boundary&#34;, $AGENT_SERVICE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_SERVICE)
+  Container(exec_engine, $EXECUTION_ENGINE_NAME, &#34;Execution control&#34;, $EXECUTION_ENGINE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_EXECUTION_ENGINE)
+}
+
+Deployment_Node(bus_state_plane, &#34;Bus &amp; State Hub Plane&#34;, &#34;High I/O state hub&#34;) {
+  Container(agent_bus, $AGENT_BUS_NAME, &#34;Coordination hub&#34;, $AGENT_BUS_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_BUS)
+  System_Ext(state_data, &#34;State, Durable, Vector, and Knowledge Stores&#34;, &#34;External or platform-managed persistence dependencies with tenant isolation below application logic where possible.&#34;, $tags=&#34;External&#34;)
+  Container(agent_middleware, $AGENT_MIDDLEWARE_NAME, &#34;Shared infrastructure capability&#34;, $AGENT_MIDDLEWARE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_MIDDLEWARE)
+}
+
+Deployment_Node(sandbox_plane, &#34;Sandbox Execution Plane&#34;, &#34;Physically isolated untrusted execution&#34;) {
+  System_Ext(sandbox_infra, $SANDBOX_INFRA_NAME, &#34;Runs untrusted generated code and third-party tools outside compute/control services.&#34;, $tags=&#34;External&#34;)
+}
+
+Deployment_Node(evolution_plane, &#34;Evolution Plane&#34;, &#34;Dedicated offline or near-real-time compute pool&#34;) {
+  Container(evolution, $EVOLUTION_NAME, &#34;Evolution capability&#34;, &#34;Trajectory scoring plus prompt, skill, and policy optimization loops.&#34;, $tags=&#34;S-Side&#34;, $link=$L1_EVOLUTION)
+}
+
+System_Ext(model_gateway, $MODEL_GATEWAY_NAME, &#34;External model access.&#34;, $tags=&#34;External&#34;)
+System_Ext(iam, $IAM_NAME, &#34;Identity, policy, and credential authority.&#34;, $tags=&#34;External&#34;)
+System_Ext(observability, $OBSERVABILITY_NAME, &#34;Telemetry, audit, and governance platform.&#34;, $tags=&#34;External&#34;)
+
+Rel(business_app, agent_client, &#34;uses local or embedded access&#34;)
+Rel(agent_client, agent_service, &#34;submits tasks and receives observable state&#34;)
+Rel(agent_service, exec_engine, &#34;controls execution&#34;)
+Rel(agent_service, agent_bus, &#34;coordinates runtime collaboration&#34;)
+Rel(exec_engine, agent_bus, &#34;emits events and receives coordination signals&#34;)
+Rel(agent_service, agent_middleware, &#34;uses shared platform capabilities&#34;)
+Rel(exec_engine, agent_middleware, &#34;uses execution-time shared capabilities&#34;)
+Rel(agent_middleware, state_data, &#34;persists and retrieves governed state and knowledge&#34;)
+Rel(agent_middleware, sandbox_infra, &#34;delegates isolated tool execution&#34;, $tags=&#34;boundary&#34;)
+Rel(agent_middleware, model_gateway, &#34;invokes governed model access&#34;)
+Rel(agent_service, iam, &#34;checks identity, policy, and credentials&#34;)
+Rel(agent_bus, evolution, &#34;streams operational and shadow traffic asynchronously&#34;, $tags=&#34;async&#34;)
+Rel(evolution, observability, &#34;reads telemetry and emits governance insight&#34;, $tags=&#34;async&#34;)
+Rel(agent_service, observability, &#34;emits online service health and audit events&#34;)
+
+note bottom of compute_plane
+Physical red lines:
+- Untrusted code does not run directly in this plane.
+- Online execution must not be blocked by evolution analysis.
+- Detailed resource scheduling and channel design belong to L1/L2.
+end note
+
+note bottom of bus_state_plane
+Tenant data isolation should be enforced below application logic where possible, such as row, schema, or database isolation.
+Skill resources are governed conceptually by tenant quota and global capacity; detailed scheduling is lower-level design.
+end note
+
+legend right
+|= Plane |= L0 deployment meaning |
+| Edge Access | Business entry and client access. |
+| Compute &amp; Control | Service boundary and execution control. |
+| Bus &amp; State Hub | Coordination plus durable state and knowledge dependencies. |
+| Sandbox Execution | Isolated untrusted code/tool substrate. |
+| Evolution | Non-blocking improvement analysis. |
+endlegend
+@enduml
+</pre></details>
+      </figure>
+      <figure class="diagram">
+        <figcaption>场景视图(l0) <code>docs/architecture/l0/architecture-views/plantuml/l0/l0-scenario.puml</code></figcaption>
+          <details><summary>.puml 源 · 本地无 plantuml 未渲染 SVG,命令:<code>plantuml -tsvg docs/architecture/l0/architecture-views/plantuml/l0/l0-scenario.puml</code></summary><pre>@startuml l0-scenario
+!include ../common/theme.puml
+!include ../common/links.puml
+!include ../common/l0-elements.puml
+
+title L0 Scenario View - Long-Running Enterprise Agent Task
+
+Person(operator, $BUSINESS_OPERATOR_NAME, &#34;Defines goals, reviews progress, keeps business authority.&#34;, $tags=&#34;C-Side&#34;)
+System_Ext(business_app, $BUSINESS_APP_NAME, &#34;Enterprise application, workflow tool, or terminal that embeds the platform.&#34;, $tags=&#34;C-Side&#34;)
+
+System_Boundary(ascend, $SPRING_AI_ASCEND) {
+  Container(agent_client, $AGENT_CLIENT_NAME, &#34;SDK / API facade&#34;, $AGENT_CLIENT_DESC, $tags=&#34;C-Side&#34;, $link=$L1_AGENT_CLIENT)
+  Container(agent_service, $AGENT_SERVICE_NAME, &#34;Enterprise service boundary&#34;, $AGENT_SERVICE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_SERVICE)
+  Container(exec_engine, $EXECUTION_ENGINE_NAME, &#34;Execution capability&#34;, $EXECUTION_ENGINE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_EXECUTION_ENGINE)
+  Container(agent_bus, $AGENT_BUS_NAME, &#34;Coordination hub&#34;, $AGENT_BUS_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_BUS)
+  Container(agent_middleware, $AGENT_MIDDLEWARE_NAME, &#34;Shared capability layer&#34;, $AGENT_MIDDLEWARE_DESC, $tags=&#34;S-Side&#34;, $link=$L1_AGENT_MIDDLEWARE)
+  Container(evolution, $EVOLUTION_NAME, &#34;Improvement loop&#34;, $EVOLUTION_DESC, $tags=&#34;S-Side&#34;, $link=$L1_EVOLUTION)
+}
+
+System_Ext(model_gateway, $MODEL_GATEWAY_NAME, &#34;Managed model and tool gateway.&#34;, $tags=&#34;External&#34;)
+System_Ext(iam, $IAM_NAME, &#34;Identity, policy, secrets, and credential authority.&#34;, $tags=&#34;External&#34;)
+System_Ext(data_systems, $DATA_SYSTEMS_NAME, &#34;Enterprise knowledge, records, and retrieval systems.&#34;, $tags=&#34;External&#34;)
+System_Ext(sandbox_infra, $SANDBOX_INFRA_NAME, &#34;Isolated execution substrate for untrusted tools and generated code.&#34;, $tags=&#34;External&#34;)
+System_Ext(observability, $OBSERVABILITY_NAME, &#34;Telemetry, audit, governance, and operational dashboards.&#34;, $tags=&#34;External&#34;)
+
+Rel(operator, business_app, &#34;sets goals / reviews outcomes&#34;)
+Rel(business_app, agent_client, &#34;submits task / receives progress and completion&#34;)
+Rel(agent_client, agent_service, &#34;submits task / receives progress / resumes&#34;)
+Rel(agent_service, exec_engine, &#34;dispatches Workflow / AgentLoop execution&#34;)
+Rel(exec_engine, agent_middleware, &#34;uses memory, skills, sandbox, knowledge, trace services&#34;)
+Rel(agent_service, agent_middleware, &#34;uses governance, tenant, policy, and runtime services&#34;)
+Rel(exec_engine, agent_bus, &#34;emits events / receives coordination signals&#34;)
+Rel(agent_service, agent_bus, &#34;coordinates cross-service collaboration&#34;)
+Rel(agent_bus, evolution, &#34;publishes shadow and operational traffic asynchronously&#34;, $tags=&#34;async&#34;)
+Rel(evolution, agent_service, &#34;feeds candidate improvements without blocking online execution&#34;, $tags=&#34;async&#34;)
+Rel(agent_service, agent_client, &#34;returns progress, completion, or resumable handoff&#34;)
+Rel(agent_client, business_app, &#34;surfaces observable task state&#34;)
+
+Rel(agent_service, iam, &#34;checks identity, policy, and credentials&#34;)
+Rel(agent_middleware, model_gateway, &#34;invokes model capabilities through governed adapters&#34;)
+Rel(agent_middleware, data_systems, &#34;reads governed business data and knowledge&#34;)
+Rel(agent_middleware, sandbox_infra, &#34;delegates isolated tool execution&#34;)
+Rel(agent_service, observability, &#34;emits service health, audit, and governance signals&#34;)
+Rel(evolution, observability, &#34;consumes telemetry for improvement loops&#34;, $tags=&#34;async&#34;)
+
+note right of ascend
+L0 scenario only: asynchronous, interruptible, resumable long-running tasks are shown conceptually.
+Lower-level protocol objects, scheduler mechanics, and service-provider interfaces are intentionally deferred to L1/L2 drill-down diagrams.
+end note
+
+legend right
+|= Tag |= Meaning |
+| C-Side | Business-owned goals, facts, rules, and authority. |
+| S-Side | Platform-owned service boundary, execution coordination, and governance. |
+| External | Enterprise or infrastructure dependency outside the system boundary. |
+| Dashed purple relation | Asynchronous feedback path. |
+endlegend
+@enduml
+</pre></details>
+      </figure>
     </section>
 
     <section class="section">

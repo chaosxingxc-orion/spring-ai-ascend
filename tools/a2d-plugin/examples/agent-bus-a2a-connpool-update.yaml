@@ -1,0 +1,71 @@
+# A2D 步骤 3 架构更新稿样例:agent-bus A2A adapter 生产化(连接池/超时)
+# 场景:把 Stage 15 的 A2A HTTP adapter PoC(E-007,draft)推向生产。
+# 本轮变更用 change 字段标注(added/modified/removed/unchanged);delta 视图只详列变更项。
+# 锚点元素(E-001/E-006/E-014)为引用完整性保留,标 unchanged。
+version: agent-bus-a2a-connpool-v1-draft
+title: agent-bus A2A adapter 生产化(连接池/超时)架构更新稿
+status: draft
+generated_at: 2026-06-22
+scope: >
+  本轮(闸门 1 前)聚焦 A2A HTTP transport adapter 生产化:为 E-007 A2aForwardingDeliveryPort
+  补连接池与超时配置,推进 DF-003。对应 agent-bus-forwarding-runtime-v1 基线的 SC-005 场景。
+
+source_packets:
+  - docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-transport-candidates.md
+
+views:
+  logical:
+    summary: >
+      本轮在 delivery transport 层引入连接池:A2aForwardingDeliveryPort(E-007)内部新增
+      A2aConnectionPool(E-016,added),统一管理 per-endpoint 的 HTTP 连接复用与超时。
+    risks:
+      - 连接池上限配置不当可能导致投递积压或对 agent-runtime 造成连接压力
+  development:
+    summary: 本轮新增 A2aConnectionPool 模块,不改 ArchUnit 边界(仍在 transport.a2a 子树)。
+    allowed_dependencies:
+      - A2aConnectionPool → HTTP 客户端连接池(Apache HttpClient / OkHttp,本轮待定)
+    forbidden_dependencies:
+      - A2aConnectionPool 不得绕过 ForwardingDeliveryPort 直接被业务内核调用
+    risks:
+      - 连接池实现库选择(Apache vs OkHttp)未定,影响依赖体积
+  process:
+    summary: 连接池对 dispatch loop 透明——deliver 路径不变,只是底层连接复用。
+    runtime_flows:
+      - ForwardingDispatchLoop deliver → A2aForwardingDeliveryPort → 连接池取连接 → A2A HTTP
+    failure_paths:
+      - 连接池耗尽 → 阻塞或快速失败(策略本轮待定,见 RR-005)
+    risks: []
+  physical:
+    summary: 连接池是进程内资源,无新部署影响;超时参数需部署注入。
+    deployment_impact:
+      - 新增部署参数:连接池上限、连接超时、读取超时
+    boundaries:
+      - 连接池不跨租户(与 RLS 无关,进程内)
+    risks: []
+  scenario:
+    scenarios:
+      - {id: SC-005, actor: agent-runtime, flow: A2A HTTP 投递经连接池复用连接, supported_by: A2aForwardingDeliveryPort+A2aConnectionPool, contract: ForwardingDeliveryPort, harness: 待补连接池场景, status: draft}
+
+elements:
+  - {id: E-001, view: logical, type: module, name: agent-bus, owner: arch, responsibility: 类 MQ 转发内核(锚点,本轮不动), source_fact: l0-logical.puml, status: accepted, change: unchanged}
+  - {id: E-006, view: logical, type: contract, name: ForwardingDeliveryPort, owner: arch, responsibility: delivery 抽象端口(锚点,本轮不动), source_fact: Stage 8, status: accepted, change: unchanged}
+  - {id: E-007, view: development, type: module, name: A2aForwardingDeliveryPort, owner: arch, responsibility: "A2A HTTP transport adapter:本轮补连接池/超时,从 PoC 推向生产", source_fact: Stage 15, status: draft, change: modified}
+  - {id: E-008, view: development, type: contract, name: ForwardingEndpointResolver, owner: arch, responsibility: "endpoint 解析:本轮补 registry 集成(原 MapEndpointResolver → registry-backed)", source_fact: Stage 15, status: draft, change: modified}
+  - {id: E-014, view: logical, type: actor, name: agent-runtime, owner: arch, responsibility: receiver 消费方(锚点,本轮不动), source_fact: l0-logical.puml, status: accepted, change: unchanged}
+  - {id: E-016, view: development, type: module, name: A2aConnectionPool, owner: arch, responsibility: "per-endpoint HTTP 连接复用与超时管理(本轮新增)", source_fact: 本轮更新稿, status: draft, change: added}
+
+relationships:
+  - {id: R-004, view: development, from: E-007, to: E-014, relation_type: calls, direction: one-way, sync_async: async, contract_state: "A2A HTTP(本轮加连接池化)", source_fact: SC-005, change: modified}
+  - {id: R-013, view: development, from: E-007, to: E-016, relation_type: owns, direction: one-way, sync_async: none, contract_state: 内部组件, source_fact: 本轮更新稿, change: added}
+
+accepted_facts:
+  - {id: AF-011, fact: "拟落地:A2A HTTP 连接池上限 + 连接/读取超时可配置(本轮提案,尚未实现)", source: 本轮更新稿, change: added}
+
+deferred:
+  - {id: DF-003, item: "A2A HTTP adapter 连接池/超时生产参数(本轮推进:从 deferred → 拟落地 AF-011)", owner: ops, trigger: 生产部署前, next_entry: 本轮切片实现后 baseline-freeze 关闭}
+  - {id: DF-007, item: 连接池耗尽策略(阻塞 vs 快速失败)未定, owner: arch, trigger: 负载测试观测, next_entry: 负载测试切片}
+  - {id: DF-002, item: REMOTE_TASK_FAILED 等 A2A 失败码分类细化(本轮未涉及,保持 deferred), owner: arch, trigger: A2A 错误语义稳定, next_entry: A2A 错误码契约裁决}
+
+release_risk:
+  - {id: RR-005, risk: 连接池上限/超时配置不当 → 投递积压或连接压力(本轮新增风险), level: L2, mitigation: 参数可配置 + 负载测试定基线(DF-007)}
+  - {id: RR-003, risk: 端到端投递尚未跑通真实 agent-runtime(SC-005 仍 draft), level: L3, mitigation: 连接池化后需真实 agent-runtime 联调验证}

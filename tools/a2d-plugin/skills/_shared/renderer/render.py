@@ -26,7 +26,41 @@ import baseline  # noqa: E402
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound  # noqa: E402
 
 
-def render(data: dict, mode: str = "full", override_title: str | None = None) -> str:
+def _find_repo_root(start: Path) -> Path | None:
+    """从 start 向上找 .git,返回仓库根(找不到返回 None)。"""
+    p = start.resolve()
+    while p != p.parent:
+        if (p / ".git").exists():
+            return p
+        p = p.parent
+    return None
+
+
+def _load_diagrams(data: dict, base_dir: Path | None) -> list[dict]:
+    """读 diagrams:同名 .svg 存在则内联,否则内嵌 .puml 源 + 渲染命令提示。
+
+    路径相对仓库根解析(回退到 base_dir)。零外部依赖——本地无 plantuml 时
+    显示源码块,有 plantuml 环境生成 .svg 放旁边即自动升级为内嵌图。
+    """
+    diags: list[dict] = []
+    repo = _find_repo_root(base_dir) if base_dir else None
+    bases = [b for b in ([repo, base_dir] if repo else [base_dir]) if b]
+    for d in data.get("diagrams") or []:
+        rel = d.get("path", "")
+        full = next((b / rel for b in bases if (b / rel).exists()), None)
+        entry = {"path": rel, "caption": d.get("caption", "")}
+        if full:
+            entry["source"] = full.read_text(encoding="utf-8")
+            svg = full.with_suffix(".svg")
+            if svg.exists():
+                entry["svg"] = svg.read_text(encoding="utf-8")
+        else:
+            entry["missing"] = True
+        diags.append(entry)
+    return diags
+
+
+def render(data: dict, mode: str = "full", override_title: str | None = None, base_dir: Path | None = None) -> str:
     env = Environment(
         loader=FileSystemLoader(str(_HERE / "templates")),
         autoescape=True,
@@ -40,7 +74,10 @@ def render(data: dict, mode: str = "full", override_title: str | None = None) ->
         # delta 模板尚未实现时回退到 full
         tmpl = env.get_template("baseline.html.j2")
     title = override_title or data.get("title") or data.get("version") or "4+1 基线"
-    return tmpl.render(baseline=data, title=title, mode=mode)
+    ctx = {"baseline": data, "title": title, "mode": mode, "diagrams": _load_diagrams(data, base_dir)}
+    if mode == "delta":
+        ctx["change_counts"] = baseline.change_counts(data)
+    return tmpl.render(**ctx)
 
 
 def main() -> None:
@@ -65,7 +102,7 @@ def main() -> None:
             print(f"  - {e}", file=sys.stderr)
         sys.exit(1)
 
-    html = render(data, mode=args.mode, override_title=args.title)
+    html = render(data, mode=args.mode, override_title=args.title, base_dir=Path(args.input).resolve().parent)
     Path(args.output).write_text(html, encoding="utf-8")
     print(f"✓ 已渲染 {args.input} → {args.output} (mode={args.mode}, {len(html)} bytes)")
 

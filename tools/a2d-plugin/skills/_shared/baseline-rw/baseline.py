@@ -1,7 +1,8 @@
 """baseline-rw:4+1 基线读写与校验库。
 
-职责:把 A2D 步骤 8(基线固化)产出的 4+1 基线,作为结构化数据加载、校验、落盘。
-renderer 消费这里的 dict 产出审阅 HTML;skill 层调用 load/validate/save。
+职责:把 A2D 基线(步骤 8 基线固化 / 步骤 3 架构更新稿)产出的 4+1 基线,
+作为结构化数据加载、校验、落盘。renderer 消费这里的 dict 产出审阅 HTML;
+skill 层调用 load/validate/save。
 
 数据模型(4+1 基线 yaml):
 
@@ -51,6 +52,7 @@ renderer 消费这里的 dict 产出审阅 HTML;skill 层调用 load/validate/sa
         responsibility: <string>
         source_fact: <string>      # 引用源(评审包/文档锚点)
         status: accepted|draft
+        change: added|modified|removed|unchanged   # 可选;delta 模式(step3)着色用
 
     relationships:                 # 关系事实表(对应 _TEMPLATE §3.2)
       - id: R-001
@@ -62,11 +64,13 @@ renderer 消费这里的 dict 产出审阅 HTML;skill 层调用 load/validate/sa
         sync_async: sync|async|eventual|none
         contract_state: <string>
         source_fact: <string>
+        change: added|modified|removed|unchanged   # 可选;delta 模式(step3)着色用
 
     accepted_facts:                # baseline-freeze 专属(_TEMPLATE §9)
       - id: AF-001
         fact: <string>
         source: <string>
+        change: added|modified|removed|unchanged   # 可选;delta 模式着色用
 
     deferred:                      # 结转项(deny-by-default:必须有后续入口)
       - id: DF-001
@@ -80,6 +84,15 @@ renderer 消费这里的 dict 产出审阅 HTML;skill 层调用 load/validate/sa
         risk: <string>
         level: L1|L2|L3
         mitigation: <string>
+
+    diagrams:                      # 可选;审阅 HTML 内嵌的架构图(.puml 源)
+      - path: docs/.../l0-logical.puml
+        caption: <string>          # 可选图注
+
+change 字段约定:
+    步骤 3(arch-update-draft)产出时,对每条本轮要动的元素/关系/事实标注 change。
+    full 模式(baseline-freeze)忽略该字段;delta 模式据此着色:
+    added=绿 / modified=黄 / removed=红(删除线)/ unchanged=灰(弱化或省略)。
 """
 from __future__ import annotations
 
@@ -95,6 +108,7 @@ VALID_STATUS = ("accepted", "draft", "reviewed", "superseded")
 VALID_DIRECTION = ("one-way", "two-way")
 VALID_SYNC_ASYNC = ("sync", "async", "eventual", "none")
 VALID_RISK_LEVEL = ("L1", "L2", "L3")
+VALID_CHANGE = ("added", "modified", "removed", "unchanged")
 
 TOP_REQUIRED = ("version", "title", "status")
 ELEMENT_REQUIRED = ("id", "view", "type", "name")
@@ -168,6 +182,8 @@ def validate(data: dict) -> list[str]:
             _enum(el["type"], VALID_ELEMENT_TYPES, f"{ctx}.type")
         if el.get("status"):
             _enum(el["status"], VALID_STATUS, f"{ctx}.status")
+        if el.get("change"):
+            _enum(el["change"], VALID_CHANGE, f"{ctx}.change")
 
     # relationships
     relations = data.get("relationships") or []
@@ -188,6 +204,16 @@ def validate(data: dict) -> list[str]:
             _enum(rel["direction"], VALID_DIRECTION, f"{ctx}.direction")
         if rel.get("sync_async"):
             _enum(rel["sync_async"], VALID_SYNC_ASYNC, f"{ctx}.sync_async")
+        if rel.get("change"):
+            _enum(rel["change"], VALID_CHANGE, f"{ctx}.change")
+
+    # accepted_facts(轻量:change 枚举)
+    for i, af in enumerate(data.get("accepted_facts") or []):
+        ctx = f"accepted_facts[{i}]"
+        if not af.get("id") or not af.get("fact"):
+            errors.append(f"{ctx} 缺必填字段 id/fact")
+        if af.get("change"):
+            _enum(af["change"], VALID_CHANGE, f"{ctx}.change")
 
     # deferred:deny-by-default,每项必须有 owner + 后续入口
     deferred = data.get("deferred") or []
@@ -206,7 +232,25 @@ def validate(data: dict) -> list[str]:
         if r.get("level"):
             _enum(r["level"], VALID_RISK_LEVEL, f"{ctx}.level")
 
+    # diagrams(轻量:path 必填)
+    for i, d in enumerate(data.get("diagrams") or []):
+        if not d.get("path"):
+            errors.append(f"diagrams[{i}] 缺必填字段 path")
+
     return errors
+
+
+def change_counts(data: dict) -> dict[str, int]:
+    """统计元素/关系/accepted_facts 的 change 分布(delta 模式摘要用)。"""
+    counts = {c: 0 for c in VALID_CHANGE}
+    counts["unspecified"] = 0
+    for coll in ("elements", "relationships", "accepted_facts"):
+        for item in data.get(coll) or []:
+            c = item.get("change")
+            counts[c] = counts.get(c, 0) + 1 if c else counts.get(c, 0)
+            if not c:
+                counts["unspecified"] += 1
+    return counts
 
 
 def _cli():
@@ -231,8 +275,11 @@ def _cli():
     n_rel = len(data.get("relationships") or [])
     n_df = len(data.get("deferred") or [])
     n_af = len(data.get("accepted_facts") or [])
+    ch = change_counts(data)
+    has_change = any(v for k, v in ch.items() if k != "unspecified")
+    delta_hint = f" | delta:{ch}" if has_change else ""
     print(f"✓ 校验通过: {data.get('version','?')} | "
-          f"元素 {n_el} | 关系 {n_rel} | accepted_facts {n_af} | deferred {n_df}")
+          f"元素 {n_el} | 关系 {n_rel} | accepted_facts {n_af} | deferred {n_df}{delta_hint}")
 
 
 if __name__ == "__main__":
