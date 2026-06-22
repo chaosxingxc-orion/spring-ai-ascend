@@ -33,6 +33,7 @@
     <java.version>21</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <ascend.version>0.2.0-SNAPSHOT</ascend.version>
+    <ascend.memory.version>0.1.0-SNAPSHOT</ascend.memory.version>
     <openjiuwen.agent-core.version>0.1.12-jdk17</openjiuwen.agent-core.version>
   </properties>
 
@@ -49,6 +50,16 @@
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>
       <version>${openjiuwen.agent-core.version}</version>
+    </dependency>
+
+    <!-- Multi-agent shared memory: the run-scoped blackboard (single source of
+         truth for a report's numbers and thesis) plus cross-run experience.
+         The research-report engine uses this so its sub-agents share one
+         canonical context instead of each re-deriving figures locally. -->
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>a2a-shared-memory</artifactId>
+      <version>${ascend.memory.version}</version>
     </dependency>
 
     <!-- A2A transport needs protobuf at runtime. -->

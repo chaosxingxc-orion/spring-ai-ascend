@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  examples/travel-agentscope/agent-hotel-a2a — Spring Boot wrapper that hosts
+  the AgentScope-built hotel agent under agent-runtime and exposes it over
+  the A2A JSON-RPC + /.well-known/agent-card.json surfaces.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend.examples</groupId>
+    <artifactId>travel-agentscope-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>agent-hotel-agentscope-a2a</artifactId>
+  <packaging>jar</packaging>
+  <name>spring-ai-ascend agent-hotel (AgentScope) A2A wrapper</name>
+  <description>
+    Spring Boot wrapper that hosts the AgentScope-flavored hotel agent as a
+    runtime-managed A2A service. Wires the HotelPlanningAgent SAM into an
+    AgentScopeAgentRuntimeHandler so agent-runtime auto-exposes the hotel
+    planning sub-agent over A2A.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.huawei.ascend.examples</groupId>
+      <artifactId>agent-travel-agentscope-hotel</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-runtime</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>com.huawei.ascend.examples.agentscope.hotel.a2a.HotelAgentApplication</mainClass>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

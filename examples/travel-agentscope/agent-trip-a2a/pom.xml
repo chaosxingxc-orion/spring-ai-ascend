@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  examples/travel-agentscope/agent-trip-a2a — Spring Boot wrapper that hosts the
+  AgentScope-flavored trip planning agent under agent-runtime and exposes it
+  over A2A. The trip agent calls the AgentScope-flavored hotel agent (or any
+  A2A-compliant hotel endpoint) through the plan_hotel tool, which uses the
+  A2A SDK JSON-RPC transport — the AgentScope handler family has no
+  remote-agent auto-injection hook the way OpenJiuwen does, so the downstream
+  call is wired in-process by this module.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend.examples</groupId>
+    <artifactId>travel-agentscope-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>agent-trip-agentscope-a2a</artifactId>
+  <packaging>jar</packaging>
+  <name>spring-ai-ascend agent-trip (AgentScope) A2A wrapper</name>
+  <description>
+    Spring Boot wrapper that hosts the AgentScope-flavored trip planning agent
+    as a runtime-managed A2A service. Wires the TripPlanningAgent SAM into an
+    AgentScopeAgentRuntimeHandler and supplies the production HotelPlannerClient
+    binding (A2A JSON-RPC) used by the plan_hotel tool. The agent body lives in
+    the agent-trip library so a host that does not need agent-runtime / A2A can
+    consume the ReActAgent directly.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.huawei.ascend.examples</groupId>
+      <artifactId>agent-travel-agentscope-trip</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-runtime</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>com.huawei.ascend.examples.agentscope.trip.a2a.TripAgentApplication</mainClass>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

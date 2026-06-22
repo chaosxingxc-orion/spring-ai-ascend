@@ -1,0 +1,77 @@
+# agent-trip-agentscope-a2a — Spring Boot host for the AgentScope-flavored trip
+# planning agent. LLM credentials and the downstream hotel A2A base URL default
+# to env vars; local placeholders only serve to start the JVM.
+server:
+  port: 13002
+  shutdown: graceful
+
+spring:
+  application:
+    name: agent-trip-agentscope-a2a
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# A2A Agent Card 完整声明：runtime 通过 AgentCardProperties 读取后构建
+# /.well-known/agent-card.json，无需在 Java 层再写 @Bean AgentCard。
+# Streaming 关闭：trip agent 跑完一次 ReAct 后返回最终 markdown，并不分块对外推。
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: travel-tenant
+      default-agent-id: trip-planning-agentscope
+      agent-card:
+        name: trip-planning-agentscope
+        description: >-
+          Corporate-travel trip planning agent (AgentScope flavor). Given a
+          natural-language business-trip request (destination, dates, hotel
+          budget / star / brand preferences), calls the downstream hotel
+          planning sub-agent over A2A through the plan_hotel tool and returns
+          a markdown itinerary with hotel recommendations.
+        version: "0.1.0"
+        organization: spring-ai-ascend
+        default-input-modes: [text]
+        default-output-modes: [text]
+        capabilities:
+          streaming: false
+          push-notifications: false
+          extended-agent-card: false
+        skills:
+          - id: trip-planning
+            name: Plan corporate travel itinerary
+            description: >-
+              Plan a corporate business trip end-to-end. Pass a natural-language
+              message describing destination city, check-in / check-out dates
+              (yyyy-MM-dd), nightly budget, minimum star rating, district
+              preferences and preferred hotel brands. The agent invokes the
+              downstream hotel planner via the plan_hotel tool and returns a
+              markdown summary with an itinerary overview and up to three
+              recommended hotels.
+            tags: [trip, travel, corporate-travel, hotel, agentscope]
+            examples:
+              - "我 6 月 16 日到 18 日去北京出差，差标每晚 800 元、4 星，偏好国贸附近，协议品牌全季/亚朵"
+              - "Plan a 2-night business trip to Shanghai from 2026-06-20, 4-star, max 900 CNY/night"
+            input-modes: [text]
+            output-modes: [text]
+
+trip-agent:
+  # Downstream hotel agent base URL — defaults to the AgentScope hotel demo on
+  # port 8082. Point this at the OpenJiuwen hotel host (port 8081) or any other
+  # A2A-compliant hotel endpoint to mix-and-match in a deployment.
+  hotel:
+    base-url: ${HOTEL_A2A_BASE_URL:http://localhost:8082}
+  llm:
+    api-key:       ${LLM_API_KEY:sk-local-placeholder}
+    api-base:      ${LLM_API_BASE:http://localhost:4000/v1}
+    endpoint-path: ${LLM_ENDPOINT_PATH:/chat/completions}
+    model-name:    ${LLM_MODEL:gpt-4o-mini}
+
+logging:
+  level:
+    root: INFO
+    com.huawei.ascend.examples.agentscope.trip: INFO
+    com.huawei.ascend.runtime: INFO
+    io.agentscope: INFO

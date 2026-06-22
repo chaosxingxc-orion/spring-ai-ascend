@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  examples/travel-agentscope/agent-hotel — AgentScope-flavored hotel sub-agent.
+
+  Pure-AgentScope library: HotelPlanningAgent is built entirely on
+  io.agentscope:agentscope-core (ReActAgent + Toolkit + OpenAIChatModel + Msg).
+  Its public surface speaks AgentScope types only (List<Msg> in, List<Event>
+  out) and has no compile-time dependency on agent-runtime — the runtime SAM
+  adapter lives in the agent-hotel-a2a wrapper module. A host that does not
+  use agent-runtime can drive the agent directly.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend.examples</groupId>
+    <artifactId>travel-agentscope-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>agent-travel-agentscope-hotel</artifactId>
+  <packaging>jar</packaging>
+  <name>agent-travel-agentscope-hotel</name>
+  <description>
+    AgentScope-flavored hotel planning sub-agent. Mirrors the functionality of
+    examples/travel/agent-hotel (openJiuwen flavor) using io.agentscope:agentscope-core:
+    a ReActAgent over OpenAIChatModel with @Tool-annotated hotel skills, backed by
+    the same in-memory mock hotel catalogue.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.agentscope</groupId>
+      <artifactId>agentscope-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

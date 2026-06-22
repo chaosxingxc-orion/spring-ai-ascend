@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.a2a.memory.experience.CollaborationSignature;
 import com.huawei.ascend.a2a.memory.experience.Lesson;
@@ -127,5 +129,60 @@ class MemOptExperienceStoreTest {
         assertEquals(MemOptExperienceStore.signatureKey(a), MemOptExperienceStore.signatureKey(b));
         assertEquals("loan,risk|wealth-advice", MemOptExperienceStore.signatureKey(a));
         assertFalse(MemOptExperienceStore.partition("bank", a).isBlank());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void recordCapsLessonCountAndTruncatesLongText() throws Exception {
+        List<Lesson> many = new ArrayList<>();
+        many.add(new Lesson("x".repeat(20_000), "agent", 1L)); // first, so it survives the cap and is truncated
+        for (int i = 0; i < 100; i++) {
+            many.add(new Lesson("lesson " + i, "agent", 1L));
+        }
+
+        MemOptExperienceStore store = new MemOptExperienceStore(baseUrl);
+        store.record("bank", SIG, many);
+
+        Map<String, Object> body = MAPPER.readValue(lastSaveBody.get(), Map.class);
+        List<Map<String, Object>> records = (List<Map<String, Object>>) body.get("records");
+        assertEquals(64, records.size(), "lessons capped at MAX_LESSONS_PER_RECORD");
+        assertEquals(8192, ((String) records.get(0).get("content")).length(), "long text truncated to MAX_LESSON_CHARS");
+        for (Map<String, Object> rec : records) {
+            assertTrue(((String) rec.get("content")).length() <= 8192, "no record exceeds MAX_LESSON_CHARS");
+        }
+    }
+
+    @Test
+    void clientErrorsFailOpenWithoutTrippingTheCircuit() {
+        status = 400; // bad request: a contract error, not a backend outage
+        MemOptExperienceStore store = new MemOptExperienceStore(baseUrl); // failOpen, threshold 5
+        for (int i = 0; i < 10; i++) {
+            store.record("bank", SIG, List.of(new Lesson("x", "a", 1L))); // must not throw
+        }
+        MemOptExperienceStore.Stats s = store.stats();
+        assertEquals(10, s.clientRejected(), "every 4xx counted as a client rejection");
+        assertEquals(0, s.shortCircuited(), "4xx must not open the circuit (no short-circuiting)");
+        assertEquals(0, s.degraded(), "4xx is not a backend-unhealthy degradation");
+    }
+
+    @Test
+    void serverErrorsTripCircuitAndShortCircuitSubsequentCalls() {
+        status = 503; // backend unhealthy
+        MemOptExperienceStore store = new MemOptExperienceStore(baseUrl,
+                new MemOptExperienceStore.Options(java.time.Duration.ofSeconds(2), true, 3, 30_000L));
+        for (int i = 0; i < 8; i++) {
+            store.recall("bank", SIG, 5); // fail-open empty
+        }
+        MemOptExperienceStore.Stats s = store.stats();
+        assertTrue(s.degraded() >= 3, "first failures degrade and trip the circuit");
+        assertTrue(s.shortCircuited() > 0, "once open, later calls short-circuit without a round-trip");
+    }
+
+    @Test
+    void tenantIdIsSanitizedSoSegmentDelimiterCannotBeForged() {
+        // A tenant containing the '::' delimiter must not be able to forge a boundary.
+        String forged = MemOptExperienceStore.partition("a::evil", SIG);
+        assertFalse(forged.contains("a::evil"), "raw delimiter must be neutralised in the key");
+        assertEquals("a2a-exp::a__evil::" + MemOptExperienceStore.signatureKey(SIG), forged);
     }
 }
