@@ -13,47 +13,68 @@ dependency:
 
 # Architecture
 
-This directory stores accepted architecture facts for `spring-ai-ascend`.
-Drafts, proposals, review notes, and archived historical material belong under
-`docs/` until they are promoted.
+本目录存放 `spring-ai-ascend` 当前已接受的架构事实。草稿、提案、评审记录、面向未来的材料和历史归档材料，在正式提升为架构事实之前，均存放在 `docs/` 目录下。
 
-The current branch does not keep a separate workspace authority system. Treat
-the repository as two fact families:
+当前分支不维护独立的 workspace authority 体系。阅读和维护本文档时，将仓库事实分为两类：
 
-- Architecture facts under `architecture/`.
-- Code facts in source code, module metadata, tests, contracts, generated
-  runtime evidence, and other verifiable implementation artifacts.
+- `architecture/` 下的架构事实。
+- 源代码、模块元数据、测试、契约、生成的运行时证据以及其他可验证实现产物中的代码事实。
 
-When architecture facts and code facts disagree, stop and raise the mismatch.
-Do not silently treat draft material as accepted architecture.
+当架构事实与代码事实不一致时，应停止并显式暴露该不一致；不得静默地把草稿材料当作已接受架构。
 
-## Directory Roles
+## 文档治理原则
 
-| Path | Role | Edit Policy |
+### 需求与设计分离
+
+需求相关文档按版本组织在 `version-scope/` 目录下。需求材料包括原始需求、场景设计和特性用例，描述的是外部可见行为，采用黑盒视角。
+
+设计相关文档按架构层级和模块组织在 `architecture/` 目录下。设计文档从白盒视角描述内部结构、设计决策、接口、状态归属、运行流程、部署形态和实现逻辑。架构文档可以引用 `version-scope/` 中的版本范围信息，但不重复承载特性用例，也不作为需求文档的归属位置。
+
+### 设计与验证分离
+
+设计文档与测试、验证文档分离。项目的核心实现和集成验证可能由 AI 辅助开发完成。为避免信息泄露导致 AI 产生幻觉、走捷径或形成验证作弊，本仓库中的架构文档不得演变为测试计划、验证报告或集成验证指南。
+
+本代码仓仅存放架构设计文档和部分实现代码。详细测试设计、验证流程、验证证据和测试报告不进入 `architecture/` 架构事实树；只有当架构事实确实需要引用稳定契约时，才可保留必要的契约性说明。
+
+### 存在即当前事实
+
+`architecture/` 下的所有内容都代表当前版本已接受的架构事实。该目录中的文档必须描述能够与代码、模块元数据、已接受契约或已接受架构约束相互印证的当前事实。
+
+面向未来的设计、草稿、提案、评审记录、历史归档和已被替代的设计，均归属于 `docs/`。在它们被显式提升到 `architecture/` 之前，不得将其视为当前架构事实。
+
+### 架构分层
+
+架构目录按抽象层级分层：
+
+- L0 描述系统级模块切分、切面设计、架构原则、全局约束、术语和职责归属边界。
+- L1 描述模块级高阶设计，采用 4+1 视图模式组织，记录模块的场景视图、逻辑结构、开发结构、运行流程、物理视图、API 附录和 SPI 附录。涉及模块级逻辑对象与归属变化、部署形态变化、资源模型变化、模块接口与契约变化时，应在 L1 对应视图或 API/SPI 附录中维护。
+- L2 描述模块级详细设计，按功能特性和非功能特性排布。L2 文档采用内部白盒视角，说明当前特性的内部实现逻辑、类协作、运行流程、配置使用、错误处理和当前限制。L2 特性文档应保留统一 front matter，用于标识层级、模块、特性类型、状态和依赖事实。L2 不单独维护 logical view 或 physical view；不维护模块级 API/SPI 契约。若某个特性引入了模块级逻辑对象、归属、部署形态、资源或接口契约变化，应先回写 L1，再在 L2 中引用该 L1 事实并展开特性内部实现。
+
+## 目录职责
+
+| 路径 | 职责 | 编辑策略 |
 |---|---|---|
-| `L0-Top-Level-Design/` | Top-level system design, 4+1 view map, module/state boundaries, constraints, governance, and vocabulary. | Accepted architecture facts only. |
-| `L1-High-Level-Design/` | Module-level high-level design for accepted L0 domains. | Accepted module architecture only. |
-| `L2-Low-Level-Design/` | Deep technical designs derived from accepted L0/L1 needs. | Accepted low-level design only. |
+| `L0-Top-Level-Design/` | 顶层系统设计，包括模块切分、切面设计、架构原则、全局约束、治理规则和术语。 | 仅存放已接受架构事实。 |
+| `L1-High-Level-Design/` | 已接受 L0 领域下的模块级高阶设计，按 4+1 视图和 API/SPI 附录组织；统一维护模块级逻辑对象、归属、部署、资源、接口和契约。 | 仅存放已接受模块架构。 |
+| `L2-Low-Level-Design/` | 模块级详细设计，按功能特性和非功能特性组织，聚焦特性内部实现逻辑、代码结构、运行流程、配置使用、错误处理和当前限制。 | 仅存放已接受低阶设计。 |
 
-## Reading Path
+## 阅读路径
 
-1. Read `L0-Top-Level-Design/README.md`.
-2. Read the relevant L0 documents in the order listed there.
-3. Move to `L1-High-Level-Design/` for module-level impact.
-4. Move to `L2-Low-Level-Design/` for technical designs, contracts, harnesses,
-   or implementation-facing details.
-5. Use `docs/` only as proposal, review, or archive context unless an
-   architecture fact explicitly promotes the material.
+1. 先阅读 `L0-Top-Level-Design/README.md`。
+2. 按该 README 给出的顺序阅读相关 L0 文档。
+3. 进入 `L1-High-Level-Design/`，理解模块级影响和模块高阶设计。
+4. 仅当需要确认版本范围或外部特性行为时，阅读相关 `version-scope/` 材料；不要将其视为详细设计。
+5. 进入 `L2-Low-Level-Design/`，阅读特性级内部实现设计、代码结构、运行流程、配置使用、错误处理和面向实现的细节；模块级接口和契约仍以 L1 API/SPI 附录为准。
+6. 除非已有架构事实显式提升相关材料，否则 `docs/` 仅作为提案、评审或归档上下文使用。
 
-## Promotion Rule
+## 提升规则
 
-Draft material can be promoted into `architecture/` only after checking it
-against:
+草稿材料只有在完成以下检查后，才能提升进入 `architecture/`：
 
-- Current architecture facts.
-- Code facts and module metadata.
-- Accepted ADRs and contract facts.
-- L0 vocabulary and state ownership rules.
+- 当前架构事实。
+- 代码事实和模块元数据。
+- 已接受 ADR 和契约事实。
+- L0 术语和状态归属规则。
+- 需求、设计、验证三类材料之间的分离边界。
 
-Material that remains draft, proposal, review, or archive context stays in
-`docs/`.
+仍处于草稿、提案、评审或归档上下文的材料，继续保留在 `docs/` 下。
