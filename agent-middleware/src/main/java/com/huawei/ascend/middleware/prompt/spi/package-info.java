@@ -6,7 +6,7 @@
  * <p>The {@link com.huawei.ascend.middleware.prompt.spi.PromptTemplate}
  * interface is the platform's abstraction for prompt construction.
  * The reference adapter {@code SpringAiPromptTemplateAdapter} (lands
- * in the agent-service integration package) decorates Spring AI's
+ * in the agent-runtime integration package) decorates Spring AI's
  * {@code org.springframework.ai.chat.prompt.PromptTemplate}
  * (ADR-0125 Spring AI canonical integration boundary).
  *

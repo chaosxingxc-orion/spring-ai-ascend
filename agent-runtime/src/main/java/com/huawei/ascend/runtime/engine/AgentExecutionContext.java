@@ -18,7 +18,6 @@ import org.springframework.util.Assert;
 public final class AgentExecutionContext {
 
     public static final String AGENT_STATE_KEY_VARIABLE = "agentStateKey";
-    public static final String STATE_KEY_VARIABLE = "stateKey";
     public static final String INPUT_TYPE_REMOTE_RESUME = "REMOTE_RESUME";
     public static final String REMOTE_TOOL_CALL_ID_VARIABLE = "runtime.remoteToolCallId";
     public static final String REMOTE_TOOL_RESULT_VARIABLE = "runtime.remoteToolResult";
@@ -88,8 +87,6 @@ public final class AgentExecutionContext {
 
     private static String resolveAgentStateKey(RuntimeIdentity scope, Map<String, Object> variables) {
         Object explicit = variables != null ? variables.get(AGENT_STATE_KEY_VARIABLE) : null;
-        if (!(explicit instanceof String t) || t.isBlank())
-            explicit = variables != null ? variables.get(STATE_KEY_VARIABLE) : null;
         if (explicit instanceof String t && !t.isBlank()) return t;
         if (scope == null) throw new IllegalArgumentException("agentStateKey must be provided");
         return scope.taskId();

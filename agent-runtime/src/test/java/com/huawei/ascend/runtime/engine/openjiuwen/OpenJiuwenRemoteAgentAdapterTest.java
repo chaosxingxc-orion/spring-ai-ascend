@@ -39,28 +39,7 @@ class OpenJiuwenRemoteAgentAdapterTest {
     }
 
     @Test
-    void streamAdapterMapsRemoteInterruptMarkerToRemoteInvocation() {
-        AgentExecutionResult result = new OpenJiuwenStreamAdapter().map(Map.of(
-                "result_type", "interrupt",
-                "runtime.remote.kind", "REMOTE_AGENT_INVOCATION",
-                "runtime.remote.agentId", "remote-agent",
-                "runtime.remote.toolName", "remote-agent",
-                "runtime.remote.toolCallId", "tool-call-1",
-                "runtime.remote.parentTaskId", "task-1",
-                "runtime.remote.parentContextId", "ctx-1",
-                "runtime.remote.localConversationId", "conversation-1",
-                "runtime.remote.arguments", Map.of("message", "hello remote")));
-
-        assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.INTERRUPTED);
-        assertThat(result.interruptPayload())
-                .isInstanceOf(AgentExecutionResult.RemoteAgentInterrupt.class);
-        assertThat(result.remoteInvocation().remoteAgentId()).isEqualTo("remote-agent");
-        assertThat(result.remoteInvocation().toolCallId()).isEqualTo("tool-call-1");
-        assertThat(result.remoteInvocation().arguments()).containsEntry("message", "hello remote");
-    }
-
-    @Test
-    void streamAdapterMapsOpenJiuwenInterruptStateToRemoteInvocation() {
+    void streamAdapterMapsOpenJiuwenInteractionChunkToRemoteInvocation() {
         ToolCallInterruptRequest request = new ToolCallInterruptRequest();
         request.setInterruptId("tool-call-1");
         request.setToolCallId("tool-call-1");
@@ -73,26 +52,24 @@ class OpenJiuwenRemoteAgentAdapterTest {
                 "runtime.remote.parentTaskId", "task-1",
                 "runtime.remote.parentContextId", "ctx-1",
                 "runtime.remote.localConversationId", "conversation-1",
-                "runtime.remote.arguments", Map.of("message", "hello remote")));
+                "runtime.remote.arguments", Map.of("remoteInput", "hello remote")));
 
-        AgentExecutionResult result = new OpenJiuwenStreamAdapter().map(Map.of(
-                "result_type", "interrupt",
-                "state", List.of(new OutputSchema("interaction", 0,
-                        new InteractionOutput("tool-call-1", request)))));
+        AgentExecutionResult result = new OpenJiuwenStreamAdapter().map(
+                new OutputSchema("__interaction__", 0, new InteractionOutput("tool-call-1", request)));
 
         assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.INTERRUPTED);
         assertThat(result.interruptPayload())
                 .isInstanceOf(AgentExecutionResult.RemoteAgentInterrupt.class);
         assertThat(result.remoteInvocation().remoteAgentId()).isEqualTo("remote-agent");
         assertThat(result.remoteInvocation().parentTaskId()).isEqualTo("task-1");
-        assertThat(result.remoteInvocation().arguments()).containsEntry("message", "hello remote");
+        assertThat(result.remoteInvocation().arguments()).containsEntry("remoteInput", "hello remote");
     }
 
     @Test
-    void streamAdapterMapsPlainOpenJiuwenInterruptToUserInputInterrupt() {
-        AgentExecutionResult result = new OpenJiuwenStreamAdapter().map(Map.of(
-                "result_type", "interrupt",
-                "output", "please provide more input"));
+    void streamAdapterMapsPlainOpenJiuwenInteractionChunkToUserInputInterrupt() {
+        AgentExecutionResult result = new OpenJiuwenStreamAdapter().map(
+                new OutputSchema("__interaction__", 0,
+                        new InteractionOutput("question", "please provide more input")));
 
         assertThat(result.type()).isEqualTo(AgentExecutionResult.Type.INTERRUPTED);
         assertThat(result.interruptPayload())

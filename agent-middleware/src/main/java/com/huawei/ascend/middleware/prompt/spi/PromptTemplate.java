@@ -6,7 +6,7 @@ import java.util.Map;
  * Tenant-scoped prompt-template rendering boundary.
  *
  * <p>Authority: ADR-0131. The reference adapter
- * {@code SpringAiPromptTemplateAdapter} (agent-service integration
+ * {@code SpringAiPromptTemplateAdapter} (agent-runtime integration
  * package) wraps Spring AI's
  * {@code org.springframework.ai.chat.prompt.PromptTemplate}
  * (ADR-0125).

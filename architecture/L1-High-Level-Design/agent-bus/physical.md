@@ -11,7 +11,7 @@ status: active
 
 `agent-bus` 属于 `bus_state` 部署平面。当前分支只包含 SPI、契约和少量基础测试，不包含完整物理 bus 实现。
 
-> 命名说明：本文架构语义（部署平面角色、模块关系）使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 当前实现落点为 `agent-execution-engine`。完整映射见 [`README.md`](README.md)「命名说明」。
+> 命名说明：本文架构语义（部署平面角色、模块关系）使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 已落地为 `agent-core`。完整映射见 [`README.md`](README.md)「命名说明」。
 
 | 平面 | 模块 | 与 bus 的关系 |
 |---|---|---|
@@ -22,7 +22,7 @@ status: active
 
 ## 2. 当前物理事实
 
-当前代码中的 `agent-bus` 是一个 Maven module。它不依赖 `agent-runtime`、`agent-execution-engine`、`agent-client`、`agent-middleware` 或 `agent-evolve` 的生产代码。
+当前代码中的 `agent-bus` 是一个 Maven module。它不依赖 `agent-runtime`、`agent-core`、`agent-client`、`agent-middleware` 或 `agent-evolve` 的生产代码。
 
 当前已经存在的物理文件包括：
 

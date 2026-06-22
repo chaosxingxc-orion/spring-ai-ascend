@@ -60,7 +60,7 @@ agent-bus/
 `agent-bus` 生产代码禁止：
 
 - 依赖 `agent-runtime`。
-- 依赖 `agent-execution-engine`。
+- 依赖 `agent-core`。
 - 依赖 `agent-client`。
 - 依赖 `agent-middleware`。
 - 依赖 `agent-evolve`。

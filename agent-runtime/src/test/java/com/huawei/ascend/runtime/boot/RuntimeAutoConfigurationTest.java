@@ -11,6 +11,7 @@ import com.huawei.ascend.runtime.engine.spi.TrajectorySettings;
 import java.util.concurrent.Executor;
 import java.util.stream.Stream;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksResult;
+import org.a2aproject.sdk.server.agentexecution.AgentExecutor;
 import org.a2aproject.sdk.server.events.MainEventBusProcessor;
 import org.a2aproject.sdk.server.tasks.InMemoryTaskStore;
 import org.a2aproject.sdk.server.tasks.TaskStateProvider;
@@ -115,6 +116,37 @@ class RuntimeAutoConfigurationTest {
         TrajectorySettings settings = RuntimeAutoConfiguration.toTrajectorySettings(properties);
         // Never crashes, never degrades to a null pattern (which would silently disable redaction).
         assertThat(settings.maskKeyPattern().pattern()).isEqualTo(TrajectoryMasking.DEFAULT_KEY_PATTERN);
+    }
+
+    @Test
+    void agentRuntimeRemoteInvocationMaxLegsDefaultsToFive() {
+        runner.withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBean(AgentRuntimeProperties.class)
+                        .getRemoteInvocation().getMaxLegs()).isEqualTo(5));
+    }
+
+    @Test
+    void agentRuntimeRemoteInvocationMaxLegsBindsAndClamps() {
+        runner.withPropertyValues("agent-runtime.remote-invocation.max-legs=200")
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBean(AgentRuntimeProperties.class)
+                        .getRemoteInvocation().getMaxLegs()).isEqualTo(100));
+
+        runner.withPropertyValues("agent-runtime.remote-invocation.max-legs=0")
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> assertThat(ctx.getBean(AgentRuntimeProperties.class)
+                        .getRemoteInvocation().getMaxLegs()).isEqualTo(1));
+    }
+
+    @Test
+    void agentRuntimePropertiesDoNotPreventExecutorAutoConfiguration() {
+        runner.withBean("handlerA", AgentRuntimeHandler.class, () -> new NamedHandler("agent-a"))
+                .withPropertyValues("agent-runtime.remote-invocation.max-legs=2")
+                .withUserConfiguration(RuntimeAutoConfiguration.class)
+                .run(ctx -> {
+                    assertThat(ctx).hasSingleBean(AgentRuntimeProperties.class);
+                    assertThat(ctx).hasSingleBean(AgentExecutor.class);
+                });
     }
 
     /**

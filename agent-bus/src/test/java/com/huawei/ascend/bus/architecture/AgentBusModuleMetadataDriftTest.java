@@ -158,7 +158,7 @@ class AgentBusModuleMetadataDriftTest {
                 .as("module-metadata.yaml forbidden_dependencies must be a non-empty, intact set "
                   + "(MI-FU-001)")
                 .isNotEmpty()
-                .contains("agent-service", "agent-execution-engine", "agent-middleware",
+                .contains("agent-runtime", "agent-core", "agent-middleware",
                         "agent-client", "agent-evolve");
 
         // Metadata-driven guard: iterate whatever forbidden set the metadata
@@ -216,7 +216,7 @@ class AgentBusModuleMetadataDriftTest {
      * Zero-dependency YAML list reader. Matches a top-level {@code key:} (no
      * leading indentation) and returns its value wrapped in {@link MetadataList},
      * handling both inline {@code [a, b]} (incl. empty {@code []}) and block
-     * {@code - a\n- b} forms. Item-level trailing comments ({@code - agent-service # reason})
+     * {@code - a\n- b} forms. Item-level trailing comments ({@code - agent-runtime # reason})
      * are stripped. A <em>missing</em> key returns {@code present == false} so
      * callers distinguish "key absent" (drift that must fail — MI3-004) from "key
      * present with empty value" (legitimate {@code []}). Only the two stable

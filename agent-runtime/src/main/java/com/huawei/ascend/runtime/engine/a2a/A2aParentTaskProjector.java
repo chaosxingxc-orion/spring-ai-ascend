@@ -107,10 +107,9 @@ final class A2aParentTaskProjector {
             return;
         }
         String text = result.text();
-        LOG.info("[A2A] remote progress type={} target={} textLen={} text={}",
+        LOG.info("[A2A] remote progress type={} target={} textLen={}",
                 result.type(), result.target(),
-                text != null ? text.length() : 0,
-                text);
+                text != null ? text.length() : 0);
         // Only forward to end-user when target is USER or BOTH (LLM-only stays internal)
         AgentExecutionResult.Target target = result.target();
         if (target == AgentExecutionResult.Target.LLM) {
@@ -199,17 +198,18 @@ final class A2aParentTaskProjector {
 
     AgentExecutionContext remoteResumeContext(RequestContext requestContext, String handlerAgentId,
             AgentExecutionResult.RemoteInvocation invocation, String toolResult) {
-        Map<String, Object> variables = Map.of(
-                AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, invocation.localConversationId(),
-                AgentExecutionContext.REMOTE_TOOL_CALL_ID_VARIABLE, invocation.toolCallId(),
-                AgentExecutionContext.REMOTE_TOOL_RESULT_VARIABLE, toolResult);
+        Map<String, Object> runtimeMetadata = A2aAgentExecutor.normalizedMetadata(requestContext, handlerAgentId);
+        Map<String, Object> variables = new LinkedHashMap<>(runtimeMetadata);
+        variables.put(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, invocation.localConversationId());
+        variables.put(AgentExecutionContext.REMOTE_TOOL_CALL_ID_VARIABLE, invocation.toolCallId());
+        variables.put(AgentExecutionContext.REMOTE_TOOL_RESULT_VARIABLE, toolResult);
         return new AgentExecutionContext(
                 new RuntimeIdentity(
-                        A2aAgentExecutor.metadata(requestContext, A2aAgentExecutor.TENANT_STATE_KEY, "default"),
-                        A2aAgentExecutor.metadata(requestContext, "userId", "system"),
+                        string(runtimeMetadata, A2aAgentExecutor.TENANT_STATE_KEY),
+                        string(runtimeMetadata, "userId"),
                         invocation.parentContextId(),
                         invocation.parentTaskId(),
-                        A2aAgentExecutor.metadata(requestContext, "agentId", handlerAgentId)),
+                        string(runtimeMetadata, "agentId")),
                 AgentExecutionContext.INPUT_TYPE_REMOTE_RESUME,
                 List.of(),
                 variables,

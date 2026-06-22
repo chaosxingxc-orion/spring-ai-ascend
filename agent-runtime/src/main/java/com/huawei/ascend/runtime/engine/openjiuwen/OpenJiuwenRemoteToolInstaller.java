@@ -6,6 +6,7 @@ import com.openjiuwen.core.foundation.tool.Tool;
 import com.openjiuwen.core.foundation.tool.ToolCard;
 import com.openjiuwen.core.runner.Runner;
 import com.openjiuwen.core.singleagent.BaseAgent;
+import com.openjiuwen.harness.deep_agent.DeepAgent;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,28 @@ public final class OpenJiuwenRemoteToolInstaller {
         }
         agent.registerRail(new OpenJiuwenRemoteAgentInterruptRail(context, specs));
         LOG.info("installed {} remote A2A tool(s) into openjiuwen agent={}", specs.size(), agent.getCard().getId());
+    }
+
+    public void install(DeepAgent agent, AgentExecutionContext context) {
+        Objects.requireNonNull(agent, "agent");
+        Objects.requireNonNull(context, "context");
+        List<RemoteAgentToolSpec> specs = toolSpecs.get();
+        if (specs == null || specs.isEmpty()) {
+            LOG.info("no remote A2A tools to install into deepagent={} (card cache may not be refreshed yet)",
+                    agent.getCard().getId());
+            return;
+        }
+        LOG.info("installing {} remote A2A tool(s) into openjiuwen deepagent={}:",
+                specs.size(), agent.getCard().getId());
+        for (RemoteAgentToolSpec spec : specs) {
+            LOG.info("  tool name={} remoteAgentId={}", spec.toolName(), spec.remoteAgentId());
+            LOG.info("  tool description={}", spec.description());
+            LOG.info("  tool inputSchema={}", spec.inputSchema());
+            agent.registerHarnessTool(new PlaceholderRemoteAgentTool(toCard(spec)));
+        }
+        agent.getAgent().registerRail(new OpenJiuwenRemoteAgentInterruptRail(context, specs));
+        LOG.info("installed {} remote A2A tool(s) into openjiuwen deepagent={}",
+                specs.size(), agent.getCard().getId());
     }
 
     private static ToolCard toCard(RemoteAgentToolSpec spec) {

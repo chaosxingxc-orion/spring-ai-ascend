@@ -1,7 +1,5 @@
 package com.huawei.ascend.runtime.engine.a2a;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import java.util.List;
 import java.util.Map;
@@ -9,7 +7,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 public final class RemoteAgentInvocationService {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final String REMOTE_INPUT_ARGUMENT = "remoteInput";
 
     private final OutboundPort outboundPort;
 
@@ -64,18 +62,10 @@ public final class RemoteAgentInvocationService {
             arguments = arguments == null ? Map.of() : Map.copyOf(arguments);
         }
 
-        /**
-         * Builds the outbound request from the interrupt rail's remote invocation.
-         * The LLM's tool call arguments (as stored by the interrupt rail) are
-         * serialized to JSON as the A2A message text — the child adapter
-         * (e.g. {@code VersatileMessageAdapter}) parses this text to reconstruct
-         * the body. The {@code requestMetadata} is the original A2A request
-         * metadata (headers, query params, etc.) forwarded transparently by the
-         * A2A layer.
-         */
+        /** Builds the outbound request from the interrupt rail's remote invocation. */
         static RemoteAgentRequest from(AgentExecutionResult.RemoteInvocation invocation,
                 Map<String, Object> requestMetadata) {
-            String message = toJson(invocation.arguments());
+            String message = remoteInput(invocation.arguments());
             return new RemoteAgentRequest(
                     invocation.remoteAgentId(),
                     null,
@@ -88,15 +78,12 @@ public final class RemoteAgentInvocationService {
                     requestMetadata != null ? requestMetadata : Map.of());
         }
 
-        private static String toJson(Map<String, Object> map) {
-            if (map == null || map.isEmpty()) {
+        private static String remoteInput(Map<String, Object> arguments) {
+            if (arguments == null || arguments.isEmpty()) {
                 return "";
             }
-            try {
-                return OBJECT_MAPPER.writeValueAsString(map);
-            } catch (JsonProcessingException e) {
-                return "";
-            }
+            Object value = arguments.get(REMOTE_INPUT_ARGUMENT);
+            return value == null ? "" : String.valueOf(value);
         }
     }
 

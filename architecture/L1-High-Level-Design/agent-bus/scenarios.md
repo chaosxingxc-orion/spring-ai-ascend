@@ -7,7 +7,7 @@ status: active
 
 # agent-bus 场景视图
 
-> 命名说明：本文参与者与所有权使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 当前实现落点为 `agent-execution-engine`。完整映射见 [`README.md`](README.md)「命名说明」。
+> 命名说明：本文参与者与所有权使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 已落地为 `agent-core`。完整映射见 [`README.md`](README.md)「命名说明」。
 
 ## SC-001：client 创建或操作 Task
 

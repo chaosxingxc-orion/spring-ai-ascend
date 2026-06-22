@@ -12,7 +12,7 @@ target_module: agent-bus
 
 # agent-bus L2 技术设计：C3 持久化（outbox / inbox schema、claim / lease、migration 草案）
 
-> 命名说明：本设计架构语义使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名）；`agent-core` 当前实现落点为 `agent-execution-engine`。
+> 命名说明：本设计架构语义使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名）；`agent-core` 已落地为 `agent-core`。
 
 ## 1. 目标
 

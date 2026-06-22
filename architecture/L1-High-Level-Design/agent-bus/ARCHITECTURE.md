@@ -14,7 +14,7 @@ source_review_packet: docs/architecture/l0/10-governance/review-packets/agent-bu
 
 它不是 Task 生命周期中心。Task 创建、状态持久化、suspend/resume、Task hierarchy 和 service API 仍由 `agent-runtime` 拥有。`agent-bus` 负责的是“流量如何跨边界进入、离开、转发、关联和治理”。
 
-> 命名说明：本文架构语义（所有权、参与者、状态归属）使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 当前实现落点为 `agent-execution-engine`。完整映射见 [`README.md`](README.md)「命名说明」。
+> 命名说明：本文架构语义（所有权、参与者、状态归属）使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 已落地为 `agent-core`。完整映射见 [`README.md`](README.md)「命名说明」。
 
 ## 2. 两块逻辑职责
 
@@ -78,7 +78,7 @@ S2C `tenantId` 契约层迁移已完成（Stage 2，commit `d894f494`，Rule R-C
 
 剩余事项为 runtime 侧，随后续波次推进（不改 Task lifecycle 所有权，见 `development.md` §6）：
 
-- `agent-runtime` 与 `agent-core`（当前实现落点：`agent-execution-engine`）的 envelope 构造点绑定。
+- `agent-runtime` 与 `agent-core`（当前实现模块：`agent-core`）的 envelope 构造点绑定。
 - runtime-side schema validation integration。
 - downstream 文档与治理模板的剩余同步。
 

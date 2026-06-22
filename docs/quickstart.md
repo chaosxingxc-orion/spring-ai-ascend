@@ -1,4 +1,4 @@
-# Quickstart — First Agent on `spring-ai-ascend`
+# Quickstart -First Agent on `spring-ai-ascend`
 
 > Goal: reach your first authenticated agent invocation without modifying any
 > platform source file. Required by `CLAUDE.md` Rule R-A (Business/Platform
@@ -29,13 +29,13 @@ independent modules in parallel; surefire runs JUnit classes concurrently within
 each fork. Add `-DjunitParallel=false` to debug intermittent test failures.
 
 For a fast inner loop, build just one module and its dependencies:
-`./mvnw -pl agent-execution-engine -am test -q` (see §7 for why this module is
+`./mvnw -pl agent-core -am test -q` (see §7 for why this module is
 especially quick).
 
-## 3. Boot `agent-service`
+## 3. Boot `agent-runtime`
 
 ```bash
-./mvnw -pl agent-service spring-boot:run
+./mvnw -pl agent-runtime spring-boot:run
 ```
 
 The HTTP edge starts on port 8080.
@@ -84,9 +84,8 @@ public class MyFirstAgent {
 
 No platform-team intervention required. The patterns this exercises:
 
-- Extension via **SPI** (`GraphExecutor`, `Orchestrator`, `RunRepository`) —
-  not by patching `*.impl.*` or `com.huawei.ascend.service.platform.**`.
-- Configuration via `@Bean` and `@ConfigurationProperties` — never by source
+- Extension via **SPI** (`GraphExecutor`, `Orchestrator`, `RunRepository`) -  not by patching `*.impl.*` or `com.huawei.ascend.service.platform.**`.
+- Configuration via `@Bean` and `@ConfigurationProperties` -never by source
   patches into the platform module.
 
 ## 4.5 L0 Agentic Contract Surface preview (rc43+)
@@ -94,19 +93,19 @@ No platform-team intervention required. The patterns this exercises:
 Wave rc43 of the L0 Agentic Contract Surface remediation (ADR-0120
 through ADR-0128) lands the contract shapes for **Agent / ModelGateway
 / Skill / Memory / Vector / Retriever / EmbeddingModel / Planner**.
-The shapes are `status: design_only` at L0 — Java SPI interfaces and
+The shapes are `status: design_only` at L0 -Java SPI interfaces and
 contract YAMLs exist; functional implementations of `Agent.invoke(...)`,
 `ModelGateway.invoke(...)`, etc. land across W2 (LLM gateway, skill
 registry), W3 (RAG vertical, SDK GA), and W4 (planner runtime). The
 Spring AI reference adapters under `service.integration.springai` are
 design-only shells today (throw `UnsupportedOperationException`); they
 prove the boundary compiles and the
-[`LlmGatewayHookChainOnlyTest`](../agent-service/src/test/java/com/huawei/ascend/service/runtime/architecture/LlmGatewayHookChainOnlyTest.java)
+[`LlmGatewayHookChainOnlyTest`](../agent-runtime/src/test/java/com/huawei/ascend/service/runtime/architecture/LlmGatewayHookChainOnlyTest.java)
 ArchUnit guard asserts the current `ChatModel` shell stays design-only
 until the W2 hook-bound LLM implementation lands.
 
 Customer-side registration pattern (the shape Audience B implements
-against — runtime functional W2+):
+against -runtime functional W2+):
 
 ```java
 @Configuration
@@ -171,13 +170,13 @@ rc43, every shape is `status: design_only` at L0; functional
 implementations land in W2 (LLM gateway, prompt rendering, advisor
 binding, chat memory) and W3 (RAG cache strategy per ADR-0135).
 
-Customer-side wiring (the shape Audience B implements — functional W2+):
+Customer-side wiring (the shape Audience B implements -functional W2+):
 
 ```java
 @Configuration
 public class MyAgentExtensions {
 
-  /** rc51 — typed-bean extraction wraps Spring AI BeanOutputConverter. */
+  /** rc51 -typed-bean extraction wraps Spring AI BeanOutputConverter. */
   @Bean
   <T> StructuredOutputConverter<T> orderResponseConverter(
       ObjectMapper jackson, Class<T> targetType) {
@@ -187,7 +186,7 @@ public class MyAgentExtensions {
         /* org.springframework.ai.converter.BeanOutputConverter */ jackson, targetType);
   }
 
-  /** rc51 — variable-substituted prompts wrap Spring AI PromptTemplate. */
+  /** rc51 -variable-substituted prompts wrap Spring AI PromptTemplate. */
   @Bean
   PromptTemplate supportSystemPromptTemplate() {
     return new SpringAiPromptTemplateAdapter(
@@ -198,7 +197,7 @@ public class MyAgentExtensions {
             PromptTemplateSource.PlaceholderSyntax.MUSTACHE_SINGLE_BRACE));
   }
 
-  /** rc51 — interceptor chain around ModelGateway.invoke; binds via
+  /** rc51 -interceptor chain around ModelGateway.invoke; binds via
    *  HookDispatcher internally at W2 (Telemetry Vertical co-arrival). */
   @Bean
   ChatAdvisor piiRedactionAdvisor() {
@@ -214,12 +213,12 @@ public class MyAgentExtensions {
     };
   }
 
-  /** rc51 — windowed FIFO + token-budget pruning over M2_EPISODIC. */
+  /** rc51 -windowed FIFO + token-budget pruning over M2_EPISODIC. */
   @Bean
   ConversationMemory chatMemory() {
     // First production ConversationMemory impl lands in W2 chat-memory
     // wave; for now customers compose against the SPI shape.
-    return null; // placeholder — Audience B impl lands here in W2.
+    return null; // placeholder -Audience B impl lands here in W2.
   }
 }
 ```
@@ -263,15 +262,16 @@ for the full matrix.
 Before you start reasoning about the failure, run the six-step **Evidence-First
 Debug Sequence** in [`docs/harness/debug-first-evidence.md`](harness/debug-first-evidence.md).
 Authority: CLAUDE.md Rule D-3 (Evidence-First Debug). The runbook tells you what to capture (failing
-FQN → trace ID → MDC slice → raw error → transition history) BEFORE you open
+FQN ->trace ID ->MDC slice ->raw error ->transition history) BEFORE you open
 `ARCHITECTURE.md`. Spec reading is allowed in step 6, after evidence is recorded.
 
-For library-mode pure-JUnit tests (`./mvnw -pl agent-execution-engine test`),
+For library-mode pure-JUnit tests (`./mvnw -pl agent-core test`),
 the orchestration SPI module runs in under 2 seconds. Use this loop when you
 want sub-second feedback on the SPI value-type algebra. The orchestration SPI
-lives in `agent-execution-engine`; the run + idempotency entities live in
-`agent-service`; the server-to-client transport SPI lives in `agent-bus`.
+lives in `agent-core`; the run + idempotency entities live in
+`agent-runtime`; the server-to-client transport SPI lives in `agent-bus`.
 
 If anything in this quickstart requires modifying platform source to make it
-work — file an issue tagged `decoupling-defect`. Rule R-A says: developers
+work -file an issue tagged `decoupling-defect`. Rule R-A says: developers
 build agents against the platform, not into the platform.
+

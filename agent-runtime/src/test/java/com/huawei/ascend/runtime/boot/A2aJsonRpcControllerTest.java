@@ -9,6 +9,7 @@ import com.google.gson.JsonParser;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Flow;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.a2aproject.sdk.grpc.StreamResponse;
@@ -299,6 +300,22 @@ class A2aJsonRpcControllerTest {
     }
 
     @Test
+    void sseBridgeRequestsA2aPublisherUnboundedEvenWhenHttpConsumerRequestsOneFrame() throws Exception {
+        RecordingDemandRequestHandler requestHandler = new RecordingDemandRequestHandler();
+        A2aJsonRpcController controller = new A2aJsonRpcController(requestHandler, new RuntimeAccessProperties());
+        String body = """
+                {"jsonrpc":"2.0","id":"stream-demand","method":"SendStreamingMessage","params":{"message":{"role":"ROLE_USER","parts":[{"text":"ping"}],"messageId":"message-1"}}}
+                """;
+
+        StepVerifier.create(controller.handleSse(body, null), 0)
+                .thenRequest(1)
+                .assertNext(event -> assertThat(statusState(event)).isEqualTo("TASK_STATE_WORKING"))
+                .then(() -> assertThat(requestHandler.firstDemand.get()).isEqualTo(Long.MAX_VALUE))
+                .thenCancel()
+                .verify();
+    }
+
+    @Test
     void subscribeToTaskKeepsStreamingAfterInputRequired() throws Exception {
         A2aJsonRpcController controller =
                 new A2aJsonRpcController(new InputRequiredThenCompletedRequestHandler(), new RuntimeAccessProperties());
@@ -492,6 +509,30 @@ class A2aJsonRpcControllerTest {
                     .contextId("ctx-1")
                     .status(new TaskStatus(state))
                     .build();
+        }
+    }
+
+    private static final class RecordingDemandRequestHandler extends SingleEventRequestHandler {
+        private final AtomicLong firstDemand = new AtomicLong();
+
+        @Override
+        public Flow.Publisher<StreamingEventKind> onMessageSendStream(
+                MessageSendParams params, ServerCallContext context) {
+            return subscriber -> subscriber.onSubscribe(new Flow.Subscription() {
+                @Override
+                public void request(long n) {
+                    firstDemand.compareAndSet(0, n);
+                    subscriber.onNext(TaskStatusUpdateEvent.builder()
+                            .taskId("task-1")
+                            .contextId("ctx-1")
+                            .status(new TaskStatus(TaskState.TASK_STATE_WORKING))
+                            .build());
+                }
+
+                @Override
+                public void cancel() {
+                }
+            });
         }
     }
 

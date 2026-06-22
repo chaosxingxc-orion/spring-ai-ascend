@@ -47,7 +47,7 @@ Agent 执行时，OpenJiuwen 框架按 `conversation_id`（=`AgentExecutionConte
   │
   ▼ Agent 执行
   │
-  ├─ Runner.runAgent(agent, input, conversationId, null)
+  ├─ Runner.runAgentStreaming(agent, input, conversationId, null, List.of(StreamMode.OUTPUT))
   │     └─ openJiuwen 按 conversationId 自动 save/restore
   │
   ▼ 应用关闭 → Checkpointer 清理（框架负责）

@@ -36,7 +36,7 @@
     <module>agent-client</module>
     <module>agent-bus</module>
     <module>agent-middleware</module>
-    <module>agent-execution-engine</module>
+    <module>agent-core</module>
     <module>agent-evolve</module>
     <module>agent-runtime</module>
   </modules>
@@ -257,7 +257,7 @@
         <scope>test</scope>
       </dependency>
 
-      <!-- Local com.huawei.ascend modules — managed here so consumers never need inline <version>. -->
+      <!-- Local com.huawei.ascend modules -managed here so consumers never need inline <version>. -->
       <dependency>
         <groupId>com.huawei.ascend</groupId>
         <artifactId>agent-client</artifactId>
@@ -275,7 +275,7 @@
       </dependency>
       <dependency>
         <groupId>com.huawei.ascend</groupId>
-        <artifactId>agent-execution-engine</artifactId>
+        <artifactId>agent-core</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
@@ -489,3 +489,4 @@
     </profile>
   </profiles>
 </project>
+

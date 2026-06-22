@@ -78,7 +78,7 @@
     <dependency>
       <groupId>com.openjiuwen</groupId>
       <artifactId>agent-core-java</artifactId>
-      <version>0.1.12-jdk17</version>
+      <version>${openjiuwen.version}</version>
       <optional>true</optional>
     </dependency>
 

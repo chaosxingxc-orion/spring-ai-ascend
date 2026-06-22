@@ -119,7 +119,7 @@ curl -s -X POST http://localhost:8080/a2a \
   -d '{"jsonrpc":"2.0","method":"CancelTask","id":"1","params":{"id":"task-uuid"}}'
 ```
 
-> OpenJiuwen 为同步执行，cancel 仅阻止结果消费，不中断 LLM 调用。
+> OpenJiuwen 通过 streaming runner 执行；cancel 会停止 runtime 继续消费结果，但是否中断底层 LLM 调用取决于 OpenJiuwen/模型客户端。
 
 ### ListTasks
 

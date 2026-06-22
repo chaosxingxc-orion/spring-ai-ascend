@@ -46,7 +46,7 @@ class AgentBusDependencyBoundaryTest {
                 .should().dependOnClassesThat()
                 .resideInAPackage("com.huawei.ascend.service..")
                 .because("agent-bus is upstream of compute_control; it must not depend on "
-                       + "agent-service (module-metadata.yaml forbidden_dependencies).");
+                       + "agent-runtime (module-metadata.yaml forbidden_dependencies).");
         rule.check(BUS_PRODUCTION);
     }
 
@@ -57,7 +57,7 @@ class AgentBusDependencyBoundaryTest {
                 .should().dependOnClassesThat()
                 .resideInAPackage("com.huawei.ascend.engine..")
                 .because("agent-bus is upstream of compute_control; it must not depend on "
-                       + "agent-execution-engine (module-metadata.yaml forbidden_dependencies). "
+                       + "agent-core (module-metadata.yaml forbidden_dependencies). "
                        + "Note: com.huawei.ascend.bus.spi.engine is the bus's OWN engine SPI "
                        + "package and is not matched by this rule.");
         rule.check(BUS_PRODUCTION);

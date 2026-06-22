@@ -23,10 +23,10 @@ covers_views: [logical, process, development, physical, scenarios]
 | L0 逻辑模块 | 当前实现 / 兼容落点 |
 |---|---|
 | `agent-runtime` | `agent-runtime/` 目录、Maven artifact `agent-runtime`（原 `agent-service` 已重命名并入） |
-| `agent-core` | `agent-execution-engine/` 目录、Maven artifact `agent-execution-engine` |
+| `agent-core` | `agent-core/` 目录、Maven artifact `agent-core` |
 
 - 架构语义（生命周期 owner、参与者、状态归属、跨模块关系）优先使用 L0 逻辑名 `agent-runtime` / `agent-core`。
-- `agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 当前实现落点仍为 `agent-execution-engine/`。
+- `agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 已落地为 `agent-core/`。
 
 ## 视图文件
 

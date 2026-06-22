@@ -41,7 +41,8 @@ import org.slf4j.LoggerFactory;
  * to the caller via the {@code eventConsumer} callback so the framework can project
  * progress onto the parent task without waiting for the remote invocation to complete.
  */
-public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocationService.OutboundPort {
+public final class A2aRemoteAgentOutboundAdapter
+        implements RemoteAgentInvocationService.OutboundPort, AutoCloseable {
     /** Stable, programmatically matchable error code carried on the timeout result's metadata. */
     public static final String REMOTE_TIMEOUT_CODE = "REMOTE_TIMEOUT";
 
@@ -86,8 +87,9 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
     public List<RemoteAgentInvocationService.RemoteAgentResult> invoke(
             RemoteAgentInvocationService.RemoteAgentRequest request,
             Consumer<RemoteAgentInvocationService.RemoteAgentResult> eventConsumer) {
-        LOG.info("remote agent invocation start remoteAgentId={} remoteTaskId={} message={}",
-                request.remoteAgentId(), request.remoteTaskId(), request.message());
+        LOG.info("remote agent invocation start remoteAgentId={} remoteTaskId={} messageLen={}",
+                request.remoteAgentId(), request.remoteTaskId(),
+                request.message() != null ? request.message().length() : 0);
         ClientTransport transport = obtainTransport(request.remoteAgentId());
         if (transport == null) {
             LOG.warn("remote agent invocation rejected: no transport for remoteAgentId={}",
@@ -177,6 +179,12 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         }
     }
 
+    @Override
+    public void close() {
+        transportCache.forEach((id, cached) -> closeQuietly(id, cached.transport()));
+        transportCache.clear();
+    }
+
     Duration effectiveStreamTimeout(String remoteAgentId) {
         Duration configured = streamTimeoutResolver.apply(remoteAgentId);
         return configured == null ? DEFAULT_STREAM_TIMEOUT : configured;
@@ -226,16 +234,22 @@ public final class A2aRemoteAgentOutboundAdapter implements RemoteAgentInvocatio
         }
         // compute() removes the mapping when the builder yields null, so an endpoint
         // that is not yet resolvable stays uncached and is retried on the next call.
+        // The stale transport is closed OUTSIDE the compute lambda so network I/O
+        // during close does not hold the ConcurrentHashMap bin lock.
+        AtomicReference<ClientTransport> toClose = new AtomicReference<>();
         CachedTransport cached = transportCache.compute(remoteAgentId, (id, existing) -> {
             if (existing != null && existing.endpoint().equals(endpoint)) {
                 return existing;
             }
             if (existing != null) {
-                closeQuietly(id, existing.transport());
+                toClose.set(existing.transport());
             }
             ClientTransport created = transportBuilder.apply(endpoint);
             return created == null ? null : new CachedTransport(endpoint, created);
         });
+        if (toClose.get() != null) {
+            closeQuietly(remoteAgentId, toClose.get());
+        }
         return cached == null ? null : cached.transport();
     }
 

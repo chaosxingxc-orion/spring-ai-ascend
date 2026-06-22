@@ -16,7 +16,7 @@ status: active
 - 进入或跨越边界的请求必须带有可追踪的 envelope。
 - 状态机最终决策仍回到对应 owner，例如 Task 状态回到 `agent-runtime`。
 
-> 命名说明：本文架构语义（参与者、所有权、流程角色）使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 当前实现落点为 `agent-execution-engine`。完整映射见 [`README.md`](README.md)「命名说明」。
+> 命名说明：本文架构语义（参与者、所有权、流程角色）使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 已落地为 `agent-core`。完整映射见 [`README.md`](README.md)「命名说明」。
 
 ## 2. C2S ingress 流程
 

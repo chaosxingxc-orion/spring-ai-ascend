@@ -18,7 +18,7 @@ status: active
 
 Gateway 和真 bus 共享一个原则：它们治理跨边界流量，但不拥有业务 Task 生命周期。
 
-> 命名说明：本文架构语义（所有权、参与者、状态归属、跨模块关系）使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 当前实现落点为 `agent-execution-engine`。完整映射见 [`README.md`](README.md)「命名说明」。
+> 命名说明：本文架构语义（所有权、参与者、状态归属、跨模块关系）使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 已落地为 `agent-core`。完整映射见 [`README.md`](README.md)「命名说明」。
 
 ## 2. 逻辑元素
 

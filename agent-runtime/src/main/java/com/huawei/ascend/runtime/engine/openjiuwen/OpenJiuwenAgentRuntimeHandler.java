@@ -1,18 +1,16 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
-import com.huawei.ascend.runtime.engine.spi.AbstractAgentRuntimeHandler;
-import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
-import com.huawei.ascend.runtime.engine.spi.StreamAdapter;
-import com.huawei.ascend.runtime.engine.spi.TrajectoryDraft;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEmitter;
 import com.huawei.ascend.runtime.engine.spi.TrajectoryEvent.Kind;
 import com.openjiuwen.core.context.ModelContext;
 import com.openjiuwen.core.foundation.llm.schema.BaseMessage;
 import com.openjiuwen.core.foundation.llm.schema.SystemMessage;
 import com.openjiuwen.core.runner.Runner;
+import com.openjiuwen.core.session.stream.OutputSchema;
+import com.openjiuwen.core.session.stream.StreamMode;
 import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgent;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
@@ -20,8 +18,8 @@ import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.harness.rails.ExternalMemoryRail;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -34,17 +32,17 @@ import org.slf4j.LoggerFactory;
  * stable {@code conversation_id}. openJiuwen session persistence is delegated to
  * its native checkpointer mechanism.
  *
- * <p>{@code runOpenJiuwenAgent} is a synchronous call: the result is fully
- * computed before it is wrapped in a stream, so a cancel does not interrupt an
- * in-progress run — it only stops the host from consuming the finished result.
+ * <p>The runtime always executes through openJiuwen's streaming runner and
+ * maps standard {@link OutputSchema} chunks into the framework-neutral result
+ * stream.
  */
-public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntimeHandler {
+public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractOpenJiuwenRuntimeSupport {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenJiuwenAgentRuntimeHandler.class);
 
-    private final OpenJiuwenMessageAdapter messageConverter;
-    private final OpenJiuwenStreamAdapter resultMapper;
     private OpenJiuwenRemoteToolInstaller runtimeToolInstaller;
+    private OpenJiuwenMcpToolInstaller mcpToolInstaller;
+    private OpenJiuwenSkillHubInstaller skillHubInstaller;
 
     protected OpenJiuwenAgentRuntimeHandler(String agentId) {
         this(agentId, new OpenJiuwenMessageAdapter());
@@ -56,9 +54,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
 
     OpenJiuwenAgentRuntimeHandler(String agentId, OpenJiuwenMessageAdapter messageConverter,
             OpenJiuwenStreamAdapter resultMapper) {
-        super(agentId);
-        this.messageConverter = Objects.requireNonNull(messageConverter, "messageConverter");
-        this.resultMapper = Objects.requireNonNull(resultMapper, "resultMapper");
+        super(agentId, messageConverter, resultMapper);
     }
 
     /**
@@ -91,27 +87,16 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
                 agent.registerRail(new OpenJiuwenTrajectoryRail(trajectory));
             }
             Object input = toOpenJiuwenInput(context);
-            Object result = runOpenJiuwenAgent(agent, input, openJiuwenConversationId(context));
+            Iterator<Object> result = runOpenJiuwenAgentStreaming(
+                    agent, input, openJiuwenConversationId(context), openJiuwenStreamModes(context));
             LOGGER.info("openjiuwen execute finished tenantId={} sessionId={} taskId={} resultType={}",
                     context.getScope().tenantId(),
                     context.getScope().sessionId(),
                     context.getScope().taskId(),
                     result == null ? "null" : result.getClass().getName());
-            if (result instanceof java.util.stream.Stream<?> stream) {
-                return stream;
-            }
-            return java.util.stream.Stream.of(result);
+            return flattenIterator(result);
         } catch (RuntimeException error) {
-            LOGGER.warn("openjiuwen execute failed tenantId={} sessionId={} taskId={} errorClass={} message={}",
-                    context.getScope().tenantId(),
-                    context.getScope().sessionId(),
-                    context.getScope().taskId(),
-                    error.getClass().getSimpleName(),
-                    errorMessage(error));
-            // ERROR is a mandatory trajectory kind: surface the run-level failure northbound even though
-            // the failure is mapped to a result (not rethrown), so the trajectory is not silently truncated.
-            trajectory.emit(TrajectoryDraft.error(null, "OPENJIUWEN_RUN_ERROR", errorMessage(error), null, false));
-            return java.util.stream.Stream.of(Map.of("result_type", "error", "output", errorMessage(error)));
+            return failedResult(context, trajectory, error);
         }
     }
 
@@ -141,10 +126,24 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         if (runtimeToolInstaller != null) {
             runtimeToolInstaller.install(agent, context);
         }
+        if (mcpToolInstaller != null) {
+            mcpToolInstaller.install(agent, context);
+        }
+        if (skillHubInstaller != null) {
+            skillHubInstaller.install(agent, context);
+        }
     }
 
     public final void setRuntimeToolInstaller(OpenJiuwenRemoteToolInstaller runtimeToolInstaller) {
         this.runtimeToolInstaller = runtimeToolInstaller;
+    }
+
+    public final void setMcpToolInstaller(OpenJiuwenMcpToolInstaller mcpToolInstaller) {
+        this.mcpToolInstaller = mcpToolInstaller;
+    }
+
+    public final void setSkillHubInstaller(OpenJiuwenSkillHubInstaller skillHubInstaller) {
+        this.skillHubInstaller = skillHubInstaller;
     }
 
     /**
@@ -168,43 +167,20 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
      * independent from OpenJiuwen memory package names.
      */
     protected final AgentRail openJiuwenExternalMemoryRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
-        return new ExternalMemoryRail(
+        return createExternalMemoryRail(
                 new OpenJiuwenExternalMemoryProviderAdapter(context, memoryProvider),
                 context.getScope().userId(),
                 context.getAgentStateKey(),
                 context.getScope().sessionId());
     }
 
-    protected Object runOpenJiuwenAgent(BaseAgent agent, Object input, String conversationId) {
-        return Runner.runAgent(agent, input, conversationId, null);
+    protected Iterator<Object> runOpenJiuwenAgentStreaming(BaseAgent agent, Object input, String conversationId,
+            List<StreamMode> streamModes) {
+        return Runner.runAgentStreaming(agent, input, conversationId, null, streamModes);
     }
 
-    /**
-     * Returns the stable conversation id openJiuwen should use for native
-     * checkpointer restore/save. Subclasses pass this value as the Runner
-     * session id, or rely on {@link #toOpenJiuwenInput(AgentExecutionContext)}
-     * to place it in {@code conversation_id}.
-     */
-    protected String openJiuwenConversationId(AgentExecutionContext context) {
-        String conversationId = context.getAgentStateKey();
-        LOGGER.info("openjiuwen conversation resolve tenantId={} sessionId={} taskId={} agentId={} conversationId={}",
-                context.getScope().tenantId(),
-                context.getScope().sessionId(),
-                context.getScope().taskId(),
-                context.getScope().agentId(),
-                conversationId);
-        return conversationId;
-    }
-
-    protected Object toOpenJiuwenInput(AgentExecutionContext context) {
-        LOGGER.info("openjiuwen input convert tenantId={} sessionId={} taskId={} agentId={} inputType={} messages={}",
-                context.getScope().tenantId(),
-                context.getScope().sessionId(),
-                context.getScope().taskId(),
-                context.getScope().agentId(),
-                context.getInputType(),
-                context.getMessages().size());
-        return messageConverter.toOpenJiuwenInput(context);
+    protected List<StreamMode> openJiuwenStreamModes(AgentExecutionContext context) {
+        return List.of(StreamMode.OUTPUT);
     }
 
     private void installRails(BaseAgent agent, AgentExecutionContext context) {
@@ -215,43 +191,22 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         }
     }
 
-    @Override
-    public StreamAdapter resultAdapter() {
-        return rawResults -> rawResults.map(this::mapRawResult);
+    private static AgentRail createExternalMemoryRail(
+            com.openjiuwen.core.memory.external.MemoryProvider memoryProvider,
+            String userId,
+            String scopeId,
+            String sessionId) {
+        return ExternalMemoryRailHolder.create(memoryProvider, userId, scopeId, sessionId);
     }
 
-    @SuppressWarnings("unchecked")
-    private AgentExecutionResult mapRawResult(Object rawResult) {
-        LOGGER.info("openjiuwen raw result received type={}",
-                rawResult == null ? "null" : rawResult.getClass().getName());
-        if (rawResult instanceof AgentExecutionResult result) {
-            return result;
+    private static final class ExternalMemoryRailHolder {
+        private static AgentRail create(
+                com.openjiuwen.core.memory.external.MemoryProvider memoryProvider,
+                String userId,
+                String scopeId,
+                String sessionId) {
+            return new ExternalMemoryRail(memoryProvider, userId, scopeId, sessionId);
         }
-        if (rawResult == null) {
-            return resultMapper.map(Map.of(
-                    "result_type", "error",
-                    "output", "openjiuwen runner returned no result"));
-        }
-        if (rawResult instanceof Map<?, ?> map) {
-            return resultMapper.map((Map<String, Object>) map);
-        }
-        return resultMapper.map(Map.of("result_type", "answer", "output", String.valueOf(rawResult)));
-    }
-
-    protected static String errorMessage(Throwable error) {
-        StringBuilder message = new StringBuilder();
-        Throwable cursor = error;
-        while (cursor != null) {
-            String part = cursor.getMessage();
-            if (part != null && !part.isBlank()) {
-                if (!message.isEmpty()) {
-                    message.append(": ");
-                }
-                message.append(part);
-            }
-            cursor = cursor.getCause();
-        }
-        return message.isEmpty() ? error.getClass().getName() : message.toString();
     }
 
     /**
@@ -357,7 +312,13 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
             ModelContext modelContext = callbackContext == null ? null : callbackContext.getContext();
             if (modelContext != null) {
                 mergeMemoryIntoSystemMessage(modelContext, memoryBlock);
+                return;
             }
+            LOGGER.warn("openjiuwen memory inject skipped tenantId={} sessionId={} taskId={} reason=no_react_agent_or_model_context callbackAgentType={}",
+                    executionContext.getScope().tenantId(),
+                    executionContext.getScope().sessionId(),
+                    executionContext.getScope().taskId(),
+                    callbackAgentType(callbackContext));
         }
 
         private MemoryProvider.MemoryRecord toLongTermMemoryRecord(BaseMessage message) {
@@ -418,6 +379,11 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
         private static ReActAgent reactAgent(AgentCallbackContext callbackContext) {
             Object agent = callbackContext == null ? null : callbackContext.getAgent();
             return agent instanceof ReActAgent reactAgent ? reactAgent : null;
+        }
+
+        private static String callbackAgentType(AgentCallbackContext callbackContext) {
+            Object agent = callbackContext == null ? null : callbackContext.getAgent();
+            return agent == null ? "null" : agent.getClass().getName();
         }
 
         private static String runtimeMemoryBlock(String memoryBlock) {

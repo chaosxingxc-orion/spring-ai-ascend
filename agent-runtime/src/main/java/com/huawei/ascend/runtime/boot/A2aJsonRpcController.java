@@ -39,7 +39,6 @@ import org.a2aproject.sdk.spec.A2AError;
 import org.a2aproject.sdk.spec.A2AErrorCodes;
 import org.a2aproject.sdk.spec.StreamingEventKind;
 import org.a2aproject.sdk.spec.TaskStatusUpdateEvent;
-import org.reactivestreams.FlowAdapters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -50,6 +49,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 
 @RestController
 public class A2aJsonRpcController {
@@ -129,7 +129,7 @@ public class A2aJsonRpcController {
         } else {
             throw error(A2AErrorCodes.METHOD_NOT_FOUND, "Unknown streaming request: " + request.getMethod());
         }
-        Flux<StreamingEventKind> flux = Flux.from(FlowAdapters.toPublisher(publisher));
+        Flux<StreamingEventKind> flux = unboundedFlux(publisher);
         if (terminateOnInterrupt) {
             // The A2A SDK keeps the stream open on INPUT_REQUIRED (interrupted state)
             // for SubscribeToTask semantics. For SendStreamingMessage the client expects
@@ -149,6 +149,37 @@ public class A2aJsonRpcController {
                             : error(A2AErrorCodes.INTERNAL, e.getMessage());
                     return Flux.just(errorEvent(id, fault));
                 });
+    }
+
+    private static Flux<StreamingEventKind> unboundedFlux(Flow.Publisher<StreamingEventKind> publisher) {
+        return Flux.create(sink -> publisher.subscribe(new Flow.Subscriber<>() {
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                sink.onCancel(subscription::cancel);
+                subscription.request(Long.MAX_VALUE);
+            }
+
+            @Override
+            public void onNext(StreamingEventKind item) {
+                if (!sink.isCancelled()) {
+                    sink.next(item);
+                }
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                if (!sink.isCancelled()) {
+                    sink.error(throwable);
+                }
+            }
+
+            @Override
+            public void onComplete() {
+                if (!sink.isCancelled()) {
+                    sink.complete();
+                }
+            }
+        }), FluxSink.OverflowStrategy.BUFFER);
     }
 
     ResponseEntity<String> handleBlocking(A2ARequest<?> request, String tenantHeader) throws A2AError {

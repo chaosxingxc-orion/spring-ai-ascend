@@ -72,8 +72,8 @@ A2A 请求 → A2aAgentExecutor
   │   ├─ MemoryRuntimeRail（记忆注入）
   │   ├─ OpenJiuwenTrajectoryRail（轨迹事件）
   │   └─ OpenJiuwenRemoteAgentInterruptRail（远程工具中断）
-  ├─ Runner.runAgent(agent, input, conversationId, null) — 同步执行
-  └─ OpenJiuwenStreamAdapter: result Map → AgentExecutionResult
+  ├─ Runner.runAgentStreaming(agent, input, conversationId, null, List.of(StreamMode.OUTPUT)) — streaming 执行
+  └─ OpenJiuwenStreamAdapter: OutputSchema chunk → AgentExecutionResult
 ```
 
 ## 4. 核心接口
@@ -203,9 +203,9 @@ public class AgentConfig {
 | 限制 | 影响 | 替代 |
 |------|------|------|
 | cancel 仅阻止结果消费，不中断 LLM 调用 | 长时间 LLM 调用无法真正取消 | 使用 AgentScope 或 Versatile Adapter |
-| 仅支持 ReActAgent，不支持 Workflow | 多步工作流不可用 | 使用 Versatile 代理 Workflow 引擎 |
+| 仅支持 ReActAgent | Workflow 场景使用独立 Adapter | [OpenJiuwen Workflow Adapter](openjiuwen-workflow-adapter.md) |
 | DeepAgent 不完善 | 不可用于生产 | — |
-| 同步执行模型 | cancel 语义受限 | — |
+| streaming 执行依赖底层模型客户端取消能力 | cancel 后底层 LLM 是否立即停止取决于 OpenJiuwen/模型客户端 | — |
 
 ## 9. 相关资源
 

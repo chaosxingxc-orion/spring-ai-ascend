@@ -7,16 +7,16 @@ module: agent-bus
 kind: domain             # platform | domain | starter | bom | sample
 version: 0.0.1-SNAPSHOT
 semver_compatibility: experimental
-description: "Bus & State Hub plane — owns cross-plane control surfaces in BOTH directions: ingress (C2S, IngressGateway per ADR-0089 / Rule R-I sub-clause .b) and s2c (S2C, S2cCallbackTransport per ADR-0074 + ADR-0088). Three-track channel isolation (control / data / rhythm per Rule R-E) declared in docs/governance/bus-channels.yaml. Workflow primitives (Mailbox, AdmissionDecision, BackpressureSignal, SleepDeclaration, WakeupPulse, TickEngine) deferred to W2 per ADR-0050."
+description: "Bus & State Hub plane -owns cross-plane control surfaces in BOTH directions: ingress (C2S, IngressGateway per ADR-0089 / Rule R-I sub-clause .b) and s2c (S2C, S2cCallbackTransport per ADR-0074 + ADR-0088). Three-track channel isolation (control / data / rhythm per Rule R-E) declared in docs/governance/bus-channels.yaml. Workflow primitives (Mailbox, AdmissionDecision, BackpressureSignal, SleepDeclaration, WakeupPulse, TickEngine) deferred to W2 per ADR-0050."
 architecture_doc: architecture/docs/L1/agent-bus/README.md
 dfx_doc: docs/dfx/agent-bus.yaml
 spi_packages:
-  - com.huawei.ascend.bus.spi            # placeholder; W2 workflow primitives (WorkflowIntermediary, Mailbox, AdmissionDecision, BackpressureSignal, SleepDeclaration, WakeupPulse, TickEngine) land here per ADR-0050 — roll-up parent of ingress + s2c sub-packages
+  - com.huawei.ascend.bus.spi            # placeholder; W2 workflow primitives (WorkflowIntermediary, Mailbox, AdmissionDecision, BackpressureSignal, SleepDeclaration, WakeupPulse, TickEngine) land here per ADR-0050 -roll-up parent of ingress + s2c sub-packages
   - com.huawei.ascend.bus.spi.ingress    # IngressGateway + IngressEnvelope + IngressResponse per ADR-0089
   - com.huawei.ascend.bus.spi.s2c        # S2cCallbackTransport + S2cCallbackEnvelope + S2cCallbackResponse per ADR-0088 (relocated from agent-runtime-core); rc27: + ReflectionEnvelopeRouter per ADR-0102
   - com.huawei.ascend.bus.spi.federation # rc27 fix (rc22-3): FederationGateway per ADR-0101 Mode B Business-Centric deployment
-  - com.huawei.ascend.bus.spi.engine     # EnginePort + neutral execution model (ExecutorDefinition / RunContext / SuspendSignal / Checkpointer / Orchestrator / RunMode / TraceContext) relocated from agent-execution-engine per ADR-0158 (transport-agnostic engine boundary)
-# Stage 12 (decision §4 permit): real persistence licensed — Spring JDBC adapter +
+  - com.huawei.ascend.bus.spi.engine     # EnginePort + neutral execution model (ExecutorDefinition / RunContext / SuspendSignal / Checkpointer / Orchestrator / RunMode / TraceContext) relocated from agent-core per ADR-0158 (transport-agnostic engine boundary)
+# Stage 12 (decision §4 permit): real persistence licensed -Spring JDBC adapter +
 # Flyway migration + Postgres driver. Confined to package
 # com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc by ArchUnit
 # (AgentBusForwardingSpiPurityTest). §6.2 still forbids concrete broker / MQ,
@@ -28,9 +28,10 @@ allowed_dependencies:
   - org.flywaydb:flyway-database-postgresql
   - org.postgresql:postgresql
 forbidden_dependencies:
-  - agent-service           # bus is upstream of compute_control plane
-  - agent-execution-engine
+  - agent-runtime           # bus is upstream of compute_control plane
+  - agent-core
   - agent-middleware
   - agent-client
   - agent-evolve
-deployment_plane: bus_state   # Rule R-I / P-I — Bus & State Hub plane
+deployment_plane: bus_state   # Rule R-I / P-I -Bus & State Hub plane
+

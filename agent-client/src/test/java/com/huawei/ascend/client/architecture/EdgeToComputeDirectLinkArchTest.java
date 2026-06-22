@@ -39,7 +39,7 @@ class EdgeToComputeDirectLinkArchTest {
                 .should().dependOnClassesThat()
                 .resideInAPackage("com.huawei.ascend.service..")
                 .because("Rule R-I sub-clause .b: agent-client MUST route through "
-                       + "com.huawei.ascend.bus.spi.ingress.IngressGateway, not call agent-service directly");
+                       + "com.huawei.ascend.bus.spi.ingress.IngressGateway, not call agent-runtime directly");
         rule.check(CLIENT_CLASSES);
     }
 

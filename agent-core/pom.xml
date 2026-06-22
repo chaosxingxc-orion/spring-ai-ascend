@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  agent-execution-engine — heterogeneous engine surface + InProcessEnginePort realization (per ADR-0072 + ADR-0158).
+  agent-core -heterogeneous engine surface + InProcessEnginePort realization (per ADR-0072 + ADR-0158).
 
   Status: Engine adapter SPI + EngineRegistry + EngineEnvelope live here. The neutral
   orchestration/engine SPI moved to agent-bus (com.huawei.ascend.bus.spi.engine) per
@@ -10,11 +10,11 @@
                                                    AgentLoopExecutor, EngineHookSurface,
                                                    EngineMatchingException)
     - com.huawei.ascend.engine.runtime.*            (EngineRegistry, EngineEnvelope,
-                                                   InProcessEnginePort — implementations)
+                                                   InProcessEnginePort -implementations)
   The neutral SPI consumed from agent-bus: com.huawei.ascend.bus.spi.engine.* (RunMode,
   RunContext, SuspendSignal, Checkpointer, Orchestrator, TraceContext, ExecutorDefinition,
   ExecutionContext). Reference adapters (SequentialGraphExecutor, IterativeAgentLoopExecutor)
-  stay in agent-service.runtime because they wire Run/RunStateMachine (which live in agent-service).
+  stay in agent-runtime.runtime because they wire Run/RunStateMachine (which live in agent-runtime).
 
   Why this module exists separately: ADR-0072 / Rule R-M.a declare the engine
   contract as an independent surface (Graph / AgentLoop today, room for
@@ -28,12 +28,12 @@
   <parent>
     <groupId>com.huawei.ascend</groupId>
     <artifactId>spring-ai-ascend-parent</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>agent-execution-engine</artifactId>
-  <name>agent-execution-engine</name>
-  <description>Heterogeneous execution engine surface — EngineRegistry / EngineEnvelope / ExecutorAdapter / ExecutorDefinition + Graph/AgentLoop adapters (ADR-0072).</description>
+  <artifactId>agent-core</artifactId>
+  <name>agent-core</name>
+  <description>Heterogeneous execution engine surface -EngineRegistry / EngineEnvelope / ExecutorAdapter / ExecutorDefinition + Graph/AgentLoop adapters (ADR-0072).</description>
 
   <dependencies>
     <!-- Engine self-contains its orchestration SPI (RunMode/RunContext/SuspendSignal) per ADR-0088. -->
@@ -74,3 +74,4 @@
     </plugins>
   </build>
 </project>
+

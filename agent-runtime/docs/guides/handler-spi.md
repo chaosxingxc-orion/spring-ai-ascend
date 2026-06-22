@@ -168,7 +168,7 @@ Runtime 核心无需修改——通过 Spring `ObjectProvider<AgentRuntimeHandle
 ## 7. 限制
 
 - 仅第一个 Handler（按 `@Order`）被选取，一个 runtime 实例只能服务一个 Agent
-- OpenJiuwen 为同步执行，cancel 仅阻止结果消费，不中断 LLM 调用
+- OpenJiuwen 通过 streaming runner 执行；cancel 会停止 runtime 继续消费结果，底层 LLM 是否中断取决于 OpenJiuwen/模型客户端
 - DeepAgent 不支持（类不继承 BaseAgent）
 
 ## 8. 相关资源

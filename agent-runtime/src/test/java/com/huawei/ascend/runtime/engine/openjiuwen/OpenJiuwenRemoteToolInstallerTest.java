@@ -14,9 +14,12 @@ import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.interrupt.InterruptRequest;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
+import com.openjiuwen.harness.deep_agent.DeepAgent;
 import com.openjiuwen.harness.rails.interrupt.InterruptDecision;
 import com.openjiuwen.harness.rails.interrupt.InterruptResult;
 import com.openjiuwen.harness.rails.interrupt.RejectResult;
+import com.openjiuwen.harness.schema.config.DeepAgentConfig;
+import com.openjiuwen.harness.workspace.Workspace;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -43,6 +46,23 @@ class OpenJiuwenRemoteToolInstallerTest {
     }
 
     @Test
+    void installsRemoteToolCardAndInterruptRailOnDeepAgentHarness() {
+        DeepAgent agent = new DeepAgent(
+                AgentCard.builder().id("deep-agent").name("deep-agent").description("test").build(),
+                DeepAgentConfig.builder().enableTaskLoop(true).build(),
+                Workspace.builder().rootPath("./target/deep-agent-installer-test").build());
+        RemoteAgentToolSpec spec = toolSpec();
+        OpenJiuwenRemoteToolInstaller installer = new OpenJiuwenRemoteToolInstaller(() -> List.of(spec));
+
+        installer.install(agent, context());
+
+        assertThat(agent.getRegisteredTools()).hasSize(1);
+        assertThat(agent.getAgent().getAbilityManager().get("remote-planner")).isNotNull();
+        assertThat(agent.getAgent().getAbilityManager().listToolInfo())
+                .anySatisfy(info -> assertThat(info.getName()).isEqualTo("remote-planner"));
+    }
+
+    @Test
     void railConvertsRemoteToolCallToInterruptContext() {
         RemoteAgentToolSpec spec = toolSpec();
         AgentExecutionContext context = context();
@@ -51,7 +71,7 @@ class OpenJiuwenRemoteToolInstallerTest {
         ToolCall toolCall = ToolCall.builder()
                 .id("tool-call-1")
                 .name("remote-planner")
-                .arguments("{\"message\":\"hello remote\"}")
+                .arguments("{\"remoteInput\":\"hello remote\"}")
                 .build();
         InterruptDecision decision = rail.resolveInterrupt(null, toolCall, null);
 
@@ -70,7 +90,7 @@ class OpenJiuwenRemoteToolInstallerTest {
                 .containsEntry("runtime.remote.localConversationId", "conversation-1");
         Map<String, Object> arguments =
                 (Map<String, Object>) irContext.get("runtime.remote.arguments");
-        assertThat(arguments).containsEntry("message", "hello remote");
+        assertThat(arguments).containsEntry("remoteInput", "hello remote");
     }
 
     @Test
@@ -81,7 +101,7 @@ class OpenJiuwenRemoteToolInstallerTest {
         ToolCall toolCall = ToolCall.builder()
                 .id("tool-call-1")
                 .name("remote-planner")
-                .arguments("{\"message\":\"hello remote\"}")
+                .arguments("{\"remoteInput\":\"hello remote\"}")
                 .build();
         InteractiveInput resumeInput = new InteractiveInput();
         resumeInput.update("tool-call-1", "{\"ok\":true}");
@@ -99,8 +119,8 @@ class OpenJiuwenRemoteToolInstallerTest {
                 "Remote Planner\nPlans trips",
                 Map.of(
                         "type", "object",
-                        "properties", Map.of("message", Map.of("type", "string")),
-                        "required", List.of("message")));
+                        "properties", Map.of("remoteInput", Map.of("type", "string")),
+                        "required", List.of("remoteInput")));
     }
 
     private static AgentExecutionContext context() {

@@ -13,9 +13,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -31,7 +33,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * {@link BlockingQueue} to bridge the async HTTP response body into a
  * synchronous {@link Stream} consumable by the runtime engine dispatcher.
  */
-public class VersatileClient {
+public class VersatileClient implements AutoCloseable {
 
     private static final Logger LOG = LoggerFactory.getLogger(VersatileClient.class);
 
@@ -44,6 +46,8 @@ public class VersatileClient {
 
     private final HttpClient httpClient;
     private final VersatileProperties properties;
+    private final ExecutorService httpExecutor;
+    private final Duration timeout;
 
     /** Always route directly — never through a proxy. */
     private static final ProxySelector NO_PROXY = new ProxySelector() {
@@ -53,13 +57,23 @@ public class VersatileClient {
 
     public VersatileClient(VersatileProperties properties) {
         this.properties = Objects.requireNonNull(properties, "properties");
-        Duration timeout = properties.getTimeout() != null ? properties.getTimeout() : Duration.ofSeconds(30);
+        this.timeout = properties.getTimeout() != null ? properties.getTimeout() : Duration.ofSeconds(30);
+        this.httpExecutor = Executors.newCachedThreadPool(runnable -> {
+            Thread t = new Thread(runnable, "versatile-http");
+            t.setDaemon(true);
+            return t;
+        });
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(timeout)
                 .version(HttpClient.Version.HTTP_1_1)
                 .proxy(NO_PROXY)
-                .executor(Executors.newCachedThreadPool())
+                .executor(httpExecutor)
                 .build();
+    }
+
+    @Override
+    public void close() {
+        httpExecutor.shutdownNow();
     }
 
     /**
@@ -70,6 +84,18 @@ public class VersatileClient {
     public Stream<String> stream(VersatileHttpRequest request) {
         BlockingQueue<String> queue = new LinkedBlockingQueue<>(256);
         AtomicReference<Throwable> upstreamError = new AtomicReference<>();
+        AtomicBoolean cancelled = new AtomicBoolean();
+        AtomicReference<java.io.InputStream> bodyStreamRef = new AtomicReference<>();
+
+        // Must be safe to call from any thread — closes the upstream body so a
+        // producer blocked in readLine() unblocks immediately with an IOException.
+        Runnable cancel = () -> {
+            cancelled.set(true);
+            java.io.InputStream stream = bodyStreamRef.getAndSet(null);
+            if (stream != null) {
+                try { stream.close(); } catch (Exception ignored) { /* best-effort */ }
+            }
+        };
 
         String bodyJson;
         try {
@@ -81,16 +107,14 @@ public class VersatileClient {
 
         HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(request.url()))
-                .timeout(properties.getTimeout());
+                .timeout(timeout);
 
-        // Set headers first so Content-Type is established before the body publisher
         request.headers().forEach((key, value) -> {
             if (value != null) {
                 reqBuilder.header(key, value);
             }
         });
 
-        // If no Content-Type was set by config, default to application/json
         if (!request.headers().containsKey("content-type")
                 && !request.headers().containsKey("Content-Type")) {
             reqBuilder.header("Content-Type", "application/json");
@@ -112,43 +136,61 @@ public class VersatileClient {
                 LOG.info("versatile response status={}", statusCode);
 
                 if (statusCode >= 400) {
-                    String errorBody = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
-                    upstreamError.set(new VersatileClientException(
-                            "HTTP " + statusCode + ": " + errorBody));
-                    safeOffer(queue, CONNECTION_CLOSED_ERROR_EVENT);
-                    safeOffer(queue, POISON);
+                    try (java.io.InputStream errorStream = response.body()) {
+                        byte[] errorBytes = errorStream.readNBytes(4096);
+                        String errorBody = new String(errorBytes, StandardCharsets.UTF_8);
+                        upstreamError.set(new VersatileClientException(
+                                "HTTP " + statusCode + ": " + errorBody));
+                    }
+                    safeOffer(queue, CONNECTION_CLOSED_ERROR_EVENT, cancelled);
                     return;
                 }
 
+                java.io.InputStream bodyStream = response.body();
+                bodyStreamRef.set(bodyStream);
                 try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
+                        new InputStreamReader(bodyStream, StandardCharsets.UTF_8))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
+                        if (cancelled.get()) {
+                            LOG.info("versatile producer cancelled, stopping read loop");
+                            break;
+                        }
                         if (!line.isEmpty()) {
                             LOG.info("versatile sse received: {}", line);
-                            safeOffer(queue, line);
+                            if (!safeOffer(queue, line, cancelled)) {
+                                break;
+                            }
                         }
                     }
-                    // Normal EOF — emit connection_closed before poison
-                    LOG.info("versatile sse stream ended normally — injecting connection_closed");
-                    safeOffer(queue, CONNECTION_CLOSED_EVENT);
+                    if (!cancelled.get()) {
+                        LOG.info("versatile sse stream ended normally — injecting connection_closed");
+                        safeOffer(queue, CONNECTION_CLOSED_EVENT, cancelled);
+                    }
+                } finally {
+                    bodyStreamRef.set(null);
                 }
             } catch (Exception e) {
-                LOG.warn("versatile upstream error: {}", e.getMessage());
-                upstreamError.set(e);
-                safeOffer(queue, CONNECTION_CLOSED_ERROR_EVENT);
+                if (!cancelled.get()) {
+                    LOG.warn("versatile upstream error: {}", e.getMessage());
+                    upstreamError.set(e);
+                    safeOffer(queue, CONNECTION_CLOSED_ERROR_EVENT, cancelled);
+                } else {
+                    LOG.info("versatile producer stream closed (cancelled): {}", e.getMessage());
+                }
             } finally {
-                safeOffer(queue, POISON);
+                safeOffer(queue, POISON, cancelled);
             }
         });
 
-        long timeoutMs = properties.getTimeout().toMillis();
+        long timeoutMs = timeout.toMillis();
 
         return Stream.generate(() -> {
             try {
                 String line = queue.poll(timeoutMs, TimeUnit.MILLISECONDS);
                 if (line == null) {
                     LOG.warn("versatile stream timeout after {}ms", timeoutMs);
+                    cancel.run();
                     return POISON;
                 }
                 if (POISON.equals(line)) {
@@ -161,9 +203,10 @@ public class VersatileClient {
                 return line;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                cancel.run();
                 return null;
             }
-        }).takeWhile(Objects::nonNull);
+        }).takeWhile(Objects::nonNull).onClose(cancel);
     }
 
     /** Header names that must never be logged in plain text. */
@@ -195,12 +238,19 @@ public class VersatileClient {
         LOG.info("versatile outgoing request:\n{}", curl);
     }
 
-    private static void safeOffer(BlockingQueue<String> queue, String item) {
-        try {
-            queue.put(item);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+    private static boolean safeOffer(BlockingQueue<String> queue, String item, AtomicBoolean cancelled) {
+        while (!cancelled.get()) {
+            try {
+                if (queue.offer(item, 100, TimeUnit.MILLISECONDS)) {
+                    return true;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                LOG.warn("versatile safeOffer interrupted itemLen={}", item.length());
+                return false;
+            }
         }
+        return false;
     }
 
     public VersatileProperties properties() {

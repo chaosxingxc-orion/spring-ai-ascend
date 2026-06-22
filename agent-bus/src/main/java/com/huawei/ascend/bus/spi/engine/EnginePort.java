@@ -3,8 +3,8 @@ package com.huawei.ascend.bus.spi.engine;
 import java.util.concurrent.Flow;
 
 /**
- * The neutral, transport-agnostic Service&#8596;Engine boundary. agent-service drives an engine
- * through this port; agent-execution-engine implements it; the Service selects the transport by
+ * The neutral, transport-agnostic Service&#8596;Engine boundary. agent-runtime drives an engine
+ * through this port; agent-core implements it; the Service selects the transport by
  * deployment form (in_process / internal_rpc / a2a) so neither module depends on the other.
  *
  * <p>{@link #execute} returns a stream of {@link AgentEvent}; exactly one TERMINAL event

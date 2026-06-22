@@ -59,17 +59,14 @@ public final class OpenJiuwenRemoteAgentInterruptRail extends BaseInterruptRail 
         context.put("runtime.remote.parentTaskId", executionContext.getScope().taskId());
         context.put("runtime.remote.parentContextId", executionContext.getScope().sessionId());
         context.put("runtime.remote.localConversationId", executionContext.getAgentStateKey());
-        // The LLM's tool call arguments are the canonical A2A message text
-        // for the outbound request. Metadata forwarding is the A2A layer's
-        // responsibility — invokeRemote() / continueRemote() extract metadata
-        // from the RequestContext and pass it to the remote agent.
+        // The LLM's remoteInput tool argument is the canonical outbound A2A
+        // message text. The A2A layer forwards request metadata separately.
         context.put("runtime.remote.arguments", arguments(toolCall));
         return interrupt(InterruptRequest.builder()
                 .message("Remote agent invocation requested: " + spec.toolName())
                 .context(context)
                 .build());
     }
-
 
     private static Object resumeToolResult(String toolCallId, Object userInput) {
         if (userInput instanceof InteractiveInput interactiveInput) {
@@ -94,7 +91,7 @@ public final class OpenJiuwenRemoteAgentInterruptRail extends BaseInterruptRail 
         try {
             return OBJECT_MAPPER.readValue(rawArguments, MAP_TYPE);
         } catch (Exception ignored) {
-            return Map.of("message", rawArguments);
+            return Map.of("remoteInput", rawArguments);
         }
     }
 }

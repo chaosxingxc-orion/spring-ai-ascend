@@ -1,28 +1,26 @@
 package com.huawei.ascend.runtime.engine.openjiuwen;
 
-
 import java.util.Map;
 import com.huawei.ascend.runtime.engine.spi.AgentExecutionResult;
 import com.openjiuwen.core.session.interaction.InteractionOutput;
 import com.openjiuwen.core.session.stream.OutputSchema;
 import com.openjiuwen.core.singleagent.interrupt.InterruptRequest;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Maps openJiuwen's {@code Runner.runAgent} result map to a framework-neutral
- * agent result, per the execution contract in design §10.4:
- * {@code result_type ∈ {answer, error, interrupt}} →
- * completed / failed / interrupted.
+ * Maps openJiuwen streaming {@link OutputSchema} chunks to framework-neutral
+ * agent results.
  */
 public class OpenJiuwenStreamAdapter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenJiuwenStreamAdapter.class);
 
+    private static final String OPENJIUWEN_INTERACTION_TYPE = "__interaction__";
+
     static final String ERROR_CODE = "OPENJIUWEN_ERROR";
 
-    public AgentExecutionResult map(Map<String, Object> result) {
+    private AgentExecutionResult mapPayload(Map<String, Object> result) {
         String type = result == null ? null : asString(result.get("result_type"));
         String output = result == null ? "" : asString(result.get("output"));
         LOGGER.info("openjiuwen result map resultType={} outputLength={} keys={}",
@@ -32,32 +30,74 @@ public class OpenJiuwenStreamAdapter {
         if ("answer".equals(type)) {
             return AgentExecutionResult.completed(output);
         }
-        if ("interrupt".equals(type)) {
-            Map<String, Object> remoteContext = remoteContext(result);
-            if (isRemoteInvocation(remoteContext)) {
-                return AgentExecutionResult.interrupted(remoteInvocation(remoteContext));
-            }
-            return AgentExecutionResult.interrupted(output);
-        }
         return AgentExecutionResult.failed(ERROR_CODE, output);
     }
 
-    private static Map<String, Object> remoteContext(Map<String, Object> result) {
-        if (isRemoteInvocation(result)) {
-            return result;
+    public AgentExecutionResult map(OutputSchema chunk) {
+        if (chunk == null) {
+            return null;
         }
-        Object state = result == null ? null : result.get("state");
-        if (!(state instanceof List<?> states)) {
-            return Map.of();
-        }
-        for (Object item : states) {
-            Object payload = item instanceof OutputSchema outputSchema ? outputSchema.getPayload() : item;
-            Object value = payload instanceof InteractionOutput interactionOutput ? interactionOutput.getValue() : payload;
-            if (value instanceof InterruptRequest request && isRemoteInvocation(request.getContext())) {
-                return request.getContext();
+        Object payload = chunk.getPayload();
+        String type = chunk.getType();
+        if ("llm_output".equals(type)) {
+            Object output = payload;
+            if (payload instanceof Map<?, ?> map) {
+                if (!map.containsKey("content")) {
+                    return null;
+                }
+                output = map.get("content");
             }
+            String text = asString(output);
+            return text.isBlank() ? null : AgentExecutionResult.output(text);
         }
-        return Map.of();
+        if ("llm_usage".equals(type) || "llm_reasoning".equals(type) || "custom".equals(type)) {
+            return null;
+        }
+        if (OPENJIUWEN_INTERACTION_TYPE.equals(type)) {
+            return mapInteraction(payload);
+        }
+        if (payload instanceof Map<?, ?> map) {
+            return mapPayload(normalizeMap(map));
+        }
+        if ("answer".equals(type)) {
+            return AgentExecutionResult.completed(asString(payload));
+        }
+        return AgentExecutionResult.output(asString(payload));
+    }
+
+    private AgentExecutionResult mapInteraction(Object payload) {
+        Object value = payload instanceof InteractionOutput interactionOutput
+                ? interactionOutput.getValue()
+                : payload;
+        if (value instanceof InterruptRequest request && isRemoteInvocation(request.getContext())) {
+            return AgentExecutionResult.interrupted(remoteInvocation(request.getContext()));
+        }
+        if (value instanceof InterruptRequest request) {
+            return AgentExecutionResult.interrupted(promptFrom(request));
+        }
+        if (value instanceof String prompt) {
+            return AgentExecutionResult.interrupted(prompt);
+        }
+        return AgentExecutionResult.failed(ERROR_CODE, "Unsupported openjiuwen interaction payload: "
+                + (value == null ? "null" : value.getClass().getName()));
+    }
+
+    private static String promptFrom(InterruptRequest request) {
+        String message = request.getMessage();
+        if (message != null && !message.isBlank()) {
+            return message;
+        }
+        String interruptId = request.getInterruptId();
+        if (interruptId != null && !interruptId.isBlank()) {
+            return interruptId;
+        }
+        return "Input required";
+    }
+
+    private static Map<String, Object> normalizeMap(Map<?, ?> map) {
+        java.util.LinkedHashMap<String, Object> normalized = new java.util.LinkedHashMap<>();
+        map.forEach((key, value) -> normalized.put(String.valueOf(key), value));
+        return normalized;
     }
 
     @SuppressWarnings("unchecked")

@@ -1,204 +1,118 @@
 # spring-ai-ascend
 
-> An open-source, enterprise-grade **agent platform** built for the Huawei **Ascend (NPU)** + **Kunpeng (CPU)** stack — on Spring AI, Spring Boot, and Java 21.
+`spring-ai-ascend` 是一个面向企业自托管场景的 Java/Spring AI Agent 平台实验分支。当前代码已经从早期的 `agent-service` / `agent-execution-engine` 命名过渡到更贴近架构语义的 `agent-runtime` / `agent-core`：前者承载可嵌入启动的 A2A Agent runtime，后者承载异构执行引擎与规划 SPI。
 
-`spring-ai-ascend` lets a team stand up its own governed agent runtime the way it
-would stand up a Spring Boot service: import the BoM, override the SPI beans you
-care about, and ship. It is designed for self-hosting on Huawei silicon —
-**Kunpeng** (ARM64) for the JVM service tier and **Ascend** NPUs for model
-serving — so an enterprise can run the whole agent stack on its own hardware,
-OSS-first, with no proprietary-cloud lock-in.
+这个仓库不是一个单纯的样例工程。它同时维护三类事实：
 
-> **What runs today vs. what's on the roadmap.** The shipped runtime is a
-> hardware-agnostic Spring AI / Java kernel — it runs on any JVM, and natively on
-> Kunpeng/ARM64, so you develop and test anywhere. Ascend-NPU-optimised model
-> serving and Kunpeng-tuned deployment profiles are the platform's **design
-> target**, not yet shipped code. This boundary is marked honestly throughout;
-> the machine-readable, per-capability ledger is
-> [`docs/governance/architecture-status.yaml`](docs/governance/architecture-status.yaml).
+- 代码事实：Maven module、SPI、测试、配置属性和可运行入口。
+- 架构事实：`architecture/` 下的 L0/L1/L2 设计、模块边界、4+1 视图和接口附录。
+- 版本范围：`version-scope/` 下的版本特性、功能点和 DFX 范围。
 
-## Why it's built this way
+## 当前实现重点
 
-The platform optimises four pillars:
+当前 `experimental` 分支的核心落点是 `agent-runtime`。该目录已从 `main` 分支同步，提供一个框架中立的 Agent 托管 runtime SDK：
 
-- **Performance** — a non-blocking run spine and parallel module build; the
-  deployment target pairs Ascend NPU model serving with Kunpeng ARM throughput.
-- **Cost** — OSS-first integration and self-hosting on commodity Kunpeng/Ascend
-  hardware instead of metered proprietary services.
-- **Developer onboarding** — extend via `@Bean` SPI overrides, exactly like
-  Spring Boot; a runnable quickstart reaches a first agent run with no
-  platform-team hand-holding.
-- **Governance** — audit-grade evidence and posture-aware fail-closed defaults.
-  Governance (gates, ADRs, enforcers) constrains the engineering **main-path**;
-  the searchable **AI knowledge system** (`knowledge/`) sits outside it, kept
-  honest by advisory integrity scripts rather than blocking gates.
+- 通过 `AgentRuntimeHandler` 与 `StreamAdapter` SPI 托管不同 Agent 框架。
+- 通过 A2A SDK 暴露 Agent Card 与 JSON-RPC/SSE 调用入口。
+- 使用 A2A SDK 的可替换内存 TaskStore 和事件队列承载任务生命周期。
+- 将会话状态持久化交给被托管框架自己的 checkpointer。
+- 支持远程 A2A Agent 作为工具调用、Agent Card 缓存、超时控制和健康细节展示。
+- 提供轨迹观测、日志关联 MDC、OpenTelemetry span sink 等运行可观测能力。
 
-Measured baselines: [`docs/governance/competitive-baselines.yaml`](docs/governance/competitive-baselines.yaml).
+`agent-core` 是从 `agent-execution-engine` 重命名后的执行核心模块。它保留 `com.huawei.ascend.engine.*` 包结构，承载：
 
-## What you can build on it
+- `ExecutorAdapter`、`GraphExecutor`、`AgentLoopExecutor` 等引擎侧 SPI。
+- `EngineRegistry`、`EngineEnvelope` 与 in-process engine port 实现。
+- `Planner`、`Plan`、`PlanStep`、`PlanningRequest`、`PlanningResult` 等规划 SPI。
+- 对 `agent-bus` 中立执行模型 SPI 的消费，例如 `RunContext`、`SuspendSignal`、`ExecutorDefinition`。
 
-- **Dual-mode orchestration.** One runtime runs both deterministic **graph**
-  state machines and ReAct-style **agent loops**, sharing a single interrupt
-  primitive (`SuspendSignal`). A graph node can call an agent loop, which can
-  call another graph — arbitrary bidirectional nesting, one `Run` lineage
-  throughout.
-- **Pluggable by SPI, not by patching.** Memory, run persistence, model gateway,
-  tool authorization, and resilience are SPI surfaces you implement and wire by
-  dependency injection; in-memory reference implementations ship for local dev.
-- **Multi-tenant + audit-grade.** Every run carries a tenant id; storage-engine
-  isolation, durable idempotency, and structured audit logging are first-class.
-- **Posture-aware.** `dev` is permissive for fast iteration; `research`/`prod`
-  fail closed at startup when required configuration is missing.
+## 模块结构
 
-## Quick start
+当前 reactor 模块如下：
+
+| 模块 | 角色 | 当前状态 |
+|---|---|---|
+| `spring-ai-ascend-dependencies` | BoM | 管理本仓库模块与第三方依赖版本 |
+| `agent-runtime` | A2A Agent runtime | 可嵌入 runtime SDK，托管 Agent 并暴露 A2A 接口 |
+| `agent-core` | 执行核心 | 异构执行引擎、EngineRegistry、EngineEnvelope、Planner SPI |
+| `agent-bus` | 总线与跨平面契约 | ingress、S2C callback、中立 engine SPI、forwarding runtime |
+| `agent-middleware` | 中间件 SPI | Hook、模型网关、Skill、Memory、Vector、Retriever、Embedding 等中间层契约 |
+| `agent-client` | 边缘访问 SDK | 客户端侧骨架与边界约束测试 |
+| `agent-evolve` | 演进平面 | 慢速评估、在线演进等实验性 SPI 骨架 |
+
+## 快速构建
 
 ```bash
-# Compile + unit + integration tests + the quality gate (the canonical command)
-./mvnw -T 1C -Pquality verify
+./mvnw -T 1C -q clean install
 ```
 
-Use `verify`, not `test` — `test` skips the `*IT.java` integration enforcers.
-`-T 1C` builds the reactor modules in parallel. Posture is selected by the
-`APP_POSTURE` environment variable (`dev` / `research` / `prod`); `dev` allows
-in-memory backends and only WARNs on missing config. The full
-boot-and-first-run walkthrough is in [docs/quickstart.md](docs/quickstart.md).
+只验证执行核心：
 
-## Architecture at a glance
+```bash
+./mvnw -pl agent-core -am test -q
+```
 
-The runtime is split across **8 Maven modules**, each pinned to exactly one of
-five deployment planes so workloads with different runtime characteristics
-(latency-sensitive HTTP, throughput-heavy ML, untrusted sandbox code) never
-share infrastructure:
+只验证 A2A runtime：
 
-| Module | Plane | What it does |
-|--------|-------|--------------|
-| `agent-client` | Edge Access | Client SDK surface (skeleton; W3+) |
-| `agent-service` | Compute & Control | HTTP edge + runtime kernel — `Run` / `RunStateMachine`, the run HTTP API, JWT/tenant/idempotency/posture, and the core SPIs |
-| `agent-execution-engine` | Compute & Control | Engine adapter + orchestration SPIs, `EngineRegistry`, `EngineEnvelope` |
-| `agent-middleware` | Compute & Control | `RuntimeMiddleware` SPI + hook dispatch |
-| `agent-bus` | Bus & State Hub | Cross-plane control surfaces (client→server ingress, server→client callback) |
-| `agent-evolve` | Evolution | ML / self-improvement pipeline (skeleton) |
-| `spring-ai-ascend-dependencies` | (build-time) | Bill of Materials |
-| `spring-ai-ascend-graphmemory-starter` | Bus & State Hub | Graph-memory auto-config starter |
+```bash
+./mvnw -pl agent-runtime -am test -q
+```
 
-Each module declares its identity in `module-metadata.yaml`, its L1 design in
-`architecture/docs/L0/ARCHITECTURE.md`, and its five DFX dimensions in `docs/dfx/<module>.yaml`.
-Cross-service traffic on the Bus & State Hub plane is sliced into three
-physically isolated channels — `control` (PAUSE/KILL intents, never blocked),
-`data` (run payloads), `rhythm` (heartbeats). The full system boundary, the
-constraint corpus, and the SPI contracts live in [architecture/docs/L0/ARCHITECTURE.md](architecture/docs/L0/ARCHITECTURE.md);
-the narrative tour is [docs/overview.md](docs/overview.md).
+`agent-runtime` 作为库交付，模块 README 中的推荐嵌入方式是通过 `RuntimeApp.create(handler).run(...)` 启动 runtime host。更多 A2A endpoint、Agent Card、远程 Agent、MCP 工具、OpenJiuwen/AgentScope 适配和运维配置，见 `agent-runtime/docs/guides/`。
 
-## Extending the platform
+## agent-runtime 能做什么
 
-| You want to… | Do this | Entry point |
-|---|---|---|
-| Plug in a graph-memory backend | Implement `GraphMemoryRepository`; the starter auto-wires it | `spring-ai-ascend-graphmemory-starter` |
-| Use Spring AI primitives directly | Use `ChatMemory` / `VectorStore` / `CrudRepository` without a starter | (no starter needed) |
-| Pin versions and wire it yourself | Import the BoM only | `spring-ai-ascend-dependencies` |
+`agent-runtime` 适合用在需要把某个 Agent 实现托管成标准 A2A 服务的场景：
 
-## Posture model
+- 启动一个 Agent 托管进程。
+- 发布 `/.well-known/agent-card.json`。
+- 通过 `/a2a` 和 `/a2a/` 接收 JSON-RPC 请求。
+- 支持 `message/send`、`message/stream`、`tasks/get`、`tasks/cancel` 等调用。
+- 通过配置声明远程 A2A Agent，让本地 Agent 把远端 Agent 当作工具使用。
+- 在日志中关联 `contextId`、`taskId`、`tenantId`、`agentId`。
 
-| Posture | Behavior |
-|---------|----------|
-| `dev` (default) | Permissive — in-memory backends allowed; missing config emits WARN |
-| `research` | Fail-closed — required config present or startup fails |
-| `prod` | Fail-closed — same, with stricter enforcement planned |
+它不负责长期 Run 账本、崩溃恢复、幂等调度或企业服务化门面。这些能力属于更高层服务化方向或后续版本范围，不应塞回 runtime 托管层。
 
-Full matrix: [docs/architecture/l0/cross-cutting/posture-model.md](docs/architecture/l0/cross-cutting/posture-model.md).
+## 版本特性范围
 
-## Architecture facts and version scope
+`version-scope/` 是版本承诺的入口。当前目录包含：
 
-The project keeps two related systems separate.
+- `agent-runtime-release-features.md`
+- `Feat-Func-001-a2a-protocol-and-s2c-communication.md`
+- `Feat-Func-002-heterogeneous-agent-framework-compatibility.md`
+- `Feat-Func-003-agent-runtime-core-interface.md`
+- `Feat-Func-004-middleware-memory-and-state.md`
+- `Feat-Func-005-remote-agent-orchestration.md`
+- `Feat-DFX-001-trajectory-observability.md`
 
-The architecture fact system is organized by L0/L1/L2 and 4+1 views. It answers
-what the system is, which modules and state owners are allowed, which
-cross-cutting constraints cannot be violated, and which ADRs or generated facts
-are authoritative. This system lives under [`architecture/`](architecture/).
+这些文档描述“本版本要交付什么、以什么能力验收”。当版本范围和架构设计发生冲突时，应先更新或澄清架构事实，再落实现代码。
 
-The version scope system is organized from requirements to scenarios, L1 feature
-use cases, L2 function points, delivery slices, and acceptance plans. It answers
-what a version commits to deliver and how that scope is validated. This system
-lives under [`version-scope/`](version-scope/).
+## 架构文档路径
 
-Version scope documents may reference architecture facts and may request
-architecture changes, but they do not directly become architecture truth.
+架构事实从 `architecture/` 开始阅读：
 
-## Reading path
+1. `architecture/README.md`：说明架构事实、代码事实、需求材料之间的边界。
+2. `architecture/L0-Top-Level-Design/`：系统级模块切分、全局约束、治理原则和术语。
+3. `architecture/L1-High-Level-Design/`：模块级高阶设计，按 4+1 视图和 API/SPI 附录组织。
+4. `architecture/L2-Low-Level-Design/`：特性级详细设计，描述内部实现逻辑、流程和限制。
 
-Architecture truth starts in [`architecture/`](architecture/). The
-[`docs/`](docs/) tree contains contracts, ADRs, governance, evidence, proposals,
-and history; it can support architecture claims, but it does not replace the
-architecture-of-record.
+`docs/` 中包含评审、归档、竞争分析、治理日志和历史材料。除非被 `architecture/` 显式提升或引用，它们是上下文，不是当前架构事实。
 
-Human contributors should read:
+## 开发约定
 
-1. [`architecture/README.md`](architecture/README.md) - authority model,
-   directory roles, and edit policy.
-2. [`architecture/workspace.dsl`](architecture/workspace.dsl) - canonical model
-   of structure and relationships.
-3. [`architecture/docs/L0/ARCHITECTURE.md`](architecture/docs/L0/ARCHITECTURE.md)
-   - declarative system boundary and platform constraints.
-4. [`architecture/docs/L1/README.md`](architecture/docs/L1/README.md) - module
-   design index.
-5. [`docs/contracts/contract-catalog.md`](docs/contracts/contract-catalog.md),
-   [`docs/adr/`](docs/adr/), and [`docs/governance/`](docs/governance/) when
-   cited by canonical architecture.
-6. [`docs/quickstart.md`](docs/quickstart.md) for operational onboarding.
+- 模块身份以各目录下的 `module-metadata.yaml` 为准。
+- Maven artifact 与目录命名当前采用 `agent-runtime` / `agent-core`。
+- `agent-bus` 的中立 SPI 不能反向依赖 runtime 或 core。
+- `agent-client`、`agent-evolve` 保持边界骨架，不直接穿透调用 compute/control 模块。
+- 新功能优先通过 SPI、配置和 Spring Bean 接入，避免改动平台内部实现作为扩展方式。
 
-AI assistants should read:
+## 推荐入口
 
-1. [`architecture/facts/generated/`](architecture/facts/generated/) before prose
-   for factual claims about code, contracts, tests, modules, or runtime config.
-2. [`architecture/workspace.dsl`](architecture/workspace.dsl), then
-   [`architecture/docs/L0/ARCHITECTURE.md`](architecture/docs/L0/ARCHITECTURE.md)
-   and the relevant [`architecture/docs/L1/`](architecture/docs/L1/) module.
-3. [`docs/contracts/`](docs/contracts/), [`docs/adr/`](docs/adr/), and
-   [`docs/governance/`](docs/governance/) only as supporting authority for the
-   specific claim being checked.
-4. [`docs/architecture/`](docs/architecture/), [`docs/logs/`](docs/logs/),
-   [`docs/reviews/`](docs/reviews/), and [`docs/archive/`](docs/archive/) only
-   as non-overriding context unless a canonical architecture file explicitly
-   promotes a specific artifact.
-
-## Legacy reading path (superseded)
-
-Whether you are a new human contributor or an AI assistant, follow this order for an unbiased architecture picture. Each step names the surface's **rhetorical stance** so you don't conflate it with another slice.
-
-1. **`architecture/workspace.dsl`** + **`architecture/README.md`** — the architecture authority (`唯一主入口` / sole main entry; ADR-0147 + ADR-0150). Structurizr DSL workspace carrying system/container/component structure, Feature/Capability/FunctionPoint instances, dependencies, contracts, decisions, and views.
-2. **`architecture/docs/L0/ARCHITECTURE.md`** (this repo root, L0 frozen) — **declarative** L0 system boundary + 65 numbered architectural constraints (§4 #1..#65). What the platform commits to structurally.
-3. **`CLAUDE.md`** — **enforceable** Layer-0 governing principles (P-A..P-M) + Layer-1 engineering rules (D-/R-/G-/M- namespace). Each rule cites the §4 constraint it enforces.
-4. **`architecture/docs/L1/README.md`** — L1 module design index. Pick the module you're working on; read its `.md` or 4+1 directory.
-5. **`docs/contracts/contract-catalog.md`** — **runtime promise** surface (HTTP API + SPI + envelopes + OpenAPI). What the system commits to at runtime.
-6. **`docs/quickstart.md`** — **operational** onboarding (boot, post `POST /v1/runs`, observe).
-7. **`docs/overview.md`** — narrative tour (after-the-fact prose for non-architecture readers).
-
-These 7 surfaces present **distinct slices**: workspace (structure) → constraints (declarative) → rules (enforceable) → L1 (module design) → contracts (runtime) → quickstart (boot) → overview (narrative). Loading all 7 in order produces a complete, unbiased architecture understanding. Loading any one in isolation produces a partial view.
-
-## Where to go next (cross-links beyond the Reading path)
-
-- [docs/contracts/](docs/contracts/) — full contract corpus (each contract has authority ADR + enforcer).
-- [docs/adr/README.md](docs/adr/README.md) — full Architecture Decision Records corpus (the canonical count lives in docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics; currently 64 active+locked ADRs but only the baseline_metrics number is authoritative).
-- [docs/governance/architecture-status.yaml](docs/governance/architecture-status.yaml) — per-capability shipped/deferred ledger.
-- [docs/governance/SESSION-START-CONTEXT.md](docs/governance/SESSION-START-CONTEXT.md) — same Reading path, expressed as an always-load table for AI sessions.
-
-## Project status & governance
-
-**L1 module-level architecture shipped.** The W0 runtime kernel and L1 platform
-composition (JWT validation, tenant cross-check, durable idempotency, posture
-boot guard, the W1 run HTTP API, Code-as-Contract governance) are shipped; W2–W4
-capabilities — including the Ascend/Kunpeng-optimised deployment path — remain
-design contracts. Per-capability detail is the single source of truth in
-[`docs/governance/architecture-status.yaml`](docs/governance/architecture-status.yaml).
-
-A Code-as-Contract gate keeps the documentation and the code in lockstep and
-fails closed on drift. Its current baseline:
-**65 §4 constraints · 64 ADRs · 35 active gate rules · 102 gate self-tests**,
-plus 13 Layer-0 governing principles, 55 active engineering rules, 88 enforcer
-rows, and a 514-node / 708-edge architecture graph — all maintained in
-[`docs/governance/architecture-status.yaml#architecture_sync_gate.baseline_metrics`](docs/governance/architecture-status.yaml)
-(the canonical source for every count); see [gate/README.md](gate/README.md) for
-how it runs.
-
-Release history and per-wave change declarations live in
-[docs/logs/releases/](docs/logs/releases/).
+- Runtime 概览：`agent-runtime/README.md`
+- Runtime 指南索引：`agent-runtime/docs/guides/README.md`
+- A2A endpoint：`agent-runtime/docs/guides/a2a-endpoints.md`
+- Handler SPI：`agent-runtime/docs/guides/handler-spi.md`
+- 远程 Agent 调用：`agent-runtime/docs/guides/remote-invocation.md`
+- 轨迹观测：`agent-runtime/docs/guides/trajectory-observability.md`
+- 架构事实入口：`architecture/README.md`
+- 版本范围入口：`version-scope/agent-runtime-release-features.md`

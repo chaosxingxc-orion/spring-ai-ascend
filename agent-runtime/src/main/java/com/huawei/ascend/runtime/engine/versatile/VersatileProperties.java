@@ -31,10 +31,10 @@ public class VersatileProperties {
      * other {@code {placeholder}} values come from {@link #urlVariables}.
      *
      * <p>Examples:
-     * <pre>{@code https://100.93.15.185:30001/v1/0/agent-manager/workflows/{workflow_id}/conversations/{conversation_id}}
-     * {@code http://7.213.200.213:3001/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}}</pre>
+     * <pre>{@code https://localhost:30001/v1/0/agent-manager/workflows/{workflow_id}/conversations/{conversation_id}}
+     * {@code http://localhost:3001/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}}</pre>
      */
-    private String url = "https://100.93.15.185:30001/v1/0/agent-manager/workflows/{workflow_id}/conversations/{conversation_id}";
+    private String url = "https://localhost:30001/v1/0/agent-manager/workflows/{workflow_id}/conversations/{conversation_id}";
 
     /** HTTP connect / read timeout. */
     private Duration timeout = Duration.ofSeconds(30);
