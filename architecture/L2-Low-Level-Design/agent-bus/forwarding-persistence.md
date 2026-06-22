@@ -431,9 +431,11 @@ retryPolicy.exhausted(record.attemptCount()) ?
 
 > outbox record 的 `nextAttemptAtMillisEpoch`（DB 列 `next_attempt_at`，§3.1）**仍是** persisted 字段——它是 policy 决策的存储；与 delivery result 解耦（重投时机归 policy）是两个独立关注点。`nextAttemptAt` 字段的「条件必填（仅 RETRY_SCHEDULED）」语义不变。
 
-### 15.3 `ForwardingCircuitBreaker` 端口（deferred，未接入）
+### 15.3 `ForwardingCircuitBreaker` 端口（Stage 14 deferred → Stage 16 已接入，见 §17）
 
 Stage 14 另落一个 deferred 端口 `ForwardingCircuitBreaker`（`allowsDelivery(routeHandle)` + `ALWAYS_CLOSED` no-op），**不接入 worker**：真实熔断需 per-`routeHandle` 失败率状态，且其形态依赖 Stage 13 未裁决的 transport 模型——push（T1/T2）需 breaker 主动短路故障 route；consumer-pull（T3）天然自调速（receiver 停止 claim 即是其 backpressure / break），显式 breaker 大体冗余。接入前会 bake in transport 假设，故 deferred 至 H2/H3 transport 裁决。
+
+> **Stage 16 更新（2026-06）**：该 deferred 已由 Stage 16 解除 —— Stage 15 真实投递绑定 PoC 选了 T1（dispatcher-push over sync RPC），push 模型需 breaker 主动短路故障 route，故「形态依赖 transport」的悬挂前提落地；`ForwardingCircuitBreaker` 已接入 worker（`RouteCircuitBreaker` 三态机），详见 §17。**§6.2 始终不得项不变**（breaker 纯 JDK，无 Task state / payload body / concrete broker client）。
 
 Stage 14 DoD 自检：
 
@@ -501,7 +503,51 @@ Stage 15 DoD 自检：
 - ✓ tenant（R-C.c header）+ payload（metadata 扩展位，无 payload body）。
 - ✓ **164 tests green**（Stage 14 的 158 + 5 MockWebServer 场景），ArchUnit 纯度 green（`org.a2aproject` 圈进 `transport.a2a`，§6.2 文本扫描豁免）。
 - ✓ §6.2 不变：A2A 是 HTTP JSON-RPC 非 concrete broker / MQ；不写 Task execution state；不跨 tenant fallback；不放 payload body / token stream；不绕 routeHandle。
-- ✓ **deferred**：真实 agent-runtime 端到端拉起验证（受 runtime 构建坑阻塞）、`REMOTE_TASK_FAILED` non-retryable 码、registry 集成的 resolver 生产实现、连接池治理 / `ForwardingCircuitBreaker` 接入 worker、最终 push / pull / MQ 投递模型裁决（H2/H3）。
+- ✓ **deferred**：真实 agent-runtime 端到端拉起验证（受 runtime 构建坑阻塞）、`REMOTE_TASK_FAILED` non-retryable 码、registry 集成的 resolver 生产实现、连接池治理、最终 push / pull / MQ 投递模型裁决（H2/H3）。`ForwardingCircuitBreaker` 接入 worker 由 **Stage 16 完成**（§17）。
+
+## 17. Stage 16 决策（`ForwardingCircuitBreaker` 接入 worker：断路器生产化补全）
+
+Stage 16（无 MI 编号，对应 Stage 15 评审后「agent-bus 生产化补全」方向）把 Stage 14 预留的 deferred 端口 `ForwardingCircuitBreaker`（§15.3：端口 + `ALWAYS_CLOSED` no-op，**未接入 worker**）**正式接入 `ForwardingDispatcherWorker`**。正当性来自 Stage 15 真实投递绑定 PoC 的范围决策：选了 **T1（dispatcher-push over sync RPC）** —— push 模型 dispatcher 主动驱动投递，**需要 breaker 在故障 route 上主动短路**（否则连续 retryable 失败会轰炸下游 receiver），故 §15.3「形态依赖 transport 模型」的悬挂前提落地。**不裁决** Stage 13 的 push / pull / MQ 最终模型（仍 H2/H3）。**`§6.2` 始终不得项不变**（breaker 纯 JDK，无 Task state / payload body / concrete broker client）。
+
+### 17.1 端口扩展：`recordOutcome` 结果反馈
+
+`ForwardingCircuitBreaker` 端口加 `recordOutcome(routeHandle, ForwardingDeliveryResult)`（投递后反馈，驱动状态机）；`ALWAYS_CLOSED` 由单方法 lambda 改为实现两方法的匿名类（lambda 无法实现多方法接口）。源码兼容、二进制不兼容 —— `ALWAYS_CLOSED` 仅 agent-bus 内部用，安全。
+
+### 17.2 真实实现：`RouteCircuitBreaker`（三态机，纯 JDK）
+
+`forwarding/runtime/RouteCircuitBreaker.java`（与 `ForwardingRetryPolicy` / `DispatchLeasePolicy` / `EpochClock` 同包同层），照「注入端口 + 构造期验证不变量的实现」范式（同 `ExponentialBackoff`）。注入 `EpochClock`（与 worker 续约判断同源，MI11-001）。构造参数（compact constructor 验证）：`failureThreshold`（CLOSED→OPEN 连续失败阈值，`>= 1`）、`cooldownMillis`（OPEN 冷却时长，`> 0`）、`clock`（非空）。
+
+状态机：`CLOSED --(failureThreshold 连续失败)--> OPEN --(cooldown 到)--> HALF_OPEN`；`HALF_OPEN --(探测成功)--> CLOSED`；`HALF_OPEN --(探测失败)--> OPEN`。每路由状态 `RouteState`（`ConcurrentHashMap<String, RouteState>`，key = `routeHandle.value()`，每个 `RouteState` 用 `synchronized(routeState)` 保护）：`State state` / `int consecutiveFailures` / `long openedAtMillisEpoch` / `boolean probeInFlight`（HALF_OPEN 单探测锁）。
+
+**触发分类在 breaker 内部**（worker 只调一次，不关心怎么分类）：`ACKED`→成功（重置计数 / HALF_OPEN 探测成功→CLOSED）；`RETRY_SCHEDULED`→失败（retryable 码 = route 不健康信号，计数++ / HALF_OPEN 探测失败→OPEN）；`DLQ` / `EXPIRED`→忽略（non-retryable 是配置错误非 route 过载，retryable 耗尽已在之前 RETRY_SCHEDULED 记过，EXPIRED 是消息自身 deadline）。`ForwardingDeliveryResult.retry(code)` 已在 Stage 9 拒绝非 retryable 码，故 RETRY_SCHEDULED 必然 retryable，breaker 无需再查 `failureCode.retryable()`。
+
+### 17.3 worker 接入：接入点顺序与 `probeInFlight` 不变量
+
+worker 7 参构造器（+`ForwardingCircuitBreaker`）；6 参（Stage 14 全参）改为委托 7 参传 `ALWAYS_CLOSED`；3/4/5 参链不变。`runOnce` 三处接入，**顺序是 `probeInFlight` 不泄漏的关键**：
+
+1. 投递前 `allowsDelivery`（**在 lease 续约检查之后、deliver 之前**）：OPEN→短路，复用现有 skip 路径（`skipped++`，留 DISPATCHING 待租约过期回收，**不消耗 attemptCount**）。
+2. 投递后 `recordOutcome`（**在 switch 之前**）：使 switch 内 `markAcked` / `scheduleRetry` / `moveToDlq` / `markExpired` 的 lease-guard 异常不影响 breaker 反馈。
+3. deliver 抛异常 catch 块补 `recordOutcome(retry(RECEIVER_UNAVAILABLE))`：HALF_OPEN 探测抛异常（永不返回 result）也清掉 `probeInFlight`，不卡死。
+
+`DispatchTickResult` **不变** —— 短路复用现有 skip 路径，自洽不变量 `claimed == acked+retried+dlqd+expired+skipped` 自动保持，无新计数器。
+
+### 17.4 transport-agnostic 不破
+
+breaker 端口只消费 `ForwardingRouteHandle` / `ForwardingDeliveryResult`（HD4 守恒，不 unwrap 物理端点），不碰 broker。即便 H2/H3 最终裁决选 T3 consumer-pull，接入的 breaker 也无害 —— T3 receiver 自调速（停止 claim 即 backpressure），breaker 基本不触发。接入安全，不 bake in 任何 push / pull 假设。
+
+### 17.5 ArchUnit（无需新规则）
+
+`RouteCircuitBreaker` 纯 JDK（依赖 `ForwardingDeliveryResult` / `ForwardingRouteHandle` / `EpochClock` / `java.util.concurrent`），不沾 spring / jdbc / jackson / kafka / nats / netty / a2a 任何规则 —— 现有规则全 green，无需新豁免。worker 新增 `ForwardingCircuitBreaker` 字段同理不破。§6.2 文本扫描不触发（breaker 无 Task state / payload body / broker client）。
+
+Stage 16 DoD 自检：
+
+- ✓ `ForwardingCircuitBreaker` 加 `recordOutcome`；`ALWAYS_CLOSED` 改两方法匿名类。
+- ✓ `RouteCircuitBreaker` 三态机（纯 JDK，compact constructor 验证；per-route `ConcurrentHashMap` + `synchronized` + `probeInFlight` 单探测）。
+- ✓ worker 7 参构造器 + `runOnce` 三处接入（顺序保证 `probeInFlight` 不泄漏）。
+- ✓ 触发分类在 breaker 内部（ACKED / RETRY_SCHEDULED / DLQ·EXPIRED）；`DispatchTickResult` 不变（短路复用 skip 路径）。
+- ✓ **179 tests green**（Stage 15 的 164 + 11 `RouteCircuitBreakerTest` + 4 worker 行为测试），ArchUnit 纯度 green（纯 JDK 无需新豁免）。
+- ✓ §6.2 不变：breaker 无 Task state / payload body / concrete broker client；不跨 tenant fallback；不绕 routeHandle。
+- ✓ **deferred**：per-route breaker 状态非持久化（进程重启回 CLOSED）、`failureThreshold` / `cooldownMillis` 生产调优 / per-route 配置、HALF_OPEN 单探测（当前）、多 worker 实例共享单例 breaker、最终 push / pull / MQ 投递模型裁决（H2/H3）。
 
 相关文档：
 

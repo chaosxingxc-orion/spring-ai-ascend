@@ -63,6 +63,18 @@ import java.util.Objects;
  * for illegal arguments (blank tenant / lease owner, non-positive limit) — a
  * caller bug the dispatch loop fails fast on rather than masking.
  *
+ * <p>Circuit breaker (Stage 16): before each delivery the worker asks the injected
+ * {@link ForwardingCircuitBreaker} {@link ForwardingCircuitBreaker#allowsDelivery};
+ * an OPEN route is short-circuited along the existing skip path (skipped, left
+ * DISPATCHING, reclaimed on lease expiry, consuming no attemptCount). After each
+ * delivery the outcome is fed back via
+ * {@link ForwardingCircuitBreaker#recordOutcome} — once from the deliver-exception
+ * catch (as a {@code RECEIVER_UNAVAILABLE} failure) and once with the real result
+ * before the state mutation — so the breaker's {@code probeInFlight} marker can
+ * never strand a HALF_OPEN probe regardless of which path a record takes. The
+ * default {@link ForwardingCircuitBreaker#ALWAYS_CLOSED} no-op keeps the pre-Stage-16
+ * behaviour when no breaker is injected.
+ *
  * <p>Authority: {@code architecture/L2-Low-Level-Design/agent-bus/forwarding-outbox-inbox.md §3/§4.1};
  * {@code architecture/L2-Low-Level-Design/agent-bus/forwarding-persistence.md §5}.
  */
@@ -74,6 +86,7 @@ public final class ForwardingDispatcherWorker {
     private final DispatchLeasePolicy leasePolicy;
     private final EpochClock clock;
     private final ForwardingRetryPolicy retryPolicy;
+    private final ForwardingCircuitBreaker circuitBreaker;
 
     public ForwardingDispatcherWorker(ForwardingOutboxClaimPort claimPort,
                                       ForwardingOutboxPort outboxPort,
@@ -100,9 +113,12 @@ public final class ForwardingDispatcherWorker {
     }
 
     /**
-     * Stage 14: full constructor — inject the retry / backoff policy alongside
-     * the lease policy and clock. On a {@code RETRY_SCHEDULED} result the policy
-     * decides whether the record retries (and when) or is exhausted to DLQ.
+     * Stage 14: inject the retry / backoff policy alongside the lease policy
+     * and clock. On a {@code RETRY_SCHEDULED} result the policy decides whether
+     * the record retries (and when) or is exhausted to DLQ. Delegates to the
+     * full constructor with the {@link ForwardingCircuitBreaker#ALWAYS_CLOSED}
+     * no-op breaker — Stage 16 wired a per-route breaker in, but this overload
+     * keeps the Stage 14 signature source-compatible.
      */
     public ForwardingDispatcherWorker(ForwardingOutboxClaimPort claimPort,
                                       ForwardingOutboxPort outboxPort,
@@ -110,12 +126,36 @@ public final class ForwardingDispatcherWorker {
                                       DispatchLeasePolicy leasePolicy,
                                       EpochClock clock,
                                       ForwardingRetryPolicy retryPolicy) {
+        this(claimPort, outboxPort, deliveryPort, leasePolicy, clock, retryPolicy,
+                ForwardingCircuitBreaker.ALWAYS_CLOSED);
+    }
+
+    /**
+     * Stage 16: full constructor — inject the per-route
+     * {@link ForwardingCircuitBreaker} alongside the retry policy, lease policy
+     * and clock. Before each delivery the worker asks the breaker
+     * {@link ForwardingCircuitBreaker#allowsDelivery}; an OPEN route is
+     * short-circuited (skipped, left DISPATCHING, reclaimed on lease expiry —
+     * like the existing lease / deliver-exception skip paths, consuming no
+     * attemptCount). After each delivery the worker feeds the result back via
+     * {@link ForwardingCircuitBreaker#recordOutcome}; the breaker classifies it
+     * internally (ACKED → success, a retryable failure → failure, DLQ / EXPIRED
+     * → ignored).
+     */
+    public ForwardingDispatcherWorker(ForwardingOutboxClaimPort claimPort,
+                                      ForwardingOutboxPort outboxPort,
+                                      ForwardingDeliveryPort deliveryPort,
+                                      DispatchLeasePolicy leasePolicy,
+                                      EpochClock clock,
+                                      ForwardingRetryPolicy retryPolicy,
+                                      ForwardingCircuitBreaker circuitBreaker) {
         this.claimPort = Objects.requireNonNull(claimPort, "claimPort is required");
         this.outboxPort = Objects.requireNonNull(outboxPort, "outboxPort is required");
         this.deliveryPort = Objects.requireNonNull(deliveryPort, "deliveryPort is required");
         this.leasePolicy = Objects.requireNonNull(leasePolicy, "leasePolicy is required");
         this.clock = Objects.requireNonNull(clock, "clock is required");
         this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy is required");
+        this.circuitBreaker = Objects.requireNonNull(circuitBreaker, "circuitBreaker is required");
     }
 
     /**
@@ -187,6 +227,16 @@ public final class ForwardingDispatcherWorker {
                         }
                     }
                 }
+                // Stage 16: per-route circuit breaker. Placed AFTER the lease-renewal
+                // check (a renew failure skips before the breaker is touched, so it
+                // cannot leak a HALF_OPEN probe marker) and BEFORE delivery. An OPEN
+                // route short-circuits exactly like the existing skip paths: the record
+                // is skipped, left DISPATCHING, reclaimed on lease expiry, and consumes
+                // no attemptCount.
+                if (!circuitBreaker.allowsDelivery(record.routeHandle())) {
+                    skipped++;
+                    continue;
+                }
                 // Stage 11 (MI11-002): a real transport binding must map transport
                 // errors to a ForwardingDeliveryResult and MUST NOT throw (ICD /
                 // delivery port contract). If it still throws a non-lease
@@ -196,9 +246,19 @@ public final class ForwardingDispatcherWorker {
                 try {
                     result = deliveryPort.deliver(record, clockNow);
                 } catch (RuntimeException e) {
+                    // Stage 16: feed the failure back so a HALF_OPEN probe that threw
+                    // (and thus never returned a result) cannot strand its in-flight
+                    // marker — a thrown deliver is a transport fault, mapped to a
+                    // retryable RECEIVER_UNAVAILABLE failure.
+                    circuitBreaker.recordOutcome(record.routeHandle(),
+                            ForwardingDeliveryResult.retry(ForwardingFailureCode.RECEIVER_UNAVAILABLE));
                     skipped++;
                     continue;
                 }
+                // Stage 16: feed the delivery outcome back BEFORE the state mutation
+                // (markAcked / scheduleRetry / moveToDlq / markExpired), so a lease-guard
+                // exception in the mutation cannot leave a HALF_OPEN probe stranded.
+                circuitBreaker.recordOutcome(record.routeHandle(), result);
                 switch (result.outcome()) {
                     case ACKED -> {
                         outboxPort.markAcked(record.messageId(), tenantId, leaseOwner);

@@ -5,6 +5,7 @@ import com.huawei.ascend.bus.forwarding.runtime.ForwardingDispatchLoop;
 import com.huawei.ascend.bus.forwarding.runtime.ForwardingDispatcherWorker;
 import com.huawei.ascend.bus.forwarding.runtime.ForwardingRetryPolicy;
 import com.huawei.ascend.bus.forwarding.runtime.ForwardingStateMachine;
+import com.huawei.ascend.bus.forwarding.runtime.RouteCircuitBreaker;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryPort;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryResult;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
@@ -1184,6 +1185,247 @@ class AgentBusForwardingRuntimeContractTest {
                 .as("attempt 2: budget exhausted -> DLQ")
                 .isEqualTo(1);
         assertThat(outbox.statusOf(env.messageId(), "tenant-a")).isEqualTo(DLQ);
+    }
+
+    // ===== Stage 16 — per-route circuit breaker wired into the worker =====
+    //
+    // A RouteCircuitBreaker (failureThreshold / cooldownMillis / clock) is injected
+    // through the 7-arg constructor. Before each delivery the worker asks
+    // allowsDelivery; an OPEN route short-circuits along the existing skip path
+    // (left DISPATCHING, reclaimed on lease expiry, consuming no attemptCount).
+    // After each delivery — and from the deliver-exception catch as a
+    // RECEIVER_UNAVAILABLE failure — the outcome is fed back so the breaker's
+    // three-state machine advances and a HALF_OPEN probe can never strand its
+    // in-flight marker.
+
+    /**
+     * Stage 16: consecutive retryable failures on a route trip the breaker; once
+     * OPEN, the next claim is short-circuited — skipped (not delivered), left
+     * DISPATCHING, and its attemptCount frozen. The short-circuit consumes no
+     * retry budget, exactly like the lease / deliver-exception skip paths, so the
+     * {@code DispatchTickResult} self-consistency invariant still holds.
+     */
+    @Test
+    void circuit_breaker_short_circuits_failing_route_and_freezes_attempt_count() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        InMemoryForwardingDelivery delivery = new InMemoryForwardingDelivery();
+        delivery.setDefault(ForwardingDeliveryResult.retry(ForwardingFailureCode.RECEIVER_UNAVAILABLE));
+        long[] clockNow = {NOW};
+        RouteCircuitBreaker breaker = new RouteCircuitBreaker(3, 100_000L, () -> clockNow[0]);
+        ForwardingRetryPolicy budget =
+                new ForwardingRetryPolicy.ExponentialBackoff(100L, 10_000L, 10, () -> 0L);
+        ForwardingDispatcherWorker worker = new ForwardingDispatcherWorker(
+                outbox, outbox, delivery,
+                ForwardingDispatcherWorker.DispatchLeasePolicy.DISABLED,
+                (EpochClock) () -> clockNow[0], budget, breaker);
+        ForwardingRouteHandle route = new ForwardingRouteHandle("route-for-tenant-a", "tenant-a");
+
+        ForwardingEnvelope env = envelope("msg-cb-trip", "tenant-a");
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+
+        // three consecutive retryable failures trip the breaker (threshold = 3)
+        worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(outbox.attemptCountOf(env.messageId(), "tenant-a")).isEqualTo(1);
+        clockNow[0] = NOW + 200;
+        worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(outbox.attemptCountOf(env.messageId(), "tenant-a")).isEqualTo(2);
+        clockNow[0] = NOW + 500;
+        worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(outbox.attemptCountOf(env.messageId(), "tenant-a"))
+                .as("attempt 3 is still delivered — the breaker trips only AFTER this failure")
+                .isEqualTo(3);
+        assertThat(breaker.stateOf(route)).isEqualTo(RouteCircuitBreaker.State.OPEN);
+
+        // the breaker is now OPEN: the next claim is short-circuited before delivery
+        clockNow[0] = NOW + 1_000;
+        ForwardingDispatcherWorker.DispatchTickResult tick =
+                worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(tick.skipped())
+                .as("an OPEN route is skipped, not delivered")
+                .isEqualTo(1);
+        assertThat(tick.retried()).isZero();
+        assertThat(outbox.statusOf(env.messageId(), "tenant-a"))
+                .as("a short-circuited record is left DISPATCHING (reclaimed on lease expiry)")
+                .isEqualTo(DISPATCHING);
+        assertThat(outbox.attemptCountOf(env.messageId(), "tenant-a"))
+                .as("the short-circuit consumes no attemptCount")
+                .isEqualTo(3);
+    }
+
+    /**
+     * Stage 16: once OPEN, after the cooldown elapses the breaker half-opens and
+     * allows a single probe; a probe that succeeds restores CLOSED (count reset),
+     * so a subsequent delivery on the same route goes through normally again.
+     */
+    @Test
+    void circuit_breaker_half_opens_after_cooldown_and_closes_on_probe_success() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        InMemoryForwardingDelivery delivery = new InMemoryForwardingDelivery();
+        delivery.setDefault(ForwardingDeliveryResult.retry(ForwardingFailureCode.RECEIVER_UNAVAILABLE));
+        long[] clockNow = {NOW};
+        RouteCircuitBreaker breaker = new RouteCircuitBreaker(3, 1_000L, () -> clockNow[0]);
+        ForwardingRetryPolicy budget =
+                new ForwardingRetryPolicy.ExponentialBackoff(100L, 10_000L, 10, () -> 0L);
+        ForwardingDispatcherWorker worker = new ForwardingDispatcherWorker(
+                outbox, outbox, delivery,
+                ForwardingDispatcherWorker.DispatchLeasePolicy.DISABLED,
+                (EpochClock) () -> clockNow[0], budget, breaker);
+        ForwardingRouteHandle route = new ForwardingRouteHandle("route-for-tenant-a", "tenant-a");
+
+        ForwardingEnvelope env = envelope("msg-cb-probe", "tenant-a");
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+
+        // trip the breaker (3 retryable failures); OPEN at NOW + 500
+        worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        clockNow[0] = NOW + 200;
+        worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        clockNow[0] = NOW + 500;
+        worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(breaker.stateOf(route)).isEqualTo(RouteCircuitBreaker.State.OPEN);
+
+        // past cooldown: the breaker half-opens one probe; make the probe succeed
+        clockNow[0] = NOW + 1_500;
+        delivery.put("msg-cb-probe", ForwardingDeliveryResult.acked());
+        ForwardingDispatcherWorker.DispatchTickResult probe =
+                worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(probe.acked())
+                .as("the HALF_OPEN probe is delivered and, on success, acked")
+                .isEqualTo(1);
+        assertThat(breaker.stateOf(route))
+                .as("a successful probe restores CLOSED (count reset)")
+                .isEqualTo(RouteCircuitBreaker.State.CLOSED);
+        assertThat(outbox.statusOf(env.messageId(), "tenant-a")).isEqualTo(ACKED);
+
+        // CLOSED again: a fresh record on the same route is delivered normally
+        ForwardingEnvelope env2 = envelope("msg-cb-recovered", "tenant-a");
+        outbox.enqueue(env2, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        delivery.put("msg-cb-recovered", ForwardingDeliveryResult.acked());
+        clockNow[0] = NOW + 1_600;
+        ForwardingDispatcherWorker.DispatchTickResult after =
+                worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(after.acked())
+                .as("once CLOSED, the route delivers again (no short-circuit)")
+                .isEqualTo(1);
+    }
+
+    /**
+     * Stage 16: a {@code deliver} that throws a non-lease {@link RuntimeException}
+     * (a real transport binding must map transport errors and not throw — see the
+     * ICD) is fed back to the breaker as a retryable RECEIVER_UNAVAILABLE failure,
+     * so thrown deliveries still count toward the threshold. Three thrown delivers
+     * on the same route trip the breaker; a fourth record on that route is then
+     * short-circuited rather than delivered into the throwing transport.
+     */
+    @Test
+    void deliver_exception_counts_as_breaker_failure() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        ForwardingDeliveryPort throwingDelivery = new ForwardingDeliveryPort() {
+            @Override
+            public ForwardingDeliveryResult deliver(ForwardingOutboxRecord record, long nowMillisEpoch) {
+                throw new UncheckedIOException(new IOException("transport down"));
+            }
+        };
+        long[] clockNow = {NOW};
+        RouteCircuitBreaker breaker = new RouteCircuitBreaker(3, 100_000L, () -> clockNow[0]);
+        ForwardingDispatcherWorker worker = new ForwardingDispatcherWorker(
+                outbox, outbox, throwingDelivery,
+                ForwardingDispatcherWorker.DispatchLeasePolicy.DISABLED,
+                (EpochClock) () -> clockNow[0],
+                ForwardingRetryPolicy.DEFAULT, breaker);
+        ForwardingRouteHandle route = new ForwardingRouteHandle("route-for-tenant-a", "tenant-a");
+
+        // three records on the same route, all thrown -> three failures fed back -> OPEN
+        outbox.enqueue(envelope("msg-throw-1", "tenant-a"), SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        outbox.enqueue(envelope("msg-throw-2", "tenant-a"), SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        outbox.enqueue(envelope("msg-throw-3", "tenant-a"), SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        ForwardingDispatcherWorker.DispatchTickResult tick1 =
+                worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(tick1.claimed()).isEqualTo(3);
+        assertThat(tick1.skipped())
+                .as("each thrown deliver is skipped (left DISPATCHING)")
+                .isEqualTo(3);
+        assertThat(breaker.stateOf(route))
+                .as("three thrown delivers tripped the breaker (the catch fed each failure back)")
+                .isEqualTo(RouteCircuitBreaker.State.OPEN);
+
+        // a fourth record on the now-OPEN route is short-circuited before delivery
+        outbox.enqueue(envelope("msg-throw-4", "tenant-a"), SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        ForwardingDispatcherWorker.DispatchTickResult tick2 =
+                worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(tick2.skipped())
+                .as("the fourth record is short-circuited, not delivered into the throwing transport")
+                .isEqualTo(1);
+        assertThat(outbox.statusOf(new ForwardingMessageId("msg-throw-4"), "tenant-a"))
+                .isEqualTo(DISPATCHING);
+    }
+
+    /**
+     * Stage 16: a HALF_OPEN probe whose {@code deliver} throws is fed back as a
+     * failure (the catch records a RECEIVER_UNAVAILABLE), so the breaker re-opens
+     * and clears the in-flight probe marker — it is not stranded in HALF_OPEN.
+     * After the refreshed cooldown a fresh probe is allowed again, proving the
+     * thrown probe did not leak its {@code probeInFlight} marker.
+     */
+    @Test
+    void thrown_half_open_probe_reopens_without_stranding() {
+        InMemoryForwardingOutbox outbox = new InMemoryForwardingOutbox();
+        InMemoryForwardingDelivery backing = new InMemoryForwardingDelivery();
+        backing.setDefault(ForwardingDeliveryResult.retry(ForwardingFailureCode.RECEIVER_UNAVAILABLE));
+        boolean[] throwNext = {false};
+        ForwardingDeliveryPort delivery = new ForwardingDeliveryPort() {
+            @Override
+            public ForwardingDeliveryResult deliver(ForwardingOutboxRecord record, long nowMillisEpoch) {
+                if (throwNext[0]) {
+                    throw new UncheckedIOException(new IOException("transport down"));
+                }
+                return backing.deliver(record, nowMillisEpoch);
+            }
+        };
+        long[] clockNow = {NOW};
+        RouteCircuitBreaker breaker = new RouteCircuitBreaker(3, 1_000L, () -> clockNow[0]);
+        ForwardingRetryPolicy budget =
+                new ForwardingRetryPolicy.ExponentialBackoff(100L, 10_000L, 10, () -> 0L);
+        ForwardingDispatcherWorker worker = new ForwardingDispatcherWorker(
+                outbox, outbox, delivery,
+                ForwardingDispatcherWorker.DispatchLeasePolicy.DISABLED,
+                (EpochClock) () -> clockNow[0], budget, breaker);
+        ForwardingRouteHandle route = new ForwardingRouteHandle("route-for-tenant-a", "tenant-a");
+
+        ForwardingEnvelope env = envelope("msg-leak", "tenant-a");
+        outbox.enqueue(env, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+
+        // trip the breaker via 3 retryable failures; OPEN at NOW + 500
+        worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        clockNow[0] = NOW + 200;
+        worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        clockNow[0] = NOW + 500;
+        worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(breaker.stateOf(route)).isEqualTo(RouteCircuitBreaker.State.OPEN);
+
+        // past cooldown: the breaker half-opens a probe, but deliver throws. The catch
+        // feeds the failure back so the breaker re-opens and the probe marker is cleared.
+        clockNow[0] = NOW + 1_500;
+        throwNext[0] = true;
+        ForwardingDispatcherWorker.DispatchTickResult thrownProbe =
+                worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(thrownProbe.skipped()).isEqualTo(1);
+        assertThat(breaker.stateOf(route))
+                .as("the thrown probe re-opened the breaker (openedAt refreshed to NOW + 1500)")
+                .isEqualTo(RouteCircuitBreaker.State.OPEN);
+
+        // after the refreshed cooldown (from NOW + 1500), a fresh probe is allowed again —
+        // proving the thrown probe did not strand a HALF_OPEN marker. Make this probe succeed.
+        throwNext[0] = false;
+        ForwardingEnvelope env2 = envelope("msg-leak-2", "tenant-a");
+        outbox.enqueue(env2, SOURCE_SERVICE, TARGET_SERVICE, NOW);
+        backing.put("msg-leak-2", ForwardingDeliveryResult.acked());
+        clockNow[0] = NOW + 2_500;
+        ForwardingDispatcherWorker.DispatchTickResult recovered =
+                worker.runOnce("tenant-a", clockNow[0], 10, LEASE_OWNER, clockNow[0] + 30_000);
+        assertThat(recovered.acked())
+                .as("a fresh probe is allowed after the refreshed cooldown (no stranded marker)")
+                .isEqualTo(1);
+        assertThat(breaker.stateOf(route)).isEqualTo(RouteCircuitBreaker.State.CLOSED);
     }
 
     // ===== helpers =====
