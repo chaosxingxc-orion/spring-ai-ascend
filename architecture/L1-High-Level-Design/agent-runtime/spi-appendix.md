@@ -113,7 +113,7 @@ public interface AgentRuntimeHandler {
 - `start()` / `stop()` 由 `AgentRuntimeLifecycle` 围绕 serving window 调用。`start()` 异常会导致启动失败并回滚已启动 handler；`stop()` 异常会被记录并吞掉，以保证其他 handler 得到释放机会。
 - `cancel(taskId)` 是协作式取消接缝。默认 no-op 只适合懒生成 stream 的 handler；同步计算完整结果后再包装 stream 的 handler 必须覆盖它并传播框架原生中断。
 
-当前 `RuntimeAutoConfiguration` 将 runtime host 限制为单 handler：没有 handler 时允许 A2A surface 启动但执行会被 reject；多个 handler bean 会启动失败，提示拆分为多个 runtime 实例。
+当前 `RuntimeAutoConfiguration` 将 runtime host 限制为单 handler：没有 handler 时允许 A2A surface 启动但执行会被 reject；多个 handler bean 会启动失败，提示拆分为多个 runtime 实例。同实例多本地 handler / 多本地 Agent 路由不属于当前版本能力，应进入未来版本提案。
 
 ### 4.2 AbstractAgentRuntimeHandler
 

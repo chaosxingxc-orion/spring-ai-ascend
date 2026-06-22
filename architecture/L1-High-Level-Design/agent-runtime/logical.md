@@ -82,7 +82,7 @@ AgentExecutionResult
 ├── OUTPUT       中间输出片段
 ├── COMPLETED    执行完成
 ├── FAILED       执行失败
-└── INTERRUPTED  需要外部输入后继续
+└── INTERRUPTED  等待外部协作后继续，包括人工输入或远端 Agent 回灌
 ```
 
 该结果语义不等同于任一具体 Agent 框架的原生输出，也不等同于 A2A 外部响应。它是 runtime 内部连接 Agent 执行与 Task 状态推进的稳定契约。
@@ -220,7 +220,8 @@ Task 是 runtime 的执行状态单元。当前 Task 状态由 A2A SDK 管理，
 
 ```text
 SUBMITTED ──▶ WORKING ──▶ COMPLETED
-                 │
+   │             │
+   └──▶ REJECTED │
                  ├──▶ FAILED
                  │
                  ├──▶ CANCELED
@@ -237,7 +238,8 @@ SUBMITTED ──▶ WORKING ──▶ COMPLETED
 | COMPLETED | Agent 执行完成，Task 正常结束 |
 | FAILED | 执行失败，Task 以错误结束 |
 | CANCELED | 外部取消或 runtime 取消逻辑使 Task 终止 |
-| INPUT_REQUIRED | Agent 执行被中断，等待外部输入后继续 |
+| INPUT_REQUIRED | Agent 执行被中断，等待外部协作后继续，包括人工输入或远端 Agent 回灌 |
+| REJECTED | Task 已创建但未进入 WORKING，通常由未注册 handler 或 runtime 未 ready 的前置拒绝触发 |
 
 ### 4.2 AgentExecutionResult 到 Task 状态的映射
 
@@ -248,7 +250,8 @@ Agent 执行结果驱动 Task 状态推进。
 | OUTPUT | 保持 WORKING | 产生中间输出，Task 尚未结束 |
 | COMPLETED | 推进到 COMPLETED | Agent 执行完成 |
 | FAILED | 推进到 FAILED | Agent 执行失败 |
-| INTERRUPTED | 推进到 INPUT_REQUIRED | 需要外部输入后恢复执行 |
+| INTERRUPTED + UserInputInterrupt | 推进到 INPUT_REQUIRED | 需要外部人工输入后恢复执行 |
+| INTERRUPTED + RemoteAgentInterrupt | 交给远端调用编排；远端需要输入时推进到 INPUT_REQUIRED，远端完成后以 REMOTE_RESUME 重新进入本地 handler | 需要远端 Agent 调用并回灌后继续 |
 
 该映射是 engine 与 task-centric-control 之间的核心逻辑契约。框架原生输出必须先转换为 `AgentExecutionResult`，再进入 Task 状态语义。
 
@@ -327,7 +330,7 @@ Engine 层不直接拥有 Task 状态机。Agent 框架不直接写 runtime Task
 agent-service
     ↓ may embed
 agent-runtime
-    ↓ may consume neutral vocabulary / contracts
+    ↓ may align with / map neutral vocabulary, without compile dependency
 agent-bus
 ```
 

@@ -63,7 +63,7 @@ A2A 客户端通过标准 JSON-RPC 端点调用 runtime 内注册的 Agent，run
 
 ### 场景目标
 
-runtime 通过统一 SPI 接入不同 Agent 框架，使调用方不感知 openJiuwen、AgentScope 或远端 Agent 的输入输出差异。
+runtime 通过统一 SPI 接入一个本地 Agent handler。不同宿主实例可以选择 openJiuwen、AgentScope 等不同框架适配；同一实例多本地 handler 路由不属于当前版本能力，留待未来版本提案。调用方不需要感知当前 handler 背后的框架输入输出差异，也不需要感知远端 Agent 工具的 A2A 调用细节。
 
 ### 参与组件
 
@@ -76,12 +76,12 @@ runtime 通过统一 SPI 接入不同 Agent 框架，使调用方不感知 openJ
 | RemoteAgentToolSpec | 远端 Agent 工具的协议中立描述。 |
 | OpenJiuwen adapter | openJiuwen 框架适配。 |
 | AgentScope adapter | AgentScope 框架适配。 |
-| Remote agent service | 远端 A2A Agent 目录与调用支撑。 |
+| Remote agent outbound support | 远端 A2A Agent 目录与调用支撑。 |
 
 ### 基本路径
 
-1. runtime 根据注册的 handler 定位目标 Agent。
-2. 对应框架适配器把中立执行上下文转换为目标框架输入。
+1. runtime 使用当前唯一注册的 handler 承接本地 Agent 执行。
+2. 该 handler 背后的框架适配器把中立执行上下文转换为目标框架输入。
 3. 目标框架执行 Agent 逻辑并产出原生结果。
 4. 适配器把原生结果转换为 runtime 中立结果。
 5. runtime 将结果交还给 A2A SDK 处理外部响应。

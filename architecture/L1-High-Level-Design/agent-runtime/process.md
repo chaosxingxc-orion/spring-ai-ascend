@@ -83,20 +83,26 @@ A2A Request
 
 ### 2.1 非流式 SendMessage 流程
 
-非流式 `SendMessage` 在请求线程中完成一次同步调用，并返回 JSON-RPC 响应。它适用于调用方只需要最终结果、无需持续接收中间事件的场景。
+非流式 `SendMessage` 在请求线程中进入 A2A SDK `RequestHandler`，由 `RequestHandler` 创建或推进 Task，并通过 `MainEventBus` / `MainEventBusProcessor` 将 Agent 执行派发到后台执行器。请求线程等待 A2A SDK 聚合最终事件后返回一次性 JSON-RPC 响应。它适用于调用方只需要最终结果、无需持续接收中间事件的场景。
 
 ```text
 A2A 请求
   -> A2aJsonRpcController.handle()
   -> RequestHandler.onMessageSend()
-  -> AgentExecutor.execute()
+  -> TaskStore: create / update Task
+  -> MainEventBus.publish()
+  -> MainEventBusProcessor consume
+  -> A2aServerExecutor background thread
+  -> AgentExecutor.execute(ctx, emitter)
   -> A2aAgentExecutor.toExecutionContext()
   -> AgentRuntimeHandler.execute(context)
   -> StreamAdapter.adapt(raw)
+  -> emitter emits Task events
+  -> RequestHandler aggregates final event
   -> 返回最终 JSON-RPC response
 ```
 
-同步路径仍使用 runtime 中立执行上下文和结果适配语义；差异只在于响应载体是一次性 JSON，而不是 SSE 事件流。
+同步路径仍使用 runtime 中立执行上下文和结果适配语义；差异只在于响应载体是一次性 JSON，而不是 SSE 事件流。它不意味着接入线程直接执行业务 Agent。
 
 ### 2.2 流式 SendStreamingMessage 流程
 
@@ -172,6 +178,7 @@ A2A 请求 SubscribeToTask
 | 收到可执行消息并创建 Task | `SUBMITTED` | RequestHandler 创建 runtime Task，并发布待执行事件。 |
 | Agent 开始产生执行结果 | `WORKING` | emitter 发送普通消息或执行进展，Task 进入工作态。 |
 | Agent 需要人工输入 | `INPUT_REQUIRED` | `AgentExecutionResult.interrupted(prompt)` 被路由为 `emitter.requiresInput()`。 |
+| Agent 需要远端 Agent 调用并回灌 | `INPUT_REQUIRED` 或继续 `WORKING` | `AgentExecutionResult.interrupted(remoteInvocation)` 交给 `A2aRemoteInvocationOrchestrator`；远端需要输入时父 Task 停在 `INPUT_REQUIRED`，远端完成后以 `REMOTE_RESUME` 重新进入本地 handler。 |
 | Agent 正常完成 | `COMPLETED` | `emitter.complete()` 推进最终完成事件。 |
 | Agent 执行失败 | `FAILED` | handler 异常或 adapter 失败结果被路由为 `emitter.fail()`。 |
 | 未注册 handler | `REJECTED` | 前置拒绝，未进入 `WORKING`。 |
@@ -286,7 +293,7 @@ A2A 请求
   -> RequestHandler.onMessageSend() / onMessageSendStream()
 ```
 
-`GetTask`、`CancelTask` 和非流式 `SendMessage` 主要体现为同步响应路径；`SendStreamingMessage` 和 `SubscribeToTask` 在 IO 线程上建立流式响应后，后续事件通过异步通道回流。
+`GetTask` 和 `CancelTask` 主要体现为同步控制路径；非流式 `SendMessage` 在 IO 线程上等待最终 JSON 响应，但 Agent 执行仍通过 `MainEventBusProcessor` 后台派发；`SendStreamingMessage` 和 `SubscribeToTask` 在 IO 线程上建立流式响应后，后续事件通过异步通道回流。
 
 ### 4.2 MainEventBus 异步投递段
 

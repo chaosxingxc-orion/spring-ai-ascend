@@ -78,7 +78,7 @@ dependency:
 | Agent 执行 SPI | 定义并消费框架无关的 `AgentRuntimeHandler`、执行结果、结果适配、memory、trajectory 和远端工具规格。 | 不把某个 Agent 框架设为平台唯一执行模型。 | `spi-appendix.md`, `development.md` |
 | 框架适配 | 提供 openJiuwen、AgentScope 等当前适配实现和抽象基类。 | 不承诺所有未来框架适配已经 active。 | `development.md`, L2 详细设计 |
 | 嵌入式启动 | 提供纯 Java runtime 入口、Spring Boot host 和自动装配。 | 不负责业务应用的部署编排、租户入口治理或平台网关能力。 | `development.md`, `physical.md` |
-| 远端 Agent 调用支撑 | 在 engine service 边界内维护远端 Agent Card 目录和 outbound 调用支撑。 | 不接管跨实例、跨部门、跨数据边界的 A2A 总线治理；该边界归属 L0 中的 `agent-bus`。 | `logical.md`, `process.md` |
+| 远端 Agent 调用支撑 | 在 `engine.a2a` 协议桥 / outbound invocation 边界内维护远端 Agent Card 目录和 outbound 调用支撑。 | 不接管跨实例、跨部门、跨数据边界的 A2A 总线治理；该边界归属 L0 中的 `agent-bus`。 | `logical.md`, `process.md` |
 | 状态归属 | 管理 runtime Task/Session 语义和执行过程中的中立上下文。 | 不持久化业务 Agent checkpoint、业务 memory、外部系统状态或分布式 Task 存储实现。 | `logical.md`, `physical.md` |
 
-跨模块依赖方向保持为：`agent-runtime` 可消费 `agent-bus` 中立执行词汇；`agent-runtime` 不依赖 `agent-service`；`agent-service` 可以集成 `agent-runtime` 作为运行时 SDK。
+跨模块依赖方向保持为：`agent-runtime` 可对齐或映射 `agent-bus` 中立执行词汇，但当前不形成对 `agent-bus` 的编译依赖；`agent-runtime` 不依赖 `agent-service`；`agent-service` 可以集成 `agent-runtime` 作为运行时 SDK。

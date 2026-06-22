@@ -163,8 +163,10 @@ Agent Card 返回前会根据访问上下文重写 URL：
 
 1. 如果存在 `AgentCardProvider` bean，直接使用其 `agentCard()`。
 2. 否则，若 `agent-runtime.access.a2a.agent-card.name` 显式配置，使用该 name。
-3. 否则，尝试使用 `agent-runtime.access.a2a.default-agent-id` 匹配已注册 handler。
-4. 否则，使用第一个 `AgentRuntimeHandler.agentId()`；没有 handler 时退回 `agent`。
+3. 否则，尝试使用 `agent-runtime.access.a2a.default-agent-id` 匹配当前唯一注册的 handler。
+4. 否则，使用当前唯一 `AgentRuntimeHandler.agentId()`；没有 handler 时退回 `agent`。
+
+当前 active host 只允许一个本地 `AgentRuntimeHandler`。多个本地 handler / 多本地 Agent 的同实例路由不属于当前版本能力，应进入未来版本提案；需要暴露多个本地 Agent 时，应拆分为多个 runtime 实例或通过明确的 `AgentCardProvider` 覆盖发布元数据。
 
 Agent Card 配置前缀为：
 
@@ -192,11 +194,11 @@ Health 语义：
 | 状态来源 | Health 影响 |
 |---|---|
 | `RuntimeReadiness` 未 ready | `OUT_OF_SERVICE`。 |
-| readiness ready 且任一 handler `isHealthy()` 为 false | `DOWN`。 |
-| readiness ready 且 handlers 健康 | `UP`。 |
+| readiness ready 且当前 handler `isHealthy()` 为 false | `DOWN`。 |
+| readiness ready 且当前 handler 健康 | `UP`。 |
 | remote A2A agents 不可达 | 只进入 health detail，不降低整体状态。 |
 
-Health detail 包含每个 handler 的 agentId 健康状态；配置远端 Agent 时，还包含 `remoteAgents.available`、`remoteAgents.pending` 和 `remoteAgents.pendingUrls`。
+Health detail 包含当前 handler 的 agentId 健康状态；配置远端 Agent 时，还包含 `remoteAgents.available`、`remoteAgents.pending` 和 `remoteAgents.pendingUrls`。
 
 Actuator 端点路径和暴露策略由宿主 Spring Boot 应用决定，通常是 `/actuator/health`，不属于 runtime 自有 controller path。
 
