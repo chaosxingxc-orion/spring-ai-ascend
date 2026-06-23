@@ -67,6 +67,58 @@ class A2aAgentExecutorTest {
         assertThat(failureText(emitter)).startsWith("INVALID_INPUT:");
     }
 
+    /** An explicit agentId that does not match the handler must REJECT, not silently route. */
+    @Test
+    void mismatchedAgentIdRejectsTask() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of("agentId", "agent-unknown"));
+
+        AgentEmitter emitter = newEmitter();
+        new A2aAgentExecutor(handler).execute(ctx, emitter);
+
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(emitter).reject(captor.capture());
+        String text = captor.getValue().parts().stream()
+                .filter(TextPart.class::isInstance)
+                .map(p -> ((TextPart) p).text())
+                .reduce("", String::concat);
+        assertThat(text).contains("AGENT_NOT_FOUND");
+        assertThat(text).contains("agent-unknown");
+        verify(handler, org.mockito.Mockito.never()).execute(any());
+    }
+
+    /** When the caller omits agentId entirely the handler's own id is used, no rejection. */
+    @Test
+    void absentAgentIdExecutesNormally() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of("userId", "user-a"));
+
+        new A2aAgentExecutor(handler).execute(ctx, newEmitter());
+
+        verify(handler).execute(any());
+    }
+
+    /** A caller-supplied agentId that matches the handler must execute normally. */
+    @Test
+    void matchingAgentIdExecutesNormally() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("agent-x");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        new A2aAgentExecutor(handler).execute(requestContext(), newEmitter());
+
+        verify(handler).execute(any());
+    }
+
     /**
      * The framework conversation key is derived from tenant + agent + A2A contextId
      * when the caller does not pass an explicit agentStateKey.
