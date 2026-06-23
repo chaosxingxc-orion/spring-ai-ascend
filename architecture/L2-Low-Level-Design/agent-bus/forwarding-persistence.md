@@ -461,7 +461,8 @@ Stage 15（无 MI 编号，对应 Stage 14 评审后用户提出的「确认 C3 
   | A2A 远程 Task 状态 | 映射 |
   |---|---|
   | COMPLETED / INPUT_REQUIRED | `acked()`（投递成功 + 远程到达；INPUT_REQUIRED 的精确半完成态语义 deferred） |
-  | FAILED / CANCELED / REJECTED / AUTH_REQUIRED（`isFinal && !COMPLETED` / 中断） | `retry(RECEIVER_UNAVAILABLE)`（保守重试；理想 `REMOTE_TASK_FAILED` non-retryable 码 deferred，避免 Stage 9 classification / DDL / ICD 连锁） |
+  | FAILED / CANCELED / REJECTED（`isFinal && !COMPLETED`） | `dlq(REMOTE_TASK_FAILED)`（Stage 18 MI18-002：远程 agent 终态业务失败，non-retryable → 直达 DLQ；对确定失败的 task 重投同输入只会轰炸下游） |
+  | AUTH_REQUIRED（中断） | `retry(RECEIVER_UNAVAILABLE)`（认证可恢复，infra 层，非 task 失败） |
   | 流内 `errorConsumer` 触发（无前置终态） | `retry(RECEIVER_UNAVAILABLE)`（连接级失败） |
   | `await` 超时（未到终态） | `retry(DELIVERY_TIMEOUT)` |
   | `sendMessageStreaming` 同步抛 `RuntimeException`（含 `A2AClientException`） | `retry(RECEIVER_UNAVAILABLE)`（MI11-002 契约：`deliver` 不抛非 lease 异常） |
@@ -597,3 +598,46 @@ Stage 17 DoD 自检：
 - ✓ **182 tests green**（Stage 16 的 179 + 2 IT），ArchUnit green（新 `runtime..` 守卫 + SpiPurity 不受影响）。
 - ✓ §6.2 不变：IT 不含 Task 执行状态 / payload body / concrete broker；复用 CONTROL_ONLY envelope。
 - ✓ **deferred**：真实 agent handler（用 StubHandler）、registry 集成的 resolver 生产实现（用 MapEndpointResolver）、连接池治理、`REMOTE_TASK_FAILED` non-retryable 码、真实 scheduler/polling、push/pull/MQ 最终裁决（H2/H3）。
+
+## 19. Stage 18 决策（失败路径端到端验证 + `REMOTE_TASK_FAILED` non-retryable 码收口）
+
+Stage 18（MI18-001..005）闭合 Stage 17 的唯一盲区 —— happy path 之外的失败处理路径（ACK / RETRY / DLQ / EXPIRED、lease-guarded mutation、retry policy、circuit breaker）此前只在 fake-delivery 单元 / 契约测试覆盖，从未在真实端到端链路上跑通；并把三次 deferred（14 → 15 → 17）的 `REMOTE_TASK_FAILED` non-retryable 码一并落地。**§6.2 始终不得项不变**（`remote_task_failed` 是 failure-code enum 值，非 Task 执行状态 / payload body / concrete broker；IT 复用 Stage 12 CONTROL_ONLY envelope）。不裁决 Stage 13 的 push/pull/MQ 最终模型（仍 H2/H3）。
+
+### 19.1 核心论证：业务失败 vs infra 失败
+
+A2A `FAILED` 是远程 agent 的**终态业务失败**（业务层），区别于 infra 层 retryable 失败（`DELIVERY_TIMEOUT` / `RECEIVER_UNAVAILABLE` / `BACKPRESSURE_REJECTED`）。对一条确定失败的 task 重投同一输入只会轰炸下游（bomber 模式）、不改变结果 —— 故 `FAILED` / `CANCELED` / `REJECTED`（`isFinal && !COMPLETED`）应**直达 DLQ**，不消耗 retry 预算。这与 Stage 14 retry policy 正交：retry policy 决定 retryable 失败的重投时机，`REMOTE_TASK_FAILED` 决定的是「根本不进 retry 轨道，直接进 DLQ」。
+
+`AUTH_REQUIRED`（`isInterrupted && !INPUT_REQUIRED`）仍是 `retry(RECEIVER_UNAVAILABLE)`：认证是可恢复的 infra 层问题（补 token 后重投可达），非 task 自身的业务失败。
+
+### 19.2 终态映射精确化（MI18-002）
+
+`A2aForwardingDeliveryPort` 终态映射从 Stage 15 的保守 switch（FAILED/CANCELED/REJECTED/AUTH_REQUIRED 全 → `retry(RECEIVER_UNAVAILABLE)`）改为 `isFinal()` if-chain（见 §16.1 表）。用 `isFinal()`（非枚举 case label）判定，使未来新增 A2A final state 自动正确分类，且规避 CANCELED/CANCELLED 拼写风险。
+
+### 19.3 失败路径端到端 IT（MI18-003）
+
+`C3ForwardingFailurePathIntegrationTest` 双场景，复用 Stage 17 boot recipe（embedded-postgres + Flyway + `spring.autoconfigure.exclude` + 真实 `LocalA2aRuntimeHost`），唯一差异是 handler：
+
+- **场景 1（真实 FAILED → DLQ）**：`FailingHandler.resultAdapter` 把每个 raw 结果映射为 `AgentExecutionResult.failed(...)` → 真实 A2A server Task FAILED → 真实 SSE FAILED 帧 → `A2aForwardingDeliveryPort dlq(REMOTE_TASK_FAILED)` → worker `moveToDlq` → persisted `last_failure_code = remote_task_failed`。
+- **场景 2（不可达 route → RETRY）**：`MapEndpointResolver` 指向 `freeUnusedPort()`（bind 后 close 的瞬时空闲端口 → 真实 socket 拒连）→ `A2aForwardingDeliveryPort retry(RECEIVER_UNAVAILABLE)` → worker `scheduleRetry`（Stage 14 policy）→ persisted `last_failure_code = receiver_unavailable` + `attempt_count = 1` + future `next_attempt_at`。场景 2 不经 runtime（socket 拒连在任何 server 之前）。
+
+outbox 端口不暴露 per-record reader（`claimDue` 是租约路径非读路径），IT 用 raw JDBC 投影读 `last_failure_code` / `attempt_count` / `next_attempt_at` 持久化列，对齐 `ForwardingFailureCode.wireCode()` 契约。
+
+### 19.4 最小足迹（MI18-001 classification 连锁）
+
+新增一个 failure-code enum 值，classification / DDL / SqlCodec / record 全部**自动兼容、零改动**：
+
+- **DDL**：`ck_outbox_failure_code` CHECK 只校验 `status` ↔ `last_failure_code` 的 null 配对，不枚举码值 → 加 `remote_task_failed` 无需 migration。
+- **`ForwardingSqlCodec.decodeFailureCode`**：遍历 `ForwardingFailureCode.values()` 查 wireCode → 新码自动覆盖。
+- **`ForwardingDeliveryResult.dlq(code)` compact constructor**：只拒绝 `dedup()` / null，接受任意 non-retryable 码 → `dlq(REMOTE_TASK_FAILED)` 无需改 record。
+- **classification harness**：`AgentBusForwardingRuntimeContractTest` 的 `failure_code_classification_drives_retry_and_dlq_routing` 加 `REMOTE_TASK_FAILED` 断言（non-retryable true、dlq 接受、retry 拒绝）；`forwarding_runtime_failure_codes_cover_l2_semantics` 期望码集从 7 增到 8。
+
+### 19.5 落地清单
+
+- ✓ `ForwardingFailureCode.REMOTE_TASK_FAILED` enum 值 + javadoc。
+- ✓ `A2aForwardingDeliveryPort` 终态映射 `isFinal()` if-chain（FAILED/CANCELED/REJECTED → DLQ、AUTH_REQUIRED → retry）。
+- ✓ `C3ForwardingFailurePathIntegrationTest` 双失败场景端到端。
+- ✓ `A2aForwardingDeliveryPortMockWebServerTest.deliver_dlqs_on_remote_task_failed`（Stage 15 场景 3 从 retry 改 DLQ）。
+- ✓ classification harness 加 `REMOTE_TASK_FAILED` 断言。
+- ✓ **184 tests green**（Stage 17 的 182 + 2 失败路径 IT），ArchUnit green。
+- ✓ §6.2 不变：`remote_task_failed` 是 failure-code enum 值，非 Task 执行状态 / payload body / concrete broker；IT 复用 CONTROL_ONLY envelope。
+- ✓ **deferred**：真实 agent handler（仍 FailingHandler/StubHandler 程序化失败/完成）、registry 集成的 resolver 生产实现、连接池治理、push/pull/MQ 最终裁决（仍 H2/H3）。

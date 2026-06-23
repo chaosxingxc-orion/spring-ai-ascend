@@ -51,10 +51,11 @@ import java.util.function.Consumer;
  * dispatcher-push over sync RPC). The outbox is ACKed only when the remote Task
  * is {@code COMPLETED} (success) or {@code INPUT_REQUIRED} (delivery reached the
  * remote, which now needs interaction — a PoC tradeoff; precise half-done
- * semantics deferred). A non-COMPLETED terminal (FAILED / CANCELED / REJECTED) or
- * {@code AUTH_REQUIRED} maps to a conservative {@code retry(RECEIVER_UNAVAILABLE)}:
- * the ideal non-retryable {@code REMOTE_TASK_FAILED} code is deferred to avoid
- * Stage 9 classification / DDL / ICD churn.
+ * semantics deferred). A non-COMPLETED final terminal (FAILED / CANCELED / REJECTED)
+ * is a remote agent's terminal business failure → {@code dlq(REMOTE_TASK_FAILED)}
+ * (Stage 18 MI18-002): retrying the same input to a deterministically failing task
+ * would only bomb the downstream. {@code AUTH_REQUIRED} (interrupted) stays
+ * {@code retry(RECEIVER_UNAVAILABLE)} — authentication is recoverable, not a task failure.
  *
  * <h3>HD4 preserved</h3>
  *
@@ -169,13 +170,21 @@ public final class A2aForwardingDeliveryPort implements ForwardingDeliveryPort {
 
         TaskState state = terminalState.get();
         if (state != null) {
-            // A terminal / interrupted Task event arrived — map its state.
-            return switch (state) {
-                case TASK_STATE_COMPLETED, TASK_STATE_INPUT_REQUIRED -> ForwardingDeliveryResult.acked();
-                // isFinal && !COMPLETED (FAILED / CANCELED / REJECTED) or AUTH_REQUIRED:
-                // conservative retry (REMOTE_TASK_FAILED non-retryable code deferred).
-                default -> ForwardingDeliveryResult.retry(ForwardingFailureCode.RECEIVER_UNAVAILABLE);
-            };
+            // COMPLETED / INPUT_REQUIRED: delivery reached a success / interaction-needed state.
+            if (state == TaskState.TASK_STATE_COMPLETED || state == TaskState.TASK_STATE_INPUT_REQUIRED) {
+                return ForwardingDeliveryResult.acked();
+            }
+            if (state.isFinal()) {
+                // isFinal && !COMPLETED (FAILED / CANCELED / REJECTED): a remote agent's
+                // terminal business failure — non-retryable REMOTE_TASK_FAILED → direct DLQ.
+                // Retrying the same input to a deterministically failing task would only
+                // bomb the downstream (Stage 18 MI18-002). isFinal() — not enumerated case
+                // labels — so any future A2A final state stays correctly classified.
+                return ForwardingDeliveryResult.dlq(ForwardingFailureCode.REMOTE_TASK_FAILED);
+            }
+            // interrupted && !INPUT_REQUIRED → AUTH_REQUIRED: delivery reached the remote but
+            // it needs authentication — recoverable, retry as infra-layer RECEIVER_UNAVAILABLE.
+            return ForwardingDeliveryResult.retry(ForwardingFailureCode.RECEIVER_UNAVAILABLE);
         }
         // The error consumer fired without a terminal Task event — the stream
         // failed mid-flight (network drop / decode error). Retryable.

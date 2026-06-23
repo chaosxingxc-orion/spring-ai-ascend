@@ -217,11 +217,14 @@ class AgentBusForwardingRuntimeContractTest {
                 .map(ForwardingFailureCode::wireCode)
                 .collect(Collectors.toSet());
         assertThat(wireCodes)
-                .as("ForwardingFailureCode wire names mirror the ICD failure modes + payload_ref_invalid")
+                .as("ForwardingFailureCode wire names mirror the ICD failure modes + payload_ref_invalid + remote_task_failed")
                 .containsExactlyInAnyOrder(
                         "route_not_found", "tenant_mismatch", "delivery_timeout",
                         "receiver_unavailable", "backpressure_rejected",
-                        "duplicate_suppressed", "payload_ref_invalid");
+                        "duplicate_suppressed", "payload_ref_invalid",
+                        // Stage 18 (MI18-001): remote agent terminal business failure (A2A
+                        // FAILED/CANCELED/REJECTED) → non-retryable → direct DLQ.
+                        "remote_task_failed");
         // the schema classifies them (non-retryable / retryable / dedup)
         assertThat(schemaText).contains("non_retryable", "retryable", "dedup");
     }
@@ -919,6 +922,12 @@ class AgentBusForwardingRuntimeContractTest {
         assertThat(ForwardingFailureCode.ROUTE_NOT_FOUND.nonRetryable()).isTrue();
         assertThat(ForwardingFailureCode.TENANT_MISMATCH.nonRetryable()).isTrue();
         assertThat(ForwardingFailureCode.PAYLOAD_REF_INVALID.nonRetryable()).isTrue();
+        // Stage 18 (MI18-001): a remote agent's terminal business failure (A2A
+        // FAILED/CANCELED/REJECTED) is non-retryable — distinct from infra-layer
+        // retryable failures; routes straight to DLQ, not retried.
+        assertThat(ForwardingFailureCode.REMOTE_TASK_FAILED.nonRetryable()).isTrue();
+        assertThat(ForwardingFailureCode.REMOTE_TASK_FAILED.retryable()).isFalse();
+        assertThat(ForwardingFailureCode.REMOTE_TASK_FAILED.wireCode()).isEqualTo("remote_task_failed");
         assertThat(ForwardingFailureCode.DUPLICATE_SUPPRESSED.dedup()).isTrue();
 
         // retry(...) rejects a non-retryable code
@@ -936,6 +945,14 @@ class AgentBusForwardingRuntimeContractTest {
         // dlq(...) accepts a retryable code whose retries are exhausted
         assertThat(ForwardingDeliveryResult.dlq(ForwardingFailureCode.DELIVERY_TIMEOUT).outcome())
                 .isEqualTo(ForwardingDeliveryResult.Outcome.DLQ);
+        // Stage 18: dlq(...) accepts REMOTE_TASK_FAILED (non-retryable) — a remote
+        // agent's terminal business failure routes straight to DLQ.
+        assertThat(ForwardingDeliveryResult.dlq(ForwardingFailureCode.REMOTE_TASK_FAILED).outcome())
+                .isEqualTo(ForwardingDeliveryResult.Outcome.DLQ);
+        // Stage 18: retry(...) rejects REMOTE_TASK_FAILED (non-retryable, not transient infra).
+        assertThatThrownBy(() -> ForwardingDeliveryResult.retry(
+                ForwardingFailureCode.REMOTE_TASK_FAILED))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     /**

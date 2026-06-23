@@ -13,6 +13,12 @@ package com.huawei.ascend.bus.forwarding.spi;
  * <ul>
  *   <li>{@code ROUTE_NOT_FOUND}, {@code TENANT_MISMATCH}, {@code PAYLOAD_REF_INVALID}
  *       — {@link Classification#NON_RETRYABLE non-retryable} (direct DLQ / reject).</li>
+ *   <li>{@code REMOTE_TASK_FAILED} (Stage 18) — {@link Classification#NON_RETRYABLE
+ *       non-retryable}: a remote agent reported a terminal business failure (A2A
+ *       {@code FAILED} / {@code CANCELED} / {@code REJECTED}). Distinct from infra-layer
+ *       retryable failures (timeout / receiver-unavailable): retrying the same input to a
+ *       deterministically failing remote task would only bomb the downstream, so it routes
+ *       straight to DLQ (direct DLQ, no retry budget consumed).</li>
  *   <li>{@code DELIVERY_TIMEOUT}, {@code RECEIVER_UNAVAILABLE},
  *       {@code BACKPRESSURE_REJECTED} — {@link Classification#RETRYABLE retryable}.</li>
  *   <li>{@code DUPLICATE_SUPPRESSED} — {@link Classification#DEDUP dedup outcome},
@@ -30,7 +36,11 @@ public enum ForwardingFailureCode {
     RECEIVER_UNAVAILABLE("receiver_unavailable", Classification.RETRYABLE),
     BACKPRESSURE_REJECTED("backpressure_rejected", Classification.RETRYABLE),
     DUPLICATE_SUPPRESSED("duplicate_suppressed", Classification.DEDUP),
-    PAYLOAD_REF_INVALID("payload_ref_invalid", Classification.NON_RETRYABLE);
+    PAYLOAD_REF_INVALID("payload_ref_invalid", Classification.NON_RETRYABLE),
+    // Stage 18 (MI18-001): a remote agent's terminal business failure (A2A FAILED /
+    // CANCELED / REJECTED) — non-retryable so it routes straight to DLQ instead of being
+    // retried as a transient infra failure. See class javadoc.
+    REMOTE_TASK_FAILED("remote_task_failed", Classification.NON_RETRYABLE);
 
     private final String wireCode;
     private final Classification classification;

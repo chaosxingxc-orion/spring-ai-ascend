@@ -50,9 +50,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <ol>
  *   <li>COMPLETED → ACKED (happy path: remote task reached terminal-success).
  *   <li>no terminal event within the stream timeout → RETRY/DELIVERY_TIMEOUT.
- *   <li>remote Task FAILED → RETRY/RECEIVER_UNAVAILABLE (conservative; the
- *       non-retryable {@code REMOTE_TASK_FAILED} code is deferred).
- *   <li>connection-level failure (HTTP 503) → RETRY/RECEIVER_UNAVAILABLE.
+ *   <li>remote Task FAILED → DLQ/REMOTE_TASK_FAILED (Stage 18: a remote agent's
+ *       terminal business failure is non-retryable; routes straight to DLQ, not
+ *       retried as a transient infra failure).
+ *   <li>connection-level failure (dropped socket) → RETRY/RECEIVER_UNAVAILABLE.
  *   <li>endpoint resolver returns empty → DLQ/ROUTE_NOT_FOUND (HD4 + no network).
  * </ol>
  *
@@ -149,17 +150,18 @@ class A2aForwardingDeliveryPortMockWebServerTest {
     }
 
     @Test
-    void deliver_retries_on_remote_task_failed() throws Exception {
+    void deliver_dlqs_on_remote_task_failed() throws Exception {
         server.enqueue(new MockResponse()
                 .setHeader("Content-Type", "text/event-stream")
                 .setBody(sseFrame(task(TaskState.TASK_STATE_FAILED))));
 
         ForwardingDeliveryResult result = port(5_000L).deliver(record(), 0L);
 
-        // A non-COMPLETED terminal is conservatively retried; the precise
-        // non-retryable REMOTE_TASK_FAILED code is deferred (Stage 15 plan §3).
-        assertThat(result.outcome()).isEqualTo(ForwardingDeliveryResult.Outcome.RETRY_SCHEDULED);
-        assertThat(result.failureCode()).isEqualTo(ForwardingFailureCode.RECEIVER_UNAVAILABLE);
+        // Stage 18 MI18-002: a remote agent's terminal business failure (A2A FAILED) is
+        // non-retryable — routes straight to DLQ/REMOTE_TASK_FAILED, not retried as a
+        // transient infra failure.
+        assertThat(result.outcome()).isEqualTo(ForwardingDeliveryResult.Outcome.DLQ);
+        assertThat(result.failureCode()).isEqualTo(ForwardingFailureCode.REMOTE_TASK_FAILED);
     }
 
     @Test

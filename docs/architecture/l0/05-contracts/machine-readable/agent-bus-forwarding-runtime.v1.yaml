@@ -4,7 +4,7 @@ version: v1
 provider: agent-bus
 consumer: agent-runtime
 candidate: C3-database-outbox-inbox
-description: "agent-bus 类 MQ 转发的运行态承载（C3 outbox/inbox）record schema：durable、可审计、tenant-scoped、broker-agnostic。Stage 7–11 交付 schema + 端口 + 状态机 + lease-safe + dispatch-loop + runtime-completion；Stage 12 落地真实持久化（Postgres JDBC adapter + Flyway migration + RLS）；Stage 13 完成 transport 投递模型候选评审（T1-T4 × 8 维度，T3 consumer-pull over DB 非裁决推荐）；Stage 14 落地 deliver 重投策略先行（retry policy 端口 + overflow-safe 指数退避 + exhausted→DLQ + 熔断端口 deferred，§6.2 不变）；Stage 15 落地真实投递绑定 PoC（A2A HTTP transport adapter，A2aForwardingDeliveryPort 消费 agent-runtime /a2a，同步等完成 = T1，§6.1 第 4 项解除、§6.2 不变）；Stage 16 接入 ForwardingCircuitBreaker 到 worker（RouteCircuitBreaker 三态机 CLOSED→OPEN→HALF_OPEN + recordOutcome 反馈 + allowsDelivery 短路，正当性来自 Stage 15 选 T1 push；纯 JDK transport-agnostic，§6.2 不变）。最终 push / pull / MQ 裁决仍 deferred（待 H2/H3）。"
+description: "agent-bus 类 MQ 转发的运行态承载（C3 outbox/inbox）record schema：durable、可审计、tenant-scoped、broker-agnostic。Stage 7–11 交付 schema + 端口 + 状态机 + lease-safe + dispatch-loop + runtime-completion；Stage 12 落地真实持久化（Postgres JDBC adapter + Flyway migration + RLS）；Stage 13 完成 transport 投递模型候选评审（T1-T4 × 8 维度，T3 consumer-pull over DB 非裁决推荐）；Stage 14 落地 deliver 重投策略先行（retry policy 端口 + overflow-safe 指数退避 + exhausted→DLQ + 熔断端口 deferred，§6.2 不变）；Stage 15 落地真实投递绑定 PoC（A2A HTTP transport adapter，A2aForwardingDeliveryPort 消费 agent-runtime /a2a，同步等完成 = T1，§6.1 第 4 项解除、§6.2 不变）；Stage 16 接入 ForwardingCircuitBreaker 到 worker（RouteCircuitBreaker 三态机 CLOSED→OPEN→HALF_OPEN + recordOutcome 反馈 + allowsDelivery 短路，正当性来自 Stage 15 选 T1 push；纯 JDK transport-agnostic，§6.2 不变）；Stage 18 收口 REMOTE_TASK_FAILED non-retryable 码（远程 agent 终态业务失败 FAILED/CANCELED/REJECTED → dlq(REMOTE_TASK_FAILED) 直达 DLQ，区别 infra 层 retryable）+ 失败路径端到端 IT（C3ForwardingFailurePathIntegrationTest：真实 FailingHandler FAILED→DLQ + route 不可达→RETRY）。最终 push / pull / MQ 裁决仍 deferred（待 H2/H3）。"
 authority:
   icd_design: ICD-agent-bus-forwarding.md
   l2: architecture/docs/L2/agent-bus/forwarding-outbox-inbox.md
@@ -81,7 +81,7 @@ outbox_record:
       required_when: status == RETRY_SCHEDULED
     - field: lastFailureCode
       type: enum
-      enum: [route_not_found, tenant_mismatch, delivery_timeout, receiver_unavailable, backpressure_rejected, duplicate_suppressed, payload_ref_invalid]
+      enum: [route_not_found, tenant_mismatch, delivery_timeout, receiver_unavailable, backpressure_rejected, duplicate_suppressed, payload_ref_invalid, remote_task_failed]
       mutable: true
       owner: dispatcher
       pii: enum-no-redact
@@ -161,6 +161,7 @@ failure_codes:
     - route_not_found
     - tenant_mismatch
     - payload_ref_invalid
+    - remote_task_failed  # Stage 18: remote agent terminal business failure (A2A FAILED/CANCELED/REJECTED) → direct DLQ
   retryable:
     - delivery_timeout
     - receiver_unavailable
@@ -241,6 +242,11 @@ stage17_scope:
   delivers: [first-cross-module-integration-test, real-locala2aruntimehost-replaces-mockwebserver, end-to-end-acked-roundtrip, end-to-end-tenant-isolation, agent-runtime-test-scope-dependency, agentbus-dependency-boundary-runtime-guard, spring-boot4-autoconfigure-repackaging-finding, jdbc-autoconfig-sensitivity-finding]
   not_delivers: [production-dependency-on-agent-runtime, real-agent-handler-stubhandler-only, registry-integrated-resolver, connection-pool-governance, remote-task-failed-code, final-push-pull-mq-decision]
   path: test-only-cross-module-integration  # agent-bus's FIRST dependency on agent-runtime is test-scope only (the two modules were fully isolated builds until Stage 17); production code stays free of agent-runtime (AgentBusDependencyBoundaryTest guards com.huawei.ascend.bus.. against com.huawei.ascend.runtime..); the IT boots real embedded-postgres + Flyway + JdbcForwardingOutbox + real LocalA2aRuntimeHost + StubHandler and drives the full chain to an outbox ACK; two findings: (a) agent-runtime's A2A server Spring context is pure in-memory but sensitive to agent-bus's leaked jdbc starter on the shared test classpath (DataSourceAutoConfiguration/FlywayAutoConfiguration fire and fail for lack of spring.datasource.url; excluded via System.setProperty spring.autoconfigure.exclude), (b) Spring Boot 4 repackaged autoconfigure (jdbc -> org.springframework.boot.jdbc.autoconfigure, flyway -> org.springframework.boot.flyway.autoconfigure; the Spring Boot 3 names silently no-op); section 6.2 unchanged (IT carries no Task state / payload body / concrete broker)
+  next_stage: H2H3-transport-decision-or-production-hardening
+stage18_scope:
+  delivers: [remote-task-failed-non-retryable-code, remote-terminal-mapping-precise-failed-canceled-rejected-to-dlq, auth-required-stays-retry-receiver-unavailable, failure-path-end-to-end-integration-test, real-failing-handler-failed-to-dlq, route-unreachable-to-retry-end-to-end, stage9-classification-chain-extended]
+  not_delivers: [lease-expiry-reclaim-end-to-end, production-dependency-on-agent-runtime, real-agent-handler, registry-integrated-resolver, connection-pool-governance, final-push-pull-mq-decision]
+  path: failure-path-verification  # REMOTE_TASK_FAILED non-retryable code (deferred 3x: 14→15→17) + precise terminal mapping + end-to-end failure-path IT; reuses Stage 17's real LocalA2aRuntimeHost infra (zero new prerequisites); FAILED/CANCELED/REJECTED (isFinal && !COMPLETED) → dlq(REMOTE_TASK_FAILED) direct DLQ (remote agent terminal business failure, distinct from infra retryable; retrying a deterministically failing task would only bomb the downstream); AUTH_REQUIRED stays retry(RECEIVER_UNAVAILABLE) (recoverable auth, not task failure); §6.2 unchanged (remote_task_failed is a failure-code enum value, not Task execution state / payload body / concrete broker); does NOT adjudicate Stage 13 push/pull/MQ (still H2/H3)
   next_stage: H2H3-transport-decision-or-production-hardening
 compatibility:
   additive_fields_allowed: true
