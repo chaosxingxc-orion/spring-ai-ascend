@@ -723,3 +723,39 @@ Stage 20 是纯测试 / 验证阶段。`@Isolated`（同 Stage 19，§20.5）+ i
 - ✓ **188 tests green**（Stage 19 的 186 + 2 reclaim/breaker IT），ArchUnit green。
 - ✓ §6.2 不变。
 - ✓ **deferred**（沿用 Stage 19，runtime 物理实现项）：真实 retry 调度（`ForwardingDispatchLoop` 接真实 scheduler / polling cadence，§6.1 第 3 项障碍）、真实 agent handler（仍 StubHandler / FailingHandler / fake port）、registry 集成的 resolver 生产实现、断路器状态持久化（进程重启回 CLOSED）、连接池治理、push/pull/MQ 最终裁决（仍 H2/H3）。
+
+## 22. Stage 21 决策（多 worker 并发验证：闭合 Stage 20 两个「单线程验证」盲区）
+
+Stage 20 闭合了 Stage 19 的端到端盲区，但显式留下两个「单线程验证」deferral：(1) **并发 claim 真实竞争端到端** —— Stage 12 的 `ForwardingJdbcIntegrationTest` 证明 `claimDue` 的 `FOR UPDATE SKIP LOCKED` 在 2 线程单元测试下无重复 *claim*，Stages 17-20 驱动完整 claim→deliver→ack 链路但每 tick 只一个 worker（Stage 20 场景 A 用「下 tick 不同 lease owner」模拟「另一 worker 接手」，从无两 worker 同瞬间竞争）；(2) **共享断路器单例并发正确性** —— Stage 16 接入 `RouteCircuitBreaker`、Stage 20 单线程验证全状态机，但 deferred 注记（Stage 16 risks）说「单实例跨 worker *线程* 共享在 `synchronized(RouteState)` 下安全；但真实并发 `recordOutcome` 下是否真成立留待生产」。Stage 21 在真实持久化上回答这两个问题，纯测试无生产代码。`C3ForwardingMultiWorkerConcurrencyIntegrationTest`（`@Isolated`、不 boot runtime、仅 embedded-postgres+Flyway+`JdbcForwardingOutbox`）双场景：
+
+### 22.1 场景 A：并发 claim 无重复（SKIP LOCKED 端到端）
+
+M=20 条 PENDING（同 tenant/route，不同 messageId）、N=4 worker（各不同 lease owner，共享同一 outbox + 原子计数 delivery port：每次 deliver `incrementAndGet` 返回 acked）。`CountDownLatch` 同时释放 4 worker，各循环 `runOnce(limit=5)` 直到 `claimDue` 返回空。因为 `deliver` 同步、ack 在同一 `runOnce` 内完成，worker claim 的行在其 `runOnce` 返回时已 ACKED —— 所有 PENDING 消费完后，每 worker 下一轮 `claimDue` 空，loop 退出。
+
+断言：delivery 计数 == 20（**每条恰好投递一次**）；全 20 条 ACKED；聚合 claimed/acked == 20。
+
+**delivery 计数是 smoking gun**：lease guard（`markAcked` 拒绝 owner 变了的行）是第二道防线 —— 即使两 worker 都把行转 DISPATCHING，只有一个的 ack 落地、另一个 skip，持久化终态仍可能看起来对（一条 ACKED）。delivery 计数在 guard **之前**：它计每次 `deliver` 调用，不管后续 ack 成不成功。计数 > 20 直接证明了一次本应被 SKIP LOCKED 阻止的重复 claim；== 20 直接证明它成立。
+
+### 22.2 场景 B：共享 breaker 单例并发一致 OPEN
+
+M=12 条、N=4 worker 共享 `RouteCircuitBreaker(2, 3_600_000ms 冷却, clock)` + 全 retry(`RECEIVER_UNAVAILABLE`) delivery。并发 `runOnce`。前两次 retryable 失败跨阈值 trip CLOSED→OPEN；之后任何 worker 的 `allowsDelivery` 见 OPEN 即短路（skip，留 DISPATCHING，不消耗 `attemptCount`）。
+
+断言：`breaker.stateOf(route)==OPEN`；无 worker 抛异常（无 `ConcurrentModificationException`、无非法状态转换）；聚合 `claimed == acked+retried+dlqd+expired+skipped`（每个 tick 自洽，聚合也自洽）；无 record 达 ACKED（port 不 ack，每行 RETRY_SCHEDULED 或 DISPATCHING）。
+
+**冷却刻意极大（1 小时）+ 时钟冻在 t0**：目标是驱动 CLOSED→OPEN 并验证一致/可见（**非**复验 HALF_OPEN 探测生命周期——那已由 Stage 20 单线程验证，确定性推进时间）。多线程推进共享 `MutableEpochClock` + HALF_OPEN 探测在飞会引入真实 race（冷却检查 vs `recordOutcome`）；冻时钟 + 远冷却使 breaker 只能达 OPEN 不能 HALF_OPEN，唯一的并发状态写就是 CLOSED→OPEN 转换本身——正是本测试靶向的 lost-update 风险（`synchronized(RouteState)` 防止 `consecutiveFailures` 的 read-modify-write 丢失 / 状态字段撕裂；`ConcurrentHashMap` 的 happens-before 把 OPEN 发布到所有 worker 线程）。
+
+### 22.3 时间控制 + 真实时钟约束
+
+`MutableEpochClock` 冻在 `t0`（test 真实开始时刻）注入每 worker；无线程推进它。claim instant（`nowMillisEpoch`）与 delivery instant 都读 `t0`；delivery 返回固定 outcome，`nextAttemptAt` 基准无关。冻住的 `t0` 还使场景 B 的 `RETRY_SCHEDULED` 行不被回收：`nextAttemptAt = t0 + 100ms（DEFAULT base） > t0 = now`，`claimDue` 的 `RETRY_SCHEDULED` 回收子句不触发，每 worker 的 loop 在 PENDING 耗尽后干净终止。lease 设 `t0 + 120s`，测试远在此内完成，真实墙钟追不上 lease，`leaseGuardedUpdate` 的 `lease_until > System.currentTimeMillis()` guard 在并发下不误判。本 IT 不触及生产代码。
+
+### 22.4 无生产代码改动 + §6.2 守恒
+
+Stage 21 是纯测试阶段。`@Isolated`（同 Stage 19/20，§21.4）+ import + helpers 是测试代码。两场景用 CONTROL_ONLY envelope；`MutableEpochClock`（冻时钟） / 计数 delivery port / CountDownLatch / ExecutorService 是 test-only 纯 JDK。无 concrete broker / payload body / token stream / Task 执行状态 / 跨租户回退 → `§6.2` 文本扫描不触发（helper 在 `src/test`）。ArchUnit green。
+
+### 22.5 落地清单
+
+- ✓ `C3ForwardingMultiWorkerConcurrencyIntegrationTest` 场景 A（并发 claim 无重复）+ 场景 B（共享 breaker 并发一致 OPEN）。
+- ✓ 计数 delivery port（原子 `AtomicLong`）+ `CountDownLatch` 同时释放 + `ExecutorService` N worker 各循环 `runOnce` 直到空。
+- ✓ **190 tests green**（Stage 20 的 188 + 2 并发 IT），ArchUnit green。
+- ✓ §6.2 不变。
+- ✓ **deferred**（沿用 Stage 20，runtime 物理实现项）：真实 retry 调度（`ForwardingDispatchLoop` 接真实 scheduler / polling cadence，§6.1 第 3 项障碍）、真实 agent handler（仍 fake port）、registry 集成的 resolver 生产实现、**断路器状态持久化**（跨重启落 DB —— 主流不做：Resilience4j 默认内存、进程重启回 CLOSED 重新探测是预期行为；本阶段验证跨 worker 共享单例，非跨重启）、**并发 worker 分片**（按 tenant/route 分区策略，本阶段验证并发 claim 正确性非分片）、连接池治理、push/pull/MQ 最终裁决（仍 H2/H3）。

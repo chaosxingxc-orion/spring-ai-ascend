@@ -75,7 +75,7 @@ Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Ag
 - runtime-to-runtime 消息不改变远端 Task lifecycle owner；`agent-bus` 不写 Task execution state。
 - Stage 4 只定义转发语义和 harness 断言，不实现运行态转发底座、不新增 mailbox / queue / DLQ / replay 运行态存储。
 
-## C3 转发运行态（Stage 7 最小骨架 → Stage 8 持久化准备 → Stage 9 lease-safe → Stage 10 dispatch-loop runtime → Stage 11 runtime-completion → Stage 12 real persistence → Stage 13 transport 候选评审 → Stage 14 deliver 重投策略先行 → Stage 15 真实投递绑定 PoC → Stage 16 断路器接入 worker → Stage 17 首次跨模块端到端集成 → Stage 18 失败路径端到端验证 + REMOTE_TASK_FAILED → Stage 19 重投往返生命周期端到端验证 → Stage 20 验证回填）
+## C3 转发运行态（Stage 7 最小骨架 → Stage 8 持久化准备 → Stage 9 lease-safe → Stage 10 dispatch-loop runtime → Stage 11 runtime-completion → Stage 12 real persistence → Stage 13 transport 候选评审 → Stage 14 deliver 重投策略先行 → Stage 15 真实投递绑定 PoC → Stage 16 断路器接入 worker → Stage 17 首次跨模块端到端集成 → Stage 18 失败路径端到端验证 + REMOTE_TASK_FAILED → Stage 19 重投往返生命周期端到端验证 → Stage 20 验证回填 → Stage 21 多 worker 并发验证）
 
 Stage 7 按 Stage 6 裁决采用 **C3（database outbox / inbox）** 作为类 MQ 转发的生产候选路径，交付 C3 的最小可测运行态骨架（非完整持久化实现）。运行态契约见 [`ICD-Agent-Bus-Forwarding-Runtime`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)，L2 技术设计见 [`forwarding-outbox-inbox.md`](../../L2-Low-Level-Design/agent-bus/forwarding-outbox-inbox.md)。Stage 7 边界：
 

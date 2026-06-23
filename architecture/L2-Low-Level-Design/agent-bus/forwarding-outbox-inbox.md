@@ -188,9 +188,9 @@ ForwardingStateMachine (runtime, 纯函数)
 - **承载 Stage 4 语义**：outbox/inbox 是 Stage 4 broker-agnostic 转发语义（ack / retry / timeout / DLQ / correlation / backpressure / tenant-aware routing）的运行态承载；本 L2 不修改 Stage 4 语义，只投影为状态机与端口。
 - **不改变 Task ownership**：runtime-to-runtime 消息只携带控制与 `payloadRef`，**不改变远端 Task lifecycle owner**；`agent-bus` 不写 Task execution state（延续 HD4 / 与 registry 边界一致）。
 
-## 10. Stage 8 → Stage 20 已交付 / 后续 deferred
+## 10. Stage 8 → Stage 21 已交付 / 后续 deferred
 
-C3 运行态按 [`decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md) 分阶段递进落地，截至 Stage 20（188 tests green）：
+C3 运行态按 [`decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md) 分阶段递进落地，截至 Stage 21（190 tests green）：
 
 - **Stage 8**（持久化准备）：record 模型、claim / lease 端口（`claimDue` 取代 `findRetryable`）、dispatcher worker skeleton、抽象 delivery 端口、schema / migration 草案（DDL 草稿，未执行）、in-memory lease harness。
 - **Stage 9**（lease-safe / persistence-ready）：lease-owner guarded mutation（`markAcked` / `scheduleRetry` / `moveToDlq` / `markExpired` 带 `leaseOwner`，`markDispatching` 移除）、lease 生命周期闭环、record 条件不变量（Java 构造器 + DDL CHECK + harness）、failure-code classification（retryable / non-retryable / dedup）、claim / state-update SQL contract。路径 B。
@@ -205,13 +205,14 @@ C3 运行态按 [`decision`](../../../docs/architecture/l0/10-governance/review-
 - **Stage 18**（失败路径端到端 + `REMOTE_TASK_FAILED`）：`C3ForwardingFailurePathIntegrationTest` 双场景（真实 FAILED→DLQ `remote_task_failed` / 不可达 route→RETRY）+ `ForwardingFailureCode.REMOTE_TASK_FAILED` NON_RETRYABLE + 终态映射改 `isFinal()` if-chain；无 DDL / SqlCodec / record 改动（outbox CHECK 不枚举码值）。184 tests green。
 - **Stage 19**（重投往返生命周期端到端）：`C3ForwardingRetryLifecycleIntegrationTest` 双场景端到端 —— (A) 持续失败重投 3 次→exhausted(`maxAttempts=3`)→DLQ（`attempt_count=3`，`moveToDlq` 不递增）/ (B) 间歇恢复重投 2 次→ACKED（fake port 注入 `[retry,retry,acked]`，`attempt_count=2`，`markAcked` 不递增）；闭合 Stage 18 盲区（claimDue 的 `RETRY_SCHEDULED` 回收子句 `next_attempt_at <= :now` 此前从未端到端触发）；`MutableEpochClock` + 协调多 tick `TickSource` 时间控制无需 scheduler；两 context-boot IT 加 `@Isolated` 修并发 flaky。无生产代码改动。186 tests green。
 - **Stage 20**（lease 过期回收 + 断路器真实链路端到端）：`C3ForwardingLeaseReclaimAndBreakerIntegrationTest` 双场景端到端闭合 Stage 19 留的两个测试盲区 —— (A) **lease 过期回收**（SQL fixture 模拟 worker crash → `claimDue` 的 stuck-holder 子句 `status='DISPATCHING' AND lease_until<=now` 回收 → ACKED，`claimed=1`/`attempt_count=0`/`last_failure_code=null`：回收是 fresh delivery 非 retry）；(B) **断路器全状态机 + lease 回收交织**（`RouteCircuitBreaker(2,122s)` + fake port `[retry,retry,acked]` + 4 ticks `+61s` step > 60s lease：CLOSED→OPEN 连续失败 cf=2 → tick3 OPEN 短路 SKIP 留 DISPATCHING → tick4 stuck-holder 回收 + OPEN→HALF_OPEN 探测恢复→CLOSED，`claimed=4`/`retried=2`/`skipped=1`/`acked=1`/`breaker.stateOf==CLOSED`/`attempt_count=2`）；场景 B 把两条 deferred 路径交织验证——断路器 OPEN 短路正是留行 stuck 的原因，lease 过期回收正是交还给 HALF_OPEN 探测的机制，证明三条 skip 路径与两条回收子句在真实 SQL 上正确组合；时间控制复用 Stage 19（`MutableEpochClock` + 协调多 tick `TickSource`）。无生产代码改动。188 tests green。
+- **Stage 21**（多 worker 并发验证）：`C3ForwardingMultiWorkerConcurrencyIntegrationTest` 双场景端到端闭合 Stage 20 留的两个「单线程验证」盲区 —— (A) **并发 claim 无重复**（M=20 条、N=4 worker 各不同 lease owner 共享 outbox + 原子计数 delivery port，`CountDownLatch` 同时释放各循环 `runOnce` 直到空；断言 delivery 计数 == 20——每条恰好投递一次，SKIP LOCKED 直接证据：若失效输者 `markAcked` 撞 lease guard skip 但 delivery 已多调 → 计数 > 20；全 20 ACKED、聚合 claimed/acked == 20）/ (B) **共享 breaker 并发一致 OPEN**（M=12、N=4 共享 `RouteCircuitBreaker(2, 极大冷却, clock)` + 全 retry delivery；`breaker.stateOf==OPEN`——`synchronized(RouteState)` 防 `consecutiveFailures` lost update / 撕裂转换 + `ConcurrentHashMap` 发布 OPEN 到所有线程——无 worker 抛异常、聚合自洽、无 record ACKED）；场景 B 冷却刻意极大（只驱动 CLOSED→OPEN 验证一致/可见，非复验 HALF_OPEN 探测生命周期——那已 Stage 20 单线程验）；`MutableEpochClock` 冻在 t0 隔离并发状态写。无生产代码改动。190 tests green。
 
 后续 deferred：
 
 - 真实 broker / queue / replay store 物理实现；push vs pull / 是否引 MQ 的最终投递模型裁决（H2/H3；选 T2 / T4 需解除 §6.2 引 MQ）。
 - registry 集成的 resolver 生产实现（Stage 15 用 `MapEndpointResolver` 替身）。
 - 连接池治理 / 熔断参数调优 / breaker 状态持久化。
-- polling cadence；并发 worker 分片；backpressure 参数（队列阈值、降速策略、tenant quota）。
+- polling cadence；并发 worker 分片（多 worker 并发 claim 无重复已 Stage 21 验证，分片策略仍 deferred）；backpressure 参数（队列阈值、降速策略、tenant quota）。
 - `ForwardingDispatchLoop` 接真实 scheduler。
 - ordering / fairness 的具体实现（per-tenant / per-route 局部 ordering 是运行态选择）。
 
