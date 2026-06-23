@@ -22,6 +22,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import javax.sql.DataSource;
 import java.util.Map;
@@ -86,6 +87,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Authority: {@code docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage16-review-and-stage17-plan.md}
  * &sect;4 MI17-005.
  */
+// Stage 19 flaky-build fix: this IT boots a Spring Boot context (RuntimeApp.run). The
+// parent pom's surefire runs test CLASSES concurrently (junitParallel=true, 4-way);
+// Spring Boot 4 SpringApplication.run() is not thread-safe, so two context-booting ITs
+// racing in one reused JVM hit ConcurrentModificationException and collide on the
+// global spring.autoconfigure.exclude System property. @Isolated makes the JUnit
+// platform run this class alone — no other class concurrently. (Ideally these would
+// be *IT.java and run under failsafe, which is already serial; that rename is left to
+// the IT's owners. @Isolated is the minimal localised fix.)
+@Isolated
 class C3ForwardingEndToEndIntegrationTest {
 
     private static EmbeddedPostgres pg;

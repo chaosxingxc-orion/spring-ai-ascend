@@ -163,4 +163,4 @@ status: active
 | 成功结果 | 同步 ack（已落队）或异步完成（接收方处理后回传 outcome → ACKED）。 |
 | 失败结果 | `route_not_found`、`tenant_mismatch`、`delivery_timeout`、`receiver_unavailable`、`backpressure_rejected`、`duplicate_suppressed`、`payload_ref_invalid`、`remote_task_failed`（远程 agent 终态业务失败 FAILED/CANCELED/REJECTED，non-retryable → 直达 DLQ，不消耗 retry 预算）。 |
 | 不变量 | 不改变远端 Task lifecycle owner；envelope 有载荷时只携带 `payloadRef`（条件必填，MI5-003 方案 B）、不携带 payload body / token stream / Task execution state；纯控制消息可省略 `payloadRef`；大载荷走 data reference path。 |
-| 缺口 | 运行态转发底座（outbox / inbox / dispatcher / retry / breaker / 真实 A2A 投递）已落地且 Stage 17（happy-path）/ Stage 18（失败路径）端到端验证通过（184 tests green）；broker / MQ 产品仍未绑定（broker-agnostic，Stage 5 候选评审 + Stage 13 transport 候选评审），真实 queue / replay store 物理实现 + push / pull / MQ 最终投递模型裁决待 H2/H3。 |
+| 缺口 | 运行态转发底座（outbox / inbox / dispatcher / retry / breaker / 真实 A2A 投递）已落地且 Stage 17（happy-path）/ Stage 18（失败路径）/ Stage 19（重投往返生命周期）端到端验证通过（186 tests green）；broker / MQ 产品仍未绑定（broker-agnostic，Stage 5 候选评审 + Stage 13 transport 候选评审），真实 queue / replay store 物理实现 + push / pull / MQ 最终投递模型裁决待 H2/H3。 |

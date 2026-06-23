@@ -188,9 +188,9 @@ ForwardingStateMachine (runtime, 纯函数)
 - **承载 Stage 4 语义**：outbox/inbox 是 Stage 4 broker-agnostic 转发语义（ack / retry / timeout / DLQ / correlation / backpressure / tenant-aware routing）的运行态承载；本 L2 不修改 Stage 4 语义，只投影为状态机与端口。
 - **不改变 Task ownership**：runtime-to-runtime 消息只携带控制与 `payloadRef`，**不改变远端 Task lifecycle owner**；`agent-bus` 不写 Task execution state（延续 HD4 / 与 registry 边界一致）。
 
-## 10. Stage 8 → Stage 18 已交付 / 后续 deferred
+## 10. Stage 8 → Stage 19 已交付 / 后续 deferred
 
-C3 运行态按 [`decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md) 分阶段递进落地，截至 Stage 18（184 tests green）：
+C3 运行态按 [`decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md) 分阶段递进落地，截至 Stage 19（186 tests green）：
 
 - **Stage 8**（持久化准备）：record 模型、claim / lease 端口（`claimDue` 取代 `findRetryable`）、dispatcher worker skeleton、抽象 delivery 端口、schema / migration 草案（DDL 草稿，未执行）、in-memory lease harness。
 - **Stage 9**（lease-safe / persistence-ready）：lease-owner guarded mutation（`markAcked` / `scheduleRetry` / `moveToDlq` / `markExpired` 带 `leaseOwner`，`markDispatching` 移除）、lease 生命周期闭环、record 条件不变量（Java 构造器 + DDL CHECK + harness）、failure-code classification（retryable / non-retryable / dedup）、claim / state-update SQL contract。路径 B。
@@ -203,6 +203,7 @@ C3 运行态按 [`decision`](../../../docs/architecture/l0/10-governance/review-
 - **Stage 16**（断路器接入 worker）：`ForwardingCircuitBreaker` 端口加 `recordOutcome` 反馈 + `RouteCircuitBreaker` 三态机（CLOSED→OPEN→HALF_OPEN）接入 worker（投递前 `allowsDelivery` 短路 + 投递后 `recordOutcome`）；正当性来自 Stage 15 选 T1 push。纯 JDK transport-agnostic，§6.2 不变。
 - **Stage 17**（首次跨模块端到端集成）：`C3ForwardingEndToEndIntegrationTest` 用真实 `LocalA2aRuntimeHost`（替换 Stage 15 MockWebServer）端到端驱动 outbox enqueue → tick → deliver → 真实 /a2a → COMPLETED → ACKED；agent-bus 加 `agent-runtime` test-scope 依赖、生产零依赖。182 tests green。
 - **Stage 18**（失败路径端到端 + `REMOTE_TASK_FAILED`）：`C3ForwardingFailurePathIntegrationTest` 双场景（真实 FAILED→DLQ `remote_task_failed` / 不可达 route→RETRY）+ `ForwardingFailureCode.REMOTE_TASK_FAILED` NON_RETRYABLE + 终态映射改 `isFinal()` if-chain；无 DDL / SqlCodec / record 改动（outbox CHECK 不枚举码值）。184 tests green。
+- **Stage 19**（重投往返生命周期端到端）：`C3ForwardingRetryLifecycleIntegrationTest` 双场景端到端 —— (A) 持续失败重投 3 次→exhausted(`maxAttempts=3`)→DLQ（`attempt_count=3`，`moveToDlq` 不递增）/ (B) 间歇恢复重投 2 次→ACKED（fake port 注入 `[retry,retry,acked]`，`attempt_count=2`，`markAcked` 不递增）；闭合 Stage 18 盲区（claimDue 的 `RETRY_SCHEDULED` 回收子句 `next_attempt_at <= :now` 此前从未端到端触发）；`MutableEpochClock` + 协调多 tick `TickSource` 时间控制无需 scheduler；两 context-boot IT 加 `@Isolated` 修并发 flaky。无生产代码改动。186 tests green。
 
 后续 deferred：
 

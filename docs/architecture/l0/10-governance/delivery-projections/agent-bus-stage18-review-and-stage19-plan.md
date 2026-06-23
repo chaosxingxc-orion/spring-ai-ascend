@@ -207,6 +207,16 @@ Stage 18 已建立「统一 boot runtime（`FailingHandler`）+ 部分 @Test 用
 - **`openjiuwen.version` 构建债**（Stage 17 盲区 5，沿用）：同事 `20dc622f` 引入 `com.openjiuwen:agent-core-java` 依赖但 property 未定义。Stage 19 不 boot runtime → 不触发该依赖链，但仍需 `mvn -f agent-bus/pom.xml test` 走 m2 旧 jar 绕过 broken workspace pom。
 - **push/pull/MQ 最终裁决**：仍 H2/H3。
 
+## 6. Stage 19 落地总结（**已完成**，2026-06）
+
+Stage 19 按 §2 / §4 计划落地，实际结果与计划一致，另有一个**超出原计划的 flaky 修复**：
+
+- **按计划落地**（无偏差）：`C3ForwardingRetryLifecycleIntegrationTest` 双场景 —— 场景 A（不可达 route `freeUnusedPort()` 死 socket + `maxAttempts=3` 小 policy → 4 ticks 重投到 exhausted→DLQ，`attempt_count=3`）、场景 B（`fakeDeliveryPort` 注入 `[retry, retry, acked]` → 3 ticks 重投到恢复→ACKED，`attempt_count=2`）；`MutableEpochClock` + `advanceableTickSource` 协调多 tick（两时钟协调、真实时钟约束均按 §5 风险条落地）；不 boot runtime（两场景都不需要，比 Stage 17/18 更轻）。§5 的 4 个风险（两时钟协调 / 真实时钟约束 / 场景 B 终态映射交叉用 fake port / 场景 A `attempt_count` 读法）均在 IT 注释 + 断言中显式处理。
+- **超出原计划的发现 —— flaky 修复**：构建验证发现 `C3ForwardingEndToEndIntegrationTest` / `C3ForwardingFailurePathIntegrationTest` 两个 context-boot IT 在 parent pom 的 surefire 4 路并发（`mode.classes.default=concurrent`）下 flaky（Spring Boot 4 `SpringApplication.run` 非线程安全 + 两 IT 命名 `*IntegrationTest` 绕过 failsafe 的 `**/*IT.java` 串行 include、落到并发 surefire → `ConcurrentModificationException` + 全局 `spring.autoconfigure.exclude` System property 踩踏）。最小修复：两 IT 加 JUnit5 `@Isolated`（独占执行），连续 3 次完整构建稳定 green（parent pom 注释本已警告 boot-context IT 应走串行 failsafe）。原计划未列此项 —— 它是构建验证阶段的真实发现。
+- **结果**：**186 tests green**（Stage 18 的 184 + 2 retry lifecycle IT），ArchUnit green，**无生产代码改动**（纯测试阶段；`@Isolated` + import 是测试代码），§6.2 不变。
+- **§4 MI19-003 文档同步**已按计划完成：decision §8 Stage 19 bullet、ICD（边界标题 + Stage 19 边界条 + Open Issues 重投闭环收口）、yaml（description + `stage19_scope`）、L2 `forwarding-persistence` §20、L1（README / physical / scenarios / development / process / logical / ARCHITECTURE）+ L2 `forwarding-outbox-inbox` + 本双语文档 §6。
+- **下一步**（未裁决）：Stage 19 是纯验证阶段，无生产代码增量；§5 的 deferred（lease 过期 reclaim 端到端、breaker 真实链路端到端、真实 scheduler、registry resolver、push/pull/MQ 裁决）仍是独立后续 Stage 候选，待用户裁决方向。
+
 ## 相关文档
 
 - Stage 18 计划：[`agent-bus-stage17-review-and-stage18-plan`](agent-bus-stage17-review-and-stage18-plan.md)（失败路径端到端 + `REMOTE_TASK_FAILED` 码收口 —— Stage 19 继续其场景 2 的 RETRY_SCHEDULED 入口往后跑完整生命周期）。

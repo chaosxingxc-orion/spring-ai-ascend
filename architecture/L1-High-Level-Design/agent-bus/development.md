@@ -83,6 +83,7 @@ agent-bus/
 | `ForwardingJdbcIntegrationTest` | Stage 12 real-SQL：Flyway migration / enqueue-claim-ack round-trip / 并发 claim 无重复（`SKIP LOCKED`）/ lease guard 分类 / stuck-holder reclaim / renew-or-lose-ack / release 过期语义 / CHECK 兜底 / tenant 隔离 / §7.3 RLS fail-closed / inbox | embedded-postgres PG 16.2 in-process（Docker 不可达环境），17 tests 已 green |
 | `A2aForwardingDeliveryPortTest` | Stage 15 真实投递绑定 PoC：A2A transport adapter MockWebServer 场景（正常 SSE 完成流 / 503 不当错误静默空流 / 真实 socket 断开 errorConsumer / 终态映射 FAILED→dlq / per-endpoint transport 缓存） | MockWebServer 5 场景，已 green（ArchUnit 双豁免 `org.a2aproject` 圈 `transport.a2a`） |
 | `C3ForwardingEndToEndIntegrationTest` / `C3ForwardingFailurePathIntegrationTest` | Stage 17 / Stage 18 跨模块端到端：embedded-postgres + Flyway + 真实 `LocalA2aRuntimeHost`，outbox enqueue → tick → deliver → 真实 /a2a JSON-RPC + SSE；happy-path（StubHandler COMPLETED→ACKED）+ 失败路径（FailingHandler FAILED→DLQ `remote_task_failed` / 不可达 route→RETRY）；agent-bus 加 `agent-runtime` test-scope 依赖 | 4 tests（happy-path 2 + 失败路径 2），已 green（总 184 tests） |
+| `C3ForwardingRetryLifecycleIntegrationTest` | Stage 19 重投往返生命周期端到端：embedded-postgres + Flyway + `JdbcForwardingOutbox`（无 runtime boot）；`claimDue` 的 `RETRY_SCHEDULED` 回收子句跨多 tick 触发 → (A) 持续失败重投 3 次→exhausted→DLQ / (B) 间歇恢复重投 2 次→ACKED；`MutableEpochClock` + 协调多 tick `TickSource` 时间控制无需 scheduler；两 context-boot IT 加 `@Isolated` 修并发 flaky | 2 tests（retry lifecycle A/B），已 green（总 186 tests） |
 
 ## 5. 生成物边界
 
@@ -117,9 +118,9 @@ Stage 2 已完成的迁移（commit `d894f494`）：
 
 本迁移已通知所有冲突方（CN-001..CN-007）；不改变 `agent-runtime` 对 Task lifecycle 的所有权。
 
-## 7. C3 转发运行态（Stage 7 → Stage 18）
+## 7. C3 转发运行态（Stage 7 → Stage 19）
 
-C3（database outbox / inbox）已最终确认为类 MQ 转发的生产候选路径（裁决见 [`agent-bus-forwarding-runtime-decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)，`adopted-c3`）。Stage 7–18 按裁决递进落地：Stage 7 最小骨架 → Stage 8 持久化准备 → Stage 9 lease-safe → Stage 10 dispatch-loop runtime → Stage 11 runtime-completion → Stage 12 real persistence（打破路径 B）→ Stage 13 transport 候选评审 → Stage 14 deliver 重投策略 → Stage 15 真实 A2A 投递绑定 PoC → Stage 16 断路器接入 worker → Stage 17/18 跨模块端到端验证（[`forwarding-persistence`](../../L2-Low-Level-Design/agent-bus/forwarding-persistence.md)）。
+C3（database outbox / inbox）已最终确认为类 MQ 转发的生产候选路径（裁决见 [`agent-bus-forwarding-runtime-decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md)，`adopted-c3`）。Stage 7–18 按裁决递进落地：Stage 7 最小骨架 → Stage 8 持久化准备 → Stage 9 lease-safe → Stage 10 dispatch-loop runtime → Stage 11 runtime-completion → Stage 12 real persistence（打破路径 B）→ Stage 13 transport 候选评审 → Stage 14 deliver 重投策略 → Stage 15 真实 A2A 投递绑定 PoC → Stage 16 断路器接入 worker → Stage 17/18 跨模块端到端验证 → Stage 19 重投往返生命周期端到端验证（[`forwarding-persistence`](../../L2-Low-Level-Design/agent-bus/forwarding-persistence.md)）。
 
 **已落地（生产代码，纯 Java）：**
 
@@ -136,4 +137,4 @@ C3（database outbox / inbox）已最终确认为类 MQ 转发的生产候选路
 
 - 生产代码不引入 concrete broker / MQ（由 `AgentBusForwardingSpiPurityTest` ArchUnit 强制）。**Stage 12 精确化**：Spring JDBC / Flyway / Postgres driver 已引入，ArchUnit 把它们圈在 `bus.forwarding.runtime.persistence.jdbc` 子包；`bus.forwarding..` 主体仍纯 Java。
 - 不改变远端 Task lifecycle owner；不写 Task execution state；不携带 payload body / token stream / physical endpoint。
-- **Stage 12 已落地真实持久化**：Postgres JDBC adapter（Spring JDBC）+ Flyway migration `V1` + §7.3 RLS（real-SQL 验证 embedded-postgres PG 16.2，17 tests green）；`§6.1`「不引入 JDBC」解除，`§6.2` 不变。**Stage 15 已落地真实投递绑定 PoC**：`A2aForwardingDeliveryPort` 消费 agent-runtime `/a2a`（同步等完成 = T1 push，Stage 13 候选评审）；ArchUnit 把 A2A SDK 圈在 `transport.a2a` 子包。**Stage 16 接入断路器**（`RouteCircuitBreaker` 三态机，正当性来自 Stage 15 选 T1 push）。**Stage 17/18 跨模块端到端验证**（真实 `LocalA2aRuntimeHost`，happy-path + 失败路径，184 tests green）；agent-bus 加 `agent-runtime` test-scope 依赖、生产仍零依赖（`AgentBusDependencyBoundaryTest` 守卫）。**仍 deferred**：真实 broker / queue / replay store 物理实现、push vs pull / 是否引 MQ 的最终投递模型裁决（独立 H2/H3 议题）、registry 集成的 resolver 生产实现、连接池治理、polling cadence、并发 worker 分片、backpressure 参数、`ForwardingDispatchLoop` 接真实 scheduler。
+- **Stage 12 已落地真实持久化**：Postgres JDBC adapter（Spring JDBC）+ Flyway migration `V1` + §7.3 RLS（real-SQL 验证 embedded-postgres PG 16.2，17 tests green）；`§6.1`「不引入 JDBC」解除，`§6.2` 不变。**Stage 15 已落地真实投递绑定 PoC**：`A2aForwardingDeliveryPort` 消费 agent-runtime `/a2a`（同步等完成 = T1 push，Stage 13 候选评审）；ArchUnit 把 A2A SDK 圈在 `transport.a2a` 子包。**Stage 16 接入断路器**（`RouteCircuitBreaker` 三态机，正当性来自 Stage 15 选 T1 push）。**Stage 17/18 跨模块端到端验证**（真实 `LocalA2aRuntimeHost`，happy-path + 失败路径，184 tests green）；**Stage 19 重投往返生命周期端到端验证**（claimDue 的 `RETRY_SCHEDULED` 回收子句跨多 tick 触发 → exhausted/DLQ 或恢复/ACKED，186 tests green；`MutableEpochClock` + 协调多 tick `TickSource` 时间控制无需 scheduler；两 context-boot IT 加 `@Isolated` 修并发 flaky）；agent-bus 加 `agent-runtime` test-scope 依赖、生产仍零依赖（`AgentBusDependencyBoundaryTest` 守卫）。**仍 deferred**：真实 broker / queue / replay store 物理实现、push vs pull / 是否引 MQ 的最终投递模型裁决（独立 H2/H3 议题）、registry 集成的 resolver 生产实现、连接池治理、polling cadence、并发 worker 分片、backpressure 参数、`ForwardingDispatchLoop` 接真实 scheduler。
