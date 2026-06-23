@@ -58,17 +58,94 @@ examples/deep-research/
 ├── TOPOLOGY.cn.md                                         # 本文件
 ├── start-stubs.sh                                         # 一键拉起 3 个 stub
 ├── agent-deep-research/         agent-deep-research-a2a/        13003   ← A
+│   └── src/main/resources/agent/{deepagent.prod.yaml, deepagent.stub.yaml}
 ├── agent-search/                agent-search-a2a/                13004   ← B
+│   └── src/main/resources/agent/{agent.prod.yaml, agent.stub.yaml}
 ├── agent-read/                  agent-read-a2a/                  13005   ← C
+│   └── src/main/resources/agent/{agent.prod.yaml, agent.stub.yaml}
 └── agent-verify/                agent-verify-a2a/                13006   ← D
+    └── src/main/resources/agent/{agent.prod.yaml, agent.stub.yaml}
 ```
 
 每个 agent **两层结构**（库 + a2a wrapper），跟 `examples/travel-agentscope/` 一致：
 
-- **库**（`agent-xxx/`）：纯 OpenJiuwen，仅依赖 `openjiuwen-core` + `openjiuwen-harness`，**不依赖** `agent-runtime` / Spring。包含 Agent 主体、@Tool 工具、SystemPromptBuilder、LlmConfig、外部 client 接口（如 `WebSearchProvider`）
-- **包装**（`agent-xxx-a2a/`）：Spring Boot 应用，包含 runtime SAM 桥接 adapter（`implements OpenJiuwenDeepAgentAdapter` 或对应 ReAct adapter）、`@Bean` 装配、`application.yaml`、外部 client 的真实/stub 实现
+- **库**（`agent-xxx/`）：仅依赖 `agent-sdk` + 用到的工具库（如 jsoup / readability4j / Tavily HTTP client），**不依赖** `agent-runtime` / Spring。包含：
+  - `agent/*.yaml`：装配清单（model / prompt / tools / skills / rails / framework options）
+  - Java tool 静态方法（签名固定为 `public static Object method(Map<String,Object>)`）
+  - Java rail hook 类（function rail 引用的方法）
+  - 外部 client 接口（如 `WebSearchProvider`）+ prod/stub 两套实现
+- **包装**（`agent-xxx-a2a/`）：Spring Boot 应用，runtime SAM 桥接 adapter 继承 `OpenJiuwenDeepAgentRuntimeHandler` / `OpenJiuwenAgentRuntimeHandler`，并 override `createOpenJiuwenDeepAgent(ctx)` / `createOpenJiuwenAgent(ctx)` 内部**直接调 `AgentFactory.toDeepAgent(yamlPath)` / `toReactAgent(yamlPath)`**；YAML 路径由 Spring profile 决定（`stub` profile 加载 `agent.stub.yaml`，`prod` profile 加载 `agent.prod.yaml`）
 
 这条约束是**强制的**：库不依赖 runtime SAM，将来换其他 runtime 时 agent 主体不变。
+
+### 2.1 装配方式约束（强制）
+
+**所有 4 个 agent 必须走 agent-sdk YAML 装配（迭代二特性 2）**，不允许在 wrapper 里直接 `new ReActAgentBuilder()` / `new DeepAgentBuilder()` 手写 Java 装配。
+
+YAML 覆盖的范围（详见 [`agent-sdk-openjiuwen-yaml.md`](../../agent-runtime/docs/guides/agent-sdk-openjiuwen-yaml.md)）：
+
+| 配置项 | 入口 |
+|---|---|
+| framework type/agent + options | YAML `framework.*` |
+| 模型 base URL / API key / 参数 | YAML `model.*`，凭证用 `${ENV}` 注入 |
+| system prompt | YAML `prompt.system`（或 `prompt.agentMd`） |
+| Java tool（@Tool 替代品） | YAML `tools[].ref.type=file` + `class`/`method` |
+| HTTP tool | YAML `tools[].ref.type=http` |
+| filesystem skills | YAML `skills.sources[]` |
+| function rails（before/after Model/Tool） | YAML `rails[]` |
+| DeepAgent MCP server | YAML `mcps[]`（只对 DeepAgent 生效） |
+
+YAML **不能**覆盖（保留在 wrapper handler 里）：
+
+| 配置项 | 入口 | 说明 |
+|---|---|---|
+| 远端 A2A 子 agent 注入 | `setRuntimeToolInstaller(OpenJiuwenRemoteToolInstaller)` | 由 runtime 注入；YAML 不知道 `remote-agents.*.endpoint` |
+| 长期记忆 rail (`MemoryProvider`) | handler override `openJiuwenExternalMemoryRail(ctx, mp)` | `MemoryProvider` 是 Spring bean，YAML 无法引用 Spring context |
+| 自定义 audit rail / 限流 rail | handler override `openJiuwenRails(ctx)` / `openJiuwenDeepAgentRails(ctx)` | 需要 Spring bean（如 metrics client）时只能走 handler |
+
+Wrapper handler 骨架（4 个 agent 都按这个模板写）：
+
+```java
+@Component
+public final class DeepResearchHandler extends OpenJiuwenDeepAgentRuntimeHandler {
+    private final Path yamlPath;
+    private final MemoryProvider memoryProvider;
+
+    public DeepResearchHandler(
+            @Value("${deep-research.yaml-path}") Path yamlPath,
+            MemoryProvider memoryProvider) {
+        super("deep-research-agent");
+        this.yamlPath = yamlPath;
+        this.memoryProvider = memoryProvider;
+    }
+
+    @Override
+    protected DeepAgent createOpenJiuwenDeepAgent(AgentExecutionContext context) {
+        return AgentFactory.toDeepAgent(yamlPath);   // ← 特性 2 入口
+    }
+
+    @Override
+    protected List<AgentRail> openJiuwenDeepAgentRails(AgentExecutionContext ctx) {
+        return memoryProvider == null
+                ? List.of()
+                : List.of(openJiuwenExternalMemoryRail(ctx, memoryProvider));
+    }
+}
+```
+
+`application.yaml` profile 切换 YAML 路径：
+
+```yaml
+deep-research:
+  yaml-path: classpath:/agent/deepagent.prod.yaml
+---
+spring:
+  config:
+    activate:
+      on-profile: stub
+deep-research:
+  yaml-path: classpath:/agent/deepagent.stub.yaml
+```
 
 ## 3. 每个 Agent 的契约
 
@@ -97,11 +174,11 @@ A2A 入口契约：
 ```
 
 A 同学的开发重点：
-- DeepAgent system prompt：如何决定下一步调 `plan_search` / `plan_read` / `plan_verify` 中的哪个
-- 报告组装 prompt：comparison_table 转 markdown 表格 + citations + 置信度叙述
-- 错误路径处理：`spa_blocked` / `cloudflare_403` / `verdict=insufficient` 这几种 sub-agent 返回时，重新调度策略
+- **`deepagent.prod.yaml` 装配（特性 2）**：`framework.type=openjiuwen` / `framework.agent=deepagent` / `framework.options.{maxIterations:10, enableTaskLoop:true, language:cn}`；`model.*` 配项目默认 LLM；`prompt.system` 写 DeepAgent 决策提示（决定调 `plan_search` / `plan_read` / `plan_verify` 中的哪个，以及报告组装的格式）；本 agent **不在 YAML 里声明 tools**（3 个子 agent tool 由 runtime `OpenJiuwenRemoteToolInstaller` 注入，不走 YAML）
+- 报告组装 prompt：comparison_table 转 markdown 表格 + citations + 置信度叙述（写在 `prompt.system` 内）
+- 错误路径处理：`spa_blocked` / `cloudflare_403` / `verdict=insufficient` 这几种 sub-agent 返回时，重新调度策略（同样写在 prompt 里）
 - A2A wrapper 的 `application.yaml` 配 3 个 `agent-runtime.remote-agents.*.endpoint`
-- **长期记忆接入（本 demo 的差异化亮点）**：A 同学 adapter override `openJiuwenExternalMemoryRail(ctx, memoryProvider)` 把 harness native external memory rail 挂到 DeepAgent 上，`MemoryProvider` 实现走 **mem0**（参考 `examples/travel/agent-hotel-a2a/` 已有的 mem0 接入）。研究主题 + 关键结论（如"火山方舟豆包 Pro 4K 输入价 0.0008 元/千 token, fetched_at=2026-06"）写入 mem0；用户次日二次提问"上次对比的厂商里哪家上下文窗口最大"时 root 能从 memory 拿到上轮结论作为 system prompt 前置上下文，无需重新跑一整轮 search/read/verify
+- **长期记忆接入（本 demo 的差异化亮点）**：A 同学 adapter override `openJiuwenDeepAgentRails(ctx)`，把 `openJiuwenExternalMemoryRail(ctx, memoryProvider)` 挂到 DeepAgent task-loop 上，`MemoryProvider` 实现走 **mem0**（参考 `examples/travel/agent-hotel-a2a/` 已有的 mem0 接入）。这一步**不能放进 YAML**（`MemoryProvider` 是 Spring bean），但 wrapper override 跟 YAML 装配是叠加关系，不冲突
   - mem0 命名空间按 `tenantId + agentId` 隔离，避免跨用户串台
   - 写入策略：仅在 DeepAgent task-loop 收尾阶段（final report 组装完成后）批量写一次，不在 sub-agent 调用过程中频繁写
 
@@ -130,12 +207,12 @@ A2A skill 契约：
 ```
 
 B 同学的开发重点：
+- **`agent.prod.yaml` 装配（特性 2）**：`framework.agent=react`；`model.*` 用 LLM 来对结果做轻量改写/摘要；`prompt.system` 写"按 web_search 契约返回结构化结果"指令；`tools[]` 声明一个 Java tool `web_search`，`ref.type=file` 指向 `WebSearchTool.search(Map<String,Object>)`；Tavily API key 通过 `model.*` 之外的自定义 tool resolver 读不到 env，所以建议在 wrapper @Bean 阶段把 `TAVILY_API_KEY` 注入到 `WebSearchTool` 的 static field（或单例 holder），tool 方法读 holder。**不要**把 key 写进 YAML
 - 包 Tavily Search API（`https://api.tavily.com/search`），调用参数建议 `search_depth=basic`、`max_results=top_k`、`include_answer=false`（answer 综述由 root agent 自己做，不依赖 Tavily 的 LLM）
 - Tavily 自带的 `results[].content` 可以填到我们的 `snippet` 字段；Tavily 自带的 `score` 直接透传，再叠加下面的 reranker 权重
 - 自己加一层 reranker：**官网域名加权 ×2**（volcengine.com / bailian.aliyun.com / bigmodel.cn / moonshot.cn / deepseek.com / 百度智能云 / 腾讯混元 等）；CSDN/掘金/知乎降权 ×0.7。Tavily 支持 `include_domains/exclude_domains` 参数，可以一部分约束直接下推到搜索端
 - `source_kind` 字段是给 verify-agent 用的（官方 > 评测 > 博客 > 论坛）；根据 domain 分类映射
 - 抽象 `WebSearchProvider` interface，将来切别家（Serper / Exa / 自建 SearXNG）只改实现类
-- Tavily API key 通过 env var `TAVILY_API_KEY` 注入；不入库
 - 兜底：Tavily key 申请受阻时，降级到 Serper.dev 一次性赠额（2500 次，足够 4 人开发期），实现类换 `SerperSearchProvider`
 
 ### 3.3 read-agent（C 同学）
@@ -163,6 +240,7 @@ A2A skill 契约：
 ```
 
 C 同学的开发重点：
+- **`agent.prod.yaml` 装配（特性 2）**：`framework.agent=react`；`prompt.system` 写"按 read_url 契约返回 markdown + metadata"指令；`tools[]` 声明 Java tool `read_url`，`ref.type=file` 指向 `ReadUrlTool.read(Map<String,Object>)`。注意**不要**用 `ref.type=http` 直接做抓取——SPA 检测和 readability4j 抽取逻辑必须在 Java tool 内部完成，YAML HTTP tool 只能拿到原始响应
 - JDK `java.net.http.HttpClient` 抓 HTML；不引第三方 HTTP 库
 - `org.jsoup:jsoup` 做 DOM 清理
 - `net.dankito.readability4j:readability4j` 提取主体内容（Mozilla Readability 的 Java 移植）
@@ -195,22 +273,24 @@ A2A skill 契约：
 ```
 
 D 同学的开发重点：
+- **`agent.prod.yaml` 装配（特性 2）**：`framework.agent=react`；`prompt.system` 写"找反证"指令 + 各 `claim_type` 分支决策规则；`tools[]` 声明两个 Java tool —— `verify_claim`（核心逻辑，调用 LLM 评判）+ `web_search`（独立 Tavily 入口，**不走 A2A 调 B 的 search-agent**，避免循环依赖）
 - 数字型 claim（定价、上下文长度、QPS）要在 **≥2 个来源** 对照才能给出 `support`
 - `is_authoritative` 标记官方源（厂商官网 / 官方文档）
-- 内部可以挂自己的 `web_search` 工具（**独立调用 Tavily**，不走 A2A 调 B 的 search-agent，避免循环依赖）
 - prompt 设计是这个 agent 质量差异化的关键：明确"找反证"动机，对 `qualitative` claim 输出 `partial` 时要给具体的"哪部分对、哪部分存疑"
 
 ## 4. Mock 约定
 
 **核心约定：每个 sub-agent a2a wrapper 必须支持 `--spring.profiles.active=stub`**。stub 模式下 A2A 接口、契约 schema 跟 prod 完全一致，内部实现替换成读 `fixtures/` 下的数据。
 
+stub 切换走的是 **YAML 替换**（不是 bean 替换）：wrapper 的 Spring profile 决定 `AgentFactory.toReactAgent(...)` / `toDeepAgent(...)` 加载哪份 YAML，`agent.stub.yaml` 跟 `agent.prod.yaml` 的 model / prompt / framework 完全一致，唯一不同的是 `tools[].ref.class` 指向 stub 实现类（如 `StubWebSearchTool` 而非 `WebSearchTool`）。这样 stub vs prod 走完全相同的装配链路，避免「stub bean 跟 prod bean 行为漂移」。
+
 ### 4.1 Stub profile 行为
 
 | Agent | stub 行为 |
 |---|---|
-| search-agent | 不读 Tavily API key；按 query 关键词路由到 `fixtures/search-results.json` 里的预置结果；未命中返回空结果 + 一条警告日志 |
-| read-agent | 不发起真 HTTP；按 url 的 host+path 路由到 `fixtures/*.html`；未命中返回 `doc_type=other` |
-| verify-agent | 不调真 LLM；按 claim hash 查 `fixtures/verdicts.json`；未命中返回 `verdict=insufficient, confidence=0.3, suggested_followup_query="<原 claim>"`，让 root 多搜一轮 |
+| search-agent | `tools[].ref.class` 切到 `StubWebSearchTool`；按 query 关键词路由到 `fixtures/search-results.json`；未命中返回空结果 + 一条警告日志；不读 Tavily API key |
+| read-agent | `tools[].ref.class` 切到 `StubReadUrlTool`；按 url 的 host+path 路由到 `fixtures/*.html`；未命中返回 `doc_type=other`；不发起真 HTTP |
+| verify-agent | `tools[].ref.class` 切到 `StubVerifyClaimTool`；按 claim hash 查 `fixtures/verdicts.json`；未命中返回 `verdict=insufficient, confidence=0.3, suggested_followup_query="<原 claim>"`，让 root 多搜一轮；不调真 LLM |
 | deep-research-agent | **不需要 stub**。开发期 A 自己用 prod profile 连真 LLM，把另外 3 个用 stub 启动即可 |
 
 ### 4.2 Fixture 位置与命名
@@ -278,15 +358,21 @@ A 同学维护 e2e 测试用例，固定输入：
 
 | 负责人 | 模块 | 开发重点 | 验收输入 |
 |---|---|---|---|
-| A | agent-deep-research + a2a wrapper + e2e | system prompt、报告组装、错误路径、端到端集成 | stub 模式下 e2e 测试通过 |
-| B | agent-search + a2a wrapper | Tavily 包装、reranker、source_kind 分类 | 单测覆盖 + stub fixture 覆盖 |
-| C | agent-read + a2a wrapper | jsoup + readability4j、SPA 检测、错误分类 | 单测（含 spa_blocked / cloudflare_403 用例）+ stub fixture |
-| D | agent-verify + a2a wrapper | 跨源对照 prompt、claim_type 分支、`partial` 判定 | 单测 + stub fixture（含 1 条 contradict） |
+| A | agent-deep-research + a2a wrapper + e2e | deepagent YAML、system prompt、报告组装、memory rail、错误路径、端到端集成 | stub 模式下 e2e 测试通过；wrapper 装配走 `AgentFactory.toDeepAgent` |
+| B | agent-search + a2a wrapper | agent YAML、Tavily 包装、reranker、source_kind 分类 | 单测覆盖 + stub fixture 覆盖；wrapper 装配走 `AgentFactory.toReactAgent` |
+| C | agent-read + a2a wrapper | agent YAML、jsoup + readability4j、SPA 检测、错误分类 | 单测（含 spa_blocked / cloudflare_403 用例）+ stub fixture；wrapper 装配走 `AgentFactory.toReactAgent` |
+| D | agent-verify + a2a wrapper | agent YAML、跨源对照 prompt、claim_type 分支、`partial` 判定 | 单测 + stub fixture（含 1 条 contradict）；wrapper 装配走 `AgentFactory.toReactAgent` |
+
+通用验收门槛（4 个 agent 都要满足）：
+
+- wrapper 中**不出现** `new ReActAgentBuilder()` / `new DeepAgentBuilder()` / 任何手写 Java 装配代码（grep 关键字 review）
+- `agent.prod.yaml` + `agent.stub.yaml` 两份配置都能加载通过（启动时 `AgentFactory.toXxx` 不抛异常）
+- YAML 中没有硬编码的 API key（grep `sk-` / `tvly-` 关键字）
 
 里程碑（建议）：
 
-1. **W1**：4 人各自把库 + a2a wrapper 骨架搭起来，契约 schema 落地，stub profile 跑通；A 同学的 root 用全 stub 集成测试可见端到端 markdown 报告（内容是 fixture 拼出来的）
-2. **W2**：B/C/D 各自接通真后端（Tavily / HTTP / LLM）；A 同学的报告组装 prompt 调优
+1. **W1**：4 人各自把库 + a2a wrapper 骨架搭起来，契约 schema 落地，YAML 装配跑通（启动期 `AgentFactory.toXxx` 成功），stub profile 跑通；A 同学的 root 用全 stub 集成测试可见端到端 markdown 报告（内容是 fixture 拼出来的）
+2. **W2**：B/C/D 各自接通真后端（Tavily / HTTP / LLM）；A 同学的报告组装 prompt 调优 + 接通 mem0 memory rail
 3. **W3**：集成联调，e2e 验收 + bug 修复
 
 ## 7. 还没决定的事项
