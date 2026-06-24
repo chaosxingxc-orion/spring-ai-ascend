@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>A2A Memory Agent</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f5; height: 100vh; display: flex; flex-direction: column; }
+        .header { padding: 12px 24px; background: #1976d2; color: white; display: flex; align-items: center; gap: 16px; }
+        .header h2 { font-size: 16px; flex: 1; }
+        .header label { font-size: 13px; display: flex; align-items: center; gap: 4px; }
+        .header input { padding: 4px 8px; border: none; border-radius: 4px; font-size: 13px; width: 120px; }
+        .header button { padding: 4px 12px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .header button:hover { background: rgba(255,255,255,0.3); }
+        .info-bar { padding: 6px 24px; background: #e3f2fd; font-size: 12px; color: #1565c0; border-bottom: 1px solid #bbdefb; }
+        #chat { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+        .msg { max-width: 75%; padding: 12px 16px; border-radius: 16px; line-height: 1.5; word-wrap: break-word; white-space: pre-wrap; }
+        .user { align-self: flex-end; background: #1976d2; color: white; border-bottom-right-radius: 4px; }
+        .bot { align-self: flex-start; background: white; border: 1px solid #e0e0e0; border-bottom-left-radius: 4px; }
+        .error { align-self: flex-start; background: #fff3e0; border: 1px solid #ff9800; color: #e65100; }
+        .thinking { color: #888; font-style: italic; }
+        #input-area { display: flex; gap: 8px; padding: 16px 24px; background: white; border-top: 1px solid #e0e0e0; }
+        #msg-input { flex: 1; padding: 10px 14px; border: 1px solid #ccc; border-radius: 24px; font-size: 15px; outline: none; }
+        #msg-input:focus { border-color: #1976d2; }
+        #send-btn { padding: 10px 24px; background: #1976d2; color: white; border: none; border-radius: 24px; font-size: 15px; cursor: pointer; }
+        #send-btn:hover { background: #1565c0; }
+        #send-btn:disabled { background: #bbb; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>A2A Memory Agent</h2>
+        <label>UserId: <input id="user-id" placeholder="user name"></label>
+        <button onclick="newSession()">New Session</button>
+    </div>
+    <div class="info-bar" id="info-bar"></div>
+    <div id="chat"></div>
+    <div id="input-area">
+        <input id="msg-input" placeholder="输入消息，回车发送..." autocomplete="off">
+        <button id="send-btn" onclick="send()">发送</button>
+    </div>
+<script>
+const chat = document.getElementById('chat');
+const input = document.getElementById('msg-input');
+const btn = document.getElementById('send-btn');
+const userIdInput = document.getElementById('user-id');
+const infoBar = document.getElementById('info-bar');
+
+userIdInput.value = localStorage.getItem('a2a_userId') || 'alice';
+userIdInput.addEventListener('change', () => {
+    localStorage.setItem('a2a_userId', userIdInput.value.trim() || 'alice');
+    updateInfoBar();
+});
+
+let sessionId = 'web-' + Math.random().toString(36).slice(2, 10);
+let msgId = 0;
+
+function newSession() {
+    sessionId = 'web-' + Math.random().toString(36).slice(2, 10);
+    chat.innerHTML = '';
+    appendMsg('bot', '新会话已创建 (sessionId: ' + sessionId + ')');
+    updateInfoBar();
+    input.focus();
+}
+
+function updateInfoBar() {
+    infoBar.textContent = 'UserId: ' + getUserId() + ' | SessionId: ' + sessionId + ' | Memory scope: memory:sample-tenant:' + getUserId();
+}
+
+function getUserId() {
+    return (userIdInput.value || 'alice').trim();
+}
+
+input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+
+function appendMsg(role, text) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+    return div;
+}
+
+function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+
+async function send() {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    appendMsg('user', text);
+    btn.disabled = true;
+    const thinking = appendMsg('bot thinking', '思考中...');
+
+    try {
+        const body = {
+            jsonrpc: '2.0',
+            method: 'SendMessage',
+            id: String(++msgId),
+            params: {
+                message: {
+                    role: 'ROLE_USER',
+                    messageId: uuid(),
+                    contextId: sessionId,
+                    metadata: {
+                        userId: getUserId(),
+                        agentId: 'openjiwen-memory-agent',
+                        sessionId: sessionId
+                    },
+                    parts: [{ text: text }]
+                }
+            }
+        };
+
+        const res = await fetch('/a2a', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            thinking.className = 'msg error';
+            thinking.textContent = 'HTTP ' + res.status + ': ' + errText;
+            btn.disabled = false;
+            return;
+        }
+
+        const data = await res.json();
+
+        if (data.error) {
+            thinking.className = 'msg error';
+            thinking.textContent = 'Error: ' + (data.error.message || JSON.stringify(data.error));
+            btn.disabled = false;
+            return;
+        }
+
+        let replyText = '';
+        const result = data.result;
+        if (result) {
+            const task = result.task;
+            if (task && task.status && task.status.message && task.status.message.parts) {
+                for (const p of task.status.message.parts) {
+                    if (p.text) replyText += p.text;
+                }
+            }
+            if (task && task.artifacts) {
+                replyText = '';
+                for (const a of task.artifacts) {
+                    if (a.parts) {
+                        for (const p of a.parts) {
+                            if (p.text) replyText += p.text;
+                        }
+                    }
+                }
+            }
+            if (!replyText && result.parts) {
+                for (const p of result.parts) {
+                    if (p.text) replyText += p.text;
+                }
+            }
+        }
+
+        thinking.className = 'msg bot';
+        thinking.textContent = replyText || '(empty response)';
+    } catch (e) {
+        thinking.className = 'msg error';
+        thinking.textContent = '网络错误: ' + e.message;
+    }
+    btn.disabled = false;
+    input.focus();
+}
+
+updateInfoBar();
+</script>
+</body>
+</html>
