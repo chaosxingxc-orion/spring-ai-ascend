@@ -117,7 +117,7 @@ public class OpenJiuwenMemoryConfiguration {
                     .configureModelClient(modelProvider, apiKey, apiBase, modelName, sslVerify);
             ModelRequestConfig modelConfig = config.getModelConfigObj();
             modelConfig.setTemperature(0.0);
-            modelConfig.setMaxTokens(64);
+            modelConfig.setMaxTokens(1024);
             agent.configure(config);
             return agent;
         }
