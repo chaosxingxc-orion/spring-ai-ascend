@@ -1,0 +1,5 @@
+LLM_PROVIDER=OpenAI
+LLM_API_KEY=
+LLM_API_BASE=http://localhost:4000/v1
+LLM_MODEL=gpt-4o-mini
+LLM_SSL_VERIFY=false
