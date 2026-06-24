@@ -140,8 +140,13 @@ class A2aAgentExecutorTest {
         assertThat(captor.getValue().getScope().tenantId()).isEqualTo("request-tenant");
     }
 
+    /**
+     * Message-level metadata now acts as a fallback when request-level metadata
+     * is missing identity keys. Request metadata still wins when both carry the
+     * same key, but missing keys (userId, agentId) are resolved from the message.
+     */
     @Test
-    void messageMetadataDoesNotBackfillRuntimeMetadata() {
+    void messageMetadataFillsMissingRequestMetadataKeys() {
         AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
         when(handler.agentId()).thenReturn("handler-agent");
         when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
@@ -167,15 +172,83 @@ class A2aAgentExecutorTest {
                 ArgumentCaptor.forClass(com.huawei.ascend.runtime.engine.AgentExecutionContext.class);
         verify(handler).execute(captor.capture());
         AgentExecutionContext context = captor.getValue();
+        // tenantId: request-level wins over message-level
         assertThat(context.getScope().tenantId()).isEqualTo("request-tenant");
-        assertThat(context.getScope().userId()).isEqualTo("system");
-        assertThat(context.getScope().agentId()).isEqualTo("handler-agent");
-        assertThat(context.getAgentStateKey()).isEqualTo("state:request-tenant:handler-agent:ctx-1");
+        // userId and agentId: message-level fallback fills the gap
+        assertThat(context.getScope().userId()).isEqualTo("legacy-user");
+        assertThat(context.getScope().agentId()).isEqualTo("legacy-agent");
+        // agentStateKey also falls back to message metadata when request metadata is missing it
+        assertThat(context.getAgentStateKey()).isEqualTo("legacy-state");
         assertThat(context.getVariables())
                 .containsEntry("tenantId", "request-tenant")
-                .containsEntry("userId", "system")
-                .containsEntry("agentId", "handler-agent")
+                .containsEntry("userId", "legacy-user")
+                .containsEntry("agentId", "legacy-agent")
                 .doesNotContainKey("intent");
+    }
+
+    /**
+     * When the request carries no metadata at all, message-level metadata is
+     * used to resolve identity keys before falling back to hardcoded defaults.
+     */
+    @Test
+    void messageMetadataUsedWhenRequestMetadataIsEmpty() {
+        AgentRuntimeHandler handler = mock(AgentRuntimeHandler.class);
+        when(handler.agentId()).thenReturn("handler-agent");
+        when(handler.execute(any())).thenAnswer(inv -> Stream.of(new Object()));
+        StreamAdapter adapter = raw -> raw.map(o -> AgentExecutionResult.completed("ok"));
+        when(handler.resultAdapter()).thenReturn(adapter);
+
+        RequestContext ctx = requestContext();
+        when(ctx.getMetadata()).thenReturn(Map.of());
+        when(ctx.getMessage()).thenReturn(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .parts(List.<Part<?>>of(new TextPart("hi")))
+                .metadata(Map.of("userId", "msg-user", "agentId", "msg-agent"))
+                .build());
+
+        new A2aAgentExecutor(handler).execute(ctx, newEmitter());
+
+        ArgumentCaptor<com.huawei.ascend.runtime.engine.AgentExecutionContext> captor =
+                ArgumentCaptor.forClass(com.huawei.ascend.runtime.engine.AgentExecutionContext.class);
+        verify(handler).execute(captor.capture());
+        AgentExecutionContext context = captor.getValue();
+        assertThat(context.getScope().userId()).isEqualTo("msg-user");
+        assertThat(context.getScope().agentId()).isEqualTo("msg-agent");
+    }
+
+    /**
+     * The static metadata() helper must resolve in order: request metadata →
+     * message metadata → fallback value.
+     */
+    @Test
+    void metadataStaticMethodResolvesInOrder() {
+        RequestContext ctx = mock(RequestContext.class);
+        when(ctx.getMetadata()).thenReturn(Map.of("a", "from-request"));
+        when(ctx.getMessage()).thenReturn(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .parts(List.<Part<?>>of(new TextPart("hi")))
+                .metadata(Map.of("a", "from-message", "b", "from-message"))
+                .build());
+
+        // key present in request metadata → request value wins
+        assertThat(A2aAgentExecutor.metadata(ctx, "a", "default")).isEqualTo("from-request");
+        // key only in message metadata → message fallback used
+        assertThat(A2aAgentExecutor.metadata(ctx, "b", "default")).isEqualTo("from-message");
+        // key in neither → hardcoded fallback returned
+        assertThat(A2aAgentExecutor.metadata(ctx, "c", "default")).isEqualTo("default");
+    }
+
+    /**
+     * When both request-level and message-level metadata are null / absent,
+     * the static metadata() helper must return the fallback value.
+     */
+    @Test
+    void metadataStaticMethodReturnsFallbackWhenBothLevelsEmpty() {
+        RequestContext ctx = mock(RequestContext.class);
+        when(ctx.getMetadata()).thenReturn(null);
+        when(ctx.getMessage()).thenReturn(null);
+
+        assertThat(A2aAgentExecutor.metadata(ctx, "key", "fallback")).isEqualTo("fallback");
     }
 
     @Test

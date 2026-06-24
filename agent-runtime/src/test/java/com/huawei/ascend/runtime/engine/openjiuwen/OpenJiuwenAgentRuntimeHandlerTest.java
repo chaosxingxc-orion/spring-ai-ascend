@@ -364,6 +364,15 @@ class OpenJiuwenAgentRuntimeHandlerTest {
     }
 
     @Test
+    void openJiuwenLLMMemoryRailCreatesKVCacheFriendlyRail() {
+        TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
+
+        AgentRail rail = handler.llmMemoryRail(context(Map.of()), new FakeMemoryProvider());
+
+        assertThat(rail).isInstanceOf(OpenJiuwenLLMMemoryRail.class);
+    }
+
+    @Test
     void openJiuwenExternalMemoryRailUsesNativeOpenJiuwenRailType() {
         TestOpenJiuwenHandler handler = new TestOpenJiuwenHandler();
 
@@ -589,6 +598,10 @@ class OpenJiuwenAgentRuntimeHandlerTest {
 
         private AgentRail nativeMemoryRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
             return openJiuwenExternalMemoryRail(context, memoryProvider);
+        }
+
+        private OpenJiuwenLLMMemoryRail llmMemoryRail(AgentExecutionContext context, MemoryProvider memoryProvider) {
+            return openJiuwenLLMMemoryRail(context, memoryProvider);
         }
 
         @Override

@@ -158,6 +158,19 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractOpenJiuwenRu
     }
 
     /**
+     * Create a KV-Cache-friendly memory rail that searches and injects memory
+     * before every model call ({@code beforeModelCall}) via tail-append,
+     * keeping the LLM input prefix stable across calls.
+     *
+     * <p>Prefer this over {@link #memoryRuntimeRail} when the openJiuwen agent
+     * is a ReActAgent that may issue multiple model calls per invocation.
+     */
+    protected final OpenJiuwenLLMMemoryRail openJiuwenLLMMemoryRail(
+            AgentExecutionContext context, MemoryProvider memoryProvider) {
+        return new OpenJiuwenLLMMemoryRail(context, memoryProvider, new OpenJiuwenMemoryMessageAdapter());
+    }
+
+    /**
      * Create an openJiuwen-native external memory rail backed by the runtime
      * neutral {@link MemoryProvider}.
      *

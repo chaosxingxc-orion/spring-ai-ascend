@@ -435,14 +435,23 @@ public final class A2aAgentExecutor implements AgentExecutor {
 
     /**
      * Canonical request-context value resolution shared with {@link A2aParentTaskProjector}.
-     * Request-level metadata is the only runtime metadata source. Message metadata belongs to the
-     * message body and is intentionally ignored by runtime identity, state, memory, and trajectory.
+     * Request-level metadata is the primary runtime metadata source. When a key is not found
+     * at request level, message-level metadata is used as a fallback so that clients sending
+     * identity fields (userId, agentId) in message.metadata are properly resolved.
      */
     static String metadata(RequestContext ctx, String key, String fallback) {
         Map<String, Object> md = ctx.getMetadata();
         Object value = md == null ? null : md.get(key);
         if (hasText(value)) {
             return String.valueOf(value);
+        }
+        // Fallback: check message-level metadata
+        Message message = ctx.getMessage();
+        if (message != null && message.metadata() != null) {
+            Object msgValue = message.metadata().get(key);
+            if (hasText(msgValue)) {
+                return String.valueOf(msgValue);
+            }
         }
         return fallback;
     }
