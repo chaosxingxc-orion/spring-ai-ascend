@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  agent-search — search sub-agent library
+
+  Pure Java library: agent-sdk YAML assembly + two web search providers
+  (Tavily / fixture-based stub) + two static-method tool bridge classes
+  (WebSearchTool / StubWebSearchTool). Does NOT depend on agent-runtime or
+  Spring; the wrapper agent-search-a2a hosts it as an A2A service.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend.examples</groupId>
+    <artifactId>deep-research-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>agent-search</artifactId>
+  <packaging>jar</packaging>
+  <name>agent-search</name>
+  <description>
+    Library jar of the search sub-agent for the deep-research demo. Exposes a
+    web_search Java tool that calls Tavily Search (prod) or reads a fixture
+    JSON (stub). The assembly itself lives in agent/{prod,stub}.yaml under
+    src/main/resources and is loaded by AgentFactory in the wrapper.
+  </description>
+
+  <dependencies>
+    <!-- agent-sdk pulls openjiuwen-core (ReActAgent) transitively, so the
+         library can compile against ReActAgent without re-declaring the
+         openjiuwen jar. -->
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-sdk</artifactId>
+    </dependency>
+    <!-- Jackson for Tavily response parsing + fixture loading. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>
