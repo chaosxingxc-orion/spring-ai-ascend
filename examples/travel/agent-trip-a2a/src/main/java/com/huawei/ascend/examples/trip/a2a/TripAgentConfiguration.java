@@ -115,7 +115,9 @@ public class TripAgentConfiguration {
                     .build();
 
             ReActAgent agent = new ReActAgent(card);
-            String systemPrompt = SystemPromptBuilder.build(TripAgentConstants.remoteHotelToolName());
+            String systemPrompt = SystemPromptBuilder.build(
+                    TripAgentConstants.remoteHotelToolName(),
+                    TripAgentConstants.remoteTaskCollectorToolName());
             ReActAgentConfig config = ReActAgentConfig.builder()
                     .promptTemplate(List.of(Map.of("role", "system", "content", systemPrompt)))
                     .maxIterations(maxIterations)

@@ -19,9 +19,10 @@ agent-runtime:
     a2a:
       default-tenant-id: travel-tenant
       default-agent-id: trip-planning-agent
-  # Remote hotel agent (agent-hotel-a2a). Base URL only — do not append /a2a.
+  # Remote agents. Base URL only — do not append /a2a.
   remote-agents:
     - url: ${HOTEL_A2A_BASE_URL:http://localhost:8081}
+    - url: ${TASK_COLLECTOR_A2A_BASE_URL:http://localhost:13002}
 
 trip-agent:
   checkpointer: in-memory

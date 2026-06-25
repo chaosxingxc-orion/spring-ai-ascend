@@ -32,9 +32,10 @@
   <name>spring-ai-ascend travel examples parent</name>
   <description>
     Parent + aggregator for the corporate-travel example set: the library
-    agents (agent-hotel, agent-travel-mainplan, agent-trip) and their A2A
-    runtime wrappers (agent-hotel-a2a, agent-travel-mainplan-a2a,
-    agent-trip-a2a). Resolves agent-runtime from m2; carries no link to the
+    agents (agent-hotel, agent-travel-mainplan, agent-trip,
+    agent-task-collector) and their A2A runtime wrappers (agent-hotel-a2a,
+    agent-travel-mainplan-a2a, agent-trip-a2a, agent-task-collector-a2a).
+    Resolves agent-runtime from m2; carries no link to the
     repository root.
   </description>
 
@@ -96,6 +97,11 @@
         <artifactId>agent-travel-trip</artifactId>
         <version>${project.version}</version>
       </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend.examples</groupId>
+        <artifactId>agent-travel-task-collector</artifactId>
+        <version>${project.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -117,8 +123,10 @@
     <module>agent-hotel</module>
     <module>agent-travel-mainplan</module>
     <module>agent-trip</module>
+    <module>agent-task-collector</module>
     <module>agent-hotel-a2a</module>
     <module>agent-travel-mainplan-a2a</module>
     <module>agent-trip-a2a</module>
+    <module>agent-task-collector-a2a</module>
   </modules>
 </project>
