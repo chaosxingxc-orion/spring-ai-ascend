@@ -8,7 +8,7 @@
 2. `/sample/skillhub/skills` 只返回摘要，不加载完整 instructions。
 3. `/sample/skillhub/skills/{skillId}` 返回完整 skill 定义，并带上 OpenJiuwen 可注册的本地路径。
 4. `/sample/skillhub/skills/{skillId}/package` 返回 zip 包，模拟后续下载/安装场景。
-5. Agent 执行前，`OpenJiuwenSkillHubInstaller` 调用 `BaseAgent.registerSkill(...)` 注册本地 skill。
+5. Agent 执行前，`OpenJiuwenSkillHubInstaller` 调用 `BaseAgent.registerSkill(...)` 注册本地 skill，并针对 ReActAgent 注入 `runtime_skillhub` prompt section。
 
 ## 准备环境
 
@@ -61,7 +61,7 @@ curl --noproxy '*' http://127.0.0.1:19091/sample/skillhub/skills/date-helper
 }
 ```
 
-这个字段由 example provider 生成，OpenJiuwen adapter 会用它调用 `BaseAgent.registerSkill(...)`。
+这个字段由 example provider 生成，OpenJiuwen adapter 会用它调用 `BaseAgent.registerSkill(...)`。同时 adapter 会把完整 `instructions` 注入 ReActAgent 的 `runtime_skillhub` prompt section，避免仅依赖 OpenJiuwen 原生 `readFile` 技能读取链路。
 
 ## 验证技能包下载
 
@@ -83,8 +83,11 @@ curl --noproxy '*' -X POST http://127.0.0.1:19091/sample/skillhub/ask \
 观察点：
 
 - 应用日志出现 `installed openjiuwen skill`。
+- 应用日志出现 `skillhub install finished ... injected=1`。
 - 响应中 `agentOutputs` 来自 OpenJiuwen 默认 Runner。
 - Java 代码没有手工 override Agent 执行逻辑；skill 是通过 provider + installer 链路安装的。
+
+`installed` 代表 OpenJiuwen 原生 `SkillManager` 确认接收的 skill 路径数量；`injected` 代表已经注入到 ReActAgent prompt section 的完整 skill 定义数量。测试时建议同时观察这两个字段。
 
 ## 自动化验证
 

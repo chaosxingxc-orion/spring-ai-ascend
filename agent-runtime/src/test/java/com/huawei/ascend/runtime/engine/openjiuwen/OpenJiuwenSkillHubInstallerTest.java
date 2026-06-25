@@ -11,12 +11,14 @@ import com.huawei.ascend.runtime.engine.spi.SkillSummary;
 import com.openjiuwen.core.session.Session;
 import com.openjiuwen.core.session.stream.StreamMode;
 import com.openjiuwen.core.singleagent.BaseAgent;
+import com.openjiuwen.core.singleagent.agents.ReActAgent;
 import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
 import com.openjiuwen.harness.deep_agent.DeepAgent;
 import com.openjiuwen.harness.schema.config.DeepAgentConfig;
 import com.openjiuwen.harness.workspace.Workspace;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -109,6 +111,48 @@ class OpenJiuwenSkillHubInstallerTest {
         assertThat(agent.registeredSkills).isEmpty();
     }
 
+    @Test
+    void injectsSkillInstructionsIntoReactAgentPrompt() {
+        ReActAgent agent = reactAgent();
+        SkillHubProvider provider = new FakeSkillHubProvider(List.of(
+                new SkillDefinition("date-helper", "Date Helper", "Date skill",
+                        "RUNTIME_SKILL_PROMPT_MARKER: answer date questions briefly.",
+                        List.of(), List.of(), Map.of())));
+
+        new OpenJiuwenSkillHubInstaller(provider).install(agent, context());
+
+        assertThat(agent.getPromptBuilder().build())
+                .contains("Runtime SkillHub has loaded the following skills")
+                .contains("Skill ID: date-helper")
+                .contains("RUNTIME_SKILL_PROMPT_MARKER");
+    }
+
+    @Test
+    void registersFrontmatterSkillWithOpenJiuwenSkillManager(@TempDir Path tempDir) throws IOException {
+        Path skillDir = tempDir.resolve("date-helper");
+        Files.createDirectories(skillDir);
+        Files.writeString(skillDir.resolve("SKILL.md"),
+                """
+                ---
+                description: Date helper skill.
+                ---
+
+                # Date Helper
+                RUNTIME_SKILL_FILE_MARKER
+                """,
+                StandardCharsets.UTF_8);
+        ReActAgent agent = reactAgent();
+        SkillHubProvider provider = new FakeSkillHubProvider(List.of(
+                new SkillDefinition("date-helper", "Date Helper", "Date skill",
+                        "RUNTIME_SKILL_FILE_MARKER", List.of(), List.of(),
+                        Map.of(OpenJiuwenSkillHubInstaller.METADATA_OPENJIUWEN_SKILL_PATH, skillDir.toString()))));
+
+        new OpenJiuwenSkillHubInstaller(provider).install(agent, context());
+
+        assertThat(agent.getSkillUtil().getSkillManager().count()).isEqualTo(1);
+        assertThat(agent.getPromptBuilder().build()).contains("RUNTIME_SKILL_FILE_MARKER");
+    }
+
     private static AgentExecutionContext context() {
         return new AgentExecutionContext(
                 new RuntimeIdentity("tenant", "user", "session", "task", "agent-a"),
@@ -129,6 +173,17 @@ class OpenJiuwenSkillHubInstallerTest {
                 .sysOperationId(agent.getCard().getId())
                 .build());
         assertThat(agent.getAgent().getSkillUtil()).isNotNull();
+    }
+
+    private static ReActAgent reactAgent() {
+        ReActAgent agent = new ReActAgent(
+                AgentCard.builder().id("agent-a").name("agent-a").description("test").build());
+        ReActAgentConfig config = ReActAgentConfig.builder()
+                .promptTemplate(List.of(Map.of("role", "system", "content", "You are a test agent.")))
+                .build();
+        config.setSysOperationId("agent-a");
+        agent.configure(config);
+        return agent;
     }
 
     private static final class FakeSkillHubProvider implements SkillHubProvider {

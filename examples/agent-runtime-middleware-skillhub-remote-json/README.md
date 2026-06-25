@@ -57,6 +57,9 @@ curl --noproxy '*' -X POST http://127.0.0.1:19102/sample/skillhub/ask \
 - hub 端只暴露 `/hub/**`，不创建 OpenJiuwen Agent。
 - runtime 端只配置 `sample.remote-skillhub.base-url`，不直接读 hub 的 JSON 文件。
 - runtime 日志包含 `installed openjiuwen skill`，说明远端 definition 被转换成 OpenJiuwen 本地 skill 注册。
+- runtime 日志包含 `skillhub install finished ... injected=1`，说明完整 skill instructions 已经注入 ReActAgent 的 `runtime_skillhub` prompt section。
+
+`installed` 表示 OpenJiuwen 原生 `SkillManager` 确认接收了 skill 路径；`injected` 表示 ReActAgent 已经收到 runtime 注入的完整 skill instructions。测试时两个字段都需要观察。
 
 ## JSON catalog 格式
 

@@ -14,7 +14,10 @@ public interface SkillHubProvider {
 }
 ```
 
-OpenJiuwen 当前通过 `OpenJiuwenSkillHubInstaller` 把 SkillHub 返回的本地 skill 路径注册到 `BaseAgent`。
+OpenJiuwen 当前通过 `OpenJiuwenSkillHubInstaller` 安装 SkillHub 返回的技能：
+
+- 对带有 `openjiuwen.skill.path(s)` 的定义，调用 `BaseAgent.registerSkill(...)`，兼容 OpenJiuwen 原生 skill 机制。
+- 对 `ReActAgent`，额外把 `SkillDefinition.instructions()` 注入 `runtime_skillhub` prompt section，确保用户不需要理解 OpenJiuwen 原生 `readFile` 隐式要求也能让 LLM 看到完整技能说明。
 
 ## 2. 快速开始
 
@@ -80,11 +83,27 @@ OpenJiuwenAgentRuntimeHandler.doExecute(...)
   │          ├─ skillHubProvider.listSkills(context)
   │          ├─ skillHubProvider.loadSkill(context, skillId)
   │          ├─ 读取 openjiuwen.skill.path(s)
-  │          └─ agent.registerSkill(path)
+  │          ├─ agent.registerSkill(path)，并检查 SkillManager 计数是否真的变化
+  │          └─ 对 ReActAgent 注入 runtime_skillhub prompt section
   └─ Runner.runAgentStreaming(...)
 ```
 
 SkillHub installer 每次执行前安装技能。Provider 可以自己缓存 summary/definition，也可以按 tenant、user、agentId 返回不同技能集合。
+
+`installed` 日志字段表示 OpenJiuwen 原生 `SkillManager` 确认接收的路径数量；`injected` 表示注入到 `runtime_skillhub` prompt section 的技能定义数量。若 `registerSkill(...)` 后计数没有变化，installer 会记录 WARN，常见原因是 `SKILL.md` 不满足 OpenJiuwen 原生格式要求。
+
+为了兼容 OpenJiuwen 原生 skill manager，建议本地 `SKILL.md` 保留 YAML frontmatter：
+
+```markdown
+---
+description: Use this skill when ...
+---
+
+# Skill Title
+...
+```
+
+即使缺少 frontmatter，ReActAgent 仍会通过 `runtime_skillhub` section 读取 `SkillDefinition.instructions()`；但原生 `SkillManager` 可能不会把该 skill 计入 `installed`。
 
 ## 4. 数据模型
 
@@ -117,6 +136,7 @@ SkillHub installer 每次执行前安装技能。Provider 可以自己缓存 sum
 - 当前不实现动态技能热更新。
 - SkillHub 不负责执行工具调用；需要工具调用时通过 MCP 或其他 tool installer 接入。
 - 多租户权限过滤由业务自定义 `SkillHubProvider` 实现。
+- OpenJiuwen 原生 skill 机制要求 `SKILL.md` 带 `description:` frontmatter；runtime 的 ReActAgent 兼容注入用于保证 prompt 可见性，但不会替代业务侧对技能包格式的治理。
 
 ## 7. 相关资源
 

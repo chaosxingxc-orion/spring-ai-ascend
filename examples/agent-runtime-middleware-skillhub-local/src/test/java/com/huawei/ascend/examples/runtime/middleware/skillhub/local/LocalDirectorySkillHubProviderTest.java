@@ -23,6 +23,10 @@ class LocalDirectorySkillHubProviderTest {
         Path skillDir = tempDir.resolve("date-helper");
         Files.createDirectories(skillDir);
         Files.writeString(skillDir.resolve("SKILL.md"), """
+                ---
+                description: Date helper skill for business calendar rules.
+                ---
+
                 # Date Helper
 
                 Answer date questions with the provided business calendar rules.
@@ -40,7 +44,7 @@ class LocalDirectorySkillHubProviderTest {
                 .satisfies(summary -> {
                     assertThat(summary.skillId()).isEqualTo("date-helper");
                     assertThat(summary.name()).isEqualTo("Date Helper");
-                    assertThat(summary.description()).contains("date questions");
+                    assertThat(summary.description()).contains("business calendar");
                 });
         assertThat(definition.instructions()).contains("Date Helper");
         assertThat(definition.metadata()).containsKey("openjiuwen.skill.path");
