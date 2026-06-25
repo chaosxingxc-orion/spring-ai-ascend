@@ -25,10 +25,21 @@ public final class SystemPromptBuilder {
      * @param hotelToolName 远端酒店工具名，与 hotel-a2a AgentCard name 一致（{@code hotel-planning-agent}）
      */
     public static String build(String hotelToolName) {
+        return build(hotelToolName, TripAgentConstants.remoteTaskCollectorToolName());
+    }
+
+    /**
+     * 加载 markdown 模板并替换动态变量。
+     *
+     * @param hotelToolName 远端酒店工具名，与 hotel-a2a AgentCard name 一致
+     * @param taskCollectorToolName 远端事项收集工具名，与 task-collector-a2a AgentCard name 一致
+     */
+    public static String build(String hotelToolName, String taskCollectorToolName) {
         String prompt = loadResource(TripAgentConstants.PROMPT_RESOURCE_PATH);
         return prompt
                 .replace(TripAgentConstants.VAR_TODAY, today())
-                .replace(TripAgentConstants.VAR_HOTEL_TOOL_NAME, hotelToolName);
+                .replace(TripAgentConstants.VAR_HOTEL_TOOL_NAME, hotelToolName)
+                .replace(TripAgentConstants.VAR_TASK_COLLECTOR_TOOL_NAME, taskCollectorToolName);
     }
 
     private static String today() {
