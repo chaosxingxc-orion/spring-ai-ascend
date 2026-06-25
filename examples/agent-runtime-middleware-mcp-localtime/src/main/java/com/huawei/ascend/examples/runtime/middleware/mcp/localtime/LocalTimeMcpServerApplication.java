@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.springframework.boot.SpringApplication;
@@ -27,6 +28,9 @@ class LocalTimeMcpController {
     Map<String, Object> mcp(@RequestBody Map<String, Object> request) {
         Object id = request.get("id");
         String method = String.valueOf(request.get("method"));
+        if (id == null && method.startsWith("notifications/")) {
+            return Collections.emptyMap();
+        }
         return switch (method) {
             case "initialize" -> response(id, Map.of(
                     "protocolVersion", "2025-06-18",
@@ -135,6 +139,9 @@ class LocalTimeMcpController {
     }
 
     private static Map<String, Object> error(Object id, int code, String message) {
+        if (id == null) {
+            return Map.of("jsonrpc", "2.0", "error", Map.of("code", code, "message", message));
+        }
         return Map.of("jsonrpc", "2.0", "id", id, "error", Map.of("code", code, "message", message));
     }
 }
