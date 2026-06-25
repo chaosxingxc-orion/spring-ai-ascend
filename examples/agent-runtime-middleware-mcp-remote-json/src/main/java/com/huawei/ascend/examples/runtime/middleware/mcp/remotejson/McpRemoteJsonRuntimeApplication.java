@@ -22,6 +22,7 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -35,6 +36,12 @@ public class McpRemoteJsonRuntimeApplication {
 @Configuration(proxyBeanMethods = false)
 class McpRemoteJsonRuntimeConfiguration {
     private static final String AGENT_ID = "middleware-mcp-remote-json-agent";
+
+    @Bean
+    @ConditionalOnMissingBean(ObjectMapper.class)
+    ObjectMapper remoteJsonJackson2ObjectMapper() {
+        return new ObjectMapper();
+    }
 
     @Bean
     McpProvider remoteJsonMcpProvider(
@@ -120,7 +127,7 @@ final class RemoteMcpServerConfigLoader {
 
     @SuppressWarnings("unchecked")
     static McpProperties load(Path configFile, ObjectMapper objectMapper) throws IOException {
-        Map<String, Object> root = objectMapper.readValue(Files.readString(configFile), MAP_TYPE);
+        Map<String, Object> root = objectMapper.readValue(stripUtf8Bom(Files.readString(configFile)), MAP_TYPE);
         McpProperties properties = new McpProperties();
         Object servers = root.get("servers");
         if (servers instanceof List<?> serverList) {
@@ -141,6 +148,13 @@ final class RemoteMcpServerConfigLoader {
             }
         }
         return properties;
+    }
+
+    private static String stripUtf8Bom(String content) {
+        if (content != null && !content.isEmpty() && content.charAt(0) == '\uFEFF') {
+            return content.substring(1);
+        }
+        return content;
     }
 
     private static McpProperties.Server toServer(Map<String, Object> serverMap, String fallbackServerId) {
