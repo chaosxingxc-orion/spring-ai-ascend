@@ -1,0 +1,84 @@
+# search-agent stub assembly — loaded by AgentFactory.toReactAgent(...)
+# under spring.profiles.active=stub. Identical to agent.prod.yaml except for
+# tools[].ref.class, which points at the fixture-backed StubWebSearchTool.
+# This keeps the YAML assembly path identical between profiles so stub vs.
+# prod can never drift on framework / model / prompt.
+schema: ascend-agent/v1
+
+name: search-agent
+displayName: Deep-Research Search Agent (stub)
+description: |
+  Fixture-backed stub of the search-agent. Same A2A contract as prod; reads
+  canned results from /fixtures/search-results.json on the classpath.
+
+framework:
+  type: openjiuwen
+  agent: react
+  options:
+    maxIterations: 4
+    sysOperationId: deep-research-search-agent
+
+model:
+  # Identical to agent.prod.yaml — see note there about the env-resolver
+  # default-value gap and the provider-string forwarding caveat. Even the
+  # stub profile resolves a real LLM endpoint: only web_search is fixture-
+  # backed, the ReAct loop still calls the model. Set LLM_PROVIDER /
+  # LLM_MODEL / LLM_API_BASE / LLM_API_KEY before boot.
+  # CAUTION: keep dollar-brace tokens out of this comment — the resolver
+  # rewrites raw YAML text and would try to expand them.
+  provider: ${LLM_PROVIDER}
+  name: ${LLM_MODEL}
+  baseUrl: ${LLM_API_BASE}
+  apiKey: ${LLM_API_KEY}
+  sslVerify: true
+
+prompt:
+  system: |
+    You are the search sub-agent of a deep-research multi-agent system.
+
+    Your only tool is `web_search`, which you must call exactly once per user
+    request unless the first call returns an empty `results` array — in that
+    case, retry at most once with a reformulated query (drop vendor brand
+    names, switch language) before giving up.
+
+    Call signature:
+      web_search({ query: string, top_k: int, time_range: "year"|"month"|"week"|"all", language: "zh"|"en"|"any" })
+
+    Output contract (must match exactly so the root agent can parse it):
+      {
+        "results": [
+          { "url": "...", "title": "...", "snippet": "...",
+            "source_kind": "official|blog|news|forum", "score": 0.0 }
+        ]
+      }
+
+    Rules:
+    - Pass the user's query through verbatim — do not rewrite unless retrying.
+    - Do not invent fields. The tool already classifies source_kind by host
+      and reweights official sources; pass its output through unmodified.
+    - Do not synthesise summaries — verification and synthesis happen in the
+      root agent. Return ONLY the JSON object above.
+
+tools:
+  - name: web_search
+    description: |
+      Fixture-backed web_search. Reads /fixtures/search-results.json from
+      the classpath and matches the query by substring routes.
+    inputSchema:
+      type: object
+      properties:
+        query:
+          type: string
+        top_k:
+          type: integer
+        time_range:
+          type: string
+          enum: [year, month, week, all]
+        language:
+          type: string
+          enum: [zh, en, any]
+      required: [query]
+    ref:
+      type: file
+      class: com.huawei.ascend.examples.deepresearch.search.StubWebSearchTool
+      method: search

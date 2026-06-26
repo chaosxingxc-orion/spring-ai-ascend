@@ -1,0 +1,19 @@
+{
+  "verdict": "contradict",
+  "confidence": 0.72,
+  "supporting_excerpts": [
+    {
+      "url": "https://www.volcengine.com/product/ark/pricing",
+      "quote": "输入 0.0008 元/千 token",
+      "is_authoritative": true
+    }
+  ],
+  "contradicting_excerpts": [
+    {
+      "url": "https://example.com/blog/volcengine-pricing-2026",
+      "quote": "输入 0.001 元/千 token",
+      "is_authoritative": false
+    }
+  ],
+  "suggested_followup_query": "火山方舟 豆包 Pro 4K 官方最新输入价格"
+}

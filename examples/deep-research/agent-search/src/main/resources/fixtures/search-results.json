@@ -1,0 +1,86 @@
+{
+  "_doc": "Stub fixture for the search-agent under spring.profiles.active=stub. The stub provider matches `query` against `routes[].contains[]` (case-insensitive substring) and returns the first matching `results` slice. Add new routes for new e2e scenarios.",
+  "routes": [
+    {
+      "contains": ["volcengine", "火山方舟", "豆包"],
+      "results": [
+        {
+          "url": "https://www.volcengine.com/docs/82379/1099320",
+          "title": "豆包大模型 API 定价 - 火山方舟官方文档",
+          "snippet": "豆包 Pro 4K 模型输入价格为 0.0008 元/千 tokens，输出价格 0.002 元/千 tokens。",
+          "source_kind": "official",
+          "score": 0.95
+        },
+        {
+          "url": "https://www.volcengine.com/docs/82379/quota",
+          "title": "豆包大模型 API 调用限额说明 - 火山方舟",
+          "snippet": "默认 QPS=60，单租户最大并发请求数 30，支持工单提升限额。",
+          "source_kind": "official",
+          "score": 0.88
+        },
+        {
+          "url": "https://blog.csdn.net/example/article/volcengine-pricing",
+          "title": "对比五家国内大模型 API 定价（含豆包）",
+          "snippet": "本文整理了豆包、通义、智谱、Kimi、DeepSeek 五家定价。",
+          "source_kind": "blog",
+          "score": 0.62
+        }
+      ]
+    },
+    {
+      "contains": ["deepseek", "deepseek-v3"],
+      "results": [
+        {
+          "url": "https://api-docs.deepseek.com/quick_start/pricing",
+          "title": "Pricing | DeepSeek API Docs",
+          "snippet": "deepseek-chat input: $0.27 / million tokens (cache miss), output: $1.10 / million tokens.",
+          "source_kind": "official",
+          "score": 0.97
+        },
+        {
+          "url": "https://api-docs.deepseek.com/api/create-chat-completion",
+          "title": "Create Chat Completion | DeepSeek API Docs",
+          "snippet": "支持 function calling、128K 上下文，默认 QPS=10。",
+          "source_kind": "official",
+          "score": 0.91
+        }
+      ]
+    },
+    {
+      "contains": ["bailian", "通义", "qwen", "百炼"],
+      "results": [
+        {
+          "url": "https://bailian.aliyun.com/product/pricing",
+          "title": "阿里云百炼 - 模型服务定价",
+          "snippet": "qwen-max 输入 0.04 元/千 tokens，输出 0.12 元/千 tokens；qwen-plus 输入 0.004 元/千 tokens。",
+          "source_kind": "official",
+          "score": 0.94
+        }
+      ]
+    },
+    {
+      "contains": ["zhipu", "智谱", "glm-4"],
+      "results": [
+        {
+          "url": "https://bigmodel.cn/pricing",
+          "title": "智谱 AI 开放平台 - 模型定价",
+          "snippet": "GLM-4 输入 0.05 元/千 tokens，输出 0.10 元/千 tokens。",
+          "source_kind": "official",
+          "score": 0.92
+        }
+      ]
+    },
+    {
+      "contains": ["kimi", "moonshot"],
+      "results": [
+        {
+          "url": "https://platform.moonshot.cn/docs/pricing",
+          "title": "Kimi 大模型 API 定价 - moonshot.cn",
+          "snippet": "moonshot-v1-8k 输入 0.012 元/千 tokens，输出 0.012 元/千 tokens。",
+          "source_kind": "official",
+          "score": 0.93
+        }
+      ]
+    }
+  ]
+}

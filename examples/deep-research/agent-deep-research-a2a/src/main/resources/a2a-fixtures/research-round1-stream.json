@@ -1,0 +1,21 @@
+{
+  "jsonrpc": "2.0",
+  "id": "deep-research-r1",
+  "method": "SendStreamingMessage",
+  "params": {
+    "message": {
+      "role": "ROLE_USER",
+      "messageId": "msg-dr-r1",
+      "contextId": "session-deep-research-1",
+      "metadata": {
+        "userId": "manual-user",
+        "agentId": "deep-research-agent"
+      },
+      "parts": [
+        {
+          "text": "截至 2026 Q2，对比火山方舟、阿里百炼、智谱、Kimi、DeepSeek 五家的旗舰模型 API：输入/输出定价、最大上下文窗口、QPS 默认限制、是否支持 Function Calling，给出推荐选型矩阵。"
+        }
+      ]
+    }
+  }
+}

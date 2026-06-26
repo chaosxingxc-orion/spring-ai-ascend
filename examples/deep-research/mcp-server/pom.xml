@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  mcp-server — minimal streamable-http MCP server for the deep-research demo.
+
+  Exposes one tool, fetch_url, that the search-agent calls through the runtime
+  MCP adapter (agent-runtime.mcp.servers[].url). The handler implements the
+  three JSON-RPC methods agent-runtime's HttpMcpProvider issues during a tool
+  call: initialize, tools/list, tools/call (plus the notifications/initialized
+  no-id notify). No SSE, no streaming — POST in, JSON out.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend.examples</groupId>
+    <artifactId>deep-research-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>mcp-server</artifactId>
+  <packaging>jar</packaging>
+  <name>mcp-server</name>
+  <description>
+    Minimal streamable-http MCP server for the deep-research demo. Exposes a
+    fetch_url tool so the search-agent can probe the runtime's MCP adapter
+    end-to-end without depending on an external MCP host.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>com.huawei.ascend.examples.deepresearch.mcp.McpServerApplication</mainClass>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

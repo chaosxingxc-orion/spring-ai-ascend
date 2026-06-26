@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  examples/deep-research/agent-verify — claim verification sub-agent library.
+
+  Pure Java library: depends on agent-sdk (YAML assembly) and openjiuwen
+  agent-core (tool framework). No compile-time dependency on agent-runtime or
+  Spring Boot. Two tools (verify_claim + web_search) with prod and stub
+  implementations, wired via agent.prod.yaml / agent.stub.yaml.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend.examples</groupId>
+    <artifactId>deep-research-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>agent-verify</artifactId>
+  <packaging>jar</packaging>
+  <name>agent-verify</name>
+  <description>
+    Deep research verify sub-agent library. Provides VerifyClaimTool
+    (cross-source text comparison) and WebSearchTool (independent Tavily
+    search) as openJiuwen-compatible static-method tools, plus prod/stub
+    YAML configurations. Hosted by agent-verify-a2a.
+  </description>
+
+  <dependencies>
+    <!-- agent-sdk: provides AgentFactory.toReactAgent(yamlPath) -->
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-sdk</artifactId>
+    </dependency>
+    <!-- openJiuwen tool framework (ToolCard, base types resolved by agent-sdk) -->
+    <dependency>
+      <groupId>com.openjiuwen</groupId>
+      <artifactId>agent-core-java</artifactId>
+    </dependency>
+    <!-- JSON: fixture loading, Tavily response parsing -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+
+    <!-- Test -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

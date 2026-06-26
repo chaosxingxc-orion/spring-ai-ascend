@@ -1,0 +1,103 @@
+# agent-verify-a2a — Spring Boot wrapper hosting verify-agent under agent-runtime.
+# Profile: must specify --spring.profiles.active=stub|prod. Default fails fast.
+server:
+  port: 13006
+
+# ---------- default profile (fail-fast) ----------
+verify-agent:
+  yaml-path: ""
+
+# ---------- stub profile ----------
+---
+spring:
+  config:
+    activate:
+      on-profile: stub
+
+verify-agent:
+  yaml-path: classpath:/agent/agent.stub.yaml
+
+agent-runtime:
+  access:
+    a2a:
+      agent-card:
+        name: verify-agent
+        description: >-
+          Deep research claim verification agent (stub mode). Cross-source
+          fact checking with anti-bias methodology. Stub tools return
+          pre-canned verdicts — no real API calls.
+        version: "0.1.0"
+        organization: spring-ai-ascend
+        default-input-modes: [text]
+        default-output-modes: [text]
+        capabilities:
+          streaming: false
+          push-notifications: false
+          extended-agent-card: false
+        skills:
+          - id: verify_claim
+            name: Verify a claim against sources
+            description: >-
+              Cross-reference a factual claim against provided sources.
+              Supports numeric, categorical, temporal, and qualitative
+              claim types. Returns verdict with confidence and citations.
+            tags: [verify, fact-check, research, stub]
+            examples:
+              - "Verify: 火山方舟豆包 Pro 4K 输入价格为 0.0008 元/千 token"
+              - "Check if Qwen-Max context window is 32K tokens"
+            input-modes: [text]
+            output-modes: [text]
+
+logging:
+  level:
+    com.huawei.ascend.examples.deepresearch.verify: DEBUG
+    com.huawei.ascend.runtime: INFO
+
+# ---------- prod profile ----------
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+verify-agent:
+  yaml-path: classpath:/agent/agent.prod.yaml
+  tavily-api-key: ${TAVILY_API_KEY:}
+
+agent-runtime:
+  access:
+    a2a:
+      agent-card:
+        name: verify-agent
+        description: >-
+          Deep research claim verification agent. Cross-source fact checking
+          with anti-confirmation-bias methodology. Supports numeric,
+          categorical, temporal, and qualitative claims.
+        version: "0.1.0"
+        organization: spring-ai-ascend
+        default-input-modes: [text]
+        default-output-modes: [text]
+        capabilities:
+          streaming: false
+          push-notifications: false
+          extended-agent-card: false
+        skills:
+          - id: verify_claim
+            name: Verify a claim against sources
+            description: >-
+              Cross-reference a factual claim against provided and searched
+              sources. Supports numeric, categorical, temporal, and
+              qualitative claim types. Returns verdict (support/contradict/
+              insufficient/partial) with confidence and citations.
+            tags: [verify, fact-check, research, deep-research]
+            examples:
+              - "Verify: 火山方舟豆包 Pro 4K 输入价格为 0.0008 元/千 token"
+              - "Check if Qwen-Max context window is 32K tokens"
+              - "Fact-check: DeepSeek V3 supports Function Calling"
+            input-modes: [text]
+            output-modes: [text]
+
+logging:
+  level:
+    com.huawei.ascend.examples.deepresearch.verify: INFO
+    com.huawei.ascend.runtime: INFO

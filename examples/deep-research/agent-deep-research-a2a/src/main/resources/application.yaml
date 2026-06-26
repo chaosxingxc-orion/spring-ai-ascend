@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: agent-deep-research-a2a
+  profiles:
+    default: prod
+
+server:
+  port: 13002
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+agent-runtime:
+  remote-invocation:
+    max-legs: 30
+  access:
+    a2a:
+      default-tenant-id: ${DEEP_RESEARCH_TENANT_ID:deep-research-tenant}
+      default-agent-id: deep-research-agent
+      agent-card:
+        name: deep-research-agent
+        description: >-
+          Deep-research root DeepAgent. Accepts a natural-language research
+          request, orchestrates search-agent / plan_read / verify-agent sub-agents,
+          and returns a cited comparison report with confidence annotations.
+        version: "0.1.0"
+        organization: spring-ai-ascend
+        default-input-modes: [text]
+        default-output-modes: [text, artifact]
+        capabilities:
+          streaming: true
+          push-notifications: false
+          extended-agent-card: false
+        skills:
+          - id: deep-research
+            name: Deep LLM API vendor research
+            description: >-
+              Compare domestic LLM API vendors (pricing, context window, rate
+              limits, function calling, specialties). Pass a natural-language
+              research question. The agent orchestrates remote search, read,
+              and verify sub-agents and returns a markdown report plus a JSON
+              block with comparison_table, citations, and confidence_per_field.
+            tags: [research, deep-research, llm-api]
+            examples:
+              - >-
+                截至 2026 Q2，对比火山方舟、阿里百炼、智谱、Kimi、DeepSeek 五家的旗舰模型 API：
+                输入/输出定价、最大上下文窗口、QPS 默认限制、是否支持 Function Calling，
+                给出推荐选型矩阵。
+            input-modes: [text]
+            output-modes: [text]
+        supported-interfaces:
+          - protocol-binding: JSONRPC
+            url: /a2a
+  remote-agents:
+    - url: ${DEEP_RESEARCH_SEARCH_A2A_URL:http://localhost:13004}
+    - url: ${DEEP_RESEARCH_READ_A2A_URL:http://localhost:13005}
+    - url: ${DEEP_RESEARCH_VERIFY_A2A_URL:http://localhost:13006}
+
+deep-research:
+  memory:
+    provider: mem0
+    mem0:
+      base-url: ${DEEP_RESEARCH_MEM0_BASE_URL:http://7.209.189.82:8000}
+      api-key: ${DEEP_RESEARCH_MEM0_API_KEY:}
+      infer-on-save: false
+
+logging:
+  level:
+    root: INFO
+    com.huawei.ascend.examples.deepresearch: INFO
+    com.huawei.ascend.runtime: INFO

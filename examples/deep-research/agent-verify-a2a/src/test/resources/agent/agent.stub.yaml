@@ -1,0 +1,76 @@
+schema: ascend-agent/v1
+
+name: verify-agent
+displayName: Verify Agent (test stub)
+description: Deep research claim verification agent — test stub mode (no real API calls).
+
+framework:
+  type: openjiuwen
+  agent: react
+  options:
+    maxIterations: 6
+    sysOperationId: verify-agent
+
+model:
+  provider: OpenAI
+  name: test-model
+  baseUrl: http://localhost:4000/v1
+  apiKey: test-key
+  sslVerify: false
+
+prompt:
+  system: |
+    You are a test verify agent.
+
+tools:
+  - name: verify_claim
+    description: Cross-source claim verification (stub mode).
+    inputSchema:
+      type: object
+      properties:
+        claim:
+          type: string
+          description: The claim text to verify
+        sources:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              excerpt:
+                type: string
+          description: Source list with url and excerpt
+        claim_type:
+          type: string
+          enum: [numeric, categorical, temporal, qualitative]
+          description: Claim type
+      required: [claim, sources, claim_type]
+    ref:
+      type: file
+      class: com.huawei.ascend.examples.deepresearch.verify.tool.StubVerifyClaimTool
+      method: verify
+  - name: web_search
+    description: Web search (stub mode — returns empty results).
+    inputSchema:
+      type: object
+      properties:
+        query:
+          type: string
+          description: Search query
+        top_k:
+          type: integer
+          description: Max results, default 5
+        time_range:
+          type: string
+          enum: [year, month, week, all]
+          description: Time range filter
+        language:
+          type: string
+          enum: [zh, en, any]
+          description: Language filter
+      required: [query]
+    ref:
+      type: file
+      class: com.huawei.ascend.examples.deepresearch.verify.tool.StubWebSearchTool
+      method: search

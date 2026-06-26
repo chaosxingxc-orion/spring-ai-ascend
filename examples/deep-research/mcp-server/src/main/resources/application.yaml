@@ -1,0 +1,8 @@
+# mcp-server — minimal streamable-http MCP server for the deep-research demo.
+# search-agent-a2a points at this endpoint via agent-runtime.mcp.servers[0].url.
+server:
+  port: 13007
+
+logging:
+  level:
+    com.huawei.ascend.examples.deepresearch.mcp: INFO
