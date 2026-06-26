@@ -1,0 +1,11 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+deep-research:
+  memory:
+    provider: in-memory
+
+agent-runtime:
+  remote-agents: []

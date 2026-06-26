@@ -1,0 +1,39 @@
+{
+  "results": [
+    {
+      "url": "https://www.volcengine.com/product/ark/pricing",
+      "title": "火山方舟模型定价",
+      "snippet": "豆包系列模型输入输出价格说明",
+      "source_kind": "official",
+      "score": 0.95
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/billing",
+      "title": "阿里百炼计费说明",
+      "snippet": "通义千问 API 按 token 计费",
+      "source_kind": "official",
+      "score": 0.93
+    },
+    {
+      "url": "https://open.bigmodel.cn/pricing",
+      "title": "智谱AI开放平台定价",
+      "snippet": "GLM 系列模型价格",
+      "source_kind": "official",
+      "score": 0.91
+    },
+    {
+      "url": "https://platform.moonshot.cn/docs/pricing",
+      "title": "Kimi API 定价",
+      "snippet": "moonshot 模型价格表",
+      "source_kind": "official",
+      "score": 0.9
+    },
+    {
+      "url": "https://api-docs.deepseek.com/quick_start/pricing",
+      "title": "DeepSeek API 定价",
+      "snippet": "deepseek-chat 输入输出价格",
+      "source_kind": "official",
+      "score": 0.92
+    }
+  ]
+}

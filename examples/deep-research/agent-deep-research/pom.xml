@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend.examples</groupId>
+    <artifactId>deep-research-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>agent-deep-research</artifactId>
+  <packaging>jar</packaging>
+  <name>agent-deep-research</name>
+  <description>
+    Deep-research root DeepAgent spec: YAML assembly, system prompt, and constants.
+    No Spring or agent-runtime dependency.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-sdk</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <environmentVariables>
+            <DEEP_RESEARCH_LLM_PROVIDER>OpenAI</DEEP_RESEARCH_LLM_PROVIDER>
+            <DEEP_RESEARCH_LLM_MODEL>placeholder-model</DEEP_RESEARCH_LLM_MODEL>
+            <DEEP_RESEARCH_LLM_API_BASE>http://localhost:4000/v1</DEEP_RESEARCH_LLM_API_BASE>
+            <DEEP_RESEARCH_LLM_API_KEY>test-key</DEEP_RESEARCH_LLM_API_KEY>
+          </environmentVariables>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

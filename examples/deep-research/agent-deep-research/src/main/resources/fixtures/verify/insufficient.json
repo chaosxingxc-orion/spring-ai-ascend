@@ -1,0 +1,7 @@
+{
+  "verdict": "insufficient",
+  "confidence": 0.35,
+  "supporting_excerpts": [],
+  "contradicting_excerpts": [],
+  "suggested_followup_query": "DeepSeek API 默认 QPS 限速 2026"
+}

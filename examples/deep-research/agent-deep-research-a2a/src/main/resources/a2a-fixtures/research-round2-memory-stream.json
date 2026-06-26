@@ -1,0 +1,21 @@
+{
+  "jsonrpc": "2.0",
+  "id": "deep-research-r2",
+  "method": "SendStreamingMessage",
+  "params": {
+    "message": {
+      "role": "ROLE_USER",
+      "messageId": "msg-dr-r2",
+      "contextId": "session-deep-research-2",
+      "metadata": {
+        "userId": "manual-user",
+        "agentId": "deep-research-agent"
+      },
+      "parts": [
+        {
+          "text": "上次对比里上下文窗口最大的是哪家？"
+        }
+      ]
+    }
+  }
+}

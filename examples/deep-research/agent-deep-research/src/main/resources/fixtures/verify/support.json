@@ -1,0 +1,18 @@
+{
+  "verdict": "support",
+  "confidence": 0.92,
+  "supporting_excerpts": [
+    {
+      "url": "https://www.volcengine.com/product/ark/pricing",
+      "quote": "输入 0.0008 元/千 token",
+      "is_authoritative": true
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/billing",
+      "quote": "按百万 token 计费，折算后一致",
+      "is_authoritative": true
+    }
+  ],
+  "contradicting_excerpts": [],
+  "suggested_followup_query": null
+}

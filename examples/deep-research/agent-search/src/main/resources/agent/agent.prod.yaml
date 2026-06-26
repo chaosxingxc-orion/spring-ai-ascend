@@ -1,0 +1,96 @@
+# search-agent prod assembly — loaded by AgentFactory.toReactAgent(...)
+# Stub counterpart: agent.stub.yaml. Only tools[].ref.class differs between
+# the two; model / prompt / framework are byte-identical so the assembly path
+# does not drift between profiles.
+schema: ascend-agent/v1
+
+name: search-agent
+displayName: Deep-Research Search Agent
+description: |
+  ReAct sub-agent that answers web_search calls from the deep-research
+  root DeepAgent. Wraps Tavily Search with a vendor-official-domain
+  reranker and a source_kind classifier.
+
+framework:
+  type: openjiuwen
+  agent: react
+  options:
+    maxIterations: 4
+    sysOperationId: deep-research-search-agent
+
+model:
+  # All four fields are env-driven so the same jar runs against any
+  # OpenAI-compatible endpoint without a rebuild. agent-sdk's env resolver
+  # only recognises the bare placeholder form (no default-value fallback,
+  # verified against AgentYamlEnvironmentResolver); unset vars throw at
+  # parse time. CAUTION: the resolver runs regex on the raw YAML string
+  # BEFORE the YAML parser, so any literal placeholder in this comment block
+  # would also be expanded — keep dollar-brace tokens out of comments.
+  #
+  # Provider string is forwarded verbatim to OpenJiuwen's
+  # ModelClientConfig.clientProvider — agent-sdk itself does no normalisation
+  # (see OpenJiuwenModelMapper.toModelClientConfig). The agent-sdk test
+  # fixtures all use the lowercase openai-compatible token, so if the model
+  # call fails with a provider-not-recognised style error, export LLM_PROVIDER
+  # to that token rather than chasing it inside OpenJiuwen.
+  provider: ${LLM_PROVIDER}
+  name: ${LLM_MODEL}
+  baseUrl: ${LLM_API_BASE}
+  apiKey: ${LLM_API_KEY}
+  sslVerify: true
+
+prompt:
+  system: |
+    You are the search sub-agent of a deep-research multi-agent system.
+
+    Your only tool is `web_search`, which you must call exactly once per user
+    request unless the first call returns an empty `results` array — in that
+    case, retry at most once with a reformulated query (drop vendor brand
+    names, switch language) before giving up.
+
+    Call signature:
+      web_search({ query: string, top_k: int, time_range: "year"|"month"|"week"|"all", language: "zh"|"en"|"any" })
+
+    Output contract (must match exactly so the root agent can parse it):
+      {
+        "results": [
+          { "url": "...", "title": "...", "snippet": "...",
+            "source_kind": "official|blog|news|forum", "score": 0.0 }
+        ]
+      }
+
+    Rules:
+    - Pass the user's query through verbatim — do not rewrite unless retrying.
+    - Do not invent fields. The tool already classifies source_kind by host
+      and reweights official sources; pass its output through unmodified.
+    - Do not synthesise summaries — verification and synthesis happen in the
+      root agent. Return ONLY the JSON object above.
+
+tools:
+  - name: web_search
+    description: |
+      Search the public web via Tavily, apply vendor-official-host reranking,
+      and return the contract-shaped result list. Tavily API key is read
+      from the TAVILY_API_KEY env var on first call (process-level cache).
+    inputSchema:
+      type: object
+      properties:
+        query:
+          type: string
+          description: Search query string.
+        top_k:
+          type: integer
+          description: Max number of results to return (1..10).
+        time_range:
+          type: string
+          enum: [year, month, week, all]
+          description: Restrict results to a recency window.
+        language:
+          type: string
+          enum: [zh, en, any]
+          description: Preferred result language.
+      required: [query]
+    ref:
+      type: file
+      class: com.huawei.ascend.examples.deepresearch.search.WebSearchTool
+      method: search

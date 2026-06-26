@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  agent-search-a2a — Spring Boot wrapper that hosts agent-search as an A2A
+  service. The handler overrides createOpenJiuwenAgent(ctx) to call
+  AgentFactory.toReactAgent(yamlPath), where yamlPath is selected by Spring
+  profile (stub / prod). No Java agent assembly lives here.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend.examples</groupId>
+    <artifactId>deep-research-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>agent-search-a2a</artifactId>
+  <packaging>jar</packaging>
+  <name>agent-search-a2a</name>
+  <description>
+    Spring Boot wrapper hosting agent-search under agent-runtime. Exposes the
+    deep-research search sub-agent via A2A JSON-RPC on port 13004.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.huawei.ascend.examples</groupId>
+      <artifactId>agent-search</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.huawei.ascend</groupId>
+      <artifactId>agent-runtime</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>com.huawei.ascend.examples.deepresearch.search.a2a.SearchAgentApplication</mainClass>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

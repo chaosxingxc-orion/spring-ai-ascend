@@ -1,0 +1,74 @@
+# agent-search-a2a — Spring Boot wrapper hosting the deep-research search
+# sub-agent under agent-runtime, exposed as an A2A JSON-RPC service.
+#
+# YAML-driven assembly (TOPOLOGY §2.1): the active profile selects which
+# /agent/agent.*.yaml is fed to AgentFactory.toReactAgent(). Default = prod
+# (real Tavily); activate -Dspring.profiles.active=stub for fixture-backed runs.
+server:
+  port: 13004
+
+agent-runtime:
+  # MCP wiring. The runtime auto-config activates on
+  # agent-runtime.mcp.servers.0.url (see McpAutoConfiguration), discovers tools
+  # via tools/list, and installs them onto every ReActAgent built by this
+  # handler. The default URL points at examples/deep-research/mcp-server/.
+  mcp:
+    servers:
+      - server-id: deep-research-mcp
+        url: ${DEEP_RESEARCH_MCP_URL:http://localhost:13007/mcp}
+        transport: streamable-http
+  access:
+    a2a:
+      agent-card:
+        name: search-agent
+        description: >-
+          Deep-research search sub-agent. Issues a single web_search call,
+          classifies sources (official / blog / news / forum), reweights
+          vendor-official domains, and returns the top-k ranked results as
+          structured JSON for the root DeepAgent to verify and synthesise.
+        version: "0.1.0"
+        organization: spring-ai-ascend
+        default-input-modes: [text]
+        default-output-modes: [text]
+        capabilities:
+          streaming: false
+          push-notifications: false
+          extended-agent-card: false
+        skills:
+          - id: web_search
+            name: Web search with source-kind classification
+            description: >-
+              Run one web_search query (optional time_range / language /
+              top_k), classify each hit as official / blog / news / forum,
+              reweight vendor-official hits, and return a ranked
+              {results:[{url,title,snippet,source_kind,score}]} JSON payload.
+            tags: [search, web, deep-research]
+            examples:
+              - "豆包 1.6 模型的上下文长度是多少？请给出官方资料。"
+              - "Compare DeepSeek-V3 and Kimi K2 release notes from official sources."
+            input-modes: [text]
+            output-modes: [text]
+
+search-agent:
+  # Default to the production assembly. Override with -Dspring.profiles.active=stub
+  # (or SPRING_PROFILES_ACTIVE=stub) for fixture-backed local runs.
+  yaml-classpath: /agent/agent.prod.yaml
+  # SkillHub root, resolved relative to the process working directory. The
+  # demo assumes the app is started from examples/deep-research/agent-search-a2a/.
+  # Override with DEEP_RESEARCH_SKILLHUB_ROOT for other layouts.
+  skillhub:
+    root: ${DEEP_RESEARCH_SKILLHUB_ROOT:skills}
+
+logging:
+  level:
+    com.huawei.ascend.examples.deepresearch: INFO
+    com.huawei.ascend.runtime: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: stub
+
+search-agent:
+  yaml-classpath: /agent/agent.stub.yaml

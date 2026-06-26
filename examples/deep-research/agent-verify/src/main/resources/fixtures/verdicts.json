@@ -1,0 +1,77 @@
+[
+  {
+    "claim_hash": "ed39bb10",
+    "claim": "火山方舟豆包 Pro 4K 模型输入价格为 0.0008 元/千 token",
+    "verdict": "support",
+    "confidence": 0.92,
+    "supporting_excerpts": [
+      {
+        "url": "https://www.volcengine.com/docs/82379/pricing",
+        "quote": "豆包 Pro 4K 输入 0.0008 元/千tokens，输出 0.002 元/千tokens",
+        "is_authoritative": true
+      }
+    ],
+    "contradicting_excerpts": [],
+    "suggested_followup_query": null
+  },
+  {
+    "claim_hash": "496ca660",
+    "claim": "阿里百炼 Qwen-Max 上下文窗口为 32K tokens",
+    "verdict": "contradict",
+    "confidence": 0.88,
+    "supporting_excerpts": [],
+    "contradicting_excerpts": [
+      {
+        "url": "https://bailian.aliyun.com/models/qwen-max",
+        "quote": "Qwen-Max 上下文窗口为 128K tokens",
+        "is_authoritative": true
+      }
+    ],
+    "suggested_followup_query": "阿里百炼 Qwen-Max 实际上下文窗口大小"
+  },
+  {
+    "claim_hash": "d5c5fb24",
+    "claim": "DeepSeek V3 的 QPS 限制为 1000 次/分钟",
+    "verdict": "insufficient",
+    "confidence": 0.35,
+    "supporting_excerpts": [],
+    "contradicting_excerpts": [],
+    "suggested_followup_query": "DeepSeek V3 API QPS 默认限制"
+  },
+  {
+    "claim_hash": "648ce1bd",
+    "claim": "智谱 GLM-4 支持 Function Calling 和流式输出",
+    "verdict": "support",
+    "confidence": 0.95,
+    "supporting_excerpts": [
+      {
+        "url": "https://bigmodel.cn/dev/api/normal-model/glm-4",
+        "quote": "GLM-4 支持 Function Calling、流式输出（SSE）、System Prompt",
+        "is_authoritative": true
+      }
+    ],
+    "contradicting_excerpts": [],
+    "suggested_followup_query": null
+  },
+  {
+    "claim_hash": "5987e4e1",
+    "claim": "百度文心一言 4.0 图像理解准确率业界第一",
+    "verdict": "partial",
+    "confidence": 0.60,
+    "supporting_excerpts": [
+      {
+        "url": "https://yiyan.baidu.com/tech",
+        "quote": "文心一言 4.0 具备多模态理解能力，支持图像识别与分析",
+        "is_authoritative": true
+      }
+    ],
+    "contradicting_excerpts": [
+      {
+        "url": "https://example.com/benchmark-2026q1",
+        "quote": "2026 Q1 多模态基准测试中，GPT-5 和 Gemini 3 在图像理解综合得分上领先文心一言 4.0",
+        "is_authoritative": false
+      }
+    ],
+    "suggested_followup_query": "2026 Q2 图像理解能力权威基准测试排名"
+  }
+]

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  examples/deep-research parent + aggregator POM.
+
+  Hosts the deep-research demo: one DeepAgent root + three ReAct sub-agents
+  (search / read / verify), each split into a library jar and an a2a wrapper.
+  All four agents are assembled through agent-sdk YAML (iteration-2 feature 2)
+  — wrappers must override createOpenJiuwen[Deep]Agent(ctx) to call
+  AgentFactory.toReactAgent(yaml) / toDeepAgent(yaml).
+
+  Decoupled from the repository root (no <relativePath> back to root); resolves
+  agent-runtime / agent-sdk / openJiuwen agent framework from the local m2 repo.
+  This matches the layout of examples/travel/pom.xml.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.0.5</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.huawei.ascend.examples</groupId>
+  <artifactId>deep-research-parent</artifactId>
+  <version>0.2.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>spring-ai-ascend deep-research examples parent</name>
+  <description>
+    Parent + aggregator for the deep-research demo: a DeepAgent root plus
+    ReAct search / read / verify sub-agents, each split into library jar and
+    A2A wrapper. Resolves agent-runtime + agent-sdk from m2; carries no link
+    to the repository root.
+  </description>
+
+  <properties>
+    <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <ascend.runtime.version>0.2.0-SNAPSHOT</ascend.runtime.version>
+    <ascend.sdk.version>0.2.0-SNAPSHOT</ascend.sdk.version>
+    <openjiuwen.agent-core.version>0.1.12-jdk17</openjiuwen.agent-core.version>
+    <protobuf.version>4.33.2</protobuf.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>agent-runtime</artifactId>
+        <version>${ascend.runtime.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>agent-sdk</artifactId>
+        <version>${ascend.sdk.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.openjiuwen</groupId>
+        <artifactId>agent-core-java</artifactId>
+        <version>${openjiuwen.agent-core.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>${protobuf.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java-util</artifactId>
+        <version>${protobuf.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend.examples</groupId>
+        <artifactId>agent-deep-research</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend.examples</groupId>
+        <artifactId>agent-search</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.huawei.ascend.examples</groupId>
+        <artifactId>agent-verify</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <repositories>
+    <repository>
+      <id>spring-milestones</id>
+      <name>Spring Milestones</name>
+      <url>https://repo.spring.io/milestone</url>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+  </repositories>
+
+  <modules>
+    <module>agent-deep-research</module>
+    <module>agent-deep-research-a2a</module>
+    <module>agent-search</module>
+    <module>agent-search-a2a</module>
+    <module>agent-verify</module>
+    <module>agent-verify-a2a</module>
+    <module>mcp-server</module>
+  </modules>
+</project>

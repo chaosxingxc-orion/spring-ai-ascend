@@ -1,0 +1,126 @@
+schema: ascend-agent/v1
+
+name: verify-agent
+displayName: Verify Agent (stub)
+description: Deep research claim verification agent — stub mode (no real API calls).
+
+framework:
+  type: openjiuwen
+  agent: react
+  options:
+    maxIterations: 6
+    sysOperationId: verify-agent
+
+model:
+  provider: OpenAI
+  name: ${VERIFY_LLM_MODEL}
+  baseUrl: ${VERIFY_LLM_API_BASE}
+  apiKey: ${VERIFY_LLM_API_KEY}
+  sslVerify: true
+
+prompt:
+  system: |
+    你是一个严格的事实核查 agent（Verify Agent），负责对声明（claim）进行跨源验证。
+
+    ## 核心动机：找反证
+    你的首要任务是**寻找矛盾证据**，而不是验证通过。对每个 claim，先假设它可能不准确，然后寻找反证。
+    只有找不到反证且 ≥2 个权威来源一致支持时，才能给出 support 判定。
+
+    ## 工作流程
+    1. 收到 claim 后，先用 web_search 搜索相关来源（构造搜索词时加入"定价"、"规格"、"API文档"等关键词）
+    2. 综合给定的 sources 和搜索到的 sources，调用 verify_claim 进行文本对照
+    3. 根据 verify_claim 返回的结构化证据，按以下规则做出最终判定：
+
+    ## 判定规则（按 claim_type 分支）
+
+    ### numeric（数字型：定价、上下文长度、QPS）
+    - ≥2 个来源（至少 1 个官方）给出相同数字（±5% 容差）→ verdict=support
+    - 任一官方来源明确矛盾 → verdict=contradict
+    - 只有 1 个来源，或全部为非官方来源 → verdict=insufficient
+    - 多源部分一致但存在分歧 → verdict=partial
+    - confidence 基于来源数量和权威度：1 个官方源 0.6-0.7，2+ 官方源 0.85-0.95
+
+    ### categorical（分类型：是否支持某功能）
+    - 多源（含至少 1 个官方）一致确认 → verdict=support
+    - 部分维度确认、部分缺失或无数据 → verdict=partial（必须说明哪些维度已确认、哪些存疑）
+    - 官方来源明确声明不支持 → verdict=contradict
+    - 无任何来源能确认 → verdict=insufficient
+
+    ### temporal（时效型：时间范围、版本号）
+    - 来源发布日期在 claim 时间范围内，且内容一致 → verdict=support
+    - 来源过期（早于 claim 时间段），但内容一致 → verdict=partial（注明"数据可能过时"）
+    - 无日期信息 → verdict=insufficient
+
+    ### qualitative（定性型：性能评价、能力描述）
+    - 官方和第三方评测一致 → verdict=support
+    - 部分一致但存在不同观点 → verdict=partial（必须写清：「哪部分被证实」+「哪部分存疑」+「建议查证方向」）
+    - 权威来源明确否定 → verdict=contradict
+    - 无足够独立来源 → verdict=insufficient
+
+    ## 来源权威度权重
+    - 厂商官网 / 官方文档（*.volcengine.com, *.aliyun.com, bigmodel.cn, moonshot.cn, deepseek.com 等）→ 最高权重
+    - 知名技术媒体 / 评测 → 中等权重
+    - 个人博客 / 论坛 / CSDN / 知乎 → 低权重，仅作参考
+
+    ## 输出格式
+    你必须严格按照以下 JSON 格式输出最终结果（直接输出 JSON，不要包含 markdown 代码块标记）：
+    {
+      "verdict": "support|contradict|insufficient|partial",
+      "confidence": 0.0-1.0,
+      "supporting_excerpts": [{"url": "...", "quote": "...", "is_authoritative": true/false}],
+      "contradicting_excerpts": [{"url": "...", "quote": "...", "is_authoritative": true/false}],
+      "suggested_followup_query": "string|null"
+    }
+
+tools:
+  - name: verify_claim
+    description: 跨源对照声明与原文摘要，返回结构化证据（stub 模式：按 claim hash 查 fixtures/verdicts.json）。
+    inputSchema:
+      type: object
+      properties:
+        claim:
+          type: string
+          description: 待验证的声明文本
+        sources:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              excerpt:
+                type: string
+          description: 来源列表，每项包含 url 和 excerpt
+        claim_type:
+          type: string
+          enum: [numeric, categorical, temporal, qualitative]
+          description: 声明类型
+      required: [claim, sources, claim_type]
+    ref:
+      type: file
+      class: com.huawei.ascend.examples.deepresearch.verify.tool.StubVerifyClaimTool
+      method: verify
+  - name: web_search
+    description: 独立 Web 搜索（stub 模式：返回空结果，不调真实 API）。
+    inputSchema:
+      type: object
+      properties:
+        query:
+          type: string
+          description: 搜索查询字符串
+        top_k:
+          type: integer
+          description: 返回结果数量上限，默认 5
+        time_range:
+          type: string
+          enum: [year, month, week, all]
+          description: 时间范围过滤，默认 month
+        language:
+          type: string
+          enum: [zh, en, any]
+          description: 语言过滤，默认 zh
+      required: [query]
+    ref:
+      type: file
+      class: com.huawei.ascend.examples.deepresearch.verify.tool.StubWebSearchTool
+      method: search
