@@ -250,32 +250,10 @@ final class LocalDirectorySkillHubProvider implements SkillHubProvider {
     }
 
     private static String description(String markdown) {
-        String frontmatter = frontmatterDescription(markdown);
-        if (!frontmatter.isBlank()) {
-            return frontmatter;
-        }
         return markdown.lines()
                 .map(String::trim)
                 .filter(line -> !line.isBlank())
                 .filter(line -> !line.startsWith("#"))
-                .filter(line -> !line.equals("---"))
-                .findFirst()
-                .orElse("");
-    }
-
-    private static String frontmatterDescription(String markdown) {
-        if (markdown == null || !markdown.startsWith("---")) {
-            return "";
-        }
-        String[] parts = markdown.split("---", 3);
-        if (parts.length < 3) {
-            return "";
-        }
-        return parts[1].lines()
-                .map(String::trim)
-                .filter(line -> line.startsWith("description:"))
-                .map(line -> line.substring("description:".length()).trim())
-                .filter(line -> !line.isBlank())
                 .findFirst()
                 .orElse("");
     }

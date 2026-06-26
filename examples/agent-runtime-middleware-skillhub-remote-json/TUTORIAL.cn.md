@@ -8,7 +8,7 @@
 2. 远端 Hub 返回某个 skill 的完整定义。
 3. 远端 Hub 返回某个 skill 的 zip 包。
 4. Runtime 通过 HTTP `SkillHubProvider` 访问远端 Hub。
-5. OpenJiuwen adapter 将远端 definition 中的 `openjiuwen.skill.path` 注册到 Agent，并把完整 instructions 注入 ReActAgent 的 `runtime_skillhub` prompt section。
+5. OpenJiuwen adapter 将远端 definition 中的 `openjiuwen.skill.path` 注册到 Agent。
 
 ## 运行步骤
 
@@ -67,9 +67,6 @@ curl --noproxy '*' -X POST http://127.0.0.1:19102/sample/skillhub/ask \
 - `/sample/skillhub/skills/date-helper` 的 metadata 包含 `openjiuwen.skill.path`。
 - `date-helper-runtime.zip` 非空，说明 Runtime 不是只读摘要，也能按需下载完整 skill 包。
 - runtime 端执行 Agent 时日志包含 `installed openjiuwen skill`。
-- runtime 端执行 Agent 时日志包含 `skillhub install finished ... injected=1`。
-
-`installed` 表示 OpenJiuwen 原生 `SkillManager` 确认接收了 skill 路径；`injected` 表示 ReActAgent 已经收到 runtime 注入的完整 skill instructions。测试时建议同时观察这两个字段，避免只看路径注册日志造成误判。
 
 ## 自动化验证
 
@@ -81,7 +78,7 @@ curl --noproxy '*' -X POST http://127.0.0.1:19102/sample/skillhub/ask \
 
 1. JSON catalog provider 可以返回 summary、definition、package。
 2. HTTP provider 可以通过远端 Hub API 读取同样的数据。
-3. OpenJiuwen installer 可以把远端 definition 中的 `openjiuwen.skill.path` 注册进 Agent，并把 instructions 注入 ReActAgent prompt section。
+3. OpenJiuwen installer 可以把远端 definition 中的 `openjiuwen.skill.path` 注册进 Agent。
 
 ## 常见问题
 

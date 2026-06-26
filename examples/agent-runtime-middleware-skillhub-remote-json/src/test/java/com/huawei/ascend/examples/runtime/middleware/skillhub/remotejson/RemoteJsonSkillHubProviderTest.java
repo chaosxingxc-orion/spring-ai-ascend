@@ -9,8 +9,9 @@ import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenSkillHubInstaller;
 import com.huawei.ascend.runtime.engine.spi.SkillDefinition;
 import com.huawei.ascend.runtime.engine.spi.SkillSummary;
-import com.openjiuwen.core.singleagent.agents.ReActAgent;
-import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
+import com.openjiuwen.core.session.Session;
+import com.openjiuwen.core.session.stream.StreamMode;
+import com.openjiuwen.core.singleagent.BaseAgent;
 import com.openjiuwen.core.singleagent.schema.AgentCard;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -20,6 +21,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -34,10 +37,6 @@ class RemoteJsonSkillHubProviderTest {
         Path skillsRoot = tempDir.resolve("skills");
         Files.createDirectories(skillsRoot.resolve("date-helper"));
         Files.writeString(skillsRoot.resolve("date-helper").resolve("SKILL.md"), """
-                ---
-                description: Date helper skill.
-                ---
-
                 # Date Helper
 
                 Answer date questions.
@@ -98,8 +97,8 @@ class RemoteJsonSkillHubProviderTest {
     }
 
     @Test
-    void installerInjectsRemoteDefinitionInstructionsIntoReactAgent() {
-        ReActAgent agent = reactAgent();
+    void installerCanRegisterRemoteDefinitionPathOnOpenJiuwenAgent() {
+        RecordingAgent agent = new RecordingAgent();
         com.huawei.ascend.runtime.engine.spi.SkillHubProvider provider =
                 new com.huawei.ascend.runtime.engine.spi.SkillHubProvider() {
                     @Override
@@ -109,17 +108,14 @@ class RemoteJsonSkillHubProviderTest {
 
                     @Override
                     public SkillDefinition loadSkill(AgentExecutionContext context, String skillId) {
-                        return new SkillDefinition(skillId, "Date Helper", "Date skill",
-                                "REMOTE_JSON_SKILL_PROMPT_MARKER: answer date questions.",
+                        return new SkillDefinition(skillId, "Date Helper", "Date skill", "# Date Helper",
                                 List.of(), List.of(), Map.of("openjiuwen.skill.path", "skills/date-helper"));
                     }
                 };
 
         new OpenJiuwenSkillHubInstaller(provider).install(agent, context());
 
-        assertThat(agent.getPromptBuilder().build())
-                .contains("Runtime SkillHub has loaded the following skills")
-                .contains("REMOTE_JSON_SKILL_PROMPT_MARKER");
+        assertThat(agent.registeredSkills).containsExactly("skills/date-helper");
     }
 
     private static AgentExecutionContext context() {
@@ -139,14 +135,36 @@ class RemoteJsonSkillHubProviderTest {
         }
     }
 
-    private static ReActAgent reactAgent() {
-        ReActAgent agent = new ReActAgent(
-                AgentCard.builder().id("agent").name("agent").description("test").build());
-        ReActAgentConfig config = ReActAgentConfig.builder()
-                .promptTemplate(List.of(Map.of("role", "system", "content", "You are a remote skill test agent.")))
-                .build();
-        config.setSysOperationId("agent");
-        agent.configure(config);
-        return agent;
+    private static final class RecordingAgent extends BaseAgent {
+        private final List<Object> registeredSkills = new ArrayList<>();
+
+        private RecordingAgent() {
+            super(AgentCard.builder().id("agent").name("agent").description("test").build());
+        }
+
+        @Override
+        public void registerSkill(Object skills) {
+            registeredSkills.add(skills);
+        }
+
+        @Override
+        public BaseAgent configure(Object config) {
+            return this;
+        }
+
+        @Override
+        public Object getConfig() {
+            return null;
+        }
+
+        @Override
+        public Object invoke(Object input, Session session) {
+            return null;
+        }
+
+        @Override
+        public Iterator<Object> stream(Object input, Session session, List<StreamMode> streamModes) {
+            return List.of().iterator();
+        }
     }
 }

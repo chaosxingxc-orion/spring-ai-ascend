@@ -38,7 +38,7 @@ curl --noproxy '*' http://127.0.0.1:19091/sample/skillhub/skills/date-helper
 }
 ```
 
-OpenJiuwen adapter 会读取这个路径并调用 `BaseAgent.registerSkill(...)`。同时，针对 ReActAgent，adapter 会把完整 `instructions` 注入 `runtime_skillhub` prompt section，避免依赖模型主动调用 `readFile` 才能看到 `SKILL.md` 正文。
+OpenJiuwen adapter 会读取这个路径并调用 `BaseAgent.registerSkill(...)`。
 
 ## 下载技能包
 
@@ -59,11 +59,9 @@ curl --noproxy '*' -X POST http://127.0.0.1:19091/sample/skillhub/ask \
 
 观察点：
 
-- 日志包含 `installed openjiuwen skill`，并且最终 `skillhub install finished ... injected=1`。
+- 日志包含 `installed openjiuwen skill`。
 - 响应中的 `agentOutputs` 来自 OpenJiuwen 默认 Runner。
 - 这个样例不实现 MCP tool，也不托管远端 Skill Registry；它只演示 SkillHub 的 summary/definition/provider/installer 链路。
-
-`installed` 表示 OpenJiuwen 原生 `SkillManager` 确认接收了 skill 路径；`injected` 表示 ReActAgent 已经收到 runtime 注入的完整 skill instructions。两者分开观察，可以避免“路径注册看似成功但 LLM 看不到正文”的误判。
 
 ## 使用 GitHub 上的公开 skill 目录
 
