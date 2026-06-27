@@ -4,11 +4,11 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,13 +25,13 @@ class LocalTimeMcpController {
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Shanghai");
 
     @PostMapping("/mcp")
-    Map<String, Object> mcp(@RequestBody Map<String, Object> request) {
+    ResponseEntity<Map<String, Object>> mcp(@RequestBody Map<String, Object> request) {
         Object id = request.get("id");
         String method = String.valueOf(request.get("method"));
         if (id == null && method.startsWith("notifications/")) {
-            return Collections.emptyMap();
+            return ResponseEntity.accepted().build();
         }
-        return switch (method) {
+        Map<String, Object> response = switch (method) {
             case "initialize" -> response(id, Map.of(
                     "protocolVersion", "2025-06-18",
                     "serverInfo", Map.of("name", "local-time-mcp", "version", "1.0.0"),
@@ -40,6 +40,7 @@ class LocalTimeMcpController {
             case "tools/call" -> response(id, callTool(request));
             default -> error(id, -32601, "method not found: " + method);
         };
+        return ResponseEntity.ok(response);
     }
 
     private static List<Map<String, Object>> tools() {
