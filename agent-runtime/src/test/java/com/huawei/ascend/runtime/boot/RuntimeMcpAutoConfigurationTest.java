@@ -2,11 +2,13 @@ package com.huawei.ascend.runtime.boot;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huawei.ascend.runtime.common.RuntimeIdentity;
 import com.huawei.ascend.runtime.common.RuntimeMessage;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.mcp.McpAutoConfiguration;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenDeepAgentRuntimeHandler;
+import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenMcpToolAutoConfiguration;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenMcpToolInstaller;
 import com.huawei.ascend.runtime.engine.spi.McpProvider;
 import com.huawei.ascend.runtime.engine.spi.McpToolResult;
@@ -25,12 +27,40 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class RuntimeMcpAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(McpAutoConfiguration.class))
+            .withConfiguration(AutoConfigurations.of(
+                    McpAutoConfiguration.class,
+                    OpenJiuwenMcpToolAutoConfiguration.class))
             .withPropertyValues("agent-runtime.mcp.servers[0].url=http://localhost:18081");
+
+    @Test
+    void mcpProviderStartsWithoutUserProvidedJackson2ObjectMapper() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(McpAutoConfiguration.class))
+                .withPropertyValues("agent-runtime.mcp.servers[0].url=http://localhost:18081")
+                .run(context -> {
+                    assertThat(context).hasSingleBean(ObjectMapper.class);
+                    assertThat(context).hasSingleBean(McpProvider.class);
+                });
+    }
+
+    @Test
+    void autoConfiguredMcpProviderWiresInstallerIntoDeepAgentHandlers() {
+        contextRunner
+                .withUserConfiguration(DeepAgentHandlerOnlyConfiguration.class)
+                .run(context -> {
+                    assertThat(context).hasSingleBean(ObjectMapper.class);
+                    assertThat(context).hasSingleBean(McpProvider.class);
+                    assertThat(context).hasSingleBean(OpenJiuwenMcpToolInstaller.class);
+                    TestDeepAgentHandler handler = context.getBean(TestDeepAgentHandler.class);
+                    assertThat(ReflectionTestUtils.getField(handler, "mcpToolInstaller"))
+                            .isSameAs(context.getBean(OpenJiuwenMcpToolInstaller.class));
+                });
+    }
 
     @Test
     void mcpProviderWiresInstallerIntoDeepAgentHandlers() {
@@ -52,6 +82,14 @@ class RuntimeMcpAutoConfigurationTest {
                 "USER_MESSAGE",
                 List.of(RuntimeMessage.user("time?")),
                 Map.of(AgentExecutionContext.AGENT_STATE_KEY_VARIABLE, "conversation-1"));
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class DeepAgentHandlerOnlyConfiguration {
+        @Bean
+        TestDeepAgentHandler handler() {
+            return new TestDeepAgentHandler();
+        }
     }
 
     @Configuration(proxyBeanMethods = false)
