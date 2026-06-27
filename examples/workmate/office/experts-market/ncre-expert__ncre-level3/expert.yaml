@@ -1,0 +1,12 @@
+id: ncre-expert__ncre-level3
+name: 专向明
+description: NCRE一至四级专家团，覆盖Office、编程、数据库与网络安全，分工协作，量身定制备考方案。
+expertType: agent
+promptFile: prompt.md
+category: engineering
+tags:
+  - marketplace
+  - team-member
+profession:
+  zh: 三级辅导专家
+  en: Level 3 Tutor

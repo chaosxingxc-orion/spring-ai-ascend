@@ -1,0 +1,518 @@
+/**
+ * Shared capability market cards — experts / skills / connectors.
+ * Import after tokens; keeps grid alignment and card height consistent.
+ */
+
+:root {
+  --market-card-min-height: 272px;
+  --market-card-radius: 14px;
+  --market-card-gap: 16px;
+  --market-grid-min: 280px;
+}
+
+.market-tab-body .market-toolbar {
+  margin-bottom: 12px;
+}
+
+.market-tab-body .market-subtabs {
+  margin-bottom: 18px;
+}
+
+.expert-grid,
+.skill-grid,
+.connector-grid {
+  display: grid;
+  gap: var(--market-card-gap);
+  grid-template-columns: repeat(auto-fill, minmax(var(--market-grid-min), 1fr));
+  align-items: stretch;
+}
+
+/* —— Base capability card (skill + connector) —— */
+.market-capability-card,
+.expert-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: var(--market-card-min-height);
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: var(--market-card-radius);
+  background: var(--wm-pure-white, var(--surface));
+  box-shadow: var(--wm-shadow-card);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.market-capability-card:hover,
+.expert-card:hover {
+  border-color: color-mix(in srgb, var(--wm-huawei-red, var(--accent)) 22%, var(--border));
+  box-shadow: var(--wm-shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.expert-card {
+  min-height: 300px;
+  height: 300px;
+}
+
+.market-capability-card {
+  height: var(--market-card-min-height);
+  overflow: hidden;
+}
+
+.market-capability-card__actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.market-capability-card__actions .discover-favorite-btn.compact {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.market-capability-card__header {
+  flex-shrink: 0;
+  padding-right: 72px;
+  min-height: 2.6rem;
+}
+
+.market-capability-card__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.market-capability-card__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.market-capability-card__desc {
+  margin: 0;
+  flex: 1;
+  min-height: 3.6em;
+  font-size: 0.8125rem;
+  color: var(--wm-text-secondary, var(--muted));
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.market-capability-card__pills {
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+.market-capability-card__footer {
+  flex-shrink: 0;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 2px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.market-capability-card__footer:empty {
+  border-top-color: transparent;
+  min-height: 0;
+  padding-top: 0;
+}
+
+.market-capability-card__footer .btn.secondary {
+  min-height: 28px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+}
+
+.market-capability-card__hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.skill-featured-section {
+  margin-bottom: 22px;
+}
+
+.skill-featured-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.skill-featured-header h2 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.skill-featured-scroll {
+  display: flex;
+  gap: var(--market-card-gap);
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+
+.market-capability-card--featured {
+  flex: 0 0 min(var(--market-grid-min), 88vw);
+  scroll-snap-align: start;
+}
+
+.skill-add {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  border-radius: 8px;
+}
+
+.skill-installed-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--success, #16a34a) 85%, var(--text));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success, #16a34a) 10%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--success, #16a34a) 22%, transparent);
+}
+
+/* Connector cards — align with shared capability card metrics */
+.connector-grid .connector-card {
+  height: var(--market-card-min-height);
+  min-height: var(--market-card-min-height);
+  overflow: hidden;
+}
+
+.connector-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-shrink: 0;
+  padding-right: 8px;
+}
+
+.connector-card-titles h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connector-card .market-capability-card__desc,
+.connector-card .skill-card-desc {
+  flex: 1;
+  min-height: 3.6em;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--wm-text-secondary, var(--muted));
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.connector-card-actions {
+  margin-top: auto;
+  flex-shrink: 0;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  padding-top: 2px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.connector-card-actions:empty {
+  border-top-color: transparent;
+  min-height: 0;
+  padding-top: 0;
+}
+
+/* —— Home / discover playbook & practice cards —— */
+.featured-section-header,
+.best-practices-header,
+.discover-section-header,
+.skill-featured-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.featured-section-header .market-section-title,
+.best-practices-title,
+.discover-section-header h2,
+.skill-featured-header h2 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.featured-scroll {
+  display: flex;
+  gap: var(--market-card-gap);
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+
+.featured-scroll .playbook-card-wrap {
+  scroll-snap-align: start;
+  flex: 0 0 min(var(--market-grid-min), 88vw);
+}
+
+.playbook-card-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+}
+
+.playbook-card-wrap .discover-favorite-btn.compact {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+}
+
+.playbook-card {
+  width: 100%;
+  min-height: 168px;
+  height: 168px;
+  padding: 16px 44px 16px 16px;
+  border-radius: var(--market-card-radius);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--playbook-accent, var(--wm-huawei-red, var(--accent))) 10%, var(--wm-pure-white, var(--surface))),
+    var(--wm-pure-white, var(--surface))
+  );
+  box-shadow: var(--wm-shadow-card);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.playbook-card:hover {
+  border-color: color-mix(in srgb, var(--playbook-accent, var(--wm-huawei-red, var(--accent))) 35%, var(--border));
+  box-shadow: var(--wm-shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.playbook-card-title {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.playbook-card-desc {
+  font-size: 0.8125rem;
+  color: var(--wm-text-secondary, var(--muted));
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.best-practices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--market-grid-min), 1fr));
+  gap: var(--market-card-gap);
+  align-items: stretch;
+}
+
+.best-practice-card {
+  min-height: 168px;
+  border-radius: var(--market-card-radius);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  box-shadow: var(--wm-shadow-card);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.best-practice-card:hover {
+  border-color: color-mix(in srgb, var(--practice-accent, var(--wm-huawei-red, var(--accent))) 35%, var(--border));
+  box-shadow: var(--wm-shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.best-practice-preview {
+  height: 96px;
+}
+
+.best-practice-title {
+  padding: 12px 14px 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* —— Discover resource grid —— */
+.discover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--market-grid-min), 1fr));
+  gap: var(--market-card-gap);
+  align-items: stretch;
+}
+
+.discover-card.market-capability-card {
+  height: auto;
+  min-height: var(--market-card-min-height);
+  padding: 16px;
+}
+
+.discover-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 0;
+  min-height: auto;
+}
+
+.discover-card h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.discover-card > p:not(.discover-last-used) {
+  margin: 0;
+  flex: 1;
+  font-size: 0.8125rem;
+  color: var(--wm-text-secondary, var(--muted));
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.discover-card-actions {
+  margin-top: auto;
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+/* —— Expert market cards —— */
+.market-expert-card {
+  overflow: hidden;
+}
+
+.market-expert-card .expert-card-name {
+  font-size: 0.9375rem;
+  letter-spacing: -0.01em;
+}
+
+/* —— Shell pages: consistent page rhythm —— */
+.myfiles-page,
+.dev-studio-page,
+.nav-shell-page,
+.settings-page {
+  padding: 20px 24px 40px;
+}
+
+.myfiles-search,
+.dev-studio-search {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.myfiles-search:focus,
+.dev-studio-search:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--wm-huawei-red, var(--accent)) 40%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--wm-huawei-red, var(--accent)) 12%, transparent);
+}
+
+.myfiles-header h1,
+.dev-studio-header h1,
+.nav-shell-header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.market-section-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.market-tab-body .market-toolbar-block {
+  margin-bottom: 18px;
+}
+
+@media (max-width: 720px) {
+  .best-practices-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,229 @@
+/**
+ * Huawei red-white component polish (ref: dry-run/frontend/src/index.css)
+ * Applied after app.css — overrides accents, cards, nav active states.
+ */
+
+/* —— Shell —— */
+.app-shell {
+  background: var(--wm-light-gray-bg);
+}
+
+.chat-panel {
+  background: var(--wm-pure-white);
+}
+
+.chat-header {
+  background: var(--wm-pure-white);
+  border-bottom: 1px solid var(--wm-border);
+}
+
+.chat-header h2 {
+  color: var(--wm-deep-gray);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.sidebar {
+  background: var(--wm-pure-white);
+  border-right: 1px solid var(--wm-border);
+}
+
+.sidebar-brand h1 {
+  color: var(--wm-deep-gray);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* —— Primary actions (ref: .btn-primary) —— */
+.btn.primary {
+  background: var(--wm-huawei-red);
+  border-color: var(--wm-huawei-red);
+  color: var(--wm-pure-white);
+  transition:
+    background 0.25s ease-in-out,
+    border-color 0.25s ease-in-out,
+    box-shadow 0.25s ease-in-out,
+    transform 0.25s ease-in-out;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: var(--wm-huawei-red-dark);
+  border-color: var(--wm-huawei-red-dark);
+  box-shadow: var(--wm-shadow-primary);
+  transform: translateY(-1px);
+}
+
+.btn.secondary {
+  background: var(--wm-pure-white);
+  border-color: var(--wm-border);
+  color: var(--wm-deep-gray);
+  transition: border-color 0.25s ease-in-out, color 0.25s ease-in-out;
+}
+
+.btn.secondary:hover:not(:disabled) {
+  border-color: var(--wm-huawei-red);
+  color: var(--wm-huawei-red);
+}
+
+.sidebar-new-task {
+  background: var(--wm-huawei-red);
+  border-color: var(--wm-huawei-red);
+  color: var(--wm-pure-white);
+  font-weight: 600;
+  transition: background 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+}
+
+.sidebar-new-task:hover:not(:disabled) {
+  background: var(--wm-huawei-red-dark);
+  border-color: var(--wm-huawei-red-dark);
+  box-shadow: var(--wm-shadow-primary);
+}
+
+.dock-send {
+  background: var(--wm-huawei-red);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dock-send:hover:not(:disabled) {
+  background: var(--wm-huawei-red-dark);
+  box-shadow: var(--wm-shadow-primary);
+}
+
+/* —— Nav / session list (ref: border-l-4 border-huawei-red) —— */
+.sidebar-nav-list .sidebar-nav-item.active {
+  background: color-mix(in srgb, var(--wm-huawei-red) 6%, var(--wm-pure-white));
+  border-left: 3px solid var(--wm-huawei-red);
+  padding-left: 7px;
+  color: var(--wm-deep-gray);
+}
+
+.sidebar-nav-list .sidebar-nav-item:hover:not(:disabled) {
+  background: var(--wm-light-gray-bg);
+}
+
+.session-item.active {
+  border-left: 3px solid var(--wm-huawei-red);
+  border-color: var(--wm-border);
+  background: color-mix(in srgb, var(--wm-huawei-red) 6%, var(--wm-pure-white));
+}
+
+.session-item:hover {
+  background: var(--wm-light-gray-bg);
+}
+
+/* —— Cards (ref: .card + .card-accent-left) —— */
+.ask-question-card,
+.business-approval-card,
+.plan-card,
+.tool-card,
+.open-result-card {
+  border: 1px solid var(--wm-border);
+  border-left: 3px solid var(--wm-huawei-red);
+  box-shadow: var(--wm-shadow-card);
+  transition: box-shadow 0.25s ease-in-out, border-color 0.25s ease-in-out;
+}
+
+.ask-question-card:hover,
+.tool-card:hover,
+.plan-card:hover {
+  border-color: var(--wm-huawei-red);
+  box-shadow: var(--wm-shadow-card-hover);
+}
+
+.ask-question-card.status-answered {
+  border-left-color: var(--wm-success);
+}
+
+.ask-question-card.status-cancelled,
+.ask-question-card.status-skipped {
+  border-left-color: var(--wm-text-muted);
+}
+
+.ask-question-icon {
+  background: color-mix(in srgb, var(--wm-huawei-red) 12%, var(--wm-pure-white));
+  color: var(--wm-huawei-red);
+}
+
+.ask-question-option.active {
+  border-color: var(--wm-huawei-red);
+  background: color-mix(in srgb, var(--wm-huawei-red) 8%, var(--wm-pure-white));
+  color: var(--wm-deep-gray);
+}
+
+/* —— Inputs (ref: .input:focus) —— */
+.input-dock-textarea:focus,
+.sidebar-search:focus {
+  outline: none;
+}
+
+.input-dock:focus-within {
+  border-color: color-mix(in srgb, var(--wm-accent) 28%, var(--wm-border));
+  box-shadow: var(--wm-focus-ring), var(--wm-shadow-card);
+}
+
+.input-dock-centered .input-dock:focus-within {
+  border-color: color-mix(in srgb, var(--wm-accent) 28%, var(--wm-border));
+  box-shadow: var(--wm-focus-ring), var(--wm-shadow-card);
+}
+
+.input-dock-shell {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* —— Chat messages —— */
+.assistant-brand {
+  color: var(--wm-deep-gray);
+  font-weight: 600;
+}
+
+.message.user .message-body,
+.chat-messages-workmate .message.user .message-body {
+  background: color-mix(in srgb, var(--wm-huawei-red) 8%, var(--wm-pure-white));
+  border: 1px solid color-mix(in srgb, var(--wm-huawei-red) 20%, var(--wm-border));
+}
+
+.markdown-body a:hover {
+  color: var(--wm-huawei-red);
+}
+
+/* —— Detail panel tabs —— */
+.detail-panel-tab.active {
+  color: var(--wm-huawei-red);
+  border-bottom-color: var(--wm-huawei-red);
+}
+
+/* —— Team delegation bar —— */
+.team-delegation-pill.focused {
+  border-color: var(--wm-huawei-red);
+  box-shadow: 0 0 0 1px var(--wm-huawei-red);
+}
+
+.member-focus-banner {
+  border-left: 3px solid var(--wm-huawei-red);
+  background: color-mix(in srgb, var(--wm-huawei-red) 4%, var(--wm-pure-white));
+}
+
+/* —— Session header actions —— */
+.session-header-icon-toolbar {
+  background: var(--wm-light-gray-bg);
+  border-color: var(--wm-border);
+}
+
+.session-header-icon-btn.active {
+  background: color-mix(in srgb, var(--wm-huawei-red) 10%, var(--wm-pure-white));
+  color: var(--wm-huawei-red);
+}
+
+.session-header-share-btn {
+  border-color: color-mix(in srgb, var(--wm-huawei-red) 35%, var(--wm-border));
+  color: var(--wm-huawei-red);
+  font-weight: 600;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.session-header-share-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--wm-huawei-red) 6%, var(--wm-pure-white));
+  border-color: var(--wm-huawei-red);
+}

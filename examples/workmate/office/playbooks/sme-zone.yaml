@@ -1,0 +1,7 @@
+id: sme-zone
+title: 中小企业专区
+description: 经营管理、营销增长、数字化转型
+accent: "#34C759"
+initPrompt: 为中小企业制定数字化转型的第一阶段行动计划
+placements:
+  - market-featured

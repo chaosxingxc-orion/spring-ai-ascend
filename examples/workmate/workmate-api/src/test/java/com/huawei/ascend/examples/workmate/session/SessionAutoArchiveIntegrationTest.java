@@ -1,0 +1,47 @@
+package com.huawei.ascend.examples.workmate.session;
+import com.huawei.ascend.examples.workmate.support.WorkmateIntegrationTestBase;
+import com.huawei.ascend.examples.workmate.support.WorkmateTestPaths;
+import com.huawei.ascend.examples.workmate.support.WorkmateTestProperties;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+
+class SessionAutoArchiveIntegrationTest extends WorkmateIntegrationTestBase {
+
+    private static WorkmateTestPaths paths;
+
+        @DynamicPropertySource
+    static void registerProperties(DynamicPropertyRegistry registry) throws Exception {
+        paths = WorkmateTestProperties.registerBaseline(registry, "workmate-auto-archive");
+        registry.add("workmate.session.max-active", () -> "1");
+        registry.add("workmate.session.auto-archive-on-create", () -> "true");
+    }
+
+    @Test
+    void createSessionAutoArchivesOldestWhenAtLimit() throws Exception {
+        mockMvc.perform(post("/api/v1/sessions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"First"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.autoArchived").isEmpty());
+
+        mockMvc.perform(post("/api/v1/sessions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Second"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.autoArchived.length()").value(1))
+                .andExpect(jsonPath("$.title").value("Second"));
+    }
+}

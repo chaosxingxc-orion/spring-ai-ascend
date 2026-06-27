@@ -1,0 +1,4 @@
+workspaces/
+data/
+application-local.yaml
+.env.local

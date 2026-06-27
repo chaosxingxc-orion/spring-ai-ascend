@@ -1,0 +1,8 @@
+id: web-access
+name: Web Access
+description: 通过 MCP 或 workspace 工具访问外部文档与 API 摘要
+category: dev
+tags: [web, mcp]
+source: recommended
+defaultInstalled: false
+skillFile: SKILL.md

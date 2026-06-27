@@ -1,0 +1,14 @@
+id: content-reviewer
+name: 内容质控助手
+displayName: { zh: 内容质控助手, en: Content Reviewer }
+profession: { zh: 合规审查员, en: Compliance Reviewer }
+maxTurns: 20
+description: 审核草稿是否满足用户要求，输出结构化通过/驳回结论
+expertType: agent
+promptFile: prompt.md
+defaultInitPrompt: 审核一段产品简介草稿的质量与完整性
+category: product
+tags:
+  - review
+  - quality
+skillCompatibility: []

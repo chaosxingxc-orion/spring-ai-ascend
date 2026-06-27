@@ -1,0 +1,7 @@
+id: legal-consult
+title: 法律咨询
+description: 合同审查、法律顾问、合规咨询
+accent: "#FF9500"
+initPrompt: 审查以下合同条款的风险点，列出需修改的条目
+placements:
+  - market-featured

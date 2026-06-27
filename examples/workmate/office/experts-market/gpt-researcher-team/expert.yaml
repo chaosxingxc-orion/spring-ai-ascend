@@ -1,0 +1,83 @@
+id: gpt-researcher-team
+name: 深度研究团队
+description: 7 位专业角色分 5 阶段协作完成深度研究：初始调研 → 规划大纲 → 逐章深度研究（审稿修订循环）→ 撰写报告框架 → 发布输出。支持完整 / 快速 / 单章三种模式。适用于行业研究、竞品分析、技术综述、学术文献综述等场景，产出带多源超链接引用的专业研究报告。
+expertType: team
+runtime: openjiuwen-team
+teamAgent:
+  teamMode: hybrid
+  spawnMode: inprocess
+  teammateMode: build_mode
+collaboration: sequential
+coordination:
+  pattern: orchestrator
+maxTurns: 200
+promptFile: lead-prompt.md
+defaultInitPrompt: 帮我深度调研下AI Agent在企业级应用中的发展趋势
+category: dataai
+tags:
+  - marketplace
+  - team
+  - 深度研究
+  - 行业报告
+  - 多源引用
+lead:
+  name: 顾全之
+  title:
+    zh: 研究主编
+    en: Research Editor-in-Chief
+members:
+  # order 仅 UI 排序；执行顺序由主理人 Phase 1→5 SOP 决定（topic-researcher 先于 research-planner）
+  - id: topic-researcher
+    name: 谭溯源
+    profession:
+      zh: 课题研究员
+      en: Topic Researcher
+    expertId: gpt-researcher-team__topic-researcher
+    role: 课题研究员
+    order: 1
+    avatar: 🧑
+  - id: research-planner
+    name: 季要纲
+    profession:
+      zh: 研究编辑
+      en: "Research Planner & Editor"
+    expertId: gpt-researcher-team__research-planner
+    role: 研究编辑
+    order: 2
+    avatar: 🧑
+  - id: draft-reviewer
+    name: 明鉴秋
+    profession:
+      zh: 草稿审稿人
+      en: Draft Reviewer
+    expertId: gpt-researcher-team__draft-reviewer
+    role: 草稿审稿人
+    order: 3
+    avatar: 🧑
+  - id: draft-reviser
+    name: 任润泽
+    profession:
+      zh: 内容修订员
+      en: Draft Reviser
+    expertId: gpt-researcher-team__draft-reviser
+    role: 内容修订员
+    order: 4
+    avatar: 🧑
+  - id: report-writer
+    name: 程文成
+    profession:
+      zh: 报告撰写人
+      en: Report Writer
+    expertId: gpt-researcher-team__report-writer
+    role: 报告撰写人
+    order: 5
+    avatar: 🧑
+  - id: report-publisher
+    name: 傅梓铭
+    profession:
+      zh: 报告发布员
+      en: Report Publisher
+    expertId: gpt-researcher-team__report-publisher
+    role: 报告发布员
+    order: 6
+    avatar: 🧑

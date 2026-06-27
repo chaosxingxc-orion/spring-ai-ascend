@@ -1,0 +1,9 @@
+{"name":"team.started","data":{"teamId":"product-research-team","pattern":"agent-team","memberCount":2}}
+{"name":"team.memory","data":{"path":"team/parent-run/blackboard.md"}}
+{"name":"team.parallel.started","data":{"memberCount":2}}
+{"name":"team.member.started","data":{"memberId":"prd-writer"}}
+{"name":"team.member.started","data":{"memberId":"fund-analyst"}}
+{"name":"team.member.completed","data":{"memberId":"prd-writer"}}
+{"name":"team.member.completed","data":{"memberId":"fund-analyst"}}
+{"name":"team.lead.synthesizing","data":{"leadName":"调研协调员"}}
+{"name":"team.completed","data":{"memberCount":2}}

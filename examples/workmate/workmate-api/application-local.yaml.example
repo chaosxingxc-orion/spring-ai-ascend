@@ -1,0 +1,9 @@
+# Copy to application-local.yaml (gitignored) or export as env vars.
+# Do NOT commit real API keys.
+
+workmate:
+  llm:
+    model-provider: openai
+    api-base: https://your-llm-endpoint/v1
+    model-name: your-model
+    # api-key: set via WORKMATE_LLM_API_KEY (never commit a real key)

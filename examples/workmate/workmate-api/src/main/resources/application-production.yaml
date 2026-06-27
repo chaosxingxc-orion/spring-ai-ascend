@@ -1,0 +1,13 @@
+# Hardened defaults for non-local deployments.
+# Activate with: SPRING_PROFILES_ACTIVE=production
+#
+# Local demo keeps application.yaml defaults (cloud + OAuth mock + Studio on).
+# Override individual flags via WORKMATE_* env vars when needed.
+
+workmate:
+  cloud:
+    enabled: false
+  oauth:
+    mock-enabled: false
+  studio:
+    enabled: false

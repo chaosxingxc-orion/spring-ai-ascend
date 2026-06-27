@@ -1,0 +1,8 @@
+id: excel-handler
+name: Excel 文件处理
+description: 创建与分析 Excel 工作簿，支持读写 xlsx 与基础公式
+category: office
+tags: [excel, office]
+source: recommended
+defaultInstalled: false
+skillFile: SKILL.md

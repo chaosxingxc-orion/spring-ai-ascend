@@ -1,0 +1,34 @@
+server:
+  port: ${SERVER_PORT:8081}
+
+workmate:
+  member:
+    expert-id: ${WORKMATE_MEMBER_EXPERT_ID:prd-writer}
+  office:
+    root: ${WORKMATE_OFFICE_ROOT:../../office}
+  llm:
+    model-provider: ${WORKMATE_LLM_MODEL_PROVIDER:openai}
+    api-key: ${WORKMATE_LLM_API_KEY:sk-local-placeholder}
+    api-base: ${WORKMATE_LLM_API_BASE:https://api.deepseek.com/v1}
+    model-name: ${WORKMATE_LLM_MODEL:deepseek-chat}
+    ssl-verify: ${WORKMATE_LLM_SSL_VERIFY:true}
+    max-iterations: 8
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: workmate
+      default-agent-id: workmate-member
+      agent-card:
+        name: workmate-member
+        description: WorkMate expert member runtime (W21)
+
+spring:
+  application:
+    name: workmate-member-a2a
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

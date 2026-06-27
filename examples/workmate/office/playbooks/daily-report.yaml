@@ -1,0 +1,7 @@
+id: daily-report
+title: 工作总结日报
+description: 周报日报、完成事项与下周计划
+accent: "#34C759"
+initPrompt: 帮我生成本周工作总结日报，包含完成事项、数据亮点与下周计划
+placements:
+  - home-best-practice

@@ -1,0 +1,35 @@
+appId: com.huawei.ascend.workmate
+productName: WorkMate
+copyright: "Copyright 2026 Huawei Ascend"
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - package.json
+
+extraResources:
+  - from: resources/ui
+    to: ui
+    filter:
+      - '**/*'
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip
+
+linux:
+  target:
+    - AppImage
+
+win:
+  target:
+    - nsis
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

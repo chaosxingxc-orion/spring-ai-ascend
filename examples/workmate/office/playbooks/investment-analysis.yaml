@@ -1,0 +1,8 @@
+id: investment-analysis
+title: 投资分析
+description: 市场研究、财务建模、投资策略
+accent: "#2DB89A"
+expertId: fund-analyst
+initPrompt: 使用远程 MCP 检索基金数据，输出投资分析摘要
+placements:
+  - market-featured

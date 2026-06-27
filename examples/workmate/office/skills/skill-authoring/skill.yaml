@@ -1,0 +1,8 @@
+id: skill-authoring
+name: 技能创建指南
+description: OpenClaw 兼容 SKILL.md 编写指引与最佳实践
+category: dev
+tags: [skill, openclaw]
+source: builtin
+defaultInstalled: true
+skillFile: SKILL.md

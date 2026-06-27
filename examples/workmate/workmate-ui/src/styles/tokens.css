@@ -1,0 +1,112 @@
+/* WorkMate design tokens — Huawei red-white theme (ref: dry-run/frontend) */
+
+:root {
+  /* Huawei brand palette */
+  --wm-huawei-red: #cf0a2c;
+  --wm-huawei-red-dark: #b00824;
+  --wm-huawei-red-light: #e63950;
+  --wm-deep-gray: #2d2d2d;
+  --wm-medium-gray: #666666;
+  --wm-light-gray-bg: #f8f8f8;
+  --wm-pure-white: #ffffff;
+  --wm-silver-border: #e5e5e5;
+
+  --wm-bg: var(--wm-pure-white);
+  --wm-bg-sidebar: var(--wm-light-gray-bg);
+  --wm-bg-input: var(--wm-pure-white);
+  --wm-bg-chip: var(--wm-light-gray-bg);
+  --wm-bg-chip-active: var(--wm-huawei-red);
+  --wm-text: var(--wm-deep-gray);
+  --wm-text-secondary: var(--wm-medium-gray);
+  --wm-text-muted: #888888;
+  --wm-accent: var(--wm-huawei-red);
+  --wm-accent-hover: var(--wm-huawei-red-dark);
+  --wm-border: var(--wm-silver-border);
+  --wm-border-focus: var(--wm-huawei-red);
+  --wm-warning: #ff9f0a;
+  --wm-success: #34c759;
+  --wm-danger: #ff3b30;
+  --wm-send-bg: var(--wm-huawei-red);
+  --wm-send-fg: var(--wm-pure-white);
+
+  --wm-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --wm-shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --wm-shadow-primary: 0 4px 12px rgba(207, 10, 44, 0.3);
+  --wm-focus-ring: 0 0 0 3px rgba(207, 10, 44, 0.15);
+
+  --wm-radius-pill: 999px;
+  --wm-radius-lg: 16px;
+  --wm-sidebar-width: 260px;
+  --wm-detail-width: 360px;
+  --wm-detail-sidebar-width: 120px;
+  --wm-input-dock-max: 720px;
+  --wm-new-task-content-max: min(960px, calc(100vw - var(--wm-sidebar-width) - 48px));
+  --wm-content-gutter: clamp(40px, 5vw, 72px);
+  --wm-font-size-base: 14px;
+  --wm-space-scale: 1;
+
+  font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+  font-size: var(--wm-font-size-base);
+  line-height: 1.55;
+  font-weight: 400;
+  color: var(--wm-text);
+  background: var(--wm-bg);
+  color-scheme: light dark;
+  letter-spacing: 0.01em;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --wm-bg: #141414;
+    --wm-bg-sidebar: #1c1c1c;
+    --wm-bg-input: #1c1c1c;
+    --wm-bg-chip: #262626;
+    --wm-bg-chip-active: var(--wm-huawei-red);
+    --wm-text: #f0f0f0;
+    --wm-text-secondary: #a0a0a0;
+    --wm-text-muted: #7a7a7a;
+    --wm-accent: var(--wm-huawei-red-light);
+    --wm-accent-hover: var(--wm-huawei-red);
+    --wm-border: #333333;
+    --wm-border-focus: var(--wm-huawei-red-light);
+    --wm-send-bg: var(--wm-huawei-red);
+    --wm-send-fg: #ffffff;
+    --wm-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.25);
+    --wm-shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* Legacy aliases */
+:root {
+  --bg: var(--wm-bg);
+  --surface: var(--wm-bg-sidebar);
+  --surface-2: var(--wm-bg-chip);
+  --border: var(--wm-border);
+  --text: var(--wm-text);
+  --muted: var(--wm-text-secondary);
+  --text-secondary: var(--wm-text-secondary);
+  --text-muted: var(--wm-text-muted);
+  --border-subtle: var(--wm-border);
+  --bg-chip: var(--wm-bg-chip);
+  --accent: var(--wm-accent);
+  --accent-hover: var(--wm-accent-hover);
+  --danger: var(--wm-danger);
+  --success: var(--wm-success);
+  --warning: var(--wm-warning);
+  --chip: var(--wm-bg-chip);
+  --chip-active: var(--wm-bg-chip-active);
+}
+
+html[data-font-size='sm'] {
+  --wm-font-size-base: 13px;
+}
+
+html[data-font-size='lg'] {
+  --wm-font-size-base: 15px;
+}
+
+html[data-compact='true'] {
+  --wm-space-scale: 0.92;
+  --wm-sidebar-width: 240px;
+  --wm-detail-width: 320px;
+}

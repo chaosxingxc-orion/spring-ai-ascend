@@ -1,0 +1,123 @@
+package com.huawei.ascend.runtime.engine.openjiuwen;
+
+import com.huawei.ascend.runtime.engine.AgentExecutionContext;
+import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * WorkMate-local override for agent-core-java 0.1.12 where {@code MemoryProvider}
+ * is an abstract class. Shadows the agent-runtime adapter on the application classpath.
+ */
+final class OpenJiuwenExternalMemoryProviderAdapter
+        extends com.openjiuwen.core.memory.external.MemoryProvider {
+
+    private static final int DEFAULT_PREFETCH_LIMIT = 5;
+    private static final String PROVIDER_NAME = "runtime_memory";
+    private static final String SOURCE = "openjiuwen-external-memory";
+
+    private final AgentExecutionContext context;
+    private final MemoryProvider delegate;
+    private final int prefetchLimit;
+    private boolean initialized;
+
+    OpenJiuwenExternalMemoryProviderAdapter(AgentExecutionContext context, MemoryProvider delegate) {
+        this(context, delegate, DEFAULT_PREFETCH_LIMIT);
+    }
+
+    OpenJiuwenExternalMemoryProviderAdapter(AgentExecutionContext context, MemoryProvider delegate, int prefetchLimit) {
+        this.context = Objects.requireNonNull(context, "context");
+        this.delegate = Objects.requireNonNull(delegate, "delegate");
+        this.prefetchLimit = Math.max(1, prefetchLimit);
+    }
+
+    @Override
+    public String name() {
+        return PROVIDER_NAME;
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return true;
+    }
+
+    @Override
+    public CompletableFuture<Void> initialize(Map<String, Object> scope) {
+        try {
+            delegate.init(context);
+            initialized = true;
+            return CompletableFuture.completedFuture(null);
+        } catch (Exception ex) {
+            return CompletableFuture.failedFuture(ex);
+        }
+    }
+
+    @Override
+    public List<Map<String, Object>> getToolSchemas() {
+        return List.of();
+    }
+
+    @Override
+    public CompletableFuture<String> handleToolCall(String toolName, Map<String, Object> arguments) {
+        return CompletableFuture.completedFuture(
+                "{\"error\":\"runtime memory provider exposes no OpenJiuwen memory tools\"}");
+    }
+
+    @Override
+    public CompletableFuture<String> prefetch(String query, Map<String, Object> scope) {
+        try {
+            if (query == null || query.isBlank()) {
+                return CompletableFuture.completedFuture("");
+            }
+            List<MemoryProvider.MemoryHit> hits = delegate.search(context, query, prefetchLimit);
+            if (hits.isEmpty()) {
+                return CompletableFuture.completedFuture("");
+            }
+            StringBuilder builder = new StringBuilder();
+            for (MemoryProvider.MemoryHit hit : hits) {
+                if (hit != null && !hit.content().isBlank()) {
+                    if (!builder.isEmpty()) {
+                        builder.append('\n');
+                    }
+                    builder.append("- ").append(hit.content());
+                }
+            }
+            return CompletableFuture.completedFuture(builder.toString());
+        } catch (Exception ex) {
+            return CompletableFuture.failedFuture(ex);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Void> syncTurn(
+            String userMessage, String assistantMessage, Map<String, Object> scope) {
+        try {
+            List<MemoryProvider.MemoryRecord> records = new ArrayList<>();
+            if (hasText(userMessage)) {
+                records.add(new MemoryProvider.MemoryRecord(null, "user", userMessage, Map.of("source", SOURCE)));
+            }
+            if (hasText(assistantMessage)) {
+                records.add(
+                        new MemoryProvider.MemoryRecord(null, "assistant", assistantMessage, Map.of("source", SOURCE)));
+            }
+            if (!records.isEmpty()) {
+                delegate.save(context, records);
+            }
+            return CompletableFuture.completedFuture(null);
+        } catch (Exception ex) {
+            return CompletableFuture.failedFuture(ex);
+        }
+    }
+
+    @Override
+    public boolean isInitialized() {
+        return initialized;
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+}

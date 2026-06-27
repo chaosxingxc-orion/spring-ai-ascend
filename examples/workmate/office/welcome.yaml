@@ -1,0 +1,178 @@
+# 新建任务页 — activeProfile: workmate (S01)
+# 备选布局与增长计划见 profiles.growth
+activeProfile: workmate
+
+profiles:
+  workmate:
+    hero:
+      headline: "WorkMate，我帮你"
+      title: WorkMate
+      tagline: 我帮你
+    dock:
+      placeholderNew: "告诉我你想做什么..."
+      placeholderSession: "今天帮你做些什么？@ 引用对话文件，/ 调用技能与指令"
+    growthPlan:
+      enabled: false
+    bestPractices:
+      enabled: false
+    homeFeatured:
+      enabled: false
+
+  growth:
+    hero:
+      headline: WorkMate
+      title: WorkMate
+      tagline: 来成长计划赚积分
+    dock:
+      placeholderNew: "输入 @ 引用文件，/ 调用技能与指令"
+      placeholderSession: "今天帮你做些什么？@ 引用对话文件，/ 调用技能与指令"
+    growthPlan:
+      label: 来成长计划赚积分
+      enabled: true
+    bestPractices:
+      enabled: true
+      title: 不知道做什么，试试最佳实践案例
+      moreLabel: 更多
+    scenes:
+      - id: working
+        label: 日常办公
+        icon: "☕"
+        default: true
+        chips:
+          - label: 写文档
+            icon: "✎"
+          - label: 查资料
+            icon: "🔍"
+          - label: 找服务
+            icon: "🔗"
+          - label: 高考我帮你
+            icon: "🎓"
+          - label: 更多
+            icon: "⋯"
+      - id: coding
+        label: 代码开发
+        icon: "🌐"
+        default: false
+        chips:
+          - label: 代码审查
+            icon: "↗"
+          - label: 单元测试
+            icon: "↗"
+      - id: design
+        label: 设计创意
+        icon: "🎨"
+        default: false
+        chips:
+          - label: 界面设计
+            icon: "◫"
+          - label: 设计评审
+            icon: "◎"
+
+hero:
+  headline: "WorkMate，我帮你"
+  title: WorkMate
+  tagline: 我帮你
+
+dock:
+  placeholderNew: "告诉我你想做什么..."
+  placeholderSession: "今天帮你做些什么？@ 引用对话文件，/ 调用技能与指令"
+
+growthPlan:
+  label: 来成长计划赚积分
+  enabled: false
+
+bestPractices:
+  enabled: false
+  title: 不知道做什么，试试最佳实践案例
+  moreLabel: 更多
+  placement: home-best-practice
+
+homeFeatured:
+  enabled: false
+
+scenes:
+  - id: coding
+    label: 代码开发
+    icon: "</>"
+    default: false
+    chips:
+      - label: 文档处理
+        icon: "📄"
+      - label: 金融分析
+        icon: "📈"
+      - label: 代码编写
+        icon: "💻"
+      - label: 内容管理
+        icon: "🗂️"
+      - label: 幻灯片
+        icon: "📊"
+      - label: 设计
+        icon: "🎨"
+      - label: 邮件编辑
+        icon: "✉️"
+  - id: working
+    label: 日常办公
+    icon: "💼"
+    default: true
+    chips:
+      - label: 文档处理
+        icon: "📄"
+      - label: 金融服务
+        icon: "🏦"
+      - label: 数据分析及可视化
+        icon: "📈"
+      - label: 深度研究
+        icon: "🔍"
+      - label: 产品管理
+        icon: "📦"
+      - label: 幻灯片
+        icon: "📊"
+      - label: 设计
+        icon: "🎨"
+      - label: 邮件编辑
+        icon: "✉️"
+  - id: design
+    label: 设计创意
+    icon: "📝"
+    default: false
+    chips:
+      - label: 界面设计
+        icon: "◫"
+      - label: 设计评审
+        icon: "◎"
+      - label: 原型说明
+        icon: "▢"
+
+marketFeatured:
+  enabled: false
+  title: 精选推荐
+  viewAllLabel: 查看全部
+  placement: market-featured
+
+market:
+  searchPlaceholder: 搜索专家、团队或领域关键词
+
+onboarding:
+  enabled: true
+  step1Title: 你是谁？
+  step1Hint: 告诉我们你的角色，便于推荐合适的专家与任务。
+  step2Title: 想做什么？
+  step2Hint: 选择感兴趣的方向（可多选）。
+  step3Title: 试试示例任务
+  step3Hint: 从示例任务开始，一键创建首个会话。
+  interests:
+    - id: docs
+      label: 文档写作
+    - id: data
+      label: 数据分析
+    - id: research
+      label: 深度研究
+    - id: finance
+      label: 金融服务
+  sampleTasks:
+    - id: weekly-report
+      title: 写一份周报
+      prompt: 帮我写一份本周工作周报，包含完成事项、风险与下周计划。
+    - id: market-brief
+      title: 行业快讯
+      prompt: 整理一份今日 A 股市场要点与值得关注的板块。
