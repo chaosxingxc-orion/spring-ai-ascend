@@ -1,0 +1,23 @@
+{
+  "name": "workmate-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WorkMate Electron shell (v0.2 MVP skeleton)",
+  "main": "dist/electron/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/electron/acpSidecarRelay.test.js",
+    "sidecar-relay": "npm run build && node dist/electron/sidecarCli.js",
+    "pack:ui": "cd ../workmate-ui && VITE_API_BASE=http://127.0.0.1:8080 VITE_TARGET=electron npm run build && rm -rf ../workmate-desktop/resources/ui && cp -r dist ../workmate-desktop/resources/ui",
+    "dist": "npm run build && npm run pack:ui && electron-builder --config electron-builder.yml --dir",
+    "package": "npm run build && npm run pack:ui && electron-builder --config electron-builder.yml",
+    "dev": "npm run build && electron .",
+    "start": "npm run dev"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12",
+    "typescript": "~5.8.3"
+  }
+}
