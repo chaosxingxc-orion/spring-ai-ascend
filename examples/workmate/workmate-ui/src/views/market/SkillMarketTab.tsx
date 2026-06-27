@@ -8,13 +8,16 @@ export function SkillMarketTab({
   refreshKey = 0,
   initialSkills,
   onSkillsChange,
+  onOpenUpload,
 }: {
   refreshKey?: number;
   initialSkills?: SkillInfo[];
   onSkillsChange?: (skills: SkillInfo[]) => void;
+  onOpenUpload?: () => void;
 }) {
+  const hasInitialSkills = (initialSkills?.length ?? 0) > 0;
   const [skills, setSkills] = useState<SkillInfo[]>(initialSkills ?? []);
-  const [loading, setLoading] = useState((initialSkills?.length ?? 0) === 0);
+  const [loading, setLoading] = useState(!hasInitialSkills);
   const [error, setError] = useState<string | null>(null);
   const [subTab, setSubTab] = useState<'store' | 'installed'>('store');
   const [query, setQuery] = useState('');
@@ -37,7 +40,10 @@ export function SkillMarketTab({
   };
 
   useEffect(() => {
-    load((initialSkills?.length ?? 0) === 0);
+    if (refreshKey === 0 && (initialSkills?.length ?? 0) > 0) {
+      return;
+    }
+    load(skills.length === 0);
   }, [refreshKey]);
 
   useEffect(() => {
@@ -146,7 +152,7 @@ export function SkillMarketTab({
       <p className="market-tab-intro">
         {TERM.skill}市场 · 可安装的能力包，专家在任务中通过 <kbd>/</kbd> 调用
       </p>
-      <div className="market-toolbar">
+      <div className="market-toolbar market-toolbar-row">
         <input
           type="search"
           className="market-search"
@@ -154,6 +160,11 @@ export function SkillMarketTab({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+        {onOpenUpload && (
+          <button type="button" className="btn secondary" onClick={onOpenUpload}>
+            + 上传{TERM.skill}
+          </button>
+        )}
       </div>
 
       <div className="market-subtabs">
@@ -174,7 +185,7 @@ export function SkillMarketTab({
       </div>
 
       {error && <p className="market-hint error">{error}</p>}
-      {loading && <p className="market-hint">加载中…</p>}
+      {loading && skills.length === 0 && <p className="market-hint">加载中…</p>}
       {!loading && gridSkills.length === 0 && featuredSkills.length === 0 && (
         <p className="market-empty">
           {subTab === 'installed' ? '暂无已安装技能。' : '暂无技能。请检查 office/skills 目录。'}

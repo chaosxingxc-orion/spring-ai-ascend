@@ -446,7 +446,7 @@ export function AppShellMainContent(props: AppShellMainContentProps) {
           <SessionChatView
             sessionId={activeId ?? undefined}
             sessionTitle={activeSession?.title ?? '加载中…'}
-            sessionLoading={!activeSession?.title}
+            sessionLoading={Boolean(activeId && !activeSession?.title)}
             teamHistoryLoading={activeTeamHistoryLoading}
             cloudSessionStatus={linkedCloudSessionStatus}
             onCloudBadgeClick={onCloudBadgeClick}

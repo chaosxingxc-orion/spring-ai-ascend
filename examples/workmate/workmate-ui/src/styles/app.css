@@ -7319,7 +7319,7 @@ button.team-delegation-pill.clickable:hover {
 
 .market-page-header {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: 16px;
   padding: 14px 24px;
@@ -7337,30 +7337,30 @@ button.team-delegation-pill.clickable:hover {
   .market-tabs {
     width: 100%;
   }
-
-  .market-page-actions {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .market-search-header {
-    width: 100%;
-    max-width: none;
-    flex: 1 1 100%;
-  }
 }
 
-.market-page-actions {
+.market-tab-panels {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  justify-content: flex-end;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.market-search-header {
-  width: 240px;
-  max-width: 40vw;
+.market-tab-panel {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.market-tab-panel.is-active {
+  display: flex;
+}
+
+.market-tab-panel.is-active > .market-tab-body {
+  flex: 1;
 }
 
 .market-featured-placeholder {
@@ -7432,6 +7432,19 @@ button.team-delegation-pill.clickable:hover {
 
 .market-toolbar {
   margin-bottom: 16px;
+}
+
+.market-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.market-toolbar-row .market-search {
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 420px;
 }
 
 .market-toolbar-end {

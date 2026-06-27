@@ -19,8 +19,9 @@ export function ConnectorMarketTab({
   initialConnectors,
   onConnectorsChange,
 }: ConnectorMarketTabProps = {}) {
+  const hasInitialConnectors = (initialConnectors?.length ?? 0) > 0;
   const [connectors, setConnectors] = useState<ConnectorInfo[]>(initialConnectors ?? []);
-  const [loading, setLoading] = useState((initialConnectors?.length ?? 0) === 0);
+  const [loading, setLoading] = useState(!hasInitialConnectors);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [connectTarget, setConnectTarget] = useState<ConnectorInfo | null>(null);
@@ -42,7 +43,10 @@ export function ConnectorMarketTab({
   };
 
   useEffect(() => {
-    load((initialConnectors?.length ?? 0) === 0);
+    if (hasInitialConnectors) {
+      return;
+    }
+    load(true);
   }, []);
 
   useEffect(() => {

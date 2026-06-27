@@ -32,7 +32,7 @@ import { TenantQuotaBanner } from './components/TenantQuotaBanner';
 import { IdleCapabilityReminder } from './components/IdleCapabilityReminder';
 import { WorkbenchLayout } from './layouts/WorkbenchLayout';
 import { OnboardingFlow, ONBOARDING_DONE_KEY, saveOnboardingProfile } from './views/onboarding/OnboardingFlow';
-import { appShellReducer, initialAppState } from './features/shell/appShellState';
+import { appShellReducer, createInitialAppState } from './features/shell/appShellState';
 import { useAppShellRoutes } from './features/shell/useAppShellRoutes';
 import { usePendingHitlSync } from './features/shell/usePendingHitlSync';
 import { useDetailPanelState } from './features/shell/useDetailPanelState';
@@ -122,7 +122,7 @@ export function AppShell() {
     openMarket,
   } = routes;
 
-  const [state, dispatch] = useReducer(appShellReducer, initialAppState);
+  const [state, dispatch] = useReducer(appShellReducer, undefined, createInitialAppState);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [apiOnline, setApiOnline] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -181,13 +181,10 @@ export function AppShell() {
     setPendingBySession,
   );
 
-  const isOpenSessionView = Boolean(
-    routeSessionId
-    && !isShareReplay
-    && !isNewTask
-    && state.activeId === routeSessionId
-    && state.sessions.some((session) => session.id === routeSessionId),
-  );
+  const viewSessionId =
+    routeSessionId && !isShareReplay && !isNewTask ? routeSessionId : state.activeId;
+
+  const isOpenSessionView = Boolean(routeSessionId && !isShareReplay && !isNewTask);
 
   const refreshSessions = useCallback(async () => {
     const [online, data] = await Promise.all([
@@ -551,7 +548,7 @@ export function AppShell() {
     syncPendingQuestions,
   });
 
-  useSessionChatCleanup(state.activeId, serverChatLoadedRef, teamEventsLoadedRef);
+  useSessionChatCleanup(viewSessionId, serverChatLoadedRef, teamEventsLoadedRef);
 
   const { teamHistoryLoadingBySession } = useTeamSessionSync({
     isOpenSessionView,
@@ -608,17 +605,20 @@ export function AppShell() {
     void refreshTenantQuota();
   }, [refreshTenantQuota, state.sessions.length]);
 
-  const activeSession = state.sessions.find((session) => session.id === state.activeId) ?? null;
-  const chatItems = state.activeId ? (state.chatBySession[state.activeId] ?? []) : [];
-  const activeStreaming = isStreaming(state.activeId);
-  const activeStreamStage = state.activeId ? (streamStageBySession[state.activeId] ?? null) : null;
-  const activeTeamHistoryLoading = state.activeId
-    ? Boolean(teamHistoryLoadingBySession[state.activeId])
+  const activeSession =
+    viewSessionId != null
+      ? state.sessions.find((session) => session.id === viewSessionId) ?? null
+      : null;
+  const chatItems = viewSessionId ? (state.chatBySession[viewSessionId] ?? []) : [];
+  const activeStreaming = isStreaming(viewSessionId);
+  const activeStreamStage = viewSessionId ? (streamStageBySession[viewSessionId] ?? null) : null;
+  const activeTeamHistoryLoading = viewSessionId
+    ? Boolean(teamHistoryLoadingBySession[viewSessionId])
     : false;
   const activeExpert = activeSession?.expertId
     ? experts.find((e) => e.id === activeSession.expertId)
     : null;
-  const liveTeam = state.activeId ? teamStateBySession[state.activeId] : undefined;
+  const liveTeam = viewSessionId ? teamStateBySession[viewSessionId] : undefined;
   const activeTeam = useMemo(() => {
     const seeded = activeExpert?.expertType === 'team' ? initialTeamState(activeExpert) : null;
     if (!liveTeam) {
@@ -636,10 +636,10 @@ export function AppShell() {
     };
   }, [activeExpert, liveTeam]);
 
-  const activeRunError = state.activeId ? sessionErrorBySession[state.activeId] ?? null : null;
+  const activeRunError = viewSessionId ? sessionErrorBySession[viewSessionId] ?? null : null;
   const activeRetryFromSeq = lastUserSeq(chatItems);
-  const activeQueueDepth = state.activeId ? queueDepthBySession[state.activeId] ?? 0 : 0;
-  const activePending = state.activeId ? (pendingBySession[state.activeId] ?? null) : null;
+  const activeQueueDepth = viewSessionId ? queueDepthBySession[viewSessionId] ?? 0 : 0;
+  const activePending = viewSessionId ? (pendingBySession[viewSessionId] ?? null) : null;
   const modalPending =
     activePending && !isBusinessApprovalTool(activePending.tool) ? activePending : null;
   const sessionsWithPendingApproval = useMemo(() => {
@@ -1118,7 +1118,7 @@ export function AppShell() {
   const detailPanelEnabled = showArtifactPanel && detailPanel.detailPanelSupported;
   const detailPanelRendered = detailPanelEnabled && detailPanel.detailPanelVisible;
 
-  const sessionLocked = Boolean(activeSession?.title) && !isNewTask;
+  const sessionLocked = Boolean(viewSessionId) && !isNewTask;
   const dockExpertId = sessionLocked ? (activeSession?.expertId ?? '') : selectedExpertId;
   const dockPermissionMode = sessionLocked
     ? (activeSession?.permissionMode ?? 'CRAFT')
@@ -1240,7 +1240,7 @@ export function AppShell() {
           experts={experts}
           expertsLoaded={expertsLoaded}
           workspacePresets={workspacePresets}
-          activeId={state.activeId}
+          activeId={viewSessionId}
           loadingSessions={loadingSessions}
           streamingBySession={streamingBySession}
           pendingBySession={pendingBySession}

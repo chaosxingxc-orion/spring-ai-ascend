@@ -1,5 +1,5 @@
 import { applyChatAction, type ChatAction } from '../../state/chatState';
-import { saveActiveSessionId } from '../../state/chatStorage';
+import { loadChat, loadActiveSessionId, saveActiveSessionId } from '../../state/chatStorage';
 import { mergeServerChatWithLocal } from '../../lib/chatMerge';
 import { mergeSessionSummaries, upsertSession } from '../../lib/sessionMerge';
 import type { Session } from '../../types/api';
@@ -93,6 +93,28 @@ export function appShellReducer(state: AppState, action: AppShellAction): AppSta
         chatBySession: applyChatAction(state.chatBySession, action),
       };
   }
+}
+
+function readRouteSessionId(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const match = window.location.pathname.match(/^\/s\/([^/]+)/);
+  return match?.[1] ?? null;
+}
+
+/** Hydrate active session + cached chat from URL/localStorage before first paint. */
+export function createInitialAppState(): AppState {
+  const routeSessionId = readRouteSessionId();
+  const activeId = routeSessionId ?? loadActiveSessionId();
+  const chatBySession: Record<string, ChatItem[]> = {};
+  if (activeId) {
+    const stored = loadChat(activeId);
+    if (stored.length > 0) {
+      chatBySession[activeId] = stored;
+    }
+  }
+  return { sessions: [], activeId, chatBySession };
 }
 
 export const initialAppState: AppState = {

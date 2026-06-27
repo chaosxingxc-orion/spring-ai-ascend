@@ -29,6 +29,9 @@ interface ExpertMarketTabProps {
   onSelectExpert: (expert: Expert) => void;
   onSummonExpert: (expert: Expert) => void;
   onPlaybookSelect: (playbook: PlaybookCard) => void;
+  onOpenImport?: () => void;
+  searchPlaceholder?: string;
+  onQueryChange: (query: string) => void;
 }
 
 export function ExpertMarketTab({
@@ -45,6 +48,9 @@ export function ExpertMarketTab({
   onSelectExpert,
   onSummonExpert,
   onPlaybookSelect,
+  onOpenImport,
+  searchPlaceholder,
+  onQueryChange,
 }: ExpertMarketTabProps) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -79,6 +85,21 @@ export function ExpertMarketTab({
 
   return (
     <div className="market-tab-body">
+      <div className="market-toolbar market-toolbar-row">
+        <input
+          type="search"
+          className="market-search"
+          placeholder={searchPlaceholder ?? '搜索专家、团队或领域关键词'}
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+        />
+        {onOpenImport && (
+          <button type="button" className="btn secondary" onClick={onOpenImport}>
+            导入专家
+          </button>
+        )}
+      </div>
+
       <FeaturedSection section={featuredSection} onSelect={onPlaybookSelect} />
 
       <div className="market-toolbar-block">

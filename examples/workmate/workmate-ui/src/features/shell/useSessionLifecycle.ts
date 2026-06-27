@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { invalidateSessionChatHydration } from '../../lib/sessionChatLoad';
 import type { NavigateFunction } from 'react-router-dom';
 import { getSession, listSessionRunEvents } from '../../api/client';
@@ -45,6 +45,15 @@ export function useSessionRouteEffects({
   pendingInitialMessageRef,
   setArtifactAutoOpenPath,
 }: UseSessionRouteEffectsOptions) {
+  useLayoutEffect(() => {
+    if (!routeSessionId || isShareReplay || isNewTask) {
+      return;
+    }
+    if (activeId !== routeSessionId) {
+      dispatch({ type: 'select', id: routeSessionId });
+    }
+  }, [routeSessionId, isShareReplay, isNewTask, activeId, dispatch]);
+
   useEffect(() => {
     if (loadingSessions || !sessionsLoadedRef.current) {
       return;
@@ -56,9 +65,6 @@ export function useSessionRouteEffects({
     }
 
     if (routeSessionId) {
-      if (activeId !== routeSessionId) {
-        dispatch({ type: 'select', id: routeSessionId });
-      }
       return;
     }
 
@@ -209,11 +215,7 @@ export function useSessionChatSync({
 
     void (async () => {
       try {
-        const { fullItems, events } = await hydrateSessionChat(sessionId, {
-          onStructural: (items) => {
-            dispatch({ type: 'set-chat-from-server', sessionId, items });
-          },
-        });
+        const { fullItems, events } = await hydrateSessionChat(sessionId);
         teamEventsCacheRef.current[sessionId] = events;
         serverChatLoadedRef.current.add(sessionId);
         dispatch({ type: 'set-chat-from-server', sessionId, items: fullItems });

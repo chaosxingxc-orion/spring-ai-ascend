@@ -96,59 +96,44 @@ export function ExpertMarketplacePage({
             </button>
           ))}
         </nav>
-        <div className="market-page-actions">
-          {tab === 'experts' && (
-            <>
-              <input
-                type="search"
-                className="market-search market-search-header"
-                placeholder={marketSearchPlaceholder ?? '搜索专家、团队或领域关键词'}
-                value={expertQuery}
-                onChange={(event) => onExpertQueryChange(event.target.value)}
-              />
-              <button type="button" className="btn secondary" onClick={() => setExpertImportOpen(true)}>
-                导入专家
-              </button>
-            </>
-          )}
-          {tab === 'skills' && (
-            <button type="button" className="btn secondary" onClick={() => setSkillUploadOpen(true)}>
-              + 上传{TERM.skill}
-            </button>
-          )}
-        </div>
       </header>
 
-      {tab === 'experts' && (
-        <ExpertMarketTab
-          experts={experts}
-          loaded={expertsLoaded}
-          query={expertQuery}
-          category={expertCategory}
-          kind={expertKind}
-          sort={expertSort}
-          featuredSection={marketFeatured}
-          onCategoryChange={onExpertCategoryChange}
-          onKindChange={onExpertKindChange}
-          onSortChange={onExpertSortChange}
-          onSelectExpert={onSelectExpert}
-          onSummonExpert={onRequestSummon}
-          onPlaybookSelect={onPlaybookSelect}
-        />
-      )}
-      {tab === 'skills' && (
-        <SkillMarketTab
-          refreshKey={skillRefreshKey}
-          initialSkills={marketSkills}
-          onSkillsChange={onMarketSkillsChange}
-        />
-      )}
-      {tab === 'connectors' && (
-        <ConnectorMarketTab
-          initialConnectors={marketConnectors}
-          onConnectorsChange={onMarketConnectorsChange}
-        />
-      )}
+      <div className="market-tab-panels">
+        <div className={`market-tab-panel${tab === 'experts' ? ' is-active' : ''}`}>
+          <ExpertMarketTab
+            experts={experts}
+            loaded={expertsLoaded}
+            query={expertQuery}
+            category={expertCategory}
+            kind={expertKind}
+            sort={expertSort}
+            featuredSection={marketFeatured}
+            onCategoryChange={onExpertCategoryChange}
+            onKindChange={onExpertKindChange}
+            onSortChange={onExpertSortChange}
+            onSelectExpert={onSelectExpert}
+            onSummonExpert={onRequestSummon}
+            onPlaybookSelect={onPlaybookSelect}
+            onOpenImport={() => setExpertImportOpen(true)}
+            searchPlaceholder={marketSearchPlaceholder}
+            onQueryChange={onExpertQueryChange}
+          />
+        </div>
+        <div className={`market-tab-panel${tab === 'skills' ? ' is-active' : ''}`}>
+          <SkillMarketTab
+            refreshKey={skillRefreshKey}
+            initialSkills={marketSkills}
+            onSkillsChange={onMarketSkillsChange}
+            onOpenUpload={() => setSkillUploadOpen(true)}
+          />
+        </div>
+        <div className={`market-tab-panel${tab === 'connectors' ? ' is-active' : ''}`}>
+          <ConnectorMarketTab
+            initialConnectors={marketConnectors}
+            onConnectorsChange={onMarketConnectorsChange}
+          />
+        </div>
+      </div>
 
       <ExpertDetailDrawer
         expert={detailExpert}

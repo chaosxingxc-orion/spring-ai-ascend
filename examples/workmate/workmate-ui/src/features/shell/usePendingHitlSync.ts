@@ -38,7 +38,7 @@ export function usePendingHitlSync(
     }
   }, [dispatch]);
 
-  const syncPendingApprovals = useCallback(async (sessionId: string) => {
+  const syncPendingApprovals = useCallback(async (sessionId: string): Promise<boolean> => {
     try {
       const items = await listPendingApprovals(sessionId);
       if (items.length === 0) {
@@ -50,7 +50,7 @@ export function usePendingHitlSync(
           delete next[sessionId];
           return next;
         });
-        return;
+        return true;
       }
       const first = items[0];
       const payload: ApprovalRequiredPayload = {
@@ -76,14 +76,15 @@ export function usePendingHitlSync(
           delete next[sessionId];
           return next;
         });
-        return;
+        return true;
       }
       setPendingBySession((prev) => ({
         ...prev,
         [sessionId]: payload,
       }));
+      return true;
     } catch {
-      // ignore refresh errors
+      return false;
     }
   }, [dispatch, setPendingBySession]);
 
@@ -95,28 +96,30 @@ export function usePendingHitlSync(
         chatItems?: ChatItem[];
       },
     ) => {
-      if (options?.events) {
-        const modal = modalPendingApprovalFromRunEvents(
-          mapRecordedEventsToRunEventRows(options.events),
-          options.chatItems ?? [],
-        );
-        if (modal) {
-          setPendingBySession((prev) => ({
-            ...prev,
-            [sessionId]: { ...modal, sessionId: modal.sessionId ?? sessionId },
-          }));
-        } else {
-          setPendingBySession((prev) => {
-            if (!prev[sessionId]) {
-              return prev;
-            }
-            const next = { ...prev };
-            delete next[sessionId];
-            return next;
-          });
-        }
+      const synced = await syncPendingApprovals(sessionId);
+      if (synced || !options?.events) {
+        return;
       }
-      await syncPendingApprovals(sessionId);
+      // Offline fallback only — avoid flashing modal from stale run_events before API responds.
+      const modal = modalPendingApprovalFromRunEvents(
+        mapRecordedEventsToRunEventRows(options.events),
+        options.chatItems ?? [],
+      );
+      if (modal) {
+        setPendingBySession((prev) => ({
+          ...prev,
+          [sessionId]: { ...modal, sessionId: modal.sessionId ?? sessionId },
+        }));
+        return;
+      }
+      setPendingBySession((prev) => {
+        if (!prev[sessionId]) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[sessionId];
+        return next;
+      });
     },
     [setPendingBySession, syncPendingApprovals],
   );
