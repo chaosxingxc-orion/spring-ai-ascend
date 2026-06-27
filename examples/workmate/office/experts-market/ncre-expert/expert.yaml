@@ -1,0 +1,63 @@
+id: ncre-expert
+name: 计算机等级考试专家团
+description: NCRE一至四级专家团，覆盖Office、编程、数据库与网络安全，分工协作，量身定制备考方案。
+expertType: team
+runtime: openjiuwen-team
+teamAgent:
+  teamMode: hybrid
+  spawnMode: inprocess
+  teammateMode: build_mode
+collaboration: sequential
+coordination:
+  pattern: orchestrator
+promptFile: lead-prompt.md
+defaultInitPrompt: 你好！我是等考大师，团队按一至四级分工协作。你想考哪个级别？有什么基础？
+category: engineering
+tags:
+  - marketplace
+  - team
+  - 计算机等级考试
+  - 程序设计
+  - Office办公软件
+lead:
+  name: 等考大师
+  title:
+    zh: 等考总教练
+    en: NCRE Chief Tutor
+members:
+  - id: ncre-level1
+    name: 基于稳
+    profession:
+      zh: 一级辅导专家
+      en: Level 1 Tutor
+    expertId: ncre-expert__ncre-level1
+    role: 一级辅导专家
+    order: 1
+    avatar: 🧑
+  - id: ncre-level2
+    name: 程益精
+    profession:
+      zh: 二级辅导专家
+      en: Level 2 Tutor
+    expertId: ncre-expert__ncre-level2
+    role: 二级辅导专家
+    order: 2
+    avatar: 🧑
+  - id: ncre-level3
+    name: 专向明
+    profession:
+      zh: 三级辅导专家
+      en: Level 3 Tutor
+    expertId: ncre-expert__ncre-level3
+    role: 三级辅导专家
+    order: 3
+    avatar: 🧑
+  - id: ncre-level4
+    name: 任必达
+    profession:
+      zh: 四级辅导专家
+      en: Level 4 Tutor
+    expertId: ncre-expert__ncre-level4
+    role: 四级辅导专家
+    order: 4
+    avatar: 🧑

@@ -1,0 +1,7 @@
+id: industry-report
+title: 行业研报精读摘要
+description: 结构化摘要与关键图表说明
+accent: "#5856D6"
+initPrompt: 精读一份行业研报并输出结构化摘要与关键图表说明
+placements:
+  - home-best-practice

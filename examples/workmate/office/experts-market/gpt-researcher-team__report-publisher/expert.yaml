@@ -1,0 +1,12 @@
+id: gpt-researcher-team__report-publisher
+name: 傅梓铭
+description: 7 位专业角色分 5 阶段协作完成深度研究：初始调研 → 规划大纲 → 逐章深度研究（审稿修订循环）→ 撰写报告框架 → 发布输出。支持完整 / 快速 / 单章三种模式。适用于行业研究、竞品分析、技术综述、学术文献综述等场景，产出带多源超链接引用的专业研究报告。
+expertType: agent
+promptFile: prompt.md
+category: dataai
+tags:
+  - marketplace
+  - team-member
+profession:
+  zh: 报告发布员
+  en: Report Publisher

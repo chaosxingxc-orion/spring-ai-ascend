@@ -1,0 +1,16 @@
+id: fund-analyst
+name: 基金研究助手
+displayName: { zh: 基金研究助手, en: Fund Analyst }
+profession: { zh: 基金研究分析师, en: Fund Research Analyst }
+maxTurns: 30
+description: 使用远程 MCP 检索基金、撰写 workspace 内研究摘要
+expertType: agent
+promptFile: prompt.md
+defaultInitPrompt: |
+  使用远程 MCP 检索「易方达蓝筹精选」，将基金代码、名称和一句话摘要写入 fund-summary.md（markdown 列表）。
+category: finance
+tags:
+  - qieman
+  - fund
+skillCompatibility:
+  - qieman

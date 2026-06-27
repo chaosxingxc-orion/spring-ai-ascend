@@ -1,0 +1,17 @@
+id: prd-writer
+name: PRD 撰写助手
+displayName: { zh: PRD 撰写助手, en: PRD Writer }
+profession: { zh: 产品需求分析师, en: Product Requirements Analyst }
+maxTurns: 30
+description: 根据提纲在 workspace 内生成 PRD 草稿 markdown
+expertType: agent
+promptFile: prompt.md
+defaultInitPrompt: |
+  根据 WorkMate MVP 背景写 prd-draft.md，含 Background、Goals、User Stories、Out of Scope、Acceptance。
+officeCapability: prd-write
+category: product
+tags:
+  - beta
+  - prd
+  - office
+skillCompatibility: []

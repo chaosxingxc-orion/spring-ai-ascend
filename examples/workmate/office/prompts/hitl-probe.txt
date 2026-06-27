@@ -1,0 +1,1 @@
+Use the bash tool to delete the file hitl-test.txt in the workspace. Run only: rm hitl-test.txt

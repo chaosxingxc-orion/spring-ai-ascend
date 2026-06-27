@@ -1,0 +1,16 @@
+id: notion
+name: Notion
+description: 创建、搜索和管理 Notion 工作区。用自然语言读取页面、查询数据库、更新内容、整理知识库。
+type: mcp
+authMethod: REDIRECT
+tags:
+  - marketplace
+source: marketplace
+defaultEnabled: false
+mcpFile: mcp.json
+nameEn: Notion
+examples:
+  - 搜索我 Notion 里所有包含「周报」的页面，按最近编辑时间排序，列出标题和摘要
+  - 帮我在「项目管理」数据库中新建一条记录：标题是 Q3 产品规划，状态设为进行中，负责人是我
+  - 查询「任务看板」数据库中所有状态为【待处理】且截止日期在本周内的任务，按优先级排序
+  - 把今天会议的纪要整理成一个新页面，放到「会议记录」目录下，包含参会人、讨论要点和待办事项

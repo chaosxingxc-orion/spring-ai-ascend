@@ -1,0 +1,16 @@
+id: github
+name: GitHub
+description: 在 GitHub 上克隆、推送代码，查看和管理仓库与 Pull Request，用自然语言完成代码协作。
+type: mcp
+authMethod: REDIRECT
+tags:
+  - marketplace
+source: marketplace
+defaultEnabled: false
+mcpFile: mcp.json
+nameEn: GitHub
+examples:
+  - "帮我克隆 https://github.com/torvalds/linux 到本地并简要介绍这个仓库的结构"
+  - 查看仓库 owner/repo 里所有 open 状态的 Pull Request，按更新时间倒序，告诉我每个 PR 的标题、作者和变更规模
+  - 在当前分支提交所有改动并推送到 GitHub，提交消息按我做的变更自动生成
+  - "给 owner/repo 的 PR #123 添加一条评论说明测试已通过，并把它标记为 ready for review"

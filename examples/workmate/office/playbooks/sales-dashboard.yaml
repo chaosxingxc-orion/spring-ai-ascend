@@ -1,0 +1,7 @@
+id: sales-dashboard
+title: 销售数据分析仪表盘
+description: 趋势、漏斗与区域对比
+accent: "#AF52DE"
+initPrompt: 基于销售数据生成分析仪表盘说明，包含趋势、漏斗与区域对比
+placements:
+  - home-best-practice

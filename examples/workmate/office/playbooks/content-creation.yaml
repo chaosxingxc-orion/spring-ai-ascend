@@ -1,0 +1,8 @@
+id: content-creation
+title: 内容创作
+description: 文案撰写、视频制作、设计创意
+accent: "#5856D6"
+expertId: prd-writer
+initPrompt: 帮我撰写一份产品发布文案，突出核心价值与差异化
+placements:
+  - market-featured

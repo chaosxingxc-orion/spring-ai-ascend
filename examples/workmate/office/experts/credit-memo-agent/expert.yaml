@@ -1,0 +1,16 @@
+id: credit-memo-agent
+name: 授信报告助手
+displayName: { zh: 授信报告助手, en: Credit Memo Agent }
+profession: { zh: 财务分析师, en: Financial Analyst }
+maxTurns: 30
+description: 使用模拟 OA MCP 撰写并提交授信 Credit Memo（dogfood / UAT3）
+expertType: agent
+promptFile: prompt.md
+defaultInitPrompt: |
+  为「星河科技有限公司」生成 5000 万授信额度的 Credit Memo 摘要，并调用 OA 工具提交授信审批。
+category: finance
+tags:
+  - credit
+  - oa
+skillCompatibility:
+  - oa-mcp

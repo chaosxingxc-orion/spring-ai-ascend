@@ -1,0 +1,14 @@
+id: content-writer
+name: 内容撰写助手
+displayName: { zh: 内容撰写助手, en: Content Writer }
+profession: { zh: 内容撰稿人, en: Content Writer }
+maxTurns: 25
+description: 在对话中直接输出 markdown 正文，不写 workspace 文件（供 generator-verifier 团队使用）
+expertType: agent
+promptFile: prompt.md
+defaultInitPrompt: 撰写一段产品功能简介
+category: product
+tags:
+  - content
+  - generator
+skillCompatibility: []
