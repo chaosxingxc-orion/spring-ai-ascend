@@ -21,27 +21,36 @@ class LocalTimeMcpServerApplicationTest {
     void localMcpServerListsAndCallsDateTool() throws Exception {
         String listResponse = post("""
                 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}
-                """);
+                """).body();
         String callResponse = post("""
                 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_current_date","arguments":{}}}
-                """);
+                """).body();
         String machineInfoResponse = post("""
                 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_machine_info","arguments":{}}}
-                """);
+                """).body();
 
         assertThat(listResponse).contains("get_current_date", "get_current_time", "get_machine_info");
         assertThat(callResponse).contains("structuredContent", "date");
         assertThat(machineInfoResponse).contains("structuredContent", "osName", "javaVersion");
     }
 
-    private String post(String body) throws Exception {
+    @Test
+    void localMcpServerAcceptsInitializedNotificationWithoutId() throws Exception {
+        HttpResponse<String> response = post("""
+                {"jsonrpc":"2.0","method":"notifications/initialized","params":{}}
+                """);
+
+        assertThat(response.statusCode()).isEqualTo(202);
+        assertThat(response.body()).isBlank();
+    }
+
+    private HttpResponse<String> post(String body) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("http://127.0.0.1:" + port + "/mcp"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
         return HttpClient.newHttpClient()
-                .send(request, HttpResponse.BodyHandlers.ofString())
-                .body();
+                .send(request, HttpResponse.BodyHandlers.ofString());
     }
 }
