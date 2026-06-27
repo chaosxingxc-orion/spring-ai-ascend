@@ -1,0 +1,197 @@
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+  # Gzip JSON responses. The run-events history can be several MB; JSON compresses ~8-10x, which is
+  # the dominant cost when opening a large session. text/event-stream is intentionally excluded so SSE
+  # streaming is never buffered/compressed.
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/plain,text/css,text/html,application/javascript
+    min-response-size: 2048
+
+workmate:
+  workspace:
+    base-path: ${WORKMATE_WORKSPACE_BASE_PATH:./workspaces}
+    presets:
+      - id: default
+        name: 默认工作空间
+        path: ""
+        description: 每个任务使用独立 session 目录
+      - id: office-demo
+        name: 办公示例
+        path: presets/office-demo
+        description: 共享办公样例与模板文件
+  data:
+    path: ${WORKMATE_DATA_PATH:./data}
+  session:
+    max-active: 50
+    auto-archive-on-create: true
+    protect-running: true
+  llm:
+    # The catalog below ships several selectable models; users pick one per session in the UI.
+    # Out of the box the default points at DeepSeek (a real OpenAI-compatible provider) — just set
+    # your key in the gitignored .env.local. Each catalog entry may override provider/api-base/
+    # api-key; blank fields fall back to the global values in this block. No real key is committed.
+    model-provider: ${WORKMATE_LLM_MODEL_PROVIDER:openai}
+    api-key: ${WORKMATE_LLM_API_KEY:sk-local-placeholder}
+    api-base: ${WORKMATE_LLM_API_BASE:https://api.deepseek.com/v1}
+    model-name: ${WORKMATE_LLM_MODEL:deepseek-chat}
+    ssl-verify: ${WORKMATE_LLM_SSL_VERIFY:true}
+    max-iterations: 10
+    request-timeout-seconds: ${WORKMATE_LLM_REQUEST_TIMEOUT_SECONDS:300}
+    default-model-id: ${WORKMATE_LLM_DEFAULT_MODEL:deepseek-chat}
+    catalog:
+      # Default — driven by the primary WORKMATE_LLM_* vars; set WORKMATE_LLM_API_KEY to enable.
+      - id: deepseek-chat
+        display-name: ${WORKMATE_LLM_MODEL_DISPLAY:DeepSeek Chat}
+        provider: openai
+        api-base: ${WORKMATE_LLM_API_BASE:https://api.deepseek.com/v1}
+        api-key: ${WORKMATE_LLM_API_KEY:sk-local-placeholder}
+        model-name: ${WORKMATE_LLM_MODEL:deepseek-chat}
+        capabilities: [chat, reasoning]
+      # Hosted alternative — set WORKMATE_OPENAI_API_KEY in .env.local to enable.
+      - id: gpt-4o-mini
+        display-name: OpenAI GPT-4o mini
+        provider: openai
+        api-base: ${WORKMATE_OPENAI_API_BASE:https://api.openai.com/v1}
+        api-key: ${WORKMATE_OPENAI_API_KEY:}
+        model-name: ${WORKMATE_OPENAI_MODEL:gpt-4o-mini}
+        capabilities: [chat, reasoning]
+      # Local model via an OpenAI-compatible server (Ollama/vLLM/LM Studio); set WORKMATE_LOCAL_API_BASE.
+      - id: local-model
+        display-name: Local Model
+        provider: openai
+        api-base: ${WORKMATE_LOCAL_API_BASE:http://localhost:11434/v1}
+        api-key: ${WORKMATE_LOCAL_API_KEY:sk-local-placeholder}
+        model-name: ${WORKMATE_LOCAL_MODEL:local-model}
+        capabilities: [chat, reasoning]
+  approval:
+    timeout-seconds: 120
+  audit:
+    preview-max-chars: 200
+    max-payload-bytes: 16384
+    fail-close-enabled: true
+  audit-chain:
+    projector-batch-size: 100
+    projector-fixed-delay-ms: 5000
+  studio:
+    # High-risk authoring surface — default on for local WorkMate example; set false in production.
+    enabled: ${WORKMATE_STUDIO_ENABLED:true}
+    audit-enabled: true
+  oauth:
+    # Mock redirect authorize page (/oauth/mock-authorize) for local dogfood only.
+    mock-enabled: ${WORKMATE_OAUTH_MOCK_ENABLED:true}
+  memory:
+    owner-id: default
+    max-inject-chars: 2000
+    auto-capture: false
+  tenant:
+    id: default
+    quota:
+      max-active-sessions: 0
+      max-monthly-tokens: 0
+      max-storage-bytes: 0
+      warn-threshold-percent: 80
+  automation:
+    poll-interval-ms: 60000
+    webhooks:
+      generic:
+        # Default OFF; when enabled a non-empty secret is mandatory (enforced at startup).
+        enabled: ${WORKMATE_WEBHOOK_GENERIC_ENABLED:false}
+        secret: ${WORKMATE_WEBHOOK_GENERIC_SECRET:}
+      feishu:
+        enabled: false
+        secret: ${WORKMATE_WEBHOOK_FEISHU_SECRET:}
+      wecom:
+        enabled: false
+        secret: ${WORKMATE_WEBHOOK_WECOM_SECRET:}
+  cloud:
+    enabled: ${WORKMATE_CLOUD_ENABLED:true}
+    stub-runtime-url: ${WORKMATE_CLOUD_STUB_RUNTIME_URL:http://localhost:8080}
+    default-image: workmate-agent-runtime:latest
+    sandbox-profile: local-stub
+    workspace-mount-path: /workspace
+    route-prompts: ${WORKMATE_CLOUD_ROUTE_PROMPTS:false}
+    request-timeout-seconds: 300
+  github:
+    token: ${WORKMATE_GITHUB_TOKEN:}
+    api-base: https://api.github.com
+  office:
+    root: ${WORKMATE_OFFICE_ROOT:../office}
+  member-runtimes:
+    enabled: ${WORKMATE_MEMBER_RUNTIMES_ENABLED:false}
+    request-timeout-seconds: 300
+    health-probe-timeout-seconds: 5
+    members:
+      prd-writer: ${WORKMATE_MEMBER_PRD_WRITER_URL:http://localhost:8081}
+      fund-analyst: ${WORKMATE_MEMBER_FUND_ANALYST_URL:http://localhost:8082}
+  team-runtime:
+    default-runtime: ${WORKMATE_TEAM_RUNTIME_DEFAULT:openjiuwen-team}
+    allowlist: []
+  mcp:
+    enabled: ${WORKMATE_MCP_ENABLED:false}
+    request-timeout-seconds: 60
+    tools-limit-warning: 50
+    reconnect-max-attempts: 3
+    reconnect-initial-backoff-ms: 500
+    servers:
+      - id: docs-fs
+        enabled: ${WORKMATE_MCP_DOCS_FS_ENABLED:false}
+        transport: stdio
+        command: npx
+        args:
+          - -y
+          - "@modelcontextprotocol/server-filesystem"
+          - ${WORKMATE_MCP_FS_ROOT:../documentation}
+      - id: qieman
+        # Remote MCP example. The endpoint URL and API key are supplied locally via .env.local;
+        # no real endpoint or key is committed (default URL is empty).
+        enabled: ${WORKMATE_MCP_QIEMAN_ENABLED:false}
+        transport: streamable-http
+        url: ${WORKMATE_MCP_QIEMAN_URL:}
+        headers:
+          x-api-key: ${WORKMATE_MCP_QIEMAN_API_KEY:}
+          Accept: "application/json, text/event-stream"
+        tool-allowlist:
+          - GetCurrentTime
+          - SearchFunds
+          - GuessFundCode
+          - BatchGetFundsDetail
+          - GetPopularFund
+      - id: oa
+        enabled: ${WORKMATE_MCP_OA_ENABLED:false}
+        transport: stdio
+        command: node
+        args:
+          - ${WORKMATE_MCP_OA_SCRIPT:../scripts/dogfood/mock-oa-mcp/server.mjs}
+        tool-allowlist:
+          - submit_credit_memo
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: workmate
+      default-agent-id: workmate-agent
+
+spring:
+  application:
+    name: workmate-api
+  datasource:
+    url: ${WORKMATE_DB_URL:jdbc:postgresql://localhost:5432/workmate}
+    username: ${WORKMATE_DB_USERNAME:workmate}
+    password: ${WORKMATE_DB_PASSWORD:workmate}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

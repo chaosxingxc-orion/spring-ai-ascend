@@ -1,0 +1,1 @@
+ALTER TABLE sessions ADD COLUMN permission_mode VARCHAR(32) NOT NULL DEFAULT 'CRAFT';
