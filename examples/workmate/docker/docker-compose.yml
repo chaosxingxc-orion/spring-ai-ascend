@@ -1,0 +1,97 @@
+# Compose stacks for the WorkMate example.
+# Usage:
+#   docker compose -f docker/docker-compose.yml up -d                     # Postgres only
+#   make build && docker compose -f docker/docker-compose.yml --profile app up -d
+#                                                                         # full stack: db + API + UI
+#   docker compose -f docker/docker-compose.yml --profile members up -d   # member runtimes
+name: workmate
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: workmate-postgres
+    environment:
+      POSTGRES_DB: workmate
+      POSTGRES_USER: workmate
+      POSTGRES_PASSWORD: workmate
+    ports:
+      - "5432:5432"
+    volumes:
+      - workmate-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workmate -d workmate"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Full app stack (profile: app). Build the API jar first with `make build`.
+  api:
+    profiles: [app]
+    build:
+      context: ..
+      dockerfile: workmate-api/Dockerfile
+    container_name: workmate-api
+    env_file:
+      - ../workmate-api/.env.local
+    environment:
+      WORKMATE_DB_URL: jdbc:postgresql://postgres:5432/workmate
+      WORKMATE_DB_USERNAME: workmate
+      WORKMATE_DB_PASSWORD: workmate
+      WORKMATE_OFFICE_ROOT: /office
+      WORKMATE_DATA_PATH: /app/data
+      WORKMATE_WORKSPACE_BASE_PATH: /app/workspaces
+    volumes:
+      - ../office:/office:ro
+      - ../workmate-api/data:/app/data
+      - ../workmate-api/workspaces:/app/workspaces
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  ui:
+    profiles: [app]
+    build:
+      context: ../workmate-ui
+      dockerfile: Dockerfile
+    container_name: workmate-ui
+    depends_on:
+      - api
+    ports:
+      - "5174:80"
+
+  member-prd-writer:
+    profiles: [members]
+    build:
+      context: ..
+      dockerfile: member-runtimes/workmate-member-a2a/Dockerfile
+    env_file:
+      - ../workmate-api/.env.local
+    environment:
+      SERVER_PORT: 8081
+      WORKMATE_MEMBER_EXPERT_ID: prd-writer
+      WORKMATE_OFFICE_ROOT: /office
+    volumes:
+      - ../office:/office:ro
+    ports:
+      - "8081:8081"
+
+  member-fund-analyst:
+    profiles: [members]
+    build:
+      context: ..
+      dockerfile: member-runtimes/workmate-member-a2a/Dockerfile
+    env_file:
+      - ../workmate-api/.env.local
+    environment:
+      SERVER_PORT: 8082
+      WORKMATE_MEMBER_EXPERT_ID: fund-analyst
+      WORKMATE_OFFICE_ROOT: /office
+    volumes:
+      - ../office:/office:ro
+    ports:
+      - "8082:8082"
+
+volumes:
+  workmate-pgdata:

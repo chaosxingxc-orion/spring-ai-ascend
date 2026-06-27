@@ -1,0 +1,7 @@
+{"name":"team.started","data":{"teamId":"content-reactive-bus-team","pattern":"message-bus","busMode":"async-subscribe-multiwave","topicBusProvider":"local-in-memory","parentRunId":"parent-1"}}
+{"name":"team.bus.subscribed","data":{"subscriberMemberId":"content-writer","topics":["ingress"]}}
+{"name":"team.bus.published","data":{"topic":"ingress","publishSource":"orchestrator","authorMemberName":"用户"}}
+{"name":"team.member.started","data":{"memberId":"content-writer"}}
+{"name":"team.bus.published","data":{"topic":"content-writer","publishSource":"outcome","authorMemberId":"content-writer"}}
+{"name":"team.member.started","data":{"memberId":"content-reviewer"}}
+{"name":"team.completed","data":{"busEntryCount":3,"converged":true,"iterationsCompleted":2}}

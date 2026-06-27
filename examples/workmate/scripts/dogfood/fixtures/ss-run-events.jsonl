@@ -1,0 +1,6 @@
+{"name":"team.started","data":{"teamId":"research-collab-team","pattern":"shared-state","maxIterations":4,"convergenceTarget":2}}
+{"name":"team.iteration.started","data":{"iteration":1,"maxIterations":4}}
+{"name":"team.member.started","data":{"memberId":"prd-writer"}}
+{"name":"team.memory","data":{"section":"prd-writer","version":2}}
+{"name":"team.state.progress","data":{"iteration":1,"maxIterations":4,"convergenceStreak":1}}
+{"name":"team.completed","data":{"converged":true,"iterationsCompleted":2}}

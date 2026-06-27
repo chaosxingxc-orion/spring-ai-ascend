@@ -1,0 +1,98 @@
+# === Local runtime data & secrets (NEVER commit) ===
+**/.env
+**/.env.local
+**/.env.*.local
+!**/.env.example
+!**/.env.template
+workmate-api/application-local.yaml
+workmate-api/data/
+workmate-api/workspaces/
+workmate-api/logs/
+workmate-api/target/
+
+# === Build products ===
+**/dist/
+**/build/
+**/release/
+**/*.tsbuildinfo
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/coverage/
+
+# === Dependencies ===
+**/node_modules/
+**/.vite/
+**/.turbo/
+**/__pycache__/
+*.py[cod]
+
+# === Third-party market pull caches (NEVER commit) ===
+office/_sources/
+office/market/
+office/skills-market/
+
+# Experts market: ship only a curated, brand-free example set; exclude the rest of the
+# pulled third-party marketplace. (gitignore ignores all children, then re-includes the keepers.)
+office/experts-market/*
+!office/experts-market/gpt-researcher-team
+!office/experts-market/gpt-researcher-team__draft-reviewer
+!office/experts-market/gpt-researcher-team__draft-reviser
+!office/experts-market/gpt-researcher-team__report-publisher
+!office/experts-market/gpt-researcher-team__report-writer
+!office/experts-market/gpt-researcher-team__research-planner
+!office/experts-market/gpt-researcher-team__topic-researcher
+!office/experts-market/ncre-expert
+!office/experts-market/ncre-expert__ncre-level1
+!office/experts-market/ncre-expert__ncre-level2
+!office/experts-market/ncre-expert__ncre-level3
+!office/experts-market/ncre-expert__ncre-level4
+
+# Connectors market: keep only vendor-neutral examples.
+office/connectors-market/*
+!office/connectors-market/github
+!office/connectors-market/notion
+
+# === Internal QA prompts (milestone team-topology sign-off — not shipped) ===
+office/prompts/*-dogfood.md
+
+# === Internal design notes & review docs (not part of the published example) ===
+# Published documentation lives in documentation/. The internal docs/ folder holds
+# milestone design notes and code-review reports that are not shipped open-source.
+docs/
+ASCEND-DEPENDENCIES.md
+
+# === Internal dogfood scripts (local QA / milestone sign-off — not shipped) ===
+# Shipped subset: smoke scripts, offline validators, fixtures/, mock-oa-mcp/.
+scripts/dogfood/acp-sidecar-relay.sh
+scripts/dogfood/rebuild-audit-chain-dev.sh
+scripts/dogfood/dogfood-acp-converter.sh
+scripts/dogfood/dogfood-agent-team.sh
+scripts/dogfood/dogfood-automation-jobs.sh
+scripts/dogfood/dogfood-cloud-sessions.sh
+scripts/dogfood/dogfood-credit-memo-mcp.sh
+scripts/dogfood/dogfood-expert-fund-analyst.sh
+scripts/dogfood/dogfood-files-probe.sh
+scripts/dogfood/dogfood-generator-verifier-team.sh
+scripts/dogfood/dogfood-gpt-researcher-team.sh
+scripts/dogfood/dogfood-inspiration-launch.sh
+scripts/dogfood/dogfood-memory.sh
+scripts/dogfood/dogfood-message-bus-team.sh
+scripts/dogfood/dogfood-orchestrator-team.sh
+scripts/dogfood/dogfood-qieman-funds.sh
+scripts/dogfood/dogfood-qieman-mcp.sh
+scripts/dogfood/dogfood-session-limits.sh
+scripts/dogfood/dogfood-shared-state-team.sh
+scripts/dogfood/dogfood-teamagent-expert-ref.sh
+scripts/dogfood/dogfood-teamagent-orchestrator.sh
+scripts/dogfood/dogfood-tenant-quota.sh
+scripts/dogfood/dogfood-v10-enterprise.sh
+scripts/dogfood/dogfood_team_lib.sh
+scripts/dogfood/test-w7.sh
+
+# === OS / IDE ===
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/

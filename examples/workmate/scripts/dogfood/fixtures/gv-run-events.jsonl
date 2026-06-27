@@ -1,0 +1,8 @@
+{"name":"team.started","data":{"teamId":"content-review-team","pattern":"generator-verifier","maxIterations":3}}
+{"name":"team.iteration.started","data":{"iteration":1,"maxIterations":3}}
+{"name":"team.member.started","data":{"memberId":"content-writer"}}
+{"name":"team.verify.started","data":{"memberId":"content-reviewer"}}
+{"name":"team.verify.rejected","data":{"memberId":"content-reviewer","iteration":1}}
+{"name":"team.iteration.started","data":{"iteration":2,"maxIterations":3}}
+{"name":"team.verify.accepted","data":{"memberId":"content-reviewer","iteration":2}}
+{"name":"team.completed","data":{"memberCount":2}}

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.huawei.ascend</groupId>
+    <artifactId>spring-ai-ascend-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>workmate-examples</artifactId>
+  <packaging>pom</packaging>
+  <name>WorkMate Workbench examples</name>
+  <description>Aggregator for WorkMate Workbench modules under examples/workmate/.</description>
+
+  <properties>
+    <enforcer.skip>true</enforcer.skip>
+  </properties>
+
+  <modules>
+    <module>workmate-api</module>
+    <module>member-runtimes/workmate-member-a2a</module>
+  </modules>
+</project>

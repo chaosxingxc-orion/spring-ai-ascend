@@ -1,0 +1,8 @@
+{"name":"team.started","data":{"teamId":"gpt-researcher-team","parentRunId":"run-gpt-001","memberCount":6,"collaboration":"sequential","pattern":"orchestrator","teamRuntime":"openjiuwen-team","members":[{"memberId":"topic-researcher","memberName":"谭溯源","order":1,"backendType":"local"},{"memberId":"research-planner","memberName":"季要纲","order":2,"backendType":"local"},{"memberId":"draft-reviewer","memberName":"明鉴秋","order":3,"backendType":"local"},{"memberId":"draft-reviser","memberName":"任润泽","order":4,"backendType":"local"},{"memberId":"report-writer","memberName":"程文成","order":5,"backendType":"local"},{"memberId":"report-publisher","memberName":"傅梓铭","order":6,"backendType":"local"}]}}
+{"name":"team.phase.started","data":{"teamId":"gpt-researcher-team","parentRunId":"run-gpt-001","phase":1,"label":"初始调研"}}
+{"name":"team.member.started","data":{"memberId":"topic-researcher","parentRunId":"run-gpt-001","subRunId":"sub-1"}}
+{"name":"team.member.completed","data":{"memberId":"topic-researcher","parentRunId":"run-gpt-001","subRunId":"sub-1"}}
+{"name":"team.phase.completed","data":{"teamId":"gpt-researcher-team","parentRunId":"run-gpt-001","phase":1,"label":"初始调研"}}
+{"name":"team.phase.started","data":{"teamId":"gpt-researcher-team","parentRunId":"run-gpt-001","phase":2,"label":"规划大纲"}}
+{"name":"team.member.started","data":{"memberId":"research-planner","parentRunId":"run-gpt-001","subRunId":"sub-2"}}
+{"name":"team.completed","data":{"teamId":"gpt-researcher-team","parentRunId":"run-gpt-001","memberCount":6,"anyMemberFailed":false}}

@@ -1,0 +1,8 @@
+{"name":"team.started","data":{"teamId":"product-strategy-team","pattern":"orchestrator","memberCount":2}}
+{"name":"team.memory","data":{"path":"team/parent-run/blackboard.md"}}
+{"name":"team.member.started","data":{"memberId":"prd-writer","order":1}}
+{"name":"team.member.completed","data":{"memberId":"prd-writer"}}
+{"name":"team.member.started","data":{"memberId":"fund-analyst","order":2}}
+{"name":"team.member.completed","data":{"memberId":"fund-analyst"}}
+{"name":"team.lead.synthesizing","data":{"leadName":"产品策略团长"}}
+{"name":"team.completed","data":{"memberCount":2}}

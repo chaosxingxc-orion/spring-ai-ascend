@@ -1,0 +1,5 @@
+{"sessionUpdate":"agent_message_chunk","content":{"text":"sidecar "}}
+{"sessionUpdate":"agent_message_chunk","content":{"text":"relay"}}
+{"sessionUpdate":"tool_call","content":{"toolName":"workmate_read","toolCallId":"sidecar-tc-1","args":{"path":"notes.md"}},"_meta":{"workmate.ai/memberEvent":"PRD 写手","workmate.ai/memberId":"prd-writer","workmate.ai/parentRunId":"parent-run-1","surface":"team"}}
+{"sessionUpdate":"tool_call_update","content":{"toolName":"workmate_read","toolCallId":"sidecar-tc-1","result":{"success":true}},"_meta":{"workmate.ai/memberId":"prd-writer","workmate.ai/parentRunId":"parent-run-1","surface":"team"}}
+{"sessionUpdate":"session_info_update","content":{"status":"completed"},"_meta":{"workmate.ai/status":"completed"}}

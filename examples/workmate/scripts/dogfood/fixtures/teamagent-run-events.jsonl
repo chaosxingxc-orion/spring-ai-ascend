@@ -1,0 +1,4 @@
+{"name":"team.started","data":{"teamId":"enterprise-legal-team","parentRunId":"task-abc12345","memberCount":8,"collaboration":"sequential","pattern":"orchestrator","teamRuntime":"openjiuwen-team","members":[{"memberId":"commercial-contracts-counsel","memberName":"何同慎","order":1,"backendType":"local"},{"memberId":"corporate-ma-counsel","memberName":"梅谨成","order":2,"backendType":"local"}]}}
+{"name":"team.memory","data":{"parentRunId":"task-abc12345","version":1}}
+{"name":"team.member.started","data":{"memberId":"commercial-contracts-counsel","parentRunId":"task-abc12345","subRunId":"task-abc12345:commercial-contracts-counsel","backendType":"local"}}
+{"name":"team.completed","data":{"teamId":"enterprise-legal-team","parentRunId":"task-abc12345","memberCount":8,"anyMemberFailed":false,"timeBudgetExceeded":false,"synthesisFailed":false}}
