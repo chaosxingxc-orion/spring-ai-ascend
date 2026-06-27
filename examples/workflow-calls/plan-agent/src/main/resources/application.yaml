@@ -1,0 +1,26 @@
+# ── plan-agent (standalone single-agent runtime, OpenJiuwen ReAct LLM) ──
+# Boot:  cd examples/workflow-calls/plan-agent && mvn spring-boot:run
+#
+# Requires an LLM (LLM_PROVIDER / LLM_API_KEY / LLM_API_BASE / LLM_MODEL / LLM_SSL_VERIFY).
+# Calls versatile-call at http://localhost:18092 (override via VERSATILE_CALL_URL).
+
+server:
+  port: 18090
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: plan-agent
+  remote-agents:
+    - url: ${VERSATILE_CALL_URL:http://localhost:18092}
+      output:
+        default-target: USER
+        completion-target: LLM
+
+plan-agent:
+  model-provider: ${LLM_PROVIDER:openai}
+  api-key:        ${LLM_API_KEY:}
+  api-base:       ${LLM_API_BASE:http://localhost:4000/v1}
+  model-name:     ${LLM_MODEL:gpt-4o-mini}
+  ssl-verify:     ${LLM_SSL_VERIFY:true}

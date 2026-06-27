@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: agent-openjiuwen-travel-hotel
+
+server:
+  port: 8093
+
+# Persist all logs (incl. [A2A-GetTask] request/response) to a file for debugging.
+logging:
+  file:
+    name: logs/agent-openjiuwen-travel-hotel.log
+
+openjiuwen:
+  travel:
+    hotel:
+      llm:
+        provider: ${LLM_PROVIDER:OpenAI}
+        api-key: ${LLM_API_KEY:}
+        api-base: ${LLM_API_BASE:}
+        model-name: ${LLM_MODEL:}
+        ssl-verify: ${LLM_SSL_VERIFY:true}
+        max-iterations: ${LLM_MAX_ITERATIONS:6}
+  service:
+    a2a:
+      # --- Agent Card ---
+      agent-name: "agent-openjiuwen-travel-hotel"
+      agent-description: "差旅酒店规划智能体（叶子）"
+      provider-organization: "OpenJiuwen"
+      streaming: true
+      default-input-modes: ["text", "text/plain"]
+      default-output-modes: ["text", "text/plain"]
+      # --- Skills ---
+      skills:
+        - id: "hotel_search_skill"
+          name: "Hotel Search"
+          description: "按城市+日期+差标过滤查询候选酒店，返回 ≤6 条"
+          tags: ["travel", "hotel"]
+          examples: ["北京有什么酒店"]
+          input-modes: ["text", "text/plain"]
+          output-modes: ["text", "text/plain"]

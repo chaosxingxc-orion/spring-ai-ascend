@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: agent-openjiuwen-travel-trip
+
+server:
+  port: 8092
+
+# Persist all logs (incl. [A2A-GetTask] request/response) to a file for debugging.
+logging:
+  file:
+    name: logs/agent-openjiuwen-travel-trip.log
+
+openjiuwen:
+  travel:
+    trip:
+      llm:
+        provider: ${LLM_PROVIDER:OpenAI}
+        api-key: ${LLM_API_KEY:}
+        api-base: ${LLM_API_BASE:}
+        model-name: ${LLM_MODEL:}
+        ssl-verify: ${LLM_SSL_VERIFY:true}
+        max-iterations: ${LLM_MAX_ITERATIONS:5}
+  service:
+    a2a:
+      # --- Agent Card ---
+      agent-name: "agent-openjiuwen-travel-trip"
+      agent-description: "差旅行程规划智能体（中游，委托酒店）"
+      provider-organization: "OpenJiuwen"
+      streaming: true
+      default-input-modes: ["text", "text/plain"]
+      default-output-modes: ["text", "text/plain"]
+      # --- Remote Agents ---
+      # registry key MUST equal RemoteHotelRail's context.agentName ("agent-openjiuwen-travel-hotel"); url = hotel app's JSON-RPC base
+      remote-agents:
+        - name: "agent-openjiuwen-travel-hotel"
+          url: "http://localhost:8093/a2a/"
+          timeout-seconds: 300
+      # --- Skills ---
+      skills:
+        - id: "trip-planning"
+          name: "Plan corporate travel itinerary"
+          description: >-
+            Plan a corporate business trip. Pass a natural-language message describing destination city,
+            check-in / check-out dates (yyyy-MM-dd), nightly budget, minimum star rating, district
+            preferences and preferred hotel brands. The agent calls the remote hotel planner when needed
+            and returns a markdown summary with an itinerary overview and up to three recommended hotels.
+          tags: ["trip", "travel", "corporate-travel", "hotel"]
+          examples:
+            - "我 6 月 16 日到 18 日去北京出差，差标每晚 800 元、4 星，偏好国贸附近，协议品牌全季/亚朵"
+            - "Plan a 2-night business trip to Shanghai from 2026-06-20, 4-star, max 900 CNY/night"
+          input-modes: ["text", "text/plain"]
+          output-modes: ["text", "text/plain"]

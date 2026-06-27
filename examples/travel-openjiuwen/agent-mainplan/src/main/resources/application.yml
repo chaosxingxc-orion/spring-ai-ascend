@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: agent-openjiuwen-travel-mainplan
+
+server:
+  port: 8091
+
+# Persist all logs (incl. [A2A-GetTask] request/response) to a file for debugging.
+logging:
+  file:
+    name: logs/agent-openjiuwen-travel-mainplan.log
+
+openjiuwen:
+  travel:
+    mainplan:
+      default-city: ${LLM_DEFAULT_CITY:深圳}
+      traveler-name: ${LLM_TRAVELER_NAME:张三}
+      llm:
+        provider: ${LLM_PROVIDER:OpenAI}
+        api-key: ${LLM_API_KEY:}
+        api-base: ${LLM_API_BASE:}
+        model-name: ${LLM_MODEL:}
+        ssl-verify: ${LLM_SSL_VERIFY:true}
+        max-iterations: ${LLM_MAX_ITERATIONS:10}
+  service:
+    a2a:
+      # --- Agent Card ---
+      agent-name: "agent-openjiuwen-travel-mainplan"
+      agent-description: "差旅助手主规划智能体（上游，委托行程规划）"
+      provider-organization: "OpenJiuwen"
+      streaming: true
+      default-input-modes: ["text"]
+      default-output-modes: ["text"]
+      # --- Remote Agents ---
+      # registry key MUST equal RemoteTripRail's context.agentName ("agent-openjiuwen-travel-trip"); url = trip app's JSON-RPC base
+      remote-agents:
+        - name: "agent-openjiuwen-travel-trip"
+          url: "http://localhost:8092/a2a/"
+          timeout-seconds: 300
+      # --- Skills ---
+      skills:
+        - id: "mainplan_skill"
+          name: "Travel Main Planning"
+          description: "差旅助手主规划智能体，通过 A2A 协议对外提供服务。理解出差需求，信息不足时向用户追问，信息充分时委托行程规划智能体给出完整方案。"
+          tags: ["travel", "mainplan"]
+          examples: ["帮我安排下周去北京出差"]
+          input-modes: ["text"]
+          output-modes: ["text"]

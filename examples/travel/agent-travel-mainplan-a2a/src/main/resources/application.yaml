@@ -13,7 +13,12 @@ main-plan-agent:
   api-key:        ${LLM_API_KEY:}
   api-base:       ${LLM_API_BASE:http://localhost:4000/v1}
   model-name:     ${LLM_MODEL:gpt-4o-mini}
-  ssl-verify:     ${LLM_SSL_VERIFY:false}
+  ssl-verify:     ${LLM_SSL_VERIFY:true}
   max-iterations: 10
   default-city: 深圳
   traveler-name: 张三
+  # Optional: override the published AgentCard endpoint (default: /a2a).
+  # Set this to a reverse-proxy URL during testing to simulate behaviors
+  # (e.g. http://my-proxy:8080/main-plan-agent/a2a); the proxy should
+  # route all requests to the real /a2a endpoint of this agent.
+  # agent-card-endpoint: http://my-proxy:8080/main-plan-agent/a2a

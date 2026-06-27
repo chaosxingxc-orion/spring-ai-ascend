@@ -1,0 +1,28 @@
+# ── Main ReActAgent — "main" profile ───────────────────────────
+#   mvn spring-boot:run -f examples/workflow-calls/expense-review/pom.xml \
+#         -Dspring-boot.run.profiles=main
+# This agent uses an LLM to decide when to call the Expense Review
+# Workflow Agent as a remote tool. The Workflow Agent must already
+# be running on the port configured below.
+
+server:
+  port: 8081
+  shutdown: graceful
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: expense-review-main
+      agent-card:
+        name: expense-review-main
+        description: 报销审核主控 ReActAgent — 通过 LLM 决策调用 Expense Review Workflow Agent
+        version: "1.0"
+
+  # Remote agent: points to the Expense Review Workflow Agent
+  remote-agents:
+    - url: http://localhost:8080
+      stream-timeout: 60s
+      output:
+        default-target: USER
+        completion-target: LLM

@@ -1,0 +1,39 @@
+# ── versatile-call agent (standalone single-agent runtime) ──
+# Boot:  cd examples/financial/versatile-call && mvn spring-boot:run
+#
+# Points at the external versatile MOCK (http://127.0.0.1:31113).
+# Override the target via VERSATILE_URL / VERSATILE_PROJECT_ID / VERSATILE_AGENT_ID.
+
+server:
+  port: 18092
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: versatile-call
+
+versatile:
+  url: ${VERSATILE_URL:http://127.0.0.1:31113/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}}
+  timeout: 30s
+
+  url-variables:
+    project_id: ${VERSATILE_PROJECT_ID:mock_project_id}
+    agent_id: ${VERSATILE_AGENT_ID:fb723468-c8ca-424b-a95f-a3e74b37e090}
+
+  query-params:
+    type: controller
+    workspace_id: "10"
+
+  headers:
+    content-type: "application/json"
+    stream: "true"
+
+  input-metadata-keys:
+    - intent
+    - wap_userName
+
+  # QA results arrive as message events carrying node_type=QA; assemble the
+  # final content from those cached messages at End. (result-extractions only
+  # fire on unknown events, so it cannot capture a QA message.)
+  result-node-type: QA

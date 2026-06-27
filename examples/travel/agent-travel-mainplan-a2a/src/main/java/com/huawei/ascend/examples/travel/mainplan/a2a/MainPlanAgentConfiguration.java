@@ -68,7 +68,12 @@ public class MainPlanAgentConfiguration {
     }
 
     @Bean
-    org.a2aproject.sdk.spec.AgentCard mainPlanAgentCard() {
+    org.a2aproject.sdk.spec.AgentCard mainPlanAgentCard(
+            @Value("${main-plan-agent.agent-card-endpoint:#{null}}") String endpoint) {
+        if (endpoint != null && !endpoint.isBlank()) {
+            return AgentCards.create(AGENT_ID, "差旅助手主规划智能体，通过 A2A 协议对外提供服务。",
+                    "0.1.0", endpoint);
+        }
         return AgentCards.create(AGENT_ID, "差旅助手主规划智能体，通过 A2A 协议对外提供服务。");
     }
 

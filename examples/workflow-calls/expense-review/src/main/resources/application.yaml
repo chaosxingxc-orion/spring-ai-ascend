@@ -1,0 +1,14 @@
+debug: false
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: sample-tenant
+      default-agent-id: expense-review
+
+expense-review:
+  model-provider: ${LLM_PROVIDER:openai}
+  api-key:        ${LLM_API_KEY:}
+  api-base:       ${LLM_API_BASE:http://localhost:4000/v1}
+  model-name:     ${LLM_MODEL:gpt-4o-mini}
+  ssl-verify:     ${LLM_SSL_VERIFY:true}

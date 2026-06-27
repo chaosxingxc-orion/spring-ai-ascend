@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  travel-openjiuwen parent + aggregator POM.
+
+  Decoupled from the repository root: it inherits only the standard
+  spring-boot-starter-parent:4.0.6 (mirrors third_party/spring-ai-ascend/
+  examples/travel) and resolves com.openjiuwen:agent-service-app and
+  agent-service-adapters-agentcore from the local m2 repo. There is no
+  <relativePath> back to the service/root pom, and it is NOT listed as a
+  <module> of service/pom.xml — it builds standalone.
+
+  It is both an inheritance parent (provides the groupId plus the dependency
+  management and lombok compiler wiring the three sub-modules need) and a
+  reactor aggregator (so the whole set builds with
+  `mvn -f service/travel-openjiuwen/pom.xml <goal>`).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.6</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.huawei.ascend.examples</groupId>
+    <artifactId>travel-openjiuwen</artifactId>
+    <version>0.1.0</version>
+    <packaging>pom</packaging>
+
+    <name>travel-openjiuwen</name>
+    <description>Travel A2A agents aggregator — hotel / trip / mainplan</description>
+
+    <properties>
+        <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Production agent-service artifacts consumed from m2.
+                 Note these stay under com.openjiuwen (NOT this examples' groupId). -->
+            <dependency>
+                <groupId>com.openjiuwen</groupId>
+                <artifactId>agent-service-app</artifactId>
+                <version>0.1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.openjiuwen</groupId>
+                <artifactId>agent-service-adapters-agentcore</artifactId>
+                <version>0.1.0</version>
+            </dependency>
+
+            <!-- Pin protobuf to 4.x: agent-service-app -> a2a-sdk ships protoc-generated
+                 classes (e.g. AgentCard) whose <clinit> reference internal types that only
+                 exist in protobuf 4.x. The Spring Boot BOM does not manage protobuf-java, so
+                 without this pin grpc's transitive protobuf-java 3.x wins and the generated
+                 classes throw NoClassDefFoundError at runtime. (Matches repo root + ascend pin.) -->
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>4.33.2</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java-util</artifactId>
+                <version>4.33.2</version>
+            </dependency>
+
+            <!-- a2a-sdk's JSONRPCUtils needs gson 2.11.0+ (setStrictness API). -->
+            <dependency>
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>2.11.0</version>
+            </dependency>
+
+            <!-- Lombok: provided; version comes from the Spring Boot BOM (${lombok.version}). -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+                <scope>provided</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- Lombok is used by every sub-module (the *LlmProperties @Data classes), so it is
+         declared here once and inherited by all three. -->
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!-- spring-boot-starter-parent does not wire the lombok annotation processor,
+                     so mirror the repo root's maven-compiler-plugin configuration. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <source>${java.version}</source>
+                        <target>${java.version}</target>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <modules>
+        <module>agent-hotel</module>
+        <module>agent-trip</module>
+        <module>agent-mainplan</module>
+    </modules>
+</project>
