@@ -1,0 +1,20 @@
+spring:
+  config:
+    activate:
+      on-profile: mcp-smoke
+
+agent-runtime:
+  remote-agents: []
+  mcp:
+    servers:
+      - server-id: local-tools
+        url: http://127.0.0.1:8095/mcp
+        transport: streamable-http
+
+deep-research:
+  middleware:
+    skillhub:
+      enabled: true
+      root: skills
+  memory:
+    provider: in-memory

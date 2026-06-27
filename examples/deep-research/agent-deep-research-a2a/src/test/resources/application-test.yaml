@@ -2,10 +2,18 @@ spring:
   config:
     activate:
       on-profile: test
+  autoconfigure:
+    exclude:
+      - com.huawei.ascend.runtime.engine.mcp.McpAutoConfiguration
 
 deep-research:
+  middleware:
+    skillhub:
+      enabled: false
   memory:
     provider: in-memory
 
 agent-runtime:
   remote-agents: []
+  mcp:
+    servers: []

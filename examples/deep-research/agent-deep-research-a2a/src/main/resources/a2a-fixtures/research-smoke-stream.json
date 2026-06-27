@@ -5,15 +5,15 @@
   "params": {
     "message": {
       "role": "ROLE_USER",
-      "messageId": "msg-dr-smoke-3",
-      "contextId": "session-deep-research-smoke-3",
+      "messageId": "msg-dr-smoke-5",
+      "contextId": "session-deep-research-smoke-5",
       "metadata": {
         "userId": "manual-user",
         "agentId": "deep-research-agent"
       },
       "parts": [
         {
-          "text": "请做一轮快速调研（不要多轮深挖）：仅对比火山方舟与 DeepSeek 两家，截至 2026 Q2，只查定价（输入/输出）和最大上下文窗口两个维度。每家最多调用 search-agent 一次；若 verify-agent 可用可对关键数字核验一次。直接输出简短对比表和推荐结论，不要创建超过 3 步的 todo。"
+          "text": "请做一轮快速调研（不要多轮深挖）：仅对比火山方舟与 DeepSeek 两家，截至 2026 Q2，只查定价（输入/输出）和最大上下文窗口两个维度。每家最多调用 search-agent 一次；若 verify-agent 可用可对关键数字核验一次。直接输出简短对比表和推荐结论，不要创建超过 3 步的 todo。若使用了 llm-api-comparison 技能，终稿须包含 DEEP_RESEARCH_SKILLHUB_USED。"
         }
       ]
     }

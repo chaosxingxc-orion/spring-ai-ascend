@@ -4,12 +4,15 @@
 
 package com.huawei.ascend.examples.deepresearch.a2a;
 
-import com.huawei.ascend.examples.deepresearch.DeepResearchConstants;
 import com.huawei.ascend.runtime.engine.spi.RemoteAgentToolSpec;
 import java.util.List;
 import java.util.Map;
 
 final class DeepResearchRemoteToolSpecs {
+
+    static final String SEARCH_AGENT = "search-agent";
+    static final String READ_AGENT = "read-agent";
+    static final String VERIFY_AGENT = "verify-agent";
 
     private static final Map<String, Object> INPUT_SCHEMA = Map.of(
             "type", "object",
@@ -26,14 +29,14 @@ final class DeepResearchRemoteToolSpecs {
     static List<RemoteAgentToolSpec> all() {
         return List.of(
                 spec(
-                        DeepResearchConstants.REMOTE_TOOL_PLAN_SEARCH,
-                        "search-agent / web_search: query, top_k, time_range, language -> results[]"),
+                        SEARCH_AGENT,
+                        "search-agent / web_search: query, top_k, time_range, language → results[]"),
                 spec(
-                        DeepResearchConstants.REMOTE_TOOL_PLAN_READ,
-                        "plan_read / read_url: url, focus_question -> content_markdown, metadata.doc_type"),
+                        READ_AGENT,
+                        "read-agent / read_url: url, focus_question → content_markdown, metadata.doc_type"),
                 spec(
-                        DeepResearchConstants.REMOTE_TOOL_PLAN_VERIFY,
-                        "verify-agent / verify_claim: claim, sources, claim_type -> verdict, confidence"));
+                        VERIFY_AGENT,
+                        "verify-agent / verify_claim: claim, sources, claim_type → verdict, confidence"));
     }
 
     private static RemoteAgentToolSpec spec(String name, String description) {

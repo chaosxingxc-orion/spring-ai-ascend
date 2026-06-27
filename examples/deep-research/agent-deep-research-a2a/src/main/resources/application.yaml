@@ -25,8 +25,9 @@ agent-runtime:
         name: deep-research-agent
         description: >-
           Deep-research root DeepAgent. Accepts a natural-language research
-          request, orchestrates search-agent / plan_read / verify-agent sub-agents,
-          and returns a cited comparison report with confidence annotations.
+          request, orchestrates search-agent / read-agent / verify-agent
+          sub-agents, and returns a cited comparison report with confidence
+          annotations.
         version: "0.1.0"
         organization: spring-ai-ascend
         default-input-modes: [text]
@@ -59,8 +60,17 @@ agent-runtime:
     - url: ${DEEP_RESEARCH_SEARCH_A2A_URL:http://localhost:13004}
     - url: ${DEEP_RESEARCH_READ_A2A_URL:http://localhost:13005}
     - url: ${DEEP_RESEARCH_VERIFY_A2A_URL:http://localhost:13006}
+  mcp:
+    servers:
+      - server-id: local-tools
+        url: ${DEEP_RESEARCH_MCP_URL:http://127.0.0.1:8095/mcp}
+        transport: streamable-http
 
 deep-research:
+  middleware:
+    skillhub:
+      enabled: true
+      root: skills
   memory:
     provider: mem0
     mem0:

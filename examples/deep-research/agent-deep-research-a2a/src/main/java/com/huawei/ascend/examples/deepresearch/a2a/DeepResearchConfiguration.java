@@ -4,14 +4,15 @@
 
 package com.huawei.ascend.examples.deepresearch.a2a;
 
-import com.huawei.ascend.agentsdk.factory.AgentFactory;
 import com.huawei.ascend.examples.deepresearch.DeepResearchAgentSpecMaterializer;
 import com.huawei.ascend.examples.deepresearch.DeepResearchConstants;
+import com.huawei.ascend.examples.deepresearch.a2a.middleware.LocalDirectorySkillHubProvider;
 import com.huawei.ascend.runtime.engine.AgentExecutionContext;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenCheckpointerConfigurer;
 import com.huawei.ascend.runtime.engine.openjiuwen.OpenJiuwenDeepAgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.AgentRuntimeHandler;
 import com.huawei.ascend.runtime.engine.spi.MemoryProvider;
+import com.huawei.ascend.runtime.engine.spi.SkillHubProvider;
 import com.openjiuwen.core.session.checkpointer.Checkpointer;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
 import com.openjiuwen.harness.deep_agent.DeepAgent;
@@ -48,6 +49,17 @@ public class DeepResearchConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(
+            prefix = "deep-research.middleware.skillhub",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true)
+    SkillHubProvider deepResearchSkillHubProvider(
+            @Value("${deep-research.middleware.skillhub.root:skills}") String skillRoot) {
+        return new LocalDirectorySkillHubProvider(Path.of(skillRoot));
+    }
+
+    @Bean
     AgentRuntimeHandler deepResearchAgentHandler(ObjectProvider<MemoryProvider> memoryProvider) {
         Path yamlPath = DeepResearchAgentSpecMaterializer.materializeProdYaml();
         return new DeepResearchHandler(yamlPath, memoryProvider.getIfAvailable());
@@ -66,7 +78,7 @@ public class DeepResearchConfiguration {
 
         @Override
         protected DeepAgent createOpenJiuwenDeepAgent(AgentExecutionContext context) {
-            return AgentFactory.toDeepAgent(yamlPath);
+            return DeepResearchDeepAgentSupport.loadDeepAgent(yamlPath);
         }
 
         @Override
