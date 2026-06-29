@@ -1,0 +1,30 @@
+# artifact.yaml — agent-hotel-a2a
+apiVersion: akdi.dev/v1
+kind: Artifact
+metadata:
+  name: agent-hotel-a2a
+  version: 0.2.0
+  type: java-jar
+  layer: app
+  stability: experimental
+  groupId: com.huawei.ascend.examples
+  artifactId: agent-hotel-a2a
+spec:
+  source: akdi
+  build:
+    targetImage: agent-hotel-a2a:0.2.0
+    maven:
+      target: target
+  provides:
+    - capability: hotel-planning
+      interface: http
+  resources:
+    ports: [8081]
+  healthCheck:
+    endpoint: /.well-known/agent-card.json
+  semantics:
+    intent: "酒店预订 Agent，根据目的地、日期、预算返回酒店推荐"
+    keywords: [hotel, travel, a2a]
+signature:
+  cosign: true
+  sbom: false

@@ -1,0 +1,24 @@
+# .akdi/artifact.yaml — spring-ai-ascend SDK (JDK) component metadata
+apiVersion: akdi.dev/v1
+kind: Artifact
+metadata:
+  name: spring-ai-ascend-sdk
+  version: 0.2.0-SNAPSHOT
+  type: java-jar
+  groupId: com.huawei.ascend
+  artifactId: agent-runtime
+  layer: app
+  stability: experimental
+spec:
+  source: akdi
+  build:
+    maven:
+      target: .
+      module: agent-runtime
+  dependencies: []
+  provides:
+    - capability: agent-runtime-sdk
+      interface: java-library
+  semantics:
+    intent: "Java SDK 库，客户以 Maven 依赖方式集成"
+    keywords: [agent, spring-ai, LLM, java, sdk, maven, library]

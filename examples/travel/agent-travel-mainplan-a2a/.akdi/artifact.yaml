@@ -1,0 +1,23 @@
+# .akdi/artifact.yaml — travel 主规划 A2A 智能体
+apiVersion: akdi.dev/v1
+kind: Artifact
+metadata:
+  name: agent-travel-mainplan-a2a
+  version: 0.2.0
+  type: java-jar
+  layer: app
+  stability: experimental
+  groupId: com.huawei.ascend.examples
+  artifactId: agent-travel-mainplan-a2a
+spec:
+  source: akdi
+  build:
+    maven:
+      target: .
+  provides:
+    - capability: mainplan-agent
+      interface: a2a
+  resources:
+    ports: [8080]
+signature:
+  cosign: true

@@ -1,0 +1,23 @@
+# .akdi/artifact.yaml — travel 出行 A2A 智能体
+apiVersion: akdi.dev/v1
+kind: Artifact
+metadata:
+  name: agent-trip-a2a
+  version: 0.2.0
+  type: java-jar
+  layer: app
+  stability: experimental
+  groupId: com.huawei.ascend.examples
+  artifactId: agent-trip-a2a
+spec:
+  source: akdi
+  build:
+    maven:
+      target: .
+  provides:
+    - capability: trip-agent
+      interface: a2a
+  resources:
+    ports: [13001]
+signature:
+  cosign: true
