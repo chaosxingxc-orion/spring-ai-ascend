@@ -142,6 +142,23 @@ public final class A2aAgentExecutor implements AgentExecutor {
         MDC.put(MDC_TASK_ID, taskId != null ? taskId : "");
         MDC.put(MDC_TENANT_ID, metadata(ctx, TENANT_STATE_KEY, "default"));
         MDC.put(MDC_AGENT_ID, agentId != null ? agentId : "");
+
+        // Reject when the caller explicitly names an agent that does not match
+        // this handler.  Without this check an unknown agentId silently routes
+        // to the default handler, which can mask protocol-level misconfiguration.
+        // The fallback in toExecutionContext(…) still uses the handler's own id
+        // when the caller omits the field entirely — this check only fires when
+        // the caller supplies a value that disagrees.
+        String callingAgentId = metadata(ctx, "agentId", agentId);
+        if (!agentId.equals(callingAgentId)) {
+            LOG.warn("[A2A] agentId mismatch caller={} handler={} taskId={}",
+                    callingAgentId, agentId, taskId);
+            emitter.reject(failureMessage(emitter, "AGENT_NOT_FOUND",
+                    "agent '" + callingAgentId + "' not found; only '" + agentId + "' is available", false));
+            LOG.info("[A2A] task state=REJECTED taskId={}", taskId);
+            return;
+        }
+
         // Per-task local state (this bean is a shared singleton - never hoist to a field).
         // A continuation leg (task parked on remote INPUT_REQUIRED) re-enters execute with
         // artifacts the first leg already flushed; the SDK replaces an existing artifact on
