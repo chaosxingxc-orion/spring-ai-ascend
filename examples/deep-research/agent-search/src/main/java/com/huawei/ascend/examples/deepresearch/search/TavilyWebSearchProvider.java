@@ -37,6 +37,10 @@ public final class TavilyWebSearchProvider implements WebSearchProvider {
         this(apiKey, DEFAULT_ENDPOINT, defaultHttpClient());
     }
 
+    public TavilyWebSearchProvider(String apiKey, String endpoint) {
+        this(apiKey, endpoint, defaultHttpClient());
+    }
+
     TavilyWebSearchProvider(String apiKey, String endpoint, HttpClient httpClient) {
         this.apiKey = Objects.requireNonNull(apiKey, "apiKey");
         this.endpoint = URI.create(endpoint);

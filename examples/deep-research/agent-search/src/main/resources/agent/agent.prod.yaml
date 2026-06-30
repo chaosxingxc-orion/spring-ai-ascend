@@ -72,6 +72,8 @@ tools:
       Search the public web via Tavily, apply vendor-official-host reranking,
       and return the contract-shaped result list. Tavily API key is read
       from the TAVILY_API_KEY env var on first call (process-level cache).
+      The Tavily endpoint defaults to https://api.tavily.com/search; override
+      with TAVILY_API_URL when calling a proxied or regional endpoint.
     inputSchema:
       type: object
       properties:

@@ -24,6 +24,7 @@ import java.util.Map;
 public final class WebSearchTool {
 
     private static final String API_KEY_ENV = "TAVILY_API_KEY";
+    private static final String API_URL_ENV = "TAVILY_API_URL";
 
     private static volatile WebSearchProvider provider;
 
@@ -64,7 +65,11 @@ public final class WebSearchTool {
                 if (key == null || key.isBlank()) {
                     throw new IllegalStateException(API_KEY_ENV + " env var is required for prod search-agent");
                 }
-                provider = new TavilyWebSearchProvider(key);
+                String endpoint = System.getenv(API_URL_ENV);
+                if (endpoint == null || endpoint.isBlank()) {
+                    endpoint = TavilyWebSearchProvider.DEFAULT_ENDPOINT;
+                }
+                provider = new TavilyWebSearchProvider(key, endpoint);
             }
             return provider;
         }
