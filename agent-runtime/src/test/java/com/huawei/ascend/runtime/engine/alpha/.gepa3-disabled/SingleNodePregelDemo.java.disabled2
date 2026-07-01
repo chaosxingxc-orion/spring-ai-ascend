@@ -1,0 +1,308 @@
+package com.huawei.ascend.runtime.engine.alpha.gepa3;
+
+import com.openjiuwen.core.alpha.graph.TaskGraph;
+import com.openjiuwen.core.alpha.graph.TaskNode;
+import com.openjiuwen.core.alpha.graph.TaskNodeType;
+import com.openjiuwen.core.alpha.model.ExecutionPolicy;
+import com.openjiuwen.core.alpha.model.PlanGoal;
+import com.openjiuwen.core.alpha.model.PlanningMode;
+import com.openjiuwen.core.alpha.model.VerifyMode;
+import com.openjiuwen.core.alpha.verifier.RootCause;
+import com.openjiuwen.core.alpha.verifier.VerifyResult;
+import com.openjiuwen.core.kernel.model.*;
+import com.openjiuwen.runtime.alpha.verifier.DefaultVerifier;
+import com.openjiuwen.runtime.alpha.verifier.Verifier;
+import com.openjiuwen.runtime.beta.selfheal.RootCauseDiagnoser;
+import com.openjiuwen.runtime.beta.selfheal.RootCauseDispatcher;
+import com.openjiuwen.runtime.beta.selfheal.SelfHealAction;
+import com.openjiuwen.runtime.core.engine.AgentKernel;
+import com.openjiuwen.runtime.core.engine.DefaultAgentKernel;
+import com.openjiuwen.runtime.core.engine.DefaultSafetyBoundary;
+import com.openjiuwen.runtime.core.fixtures.MockChatModel;
+import com.openjiuwen.runtime.core.fixtures.MockCheckpointStore;
+import com.openjiuwen.runtime.core.fixtures.MockToolProvider;
+
+import java.time.Duration;
+import java.util.*;
+
+/**
+ * <h1>SingleNodePregelDemo: 1-node TaskGraph PEV 单轨原型 (v2)</h1>
+ *
+ * <p>手动驱动 E1-E4（不依赖 DefaultPregelExecutor/AlphaStrategy），暴露确定性信号流。</p>
+ *
+ * <h2>路径覆盖</h2>
+ * <ul>
+ *   <li><b>红径 (DeviceFailure)</b>: 工具异常 → FAILED_PREFIX → ruleVerify 捕获 → strictVerify 短路 LLM
+ *       → 交集非空 → DeviceFailure → Degrade</li>
+ *   <li><b>绿径 (PlanOrAnswerError)</b>: 工具成功 → ruleVerify RULE PASS → llmVerifyNodes LLM FAIL
+ *       → 交集空 → PlanOrAnswerError → Replan → correctionHint 注入</li>
+ *   <li><b>感知失效径 (PerceptionUnreliable)</b>: verifyThrew=true → PerceptionUnreliable(true) → Degrade</li>
+ * </ul>
+ *
+ * <h2>v2 变更（相对于初版）</h2>
+ * <ul>
+ *   <li>引用 DefaultVerifier.FAILED_PREFIX 常量替代硬编码字符串（协议脆弱性文档化）</li>
+ *   <li>绿径直通真实 verifier（非裸调 VerifyResult.failed 静态工厂）</li>
+ *   <li>PerceptionUnreliable 正 case + false 态防御性验证</li>
+ *   <li>stdout 打印与执行逻辑分离（runInternal 供测试用，run 供演示用）</li>
+ *   <li>移除失效的 BudgetTracker（BudgetLimits 不可变，recordLLMCall 返新实例——demo 未捕获返值，
+ *       预算跟踪为死代码；改由 verifyResult.nodeResults 的 method 类型间接验证短路）</li>
+ * </ul>
+ *
+ * <h2>已知局限性（诚实声明）</h2>
+ * <ul>
+ *   <li><b>跨项目 string 协议</b>：FAILED_PREFIX 在 DefaultPregelExecutor（openjiuwen-java）和
+ *       DefaultVerifier（spring-ai-ascend）之间是原始字符串约定——改任一侧无编译报错。</li>
+ *   <li><b>Mono 错误路径未覆盖</b>：invokeTool().block() 的 TimeoutException/CancellationException
+ *       产生不同格式的错误消息——本 demo 仅覆盖同步 MockToolProvider 路径。</li>
+ *   <li><b>intersection 退化</b>：production RootCauseRail 中 toolFailedNodes 和 verifyFailedNodes
+ *       来自同一 extractToolName() 调用——交集恒 100%。本 demo 从独立变量取值，掩盖退化性。</li>
+ *   <li><b>CJK \b 边界</b>：DefaultVerifier expectedOutput 用 \b 做单词边界——CJK 字符非 Java \w，
+ *       中文短词 expectedOutput 检查必然失败。</li>
+ *   <li><b>Budget 跟踪缺口</b>：BudgetLimits 是不可变 record，每次 recordLLMCall() 返回新实例。
+ *       本 demo 未捕获返值，budget 字段始终为初始值。</li>
+ * </ul>
+ */
+public final class SingleNodePregelDemo {
+
+    private SingleNodePregelDemo() {}
+
+    // ==================== Demo 入口 ====================
+
+    /** 运行完整 E1-E4 追踪演示（含 stdout 打印）。 */
+    public static DemoResult run() {
+        DemoResult result = runInternal();
+        printTrace(result);
+        return result;
+    }
+
+    /** 运行 E1-E4 逻辑，不打印（供测试直接调用）。 */
+    static DemoResult runInternal() {
+        // ---- 基础设施 ----
+        TaskId taskId = TaskId.generate();
+        NodeId nodeId = new NodeId("T");
+        PlanGoal goal = PlanGoal.of("查询案例状态", List.of("返回有效的案例状态"));
+        ExecutionPolicy policy = new ExecutionPolicy(
+            PlanningMode.AUTO, VerifyMode.STRICT, 3, 4, true);
+        BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+        // =====================================================================
+        // E1: 工具异常 → 两级传播
+        // =====================================================================
+        String toolName = "getCaseStatus";
+        String exceptionMessage = "连接超时: 无法访问案例服务 (timeout 30s)";
+
+        MockToolProvider failingTools = new MockToolProvider()
+            .registerFailing(toolName, exceptionMessage);
+        AgentKernel kernel1 = createKernel("unused-llm-response", failingTools);
+
+        // Level 1: kernel.invokeTool() → ToolResult.fail()（内核捕获工具异常）
+        // Level 2: executeToolNode 检查 !success() → throw RuntimeException
+        // Level 3: catch → "FAILED: " + e.getMessage()
+        String capturedResult;
+        boolean toolThrew = false;
+        try {
+            ToolResult tr = kernel1.invokeTool(
+                    new ToolName(toolName), Map.of("caseNo", "ORD-001"), budget)
+                .block(Duration.ofSeconds(5));
+            if (!tr.success()) {
+                throw new RuntimeException("工具调用失败: " + tr.error());
+            }
+            capturedResult = String.valueOf(tr.result());
+        } catch (Exception e) {
+            toolThrew = true;
+            capturedResult = DefaultVerifier.FAILED_PREFIX + e.getMessage();
+        }
+        assert capturedResult.startsWith(DefaultVerifier.FAILED_PREFIX);
+
+        Set<String> toolFailedNodes = Set.of(nodeId.value());
+        Map<NodeId, Object> nodeResults = Map.of(nodeId, (Object) capturedResult);
+
+        // =====================================================================
+        // E2: Verifier 感知失败
+        // =====================================================================
+        TaskNode toolNode = TaskNode.of(nodeId.value(), toolName, TaskNodeType.TOOL_CALL);
+        TaskGraph graph = new TaskGraph(goal.description(), List.of(toolNode), List.of());
+
+        Verifier verifier = new DefaultVerifier(kernel1);
+        VerifyResult redVerify = verifier.verify(taskId, goal, graph, nodeResults, policy, budget)
+            .block(Duration.ofSeconds(10));
+
+        // ruleVerify 检测 FAILED_PREFIX → 全部节点 RULE 失败 → strictVerify 短路 LLM
+        // 验证：nodeResults 仅含 RULE 方法节点（无 LLM 方法节点）
+        List<VerifyResult.NodeVerifyResult> redNodeResults = redVerify.nodeResults();
+        boolean allRuleDetected = redNodeResults.stream()
+            .allMatch(r -> r.method() == VerifyResult.VerifyMethod.RULE);
+        boolean ruleCaughtFailure = redNodeResults.stream()
+            .anyMatch(r -> r.nodeId().equals(nodeId.value()) && !r.passed()
+                && r.method() == VerifyResult.VerifyMethod.RULE);
+
+        Set<String> verifyFailedNodes = redVerify.failedNodes();
+        assert !redVerify.passed();
+        assert verifyFailedNodes.contains(nodeId.value());
+
+        // =====================================================================
+        // E3: 根因诊断（确定性纯函数）
+        // =====================================================================
+        RootCause cause = RootCauseDiagnoser.diagnose(false, toolFailedNodes, verifyFailedNodes);
+        Set<String> intersection = new LinkedHashSet<>(toolFailedNodes);
+        intersection.retainAll(verifyFailedNodes);
+        assert !intersection.isEmpty();
+        assert cause instanceof RootCause.DeviceFailure df
+            && df.nodes().equals(intersection)
+            : "E3 断言失败：应诊断为 DeviceFailure。实际：" + cause;
+
+        // =====================================================================
+        // E4: sealed dispatch → Degrade
+        // =====================================================================
+        SelfHealAction action = RootCauseDispatcher.dispatch(cause);
+        assert action instanceof SelfHealAction.Degrade
+            : "E4 断言失败：DeviceFailure 应 dispatch 为 Degrade。实际：" + action;
+
+        // =====================================================================
+        // 绿径: PlanOrAnswerError → Replan with correctionHint
+        // =====================================================================
+        MockToolProvider successTools = new MockToolProvider()
+            .register(toolName, "案例 ORD-001 状态: 已赔付");
+        // MockChatModel 返回 LLM 可解析的 FAIL 格式 → parseNodeVerifyResponse 解析为 LLM FAIL
+        AgentKernel kernel2 = createKernel("T: FAIL(内容质量不达标)", successTools);
+
+        ToolResult tr2 = kernel2.invokeTool(
+                new ToolName(toolName), Map.of(), budget)
+            .block(Duration.ofSeconds(5));
+        Map<NodeId, Object> successResults = Map.of(nodeId,
+            (Object) String.valueOf(tr2.result()));
+
+        // 经过真实 verifier：ruleVerify RULE PASS → llmVerifyNodes LLM FAIL
+        Verifier verifier2 = new DefaultVerifier(kernel2);
+        VerifyResult greenVerify = verifier2.verify(
+                taskId, goal, graph, successResults, policy, budget)
+            .block(Duration.ofSeconds(10));
+
+        // 验证绿径确实走了 LLM 路径
+        boolean greenPathUsedLLM = greenVerify.nodeResults().stream()
+            .anyMatch(r -> r.method() == VerifyResult.VerifyMethod.LLM);
+
+        Set<String> emptyToolFailed = Set.of();
+        RootCause cause2 = RootCauseDiagnoser.diagnose(
+            false, emptyToolFailed, greenVerify.failedNodes());
+        assert cause2 instanceof RootCause.PlanOrAnswerError
+            : "绿径断言失败：工具成功 + verify 内容失败 → PlanOrAnswerError。实际：" + cause2;
+
+        SelfHealAction action2 = RootCauseDispatcher.dispatch(cause2);
+        assert action2 instanceof SelfHealAction.Replan
+            : "绿径断言失败：PlanOrAnswerError 应 dispatch 为 Replan。实际：" + action2;
+
+        // 构造带 correctionHint 的新 TaskNode（镜像 AlphaStrategy:435-436）
+        String correctionHint = "地面真值反馈：案例 ORD-001 实际状态为 '已赔付'，"
+            + "verify 发现 LLM 判错，请用此地面真值修正";
+        TaskNode correctedNode = new TaskNode(
+            nodeId, toolNode.description(), TaskNodeType.LLM_CALL,
+            Map.of(), toolNode.expectedOutput(), toolNode.status(), correctionHint);
+        assert correctedNode.correctionHint() != null
+            && correctedNode.correctionHint().equals(correctionHint);
+
+        // =====================================================================
+        // PerceptionUnreliable 路径（第 3 个 RootCause 态）
+        // =====================================================================
+        // 正 case: verifyThrew=true
+        RootCause causePu = RootCauseDiagnoser.diagnose(true, Set.of(), Set.of("T"));
+        assert causePu instanceof RootCause.PerceptionUnreliable pu && pu.verifierThrew()
+            : "PerceptionUnreliable 路径失败。实际：" + causePu;
+        SelfHealAction actionPu = RootCauseDispatcher.dispatch(causePu);
+        assert actionPu instanceof SelfHealAction.Degrade;
+
+        // 防御性分支: PerceptionUnreliable(false) —— dispatch 可达但 Diagnoser 不产生
+        RootCause.PerceptionUnreliable puFalse = new RootCause.PerceptionUnreliable(false);
+        SelfHealAction actionPuFalse = RootCauseDispatcher.dispatch(puFalse);
+        assert actionPuFalse instanceof SelfHealAction.Degrade deg
+            && deg.reason().contains("返回 null");
+
+        // =====================================================================
+        // 构建结果
+        // =====================================================================
+        return new DemoResult(
+            taskId, nodeId, goal, graph, policy,
+            capturedResult, toolThrew,
+            redVerify, cause, action,
+            cause2, action2, correctedNode,
+            causePu, actionPu,
+            allRuleDetected, ruleCaughtFailure, greenPathUsedLLM,
+            redNodeResults, greenVerify
+        );
+    }
+
+    // ==================== 打印（演示用） ====================
+
+    private static void printTrace(DemoResult r) {
+        System.out.println("=".repeat(72));
+        System.out.println("SingleNodePregelDemo: 1-node PEV 单轨 E1-E4 追踪 v2");
+        System.out.println("=".repeat(72));
+
+        System.out.println("\n── E1: 工具异常 ──");
+        System.out.printf("  captured result: %s%n", r.capturedResult());
+        System.out.printf("  toolThrew: %s%n", r.toolThrew());
+
+        System.out.println("\n── E2: Verifier 感知失败 ──");
+        System.out.printf("  verify passed: %s%n", r.redVerify().passed());
+        System.out.printf("  failedNodes: %s%n", r.redVerify().failedNodes());
+        System.out.printf("  ruleVerify caught: %s%n", r.ruleCaughtFailure());
+        System.out.printf("  LLM short-circuited (all RULE): %s%n", r.allRuleDetected());
+
+        System.out.println("\n── E3: 根因诊断 ──");
+        System.out.printf("  tool-failed ∩ verify-failed → %s%n", r.deviceFailureCause());
+
+        System.out.println("\n── E4: sealed dispatch ──");
+        System.out.printf("  DeviceFailure → %s%n", r.degradeAction());
+
+        System.out.println("\n── 绿径: PlanOrAnswerError → Replan ──");
+        System.out.printf("  greenPathUsedLLM: %s%n", r.greenPathUsedLLM());
+        System.out.printf("  diagnose: %s → dispatch: %s%n",
+            r.planOrAnswerErrorCause(), r.replanAction());
+        System.out.printf("  correctionHint: %s%n", r.correctedNode().correctionHint());
+
+        System.out.println("\n── PerceptionUnreliable 路径 ──");
+        System.out.printf("  verifyThrew=true → %s → %s%n",
+            r.perceptionUnreliableCause(), r.perceptionDegradeAction());
+
+        System.out.println("\n" + "=".repeat(72));
+        System.out.println("DEMO 通过：E1-E4 + 绿径 + PerceptionUnreliable 3/3 态覆盖");
+        System.out.println("=".repeat(72));
+    }
+
+    // ==================== 辅助 ====================
+
+    private static AgentKernel createKernel(String llmResponse, MockToolProvider tools) {
+        return new DefaultAgentKernel(
+            new MockChatModel(llmResponse),
+            tools.build(),
+            new MockCheckpointStore(),
+            new DefaultSafetyBoundary()
+        );
+    }
+
+    // ==================== DemoResult ====================
+
+    /** 聚合 E1-E4 所有步骤的输入/输出，供测试断言。 */
+    public record DemoResult(
+        // 基础设施
+        TaskId taskId, NodeId nodeId, PlanGoal goal,
+        TaskGraph graph, ExecutionPolicy policy,
+        // E1
+        String capturedResult, boolean toolThrew,
+        // E2 红径 verify
+        VerifyResult redVerify,
+        // E3+E4 红径
+        RootCause deviceFailureCause, SelfHealAction degradeAction,
+        // 绿径 PlanOrAnswerError
+        RootCause planOrAnswerErrorCause, SelfHealAction replanAction,
+        TaskNode correctedNode,
+        // PerceptionUnreliable 路径
+        RootCause perceptionUnreliableCause, SelfHealAction perceptionDegradeAction,
+        // 短路/LLM 信号
+        boolean allRuleDetected, boolean ruleCaughtFailure, boolean greenPathUsedLLM,
+        // 原始 nodeResults（供细粒度断言）
+        List<VerifyResult.NodeVerifyResult> redNodeResults,
+        VerifyResult greenVerify
+    ) {}
+}

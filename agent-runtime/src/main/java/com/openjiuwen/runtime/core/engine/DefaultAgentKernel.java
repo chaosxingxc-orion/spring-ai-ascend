@@ -157,7 +157,7 @@ public class DefaultAgentKernel implements AgentKernel {
                 return reduced
                     .doOnSuccess(v -> { if (emit) emitChunk(taskId, EventType.THINKING_BLOCK_END, "", nodeId); })
                     .doOnError(e -> { if (emit) emitChunk(taskId, EventType.THINKING_BLOCK_END,
-                        "ERROR: " + e.getMessage(), nodeId); });
+                        "流式推理出错（已脱敏）", nodeId); });
             })
             .flatMap(output -> {
                 // 后置检查：输出安全性

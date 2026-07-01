@@ -3,6 +3,7 @@ package com.openjiuwen.core.alpha.graph;
 import com.openjiuwen.core.kernel.model.NodeId;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 任务图——Alpha 策略规划阶段的产出。
@@ -37,12 +38,25 @@ public record TaskGraph(
      * 同一层内的节点无依赖关系，可以并行执行。
      *
      * @return 执行层列表，Layer 0 最先执行
-     * @throws IllegalStateException 如果图中有环
+     * @throws IllegalStateException 如果图中有环（消息中包含环内节点 ID）
      */
     public List<List<TaskNode>> executionLayers() {
         Map<NodeId, TaskNode> nodeMap = new LinkedHashMap<>();
         for (TaskNode node : nodes) {
             nodeMap.put(node.id(), node);
+        }
+
+        // Collect dangling edges for warning (no exception — defensive)
+        List<String> danglingEdges = new ArrayList<>();
+        for (TaskEdge edge : edges) {
+            if (!nodeMap.containsKey(edge.from())) {
+                danglingEdges.add("edge " + edge.from() + "->" + edge.to()
+                    + ": from node '" + edge.from() + "' not in node list");
+            }
+            if (!nodeMap.containsKey(edge.to())) {
+                danglingEdges.add("edge " + edge.from() + "->" + edge.to()
+                    + ": to node '" + edge.to() + "' not in node list");
+            }
         }
 
         // 计算每个节点的入度
@@ -73,7 +87,13 @@ public record TaskGraph(
                 }
             }
             if (currentLayer.isEmpty()) {
-                throw new IllegalStateException("TaskGraph 中存在环，无法拓扑排序");
+                // Identify cycle members: all unvisited nodes at stall point
+                List<String> cycleMembers = nodes.stream()
+                    .map(TaskNode::id).map(NodeId::value)
+                    .filter(id -> !visited.contains(new NodeId(id)))
+                    .collect(Collectors.toList());
+                throw new IllegalStateException(
+                    "TaskGraph 中存在环，无法拓扑排序。环内节点: " + cycleMembers);
             }
             layers.add(currentLayer);
             for (TaskNode node : currentLayer) {
@@ -85,6 +105,59 @@ public record TaskGraph(
         }
 
         return layers;
+    }
+
+    /**
+     * 查找参与环的节点 ID 集合。无环时返回空列表。
+     *
+     * <p>运行 Kahn 算法；算法失速时所有尚未访问的节点即为环成员
+     * （或可达环成员——在强连通分量意义上它们属于同一 SCC）。
+     * 此方法不抛异常，适合在编译期校验中收集错误后统一报告。
+     *
+     * @return 环内节点 ID 列表（无环时为空）
+     */
+    public List<NodeId> findCycleNodes() {
+        Map<NodeId, TaskNode> nodeMap = new LinkedHashMap<>();
+        for (TaskNode node : nodes) {
+            nodeMap.put(node.id(), node);
+        }
+
+        Map<NodeId, Integer> inDegree = new LinkedHashMap<>();
+        Map<NodeId, Set<NodeId>> dependents = new LinkedHashMap<>();
+        for (TaskNode node : nodes) {
+            inDegree.put(node.id(), 0);
+            dependents.put(node.id(), new LinkedHashSet<>());
+        }
+        for (TaskEdge edge : edges) {
+            if (!nodeMap.containsKey(edge.from()) || !nodeMap.containsKey(edge.to())) {
+                continue;
+            }
+            inDegree.merge(edge.to(), 1, Integer::sum);
+            dependents.get(edge.from()).add(edge.to());
+        }
+
+        Set<NodeId> visited = new LinkedHashSet<>();
+        boolean progressed;
+        do {
+            progressed = false;
+            for (TaskNode node : nodes) {
+                if (!visited.contains(node.id()) && inDegree.get(node.id()) == 0) {
+                    visited.add(node.id());
+                    progressed = true;
+                    for (NodeId dep : dependents.get(node.id())) {
+                        inDegree.merge(dep, -1, Integer::sum);
+                    }
+                }
+            }
+        } while (progressed && visited.size() < nodes.size());
+
+        if (visited.size() == nodes.size()) {
+            return List.of(); // acyclic
+        }
+        return nodes.stream()
+            .map(TaskNode::id)
+            .filter(id -> !visited.contains(id))
+            .toList();
     }
 
     /** 获取指定节点的所有上游依赖 */

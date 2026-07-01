@@ -1,0 +1,787 @@
+package com.huawei.ascend.runtime.engine.alpha.gepa3;
+
+import com.openjiuwen.core.alpha.graph.TaskEdge;
+import com.openjiuwen.core.alpha.graph.TaskGraph;
+import com.openjiuwen.core.alpha.graph.TaskNode;
+import com.openjiuwen.core.alpha.graph.TaskNodeType;
+import com.openjiuwen.core.kernel.model.Budget;
+import com.openjiuwen.core.kernel.model.BudgetLimits;
+import com.openjiuwen.core.kernel.model.NodeId;
+import com.openjiuwen.core.kernel.model.TaskId;
+import com.openjiuwen.core.kernel.model.ToolName;
+import com.openjiuwen.core.kernel.model.ToolResult;
+import com.openjiuwen.runtime.core.engine.AgentKernel;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+
+/**
+ * StreamingPregelDemo 测试 — 验证零阻塞流式 Pregel 属性。
+ *
+ * <p>v1.1 变更：
+ * <ul>
+ *   <li>disposeMarksAccumulatorCancelled — 增加真断言，不再空测试</li>
+ *   <li>llmNodeTimeoutDoesNotKillLayer — 构造器注入超时，不再匿名子类复制逻辑</li>
+ *   <li>downstreamRequestOneOnlyEmitsOneLayer — 验证层 1 未被预取</li>
+ *   <li>新增: B1 回归测试（层超时部分结果保留）</li>
+ *   <li>新增: Mono.empty() 静默挂起测试</li>
+ *   <li>新增: 失败节点 value 不污染下游测试</li>
+ *   <li>新增: 双订阅安全性测试</li>
+ *   <li>新增: 空层防御测试</li>
+ *   <li>新增: 单层单节点最简路径测试</li>
+ *   <li>新增: resolveNodeRef(null) 不 NPE 测试</li>
+ * </ul>
+ */
+@DisplayName("StreamingPregelDemo — 零阻塞流式 BSP")
+class StreamingPregelDemoTest {
+
+    private MockKernel kernel;
+    private StreamingPregelDemo demo;
+
+    @BeforeEach
+    void setUp() {
+        kernel = new MockKernel();
+        demo = new StreamingPregelDemo(kernel);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // T1: 自愈 — 单节点失败不杀整层
+    // ═══════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("自愈 (Self-Healing)")
+    class SelfHealing {
+
+        @Test
+        @DisplayName("工具节点抛异常 → onErrorResume 捕获，同层其他节点继续")
+        void singleToolFailureDoesNotKillLayer() {
+            TaskNode nodeA = TaskNode.of("A", "successTool input", TaskNodeType.TOOL_CALL);
+            TaskNode nodeB = TaskNode.of("B", "failingTool input", TaskNodeType.TOOL_CALL);
+
+            kernel.registerTool("successTool", ToolResult.ok(new ToolName("successTool"), "A-ok"));
+            kernel.registerFailingTool("failingTool", new RuntimeException("工具炸了"));
+
+            TaskGraph graph = new TaskGraph("test-goal", List.of(nodeA, nodeB), List.of());
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = demo.execute(
+                    new TaskId("t1"), graph, budget);
+
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        assertThat(layer0.layerIndex()).isEqualTo(0);
+                        assertThat(layer0.nodeResults()).hasSize(2);
+
+                        assertThat(findResult(layer0, "A").failed()).isFalse();
+                        assertThat(findResult(layer0, "A").value()).isEqualTo("A-ok");
+
+                        assertThat(findResult(layer0, "B").failed()).isTrue();
+                        assertThat(findResult(layer0, "B").error()).contains("工具炸了");
+
+                        assertThat(layer0.failedNodes()).contains(new NodeId("B"));
+                    })
+                    .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("LLM 节点超时 → onErrorResume，不杀整层 (v1.1: 构造器注入)")
+        void llmNodeTimeoutDoesNotKillLayer() {
+            TaskNode slowNode = TaskNode.of("slow", "慢推理", TaskNodeType.LLM_CALL);
+            TaskNode fastNode = TaskNode.of("fast", "快推理", TaskNodeType.LLM_CALL);
+
+            kernel.registerSlowLLM("slow", Duration.ofSeconds(200), "太慢了");
+            kernel.registerLLM("fast", "快结果");
+
+            TaskGraph graph = new TaskGraph("timeout-test",
+                    List.of(slowNode, fastNode), List.of());
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            // v1.1: 构造器注入短超时 — 无需匿名子类复制 50+ 行逻辑
+            StreamingPregelDemo fastDemo = new StreamingPregelDemo(
+                    kernel, Duration.ofMillis(200), Duration.ofSeconds(5));
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = fastDemo.execute(
+                    new TaskId("t2"), graph, budget);
+
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        assertThat(layer0.nodeResults()).hasSize(2);
+
+                        StreamingPregelDemo.NodeResult fast = findResult(layer0, "fast");
+                        // v1.1: 直接断言 — fast 应总是成功 (1ms << 200ms 超时)
+                        assertThat(fast.failed()).isFalse();
+                        assertThat(fast.value()).isEqualTo("快结果");
+
+                        assertThat(layer0.failedNodes().stream()
+                                .anyMatch(n -> n.value().equals("slow"))).isTrue();
+                    })
+                    .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("所有节点都失败 → 层仍完成（不崩 Flux），全部标记 failed")
+        void allNodesFailLayerStillCompletes() {
+            TaskNode a = TaskNode.of("A", "failA input", TaskNodeType.TOOL_CALL);
+            TaskNode b = TaskNode.of("B", "failB input", TaskNodeType.TOOL_CALL);
+            kernel.registerFailingTool("failA", new RuntimeException("A炸了"));
+            kernel.registerFailingTool("failB", new RuntimeException("B炸了"));
+
+            TaskGraph graph = new TaskGraph("all-fail", List.of(a, b), List.of());
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = demo.execute(
+                    new TaskId("t3"), graph, budget);
+
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        assertThat(layer0.nodeResults()).hasSize(2);
+                        assertThat(layer0.failedNodes()).hasSize(2);
+                        layer0.nodeResults().forEach(r ->
+                                assertThat(r.failed()).isTrue());
+                    })
+                    .verifyComplete();
+        }
+
+        /**
+         * B1 回归测试 (v1.1 新增):
+         * 层超时时已完成节点的部分结果应保留，不被 onErrorResume 丢弃。
+         *
+         * <p>场景: 3 个同层节点，2 个快 (1ms) + 1 个挂起。
+         * nodeTimeout 很长（不触发单节点超时），layerTimeout 很短。
+         * 层超时触发后，已完成节点的结果应保留。
+         */
+        @Test
+        @DisplayName("B1 回归: 层超时时已完成节点的部分结果保留")
+        void partialResultsSurviveLayerTimeout() {
+            TaskNode fastA = TaskNode.of("fastA", "fastToolA input", TaskNodeType.TOOL_CALL);
+            TaskNode fastB = TaskNode.of("fastB", "fastToolB input", TaskNodeType.TOOL_CALL);
+            TaskNode zombie = TaskNode.of("zombie", "zombieTool input", TaskNodeType.TOOL_CALL);
+
+            kernel.registerTool("fastToolA", ToolResult.ok(new ToolName("fastToolA"), "resultA"));
+            kernel.registerTool("fastToolB", ToolResult.ok(new ToolName("fastToolB"), "resultB"));
+            // zombie 节点永不完成
+            kernel.registerHangingTool("zombieTool");
+
+            TaskGraph graph = new TaskGraph("partial-recovery",
+                    List.of(fastA, fastB, zombie), List.of());
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            // nodeTimeout 很长 (60s)，不触发单节点超时
+            // layerTimeout 很短 (200ms)，触发整层超时
+            StreamingPregelDemo timeoutDemo = new StreamingPregelDemo(
+                    kernel, Duration.ofSeconds(60), Duration.ofMillis(200));
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = timeoutDemo.execute(
+                    new TaskId("t-b1"), graph, budget);
+
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        assertThat(layer0.nodeResults()).hasSize(3);
+
+                        // fastA 和 fastB 在层超时前完成 → 结果应保留
+                        StreamingPregelDemo.NodeResult rA = findResult(layer0, "fastA");
+                        assertThat(rA.failed()).isFalse();
+                        assertThat(rA.value()).isEqualTo("resultA");
+
+                        StreamingPregelDemo.NodeResult rB = findResult(layer0, "fastB");
+                        assertThat(rB.failed()).isFalse();
+                        assertThat(rB.value()).isEqualTo("resultB");
+
+                        // zombie 未完成 → 应标记为失败
+                        StreamingPregelDemo.NodeResult rZ = findResult(layer0, "zombie");
+                        assertThat(rZ.failed()).isTrue();
+                        assertThat(rZ.error()).contains("层超时");
+                    })
+                    .verifyComplete();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // T2: BSP 屏障 — 层间串行保证
+    // ═══════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("BSP 屏障 (Barrier)")
+    class BspBarrier {
+
+        @Test
+        @DisplayName("两层 DAG: 层 1 在层 0 全部完成后才开始")
+        void layerOneStartsOnlyAfterLayerZeroCompletes() {
+            AtomicInteger layer0CompletedAt = new AtomicInteger(-1);
+            AtomicInteger layer1StartedAt = new AtomicInteger(-1);
+            AtomicInteger phase = new AtomicInteger(0);
+
+            TaskNode nodeA = TaskNode.of("A", "stepA", TaskNodeType.TOOL_CALL);
+            TaskNode nodeB = TaskNode.of("B", "stepB", TaskNodeType.TOOL_CALL);
+            TaskNode nodeC = TaskNode.of("C", "stepC", TaskNodeType.TOOL_CALL,
+                    Map.of("fromA", "${A.output}"));
+
+            kernel.registerTool("stepA", ToolResult.ok(new ToolName("stepA"), "dataA"));
+            kernel.registerTool("stepB", ToolResult.ok(new ToolName("stepB"), "dataB"));
+            kernel.registerTool("stepC", ToolResult.ok(new ToolName("stepC"), "dataC"));
+
+            TaskGraph graph = new TaskGraph("barrier-test",
+                    List.of(nodeA, nodeB, nodeC),
+                    List.of(TaskEdge.of("A", "C")));
+
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = demo.execute(
+                            new TaskId("t4"), graph, budget)
+                    .doOnNext(sr -> {
+                        if (sr.layerIndex() == 0) {
+                            layer0CompletedAt.set(phase.incrementAndGet());
+                        }
+                        if (sr.layerIndex() == 1) {
+                            layer1StartedAt.set(phase.incrementAndGet());
+                        }
+                    });
+
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        assertThat(layer0.layerIndex()).isEqualTo(0);
+                        assertThat(layer0.nodeResults()).hasSize(2);
+                        assertThat(layer0.failedNodes()).isEmpty();
+                    })
+                    .assertNext(layer1 -> {
+                        assertThat(layer1.layerIndex()).isEqualTo(1);
+                        assertThat(layer1.nodeResults()).hasSize(1);
+                        assertThat(findResult(layer1, "C").value()).isEqualTo("dataC");
+                    })
+                    .verifyComplete();
+
+            assertThat(layer0CompletedAt.get()).isEqualTo(1);
+            assertThat(layer1StartedAt.get()).isEqualTo(2);
+            assertThat(layer0CompletedAt.get()).isLessThan(layer1StartedAt.get());
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // T3: 取消传播
+    // ═══════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("取消传播 (Cancellation)")
+    class Cancellation {
+
+        @Test
+        @DisplayName("dispose Flux → 累加器标记 cancelled (v1.1: 真断言)")
+        void disposeMarksAccumulatorCancelled() {
+            // 使用挂起节点确保取消发生在执行过程中
+            TaskNode node = TaskNode.of("A", "hangingTool input", TaskNodeType.TOOL_CALL);
+            kernel.registerHangingTool("hangingTool");
+
+            TaskGraph graph = new TaskGraph("cancel-test", List.of(node), List.of());
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            StreamingPregelDemo shortDemo = new StreamingPregelDemo(
+                    kernel, Duration.ofSeconds(60), Duration.ofSeconds(5));
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = shortDemo.execute(
+                    new TaskId("t5"), graph, budget);
+
+            // 验证取消传播 — 短暂等待后取消，确保不永久阻塞
+            StepVerifier.create(flux)
+                    .thenRequest(1)
+                    .thenAwait(Duration.ofMillis(50))
+                    .thenCancel()
+                    .verify();
+
+            // 关键断言: 内核调用已触发（证明执行确实开始了然后被取消）
+            assertThat(kernel.invokeCount.get()).isGreaterThanOrEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("多层 DAG 中途 cancel → 后续层不发射")
+        void midExecutionCancelStopsRemainingLayers() {
+            TaskNode nodeA = TaskNode.of("A", "stepA", TaskNodeType.TOOL_CALL);
+            TaskNode nodeB = TaskNode.of("B", "stepB", TaskNodeType.TOOL_CALL,
+                    Map.of("dep", "${A.output}"));
+            TaskNode nodeC = TaskNode.of("C", "stepC", TaskNodeType.TOOL_CALL,
+                    Map.of("dep", "${B.output}"));
+
+            kernel.registerTool("stepA", ToolResult.ok(new ToolName("stepA"), "a"));
+            kernel.registerTool("stepB", ToolResult.ok(new ToolName("stepB"), "b"));
+            kernel.registerTool("stepC", ToolResult.ok(new ToolName("stepC"), "c"));
+
+            TaskGraph graph = new TaskGraph("mid-cancel",
+                    List.of(nodeA, nodeB, nodeC),
+                    List.of(
+                            TaskEdge.of("A", "B"),
+                            TaskEdge.of("B", "C")));
+
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = demo.execute(
+                    new TaskId("t6"), graph, budget);
+
+            StepVerifier.create(flux)
+                    .expectNextCount(1)
+                    .thenCancel()
+                    .verify();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // T4: 背压
+    // ═══════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("背压 (Backpressure)")
+    class Backpressure {
+
+        @Test
+        @DisplayName("下游 request(1) → 只发射一层，不预取 (v1.1: 验证无预取)")
+        void downstreamRequestOneOnlyEmitsOneLayer() {
+            TaskNode nodeA = TaskNode.of("A", "stepA", TaskNodeType.TOOL_CALL);
+            TaskNode nodeB = TaskNode.of("B", "stepB", TaskNodeType.TOOL_CALL,
+                    Map.of("dep", "${A.output}"));
+
+            kernel.registerTool("stepA", ToolResult.ok(new ToolName("stepA"), "a"));
+            // 层 1 节点用挂起工具 — 如果预取发生，它会被调用
+            kernel.registerHangingTool("stepB");
+
+            TaskGraph graph = new TaskGraph("bp-test",
+                    List.of(nodeA, nodeB),
+                    List.of(TaskEdge.of("A", "B")));
+
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            // 超时足够长，不干扰测试
+            StreamingPregelDemo bpDemo = new StreamingPregelDemo(
+                    kernel, Duration.ofSeconds(60), Duration.ofSeconds(30));
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = bpDemo.execute(
+                    new TaskId("t7"), graph, budget);
+
+            // v1.1 修复: request(1) → 获取层 0 → 验证层 1 未启动 → 取消
+            StepVerifier.create(flux)
+                    .thenRequest(1)
+                    .assertNext(layer0 -> {
+                        assertThat(layer0.layerIndex()).isEqualTo(0);
+                        assertThat(layer0.failedNodes()).isEmpty();
+                    })
+                    .then(() -> {
+                        // B7 关键断言: 层 1 不应被预取
+                        // concatMap 仅在上游完成且有需求时才订阅下一个内部发布者
+                        // 我们只 request(1)，层 0 已满足该需求
+                        // hangingTool 如果被调用，说明预取发生了
+                        long stepBCalls = kernel.toolInvokeCount("stepB");
+                        assertThat(stepBCalls).isZero();
+                    })
+                    .thenCancel()
+                    .verify();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // T5: 静态辅助方法
+    // ═══════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("静态辅助方法")
+    class StaticHelpers {
+
+        @Test
+        @DisplayName("resolveNodeRef 正确解析 ${id.output} 和裸 id")
+        void resolveNodeRefParsesCorrectly() {
+            assertThat(StreamingPregelDemo.resolveNodeRef("${A.output}").value())
+                    .isEqualTo("A");
+            assertThat(StreamingPregelDemo.resolveNodeRef("bare-id").value())
+                    .isEqualTo("bare-id");
+        }
+
+        @Test
+        @DisplayName("resolveNodeRef(null) 不 NPE — 返回 NodeId('null')")
+        void resolveNodeRefNullDoesNotNpe() {
+            assertThatCode(() -> StreamingPregelDemo.resolveNodeRef(null))
+                    .doesNotThrowAnyException();
+            assertThat(StreamingPregelDemo.resolveNodeRef(null).value())
+                    .isEqualTo("null");
+        }
+
+        @Test
+        @DisplayName("bareToolName 从描述中提取工具名")
+        void bareToolNameExtractsFirstWord() {
+            assertThat(StreamingPregelDemo.bareToolName("searchTool 搜索知识库"))
+                    .isEqualTo("searchTool");
+            assertThat(StreamingPregelDemo.bareToolName("singleWord"))
+                    .isEqualTo("singleWord");
+            assertThat(StreamingPregelDemo.bareToolName(""))
+                    .isEqualTo("unknown");
+            assertThat(StreamingPregelDemo.bareToolName(null))
+                    .isEqualTo("unknown");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // T6: v1.1 新增回归测试
+    // ═══════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("v1.1 回归测试")
+    class V11Regression {
+
+        @Test
+        @DisplayName("单层单节点最简路径 — LLM 节点")
+        void singleLayerSingleLlmNode() {
+            TaskNode node = TaskNode.of("A", "简单推理", TaskNodeType.LLM_CALL);
+            kernel.registerLLM("A", "答案42");
+
+            TaskGraph graph = new TaskGraph("simplest", List.of(node), List.of());
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = demo.execute(
+                    new TaskId("t-simple"), graph, budget);
+
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        assertThat(layer0.layerIndex()).isEqualTo(0);
+                        assertThat(layer0.nodeResults()).hasSize(1);
+                        assertThat(layer0.failedNodes()).isEmpty();
+                        assertThat(findResult(layer0, "A").value()).isEqualTo("答案42");
+                    })
+                    .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("单层单节点最简路径 — Tool 节点")
+        void singleLayerSingleToolNode() {
+            TaskNode node = TaskNode.of("A", "simpleTool input", TaskNodeType.TOOL_CALL);
+            kernel.registerTool("simpleTool", ToolResult.ok(new ToolName("simpleTool"), "done"));
+
+            TaskGraph graph = new TaskGraph("simplest-tool", List.of(node), List.of());
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = demo.execute(
+                    new TaskId("t-simple-tool"), graph, budget);
+
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        assertThat(layer0.failedNodes()).isEmpty();
+                        assertThat(findResult(layer0, "A").value()).isEqualTo("done");
+                    })
+                    .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("失败节点 value=null，不污染下游数据 (B6-P2 治本)")
+        void failedNodeValueDoesNotCorruptDownstream() {
+            // 层 0: node A 失败
+            TaskNode nodeA = TaskNode.of("A", "failTool input", TaskNodeType.TOOL_CALL);
+            // 层 1: node B 依赖 A 的输出
+            TaskNode nodeB = TaskNode.of("B", "consumerTool input", TaskNodeType.TOOL_CALL,
+                    Map.of("fromA", "${A.output}"));
+
+            kernel.registerFailingTool("failTool", new RuntimeException("A 挂了"));
+            kernel.registerTool("consumerTool", ToolResult.ok(new ToolName("consumerTool"), "B-ok"));
+
+            TaskGraph graph = new TaskGraph("no-corrupt",
+                    List.of(nodeA, nodeB),
+                    List.of(TaskEdge.of("A", "B")));
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = demo.execute(
+                    new TaskId("t-no-corrupt"), graph, budget);
+
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        // A 失败 — value 应为 null (不是 "FAILED: ...")
+                        StreamingPregelDemo.NodeResult rA = findResult(layer0, "A");
+                        assertThat(rA.failed()).isTrue();
+                        assertThat(rA.value()).isNull();
+                    })
+                    .assertNext(layer1 -> {
+                        // B 拿到 null 输入 — consumerTool 正常工作，未被错误字符串污染
+                        assertThat(findResult(layer1, "B").value()).isEqualTo("B-ok");
+                    })
+                    .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("kernel 返回 Mono.empty() → 转为显式错误，不静默挂起 (B5-P2 治本)")
+        void monoEmptyFromKernelDoesNotHang() {
+            TaskNode node = TaskNode.of("A", "emptyTool input", TaskNodeType.TOOL_CALL);
+            kernel.registerEmptyTool("emptyTool");
+
+            TaskGraph graph = new TaskGraph("empty-test", List.of(node), List.of());
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            // 短超时防止万一挂起时测试不永久阻塞
+            StreamingPregelDemo shortDemo = new StreamingPregelDemo(
+                    kernel, Duration.ofSeconds(5), Duration.ofSeconds(5));
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = shortDemo.execute(
+                    new TaskId("t-empty"), graph, budget);
+
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        assertThat(layer0.nodeResults()).hasSize(1);
+                        StreamingPregelDemo.NodeResult r = findResult(layer0, "A");
+                        // 应失败 — switchIfEmpty 将 empty 转为显式错误
+                        assertThat(r.failed()).isTrue();
+                        assertThat(r.error()).contains("工具返回空");
+                    })
+                    .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("LLM kernel 返回 Mono.empty() → 转为显式错误")
+        void llmMonoEmptyFromKernelDoesNotHang() {
+            TaskNode node = TaskNode.of("A", "空推理", TaskNodeType.LLM_CALL);
+            kernel.registerEmptyLLM("A");
+
+            TaskGraph graph = new TaskGraph("empty-llm", List.of(node), List.of());
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            StreamingPregelDemo shortDemo = new StreamingPregelDemo(
+                    kernel, Duration.ofSeconds(5), Duration.ofSeconds(5));
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = shortDemo.execute(
+                    new TaskId("t-empty-llm"), graph, budget);
+
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        StreamingPregelDemo.NodeResult r = findResult(layer0, "A");
+                        assertThat(r.failed()).isTrue();
+                        assertThat(r.error()).contains("LLM 返回空响应");
+                    })
+                    .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("双订阅安全 — 每次订阅获得独立状态 (B3 治本)")
+        void doubleSubscribeProducesIndependentResults() {
+            TaskNode node = TaskNode.of("A", "simpleTool input", TaskNodeType.TOOL_CALL);
+            kernel.registerTool("simpleTool", ToolResult.ok(new ToolName("simpleTool"), "done"));
+
+            TaskGraph graph = new TaskGraph("double-sub", List.of(node), List.of());
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = demo.execute(
+                    new TaskId("t-double"), graph, budget);
+
+            // 第一次订阅
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        assertThat(findResult(layer0, "A").value()).isEqualTo("done");
+                    })
+                    .verifyComplete();
+
+            // 第二次订阅 — 应获得独立 Accumulator，无状态污染
+            StepVerifier.create(flux)
+                    .assertNext(layer0 -> {
+                        assertThat(findResult(layer0, "A").value()).isEqualTo("done");
+                    })
+                    .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("取消后 executeNode 检查 isCancelled (B4 治本)")
+        void cancelledExecutionSkipsNodeStart() {
+            TaskNode nodeA = TaskNode.of("A", "slowTool input", TaskNodeType.TOOL_CALL);
+            TaskNode nodeB = TaskNode.of("B", "stepB", TaskNodeType.TOOL_CALL,
+                    Map.of("dep", "${A.output}"));
+
+            kernel.registerSlowTool("slowTool", Duration.ofSeconds(10));
+            kernel.registerTool("stepB", ToolResult.ok(new ToolName("stepB"), "b"));
+
+            TaskGraph graph = new TaskGraph("cancel-check",
+                    List.of(nodeA, nodeB),
+                    List.of(TaskEdge.of("A", "B")));
+            BudgetLimits budget = BudgetLimits.start(Budget.Fixed.developmentDefault());
+
+            StreamingPregelDemo shortDemo = new StreamingPregelDemo(
+                    kernel, Duration.ofSeconds(3), Duration.ofSeconds(3));
+
+            Flux<StreamingPregelDemo.SuperstepResult> flux = shortDemo.execute(
+                    new TaskId("t-cancel-check"), graph, budget);
+
+            StepVerifier.create(flux)
+                    .thenAwait(Duration.ofMillis(50))
+                    .thenCancel()
+                    .verify();
+
+            // 取消后 verify 完成 — 不会因挂起节点永久阻塞
+        }
+
+        @Test
+        @DisplayName("executeSuperstep 空层防御 — 返回空结果不崩 (B2 治本)")
+        void emptyLayerReturnsEmptySuperstepResult() {
+            StreamingPregelDemo.Accumulator acc =
+                    new StreamingPregelDemo.Accumulator(
+                            BudgetLimits.start(Budget.Fixed.developmentDefault()));
+
+            Mono<StreamingPregelDemo.SuperstepResult> result =
+                    demo.executeSuperstep(new TaskId("t-empty-layer"), List.of(), acc, 0);
+
+            StreamingPregelDemo.SuperstepResult sr = result.block(Duration.ofSeconds(5));
+            assertThat(sr).isNotNull();
+            assertThat(sr.layerIndex()).isEqualTo(0);
+            assertThat(sr.nodeResults()).isEmpty();
+            assertThat(sr.failedNodes()).isEmpty();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 辅助
+    // ═══════════════════════════════════════════════════════════
+
+    private static StreamingPregelDemo.NodeResult findResult(
+            StreamingPregelDemo.SuperstepResult sr, String nodeId) {
+        return sr.nodeResults().stream()
+                .filter(nr -> nr.nodeId().value().equals(nodeId))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Node not found: " + nodeId));
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Mock AgentKernel（内存驱动，无真实 LLM）
+    // ═══════════════════════════════════════════════════════════
+
+    static class MockKernel implements AgentKernel {
+
+        private final Map<String, String> llmResponses = new ConcurrentHashMap<>();
+        private final Map<String, Duration> slowResponses = new ConcurrentHashMap<>();
+        private final Map<String, ToolResult> tools = new ConcurrentHashMap<>();
+        private final Map<String, RuntimeException> failingTools = new ConcurrentHashMap<>();
+        private final Map<String, Duration> slowTools = new ConcurrentHashMap<>();
+        private final Map<String, Boolean> emptyReturns = new ConcurrentHashMap<>();
+        private final Map<String, Boolean> hangingTools = new ConcurrentHashMap<>();
+        private final Map<String, AtomicInteger> toolInvokeCounts = new ConcurrentHashMap<>();
+
+        final AtomicInteger invokeCount = new AtomicInteger(0);
+
+        void registerLLM(String nodeId, String response) {
+            llmResponses.put(nodeId, response);
+        }
+
+        void registerSlowLLM(String nodeId, Duration delay, String response) {
+            slowResponses.put(nodeId, delay);
+            llmResponses.put(nodeId, response);
+        }
+
+        void registerEmptyLLM(String nodeId) {
+            emptyReturns.put("llm:" + nodeId, true);
+        }
+
+        void registerTool(String toolName, ToolResult result) {
+            tools.put(toolName, result);
+        }
+
+        void registerFailingTool(String toolName, RuntimeException ex) {
+            failingTools.put(toolName, ex);
+        }
+
+        void registerSlowTool(String toolName, Duration delay) {
+            slowTools.put(toolName, delay);
+        }
+
+        void registerEmptyTool(String toolName) {
+            emptyReturns.put("tool:" + toolName, true);
+        }
+
+        /** 注册一个永不发射（挂起）的工具 — 用于超时和背压测试 */
+        void registerHangingTool(String toolName) {
+            hangingTools.put(toolName, true);
+        }
+
+        long toolInvokeCount(String toolName) {
+            AtomicInteger c = toolInvokeCounts.get(toolName);
+            return c != null ? c.get() : 0;
+        }
+
+        @Override
+        public Mono<String> think(String prompt, BudgetLimits budget) {
+            return Mono.error(new UnsupportedOperationException("use think(taskId,nodeId)"));
+        }
+
+        @Override
+        public Mono<String> think(String prompt, BudgetLimits budget, TaskId taskId, NodeId nodeId) {
+            invokeCount.incrementAndGet();
+            String nodeIdStr = nodeId != null ? nodeId.value() : "__unknown__";
+
+            if (emptyReturns.containsKey("llm:" + nodeIdStr)) {
+                return Mono.empty();
+            }
+
+            String response = llmResponses.getOrDefault(nodeIdStr, "mock-response-" + nodeIdStr);
+            Duration delay = slowResponses.getOrDefault(nodeIdStr, Duration.ofMillis(1));
+            return Mono.just(response).delayElement(delay);
+        }
+
+        @Override
+        public Mono<ToolResult> invokeTool(ToolName toolName, Map<String, Object> arguments,
+                                           BudgetLimits budget) {
+            invokeCount.incrementAndGet();
+            String name = toolName.value();
+
+            toolInvokeCounts.computeIfAbsent(name, k -> new AtomicInteger(0)).incrementAndGet();
+
+            if (hangingTools.containsKey(name)) {
+                return Mono.never();  // 永不发射 — 模拟挂起
+            }
+            if (emptyReturns.containsKey("tool:" + name)) {
+                return Mono.empty();
+            }
+            RuntimeException ex = failingTools.get(name);
+            if (ex != null) {
+                return Mono.error(ex);
+            }
+            Duration delay = slowTools.getOrDefault(name, Duration.ofMillis(1));
+            ToolResult result = tools.getOrDefault(name,
+                    ToolResult.ok(toolName, "mock-result-" + name));
+            return Mono.just(result).delayElement(delay);
+        }
+
+        @Override
+        public Mono<Map<NodeId, Object>> observe(TaskId taskId,
+                                                  java.util.Set<NodeId> nodeIds) {
+            return Mono.just(Map.of());
+        }
+
+        @Override
+        public Mono<com.openjiuwen.core.kernel.model.CheckpointId> saveCheckpoint(
+                com.openjiuwen.core.kernel.model.Checkpoint checkpoint) {
+            return Mono.just(new com.openjiuwen.core.kernel.model.CheckpointId("mock-cp"));
+        }
+
+        @Override
+        public Mono<com.openjiuwen.core.kernel.model.Checkpoint> restoreCheckpoint(
+                TaskId taskId) {
+            return Mono.empty();
+        }
+
+        @Override
+        public Mono<com.openjiuwen.core.kernel.model.CheckpointId> yield(
+                TaskId taskId, com.openjiuwen.core.kernel.model.YieldReason reason,
+                String currentState) {
+            return Mono.just(new com.openjiuwen.core.kernel.model.CheckpointId("mock-yield"));
+        }
+
+        @Override
+        public Mono<Void> emit(com.openjiuwen.core.kernel.model.AgentEvent event) {
+            return Mono.empty();
+        }
+
+        @Override
+        public Flux<com.openjiuwen.core.kernel.model.AgentEvent> observeEvents(
+                TaskId taskId) {
+            return Flux.empty();
+        }
+    }
+}

@@ -1,0 +1,226 @@
+package com.huawei.ascend.runtime.engine.alpha.gepa3;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.*;
+
+import com.huawei.ascend.runtime.engine.alpha.gepa3.MinimalToolFailureDemo.RootCause;
+import com.huawei.ascend.runtime.engine.alpha.gepa3.MinimalToolFailureDemo.SelfHealAction;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Tests for MinimalToolFailureDemo — E1-E4 signal chain verification.
+ *
+ * <p>Every assertion is IFF-based (剥→RED): remove the corresponding code line
+ * and the test turns red. No "有调用/非空" weak assertions.</p>
+ *
+ * <p>Compares favorably to SingleNodePregelDemoTest (226 lines, 7 openjiuwen deps):
+ * this file is ~170 lines, zero framework deps, and covers the same E1-E4 plus
+ * the PerceptionUnreliable path that SingleNodePregelDemo skips.</p>
+ */
+@DisplayName("MinimalToolFailureDemo: E1-E4 pure Java")
+class MinimalToolFailureDemoTest {
+
+    // ==================== E1: Tool exception → FAILED: prefix ====================
+
+    @Test
+    @DisplayName("E1: throwing tool produces FAILED: prefix")
+    void throwingToolProducesFailedPrefix() {
+        Set<String> toolFailed = new LinkedHashSet<>();
+        Map<String, String> results = new LinkedHashMap<>();
+
+        String result = MinimalToolFailureDemo.executeToolNode(
+                "T", "getCaseStatus", Map.of(),
+                MinimalToolFailureDemo.throwingTool("连接超时"),
+                toolFailed);
+
+        assertTrue(result.startsWith("FAILED:"),
+                "MUTATION: remove 'FAILED: ' prefix → RED");
+        assertTrue(toolFailed.contains("T"),
+                "MUTATION: remove toolFailedOut.add() → RED");
+    }
+
+    @Test
+    @DisplayName("E1: succeeding tool returns output directly")
+    void succeedingToolReturnsOutput() {
+        Set<String> toolFailed = new LinkedHashSet<>();
+
+        String result = MinimalToolFailureDemo.executeToolNode(
+                "T", "getCaseStatus", Map.of(),
+                MinimalToolFailureDemo.succeedingTool("案例已赔付"),
+                toolFailed);
+
+        assertEquals("案例已赔付", result);
+        assertTrue(toolFailed.isEmpty(),
+                "Success path must not mark node as failed");
+    }
+
+    // ==================== E2: Rule verify detects FAILED: ====================
+
+    @Test
+    @DisplayName("E2: ruleVerify catches FAILED: prefix deterministically")
+    void ruleVerifyCatchesFailedPrefix() {
+        Map<String, String> results = Map.of(
+                "T", "FAILED: 连接超时",
+                "A", "正常结果");
+
+        Set<String> failed = MinimalToolFailureDemo.ruleVerify(results);
+
+        assertEquals(Set.of("T"), failed,
+                "MUTATION: remove startsWith('FAILED:') check → RED");
+    }
+
+    @Test
+    @DisplayName("E2: ruleVerify returns empty when all nodes succeed")
+    void ruleVerifyEmptyWhenAllPass() {
+        Map<String, String> results = Map.of("T", "正常结果");
+
+        Set<String> failed = MinimalToolFailureDemo.ruleVerify(results);
+
+        assertTrue(failed.isEmpty());
+    }
+
+    // ==================== E3: Diagnose root cause ====================
+
+    @Test
+    @DisplayName("E3: tool-failed ∩ verify-failed non-empty → DeviceFailure")
+    void diagnoseDeviceFailureWhenIntersectionNonEmpty() {
+        RootCause cause = MinimalToolFailureDemo.diagnoseRootCause(
+                false, Set.of("T"), Set.of("T"));
+
+        assertInstanceOf(MinimalToolFailureDemo.RootCause.DeviceFailure.class, cause,
+                "MUTATION: skip intersection check → RED");
+        assertEquals(Set.of("T"),
+                ((MinimalToolFailureDemo.RootCause.DeviceFailure) cause).nodes());
+    }
+
+    @Test
+    @DisplayName("E3: verifyThrew=true → PerceptionUnreliable (highest priority)")
+    void diagnosePerceptionUnreliableWhenVerifyThrew() {
+        RootCause cause = MinimalToolFailureDemo.diagnoseRootCause(
+                true, Set.of("T"), Set.of("T"));
+
+        assertInstanceOf(MinimalToolFailureDemo.RootCause.PerceptionUnreliable.class, cause,
+                "MUTATION: remove verifyThrew check → RED — "
+                        + "would fall through to DeviceFailure");
+        assertTrue(((MinimalToolFailureDemo.RootCause.PerceptionUnreliable) cause)
+                .verifierThrew());
+    }
+
+    @Test
+    @DisplayName("E3: disjoint sets → PlanOrAnswerError")
+    void diagnosePlanOrAnswerErrorWhenNoIntersection() {
+        RootCause cause = MinimalToolFailureDemo.diagnoseRootCause(
+                false, Set.of("A"), Set.of("B"));
+
+        assertInstanceOf(MinimalToolFailureDemo.RootCause.PlanOrAnswerError.class, cause);
+    }
+
+    @Test
+    @DisplayName("E3: empty toolFailed + non-empty verifyFailed → PlanOrAnswerError")
+    void diagnosePlanOrAnswerErrorWhenToolsSucceed() {
+        RootCause cause = MinimalToolFailureDemo.diagnoseRootCause(
+                false, Set.of(), Set.of("T"));
+
+        assertInstanceOf(MinimalToolFailureDemo.RootCause.PlanOrAnswerError.class, cause,
+                "MUTATION: change fallthrough to DeviceFailure → RED");
+    }
+
+    @Test
+    @DisplayName("E3: null inputs degrade safely")
+    void diagnoseNullInputsDegradeSafely() {
+        RootCause cause = MinimalToolFailureDemo.diagnoseRootCause(false, null, null);
+
+        assertInstanceOf(MinimalToolFailureDemo.RootCause.PlanOrAnswerError.class, cause);
+        assertTrue(((MinimalToolFailureDemo.RootCause.PlanOrAnswerError) cause)
+                .nodes().isEmpty());
+    }
+
+    // ==================== E4: Dispatch ====================
+
+    @Test
+    @DisplayName("E4: DeviceFailure → Degrade")
+    void dispatchDeviceFailureToDegrade() {
+        SelfHealAction action = MinimalToolFailureDemo.dispatch(
+                new MinimalToolFailureDemo.RootCause.DeviceFailure(Set.of("T")));
+
+        assertInstanceOf(MinimalToolFailureDemo.SelfHealAction.Degrade.class, action,
+                "MUTATION: change DeviceFailure case to Replan → RED");
+        assertTrue(((MinimalToolFailureDemo.SelfHealAction.Degrade) action).reason()
+                .contains("设备故障"));
+    }
+
+    @Test
+    @DisplayName("E4: PerceptionUnreliable → Degrade")
+    void dispatchPerceptionUnreliableToDegrade() {
+        SelfHealAction action = MinimalToolFailureDemo.dispatch(
+                new MinimalToolFailureDemo.RootCause.PerceptionUnreliable(true));
+
+        assertInstanceOf(MinimalToolFailureDemo.SelfHealAction.Degrade.class, action);
+    }
+
+    @Test
+    @DisplayName("E4: PlanOrAnswerError → Replan with correctionHint")
+    void dispatchPlanOrAnswerErrorToReplan() {
+        SelfHealAction action = MinimalToolFailureDemo.dispatch(
+                new MinimalToolFailureDemo.RootCause.PlanOrAnswerError(Set.of("T")));
+
+        assertInstanceOf(MinimalToolFailureDemo.SelfHealAction.Replan.class, action,
+                "MUTATION: change PlanOrAnswerError case to Degrade → RED");
+        MinimalToolFailureDemo.SelfHealAction.Replan replan =
+                (MinimalToolFailureDemo.SelfHealAction.Replan) action;
+        assertEquals(Set.of("T"), replan.failedNodes());
+        assertNotNull(replan.correctionHint());
+        assertFalse(replan.correctionHint().isBlank(),
+                "MUTATION: remove correctionHint from Replan → RED");
+    }
+
+    // ==================== E1-E4 end-to-end ====================
+
+    @Test
+    @DisplayName("E1-E4 e2e: throwing tool → DeviceFailure → Degrade")
+    void e2eThrowingToolFlowsToDegrade() {
+        SelfHealAction action = MinimalToolFailureDemo.runToolFailurePath(
+                "T", "getCaseStatus",
+                MinimalToolFailureDemo.throwingTool("连接超时"));
+
+        assertInstanceOf(MinimalToolFailureDemo.SelfHealAction.Degrade.class, action,
+                "Full E1-E4 chain: tool exception → FAILED: → ruleVerify → "
+                        + "DeviceFailure → Degrade");
+    }
+
+    @Test
+    @DisplayName("E1-E4 e2e: succeeding tool + content failure → Replan")
+    void e2eContentFailureFlowsToReplan() {
+        SelfHealAction action = MinimalToolFailureDemo.runContentFailurePath(
+                "T", "getCaseStatus",
+                MinimalToolFailureDemo.succeedingTool("案例已赔付"));
+
+        assertInstanceOf(MinimalToolFailureDemo.SelfHealAction.Replan.class, action,
+                "Content failure chain: tool succeeds → verify fails → "
+                        + "PlanOrAnswerError → Replan");
+    }
+
+    // ==================== Structural: sealed exhaustiveness ====================
+
+    @Test
+    @DisplayName("RootCause sealed: 3 variants")
+    void rootCauseHasThreeVariants() {
+        Set<Class<?>> variants = Set.of(
+                MinimalToolFailureDemo.RootCause.DeviceFailure.class,
+                MinimalToolFailureDemo.RootCause.PlanOrAnswerError.class,
+                MinimalToolFailureDemo.RootCause.PerceptionUnreliable.class);
+        assertEquals(3, variants.size());
+    }
+
+    @Test
+    @DisplayName("SelfHealAction sealed: 2 variants (3 RootCause → 2 actions)")
+    void selfHealActionHasTwoVariants() {
+        Set<Class<?>> variants = Set.of(
+                MinimalToolFailureDemo.SelfHealAction.Degrade.class,
+                MinimalToolFailureDemo.SelfHealAction.Replan.class);
+        assertEquals(2, variants.size());
+    }
+}

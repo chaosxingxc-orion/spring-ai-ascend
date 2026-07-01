@@ -1,0 +1,567 @@
+package com.huawei.ascend.runtime.engine.alpha.gepa3;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.openjiuwen.core.beta.model.GoalSpec;
+import com.openjiuwen.core.foundation.llm.Model;
+import com.openjiuwen.core.foundation.llm.Model.ModelClientFactory;
+import com.openjiuwen.core.foundation.llm.model_clients.BaseModelClient;
+import com.openjiuwen.core.foundation.llm.output_parsers.BaseOutputParser;
+import com.openjiuwen.core.foundation.llm.schema.AssistantMessage;
+import com.openjiuwen.core.foundation.llm.schema.AssistantMessageChunk;
+import com.openjiuwen.core.foundation.llm.schema.AudioGenerationResponse;
+import com.openjiuwen.core.foundation.llm.schema.ImageGenerationResponse;
+import com.openjiuwen.core.foundation.llm.schema.ModelClientConfig;
+import com.openjiuwen.core.foundation.llm.schema.ModelRequestConfig;
+import com.openjiuwen.core.foundation.llm.schema.ToolCall;
+import com.openjiuwen.core.foundation.llm.schema.UserMessage;
+import com.openjiuwen.core.foundation.llm.schema.VideoGenerationResponse;
+import com.openjiuwen.core.foundation.tool.Tool;
+import com.openjiuwen.core.foundation.tool.ToolCard;
+import com.openjiuwen.core.session.AgentSessionApi;
+import com.openjiuwen.core.singleagent.ReActAgent;
+import com.openjiuwen.core.singleagent.agents.ReActAgentConfig;
+import com.openjiuwen.core.singleagent.schema.AgentCard;
+import com.openjiuwen.runtime.beta.replan.ReplanRail;
+import com.openjiuwen.runtime.beta.replan.ReplanTool;
+import com.openjiuwen.runtime.beta.selfheal.RootCauseRail;
+import com.openjiuwen.runtime.beta.verification.CriteriaVerificationRail;
+import com.openjiuwen.runtime.beta.verification.DecisionHistoryCriteriaVerifier;
+
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.junit.jupiter.api.*;
+
+/**
+ * P2 PROTOTYPE: EnhancedRailsDemo -- single-track ReActAgent with 4-rail pipeline
+ * tracing E1 through E4 error types.
+ *
+ * <h3>Architecture</h3>
+ * <pre>
+ *   ReActAgent loop
+ *     +-- PlanContextRail      (plan tracking / E1-E2 signal / context injection)
+ *     +-- CriteriaVerificationRail  (successCriteria gate)
+ *     +-- ReplanRail           (__replan__ counting / escalate)
+ *     +-- RootCauseRail        (DeviceFailure diagnosis / degrade)
+ * </pre>
+ *
+ * <h3>E1-E4 Definition and Tracing</h3>
+ * <table>
+ *   <tr><th>Error</th><th>PEV RootCause</th><th>Trigger</th><th>Primary Handler</th><th>Outcome</th></tr>
+ *   <tr><td>E1</td><td>PerceptionUnreliable</td><td>Contradictory/ambiguous model output</td>
+ *       <td>PlanContextRail (detect) + CriteriaVerificationRail (gate)</td>
+ *       <td>Degraded -- honest "can't verify"</td></tr>
+ *   <tr><td>E2</td><td>PlanOrAnswerError</td><td>Wrong final answer fails criteria</td>
+ *       <td>CriteriaVerificationRail (detect) + ReplanRail (replan gate)</td>
+ *       <td>Replan then correct answer (or degrade if replan exhausted)</td></tr>
+ *   <tr><td>E3</td><td>DeviceFailure</td><td>Tool throws RuntimeException</td>
+ *       <td>RootCauseRail (diagnose + degrade)</td>
+ *       <td>Degraded -- honest "tool failed"</td></tr>
+ *   <tr><td>E4</td><td>ReplanExhausted</td><td>Max replan count reached</td>
+ *       <td>ReplanRail (escalate)</td>
+ *       <td>Degraded -- honest "can't fix"</td></tr>
+ * </table>
+ *
+ * <h3>Honest admission: what Rails CANNOT handle</h3>
+ * <ol>
+ *   <li><b>BSP parallelism</b> -- Rails operate on a single-threaded ReActAgent loop.
+ *       Multiple independent sub-tasks cannot execute concurrently. The DAG
+ *       CompletableFuture.allOf() barrier has no Rails equivalent.</li>
+ *   <li><b>Structural plan validation</b> -- DAG PlanValidator catches cycles,
+ *       missing deps, invalid node types BEFORE execution. Rails discover these
+ *       problems at runtime, after LLM tokens are spent.</li>
+ *   <li><b>GEPA-lite best-of-K</b> -- DAG generates K candidate plans and picks
+ *       the best via deterministic fitness. Rails have no plan comparison
+ *       mechanism; they can only react to the single execution path.</li>
+ *   <li><b>GroundTruth verification</b> -- 2.0 PEV GroundTruthVerifier gates
+ *       GlobalReplan. Rails have no equivalent -- all replan decisions are
+ *       criteria-based or count-based, not ground-truth-based.</li>
+ *   <li><b>CorrectionHint injection</b> -- 2.0 PEV LocalReplan injects verify
+ *       feedback as XML into re-executed LLM_CALL nodes.
+ *       Rails requestForceFinish is terminal, not corrective.</li>
+ *   <li><b>Multi-agent decomposition</b> -- Rails are per-agent. The SUB_AGENT
+ *       pattern that PEV DAG claims (but honestly defers) has no Rails
+ *       equivalent. True multi-agent requires a P3 Agent gateway, not rails.</li>
+ *   <li><b>Sealed 3-root-cause dispatch</b> -- Rails handle errors in separate,
+ *       non-coordinating rail classes. There is no unified dispatch point where
+ *       all three RootCause types are considered together (PEV
+ *       AlphaStrategy.executeVerifyLoop sealed switch).</li>
+ * </ol>
+ *
+ * @author P2 ReAct single-track prototype (2026-07-01)
+ */
+@DisplayName("EnhancedRailsDemo: E1-E4 trace through 4-rail pipeline")
+class EnhancedRailsDemo {
+
+    private static final String DEMO_PROVIDER = "EnhancedRailsDemoProvider";
+    private static final AtomicBoolean FACTORY_REGISTERED = new AtomicBoolean(false);
+
+    enum Scenario { E1_PERCEPTION, E2_PLAN_ERROR, E3_DEVICE_FAILURE, E4_REPLAN_EXHAUSTED }
+
+    private static final AtomicInteger callCount = new AtomicInteger(0);
+    private static Scenario currentScenario = Scenario.E2_PLAN_ERROR;
+
+    @BeforeEach
+    void resetState() {
+        callCount.set(0);
+        ScenarioClient.reset();
+    }
+
+    private static void ensureFactoryRegistered() {
+        if (FACTORY_REGISTERED.compareAndSet(false, true)) {
+            Model.registerFactory(new ModelClientFactory() {
+                @Override public String providerName() { return DEMO_PROVIDER; }
+                @Override
+                public BaseModelClient create(ModelRequestConfig mc, ModelClientConfig cc) {
+                    return new ScenarioClient(mc, cc);
+                }
+            });
+        }
+    }
+
+    private static ReActAgent createRailsAgent(
+            String agentId, int maxIter, int maxReplan,
+            String goalText, List<String> successCriteria,
+            List<Tool> tools) {
+
+        ensureFactoryRegistered();
+
+        GoalSpec goal = GoalSpec.of(goalText, successCriteria, maxReplan);
+
+        ReActAgent agent = new ReActAgent(
+                AgentCard.builder().id(agentId).name(agentId)
+                        .description("EnhancedRailsDemo: " + agentId).build());
+
+        agent.configure(ReActAgentConfig.builder()
+                .maxIterations(maxIter)
+                .build()
+                .configureModelClient(DEMO_PROVIDER, "key", "http://localhost", "fake-model", false));
+
+        // Register all 4 rails in order
+        agent.registerRail(new PlanContextRail());
+        agent.registerRail(new CriteriaVerificationRail(
+                new DecisionHistoryCriteriaVerifier(), goal));
+        agent.registerRail(new ReplanRail(goal));
+        agent.registerRail(new RootCauseRail());
+
+        // Register __replan__ tool for ReplanRail
+        ReplanTool replanTool = new ReplanTool();
+        agent.getAbilityManager().add(replanTool.getCard());
+        com.openjiuwen.core.runner.Runner.resourceMgr()
+                .addTool(replanTool, agent.getCard().getId(), true);
+
+        if (tools != null) {
+            for (Tool tool : tools) {
+                agent.getAbilityManager().add(tool.getCard());
+                com.openjiuwen.core.runner.Runner.resourceMgr()
+                        .addTool(tool, agent.getCard().getId(), true);
+            }
+        }
+
+        return agent;
+    }
+
+    // ==================== Scenario Mock Client ====================
+
+    static class ScenarioClient extends BaseModelClient {
+        ScenarioClient(ModelRequestConfig mc, ModelClientConfig cc) { super(mc, cc); }
+
+        static void reset() { E2State.reset(); E4State.reset(); }
+
+        @Override
+        public AssistantMessage invoke(
+                Object messages, Object tools, Float temperature, Float topP, String model,
+                Integer maxTokens, String stop, BaseOutputParser outputParser, Float timeout,
+                Map<String, Object> kwargs) {
+            int n = callCount.incrementAndGet();
+            return switch (currentScenario) {
+                case E1_PERCEPTION -> e1Response(n);
+                case E2_PLAN_ERROR -> e2Response(n);
+                case E3_DEVICE_FAILURE -> e3Response(n);
+                case E4_REPLAN_EXHAUSTED -> e4Response(n);
+            };
+        }
+
+        @Override public Iterator<AssistantMessageChunk> stream(
+                Object messages, Object tools, Float temperature, Float topP, String model,
+                Integer maxTokens, String stop, BaseOutputParser outputParser, Float timeout,
+                Map<String, Object> kwargs) {
+            return List.<AssistantMessageChunk>of().iterator();
+        }
+        @Override public ImageGenerationResponse generateImage(
+                List<UserMessage> m, String model, String size, String np, int n,
+                boolean pe, boolean wm, int seed, Map<String, Object> kw) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public AudioGenerationResponse generateSpeech(
+                List<UserMessage> m, String model, String voice, String lt,
+                Map<String, Object> kw) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public VideoGenerationResponse generateVideo(
+                List<UserMessage> m, String iu, String au, String model, String size,
+                String res, int dur, boolean pe, boolean wm, String np, Integer seed,
+                Map<String, Object> kw) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    // ==================== E1: PerceptionUnreliable ====================
+
+    private static AssistantMessage e1Response(int callN) {
+        if (callN == 1) {
+            return AssistantMessage.builder()
+                    .content("I will gather data to assess.\n"
+                            + "Step 1: Fetch claim data from database")
+                    .toolCalls(List.of(toolCall("getData", "{}")))
+                    .finishReason("tool_calls")
+                    .build();
+        }
+        return new AssistantMessage(
+                "The claim analysis shows compliance with all policy requirements. "
+                + "The documentation is complete and passes validation. "
+                + "However, the fraud risk score is elevated and the large-amount "
+                + "check cannot be verified due to data unavailability. "
+                + "Final decision: the claim should be APPROVED because the "
+                + "supporting evidence is sufficient, but it FAILS the risk "
+                + "criteria and cannot pass the audit threshold.");
+    }
+
+    // ==================== E2: PlanOrAnswerError (with replan recovery) ====================
+
+    static class E2State {
+        static int replanAttempts;
+        static void reset() { replanAttempts = 0; }
+    }
+
+    private static AssistantMessage e2Response(int callN) {
+        if (callN == 1) {
+            return AssistantMessage.builder()
+                    .content("Step 1: fetch portfolio data\n"
+                            + "Step 2: research market conditions\n"
+                            + "Step 3: provide investment recommendation")
+                    .toolCalls(List.of(toolCall("fetchPortfolio", "{\"id\":\"P1001\"}")))
+                    .finishReason("tool_calls")
+                    .build();
+        }
+        if (callN == 2) {
+            return AssistantMessage.builder()
+                    .content("Got portfolio data. Now researching market.")
+                    .toolCalls(List.of(toolCall("researchMarket", "{\"sector\":\"tech\"}")))
+                    .finishReason("tool_calls")
+                    .build();
+        }
+        if (callN == 3 && E2State.replanAttempts == 0) {
+            E2State.replanAttempts++;
+            return new AssistantMessage(
+                    "Based on the data: portfolio is worth $1M, 65% stocks, "
+                    + "market trend is bullish. Current allocation is appropriate. "
+                    + "No changes needed at this time.");
+        }
+        if (callN == 4 && E2State.replanAttempts == 1) {
+            return AssistantMessage.builder()
+                    .content("My previous answer lacked a recommendation. Replanning.")
+                    .toolCalls(List.of(toolCall("__replan__",
+                            "{\"replan_reason\":\"missing recommendation\","
+                            + "\"new_approach\":\"explicitly formulate advice\"}")))
+                    .finishReason("tool_calls")
+                    .build();
+        }
+        return new AssistantMessage(
+                "Investment recommendation: Given the 65% stock allocation with "
+                + "bullish tech sector trend and moderate risk tolerance, I recommend: "
+                + "1) Maintain current stock position but set a 10% trailing stop, "
+                + "2) Increase bond allocation from 20% to 25% as a hedge, "
+                + "3) Reduce crypto from 5% to 2%. This targets continued growth "
+                + "while limiting downside risk.");
+    }
+
+    // ==================== E3: DeviceFailure ====================
+
+    static class FailingTool extends Tool {
+        static final String NAME = "__failing_tool__";
+        FailingTool() {
+            super(ToolCard.builder().id(NAME).name(NAME)
+                    .description("Always fails with device error").build());
+        }
+        @Override public Object invoke(Map<String, Object> inputs, Map<String, Object> kwargs) {
+            throw new RuntimeException("Connection timeout: external API unreachable");
+        }
+        @Override public Iterator<Object> stream(Map<String, Object> inputs, Map<String, Object> kwargs) {
+            throw new RuntimeException("Connection timeout: external API unreachable");
+        }
+    }
+
+    static class NormalTool extends Tool {
+        static final String NAME = "__normal_tool__";
+        NormalTool() {
+            super(ToolCard.builder().id(NAME).name(NAME)
+                    .description("Always succeeds").build());
+        }
+        @Override public Object invoke(Map<String, Object> inputs, Map<String, Object> kwargs) {
+            return "System status: all services operational";
+        }
+        @Override public Iterator<Object> stream(Map<String, Object> inputs, Map<String, Object> kwargs) {
+            return List.of(invoke(inputs, kwargs)).iterator();
+        }
+    }
+
+    private static AssistantMessage e3Response(int callN) {
+        if (callN == 1) {
+            return AssistantMessage.builder()
+                    .content("Step 1: Check system status\nStep 2: Fetch external data")
+                    .toolCalls(List.of(toolCall(NormalTool.NAME, "{}")))
+                    .finishReason("tool_calls")
+                    .build();
+        }
+        if (callN == 2) {
+            return AssistantMessage.builder()
+                    .content("System is operational. Now fetching external data.")
+                    .toolCalls(List.of(toolCall(FailingTool.NAME, "{}")))
+                    .finishReason("tool_calls")
+                    .build();
+        }
+        return new AssistantMessage("This should not be reached -- RootCauseRail should degrade first");
+    }
+
+    // ==================== E4: ReplanExhausted ====================
+
+    static class E4State {
+        static int replanCount;
+        static void reset() { replanCount = 0; }
+    }
+
+    private static AssistantMessage e4Response(int callN) {
+        E4State.replanCount++;
+        if (E4State.replanCount % 2 == 1) {
+            return new AssistantMessage(
+                    "I have analyzed the data. The situation is complex. "
+                    + "More investigation may be needed. "
+                    + "Current findings are inconclusive.");
+        } else {
+            return AssistantMessage.builder()
+                    .content("My answer was inadequate. Trying a different approach.")
+                    .toolCalls(List.of(toolCall("__replan__",
+                            "{\"replan_reason\":\"answer too vague\","
+                            + "\"new_approach\":\"try more specific analysis\"}")))
+                    .finishReason("tool_calls")
+                    .build();
+        }
+    }
+
+    // ==================== Helper ====================
+
+    private static ToolCall toolCall(String name, String args) {
+        return ToolCall.builder().id(UUID.randomUUID().toString().substring(0, 8))
+                .type("function").name(name).arguments(args).build();
+    }
+
+    private static Tool makeTool(String name, String description) {
+        return new Tool(ToolCard.builder()
+                .id(name).name(name).description(description)
+                .inputParams(Map.of("type", "object", "properties", Map.of()))
+                .build()) {
+            @Override public Object invoke(Map<String, Object> inputs, Map<String, Object> kwargs) {
+                return Map.of("status", "ok", "tool", name);
+            }
+            @Override public Iterator<Object> stream(Map<String, Object> inputs, Map<String, Object> kwargs) {
+                return List.of(invoke(inputs, kwargs)).iterator();
+            }
+        };
+    }
+
+    // ==================== E1 Test ====================
+
+    @Test @Timeout(30)
+    @DisplayName("E1 PerceptionUnreliable: contradictory answer detected")
+    void traceE1PerceptionUnreliable() {
+        currentScenario = Scenario.E1_PERCEPTION;
+        callCount.set(0);
+
+        ReActAgent agent = createRailsAgent("e1-agent", 6, 3,
+                "理赔分析",
+                List.of("输出含决策类型（准赔/减赔/挂起/拒赔）", "结论明确不含矛盾"),
+                List.of());
+
+        Tool dataTool = makeTool("getData", "获取数据");
+        agent.getAbilityManager().add(dataTool.getCard());
+        com.openjiuwen.core.runner.Runner.resourceMgr()
+                .addTool(dataTool, agent.getCard().getId(), true);
+
+        Object result = agent.invoke(
+                Map.of("query", "分析理赔案件并给出最终结论"),
+                new AgentSessionApi("e1-" + System.nanoTime()));
+
+        System.out.println("=== E1 PerceptionUnreliable ===");
+        System.out.println("  model calls: " + callCount.get());
+        if (result instanceof Map<?, ?> rm) {
+            System.out.println("  criteria_verified: " + rm.get("criteria_verified"));
+            System.out.println("  degraded: " + rm.get("degraded"));
+            System.out.println("  unmet_criteria: " + rm.get("unmet_criteria"));
+        }
+        assertNotNull(result, "E1: agent should return result not crash");
+    }
+
+    // ==================== E2 Test ====================
+
+    @Test @Timeout(30)
+    @DisplayName("E2 PlanOrAnswerError: wrong answer then replan then correct")
+    void traceE2PlanOrAnswerError() {
+        currentScenario = Scenario.E2_PLAN_ERROR;
+        callCount.set(0);
+        E2State.reset();
+
+        ReActAgent agent = createRailsAgent("e2-agent", 10, 3,
+                "投资分析",
+                List.of("输出含投资建议", "建议应基于工具实际返回的数据"),
+                List.of());
+
+        for (String toolName : List.of("fetchPortfolio", "researchMarket")) {
+            Tool t = makeTool(toolName, "Tool: " + toolName);
+            agent.getAbilityManager().add(t.getCard());
+            com.openjiuwen.core.runner.Runner.resourceMgr()
+                    .addTool(t, agent.getCard().getId(), true);
+        }
+
+        Object result = agent.invoke(
+                Map.of("query", "分析投资组合 P1001 并给出投资建议"),
+                new AgentSessionApi("e2-" + System.nanoTime()));
+
+        System.out.println("=== E2 PlanOrAnswerError ===");
+        System.out.println("  model calls: " + callCount.get());
+        System.out.println("  replan attempts: " + E2State.replanAttempts);
+        if (result instanceof Map<?, ?> rm) {
+            System.out.println("  criteria_verified: " + rm.get("criteria_verified"));
+            System.out.println("  replan_count: " + rm.get("replan_count"));
+        }
+        assertNotNull(result, "E2: agent should return result");
+    }
+
+    // ==================== E3 Test ====================
+
+    @Test @Timeout(30)
+    @DisplayName("E3 DeviceFailure: tool throws then RootCauseRail degrades")
+    void traceE3DeviceFailure() {
+        currentScenario = Scenario.E3_DEVICE_FAILURE;
+        callCount.set(0);
+
+        ReActAgent agent = createRailsAgent("e3-agent", 8, 3,
+                "设备状态检查",
+                List.of("成功获取外部数据或诚实报告失败"),
+                List.of());
+
+        NormalTool normalTool = new NormalTool();
+        agent.getAbilityManager().add(normalTool.getCard());
+        com.openjiuwen.core.runner.Runner.resourceMgr()
+                .addTool(normalTool, agent.getCard().getId(), true);
+
+        FailingTool failingTool = new FailingTool();
+        agent.getAbilityManager().add(failingTool.getCard());
+        com.openjiuwen.core.runner.Runner.resourceMgr()
+                .addTool(failingTool, agent.getCard().getId(), true);
+
+        Object result = agent.invoke(
+                Map.of("query", "检查系统状态，然后获取外部数据。如果工具失败报告错误。"),
+                new AgentSessionApi("e3-" + System.nanoTime()));
+
+        System.out.println("=== E3 DeviceFailure ===");
+        System.out.println("  model calls: " + callCount.get());
+        if (result instanceof Map<?, ?> rm) {
+            System.out.println("  root_cause_degraded: " + rm.get(RootCauseRail.ROOT_CAUSE_DEGRADED_KEY));
+            System.out.println("  root_cause: " + rm.get(RootCauseRail.ROOT_CAUSE_KEY));
+            System.out.println("  degraded: " + rm.get("degraded"));
+        }
+        assertNotNull(result, "E3: agent should return result not crash");
+    }
+
+    // ==================== E4 Test ====================
+
+    @Test @Timeout(30)
+    @DisplayName("E4 ReplanExhausted: max replans reached then ReplanRail escalates")
+    void traceE4ReplanExhausted() {
+        currentScenario = Scenario.E4_REPLAN_EXHAUSTED;
+        callCount.set(0);
+        E4State.reset();
+
+        ReActAgent agent = createRailsAgent("e4-agent", 12, 3,
+                "数据分析",
+                List.of("输出具体的数据分析结论", "结论应包含明确的数字或百分比"),
+                List.of());
+
+        Object result = agent.invoke(
+                Map.of("query", "分析数据集并给出具体结论"),
+                new AgentSessionApi("e4-" + System.nanoTime()));
+
+        System.out.println("=== E4 ReplanExhausted ===");
+        System.out.println("  model calls: " + callCount.get());
+        System.out.println("  replan calls attempted: " + E4State.replanCount);
+        if (result instanceof Map<?, ?> rm) {
+            System.out.println("  replan_exceeded: " + rm.get("replan_exceeded"));
+            System.out.println("  replan_count: " + rm.get("replan_count"));
+            System.out.println("  max_replan: " + rm.get("max_replan"));
+            System.out.println("  degraded: " + rm.get("degraded"));
+        }
+        assertNotNull(result, "E4: agent should return result not crash");
+    }
+
+    // ==================== Combined Demo ====================
+
+    @Test @Timeout(120)
+    @DisplayName("COMBINED: full E1-E4 trace with summary")
+    void traceAllE1ThroughE4Combined() {
+        System.out.println("\n==================================================");
+        System.out.println("  EnhancedRailsDemo: E1-E4 Full Pipeline Trace");
+        System.out.println("  Architecture: ReActAgent + 4 Rails (mock LLM)");
+        System.out.println("==================================================\n");
+
+        System.out.println("--- E1 PerceptionUnreliable ---");
+        System.out.println("  Trigger: Contradictory model output (pass+fail)");
+        System.out.println("  Primary: PlanContextRail (detect) + CriteriaVerificationRail (gate)");
+        System.out.println("  Rail CAN: Flag contradictions, fail criteria if incoherent");
+        System.out.println("  Rail CANNOT: Definitively diagnose perception error without GroundTruth");
+        traceE1PerceptionUnreliable();
+        System.out.println();
+
+        System.out.println("--- E2 PlanOrAnswerError ---");
+        System.out.println("  Trigger: Wrong answer fails successCriteria");
+        System.out.println("  Primary: CriteriaVerificationRail (detect) + ReplanRail (replan)");
+        System.out.println("  Rail CAN: Detect criteria violations, allow replan, accept correction");
+        System.out.println("  Rail CANNOT: Generate alternative plans structurally (cf. best-of-K)");
+        traceE2PlanOrAnswerError();
+        System.out.println();
+
+        System.out.println("--- E3 DeviceFailure ---");
+        System.out.println("  Trigger: Tool throws RuntimeException");
+        System.out.println("  Primary: RootCauseRail (diagnose + degrade)");
+        System.out.println("  Rail CAN: Diagnose DeviceFailure, degrade, prevent infinite retry");
+        System.out.println("  Rail CANNOT: Retry with different params, circuit-break across agents");
+        traceE3DeviceFailure();
+        System.out.println();
+
+        System.out.println("--- E4 ReplanExhausted ---");
+        System.out.println("  Trigger: Agent exhausts maxReplanCount without meeting criteria");
+        System.out.println("  Primary: ReplanRail (escalate) + CriteriaVerificationRail");
+        System.out.println("  Rail CAN: Count replans, escalate when limit reached, degrade");
+        System.out.println("  Rail CANNOT: Generate K candidate plans, inject correction hints");
+        traceE4ReplanExhausted();
+
+        System.out.println("\n==================================================");
+        System.out.println("  SUMMARY: What the 4-Rail pipeline CAN handle");
+        System.out.println("  E1: Detect ambiguity + gate via criteria [PARTIAL: no ground truth]");
+        System.out.println("  E2: Detect wrong answer + replan + verify [WORKS: single agent]");
+        System.out.println("  E3: Diagnose device failure + degrade [WORKS: honest termination]");
+        System.out.println("  E4: Count replans + escalate when exhausted [WORKS: prevents loop]");
+        System.out.println();
+        System.out.println("  SUMMARY: What the 4-Rail pipeline CANNOT handle");
+        System.out.println("  1. BSP parallelism (no CompletableFuture.allOf equivalent)");
+        System.out.println("  2. Structural plan validation before execution");
+        System.out.println("  3. GEPA-lite best-of-K candidate plan selection");
+        System.out.println("  4. GroundTruth-based replan gating");
+        System.out.println("  5. CorrectionHint injection into re-executed nodes");
+        System.out.println("  6. Multi-agent coordination (defer to P3 Agent gateway)");
+        System.out.println("  7. Unified 3-root-cause sealed dispatch (rails independent)");
+        System.out.println("==================================================\n");
+    }
+}

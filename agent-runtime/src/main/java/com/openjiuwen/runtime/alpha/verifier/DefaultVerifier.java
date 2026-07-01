@@ -5,6 +5,7 @@ import com.openjiuwen.core.alpha.graph.TaskNode;
 import com.openjiuwen.core.alpha.model.ExecutionPolicy;
 import com.openjiuwen.core.alpha.model.PlanGoal;
 import com.openjiuwen.core.alpha.model.VerifyMode;
+import com.openjiuwen.core.alpha.verifier.NodeResult;
 import com.openjiuwen.core.alpha.verifier.ReplanStrategy;
 import com.openjiuwen.core.alpha.verifier.VerifyResult;
 import com.openjiuwen.runtime.core.engine.AgentKernel;
@@ -39,6 +40,17 @@ public class DefaultVerifier implements Verifier {
 
     private static final int MAX_RETRY_BEFORE_ACCEPT = 3;
 
+    /**
+     * 跨项目协议常量：工具异常在 nodeResults 中的前缀标记。
+     * 生产者：DefaultPregelExecutor:200（openjiuwen-java，不在本 classpath）
+     * —— {@code nodeResults.put(node.id(), FAILED_PREFIX + e.getMessage())}
+     * 消费者：本类 ruleVerify():175 —— {@code s.startsWith(FAILED_PREFIX)}
+     *
+     * <p>协议是 untyped string convention——没有 shared enum/contract class。
+     * 改此前缀时需同步两边，否则集成期才暴露断裂。
+     */
+    public static final String FAILED_PREFIX = "FAILED: ";
+
     private final AgentKernel kernel;
 
     public DefaultVerifier(AgentKernel kernel) {
@@ -61,7 +73,14 @@ public class DefaultVerifier implements Verifier {
         };
     }
 
+    /**
+     * @deprecated AAC 路径不再调用此方法。PEVAlphaStrategy.executeVerifyLoop() 使用
+     * {@link com.openjiuwen.runtime.beta.selfheal.RootCauseDiagnoser#toReplanAction}
+     * 直接产生 ReplanAction，而非本方法产生的 ReplanStrategy。
+     * 保留仅为 Verifier 接口契约兼容；新代码应通过 ReplanAction sealed dispatch 路径。
+     */
     @Override
+    @Deprecated
     public ReplanStrategy decideReplanStrategy(VerifyResult verifyResult, int retryCount) {
         if (verifyResult.passed()) {
             return new ReplanStrategy.AcceptPartial(); // 不需要 replan
@@ -84,6 +103,9 @@ public class DefaultVerifier implements Verifier {
 
     /**
      * STRICT 验证：逐节点 + successCriteria 逐条。
+     *
+     * <p>两步验证（先 RULE 后 LLM），但 RULE 已确定性捕获失败时跳过 LLM：
+     * 当 ruleVerify 已检出所有节点失败（FAILED: 前缀/null），LLM 调用无增量信息——短路省一轮 token。
      */
     private Mono<VerifyResult> strictVerify(TaskId taskId, PlanGoal goal,
                                              TaskGraph graph,
@@ -92,14 +114,31 @@ public class DefaultVerifier implements Verifier {
         // 1. 规则验证（同步、不调 LLM）
         List<VerifyResult.NodeVerifyResult> ruleResults = ruleVerify(graph, nodeResults);
 
-        // 2. LLM 验证（异步）
+        // 2. 短路：若 RULE 已检出<b>全部</b>节点失败，LLM 调用零增量信息
+        Set<String> ruleFailedNodeIds = ruleResults.stream()
+            .filter(r -> !r.passed())
+            .map(VerifyResult.NodeVerifyResult::nodeId)
+            .collect(Collectors.toSet());
+        boolean allNodesRuleFailed = graph.nodes().stream()
+            .allMatch(n -> ruleFailedNodeIds.contains(n.id().value()));
+
+        if (allNodesRuleFailed) {
+            List<VerifyResult.CriteriaVerifyResult> criteriaResults =
+                verifyCriteria(goal, nodeResults);
+            Set<String> failedNodes = new LinkedHashSet<>(ruleFailedNodeIds);
+            String feedback = buildFeedback(ruleResults, criteriaResults);
+            return Mono.just(new VerifyResult(false, feedback, ruleResults,
+                criteriaResults, failedNodes));
+        }
+
+        // 3. LLM 验证（异步）——仅当有节点需要通过 LLM 评估质量时
         return llmVerifyNodes(goal, nodeResults, budget)
             .map(llmResults -> {
-                // 3. successCriteria 验证
+                // 4. successCriteria 验证
                 List<VerifyResult.CriteriaVerifyResult> criteriaResults =
                     verifyCriteria(goal, nodeResults);
 
-                // 4. 合并结果
+                // 5. 合并结果
                 List<VerifyResult.NodeVerifyResult> allResults = new ArrayList<>(ruleResults);
                 allResults.addAll(llmResults);
 
@@ -171,8 +210,25 @@ public class DefaultVerifier implements Verifier {
                 continue;
             }
 
-            // 检查是否是失败标记
-            if (result instanceof String s && s.startsWith("FAILED:")) {
+            // AAC 类型化结果：NodeResult.DeviceFailure（PEV 引擎设备故障）
+            if (result instanceof NodeResult.DeviceFailure df) {
+                ruleResults.add(new VerifyResult.NodeVerifyResult(
+                    nodeId, false, "设备/工具故障: " + df.error()
+                        + (df.isTimeout() ? " (超时)" : ""), VerifyResult.VerifyMethod.RULE
+                ));
+                continue;
+            }
+
+            // AAC 类型化结果：NodeResult.VerifierFailure（验证器标记失败）
+            if (result instanceof NodeResult.VerifierFailure vf) {
+                ruleResults.add(new VerifyResult.NodeVerifyResult(
+                    nodeId, false, "验证器判定失败: " + vf.reason(), VerifyResult.VerifyMethod.RULE
+                ));
+                continue;
+            }
+
+            // 向后兼容：字符串 FAILED: 前缀协议（1.0 ReActAgent 路径仍用此协议）
+            if (result instanceof String s && s.startsWith(FAILED_PREFIX)) {
                 ruleResults.add(new VerifyResult.NodeVerifyResult(
                     nodeId, false, "节点执行失败: " + s, VerifyResult.VerifyMethod.RULE
                 ));

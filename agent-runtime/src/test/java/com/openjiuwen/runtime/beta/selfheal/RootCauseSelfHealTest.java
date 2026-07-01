@@ -2,6 +2,7 @@ package com.openjiuwen.runtime.beta.selfheal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.openjiuwen.core.alpha.verifier.ReplanAction;
 import com.openjiuwen.core.alpha.verifier.RootCause;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -106,5 +107,57 @@ class RootCauseSelfHealTest {
         SelfHealAction action = RootCauseDispatcher.dispatch(
                 RootCauseDiagnoser.diagnose(false, Set.of(), Set.of("n1")));
         assertThat(action).isInstanceOf(SelfHealAction.Replan.class);
+    }
+
+    // ==================== AAC toReplanAction: RootCause → ReplanAction ====================
+    // 承重（AAC 核心 dispatch ~20 行）：sealed switch 穷尽 3 态 + 阈值规则确定性。
+    // 剥任一 case arm → 编译红（类型层 mutation-prove）。
+
+    @Test
+    void toReplanActionDeviceFailureIsAcceptPartial() {
+        // 承重 IFF：DeviceFailure 永不应重试
+        // mutation-RED：在 toReplanAction DeviceFailure arm 改返 LocalReplan → RED
+        ReplanAction action = RootCauseDiagnoser.toReplanAction(
+                new RootCause.DeviceFailure(Set.of("tool1")), "fb", Set.of("n1"));
+        assertThat(action).isInstanceOf(ReplanAction.AcceptPartial.class);
+        assertThat(((ReplanAction.AcceptPartial) action).reason()).contains("Device failure");
+    }
+
+    @Test
+    void toReplanActionPerceptionUnreliableIsAcceptPartial() {
+        // 承重 IFF：PerceptionUnreliable 永不应重试
+        // mutation-RED：在 toReplanAction PerceptionUnreliable arm 改返 LocalReplan → RED
+        ReplanAction action = RootCauseDiagnoser.toReplanAction(
+                new RootCause.PerceptionUnreliable(true), "fb", Set.of("n1"));
+        assertThat(action).isInstanceOf(ReplanAction.AcceptPartial.class);
+        assertThat(((ReplanAction.AcceptPartial) action).reason()).contains("Perception unreliable");
+    }
+
+    @Test
+    void toReplanActionPlanOrAnswerError2NodesIsLocalReplan() {
+        // 承重 IFF：≤2 节点 → LocalReplan（精确重执行）
+        // mutation-RED：改阈值 ≤2→<0 → RED
+        ReplanAction action = RootCauseDiagnoser.toReplanAction(
+                new RootCause.PlanOrAnswerError(Set.of("a", "b")), "hint", Set.of("a", "b"));
+        assertThat(action).isInstanceOf(ReplanAction.LocalReplan.class);
+        assertThat(((ReplanAction.LocalReplan) action).failedNodes()).hasSize(2);
+    }
+
+    @Test
+    void toReplanActionPlanOrAnswerError3NodesIsGlobalReplan() {
+        // 承重 IFF：>2 节点 → GlobalReplan
+        // mutation-RED：改阈值 >2→>10 → RED
+        ReplanAction action = RootCauseDiagnoser.toReplanAction(
+                new RootCause.PlanOrAnswerError(Set.of("a", "b", "c")), "全错", Set.of("a", "b", "c"));
+        assertThat(action).isInstanceOf(ReplanAction.GlobalReplan.class);
+    }
+
+    @Test
+    void toReplanActionEmptyNodesIsGlobalReplan() {
+        // 承重 IFF：P4 Bug #9——空失败集 → GlobalReplan（非 LocalReplan 空集无意义）
+        // mutation-RED：剥 empty.isEmpty() yield → RED（空集进 LocalReplan=no-op）
+        ReplanAction action = RootCauseDiagnoser.toReplanAction(
+                new RootCause.PlanOrAnswerError(Set.of()), "fb", Set.of());
+        assertThat(action).isInstanceOf(ReplanAction.GlobalReplan.class);
     }
 }

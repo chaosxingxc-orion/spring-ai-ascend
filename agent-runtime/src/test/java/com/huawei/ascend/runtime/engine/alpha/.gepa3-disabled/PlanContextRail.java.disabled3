@@ -1,0 +1,405 @@
+package com.huawei.ascend.runtime.engine.alpha.gepa3;
+
+import com.openjiuwen.core.foundation.llm.schema.AssistantMessage;
+import com.openjiuwen.core.foundation.llm.schema.ToolCall;
+import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
+import com.openjiuwen.core.singleagent.rail.AgentRail;
+import com.openjiuwen.core.singleagent.rail.ModelCallInputs;
+import com.openjiuwen.core.singleagent.rail.ToolCallInputs;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+/**
+ * P2 PROTOTYPE: PlanContextRail -- maintains plan step context for single-track ReActAgent.
+ *
+ * <p>This rail tracks a human-readable plan (list of step descriptions) and which
+ * steps have been completed, injecting progress context into each model call via
+ * {@code pushSteering}.  It does NOT generate plans; it observes and reports.
+ *
+ * <h3>Bug fixes applied (2026-07-01)</h3>
+ * <ul>
+ *   <li><b>B2</b>: Chinese substring false positive -- negative-prefixed phrases
+ *       ("不满足"/"不符合"/"不通过") scrubbed before positive check.</li>
+ *   <li><b>B3</b>: Deviation fired on legitimate tool calls -- now checks against
+ *       ALL plan steps (not just remaining) and runs BEFORE matchAndCompleteStep.</li>
+ *   <li><b>B4</b>: Short-word false matches -- min word length raised from 3 to 4.</li>
+ *   <li><b>B5</b>: Chinese step matching -- added CJK character bigram fallback.</li>
+ *   <li><b>Bug5</b>: deviationDetail never cleared -- cleared on recovery.</li>
+ *   <li><b>Bug6</b>: single-shot extraction -- re-extraction on __replan__ signal.</li>
+ *   <li><b>B1/Bug8</b>: markStepFailed no-op -- now records failed steps.</li>
+ *   <li><b>Bug10</b>: CopyOnWriteArrayList → ArrayList (single-threaded).</li>
+ * </ul>
+ *
+ * <h3>Honest admission: what this rail CANNOT handle</h3>
+ * <ul>
+ *   <li>Verify answer correctness (CriteriaVerificationRail's job)</li>
+ *   <li>Handle device failures (RootCauseRail's job; this rail only records)</li>
+ *   <li>Trigger replan (ReplanRail's job)</li>
+ *   <li>Semantic plan understanding (regex/heuristic only)</li>
+ *   <li>Chinese-to-English semantic matching (pure-CJK steps with English tool
+ *       names are structurally unmatchable via keyword heuristics)</li>
+ *   <li>Multi-agent coordination (single-kernel limitation, defer P3)</li>
+ *   <li>Ground truth verification (needs external GroundTruthVerifier)</li>
+ * </ul>
+ *
+ * @author P2 ReAct single-track prototype (2026-07-01)
+ */
+public class PlanContextRail extends AgentRail {
+
+    public static final String PLAN_CONTEXT_KEY = "plan_context";
+    public static final String PLAN_STEPS_KEY = "plan_steps";
+    public static final String COMPLETED_STEPS_KEY = "completed_steps";
+    public static final String REMAINING_STEPS_KEY = "remaining_steps";
+    public static final String FAILED_STEPS_KEY = "failed_steps";
+    public static final String PLAN_DEVIATION_KEY = "plan_deviation_detected";
+    public static final String PERCEPTION_UNRELIABLE_KEY = "perception_unreliable_signal";
+
+    // \bpass matches "pass"/"passes"/"passed" but not "bypass"/"compass"
+    private static final Pattern PASS_PATTERN =
+            Pattern.compile("\\bpass", Pattern.CASE_INSENSITIVE);
+    // \bfail matches "fail"/"fails"/"failed"/"failure"
+    private static final Pattern FAIL_PATTERN =
+            Pattern.compile("\\bfail", Pattern.CASE_INSENSITIVE);
+
+    /** Min English word length for step-keyword matching.
+     *  Raised from 3 to 4 to filter 3-char stopwords ("the"/"and"/"for")
+     *  while keeping 4-char meaningful words ("data"/"risk"/"user"/"file"). */
+    private static final int MIN_WORD_LENGTH = 4;
+
+    // --------------- state ---------------
+
+    private final List<String> planSteps = new ArrayList<>();
+    private final List<String> completedSteps = new ArrayList<>();
+    private final Set<String> failedSteps = new LinkedHashSet<>();
+    private boolean planExtracted;
+    private String contradictionDetail;
+    private String deviationDetail;
+
+    // --------------- accessors ---------------
+
+    public List<String> planSteps() { return List.copyOf(planSteps); }
+    public List<String> completedSteps() { return List.copyOf(completedSteps); }
+    public Set<String> failedSteps() { return Set.copyOf(failedSteps); }
+    public boolean isPlanExtracted() { return planExtracted; }
+    public String contradictionDetail() { return contradictionDetail; }
+    public String deviationDetail() { return deviationDetail; }
+
+    // --------------- rail hooks ---------------
+
+    @Override
+    public void afterModelCall(AgentCallbackContext context) {
+        if (!(context.getInputs() instanceof ModelCallInputs inputs)) return;
+        if (!(inputs.getResponse() instanceof AssistantMessage msg)) return;
+
+        // Bug6 fix: allow re-extraction on __replan__
+        if (planExtracted && hasReplanSignal(msg)) {
+            planExtracted = false;
+            planSteps.clear();
+            completedSteps.clear();
+            failedSteps.clear();
+            deviationDetail = null;
+        }
+
+        if (!planExtracted) {
+            extractPlanSteps(msg);
+        }
+
+        // B3 fix: check deviation BEFORE matching, against ALL plan steps
+        if (msg.getToolCalls() != null && !msg.getToolCalls().isEmpty()) {
+            checkForDeviation(msg);
+            // Bug5 fix: clear deviation on recovery
+            if (deviationDetail != null && anyDomainToolCallMatchesAnyPlanStep(msg)) {
+                deviationDetail = null;
+            }
+        }
+
+        // Match and complete steps (skip meta-tools like __replan__)
+        if (msg.getToolCalls() != null) {
+            for (ToolCall tc : msg.getToolCalls()) {
+                if (isReplanTool(tc)) continue;
+                matchAndCompleteStep(tc.getName());
+                if (tc.getArguments() != null) {
+                    matchAndCompleteStep(tc.getArguments());
+                }
+            }
+        }
+
+        if (isFinalAnswer(msg)) {
+            checkForContradiction(msg);
+        }
+    }
+
+    @Override
+    public void afterToolCall(AgentCallbackContext context) {
+        if (!(context.getInputs() instanceof ToolCallInputs inputs)) return;
+        String toolName = inputs.getToolName();
+        Object result = inputs.getToolResult();
+        if (result != null && toolName != null) {
+            String resultStr = String.valueOf(result);
+            if (resultStr.contains("error") || resultStr.contains("失败")
+                    || resultStr.contains("不可用") || resultStr.contains("unavailable")
+                    || resultStr.contains("timeout") || resultStr.contains("超时")) {
+                markStepFailed(toolName);
+            }
+        }
+    }
+
+    @Override
+    public void beforeModelCall(AgentCallbackContext context) {
+        if (!planExtracted || planSteps.isEmpty()) return;
+        if (!context.hasSteeringQueue()) return;
+
+        StringBuilder steering = new StringBuilder();
+        steering.append("[PLAN PROGRESS] ");
+        steering.append("Completed: ");
+        steering.append(completedSteps.isEmpty() ? "none" : String.join(", ", completedSteps));
+        steering.append(" | Remaining: ");
+        List<String> remaining = getRemainingSteps();
+        steering.append(remaining.isEmpty() ? "none" : String.join(", ", remaining));
+
+        if (!failedSteps.isEmpty()) {
+            steering.append(" | FAILED: ").append(String.join(", ", failedSteps));
+        }
+        if (contradictionDetail != null) {
+            steering.append(" | WARNING: contradiction -- ").append(contradictionDetail);
+        }
+        if (deviationDetail != null) {
+            steering.append(" | WARNING: deviation -- ").append(deviationDetail);
+        }
+
+        context.pushSteering(steering.toString());
+    }
+
+    public Map<String, Object> planContextMap() {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("plan_steps", List.copyOf(planSteps));
+        map.put("completed_steps", List.copyOf(completedSteps));
+        map.put("failed_steps", Set.copyOf(failedSteps));
+        map.put("remaining_steps", getRemainingSteps());
+        map.put("plan_extracted", planExtracted);
+        if (contradictionDetail != null) {
+            map.put(PERCEPTION_UNRELIABLE_KEY, true);
+            map.put("contradiction_detail", contradictionDetail);
+        }
+        if (deviationDetail != null) {
+            map.put(PLAN_DEVIATION_KEY, true);
+            map.put("deviation_detail", deviationDetail);
+        }
+        return map;
+    }
+
+    // =============== private ===============
+
+    private void extractPlanSteps(AssistantMessage msg) {
+        String content = contentOf(msg);
+        if (content == null || content.isBlank()) return;
+
+        List<String> extracted = new ArrayList<>();
+        for (String line : content.split("\\n")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) continue;
+            if (trimmed.matches("(?i)^Step\\s*\\d+[.:].*")
+                    || trimmed.matches("^\\d+\\.[\\s].*")
+                    || trimmed.matches("^第\\s*\\d+\\s*步[：:].*")
+                    || trimmed.matches("^\\d+[、)][\\s].*")) {
+                String stepDesc = trimmed.replaceFirst(
+                        "^(?i)(Step\\s*\\d+[.:]\\s*|\\d+\\.[\\s]*|第\\s*\\d+\\s*步[：:]\\s*|\\d+[、)][\\s]*)",
+                        "").trim();
+                if (!stepDesc.isEmpty()) extracted.add(stepDesc);
+            }
+        }
+
+        if (!extracted.isEmpty()) {
+            planSteps.addAll(extracted);
+            planExtracted = true;
+        }
+    }
+
+    /** B4/B5 fix: Latin keyword matching (min 4 chars) + CJK bigram fallback. */
+    private void matchAndCompleteStep(String text) {
+        if (text == null || text.isBlank()) return;
+        String lower = text.toLowerCase();
+        for (String step : planSteps) {
+            if (completedSteps.contains(step) || failedSteps.contains(step)) continue;
+            if (stepMatchesText(step, lower)) {
+                completedSteps.add(step);
+                break;
+            }
+        }
+    }
+
+    private boolean stepMatchesText(String step, String textLower) {
+        // Latin keyword matching (works for English steps AND CJK steps with embedded Latin)
+        String[] words = step.split("[\\s，,]+");
+        for (String word : words) {
+            if (word.length() >= MIN_WORD_LENGTH && textLower.contains(word.toLowerCase())) {
+                return true;
+            }
+        }
+        // CJK bigram fallback (B5 fix)
+        if (containsCJK(step) && containsCJK(textLower)) {
+            return cjkBigramOverlap(step, textLower) >= 0.4;
+        }
+        return false;
+    }
+
+    /** B1/Bug8 fix: actually record failed steps. */
+    private void markStepFailed(String toolName) {
+        String lower = toolName.toLowerCase();
+        for (String step : planSteps) {
+            if (completedSteps.contains(step) || failedSteps.contains(step)) continue;
+            if (stepMatchesText(step, lower)) {
+                failedSteps.add(step);
+                return;
+            }
+        }
+        failedSteps.add("tool:" + toolName);
+    }
+
+    /** B2 fix: scrub negative-prefixed phrases before positive check. */
+    private void checkForContradiction(AssistantMessage msg) {
+        String content = contentOf(msg);
+        if (content == null) return;
+        String lower = content.toLowerCase();
+
+        boolean hasNegative = FAIL_PATTERN.matcher(lower).find()
+                || lower.contains("不满足") || lower.contains("不符合")
+                || lower.contains("不通过") || lower.contains("无法")
+                || lower.contains("不能");
+
+        // Scrub negative-prefixed phrases to avoid "不满足" matching "满足"
+        String cleaned = lower
+                .replace("不满足", "___NEG___")
+                .replace("不符合", "___NEG___")
+                .replace("不通过", "___NEG___");
+        boolean hasPositive = PASS_PATTERN.matcher(cleaned).find()
+                || cleaned.contains("通过") || cleaned.contains("满足")
+                || cleaned.contains("符合");
+
+        if (hasPositive && hasNegative) {
+            contradictionDetail = "Final answer contains both pass and fail signals -- "
+                    + "possible perception ambiguity";
+        }
+    }
+
+    /** B3 fix: checks against ALL plan steps; skips meta-tools. */
+    private void checkForDeviation(AssistantMessage msg) {
+        if (planSteps.isEmpty()) return;  // no plan → can't deviate
+
+        // Filter out meta-tool calls (__replan__) -- they are infrastructure,
+        // not domain actions
+        List<ToolCall> domainCalls = new ArrayList<>();
+        if (msg.getToolCalls() != null) {
+            for (ToolCall tc : msg.getToolCalls()) {
+                if (!isReplanTool(tc)) domainCalls.add(tc);
+            }
+        }
+        if (domainCalls.isEmpty()) return;  // only meta-tools, no deviation
+
+        List<String> remaining = getRemainingSteps();
+        boolean allStepsDone = remaining.isEmpty();
+
+        boolean anyMatch = false;
+        for (ToolCall tc : domainCalls) {
+            if (toolCallMatchesAnyStep(tc, planSteps)) { anyMatch = true; break; }
+        }
+        if (!anyMatch) {
+            if (allStepsDone) {
+                deviationDetail = "All plan steps appear completed but agent continues "
+                        + "making tool calls that do not match any plan step -- possible drift";
+            } else {
+                deviationDetail = "Tool calls do not match any plan step -- "
+                        + "remaining: " + String.join(", ", remaining);
+            }
+        }
+    }
+
+    private List<String> getRemainingSteps() {
+        List<String> remaining = new ArrayList<>();
+        for (String step : planSteps) {
+            if (!completedSteps.contains(step) && !failedSteps.contains(step)) {
+                remaining.add(step);
+            }
+        }
+        return remaining;
+    }
+
+    private boolean anyDomainToolCallMatchesAnyPlanStep(AssistantMessage msg) {
+        if (msg.getToolCalls() == null || planSteps.isEmpty()) return false;
+        for (ToolCall tc : msg.getToolCalls()) {
+            if (isReplanTool(tc)) continue;
+            if (toolCallMatchesAnyStep(tc, planSteps)) return true;
+        }
+        return false;
+    }
+
+    private boolean toolCallMatchesAnyStep(ToolCall tc, List<String> steps) {
+        String combined = (tc.getName() != null ? tc.getName() : "")
+                + " " + (tc.getArguments() != null ? tc.getArguments() : "");
+        String lower = combined.toLowerCase();
+        for (String step : steps) {
+            if (stepMatchesText(step, lower)) return true;
+        }
+        return false;
+    }
+
+    private static boolean isFinalAnswer(AssistantMessage msg) {
+        return msg.getToolCalls() == null || msg.getToolCalls().isEmpty();
+    }
+
+    private boolean hasReplanSignal(AssistantMessage msg) {
+        if (msg.getToolCalls() == null) return false;
+        return msg.getToolCalls().stream().anyMatch(tc -> "__replan__".equals(tc.getName()));
+    }
+
+    private static boolean isReplanTool(ToolCall tc) {
+        return "__replan__".equals(tc.getName());
+    }
+
+    private static String contentOf(AssistantMessage msg) {
+        String c = msg.getContentAsString();
+        return c != null ? c : "";
+    }
+
+    // --------------- CJK utilities ---------------
+
+    private static boolean containsCJK(String s) {
+        return s.codePoints().anyMatch(PlanContextRail::isCJK);
+    }
+
+    private static boolean isCJK(int cp) {
+        return (cp >= 0x4E00 && cp <= 0x9FFF)
+                || (cp >= 0x3400 && cp <= 0x4DBF)
+                || (cp >= 0xF900 && cp <= 0xFAFF);
+    }
+
+    /** B5 fix: character-bigram overlap between step and tool-call text. */
+    private static double cjkBigramOverlap(String step, String text) {
+        String stepCJK = extractCJK(step);
+        String textCJK = extractCJK(text);
+        if (stepCJK.length() < 2 || textCJK.length() < 2) return 0.0;
+
+        Set<String> stepBigrams = new LinkedHashSet<>();
+        for (int i = 0; i < stepCJK.length() - 1; i++) {
+            stepBigrams.add(stepCJK.substring(i, i + 2));
+        }
+
+        int matches = 0;
+        for (int i = 0; i < textCJK.length() - 1; i++) {
+            if (stepBigrams.contains(textCJK.substring(i, i + 2))) matches++;
+        }
+        return (double) matches / stepBigrams.size();
+    }
+
+    private static String extractCJK(String s) {
+        StringBuilder sb = new StringBuilder();
+        s.codePoints().forEachOrdered(cp -> { if (isCJK(cp)) sb.appendCodePoint(cp); });
+        return sb.toString();
+    }
+}

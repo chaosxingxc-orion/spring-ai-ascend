@@ -1,5 +1,6 @@
 package com.openjiuwen.runtime.beta.selfheal;
 
+import com.openjiuwen.core.alpha.verifier.NodeResult;
 import com.openjiuwen.core.alpha.verifier.RootCause;
 import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
 import com.openjiuwen.core.singleagent.rail.AgentRail;
@@ -47,6 +48,22 @@ public class RootCauseRail extends AgentRail {
         // hit = nodes ∩ nodes = nodes 非空 → DeviceFailure
         String tool = extractToolName(context);
         Set<String> nodes = (tool != null) ? Set.of(tool) : Set.of("__unknown_tool__");
+        RootCause cause = RootCauseDiagnoser.diagnose(false, nodes, nodes);
+        pendingAction = RootCauseDispatcher.dispatch(cause);
+    }
+
+    /**
+     * PEV bridge hook：接收 PregelExecutor 检测到的设备故障事件。
+     *
+     * <p>与 {@link #onToolException} 的区别：本方法接收 PEV 引擎的
+     * {@link NodeResult.DeviceFailure}（带 nodeId/error/isTimeout），
+     * 而非 1.0 ReActAgent 的 {@link AgentCallbackContext}。两者共享同一
+     * pendingAction → afterModelCall forceFinish 路径。
+     *
+     * <p>调用方：{@code PEVToRailBridge.onExecutorDeviceFailure()}。
+     */
+    public synchronized void onDeviceFailure(NodeResult.DeviceFailure failure) {
+        Set<String> nodes = (failure.nodeId() != null) ? Set.of(failure.nodeId()) : Set.of("__pev__");
         RootCause cause = RootCauseDiagnoser.diagnose(false, nodes, nodes);
         pendingAction = RootCauseDispatcher.dispatch(cause);
     }

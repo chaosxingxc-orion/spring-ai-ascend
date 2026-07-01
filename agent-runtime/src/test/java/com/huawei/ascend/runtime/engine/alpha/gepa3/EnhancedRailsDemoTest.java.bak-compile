@@ -1,0 +1,494 @@
+package com.huawei.ascend.runtime.engine.alpha.gepa3;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.openjiuwen.core.foundation.llm.schema.AssistantMessage;
+import com.openjiuwen.core.foundation.llm.schema.ToolCall;
+import com.openjiuwen.core.singleagent.rail.AgentCallbackContext;
+import com.openjiuwen.core.singleagent.rail.ModelCallInputs;
+import com.openjiuwen.core.singleagent.rail.ToolCallInputs;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+@DisplayName("PlanContextRail: step extraction, completion, contradiction, deviation")
+class EnhancedRailsDemoTest {
+
+    private PlanContextRail rail;
+
+    @BeforeEach
+    void setUp() { rail = new PlanContextRail(); }
+
+    @Test
+    @DisplayName("Extract plan steps from English Step N: pattern")
+    void extractEnglishStepPattern() {
+        AssistantMessage msg = new AssistantMessage(
+                "I will proceed as follows:\n"
+                + "Step 1: Fetch claim data from database\n"
+                + "Step 2: Analyze fraud risk score\n"
+                + "Step 3: Calculate correct payout\n"
+                + "Step 4: Generate final adjudication report");
+        rail.afterModelCall(ctxForModel(msg, List.of()));
+        assertThat(rail.isPlanExtracted()).isTrue();
+        assertThat(rail.planSteps()).containsExactly(
+                "Fetch claim data from database", "Analyze fraud risk score",
+                "Calculate correct payout", "Generate final adjudication report");
+    }
+
+    @Test
+    @DisplayName("Extract plan steps from Chinese step pattern")
+    void extractChineseStepPattern() {
+        AssistantMessage msg = new AssistantMessage(
+                "第1步：获取案例状态\n第2步：评估欺诈风险\n第3步：计算正确赔付");
+        rail.afterModelCall(ctxForModel(msg, List.of()));
+        assertThat(rail.isPlanExtracted()).isTrue();
+        assertThat(rail.planSteps()).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("Extract plan steps from numbered list N. pattern")
+    void extractNumberedListPattern() {
+        AssistantMessage msg = new AssistantMessage(
+                "Plan:\n1. Fetch portfolio data\n2. Research market conditions\n3. Provide investment recommendation");
+        rail.afterModelCall(ctxForModel(msg, List.of()));
+        assertThat(rail.isPlanExtracted()).isTrue();
+        assertThat(rail.planSteps()).hasSize(3);
+        assertThat(rail.planSteps().get(0)).isEqualTo("Fetch portfolio data");
+    }
+
+    @Test
+    @DisplayName("No plan extracted from non-plan content")
+    void noPlanFromNonPlanContent() {
+        AssistantMessage msg = new AssistantMessage(
+                "The sky is blue and the data looks good. Let me think about this.");
+        rail.afterModelCall(ctxForModel(msg, List.of()));
+        assertThat(rail.isPlanExtracted()).isFalse();
+        assertThat(rail.planSteps()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Track step completion via tool call name keyword match")
+    void trackCompletionByToolCallName() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Fetch claim data\nStep 2: Calculate payout");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall fetchClaim = ToolCall.builder().id("t1").type("function")
+                .name("fetchClaimData").arguments("{}").build();
+        AssistantMessage toolMsg = AssistantMessage.builder().content("Fetching claim data")
+                .toolCalls(List.of(fetchClaim)).finishReason("tool_calls").build();
+        rail.afterModelCall(ctxForModel(toolMsg, List.of(fetchClaim)));
+        assertThat(rail.completedSteps()).contains("Fetch claim data");
+        assertThat(rail.completedSteps()).doesNotContain("Calculate payout");
+    }
+
+    @Test
+    @DisplayName("Track step completion via tool call arguments keyword match")
+    void trackCompletionByArguments() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Analyze portfolio allocation\nStep 2: Research technology sector");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall tc = ToolCall.builder().id("t1").type("function")
+                .name("analyzePortfolio")
+                .arguments("{\"portfolioId\":\"P1001\",\"sector\":\"technology\"}").build();
+        AssistantMessage toolMsg = AssistantMessage.builder().content("Analyzing")
+                .toolCalls(List.of(tc)).finishReason("tool_calls").build();
+        rail.afterModelCall(ctxForModel(toolMsg, List.of(tc)));
+        assertThat(rail.completedSteps()).contains("Analyze portfolio allocation",
+                "Research technology sector");
+    }
+
+    @Test
+    @DisplayName("All steps completed when all tool calls match")
+    void allStepsCompleted() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Fetch data file\nStep 2: Analyze data pattern\nStep 3: Report results");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall tc1 = ToolCall.builder().id("1").type("function")
+                .name("fetchData").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc1)).finishReason("tool_calls").build(), List.of(tc1)));
+        ToolCall tc2 = ToolCall.builder().id("2").type("function")
+                .name("analyzeAndReport").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc2)).finishReason("tool_calls").build(), List.of(tc2)));
+        assertThat(rail.completedSteps()).containsExactlyInAnyOrder(
+                "Fetch data file", "Analyze data pattern", "Report results");
+    }
+
+    @Test
+    @DisplayName("B4 fix: 3-char stopwords (the/and/for) do not cause false match")
+    void shortWordsDoNotCauseFalseMatch() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Fetch the user data\nStep 2: Analyze all results");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall tc = ToolCall.builder().id("1").type("function")
+                .name("getTheAllFor").arguments("{\"the\":\"v\",\"and\":true,\"for\":\"t\"}").build();
+        AssistantMessage toolMsg = AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc)).finishReason("tool_calls").build();
+        rail.afterModelCall(ctxForModel(toolMsg, List.of(tc)));
+        assertThat(rail.completedSteps()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("B4 fix: 4-char meaningful words (data/risk/user/file) still match")
+    void meaningfulShortWordsStillMatch() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Fetch user data from database\nStep 2: Analyze risk factors");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall tc1 = ToolCall.builder().id("1").type("function")
+                .name("fetchUserData").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc1)).finishReason("tool_calls").build(), List.of(tc1)));
+        assertThat(rail.completedSteps()).contains("Fetch user data from database");
+        ToolCall tc2 = ToolCall.builder().id("2").type("function")
+                .name("analyzeRisk").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc2)).finishReason("tool_calls").build(), List.of(tc2)));
+        assertThat(rail.completedSteps()).contains("Analyze risk factors");
+    }
+
+    @Test
+    @DisplayName("B5 fix: Chinese step matched via CJK bigram overlap with Chinese tool name")
+    void chineseStepMatchedByBigram() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "第1步：获取理赔数据\n第2步：分析欺诈风险");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall tc = ToolCall.builder().id("1").type("function")
+                .name("获取理赔数据工具").arguments("{\"caseId\":\"C001\"}").build();
+        AssistantMessage toolMsg = AssistantMessage.builder().content("获取理赔数据中")
+                .toolCalls(List.of(tc)).finishReason("tool_calls").build();
+        rail.afterModelCall(ctxForModel(toolMsg, List.of(tc)));
+        assertThat(rail.completedSteps()).contains("获取理赔数据");
+        assertThat(rail.completedSteps()).doesNotContain("分析欺诈风险");
+    }
+
+    @Test
+    @DisplayName("B5 fix: Chinese step with embedded Latin keyword still matches English tool")
+    void chineseStepWithLatinKeywordMatchesEnglishTool() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: 获取理赔数据\nStep 2: 运行 fraud detection");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall tc = ToolCall.builder().id("1").type("function")
+                .name("runFraudDetection").arguments("{}").build();
+        AssistantMessage toolMsg = AssistantMessage.builder().content("Running fraud check")
+                .toolCalls(List.of(tc)).finishReason("tool_calls").build();
+        rail.afterModelCall(ctxForModel(toolMsg, List.of(tc)));
+        assertThat(rail.completedSteps()).contains("运行 fraud detection");
+    }
+
+    @Test
+    @DisplayName("Detect contradiction: final answer has both pass and fail signals")
+    void detectContradictionPassAndFail() {
+        AssistantMessage planMsg = new AssistantMessage("Step 1: Audit claim");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        AssistantMessage finalAnswer = new AssistantMessage(
+                "The claim PASSES all basic checks but FAILS the advanced audit. "
+                + "We should APPROVE because basic checks pass.");
+        rail.afterModelCall(ctxForModel(finalAnswer, List.of()));
+        assertThat(rail.contradictionDetail()).isNotNull();
+        assertThat(rail.contradictionDetail()).contains("pass and fail");
+    }
+
+    @Test
+    @DisplayName("Detect contradiction: Chinese pass+fail signals")
+    void detectContradictionChinese() {
+        AssistantMessage planMsg = new AssistantMessage("Step 1: Review claim");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        AssistantMessage finalAnswer = new AssistantMessage(
+                "Review passes, documents complete. But risk assessment fails, fraud suspected.");
+        rail.afterModelCall(ctxForModel(finalAnswer, List.of()));
+        assertThat(rail.contradictionDetail()).isNotNull();
+        assertThat((Boolean) rail.planContextMap().get(
+                PlanContextRail.PERCEPTION_UNRELIABLE_KEY)).isTrue();
+    }
+
+    @Test
+    @DisplayName("B2 fix: pure negative Chinese verdict does NOT trigger false contradiction")
+    void pureNegativeChineseNoFalseContradiction() {
+        AssistantMessage planMsg = new AssistantMessage("Step 1: Review claim");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        AssistantMessage finalAnswer = new AssistantMessage(
+                "审核不满足高级要求，不符合风控标准，结论不通过。");
+        rail.afterModelCall(ctxForModel(finalAnswer, List.of()));
+        assertThat(rail.contradictionDetail()).isNull();
+    }
+
+    @Test
+    @DisplayName("B2 fix: mixed Chinese pass+fail STILL correctly detected")
+    void mixedChinesePassFailStillDetected() {
+        AssistantMessage planMsg = new AssistantMessage("Step 1: Review claim");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        AssistantMessage finalAnswer = new AssistantMessage(
+                "基础审核满足要求，但高级审核不满足风控标准。");
+        rail.afterModelCall(ctxForModel(finalAnswer, List.of()));
+        assertThat(rail.contradictionDetail()).isNotNull();
+        assertThat(rail.contradictionDetail()).contains("pass and fail");
+    }
+
+    @Test
+    @DisplayName("B3 fix: first legitimate tool call does NOT trigger false deviation")
+    void firstLegitimateToolCallNoFalseDeviation() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Fetch portfolio data\nStep 2: Research market conditions\n"
+                + "Step 3: Provide investment recommendation");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall tc = ToolCall.builder().id("1").type("function")
+                .name("fetchPortfolio").arguments("{\"id\":\"P1001\"}").build();
+        AssistantMessage msg = AssistantMessage.builder().content("Fetching portfolio data")
+                .toolCalls(List.of(tc)).finishReason("tool_calls").build();
+        rail.afterModelCall(ctxForModel(msg, List.of(tc)));
+        assertThat(rail.deviationDetail()).isNull();
+        assertThat(rail.completedSteps()).contains("Fetch portfolio data");
+    }
+
+    @Test
+    @DisplayName("B3 fix: tool call matching a previously-completed step is NOT deviation")
+    void repeatCompletedStepNotDeviation() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Fetch data from server\nStep 2: Analyze data results");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall tc1 = ToolCall.builder().id("1").type("function")
+                .name("fetchData").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc1)).finishReason("tool_calls").build(), List.of(tc1)));
+        ToolCall tc2 = ToolCall.builder().id("2").type("function")
+                .name("fetchData").arguments("{\"refresh\":true}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc2)).finishReason("tool_calls").build(), List.of(tc2)));
+        assertThat(rail.deviationDetail()).isNull();
+    }
+
+    @Test
+    @DisplayName("Detect deviation: all steps done but agent continues with non-matching tools")
+    void detectDeviationAllStepsDone() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Fetch data file\nStep 2: Return result output");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall tc = ToolCall.builder().id("1").type("function")
+                .name("fetchDataAndReturnResult").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc)).finishReason("tool_calls").build(), List.of(tc)));
+        assertThat(rail.completedSteps()).hasSize(2);
+        ToolCall extraTc = ToolCall.builder().id("2").type("function")
+                .name("extraCheck").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(extraTc)).finishReason("tool_calls").build(), List.of(extraTc)));
+        assertThat(rail.deviationDetail()).isNotNull();
+        assertThat(rail.deviationDetail()).contains("All plan steps appear completed");
+    }
+
+    @Test
+    @DisplayName("Detect deviation: tool calls do not match any remaining step")
+    void detectDeviationMismatchedTools() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Fetch customer data\nStep 2: Calculate risk score\n"
+                + "Step 3: Generate final report");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall weirdTc = ToolCall.builder().id("1").type("function")
+                .name("checkWeatherForecast").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(weirdTc)).finishReason("tool_calls").build(), List.of(weirdTc)));
+        assertThat(rail.deviationDetail()).isNotNull();
+        assertThat(rail.deviationDetail()).contains("do not match any plan step");
+    }
+
+    @Test
+    @DisplayName("Bug5 fix: deviation cleared when next response matches plan steps")
+    void deviationClearedOnRecovery() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Fetch data from server\nStep 2: Analyze fetched data");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall weirdTc = ToolCall.builder().id("1").type("function")
+                .name("checkWeatherForecast").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(weirdTc)).finishReason("tool_calls").build(), List.of(weirdTc)));
+        assertThat(rail.deviationDetail()).isNotNull();
+        ToolCall goodTc = ToolCall.builder().id("2").type("function")
+                .name("fetchData").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(goodTc)).finishReason("tool_calls").build(), List.of(goodTc)));
+        assertThat(rail.deviationDetail()).isNull();
+        assertThat(rail.completedSteps()).contains("Fetch data from server");
+    }
+
+    @Test
+    @DisplayName("Bug6 fix: plan re-extracted after __replan__ signal")
+    void planReExtractedAfterReplan() {
+        AssistantMessage planMsg = new AssistantMessage("Step 1: Initial approach");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        assertThat(rail.isPlanExtracted()).isTrue();
+        assertThat(rail.planSteps()).hasSize(1);
+        ToolCall replanTc = ToolCall.builder().id("r1").type("function")
+                .name("__replan__").arguments("{\"replan_reason\":\"wrong approach\"}").build();
+        AssistantMessage replanMsg = AssistantMessage.builder()
+                .content("Replanning with new approach\nStep 1: Revised step one\n"
+                        + "Step 2: New step two\nStep 3: Final check")
+                .toolCalls(List.of(replanTc)).finishReason("tool_calls").build();
+        rail.afterModelCall(ctxForModel(replanMsg, List.of(replanTc)));
+        assertThat(rail.planSteps()).hasSize(3);
+        assertThat(rail.planSteps().get(0)).isEqualTo("Revised step one");
+        assertThat(rail.planSteps().get(1)).isEqualTo("New step two");
+    }
+
+    @Test
+    @DisplayName("B1 fix: afterToolCall with error result records failed step")
+    void afterToolCallRecordsFailedStep() {
+        AssistantMessage planMsg = new AssistantMessage("Step 1: Fetch external data from API");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        AgentCallbackContext ctx = AgentCallbackContext.builder()
+                .inputs(ToolCallInputs.builder()
+                        .toolName("fetchExternalData")
+                        .toolResult("error: connection timeout, external API unavailable").build())
+                .build();
+        rail.afterToolCall(ctx);
+        assertThat(rail.failedSteps()).isNotEmpty();
+        assertThat(rail.failedSteps()).contains("Fetch external data from API");
+        assertThat(rail.planContextMap().get(PlanContextRail.FAILED_STEPS_KEY)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("B1 fix: tool failure without matching step records tool name")
+    void toolFailureWithoutMatchingStepRecordsToolName() {
+        AssistantMessage planMsg = new AssistantMessage("Step 1: Do unrelated task");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        AgentCallbackContext ctx = AgentCallbackContext.builder()
+                .inputs(ToolCallInputs.builder()
+                        .toolName("unrelatedFailingTool")
+                        .toolResult("error: something went wrong").build())
+                .build();
+        rail.afterToolCall(ctx);
+        assertThat(rail.failedSteps()).contains("tool:unrelatedFailingTool");
+    }
+
+    @Test
+    @DisplayName("afterToolCall with success result does not mark step failed")
+    void afterToolCallSuccessNoSideEffect() {
+        AssistantMessage planMsg = new AssistantMessage("Step 1: Fetch data from API");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        AgentCallbackContext ctx = AgentCallbackContext.builder()
+                .inputs(ToolCallInputs.builder()
+                        .toolName("fetchData").toolResult("status: ok, data retrieved").build())
+                .build();
+        rail.afterToolCall(ctx);
+        assertThat(rail.failedSteps()).isEmpty();
+        assertThat(rail.completedSteps()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("planContextMap reflects state including remaining and failed steps")
+    void planContextMapReflectsState() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: First task done\nStep 2: Second task later\nStep 3: Third task final");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall tc = ToolCall.builder().id("1").type("function")
+                .name("doFirstTask").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc)).finishReason("tool_calls").build(), List.of(tc)));
+        AgentCallbackContext failCtx = AgentCallbackContext.builder()
+                .inputs(ToolCallInputs.builder()
+                        .toolName("thirdTask").toolResult("error: timeout").build())
+                .build();
+        rail.afterToolCall(failCtx);
+        Map<String, Object> ctx = rail.planContextMap();
+        assertThat(ctx.get("plan_extracted")).isEqualTo(true);
+        @SuppressWarnings("unchecked")
+        List<String> remaining = (List<String>) ctx.get("remaining_steps");
+        assertThat(remaining).containsExactly("Second task later");
+        @SuppressWarnings("unchecked")
+        Set<String> failed = (Set<String>) ctx.get("failed_steps");
+        assertThat(failed).contains("Third task final");
+    }
+
+    @Test
+    @DisplayName("Null response in afterModelCall does not crash")
+    void nullResponseDoesNotCrash() {
+        AgentCallbackContext ctx = AgentCallbackContext.builder()
+                .inputs(ModelCallInputs.builder().response(null).build()).build();
+        assertDoesNotThrow(() -> rail.afterModelCall(ctx));
+        assertThat(rail.isPlanExtracted()).isFalse();
+    }
+
+    @Test
+    @DisplayName("beforeModelCall without steering queue does not crash")
+    void beforeModelCallWithoutSteeringDoesNotCrash() {
+        AssistantMessage planMsg = new AssistantMessage("Step 1: Do something useful");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        AgentCallbackContext ctx = AgentCallbackContext.builder().build();
+        assertDoesNotThrow(() -> rail.beforeModelCall(ctx));
+    }
+
+    @Test
+    @DisplayName("No deviation when no plan was ever extracted")
+    void noDeviationWhenNoPlanExtracted() {
+        assertThat(rail.isPlanExtracted()).isFalse();
+        ToolCall tc = ToolCall.builder().id("1").type("function")
+                .name("someRandomTool").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc)).finishReason("tool_calls").build(), List.of(tc)));
+        assertThat(rail.deviationDetail()).isNull();
+    }
+
+    @Test
+    @DisplayName("Deviation not fired when tool call matches any completed step")
+    void deviationNotFiredForRepeatOfCompletedStep() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Fetch data from server\nStep 2: Process results report");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall tc1 = ToolCall.builder().id("1").type("function")
+                .name("fetchData").arguments("{}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc1)).finishReason("tool_calls").build(), List.of(tc1)));
+        ToolCall tc2 = ToolCall.builder().id("2").type("function")
+                .name("fetchData").arguments("{\"refresh\":true}").build();
+        rail.afterModelCall(ctxForModel(AssistantMessage.builder().content("")
+                .toolCalls(List.of(tc2)).finishReason("tool_calls").build(), List.of(tc2)));
+        assertThat(rail.deviationDetail()).isNull();
+    }
+
+    @Test
+    @DisplayName("Multiple tool calls: deviation only when NONE match any plan step")
+    void multipleToolCallsOneMatchPreventsDeviation() {
+        AssistantMessage planMsg = new AssistantMessage(
+                "Step 1: Fetch claim data from server\nStep 2: Calculate risk score\n"
+                + "Step 3: Generate report output");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        ToolCall goodTc = ToolCall.builder().id("1").type("function")
+                .name("fetchClaimData").arguments("{}").build();
+        ToolCall weirdTc = ToolCall.builder().id("2").type("function")
+                .name("checkWeather").arguments("{}").build();
+        AssistantMessage msg = AssistantMessage.builder().content("")
+                .toolCalls(List.of(goodTc, weirdTc)).finishReason("tool_calls").build();
+        rail.afterModelCall(ctxForModel(msg, List.of(goodTc, weirdTc)));
+        assertThat(rail.deviationDetail()).isNull();
+    }
+
+    @Test
+    @DisplayName("Contradiction not detected when content is null")
+    void contradictionNotDetectedWhenContentNull() {
+        AssistantMessage planMsg = new AssistantMessage("Step 1: Analysis task");
+        rail.afterModelCall(ctxForModel(planMsg, List.of()));
+        AssistantMessage msg = AssistantMessage.builder().content(null).build();
+        rail.afterModelCall(ctxForModel(msg, List.of()));
+        assertThat(rail.contradictionDetail()).isNull();
+    }
+
+    private static AgentCallbackContext ctxForModel(
+            AssistantMessage response, List<ToolCall> toolCalls) {
+        AssistantMessage msg;
+        if (toolCalls != null && !toolCalls.isEmpty()) {
+            msg = AssistantMessage.builder()
+                    .content(response.getContentAsString())
+                    .toolCalls(toolCalls).finishReason("tool_calls").build();
+        } else {
+            msg = response;
+        }
+        return AgentCallbackContext.builder()
+                .inputs(ModelCallInputs.builder().response(msg).build()).build();
+    }
+}

@@ -1,0 +1,602 @@
+package com.huawei.ascend.runtime.engine.alpha.gepa3;
+
+import com.openjiuwen.core.alpha.verifier.RootCause;
+import com.openjiuwen.core.alpha.verifier.VerifyResult;
+
+import java.util.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Actor模型 PROTOTYPE —— 用 BlockingQueue inbox + 不可变消息 + 零锁 替代共享内存并发。
+ *
+ * <h2>对比当前共享内存并发（见代码阅读报告 1-3）</h2>
+ * <table border="1">
+ *   <tr><th>共享内存问题</th><th>当前方案</th><th>Actor模型方案</th></tr>
+ *   <tr><td>emitChunk 多线程轰击 multicast sink</td><td>ReentrantLock emitLock</td>
+ *       <td>每个 Actor 独占 inbox，串行处理——零 CAS 争用</td></tr>
+ *   <tr><td>executeSuperstep 多虚拟线程写 ConcurrentHashMap</td><td>ConcurrentHashMap</td>
+ *       <td>ToolActor->ExecuteActor->Supervisor 消息扇入，私有 Map 累积</td></tr>
+ *   <tr><td>sink.complete() 可达 4 条路径</td><td>AtomicBoolean CAS</td>
+ *       <td>Supervisor 状态机 running->completed 单点跃迁</td></tr>
+ * </table>
+ *
+ * <h2>E3 追踪</h2>
+ * <pre>
+ * ToolActor-verify_policy -> FAILED -> ExecuteActor 标记 failedNodes
+ *   -> VerifyActor.diagnoseRootCause(intersection) -> DeviceFailure
+ *   -> Supervisor 穷尽 switch dispatch -> AcceptPartial -> COMPLETED-degraded
+ * </pre>
+ */
+public final class ActorPregelDemo {
+
+    private ActorPregelDemo() {}
+
+    // ========================================================================
+    // 不可变消息类型（全部 record）
+    // ========================================================================
+
+    /** 请求 Planner 生成 TaskGraph。 */
+    public record PlanRequest(String taskId, String goal) {}
+
+    /** Planner 返回的 TaskGraph（演示用简化版）。 */
+    public record PlanResponse(String taskId, DemoTaskGraph graph) {}
+
+    /** 请求 Executor 执行一个 superstep 的所有节点。 */
+    public record ExecuteRequest(String taskId, List<DemoNode> nodes, Map<String, String> upstreamResults) {}
+
+    /** Executor 返回的 superstep 结果。 */
+    public record ExecuteResponse(String taskId, Map<String, String> nodeResults, Set<String> failedNodes,
+                                  Set<String> skippedNodes) {}
+
+    /** 请求 Verifier 验证执行结果。 */
+    public record VerifyRequest(String taskId, Map<String, String> nodeResults, Set<String> executorFailedNodes,
+                                Set<String> executorSkippedNodes) {}
+
+    /** Verifier 返回验证结果 + 根因诊断。 */
+    public record VerifyResponse(String taskId, VerifyResult verifyResult, RootCause rootCause,
+                                 boolean verifyThrew) {}
+
+    /** 向 ToolActor 发出的工具调用。 */
+    public record ToolCallRequest(String nodeId, String toolName, String params,
+                                  BlockingQueue<Object> replyTo) {}
+
+    /** ToolActor 返回的工具调用结果。 */
+    public record ToolCallResponse(String nodeId, String result) {}
+
+    /** 停止 Actor——放入 inbox 后 Actor 退出消息循环。 */
+    public record PoisonPill() {}
+
+    /** 演示用简化 TaskGraph（不用完整 DAG 拓扑，聚焦 Actor 消息流）。 */
+    public record DemoTaskGraph(String goal, List<List<DemoNode>> layers) {}
+
+    /** 演示用简化节点。 */
+    public record DemoNode(String id, String toolName, String description) {}
+
+    // ========================================================================
+    // PlanActor
+    // ========================================================================
+
+    static class PlanActor implements Runnable {
+        private final BlockingQueue<Object> inbox;
+        private final BlockingQueue<Object> supervisorInbox;
+        private final String name;
+
+        PlanActor(String name, BlockingQueue<Object> inbox, BlockingQueue<Object> supervisorInbox) {
+            this.name = name;
+            this.inbox = inbox;
+            this.supervisorInbox = supervisorInbox;
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Object msg = inbox.poll(100, TimeUnit.MILLISECONDS);
+                    if (msg == null) continue;
+                    if (msg instanceof PoisonPill) return;
+                    if (msg instanceof PlanRequest req) {
+                        log("[PlanActor:%s] PlanRequest taskId=%s goal=%s", name, req.taskId(), req.goal());
+                        DemoNode claimInfo = new DemoNode("claim_info", "fetch_claim", "获取理赔信息");
+                        DemoNode verifyPolicy = new DemoNode("verify_policy", "verify_coverage",
+                                "核查保单覆盖范围（E3注入：此工具限时2s超时）");
+                        DemoNode calculatePayout = new DemoNode("calculate_payout", "calc_payment",
+                                "计算赔付金额");
+                        DemoTaskGraph graph = new DemoTaskGraph(req.goal(), List.of(
+                                List.of(claimInfo),
+                                List.of(verifyPolicy),
+                                List.of(calculatePayout)
+                        ));
+                        PlanResponse resp = new PlanResponse(req.taskId(), graph);
+                        supervisorInbox.put(resp);
+                        log("[PlanActor:%s] -> Supervisor: PlanResponse layers=%d", name, graph.layers().size());
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+    }
+
+    // ========================================================================
+    // ExecuteActor
+    // ========================================================================
+
+    static class ExecuteActor implements Runnable {
+        private final BlockingQueue<Object> inbox;
+        private final BlockingQueue<Object> supervisorInbox;
+        private final String name;
+        private final Map<String, BlockingQueue<Object>> toolInboxes;
+
+        ExecuteActor(String name, BlockingQueue<Object> inbox,
+                     BlockingQueue<Object> supervisorInbox,
+                     Map<String, BlockingQueue<Object>> toolInboxes) {
+            this.name = name;
+            this.inbox = inbox;
+            this.supervisorInbox = supervisorInbox;
+            this.toolInboxes = toolInboxes;
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Object msg = inbox.poll(100, TimeUnit.MILLISECONDS);
+                    if (msg == null) continue;
+                    if (msg instanceof PoisonPill) return;
+                    if (msg instanceof ExecuteRequest req) {
+                        executeSuperstep(req);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+
+        private void executeSuperstep(ExecuteRequest req) throws InterruptedException {
+            List<DemoNode> nodes = req.nodes();
+            log("[ExecuteActor:%s] ExecuteRequest taskId=%s nodes=%d", name, req.taskId(), nodes.size());
+
+            Map<String, String> nodeResults = new LinkedHashMap<>();
+            Set<String> failedNodes = new LinkedHashSet<>();
+            Set<String> skippedNodes = new LinkedHashSet<>();
+
+            int expectedResponses = 0;
+            for (DemoNode node : nodes) {
+                BlockingQueue<Object> toolInbox = toolInboxes.get(node.toolName());
+                if (toolInbox == null) {
+                    skippedNodes.add(node.id());
+                    nodeResults.put(node.id(), "SKIPPED: 工具未注册");
+                    continue;
+                }
+                expectedResponses++;
+                ToolCallRequest tcr = new ToolCallRequest(node.id(), node.toolName(),
+                        "params_for_" + node.id(), this.inbox);
+                toolInbox.put(tcr);
+                log("[ExecuteActor:%s] -> ToolActor[%s]: ToolCallRequest nodeId=%s",
+                        name, node.toolName(), node.id());
+            }
+
+            int received = 0;
+            while (received < expectedResponses) {
+                Object msg = inbox.poll(5, TimeUnit.SECONDS);
+                if (msg == null) {
+                    log("[ExecuteActor:%s] ToolCallResponse timeout (received=%d/%d)",
+                            name, received, expectedResponses);
+                    for (DemoNode node : nodes) {
+                        if (!nodeResults.containsKey(node.id())) {
+                            failedNodes.add(node.id());
+                            nodeResults.put(node.id(), "FAILED: timeout waiting for ToolActor response");
+                        }
+                    }
+                    break;
+                }
+                if (msg instanceof ToolCallResponse tcr) {
+                    received++;
+                    nodeResults.put(tcr.nodeId(), tcr.result());
+                    if (tcr.result().startsWith("FAILED:")) {
+                        failedNodes.add(tcr.nodeId());
+                        log("[ExecuteActor:%s] X ToolCallResponse nodeId=%s FAILED", name, tcr.nodeId());
+                    } else {
+                        log("[ExecuteActor:%s] OK ToolCallResponse nodeId=%s OK", name, tcr.nodeId());
+                    }
+                }
+            }
+
+            ExecuteResponse resp = new ExecuteResponse(req.taskId(), nodeResults, failedNodes, skippedNodes);
+            supervisorInbox.put(resp);
+            log("[ExecuteActor:%s] -> Supervisor: ExecuteResponse failed=%d skipped=%d results=%d",
+                    name, failedNodes.size(), skippedNodes.size(), nodeResults.size());
+        }
+    }
+
+    // ========================================================================
+    // ToolActor
+    // ========================================================================
+
+    static class ToolActor implements Runnable {
+        private final BlockingQueue<Object> inbox;
+        private final String toolName;
+        private final boolean shouldFail;
+
+        ToolActor(String toolName, BlockingQueue<Object> inbox, boolean shouldFail) {
+            this.toolName = toolName;
+            this.inbox = inbox;
+            this.shouldFail = shouldFail;
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Object msg = inbox.poll(200, TimeUnit.MILLISECONDS);
+                    if (msg == null) continue;
+                    if (msg instanceof PoisonPill) return;
+                    if (msg instanceof ToolCallRequest req) {
+                        processToolCall(req);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+
+        private void processToolCall(ToolCallRequest req) throws InterruptedException {
+            String result;
+            if (shouldFail) {
+                log("[ToolActor:%s] E3 INJECTED: tool timeout nodeId=%s", toolName, req.nodeId());
+                result = "FAILED: java.net.SocketTimeoutException: " + toolName
+                        + " connect timed out after 2000ms";
+                Thread.sleep(200);
+            } else {
+                log("[ToolActor:%s] OK execute nodeId=%s", toolName, req.nodeId());
+                result = "OK: " + toolName + " completed for node " + req.nodeId();
+                Thread.sleep(50);
+            }
+            ToolCallResponse resp = new ToolCallResponse(req.nodeId(), result);
+            req.replyTo().put(resp);
+        }
+    }
+
+    // ========================================================================
+    // VerifyActor
+    // ========================================================================
+
+    static class VerifyActor implements Runnable {
+        private final BlockingQueue<Object> inbox;
+        private final BlockingQueue<Object> supervisorInbox;
+        private final String name;
+
+        VerifyActor(String name, BlockingQueue<Object> inbox, BlockingQueue<Object> supervisorInbox) {
+            this.name = name;
+            this.inbox = inbox;
+            this.supervisorInbox = supervisorInbox;
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Object msg = inbox.poll(100, TimeUnit.MILLISECONDS);
+                    if (msg == null) continue;
+                    if (msg instanceof PoisonPill) return;
+                    if (msg instanceof VerifyRequest req) {
+                        verifyAndDiagnose(req);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+
+        private void verifyAndDiagnose(VerifyRequest req) throws InterruptedException {
+            log("[VerifyActor:%s] VerifyRequest taskId=%s", name, req.taskId());
+
+            boolean verifyThrew = false;
+            Set<String> verifyFailedNodes = new LinkedHashSet<>();
+            List<VerifyResult.NodeVerifyResult> nodeVerifyResults = new ArrayList<>();
+
+            for (Map.Entry<String, String> e : req.nodeResults().entrySet()) {
+                String nodeId = e.getKey();
+                String result = e.getValue();
+                if (result != null && result.startsWith("FAILED:")) {
+                    verifyFailedNodes.add(nodeId);
+                    nodeVerifyResults.add(new VerifyResult.NodeVerifyResult(
+                            nodeId, false, "节点执行失败: " + result,
+                            VerifyResult.VerifyMethod.RULE));
+                } else {
+                    nodeVerifyResults.add(new VerifyResult.NodeVerifyResult(
+                            nodeId, true, "OK", VerifyResult.VerifyMethod.RULE));
+                }
+            }
+
+            RootCause rootCause = diagnoseRootCause(
+                    verifyFailedNodes, verifyThrew,
+                    req.executorFailedNodes(), req.executorSkippedNodes());
+
+            VerifyResult vr;
+            if (verifyFailedNodes.isEmpty()) {
+                vr = VerifyResult.passed("所有节点验证通过");
+            } else {
+                vr = VerifyResult.failed("节点验证失败: " + verifyFailedNodes,
+                        nodeVerifyResults, verifyFailedNodes);
+            }
+
+            VerifyResponse resp = new VerifyResponse(req.taskId(), vr, rootCause, verifyThrew);
+            supervisorInbox.put(resp);
+            log("[VerifyActor:%s] -> Supervisor: VerifyResponse rootCause=%s",
+                    name, rootCause.getClass().getSimpleName());
+        }
+
+        static RootCause diagnoseRootCause(Set<String> verifyFailedNodes, boolean verifyThrew,
+                                           Set<String> executorFailedNodes, Set<String> executorSkippedNodes) {
+            if (verifyThrew) {
+                return new RootCause.PerceptionUnreliable(true);
+            }
+            Set<String> deviceSignals = new LinkedHashSet<>();
+            if (executorFailedNodes != null) deviceSignals.addAll(executorFailedNodes);
+            if (executorSkippedNodes != null) deviceSignals.addAll(executorSkippedNodes);
+            Set<String> deviceHit = new LinkedHashSet<>(verifyFailedNodes);
+            deviceHit.retainAll(deviceSignals);
+            if (!deviceHit.isEmpty()) {
+                return new RootCause.DeviceFailure(deviceHit);
+            }
+            return new RootCause.PlanOrAnswerError(verifyFailedNodes);
+        }
+    }
+
+    // ========================================================================
+    // SupervisorActor
+    // ========================================================================
+
+    static class SupervisorActor implements Runnable {
+        private final BlockingQueue<Object> inbox;
+        private final String taskId;
+        private final String goal;
+        private final int maxRetries;
+        private final BlockingQueue<Object> planInbox;
+        private final BlockingQueue<Object> executeInbox;
+        private final BlockingQueue<Object> verifyInbox;
+
+        enum Phase { PLAN, EXECUTE, VERIFY, DONE }
+        Phase phase = Phase.PLAN;
+        private int retryCount = 0;
+        private DemoTaskGraph currentGraph = null;
+        private final Map<String, String> allResults = new LinkedHashMap<>();
+        volatile String finalOutput = null;
+        volatile boolean degraded = false;
+
+        SupervisorActor(String taskId, String goal, int maxRetries,
+                        BlockingQueue<Object> inbox,
+                        BlockingQueue<Object> planInbox,
+                        BlockingQueue<Object> executeInbox,
+                        BlockingQueue<Object> verifyInbox) {
+            this.taskId = taskId;
+            this.goal = goal;
+            this.maxRetries = maxRetries;
+            this.inbox = inbox;
+            this.planInbox = planInbox;
+            this.executeInbox = executeInbox;
+            this.verifyInbox = verifyInbox;
+        }
+
+        @Override
+        public void run() {
+            try {
+                planInbox.put(new PlanRequest(taskId, goal));
+                log("[Supervisor] -> PlanActor: PlanRequest");
+
+                while (phase != Phase.DONE) {
+                    Object msg = inbox.poll(10, TimeUnit.SECONDS);
+                    if (msg == null) {
+                        log("[Supervisor] timeout - no msg arrived, terminating");
+                        phase = Phase.DONE;
+                        finalOutput = "TIMEOUT: PEV loop stalled";
+                        degraded = true;
+                        break;
+                    }
+                    if (msg instanceof PlanResponse pr) {
+                        handlePlanResponse(pr);
+                    } else if (msg instanceof ExecuteResponse er) {
+                        handleExecuteResponse(er);
+                    } else if (msg instanceof VerifyResponse vr) {
+                        handleVerifyResponse(vr);
+                    } else if (msg instanceof PoisonPill) {
+                        phase = Phase.DONE;
+                        break;
+                    }
+                }
+                log("[Supervisor] PEV loop exit phase=DONE finalOutput=%s", finalOutput);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                finalOutput = "INTERRUPTED: " + e.getMessage();
+                degraded = true;
+            }
+        }
+
+        private void handlePlanResponse(PlanResponse pr) throws InterruptedException {
+            log("[Supervisor] <- PlanActor: PlanResponse layers=%d", pr.graph().layers().size());
+            this.currentGraph = pr.graph();
+            if (!pr.graph().layers().isEmpty()) {
+                List<DemoNode> firstLayer = pr.graph().layers().get(0);
+                executeInbox.put(new ExecuteRequest(taskId, firstLayer, Map.of()));
+                phase = Phase.EXECUTE;
+                log("[Supervisor] -> ExecuteActor: ExecuteRequest layer=0 nodes=%s",
+                        firstLayer.stream().map(DemoNode::id).toList());
+            } else {
+                finalOutput = "EMPTY_GRAPH";
+                phase = Phase.DONE;
+            }
+        }
+
+        private void handleExecuteResponse(ExecuteResponse er) throws InterruptedException {
+            log("[Supervisor] <- ExecuteActor: ExecuteResponse failed=%d results=%d",
+                    er.failedNodes().size(), er.nodeResults().size());
+            allResults.putAll(er.nodeResults());
+
+            if (currentGraph != null && currentGraph.layers().size() > 1) {
+                List<DemoNode> remainingNodes = new ArrayList<>();
+                for (int i = 1; i < currentGraph.layers().size(); i++) {
+                    remainingNodes.addAll(currentGraph.layers().get(i));
+                }
+                if (!remainingNodes.isEmpty()) {
+                    Map<String, String> upstreamResults = new LinkedHashMap<>(allResults);
+                    executeInbox.put(new ExecuteRequest(taskId, remainingNodes, upstreamResults));
+                    log("[Supervisor] -> ExecuteActor: ExecuteRequest remaining=%d nodes=%s",
+                            remainingNodes.size(),
+                            remainingNodes.stream().map(DemoNode::id).toList());
+                    return;
+                }
+            }
+
+            verifyInbox.put(new VerifyRequest(taskId, new LinkedHashMap<>(allResults),
+                    er.failedNodes(), er.skippedNodes()));
+            phase = Phase.VERIFY;
+            log("[Supervisor] -> VerifyActor: VerifyRequest");
+        }
+
+        private void handleVerifyResponse(VerifyResponse vr) {
+            log("[Supervisor] <- VerifyActor: VerifyResponse rootCause=%s passed=%s",
+                    vr.rootCause().getClass().getSimpleName(), vr.verifyResult().passed());
+
+            if (vr.rootCause() instanceof RootCause.DeviceFailure df) {
+                log("[Supervisor] * E3 TRACE COMPLETE: DeviceFailure -> AcceptPartial -> COMPLETED-degraded");
+                log("[Supervisor]   evidence nodes: %s", df.nodes());
+                terminateDegraded(df.nodes().toString());
+            } else if (vr.rootCause() instanceof RootCause.PerceptionUnreliable pu) {
+                log("[Supervisor] PerceptionUnreliable -> AcceptPartial");
+                terminateDegraded("verifier unreliable");
+            } else if (vr.rootCause() instanceof RootCause.PlanOrAnswerError poe) {
+                log("[Supervisor] PlanOrAnswerError -> check retry budget retryCount=%d/%d",
+                        retryCount, maxRetries);
+                if (retryCount < maxRetries) {
+                    retryCount++;
+                    try {
+                        planInbox.put(new PlanRequest(taskId,
+                                goal + " [retry " + retryCount + "/" + maxRetries
+                                        + "; failed nodes: " + poe.nodes() + "]"));
+                        phase = Phase.PLAN;
+                        log("[Supervisor] -> PlanActor: GlobalReplan retry=%d/%d", retryCount, maxRetries);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        terminateDegraded("replan interrupted");
+                    }
+                    return;
+                } else {
+                    log("[Supervisor] retry budget exhausted -> AcceptPartial");
+                    terminateDegraded("retries exhausted: " + poe.nodes());
+                    return;
+                }
+            } else {
+                throw new AssertionError("unreachable: unknown RootCause " + vr.rootCause().getClass());
+            }
+        }
+
+        private void terminateDegraded(String reason) {
+            if (phase == Phase.DONE) return;
+            this.finalOutput = "COMPLETED-degraded: " + reason
+                    + " | completedResults=" + allResults.keySet();
+            this.degraded = true;
+            this.phase = Phase.DONE;
+            log("[Supervisor] TERMINATE: %s", finalOutput);
+        }
+    }
+
+    // ========================================================================
+    // log / main / runE3Demonstration
+    // ========================================================================
+
+    static void log(String format, Object... args) {
+        System.out.printf("[%tT] %s%n", System.currentTimeMillis(), String.format(format, args));
+    }
+
+    public static void main(String[] args) throws Exception {
+        runE3Demonstration();
+    }
+
+    public static SupervisorActor runE3Demonstration() throws Exception {
+        log("============================================================");
+        log("ActorPregelDemo: E3 device failure trace (Actor model + zero locks)");
+        log("============================================================");
+
+        BlockingQueue<Object> supervisorInbox = new LinkedBlockingQueue<>();
+        BlockingQueue<Object> planInbox = new LinkedBlockingQueue<>();
+        BlockingQueue<Object> executeInbox = new LinkedBlockingQueue<>();
+        BlockingQueue<Object> verifyInbox = new LinkedBlockingQueue<>();
+        BlockingQueue<Object> fetchClaimInbox = new LinkedBlockingQueue<>();
+        BlockingQueue<Object> verifyCoverageInbox = new LinkedBlockingQueue<>();
+        BlockingQueue<Object> calcPaymentInbox = new LinkedBlockingQueue<>();
+
+        Map<String, BlockingQueue<Object>> toolInboxes = Map.of(
+                "fetch_claim", fetchClaimInbox,
+                "verify_coverage", verifyCoverageInbox,
+                "calc_payment", calcPaymentInbox
+        );
+
+        SupervisorActor supervisor = new SupervisorActor(
+                "task-e3-demo", "insurance claim: car damage assessment", 2,
+                supervisorInbox, planInbox, executeInbox, verifyInbox);
+
+        PlanActor planActor = new PlanActor("planner", planInbox, supervisorInbox);
+        ExecuteActor executeActor = new ExecuteActor("executor", executeInbox, supervisorInbox, toolInboxes);
+        VerifyActor verifyActor = new VerifyActor("verifier", verifyInbox, supervisorInbox);
+        ToolActor fetchClaim = new ToolActor("fetch_claim", fetchClaimInbox, false);
+        ToolActor verifyCoverage = new ToolActor("verify_coverage", verifyCoverageInbox, true);
+        ToolActor calcPayment = new ToolActor("calc_payment", calcPaymentInbox, false);
+
+        Thread supervisorThread = new Thread(supervisor, "supervisor");
+        Thread planThread = new Thread(planActor, "plan");
+        Thread executeThread = new Thread(executeActor, "execute");
+        Thread verifyThread = new Thread(verifyActor, "verify");
+        Thread fetchThread = new Thread(fetchClaim, "tool-fetch_claim");
+        Thread verifyPolicyThread = new Thread(verifyCoverage, "tool-verify_coverage");
+        Thread calcThread = new Thread(calcPayment, "tool-calc_payment");
+
+        supervisorThread.start();
+        planThread.start();
+        executeThread.start();
+        verifyThread.start();
+        fetchThread.start();
+        verifyPolicyThread.start();
+        calcThread.start();
+
+        supervisorThread.join(30_000);
+
+        planInbox.put(new PoisonPill());
+        executeInbox.put(new PoisonPill());
+        verifyInbox.put(new PoisonPill());
+        fetchClaimInbox.put(new PoisonPill());
+        verifyCoverageInbox.put(new PoisonPill());
+        calcPaymentInbox.put(new PoisonPill());
+        supervisorInbox.put(new PoisonPill());
+
+        for (Thread t : new Thread[]{planThread, executeThread, verifyThread,
+                fetchThread, verifyPolicyThread, calcThread}) {
+            t.join(5_000);
+        }
+
+        log("============================================================");
+        log("E3 demo result:");
+        log("  finalOutput: %s", supervisor.finalOutput);
+        log("  degraded:    %s", supervisor.degraded);
+        log("  phase:       %s", supervisor.phase);
+
+        boolean e3Correct = supervisor.degraded
+                && supervisor.finalOutput != null
+                && supervisor.finalOutput.contains("COMPLETED-degraded")
+                && supervisor.finalOutput.contains("DeviceFailure");
+        log("  E3 trace correct: %s", e3Correct);
+        log("============================================================");
+
+        if (!e3Correct) {
+            throw new AssertionError("E3 trace failed: expected COMPLETED-degraded with DeviceFailure, got: "
+                    + supervisor.finalOutput);
+        }
+        return supervisor;
+    }
+}

@@ -52,15 +52,21 @@ public final class AgentCoreJavaLlmProvider implements DefaultAgentKernel.LLMPro
                 Iterator<AssistantMessageChunk> chunks = model.stream(
                         List.of(new UserMessage(prompt)),
                         null, null, null, null, null, null, null, null, null);
-                while (chunks.hasNext()) {
+                // Break the while-loop on cancellation so the boundedElastic thread
+                // is released promptly instead of draining the remaining stream.
+                while (chunks.hasNext() && !sink.isCancelled()) {
                     String text = chunks.next().getContentAsString();
                     if (text != null && !text.isEmpty()) {
                         sink.next(text);
                     }
                 }
-                sink.complete();
+                if (!sink.isCancelled()) {
+                    sink.complete();
+                }
             } catch (Exception e) {
-                sink.error(e);
+                if (!sink.isCancelled()) {
+                    sink.error(e);
+                }
             }
         }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
     }
