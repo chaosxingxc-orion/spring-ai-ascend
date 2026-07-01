@@ -759,3 +759,43 @@ Stage 21 是纯测试阶段。`@Isolated`（同 Stage 19/20，§21.4）+ import 
 - ✓ **190 tests green**（Stage 20 的 188 + 2 并发 IT），ArchUnit green。
 - ✓ §6.2 不变。
 - ✓ **deferred**（沿用 Stage 20，runtime 物理实现项）：真实 retry 调度（`ForwardingDispatchLoop` 接真实 scheduler / polling cadence，§6.1 第 3 项障碍）、真实 agent handler（仍 fake port）、registry 集成的 resolver 生产实现、**断路器状态持久化**（跨重启落 DB —— 主流不做：Resilience4j 默认内存、进程重启回 CLOSED 重新探测是预期行为；本阶段验证跨 worker 共享单例，非跨重启）、**并发 worker 分片**（按 tenant/route 分区策略，本阶段验证并发 claim 正确性非分片）、连接池治理、push/pull/MQ 最终裁决（仍 H2/H3）。
+
+## 23. Stage 22 决策（时间驱动的终态与续约端到端验证：闭合 Stages 17-21 后两个时间驱动盲区）
+
+Stages 17-21 闭合了 C3 dispatch loop 的三条端到端生命线（重投往返 + lease 回收 + 断路器，单 worker Stages 17-20 + 多 worker Stage 21），但留了两个**时间驱动**路径仍未端到端验证：(1) **EXPIRED 终态端到端** —— worker 的 `case EXPIRED → markExpired`（lease-guarded UPDATE）此前只在契约层（in-memory harness）验证，从未端到端在真实 SQL 跑通；EXPIRED 是第三个终态（ACKED=Stage 17 / DLQ=Stage 18 / EXPIRED=Stage 22），其落盘不变量（`status=EXPIRED` + 非空 `last_failure_code` + 释放 lease）与「终态不回收」（不在 `claimDue` 候选集 PENDING/RETRY_SCHEDULED/DISPATCHING）此前无端到端证据；(2) **lease 续约真实触发端到端** —— MI11-001 把续约检查改读注入 `EpochClock`（Stage 11 前 read tick-start instant 使自然 loop 下续约永不触发），但「真实 `claimDue→renewLease→deliver` tick 是否真在 deliver 前续约短 lease」此前 deferred；Stages 19-21 全程用 `DispatchLeasePolicy.DISABLED`，续约从不在任何端到端 IT 触发。Stage 22 在真实持久化上闭合这两个盲区，纯测试无生产代码。`C3ForwardingExpiryAndLeaseRenewalIntegrationTest`（`@Isolated`、不 boot runtime、仅 embedded-postgres+Flyway+`JdbcForwardingOutbox`）双场景：
+
+### 23.1 场景 A：EXPIRED 终态端到端（markExpired 落盘 + 终态不回收）
+
+`MutableEpochClock(t0)` + fake delivery 返回 `expired()` + `DispatchLeasePolicy.DISABLED` + `ALWAYS_CLOSED` breaker。enqueue PENDING（`deadline=t0-1s` 反映「消息已超时」语义，但 record 不持久化 deadline、deliver 不检查，故 EXPIRED 由注入的 `expired()` 触发非 deadline）→ 单 tick `claimDue` claim（lease_until=t0+60s）→ deliver `expired()` → `case EXPIRED → markExpired`（lease-guarded UPDATE）→ persisted。
+
+断言：`expired=1`；persisted `status=EXPIRED` / `last_failure_code=delivery_timeout`（markExpired 硬编码，满足 EXPIRED record 不变量「非空 failure code」）/ `attempt_count=0`（终态非 retry，markExpired 不递增）/ `lease_owner=NULL` / `lease_until=NULL`（释放 lease）；2 ticks 聚合 `claimed=1`（第二个 tick 不回收 EXPIRED——不在 `claimDue` 候选集 PENDING/RETRY_SCHEDULED/DISPATCHING）。
+
+### 23.2 场景 B：lease 续约真实触发端到端（renewLease 在 deliver 前 commit）
+
+`MutableEpochClock(t0)` + `DispatchLeasePolicy(renewBeforeExpiryMillis=50_000, leaseExtensionMillis=60_000)` + claim lease 时长 30s（loop `leaseDurationMillis=30_000` → claim 后 `lease_until=t0+30s`）。enqueue PENDING → 单 tick（instant=t0）`runOnce(tenant, t0, 5, "worker-renew", t0+30s)`：续约检查 `clockNow=clock.epochMillis()=t0`（注入时钟，MI11-001），`remaining = leaseUntilMillisEpoch(t0+30s) − clockNow(t0) = 30s < renewBeforeExpiryMillis(50s)` → 触发续约，`extendedUntil = (t0+30s) + leaseExtensionMillis(60s) = t0+90s` → `renewLease(msg, tenant, "worker-renew", t0+90s)` commit（auto-commit，deliver 前）→ **observing delivery port 在 deliver 时读 PG `lease_until==t0+90s` 作续约确凿证据**（该值只可能由 renewLease 写入；此时 status 仍 DISPATCHING，markAcked 在 deliver 后）→ 返回 acked → `markAcked`（lease-guarded，lease_until=t0+90s > 真实时钟）→ ACKED。
+
+断言：`acked=1` / `skipped=0`（renewLease 返回 true，record 未 skip）/ `renewalObserved=true`（observing port 见续约后 lease）/ `attempt_count=0`。
+
+**续约是纯算术**（MI11-001 设计红利）：续约检查读注入 `EpochClock`（非真实墙钟），故冻时钟在 t0 + claim 短 lease（lease_until=t0+30s）使 `remaining=30s` 确定性低于 50s 阈值，无需 sleep，CI 稳定。
+
+### 23.3 关键发现：EXPIRED 是「SQL 正确但触发源缺失」的终态
+
+`ForwardingOutboxRecord` 不持久化 `deadlineMillisEpoch`（`ForwardingEnvelope` 有该字段但 record 无投影）、`A2aForwardingDeliveryPort.deliver` 不检查 deadline，故真实 A2A 链路从不返回 `expired()`。本阶段用注入 `expired()` 验证 `markExpired` SQL 契约（与 Stage 18 注入 `dlq()` 验证 DLQ 路径对称）——证明 SQL 路径正确（EXPIRED 落盘不变量 + 终态不回收），但**真实触发源**（record 加 `deadlineMillisEpoch` 字段 + DDL 列 + deliver 时 deadline 检查返回 `expired()`）记为 deferred（schema 变更，超出本验证阶段）。
+
+`markExpired` 硬编码 `last_failure_code='delivery_timeout'` —— `delivery_timeout` 是 retryable 码，语义上混淆（EXPIRED 不是 timeout 重试），但满足 EXPIRED record 不变量（EXPIRED 需非空 `lastFailureCode`）；EXPIRED 是终态，该码从不参与 retry 决策，无害。
+
+### 23.4 时间控制 + 真实时钟约束
+
+复用 Stage 19/20/21 的 `MutableEpochClock`（test-only 纯 JDK）注入 worker + 协调 tick source。**真实时钟约束**：`leaseGuardedUpdate`（`markExpired` / `markAcked`）WHERE `lease_until > System.currentTimeMillis()` 用真实墙钟，故 tick instant 从 `T0`（test 真实开始时刻）起、claim lease（场景 A t0+60s / 场景 B 续约后 t0+90s）始终 > 真实时钟，guard 不误判。本 IT 不触及生产代码。
+
+### 23.5 无生产代码改动 + §6.2 守恒
+
+Stage 22 是纯测试阶段。`@Isolated`（同 Stage 19/20/21）+ import + helpers 是测试代码。两场景用 CONTROL_ONLY envelope；`MutableEpochClock` / tick source / fake port / observing port / `outboxFullRow` 投影读是 test-only 纯 JDK。无 concrete broker / payload body / token stream / Task 执行状态 / 跨租户回退 → `§6.2` 文本扫描不触发（helper 在 `src/test`，不进 `readForwardingProductionSources`）。ArchUnit green。
+
+### 23.6 落地清单
+
+- ✓ `C3ForwardingExpiryAndLeaseRenewalIntegrationTest` 场景 A（EXPIRED 终态端到端）+ 场景 B（lease 续约端到端）。
+- ✓ `outboxFullRow` 投影读（扩 Stage 18/19/20 的 `outboxRow`，加 `status` / `lease_owner` / `lease_until` 供 EXPIRED-释放-lease 与续约-延长-lease 断言）+ observing delivery port（deliver 时读 PG）。
+- ✓ **192 tests green**（Stage 21 的 190 + 2 IT），ArchUnit green。
+- ✓ §6.2 不变。
+- ✓ **deferred**（沿用 Stage 21，runtime 物理实现项）：真实 retry 调度（`ForwardingDispatchLoop` 接真实 scheduler / polling cadence，§6.1 第 3 项障碍）、真实 agent handler（仍 fake/observing port）、registry 集成的 resolver 生产实现、断路器状态持久化、**EXPIRED 真实触发源**（record `deadlineMillisEpoch` 字段 + DDL 列 + deliver 时 deadline 检查，schema 变更）、连接池治理、push/pull/MQ 最终裁决（仍 H2/H3）。
