@@ -8,10 +8,14 @@ import com.huawei.ascend.bus.forwarding.spi.ForwardingMessageId;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * Postgres JDBC adapter for the C3 inbox substrate (Stage 12, MI12-002).
@@ -37,12 +41,20 @@ import java.util.Objects;
  *       status is computed by {@link ForwardingStateMachine} before persisting.</li>
  * </ul>
  *
- * <p>Every statement is scoped by {@code tenant_id = :tenantId} (Rule R-C.c); RLS is
- * the defence-in-depth fallback. This class never writes Task execution state,
+ * <h2>Stage 24 — transactional RLS wiring</h2>
+ * <p>Every statement is scoped by {@code tenant_id = :tenantId} (application-layer
+ * hard isolation, Rule R-C.c). Stage 24 also <em>wires</em> the §7.3 RLS
+ * defence-in-depth: each port method runs inside a short transaction that sets the
+ * transaction-scoped {@code app.tenant_id} (via
+ * {@code set_config('app.tenant_id', :tenantId, true)}, equivalent to
+ * {@code SET LOCAL}) before the business SQL, so a restricted (non-owner)
+ * connection is filtered by tenant. The setting and the transaction auto-reset on
+ * return — no connection-pool pollution. See {@link #withTenant}. The table owner
+ * (superuser) bypasses RLS. This class never writes Task execution state,
  * never bypasses {@code routeHandle}, and never persists a payload body.
  *
  * <p>Authority: {@code architecture/L2-Low-Level-Design/agent-bus/forwarding-persistence.md}
- * §3.2 / §4; {@code ICD-Agent-Bus-Forwarding-Runtime}.
+ * §3.2 / §4 / §7.3; {@code ICD-Agent-Bus-Forwarding-Runtime}.
  */
 public final class JdbcForwardingInbox implements ForwardingInboxPort {
 
@@ -50,11 +62,29 @@ public final class JdbcForwardingInbox implements ForwardingInboxPort {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ForwardingStateMachine stateMachine;
+    private final TransactionTemplate txTemplate;
 
+    /**
+     * Backwards-compatible constructor (Stage 12 form): derives a per-DataSource
+     * {@link DataSourceTransactionManager} so every method runs inside a short
+     * transaction that sets {@code app.tenant_id} (Stage 24 RLS wiring).
+     */
     public JdbcForwardingInbox(DataSource dataSource) {
+        this(dataSource, new DataSourceTransactionManager(dataSource));
+    }
+
+    /**
+     * Full constructor (Stage 24): accepts an explicit {@link PlatformTransactionManager}
+     * so production can supply a pooled / XA-aware manager. The manager must bind
+     * connections from the same {@link DataSource} so the transactional connection is
+     * the one {@code app.tenant_id} is set on.
+     */
+    public JdbcForwardingInbox(DataSource dataSource, PlatformTransactionManager txManager) {
         Objects.requireNonNull(dataSource, "dataSource is required");
+        Objects.requireNonNull(txManager, "txManager is required");
         this.jdbc = new NamedParameterJdbcTemplate(dataSource);
         this.stateMachine = new ForwardingStateMachine();
+        this.txTemplate = new TransactionTemplate(txManager);
     }
 
     @Override
@@ -65,30 +95,32 @@ public final class JdbcForwardingInbox implements ForwardingInboxPort {
         if (consumerServiceId.isBlank()) {
             throw new IllegalArgumentException("consumerServiceId must not be blank");
         }
-        String sql = "INSERT INTO " + TABLE + " ("
-                + "tenant_id, message_id, consumer_service_id, status, "
-                + "received_at, consumed_at, failure_code) "
-                + "VALUES (:tenantId, :messageId, :consumerServiceId, 'RECEIVED', :now, NULL, NULL) "
-                + "ON CONFLICT (tenant_id, message_id, consumer_service_id) DO NOTHING";
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("tenantId", envelope.tenantId())
-                .addValue("messageId", envelope.messageId().value())
-                .addValue("consumerServiceId", consumerServiceId)
-                .addValue("now", nowMillisEpoch);
-        int affected = jdbc.update(sql, params);
-        if (affected == 0) {
-            // duplicate arrival — dedup outcome, stored entry untouched.
-            return stateMachine.transitInbox(null, ForwardingStateMachine.InboxEvent.ARRIVE_DUPLICATE);
-        }
-        return stateMachine.transitInbox(null, ForwardingStateMachine.InboxEvent.ARRIVE_NEW);
+        return withTenant(envelope.tenantId(), () -> {
+            String sql = "INSERT INTO " + TABLE + " ("
+                    + "tenant_id, message_id, consumer_service_id, status, "
+                    + "received_at, consumed_at, failure_code) "
+                    + "VALUES (:tenantId, :messageId, :consumerServiceId, 'RECEIVED', :now, NULL, NULL) "
+                    + "ON CONFLICT (tenant_id, message_id, consumer_service_id) DO NOTHING";
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("tenantId", envelope.tenantId())
+                    .addValue("messageId", envelope.messageId().value())
+                    .addValue("consumerServiceId", consumerServiceId)
+                    .addValue("now", nowMillisEpoch);
+            int affected = jdbc.update(sql, params);
+            if (affected == 0) {
+                // duplicate arrival — dedup outcome, stored entry untouched.
+                return stateMachine.transitInbox(null, ForwardingStateMachine.InboxEvent.ARRIVE_DUPLICATE);
+            }
+            return stateMachine.transitInbox(null, ForwardingStateMachine.InboxEvent.ARRIVE_NEW);
+        });
     }
 
     @Override
     public ForwardingStatus.Inbox markConsumed(ForwardingMessageId id, String tenantId,
                                                String consumerServiceId) {
         long now = System.currentTimeMillis();
-        return mutate(id, tenantId, consumerServiceId,
-                ForwardingStateMachine.InboxEvent.CONSUME, null, now);
+        return withTenant(tenantId, () -> mutate(id, tenantId, consumerServiceId,
+                ForwardingStateMachine.InboxEvent.CONSUME, null, now));
     }
 
     @Override
@@ -96,8 +128,8 @@ public final class JdbcForwardingInbox implements ForwardingInboxPort {
                                                String consumerServiceId, ForwardingFailureCode code) {
         Objects.requireNonNull(code, "code is required for markRejected");
         long now = System.currentTimeMillis();
-        return mutate(id, tenantId, consumerServiceId,
-                ForwardingStateMachine.InboxEvent.REJECT, code, now);
+        return withTenant(tenantId, () -> mutate(id, tenantId, consumerServiceId,
+                ForwardingStateMachine.InboxEvent.REJECT, code, now));
     }
 
     @Override
@@ -106,24 +138,50 @@ public final class JdbcForwardingInbox implements ForwardingInboxPort {
         Objects.requireNonNull(id, "id is required");
         Objects.requireNonNull(tenantId, "tenantId is required");
         Objects.requireNonNull(consumerServiceId, "consumerServiceId is required");
-        String sql = "SELECT status FROM " + TABLE
-                + " WHERE tenant_id = :tenantId AND message_id = :messageId"
-                + " AND consumer_service_id = :consumerServiceId";
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("tenantId", tenantId)
-                .addValue("messageId", id.value())
-                .addValue("consumerServiceId", consumerServiceId);
-        List<ForwardingStatus.Inbox> rows = jdbc.query(sql, params,
-                (rs, rowNum) -> ForwardingStatus.Inbox.valueOf(rs.getString("status")));
-        if (rows.isEmpty()) {
-            throw new IllegalStateException(
-                    "no inbox entry for tenantId=" + tenantId + " messageId=" + id.value()
-                    + " consumerServiceId=" + consumerServiceId);
-        }
-        return rows.get(0);
+        return withTenant(tenantId, () -> {
+            String sql = "SELECT status FROM " + TABLE
+                    + " WHERE tenant_id = :tenantId AND message_id = :messageId"
+                    + " AND consumer_service_id = :consumerServiceId";
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("tenantId", tenantId)
+                    .addValue("messageId", id.value())
+                    .addValue("consumerServiceId", consumerServiceId);
+            List<ForwardingStatus.Inbox> rows = jdbc.query(sql, params,
+                    (rs, rowNum) -> ForwardingStatus.Inbox.valueOf(rs.getString("status")));
+            if (rows.isEmpty()) {
+                throw new IllegalStateException(
+                        "no inbox entry for tenantId=" + tenantId + " messageId=" + id.value()
+                        + " consumerServiceId=" + consumerServiceId);
+            }
+            return rows.get(0);
+        });
     }
 
     // ===== internals =====
+
+    /**
+     * Stage 24 RLS wiring: run {@code work} inside a short transaction after setting
+     * the transaction-scoped {@code app.tenant_id} (PostgreSQL
+     * {@code set_config('app.tenant_id', :tenantId, true)} ≡ {@code SET LOCAL},
+     * bound as a named parameter to prevent tenantId injection). This binds the §7.3
+     * RLS policy for the duration of the work so a restricted (non-owner) connection
+     * is filtered by tenant; the setting and the transaction auto-reset on return, so
+     * there is no connection-pool pollution. Every statement in {@code work} reuses
+     * the transaction-bound connection, so the guarded UPDATE + diagnostic SELECT now
+     * share one connection. The application-layer {@code WHERE tenant_id = :tenantId}
+     * remains the primary isolation (Rule R-C.c); RLS is the defence-in-depth
+     * fallback. A {@link RuntimeException} from {@code work} rolls the transaction
+     * back and propagates.
+     */
+    private <T> T withTenant(String tenantId, Supplier<T> work) {
+        return txTemplate.execute(status -> {
+            // set_config returns the set value (text); queryForObject consumes the row
+            // (jdbc.update would reject a returned result set). The value is discarded.
+            jdbc.queryForObject("SELECT set_config('app.tenant_id', :tenantId, true)",
+                    new MapSqlParameterSource("tenantId", tenantId), String.class);
+            return work.get();
+        });
+    }
 
     /**
      * Terminal guarded mutation. The {@code WHERE status='RECEIVED'} guard is
