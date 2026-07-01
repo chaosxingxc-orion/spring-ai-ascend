@@ -57,6 +57,17 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>endpoint resolver returns empty → DLQ/ROUTE_NOT_FOUND (HD4 + no network).
  * </ol>
  *
+ * <p><b>Stage 23 (MI23-003) &mdash; payloadRef transport-boundary symmetry.</b> Two
+ * additional scenarios close the Stage 15 blind spot where {@code record()} set
+ * {@code payloadRef="payload-ref-1"} but no test asserted it reached the wire:
+ * <ol start="6">
+ *   <li>DATA_BEARING &rarr; the payloadRef travels into the A2A request metadata
+ *       ({@code metadata.payloadRef} injected when {@code record.payloadRef() != null}).</li>
+ *   <li>CONTROL_ONLY &rarr; the payloadRef is OMITTED from the A2A request (the
+ *       symmetric branch; the &sect;6.2 data-reference-path contract at the
+ *       transport boundary).</li>
+ * </ol>
+ *
  * <p>Authority: Stage 15 PoC — A2A transport adapter
  * ({@code docs/architecture/l0/10-governance/delivery-projections/agent-bus-stage14-review-and-stage15-plan.md}).
  */
@@ -92,6 +103,24 @@ class A2aForwardingDeliveryPortMockWebServerTest {
                 TARGET,
                 new ForwardingRouteHandle(ROUTE, TENANT),
                 "payload-ref-1",
+                ForwardingStatus.Outbox.PENDING,
+                0, 0L, 1L, 1L,
+                null, null);
+    }
+
+    /** A CONTROL_ONLY outbox record (payloadRef=null) — the pure-control variant.
+     *  Stage 23 MI23-003: the symmetric counterpart to {@link #record()}, used to
+     *  prove that {@code toMessageSendParams} OMITS the payloadRef from the A2A
+     *  request metadata when the record carries no payload reference (the
+     *  CONTROL_ONLY branch of the &sect;6.2 data-reference contract). */
+    private static ForwardingOutboxRecord controlOnlyRecord() {
+        return new ForwardingOutboxRecord(
+                TENANT,
+                new ForwardingMessageId("msg-control"),
+                SOURCE,
+                TARGET,
+                new ForwardingRouteHandle(ROUTE, TENANT),
+                null,
                 ForwardingStatus.Outbox.PENDING,
                 0, 0L, 1L, 1L,
                 null, null);
@@ -191,5 +220,53 @@ class A2aForwardingDeliveryPortMockWebServerTest {
 
         assertThat(result.outcome()).isEqualTo(ForwardingDeliveryResult.Outcome.DLQ);
         assertThat(result.failureCode()).isEqualTo(ForwardingFailureCode.ROUTE_NOT_FOUND);
+    }
+
+    @Test
+    void deliver_carries_payload_ref_in_a2a_metadata_for_data_bearing_record() throws Exception {
+        // Stage 23 MI23-003: a DATA_BEARING record's payloadRef travels into the A2A
+        // request metadata (A2aForwardingDeliveryPort.toMessageSendParams injects
+        // metadata.payloadRef when record.payloadRef() != null). The existing
+        // record() helper already sets payloadRef="payload-ref-1", but no prior
+        // Stage asserted it reached the wire — this closes the Stage 15 transport
+        // blind spot (the third high-value blind spot, per the Stage 23 plan §2.4).
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sseFrame(task(TaskState.TASK_STATE_COMPLETED))));
+
+        ForwardingDeliveryResult result = port(5_000L).deliver(record(), 0L);
+
+        assertThat(result.outcome()).isEqualTo(ForwardingDeliveryResult.Outcome.ACKED);
+        RecordedRequest request = server.takeRequest();
+        String body = request.getBody().readUtf8();
+        assertThat(body)
+                .as("DATA_BEARING: the payloadRef field name travels into the A2A request metadata")
+                .contains("payloadRef");
+        assertThat(body)
+                .as("the payloadRef reference value is on the wire "
+                    + "(a String reference, not a payload body — §6.2)")
+                .contains("payload-ref-1");
+    }
+
+    @Test
+    void deliver_omits_payload_ref_for_control_only_record() throws Exception {
+        // Stage 23 MI23-003: a CONTROL_ONLY record (payloadRef=null) must NOT carry
+        // a payloadRef in the A2A request — toMessageSendParams only injects the
+        // metadata entry when payloadRef != null. The two-branch symmetry
+        // (DATA_BEARING carries, CONTROL_ONLY omits) IS the §6.2 data-reference-path
+        // contract at the transport boundary.
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sseFrame(task(TaskState.TASK_STATE_COMPLETED))));
+
+        ForwardingDeliveryResult result = port(5_000L).deliver(controlOnlyRecord(), 0L);
+
+        assertThat(result.outcome()).isEqualTo(ForwardingDeliveryResult.Outcome.ACKED);
+        RecordedRequest request = server.takeRequest();
+        String body = request.getBody().readUtf8();
+        assertThat(body)
+                .as("CONTROL_ONLY: no payloadRef in the A2A request "
+                    + "(metadata omitted when payloadRef is null)")
+                .doesNotContain("payloadRef");
     }
 }

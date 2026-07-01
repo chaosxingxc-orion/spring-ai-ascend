@@ -799,3 +799,41 @@ Stage 22 是纯测试阶段。`@Isolated`（同 Stage 19/20/21）+ import + help
 - ✓ **192 tests green**（Stage 21 的 190 + 2 IT），ArchUnit green。
 - ✓ §6.2 不变。
 - ✓ **deferred**（沿用 Stage 21，runtime 物理实现项）：真实 retry 调度（`ForwardingDispatchLoop` 接真实 scheduler / polling cadence，§6.1 第 3 项障碍）、真实 agent handler（仍 fake/observing port）、registry 集成的 resolver 生产实现、断路器状态持久化、**EXPIRED 真实触发源**（record `deadlineMillisEpoch` 字段 + DDL 列 + deliver 时 deadline 检查，schema 变更）、连接池治理、push/pull/MQ 最终裁决（仍 H2/H3）。
+
+## 24. Stage 23 决策（payloadRef 端到端传递验证：闭合 Stages 17-22 第三个高价值盲区）
+
+Stages 17-22 闭合了 C3 dispatch loop 的三条端到端生命线（重投往返 + lease 回收 + 断路器）+ 时间驱动终态/续约（单 worker Stages 17-20/22 + 多 worker Stage 21），但留了一个贯穿全程的盲区：**全部端到端验证一律用 CONTROL_ONLY envelope（`payloadRef=null`）**，DATA_BEARING + payloadRef 端到端从未跑通。payloadRef 是 §6.2 数据引用机制的核心载体（「大载荷走 data reference path，不进 event/control channel」）。Stage 23 闭合这个盲区，纯测试无生产代码。
+
+### 24.1 为什么是 payloadRef（盲区分析）
+
+payloadRef 的 plumbing 完整：`ForwardingEnvelope` 有字段（DATA_BEARING 强制非空非空白）、`ForwardingOutboxRecord` 有字段、DDL 有 `payload_ref VARCHAR(1024)` 列、`ForwardingSqlCodec` encode/decode 实现。但「plumbing 完整」无端到端 round-trip 正是潜在 bug 的形态 —— 不同于 Stage 22 EXPIRED（**触发源**缺失），这里每层都 wired，只是从未用非 null payloadRef 驱动真实 SQL。
+
+### 24.2 范围修正：不需 boot runtime（收窄 Stage 22 预期）
+
+Stage 22 计划预期 Stage 23「需 boot runtime + 断言收到 payloadRef metadata 的 handler」。前置调研修正：这把验证目标设成了「接收端 handler 收到并处理 payloadRef」，那是 agent-runtime 职责。agent-bus 是**无状态引用路由层** —— 透传 payloadRef（opaque String），从不持有/存储/解析载荷正文（HD4 守恒）。payloadRef 的两个传递检查点都不 boot runtime：(A) outbox 持久化（复用 Stage 19-22 embedded-postgres + observing delivery port）；(B) transport metadata（复用 Stage 15 `A2aForwardingDeliveryPort` + MockWebServer）。接收端（`A2aJsonRpcController`）是否提取 payloadRef 是 agent-runtime 的事，deferred。
+
+### 24.3 场景 A：DATA_BEARING payloadRef outbox 持久化端到端
+
+`C3ForwardingPayloadRefIntegrationTest`（`@Isolated`、不 boot runtime、仅 embedded-postgres+Flyway+`JdbcForwardingOutbox`）：DATA_BEARING envelope（`payloadRef="ref://..."`）+ observing delivery port，deliver 时断言 `record.payloadRef()`（SqlCodec decode）与 live PG `payload_ref` 列（raw JDBC）均等于 enqueue 值（round-trip 确凿证据）+ ACK 后断言列存活（markAcked 不清）→ 单 tick ACKED。`outboxFullRow` 投影读扩 Stage 22 版加 `payload_ref` 列。
+
+### 24.4 场景 B：payloadRef → A2A metadata 传输边界
+
+`A2aForwardingDeliveryPortMockWebServerTest` 扩展：`record()` 早已设 `payloadRef="payload-ref-1"` 但从未断言到达请求体（transport 盲区直接证据）。`deliver_carries_payload_ref_in_a2a_metadata` 断言 body 含 `payloadRef`+`payload-ref-1`；新 `controlOnlyRecord()`（payloadRef=null）+ `deliver_omits_payload_ref` 断言 body 不含 `payloadRef`。两分支对称即 transport 边界的 §6.2 data-reference 契约。
+
+### 24.5 关键发现
+
+- **(F1) payloadRef 持久化完整**（vs Stage 22 EXPIRED 触发源缺失）：envelope→record→DDL→SqlCodec 全实现，场景 A 首次端到端 round-trip。
+- **(F5) `PAYLOAD_REF_INVALID` 失败码未接线**：有 enum（NON_RETRYABLE）无触发点，类似 Stage 22 EXPIRED；接线需校验语义决策（DATA_BEARING + payloadRef 空白何时抛），deferred。
+- **(F6) payloadPolicy 未持久化到 record**：record 只有 nullable payloadRef，用 null/非null 隐含表达 DATA_BEARING/CONTROL_ONLY；by design，不影响传递正确性，但弱化 DATA_BEARING 不变量（误清 payloadRef 后 record 无法知道原是 DATA_BEARING）。
+
+### 24.6 无生产代码改动 + §6.2 守恒
+
+Stage 23 是纯测试阶段。`@Isolated`（同 Stage 19/20/21/22）+ import + helpers 是测试代码。两场景用 DATA_BEARING/CONTROL_ONLY envelope；`MutableEpochClock` / observing port / `outboxFullRow` 投影读 / MockWebServer 是 test-only 纯 JDK。payloadRef 是 String 引用，非 payload body / token stream / Task 执行状态 / concrete broker → `§6.2` 文本扫描不触发。ArchUnit green。
+
+### 24.7 落地清单
+
+- ✓ `C3ForwardingPayloadRefIntegrationTest` 场景 A（DATA_BEARING payloadRef outbox 持久化端到端 round-trip）。
+- ✓ `A2aForwardingDeliveryPortMockWebServerTest` 扩展场景 B（DATA_BEARING 携带 metadata / CONTROL_ONLY 省略）。
+- ✓ **195 tests green**（Stage 22 的 192 + 1 IT + 2 transport），ArchUnit green。
+- ✓ §6.2 不变。
+- ✓ **deferred**（沿用 Stage 22）：`PAYLOAD_REF_INVALID` 接线（生产代码 + 校验语义决策）、接收端 handler 处理 payloadRef（agent-runtime 职责）、payloadPolicy 持久化（可选 schema 变更）、真实 agent handler、registry 集成的 resolver 生产实现、断路器状态持久化、EXPIRED 真实触发源（schema 变更）、连接池治理、push/pull/MQ 最终裁决（仍 H2/H3）。
