@@ -37,6 +37,11 @@ class RemoteJsonSkillHubProviderTest {
         Path skillsRoot = tempDir.resolve("skills");
         Files.createDirectories(skillsRoot.resolve("date-helper"));
         Files.writeString(skillsRoot.resolve("date-helper").resolve("SKILL.md"), """
+                ---
+                name: date-helper
+                description: Date helper skill.
+                ---
+
                 # Date Helper
 
                 Answer date questions.
@@ -55,6 +60,7 @@ class RemoteJsonSkillHubProviderTest {
             assertThat(summary.description()).isEqualTo("Date skill");
         });
         assertThat(definition.instructions()).contains("Date Helper");
+        assertThat(definition.instructions()).doesNotContain("---");
         assertThat(provider.loadSkillPackage(context(), "date-helper").content()).isNotEmpty();
     }
 

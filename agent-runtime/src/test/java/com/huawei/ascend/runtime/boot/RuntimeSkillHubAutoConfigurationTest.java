@@ -56,7 +56,8 @@ class RuntimeSkillHubAutoConfigurationTest {
     void skillHubProviderWiresInstallerIntoDeepAgentHandlers(@TempDir Path tempDir) throws IOException {
         Path skillDir = tempDir.resolve("hotel");
         Files.createDirectories(skillDir);
-        Files.writeString(skillDir.resolve("SKILL.md"), "---\ndescription: Hotel booking memory\n---\n# Hotel");
+        Files.writeString(skillDir.resolve("SKILL.md"),
+                "---\nname: hotel\ndescription: Hotel booking memory\n---\n# Hotel");
 
         contextRunner
                 .withBean("skillPath", String.class, skillDir::toString)

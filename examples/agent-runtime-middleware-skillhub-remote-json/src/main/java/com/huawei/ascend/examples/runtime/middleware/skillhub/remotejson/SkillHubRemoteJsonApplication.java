@@ -211,7 +211,7 @@ final class JsonCatalogSkillHubProvider implements SkillHubProvider {
         }
         Path skillFile = skillDir.resolve(SKILL_FILE);
         try {
-            String instructions = Files.readString(skillFile, StandardCharsets.UTF_8);
+            String instructions = SkillMarkdown.stripYamlFrontmatter(Files.readString(skillFile, StandardCharsets.UTF_8));
             return new SkillDefinition(entry.skillId(), entry.name(), entry.description(), instructions,
                     List.of(skillFile.toString()), entry.toolDependencies(),
                     mergeMetadata(entry.metadata(), Map.of(
@@ -365,6 +365,29 @@ final class HttpSkillHubProvider implements SkillHubProvider {
             throw new IllegalArgumentException("baseUrl must not be blank");
         }
         return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+    }
+}
+
+final class SkillMarkdown {
+    private SkillMarkdown() {
+    }
+
+    static String stripYamlFrontmatter(String markdown) {
+        if (markdown == null || !markdown.startsWith("---")) {
+            return markdown == null ? "" : markdown;
+        }
+        int frontmatterEnd = markdown.indexOf("\n---", 3);
+        if (frontmatterEnd < 0) {
+            return markdown;
+        }
+        int bodyStart = frontmatterEnd + "\n---".length();
+        if (bodyStart < markdown.length() && markdown.charAt(bodyStart) == '\r') {
+            bodyStart++;
+        }
+        if (bodyStart < markdown.length() && markdown.charAt(bodyStart) == '\n') {
+            bodyStart++;
+        }
+        return markdown.substring(bodyStart);
     }
 }
 

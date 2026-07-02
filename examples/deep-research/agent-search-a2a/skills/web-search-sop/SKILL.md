@@ -1,3 +1,8 @@
+---
+name: web-search-sop
+description: Web search SOP for official-source focused deep research queries.
+---
+
 # Web Search SOP
 
 Skill for the deep-research search sub-agent: how to issue web_search queries that maximise official-source hit-rate while keeping the call count to one.
