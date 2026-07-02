@@ -13,11 +13,11 @@ package com.openjiuwen.core.alpha.verifier;
  *   <li>{@link VerifierFailure} —— 验证器判定节点输出不符合预期（verify 失败节点集）。</li>
  * </ul>
  *
- * <p>承重 IFF：PregelExecutor 记录节点结果时用此类型（替代字符串），DefaultVerifier 消费时用
+ * <p>使用契约：PregelExecutor 记录节点结果时用此类型（替代字符串），DefaultVerifier 消费时用
  * {@code instanceof NodeResult.DeviceFailure}（替代 {@code startsWith("FAILED:")}）。
- * 剥任一 permitted 子类 → 编译红（编译期拦漏分支，比运行时 RED 更早）。
+ * 剥任一 permitted 子类 → 编译红（编译期拦漏分支，比运行时测试 RED 更早）。
  *
- * <p>mutation-RED：剥 Success → 无法表达正常完成 → 编译器报 switch 非穷举 → 编译红。
+ * <p>删 Success → 无法表达正常完成 → 编译器报 switch 非穷举 → 编译红。
  *
  * @see RootCause
  * @see ReplanAction

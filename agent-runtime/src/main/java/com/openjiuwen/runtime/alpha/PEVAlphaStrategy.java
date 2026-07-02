@@ -82,7 +82,7 @@ public class PEVAlphaStrategy implements ExecutionStrategy {
 
                 PlanGoal goal = buildPlanGoal(context);
 
-                // ==================== Phase 1: Plan ====================
+                // ==================== Plan ====================
                 sink.next(AgentEvent.of(taskId, EventType.TASK_STARTED, "开始规划"));
 
                 PlanResult planResult;
@@ -150,7 +150,7 @@ public class PEVAlphaStrategy implements ExecutionStrategy {
                     }
                 }
 
-                // ==================== Phase 2: Execute ====================
+                // ==================== Execute ====================
                 Map<NodeId, Object> completedResults = new ConcurrentHashMap<>();
                 Set<NodeId> executorFailedNodes = ConcurrentHashMap.newKeySet();
                 Set<NodeId> executorSkippedNodes = ConcurrentHashMap.newKeySet();
@@ -190,7 +190,7 @@ public class PEVAlphaStrategy implements ExecutionStrategy {
                     })
                     .collectList()
                     .flatMap(steps -> Mono.fromRunnable(() -> {
-                        // ==================== Phase 3: Verify ====================
+                        // ==================== Verify ====================
                         if (policy.verifyMode() != VerifyMode.NONE) {
                             executeVerifyLoop(taskId, goal, graph, completedResults,
                                 policy, budgetRef, planner, verifier, kernel, executor, sink, 0,
@@ -248,7 +248,7 @@ public class PEVAlphaStrategy implements ExecutionStrategy {
      *
      * <p>与 openjiuwen 源码的关键差异：dispatch 使用 {@link ReplanAction}（携带执行数据的调度输出）
      * 而非 ReplanStrategy（verifier 推荐）。RootCause → ReplanAction 映射由
-     * {@link RootCauseDiagnoser#toReplanAction} 完成（Phase 1 共享纯函数）。
+     * {@link RootCauseDiagnoser#toReplanAction} 完成（共享纯函数）。
      */
     private void executeVerifyLoop(
             TaskId taskId, PlanGoal goal, TaskGraph graph,

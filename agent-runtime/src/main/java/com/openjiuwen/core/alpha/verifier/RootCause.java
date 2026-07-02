@@ -13,7 +13,7 @@ import java.util.Set;
  *   <li>{@link PlanOrAnswerError} —— 图-答案出错（plan/LLM 内容错）。<b>replan 救得了</b> → replan。</li>
  * </ul>
  *
- * <p>sealed record（带数据）让 dispatch 漏分支<b>编译红</b>——类型层 mutation-prove（比运行时 RED 更早，
+ * <p>sealed record（带数据）让 dispatch 漏分支<b>编译红</b>——类型层证明（比运行时测试 RED 更早，
  * 编译期就拦漏分支）。dispatch switch 穷尽 3 态，删一态 arm 即编译错。
  */
 public sealed interface RootCause permits

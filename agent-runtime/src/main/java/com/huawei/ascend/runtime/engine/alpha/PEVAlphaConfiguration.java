@@ -45,7 +45,7 @@ import org.springframework.context.annotation.Configuration;
  *   <li>{@code pev.alpha.model} or {@code OPENJIUWEN_MODEL}</li>
  * </ul>
  *
- * <p>承重契约（铁律① 诚实边界）：
+ * <p>诚实边界：
  * 本配置创建的 handler 是 PEV 模式（kernel != null → doExecutePEV）。
  * ToolExecutor map 是共享 ConcurrentHashMap，@Tool 由 AgentBeanPostProcessor
  * 动态注册到该 map（与 OpenjiuwenAutoConfiguration 同模式）。

@@ -47,8 +47,8 @@ public interface Planner {
      *
      * <p>仅在 PlanOrAnswerError→GlobalReplan 路径（AlphaStrategy）且 {@code policy.bestOfKReplan()=true} 时调用。
      * failedVerify 携带上一次执行的失败节点 + 反馈，注入每个候选的 prompt（治 GlobalReplan 不喂 verify 上下文的缺陷）。
-     * 候选多样性由实现侧的 prompt 突变轴提供（不触 runtime-core SPI / HF1）；fitness 须确定性信号（零 LLM-judge，
-     * 硬约束：感知层不可靠（LLM-judge intrinsic self-correction）已规避，此处 fitness 用纯确定性函数，不引入新的不可靠感知层）。
+     * 候选多样性由实现侧的 prompt 突变轴提供（不触 runtime-core SPI）；fitness 须确定性信号（零 LLM-judge：
+     * 感知层不可靠，故 fitness 用纯确定性函数，不引入 LLM-judge 这类不可靠感知层）。
      *
      * <p>默认实现（K=1 退化）：委托 {@link #plan}，忽略 failedVerify——保证非 DefaultPlanner 的实现（WealthGraphFactory +
      * 测试匿名类）零破坏。DefaultPlanner 覆写真实现。

@@ -11,9 +11,9 @@ package com.openjiuwen.runtime.beta.selfheal;
  * </ul>
  *
  * <p>嫁接 1.0 ReActAgent 时：Degrade → afterModelCall requestForceFinish(degraded)；
- * Replan → 复用轮4 ReplanRail（replan 工具计数/超限）或直接放行让 agent 换策略。
+ * Replan → 复用 ReplanRail（replan 工具计数/超限）或直接放行让 agent 换策略。
  *
- * @deprecated PEV 引擎（Phase 2+）请用 {@link com.openjiuwen.core.alpha.verifier.ReplanAction}（3 态 dispatch
+ * @deprecated PEV 引擎请用 {@link com.openjiuwen.core.alpha.verifier.ReplanAction}（3 态 dispatch
  * 输出，携带执行数据）。SelfHealAction 保留为 1.0 ReActAgent bridge（Rails 的 forceFinish 协议），
  * 不做 Breaking Change 移除。
  */

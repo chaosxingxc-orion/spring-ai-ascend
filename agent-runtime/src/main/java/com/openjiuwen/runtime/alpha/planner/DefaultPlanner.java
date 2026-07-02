@@ -161,12 +161,12 @@ public class DefaultPlanner implements Planner {
 
     // ==================== GEPA-lite：best-of-K 重规划（PlanOrAnswerError→GlobalReplan 专用）====================
     // PlanOrAnswerError 的 plan 级重规划从「单次生成」升级为「K 候选 + 确定性 fitness 选优」。
-    // 多样性 = prompt 突变轴（不触 runtime-core SPI / HF1）；fitness = 确定性纯函数（零 LLM-judge，与已规避的
-    // intrinsic self-correction 同源——感知层不可靠）。仅在 AlphaStrategy GlobalReplan 分支 + policy.bestOfKReplan()=true 时调用。
+    // 多样性 = prompt 突变轴（不触 runtime-core SPI）；fitness = 确定性纯函数（零 LLM-judge，感知层
+    // 不可靠故不用 LLM 自我修正）。仅在 GlobalReplan 分支 + policy.bestOfKReplan()=true 时调用。
 
     /** prompt 突变轴——best-of-K 候选多样性来源（对齐 doc「GEPA 生成=突变轴+交叉，非纯随机采样」）。
      *  恰好 3 个轴对齐 K∈[1,3] hard cap（ExecutionPolicy clamp）——i % length 在 K=1/2/3 时全部轴可被索引，
-     *  无 speculative 死轴（4-lens L1 闭合：勿加第 4 轴，否则 i%4 永不命中 axis[3]）。 */
+     *  无 speculative 死轴：勿加第 4 轴，否则 i%4 永不命中 axis[3]。 */
     private static final String[] MUTATION_AXES = {
         "（标准——无额外倾向）",
         "优先用确定性工具(TOOL_CALL)处理可精确计算的步骤（算术/金额/阈值/规则判定），减少 LLM 口算",
@@ -210,7 +210,7 @@ public class DefaultPlanner implements Planner {
 
     /**
      * GEPA-lite 确定性 fitness——执行前评估候选 plan 质量（候选未 execute，零 LLM）。
-     * 维度（加权汇总；帕累托非支配前沿留 full GEPA）：
+     * 维度（加权汇总；完整帕累托非支配前沿分析属后续工作）：
      * - successCriteria 覆盖（bigram 重叠，0.45）：最强信号，候选与目标对齐度。
      * - TOOL_CALL 比率（0.35）：确定性操作占比（doc GroundTruthVerifier 注释：更多 TOOL_CALL = LLM 没机会口算）。
      * - failedNodes 覆盖奖励（0.20，弱信号——重规划新 id 可能不匹配）。

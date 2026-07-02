@@ -10,7 +10,7 @@ import java.util.Map;
 /**
  * replan 虚拟工具——LLM 调用它表达"放弃当前路径换新策略"的 Replan 意图。
  *
- * <p>1.0 ReActAgent 只有 tool_call/answer 语义，无 2.0 的 LLMDecision.Replan。轮4 用此虚拟工具
+ * <p>1.0 ReActAgent 只有 tool_call/answer 语义，无 2.0 的 LLMDecision.Replan。用此虚拟工具
  * 把 Replan 意图承载到 1.0 原生 tool_call 通道：LLM 调 {@code __replan__} = 表达 Replan。
  * {@link ReplanRail}（afterModelCall）拦截此工具调用，做计数/超限 escalate。
  *

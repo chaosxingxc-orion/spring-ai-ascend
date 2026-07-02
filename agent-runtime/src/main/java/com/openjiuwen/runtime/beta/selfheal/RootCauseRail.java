@@ -12,8 +12,8 @@ import java.util.Set;
 /**
  * 嫁接 1.0 ReActAgent 的根因诊断+自愈护栏——工具失败（设备故障）时根因诊断 → 降级终态。
  *
- * <p>承重形态（spike 证伪确认）：onToolException 的 requestForceFinish <b>不拦</b> tool_call 循环
- * （offset 878 / exception 路径不消费，同轮4 afterToolCall 发现）。故本 rail 用<b>双钩子协作</b>：
+ * <p>形态：onToolException 的 requestForceFinish <b>不拦</b> tool_call 循环（offset 878 / exception
+ * 路径不消费，此前 afterToolCall 分析已发现）。故本 rail 用<b>双钩子协作</b>：
  * <ul>
  *   <li>{@code onToolException}：工具失败信号 → {@link RootCauseDiagnoser} 诊断 {@link RootCause.DeviceFailure}
  *       → {@link RootCauseDispatcher} dispatch 得 {@link SelfHealAction.Degrade} → 标记 pendingAction（不终止）。</li>
@@ -21,12 +21,12 @@ import java.util.Set;
  *       拦循环（offset 700 早于 executeToolCall offset 871）。</li>
  * </ul>
  *
- * <p>承重 IFF：工具失败 → DeviceFailure → Degrade → afterModelCall forceFinish。剥 onToolException 诊断
- * （不标记 pendingAction）→ afterModelCall 无 Degrade → 跑 maxIterations → RED（mutation-RED）。
+ * <p>核心契约（IFF）：工具失败 → DeviceFailure → Degrade → afterModelCall forceFinish。剥 onToolException
+ * 诊断（不标记 pendingAction）→ afterModelCall 无 Degrade → 跑 maxIterations → 测试 RED。
  *
- * <p>诚实边界：轮5 仅承重 DeviceFailure（工具失败）→ Degrade 通道。PerceptionUnreliable（verify 抛异常）/
- * PlanOrAnswerError（verify 失败）需 criteria verify 信号集成（轮3 CriteriaVerificationRail），本轮 defer。
- * Replan（PlanOrAnswerError 自愈）复用轮4 ReplanRail，本 rail 不直接处理 Replan。
+ * <p>诚实边界：本 rail 仅覆盖 DeviceFailure（工具失败）→ Degrade 通道。PerceptionUnreliable（verify 抛异常）
+ * / PlanOrAnswerError（verify 失败）需 criteria verify 信号集成（CriteriaVerificationRail），defer。
+ * Replan（PlanOrAnswerError 自愈）复用 ReplanRail，本 rail 不直接处理 Replan。
  */
 public class RootCauseRail extends AgentRail {
 

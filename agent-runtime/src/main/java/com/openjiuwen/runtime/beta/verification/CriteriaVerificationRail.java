@@ -17,11 +17,11 @@ import java.util.Map;
  * 嫁接 1.0 ReActAgent 的 criteria 验证护栏——在 {@code afterModelCall} 对最终答案做
  * successCriteria 验证，用 {@code requestForceFinish} 双向标记终态。
  *
- * <p>形态 a（承重确认）：spike 1 证 afterModelCall 的 {@code requestForceFinish(Map)} 被
- * ReActAgent.invoke 消费（callModel 返回后、toolCalls 终态判定前 consumeForceFinish 短路），
- * 直接返回 forced Map（跳过自然 answer 路径）。spike 2 证 {@code pushSteering} 拦不住纯答案终态
- * （drainSteering 注入下一轮 ModelContext 但 agent getToolCalls 空→终止，下一轮不发生）——
- * 故 steering 修正循环砍（afterModelCall gate 结构上无法强制修正，承重发现），改 forceFinish 双向 gate：
+ * <p>形态：实证确认 afterModelCall 的 {@code requestForceFinish(Map)} 被 ReActAgent.invoke 消费
+ * （callModel 返回后、toolCalls 终态判定前 consumeForceFinish 短路），直接返回 forced Map（跳过自然
+ * answer 路径）。又确认 {@code pushSteering} 拦不住纯答案终态（drainSteering 注入下一轮 ModelContext
+ * 但 agent getToolCalls 空→终止，下一轮不发生）——故 steering 修正循环砍（afterModelCall gate 结构上
+ * 无法强制修正），改 forceFinish 双向 gate：
  * <ul>
  *   <li>criteria 通过 → {@code requestForceFinish(verified=true)}：锁定正确终态（防 agent 后续迭代退化）。</li>
  *   <li>criteria 不通过 → {@code requestForceFinish(verified=false, degraded=true, unmet=[...])}：
@@ -33,19 +33,19 @@ import java.util.Map;
  * ToolCall.getArguments JSON），最终答案转 {@link LLMDecision.Complete}（output 取 content），
  * 供 {@link CriteriaVerifier} 做输出覆盖 + 历史覆盖规则判断。
  *
- * <p>诚实边界（承重分层）：
+ * <p>诚实边界：
  * <ul>
- *   <li>tool_call → LLMDecision 适配是近似（reasoning 用 content 非结构化 thought），完整决策语义适配 defer 轮4。</li>
- *   <li>LLM judge 通道在 verifier 层已承重（{@code DecisionHistoryCriteriaVerifierTest} 注入 StubKernel
- *       IFF + budget 门双向 + mutation-RED）；本 rail 默认注入无 kernel 的
- *       {@link DecisionHistoryCriteriaVerifier}（→ ASSUME_FAIL fallback），故轮3 rail 嫁接承重
- *       output/history 规则路径，LLM judge 经 rail 的 e2e 接线 defer 轮4/轮9。若需 rail 层 judge，
+ *   <li>tool_call → LLMDecision 适配是近似（reasoning 用 content 非结构化 thought），完整决策语义适配 defer。</li>
+ *   <li>LLM judge 通道在 verifier 层已覆盖（{@code DecisionHistoryCriteriaVerifierTest} 注入 StubKernel
+ *       验证 IFF + budget 门双向 + 删 budget 检查则测试 RED）；本 rail 默认注入无 kernel 的
+ *       {@link DecisionHistoryCriteriaVerifier}（→ ASSUME_FAIL fallback），故本 rail 嫁接覆盖
+ *       output/history 规则路径，LLM judge 经 rail 的 e2e 接线 defer。若需 rail 层 judge，
  *       调用方注入已配 kernel+budget 的 verifier 并在 verify 前 setBudgetLimits。</li>
  * </ul>
  */
 public class CriteriaVerificationRail extends AgentRail {
 
-    /** forced result Map 键——承重断言 + 终态标记契约。 */
+    /** forced result Map 键——终态标记契约。 */
     public static final String OUTPUT_KEY = "output";
     public static final String VERIFIED_KEY = "criteria_verified";
     public static final String RESULT_KEY = "criteria_result";

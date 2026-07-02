@@ -7,7 +7,7 @@ import com.openjiuwen.core.alpha.verifier.RootCause;
  * （移植自 alpha AlphaStrategy 根因 dispatch）。
  *
  * <p>sealed switch 穷尽：{@link RootCause} 是 sealed interface，本方法 switch expression 覆盖全部 3 态，
- * <b>删任一 case arm → 编译红</b>（类型层 mutation-prove，比运行时 RED 更早，编译期拦漏分支）。
+ * <b>删任一 case arm → 编译红</b>（类型层证明，比运行时测试 RED 更早，编译期拦漏分支）。
  *
  * <ul>
  *   <li>{@link RootCause.DeviceFailure} → {@link SelfHealAction.Degrade}（replan 无效）。</li>
@@ -15,7 +15,7 @@ import com.openjiuwen.core.alpha.verifier.RootCause;
  *   <li>{@link RootCause.PlanOrAnswerError} → {@link SelfHealAction.Replan}（replan 救得了）。</li>
  * </ul>
  *
- * <p>承重 IFF：3 态→2 动作映射确定性（剥 case arm→编译红；改映射→对应测试 RED）。
+ * <p>契约（IFF）：3 态→2 动作映射确定性（剥 case arm→编译红；改映射→对应测试 RED）。
  */
 public final class RootCauseDispatcher {
 

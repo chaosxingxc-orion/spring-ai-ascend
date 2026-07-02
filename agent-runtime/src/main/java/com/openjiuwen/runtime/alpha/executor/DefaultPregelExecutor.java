@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * <p>移植自 openjiuwen-java 2.0 DefaultPregelExecutor。适配点：
  * <ul>
- *   <li>NodeReActAgentFactory/PregelReActIntegration deferred（Phase 3 per-node ReAct gate）</li>
+ *   <li>NodeReActAgentFactory/PregelReActIntegration deferred（per-node ReAct gate，后续落地）</li>
  *   <li>工具失败使用 NodeResult.DeviceFailure 替代 "FAILED:" 字符串</li>
  * </ul>
  */
@@ -210,7 +210,7 @@ public class DefaultPregelExecutor implements PregelExecutor, AutoCloseable {
     /**
      * 执行 LLM 调用节点——THE graft point（PEV ↔ kernel.think()）。
      *
-     * <p>DEFERRED: per-node ReActAgent graft（Phase 3）。当前只走 kernel.think() 回退路径。
+     * <p>DEFERRED: per-node ReActAgent graft。当前只走 kernel.think() 回退路径。
      */
     private Object executeLLMNode(TaskId taskId, TaskNode node, Map<NodeId, Object> results,
                                    BudgetLimits budget) {
@@ -244,7 +244,7 @@ public class DefaultPregelExecutor implements PregelExecutor, AutoCloseable {
         }
 
         // Fallback: bare kernel.think()
-        // DEFERRED: Phase 3 — per-node ReActAgent when perNodeReActEnabled=true
+        // DEFERRED: per-node ReActAgent when perNodeReActEnabled=true
         return kernel.think(prompt.toString(), budget, taskId, node.id()).block();
     }
 

@@ -26,7 +26,7 @@ import java.util.Set;
  *       ReplanRail 仅在 1.0 ReActAgent 路径活跃，PEV 路径不触发。</li>
  * </ol>
  *
- * <p>承重契约：bridge 自身不含决策逻辑——RootCause 诊断委托
+ * <p>契约：bridge 自身不含决策逻辑——RootCause 诊断委托
  * {@link RootCauseDiagnoser#diagnose}（共享纯函数），dispatch 委托
  * {@link RootCauseDispatcher#dispatch}。bridge 只负责格式转换 + 通知分发。
  */
@@ -92,13 +92,13 @@ public final class PEVToRailBridge {
      * 不需要 CriteriaVerifier 引用——CriteriaVerificationRail 本身包含 verifier。
      * 此方法仅标记桥接可用性；实际 criteria 二次验证由调用方注入 CriteriaVerifier 实例完成。
      *
-     * <p>承重边界：criteria 验证不在本 bridge 中完成——它依赖 LLM judge 通道，
-     * 而 PEV verify 已经是 LLM 通道。double-LLM 需调用方显式 opt-in（铁律① 诚实边界）。
+     * <p>诚实边界：criteria 验证不在本 bridge 中完成——它依赖 LLM judge 通道，
+     * 而 PEV verify 已经是 LLM 通道。double-LLM 需调用方显式 opt-in。
      *
      * @return true 如果 bridge 持有可用的 criteria verifier（调用方据此决定是否二次验证）
      */
     public boolean hasCriteriaVerifier() {
-        // DEFERRED: criteria verifier 注入（Phase 3 per-node ReAct gate 同期）
+        // DEFERRED: criteria verifier 注入（与 per-node ReAct gate 同期落地）
         return false;
     }
 

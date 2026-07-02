@@ -18,12 +18,12 @@ import java.util.Set;
  * 这压缩了 gepa3 P8 MinorityAgentEngine 的 dispatch() 逻辑和 shouldDowngradeGlobalReplan() guard
  * 到一个 sealed switch 表达式。
  *
- * <p>承重 IFF：RootCause.DeviceFailure/PercetionUnreliable → AcceptPartial（永不应重试）；
+ * <p>映射契约：DeviceFailure/PerceptionUnreliable → AcceptPartial（永不应重试）；
  * PlanOrAnswerError 少量失败 → LocalReplan（精确重执行+correction hint）；
  * PlanOrAnswerError 大量/空失败 → GlobalReplan（重新规划）。
  *
  * @see RootCause
- * @see RootCauseDiagnoser# Impact #toReplanAction(RootCause, String, Set)
+ * @see com.openjiuwen.runtime.beta.selfheal.RootCauseDiagnoser#toReplanAction(RootCause, String, Set)
  */
 public sealed interface ReplanAction
         permits ReplanAction.LocalReplan,

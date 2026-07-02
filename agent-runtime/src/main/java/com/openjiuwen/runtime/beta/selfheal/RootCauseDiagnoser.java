@@ -17,7 +17,7 @@ import java.util.Set;
  *   <li>排除以上 → {@link RootCause.PlanOrAnswerError}（内容错，replan 救得了）。</li>
  * </ol>
  *
- * <p>承重 IFF：3 态映射由信号确定性驱动（剥任一判定→该态漏诊→RED）。
+ * <p>契约（IFF）：3 态映射由信号确定性驱动（剥任一判定→该态漏诊→测试 RED）。
  */
 public final class RootCauseDiagnoser {
 
@@ -56,9 +56,9 @@ public final class RootCauseDiagnoser {
      *   <li>PlanOrAnswerError 大量失败节点（>2）或空失败节点集 → GlobalReplan（重新规划整个图）。</li>
      * </ol>
      *
-     * <p>承重 IFF：DeviceFailure/PerceptionUnreliable 永不应返回 Replan（剥此约束 → RED——设备故障
-     * 场景 replan 浪费轮次不修复，恒失败）。PlanOrAnswerError 永不应 AcceptPartial（剥 → RED——
-     * 内容错 replan 可修复，降级过早放弃）。
+     * <p>契约（IFF）：DeviceFailure/PerceptionUnreliable 永不应返回 Replan（剥此约束 → 测试 RED——
+     * 设备故障场景 replan 浪费轮次不修复，恒失败）。PlanOrAnswerError 永不应 AcceptPartial
+     * （剥 → 测试 RED——内容错 replan 可修复，降级过早放弃）。
      *
      * @param cause       根因（来自 {@link #diagnose(boolean, Set, Set)}）
      * @param feedback    verify 反馈（作为 correction hint 或新 plan 上下文）

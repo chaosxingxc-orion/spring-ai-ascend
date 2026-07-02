@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
  *    - LLM 返回 PASS / FAIL + 原因
  *
  * <p>嫁接到 1.0 ReActAgent 的 afterModelCall gate（criteria 通过→forceFinish verified /
- * 不通过→forceFinish degraded 标记）时，本验证器是纯函数式承重核心：mock 证规则短路 + budget 门 +
+ * 不通过→forceFinish degraded 标记）时，本验证器是纯函数式验证核心：mock 证规则短路 + budget 门 +
  * judge 通道（IFF），真 LLM judge 软观察 defer。
  */
 public class DecisionHistoryCriteriaVerifier implements CriteriaVerifier {
