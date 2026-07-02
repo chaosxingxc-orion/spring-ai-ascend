@@ -838,3 +838,37 @@ Stage 23 是纯测试阶段。`@Isolated`（同 Stage 19/20/21/22）+ import + h
 - ✓ **195 tests green**（Stage 22 的 192 + 1 IT + 2 transport），ArchUnit green。
 - ✓ §6.2 不变。
 - ✓ **deferred**（沿用 Stage 22）：`PAYLOAD_REF_INVALID` 接线（生产代码 + 校验语义决策）、接收端 handler 处理 payloadRef（agent-runtime 职责）、payloadPolicy 持久化（可选 schema 变更）、真实 agent handler、registry 集成的 resolver 生产实现、断路器状态持久化、EXPIRED 真实触发源（schema 变更）、连接池治理、push/pull/MQ 最终裁决（仍 H2/H3）。
+
+## 25. Stage 25 决策（投递模型最终裁决：T4 hybrid outbox+broker，解除 §6.1 第 1 项引 broker）
+
+**裁决阶段，无生产代码**（性质同 Stage 13 评审段）。Stage 13 [`transport-candidates`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-transport-candidates.md) 把 push/pull/MQ 最终裁决 deferred 给 H2/H3；Stages 15-24 在 T1 push 临时 PoC 上端到端验证了三条生命线（retry 往返 / 租约回收 / 断路器）+ 三终态（ACKED/DLQ/EXPIRED）+ payloadRef 传递 + RLS 接线（200 tests green），为裁决提供事实基础。**H2/H3 裁决（本阶段）**：投递模型采用 **T4 hybrid（outbox + broker），`adopted-t4`** —— 保留本 L2 的 outbox/inbox 表（§3 schema + §4 状态机 + §5 立柱 + §7 DDL/RLS 全保留零改）+ relay worker claim outbox 并 produce 到 broker + receiver 从 broker pull 消费（pull = 消费方控速 = 反压内核）。完整裁决论证见 [`transport-decision`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-transport-decision.md)。
+
+### 25.1 §6.2 解除（解除 §6.1 第 1 项 / 守 §6.2 精神）
+
+- **解除 [`decision §6.1`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-decision.md) 第 1 项「引入具体 broker / MQ client」**（类比 Stage 12 解除第 2 项 JDBC、Stage 15 解除第 4 项投递绑定）：concrete broker client 圈进 `com.huawei.ascend.bus.forwarding.runtime.transport.broker` 子包。
+- **守 §6.2 第①项精神**（不反向定义 broker-agnostic 语义）：broker 的 partition / offset / consumer-group / topic 不泄漏 `transport.broker` 之外；本 L2 §5 立柱（`ForwardingDeliveryPort` / `ForwardingDeliveryResult` / `ForwardingRetryPolicy` / `ForwardingCircuitBreaker` / `ForwardingOutboxRecord`）**零改动**，broker adapter 是新 `ForwardingDeliveryPort` 实现（relay 形态），不是新治理语义来源。
+- **第②③④⑤项不变**：payload body / token stream 不进 broker message body（payloadRef 走 header）；不写 Task execution state；跨租户 R-C.c（§6 + §7.3 RLS）；registry 不变 agent 定义仓库。
+- ArchUnit 圈进 `transport.broker`（类比 Stage 15 `transport.a2a`、Stage 12 `persistence.jdbc`）+ §6.2 文本扫描双豁免，**Stage 26 实施落地，本阶段仅授权**。
+
+### 25.2 T4 数据流（5 跳，对 outbox/inbox 的影响）
+
+```
+① enqueue → outbox(PENDING)                       [§3.1 + withTenant/RLS §7.3, Stage 24]
+② relay claimDue → outbox(DISPATCHING, §7.1 SKIP LOCKED) → produce broker
+③ receiver poll broker（控速=反压） → inbox(RECEIVED, dedup §5) → 处理
+④ 反向 ack → relay markAcked(outbox ACKED, §7.2 lease-guarded)   [模型 B ack-after-consume]
+⑤ 终态 ACKED/DLQ/EXPIRED → ForwardingDeliveryResult（§4.1 状态机）
+```
+
+**对 outbox 状态机的影响（模型 B 方向）**：relay produce broker 后 outbox 留 `DISPATCHING`（长 lease）直到反向 ack。**是否新增第 7 态 `AWAITING_ACK`（`DISPATCHING → AWAITING_ACK → ACKED`）是 Stage 27 设计决策**（本阶段仅定方向）；若不加，复用 `DISPATCHING` + 长 lease 表达「已 produce 待 ack」。§4 状态机本阶段**零改动**。
+
+**资产命运**：outbox/inbox 表 + claim/lease/SKIP LOCKED + lease-guarded mutation + RLS(§7.3) + TransactionTemplate（Stage 24）**全保留零改**；retry policy（§15 Stage 14）主导（broker retry 配 off，避免双层重投）；circuit breaker（§17 Stage 16）relay 侧保留 / receiver 侧退化；`A2aForwardingDeliveryPort`（§16 Stage 15, T1）保留共存（Stage 30 routeHandle 级别灰度）。完整资产命运表见 [`transport-decision §7`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-transport-decision.md)。
+
+### 25.3 broker 选型 + 落地切片
+
+- **broker 产品 final 选型 deferred Stage 26 PoC**（倾向 RocketMQ：原生顺序消息 + namespace 租户分层 + 原生 retry/DLQ + 华为云 DMS 托管 + 概念收敛）。Kafka / RabbitMQ 矩阵见 [`transport-decision §5`](../../../docs/architecture/l0/10-governance/review-packets/agent-bus-forwarding-runtime-transport-decision.md)。
+- **落地切片**：Stage 26（broker PoC + 选型 + ArchUnit 豁免）/ Stage 27（relay adapter + 模型 B 反向 ack + 状态机扩展）/ Stage 28（receiver consumer + 生产 TickSource 解除 §6.1 第 3 项）/ Stage 29（端到端 T4）/ Stage 30（T1→T4 切换共存）。本阶段无生产代码。
+
+### 25.4 无生产代码改动 + §6.2 守恒
+
+Stage 25 是纯文档裁决阶段。无 Java / DDL / SqlCodec / record 改动；本节是 L2 对 T4 裁决的标注（数据流 + 资产命运 + §6.2 解除），不改任何代码契约。§6.2 第②③④⑤项 + 第①项精神全部守恒；ArchUnit green（无新代码）。
