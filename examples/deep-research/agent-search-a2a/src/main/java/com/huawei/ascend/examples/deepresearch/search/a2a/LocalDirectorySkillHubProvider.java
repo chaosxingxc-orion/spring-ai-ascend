@@ -59,7 +59,7 @@ final class LocalDirectorySkillHubProvider implements SkillHubProvider {
             throw new IllegalArgumentException("Unknown skill: " + skillId);
         }
         try {
-            String instructions = Files.readString(skillFile, StandardCharsets.UTF_8);
+            String instructions = stripYamlFrontmatter(Files.readString(skillFile, StandardCharsets.UTF_8));
             return new SkillDefinition(
                     skillId,
                     title(instructions, skillId),
@@ -86,7 +86,8 @@ final class LocalDirectorySkillHubProvider implements SkillHubProvider {
     private SkillSummary toSummary(Path skillDir) {
         String skillId = skillDir.getFileName().toString();
         try {
-            String instructions = Files.readString(skillDir.resolve(SKILL_FILE), StandardCharsets.UTF_8);
+            String instructions = stripYamlFrontmatter(
+                    Files.readString(skillDir.resolve(SKILL_FILE), StandardCharsets.UTF_8));
             return new SkillSummary(
                     skillId,
                     title(instructions, skillId),
@@ -126,5 +127,23 @@ final class LocalDirectorySkillHubProvider implements SkillHubProvider {
                 .filter(line -> !line.startsWith("#"))
                 .findFirst()
                 .orElse("");
+    }
+
+    private static String stripYamlFrontmatter(String markdown) {
+        if (markdown == null || !markdown.startsWith("---")) {
+            return markdown == null ? "" : markdown;
+        }
+        int frontmatterEnd = markdown.indexOf("\n---", 3);
+        if (frontmatterEnd < 0) {
+            return markdown;
+        }
+        int bodyStart = frontmatterEnd + "\n---".length();
+        if (bodyStart < markdown.length() && markdown.charAt(bodyStart) == '\r') {
+            bodyStart++;
+        }
+        if (bodyStart < markdown.length() && markdown.charAt(bodyStart) == '\n') {
+            bodyStart++;
+        }
+        return markdown.substring(bodyStart);
     }
 }

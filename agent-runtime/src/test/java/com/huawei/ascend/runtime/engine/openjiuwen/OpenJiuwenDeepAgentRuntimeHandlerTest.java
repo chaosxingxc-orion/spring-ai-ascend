@@ -125,7 +125,8 @@ class OpenJiuwenDeepAgentRuntimeHandlerTest {
         TestDeepAgentHandler handler = new SkillRuntimeDeepAgentHandler();
         Path skillDir = tempDir.resolve("hotel");
         Files.createDirectories(skillDir);
-        Files.writeString(skillDir.resolve("SKILL.md"), "---\ndescription: Hotel booking memory\n---\n# Hotel");
+        Files.writeString(skillDir.resolve("SKILL.md"),
+                "---\nname: hotel\ndescription: Hotel booking memory\n---\n# Hotel");
         handler.setSkillHubInstaller(new OpenJiuwenSkillHubInstaller(new FakeSkillHubProvider(skillDir)));
 
         handler.execute(context()).toList();

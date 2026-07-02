@@ -1,3 +1,8 @@
+---
+name: date-helper
+description: Date helper skill for date, calendar, and deadline wording.
+---
+
 # Date Helper
 
 Use this skill when the user asks for date, calendar, or deadline wording.

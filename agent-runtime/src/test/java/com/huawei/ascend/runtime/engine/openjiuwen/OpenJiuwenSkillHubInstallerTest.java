@@ -57,7 +57,8 @@ class OpenJiuwenSkillHubInstallerTest {
         DeepAgent agent = deepAgent("deep-skillhub-installer-test");
         Path skillDir = tempDir.resolve("hotel");
         Files.createDirectories(skillDir);
-        Files.writeString(skillDir.resolve("SKILL.md"), "---\ndescription: Hotel booking memory\n---\n# Hotel");
+        Files.writeString(skillDir.resolve("SKILL.md"),
+                "---\nname: hotel\ndescription: Hotel booking memory\n---\n# Hotel");
         SkillHubProvider provider = new FakeSkillHubProvider(List.of(
                 new SkillDefinition(
                         "hotel",
@@ -80,7 +81,8 @@ class OpenJiuwenSkillHubInstallerTest {
         configureInnerSkillRuntime(agent);
         Path skillDir = tempDir.resolve("hotel");
         Files.createDirectories(skillDir);
-        Files.writeString(skillDir.resolve("SKILL.md"), "---\ndescription: Hotel booking memory\n---\n# Hotel");
+        Files.writeString(skillDir.resolve("SKILL.md"),
+                "---\nname: hotel\ndescription: Hotel booking memory\n---\n# Hotel");
         SkillHubProvider provider = new FakeSkillHubProvider(List.of(
                 new SkillDefinition(
                         "hotel",
@@ -134,6 +136,7 @@ class OpenJiuwenSkillHubInstallerTest {
         Files.writeString(skillDir.resolve("SKILL.md"),
                 """
                 ---
+                name: date-helper
                 description: Date helper skill.
                 ---
 
