@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.huawei.ascend</groupId>
+        <artifactId>spring-ai-ascend-parent</artifactId>
+        <version>0.2.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>design-reference</artifactId>
+    <name>design-reference</name>
+    <description>设计参考模块：GEPA 进化搜索幸存的 P8 极小内核参考实现（MinimalAgentEngine）+ 流式 Pregel 原型（StreamingPregelDemo）。非生产交付物——为 AAC PEV+Sealed Dispatch 结论提供可执行设计参考与回归守门。生产落地版见 agent-runtime 的 PEVAlphaStrategy / DefaultPregelExecutor。</description>
+
+    <dependencies>
+        <!-- StreamingPregelDemo 复用 agent-runtime 的 TaskGraph/TaskNode/AgentKernel 等类型 -->
+        <dependency>
+            <groupId>com.huawei.ascend</groupId>
+            <artifactId>agent-runtime</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- StreamingPregelDemoTest 用 StepVerifier（spring-boot-starter-test 不含 reactor-test） -->
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

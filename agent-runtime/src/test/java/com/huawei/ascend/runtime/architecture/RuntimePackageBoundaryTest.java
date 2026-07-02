@@ -26,6 +26,7 @@ class RuntimePackageBoundaryTest {
                 .that().resideInAPackage("..runtime.engine..")
                 .should().resideInAnyPackage(
                         "com.huawei.ascend.runtime.engine",
+                        "com.huawei.ascend.runtime.engine.alpha..",
                         "com.huawei.ascend.runtime.engine.a2a..",
                         "com.huawei.ascend.runtime.engine.agentscope..",
                         "com.huawei.ascend.runtime.engine.mcp..",
@@ -57,6 +58,11 @@ class RuntimePackageBoundaryTest {
 
     @Test
     void openJiuwenAdapterLivesUnderEngineOpenjiuwen() {
+        // 本规则只约束扫描域（com.huawei.ascend.runtime）内的 openjiuwen adapter（engine.openjiuwen..）。
+        // com.openjiuwen.* 移植包（轮2 kernel: core.kernel.model / runtime.core.engine；轮3 criteria:
+        // core.beta.model / runtime.beta.verification）是忠实移植的源码——保留原包名，不在本扫描域，
+        // 不受 adapter 边界规则约束。其 governance 靠"忠实移植（vs 源对比）+ D-9 净化 + 承重测试"，
+        // 统一边界审计见轮10 GEPA 帕累托审计（不在此处扩张扫描域，避免误伤移植源码依赖）。
         ArchRule rule = classes()
                 .that().resideInAPackage("..openjiuwen..")
                 .should().resideInAPackage("com.huawei.ascend.runtime.engine.openjiuwen..")

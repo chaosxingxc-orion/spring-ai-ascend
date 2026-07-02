@@ -36,6 +36,7 @@
     <module>agent-bus</module>
     <module>agent-runtime</module>
     <module>agent-service</module>
+    <module>design-reference</module>
   </modules>
 
   <properties>
