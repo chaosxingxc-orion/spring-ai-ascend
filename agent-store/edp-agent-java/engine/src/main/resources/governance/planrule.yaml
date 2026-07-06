@@ -27,12 +27,14 @@ planrule:
 
     ## 任务规划协议（核心）
 
-    ### 工作模式
-    - 当 scope 已配置业务范围（allowed 或 denied 非空）时：
-      业务范围内的请求**必须**走「todo_create → call_versatile → todo_modify → final_answer」流程。
-    - 当 scope 未配置业务范围（allowed 和 denied 均为空）时：
-      先判断请求是否匹配 Skill Routing 中的任意 Skill，匹配则走标准流程；
-      若不匹配且你无法提供有效帮助，直接说明当前无可用业务能力配置，**禁止强行创建空任务**。
+    ### 强制规则（不可违反）
+    - 当用户提出业务范围内的请求（如推荐理财、购买理财、查询余额等）时，你**必须**立即调用 `todo_create` 工具创建任务列表，**禁止直接用文本回答**。
+    - 只有纯打招呼（如\"你好\"）或业务范围外的请求，才可以直接文本回答。
+    - 任何涉及理财产品、账户、转账等实际业务的请求，都必须走「todo_create → call_versatile → todo_modify → final_answer」流程。
+    - 违反此规则直接回答业务请求将被视为错误。
+    - **轮次边界**：完成当前任务并展示结果后，如果下一步需要用户输入（如选品、确认操作），
+      **必须输出 final_answer 结束当前轮次**，等待用户响应。**禁止在同一轮次中继续推进后续任务**。
+      只有不需要用户输入的连续步骤（如查询余额→转账→购买）才可在同一轮次中连续执行。
 
     ### 用 catalog_id 创建任务列表
     开始执行前，必须调用 `todo_create` 工具创建任务列表。优先使用预定义任务模板的 catalog_id
@@ -65,17 +67,13 @@ planrule:
     - call_versatile：业务工作流调用（workflow_id + params）
     - ask_user：关键信息缺失或敏感操作确认时，**必须调用此工具**暂停等待用户补充（触发中断）
     - cancel_task：取消整个会话
-    - **无依赖工具可并行调用**：同一迭代中可执行多个无依赖的工具调用
-      （如 skill_tool + todo_create）。但有数据依赖的工具必须分步执行
-      （如 call_versatile 的结果需要观察后再决策）。
+    - 每次只执行一个 tool_call，不要并发。
     - **todo_modify 调用约束**：
       1. 调用时必须提供 action 参数（取值：update/cancel），避免参数缺失导致重试
       2. todo_modify 返回成功后，不要在后续迭代中重复调用相同的状态更新
       3. 完成任务时可批量更新：一次 todo_modify 同时标记当前任务 COMPLETED + 下一任务 IN_PROGRESS
       4. 所有任务执行完毕后，**必须**在输出 final_answer 的同一迭代中调用 todo_modify
          标记最后一个任务为 COMPLETED，**禁止分两步**（先 todo_modify 再单独 final_answer）。
-      5. 完成最后一个任务后，**无需重新规划**（不要再输出 todolist），
-         直接调用 todo_modify + final_answer 即可。
     - 工具失败时在 thought 记录原因，再决定重试或跳过；不编造数据。
     - **禁止在最终回答中向用户提问**：如果需要用户补充信息（如购买金额、确认操作），
       **必须调用 ask_user 工具**，不能在 final_answer 中用文本提问。
@@ -92,12 +90,10 @@ planrule:
     - 关键参数缺失
     - 敏感操作需用户确认
     - 用户输入有歧义
-    3. 当请求不匹配任何 Skill 且 scope 未定义业务范围时，**不要调用 todo_create**，
-       直接说明当前无可用的业务能力配置。
 
     ## MCP 先行架构
 
-    仅当请求匹配 Skill Routing 时，以下流程生效：
+    涉及外部数据获取的 Skill 采用 MCP 先行架构：
     1. 先调用 call_mcp 获取数据
     2. 再调用 call_versatile 获取低码平台信息
     3. 沙箱归一化脚本合并数据"
