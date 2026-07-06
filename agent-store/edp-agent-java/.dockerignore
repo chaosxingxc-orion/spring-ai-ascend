@@ -1,0 +1,8 @@
+engine/target/*
+!engine/target/edp-agent-engine-*.jar
+deploy/
+!deploy/config/edp-config.yaml
+!deploy/requirements-mcp.txt
+scenarios/
+!scenarios/wealth-demo/
+.git/

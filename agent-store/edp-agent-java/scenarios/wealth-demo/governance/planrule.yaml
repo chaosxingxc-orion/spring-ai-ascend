@@ -1,0 +1,31 @@
+# wealth-demo 场景 planrule 配置（增量覆盖）
+#
+# 说明：本文件仅配置场景级差异字段，未配置的字段自动继承框架默认值。
+#       全量可配字段及说明见 engine/src/main/resources/governance/_reference/planrule.yaml
+
+planrule:
+  # 场景名称（仅场景级配置，框架默认无值）
+  scenario_name: "理财购买"
+
+  # 场景描述（仅场景级配置，框架默认无值）
+  scenario_description: "理财产品推荐、筛选、购买全流程"
+
+  # 业务范围（替代式覆盖框架默认值）
+  scope:
+    allowed: "理财产品推荐、筛选、购买、银行账户余额查询、银行账户间转账、资金筹划（理财卡与储蓄卡之间的资金调配）"
+    denied: "基金相关业务、股票相关业务、保险相关业务、贷款相关业务、信用卡相关业务、购买i豆"
+
+  # Skill路由规则（继承式覆盖框架默认值，框架默认无值）
+  skill_routing:
+    - trigger: "用户首次请求推荐理财产品"
+      skill: "product_recommend_skill"
+      priority: 1
+    - trigger: "用户从推荐结果中选择产品"
+      skill: "product_select_skill"
+      priority: 2
+    - trigger: "用户确认购买或需要资金筹划"
+      skill: "fund_planning_skill"
+      priority: 2
+    - trigger: "用户请求换一批、追加筛选条件"
+      skill: "interact_finance_rec_skill"
+      priority: 1

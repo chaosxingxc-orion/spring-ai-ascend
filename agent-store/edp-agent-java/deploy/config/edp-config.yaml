@@ -1,0 +1,3 @@
+# 路径锚点：运行时通过 EDPA_AGENT_CONFIG_PATH 解析 yamlDir=/app/config，
+# 框架级 governance 从 /app/config/governance/ 加载。
+# 业务配置已迁移至 engine/src/main/resources/governance/（构建时 COPY 进镜像）。

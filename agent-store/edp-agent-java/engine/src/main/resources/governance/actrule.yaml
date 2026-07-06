@@ -1,0 +1,44 @@
+# 定位：定义Agent的任务执行约束与行为边界
+#
+# 作用：
+# - 回答Agent如何执行任务
+# - 控制执行过程中的步数限制、子任务数量上限
+# - 约束Agent可调用的工具集合
+
+actrule:
+  # 限制单层最大子任务数量
+  max_subtasks: 50
+
+  # 限制最大执行步数（从 framework.options.maxIterations 迁移）
+  max_steps: 100
+
+  # 是否启用任务循环（从 framework.options.enableTaskLoop 迁移）
+  enable_task_loop: true
+
+  # Skill 加载模式（从 skills.mode 迁移）
+  # - all: 列出所有 Skill，Agent 直接判断匹配
+  # - auto_list: 动态搜索 Skill，Agent 先调用 list_tool 查询
+  # - none: 关闭 Skill 系统
+  skill_mode: all
+
+  # 允许调用的工具列表
+  allowed_tools:
+      - bash
+      - skill_tool
+      - call_versatile
+      - call_mcp
+      - ask_user
+      - todo_create
+      - todo_modify
+      - todo_list
+      - todo_get
+      - cancel_task
+
+  # 单个工具调用次数上限（key: 工具名, value: 上限值）
+  tool_limits:
+    call_versatile: 100
+    call_mcp: 100
+    ask_user: 100
+    execute_cmd: 100
+
+  

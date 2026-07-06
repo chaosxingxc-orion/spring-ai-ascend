@@ -1,0 +1,41 @@
+{
+  "id": "governance_actrule_max_subtasks_e2e",
+  "name": "Actrule max_subtasks 子任务上限校验 E2E",
+  "description": "验证 actrule.yaml 中 max_subtasks 字段在 todo_create 时生效。测试前需将 engine/src/main/resources/governance/actrule.yaml 中 max_subtasks 改为 3。",
+  "conversations": [
+    {
+      "id": "conv_max_subtasks_positive",
+      "title": "正向：子任务数量超过 max_subtasks=3 时应被拦截",
+      "eventTypes": ["todolist_start", "todolist_end", "tool_start", "tool_end", "planning_execution_process", "summary"],
+      "steps": [
+        {
+          "id": "step_explicit_6steps",
+          "query": "请帮我创建一个完整的理财购买流程，需要包含以下全部6个步骤：1.查询我的账户余额 2.分析我的理财需求和风险偏好 3.推荐合适的理财产品 4.交互式筛选和比较产品 5.确认选择产品并确定购买金额 6.执行购买操作并返回结果",
+          "expected": "[max_subtasks=3 校验] LLM 尝试调用 todo_create 创建包含6个任务的列表时，EdpaTodoRail 应检测到 tasks[] 长度(6) > max_subtasks(3)，拦截该调用并返回 MAX_SUBTASKS_EXCEEDED 错误。LLM 收到错误后应重新规划，将任务列表精简到不超过3个。重新调用 todo_create 时应成功（tasks[] 长度 ≤ 3）。后续流程应正常执行。"
+        },
+        {
+          "id": "step_full_pipeline_4tasks",
+          "query": "帮我推荐几款稳健型理财产品，然后我选择一款购买",
+          "expected": "[max_subtasks=3 校验] 财富demo场景有4个预定义 catalog_id（product_recommend、interact_finance_rec、product_select、fund_planning）。LLM 首次尝试创建4个任务时，应被拦截（4 > 3）。LLM 应自动精简任务列表，例如跳过 interact_finance_rec 或合并步骤，最终以 ≤3 个任务成功创建。"
+        }
+      ]
+    },
+    {
+      "id": "conv_max_subtasks_negative",
+      "title": "负向：子任务数量 ≤ max_subtasks=3 时正常通过",
+      "eventTypes": ["todolist_start", "todolist_end", "tool_start", "tool_end", "planning_execution_process", "summary"],
+      "steps": [
+        {
+          "id": "step_simple_query_within_limit",
+          "query": "帮我查询一下账户余额",
+          "expected": "[max_subtasks=3 校验] 简单查询余额只需要1个任务（fund_planning 或直接调用 call_versatile），tasks[] 长度 ≤ 3，EdpaTodoRail 不应拦截。Agent 应正常执行查询余额流程。"
+        },
+        {
+          "id": "step_2steps_within_limit",
+          "query": "帮我推荐理财产品，然后我选择第一款买300元",
+          "expected": "[max_subtasks=3 校验] 两步操作（推荐+选择购买），tasks[] 长度 ≤ 3，EdpaTodoRail 不应拦截。Agent 应正常创建任务列表并执行。"
+        }
+      ]
+    }
+  ]
+}

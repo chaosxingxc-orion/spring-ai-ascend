@@ -1,0 +1,61 @@
+{
+  "id": "governance_actrule_all_params_e2e",
+  "name": "Actrule 全部字段端到端验证",
+  "description": "验证 actrule.yaml 中 max_steps、allowed_tools、tool_limits 三个字段在运行时生效。当前 YAML 已设为 max_steps=2、allowed_tools 移除 todo_create、tool_limits call_versatile=1，三个 conversation 可同时测试。",
+  "conversations": [
+    {
+      "id": "conv_max_steps",
+      "title": "max_steps=2 步数上限验证",
+      "description": "测试前将 actrule.yaml 中 max_steps 改为 2，重启 Agent。测试完成后恢复为 100。",
+      "eventTypes": ["think_chunk", "todolist_start", "todolist_end", "todolist_item", "tool_start", "tool_end", "planning_execution_process", "final_answer_chunk", "summary"],
+      "steps": [
+        {
+          "id": "step_max_steps_hit_limit",
+          "query": "帮我推荐几款理财产品，详细介绍每款产品的收益和风险",
+          "expected": "[max_steps=2 校验] 正常流程需要至少3个LLM回合（规划→调用工具→整理回复），但 max_steps=2 限制为2个回合。Agent 应在第2个回合后停止，回复可能不完整或只包含部分结果。关键指标：think_chunk 或 final_answer_chunk 事件数量明显少于正常流程（正常约5-8个 think_chunk，受限后约2-3个）。"
+        },
+        {
+          "id": "step_max_steps_within_limit",
+          "query": "你好",
+          "expected": "[max_steps=2 校验] 简单问候只需1个回合即可完成。Agent 应正常回复问候语，不受 max_steps=2 限制影响。"
+        }
+      ]
+    },
+    {
+      "id": "conv_allowed_tools",
+      "title": "allowed_tools 工具白名单验证（移除 todo_create）",
+      "description": "测试前将 actrule.yaml 中 allowed_tools 列表里的 todo_create 删除（保留其他工具），重启 Agent。测试完成后恢复。",
+      "eventTypes": ["think_chunk", "tool_start", "tool_end", "todolist_start", "todolist_item", "planning_execution_process", "summary"],
+      "steps": [
+        {
+          "id": "step_todo_create_removed",
+          "query": "帮我推荐几款理财产品",
+          "expected": "[allowed_tools 校验] todo_create 已从白名单中移除，Agent 无法调用该工具创建任务列表。关键指标：整个事件流中不应出现 todolist_start 或 todolist_item 事件。Agent 可能直接调用 call_versatile 执行业务操作而不规划任务。"
+        },
+        {
+          "id": "step_other_tools_still_work",
+          "query": "请列出当前可用的任务列表",
+          "expected": "[allowed_tools 校验] todo_list 仍在白名单中，Agent 应能正常调用该工具。事件流中应出现 tool_start 事件中 tool 字段为 todo_list 的记录。"
+        }
+      ]
+    },
+    {
+      "id": "conv_tool_limits",
+      "title": "tool_limits call_versatile=1 单工具调用次数上限验证",
+      "description": "测试前将 actrule.yaml 中 tool_limits 的 call_versatile 改为 1，重启 Agent。测试完成后恢复为 100。",
+      "eventTypes": ["think_chunk", "tool_start", "tool_end", "todolist_start", "todolist_item", "todolist_end", "planning_execution_process", "summary"],
+      "steps": [
+        {
+          "id": "step_tool_limit_second_call_blocked",
+          "query": "先帮我推荐理财产品，推荐完后帮我查询账户余额",
+          "expected": "[tool_limits 校验] 该查询需要至少2次 call_versatile 调用（推荐产品 + 查询余额）。ExecutionLimitRail 在 tool_limits 中 call_versatile=1 的约束下，第1次调用正常通过（count=1 ≤ 1），第2次调用时 count=2 > 1，触发 requestForceFinish 强制结束对话。关键指标：tool_start 事件中 tool=call_versatile 最多出现1次（第2次虽被拦截但 tool_start 事件可能已发出，对话在调用后强制结束）。对话结束时应有 forceFinish 或 TASK_STATE_COMPLETED 但内容不完整。"
+        },
+        {
+          "id": "step_tool_limit_single_call_ok",
+          "query": "帮我查询账户余额",
+          "expected": "[tool_limits 校验] 只需1次 call_versatile 调用（查询余额），count=1 ≤ 1，不触发限制。Agent 应正常返回余额信息。"
+        }
+      ]
+    }
+  ]
+}

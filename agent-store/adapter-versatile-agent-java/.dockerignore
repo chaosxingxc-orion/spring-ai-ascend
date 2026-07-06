@@ -1,0 +1,4 @@
+target/*
+!target/adapter-versatile-agent-java-*.jar
+src/
+.git/

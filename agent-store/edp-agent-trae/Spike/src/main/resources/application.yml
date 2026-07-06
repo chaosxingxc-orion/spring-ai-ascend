@@ -1,0 +1,17 @@
+server:
+  port: 8190
+
+spring:
+  application:
+    name: edp-agent-spike
+
+edpa:
+  agent:
+    yaml-path: src/main/resources/edp-agent.yaml
+    config-path: src/main/resources/edp-config.yaml
+    scripts-config-path: src/main/resources/ScriptsConfig.md
+
+logging:
+  level:
+    com.huawei.ascend.edp: DEBUG
+    com.huawei.ascend.runtime: INFO

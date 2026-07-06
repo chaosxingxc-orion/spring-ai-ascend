@@ -1,0 +1,9 @@
+# Test profile: automated testing
+spring:
+  application:
+    name: edp-agent-engine-test
+
+logging:
+  level:
+    com.huawei.ascend.edp: INFO
+    com.huawei.ascend.runtime: INFO

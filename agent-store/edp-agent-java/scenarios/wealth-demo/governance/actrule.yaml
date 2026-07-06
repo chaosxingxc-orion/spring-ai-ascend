@@ -1,0 +1,43 @@
+actrule:
+  # ============================================================
+  # 任务定义（替代式覆盖框架默认值，框架默认无值）
+  # ============================================================
+  todolist_entries:
+    - catalog_id: product_recommend
+      content: "推荐理财产品"
+      description: "根据用户需求推荐合适的理财产品"
+      depends_on: []
+      skill: "product_recommend_skill"
+    - catalog_id: interact_finance_rec
+      content: "交互式理财筛选"
+      description: "用户从推荐结果中交互式筛选产品"
+      depends_on:
+        - product_recommend
+      skill: "interact_finance_rec_skill"
+    - catalog_id: product_select
+      content: "确定购买产品和金额"
+      description: "用户确认最终购买的产品和金额"
+      depends_on:
+        - interact_finance_rec
+      skill: "product_select_skill"
+    - catalog_id: fund_planning
+      content: "查询理财账户余额并购买"
+      description: "查询余额，资金不足则筹划，最后购买理财产品"
+      depends_on:
+        - product_select
+      skill: "fund_planning_skill"
+
+  # 动态路径规则
+  todolist_dynamic_paths:
+    - path_id: shortcut_skip_filter
+      description: "用户首次推荐即明确选择，跳过交互式筛选"
+      trigger: "product_recommend 返回结果中用户已明确选择某个产品"
+      skip_steps:
+        - interact_finance_rec
+      redirect: "product_recommend → product_select"
+    - path_id: skip_purchase_if_no_balance
+      description: "账户余额为零，跳过购买步骤"
+      trigger: "fund_planning 查询余额结果为 0"
+      skip_steps:
+        - fund_planning
+      redirect: "product_select → 结束（提示用户充值）"

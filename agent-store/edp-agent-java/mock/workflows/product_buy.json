@@ -1,0 +1,37 @@
+{
+  "id": "product_buy",
+  "description": "理财产品购买签署",
+  "priority": 90,
+  "match": {
+    "type": "query",
+    "rules": [
+      {
+        "kind": "keywords_all",
+        "all": ["理财产品：产品名称：", "产品代码：", "金额："]
+      }
+    ]
+  },
+  "output": {
+    "frames": [
+      { "node_type": "Start", "node_name": "StartNode", "delay_ms": 200 },
+      {
+        "node_type": "LLM",
+        "node_name": "{{config.llm_node}}",
+        "text": "正在校验产品信息...",
+        "delay_ms": 200
+      },
+      {
+        "node_type": "LLM",
+        "node_name": "{{config.llm_node}}",
+        "text": "正在执行签署购买...",
+        "delay_ms": 300
+      },
+      {
+        "node_type": "QA",
+        "node_name": "{{config.result_node}}",
+        "text_hook": "product_buy_response_json",
+        "delay_ms": 100
+      }
+    ]
+  }
+}

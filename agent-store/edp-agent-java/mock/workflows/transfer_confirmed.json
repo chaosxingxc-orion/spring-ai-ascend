@@ -1,0 +1,22 @@
+{
+  "id": "transfer_confirmed",
+  "description": "转账确认续轮（menu_type=TRANSFER_MENU 且 menu_confirm=true）",
+  "priority": 100,
+  "match": {
+    "type": "context",
+    "rules": [
+      { "field": "menu_type", "equals": "TRANSFER_MENU" },
+      { "field": "menu_confirm", "truthy": true }
+    ]
+  },
+  "output": {
+    "frames": [
+      {
+        "node_type": "QA",
+        "node_name": "{{config.result_node}}",
+        "text_hook": "transfer_confirmed_simple_json",
+        "delay_ms": 50
+      }
+    ]
+  }
+}

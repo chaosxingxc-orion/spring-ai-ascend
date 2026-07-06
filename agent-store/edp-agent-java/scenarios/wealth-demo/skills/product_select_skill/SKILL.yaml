@@ -1,0 +1,4 @@
+name: product_select_skill
+description: "用户从推荐结果中选择产品时，确认购买产品和金额。"
+scripts:
+  product_select_success: "已为您确认选择的产品和金额。"

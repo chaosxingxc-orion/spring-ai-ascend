@@ -1,0 +1,5 @@
+name: fund_planning_skill
+description: "查询理财账户余额，如果资金不足进行资金筹划，并购买理财产品。"
+scripts:
+  fund_planning_success: "资金筹划已完成，正在为您购买理财产品。"
+  fund_insufficient: "两卡合计余额不足以购买该产品，建议选择金额更小的产品。"

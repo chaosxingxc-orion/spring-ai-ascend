@@ -1,0 +1,76 @@
+# agent-store Docker Compose 部署配置
+#
+# Versatile Mock 由外部独立部署（不由本 Compose 管理）。
+#
+# 用法（在 agent-store/deploy 目录）：
+#   cp .env.example .env    # 填写 LLM 密钥与同事提供的 Versatile 地址
+#   docker compose up -d
+#
+# 详细步骤见 DEPLOYMENT.md
+
+services:
+  adapter-versatile:
+    image: adapter-versatile-agent-java:latest
+    container_name: adapter-versatile
+    build:
+      context: ../adapter-versatile-agent-java
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "${ADAPTER_PORT:-8191}:8191"
+    environment:
+      VERSATILE_AGENT_PORT: "8191"
+      VERSATILE_URL: "${VERSATILE_URL:?VERSATILE_URL is required — set to colleague Versatile Mock base URL}"
+      VERSATILE_WORKFLOW_ID: "${VERSATILE_WORKFLOW_ID:-mock_workflow}"
+      VERSATILE_WORKSPACE_ID: "${VERSATILE_WORKSPACE_ID:-10}"
+      VERSATILE_RESULT_NODE_TYPE: "${VERSATILE_RESULT_NODE_TYPE:-QA}"
+      VERSATILE_RESULT_NODE_NAME: "${VERSATILE_RESULT_NODE_NAME:-GXZQAResponseNode}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8191/.well-known/agent-card.json"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 90s
+    networks:
+      - agent-store-net
+
+  edp-agent:
+    image: edp-agent-java:latest
+    container_name: edp-agent
+    build:
+      context: ../edp-agent-java
+      dockerfile: deploy/Dockerfile
+    depends_on:
+      adapter-versatile:
+        condition: service_healthy
+    ports:
+      - "${EDP_AGENT_PORT:-8190}:8190"
+    environment:
+      SERVER_PORT: "8190"
+      EDPA_AGENT_CONFIG_PATH: /app/config/edp-config.yaml
+      EDP_AGENT_SCENARIO_HOME: /app/scenarios/wealth-demo
+      EDP_AGENT_MODEL_API_KEY: "${EDP_AGENT_MODEL_API_KEY:?EDP_AGENT_MODEL_API_KEY is required}"
+      EDP_AGENT_MODEL_PROVIDER: "${EDP_AGENT_MODEL_PROVIDER:-OpenAI}"
+      EDP_AGENT_MODEL_NAME: "${EDP_AGENT_MODEL_NAME:-deepseek-v4-pro}"
+      EDP_AGENT_MODEL_BASE_URL: "${EDP_AGENT_MODEL_BASE_URL:-https://api.deepseek.com/v1}"
+      EDP_AGENT_VERSATILE_A2A_URL: "${EDP_AGENT_VERSATILE_A2A_URL:-http://adapter-versatile:8191/a2a}"
+      EDP_AGENT_VERSATILE_URL: "${EDP_AGENT_VERSATILE_URL:-}"
+      MCP_MASTER_URL: "${MCP_MASTER_URL:-}"
+      MCP_STANDBY_URL: "${MCP_STANDBY_URL:-}"
+      MCP_ACCESS_TOKEN: "${MCP_ACCESS_TOKEN:-}"
+      MCP_APP_NAME: "${MCP_APP_NAME:-f-mlp}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8190/.well-known/agent-card.json"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - agent-store-net
+
+networks:
+  agent-store-net:
+    driver: bridge

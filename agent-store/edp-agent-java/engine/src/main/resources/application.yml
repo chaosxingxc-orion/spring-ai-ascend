@@ -1,0 +1,52 @@
+server:
+  port: ${SERVER_PORT:8190}
+
+spring:
+  application:
+    name: edp-agent-engine
+  data:
+    redis:
+      host: ${EDPA_REDIS_HOST:localhost}
+      port: ${EDPA_REDIS_PORT:6379}
+      password: ${EDPA_REDIS_PASSWORD:}
+      database: ${EDPA_REDIS_DB:0}
+
+edpa:
+  agent:
+    redis:
+      mode: ${EDPA_REDIS_MODE:single}
+      host: ${EDPA_REDIS_HOST:localhost}
+      port: ${EDPA_REDIS_PORT:6379}
+      password: ${EDPA_REDIS_PASSWORD:}
+      database: ${EDPA_REDIS_DB:0}
+      connect-timeout-ms: ${EDPA_REDIS_CONNECT_TIMEOUT:5000}
+      socket-timeout-ms: ${EDPA_REDIS_SOCKET_TIMEOUT:10000}
+      checkpointer-ttl-minutes: ${EDPA_REDIS_CHECKPOINTER_TTL:60}
+      todo:
+        key-prefix: ${EDPA_REDIS_KEY_PREFIX:edpa}
+        ttl-seconds: ${EDPA_REDIS_TODO_TTL:3600}
+        refresh-on-read: ${EDPA_REDIS_REFRESH_ON_READ:true}
+    config-path: ${EDPA_AGENT_CONFIG_PATH:src/main/resources/edp-config.yaml}
+    scenario-home: ${EDP_AGENT_SCENARIO_HOME:../scenarios/wealth-demo}
+    model:
+      provider: ${EDP_AGENT_MODEL_PROVIDER:OpenAI}
+      name: ${EDP_AGENT_MODEL_NAME:deepseek-v4-pro}
+      base-url: ${EDP_AGENT_MODEL_BASE_URL:https://api.deepseek.com/v1}
+      api-key: ${EDP_AGENT_MODEL_API_KEY:sk-067b754046374d83888c52657ab6bbc7}
+    versatile:
+      url: ${EDP_AGENT_VERSATILE_URL:http://localhost:30001/v1/0/agent-manager/workflows/{workflow_id}/conversations/{conversation_id}}
+      adapter-a2a-url: ${EDP_AGENT_VERSATILE_A2A_URL:http://localhost:8191/a2a}
+      timeout: ${EDP_AGENT_VERSATILE_TIMEOUT:30s}
+      url-variables:
+        workflow_id: mock_workflow
+      query-params:
+        type: controller
+        workspace_id: "10"
+      headers:
+        content-type: application/json
+        stream: "true"
+    mcpsse:
+      master-url: ${EDP_MCP_MASTER_URL:}
+      standby-url: ${EDP_MCP_STANDBY_URL:}
+      access-token: ${EDP_MCP_ACCESS_TOKEN:}
+      app-name: ${EDP_MCP_APP_NAME:}

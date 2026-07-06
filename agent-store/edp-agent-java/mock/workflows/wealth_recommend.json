@@ -1,0 +1,48 @@
+{
+  "id": "wealth_recommend",
+  "description": "推荐理财产品",
+  "priority": 30,
+  "match": {
+    "type": "query",
+    "rules": [
+      {
+        "kind": "exclude_all",
+        "patterns": ["理财产品：产品名称：", "产品代码：", "金额："]
+      },
+      {
+        "kind": "keywords",
+        "any": ["推荐", "理财", "产品", "我要买理财"],
+        "case_insensitive": false
+      }
+    ]
+  },
+  "output": {
+    "frames": [
+      { "node_type": "Start", "node_name": "StartNode", "delay_ms": 200 },
+      {
+        "node_type": "LLM",
+        "node_name": "{{config.llm_node}}",
+        "text": "正在分析您的资金情况...",
+        "delay_ms": 300
+      },
+      {
+        "node_type": "LLM",
+        "node_name": "{{config.llm_node}}",
+        "text": "正在匹配理财产品...",
+        "delay_ms": 300
+      },
+      {
+        "node_type": "LLM",
+        "node_name": "{{config.llm_node}}",
+        "text": "正在计算推荐结果...",
+        "delay_ms": 300
+      },
+      {
+        "node_type": "QA",
+        "node_name": "{{config.result_node}}",
+        "text_hook": "wealth_product_filter_json",
+        "delay_ms": 100
+      }
+    ]
+  }
+}

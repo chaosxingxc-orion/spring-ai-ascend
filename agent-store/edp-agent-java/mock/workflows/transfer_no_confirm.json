@@ -1,0 +1,18 @@
+{
+  "id": "transfer_no_confirm",
+  "description": "转账续轮缺少 menu_confirm 时返回 error",
+  "priority": 99,
+  "match": {
+    "type": "context",
+    "rules": [
+      { "field": "menu_type", "equals": "TRANSFER_MENU" },
+      { "field": "menu_confirm", "falsy": true }
+    ]
+  },
+  "output": {
+    "error": {
+      "code": "TRANSFER_NEED_CONFIRM",
+      "message": "检测到 TRANSFER_MENU 上下文但 menu_confirm != true，拒绝执行"
+    }
+  }
+}

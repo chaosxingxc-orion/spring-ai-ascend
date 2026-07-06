@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mock Versatile Workflow",
+  "type": "object",
+  "required": ["id", "match", "output"],
+  "properties": {
+    "id": { "type": "string" },
+    "description": { "type": "string" },
+    "priority": { "type": "integer", "default": 0 },
+    "match": {
+      "type": "object",
+      "required": ["type", "rules"],
+      "properties": {
+        "type": { "enum": ["query", "context"] },
+        "rules": { "type": "array" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "frames": { "type": "array" },
+        "error": { "type": "object" },
+        "omit_end": { "type": "boolean" },
+        "balance_delay": { "type": "boolean" },
+        "end_node_name": { "type": "string" }
+      }
+    }
+  }
+}

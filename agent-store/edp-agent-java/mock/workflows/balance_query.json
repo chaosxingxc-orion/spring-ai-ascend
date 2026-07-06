@@ -1,0 +1,47 @@
+{
+  "id": "balance_query",
+  "description": "查询账户余额（含可选 BALANCE_MENU 卡片）",
+  "priority": 20,
+  "match": {
+    "type": "query",
+    "rules": [
+      {
+        "kind": "keywords",
+        "any": ["查余额", "余额查询", "查询余额", "balance", "余额"],
+        "case_insensitive": true
+      }
+    ]
+  },
+  "output": {
+    "balance_delay": true,
+    "frames": [
+      { "node_type": "Start", "node_name": "StartNode", "delay_ms": 200 },
+      {
+        "node_type": "Custom",
+        "node_name": "transfer_balance_menu",
+        "text": "请确认查询账户",
+        "menu_type": "BALANCE_MENU",
+        "skip_if": "not_enable_interrupt_menus",
+        "delay_ms": 50
+      },
+      {
+        "node_type": "LLM",
+        "node_name": "{{config.llm_node}}",
+        "text": "正在查询账户信息...",
+        "delay_ms": 300
+      },
+      {
+        "node_type": "LLM",
+        "node_name": "{{config.llm_node}}",
+        "text": "正在获取余额数据...",
+        "delay_ms": 300
+      },
+      {
+        "node_type": "QA",
+        "node_name": "{{config.result_node}}",
+        "text_hook": "balance_business_result_json",
+        "delay_ms": 100
+      }
+    ]
+  }
+}

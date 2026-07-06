@@ -1,0 +1,75 @@
+scope:
+  allowed: "基金理财相关业务（余额查询、转账、理财推荐、购买确认）"
+  out_of_scope_message: "尚在学习中"
+
+planning_steps:
+  - 需求解析：识别用户意图与关键参数
+  - 目标拆解：列出待执行的子任务
+  - 方案生成：确定每个子任务的工具与入参
+  - 规则校验：检查是否超出业务范围
+  - 结果输出：总结并返回用户
+
+task_dependencies: {}
+
+# todolist 业务步骤目录（与 lite_todo_write 工具的 step_id 枚举绑定）
+todolist_steps:
+  - step_id: 1
+    content: "推荐理财产品"
+    skill: "product_recommend_skill"
+  - step_id: 2
+    content: "交互式理财筛选"
+    skill: "interact_finance_rec_skill"
+  - step_id: 3
+    content: "确定购买产品和金额"
+    skill: "product_select_skill"
+  - step_id: 4
+    content: "查询理财账户余额，如果资金不足进行资金筹划，并购买理财产品"
+    skill: "fund_planning_skill"
+
+limits:
+  tasks:
+    call_versatile: 100
+    call_mcp: 100
+    ask_user: 100
+    execute_cmd: 100
+
+summary:
+  format: "需求概述→规划过程→任务执行情况→结果汇总→异常说明"
+  max_length: 500
+  required_fields:
+    - 用户查询
+    - 执行步骤
+    - 结果状态
+
+utterances:
+  config_path: "./ScriptsConfig.md"
+
+think_chunk:
+  mode: fixed_script
+  chars_per_frame: 4
+  tokens_between_frames: 2
+  min_interval_ms: 50
+  default_scripts:
+    - "正在分析您的需求..."
+  query_patterns:
+    - keywords: ["推荐", "理财", "产品", "筛选"]
+      scripts:
+        - "正在搜索理财产品..."
+    - keywords: ["购买", "买", "下单", "确认"]
+      scripts:
+        - "正在确认购买信息..."
+    - keywords: ["余额", "查询", "账户", "转账"]
+      scripts:
+        - "正在查询账户信息..."
+  execution_scripts:
+    - "正在分析执行结果..."
+  enable_resume_scripts: false
+  resume_scripts:
+    - "当前业务步骤已为您处理完毕"
+  scripts:
+    - "正在分析您的需求..."
+
+llm_sampling:
+  temperature: 0.1
+  top_p: 0.95
+  max_retries: 0

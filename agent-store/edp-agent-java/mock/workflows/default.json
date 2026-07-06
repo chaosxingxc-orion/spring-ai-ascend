@@ -1,0 +1,30 @@
+{
+  "id": "default",
+  "description": "未知 query 兜底",
+  "priority": 0,
+  "match": {
+    "type": "query",
+    "rules": [
+      {
+        "kind": "regex",
+        "pattern": ".*"
+      }
+    ]
+  },
+  "output": {
+    "frames": [
+      {
+        "node_type": "Message",
+        "node_name": "default_message",
+        "text": "已收到您的请求：{{query}}",
+        "delay_ms": 50
+      },
+      {
+        "node_type": "QA",
+        "node_name": "{{config.result_node}}",
+        "text_hook": "default_answer_qa_json",
+        "delay_ms": 50
+      }
+    ]
+  }
+}

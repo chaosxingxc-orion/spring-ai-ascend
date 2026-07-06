@@ -359,6 +359,11 @@ public final class A2aAgentExecutor implements AgentExecutor {
         List<RuntimeMessage> messages = List.of(RuntimeMessage.user(text));
         String sessionId = ctx.getContextId() != null ? ctx.getContextId() : ctx.getTaskId();
         Map<String, Object> variables = mergeVariables(ctx);
+        // mergeVariables 可能返回不可变 Map；复制一份以便写入原始用户文本。
+        // runtime.inputText 供下游 adapter 在 lastUserText 为空时仍能拿到 query，
+        // 避免 InteractiveInput 续传路径把 Versatile 入参降维成空字符串。
+        variables = new LinkedHashMap<>(variables);
+        variables.put("runtime.inputText", text);
         return new AgentExecutionContext(
                 new RuntimeIdentity(
                         asString(variables.get(TENANT_STATE_KEY)),

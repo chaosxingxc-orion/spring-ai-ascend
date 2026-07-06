@@ -1,0 +1,27 @@
+{
+  "id": "transfer_round1",
+  "description": "转账首轮：返回 TRANSFER_MENU 卡片并挂起（不发 End）",
+  "priority": 50,
+  "match": {
+    "type": "query",
+    "rules": [
+      {
+        "kind": "keywords",
+        "any": ["转账", "transfer", "汇款", "汇钱", "转钱"],
+        "case_insensitive": true
+      }
+    ]
+  },
+  "output": {
+    "omit_end": true,
+    "frames": [
+      {
+        "node_type": "Custom",
+        "node_name": "transfer_menu",
+        "text": "请确认转账信息",
+        "menu_type": "TRANSFER_MENU",
+        "delay_ms": 50
+      }
+    ]
+  }
+}

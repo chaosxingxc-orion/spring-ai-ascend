@@ -1,0 +1,48 @@
+{
+  "id": "fund_recommend",
+  "description": "基金推荐",
+  "priority": 40,
+  "match": {
+    "type": "query",
+    "rules": [
+      {
+        "kind": "exclude_all",
+        "patterns": ["理财产品：产品名称：", "产品代码：", "金额："]
+      },
+      {
+        "kind": "keywords",
+        "any": ["基金", "fund", "基金推荐"],
+        "case_insensitive": true
+      }
+    ]
+  },
+  "output": {
+    "frames": [
+      { "node_type": "Start", "node_name": "StartNode", "delay_ms": 200 },
+      {
+        "node_type": "LLM",
+        "node_name": "{{config.llm_node}}",
+        "text": "正在分析您的风险偏好与投资期限...",
+        "delay_ms": 300
+      },
+      {
+        "node_type": "LLM",
+        "node_name": "{{config.llm_node}}",
+        "text": "正在筛选匹配的基金产品...",
+        "delay_ms": 300
+      },
+      {
+        "node_type": "LLM",
+        "node_name": "{{config.llm_node}}",
+        "text": "正在生成基金推荐结果...",
+        "delay_ms": 300
+      },
+      {
+        "node_type": "QA",
+        "node_name": "{{config.result_node}}",
+        "text_hook": "fund_product_filter_json",
+        "delay_ms": 100
+      }
+    ]
+  }
+}

@@ -117,3 +117,9 @@ gate/log/latest
 # pins the exact codegraph version).
 .codegraph/
 tools/codegraph/node_modules/
+
+# EDPA agent temp directory (test scripts, results, frontend tools)
+agent-store/edp-agent-java/temp/
+
+# EDPA agent todo runtime state (TaskPlanningRail persistence)
+agent-store/edp-agent-java/engine/.todo/

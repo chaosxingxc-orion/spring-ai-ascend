@@ -1,0 +1,9 @@
+# Prod profile: production deployment
+spring:
+  application:
+    name: edp-agent-engine-prod
+
+logging:
+  level:
+    com.huawei.ascend.edp: WARN
+    com.huawei.ascend.runtime: WARN

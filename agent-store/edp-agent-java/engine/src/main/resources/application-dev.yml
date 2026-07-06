@@ -1,0 +1,9 @@
+# Dev profile: local development
+spring:
+  application:
+    name: edp-agent-engine-dev
+
+logging:
+  level:
+    com.huawei.ascend.edp: DEBUG
+    com.huawei.ascend.runtime: INFO

@@ -36,6 +36,7 @@
     <module>agent-bus</module>
     <module>agent-runtime</module>
     <module>agent-service</module>
+    <module>agent-store/edp-agent-java</module>
   </modules>
 
   <properties>

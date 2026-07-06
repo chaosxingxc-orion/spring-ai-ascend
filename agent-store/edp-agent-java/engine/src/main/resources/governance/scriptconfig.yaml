@@ -1,0 +1,70 @@
+# 定位：定义Agent与人交互的话术配置和执行总结格式
+#
+# 作用：
+# - 回答Agent如何与人协同（话术模板、推送模式）
+# - 回答Agent何时需要人工参与（中断确认场景）
+# - 定义执行结果的总结输出格式
+
+# 话术配置
+scriptconfig:
+  # 通用话术，用于业务流程状态（工具调用、中断、取消等）
+  general_scripts:
+    tool_start: "正在调用：{tool_name}"
+    tool_end: "{tool_name} 执行完成"
+    todo_start: "开始执行：{title}"
+    todo_end: "{title} 已完成"
+    todolist_start: "规划任务清单"
+    todolist_end: "todolist规划完成"
+    interrupt_start: "需要您确认以下信息"
+    request_start: "您的请求已收到。"
+    planning_start: "我们正在为您进行规划。"
+    task_cancelled: "好的，已为您取消当前操作。如需其他帮助，请随时告诉我。"
+    cancel_confirm: "确认要取消当前操作吗？"
+    out_of_scope: "正在学习中，暂不支持该业务。"
+
+  #思维链话术配置，用于思维链展示（替代真实LLM thinking）
+  think_chunk_scripts:
+  #模式选择
+  # real_stream: 真实 LLM 流式 shard 直接推送前端
+  # fixed_script: 用预定义固定话术帧替代 LLM shard 推送前端
+    think_chunk_mode: fixed_script
+    # 固定话术帧配置（仅 think_chunk_mode=fixed_script 时生效）
+    think_chunk_fixed_scripts:
+      enabled: true
+      chars_per_frame: 4          # 每帧2字符（逐字渲染模式，0=不切分整句推送）
+      tokens_between_frames: 2   # 每累积2个LLM token推送一个子帧
+      min_interval_ms: 50        # 子帧间最少间隔100ms（0=不限速）
+
+      # ── planning 阶段话术（第1轮思考）──────────────────────────────
+      # 默认话术（query_patterns 全未命中时降级使用）
+      default_scripts:
+        - "正在分析您的需求..."
+
+      # 按用户 query 关键词匹配的话术组（planning 阶段，继承式覆盖）
+      # 按声明顺序遍历，首个关键词命中即生效
+      query_patterns: []
+
+      # ── executing 阶段话术（第2轮及后续思考轮次）────────────────────
+      # 当 Agent 在执行工具后进入反思/决策思考时使用
+      execution_scripts:
+        - "正在分析执行结果..."
+
+      # ── resuming 阶段话术（Cascade 续轮，query="continue"）─────────
+      # 当用户在中断后回复触发续轮时使用
+      resume_scripts:
+        - "当前业务步骤已为您处理完毕"
+
+  # ask_user 中断确认话术配置
+  # @用途: 用户确认购买/取消等中断场景的话术模板
+  # @策略: 继承式覆盖（逐字段合并）
+  # @消费方: AskUserTemplateRail（预留建模，当前未消费）
+  ask_user_confirm: {}
+
+  # 执行总结格式配置
+  summary:
+    format: "需求概述→规划过程→任务执行情况→结果汇总→异常说明"
+    max_length: 500
+    required_fields:
+      - 用户查询
+      - 执行步骤
+      - 结果状态

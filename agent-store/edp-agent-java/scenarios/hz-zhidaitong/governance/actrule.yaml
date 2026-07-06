@@ -1,0 +1,17 @@
+# hz-zhidaitong 场景执行规约（替代式覆盖框架默认值）
+
+actrule:
+  todolist_entries:
+    - catalog_id: loan_apply
+      content: "贷款申请"
+      description: "提交贷款申请信息"
+      depends_on: []
+      skill: "loan_apply_skill"
+    - catalog_id: loan_approval
+      content: "审批流程"
+      description: "贷款审批流程处理"
+      depends_on:
+        - loan_apply
+      skill: "loan_approval_skill"
+
+  todolist_dynamic_paths: []

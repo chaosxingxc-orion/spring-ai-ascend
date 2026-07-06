@@ -1,0 +1,52 @@
+debug: false
+
+spring:
+  application:
+    name: adapter-versatile-agent-java
+
+server:
+  port: ${VERSATILE_AGENT_PORT:8191}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+agent-runtime:
+  access:
+    a2a:
+      default-tenant-id: ${VERSATILE_AGENT_TENANT_ID:edp-tenant}
+      default-agent-id: versatile-agent
+
+# ── Versatile 远程 REST 服务配置（指向 versatile_main.py mock，可用环境变量覆盖到真实 versatile api）──
+versatile:
+  url: ${VERSATILE_URL:http://localhost:30001/v1/0/agent-manager/workflows/{workflow_id}/conversations/{conversation_id}}
+  timeout: 30s
+
+  url-variables:
+    workflow_id: ${VERSATILE_WORKFLOW_ID:mock_workflow}
+
+  query-params:
+    type: ${VERSATILE_QUERY_TYPE:controller}
+    workspace_id: ${VERSATILE_WORKSPACE_ID:10}
+
+  headers:
+    content-type: "application/json"
+    stream: "true"
+
+  # 上游 a2a metadata 允许透传到 REST 请求头的白名单
+  passthrough-headers:
+    - x-invoke-mode
+    - x-language
+
+  # 从 a2a metadata 合并进 REST body inputs 的字段
+  input-metadata-keys:
+    - intent
+    - wap_userName
+
+  # 结果节点（语义等价 Python 的 va_workflow_result_node）：仅 node_type 与 node_name
+  # 同时命中时才回灌上游 Agent，其余 message 节点完整 JSON 透传前端。
+  # mock(versatile_main.py) 的结果帧为 node_type=QA、node_name=GXZQAResponseNode。
+  result-node-type: ${VERSATILE_RESULT_NODE_TYPE:QA}
+  result-node-name: ${VERSATILE_RESULT_NODE_NAME:GXZQAResponseNode}
