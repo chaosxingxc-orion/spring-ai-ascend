@@ -1,0 +1,234 @@
+id: ADR-0161
+title: "Registry Discovery Contract — supersede ADR-0160 decision 2 (dual-method discovery → searchByAgentId single-value exact lookup)"
+status: accepted
+date: 2026-07-08
+level: L1
+view: logical
+affects_level: [L1, L2]
+affects_view: [logical, process, development]
+authors:
+  - zhongyiwei
+supersedes:
+  - adr: ADR-0160
+    decision: 2
+    scope: "dual-method discovery contract (Method A free-text + Method B capability-scoped) replaced by searchByAgentId single-value exact lookup"
+extends:
+  - ADR-0160    # Stage 4 Registry SPI Runtime Promotion — decisions 1/3/4/5/6/7 remain in force; only decision 2 is superseded by this ADR
+  - ADR-0069    # L0 Ironclad Rules — HD3-001..007 invariants still govern the registry; HD3-004 visibility window scope narrowed (discovery no longer uses it)
+relates_to:
+  - ADR-0077    # Schema-first domain contracts — ICD-Agent-Registry-Discovery requires concomitant revision (capability removed, agentType→frameworkType renamed, discoverBestAgents removed, searchByAgentId added)
+context: |
+  ADR-0160 decision 2 locked a dual-method discovery contract for
+  `AgentDiscoveryService`:
+
+    - Method A `discoverBestAgents(tenantId, userQuery, contractVersion, topK)`
+      → rich `AgentCardDto` (business definition fields populated) for
+      exploratory callers, backed by `search_tsv` tsvector free-text ranking.
+    - Method B `discoverBestAgents(tenantId, capability, userQuery, contractVersion, topK)`
+      → minimal `AgentCardDto` for capability-scoped routing.
+    - Both overloads plus `resolveRouteHandle` form the Stage 4 discovery SPI.
+
+  REQ-2026-004 introduced three coupled changes that together undermine the
+  foundations of decision 2:
+
+    1. **capability field globally removed.** A2A AgentCard (the 17-field
+       record exposed at `/.well-known/agent-card.json`) has no `capability`
+       concept. The pull-based registration path (PullRegistrationBootstrap
+       HTTP GETs each runtime's AgentCard) cannot populate a `capability`
+       column that does not exist in the source. Rather than carry a
+       pull-only placeholder, REQ-2026-004 chose to remove `capability`
+       globally (SPI / DB / discovery / push request body / audit log). With
+       `capability` gone, Method B's `(tenantId, capability, ...)` signature
+       has no semantic basis.
+
+    2. **free-text search infrastructure removed.** Method A's value
+       proposition was natural-language intent discovery via `search_tsv`
+       tsvector + GIN index + `ts_rank` ranking. REQ-2026-004 drops the
+       `search_tsv` column, its GIN index, and the `searchByIntent` /
+       `searchByCapability` repository methods. Without `search_tsv`,
+       Method A's `userQuery` parameter has no ranking substrate — a
+       `LIKE '%query%'` fallback would be neither correct (no ranking) nor
+       performant (full scan). The honest choice is to remove Method A
+       rather than leave a degenerate stub.
+
+    3. **discovery use-case narrowed to single-value exact lookup.** With
+       both dual methods gone, the remaining discovery need is: given a
+       known `agentId`, return its registry entry (or 404). This is the
+       lookup the forwarding layer actually performs after resolving a route
+       handle. `searchByAgentId(tenantId, agentId)` satisfies this with a
+       single PK hit — `(tenant_id, agent_id)` is the table's primary key.
+
+  The delta marks this change `baseline-breaking` (ADR-0160 decision 2
+  partial invalidation + ICD 5 routing field change + destructive API/Schema
+  + audit log 10→9 fields). H4 checkpoint (baseline-breaking强制) approved
+  this revision; this ADR records the post-hoc architectural rationale that
+  ADR-0160 decision 2's dual-method contract is no longer the discovery
+  contract for agent-rdc.
+
+  Decisions 1, 3, 4, 5, 6, 7 of ADR-0160 remain in force:
+    - Decision 1 (trip-wire evolution → ArchUnit purity guards): unchanged.
+    - Decision 3 (route handle forward-compatible decode): unchanged.
+      `resolveRouteHandle` stays on the SPI; `RouteHandleCodec` stays
+      internal to `runtime.discovery`.
+    - Decision 4 (JDBC confined to `persistence.jdbc`): unchanged. The new
+      `runtime.pull` package uses Spring `RestClient` (HTTP), not JDBC —
+      ArchUnit purity test extended to acknowledge `runtime.pull` as a
+      legitimate non-JDBC subpackage.
+    - Decision 5 (`resolveRouteHandle` as SPI method): unchanged.
+    - Decision 6 (three-layer tenant isolation): unchanged. Pull-based
+      upsert goes through `withTenant + app.tenant_id`, same path as push.
+    - Decision 7 (Spring Boot runnable + spring-boot-starter-web compile
+      scope): unchanged. `PullRegistrationBootstrap` is `@Component` +
+      `@ConditionalOnProperty`, auto-scanned by Spring Boot.
+
+decision: |
+  ADR-0160 decision 2 is superseded. The agent-rdc discovery contract is
+  revised as follows:
+
+    1. **searchByAgentId single-value exact lookup replaces dual-method
+       discovery.** `AgentDiscoveryService` exposes:
+         - `Optional<AgentCardDto> searchByAgentId(String tenantId, String agentId)`
+         - `RouteResolution resolveRouteHandle(String routeHandle, String tenantId)`
+       The two `discoverBestAgents` overloads (Method A free-text, Method B
+       capability-scoped) are removed from the SPI, the JDBC adapter, and
+       the runtime discovery implementation.
+
+    2. **capability field globally removed.** `AgentRegistryEntry`,
+       `AgentCardDto`, `AgentRegistryRepository.RegistryRow`, the
+       `agent_registry_mvp` table, push request bodies, and the audit log
+       all drop `capability`. The `capability_version` field (A2A contract
+       version, e.g. "0.3") is UNAFFECTED — it is a separate field retained
+       for contract-version filtering.
+
+    3. **agentType renamed to frameworkType.** `AgentRegistryEntry.agentType`
+       (String) becomes `AgentRegistryEntry.frameworkType` (FrameworkType
+       enum: JIUWEN / AGENTSCOPE / VERSATILE / PROXY_SERVICE). No UNKNOWN
+       fallback — pull config and push request body must specify a valid
+       enum name. DB column `agent_type` renamed to `framework_type`
+       (VARCHAR(32) NOT NULL preserved). A2A AgentCard has no
+       `frameworkType` field; the pull path derives it from operator config
+       (`rdc.pull-registration.runtimes[].frameworkType`), not from the
+       card JSON.
+
+    4. **free-text search infrastructure removed.** `search_tsv` column,
+       its GIN index, `searchByIntent`, `searchByCapability`, and
+       `discoverBestAgents` (both overloads) are deleted. V4 migration
+       drops the column + index irreversibly (no prod backfill provided —
+       PRD non-target).
+
+    5. **HD3-004 visibility window scope narrowed.** The 15-second
+       visibility window (HD3-004) is no longer used by discovery (which
+       no longer ranks by freshness). It remains in force for the health
+       probe scheduler's `scanDueForProbe` logic — unchanged there.
+
+    6. **ICD-Agent-Registry-Discovery revision required.** The ICD's 5
+       routing fields lose `capability` and rename `agentType` →
+       `frameworkType`. The ICD's "capability mandatory" query key rule
+       is removed; the discovery query key is now `(tenantId, agentId)`
+       (single-value exact lookup, PK hit). ICD revision is a concomitant
+       step-8 artifact (separate from this ADR, tracked in the baseline
+       freeze decision).
+
+    7. **audit log format: 10 → 9 fields.** `RegistryObservabilityConfig
+       .observeRegister` and `observeDiscover` signatures drop the
+       `capability` parameter. The audit log format string loses the
+       `capability={}` slot. Ops monitoring dashboards that parsed the
+       10-field format must update to 9 fields — flagged as a deployment
+       coordination item, not a code concern.
+
+consequences: |
+  Positive
+  --------
+    * Discovery contract is honest about what the system actually does.
+      The dual-method contract in ADR-0160 decision 2 was aspirational
+      (Method A's free-text ranking was never going to survive without
+      `search_tsv`, and Method B's `capability` key had no source-of-truth
+      once A2A AgentCard was adopted as the registration record). Removing
+      both in favor of a PK-exact lookup eliminates the aspirational
+      surface area.
+    * `searchByAgentId` is a single PK hit on `(tenant_id, agent_id)` —
+      no ranking, no tsvector, no GIN scan. Latency profile is
+      deterministic and trivially explainable.
+    * Pull-based registration (REQ-2026-004 S3) is now first-class: an
+      operator pins `frameworkType` in config, the bootstrap HTTP GETs
+      the A2A card, and the entry upserts with operator-supplied
+      frameworkType + card-derived agentName + raw card JSON. No field
+      has to be invented or placeholdered.
+    * `FrameworkType` enum makes the framework-type domain closed
+      (4 values, no UNKNOWN). Compile-time exhaustiveness checks apply
+      to every `switch` over the enum.
+
+  Negative
+  --------
+    * **Destructive schema change.** V4 migration drops `capability` and
+      `search_tsv` columns irreversibly. Prod deployments require human
+      sign-off (H4 checkpoint) — no auto-rollback, no backfill. Any
+      prod data in `capability` / `search_tsv` is lost.
+    * **Destructive API change.** Push callers that sent `agentType`
+      must send `frameworkType` (and a valid enum name, not free text).
+      Push callers that sent `capability` must stop sending it. Discovery
+      callers that invoked `discoverBestAgents` must migrate to
+      `searchByAgentId` (different semantics: exact lookup, not ranking).
+    * **Audit log format break.** Ops dashboards parsing the 10-field
+      audit log must update to 9 fields. This is a deployment
+      coordination item, not catchable by compilation.
+    * **ICD revision debt.** ICD-Agent-Registry-Discovery must be
+      revised (capability removed, agentType→frameworkType, discoverBestAgents
+      removed, searchByAgentId added). Tracked as a step-8 baseline freeze
+      concomitant artifact; until revised, the ICD text is stale vs the
+      code.
+    * **HD3-004 scope narrowed.** The 15-second visibility window no
+      longer applies to discovery. Future readers of HD3-004 must
+      understand the scope narrowing (discovery vs health-probe).
+
+  Neutral
+  -------
+    * ADR-0160 decisions 1/3/4/5/6/7 remain intact. This ADR is a
+      scoped supersession of decision 2 only — not a wholesale
+      replacement of ADR-0160.
+    * Cross-module shadow copies (spring-ai-ascend / agent-bus) are
+      explicitly out of scope (OQ-4 H2 decision: option C — shadow
+      copies deprecated, PRD notes them as non-target). Their migration
+      to the new contract is a separate future REQ if/when those
+      modules are reactivated.
+
+alternatives:
+  - option: "Keep dual-method discovery, add capability as pull-only placeholder"
+    rejected_because: |
+      Carrying a `capability` field that pull mode cannot populate would
+      require either NULL (breaks Method B's `(tenantId, capability, ...)`
+      key semantics) or a synthetic placeholder (e.g. "pull-registered" —
+      pollutes the capability namespace and mis-ranks Method B results).
+      The user explicitly chose global removal (REQ-2026-004 OQ-6 H2
+      decision) over placeholder.
+  - option: "Keep Method A free-text, drop only Method B"
+    rejected_because: |
+      Method A depends on `search_tsv` + GIN index + `ts_rank`. Without
+      Method B, `search_tsv` still has to be populated — but pull mode
+      has no free-text source (A2A AgentCard `description` field is
+      optional and not a capability description). Keeping `search_tsv`
+      for a degenerate Method A that can only `LIKE '%query%'` is neither
+      correct (no ranking) nor performant (full scan). The honest choice
+      is to remove Method A and the `search_tsv` substrate together.
+  - option: "Replace dual-method with ranking-free multi-value search (e.g. searchByFrameworkType)"
+    rejected_because: |
+      No current caller needs multi-value search by frameworkType. The
+      forwarding layer resolves a route handle to a single agent entry;
+      the only discovery need is single-value exact lookup. Adding a
+      multi-value search API without a caller would be premature
+      abstraction (Karpathy principle 3). Defer to a future REQ if/when
+      a multi-value search use-case emerges.
+
+audit_trail:
+  req_id: REQ-2026-004
+  h4_checkpoint: approved
+  h4_ruling_artifact: .harness/baselines/REQ-2026-004/step-8-baseline-decision.yaml
+  oq_references:
+    - OQ-1: "Method A deletion — confirmed"
+    - OQ-6: "ADR revision — deferred to step-8, this ADR fulfills it"
+  related_artifacts:
+    - ".harness/architecture-envelopes/REQ-2026-004/step-3-delta.yaml (升级标记: baseline-breaking)"
+    - ".harness/delivery-projections/REQ-2026-004/step-7-post-projection-check.yaml (H3 verdict: PASSED)"
+    - "src/main/resources/db/migration/V4__refactor_agent_registry_drop_capability_search_tsv_rename_framework_type.sql (irreversible)"
+    - "src/main/java/com/openjiuwen/rdc/spi/registry/FrameworkType.java (new enum)"
+    - "src/main/java/com/openjiuwen/rdc/spi/registry/AgentDiscoveryService.java (searchByAgentId replaces discoverBestAgents)"

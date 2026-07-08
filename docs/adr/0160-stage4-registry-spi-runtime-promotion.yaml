@@ -1,6 +1,10 @@
 id: ADR-0160
 title: "Stage 4 Registry SPI Runtime Promotion — trip-wire evolution + dual-method discovery contract + forward-compatible route handle"
 status: accepted
+status_note: |
+  Decision 2 (dual-method discovery contract) superseded by ADR-0161
+  (REQ-2026-004, 2026-07-08). Decisions 1/3/4/5/6/7 remain in force.
+  See `superseded_by` field below.
 date: 2026-07-02
 level: L1
 view: process
@@ -15,6 +19,12 @@ relates_to:
   - ADR-0077    # Schema-first domain contracts — ICD-Agent-Registry-Discovery is the schema this ADR implements
   - ADR-0151    # L1 feature registry canonical schema — AB-F12 feature entry this ADR advances from design to MVP
   - ADR-0158    # EnginePort transport-agnostic boundary — sibling SPI promotion pattern (bus.spi.engine) this ADR mirrors for bus.spi.registry
+superseded_by:
+  - adr: ADR-0161
+    decision: 2
+    scope: "dual-method discovery contract (Method A free-text + Method B capability-scoped) replaced by searchByAgentId single-value exact lookup"
+    date: 2026-07-08
+    req: REQ-2026-004
 context: |
   ICD-Agent-Registry-Discovery (HD3-001..007) has been design-level / contract-only
   since Stage 3. The existing trip-wire test
