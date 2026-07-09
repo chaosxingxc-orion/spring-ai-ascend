@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1050" viewBox="0 0 1560 1050" role="img" aria-labelledby="title desc">
+  <title id="title">Sandbox Lifecycle Sequence</title>
+  <desc id="desc">Sandbox lifecycle managed inside the external sandbox service and observed through agent-bus heartbeat, load, drain, and lifecycle contracts.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2f3a4a"/>
+    </marker>
+    <style>
+      .bg { fill: #ffffff; }
+      .title { font: 700 28px Arial, sans-serif; fill: #1f2937; }
+      .subtitle { font: 15px Arial, sans-serif; fill: #475569; }
+      .head { fill: #e0f2fe; stroke: #0284c7; stroke-width: 1.3; rx: 8; }
+      .bus { fill: #fef3c7; stroke: #d97706; stroke-width: 1.3; rx: 8; }
+      .svc { fill: #ecfdf5; stroke: #059669; stroke-width: 1.3; rx: 8; }
+      .pool { fill: #eef2ff; stroke: #4f46e5; stroke-width: 1.3; rx: 8; }
+      .worker { fill: #f1f5f9; stroke: #64748b; stroke-width: 1.3; rx: 8; }
+      .label { font: 13px Arial, sans-serif; fill: #0f172a; }
+      .small { font: 12px Arial, sans-serif; fill: #334155; }
+      .line { stroke: #94a3b8; stroke-width: 1; stroke-dasharray: 5 5; }
+      .msg { stroke: #2f3a4a; stroke-width: 1.7; marker-end: url(#arrow); fill: none; }
+      .return { stroke: #475569; stroke-width: 1.5; stroke-dasharray: 6 4; marker-end: url(#arrow); fill: none; }
+      .warn { stroke: #dc2626; stroke-width: 1.8; marker-end: url(#arrow); fill: none; }
+      .note { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.1; rx: 8; }
+      .noteText { font: 13px Arial, sans-serif; fill: #334155; }
+    </style>
+  </defs>
+  <rect class="bg" width="1560" height="1050"/>
+  <text class="title" x="40" y="48">Sandbox Lifecycle Sequence</text>
+  <text class="subtitle" x="40" y="76">The external sandbox service owns workers, leases, lifecycle, health, trust-health, scaling, quarantine, and force kill.</text>
+
+  <g id="participants">
+    <rect class="head" x="70" y="110" width="185" height="52"/>
+    <text class="label" x="92" y="132">agent-service</text>
+    <text class="small" x="92" y="150">SandboxGateway</text>
+    <line class="line" x1="162" y1="162" x2="162" y2="980"/>
+
+    <rect class="bus" x="330" y="110" width="165" height="52"/>
+    <text class="label" x="382" y="132">agent-bus</text>
+    <text class="small" x="350" y="150">control/rhythm/data</text>
+    <line class="line" x1="412" y1="162" x2="412" y2="980"/>
+
+    <rect class="svc" x="570" y="110" width="210" height="52"/>
+    <text class="label" x="605" y="132">external sandbox service</text>
+    <text class="small" x="618" y="150">scheduler + lifecycle</text>
+    <line class="line" x1="675" y1="162" x2="675" y2="980"/>
+
+    <rect class="pool" x="855" y="110" width="175" height="52"/>
+    <text class="label" x="895" y="132">internal pool</text>
+    <text class="small" x="884" y="150">leases + states</text>
+    <line class="line" x1="942" y1="162" x2="942" y2="980"/>
+
+    <rect class="worker" x="1110" y="110" width="175" height="52"/>
+    <text class="label" x="1143" y="132">sandbox worker</text>
+    <text class="small" x="1134" y="150">Docker / Pod / VM</text>
+    <line class="line" x1="1197" y1="162" x2="1197" y2="980"/>
+
+    <rect class="head" x="1360" y="110" width="140" height="52"/>
+    <text class="label" x="1390" y="132">Audit</text>
+    <text class="small" x="1380" y="150">trace/metrics</text>
+    <line class="line" x1="1430" y1="162" x2="1430" y2="980"/>
+  </g>
+
+  <g id="messages">
+    <path class="msg" d="M162 210 H412"/>
+    <text class="small" x="210" y="201">SandboxLeaseRequest</text>
+    <path class="msg" d="M412 250 H675"/>
+    <text class="small" x="470" y="241">allocate or reuse lease</text>
+    <path class="msg" d="M675 290 H942"/>
+    <text class="small" x="735" y="281">lookup SandboxSessionKey</text>
+
+    <path class="return" d="M942 335 H675"/>
+    <text class="small" x="735" y="326">existing healthy lease</text>
+    <path class="return" d="M675 370 H412"/>
+    <text class="small" x="470" y="361">SandboxLeaseResponse(reused)</text>
+    <path class="return" d="M412 405 H162"/>
+    <text class="small" x="220" y="396">lease response</text>
+
+    <rect class="note" x="600" y="430" width="395" height="58"/>
+    <text class="noteText" x="620" y="454">If no compatible lease exists, the sandbox service</text>
+    <text class="noteText" x="620" y="474">creates a worker and verifies policy/trust health.</text>
+
+    <path class="msg" d="M675 520 H1197"/>
+    <text class="small" x="825" y="511">start container/Pod/VM</text>
+    <path class="msg" d="M675 560 H1197"/>
+    <text class="small" x="790" y="551">apply network/fs/cpu/memory/time policy</text>
+    <path class="return" d="M1197 600 H675"/>
+    <text class="small" x="820" y="591">liveness + readiness OK</text>
+    <path class="msg" d="M675 640 H675"/>
+    <text class="small" x="694" y="632">verify trust health</text>
+    <path class="msg" d="M675 680 H942"/>
+    <text class="small" x="745" y="671">register instance + create lease</text>
+    <path class="return" d="M942 720 H675"/>
+    <text class="small" x="760" y="711">SandboxLease</text>
+    <path class="return" d="M675 755 H412"/>
+    <text class="small" x="475" y="746">SandboxLeaseResponse(created)</text>
+    <path class="msg" d="M675 790 H1430"/>
+    <text class="small" x="910" y="781">audit: sandbox_started + ready + lease_granted</text>
+
+    <path class="return" d="M675 835 H412"/>
+    <text class="small" x="470" y="826">SandboxHeartbeat</text>
+    <path class="return" d="M675 870 H412"/>
+    <text class="small" x="470" y="861">SandboxLoadReport</text>
+    <path class="msg" d="M675 905 H942"/>
+    <text class="small" x="740" y="896">mark ready / busy / overloaded / unhealthy</text>
+
+    <path class="warn" d="M162 940 H412"/>
+    <text class="small" x="200" y="931">SandboxDrainCommand</text>
+    <path class="warn" d="M412 970 H675"/>
+    <text class="small" x="485" y="961">drain / quarantine / force kill</text>
+    <path class="warn" d="M675 1000 H1197"/>
+    <text class="small" x="805" y="991">stop new work, revoke secrets, delete workspace, terminate</text>
+  </g>
+</svg>
