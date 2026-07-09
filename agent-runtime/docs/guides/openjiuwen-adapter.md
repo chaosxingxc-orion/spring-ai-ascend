@@ -91,7 +91,7 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
 | 方法 | 用途 |
 |------|------|
 | `createOpenJiuwenAgent` | 构建 Agent 实例（必实现） |
-| `openJiuwenRails` | 注入轨迹/记忆/远程工具 Rail |
+| `openJiuwenRails` | 注入 OpenJiuwen 本地 Rail，例如记忆、沙箱、工具治理 |
 | `openJiuwenConversationId` | 返回稳定 conversation_id（= agentStateKey） |
 | `toOpenJiuwenInput` | AgentExecutionContext → openJiuwen 输入 |
 
@@ -119,6 +119,8 @@ public abstract class OpenJiuwenAgentRuntimeHandler extends AbstractAgentRuntime
     );
 }
 ```
+
+Rail 注册顺序固定为：`openJiuwenRails(context)` 返回的业务/框架本地 Rail 先注册，随后安装 runtime tool，最后在开启轨迹采集时注册 runtime trajectory rail。因此自定义 Rail 不应假设 trajectory callback 已经存在；如果子类复用同一个 `BaseAgent` 实例，也需要保证 Rail 注册幂等，避免同一个 Rail 重复安装。
 
 三种内置 Rail：
 

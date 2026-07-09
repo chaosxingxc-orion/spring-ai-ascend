@@ -104,6 +104,8 @@ public interface MemoryProvider {
 
 `MemoryRuntimeRail` 在 `beforeInvoke` 时检索记忆并注入 system message，`afterInvoke` 时从 model context 提取消息并保存。
 
+`memoryRuntimeRail(...)` 由业务 handler 在 `openJiuwenRails(context)` 中显式返回；这些 Rail 会先于 runtime tool 和 trajectory rail 注册。通常每次执行创建新的 OpenJiuwen `BaseAgent`，如果业务侧复用 Agent 实例，需要自行避免重复注册同一个记忆 Rail。
+
 ### Harness 兼容记忆（ExternalMemoryRail）
 
 ```java
