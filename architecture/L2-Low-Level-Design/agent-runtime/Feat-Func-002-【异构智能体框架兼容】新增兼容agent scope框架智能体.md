@@ -2,9 +2,11 @@
 level: L2-LLD
 module: agent-runtime-ext-java
 feature_type: functional
-feature_id: Feat-Func-003
-status: draft
+feature_id: Feat-Func-002
+status: active
 dependency:
+  - ../../L1-High-Level-Design/agent-runtime/api-appendix.md
+  - Feat-Func-002-heterogeneous-agent-framework-compatibility.md
   - openJiuwen/agent-runtime-java/service/agent-service-spec
   - AgentFramework/agentscope-java
 ---
@@ -12,7 +14,9 @@ dependency:
 # AgentScope Java Adapter 设计文档
 
 > 目标模块：`common/agent-runtime-ext-java/agent-service-adapters/agent-service-adapters-agentscope`
-> 最后更新：2026-07-09
+> 最后更新：2026-07-10
+
+说明：本文是 Feat-Func-002 在 openJiuwen 社区 `agent-runtime-java` 扩展仓中的本地 AgentScope 子设计，不替代同目录主文档对 `spring-ai-ascend/agent-runtime` 的本地/远程 AgentScope adapter 设计。L1 中立角色 `AgentRuntimeHandler` 在本实现中映射为 `com.openjiuwen.service.spec.spi.AgentHandler`；adapter 只产出结果/中断/失败语义，不直接写 A2A `TaskStore` 或成为第二个 Task 生命周期 owner。
 
 ---
 
@@ -22,7 +26,7 @@ dependency:
 
 本特性为 `agent-runtime-java` 的扩展仓 `agent-runtime-ext-java` 增加 AgentScope Java 本地适配层。适配层把 OpenJiuwen runtime 的 `AgentHandler` SPI 桥接到 AgentScope Java 的进程内强类型 API，使宿主应用可以通过同一个 runtime 服务入口调用 AgentScope Java agent。
 
-本特性只做 **本地进程内 Java 适配**：宿主应用在同一个 JVM 内构建好 `ReActAgent` 或 `HarnessAgent`，adapter 负责请求、响应、流式事件、中断输出以及同会话续轮输入透传。
+本特性只做 **本地进程内 Java 适配**：宿主应用在同一个 JVM 内构建好 `ReActAgent` 或 `HarnessAgent`，adapter 负责请求、响应、流式事件、中断输出，以及可用普通消息恢复的同会话续轮输入透传。
 
 ### 1.2 问题与目标
 
@@ -33,7 +37,7 @@ OpenJiuwen runtime 对外只认识 `AgentHandler`、`ServeRequest`、`QueryRespo
 - `query()` / `streamQuery()` 调用 AgentScope Java 本地 API。
 - 将 runtime 请求映射为 AgentScope `RuntimeContext` 和 `Msg`。
 - 将 AgentScope `Msg` / `AgentEvent` 映射为 runtime `QueryResponse` / `QueryChunk`。
-- 将同一个 `conversationId` 稳定映射到同一个 AgentScope `sessionId`，续轮输入按普通 `Msg` 透传。
+- 将同一个 `conversationId` 稳定映射到同一个 AgentScope `sessionId`；仅对 standalone `RequestStopEvent` 承诺普通 `Msg` 续轮。
 
 ### 1.3 当前事实边界
 
@@ -42,35 +46,42 @@ OpenJiuwen runtime 对外只认识 `AgentHandler`、`ServeRequest`、`QueryRespo
 1. `AgentHandler` SPI 只有 `query`、`streamQuery`、`start`、`stop`、`clearSession(String conversationId)`。
 2. 本模块不提供运行时 handler 选择器，不把配置项解释为自动激活 `AgentHandler` 的开关。
 3. 首版不引入 adapter 专属业务配置项；宿主应用只需显式声明 `AgentHandler` bean。
-4. AgentScope Java `ReActAgent` 单实例不是线程安全的；如果 adapter 直接包装同一个 `ReActAgent` bean，需要避免发起 AgentScope 明确不支持的重入调用。
-5. AgentScope Java `HarnessAgent` 的状态、并发和资源语义由 AgentScope 自身负责，adapter 只做调用桥接。
-6. AgentScope Java `ReActAgent` 内部按 `(userId, sessionId)` 维护 agent state；同一个 `sessionId` 是找回 pending 状态的必要条件。
-7. AgentScope Java 部分确认/外部执行场景可能需要框架原生恢复对象。首版 adapter 不构造这些对象，只做同 session 普通消息透传；如果 AgentScope 自身不能用普通消息继续推进，则按运行时错误处理。
+4. AgentScope Java `ReActAgent` 按 `(userId, sessionId)` 缓存状态并按 slot 串行化调用；同一 slot 串行，不同 slot 可以并行，adapter 不增加全局互斥锁。
+5. AgentScope `streamEvents(...)` 是异步 `Flux<AgentEvent>`，而 `AgentHandler.streamQuery(...)` 是同步回调方法；handler 必须维持调用直到流终止，否则 `ServeOrchestrator` 会提前注销 active stream。
+6. runtime 生命周期中断通过可选 `AgentInterruptHandler` 下发；adapter handler 同时实现该接口，并将 conversation 定向到 AgentScope `(userId, sessionId)` 中断。
+7. `RequestStopEvent` 支持同 session 下一次 `call(...)` 继续；`RequireUserConfirmEvent` 需要 `Msg.METADATA_CONFIRM_RESULTS`，pending external tool 需要 `ToolResultBlock`。首版不伪造这些原生恢复对象。
+
+### 1.4 版本
+
+AgentScope Java：`2.0.0-SNAPSHOT`。
 
 ---
 
-## 2. 特性规格
+## 2. 功能规格
 
 ### 2.1 能力清单
 
 | 能力 | 状态 | 说明 |
 |------|------|------|
-| 新增 Maven 模块 | 必须 | `agent-service-adapters-agentscope` |
+| 新增 Maven 模块 | 必须 | `agent-service-adapters-agentscope`，统一承载 ReAct 与 Harness 适配 |
 | `AgentHandler.query` | 必须 | 调用 AgentScope `call(...)`，返回 `QueryResponse` |
 | `AgentHandler.streamQuery` | 必须 | 调用 AgentScope `streamEvents(...)`，输出 `QueryChunk` |
 | `ServeRequest -> RuntimeContext` | 必须 | 映射 conversationId/userId/tenantId/spaceId |
-| `ServeRequest.messages -> List<Msg>` | 必须 | 支持文本消息、常见 role、同会话续轮输入透传 |
+| `ServeRequest.messages -> List<Msg>` | 必须 | 支持文本消息、常见 role；原生 confirm/tool-result 不在通用消息映射中猜测 |
 | `Msg -> QueryResponse.result` | 必须 | 默认 `{role:"assistant", content:"..."}` |
 | `AgentEvent -> QueryChunk` | 必须 | text delta、interrupt、error 映射 |
-| `ReActAgent` 适配 | 必须 | 本地进程内调用 `ReActAgent.call/streamEvents`；直接包装单实例时做最小调用保护 |
+| `ReActAgent` 适配 | 必须 | 本地进程内调用 `ReActAgent.call/streamEvents`；并发交给 AgentScope per-slot 串行化 |
 | `HarnessAgent` 适配 | 必须 | 本地进程内调用 `HarnessAgent.call/streamEvents` |
 | Spring Boot properties | 排除首版 | 首版不引入 adapter 专属业务配置项 |
-| 中断输出 | 必须 | AgentScope 暂停/中断事件映射为 `QueryChunk.TYPE_INTERRUPT` |
-| 续轮输入透传 | 必须 | 下一次 `query` / `streamQuery` 使用同一 `conversationId/sessionId`，把用户新输入作为普通 `Msg` 交给 AgentScope |
+| Reactor 桥接 | 必须 | Mono 超时阻塞；Flux 订阅、取消、超时和 terminal 生命周期闭环 |
+| 生命周期中断 | 必须 | handler 实现 `AgentInterruptHandler`，按 conversation 定向 dispose + AgentScope interrupt |
+| 中断输出 | 部分支持 | 仅 `RequestStopEvent` 映射 runtime interrupt；原生确认/外部执行映射明确的 unsupported error |
+| 可普通续轮输入透传 | 必须 | standalone `RequestStopEvent` 后使用同一 `conversationId/sessionId`，把用户新输入作为普通 `Msg` 交给 AgentScope |
 | AgentScope 原生恢复转换 | 排除首版 | 不在首版自动构造 AgentScope 原生恢复对象 |
 | 多模态完整映射 | 排除首版 | 首版文本优先 |
 | 自动构建 AgentScope agent | 排除首版 | model/toolkit/workspace/sandbox 配置面过大 |
 | 自动注册 `AgentHandler` | 排除首版 | 避免模块被引入后自动接管服务入口 |
+| 通用 AgentScope 原生 resume SPI | 排除首版 | runtime 当前没有 ConfirmResult/ToolResultBlock 的稳定 DTO |
 
 ### 2.2 显式排除
 
@@ -80,14 +91,15 @@ OpenJiuwen runtime 对外只认识 `AgentHandler`、`ServeRequest`、`QueryRespo
 | adapter 专属业务配置项 | 首版行为固定，配置会扩大使用和测试面 | 代码内固定默认策略，后续确有差异化需求再加配置 |
 | 自动构建 `ReActAgent` | model/toolkit/state/tool 配置面太大，超出适配层职责 | 宿主应用自行构建 agent bean |
 | 依赖 `Agent.stream(...)` | `StreamableAgent.stream(...)` 已 deprecated，事件模型粗糙 | 使用 `ReActAgent/HarnessAgent.streamEvents(...)` |
-| 自动构造 AgentScope 原生恢复对象 | 当前 runtime 没有通用 resume DTO，A2A 入口也只透传文本；适配层不应猜测用户确认或工具结果 | 首版只做同 session 续轮透传；原生恢复转换后续按明确协议增强 |
+| 自动构造 AgentScope 原生恢复对象 | 当前 runtime 没有通用 resume DTO，A2A 入口也只透传文本；适配层不应猜测用户确认或工具结果 | `RequestStopEvent` 可同 session 普通续轮；确认/外部工具恢复返回明确 unsupported error |
 | AgentScope 自启动 HTTP 服务 | AgentScope Java core/harness 本身不是 runtime server | 由宿主 Spring Boot 应用暴露 OpenJiuwen runtime 服务 |
+| adapter 全局并发锁 | AgentScope 已按 `(userId, sessionId)` 串行化，额外全局锁会错误压制跨会话并行 | 直接使用 AgentScope per-slot 调度 |
 
-## 3. 核心实现
+## 3. 核心设计（Logical + Process View）
 
 ### 3.1 为什么不是统一适配 `Agent` 接口
 
-`AgentScopeAgentHandler` 对 runtime 只暴露 `AgentHandler`。handler 内部统一委托给 `AgentScopeAdapterInvoker`，但该接口是模块内部实现细节，首版只由 adapter 内置的两个实现创建：
+`AgentScopeAgentHandler` 对 runtime 实现 `AgentHandler` 和 `AgentInterruptHandler`。handler 委托给模块内部的 `AgentScopeInvoker`，首版提供两个强类型实现：
 
 1. `ReActAgentScopeInvoker`：包装业务已经构建好的 `ReActAgent`。
 2. `HarnessAgentScopeInvoker`：包装业务已经构建好的 `HarnessAgent`。
@@ -105,32 +117,33 @@ HarnessAgent.streamEvents(List<Msg>, RuntimeContext)
 2. 使用反射调用 `streamEvents(...)`，丢失编译期安全和版本可控性。
 3. 只支持 `call(...)` 非流式，无法满足 runtime streaming 和中断事件输出。
 
-因此设计是 **一个 handler + 一个内部 adapter invoker 抽象 + 两个内置 invoker 实现**。用户装配时只传入已构建好的 `ReActAgent` 或 `HarnessAgent`，不直接感知 `AgentScopeAdapterInvoker`。
+因此设计是 **一个共享 handler + 一个内部 invoker 契约 + 两个强类型实现**。用户只通过 handler 工厂传入已构建好的 `ReActAgent` 或 `HarnessAgent`，无需直接实现 `AgentScopeInvoker`。
 
 ### 3.2 两类 AgentScope agent 差异
 
 | 来源 | 定位 | 适配策略 |
 |------|------|----------|
-| `ReActAgent` | AgentScope core 基础 ReAct 实现 | adapter 直接调用 `call/streamEvents`；直接包装单实例时做最小调用保护 |
+| `ReActAgent` | AgentScope core 基础 ReAct 实现 | adapter 直接调用 `call/streamEvents`；同 slot 串行、跨 slot 并行由 AgentScope 自身保证 |
 | `HarnessAgent` | 带 workspace/sandbox/skills/memory/subagent/plan mode 的增强运行时 | adapter 直接调用 `call/streamEvents`；状态和并发语义由 AgentScope 自身负责 |
 
 两类 agent 不能压成一种实现的关键原因：
 
 - `ReActAgent` 和 `HarnessAgent` 的公共 `Agent` 接口不足以表达细粒度 streaming。
-- `ReActAgent` 单实例存在重入风险，需要 adapter 明确直接包装时的调用边界；限制来源于 `ReActAgent` 源码 thread-safety 注释：单实例一次只处理一个 `call()`，同实例并发调用会抛 `IllegalStateException`。
+- `ReActAgent` 的状态与串行键来自 `RuntimeContext.userId/sessionId`；adapter 必须稳定映射这两个字段，不能再加实例级互斥覆盖框架并发模型。
 - `HarnessAgent` 的运行模型、依赖对象和并发语义不同于 `ReActAgent`，需要独立 invoker 明确边界。
 
 ### 3.3 ReActAgent 调用边界
 
-`ReActAgent` 单实例不支持重入调用。这个限制来自 AgentScope Java `ReActAgent` 源码自身的 thread-safety 契约：单个实例一次只处理一个 `call()`，同一实例的并发调用会抛 `IllegalStateException`。adapter 不是通用并发治理层，但在直接包装同一个 `ReActAgent` bean 时，必须避免把两个 runtime 请求同时打到该实例上。
+当前 AgentScope Java `ReActAgent.callSerializationKey(...)` 返回 `(userId, sessionId)` slot key。框架缓存每个 slot 的 `AgentState` / `PermissionEngine`，同一 slot 的调用串行，不同 slot 的调用可以并行；每次 `streamEvents` 订阅也使用独立 event sink。
 
 `ReActAgentScopeInvoker` 的职责边界：
 
-- 可以用轻量互斥保护同一个被包装实例，保证同一实例一次只执行一个 `call(...)` 或 `streamEvents(...)`。
-- 结束、错误或取消时必须释放保护，避免后续请求永久阻塞。
-- 不负责线程池、排队策略、租户隔离、对象池、限流或调度公平性。
+- 必须把 `ServeRequest.userId/conversationId` 稳定映射为 `RuntimeContext.userId/sessionId`。
+- 禁止增加覆盖整个 `ReActAgent` 实例的 semaphore / synchronized 全局互斥。
+- 同一 conversation 的并发到达交给 AgentScope slot gate 排队；不同 conversation 不被 adapter 阻塞。
+- adapter 只管理 Reactor 订阅生命周期，不接管 AgentScope 的状态锁、线程池、限流或调度公平性。
 
-如果宿主应用需要更高并发，应由 runtime 部署形态、业务声明的 agent bean 或 AgentScope 实例构建方式处理。adapter 只遵守被包装实例的合法调用边界。
+定向中断必须调用 `ReActAgent.interrupt(userId, sessionId)`；禁止使用 deprecated 的无参 `interrupt()`，否则并发场景下可能中断错误的会话。
 
 ### 3.4 HarnessAgent 策略
 
@@ -140,38 +153,88 @@ HarnessAgent.streamEvents(List<Msg>, RuntimeContext)
 
 - `call(...)` 直接调用 `HarnessAgent.call(messages, context)`。
 - `streamEvents(...)` 直接调用 `HarnessAgent.streamEvents(messages, context)`。
-- 不使用 `ReActAgentScopeInvoker` 的单实例重入保护；以 `HarnessAgent` 自身的状态和调用语义为准。
+- 不增加 adapter 全局互斥；以 Harness 包装的 ReAct per-slot 状态和 Harness 资源生命周期语义为准。
 `HarnessAgentScopeInvoker` 与 `ReActAgentScopeInvoker` 同属本地强类型适配，不通过字符串事件协议或网络协议中转。
+
+### 3.5 Reactor 到 AgentHandler 的桥接
+
+`AgentHandler` 是同步/回调契约，桥接层不能仅调用 `subscribe()` 后立即返回。
+
+非流式 `query()`：
+
+```text
+map request/context/messages
+  -> invoker.call(messages, context)
+  -> timeout(options.queryTimeout)
+  -> block()
+  -> Msg / ASKING tool state 映射
+  -> QueryResponse
+```
+
+- 调用前登记 active invocation；正常、异常、超时均在 `finally` 移除。
+- 超时调用 invoker 的定向 `interrupt(userId, sessionId)`，抛出 `AGENTSCOPE_QUERY_TIMEOUT`，由 runtime 错误链统一返回。
+- 非流式结果若携带 ASKING tool 状态，不包装成普通 ask-user interrupt，而返回 `AGENTSCOPE_NATIVE_CONFIRM_RESUME_UNSUPPORTED`。
+
+流式 `streamQuery()`：
+
+```text
+Flux<AgentEvent>
+  -> absolute stream timeout
+  -> subscribe(serial event mapping)
+  -> retain Disposable + terminal latch
+  -> current thread waits for complete/error/cancel
+  -> finally dispose, unregister active invocation
+```
+
+- `streamQuery()` 必须等待流 terminal，防止 `ServeOrchestrator.streamQuery()` 的 `finally` 提前注销 active stream。
+- `onNext` 映射和 `observer.onNext` 按单订阅顺序串行执行；用原子 terminal 标记保证 `onError/onComplete` 至多一次。
+- 等待期间按 `cancellationPollInterval` 检查 `observer.isCancelled()`；断连时 dispose subscription，并定向 interrupt AgentScope slot。
+- `streamTimeout` 是单次流的绝对最长执行时间，不因中间 event 到达而重置；超时输出一个 `TYPE_ERROR` 后结束。
+- active registry 使用 `conversationId -> invocationId -> ActiveInvocation`，同 conversation 有多个在途调用时，生命周期中断会取消全部记录，不能因覆盖 map entry 漏掉旧调用。
+
+调用线程要求：
+
+- Spring MVC 当前通过 `CompletableFuture.runAsync(...)` 执行 `orchestrator.streamQuery(...)`，不会占用 Servlet 请求线程；生产实现应改用可配置的受管 executor，避免长期占用公共 ForkJoinPool。
+- Spring WebFlux 当前在 `Flux.create(...)` 的 subscription callback 中直接调用同步 orchestrator。该 Flux **必须**使用 `subscribeOn` 切换到 `boundedElastic` 或宿主提供的有界 worker scheduler；只在下游使用 `publishOn` 不能移动阻塞的 subscription callback。
+- 如果 WebFlux 入口未完成上述 offload，本 adapter 不得在 WebFlux 模式启用，否则长流会阻塞 Netty event-loop。该 app 层改动是首版落地前置项，不属于 AgentScope mapper 内部可自行修复的行为。
 
 ---
 
-## 4. 代码结构
+## 4. 模块结构（Development View）
 
 ### 4.1 包结构
 
 ```text
 agent-service-adapters-agentscope/
 ├─ pom.xml
-├─ src/main/java/com/openjiuwen/service/adapters/agentscope/
-│  ├─ agentfw/
-│  │  ├─ AgentScopeAgentHandler.java
-│  │  ├─ AgentScopeMessageMapper.java
-│  │  ├─ AgentScopeRuntimeContextMapper.java
-│  │  └─ AgentScopeEventMapper.java
-│  └─ autoconfigure/
-│     └─ AgentScopeAutoConfiguration.java
-└─ src/main/resources/META-INF/spring/
-   └─ org.springframework.boot.autoconfigure.AutoConfiguration.imports
+└─ src/main/java/com/openjiuwen/service/adapters/agentscope/
+   ├─ agentfw/
+   │  ├─ AgentScopeAgentHandler.java       # AgentHandler + AgentInterruptHandler + 两类工厂
+   │  ├─ AgentScopeInvoker.java            # 模块内部桥接契约
+   │  ├─ ReActAgentScopeInvoker.java       # 强类型 ReActAgent 调用与定向中断
+   │  ├─ HarnessAgentScopeInvoker.java     # 强类型 HarnessAgent 调用与定向中断
+   │  ├─ AgentScopeAdapterOptions.java     # timeout / cancel poll 配置
+   │  └─ AgentScopeInvocationRegistry.java # active invocation 生命周期
+   └─ mapping/
+      ├─ AgentScopeMessageMapper.java
+      ├─ AgentScopeRuntimeContextMapper.java
+      └─ AgentScopeEventMapper.java
 ```
 
-### 4.2 内部调用抽象
+### 4.2 核心静态关系
 
-`AgentScopeAdapterInvoker` 是 `AgentScopeAgentHandler` 内部接口，不需要拆成独立 Java 文件。首版只有两个实现，建议作为 `AgentScopeAgentHandler` 的 `private static` 内部类：
+```text
+AgentHandler --------------------┐
+AgentInterruptHandler -----------+--> AgentScopeAgentHandler
+                                      | uses
+                                      v
+                                AgentScopeInvoker <<internal interface>>
+                                  ^                         ^
+                                  |                         |
+                         ReActAgentScopeInvoker    HarnessAgentScopeInvoker
+```
 
-- `ReActAgentScopeInvoker`：包装 `ReActAgent`，负责单实例互斥保护。
-- `HarnessAgentScopeInvoker`：包装 `HarnessAgent`，直接桥接 `call/streamEvents`。
-
-这样用户侧只看到 `AgentScopeAgentHandler.forReActAgent(...)` / `forHarnessAgent(...)`，实现侧也避免为内部策略创建过多顶层类。
+`AgentScopeInvoker` 不进入对外 API。`AgentScopeAgentHandler.forReActAgent(...)` 与 `forHarnessAgent(...)` 分别创建对应 invoker；公共 handler、mapper、options 和 invocation registry 由两类 Agent 共用。
 
 执行链路：
 
@@ -179,12 +242,12 @@ agent-service-adapters-agentscope/
 ServeRequest
   -> AgentScopeRuntimeContextMapper
   -> AgentScopeMessageMapper
-  -> AgentScopeAgentHandler 内部 AgentScopeAdapterInvoker
+  -> AgentScopeAgentHandler / AgentScopeInvoker
   -> AgentScopeEventMapper / response mapper
   -> QueryResponse / QueryChunk
 ```
 
-`AgentScopeMessageMapper` 只负责把 runtime 消息转换为 AgentScope `Msg`。首版不实现独立的 AgentScope 原生恢复转换器，也不保存 pending 恢复上下文。
+`AgentScopeMessageMapper` 只负责把 runtime 消息转换为 AgentScope `Msg`。active invocation registry 只保存取消所需的 userId/sessionId、Disposable 和 terminal signal，不保存或伪造 AgentScope pending 恢复对象。
 
 ---
 
@@ -221,7 +284,7 @@ ServeRequest
 1. `content` 是字符串：直接转文本。
 2. `content` 是 list/map：提取 `text`、`content`、OpenAI-style `{type:"text", text:"..."}`。
 3. 无法结构化提取：`String.valueOf(content)`，原始对象放入 metadata。
-4. 不识别 adapter 自定义 resume schema；续轮输入仍按普通消息进入 AgentScope，由 AgentScope 根据同一 `sessionId` 的内部状态自行处理。
+4. 不识别 adapter 自定义 resume schema；普通消息只用于 standalone `RequestStopEvent` 续轮，不用于替代 `ConfirmResult` 或 `ToolResultBlock`。
 
 消息模式首版固定为 full history：adapter 按 `ServeRequest.messages` 当前内容顺序整体转换为 AgentScope `Msg` 列表，不提供 `last-user-only` 等配置开关。
 
@@ -265,7 +328,9 @@ ServeRequest
 | `ToolCallEndEvent` | `TYPE_CHUNK` | `tool_call_end` |
 | `ToolResultTextDeltaEvent` | `TYPE_CHUNK` | `tool_result_delta` |
 | `AgentResultEvent` | `TYPE_CHUNK`，首版默认不输出 | `final` |
-| AgentScope pause/interrupt event | `TYPE_INTERRUPT` | `__interaction__` |
+| standalone `RequestStopEvent` | `TYPE_INTERRUPT` | `__interaction__` |
+| `RequireUserConfirmEvent` | `TYPE_ERROR` | `AGENTSCOPE_NATIVE_CONFIRM_RESUME_UNSUPPORTED` |
+| `RequireExternalExecutionEvent` | `TYPE_ERROR` | `AGENTSCOPE_EXTERNAL_EXECUTION_RESUME_UNSUPPORTED` |
 | `ExceedMaxItersEvent` | `TYPE_ERROR` | `agentscope_error` |
 | unknown event | `TYPE_CHUNK`，首版默认不输出 | `agentscope_event` |
 
@@ -286,68 +351,46 @@ ServeRequest
 - interrupt
 - error
 
-### 6.2 中断输出
+### 6.2 中断与恢复支持矩阵
 
-adapter 不把 AgentScope 内部中断类型暴露给 runtime 使用方。只要 AgentScope 产出需要暂停调用的事件，adapter 都归一为 runtime 可识别的外层中断 chunk：
+AgentScope 的暂停事件不是同一种恢复语义，首版禁止全部降格成普通 `ask_user`：
 
-```java
-new QueryChunk(QueryChunk.TYPE_INTERRUPT, data)
-```
+| AgentScope 状态/事件 | 源码恢复要求 | 首版映射 | 后续输入 |
+| --- | --- | --- | --- |
+| standalone `RequestStopEvent` | 源码说明下一次 `agent.call(...)` 可继续 | `TYPE_INTERRUPT` + `data.type=__interaction__` | 同一 userId/sessionId 的普通消息 |
+| `RequireUserConfirmEvent` | `Msg.METADATA_CONFIRM_RESULTS` 中的 `List<ConfirmResult>` | `TYPE_ERROR`，code=`AGENTSCOPE_NATIVE_CONFIRM_RESUME_UNSUPPORTED` | 首版不接受伪造的 yes/no 文本恢复 |
+| pending external tool result | 对应 tool id 的 `ToolResultBlock` | `TYPE_ERROR`，code=`AGENTSCOPE_EXTERNAL_TOOL_RESULT_UNSUPPORTED` | 首版不构造 tool result block |
+| `RequireExternalExecutionEvent` | 事件类型存在，但当前已核验生产路径未发现实例化 | 保留识别分支并返回 `AGENTSCOPE_EXTERNAL_EXECUTION_RESUME_UNSUPPORTED` | 首版不支持 |
+| runtime 主动取消 | 定向 `interrupt(userId, sessionId)` | 不输出 ask-user interrupt；结束当前调用 | 后续是否新开调用由客户端决定 |
 
-runtime 硬识别的是 `QueryChunk.type == QueryChunk.TYPE_INTERRUPT`。`data.type="__interaction__"` 是与现有 agent-core adapter 对齐的 payload 语义标签，便于下游统一理解“这是一次交互请求”，但不作为 AgentScope 原生恢复协议。
-
-首版中断 payload 只保留共性字段：
-
-| 字段 | 必须 | 说明 |
-|------|------|------|
-| `type="__interaction__"` | 是 | payload 语义标签，表示交互请求 |
-| `message` | 是 | 面向用户或上层编排的中断说明 |
-| `context` | 否 | runtime/A2A 编排上下文；首版建议显式输出默认 `_interrupt_kind=ask_user` |
-| `toolCallId` | 否 | AgentScope 事件存在单个 tool call id 时兼容输出 |
-| `toolName` | 否 | AgentScope 事件存在单个 tool name 时兼容输出 |
-
-`context` 不是 AgentScope adapter 首版中断的必要字段；runtime 在没有 `_interrupt_kind` 时也会按 `ask_user` 处理。为了让输出语义更明确，adapter 建议显式带上默认值：
+`RequestStopEvent` 的 interrupt payload 只保留 runtime 共性字段：
 
 ```json
 {
   "type": "__interaction__",
-  "message": "...",
+  "message": "AgentScope execution paused.",
   "context": {
     "_interrupt_kind": "ask_user"
   }
 }
 ```
 
-AgentScope adapter 首版不生成 `_interrupt_kind=a2a_delegate`、`agentName` 或 `_stream_mode`。这些字段属于具备远端 agent 注入能力的业务 rail/工具层输出，AgentScope  Adapter当前版本未适配远端 agent 注入能力。
+若 `RequireUserConfirmEvent` 后紧跟 `RequestStopEvent`，mapper 在 confirm unsupported error 后进入 terminal 状态，后续 stop event 必须丢弃，禁止把错误覆盖成看似可用普通文本恢复的 `INPUT_REQUIRED`。
 
-非流式 `query()` 如果最终结果是中断，`QueryResponse.result` 保持 runtime 可识别的 assistant result 形态，并把中断数据放入 `_interrupt`：
+非流式路径同样检查最终 `Msg`：若存在 ASKING tool blocks 或缺少 required `ConfirmResult` / `ToolResultBlock` 的 pending 状态，返回对应 unsupported error，不生成 `_interrupt`。只有能够通过普通同-session 消息继续的 stop 状态才生成 `_interrupt`。
 
-```json
-{
-  "role": "assistant",
-  "content": "AgentScope requires input.",
-  "_interrupt": {
-    "type": "__interaction__",
-    "message": "AgentScope requires input.",
-    "context": {
-      "_interrupt_kind": "ask_user"
-    }
-  }
-}
-```
-
-首版不把 AgentScope 原生事件完整内容塞进 `QueryChunk.data`，也不把中断输出设计成恢复协议。AgentScope 事件的 `id`、`createdAt`、`replyId` 等字段最多作为轻量追踪信息放入 `context`，不能成为 runtime 恢复所依赖的必填字段。
+AgentScope adapter 首版不生成 `_interrupt_kind=a2a_delegate`、`agentName` 或 `_stream_mode`；事件的 `id`、`createdAt`、`replyId` 只可作为追踪信息，不能成为 runtime 恢复协议必填字段。
 
 ### 6.3 Runtime/A2A 处理链路
 
-runtime 的流式编排只捕获外层 `QueryChunk.TYPE_INTERRUPT`。捕获后：
+runtime 的流式编排只捕获外层 `QueryChunk.TYPE_INTERRUPT`。因此仅 standalone `RequestStopEvent` 进入该链路：
 
 1. 读取 `data.context._interrupt_kind`。
 2. 没有 `_interrupt_kind` 或值为 `ask_user` 时，向客户端输出中断并结束本轮。
 
-A2A 入口收到中断后，会把 task 置为 `INPUT_REQUIRED`。A2A status message 只需要从 `data.message` 取可展示文本；它不理解也不保存 AgentScope 原生事件结构。
+A2A 入口收到这个可普通续轮的中断后，会把 task 置为 `INPUT_REQUIRED`。A2A status message 只从 `data.message` 取可展示文本；它不理解也不保存 AgentScope 原生事件结构。
 
-AgentScope adapter 首版不触发 A2A delegation，因此不会由 adapter 产生远端 agent 回灌请求。用户对 `INPUT_REQUIRED` 的下一轮输入进入 adapter 时，表现为下一次普通 `query()` / `streamQuery()` 调用。
+`RequireUserConfirmEvent` 和 external-tool pending 不进入 `INPUT_REQUIRED`，而是明确失败，避免 A2A 暴露一个实际上无法用普通文本恢复的 Task。AgentScope adapter 首版也不触发 A2A delegation。
 
 ### 6.4 续轮输入
 
@@ -356,12 +399,14 @@ runtime 对普通 `AgentHandler` 没有单独的 resume API，续轮仍然调用
 1. 同一个 `ServeRequest.conversationId` 映射为同一个 AgentScope `RuntimeContext.sessionId`。
 2. 下一轮 `ServeRequest.messages` 按普通消息映射为 AgentScope `Msg`。
 
-首版不从纯文本自动推断用户决策或工具结果，也不自动构造 AgentScope 原生恢复对象。AgentScope 内部能否用同 session 的下一轮普通消息继续推进，由 AgentScope 自身决定；如果 AgentScope 抛出缺少原生恢复输入的异常，adapter 按 runtime error 映射。
+首版不从纯文本自动推断用户决策或工具结果，也不自动构造 AgentScope 原生恢复对象。只有 standalone `RequestStopEvent` 对外承诺同 session 普通续轮；其他 native resume 场景在事件出现时立即返回稳定错误码。
 
 需要特别区分：
 
 - `RequestStopEvent` 源码注释明确说明下一次 `agent.call(...)` 可继续，适合首版同 session 普通消息续轮。
-- `RequireUserConfirmEvent` / `RequireExternalExecutionEvent` 带有 AgentScope 原生 tool call 结构；如果 AgentScope 当前实现要求原生确认或工具结果对象，首版 adapter 不补造这些对象。
+- `RequireUserConfirmEvent` 明确要求 `Msg.METADATA_CONFIRM_RESULTS`，缺失时源码抛 `IllegalStateException`。
+- pending external tool 结果必须以 `ToolResultBlock` 携带，并校验 tool id；普通文本不能等价替代。
+- `RequireExternalExecutionEvent` / `ExternalExecutionResultEvent` 类型虽然存在，但当前已核验的 ReAct 生产路径未发现发射点，首版只做防御性 unsupported 映射。
 
 ### 6.5 状态边界
 
@@ -369,9 +414,20 @@ adapter 只负责协议转换，不拥有 AgentScope 内部 checkpoint。续轮�
 
 - 同一个 `conversationId` 映射到同一个 AgentScope `sessionId`。
 - AgentScope agent 的 state store 中仍保留对应会话状态。
-- AgentScope 自身能否用下一轮普通 `Msg` 继续推进当前状态。
+- 当前暂停类型是否属于已支持的 standalone `RequestStopEvent`。
 
-如果 AgentScope 返回无法继续的异常，首版 adapter 不补造恢复对象，应映射为 runtime error。
+`clearSession(conversationId)` 首版只取消并清理 adapter active invocation；AgentScope 当前没有统一的按 session 清除本地/持久化 state API，不能宣称该方法已经删除 AgentScope checkpoint。宿主需要按所配置 `AgentStateStore` 的能力清理状态。
+
+### 6.6 生命周期中断闭环
+
+`AgentScopeAgentHandler.interrupt(conversationId, reason)` 执行：
+
+1. 从 active registry 取得该 conversation 的全部 invocation。
+2. 原子标记 cancelled，dispose 流式 `Disposable`。
+3. 对每条记录调用 `AgentScopeInvoker.interrupt(userId, sessionId)`；ReAct 直接调用定向 interrupt，Harness 通过 `getDelegate()` 调用同一 API。
+4. 唤醒等待中的 `streamQuery()`，由其 `finally` 注销记录。
+
+`stop()` 对全部 active invocation 执行相同清理。重复 interrupt、客户端断连和 terminal 回调必须幂等，且不得在取消后再向 observer 发送 chunk。
 
 ---
 
@@ -387,12 +443,13 @@ adapter 只负责协议转换，不拥有 AgentScope 内部 checkpoint。续轮�
 2. 同一应用可能同时存在多个 `ReActAgent` 或 `HarnessAgent`，自动注册会带来歧义。
 3. `openjiuwen.service.handler` 不属于本模块配置面；把 `agentscope` 写成激活开关会误导实现者和使用者。
 
-业务侧显式声明。首版不需要 `AgentScopeProperties`：
+业务侧显式声明。Bean 返回类型必须写为 `AgentScopeAgentHandler`，使 Spring 同时发现其 `AgentHandler` 与 `AgentInterruptHandler` 契约：
 
 ```java
 @Bean
-AgentHandler agentscopeAgentHandler(ReActAgent reactAgent) {
-    return AgentScopeAgentHandler.forReActAgent(reactAgent);
+AgentScopeAgentHandler agentscopeAgentHandler(ReActAgent reactAgent) {
+    return AgentScopeAgentHandler.forReActAgent(
+        reactAgent, AgentScopeAdapterOptions.defaults());
 }
 ```
 
@@ -400,44 +457,33 @@ AgentHandler agentscopeAgentHandler(ReActAgent reactAgent) {
 
 ```java
 @Bean
-AgentHandler agentscopeAgentHandler(HarnessAgent harnessAgent) {
-    return AgentScopeAgentHandler.forHarnessAgent(harnessAgent);
+AgentScopeAgentHandler agentscopeAgentHandler(HarnessAgent harnessAgent) {
+    return AgentScopeAgentHandler.forHarnessAgent(
+        harnessAgent, AgentScopeAdapterOptions.defaults());
 }
 ```
 
-`forReActAgent(...)` / `forHarnessAgent(...)` 在 handler 内部创建对应的 `ReActAgentScopeInvoker` / `HarnessAgentScopeInvoker` 和 mapper。用户侧只关心已经构建好的 AgentScope agent 对象，不感知 `AgentScopeAdapterInvoker`。
+两个工厂都位于 `AgentScopeAgentHandler`。用户侧只关心已经构建好的 AgentScope agent 对象，不直接操作 `AgentScopeInvoker`。
 
-### 7.2 AutoConfiguration
+### 7.2 程序化配置
 
-首版提供轻量 `AgentScopeAutoConfiguration`，并通过 Spring Boot auto-configuration imports 注册，用于符合当前 adapter 模块装配惯例。但它不注册业务 Bean：
+首版不提供空 `AgentScopeAutoConfiguration`，也不创建 `AutoConfiguration.imports`。一个不注册任何 bean 的 auto-configuration 没有装配价值，只会制造错误的自动启用预期。
 
-- adapter 首版没有专属业务配置项。
-- 不自动创建 `AgentHandler`。
-- mapper / invoker 都是 `AgentScopeAgentHandler` 内部实现细节，不需要暴露为 Spring Bean。
+`AgentScopeAdapterOptions` 提供代码级稳定默认值：
 
-```java
-@AutoConfiguration
-public class AgentScopeAutoConfiguration {
-}
-```
+| 属性 | 默认值 | 语义 |
+| --- | --- | --- |
+| `queryTimeout` | 5 min | 非流式调用最长时间 |
+| `streamTimeout` | 30 min | 单次流绝对最长时间 |
+| `cancellationPollInterval` | 100 ms | 等待线程检查客户端取消的周期 |
 
-注册文件：
-
-```text
-src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
-```
-
-内容：
-
-```text
-com.openjiuwen.service.adapters.agentscope.autoconfigure.AgentScopeAutoConfiguration
-```
+options 必须校验为正值。后续若形成稳定运维需求，可由宿主配置类绑定后传给工厂；adapter 首版不直接依赖 Spring Boot autoconfigure。
 
 ---
 
 ## 8. Maven 依赖策略
 
-父模块新增：
+父模块新增一个模块：
 
 ```xml
 <module>agent-service-adapters/agent-service-adapters-agentscope</module>
@@ -446,10 +492,10 @@ com.openjiuwen.service.adapters.agentscope.autoconfigure.AgentScopeAutoConfigura
 版本属性：
 
 ```xml
-<agentscope.version>2.0.0-RC5</agentscope.version>
+<agentscope.version>2.0.0-SNAPSHOT</agentscope.version>
 ```
 
-首版默认依赖：
+模块依赖：
 
 ```xml
 <dependency>
@@ -465,12 +511,10 @@ com.openjiuwen.service.adapters.agentscope.autoconfigure.AgentScopeAutoConfigura
     <groupId>io.agentscope</groupId>
     <artifactId>agentscope-harness</artifactId>
     <version>${agentscope.version}</version>
-    <optional>true</optional>
 </dependency>
 <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-autoconfigure</artifactId>
-    <optional>true</optional>
+    <groupId>io.projectreactor</groupId>
+    <artifactId>reactor-core</artifactId>
 </dependency>
 <dependency>
     <groupId>org.slf4j</groupId>
@@ -478,66 +522,121 @@ com.openjiuwen.service.adapters.agentscope.autoconfigure.AgentScopeAutoConfigura
 </dependency>
 ```
 
-`HarnessAgent` 适配是首版必须实现的能力，但 `agentscope-harness` 在本模块 POM 中应声明为 optional。原因是本模块不会通过 AutoConfiguration 自动注册 Harness 相关 `AgentHandler`，只有显式使用 Harness 的宿主应用才需要传递 `agentscope-harness` 及其 workspace、sandbox、filesystem 等依赖。宿主应用若声明 `@Bean AgentHandler` 并调用 `AgentScopeAgentHandler.forHarnessAgent(...)`，必须自行引入 `io.agentscope:agentscope-harness`。
+`agentscope-harness` 是普通 compile 依赖，不是 optional。单模块公开 `forHarnessAgent(...)` 并直接编译 `HarnessAgentScopeInvoker`，因此必须保证引入 adapter 后相关 API 和依赖完整可用。
 
 实现前必须运行 dependency tree 并记录 `agentscope-harness` 的传递依赖影响；若依赖冲突影响宿主应用，需要通过宿主侧 dependencyManagement 或 exclusion 固定版本。
 
 ---
 
-## 9. 测试与验收
+## 9. 对外呈现 / 用户场景（Scenario View）
 
-### 9.1 单元测试
+### 9.1 外部接口
+
+本适配器不新增 HTTP endpoint。业务注册 `AgentScopeAgentHandler` 后，继续通过 runtime 已有 Query API 或 A2A 入口调用；L0/L1 定义的 `AgentHandler`、`ServeRequest`、`QueryResponse`、`QueryChunk` 契约不变。
+
+### 9.2 典型场景
+
+```text
+Client -> Runtime Query/A2A -> ServeOrchestrator
+       -> AgentScopeAgentHandler
+       -> ReActAgent or HarnessAgent (same JVM)
+       -> QueryResponse / QueryChunk
+```
+
+- 普通完成：answer delta / final result 经 runtime 原有响应返回。
+- 可普通续轮暂停：standalone `RequestStopEvent` 进入 `INPUT_REQUIRED`，下一轮沿用 conversationId。
+- 原生确认暂停：返回稳定 unsupported error，不暴露一个无法闭合的 `INPUT_REQUIRED`。
+- 客户端断连或 runtime 生命周期中断：handler dispose 订阅并定向中断 AgentScope slot。
+
+---
+
+## 10. 错误处理（Process View）
+
+| 错误场景 | 触发条件 | adapter 行为 | 对外 code/type |
+| --- | --- | --- | --- |
+| 非法请求 | conversationId 缺失 | fail-fast，不调用 AgentScope | `AGENTSCOPE_INVALID_REQUEST` |
+| query 超时 | 超过 `queryTimeout` | 定向 interrupt，清理 active record | `AGENTSCOPE_QUERY_TIMEOUT` |
+| stream 超时 | 超过绝对 `streamTimeout` | dispose + 定向 interrupt，输出一次错误 | `AGENTSCOPE_STREAM_TIMEOUT` / `TYPE_ERROR` |
+| 原生确认恢复不支持 | `RequireUserConfirmEvent` 或 ASKING tool state | 终止映射，忽略随后 stop event | `AGENTSCOPE_NATIVE_CONFIRM_RESUME_UNSUPPORTED` |
+| 外部工具结果不支持 | pending tool 需要 `ToolResultBlock` | 不从普通文本猜测结果 | `AGENTSCOPE_EXTERNAL_TOOL_RESULT_UNSUPPORTED` |
+| 外部执行恢复不支持 | 收到保留的 external execution event | 防御性终止 | `AGENTSCOPE_EXTERNAL_EXECUTION_RESUME_UNSUPPORTED` |
+| AgentScope 执行异常 | Mono/Flux error | 脱敏日志；同步抛 adapter exception，流式输出一次 error | `AGENTSCOPE_EXECUTION_FAILED` |
+| 客户端取消 | observer cancelled | 不再输出，dispose + 定向 interrupt | 无新增响应帧 |
+
+所有异常路径都必须注销 active invocation。错误消息不得包含 prompt、tool 参数、认证信息或完整 state；详细异常只写受控日志与 trace。
+
+---
+
+## 11. 测试与验收
+
+### 11.1 单元测试
 
 | 测试类 | 覆盖点 |
 |--------|--------|
 | `AgentScopeRuntimeContextMapperTest` | conversationId 必填、userId/tenantId/spaceId 映射、metadata 只作附加 |
-| `AgentScopeMessageMapperTest` | role 映射、文本提取、full history 固定策略、同会话续轮输入按普通 `Msg` 透传 |
-| `AgentScopeEventMapperTest` | AgentScope pause/interrupt event -> runtime `QueryChunk(TYPE_INTERRUPT, data.type="__interaction__")`、轻量 interrupt payload、text delta、error、默认不输出 tool/thinking/final |
-| `AgentScopeAgentHandlerTest` | query、streamQuery、cancel、timeout、clearSession best effort、相同 conversationId 复用相同 AgentScope sessionId、ReAct 单实例重入保护、Harness 调用桥接 |
-| `AgentScopeAutoConfigurationTest` | auto-configuration imports 存在；不注册 `AgentHandler`、mapper、invoker 或 Harness 相关 bean |
+| `AgentScopeMessageMapperTest` | role 映射、文本提取、full history；普通续轮不伪造 `ConfirmResult` / `ToolResultBlock` |
+| `AgentScopeEventMapperTest` | standalone stop -> interrupt；confirm/external resume -> stable unsupported error；confirm 后 stop 不覆盖 terminal error |
+| `AgentScopeAgentHandlerTest` | Mono block/timeout、Flux 等待 terminal、客户端断连、lifecycle interrupt、terminal exactly-once、active registry 清理 |
+| `AgentScopeWebFluxBridgeTest` | `subscribeOn` 后 orchestrator 不在 event-loop 执行；取消能唤醒等待并释放 worker |
+| `ReActAgentScopeInvokerTest` | 同 slot 串行、不同 slot 并行、定向 interrupt，不存在 adapter 全局锁 |
+| `AgentScopeNativeResumeTest` | RequestStop 同 session 普通续轮；ASKING tool 非流式/流式均返回 unsupported error |
+| `HarnessAgentScopeInvokerTest` | Harness query/stream 与 delegate 定向 interrupt |
+| `AgentScopeDependencyTest` | 单模块同时编译 ReAct/Harness 工厂，`agentscope-harness` 为非 optional 依赖 |
 
-### 9.2 集成/验证命令
+### 11.2 集成/验证命令
 
 ```powershell
-mvn -f common\agent-runtime-ext-java\pom.xml -pl agent-service-adapters/agent-service-adapters-agentscope test
+mvn -f common\agent-runtime-ext-java\pom.xml -pl agent-service-adapters/agent-service-adapters-agentscope -am test
 ```
 
 ```powershell
 mvn -f common\agent-runtime-ext-java\pom.xml -pl agent-service-adapters/agent-service-adapters-agentscope dependency:tree -Dscope=runtime
 ```
 
-### 9.3 验收标准
+### 11.3 验收标准
 
-1. 新模块加入 parent module list。
-2. AutoConfiguration imports 文件存在并只注册 `AgentScopeAutoConfiguration`。
-3. `AgentScopeAutoConfiguration` 不自动创建 `AgentHandler`、mapper bean、invoker bean 或 Harness 相关 bean。
-4. 业务通过 `AgentScopeAgentHandler.forReActAgent(...)` / `forHarnessAgent(...)` 显式声明 `@Bean AgentHandler` 后，`query()` 能返回 assistant result。
-5. `streamQuery()` 能把 `TextBlockDeltaEvent` 转成 `QueryChunk.TYPE_CHUNK`，payload `type=answer_delta`。
-6. thinking/tool/final 过程事件按首版固定策略处理：answer delta、interrupt、error 默认输出；thinking/tool/final 不默认输出。
-7. AgentScope pause/interrupt 事件能转成 runtime 中断格式：外层 `QueryChunk.TYPE_INTERRUPT`，payload `data.type="__interaction__"`；payload 只包含 `message`、`context` 和可选 `toolCallId/toolName` 等共性字段，不暴露 AgentScope 内部中断类型作为协议。
-8. 中断 payload 的 `context._interrupt_kind=ask_user` 非必要但建议显式输出；首版不得由 AgentScope adapter 生成 `a2a_delegate`、`agentName`、`_stream_mode` 等远端委托字段。
-9. A2A INPUT_REQUIRED 的可展示文本来自 `data.message`，不依赖 AgentScope 原生事件结构。
-10. 下一轮 `query()` 或 `streamQuery()` 使用同一个 `conversationId` 时，adapter 映射到同一个 AgentScope `sessionId`。
-11. 下一轮用户输入、A2A INPUT_REQUIRED 续轮输入，首版都按普通 `Msg` 传给 AgentScope，不自动构造 AgentScope 原生恢复对象。
-12. 如果 AgentScope 要求原生恢复输入并抛出异常，adapter 映射为 runtime error。
-13. 包装同一 `ReActAgent` bean 时不会对同一实例发起重入调用；取消或异常后保护能释放。
-14. 包装 `HarnessAgent` bean 时能通过 handler 完成 `query()` 与 `streamQuery()`。
-15. `conversationId` 缺失时默认 fail-fast。
-16. 不依赖真实模型 key 的单元测试全部通过。
-17. dependency tree 已检查并记录 `agentscope-harness` 传递依赖影响；本模块 POM 中 `agentscope-harness` 为 optional。
-18. 文档和代码保持本地进程内适配边界，不引入独立网络调用客户端或服务端。
+1. 单个 `agent-service-adapters-agentscope` 模块加入 parent module list，并同时提供 ReAct/Harness 工厂。
+2. 不存在空 `AgentScopeAutoConfiguration` 或 AutoConfiguration imports。
+3. 业务显式声明 concrete `AgentScopeAgentHandler` bean 后，query/stream 和 `AgentInterruptHandler` 都可被 runtime 发现。
+4. `streamQuery()` 在 Flux complete/error/cancel 前不返回，active stream 不会被 orchestrator 提前注销。
+5. WebFlux subscription callback 通过 `subscribeOn` offload 到受管 worker，不阻塞 Netty event-loop；MVC 不使用公共池承载无界长流。
+6. query/stream timeout、客户端断连和 lifecycle interrupt 都执行定向 AgentScope interrupt，并清理 active registry。
+7. 同一 `(userId, sessionId)` 调用由 AgentScope 串行，不同 session 可并行；adapter 无全局实例锁。
+8. `TextBlockDeltaEvent` 映射为 `TYPE_CHUNK/answer_delta`；thinking/tool/final 按首版固定策略处理。
+9. standalone `RequestStopEvent` 映射 `TYPE_INTERRUPT/__interaction__`，同 session 普通消息可续轮。
+10. `RequireUserConfirmEvent` 映射 `AGENTSCOPE_NATIVE_CONFIRM_RESUME_UNSUPPORTED`，后续 `RequestStopEvent` 不得覆盖该错误。
+11. pending external tool / `RequireExternalExecutionEvent` 返回各自 stable unsupported error，不伪造 `ToolResultBlock`。
+12. 非流式 ASKING tool 状态与流式 confirm event 采用相同 unsupported 语义。
+13. observer terminal 回调至多一次，取消后不再输出 chunk。
+14. `conversationId` 缺失时 fail-fast；tenantId 继续按现有设计写入 string attribute。
+15. `agentscope-harness` 在单模块中作为普通 compile 依赖，不得声明为 optional。
+16. dependency tree 已检查并记录 Harness 的传递依赖影响。
+17. 文档和代码保持本地进程内适配边界，不引入独立网络客户端或服务端。
 
 ---
 
-## 10. 实施计划
+## 12. 限制与待补
 
-1. 新增 `agent-service-adapters-agentscope` Maven 模块。
-2. 父 POM 增加 module 和 `agentscope.version`。
-3. 实现 `AgentScopeRuntimeContextMapper`，默认要求 `conversationId` 非空。
-4. 实现 `AgentScopeMessageMapper`，覆盖 role/text/full history 策略，并把续轮输入按普通 `Msg` 透传。
-5. 实现 `AgentScopeEventMapper`，把 AgentScope pause/interrupt event 转成外层 `QueryChunk.TYPE_INTERRUPT` 和 payload `type=__interaction__` 的中断数据；`context._interrupt_kind=ask_user` 非必要但建议作为默认值显式输出。
-6. 在 `AgentScopeAgentHandler` 内实现内部 `AgentScopeAdapterInvoker` 以及 ReAct/Harness 两个内部实现。
-7. 实现 `AgentScopeAgentHandler.forReActAgent(...)` / `forHarnessAgent(...)` 工厂方法，并确保同一 `conversationId` 稳定映射到同一 AgentScope `sessionId`。
-8. 实现轻量 `AgentScopeAutoConfiguration` 和 auto-configuration imports，不注册业务 Bean。
-9. 添加单元测试和 auto-configuration 测试。
-10. 运行 test 和 dependency tree，并处理 `agentscope-harness` 传递依赖冲突。
+| 限制 | 影响 | 后续方向 |
+| --- | --- | --- |
+| 不支持 `ConfirmResult` 原生恢复 | AgentScope ASK 权限工具不能经普通 A2A 文本续接 | runtime 定义显式 confirm DTO 后增加转换 |
+| 不支持外部工具 `ToolResultBlock` 回灌 | pending external tool 无法闭环 | 定义 tool-result resume contract |
+| `RequireExternalExecutionEvent` 当前仅防御性识别 | 未证明真实生产路径的端到端行为 | AgentScope 出现稳定发射路径后补契约测试 |
+| 文本消息优先 | 多模态 block 可能降级为字符串 | 增加 block-level 映射 |
+| `clearSession` 不清除 AgentScope checkpoint | reset 不能保证彻底删除持久状态 | AgentScope 提供统一 session delete API 后接入 |
+| stream bridge 占用一个 worker 线程 | 长流会占用受管 worker；若未 offload 会阻塞 WebFlux event-loop | 配置有界 executor/scheduler 并压测；runtime SPI 异步化后再改为非阻塞返回 |
+| 仅程序化 options | 运维侧不能直接用 adapter YAML 调参 | 形成稳定需求后由宿主绑定配置 |
+
+---
+
+## 13. 实施计划
+
+1. 新增 `agent-service-adapters-agentscope` Maven 模块，父 POM 增加 module 和 `agentscope.version`。
+2. 实现模块内部 `AgentScopeInvoker`、options、mappers、invocation registry 和共享 handler。
+3. 实现 `ReActAgentScopeInvoker`，直接使用 per-slot 并发并提供 `interrupt(userId, sessionId)`。
+4. 实现 Mono timeout/block 和 Flux subscribe/wait/cancel/timeout 桥接，保证 terminal exactly-once；WebFlux 入口用 `subscribeOn` offload，MVC 使用受管 executor。
+5. 实现 RequestStop interrupt 与 confirm/external unsupported 状态机，覆盖流式和非流式。
+6. 让 `AgentScopeAgentHandler` 同时实现 `AgentHandler`、`AgentInterruptHandler`，完成 active invocation 定向中断。
+7. 在同一模块实现 `HarnessAgentScopeInvoker` 和 handler 的 `forHarnessAgent(...)` 工厂。
+8. 添加并发、取消、timeout、恢复语义和依赖完整性测试；不添加空 auto-configuration 测试。
+9. 运行模块 test 和 dependency tree，处理 Harness 传递依赖冲突。

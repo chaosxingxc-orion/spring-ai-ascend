@@ -1,7 +1,22 @@
-# Agent Core 适配结果解析
+---
+level: L2-LLD
+module: agent-runtime
+feature_type: functional
+feature_id: Feat-Func-002
+status: active
+dependency:
+  - ../../L1-High-Level-Design/agent-runtime/api-appendix.md
+  - Feat-Func-002-heterogeneous-agent-framework-compatibility.md
+  - openJiuwen/agent-runtime-java
+  - openJiuwen/agent-core-java
+---
+
+# Agent Core 兼容能力设计与源码分析
 
 > 分析对象：`agent-runtime-java` 与 `agent-core-java`
-> 更新时间：2026-07-09
+> 最后更新：2026-07-10
+
+说明：本文是 Feat-Func-002 在 openJiuwen 社区 `agent-runtime-java` / `agent-core-java` 实现上的源码证据与兼容子设计，不替代同目录主文档中 `spring-ai-ascend/agent-runtime` 的 `AgentRuntimeHandler` 实现事实。L0 的逻辑模块仍称 `agent-runtime` / `agent-core`，本文出现的社区仓库名和 `com.openjiuwen.service.spec.spi.AgentHandler` 仅是物理实现映射。
 
 ---
 
@@ -38,9 +53,29 @@ HTTP / Query API
 
 不把 core 内部能力误写成 runtime 独立适配能力。例如 DeepAgent 的 task loop、rails、workspace、subagents 属于 `agent-core-java` / harness；runtime 当前只负责把请求送入 Runner、把输出统一成 QueryResponse / QueryChunk。
 
+### 1.3 源码基线与证据等级
+
+本文结论固定在以下源码快照，后续升级依赖版本时必须重新核验反射签名、输出结构和测试覆盖：
+
+| 对象 | 基线 |
+| --- | --- |
+| `agent-runtime-java` | commit `caa8b4a`，项目版本 `0.1.0` |
+| `agent-core-java` | commit `830610b6` |
+| runtime 声明的 agent-core 依赖 | `com.openjiuwen:agent-core-java:0.1.13` |
+
+本文使用三种证据等级，避免把“源码上可调用”写成“已经过真实运行验证”：
+
+| 等级 | 含义 | 本文用法 |
+| --- | --- | --- |
+| 源码确认 | 在具体实现中存在确定的分支、类型或调用链 | `JiuwenCoreAgentHandler` 输入/输出归一、Runner 候选参数顺序、WorkflowAgent 中断归一 |
+| 签名兼容 | Runner 反射评分可以匹配目标方法 | DeepAgent、WorkflowAgent 通过统一 handler 接入 |
+| 契约测试确认 | 使用真实目标 agent 类型执行 query/stream/interrupt 的测试通过 | 当前尚未覆盖真实 DeepAgent 与 WorkflowAgent；不能据此宣称生产契约已闭环 |
+
+当前 `JiuwenCoreAgentHandlerTest` 主要使用测试替身验证统一 handler 与 Runner 反射机制，没有直接构造真实 `DeepAgent` 或 `WorkflowAgent`。因此本文对二者的结论是“源码确认 + 签名兼容”，落地前仍需补真实类型契约测试。
+
 ---
 
-## 2. Runtime 统一适配层
+## 2. Runtime 统一适配设计（Logical + Process View）
 
 ### 2.1 能力清单
 
@@ -266,7 +301,7 @@ DeepAgent 位于 `com.openjiuwen.harness.deep_agent.DeepAgent`。它不是继承
 
 - `DeepAgent` 构造时创建内部 `ReActAgent`，并把 `DeepAgentConfig` 转成 `ReActAgentConfig`。
 - 支持 workspace、tools、rails、MCP、permissions、task loop、completion policy、subagents 等 harness 能力。
-- 对外提供 `invoke(Map<String,Object> inputs)`、`stream(Map<String,Object> inputs)`、`stream(Map<String,Object> inputs, List<StreamMode>)`、`stream(Map<String,Object> inputs, AgentSessionApi session, List<StreamMode>)` 等方法。
+- 对外提供 `invoke(Map<String,Object> inputs)`、`invoke(Map<String,Object> inputs, AgentSessionApi session)`、`stream(Map<String,Object> inputs)`、`stream(Map<String,Object> inputs, List<StreamMode>)`、`stream(Map<String,Object> inputs, AgentSessionApi session, List<StreamMode>)` 等方法。
 - `enableTaskLoop=true` 时，`invoke()` 会进入 `runTaskLoop()`，再经 event queue / scheduler / task executor 组织多轮内部 ReAct 执行。
 
 DeepAgent 的典型流式路径：
@@ -286,7 +321,7 @@ Runtime 对 DeepAgent 没有单独 handler。DeepAgent 能被适配，是因为�
 - `JiuwenCoreAgentHandler` 接收 `Object agent`。
 - `RunnerImpl.streamAgent()` 通过反射匹配 `stream(inputs, session, streamModes)` / `stream(inputs, session, context)` / `stream(inputs, session)` / `stream(inputs)`。
 - `RunnerImpl.invokeAgent()` 通过反射匹配 `invoke(inputs, session, context)` / `invoke(inputs, session)` / `invoke(inputs)`。
-- DeepAgent 暴露的 `invoke(Map)`、`stream(Map, AgentSessionApi, List<StreamMode>)` 等方法能被 Runner 匹配。
+- DeepAgent 暴露的 `invoke(Map, AgentSessionApi)`、`invoke(Map)`、`stream(Map, AgentSessionApi, List<StreamMode>)` 等方法能被 Runner 匹配。同步候选按 `[inputs, session, context]`、`[inputs, session]`、`[inputs]` 排序，所以直接传入 `DeepAgent` 实例时优先命中 `invoke(Map, AgentSessionApi)`，不是一参数 `invoke(Map)`。
 
 因此调用链是：
 
@@ -441,12 +476,12 @@ Workflow 适配是“可经 WorkflowAgent 接入”的状态：
 | 类型 | 推荐接入对象 | Runtime handler | query 衔接方法 | streamQuery 衔接方法 | 中断映射 |
 | --- | --- | --- | --- | --- | --- |
 | ReAct Agent | `ReActAgent` | `JiuwenCoreAgentHandler` | agent 实例：`Runner.runAgent` -> `ReActAgent.invoke(Object, Session)`；agentId 字符串：`Runner.runAgentStreaming` 聚合 | `Runner.runAgentStreaming` -> `ReActAgent.stream(Object, Session, List<StreamMode>)` | `__interaction__` -> `interrupt` / `_interrupt` |
-| DeepAgent | `DeepAgent` | `JiuwenCoreAgentHandler` | agent 实例：`Runner.runAgent` -> `DeepAgent.invoke(Map)`；agentId 字符串：`Runner.runAgentStreaming` 聚合 | `Runner.runAgentStreaming` -> 优先匹配 `DeepAgent.stream(Map, AgentSessionApi, List<StreamMode>)` | `__interaction__` -> `interrupt` / `_interrupt` |
+| DeepAgent | `DeepAgent` | `JiuwenCoreAgentHandler` | agent 实例：`Runner.runAgent` -> 优先匹配 `DeepAgent.invoke(Map, AgentSessionApi)`；agentId 字符串：`Runner.runAgentStreaming` 聚合 | `Runner.runAgentStreaming` -> 优先匹配 `DeepAgent.stream(Map, AgentSessionApi, List<StreamMode>)` | `__interaction__` -> `interrupt` / `_interrupt` |
 | Workflow | `WorkflowAgent` | `JiuwenCoreAgentHandler` | agent 实例：`Runner.runAgent` -> `WorkflowAgent.invoke(Object, Session)`；agentId 字符串：`Runner.runAgentStreaming` 聚合 | `Runner.runAgentStreaming` -> `WorkflowAgent.stream(Object, Session, List<StreamMode>)`，内部再由 `WorkflowEventHandler` 调 `Runner.runWorkflowStreaming` | `__interaction__` / `INPUT_REQUIRED` -> service interrupt |
 
 ---
 
-## 7. 当前适配问题分析
+## 7. 限制与风险
 
 1. **适配粒度偏通用，类型语义损失**
 
@@ -486,7 +521,7 @@ Workflow 适配是“可经 WorkflowAgent 接入”的状态：
 
 ---
 
-## 8. 建议后续演进
+## 8. 演进建议
 
 | 优先级 | 建议 | 收益 |
 | --- | --- | --- |
@@ -494,3 +529,23 @@ Workflow 适配是“可经 WorkflowAgent 接入”的状态：
 | P1 | 增加显式 resume DTO / API | 稳定 ReAct、DeepAgent、Workflow 的人机交互恢复 |
 | P2 | 为 DeepAgent 输出定义 service schema | 避免复杂 Map 字符串化，保留 round / workspace / final_result |
 | P2 | 将 cancel 透传到 core Runner / session / task loop | 提升长任务和工具调用的可控性 |
+
+---
+
+## 9. 验证与验收
+
+| 验证项 | 当前证据 | 落地要求 |
+| --- | --- | --- |
+| ReAct query/stream | 源码实现与现有 handler 测试覆盖 | 保持现有回归测试 |
+| DeepAgent query/stream | 源码签名与 Runner 反射规则兼容 | 增加真实 `DeepAgent` 的同步、流式、interrupt 契约测试 |
+| WorkflowAgent query/stream | 源码签名、WorkflowEventHandler 归一链确认 | 增加真实 `WorkflowAgent` 的完成、`INPUT_REQUIRED`、续轮契约测试 |
+| 裸 Workflow | 不属于当前 handler 的推荐协议 | 测试应断言文档/示例只通过 `WorkflowAgent` 接入 |
+| cancel | 仅停止 service 消费，未证明底层执行终止 | 测试区分“客户端不再收流”和“底层执行已取消”，不得混写 |
+
+文档验收标准：
+
+1. 所有“已适配”结论都能追溯到源码调用链或真实契约测试。
+2. DeepAgent 同步路径明确写为优先匹配 `invoke(Map, AgentSessionApi)`。
+3. Workflow 只推荐通过 `WorkflowAgent` 进入 `JiuwenCoreAgentHandler`。
+4. 不把停止 iterator 消费描述成 Runner、LLM、tool 或 workflow 已被取消。
+5. 依赖版本或目标方法签名变化时，必须重跑真实类型契约测试并更新本节基线。

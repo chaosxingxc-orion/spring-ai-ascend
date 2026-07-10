@@ -2,9 +2,11 @@
 level: L2-LLD
 module: agent-runtime-ext-java
 feature_type: functional
-feature_id: FEAT-015
-status: proposed
+feature_id: Feat-Func-001
+status: active
 dependency:
+  - ../../L1-High-Level-Design/agent-runtime/api-appendix.md
+  - Feat-Func-001-standardized-agent-service-entrypoint.md
   - openJiuwen/agent-runtime-java
 ---
 
@@ -14,7 +16,7 @@ dependency:
 > 目标模块：`common/agent-runtime-ext-java/agent-service-app/agent-service-adapters-custom-rest`
 > 最后更新：2026-07-09
 
-说明：本文档归档在 `agent-runtime-java` 的开发指南目录，用于描述 runtime 扩展方案；实际代码实现仍落在 `agent-solution` 仓库。
+说明：本文档是 Feat-Func-001 的 Custom REST 子设计，描述 `agent-runtime` 逻辑边界在 OpenJiuwen 社区实现中的扩展方案；实际代码实现落在 `agent-solution` 仓库，不修改 `spring-ai-ascend/agent-runtime` 主模块代码。
 
 ---
 
@@ -68,7 +70,7 @@ dependency:
 
 ---
 
-## 2. 特性规格
+## 2. 功能规格
 
 ### 2.1 能力清单
 
@@ -110,7 +112,7 @@ dependency:
 
 ---
 
-## 3. 核心实现
+## 3. 核心设计（Logical + Process View）
 
 ### 3.1 模块放置
 
@@ -237,7 +239,19 @@ public interface CustomRestProtocolAdapter {
 
 `fromQueryResponse(...)`、`fromQueryChunk(...)`、`fromError(...)` 是出站转换函数：把 runtime 执行结果转换为客户自定义 REST 响应、SSE chunk 或错误信封。
 
-出站函数返回 `Object`，允许业务返回 `Map<String,Object>`、DTO 或 Jackson 可序列化对象。
+出站函数返回 `Object`，允许业务返回 `Map<String,Object>`、DTO 或 Jackson 可序列化对象。该 SPI 的自定义边界是 **HTTP/SSE body envelope**，不扩展为通用 HTTP response SPI：HTTP status、Content-Type、缓存头、连接头和 SSE event framing 由框架层统一控制。
+
+因此首版明确约束：
+
+| 项 | owner | adapter 是否可自定义 |
+| --- | --- | --- |
+| JSON/SSE data body | `CustomRestProtocolAdapter` | 是 |
+| HTTP status | `CustomRestAutoConfiguration` | 否；按统一错误分类设置 |
+| Content-Type / SSE headers | `CustomRestAutoConfiguration` | 否 |
+| SSE event name / id / retry | `CustomRestAutoConfiguration` | 否；首版只使用固定 data/error 事件 |
+| 任意响应 header | 宿主 Web filter / gateway | 否 |
+
+只有出现明确的客户 header、media type 或 SSE id/retry 需求时，才新增结构化 `CustomHttpResponse` / `CustomSseEvent`；当前返回 `Object` 的最小 SPI 足以覆盖“自定义响应信封”目标。
 
 ### 3.6 SPI Context
 
@@ -302,14 +316,14 @@ CustomRestProtocolAdapter.Context context
 4. X-Accel-Buffering = no
 5. 每个 QueryChunk 调用 adapter.fromQueryChunk(...)
 6. Jackson 序列化后作为 SSE data 输出
-7. onError 时输出 adapter.fromError(...) 一帧 error event，然后 complete
+7. 每次流式调用最多输出一帧错误：若已经收到并发送 `QueryChunk.TYPE_ERROR`，后续 `onError` 只 complete；否则由 `onError` 调用 `adapter.fromError(...)` 输出一帧 error event 后 complete
 ```
 
 SSE data 不强制加 JSON-RPC envelope。客户需要什么外部格式，由 `fromQueryChunk` 决定。
 
 ---
 
-## 4. 代码结构
+## 4. 模块结构（Development View）
 
 ### 4.1 新增代码结构
 
@@ -374,7 +388,7 @@ CustomRestProtocolAdapter.Context
 
 ---
 
-## 5. 运行流程
+## 5. 运行流程（Process View）
 
 ### 5.1 同步 query
 
@@ -417,9 +431,16 @@ Client
 流式错误：
 
 ```text
-streamQuery onError / runtime exception
-  -> CustomRestProtocolAdapter.fromError(500, message, context, elapsed)
+streamQuery QueryChunk(TYPE_ERROR)
+  -> CustomRestProtocolAdapter.fromQueryChunk(errorChunk, context)
   -> emitter.send(event.name("error").data(json))
+  -> 标记 errorFrameSent=true
+
+streamQuery onError / runtime exception
+  -> if errorFrameSent=false:
+       CustomRestProtocolAdapter.fromError(500, message, context, elapsed)
+       emitter.send(event.name("error").data(json))
+  -> if errorFrameSent=true: 不再发送第二帧错误
   -> emitter.complete()
 ```
 
@@ -474,7 +495,7 @@ GHZHY adapter 可在 Java 中实现以下规则：
 
 ---
 
-## 6. 配置使用
+## 6. 配置模型（Physical View）
 
 ### 6.1 配置示例
 
@@ -519,9 +540,50 @@ custom-rest auto-configuration 激活条件：
 
 ---
 
-## 7. 测试设计
+## 7. 对外呈现 / 用户场景（Scenario View）
 
-### 7.1 单元测试
+### 7.1 外部接口
+
+| 端点 / API | 方法 | 说明 |
+| --- | --- | --- |
+| `{query-path}` | `{query-method}` | Custom REST 同步或 SSE query；实际模式由 adapter 生成的 `ServeRequest.stream` 决定 |
+| `CustomRestProtocolAdapter` | Java SPI | 负责请求字段与响应 body envelope 转换 |
+
+### 7.2 典型接入场景
+
+1. 宿主应用引入 custom-rest adapter artifact。
+2. 业务声明唯一 `CustomRestProtocolAdapter` bean。
+3. YAML 配置 `enabled/query-path/query-method`。
+4. 外部请求经 adapter 转成 `ServeRequest`，进入既有 `ServeOrchestrator`。
+5. 同步结果或 SSE data 经 adapter 包装为客户响应信封。
+
+### 7.3 用户可见边界
+
+- 客户可以自定义 URL、method、字段映射和 body envelope。
+- 客户不能通过首版 SPI 自定义 HTTP status、Content-Type、SSE event id/retry 或任意响应 header。
+- runtime-to-runtime 调用仍使用 A2A；Custom REST 不成为新的跨 runtime 标准协议。
+
+---
+
+## 8. 错误处理（Process View）
+
+| 错误场景 | 触发条件 | 框架行为 | 对外结果 |
+| --- | --- | --- | --- |
+| 请求解析失败 | body 不是 JSON object | 不调用 orchestrator | HTTP 400 + `fromError` body |
+| adapter 校验失败 | `AdaptResult.error` | 使用 adapter 指定的 4xx status | 对应 status + `fromError` body |
+| runtime 未就绪 | readiness=false 或无 orchestrator | 拒绝执行 | HTTP 503 + `fromError` body |
+| 同步执行异常 | `query()` 抛出异常 | 记录脱敏日志 | HTTP 500 + `fromError` body |
+| 流内 error chunk | 收到 `TYPE_ERROR` | 经 `fromQueryChunk` 输出并标记已发送 | 一帧 error SSE |
+| 流式 terminal error | `onError` 且此前无 error chunk | 经 `fromError` 输出 | 一帧 error SSE 后关闭 |
+| 客户端断连 | emitter completion/error | observer 进入 cancelled | 停止继续发送；底层执行取消能力以 orchestrator/handler 为准 |
+
+错误消息不得直接回显敏感异常堆栈、认证 header 或 raw body；完整异常只进入受控日志与 trace。
+
+---
+
+## 9. 测试与验收
+
+### 9.1 单元测试
 
 | 测试类 | 覆盖点 |
 | --- | --- |
@@ -529,15 +591,16 @@ custom-rest auto-configuration 激活条件：
 | `CustomRestProtocolAdapterContextTest` | context 构造规则：header 小写化、query 多值保留、空 body 行为 |
 | `CustomRestAutoConfigurationTest` | enabled=false 不注册、缺 adapter 启动失败、路径冲突启动失败、method condition 生效 |
 
-### 7.2 集成测试
+### 9.2 集成测试
 
 | 测试类 | 场景 |
 | --- | --- |
 | `CustomRestMvcIntegrationTest` | GHZHY 示例路径同步调用成功 |
 | `CustomRestSseIntegrationTest` | `stream=true` 返回 SSE，chunk 经 adapter 包装 |
 | `CustomRestUnavailableIntegrationTest` | agent not ready / no orchestrator 返回 adapter 包装后的 503 |
+| `CustomRestSseErrorIntegrationTest` | error chunk + onError 组合只输出一帧 error event |
 
-### 7.3 回归断言
+### 9.3 回归断言
 
 - `/v1/query` 仍可用。
 - `/a2a` 仍可用。
@@ -546,7 +609,7 @@ custom-rest auto-configuration 激活条件：
 
 ---
 
-## 8. 当前限制
+## 10. 限制与待补
 
 | 限制 | 影响范围 | 临时方案 |
 | --- | --- | --- |
@@ -556,8 +619,9 @@ custom-rest auto-configuration 激活条件：
 | 不支持 YAML 字段映射 | 不能靠配置声明复杂字段别名 | 在 Java adapter 中实现 |
 | 不支持 multipart/file | 文件上传类协议无法直接接入 | 另起版本事实和 L2 设计 |
 | 不做认证授权 | custom-rest 只信任前置网关传入身份 | 在网关层完成 OAuth/签名校验 |
+| adapter 只控制 body envelope | 不能自定义 status/header/media type/SSE id/retry | 由 Web filter/gateway 扩展；出现稳定需求后再演进结构化响应 SPI |
 
-## 9. 实现结论
+## 11. 实施结论
 
 本设计推荐在 `agent-solution/common/agent-runtime-ext-java/agent-service-app` 中新增 `agent-service-adapters-custom-rest` 模块，以 Spring Boot auto-configuration 形式提供一个单 adapter custom-rest 扩展入口。
 
@@ -568,8 +632,6 @@ YAML 只配 queryPath 和 queryMethod；Java SPI 做转换；ServeOrchestrator �
 ```
 
 这样可以保持 runtime 主仓执行核心不变，复用 `/v1/query` 现有 A2A-aware 执行语义，同时给平台集成方保留足够自由的请求和响应协议转换能力。
-
-
 
 
 
