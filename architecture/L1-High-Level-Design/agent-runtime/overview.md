@@ -32,6 +32,7 @@ dependency:
 当前模块目标包括：
 
 - 通过开源 A2A SDK 提供 JSON-RPC over HTTP 接入、Task 生命周期基础设施、事件总线和队列管理。
+- 为兼容迁移和即时调用提供非 Task Query facade；该表面只返回当次 JSON/SSE 结果，不创建 Task，也不提供 Task 查询、订阅或取消。
 - 通过框架无关的 `AgentRuntimeHandler` SPI 驱动 openJiuwen、AgentScope 等异构 Agent 框架。
 - 将 A2A SDK 的执行请求桥接为 runtime 内部的中立执行上下文，并将框架原生结果映射为 runtime 中立结果。
 - 提供 Agent Card 发现能力，使一个 runtime 实例可以向外暴露可发现的 Agent 元数据。
@@ -65,7 +66,7 @@ dependency:
    `agent-runtime` 既要支持纯 Java SDK 式启动，也要支持 Spring Boot 自动装配。Spring 依赖必须被限制在接入和 host 实现边界内，不能污染框架无关 SPI。
 
 5. **运行时结果需要统一回传**
-   同步应答、流式输出、失败、取消、中断和人工输入等待需要被折叠为统一的 runtime 结果语义，再由 A2A SDK 转换为外部响应。
+   Task-owning 路径中的同步应答、流式输出、失败、取消、中断和人工输入等待需要被折叠为统一的 runtime 结果语义，再由 A2A SDK 转换为外部响应。非 Task Query facade 复用同一执行适配，但只在当前 JSON/SSE 响应内表达输出、中断和错误。
 
 ## 模块边界形态
 
@@ -73,7 +74,8 @@ dependency:
 
 | 边界项 | agent-runtime 负责 | agent-runtime 不负责 | 事实下沉位置 |
 |---|---|---|---|
-| A2A 接入 | 暴露 `/a2a` JSON-RPC 和 Agent Card 发现端点，并通过 A2A SDK 处理标准请求。 | 不定义新的外部协议族；多协议接入属于后续提案或 L2 设计。 | `api-appendix.md`, `logical.md`, `process.md` |
+| A2A 接入 | 暴露 `/a2a` JSON-RPC 和 Agent Card 发现端点，并通过 A2A SDK 处理标准请求；它是唯一 Task-owning Service Task API。 | 不允许其他 facade 伪造或旁路写入 Task 生命周期。 | `api-appendix.md`, `logical.md`, `process.md` |
+| 非 Task Query facade | 在 openJiuwen Java 实现中提供 `/v1/query`、`/query`、`/v1/query/reactive`，并允许 Custom REST L2 扩展复用同一 `ServeOrchestrator`。 | 不创建 Task，不提供 GetTask、CancelTask、SubscribeToTask；不适合需要异步控制或权威状态查询的调用。 | `api-appendix.md`, `process.md`, L2 Custom REST 设计 |
 | Task 生命周期桥接 | 消费 A2A SDK 的 TaskStore、EventBus、QueueManager、RequestHandler，把 Task 执行推进到 Agent SPI；当前 A2A JSON-RPC 是 Service Task API 的实现形态。 | 不拥有平台级 Run record、幂等入口或 serviceization 状态外观。 | `logical.md`, `process.md`, `physical.md`, `api-appendix.md` |
 | Agent 执行 SPI | 定义并消费框架无关的 `AgentRuntimeHandler`、执行结果、结果适配、memory、trajectory 和远端工具规格。 | 不把某个 Agent 框架设为平台唯一执行模型。 | `spi-appendix.md`, `development.md` |
 | 框架适配 | 提供 openJiuwen、AgentScope 等当前适配实现和抽象基类。 | 不承诺所有未来框架适配已经 active。 | `development.md`, L2 详细设计 |

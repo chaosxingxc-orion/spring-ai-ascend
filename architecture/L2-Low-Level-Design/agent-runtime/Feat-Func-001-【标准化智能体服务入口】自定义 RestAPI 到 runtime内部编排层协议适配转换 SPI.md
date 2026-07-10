@@ -48,7 +48,7 @@ dependency:
 | 固定 REST facade | `POST /v1/query` | `ServeOrchestrator` | `QueryMvcController` 将 `QueryRequest` 转为 `ServeRequest` |
 | A2A JSON-RPC | `POST /a2a` | A2A SDK `RequestHandler` -> `A2AAgentExecutor` -> `ServeOrchestrator` | JSON-RPC 是外部协议壳，执行仍归一到 orchestrator |
 
-`ServeOrchestrator` 的默认实现可能是 `A2AEnabledServeOrchestrator`。因此 custom-rest 只要和 `/v1/query` 一样构造规范的 `ServeRequest`，就能进入同一条 A2A-aware 执行链路，复用 shadow task、INPUT_REQUIRED、远端 A2A delegate、stream cancel 等语义。
+`ServeOrchestrator` 的默认实现可能是 `A2AEnabledServeOrchestrator`。因此 custom-rest 和 `/v1/query` 一样可以复用 handler 调用、远端 A2A delegate 编排和 stream cancel，但它们都是 **非 Task Query facade**：普通本地 query/stream 不进入 A2A SDK `RequestHandler`，不创建正式 Task。远端 delegate 使用的 shadow Task 只是 orchestrator 内部恢复状态。
 
 ### 1.3 设计原则
 
@@ -62,11 +62,11 @@ dependency:
 
 | 子特性 | 职责 | 关键抽象 | 状态 |
 | --- | --- | --- | --- |
-| 自定义 URL 暴露 | 按 YAML 注册一个 query path 和 query method | `CustomRestProperties`, `CustomRestAutoConfiguration` | proposed |
-| 入站转换 SPI | 将 HTTP 上下文转换为 `ServeRequest` | `CustomRestProtocolAdapter.Context` | proposed |
-| 出站转换 SPI | 将 `QueryResponse`、`QueryChunk`、错误转换为客户响应 | `CustomRestProtocolAdapter` | proposed |
-| 执行桥接 | 复用 runtime 内部 `ServeOrchestrator` | `ServeOrchestrator` | existing |
-| A2A task 语义复用 | 通过 `A2AEnabledServeOrchestrator` 复用 A2A-aware 状态维护 | `A2AEnabledServeOrchestrator` | existing |
+| 自定义 URL 暴露 | 按 YAML 注册一个 query path 和 query method | `CustomRestProperties`, `CustomRestAutoConfiguration` | 待实现 |
+| 入站转换 SPI | 将 HTTP 上下文转换为 `ServeRequest` | `CustomRestProtocolAdapter.Context` | 待实现 |
+| 出站转换 SPI | 将 `QueryResponse`、`QueryChunk`、错误转换为客户响应 | `CustomRestProtocolAdapter` | 待实现 |
+| 执行桥接 | 复用 runtime 内部 `ServeOrchestrator` | `ServeOrchestrator` | 既有依赖 |
+| 非 Task Query 边界 | 普通调用只返回当次 JSON/SSE；远端 delegate shadow Task 不升级为正式 Task | `A2AEnabledServeOrchestrator` | 待实现 |
 
 ---
 
@@ -76,13 +76,13 @@ dependency:
 
 | 能力 | 状态 | 说明 |
 | --- | --- | --- |
-| 单个自定义 query URL | proposed | 通过 YAML 配置，例如 `/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}` |
-| 自定义 query method | proposed | 通过 YAML 配置，默认 `POST`；用于 Spring MVC endpoint 注册 |
-| Java 入站转换 | proposed | 业务代码读取 header/path/query/body，构造 `ServeRequest` |
-| Java 出站转换 | proposed | 业务代码包装同步响应、SSE chunk和错误响应 |
-| 同步执行 | proposed | 当 adapter 产出的 `ServeRequest.stream=false` 时调用 `ServeOrchestrator.query()` |
-| 流式执行 | proposed | 当 adapter 产出的 `ServeRequest.stream=true` 时调用 `ServeOrchestrator.streamQuery()`，返回 SSE |
-| A2A-aware 状态语义复用 | proposed | 由于衔接到同一个 `ServeOrchestrator`，继承 `/v1/query` 当前执行路径能力 |
+| 单个自定义 query URL | 待实现 | 通过 YAML 配置，例如 `/v1/{project_id}/agents/{agent_id}/conversations/{conversation_id}` |
+| 自定义 query method | 待实现 | 通过 YAML 配置，默认 `POST`；用于 Spring MVC endpoint 注册 |
+| Java 入站转换 | 待实现 | 业务代码读取 header/path/query/body，构造 `ServeRequest` |
+| Java 出站转换 | 待实现 | 业务代码包装同步响应、SSE chunk和错误响应 |
+| 同步执行 | 待实现 | 当 adapter 产出的 `ServeRequest.stream=false` 时调用 `ServeOrchestrator.query()` |
+| 流式执行 | 待实现 | 当 adapter 产出的 `ServeRequest.stream=true` 时调用 `ServeOrchestrator.streamQuery()`，返回 SSE |
+| 非 Task Query 语义 | 待实现 | 与 `/v1/query` 相同，不创建正式 Task；需要 Task 能力时使用 `/a2a` |
 | 多 adapter 共存 | out | 当前版本不支持 |
 | YAML 字段映射 DSL | out | 请求/响应转换全部由 Java 代码实现 |
 | runtime-to-runtime 标准入口 | out | 自定义 REST 不作为 runtime 间调用标准；runtime 间仍使用 A2A |
@@ -178,9 +178,9 @@ HTTP {query-method} {query-path}
 | 非匹配 method | 由 Spring MVC 按未匹配 method 处理，不进入 adapter |
 | context 保留 method | adapter 仍可读取 `context.method()`，用于审计、日志或协议校验 |
 
-### 3.4 与 A2A task 状态的关系
+### 3.4 与 A2A Task 状态的关系
 
-custom-rest 不生成 A2A JSON-RPC `Task` 响应对象，但它复用执行路径上的 A2A-aware 状态语义。
+custom-rest 是非 Task Query facade，不生成 A2A JSON-RPC `Task` 响应对象，也不把普通本地 invocation 写入正式 `TaskStore`。
 
 ```text
 /custom/url
@@ -188,20 +188,22 @@ custom-rest 不生成 A2A JSON-RPC `Task` 响应对象，但它复用执行路�
   -> ServeRequest
   -> ServeOrchestrator
      -> A2AEnabledServeOrchestrator
-        -> shadow task
-        -> INPUT_REQUIRED
-        -> remote A2A delegate
-        -> stream cancel
+        -> local query/stream: QueryResponse / QueryChunk only
+        -> remote A2A delegate: optional shadow task
+        -> current-stream cancel
 ```
 
 因此：
 
 | 项 | custom-rest 行为 |
 | --- | --- |
-| A2A shadow task 保存 | 由 `A2AEnabledServeOrchestrator` 处理 |
-| INPUT_REQUIRED / interrupt | 以 `QueryChunk.TYPE_INTERRUPT` 或 `QueryResponse.result._interrupt` 形式返回给 adapter 包装 |
+| 普通本地完成 | 只返回 `QueryResponse` / `QueryChunk`，不创建正式 Task |
+| ask-user interrupt | 以 `QueryChunk.TYPE_INTERRUPT` 或 `QueryResponse.result._interrupt` 在当前响应中返回，不形成可查询的 `INPUT_REQUIRED` Task |
 | 远端 A2A delegate | 由 `A2AEnabledServeOrchestrator` 消费 `a2a_delegate` interrupt 并调用远端 |
-| JSON-RPC Task 对象 | 不直接返回；如客户响应需要 task-like 字段，由 adapter 从 QueryResponse/QueryChunk 投影 |
+| A2A shadow task | 只在远端 delegate pending/recovery 时保存，属于 orchestrator 内部状态，不是 Custom REST 返回的 Task |
+| Task 查询/取消/订阅 | 不支持 GetTask、CancelTask、SubscribeToTask；需要这些能力时调用 `/a2a` |
+
+adapter 禁止从 `QueryResponse` / `QueryChunk` 伪造 taskId 或 task-like 生命周期字段。客户自定义响应可以表达当次 invocation 的 success/error/interrupt，但不得宣称它是权威 Task 状态。
 
 ### 3.5 SPI 形态
 
@@ -561,6 +563,7 @@ custom-rest auto-configuration 激活条件：
 
 - 客户可以自定义 URL、method、字段映射和 body envelope。
 - 客户不能通过首版 SPI 自定义 HTTP status、Content-Type、SSE event id/retry 或任意响应 header。
+- 客户不能通过该 facade 获得正式 Task、Task 查询、Task 取消或断线后的 Task 级重订阅。
 - runtime-to-runtime 调用仍使用 A2A；Custom REST 不成为新的跨 runtime 标准协议。
 
 ---
@@ -599,6 +602,7 @@ custom-rest auto-configuration 激活条件：
 | `CustomRestSseIntegrationTest` | `stream=true` 返回 SSE，chunk 经 adapter 包装 |
 | `CustomRestUnavailableIntegrationTest` | agent not ready / no orchestrator 返回 adapter 包装后的 503 |
 | `CustomRestSseErrorIntegrationTest` | error chunk + onError 组合只输出一帧 error event |
+| `CustomRestNonTaskIntegrationTest` | 普通同步/流式调用不创建正式 Task；远端 delegate shadow Task 不作为响应 Task 暴露 |
 
 ### 9.3 回归断言
 
@@ -606,6 +610,7 @@ custom-rest auto-configuration 激活条件：
 - `/a2a` 仍可用。
 - custom-rest path 与内置 path 冲突时启动失败。
 - custom-rest 通过 `ServeOrchestrator` 进入与 `/v1/query` 相同的 handler/orchestrator 链路。
+- custom-rest 与 `/v1/query` 均保持非 Task Query facade 边界，不暴露 GetTask/CancelTask/SubscribeToTask 能力。
 
 ---
 
@@ -631,7 +636,5 @@ custom-rest auto-configuration 激活条件：
 YAML 只配 queryPath 和 queryMethod；Java SPI 做转换；ServeOrchestrator 做执行；adapter 包响应。
 ```
 
-这样可以保持 runtime 主仓执行核心不变，复用 `/v1/query` 现有 A2A-aware 执行语义，同时给平台集成方保留足够自由的请求和响应协议转换能力。
-
-
+这样可以保持 runtime 主仓执行核心不变，复用 `/v1/query` 现有 handler 调用、远端 A2A delegate 编排和当前流取消能力，同时给平台集成方保留足够自由的请求和响应协议转换能力。该入口始终保持非 Task Query facade 边界。
 

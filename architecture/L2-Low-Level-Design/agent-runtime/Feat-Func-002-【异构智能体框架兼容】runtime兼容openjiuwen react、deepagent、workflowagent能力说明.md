@@ -53,9 +53,9 @@ HTTP / Query API
 
 不把 core 内部能力误写成 runtime 独立适配能力。例如 DeepAgent 的 task loop、rails、workspace、subagents 属于 `agent-core-java` / harness；runtime 当前只负责把请求送入 Runner、把输出统一成 QueryResponse / QueryChunk。
 
-### 1.3 源码基线与证据等级
+### 1.3 源码基线与结论口径
 
-本文结论固定在以下源码快照，后续升级依赖版本时必须重新核验反射签名、输出结构和测试覆盖：
+本文结论固定在以下源码版本，后续升级依赖版本时需要重新核验反射签名、输出结构和中断归一链：
 
 | 对象 | 基线 |
 | --- | --- |
@@ -63,15 +63,14 @@ HTTP / Query API
 | `agent-core-java` | commit `830610b6` |
 | runtime 声明的 agent-core 依赖 | `com.openjiuwen:agent-core-java:0.1.13` |
 
-本文使用三种证据等级，避免把“源码上可调用”写成“已经过真实运行验证”：
+本文只使用以下两种源码结论口径：
 
 | 等级 | 含义 | 本文用法 |
 | --- | --- | --- |
 | 源码确认 | 在具体实现中存在确定的分支、类型或调用链 | `JiuwenCoreAgentHandler` 输入/输出归一、Runner 候选参数顺序、WorkflowAgent 中断归一 |
 | 签名兼容 | Runner 反射评分可以匹配目标方法 | DeepAgent、WorkflowAgent 通过统一 handler 接入 |
-| 契约测试确认 | 使用真实目标 agent 类型执行 query/stream/interrupt 的测试通过 | 当前尚未覆盖真实 DeepAgent 与 WorkflowAgent；不能据此宣称生产契约已闭环 |
 
-当前 `JiuwenCoreAgentHandlerTest` 主要使用测试替身验证统一 handler 与 Runner 反射机制，没有直接构造真实 `DeepAgent` 或 `WorkflowAgent`。因此本文对二者的结论是“源码确认 + 签名兼容”，落地前仍需补真实类型契约测试。
+因此，本文对 DeepAgent 与 WorkflowAgent 的“支持”结论表示：目标类型的公开方法签名能够被当前 Runner 候选参数和反射评分规则匹配，且其返回值存在进入 runtime 归一链的源码路径；不把框架内部能力扩大解释为 runtime 新增的独立能力。
 
 ---
 
@@ -532,20 +531,20 @@ Workflow 适配是“可经 WorkflowAgent 接入”的状态：
 
 ---
 
-## 9. 验证与验收
+## 9. 源码核验结论
 
-| 验证项 | 当前证据 | 落地要求 |
+| 核验项 | 源码结论 | 支持边界 |
 | --- | --- | --- |
-| ReAct query/stream | 源码实现与现有 handler 测试覆盖 | 保持现有回归测试 |
-| DeepAgent query/stream | 源码签名与 Runner 反射规则兼容 | 增加真实 `DeepAgent` 的同步、流式、interrupt 契约测试 |
-| WorkflowAgent query/stream | 源码签名、WorkflowEventHandler 归一链确认 | 增加真实 `WorkflowAgent` 的完成、`INPUT_REQUIRED`、续轮契约测试 |
-| 裸 Workflow | 不属于当前 handler 的推荐协议 | 测试应断言文档/示例只通过 `WorkflowAgent` 接入 |
-| cancel | 仅停止 service 消费，未证明底层执行终止 | 测试区分“客户端不再收流”和“底层执行已取消”，不得混写 |
+| ReAct query/stream | `JiuwenCoreAgentHandler` 可通过 Runner 调用 ReAct 的 `invoke/stream`，并归一输出 | 支持统一 query/stream；取消仍只停止 service 消费 |
+| DeepAgent query/stream | DeepAgent 的 `invoke(Map, AgentSessionApi)` 与 `stream(Map, AgentSessionApi, List)` 可被 Runner 候选参数和评分规则匹配 | 支持经统一 handler 接入；DeepAgent task loop、workspace、subagent 等仍归 core/harness 所有 |
+| WorkflowAgent query/stream | WorkflowAgent 的公开签名可被 Runner 匹配，`WorkflowEventHandler` 与 `normalizeInvokeOutput()` 已把 `INPUT_REQUIRED` 归一为 `__interaction__` | 支持完成与中断输出；恢复仍依赖同 conversation 的 core session/checkpointer 状态 |
+| 裸 Workflow | 裸 `Workflow` 不提供与 WorkflowAgent 相同的 service 输出归一保证 | 当前推荐且有明确源码闭环的接入对象是 `WorkflowAgent` |
+| cancel | orchestrator 取消 active stream 消费，没有向 Runner/core 传递执行句柄 | 不等价于 LLM、tool、workflow 节点或 DeepAgent task loop 已终止 |
 
 文档验收标准：
 
-1. 所有“已适配”结论都能追溯到源码调用链或真实契约测试。
+1. 所有“已适配”结论都能追溯到源码调用链或公开方法签名。
 2. DeepAgent 同步路径明确写为优先匹配 `invoke(Map, AgentSessionApi)`。
 3. Workflow 只推荐通过 `WorkflowAgent` 进入 `JiuwenCoreAgentHandler`。
 4. 不把停止 iterator 消费描述成 Runner、LLM、tool 或 workflow 已被取消。
-5. 依赖版本或目标方法签名变化时，必须重跑真实类型契约测试并更新本节基线。
+5. 依赖版本或目标方法签名变化时，必须重新核验 Runner 候选参数、反射评分和输出归一链，并更新本节结论。

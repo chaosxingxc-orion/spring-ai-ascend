@@ -190,7 +190,7 @@ RuntimeRedisClient
 
 ### 3.5 task-centric-control：任务中心化与状态机
 
-`task-centric-control` 是 runtime Task 生命周期拥有语义的中心控制面。所有执行都围绕 Task 生命周期收敛。
+`task-centric-control` 是 runtime Task 生命周期拥有语义的中心控制面。所有 Task-owning 执行都围绕 Task 生命周期收敛。
 
 该层的逻辑职责包括：
 
@@ -199,7 +199,7 @@ RuntimeRedisClient
 - 根据 Agent 执行结果更新 Task。
 - 以 Task 为中心连接 session-task-manager、internal-event-queue 和 engine。
 
-该层不暴露某个 Agent 框架的原生状态，也不绕过 Task 状态机直接向外部返回执行过程。
+该层不暴露某个 Agent 框架的原生状态，也不绕过 Task 状态机直接向外部返回 Task 执行过程。非 Task Query facade 是显式分离的兼容调用表面，只能返回当次 invocation 结果，不得声称其输出是可查询或可取消的 Task 状态。
 
 ### 3.6 engine：智能体与中间件服务代理封装
 
