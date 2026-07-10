@@ -14,7 +14,7 @@ dependency:
 
 > 目标仓库：`openJiuwen/agent-solution`
 > 目标模块：`common/agent-runtime-ext-java/agent-service-app/agent-service-adapters-custom-rest`
-> 最后更新：2026-07-09
+> 最后更新：2026-07-10
 
 说明：本文档是 Feat-Func-001 的 Custom REST 子设计，描述 `agent-runtime` 逻辑边界在 OpenJiuwen 社区实现中的扩展方案；实际代码实现落在 `agent-solution` 仓库，不修改 `spring-ai-ascend/agent-runtime` 主模块代码。
 
@@ -24,7 +24,7 @@ dependency:
 
 ### 1.1 特性定位
 
-本设计面向 FEAT-015：在 `agent-solution/common/agent-runtime-ext-java` 中新增一个轻量 custom-rest 扩展 starter，使平台集成方可以用自有 REST URL、请求字段和响应信封调用 Agent Runtime。
+本设计是 Feat-Func-001 的 Custom REST 子设计：在 `agent-solution/common/agent-runtime-ext-java` 中新增一个轻量 custom-rest 扩展 starter，使平台集成方可以用自有 REST URL、请求字段和响应信封调用 Agent Runtime。
 
 该扩展只负责 HTTP 外壳适配：
 
@@ -105,7 +105,10 @@ dependency:
 - **必须**：adapter 返回的 `ServeRequest` 进入 `ServeOrchestrator.query()` 或 `streamQuery()`。
 - **必须**：ready gate 与 `/v1/query` 对齐，`AgentReadiness` 未 ready 时返回 adapter 包装后的 503 错误。
 - **必须**：`ServeOrchestrator` 不存在时返回 adapter 包装后的 503 错误。
-- **必须**：JSON body 解析失败时返回 adapter 包装后的 400 错误。
+- **必须**：非空请求体的 `Content-Type` 只接受 `application/json` 或 `application/*+json`；空 body 可以缺省 Content-Type。不支持的 media type 返回 adapter 包装后的 415 错误，JSON body 解析失败返回 adapter 包装后的 400 错误。
+- **必须**：`executionTimeMs` 使用单调时钟，从 handler 收到请求、读取或解析 body 之前开始计时，所有同步成功和失败分支采用同一口径。
+- **必须**：adapter 产出的 `ServeRequest.conversationId` 非空；`userId`、`spaceId`、`tenantId` 在通用 SPI 层允许为空，其是否必填以及缺失影响由具体 adapter 和下游 Agent 契约说明。
+- **必须**：method、requestPath、conversationId、tenantId 以及宿主已有 correlation/trace 标识进入与 `/v1/query` 一致的日志和 trace 关联链路；认证 header 和 raw body 不得作为普通可观测字段输出。
 - **必须**：流式执行中发生异常时，输出一帧 adapter 包装的 error SSE event 后结束流。
 - **允许**：adapter 自行决定外部字段优先级、必填校验、metadata 结构和响应字段名。
 - **禁止**：custom-rest 扩展维护独立 task/run/job 状态机。
@@ -137,7 +140,9 @@ common/agent-runtime-ext-java/agent-service-app/agent-service-adapters-custom-re
 ```text
 HTTP {query-method} {query-path}
   -> CustomRestAutoConfiguration 注册的 HandlerMethod
+  -> 启动单调计时器
   -> 读取 rawBody
+  -> 校验 Content-Type
   -> ObjectMapper 将 JSON body 解析为 Map<String,Object>
   -> 从 NativeWebRequest/HttpServletRequest 提取：
        headers
@@ -156,6 +161,18 @@ HTTP {query-method} {query-path}
      else: query(...)
   -> CustomRestProtocolAdapter.fromQueryResponse/fromQueryChunk/fromError
 ```
+
+请求体规则：
+
+| 场景 | 框架行为 |
+| --- | --- |
+| `Content-Type: application/json` 或 `application/*+json` | 继续解析 JSON object |
+| Content-Type 缺失且 body 为空 | 按空 object 处理 |
+| Content-Type 缺失但 body 非空 | 返回 415，不尝试猜测 media type |
+| 其他 Content-Type | 返回 415，adapter 不介入 |
+| JSON 语法非法或根节点不是 object | 返回 400 |
+
+`rawBody` 用于保留已接受 JSON 请求的原始文本，以支持业务审计或需要词法信息的转换；它不是绕过 media type 校验处理任意非 JSON 协议的入口。
 
 ### 3.3 HTTP method 配置
 
@@ -273,6 +290,13 @@ CustomRestProtocolAdapter.Context context
 | `body` | JSON object body；空 body 为空 map；非 object body 返回 400 parse error |
 | `rawBody` | 保留原始 body，便于客户自定义解析或审计 |
 
+身份字段约束：
+
+- `conversationId` 是进入 orchestrator 前的必填字段，缺失时由框架调用 `fromError(400, ...)`，不调用 orchestrator。
+- `userId`、`spaceId`、`tenantId` 在通用 SPI 中允许为空。具体 adapter 必须说明这些字段的来源、是否必填以及缺失后对权限、memory、state scope 的影响。
+- adapter 可以从受信任网关 header 映射身份，但不得在本层执行 OAuth、签名或租户授权判断。
+- header 名按 HTTP 语义统一小写；不提供或承诺保留线上原始大小写。
+
 ### 3.7 endpoint 注册
 
 由于只支持一个 adapter，注册逻辑放在 `CustomRestAutoConfiguration` 内部即可，不单拆 registrar，也不单拆 MVC endpoint 文件。auto-configuration 可以声明一个内部 handler 对象，并通过 `RequestMappingHandlerMapping.registerMapping(...)` 绑定到 `queryPath/queryMethod`。
@@ -307,6 +331,8 @@ CustomRestProtocolAdapter.Context context
 
 只注册一个 queryPath 和一个 queryMethod。Spring MVC mapping 设置 method condition，未命中的 HTTP method 不进入 custom-rest adapter。
 
+“与内置路径冲突”不是字符串等值判断。启动时使用与 Spring MVC 相同的 `PathPatternParser` 解析 `queryPath`，并用该 pattern 逐一匹配上述内置具体路径；只要能匹配任一保留路径就启动失败。例如 `/v1/{name}` 必须因能够匹配 `/v1/query` 而被拒绝。无需做 pattern 间的双向或交集推导。
+
 ### 3.8 SSE 包装
 
 流式调用使用 MVC `SseEmitter`，行为与 `/v1/query` 对齐：
@@ -322,6 +348,14 @@ CustomRestProtocolAdapter.Context context
 ```
 
 SSE data 不强制加 JSON-RPC envelope。客户需要什么外部格式，由 `fromQueryChunk` 决定。
+
+SSE 生命周期由框架层拥有：
+
+- `onTimeout`：标记当前 observer cancelled，并完成 emitter；不调用 `adapter.fromError(...)`。
+- `onCompletion`：标记当前 observer cancelled，不再发送 chunk。
+- `onError`：若错误来自连接写出或客户端断开，只标记当前 observer cancelled，不再尝试发送 error frame。
+- 客户端断开只取消当前调用的 observer。不得仅因一个 emitter 断开而调用 conversation 级 `ServeOrchestrator.cancelActive(conversationId)`，避免误取消同 conversation 的其他并发流。
+- 收到 `TYPE_INTERRUPT` 时，adapter 只负责包装该 chunk；是否结束流由 orchestrator/observer 的 terminal 回调决定，adapter 不直接操作 emitter。
 
 ---
 
@@ -394,6 +428,8 @@ CustomRestProtocolAdapter.Context
 
 ### 5.1 同步 query
 
+handler 在读取请求体前记录 `startNanos = System.nanoTime()`；传给 `fromQueryResponse(...)` 或 `fromError(...)` 的 `executionTimeMs` 统一按当前单调时钟与该起点之差计算。JSON parse、media type、adapter validation、readiness 和 orchestrator 异常都使用同一口径，不允许在不同分支重新起表或固定返回 0。
+
 ```text
 Client
   -> {query-method} {query-path}
@@ -410,7 +446,9 @@ Client
 
 | 场景 | HTTP status | 响应来源 |
 | --- | --- | --- |
+| unsupported media type | 415 | `fromError(415, "unsupported media type", ...)` |
 | JSON parse error | 400 | `fromError(400, "request parse error", ...)` |
+| conversationId missing | 400 | `fromError(400, "conversation_id is required", ...)` |
 | adapter validation error | adapter 指定 | `fromError(status, message, ...)` |
 | agent not loaded | 503 | `fromError(503, "agent not loaded", ...)` |
 | no orchestrator | 503 | `fromError(503, "no agent handler configured", ...)` |
@@ -445,6 +483,8 @@ streamQuery onError / runtime exception
   -> if errorFrameSent=true: 不再发送第二帧错误
   -> emitter.complete()
 ```
+
+`TYPE_INTERRUPT` 是本次调用的正常协议结果，不是 HTTP 错误：同步 query 返回 HTTP 200 并由 `fromQueryResponse(...)` 包装 `_interrupt`；流式 query 发送 adapter 包装的 interrupt chunk，随后等待 orchestrator 的 `onComplete/onError` 收束，不由 adapter 主动结束 emitter。
 
 ### 5.3 HTTP method 处理
 
@@ -572,13 +612,15 @@ custom-rest auto-configuration 激活条件：
 
 | 错误场景 | 触发条件 | 框架行为 | 对外结果 |
 | --- | --- | --- | --- |
+| media type 不支持 | 非空 body 未声明 JSON media type，或 Content-Type 不是 JSON | 不解析 body，不调用 `toServeRequest`/orchestrator；只调用 `fromError` 包装错误 | HTTP 415 + `fromError` body |
 | 请求解析失败 | body 不是 JSON object | 不调用 orchestrator | HTTP 400 + `fromError` body |
+| conversationId 缺失 | adapter 未产出有效 conversationId | 不调用 orchestrator | HTTP 400 + `fromError` body |
 | adapter 校验失败 | `AdaptResult.error` | 使用 adapter 指定的 4xx status | 对应 status + `fromError` body |
 | runtime 未就绪 | readiness=false 或无 orchestrator | 拒绝执行 | HTTP 503 + `fromError` body |
 | 同步执行异常 | `query()` 抛出异常 | 记录脱敏日志 | HTTP 500 + `fromError` body |
 | 流内 error chunk | 收到 `TYPE_ERROR` | 经 `fromQueryChunk` 输出并标记已发送 | 一帧 error SSE |
 | 流式 terminal error | `onError` 且此前无 error chunk | 经 `fromError` 输出 | 一帧 error SSE 后关闭 |
-| 客户端断连 | emitter completion/error | observer 进入 cancelled | 停止继续发送；底层执行取消能力以 orchestrator/handler 为准 |
+| 客户端断连 | emitter completion/error | 当前 observer 进入 cancelled；不调用 `fromError`，不触发 conversation 级 `cancelActive` | 停止当前流继续发送；底层执行取消能力以 orchestrator/handler 为准 |
 
 错误消息不得直接回显敏感异常堆栈、认证 header 或 raw body；完整异常只进入受控日志与 trace。
 
@@ -591,8 +633,10 @@ custom-rest auto-configuration 激活条件：
 | 测试类 | 覆盖点 |
 | --- | --- |
 | `CustomRestPropertiesTest` | 默认值、enabled/query-path/query-method 绑定、缺 query-path 校验、非法 query-method 校验 |
-| `CustomRestProtocolAdapterContextTest` | context 构造规则：header 小写化、query 多值保留、空 body 行为 |
-| `CustomRestAutoConfigurationTest` | enabled=false 不注册、缺 adapter 启动失败、路径冲突启动失败、method condition 生效 |
+| `CustomRestProtocolAdapterContextTest` | context 构造规则：header 小写化、query 多值保留、空 body 行为、身份字段可空边界 |
+| `CustomRestAutoConfigurationTest` | enabled=false 不注册、缺 adapter 启动失败、保留路径 pattern 冲突启动失败、method condition 生效 |
+| `CustomRestMediaTypeTest` | JSON 与 `+json` 接受、空 body 行为、缺失/非 JSON Content-Type 返回 415、非法 JSON 返回 400 |
+| `CustomRestExecutionTimeTest` | 成功、parse error、validation error 和 orchestrator error 使用同一 handler 入口计时口径 |
 
 ### 9.2 集成测试
 
@@ -602,6 +646,8 @@ custom-rest auto-configuration 激活条件：
 | `CustomRestSseIntegrationTest` | `stream=true` 返回 SSE，chunk 经 adapter 包装 |
 | `CustomRestUnavailableIntegrationTest` | agent not ready / no orchestrator 返回 adapter 包装后的 503 |
 | `CustomRestSseErrorIntegrationTest` | error chunk + onError 组合只输出一帧 error event |
+| `CustomRestSseCancellationIntegrationTest` | timeout/completion/write error 只取消当前 observer，不调用 `fromError` 或 conversation 级 `cancelActive` |
+| `CustomRestInterruptIntegrationTest` | 同步 interrupt 返回 200；流式 interrupt 经 adapter 包装并由 observer terminal 收束 |
 | `CustomRestNonTaskIntegrationTest` | 普通同步/流式调用不创建正式 Task；远端 delegate shadow Task 不作为响应 Task 暴露 |
 
 ### 9.3 回归断言
@@ -620,7 +666,7 @@ custom-rest auto-configuration 激活条件：
 | --- | --- | --- |
 | 只支持一个 custom-rest adapter | 不能同时挂多个客户协议 | 多协议场景部署多个 runtime 实例 |
 | 只支持 Spring MVC | WebFlux custom endpoint 不自动注册 | 先使用 MVC runtime；如需 WebFlux 后续新增独立 registrar |
-| 不返回 A2A JSON-RPC Task 对象 | 客户响应不是标准 A2A Task envelope | adapter 可从 QueryResponse/QueryChunk 投影客户需要的状态字段 |
+| 不返回 A2A JSON-RPC Task 对象 | 客户响应不是标准 A2A Task envelope | adapter 可投影当次 invocation 的 success/error/interrupt，但不得生成 taskId 或宣称权威 Task 生命周期 |
 | 不支持 YAML 字段映射 | 不能靠配置声明复杂字段别名 | 在 Java adapter 中实现 |
 | 不支持 multipart/file | 文件上传类协议无法直接接入 | 另起版本事实和 L2 设计 |
 | 不做认证授权 | custom-rest 只信任前置网关传入身份 | 在网关层完成 OAuth/签名校验 |
@@ -637,4 +683,3 @@ YAML 只配 queryPath 和 queryMethod；Java SPI 做转换；ServeOrchestrator �
 ```
 
 这样可以保持 runtime 主仓执行核心不变，复用 `/v1/query` 现有 handler 调用、远端 A2A delegate 编排和当前流取消能力，同时给平台集成方保留足够自由的请求和响应协议转换能力。该入口始终保持非 Task Query facade 边界。
-
