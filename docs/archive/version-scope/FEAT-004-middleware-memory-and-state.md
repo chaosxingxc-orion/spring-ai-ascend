@@ -2,15 +2,18 @@
 version: 0715
 module: agent-runtime
 feature_type: functional
-feature_id: Feat-Func-004
-status: active
+feature_id: FEAT-004
+status: deprecated
+archived: 2026-07-09
 ---
+
+> 废弃稿：本文为历史特性文档，已从当前 `version-scope` 移除；当前 Redis 任务状态缓存事实以 `version-scope/FEAT-003-agent-task-state-cache.md` 为准。
 
 # 中间件解耦 Memory & State 特性文档
 
 ## 1. 特性定位
 
-Feat-Func-004 定义 `agent-runtime` 当前版本中 Memory 与 State 相关中间件能力的事实要求：runtime 必须提供框架中立的窄 Memory SPI、稳定的 state key / memory scope 派生语义，以及面向具体 Agent 框架的状态恢复接入边界，使 Agent 执行过程可以在不绑定特定存储产品、不泄漏框架私有状态模型的前提下使用记忆检索、记忆写回和框架级 checkpoint。
+FEAT-004 定义 `agent-runtime` 当前版本中 Memory 与 State 相关中间件能力的事实要求：runtime 必须提供框架中立的窄 Memory SPI、稳定的 state key / memory scope 派生语义，以及面向具体 Agent 框架的状态恢复接入边界，使 Agent 执行过程可以在不绑定特定存储产品、不泄漏框架私有状态模型的前提下使用记忆检索、记忆写回和框架级 checkpoint。
 
 本特性解决的问题是：不同 Agent 框架通常拥有各自的 memory、checkpoint、conversation id、cache 或 session 状态机制。如果这些机制直接暴露给 northbound A2A 服务入口或 adapter 公共契约，调用方、测试和平台集成都必须理解具体框架的私有状态模型。`agent-runtime` 需要把这些差异收敛到运行时上下文、窄 MemoryProvider SPI 和框架本地 adapter 之内，对外只承诺稳定的 Task、session、tenant、state key、memory scope 和错误降级语义。
 
@@ -23,7 +26,7 @@ Feat-Func-004 定义 `agent-runtime` 当前版本中 Memory 与 State 相关中�
 - 平台集成方：替换或接入 memory 后端、配置 OpenJiuwen checkpointer，并理解这些能力的运行时隔离边界。
 - 测试与验收团队：按统一黑盒行为验证 memory 检索/保存、state key 派生、checkpoint 配置、降级和边界排除项。
 
-本特性只定义 `agent-runtime` 中 Memory 与 State 的中间件接入语义。标准 northbound A2A 服务入口由 `Feat-Func-001` 约束；异构框架 adapter 的执行归一、结果流和取消语义由 `Feat-Func-002` 约束；远程 Agent 发现、工具安装和中断续接编排由 `Feat-Func-005` 约束。框架内部 memory、tool、skill、hook、checkpoint payload 和 cache 策略仍由具体框架或 Agent 开发者自治。
+本特性只定义 `agent-runtime` 中 Memory 与 State 的中间件接入语义。标准 northbound A2A 服务入口由 `FEAT-001` 约束；异构框架 adapter 的执行归一、结果流和取消语义由 `FEAT-002` 约束；远程 Agent 发现、工具安装和中断续接编排由 `FEAT-005` 约束。框架内部 memory、tool、skill、hook、checkpoint payload 和 cache 策略仍由具体框架或 Agent 开发者自治。
 
 ## 2. 当前版本能力要求
 
@@ -161,6 +164,6 @@ Feat-Func-004 定义 `agent-runtime` 当前版本中 Memory 与 State 相关中�
 
 ## 7. 关联文档
 
-- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-middleware-memory-and-state.md`
-- `version-scope/Feat-Func-001-standardized-agent-service-entrypoint.md`
-- `version-scope/Feat-Func-002-heterogeneous-agent-framework-compatibility.md`
+- `docs/archive/architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-middleware-memory-and-state.md`
+- `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
+- `version-scope/FEAT-002-heterogeneous-agent-framework-compatibility.md`

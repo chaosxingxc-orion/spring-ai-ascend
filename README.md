@@ -78,12 +78,12 @@
 `version-scope/` 是版本承诺的入口。当前目录包含：
 
 - `agent-runtime-release-features.md`
-- `Feat-Func-001-a2a-protocol-and-s2c-communication.md`
-- `Feat-Func-002-heterogeneous-agent-framework-compatibility.md`
-- `Feat-Func-003-agent-runtime-core-interface.md`
-- `Feat-Func-004-middleware-memory-and-state.md`
-- `Feat-Func-005-remote-agent-orchestration.md`
-- `Feat-DFX-001-trajectory-observability.md`
+- `FEAT-001-standardized-agent-service-entrypoint.md`
+- `FEAT-002-heterogeneous-agent-framework-compatibility.md`
+- `FEAT-003-agent-runtime-core-interface.md`
+- `FEAT-004-middleware-memory-and-state.md`
+- `FEAT-005-remote-agent-orchestration.md`
+- `DFX-001-trajectory-observability.md`
 
 这些文档描述“本版本要交付什么、以什么能力验收”。当版本范围和架构设计发生冲突时，应先更新或澄清架构事实，再落实现代码。
 

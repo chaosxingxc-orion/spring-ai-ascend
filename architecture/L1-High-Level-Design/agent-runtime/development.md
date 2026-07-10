@@ -23,7 +23,7 @@ dependency:
 
 本文档描述 `agent-runtime` 在代码、构建、依赖、自动配置、SPI 扩展面和可执行边界测试上的 active 架构事实。
 
-`agent-runtime` 在当前实现中是独立 Maven 模块和 plain library artifact。它以 `com.huawei.ascend.runtime` 为命名空间根，通过 Spring Boot 自动配置暴露 A2A northbound 接入，通过 `engine.spi` 暴露框架中立 Agent 执行扩展面，并通过 `engine.a2a` 桥接 A2A SDK server/client 能力。
+`agent-runtime` 在当前实现中是独立 Maven 模块和 plain library artifact。它以 `com.huawei.ascend.runtime` 为命名空间根，通过 Spring Boot 自动配置暴露 A2A northbound 接入，通过 `engine.spi` 暴露框架中立 Agent 执行扩展面和 runtime Redis 操作 SPI，通过 `engine.redis` 承载 Redis-backed runtime 状态缓存默认实现，并通过 `engine.a2a` 桥接 A2A SDK server/client 能力。
 
 ## 2. 模块与构建形态
 
@@ -118,6 +118,7 @@ agent-runtime/src/main/java/com/huawei/ascend/runtime/
     ├── agentscope
     ├── openjiuwen
     ├── otel
+    ├── redis
     ├── spi
     └── versatile
 ```
@@ -176,6 +177,7 @@ agent-runtime/src/main/java/com/huawei/ascend/runtime/
 | `engine.a2a` | A2A server/client 桥接、Agent Card、remote invocation、A2A 结果路由 |
 | `engine.openjiuwen` | openJiuwen Agent 框架适配 |
 | `engine.agentscope` | AgentScope Agent 框架适配 |
+| `engine.redis` | Redis-backed TaskStore、Runtime Redis 默认单机/集群适配、Redis 连接配置解析与诊断 |
 | `engine.versatile` | Versatile remote/runtime 适配 |
 | `engine.otel` | OpenTelemetry span sink 与工厂 |
 
@@ -249,6 +251,7 @@ forbidden_dependencies:
 
 - Agent 执行入口和结果转换。
 - Memory 接入的窄 SPI。
+- Runtime Redis 操作 SPI。
 - Trajectory 事件、脱敏、sink、source 和 emitter 扩展。
 - Remote Agent 工具规格的协议中立表达。
 
@@ -261,6 +264,7 @@ forbidden_dependencies:
 | `AgentExecutionResult` | 中立执行结果 |
 | `StreamAdapter` | 框架结果流到中立结果流的转换 |
 | `MemoryProvider` | runtime-provided memory init/search/save 接口 |
+| `RuntimeRedisClient` | runtime Redis 操作接口，供 Redis-backed TaskStore、checkpointer 和客户 Redis 适配实现复用 |
 | `TrajectoryEmitter` | trajectory 事件发射 |
 | `TrajectorySink` / `TrajectorySinkFactory` | trajectory sink 扩展 |
 | `TrajectoryEvent` / `TrajectoryDraft` | trajectory 事件模型 |
@@ -314,10 +318,11 @@ OpenTelemetry 依赖为 optional。未启用或未携带 OTel 依赖时，runtim
 
 ### 6.1 自动配置入口
 
-`agent-runtime` 通过 Spring Boot `AutoConfiguration.imports` 暴露两个自动配置入口：
+`agent-runtime` 通过 Spring Boot `AutoConfiguration.imports` 暴露三个自动配置入口：
 
 ```text
 com.huawei.ascend.runtime.boot.RuntimeAutoConfiguration
+com.huawei.ascend.runtime.boot.RedisMiddlewareAutoConfiguration
 com.huawei.ascend.runtime.engine.a2a.A2aClientAutoConfiguration
 ```
 
@@ -335,7 +340,18 @@ com.huawei.ascend.runtime.engine.a2a.A2aClientAutoConfiguration
 
 这些 Bean 以可覆盖为原则，业务方可以通过自定义 Bean 替换默认 runtime 组件。
 
-### 6.3 A2aClientAutoConfiguration
+### 6.3 RedisMiddlewareAutoConfiguration
+
+`RedisMiddlewareAutoConfiguration` 负责 FEAT-003 引入的 runtime Redis 数据源与状态缓存装配：
+
+- Runtime Redis SPI 默认 standalone / cluster 实现。
+- Redis 连接配置解析、诊断和启动策略日志。
+- Redis-backed TaskStore 与 Agent checkpoint cache 所需组件。
+- 客户自定义 `RuntimeRedisClient` Bean 的优先接入。
+
+该自动配置只把 Redis 能力暴露为 runtime SPI 和可覆盖 Bean，不要求业务代码直接依赖具体 Redis 客户端。
+
+### 6.4 A2aClientAutoConfiguration
 
 `A2aClientAutoConfiguration` 负责 remote A2A client / outbound invocation 相关装配：
 
@@ -347,7 +363,7 @@ com.huawei.ascend.runtime.engine.a2a.A2aClientAutoConfiguration
 
 该自动配置将远端 Agent 调用保持在 `engine.a2a` 边界内，不把 A2A client 依赖扩散到中立 SPI。
 
-### 6.4 配置属性分组
+### 6.5 配置属性分组
 
 当前配置属性主要分布在：
 
@@ -359,6 +375,7 @@ com.huawei.ascend.runtime.engine.a2a.A2aClientAutoConfiguration
 | `AgentScopeRuntimeClientProperties` | AgentScope runtime client |
 | `VersatileProperties` | Versatile 适配 |
 | `TrajectoryProperties` | trajectory / OTel 导出 |
+| `MiddlewareProperties` | Redis endpoint、runtime Redis 数据源与状态缓存 |
 
 配置属性属于开发视图事实；单项配置语义和使用示例放在 runtime guide 或 L2 详细设计中维护。
 
@@ -368,7 +385,7 @@ com.huawei.ascend.runtime.engine.a2a.A2aClientAutoConfiguration
 
 `RuntimePackageBoundaryTest` 固化当前包结构：
 
-- `engine` 只允许根包、`a2a`、`agentscope`、`openjiuwen`、`otel`、`versatile`、`spi`。
+- `engine` 只允许根包、`a2a`、`agentscope`、`openjiuwen`、`otel`、`redis`、`versatile`、`spi`。
 - `boot` 保持扁平。
 - `app` 保持扁平。
 - openJiuwen 适配器只能位于 `engine.openjiuwen`。
@@ -379,6 +396,7 @@ com.huawei.ascend.runtime.engine.a2a.A2aClientAutoConfiguration
 可执行约束包括：
 
 - `engine.spi`、`engine` 根包、`engine.otel`、`common`、`engine.agentscope`、`engine.openjiuwen` 不依赖 `org.a2aproject..`。
+- `engine.redis` 只有 Redis-backed TaskStore 适配可以依赖 A2A SDK 存储抽象；Runtime Redis SPI 和默认 Redis 连接实现不得把 A2A 类型暴露给 `engine.spi`。
 - A2A server machinery 只允许存在于 `engine.a2a` 与 `boot`。
 - framework adapters 不依赖 `engine.a2a`。
 

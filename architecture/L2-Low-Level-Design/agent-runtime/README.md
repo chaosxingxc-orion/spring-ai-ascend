@@ -48,7 +48,7 @@ L2 特性文档按功能特性和非功能特性分组命名：
 |---|---|---|---|
 | Feat-Func-001 | [标准化 Agent 服务入口](Feat-Func-001-standardized-agent-service-entrypoint.md) | A2A northbound 接入、Agent Card、普通 client/其他 runtime/agent-bus forwarding inbound、阻塞/流式/异步 S2C 通讯、A2A 执行桥接。 | 标准 Agent 服务入口和 Task 表面映射。 |
 | Feat-Func-002 | [异构 Agent 框架兼容](Feat-Func-002-heterogeneous-agent-framework-compatibility.md) | `AgentRuntimeHandler` 适配模型、核心 SPI 与状态边界、OpenJiuwen ReAct/Workflow/DeepAgent、AgentScope、Versatile adapter 接入。 | 框架中立执行 SPI、状态归属原则与具体 adapter 协作；adapter 不治理框架 cache/checkpointer、hook、rail、tool、skill。 |
-| Feat-Func-004 | [中间件解耦 Memory & State](Feat-Func-004-middleware-memory-and-state.md) | `MemoryProvider`、Memory 注入、OpenJiuwen checkpoint、State 持久化边界。 | Memory/State 中间件能力与 runtime 公共层解耦。 |
+| Feat-Func-003 | [智能体任务状态缓存](Feat-Func-003-agent-task-state-cache.md) | 标准化 Redis 缓存 SPI、原生 Redis 单机/集群策略、客户封装 Redis 适配、A2A Task 与 checkpoints 缓存复用。 | 任务状态缓存、Redis 连接池复用、客户适配扩展点、日志脱敏和内部验收边界。 |
 | Feat-Func-005 | [远程 Agent 编排](Feat-Func-005-remote-agent-orchestration.md) | 远程 Agent Card 拉取、Tool 注入、中断-续接、远程调用结果回灌。 | runtime 作为 A2A client 编排其他 Agent。 |
 
 ## 非功能特性清单

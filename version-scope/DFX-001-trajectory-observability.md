@@ -2,11 +2,11 @@
 scope: version
 module: agent-runtime
 feature_type: dfx
-feature_id: Feat-DFX-001
+feature_id: DFX-001
 status: active
 dependency:
   - README.md
-  - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-DFX-001-trajectory-observability.md
+  - ../architecture/L2-Low-Level-Design/agent-runtime/DFX-001-trajectory-observability.md
 ---
 
 # 轨迹可观测性 — 黑盒行为说明

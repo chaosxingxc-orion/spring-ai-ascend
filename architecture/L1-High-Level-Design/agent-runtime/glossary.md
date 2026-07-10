@@ -30,7 +30,7 @@ dependency:
 | A2A 协议桥 | 位于 `engine.a2a` 和 `boot` 边界内的协议相关实现，包括 A2A JSON-RPC controller、Agent Card、A2A executor、远端 Agent card cache、outbound adapter 和 remote invocation orchestration。 |
 | runtime Task | A2A SDK 管理的 runtime 层执行状态单元。它承载 submitted、working、input-required、completed、failed、canceled、rejected 等生命周期状态。 |
 | Session / context | A2A context 或 runtime 会话范围，用于把多次消息和 Task 关联到同一交互上下文；它不等同于业务 Agent checkpoint。 |
-| Agent checkpoint | 具体 Agent 框架或外部状态能力管理的业务执行状态。`agent-runtime` 只传递状态键、上下文和可选状态快照，不默认持久化 checkpoint。 |
+| Agent checkpoint | 具体 Agent 框架或外部状态能力管理的业务执行状态。`agent-runtime` 只传递状态键、上下文和可选状态快照；FEAT-003 可提供 Redis cache 桥接，但不解释或接管业务 checkpoint 语义。 |
 | AgentExecutionContext | 传给 handler 的协议中立执行上下文，包含身份、输入类型、消息、变量、Agent 状态键和可选状态快照。A2A wire 类型不穿透到该模型。 |
 | AgentExecutionResult | handler 结果适配后的中立结果语义，包含 `OUTPUT`、`COMPLETED`、`FAILED`、`INTERRUPTED`。它不是 A2A wire response，也不是具体 Agent 框架原生输出。 |
 | UserInputInterrupt | `AgentExecutionResult.INTERRUPTED` 的人工输入子语义，路由到 `emitter.requiresInput(...)`，使 Task 进入 `INPUT_REQUIRED`。 |

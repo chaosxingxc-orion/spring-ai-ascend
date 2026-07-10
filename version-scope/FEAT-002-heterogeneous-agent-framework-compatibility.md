@@ -2,19 +2,19 @@
 version: 0715
 module: agent-runtime
 feature_type: functional
-feature_id: Feat-Func-002
+feature_id: FEAT-002
 status: active
 merged_from:
-  - Feat-Func-003-agent-runtime-core-interface
+  - agent-runtime-core-interface
 ---
 
 # 异构智能体框架兼容特性文档
 
 ## 1. 特性定位
 
-Feat-Func-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实要求，并承载原 Feat-Func-003 的核心 SPI 与状态边界事实。runtime 必须通过统一的 Adapter / Handler 抽象接入不同 Agent 实现，使上层标准 Agent 服务入口、Task 生命周期、SSE 输出、错误、取消、租户上下文、状态与轨迹语义不依赖具体底层框架。
+FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实要求，并承载历史 agent-runtime core interface 提案中的核心 SPI 与状态边界事实。runtime 必须通过统一的 Adapter / Handler 抽象接入不同 Agent 实现，使上层标准 Agent 服务入口、Task 生命周期、SSE 输出、错误、取消、租户上下文、状态与轨迹语义不依赖具体底层框架。
 
-本特性解决的问题是：OpenJiuwen、AgentScope、远端 REST Agent 服务以及自定义 Agent 实现有不同的 API、执行模型、流式协议、错误表面和扩展机制；`agent-runtime` 必须把这些差异约束在 adapter 内部，向 Feat-Func-001 定义的标准 Agent 服务入口暴露一致的执行语义。
+本特性解决的问题是：OpenJiuwen、AgentScope、远端 REST Agent 服务以及自定义 Agent 实现有不同的 API、执行模型、流式协议、错误表面和扩展机制；`agent-runtime` 必须把这些差异约束在 adapter 内部，向 FEAT-001 定义的标准 Agent 服务入口暴露一致的执行语义。
 
 对下游设计和实现而言，本特性是异构 Agent 接入层的事实来源。L2 设计、adapter 类、指南、示例和测试必须以本文定义的能力、边界和行为语义为准；实现中已经存在但本文未声明的能力，不能自动成为当前版本对外事实承诺。
 
@@ -25,7 +25,7 @@ Feat-Func-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事
 - Adapter 开发者：为新框架实现执行、结果映射、错误映射、取消和可观测性适配。
 - 测试与验收团队：按统一黑盒行为验证不同 adapter 是否产生一致的 Task/SSE/error 语义。
 
-本特性定义 runtime 对异构 Agent 实现的接入与归一化要求，也定义 adapter 层必须依赖的核心 SPI、执行上下文、结果模型、state key 和单 Agent runtime 边界。标准 northbound A2A 服务入口由 `Feat-Func-001` 约束；Memory/State 中间件由 `Feat-Func-004` 约束；远程 Agent 发现、工具安装和中断续接编排由 `Feat-Func-005` 约束。
+本特性定义 runtime 对异构 Agent 实现的接入与归一化要求，也定义 adapter 层必须依赖的核心 SPI、执行上下文、结果模型、state key 和单 Agent runtime 边界。标准 northbound A2A 服务入口由 `FEAT-001` 约束；智能体任务状态缓存由 `FEAT-003` 约束；远程 Agent 发现、工具安装和中断续接编排由 `FEAT-005` 约束。
 
 ## 2. 当前版本能力要求
 
@@ -62,9 +62,9 @@ Feat-Func-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事
 | `StreamAdapter` | Java SPI | 必须把框架原生 `Stream<?>` 映射为 `Stream<AgentExecutionResult>`；映射过程中不得返回 A2A SDK 私有类型作为 adapter 对外事实。 |
 | `AgentExecutionContext` | Java runtime context | 必须承载 adapter 执行所需的身份、消息、metadata、input type、state key、memory scope 和 task 语义。 |
 | `AgentExecutionResult` | Java result model | 必须作为 adapter 到 runtime 的标准结果表面，表达增量输出、完成、失败和中断等待输入。 |
-| `AgentCardProvider` | Java optional provider | 可由 handler 或 adapter 提供 Agent Card 元数据，使执行职责与能力声明分离；其 northbound 暴露仍受 Feat-Func-001 约束。 |
+| `AgentCardProvider` | Java optional provider | 可由 handler 或 adapter 提供 Agent Card 元数据，使执行职责与能力声明分离；其 northbound 暴露仍受 FEAT-001 约束。 |
 | `agentStateKey` / `stateKey` | Runtime state boundary | 必须作为 adapter 传递给框架调用的稳定会话标识来源；它只建立 runtime task/session 与框架内部会话的关联，不授权 adapter 读写或治理框架 checkpointer/cache payload。缺省 fallback 可以使用 task 语义，但不得覆盖 tenant、session 或 task 事实字段。 |
-| `MemoryProvider` | Java reserved SPI | 只作为 runtime 预留的窄 memory 接入点出现；正式 Memory/State 中间件语义、持久化边界和生产后端由 Feat-Func-004 约束。 |
+| `MemoryProvider` | Java reserved SPI | 只作为 runtime 预留的窄 memory 接入点出现；当前版本的 Redis 任务状态缓存由 FEAT-003 约束，Memory/State 中间件历史草稿已归档。 |
 | `OpenJiuwenAgentRuntimeHandler` | Java adapter base | 应作为 OpenJiuwen ReActAgent 接入入口，开发者通过实现 `createOpenJiuwenAgent(context)` 构建 Agent。 |
 | `OpenJiuwenWorkflowAgentRuntimeHandler` | Java adapter base | 应作为 OpenJiuwen Workflow 接入入口，开发者通过实现 `createOpenJiuwenWorkflow(context)` 构建 Workflow DAG。 |
 | `OpenJiuwenDeepAgentRuntimeHandler` | Java adapter base | 应作为 OpenJiuwen DeepAgent 接入入口，开发者通过实现框架所需构造逻辑提供 DeepAgent。 |
@@ -73,8 +73,8 @@ Feat-Func-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事
 | `AgentScopeRuntimeClientHandler` | Java adapter base | 应作为远程 AgentScope SSE runtime 接入入口。 |
 | `VersatileAgentRuntimeHandler` | Java adapter base | 必须作为远端 REST/SSE 服务代理入口，并可提供 Agent Card 信息供 A2A 发现。 |
 | `versatile.*` | YAML configuration | 必须承载 Versatile URL、timeout、URL variables、query params、headers、passthrough headers、input metadata keys 和 result extractions。 |
-| `GET /.well-known/agent-card.json` | HTTP endpoint | 不属于 adapter 私有入口；任何 adapter 挂载出的 Agent 都必须通过 Feat-Func-001 的 Agent Card 发现表面暴露能力。 |
-| `POST /a2a` | HTTP endpoint | 不属于 adapter 私有入口；任何 adapter 挂载出的 Agent 都必须通过 Feat-Func-001 的标准 A2A JSON-RPC/SSE 表面被调用。 |
+| `GET /.well-known/agent-card.json` | HTTP endpoint | 不属于 adapter 私有入口；任何 adapter 挂载出的 Agent 都必须通过 FEAT-001 的 Agent Card 发现表面暴露能力。 |
+| `POST /a2a` | HTTP endpoint | 不属于 adapter 私有入口；任何 adapter 挂载出的 Agent 都必须通过 FEAT-001 的标准 A2A JSON-RPC/SSE 表面被调用。 |
 
 ## 4. 场景与用户旅程
 
@@ -164,15 +164,15 @@ Feat-Func-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事
 | 边界 | 当前版本不承诺 |
 |---|---|
 | 同实例多 Agent 路由 | 不承诺在一个 runtime 实例内按 `agentId` 路由多个 Handler；多 Agent 应多实例部署或由上层网关路由。 |
-| Adapter 私有 northbound endpoint | 不承诺为 OpenJiuwen、AgentScope 或 Versatile 暴露绕过 Feat-Func-001 的私有执行 endpoint。 |
-| 状态缓存归属边界 | 异构框架 adapter 不依赖、不读写、不配置、不治理智能体框架的 checkpointer/cache payload；adapter 只传递 runtime 拥有的 state key、task/context 和调用生命周期信号。runtime 状态缓存、持久化、revision、fencing、TTL 与租户隔离由 Feat-Func-004 约束；框架内部执行快照由框架或智能体开发者自治。 |
+| Adapter 私有 northbound endpoint | 不承诺为 OpenJiuwen、AgentScope 或 Versatile 暴露绕过 FEAT-001 的私有执行 endpoint。 |
+| 状态缓存归属边界 | 异构框架 adapter 不依赖、不读写、不配置、不治理智能体框架的 checkpointer/cache payload；adapter 只传递 runtime 拥有的 state key、task/context 和调用生命周期信号。runtime 任务状态缓存、revision、fencing、TTL 与租户隔离由 FEAT-003 约束；框架内部执行快照由框架或智能体开发者自治。 |
 | 框架扩展机制自治边界 | 异构框架 adapter 不承诺、不安装、不编排、不治理框架 hook、rail、tool、skill、middleware、callback 等扩展机制。这些机制应由智能体框架提供，或由智能体开发者在构建 Agent 时自定义；adapter 只负责请求桥接、调用执行和结果归一。 |
 | 强制中断底层模型调用 | `cancel` 不承诺立即中断已经进入底层 LLM 或远端服务的阻塞调用。 |
 | AgentScope Workflow | 不承诺 AgentScope Workflow 适配。 |
 | AgentScope Memory / Checkpoint | 不承诺 AgentScope adapter 接入 runtime MemoryProvider 或 Checkpoint。 |
 | Python / Node.js 原生 sidecar | 不承诺直接通过进程内 SDK 或 sidecar 协议接入非 Java Agent；应使用 Versatile 或远程 A2A Agent。 |
 | MCP 作为 Agent adapter | MCP 是工具服务协议，不是本特性的异构智能体框架 adapter。若智能体框架自身具备调用模型或调用 MCP 服务的能力，该能力由框架或智能体开发者自治，agent-runtime 异构适配不做显式承诺。 |
-| REST facade 替代 Versatile | Feat-Func-006 的 RESTful client facade 面向业务 client；Versatile adapter 面向代理远端 Agent 服务，二者不得互相替代事实边界。 |
+| REST facade 替代 Versatile | FEAT-006 的 RESTful client facade 面向业务 client；Versatile adapter 面向代理远端 Agent 服务，二者不得互相替代事实边界。 |
 
 ## 6. 对下游设计与实现的约束
 
@@ -187,4 +187,4 @@ Feat-Func-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事
 
 ## 7. 关联文档
 
-- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-002-heterogeneous-agent-framework-compatibility.md`
+- `architecture/L2-Low-Level-Design/agent-runtime/FEAT-002-heterogeneous-agent-framework-compatibility.md`

@@ -3,9 +3,9 @@ level: L1
 view: version-scope
 module: agent-runtime
 status: active
-updated: 2026-06-26
+updated: 2026-07-09
 authority: "ADR-0159 (agent-runtime consolidation) + current version facts"
-covers: [标准化Agent服务入口, 异构Agent框架兼容, Memory与State中间件, 远程Agent编排, RESTful Client Facade, 轨迹可观测性]
+covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状态缓存, 远程Agent编排, RESTful Client Facade, 客户端调用事件转发, 轨迹可观测性]
 ---
 
 # agent-runtime version-scope
@@ -39,12 +39,13 @@ covers: [标准化Agent服务入口, 异构Agent框架兼容, Memory与State中�
 
 | Feature ID | 特性 | 当前版本范围简介 | 特性用例文档 | L2 详细设计对应关系 |
 |---|---|---|---|---|
-| Feat-Func-001 | 标准化 Agent 服务入口 | runtime 作为标准 Agent 服务端，对普通 client、其他 runtime、agent-bus forwarding 暴露同一 A2A Agent Card、JSON-RPC、SSE、Task、错误和租户上下文入口。 | [Feat-Func-001-standardized-agent-service-entrypoint.md](./Feat-Func-001-standardized-agent-service-entrypoint.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-001-standardized-agent-service-entrypoint.md` |
-| Feat-Func-002 | 异构 Agent 框架兼容 | 通过统一 Adapter / Handler / SPI 抽象接入 OpenJiuwen ReActAgent、Workflow、DeepAgent、AgentScope 和 Versatile REST 代理；adapter 只桥接请求、调用和结果，不治理框架 cache/checkpointer、hook、rail、tool、skill。 | [Feat-Func-002-heterogeneous-agent-framework-compatibility.md](./Feat-Func-002-heterogeneous-agent-framework-compatibility.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-002-heterogeneous-agent-framework-compatibility.md` |
-| Feat-Func-004 | 中间件解耦 — Memory & State | 将记忆检索/保存与 Agent 执行状态持久化从具体 Agent 框架中解耦，以可注入、可替换的中间件能力接入 runtime。 | [Feat-Func-004-middleware-memory-and-state.md](./Feat-Func-004-middleware-memory-and-state.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-middleware-memory-and-state.md` |
-| Feat-Func-005 | 远程 Agent 编排 | runtime 作为 A2A 客户端接入远程 Agent，基于 Agent Card 生成本地工具，并支持远程调用、中断续接、进度投射和取消传播。 | [Feat-Func-005-remote-agent-orchestration.md](./Feat-Func-005-remote-agent-orchestration.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-005-remote-agent-orchestration.md` |
-| Feat-Func-006 | RESTful Client Facade | 面向普通业务 client 提供 REST 风格兼容入口，内部归一到 Feat-Func-001 的标准 Agent 服务入口语义，不作为 runtime-to-runtime、agent-bus 或事件总线协议。 | [Feat-Func-006-restful-client-facade.md](./Feat-Func-006-restful-client-facade.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-006-restful-client-facade.md` |
-| Feat-DFX-001 | 轨迹可观测性 | 记录 Agent 执行过程中的运行、模型调用、工具调用、错误和进度事件，提供框架中立的执行轨迹与敏感信息掩码。 | [Feat-DFX-001-trajectory-observability.md](./Feat-DFX-001-trajectory-observability.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-DFX-001-trajectory-observability.md` |
+| FEAT-001 | 标准化 Agent 服务入口 | runtime 作为标准 Agent 服务端，对普通 client、其他 runtime、agent-bus forwarding 暴露同一 A2A Agent Card、JSON-RPC、SSE、Task、错误和租户上下文入口，并支持受信任 runtime-to-runtime webhook 异步完成回调。 | [FEAT-001-standardized-agent-service-entrypoint.md](./FEAT-001-standardized-agent-service-entrypoint.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-001-standardized-agent-service-entrypoint.md` |
+| FEAT-002 | 异构 Agent 框架兼容 | 通过统一 Adapter / Handler / SPI 抽象接入 OpenJiuwen ReActAgent、Workflow、DeepAgent、AgentScope 和 Versatile REST 代理；adapter 只桥接请求、调用和结果，不治理框架 cache/checkpointer、hook、rail、tool、skill。 | [FEAT-002-heterogeneous-agent-framework-compatibility.md](./FEAT-002-heterogeneous-agent-framework-compatibility.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-002-heterogeneous-agent-framework-compatibility.md` |
+| FEAT-003 | 智能体任务状态缓存 | 新增标准化 Redis 缓存 SPI，运行时与开发框架复用 Redis 连接池，支持缓存 A2A Task 与 checkpoints。 | [FEAT-003-agent-task-state-cache.md](./FEAT-003-agent-task-state-cache.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-003-agent-task-state-cache.md` |
+| FEAT-005 | 远程 Agent 编排 | runtime 作为 A2A 客户端接入远程 Agent，基于 Agent Card 生成本地工具，并支持远程调用、中断续接、进度投射和取消传播。 | [FEAT-005-remote-agent-orchestration.md](./FEAT-005-remote-agent-orchestration.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-005-remote-agent-orchestration.md` |
+| FEAT-006 | RESTful Client Facade | 面向普通业务 client 提供 REST 风格兼容入口，内部归一到 FEAT-001 的标准 Agent 服务入口语义，不作为 runtime-to-runtime、agent-bus 或事件总线协议。 | [FEAT-006-restful-client-facade.md](./FEAT-006-restful-client-facade.md) | 待补充 |
+| FEAT-013 | 客户端调用事件转发 | agent-bus 作为事件总线转发客户端调用事件与服务端响应事件，保持 A2A 调用/响应兼容，实时流内容继续走服务端 A2A SSE。 | [FEAT-013-client-invocation-event-forwarding.md](./FEAT-013-client-invocation-event-forwarding.md) | 待补充 |
+| DFX-001 | 轨迹可观测性 | 记录 Agent 执行过程中的运行、模型调用、工具调用、错误和进度事件，提供框架中立的执行轨迹与敏感信息掩码。 | [DFX-001-trajectory-observability.md](./DFX-001-trajectory-observability.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-DFX-001-trajectory-observability.md` |
 
 ## 4. 阅读顺序
 

@@ -8,7 +8,7 @@ dependency:
   - ../../L1-High-Level-Design/agent-runtime/README.md
   - ../../L1-High-Level-Design/agent-runtime/development.md
   - ../../L1-High-Level-Design/agent-runtime/process.md
-  - ../../../version-scope/Feat-DFX-001-trajectory-observability.cn.md
+  - ../../../version-scope/DFX-001-trajectory-observability.md
 ---
 
 # 轨迹可观测性 — 设计文档
@@ -29,7 +29,7 @@ dependency:
 
 ### 1.2 当前事实边界
 
-本文只描述 Feat-DFX-001 在当前 `agent-runtime` 模块中的已接受实现事实。面向调用方的黑盒行为、用户场景和外部示例已迁移到 `version-scope/Feat-DFX-001-trajectory-observability.cn.md`；模块级 API/SPI、逻辑对象归属和部署资源模型以 L1 设计及其附录为准。
+本文只描述 Feat-DFX-001 在当前 `agent-runtime` 模块中的已接受实现事实。面向调用方的黑盒行为、用户场景和外部示例已迁移到 `version-scope/DFX-001-trajectory-observability.md`；模块级 API/SPI、逻辑对象归属和部署资源模型以 L1 设计及其附录为准。
 
 ### 1.3 设计原则
 

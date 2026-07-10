@@ -3,13 +3,16 @@ level: L2-LLD
 module: agent-runtime
 feature_type: functional
 feature_id: Feat-Func-004
-status: active
+status: deprecated
+archived: 2026-07-09
 dependency:
   - ../../L1-High-Level-Design/agent-runtime/README.md
   - ../../L1-High-Level-Design/agent-runtime/development.md
   - ../../L1-High-Level-Design/agent-runtime/process.md
-  - ../../../version-scope/Feat-Func-004-middleware-memory-and-state.cn.md
+  - ../../../version-scope/FEAT-004-middleware-memory-and-state.md
 ---
+
+> 废弃稿：本文为历史 L2 设计文档，已从当前 `architecture/L2-Low-Level-Design/agent-runtime` 移除；当前 Redis 任务状态缓存设计以 `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-003-agent-task-state-cache.md` 为准。
 
 # 中间件解耦 — Memory & State — 设计文档
 
@@ -29,7 +32,7 @@ Agent 执行过程中依赖的通用基础设施能力（记忆、状态持久�
 
 ### 1.2 当前事实边界
 
-本文只描述 Feat-Func-004 在当前 `agent-runtime` 模块中的已接受实现事实。面向调用方的黑盒行为、用户场景和外部示例已迁移到 `version-scope/Feat-Func-004-middleware-memory-and-state.cn.md`；模块级 API/SPI、逻辑对象归属和部署资源模型以 L1 设计及其附录为准。
+本文只描述 Feat-Func-004 在当前 `agent-runtime` 模块中的已接受实现事实。面向调用方的黑盒行为、用户场景和外部示例已迁移到 `version-scope/FEAT-004-middleware-memory-and-state.md`；模块级 API/SPI、逻辑对象归属和部署资源模型以 L1 设计及其附录为准。
 
 ### 1.3 设计原则
 

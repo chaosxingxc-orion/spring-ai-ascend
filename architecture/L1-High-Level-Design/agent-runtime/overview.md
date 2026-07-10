@@ -59,7 +59,7 @@ dependency:
    openJiuwen、AgentScope 等框架拥有各自的输入、输出、流式事件、中断和状态表达。runtime 需要提供稳定 SPI 和适配层，把框架差异吸收在模块内部。
 
 3. **runtime Task/Session 与业务 Agent checkpoint 容易混写**
-   当前 A2A SDK 管理的是 runtime 层面的 Task、Session、事件队列和状态推进；业务 Agent 自身的 checkpoint 或记忆状态委托具体框架或外部能力，不由 `agent-runtime` 持久化。
+   当前 A2A SDK 管理的是 runtime 层面的 Task、Session、事件队列和状态推进；FEAT-003 可将 runtime Task 状态接入 Redis-backed TaskStore。业务 Agent 自身的 checkpoint 或记忆状态委托具体框架或外部能力，`agent-runtime` 只提供状态键、上下文和 Redis cache 桥接接缝。
 
 4. **嵌入式 SDK 与 Spring Boot 装配需要共存**
    `agent-runtime` 既要支持纯 Java SDK 式启动，也要支持 Spring Boot 自动装配。Spring 依赖必须被限制在接入和 host 实现边界内，不能污染框架无关 SPI。
@@ -79,6 +79,6 @@ dependency:
 | 框架适配 | 提供 openJiuwen、AgentScope 等当前适配实现和抽象基类。 | 不承诺所有未来框架适配已经 active。 | `development.md`, L2 详细设计 |
 | 嵌入式启动 | 提供纯 Java runtime 入口、Spring Boot host 和自动装配。 | 不负责业务应用的部署编排、租户入口治理或平台网关能力。 | `development.md`, `physical.md` |
 | 远端 Agent 调用支撑 | 在 `engine.a2a` 协议桥 / outbound invocation 边界内维护远端 Agent Card 目录和 outbound 调用支撑。 | 不接管跨实例、跨部门、跨数据边界的 A2A 总线治理；该边界归属 L0 中的 `agent-bus`。 | `logical.md`, `process.md` |
-| 状态归属 | 管理 runtime Task/Session 语义和执行过程中的中立上下文。 | 不持久化业务 Agent checkpoint、业务 memory、外部系统状态或分布式 Task 存储实现。 | `logical.md`, `physical.md` |
+| 状态归属 | 管理 runtime Task/Session 语义和执行过程中的中立上下文；FEAT-003 可提供 Redis-backed Task 状态缓存。 | 不解释或接管业务 Agent checkpoint、业务 memory、外部系统状态；不把事件队列和执行线程池升级为分布式 runtime。 | `logical.md`, `physical.md` |
 
 跨模块依赖方向保持为：`agent-runtime` 可对齐或映射 `agent-bus` 中立执行词汇，但当前不形成对 `agent-bus` 的编译依赖；`agent-runtime` 不依赖 `agent-service`；`agent-service` 可以集成 `agent-runtime` 作为运行时 SDK。

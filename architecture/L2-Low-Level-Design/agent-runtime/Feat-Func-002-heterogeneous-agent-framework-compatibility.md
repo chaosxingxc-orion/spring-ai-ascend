@@ -8,7 +8,7 @@ dependency:
   - ../../L1-High-Level-Design/agent-runtime/README.md
   - ../../L1-High-Level-Design/agent-runtime/development.md
   - ../../L1-High-Level-Design/agent-runtime/process.md
-  - ../../../version-scope/Feat-Func-002-heterogeneous-agent-framework-compatibility.cn.md
+  - ../../../version-scope/FEAT-002-heterogeneous-agent-framework-compatibility.md
 ---
 
 # 异构 Agent 框架兼容 — 设计文档
@@ -29,7 +29,7 @@ agent-runtime 通过统一的 Adapter 抽象层接入不同类型的 Agent 实�
 
 ### 1.2 当前事实边界
 
-本文只描述 Feat-Func-002 在当前 `agent-runtime` 模块中的已接受实现事实。面向调用方的黑盒行为、用户场景和外部示例已迁移到 `version-scope/Feat-Func-002-heterogeneous-agent-framework-compatibility.cn.md`；模块级 API/SPI、逻辑对象归属和部署资源模型以 L1 设计及其附录为准。
+本文只描述 Feat-Func-002 在当前 `agent-runtime` 模块中的已接受实现事实。面向调用方的黑盒行为、用户场景和外部示例已迁移到 `version-scope/FEAT-002-heterogeneous-agent-framework-compatibility.md`；模块级 API/SPI、逻辑对象归属和部署资源模型以 L1 设计及其附录为准。
 
 ### 1.3 设计原则
 
@@ -288,7 +288,7 @@ AgentRuntimeHandler        AbstractAgentRuntimeHandler   OpenJiuwenAgentRuntimeH
 
 | 边界 | 行为约束 |
 |---|---|
-| 状态缓存归属边界 | Adapter 只传递 runtime state key / task / context 和调用生命周期信号，不读写、不配置、不治理框架 checkpointer/cache payload。runtime 状态缓存由 Feat-Func-004 定义；框架内部快照由框架或智能体开发者自治。 |
+| 状态缓存归属边界 | Adapter 只传递 runtime state key / task / context 和调用生命周期信号，不读写、不配置、不治理框架 checkpointer/cache payload。runtime 任务状态缓存由 Feat-Func-003 定义；框架内部快照由框架或智能体开发者自治。 |
 | 框架扩展机制自治边界 | Adapter 不安装、不编排、不治理框架 hook、rail、tool、skill、middleware、callback。这些机制由智能体框架提供，或由智能体开发者在构建 Agent 时自定义。 |
 | MCP 工具服务边界 | MCP 是工具服务协议，不是异构智能体框架。若框架本身能调用 MCP 服务，该能力由框架或智能体开发者自治。 |
 
