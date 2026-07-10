@@ -34,7 +34,7 @@ covers_contract: ICD-Agent-Registry-Discovery
 |------|------|
 | **注册中心只拥有 runtime route index / discovery view，不拥有 agent 业务定义、不写 Task 状态** | L0 边界约束（HD3-001）；避免 registry 成为业务事实源。 |
 | **Agent Card 是注册中心的视图，不是 A2A 标准 AgentCard 的复制品** | A2A `/.well-known/agent-card.json` 是 runtime 对外卡片；registry card 增补路由 / 契约 / 治理字段，两者字段重叠但不等价。参考实现已用 `AgentRegistryEntry` vs `a2aAgentCard` 字段分离体现这一原则。 |
-| **`route_handle` opaque，物理地址只对转发层可见** | HD3-006；让 route handle 编码格式可演进（`v1:` 5 字段）而不破坏跨模块消费者。 |
+| **`route_handle` opaque，物理地址只对转发层可见** | HD3-006；让 route handle 编码格式可演进（`v2:` 6 字段）而不破坏跨模块消费者。 |
 | **租户强制、禁止跨 tenant fallback** | HD3-003；RLS 作为防御深度，应用层 `WHERE tenant_id` 为主路径。 |
 | **两阶段演进：MVP 纯 PostgreSQL + SQL 过滤排序 → 生产引入 pgvector 语义检索** | 阶段一快速跑通；阶段二迁移对 Agent 服务侧零改动、对上层 Orchestrator 零改动。 |
 
@@ -42,10 +42,10 @@ covers_contract: ICD-Agent-Registry-Discovery
 
 | 子特性 | 职责 | 关键抽象 | 状态 |
 |--------|------|---------|------|
-| Agent Card 注册 | 接收、校验、upsert Agent Card | `AgentRegistryEntry`、`POST /api/registry/register`、`ServiceIdCodec` | ✅ MVP |
+| Agent Card 注册 | 接收、校验、upsert Agent Card | `AgentRegistryEntry`、`POST /api/registry/register`、`InstanceIdCodec` | ✅ MVP |
 | Agent Card 更新与失效 | 重注册 upsert、deregister、DRAINING 保留 | `DELETE /api/registry/deregister/...`、`ON CONFLICT` 保留 DRAINING | ✅ MVP |
 | Agent Card 查询（已知目标） | 按 `tenantId + agentId` 列举可路由实例 | `AgentDiscoveryService#searchInstancesByAgentId` | ✅ MVP |
-| Agent Card 查询（能力维度） | 按 `capability_type` / `tags` / `domain` / `query_text` / 执行约束查询 | （scope §3-§4） | ⬜ 阶段二 |
+| Agent Card 查询（能力维度） | 按 `capability_type` / `tags` / `domain` / `query_text` / 执行约束查询 | （scope §3-§4） | ⬜ 阶段一 |
 | 推荐首选与证据 | 返回 `recommended_agent_card` / `score` / `evidence` | （scope §4） | ⬜ 阶段二 |
 | 意图识别动态能力匹配 | `IntentRouteRequest` + `route_query` + `runtime_facts` 驱动查询 | （scope §6） | ⬜ 阶段二 |
 | 健康与版本可用性过滤 | `status` / `contractVersion` 过滤不可调用能力 | discovery SQL `status IN ('ONLINE','DEGRADED')` | ✅ MVP |
@@ -58,16 +58,16 @@ covers_contract: ICD-Agent-Registry-Discovery
 
 | 能力 | 状态 | 说明 |
 |------|------|------|
-| Agent Card 注册（push） | ✅ | `POST /api/registry/register` upsert `AgentRegistryEntry`；必填字段校验 + `serviceId` 服务端派生。 |
+| Agent Card 注册（push） | ✅ | `POST /api/registry/register` upsert `AgentRegistryEntry`；必填字段校验 + `instanceId` 服务端派生；`serviceId` 注册方传入。 |
 | Agent Card 注册（pull） | ✅ | `rdc.pull-registration.enabled=true` 时 `PullRegistrationBootstrap` 拉取 `/.well-known/agent-card.json` 构造 entry upsert；单实例失败跳过，不阻塞启动。 |
-| Agent Card 校验 | ✅ | registry key（`tenantId + agentId`）必填、`frameworkType` 枚举非空、`endpointUrl` 可派生 `serviceId`；缺字段 400 `invalid_request`。 |
-| Agent Card 更新 / 下线 | ✅ | 重注册 upsert（DRAINING 保留）、`deregister/{tenantId}/{agentId}` 批量删、`deregister/{tenantId}/{agentId}/{serviceId}` 单实例删。 |
+| Agent Card 校验 | ✅ | registry key（`tenantId + agentId + serviceId`）必填、`frameworkType` 枚举非空、`endpointUrl` 可派生 `instanceId`；缺字段 400 `invalid_request`。 |
+| Agent Card 更新 / 下线 | ✅ | 重注册 upsert（DRAINING 保留）、`deregister/{tenantId}/{agentId}` 批量删 agent、`deregister/{tenantId}/{agentId}/{serviceId}` 批量删 service、`deregister/{tenantId}/{agentId}/{serviceId}/{instanceId}` 单实例删。 |
 | 租户与调用方边界 | ✅ | `tenantId` 强制；RLS + 应用层 `WHERE tenant_id`；跨 tenant 抛 `TenantIsolationViolationException`。 |
 | 已知目标查询 | ✅ | `searchInstancesByAgentId(tenantId, agentId) → List<AgentCardDto>`，返回 ONLINE/DEGRADED 实例。 |
-| 能力维度查询 | ⬜ | 按 `capability_type` / `tags` / `domain` / `query_text` / `execution_constraints` 查询——MVP 已移除 `capability` 字段（REQ-2026-004），阶段二以 pgvector 语义检索重建。 |
+| 能力维度查询 | ⬜ | 按 `capability_type` / `tags` / `domain` / `query_text` / `execution_constraints` 查询——MVP 已移除 `capability` 字段（REQ-2026-004），阶段一重建。 |
 | 可用性过滤 | ✅ | discovery SQL `status IN ('ONLINE','DEGRADED')` + `contractVersion` / `capabilityVersion` 在 DTO 中返回，调用方自行做版本兼容判断。 |
 | 推荐首选 + 证据 | ⬜ | `recommended_agent_card` / `score` / `evidence` 阶段二引入。 |
-| opaque route handle | ✅ | `v1:` + base64(JSON{tenantId, agentId, serviceId, routeKey, contractVersion})；DTO 不带物理地址。 |
+| opaque route handle | ✅ | `v2:` + base64(JSON{tenantId, agentId, serviceId, instanceId, routeKey, contractVersion}) 6 字段；DTO 不带物理地址。 |
 | 无能力结果 | ✅ | `searchInstancesByAgentId` 返回空 List = agent_not_found；`resolveRouteHandle` 找不到 entry 抛 `NoSuchElementException` → 404 `entry_not_found`。 |
 | 可查询扩展元数据 | ⚠️ | MVP 保留 `a2a_agent_card` JSONB 列存原始 A2A 卡片，但未建立按 `intent_match_metadata` / `tags` / `description` 的查询索引——阶段二 pgvector 重建。 |
 
@@ -93,13 +93,13 @@ covers_contract: ICD-Agent-Registry-Discovery
  * 持久化形态（MVP 单 PG，阶段二 Consul + pgvector）对调用方不可见。
  *
  * 当前版本只覆盖「已知目标查询」语义；能力维度查询 / 推荐首选 / 证据保留
- * 属于 Feat-015 阶段二目标，尚未在此 SPI 上提供方法。
+ * * 能力维度查询属阶段一 MUST 目标；推荐首选 / 证据保留属阶段二 SHOULD 目标，尚未在此 SPI 上提供方法。
  */
 public interface AgentDiscoveryService {
 
     /**
      * 列出给定 (tenantId, agentId) 下所有 ONLINE/DEGRADED 运行时实例。
-     * 每个实例携带独立的 opaque routeHandle（编码 serviceId）。
+     * 每个实例携带独立的 opaque routeHandle（编码 instanceId）。
      * 调用方（Orchestrator / Gateway）自行选择实例并经
      * {@link #resolveRouteHandle} 解析。
      *
@@ -117,7 +117,7 @@ public interface AgentDiscoveryService {
      * 解析 opaque routeHandle 为转发层可用的 RouteResolution。
      * Orchestrator 业务逻辑永不调用此方法——只有转发层调用（HD3-006）。
      *
-     * @throws IllegalArgumentException           handle 畸形（含旧 4 字段格式）
+     * @throws IllegalArgumentException           handle 畸形（含旧 4 字段及 `v1:` 5 字段格式）
      * @throws TenantIsolationViolationException  tenantId 与 handle 内编码不一致
      * @throws NoSuchElementException              handle 指向的 entry 不存在
      */
@@ -134,10 +134,11 @@ public interface AgentDiscoveryService {
 | 字段 | scope §3 对应字段 | 必填 | 含义 / 约束 |
 |------|------------------|------|------------|
 | `tenantId` | `tenant_scope` | 是 | 租户边界；registry key 维度；跨 tenant fallback 禁止。 |
-| `agentId` | `agent_id` | 是 | 下游 Agent 逻辑标识；registry key 维度。 |
-| `serviceId` | `service_id` | 服务端派生 | 从 `endpointUrl` 经 `ServiceIdCodec.derive` 派生（`host-port`）；setter 包级私有，HTTP 调用方不可伪造。 |
+| `agentId` | `agent_id` | 是 | 下游 Agent 逻辑标识；registry key 维度；多实例可共享同一 `agentId`（FEAT-016 §2 多实例候选 MUST）。 |
+| `serviceId` | `service_id` | 是 | 逻辑服务标识，注册方传入；多实例共享同一 `serviceId`（FEAT-016 §2 "serviceId 是逻辑服务标识，可被多实例共享"）。 |
+| `instanceId` | `instance_id` | 服务端派生 | 从 `endpointUrl` 经 `InstanceIdCodec.derive` 派生（`host-port`）；setter 包级私有，HTTP 调用方不可伪造；区分同一 `serviceId` 下的不同运行时实例（FEAT-016 §2 "具体实例应有独立的运行时实例标识" MUST）。 |
 | `agentName` | `capability_name`（近似） | 是 | 展示名；A2A 卡片的 `name` 字段。 |
-| `frameworkType` | `framework_type` | 是 | 枚举 `JIUWEN` / `AGENTSCOPE` / `VERSATLE` / `PROXY_SERVICE`；替代 scope §3 的 `framework_type` 字符串。 |
+| `frameworkType` | `framework_type` | 是 | 枚举 `JIUWEN` / `AGENTSCOPE` / `VERSATILE` / `PROXY_SERVICE`；替代 scope §3 的 `framework_type` 字符串。 |
 | `routeKey` | （路由索引源） | 是 | 逻辑路由键，封装进 route handle。 |
 | `contractVersion` | `contract_version` | 是 | HD3-005 版本约束。 |
 | `capabilityVersion` | `capability_version` | 是 | 能力版本。 |
@@ -152,16 +153,19 @@ public interface AgentDiscoveryService {
 | scope §3 字段 | MVP 覆盖 | 说明 |
 |---------------|---------|------|
 | `tenant_scope` | ✅ `tenantId` | 单租户边界，不支持多租户可见性声明。 |
-| `agent_id` / `service_id` | ✅ | `serviceId` 服务端派生。 |
-| `capability_id` / `capability_name` / `capability_type` | ⚠️ | MVP 已移除 `capability` 字段（REQ-2026-004）；`agentName` 部分覆盖展示名；`capability_type`（agent_loop / workflow / external_agent / external_workflow）未实现，阶段二随 `searchByCapability` 一并引入。 |
+| `agent_id` | ✅ | 逻辑 Agent 标识，多实例可共享。 |
+| `service_id` | ✅ | 逻辑服务标识，注册方传入；多实例共享（FEAT-016 §2 MUST）。 |
+| `instance_id`（FEAT-016 §2 新增 MUST） | ✅ | server-derived `host-port`；区分具体实例。 |
+| `capability_id` / `capability_name` / `capability_type` | ⚠️ | MVP 已移除 `capability` 字段（REQ-2026-004）；`agentName` 部分覆盖展示名；`capability_type`（agent_loop / workflow / external_agent / external_workflow）未实现，阶段一随 `searchByCapability` 一并引入。 |
 | `description` / `intent_match_metadata` / `tags` / `domain` | ⚠️ | A2A 卡片 JSONB 保留原始信息，但未建立查询索引；阶段二 pgvector 重建。 |
 | `framework_type` | ✅ | 枚举化（替代字符串）。 |
 | `contract_version` / `capability_version` | ✅ | |
 | `route_handle` | ✅ | 输出字段，由 `RouteHandleCodec` 生成。 |
-| `health_status` | ✅ | `status` 列 `ONLINE` / `DEGRADED` / `DRAINING` / `OFFLINE`。 |
-| `supports_streaming` / `supports_hitl` / `requires_idempotency_key` | ⬜ | 未实现；阶段二随执行约束查询引入。 |
-| `priority` | ✅ `weight` | 近似映射。 |
+| `health_status` | ⚠️ 值域偏离 | scope §3 = `healthy` / `degraded` / `unhealthy`；L2 实现 = `ONLINE` / `DEGRADED` / `DRAINING` / `OFFLINE`。值域不一致，调用方需做映射；见 §8 偏离声明。 |
+| `supports_streaming` / `supports_hitl` / `requires_idempotency_key` | ⬜ | 未实现；阶段一随执行约束查询引入。 |
+| `priority` | ⚠️ 重命名 | scope §3 = `priority`；L2 = `weight`。字段名变更，语义近似。 |
 | `risk_hint` / `cancelable_hint` | ⬜ | 未实现。 |
+| `caller_ref`（scope §4 查询输入） | ⬜ | 未实现；MVP 仅 `tenantId` 边界，无调用方维度可见性。见 §8 偏离声明。 |
 
 ##### AgentCardDto（discovery 结果）
 
@@ -183,14 +187,16 @@ public interface AgentDiscoveryService {
 
 #### 2.3.3 行为承诺
 
-- **必须**：注册时校验 `tenantId + agentId` registry key；`serviceId` 由服务端从 `endpointUrl` 派生，HTTP 调用方传入值被 `ServiceIdCodec.applyTo` 覆写。
-- **必须**：discovery 返回的 `AgentCardDto` 不携带 `endpointUrl` / `routeKey` / `serviceId` 明文——只有 opaque `routeHandle`。
+- **必须**：注册时校验 `tenantId + agentId + serviceId` registry key；`serviceId` 由注册方传入（逻辑服务标识，多实例共享），`instanceId` 由服务端从 `endpointUrl` 经 `InstanceIdCodec.derive` 派生（`host-port`），HTTP 调用方传入的 `instanceId` 值被 `InstanceIdCodec.applyTo` 覆写。
+- **必须**：discovery 返回的 `AgentCardDto` 不携带 `endpointUrl` / `routeKey` / `instanceId` 明文——只有 opaque `routeHandle`；`serviceId` 作为逻辑服务标识可在 DTO 中返回（FEAT-016 §5.1.4 系统路由视图可见）。
+- **必须**：route handle 编码为 `v2:` + base64(JSON{tenantId, agentId, serviceId, instanceId, routeKey, contractVersion}) 6 字段；旧 `v1:` 5 字段格式（无 `instanceId`）不兼容，见 §7。
 - **必须**：`resolveRouteHandle` 仅由转发层调用；`RouteHandleCodec` 不离开 `registry.runtime.discovery` 包。
 - **必须**：所有写操作（upsert / delete / updateStatus）在事务内 `set_config('app.tenant_id', :tenantId, true)`，RLS 作为防御深度。
 - **必须**：重注册时若原状态为 `DRAINING`（运维发起的优雅下线），新状态保持 `DRAINING` 而非重置为 `ONLINE`——避免重启把流量重新打到正在下线的实例（PR #389 #7）。
+- **必须**：PK 为 `(tenant_id, agent_id, service_id, instance_id)`——同 `agentId` 多实例通过不同 `instanceId` 区分；同 `serviceId` 多实例通过不同 `instanceId` 区分（FEAT-016 §2 多实例候选 MUST）。
 - **禁止**：跨 tenant 查询、缓存复用、降级或 fallback。
-- **禁止**：向 discover 调用方返回 `endpointUrl` / `routeKey` / `serviceId` 明文。
-- **允许**：MVP 阶段不实现能力维度查询、推荐首选、语义检索——这些属于阶段二目标。
+- **禁止**：向 discover 调用方返回 `endpointUrl` / `routeKey` / `instanceId` 明文。
+- **允许**：MVP 阶段不实现推荐首选、语义检索（SHOULD 项，阶段二）；能力维度查询、capability_type 校验、执行约束校验属 MUST 项，阶段一实现。
 
 ## 3. 模块结构（Development View）
 
@@ -204,8 +210,8 @@ com.openjiuwen.rdc/
 │   ├── AgentRegistryEntry.java           # 注册请求体 / 表行 ORM
 │   ├── AgentCardDto.java                 # discovery 结果 DTO
 │   ├── RouteResolution.java              # route handle 解析结果（转发层专用）
-│   ├── ServiceIdCodec.java               # serviceId 派生（host-port）
-│   ├── FrameworkType.java                # 枚举：JIUWEN/AGENTSCOPE/VERSATLE/PROXY_SERVICE
+│   ├── InstanceIdCodec.java              # instanceId 派生（host-port）
+│   ├── FrameworkType.java                # 枚举：JIUWEN/AGENTSCOPE/VERSATILE/PROXY_SERVICE
 │   ├── TenantContext.java                # 租户上下文接口
 │   ├── TenantIsolationViolationException.java
 │   └── Nullable.java                     # 注解，标记可空字段
@@ -213,7 +219,7 @@ com.openjiuwen.rdc/
 │   ├── api/MvpRegistryController.java    # HTTP 入口（Spring Web，5 个端点）
 │   ├── discovery/
 │   │   ├── PgMvpDiscoveryServiceImpl.java # AgentDiscoveryService 实现（@Primary @Service）
-│   │   └── RouteHandleCodec.java          # v1: 5 字段编解码（包内私有）
+│   │   └── RouteHandleCodec.java          # v2: 6 字段编解码（包内私有）
 │   ├── persistence/jdbc/
 │   │   ├── AgentRegistryRepository.java   # 仓储端口接口
 │   │   └── JdbcAgentRegistryRepository.java # 唯一允许 import java.sql 的类
@@ -227,7 +233,8 @@ com.openjiuwen.rdc/
     ├── V2__create_agent_registry_mvp.sql   # 建表（含 RLS）
     ├── V3__refactor_agent_registry_mvp_drop_legacy_fields.sql
     ├── V4__refactor_agent_registry_drop_capability_search_tsv_rename_framework_type.sql
-    └── V5__multi_instance_service_id_pk.sql # PK → (tenant_id, agent_id, service_id)
+    ├── V5__multi_instance_service_id_pk.sql # PK → (tenant_id, agent_id, service_id)
+    └── V6__separate_service_id_instance_id.sql # service_id 重命名为 instance_id（host-port）；新增 service_id 列（逻辑标识）；PK → (tenant_id, agent_id, service_id, instance_id)；route handle v1→v2
 ```
 
 ### 3.2 核心类静态关系
@@ -252,7 +259,7 @@ AgentRegistryRepository ───implements──► JdbcAgentRegistryRepository
 «POJO»          «DTO»            «record»
 AgentRegistryEntry  AgentCardDto     RouteResolution
    │                  │                  ▲
-   │ ServiceIdCodec   │                  │
+   │ InstanceIdCodec  │                  │
    └────applyTo──────►│                  │
                                         │ returned by
                                         │
@@ -266,22 +273,22 @@ AgentRegistryEntry  AgentCardDto     RouteResolution
 #### 4.1.1 关键处理流程
 
 ```
-Agent 服务                MvpRegistryController            ServiceIdCodec          JdbcAgentRegistryRepository
+Agent 服务                MvpRegistryController            InstanceIdCodec         JdbcAgentRegistryRepository
    │                            │                                │                          │
    │── POST /api/registry/register ──────────────────────────────►│                          │
    │   body: AgentRegistryEntry  │                                │                          │
    │   header: traceparent?      │                                │                          │
    │                            │── hasRegistryKey()? ── no ──► 400 invalid_request          │
    │                            │── applyDefaults (maxConcurrency=10, weight=100)             │
-   │                            │── ServiceIdCodec.applyTo(card) ─► derive host-port from      │
-   │                            │                                endpointUrl, overwrite        │
-   │                            │                                serviceId (包级私有 setter)   │
+   │                            │── InstanceIdCodec.applyTo(card) ─► derive host-port from     │
+   │                            │                                 endpointUrl, overwrite       │
+   │                            │                                 instanceId (包级私有 setter)  │
    │                            │── serializeA2aCard → JSON                                   │
    │                            │── repository.upsert(card, a2aJson) ────────────────────────►│
    │                            │                                │                          │── BEGIN TX
    │                            │                                │                          │── set_config('app.tenant_id')
    │                            │                                │                          │── INSERT ... ON CONFLICT
-   │                            │                                │                          │   (tenant_id,agent_id,service_id)
+   │                            │                                │                          │   (tenant_id,agent_id,service_id,instance_id)
    │                            │                                │                          │   DO UPDATE; preserve DRAINING
    │                            │                                │                          │── COMMIT
    │                            │── observeRegister (audit/metrics)                          │
@@ -292,8 +299,8 @@ Agent 服务                MvpRegistryController            ServiceIdCodec     
 
 | 条件 | 行为 |
 |------|------|
-| body 缺 `tenantId` 或 `agentId` | 400 `invalid_request` |
-| `endpointUrl` 无 host / 畸形 | `ServiceIdCodec.derive` 抛 `IllegalArgumentException` → 400 |
+| body 缺 `tenantId` / `agentId` / `serviceId` | 400 `invalid_request` |
+| `endpointUrl` 无 host / 畸形 | `InstanceIdCodec.derive` 抛 `IllegalArgumentException` → 400 |
 | `frameworkType` 为 null | 400（`AgentRdcRegistrySpiPurityTest` 断言） |
 | 原 entry 状态为 `DRAINING` | upsert 保留 `DRAINING`，不重置为 `ONLINE` |
 | 原 entry 状态为 `ONLINE`/`DEGRADED`/`OFFLINE` | upsert 重置为 `ONLINE`，刷新 `last_heartbeat` |
@@ -312,8 +319,9 @@ Agent 服务                MvpRegistryController            ServiceIdCodec     
 | 触发 | 路径 | 行为 |
 |------|------|------|
 | 重注册 | `POST /register` | upsert，DRAINING 保留 |
-| 批量下线 | `DELETE /deregister/{tenantId}/{agentId}` | 删除该 pair 下所有实例（REQ-2026-006 语义泛化） |
-| 单实例下线 | `DELETE /deregister/{tenantId}/{agentId}/{serviceId}` | 滚动发布单副本下线不影响其他副本 |
+| 批量下线 agent | `DELETE /deregister/{tenantId}/{agentId}` | 删除该 agent 下所有 serviceId / instanceId |
+| 批量下线 service | `DELETE /deregister/{tenantId}/{agentId}/{serviceId}` | 删除该逻辑服务下所有实例（多实例一起下线） |
+| 单实例下线 | `DELETE /deregister/{tenantId}/{agentId}/{serviceId}/{instanceId}` | 滚动发布单副本下线不影响其他副本 |
 | 心跳过期 | `MvpHealthProbeScheduler` | ONLINE/DEGRADED 且 `last_heartbeat < stale` 被探活；长期 stale 的 ONLINE 降级为 DEGRADED |
 | 优雅下线 | 运维置 `DRAINING` | discovery SQL `status IN ('ONLINE','DEGRADED')` 自动排除；重注册不复活 |
 
@@ -336,14 +344,15 @@ Gateway / Orchestrator       PgMvpDiscoveryServiceImpl          JdbcAgentRegistr
    │                                │◄── List<RegistryRow> ────────────│
    │                                │── toDto: RouteHandleCodec.encode │
    │                                │   (tenantId, agentId, serviceId, │
-   │                                │    routeKey, contractVersion)    │
-   │                                │   → opaque v1: handle            │
+   │                                │    instanceId, routeKey,         │
+   │                                │    contractVersion)              │
+   │                                │   → opaque v2: handle            │
    │◄── List<AgentCardDto> ─────────│                                  │
 ```
 
 - **空结果**：返回空 List（`agent_not_found` 语义），不抛异常。
 - **排序**：`weight DESC, last_heartbeat DESC`——调用方 naive pick-first 落在高权重、新鲜心跳实例。
-- **DTO 不含物理地址**：`endpointUrl` / `routeKey` / `serviceId` 明文不进 DTO；只有 opaque `routeHandle`。
+- **DTO 不含物理地址**：`endpointUrl` / `routeKey` / `instanceId` 明文不进 DTO；只有 opaque `routeHandle`；`serviceId` 作为逻辑服务标识可在 DTO 中返回。
 
 ### 4.5 route handle 解析（`resolveRouteHandle`）
 
@@ -353,15 +362,15 @@ Gateway / Orchestrator       PgMvpDiscoveryServiceImpl          JdbcAgentRegistr
    │── resolveRouteHandle ─────►│                                │                      │
    │   (handle, tenantId)       │                                │                      │
    │                            │── decode(handle) ─────────────►│                      │
-   │                            │                                │── stripPrefix v1:    │
+   │                            │                                │── stripPrefix v2:    │
    │                            │                                │── base64 decode       │
-   │                            │                                │── JSON parse 5 fields │
+   │                            │                                │── JSON parse 6 fields │
    │                            │◄── DecodedHandle ──────────────│                      │
    │                            │── decoded.tenantId != tenantId?                       │
    │                            │   yes ──► TenantIsolationViolationException (400)     │
    │                            │── verifyTenant                                        │
    │                            │── repository.findEndpoint ───────────────────────────►│
-   │                            │   (tenantId, agentId, serviceId)                      │
+   │                            │   (tenantId, agentId, serviceId, instanceId)          │
    │                            │◄── Optional<EndpointEntry> ───────────────────────────│
    │                            │── empty? ──► NoSuchElementException (404 entry_not_found)
    │◄── RouteResolution ────────│                                                      │
@@ -450,8 +459,9 @@ agent-bus:
 | 端点 | 方法 | 说明 |
 |------|------|------|
 | `POST /api/registry/register` | HTTP POST | push 模式注册 / 重注册 |
-| `DELETE /api/registry/deregister/{tenantId}/{agentId}` | HTTP DELETE | 批量下线该 pair 下所有实例 |
-| `DELETE /api/registry/deregister/{tenantId}/{agentId}/{serviceId}` | HTTP DELETE | 单实例下线 |
+| `DELETE /api/registry/deregister/{tenantId}/{agentId}` | HTTP DELETE | 批量下线该 agent 下所有 serviceId / instanceId |
+| `DELETE /api/registry/deregister/{tenantId}/{agentId}/{serviceId}` | HTTP DELETE | 批量下线该逻辑服务下所有实例 |
+| `DELETE /api/registry/deregister/{tenantId}/{agentId}/{serviceId}/{instanceId}` | HTTP DELETE | 单实例下线 |
 | `GET /api/registry/instances/{tenantId}/{agentId}` | HTTP GET | 列举 ONLINE/DEGRADED 实例（携带 opaque routeHandle） |
 | `POST /api/registry/route-handle/resolve` | HTTP POST | 转发层解析 routeHandle 为物理端点 |
 
@@ -468,6 +478,7 @@ curl -s -X POST http://localhost:8092/api/registry/register \
   -d '{
     "tenantId": "tenant-wealth-01",
     "agentId": "wealth-expert-01",
+    "serviceId": "wealth-svc",
     "agentName": "理财专家智能体",
     "frameworkType": "JIUWEN",
     "routeKey": "wealth/v1",
@@ -478,7 +489,7 @@ curl -s -X POST http://localhost:8092/api/registry/register \
     "weight": 100,
     "region": "cn-east-1"
   }'
-# 预期：200 OK；serviceId 服务端派生为 192.168.1.50-8000
+# 预期：200 OK；instanceId 服务端派生为 192.168.1.50-8000；serviceId 用注册方传入的 wealth-svc
 ```
 
 #### 6.2.2 查询已知 agent 的可路由实例
@@ -489,7 +500,8 @@ curl -s http://localhost:8092/api/registry/instances/tenant-wealth-01/wealth-exp
 # 预期：
 # [
 #   {
-#     "routeHandle": "v1:eyJ0ZW5hbnRJZCI6...==",
+#     "routeHandle": "v2:eyJ0ZW5hbnRJZCI6...==",
+#     "serviceId": "wealth-svc",
 #     "health": "ONLINE",
 #     "contractVersion": "1",
 #     "capabilityVersion": "1.0.0",
@@ -500,7 +512,7 @@ curl -s http://localhost:8092/api/registry/instances/tenant-wealth-01/wealth-exp
 #     "frameworkType": "JIUWEN"
 #   }
 # ]
-# 注意：响应不含 endpointUrl / routeKey / serviceId 明文
+# 注意：响应不含 endpointUrl / routeKey / instanceId 明文；serviceId 作为逻辑服务标识可见
 ```
 
 #### 6.2.3 转发层解析 route handle
@@ -508,9 +520,9 @@ curl -s http://localhost:8092/api/registry/instances/tenant-wealth-01/wealth-exp
 ```bash
 curl -s -X POST http://localhost:8092/api/registry/route-handle/resolve \
   -H "Content-Type: application/json" \
-  -d '{"routeHandle": "v1:eyJ0ZW5hbnRJZCI6...==", "tenantId": "tenant-wealth-01"}'
+  -d '{"routeHandle": "v2:eyJ0ZW5hbnRJZCI6...==", "tenantId": "tenant-wealth-01"}'
 # 预期：
-# {"endpointUrl": "http://192.168.1.50:8000", "routeKey": "wealth/v1", "contractVersion": "1"}
+# {"instanceId": "192.168.1.50-8000", "endpointUrl": "http://192.168.1.50:8000", "routeKey": "wealth/v1", "contractVersion": "1"}
 ```
 
 ### 6.3 E2E 流程
@@ -542,19 +554,19 @@ Agent 服务启动          registry-center              健康探活调度器  
 | 错误场景 | 触发条件 | HTTP | error code | 行为 |
 |---------|---------|------|-----------|------|
 | registry key 缺失 | body 缺 `tenantId` / `agentId` | 400 | `invalid_request` | fail-fast |
-| `endpointUrl` 畸形 | 无 host / 不可解析 | 400 | `invalid_request` | `ServiceIdCodec.derive` 抛 IAE |
+| `endpointUrl` 畸形 | 无 host / 不可解析 | 400 | `invalid_request` | `InstanceIdCodec.derive` 抛 IAE |
 | `frameworkType` 为 null | push body 或 pull config 缺失 | 400 | `invalid_request` | |
-| route handle 畸形 | 缺 `v1:` 前缀 / base64 损坏 / JSON 缺字段 / 旧 4 字段格式 | 400 | `malformed_handle` | baseline-breaking，不兼容旧格式 |
+| route handle 畸形 | 缺 `v2:` 前缀 / base64 损坏 / JSON 缺字段 / 旧 4 字段或 `v1:` 5 字段格式 | 400 | `malformed_handle` | baseline-breaking，不兼容旧格式 |
 | 跨 tenant 解析 | `resolveRouteHandle` 调用方 tenant 与 handle 内 tenant 不一致 | 400 | `tenant_isolation_violation` | |
 | TenantContext 交叉校验失败 | 后台调度路径 bound tenant 与参数不一致 | 400 | `tenant_isolation_violation` | |
-| entry 不存在 | handle 指向的 `(tenantId, agentId, serviceId)` 无记录 | 404 | `entry_not_found` | |
+| entry 不存在 | handle 指向的 `(tenantId, agentId, serviceId, instanceId)` 无记录 | 404 | `entry_not_found` | |
 | 已知目标无实例 | `searchInstancesByAgentId` 无 ONLINE/DEGRADED 行 | 200 | （空 List） | 空数组语义 = `agent_not_found` |
 
 scope §10 失败语义映射：
 
 | scope 失败语义 | MVP 实现 |
 |---------------|---------|
-| `NO_CAPABILITY_MATCH` | 阶段二（能力维度查询未实现） |
+| `NO_CAPABILITY_MATCH` | 阶段一（能力维度查询待实现） |
 | `NO_AVAILABLE_AGENT` | `searchInstancesByAgentId` 返回空 List |
 | `CONTRACT_VERSION_MISMATCH` | DTO 返回 `contractVersion`，调用方自行判断；MVP 不在 discovery 层强制过滤 |
 | `TENANT_SCOPE_DENIED` | `TenantIsolationViolationException` → 400 |
@@ -565,12 +577,16 @@ scope §10 失败语义映射：
 
 | 限制 | 影响范围 | 临时方案 / 阶段规划 |
 |------|---------|-------------------|
-| 仅支持按 `agentId` 查询，不支持按 `capability_type` / `tags` / `domain` / `query_text` 查询 | 意图识别动态能力匹配场景无法直接使用 registry | 阶段二引入 pgvector + `searchByCapability` SPI 方法 |
-| 无推荐首选 / 分数 / 证据 | 自动调度场景需调用方自排 | 阶段二 |
-| `supports_streaming` / `supports_hitl` / `requires_idempotency_key` 等执行约束字段未实现 | 执行约束查询无法下推到 registry | 阶段二随 Agent Card 字段扩展 |
+| 仅支持按 `agentId` 查询，不支持按 `capability_type` / `tags` / `domain` / `query_text` 查询 | 意图识别动态能力匹配场景无法直接使用 registry | 阶段一引入 `searchByCapability` SPI 方法（pgvector 语义检索属 SHOULD，阶段二） |
+| 无推荐首选 / 分数 / 证据 | 自动调度场景需调用方自排 | 阶段二（scope §2 SHOULD，可延后） |
+| `supports_streaming` / `supports_hitl` / `requires_idempotency_key` 等执行约束字段未实现 | 执行约束查询无法下推到 registry | 阶段一随 Agent Card 字段扩展 |
+| `capability_type` 字段已移除（REQ-2026-004） | 无法按能力类型校验和查询 | 阶段一随 `searchByCapability` 一并重建 |
+| `caller_ref` 查询输入未实现 | 仅 `tenantId` 边界，无调用方维度可见性 | 阶段一评估是否引入调用方可见性模型 |
+| `health_status` 值域偏离 | scope §3 = `healthy` / `degraded` / `unhealthy`；L2 = `ONLINE` / `DEGRADED` / `DRAINING` / `OFFLINE`；调用方需做值域映射 | 阶段一统一值域或在投影层做映射 |
+| `priority` → `weight` 字段重命名 | scope §3 字段名 `priority`；L2 = `weight`；调用方需做字段名映射 | 阶段一评估是否回归 `priority` 命名 |
 | pull 注册无定时刷新 | agent 卡片变更需重启或重触发 | bootstrap-only 设计；刷新需求由阶段二定时拉取或 push 模式覆盖 |
-| route handle 旧 4 字段格式不兼容 | REQ-2026-006 升级后旧 handle 立即失效 | handle 生命周期短（一个探活周期），迁移后调用方重新 `GET /instances` |
-| `contractVersion` 不匹配不在 discovery 层强制过滤 | 调用方可能拿到版本不兼容候选 | DTO 携带版本字段，调用方自行判断；阶段二可在查询输入加 `contractVersion` 过滤 |
+| route handle 旧 4 字段及 `v1:` 5 字段格式不兼容 | REQ-2026-006 + serviceId/instanceId 分离升级后旧 handle 立即失效 | handle 生命周期短（一个探活周期），迁移后调用方重新 `GET /instances` |
+| `contractVersion` 不匹配不在 discovery 层强制过滤 | 调用方可能拿到版本不兼容候选 | DTO 携带版本字段，调用方自行判断；阶段一可在查询输入加 `contractVersion` 过滤 |
 | 单 PG 实例，无 Consul / pgvector | 检索能力与可用性受限 | 阶段二演进，见 [registry-discovery-runtime-design.cn.md](./registry-discovery-runtime-design.cn.md) |
 
 ## 9. 与 scope 文档的对齐矩阵
@@ -578,18 +594,18 @@ scope §10 失败语义映射：
 | scope 要求 | L2 落地 | 备注 |
 |-----------|---------|------|
 | §2 Agent Card 注册 MUST | §4.1 / §4.2 | push + pull 双模式 |
-| §2 Agent Card 校验 MUST | §4.1.2 / §7 | registry key + frameworkType + endpointUrl 派生 |
-| §2 更新与失效 MUST | §4.3 | upsert + deregister(pair/triple) + DRAINING 保留 |
-| §2 租户与调用方边界 MUST | §2.3.3 / §4.4 / §7 | RLS + 应用层 WHERE + TenantContext 交叉校验 |
-| §2 Agent Card 查询 MUST | §4.4 | MVP 仅 agentId 维度；能力维度阶段二 |
+| §2 Agent Card 校验 MUST | §4.1.2 / §7 | registry key + frameworkType + endpointUrl 派生；capability_type / 执行约束校验阶段一实现 |
+| §2 更新与失效 MUST | §4.3 | upsert + deregister(pair/triple/quad) + DRAINING 保留 |
+| §2 租户与调用方边界 MUST | §2.3.3 / §4.4 / §7 | RLS + 应用层 WHERE + TenantContext 交叉校验；**caller_ref 未实现，见 §8** |
+| §2 Agent Card 查询 MUST | §4.4 | MVP 仅 agentId 维度；能力类型 / 名称 / 描述 / 标签 / domain / 执行约束维度阶段一实现 |
 | §2 可用性过滤 MUST | §4.4 / §4.6 | status + 版本字段在 DTO |
 | §2 推荐首选 SHOULD | §8 | 阶段二 |
 | §2 候选与证据保留 SHOULD | §8 | 阶段二 |
-| §2 opaque route handle MUST | §4.4 / §4.5 | v1: 5 字段 base64 |
+| §2 opaque route handle MUST | §4.4 / §4.5 | v2: 6 字段 base64（tenantId / agentId / serviceId / instanceId / routeKey / contractVersion） |
 | §2 无能力结果 MUST | §7 | 空 List / 404 |
 | §2 可查询扩展元数据 SHOULD | §2.3.2 | A2A JSONB 保留，索引阶段二 |
-| §3 Agent Card 最小字段 | §2.3.2 | 覆盖矩阵见 §2.3.2 |
-| §4 查询输入与输出 | §2.3.1 / §2.3.2 | MVP 子集；完整查询输入阶段二 |
+| §3 Agent Card 最小字段 | §2.3.2 | 覆盖矩阵见 §2.3.2；**health_status 值域偏离、priority→weight 重命名、caller_ref 缺失，见 §8** |
+| §4 查询输入与输出 | §2.3.1 / §2.3.2 | MVP 子集；**caller_ref / capability_type / execution_constraints / health_requirement / page / sort 输入未实现，见 §8** |
 | §6 意图识别场景协作边界 | §2.2 / §8 | 阶段二；MVP 不实现动态能力匹配 |
 | §10 失败语义 | §7 | 部分实现，部分阶段二 |
 | §11 开发设计待细化事项 | §8 | 对齐——均标记为阶段二 |
