@@ -77,7 +77,7 @@ covers_contract: ICD-Agent-Registry-Discovery
 |--------|------|------|
 | Agent 业务定义源 | 属于 agent-runtime / agent-core 职责 | registry 只存路由 / 契约 / 治理字段 + A2A 卡片 JSONB 元数据 |
 | Task execution state | L0 边界——bus 不拥有 Task 生命周期 | 见 L1 logical §4 |
-| 候选发现面向 agent/client | Feat-016 明确：agent/client 只看路由可用性投影，不看候选 | 见 [FEAT-016-runtime-instance-route-query.md](./FEAT-016-runtime-instance-route-query.md) |
+| 候选发现面向 agent/client | Feat-016 明确：agent/client 只看路由可用性投影，不看候选 | 见 [Feat-Func-016-runtime-instance-route-query.md](./Feat-Func-016-runtime-instance-route-query.md) |
 | 语义检索 / 学习排序 | scope §11 列为后续增强 | 阶段二 pgvector |
 | 自然语言意图库 / 文档召回 | scope §1 显式排除——注册中心返回可执行能力集合，不是知识检索 | 业务侧自建 |
 
