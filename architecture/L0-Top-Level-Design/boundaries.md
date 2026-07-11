@@ -56,7 +56,7 @@ dependency:
 
 **业务逻辑职责（负责什么、不负责什么）**
 
-`agent-runtime` 是服务端智能体运行时边界，负责承接服务端请求、创建和维护 Task 生命周期、管理 Task 层级关系、维持运行时查询与实时输出表面，并协调执行组件、中间件、总线和客户端能力。
+`agent-runtime` 是服务端智能体运行时边界，负责承接服务端请求、创建和维护 Task 生命周期、管理 Task 层级关系、维持运行时查询与实时输出表面，并协调执行组件、中间件、总线和客户端能力。除 Task-owning Service Task API 外，它可以提供面向兼容接入的一次性非 Task Query facade；该表面不改变 Task owner，也不获得 Task 查询、订阅或取消语义。
 
 `agent-runtime` 不负责客户端业务事实、客户细粒度权限模型、模型/记忆/工具 provider 内部状态、跨边界控制总线物理通道、跨实例 A2A 私有通道，也不拥有 `agent-core` 的组件内部执行状态。
 
@@ -66,7 +66,7 @@ dependency:
 
 **行为边界概述（面向谁，暴露什么）**
 
-`agent-runtime` 面向 `agent-client`、`agent-core`、`agent-middleware`、`agent-bus` 和运行时治理能力暴露服务端 Task 生命周期边界。对客户端和业务入口，它暴露 Task 创建、查询、取消、恢复和服务流表面；对执行组件，它暴露受治理的执行入口和状态意图接收边界；对中间件和总线，它暴露上下文组装、工具治理、跨边界协作和运行时证据交接所需的服务侧协调表面。
+`agent-runtime` 面向 `agent-client`、`agent-core`、`agent-middleware`、`agent-bus` 和运行时治理能力暴露服务端 Task 生命周期边界。对客户端和业务入口，它暴露 Task 创建、查询、取消、恢复和服务流表面，也可暴露不创建 Task 的即时 Query facade；二者必须在能力、状态和错误语义上明确分离。对执行组件，它暴露受治理的执行入口和状态意图接收边界；对中间件和总线，它暴露上下文组装、工具治理、跨边界协作和运行时证据交接所需的服务侧协调表面。
 
 ### `agent-core`
 

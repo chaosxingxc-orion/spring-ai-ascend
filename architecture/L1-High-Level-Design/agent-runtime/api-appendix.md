@@ -40,11 +40,24 @@ API 附录回答以下问题：
 | API 面 | Endpoint | Controller | 说明 |
 |---|---|---|---|
 | A2A JSON-RPC | `POST /a2a`, `POST /a2a/` | `A2aJsonRpcController` | 单一 A2A JSON-RPC 入口，按请求方法和 `Accept` 分派同步或流式路径。 |
+| 非 Task Query（MVC） | `POST /v1/query` | openJiuwen `QueryMvcController` | 直接调用 `ServeOrchestrator`，返回当次 JSON 或 SSE，不创建 Task。 |
+| 非 Task Query（legacy） | `POST /query` | openJiuwen `QueryLegacyMvcController` | `/v1/query` 的兼容别名，可通过配置关闭。 |
+| 非 Task Query（WebFlux） | `POST /v1/query/reactive` | openJiuwen `QueryWebFluxController` | WebFlux 形态的当次 JSON/SSE 调用，不创建 Task。 |
+| 非 Task 会话重置 | `POST /v1/reset_conversation`, `POST /reset_conversation` | openJiuwen `ResetConversationMvcController` | 取消 conversation 当前流并调用 handler `clearSession`；不是 Task cancel。 |
 | Agent Card 发现 | `GET /.well-known/agent-card.json` | `AgentCardController` | 标准 Agent Card 发现端点。 |
 | Agent Card 兼容发现 | `GET /.well-known/agent.json` | `AgentCardController` | legacy 兼容路径，返回同一类 Agent Card。 |
 | Health | host actuator path | `AgentRuntimeHealthIndicator` | 可选 Actuator health contributor，不是 runtime 自有路径。 |
 
-当前 active 代码不提供独立的自研管理 REST API、gRPC API 或非 A2A 的 northbound 执行 API。当前 A2A JSON-RPC 是 `agent-runtime` Service Task API 的 active 实现形态。
+当前 A2A JSON-RPC 是 `agent-runtime` 唯一的 Service Task API active 实现形态。openJiuwen Java 实现同时保留非 Task Query facade，用于兼容 Python `AgentApp` 路由、迁移和即时调用；该 facade 不是第二套 Task API。
+
+### 2.1 非 Task Query facade 的能力边界
+
+- `/v1/query`、`/query`、`/v1/query/reactive` 以及按 L2 扩展的 Custom REST 都直接构造 `ServeRequest` 并调用 `ServeOrchestrator.query/streamQuery`。
+- 正常本地调用只产生 `QueryResponse` / `QueryChunk`，不进入 A2A SDK `RequestHandler`、`MainEventBus`、`AgentEmitter` 或正式 `TaskStore` 路径。
+- facade 不返回权威 taskId，不支持 GetTask、CancelTask、SubscribeToTask，也不承诺断线后的 Task 级重订阅。
+- 中断通过当前响应中的 `_interrupt` / `TYPE_INTERRUPT` 表达，错误通过当前 HTTP/SSE 调用表达；它们不是可后续查询的 Task 状态。
+- `A2AEnabledServeOrchestrator` 为远端 delegate 保存的 shadow Task 只服务远端恢复编排，不把本地 Query invocation 升级为正式 Task。
+- `reset_conversation` 清理 conversation 对应的当前流和 handler 会话状态，不等价于 A2A `CancelTask`，也不推进 Task 状态。
 
 ## 3. A2A JSON-RPC 入口
 
