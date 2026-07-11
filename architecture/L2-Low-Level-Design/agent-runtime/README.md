@@ -38,7 +38,7 @@ L2 特性文档按功能特性和非功能特性分组命名：
 ## 阅读路径
 
 1. 先阅读 `architecture/L1-High-Level-Design/agent-runtime/README.md`，确认 `agent-runtime` 的模块定位、4+1 视图入口和 L1/L2 边界。
-2. 按本文档的特性清单定位目标 L2 文档。
+2. 按本文档的特性清单先阅读对应主设计；涉及特定社区仓库或扩展模块时，再按子设计索引进入对应实现细化文档。
 3. 对实现、测试、配置或排障做事实判断时，以当前代码、模块元数据、测试和契约为准；若 L2 文字与代码事实冲突，应停止并修正文档或代码事实。
 4. 涉及 draft / proposal / archive 的材料时，到 `docs/` 下查阅，不把它们当作当前架构事实。
 
@@ -50,6 +50,16 @@ L2 特性文档按功能特性和非功能特性分组命名：
 | Feat-Func-002 | [异构 Agent 框架兼容](Feat-Func-002-heterogeneous-agent-framework-compatibility.md) | `AgentRuntimeHandler` 适配模型、核心 SPI 与状态边界、OpenJiuwen ReAct/Workflow/DeepAgent、AgentScope、Versatile adapter 接入。 | 框架中立执行 SPI、状态归属原则与具体 adapter 协作；adapter 不治理框架 cache/checkpointer、hook、rail、tool、skill。 |
 | Feat-Func-003 | [智能体任务状态缓存](Feat-Func-003-agent-task-state-cache.md) | 标准化 Redis 缓存 SPI、原生 Redis 单机/集群策略、客户封装 Redis 适配、A2A Task 与 checkpoints 缓存复用。 | 任务状态缓存、Redis 连接池复用、客户适配扩展点、日志脱敏和内部验收边界。 |
 | Feat-Func-005 | [远程 Agent 编排](Feat-Func-005-remote-agent-orchestration.md) | 远程 Agent Card 拉取、Tool 注入、中断-续接、远程调用结果回灌。 | runtime 作为 A2A client 编排其他 Agent。 |
+
+### 特性子设计索引
+
+子设计沿用所属主特性的 `feature_id`，只展开特定物理实现或扩展模块，不重复定义主特性编号，也不替代 canonical 主设计。阅读时先确认主设计的逻辑边界，再使用下表核对具体实现仓、SPI 映射和当前限制。
+
+| 所属特性 | 子设计 | 实现落点 | 与主设计的关系 |
+|---|---|---|---|
+| Feat-Func-001 | [Custom REST API 到 Agent Runtime 执行入口适配 SPI](Feat-Func-001-【标准化智能体服务入口】自定义%20RestAPI%20到%20runtime内部编排层协议适配转换%20SPI.md) | `openJiuwen/agent-solution/common/agent-runtime-ext-java/agent-service-app/agent-service-adapters-custom-rest` | 标准化服务入口的 Custom REST 非 Task facade 子设计；复用 OpenJiuwen `ServeOrchestrator`，不改变 A2A Task owner。 |
+| Feat-Func-002 | [OpenJiuwen ReAct、DeepAgent、WorkflowAgent 兼容能力](Feat-Func-002-【异构智能体框架兼容】runtime兼容openjiuwen%20react、deepagent、workflowagent能力说明.md) | `openJiuwen/agent-runtime-java` + `openJiuwen/agent-core-java` | 异构框架兼容在 OpenJiuwen 社区实现中的源码证据与 `AgentHandler` 物理 SPI 映射。 |
+| Feat-Func-002 | [AgentScope Java 本地 Adapter](Feat-Func-002-【异构智能体框架兼容】新增兼容agent%20scope框架智能体.md) | `openJiuwen/agent-solution/common/agent-runtime-ext-java/agent-service-adapters/agent-service-adapters-agentscope` | 异构框架兼容在 OpenJiuwen 扩展仓中的本地 AgentScope 子设计；不替代主模块既有 AgentScope adapter 事实。 |
 
 ## 非功能特性清单
 
