@@ -14,7 +14,7 @@ dependency:
   - physical.md
   - api-appendix.md
   - spi-appendix.md
-  - ../../../version-scope/agent-runtime-release-features.cn.md
+  - ../../../version-scope/README.md
 ---
 
 # agent-runtime L1 架构概览
@@ -37,6 +37,7 @@ dependency:
 - 将 A2A SDK 的执行请求桥接为 runtime 内部的 `ServeRequest`，并将框架原生结果映射为 `QueryResponse` / `QueryChunk`。
 - 提供 Agent Card 发现能力，使一个 runtime 实例可以向外暴露可发现的 Agent 元数据。
 - 通过 `service/agent-service-app` 提供 Spring Boot 自动装配入口，支持业务应用以 SDK 方式集成 runtime。
+- 通过智能体中间件请求代理能力，在部署或启动阶段经 Skill Hub SPI 访问 Skill Hub、下载 Agent 声明的 skill 包，并把注册材料移交给 agent-core 或框架适配入口。
 - 为远端 A2A Agent 调用提供 runtime 侧目录与调用支撑能力，但不接管跨边界 A2A 总线治理。
 
 ## 受众边界
@@ -80,6 +81,7 @@ dependency:
 | Agent 执行 SPI | 定义并消费框架无关的 `AgentHandler`、`ServeOrchestrator`、`ServeRequest` 和 `QueryResponse` / `QueryChunk`。 | 不把某个 Agent 框架设为平台唯一执行模型。 | `spi-appendix.md`, `development.md` |
 | 框架适配 | 提供 openJiuwen / AgentCore 等当前适配实现。 | 不承诺所有未来框架适配已经 active。 | `development.md`, L2 详细设计 |
 | 嵌入式启动 | 提供 Spring Boot host 和自动装配。 | 不负责业务应用的部署编排、入口治理或平台网关能力。 | `development.md`, `physical.md` |
+| 智能体中间件请求代理 | 在部署或启动阶段通过统一 SPI 访问 Skill Hub，使用 runtime 凭据下载 Agent 声明的 skill 包，并移交可注册材料。 | 不定义 Agent 与 skill 的独立授权模型或 Skill Hub 服务端能力，也不接管 agent-core 的 skill 解析、执行和 prompt 组装。 | `../../../version-scope/FEAT-005-agent-middleware-request-proxy.md` |
 | 远端 Agent 调用支撑 | 在 A2A 协议桥 / outbound invocation 边界内维护远端 Agent Card 目录和 outbound 调用支撑。 | 不接管跨实例、跨部门、跨数据边界的 A2A 总线治理；该边界归属 L0 中的 `agent-bus`。 | `logical.md`, `process.md` |
 | 状态归属 | 管理 runtime Task/Session 语义和执行过程中的中立上下文；FEAT-003 可提供 Redis-backed Task 状态缓存和 Agent checkpoint cache 桥接，缓存生命周期受 TTL 约束。 | 不解释或接管业务 Agent checkpoint、业务 memory、外部系统状态；不把事件队列、执行线程池、流取消句柄或临时连接表升级为分布式 runtime。 | `logical.md`, `physical.md` |
 

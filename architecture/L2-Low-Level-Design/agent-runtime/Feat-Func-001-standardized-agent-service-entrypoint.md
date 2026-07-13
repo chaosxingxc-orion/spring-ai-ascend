@@ -191,7 +191,7 @@ AgentCardController.buildCard()
   └─ skills            ← SkillProperties → AgentSkill
 ```
 
-只有 `skills` 非空的 Agent Card 才会被远程主 Agent 识别为可安装工具集合。远程 Agent 的发现、缓存、工具安装和 outbound 调用由 `Feat-Func-005-remote-agent-orchestration.md` 承接。
+只有 `skills` 非空的 Agent Card 才会被远程主 Agent 识别为可安装工具集合。远程 Agent 的发现、缓存、工具安装和 outbound 调用由 `Feat-Func-004-remote-agent-orchestration.md` 承接。
 
 ---
 

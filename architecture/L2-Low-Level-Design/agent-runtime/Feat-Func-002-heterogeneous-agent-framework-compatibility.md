@@ -203,7 +203,7 @@ VersatileAgentRuntimeHandler.execute(context)
 
 #### 3.4.4 远程工具与 skill 边界
 
-远程 Agent 发现、工具安装、中断续接和 skill 到框架工具的转换属于 Feat-Func-005 远程 Agent 编排，不属于本特性的异构框架适配事实。Versatile adapter 在本特性内只承诺 REST/SSE 请求代理、响应解析和结果归一。
+远程 Agent 发现、工具安装、中断续接和 skill 到框架工具的转换属于 Feat-Func-004 远程 Agent 编排，不属于本特性的异构框架适配事实。Versatile adapter 在本特性内只承诺 REST/SSE 请求代理、响应解析和结果归一。
 
 ---
 

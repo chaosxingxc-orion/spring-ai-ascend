@@ -6,7 +6,7 @@ feature_id: FEAT-003
 status: active
 related_docs:
   - ./FEAT-001-standardized-agent-service-entrypoint.md
-  - ./FEAT-005-remote-agent-orchestration.md
+  - ./FEAT-004-remote-agent-orchestration.md
   - ../architecture/L0-Top-Level-Design/boundaries.md
   - ../architecture/L0-Top-Level-Design/glossary.md
   - ../architecture/L1-High-Level-Design/agent-runtime/README.md
@@ -14,7 +14,7 @@ related_docs:
   - ../architecture/L1-High-Level-Design/agent-runtime/spi-appendix.md
   - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-001-standardized-agent-service-entrypoint.md
   - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-003-agent-task-state-cache.md
-  - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-005-remote-agent-orchestration.md
+  - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md
 ---
 
 # 智能体任务状态缓存特性文档
@@ -166,7 +166,7 @@ FEAT-003 定义 `agent-runtime` 使用 Redis 缓存智能体任务状态时的�
 - `architecture/L1-High-Level-Design/agent-runtime/development.md`
 - `architecture/L1-High-Level-Design/agent-runtime/spi-appendix.md`
 - `version-scope/FEAT-001-standardized-agent-service-entrypoint.md`
-- `version-scope/FEAT-005-remote-agent-orchestration.md`
+- `version-scope/FEAT-004-remote-agent-orchestration.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-001-standardized-agent-service-entrypoint.md`
 - `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-003-agent-task-state-cache.md`
-- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-005-remote-agent-orchestration.md`
+- `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md`

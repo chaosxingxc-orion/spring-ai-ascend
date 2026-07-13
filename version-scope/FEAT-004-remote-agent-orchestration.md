@@ -2,11 +2,11 @@
 scope: version
 module: agent-runtime
 feature_type: functional
-feature_id: FEAT-005
+feature_id: FEAT-004
 status: active
 dependency:
   - README.md
-  - ../architecture/L2-Low-Level-Design/agent-runtime/FEAT-005-remote-agent-orchestration.md
+  - ../architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-004-remote-agent-orchestration.md
 ---
 
 # 远程 Agent 编排 — 黑盒行为说明

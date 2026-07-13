@@ -2,13 +2,13 @@
 level: L2-LLD
 module: agent-runtime
 feature_type: functional
-feature_id: Feat-Func-005
+feature_id: Feat-Func-004
 status: active
 dependency:
   - ../../L1-High-Level-Design/agent-runtime/README.md
   - ../../L1-High-Level-Design/agent-runtime/development.md
   - ../../L1-High-Level-Design/agent-runtime/process.md
-  - ../../../version-scope/FEAT-005-remote-agent-orchestration.md
+  - ../../../version-scope/FEAT-004-remote-agent-orchestration.md
 ---
 
 # 远程 Agent 编排 — 设计文档
@@ -32,7 +32,7 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 
 ### 1.2 当前事实边界
 
-本文只描述 Feat-Func-005 在当前 `agent-runtime` 模块中的已接受实现事实。面向调用方的黑盒行为、用户场景和外部示例已迁移到 `version-scope/FEAT-005-remote-agent-orchestration.md`；模块级 API/SPI、逻辑对象归属和部署资源模型以 L1 设计及其附录为准。
+本文只描述 Feat-Func-004 在当前 `agent-runtime` 模块中的已接受实现事实。面向调用方的黑盒行为、用户场景和外部示例已迁移到 `version-scope/FEAT-004-remote-agent-orchestration.md`；模块级 API/SPI、逻辑对象归属和部署资源模型以 L1 设计及其附录为准。
 
 ### 1.3 设计原则
 

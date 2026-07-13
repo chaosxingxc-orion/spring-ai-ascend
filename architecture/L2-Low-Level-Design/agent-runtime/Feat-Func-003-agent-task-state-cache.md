@@ -6,9 +6,9 @@ feature_id: Feat-Func-003
 status: active
 dependency:
   - ../../../version-scope/FEAT-001-standardized-agent-service-entrypoint.md
-  - ../../../version-scope/FEAT-005-remote-agent-orchestration.md
+  - ../../../version-scope/FEAT-004-remote-agent-orchestration.md
   - ./Feat-Func-001-standardized-agent-service-entrypoint.md
-  - ./Feat-Func-005-remote-agent-orchestration.md
+  - ./Feat-Func-004-remote-agent-orchestration.md
   - ../../L1-High-Level-Design/agent-runtime/README.md
   - ../../L1-High-Level-Design/agent-runtime/development.md
   - ../../L1-High-Level-Design/agent-runtime/spi-appendix.md
