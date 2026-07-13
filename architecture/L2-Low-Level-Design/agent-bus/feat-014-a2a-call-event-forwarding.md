@@ -304,7 +304,7 @@ CallerRuntime        RocketMQ        EventBus+Registry进程        RocketMQ    
 └────────────────────┘                  └──────────────────────────────┘                     └────────────────────┘
 ```
 
-> 同一 event-bus 进程同时承载 FEAT-013（client invocation）与 FEAT-014（service-to-service A2A）两族事件的治理中继；事件族由 `AgentBusEventType` 判别，topic 分离（`ascend.bus.invocation.*` vs `ascend.bus.a2a.*`）。caller 与 target 可以是同一 agent-runtime 部署的不同实例（demo: Agent A 18090 → Agent B 18091）。
+> 同一 event-bus 进程同时承载 FEAT-013（client invocation）与 FEAT-014（service-to-service A2A）两族事件的治理中继；事件族由 `AgentBusEventType` 判别，topic 分离（`ascend_bus_invocation_*` vs `ascend_bus_a2a_*`）。caller 与 target 可以是同一 agent-runtime 部署的不同实例（demo: Agent A 18090 → Agent B 18091）。
 
 ### 5.2 完整配置示例
 
@@ -315,10 +315,10 @@ agent-bus:
       nameserver-endpoints: 10.0.0.10:9876;10.0.0.11:9876
       namespace: ascend-prod
       topics:
-        a2a-req: ascend.bus.a2a.req
-        a2a-deliver: ascend.bus.a2a.deliver
-        a2a-resp-in: ascend.bus.a2a.resp.in
-        a2a-resp-out: ascend.bus.a2a.resp.out
+        a2a-req: ascend_bus_a2a_req
+        a2a-deliver: ascend_bus_a2a_deliver
+        a2a-resp-in: ascend_bus_a2a_resp_in
+        a2a-resp-out: ascend_bus_a2a_resp_out
   forwarding:                                   # 复用既有 retry/circuit-breaker 配置
     retry-policy: { base-ms: 100, cap-ms: 60000, max-attempts: 5 }
 
@@ -331,10 +331,10 @@ openjiuwen:
         consumer-group: runtime-${service-id}     # per-serviceId consumer group（T_a2a_deliver / T_a2a_resp_out）
         producer-group: runtime-producer
         topics:
-          a2a-deliver: ascend.bus.a2a.deliver     # 消费
-          a2a-resp-out: ascend.bus.a2a.resp.out   # 消费（调用方侧）
-          a2a-req: ascend.bus.a2a.req             # 生产（调用方侧）
-          a2a-resp-in: ascend.bus.a2a.resp.in     # 生产（被调用方侧）
+          a2a-deliver: ascend_bus_a2a_deliver     # 消费
+          a2a-resp-out: ascend_bus_a2a_resp_out   # 消费（调用方侧）
+          a2a-req: ascend_bus_a2a_req             # 生产（调用方侧）
+          a2a-resp-in: ascend_bus_a2a_resp_in     # 生产（被调用方侧）
       invocation:
         accept-window:
           accept-timeout-ms: 5000                 # 无 accepted → UNKNOWN

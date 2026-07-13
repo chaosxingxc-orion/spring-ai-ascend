@@ -338,10 +338,10 @@ agent-bus:
       producer-group: gateway-producer
       consumer-group: gateway-consumer          # 消费响应 topic
       topics:
-        invocation-req: ascend.bus.invocation.req
-        invocation-deliver: ascend.bus.invocation.deliver
-        invocation-resp-in: ascend.bus.invocation.resp.in
-        invocation-resp-out: ascend.bus.invocation.resp.out
+        invocation-req: ascend_bus_invocation_req
+        invocation-deliver: ascend_bus_invocation_deliver
+        invocation-resp-in: ascend_bus_invocation_resp_in
+        invocation-resp-out: ascend_bus_invocation_resp_out
   forwarding:                                   # 复用既有 forwarding 配置（见 forwarding-persistence §5）
     retry-policy:
       base-ms: 100
@@ -358,10 +358,10 @@ agent-bus:
 | `agent-bus.gateway.accept-window.response-timeout-ms` | long | 30000 | 否 | 已 accepted 后等最终响应 |
 | `agent-bus.broker.rocketmq.nameserver-endpoints` | String | — | 是 | RocketMQ nameserver（映射 `BrokerClientProperties.nameserverEndpoints`） |
 | `agent-bus.broker.rocketmq.namespace` | String | — | 是 | tenant 隔离作用域（映射 `BrokerClientProperties.namespace`） |
-| `agent-bus.broker.rocketmq.topices.invocation-req` | String | ascend.bus.invocation.req | 否 | gateway→event-bus 前向 |
-| `agent-bus.broker.rocketmq.topics.invocation-deliver` | String | ascend.bus.invocation.deliver | 否 | event-bus→agent-runtime 前向 |
-| `agent-bus.broker.rocketmq.topics.invocation-resp-in` | String | ascend.bus.invocation.resp.in | 否 | agent-runtime→event-bus 响应 |
-| `agent-bus.broker.rocketmq.topics.invocation-resp-out` | String | ascend.bus.invocation.resp.out | 否 | event-bus→gateway 响应 |
+| `agent-bus.broker.rocketmq.topices.invocation-req` | String | ascend_bus_invocation_req | 否 | gateway→event-bus 前向 |
+| `agent-bus.broker.rocketmq.topics.invocation-deliver` | String | ascend_bus_invocation_deliver | 否 | event-bus→agent-runtime 前向 |
+| `agent-bus.broker.rocketmq.topics.invocation-resp-in` | String | ascend_bus_invocation_resp_in | 否 | agent-runtime→event-bus 响应 |
+| `agent-bus.broker.rocketmq.topics.invocation-resp-out` | String | ascend_bus_invocation_resp_out | 否 | event-bus→gateway 响应 |
 
 > topic 经 `ForwardingEndpointResolver` 由 routeHandle 映射（HD4 opaque，gateway/agent-runtime 不读 topic value）；上表命名约定为默认，可由 resolver 覆写。
 

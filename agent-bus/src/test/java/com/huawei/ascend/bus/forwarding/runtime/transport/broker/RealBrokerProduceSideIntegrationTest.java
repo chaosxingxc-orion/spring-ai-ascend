@@ -82,10 +82,10 @@ class RealBrokerProduceSideIntegrationTest {
     private static final String TRACE = "0123456789abcdef0123456789abcdef";
     private static final String ROUTE_INVOCATION = "route-invocation";
     private static final String ROUTE_A2A = "route-a2a";
-    // RocketMQ topic-name validator (^[%|a-zA-Z0-9_-]+$) forbids '.'; the L2 §5.2
-    // authority uses dotted names (ascend.bus.invocation.req) — 联调 surfaced this
-    // defect (mqadmin rejects dotted names). Underscore variant used here pending
-    // L2-doc + docker-compose reconciliation (step-8). See /diagnose finding.
+    // RocketMQ topic-name validator (^[%|a-zA-Z0-9_-]+$) forbids '.' — 联调 surfaced
+    // that the L2 §5.2 + docker-compose.yml originally used dotted names
+    // (ascend.bus.invocation.req), which mqadmin rejects. Reconciled to underscore
+    // (ascend_bus_invocation_req) across the L2 docs + docker-compose + this IT.
     private static final String TOPIC_INVOCATION_REQ = "ascend_bus_invocation_req";
     private static final String TOPIC_A2A_REQ = "ascend_bus_a2a_req";
     private static final long CAPTURE_TIMEOUT_MS = 10_000L;

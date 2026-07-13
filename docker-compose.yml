@@ -2,8 +2,10 @@
 # Slice S5 of REQ-2026-001 (agent-bus repo).
 #
 # Brings up a RocketMQ nameserver + broker and pre-creates the 8 topics mandated by:
-#   * L2 FEAT-013 §5.2 — ascend.bus.invocation.{req,deliver,resp.in,resp.out}
-#   * L2 FEAT-014 §5.2 — ascend.bus.a2a.{req,deliver,resp.in,resp.out}
+#   * L2 FEAT-013 §5.2 — ascend_bus_invocation_{req,deliver,resp_in,resp_out}
+#   * L2 FEAT-014 §5.2 — ascend_bus_a2a_{req,deliver,resp_in,resp_out}
+#   NOTE: topic names use underscore (not dots) — RocketMQ's topic validator
+#   ^[%|a-zA-Z0-9_-]+$ forbids '.' (联调 surfaced: mqadmin rejected dotted names).
 # Authority (topic + namespace names):
 #   architecture/L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md §5.2
 #   architecture/L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md §5.2
@@ -83,14 +85,14 @@ services:
         done
         echo "[rocketmq-init] Broker registered. Creating 8 topics on cluster DefaultCluster..."
         # --- FEAT-013 §5.2: client invocation event forwarding (4 topics) ---
-        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.invocation.req; do echo "[rocketmq-init]   retry ascend.bus.invocation.req..."; sleep 3; done
-        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.invocation.deliver; do echo "[rocketmq-init]   retry ascend.bus.invocation.deliver..."; sleep 3; done
-        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.invocation.resp.in; do echo "[rocketmq-init]   retry ascend.bus.invocation.resp.in..."; sleep 3; done
-        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.invocation.resp.out; do echo "[rocketmq-init]   retry ascend.bus.invocation.resp.out..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend_bus_invocation_req; do echo "[rocketmq-init]   retry ascend_bus_invocation_req..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend_bus_invocation_deliver; do echo "[rocketmq-init]   retry ascend_bus_invocation_deliver..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend_bus_invocation_resp_in; do echo "[rocketmq-init]   retry ascend_bus_invocation_resp_in..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend_bus_invocation_resp_out; do echo "[rocketmq-init]   retry ascend_bus_invocation_resp_out..."; sleep 3; done
         # --- FEAT-014 §5.2: A2A call event forwarding (4 topics) ---
-        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.a2a.req; do echo "[rocketmq-init]   retry ascend.bus.a2a.req..."; sleep 3; done
-        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.a2a.deliver; do echo "[rocketmq-init]   retry ascend.bus.a2a.deliver..."; sleep 3; done
-        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.a2a.resp.in; do echo "[rocketmq-init]   retry ascend.bus.a2a.resp.in..."; sleep 3; done
-        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.a2a.resp.out; do echo "[rocketmq-init]   retry ascend.bus.a2a.resp.out..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend_bus_a2a_req; do echo "[rocketmq-init]   retry ascend_bus_a2a_req..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend_bus_a2a_deliver; do echo "[rocketmq-init]   retry ascend_bus_a2a_deliver..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend_bus_a2a_resp_in; do echo "[rocketmq-init]   retry ascend_bus_a2a_resp_in..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend_bus_a2a_resp_out; do echo "[rocketmq-init]   retry ascend_bus_a2a_resp_out..."; sleep 3; done
         echo "[rocketmq-init] Done. Topic list:"
         mqadmin topicList -n rocketmq-nameserver:9876
