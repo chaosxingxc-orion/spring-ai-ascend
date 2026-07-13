@@ -1,5 +1,7 @@
 package com.huawei.ascend.bus.forwarding.runtime.transport.broker;
 
+import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
+
 import java.util.Objects;
 
 /**
@@ -30,7 +32,13 @@ public record BrokerInboundMessage(
         String sourceServiceId,
         String targetServiceId,
         String consumerServiceId,
-        String payloadRef
+        String payloadRef,
+        // FEAT-013 cross-hop correlation key (mirrored from headers at poll). Nullable (control-only /
+        // JDBC back-compat); the gateway (S2) matches responses by this field (L2 feat-013 §4.2).
+        String correlationId,
+        // FEAT-013/014 event-type discriminator (mirrored from headers at poll). Nullable; the gateway
+        // (S2) classifies responses by this field (L2 §4.2), avoiding descriptor-decoding coupling.
+        AgentBusEventType eventType
 ) {
     public BrokerInboundMessage {
         requireNonBlank(tenantId, "tenantId");
@@ -41,6 +49,11 @@ public record BrokerInboundMessage(
         if (payloadRef != null && payloadRef.isBlank()) {
             throw new IllegalArgumentException("payloadRef must be null or non-blank");
         }
+        // correlationId conditional: null (control-only / JDBC back-compat) or non-blank.
+        if (correlationId != null && correlationId.isBlank()) {
+            throw new IllegalArgumentException("correlationId must be null or non-blank");
+        }
+        // eventType: nullable (control-only / JDBC back-compat); no further validation (enum).
     }
 
     /** Whether this message carries a payload reference (data-bearing). */

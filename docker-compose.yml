@@ -1,0 +1,96 @@
+# docker-compose.yml — Self-contained RocketMQ for the agent-bus local end-to-end demo + S7 real integration test.
+# Slice S5 of REQ-2026-001 (agent-bus repo).
+#
+# Brings up a RocketMQ nameserver + broker and pre-creates the 8 topics mandated by:
+#   * L2 FEAT-013 §5.2 — ascend.bus.invocation.{req,deliver,resp.in,resp.out}
+#   * L2 FEAT-014 §5.2 — ascend.bus.a2a.{req,deliver,resp.in,resp.out}
+# Authority (topic + namespace names):
+#   architecture/L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md §5.2
+#   architecture/L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md §5.2
+#
+# Namespace `ascend-prod` (L2 §5.2) is a RocketMQ *client-side* Namespace config
+# (tenant-isolation scope / topic-prefix partition). Classic nameserver+broker mode has
+# NO server-side namespace object creatable via mqadmin, so the 8 topics below are created
+# on the broker by their full literal names exactly as listed in the L2 docs (zero
+# deviation). Applying the `ascend-prod` client-side namespace prefix at runtime is an
+# adapter/client concern (S6), not a broker-provisioning concern (this slice).
+#
+# Nameserver endpoint: prod = 10.0.0.10:9876; local docker wiring uses the compose service
+# name `rocketmq-nameserver:9876` (broker NAMESRV_ADDR + mqadmin -n).
+
+services:
+  rocketmq-nameserver:
+    image: apache/rocketmq:5.3.1
+    container_name: ascend-rocketmq-nameserver
+    restart: unless-stopped
+    ports:
+      - "9876:9876"
+    environment:
+      # Cap JVM heap for local dev (the image default can be oversized for a laptop).
+      JAVA_OPT_EXT: "-server -Xms512m -Xmx512m -Xmn128m"
+    command: ["sh", "mqnamesrv"]
+    healthcheck:
+      # TCP probe on the remoting port (9876). /dev/tcp is a bash feature; the
+      # apache/rocketmq image is built on an eclipse-temurin/Ubuntu base that ships bash.
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/9876' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.3.1
+    container_name: ascend-rocketmq-broker
+    restart: unless-stopped
+    ports:
+      - "10909:10909"
+      - "10911:10911"
+    environment:
+      NAMESRV_ADDR: rocketmq-nameserver:9876
+      JAVA_OPT_EXT: "-server -Xms512m -Xmx512m -Xmn128m"
+    command: ["sh", "mqbroker"]
+    # The broker has built-in nameserver-connection retry, so service_started is sufficient
+    # and avoids hard-gating on the best-effort healthcheck (task allows a retry loop).
+    depends_on:
+      rocketmq-nameserver:
+        condition: service_started
+
+  rocketmq-init:
+    # One-shot: waits for the broker to register with the nameserver, then creates the
+    # 8 L2-mandated topics via mqadmin. Exits 0 on success.
+    image: apache/rocketmq:5.3.1
+    container_name: ascend-rocketmq-init
+    environment:
+      NAMESRV_ADDR: rocketmq-nameserver:9876
+    depends_on:
+      rocketmq-nameserver:
+        condition: service_started
+      rocketmq-broker:
+        condition: service_started
+    # The inline script is intentionally $-free so docker-compose variable interpolation
+    # (which acts on $VAR / ${VAR}) cannot mangle it. It uses only sh builtins + sleep +
+    # grep + mqadmin, all present in the apache/rocketmq image. `until ... do sleep; done`
+    # retries until success (the task permits a retry loop as the readiness gate).
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        echo "[rocketmq-init] Waiting for broker to register with nameserver rocketmq-nameserver:9876..."
+        until mqadmin clusterList -n rocketmq-nameserver:9876 2>/dev/null | grep -q DefaultCluster; do
+          echo "[rocketmq-init]   broker not registered yet, retrying in 5s..."
+          sleep 5
+        done
+        echo "[rocketmq-init] Broker registered. Creating 8 topics on cluster DefaultCluster..."
+        # --- FEAT-013 §5.2: client invocation event forwarding (4 topics) ---
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.invocation.req; do echo "[rocketmq-init]   retry ascend.bus.invocation.req..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.invocation.deliver; do echo "[rocketmq-init]   retry ascend.bus.invocation.deliver..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.invocation.resp.in; do echo "[rocketmq-init]   retry ascend.bus.invocation.resp.in..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.invocation.resp.out; do echo "[rocketmq-init]   retry ascend.bus.invocation.resp.out..."; sleep 3; done
+        # --- FEAT-014 §5.2: A2A call event forwarding (4 topics) ---
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.a2a.req; do echo "[rocketmq-init]   retry ascend.bus.a2a.req..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.a2a.deliver; do echo "[rocketmq-init]   retry ascend.bus.a2a.deliver..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.a2a.resp.in; do echo "[rocketmq-init]   retry ascend.bus.a2a.resp.in..."; sleep 3; done
+        until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend.bus.a2a.resp.out; do echo "[rocketmq-init]   retry ascend.bus.a2a.resp.out..."; sleep 3; done
+        echo "[rocketmq-init] Done. Topic list:"
+        mqadmin topicList -n rocketmq-nameserver:9876

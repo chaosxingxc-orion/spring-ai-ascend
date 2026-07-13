@@ -105,7 +105,9 @@ class A2aForwardingDeliveryPortMockWebServerTest {
                 "payload-ref-1",
                 ForwardingStatus.Outbox.PENDING,
                 0, 0L, 1L, 1L,
-                null, null);
+                null, null,
+                null,                      // correlationId (FEAT-013; A2A test fixture, not exercised)
+                null);                     // eventType (FEAT-013; A2A test fixture, not exercised)
     }
 
     /** A CONTROL_ONLY outbox record (payloadRef=null) — the pure-control variant.
@@ -123,7 +125,9 @@ class A2aForwardingDeliveryPortMockWebServerTest {
                 null,
                 ForwardingStatus.Outbox.PENDING,
                 0, 0L, 1L, 1L,
-                null, null);
+                null, null,
+                null,                      // correlationId (FEAT-013; A2A test fixture, not exercised)
+                null);                     // eventType (FEAT-013; A2A test fixture, not exercised)
     }
 
     /** A single SSE {@code jsonrpc} frame carrying {@code event} as the stream

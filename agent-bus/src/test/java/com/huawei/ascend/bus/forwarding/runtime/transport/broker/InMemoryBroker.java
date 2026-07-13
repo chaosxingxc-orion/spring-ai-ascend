@@ -120,7 +120,9 @@ public final class InMemoryBroker implements BrokerForwardingRelayPort, BrokerFo
                 record.messageId().value(),
                 record.sourceServiceId(),
                 record.targetServiceId(),
-                record.payloadRef());              // null for CONTROL_ONLY, non-null for DATA_BEARING
+                record.payloadRef(),              // null for CONTROL_ONLY, non-null for DATA_BEARING
+                record.correlationId(),           // FEAT-013 cross-hop correlation (mirrored from envelope)
+                record.eventType());              // FEAT-013/014 event-type (mirrored from envelope)
         BrokerOutboundMessage outbound = new BrokerOutboundMessage(
                 "target=" + record.targetServiceId(),   // routing descriptor only
                 headers);
@@ -167,7 +169,9 @@ public final class InMemoryBroker implements BrokerForwardingRelayPort, BrokerFo
                 h.sourceServiceId(),
                 h.targetServiceId(),
                 consumerServiceId,
-                h.payloadRef()));
+                h.payloadRef(),
+                h.correlationId(),               // FEAT-013 cross-hop correlation (mirrored from headers)
+                h.eventType()));                  // FEAT-013/014 event-type (mirrored from headers)
     }
 
     @Override

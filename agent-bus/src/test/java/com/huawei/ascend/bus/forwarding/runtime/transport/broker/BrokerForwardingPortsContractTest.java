@@ -1,6 +1,7 @@
 package com.huawei.ascend.bus.forwarding.runtime.transport.broker;
 
 import com.huawei.ascend.bus.forwarding.runtime.transport.ForwardingEndpointResolver;
+import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingMessageId;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxRecord;
@@ -211,20 +212,60 @@ class BrokerForwardingPortsContractTest {
 
     @Test
     void message_headers_require_mandatory_routing_metadata() {
-        assertThatThrownBy(() -> new BrokerMessageHeaders(null, "m", "s", "t", null))
+        assertThatThrownBy(() -> new BrokerMessageHeaders(null, "m", "s", "t", null, null, null))
                 .isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> new BrokerMessageHeaders(" ", "m", "s", "t", null))
+        assertThatThrownBy(() -> new BrokerMessageHeaders(" ", "m", "s", "t", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new BrokerMessageHeaders("tenant", "m", "s", "t", " "))
+        assertThatThrownBy(() -> new BrokerMessageHeaders("tenant", "m", "s", "t", " ", null, null))
                 .isInstanceOf(IllegalArgumentException.class);
+        // FEAT-013: correlationId is nullable but rejects a blank value.
+        assertThatThrownBy(() -> new BrokerMessageHeaders("tenant", "m", "s", "t", null, " ", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("correlationId");
     }
 
     @Test
     void inbound_message_requires_consumer_service_id_and_routing_metadata() {
-        assertThatThrownBy(() -> new BrokerInboundMessage("tenant", "m", "s", "t", null, null))
+        assertThatThrownBy(() -> new BrokerInboundMessage("tenant", "m", "s", "t", null, null, null, null))
                 .isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> new BrokerInboundMessage("tenant", "m", "s", "t", " ", null))
+        assertThatThrownBy(() -> new BrokerInboundMessage("tenant", "m", "s", "t", " ", null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
+        // FEAT-013: correlationId is nullable but rejects a blank value.
+        assertThatThrownBy(() -> new BrokerInboundMessage("tenant", "m", "s", "t", "c", null, " ", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("correlationId");
+    }
+
+    // ===== correlationId propagation (FEAT-013 §4.2: gateway matches responses by correlationId) =====
+
+    @Test
+    void produce_then_poll_propagates_correlation_id_record_to_headers_to_inbound() {
+        InMemoryBroker broker = broker(route -> Optional.of("topic-" + route.tenantScope()));
+        // record() fixture mirrors correlationId="corr-"+messageId from the envelope; produce builds
+        // headers from the record; poll mirrors headers→inbound. The gateway (S2) reads inbound.correlationId().
+        broker.produce(record("tenant-a", "msg-corr", "ref-1"), 1_000L);
+
+        BrokerInboundMessage m = broker.poll("consumer-a", "tenant-a", 2_000L).orElseThrow();
+
+        assertThat(m.correlationId()).isEqualTo("corr-msg-corr");
+        assertThat(m.eventType()).isEqualTo(AgentBusEventType.CLIENT_INVOCATION_REQUESTED);
+        // and the stored outbound carries the same correlationId + eventType in its headers
+        assertThat(broker.outboundMessage("tenant-a", "msg-corr").headers().correlationId())
+                .isEqualTo("corr-msg-corr");
+        assertThat(broker.outboundMessage("tenant-a", "msg-corr").headers().eventType())
+                .isEqualTo(AgentBusEventType.CLIENT_INVOCATION_REQUESTED);
+    }
+
+    @Test
+    void produce_control_only_carries_correlation_id_in_header() {
+        // a CONTROL_ONLY record (payloadRef=null) still carries its correlationId — correlation is
+        // routing metadata, independent of the payloadRef data-reference path (§6.2 ②).
+        InMemoryBroker broker = broker(route -> Optional.of("topic-" + route.tenantScope()));
+        broker.produce(record("tenant-a", "msg-corr-ctrl", null), 1_000L);
+
+        BrokerOutboundMessage stored = broker.outboundMessage("tenant-a", "msg-corr-ctrl");
+        assertThat(stored.headers().correlationId()).isEqualTo("corr-msg-corr-ctrl");
+        assertThat(stored.headers().eventType()).isEqualTo(AgentBusEventType.CLIENT_INVOCATION_REQUESTED);
     }
 
     // ===== fixtures =====
@@ -247,6 +288,8 @@ class BrokerForwardingPortsContractTest {
                 0L,
                 0L,
                 null,
-                null);
+                null,
+                "corr-" + messageId,    // FEAT-013 correlationId (mirrors envelope; non-null so propagation is testable)
+                AgentBusEventType.CLIENT_INVOCATION_REQUESTED);  // FEAT-013/014 eventType (mirrors envelope; non-null so propagation is testable)
     }
 }

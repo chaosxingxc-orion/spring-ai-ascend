@@ -46,7 +46,16 @@ public record ForwardingOutboxRecord(
         long createdAtMillisEpoch,
         long updatedAtMillisEpoch,
         ForwardingFailureCode lastFailureCode,
-        ForwardingLease lease
+        ForwardingLease lease,
+        // FEAT-013 cross-hop correlation key (mirrored from ForwardingEnvelope.correlationId at enqueue,
+        // like sourceServiceId/targetServiceId per L2 §2.3.1). Nullable: JDBC-loaded rows pass null (no V3
+        // DDL for W2 — a real correlation_id column is deferred until FEAT-013 wires JDBC); non-null when
+        // produced from an envelope via the in-memory outbox. The gateway (S2) matches responses by this field.
+        String correlationId,
+        // FEAT-013/014 event-type discriminator (mirrored from ForwardingEnvelope.eventType at enqueue).
+        // Nullable: JDBC-loaded rows pass null; non-null when produced from an envelope. The gateway (S2)
+        // classifies responses by this field (L2 §4.2), avoiding descriptor-encoding coupling.
+        AgentBusEventType eventType
 ) {
     public ForwardingOutboxRecord {
         Objects.requireNonNull(tenantId, "tenantId is required");
@@ -70,6 +79,10 @@ public record ForwardingOutboxRecord(
             throw new IllegalArgumentException("attemptCount must be >= 0");
         }
         validateStatusInvariants(status, nextAttemptAtMillisEpoch, lastFailureCode, lease);
+        // correlationId: null (JDBC back-compat / control-only) or non-blank (FEAT-013 correlation).
+        if (correlationId != null && correlationId.isBlank()) {
+            throw new IllegalArgumentException("correlationId must be null or non-blank");
+        }
     }
 
     /**

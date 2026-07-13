@@ -19,6 +19,14 @@ import java.util.Objects;
  * {@code tenantId} must equal {@link ForwardingRouteHandle#tenantScope()}, else
  * {@link ForwardingFailureCode#TENANT_MISMATCH}.
  *
+ * <p>FEAT-013+014 additive extension: {@code eventType} discriminates the
+ * invocation / A2A-call event family (see {@link AgentBusEventType});
+ * {@code sourceServiceId} / {@code targetServiceId} lift the source / target
+ * route references onto the envelope so it is self-describing — they remain
+ * mirrored on {@link ForwardingOutboxRecord}, with the envelope authoritative
+ * (feat-013 §2.3.1). The compact constructor validates all three as non-null
+ * and non-blank.
+ *
  * <p>Authority: {@code ICD-Agent-Bus-Forwarding} (HD4);
  * {@code ICD-Agent-Bus-Forwarding-Runtime};
  * {@code architecture/L2-Low-Level-Design/agent-bus/forwarding-outbox-inbox.md §5/§6}.
@@ -26,18 +34,22 @@ import java.util.Objects;
 // scope: forwarding substrate — control + payloadRef only; never a payload body
 public record ForwardingEnvelope(
         ForwardingMessageId messageId,
+        AgentBusEventType eventType,
         String tenantId,
         String traceId,
         String correlationId,
         String idempotencyKey,
         ForwardingRouteHandle routeHandle,
         String capability,
+        String sourceServiceId,
+        String targetServiceId,
         long deadlineMillisEpoch,
         PayloadPolicy payloadPolicy,
         String payloadRef
 ) {
     public ForwardingEnvelope {
         Objects.requireNonNull(messageId, "messageId is required");
+        Objects.requireNonNull(eventType, "eventType is required");
         Objects.requireNonNull(tenantId, "tenantId is required");
         if (tenantId.isBlank()) {
             throw new IllegalArgumentException("tenantId must not be blank");
@@ -58,6 +70,14 @@ public record ForwardingEnvelope(
         Objects.requireNonNull(capability, "capability is required");
         if (capability.isBlank()) {
             throw new IllegalArgumentException("capability must not be blank");
+        }
+        Objects.requireNonNull(sourceServiceId, "sourceServiceId is required");
+        if (sourceServiceId.isBlank()) {
+            throw new IllegalArgumentException("sourceServiceId must not be blank");
+        }
+        Objects.requireNonNull(targetServiceId, "targetServiceId is required");
+        if (targetServiceId.isBlank()) {
+            throw new IllegalArgumentException("targetServiceId must not be blank");
         }
         Objects.requireNonNull(payloadPolicy, "payloadPolicy is required");
         // tenant isolation: envelope tenant must equal the route's tenant scope (R-C.c)

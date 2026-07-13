@@ -114,6 +114,64 @@
       <version>${a2a-sdk.version}</version>
     </dependency>
 
+    <!--
+      FEAT-013/014 (S3): concrete RocketMQ broker client (Remoting protocol —
+      DefaultMQProducer / DefaultMQPushConsumer / DefaultLitePullConsumer), licensed
+      inside the transport.broker adapter subpackage
+      (AgentBusForwardingSpiPurityTest#forwarding_core_does_not_import_rocketmq_outside_broker_adapter
+      confines org.apache.rocketmq.. to transport.broker). Implements
+      BrokerForwardingRelayPort (produce) + BrokerForwardingConsumerPort (poll/commit/reject).
+      Version 5.1.4 (Remoting client): the apache/rocketmq:5.3.1 broker image (docker-compose S5)
+      ships no matching rocketmq-client jar past 5.1.4 — 5.2+ moved the client to the gRPC
+      rocketmq-client-java artifact. The Remoting client is broker-version-agnostic across 5.x,
+      so 5.1.4 client + 5.3.1 broker is the supported pairing. Tried 5.3.1 first (absent in
+      central); fell back to 5.1.4 per the handoff.
+    -->
+    <dependency>
+      <groupId>org.apache.rocketmq</groupId>
+      <artifactId>rocketmq-client</artifactId>
+      <version>5.1.4</version>
+      <exclusions>
+        <!-- rocketmq-rocksdb (30 MB) is the BROKER's RocksDB storage — the Remoting client
+             (DefaultMQProducer / DefaultMQPushConsumer) never loads it (no broker-side store
+             in the client); excluding keeps the dep tree lean without affecting produce/poll. -->
+        <exclusion>
+          <groupId>io.github.aliyunmq</groupId>
+          <artifactId>rocketmq-rocksdb</artifactId>
+        </exclusion>
+        <!-- grpc-netty-shaded (9 MB) is the gRPC client transport — the Remoting client uses
+             netty directly (via rocketmq-remoting), never gRPC; excluding it is safe for both
+             the S3 unit tests (fake MessageSender — no producer.send) and S7's real Remoting round-trip. -->
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-netty-shaded</artifactId>
+        </exclusion>
+        <!-- okhttp duplicate: rocketmq's opentelemetry-exporter-sender-okhttp drags in
+             com.squareup.okhttp3:okhttp-jvm:5.2.1 (the okhttp 5.x artifact), which DUPLICATES the
+             okhttp3.* classes already provided by mockwebserver/a2a-sdk's okhttp:4.12.0. The
+             classloader then loads 5.2.1's TaskRunner, which lacks the <init>(Backend) constructor
+             mockwebserver 4.12.0 calls → NoSuchMethodError. Excluding okhttp-jvm (the 5.x artifact)
+             leaves only okhttp:4.12.0, restoring MockWebServer. The Remoting relay uses netty
+             (via rocketmq-remoting), not okhttp — so this is safe for both S3 unit tests and S7. -->
+        <exclusion>
+          <groupId>com.squareup.okhttp3</groupId>
+          <artifactId>okhttp-jvm</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.squareup.okhttp3</groupId>
+          <artifactId>okhttp</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.squareup.okio</groupId>
+          <artifactId>okio</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.squareup.okio</groupId>
+          <artifactId>okio-jvm</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>

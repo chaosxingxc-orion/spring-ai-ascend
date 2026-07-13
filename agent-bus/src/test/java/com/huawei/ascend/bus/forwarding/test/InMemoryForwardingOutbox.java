@@ -295,7 +295,9 @@ public final class InMemoryForwardingOutbox
                 e.createdAt,
                 e.updatedAt,
                 e.lastFailureCode,
-                e.lease);
+                e.lease,
+                e.envelope.correlationId(),     // FEAT-013 cross-hop correlation (mirrored from envelope, §2.3.1)
+                e.envelope.eventType());         // FEAT-013/014 event-type (mirrored from envelope)
     }
 
     private Entry requireEntry(ForwardingMessageId id, String tenantId) {

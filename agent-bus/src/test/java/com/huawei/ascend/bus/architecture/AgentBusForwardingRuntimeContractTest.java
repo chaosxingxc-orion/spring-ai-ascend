@@ -10,6 +10,7 @@ import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingI
 import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingOutbox;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryPort;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryResult;
+import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingInboxRecord;
@@ -241,9 +242,10 @@ class AgentBusForwardingRuntimeContractTest {
     @Test
     void envelope_construction_rejects_tenant_mismatch() {
         assertThatThrownBy(() -> new ForwardingEnvelope(
-                new ForwardingMessageId("msg-tm"), "tenant-a", "trace-tm", "corr-tm", "idem-tm",
+                new ForwardingMessageId("msg-tm"), AgentBusEventType.CLIENT_INVOCATION_REQUESTED,
+                "tenant-a", "trace-tm", "corr-tm", "idem-tm",
                 new ForwardingRouteHandle("route-1", "tenant-other"), // different tenant scope
-                "cap-tm", Long.MAX_VALUE,
+                "cap-tm", "src-tm", "tgt-tm", Long.MAX_VALUE,
                 ForwardingEnvelope.PayloadPolicy.CONTROL_ONLY, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("tenant_mismatch");
@@ -252,9 +254,10 @@ class AgentBusForwardingRuntimeContractTest {
     @Test
     void envelope_construction_rejects_null_route_handle() {
         assertThatThrownBy(() -> new ForwardingEnvelope(
-                new ForwardingMessageId("msg-nr"), "tenant-a", "trace-nr", "corr-nr", "idem-nr",
+                new ForwardingMessageId("msg-nr"), AgentBusEventType.CLIENT_INVOCATION_REQUESTED,
+                "tenant-a", "trace-nr", "corr-nr", "idem-nr",
                 null, // missing route handle
-                "cap-nr", Long.MAX_VALUE,
+                "cap-nr", "src-nr", "tgt-nr", Long.MAX_VALUE,
                 ForwardingEnvelope.PayloadPolicy.CONTROL_ONLY, null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("routeHandle");
@@ -267,15 +270,19 @@ class AgentBusForwardingRuntimeContractTest {
         assertThat(control.carriesPayloadRef()).isFalse();
         // DATA_BEARING with null payloadRef is rejected (MI5-003 option B)
         assertThatThrownBy(() -> new ForwardingEnvelope(
-                new ForwardingMessageId("msg-db"), "tenant-a", "trace-db", "corr-db", "idem-db",
-                new ForwardingRouteHandle("route-1", "tenant-a"), "cap-db", Long.MAX_VALUE,
+                new ForwardingMessageId("msg-db"), AgentBusEventType.CLIENT_INVOCATION_REQUESTED,
+                "tenant-a", "trace-db", "corr-db", "idem-db",
+                new ForwardingRouteHandle("route-1", "tenant-a"), "cap-db",
+                "src-db", "tgt-db", Long.MAX_VALUE,
                 ForwardingEnvelope.PayloadPolicy.DATA_BEARING, null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("payloadRef");
         // DATA_BEARING with a payloadRef is accepted
         ForwardingEnvelope data = new ForwardingEnvelope(
-                new ForwardingMessageId("msg-db2"), "tenant-a", "trace-db2", "corr-db2", "idem-db2",
-                new ForwardingRouteHandle("route-1", "tenant-a"), "cap-db2", Long.MAX_VALUE,
+                new ForwardingMessageId("msg-db2"), AgentBusEventType.CLIENT_INVOCATION_REQUESTED,
+                "tenant-a", "trace-db2", "corr-db2", "idem-db2",
+                new ForwardingRouteHandle("route-1", "tenant-a"), "cap-db2",
+                "src-db2", "tgt-db2", Long.MAX_VALUE,
                 ForwardingEnvelope.PayloadPolicy.DATA_BEARING, "ref://payload/123");
         assertThat(data.carriesPayloadRef()).isTrue();
     }
@@ -856,40 +863,55 @@ class AgentBusForwardingRuntimeContractTest {
         // RETRY_SCHEDULED without nextAttemptAt
         assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
                 TARGET_SERVICE, route, null, RETRY_SCHEDULED, 0, 0L, NOW, NOW,
-                ForwardingFailureCode.RECEIVER_UNAVAILABLE, null))
+                ForwardingFailureCode.RECEIVER_UNAVAILABLE, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
         // RETRY_SCHEDULED with a non-retryable code
         assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
                 TARGET_SERVICE, route, null, RETRY_SCHEDULED, 0, NOW + 5_000, NOW, NOW,
-                ForwardingFailureCode.ROUTE_NOT_FOUND, null))
+                ForwardingFailureCode.ROUTE_NOT_FOUND, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
         // ACKED must not carry a lastFailureCode
         assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
                 TARGET_SERVICE, route, null, ACKED, 0, 0L, NOW, NOW,
-                ForwardingFailureCode.ROUTE_NOT_FOUND, null))
+                ForwardingFailureCode.ROUTE_NOT_FOUND, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
         // DLQ requires a lastFailureCode
         assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
-                TARGET_SERVICE, route, null, DLQ, 0, 0L, NOW, NOW, null, null))
+                TARGET_SERVICE, route, null, DLQ, 0, 0L, NOW, NOW, null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
         // DISPATCHING requires a non-null lease
         assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
-                TARGET_SERVICE, route, null, DISPATCHING, 0, 0L, NOW, NOW, null, null))
+                TARGET_SERVICE, route, null, DISPATCHING, 0, 0L, NOW, NOW, null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
         // terminal ACKED must not hold a lease
         assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
                 TARGET_SERVICE, route, null, ACKED, 0, 0L, NOW, NOW, null,
-                new ForwardingLease(LEASE_OWNER, LEASE_UNTIL)))
+                new ForwardingLease(LEASE_OWNER, LEASE_UNTIL), null, null))
                 .isInstanceOf(IllegalArgumentException.class);
         // tenant mismatch: tenantId != routeHandle.tenantScope
         assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-other", id, SOURCE_SERVICE,
-                TARGET_SERVICE, route, null, PENDING, 0, 0L, NOW, NOW, null, null))
+                TARGET_SERVICE, route, null, PENDING, 0, 0L, NOW, NOW, null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("tenant_mismatch");
         // negative attemptCount
         assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
-                TARGET_SERVICE, route, null, PENDING, -1, 0L, NOW, NOW, null, null))
+                TARGET_SERVICE, route, null, PENDING, -1, 0L, NOW, NOW, null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * Slice S3 (FEAT-013): the outbox record's correlationId is nullable but rejects a
+     * blank value (defensive guard mirroring the payloadRef conditional invariant).
+     */
+    @Test
+    void outbox_record_rejects_blank_correlation_id() {
+        ForwardingMessageId id = new ForwardingMessageId("msg-corr-blank");
+        ForwardingRouteHandle route = new ForwardingRouteHandle("route-1", "tenant-a");
+        // valid record in all other respects; only correlationId is blank → rejected.
+        assertThatThrownBy(() -> new ForwardingOutboxRecord("tenant-a", id, SOURCE_SERVICE,
+                TARGET_SERVICE, route, null, PENDING, 0, 0L, NOW, NOW, null, null, " ", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("correlationId");
     }
 
     /**
@@ -1540,12 +1562,15 @@ class AgentBusForwardingRuntimeContractTest {
     private static ForwardingEnvelope envelope(String messageIdValue, String tenantId) {
         return new ForwardingEnvelope(
                 new ForwardingMessageId(messageIdValue),
+                AgentBusEventType.CLIENT_INVOCATION_REQUESTED,
                 tenantId,
                 "trace-" + messageIdValue,
                 "corr-" + messageIdValue,
                 "idem-" + messageIdValue,
                 new ForwardingRouteHandle("route-for-" + tenantId, tenantId),
                 "capability-" + messageIdValue,
+                "src-" + messageIdValue,
+                "tgt-" + messageIdValue,
                 Long.MAX_VALUE,
                 ForwardingEnvelope.PayloadPolicy.CONTROL_ONLY,
                 null);

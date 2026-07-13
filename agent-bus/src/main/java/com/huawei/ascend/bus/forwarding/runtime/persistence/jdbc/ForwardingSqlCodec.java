@@ -78,7 +78,14 @@ final class ForwardingSqlCodec {
                 rs.getLong("created_at"),
                 rs.getLong("updated_at"),
                 decodeFailureCode(rs.getString("last_failure_code")),
-                lease);
+                lease,
+                // correlationId: null for JDBC-loaded rows — V1/V2 DDL has no correlation_id column
+                // (FEAT-013 defers real JDBC wiring; the in-memory outbox path mirrors
+                // envelope.correlationId). Add a V3 migration + column read when FEAT-013 wires JDBC.
+                null,
+                // eventType: null for JDBC-loaded rows — V1/V2 DDL has no event_type column (FEAT-013
+                // defers real JDBC wiring; the in-memory outbox path mirrors envelope.eventType).
+                null);
     }
 
     static ForwardingInboxRecord mapInbox(ResultSet rs) throws SQLException {

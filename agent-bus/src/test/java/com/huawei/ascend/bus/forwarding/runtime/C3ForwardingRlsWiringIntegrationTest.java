@@ -2,6 +2,7 @@ package com.huawei.ascend.bus.forwarding.runtime;
 
 import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingInbox;
 import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingOutbox;
+import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingMessageId;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxRecord;
@@ -250,9 +251,11 @@ class C3ForwardingRlsWiringIntegrationTest {
     private static ForwardingEnvelope envelope(String tenant, String messageId, String route,
                                                long deadlineMillisEpoch) {
         return new ForwardingEnvelope(
-                new ForwardingMessageId(messageId), tenant, "trace-" + messageId,
+                new ForwardingMessageId(messageId), AgentBusEventType.CLIENT_INVOCATION_REQUESTED,
+                tenant, "trace-" + messageId,
                 "corr-" + messageId, "idem-" + messageId,
-                new ForwardingRouteHandle(route, tenant), "cap", deadlineMillisEpoch,
+                new ForwardingRouteHandle(route, tenant), "cap",
+                "src-" + messageId, "tgt-" + messageId, deadlineMillisEpoch,
                 ForwardingEnvelope.PayloadPolicy.CONTROL_ONLY, null);
     }
 

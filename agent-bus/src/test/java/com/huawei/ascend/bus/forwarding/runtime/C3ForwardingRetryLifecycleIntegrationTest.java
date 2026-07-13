@@ -7,6 +7,7 @@ import com.huawei.ascend.bus.forwarding.runtime.transport.a2a.A2aForwardingDeliv
 import com.huawei.ascend.bus.forwarding.runtime.transport.a2a.A2aForwardingProperties;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryPort;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingDeliveryResult;
+import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingMessageId;
@@ -349,9 +350,11 @@ class C3ForwardingRetryLifecycleIntegrationTest {
 
     private static ForwardingEnvelope envelope(String tenant, String messageId, String route) {
         return new ForwardingEnvelope(
-                new ForwardingMessageId(messageId), tenant, "trace-" + messageId,
+                new ForwardingMessageId(messageId), AgentBusEventType.CLIENT_INVOCATION_REQUESTED,
+                tenant, "trace-" + messageId,
                 "corr-" + messageId, "idem-" + messageId,
-                new ForwardingRouteHandle(route, tenant), "cap", Long.MAX_VALUE,
+                new ForwardingRouteHandle(route, tenant), "cap",
+                "src-" + messageId, "tgt-" + messageId, Long.MAX_VALUE,
                 ForwardingEnvelope.PayloadPolicy.CONTROL_ONLY, null);
     }
 

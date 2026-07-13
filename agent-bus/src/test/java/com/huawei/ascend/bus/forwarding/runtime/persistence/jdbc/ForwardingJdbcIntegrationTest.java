@@ -1,5 +1,6 @@
 package com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc;
 
+import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingLeaseException;
@@ -409,9 +410,11 @@ class ForwardingJdbcIntegrationTest {
 
     private static ForwardingEnvelope envelope(String tenantId, String messageId) {
         return new ForwardingEnvelope(
-                new ForwardingMessageId(messageId), tenantId, "trace-" + messageId,
+                new ForwardingMessageId(messageId), AgentBusEventType.CLIENT_INVOCATION_REQUESTED,
+                tenantId, "trace-" + messageId,
                 "corr-" + messageId, "idem-" + messageId,
-                new ForwardingRouteHandle("route-" + messageId, tenantId), "cap", Long.MAX_VALUE,
+                new ForwardingRouteHandle("route-" + messageId, tenantId), "cap",
+                "src-" + messageId, "tgt-" + messageId, Long.MAX_VALUE,
                 ForwardingEnvelope.PayloadPolicy.CONTROL_ONLY, null);
     }
 
