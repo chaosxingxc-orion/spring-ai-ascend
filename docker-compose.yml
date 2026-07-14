@@ -64,6 +64,8 @@ services:
     container_name: ascend-rocketmq-init
     environment:
       NAMESRV_ADDR: rocketmq-nameserver:9876
+      # 添加 PATH 环境变量，让 mqadmin 命令可以直接使用
+      PATH: /home/rocketmq/rocketmq-5.3.1/bin:/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     depends_on:
       rocketmq-nameserver:
         condition: service_started
