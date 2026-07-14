@@ -50,7 +50,14 @@ services:
     environment:
       NAMESRV_ADDR: rocketmq-nameserver:9876
       JAVA_OPT_EXT: "-server -Xms512m -Xmx512m -Xmn128m"
-    command: ["sh", "mqbroker"]
+    # Slice 4 (decision §7): mount broker.conf and load it via -c so enablePropertyFilter=true
+    # takes effect. Without -c the broker runs on compiled defaults (enablePropertyFilter=false)
+    # and MessageSelector.bySql is silently ignored — messages deliver regardless of the filter,
+    # masking the adapter's DeliveryFilter->SQL92 translation (slice 2) as client-side-only.
+    # broker.conf mirrors the image-default identity (registers as DefaultCluster) + flips the bit.
+    volumes:
+      - ./broker.conf:/home/rocketmq/rocketmq-5.3.1/conf/broker.conf:ro
+    command: ["sh", "mqbroker", "-c", "/home/rocketmq/rocketmq-5.3.1/conf/broker.conf"]
     # The broker has built-in nameserver-connection retry, so service_started is sufficient
     # and avoids hard-gating on the best-effort healthcheck (task allows a retry loop).
     depends_on:
