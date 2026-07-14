@@ -76,7 +76,7 @@ Feat-Func-022 在 `agent-solution/common/agent-runtime-ext-java` 中提供一个
 
 | 能力 | 状态 | 说明 |
 | --- | --- | --- |
-| 单个自定义 query URL | 已实现 | 通过 YAML 配置路径模板，例如 `/custom/{conversation_id}` |
+| 单个自定义 query URL | 已实现 | 通过 YAML 配置路径模板，例如 `/custom/{session_key}`；占位变量名由接入方定义 |
 | 固定 POST method | 已实现 | Spring MVC endpoint 固定注册 `POST`，不提供 method 配置项 |
 | Java 入站转换 | 已实现 | 业务代码读取 header/path/query/body，构造 `ServeRequest` |
 | Java 出站转换 | 已实现 | 业务代码包装同步响应、SSE chunk 和错误响应 |
@@ -196,7 +196,7 @@ HTTP POST {query-path}
 custom-rest 是非 Task Query facade，不生成 A2A JSON-RPC `Task` 响应对象，也不把普通本地 invocation 写入正式 `TaskStore`。
 
 ```text
-/custom/url
+POST {query-path}
   -> CustomRestProtocolAdapter
   -> ServeRequest
   -> ServeOrchestrator
@@ -243,49 +243,17 @@ public interface CustomRestProtocolAdapter {
 }
 ```
 
-`toServeRequest(...)` 是入站转换函数：把客户自定义 REST 请求转换为 runtime 规范 `ServeRequest`。
+四个方法共同构成一个双向协议边界：`toServeRequest(...)` 负责入站转换，另外三个方法分别负责同步成功、流式 chunk 和错误的出站转换。具体输入字段、转换后 DTO、框架后处理和输出控制边界见第 4、5 章。
 
-adapter 只负责协议转换，不承担客户自定义字段的通用校验。转换后的 `ServeRequest` 由 handler 内部校验方法按照 runtime 标准入口当前规则校验；首版要求 `conversationId` 非空。adapter 抛出运行时异常或返回 `null` 视为实现错误，统一按脱敏后的 HTTP 500 处理，不进入 orchestrator。
-
-`fromQueryResponse(...)`、`fromQueryChunk(...)`、`fromError(...)` 是出站转换函数：把 runtime 执行结果转换为客户自定义 REST 响应、SSE chunk 或错误信封。
-
-出站函数返回 `Object`，允许业务返回 `Map<String,Object>`、DTO 或 Jackson 可序列化对象。该 SPI 的自定义边界是 **HTTP/SSE body envelope**，不扩展为通用 HTTP response SPI：HTTP status、Content-Type、缓存头、连接头和 SSE event framing 由框架层统一控制。
-
-因此首版明确约束：
-
-| 项 | owner | adapter 是否可自定义 |
-| --- | --- | --- |
-| JSON/SSE data body | `CustomRestProtocolAdapter` | 是 |
-| HTTP status | `CustomRestAutoConfiguration` | 否；按统一错误分类设置 |
-| Content-Type / SSE headers | `CustomRestAutoConfiguration` | 否 |
-| SSE event name / id / retry | `CustomRestAutoConfiguration` | 否；首版只使用固定 data/error 事件 |
-| 任意响应 header | 宿主 Web filter / gateway | 否 |
-
-只有出现明确的客户 header、media type 或 SSE id/retry 需求时，才新增结构化 `CustomHttpResponse` / `CustomSseEvent`；当前返回 `Object` 的最小 SPI 足以覆盖“自定义响应信封”目标。
+SPI 不引入自定义 HTTP response 类型。出站函数统一返回 `Object`，允许接入方返回 `Map<String,Object>`、DTO 或其他 Jackson 可序列化对象。
 
 ### 3.6 SPI Context
 
-`CustomRestProtocolAdapter.Context` 不是转换器，而是一次 HTTP 请求的只读上下文。它是 adapter 入站转换函数的参数，用来承载 path、header、path variable、query param 和结构化 body。它是 SPI 的内嵌 record，不单独拆 Java 文件。构造器对顶层集合做防御性不可变复制，不承诺递归冻结嵌套 JSON 对象。
+`CustomRestProtocolAdapter.Context` 不是转换器，而是一次 HTTP 请求的只读上下文。它是 SPI 的内嵌 record，不单独拆 Java 文件。构造器对顶层集合做防御性不可变复制，不承诺递归冻结嵌套 JSON 对象；字段来源和入站转换规则见第 4 章。
 
 ```java
 CustomRestProtocolAdapter.Context context
 ```
-
-设计约束：
-
-| 字段 | 规则 |
-| --- | --- |
-| `headers` | header 名统一小写保存；adapter 可自行兼容大小写 |
-| `pathVariables` | 由 Spring MVC path match 提取 |
-| `queryParams` | 保留多值；常见场景 adapter 取第一个值 |
-| `body` | JSON object body；空 body 为空 map；非 object body 返回 400 parse error |
-
-身份字段约束：
-
-- `conversationId` 是进入 orchestrator 前的必填字段，缺失时由框架调用 `fromError(400, ...)`，不调用 orchestrator。
-- `userId`、`spaceId`、`tenantId` 在通用 SPI 中允许为空。具体 adapter 必须说明这些字段的来源、是否必填以及缺失后对权限、memory、state scope 的影响。
-- adapter 可以从受信任网关 header 映射身份，但不得在本层执行 OAuth、签名或租户授权判断。
-- header 名按 HTTP 语义统一小写；不提供或承诺保留线上原始大小写。
 
 ### 3.7 endpoint 注册
 
@@ -328,9 +296,258 @@ SSE 生命周期由框架层拥有：
 
 ---
 
-## 4. 模块结构（Development View）
+## 4. 入站协议转换（Custom REST -> Runtime）
 
-### 4.1 新增代码结构
+### 4.1 转换边界
+
+入站转换方法为：
+
+```java
+ServeRequest toServeRequest(CustomRestProtocolAdapter.Context context);
+```
+
+框架不把 `HttpServletRequest`、原始 body 字符串或 Spring MVC 对象暴露给 adapter，而是先把合法 HTTP 请求整理为只读 `Context`。adapter 再从 `Context` 中选择所需字段，构造 runtime 固定入口对象 `ServeRequest`。
+
+```text
+HTTP POST 请求
+  -> 框架校验 media type 并解析 JSON object body
+  -> CustomRestProtocolAdapter.Context
+  -> adapter.toServeRequest(context)
+  -> ServeRequest
+  -> 框架校验 conversationId
+  -> ServeOrchestrator.query/streamQuery
+```
+
+### 4.2 转换前参数：Context
+
+假设配置的 URL 模板为：
+
+```text
+POST /custom/{session_key}?version={version}
+```
+
+其中 `{session_key}` 和 `{version}` 是本节示例自行定义的占位参数，不是框架固定字段。请求 body 可以是接入方定义的任意 JSON object，例如：
+
+```json
+{
+  "input": {
+    "query": "用户问题"
+  },
+  "stream": true
+}
+```
+
+框架完成 Content-Type 与 JSON object 校验后，向 adapter 传入：
+
+```java
+record Context(
+    String requestPath,
+    Map<String, String> headers,
+    Map<String, String> pathVariables,
+    Map<String, List<String>> queryParams,
+    Map<String, Object> body
+)
+```
+
+| Context 字段 | 框架提供的内容 | 约束 |
+| --- | --- | --- |
+| `requestPath` | 当前请求的实际 URI path | 不包含 query string |
+| `headers` | HTTP request headers | header 名统一转为小写；不承诺保留原始大小写 |
+| `pathVariables` | Spring MVC 从 URL 模板解析出的路径变量 | 例如本节示例中的键 `session_key` 对应实际路径值；实际键名取决于 `query-path` 配置 |
+| `queryParams` | URL query parameters | 每个参数保留全部值，因此 value 类型为 `List<String>` |
+| `body` | JSON object 转换后的结构化 Map | 空 body 为不可变空 Map；非法 JSON 或非 object 根节点在进入 adapter 前返回 400 |
+
+`Context` 不包含 HTTP method 和 raw body：入口固定为 POST，因此不需要 adapter 再做 method 路由；raw body 仅作为框架解析输入，不属于 SPI 契约。顶层集合不可修改，但 `body` 内嵌的 Map、List 等 JSON 对象不保证递归不可变。
+
+### 4.3 转换后参数：ServeRequest
+
+`toServeRequest(...)` 必须返回 runtime 认识的 `ServeRequest`：
+
+```java
+class ServeRequest {
+    String conversationId;
+    List<Map<String, Object>> messages;
+    String userId;
+    String spaceId;
+    String tenantId;
+    boolean stream;
+    Map<String, Object> metadata;
+}
+```
+
+| ServeRequest 字段 | 用途 | 常见来源，但不构成强制映射 |
+| --- | --- | --- |
+| `conversationId` | runtime 会话标识；当前框架唯一统一校验的必填字段 | path variable、body、query parameter 或受信任 header |
+| `messages` | 交给 AgentHandler 的 runtime 消息列表 | 自定义 body 中的输入、历史消息或其组合 |
+| `userId` | 用户身份上下文 | 受信任 header、body 或 path variable |
+| `spaceId` | 空间身份上下文 | 受信任 header、body 或 path variable |
+| `tenantId` | 租户身份上下文 | 受信任 header、body 或 path variable |
+| `stream` | 选择 `query()` 或 `streamQuery()` | 自定义 body、query parameter，或 adapter 固定策略 |
+| `metadata` | 不适合进入固定字段的协议扩展信息 | path、query、header、body 中需要下游使用的其他字段 |
+
+框架不规定外部字段名、字段优先级、消息结构转换方式或 metadata 结构，也不要求把整个外部 body 原样放入 `metadata`。接入方只需确保生成的 `ServeRequest` 符合其 AgentHandler 契约。
+
+`ServeRequest.conversationId` 是 runtime 固定内部字段，但其值不要求来自名为 `conversation_id` 的 URL 变量。adapter 可以从任意自定义 path variable、query parameter、header 或 body 字段完成映射；错误消息 `conversation_id is required` 描述的是内部字段校验，不定义外部协议字段名。
+
+示意转换代码如下，字段名仅用于说明 SPI 用法：
+
+```java
+public ServeRequest toServeRequest(Context context) {
+    Map<String, Object> input = (Map<String, Object>) context.body().get("input");
+
+    ServeRequest request = new ServeRequest();
+    request.setConversationId(context.pathVariables().get("session_key"));
+    request.setMessages(List.of(Map.of(
+        "role", "user",
+        "content", input.get("query")
+    )));
+    request.setStream(Boolean.TRUE.equals(context.body().get("stream")));
+    request.setMetadata(Map.of(
+        "version", context.queryParams().getOrDefault("version", List.of()).stream()
+            .findFirst().orElse("")
+    ));
+    return request;
+}
+```
+
+### 4.4 转换后的框架处理
+
+| adapter 结果 | 框架行为 |
+| --- | --- |
+| 返回 `null` | 视为 adapter 实现错误，调用 `fromError(500, "adapter execution failed", ...)`，不进入 orchestrator |
+| 抛出运行时异常 | 记录完整异常，对外使用脱敏后的 `adapter execution failed`，不进入 orchestrator |
+| `conversationId` 为空或空白 | 调用 `fromError(400, "conversation_id is required", ...)`，不进入 orchestrator |
+| `stream=false` | 调用 `ServeOrchestrator.query(serveRequest)` |
+| `stream=true` | 调用 `ServeOrchestrator.streamQuery(serveRequest, observer)` |
+
+`userId`、`spaceId`、`tenantId` 在通用 SPI 层允许为空。接入方需要根据自身协议和下游 Agent 契约决定其来源与必填性。adapter 可以映射受信任网关传入的身份字段，但不在本扩展中执行 OAuth、签名或租户授权判断。
+
+---
+
+## 5. 出站协议转换（Runtime -> Custom REST）
+
+### 5.1 转换边界
+
+runtime 的同步结果、流式 chunk 和框架错误分别进入三个出站方法：
+
+| 场景 | adapter 转换方法 | 转换前主要参数 | 转换后参数 |
+| --- | --- | --- | --- |
+| 同步成功 | `fromQueryResponse(...)` | `QueryResponse`、原请求 `Context`、`executionTimeMs` | 自定义 JSON body `Object` |
+| 流式输出 | `fromQueryChunk(...)` | 单个 `QueryChunk`、原请求 `Context` | 自定义 SSE data body `Object` |
+| 框架或 runtime 错误 | `fromError(...)` | `httpStatus`、脱敏错误消息、原请求 `Context`、`executionTimeMs` | 自定义错误 body `Object` |
+
+三个方法的返回值都必须能够被 Jackson 序列化。原请求 `Context` 会再次传给 adapter，便于响应包装使用同一次请求的 path、header、query parameter 或 body 信息。
+
+### 5.2 同步成功转换：QueryResponse -> Object
+
+方法签名：
+
+```java
+Object fromQueryResponse(
+    QueryResponse response,
+    Context context,
+    long executionTimeMs
+);
+```
+
+`QueryResponse` 是 runtime 的固定同步结果：
+
+```java
+class QueryResponse {
+    Object result;
+    String conversationId;
+}
+```
+
+| 输入参数 | 含义 |
+| --- | --- |
+| `response.result` | AgentHandler/runtime 产生的原始业务结果，具体结构由下游实现决定 |
+| `response.conversationId` | runtime 返回的会话标识 |
+| `context` | 本次入口请求对应的原始 SPI Context |
+| `executionTimeMs` | 从 custom-rest handler 方法进入到包装响应时的单调时钟耗时 |
+
+adapter 可以把 `response.getResult()` 直接作为外部 body，也可以将其放入自定义响应信封。若外部协议要求保留 runtime 原始结果，应把 `response.getResult()` 作为信封中的原始数据字段，而不是重新解析或丢弃。
+
+转换完成后，框架固定以 HTTP 200、`application/json` 输出 adapter 返回对象。adapter 不能通过该返回值修改 HTTP status、Content-Type 或 response headers。
+
+### 5.3 流式转换：QueryChunk -> Object
+
+方法签名：
+
+```java
+Object fromQueryChunk(QueryChunk chunk, Context context);
+```
+
+每次 runtime 流式回调传入：
+
+```java
+class QueryChunk {
+    String type;
+    Object data;
+}
+```
+
+| 输入参数 | 含义 |
+| --- | --- |
+| `chunk.type` | runtime chunk 类型，当前包括 `TYPE_CHUNK`、`TYPE_INTERRUPT` 和 `TYPE_ERROR` |
+| `chunk.data` | 该 chunk 携带的原始 runtime 数据 |
+| `context` | 本次入口请求对应的原始 SPI Context |
+
+adapter 返回的是单帧 SSE 的 data body，不是完整 SSE 文本。框架负责 Jackson 序列化和 framing：普通 chunk 与 interrupt chunk 使用固定 `event:data`，`TYPE_ERROR` 使用固定 `event:error`。`fromQueryChunk(...)` 不接收 `executionTimeMs`，也不能设置 SSE event id、retry、HTTP status 或 headers。
+
+`TYPE_INTERRUPT` 是本次 invocation 的正常协议结果。adapter 可以按外部协议包装 interrupt 数据，但不能自行结束 emitter；流的最终收束由 observer terminal 回调和框架控制。
+
+### 5.4 错误转换：错误上下文 -> Object
+
+方法签名：
+
+```java
+Object fromError(
+    int httpStatus,
+    String errorMessage,
+    Context context,
+    long executionTimeMs
+);
+```
+
+| 输入参数 | 含义 |
+| --- | --- |
+| `httpStatus` | 框架按错误类型确定的状态码，例如 400、415、500 或 503 |
+| `errorMessage` | 框架提供的脱敏错误消息，不包含原始异常堆栈 |
+| `context` | 当时已经构建出的请求 Context；body 解析前错误对应的 body 为空 Map |
+| `executionTimeMs` | 从 handler 进入到错误包装时的单调时钟耗时 |
+
+adapter 只负责生成错误 body，不能覆盖框架确定的 HTTP status。同步错误以对应 HTTP status 和 `application/json` 输出；流式 terminal error 在 SSE 已建立后使用固定 `event:error` 输出并结束流。
+
+如果 `fromError(...)` 返回 `null` 或抛出运行时异常，框架使用固定兜底 body，并保留原错误分支确定的 status：
+
+```json
+{
+  "type": "error",
+  "status": 500,
+  "error": "脱敏错误消息"
+}
+```
+
+上例中的 `500` 仅表示对应错误分支的状态；实际值使用传给 `fromError(...)` 的 `httpStatus`。
+
+### 5.5 输出控制边界
+
+| 输出项 | owner | adapter 是否可自定义 |
+| --- | --- | --- |
+| JSON/SSE data body | `CustomRestProtocolAdapter` | 是 |
+| HTTP status | `CustomRestAutoConfiguration` | 否；按统一错误分类设置 |
+| Content-Type / SSE headers | `CustomRestAutoConfiguration` | 否 |
+| SSE event name / id / retry | `CustomRestAutoConfiguration` | 否；首版只使用固定 data/error 事件 |
+| 任意响应 header | 宿主 Web filter / gateway | 否 |
+
+只有出现明确的客户 header、media type 或 SSE id/retry 需求时，才新增结构化 `CustomHttpResponse` / `CustomSseEvent`；当前返回 `Object` 的最小 SPI 足以覆盖“自定义响应信封”目标。
+
+---
+
+## 6. 模块结构（Development View）
+
+### 6.1 新增代码结构
 
 ```text
 common/agent-runtime-ext-java/agent-service-app/agent-service-app-custom-rest
@@ -354,7 +571,7 @@ Java package 统一使用 `com.openjiuwen.service.app.customrest`。该扩展属
 | `CustomRestAutoConfiguration` | 条件装配、动态注册 mapping、内部 handler、`ServeRequest` 必填字段校验、orchestrator/readiness gate、SSE 输出 |
 | `AutoConfiguration.imports` | 增加 `CustomRestAutoConfiguration` 自动装配入口 |
 
-### 4.2 Maven 依赖
+### 6.2 Maven 依赖
 
 `agent-service-app-custom-rest/pom.xml` 实际依赖：
 
@@ -372,7 +589,7 @@ Java package 统一使用 `com.openjiuwen.service.app.customrest`。该扩展属
 
 WebMVC 依赖建议设为 optional，并在 auto-config 上同时增加 `@ConditionalOnClass(RequestMappingHandlerMapping.class)` 和 `@ConditionalOnWebApplication(type = SERVLET)`。这样 ext jar 在非 Web 或 Reactive WebApplication 中被引入时不会误注册 MVC endpoint。
 
-### 4.3 静态关系
+### 6.3 静态关系
 
 ```text
 CustomRestAutoConfiguration
@@ -393,9 +610,9 @@ CustomRestProtocolAdapter.Context
 
 ---
 
-## 5. 运行流程（Process View）
+## 7. 运行流程（Process View）
 
-### 5.1 同步 query
+### 7.1 同步 query
 
 handler 方法进入后记录 `startNanos = System.nanoTime()`；传给 `fromQueryResponse(...)` 或 `fromError(...)` 的 `executionTimeMs` 统一按当前单调时钟与该起点之差计算。media type 校验、JSON parse、adapter 转换、ServeRequest 校验、readiness 和 orchestrator 异常都使用同一口径，不允许在不同分支重新起表或固定返回 0；Spring MVC 在 handler 方法调用前完成的 rawBody 绑定时间不计入该值。
 
@@ -423,7 +640,7 @@ Client
 | no orchestrator | 503 | `fromError(503, "no agent handler configured", ...)` |
 | orchestrator exception | 500 | 完整异常只记录到受控日志；对 adapter 固定调用 `fromError(500, "agent execution failed", ...)` |
 
-### 5.2 流式 query
+### 7.2 流式 query
 
 ```text
 Client
@@ -456,35 +673,21 @@ streamQuery onError / runtime exception
 
 `TYPE_INTERRUPT` 是本次调用的正常协议结果，不是 HTTP 错误：同步 query 返回 HTTP 200 并由 `fromQueryResponse(...)` 包装 `_interrupt`；流式 query 发送 adapter 包装的 interrupt chunk，随后等待 orchestrator 的 `onComplete/onError` 收束，不由 adapter 主动结束 emitter。
 
-### 5.3 HTTP method 处理
+### 7.3 HTTP method 处理
 
 custom-rest 框架固定注册 `POST {query-path}`，不提供 HTTP method 配置项。adapter 不负责 method 路由，非 POST 请求不会进入 handler，由 Spring MVC 返回 405。
 
-
-### 5.4 自定义 adapter 使用方式
-
-接入方实现 `CustomRestProtocolAdapter`，自行定义外部协议与 runtime DTO 之间的转换规则：
-
-| SPI 方法 | 接入方职责 |
-| --- | --- |
-| `toServeRequest` | 从 `Context` 的 path、header、path variable、query parameter 和 JSON object body 中读取所需字段，构造 `ServeRequest` |
-| `fromQueryResponse` | 将同步 `QueryResponse` 包装为接入方定义的 JSON body |
-| `fromQueryChunk` | 将每个 `QueryChunk` 包装为接入方定义的 SSE data body |
-| `fromError` | 将框架或 runtime 给出的 HTTP status、脱敏错误消息和执行耗时包装为接入方定义的错误 body |
-
-框架不规定外部请求字段名、字段优先级、metadata 结构或响应信封，也不要求将外部 body 完整透传到 `ServeRequest`。adapter 只需生成满足 runtime 入口要求的 `ServeRequest`，并确保出站返回值能够被 Jackson 序列化。转换后框架统一校验 `conversationId`，其余业务字段约束由接入方根据实际协议处理。
-
 ---
 
-## 6. 配置模型（Physical View）
+## 8. 配置模型（Physical View）
 
-### 6.1 配置示例
+### 8.1 配置示例
 
 ```yaml
 openjiuwen:
   service:
     custom-rest:
-      query-path: /custom/{conversation_id}
+      query-path: /custom/{session_key}
 ```
 
 业务侧提供 adapter bean：
@@ -496,13 +699,13 @@ CustomRestProtocolAdapter customRestProtocolAdapter() {
 }
 ```
 
-### 6.2 配置属性表
+### 8.2 配置属性表
 
 | 属性路径 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `openjiuwen.service.custom-rest.query-path` | String | 空 | query endpoint 路径模板；启用时必填 |
 
-### 6.3 启用条件
+### 8.3 启用条件
 
 custom-rest auto-configuration 激活条件：
 
@@ -518,16 +721,16 @@ custom-rest auto-configuration 激活条件：
 
 ---
 
-## 7. 对外呈现 / 用户场景（Scenario View）
+## 9. 对外呈现 / 用户场景（Scenario View）
 
-### 7.1 外部接口
+### 9.1 外部接口
 
 | 端点 / API | 方法 | 说明 |
 | --- | --- | --- |
 | `{query-path}` | `POST` | Custom REST 同步或 SSE query；实际模式由 adapter 生成的 `ServeRequest.stream` 决定 |
 | `CustomRestProtocolAdapter` | Java SPI | 负责请求字段与响应 body envelope 转换 |
 
-### 7.2 典型接入场景
+### 9.2 典型接入场景
 
 1. 宿主应用引入 custom-rest adapter artifact。
 2. 业务声明唯一 `CustomRestProtocolAdapter` bean。
@@ -535,7 +738,7 @@ custom-rest auto-configuration 激活条件：
 4. 外部请求经 adapter 转成 `ServeRequest`，进入既有 `ServeOrchestrator`。
 5. 同步结果或 SSE data 经 adapter 包装为客户响应信封。
 
-### 7.3 用户可见边界
+### 9.3 用户可见边界
 
 - 客户可以自定义 URL、字段映射和 body envelope；首版 method 固定为 POST。
 - 客户不能通过首版 SPI 自定义 HTTP status、Content-Type、SSE event id/retry 或任意响应 header。
@@ -544,7 +747,7 @@ custom-rest auto-configuration 激活条件：
 
 ---
 
-## 8. 错误处理（Process View）
+## 10. 错误处理（Process View）
 
 | 错误场景 | 触发条件 | 框架行为 | 对外结果 |
 | --- | --- | --- | --- |
@@ -566,16 +769,16 @@ custom-rest auto-configuration 激活条件：
 
 ---
 
-## 9. 测试与验收
+## 11. 测试与验收
 
-### 9.1 单元测试
+### 11.1 单元测试
 
 | 测试类 | 覆盖点 |
 | --- | --- |
 | `CustomRestPropertiesTest` | query-path 合法绝对路径、缺失和相对路径校验 |
 | `CustomRestProtocolAdapterTest` | context 顶层集合的防御性不可变复制 |
 
-### 9.2 集成测试
+### 11.2 集成测试
 
 | 测试类 | 场景 |
 | --- | --- |
@@ -583,7 +786,7 @@ custom-rest auto-configuration 激活条件：
 | `CustomRestDisabledIntegrationTest` | 未配置 query-path 时不要求 adapter bean，且不注册自定义入口 |
 | `CustomRestUnavailableIntegrationTest` | agent not ready / no orchestrator 返回 adapter 包装后的 503 |
 
-### 9.3 宿主回归断言
+### 11.3 宿主回归断言
 
 以下内容属于引入该扩展后的宿主应用回归责任，不表示当前模块已有同名专项测试：
 
@@ -595,7 +798,7 @@ custom-rest auto-configuration 激活条件：
 
 ---
 
-## 10. 限制与待补
+## 12. 限制与待补
 
 | 限制 | 影响范围 | 临时方案 |
 | --- | --- | --- |
@@ -607,7 +810,7 @@ custom-rest auto-configuration 激活条件：
 | 不做认证授权 | custom-rest 只信任前置网关传入身份 | 在网关层完成 OAuth/签名校验 |
 | adapter 只控制 body envelope | 不能自定义 status/header/media type/SSE id/retry | 由 Web filter/gateway 扩展；出现稳定需求后再演进结构化响应 SPI |
 
-## 11. 实施结论
+## 13. 实施结论
 
 当前已在 `agent-solution/common/agent-runtime-ext-java/agent-service-app` 中实现 `agent-service-app-custom-rest` 模块，以 Spring Boot auto-configuration 形式提供一个单 adapter custom-rest 扩展入口。
 

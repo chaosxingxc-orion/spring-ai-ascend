@@ -14,7 +14,7 @@ dependency:
 # AgentScope Java Adapter 设计文档
 
 > 目标模块：`common/agent-runtime-ext-java/agent-service-adapters/agent-service-adapters-agentscope`
-> 最后更新：2026-07-13
+> 最后更新：2026-07-14
 
 说明：本文是 Feat-Func-002 在 openJiuwen 社区 `agent-runtime-java` 扩展仓`agent-solution`中的本地 AgentScope 子设计。L1 中立角色 `AgentRuntimeHandler` 在本实现中映射为 `com.openjiuwen.service.spec.spi.AgentHandler`；adapter 只产出结果/中断/失败语义，不直接写 A2A `TaskStore` 或成为第二个 Task 生命周期 owner。
 
@@ -350,13 +350,14 @@ AgentScope               Adapter                  Runtime/A2A              Clien
 
 runtime 侧改动限定在现有 `A2AAgentExecutor` 的通用 A2A 转换中：
 
-1. 新增：修改 `A2AAgentExecutor.toStatusMessage()` 和 `toStatusMessageFromMap()`，读取顶层 `message` 生成 A2A status 展示文本，并把 adapter 输出的整份裸 interrupt data 写入 `Message.metadata["_interrupt"]`；本次新增逻辑不解析 `type/index/payload/context`。既有 `A2AEnabledServeOrchestrator` 仍读取通用 `context._interrupt_kind` 完成 `ask_user/a2a_delegate` 路由。同时覆盖流式和非流式中断测试。
-2. 保持现有 `TaskStore` 的 `INPUT_REQUIRED` 生命周期。
-3. 复用 `A2AAgentExecutor` 已有的 `isResume = RequestContext.getTask() != null` 判定，从已有 Task 当前 status message 中只取 `_interrupt` 合并到 `ServeRequest.metadata`；当前 A2A SDK 在同 Task 续轮时会先把上一轮 status message 移入 history，再追加本轮 user message，因此正常续轮从 history 中最近一条 agent message 读取 `_interrupt`。status message 分支用于兼容尚未发生该迁移的 Task 形态。其他 message metadata 不回带给 adapter，也无需修改 `ServeRequest`、A2A controller、message context 或 protocol adapter。
+1. **保存**：`A2AAgentExecutor.toStatusMessage()` 和 `toStatusMessageFromMap()` 读取顶层非空 `message` 生成 A2A status 展示文本，并把 adapter 输出的整份裸 interrupt data 写入 `Message.metadata["_interrupt"]`；本次新增逻辑不解析 `type/index/payload/context`。本 adapter 生成的 interrupt 保证携带非空 `message`。
+2. **读取**：只有 `RequestContext.getTask()` 非空且 Task 当前状态为 `INPUT_REQUIRED` 时才是中断恢复。runtime 优先读取当前 `Task.status.message.metadata["_interrupt"]`；若 A2A SDK 已在同 Task 续轮时把该 status message 移入 history，则沿用现有逻辑读取 history 中最近的 agent message。TaskStore 中找到的 `_interrupt` 只合并到本次 `ServeRequest.metadata`，其他 message metadata 不回带给 adapter。已有但非 `INPUT_REQUIRED` 的 Task 不回带 `_interrupt`，也不作为新 Task 重复 `submit`。
+3. **历史保留**：`_interrupt` 不做显式物理删除。A2A SDK 在同 Task 续轮时将上一轮 status message 移入 Task history，再追加本轮 user message；这是 Task 审计历史，不是仍待消费的恢复状态。随后 `startWork()` 把 Task 置为 `WORKING`；正常完成后 Task 进入终态且不能再次接收消息，新一轮普通对话使用新 Task，因此不会读取旧 history。若同一 Task 再次暂停，新的 `INPUT_REQUIRED` status message 成为唯一当前中断。
+4. **作用域结束**：复制到 `ServeRequest.metadata` 的 `_interrupt` 只属于本次调用，不写回 AgentScope state，也不建立 adapter 状态。调用结束后随该请求对象释放，不需要 adapter 执行删除。
 
-第 1 项让客户端获得通用暂停描述，第 3 项把 TaskStore 中的同一份裸 interrupt data 带给 adapter。两项都不保存 AgentScope event、pending ID 或 checkpoint，也不引入 AgentScope 类型。
+保存让客户端获得通用暂停描述，读取把 TaskStore 中的同一份裸 interrupt data 带给 adapter。两者都不保存 AgentScope event、pending ID 或 checkpoint，也不引入 AgentScope 类型。既有 `A2AEnabledServeOrchestrator` 仍可读取通用 `context._interrupt_kind` 完成路由。
 
-runtime 不保存 AgentScope event、pending ID 或 checkpoint。TaskStore 保存第一轮的 A2A status message；当前 A2A SDK 在续轮进入 executor 前将该 message 移入 Task history，并把本轮 user message 追加在其后，因此 runtime 从 status/history 中选定 message 的 `_interrupt` 带给 adapter。adapter 自行解析其 `payload.kind`，再通过 `conversationId=contextId` 定位相同 AgentScope session，并调用 `ReActAgent.getAgentState(userId, sessionId)` 读取真实 pending `ToolUseBlock`：ASKING 状态用于确认，external pending 的 id/name 用于结果回灌。Harness 使用 `getDelegate()` 取得同一 ReAct state。
+runtime 不保存 AgentScope event、pending ID 或 checkpoint。adapter 收到本轮 `ServeRequest.metadata._interrupt` 后自行解析其 `payload.kind`，再通过 `conversationId=contextId` 定位相同 AgentScope session，并调用 `ReActAgent.getAgentState(userId, sessionId)` 读取真实 pending `ToolUseBlock`：ASKING 状态用于确认，external pending 的 id/name 用于结果回灌。Harness 使用 `getDelegate()` 取得同一 ReAct state。
 
 “同一 Task 只有一个中断”指同一时刻只有一个待恢复 interaction，不等于只能有一个 tool call。confirmation interaction 内可以包含多个 ASKING tool；adapter 对这些 tool 构造同一布尔值的 `ConfirmResult` 列表。客户端只表达一次批准或拒绝，不逐项选择，也不提供任何 item ID。
 
@@ -574,14 +575,15 @@ mvn -f "agent-solution\common\example\agentscope-a2a-interrupt-demo\pom.xml" `
 
 真实模型闭环按 `agent-solution\common\example\agentscope-a2a-interrupt-demo\README.md` 手工执行，不为 example 增加自动测试脚本。
 
-最终落地验证结果：
+当前落地验证结果：
 
 | 验证项 | 结果 |
 |---------|------|
 | AgentScope adapter 单元测试 | 42 个通过 |
 | AgentScope ReAct 并发/串行化定向回归 | 10 个通过 |
 | runtime `agent-service-spec` 回归 | 12 个通过 |
-| runtime `agent-service-app` 回归 | 130 个通过 |
+| runtime `agent-service-app` 回归 | 131 个通过 |
+| runtime `_interrupt` 状态门控回归 | 新增 1 个用例；`A2AAgentExecutorTest` 共 6 个通过 |
 | ReAct 真实 DeepSeek A2A 闭环 | `INPUT_REQUIRED -> APPROVE -> COMPLETED` 通过 |
 | Harness 真实 DeepSeek A2A 闭环 | `INPUT_REQUIRED -> APPROVE -> COMPLETED` 通过 |
 
@@ -597,5 +599,5 @@ mvn -f "agent-solution\common\example\agentscope-a2a-interrupt-demo\pom.xml" `
 6. 客户端无需获得或回传 AgentScope item ID；过期 `APPROVE/REJECT` 和自然语言确认不会触发工具调用。
 7. 仅 `RequestStopEvent`、`RequireUserConfirmEvent` 和 `AgentResultEvent` 中明确的可恢复 `GenerateReason` 可生成 interrupt；`RequireExternalExecutionEvent`、结果通知、`ALL_TOOLS_DENIED` 和其他 `AgentEvent` 不得误触发 `INPUT_REQUIRED`。
 8. ReAct 与 Harness 通过相同用例验证取消、暂停和恢复语义，Harness 不产生独立分支协议。
-9. adapter 产生裸 interrupt data；runtime 复用 `_interrupt` 保留 key 将其写入 A2A status metadata，并在续轮时只回带 status/history message 中的 `_interrupt`；本次新增的存储/回带逻辑只读取顶层 `message`，不解析 `payload.kind/items`、不引用 AgentScope 类型，也不新增状态存储，既有通用路由可继续读取 `context._interrupt_kind`。
+9. adapter 产生带非空 `message` 的裸 interrupt data；runtime 复用 `_interrupt` 保留 key 将其写入 A2A status metadata。只有已有 Task 且状态为 `INPUT_REQUIRED` 时才回带当前 status/history message 中的 `_interrupt`；已有但处于其他状态的 Task 不回带旧 interrupt，也不重复 `submit`。Task history 保留用于审计，不要求物理删除；本次调用中的 `ServeRequest.metadata._interrupt` 随请求结束释放。
 10. 模块测试、dependency tree、runtime 回归和两个 example 打包通过；ReAct/Harness 已按中文 README 完成真实模型手工闭环。
