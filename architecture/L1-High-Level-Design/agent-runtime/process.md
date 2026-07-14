@@ -82,7 +82,7 @@ A2A Request
 ### 1.4 非 Task Query facade
 
 ```text
-HTTP Query / Custom REST
+HTTP Query / Feat-Func-022 Custom REST
   -> Query ingress / protocol adapter
   -> ServeRequest
   -> ServeOrchestrator.query / streamQuery

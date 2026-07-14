@@ -2,7 +2,7 @@
 level: L2-LLD
 module: agent-runtime-ext-java
 feature_type: functional
-feature_id: Feat-Func-001
+feature_id: Feat-Func-022
 status: active
 dependency:
   - ../../L1-High-Level-Design/agent-runtime/api-appendix.md
@@ -14,9 +14,9 @@ dependency:
 
 > 目标仓库：`openJiuwen/agent-solution`
 > 目标模块：`common/agent-runtime-ext-java/agent-service-app/agent-service-app-custom-rest`
-> 最后更新：2026-07-11
+> 最后更新：2026-07-14
 
-说明：本文档是 Feat-Func-001 的 Custom REST 子设计，描述 `agent-runtime` 逻辑边界在 OpenJiuwen 社区实现中的扩展方案；实际代码实现落在 `agent-solution` 仓库，不修改 `spring-ai-ascend/agent-runtime` 主模块代码。
+说明：本文档描述独立功能特性 Feat-Func-022。它与 Feat-Func-001“标准化智能体服务入口”关联，二者复用相同的内部 `ServeOrchestrator` 执行基础；Feat-Func-022 自身属于非 Task Query facade，不属于 Feat-Func-001 的子特性，也不扩展 Feat-Func-001 的 A2A 标准协议表面。实际代码实现落在 `agent-solution` 仓库，不修改 `spring-ai-ascend/agent-runtime` 主模块代码。
 
 ---
 
@@ -24,7 +24,7 @@ dependency:
 
 ### 1.1 特性定位
 
-本设计是 Feat-Func-001 的 Custom REST 子设计：在 `agent-solution/common/agent-runtime-ext-java` 中新增一个轻量 custom-rest 扩展 starter，使平台集成方可以用自有 REST URL、请求字段和响应信封调用 Agent Runtime。
+Feat-Func-022 在 `agent-solution/common/agent-runtime-ext-java` 中提供一个轻量 custom-rest 扩展 starter，使平台集成方可以用自有 REST URL、请求字段和响应信封调用 Agent Runtime。它是与 Feat-Func-001 关联的独立接入特性：二者共享 runtime 内部执行入口，但分别定义 Custom REST 非 Task facade 与 A2A 标准服务入口。
 
 该扩展只负责 HTTP 外壳适配：
 

@@ -52,7 +52,7 @@ API 附录回答以下问题：
 
 ### 2.1 非 Task Query facade 的能力边界
 
-- `/v1/query`、`/query`、`/v1/query/reactive` 以及按 L2 扩展的 Custom REST 都直接构造 `ServeRequest` 并调用 `ServeOrchestrator.query/streamQuery`。
+- `/v1/query`、`/query`、`/v1/query/reactive` 以及 Feat-Func-022 定义的 Custom REST 关联特性都直接构造 `ServeRequest` 并调用 `ServeOrchestrator.query/streamQuery`。
 - 正常本地调用只产生 `QueryResponse` / `QueryChunk`，不进入 A2A SDK `RequestHandler`、`MainEventBus`、`AgentEmitter` 或正式 `TaskStore` 路径。
 - facade 不返回权威 taskId，不支持 GetTask、CancelTask、SubscribeToTask，也不承诺断线后的 Task 级重订阅。
 - 中断通过当前响应中的 `_interrupt` / `TYPE_INTERRUPT` 表达，错误通过当前 HTTP/SSE 调用表达；它们不是可后续查询的 Task 状态。

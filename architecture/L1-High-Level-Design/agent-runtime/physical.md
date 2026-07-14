@@ -164,7 +164,7 @@ Dedicated Host JVM
 | `/v1/query`, `/query` | 非 Task MVC Query facade | 直接调用 `ServeOrchestrator`，返回当次 JSON/SSE；legacy 路径可关闭。 |
 | `/v1/query/reactive` | 非 Task WebFlux Query facade | WebFlux 形态的当次 JSON/SSE 调用。 |
 | `/v1/reset_conversation`, `/reset_conversation` | 非 Task conversation reset | 取消当前 conversation 流并请求 handler 清理会话；不是 Task cancel。 |
-| Custom REST path | 非 Task 协议适配扩展 | 启用 `agent-runtime-ext-java` L2 扩展后动态注册，能力边界与 `/v1/query` 相同。 |
+| Custom REST path | Feat-Func-022 非 Task 协议适配扩展 | 启用 `agent-runtime-ext-java` 中的 Feat-Func-022 实现后动态注册，能力边界与 `/v1/query` 相同。 |
 | Agent Card endpoint | Agent 元数据发现 | 由当前 Agent Card controller 暴露，具体路径遵循实现中的 A2A Agent Card 发现约定。 |
 
 HTTP server 的端口、TLS、反向代理、鉴权入口和网络策略由宿主应用或部署环境负责，不由 `agent-runtime` library 单独拥有。

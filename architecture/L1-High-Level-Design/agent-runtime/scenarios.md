@@ -264,7 +264,7 @@ Runtime 可以读取远端 A2A Agent Card 并将远端 Agent 注册为本地可�
 
 ### 场景目标
 
-兼容调用方通过固定 Query API，或通过已启用的 Custom REST facade，发起一次同步/SSE Agent invocation，并在当前连接内取得结果。该路径不创建 runtime Task，不提供 Task 查询、订阅或取消。
+兼容调用方通过固定 Query API，或通过已启用的 Feat-Func-022 Custom REST facade，发起一次同步/SSE Agent invocation，并在当前连接内取得结果。该路径不创建 runtime Task，不提供 Task 查询、订阅或取消。
 
 ### 参与组件
 

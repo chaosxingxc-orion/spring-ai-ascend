@@ -76,7 +76,7 @@ dependency:
 | 边界项 | agent-runtime 负责 | agent-runtime 不负责 | 事实下沉位置 |
 |---|---|---|---|
 | A2A 接入 | 暴露 `/a2a` JSON-RPC 和 Agent Card 发现端点，并通过 A2A SDK 处理标准请求；它是唯一 Task-owning Service Task API。 | 不允许其他 facade 伪造或旁路写入 Task 生命周期。 | `api-appendix.md`, `logical.md`, `process.md` |
-| 非 Task Query facade | 在 openJiuwen Java 实现中提供 `/v1/query`、`/query`、`/v1/query/reactive`，并允许 Custom REST L2 扩展复用同一 `ServeOrchestrator`。 | 不创建 Task，不提供 GetTask、CancelTask、SubscribeToTask；不适合需要异步控制或权威状态查询的调用。 | `api-appendix.md`, `process.md`, L2 Custom REST 设计 |
+| 非 Task Query facade | 在 openJiuwen Java 实现中提供 `/v1/query`、`/query`、`/v1/query/reactive`，并允许 Feat-Func-022 Custom REST 关联特性复用同一 `ServeOrchestrator`。 | 不创建 Task，不提供 GetTask、CancelTask、SubscribeToTask；不适合需要异步控制或权威状态查询的调用。 | `api-appendix.md`, `process.md`, Feat-Func-022 L2 设计 |
 | Task 生命周期桥接 | 消费 A2A SDK 的 TaskStore、EventBus、QueueManager、RequestHandler，把 Task 执行推进到 Agent SPI；当前 A2A JSON-RPC 是 Service Task API 的实现形态。 | 不拥有平台级 Run record、幂等入口或 serviceization 状态外观。 | `logical.md`, `process.md`, `physical.md`, `api-appendix.md` |
 | Agent 执行 SPI | 定义并消费框架无关的 `AgentHandler`、`ServeOrchestrator`、`ServeRequest` 和 `QueryResponse` / `QueryChunk`。 | 不把某个 Agent 框架设为平台唯一执行模型。 | `spi-appendix.md`, `development.md` |
 | 框架适配 | 提供 openJiuwen / AgentCore 等当前适配实现。 | 不承诺所有未来框架适配已经 active。 | `development.md`, L2 详细设计 |
