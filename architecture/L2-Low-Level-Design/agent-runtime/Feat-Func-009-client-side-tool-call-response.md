@@ -16,9 +16,10 @@ dependency:
   - ../../L1-High-Level-Design/agent-client/scenarios.md
 ---
 
-# 端侧工具响应与动态调用 — 设计文档
+# 调用端侧工具响应 — 设计文档
 
-> 需求来源：`FEAT-2026-009`（agent-runtime 端侧工具响应）与 `FEAT-2026-010`（agent-core 端侧工具动态注册与调用）
+> 需求名称：【FEAT-009】【调用端侧工具响应】新增支持带有端侧工具的请求，需要调用客户端侧工具的中断，通过智能体服务调用响应返回给客户端
+> 关联需求：`FEAT-2026-010`（agent-core 端侧工具动态注册与调用）
 > 目标实现：`agent-runtime-java`、`agent-solution/common/agent-runtime-ext-java`
 > 最后更新：2026-07-14
 > 关键范围：当前版本只支持 JSON-RPC A2A 的 `SendMessage`、`SendStreamingMessage` 与 `GetTask`；REST query 入口不在范围内。
