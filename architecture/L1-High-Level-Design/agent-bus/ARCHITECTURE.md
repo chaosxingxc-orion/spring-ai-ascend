@@ -22,7 +22,7 @@ H2 已接受 `agent-bus` 内部分为两个逻辑子模块：
 
 | 逻辑子模块 | 职责 | 当前代码对应 |
 |---|---|---|
-| Gateway | 外部到内部的入口治理、转发和调度。典型流量是 edge/client 到 compute_control 的 C2S ingress。 | `com.huawei.ascend.bus.spi.ingress` |
+| Gateway | 外部到内部的入口治理、转发和调度。典型流量是 edge/client 到 compute_control 的 C2S ingress。 | `com.huawei.ascend.bus.spi.ingress`（SPI-only；gateway HTTP 生产实现仍 deferred，FEAT-013 L2 投影生产 gateway [`feat-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md)） |
 | 真 bus | service 与 service 之间的相互调用、跨服务路由和跨服务治理。典型流量包括 federation、reflection、未来 control/rhythm 通道。 | `com.huawei.ascend.bus.spi.federation`、`com.huawei.ascend.bus.spi.s2c`、`com.huawei.ascend.bus.spi.engine` 的跨服务边界事实 |
 
 这个拆分是 L1 逻辑架构拆分，不表示当前仓库已经拆成两个 Maven module。
@@ -56,7 +56,7 @@ W2 workflow primitives 只保留设计态，不进入自动实现范围。它们
 | Client 到 Runtime | `agent-client` 不直接依赖 compute_control 内部模块；通过 `IngressGateway` 进入。 |
 | Runtime 到 Client | 通过 `S2cCallbackTransport` 派发 S2C callback；envelope 必须显式携带 `tenantId`（Stage 2 契约层已迁移）。 |
 | Runtime 到 Runtime | 由真 bus 负责跨服务调用治理；当前以 federation/reflection 等 SPI 和契约事实表达；类 MQ 转发语义（Stage 4 设计态）消费 Stage 3 route handle，不改远端 Task lifecycle owner，大载荷走 data reference path（见 [`ICD-Agent-Bus-Forwarding`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)）。 |
-| 物理 bus | broker、ordering、DLQ、mailbox fairness 等运行时实现未进入当前切片。 |
+| 物理 bus | broker-agnostic SPI 骨架已落（`transport.broker`，Stage 26 锁定 RocketMQ，217 tests green）；FEAT-013/014 L2（draft）已为本期决定接线方向——两跳 RocketMQ pub/sub、event-bus→agent-runtime 不走 a2a push（见 [`feat-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md)/[`feat-014`](../../L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md)）；ordering / DLQ / mailbox fairness / 真实 broker 物理接线仍 deferred。 |
 | 注册发现 | 真 bus 目标态需要 agent/service/capability 注册发现；已在 Stage 3 形成设计态 ICD 与 harness；仍不进入 runtime 实现。 |
 
 ## 5. 当前事实来源

@@ -34,6 +34,8 @@ status: active
 - Gateway 不直接写 Task execution state。
 - 运行结果通过后续查询、SSE、webhook 或 callback 观察，不阻塞 ingress 调用。
 
+> **FEAT-013 L2**（draft）：本期 C2S 调用流经 broker 两跳（gateway→event-bus→agent-runtime），详见 [`feat-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md)。
+
 ## 3. S2C callback 流程
 
 | 步骤 | 参与者 | 动作 |
@@ -94,6 +96,8 @@ Mailbox、admission、backpressure、sleep、wakeup、tick 当前只保留设计
 ## 7. 真 bus 目标态流程：类 MQ 转发
 
 真 bus 的 runtime-to-runtime 调用目标态应包含一个类似 MQ 的转发底座，但 L1 不绑定具体产品。
+
+> **FEAT-013/014 L2 已为本期决定接线方向**（draft）：调用流经 broker 两跳（gateway→event-bus→agent-runtime），event-bus 治理中继；gateway→event-bus、event-bus→agent-runtime 两跳均经 RocketMQ pub/sub；event-bus→agent-runtime 不走 a2a push（现有 `A2aForwardingDeliveryPort` T1 HTTP push 在本特性范围内被 broker 取代），响应对称回流。见 [`feat-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md) / [`feat-014`](../../L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md)。
 
 目标态流程：
 

@@ -122,7 +122,11 @@ Agent 注册与发现的完整设计态契约见 [`ICD-Agent-Registry-Discovery`
 
 ## 9. C3 转发运行态（Stage 7 → Stage 26）
 
-C3（database outbox / inbox）按 Stage 6 裁决落地，`adopted-c3`。运行态契约见 [`ICD-Agent-Bus-Forwarding-Runtime`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)，L2 技术设计见 [`forwarding-outbox-inbox.md`](../../L2-Low-Level-Design/agent-bus/forwarding-outbox-inbox.md)。逻辑落点：
+C3（database outbox / inbox）按 Stage 6 裁决落地，`adopted-c3`。运行态契约见 [`ICD-Agent-Bus-Forwarding-Runtime`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)，L2 技术设计见 [`forwarding-outbox-inbox.md`](../../L2-Low-Level-Design/agent-bus/forwarding-outbox-inbox.md)。
+
+> **FEAT-013/014 L2**（draft）：本期决策——gateway 单独进程、event-bus+registry 同进程、三单元可替换；gateway→event-bus、event-bus→agent-runtime 两跳均经 RocketMQ pub/sub；event-bus→agent-runtime 不走 a2a push。推进 Stage 26 "broker 物理接线 / relay adapter / receiver consumer / `AWAITING_ACK` 状态机 deferred Stage 27+" 在 FEAT-013/014 范围内的接线方向（非推翻 Stage 叙事）。见 [`feat-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md) / [`feat-014`](../../L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md)。
+
+逻辑落点：
 
 - 发送方持久 outbox：唯一键 `(tenantId, messageId)`，幂等 enqueue，状态机驱动 `PENDING → DISPATCHING → {ACKED | RETRY_SCHEDULED → DISPATCHING | DLQ | EXPIRED}`。
 - 接收方持久 inbox：去重键 `(tenantId, messageId, consumerServiceId)`，重复到达返回 `DUPLICATE_SUPPRESSED` 不变更，`RECEIVED → {CONSUMED | REJECTED}`。

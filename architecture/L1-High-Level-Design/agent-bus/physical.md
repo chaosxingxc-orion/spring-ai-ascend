@@ -9,7 +9,9 @@ status: active
 
 ## 1. 部署平面
 
-`agent-bus` 属于 `bus_state` 部署平面。当前分支只包含 SPI、契约和少量基础测试，不包含完整物理 bus 实现。
+`agent-bus` 属于 `bus_state` 部署平面。当前分支已落地 forwarding 转发底座（outbox/inbox/worker/状态机 + Postgres JDBC + RLS）、registry-discovery MVP（`MvpRegistryController`/`PgMvpDiscoveryServiceImpl`）、broker-agnostic SPI 骨架（`transport.broker` 子包，锁定 RocketMQ）与 ingress/s2c/federation/engine SPI；gateway 单元的 HTTP 生产实现仍 deferred。
+
+**本期部署决策（FEAT-013/014，见 [`feat-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md) §5 / [`feat-014`](../../L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md) §5）**：gateway 单独进程部署；event-bus 与 registry-discovery-center 同进程部署；三单元独立可替换。gateway→event-bus、event-bus→agent-runtime 两跳均经 RocketMQ pub/sub；event-bus→agent-runtime 不走 a2a push（现有 `A2aForwardingDeliveryPort` T1 HTTP push 在本特性范围内被 broker 取代）。
 
 > 命名说明：本文架构语义（部署平面角色、模块关系）使用 L0 逻辑名 `agent-runtime` / `agent-core`。`agent-runtime` 已落地为同名模块（原 `agent-service` 已重命名为 `agent-runtime`）；`agent-core` 已落地为 `agent-core`。完整映射见 [`README.md`](README.md)「命名说明」。
 
@@ -42,7 +44,7 @@ status: active
 | 存储边界 | bus 不拥有 Task state store。 |
 | 队列边界 | mailbox/backpressure/tick 仍是设计态。 |
 | 转发边界 | 类 MQ 转发底座运行态承载已确认为 **C3（database outbox / inbox），`adopted-c3`**：Stage 7 最小骨架 + Stage 8 持久化准备（record 模型 / claim / lease 端口 / dispatcher worker / 抽象 delivery 端口 / schema 草案，DDL 未执行）+ Stage 9 lease-safe（lease-owner guarded mutation / record 不变量 / failure-code 分类 / claim + state-update SQL contract）+ Stage 10 dispatch-loop runtime（worker lease 异常恢复 / lease 续约 / dispatch loop 骨架）+ Stage 11 runtime-completion（lease 续约改读注入 `EpochClock` / `deliver` 非 lease 异常兜底 skip / `runOnce` fail-fast）+ Stage 12 real persistence（Postgres JDBC adapter + Flyway migration + §7.3 RLS，打破路径 B）已落地；消费 Stage 3 route handle；broker-agnostic（不绑定具体 broker / MQ 产品）；transport 投递模型已在 Stage 13 完成候选评审（T1-T4 × 8 维度，T3 consumer-pull over DB 非裁决推荐），真实投递绑定仍 deferred（待 H2/H3 裁决 push / pull / MQ）；Stage 14 落地 deliver 重投策略先行（`ForwardingRetryPolicy` 端口 + overflow-safe 指数退避 + exhausted→DLQ + 熔断端口 deferred，§6.2 不变）；Stage 15 落地真实投递绑定 PoC（A2A HTTP transport adapter `A2aForwardingDeliveryPort` 消费 agent-runtime `/a2a`，`§6.1` 第 4 项解除、`§6.2` 不变；ArchUnit 把 `org.a2aproject` 圈进 `transport.a2a` 子包）；Stage 16 接入 `ForwardingCircuitBreaker` 到 worker（`RouteCircuitBreaker` 三态机 CLOSED→OPEN→HALF_OPEN + `recordOutcome` 反馈 + `allowsDelivery` 短路，正当性来自 Stage 15 选 T1 push；纯 JDK transport-agnostic，§6.2 不变）；Stage 17 落地首次跨模块端到端集成（`C3ForwardingEndToEndIntegrationTest` 用真实 `LocalA2aRuntimeHost` 替换 Stage 15 MockWebServer，端到端驱动 outbox enqueue → tick → deliver → 真实 /a2a → COMPLETED → ACKED；agent-bus 加 `agent-runtime` test-scope 依赖、生产仍零依赖；两个发现：`LocalA2aRuntimeHost` 对 JDBC-bearing 共享 classpath 敏感 + Spring Boot 4 autoconfigure 重打包；182 tests green；§6.2 不变）；Stage 18 失败路径端到端验证 + `REMOTE_TASK_FAILED` 码收口（`C3ForwardingFailurePathIntegrationTest` 双失败场景：真实 `FailingHandler` FAILED→DLQ + 不可达 route→RETRY；`ForwardingFailureCode.REMOTE_TASK_FAILED` NON_RETRYABLE + 终态映射改 `isFinal()` if-chain；无 DDL/SqlCodec/record 改动；184 tests green；§6.2 不变）；大载荷走 data reference path，不进 event / control channel（见 [`ICD-Agent-Bus-Forwarding`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)、[`forwarding-persistence`](../../L2-Low-Level-Design/agent-bus/forwarding-persistence.md)）。 |
-| 注册发现边界 | agent/service/capability 注册发现仍是设计态；租户隔离、registry key、health、contract version 语义已在 ICD 设计态裁决。仍未裁决的是运行态物理实现：持久化存储、写入者、健康检查推/拉模型、region 路由、broker/topic 绑定、一致性策略（见 [`ICD-Agent-Registry-Discovery`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md)）。 |
+| 注册发现边界 | agent/service/capability 注册发现 MVP 已实现（[`registry-discovery-runtime-design`](../../L2-Low-Level-Design/agent-bus/registry-discovery-runtime-design.cn.md)，生产演进 Consul+pgvector 仍 deferred）；租户隔离、registry key、health、contract version 语义已在 ICD 设计态裁决。仍未裁决的是运行态物理实现：持久化存储、写入者、健康检查推/拉模型、region 路由、broker/topic 绑定、一致性策略（见 [`ICD-Agent-Registry-Discovery`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-registry-discovery.md)）。 |
 
 ## 4. S2C tenant 物理影响
 
@@ -60,7 +62,7 @@ S2C envelope 已携带 `tenantId`（Stage 2 契约层迁移，commit `d894f494`�
 
 以下内容不属于当前 L1 草案的已实现事实：
 
-- Kafka / NATS / 自研 broker。
+- broker 选型已定 **RocketMQ**（FEAT-013/014 pub/sub 两跳，见 [`feat-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md) §5 / [`feat-014`](../../L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md) §5）；Kafka / NATS / 自研 broker 不采用。
 - control/data/rhythm 三通道的具体 broker 映射。
 - mailbox 存储。
 - DLQ 和 replay 存储。
@@ -68,7 +70,7 @@ S2C envelope 已携带 `tenantId`（Stage 2 契约层迁移，commit `d894f494`�
 - tick engine runtime。
 - agent/service/capability registry runtime。
 - 类 MQ 转发底座 runtime 的真实投递 / broker / queue / DLQ / replay 存储（Stage 12 已落地 JDBC adapter + Flyway migration + RLS 持久化层；Stage 15 落地真实 A2A 投递绑定 PoC；Stage 25 裁决投递模型 T4 hybrid[outbox + broker] + **Stage 26 落地 broker-agnostic SPI 骨架（`transport.broker` 子包）+ 锁定 RocketMQ**；解除 §6.1 第 1 项引 broker；真实 broker 物理接线 deferred Stage 27+）。
-- service discovery API。
+- service discovery API——已 MVP 实现（[`registry-discovery-runtime-design`](../../L2-Low-Level-Design/agent-bus/registry-discovery-runtime-design.cn.md)），生产演进（Consul + pgvector）仍 deferred。
 
 ### 5.1 运行态候选评审（Stage 5）
 

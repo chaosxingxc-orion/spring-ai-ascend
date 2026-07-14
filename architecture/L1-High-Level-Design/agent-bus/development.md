@@ -22,6 +22,8 @@ agent-bus/
         persistence/jdbc/  # Stage 12: Postgres JDBC adapter（Spring JDBC）；唯一允许 Spring/JDBC 的子包，ArchUnit 豁免
         transport/         # Stage 15: 真实投递绑定（A2aForwardingDeliveryPort + ForwardingEndpointResolver）；transport 抽象 + a2a 具体实现
           a2a/             # A2A SDK 限定子包（ArchUnit 豁免 org.a2aproject）
+          broker/          # Stage 26: broker-agnostic SPI 骨架（BrokerForwardingRelayPort/ConsumerPort + 消息类型 + InMemoryBroker）；锁定 RocketMQ，FEAT-013/014 具体 adapter net-new
+    registry/             # registry-discovery MVP（MvpRegistryController/PgMvpDiscoveryServiceImpl/RouteHandleCodec + JDBC + RLS）
     spi/
       engine/
       federation/
@@ -52,6 +54,9 @@ agent-bus/
 | `bus.forwarding.runtime` | C3 转发状态机（outbox / inbox 转换表）+ Stage 8 dispatcher worker（claim / deliver / ack / retry）+ Stage 10 dispatch loop（lease 异常恢复 / 续约 / 调度责任，`TickSource` / `IdleStrategy` 注入）+ Stage 14 retry policy（overflow-safe 退避）+ Stage 16 circuit breaker（`RouteCircuitBreaker` 三态机接入 worker） | 纯 Java 状态机 + worker + dispatch loop + retry + breaker 已落地 |
 | `bus.forwarding.runtime.transport` | Stage 15 真实投递绑定：`A2aForwardingDeliveryPort`（消费 agent-runtime `/a2a`，A2A SSE 终态映射为 `ForwardingDeliveryResult`）+ `ForwardingEndpointResolver` / `MapEndpointResolver` | transport 抽象纯 Java 已落地；`transport.a2a` 子包限定 A2A SDK（ArchUnit 豁免 `org.a2aproject`） |
 | `bus.forwarding.runtime.persistence.jdbc` | C3 真实持久化：`JdbcForwardingOutbox`（含 claim / lease）/ `JdbcForwardingInbox` / `ForwardingSqlCodec`（Stage 12，Spring JDBC） | 已落地（Stage 12）；Spring / JDBC / Flyway / Postgres driver 仅限本子包 |
+| `bus.forwarding.runtime.transport.broker` | Stage 26 broker-agnostic SPI 骨架（`BrokerForwardingRelayPort`/`ConsumerPort` + 消息类型 + `InMemoryBroker` 契约测试）；锁定 RocketMQ | SPI 骨架已落（Stage 26，217 tests green）；FEAT-013/014 RocketMQ 具体 adapter + 接线 deferred |
+| `bus.registry.runtime` | registry-discovery MVP（`MvpRegistryController`/`PgMvpDiscoveryServiceImpl`/`RouteHandleCodec` + `JdbcAgentRegistryRepository` + RLS） | MVP 已落（[`registry-discovery-runtime-design`](../../L2-Low-Level-Design/agent-bus/registry-discovery-runtime-design.cn.md)）；生产演进 Consul+pgvector deferred |
+| `bus.gateway.runtime`（net-new） | FEAT-013 gateway 生产实现：HTTP 入口 + envelope 封装 + broker produce + 接受等待窗口 + SSE 桥接 | L2 设计态（draft，[`feat-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md)） |
 
 ## 3. 依赖规则
 

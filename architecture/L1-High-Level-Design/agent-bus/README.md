@@ -77,6 +77,8 @@ Agent / Service / Capability 注册与发现的完整设计态契约见 [`ICD-Ag
 
 ## C3 转发运行态（Stage 7 最小骨架 → Stage 8 持久化准备 → Stage 9 lease-safe → Stage 10 dispatch-loop runtime → Stage 11 runtime-completion → Stage 12 real persistence → Stage 13 transport 候选评审 → Stage 14 deliver 重投策略先行 → Stage 15 真实投递绑定 PoC → Stage 16 断路器接入 worker → Stage 17 首次跨模块端到端集成 → Stage 18 失败路径端到端验证 + REMOTE_TASK_FAILED → Stage 19 重投往返生命周期端到端验证 → Stage 20 验证回填 → Stage 21 多 worker 并发验证 → Stage 22 时间驱动的终态与续约端到端验证 → Stage 23 payloadRef 端到端传递验证 → Stage 24 RLS 接线闭合跨租户纵深防御 → Stage 25 投递模型最终裁决 T4 hybrid（outbox + broker，破 §6.2）→ Stage 26 broker-agnostic SPI 骨架 + 锁定 RocketMQ）
 
+> **FEAT-013/014 L2 已为本期决定接线方向**（draft）：gateway 单独进程、event-bus+registry 同进程、三单元可替换；gateway→event-bus、event-bus→agent-runtime 两跳均经 RocketMQ pub/sub；event-bus→agent-runtime 不走 a2a push（现有 `A2aForwardingDeliveryPort` T1 push 在本特性范围内被 broker 取代）。该方向推进 Stage 26 "broker 物理接线 / relay adapter / receiver consumer / `AWAITING_ACK` 状态机 deferred Stage 27+" 在 FEAT-013/014 范围内的落地（非推翻 Stage 叙事）。见 [`feat-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md) / [`feat-014`](../../L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md)。
+
 Stage 7 按 Stage 6 裁决采用 **C3（database outbox / inbox）** 作为类 MQ 转发的生产候选路径，交付 C3 的最小可测运行态骨架（非完整持久化实现）。运行态契约见 [`ICD-Agent-Bus-Forwarding-Runtime`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)，L2 技术设计见 [`forwarding-outbox-inbox.md`](../../L2-Low-Level-Design/agent-bus/forwarding-outbox-inbox.md)。Stage 7 边界：
 
 - 落地纯 Java 领域模型与端口：`ForwardingEnvelope` / `ForwardingRouteHandle` / `ForwardingMessageId` / `ForwardingStatus` / `ForwardingFailureCode` / `ForwardingReceipt`，以及 `ForwardingOutboxPort` / `ForwardingInboxPort` / `ForwardingDispatcher` 三个端口和纯状态机 `ForwardingStateMachine`。
@@ -129,6 +131,7 @@ DB / migration 归属未由人类确认 → **路径 B**：不引入 JDBC / Flyw
 
 ## 后续工作
 
+- **FEAT-013/014 L2 特性文档**（draft）：客户端调用事件转发 / A2A 调用事件转发。本期决策——gateway 单独进程、event-bus+registry 同进程、三单元可替换；gateway→event-bus 与 event-bus→agent-runtime 两跳均经 RocketMQ pub/sub；event-bus→agent-runtime 不走 a2a push。见 [`feat-013`](../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md) / [`feat-014`](../../L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md)。该决策推进了上方 C3 转发运行态 Stage 26 “broker 物理接线 deferred Stage 27+” 的接线方向（非推翻 Stage 叙事）。
 - 补齐 S2C tenant 迁移后的 runtime-side construction binding / schema validation / downstream 文档同步。
 - 为 ingress、federation、reflection 增加契约测试计划。
 - 为本目录生成 graphify 输入和漂移检查 manifest。
