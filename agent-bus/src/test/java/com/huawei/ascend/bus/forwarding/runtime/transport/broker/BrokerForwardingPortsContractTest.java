@@ -10,23 +10,31 @@ import com.huawei.ascend.bus.forwarding.spi.ForwardingStatus;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Contract test for the broker SPI scaffold (Stage 26) — verifies the T4 hybrid
- * governance invariants hold on the {@link InMemoryBroker} double, the same way
- * the outbox contract test pins the JDBC adapter contract on
+ * Contract test for the broker SPI scaffold (Stage 26 + decision packet
+ * agent-bus-broker-filtering-spi-completion §3) — verifies the T4 hybrid
+ * governance invariants hold on the {@link InMemoryBroker} double + its
+ * per-consumer {@link InMemoryBroker#consumerFor consumer}, the same way the
+ * outbox contract test pins the JDBC adapter contract on
  * {@code InMemoryForwardingOutbox}.
  *
- * <p>Covers each Stage 25 §10 guardrail: payload reference rides in the header
- * never the body (②), routeHandle stays opaque via the resolver (HD4), L2
- * header-tenant-check rejects cross-tenant messages (⑤), consumer-group isolation
- * (L3), and at-least-once redelivery (poll without commit / reject returns the
- * same message again).
+ * <p>Produce side: payload reference rides in the header never the body (②),
+ * routeHandle stays opaque via the resolver (HD4), unresolvable route →
+ * non-retryable ROUTE_NOT_FOUND, broker-unavailable → retryable.
+ *
+ * <p>Consume side (§3 "after" SPI): a consumer subscribes once at startup with a
+ * {@link DeliveryFilter} (named-property criteria — D3; the broker-agnostic
+ * surface the RocketMQ adapter will translate to {@code MessageSelector.bySql}),
+ * then {@code poll(nowMillisEpoch)} (param-less — D4) returns the next message
+ * whose tenant + target-serviceId match the subscribed filter; commit advances
+ * the consumer-group offset (model B ack-after-consume), reject redelivers
+ * (at-least-once). Consumer-group isolation (L3) holds across separate
+ * {@code consumerFor} instances backed by the same shared broker.
  */
 class BrokerForwardingPortsContractTest {
 
@@ -100,17 +108,21 @@ class BrokerForwardingPortsContractTest {
         assertThat(outcome.failureCode().retryable()).isTrue();
     }
 
-    // ===== poll / commit: model B ack-after-consume =====
+    // ===== subscribe / poll: §3 "after" SPI — subscribe once, poll param-less =====
 
     @Test
-    void poll_returns_next_message_for_consumer_and_tenant() {
+    void subscribe_then_poll_returns_next_message_matching_the_filter() {
         InMemoryBroker broker = broker(route -> Optional.of("topic-" + route.tenantScope()));
         broker.produce(record("tenant-a", "msg-1", "ref-1"), 1_000L);
 
-        Optional<BrokerInboundMessage> polled = broker.poll("consumer-a", "tenant-a", 2_000L);
+        // the consumer IS the target runtime (serviceId = the message's targetServiceId); it
+        // subscribes with forRuntime(tenant, myServiceId) — D2/D10: receive only what is targeted at it.
+        BrokerForwardingConsumerPort consumer = broker.consumerFor("consumer-a");
+        consumer.subscribe("consumer-a", routeHandle("tenant-a"),
+                DeliveryFilter.forRuntime("tenant-a", "target-svc"));
 
-        assertThat(polled).isPresent();
-        BrokerInboundMessage m = polled.orElseThrow();
+        BrokerInboundMessage m = consumer.poll(2_000L).orElseThrow();
+
         assertThat(m.messageId()).isEqualTo("msg-1");
         assertThat(m.tenantId()).isEqualTo("tenant-a");
         assertThat(m.sourceServiceId()).isEqualTo("source-svc");
@@ -120,35 +132,56 @@ class BrokerForwardingPortsContractTest {
     }
 
     @Test
-    void poll_cross_tenant_message_is_never_returned() {
+    void poll_filters_out_cross_tenant_messages() {
         InMemoryBroker broker = broker(route -> Optional.of("shared-topic"));
         broker.produce(record("tenant-a", "msg-1", null), 1_000L);
 
-        // A receiver polls its own tenant; a message whose header tenantId differs is never returned.
-        Optional<BrokerInboundMessage> polled = broker.poll("consumer-b", "tenant-b", 2_000L);
+        // a runtime in tenant-b never receives tenant-a's message — the filter (tenantId) excludes it.
+        BrokerForwardingConsumerPort consumer = broker.consumerFor("consumer-b");
+        consumer.subscribe("consumer-b", routeHandle("tenant-b"),
+                DeliveryFilter.forRuntime("tenant-b", "target-svc"));
 
-        assertThat(polled).isEmpty();
+        assertThat(consumer.poll(2_000L)).isEmpty();
+    }
+
+    @Test
+    void poll_filters_out_messages_targeted_at_a_different_service() {
+        InMemoryBroker broker = broker(route -> Optional.of("topic-" + route.tenantScope()));
+        broker.produce(record("tenant-a", "msg-1", null), 1_000L); // targetServiceId = "target-svc"
+
+        // this consumer is "other-svc" — msg-1 is targeted at "target-svc", so it is filtered out.
+        BrokerForwardingConsumerPort consumer = broker.consumerFor("consumer-a");
+        consumer.subscribe("consumer-a", routeHandle("tenant-a"),
+                DeliveryFilter.forRuntime("tenant-a", "other-svc"));
+
+        assertThat(consumer.poll(2_000L)).isEmpty();
     }
 
     @Test
     void commit_advances_offset_so_message_is_not_redelivered() {
         InMemoryBroker broker = broker(route -> Optional.of("topic-" + route.tenantScope()));
         broker.produce(record("tenant-a", "msg-1", null), 1_000L);
-        BrokerInboundMessage m = broker.poll("consumer-a", "tenant-a", 2_000L).orElseThrow();
+        BrokerForwardingConsumerPort consumer = broker.consumerFor("consumer-a");
+        consumer.subscribe("consumer-a", routeHandle("tenant-a"),
+                DeliveryFilter.forRuntime("tenant-a", "target-svc"));
 
-        broker.commit(m);
+        BrokerInboundMessage m = consumer.poll(2_000L).orElseThrow();
+        consumer.commit(m);
 
-        assertThat(broker.poll("consumer-a", "tenant-a", 3_000L)).isEmpty();
+        assertThat(consumer.poll(3_000L)).isEmpty();
     }
 
     @Test
     void poll_without_commit_redelivers_the_same_message_at_least_once() {
         InMemoryBroker broker = broker(route -> Optional.of("topic-" + route.tenantScope()));
         broker.produce(record("tenant-a", "msg-1", null), 1_000L);
+        BrokerForwardingConsumerPort consumer = broker.consumerFor("consumer-a");
+        consumer.subscribe("consumer-a", routeHandle("tenant-a"),
+                DeliveryFilter.forRuntime("tenant-a", "target-svc"));
 
-        BrokerInboundMessage first = broker.poll("consumer-a", "tenant-a", 2_000L).orElseThrow();
+        BrokerInboundMessage first = consumer.poll(2_000L).orElseThrow();
         // no commit, no reject — broker must redeliver
-        BrokerInboundMessage second = broker.poll("consumer-a", "tenant-a", 3_000L).orElseThrow();
+        BrokerInboundMessage second = consumer.poll(3_000L).orElseThrow();
 
         assertThat(second.messageId()).isEqualTo(first.messageId());
         assertThat(second.tenantId()).isEqualTo(first.tenantId());
@@ -158,30 +191,59 @@ class BrokerForwardingPortsContractTest {
     void reject_does_not_commit_and_records_code_for_observability() {
         InMemoryBroker broker = broker(route -> Optional.of("topic-" + route.tenantScope()));
         broker.produce(record("tenant-a", "msg-1", null), 1_000L);
-        BrokerInboundMessage m = broker.poll("consumer-a", "tenant-a", 2_000L).orElseThrow();
+        BrokerForwardingConsumerPort consumer = broker.consumerFor("consumer-a");
+        consumer.subscribe("consumer-a", routeHandle("tenant-a"),
+                DeliveryFilter.forRuntime("tenant-a", "target-svc"));
 
-        broker.reject(m, ForwardingFailureCode.TENANT_MISMATCH);
+        BrokerInboundMessage m = consumer.poll(2_000L).orElseThrow();
+        consumer.reject(m, ForwardingFailureCode.TENANT_MISMATCH);
 
         // reject does not advance the offset → redelivered
-        assertThat(broker.poll("consumer-a", "tenant-a", 3_000L)).isPresent();
+        assertThat(consumer.poll(3_000L)).isPresent();
         assertThat(broker.lastRejectCode("msg-1")).isEqualTo(ForwardingFailureCode.TENANT_MISMATCH);
     }
 
-    // ===== consumer-group isolation (L3) =====
+    // ===== consumer-group isolation (L3) — separate consumerFor instances, shared broker =====
 
     @Test
     void consumer_groups_maintain_independent_offsets() {
         InMemoryBroker broker = broker(route -> Optional.of("topic-" + route.tenantScope()));
         broker.produce(record("tenant-a", "msg-1", null), 1_000L);
 
-        // consumer-a commits; consumer-b (a different consumer-group) still sees the message.
-        BrokerInboundMessage forA = broker.poll("consumer-a", "tenant-a", 2_000L).orElseThrow();
-        broker.commit(forA);
+        // consumer-a commits; consumer-b (a different consumer-group, separate instance backed by
+        // the same shared broker) still sees the message — independent offsets per consumerServiceId.
+        BrokerForwardingConsumerPort consumerA = broker.consumerFor("consumer-a");
+        consumerA.subscribe("consumer-a", routeHandle("tenant-a"),
+                DeliveryFilter.forRuntime("tenant-a", "target-svc"));
+        BrokerInboundMessage forA = consumerA.poll(2_000L).orElseThrow();
+        consumerA.commit(forA);
 
-        Optional<BrokerInboundMessage> forB = broker.poll("consumer-b", "tenant-a", 3_000L);
+        BrokerForwardingConsumerPort consumerB = broker.consumerFor("consumer-b");
+        consumerB.subscribe("consumer-b", routeHandle("tenant-a"),
+                DeliveryFilter.forRuntime("tenant-a", "target-svc"));
+        Optional<BrokerInboundMessage> forB = consumerB.poll(3_000L);
+
         assertThat(forB).isPresent();
         assertThat(forB.orElseThrow().messageId()).isEqualTo("msg-1");
         assertThat(forB.orElseThrow().consumerServiceId()).isEqualTo("consumer-b");
+    }
+
+    // ===== capability bit + lifecycle (D8 / §3 close) =====
+
+    @Test
+    void in_memory_consumer_supports_broker_side_property_filter() {
+        // the in-memory "broker" filters by the subscribed properties itself — the broker-side
+        // equivalent — so the capability bit is true (D8). (A client-side-only fallback would be false.)
+        InMemoryBroker broker = broker(route -> Optional.of("topic-" + route.tenantScope()));
+        assertThat(broker.consumerFor("consumer-a").supportsBrokerSidePropertyFilter()).isTrue();
+    }
+
+    @Test
+    void close_is_idempotent_and_does_not_throw() {
+        InMemoryBroker broker = broker(route -> Optional.of("topic-" + route.tenantScope()));
+        BrokerForwardingConsumerPort consumer = broker.consumerFor("consumer-a");
+        consumer.close();
+        consumer.close();
     }
 
     // ===== record / outcome invariants =====
@@ -245,7 +307,10 @@ class BrokerForwardingPortsContractTest {
         // headers from the record; poll mirrors headers→inbound. The gateway (S2) reads inbound.correlationId().
         broker.produce(record("tenant-a", "msg-corr", "ref-1"), 1_000L);
 
-        BrokerInboundMessage m = broker.poll("consumer-a", "tenant-a", 2_000L).orElseThrow();
+        BrokerForwardingConsumerPort consumer = broker.consumerFor("consumer-a");
+        consumer.subscribe("consumer-a", routeHandle("tenant-a"),
+                DeliveryFilter.forRuntime("tenant-a", "target-svc"));
+        BrokerInboundMessage m = consumer.poll(2_000L).orElseThrow();
 
         assertThat(m.correlationId()).isEqualTo("corr-msg-corr");
         assertThat(m.eventType()).isEqualTo(AgentBusEventType.CLIENT_INVOCATION_REQUESTED);
@@ -274,13 +339,17 @@ class BrokerForwardingPortsContractTest {
         return new InMemoryBroker(resolver);
     }
 
+    private static ForwardingRouteHandle routeHandle(String tenantId) {
+        return new ForwardingRouteHandle("route-for-" + tenantId, tenantId);
+    }
+
     private ForwardingOutboxRecord record(String tenantId, String messageId, String payloadRef) {
         return new ForwardingOutboxRecord(
                 tenantId,
                 new ForwardingMessageId(messageId),
                 "source-svc",
                 "target-svc",
-                new ForwardingRouteHandle("route-for-" + tenantId, tenantId),
+                routeHandle(tenantId),
                 payloadRef,
                 ForwardingStatus.Outbox.PENDING,
                 0,

@@ -143,22 +143,32 @@ class RealBrokerProduceSideIntegrationTest {
         // Produce-side tests do not poll responses; a no-op responseConsumer satisfies the ctor.
         BrokerForwardingConsumerPort noopConsumer = new BrokerForwardingConsumerPort() {
             @Override
-            public Optional<BrokerInboundMessage> poll(String consumerServiceId, String tenantId, long nowMillisEpoch) {
+            public void subscribe(String consumerServiceId, ForwardingRouteHandle route, DeliveryFilter filter) {
+                // produce-side IT never polls responses; no-op.
+            }
+            @Override
+            public Optional<BrokerInboundMessage> poll(long nowMillisEpoch) {
                 return Optional.empty();
             }
-
             @Override
             public void commit(BrokerInboundMessage message) {
                 // no-op
             }
-
             @Override
             public void reject(BrokerInboundMessage message, ForwardingFailureCode code) {
                 // no-op
             }
+            @Override
+            public void close() {
+                // no-op
+            }
+            @Override
+            public boolean supportsBrokerSidePropertyFilter() {
+                return false;
+            }
         };
         gateway = new GatewayRuntimeService(outbox, outbox, relay, noopConsumer,
-                GATEWAY, GATEWAY, 5_000L, 30_000L, System::currentTimeMillis);
+                GATEWAY, 5_000L, 30_000L, System::currentTimeMillis);
     }
 
     /**

@@ -81,7 +81,6 @@ public final class GatewayRuntimeService implements IngressGateway {
     private final BrokerForwardingRelayPort relay;
     private final BrokerForwardingConsumerPort responseConsumer;
     private final String sourceServiceId;
-    private final String consumerServiceId;
     private final long acceptTimeoutMs;
     private final long responseTimeoutMs;
     private final LongSupplier clock;
@@ -92,7 +91,6 @@ public final class GatewayRuntimeService implements IngressGateway {
      * @param relay              the broker relay (produce the request onto the broker)
      * @param responseConsumer  the broker consumer (poll responses off the broker)
      * @param sourceServiceId    the gateway's service id (envelope sourceServiceId + claim leaseOwner)
-     * @param consumerServiceId the gateway's broker consumer-group id (response poll)
      * @param acceptTimeoutMs    accept window: no accepted/rejected/failed within → UNKNOWN (deferred)
      * @param responseTimeoutMs  post-accepted window: no terminal within → ACCEPTED_WITH_TASK
      * @param clock              epoch-millis supplier (drives due / lease / window judgements)
@@ -102,7 +100,6 @@ public final class GatewayRuntimeService implements IngressGateway {
                                  BrokerForwardingRelayPort relay,
                                  BrokerForwardingConsumerPort responseConsumer,
                                  String sourceServiceId,
-                                 String consumerServiceId,
                                  long acceptTimeoutMs,
                                  long responseTimeoutMs,
                                  LongSupplier clock) {
@@ -111,7 +108,6 @@ public final class GatewayRuntimeService implements IngressGateway {
         this.relay = Objects.requireNonNull(relay, "relay is required");
         this.responseConsumer = Objects.requireNonNull(responseConsumer, "responseConsumer is required");
         this.sourceServiceId = requireNonBlank(sourceServiceId, "sourceServiceId");
-        this.consumerServiceId = requireNonBlank(consumerServiceId, "consumerServiceId");
         if (acceptTimeoutMs < 0) {
             throw new IllegalArgumentException("acceptTimeoutMs must be >= 0");
         }
@@ -192,7 +188,8 @@ public final class GatewayRuntimeService implements IngressGateway {
      * (self-consumption) and any non-matching responses.
      *
      * @param requestId the ingress request id (correlationId == requestId.toString())
-     * @param tenantId  tenant scope for the response poll (Rule R-C.c)
+     * @param tenantId  tenant scope for the client-side response filter (Rule R-C.c; the response
+     *                 consumer is subscribed with a targetServiceId filter — D13 response-side)
      * @return the observed acknowledgement; never null
      */
     public IngressResponse acceptWindow(UUID requestId, String tenantId) {
@@ -206,12 +203,18 @@ public final class GatewayRuntimeService implements IngressGateway {
         String taskId = null;
         while (true) {
             long now = clock.getAsLong();
-            BrokerInboundMessage msg = responseConsumer.poll(consumerServiceId, tenantId, now).orElse(null);
+            BrokerInboundMessage msg = responseConsumer.poll(now).orElse(null);
             if (msg == null) {
                 break; // no further responses available in this synchronous window
             }
             // self-consumption: the gateway's own request (source == this gateway) → commit + keep polling
             if (sourceServiceId.equals(msg.sourceServiceId())) {
+                responseConsumer.commit(msg);
+                continue;
+            }
+            // client-side tenant filter (D13 response-side): a cross-tenant response (which a
+            // targetServiceId-only broker filter would still deliver) is committed and skipped.
+            if (!tenantId.equals(msg.tenantId())) {
                 responseConsumer.commit(msg);
                 continue;
             }

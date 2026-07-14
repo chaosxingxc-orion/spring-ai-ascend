@@ -3,6 +3,7 @@ package com.huawei.ascend.bus.forwarding.runtime.transport.broker;
 import com.huawei.ascend.bus.forwarding.runtime.transport.MapEndpointResolver;
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
+import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
 import com.huawei.ascend.bus.forwarding.spi.InvocationResponseStatus;
 import com.huawei.ascend.bus.forwarding.test.InMemoryForwardingOutbox;
 import com.huawei.ascend.bus.gateway.runtime.GatewayRuntimeService;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -161,8 +163,10 @@ class RealBrokerResponseSideIntegrationTest {
                 resolver, RocketMqBrokerForwardingRelay.defaultSender(gatewayProducer));
         BrokerForwardingConsumerPort responseConsumer =
                 new ResponseSideConsumer(responseQueue, acceptTimeoutMs);
+        responseConsumer.subscribe(GATEWAY, new ForwardingRouteHandle("gateway-" + GATEWAY, TENANT),
+                DeliveryFilter.forRuntime(TENANT, GATEWAY));
         gateway = new GatewayRuntimeService(outbox, outbox, relay, responseConsumer,
-                GATEWAY, GATEWAY, acceptTimeoutMs, responseTimeoutMs, System::currentTimeMillis);
+                GATEWAY, acceptTimeoutMs, responseTimeoutMs, System::currentTimeMillis);
     }
 
     /**
@@ -174,9 +178,11 @@ class RealBrokerResponseSideIntegrationTest {
      */
     private BrokerInboundMessage pollNext(String expectedCorrId) {
         ResponseSideConsumer consumer = new ResponseSideConsumer(responseQueue, ACCEPT_TIMEOUT_MS);
+        consumer.subscribe(GATEWAY, new ForwardingRouteHandle("gateway-" + GATEWAY, TENANT),
+                DeliveryFilter.forRuntime(TENANT, GATEWAY));
         long deadline = System.currentTimeMillis() + ACCEPT_TIMEOUT_MS;
         while (System.currentTimeMillis() < deadline) {
-            BrokerInboundMessage msg = consumer.poll(GATEWAY, TENANT, System.currentTimeMillis())
+            BrokerInboundMessage msg = consumer.poll(System.currentTimeMillis())
                     .orElse(null);
             if (msg == null) {
                 break;
@@ -348,9 +354,11 @@ class RealBrokerResponseSideIntegrationTest {
         Thread.sleep(4_000L);
         java.util.Set<String> taskIds = new java.util.HashSet<>();
         ResponseSideConsumer drainer = new ResponseSideConsumer(responseQueue, 2_000L);
+        drainer.subscribe(GATEWAY, new ForwardingRouteHandle("gateway-" + GATEWAY, TENANT),
+                DeliveryFilter.forRuntime(TENANT, GATEWAY));
         long drainDeadline = System.currentTimeMillis() + 6_000L;
         while (System.currentTimeMillis() < drainDeadline) {
-            BrokerInboundMessage m = drainer.poll(GATEWAY, TENANT, System.currentTimeMillis()).orElse(null);
+            BrokerInboundMessage m = drainer.poll(System.currentTimeMillis()).orElse(null);
             if (m == null) {
                 break;
             }
@@ -379,6 +387,10 @@ class RealBrokerResponseSideIntegrationTest {
     static final class ResponseSideConsumer implements BrokerForwardingConsumerPort {
         private final LinkedBlockingQueue<MessageExt> queue;
         private final long pollWaitMs;
+        // subscribed filter (set at subscribe time — D4); the push consumer pre-gets messages from
+        // the broker (subscribed with "*" in @BeforeAll), so this filter is applied client-side at poll.
+        private volatile DeliveryFilter filter;
+        private volatile String consumerServiceId;
 
         ResponseSideConsumer(LinkedBlockingQueue<MessageExt> queue, long pollWaitMs) {
             this.queue = queue;
@@ -386,8 +398,17 @@ class RealBrokerResponseSideIntegrationTest {
         }
 
         @Override
-        public Optional<BrokerInboundMessage> poll(String consumerServiceId, String tenantId,
-                                                   long nowMillisEpoch) {
+        public void subscribe(String consumerServiceId, ForwardingRouteHandle route, DeliveryFilter filter) {
+            this.consumerServiceId = consumerServiceId;
+            this.filter = Objects.requireNonNull(filter, "filter is required");
+        }
+
+        @Override
+        public Optional<BrokerInboundMessage> poll(long nowMillisEpoch) {
+            DeliveryFilter f = filter;
+            if (f == null) {
+                throw new IllegalStateException("polled before subscribe");
+            }
             long deadlineMs = nowMillisEpoch + pollWaitMs;
             while (true) {
                 long remaining = deadlineMs - System.currentTimeMillis();
@@ -404,13 +425,13 @@ class RealBrokerResponseSideIntegrationTest {
                 if (ext == null) {
                     return Optional.empty();
                 }
-                String msgTenant = ext.getProperty("tenantId");
-                // L2 §6.2 ⑤ header-tenant-check: a cross-tenant message is never returned.
-                if (!tenantId.equals(msgTenant)) {
+                // apply the subscribed filter client-side (D7 degrade; the push consumer subscribes
+                // with "*", so broker-side filtering is not in effect — supportsBrokerSidePropertyFilter=false).
+                if (!matchesFilter(ext, f)) {
                     continue;
                 }
                 return Optional.of(new BrokerInboundMessage(
-                        msgTenant,
+                        ext.getProperty("tenantId"),
                         ext.getProperty("messageId"),
                         ext.getProperty("sourceServiceId"),
                         ext.getProperty("targetServiceId"),
@@ -429,6 +450,26 @@ class RealBrokerResponseSideIntegrationTest {
         @Override
         public void reject(BrokerInboundMessage message, ForwardingFailureCode code) {
             // push consumer auto-acks; reject is observability-only (not modelled here).
+        }
+
+        @Override
+        public void close() {
+            // the push consumer is shut down in @AfterAll; per-instance no-op.
+        }
+
+        @Override
+        public boolean supportsBrokerSidePropertyFilter() {
+            return false; // push consumer subscribes with "*"; filtering is client-side at poll (D7 degrade)
+        }
+
+        private static boolean matchesFilter(MessageExt ext, DeliveryFilter f) {
+            for (Map.Entry<String, String> c : f.requiredProperties().entrySet()) {
+                String actual = ext.getProperty(c.getKey());
+                if (actual == null || !actual.equals(c.getValue())) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private static AgentBusEventType softEventType(String name) {

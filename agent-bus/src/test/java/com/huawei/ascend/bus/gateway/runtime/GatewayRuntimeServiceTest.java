@@ -4,11 +4,13 @@ import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerForwardin
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerForwardingRelayPort;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerInboundMessage;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerProduceOutcome;
+import com.huawei.ascend.bus.forwarding.runtime.transport.broker.DeliveryFilter;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.InMemoryBroker;
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxRecord;
+import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
 import com.huawei.ascend.bus.forwarding.spi.InvocationResponseStatus;
 import com.huawei.ascend.bus.forwarding.test.InMemoryForwardingOutbox;
 import com.huawei.ascend.bus.spi.ingress.IngressEnvelope;
@@ -199,6 +201,33 @@ class GatewayRuntimeServiceTest {
 
         assertThat(resp.status()).isEqualTo(IngressResponse.IngressStatus.ACCEPTED);
         assertThat(resp.cursor()).isEqualTo("t-1");
+    }
+
+    @Test
+    void accept_window_skips_cross_tenant_response_and_keeps_polling() {
+        // D13 response-side: the response consumer is subscribed with a targetServiceId-only broker
+        // filter, so a cross-tenant response (same targetServiceId, different tenant) is still
+        // delivered to the gateway. The gateway's client-side tenant check (Rule R-C.c) commits and
+        // skips it, then keeps polling for this request's own-tenant response. FakeConsumer does no
+        // broker-side filtering (supportsBrokerSidePropertyFilter=false), so the cross-tenant response
+        // reaches acceptWindow and exercises the client-side tenant gate directly.
+        FakeConsumer consumer = new FakeConsumer();
+        UUID requestId = UUID.randomUUID();
+        // cross-tenant (tenant-b) response with a MATCHING correlationId — must be skipped, not matched
+        consumer.queue.add(inbound("tenant-b", "resp-x", RUNTIME, requestId.toString(),
+                AgentBusEventType.INVOCATION_RESPONSE, "taskId=t-x;status=snapshot"));
+        // then the in-tenant matching response
+        consumer.queue.add(inbound(TENANT, "resp-1", RUNTIME, requestId.toString(),
+                AgentBusEventType.INVOCATION_RESPONSE, "taskId=t-1;status=snapshot"));
+        GatewayRuntimeService gw = newGateway(consumer);
+
+        IngressResponse resp = gw.acceptWindow(requestId, TENANT);
+
+        assertThat(resp.status()).isEqualTo(IngressResponse.IngressStatus.ACCEPTED);
+        // cursor is the in-tenant taskId (t-1), NOT the cross-tenant one (t-x) — proves the skip
+        assertThat(resp.cursor()).isEqualTo("t-1");
+        // both responses were consumed (queue drained); the cross-tenant one was not stranded
+        assertThat(consumer.queue).isEmpty();
     }
 
     @Test
@@ -526,7 +555,7 @@ class GatewayRuntimeServiceTest {
                                             BrokerForwardingRelayPort relay,
                                             BrokerForwardingConsumerPort consumer) {
         return new GatewayRuntimeService(outbox, claimOutbox, relay, consumer,
-                GATEWAY, GATEWAY, ACCEPT_TIMEOUT_MS, RESPONSE_TIMEOUT_MS, () -> NOW);
+                GATEWAY, ACCEPT_TIMEOUT_MS, RESPONSE_TIMEOUT_MS, () -> NOW);
     }
 
     private ForwardingEnvelope dispatch(IngressEnvelope.IngressRequestType type) {
@@ -556,9 +585,15 @@ class GatewayRuntimeServiceTest {
         InMemoryForwardingOutbox gatewayOutbox = new InMemoryForwardingOutbox();
         InMemoryForwardingOutbox runtimeOutbox = new InMemoryForwardingOutbox();
         TestAgentRuntime runtime = new TestAgentRuntime(broker, runtimeOutbox, RUNTIME, TENANT);
+        // the gateway's response consumer: a per-consumer double subscribed to receive responses
+        // targeted at the gateway (targetServiceId == GATEWAY), within TENANT. The runtime's own
+        // request consumer is subscribed inside TestAgentRuntime; both share the one broker.
+        BrokerForwardingConsumerPort responseConsumer = broker.consumerFor(GATEWAY);
+        responseConsumer.subscribe(GATEWAY, new ForwardingRouteHandle("gateway-" + GATEWAY, TENANT),
+                DeliveryFilter.forRuntime(TENANT, GATEWAY));
         GatewayRuntimeService gateway = new GatewayRuntimeService(
-                gatewayOutbox, gatewayOutbox, broker, broker,
-                GATEWAY, GATEWAY, ACCEPT_TIMEOUT_MS, RESPONSE_TIMEOUT_MS, () -> NOW);
+                gatewayOutbox, gatewayOutbox, broker, responseConsumer,
+                GATEWAY, ACCEPT_TIMEOUT_MS, RESPONSE_TIMEOUT_MS, () -> NOW);
         return new E2eFixture(broker, gatewayOutbox, runtimeOutbox, runtime, gateway);
     }
 
@@ -583,7 +618,11 @@ class GatewayRuntimeServiceTest {
     static final class FakeConsumer implements BrokerForwardingConsumerPort {
         final Deque<BrokerInboundMessage> queue = new ArrayDeque<>();
         @Override
-        public Optional<BrokerInboundMessage> poll(String consumerServiceId, String tenantId, long nowMillisEpoch) {
+        public void subscribe(String consumerServiceId, ForwardingRouteHandle route, DeliveryFilter filter) {
+            // pre-loaded fake: the queue is hand-loaded per test; no real subscription / filtering.
+        }
+        @Override
+        public Optional<BrokerInboundMessage> poll(long nowMillisEpoch) {
             return Optional.ofNullable(queue.poll());
         }
         @Override
@@ -593,6 +632,14 @@ class GatewayRuntimeServiceTest {
         @Override
         public void reject(BrokerInboundMessage message, ForwardingFailureCode code) {
             // no-op
+        }
+        @Override
+        public void close() {
+            // no-op
+        }
+        @Override
+        public boolean supportsBrokerSidePropertyFilter() {
+            return false; // pre-loaded fake does no broker-side filtering
         }
     }
 

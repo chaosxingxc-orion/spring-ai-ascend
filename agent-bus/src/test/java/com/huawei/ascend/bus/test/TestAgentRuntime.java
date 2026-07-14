@@ -1,8 +1,10 @@
 package com.huawei.ascend.bus.test;
 
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerControlDescriptor;
+import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerForwardingConsumerPort;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerForwardingRelayPort;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerInboundMessage;
+import com.huawei.ascend.bus.forwarding.runtime.transport.broker.DeliveryFilter;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.InMemoryBroker;
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
@@ -123,6 +125,7 @@ public final class TestAgentRuntime {
     }
 
     private final InMemoryBroker broker;
+    private final BrokerForwardingConsumerPort consumer;
     private final InMemoryForwardingOutbox outbox;
     private final String consumerServiceId;
     private final String tenantId;
@@ -137,6 +140,14 @@ public final class TestAgentRuntime {
         this.outbox = Objects.requireNonNull(outbox, "outbox is required");
         this.consumerServiceId = requireNonBlank(consumerServiceId, "consumerServiceId");
         this.tenantId = requireNonBlank(tenantId, "tenantId");
+        // Subscribe this runtime's consumer once at construction: receive only REQUEST events
+        // targeted at this runtime (targetServiceId == consumerServiceId), within its tenant.
+        // The route is a placeholder — the in-memory double scans every topic; a real adapter
+        // (decision §7) resolves the route to the request topic(s) and may accumulate multi-route.
+        this.consumer = broker.consumerFor(consumerServiceId);
+        this.consumer.subscribe(consumerServiceId,
+                new ForwardingRouteHandle("runtime-" + consumerServiceId, tenantId),
+                DeliveryFilter.forRuntime(tenantId, consumerServiceId));
     }
 
     /** Test-only: switch the response behaviour for subsequent REQUESTED events. */
@@ -169,7 +180,7 @@ public final class TestAgentRuntime {
      */
     public synchronized ProcessingOutcome pollAndProcess(long nowMillisEpoch) {
         while (true) {
-            Optional<BrokerInboundMessage> polled = broker.poll(consumerServiceId, tenantId, nowMillisEpoch);
+            Optional<BrokerInboundMessage> polled = consumer.poll(nowMillisEpoch);
             if (polled.isEmpty()) {
                 return new ProcessingOutcome(ProcessingOutcome.Outcome.IDLE, null, null, List.of());
             }
@@ -180,12 +191,12 @@ public final class TestAgentRuntime {
             AgentBusEventType eventType = softEventType(msg.payloadRef());
             if (eventType == null || !isRequestType(eventType)) {
                 // own responses / control echoes — commit (advance our offset) and keep polling
-                broker.commit(msg);
+                consumer.commit(msg);
                 continue;
             }
             RequestDescriptor desc = decodeDescriptor(msg.payloadRef());
             List<ForwardingEnvelope> responses = processRequest(msg, desc, nowMillisEpoch);
-            broker.commit(msg);
+            consumer.commit(msg);
             String taskId = taskIdFor(desc.idempotencyKey()).orElse(null);
             return new ProcessingOutcome(ProcessingOutcome.Outcome.PROCESSED, msg.messageId(), taskId, responses);
         }
