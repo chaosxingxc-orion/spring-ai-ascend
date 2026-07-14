@@ -5,6 +5,7 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -168,6 +169,24 @@ class AgentBusForwardingSpiPurityTest {
                        + "double are pure Java, so this rule is vacuously green now and authorises "
                        + "the Stage 27+ RocketMQ adapter to confine its client there. Kafka / NATS "
                        + "remain fully forbidden (the project standardises on RocketMQ, Stage 25).")
+                .check(FORWARDING);
+    }
+
+    @Test
+    void rocketmq_broker_adapters_reside_in_the_broker_adapter_package() {
+        // D6 / §7 row5 (consumer-side completion): pin the concrete RocketMQ broker adapters
+        // (relay RocketMqBrokerForwardingRelay + consumer RocketMqBrokerForwardingConsumer, slice 2)
+        // to the transport.broker subpackage — the only package licensed for a concrete broker
+        // client (Stage 25/26 adopted-t4). Complements the import rule above (which confines
+        // rocketmq *dependencies* to transport.broker): this pins the adapter *classes*' location,
+        // catching an adapter scaffolded outside transport.broker even before it imports the client.
+        classes().that().resideInAPackage("com.huawei.ascend.bus.forwarding..")
+                .and().haveSimpleNameStartingWith("RocketMq")
+                .should().resideInAPackage("com.huawei.ascend.bus.forwarding.runtime.transport.broker..")
+                .because("D6 / §7 row5: the concrete RocketMQ broker adapters (relay + consumer) must "
+                       + "reside in transport.broker — the only package licensed for a concrete broker "
+                       + "client (Stage 25/26 adopted-t4). Complements the import rule above, which "
+                       + "confines rocketmq dependencies; this pins the adapter classes' location.")
                 .check(FORWARDING);
     }
 
