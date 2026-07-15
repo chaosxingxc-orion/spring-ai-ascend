@@ -4,14 +4,18 @@ import com.huawei.ascend.bus.forwarding.runtime.transport.ForwardingEndpointReso
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
+import org.apache.rocketmq.client.consumer.DefaultLitePullConsumer;
+import org.apache.rocketmq.client.consumer.MessageSelector;
 import org.apache.rocketmq.common.message.MessageExt;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -236,5 +240,99 @@ public final class RocketMqBrokerForwardingConsumer implements BrokerForwardingC
             clauses.add(key + " = '" + value.replace("'", "''") + "'");
         }
         return String.join(" AND ", clauses);
+    }
+
+    // ===== prod poller (live DefaultLitePullConsumer) — §6 D4: real-broker IT verifies, not a unit =====
+
+    /**
+     * Production {@link MessagePollerFactory} backed by a live {@link DefaultLitePullConsumer}.
+     * Per §3 lazy registration, the consumer is constructed when the factory is invoked at
+     * {@link #subscribe} (group={@code consumerServiceId} is known then, not at adapter construction —
+     * {@code DefaultLitePullConsumer} is group-bound in its constructor). The consumer is NOT started
+     * here — {@link DefaultLitePuller#subscribe} registers the (topic, bySql) subscription and starts
+     * the consumer on the first subscribe, so the FIRST subscription is registered BEFORE start (the
+     * push-consumer lifecycle RocketMQ expects); subsequent subscribes (multi-topic accumulate) update
+     * the subscription post-start (a rebalance picks them up). The real-broker round-trip is the
+     * env-guarded IT (slice 3 / §6 D4) — no unit test (a live broker is not a unit). Mirrors
+     * {@link RocketMqBrokerForwardingRelay#defaultSender}.
+     *
+     * @param nameserverAddr the RocketMQ nameserver address (e.g. {@code host:9876})
+     * @return a factory that, given a consumer-group, constructs (not starts) a {@link DefaultLitePullConsumer}
+     */
+    public static MessagePollerFactory defaultPollerFactory(String nameserverAddr) {
+        Objects.requireNonNull(nameserverAddr, "nameserverAddr is required");
+        if (nameserverAddr.isBlank()) {
+            throw new IllegalArgumentException("nameserverAddr must not be blank");
+        }
+        return consumerGroup -> {
+            DefaultLitePullConsumer consumer = new DefaultLitePullConsumer(consumerGroup);
+            consumer.setNamesrvAddr(nameserverAddr);
+            return new DefaultLitePuller(consumer);
+        };
+    }
+
+    /**
+     * {@link MessagePoller} over a {@link DefaultLitePullConsumer}. {@code subscribe} wraps the SQL92
+     * string in {@link MessageSelector#bySql} (D3 — bySql adapter-confined) and starts the consumer on
+     * the first call (subscribe-before-start — the first subscription is registered before start);
+     * {@code poll} blocks up to {@code timeoutMillis} for the next message (LitePull returns a batch —
+     * drained one-at-a-time so the adapter's per-message poll contract holds); {@code commit} is
+     * {@code commitSync} (model B ack-after-consume); {@code reject} does NOT commit (the broker
+     * redelivers); {@code close} shuts the consumer down (idempotent).
+     */
+    static final class DefaultLitePuller implements MessagePoller {
+        private final DefaultLitePullConsumer consumer;
+        private final Queue<MessageExt> drained = new LinkedList<>(); // LitePull batch → one-at-a-time drain
+        private volatile boolean started;
+
+        DefaultLitePuller(DefaultLitePullConsumer consumer) {
+            this.consumer = Objects.requireNonNull(consumer, "consumer is required");
+        }
+
+        @Override
+        public void subscribe(String topic, String sql92Expression) {
+            try {
+                // register the subscription BEFORE start on the first call (the push-consumer lifecycle
+                // RocketMQ expects; subscribe-after-start can miss the first rebalance → no queues assigned).
+                consumer.subscribe(topic, MessageSelector.bySql(sql92Expression));
+                if (!started) {
+                    started = true;
+                    consumer.start();
+                }
+            } catch (Exception e) {
+                throw new IllegalStateException("DefaultLitePullConsumer.subscribe/start failed topic=" + topic, e);
+            }
+        }
+
+        @Override
+        public Optional<MessageExt> poll(long timeoutMillis) {
+            if (drained.isEmpty()) {
+                List<MessageExt> batch = consumer.poll(timeoutMillis); // blocks up to timeout; null-safe
+                if (batch != null && !batch.isEmpty()) {
+                    drained.addAll(batch);
+                }
+            }
+            return Optional.ofNullable(drained.poll());
+        }
+
+        @Override
+        public void commit(MessageExt message) {
+            try {
+                consumer.commitSync(); // acks polled-but-uncommitted messages (model B ack-after-consume)
+            } catch (Exception e) {
+                throw new IllegalStateException("DefaultLitePullConsumer.commitSync failed", e);
+            }
+        }
+
+        @Override
+        public void reject(MessageExt message, ForwardingFailureCode code) {
+            // no native reject — do NOT commitSync → the broker redelivers (at-least-once); the code is
+            // recorded by the caller (observability), not re-passed to the broker.
+        }
+
+        @Override
+        public void close() {
+            consumer.shutdown(); // idempotent
+        }
     }
 }
