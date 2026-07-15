@@ -1,0 +1,22 @@
+sequenceDiagram
+  participant C as Client
+  participant GW as GatewayRuntimeService
+  participant B as RocketMQ broker
+  participant EB as EventBusRelayWorker (NEW)
+  participant RT as TestAgentRuntime / external runtime
+  participant CON as Gateway response consumer
+  C->>GW: POST /a2a (controller, NEW)
+  GW->>B: produce T_invocation_req (hop1)
+  B->>EB: poll T_invocation_req (NEW consumer)
+  EB->>EB: GOVERNANCE: inbox dedup + tenant + corr + audit
+  EB->>B: produce T_invocation_deliver (hop2, NEW — was unused)
+  B->>RT: poll T_invocation_deliver
+  RT->>RT: serve → produce response
+  RT->>B: produce T_invocation_resp_in (resp hop1)
+  B->>EB: poll T_invocation_resp_in (NEW)
+  EB->>EB: GOVERNANCE: dedup + corr + audit
+  EB->>B: produce T_invocation_resp_out (resp hop2, NEW)
+  B->>CON: poll T_invocation_resp_out
+  CON-->>GW: classify
+  GW-->>C: IngressResponse
+  Note over EB: relay governance now EXERCISED end-to-end (as-is: zero coverage)

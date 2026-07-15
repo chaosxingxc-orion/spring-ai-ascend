@@ -62,9 +62,25 @@ public final class InMemoryForwardingInbox implements ForwardingInboxPort {
     @Override
     public ForwardingStatus.Inbox markRejected(ForwardingMessageId id, String tenantId,
                                                String consumerServiceId, ForwardingFailureCode code) {
+        Objects.requireNonNull(id, "id is required");
+        Objects.requireNonNull(tenantId, "tenantId is required");
+        Objects.requireNonNull(consumerServiceId, "consumerServiceId is required");
         Objects.requireNonNull(code, "code is required for markRejected");
-        return mutate(id, tenantId, consumerServiceId,
-                ForwardingStateMachine.InboxEvent.REJECT, code);
+        // Mirrors JdbcForwardingInbox's upsert: a poison rejected BEFORE inbox.receive
+        // (EventBusRelayWorker.rejectPoison, governance decode/correlation failure) has no
+        // prior RECEIVED row, so markRejected INSERTs a REJECTED audit row directly; a prior
+        // RECEIVED row is UPDATEd to REJECTED; an already-terminal row is left untouched
+        // (idempotent). The next status is computed from RECEIVED + REJECT (always REJECTED).
+        ForwardingStatus.Inbox next = stateMachine.transitInbox(
+                ForwardingStatus.Inbox.RECEIVED, ForwardingStateMachine.InboxEvent.REJECT);
+        Key key = new Key(tenantId, id.value(), consumerServiceId);
+        Entry existing = store.get(key);
+        if (existing == null) {
+            store.put(key, new Entry(next, System.currentTimeMillis(), 0L, code));
+        } else if (existing.status() == ForwardingStatus.Inbox.RECEIVED) {
+            store.put(key, new Entry(next, existing.receivedAt(), existing.consumedAt(), code));
+        }
+        return next;
     }
 
     @Override

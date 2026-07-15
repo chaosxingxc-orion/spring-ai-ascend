@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>arch-driven · event-bus two-hop relay gap</title>
+<style>
+  :root{--add:#d4edda;--mod:#fff3cd;--rem:#ffe0e0;--leg:#ede9fe;--ink:#0f172a;--sub:#475569;--mut:#64748b;--line:#94a3b8;--frame:#3b82f6}
+  *{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;color:var(--ink);background:#f8fafc;line-height:1.45}
+  header{padding:18px 24px 10px;background:#fff;border-bottom:1px solid #e2e8f0}
+  h1{margin:0 0 4px;font-size:20px}header p{margin:0;color:var(--mut);font-size:13px}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;padding:8px 24px;background:#fff;border-bottom:1px solid #e2e8f0;font-size:12px}
+  .legend span{display:inline-flex;align-items:center;gap:6px;color:var(--sub)}
+  .sw{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #94a3b8}
+  .sw.add{background:var(--add);border-color:#16a34a}.sw.mod{background:var(--mod);border-color:#d97706}
+  .sw.rem{background:var(--rem);border-color:#c62828}.sw.uni{background:#fff;border-color:var(--frame)}
+  main{padding:16px 24px 60px}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  .stage{border:1px solid #cbd5e1;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
+  .stage h2{margin:0;padding:10px 14px;font-size:15px;border-bottom:1px solid #e2e8f0}
+  .stage.as-is h2{background:#f1f5f9}.stage.to-be h2{background:#ecfdf5}.stage.as-built h2{background:#f5f3ff}
+  .stage .desc{padding:10px 14px;font-size:12px;color:var(--sub);border-bottom:1px solid #f1f5f9}
+  .stage.as-built .desc{font-style:italic;color:var(--mut)}
+  .fig{padding:12px 14px;border-bottom:1px solid #f1f5f9}
+  .fig:last-child{border-bottom:none}
+  .fig h3{margin:0 0 8px;font-size:13px;color:var(--ink)}
+  .fig img{width:100%;height:auto;border:1px solid #e2e8f0;border-radius:6px;cursor:zoom-in;display:block}
+  .stage.as-built .fig img{opacity:.35;filter:grayscale(1);cursor:default}
+  .stage.as-built .fig{position:relative}
+  .stage.as-built .fig .ph{position:absolute;inset:12px 14px auto 14px;bottom:auto;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:12px;font-style:italic;text-align:center;padding:40px 0}
+  section.summary{margin-top:28px}
+  section.summary h2{font-size:16px;border-bottom:2px solid #e2e8f0;padding-bottom:6px}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0 24px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden}
+  th,td{padding:7px 10px;text-align:left;border-bottom:1px solid #f1f5f9;vertical-align:top}
+  th{background:#f8fafc;color:var(--sub);font-weight:600}tr:last-child td{border-bottom:none}
+  td.k{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:#1e293b}
+  .pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700}
+  .pill.add{background:var(--add);color:#14532d}.pill.mod{background:var(--mod);color:#7c5400}.pill.rem{background:var(--rem);color:#7f1d1d}
+  .tbd{color:var(--mut);font-style:italic}
+  a{color:#1d4ed8}
+  /* lightbox */
+  #lightbox{position:fixed;inset:0;background:rgba(15,23,42,.92);display:none;align-items:center;justify-content:center;z-index:50}
+  #lightbox.open{display:flex}
+  #lb-img{max-width:92vw;max-height:88vh;border:2px solid #fff;border-radius:4px;background:#fff;transform-origin:center center;cursor:grab;user-select:none}
+  #lb-img.drag{cursor:grabbing}
+  #lb-cap{position:absolute;top:14px;left:0;right:0;text-align:center;color:#e2e8f0;font-size:13px}
+  #lb-hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;color:#94a3b8;font-size:11px}
+</style>
+</head>
+<body>
+<header>
+  <h1>arch-driven · event-bus two-hop relay gap</h1>
+  <p>Change slug <code>event-bus-relay</code> · FEAT-013/014 two-hop governance relay · G1 code-driven (no docs/4plus1 baseline; drawn from code + L2 feat-013/014 spec) · G2 as-is · G3 decision tree · G4 to-be → <b>awaiting user sign-off</b> · G6 as-built pending implement.</p>
+</header>
+<div class="legend">
+  <span><i class="sw uni"></i>as-is uniform (before-change snapshot)</span>
+  <span><i class="sw add"></i>++ added</span>
+  <span><i class="sw mod"></i>~ modified</span>
+  <span><i class="sw rem"></i>-- legacy/removed</span>
+  <span style="color:var(--mut)">module type via [tag] + dashed group, never by fill</span>
+</div>
+<main>
+<div class="grid">
+  <!-- AS-IS -->
+  <div class="stage as-is">
+    <h2>G2 · as-is</h2>
+    <div class="desc">Single <code>AgentBusApplication</code> boots <b>only the registry plane</b>; the entire gateway+forwarding+broker substrate is unwired library code exercised solely by tests. <code>dispatchRequest</code> produces inline (sync). No consume→govern→re-produce relay. No repackage; docker-compose = RocketMQ-only.</div>
+    <div class="fig"><h3>module</h3><img src="as-is/rendered/module.svg" alt="as-is module" data-cap="as-is · module"></div>
+    <div class="fig"><h3>flow</h3><img src="as-is/rendered/flow.svg" alt="as-is flow" data-cap="as-is · flow"></div>
+    <div class="fig"><h3>sequence</h3><img src="as-is/rendered/sequence.svg" alt="as-is sequence" data-cap="as-is · sequence"></div>
+  </div>
+  <!-- TO-BE -->
+  <div class="stage to-be">
+    <h2>G4 · to-be (delta)</h2>
+    <div class="desc">Two process forms via Spring profiles (Q2a). <b>++ EventBusRelayWorker</b> (consume→govern→re-produce, reusing all substrate ports — Q1a). Governance-between-hops exercised (Q4a in-repo double). <b>++ spring-boot repackage + compose gateway/event-bus services</b> (Q3a). <code>T_invocation_deliver/resp_in/resp_out</code> wired. <code>-- A2aForwardingDeliveryPort</code> legacy.</div>
+    <div class="fig"><h3>module delta</h3><img src="to-be/rendered/module-delta.svg" alt="to-be module delta" data-cap="to-be · module delta"></div>
+    <div class="fig"><h3>flow delta</h3><img src="to-be/rendered/flow-delta.svg" alt="to-be flow delta" data-cap="to-be · flow delta"></div>
+    <div class="fig"><h3>sequence delta</h3><img src="to-be/rendered/sequence-delta.svg" alt="to-be sequence delta" data-cap="to-be · sequence delta"></div>
+  </div>
+  <!-- AS-BUILT placeholder -->
+  <div class="stage as-built">
+    <h2>G6 · as-built <span class="tbd">(pending implement)</span></h2>
+    <div class="desc">Redrawn from real code after G5 implement; diffed vs to-be. Placeholder until sign-off → implement.</div>
+    <div class="fig"><h3>module</h3><img src="as-is/rendered/module.svg" alt="as-built placeholder"><div class="ph">as-built module — G6</div></div>
+    <div class="fig"><h3>flow</h3><img src="as-is/rendered/flow.svg" alt="as-built placeholder"><div class="ph">as-built flow — G6</div></div>
+    <div class="fig"><h3>sequence</h3><img src="as-is/rendered/sequence.svg" alt="as-built placeholder"><div class="ph">as-built sequence — G6</div></div>
+  </div>
+</div>
+
+<section class="summary">
+  <h2>Planned file changes (G4 → G5 implement scope)</h2>
+  <table>
+    <tr><th>Δ</th><th>Path</th><th>What</th></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">agent-bus/.../forwarding/runtime/relay/EventBusRelayWorker.java</td><td>consume→govern→re-produce relay; reuses Inbox/Outbox/Relay/Consumer ports + state machine/retry/breaker (Q1a)</td></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">agent-bus/.../gateway/runtime/GatewayRuntimeConfiguration.java</td><td>@Profile(gateway) — wires GatewayRuntimeService + controller + response consumer</td></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">agent-bus/.../gateway/runtime/GatewayRuntimeController.java</td><td>POST /a2a (was S4-deferred)</td></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">agent-bus/.../forwarding/runtime/config/EventBusRelayConfiguration.java</td><td>@Profile(eventbus) — wires relay worker + JDBC inbox/outbox + registry</td></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">agent-bus/src/test/.../RealBrokerTwoHopRelayIntegrationTest.java</td><td>two-hop IT (in-repo TestAgentRuntime double; env-guarded) — nails governance semantics (Q4a)</td></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">agent-bus/pom.xml</td><td>spring-boot-maven-plugin &lt;repackage&gt; execution (fat-jar) (Q3a)</td></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">docker-compose.yml</td><td>gateway + event-bus services (SPRING_PROFILES_ACTIVE; depends_on RocketMQ)</td></tr>
+    <tr><td><span class="pill mod">~</span></td><td class="k">agent-bus/.../AgentBusApplication.java</td><td>single main unchanged; profiles select form (Q2a) — java -jar now works</td></tr>
+    <tr><td><span class="pill mod">~</span></td><td class="k">agent-bus/.../gateway/runtime/GatewayRuntimeService.java</td><td>becomes a wired bean; dispatchRequest hop1 produce path</td></tr>
+    <tr><td><span class="pill rem">--</span></td><td class="k">agent-bus/.../transport/a2a/A2aForwardingDeliveryPort.java</td><td>legacy T1 HTTP; replaced by broker pub/sub (retained for coexistence, not deleted)</td></tr>
+  </table>
+
+  <h2>G3 decision tree — as-built landed</h2>
+  <table>
+    <tr><th>Q</th><th>Chosen branch</th><th>Why (one line)</th><th>as-built landed</th></tr>
+    <tr><td>Q1 relay assembly</td><td><b>(a)</b> new EventBusRelayWorker from existing ports</td><td>existing worker is producer-shape (claim outbox→deliver); relay needs consume→govern→re-produce; reuse all substrate ports</td><td class="tbd">TBD (G6)</td></tr>
+    <tr><td>Q2 process split</td><td><b>(a)</b> Spring @Profile on single AgentBusApplication</td><td>minimal diff over ADR-0160 single main; idiomatic two-forms-from-one-codebase; env-var selects form</td><td class="tbd">TBD (G6)</td></tr>
+    <tr><td>Q3 deployment artifacts</td><td><b>(a)</b> spring-boot repackage + compose services</td><td>repackage is prereq for any java -jar; compose completes local two-process topology for the IT; per-form images deferred</td><td class="tbd">TBD (G6)</td></tr>
+    <tr><td>Q4 two-hop IT</td><td><b>(a)</b> in-repo TestAgentRuntime double, env-guarded</td><td>matches REQ-2026-001 release bar (in-repo double, external runtime parallel/not time-locked); closes zero-coverage gap</td><td class="tbd">TBD (G6)</td></tr>
+    <tr><td>G3.5 UI prototype</td><td>skipped</td><td>pure backend/runtime/deployment topology — no frontend template delta</td><td class="tbd">n/a</td></tr>
+  </table>
+
+  <h2>G6 diff vs to-be <span class="tbd">(pending implement)</span></h2>
+  <table>
+    <tr><th>Matched ✓</th><th>Drifted ⚠</th><th>Missing ✗</th><th>Surprise ⚠⚠</th></tr>
+    <tr><td class="tbd">TBD</td><td class="tbd">TBD</td><td class="tbd">TBD</td><td class="tbd">TBD</td></tr>
+  </table>
+  <p style="font-size:12px;color:var(--mut)">Implement scope (post sign-off) per handoff §3.4 sub-steps ②-⑥: assemble two-hop relay loop + symmetric response path → process split (Spring profile) → deployment artifacts (repackage + compose) → two-hop IT → coordinate external agent-runtime-java hop2. <b>Not a REQ-2026-001 release blocker</b> (release bar = InMemoryBroker CI gate + real RocketMQ env-guarded + TestAgentRuntime E2E; none require an independent relay process).</p>
+</section>
+</main>
+
+<div id="lightbox">
+  <div id="lb-cap"></div>
+  <img id="lb-img" src="" alt="">
+  <div id="lb-hint">click image or Esc to close · scroll to zoom · drag to move · ← → to navigate</div>
+</div>
+<script>
+(function(){
+  var imgs=Array.prototype.slice.call(document.querySelectorAll('.stage.as-is img[data-cap], .stage.to-be img[data-cap]'));
+  var lb=document.getElementById('lightbox'),lbImg=document.getElementById('lb-img'),lbCap=document.getElementById('lb-cap');
+  var idx=0,scale=1,ox=0,oy=0,dragX=0,dragY=0,dragging=false;
+  function show(i){idx=(i+imgs.length)%imgs.length;lbImg.src=imgs[idx].src;lbCap.textContent=imgs[idx].getAttribute('data-cap')||'';scale=1;ox=0;oy=0;apply();}
+  function apply(){lbImg.style.transform='translate('+ox+'px,'+oy+'px) scale('+scale+')';}
+  imgs.forEach(function(im,i){im.addEventListener('click',function(e){e.preventDefault();show(i);lb.classList.add('open');});});
+  lb.addEventListener('click',function(e){if(e.target===lb||e.target===lbCap){lb.classList.remove('open');}});
+  lbImg.addEventListener('wheel',function(e){e.preventDefault();scale*=(e.deltaY<0?1.15:0.87);scale=Math.max(0.3,Math.min(6,scale));apply();},{passive:false});
+  lbImg.addEventListener('mousedown',function(e){dragging=true;dragX=e.clientX-ox;dragY=e.clientY-oy;lbImg.classList.add('drag');});
+  window.addEventListener('mousemove',function(e){if(!dragging)return;ox=e.clientX-dragX;oy=e.clientY-dragY;apply();});
+  window.addEventListener('mouseup',function(){dragging=false;lbImg.classList.remove('drag');});
+  document.addEventListener('keydown',function(e){
+    if(!lb.classList.contains('open'))return;
+    if(e.key==='Escape'){lb.classList.remove('open');}
+    else if(e.key==='ArrowLeft'){show(idx-1);}
+    else if(e.key==='ArrowRight'){show(idx+1);}
+  });
+})();
+</script>
+</body>
+</html>

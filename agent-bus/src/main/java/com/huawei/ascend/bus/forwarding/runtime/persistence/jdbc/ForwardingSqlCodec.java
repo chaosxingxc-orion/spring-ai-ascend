@@ -1,5 +1,6 @@
 package com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc;
 
+import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingInboxRecord;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingLease;
@@ -79,13 +80,10 @@ final class ForwardingSqlCodec {
                 rs.getLong("updated_at"),
                 decodeFailureCode(rs.getString("last_failure_code")),
                 lease,
-                // correlationId: null for JDBC-loaded rows — V1/V2 DDL has no correlation_id column
-                // (FEAT-013 defers real JDBC wiring; the in-memory outbox path mirrors
-                // envelope.correlationId). Add a V3 migration + column read when FEAT-013 wires JDBC.
-                null,
-                // eventType: null for JDBC-loaded rows — V1/V2 DDL has no event_type column (FEAT-013
-                // defers real JDBC wiring; the in-memory outbox path mirrors envelope.eventType).
-                null);
+                // FEAT-013 V3: correlation_id recovered from the column (null for pre-FEAT-013 rows).
+                rs.getString("correlation_id"),
+                // FEAT-013 V3: event_type recovered → AgentBusEventType (null for pre-FEAT-013 rows).
+                decodeEventType(rs.getString("event_type")));
     }
 
     static ForwardingInboxRecord mapInbox(ResultSet rs) throws SQLException {
@@ -115,6 +113,18 @@ final class ForwardingSqlCodec {
         }
         throw new IllegalStateException(
                 "unknown forwarding failure_code wire value in db row: " + wire);
+    }
+
+    /**
+     * FEAT-013 V3: on-disk event_type → {@link AgentBusEventType} (null-safe, mirrors
+     * {@link #decodeFailureCode}'s "surface unknown loudly" stance). Null for
+     * pre-FEAT-013 / control-only rows.
+     */
+    static AgentBusEventType decodeEventType(String wire) {
+        if (wire == null || wire.isBlank()) {
+            return null;
+        }
+        return AgentBusEventType.valueOf(wire);
     }
 
     private static long nullableLongOrDefault(ResultSet rs, String column, long defaultValue)

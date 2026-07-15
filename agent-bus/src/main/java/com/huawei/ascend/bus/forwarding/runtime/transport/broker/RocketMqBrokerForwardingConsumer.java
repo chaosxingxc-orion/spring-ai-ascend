@@ -217,6 +217,30 @@ public final class RocketMqBrokerForwardingConsumer implements BrokerForwardingC
         return true;
     }
 
+    /**
+     * Test-only drain: poll + ack (commit) every queued message WITHOUT constructing a
+     * {@link BrokerInboundMessage} — clears malformed leftovers (a message missing the
+     * routing user-properties) that would otherwise throw in {@link #toInbound} and block
+     * the consumer's poll (the polled-but-unacked message would re-surface every poll).
+     * Production messages always carry the routing user-properties (the relay's
+     * {@code buildMessage} sets them unconditionally), so this is only needed to clear
+     * test-injected / prior-run residue on the shared broker topics. Package-private +
+     * not for production use.
+     */
+    void drainAll(long perPollTimeoutMs) {
+        if (poller == null) {
+            return;
+        }
+        long deadline = System.currentTimeMillis() + perPollTimeoutMs * 4;
+        while (System.currentTimeMillis() < deadline) {
+            Optional<MessageExt> ext = poller.poll(perPollTimeoutMs);
+            if (ext.isEmpty()) {
+                return; // trailing empty poll — queue drained for this consumer-group
+            }
+            poller.commit(ext.get()); // ack + drop (commitSync acks the polled batch)
+        }
+    }
+
     // ===== pure mapping (slice 2, unit-tested) =====
 
     /**

@@ -1,0 +1,13 @@
+flowchart TD
+  C([Client]) --> CTL["[++] GatewayRuntimeController POST /a2a"]
+  CTL --> GW["[~] GatewayRuntimeService.dispatchRequest<br/>enqueue gateway outbox → produce hop1"]
+  GW --> PRD1["relay.produce → broker T_invocation_req"]
+  PRD1 -. "hop1" .-> RELAYC["[++] EventBusRelayWorker: poll T_invocation_req"]
+  RELAYC --> GOV["[++] GOVERNANCE between hops<br/>Inbox dedup (ON CONFLICT) + tenant check<br/>+ correlation match + audit"]
+  GOV --> REP["[++] re-publish: outbox enqueue → relay.produce<br/>→ broker T_invocation_deliver"]
+  REP -. "hop2" .-> RT["TestAgentRuntime (in-repo double) / external agent-runtime<br/>poll T_invocation_deliver"]
+  RT --> RESPPROD["produce response → T_invocation_resp_in"]
+  RESPPROD -. "resp hop1" .-> RELAYR["[++] EventBusRelayWorker: poll T_invocation_resp_in<br/>+ governance (dedup / corr / audit)"]
+  RELAYR --> RESPREP["[++] re-publish → T_invocation_resp_out"]
+  RESPREP --> GWAW["[~] GatewayRuntimeService.acceptWindow<br/>poll T_invocation_resp_out → classify"]
+  GWAW --> DONE([return IngressResponse])

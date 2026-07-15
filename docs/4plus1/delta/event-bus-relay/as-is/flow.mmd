@@ -1,0 +1,21 @@
+flowchart TD
+  C([Client request]) --> GW["GatewayRuntimeService.routeClientRequest"]
+  GW --> DISP["dispatchRequest — SYNC inline :170<br/>'S4 adds the worker loop'"]
+  DISP --> ENQ["outbox.enqueue(envelope)"]
+  ENQ --> CLM["claimPort.claimDue(1)"]
+  CLM --> PRD["relay.produce(record) → broker T_invocation_req"]
+  PRD --> ACK["outbox.markAcked"]
+  ACK --> AW["acceptWindow — SYNC poll loop"]
+  AW --> POLL["responseConsumer.poll(now)"]
+  POLL -- "msg == null" --> DONE(["return UNKNOWN / ACCEPTED_WITH_TASK"])
+  POLL -- "self-own req (source==gw)" --> SKIP["commit + keep polling"]
+  POLL -- "cross-tenant (D13 client-side)" --> SKIP
+  POLL -- "corrId match" --> CLS["classify(eventType) → InvocationResponseStatus"]
+  CLS --> DONE2(["return IngressResponse"])
+
+  PRD -. "req on broker" .-> RT["TestAgentRuntime (TEST only)<br/>polls T_invocation_req DIRECTLY — no relay"]
+  RT -. "produces" .-> RESP["broker T_invocation_resp_out"]
+  RESP -. "polled by" .-> AW
+
+  WARN["⚠ NO event-bus relay hop<br/>⚠ T_invocation_deliver provisioned but UNUSED<br/>⚠ NO inbox dedup / tenant / correlation / audit BETWEEN hops"]
+  WARN -. "as-is gap" .-> PRD

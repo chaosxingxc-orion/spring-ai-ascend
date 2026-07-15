@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 760" font-family="Segoe UI,Arial,sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+    <marker id="arrD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+
+  <text x="20" y="30" fill="#0f172a" font-size="16" font-weight="bold">as-is · module view — agent-bus plane (event-bus-relay)</text>
+  <text x="20" y="50" fill="#64748b" font-size="11">uniform color = before-the-change snapshot · module type via [tag] + dashed group · NO delta palette</text>
+
+  <!-- RUNNING APP -->
+  <rect x="30" y="70" width="330" height="86" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="40" y="88" fill="#0f172a" font-size="12" font-weight="bold">[RUNNING APP] AgentBusApplication</text>
+  <rect x="48" y="98" width="294" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="56" y="117" fill="#0f172a" font-size="12" font-weight="bold">[SRV] Registry plane — 5 Spring beans</text>
+  <text x="56" y="134" fill="#475569" font-size="10">MvpRegistryController/Scheduler/Discovery + 2 @Configuration + 1 @Bean</text>
+
+  <!-- BROKER -->
+  <rect x="750" y="70" width="340" height="86" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="760" y="88" fill="#0f172a" font-size="12" font-weight="bold">[BROKER] external infra</text>
+  <rect x="760" y="98" width="320" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="768" y="117" fill="#0f172a" font-size="12" font-weight="bold">[BROKER] RocketMQ 5.3.1</text>
+  <text x="768" y="134" fill="#475569" font-size="10">8 topics provisioned by rocketmq-init (docker-compose)</text>
+
+  <!-- LIBRARY UNWIRED -->
+  <rect x="30" y="180" width="700" height="400" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="40" y="200" fill="#0f172a" font-size="12" font-weight="bold">[LIBRARY — UNWIRED: no Spring beans in forwarding/** or gateway/**]</text>
+  <!-- col1 -->
+  <rect x="48" y="212" width="300" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="56" y="231" fill="#0f172a" font-size="12" font-weight="bold">[SRV] GatewayRuntimeService</text>
+  <text x="56" y="248" fill="#475569" font-size="10">dispatchRequest sync :170 / acceptWindow (no @Component)</text>
+  <rect x="48" y="272" width="300" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="56" y="291" fill="#0f172a" font-size="12" font-weight="bold">[LIB] ForwardingDispatcherWorker + DispatchLoop</text>
+  <text x="56" y="308" fill="#475569" font-size="10">producer-shape: claim own outbox → deliver</text>
+  <rect x="48" y="332" width="300" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="56" y="351" fill="#0f172a" font-size="12" font-weight="bold">[LIB] StateMachine / CircuitBreaker</text>
+  <text x="56" y="368" fill="#475569" font-size="10">RetryPolicy / EpochClock</text>
+  <rect x="48" y="392" width="300" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="56" y="411" fill="#0f172a" font-size="12" font-weight="bold">[DB] JdbcForwardingOutbox / Inbox</text>
+  <text x="56" y="428" fill="#475569" font-size="10">+ ForwardingSqlCodec</text>
+  <rect x="48" y="452" width="300" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="56" y="471" fill="#0f172a" font-size="12" font-weight="bold">[LIB] A2aForwardingDeliveryPort</text>
+  <text x="56" y="488" fill="#475569" font-size="10">Stage-15 T1 HTTP push (to-be replaced)</text>
+  <!-- col2 -->
+  <rect x="400" y="212" width="300" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="408" y="231" fill="#0f172a" font-size="12" font-weight="bold">[PORT] forwarding SPI ports</text>
+  <text x="408" y="248" fill="#475569" font-size="10">Outbox/Inbox/OutboxClaim/Delivery/Dispatcher</text>
+  <rect x="400" y="272" width="300" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="408" y="291" fill="#0f172a" font-size="12" font-weight="bold">[PORT] BrokerForwardingRelayPort</text>
+  <text x="408" y="308" fill="#475569" font-size="10">+ RocketMqBrokerForwardingRelay (produce)</text>
+  <rect x="400" y="332" width="300" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="408" y="351" fill="#0f172a" font-size="12" font-weight="bold">[PORT] BrokerForwardingConsumerPort</text>
+  <text x="408" y="368" fill="#475569" font-size="10">+ RocketMqBrokerForwardingConsumer (consume, bySql/LitePull)</text>
+
+  <!-- TEST -->
+  <rect x="750" y="180" width="340" height="400" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="760" y="200" fill="#0f172a" font-size="12" font-weight="bold">[TEST — the ONLY wiring]</text>
+  <rect x="760" y="212" width="320" height="170" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="768" y="231" fill="#0f172a" font-size="12" font-weight="bold">[TEST] test doubles — the only constructors</text>
+  <text x="768" y="252" fill="#475569" font-size="10">• InMemoryBroker / InMemoryBrokerConsumer</text>
+  <text x="768" y="270" fill="#475569" font-size="10">• TestAgentRuntime (impl ConsumerPort + RelayPort)</text>
+  <text x="768" y="288" fill="#475569" font-size="10">• FakeConsumer / InMemoryForwardingDelivery</text>
+  <text x="768" y="306" fill="#475569" font-size="10">• RealBrokerResponseSideIntegrationTest</text>
+  <text x="768" y="324" fill="#475569" font-size="10">  (LitePull adapters — slice-3, 201f119c)</text>
+  <text x="768" y="346" fill="#475569" font-size="10">grep proof: new GatewayRuntimeService /</text>
+  <text x="768" y="362" fill="#475569" font-size="10">new DispatcherWorker / Loop only in tests</text>
+
+  <!-- DEPLOYMENT -->
+  <rect x="30" y="600" width="1060" height="130" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="40" y="620" fill="#0f172a" font-size="12" font-weight="bold">[DEPLOYMENT — as-is]</text>
+  <rect x="48" y="630" width="320" height="80" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="56" y="650" fill="#0f172a" font-size="12" font-weight="bold">docker-compose.yml</text>
+  <text x="56" y="668" fill="#475569" font-size="10">RocketMQ only: nameserver + broker</text>
+  <text x="56" y="684" fill="#475569" font-size="10">+ init (8 topics) · NO app containers</text>
+  <rect x="388" y="630" width="320" height="80" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="396" y="650" fill="#0f172a" font-size="12" font-weight="bold">Dockerfile (root)</text>
+  <text x="396" y="668" fill="#475569" font-size="10">builds agent-runtime plain-library</text>
+  <text x="396" y="684" fill="#475569" font-size="10">CMD java -version (library-carrier)</text>
+  <rect x="728" y="630" width="330" height="80" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="736" y="650" fill="#0f172a" font-size="12" font-weight="bold">pom.xml (root + agent-bus)</text>
+  <text x="736" y="668" fill="#475569" font-size="10">NO spring-boot-maven-plugin repackage</text>
+  <text x="736" y="684" fill="#475569" font-size="10">AgentBusApplication java -jar claim unfulfillable</text>
+
+  <!-- arrows -->
+  <!-- GW uses substrate (SPI/relay/consumer) -->
+  <line x1="348" y1="236" x2="400" y2="236" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="360" y="230" fill="#475569" font-size="9">uses</text>
+  <!-- A2A implements SPI -->
+  <path d="M348,476 C400,476 400,236 400,236" fill="none" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arrD)"/>
+  <text x="356" y="470" fill="#94a3b8" font-size="9">implements</text>
+  <!-- TEST constructs LIB -->
+  <line x1="750" y1="300" x2="700" y2="300" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrD)"/>
+  <text x="704" y="294" fill="#94a3b8" font-size="9">constructs (tests only)</text>
+  <!-- GW produce req -> broker -->
+  <path d="M198,212 C198,160 700,120 860,98" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="430" y="118" fill="#475569" font-size="10">① produce req → T_invocation_req</text>
+  <!-- broker -> TEST poll req direct -->
+  <line x1="920" y1="146" x2="920" y2="212" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="926" y="182" fill="#475569" font-size="10">② poll req (DIRECT — no relay)</text>
+  <!-- TEST -> broker produce resp -->
+  <path d="M760,300 C720,300 720,140 760,140" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="640" y="156" fill="#475569" font-size="10">③ produce resp → T_resp_out</text>
+  <!-- broker -> GW poll resp -->
+  <path d="M760,110 C500,110 250,160 198,212" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="300" y="170" fill="#475569" font-size="10">④ poll resp (acceptWindow)</text>
+
+  <text x="20" y="752" fill="#64748b" font-size="10">legend: [SRV] runtime · [LIB] library/POJO · [PORT] SPI port · [DB] persistence · [BROKER] infra · [TEST] test double · solid=sync flow · dashed=constructs/implements</text>
+</svg>

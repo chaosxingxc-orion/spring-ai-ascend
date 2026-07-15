@@ -105,3 +105,81 @@ services:
         until mqadmin updatetopic -n rocketmq-nameserver:9876 -c DefaultCluster -t ascend_bus_a2a_resp_out; do echo "[rocketmq-init]   retry ascend_bus_a2a_resp_out..."; sleep 3; done
         echo "[rocketmq-init] Done. Topic list:"
         mqadmin topicList -n rocketmq-nameserver:9876
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # G5-D (arch-driven decision-tree Q3a): the two agent-bus process forms + Postgres.
+  # The gateway form and the event-bus+registry form are the SAME agent-bus fat-jar
+  # (built by the spring-boot-maven-plugin <repackage> added in agent-bus/pom.xml),
+  # selected at launch by SPRING_PROFILES_ACTIVE (Q2a). Per-form container IMAGES are
+  # deferred (Q3a scoped to fat-jar + compose services); both services share one
+  # built image (ascend-agent-bus:local), differing only in the active profile.
+  # Flyway runs V1 (forwarding outbox/inbox) + V2 (registry) on startup.
+  # NOTE: docker CLI is unavailable in the build env (slice-4 precedent) — this YAML
+  # is not run-verified here; `docker compose up` builds + boots the stack elsewhere.
+  # ─────────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16.2
+    container_name: ascend-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agentbus
+      POSTGRES_USER: agentbus
+      POSTGRES_PASSWORD: agentbus
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentbus -d agentbus"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  gateway:
+    image: ascend-agent-bus:local
+    container_name: ascend-agent-bus-gateway
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM maven:3.9-eclipse-temurin-21 AS build
+        WORKDIR /build
+        COPY pom.xml ./
+        COPY agent-bus ./agent-bus
+        RUN mvn -B -ntp -pl agent-bus -am package -Dmaven.test.skip=true
+        FROM eclipse-temurin:21-jre
+        COPY --from=build /build/agent-bus/target/agent-bus-*.jar /app/agent-bus.jar
+        ENTRYPOINT ["java", "-jar", "/app/agent-bus.jar"]
+    environment:
+      SPRING_PROFILES_ACTIVE: gateway
+      ROCKETMQ_NAMESERVER: rocketmq-nameserver:9876
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agentbus
+      SPRING_DATASOURCE_USERNAME: agentbus
+      SPRING_DATASOURCE_PASSWORD: agentbus
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rocketmq-broker:
+        condition: service_started
+      rocketmq-init:
+        condition: service_completed_successfully
+
+  event-bus:
+    # Shares the ascend-agent-bus:local image built by the `gateway` service; only the
+    # active profile + container name differ. (Compose reuses a built image when only
+    # `image:` is referenced with no `build:` of its own.)
+    image: ascend-agent-bus:local
+    container_name: ascend-agent-bus-event-bus
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: eventbus
+      ROCKETMQ_NAMESERVER: rocketmq-nameserver:9876
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agentbus
+      SPRING_DATASOURCE_USERNAME: agentbus
+      SPRING_DATASOURCE_PASSWORD: agentbus
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rocketmq-broker:
+        condition: service_started
+      rocketmq-init:
+        condition: service_completed_successfully

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 840" font-family="Segoe UI,Arial,sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+    <marker id="arrD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+
+  <text x="20" y="30" fill="#0f172a" font-size="16" font-weight="bold">as-is · flow view — request/response control (event-bus-relay)</text>
+  <text x="20" y="50" fill="#64748b" font-size="11">single synchronous hop · governance-between-hops absent · uniform color (no delta)</text>
+
+  <!-- main column -->
+  <rect x="40" y="66" width="300" height="34" rx="16" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="190" y="88" text-anchor="middle" fill="#0f172a" font-size="12">Client request</text>
+
+  <rect x="40" y="118" width="300" height="40" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="190" y="142" text-anchor="middle" fill="#0f172a" font-size="12" font-weight="bold">GatewayRuntimeService.routeClientRequest</text>
+
+  <rect x="40" y="174" width="300" height="40" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="190" y="194" text-anchor="middle" fill="#0f172a" font-size="12">dispatchRequest — SYNC inline :170</text>
+  <text x="190" y="208" text-anchor="middle" fill="#475569" font-size="10">"S4 adds the worker loop"</text>
+
+  <rect x="40" y="230" width="300" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="190" y="252" text-anchor="middle" fill="#0f172a" font-size="12">outbox.enqueue(envelope)</text>
+
+  <rect x="40" y="280" width="300" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="190" y="302" text-anchor="middle" fill="#0f172a" font-size="12">claimPort.claimDue(1)</text>
+
+  <rect x="40" y="330" width="300" height="40" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="190" y="354" text-anchor="middle" fill="#0f172a" font-size="12">relay.produce(record)</text>
+  <text x="190" y="368" text-anchor="middle" fill="#475569" font-size="10">→ broker T_invocation_req</text>
+
+  <rect x="40" y="386" width="300" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="190" y="408" text-anchor="middle" fill="#0f172a" font-size="12">outbox.markAcked</text>
+
+  <rect x="40" y="436" width="300" height="40" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="190" y="460" text-anchor="middle" fill="#0f172a" font-size="12">acceptWindow — SYNC poll loop</text>
+
+  <rect x="40" y="492" width="300" height="40" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="190" y="516" text-anchor="middle" fill="#0f172a" font-size="12">responseConsumer.poll(now)</text>
+
+  <!-- branches -->
+  <rect x="40" y="560" width="150" height="50" rx="8" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="115" y="580" text-anchor="middle" fill="#0f172a" font-size="11">msg==null</text>
+  <text x="115" y="596" text-anchor="middle" fill="#475569" font-size="9">→ return UNKNOWN</text>
+
+  <rect x="395" y="560" width="150" height="50" rx="8" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="470" y="580" text-anchor="middle" fill="#0f172a" font-size="11">self / cross-tenant</text>
+  <text x="470" y="596" text-anchor="middle" fill="#475569" font-size="9">commit + keep polling</text>
+
+  <rect x="560" y="560" width="150" height="50" rx="8" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="635" y="580" text-anchor="middle" fill="#0f172a" font-size="11">corrId match</text>
+  <text x="635" y="596" text-anchor="middle" fill="#475569" font-size="9">→ classify</text>
+
+  <rect x="720" y="560" width="160" height="50" rx="8" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="800" y="580" text-anchor="middle" fill="#0f172a" font-size="11">classify(eventType)</text>
+  <text x="800" y="596" text-anchor="middle" fill="#475569" font-size="9">→ IngressResponse</text>
+
+  <!-- right-side test path -->
+  <rect x="560" y="330" width="320" height="64" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="720" y="352" text-anchor="middle" fill="#0f172a" font-size="12" font-weight="bold">TestAgentRuntime (TEST only)</text>
+  <text x="720" y="370" text-anchor="middle" fill="#475569" font-size="10">polls T_invocation_req DIRECTLY — no relay</text>
+  <text x="720" y="384" text-anchor="middle" fill="#475569" font-size="10">→ produceResponse</text>
+
+  <rect x="560" y="436" width="320" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="720" y="458" text-anchor="middle" fill="#0f172a" font-size="12">broker T_invocation_resp_out</text>
+
+  <!-- arrows main column -->
+  <line x1="190" y1="100" x2="190" y2="116" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="190" y1="158" x2="190" y2="172" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="190" y1="214" x2="190" y2="228" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="190" y1="264" x2="190" y2="278" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="190" y1="314" x2="190" y2="328" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="190" y1="370" x2="190" y2="384" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="190" y1="420" x2="190" y2="434" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="190" y1="476" x2="190" y2="490" stroke="#475569" stroke-width="1.6" marker-end="url(#arr)"/>
+  <!-- poll branches -->
+  <line x1="120" y1="532" x2="115" y2="558" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="260" y1="532" x2="470" y2="558" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="300" y1="532" x2="635" y2="558" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="635" y1="610" x2="760" y2="610" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <!-- skip loop back to poll -->
+  <path d="M395,585 C360,560 360,520 190,520 190,512" fill="none" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arrD)"/>
+  <text x="300" y="540" fill="#94a3b8" font-size="9">loop</text>
+  <!-- PRD -> RT (req on broker, dashed) -->
+  <line x1="340" y1="350" x2="558" y2="350" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrD)"/>
+  <text x="430" y="344" fill="#94a3b8" font-size="10">req on broker</text>
+  <!-- RT produce resp -> broker T_resp_out -->
+  <line x1="720" y1="394" x2="720" y2="434" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <!-- broker resp -> AW (polled by acceptWindow) -->
+  <path d="M558,453 C460,453 460,470 340,470" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrD)"/>
+  <text x="360" y="466" fill="#94a3b8" font-size="10">resp polled by acceptWindow</text>
+
+  <!-- WARN -->
+  <rect x="40" y="650" width="840" height="90" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="50" y="672" fill="#0f172a" font-size="12" font-weight="bold">as-is gap</text>
+  <text x="50" y="692" fill="#475569" font-size="11">• NO event-bus relay hop (consume→govern→re-produce component absent)</text>
+  <text x="50" y="710" fill="#475569" font-size="11">• T_invocation_deliver provisioned but UNUSED · governance (dedup/tenant/corr/audit) between hops = zero coverage</text>
+  <text x="50" y="728" fill="#475569" font-size="11">• gateway acceptWindow does client-side tenant/corr filter (deferred-#3 D13 drift), not broker-side relay governance</text>
+</svg>

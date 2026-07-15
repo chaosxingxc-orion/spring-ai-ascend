@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 680" font-family="Segoe UI,Arial,sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+    <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+
+  <text x="20" y="30" fill="#0f172a" font-size="16" font-weight="bold">as-is · sequence view — slice-3 IT (event-bus-relay)</text>
+  <text x="20" y="50" fill="#64748b" font-size="11">only end-to-end broker exercise · single hop · relay absent · uniform color (no delta)</text>
+
+  <!-- participant boxes -->
+  <g font-size="11" font-weight="bold" fill="#0f172a">
+    <rect x="30" y="66" width="110" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="4"/><text x="85" y="88" text-anchor="middle">Client</text>
+    <rect x="180" y="66" width="170" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="4"/><text x="265" y="88" text-anchor="middle">GatewayRuntimeService</text>
+    <rect x="390" y="66" width="150" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="4"/><text x="465" y="88" text-anchor="middle">RocketMqRelay</text>
+    <rect x="580" y="66" width="140" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="4"/><text x="650" y="88" text-anchor="middle">broker</text>
+    <rect x="760" y="66" width="150" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="4"/><text x="835" y="88" text-anchor="middle">TestAgentRuntime</text>
+  </g>
+  <!-- lifelines -->
+  <g stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 3">
+    <line x1="85" y1="100" x2="85" y2="600"/>
+    <line x1="265" y1="100" x2="265" y2="600"/>
+    <line x1="465" y1="100" x2="465" y2="600"/>
+    <line x1="650" y1="100" x2="650" y2="600"/>
+    <line x1="835" y1="100" x2="835" y2="600"/>
+  </g>
+
+  <g font-size="11" fill="#0f172a">
+    <!-- 1 C->GW -->
+    <line x1="85" y1="130" x2="263" y2="130" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="174" y="124" text-anchor="middle">routeClientRequest</text>
+    <!-- 2 GW self dispatch -->
+    <path d="M265,150 C320,150 320,168 267,168" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="335" y="162">dispatchRequest: enqueue→claim→produce→markAcked (SYNC)</text>
+    <!-- 3 GW->R produce -->
+    <line x1="267" y1="190" x2="463" y2="190" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="365" y="184" text-anchor="middle">produce(record)</text>
+    <!-- 4 R->B send req -->
+    <line x1="467" y1="215" x2="648" y2="215" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="557" y="209" text-anchor="middle">send T_invocation_req</text>
+    <!-- 5 GW self acceptWindow -->
+    <path d="M265,240 C320,240 320,258 267,258" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="335" y="252">acceptWindow: poll loop</text>
+    <!-- 6 RT->B poll req DIRECT -->
+    <line x1="833" y1="290" x2="652" y2="290" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="742" y="284" text-anchor="middle">poll T_invocation_req (DIRECT, LitePull)</text>
+  </g>
+  <!-- Note over broker: deliver unused -->
+  <rect x="556" y="310" width="190" height="34" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4 3" rx="4"/>
+  <text x="651" y="331" text-anchor="middle" fill="#475569" font-size="10">T_invocation_deliver provisioned, UNUSED</text>
+
+  <g font-size="11" fill="#0f172a">
+    <!-- 7 RT self produceResponse -->
+    <path d="M835,360 C880,360 880,378 837,378" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="895" y="372" fill="#475569" font-size="10">produceResponse</text>
+    <!-- 8 RT->B send resp -->
+    <line x1="833" y1="400" x2="652" y2="400" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="742" y="394" text-anchor="middle">send T_invocation_resp_out</text>
+    <!-- 9 GW poll -->
+    <path d="M265,430 C460,430 460,448 833,448" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="560" y="424" text-anchor="middle">gateway consumer poll(now) → T_invocation_resp_out</text>
+    <!-- 10 B->GW msg -->
+    <line x1="648" y1="478" x2="267" y2="478" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#arrR)"/>
+    <text x="455" y="472" text-anchor="middle">BrokerInboundMessage</text>
+    <!-- 11 GW self classify -->
+    <path d="M265,500 C320,500 320,518 267,518" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="335" y="512">classify(eventType) → IngressResponse</text>
+    <!-- 12 GW->C return -->
+    <line x1="263" y1="548" x2="87" y2="548" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#arrR)"/>
+    <text x="175" y="542" text-anchor="middle">IngressResponse</text>
+  </g>
+
+  <!-- final note -->
+  <rect x="180" y="580" width="610" height="34" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4 3" rx="4"/>
+  <text x="485" y="601" text-anchor="middle" fill="#475569" font-size="10">⚠ NO governance between hops (dedup/tenant/corr/audit) — relay absent, zero coverage</text>
+
+  <text x="20" y="660" fill="#64748b" font-size="10">solid = call · dashed = return/async · lifelines: Client · GatewayRuntimeService · RocketMqRelay · broker · TestAgentRuntime</text>
+</svg>

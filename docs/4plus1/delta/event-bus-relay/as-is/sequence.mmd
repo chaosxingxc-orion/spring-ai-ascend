@@ -1,0 +1,23 @@
+sequenceDiagram
+  participant C as Client
+  participant GW as GatewayRuntimeService
+  participant R as RocketMqBrokerForwardingRelay
+  participant B as RocketMQ broker
+  participant RT as TestAgentRuntime (test)
+  participant CON as RocketMqBrokerForwardingConsumer (gateway resp)
+  C->>GW: routeClientRequest
+  GW->>GW: dispatchRequest: enqueue→claim→produce→markAcked (SYNC)
+  GW->>R: produce(record)
+  R->>B: send T_invocation_req
+  GW->>GW: acceptWindow: poll loop
+  RT->>B: poll T_invocation_req (LitePull, DIRECT — no relay)
+  Note over B: T_invocation_deliver provisioned, UNUSED
+  RT->>RT: produceResponse
+  RT->>B: send T_invocation_resp_out
+  GW->>CON: poll(now)
+  CON->>B: poll T_invocation_resp_out
+  B-->>CON: BrokerInboundMessage
+  CON-->>GW: msg
+  GW->>GW: classify(eventType) → IngressResponse
+  GW-->>C: IngressResponse
+  Note over GW,B: ⚠ NO governance between hops (dedup/tenant/corr/audit) — relay absent, zero coverage

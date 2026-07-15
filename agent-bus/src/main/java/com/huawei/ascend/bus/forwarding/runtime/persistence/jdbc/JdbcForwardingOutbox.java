@@ -130,9 +130,10 @@ public final class JdbcForwardingOutbox implements ForwardingOutboxPort, Forward
             String sql = "INSERT INTO " + TABLE + " ("
                     + "tenant_id, message_id, source_service_id, target_service_id, route_handle, "
                     + "payload_ref, status, attempt_count, next_attempt_at, created_at, updated_at, "
-                    + "last_failure_code, lease_owner, lease_until) "
+                    + "last_failure_code, lease_owner, lease_until, correlation_id, event_type) "
                     + "VALUES (:tenantId, :messageId, :sourceServiceId, :targetServiceId, :routeHandle, "
-                    + ":payloadRef, :status, 0, NULL, :now, :now, NULL, NULL, NULL) "
+                    + ":payloadRef, :status, 0, NULL, :now, :now, NULL, NULL, NULL, "
+                    + ":correlationId, :eventType) "
                     + "ON CONFLICT (tenant_id, message_id) DO NOTHING";
             MapSqlParameterSource params = new MapSqlParameterSource()
                     .addValue("tenantId", envelope.tenantId())
@@ -142,7 +143,9 @@ public final class JdbcForwardingOutbox implements ForwardingOutboxPort, Forward
                     .addValue("routeHandle", envelope.routeHandle().value())
                     .addValue("payloadRef", envelope.payloadRef())
                     .addValue("status", status.name())
-                    .addValue("now", nowMillisEpoch);
+                    .addValue("now", nowMillisEpoch)
+                    .addValue("correlationId", envelope.correlationId())
+                    .addValue("eventType", envelope.eventType() == null ? null : envelope.eventType().name());
             jdbc.update(sql, params);
             // idempotent re-enqueue (ON CONFLICT DO NOTHING) still returns accepted.
             return ForwardingReceipt.accepted(envelope.messageId(), envelope.tenantId(), nowMillisEpoch);

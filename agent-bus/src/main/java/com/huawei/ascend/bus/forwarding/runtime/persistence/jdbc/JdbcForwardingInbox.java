@@ -32,13 +32,19 @@ import java.util.function.Supplier;
  *       is a first arrival ({@code RECEIVED}), zero is a duplicate
  *       ({@code DUPLICATE_SUPPRESSED}, stored entry untouched, matching the
  *       in-memory contract).</li>
- *   <li><b>terminal guarded mutation</b> — {@code markConsumed} /
- *       {@code markRejected} run {@code UPDATE ... WHERE status='RECEIVED'} so only a
- *       RECEIVED row may move terminal; zero rows is diagnosed (missing vs already
- *       terminal) and classified to match the in-memory double
- *       ({@code IllegalStateException} when absent,
+ *   <li><b>terminal guarded mutation</b> — {@code markConsumed} runs
+ *       {@code UPDATE ... WHERE status='RECEIVED'} so only a RECEIVED row may move
+ *       CONSUMED; zero rows is diagnosed (missing vs already terminal) and classified
+ *       to match the in-memory double ({@code IllegalStateException} when absent,
  *       {@code IllegalStateTransitionException} when already terminal). The next
  *       status is computed by {@link ForwardingStateMachine} before persisting.</li>
+ *   <li><b>poison-rejection audit (upsert)</b> — {@code markRejected} is an
+ *       <em>upsert</em> (INSERT REJECTED if no prior row, UPDATE RECEIVED→REJECTED if
+ *       present, idempotent on an already-terminal row): a governance poison
+ *       ({@code EventBusRelayWorker.rejectPoison}, fired before {@code receive}) is
+ *       audited as REJECTED without requiring a prior RECEIVED row. The conflict
+ *       branch's {@code WHERE status='RECEIVED'} guard preserves the "only RECEIVED →
+ *       terminal" invariant for the existing-row case.</li>
  * </ul>
  *
  * <h2>Stage 24 — transactional RLS wiring</h2>
@@ -128,8 +134,7 @@ public final class JdbcForwardingInbox implements ForwardingInboxPort {
                                                String consumerServiceId, ForwardingFailureCode code) {
         Objects.requireNonNull(code, "code is required for markRejected");
         long now = System.currentTimeMillis();
-        return withTenant(tenantId, () -> mutate(id, tenantId, consumerServiceId,
-                ForwardingStateMachine.InboxEvent.REJECT, code, now));
+        return withTenant(tenantId, () -> upsertRejected(id, tenantId, consumerServiceId, code, now));
     }
 
     @Override
@@ -217,6 +222,43 @@ public final class JdbcForwardingInbox implements ForwardingInboxPort {
         if (affected == 0) {
             classifyInboxFailure(id, tenantId, consumerServiceId, event);
         }
+        return next;
+    }
+
+    /**
+     * Upsert a REJECTED audit row (G5-E: poison-rejection audit). Unlike
+     * {@link #mutate}, {@code markRejected} is called by
+     * {@code EventBusRelayWorker.rejectPoison} for a governance failure (descriptor
+     * decode / correlation mismatch) that fires <em>before</em> {@code inbox.receive}
+     * — so there may be no prior RECEIVED row to UPDATE. The upsert INSERTs a REJECTED
+     * row directly when absent (the audit row for a poison that was never "received"
+     * as a processed message), UPDATEs a prior RECEIVED row to REJECTED, and is
+     * idempotent on an already-terminal row: the {@code WHERE status='RECEIVED'} guard
+     * on the conflict branch preserves the state machine's "only RECEIVED → terminal"
+     * invariant for the existing-row case, so a CONSUMED / DUPLICATE_SUPPRESSED row is
+     * left untouched. The next status is computed by {@link ForwardingStateMachine}
+     * from RECEIVED + REJECT (always REJECTED).
+     */
+    private ForwardingStatus.Inbox upsertRejected(ForwardingMessageId id, String tenantId,
+                                                  String consumerServiceId, ForwardingFailureCode code,
+                                                  long now) {
+        ForwardingStatus.Inbox next =
+                stateMachine.transitInbox(ForwardingStatus.Inbox.RECEIVED, ForwardingStateMachine.InboxEvent.REJECT);
+        String sql = "INSERT INTO " + TABLE + " ("
+                + "tenant_id, message_id, consumer_service_id, status, "
+                + "received_at, consumed_at, failure_code) "
+                + "VALUES (:tenantId, :messageId, :consumerServiceId, :next, :now, NULL, :failureCode) "
+                + "ON CONFLICT (tenant_id, message_id, consumer_service_id) DO UPDATE SET "
+                + "status = :next, failure_code = :failureCode, consumed_at = NULL "
+                + "WHERE " + TABLE + ".status = 'RECEIVED'";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("tenantId", tenantId)
+                .addValue("messageId", id.value())
+                .addValue("consumerServiceId", consumerServiceId)
+                .addValue("next", next.name())
+                .addValue("now", now)
+                .addValue("failureCode", code.wireCode());
+        jdbc.update(sql, params);
         return next;
     }
 

@@ -1,0 +1,51 @@
+graph TB
+  subgraph APP["[RUNNING APP] AgentBusApplication — single @SpringBootApplication, component-scan com.huawei.ascend.bus.."]
+    REGCTL["[SRV] MvpRegistryController @RestController"]
+    REGSCHED["[SRV] MvpHealthProbeScheduler @Component @Scheduled"]
+    REGDISC["[SRV] PgMvpDiscoveryServiceImpl @Service"]
+    REGCFG["[SRV] RegistrySchedulingConfig @Configuration @EnableScheduling + @Bean(scheduler)"]
+    REGOBS["[SRV] RegistryObservabilityConfig @Configuration"]
+  end
+
+  subgraph LIB["[LIBRARY — UNWIRED: no Spring beans anywhere in forwarding/** or gateway/**]"]
+    GW["[SRV] GatewayRuntimeService implements IngressGateway<br/>dispatchRequest sync :170 / acceptWindow"]
+    WORKER["[LIB] ForwardingDispatcherWorker<br/>producer-shape: claim own outbox → deliver"]
+    LOOP["[LIB] ForwardingDispatchLoop<br/>(TickSource + IdleStrategy)"]
+    STATE["[LIB] StateMachine / CircuitBreaker / RetryPolicy / EpochClock"]
+    SPI["[PORT] ForwardingOutbox/Inbox/OutboxClaim/Delivery/Dispatcher"]
+    JDBC["[DB] JdbcForwardingOutbox / JdbcForwardingInbox / SqlCodec"]
+    RELAY["[PORT] BrokerForwardingRelayPort + RocketMqBrokerForwardingRelay (produce)"]
+    CONS["[PORT] BrokerForwardingConsumerPort + RocketMqBrokerForwardingConsumer (consume)"]
+    A2A["[LIB] A2aForwardingDeliveryPort — Stage-15 T1 HTTP push (to-be replaced)"]
+  end
+
+  subgraph TEST["[TEST — the ONLY wiring of the substrate]"]
+    IMBROKER["[TEST] InMemoryBroker / InMemoryBrokerConsumer"]
+    TAR["[TEST] TestAgentRuntime (implements ConsumerPort + RelayPort)"]
+    FAKE["[TEST] FakeConsumer / InMemoryForwardingDelivery"]
+    IT["[TEST] RealBrokerResponseSideIntegrationTest (LitePull adapters)"]
+  end
+
+  BROKER["[BROKER] RocketMQ 5.3.1 — 8 topics provisioned by rocketmq-init"]
+
+  subgraph DEPLOY["[DEPLOYMENT — as-is]"]
+    COMPOSE["docker-compose.yml: nameserver + broker + init only<br/>(NO app containers)"]
+    DOCKER["Dockerfile: builds agent-runtime plain-library<br/>CMD java -version (library-carrier)"]
+    POM["pom.xml: NO spring-boot-maven-plugin repackage anywhere"]
+  end
+
+  APP -. "boots ONLY these beans" .-> REGCTL
+  GW --> SPI
+  GW --> RELAY
+  GW --> CONS
+  WORKER --> SPI
+  WORKER --> A2A
+  A2A -. "implements" .-> SPI
+  TEST -. "constructs" .-> GW
+  TEST -. "constructs" .-> WORKER
+  TEST -. "constructs" .-> RELAY
+  TEST -. "constructs" .-> CONS
+  GW ==>|produce req| BROKER
+  BROKER ==>|poll req (test, direct)| TAR
+  TAR ==>|produce resp| BROKER
+  BROKER ==>|poll resp| GW

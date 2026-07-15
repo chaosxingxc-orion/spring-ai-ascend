@@ -249,4 +249,31 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
+  <!--
+    FEAT-013/014 (arch-driven G5-D, decision-tree Q3a): spring-boot-maven-plugin
+    repackage so `mvn -pl agent-bus package` yields a runnable fat-jar. Until now this
+    module had NO <build> section at all — AgentBusApplication's documented
+    `java -jar agent-bus-*.jar` launch was unfulfillable (mvn package produced a plain
+    jar; only `spring-boot:run` booted it). The plugin version and the lombok <excludes>
+    configuration are inherited from the parent <pluginManagement> (root pom); this
+    declaration only adds the repackage execution. The two process forms (gateway /
+    event-bus+registry) are selected at launch by SPRING_PROFILES_ACTIVE — see the
+    @Profile-gated configs (G5-B) and the docker-compose gateway/event-bus services.
+  -->
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>

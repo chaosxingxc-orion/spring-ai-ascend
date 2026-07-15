@@ -1,0 +1,29 @@
+graph TB
+  subgraph GWPROC["[++] GATEWAY process — AgentBusApplication @Profile(gateway)"]
+    GWCFG["[++] GatewayRuntimeConfiguration<br/>@Profile(gateway)"]
+    GW["[~] GatewayRuntimeService (now a WIRED bean)"]
+    CTL["[++] GatewayRuntimeController POST /a2a<br/>(was S4-deferred)"]
+    GWCONS["[++] gateway response consumer<br/>(polls T_invocation_resp_out)"]
+  end
+  subgraph EBPROC["[++] EVENT-BUS+REGISTRY process — AgentBusApplication @Profile(eventbus)"]
+    EBCFG["[++] EventBusRelayConfiguration<br/>@Profile(eventbus)"]
+    RELAY["[++] EventBusRelayWorker + RelayLoop<br/>(consume → govern → re-produce)"]
+    INBOX["[~] JdbcForwardingInbox<br/>(now WIRED — dedup/govern)"]
+    OUTBOX["[~] JdbcForwardingOutbox (now WIRED)"]
+    REG["[·] registry plane (co-located, unchanged)"]
+  end
+  BROKER["[~] RocketMQ — ALL 8 topics now USED<br/>(deliver / resp_in / resp_out wired)"]
+  A2A["[--] A2aForwardingDeliveryPort<br/>(T1 HTTP — legacy, replaced by broker pub/sub)"]
+  subgraph DEPLOY["[++] DEPLOYMENT — to-be"]
+    REPKG["[++] agent-bus spring-boot repackage (fat-jar)"]
+    COMPOSE["[++] docker-compose: gateway + event-bus services"]
+  end
+  GWCFG --> GW
+  GWCFG --> CTL
+  GW --> BROKER
+  EBCFG --> RELAY
+  RELAY --> INBOX
+  RELAY --> OUTBOX
+  RELAY --> BROKER
+  BROKER --> RELAY
+  BROKER --> GWCONS
