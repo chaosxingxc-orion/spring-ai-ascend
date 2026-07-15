@@ -42,9 +42,9 @@ dependency:
 当前三个代码仓已经具备以下可复用事实：
 
 - `agent-runtime-java` 的 `A2aJsonRpcController` 已解析 `params.metadata`，`A2AProtocolAdapter` 已将其保存在 `ServeRequest.metadata`。
-- `A2AAgentExecutor` 已能把 interrupt chunk 投影为 `INPUT_REQUIRED`；当前工作分支补充了原始 `_interrupt` 在 Task status message 中的保存和 resume 恢复。
+- `A2AAgentExecutor` 已能把 interrupt chunk 投影为 `INPUT_REQUIRED`；`_interrupt` 在 Task status message 中的保存和 resume 恢复已在 `agent-runtime-java` 本地工作区实现，尚未提交或合入远端分支。
 - `agent-core-java` 的 ReActAgent 已支持 `beforeModelCall`、`beforeToolCall` rail、`ToolInterruptException`、字符串 resume 自动关联和 `_skip_tool` 结果回灌。
-- DeepAgent 内部持有 ReActAgent，`DeepAgent#getAgent()` 可定位实际执行模型和工具调用的内部 ReActAgent；内部 round 沿用外层 Session ID。
+- DeepAgent 内部持有 ReActAgent，`DeepAgent#getAgent()` 可定位实际执行模型和工具调用的内部 ReActAgent；启用 task-loop 时，DeepAgent 会把外层 `conversationId` 派生为 `conversationId + "_" + requestSeq` 的 request-level Session ID，内部 round 使用该派生 ID，而不是原始 A2A `conversationId`。
 - `agent-core-java` 的 `BaseAgent` 已公开 `registerRail()` / `unregisterRail()`；`JiuwenCoreAgentHandler#query()` 和 `streamQuery()` 都在当前调用栈内同步完成 Agent 执行，适合由扩展 Handler 在 `try/finally` 中管理请求级 rail 生命周期。
 - `agent-solution` 的 `RemoteA2aToolInstaller` 和 `RemoteA2aInterruptRail` 已提供“识别普通 ReActAgent/DeepAgent、复用 `BaseInterruptRail` 中断恢复”的参考模式。
 
@@ -53,7 +53,7 @@ dependency:
 1. **A2A Task 是唯一服务端状态 owner** — 端侧工具等待通过 `INPUT_REQUIRED` 表达，不新增私有结果提交端点或第二套 Task 状态机。
 2. **端侧工具是当前执行级上下文** — 工具定义只进入本次 `ModelCallInputs.tools`，不写入共享 `AbilityManager`、ResourceMgr、MCP 或 Skill Hub。
 3. **solution 扩展承载 AgentCore 适配** — `JiuwenCoreAgentExtHandler` 从 `ServeRequest.metadata` 构造请求级 `ClientToolRail`，无须修改 `JiuwenCoreAgentHandler`、Core Session/input 或 `agent-core-java`。
-4. **rail 按请求注册和注销** — 每次 `query/streamQuery` 创建一个携带不可变工具快照的 rail，执行前注册，`finally` 中注销；rail 用 Session ID 过滤共享 Agent 上的其他并发执行。
+4. **rail 按请求注册和注销** — 每次 `query/streamQuery` 创建一个携带不可变工具快照的 rail，执行前注册，`finally` 中注销；普通 ReActAgent 使用原始 `conversationId` 精确过滤，DeepAgent 首版同时识别原始 ID 和严格的数字派生后缀 ID。
 5. **结果是普通工具 observation** — client 通过 resume Message 的 TextPart 返回结果文本，ReActAgent 将其关联到已保存的 ToolCall，由 Agent 决定继续、降级、完成或失败。
 
 ### 1.4 子特性全景
@@ -64,9 +64,9 @@ dependency:
 | 请求级 rail 绑定 | 从 metadata 创建 rail，执行前注册、结束后注销 | `JiuwenCoreAgentExtHandler`, `ClientToolBinding` | ⬜ 计划中 |
 | 动态工具可见性 | 只向本次 `ModelCallInputs.tools` 添加 ToolInfo | `ClientToolRail#beforeModelCall` | ⬜ 计划中 |
 | 调用移交 | Session 过滤后复用基类，将端侧工具调用转换为 Core interrupt | `ClientToolRail#beforeToolCall`, `BaseInterruptRail` | ⬜ 计划中 |
-| Task 等待投影 | interrupt 转换为 A2A `INPUT_REQUIRED` | `A2AAgentExecutor`, `_interrupt` | ⚠️ 通用能力已存在，元数据保真改动待合入 |
+| Task 等待投影 | interrupt 转换为 A2A `INPUT_REQUIRED` | `A2AAgentExecutor`, `_interrupt` | ⚠️ 通用能力已存在；元数据保真改动已在 runtime 本地工作区实现，尚未提交或合入 |
 | 客户端结果回灌 | resume TextPart 由基类 rail 转成原 ToolCall observation | `BaseInterruptRail`, `ClientToolRail#resolveInterrupt` | ⬜ 计划中 |
-| ReActAgent / DeepAgent 覆盖 | 每次请求将 rail 绑定到实际执行的 ReActAgent | `ClientToolInstaller` | ⬜ 计划中 |
+| ReActAgent / DeepAgent 覆盖 | 每次请求将 rail 绑定到实际执行的 ReActAgent | `ClientToolInstaller` | ⚠️ ReActAgent 计划中；DeepAgent 首版使用派生 Session 规则适配，完整能力依赖第 11 章补强 |
 
 ---
 
@@ -86,7 +86,7 @@ dependency:
 | 成功结果回灌 | ⬜ | client 返回结果文本，rail 将其作为 ToolMessage 后继续 ReAct loop。 |
 | 拒绝与错误回灌 | ⬜ | client 返回明确的拒绝或错误文本，由 Agent 按 observation 处理。 |
 | ReActAgent 支持 | ⬜ | `ClientToolRail` 安装到 ReActAgent。 |
-| DeepAgent 支持 | ⬜ | 请求级 rail 安装到 `DeepAgent#getAgent()`，内部 round 通过相同 Session ID 命中。 |
+| DeepAgent 支持 | ⚠️ | 请求级 rail 安装到 `DeepAgent#getAgent()`，首版按 `conversationId` 或 `conversationId + "_" + 数字序号` 匹配内部 round；完整稳定关联及 task-loop interrupt 立即退出依赖第 11 章 Core/Runtime 后续补强。 |
 | 同一 Task 多轮调用 | ⬜ | 每次 resume 后允许再次产生新的端侧工具请求。 |
 
 ### 2.2 显式排除
@@ -176,6 +176,22 @@ runtime 复用当前 status message metadata 的 `_interrupt`，不新增平行�
 {
   "_interrupt": {
     "type": "__interaction__",
+    "index": 0,
+    "payload": {
+      "id": "call-123",
+      "value": {
+        "message": "Client tool invocation required: readCurrentPage",
+        "context": {
+          "_interrupt_kind": "client_tool",
+          "arguments": {
+            "selector": "#main"
+          }
+        },
+        "payloadSchema": {},
+        "toolCallId": "call-123",
+        "toolName": "readCurrentPage"
+      }
+    },
     "message": "Client tool invocation required: readCurrentPage",
     "toolCallId": "call-123",
     "toolName": "readCurrentPage",
@@ -188,6 +204,8 @@ runtime 复用当前 status message metadata 的 `_interrupt`，不新增平行�
   }
 }
 ```
+
+上述字段与 `JiuwenCoreAgentHandler#toInterruptData()` 当前输出一致：`index` 是 Core 流输出序号，`payload` 是原始 `InteractionOutput` 的保真投影；`message`、`context`、`toolCallId` 和 `toolName` 是从 `payload` 提升出的常用字段。client 应优先使用提升字段，不应依赖 `payload.value` 的内部 Java 对象序列化结构；`payload` 仅作为兼容、诊断和保真字段。
 
 client 通过阻塞响应、SSE status update 或 `GetTask` 观察同一结构。`_interrupt_kind=client_tool` 用于区别人工输入和远程 A2A delegate。
 
@@ -296,6 +314,8 @@ ClientToolRail extends BaseInterruptRail
 
 采用方案只扩展 solution。`beforeToolCall` 的存在是为了接入已有 rail 生命周期和增加 Session 隔离，不承载新的中断/恢复算法；真正的匹配、pending ToolCall 恢复、`_skip_tool` 和 ToolMessage 回灌仍由 `BaseInterruptRail` 完成。
 
+其中 Session guard 是 `ClientToolRail` 为请求级并发隔离新增的适配逻辑，并非复用 `RemoteA2aInterruptRail`；复用范围仅包括 `RemoteA2aToolInstaller` 的目标 Agent 解析模式，以及 guard 命中后 `BaseInterruptRail` 的既有中断恢复流程。
+
 #### 4.1.2 Handler 生命周期
 
 `JiuwenCoreAgentExtHandler` 不覆盖 `runnerSession()`，不改 Core input，也不把工具定义写入 Session env。它只在调用父类前从 `ServeRequest.metadata` 创建请求级绑定：
@@ -326,22 +346,44 @@ public QueryResponse query(ServeRequest request) {
 
 - `BaseAgent` 已公开 `registerRail()` 和 `unregisterRail()`。
 - `JiuwenCoreAgentHandler#query()` 同步返回最终结果或中断结果。
-- `JiuwenCoreAgentHandler#streamQuery()` 在当前调用栈内同步消费完整 Iterator，正常完成、中断、取消或异常后才返回。
+- `JiuwenCoreAgentHandler#streamQuery()` 在当前调用栈内同步消费 Iterator；DeepAgent 即使在 `deep-agent-stream-*` 后台线程生产数据，Handler 仍阻塞到 `postRun()` 写入 `END_FRAME`、发生取消或抛出异常后才返回。
 - `ClientToolBinding#close()` 只注销当前 rail 实例；`getTools()` 为空，因此不会增删 `AbilityManager` 中的 ToolCard。
 
 无 `clientTools` 且无 pending `client_tool` 中断时，`installForRequest()` 返回 no-op binding。
 
+#### 4.1.3 DeepAgent task-loop 中断边界
+
+DeepAgent 的异步生产本身不会使 `finally` 失效。正常中断退出链路为：
+
+```text
+runTaskLoop 返回
+  -> DeepAgent stream thread finally
+  -> effectiveSession.postRun()
+  -> StreamEmitter 写入 END_FRAME
+  -> JiuwenCoreAgentHandler 结束 Iterator 消费
+  -> JiuwenCoreAgentExtHandler finally
+  -> ClientToolBinding.close()
+```
+
+当前 Core 的实际缺口不在线程切换，而在 `DeepAgent#runTaskLoop()` 没有把 `roundResult.result_type=interrupt` 作为无条件退出当前 invocation 的控制信号：
+
+- 使用 HarnessFactory 自动注入的无 completion promise 默认 `TaskCompletionRail`，且没有已排队 follow-up 时，interrupt round 之后会标记本次 loop 完成并退出，以上生命周期成立。
+- 配置显式 completion promise，或 interrupt 时已经存在 follow-up 时，task-loop 可能继续下一 round，直到 completion promise、最大轮数或超时条件命中；client-tool interrupt 会延迟投影，且可能在 client 尚未提交结果时发生额外模型执行。
+- observer 主动取消会使 Handler 停止消费并注销 rail，但当前 DeepAgent 后台执行没有与该取消建立完整的协同终止契约；因此“Handler 已清理”不等价于“Core 后台执行已停止”。
+
+首版不在 Runtime 或 ExtHandler 中强行截断 Iterator。提前返回会导致 DeepAgent 后台线程仍在运行而请求级 rail 已注销，风险高于等待 Core 正常结束。通用修复应放在 Core，Runtime 在 Core 提供终止保证后再增加防御性停止消费和观测，详见第 11 章。
+
 ### 4.2 目标 Agent 与请求范围
 
-`ClientToolInstaller` 复用 `RemoteA2aToolInstaller` 的目标解析模式：
+`ClientToolInstaller` 复用 `RemoteA2aToolInstaller` 的目标解析模式，同时保留目标类型，供 Session guard 选择匹配规则：
 
 ```java
-BaseAgent resolve(Object agent) {
+ClientToolTarget resolve(Object agent) {
     if (agent instanceof BaseAgent baseAgent) {
-        return baseAgent;
+        return new ClientToolTarget(baseAgent, SessionMatchMode.EXACT);
     }
     if (agent instanceof DeepAgent deepAgent) {
-        return deepAgent.getAgent();
+        return new ClientToolTarget(deepAgent.getAgent(), SessionMatchMode.DEEP_AGENT_DERIVED);
     }
     throw new IllegalArgumentException("Unsupported agent type");
 }
@@ -352,7 +394,24 @@ BaseAgent resolve(Object agent) {
 - `visibleTools`：当前 `metadata.clientTools` 的完整工具定义，只供 `beforeModelCall` 注入。
 - `interceptToolNames`：`visibleTools` 名称，加上 runtime 从 pending `_interrupt` 恢复的客户端工具名，只供 `BaseInterruptRail` 匹配首次调用或 resume ToolCall。
 
-rail 同时保存 `request.getConversationId()`。普通 ReActAgent callback 和 DeepAgent 内部 ReAct round 都使用该 Session ID；每个钩子首先比较 `ctx.getSession().getSessionId()`，不属于当前请求则立即返回。
+rail 同时保存 `request.getConversationId()` 和 `SessionMatchMode`。每个钩子首先执行以下范围判断，不属于当前请求则立即返回：
+
+```java
+boolean belongsToCurrentRequest(AgentCallbackContext ctx) {
+    String sessionId = ctx.getSession().getSessionId();
+    if (sessionId.equals(conversationId)) {
+        return true;
+    }
+    if (matchMode != SessionMatchMode.DEEP_AGENT_DERIVED) {
+        return false;
+    }
+    Pattern derived = Pattern.compile(
+        "^" + Pattern.quote(conversationId) + "_[0-9]+$");
+    return derived.matcher(sessionId).matches();
+}
+```
+
+禁止使用无边界的 `startsWith(conversationId)`。数字后缀规则与 DeepAgent 当前 `requestLevelSessionId` 构造保持一致，可排除普通字符串前缀和非数字后缀误命中；但它仍依赖 Core 内部命名，也无法完全排除“某个 conversationId 恰好等于另一个 conversationId 的派生 ID”这类构造性碰撞。首版将其作为 solution-only 最小适配，稳定的 origin Session 标识列入第 11 章 Core 补强。
 
 ### 4.3 `beforeModelCall`：本次模型工具注入
 
@@ -425,6 +484,22 @@ ClientToolRail
   -> Task = INPUT_REQUIRED
 ```
 
+若服务启用了 `A2AEnabledServeOrchestrator`，中断在进入 `A2AAgentExecutor` 前还经过一次按 kind 分流：
+
+```text
+JiuwenCoreAgentHandler QueryChunk(type=interrupt)
+  -> A2AEnabledServeOrchestrator#handleInterrupt()
+     ├─ _interrupt_kind = a2a_delegate
+     │    -> handleA2ADelegate()，进入远程 A2A 委派闭环
+     └─ 其他 kind（client_tool / ask_user）
+          -> 原样 observer.onNext(interrupt)
+          -> observer.onComplete()
+          -> A2AAgentExecutor 接收 interrupt
+          -> requiresInput(statusMessage)
+```
+
+因此 `client_tool` 不会进入远程委派路径，而是穿透编排层交给当前 A2A client。当前编排器对所有非 `a2a_delegate` 中断使用 `forwarding ask_user interrupt` 日志文本，该文本对 `client_tool` 不够精确，但不影响路由和 Task 状态；日志语义清理不属于本特性功能改造范围。
+
 #### 4.5.2 resume
 
 `A2AAgentExecutor` 只在现有 Task 状态为 `INPUT_REQUIRED` 时执行 resume 逻辑，并从 Task status message 或 history 恢复 `_interrupt`：
@@ -468,23 +543,23 @@ try {
 }
 ```
 
-共享 Agent 并发执行时，注册到注销之间的 ToolCard 对所有 Task 可见；同名工具还会发生覆盖和误删。请求级 rail 的注册/注销不会注册 ToolCard，并按 Session ID 过滤 callback：
+共享 Agent 并发执行时，注册到注销之间的 ToolCard 对所有 Task 可见；同名工具还会发生覆盖和误删。请求级 rail 的注册/注销不会注册 ToolCard，并按目标类型对应的 Session 规则过滤 callback：
 
 ```text
 共享 ReActAgent
-  ├── ClientToolRail A(session=A, immutable tools A)
-  └── ClientToolRail B(session=B, immutable tools B)
+  ├── ClientToolRail A(origin=A, mode=EXACT/DEEP_AGENT_DERIVED, immutable tools A)
+  └── ClientToolRail B(origin=B, mode=EXACT/DEEP_AGENT_DERIVED, immutable tools B)
 
-Session A callback
+ReAct Session A 或 DeepAgent 派生 Session A_<数字> callback
   ├── rail A: 命中并处理
-  └── rail B: Session 不匹配，返回
+  └── rail B: origin/mode 不匹配，返回
 
-Session B callback
-  ├── rail A: Session 不匹配，返回
+ReAct Session B 或 DeepAgent 派生 Session B_<数字> callback
+  ├── rail A: origin/mode 不匹配，返回
   └── rail B: 命中并处理
 ```
 
-`AgentCallbackManager` 按 rail 实例记录 callback，`ClientToolBinding.close()` 只移除自己的注册。当前 Core interruption state 本身以 Session 为恢复边界，因此同一 Session 的并行 Agent 执行不在本特性并发承诺内；runtime 应维持同一 A2A context 的顺序执行约束。
+`AgentCallbackManager` 按 rail 实例记录 callback，`ClientToolBinding.close()` 只移除自己的注册。当前 Core interruption state 本身以 Session 为恢复边界，因此同一 Session 的并行 Agent 执行不在本特性并发承诺内；runtime 应维持同一 A2A context 的顺序执行约束。不同 contextId 之间还应增加“原始 ID 与另一请求派生 ID 碰撞”的测试；在 Core 提供稳定 origin Session 标识前，该极端碰撞属于已知限制。
 
 ### 4.8 安全与可观测性
 
@@ -514,7 +589,7 @@ Session B callback
 
 - `ClientToolRail` 与 `JiuwenCoreAgentExtHandler` 位于同一宿主 JVM。
 - request metadata 由 Handler 解析为请求级 rail 的不可变字段，不写入 Core Session 或 Agent 全局状态。
-- rail 只在当前 `query/streamQuery` 调用期间注册；正常返回、中断、取消和异常路径都在 `finally` 中注销。
+- rail 只在当前 `query/streamQuery` 调用期间注册；正常返回、中断、取消和异常路径都在 `finally` 中注销。对于 DeepAgent，interrupt 正常退出依赖 Core task-loop 结束并发送 `END_FRAME`；observer 取消当前只保证 Handler 侧注销，不保证后台 DeepAgent 已协同停止，后续补强见第 11 章。
 - pending `_interrupt` 随 A2A Task status message 进入当前 TaskStore；启用 Redis-backed TaskStore 时随 Task 一起保存。
 - Core 的 interruption state 仍由现有 Agent session/checkpointer 机制维护，本特性不新增持久化介质。
 
@@ -801,6 +876,9 @@ Client                 A2A Runtime              ExtHandler/Rail          ReAct/D
 |---|---|---|
 | 只支持 JSON-RPC A2A | REST query 无法声明或提交端侧工具 | 使用 `/a2a` |
 | 只支持 Agent 实例模式 | `JiuwenCoreAgentExtHandler` 不接受 agent-id string | 宿主显式提供 ReActAgent 或 DeepAgent 实例 |
+| DeepAgent Session 关联依赖数字后缀规则 | 首版 solution 需要按 `conversationId_[0-9]+` 识别内部 round，依赖 Core 当前命名且存在构造性 ID 碰撞可能 | 使用严格全串匹配并覆盖碰撞测试；后续由 Core 提供稳定 origin Session 标识 |
+| DeepAgent task-loop 不保证所有 completion policy 在 interrupt 后立即退出 | 显式 completion promise 或已排队 follow-up 可能使 Core 在 client 尚未恢复时继续 round，延迟 `INPUT_REQUIRED` | 首版按默认 task-loop 配置验收；通用修复在 Core 将 `result_type=interrupt` 设为当前 invocation 终止条件 |
+| DeepAgent observer 取消与后台执行未形成完整协同终止 | Handler 已返回并注销 rail 时，后台线程可能仍短暂运行 | 首版不以强制取消作为正常中断路径；Core 提供可取消执行句柄后由 Runtime 补充关闭和观测 |
 | 当前一次等待只保证一个端侧工具调用 | 同一模型响应并行产生多个 client tool call 时只保证单调用闭环 | 提示模型顺序调用；并行聚合另立增强项 |
 | 同一 Session 不支持并行 Agent 执行 | Core interruption state 和恢复点以 Session 为边界，并行执行会竞争同一上下文 | runtime 对同一 A2A context 顺序推进；不同 Session 可并发 |
 | 不提供服务端超时/取消策略 | client 长时间不提交时 Task 保持等待 | client 通过现有 Task/业务治理处理；后续独立设计 |
@@ -828,7 +906,7 @@ L1 已定义 `ServeRequest.metadata`、interrupt chunk、`INPUT_REQUIRED`、`Sen
 
 ### 9.3 L1 agent-core
 
-L1 已定义 core 负责工具调用意图、组件内部恢复点和结果消费，runtime 负责 Task 级恢复入口。本设计复用 rail 和 `InteractiveInput`，不让 core 依赖 A2A 或 TaskStore，符合依赖方向。
+L1 已定义 core 负责工具调用意图、组件内部恢复点和结果消费，runtime 负责 Task 级恢复入口。本设计复用 rail 和 `InteractiveInput`，不让 core 依赖 A2A 或 TaskStore，符合依赖方向。第 11 章建议的 origin Session、task-loop interrupt 终止和可取消 stream handle 都是通用 Core 执行契约补强，不引入 A2A 或 client-tool 业务依赖，因此不构成 L1 职责反转。
 
 ### 9.4 L1 agent-client
 
@@ -856,9 +934,9 @@ L1 已定义 client 不暴露 server-to-client webhook，而是从 Task 状态�
 | 文件/类 | 修改 |
 |---|---|
 | `JiuwenCoreAgentExtHandler` | `query/streamQuery` 前创建请求级绑定，`finally` 调用 `close()`；不覆盖 `runnerSession()` |
-| `ClientToolInstaller` | 解析 BaseAgent/DeepAgent 内部 ReActAgent，从当前工具视图与 pending interrupt 创建并注册 rail |
+| `ClientToolInstaller` | 解析 BaseAgent/DeepAgent 内部 ReActAgent，并保留 `EXACT` / `DEEP_AGENT_DERIVED` 匹配模式；从当前工具视图与 pending interrupt 创建并注册 rail |
 | `ClientToolBinding` | 保存 target + rail；幂等 `close()` 调用 `unregisterRail(exactRail)`；提供 no-op binding |
-| `ClientToolRail` | 继承 `BaseInterruptRail`；实现 `beforeModelCall`、Session 过滤型 `beforeToolCall` 和 `resolveInterrupt` |
+| `ClientToolRail` | 继承 `BaseInterruptRail`；实现 `beforeModelCall`、按目标类型选择的 Session 过滤、`beforeToolCall` 和 `resolveInterrupt`；DeepAgent 只接受原始 ID 或严格数字派生后缀 |
 | `ClientToolMetadataSupport` | 读取和校验 `clientTools`，读取 pending `_interrupt`，构造 visible tools 与 intercept names |
 | `AgentCoreExtAutoConfiguration` | 如需 Spring 注入 installer，则注册默认 Bean；无 client metadata 时保持 no-op |
 
@@ -871,15 +949,15 @@ L1 已定义 client 不暴露 server-to-client webhook，而是从 Task 状态�
 | metadata 校验 | `clientTools` 工具名、唯一性和 schema |
 | 大结果边界 | TextPart 只承载结果文本或对象引用摘要，不内联二进制内容 |
 | 请求级绑定 | 普通 ReActAgent 和 DeepAgent 内部 ReActAgent 执行前注册、完成后精确注销 |
-| 异常清理 | 正常、interrupt、cancel 和 exception 四条路径均调用 binding.close() |
+| 异常清理 | 正常、interrupt、cancel 和 exception 四条 Handler 路径均调用 binding.close()；另验证 DeepAgent 默认 interrupt 路径产生 `END_FRAME` 后再注销 |
 | rail 无全局工具 | `AbilityManager.listToolInfo()` 不出现动态 client tool |
 | beforeModelCall | 只追加本次 ToolInfo，下一 invocation 不残留 |
 | 名称冲突 | 不覆盖服务端工具或 Remote A2A 工具 |
-| beforeToolCall 范围过滤 | 非当前 Session 直接返回；当前 Session 调用 `super.beforeToolCall()` |
+| beforeToolCall 范围过滤 | ReActAgent 只精确匹配 conversationId；DeepAgent 匹配原始 ID 或 `Pattern.quote(conversationId) + "_[0-9]+"`；其他 Session 直接返回 |
 | 首次调用 | 基类命中工具名后，`resolveInterrupt` 产生 client_tool interrupt，包含 ID、名称、arguments |
 | resume 结果 | pending toolName 可重建拦截集合；基类把成功、拒绝和错误文本设置为 `_skip_tool` 和正确 ToolMessage |
-| 并发隔离 | 同一 Agent 上不同 Session A/B 不互相看见或拦截工具，含同名不同 schema 场景 |
-| DeepAgent 覆盖 | rail 注册到 `DeepAgent#getAgent()`，内部 ReAct round 使用相同 Session ID 命中 |
+| 并发隔离 | 同一 Agent 上不同 Session A/B 不互相看见或拦截工具，含同名不同 schema、普通前缀和原始 ID/派生 ID 构造性碰撞场景 |
+| DeepAgent 覆盖 | rail 注册到 `DeepAgent#getAgent()`；探针断言内部 callback 使用派生 Session ID，严格数字后缀 guard 能命中，精确原始 ID 假设不会再进入实现 |
 
 ### 10.4 Runtime 集成测试
 
@@ -891,16 +969,149 @@ L1 已定义 client 不暴露 server-to-client webhook，而是从 Task 状态�
 | resume 成功 | 使用原 taskId 提交结果 TextPart，Agent 继续并完成 |
 | resume 拒绝/错误 | 明确的拒绝/错误文本作为 observation 进入 Agent |
 | 多轮调用 | 同一 Task 可经历多次 client-tool 中断与恢复 |
-| ReAct/DeepAgent | 两类 Agent 走同一 A2A 契约 |
+| ReAct/DeepAgent | ReActAgent 与默认 task-loop 配置的 DeepAgent 走同一 A2A 契约；自定义 completion promise 场景作为第 11 章 Core 补强回归测试 |
 | Remote A2A 共存 | `a2a_delegate` rail 与 `client_tool` rail 不互相拦截 |
 | REST 回归 | REST query 行为和请求模型不发生变化 |
 
 ### 10.5 验收标准
 
 1. client 能通过 JSON-RPC A2A 声明本次端侧工具。
-2. ReActAgent 和 DeepAgent 的模型都只能看到当前 invocation 的工具。
+2. ReActAgent 和默认 task-loop 配置的 DeepAgent 都只能看到当前 invocation 的工具；DeepAgent 内部派生 Session 必须通过严格数字后缀 guard 命中。
 3. 端侧工具调用使原 Task 进入可查询的 `INPUT_REQUIRED`，参数和 `toolCallId` 完整可见。
 4. client 能用原 `message.taskId` 和结果 TextPart 提交成功、拒绝或错误说明并恢复 Agent，无需回传 toolCallId。
 5. 两个并发 Task 共用同一 Agent 实例时工具目录不串扰。
-6. 正常、interrupt、cancel 和 exception 后，请求级 rail 均已注销；运行期间和结束后 `AbilityManager` 均不包含动态端侧 ToolCard。
+6. 正常、interrupt、cancel 和 exception 后，Handler 请求级 rail 均已注销；DeepAgent 默认 interrupt 路径必须先结束 Iterator 再注销。运行期间和结束后 `AbilityManager` 均不包含动态端侧 ToolCard。
 7. 不新增 REST 入口、私有结果 endpoint、Runtime 公共 DTO 或 Core 代码修改。
+
+---
+
+## 11. Core 与 Runtime 后续补强
+
+本章记录为消除首版 solution 适配债务、完善 DeepAgent 通用中断语义而建议的后续框架改造，不并入本特性首版代码范围。两个问题的责任边界不同：派生 Session ID 本身不是 Core bug，但 Core 缺少稳定的父子 Session 关联契约；task-loop 收到 interrupt 后仍可能继续 round 则属于 Core 控制流缺口。Runtime 不是根因，但需要在 Core 明确终止契约后增加防御性处理和可观测性。
+
+### 11.1 问题与责任边界
+
+| 问题 | 当前事实 | 根因归属 | 首版处理 |
+|---|---|---|---|
+| DeepAgent callback Session 与 A2A conversationId 不同 | DeepAgent 使用 `conversationId + "_" + requestSeq` 创建 request-level Session，task-loop 和内部 ReAct round 均使用派生 ID | solution 原设计采用精确比较属于适配错误；Core 缺少稳定 origin Session 契约属于扩展能力不足，不把派生 ID 行为本身定义为 bug | solution 使用目标类型感知的严格数字后缀匹配 |
+| DeepAgent stream 使用后台线程 | Handler 消费的是阻塞 Iterator，`postRun()` 最终通过 `END_FRAME` 结束消费 | 线程切换本身不是 Core、Runtime 或 solution bug | 保留 Handler `try/finally` 生命周期 |
+| task-loop interrupt 后可能继续 round | `TaskLoopEventHandler` 已返回 `result_type=interrupt`，但 `DeepAgent#runTaskLoop()` 未无条件 break | Core 通用控制流缺口，影响 client-tool、ask_user、权限确认和 remote A2A 等所有 interrupt rail | 首版仅按默认 task-loop 配置验收；通用修复放在 Core |
+| observer 取消与 DeepAgent 后台执行不同步 | Runtime Handler 可停止消费并返回，但没有通用句柄确保后台 thread 已停止 | Core 缺少可取消执行契约；Runtime 缺少契约落地后的关闭和监控 | 首版不把取消作为正常中断闭环；后续按 11.4 顺序补强 |
+
+### 11.2 Core 补强一：稳定的 origin Session 标识
+
+#### 11.2.1 原因
+
+外部 `conversationId` 表示 A2A 会话边界，DeepAgent 的派生 Session ID 表示一次 request-level 执行边界，两者职责不同。当前只有字符串命名关系，没有显式父子关系，导致上层 rail、trace、审计或权限策略只能解析 `_数字` 后缀。该耦合会受 Core 命名重构影响，也无法彻底消除构造性 ID 碰撞。
+
+#### 11.2.2 建议方案
+
+在 Core Session 契约中增加稳定的根/来源 Session 标识，建议采用显式 API，而不是继续约定字符串格式：
+
+```java
+public interface Session {
+    String getSessionId();
+
+    default String getOriginSessionId() {
+        return getSessionId();
+    }
+}
+```
+
+DeepAgent 创建 request-level `effectiveSession` 和 inner streaming session 时，显式继承外层 `originSessionId`：
+
+```text
+A2A conversationId = ctx-1
+  -> outer Session: sessionId=ctx-1, originSessionId=ctx-1
+  -> DeepAgent effective Session: sessionId=ctx-1_17, originSessionId=ctx-1
+  -> inner ReAct Session: sessionId=ctx-1_17, originSessionId=ctx-1
+```
+
+随后 `ClientToolRail`、其他请求级 rail 和可观测组件统一精确比较 `getOriginSessionId()`；solution 删除 `DEEP_AGENT_DERIVED` 后缀解析。若不希望扩展 `Session` 接口，可在 `AgentSessionApi` 增加等价只读属性和统一解析帮助类，但不建议用普通业务 env key 作为长期公共契约。
+
+#### 11.2.3 Core 验证
+
+- invoke、stream、task-loop、inner streaming 四条路径都继承相同 origin Session ID。
+- request-level Session ID 仍保持每次执行唯一，不改变 task scheduler、event queue 和 coordinator 的隔离行为。
+- 外层与 effectiveSession 之间的 interruption state 复制不受影响。
+- 两个构造性碰撞 ID，例如 `ctx` 与 `ctx_1`，按 origin Session 精确隔离。
+
+### 11.3 Core 补强二：interrupt 终止当前 task-loop invocation
+
+#### 11.3.1 原因
+
+`TASK_INTERACTION` 表示当前执行必须等待外部输入。它与“任务完成”不同，但同样必须结束当前服务调用，不能继续消费 completion promise 或 follow-up。当前 `DeepAgent#runTaskLoop()` 已把 interrupt round 保存到 `rounds` 和 coordinator，却没有把它作为控制流终止条件。
+
+#### 11.3.2 建议修改
+
+在保存当前 round、usage 和 lastResult 之后，在 completion promise 和 follow-up 处理之前增加通用判断：
+
+```java
+coordinator.incrementIteration();
+coordinator.addTokenUsage(resolveTokenUsage(roundResult));
+coordinator.setLastResult(roundResult);
+
+if ("interrupt".equals(String.valueOf(roundResult.get("result_type")))) {
+    break;
+}
+```
+
+放在该位置可以同时保证：
+
+- interrupt round 被保留为 `final_result`；
+- `state`、usage 和 pending ToolCall 已写回；
+- 不错误满足或清空 completion promise；
+- interrupt 优先于已经排队的 follow-up，不允许在等待外部结果前继续模型执行；Core 需明确把 session-scoped follow-up 迁移到稳定 origin Session 队列、持久化到恢复状态或显式拒绝，不能静默丢弃，也不能在当前 invocation 继续消费；
+- `stopTaskLoopRuntime()`、外层状态复制、`postRun()` 和 `END_FRAME` 仍走现有 `finally`。
+
+不建议在 `TaskLoopEventHandler` 中把 interrupt 转换为 abort。`INPUT_REQUIRED` 是可恢复暂停，不是取消或失败；复用 abort 会污染 loop state 和外部状态语义。
+
+#### 11.3.3 Core 验证
+
+- 默认 `TaskCompletionRail`：interrupt 后只产生一个 round 并关闭流。
+- 显式 completion promise：未命中 promise 时仍立即返回 interrupt，不再继续模型调用。
+- 已排队 follow-up：interrupt 后不再发生额外模型调用；follow-up 按 Core 明确的迁移、持久化或拒绝策略处理，测试不得接受静默丢失。
+- invoke 与 stream 均保留完整 interruption state；stream 必须收到 `END_FRAME`。
+- client-tool、ask_user、权限 rail、remote A2A rail 使用同一通用测试矩阵。
+
+### 11.4 Core / Runtime 补强三：取消与流终止协同
+
+#### 11.4.1 Core 先提供可取消执行契约
+
+DeepAgent 当前返回普通阻塞 `Iterator`，调用方无法确认停止消费是否同时停止后台执行。建议 Core 提供 `AutoCloseable`/cancel-capable stream handle，或让统一 stream iterator 在 `close()` 时触发：
+
+```text
+requestAbort()
+  -> 停止当前 task-loop / scheduler task
+  -> stopTaskLoopRuntime()
+  -> 状态复制
+  -> postRun()
+  -> END_FRAME
+```
+
+取消必须幂等，并区分 client disconnect、显式 Task cancel 和正常 `INPUT_REQUIRED`，不得把 interrupt 当作 cancel。
+
+#### 11.4.2 Runtime 在 Core 契约完成后补强
+
+Runtime 后续建议修改如下：
+
+1. `JiuwenCoreAgentHandler#streamQuery()` 在 observer 取消或线程中断时关闭可取消 stream handle，并等待 Core 完成有限时清理后再返回。
+2. 收到 `QueryChunk.TYPE_INTERRUPT` 后将其视为当前 invocation 的终端业务事件；转发一次后不再接收普通 answer chunk。该逻辑必须建立在 Core 已保证 interrupt 结束执行的前提上，不能单独提前上线。
+3. `A2AEnabledServeOrchestrator` 保持仅 `a2a_delegate` 进入远程委派；把非 delegate 日志从 `forwarding ask_user interrupt` 改为包含实际 kind 的通用描述。
+4. 增加 `interrupt -> END_FRAME` 时延、interrupt 后额外 chunk 数量、取消清理超时和仍在运行的后台执行数等指标；出现 interrupt 后普通 chunk 或清理超时时告警。
+5. `A2AAgentExecutor` 增加防御性测试，确保首个 interrupt 已持久化为 `INPUT_REQUIRED` 后忽略重复终止事件，不把随后异常的 completion 覆盖为 `COMPLETED`。
+
+Runtime 不应自行解析 DeepAgent Session 后缀，也不应通过关闭 A2A event queue 假装 Core 已停止。Session lineage 和 task-loop 退出都属于 Core 内部执行语义，Runtime 只消费稳定契约并维护 A2A Task 状态。
+
+### 11.5 推荐实施顺序
+
+```text
+1. Core：interrupt 无条件结束当前 DeepAgent task-loop invocation
+2. Core：提供 origin Session ID，并让 effective/inner Session 继承
+3. agent-solution：ClientToolRail 改为精确匹配 origin Session，删除后缀解析
+4. Core：提供可取消 stream handle / 协同停止能力
+5. Runtime：接入 cancel/close、interrupt 终端防御、日志与指标
+6. 三仓集成测试：ReAct + DeepAgent，sync + stream，interrupt + resume + cancel
+```
+
+第 1 步是保证端侧工具中断正确性的核心修复，应优先于 Runtime 提前停止消费；第 2、3 步消除首版 Session 命名耦合；第 4、5 步解决取消和异常场景下的生命周期一致性。完成这些补强后，2.1 中 DeepAgent 支持状态可从“受限支持”调整为完整支持，并删除第 8 章对应临时限制。
