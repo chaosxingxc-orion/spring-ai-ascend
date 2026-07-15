@@ -213,6 +213,7 @@ client 通过阻塞响应、SSE status update 或 `GetTask` 观察同一结构�
 
 - **必须**：端侧工具等待时 Task 保持 `INPUT_REQUIRED`，不得标记为 `COMPLETED`。
 - **必须**：resume 只接受原 Task；结果文本自动关联到该 Task 唯一的 pending 客户端 ToolCall。
+- **必须**：`_interrupt_kind=client_tool` 的等待状态稳定包含非空 `toolName` 和 `toolCallId`。`toolName` 是 resume 未携带 `clientTools` 时重建 `interceptToolNames` 的必要字段；`toolCallId` 由 Core 用于关联 pending ToolCall，并供 Runtime/client 观察诊断，但 client 提交结果时仍无需回传。Runtime 不得持久化缺少 `toolName` 的不可恢复 `INPUT_REQUIRED` Task。
 - **必须**：动态工具只进入本次模型调用，不进入共享 `AbilityManager`；请求结束后临时 rail 必须注销。
 - **必须**：客户端拒绝和执行错误使用明确的 observation 文本回灌 Agent。
 - **禁止**：使用 TextPart 承载工具定义；工具定义只放在 `params.metadata.clientTools`。
@@ -516,7 +517,7 @@ SendMessage(message.taskId, message.parts[].text)
   -> BaseInterruptRail: reject(resumeInput) -> _skip_tool + ToolMessage
 ```
 
-已有 Task 但不是 `INPUT_REQUIRED` 时不得按 client-tool resume 处理。若 resume 未携带新的 `clientTools`，rail 仍用 pending toolName 完成结果回灌，但后续模型调用的端侧工具可见集合为空。终态 Task 的后续输入遵循 A2A SDK 的终态约束。
+已有 Task 但不是 `INPUT_REQUIRED` 时不得按 client-tool resume 处理。若 resume 未携带新的 `clientTools`，进入“注册但不注入”状态：`ClientToolRail` 仍需注册，`visibleTools` 为空，`interceptToolNames` 包含 pending `toolName`；因此 `beforeModelCall` 不注入端侧工具，`beforeToolCall` 仍能命中已保存的 pending ToolCall 并完成结果回灌。终态 Task 的后续输入遵循 A2A SDK 的终态约束。
 
 ### 4.6 Task 状态机
 
@@ -956,6 +957,7 @@ L1 已定义 client 不暴露 server-to-client webhook，而是从 Task 状态�
 | beforeToolCall 范围过滤 | ReActAgent 只精确匹配 conversationId；DeepAgent 匹配原始 ID 或 `Pattern.quote(conversationId) + "_[0-9]+"`；其他 Session 直接返回 |
 | 首次调用 | 基类命中工具名后，`resolveInterrupt` 产生 client_tool interrupt，包含 ID、名称、arguments |
 | resume 结果 | pending toolName 可重建拦截集合；基类把成功、拒绝和错误文本设置为 `_skip_tool` 和正确 ToolMessage |
+| resume 无 `clientTools` | binding/rail 仍注册；`visibleTools` 为空且 `interceptToolNames` 包含 pending toolName；`beforeModelCall` 不注入工具，`beforeToolCall` 仍完成 pending ToolCall 回灌 |
 | 并发隔离 | 同一 Agent 上不同 Session A/B 不互相看见或拦截工具，含同名不同 schema、普通前缀和原始 ID/派生 ID 构造性碰撞场景 |
 | DeepAgent 覆盖 | rail 注册到 `DeepAgent#getAgent()`；探针断言内部 callback 使用派生 Session ID，严格数字后缀 guard 能命中，精确原始 ID 假设不会再进入实现 |
 
@@ -1103,15 +1105,43 @@ Runtime 后续建议修改如下：
 
 Runtime 不应自行解析 DeepAgent Session 后缀，也不应通过关闭 A2A event queue 假装 Core 已停止。Session lineage 和 task-loop 退出都属于 Core 内部执行语义，Runtime 只消费稳定契约并维护 A2A Task 状态。
 
-### 11.5 推荐实施顺序
+### 11.5 Core / Runtime 补强四：client-tool 身份字段稳定契约
+
+#### 11.5.1 原因
+
+resume 未重新携带 `clientTools` 时，solution 依赖 Task 中保存的 `_interrupt.toolName` 重建 `interceptToolNames`。该字段当前由 Core 的 `ToolCallInterruptRequest.fromToolCall()` 从原始 ToolCall 填充，再由 Runtime 的 `JiuwenCoreAgentHandler#toInterruptData()` 提升到 `_interrupt` 顶层并随 Task 持久化。当前实现链路成立，但如果任一层改名、遗漏或只保留原始 `payload`，将产生已经进入 `INPUT_REQUIRED` 却无法重建 resume rail 的不可恢复 Task。
+
+#### 11.5.2 建议契约
+
+- Core：所有工具调用型 interrupt 必须使用 `ToolCallInterruptRequest`，并稳定填充非空 `toolCallId`、`toolName`；`fromToolCall()` 的字段语义作为兼容契约维护。
+- Runtime Adapter：对 `ToolCallInterruptRequest` 稳定提升 `_interrupt.toolCallId` 和 `_interrupt.toolName`，不得要求上层解析 `payload.value`。
+- A2A Task：进入 `INPUT_REQUIRED` 前校验 client-tool interrupt 的 `toolName`；缺失时应以明确错误结束当前执行，不得持久化不可恢复等待状态。
+- Resume：`toolName` 用于恢复 intercept 集合，`toolCallId` 继续由 Core pending interruption state 负责结果关联；client 无需回传这两个字段。
+
+#### 11.5.3 契约测试
+
+```text
+ToolCall
+  -> ToolCallInterruptRequest.fromToolCall()
+  -> InteractionOutput / OutputSchema
+  -> JiuwenCoreAgentHandler.toInterruptData()
+  -> Task status message metadata._interrupt
+  -> copyStoredInterrupt()
+  -> ClientToolInstaller pending toolName
+```
+
+测试应逐层断言 `toolCallId/toolName` 不丢失，并覆盖字段缺失时不进入 `INPUT_REQUIRED`。这属于 Core 与 Runtime 的跨仓兼容契约，不依赖 A2A client 的具体实现。
+
+### 11.6 推荐实施顺序
 
 ```text
 1. Core：interrupt 无条件结束当前 DeepAgent task-loop invocation
-2. Core：提供 origin Session ID，并让 effective/inner Session 继承
-3. agent-solution：ClientToolRail 改为精确匹配 origin Session，删除后缀解析
-4. Core：提供可取消 stream handle / 协同停止能力
-5. Runtime：接入 cancel/close、interrupt 终端防御、日志与指标
-6. 三仓集成测试：ReAct + DeepAgent，sync + stream，interrupt + resume + cancel
+2. Core / Runtime：固化 toolCallId/toolName 身份字段契约及跨仓测试
+3. Core：提供 origin Session ID，并让 effective/inner Session 继承
+4. agent-solution：ClientToolRail 改为精确匹配 origin Session，删除后缀解析
+5. Core：提供可取消 stream handle / 协同停止能力
+6. Runtime：接入 cancel/close、interrupt 终端防御、日志与指标
+7. 三仓集成测试：ReAct + DeepAgent，sync + stream，interrupt + resume + cancel
 ```
 
-第 1 步是保证端侧工具中断正确性的核心修复，应优先于 Runtime 提前停止消费；第 2、3 步消除首版 Session 命名耦合；第 4、5 步解决取消和异常场景下的生命周期一致性。完成这些补强后，2.1 中 DeepAgent 支持状态可从“受限支持”调整为完整支持，并删除第 8 章对应临时限制。
+第 1 步是保证端侧工具中断正确性的核心修复，应优先于 Runtime 提前停止消费；第 2 步防止产生不可恢复的 `INPUT_REQUIRED` Task；第 3、4 步消除首版 Session 命名耦合；第 5、6 步解决取消和异常场景下的生命周期一致性。完成这些补强后，2.1 中 DeepAgent 支持状态可从“受限支持”调整为完整支持，并删除第 8 章对应临时限制。
