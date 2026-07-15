@@ -1,0 +1,38 @@
+graph TB
+  subgraph GWPROC["[++] GATEWAY process — AgentBusApplication @Profile(gateway)"]
+    GWCFG["[++] GatewayRuntimeConfiguration<br/>@Profile(gateway)"]
+    GW["[~] GatewayRuntimeService (WIRED bean)<br/>dispatchRequest: outbox→claim→relay.produce hop1"]
+    CTL["[++] GatewayRuntimeController POST /a2a<br/>(ACCEPTED 202 / REJECTED 422 / DEFERRED 503)"]
+    GWCONS["[++] gateway response consumer<br/>polls T_invocation_resp_out<br/>(targetServiceId-only D13 filter)"]
+  end
+  subgraph EBPROC["[++] EVENT-BUS+REGISTRY process — AgentBusApplication @Profile(eventbus)"]
+    EBCFG["[++] EventBusRelayConfiguration<br/>@Profile(eventbus)"]
+    RELAYF["[++] EventBusRelayWorker (FORWARD)<br/>FORWARD_REQUEST_TYPES — poll T_invocation_req<br/>→ govern → re-publish T_invocation_deliver"]
+    RELAYR["[++] EventBusRelayWorker (RESPONSE)<br/>RESPONSE_TYPES — poll T_invocation_resp_in<br/>→ govern → re-publish T_invocation_resp_out"]
+    INBOX["[~] JdbcForwardingInbox<br/>markRejected = UPSERT (rejectPoison<br/>marks REJECTED before receive)"]
+    OUTBOX["[~] JdbcForwardingOutbox (WIRED)<br/>V3: correlation_id + event_type persisted"]
+    RES["[++] BrokerTopicResolver (convention<br/>ascend_bus_<route>_<suffix>)"]
+    REG["[·] registry plane (co-located, unchanged)"]
+  end
+  BROKER["[~] RocketMQ — ALL 8 topics USED<br/>(deliver / resp_in / resp_out wired)"]
+  A2A["[--] A2aForwardingDeliveryPort<br/>(T1 HTTP — legacy, replaced by broker pub/sub)"]
+  subgraph DEPLOY["[++] DEPLOYMENT — as-built"]
+    REPKG["[++] agent-bus spring-boot repackage (fat-jar)"]
+    COMPOSE["[++] docker-compose: gateway + event-bus services"]
+  end
+  GWCFG --> GW
+  GWCFG --> CTL
+  GW --> BROKER
+  EBCFG --> RELAYF
+  EBCFG --> RELAYR
+  RELAYF --> INBOX
+  RELAYF --> OUTBOX
+  RELAYF --> RES
+  RELAYF --> BROKER
+  RELAYR --> INBOX
+  RELAYR --> OUTBOX
+  RELAYR --> RES
+  RELAYR --> BROKER
+  BROKER --> RELAYF
+  BROKER --> RELAYR
+  BROKER --> GWCONS

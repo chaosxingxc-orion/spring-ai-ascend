@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 720" font-family="Segoe UI,Arial,sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+    <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="20" y="30" fill="#0f172a" font-size="16" font-weight="bold">to-be · sequence delta — two-hop governance relay (event-bus-relay)</text>
+  <text x="20" y="50" fill="#64748b" font-size="11">green box = NEW participant (EventBusRelayWorker) · green text = NEW message · closes slice-3 single-hop bypass</text>
+
+  <!-- participant boxes -->
+  <g font-size="11" font-weight="bold" fill="#0f172a">
+    <rect x="30" y="66" width="90" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="4"/><text x="75" y="88" text-anchor="middle">Client</text>
+    <rect x="150" y="66" width="180" height="34" fill="#fff3cd" stroke="#d97706" stroke-width="1.5" rx="4"/><text x="240" y="88" text-anchor="middle">GatewayRuntimeService ~</text>
+    <rect x="360" y="66" width="120" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="4"/><text x="420" y="88" text-anchor="middle">broker ~</text>
+    <rect x="510" y="66" width="200" height="34" fill="#d4edda" stroke="#16a34a" stroke-width="2" rx="4"/><text x="610" y="88" text-anchor="middle">EventBusRelayWorker ++ NEW</text>
+    <rect x="740" y="66" width="160" height="34" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="4"/><text x="820" y="88" text-anchor="middle">runtime (double/ext)</text>
+    <rect x="930" y="66" width="110" height="34" fill="#fff3cd" stroke="#d97706" stroke-width="1.5" rx="4"/><text x="985" y="88" text-anchor="middle">GW consumer ~</text>
+  </g>
+  <g stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 3">
+    <line x1="75" y1="100" x2="75" y2="640"/>
+    <line x1="240" y1="100" x2="240" y2="640"/>
+    <line x1="420" y1="100" x2="420" y2="640"/>
+    <line x1="610" y1="100" x2="610" y2="640"/>
+    <line x1="820" y1="100" x2="820" y2="640"/>
+    <line x1="985" y1="100" x2="985" y2="640"/>
+  </g>
+
+  <g font-size="11">
+    <line x1="75" y1="128" x2="238" y2="128" stroke="#16a34a" stroke-width="1.6" marker-end="url(#arr)"/>
+    <text x="156" y="122" text-anchor="middle" fill="#16a34a">POST /a2a (controller, NEW)</text>
+    <line x1="242" y1="158" x2="418" y2="158" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+    <text x="330" y="152" text-anchor="middle" fill="#0f172a">produce T_invocation_req (hop1)</text>
+    <line x1="422" y1="188" x2="608" y2="188" stroke="#16a34a" stroke-width="1.6" marker-end="url(#arr)"/>
+    <text x="515" y="182" text-anchor="middle" fill="#16a34a">poll T_invocation_req (NEW)</text>
+  </g>
+  <!-- governance self + note -->
+  <path d="M610,210 C660,210 660,228 612,228" fill="none" stroke="#16a34a" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="668" y="222" fill="#16a34a" font-size="11">GOVERNANCE: dedup + tenant + corr + audit</text>
+  <line x1="608" y1="252" x2="422" y2="252" stroke="#16a34a" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="515" y="246" text-anchor="middle" fill="#16a34a" font-size="11">produce T_invocation_deliver (hop2, NEW)</text>
+  <line x1="422" y1="282" x2="818" y2="282" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="620" y="276" text-anchor="middle" fill="#0f172a" font-size="11">poll T_invocation_deliver</text>
+  <path d="M820,304 C880,304 880,322 822,322" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="888" y="316" fill="#475569" font-size="11">serve → response</text>
+  <line x1="818" y1="346" x2="422" y2="346" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="620" y="340" text-anchor="middle" fill="#0f172a" font-size="11">produce T_invocation_resp_in (resp hop1)</text>
+  <line x1="422" y1="376" x2="608" y2="376" stroke="#16a34a" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="515" y="370" text-anchor="middle" fill="#16a34a" font-size="11">poll T_invocation_resp_in (NEW)</text>
+  <path d="M610,398 C660,398 660,416 612,416" fill="none" stroke="#16a34a" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="668" y="410" fill="#16a34a" font-size="11">GOVERNANCE: dedup + corr + audit</text>
+  <line x1="608" y1="440" x2="422" y2="440" stroke="#16a34a" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="515" y="434" text-anchor="middle" fill="#16a34a" font-size="11">produce T_invocation_resp_out (resp hop2, NEW)</text>
+  <line x1="422" y1="470" x2="983" y2="470" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="700" y="464" text-anchor="middle" fill="#0f172a" font-size="11">poll T_invocation_resp_out</text>
+  <line x1="983" y1="500" x2="242" y2="500" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#arrR)"/>
+  <text x="612" y="494" text-anchor="middle" fill="#475569" font-size="11">classify</text>
+  <line x1="238" y1="530" x2="77" y2="530" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#arrR)"/>
+  <text x="157" y="524" text-anchor="middle" fill="#475569" font-size="11">IngressResponse</text>
+
+  <rect x="430" y="560" width="360" height="34" fill="#d4edda" stroke="#16a34a" stroke-width="1.2" stroke-dasharray="4 3" rx="4"/>
+  <text x="610" y="581" text-anchor="middle" fill="#0f172a" font-size="11">relay governance now EXERCISED end-to-end (as-is: zero coverage)</text>
+  <text x="20" y="700" fill="#64748b" font-size="10">++ added · ~ modified · solid=call · dashed=return · NEW participant EventBusRelayWorker is the consume→govern→re-produce relay (Q1a)</text>
+</svg>

@@ -1,0 +1,13 @@
+# CLOSED — arch-driven event-bus-relay (FEAT-013/014)
+
+**Change:** the event-bus two-hop governance relay gap — a `consume→govern→re-produce` relay between the two RocketMQ hops (gateway→event-bus→agent-runtime, symmetric response path), wired as two Spring `@Profile` process forms on the single `AgentBusApplication`, deployable as a fat-jar + docker-compose services, verified by an in-repo two-hop IT. Delivered via the arch-driven loop (G1 code-driven → G2 as-is → G3 decision tree → G4 to-be signed off → G5 implement → G6 as-built → G7 close).
+
+**Signed off:** G4 to-be (`to-be/sign-off.md`, 2026-07-15) + G6 as-built (`as-built/sign-off.md`, 2026-07-15). G5-E `RealBrokerTwoHopRelayIntegrationTest` 4/4 green (broker env); full suite 434 green / 14 skip / 0 fail (no regression). The to-be deltas all landed (✓ Matched) — forward relay, @Profile two-form, fat-jar+compose, two-hop IT, BrokerTopicResolver, D13 gateway filter, tenant-only relay filters, SmartLifecycle subscribe.
+
+**Drifted + accepted:** (⚠ Drifted) the response-relay governance-mode — the to-be left it unpinned; the as-built adds a `relayableTypes` set (`FORWARD_REQUEST_TYPES`/`RESPONSE_TYPES`) + the response carries a descriptor symmetric to requests (both relays reuse the SAME governance). (⚠⚠ Surprise, FIXED) `JdbcForwardingInbox.markRejected` upsert (`rejectPoison` before `inbox.receive`) + V3 outbox `correlation_id`/`event_type` (V1 didn't persist them; the forward relay's correlation-match + the gateway's acceptWindow classify needed them). The happy-path drives hop1 via `sendHop1` (the gateway's `dispatchRequest` produce is verified ACCEPTED separately; a broker consumer-group queue-assignment quirk kept the shared `forwardRelayConsumer` from polling `gatewayProducer`'s hop1 in the test window — a test-isolation quirk, not a production defect).
+
+**ADR:** [ADR-0161](../../../adr/0161-event-bus-relay-deviation.md) records the accepted deviations + the new invariants (both relays share governance; `markRejected` is an upsert; the outbox persists corrId/eventType).
+
+**Artifacts:** `docs/4plus1/delta/event-bus-relay/` (scope, decision-tree, deviations, overview.html + as-is/to-be/as-built 三件套 + rendered SVGs + diff + sign-offs). Impl: `agent-bus/.../forwarding/runtime/relay/EventBusRelayWorker.java` + `gateway/runtime/{GatewayRuntimeConfiguration,EventBusRelayConfiguration,GatewayRuntimeController,AgentBusBrokerProperties}.java` + `transport/BrokerTopicResolver.java` + V3 migration + the IT. Committed `96901bd0` on `experimental` (push deferred).
+
+**NOT a REQ-2026-001 release blocker** (release bar = InMemoryBroker CI gate + real RocketMQ env-guarded + TestAgentRuntime E2E; none require the two-form Spring wiring to boot).

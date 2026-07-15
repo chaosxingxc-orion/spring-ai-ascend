@@ -26,9 +26,7 @@
   .fig:last-child{border-bottom:none}
   .fig h3{margin:0 0 8px;font-size:13px;color:var(--ink)}
   .fig img{width:100%;height:auto;border:1px solid #e2e8f0;border-radius:6px;cursor:zoom-in;display:block}
-  .stage.as-built .fig img{opacity:.35;filter:grayscale(1);cursor:default}
-  .stage.as-built .fig{position:relative}
-  .stage.as-built .fig .ph{position:absolute;inset:12px 14px auto 14px;bottom:auto;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:12px;font-style:italic;text-align:center;padding:40px 0}
+  .stage.as-built .fig img{cursor:zoom-in}
   section.summary{margin-top:28px}
   section.summary h2{font-size:16px;border-bottom:2px solid #e2e8f0;padding-bottom:6px}
   table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0 24px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden}
@@ -51,7 +49,7 @@
 <body>
 <header>
   <h1>arch-driven · event-bus two-hop relay gap</h1>
-  <p>Change slug <code>event-bus-relay</code> · FEAT-013/014 two-hop governance relay · G1 code-driven (no docs/4plus1 baseline; drawn from code + L2 feat-013/014 spec) · G2 as-is · G3 decision tree · G4 to-be → <b>awaiting user sign-off</b> · G6 as-built pending implement.</p>
+  <p>Change slug <code>event-bus-relay</code> · FEAT-013/014 two-hop governance relay · G1 code-driven (no docs/4plus1 baseline; drawn from code + L2 feat-013/014 spec) · G2 as-is · G3 decision tree · G4 to-be signed off · G5 implement (G5-A/B/C/D + G5-E IT 4/4 green) · <b>G6 as-built signed off</b> · G7 CLOSED (ADR-0161).</p>
 </header>
 <div class="legend">
   <span><i class="sw uni"></i>as-is uniform (before-change snapshot)</span>
@@ -78,18 +76,18 @@
     <div class="fig"><h3>flow delta</h3><img src="to-be/rendered/flow-delta.svg" alt="to-be flow delta" data-cap="to-be · flow delta"></div>
     <div class="fig"><h3>sequence delta</h3><img src="to-be/rendered/sequence-delta.svg" alt="to-be sequence delta" data-cap="to-be · sequence delta"></div>
   </div>
-  <!-- AS-BUILT placeholder -->
+  <!-- AS-BUILT -->
   <div class="stage as-built">
-    <h2>G6 · as-built <span class="tbd">(pending implement)</span></h2>
-    <div class="desc">Redrawn from real code after G5 implement; diffed vs to-be. Placeholder until sign-off → implement.</div>
-    <div class="fig"><h3>module</h3><img src="as-is/rendered/module.svg" alt="as-built placeholder"><div class="ph">as-built module — G6</div></div>
-    <div class="fig"><h3>flow</h3><img src="as-is/rendered/flow.svg" alt="as-built placeholder"><div class="ph">as-built flow — G6</div></div>
-    <div class="fig"><h3>sequence</h3><img src="as-is/rendered/sequence.svg" alt="as-built placeholder"><div class="ph">as-built sequence — G6</div></div>
+    <h2>G6 · as-built</h2>
+    <div class="desc">Redrawn from real code (post-G5-E); diffed vs to-be. The as-built ≈ to-be + the 3 substrate bugs G5-E surfaced + fixed (worker governance-mode, inbox markRejected upsert, outbox V3 correlation_id+event_type). See <code>as-built/diff.md</code> + ADR-0161.</div>
+    <div class="fig"><h3>module</h3><img src="as-built/rendered/module-as-built.svg" alt="as-built module" data-cap="as-built · module"></div>
+    <div class="fig"><h3>flow</h3><img src="as-built/rendered/flow-as-built.svg" alt="as-built flow" data-cap="as-built · flow"></div>
+    <div class="fig"><h3>sequence</h3><img src="as-built/rendered/sequence-as-built.svg" alt="as-built sequence" data-cap="as-built · sequence"></div>
   </div>
 </div>
 
 <section class="summary">
-  <h2>Planned file changes (G4 → G5 implement scope)</h2>
+  <h2>Planned file changes — actual landed (G5 implement)</h2>
   <table>
     <tr><th>Δ</th><th>Path</th><th>What</th></tr>
     <tr><td><span class="pill add">++</span></td><td class="k">agent-bus/.../forwarding/runtime/relay/EventBusRelayWorker.java</td><td>consume→govern→re-produce relay; reuses Inbox/Outbox/Relay/Consumer ports + state machine/retry/breaker (Q1a)</td></tr>
@@ -107,19 +105,19 @@
   <h2>G3 decision tree — as-built landed</h2>
   <table>
     <tr><th>Q</th><th>Chosen branch</th><th>Why (one line)</th><th>as-built landed</th></tr>
-    <tr><td>Q1 relay assembly</td><td><b>(a)</b> new EventBusRelayWorker from existing ports</td><td>existing worker is producer-shape (claim outbox→deliver); relay needs consume→govern→re-produce; reuse all substrate ports</td><td class="tbd">TBD (G6)</td></tr>
-    <tr><td>Q2 process split</td><td><b>(a)</b> Spring @Profile on single AgentBusApplication</td><td>minimal diff over ADR-0160 single main; idiomatic two-forms-from-one-codebase; env-var selects form</td><td class="tbd">TBD (G6)</td></tr>
-    <tr><td>Q3 deployment artifacts</td><td><b>(a)</b> spring-boot repackage + compose services</td><td>repackage is prereq for any java -jar; compose completes local two-process topology for the IT; per-form images deferred</td><td class="tbd">TBD (G6)</td></tr>
-    <tr><td>Q4 two-hop IT</td><td><b>(a)</b> in-repo TestAgentRuntime double, env-guarded</td><td>matches REQ-2026-001 release bar (in-repo double, external runtime parallel/not time-locked); closes zero-coverage gap</td><td class="tbd">TBD (G6)</td></tr>
-    <tr><td>G3.5 UI prototype</td><td>skipped</td><td>pure backend/runtime/deployment topology — no frontend template delta</td><td class="tbd">n/a</td></tr>
+    <tr><td>Q1 relay assembly</td><td><b>(a)</b> new EventBusRelayWorker from existing ports</td><td>existing worker is producer-shape (claim outbox→deliver); relay needs consume→govern→re-produce; reuse all substrate ports</td><td>✓ landed + ⚠ governance-mode drift (forward/response via relayableTypes; response-carries-descriptor) — ADR-0161</td></tr>
+    <tr><td>Q2 process split</td><td><b>(a)</b> Spring @Profile on single AgentBusApplication</td><td>minimal diff over ADR-0160 single main; idiomatic two-forms-from-one-codebase; env-var selects form</td><td>✓ landed</td></tr>
+    <tr><td>Q3 deployment artifacts</td><td><b>(a)</b> spring-boot repackage + compose services</td><td>repackage is prereq for any java -jar; compose completes local two-process topology for the IT; per-form images deferred</td><td>✓ landed (repackage + compose; per-form images deferred as planned)</td></tr>
+    <tr><td>Q4 two-hop IT</td><td><b>(a)</b> in-repo TestAgentRuntime double, env-guarded</td><td>matches REQ-2026-001 release bar (in-repo double, external runtime parallel/not time-locked); closes zero-coverage gap</td><td>✓ landed — 4/4 green (broker env): happy two-hop→ACCEPTED, dedup-on-replay (real ON CONFLICT), cross-tenant broker bySql, corr-mismatch→REJECTED-audit; full suite 434 green/14 skip/0 fail</td></tr>
+    <tr><td>G3.5 UI prototype</td><td>skipped</td><td>pure backend/runtime/deployment topology — no frontend template delta</td><td>n/a</td></tr>
   </table>
 
-  <h2>G6 diff vs to-be <span class="tbd">(pending implement)</span></h2>
+  <h2>G6 diff vs to-be</h2>
   <table>
     <tr><th>Matched ✓</th><th>Drifted ⚠</th><th>Missing ✗</th><th>Surprise ⚠⚠</th></tr>
-    <tr><td class="tbd">TBD</td><td class="tbd">TBD</td><td class="tbd">TBD</td><td class="tbd">TBD</td></tr>
+    <tr><td>forward relay (consume→govern→re-produce); @Profile two-form; fat-jar+compose; two-hop IT (4/4 green); BrokerTopicResolver; D13 gateway filter; tenant-only relay filters; SmartLifecycle subscribe; A2aForwardingDeliveryPort legacy</td><td>1 — response-relay governance-mode (relayableTypes set + response-carries-descriptor; to-be left it unpinned)</td><td>0 — all to-be deltas landed</td><td>2 — inbox markRejected upsert (rejectPoison before receive); outbox V3 correlation_id+event_type (V1 didn't persist them)</td></tr>
   </table>
-  <p style="font-size:12px;color:var(--mut)">Implement scope (post sign-off) per handoff §3.4 sub-steps ②-⑥: assemble two-hop relay loop + symmetric response path → process split (Spring profile) → deployment artifacts (repackage + compose) → two-hop IT → coordinate external agent-runtime-java hop2. <b>Not a REQ-2026-001 release blocker</b> (release bar = InMemoryBroker CI gate + real RocketMQ env-guarded + TestAgentRuntime E2E; none require an independent relay process).</p>
+  <p style="font-size:12px;color:var(--mut)"><b>All planned files landed</b> (G5-A/B/C/D). <b>G5-E actual additions</b> (the IT-surfaced fixes): <code>V3__add_outbox_correlation_event_type.sql</code> (outbox correlation_id+event_type), <code>JdbcForwardingInbox</code> markRejected upsert + <code>InMemoryForwardingInbox</code> mirror, <code>EventBusRelayWorker</code> governance-mode param, <code>RocketMqBrokerForwardingConsumer.drainAll</code> (test-only), <code>RealBrokerTwoHopRelayIntegrationTest</code> (4/4 green broker env). See <code>as-built/diff.md</code> + ADR-0161. <b>Not a REQ-2026-001 release blocker</b> (release bar = InMemoryBroker CI gate + real RocketMQ env-guarded + TestAgentRuntime E2E; none require an independent relay process).</p>
 </section>
 </main>
 
@@ -130,7 +128,7 @@
 </div>
 <script>
 (function(){
-  var imgs=Array.prototype.slice.call(document.querySelectorAll('.stage.as-is img[data-cap], .stage.to-be img[data-cap]'));
+  var imgs=Array.prototype.slice.call(document.querySelectorAll('.stage.as-is img[data-cap], .stage.to-be img[data-cap], .stage.as-built img[data-cap]'));
   var lb=document.getElementById('lightbox'),lbImg=document.getElementById('lb-img'),lbCap=document.getElementById('lb-cap');
   var idx=0,scale=1,ox=0,oy=0,dragX=0,dragY=0,dragging=false;
   function show(i){idx=(i+imgs.length)%imgs.length;lbImg.src=imgs[idx].src;lbCap.textContent=imgs[idx].getAttribute('data-cap')||'';scale=1;ox=0;oy=0;apply();}

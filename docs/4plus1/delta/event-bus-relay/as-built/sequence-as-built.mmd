@@ -1,0 +1,23 @@
+sequenceDiagram
+  participant C as Client
+  participant GW as GatewayRuntimeService
+  participant B as RocketMQ broker
+  participant EBF as EventBusRelayWorker (forward)
+  participant EBR as EventBusRelayWorker (response)
+  participant RT as TestAgentRuntime / external runtime
+  participant CON as Gateway response consumer
+  C->>GW: POST /a2a (controller)
+  GW->>B: produce T_invocation_req (hop1, descriptor payloadRef)
+  B->>EBF: poll T_invocation_req (FORWARD_REQUEST_TYPES)
+  EBF->>EBF: GOVERNANCE: inbox dedup + tenant + corr-match + audit
+  EBF->>B: produce T_invocation_deliver (hop2)
+  B->>RT: poll T_invocation_deliver
+  RT->>RT: serve → produce response (descriptor payloadRef + taskId/status)
+  RT->>B: produce T_invocation_resp_in (resp hop1)
+  B->>EBR: poll T_invocation_resp_in (RESPONSE_TYPES)
+  EBR->>EBR: GOVERNANCE: dedup + corr-match + audit (response carries descriptor)
+  EBR->>B: produce T_invocation_resp_out (resp hop2)
+  B->>CON: poll T_invocation_resp_out
+  CON-->>GW: classify (NATIVE eventType)
+  GW-->>C: IngressResponse (ACCEPTED/REJECTED/DEFERRED)
+  Note over EBF,EBR: both relays reuse the SAME governance (descriptor decode +<br/>correlation-match + inbox-dedup + re-publish + audit); forward=FORWARD_REQUEST_TYPES,<br/>response=RESPONSE_TYPES — the response carries a descriptor symmetric to the request.

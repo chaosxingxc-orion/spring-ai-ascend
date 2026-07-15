@@ -1,0 +1,13 @@
+flowchart TD
+  C([Client]) --> CTL["[++] GatewayRuntimeController POST /a2a"]
+  CTL --> GW["[~] GatewayRuntimeService.dispatchRequest<br/>enqueue gateway outbox (V3 corr+eventType) → claim → produce hop1"]
+  GW --> PRD1["relay.produce → broker T_invocation_req"]
+  PRD1 -. "hop1 (descriptor payloadRef)" .-> RELAYC["[++] EventBusRelayWorker FORWARD mode<br/>poll T_invocation_req"]
+  RELAYC --> GOV["[++] GOVERNANCE between hops<br/>Inbox dedup (ON CONFLICT DO NOTHING) + tenant filter<br/>+ correlation match (native==descriptor) + audit"]
+  GOV --> REP["[++] re-publish: outbox enqueue → claim → relay.produce<br/>→ broker T_invocation_deliver"]
+  REP -. "hop2" .-> RT["TestAgentRuntime (in-repo double) / external agent-runtime<br/>poll T_invocation_deliver"]
+  RT --> RESPPROD["produce response (descriptor payloadRef symmetric<br/>to request + taskId/status tokens) → T_invocation_resp_in"]
+  RESPPROD -. "resp hop1" .-> RELAYR["[++] EventBusRelayWorker RESPONSE mode<br/>poll T_invocation_resp_in + governance (dedup/corr/audit)"]
+  RELAYR --> RESPREP["[++] re-publish → T_invocation_resp_out"]
+  RESPREP --> GWAW["[~] GatewayRuntimeService.acceptWindow<br/>poll T_invocation_resp_out → classify (NATIVE eventType)<br/>→ ACCEPTED/REJECTED/DEFERRED"]
+  GWAW --> DONE([return IngressResponse])
