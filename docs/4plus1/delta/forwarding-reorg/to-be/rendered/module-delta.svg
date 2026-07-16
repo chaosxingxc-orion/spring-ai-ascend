@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 820" font-family="Segoe UI,Arial,sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/></marker>
+    <marker id="arrX" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M2,2 L8,8 M8,2 L2,8" stroke="#c62828" stroke-width="2" fill="none"/></marker>
+  </defs>
+
+  <text x="20" y="28" fill="#0f172a" font-size="16" font-weight="bold">to-be · module delta — forwarding-reorg</text>
+  <text x="20" y="48" fill="#64748b" font-size="11">green = ++ added/moved · amber = ~ modified · white unchanged · top-level common/ + eventbus.runtime/ eliminated (folded into forwarding) · single module + @Profile unchanged (Q1=b)</text>
+
+  <!-- BUS outer -->
+  <rect x="20" y="64" width="1200" height="740" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="30" y="82" fill="#0f172a" font-size="12" font-weight="bold">com.huawei.ascend.bus..   (SINGLE Maven module — Q1=b; spring-boot repackage + @Profile UNCHANGED)</text>
+
+  <!-- forwarding -->
+  <rect x="36" y="96" width="820" height="690" fill="none" stroke="#3b82f6" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="46" y="114" fill="#0f172a" font-size="12" font-weight="bold">forwarding   [LIB+PORT]   (reorg anchor)</text>
+
+  <!-- ++ forwarding/common (NEW, green) -->
+  <rect x="52" y="126" width="788" height="44" fill="#d4edda" stroke="#16a34a" stroke-width="1.8" rx="5"/>
+  <text x="60" y="144" fill="#14532d" font-size="11" font-weight="bold">++ forwarding/common   [CFG]   NEW — AgentBusBrokerProperties (from top-level common/, eliminated)</text>
+  <text x="60" y="161" fill="#475569" font-size="10">AgentBusBrokerProperties @ConfigurationProperties("agent-bus") — shared config now forwarding-internal</text>
+
+  <!-- forwarding/spi -->
+  <rect x="52" y="180" width="788" height="120" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 3" rx="6"/>
+  <text x="60" y="198" fill="#0f172a" font-size="11" font-weight="bold">spi   [PORT]   (existing ~18 forwarding SPI unchanged + NEW spi/broker/)</text>
+  <rect x="60" y="206" width="404" height="84" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="68" y="224" fill="#0f172a" font-size="11" font-weight="bold">[PORT] forwarding SPI (unchanged)</text>
+  <text x="68" y="241" fill="#475569" font-size="10">ForwardingEnvelope / AgentBusEventType / InvocationResponseStatus</text>
+  <text x="68" y="255" fill="#475569" font-size="10">ForwardingInboxPort / ForwardingOutboxPort / ForwardingOutboxClaimPort</text>
+  <text x="68" y="269" fill="#475569" font-size="10">ForwardingDeliveryPort / ForwardingDispatcher / values...</text>
+
+  <!-- ++ spi/broker (NEW, green) -->
+  <rect x="472" y="206" width="360" height="84" fill="#d4edda" stroke="#16a34a" stroke-width="1.8" rx="5"/>
+  <text x="480" y="224" fill="#14532d" font-size="11" font-weight="bold">++ spi/broker   [PORT]   NEW</text>
+  <text x="480" y="241" fill="#475569" font-size="10">broker SPI (from runtime/transport/broker/)</text>
+  <text x="480" y="255" fill="#14532d" font-size="10">BrokerForwardingConsumerPort / BrokerForwardingRelayPort</text>
+  <text x="480" y="269" fill="#14532d" font-size="10">BrokerInboundMessage / BrokerProduceOutcome / DeliveryFilter</text>
+  <text x="480" y="283" fill="#475569" font-size="10">code-verified: ref only forwarding.spi (no inversion)</text>
+
+  <!-- forwarding/runtime -->
+  <rect x="52" y="312" width="788" height="466" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 3" rx="6"/>
+  <text x="60" y="330" fill="#0f172a" font-size="11" font-weight="bold">runtime   [LIB]</text>
+
+  <!-- runtime/relay (+ event-bus wiring folded in) -->
+  <rect x="60" y="338" width="772" height="100" fill="#fff3cd" stroke="#d97706" stroke-width="1.5" stroke-dasharray="5 3" rx="6"/>
+  <text x="68" y="356" fill="#7c5400" font-size="11" font-weight="bold">~ runtime/relay   (EventBusRelayWorker etc. + event-bus wiring folded in — Q2)</text>
+  <rect x="68" y="364" width="420" height="66" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="76" y="382" fill="#0f172a" font-size="11" font-weight="bold">[LIB] unchanged</text>
+  <text x="76" y="399" fill="#475569" font-size="10">EventBusRelayWorker / RelayTick / RelayDispatchLoop</text>
+  <text x="76" y="413" fill="#475569" font-size="10">(the relay mechanism)</text>
+  <rect x="496" y="364" width="328" height="66" fill="#d4edda" stroke="#16a34a" stroke-width="1.8" rx="5"/>
+  <text x="504" y="382" fill="#14532d" font-size="11" font-weight="bold">++ event-bus wiring (Q2)</text>
+  <text x="504" y="399" fill="#14532d" font-size="10">EventBusRelayConfiguration @Profile(eventbus)</text>
+  <text x="504" y="413" fill="#14532d" font-size="10">EventBusRelaySchedulingConfig / RelayScheduler</text>
+  <text x="504" y="427" fill="#475569" font-size="9">from top-level eventbus.runtime/ (eliminated)</text>
+
+  <!-- persistence/jdbc (unchanged) -->
+  <rect x="60" y="450" width="376" height="44" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="68" y="468" fill="#0f172a" font-size="11" font-weight="bold">[DB] runtime/persistence/jdbc (unchanged)</text>
+  <text x="68" y="485" fill="#475569" font-size="10">JdbcForwardingInbox / JdbcForwardingOutbox / ForwardingSqlCodec</text>
+
+  <!-- transport resolvers (unchanged) -->
+  <rect x="448" y="450" width="384" height="44" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="456" y="468" fill="#0f172a" font-size="11" font-weight="bold">[PORT] transport resolvers (unchanged)</text>
+  <text x="456" y="485" fill="#475569" font-size="10">BrokerTopicResolver / ForwardingEndpointResolver / MapEndpointResolver</text>
+
+  <!-- transport/a2a (unchanged) -->
+  <rect x="60" y="504" width="376" height="40" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="68" y="522" fill="#0f172a" font-size="11" font-weight="bold">[PORT] transport/a2a (unchanged)</text>
+  <text x="68" y="538" fill="#475569" font-size="10">A2aForwardingDeliveryPort / A2aForwardingProperties</text>
+
+  <!-- ~ transport/broker (MODIFIED) -->
+  <rect x="448" y="504" width="384" height="270" fill="#fff3cd" stroke="#d97706" stroke-width="1.5" stroke-dasharray="5 3" rx="6"/>
+  <text x="456" y="522" fill="#7c5400" font-size="11" font-weight="bold">~ transport/broker   (SPI extracted ↑, rocketmq ↓)</text>
+  <rect x="456" y="530" width="368" height="60" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="464" y="548" fill="#0f172a" font-size="11" font-weight="bold">[VO+CFG] common — stay (4)</text>
+  <text x="464" y="565" fill="#475569" font-size="10">BrokerClientProperties / BrokerOutboundMessage</text>
+  <text x="464" y="579" fill="#475569" font-size="10">BrokerMessageHeaders / BrokerControlDescriptor</text>
+  <rect x="456" y="600" width="368" height="60" fill="#d4edda" stroke="#16a34a" stroke-width="1.8" rx="5"/>
+  <text x="464" y="618" fill="#14532d" font-size="11" font-weight="bold">++ broker/rocketmq   NEW (2)</text>
+  <text x="464" y="635" fill="#14532d" font-size="10">RocketMqBrokerForwardingConsumer / RocketMqBrokerForwardingRelay</text>
+  <text x="464" y="649" fill="#475569" font-size="10">from broker root; sibling dirs for future kafka/nats</text>
+  <rect x="456" y="670" width="368" height="96" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="464" y="688" fill="#0f172a" font-size="11" font-weight="bold">ArchUnit delta (Q5):</text>
+  <text x="464" y="705" fill="#475569" font-size="10">• AgentBusForwardingSpiPurityTest: rocketmq rule</text>
+  <text x="464" y="719" fill="#475569" font-size="10">  covers transport.broker.rocketmq via '..' (verify)</text>
+  <text x="464" y="733" fill="#475569" font-size="10">• REPLACE gateway↛eventbus (0162) with</text>
+  <text x="464" y="747" fill="#475569" font-size="10">  gateway.runtime ↛ forwarding.runtime.. (0163, stricter)</text>
+  <text x="464" y="761" fill="#475569" font-size="10">  + update liveness guard</text>
+
+  <!-- ~ gateway.runtime (MODIFIED — import only) -->
+  <rect x="876" y="96" width="324" height="120" fill="#fff3cd" stroke="#d97706" stroke-width="1.8" rx="5"/>
+  <text x="884" y="114" fill="#7c5400" font-size="11" font-weight="bold">~ gateway.runtime   (structure unchanged)</text>
+  <text x="884" y="131" fill="#475569" font-size="10">GatewayRuntimeConfiguration</text>
+  <text x="884" y="145" fill="#475569" font-size="10">  import → forwarding.common.AgentBusBrokerProperties</text>
+  <text x="884" y="159" fill="#475569" font-size="10">GatewayRuntimeController / GatewayRuntimeService</text>
+  <text x="884" y="180" fill="#475569" font-size="10">↛ forwarding.runtime.. (ArchUnit, ADR-0163)</text>
+
+  <!-- registry.runtime (out of scope) -->
+  <rect x="876" y="228" width="324" height="40" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="884" y="246" fill="#0f172a" font-size="11" font-weight="bold">[SRV] registry.runtime (OUT OF SCOPE)</text>
+  <text x="884" y="262" fill="#475569" font-size="10">untouched</text>
+
+  <!-- SDK boundary note (Q4) -->
+  <rect x="876" y="280" width="324" height="120" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 3" rx="6"/>
+  <text x="884" y="298" fill="#0f172a" font-size="11" font-weight="bold">SDK boundary (Q4 — Q1=b, package-set)</text>
+  <text x="884" y="315" fill="#475569" font-size="10">forwarding/spi + spi/broker + forwarding/common</text>
+  <text x="884" y="329" fill="#475569" font-size="10">+ runtime/relay (relay mechanism)</text>
+  <text x="884" y="343" fill="#475569" font-size="10">+ runtime/transport/{a2a, broker common}</text>
+  <text x="884" y="357" fill="#475569" font-size="10">+ runtime/persistence/jdbc adapters</text>
+  <text x="884" y="375" fill="#475569" font-size="10">PROCESS pkgs (gateway/runtime + relay</text>
+  <text x="884" y="389" fill="#475569" font-size="10">@Configuration) add boot on top of SDK</text>
+
+  <!-- eliminated note -->
+  <rect x="876" y="412" width="324" height="60" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 3" rx="6"/>
+  <text x="884" y="430" fill="#0f172a" font-size="11" font-weight="bold">ELIMINATED (folded into forwarding)</text>
+  <text x="884" y="447" fill="#475569" font-size="10">top-level common/ → forwarding/common/</text>
+  <text x="884" y="461" fill="#475569" font-size="10">top-level eventbus.runtime/ → runtime/relay/</text>
+
+  <!-- build note -->
+  <rect x="876" y="484" width="324" height="60" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 3" rx="6"/>
+  <text x="884" y="502" fill="#0f172a" font-size="11" font-weight="bold">Build (Q1=b — UNCHANGED)</text>
+  <text x="884" y="519" fill="#475569" font-size="10">single Maven module + spring-boot repackage</text>
+  <text x="884" y="533" fill="#475569" font-size="10">+ @Profile (gateway/eventbus). Multi-module</text>
+  <text x="884" y="543" fill="#475569" font-size="10">= deferred follow-on</text>
+
+  <!-- forbidden edge: gateway.runtime ↛ forwarding.runtime (ADR-0163, stricter) -->
+  <line x1="876" y1="156" x2="856" y2="500" stroke="#c62828" stroke-width="2.2" stroke-dasharray="5 3" marker-end="url(#arrX)"/>
+  <text x="730" y="320" fill="#c62828" font-size="10" font-weight="bold">↛ ArchUnit (ADR-0163, stricter)</text>
+  <text x="730" y="334" fill="#c62828" font-size="9">gateway.runtime ↛ forwarding.runtime..</text>
+  <text x="730" y="348" fill="#c62828" font-size="9">supersedes ADR-0162 gateway↛eventbus</text>
+
+  <text x="20" y="808" fill="#64748b" font-size="10">legend: green ++ added/moved · amber ~ modified · white unchanged · red dashed ↛ = ArchUnit-forbidden (delta context) · 11 files moved (5 broker SPI + 3 event-bus wiring + 2 rocketmq + 1 BrokerProperties) + 2 top-level pkgs eliminated · build unchanged (Q1=b)</text>
+</svg>

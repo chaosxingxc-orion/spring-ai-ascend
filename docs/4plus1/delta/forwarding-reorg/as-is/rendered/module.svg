@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 820" font-family="Segoe UI,Arial,sans-serif">
+  <defs>
+    <marker id="arrN" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+    <marker id="arrX" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M2,2 L8,8 M8,2 L2,8" stroke="#64748b" stroke-width="2" fill="none"/></marker>
+  </defs>
+
+  <text x="20" y="28" fill="#0f172a" font-size="16" font-weight="bold">as-is · module — forwarding-reorg (current agent-bus structure + build)</text>
+  <text x="20" y="48" fill="#64748b" font-size="11">uniform before-change snapshot · module type via [tag] + dashed group, never by fill · single Maven module + spring-boot repackage + @Profile (gateway/eventbus+registry)</text>
+
+  <!-- BUS outer -->
+  <rect x="20" y="64" width="1200" height="740" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="30" y="82" fill="#0f172a" font-size="12" font-weight="bold">com.huawei.ascend.bus..   (AgentBusApplication @SpringBootApplication — SINGLE Maven module agent-bus; spring-boot repackage → 1 fat-jar; 2 process forms via SPRING_PROFILES_ACTIVE)</text>
+
+  <!-- forwarding (reorg anchor) -->
+  <rect x="36" y="96" width="820" height="690" fill="none" stroke="#3b82f6" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="46" y="114" fill="#0f172a" font-size="12" font-weight="bold">forwarding   [LIB+PORT]   (the reorg anchor)</text>
+
+  <!-- forwarding/spi -->
+  <rect x="52" y="126" width="788" height="120" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 3" rx="6"/>
+  <text x="60" y="144" fill="#0f172a" font-size="11" font-weight="bold">spi   [PORT]   (forwarding SPI surface — pure Java)</text>
+  <rect x="60" y="152" width="772" height="84" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="68" y="170" fill="#0f172a" font-size="11" font-weight="bold">[PORT] envelopes: ForwardingEnvelope / AgentBusEventType / InvocationResponseStatus</text>
+  <text x="68" y="187" fill="#475569" font-size="10">[PORT] ports: ForwardingInboxPort / ForwardingOutboxPort / ForwardingOutboxClaimPort</text>
+  <text x="68" y="201" fill="#475569" font-size="10">[PORT] delivery: ForwardingDeliveryPort / ForwardingDispatcher / ForwardingDeliveryResult</text>
+  <text x="68" y="215" fill="#475569" font-size="10">[PORT] values: ForwardingRouteHandle / ForwardingLease / ForwardingReceipt / ForwardingStatus / ForwardingFailureCode / ForwardingInboxRecord / ForwardingOutboxRecord / ForwardingMessageId</text>
+
+  <!-- forwarding/runtime -->
+  <rect x="52" y="258" width="788" height="520" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 3" rx="6"/>
+  <text x="60" y="276" fill="#0f172a" font-size="11" font-weight="bold">runtime   [LIB]   (forwarding runtime impl)</text>
+
+  <!-- runtime core + relay -->
+  <rect x="60" y="284" width="772" height="40" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="68" y="302" fill="#0f172a" font-size="11" font-weight="bold">[LIB] runtime (core): ForwardingDispatchLoop / ForwardingDispatcherWorker / ForwardingStateMachine / ForwardingRetryPolicy / ForwardingCircuitBreaker / RouteCircuitBreaker / EpochClock</text>
+  <text x="68" y="316" fill="#475569" font-size="10">[LIB] runtime/relay/: EventBusRelayWorker / RelayTick / RelayDispatchLoop</text>
+
+  <!-- persistence/jdbc -->
+  <rect x="60" y="332" width="376" height="56" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="68" y="350" fill="#0f172a" font-size="11" font-weight="bold">[DB] runtime/persistence/jdbc   (Spring+JDBC ArchUnit-confined)</text>
+  <text x="68" y="367" fill="#475569" font-size="10">JdbcForwardingInbox / JdbcForwardingOutbox / ForwardingSqlCodec</text>
+  <text x="68" y="380" fill="#475569" font-size="10">ArchUnit: forwarding.. outside persistence.jdbc — no Spring/JDBC</text>
+
+  <!-- transport resolvers -->
+  <rect x="448" y="332" width="384" height="56" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="456" y="350" fill="#0f172a" font-size="11" font-weight="bold">[PORT] runtime/transport (resolvers)</text>
+  <text x="456" y="367" fill="#475569" font-size="10">BrokerTopicResolver / ForwardingEndpointResolver / MapEndpointResolver</text>
+
+  <!-- transport/a2a -->
+  <rect x="60" y="400" width="376" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="68" y="418" fill="#0f172a" font-size="11" font-weight="bold">[PORT] transport/a2a   (A2A SDK ArchUnit-confined)</text>
+  <text x="68" y="435" fill="#475569" font-size="10">A2aForwardingDeliveryPort / A2aForwardingProperties</text>
+
+  <!-- transport/broker (the split target) -->
+  <rect x="448" y="400" width="384" height="370" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 3" rx="6"/>
+  <text x="456" y="418" fill="#0f172a" font-size="11" font-weight="bold">transport/broker   (RocketMQ ArchUnit-confined; 11 classes MIXED)</text>
+  <rect x="456" y="426" width="368" height="50" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="464" y="444" fill="#0f172a" font-size="11" font-weight="bold">[PORT] BrokerForwardingConsumerPort / BrokerForwardingRelayPort</text>
+  <text x="464" y="461" fill="#475569" font-size="10">SPI interfaces (2)</text>
+  <rect x="456" y="484" width="368" height="80" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="464" y="502" fill="#0f172a" font-size="11" font-weight="bold">[VO+CFG] common pub/sub (7)</text>
+  <text x="464" y="518" fill="#475569" font-size="10">BrokerClientProperties / DeliveryFilter / BrokerInboundMessage</text>
+  <text x="464" y="532" fill="#475569" font-size="10">BrokerOutboundMessage / BrokerProduceOutcome / BrokerMessageHeaders</text>
+  <text x="464" y="546" fill="#475569" font-size="10">BrokerControlDescriptor</text>
+  <rect x="456" y="572" width="368" height="50" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="464" y="590" fill="#0f172a" font-size="11" font-weight="bold">[IMPL] RocketMqBrokerForwardingConsumer / RocketMqBrokerForwardingRelay</text>
+  <text x="464" y="607" fill="#475569" font-size="10">rocketmq-specific impl (2)</text>
+  <rect x="456" y="632" width="368" height="128" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="464" y="650" fill="#0f172a" font-size="11" font-weight="bold">ArchUnit (AgentBusForwardingSpiPurityTest, as-is):</text>
+  <text x="464" y="667" fill="#475569" font-size="10">• forwarding.. outside persistence.jdbc: no Spring/JDBC</text>
+  <text x="464" y="681" fill="#475569" font-size="10">• forwarding.. outside transport.a2a: no A2A SDK</text>
+  <text x="464" y="695" fill="#475569" font-size="10">• forwarding.. outside transport.broker: no RocketMQ</text>
+  <text x="464" y="709" fill="#475569" font-size="10">• RocketMq* adapters must reside in transport.broker</text>
+  <text x="464" y="723" fill="#475569" font-size="10">→ reorg's broker SPI extraction + rocketmq split touch these</text>
+  <text x="464" y="737" fill="#475569" font-size="10">→ to-be must update the rules</text>
+
+  <!-- common (top-level) -->
+  <rect x="876" y="96" width="324" height="80" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="884" y="114" fill="#0f172a" font-size="11" font-weight="bold">[CFG] common   (top-level — ADR-0162)</text>
+  <text x="884" y="131" fill="#475569" font-size="10">AgentBusBrokerProperties</text>
+  <text x="884" y="145" fill="#475569" font-size="10">@ConfigurationProperties("agent-bus"), 12 fields</text>
+  <text x="884" y="162" fill="#475569" font-size="10">shared by both planes</text>
+
+  <!-- eventbus.runtime (top-level) -->
+  <rect x="876" y="188" width="324" height="100" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="884" y="206" fill="#0f172a" font-size="11" font-weight="bold">[SRV] eventbus.runtime   (top-level — ADR-0162)</text>
+  <text x="884" y="223" fill="#475569" font-size="10">EventBusRelayConfiguration @Profile(eventbus)</text>
+  <text x="884" y="237" fill="#475569" font-size="10">EventBusRelaySchedulingConfig</text>
+  <text x="884" y="251" fill="#475569" font-size="10">RelayScheduler</text>
+  <text x="884" y="275" fill="#475569" font-size="10">(3 event-bus wiring files)</text>
+
+  <!-- gateway.runtime -->
+  <rect x="876" y="300" width="324" height="120" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="884" y="318" fill="#0f172a" font-size="11" font-weight="bold">[SRV] gateway.runtime   (structure unchanged per target)</text>
+  <text x="884" y="335" fill="#475569" font-size="10">GatewayRuntimeConfiguration @Profile(gateway)</text>
+  <text x="884" y="349" fill="#475569" font-size="10">GatewayRuntimeController @RestController</text>
+  <text x="884" y="363" fill="#475569" font-size="10">GatewayRuntimeService (IngressGateway)</text>
+  <text x="884" y="384" fill="#475569" font-size="10">imports common.AgentBusBrokerProperties</text>
+
+  <!-- registry.runtime (out of scope) -->
+  <rect x="876" y="432" width="324" height="40" fill="#ffffff" stroke="#3b82f6" stroke-width="1.3" rx="5"/>
+  <text x="884" y="450" fill="#0f172a" font-size="11" font-weight="bold">[SRV] registry.runtime   (OUT OF SCOPE — untouched)</text>
+  <text x="884" y="466" fill="#475569" font-size="10">registry plane wiring</text>
+
+  <!-- Build note -->
+  <rect x="876" y="484" width="324" height="120" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 3" rx="6"/>
+  <text x="884" y="502" fill="#0f172a" font-size="11" font-weight="bold">Build (agent-bus/pom.xml, as-is)</text>
+  <text x="884" y="518" fill="#475569" font-size="10">SINGLE Maven module (artifactId agent-bus)</text>
+  <text x="884" y="532" fill="#475569" font-size="10">spring-boot-maven-plugin repackage → 1 fat-jar</text>
+  <text x="884" y="546" fill="#475569" font-size="10">2 process forms via SPRING_PROFILES_ACTIVE</text>
+  <text x="884" y="560" fill="#475569" font-size="10">deps: spring-boot-{jdbc,web}, micrometer,</text>
+  <text x="884" y="574" fill="#475569" font-size="10">flyway, postgresql, a2a-sdk,</text>
+  <text x="884" y="588" fill="#475569" font-size="10">rocketmq-client 5.1.4</text>
+  <text x="884" y="600" fill="#475569" font-size="10">"build different packages" = Q1</text>
+
+  <!-- forbidden edge: gateway.runtime ↛ eventbus.runtime (ADR-0162) — neutral (as-is L7: no red) -->
+  <line x1="876" y1="350" x2="856" y2="240" stroke="#64748b" stroke-width="2.2" stroke-dasharray="5 3" marker-end="url(#arrX)"/>
+  <text x="740" y="300" fill="#475569" font-size="10" font-weight="bold">↛ ArchUnit (ADR-0162)</text>
+  <text x="740" y="314" fill="#475569" font-size="9">gateway.runtime ↛ eventbus.runtime</text>
+
+  <text x="20" y="808" fill="#64748b" font-size="10">legend: all nodes uniform (before-change snapshot) · [tag] = module type (PORT/LIB/DB/SRV/CFG/VO/IMPL) via text, never by fill · red dashed ↛ = ArchUnit-forbidden · this reorg supersedes ADR-0162's top-level eventbus.runtime + common</text>
+</svg>

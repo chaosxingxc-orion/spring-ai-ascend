@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>arch-driven · forwarding-reorg</title>
+<style>
+  :root{--add:#d4edda;--mod:#fff3cd;--rem:#ffe0e0;--leg:#ede9fe;--ink:#0f172a;--sub:#475569;--mut:#64748b;--line:#94a3b8;--frame:#3b82f6}
+  *{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;color:var(--ink);background:#f8fafc;line-height:1.45}
+  header{padding:18px 24px 10px;background:#fff;border-bottom:1px solid #e2e8f0}
+  h1{margin:0 0 4px;font-size:20px}header p{margin:0;color:var(--mut);font-size:13px}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;padding:8px 24px;background:#fff;border-bottom:1px solid #e2e8f0;font-size:12px}
+  .legend span{display:inline-flex;align-items:center;gap:6px;color:var(--sub)}
+  .sw{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #94a3b8}
+  .sw.add{background:var(--add);border-color:#16a34a}.sw.mod{background:var(--mod);border-color:#d97706}
+  .sw.uni{background:#fff;border-color:var(--frame)}.sw.rule{background:var(--leg);border-color:#7c3aed}
+  main{padding:16px 24px 60px}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  .stage{border:1px solid #cbd5e1;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
+  .stage h2{margin:0;padding:10px 14px;font-size:15px;border-bottom:1px solid #e2e8f0}
+  .stage.as-is h2{background:#f1f5f9}.stage.to-be h2{background:#ecfdf5}.stage.as-built h2{background:#f5f3ff}
+  .stage .desc{padding:10px 14px;font-size:12px;color:var(--sub);border-bottom:1px solid #f1f5f9}
+  .fig{padding:12px 14px;border-bottom:1px solid #f1f5f9}.fig:last-child{border-bottom:none}
+  .fig h3{margin:0 0 8px;font-size:13px;color:var(--ink)}
+  .fig img{width:100%;height:auto;border:1px solid #e2e8f0;border-radius:6px;cursor:zoom-in;display:block}
+  section.summary{margin-top:28px}
+  section.summary h2{font-size:16px;border-bottom:2px solid #e2e8f0;padding-bottom:6px}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0 24px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden}
+  th,td{padding:7px 10px;text-align:left;border-bottom:1px solid #f1f5f9;vertical-align:top}
+  th{background:#f8fafc;color:var(--sub);font-weight:600}tr:last-child td{border-bottom:none}
+  td.k{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:#1e293b}
+  .pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700}
+  .pill.add{background:var(--add);color:#14532d}.pill.mod{background:var(--mod);color:#7c5400}
+  a{color:#1d4ed8}
+  #lightbox{position:fixed;inset:0;background:rgba(15,23,42,.92);display:none;align-items:center;justify-content:center;z-index:50}
+  #lightbox.open{display:flex}
+  #lb-img{max-width:92vw;max-height:88vh;border:2px solid #fff;border-radius:4px;background:#fff;transform-origin:center center;cursor:grab;user-select:none}
+  #lb-img.drag{cursor:grabbing}
+  #lb-cap{position:absolute;top:14px;left:0;right:0;text-align:center;color:#e2e8f0;font-size:13px}
+  #lb-hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;color:#94a3b8;font-size:11px}
+</style>
+</head>
+<body>
+<header>
+  <h1>arch-driven · forwarding-reorg</h1>
+  <p>Change slug <code>forwarding-reorg</code> · fold event-bus wiring into <code>forwarding/runtime/relay/</code>, shared config → <code>forwarding/common/</code>, extract broker SPI → <code>forwarding/spi/broker/</code>, split <code>broker/rocketmq/</code> · G1 code-driven · G2 as-is · G3 decision tree · <b>G4 to-be — SIGNED OFF 2026-07-16</b> · G5 implemented (443 green) · G6 as-built (all Matched + 4 Drifted accepted) · <b>G7 CLOSED (ADR-0163 supersedes 0162)</b>.</p>
+</header>
+<div class="legend">
+  <span><i class="sw uni"></i>as-is uniform (before-change)</span>
+  <span><i class="sw add"></i>++ added/moved</span>
+  <span><i class="sw mod"></i>~ modified</span>
+  <span><i class="sw rule"></i>ArchUnit rule (landed)</span>
+  <span style="color:var(--mut)">module type via [tag] + dashed group, never by fill</span>
+</div>
+<main>
+<div class="grid">
+  <div class="stage as-is">
+    <h2>G2 · as-is</h2>
+    <div class="desc">Top-level <code>common/</code> + <code>eventbus.runtime/</code> planes (ADR-0162); <code>forwarding/runtime/transport/broker/</code> MIXED (2 SPI ports + 7 common VO/CFG + 2 rocketmq impl). Single Maven module + <code>@Profile</code>.</div>
+    <div class="fig"><h3>module</h3><img src="as-is/rendered/module.svg" alt="as-is module" data-cap="as-is · module (mixed broker/ + top-level common/eventbus.runtime planes)"></div>
+  </div>
+  <div class="stage to-be">
+    <h2>G4 · to-be (delta)</h2>
+    <div class="desc"><b>++ forwarding/common</b> + <b>++ forwarding/spi/broker</b> (5 SPI) + <b>++ forwarding/runtime/relay</b> (3 event-bus wiring) + <b>++ broker/rocketmq</b> (2 impl) + <b>~ gateway/runtime</b> (import→forwarding.common); 2 top-level pkgs eliminated; <b>gateway↛forwarding.runtime</b> (signed-off, later found infeasible → narrowed at G5). Build single-module+@Profile (Q1=b).</div>
+    <div class="fig"><h3>module delta</h3><img src="to-be/rendered/module-delta.svg" alt="to-be module delta" data-cap="to-be · module delta (forwarding-centric reorg)"></div>
+  </div>
+  <div class="stage as-built">
+    <h2>G6 · as-built</h2>
+    <div class="desc">Plan landed + <b>rule-scope drift (user-accepted)</b>: <code>gateway↛forwarding.runtime.relay</code> (the relay-wiring home — the gateway legitimately wires broker/jdbc/transport as a producer/consumer). + 3 mechanical drifts (4 arch tests evolved, 5 tests moved, rocketmq-no-common-refs). <b>443 green/14 skip</b>.</div>
+    <div class="fig"><h3>module as-built</h3><img src="as-built/rendered/module-as-built.svg" alt="as-built module" data-cap="as-built · module (forwarding-centric landed; gateway↛forwarding.runtime.relay)"></div>
+  </div>
+</div>
+
+<section class="summary">
+  <h2>Actual file changes (G5 implemented — signed off 2026-07-16)</h2>
+  <table>
+    <tr><th>Δ</th><th>Path</th><th>What (actual)</th></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">forwarding/common/AgentBusBrokerProperties.java</td><td>moved (git mv) from top-level common/ (eliminated); package decl + javadoc</td></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">forwarding/spi/broker/{BrokerForwardingConsumerPort,BrokerForwardingRelayPort,BrokerInboundMessage,BrokerProduceOutcome,DeliveryFilter}.java (5)</td><td>moved from forwarding/runtime/transport/broker/; package decl only (imports unchanged — ref only forwarding.spi)</td></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">forwarding/runtime/relay/{EventBusRelayConfiguration,EventBusRelaySchedulingConfig,RelayScheduler}.java (3)</td><td>moved from top-level eventbus.runtime/ (eliminated); package decl + imports (broker-SPI→spi.broker, rocketmq→broker.rocketmq, BrokerProperties→forwarding.common, removed now-same-pkg relay imports)</td></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">forwarding/runtime/transport/broker/rocketmq/{RocketMqBrokerForwardingConsumer,RocketMqBrokerForwardingRelay}.java (2)</td><td>moved from broker/ root; package decl + SPI imports (forwarding.spi.broker.* — NO broker-common refs, favorable)</td></tr>
+    <tr><td><span class="pill mod">~</span></td><td class="k">gateway/runtime/GatewayRuntimeConfiguration.java + GatewayRuntimeService.java</td><td>imports → forwarding.spi.broker + broker.rocketmq + forwarding.common</td></tr>
+    <tr><td><span class="pill mod">~</span></td><td class="k">forwarding/runtime/relay/EventBusRelayWorker.java + transport/BrokerTopicResolver.java + broker/{4 common, package-info}.java</td><td>import/javadoc updates (broker-SPI→spi.broker); 4 common stay</td></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">architecture/AgentBusDependencyBoundaryTest.java</td><td>REPLACE gateway↛eventbus rule + guard with <code>gateway↛forwarding.runtime.relay</code> + guard (deviation: narrower — user-accepted)</td></tr>
+    <tr><td><span class="pill mod">~</span></td><td class="k">architecture/{AgentBusForwardingSpiPurityTest, AgentBusForwardingRuntimeContractTest, AgentBusForwardingDesignContractTest}.java (3 more)</td><td>purity exemptions for forwarding.runtime.relay + forwarding.common; forwarding.spi.broker path/sanctioned-home (deviation: 4 arch tests, not 2)</td></tr>
+    <tr><td><span class="pill add">++</span></td><td class="k">5 tests moved (EventBusRelaySchedulerTest→relay/; 4 rocketmq tests→broker/rocketmq/)</td><td>build-forced by package-private access (sql92Expression/buildMessage/drainAll seams) — deviation (a)</td></tr>
+  </table>
+  <p style="font-size:12px;color:var(--mut)"><b>Net:</b> 11 source moved (5 broker SPI + 3 event-bus wiring + 2 rocketmq + 1 BrokerProperties) + 5 test moves + 17 modified (referencers + 4 arch tests) + import ripple. Build single-module+@Profile UNCHANGED (Q1=b). <code>./mvnw -f agent-bus/pom.xml test</code> → 443 green/14 skip/0 fail. See <code>deviations.md</code>.</p>
+
+  <h2>G3 decision tree — as-built landed</h2>
+  <table>
+    <tr><th>Q</th><th>Chosen branch (signed off 2026-07-16)</th><th>Why (one line)</th><th>as-built landed</th></tr>
+    <tr><td>Q1 build strategy</td><td><b>(b)</b> single-module + @Profile (multi-module deferred)</td><td>the @Profile mechanism already yields distinct process forms; multi-module is bigger build ripple, deferred</td><td><b>✓ landed</b> — build unchanged; package reorg prepares the SDK/process boundary</td></tr>
+    <tr><td>Q2 event-bus wiring home</td><td><b>(a)</b> forwarding/runtime/relay/</td><td>co-located with EventBusRelayWorker (the relay mechanism they wire)</td><td><b>✓ landed</b> — 3 files in forwarding.runtime.relay</td></tr>
+    <tr><td>Q3 broker split</td><td>SPI(5)→forwarding/spi/broker/; common(4) stay broker/; rocketmq(2)→broker/rocketmq/</td><td>code-verified: 5 SPI ref only forwarding.spi (no inversion); spi/broker/ subpackage groups the broker SPI</td><td><b>✓ landed</b> — 5 in spi/broker, 4 common stay, 2 in broker/rocketmq; rocketmq impls ref NO broker-common (favorable)</td></tr>
+    <tr><td>Q4 SDK boundary</td><td>forwarding/spi + spi/broker + forwarding/common + runtime/{relay,transport,persistence} (package-set)</td><td>what producers/consumers depend on; process forms add @Configuration on top</td><td><b>✓ landed</b> — documented package-set (Q1=b)</td></tr>
+    <tr><td>Q5 ADR/rule</td><td><b>(a)</b> new ADR-0163 supersedes 0162 + replaces the rule</td><td>0162's top-level-plane premise no longer holds (folded into forwarding)</td><td><b>⚠ landed-narrower</b> — ADR-0163 written; rule is <code>gateway↛forwarding.runtime.relay</code> (not <code>↛forwarding.runtime</code> — infeasible, user-accepted drift); stricter-via-auto-config is a flagged follow-on</td></tr>
+    <tr><td>G3.5 UI prototype</td><td>skipped</td><td>pure backend / package+build reorg</td><td>n/a</td></tr>
+  </table>
+
+  <h2>G6 diff vs to-be</h2>
+  <table>
+    <tr><th>Matched ✓</th><th>Drifted ⚠</th><th>Missing ✗</th><th>Surprise ⚠⚠</th></tr>
+    <tr>
+      <td><b>8</b> — forwarding/common, spi/broker(5), runtime/relay fold, broker/rocketmq(2), gateway import, broker common stay, build unchanged, 2 top-level pkgs eliminated</td>
+      <td><b>4</b> — (1) rule scope narrowed to forwarding.runtime.relay (user-accepted — to-be's ↛forwarding.runtime infeasible); (2) 4 arch tests evolved not 2 (purity fold-in); (3) 5 tests moved (package-private access); (4) rocketmq impls ref no broker-common (favorable). All accepted.</td>
+      <td><b>0</b></td>
+      <td><b>0</b></td>
+    </tr>
+  </table>
+  <p style="font-size:12px;color:var(--mut)"><b>Status: CLOSED (2026-07-16).</b> G2 as-is + G3 decision tree + G4 to-be signed off (5 branches) + G5 implemented (sub-agent, 443 green/14 skip) + G6 as-built (all Matched ✓ + 4 Drifted ⚠ accepted, 0 Missing, 0 Surprise) + G7 closed (ADR-0163 supersedes 0162). The forwarding-centric reorg landed; the gateway/event-bus plane boundary is enforced at the relay-package granularity (the realistic boundary). Stricter rule (via forwarding auto-config) + Maven multi-module are flagged follow-ons. Committed on <code>experimental</code> (separate from prior 8 unpushed); push deferred.</p>
+</section>
+</main>
+
+<div id="lightbox">
+  <div id="lb-cap"></div>
+  <img id="lb-img" src="" alt="">
+  <div id="lb-hint">click image or Esc to close · scroll to zoom · drag to move · ← → to navigate</div>
+</div>
+<script>
+(function(){
+  var imgs=Array.prototype.slice.call(document.querySelectorAll('.stage.as-is img[data-cap], .stage.to-be img[data-cap], .stage.as-built img[data-cap]'));
+  var lb=document.getElementById('lightbox'),lbImg=document.getElementById('lb-img'),lbCap=document.getElementById('lb-cap');
+  var idx=0,scale=1,ox=0,oy=0,dragX=0,dragY=0,dragging=false;
+  function show(i){idx=(i+imgs.length)%imgs.length;lbImg.src=imgs[idx].src;lbCap.textContent=imgs[idx].getAttribute('data-cap')||'';scale=1;ox=0;oy=0;apply();}
+  function apply(){lbImg.style.transform='translate('+ox+'px,'+oy+'px) scale('+scale+')';}
+  imgs.forEach(function(im,i){im.addEventListener('click',function(e){e.preventDefault();show(i);lb.classList.add('open');});});
+  lb.addEventListener('click',function(e){if(e.target===lb||e.target===lbCap){lb.classList.remove('open');}});
+  lbImg.addEventListener('wheel',function(e){e.preventDefault();scale*=(e.deltaY<0?1.15:0.87);scale=Math.max(0.3,Math.min(6,scale));apply();},{passive:false});
+  lbImg.addEventListener('mousedown',function(e){dragging=true;dragX=e.clientX-ox;dragY=e.clientY-oy;lbImg.classList.add('drag');});
+  window.addEventListener('mousemove',function(e){if(!dragging)return;ox=e.clientX-dragX;oy=e.clientY-dragY;apply();});
+  window.addEventListener('mouseup',function(){dragging=false;lbImg.classList.remove('drag');});
+  document.addEventListener('keydown',function(e){
+    if(!lb.classList.contains('open'))return;
+    if(e.key==='Escape'){lb.classList.remove('open');}
+    else if(e.key==='ArrowLeft'){show(idx-1);}
+    else if(e.key==='ArrowRight'){show(idx+1);}
+  });
+})();
+</script>
+</body>
+</html>

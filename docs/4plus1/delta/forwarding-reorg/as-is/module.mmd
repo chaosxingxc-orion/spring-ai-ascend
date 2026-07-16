@@ -1,0 +1,67 @@
+%%{init: {"themeVariables": { "primaryColor": "#ffffff", "primaryBorderColor": "#3b82f6", "primaryTextColor": "#0f172a", "lineColor": "#475569" } }}%%
+graph TB
+  %% as-is: current agent-bus structure + build (post agent-bus-layering). Uniform — before-change snapshot.
+  subgraph BUS["com.huawei.ascend.bus..   (AgentBusApplication @SpringBootApplication — SINGLE Maven module agent-bus; spring-boot repackage = 1 fat-jar; 2 process forms via SPRING_PROFILES_ACTIVE)"]
+    subgraph FWD["forwarding   [LIB+PORT]   (the reorg anchor)"]
+      subgraph FSPI["spi   [PORT]   (forwarding SPI surface — pure Java)"]
+        FENV["[PORT] ForwardingEnvelope / AgentBusEventType / InvocationResponseStatus"]
+        FINB["[PORT] ForwardingInboxPort / ForwardingOutboxPort / ForwardingOutboxClaimPort"]
+        FDELIV["[PORT] ForwardingDeliveryPort / ForwardingDispatcher / ForwardingDeliveryResult"]
+        FMISC["[PORT] ForwardingRouteHandle / ForwardingLease / ForwardingReceipt / ForwardingStatus / ForwardingFailureCode / ForwardingInboxRecord / ForwardingOutboxRecord / ForwardingMessageId"]
+      end
+      subgraph FRUN["runtime   [LIB]"]
+        subgraph FCORE["runtime (core loop/state)"]
+          FLOOP["[LIB] ForwardingDispatchLoop / ForwardingDispatcherWorker / ForwardingStateMachine / ForwardingRetryPolicy / ForwardingCircuitBreaker / RouteCircuitBreaker / EpochClock"]
+        end
+        subgraph FRELAY["runtime/relay"]
+          WORKER["[LIB] EventBusRelayWorker / RelayTick / RelayDispatchLoop"]
+        end
+        subgraph FPJDBC["runtime/persistence/jdbc   [DB]   (Spring+JDBC ArchUnit-confined here)"]
+          JDBC["[DB] JdbcForwardingInbox / JdbcForwardingOutbox / ForwardingSqlCodec"]
+        end
+        subgraph FTRANS["runtime/transport   [PORT]"]
+          TRES["[PORT] BrokerTopicResolver / ForwardingEndpointResolver / MapEndpointResolver"]
+          subgraph FA2A["transport/a2a   (A2A SDK ArchUnit-confined here)"]
+            A2A["[PORT] A2aForwardingDeliveryPort / A2aForwardingProperties"]
+          end
+          subgraph FBRK["transport/broker   (RocketMQ ArchUnit-confined here; 11 classes MIXED: 2 ports + 7 common VO/CFG + 2 rocketmq impl)"]
+            BPORT["[PORT] BrokerForwardingConsumerPort / BrokerForwardingRelayPort"]
+            BCOMMON["[VO+CFG] BrokerClientProperties / DeliveryFilter / BrokerInboundMessage / BrokerOutboundMessage / BrokerProduceOutcome / BrokerMessageHeaders / BrokerControlDescriptor"]
+            BROCKET["[IMPL] RocketMqBrokerForwardingConsumer / RocketMqBrokerForwardingRelay"]
+          end
+        end
+      end
+    end
+    subgraph COMMON["common   [CFG]   (top-level — ADR-0162)"]
+      PROPS["[CFG] AgentBusBrokerProperties @ConfigurationProperties(agent-bus)"]
+    end
+    subgraph EBRUN["eventbus.runtime   [SRV]   (top-level — ADR-0162; 3 event-bus wiring files)"]
+      EBRCFG["[SRV] EventBusRelayConfiguration @Profile(eventbus) / EventBusRelaySchedulingConfig / RelayScheduler"]
+    end
+    subgraph GWRUN["gateway.runtime   [SRV]"]
+      GWCFG["[SRV] GatewayRuntimeConfiguration @Profile(gateway)"]
+      GWCTL["[SRV] GatewayRuntimeController @RestController"]
+      GWSVC["[SRV] GatewayRuntimeService (IngressGateway)"]
+    end
+    subgraph REGRUN["registry.runtime   [SRV]   (OUT OF SCOPE)"]
+      REG["[SRV] registry plane wiring"]
+    end
+  end
+
+  %% ArchUnit constraints (as-is facts)
+  GWRUN -. "ArchUnit: gateway.runtime ↛ eventbus.runtime (ADR-0162)" .-> EBRUN
+  FBRK -. "ArchUnit: rocketmq confined to transport.broker" .-> FBRK
+  FPJDBC -. "ArchUnit: Spring/JDBC confined to persistence.jdbc" .-> FPJDBC
+  FA2A -. "ArchUnit: A2A SDK confined to transport.a2a" .-> FA2A
+
+  %% key cross-package deps (as-is)
+  EBRCFG-->FSPI
+  EBRCFG-->FBRK
+  EBRCFG-->FPJDBC
+  EBRCFG-->COMMON
+  GWCFG-->FSPI
+  GWCFG-->FBRK
+  GWCFG-->FPJDBC
+  GWCFG-->COMMON
+  GWSVC-->FSPI
+  WORKER-->FSPI

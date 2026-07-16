@@ -1,0 +1,77 @@
+%%{init: {"themeVariables": { "primaryColor": "#ffffff", "primaryBorderColor": "#3b82f6", "primaryTextColor": "#0f172a", "lineColor": "#475569" } }}%%
+graph TB
+  %% as-built: redrawn from real post-G5 code (sub-agent implementation). Plan landed + the rule-scope drift (gateway↛forwarding.runtime.relay, user-accepted).
+  classDef added fill:#d4edda,stroke:#16a34a,stroke-width:2px,color:#14532d
+  classDef mod fill:#fff3cd,stroke:#d97706,stroke-width:2px,color:#7c5400
+  classDef ctx fill:#ffffff,stroke:#3b82f6,color:#0f172a
+  classDef rule fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4338ca
+
+  subgraph BUS["com.huawei.ascend.bus..   (SINGLE Maven module — Q1=b; spring-boot repackage + @Profile UNCHANGED)"]
+    subgraph FWD["forwarding   [LIB+PORT]   (reorg anchor — LANDED)"]
+      subgraph FCOMMON["forwarding/common   [CFG]   (AgentBusBrokerProperties ← from top-level common/, eliminated)"]
+        PROPS["AgentBusBrokerProperties"]
+      end
+      subgraph FSPI["spi   [PORT]   (existing ~18 + spi/broker/)"]
+        FEXIST["[PORT] forwarding SPI (unchanged)"]
+        subgraph FBRKSPI["spi/broker   [PORT]   (broker SPI, 5 — LANDED)"]
+          BPORT["BrokerForwardingConsumerPort / BrokerForwardingRelayPort (interfaces)"]
+          BMSG["BrokerInboundMessage / BrokerProduceOutcome / DeliveryFilter (records)"]
+        end
+      end
+      subgraph FRUN["runtime   [LIB]"]
+        subgraph FRELAY["runtime/relay   (relay mechanism + event-bus wiring folded in — Q2 LANDED)"]
+          WORKER["[LIB] EventBusRelayWorker / RelayTick / RelayDispatchLoop"]
+          EBRCFG["[SRV] EventBusRelayConfiguration / EventBusRelaySchedulingConfig / RelayScheduler"]
+        end
+        subgraph FPJDBC["runtime/persistence/jdbc   [DB]   (unchanged)"]
+          JDBC["JdbcForwardingInbox / JdbcForwardingOutbox / ForwardingSqlCodec"]
+        end
+        subgraph FTRANS["runtime/transport   [PORT]"]
+          TRES["BrokerTopicResolver / ForwardingEndpointResolver / MapEndpointResolver"]
+          subgraph FA2A["transport/a2a   (unchanged)"]
+            A2A["A2aForwardingDeliveryPort / A2aForwardingProperties"]
+          end
+          subgraph FBRK["transport/broker   (4 common stay + broker/rocketmq/)"]
+            BCOMMON["[VO+CFG] BrokerClientProperties / BrokerOutboundMessage / BrokerMessageHeaders / BrokerControlDescriptor"]
+            subgraph BROCKET["broker/rocketmq   (2 impl — LANDED)"]
+              ROCKET["[IMPL] RocketMqBrokerForwardingConsumer / RocketMqBrokerForwardingRelay"]
+            end
+          end
+        end
+      end
+    end
+    subgraph GWRUN["gateway.runtime   [SRV]   (unchanged; import → forwarding.common)"]
+      GWCFG["GatewayRuntimeConfiguration"]
+      GWCTL["GatewayRuntimeController"]
+      GWSVC["GatewayRuntimeService"]
+    end
+    subgraph REGRUN["registry.runtime   (out of scope)"]
+      REG["registry plane wiring"]
+    end
+    RULE["ArchUnit (ADR-0163): gateway.runtime ↛ forwarding.runtime.relay..<br/>+ purity exemptions: forwarding.runtime.relay + forwarding.common (Spring/RocketMQ fold-in); forwarding.spi.broker sanctioned"]
+  end
+
+  %% ELIMINATED: top-level common/ (→ forwarding/common/) + top-level eventbus.runtime/ (→ forwarding/runtime/relay/)
+  %% (user-accepted drift: rule narrowed from ↛forwarding.runtime to ↛forwarding.runtime.relay — gateway legitimately wires forwarding.runtime.{broker,jdbc,transport})
+
+  %% the enforced boundary (green post-G5; gateway imports nothing from forwarding.runtime.relay)
+  GWRUN -.x "enforced (green)" .-> FRELAY
+
+  %% key deps (as-built)
+  GWCFG-->FSPI
+  GWCFG-->FBRKSPI
+  GWCFG-->FCOMMON
+  GWCFG-->FBRK
+  GWCFG-->FPJDBC
+  EBRCFG-->FSPI
+  EBRCFG-->FBRKSPI
+  EBRCFG-->FCOMMON
+  EBRCFG-->FBRK
+  EBRCFG-->FPJDBC
+  BROCKET-->FBRKSPI
+  BROCKET-->FBRK
+  WORKER-->FSPI
+
+  class PROPS,FCOMMON,FBRKSPI,BPORT,BMSG,EBRCFG,BROCKET,ROCKET added
+  class FBRK,BCOMMON,WORKER,JDBC,TRES,A2A,GWCFG,GWCTL,GWSVC,REG,FEXIST ctx
+  class RULE rule

@@ -1,0 +1,59 @@
+%%{init: {"themeVariables": { "primaryColor": "#ffffff", "primaryBorderColor": "#3b82f6", "primaryTextColor": "#0f172a", "lineColor": "#475569" } }}%%
+graph TB
+  classDef added fill:#d4edda,stroke:#16a34a,stroke-width:2px,color:#14532d
+  classDef mod fill:#fff3cd,stroke:#d97706,stroke-width:2px,color:#7c5400
+  classDef ctx fill:#ffffff,stroke:#3b82f6,color:#0f172a
+
+  subgraph BUS["com.huawei.ascend.bus..   (SINGLE Maven module — Q1=b; spring-boot repackage + @Profile UNCHANGED)"]
+    subgraph FWD["forwarding   [LIB+PORT]   (reorg anchor)"]
+      subgraph FCOMMON["++ forwarding/common   [CFG]   NEW — AgentBusBrokerProperties (from top-level common/)"]
+        PROPS["AgentBusBrokerProperties"]
+      end
+      subgraph FSPI["spi   [PORT]   (existing ~18 forwarding SPI unchanged + NEW spi/broker/)"]
+        FEXIST["[PORT] forwarding SPI (unchanged)"]
+        subgraph FBRKSPI["++ spi/broker   [PORT]   NEW — broker SPI (from runtime/transport/broker)"]
+          BPORT["BrokerForwardingConsumerPort / BrokerForwardingRelayPort (interfaces)"]
+          BMSG["BrokerInboundMessage / BrokerProduceOutcome / DeliveryFilter (records)"]
+        end
+      end
+      subgraph FRUN["runtime   [LIB]"]
+        subgraph FRELAY["runtime/relay   (EventBusRelayWorker etc. + event-bus wiring folded in — Q2)"]
+          WORKER["[LIB] EventBusRelayWorker / RelayTick / RelayDispatchLoop (unchanged)"]
+          EBRCFG["++ EventBusRelayConfiguration / EventBusRelaySchedulingConfig / RelayScheduler (from top-level eventbus.runtime/)"]
+        end
+        subgraph FPJDBC["runtime/persistence/jdbc   [DB]   (unchanged)"]
+          JDBC["JdbcForwardingInbox / JdbcForwardingOutbox / ForwardingSqlCodec"]
+        end
+        subgraph FTRANS["runtime/transport   [PORT]"]
+          TRES["BrokerTopicResolver / ForwardingEndpointResolver / MapEndpointResolver (unchanged)"]
+          subgraph FA2A["transport/a2a   (unchanged)"]
+            A2A["A2aForwardingDeliveryPort / A2aForwardingProperties"]
+          end
+          subgraph FBRK["~ transport/broker   (RocketMQ-confined; SPI extracted up, rocketmq down)"]
+            BCOMMON["BrokerClientProperties / BrokerOutboundMessage / BrokerMessageHeaders / BrokerControlDescriptor (common — stay)"]
+            subgraph BROCKET["++ broker/rocketmq   NEW — rocketmq impl (from broker root)"]
+              ROCKET["RocketMqBrokerForwardingConsumer / RocketMqBrokerForwardingRelay"]
+            end
+          end
+        end
+      end
+    end
+    subgraph GWRUN["~ gateway.runtime   [SRV]   (structure unchanged; import follows common → forwarding/common)"]
+      GWCFG["GatewayRuntimeConfiguration (import → forwarding.common)"]
+      GWCTL["GatewayRuntimeController"]
+      GWSVC["GatewayRuntimeService"]
+    end
+    subgraph REGRUN["registry.runtime   (out of scope — unchanged)"]
+      REG["registry plane wiring"]
+    end
+  end
+
+  %% ELIMINATED (shown as note): top-level common/ → forwarding/common/ ; top-level eventbus.runtime/ → forwarding/runtime/relay/
+  ELIM1[" eliminated: top-level common/ (→ forwarding/common/) "]
+  ELIM2[" eliminated: top-level eventbus.runtime/ (→ forwarding/runtime/relay/) "]
+
+  %% ArchUnit: gateway.runtime ↛ forwarding.runtime.. (ADR-0163, stricter than ADR-0162's gateway↛eventbus)
+  GWRUN -.x "ArchUnit (ADR-0163): gateway.runtime ↛ forwarding.runtime.." .-> FRUN
+
+  class PROPS,FCOMMON,FBRKSPI,BPORT,BMSG,EBRCFG,BROCKET,ROCKET,ELIM1,ELIM2 added
+  class FBRK,BCOMMON,WORKER,JDBC,TRES,A2A,GWCFG,GWCTL,GWSVC,REG,FEXIST ctx
