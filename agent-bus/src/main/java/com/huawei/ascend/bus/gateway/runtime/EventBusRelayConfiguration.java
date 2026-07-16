@@ -3,6 +3,7 @@ package com.huawei.ascend.bus.gateway.runtime;
 import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingInbox;
 import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingOutbox;
 import com.huawei.ascend.bus.forwarding.runtime.relay.EventBusRelayWorker;
+import com.huawei.ascend.bus.forwarding.runtime.relay.RelayTick;
 import com.huawei.ascend.bus.forwarding.runtime.transport.BrokerTopicResolver;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerClientProperties;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerForwardingConsumerPort;
@@ -48,8 +49,11 @@ import java.util.Map;
  * from the gateway response consumer's targetServiceId-only filter (D13).
  *
  * <p><b>Verification:</b> compile-verified (full suite green); producer {@code start()} +
- * subscribe-at-startup + the relay-consume→re-produce loop boot-correctness is verified by
- * the two-hop IT (G5-E, env-guarded against the real broker). See
+ * subscribe-at-startup boot-correctness is verified by the two-hop IT (G5-E, env-guarded
+ * against the real broker). The scheduler that periodically drives {@code runOnce} is
+ * mechanism-verified by the {@code EventBusRelaySchedulerTest} slice (plain-JUnit, dedicated
+ * ThreadPoolTaskScheduler + fake RelayTick); the full event-bus context boot vs real
+ * broker+Postgres remains env-deferred. See
  * {@code docs/4plus1/delta/event-bus-relay/deviations.md}.
  *
  * <p>Authority: {@code architecture/L2-Low-Level-Design/agent-bus/
@@ -133,6 +137,18 @@ public class EventBusRelayConfiguration {
         return new EventBusRelayWorker(consumer, inbox, outbox, outbox, relay,
                 props.eventBusServiceId() + "-resp", props.eventBusServiceId(), props.leaseDurationMs(),
                 EventBusRelayWorker.RESPONSE_TYPES);
+    }
+
+    /** {@link RelayTick} seam bound to the forward relay worker (hop1 req -> hop2 deliver). */
+    @Bean(name = "forwardRelayTick")
+    RelayTick forwardRelayTick(@Qualifier("forwardRelayWorker") EventBusRelayWorker forwardRelayWorker) {
+        return forwardRelayWorker::runOnce;
+    }
+
+    /** {@link RelayTick} seam bound to the response relay worker (resp_in -> resp_out). */
+    @Bean(name = "responseRelayTick")
+    RelayTick responseRelayTick(@Qualifier("responseRelayWorker") EventBusRelayWorker responseRelayWorker) {
+        return responseRelayWorker::runOnce;
     }
 
     /**
