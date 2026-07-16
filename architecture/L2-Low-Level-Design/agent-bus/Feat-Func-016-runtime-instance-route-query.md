@@ -15,13 +15,13 @@ authority:
   - ./registry-discovery-runtime-design.cn.md
   - ./Feat-Func-015-agent-card-registration-and-discovery.md
 implementation_ref:
-  - /home/zhongyiwei/git/agent-solution/common/agent-rdc
+  - agent-solution/common/registry-discovery-center
 covers_contract: ICD-Agent-Registry-Discovery
 ---
 
 # 运行时实例路由查询 — L2 低层设计
 
-> 本文档把 `version-scope/FEAT-016-runtime-instance-route-query.md` 的事实要求落地为 `agent-bus` registry-discovery-center 单元（及其与 gateway / `agent-runtime` 协作边界）的低层设计。MVP 实现基线参考 `agent-solution/common/agent-rdc`（下文简称 **agent-rdc**），运行态技术基线见 [registry-discovery-runtime-design.cn.md](./registry-discovery-runtime-design.cn.md)，Agent Card 注册侧设计见 [Feat-Func-015](./Feat-Func-015-agent-card-registration-and-discovery.md)。本文聚焦 FEAT-016 特性视角：已知目标路由查询语义、视图分层与脱敏、可用性状态、中心不可用降级、反枚举保护，以及 registry 单元与 gateway / `agent-runtime` 的职责边界。
+> 本文档把 `version-scope/FEAT-016-runtime-instance-route-query.md` 的事实要求落地为 `agent-bus` registry-discovery-center 单元（及其与 gateway / `agent-runtime` 协作边界）的低层设计。MVP 实现基线参考 `agent-solution/common/registry-discovery-center`，运行态技术基线见 [registry-discovery-runtime-design.cn.md](./registry-discovery-runtime-design.cn.md)，Agent Card 注册侧设计见 [Feat-Func-015](./Feat-Func-015-agent-card-registration-and-discovery.md)。本文聚焦 FEAT-016 特性视角：已知目标路由查询语义、视图分层与脱敏、可用性状态、中心不可用降级、反枚举保护，以及 registry 单元与 gateway / `agent-runtime` 的职责边界。
 
 ## 1. 概述
 
@@ -69,7 +69,7 @@ covers_contract: ICD-Agent-Registry-Discovery
 |------|------|------|
 | 已知目标路由查询（agentId） | ✅ | `searchInstancesByAgentId(tenantId, agentId) → List<AgentCardDto>`，返回 ONLINE/DEGRADED 实例。 |
 | 已知目标路由查询（serviceId / capability） | ⬜ 阶段一 | MVP 仅支持 agentId 维度；serviceId / capability 维度阶段一引入（capability 字段已在 REQ-2026-004 移除，阶段一重建）。 |
-| 统一查询语义 | ✅ | gateway 直连与 `agent-runtime` 代理共享 `AgentDiscoveryService` 同一 SPI；差异在调用方 / 权限上下文 / 结果呈现，不在 registry 接口。 |
+| 统一查询语义 | ✅ | gateway 直连与 `agent-runtime` 代理共享 `AgentDiscoveryService` 同一 Service 接口；差异在调用方 / 权限上下文 / 结果呈现，不在 registry 接口。 |
 | 多实例候选 | ✅ | `List<AgentCardDto>` 表达候选集合；每实例独立 `routeHandle`。 |
 | 运行时实例标识 | ✅ | `serviceId`（逻辑服务标识，注册方传入，多实例共享）+ `instanceId`（server-derived `host-port`，区分具体实例）；`instanceId` 进 route handle，不进 DTO 明文。 |
 | 路由引用 | ✅ | opaque `routeHandle`（`v2:` + base64 JSON 6 字段）；对 agent / client 不透明。 |
@@ -99,15 +99,15 @@ covers_contract: ICD-Agent-Registry-Discovery
 
 ### 2.3 接口契约（Logical View）
 
-#### 2.3.1 SPI 声明
+#### 2.3.1 Service 接口声明
 
-registry-discovery-center 对外暴露的路由查询 SPI（agent-rdc `com.openjiuwen.rdc.spi.registry`）：
+registry-discovery-center 对外暴露的路由查询 Service 接口（`com.openjiuwen.rdc.service`）：
 
 ```java
 /**
  * agent-bus 拥有的运行时路由索引查询入口（FEAT-016）。
  *
- * 上层 gateway 直连路由与 agent-runtime 代理查询共享同一 SPI；差异只在
+ * 上层 gateway 直连路由与 agent-runtime 代理查询共享同一 Service 接口；差异只在
  * 调用方、权限上下文与结果呈现方式（系统路由视图 vs 路由可用性投影）。
  *
  * 持久化形态（MVP 单 PG，阶段二 Consul + pgvector）对调用方不可见。
@@ -200,7 +200,7 @@ public interface AgentDiscoveryService {
 
 ## 3. 模块结构（Development View）
 
-### 3.1 registry 单元在 agent-bus 中的位置
+### 3.1 registry-discovery-center 单元在 agent-bus 中的位置
 
 ```
 agent-bus 逻辑域
@@ -208,12 +208,12 @@ agent-bus 逻辑域
 ├── event-bus（逻辑子模块）          ── 不查询 registry（FEAT-016 §5.2 排除）
 └── registry-discovery-center（单元）── 本特性核心
       │
-      ├── spi/registry/              ── 纯 Java SPI（AgentDiscoveryService / DTO / Exception）
-      ├── registry/runtime/api/      ── HTTP 入口（MvpRegistryController）
-      ├── registry/runtime/discovery/── 发现实现 + RouteHandleCodec
-      ├── registry/runtime/persistence/jdbc/ ── 仓储（唯一 JDBC 出口）
-      ├── registry/runtime/health/   ── 健康探活调度
-      └── registry/runtime/tenant/   ── 后台调度租户绑定
+      ├── controller/         ── MVC Controller 层，HTTP 入口
+      ├── service/            ── 业务逻辑层（AgentDiscoveryService / RouteHandleCodec）
+      ├── repository/         ── 数据访问层（唯一 JDBC 出口）
+      ├── model/              ── 数据模型层（AgentCardDto / RouteResolution / Exception）
+      ├── health/             ── 健康探活调度
+      └── tenant/             ── 后台调度租户绑定
 
 外部协作模块（不属于 agent-bus 逻辑域）
 ├── agent-runtime ── 代理 agent 调用 AgentDiscoveryService；承载路由可用性投影层
@@ -247,7 +247,7 @@ agent-bus 逻辑域
 
 - **gateway 直连路径**：client → gateway → `AgentDiscoveryService.searchInstancesByAgentId` → `resolveRouteHandle`（转发层）→ agent。
 - **agent-runtime 代理路径**：agent → `agent-runtime` 注入工具 → `AgentDiscoveryService.searchInstancesByAgentId` → 投影层脱敏 → agent 看到「可用 / 可能不可用 / 版本不匹配」→ agent 决策 → `agent-runtime` 转发层 `resolveRouteHandle` → 远端 agent。
-- **统一查询语义**：两条路径共享 `AgentDiscoveryService` 同一 SPI；差异在调用方、权限上下文、结果呈现（系统路由视图 vs 投影）。
+- **统一查询语义**：两条路径共享 `AgentDiscoveryService` 同一 Service 接口；差异在调用方、权限上下文、结果呈现（系统路由视图 vs 投影）。
 
 ## 4. 核心设计（Logical + Process View）
 
@@ -523,7 +523,7 @@ scope §5.1.7 错误语义映射：
 | 可用性状态细分不足 | scope §5.1.5 的「有限可用」未实现；`DRAINING` 在 SQL 层直接排除而非呈现为「有限可用」 | 阶段一评估是否把 `DRAINING` 纳入「有限可用」投影 |
 | 版本不匹配不在 discovery 层强制过滤 | 调用方需自行比对 `contractVersion` | DTO 携带版本字段；阶段一可在查询输入加 `contractVersion` 过滤 |
 | 路由可用性投影层不在 registry 单元 | registry 只输出系统路由视图；投影实现是 `agent-runtime` 的职责 | 设计如此——投影层属 `agent-runtime` 对 agent 表面 |
-| gateway / agent-runtime 集成未在 agent-rdc 实现 | FEAT-016 的调用方在 gateway / agent-runtime 模块，不在 registry 单元 | 各模块自行设计；本文只约束 SPI 契约与视图分层 |
+| gateway / agent-runtime 集成未在 registry-discovery-center 实现 | FEAT-016 的调用方在 gateway / agent-runtime 模块，不在 registry 单元 | 各模块自行设计；本文只约束 Service 接口契约与视图分层 |
 | route handle 旧 4 字段及 `v1:` 5 字段格式不兼容 | REQ-2026-006 + serviceId/instanceId 分离升级后旧 handle 立即失效 | handle 生命周期短（一个探活周期）；迁移后调用方重新 `GET /instances` |
 
 ## 9. 与 scope 文档的对齐矩阵
@@ -531,7 +531,7 @@ scope §5.1.7 错误语义映射：
 | scope 要求 | L2 落地 | 备注 |
 |-----------|---------|------|
 | §2 已知目标路由查询 MUST | §4.1 / §4.2 / §2.3.1 | MVP by agentId；by serviceId / capability 阶段一 |
-| §2 统一查询语义 MUST | §3.2 / §4.1 / §4.2 | gateway 与 agent-runtime 共享 `AgentDiscoveryService` SPI |
+| §2 统一查询语义 MUST | §3.2 / §4.1 / §4.2 | gateway 与 agent-runtime 共享 `AgentDiscoveryService` Service 接口 |
 | §2 agent-runtime 代理查询 MUST | §3.2 / §4.2 | agent 不直连 registry；经 agent-runtime 注入工具 |
 | §2 多实例候选 MUST | §4.3 | `List<AgentCardDto>` + `(tenant_id, agent_id, service_id, instance_id)` PK；同 `agentId` / 同 `serviceId` 多实例 |
 | §2 运行时实例标识 MUST | §4.3 / §2.3.2 | `serviceId` 逻辑服务标识（多实例共享）+ `instanceId` 实例标识（host-port，进 handle 不进 DTO 明文） |
@@ -552,4 +552,4 @@ scope §5.1.7 错误语义映射：
 | §5.1.6 中心不可用与恢复 | §4.5 | MVP 显式失败；阶段一降级 |
 | §5.1.7 错误语义 | §7 | 映射表 |
 | §5.2 显式边界与不承诺项 | §2.2 / §8 | 对齐 |
-| §6 下游设计约束 | §2.3.3 / §3.2 / §4.2 | SPI 契约 + 视图分层 + agent 不直连 registry |
+| §6 下游设计约束 | §2.3.3 / §3.2 / §4.2 | Service 接口契约 + 视图分层 + agent 不直连 registry |
