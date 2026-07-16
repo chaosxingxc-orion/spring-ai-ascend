@@ -1,0 +1,58 @@
+%%{init: {"themeVariables": { "primaryColor": "#ffffff", "primaryBorderColor": "#3b82f6", "primaryTextColor": "#0f172a", "lineColor": "#475569" } }}%%
+graph TB
+  subgraph BUS["com.huawei.ascend.bus..   (AgentBusApplication @SpringBootApplication — default scan covers ALL sub-packages)"]
+    subgraph GWRUN["gateway.runtime   ← MIXED: gateway-specific + event-bus wiring + shared config (the confusion point)"]
+      GWCFG["[SRV] GatewayRuntimeConfiguration<br/>@Configuration @Profile(gateway)"]
+      GWCTL["[SRV] GatewayRuntimeController<br/>@RestController (web)"]
+      GWSVC["[SRV] GatewayRuntimeService<br/>implements IngressGateway"]
+      EBRCFG["[SRV] EventBusRelayConfiguration<br/>@Configuration @Profile(eventbus)  ← event-bus wiring"]
+      EBSCHED["[SRV] EventBusRelaySchedulingConfig<br/>@Configuration @Profile(eventbus)  ← event-bus wiring"]
+      RELSCHED["[SRV] RelayScheduler<br/>@PostConstruct start()  ← event-bus wiring"]
+      PROPS["[CFG] AgentBusBrokerProperties<br/>@ConfigurationProperties(agent-bus)  ← SHARED (both planes)"]
+    end
+    subgraph FSPI["forwarding.spi   [PORT]"]
+      PORTIN["ForwardingInboxPort"]
+      PORTOUT["ForwardingOutboxPort"]
+      ROUTE["ForwardingRouteHandle"]
+    end
+    subgraph FRUN["forwarding.runtime.relay   [LIB]"]
+      WORKER["EventBusRelayWorker"]
+      RELTICK["RelayTick"]
+      DISPLoop["RelayDispatchLoop"]
+    end
+    subgraph FBRK["forwarding.runtime.transport.broker   [PORT]"]
+      BCP["BrokerClientProperties + RocketMq adapters"]
+    end
+    subgraph FJDBC["forwarding.runtime.persistence.jdbc   [DB]"]
+      JDBC["JdbcForwardingInbox / JdbcForwardingOutbox"]
+    end
+    subgraph REGRUN["registry.runtime   [SRV]  (unchanged)"]
+      REG["registry plane wiring"]
+    end
+  end
+
+  %% event-bus wiring deps (the 4 to-move)
+  EBRCFG-->PROPS
+  EBRCFG-->PORTIN
+  EBRCFG-->PORTOUT
+  EBRCFG-->ROUTE
+  EBRCFG-->WORKER
+  EBRCFG-->RELTICK
+  EBRCFG-->BCP
+  EBRCFG-->JDBC
+  EBSCHED-->PROPS
+  EBSCHED-->RELTICK
+  RELSCHED-->DISPLoop
+  RELSCHED-->RELTICK
+
+  %% gateway-specific deps (the 3 to-stay)
+  GWCFG-->PROPS
+  GWCFG-->PORTOUT
+  GWCFG-->ROUTE
+  GWCFG-->BCP
+  GWCFG-->JDBC
+  GWSVC-->PORTOUT
+
+  %% @EnableConfigurationProperties(AgentBusBrokerProperties.class) on both configs
+  EBRCFG-. "@EnableConfigurationProperties" .->PROPS
+  GWCFG-. "@EnableConfigurationProperties" .->PROPS

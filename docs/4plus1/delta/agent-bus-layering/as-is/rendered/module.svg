@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 640" font-family="Segoe UI,Arial,sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+    <marker id="arrD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+
+  <text x="20" y="30" fill="#0f172a" font-size="16" font-weight="bold">as-is · module view — agent-bus package layering (agent-bus-layering)</text>
+  <text x="20" y="50" fill="#64748b" font-size="11">uniform color = before-the-change snapshot · module type via [tag] + dashed group · NO delta palette (L7)</text>
+
+  <!-- BUS outer -->
+  <rect x="20" y="70" width="1080" height="540" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="30" y="88" fill="#0f172a" font-size="12" font-weight="bold">com.huawei.ascend.bus..   (AgentBusApplication @SpringBootApplication — default scan covers ALL sub-packages)</text>
+
+  <!-- gateway.runtime MIXED group -->
+  <rect x="36" y="100" width="520" height="490" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="46" y="118" fill="#0f172a" font-size="12" font-weight="bold">gateway.runtime   ← MIXED: gateway-specific + event-bus wiring + shared config (the confusion point)</text>
+
+  <!-- col A: gateway-specific (3) -->
+  <rect x="50" y="135" width="240" height="56" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="58" y="153" fill="#0f172a" font-size="12" font-weight="bold">[SRV·gateway] GatewayRuntimeConfiguration</text>
+  <text x="58" y="170" fill="#475569" font-size="10">@Configuration @Profile(gateway)</text>
+  <text x="58" y="183" fill="#475569" font-size="10">@EnableConfigurationProperties</text>
+
+  <rect x="50" y="200" width="240" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="58" y="220" fill="#0f172a" font-size="12" font-weight="bold">[SRV·gateway] GatewayRuntimeController</text>
+  <text x="58" y="238" fill="#475569" font-size="10">@RestController (web — ADR-0160)</text>
+
+  <rect x="50" y="257" width="240" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="58" y="277" fill="#0f172a" font-size="12" font-weight="bold">[SRV·gateway] GatewayRuntimeService</text>
+  <text x="58" y="295" fill="#475569" font-size="10">implements IngressGateway</text>
+
+  <!-- col B: event-bus wiring (3, to-move) -->
+  <rect x="300" y="135" width="240" height="56" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="308" y="153" fill="#0f172a" font-size="12" font-weight="bold">[SRV·eventbus] EventBusRelayConfiguration</text>
+  <text x="308" y="170" fill="#475569" font-size="10">@Configuration @Profile(eventbus)</text>
+  <text x="308" y="183" fill="#475569" font-size="10">@EnableConfigurationProperties</text>
+
+  <rect x="300" y="200" width="240" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="308" y="220" fill="#0f172a" font-size="12" font-weight="bold">[SRV·eventbus] EventBusRelaySchedulingConfig</text>
+  <text x="308" y="238" fill="#475569" font-size="10">@Configuration @Profile(eventbus)</text>
+
+  <rect x="300" y="257" width="240" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="308" y="277" fill="#0f172a" font-size="12" font-weight="bold">[SRV·eventbus] RelayScheduler</text>
+  <text x="308" y="295" fill="#475569" font-size="10">@PostConstruct start() drives relay ticks</text>
+
+  <!-- SHARED config (still uniform — text says SHARED, not color) -->
+  <rect x="50" y="330" width="490" height="58" fill="#ffffff" stroke="#3b82f6" stroke-width="2" rx="5"/>
+  <text x="58" y="350" fill="#0f172a" font-size="12" font-weight="bold">[CFG] AgentBusBrokerProperties   ← SHARED (used by BOTH planes)</text>
+  <text x="58" y="368" fill="#475569" font-size="10">@ConfigurationProperties("agent-bus") record · 12 fields · gateway + event-bus service ids</text>
+  <text x="58" y="381" fill="#475569" font-size="10">javadoc: "Lives in gateway.runtime — the Spring-permitted wiring home"</text>
+
+  <!-- both configs → PROPS (shared) -->
+  <path d="M170,191 C170,250 170,300 170,330" fill="none" stroke="#475569" stroke-width="1.4" marker-end="url(#arr)"/>
+  <path d="M420,191 C420,250 420,300 420,330" fill="none" stroke="#475569" stroke-width="1.4" marker-end="url(#arr)"/>
+  <text x="178" y="260" fill="#475569" font-size="9">depends + @EnableCP</text>
+
+  <!-- forwarding + registry context group -->
+  <rect x="580" y="100" width="500" height="490" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 4" rx="8"/>
+  <text x="590" y="118" fill="#0f172a" font-size="12" font-weight="bold">forwarding.* + registry.runtime   (unchanged context — neither moves)</text>
+
+  <rect x="596" y="135" width="470" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="604" y="155" fill="#0f172a" font-size="12" font-weight="bold">[PORT] forwarding.spi</text>
+  <text x="604" y="173" fill="#475569" font-size="10">ForwardingInboxPort / ForwardingOutboxPort / ForwardingRouteHandle</text>
+
+  <rect x="596" y="192" width="470" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="604" y="212" fill="#0f172a" font-size="12" font-weight="bold">[LIB] forwarding.runtime.relay</text>
+  <text x="604" y="230" fill="#475569" font-size="10">EventBusRelayWorker / RelayTick / RelayDispatchLoop  (ArchUnit-guarded pure Java)</text>
+
+  <rect x="596" y="249" width="470" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="604" y="269" fill="#0f172a" font-size="12" font-weight="bold">[PORT] forwarding.runtime.transport.broker</text>
+  <text x="604" y="287" fill="#475569" font-size="10">BrokerClientProperties + RocketMq adapters (concrete broker confined here)</text>
+
+  <rect x="596" y="306" width="470" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="604" y="326" fill="#0f172a" font-size="12" font-weight="bold">[DB] forwarding.runtime.persistence.jdbc</text>
+  <text x="604" y="344" fill="#475569" font-size="10">JdbcForwardingInbox / JdbcForwardingOutbox  (Spring/JDBC confined here)</text>
+
+  <rect x="596" y="363" width="470" height="48" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" rx="5"/>
+  <text x="604" y="383" fill="#0f172a" font-size="12" font-weight="bold">[SRV] registry.runtime</text>
+  <text x="604" y="401" fill="#475569" font-size="10">registry plane wiring (unchanged)</text>
+
+  <!-- ArchUnit context note -->
+  <rect x="596" y="430" width="470" height="140" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 3" rx="5"/>
+  <text x="604" y="450" fill="#0f172a" font-size="12" font-weight="bold">ArchUnit (code-verified as-is — corrects the handoff)</text>
+  <text x="604" y="470" fill="#475569" font-size="10">• AgentBusForwardingSpiPurityTest scopes forwarding.. ONLY — never gateway.runtime</text>
+  <text x="604" y="486" fill="#475569" font-size="10">• 4 purity tests guard forwarding/spi/spi.registry/registry — NONE scope gateway..</text>
+  <text x="604" y="502" fill="#475569" font-size="10">• DependencyBoundaryTest = bus.. vs sibling platform modules (move within bus = invisible)</text>
+  <text x="604" y="518" fill="#475569" font-size="10">• ForwardingDesignContractTest trip-wire = broker/queue/mailbox/dlq/replay (eventbus matches none)</text>
+  <text x="604" y="538" fill="#7c5400" font-size="10" font-weight="bold">→ moving the 4 files breaks ZERO rules; grants NO Spring license (handoff's hard-constraint #1 = FALSE)</text>
+
+  <!-- deps from configs into forwarding.spi (representative) -->
+  <path d="M290,160 C400,160 500,159 596,159" fill="none" stroke="#475569" stroke-width="1.4" marker-end="url(#arr)"/>
+  <text x="400" y="153" fill="#475569" font-size="9">GatewayRuntimeConfiguration → forwarding.spi</text>
+  <path d="M540,160 C560,160 580,159 596,159" fill="none" stroke="none"/>
+
+  <text x="20" y="628" fill="#64748b" font-size="10">legend: [SRV] Spring wiring · [PORT] SPI port · [LIB] library/POJO · [DB] persistence · [CFG] config · solid arrow = compile/runtime dependency · all nodes uniform (as-is snapshot, no delta)</text>
+</svg>

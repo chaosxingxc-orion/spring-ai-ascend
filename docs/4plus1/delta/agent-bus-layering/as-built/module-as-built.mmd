@@ -1,0 +1,78 @@
+%%{init: {"themeVariables": { "primaryColor": "#ffffff", "primaryBorderColor": "#3b82f6", "primaryTextColor": "#0f172a", "lineColor": "#475569" } }}%%
+graph TB
+  %% as-built: redrawn from REAL post-G5 code (not by editing to-be). The plan landed as designed.
+  classDef added fill:#d4edda,stroke:#16a34a,stroke-width:2px,color:#14532d
+  classDef mod fill:#fff3cd,stroke:#d97706,stroke-width:2px,color:#7c5400
+  classDef ctx fill:#ffffff,stroke:#3b82f6,color:#0f172a
+  classDef rule fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4338ca
+
+  subgraph BUS["com.huawei.ascend.bus..   (AgentBusApplication @SpringBootApplication — default scan covers ALL sub-packages incl. NEW common + eventbus.runtime)"]
+    subgraph COMMON["common   [CFG]   (G5, Q2a landed) — shared plane config; both planes depend here, not on each other"]
+      PROPS["AgentBusBrokerProperties<br/>@ConfigurationProperties(agent-bus)<br/>lives in common (moved from gateway.runtime)"]
+    end
+    subgraph EBRUN["eventbus.runtime   [SRV]   (G5, Q1a landed) — event-bus wiring home"]
+      EBRCFG["EventBusRelayConfiguration<br/>@Configuration @Profile(eventbus)"]
+      EBSCHED["EventBusRelaySchedulingConfig<br/>@Configuration @Profile(eventbus)"]
+      RELSCHED["RelayScheduler<br/>@PostConstruct start()"]
+    end
+    subgraph GWRUN["gateway.runtime   [SRV]   (G5 landed) — now gateway-only (3 files)"]
+      GWCFG["GatewayRuntimeConfiguration<br/>@Profile(gateway)<br/>imports common.AgentBusBrokerProperties"]
+      GWCTL["GatewayRuntimeController @RestController"]
+      GWSVC["GatewayRuntimeService"]
+    end
+    subgraph FSPI["forwarding.spi   [PORT]   (unchanged)"]
+      PORTIN["ForwardingInboxPort"]
+      PORTOUT["ForwardingOutboxPort"]
+      ROUTE["ForwardingRouteHandle"]
+    end
+    subgraph FRUN["forwarding.runtime.relay   [LIB]   (unchanged)"]
+      WORKER["EventBusRelayWorker"]
+      RELTICK["RelayTick"]
+      DISPLoop["RelayDispatchLoop"]
+    end
+    subgraph FBRK["forwarding.runtime.transport.broker   [PORT]   (unchanged)"]
+      BCP["BrokerClientProperties + RocketMq adapters"]
+    end
+    subgraph FJDBC["forwarding.runtime.persistence.jdbc   [DB]   (unchanged)"]
+      JDBC["JdbcForwardingInbox / JdbcForwardingOutbox"]
+    end
+    subgraph REGRUN["registry.runtime   [SRV]   (unchanged)"]
+      REG["registry plane wiring"]
+    end
+    RULE["ArchUnit rule (AgentBusDependencyBoundaryTest)<br/>gateway.runtime ↛ eventbus.runtime<br/>green + liveness guard (G5, Q3a landed)"]
+  end
+
+  %% cross-package deps realised via explicit imports (as-built: 4 files import common.AgentBusBrokerProperties;
+  %% RelayScheduler needs none — constructor takes primitives, no BrokerProperties reference)
+  EBRCFG-->PROPS
+  EBSCHED-->PROPS
+  GWCFG-->PROPS
+  EBRCFG-. "@EnableConfigurationProperties" .->PROPS
+  GWCFG-. "@EnableConfigurationProperties" .->PROPS
+
+  %% event-bus wiring deps (unchanged targets, new home)
+  EBRCFG-->PORTIN
+  EBRCFG-->PORTOUT
+  EBRCFG-->ROUTE
+  EBRCFG-->WORKER
+  EBRCFG-->RELTICK
+  EBRCFG-->BCP
+  EBRCFG-->JDBC
+  EBSCHED-->RELTICK
+  RELSCHED-->DISPLoop
+  RELSCHED-->RELTICK
+
+  %% gateway deps (GatewayRuntimeConfiguration imports common; rest unchanged)
+  GWCFG-->PORTOUT
+  GWCFG-->ROUTE
+  GWCFG-->BCP
+  GWCFG-->JDBC
+  GWSVC-->PORTOUT
+
+  %% the enforced boundary (green post-G5)
+  GWRUN -.x enforced by ArchUnit (Q3a, landed green) .-> EBRUN
+
+  class PROPS,EBRCFG,EBSCHED,RELSCHED added
+  class GWCFG mod
+  class GWCTL,GWSVC,PORTIN,PORTOUT,ROUTE,WORKER,RELTICK,DISPLoop,BCP,JDBC,REG ctx
+  class RULE rule

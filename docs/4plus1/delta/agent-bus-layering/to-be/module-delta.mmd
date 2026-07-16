@@ -1,0 +1,75 @@
+%%{init: {"themeVariables": { "primaryColor": "#ffffff", "primaryBorderColor": "#3b82f6", "primaryTextColor": "#0f172a", "lineColor": "#475569" } }}%%
+graph TB
+  classDef added fill:#d4edda,stroke:#16a34a,stroke-width:2px,color:#14532d
+  classDef mod fill:#fff3cd,stroke:#d97706,stroke-width:2px,color:#7c5400
+  classDef ctx fill:#ffffff,stroke:#3b82f6,color:#0f172a
+  classDef addedEdge stroke:#16a34a,stroke-width:2px,color:#14532d
+  classDef modEdge stroke:#d97706,stroke-width:2px,color:#7c5400
+
+  subgraph BUS["com.huawei.ascend.bus..   (AgentBusApplication @SpringBootApplication — scan covers ALL sub-packages, incl. NEW ones)"]
+    subgraph COMMON["++ common   [CFG]   NEW package — shared plane config (Q2a)"]
+      PROPS["AgentBusBrokerProperties<br/>@ConfigurationProperties(agent-bus)<br/>++ moved here (from gateway.runtime)"]
+    end
+    subgraph EBRUN["++ eventbus.runtime   [SRV]   NEW package — event-bus wiring (Q1a)"]
+      EBRCFG["EventBusRelayConfiguration<br/>@Configuration @Profile(eventbus)<br/>++ moved"]
+      EBSCHED["EventBusRelaySchedulingConfig<br/>@Configuration @Profile(eventbus)<br/>++ moved"]
+      RELSCHED["RelayScheduler<br/>++ moved"]
+    end
+    subgraph GWRUN["~ gateway.runtime   [SRV]   MODIFIED — now gateway-only (3 files; lost 4)"]
+      GWCFG["GatewayRuntimeConfiguration<br/>@Profile(gateway)<br/>~ + import common.AgentBusBrokerProperties"]
+      GWCTL["GatewayRuntimeController @RestController"]
+      GWSVC["GatewayRuntimeService"]
+    end
+    subgraph FSPI["forwarding.spi   [PORT]   (unchanged)"]
+      PORTIN["ForwardingInboxPort"]
+      PORTOUT["ForwardingOutboxPort"]
+      ROUTE["ForwardingRouteHandle"]
+    end
+    subgraph FRUN["forwarding.runtime.relay   [LIB]   (unchanged)"]
+      WORKER["EventBusRelayWorker"]
+      RELTICK["RelayTick"]
+      DISPLoop["RelayDispatchLoop"]
+    end
+    subgraph FBRK["forwarding.runtime.transport.broker   [PORT]   (unchanged)"]
+      BCP["BrokerClientProperties + RocketMq adapters"]
+    end
+    subgraph FJDBC["forwarding.runtime.persistence.jdbc   [DB]   (unchanged)"]
+      JDBC["JdbcForwardingInbox / JdbcForwardingOutbox"]
+    end
+    subgraph REGRUN["registry.runtime   [SRV]   (unchanged)"]
+      REG["registry plane wiring"]
+    end
+  end
+
+  %% NEW edges into common (the shared config dependency direction)
+  EBRCFG-->PROPS
+  EBSCHED-->PROPS
+  GWCFG-->PROPS
+  EBRCFG-. "@EnableConfigurationProperties" .->PROPS
+  GWCFG-. "@EnableConfigurationProperties" .->PROPS
+
+  %% event-bus wiring deps (unchanged targets, new home)
+  EBRCFG-->PORTIN
+  EBRCFG-->PORTOUT
+  EBRCFG-->ROUTE
+  EBRCFG-->WORKER
+  EBRCFG-->RELTICK
+  EBRCFG-->BCP
+  EBRCFG-->JDBC
+  EBSCHED-->RELTICK
+  RELSCHED-->DISPLoop
+  RELSCHED-->RELTICK
+
+  %% gateway deps (GatewayRuntimeConfiguration now imports common; rest unchanged)
+  GWCFG-->PORTOUT
+  GWCFG-->ROUTE
+  GWCFG-->BCP
+  GWCFG-->JDBC
+  GWSVC-->PORTOUT
+
+  %% the boundary the new ArchUnit rule enforces (Q3a): gateway.runtime ↛ eventbus.runtime
+  GWRUN -.x forbidden by ArchUnit (Q3a) .-> EBRUN
+
+  class PROPS,EBRCFG,EBSCHED,RELSCHED added
+  class GWCFG mod
+  class GWCTL,GWSVC,PORTIN,PORTOUT,ROUTE,WORKER,RELTICK,DISPLoop,BCP,JDBC,REG ctx
