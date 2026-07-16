@@ -1,8 +1,10 @@
-package com.huawei.ascend.bus.forwarding.runtime.transport.broker;
+package com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq;
 
 import com.huawei.ascend.bus.forwarding.runtime.transport.ForwardingEndpointResolver;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxRecord;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingRelayPort;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerProduceOutcome;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.SendStatus;

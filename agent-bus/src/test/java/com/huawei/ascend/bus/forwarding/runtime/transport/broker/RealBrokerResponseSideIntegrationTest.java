@@ -2,9 +2,14 @@ package com.huawei.ascend.bus.forwarding.runtime.transport.broker;
 
 import com.huawei.ascend.bus.forwarding.runtime.transport.ForwardingEndpointResolver;
 import com.huawei.ascend.bus.forwarding.runtime.transport.MapEndpointResolver;
+import com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq.RocketMqBrokerForwardingConsumer;
+import com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq.RocketMqBrokerForwardingRelay;
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
 import com.huawei.ascend.bus.forwarding.spi.InvocationResponseStatus;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingConsumerPort;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerInboundMessage;
+import com.huawei.ascend.bus.forwarding.spi.broker.DeliveryFilter;
 import com.huawei.ascend.bus.forwarding.test.InMemoryForwardingOutbox;
 import com.huawei.ascend.bus.gateway.runtime.GatewayRuntimeService;
 import com.huawei.ascend.bus.spi.ingress.IngressEnvelope;

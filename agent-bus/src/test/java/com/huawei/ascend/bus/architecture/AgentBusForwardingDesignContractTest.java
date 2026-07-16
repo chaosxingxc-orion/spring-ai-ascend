@@ -143,20 +143,31 @@ class AgentBusForwardingDesignContractTest {
         // com.huawei.ascend.bus.forwarding.runtime.transport.broker. That one subpackage is now
         // admitted (mirroring how AgentBusForwardingSpiPurityTest confines org.apache.rocketmq
         // there); every other broker / queue / mailbox / DLQ / replay package stays forbidden.
+        //
+        // forwarding-reorg (ADR-0163) lift: the broker SPI (Ports + the broker-agnostic
+        // BrokerInboundMessage / BrokerProduceOutcome / DeliveryFilter) was extracted from
+        // runtime.transport.broker into forwarding.spi.broker (decision-tree Q3). That is a
+        // sanctioned broker-SPI home (pure Java — no broker client), not a broker runtime, so it
+        // is admitted here alongside the runtime.transport.broker adapter home. The rocketmq
+        // adapter subpackage (runtime.transport.broker.rocketmq) is already covered by the
+        // startsWith(runtime.transport.broker) prefix.
         Set<String> brokerRuntimePackages = classes.stream()
                 .map(JavaClass::getPackageName)
                 .filter(p -> p.contains(".broker") || p.contains(".queue")
                         || p.contains(".mailbox") || p.contains(".dlq")
                         || p.contains(".replay"))
                 .filter(p -> !p.startsWith("com.huawei.ascend.bus.forwarding.runtime.transport.broker"))
+                .filter(p -> !p.startsWith("com.huawei.ascend.bus.forwarding.spi.broker"))
                 .collect(Collectors.toSet());
         assertThat(brokerRuntimePackages)
                 .as("Stage 4 boundary lifted only for the sanctioned broker adapter home "
                   + "(runtime.transport.broker — Stage 25 adopted-t4 made the explicit decision "
                   + "this trip-wire existed to force; Stage 26 landed the broker-agnostic SPI "
-                  + "scaffold there). All other broker / queue / mailbox / DLQ / replay packages "
-                  + "remain forbidden — ICD-Agent-Bus-Forwarding stays design-level broker-agnostic "
-                  + "outside that one adapter subpackage.")
+                  + "scaffold there) + the reorg's broker-SPI extraction (forwarding.spi.broker — "
+                  + "ADR-0163, decision-tree Q3; pure Java, no broker client). All other broker / "
+                  + "queue / mailbox / DLQ / replay packages remain forbidden — "
+                  + "ICD-Agent-Bus-Forwarding stays design-level broker-agnostic outside those "
+                  + "two sanctioned broker homes.")
                 .isEmpty();
     }
 

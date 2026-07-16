@@ -1,5 +1,7 @@
 package com.huawei.ascend.bus.forwarding.runtime.transport.broker;
 
+import com.huawei.ascend.bus.forwarding.spi.broker.DeliveryFilter;
+
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

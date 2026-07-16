@@ -1,4 +1,6 @@
-package com.huawei.ascend.bus.forwarding.runtime.transport.broker;
+package com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq;
+
+import com.huawei.ascend.bus.forwarding.spi.broker.DeliveryFilter;
 
 import java.util.Map;
 

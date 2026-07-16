@@ -53,10 +53,20 @@ class AgentBusForwardingSpiPurityTest {
     void forwarding_core_does_not_import_spring_outside_jdbc_adapter() {
         noClasses().that().resideInAPackage("com.huawei.ascend.bus.forwarding..")
                 .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc..")
+                .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.relay..")
+                .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.common..")
                 .should().dependOnClassesThat().resideInAPackage("org.springframework..")
                 .because("Stage 12: Spring JDBC is licensed only inside the persistence.jdbc "
                        + "adapter subpackage; the forwarding ports / state machine / worker / loop "
-                       + "stay pure Java (decision §4 Stage 12 permit, §6.2 unchanged).")
+                       + "stay pure Java (decision §4 Stage 12 permit, §6.2 unchanged). "
+                       + "forwarding-reorg (ADR-0163) fold-in exemptions: the event-bus process-form "
+                       + "wiring (EventBusRelayConfiguration / EventBusRelaySchedulingConfig, moved "
+                       + "from the eliminated eventbus.runtime plane into forwarding.runtime.relay) "
+                       + "is @Configuration + @Bean + @Profile + SmartLifecycle by nature, and "
+                       + "AgentBusBrokerProperties (moved from the eliminated common plane into "
+                       + "forwarding.common) is a @ConfigurationProperties record — both were exempt "
+                       + "before the reorg by living OUTSIDE forwarding..; folding them in licenses "
+                       + "Spring in their new homes, mirroring how persistence.jdbc licenses Spring JDBC.")
                 .check(FORWARDING);
     }
 
@@ -75,10 +85,16 @@ class AgentBusForwardingSpiPurityTest {
     void forwarding_core_does_not_import_javax_sql_outside_jdbc_adapter() {
         noClasses().that().resideInAPackage("com.huawei.ascend.bus.forwarding..")
                 .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc..")
+                .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.relay..")
                 .should().dependOnClassesThat().resideInAPackage("javax.sql..")
                 .because("Stage 12: javax.sql (DataSource etc.) is licensed only inside the "
                        + "persistence.jdbc adapter; the forwarding core stays pure Java "
-                       + "(decision §4 Stage 12 permit).")
+                       + "(decision §4 Stage 12 permit). forwarding-reorg (ADR-0163) fold-in "
+                       + "exemption: the event-bus process-form wiring in forwarding.runtime.relay "
+                       + "(EventBusRelayConfiguration, moved from eventbus.runtime) wires "
+                       + "javax.sql.DataSource into its relay inbox/outbox beans — that wiring "
+                       + "was exempt before the reorg by living OUTSIDE forwarding..; folding it in "
+                       + "licenses javax.sql in its new home alongside the persistence.jdbc adapter.")
                 .check(FORWARDING);
     }
 
@@ -161,6 +177,7 @@ class AgentBusForwardingSpiPurityTest {
     void forwarding_core_does_not_import_rocketmq_outside_broker_adapter() {
         noClasses().that().resideInAPackage("com.huawei.ascend.bus.forwarding..")
                 .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.transport.broker..")
+                .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.relay..")
                 .should().dependOnClassesThat().resideInAPackage("org.apache.rocketmq..")
                 .because("Stage 26: a concrete RocketMQ client is licensed only inside the "
                        + "transport.broker adapter subpackage (decision §6.1 item 1 lifted by "
@@ -168,7 +185,14 @@ class AgentBusForwardingSpiPurityTest {
                        + "not leak outside that package). The Stage 26 SPI scaffold + in-memory "
                        + "double are pure Java, so this rule is vacuously green now and authorises "
                        + "the Stage 27+ RocketMQ adapter to confine its client there. Kafka / NATS "
-                       + "remain fully forbidden (the project standardises on RocketMQ, Stage 25).")
+                       + "remain fully forbidden (the project standardises on RocketMQ, Stage 25). "
+                       + "forwarding-reorg (ADR-0163) fold-in exemption: the event-bus process-form "
+                       + "wiring in forwarding.runtime.relay (EventBusRelayConfiguration, moved from "
+                       + "eventbus.runtime) constructs + wires the relay DefaultMQProducer bean — "
+                       + "that wiring was exempt before the reorg by living OUTSIDE forwarding..; "
+                       + "folding it in licenses the producer bean in its new home. The concrete "
+                       + "RocketMQ adapters (RocketMqBrokerForwardingConsumer/Relay) stay confined to "
+                       + "transport.broker.rocketmq (covered by the transport.broker.. prefix).")
                 .check(FORWARDING);
     }
 

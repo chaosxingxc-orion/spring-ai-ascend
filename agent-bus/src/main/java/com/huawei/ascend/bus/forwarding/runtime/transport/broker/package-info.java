@@ -6,11 +6,15 @@
  * broker carries messages from the relay (sender-side) to the receiver
  * (consumer-pull — backpressure owned by the consumer, MQ is just one carrier).
  *
- * <p>This package is the broker-agnostic SPI scaffold: {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerForwardingRelayPort}
- * (relay: outbox record → broker produce) and {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerForwardingConsumerPort}
- * (receiver: broker poll → commit/reject), plus the broker-agnostic message /
- * outcome / config types. A concrete broker adapter (Stage 27+ RocketMQ PoC) lives
- * here too; Stage 26 ships the in-memory test double only.
+ * <p>This package holds the broker-common runtime types that stay alongside the
+ * concrete adapter: {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerClientProperties},
+ * {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerOutboundMessage},
+ * {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerMessageHeaders}, and
+ * {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerControlDescriptor}. The
+ * broker SPI surface (Ports + the broker-agnostic message / outcome / filter types)
+ * was extracted to {@code forwarding.spi.broker} by the forwarding-reorg (ADR-0163); a
+ * concrete broker adapter (RocketMQ PoC) lives in the {@code broker.rocketmq}
+ * subpackage; the in-memory test double ships in the test source tree.
  *
  * <p><b>Governance.</b> Decision §6.1 item 1 (concrete broker client) is lifted for
  * THIS subpackage only (Stage 25), mirroring how Stage 12 confines Spring/JDBC to

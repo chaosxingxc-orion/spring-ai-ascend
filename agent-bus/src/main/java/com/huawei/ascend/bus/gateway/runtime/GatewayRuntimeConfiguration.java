@@ -1,16 +1,16 @@
 package com.huawei.ascend.bus.gateway.runtime;
 
-import com.huawei.ascend.bus.common.AgentBusBrokerProperties;
+import com.huawei.ascend.bus.forwarding.common.AgentBusBrokerProperties;
 import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingOutbox;
 import com.huawei.ascend.bus.forwarding.runtime.transport.BrokerTopicResolver;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerClientProperties;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerForwardingConsumerPort;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerForwardingRelayPort;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.DeliveryFilter;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.RocketMqBrokerForwardingConsumer;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.RocketMqBrokerForwardingRelay;
+import com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq.RocketMqBrokerForwardingConsumer;
+import com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq.RocketMqBrokerForwardingRelay;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxPort;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingConsumerPort;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingRelayPort;
+import com.huawei.ascend.bus.forwarding.spi.broker.DeliveryFilter;
 import com.huawei.ascend.bus.spi.ingress.IngressGateway;
 
 import org.apache.rocketmq.client.producer.DefaultMQProducer;

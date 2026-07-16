@@ -1,4 +1,4 @@
-package com.huawei.ascend.bus.common;
+package com.huawei.ascend.bus.forwarding.common;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -17,11 +17,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * for the relay consumers (single-tenant-per-deployment; multi-tenant relay subscribe
  * is a G5-E refinement — see the {@code deviations.md} FIXME).
  *
- * <p>Lives in {@code common} — plane-level connection config shared by BOTH the gateway
- * plane ({@code gateway.runtime}) and the event-bus plane ({@code eventbus.runtime});
- * neither plane depends on the other's implementation package for its config
- * (agent-bus layering, ADR-0162). Previously co-located in {@code gateway.runtime};
- * moved out so {@code gateway.runtime} holds only gateway-specific wiring.
+ * <p>Lives in {@code forwarding.common} — forwarding-internal connection config shared by BOTH
+ * the gateway plane ({@code gateway.runtime}) and the event-bus wiring
+ * ({@code forwarding.runtime.relay}, arch-driven forwarding-reorg / ADR-0163); neither
+ * process form depends on the other's implementation package for its config (agent-bus
+ * layering, ADR-0163 supersedes ADR-0162's top-level {@code common} plane). Previously
+ * co-located in {@code gateway.runtime}; moved out so {@code gateway.runtime} holds only
+ * gateway-specific wiring, then folded into {@code forwarding.common} by the reorg.
  */
 @ConfigurationProperties(prefix = "agent-bus")
 public record AgentBusBrokerProperties(

@@ -1,10 +1,6 @@
 package com.huawei.ascend.bus.forwarding.runtime.relay;
 
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerControlDescriptor;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerForwardingConsumerPort;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerForwardingRelayPort;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerInboundMessage;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerProduceOutcome;
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
@@ -16,6 +12,10 @@ import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxRecord;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingReceipt;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingStatus;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingConsumerPort;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingRelayPort;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerInboundMessage;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerProduceOutcome;
 
 import java.util.List;
 import java.util.Objects;

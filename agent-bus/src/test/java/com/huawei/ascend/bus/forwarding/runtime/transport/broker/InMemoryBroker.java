@@ -4,6 +4,11 @@ import com.huawei.ascend.bus.forwarding.runtime.transport.ForwardingEndpointReso
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxRecord;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingConsumerPort;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingRelayPort;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerInboundMessage;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerProduceOutcome;
+import com.huawei.ascend.bus.forwarding.spi.broker.DeliveryFilter;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

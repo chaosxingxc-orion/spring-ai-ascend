@@ -359,7 +359,14 @@ class AgentBusForwardingRuntimeContractTest {
                   + "ForwardingDeliveryResult; it never stores Task state on the outbox record. "
                   + "Stage 26 likewise excludes runtime.transport.broker — that adapter is the "
                   + "sanctioned home for a concrete broker client (Stage 25 adopted-t4); it carries "
-                  + "only broker-agnostic routing metadata, never a payload body / Task state.")
+                  + "only broker-agnostic routing metadata, never a payload body / Task state. "
+                  + "forwarding-reorg (ADR-0163) likewise excludes forwarding.runtime.relay — the "
+                  + "event-bus process-form wiring (EventBusRelayConfiguration, moved from the "
+                  + "eliminated eventbus.runtime plane) wires the relay DefaultMQProducer bean; it "
+                  + "was exempt before the reorg by living outside forwarding/, and is licensed in "
+                  + "its new home, mirroring the broker adapter exemption above. The reorg also "
+                  + "excludes forwarding.spi.broker (the extracted broker SPI — pure Java; its "
+                  + "javadoc names org.apache.rocketmq only to state callers never touch it).")
                 .allSatisfy(src -> assertThat(src)
                         .doesNotContain("payloadBody", "payload_body")
                         .doesNotContain("TaskExecutionState", "TaskExecution", "TaskStatus")
@@ -738,7 +745,11 @@ class AgentBusForwardingRuntimeContractTest {
                   + "by AgentBusForwardingSpiPurityTest. Stage 15 excludes runtime.transport.a2a "
                   + "(A2A wire-format parser; never stores Task state on the record). Stage 26 "
                   + "excludes runtime.transport.broker (concrete broker client home, Stage 25 "
-                  + "adopted-t4; broker-agnostic routing metadata only).")
+                  + "adopted-t4; broker-agnostic routing metadata only). forwarding-reorg (ADR-0163) "
+                  + "excludes forwarding.runtime.relay (event-bus process-form wiring, moved from "
+                  + "eventbus.runtime; wires the relay DefaultMQProducer bean) and forwarding.spi.broker "
+                  + "(extracted broker SPI — pure Java; javadoc names org.apache.rocketmq only to "
+                  + "state callers never touch it).")
                 .allSatisfy(src -> assertThat(src)
                         .doesNotContain("TaskExecutionState", "TaskExecution", "TaskStatus")
                         .doesNotContain("org.apache.kafka", "com.rabbitmq",
@@ -1618,10 +1629,31 @@ class AgentBusForwardingRuntimeContractTest {
         // descriptor only; payloadRef rides as a header; no Task state; cross-tenant rejected).
         Path brokerTransportAdapter =
                 Path.of("src/main/java/com/huawei/ascend/bus/forwarding/runtime/transport/broker");
+        // forwarding-reorg (ADR-0163): the event-bus process-form wiring
+        // (EventBusRelayConfiguration / EventBusRelaySchedulingConfig) was folded from the
+        // eliminated eventbus.runtime plane into forwarding.runtime.relay. That wiring
+        // constructs + wires the relay DefaultMQProducer bean + javax.sql.DataSource inbox/outbox
+        // beans — it was exempt from this §6.2 text scan before the reorg by living OUTSIDE
+        // forwarding/; folding it in licenses the producer bean in its new home, mirroring how
+        // the broker transport adapter (above) is the sanctioned home for a concrete broker client.
+        // §6.2 ②③④⑤ still hold for the forwarding core (the broker message body is a routing
+        // descriptor only; payloadRef rides as a header; no Task state; cross-tenant rejected).
+        Path eventBusRelayWiring =
+                Path.of("src/main/java/com/huawei/ascend/bus/forwarding/runtime/relay");
+        // forwarding-reorg (ADR-0163): the broker SPI (Ports + BrokerInboundMessage /
+        // BrokerProduceOutcome / DeliveryFilter) was extracted from runtime.transport.broker
+        // into forwarding.spi.broker (decision-tree Q3). The broker SPI is pure Java (no broker
+        // client) but its javadoc legitimately names org.apache.rocketmq to state callers never
+        // touch it — excluded from this text scan, mirroring how the broker transport adapter
+        // (above) is excluded. §6.2 ②③④⑤ still hold for the forwarding core.
+        Path brokerSpi =
+                Path.of("src/main/java/com/huawei/ascend/bus/forwarding/spi/broker");
         try (Stream<Path> walk = Files.walk(root)) {
             return walk.filter(p -> p.toString().endsWith(".java"))
                     .filter(p -> !p.startsWith(a2aTransportAdapter))
                     .filter(p -> !p.startsWith(brokerTransportAdapter))
+                    .filter(p -> !p.startsWith(eventBusRelayWiring))
+                    .filter(p -> !p.startsWith(brokerSpi))
                     .map(AgentBusForwardingRuntimeContractTest::readStringUnchecked)
                     .toList();
         }

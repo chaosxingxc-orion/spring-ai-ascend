@@ -1,4 +1,4 @@
-package com.huawei.ascend.bus.forwarding.runtime.transport.broker;
+package com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq;
 
 import com.huawei.ascend.bus.forwarding.runtime.transport.MapEndpointResolver;
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
@@ -7,6 +7,7 @@ import com.huawei.ascend.bus.forwarding.spi.ForwardingMessageId;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxRecord;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingStatus;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerProduceOutcome;
 import org.apache.rocketmq.common.message.Message;
 import org.junit.jupiter.api.Test;
 

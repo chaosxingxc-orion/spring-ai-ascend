@@ -1,7 +1,5 @@
-package com.huawei.ascend.bus.eventbus.runtime;
+package com.huawei.ascend.bus.forwarding.runtime.relay;
 
-import com.huawei.ascend.bus.forwarding.runtime.relay.RelayDispatchLoop;
-import com.huawei.ascend.bus.forwarding.runtime.relay.RelayTick;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;

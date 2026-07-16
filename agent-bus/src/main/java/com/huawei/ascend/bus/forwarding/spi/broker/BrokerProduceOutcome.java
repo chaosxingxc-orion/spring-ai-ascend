@@ -1,4 +1,4 @@
-package com.huawei.ascend.bus.forwarding.runtime.transport.broker;
+package com.huawei.ascend.bus.forwarding.spi.broker;
 
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 

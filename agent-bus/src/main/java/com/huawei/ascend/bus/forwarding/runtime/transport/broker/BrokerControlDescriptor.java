@@ -7,7 +7,7 @@ import java.util.Objects;
 /**
  * Shared control-descriptor codec for the FEAT-013/014 broker {@code payloadRef}.
  *
- * <p>{@link BrokerInboundMessage} carries routing metadata (tenantId / messageId /
+ * <p>{@link com.huawei.ascend.bus.forwarding.spi.broker.BrokerInboundMessage} carries routing metadata (tenantId / messageId /
  * sourceServiceId / targetServiceId / consumerServiceId / payloadRef) plus the
  * native {@code correlationId} / {@code eventType} (mirrored from headers at poll).
  * It does NOT carry the request envelope's {@code traceId} /
