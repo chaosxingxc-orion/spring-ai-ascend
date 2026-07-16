@@ -12,7 +12,7 @@ authority:
   - ../L1-High-Level-Design/agent-bus/process.md
   - ./registry-discovery-runtime-design.cn.md
 implementation_ref:
-  - agent-solution/agent-solution0713v1/agent-solution/common/registry-discovery-center
+  - agent-solution/common/registry-discovery-center
 covers_contract: ICD-Agent-Registry-Discovery
 related:
   - ../../../version-scope/FEAT-016-runtime-instance-route-query.md
@@ -20,11 +20,11 @@ related:
 
 # Agent Card 注册与发现 — L2 低层设计
 
-> 本文档把 `version-scope/Feat-015-agent-card-registration-and-discovery.md`（0713：主动抓取 + 逻辑发现）落地为 `agent-bus` registry-discovery-center 单元的低层设计。
+> 本文档把 `version-scope/Feat-015-agent-card-registration-and-discovery.md`（主动抓取 + 逻辑发现）落地为 `agent-bus` registry-discovery-center 单元的低层设计。
 >
-> **实现基线**：`agent-solution/agent-solution0713v1/.../registry-discovery-center`（下文简称 **rdc**）。共享运行态技术细节（实例表 SQL / 探活 / RLS）见 [registry-discovery-runtime-design.cn.md](./registry-discovery-runtime-design.cn.md)；本文聚焦 Feat-015 特性视角下的部署事实接入、对账、逻辑目录、结构化发现、失败码与和 FEAT-016 的边界。
+> **实现基线**：`.../registry-discovery-center`（下文简称 **rdc**）。共享运行态技术细节（实例表 SQL / 探活 / RLS）见 [registry-discovery-runtime-design.cn.md](./registry-discovery-runtime-design.cn.md)；本文聚焦 Feat-015 特性视角下的部署事实接入、对账、逻辑目录、结构化发现、失败码与和 FEAT-016 的边界。
 >
-> **文档边界说明**：仓库根目录或外部 Downloads 中早期 `Feat-Func-015` 草稿混写了 **push 注册 + discover 携带 `routeHandle`**（更接近 FEAT-016）。本文以 **version-scope 0713** 为准，**不**把实例路由查询当作 Feat-015 主契约。
+> **文档边界说明**：仓库根目录或外部 Downloads 中早期 `Feat-Func-015` 草稿混写了 **push 注册 + discover 携带 `routeHandle`**（更接近 FEAT-016）。本文以 **version-scope ** 为准，**不**把实例路由查询当作 Feat-015 主契约。
 
 ## 1. 概述
 
