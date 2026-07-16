@@ -31,7 +31,9 @@ public record AgentBusBrokerProperties(
         long acceptTimeoutMs,
         long responseTimeoutMs,
         long leaseDurationMs,
-        String tenant
+        String tenant,
+        int relayTickLimit,
+        long relayFixedDelayMs
 ) {
     public AgentBusBrokerProperties {
         if (pollWaitMillis <= 0) {
@@ -54,6 +56,12 @@ public record AgentBusBrokerProperties(
         }
         if (tenant == null || tenant.isBlank()) {
             tenant = "default";
+        }
+        if (relayTickLimit <= 0) {
+            relayTickLimit = 100;
+        }
+        if (relayFixedDelayMs <= 0) {
+            relayFixedDelayMs = 1_000L;
         }
     }
 }
