@@ -1,5 +1,6 @@
-package com.huawei.ascend.bus.gateway.runtime;
+package com.huawei.ascend.bus.eventbus.runtime;
 
+import com.huawei.ascend.bus.common.AgentBusBrokerProperties;
 import com.huawei.ascend.bus.forwarding.runtime.relay.EventBusRelayWorker;
 import com.huawei.ascend.bus.forwarding.runtime.relay.RelayTick;
 import org.junit.jupiter.api.AfterEach;

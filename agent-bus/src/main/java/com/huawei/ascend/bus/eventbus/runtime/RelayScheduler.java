@@ -1,4 +1,4 @@
-package com.huawei.ascend.bus.gateway.runtime;
+package com.huawei.ascend.bus.eventbus.runtime;
 
 import com.huawei.ascend.bus.forwarding.runtime.relay.RelayDispatchLoop;
 import com.huawei.ascend.bus.forwarding.runtime.relay.RelayTick;

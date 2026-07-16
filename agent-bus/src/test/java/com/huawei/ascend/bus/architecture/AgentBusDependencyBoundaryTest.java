@@ -111,6 +111,52 @@ class AgentBusDependencyBoundaryTest {
         rule.check(BUS_PRODUCTION);
     }
 
+    // ---- gateway/eventbus plane boundary (agent-bus layering, ADR-0162) ----
+
+    /**
+     * The gateway plane must not depend on the event-bus wiring implementation
+     * package. Gateway wiring ({@code gateway.runtime}) may depend on the
+     * forwarding SPI + shared {@code common} config + the broker adapter, but
+     * never on {@code eventbus.runtime} — that is the event-bus plane's own
+     * wiring home (agent-bus layering, ADR-0162). Green immediately post-move:
+     * {@code GatewayRuntimeConfiguration} imports {@code AgentBusBrokerProperties}
+     * from {@code common}, never from {@code eventbus.runtime}.
+     */
+    @Test
+    void gateway_runtime_does_not_depend_on_eventbus_runtime() {
+        ArchRule rule = noClasses()
+                .that().resideInAPackage("com.huawei.ascend.bus.gateway.runtime..")
+                .should().dependOnClassesThat()
+                .resideInAPackage("com.huawei.ascend.bus.eventbus.runtime..")
+                .because("agent-bus layering (ADR-0162): the gateway plane depends on the "
+                       + "forwarding SPI + shared common config, never on the event-bus wiring "
+                       + "implementation package (eventbus.runtime).");
+        rule.check(BUS_PRODUCTION);
+    }
+
+    /**
+     * Liveness guard for the gateway↛eventbus rule above: if either plane's
+     * package were empty (a typo'd path, or all wiring moved back out), the rule
+     * would pass vacuously — an empty {@link JavaClasses} set satisfies "no
+     * classes depend on X". Confirms both planes still ship wiring post-layering
+     * (gateway.runtime: 3 classes; eventbus.runtime: 3 classes).
+     */
+    @Test
+    void gateway_and_eventbus_runtime_planes_are_non_empty() {
+        JavaClasses gateway = new ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages("com.huawei.ascend.bus.gateway.runtime");
+        JavaClasses eventbus = new ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages("com.huawei.ascend.bus.eventbus.runtime");
+        assertThat(gateway)
+                .as("gateway.runtime plane must ship wiring (liveness guard for gateway↛eventbus rule)")
+                .isNotEmpty();
+        assertThat(eventbus)
+                .as("eventbus.runtime plane must ship wiring (liveness guard for gateway↛eventbus rule)")
+                .isNotEmpty();
+    }
+
     // ---- import-liveness guard (MI-004 follow-up) -------------------------
 
     /**

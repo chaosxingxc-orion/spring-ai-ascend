@@ -1,5 +1,6 @@
-package com.huawei.ascend.bus.gateway.runtime;
+package com.huawei.ascend.bus.eventbus.runtime;
 
+import com.huawei.ascend.bus.common.AgentBusBrokerProperties;
 import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingInbox;
 import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingOutbox;
 import com.huawei.ascend.bus.forwarding.runtime.relay.EventBusRelayWorker;
