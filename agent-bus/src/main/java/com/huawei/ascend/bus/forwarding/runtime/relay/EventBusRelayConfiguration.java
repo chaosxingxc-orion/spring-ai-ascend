@@ -1,14 +1,12 @@
 package com.huawei.ascend.bus.forwarding.runtime.relay;
 
 import com.huawei.ascend.bus.forwarding.common.AgentBusBrokerProperties;
-import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingInbox;
 import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingOutbox;
 import com.huawei.ascend.bus.forwarding.runtime.transport.BrokerTopicResolver;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerClientProperties;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq.RocketMqBrokerForwardingConsumer;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq.RocketMqBrokerForwardingRelay;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingInboxPort;
-import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxPort;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
 import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingConsumerPort;
 import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingRelayPort;
@@ -16,13 +14,11 @@ import com.huawei.ascend.bus.forwarding.spi.broker.DeliveryFilter;
 
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
-import javax.sql.DataSource;
 import java.util.Map;
 
 /**
@@ -39,13 +35,23 @@ import java.util.Map;
  * </ul>
  * The registry plane boots alongside (component-scanned {@code @Configuration} classes in
  * {@code registry.runtime} are already on the classpath). The durable outbox + inbox are
- * {@link JdbcForwardingOutbox} / {@link JdbcForwardingInbox} (Flyway V1 creates the tables).
+ * provided by {@link com.huawei.ascend.bus.forwarding.common.AgentBusInfrastructureConfiguration}
+ * (shared infra config, no {@code @Profile}); this config injects them by type.
  *
  * <p><b>Relay consumer filters are tenant-only</b> ({@code DeliveryFilter(Map.of("tenantId", …))})
  * — the relay is the intermediary for its tenant, so it consumes every in-tenant message on
  * its hop-in topic (no {@code targetServiceId} pin; reqs are targeted at runtimes, responses
  * at callers — neither is the relay itself). This is the correct intermediary filter, distinct
  * from the gateway response consumer's targetServiceId-only filter (D13).
+ *
+ * <p><b>Shared infra moved out.</b> The {@code brokerClientProperties} /
+ * {@code relayOutbox} / {@code relayInbox} beans previously declared here are now provided
+ * by {@link com.huawei.ascend.bus.forwarding.runtime.AgentBusInfrastructureConfiguration}
+ * (shared with the gateway process form). {@link AgentBusBrokerProperties} is likewise
+ * enabled there. This config keeps ONLY the event-bus-role beans — the relay producer
+ * (group={@code props.producerGroup() + "-relay"}, distinct from the gateway's
+ * {@code props.producerGroup()}), the forward/response relay consumers + producers
+ * (role-specific topic suffixes), the workers, the ticks, and the subscribe-at-startup.
  *
  * <p><b>Verification:</b> compile-verified (full suite green); producer {@code start()} +
  * subscribe-at-startup boot-correctness is verified by the two-hop IT (G5-E, env-guarded
@@ -61,31 +67,15 @@ import java.util.Map;
  */
 @Configuration
 @Profile("eventbus")
-@EnableConfigurationProperties(AgentBusBrokerProperties.class)
 public class EventBusRelayConfiguration {
 
-    @Bean
-    BrokerClientProperties brokerClientProperties(AgentBusBrokerProperties props) {
-        return new BrokerClientProperties(props.nameserver(), props.namespace());
-    }
-
-    /** Relay RocketMQ producer (hop2 deliver + resp_out produce). */
+    /** Relay RocketMQ producer (hop2 deliver + resp_out produce). Group is suffixed "-relay" to distinguish from the gateway producer. */
     @Bean(destroyMethod = "shutdown")
     DefaultMQProducer relayProducer(BrokerClientProperties broker, AgentBusBrokerProperties props) throws Exception {
         DefaultMQProducer producer = new DefaultMQProducer(props.producerGroup() + "-relay");
         producer.setNamesrvAddr(broker.nameserverEndpoints());
         producer.start();
         return producer;
-    }
-
-    @Bean
-    JdbcForwardingOutbox relayOutbox(DataSource dataSource) {
-        return new JdbcForwardingOutbox(dataSource);
-    }
-
-    @Bean
-    ForwardingInboxPort relayInbox(DataSource dataSource) {
-        return new JdbcForwardingInbox(dataSource);
     }
 
     // ===== forward relay: hop1 req → hop2 deliver =====

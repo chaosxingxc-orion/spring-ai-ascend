@@ -28,8 +28,11 @@ import java.util.concurrent.TimeUnit;
  *       tags {@code op} + {@code outcome}) and {@link Timer}
  *       ({@code agent_bus_registry_op_duration_ms}, tag {@code op}) per
  *       registry operation. {@link MeterRegistry} is constructor-injected;
- *       agent-bus ships {@code micrometer-core} at compile scope
- *       (PR #389 review issue #6 — agent-bus is now a runnable Spring Boot
+ *       the {@code @Bean} fallback that supplies a
+ *       {@link io.micrometer.core.instrument.simple.SimpleMeterRegistry} when
+ *       no actuator is on the classpath lives in
+ *       {@link RegistryPersistenceConfig#meterRegistry()} (ADR-0160 decision
+ *       7, PR #389 review issue #6 — agent-bus is a runnable Spring Boot
  *       application, so it bundles micrometer-core directly instead of
  *       relying on a runtime consumer's actuator dependency).</li>
  * </ul>

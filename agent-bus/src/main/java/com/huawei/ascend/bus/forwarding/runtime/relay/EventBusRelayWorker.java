@@ -1,6 +1,6 @@
 package com.huawei.ascend.bus.forwarding.runtime.relay;
 
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerControlDescriptor;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerControlDescriptor;
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
@@ -260,9 +260,13 @@ public final class EventBusRelayWorker {
     /**
      * Build the hop2 forward envelope from the inbound message + decoded descriptor.
      *
-     * <p>The hop2 {@code messageId} mirrors the hop1 broker id so the outbox dedup
-     * {@code (tenantId, messageId)} also guards against a double-relay of a replayed
-     * hop1 (defence in depth behind the inbox dedup). {@code correlationId} /
+     * <p>The hop2 {@code messageId} is a fresh relay-scoped id (prefix {@code eb-} +
+     * hop1 broker id) so the outbox dedup {@code (tenantId, messageId)} does NOT
+     * collide with the hop1 record enqueued by the gateway — the outbox is a shared
+     * table and reusing the hop1 id would make {@code ON CONFLICT DO NOTHING} silently
+     * skip the hop2 insert, leaving nothing for {@code claimDue} to claim. Defence
+     * against double-relay of a replayed hop1 is owned by the inbox dedup (which keys
+     * on the hop1 id carried in {@code env.messageId()}'s tail). {@code correlationId} /
      * {@code routeHandle} / {@code capability} / {@code deadline} pass through from
      * the descriptor; {@code sourceServiceId} = this relay; {@code targetServiceId} =
      * the original runtime target; {@code payloadRef} = the same descriptor (so the
@@ -270,8 +274,9 @@ public final class EventBusRelayWorker {
      */
     private ForwardingEnvelope buildHop2Envelope(BrokerInboundMessage msg,
                                                  BrokerControlDescriptor.Descriptor desc) {
+        String hop2MessageId = "eb-" + msg.messageId();
         return new ForwardingEnvelope(
-                new ForwardingMessageId(msg.messageId()),
+                new ForwardingMessageId(hop2MessageId),
                 desc.eventType(),
                 msg.tenantId(),
                 desc.traceId(),

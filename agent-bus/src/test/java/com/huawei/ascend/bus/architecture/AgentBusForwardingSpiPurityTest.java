@@ -55,6 +55,7 @@ class AgentBusForwardingSpiPurityTest {
                 .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc..")
                 .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.relay..")
                 .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.common..")
+                .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.transport.broker..")
                 .should().dependOnClassesThat().resideInAPackage("org.springframework..")
                 .because("Stage 12: Spring JDBC is licensed only inside the persistence.jdbc "
                        + "adapter subpackage; the forwarding ports / state machine / worker / loop "
@@ -66,7 +67,13 @@ class AgentBusForwardingSpiPurityTest {
                        + "AgentBusBrokerProperties (moved from the eliminated common plane into "
                        + "forwarding.common) is a @ConfigurationProperties record — both were exempt "
                        + "before the reorg by living OUTSIDE forwarding..; folding them in licenses "
-                       + "Spring in their new homes, mirroring how persistence.jdbc licenses Spring JDBC.")
+                       + "Spring in their new homes, mirroring how persistence.jdbc licenses Spring JDBC. "
+                       + "gateway-assembly-purify (ADR-0163 follow-on) extension: the gateway-side broker "
+                       + "@Configuration (RocketMqBrokerClientConfiguration in transport.broker.rocketmq) "
+                       + "is @Configuration + @Bean + @Profile by nature — extending the Spring license to "
+                       + "transport.broker mirrors the persistence.jdbc / runtime.relay pattern, so the "
+                       + "gateway plane can inject SPI ports instead of constructing the adapters "
+                       + "(gateway.runtime.. ↛ forwarding.runtime.., literal full).")
                 .check(FORWARDING);
     }
 
@@ -86,6 +93,7 @@ class AgentBusForwardingSpiPurityTest {
         noClasses().that().resideInAPackage("com.huawei.ascend.bus.forwarding..")
                 .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc..")
                 .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.runtime.relay..")
+                .and().resideOutsideOfPackage("com.huawei.ascend.bus.forwarding.common..")
                 .should().dependOnClassesThat().resideInAPackage("javax.sql..")
                 .because("Stage 12: javax.sql (DataSource etc.) is licensed only inside the "
                        + "persistence.jdbc adapter; the forwarding core stays pure Java "
@@ -94,7 +102,13 @@ class AgentBusForwardingSpiPurityTest {
                        + "(EventBusRelayConfiguration, moved from eventbus.runtime) wires "
                        + "javax.sql.DataSource into its relay inbox/outbox beans — that wiring "
                        + "was exempt before the reorg by living OUTSIDE forwarding..; folding it in "
-                       + "licenses javax.sql in its new home alongside the persistence.jdbc adapter.")
+                       + "licenses javax.sql in its new home alongside the persistence.jdbc adapter. "
+                       + "gateway-assembly-purify (ADR-0163 follow-on) shared-infra extraction: "
+                       + "AgentBusInfrastructureConfiguration in forwarding.common wires the shared "
+                       + "outbox/inbox beans (role-agnostic, used by BOTH gateway + eventbus) — "
+                       + "extending the javax.sql license to forwarding.common mirrors the relay "
+                       + "exemption (the shared config is @Configuration + @Bean wiring, not pure "
+                       + "forwarding core).")
                 .check(FORWARDING);
     }
 

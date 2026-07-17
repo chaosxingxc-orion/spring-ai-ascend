@@ -392,7 +392,7 @@ class GatewayRuntimeServiceTest {
     }
 
     @Test
-    void classify_terminal_completed_vs_failed_by_status_token() {
+    void classify_terminal_completed_cancelled_failed_by_status_token() {
         GatewayRuntimeService gw = newGateway(new FakeConsumer());
         assertThat(gw.classify(resp(AgentBusEventType.INVOCATION_TERMINAL, "status=completed")))
                 .isEqualTo(InvocationResponseStatus.COMPLETED_RESPONSE);
@@ -400,8 +400,11 @@ class GatewayRuntimeServiceTest {
                 .isEqualTo(InvocationResponseStatus.FAILED);
         assertThat(gw.classify(resp(AgentBusEventType.A2A_CALL_TERMINAL, "status=completed")))
                 .isEqualTo(InvocationResponseStatus.COMPLETED_RESPONSE);
+        // cancelled is a user-initiated normal terminal state (FEAT-013 §6.2.5 UC-05)
         assertThat(gw.classify(resp(AgentBusEventType.A2A_CALL_TERMINAL, "status=cancelled")))
-                .isEqualTo(InvocationResponseStatus.FAILED);
+                .isEqualTo(InvocationResponseStatus.COMPLETED_RESPONSE);
+        assertThat(gw.classify(resp(AgentBusEventType.INVOCATION_TERMINAL, "status=cancelled")))
+                .isEqualTo(InvocationResponseStatus.COMPLETED_RESPONSE);
     }
 
     @Test

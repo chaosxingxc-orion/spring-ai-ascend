@@ -1,0 +1,33 @@
+# agent-bus Spring Boot 主配置。
+#
+# 作用:显式声明 datasource + Flyway 配置,确保 Spring Boot 4 启动时 Flyway
+# autoconfig 确定触发,自动执行 db/migration/V1..V3 脚本建表。此前没有此文件,
+# spring.datasource.* 仅通过环境变量传入,某些场景下 Flyway autoconfig 不触发,
+# 导致 event-bus 启动后报 "relation agent_registry_mvp does not exist"。
+#
+# 所有值均支持环境变量覆盖(语法 ${VAR:default}),便于 docker / k8s 部署时
+# 注入不同配置,本地 E2E 验证可直接用默认值。
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/agentbus}
+    username: ${SPRING_DATASOURCE_USERNAME:agentbus}
+    password: ${SPRING_DATASOURCE_PASSWORD:agentbus}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # baseline-on-migrate=true:对已有数据库兼容(若 flyway_schema_history 不存在,
+    # 先建 baseline 版本 0,再执行 V1..V3)。若已手动建表但无 flyway_schema_history,
+    # 需先 DROP 表让 Flyway 全新执行,或手动插入 flyway_schema_history 记录
+    # (见 E2E 指导书 1.4 步骤 4)。
+    baseline-on-migrate: true
+    baseline-version: 0
+    table: flyway_schema_history
+
+  jackson:
+    default-property-inclusion: non_null

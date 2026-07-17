@@ -5,6 +5,7 @@ import com.huawei.ascend.bus.registry.runtime.persistence.jdbc.AgentRegistryRepo
 import com.huawei.ascend.bus.registry.runtime.persistence.jdbc.AgentRegistryRepository.ProbeTarget;
 import com.huawei.ascend.bus.registry.runtime.tenant.ThreadLocalTenantContext;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -81,6 +82,7 @@ public class MvpHealthProbeScheduler {
     private final long staleBeforeMs;
     private final int scanLimit;
 
+    @Autowired
     public MvpHealthProbeScheduler(AgentRegistryRepository repository,
                                    RegistryObservabilityConfig observability,
                                    @Value("${agent-bus.registry.mvp.probe-stale-before-ms:5000}") long staleBeforeMs,

@@ -7,6 +7,7 @@ import com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq.Rocket
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
 import com.huawei.ascend.bus.forwarding.spi.InvocationResponseStatus;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerControlDescriptor;
 import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingConsumerPort;
 import com.huawei.ascend.bus.forwarding.spi.broker.BrokerInboundMessage;
 import com.huawei.ascend.bus.forwarding.spi.broker.DeliveryFilter;

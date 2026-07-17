@@ -1,6 +1,6 @@
 package com.huawei.ascend.bus.test;
 
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerControlDescriptor;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerControlDescriptor;
 import com.huawei.ascend.bus.forwarding.runtime.transport.broker.InMemoryBroker;
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
@@ -388,7 +388,7 @@ public final class TestAgentRuntime {
 
     // ===== descriptor encode / decode (delegated to the shared main utility) =====
     //
-    // The codec lives in BrokerControlDescriptor (forwarding.runtime.transport.broker,
+    // The codec lives in BrokerControlDescriptor (forwarding.spi.broker,
     // main) so the production GatewayRuntimeService can build a request payloadRef that
     // this test double decodes, without main depending on a test fixture. These
     // package-private delegates keep the call sites (buildRequest / pollAndProcess)

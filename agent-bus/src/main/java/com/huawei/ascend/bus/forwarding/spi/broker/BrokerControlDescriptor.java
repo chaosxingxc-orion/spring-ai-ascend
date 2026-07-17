@@ -1,4 +1,4 @@
-package com.huawei.ascend.bus.forwarding.runtime.transport.broker;
+package com.huawei.ascend.bus.forwarding.spi.broker;
 
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 
@@ -36,7 +36,13 @@ import java.util.Objects;
  * {@code architecture/L2-Low-Level-Design/agent-bus/
  * feat-014-a2a-call-event-forwarding.md §4.4}.
  */
-// scope: forwarding transport.broker — payloadRef-carried control descriptor codec; pure Java
+// scope: forwarding spi.broker — payloadRef-carried control descriptor codec; pure Java.
+// Moved here from forwarding.runtime.transport.broker by the gateway-assembly-purify
+// change (ADR-0163 follow-on) so the gateway plane depends on no forwarding.runtime type
+// (gateway.runtime.. ↛ forwarding.runtime.. literal-full rule). Pure Java (only
+// forwarding.spi.AgentBusEventType + java.util.Objects); its javadoc already called it
+// the SHARED codec used by GatewayRuntimeService + TestAgentRuntime, so spi.broker is
+// its natural home (cohesive with the broker SPI surface).
 public final class BrokerControlDescriptor {
 
     private BrokerControlDescriptor() {
@@ -51,7 +57,8 @@ public final class BrokerControlDescriptor {
             String idempotencyKey,
             String routeHandle,
             String capability,
-            long deadlineMillisEpoch
+            long deadlineMillisEpoch,
+            String originalCaller
     ) {
         public Descriptor {
             Objects.requireNonNull(eventType, "eventType is required");
@@ -60,6 +67,16 @@ public final class BrokerControlDescriptor {
             requireNonBlank(idempotencyKey, "idempotencyKey");
             requireNonBlank(routeHandle, "routeHandle");
             requireNonBlank(capability, "capability");
+            // originalCaller may be null for descriptors produced before this field existed;
+            // when present it carries the original gateway serviceId so responses route back.
+        }
+
+        /** Convenience canonical ctor without originalCaller (backward-compat for callers). */
+        public Descriptor(AgentBusEventType eventType, String traceId, String correlationId,
+                          String idempotencyKey, String routeHandle, String capability,
+                          long deadlineMillisEpoch) {
+            this(eventType, traceId, correlationId, idempotencyKey, routeHandle, capability,
+                    deadlineMillisEpoch, null);
         }
     }
 
@@ -78,19 +95,38 @@ public final class BrokerControlDescriptor {
     public static String encode(AgentBusEventType eventType, String traceId, String correlationId,
                                 String idempotencyKey, String routeHandle, String capability,
                                 long deadlineMillisEpoch) {
+        return encode(eventType, traceId, correlationId, idempotencyKey, routeHandle, capability,
+                deadlineMillisEpoch, null);
+    }
+
+    /**
+     * Encode the request control fields (incl. {@code originalCaller}) into a {@code payloadRef}.
+     *
+     * @param originalCaller the original gateway serviceId that initiated the request —
+     *                       carried end-to-end so responses can route back across the relay;
+     *                       {@code null} for descriptors that don't carry it (legacy callers).
+     */
+    public static String encode(AgentBusEventType eventType, String traceId, String correlationId,
+                                String idempotencyKey, String routeHandle, String capability,
+                                long deadlineMillisEpoch, String originalCaller) {
         Objects.requireNonNull(eventType, "eventType is required");
         requireNonBlank(traceId, "traceId");
         requireNonBlank(correlationId, "correlationId");
         requireNonBlank(idempotencyKey, "idempotencyKey");
         requireNonBlank(routeHandle, "routeHandle");
         requireNonBlank(capability, "capability");
-        return "eventType=" + eventType.name()
-                + ";traceId=" + traceId
-                + ";correlationId=" + correlationId
-                + ";idempotencyKey=" + idempotencyKey
-                + ";routeHandle=" + routeHandle
-                + ";capability=" + capability
-                + ";deadline=" + deadlineMillisEpoch;
+        StringBuilder sb = new StringBuilder()
+                .append("eventType=").append(eventType.name())
+                .append(";traceId=").append(traceId)
+                .append(";correlationId=").append(correlationId)
+                .append(";idempotencyKey=").append(idempotencyKey)
+                .append(";routeHandle=").append(routeHandle)
+                .append(";capability=").append(capability)
+                .append(";deadline=").append(deadlineMillisEpoch);
+        if (originalCaller != null && !originalCaller.isBlank()) {
+            sb.append(";originalCaller=").append(originalCaller);
+        }
+        return sb.toString();
     }
 
     /**
@@ -109,7 +145,7 @@ public final class BrokerControlDescriptor {
         }
         AgentBusEventType eventType = null;
         String traceId = null, correlationId = null, idempotencyKey = null;
-        String routeHandle = null, capability = null;
+        String routeHandle = null, capability = null, originalCaller = null;
         long deadline = 0L;
         for (String pair : payloadRef.split(";")) {
             int eq = pair.indexOf('=');
@@ -126,6 +162,7 @@ public final class BrokerControlDescriptor {
                 case "routeHandle" -> routeHandle = v;
                 case "capability" -> capability = v;
                 case "deadline" -> deadline = Long.parseLong(v);
+                case "originalCaller" -> originalCaller = v;
                 default -> { /* ignore unknown keys (forward-compat) */ }
             }
         }
@@ -136,7 +173,8 @@ public final class BrokerControlDescriptor {
                 requireNonBlank(correlationId, "correlationId"),
                 requireNonBlank(idempotencyKey, "idempotencyKey"),
                 requireNonBlank(routeHandle, "routeHandle"),
-                requireNonBlank(capability, "capability"), deadline);
+                requireNonBlank(capability, "capability"),
+                deadline, originalCaller);
     }
 
     /**

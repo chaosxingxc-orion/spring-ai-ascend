@@ -111,76 +111,74 @@ class AgentBusDependencyBoundaryTest {
         rule.check(BUS_PRODUCTION);
     }
 
-    // ---- gateway / forwarding-runtime plane boundary (agent-bus layering, ADR-0163) ----
+    // ---- gateway / forwarding-runtime plane boundary (agent-bus layering, ADR-0163 + gateway-assembly-purify) ----
 
     /**
-     * The gateway plane must not depend on the forwarding relay-runtime package
-     * (the event-bus wiring's post-reorg home). Gateway wiring
-     * ({@code gateway.runtime}) may depend on the forwarding SPI
-     * ({@code forwarding.spi} incl. {@code forwarding.spi.broker}) + the shared
-     * {@code forwarding.common} config + the broker-common types
-     * ({@code forwarding.runtime.transport.broker}) + the broker adapters
-     * ({@code forwarding.runtime.transport.broker.rocketmq}) + the JDBC outbox
-     * adapter ({@code forwarding.runtime.persistence.jdbc}) + the transport resolver
-     * ({@code forwarding.runtime.transport}) — but never on
-     * {@code forwarding.runtime.relay..}, which is where the event-bus two-hop relay
-     * mechanism + its wiring ({@code EventBusRelayWorker} / {@code RelayTick} /
-     * {@code RelayDispatchLoop} / {@code EventBusRelayConfiguration} /
-     * {@code EventBusRelaySchedulingConfig} / {@code RelayScheduler}) now live
-     * (arch-driven forwarding-reorg, ADR-0163 supersedes ADR-0162's
-     * {@code gateway↛eventbus.runtime} rule — the event-bus wiring moved from the
-     * eliminated {@code eventbus.runtime} plane into {@code forwarding.runtime.relay}).
+     * The gateway plane must not depend on ANY {@code forwarding.runtime} type
+     * (the literal-full plane boundary — arch-driven gateway-assembly-purify, the
+     * flagged ADR-0163 follow-on; G4 sign-off 2026-07-16, Q5a=(b)). Gateway wiring
+     * ({@code gateway.runtime}) depends only on the forwarding SPI
+     * ({@code forwarding.spi} incl. {@code forwarding.spi.broker}, where the shared
+     * {@code BrokerControlDescriptor} codec now lives) + the shared
+     * {@code forwarding.common} config + {@code bus.spi.ingress} — it injects the
+     * broker / JDBC adapter beans (provided by
+     * {@code RocketMqBrokerClientConfiguration} in {@code transport.broker.rocketmq}
+     * + {@code AgentBusInfrastructureConfiguration} in {@code forwarding.common},
+     * which owns the shared outbox / inbox / broker-client-properties) via
+     * their SPI ports rather than constructing them.
      *
-     * <p><b>Why scoped to {@code forwarding.runtime.relay..} and not the broader
-     * {@code forwarding.runtime..} the decision-tree Q5 prose names.</b> The to-be
-     * module-delta lists the gateway as depending on {@code forwarding.runtime.transport.broker}
-     * + {@code forwarding.runtime.persistence.jdbc} (broker-common config, the rocketmq
-     * adapters, the JDBC outbox, the transport resolver) — i.e. the gateway WIRES
-     * several {@code forwarding.runtime..} subpackages. A literal
-     * {@code gateway.runtime.. ↛ forwarding.runtime..} rule would fail on those
-     * legitimate wiring dependencies; the strictest GREEN rule that still generalises
-     * ADR-0162's intent ("the gateway never reaches into the event-bus wiring") is
-     * to name the relay package by its post-reorg location. See the
-     * {@code forwarding-reorg/deviations.md} entry on this scope choice.
+     * <p><b>Why the literal full (not the ADR-0163 accepted-drift scope
+     * {@code forwarding.runtime.relay..}).</b> ADR-0163 scoped this rule to
+     * {@code gateway↛forwarding.runtime.relay..} as an accepted drift: the to-be's
+     * literal {@code gateway.runtime.. ↛ forwarding.runtime..} was then infeasible
+     * because the gateway wired concrete {@code forwarding.runtime.*} adapters
+     * (broker-common, rocketmq, JDBC outbox, transport resolver) +
+     * {@code BrokerControlDescriptor}. gateway-assembly-purify removes EVERY one of
+     * those: the 5 concrete-adapter {@code @Bean} move into forwarding adapter
+     * {@code @Configuration}s, and {@code BrokerControlDescriptor} moves to
+     * {@code forwarding.spi.broker} — so the gateway's {@code forwarding.runtime}
+     * imports are now ZERO + the literal full rule holds (green, non-vacuous). This
+     * supersedes the ADR-0163 deviation-b drift note that flagged this as a future
+     * stricter rule.
      */
     @Test
-    void gateway_runtime_does_not_depend_on_forwarding_relay_runtime() {
+    void gateway_runtime_does_not_depend_on_forwarding_runtime() {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("com.huawei.ascend.bus.gateway.runtime..")
                 .should().dependOnClassesThat()
-                .resideInAPackage("com.huawei.ascend.bus.forwarding.runtime.relay..")
-                .because("agent-bus layering (ADR-0163, supersedes ADR-0162's "
-                       + "gateway↛eventbus.runtime): the gateway plane wires the forwarding "
-                       + "SPI + broker-common + broker adapters + the JDBC outbox, but never "
-                       + "the event-bus two-hop relay mechanism / wiring, which the reorg "
-                       + "folded from the eliminated eventbus.runtime plane into "
-                       + "forwarding.runtime.relay. Naming the relay package by its post-reorg "
-                       + "location is the strictest green generalisation of the prior "
-                       + "gateway↛eventbus rule.");
+                .resideInAPackage("com.huawei.ascend.bus.forwarding.runtime..")
+                .because("agent-bus layering (ADR-0163 + gateway-assembly-purify follow-on): "
+                       + "the gateway plane wires ONLY the forwarding SPI + common config + the "
+                       + "ingress SPI; the concrete broker / JDBC adapters + their wiring live in "
+                       + "forwarding.runtime.* (transport.broker.rocketmq / persistence.jdbc / "
+                       + "runtime.relay) and are injected as SPI ports, never constructed or "
+                       + "imported by the gateway. The literal gateway.runtime.. ↛ forwarding.runtime.. "
+                       + "holds because BrokerControlDescriptor (the prior sole residual) moved to "
+                       + "forwarding.spi.broker.");
         rule.check(BUS_PRODUCTION);
     }
 
     /**
-     * Liveness guard for the gateway↛forwarding.runtime.relay rule above: if either
+     * Liveness guard for the gateway↛forwarding.runtime rule above: if either
      * plane's package were empty (a typo'd path, or all wiring moved back out), the
      * rule would pass vacuously — an empty {@link JavaClasses} set satisfies "no
-     * classes depend on X". Confirms both planes still ship wiring post-reorg
-     * (gateway.runtime: the gateway @Configuration + service; forwarding.runtime.relay:
-     * the relay mechanism + the event-bus wiring the rule guards).
+     * classes depend on X". Confirms both planes still ship wiring post-purify
+     * (gateway.runtime: the gateway @Configuration + service + controller;
+     * forwarding.runtime: the relay mechanism + the broker/jdbc adapter @Configurations).
      */
     @Test
-    void gateway_and_forwarding_relay_runtime_planes_are_non_empty() {
+    void gateway_and_forwarding_runtime_planes_are_non_empty() {
         JavaClasses gateway = new ClassFileImporter()
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
                 .importPackages("com.huawei.ascend.bus.gateway.runtime");
-        JavaClasses relayRuntime = new ClassFileImporter()
+        JavaClasses forwardingRuntime = new ClassFileImporter()
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("com.huawei.ascend.bus.forwarding.runtime.relay");
+                .importPackages("com.huawei.ascend.bus.forwarding.runtime");
         assertThat(gateway)
-                .as("gateway.runtime plane must ship wiring (liveness guard for gateway↛forwarding.runtime.relay rule)")
+                .as("gateway.runtime plane must ship wiring (liveness guard for gateway↛forwarding.runtime rule)")
                 .isNotEmpty();
-        assertThat(relayRuntime)
-                .as("forwarding.runtime.relay plane must ship wiring (liveness guard for gateway↛forwarding.runtime.relay rule)")
+        assertThat(forwardingRuntime)
+                .as("forwarding.runtime plane must ship wiring (liveness guard for gateway↛forwarding.runtime rule)")
                 .isNotEmpty();
     }
 

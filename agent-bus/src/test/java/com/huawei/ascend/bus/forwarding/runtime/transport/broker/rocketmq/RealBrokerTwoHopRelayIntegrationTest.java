@@ -4,7 +4,7 @@ import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingI
 import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingOutbox;
 import com.huawei.ascend.bus.forwarding.runtime.relay.EventBusRelayWorker;
 import com.huawei.ascend.bus.forwarding.runtime.transport.BrokerTopicResolver;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerControlDescriptor;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerControlDescriptor;
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;

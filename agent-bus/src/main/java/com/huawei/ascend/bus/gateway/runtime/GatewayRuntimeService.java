@@ -1,6 +1,6 @@
 package com.huawei.ascend.bus.gateway.runtime;
 
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerControlDescriptor;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerControlDescriptor;
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingMessageId;
@@ -151,7 +151,7 @@ public final class GatewayRuntimeService implements IngressGateway {
 
         String descriptor = BrokerControlDescriptor.encode(
                 eventType, env.traceId(), correlationId, idempotencyKey,
-                routeHandle.value(), capability, deadline);
+                routeHandle.value(), capability, deadline, sourceServiceId);
         ForwardingEnvelope envelope = new ForwardingEnvelope(
                 new ForwardingMessageId("gw-" + UUID.randomUUID()),
                 eventType,
@@ -203,9 +203,17 @@ public final class GatewayRuntimeService implements IngressGateway {
         String taskId = null;
         while (true) {
             long now = clock.getAsLong();
+            // check window expiry BEFORE polling — poll may block for pollWaitMillis,
+            // so re-check after each iteration to bound the wait within the window.
+            if (taskId == null && now >= acceptDeadline) {
+                break; // accept window exhausted with no accepted → UNKNOWN (deferred)
+            }
+            if (taskId != null && now >= responseDeadline) {
+                break; // response window exhausted, but we have taskId → ACCEPTED_WITH_TASK
+            }
             BrokerInboundMessage msg = responseConsumer.poll(now).orElse(null);
             if (msg == null) {
-                break; // no further responses available in this synchronous window
+                continue; // poll timed out with no message; loop back to re-check window expiry
             }
             // self-consumption: the gateway's own request (source == this gateway) → commit + keep polling
             if (sourceServiceId.equals(msg.sourceServiceId())) {
@@ -228,9 +236,6 @@ public final class GatewayRuntimeService implements IngressGateway {
             switch (status) {
                 case ACCEPTED_WITH_TASK -> {
                     taskId = BrokerControlDescriptor.token(msg.payloadRef(), "taskId");
-                    if (now >= responseDeadline) {
-                        return toIngressResponse(requestId, status, taskId, null, null);
-                    }
                     // keep polling for a terminal up to responseTimeout
                 }
                 case COMPLETED_RESPONSE -> {
@@ -250,10 +255,6 @@ public final class GatewayRuntimeService implements IngressGateway {
                     // defensive: classify should not yield UNKNOWN for a known eventType; keep polling
                 }
             }
-            // guard: accept window exhausted with no accepted → break to UNKNOWN
-            if (taskId == null && now >= acceptDeadline) {
-                break;
-            }
         }
         // window drained without a terminal: ACCEPTED_WITH_TASK if we got a taskId, else UNKNOWN (deferred)
         if (taskId != null) {
@@ -267,8 +268,18 @@ public final class GatewayRuntimeService implements IngressGateway {
     /**
      * Classify a polled response by its NATIVE {@link BrokerInboundMessage#eventType()}
      * (FEAT-013/014 family). The {@code INVOCATION_TERMINAL} / {@code A2A_CALL_TERMINAL}
-     * sub-state (completed vs failed) is decoded from the {@code status=} token in the
-     * payloadRef; all other classifications are pure eventType mappings.
+     * sub-state (completed / cancelled / failed) is decoded from the {@code status=}
+     * token in the payloadRef; all other classifications are pure eventType mappings.
+     *
+     * <p>Terminal sub-state mapping:
+     * <ul>
+     *   <li>{@code status=completed} → {@link InvocationResponseStatus#COMPLETED_RESPONSE}
+     *       (normal completion).</li>
+     *   <li>{@code status=cancelled} → {@link InvocationResponseStatus#COMPLETED_RESPONSE}
+     *       (user-initiated cancel is a normal terminal state, not a failure — FEAT-013
+     *       §6.2.5 UC-05 expects TERMINAL(cancelled) → ACCEPTED).</li>
+     *   <li>any other {@code status=} → {@link InvocationResponseStatus#FAILED}.</li>
+     * </ul>
      *
      * @param m the polled response (non-null; correlationId already matched by the caller)
      * @return the observed invocation status
@@ -287,7 +298,7 @@ public final class GatewayRuntimeService implements IngressGateway {
             case INVOCATION_FAILED, A2A_CALL_FAILED -> InvocationResponseStatus.FAILED;
             case INVOCATION_TERMINAL, A2A_CALL_TERMINAL -> {
                 String status = BrokerControlDescriptor.token(m.payloadRef(), "status");
-                yield "completed".equals(status)
+                yield "completed".equals(status) || "cancelled".equals(status)
                         ? InvocationResponseStatus.COMPLETED_RESPONSE
                         : InvocationResponseStatus.FAILED;
             }

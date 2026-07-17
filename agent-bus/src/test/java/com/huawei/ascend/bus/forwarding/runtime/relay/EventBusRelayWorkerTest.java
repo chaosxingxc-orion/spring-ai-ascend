@@ -1,6 +1,6 @@
 package com.huawei.ascend.bus.forwarding.runtime.relay;
 
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerControlDescriptor;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerControlDescriptor;
 import com.huawei.ascend.bus.forwarding.spi.AgentBusEventType;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingEnvelope;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingFailureCode;

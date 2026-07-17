@@ -1,11 +1,7 @@
 package com.huawei.ascend.bus.gateway.runtime;
 
 import com.huawei.ascend.bus.forwarding.common.AgentBusBrokerProperties;
-import com.huawei.ascend.bus.forwarding.runtime.persistence.jdbc.JdbcForwardingOutbox;
-import com.huawei.ascend.bus.forwarding.runtime.transport.BrokerTopicResolver;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerClientProperties;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq.RocketMqBrokerForwardingConsumer;
-import com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq.RocketMqBrokerForwardingRelay;
+import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxClaimPort;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxPort;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
 import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingConsumerPort;
@@ -13,80 +9,64 @@ import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingRelayPort;
 import com.huawei.ascend.bus.forwarding.spi.broker.DeliveryFilter;
 import com.huawei.ascend.bus.spi.ingress.IngressGateway;
 
-import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
-import javax.sql.DataSource;
 import java.util.Map;
 
 /**
- * Gateway process-form wiring (arch-driven G5-B, decision-tree Q2a —
- * {@link Profile @Profile("gateway")} on the single {@code AgentBusApplication}).
+ * Gateway process-form wiring — SPI-port-injection form (arch-driven
+ * gateway-assembly-purify, the flagged ADR-0163 follow-on; G4 sign-off 2026-07-16;
+ * de-gateway-ification follow-on 2026-07-16).
  *
- * <p>Wires the gateway side of the two-hop relay: a durable outbox
- * ({@link JdbcForwardingOutbox}), the hop1 produce relay (RocketMQ producer →
- * {@code BrokerTopicResolver("req")} → {@code ascend_bus_*_req}), the response consumer
- * (polls {@code ascend_bus_*_resp_out}), the {@link GatewayRuntimeService} bean, and the
- * subscribe-at-startup that registers the response consumer on the resp_out topics.
- * {@link GatewayRuntimeController} is component-scanned + gated to this profile.
+ * <p>Prior form (ADR-0163 as-built) constructed 5 concrete-adapter {@code @Bean} HERE
+ * — {@code brokerClientProperties}, {@code gatewayProducer} ({@code DefaultMQProducer}),
+ * {@code gatewayOutbox} ({@code JdbcForwardingOutbox}), {@code gatewayRelay}
+ * ({@code RocketMqBrokerForwardingRelay}), {@code gatewayResponseConsumer}
+ * ({@code RocketMqBrokerForwardingConsumer}) — importing {@code rocketmq.*} + the JDBC
+ * adapter + the transport resolver + broker-common, i.e. crossing the plane into
+ * {@code forwarding.runtime.*} (the ADR-0163 accepted drift: the literal
+ * {@code gateway↛forwarding.runtime} was infeasible). This change moves that assembly
+ * into two forwarding adapter {@code @Configuration}s co-located with their adapters:
+ * {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq.RocketMqBrokerClientConfiguration}
+ * (owns the generic client-side broker beans — {@code defaultProducer} /
+ * {@code requestRelay} / {@code responseConsumer}, de-gateway-ified so any caller
+ * reuses them) +
+ * {@link com.huawei.ascend.bus.forwarding.common.AgentBusInfrastructureConfiguration}
+ * (owns the shared outbox/inbox/broker-client-properties). This {@code @Configuration}
+ * now keeps ONLY the 2 SPI-only {@code @Bean} — the {@link GatewayRuntimeService} bean
+ * (injects the SPI ports) + the {@code gatewayResponseSubscription} SmartLifecycle
+ * (subscribe-at-startup, SPI-only) — and imports only {@code forwarding.spi} +
+ * {@code forwarding.spi.broker} + {@code forwarding.common} + {@code bus.spi.ingress}.
+ * The gateway plane now depends on NO {@code forwarding.runtime} type:
+ * {@code gateway.runtime.. ↛ forwarding.runtime..} holds literally (the ADR-0163 drift
+ * closed).
  *
- * <p><b>Verification:</b> compile-verified (full suite green); the broker-producer
- * {@code start()} + subscribe-at-startup boot-correctness is verified by the two-hop IT
- * (G5-E, env-guarded against the real broker). See {@code docs/4plus1/delta/event-bus-relay/deviations.md}.
+ * <p>{@link AgentBusBrokerProperties} is enabled by
+ * {@link com.huawei.ascend.bus.forwarding.common.AgentBusInfrastructureConfiguration}
+ * (the shared infra config, no {@code @Profile}); this config injects it from the shared
+ * context. The gateway injects the client-side broker beans by qualifier —
+ * {@code @Qualifier("requestRelay")} + {@code @Qualifier("responseConsumer")} —
+ * provided by {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.rocketmq.RocketMqBrokerClientConfiguration}
+ * (no {@code @Profile}; the bean names are role-agnostic, de-gateway-ified).
  *
- * <p>Authority: {@code architecture/L2-Low-Level-Design/agent-bus/
- * feat-013-client-invocation-event-forwarding.md §4.1 / §5.1};
- * {@code docs/4plus1/delta/event-bus-relay/decision-tree.md} Q1a/Q2a.
+ * <p>Authority: {@code docs/4plus1/delta/gateway-assembly-purify/} (G2 as-is · G3
+ * decision tree · G4 to-be + sign-off); ADR-0163 (the forwarding-reorg this closes).
  */
 @Configuration
 @Profile("gateway")
-@EnableConfigurationProperties(AgentBusBrokerProperties.class)
 public class GatewayRuntimeConfiguration {
 
     @Bean
-    BrokerClientProperties brokerClientProperties(AgentBusBrokerProperties props) {
-        return new BrokerClientProperties(props.nameserver(), props.namespace());
-    }
-
-    /** Gateway RocketMQ producer (hop1 produce). Lifecycle: start on bean creation, shutdown on close. */
-    @Bean(destroyMethod = "shutdown")
-    DefaultMQProducer gatewayProducer(BrokerClientProperties broker, AgentBusBrokerProperties props) throws Exception {
-        DefaultMQProducer producer = new DefaultMQProducer(props.producerGroup());
-        producer.setNamesrvAddr(broker.nameserverEndpoints());
-        producer.start();
-        return producer;
-    }
-
-    /** Gateway durable outbox — implements {@link ForwardingOutboxPort} AND ForwardingOutboxClaimPort. */
-    @Bean
-    JdbcForwardingOutbox gatewayOutbox(DataSource dataSource) {
-        return new JdbcForwardingOutbox(dataSource);
-    }
-
-    @Bean(name = "gatewayRelay")
-    BrokerForwardingRelayPort gatewayRelay(DefaultMQProducer gatewayProducer) {
-        return new RocketMqBrokerForwardingRelay(new BrokerTopicResolver("req"),
-                RocketMqBrokerForwardingRelay.defaultSender(gatewayProducer));
-    }
-
-    @Bean(name = "gatewayResponseConsumer", destroyMethod = "close")
-    BrokerForwardingConsumerPort gatewayResponseConsumer(BrokerClientProperties broker, AgentBusBrokerProperties props) {
-        return new RocketMqBrokerForwardingConsumer(new BrokerTopicResolver("resp_out"),
-                RocketMqBrokerForwardingConsumer.defaultPollerFactory(broker.nameserverEndpoints()),
-                props.pollWaitMillis());
-    }
-
-    @Bean
-    IngressGateway gatewayRuntimeService(JdbcForwardingOutbox gatewayOutbox,
-                                         @Qualifier("gatewayRelay") BrokerForwardingRelayPort relay,
-                                         @Qualifier("gatewayResponseConsumer") BrokerForwardingConsumerPort responseConsumer,
+    IngressGateway gatewayRuntimeService(ForwardingOutboxPort outbox,
+                                         ForwardingOutboxClaimPort outboxClaim,
+                                         @Qualifier("requestRelay") BrokerForwardingRelayPort relay,
+                                         @Qualifier("responseConsumer") BrokerForwardingConsumerPort responseConsumer,
                                          AgentBusBrokerProperties props) {
-        return new GatewayRuntimeService(gatewayOutbox, gatewayOutbox, relay, responseConsumer,
+        return new GatewayRuntimeService(outbox, outboxClaim, relay, responseConsumer,
                 props.gatewayServiceId(), props.acceptTimeoutMs(), props.responseTimeoutMs(),
                 System::currentTimeMillis);
     }
@@ -99,10 +79,16 @@ public class GatewayRuntimeConfiguration {
      * targeted at this gateway; tenant is filtered client-side in {@code acceptWindow}).
      * This RESOLVES the deferred-#3 D13 drift for the response consumer (the slice-3 IT
      * used {@code forRuntime}, which pins tenant — wrong for multi-tenant).
+     *
+     * <p>Unchanged by gateway-assembly-purify: this bean already took only SPI types
+     * ({@link BrokerForwardingConsumerPort} + {@link DeliveryFilter} +
+     * {@link ForwardingRouteHandle}); it now receives the adapter-provided
+     * {@code responseConsumer} bean (de-gateway-ified from the prior
+     * {@code gatewayResponseConsumer} name) instead of a gateway-constructed one.
      */
     @Bean
     SmartLifecycle gatewayResponseSubscription(
-            @Qualifier("gatewayResponseConsumer") BrokerForwardingConsumerPort responseConsumer,
+            @Qualifier("responseConsumer") BrokerForwardingConsumerPort responseConsumer,
             AgentBusBrokerProperties props) {
         return new SmartLifecycle() {
             private boolean started;

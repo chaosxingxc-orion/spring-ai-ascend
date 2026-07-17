@@ -81,6 +81,17 @@
       <artifactId>flyway-database-postgresql</artifactId>
       <scope>runtime</scope>
     </dependency>
+    <!--
+      Spring Boot 4 modularization: FlywayAutoConfiguration moved from the monolithic
+      spring-boot-autoconfigure jar to the dedicated spring-boot-flyway module. Without
+      this, flyway-core is on the classpath but no autoconfig wires Flyway.migrate() to
+      the ApplicationContext lifecycle, so migration scripts silently never run (PR #389
+      E2E startup issue: "relation agent_registry_mvp does not exist").
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-flyway</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>

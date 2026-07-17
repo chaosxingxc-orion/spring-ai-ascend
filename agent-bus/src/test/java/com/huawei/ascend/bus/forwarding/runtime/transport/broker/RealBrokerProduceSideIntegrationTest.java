@@ -9,6 +9,7 @@ import com.huawei.ascend.bus.forwarding.spi.ForwardingMessageId;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingOutboxRecord;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingReceipt;
 import com.huawei.ascend.bus.forwarding.spi.ForwardingRouteHandle;
+import com.huawei.ascend.bus.forwarding.spi.broker.BrokerControlDescriptor;
 import com.huawei.ascend.bus.forwarding.spi.broker.BrokerForwardingConsumerPort;
 import com.huawei.ascend.bus.forwarding.spi.broker.BrokerInboundMessage;
 import com.huawei.ascend.bus.forwarding.spi.broker.BrokerProduceOutcome;

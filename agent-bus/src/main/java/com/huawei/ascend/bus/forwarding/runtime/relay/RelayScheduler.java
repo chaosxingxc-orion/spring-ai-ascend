@@ -2,12 +2,13 @@ package com.huawei.ascend.bus.forwarding.runtime.relay;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import jakarta.annotation.PostConstruct;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 import java.time.Duration;
 import java.util.Objects;
 import java.util.OptionalLong;
+import java.util.concurrent.ScheduledFuture;
 import java.util.function.LongSupplier;
 
 /**
@@ -31,9 +32,18 @@ import java.util.function.LongSupplier;
  * try/catch (RuntimeException) — a thrown tick is logged + swallowed, so the
  * schedule keeps firing (mirrors {@code MvpHealthProbeScheduler}'s per-probe isolation).
  *
+ * <p><b>Lifecycle:</b> implements {@link SmartLifecycle} so the scheduler only
+ * starts ticking after the {@code relaySubscriptions} SmartLifecycle (phase
+ * {@code Integer.MIN_VALUE + 100}) has subscribed the relay consumers — the
+ * scheduler's phase is {@code Integer.MIN_VALUE + 101}, guaranteeing
+ * subscribe-before-poll ordering. Previously {@link jakarta.annotation.PostConstruct}
+ * started the scheduler during bean init, which races ahead of the
+ * subscription lifecycle and throws {@code "polled before subscribe"} on the
+ * first few ticks (PR #389 E2E startup issue).
+ *
  * <p>Authority: {@code docs/superpowers/specs/2026-07-15-relay-scheduler-design.md} §4.4.
  */
-public class RelayScheduler {
+public class RelayScheduler implements SmartLifecycle {
 
     private static final Logger log = LoggerFactory.getLogger(RelayScheduler.class);
 
@@ -45,6 +55,10 @@ public class RelayScheduler {
     private final int limit;
     private final long fixedDelayMs;
     private final ThreadPoolTaskScheduler scheduler;
+
+    private volatile boolean running;
+    private volatile ScheduledFuture<?> forwardFuture;
+    private volatile ScheduledFuture<?> responseFuture;
 
     public RelayScheduler(RelayTick forward, RelayTick response,
                           String tenantId, int limit, long fixedDelayMs,
@@ -65,10 +79,38 @@ public class RelayScheduler {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
     }
 
-    @PostConstruct
-    public void start() {
-        scheduler.scheduleWithFixedDelay(this::driveForward, Duration.ofMillis(fixedDelayMs));
-        scheduler.scheduleWithFixedDelay(this::driveResponse, Duration.ofMillis(fixedDelayMs));
+    @Override
+    public synchronized void start() {
+        if (running) {
+            return;
+        }
+        forwardFuture = scheduler.scheduleWithFixedDelay(this::driveForward, Duration.ofMillis(fixedDelayMs));
+        responseFuture = scheduler.scheduleWithFixedDelay(this::driveResponse, Duration.ofMillis(fixedDelayMs));
+        running = true;
+    }
+
+    @Override
+    public synchronized void stop() {
+        running = false;
+        if (forwardFuture != null) {
+            forwardFuture.cancel(false);
+            forwardFuture = null;
+        }
+        if (responseFuture != null) {
+            responseFuture.cancel(false);
+            responseFuture = null;
+        }
+    }
+
+    @Override
+    public boolean isRunning() {
+        return running;
+    }
+
+    @Override
+    public int getPhase() {
+        // Phase after relaySubscriptions (Integer.MIN_VALUE + 100): subscribe-before-poll.
+        return Integer.MIN_VALUE + 101;
     }
 
     /** One forward-relay tick (hop1 req -> hop2 deliver). Package-private for tests. */

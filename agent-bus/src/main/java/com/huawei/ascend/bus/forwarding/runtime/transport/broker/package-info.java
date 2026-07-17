@@ -9,11 +9,13 @@
  * <p>This package holds the broker-common runtime types that stay alongside the
  * concrete adapter: {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerClientProperties},
  * {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerOutboundMessage},
- * {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerMessageHeaders}, and
- * {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerControlDescriptor}. The
+ * {@link com.huawei.ascend.bus.forwarding.runtime.transport.broker.BrokerMessageHeaders}. The
  * broker SPI surface (Ports + the broker-agnostic message / outcome / filter types)
- * was extracted to {@code forwarding.spi.broker} by the forwarding-reorg (ADR-0163); a
- * concrete broker adapter (RocketMQ PoC) lives in the {@code broker.rocketmq}
+ * was extracted to {@code forwarding.spi.broker} by the forwarding-reorg (ADR-0163); the
+ * shared control-descriptor codec {@code BrokerControlDescriptor} was relocated from
+ * this package into {@code forwarding.spi.broker} by the gateway-assembly-purify change
+ * (ADR-0163 follow-on) so the gateway plane depends on no {@code forwarding.runtime}
+ * type; a concrete broker adapter (RocketMQ PoC) lives in the {@code broker.rocketmq}
  * subpackage; the in-memory test double ships in the test source tree.
  *
  * <p><b>Governance.</b> Decision §6.1 item 1 (concrete broker client) is lifted for
