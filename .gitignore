@@ -197,3 +197,10 @@ harness-rd-toolkit-*.tgz
 .claude/skills/architecture-models-4plus1/
 .claude/skills/gen-ui-testcases/
 CONTEXT.md
+
+# Local peer L2 scratch (do not commit)
+architecture/L2-Low-Level-Design/_temp_peer_l2/
+
+# Local L2 backups / review notes (do not commit)
+architecture/L2-Low-Level-Design/**/*_bak.md
+architecture/L2-Low-Level-Design/**/*-review.md

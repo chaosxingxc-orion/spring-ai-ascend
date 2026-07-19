@@ -41,11 +41,10 @@ owner: 黄晨
 
 | 章 | 内容 |
 |---|---|
-| §0 | 问题背景、术语 |
+| §0 | 问题背景、术语、工作假设、关联文档 |
 | §1 | 组件 Charter、场景总表 |
-| §2 | 共享设计（统一入口、治理管道、包与配置） |
-| §3 起 | 按场景展开（对齐 G 章详细度：要做什么 / 交互与约束 / 判断 / 接口 / 验收）；E2E-06 内拆 G1～G5，其余场景保持单一主路径 |
-| 文末 | 待决问题、关联阅读 |
+| §2 | **横向**共享设计：统一入口、调用链、模块切片、接口边、路径选择、配置与部署假设 |
+| §3～§8 | **纵向**场景（§3 治理拆 G1～G5；§4～§7 主路径与创建后操作；§8 标注级） |
 
 入口治理（E2E-06）在本文专章定义；FEAT-012 复用同一治理语义，并补充总线路径下「拒绝则不入队」等约束。
 
@@ -66,6 +65,26 @@ owner: 黄晨
 | **E2E-06** | 入口治理（通过 / 拒绝）。 |
 | **E2E-01 / 02** | 同步 / 流式 · 直连。 |
 | **E2E-05** | 选路失败。 |
+
+### 0.5 工作假设（联调前可改，正文按此写）
+
+| 项 | 假设 |
+|---|---|
+| 创建幂等键 wire | 同租户 + 稳定创建键；与 client `messageId` 对应，见 E2E-06 G4 |
+| `agentId` wire 落点 | 创建报文须 Gateway 可读；路径见 E2E-06 G3，联调冻结 |
+| 直连 / 总线切换 | 对 client 不可见；切换点见 §2.5，总线细节在 FEAT-012 |
+| Cancel 上 wire | 保留 CancelTask 语义；未与 runtime/client 对齐前允许「能力不可用」，禁止假成功 |
+| Task owner 定位 | V1：创建成功后短时 `taskId → routeHandle`；找不到则确定失败、不新建 Task（§7.2） |
+| Subscribe 增量起点 | 自订阅时刻起的帧以 runtime 为准；Gateway 不做断线全量缓存回放 |
+
+### 0.6 关联文档
+
+| 文档 | 说明 |
+|---|---|
+| `version-scope/FEAT-011-client-invocation-route-forwarding.md` | 对外行为与版本承诺 |
+| FEAT-012 L2（姊妹篇） | 总线转发路径 |
+| agent-runtime Feat-Func-001 | 下游标准服务入口（直连应对齐） |
+| agent-client Feat-Func-001（若已合入） | 上游 I-01 与对 Gateway 的诉求 |
 
 ---
 
@@ -171,16 +190,134 @@ owner: 黄晨
 | E2E-01 | 同步 · 直连 | §4 | 治理通过后进入 |
 | E2E-02 | 流式 · 直连 | §5 | 治理通过后进入 |
 | E2E-05 | 选路失败 | §6 | 治理通过后、无可用路由 |
-| — | 查询 / 取消 / 重订阅 / UNKNOWN | §7 | 辅助能力 |
+| — | 创建之后：Get / Cancel / Subscribe / UNKNOWN | §7 | 有 taskId 的操作 + 无 taskId 时同键恢复（见 §7.1 Charter） |
 | E2E-07 / 08 | 统一入口 / 端侧工具 | §8 | 标注场景 |
 
-阅读顺序建议：§1 → §3 → §4 / §5 → §6。
+阅读顺序建议：§1 → **§2（横向）** → §3 → §4 / §5 → §6 → §7 → §8（标注）。
 
 ---
 
-## 2. 共享设计
+## 2. 共享设计（横向）
 
-统一入口形态、治理管道在调用链中的位置、以及跨场景复用的包与配置，在本节省述；各场景细节见对应章节。
+本章是**跨场景横切**：统一入口、调用链顺序、模块切片、接口边、路径选择与配置。各 E2E 场景（§3 起）只写本场景差量，**不重复**本章已固定的骨架。
+
+FEAT-012 复用同一入口与治理管道；差量在「选路之后走总线而非直连」。
+
+### 2.1 统一入口形态
+
+| 项 | 约定 |
+|---|---|
+| 对外入口 | 单一 A2A facade（JSON-RPC over HTTP；流式另加 SSE） |
+| 方法族 | `SendMessage` / `SendStreamingMessage` / `GetTask` / `CancelTask` / `SubscribeToTask`（名称以联调冻结为准） |
+| 调用方 | 仅 agent-client（及测试替身）；不向业务暴露多套「直连口 / 总线口」 |
+| 存量与新目标 | **同一入口形态**（E2E-07）；注册 / 上架不经 Gateway |
+| 与 runtime | 转发语义对齐标准服务入口（FEAT-001）；不另开私有执行协议 |
+
+client 不感知本次内部走 FEAT-011 直连还是 FEAT-012 总线；路径选择在 Gateway 内完成（§2.5）。
+
+### 2.2 调用链顺序（所有成功投递共用）
+
+```text
+I-01 入站
+  → E2E-06 入口治理（G1→G5；失败则停）
+  → 路径选择（DIRECT | BUS）
+  → 选路（RDC → routeHandle；失败 → E2E-05）
+  → DIRECT：直连转发 / SSE 桥接（E2E-01 / 02 / §7）
+     或 BUS：见 FEAT-012（本文不展开）
+```
+
+| 规则 | 说明 |
+|---|---|
+| 先治理后选路 | 未过 E2E-06 不得查 RDC、不得调 runtime、不得发总线 |
+| 先选路后转发 | 无可用路由不得猜测地址或伪造成功 Task |
+| 拓扑不对 client 可见 | 响应与错误中不出现 endpoint / `routeHandle` 明文 / 实例地址 |
+
+治理子场景细节见 §3；选路失败见 §6；同步/流式见 §4 / §5；有 `taskId` 后的操作见 §7。
+
+### 2.3 逻辑模块（包切片）
+
+职责切片如下（包名可按仓库惯例微调，**边界勿混**）：
+
+```text
+agent-gateway/
+├── facade/        # I-01：解析 JSON-RPC、方法分发、响应/SSE 写出
+├── governance/    # E2E-06：鉴权、租户、校验、幂等、审计
+├── routing/       # RDC 客户端、routeHandle、多实例挑选、（可选）taskId 粘滞旁路
+├── direct/        # HTTP 同步转发、打开下游流
+├── sse/           # SSE 桥接、release（断开必释放）
+├── path/          # DIRECT vs BUS 选择（012 接线点）
+└── obs/           # 审计、route trace、与 traceId 关联
+```
+
+| 模块 | 主责 | 不负责 |
+|---|---|---|
+| facade | 协议表面、分发 | 业务 Agent、Task 权威 |
+| governance | 可信上下文或拒绝 | 选路、转发 |
+| routing | 逻辑目标 → 可转发引用 | 执行、写 Task |
+| direct / sse | 直连投递与桥接 | 总线入队、生成 token |
+| path | 选 DIRECT/BUS | 两路径的业务语义细节 |
+| obs | 可观测与审计落点 | 决策是否放行（放行在 governance） |
+
+### 2.4 接口边总表
+
+| 边 | 对端 | 目的 | 本特性（011） |
+|---|---|---|---|
+| **I-01** | agent-client ↔ Gateway | 统一 A2A 入口 | 使用 |
+| **I-02** | Gateway → RDC | 已知目标选路 | 使用 |
+| **I-03** | Gateway → runtime | HTTP 同步/查询/取消等 | 使用 |
+| **I-06** | Gateway ↔ runtime | SSE 桥接 | 使用（流式 / 重订阅） |
+| **I-07** | 多轮工具相关报文 | 透传 | 使用（E2E-08，不解析业务） |
+| Bus 发布/投影 | Gateway ↔ Event Bus | 控制入队与状态投影 | **本特性不使用**（FEAT-012） |
+
+| 场景 | 主要用到的边 |
+|---|---|
+| E2E-06 | I-01（拒绝时仅此） |
+| E2E-01 | I-01, I-02, I-03 |
+| E2E-02 | I-01, I-02, I-03, I-06 |
+| E2E-05 | I-01, I-02（失败）；无 I-03 |
+| §7 Get/Cancel | I-01 + owner 定位 + I-03 |
+| §7 Subscribe | I-01 + owner 定位 + I-06 |
+| E2E-08 | 同上 + I-07 透传字段 |
+
+各边的入出/禁止在对应场景章展开；此处只固定**边的存在与归属**。
+
+### 2.5 路径选择（直连 vs 总线）
+
+| 项 | V1 约定 |
+|---|---|
+| 选择点 | 治理通过之后、选路/转发之前（`path/`） |
+| 对 client | **不可见**；无「用户选直连/总线」API |
+| MVP | 可配置固定 `DIRECT` |
+| `BUS` | 交给 FEAT-012 模块；本文直连路径断言总线发布口不被调用 |
+
+切换策略（配置 / 租户策略 / 请求提示等）未拍板前，不在场景正文分叉两套 client 协议。
+
+### 2.6 配置模型（占位）
+
+```yaml
+openjiuwen.gateway:
+  path-mode: direct          # direct | bus | auto（auto 待拍板）
+  routing:
+    connect-timeout: 3s
+  direct:
+    forward-timeout: 60s
+    streaming-idle-timeout: 5m
+  sse:
+    release-on-client-disconnect: true
+  governance:
+    # 鉴权、幂等窗口等见 §3；键名实现期对齐
+```
+
+具体键名与默认值实现期可调；**语义约束**（断开必释放、先治理后选路）不随配置关闭。
+
+### 2.7 部署假设（工作假设）
+
+| 项 | 态度 |
+|---|---|
+| 进程形态 | 按**可独立部署**设计；是否与某组件同进程平台未拍死 |
+| 网络 | 须能访问 RDC 选路，以及目标 runtime 的标准 HTTP/SSE |
+| 消息总线 | **FEAT-011 运行不依赖** Broker |
+| 状态 | Gateway 不持 Task 权威存储；幂等/粘滞旁路可为短时本地或外置缓存（实现选型） |
 
 ---
 
@@ -1272,202 +1409,874 @@ handleSendMessage(req):
 
 ## 5. 场景：E2E-02 — 流式 · 直连
 
-client 需要边执行边观察输出。控制面与 E2E-01 相同（治理 → 选路 → 直连），差量在 **SSE 桥接**。
+本场景是**单一主路径**（不拆 Gx）：在 E2E-06 已通过、选路成功的前提下，经 HTTP/SSE **直连**打开 `SendStreamingMessage`，并在 **client 连接存活期间**把 runtime 的 A2A SSE **逐帧桥接**给 agent-client。
 
-### 5.1 责任切片
+与 E2E-01 共用治理与选路；**差量只在开流与桥接生命周期**。不经消息总线传 token（总线见 FEAT-012）；选路失败见 E2E-05；断线后查询 / 重订阅见 §7。
+
+### 5.1 要做什么
 
 | 项 | 内容 |
 |---|---|
-| 目标 | 在 client 连接存活期间桥接 runtime A2A SSE；不生成、不缓存 token |
-| In | `SendStreamingMessage`；桥接；断开释放 |
-| Out | 生成模型 token；把流式做成独立于 A2A Task 的第二套协议；经总线传 token |
-| 成功可观察 | client 收到有序 SSE；token 源自 runtime；断开后桥接释放 |
-| 失败可观察 | 建流前同 01/05/06；流中断对 client 可见；已有 `taskId` 时可查询或重订阅（§7） |
+| 目标 | 边执行边观察：client 收到有序、可归一化的 SSE；token / 内容由 runtime 产生 |
+| In | 流式创建入口；下游开流；SSE 桥接；client 断开时释放 |
+| Out | 生成或改写模型 token；第二套非 A2A 的 stream 协议；经总线传 token；在 Gateway 缓存整段流以便事后回放 |
+| 成功可观察 | 桥接建立后 client 收到源自 runtime 的帧；帧语义可映射 Accepted / 增量 / 终态等；拓扑不对 client 可见 |
+| 失败可观察 | 建流前同 01/05/06；流中断对 client 可见；已有 `taskId` 后断线 → 查询或重订阅，不隐式新建 Task |
 
-### 5.2 交互过程
+### 5.2 前置与边界
 
-**前置：** 同 E2E-01（含治理已通过），且目标支持 A2A SSE / streaming。
+**前置：**
 
-**步骤：**
+1. **E2E-06 已通过**；`method=SendStreamingMessage`（或双方冻结的流式创建名）；非空 `agentId`；宜带创建幂等键。  
+2. 路径为**直连**；P1 选路语义与 E2E-01 相同（成功得 `routeHandle`，失败出口 E2E-05）。  
+3. 目标 runtime 支持 A2A 流式 / SSE 标准入口。
 
-1. client 经 I-01 建立流式调用（`SendStreamingMessage`）。  
-2. 治理通过后选路（同 01）。  
-3. Gateway 向 runtime 打开流式标准入口。  
-4. Gateway 桥接 runtime → client 的 SSE 帧；不缓冲成整包后改写。  
-5. 直至 Task 终态、中断、下游流错误，或 **client 断开**。  
-6. client 断开时释放桥接，不在后台继续消费并缓存 token。
+**相对 E2E-01 的差量（正文只展开这些）：**
+
+| 点 | E2E-01 | E2E-02 |
+|---|---|---|
+| 创建方法 | `SendMessage` | `SendStreamingMessage` |
+| 下游形态 | 同步 HTTP 请求-响应 | 流式标准入口 + SSE |
+| 回传 | 单次折叠（完成 / 已接受 / 错误） | 存活期内逐帧桥接 |
+| 生命周期 | 阻塞窗口结束即完结 | **client 断开必须释放桥接** |
+| token | 不适用 | Gateway **不生成、不缓存** |
+
+**明确不做：**
+
+- 不重复写治理 / 选路细则（§3、§4.3 P1）。  
+- 不把流式做成与 A2A Task 无关的私有推送协议。  
+- 不在断开后继续拉 runtime 流并落盘 / 内存缓存 token。
+
+### 5.3 主路径阶段（单一场景内）
+
+| 阶段 | 名称 | 做什么 |
+|---|---|---|
+| P1 | 选路 | **同 E2E-01 P1**（tenant + agentId → `routeHandle`） |
+| P2 | 开下游流 | 解析路由后，向 runtime 打开流式标准入口；注入可信租户；携带原 A2A 请求 |
+| P3 | SSE 桥接 | 将 runtime → Gateway 的 SSE 帧转发到 client；不整包缓冲改写；直至终态 / 错误 / **client 断开** |
+| P4 | 释放 | client 断开或桥接结束时 `release`：停消费、关下游、清会话 |
+
+```text
+E2E-06 通过
+   → P1 选路（同 01）
+        ├─ 无路由 → E2E-05
+        └─ 有 routeHandle
+             → P2 开 runtime 流式入口
+             → P3 逐帧桥接 client ↔ runtime
+             → P4 client 断开或流结束 → release
+```
 
 ```mermaid
 sequenceDiagram
   autonumber
   participant C as agent-client
   participant GW as Gateway
-  participant DIR as 直连转发
-  participant SSE as SSE桥接
+  participant RDC as 注册发现
   participant RT as agent-runtime
 
+  Note over GW: E2E-06 已通过
   C->>GW: SendStreamingMessage
-  Note over GW: E2E-06 通过后选路
-  GW->>DIR: 开下游流
-  DIR->>RT: 流式标准入口
-  RT-->>SSE: SSE 帧
-  SSE-->>C: 逐帧桥接
-  Note over SSE: token 由 runtime 产生
-  C--xSSE: client 断开
-  SSE-->>RT: 释放桥接
+  GW->>RDC: 选路（同 E2E-01）
+  alt 无可用路由
+    GW-->>C: 路由失败（E2E-05）
+  else 有 routeHandle
+    RDC-->>GW: routeHandle
+    GW->>RT: 流式标准入口 + 可信上下文
+    loop client 连接存活
+      RT-->>GW: SSE 帧（jsonrpc）
+      GW-->>C: 逐帧桥接（不改写语义）
+    end
+    alt client 断开
+      C--xGW: 断开
+      GW->>RT: 释放下游 / 结束桥接
+    else 流正常结束
+      RT-->>GW: 终态或流关闭
+      GW-->>C: 末帧后结束
+      GW->>GW: release 会话
+    end
+  end
 ```
 
-### 5.3 接口
+#### P1 — 选路
 
-| 边 | 方向 | 本场景要点 |
+与 E2E-01 §4.3 P1 **相同**：权威 `tenantId` + `agentId` → opaque `routeHandle`；失败走 E2E-05；不向 client 返回拓扑。本场景不重复展开。
+
+#### P2 — 开下游流
+
+**输入：** `routeHandle`、已治理的流式 A2A 请求、可信上下文。  
+**动作：**
+
+1. 解析 `routeHandle` 为可达地址（仅转发层可见）。  
+2. 向 runtime **流式**标准入口发起调用（对齐 FEAT-001 流式路径，而非同步 `SendMessage`）。  
+3. 注入权威租户；丢弃 client 自报租户头。  
+4. 建立下游 SSE（或等价流）读端；为本次调用创建桥接会话（关联 `traceId`、可选 `taskId` 一旦出现）。  
+5. 不触发总线发布、不经总线传 token。
+
+**判断要点：**
+
+| 检查 | 失败时 |
+|---|---|
+| 开流前选路失败 | E2E-05；无下游连接 |
+| runtime 拒绝建流 / 连接失败且尚无 `taskId` | 明确错误或可按创建 UNKNOWN 语义处理（§7）；允许同键重试 |
+| runtime 建流成功但首帧前失败 | 对 client 可见的流/连接错误；有 `taskId` 则不得当「未创建」 |
+
+#### P3 — SSE 桥接
+
+**输入：** 下游 SSE 源 + client SSE 宿。  
+**动作：**
+
+1. **逐帧转发：** 保持 runtime 帧形态（典型：`event: jsonrpc` + 完整 JSON-RPC `data`），不合并成单一大包再改写。  
+2. **不改写 Task / 中断语义：** 如 `result.task`、`TASK_STATE_*`、`status.message.metadata._interrupt` 等原样透传（便于 SDK 归一化为 Accepted / ContentDelta / InputRequired / 终态）。  
+3. **不生成 token：** 正文 / artifact 增量只来自 runtime。  
+4. **有限清洗：** 若帧或扩展字段误带内部 endpoint / `routeHandle`，剥离后再给 client；不得为「清洗」破坏 JSON-RPC 业务字段。  
+5. **结束条件：** Task 终态帧且约定结束、下游流错误、或 client 断开（进入 P4）。
+
+**判断要点：**
+
+| 检查 | 行为 |
+|---|---|
+| 帧乱序 / 丢失 | Gateway 不做重排引擎；透传下游顺序；断线恢复靠 §7 |
+| 出现 `taskId` | 记入会话与 G4 去重表；后续断线不得再报创建 UNKNOWN |
+| 流中错误 | 向 client 暴露可观察的中断；不伪造成功完结 |
+
+#### P4 — 释放
+
+**触发：** client 断开 TCP/SSE；或桥接正常结束；或 Gateway 主动熔断（空闲超时等，可配置）。  
+**动作：**
+
+1. 停止从下游读、停止向该 client 写。  
+2. 关闭或取消对 runtime 的流式订阅 / 连接（尽最佳努力）。  
+3. 清除桥接会话；**不得**在后台继续消费并缓存 token「等 client 再来取」。  
+4. 已有 `taskId` 时：恢复路径是 client 再调 GetTask / SubscribeToTask（§7），不是本会话隐式续命。
+
+### 5.4 与 agent-client 的交互
+
+| 角色 | 职责 |
+|---|---|
+| agent-client | 发起 `SendStreamingMessage`；维持 SSE 连接；将帧投影为 Accepted / 增量 / InputRequired / 终态等；断线后按 SDK 策略查询或重订阅 |
+| Gateway | 选路、开流、逐帧桥接、断开释放；不执行 Agent、不拥有 Task |
+
+#### 5.4.1 对 agent-client 的约束（契约）
+
+**前因**
+
+1. 流式的价值在「边到边」；若 Gateway 缓冲整段再吐，延迟与内存都会失控，且破坏增量投影。  
+2. SDK 依赖稳定的帧语义（含 `_interrupt`）做工具多轮；Gateway 改写会导致端侧工具链路断裂。  
+3. 断线后若 Gateway 仍拉流缓存，会造成资源泄漏，并让「重订阅」语义含糊。
+
+**约束**
+
+| # | 约束 | 说明 |
 |---|---|---|
-| I-01 | client ↔ Gateway | 同一 facade 上流式分支；SSE 帧保持 runtime 的 `event: jsonrpc` + 完整 JSON-RPC `data` 语义（对齐 Feat-Func-001 G-8） |
-| I-02 | Gateway → RDC | 同 E2E-01 |
-| I-06 / 流 | Gateway ↔ runtime | 点对点 SSE；Gateway 不生成 token |
+| C-02-1 | 流式创建使用 `SendStreamingMessage`（或冻结别名），并满足 E2E-06 | 与同步共用 facade，仅方法/Accept 不同 |
+| C-02-2 | 按 SSE / JSON-RPC 帧消费；**不要**假设 Gateway 会拼成单一同步响应 | 投影以帧序列为准 |
+| C-02-3 | **禁止**依赖响应中的 runtime URL / `routeHandle` | 与 E2E-01 相同 |
+| C-02-4 | 已观察到 `taskId`（如 Accepted）后：断线用 GetTask / SubscribeToTask，**禁止**换新创建键重创同一逻辑调用 | 同 G4；避免双建 |
+| C-02-5 | 区分：建流前治理/路由 HTTP 错误 vs 流中 JSON-RPC / 连接中断 | 分层与 E2E-01 / G7 一致 |
+| C-02-6 | client 主动断开即视为放弃本桥接；需要续看须显式重订阅（§7） | 与 Gateway P4 对齐 |
+| C-02-7 | 端侧工具多轮：下行 `_interrupt` / 上行带原 `taskId` 的续跑仍走统一入口 | Gateway 只透传，不执行工具（E2E-08） |
 
-禁止：定义第二套与 A2A Task 无关的 stream 协议；把 token 写入消息总线。
+**后果（不遵守时）**
 
-### 5.4 实现要点
+| 违规 | 现象 |
+|---|---|
+| 把流式当「同步大响应」解析 | 超时或丢增量 |
+| 有 taskId 仍换键重创 | 重复 Task |
+| 断线后期望 Gateway 补发缓存 token | 无数据；资源已释放 |
 
-- 复用 01 的治理与选路；桥接模块独立管理连接生命周期。  
-- client 断开必须触发 `release`，停止为该连接服务。  
-- 已有 `taskId` 后的断线恢复走 §7 `SubscribeToTask` 或查询，不隐式新建 Task。
+**联调清单**
 
-### 5.5 验收
+- [ ] 抓包：帧为 runtime 形态；无内部 endpoint  
+- [ ] client 断开后 Gateway 无持续下游读（或短时结束）  
+- [ ] 首帧/早期帧可映射 Accepted 并带 `taskId` 时，断线后走 §7 而非新创建  
+- [ ] `_interrupt`（若有）未被 Gateway 剥掉  
+
+### 5.5 与 RDC / runtime 的交互
+
+| 对端 | 边 | 本场景要点 |
+|---|---|---|
+| RDC | I-02 | **同 E2E-01**：逻辑目标 → `routeHandle`；失败不建流 |
+| agent-runtime | I-03 / 流 | FEAT-001 **流式**标准入口；SSE（或等价）；Gateway 不写 TaskStore、不生成 token |
+
+**对 runtime 的依赖（契约向）：**
+
+- 提供与同步同一语义家族的流式创建，帧内 Task 状态权威在 runtime。  
+- 以 Gateway 注入的租户为准（与 01 相同工作假设）。  
+- client 侧断开后，允许 Gateway 取消/关闭下游流；不要求 Gateway 代持完整事件历史。
+
+### 5.6 接口汇总
+
+| 边 | 方向 | 入 | 出 | 禁止 |
+|---|---|---|---|---|
+| I-01 | client ↔ Gateway | `SendStreamingMessage` + 治理字段 | SSE 帧序列 / 建流前错误 | 第二套非 A2A stream；暴露拓扑；断开后补发缓存 token |
+| I-02 | Gateway → RDC | 同 E2E-01 | 同 E2E-01 | 同 E2E-01 |
+| I-03 | Gateway → runtime | 流式 A2A 请求 + 可信上下文 | SSE 帧 / 错误 | 私有执行口；经总线传 token |
+
+**建议错误 / 终态（流式相关）：**
+
+| 情况 | 表现 |
+|---|---|
+| 建流前路由失败 | 同 E2E-05（HTTP 层路由错误） |
+| 建流失败且无 taskId | 明确错误或创建 UNKNOWN（§7） |
+| 流中断且已有 taskId | 连接/流错误可见；可查询或重订阅 |
+| client 断开 | 桥接 release；无「后台成功完结」假象 |
+
+### 5.7 判断逻辑（端到端）
+
+```text
+handleSendStreaming(req, clientSink):
+  1. 经 E2E-06；拒绝则返回治理错误
+  2. 确认路径 = DIRECT
+  3. route = RDC 选路（同 E2E-01）
+     if empty -> return ROUTE_*                 // E2E-05
+  4. downstream = DirectClient.openStreaming(route, a2aReq with trusted ctx)
+  5. session = SseBridge.bridge(clientSink, downstream)
+     // 逐帧转发；不生成 token；有限 sanitize
+  6. on client disconnect OR stream end OR idle timeout:
+       SseBridge.release(session)               // 必须
+  7. 若曾见 taskId: 更新 G4；恢复走 §7，不隐式新建
+```
+
+### 5.8 实现要点（V1 从简）
+
+- 复用 01 的 `routing` + 治理上下文；新增 `sse` / `SseBridge`（bridge + release）。  
+- SPI 示意：`openStreaming(route, req) -> DownstreamSseSource`；`bridge(sink, source)`；`release(sessionId)`。  
+- 配置占位：流空闲超时、释放策略（`release-on-client-disconnect: true` 为默认）。  
+- 单测锁：断开后无继续 `read`；无总线 publisher 调用；帧内业务字段不被改写（可用固定 fixture 帧比对）。  
+- 重订阅 / GetTask **不**在本场景实现细节中展开（§7）。
+
+### 5.9 验收
 
 | # | Given | When | Then |
 |---|---|---|---|
-| T-02-1 | 治理通过且目标可流式 | SendStreamingMessage | 建立桥接；client 收到源自 runtime 的 SSE |
-| T-02-2 | 桥接已建立 | client 断开 | 释放桥接；不后台缓存 token |
-| T-02-3 | 已有 `taskId` | SubscribeToTask（§7） | 可重新桥接；找不到 Task 时不新建 |
+| T-02-1 | E2E-06 通过，目标可流式且可路由 | SendStreamingMessage | 建立桥接；client 收到源自 runtime 的 SSE |
+| T-02-2 | 桥接已建立 | client 断开 | 释放桥接；不后台缓存 / 续拉 token |
+| T-02-3 | 流中已出现 `taskId` 后断线 | 再调 SubscribeToTask / GetTask（§7） | 可恢复观察或查状态；**不**因断线新建 Task |
+| T-02-4 | 成功帧序列 | 查 I-01 | 无 endpoint / `routeHandle` 明文；业务字段可归一化 |
+| T-02-5 | RDC 无路由 | SendStreamingMessage | E2E-05；无下游流 |
+| T-02-6 | 直连流式路径 | 调用 | 总线未传 token / 未走总线发布 |
+| T-02-7 | 下游流中错误 | 桥接中 | client 可观察中断；不伪造成功完结 |
 
 ---
 
 ## 6. 场景：E2E-05 — 选路失败
 
-治理已通过，但 RDC 无法给出可用路由。对 client 表现为明确失败；不调用 runtime。
+本场景是**单一失败主路径**（不拆 Gx）：E2E-06 治理**已通过**，但注册发现无法给出可用于转发的路由。Gateway 必须立即对 client 返回**可编程的路由类失败**，且**不调用** agent-runtime、不发总线控制事件、不伪造成功 Task。
 
-### 6.1 责任切片
+与 E2E-01 / 02 的关系：01/02 在 P1 选路成功后继续；本场景是 P1（及解析失败）的**失败专章**。与 E2E-06 的关系：06 是「进门前被拦住」；05 是「进门后找不到路」。
+
+### 6.1 要做什么
 
 | 项 | 内容 |
 |---|---|
-| 目标 | 无可用 `routeHandle` 时立即失败，不伪造成功投递 |
-| In | 选路失败判定与对 client 的错误返回 |
-| Out | 入口治理拒绝（归 E2E-06）；runtime 调用 |
-| 与 E2E-06 | 06 是门卫拦住；05 是进门后找不到路 |
+| 目标 | 无可用路由时快速、明确失败；不猜测物理目标，不假装已投递 |
+| In | 选路失败判定；对 client 的稳定错误面；短路（无 I-03 / 无总线） |
+| Out | 治理拒绝细则（§3）；成功转发（§4/§5）；在 Gateway 内「猜一个」runtime 地址 |
+| 成功可观察（本场景的「正确失败」） | client 收到路由类错误；无 `taskId` / 无 Accepted 成功面；无 runtime 访问；响应不泄露内部拓扑细节 |
+| 与 06 的区分 | 06：认证/租户/校验/幂等/审计未过；05：上述已过，仅选路不成 |
 
-### 6.2 交互过程
+### 6.2 前置与边界
 
-1. E2E-06 已通过。  
-2. Gateway 查询 RDC。  
-3. 无可用路由 → 向 client 返回路由类明确失败。  
-4. 不调用 runtime，不发总线控制事件。
+**前置：**
 
-### 6.3 接口
+1. E2E-06 已全部通过；可信上下文含 `tenantId`、创建类 `agentId`（或 Task 类定位所需标识，见下）。  
+2. 调用已进入「选路」步骤（同步 / 流式创建，或依赖选路的辅助调用）。  
+3. 路径意图为直连或总线之前的**共同选路点**——本场景失败时两者都不进入投递。
 
-| 边 | 要点 |
+**本场景覆盖的失败形态：**
+
+| 形态 | 含义 | 建议错误语义 |
+|---|---|---|
+| F1 无候选 | RDC 对 `tenantId + agentId` 返回空（含反枚举下的「不可见」） | `ROUTE_NOT_FOUND` / `route_not_found` |
+| F2 中心不可用 | RDC 超时、连接失败；V1 无可用本地降级缓存 | `ROUTE_UNAVAILABLE` / `service_unavailable` |
+| F3 handle 不可用 | 已有 `routeHandle` 但解析失败、租户不一致、或指向条目已不存在（V1 可直接失败，不强制自动重选） | 归路由类明确失败（可与 F1/F2 共用或细分码） |
+
+**明确不做：**
+
+- 不把「无路由」映射成 A2A Task `FAILED`（尚未建 Task）。  
+- 不向 client 区分「不存在」与「无权限可见」（反枚举：对外可同为无可用路由）。  
+- 不在失败响应中带回 endpoint、实例列表、`routeHandle` 明文。  
+- 不重试「换一个租户」或跨租户 fallback。
+
+### 6.3 主路径（失败）
+
+```text
+E2E-06 通过
+   → 查询 RDC（tenantId + agentId 等）
+        ├─ 有可用 routeHandle 且可解析 → 离开本场景，进入 E2E-01 / 02（或 012）
+        └─ F1 / F2 / F3
+             → 构造路由类错误（HTTP + 稳定 body，与治理错误分层一致）
+             → 审计/日志记录失败原因（内部可详，对 client 脱敏）
+             → 结束：无 I-03，无总线发布
+```
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as agent-client
+  participant GW as Gateway
+  participant RDC as 注册发现
+  participant RT as agent-runtime
+
+  Note over GW: E2E-06 已通过
+  C->>GW: SendMessage / SendStreamingMessage（等）
+  GW->>RDC: 按 tenantId + agentId 查询
+  alt 空候选 / 不可见
+    RDC-->>GW: 空
+    GW-->>C: ROUTE_NOT_FOUND（无 Task）
+  else RDC 不可用
+    RDC--xGW: 超时 / 错误
+    GW-->>C: ROUTE_UNAVAILABLE（无 Task）
+  else handle 无法使用
+    RDC-->>GW: handle 或解析失败
+    GW-->>C: 路由类明确失败（无 Task）
+  end
+  Note over RT: 本场景不调用
+```
+
+#### 判定与动作
+
+| 步骤 | 动作 |
 |---|---|
-| I-01 | 返回 `route_not_found` / `service_unavailable` 或等价可编程错误；无 Task 成功表面 |
-| I-02 | 查询无候选或不可用 |
-| I-03 | **不调用** |
+| 1 | 使用权威 `tenantId` + 逻辑目标（创建类为 `agentId`）查询 RDC |
+| 2 | 若空候选 → F1：立即失败 |
+| 3 | 若 RDC 不可用 → F2：立即失败（V1 不做缓存降级成功路径） |
+| 4 | 若需解析 handle 且失败 → F3：立即失败 |
+| 5 | 对 I-01 返回：**无**成功 Task 表面；**无**内部拓扑；错误码稳定、可重试性可声明（F1 通常不可靠靠重试「同一目标立刻成功」，F2 可稍后重试） |
+| 6 | 观测：记 `traceId`、失败形态、agentId 哈希或截断；不记密钥 |
 
-### 6.4 实现要点
+**与创建幂等（G4）的关系：**
 
-选路失败短路：禁止进入 `direct` / 总线发布。
+- 选路失败时**通常尚未**获得 runtime `taskId`。  
+- 同键再次创建：若仍无路由 → 再次 E2E-05；若之后有路由 → 可进入 01/02 正常投递。  
+- **禁止**因选路失败而写入「假成功」去重记录冒充已建 Task。
 
-### 6.5 验收
+### 6.4 与 agent-client 的交互
+
+| 角色 | 职责 |
+|---|---|
+| agent-client | 将路由类失败识别为「未建 Task / 未投递」，与 Task 业务失败、治理 401/403/400 区分 |
+| Gateway | 稳定错误面；短路；不泄露拓扑 |
+
+#### 6.4.1 对 agent-client 的约束（契约）
+
+**前因**
+
+1. 无路由时不存在可查询的 `taskId`；若 SDK 投影为 `TaskFailed`，状态机与重试策略都会错。  
+2. 错误若混进 JSON-RPC「业务失败」而不标 HTTP/治理-路由层，排障时会误查 Task。  
+3. 响应里若带候选地址，会诱使 client 旁路 Gateway。
+
+**约束**
+
+| # | 约束 | 说明 |
+|---|---|---|
+| C-05-1 | 将 `ROUTE_NOT_FOUND` / `ROUTE_UNAVAILABLE`（或冻结等价码）视为**投递未发生** | 无 `taskId`；不要走 GetTask |
+| C-05-2 | **禁止**把本场景失败映射为「某 Task 已失败」 | 与 G7 错误分层一致：路由失败偏 HTTP + 稳定 body |
+| C-05-3 | **禁止**从错误 body 解析或缓存 runtime URL / 实例列表 | Gateway 亦不得下发 |
+| C-05-4 | F1：修正目标 `agentId` / 确认已上架后再调；F2：可退避重试同一调用 | 与产品/运维语义一致即可，不必在 Gateway 内做发现搜索 |
+| C-05-5 | 同幂等键在选路失败后再次创建是允许的（未建 Task） | 与「有 taskId 后禁止换键」不冲突 |
+
+**后果（不遵守时）**
+
+| 违规 | 现象 |
+|---|---|
+| 当 Task Failed 投影 | 空转查询、错误告警 |
+| 缓存错误里的地址 | 旁路治理；扩缩容失效 |
+| 选路失败仍换新幂等键「盲打」 | 一旦路由恢复可能双建（若两次都进了创建）— 宜同键 |
+
+**联调清单**
+
+- [ ] 抓包：无 runtime 请求  
+- [ ] 响应无 endpoint / routeHandle / 实例列表  
+- [ ] SDK：无 `taskId`；非 Task 终态失败投影  
+- [ ] 与 401/403/400 治理错误码可区分  
+
+### 6.5 与 RDC / runtime 的交互
+
+| 对端 | 边 | 本场景要点 |
+|---|---|---|
+| RDC | I-02 | 查询发生；结果为空、错误或 handle 不可用 → 构成本场景 |
+| agent-runtime | I-03 | **不调用** |
+| 总线 | — | **不发布**控制/业务事件 |
+
+**对 RDC 的依赖（契约向）：**
+
+- 已知目标查询（按租户 + `agentId` 等），非面向 client 的目录搜索。  
+- 空结果可表示无实例或不可见；Gateway 不向 client 解释「是否存在」。  
+- 跨租户查询不得成功返回其他租户候选。
+
+**对 runtime：** 本场景零交互；不存在「先打一枪再看」的探测式转发。
+
+### 6.6 接口汇总
+
+| 边 | 方向 | 本场景 | 禁止 |
+|---|---|---|---|
+| I-01 | Gateway → client | 路由类错误（建议 HTTP 4xx/5xx + 稳定 `code`）；无 Task 成功面 | 伪造成功；泄露拓扑；写成 Task FAILED |
+| I-02 | Gateway → RDC | 查询（或解析） | 跨租户 fallback |
+| I-03 | Gateway → runtime | **无** | 任何探测调用 |
+
+**建议错误码（V1，联调可改名）：**
+
+| code | 形态 | 可重试提示（建议） |
+|---|---|---|
+| `ROUTE_NOT_FOUND` | F1 | 否（先修目标/上架） |
+| `ROUTE_UNAVAILABLE` | F2 | 是（退避后重试） |
+| `ROUTE_HANDLE_INVALID` | F3（可选细分） | 可先重选路；V1 可并入 NOT_FOUND |
+
+治理错误码仍见 §3，**不要**与上表混用同一 code 表示不同层失败。
+
+### 6.7 判断逻辑
+
+```text
+afterGovernance(ctx):
+  routeResult = RDC.lookup(ctx.tenantId, ctx.agentId)
+  if routeResult.empty -> return error(ROUTE_NOT_FOUND)      // E2E-05
+  if routeResult.unavailable -> return error(ROUTE_UNAVAILABLE)
+  handle = pick(routeResult)
+  if resolve(handle) fails -> return error(ROUTE_* )         // E2E-05
+  // else -> E2E-01 / E2E-02 / FEAT-012
+  assert no DirectClient.call
+  assert no BusPublisher.publish
+```
+
+### 6.8 实现要点（V1 从简）
+
+- 选路模块集中返回领域失败类型；facade 映射为 I-01 错误，避免各处手写字符串。  
+- 单测锁：F1/F2 时 mock 断言 `DirectRuntimeClient` / 总线 **零调用**。  
+- 日志含失败形态 + `traceId`；access 审计可记「选路拒绝」（若 G5 覆盖）。  
+- 与 E2E-01/02 文档中的「出口到 E2E-05」保持同一 code 表。
+
+### 6.9 验收
 
 | # | Given | When | Then |
 |---|---|---|---|
-| T-05-1 | 治理通过且 RDC 无路由 | 创建类调用 | 明确失败；无 runtime 请求 |
+| T-05-1 | E2E-06 通过，RDC 空候选 | SendMessage 或 SendStreamingMessage | `ROUTE_NOT_FOUND`（或等价）；无 runtime 请求 |
+| T-05-2 | E2E-06 通过，RDC 不可用 | 同上 | `ROUTE_UNAVAILABLE`（或等价）；无 runtime 请求 |
+| T-05-3 | 同上任一失败 | 查 I-01 响应 | 无 `taskId`、无 Accepted 成功面、无 endpoint / routeHandle |
+| T-05-4 | 选路失败 | 观测总线 / direct | 无发布、无下游 HTTP/SSE |
+| T-05-5 | 选路失败 | SDK/投影 | 不进入「某 Task 已 FAILED」路径 |
+| T-05-6 | 治理未通过（对照） | 非法凭据等 | 走 E2E-06 错误码，**不是** `ROUTE_*` |
+| T-05-7 | 同幂等键在 F1 后再次创建且仍无路由 | 重试 | 再次 E2E-05；未写入假成功去重 Task |
 
 ---
 
-## 7. 辅助能力：查询 / 取消 / 重订阅 / UNKNOWN
+## 7. 场景组：创建之后的操作与恢复
 
-以下能力与 agent-client 共用同一 I-01 facade；调用前仍经 E2E-06。权威 Task 状态在 runtime。
+E2E-01 / 02 只保证「第一次创建怎么打进 runtime」。创建返回之后，业务还会：**查进度、取消、流断了再订、超时了不知道有没有建成功**。这些请求仍走同一 Gateway 入口，本章按场景写清交互与接口。
 
-### 7.1 GetTask（查询）
+### 7.1 本章 Charter
 
-| 项 | 约定 |
+| 项 | 内容 |
 |---|---|
-| 前置 | client 已持有 runtime 颁发的 `taskId` |
-| 步骤 | 治理通过 → 定位 Task owner → 按 FEAT-001 查询语义转发 → 回传 Task 快照 |
-| 禁止 | 用 `clientInvocationId` 代替 `taskId` |
-| 验收 T-Q-1 | 无 `taskId` 不得查到业务 Task；有 `taskId` 时返回快照或确定错误 |
+| **解决什么问题** | client 已经（或可能已经）在 runtime 侧有了 Task 之后，仍须经 Gateway 完成查询 / 取消 / 再订阅；以及「第一次创建结果不明且还没有 `taskId`」时如何安全重试 |
+| **不解决什么** | 不负责第一次按 `agentId` 创建投递（§4/§5）；不负责选路失败专章（§6）；不在 Gateway 持有 Task 权威状态 |
+| **In** | GetTask、CancelTask、SubscribeToTask；创建 UNKNOWN 后的同键再创建；Task 操作前的 owner 定位 |
+| **Out** | 用 `clientInvocationId` 冒充 `taskId` 查询；私有「按 invocation 查 Task」API；Gateway 伪造取消成功；找不到 Task 时偷偷新建 |
+| **成功标准** | 有 `taskId` 时能查/能取消/能重订（或得确定错误）；无 `taskId` 的不明结果可用同幂等键恢复且不双建；一律先过 E2E-06 |
+| **与 01/02 的分工** | 01/02 = 创建投递；本章 = 创建之后的操作 + 创建未明时的恢复 |
 
-### 7.2 CancelTask（取消）
+**何时用哪条场景（人话）：**
 
-| 项 | 约定 |
-|---|---|
-| 前置 | client 携带 `taskId` |
-| 步骤 | 治理通过 → 定位 owner → 转发取消请求；是否取消成功由 runtime 决定 |
-| 禁止 | Gateway 伪造 `canceled` |
-| 验收 T-C-1 | 透传 runtime 结果；不支持时返回能力 / 不可取消类错误 |
+| 你手里有什么 | 你想做什么 | 走哪节 |
+|---|---|---|
+| 已有 `taskId` | 看当前状态 | §7.3 GetTask |
+| 已有 `taskId` | 停止任务 | §7.4 CancelTask |
+| 已有 `taskId` | 流断了，继续收事件 | §7.5 SubscribeToTask |
+| **没有** `taskId`，且上次创建超时/断了、不知道建没建成功 | 安全地再试一次 | §7.6 UNKNOWN |
+| 明确选路失败 / 治理拒绝 | — | 不是本章（E2E-05 / E2E-06） |
 
-### 7.3 SubscribeToTask（重订阅）
+```text
+E2E-01 / 02 创建
+   ├─ 响应里已经有 taskId ──→ §7.3 / 7.4 / 7.5
+   └─ 结果不明，且始终没有 taskId ──→ §7.6（同键再创建 + G4）
+```
 
-| 项 | 约定 |
-|---|---|
-| 前置 | client 携带 `taskId`，连接仍在 |
-| 步骤 | 治理通过 → 定位 owner → 重新桥接该 Task 的 A2A SSE |
-| 禁止 | 找不到 Task 时隐式新建 Task |
-| 验收 T-S-1 | 可桥接则恢复 SSE；不可则确定错误 |
+### 7.2 场景总表与共用规则
 
-### 7.4 UNKNOWN 恢复
-
-| 项 | 约定 |
-|---|---|
-| 何时 | Gateway 无法确认 runtime 是否已建 Task，且 client **尚未**获得 `taskId` |
-| client 动作 | 使用**同一** `clientInvocationId` + **同一**创建幂等键重试原始创建类调用 |
-| Gateway | 尽力复用或恢复；已建则返回同一 `taskId` / 快照；未建则按新投递或明确拒绝 |
-| 禁止 | 新增私有 `ResolveInvocation` 一类按 invocation 查 Task 的接口；已有 `taskId` 后再报 UNKNOWN |
-| 验收 T-U-1 | 同键重试不导致错误的多 Task 创建；无私有恢复查询接口 |
-
-**人话：** 「请求结果不明、还不知道有没有建好任务」→ 告诉 client 未知，并允许用同一业务键再试。一旦已经拿到 `taskId`，就不能再说未知。
-
-### 7.5 接口汇总（辅助）
-
-| 能力 | I-01 方法语义 | 关键入参 | 对 client 的成功面 |
+| 编号 | 场景 | 关键入参 | 下游形态 |
 |---|---|---|---|
-| 查询 | GetTask | `taskId` | Task 快照 |
-| 取消 | CancelTask | `taskId` | 取消结果或快照 |
-| 重订阅 | SubscribeToTask | `taskId` | SSE 桥接 |
-| UNKNOWN 恢复 | 原创建方法重试 | 同 `clientInvocationId` + 同幂等键 | 同一 Task 或明确拒绝 / 新投递 |
+| — | GetTask | `taskId` | I-03 HTTP 查询 |
+| — | CancelTask | `taskId` | I-03 HTTP 取消 |
+| — | SubscribeToTask | `taskId` | I-06 SSE 桥接（同 E2E-02 纪律） |
+| — | UNKNOWN 恢复 | 同幂等键再创建 | 回到 E2E-01 / 02 创建路径 |
+
+**四个场景共用：**
+
+1. 每次请求先过 **E2E-06**。  
+2. 有 `taskId` 的三个场景：必须用 runtime 颁发的 `taskId`，**禁止**用 `clientInvocationId` / 本地句柄代替。  
+3. 转发对齐 runtime 标准入口；Gateway **不写** TaskStore。  
+4. **定位 owner（有 taskId 时）：** 请求必须打到持有该 Task 的实例。V1 工作假设：创建成功时短时记住 `taskId → routeHandle`；找不到则返回确定错误，**禁止**改成一次新的无 `taskId` 创建。见 §0.5。
+
+| | 创建（§4/§5） | 本章有 `taskId` 的操作 |
+|---|---|---|
+| 怎么找到 runtime | `agentId` → RDC | `taskId` → owner 定位 |
+| 找不到时 | E2E-05 | Task 不存在 / 不可达等确定错误（不新建 Task） |
+
+---
+
+### 7.3 场景：GetTask — 查询 Task
+
+#### 要做什么
+
+| 项 | 内容 |
+|---|---|
+| 目标 | 按 `taskId` 向 runtime 取 Task 快照 |
+| In | 治理 → 定位 owner → 转发 GetTask → 回传 |
+| Out | 用 invocation 类 ID 查询；Gateway 自己编造状态 |
+| 成功可观察 | 可投影的快照；无内部拓扑 |
+| 失败可观察 | 缺 `taskId`（G3）；Task 不存在；owner 不可达 |
+
+#### 前置与边界
+
+- client 已持有 runtime 返回的 `taskId`。  
+- 无 `taskId` 时不要调 GetTask 指望查到业务 Task（应先创建成功，或走 §7.6）。
+
+#### 交互过程
+
+1. client → Gateway：`GetTask` + `taskId`。  
+2. E2E-06 通过。  
+3. 定位 owner → I-03 转发查询。  
+4. Gateway → client：清洗后的快照，或确定错误。
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as agent-client
+  participant GW as Gateway
+  participant RT as agent-runtime
+  C->>GW: GetTask(taskId)
+  Note over GW: E2E-06 + 定位 owner
+  GW->>RT: 标准入口查询
+  RT-->>GW: 快照或错误
+  GW-->>C: 回传（无拓扑）
+```
+
+#### 接口
+
+| 边 | 要点 |
+|---|---|
+| I-01 | 入：`GetTask` + `taskId`；出：快照或错误 |
+| I-03 | 对齐 FEAT-001 查询语义 |
+| I-02 | 一般不按 `agentId` 重选；除非 owner 定位策略显式依赖 |
+
+#### 对 agent-client 的约束
+
+| # | 约束 |
+|---|---|
+| C-Q-1 | 只用 runtime 颁发的 `taskId` |
+| C-Q-2 | 区分「Task 不存在」与治理/路由错误 |
+
+#### 验收
+
+| # | Given | When | Then |
+|---|---|---|---|
+| T-Q-1 | 无 `taskId` | GetTask | G3 拒绝；无业务 Task |
+| T-Q-2 | 有效 `taskId` | GetTask | 快照或 runtime 确定错误；无拓扑 |
+| T-Q-3 | 错实例 / 已失效 | GetTask | 确定错误；不新建 Task |
+
+---
+
+### 7.4 场景：CancelTask — 取消 Task
+
+#### 要做什么
+
+| 项 | 内容 |
+|---|---|
+| 目标 | 把取消请求转到持有该 Task 的 runtime；**成不成功由 runtime 说了算** |
+| In | 治理 → 定位 owner → 转发取消 |
+| Out | Gateway 本地返回「已取消」却未问过 runtime |
+| 成功可观察 | 透传 runtime 取消结果或快照 |
+| 失败可观察 | 不支持取消 / 不可取消 / Task 不存在 → 明确错误 |
+
+#### 前置与边界
+
+- 必须带 `taskId`。  
+- wire 未齐前：允许返回「能力不可用」，**不允许**假成功（§0.5）。
+
+#### 交互过程
+
+1. client → Gateway：`CancelTask` + `taskId`。  
+2. E2E-06 → 定位 owner → I-03 转发。  
+3. Gateway → client：runtime 结果；不支持则能力/不可取消类错误。
+
+#### 接口
+
+| 边 | 要点 |
+|---|---|
+| I-01 | 入：CancelTask + `taskId`；出：取消结果或错误 |
+| I-03 | 标准取消语义；无则明确失败 |
+
+#### 对 agent-client 的约束
+
+| # | 约束 |
+|---|---|
+| C-C-1 | 取消必须带 `taskId` |
+| C-C-2 | 以 runtime 结果为准；勿假设 Gateway 已替你取消成功 |
+
+#### 验收
+
+| # | Given | When | Then |
+|---|---|---|---|
+| T-C-1 | 可取消 | CancelTask | 透传 runtime 结果，非伪造 |
+| T-C-2 | 不支持 / 不可取消 | CancelTask | 明确错误；无假 `canceled` |
+| T-C-3 | 未知 `taskId` | CancelTask | 确定错误；不新建 Task |
+
+---
+
+### 7.5 场景：SubscribeToTask — 重订阅流
+
+#### 要做什么
+
+| 项 | 内容 |
+|---|---|
+| 目标 | 已有 `taskId` 时，重新挂上该 Task 的 SSE（补 E2E-02「断开就释放」之后怎么继续看） |
+| In | 治理 → 定位 owner → 开下游订阅 → 桥接（同 §5） |
+| Out | 找不到 Task 却隐式新开流式创建；Gateway 缓存断线期间 token 再回放 |
+| 成功可观察 | 再次收到该 Task 的帧；断开则 release |
+| 失败可观察 | 不可订阅 / Task 不存在 → 确定错误 |
+
+#### 前置与边界
+
+- 已有 `taskId`（通常来自先前 Accepted）。  
+- 桥接纪律同 E2E-02：不生成 token；client 断开必须释放。
+
+#### 交互过程
+
+1. client → Gateway：`SubscribeToTask` + `taskId`（保持连接）。  
+2. E2E-06 → 定位 owner。  
+3. 向 runtime 打开该 Task 的订阅/观察流。  
+4. 逐帧桥接；结束或断开 → release。  
+5. 找不到 Task → 确定错误，**禁止**改成一次新的 `SendStreamingMessage` 创建。
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as agent-client
+  participant GW as Gateway
+  participant RT as agent-runtime
+  C->>GW: SubscribeToTask(taskId)
+  Note over GW: E2E-06 + 定位 owner
+  GW->>RT: 订阅 / 观察流
+  loop 连接存活
+    RT-->>GW: SSE 帧
+    GW-->>C: 桥接
+  end
+  C--xGW: 断开
+  GW->>RT: release
+```
+
+#### 接口
+
+| 边 | 要点 |
+|---|---|
+| I-01 | 入：SubscribeToTask + `taskId`；出：SSE |
+| I-06 | 点对点桥接；纪律同 E2E-02 |
+| I-03 | 不用于传 token |
+
+#### 对 agent-client 的约束
+
+| # | 约束 |
+|---|---|
+| C-S-1 | 重订阅前必须已有 `taskId` |
+| C-S-2 | 断线后显式 Subscribe（或先 GetTask）；不假设旧桥接仍在灌缓存 |
+
+#### 验收
+
+| # | Given | When | Then |
+|---|---|---|---|
+| T-S-1 | Task 可订阅 | SubscribeToTask | SSE 恢复；内容来自 runtime |
+| T-S-2 | client 断开 | 会话中 | 释放桥接 |
+| T-S-3 | Task 不存在 | SubscribeToTask | 确定错误；不新建 Task |
+| T-S-4 | 直连路径 | 调用 | 不经总线传 token |
+
+---
+
+### 7.6 场景：UNKNOWN — 创建结果不明时的恢复
+
+#### 要做什么
+
+| 项 | 内容 |
+|---|---|
+| 目标 | 第一次创建**超时或断了**，双方都**还没有** `taskId`，不知道 runtime 到底建没建 Task 时：允许用**同一把创建键**再调一次创建，靠 G4 避免建成两个 Task |
+| In | 对 client 标明「创建结果未知」；同 `clientInvocationId` + 同幂等键再走 SendMessage / SendStreamingMessage |
+| Out | 另做私有「按 invocation 查 Task」接口；已经有 `taskId` 了还报 UNKNOWN；换新幂等键重试 |
+
+**和「查一下」的差别：** 没有 `taskId` 时，平台约定**不提供**「拿 invocationId 去问有没有 Task」的口；恢复方式就是 **再创建一次（同键）**，由 G4 去重。
+
+#### 前置与边界（何时算 UNKNOWN）
+
+| 情况 | 是 UNKNOWN？ |
+|---|---|
+| 创建超时/断连，从未拿到 `taskId` | **是** |
+| 已经拿到 `taskId`（哪怕任务还没跑完） | **否** → 用 GetTask / Subscribe |
+| E2E-05 选路失败 | **否**（根本没投递） |
+| E2E-06 治理拒绝 | **否** |
+
+#### 交互过程
+
+```text
+第一次创建（01/02）→ 超时/断连，无 taskId
+   → 对 client：创建 UNKNOWN（或等价）
+   → client：同一 clientInvocationId + 同一幂等键，再调原创建方法
+   → E2E-06（含 G4）
+        ├─ 去重表已有 taskId → 直接回到同一 Task（不双建）
+        ├─ 没有记录 → 按 01/02 正常再投递（可能这才是第一次真正建成功）
+        └─ 指纹冲突等 → 按 G4 冲突规则
+```
+
+#### 接口
+
+| 边 | 要点 |
+|---|---|
+| I-01 | **没有**新方法；就是再打一次创建类方法 + 同幂等键 |
+| 禁止 | `ResolveInvocation` / 按 `clientInvocationId` 查 Task 的 Gateway API |
+
+#### 对 agent-client 的约束
+
+| # | 约束 |
+|---|---|
+| C-U-1 | 重试必须同一幂等键（及同一 `clientInvocationId` 若使用） |
+| C-U-2 | 一旦出现 `taskId`，改走 Get/Cancel/Subscribe/续跑 |
+| C-U-3 | 不要把选路失败、治理 4xx 当成 UNKNOWN |
+
+#### 验收
+
+| # | Given | When | Then |
+|---|---|---|---|
+| T-U-1 | UNKNOWN，无 taskId | 同键再创建 | 不双建（G4 短路或仅一次建成） |
+| T-U-2 | G4 已有 taskId | 同键再创建 | 回到同一 taskId |
+| T-U-3 | 已有 taskId | 恢复 | 不再返回创建 UNKNOWN |
+| T-U-4 | API 面 | 检查 | 无私有 invocation 查询口 |
+
+---
+
+### 7.7 接口与验收收束
+
+| 场景 | I-01 方法 | 关键入参 | 主要下游 | 禁止 |
+|---|---|---|---|---|
+| GetTask | GetTask | `taskId` | I-03 | 用 invocationId 查 |
+| CancelTask | CancelTask | `taskId` | I-03 | Gateway 伪造 canceled |
+| SubscribeToTask | SubscribeToTask | `taskId` | I-06 | 找不到却新建 Task |
+| UNKNOWN | 原创建方法再调 | 同幂等键 | 同 01/02 | 私有 ResolveInvocation |
+
+带 `taskId` 的**续跑** `SendMessage`（如工具结果，E2E-08）同样：E2E-06 → owner 定位 → 透传；不在本章重复工具业务语义。
+
+| # | Then（摘要） |
+|---|---|
+| T-Q / T-C / T-S / T-U | 见各节验收表 |
+| T-7-OWN | 错 owner → 确定错误，不静默新建 Task |
+| T-7-GOV | 未过 E2E-06 不得打到 runtime |
 
 ---
 
 ## 8. 标注场景：E2E-07 / E2E-08
 
-| 场景 | 约束 |
-|---|---|
-| E2E-07 统一入口形态 | 调用期走 E2E-01 或 02（或 FEAT-012 对应路径）；存量与新目标同一 facade；**注册 / 上架不经过 Gateway**；调用前仍过 E2E-06 |
-| E2E-08 端侧工具透传 | 下行透传「需要端侧工具」类语义（如 `INPUT_REQUIRED` / `_interrupt`）；上行续跑仍走统一入口并过 E2E-06；工具在 **agent-client 本地**执行；Gateway **不解析业务工具语义、不执行工具**；SSE 帧不被改写以致 SDK 无法归一化 |
+本章为**标注级**：不写与 §4/§5 同厚度的投递专章，只钉住两条易跑偏的约束——「别拆第二套入口」「别在 Gateway 跑端侧工具」。横向入口见 §2.1；投递与桥接细节仍落在 §4～§7。
 
-验收（标注）：
+### 8.1 本章 Charter
 
-| # | Then |
+| 项 | 内容 |
 |---|---|
-| T-07-1 | 无 Gateway 注册 / 上架 API；调用与 01/02 同入口 |
-| T-08-1 | 工具相关报文可透传；Gateway 侧无工具执行逻辑 |
+| **解决什么问题** | 调用期存量/新目标同一入口；多轮端侧工具时 Gateway 只做透传与续跑转发 |
+| **不解决什么** | 注册上架；工具业务语义与本地执行（在 agent-client）；另写一套创建选路故事 |
+| **In** | 统一 facade 纪律（E2E-07）；工具意图下行 + 带 `taskId` 续跑上行的透传（E2E-08） |
+| **Out** | Gateway 注册/上架 API；Gateway 内执行工具；为存量旁路直连 runtime |
+| **成功标准** | 无第二入口、无注册 API；工具相关字段可到达 client/runtime 且 Gateway 无执行逻辑 |
+
+| 场景 | 一句话 | 详细投递落点 |
+|---|---|---|
+| E2E-07 | 调用都走同一门，登记不上这扇门 | §2.1 + §3～§7 |
+| E2E-08 | 工具在 client 跑，Gateway 只传话 | 下行见 §5；续跑见 §7.2 owner + E2E-06 |
 
 ---
 
-## 9. 待决问题与工作假设
+### 8.2 场景：E2E-07 — 统一入口形态
 
-| 项 | 工作假设 |
+#### 要做什么
+
+| 项 | 内容 |
 |---|---|
-| 创建幂等键 wire 字段名 | 见 §3.3 映射假设：同租户 + 稳定创建键；`idempotencyKey` 与 client `messageId` 对应关系联调固化 |
-| 直连 / 总线路径切换 | 对 client 不感知；切换点不在本文展开（FEAT-012） |
-| Cancel 上 wire | 保留 CancelTask 语义；与 runtime / client 能力对齐后验收 |
+| 目标 | 存量与新智能体**调用期**同一 Gateway facade；调用方不维护两套协议 |
+| In | 同一 I-01 方法族；均过 E2E-06；投递走 01/02 或 FEAT-012 |
+| Out | Gateway 注册/上架/目录 API；存量旁路直连 runtime |
+
+#### 交互与接口
+
+- **交互：** client 只打 I-01；不存在「存量专用第二入口」。上架/注册走 RDC 与服务提供方，不经 Gateway。  
+- **接口：** 仅使用 §2.4 已列 I-01（及后续选路/转发边）；**无**管理类 API 边。
+
+#### 约束
+
+| # | 约束 |
+|---|---|
+| C-07-1 | 创建/流式/查询/取消/重订阅/续跑均经同一 facade |
+| C-07-2 | 注册、上架、Agent Card 维护**不经过** Gateway |
+| C-07-3 | 不得以兼容存量为名暴露 runtime 地址或跳过治理 |
+| C-07-4 | 直连与总线切换对 client 不可见（§2.5） |
+
+#### 验收
+
+| # | Given | When | Then |
+|---|---|---|---|
+| T-07-1 | 存量与新目标各一 | 经 Gateway 调用 | 同一入口；均过 E2E-06 |
+| T-07-2 | 查 Gateway API 面 | 注册/上架 | **不存在** |
+| T-07-3 | 成功/错误响应 | 抓包 | 无诱导直连 runtime 的 endpoint |
 
 ---
 
-## 10. 关联阅读
+### 8.3 场景：E2E-08 — 端侧工具透传
 
-| 文档 | 说明 |
+#### 要做什么
+
+| 项 | 内容 |
 |---|---|
-| `version-scope/FEAT-011-client-invocation-route-forwarding.md` | 版本范围与对外行为 |
-| agent-client Feat-Func-001（标准化调用） | 上游 I-01 wire 与对 Gateway 的 G-3/G-6/G-7/G-8 诉求 |
-| FEAT-012 L2 | 总线转发路径 |
-| FEAT-001（runtime 标准服务入口） | 直连转发应对齐的下游语义 |
+| 目标 | runtime 要端侧工具 → client 本地执行 → 带原 `taskId` 续跑；Gateway **只透传** |
+| In | 下行：工具意图帧/报文原样转发；上行：带 `taskId` 的续跑经统一入口 |
+| Out | Gateway 解析并执行工具；剥掉 `_interrupt` 等以致无法归一化；漏 `taskId` 却当新创建成功 |
+
+#### 交互过程
+
+```text
+runtime 发出「需要端侧工具」（如 INPUT_REQUIRED / _interrupt）
+  → Gateway 透传 → client（常经 E2E-02 SSE，或 01 响应面）
+  → 工具在 agent-client 本地执行
+  → client 带原 taskId 经 I-01 续跑（E2E-06 + §7.2 定位 owner）
+  → Gateway 透传 → runtime（不执行工具）
+```
+
+#### 接口
+
+| 边 | 本场景要点 |
+|---|---|
+| I-01 | 下行帧/响应透传；上行续跑 = 带 `taskId` 的 `SendMessage`（或冻结名） |
+| I-06 | 流式场景下工具意图常走 SSE 桥接（同 E2E-02 纪律） |
+| I-03 | 续跑转发到 Task owner；对齐标准入口 |
+| I-07 | 工具相关字段透传约定（不解析业务） |
+
+#### 约束
+
+| # | 约束 |
+|---|---|
+| C-08-1 | Gateway **不执行**端侧工具 |
+| C-08-2 | `_interrupt`（或等价）不得剥掉或改成私有协议 |
+| C-08-3 | 续跑必须带原 `taskId`；按 §7.2 定位 owner，禁止找不到时新建 |
+| C-08-4 | 续跑仍过 E2E-06；结果 part 透传即可 |
+| C-08-5 | 不生成 token；SSE 可归一化 |
+
+#### 验收
+
+| # | Given | When | Then |
+|---|---|---|---|
+| T-08-1 | runtime 下发工具意图 | 经 Gateway | client 可读；Gateway 无工具执行逻辑 |
+| T-08-2 | 带原 `taskId` 回传 | 续跑 | 到达原 owner；未新建无关 Task |
+| T-08-3 | 续跑漏 `taskId` | 调用 | G3 拒绝或创建类校验失败 |
+| T-08-4 | 代码/抓包 | Gateway | 无「执行 client 工具」处理器 |
+
+---
+
+### 8.4 验收收束
+
+| # | 场景 | Then（摘要） |
+|---|---|---|
+| T-07-1～3 | E2E-07 | 统一入口；无注册上架 API；无直连诱导 |
+| T-08-1～4 | E2E-08 | 透传不执行；续跑带 taskId |
