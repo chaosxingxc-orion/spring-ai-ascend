@@ -3,17 +3,18 @@ level: L2
 module: agent-gateway
 status: draft
 owner: 黄晨
+features:
+  - FEAT-011
+  - FEAT-012
 ---
 
 # agent-gateway L2
 
-本目录仅两篇特性设计（评审请直接打开正文，无需其它附录）：
-
-| 文档 | 内容 |
+| 文档 | 说明 |
 |---|---|
-| [feat-011-client-invocation-route-forwarding.md](./feat-011-client-invocation-route-forwarding.md) | 直连路由转发 |
-| [feat-012-client-invocation-bus-forwarding.md](./feat-012-client-invocation-bus-forwarding.md) | 总线转发 |
+| [feat-011-client-invocation-route-forwarding.md](./feat-011-client-invocation-route-forwarding.md) | FEAT-011：客户端调用直连路由转发 |
+| [feat-012-client-invocation-bus-forwarding.md](./feat-012-client-invocation-bus-forwarding.md) | FEAT-012：客户端调用总线转发 |
 
-**建议阅读顺序：** 先 011，再 012。
+建议阅读顺序：先 011，再 012。责任人：黄晨。
 
-责任人：黄晨 · FEAT-011 / FEAT-012 · 状态 draft。
+本地 `*_bak.md`、`*-review.md` 仅供对照，已 gitignore，不上库。
