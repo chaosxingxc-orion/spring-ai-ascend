@@ -3,7 +3,6 @@ level: L2
 module: agent-gateway
 feature: FEAT-011
 status: draft
-owner: 黄晨
 ---
 
 # FEAT-011 L2：客户端调用直连路由转发
