@@ -5,6 +5,7 @@ feature_type: functional
 feature_id: Feat-Func-022
 status: active
 dependency:
+  - ../../../version-scope/FEAT-022-custom-rest-api-to-a2a-jsonrpc-adaptation-spi.md
   - ../../L1-High-Level-Design/agent-runtime/api-appendix.md
   - Feat-Func-001-standardized-agent-service-entrypoint.md
   - openJiuwen/agent-runtime-java
@@ -14,9 +15,9 @@ dependency:
 
 > 目标仓库：`openJiuwen/agent-solution`
 > 目标模块：`common/agent-runtime-ext-java/agent-service-app/agent-service-app-custom-rest`
-> 最后更新：2026-07-14
+> 最后更新：2026-07-20
 
-说明：本文档描述独立功能特性 Feat-Func-022。它与 Feat-Func-001“标准化智能体服务入口”关联，二者复用相同的内部 `ServeOrchestrator` 执行基础；Feat-Func-022 自身属于非 Task Query facade，不属于 Feat-Func-001 的子特性，也不扩展 Feat-Func-001 的 A2A 标准协议表面。实际代码实现落在 `agent-solution` 仓库，不修改 `spring-ai-ascend/agent-runtime` 主模块代码。
+说明：本文档描述独立功能特性 Feat-Func-022。它与 Feat-Func-001“标准化智能体服务入口”关联，二者复用相同的内部 `ServeOrchestrator` 执行基础；Feat-Func-022 归一到 runtime 的标准执行请求、同步响应和流式 chunk 语义，但自身属于非 Task Query facade，不归一为 A2A Task 生命周期，不属于 Feat-Func-001 的子特性，也不扩展 Feat-Func-001 的 A2A 标准协议表面。实际代码实现落在 `agent-solution` 仓库，不修改 `spring-ai-ascend/agent-runtime` 主模块代码。
 
 ---
 
@@ -37,7 +38,7 @@ Feat-Func-022 在 `agent-solution/common/agent-runtime-ext-java` 中提供一个
   -> 自定义 REST HTTP 响应 / SSE event
 ```
 
-核心原则是：自定义 REST 不新增执行状态机，不直接调用 A2A JSON-RPC HTTP controller，也不再走一次 HTTP。它和现有 `/v1/query` 固定 REST facade 一样，最终衔接到 runtime 内部统一的 `ServeOrchestrator`。
+核心原则是：自定义 REST 不新增执行状态机，不直接调用 A2A JSON-RPC HTTP controller，也不再走一次 HTTP。它和现有 `/v1/query` 固定 REST facade 一样，最终衔接到 runtime 内部统一的 `ServeOrchestrator`。配置的一个自定义 path 只新增一个 mapping，不替换也不禁用既有 `/a2a` 和 `/v1/query`；内置固定入口不计入“单 custom-rest path”约束。
 
 ### 1.2 当前事实依据
 
@@ -48,7 +49,7 @@ Feat-Func-022 在 `agent-solution/common/agent-runtime-ext-java` 中提供一个
 | 固定 REST facade | `POST /v1/query` | `ServeOrchestrator` | `QueryMvcController` 将 `QueryRequest` 转为 `ServeRequest` |
 | A2A JSON-RPC | `POST /a2a` | A2A SDK `RequestHandler` -> `A2AAgentExecutor` -> `ServeOrchestrator` | JSON-RPC 是外部协议壳，执行仍归一到 orchestrator |
 
-`ServeOrchestrator` 的默认实现可能是 `A2AEnabledServeOrchestrator`。因此 custom-rest 和 `/v1/query` 一样可以复用 handler 调用、远端 A2A delegate 编排和 stream cancel，但它们都是 **非 Task Query facade**：普通本地 query/stream 不进入 A2A SDK `RequestHandler`，不创建正式 Task。远端 delegate 使用的 shadow Task 只是 orchestrator 内部恢复状态。
+`ServeOrchestrator` 的默认实现可能是 `A2AEnabledServeOrchestrator`。因此 custom-rest 和 `/v1/query` 一样可以复用 handler 调用、远端 A2A delegate 编排和当前流 observer 取消能力，但它们都是 **非 Task Query facade**：普通本地 query/stream 不进入 A2A SDK `RequestHandler`，不创建正式 Task。远端 delegate 使用的 shadow Task 只是 orchestrator 内部恢复状态。
 
 ### 1.3 设计原则
 
@@ -109,9 +110,11 @@ Feat-Func-022 在 `agent-solution/common/agent-runtime-ext-java` 中提供一个
 - **必须**：`executionTimeMs` 使用单调时钟，从 custom-rest handler 方法进入后开始计时，所有同步成功和失败分支采用同一口径；不要求包含 Spring MVC 参数解析耗时。
 - **必须**：adapter 产出的 `ServeRequest.conversationId` 非空；`userId`、`spaceId`、`tenantId` 在通用 SPI 层允许为空，其是否必填以及缺失影响由具体 adapter 和下游 Agent 契约说明。
 - **必须**：入口日志记录 method、requestPath、conversationId 和 tenantId，且不记录认证 header 和 raw body；correlation/trace 复用宿主已有 Web Filter、网关或观测组件，本扩展不新建 tracing 机制。
-- **必须**：流式执行中发生异常时，输出一帧 adapter 包装的 error SSE event 后结束流。
+- **必须**：流式执行中发生异常时，输出一帧 adapter 包装的错误 SSE data 后结束流。
+- **必须**：只注册一个自定义 path；该 mapping 与 `/a2a`、`/v1/query` 共存，不改变内置入口行为。
 - **允许**：adapter 自行决定外部字段取值优先级、metadata 结构和响应字段名；框架不要求 adapter 建立客户自定义字段校验体系。
 - **禁止**：custom-rest 扩展维护独立 task/run/job 状态机。
+- **禁止**：custom-rest 扩展新建特性私有的 timeout、conversation 级 cancel 或 tracing 机制；这些能力沿用宿主 Web 生命周期、runtime/orchestrator 配置和既有观测设施。
 
 ---
 
@@ -281,7 +284,7 @@ CustomRestProtocolAdapter.Context context
 4. X-Accel-Buffering = no
 5. 每个 QueryChunk 调用 adapter.fromQueryChunk(...)
 6. Jackson 序列化后作为 SSE data 输出
-7. 每次流式调用最多输出一帧错误：若已经收到并发送 `QueryChunk.TYPE_ERROR`，后续 `onError` 只 complete；否则由 `onError` 调用 `adapter.fromError(...)` 输出一帧 error event 后 complete
+7. 每次流式调用最多输出一帧错误：若已经收到并发送 `QueryChunk.TYPE_ERROR`，后续 `onError` 只 complete；否则由 `onError` 调用 `adapter.fromError(...)` 输出一帧错误 data 后 complete
 ```
 
 SSE data 不强制加 JSON-RPC envelope。客户需要什么外部格式，由 `fromQueryChunk` 决定。
@@ -493,7 +496,7 @@ class QueryChunk {
 | `chunk.data` | 该 chunk 携带的原始 runtime 数据 |
 | `context` | 本次入口请求对应的原始 SPI Context |
 
-adapter 返回的是单帧 SSE 的 data body，不是完整 SSE 文本。框架负责 Jackson 序列化和 framing：普通 chunk 与 interrupt chunk 使用固定 `event:data`，`TYPE_ERROR` 使用固定 `event:error`。`fromQueryChunk(...)` 不接收 `executionTimeMs`，也不能设置 SSE event id、retry、HTTP status 或 headers。
+adapter 返回的是单帧 SSE 的 data body，不是完整 SSE 文本。框架负责 Jackson 序列化，并以不设置 event name 的 SSE `data:` 帧输出；框架不再根据 `QueryChunk.type` 生成第二套事件类型。`fromQueryChunk(...)` 不接收 `executionTimeMs`，也不能设置 SSE event name、id、retry、HTTP status 或 headers。
 
 `TYPE_INTERRUPT` 是本次 invocation 的正常协议结果。adapter 可以按外部协议包装 interrupt 数据，但不能自行结束 emitter；流的最终收束由 observer terminal 回调和框架控制。
 
@@ -517,7 +520,7 @@ Object fromError(
 | `context` | 当时已经构建出的请求 Context；body 解析前错误对应的 body 为空 Map |
 | `executionTimeMs` | 从 handler 进入到错误包装时的单调时钟耗时 |
 
-adapter 只负责生成错误 body，不能覆盖框架确定的 HTTP status。同步错误以对应 HTTP status 和 `application/json` 输出；流式 terminal error 在 SSE 已建立后使用固定 `event:error` 输出并结束流。
+adapter 只负责生成错误 body，不能覆盖框架确定的 HTTP status。同步错误以对应 HTTP status 和 `application/json` 输出；流式 terminal error 在 SSE 已建立后通过 `fromError(...)` 生成一帧 SSE data 并结束流。
 
 如果 `fromError(...)` 返回 `null` 或抛出运行时异常，框架使用固定兜底 body，并保留原错误分支确定的 status：
 
@@ -538,7 +541,7 @@ adapter 只负责生成错误 body，不能覆盖框架确定的 HTTP status。�
 | JSON/SSE data body | `CustomRestProtocolAdapter` | 是 |
 | HTTP status | `CustomRestAutoConfiguration` | 否；按统一错误分类设置 |
 | Content-Type / SSE headers | `CustomRestAutoConfiguration` | 否 |
-| SSE event name / id / retry | `CustomRestAutoConfiguration` | 否；首版只使用固定 data/error 事件 |
+| SSE event name / id / retry | `CustomRestAutoConfiguration` | 否；首版不设置 event name，只输出 data 帧 |
 | 任意响应 header | 宿主 Web filter / gateway | 否 |
 
 只有出现明确的客户 header、media type 或 SSE id/retry 需求时，才新增结构化 `CustomHttpResponse` / `CustomSseEvent`；当前返回 `Object` 的最小 SPI 足以覆盖“自定义响应信封”目标。
@@ -660,13 +663,13 @@ Client
 ```text
 streamQuery QueryChunk(TYPE_ERROR)
   -> CustomRestProtocolAdapter.fromQueryChunk(errorChunk, context)
-  -> emitter.send(event.name("error").data(json))
+  -> emitter.send(event.data(json))
   -> 标记 errorFrameSent=true
 
 streamQuery onError / runtime exception
   -> if errorFrameSent=false:
        CustomRestProtocolAdapter.fromError(500, "agent execution failed", context, elapsed)
-       emitter.send(event.name("error").data(json))
+       emitter.send(event.data(json))
   -> if errorFrameSent=true: 不再发送第二帧错误
   -> emitter.complete()
 ```
@@ -744,6 +747,7 @@ custom-rest auto-configuration 激活条件：
 - 客户不能通过首版 SPI 自定义 HTTP status、Content-Type、SSE event id/retry 或任意响应 header。
 - 客户不能通过该 facade 获得正式 Task、Task 查询、Task 取消或断线后的 Task 级重订阅。
 - runtime-to-runtime 调用仍使用 A2A；Custom REST 不成为新的跨 runtime 标准协议。
+- 自定义 mapping 与 `/a2a`、`/v1/query` 同时存在；“只支持一个”仅约束可配置的 custom-rest path 和 adapter。
 
 ---
 
@@ -758,9 +762,9 @@ custom-rest auto-configuration 激活条件：
 | 同步响应包装失败 | `fromQueryResponse` 抛出异常 | 记录完整异常，不混同为 runtime 执行异常 | HTTP 500 + `fromError` body，固定消息为 `adapter execution failed` |
 | runtime 未就绪 | readiness=false 或无 orchestrator | 拒绝执行 | HTTP 503 + `fromError` body |
 | 同步执行异常 | `query()` 抛出异常 | 完整异常只记录到受控日志，传给 adapter 的固定消息为 `agent execution failed` | HTTP 500 + `fromError` body |
-| 流内 error chunk | 收到 `TYPE_ERROR` | 经 `fromQueryChunk` 输出并标记已发送 | 一帧 error SSE |
-| 流式响应包装失败 | `fromQueryChunk` 抛出异常 | 记录完整异常；若尚未发送错误帧则经 `fromError` 输出 | 一帧 `adapter execution failed` error SSE 后关闭 |
-| 流式 terminal error | `onError` 且此前无 error chunk | 经 `fromError` 输出 | 一帧 error SSE 后关闭 |
+| 流内 error chunk | 收到 `TYPE_ERROR` | 经 `fromQueryChunk` 输出并标记已发送 | 一帧包含 adapter 错误信封的 SSE data |
+| 流式响应包装失败 | `fromQueryChunk` 抛出异常 | 记录完整异常；若尚未发送错误帧则经 `fromError` 输出 | 一帧包含 `adapter execution failed` 信封的 SSE data 后关闭 |
+| 流式 terminal error | `onError` 且此前无 error chunk | 经 `fromError` 输出 | 一帧包含 adapter 错误信封的 SSE data 后关闭 |
 | 客户端断连 | emitter completion/error | 当前 observer 进入 cancelled；不调用 `fromError`，不触发 conversation 级 `cancelActive` | 停止当前流继续发送；底层执行取消能力以 orchestrator/handler 为准 |
 
 `fromError(...)` 返回 `null` 或抛出运行时异常时，框架使用固定兜底 body：`{"type":"error","status":<HTTP status>,"error":"<脱敏错误消息>"}`。该兜底只保证错误响应可输出，不改变原错误分支的 HTTP status。

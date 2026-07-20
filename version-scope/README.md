@@ -3,9 +3,9 @@ level: L1
 view: version-scope
 module: platform
 status: active
-updated: 2026-07-13
+updated: 2026-07-20
 authority: "current version facts across agent-runtime and agent-bus"
-covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状态缓存, 远程Agent编排, 标准化智能体客户端调用, 客户端调用路由转发, 客户端调用总线转发, 客户端调用事件转发, A2A调用事件转发, Agent Card注册与发现, 运行时实例路由查询, 订阅消费总线事件消息, 轨迹可观测性]
+covers: [标准化Agent服务入口, 自定义REST API服务入口, 异构Agent框架兼容, 智能体任务状态缓存, 远程Agent编排, 标准化智能体客户端调用, 客户端调用路由转发, 客户端调用总线转发, 客户端调用事件转发, A2A调用事件转发, Agent Card注册与发现, 运行时实例路由查询, 订阅消费总线事件消息, 轨迹可观测性]
 ---
 
 # version-scope
@@ -42,6 +42,7 @@ covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状
 |---|---|---|---|---|---|---|
 | DFX-001 | agent-runtime | active | 轨迹可观测性 | 记录 Agent 执行过程中的运行、模型调用、工具调用、错误和进度事件，提供框架中立的执行轨迹与敏感信息掩码。 | [DFX-001-trajectory-observability.md](./DFX-001-trajectory-observability.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-DFX-001-trajectory-observability.md` |
 | FEAT-001 | agent-runtime | active | 标准化 Agent 服务入口 | runtime 作为标准 Agent 服务端，对普通 client、其他 runtime、agent-bus forwarding 暴露同一 A2A Agent Card、JSON-RPC、SSE、Task、错误和租户上下文入口，并支持受信任 runtime-to-runtime webhook 异步完成回调。 | [FEAT-001-standardized-agent-service-entrypoint.md](./FEAT-001-standardized-agent-service-entrypoint.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-001-standardized-agent-service-entrypoint.md` |
+| FEAT-022 | agent-runtime | active | 自定义 REST API 服务入口 | runtime 暴露一个可配置的 POST 路径，通过 Java adapter 转换请求和响应，支持同步 JSON 与 SSE；该入口复用 runtime 执行链路，但保持非 Task Query facade 边界。 | [FEAT-022-custom-rest-api-to-a2a-jsonrpc-adaptation-spi.md](./FEAT-022-custom-rest-api-to-a2a-jsonrpc-adaptation-spi.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-022-【自定义智能体服务入口】自定义 RestAPI 到 runtime内部编排层协议适配转换 SPI.md` |
 | FEAT-002 | agent-runtime | active | 异构 Agent 框架兼容 | 通过统一 Adapter / Handler / SPI 抽象接入异构 Agent 框架；adapter 只桥接请求、调用和结果，不治理框架私有状态。 | [FEAT-002-heterogeneous-agent-framework-compatibility.md](./FEAT-002-heterogeneous-agent-framework-compatibility.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-002-heterogeneous-agent-framework-compatibility.md` |
 | FEAT-003 | agent-runtime | active | 智能体任务状态缓存 | 新增标准化 Redis 缓存 SPI，运行时与开发框架复用 Redis 连接池，支持缓存 A2A Task 与 Agent checkpoint。 | [FEAT-003-agent-task-state-cache.md](./FEAT-003-agent-task-state-cache.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-003-agent-task-state-cache.md` |
 | FEAT-005 | agent-runtime | active | 远程 Agent 编排 | runtime 作为 A2A 客户端接入远程 Agent，基于 Agent Card 生成本地工具，并支持远程调用、中断续接、进度投射和取消传播。 | [FEAT-005-remote-agent-orchestration.md](./FEAT-005-remote-agent-orchestration.md) | `architecture/L2-Low-Level-Design/agent-runtime/Feat-Func-005-remote-agent-orchestration.md` |
@@ -60,7 +61,7 @@ covers: [标准化Agent服务入口, 异构Agent框架兼容, 智能体任务状
 ## 4. 阅读顺序
 
 1. 先阅读本入口，确认当前版本事实范围和文档关系。
-2. 如果关注 runtime 对外服务入口，先读 `FEAT-001`，再读 `FEAT-002`、`FEAT-003`、`FEAT-005`、`FEAT-017` 和 `DFX-001`。
+2. 如果关注 runtime 对外服务入口，先读 `FEAT-001`，再读 `FEAT-022`、`FEAT-002`、`FEAT-003`、`FEAT-005`、`FEAT-017` 和 `DFX-001`。
 3. 如果关注业务应用侧客户端调用入口，先读 `FEAT-006`，再读 `FEAT-007`、`FEAT-011`、`FEAT-012` 和 `FEAT-013`。
 4. 如果关注 agent-bus 调用转发链路，按 `FEAT-011`、`FEAT-012`、`FEAT-013`、`FEAT-014`、`FEAT-017` 的顺序阅读。
 5. 如果关注注册发现和路由，阅读 `FEAT-015` 与 `FEAT-016`，再回到调用转发特性确认 route handle、Agent Card 和 Task owner 边界。

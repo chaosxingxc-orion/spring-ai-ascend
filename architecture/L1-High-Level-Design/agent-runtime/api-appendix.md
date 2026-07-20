@@ -43,6 +43,7 @@ API 附录回答以下问题：
 | 非 Task Query（MVC） | `POST /v1/query` | openJiuwen `QueryMvcController` | 直接调用 `ServeOrchestrator`，返回当次 JSON 或 SSE，不创建 Task。 |
 | 非 Task Query（legacy） | `POST /query` | openJiuwen `QueryLegacyMvcController` | `/v1/query` 的兼容别名，可通过配置关闭。 |
 | 非 Task Query（WebFlux） | `POST /v1/query/reactive` | openJiuwen `QueryWebFluxController` | WebFlux 形态的当次 JSON/SSE 调用，不创建 Task。 |
+| 非 Task Query（Custom REST，可选） | `POST {configured query-path}` | `agent-runtime-ext-java` 的 `CustomRestAutoConfiguration` | Feat-Func-022 动态注册的单个自定义路径，通过 Java adapter 转换请求与响应，直接调用 `ServeOrchestrator`，不创建正式 Task。 |
 | 非 Task 会话重置 | `POST /v1/reset_conversation`, `POST /reset_conversation` | openJiuwen `ResetConversationMvcController` | 取消 conversation 当前流并调用 handler `clearSession`；不是 Task cancel。 |
 | Agent Card 发现 | `GET /.well-known/agent-card.json` | `AgentCardController` | 标准 Agent Card 发现端点。 |
 | Agent Card 兼容发现 | `GET /.well-known/agent.json` | `AgentCardController` | legacy 兼容路径，返回同一类 Agent Card。 |
