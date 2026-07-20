@@ -61,7 +61,7 @@ dependency:
 | Span 模型 | ✅ | traceId / spanId / parentSpanId |
 | Stamping 引擎 | ✅ | 单调 seq、span 栈嵌套、wall-clock 时间戳 |
 | OpenJiuwen 轨迹 | ✅ | RUN/MODEL_CALL/TOOL_CALL/ERROR — 5 种 Kind |
-| AgentScope 轨迹 | ✅ | RUN/TOOL_CALL/ERROR/PROGRESS — 4 种 Kind |
+| AgentScope 轨迹 | ⬜ | 当前本地 adapter 未接入专用轨迹映射，不承诺 PROGRESS |
 | 敏感信息掩码 | ✅ | key/token/secret/password 模式匹配替换 |
 | 掩码规则可配置 | ✅ | `app.trajectory.mask.key-pattern` + `truncate-chars` |
 | 多 Sink 扇出 | ✅ | `CompositeTrajectorySink`，故障隔离 |
@@ -78,6 +78,7 @@ dependency:
 |--------|------|------|
 | 业务级 Metrics | Trajectory 是事件级记录，不是聚合指标 | OTel Metrics / Prometheus |
 | 轨迹持久化存储 | 属于存储层职责 | 通过 Sink 接口对接外部存储 |
+| AgentScope PROGRESS | 当前 AgentScope adapter 未接入轨迹 SPI | 后续实现并验证真实事件来源后再扩展 |
 
 ### 2.3 行为承诺
 
@@ -134,20 +135,20 @@ CompositeTrajectorySink
 
 #### AgentScope
 
-`AbstractAgentScopeRuntimeHandler.doExecute()` 消费原生 `AgentScopeEvent` 流时，OUTPUT 事件映射为 PROGRESS，FAILED 事件映射为 ERROR。支持的 Kind：RUN_START/END、TOOL_CALL_START/END、ERROR、PROGRESS。
+当前实现不存在 `AbstractAgentScopeRuntimeHandler` 轨迹桥接。AgentScope adapter 只把文本增量、暂停和异常映射为 runtime 结果协议，不发射 AgentScope 专用 RUN/TOOL_CALL/ERROR/PROGRESS 轨迹；普通事件和文本增量不得被伪造成 PROGRESS。
 
 ### 3.3 Adapter 覆盖矩阵
 
 | Kind | OpenJiuwen | AgentScope | 说明 |
 |------|-----------|-----------|------|
-| RUN_START | ✅ | ✅ | AbstractAgentRuntimeHandler 自动发射 |
-| RUN_END | ✅ | ✅ | 同上 |
+| RUN_START | ✅ | — | AgentScope adapter 当前未接入轨迹基类 |
+| RUN_END | ✅ | — | 同上 |
 | MODEL_CALL_START | ✅ | — | AgentScope 不暴露模型调用回调 |
 | MODEL_CALL_END | ✅ | — | 含 Usage (tokens/latency/model/cost) |
-| TOOL_CALL_START | ✅ | ✅ | 工具名称 + 参数 |
-| TOOL_CALL_END | ✅ | ✅ | 工具返回结果 |
-| ERROR | ✅ | ✅ | ErrorInfo (category/detail/retryable) |
-| PROGRESS | — | ✅ | AgentScope 原生产出增量事件 |
+| TOOL_CALL_START | ✅ | — | AgentScope 当前未映射 |
+| TOOL_CALL_END | ✅ | — | AgentScope 当前未映射 |
+| ERROR | ✅ | — | AgentScope 失败进入 runtime 失败终态，未接入 trajectory |
+| PROGRESS | — | — | AgentScope 当前不支持 |
 
 ---
 
