@@ -4,7 +4,7 @@ module: agent-bus
 feature: Feat-Func-015
 feature_name: Agent Card 注册与发现
 status: draft
-updated: 2026-07-15
+updated: 2026-07-20
 authority:
   - ../../../version-scope/Feat-015-agent-card-registration-and-discovery.md
   - ../L0-Top-Level-Design/boundaries.md
@@ -22,9 +22,9 @@ related:
 
 > 本文档把 `version-scope/Feat-015-agent-card-registration-and-discovery.md`（主动抓取 + 逻辑发现）落地为 `agent-bus` registry-discovery-center 单元的低层设计。
 >
-> **实现基线**：`.../registry-discovery-center`（下文简称 **rdc**）。共享运行态技术细节（实例表 SQL / 探活 / RLS）见 [registry-discovery-runtime-design.cn.md](./registry-discovery-runtime-design.cn.md)；本文聚焦 Feat-015 特性视角下的部署事实接入、对账、逻辑目录、结构化发现、失败码与和 FEAT-016 的边界。
+> **实现基线**：共享运行态技术细节（实例表 SQL / 探活 / RLS）见 [registry-discovery-runtime-design.cn.md](./registry-discovery-runtime-design.cn.md)；本文聚焦 Feat-015 特性视角下的部署事实接入、对账、逻辑目录、结构化发现、失败码与和 FEAT-016 的边界。
 >
-> **文档边界说明**：仓库根目录或外部 Downloads 中早期 `Feat-Func-015` 草稿混写了 **push 注册 + discover 携带 `routeHandle`**（更接近 FEAT-016）。本文以 **version-scope ** 为准，**不**把实例路由查询当作 Feat-015 主契约。
+> **文档边界说明**：仓库根目录或外部 Downloads 中早期 `Feat-Func-015` 草稿混写了 **push 注册 + discover 携带 `routeHandle`**（更接近 FEAT-016）。本文以 **version-scope** 为准，**不**把实例路由查询当作 Feat-015 主契约。
 
 ## 1. 概述
 
@@ -177,27 +177,50 @@ agentId = AgentIdCodec.derive(tenantId, deploymentServiceId)
 
 ## 3. 模块结构（Development View）
 
-### 3.1 包结构
+### 3.1 包结构（MVC 架构）
+
+rdc 的 Development View 采用 **Spring Boot REST 风格的 MVC 分层**（无服务端 View；HTTP 边界返回 JSON）：
+
+| MVC / 分层 | 包 | 职责 |
+|---|---|---|
+| **M — Model** | `model` / `model.deployment` | 纯 Java 契约与 DTO（DiscoveryQuery、AgentRegistryEntry、DeploymentDiscoveryProvider SPI 等）；无 Spring / JDBC |
+| **C — Controller** | `controller` | HTTP 入口：`MvpRegistryController`（Feat-015 discover/register）、`InstanceRouteController`（FEAT-016） |
+| **业务 / Service** | `service` | 发现编排、`StructuredDiscoveryEngine`、`RouteHandleCodec` |
+| **数据访问** | `repository` | **唯一**允许 JDBC 的包（Port + `JdbcAgentRegistryRepository`） |
+
+Feat-015 运行时专属包（仍受同一分层约束：不碰 JDBC，经 `repository` / `service` 协作）：
+
+| 包 | 角色 |
+|---|---|
+| `card` | Agent Card 抓取 / 校验 / digest |
+| `deployment` | 静态 Provider + `rdc.deployment-discovery` 配置 |
+| `reconcile` | 对账调度与快照收敛 |
+| `security` | caller allowlist、card-fetch 网络/mTLS 边界 |
+| `config` | Bean / Flyway / Micrometer / OpenAPI 装配 |
+| `health` / `pull` / `tenant` | 探活、遗留 pull 注册、租户 ThreadLocal |
+
+> **实现基线**：`spi.registry` → `model`，`spi.deployment` → `model.deployment`，`registry.runtime.api` → `controller`，`registry.runtime.discovery` → `service`，`registry.runtime.persistence.jdbc` → `repository`，其余 `registry.runtime.*` 去掉前缀后落为同名顶层包，runtime 根配置 → `config`。
 
 ```
 com.openjiuwen.rdc/
 ├── AgentRdcApplication.java
-├── spi/
-│   ├── registry/          # DiscoveryQuery/Result、AgentCard*、RegistryFailure、AgentIdCodec…
-│   └── deployment/        # DeploymentDiscoveryProvider、Observation、Events、Readiness…
-└── registry/runtime/
-    ├── api/               # MvpRegistryController（discover/register/deregister）
-    │                      # InstanceRouteController（FEAT-016）
-    │                      # RegistryApiExceptionHandler
-    ├── card/              # AgentCardFetcher、Validator、签名
-    ├── deployment/        # StaticDeploymentDiscoveryProvider、DeploymentDiscoveryProperties
-    ├── discovery/         # PgMvpDiscoveryServiceImpl、StructuredDiscoveryEngine、RouteHandleCodec(016)
-    ├── reconcile/         # ReconciliationScheduler、ReconciliationService
-    ├── security/          # CallerAuthorizationPolicy、InternalNetworkPolicy、CardFetchSecurity
-    ├── persistence/jdbc/  # AgentRegistryRepository、Jdbc*
-    ├── health/            # 探活（实例侧，支撑 016/治理）
-    ├── pull/              # 遗留 PullRegistrationBootstrap
-    └── tenant/
+├── model/                 # M：契约/DTO（DiscoveryQuery/Result、AgentCard*、RegistryFailure、
+│   │                      # AgentIdCodec、AgentRegistryEntry、RouteResolution…）
+│   └── deployment/        # M：DeploymentDiscoveryProvider SPI、Observation、Events、Readiness…
+├── controller/            # C：MvpRegistryController（discover/register/deregister）
+│                          #    InstanceRouteController（FEAT-016）
+│                          #    RegistryApiExceptionHandler、RegistryEntryValidator…
+├── service/               # Service：AgentDiscoveryService、PgMvpDiscoveryServiceImpl、
+│                          # StructuredDiscoveryEngine、RouteHandleCodec、ContinuationTokenCodec
+├── repository/            # 数据访问：AgentRegistryRepository、Jdbc*（唯一 JDBC）
+├── card/                  # AgentCardFetcher、Validator、签名、CardDigest、RouteTargetDeriver
+├── deployment/            # StaticDeploymentDiscoveryProvider、DeploymentDiscoveryProperties
+├── reconcile/             # ReconciliationScheduler、ReconciliationService、SnapshotFingerprint
+├── security/              # CallerAuthorizationPolicy、InternalNetworkPolicy、card-fetch 配置
+├── config/                # RegistryRuntimeBeanConfig、Observability、Scheduling、OpenAPI
+├── health/                # MvpHealthProbeScheduler（实例侧，支撑 016/治理）
+├── pull/                  # 遗留 PullRegistrationBootstrap
+└── tenant/                # TenantContext、ThreadLocalTenantContext
 resources/db/migration/
 ├── V2…V6                  # 实例表演进（含 FEAT-016 V6）
 └── V7…V11                 # Feat-015 治理 / source state / 逻辑目录
