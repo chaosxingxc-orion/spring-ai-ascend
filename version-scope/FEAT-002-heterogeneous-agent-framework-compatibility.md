@@ -33,18 +33,19 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 |---|---|---|
 | 统一 Handler SPI | MUST | 所有本地框架 adapter 和远端代理 adapter 必须通过 `AgentRuntimeHandler` 或其框架专用基类接入 runtime；A2A 层不得直接依赖具体框架 SDK。 |
 | 统一结果流适配 | MUST | Adapter 的原生输出必须通过 `StreamAdapter` 或等价映射转为 `AgentExecutionResult` 流，并覆盖 `OUTPUT`、`COMPLETED`、`FAILED`、`INTERRUPTED` 四类结果语义。 |
-| 框架中立执行上下文 | MUST | Adapter 必须以 `AgentExecutionContext` 作为执行输入，消费其中的 tenant、user、session、task、agent、message、metadata、state key 等运行时上下文，不得重新定义与 runtime 冲突的身份字段。 |
+| 框架中立执行上下文 | MUST | Adapter 必须以 `AgentExecutionContext` 作为执行输入，消费其中的 tenant、user、session、task、agent、message、metadata、state key 等运行时上下文，不得重新定义与 runtime 冲突的身份字段。消费 tenant 等身份字段不等于 adapter 可以自行拼接或生成框架内部多租户 key namespace；隔离边界由 runtime 部署、TaskStore 和下层框架共同保证。 |
 | 单 Agent runtime 执行模型 | MUST | 当前版本一个 runtime 实例只承诺服务一个 Agent。若 Spring 中存在多个 Handler，runtime 可以按 `@Order` 选择第一个并记录告警，但不得承诺按 `agentId` 在同一实例内路由多个 Handler。 |
 | Adapter 健康与生命周期 | SHOULD | Adapter 应实现健康检查与 start/stop 生命周期，以便 runtime readiness 和运维观测能反映底层框架或远端依赖状态。 |
 | 协作式取消 | MUST | Adapter 必须提供 runtime 可调用的取消入口。取消至少要阻止 runtime 继续消费本次执行结果；是否能立即中断底层 LLM、HTTP 或框架执行，由 adapter 能力决定，不能被夸大为强制中断。 |
-| 框架中立错误表面 | MUST | Adapter 必须把框架原生异常、HTTP 错误、SSE 错误或未知结果映射为结构化 `FAILED` 结果或 runtime 标准错误语义，使 A2A 层能形成一致 Task/error 表面。 |
+| 框架中立错误表面 | MUST | Adapter 必须把框架原生异常、HTTP 错误、SSE 错误或未知结果映射为 `FAILED` 或 runtime 等价失败终态，使 A2A 层形成一致的 Task/error 表面；框架原生存在错误 code 时应尽量保留。只有物理 SPI 能承载相关字段时，才承诺统一的 category、retryable 等结构化分类。 |
 | 框架中立轨迹接入 | SHOULD | Adapter 应把可观察到的 run、model、tool、progress、error 事件映射到 runtime 轨迹语义；框架不暴露的事件不得伪造为已观测事实。 |
 | OpenJiuwen ReActAgent adapter | MUST | 当前版本必须支持进程内托管 OpenJiuwen `ReActAgent`，使用 runtime 传入的稳定 state key 作为框架会话标识来源，输出通过 OpenJiuwen stream adapter 映射为 runtime 结果流。 |
 | OpenJiuwen Workflow adapter | MUST | 当前版本必须支持以独立 adapter 托管 OpenJiuwen `Workflow`，支持 DAG 执行、人机交互中断、按 runtime state key 续接调用和 Workflow 输出映射；框架内部 checkpoint/cache 仍由 OpenJiuwen 或智能体开发者自治。 |
 | OpenJiuwen DeepAgent adapter | MUST | 当前版本必须支持以独立 adapter 托管 OpenJiuwen `DeepAgent`，并将其执行输出、失败和中断语义归一为 runtime 结果流；DeepAgent 的内部规划、工具、skill、memory 和 checkpoint 机制不进入 adapter 治理范围。 |
-| AgentScope 本地 Agent | SHOULD | 当前版本应支持包装本地 `AgentScopeAgent`，把 AgentScope 原生事件流映射为 runtime 结果流。 |
-| AgentScope Harness Agent | SHOULD | 当前版本应支持测试/评估场景下的 harness 模式，以受控事件流验证 AgentScope adapter 行为。 |
-| AgentScope 远程 SSE client | SHOULD | 当前版本应支持通过 HTTP/SSE 调用远端 AgentScope runtime，并把远端事件映射为 runtime 结果流。 |
+| AgentScope ReActAgent adapter | MUST | 当前版本必须支持包装宿主已构建的本地 `ReActAgent`，把 `Mono<Msg>` / `Flux<AgentEvent>` 映射为 runtime query、stream、失败和暂停语义。 |
+| AgentScope HarnessAgent adapter | MUST | 当前版本必须支持包装宿主已构建的本地 `HarnessAgent`；调用走 Harness 公开 API，状态读取和定向中断通过其公开 ReAct delegate 完成，对上保持与 ReAct 相同的 runtime 协议。 |
+| AgentScope A2A 暂停恢复 | MUST | 当前版本必须支持 message stop、人工确认和单个 external pending tool 三类已验证暂停；tool_result interrupt 必须携带 external tool 的 `name/arguments` 供外部执行，但不得暴露内部 tool-call ID；runtime 只从原 `INPUT_REQUIRED` Task 回带可信 `_interrupt` marker，adapter 从 AgentScope 当前 state 构造原生 `ConfirmResult` / `ToolResultBlock`。 |
+| AgentScope 远程 SSE client | OUT | 当前版本只接入同一 JVM 内由宿主构建的 AgentScope `ReActAgent` 和 `HarnessAgent`，不提供 AgentScope 专用 HTTP/SSE client。远端非 A2A 服务可使用 Versatile，远端 A2A Agent 由 FEAT-004 处理。 |
 | Versatile REST 代理 | MUST | 当前版本必须支持把远端 REST/SSE Agent 服务代理为 runtime Agent，完成 A2A Message 到 REST request、REST/SSE response 到 `AgentExecutionResult` 的双向转换。 |
 | Versatile URL 模板 | MUST | Versatile adapter 必须支持 `{conversation_id}` 和部署配置中的 URL 变量替换，使同一 runtime state/session 能稳定映射到远端 conversation。 |
 | Versatile header 与 metadata 映射 | MUST | Versatile adapter 必须支持配置 header、允许列表内 metadata header 透传、structured metadata 覆盖等映射规则，并避免未授权 metadata 任意透传。 |
@@ -63,14 +64,12 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 | `AgentExecutionContext` | Java runtime context | 必须承载 adapter 执行所需的身份、消息、metadata、input type、state key、memory scope 和 task 语义。 |
 | `AgentExecutionResult` | Java result model | 必须作为 adapter 到 runtime 的标准结果表面，表达增量输出、完成、失败和中断等待输入。 |
 | `AgentCardProvider` | Java optional provider | 可由 handler 或 adapter 提供 Agent Card 元数据，使执行职责与能力声明分离；其 northbound 暴露仍受 FEAT-001 约束。 |
-| `agentStateKey` / `stateKey` | Runtime state boundary | 必须作为 adapter 传递给框架调用的稳定会话标识来源；它只建立 runtime task/session 与框架内部会话的关联，不授权 adapter 读写或治理框架 checkpointer/cache payload。缺省 fallback 可以使用 task 语义，但不得覆盖 tenant、session 或 task 事实字段。 |
+| `agentStateKey` / `stateKey` | Runtime state boundary | 必须作为 adapter 传递给框架调用的稳定会话标识来源；若社区版物理 SPI 未暴露独立 state key，可使用 `conversationId`、`sessionId` 等语义等价的稳定会话键。该键只建立 runtime task/session 与框架内部会话的关联，不授权 adapter 读写或治理框架 checkpointer/cache payload。缺省 fallback 可以使用 task 语义，但不得覆盖 tenant、session 或 task 事实字段。 |
 | `MemoryProvider` | Java reserved SPI | 只作为 runtime 预留的窄 memory 接入点出现；当前版本的 Redis 任务状态缓存由 FEAT-003 约束，Memory/State 中间件历史草稿已归档。 |
 | `OpenJiuwenAgentRuntimeHandler` | Java adapter base | 应作为 OpenJiuwen ReActAgent 接入入口，开发者通过实现 `createOpenJiuwenAgent(context)` 构建 Agent。 |
 | `OpenJiuwenWorkflowAgentRuntimeHandler` | Java adapter base | 应作为 OpenJiuwen Workflow 接入入口，开发者通过实现 `createOpenJiuwenWorkflow(context)` 构建 Workflow DAG。 |
 | `OpenJiuwenDeepAgentRuntimeHandler` | Java adapter base | 应作为 OpenJiuwen DeepAgent 接入入口，开发者通过实现框架所需构造逻辑提供 DeepAgent。 |
-| `AgentScopeAgentRuntimeHandler` | Java adapter base | 应作为本地 AgentScope Agent 接入入口，消费 `AgentScopeAgent` 事件流。 |
-| `AgentScopeHarnessRuntimeHandler` | Java adapter base | 应作为 AgentScope 测试/评估 harness 接入入口。 |
-| `AgentScopeRuntimeClientHandler` | Java adapter base | 应作为远程 AgentScope SSE runtime 接入入口。 |
+| `AgentScopeAgentHandler` | Java adapter | 作为本地 AgentScope 统一接入入口，通过 `forReActAgent(...)` 或 `forHarnessAgent(...)` 包装宿主已构建的 agent；两种 agent 共享同一 runtime 协议表面。 |
 | `VersatileAgentRuntimeHandler` | Java adapter base | 必须作为远端 REST/SSE 服务代理入口，并可提供 Agent Card 信息供 A2A 发现。 |
 | `versatile.*` | YAML configuration | 必须承载 Versatile URL、timeout、URL variables、query params、headers、passthrough headers、input metadata keys 和 result extractions。 |
 | `GET /.well-known/agent-card.json` | HTTP endpoint | 不属于 adapter 私有入口；任何 adapter 挂载出的 Agent 都必须通过 FEAT-001 的 Agent Card 发现表面暴露能力。 |
@@ -83,8 +82,7 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 | 挂载 OpenJiuwen ReActAgent | 应用已引入 OpenJiuwen adapter，开发者能构建 `ReActAgent` | 开发者继承 `OpenJiuwenAgentRuntimeHandler` 并注册为 Spring Bean | runtime 通过标准 A2A 入口调用该 Agent；OpenJiuwen 输出被映射为 Task/SSE/Artifact/terminal 状态。 |
 | 挂载 OpenJiuwen Workflow Agent | 应用已引入 Workflow adapter，框架或开发者已配置其内部续接机制 | 开发者继承 `OpenJiuwenWorkflowAgentRuntimeHandler`，构建 Workflow DAG | Workflow 正常完成时返回 completed；遇到人工确认节点时返回 input-required；用户续接同一任务后，adapter 以同一 runtime state key 发起续接调用，内部恢复由 OpenJiuwen 或开发者配置负责。 |
 | 挂载 OpenJiuwen DeepAgent | 应用已引入 DeepAgent adapter，开发者能构建 `DeepAgent` | 开发者继承 `OpenJiuwenDeepAgentRuntimeHandler` 并注册为 Spring Bean | runtime 通过标准 A2A 入口调用该 Agent；DeepAgent 输出、失败和中断被映射为标准 Task/SSE/error 语义。 |
-| 挂载 AgentScope 本地 Agent | 应用已能产出 `AgentScopeEvent` 流 | 开发者注册 `AgentScopeAgentRuntimeHandler` | runtime 以统一 `AgentExecutionResult` 消费 AgentScope 事件，调用方仍观察标准 A2A Task/SSE 表面。 |
-| 连接远程 AgentScope runtime | 远端 AgentScope runtime 可通过 HTTP/SSE 访问 | 开发者注册 `AgentScopeRuntimeClientHandler` 和连接配置 | adapter 发起远端调用并解码 SSE，远端错误或断流按标准失败/中断语义返回。 |
+| 挂载 AgentScope 本地 Agent | 应用已构建 `ReActAgent` 或 `HarnessAgent` | 开发者用 `AgentScopeAgentHandler.forReActAgent(...)` 或 `forHarnessAgent(...)` 注册 Handler bean | runtime 通过统一 Handler 表面消费 AgentScope 结果与事件，调用方仍观察标准 A2A Task/SSE 表面。 |
 | 代理远端 REST Agent 服务 | 远端服务提供 REST endpoint 和 SSE/JSON 响应 | 开发者注册 `VersatileAgentRuntimeHandler` 并配置 `versatile.*` | 调用方仍发送标准 A2A 请求；adapter 组装 REST request，解析远端 response 并返回标准 Task/SSE 结果。 |
 | 远端服务需要会话连续性 | runtime 输入带有 session/context/task 语义 | Versatile adapter 用 `{conversation_id}` 或配置字段构造远端 URL | 同一 runtime state/session 稳定映射到远端 conversation，避免跨会话串扰。 |
 | Agent 等待用户输入 | OpenJiuwen Workflow、OpenJiuwen DeepAgent 或 Versatile 远端服务产生中断语义 | 调用方收到 `INPUT_REQUIRED` 后用同 task/context 续接 | adapter 必须使用同一 runtime state key、task/context 或远端 continuation 信息发起续接调用；内部恢复上下文由框架或远端服务自治，adapter 不直接读写缓存 payload。 |
@@ -132,9 +130,10 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 
 #### 5.1.6 AgentScope 语义
 
-- AgentScope 本地、Harness 和远程 SSE 三种模式最终都必须产出 `AgentScopeEvent` 或等价事件流，并由 adapter 映射为 runtime 结果。
-- AgentScope 原生错误码、异常链或远端错误必须映射到 runtime 标准错误分类；未知错误归为内部错误或等价失败。
-- AgentScope 可产生 PROGRESS 类轨迹事件；不暴露模型调用回调时，不得伪造 MODEL_CALL 轨迹。
+- AgentScope 本地 `ReActAgent` 和 `HarnessAgent` 的结果与事件必须由同一 `AgentScopeAgentHandler` 映射为 runtime 等价的输出、完成、失败和可恢复暂停语义；当前版本不包含 AgentScope 专用远程 HTTP/SSE 模式。
+- AgentScope 暂停恢复只承诺已实现的三类：`message` 使用空消息列表续跑，`confirmation` 将精确 `APPROVE/REJECT` 转为 `ConfirmResult`，`tool_result` 在第一轮输出当前唯一 external pending tool 的 `name/arguments`，并在第二轮根据 AgentScope state 构造 `ToolResultBlock`。不承诺多 external pending、自然语言确认、客户端回传内部 tool ID 或非 A2A 恢复。
+- 当前接入的 AgentScope Java 2.0 本地 API 以 `Throwable` 表达执行失败，没有稳定的 code-bearing error event 契约；adapter 必须映射为 `FAILED` 或 runtime 等价失败终态并保留异常因果链，但不承诺不存在的原生错误 code。
+- 当前版本不适配 AgentScope PROGRESS 轨迹；不得从文本增量或普通事件伪造 PROGRESS/MODEL_CALL 轨迹。
 - 当前版本不承诺 AgentScope 原生 Memory 或 Checkpoint 适配。
 
 #### 5.1.7 Versatile REST 代理语义
@@ -165,11 +164,12 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 |---|---|
 | 同实例多 Agent 路由 | 不承诺在一个 runtime 实例内按 `agentId` 路由多个 Handler；多 Agent 应多实例部署或由上层网关路由。 |
 | Adapter 私有 northbound endpoint | 不承诺为 OpenJiuwen、AgentScope 或 Versatile 暴露绕过 FEAT-001 的私有执行 endpoint。 |
-| 状态缓存归属边界 | 异构框架 adapter 不依赖、不读写、不配置、不治理智能体框架的 checkpointer/cache payload；adapter 只传递 runtime 拥有的 state key、task/context 和调用生命周期信号。runtime 任务状态缓存、revision、fencing、TTL 与租户隔离由 FEAT-003 约束；框架内部执行快照由框架或智能体开发者自治。 |
+| 状态缓存归属边界 | 异构框架 adapter 不直接访问、不配置、不治理智能体框架的 checkpointer/cache payload；adapter 只传递 runtime 拥有的 state key、task/context 和调用生命周期信号。框架公开 API 返回的 live-state projection 可被只读用于协议转换，但不得被 adapter 持久化为第二份恢复状态或作为直接治理底层 store 的入口。runtime 任务状态缓存、revision、fencing、TTL 与租户隔离由 FEAT-003 约束；框架内部执行快照由框架或智能体开发者自治。 |
 | 框架扩展机制自治边界 | 异构框架 adapter 不承诺、不安装、不编排、不治理框架 hook、rail、tool、skill、middleware、callback 等扩展机制。这些机制应由智能体框架提供，或由智能体开发者在构建 Agent 时自定义；adapter 只负责请求桥接、调用执行和结果归一。 |
 | 强制中断底层模型调用 | `cancel` 不承诺立即中断已经进入底层 LLM 或远端服务的阻塞调用。 |
 | AgentScope Workflow | 不承诺 AgentScope Workflow 适配。 |
 | AgentScope Memory / Checkpoint | 不承诺 AgentScope adapter 接入 runtime MemoryProvider 或 Checkpoint。 |
+| AgentScope 远程 SSE / PROGRESS | 不承诺 AgentScope 专用远程 HTTP/SSE client，也不承诺 AgentScope PROGRESS 轨迹映射。 |
 | Python / Node.js 原生 sidecar | 不承诺直接通过进程内 SDK 或 sidecar 协议接入非 Java Agent；应使用 Versatile 或远程 A2A Agent。 |
 | MCP 作为 Agent adapter | MCP 是工具服务协议，不是本特性的异构智能体框架 adapter。若智能体框架自身具备调用模型或调用 MCP 服务的能力，该能力由框架或智能体开发者自治，agent-runtime 异构适配不做显式承诺。 |
 | 客户端 facade 替代 Versatile | FEAT-006 的标准 agent-client facade 面向业务应用侧客户端调用；Versatile adapter 面向代理远端 Agent 服务，二者不得互相替代事实边界。 |
@@ -178,12 +178,12 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 
 - L2 设计必须把本文作为异构 Agent adapter 层的事实来源，不能把旧实现限制或新增代码能力未经声明地写成事实承诺。
 - A2A 层必须只依赖 `AgentRuntimeHandler` / `AgentExecutionResult` 等框架中立表面，不得导入 OpenJiuwen、AgentScope、Versatile 私有类型。
-- 新增 adapter 必须提供执行入口、结果映射、错误映射、取消语义、健康检查策略、配置说明和至少一个可运行示例；不得把框架 cache/checkpointer 读写、hook/rail/tool/skill 编排写成本特性承诺。
+- 新增 adapter 必须提供执行入口、结果映射、失败终态映射、取消语义、健康检查策略、配置说明和至少一个可运行示例；原生错误 code 存在时应验证其保留行为，统一错误分类只在物理 SPI 支持时验证；不得把框架 cache/checkpointer 读写、hook/rail/tool/skill 编排写成本特性承诺。
 - OpenJiuwen ReActAgent、OpenJiuwen Workflow 与 OpenJiuwen DeepAgent 必须在文档和实现中保持入口清晰：三者分别面向 LLM 自主循环、DAG 编排/人机交互中断和 DeepAgent 执行模型。
 - Versatile adapter 的 URL、header、metadata、result extraction 和中断检测规则必须被测试覆盖，尤其要覆盖“无 End 连接关闭不得 completed”的边界。
-- AgentScope adapter 的错误映射、远程 SSE 解码和 PROGRESS 轨迹必须被测试覆盖；Memory/Checkpoint 不得在未实现前写入 guide 作为承诺能力。
+- AgentScope adapter 必须覆盖本地 ReAct/Harness 的正常完成、失败终态、无业务终态断流、暂停恢复和取消边界；当前本地 API 没有稳定原生错误 code 时不要求 code 保留测试。远程 SSE、PROGRESS、Memory/Checkpoint 不得在未实现前写入 guide 作为当前承诺能力。
 - 多 Handler 注册只能作为兼容降级路径处理；任何同实例多 Agent 路由设计必须先更新本特性或新增 version-scope 特性。
-- 若未来要支持 Python/Node sidecar、AgentScope Workflow、强制取消、多 Agent 路由，或由 runtime 统一治理框架 hook/tool/skill/cache，必须先更新当前版本事实要求，再进入 L2 和实现。
+- 若未来要支持 Python/Node sidecar、AgentScope Workflow、AgentScope 远程 SSE/PROGRESS、强制取消、多 Agent 路由，或由 runtime 统一治理框架 hook/tool/skill/cache，必须先更新当前版本事实要求，再进入 L2 和实现。
 
 ## 7. 关联文档
 
