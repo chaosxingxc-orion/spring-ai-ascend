@@ -281,7 +281,7 @@ WHERE tenant_id   = :tenantId
 
 ## 8. migration / rollback 说明
 
-- **归属**：Flyway（agent-bus 自有，Stage 12 裁决）。agent-solution 仓 `common/agent-bus/agent-bus-sdk/src/main/resources/db/migration/` 含 `V1__create_agent_bus_forwarding_outbox_inbox.sql`（forwarding 两表 + RLS）+ `V3__add_outbox_correlation_event_type.sql`（FEAT-013 加 outbox `correlation_id`/`event_type`，nullable additive）。**不含 `V2__create_agent_registry_mvp.sql`**——registry 平面未迁移至 agent-solution（迁移前仓 spring-ai-ascend 曾有 V2，已废弃；若 `flyway_schema_history` 残留 V2 须先清理，否则 Flyway 报 "Detected applied migration not resolved locally: 2"，见 E2E 指导书 Q4b）。`application.yml` `spring.flyway.baseline-on-migrate=true` + `baseline-version=0` 确保 Spring Boot 4 autoconfig 触发（此前仅靠环境变量传 datasource 时 Flyway autoconfig 不触发，event-bus 启动报 "relation agent_bus_forwarding_outbox does not exist"）。
+- **归属**：Flyway（agent-bus 自有，Stage 12 裁决）。agent-solution 仓 `common/agent-bus/agent-bus-sdk/src/main/resources/db/migration/` 含 `V1__create_agent_bus_forwarding_outbox_inbox.sql`（forwarding 两表 + RLS）+ `V3__add_outbox_correlation_event_type.sql`（FEAT-013 加 outbox `correlation_id`/`event_type`，nullable additive）。
 - **版本与命名**：遵循所选 migration 工具约定（如 Flyway `V<n>__create_agent_bus_forwarding_outbox.sql`）；本草案不是最终文件名。
 - **向前兼容**：`lease_owner` / `lease_until` 为 nullable additive 列，旧读写不受影响（yaml `compatibility.additive_fields_allowed: true`）。
 - **回滚**：`DROP TABLE agent_bus_forwarding_inbox, agent_bus_forwarding_outbox`（回滚后 outbox/inbox 能力消失，回到 in-memory 替身；不影响其它模块）。
