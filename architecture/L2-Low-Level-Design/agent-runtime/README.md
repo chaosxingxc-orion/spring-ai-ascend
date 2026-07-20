@@ -58,8 +58,8 @@ L2 特性文档按功能特性和非功能特性分组命名：
 
 | 所属特性 | 子设计 | 实现落点 | 与主设计的关系 |
 |---|---|---|---|
-| Feat-Func-002 | [OpenJiuwen ReAct、DeepAgent、WorkflowAgent 兼容能力](Feat-Func-002-【异构智能体框架兼容】runtime兼容openjiuwen%20react、deepagent、workflowagent能力说明.md) | `openJiuwen/agent-runtime-java` + `openJiuwen/agent-core-java` | 异构框架兼容在 OpenJiuwen 社区实现中的源码证据与 `AgentHandler` 物理 SPI 映射。 |
-| Feat-Func-002 | [AgentScope Java 本地 Adapter](Feat-Func-002-【异构智能体框架兼容】新增兼容agent%20scope框架智能体.md) | `openJiuwen/agent-solution/common/agent-runtime-ext-java/agent-service-adapters/agent-service-adapters-agentscope` | 异构框架兼容在 OpenJiuwen 扩展仓中的本地 AgentScope 子设计；不替代主模块既有 AgentScope adapter 事实。 |
+| Feat-Func-002 | [OpenJiuwen ReAct、DeepAgent、WorkflowAgent 兼容能力](Feat-Func-002-openjiuwen-react-deepagent-workflowagent-compatibility.md) | `openJiuwen/agent-runtime-java` + `openJiuwen/agent-core-java` | 异构框架兼容在 OpenJiuwen 社区实现中的源码证据与 `AgentHandler` 物理 SPI 映射。 |
+| Feat-Func-002 | [AgentScope Java 本地 Adapter](Feat-Func-002-agentscope-java-adapter.md) | `openJiuwen/agent-solution/common/agent-runtime-ext-java/agent-service-adapters/agent-service-adapters-agentscope` | 异构框架兼容在 OpenJiuwen 扩展仓中的本地 AgentScope 子设计；不替代主模块既有 AgentScope adapter 事实。 |
 
 ## 非功能特性清单
 

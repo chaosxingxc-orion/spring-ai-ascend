@@ -47,7 +47,7 @@ dependency:
 | 请求/结果映射 | runtime DTO 与 AgentScope 类型转换 | request/event mapper | ✅ |
 | Reactor 桥接 | 将 Mono/Flux 桥接到同步 `AgentHandler` | `AgentScopeAgentHandler` | ✅ |
 | 中断与恢复 | 通用 interaction 与 AgentScope 原生恢复对象转换 | interaction/resume mapper | ✅ |
-| 生命周期取消 | runtime interrupt 定向取消 AgentScope 调用 | `AgentInterruptHandler` | ✅ |
+| 生命周期取消 | runtime interrupt 向 AgentScope 发起 session 定向取消并清理本地桥接资源 | `AgentInterruptHandler` | ⚠️ best-effort |
 
 ---
 ## 2. 功能规格
@@ -60,7 +60,7 @@ dependency:
 | 流式调用 | ✅ | `streamQuery()` 消费 `streamEvents(...)` 并输出 `QueryChunk` |
 | ReAct/Harness 支持 | ✅ | 同一模块提供两个强类型 invoker |
 | 文本消息映射 | ✅ | 每次只传当前用户轮次，历史由 AgentScope state 持有 |
-| 运行中取消 | ✅ | 调用 ReAct 的 session 定向 `interrupt`；Harness 通过 delegate 使用同一能力 |
+| 运行中取消 | ⚠️ best-effort | adapter 可调用 ReAct 的 session 定向 `interrupt` 并清理本地订阅；Harness 通过 delegate 使用同一能力，但不承诺底层模型立即停止或 A2A `CancelTask` 端到端闭环 |
 | 通用暂停 | ✅ | `RequestStopEvent` 或最终 stop reason 映射为 runtime interrupt |
 | 人工确认恢复 | ✅ | `RequireUserConfirmEvent` 经 A2A 转换为 `ConfirmResult` |
 | 外部执行恢复 | ✅（单 pending） | 仅支持 `AgentResultEvent(TOOL_SUSPENDED)` 路径，且当前状态必须恰好有一个 external pending tool |
@@ -93,8 +93,8 @@ public final class AgentScopeAgentHandler
     public QueryResponse query(ServeRequest request);
 
     /**
-     * @implSpec 必须等待 AgentScope Flux terminal 后返回；
-     * terminal 后禁止继续写 observer。
+     * @implSpec 必须等待 AgentScope Flux terminal 及对应 observer
+     * terminal callback 执行完成后返回；terminal 后禁止继续写 observer。
      */
     public void streamQuery(ServeRequest request, QueryStreamObserver observer);
 
@@ -210,8 +210,8 @@ A2A 确认恢复直接使用同一 Task 的 user message，不要求客户端填
 - **必须**由 adapter 从当前 `AgentState` 读取 pending `ToolUseBlock.id` 并构造 AgentScope 原生恢复对象，客户端不回传也不感知该 ID。
 - **必须**在 `kind=tool_result` 的 item 中把当前 pending `ToolUseBlock.input` 复制为 `arguments`，让外部执行方获得调用参数；confirmation item 不输出 arguments。
 - **必须**仅将 `RequestStopEvent`、`RequireUserConfirmEvent` 及最终 `AgentResultEvent` 中明确的可恢复 `GenerateReason` 识别为暂停；不得把 `AgentEvent` 基类或任意停止原因等价为中断。
-- **必须**让 ReAct 与 Harness 暴露相同的取消和暂停语义；Harness 通过公开 delegate 复用 ReAct 实现。
-- **必须**在超时、取消和异常后释放订阅并保证 terminal callback 至多一次。
+- **必须**让 ReAct 与 Harness 暴露相同的 best-effort 取消入口和暂停语义；Harness 通过公开 delegate 复用 ReAct 实现。
+- **必须**在超时、取消和异常后清理 adapter 在途记录；正常完成或失败时，必须在 `observer.onComplete/onError` 返回后再唤醒 `streamQuery()` 等待线程，并保证 terminal callback 至多一次。AgentScope 定向 `interrupt` 是 best-effort，不把“底层模型已停止”作为 adapter 可保证的结果。
 - **禁止**把“同意”“可以”“confirm”等自然语言猜测为确认动作；正常支持链路中，只有原 `INPUT_REQUIRED` A2A Task 续轮的精确 `APPROVE/REJECT` 可以构造 `ConfirmResult`。runtime 必须清除客户端提交的 `_interrupt`，只回带 TaskStore 中有效 agent message 保存的值。
 - **禁止**让 runtime DTO、TaskStore 或控制器依赖 AgentScope 类型。
 - **当前实现**不映射 thinking/tool/final 细粒度事件，只输出 answer、interrupt 和 error。
@@ -321,11 +321,11 @@ Runtime                     AgentScopeAgentHandler            AgentScope
 
 #### 4.2.1 关键处理流程
 
-`query()` 订阅 `Mono<Msg>` 并等待结果；`streamQuery()` 订阅 `Flux<AgentEvent>` 并保持方法不返回，直到 complete、error、timeout 或 cancel。
+`query()` 订阅 `Mono<Msg>` 并等待结果；`streamQuery()` 订阅 `Flux<AgentEvent>` 并保持方法不返回，直到 complete、error、timeout 或 cancel。对于 complete/error，方法还必须等待对应 `observer.onComplete/onError` 回调执行完成后才返回；取消且 observer 已关闭时可以不发送 terminal callback。
 
 handler 使用 `ConcurrentHashMap<String, ActiveInvocation>` 按 `conversationId` 跟踪在途调用。注册通过 `putIfAbsent` 原子完成；已有调用时直接拒绝后到请求，避免恢复前读取和结果映射越过 AgentScope 的 session 串行边界。每个 `ActiveInvocation` 只保存本次调用取消所需的 `userId`、`sessionId`、Reactor subscription 和 terminal 原子标志，不保存 AgentScope 会话、interaction 或恢复状态。
 
-为避免“subscription 已启动但 invocation 尚未注册”时漏掉取消，handler 必须先创建并注册 `ActiveInvocation`，再读取恢复状态、建立 subscription 并通过原子引用绑定；如果绑定前 invocation 已被取消，绑定后立即 dispose。complete、error、timeout 和 cancel 通过原子 closed 标志竞争唯一终态，并用 `remove(conversationId, invocation)` 只移除当前实例，避免误删随后注册的新调用。
+为避免“subscription 已启动但 invocation 尚未注册”时漏掉取消，handler 必须先创建并注册 `ActiveInvocation`，再读取恢复状态、建立 subscription 并通过原子引用绑定；如果绑定前 invocation 已被取消，绑定后立即 dispose。complete、error、timeout 和 cancel 通过原子 closed 标志竞争唯一终态，并用 `remove(conversationId, invocation)` 只移除当前实例，避免误删随后注册的新调用。流式 complete/error 在抢占终态后先执行 observer terminal callback，再释放等待线程，避免调用方在 callback 尚未完成时观察到 `streamQuery()` 已返回。
 
 `AgentInterruptHandler.interrupt(conversationId, reason)` 取消该 conversation 下当前唯一的 invocation：先将 closed 标志置位，再按该 invocation 保存的 `userId/sessionId` 调用 AgentScope 定向 `interrupt`，随后 dispose subscription 并移除记录。重复取消、绑定前取消和迟到的 terminal 信号必须幂等。
 
@@ -339,11 +339,11 @@ Runtime/client             AgentScopeAgentHandler             AgentScope
   │<── cancelled/error terminal ─────│                           │
 ```
 
-超时、客户端断开和 `AgentInterruptHandler.interrupt` 走同一清理路径。取消后到达的 event/result 必须丢弃；observer 的 `onComplete/onError` 至多调用一次。
+超时、客户端断开和 `AgentInterruptHandler.interrupt` 最终都收敛到 adapter 在途记录和 subscription 的清理。调用 AgentScope `interrupt` 失败时仍通过 `finally` 释放 adapter 等待方；这只保证本地桥接不挂起，不证明底层模型调用已经停止。等待线程自身被中断时，handler 发起同样的 best-effort 取消，并抛出保留原 `InterruptedException` cause 的 `CancellationException`。取消后到达的 event/result 必须丢弃；observer 的 `onComplete/onError` 至多调用一次。
 
-运行中取消是否成功以 handler 主动关闭 `ActiveInvocation`、调用 AgentScope 定向 `interrupt` 并释放 subscription 为准，不依赖 AgentScope 后续返回 `Msg(generateReason=INTERRUPTED)`。若该枚举意外出现在最终结果中，首版按不支持终态失败，避免把未经验证的分支误报为已完成取消。
+adapter 只能确认已主动关闭 `ActiveInvocation`、尝试调用 AgentScope 定向 `interrupt` 并释放本地 subscription；不能据此宣称底层模型或工具已经停止。该流程不依赖 AgentScope 后续返回 `Msg(generateReason=INTERRUPTED)`。若该枚举意外出现在最终结果中，首版按不支持终态失败，避免把未经验证的分支误报为已完成取消。
 
-A2A `CancelTask` 的首版边界取决于 runtime 是否登记了活动流。流式 A2A 调用进入 runtime 的 active-stream registry，`CancelTask` 关闭 observer 后，handler 的取消轮询会调用 `ActiveInvocation.cancel()`，进而定向 interrupt AgentScope session 并 dispose subscription。非流式 A2A `query()` 不在该 registry 中；当前 `CancelTask` 只把 A2A Task 标记为 canceled，不会自动调用 `AgentScopeAgentHandler.interrupt()`，底层调用仍可能运行到完成或 handler timeout。本文不把非流式 `CancelTask` 写成已具备底层取消能力。
+A2A `CancelTask` 不作为首版已闭环能力。流式路径存在 runtime active-stream registry、observer cancellation、handler 取消轮询和 AgentScope session interrupt 的代码连接，但尚无跨模块自动化用例证明完整链路，也不保证已经进入底层的模型或工具立即停止。非流式 A2A `query()` 不在该 registry 中；当前 `CancelTask` 只把 A2A Task 标记为 canceled，不会自动调用 `AgentScopeAgentHandler.interrupt()`，底层调用仍可能运行到完成或 handler timeout。
 
 兼容基线 2.0.0 中，同一 `ReActAgent` 实例可以服务多个 `(userId, sessionId)`，不同 slot 可以并行。虽然 AgentScope 会串行化同一 slot 的 agent 调用，但 adapter 的恢复状态读取发生在 agent 调用前，因此 adapter 对同一 `conversationId` 采用拒绝并发策略，不依赖该内部队列。该限制不是实例级全局锁，也不要求为每个请求创建 agent。
 
@@ -364,13 +364,13 @@ AgentScope 中与“中断”相关的机制分为两类，不能混用：
 1. **运行中取消 API**：`ReActAgent.interrupt(userId, sessionId)` 触发当前 slot 的 `InterruptControl`，用于结束当前调用。它不是 `AgentEvent`。
 2. **可恢复暂停事件**：通过 `streamEvents(...)` 输出，要求当前调用结束并等待下一轮输入。
 
-`InterruptSource.USER/TOOL/SYSTEM` 描述 AgentScope 内部取消来源，也不是暂停事件类型。当前公开的 session 定向 `interrupt(userId, sessionId)` 按 USER 触发；adapter 保证取消效果，不承诺把 runtime timeout/shutdown reason 精确映射为 AgentScope `InterruptSource`。
+`InterruptSource.USER/TOOL/SYSTEM` 描述 AgentScope 内部取消来源，也不是暂停事件类型。当前公开的 session 定向 `interrupt(userId, sessionId)` 按 USER 触发；adapter 只保证发起 best-effort 取消并清理本地桥接资源，不保证底层执行立即停止，也不承诺把 runtime timeout/shutdown reason 精确映射为 AgentScope `InterruptSource`。
 
 暂停相关事件没有共同的中断基类。`RequestStopEvent`、`RequireUserConfirmEvent` 和 `RequireExternalExecutionEvent` 都直接继承通用 `AgentEvent`；而 `AgentEvent` 还包含文本、模型、工具等非中断事件。因此 adapter 只按已验证的具体事件类型（Java `instanceof`）和最终 `GenerateReason` 白名单支持，不对 `AgentEvent` 基类、尚无生产发射点的事件或任意停止原因做兜底中断映射。
 
 | AgentScope 机制 | 类型/入口 | ReAct | Harness | adapter 支持边界 |
 |----------------|----------|-------|---------|------------------|
-| 运行中取消 | `interrupt(userId, sessionId)` | 原生支持 | 通过 `getDelegate()` 使用同一 ReAct 能力 | 支持 session 定向取消，不生成 `INPUT_REQUIRED`；不保留 source 细分语义 |
+| 运行中取消 | `interrupt(userId, sessionId)` | 原生入口 | 通过 `getDelegate()` 使用同一 ReAct 入口 | best-effort 发起 session 定向取消并清理本地桥接资源，不生成 `INPUT_REQUIRED`；不保证底层立即停止，不保留 source 细分语义 |
 | 普通暂停 | `RequestStopEvent` | 可由 middleware 发射 | delegate 事件原样可见 | 支持，统一映射为 `kind=message`；不保留预算/审计等细分原因 |
 | 人工确认 | `RequireUserConfirmEvent` | permission ASK 路径稳定发射 | delegate 事件原样可见 | 支持，映射为 `kind=confirmation`；仅 A2A 消息式恢复 |
 | 外部执行 | `AgentResultEvent(TOOL_SUSPENDED)` | 稳定的最终事件路径；`RequireExternalExecutionEvent` 当前无生产发射点 | 与 ReAct 相同 | 当前恰好一个 external pending tool 时构造 `kind=tool_result`；否则第一轮失败；不映射专用事件 |
@@ -478,6 +478,8 @@ adapter 只读取 AgentScope 状态并构造本次输入，不直接修改或持
 {}
 ```
 
+上述结论只针对 adapter 公共配置。`agentscope-a2a-interrupt-demo` 作为本地联调示例，在两个应用的 `application.yml` 中单独把 `io.agentscope.extensions.model.openai.OpenAIClient` 设置为 `DEBUG`，用于观察完整模型请求 JSON 和流式 SSE 响应。该日志可能包含 system prompt、历史消息和工具参数，只允许本地调试使用，不属于 adapter 能力或生产推荐配置。
+
 ### 5.2 配置属性表
 
 | 属性路径（完整） | 类型 | 默认值 | 必填 | 说明 |
@@ -580,7 +582,7 @@ Client                    Runtime/A2A                 Adapter                 Ag
 | 恢复类型不存在 | `metadata._interrupt` 缺少非空 `payload.kind` | 不根据非 ASKING pending tool 猜测普通暂停或外部执行 | Task 失败 |
 | 未知事件 | 不在首版映射表 | 静默忽略，不输出 chunk | 不影响正常结果 |
 
-流式失败最多输出一个 error chunk，随后调用 `onError`；禁止 error 后再 `onComplete`。日志和错误响应不得包含完整 prompt、认证信息、工具敏感参数或 `AgentState`。
+流式失败最多输出一个 error chunk，随后调用 `onError`；禁止 error 后再 `onComplete`。adapter 自身日志和错误响应不得包含完整 prompt、认证信息、工具敏感参数或 `AgentState`。本地 demo 显式开启的 AgentScope `OpenAIClient` DEBUG 原始报文日志属于诊断例外，可能包含 prompt 和工具参数，不得用于生产环境。
 
 非流式异常形成 runtime 失败响应，流式异常形成 `TYPE_ERROR` 并结束为 `onError`。当前接入的 AgentScope Java 2.0 本地 API 没有稳定的、携带原生错误 code 的 error event 契约，执行失败以 `Throwable` 进入 handler；因此本版本不存在可保留的 AgentScope 原生 code，error data 只输出脱敏通用消息，并通过 `observer.onError(Throwable)` 保留异常因果链。当前 `QueryChunk` / `QueryResponse` 也没有统一 `category`、`retryable` 字段，本模块不单独承诺或推导标准错误分类。
 
@@ -593,7 +595,7 @@ Client                    Runtime/A2A                 Adapter                 Ag
 |------|---------|----------------|
 | 恢复仅支持原 A2A Task 的 JSON-RPC 续轮 | MVC Query 和新 A2A Task 不能闭环确认/外部工具结果 | 使用第一轮返回的 `taskId/contextId` 调用 `POST /a2a` |
 | `RequestStopEvent` 细分原因被收敛 | 预算、审计、调试等原因统一表现为 message interaction | 客户端只依赖“暂停并继续”语义 |
-| runtime 取消原因不映射为 `InterruptSource` | timeout/shutdown 等 reason 不进入 AgentScope 内部来源枚举 | adapter 仍执行 session 定向取消；不承诺在 adapter 或 AgentScope 侧保留原 reason |
+| runtime 取消原因不映射为 `InterruptSource` | timeout/shutdown 等 reason 不进入 AgentScope 内部来源枚举 | adapter best-effort 发起 session 定向取消；不承诺底层立即停止，也不承诺在 adapter 或 AgentScope 侧保留原 reason |
 | 不映射 `RequireExternalExecutionEvent` | 当前版本没有生产发射点，external tool 实际通过最终 `AgentResultEvent(TOOL_SUSPENDED)` 暂停 | 仅支持已验证的 final event 路径 |
 | 外部结果消息只支持一个 pending tool | 单条文本无法无歧义映射多个工具结果 | 多个 external pending 时第一轮失败，不生成 `INPUT_REQUIRED` |
 | 恢复依赖 AgentScope pending state 仍存在 | 状态被清除后无法续接 | 重新发起新会话 |
@@ -605,7 +607,7 @@ Client                    Runtime/A2A                 Adapter                 Ag
 | 多副本恢复需要 session affinity | `getAgentState()` 返回当前 JVM 的 live-state projection；adapter 在调用 AgentScope 前读取 pending state，因此共享 StateStore 本身不能证明任意副本已加载最新 pending state | 首版采用单副本部署或按 `conversationId` 保持 session affinity |
 | 停机不能立即取消全部非流式 query | 当前 handler 未实现 `stop()` 全量清理，runtime 公共 drain registry 不登记非流式 query | 依赖 handler 内部 timeout |
 | A2A `CancelTask` 不下沉到非流式调用 | runtime active-stream registry 只覆盖流式调用；非流式 Task 被标记 canceled 后不会自动触发 handler interrupt | 非流式调用依赖自身完成或 timeout |
-| 流式 `CancelTask` 缺少跨模块自动化用例 | runtime active-stream cancellation 与 handler observer cancellation 已分别有代码路径，但当前测试未把 A2A executor、orchestrator 和真实 AgentScope agent 组合起来 | 只承诺当前代码路径可下沉，不承诺立即停止已进入底层模型的调用 |
+| 流式 `CancelTask` 未形成端到端能力闭环 | runtime active-stream cancellation 与 handler observer cancellation 分别存在代码路径，但当前测试未把 A2A executor、orchestrator 和真实 AgentScope agent 组合起来 | 首版不把 `CancelTask` 作为已支持能力；仅记录 best-effort 路径，不承诺立即停止已进入底层模型或工具的调用 |
 | 社区错误 SPI 不承载统一分类 | `QueryChunk` / `QueryResponse` 没有 category/retryable 字段，AgentScope Java 2.0 本地调用也没有稳定原生错误 code 事件 | 映射通用失败终态并保留 `Throwable` 因果链；统一错误分类需先做 runtime 横切升级 |
 
 ---
@@ -648,31 +650,32 @@ mvn -f "agent-solution\common\example\agentscope-a2a-interrupt-demo\pom.xml" `
 
 | 验证项 | 结果 |
 |---------|------|
-| AgentScope adapter 自动化测试 | 54 个通过；其中 10 个使用真实 ReAct/Harness 与确定性模型覆盖正常结果、确认批准、确认拒绝、外部结果恢复和 middleware message 暂停恢复 |
+| AgentScope adapter 自动化测试 | 60 个通过；其中 10 个使用真实 ReAct/Harness 与确定性模型覆盖正常结果、确认批准、确认拒绝、外部结果恢复和 middleware message 暂停恢复；其余覆盖 handler、mapper 和 invoker |
 | AgentScope ReAct 并发/串行化定向回归 | 10 个通过 |
 | runtime `agent-service-spec` 回归 | 12 个通过 |
-| runtime `agent-service-app` 回归 | 167 个通过 |
-| runtime `_interrupt` 状态门控回归 | `A2AAgentExecutorTest` 共 7 个通过 |
+| runtime `agent-service-app` 回归 | 168 个通过 |
+| runtime `_interrupt` 状态门控回归 | `A2AAgentExecutorTest` 共 8 个通过 |
+| Harness example 应用装配烟测 | 1 个通过；不调用真实模型 |
 | ReAct 真实 DeepSeek A2A 闭环 | `INPUT_REQUIRED -> APPROVE -> COMPLETED` 通过 |
-| Harness 真实 DeepSeek A2A 闭环 | `INPUT_REQUIRED -> APPROVE -> COMPLETED` 通过 |
+| Harness 真实 DeepSeek A2A 闭环 | `INPUT_REQUIRED -> 外部工具结果文本 -> COMPLETED` 通过 |
 
-测试证据按层次解释：54 个 adapter 测试直接使用真实 `ReActAgent` / `HarnessAgent` 和确定性模型，但不启动 runtime A2A TaskStore；7 个 `A2AAgentExecutorTest` 验证 `_interrupt` 保存、status/history 读取和客户端同名字段清理，但不实例化 AgentScope。A2A runtime 与真实 AgentScope adapter 的组合闭环当前由 ReAct/Harness 示例手工验证，不写成自动化 E2E。
+测试证据按层次解释：60 个 adapter 测试中有 10 个参数化集成测试直接使用真实 `ReActAgent` / `HarnessAgent` 和确定性模型，但不启动 runtime A2A TaskStore，其余为 handler、mapper 和 invoker 单元测试；8 个 `A2AAgentExecutorTest` 验证 `_interrupt` 保存、status/history 读取和客户端同名字段清理，但不实例化 AgentScope。Harness example 另有 1 个不调用真实模型的应用装配烟测。A2A runtime 与真实 AgentScope adapter 的组合闭环当前由 ReAct/Harness 示例手工验证，不写成自动化真实模型 E2E。
 
 最终真实闭环验证中，ReAct 第一轮 confirmation interaction 不暴露工具参数或 AgentScope tool-call ID，第二轮仅回传同一 Task 的 `taskId/contextId` 和 `APPROVE` 消息。Harness 第一轮 tool_result interaction 输出 schema-only external tool 的 `name/arguments` 供外部执行，仍不暴露内部 ID；第二轮只提交外部执行结果文本。两条链路均不要求客户端携带 `params.metadata` 或 item ID，并最终返回完成终态。
 
 验收要求：
 
-1. ReAct 和 Harness 均能通过同一个 `AgentHandler` 实现完成 query、stream 和定向 interrupt。
-2. stream 在 AgentScope Flux terminal 前不返回；只有非空 `AgentResultEvent` 或已识别 interrupt 才构成合法业务终态，Flux 无业务终态即 complete 时必须输出一个 `TYPE_ERROR` 并 `onError`；complete/error 的 observer terminal callback 至多一次，observer 已取消后不再输出 chunk 或 terminal；最终结果中的 `INTERRUPTED` 和 `TOOL_CALLS` 均按明确的不支持错误处理，不得被静默当作正常完成或取消成功。
+1. ReAct 和 Harness 均能通过同一个 `AgentHandler` 实现完成 query、stream，并提供相同的 best-effort session 定向 interrupt 入口；该入口不等价于底层执行已停止。
+2. stream 在 AgentScope Flux terminal 前不返回；complete/error 路径还必须等 `observer.onComplete/onError` 回调执行完成后才返回。只有非空 `AgentResultEvent` 或已识别 interrupt 才构成合法业务终态，Flux 无业务终态即 complete 时必须输出一个 `TYPE_ERROR` 并 `onError`；observer terminal callback 至多一次，observer 已取消后不再输出 chunk 或 terminal；最终结果中的 `INTERRUPTED` 和 `TOOL_CALLS` 均按明确的不支持错误处理，不得被静默当作正常完成或取消成功。
 3. 每次请求只写入当前用户轮次，不重复写入历史消息。
 4. `ExceedMaxItersEvent` 不被映射为 interrupt 或 error，也不阻断后续事件；adapter 不对 summary/final 做超出 AgentScope 后续事件的额外保证。
 5. confirmation/tool-result interrupt 经 A2A 进入 `INPUT_REQUIRED`；正常链路使用同一 Task 从 TaskStore 回带的 `_interrupt` 转换 AgentScope 原生对象。runtime 必须先清除客户端提交的同名字段，只接受当前 `INPUT_REQUIRED` Task 的 status/history 中有效 agent message 保存的 Map。
 6. 客户端无需获得或回传 AgentScope item ID；过期 `APPROVE/REJECT` 和自然语言确认不会触发工具调用。
 7. 仅 `RequestStopEvent`、`RequireUserConfirmEvent` 和 `AgentResultEvent` 中明确的可恢复 `GenerateReason` 可生成 interrupt；每次 stream 至多输出一个 interrupt，重复或异类后续暂停事件均被去重；`RequireExternalExecutionEvent`、结果通知、`ALL_TOOLS_DENIED` 和其他 `AgentEvent` 不得误触发 `INPUT_REQUIRED`。
-8. ReAct 与 Harness 通过同一组真实 AgentScope 参数化用例验证正常结果、确认批准/拒绝、外部结果恢复和 message 暂停恢复；Harness 不产生独立分支协议。handler 的主动取消竞争由独立单元测试覆盖。
+8. ReAct 与 Harness 通过同一组真实 AgentScope 参数化用例验证正常结果、确认批准/拒绝、外部结果恢复和 message 暂停恢复；Harness 不产生独立分支协议。handler 单元测试覆盖 adapter 内部取消竞争、interrupt 失败后的本地清理和 observer terminal callback 完成后再返回；这些测试不等价于 A2A `CancelTask` 端到端支持。
 9. adapter 决定裸 interrupt data 的字段集合并保证顶层 `message` 非空。runtime 复用 `_interrupt` 保留 key 将整份 Map 写入 A2A status metadata；除生成展示文本外，持久化层不解析、剪裁或改写 `payload.kind/items` 等 adapter 字段。只有已有 Task 且状态为 `INPUT_REQUIRED` 时才回带当前 status/history message 中的 `_interrupt`；已有但处于其他状态的 Task 不回带旧 interrupt，也不重复 `submit`。Task history 保留用于审计，不要求物理删除；本次调用中的 `ServeRequest.metadata._interrupt` 随请求结束释放。
 10. `_interrupt` 不包含 AgentScope `replyId`、tool call ID、完整 `ToolUseBlock`、provider metadata 或 `AgentState`；confirmation item 只输出工具类型和名称，tool_result item 额外输出执行外部工具所必需的 `arguments=ToolUseBlock.input`。业务应把 external tool schema 设计为只接收允许跨 A2A 边界传输的参数，禁止把认证凭据放入模型生成的 tool input。
 11. 模块测试、dependency tree、runtime 回归和两个 example 打包通过；ReAct/Harness 已按中文 README 完成真实模型手工闭环。
 12. 上位需求中的 `OUTPUT`、`COMPLETED`、`FAILED`、`INTERRUPTED`（可恢复暂停）分别通过社区 runtime 的正常 chunk/response、正常返回/onComplete、异常/TYPE_ERROR、`_interrupt`/TYPE_INTERRUPT 等价表达；这里的 `INTERRUPTED` 不是 AgentScope `GenerateReason.INTERRUPTED`。不得为满足上位抽象而在本模块另造 `AgentExecutionResult`。
 13. adapter 只通过 AgentScope 公开 `getAgentState` 读取 live-state projection，生成 external tool 的公开 arguments 并完成恢复协议转换；不直接访问或治理 StateStore/checkpoint，不持久化 `AgentState`，也不把完整 `ToolUseBlock`、provider metadata 或内部 ID 写入 `_interrupt`。
-14. A2A `CancelTask` 对流式调用可经 observer cancellation 下沉到 AgentScope 定向 interrupt；对非流式调用当前只形成 A2A Task canceled 表面，不承诺触发 AgentScope interrupt 或立即停止底层执行。
+14. A2A `CancelTask` 不作为首版验收能力。流式路径仅存在经 observer cancellation 向 AgentScope 发起 best-effort 定向 interrupt 的代码连接，尚无跨模块闭环验证，也不承诺立即停止底层执行；非流式调用当前只形成 A2A Task canceled 表面，不会自动触发 AgentScope interrupt。
