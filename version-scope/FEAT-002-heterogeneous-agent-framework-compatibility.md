@@ -172,7 +172,7 @@ FEAT-002 定义 `agent-runtime` 当前版本接入异构 Agent 框架的事实�
 | AgentScope Memory / Checkpoint | 不承诺 AgentScope adapter 接入 runtime MemoryProvider 或 Checkpoint。 |
 | Python / Node.js 原生 sidecar | 不承诺直接通过进程内 SDK 或 sidecar 协议接入非 Java Agent；应使用 Versatile 或远程 A2A Agent。 |
 | MCP 作为 Agent adapter | MCP 是工具服务协议，不是本特性的异构智能体框架 adapter。若智能体框架自身具备调用模型或调用 MCP 服务的能力，该能力由框架或智能体开发者自治，agent-runtime 异构适配不做显式承诺。 |
-| REST facade 替代 Versatile | FEAT-006 的 RESTful client facade 面向业务 client；Versatile adapter 面向代理远端 Agent 服务，二者不得互相替代事实边界。 |
+| 客户端 facade 替代 Versatile | FEAT-006 的标准 agent-client facade 面向业务应用侧客户端调用；Versatile adapter 面向代理远端 Agent 服务，二者不得互相替代事实边界。 |
 
 ## 6. 对下游设计与实现的约束
 

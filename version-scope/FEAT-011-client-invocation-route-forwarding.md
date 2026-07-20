@@ -133,6 +133,6 @@ FEAT-011 定义 `agent-gateway` 当前版本作为客户端统一 A2A 调用路�
 ## 7. 关联文档
 
 - `agent-sdk/Docs/agent-gateway组件客户端调用路由转发特性设计.md`
-- `Docs/FEAT_Design/FEAT-006-agent-client-standard-agent-service-invocation.md`
+- `version-scope/FEAT-006-standard-agent-client-invocation.md`
 - `JAVA local working/version-scope/FEAT-013-client-invocation-event-forwarding.md`
 - `Docs/FEAT_Design/FEAT-001-standardized-agent-service-entrypoint.md`

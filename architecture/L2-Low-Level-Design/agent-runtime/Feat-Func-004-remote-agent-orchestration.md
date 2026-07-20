@@ -71,7 +71,7 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 | 取消级联传播 | ✅ | 父 Task cancel → 远程 CancelTask |
 | 超时检测 | ✅ | REMOTE_TIMEOUT + 孤儿 Task cancel |
 | 嵌套远程调用 | ⬜ | resume 后再次请求远程 → 返回错误 NESTED_REMOTE_INVOCATION_UNSUPPORTED |
-| Graph/Parallel 编排 | ⬜ | 仅支持单层远程调用 |
+| 同轮远端工具并行编排 | ⬜ | Feat-Func-026 已接受设计；当前代码仍是单中断/单远端调用路径，待 026 落地后支持批次并发和完整回灌 |
 
 ### 2.2 显式排除
 
@@ -86,7 +86,7 @@ agent-runtime 作为 A2A 客户端接入和调用其他 A2A Agent，实现跨 Ag
 - **必须**：Card Cache 按配置 URL 维护，不发现新 URL
 - **必须**：远程调用超时后 best-effort cancel 孤儿 Task
 - **必须**：Card 刷新失败时保留上一次成功的 Card
-- **禁止**：嵌套远程调用（resume 后再次请求远程 → 返回 NESTED_REMOTE_INVOCATION_UNSUPPORTED）
+- **当前禁止**：resume 后再次请求远程会返回 NESTED_REMOTE_INVOCATION_UNSUPPORTED；Feat-Func-026 落地后，仅禁止前一活动批次未解决时创建第二批，前一批完成后的下一轮远端调用允许执行
 - **允许**：多个远程端点独立配置 stream-timeout
 
 ---
@@ -281,7 +281,7 @@ A2aRemoteInvocationOrchestrator
 | 远程返回 FAILED | 远端 Agent 执行失败 | error 投射到父 Task | 父 Task 继续（LLM 看到 error toolResult） |
 | 父 Task 取消 | 用户 CancelTask | best-effort cancel 远程 Task | 远程 Task 可能仍在后台执行 |
 | 远端 late event | terminal/timeout 后到达 | 丢弃，不投影 | 不影响父 Task |
-| 嵌套远程调用 | resume 后 LLM 再次请求远程 | 返回 NESTED_REMOTE_INVOCATION_UNSUPPORTED | parent task FAILED |
+| 后续远程调用（当前） | resume 后 LLM 再次请求远程 | 返回 NESTED_REMOTE_INVOCATION_UNSUPPORTED；Feat-Func-026 将收窄为仅禁止活动批次重入 | parent task FAILED；026 落地后按新批次执行 |
 | Card Cache 全空 | 所有 URL 不可达 | 不安装任何远程 tool | 本地 Agent 正常运行（无远程 tool） |
 
 ---
@@ -318,7 +318,7 @@ agent-runtime:
 | 限制 | 影响范围 | 临时方案 |
 |------|---------|---------|
 | 仅单层远程调用 | 不支持 Agent A → Agent B → Agent C 的链式调用 | 每层独立配置 |
-| 不支持嵌套调用 | resume 后不能再次请求远程 | LLM 应一次性输出所有需要的 tool call |
+| 当前不支持 resume 后再次远端调用 | 前一远端调用回灌后不能创建下一轮远端调用 | Feat-Func-026 落地后允许前一批完成后的新批次；活动批次重入仍禁止 |
 | 远程端点需静态配置 | 新增远程 Agent 需修改 YAML 并重启 | — |
 | 仅 OpenJiuwen 支持远程 Tool | AgentScope 不能作为调用方发起远程调用 | 使用 OpenJiuwen 作为主 Agent |
-| 无 Graph/Parallel 编排 | 不支持多个远程 Agent 并行调用 | 按 LLM 决定的顺序依次调用 |
+| 同轮并行代码未落地 | 当前不支持多个远程 Agent 并行调用 | 详见 Feat-Func-026 批次屏障设计；落地前仍按现有单调用限制运行 |
