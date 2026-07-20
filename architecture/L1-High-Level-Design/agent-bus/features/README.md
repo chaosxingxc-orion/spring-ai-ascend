@@ -23,6 +23,8 @@ status: active
 | AB-F10 | Drift Check | 治理能力 | 草案 | 检查模块依赖、契约状态、生成物来源。 |
 | AB-F11 | MQ-like Forwarding Substrate | 真 bus | C3 最小骨架（Stage 7） | 类 MQ 的跨 runtime 转发底座，包含队列/主题、ack/retry、correlation、DLQ/replay、ordering/fairness、backpressure；broker-agnostic 转发语义见 [`ICD-Agent-Bus-Forwarding`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding.md)，C3 运行态契约见 [`ICD-Agent-Bus-Forwarding-Runtime`](../../../docs/architecture/l0/05-contracts/human-readable/ICD-agent-bus-forwarding-runtime.md)（消费 Stage 3 route handle，不改 lifecycle owner，大载荷走 data reference；Stage 7 已落纯 Java 领域模型 / 端口 / 状态机 + in-memory 测试替身，真实持久化 deferred Stage 8）。 |
 | AB-F12 | Agent Registry / Discovery | 真 bus | 设计态 | 运行时路由所需的 agent/service/capability 注册发现索引，不拥有 agent 定义或 Task 状态。 |
+| FEAT-013 | 客户端调用事件转发（gateway↔event-bus） | Gateway + 真 bus | L2 as-built | gateway↔event-bus 客户端调用与响应事件转发；投影到 AB-F11 转发底座 + gateway 单元；本期 RocketMQ pub/sub 两跳、event-bus 治理中继。agent-solution 仓 `common/agent-bus/` 已落地（E2E 联调，5193972e + 2026-07-17 仓迁移；gateway 运行时为测试源码）；agent-runtime 侧 in-flight。见 [`feat-013`](../../../L2-Low-Level-Design/agent-bus/feat-013-client-invocation-event-forwarding.md)。 |
+| FEAT-014 | A2A 调用事件转发（event-bus↔agent-runtime） | 真 bus | L2 as-built | event-bus↔agent-runtime 服务间 A2A 调用事件转发；投影到 AB-F11 转发底座 + agent-runtime consumer/producer；本期取代 a2a push。agent-solution 仓中继/事件族已落地；agent-runtime 侧 in-flight。见 [`feat-014`](../../../L2-Low-Level-Design/agent-bus/feat-014-a2a-call-event-forwarding.md)。 |
 
 ## 2. 成熟度定义
 

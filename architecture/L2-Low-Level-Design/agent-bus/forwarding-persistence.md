@@ -63,9 +63,13 @@ target_module: agent-bus
 | `last_failure_code` | varchar | ✗ | ✓ | `lastFailureCode`（enum） | `ForwardingFailureCode`；终态 `ACKED` 时为 null。 |
 | `lease_owner` | varchar | ✗ | ✓ | `lease.leaseOwner` | **Stage 8 additive**；claim 持有者；null 表示未被 claim。 |
 | `lease_until` | bigint | ✗ | ✓ | `lease.leaseUntilMillisEpoch` | **Stage 8 additive**；claim 独占截止时间；过期可被重新 claim。 |
+| `correlation_id` | varchar | ✗ | ✗ | `correlationId` | **FEAT-013 additive（V3 migration）**；镜像 `ForwardingEnvelope.correlationId`（enqueue 时镜像，envelope 为权威）。hop1 produce stamp 进 broker user-properties；forward relay correlation-match 依赖之。nullable 向后兼容（JDBC 回填前的 control-only / back-compat record 合法为 null）。 |
+| `event_type` | varchar | ✗ | ✗ | `eventType` | **FEAT-013/014 additive（V3 migration）**；镜像 `ForwardingEnvelope.eventType`。gateway `acceptWindow` 按 NATIVE `eventType` 头 `classify`。nullable 向后兼容。 |
 
 唯一约束：`(tenant_id, message_id)`。
 状态 CHECK：`status IN ('PENDING','DISPATCHING','ACKED','RETRY_SCHEDULED','DLQ','EXPIRED')`。
+
+> V3 migration（`V3__add_outbox_correlation_event_type.sql`）`ALTER TABLE` 加 `correlation_id` / `event_type` 两列（nullable additive，无新 CHECK / 索引 / RLS——既有 tenant 行级 policy + status 不变量覆盖）。对应 `ForwardingOutboxRecord` 增 `correlationId` / `eventType` 字段、`ForwardingSqlCodec.mapOutbox` 读写之、`JdbcForwardingOutbox.enqueue` 持久化之。
 
 ### 3.2 `agent_bus_forwarding_inbox`
 
@@ -200,6 +204,11 @@ CREATE TABLE agent_bus_forwarding_inbox (
     CONSTRAINT ck_inbox_dup_code CHECK (
         status <> 'DUPLICATE_SUPPRESSED' OR failure_code = 'duplicate_suppressed')
 );
+
+-- V3 (FEAT-013, arch-driven G5-E): additive nullable columns for cross-hop correlation
+-- + event-type discrimination (mirrored from ForwardingEnvelope at enqueue).
+ALTER TABLE agent_bus_forwarding_outbox ADD COLUMN correlation_id VARCHAR(128);
+ALTER TABLE agent_bus_forwarding_outbox ADD COLUMN event_type VARCHAR(64);
 ```
 
 > 列宽 / 索引策略是草案；真实实现按实际值域与查询模式定。`SKIP LOCKED` 是 Postgres 9.5+ / MySQL 8.0+ 行为；如选用其它产品需等价并发抢占原语（advisory lock / `SELECT ... FOR UPDATE`）。
@@ -272,7 +281,7 @@ WHERE tenant_id   = :tenantId
 
 ## 8. migration / rollback 说明
 
-- **归属未定**：`agent-bus` 当前无 Flyway。Stage 9+ 确认数据库产品与 migration 归属（agent-bus 自有 vs 共享 schema 模块 vs runtime 受控路径）后，再决定 Flyway / Liquibase / 手工 SQL。
+- **归属**：Flyway（agent-bus 自有，Stage 12 裁决）。agent-solution 仓 `common/agent-bus/agent-bus-sdk/src/main/resources/db/migration/` 含 `V1__create_agent_bus_forwarding_outbox_inbox.sql`（forwarding 两表 + RLS）+ `V3__add_outbox_correlation_event_type.sql`（FEAT-013 加 outbox `correlation_id`/`event_type`，nullable additive）。**不含 `V2__create_agent_registry_mvp.sql`**——registry 平面未迁移至 agent-solution（迁移前仓 spring-ai-ascend 曾有 V2，已废弃；若 `flyway_schema_history` 残留 V2 须先清理，否则 Flyway 报 "Detected applied migration not resolved locally: 2"，见 E2E 指导书 Q4b）。`application.yml` `spring.flyway.baseline-on-migrate=true` + `baseline-version=0` 确保 Spring Boot 4 autoconfig 触发（此前仅靠环境变量传 datasource 时 Flyway autoconfig 不触发，event-bus 启动报 "relation agent_bus_forwarding_outbox does not exist"）。
 - **版本与命名**：遵循所选 migration 工具约定（如 Flyway `V<n>__create_agent_bus_forwarding_outbox.sql`）；本草案不是最终文件名。
 - **向前兼容**：`lease_owner` / `lease_until` 为 nullable additive 列，旧读写不受影响（yaml `compatibility.additive_fields_allowed: true`）。
 - **回滚**：`DROP TABLE agent_bus_forwarding_inbox, agent_bus_forwarding_outbox`（回滚后 outbox/inbox 能力消失，回到 in-memory 替身；不影响其它模块）。
@@ -295,6 +304,8 @@ WHERE tenant_id   = :tenantId
 | updatedAt | outbox_record.required.updatedAt | updatedAtMillisEpoch | updated_at |
 | lastFailureCode（条件） | outbox_record.conditional.lastFailureCode | lastFailureCode | last_failure_code |
 | —（Stage 8 additive） | lease（见 yaml stage8） | lease | lease_owner / lease_until |
+| correlationId（FEAT-013 V3） | outbox_record.optional.correlationId | correlationId | correlation_id |
+| eventType（FEAT-013/014 V3） | outbox_record.optional.eventType | eventType | event_type |
 
 inbox 字段同理一一对应（`consumerServiceId → consumer_service_id`、`receivedAt → received_at`、`consumedAt → consumed_at`、`failureCode → failure_code`）。
 
